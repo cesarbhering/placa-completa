@@ -1,0 +1,246 @@
+import { test, expect } from '@playwright/test'
+
+/**
+ * User Flow Tests - PlacaCompleta
+ * Validates the main user journey and functionality
+ */
+
+const BASE_URL = 'http://localhost:3000'
+
+test.describe('Homepage - Main Flow', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE_URL)
+  })
+
+  test('should load homepage successfully', async ({ page }) => {
+    await expect(page).toHaveTitle(/Placa Completa/)
+    await expect(page.locator('h1')).toContainText('Consulta Veicular')
+  })
+
+  test('should display main form elements', async ({ page }) => {
+    // Check form exists
+    await expect(page.locator('form')).toBeVisible()
+
+    // Check placa input
+    await expect(page.locator('#placa')).toBeVisible()
+
+    // Check email input
+    await expect(page.locator('#email')).toBeVisible()
+
+    // Check submit button
+    await expect(page.getByRole('button', { name: /Receber Dados/i })).toBeVisible()
+  })
+
+  test('should show placeholder text in inputs', async ({ page }) => {
+    const placaInput = page.locator('#placa')
+    const emailInput = page.locator('#email')
+
+    await expect(placaInput).toHaveAttribute('placeholder', /ABC1D23/i)
+    await expect(emailInput).toHaveAttribute('placeholder', /email\.com/i)
+  })
+
+  test('should display trust indicators', async ({ page }) => {
+    await expect(page.locator('text=/100% grátis/i')).toBeVisible()
+    await expect(page.locator('text=/Sem cadastro/i')).toBeVisible()
+  })
+
+  test('should display sample data preview', async ({ page }) => {
+    await expect(page.locator('text=/Exemplo de dados/i')).toBeVisible()
+    await expect(page.locator('text=/Marca/i')).toBeVisible()
+    await expect(page.locator('text=/Modelo/i')).toBeVisible()
+    await expect(page.locator('text=/FIPE/i')).toBeVisible()
+  })
+})
+
+test.describe('Form Validation', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE_URL)
+  })
+
+  test('placa input should have required attribute', async ({ page }) => {
+    const placaInput = page.locator('#placa')
+    await expect(placaInput).toHaveAttribute('required')
+  })
+
+  test('email input should have required attribute', async ({ page }) => {
+    const emailInput = page.locator('#email')
+    await expect(emailInput).toHaveAttribute('required')
+  })
+
+  test('should accept valid placa format (old pattern)', async ({ page }) => {
+    const placaInput = page.locator('#placa')
+
+    // Old format: ABC1234
+    await placaInput.fill('ABC1234')
+    const value = await placaInput.inputValue()
+
+    expect(value).toBe('ABC1234')
+  })
+
+  test('should accept valid placa format (mercosul)', async ({ page }) => {
+    const placaInput = page.locator('#placa')
+
+    // Mercosul format: ABC1D23
+    await placaInput.fill('ABC1D23')
+    const value = await placaInput.inputValue()
+
+    expect(value).toBe('ABC1D23')
+  })
+
+  test('should convert placa to uppercase', async ({ page }) => {
+    const placaInput = page.locator('#placa')
+
+    // Type character by character to trigger input events
+    await placaInput.click()
+    await placaInput.type('abc1d23')
+
+    // Wait a bit for the conversion
+    await page.waitForTimeout(100)
+
+    const value = await placaInput.inputValue()
+    expect(value).toBe('ABC1D23')
+  })
+
+  test('should limit placa to 7 characters', async ({ page }) => {
+    const placaInput = page.locator('#placa')
+
+    await placaInput.fill('ABC1D2399999')
+    const value = await placaInput.inputValue()
+
+    expect(value.length).toBeLessThanOrEqual(7)
+  })
+
+  test('should disable submit button while loading', async ({ page }) => {
+    const submitBtn = page.getByRole('button', { name: /Receber Dados/i })
+
+    // Button should be enabled initially
+    await expect(submitBtn).toBeEnabled()
+
+    // TODO: Test loading state when API is available
+  })
+})
+
+test.describe('Navigation', () => {
+  test('should navigate to footer links', async ({ page }) => {
+    await page.goto(BASE_URL)
+
+    // Test "Termos de Uso" link
+    const termosLink = page.getByRole('link', { name: /Termos de Uso/i })
+    await expect(termosLink).toBeVisible()
+    await expect(termosLink).toHaveAttribute('href', '/termos-de-uso')
+
+    // Test "Política de Privacidade" link
+    const privacidadeLink = page.getByRole('link', { name: /Política de Privacidade/i })
+    await expect(privacidadeLink).toBeVisible()
+    await expect(privacidadeLink).toHaveAttribute('href', '/politica-de-privacidade')
+  })
+
+  test('should navigate to consulta placa page', async ({ page }) => {
+    await page.goto(`${BASE_URL}/consulta-placa`)
+    await expect(page).toHaveTitle(/Consulta de Placa/i)
+    await expect(page.locator('h1')).toContainText(/Consulta de Placa/i)
+  })
+
+  test('should navigate to como consultar page', async ({ page }) => {
+    await page.goto(`${BASE_URL}/como-consultar-placa`)
+    await expect(page).toHaveTitle(/Como Consultar/i)
+  })
+
+  test('should navigate to tabela fipe page', async ({ page }) => {
+    await page.goto(`${BASE_URL}/tabela-fipe`)
+    await expect(page).toHaveTitle(/Tabela FIPE/i)
+  })
+})
+
+test.describe('Responsive Design', () => {
+  test('should display correctly on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 })
+    await page.goto(BASE_URL)
+
+    // Check if elements are visible on mobile
+    await expect(page.locator('form')).toBeVisible()
+    await expect(page.locator('#placa')).toBeVisible()
+    await expect(page.locator('#email')).toBeVisible()
+  })
+
+  test('should display correctly on tablet', async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 })
+    await page.goto(BASE_URL)
+
+    await expect(page.locator('form')).toBeVisible()
+  })
+
+  test('should display correctly on desktop', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 })
+    await page.goto(BASE_URL)
+
+    await expect(page.locator('form')).toBeVisible()
+  })
+})
+
+test.describe('Accessibility', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE_URL)
+  })
+
+  test('form inputs should have labels', async ({ page }) => {
+    const placaLabel = page.locator('label[for="placa"]')
+    const emailLabel = page.locator('label[for="email"]')
+
+    await expect(placaLabel).toBeVisible()
+    await expect(emailLabel).toBeVisible()
+  })
+
+  test('inputs should have proper autocomplete attributes', async ({ page }) => {
+    const emailInput = page.locator('#email')
+    await expect(emailInput).toHaveAttribute('autocomplete', 'email')
+  })
+
+  test('form should have novalidate attribute', async ({ page }) => {
+    const form = page.locator('form')
+    await expect(form).toHaveAttribute('novalidate')
+  })
+})
+
+test.describe('User Experience', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(BASE_URL)
+  })
+
+  test('placa input should have focus on page load', async ({ page }) => {
+    await page.waitForTimeout(500) // Wait for focus to be set
+    const placaInput = page.locator('#placa')
+    await expect(placaInput).toBeFocused()
+  })
+
+  test('should load email from localStorage if available', async ({ page, context }) => {
+    const testEmail = 'saved@email.com'
+
+    // Pre-populate localStorage before visiting page
+    await context.addInitScript((email) => {
+      localStorage.setItem('pc_email', email)
+    }, testEmail)
+
+    // Now visit the page
+    await page.goto(BASE_URL)
+
+    // Wait for page to hydrate
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(1000)
+
+    // Email should be loaded from localStorage
+    const emailInput = page.locator('#email')
+    await expect(emailInput).toHaveValue(testEmail, { timeout: 5000 })
+  })
+
+  test('should show counter if available', async ({ page }) => {
+    // Counter may not always be visible, so we just check if element exists
+    const counter = page.locator('.counter')
+    const count = await counter.count()
+
+    if (count > 0) {
+      await expect(counter).toBeVisible()
+      await expect(counter).toContainText(/consultas realizadas/i)
+    }
+  })
+})
