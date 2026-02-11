@@ -1,7 +1,7 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
 
-  modules: ['@nuxtjs/sitemap', '@nuxt/image'],
+  modules: ['@nuxtjs/seo', '@nuxtjs/sitemap', '@nuxt/image'],
 
   image: {
     format: ['webp', 'png'],
@@ -17,6 +17,9 @@ export default defineNuxtConfig({
 
   site: {
     url: 'https://placacompleta.com.br',
+    name: 'Placa Completa',
+    description: 'Consulta veicular gratuita por placa. Receba dados completos do veículo no seu e-mail.',
+    defaultLocale: 'pt-BR',
   },
 
   sitemap: {
@@ -252,11 +255,18 @@ export default defineNuxtConfig({
       meta: [
         { name: 'description', content: 'Consulte informações completas de qualquer veículo pela placa. Dados como marca, modelo, ano, cor, FIPE, município e situação enviados direto no seu e-mail. Rápido, grátis e seguro.' },
         { name: 'keywords', content: 'consulta placa, consulta veicular, consultar placa grátis, dados veículo por placa, tabela FIPE por placa, consulta placa grátis, informações veículo, placa completa' },
-        { property: 'og:title', content: 'Placa Completa - Consulta Veicular Grátis' },
-        { property: 'og:description', content: 'Consulte qualquer placa e receba os dados completos do veículo no seu e-mail. Grátis e instantâneo.' },
+        { property: 'og:title', content: 'Consulta Veicular Grátis por Placa - Receba Dados Completos no E-mail' },
+        { property: 'og:description', content: 'Consulte qualquer placa veicular e receba marca, modelo, ano, cor, FIPE, município e situação no seu e-mail. Resultado instantâneo, 100% grátis e sem cadastro.' },
         { property: 'og:type', content: 'website' },
-        { property: 'og:image', content: '/logo-nobg.png' },
+        { property: 'og:image', content: 'https://placacompleta.com.br/og-image.png' },
+        { property: 'og:image:width', content: '1200' },
+        { property: 'og:image:height', content: '630' },
+        { property: 'og:image:alt', content: 'PlacaCompleta - Consulta Veicular Grátis por Placa' },
         { property: 'og:locale', content: 'pt_BR' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: 'Consulta Veicular Grátis por Placa - Receba Dados Completos no E-mail' },
+        { name: 'twitter:description', content: 'Consulte qualquer placa veicular e receba marca, modelo, ano, cor, FIPE, município e situação no seu e-mail. Resultado instantâneo, 100% grátis e sem cadastro.' },
+        { name: 'twitter:image', content: 'https://placacompleta.com.br/og-image.png' },
         { name: 'robots', content: 'index, follow' },
         { name: 'theme-color', content: '#090c9bff' },
       ],
