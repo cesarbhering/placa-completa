@@ -24,3 +24,9 @@ dist
 # OS
 .DS_Store
 Thumbs.db
+
+# Python
+__pycache__
+
+# Skill archives (generated logo iterations)
+.skill-archive/
