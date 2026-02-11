@@ -18,10 +18,11 @@ export default defineNuxtConfig({
   pwa: {
     registerType: 'autoUpdate',
     manifest: {
-      name: 'Placa Completa',
+      name: 'PlacaCompleta',
       short_name: 'PlacaCompleta',
-      description: 'Consulta veicular gratuita por placa. Receba dados completos do veículo no seu e-mail.',
+      description: 'Consulta veicular gratuita por placa.',
       lang: 'pt-BR',
+      display: 'standalone',
       theme_color: '#090c9b',
       background_color: '#ffffff',
       icons: [
@@ -340,6 +341,8 @@ export default defineNuxtConfig({
         },
         { name: "robots", content: "index, follow" },
         { name: "theme-color", content: "#090c9bff" },
+        { name: "apple-mobile-web-app-capable", content: "yes" },
+        { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       ],
       link: [
         { rel: "preconnect", href: "https://www.googletagmanager.com" },
