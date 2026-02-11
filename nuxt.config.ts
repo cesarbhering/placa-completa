@@ -265,6 +265,13 @@ export default defineNuxtConfig({
         { rel: 'dns-prefetch', href: 'https://www.googletagmanager.com' },
         { rel: 'icon', type: 'image/png', sizes: '48x48', href: '/favicon-48.png' },
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
+        {
+          rel: 'preload',
+          href: '/fonts/VT323-Regular.ttf',
+          as: 'font',
+          type: 'font/ttf',
+          crossorigin: ''
+        }
       ],
       script: [
         {
