@@ -362,7 +362,7 @@ async function handleSubmit() {
   &__title {
     font-family: $font-display;
     font-size: 0.875rem;
-    color: $win-dark;
+    color: $win-darker;
     margin-bottom: $space-sm;
   }
 
@@ -392,7 +392,7 @@ async function handleSubmit() {
 
   &__note {
     font-size: 0.6875rem;
-    color: $win-dark;
+    color: $win-darker;
     margin-top: $space-xs;
     text-align: center;
     font-style: italic;
