@@ -270,50 +270,19 @@ body {
   a {
     color: $ivory;
     text-decoration: underline;
-  }
-}
 
-// Taskbar
-.taskbar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: $win-bg;
-  @include win-border-raised;
-  border-bottom: none;
-  border-left: none;
-  border-right: none;
-  padding: $space-xs $space-sm;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  z-index: 100;
-  font-family: $font-body;
-  font-size: 0.75rem;
-
-  &__start {
-    @include win-border-raised;
-    padding: 2px $space-sm;
-    display: flex;
-    align-items: center;
-    gap: $space-xs;
-    cursor: default;
-    font-family: $font-display;
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 1px;
+    &:hover {
+      opacity: 1;
+    }
   }
 
-  &__start-icon {
-    width: 16px;
-    height: 16px;
+  &__links {
+    margin-top: $space-xs;
   }
 
-  &__clock {
-    @include win-border-sunken;
-    padding: 2px $space-sm;
-    font-variant-numeric: tabular-nums;
+  &__sep {
+    margin: 0 $space-xs;
+    opacity: 0.5;
   }
 }
 
@@ -367,7 +336,3 @@ body {
   }
 }
 
-// Padding for taskbar
-body {
-  padding-bottom: 40px;
-}

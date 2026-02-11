@@ -59,9 +59,6 @@ useHead({
           </NuxtLink>
         </div>
 
-        <div class="win-statusbar">
-          Pronto
-        </div>
       </div>
     </div>
   </div>

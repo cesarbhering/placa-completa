@@ -71,9 +71,9 @@ export default defineEventHandler(async (event) => {
     const htmlEmail = buildEmailHtml(apiResponse, placaClean)
 
     await resend.emails.send({
-      from: 'Placa Completa <consulta@placacompleta.com.br>',
+      from: 'PlacaCompleta <onboarding@resend.dev>',
       to: email,
-      subject: `Consulta Veicular - Placa ${placaClean}`,
+      subject: `PlacaCompleta - Consulta Veicular ${placaClean}`,
       html: htmlEmail,
     })
     emailSent = true
@@ -129,8 +129,8 @@ function buildEmailHtml(data: Record<string, any>, placa: string): string {
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#c0c0c0;font-family:'Courier New',monospace;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#c0c0c0;padding:20px;">
+<body style="margin:0;padding:0;font-family:'Courier New',monospace;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px;">
     <tr><td align="center">
       <table width="480" cellpadding="0" cellspacing="0" style="background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;">
         <!-- Title Bar -->
@@ -151,6 +151,7 @@ function buildEmailHtml(data: Record<string, any>, placa: string): string {
               <tr style="background:#b4c5e4;">
                 <td colspan="2" style="font-weight:bold;color:#090c9b;padding:8px;">Dados do Veículo</td>
               </tr>
+              ${emailRow('Placa', placa)}
               ${emailRow('Marca', marca)}
               ${emailRow('Modelo', modelo)}
               ${emailRow('Ano Fab.', ano)}

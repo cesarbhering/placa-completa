@@ -7,21 +7,6 @@ const message = ref('')
 const messageType = ref<'success' | 'error' | 'info'>('info')
 const emailError = ref('')
 const placaError = ref('')
-const clock = ref('')
-
-function updateClock() {
-  clock.value = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-}
-updateClock()
-
-let clockInterval: ReturnType<typeof setInterval> | null = null
-onMounted(() => {
-  clockInterval = setInterval(updateClock, 30000)
-})
-onUnmounted(() => {
-  if (clockInterval) clearInterval(clockInterval)
-})
-
 function formatPhone(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11)
   if (digits.length <= 2) return digits
@@ -186,23 +171,17 @@ async function handleSubmit() {
           </div>
         </form>
 
-        <div class="win-statusbar">
-          Pronto
-        </div>
       </div>
     </div>
 
     <footer class="footer">
-      &copy; {{ new Date().getFullYear() }} Placa Completa — Consulta veicular grátis e segura.
+      <p>&copy; {{ new Date().getFullYear() }} Placa Completa — Consulta veicular grátis e segura.</p>
+      <nav class="footer__links">
+        <NuxtLink to="/termos-de-uso">Termos de Uso</NuxtLink>
+        <span class="footer__sep">|</span>
+        <NuxtLink to="/politica-de-privacidade">Política de Privacidade</NuxtLink>
+      </nav>
     </footer>
-  </div>
-
-  <div class="taskbar">
-    <div class="taskbar__start">
-      <img src="~/assets/logo-cropped.png" alt="" class="taskbar__start-icon" width="16" height="16" />
-      Início
-    </div>
-    <div class="taskbar__clock">{{ clock }}</div>
   </div>
 </template>
 
@@ -219,7 +198,7 @@ async function handleSubmit() {
 .page-subtitle {
   font-family: $font-body;
   font-size: 0.8125rem;
-  color: $win-dark;
+  color: $graphite;
   text-align: center;
   margin-bottom: $space-md;
   line-height: 1.4;
