@@ -38,16 +38,10 @@ export default defineNuxtConfig({
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-        { rel: 'preload', as: 'style', href: 'https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600;700&display=block' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600;700&display=block' },
-      ],
-      style: [
-        { innerHTML: 'body{opacity:0}body.fonts-loaded{opacity:1;transition:opacity .1s ease-in}' },
+        { rel: 'preload', as: 'style', href: 'https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap', onload: "this.onload=null;this.rel='stylesheet'" },
+        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap' },
       ],
       script: [
-        {
-          innerHTML: `document.fonts.ready.then(function(){document.body.classList.add('fonts-loaded')});setTimeout(function(){document.body.classList.add('fonts-loaded')},1500);`,
-        },
         {
           async: true,
           src: 'https://www.googletagmanager.com/gtag/js?id=G-24H7QSPX4G',
