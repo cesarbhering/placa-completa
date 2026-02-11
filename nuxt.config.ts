@@ -70,6 +70,10 @@ export default defineNuxtConfig({
 
   css: ['~/assets/scss/main.scss'],
 
+  devServer: {
+    host: '0.0.0.0',
+  },
+
   vite: {
     css: {
       preprocessorOptions: {
@@ -97,6 +101,8 @@ export default defineNuxtConfig({
     '/consulta-placa': { prerender: true },
     '/como-consultar-placa': { prerender: true },
     '/tabela-fipe-por-placa': { prerender: true },
+    '/termos-de-uso': { prerender: true },
+    '/politica-de-privacidade': { prerender: true },
   },
 
   nitro: {
