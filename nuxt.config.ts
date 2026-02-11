@@ -284,14 +284,17 @@ export default defineNuxtConfig({
         }
       ],
       script: [
-        {
-          defer: true,
-          src: 'https://www.googletagmanager.com/gtag/js?id=G-24H7QSPX4G',
-        },
-        {
-          defer: true,
-          innerHTML: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-24H7QSPX4G');`,
-        },
+        // Only load Google Analytics in production (not in tests or dev with flag)
+        ...(process.env.DISABLE_ANALYTICS !== 'true' ? [
+          {
+            defer: true,
+            src: 'https://www.googletagmanager.com/gtag/js?id=G-24H7QSPX4G',
+          },
+          {
+            defer: true,
+            innerHTML: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-24H7QSPX4G');`,
+          },
+        ] : []),
         {
           type: 'application/ld+json',
           innerHTML: JSON.stringify({
