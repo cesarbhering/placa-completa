@@ -30,6 +30,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -260,6 +261,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  flex: 1;
 }
 
 // Footer
@@ -334,13 +337,37 @@ body {
 
 // Responsive
 @media (max-width: 520px) {
+  body {
+    justify-content: flex-start;
+  }
+
+  .desktop {
+    padding: $space-xs;
+    justify-content: flex-start;
+    padding-top: $space-md;
+  }
+
   .win-window {
-    margin: $space-sm;
+    margin: 0 auto;
     max-width: 100%;
   }
 
   .logo {
     max-width: 140px;
+  }
+}
+
+// PWA standalone mode adjustments
+@media (display-mode: standalone) {
+  body {
+    justify-content: flex-start;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .desktop {
+    justify-content: flex-start;
+    padding-top: $space-lg;
   }
 }
 

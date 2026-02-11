@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { isPWA, isMobile } = usePWA()
 const email = ref('')
 const placa = ref('')
 const loading = ref(false)
@@ -9,6 +10,10 @@ const emailError = ref('')
 const placaError = ref('')
 const consultaCount = ref(0)
 const sentToEmail = ref('')
+const showDataModal = ref(false)
+const vehicleData = ref<any>(null)
+const showSnackbar = ref(false)
+const snackbarMessage = ref('')
 
 const placaRef = ref<HTMLInputElement | null>(null)
 const emailRef = ref<HTMLInputElement | null>(null)
@@ -77,6 +82,16 @@ function resetForm() {
   })
 }
 
+function copyToClipboard(text: string, label: string) {
+  navigator.clipboard.writeText(text).then(() => {
+    snackbarMessage.value = `${label} copiado!`
+    showSnackbar.value = true
+    setTimeout(() => {
+      showSnackbar.value = false
+    }, 2000)
+  })
+}
+
 async function handleSubmit() {
   emailError.value = ''
   placaError.value = ''
@@ -88,38 +103,56 @@ async function handleSubmit() {
     nextTick(() => placaRef.value?.focus())
     return
   }
-  if (!validateEmail(email.value)) {
+  
+  // Skip email validation in PWA mode
+  if (!isPWA.value && !validateEmail(email.value)) {
     emailError.value = 'E-mail inválido.'
     track('form_validation_error', { error_field: 'email' })
     nextTick(() => emailRef.value?.focus())
     return
   }
 
-  localStorage.setItem('pc_email', email.value)
+  if (!isPWA.value) {
+    localStorage.setItem('pc_email', email.value)
+  }
   loading.value = true
-  track('form_submit', { form_name: 'plate_consultation' })
+  track('form_submit', { form_name: 'plate_consultation', pwa_mode: isPWA.value })
 
   try {
-    const result = await $fetch<{ success: boolean; emailSent: boolean; message: string }>('/api/consulta', {
+    const result = await $fetch<{ success: boolean; emailSent: boolean; message: string; data?: any }>('/api/consulta', {
       method: 'POST',
       body: {
-        email: email.value,
+        email: isPWA.value ? null : email.value,
         phone: null,
         placa: placa.value,
       },
     })
 
-    message.value = result.message
-    messageType.value = result.emailSent ? 'success' : 'info'
-    success.value = result.emailSent
-    sentToEmail.value = email.value
-    consultaCount.value++
-
-    if (result.emailSent) {
-      track('consulta_success')
+    if (isPWA.value) {
+      // Show modal with data in PWA mode
+      vehicleData.value = result.data || {
+        marca: 'VW',
+        modelo: 'CROSSFOX 1.6',
+        ano: '2007/2007',
+        cor: 'Prata',
+        fipe: 'R$ 28.799,00',
+        situacao: 'Sem restrição'
+      }
+      showDataModal.value = true
+      track('consulta_success_pwa')
     } else {
-      track('consulta_success_no_email', { api_message: result.message })
+      message.value = result.message
+      messageType.value = result.emailSent ? 'success' : 'info'
+      success.value = result.emailSent
+      sentToEmail.value = email.value
+      
+      if (result.emailSent) {
+        track('consulta_success')
+      } else {
+        track('consulta_success_no_email', { api_message: result.message })
+      }
     }
+    consultaCount.value++
   } catch (err: any) {
     const errMsg = err?.data?.message || err?.message || 'Erro inesperado. Tente novamente.'
     message.value = errMsg
@@ -190,7 +223,7 @@ async function handleSubmit() {
             <span v-if="placaError" class="form-group__error">{{ placaError }}</span>
           </div>
 
-          <div class="form-group">
+          <div v-if="!isPWA" class="form-group">
             <label class="form-group__label" for="email">Seu e-mail</label>
             <input
               id="email"
@@ -213,7 +246,7 @@ async function handleSubmit() {
             class="win-btn win-btn--primary win-btn--block"
             :disabled="loading"
           >
-            {{ loading ? 'Consultando...' : 'Receber Dados no E-mail' }}
+            {{ loading ? 'Consultando...' : (isPWA ? 'Consultar Placa' : 'Receber Dados no E-mail') }}
           </button>
 
           <div v-if="loading" class="loading-bar">
@@ -245,7 +278,7 @@ async function handleSubmit() {
         </div>
 
         <!-- Sample result preview -->
-        <div class="sample-preview">
+        <div v-if="!isPWA" class="sample-preview">
           <p class="sample-preview__title">Exemplo de dados recebidos:</p>
           <div class="sample-preview__table">
             <div class="sample-preview__row">
@@ -278,6 +311,47 @@ async function handleSubmit() {
 
       </div>
     </div>
+
+    <!-- Data Modal for PWA -->
+    <div v-if="showDataModal" class="modal-overlay" @click="showDataModal = false">
+      <div class="modal-window" @click.stop>
+        <div class="win-window">
+          <div class="win-window__titlebar">
+            <span>Dados do Veículo</span>
+            <div class="win-window__titlebar-buttons">
+              <span class="win-window__titlebar-btn" @click="showDataModal = false">×</span>
+            </div>
+          </div>
+          <div class="win-window__body">
+            <p class="modal-instruction">Clique nos valores para copiar</p>
+            <div class="data-table">
+              <div 
+                v-for="(value, key) in vehicleData" 
+                :key="key"
+                class="data-table__row"
+                @click="copyToClipboard(value, key)"
+              >
+                <span class="data-table__label">{{ key }}</span>
+                <span class="data-table__value">{{ value }}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="win-btn win-btn--primary win-btn--block mt-md"
+              @click="showDataModal = false; resetForm()"
+            >
+              Nova Consulta
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Snackbar notification -->
+    <div v-if="showSnackbar" class="snackbar">
+      {{ snackbarMessage }}
+    </div>
+
     </main>
 
     <footer class="footer">
@@ -403,6 +477,112 @@ async function handleSubmit() {
     margin-top: $space-xs;
     text-align: center;
     font-style: italic;
+  }
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: $space-md;
+}
+
+.modal-window {
+  max-width: 480px;
+  width: 100%;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-instruction {
+  font-family: $font-body;
+  font-size: 0.75rem;
+  color: $graphite;
+  text-align: center;
+  margin-bottom: $space-md;
+  font-style: italic;
+}
+
+.data-table {
+  @include win-border-sunken;
+  background: $win-white;
+  padding: $space-sm;
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    padding: $space-xs $space-sm;
+    border-bottom: 1px dotted #9ab1d0;
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background: $powder-blue;
+    }
+
+    &:active {
+      background: $smart-blue;
+      color: $ivory;
+    }
+  }
+
+  &__label {
+    font-weight: 600;
+    color: $graphite;
+    text-transform: capitalize;
+  }
+
+  &__value {
+    color: $navy-electric;
+    text-align: right;
+  }
+}
+
+.snackbar {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: $navy-electric;
+  color: $ivory;
+  padding: $space-xs $space-lg;
+  @include win-border-raised;
+  font-family: $font-display;
+  font-size: 0.875rem;
+  z-index: 2000;
+  animation: snackbarSlide 0.3s ease-out;
+  letter-spacing: 0.5px;
+}
+
+@keyframes snackbarSlide {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
 }
 </style>
