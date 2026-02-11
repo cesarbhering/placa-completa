@@ -148,8 +148,8 @@ function buildEmailHtml(data: Record<string, any>, placa: string): string {
 
             <!-- Data Table -->
             <table width="100%" cellpadding="6" cellspacing="0" style="background:#fff;border:2px solid;border-color:#404040 #fff #fff #404040;font-size:13px;">
-              <tr style="background:#b4c5e4;">
-                <td colspan="2" style="font-weight:bold;color:#090c9b;padding:8px;">Dados do Veículo</td>
+              <tr style="background:#3066be;">
+                <td colspan="2" style="font-weight:bold;color:#fff;padding:8px;">Dados do Veículo</td>
               </tr>
               ${emailRow('Placa', placa)}
               ${emailRow('Marca', marca)}
@@ -169,8 +169,8 @@ function buildEmailHtml(data: Record<string, any>, placa: string): string {
 
             ${fipeValor !== '-' ? `
             <table width="100%" cellpadding="6" cellspacing="0" style="background:#fff;border:2px solid;border-color:#404040 #fff #fff #404040;font-size:13px;margin-top:12px;">
-              <tr style="background:#b4c5e4;">
-                <td colspan="2" style="font-weight:bold;color:#090c9b;padding:8px;">Tabela FIPE</td>
+              <tr style="background:#3066be;">
+                <td colspan="2" style="font-weight:bold;color:#fff;padding:8px;">Tabela FIPE</td>
               </tr>
               ${emailRow('Modelo FIPE', fipeModelo)}
               ${emailRow('Valor', fipeValor)}
@@ -179,7 +179,7 @@ function buildEmailHtml(data: Record<string, any>, placa: string): string {
             ` : ''}
 
             <!-- Statusbar -->
-            <table width="100%" cellpadding="4" cellspacing="0" style="margin-top:16px;border:2px solid;border-color:#404040 #fff #fff #404040;background:#c0c0c0;font-size:11px;color:#3c3744;">
+            <table width="100%" cellpadding="4" cellspacing="0" style="margin-top:16px;border:2px solid;border-color:#404040 #fff #fff #404040;background:#c0c0c0;font-size:12px;color:#3c3744;">
               <tr>
                 <td>Consulta realizada em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} | placacompleta.com.br</td>
               </tr>
@@ -196,6 +196,6 @@ function buildEmailHtml(data: Record<string, any>, placa: string): string {
 function emailRow(label: string, value: string): string {
   return `<tr style="border-bottom:1px dotted #808080;">
     <td style="font-weight:600;color:#3c3744;width:40%;padding:6px;border-bottom:1px dotted #ddd;">${label}</td>
-    <td style="color:#090c9b;padding:6px;border-bottom:1px dotted #ddd;">${value}</td>
+    <td style="font-weight:700;color:#090c9b;padding:6px;border-bottom:1px dotted #ddd;">${value}</td>
   </tr>`
 }

@@ -143,12 +143,17 @@ async function handleSubmit() {
         </div>
       </div>
       <div class="win-window__body">
-        <img
-          src="~/assets/logo-nobg-200.png"
+        <NuxtImg
+          src="/logo-nobg-200.png"
           alt="PlacaCompleta - Consulta Veicular Grátis"
           class="logo"
-          width="100"
-          height="100"
+          width="200"
+          height="200"
+          sizes="xs:140px sm:180px md:200px"
+          format="webp"
+          quality="85"
+          loading="eager"
+          fetchpriority="high"
         />
 
         <h1 class="page-title">Consulta Veicular Grátis</h1>
@@ -327,7 +332,7 @@ async function handleSubmit() {
 
 .trust-line {
   font-family: $font-body;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: $graphite;
   text-align: center;
   margin-top: $space-md;
@@ -391,7 +396,7 @@ async function handleSubmit() {
   }
 
   &__note {
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     color: $win-darker;
     margin-top: $space-xs;
     text-align: center;

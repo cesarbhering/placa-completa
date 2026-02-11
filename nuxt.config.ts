@@ -1,7 +1,19 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
 
-  modules: ['@nuxtjs/sitemap'],
+  modules: ['@nuxtjs/sitemap', '@nuxt/image'],
+
+  image: {
+    format: ['webp', 'png'],
+    quality: 85,
+    screens: {
+      xs: 320,
+      sm: 640,
+      md: 768,
+      lg: 1024,
+      xl: 1280,
+    },
+  },
 
   site: {
     url: 'https://placacompleta.com.br',
@@ -249,15 +261,18 @@ export default defineNuxtConfig({
         { name: 'theme-color', content: '#090c9bff' },
       ],
       link: [
+        { rel: 'preconnect', href: 'https://www.googletagmanager.com' },
+        { rel: 'dns-prefetch', href: 'https://www.googletagmanager.com' },
         { rel: 'icon', type: 'image/png', sizes: '48x48', href: '/favicon-48.png' },
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
       ],
       script: [
         {
-          async: true,
+          defer: true,
           src: 'https://www.googletagmanager.com/gtag/js?id=G-24H7QSPX4G',
         },
         {
+          defer: true,
           innerHTML: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-24H7QSPX4G');`,
         },
         {
