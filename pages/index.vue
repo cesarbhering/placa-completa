@@ -12,6 +12,20 @@ const sentToEmail = ref('')
 
 const placaRef = ref<HTMLInputElement | null>(null)
 const emailRef = ref<HTMLInputElement | null>(null)
+const formStarted = ref(false)
+
+function track(event: string, params?: Record<string, any>) {
+  if (import.meta.client && window.gtag) {
+    window.gtag('event', event, params)
+  }
+}
+
+function onFormStart() {
+  if (!formStarted.value) {
+    formStarted.value = true
+    track('form_start', { form_name: 'plate_consultation' })
+  }
+}
 
 const { data: countData } = await useFetch('/api/count')
 if (countData.value?.count) {
@@ -56,6 +70,8 @@ function resetForm() {
   success.value = false
   sentToEmail.value = ''
   messageType.value = 'info'
+  formStarted.value = false
+  track('new_consulta_click')
   nextTick(() => {
     placaRef.value?.focus()
   })
@@ -68,17 +84,20 @@ async function handleSubmit() {
 
   if (!validatePlaca(placa.value)) {
     placaError.value = 'Placa inválida. Use o formato ABC1D23 ou ABC1234.'
+    track('form_validation_error', { error_field: 'placa' })
     nextTick(() => placaRef.value?.focus())
     return
   }
   if (!validateEmail(email.value)) {
     emailError.value = 'E-mail inválido.'
+    track('form_validation_error', { error_field: 'email' })
     nextTick(() => emailRef.value?.focus())
     return
   }
 
   localStorage.setItem('pc_email', email.value)
   loading.value = true
+  track('form_submit', { form_name: 'plate_consultation' })
 
   try {
     const result = await $fetch<{ success: boolean; emailSent: boolean; message: string }>('/api/consulta', {
@@ -95,10 +114,17 @@ async function handleSubmit() {
     success.value = result.emailSent
     sentToEmail.value = email.value
     consultaCount.value++
+
+    if (result.emailSent) {
+      track('consulta_success')
+    } else {
+      track('consulta_success_no_email', { api_message: result.message })
+    }
   } catch (err: any) {
     const errMsg = err?.data?.message || err?.message || 'Erro inesperado. Tente novamente.'
     message.value = errMsg
     messageType.value = 'error'
+    track('consulta_error', { error_message: errMsg })
   } finally {
     loading.value = false
   }
@@ -152,6 +178,7 @@ async function handleSubmit() {
               autocapitalize="characters"
               inputmode="text"
               required
+              @focus="onFormStart"
               @input="onPlacaInput"
             />
             <span v-if="placaError" class="form-group__error">{{ placaError }}</span>
@@ -164,7 +191,7 @@ async function handleSubmit() {
               ref="emailRef"
               v-model="email"
               type="email"
-              class="win-input"
+              class="win-input email-input"
               :class="{ 'win-input--error': emailError }"
               placeholder="seu@email.com"
               autocomplete="email"
@@ -248,6 +275,7 @@ async function handleSubmit() {
 
     <footer class="footer">
       <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta — Consulta veicular grátis e segura.</p>
+      <p class="footer__email">contato[at]placacompleta.com.br</p>
       <nav class="footer__links">
         <NuxtLink to="/termos-de-uso">Termos de Uso</NuxtLink>
         <span class="footer__sep">|</span>
@@ -283,6 +311,10 @@ async function handleSubmit() {
   text-align: center;
   margin-bottom: $space-sm;
   letter-spacing: 0.5px;
+}
+
+.email-input {
+  text-align: center;
 }
 
 .placa-input {

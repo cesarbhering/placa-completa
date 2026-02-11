@@ -1,4 +1,10 @@
 <script setup lang="ts">
+function onCtaClick() {
+  if (import.meta.client && window.gtag) {
+    window.gtag('event', 'cta_click', { source_page: 'consulta-placa' })
+  }
+}
+
 useHead({
   title: 'Consulta de Placa Veicular Grátis Online - Placa Completa',
   meta: [
@@ -54,7 +60,7 @@ useHead({
         </div>
 
         <div class="text-center mt-md">
-          <NuxtLink to="/" class="win-btn win-btn--primary">
+          <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
             Consultar Agora
           </NuxtLink>
         </div>
