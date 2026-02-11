@@ -71,7 +71,7 @@ export default defineEventHandler(async (event) => {
     const htmlEmail = buildEmailHtml(apiResponse, placaClean)
 
     await resend.emails.send({
-      from: 'PlacaCompleta <onboarding@resend.dev>',
+      from: 'PlacaCompleta <consulta@placacompleta.com.br>',
       to: email,
       subject: `PlacaCompleta - Consulta Veicular ${placaClean}`,
       html: htmlEmail,
