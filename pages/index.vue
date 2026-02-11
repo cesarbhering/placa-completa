@@ -133,7 +133,8 @@ async function handleSubmit() {
 
 <template>
   <div class="desktop">
-    <div class="win-window">
+    <main>
+      <div class="win-window">
       <div class="win-window__titlebar">
         <span>PlacaCompleta</span>
         <div class="win-window__titlebar-buttons">
@@ -277,6 +278,7 @@ async function handleSubmit() {
 
       </div>
     </div>
+    </main>
 
     <footer class="footer">
       <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta — Consulta veicular grátis e segura.</p>

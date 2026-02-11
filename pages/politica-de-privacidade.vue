@@ -10,7 +10,8 @@ useHead({
 
 <template>
   <div class="desktop">
-    <div class="win-window win-window--wide">
+    <main>
+      <div class="win-window win-window--wide">
       <div class="win-window__titlebar">
         <span>Política de Privacidade</span>
         <div class="win-window__titlebar-buttons">
@@ -219,6 +220,7 @@ useHead({
         </div>
       </div>
     </div>
+    </main>
   </div>
 </template>
 
