@@ -38,7 +38,7 @@ body {
   @include win-border-raised;
   max-width: 480px;
   width: 100%;
-  margin: $space-lg;
+  margin: $space-sm auto;
 
   &__titlebar {
     background: linear-gradient(90deg, $win-title, $smart-blue);
@@ -253,9 +253,12 @@ body {
 // Desktop icons area
 .desktop {
   text-align: center;
-  padding: $space-lg $space-md;
+  padding: $space-sm $space-md;
   max-width: 580px;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 // Footer
