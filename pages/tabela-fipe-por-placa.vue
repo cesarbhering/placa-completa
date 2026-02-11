@@ -1,4 +1,10 @@
 <script setup lang="ts">
+function onCtaClick() {
+  if (import.meta.client && window.gtag) {
+    window.gtag('event', 'cta_click', { source_page: 'tabela-fipe-por-placa' })
+  }
+}
+
 useHead({
   title: 'Consultar Tabela FIPE por Placa Grátis - Valor do Veículo | Placa Completa',
   meta: [
@@ -57,7 +63,7 @@ useHead({
         </div>
 
         <div class="text-center mt-md">
-          <NuxtLink to="/" class="win-btn win-btn--primary">
+          <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
             Consultar FIPE Agora
           </NuxtLink>
         </div>
