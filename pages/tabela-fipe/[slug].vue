@@ -112,7 +112,8 @@ if (isBrandPage) {
 
 <template>
   <div class="desktop">
-    <div class="win-window">
+    <main>
+      <div class="win-window">
       <div class="win-window__titlebar">
         <span>{{ isBrandPage ? `FIPE ${pageData.name}` : `FIPE ${pageData.name} ${model!.name}` }}</span>
         <div class="win-window__titlebar-buttons">
@@ -252,6 +253,7 @@ if (isBrandPage) {
         </div>
       </div>
     </div>
+    </main>
   </div>
 </template>
 

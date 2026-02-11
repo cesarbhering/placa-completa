@@ -45,7 +45,8 @@ useHead({
 
 <template>
   <div class="desktop">
-    <div class="win-window">
+    <main>
+      <div class="win-window">
       <div class="win-window__titlebar">
         <span>{{ data.titlebar }}</span>
         <div class="win-window__titlebar-buttons">
@@ -102,6 +103,7 @@ useHead({
         </div>
       </div>
     </div>
+    </main>
   </div>
 </template>
 
