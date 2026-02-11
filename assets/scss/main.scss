@@ -1,0 +1,373 @@
+@use 'variables' as *;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: $font-body;
+  background-color: $navy-electric;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba($smart-blue, 0.08) 2px,
+      rgba($smart-blue, 0.08) 4px
+    );
+  color: $graphite;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  -webkit-font-smoothing: antialiased;
+}
+
+// Win95 Window Component
+.win-window {
+  background: $win-bg;
+  @include win-border-raised;
+  max-width: 480px;
+  width: 100%;
+  margin: $space-lg;
+
+  &__titlebar {
+    background: linear-gradient(90deg, $win-title, $smart-blue);
+    color: $win-title-text;
+    font-family: $font-display;
+    font-size: 1.25rem;
+    padding: $space-xs $space-sm;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    user-select: none;
+    letter-spacing: 1px;
+
+    &-buttons {
+      display: flex;
+      gap: 2px;
+    }
+
+    &-btn {
+      width: 18px;
+      height: 18px;
+      background: $win-bg;
+      @include win-border-raised;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      line-height: 1;
+      cursor: default;
+      font-family: $font-body;
+      font-weight: 700;
+    }
+  }
+
+  &__body {
+    padding: $space-md;
+  }
+}
+
+// Win95 Button
+.win-btn {
+  font-family: $font-display;
+  font-size: 1.125rem;
+  padding: $space-xs $space-lg;
+  background: $win-bg;
+  @include win-border-raised;
+  cursor: pointer;
+  letter-spacing: 1px;
+  color: $graphite;
+  outline: none;
+
+  &:active,
+  &--pressed {
+    border-color: $win-darker $win-white $win-white $win-darker;
+    padding: 5px 23px 3px 25px;
+  }
+
+  &:focus-visible {
+    outline: 1px dotted $graphite;
+    outline-offset: -4px;
+  }
+
+  &--primary {
+    background: $smart-blue;
+    color: $ivory;
+    font-weight: 700;
+    font-size: 1.25rem;
+  }
+
+  &--block {
+    width: 100%;
+    display: block;
+  }
+
+  &:disabled {
+    color: $win-dark;
+    cursor: not-allowed;
+  }
+}
+
+// Win95 Input
+.win-input {
+  font-family: $font-body;
+  font-size: 0.875rem;
+  padding: $space-xs $space-sm;
+  background: $win-white;
+  @include win-border-sunken;
+  width: 100%;
+  outline: none;
+  color: $graphite;
+
+  &::placeholder {
+    color: $win-dark;
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  &--error {
+    background: #fff0f0;
+  }
+}
+
+// Form group
+.form-group {
+  margin-bottom: $space-md;
+
+  &__label {
+    display: block;
+    font-family: $font-display;
+    font-size: 1.125rem;
+    margin-bottom: $space-xs;
+    color: $graphite;
+    letter-spacing: 0.5px;
+
+    &--optional {
+      &::after {
+        content: ' (opcional)';
+        font-size: 0.875rem;
+        color: $win-dark;
+      }
+    }
+  }
+
+  &__error {
+    font-size: 0.75rem;
+    color: #cc0000;
+    margin-top: $space-xs;
+    font-family: $font-body;
+  }
+}
+
+// Statusbar
+.win-statusbar {
+  @include win-border-sunken;
+  background: $win-bg;
+  padding: $space-xs $space-sm;
+  font-family: $font-body;
+  font-size: 0.75rem;
+  color: $graphite;
+  margin-top: $space-sm;
+}
+
+// Loading animation
+.loading-bar {
+  height: 16px;
+  @include win-border-sunken;
+  background: $win-white;
+  overflow: hidden;
+  margin: $space-sm 0;
+
+  &__fill {
+    height: 100%;
+    background: repeating-linear-gradient(
+      -45deg,
+      $smart-blue,
+      $smart-blue 8px,
+      $navy-electric 8px,
+      $navy-electric 16px
+    );
+    animation: loading-slide 0.8s linear infinite;
+    width: 100%;
+  }
+}
+
+@keyframes loading-slide {
+  from { background-position: 0 0; }
+  to { background-position: 24px 0; }
+}
+
+// Alert/Message boxes
+.win-alert {
+  @include win-border-sunken;
+  padding: $space-sm $space-md;
+  margin: $space-sm 0;
+  font-size: 0.8125rem;
+
+  &--success {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  &--error {
+    background: #f8d7da;
+    color: #721c24;
+  }
+
+  &--info {
+    background: $powder-blue;
+    color: $graphite;
+  }
+}
+
+// Logo
+.logo {
+  display: block;
+  margin: 0 auto $space-md;
+  max-width: 180px;
+  height: auto;
+  image-rendering: auto;
+}
+
+// Separator
+.win-separator {
+  border: none;
+  border-top: 1px solid $win-dark;
+  border-bottom: 1px solid $win-white;
+  margin: $space-md 0;
+}
+
+// Desktop icons area
+.desktop {
+  text-align: center;
+  padding: $space-lg $space-md;
+  max-width: 580px;
+  width: 100%;
+}
+
+// Footer
+.footer {
+  font-family: $font-body;
+  font-size: 0.6875rem;
+  color: $powder-blue;
+  text-align: center;
+  padding: $space-md;
+  opacity: 0.7;
+
+  a {
+    color: $ivory;
+    text-decoration: underline;
+  }
+}
+
+// Taskbar
+.taskbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: $win-bg;
+  @include win-border-raised;
+  border-bottom: none;
+  border-left: none;
+  border-right: none;
+  padding: $space-xs $space-sm;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 100;
+  font-family: $font-body;
+  font-size: 0.75rem;
+
+  &__start {
+    @include win-border-raised;
+    padding: 2px $space-sm;
+    display: flex;
+    align-items: center;
+    gap: $space-xs;
+    cursor: default;
+    font-family: $font-display;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  &__start-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  &__clock {
+    @include win-border-sunken;
+    padding: 2px $space-sm;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+// Result card
+.result-card {
+  @include win-border-sunken;
+  background: $win-white;
+  padding: $space-md;
+  margin: $space-sm 0;
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    padding: $space-xs 0;
+    border-bottom: 1px dotted $win-dark;
+    font-size: 0.8125rem;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__label {
+    font-weight: 600;
+    color: $graphite;
+  }
+
+  &__value {
+    color: $navy-electric;
+    text-align: right;
+    max-width: 60%;
+  }
+}
+
+// Utility
+.text-center { text-align: center; }
+.mb-sm { margin-bottom: $space-sm; }
+.mb-md { margin-bottom: $space-md; }
+.mt-md { margin-top: $space-md; }
+.mt-sm { margin-top: $space-sm; }
+
+// Responsive
+@media (max-width: 520px) {
+  .win-window {
+    margin: $space-sm;
+    max-width: 100%;
+  }
+
+  .logo {
+    max-width: 140px;
+  }
+}
+
+// Padding for taskbar
+body {
+  padding-bottom: 40px;
+}

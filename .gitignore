@@ -1,0 +1,26 @@
+infos.txt
+
+# Dependencies
+node_modules
+
+# Nuxt
+.nuxt
+.output
+dist
+
+# Environment
+.env
+.env.*
+
+# Local Netlify folder
+.netlify
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

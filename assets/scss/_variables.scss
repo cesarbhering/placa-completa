@@ -1,0 +1,44 @@
+// Placa Completa - Color Palette
+$graphite: #3c3744;
+$navy-electric: #090c9b;
+$smart-blue: #3066be;
+$powder-blue: #b4c5e4;
+$ivory: #fbfff1;
+
+// Win95 System Colors
+$win-bg: #c0c0c0;
+$win-dark: #808080;
+$win-darker: #404040;
+$win-light: #dfdfdf;
+$win-white: #ffffff;
+$win-title: #000080;
+$win-title-text: #ffffff;
+$win-button-face: #c0c0c0;
+
+// Typography
+$font-display: 'VT323', monospace;
+$font-body: 'IBM Plex Mono', monospace;
+
+// Spacing
+$space-xs: 4px;
+$space-sm: 8px;
+$space-md: 16px;
+$space-lg: 24px;
+$space-xl: 32px;
+$space-2xl: 48px;
+
+// Win95 borders
+@mixin win-border-raised {
+  border: 2px solid;
+  border-color: $win-white $win-darker $win-darker $win-white;
+}
+
+@mixin win-border-sunken {
+  border: 2px solid;
+  border-color: $win-darker $win-white $win-white $win-darker;
+}
+
+@mixin win-border-field {
+  border: 2px solid;
+  border-color: $win-dark $win-white $win-white $win-dark;
+}
