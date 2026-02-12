@@ -7,3 +7,15 @@
   to = "https://placacompleta.com.br/:splat"
   status = 301
   force = true
+
+[[redirects]]
+  from = "https://dashboard.placacompleta.com.br"
+  to = "/dash"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "https://dashboard.placacompleta.com.br/*"
+  to = "/dash"
+  status = 200
+  force = true
