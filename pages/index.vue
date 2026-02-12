@@ -17,7 +17,6 @@ const snackbarMessage = ref('')
 const showPwaEmailPrompt = ref(false)
 const pwaEmail = ref('')
 const pwaEmailError = ref('')
-const showMoreData = ref(false)
 const photoInput = ref<HTMLInputElement | null>(null)
 const processingPhoto = ref(false)
 
@@ -29,25 +28,18 @@ const appTitle = computed(() => {
   return 'PlacaCompleta'
 })
 
-const mainVehicleData = computed(() => {
-  if (!vehicleData.value) return null
-  const data = vehicleData.value
-  return {
-    Marca: data.MARCA || data.marca || '-',
-    Modelo: data.MODELO || data.modelo || '-',
-    'Ano/Modelo': `${data.ano || '-'}/${data.anoModelo || '-'}`,
-    Placa: placa.value || '-',
-    Chassi: data.chassi || '-',
-  }
-})
-
-const extraVehicleData = computed(() => {
+const allVehicleData = computed(() => {
   if (!vehicleData.value) return null
   const data = vehicleData.value
   const extra = data.extra || {}
   const fipeData = data.fipe?.dados?.[0]
 
   return {
+    Placa: placa.value || '-',
+    Marca: data.MARCA || data.marca || '-',
+    Modelo: data.MODELO || data.modelo || '-',
+    'Ano/Modelo': `${data.ano || '-'}/${data.anoModelo || '-'}`,
+    Chassi: data.chassi || '-',
     Cor: data.cor || '-',
     Combustível: extra.combustivel || '-',
     Tipo: extra.tipo_veiculo || '-',
@@ -128,7 +120,6 @@ function resetForm() {
   sentToEmail.value = ''
   messageType.value = 'info'
   formStarted.value = false
-  showMoreData.value = false
   track('new_consulta_click')
   nextTick(() => {
     placaRef.value?.focus()
@@ -372,7 +363,7 @@ async function handleSubmit() {
         <hr class="win-separator" />
 
         <form v-if="!success" @submit.prevent="handleSubmit" novalidate>
-          <div v-if="!processingPhoto" class="form-group">
+          <div v-if="!processingPhoto && !loading" class="form-group">
             <label class="form-group__label" for="placa">Placa do Veículo</label>
             <input
               id="placa"
@@ -393,36 +384,7 @@ async function handleSubmit() {
             <span v-if="placaError" class="form-group__error">{{ placaError }}</span>
           </div>
 
-          <!-- Photo Capture for PWA -->
-          <div v-if="isPWA" class="form-group">
-            <input
-              ref="photoInput"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              style="display: none"
-              @change="onPhotoCapture"
-            />
-            <button
-              type="button"
-              class="win-btn win-btn--photo win-btn--block"
-              :disabled="processingPhoto || loading"
-              @click="triggerPhotoCapture"
-            >
-              <svg v-if="!processingPhoto" class="camera-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="2" y="7" width="20" height="13" rx="1" stroke="currentColor" stroke-width="2"/>
-                <path d="M7 7L8.5 4H15.5L17 7" stroke="currentColor" stroke-width="2"/>
-                <circle cx="12" cy="13" r="3" stroke="currentColor" stroke-width="2"/>
-                <rect x="17" y="9" width="2" height="2" fill="currentColor"/>
-              </svg>
-              <span>{{ processingPhoto ? 'Processando Foto...' : 'Tirar Foto da Placa' }}</span>
-            </button>
-            <div v-if="processingPhoto" class="loading-bar">
-              <div class="loading-bar__fill" />
-            </div>
-          </div>
-
-          <div v-if="!isPWA && !processingPhoto" class="form-group">
+          <div v-if="!isPWA && !processingPhoto && !loading" class="form-group">
             <label class="form-group__label" for="email">Seu e-mail</label>
             <input
               id="email"
@@ -441,15 +403,40 @@ async function handleSubmit() {
           </div>
 
           <button
-            v-if="!processingPhoto"
+            v-if="!processingPhoto && !loading"
             type="submit"
             class="win-btn win-btn--primary win-btn--block"
             :disabled="loading"
           >
-            {{ loading ? 'Consultando...' : (isPWA ? 'Consultar Placa' : 'Receber Dados no E-mail') }}
+            {{ isPWA ? 'Consultar Placa' : 'Receber Dados no E-mail' }}
           </button>
 
-          <div v-if="loading" class="loading-bar">
+          <!-- Photo Capture for PWA -->
+          <div v-if="isPWA && !processingPhoto && !loading">
+            <input
+              ref="photoInput"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style="display: none"
+              @change="onPhotoCapture"
+            />
+            <button
+              type="button"
+              class="win-btn win-btn--secondary photo-btn"
+              @click="triggerPhotoCapture"
+            >
+              <svg class="camera-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="7" width="20" height="13" rx="1" stroke="currentColor" stroke-width="2"/>
+                <path d="M7 7L8.5 4H15.5L17 7" stroke="currentColor" stroke-width="2"/>
+                <circle cx="12" cy="13" r="3" stroke="currentColor" stroke-width="2"/>
+                <rect x="17" y="9" width="2" height="2" fill="currentColor"/>
+              </svg>
+              <span>ou tirar foto da placa</span>
+            </button>
+          </div>
+
+          <div v-if="loading || processingPhoto" class="loading-bar">
             <div class="loading-bar__fill" />
           </div>
 
@@ -457,7 +444,7 @@ async function handleSubmit() {
             {{ message }}
           </div>
 
-          <p class="trust-line">Resultado em segundos. Sem cadastro. 100% grátis.</p>
+          <p v-if="!processingPhoto && !loading" class="trust-line">Resultado em segundos. Sem cadastro. 100% grátis.</p>
         </form>
 
         <!-- Post-success state -->
@@ -523,43 +510,18 @@ async function handleSubmit() {
             </div>
           </div>
           <div class="win-window__body">
-            <!-- Main Data -->
-            <div class="data-section">
-              <div class="data-main">
-                <div
-                  v-for="(value, key) in mainVehicleData"
-                  :key="key"
-                  class="data-main__row"
-                >
-                  <span class="data-main__label">{{ key }}</span>
-                  <span class="data-main__value">{{ value }}</span>
-                </div>
-              </div>
-
-              <!-- Toggle Button -->
-              <button
-                type="button"
-                class="win-btn win-btn--secondary win-btn--block"
-                @click="showMoreData = !showMoreData"
+            <div class="data-table">
+              <div
+                v-for="(value, key) in allVehicleData"
+                :key="key"
+                class="data-table__row"
+                @click="copyToClipboard(value, key)"
               >
-                {{ showMoreData ? '▲ Ocultar Dados Extras' : '▼ Ver Mais Dados' }}
-              </button>
-
-              <!-- Extra Data (Accordion) -->
-              <div v-if="showMoreData" class="data-extra">
-                <div
-                  v-for="(value, key) in extraVehicleData"
-                  :key="key"
-                  class="data-extra__row"
-                  @click="copyToClipboard(value, key)"
-                >
-                  <span class="data-extra__label">{{ key }}</span>
-                  <span class="data-extra__value">{{ value }}</span>
-                </div>
-                <p class="data-extra__hint">Clique para copiar</p>
+                <span class="data-table__label">{{ key }}</span>
+                <span class="data-table__value">{{ value }}</span>
               </div>
             </div>
-
+            <p class="data-table__hint">Clique nos valores para copiar</p>
             <button
               type="button"
               class="win-btn win-btn--primary win-btn--block"
@@ -794,48 +756,11 @@ async function handleSubmit() {
   font-style: italic;
 }
 
-.data-section {
-  margin-bottom: $space-md;
-}
-
-.data-main {
+.data-table {
   @include win-border-sunken;
   background: $win-white;
   padding: $space-sm;
   margin-bottom: $space-sm;
-
-  &__row {
-    display: flex;
-    justify-content: space-between;
-    padding: $space-xs 0;
-    border-bottom: 1px dotted #9ab1d0;
-
-    &:last-child {
-      border-bottom: none;
-    }
-  }
-
-  &__label {
-    font-weight: 600;
-    color: $graphite;
-    font-size: 0.8125rem;
-  }
-
-  &__value {
-    color: $navy-electric;
-    text-align: right;
-    font-weight: 700;
-    font-family: $font-display;
-    font-size: 0.8125rem;
-  }
-}
-
-.data-extra {
-  @include win-border-sunken;
-  background: $win-white;
-  padding: $space-sm;
-  margin-top: $space-sm;
-  animation: slideDown 0.2s ease-out;
 
   &__row {
     display: flex;
@@ -847,7 +772,6 @@ async function handleSubmit() {
 
     &:last-child {
       border-bottom: none;
-      margin-bottom: $space-xs;
     }
 
     &:hover {
@@ -872,25 +796,15 @@ async function handleSubmit() {
     color: $navy-electric;
     text-align: right;
     font-size: 0.75rem;
+    font-weight: 700;
   }
 
   &__hint {
     font-size: 0.625rem;
     color: $win-darker;
     text-align: center;
-    margin: $space-xs 0 0;
+    margin: 0 0 $space-sm;
     font-style: italic;
-  }
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    max-height: 0;
-  }
-  to {
-    opacity: 1;
-    max-height: 500px;
   }
 }
 
@@ -902,30 +816,32 @@ async function handleSubmit() {
   font-weight: 600;
 }
 
-.win-btn--photo {
-  background: $smart-blue;
-  color: $ivory;
-  font-size: 1.125rem;
-  font-weight: 700;
+.photo-btn {
+  margin-top: $space-xs;
+  font-size: 0.75rem;
+  padding: $space-xs $space-sm;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: $space-xs;
-  padding: $space-sm $space-lg;
+  gap: 6px;
+  width: 100%;
+  opacity: 0.85;
+  transition: opacity 0.2s;
 
-  &:disabled {
-    opacity: 0.6;
+  &:hover {
+    opacity: 1;
   }
 
   .camera-icon {
-    width: 24px;
-    height: 24px;
-    color: $ivory;
+    width: 16px;
+    height: 16px;
+    color: $graphite;
     flex-shrink: 0;
   }
 
   span {
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
+    font-style: italic;
   }
 }
 
