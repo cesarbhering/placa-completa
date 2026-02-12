@@ -16,6 +16,12 @@ export const usePushNotifications = () => {
       const OneSignal = (window as any).OneSignal
       console.log('✅ OneSignal carregado')
 
+      // Check Service Worker
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration()
+        console.log('📋 Service Worker registration:', registration?.active ? 'ativo' : 'inativo')
+      }
+
       // Check if already subscribed
       const isSubscribed = await OneSignal.User.PushSubscription.optedIn
       console.log('📊 Já inscrito?', isSubscribed)
