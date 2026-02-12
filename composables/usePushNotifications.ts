@@ -1,20 +1,42 @@
-import { getToken, onMessage } from 'firebase/messaging'
-
 export const usePushNotifications = () => {
-  const { $messaging } = useNuxtApp()
-
   const requestPermissionAndSave = async () => {
     try {
-      // Check if already have permission
-      if (Notification.permission === 'granted') {
-        return await getTokenAndSave()
+      // Wait for OneSignal to be ready
+      if (!window.OneSignalDeferred) {
+        console.error('OneSignal not loaded')
+        return null
+      }
+
+      await new Promise((resolve) => {
+        window.OneSignalDeferred.push(resolve)
+      })
+
+      const OneSignal = (window as any).OneSignal
+
+      // Check if already subscribed
+      const isSubscribed = await OneSignal.User.PushSubscription.optedIn
+
+      if (isSubscribed) {
+        const userId = await OneSignal.User.PushSubscription.id
+        console.log('✅ Already subscribed, User ID:', userId)
+        return userId
       }
 
       // Request permission
-      const permission = await Notification.requestPermission()
+      await OneSignal.Slidedown.promptPush()
 
-      if (permission === 'granted') {
-        return await getTokenAndSave()
+      // Wait a bit for subscription to complete
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      // Get subscription info
+      const subscription = await OneSignal.User.PushSubscription.id
+      const token = await OneSignal.User.PushSubscription.token
+
+      if (subscription) {
+        // Save to database
+        await saveTokenToDatabase(subscription, token)
+        console.log('✅ OneSignal subscription saved:', subscription)
+        return subscription
       }
 
       return null
@@ -24,27 +46,7 @@ export const usePushNotifications = () => {
     }
   }
 
-  const getTokenAndSave = async () => {
-    try {
-      const token = await getToken($messaging as any, {
-        vapidKey: 'BPDFWCwBESkjPyIziJvSgoU7i4zml6ZQwng9bxCsVGSAfoKM4HRCeH7WA4_3zCsyabk_I1QwnNJCP7FUKrY4lVU'
-      })
-
-      if (token) {
-        // Save token to Supabase
-        await saveTokenToDatabase(token)
-        console.log('✅ FCM Token saved:', token)
-        return token
-      }
-
-      return null
-    } catch (error) {
-      console.error('Error getting FCM token:', error)
-      return null
-    }
-  }
-
-  const saveTokenToDatabase = async (token: string) => {
+  const saveTokenToDatabase = async (subscriptionId: string, token: string) => {
     try {
       const userAgent = navigator.userAgent
       const isMobile = /mobile|android|iphone/i.test(userAgent)
@@ -58,30 +60,26 @@ export const usePushNotifications = () => {
       await $fetch('/api/fcm-token/save', {
         method: 'POST',
         body: {
-          token,
+          token: subscriptionId,
           userEmail,
           userAgent,
-          deviceInfo
+          deviceInfo,
+          pushToken: token // Store the actual push token too
         }
       })
     } catch (error) {
-      console.error('Error saving FCM token to database:', error)
+      console.error('Error saving subscription to database:', error)
     }
   }
 
   const listenForMessages = () => {
     if (!import.meta.client) return
 
-    onMessage($messaging as any, (payload) => {
-      console.log('Foreground message received:', payload)
-
-      const notificationTitle = payload.notification?.title || 'PlacaCompleta'
-      const notificationOptions = {
-        body: payload.notification?.body || 'Nova notificação',
-        icon: '/pwa-192x192.png'
-      }
-
-      new Notification(notificationTitle, notificationOptions)
+    // OneSignal handles foreground notifications automatically
+    window.OneSignalDeferred?.push(function(OneSignal: any) {
+      OneSignal.Notifications.addEventListener('click', (event: any) => {
+        console.log('Notification clicked:', event)
+      })
     })
   }
 
