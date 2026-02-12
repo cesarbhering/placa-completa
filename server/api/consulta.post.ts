@@ -4,7 +4,7 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
 
-  const { email, phone, placa } = body
+  const { email, phone, placa, isPWA } = body
 
   if (!email || !placa) {
     throw createError({ statusCode: 400, message: 'E-mail e placa são obrigatórios.' })
@@ -66,19 +66,22 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Placa não encontrada ou sem dados disponíveis.' })
   }
 
-  try {
-    const resend = new Resend(config.resendApiKey)
-    const htmlEmail = buildEmailHtml(apiResponse, placaClean)
+  // Skip email sending for PWA mode
+  if (!isPWA) {
+    try {
+      const resend = new Resend(config.resendApiKey)
+      const htmlEmail = buildEmailHtml(apiResponse, placaClean)
 
-    await resend.emails.send({
-      from: 'PlacaCompleta <consulta@placacompleta.com.br>',
-      to: email,
-      subject: `PlacaCompleta - Consulta Veicular ${placaClean}`,
-      html: htmlEmail,
-    })
-    emailSent = true
-  } catch (err: any) {
-    console.error('Resend error:', err)
+      await resend.emails.send({
+        from: 'PlacaCompleta <consulta@placacompleta.com.br>',
+        to: email,
+        subject: `PlacaCompleta - Consulta Veicular ${placaClean}`,
+        html: htmlEmail,
+      })
+      emailSent = true
+    } catch (err: any) {
+      console.error('Resend error:', err)
+    }
   }
 
   const supabase = useSupabaseServer()
@@ -99,6 +102,7 @@ export default defineEventHandler(async (event) => {
     message: emailSent
       ? 'Consulta realizada! Verifique seu e-mail.'
       : 'Consulta realizada, mas houve um erro ao enviar o e-mail. Tente novamente.',
+    data: isPWA ? apiResponse : undefined,
   }
 })
 

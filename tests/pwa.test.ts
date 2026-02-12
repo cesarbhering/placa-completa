@@ -104,6 +104,114 @@ test.describe('PWA Mode', () => {
     await placaInput.fill('xyz9z99')
     await expect(placaInput).toHaveValue('XYZ9Z99')
   })
+
+  test('should show email prompt modal on first PWA submission', async ({ page, context }) => {
+    // Clear localStorage to simulate first use
+    await context.clearCookies()
+    await page.evaluate(() => localStorage.clear())
+    await page.reload()
+    await page.waitForTimeout(500)
+    
+    const placaInput = page.locator('#placa')
+    const submitButton = page.getByRole('button', { name: /Consultar Placa/i })
+    
+    // Fill valid plate
+    await placaInput.fill('ABC1D23')
+    await submitButton.click()
+    
+    // Should show email prompt modal
+    const modal = page.locator('.modal-overlay')
+    await expect(modal).toBeVisible()
+    await expect(modal).toContainText('Configurar E-mail')
+    
+    // Should have email input in modal
+    const modalEmailInput = page.locator('#pwa-email')
+    await expect(modalEmailInput).toBeVisible()
+  })
+
+  test('should validate email in PWA prompt modal', async ({ page, context }) => {
+    // Clear localStorage
+    await context.clearCookies()
+    await page.evaluate(() => localStorage.clear())
+    await page.reload()
+    await page.waitForTimeout(500)
+    
+    // Trigger email prompt
+    await page.locator('#placa').fill('ABC1D23')
+    await page.getByRole('button', { name: /Consultar Placa/i }).click()
+    
+    // Enter invalid email
+    const modalEmailInput = page.locator('#pwa-email')
+    await modalEmailInput.fill('invalid-email')
+    
+    // Click save
+    const saveButton = page.getByRole('button', { name: /Salvar e Continuar/i })
+    await saveButton.click()
+    
+    // Should show error
+    await expect(page.locator('.form-group__error')).toContainText(/E-mail inválido/i)
+  })
+
+  test('should save email and hide prompt on subsequent uses', async ({ page, context }) => {
+    // Clear localStorage
+    await context.clearCookies()
+    await page.evaluate(() => localStorage.clear())
+    await page.reload()
+    await page.waitForTimeout(500)
+    
+    // First submission - show prompt
+    await page.locator('#placa').fill('ABC1D23')
+    await page.getByRole('button', { name: /Consultar Placa/i }).click()
+    
+    // Fill valid email and save
+    await page.locator('#pwa-email').fill('test@example.com')
+    await page.getByRole('button', { name: /Salvar e Continuar/i }).click()
+    
+    // Email should be saved to localStorage
+    const savedEmail = await page.evaluate(() => localStorage.getItem('pwa_email'))
+    expect(savedEmail).toBe('test@example.com')
+    
+    // Modal should close
+    await expect(page.locator('.modal-overlay')).toBeHidden()
+  })
+
+  test('should show email icon in titlebar when email is configured', async ({ page }) => {
+    // Set email in localStorage
+    await page.evaluate(() => localStorage.setItem('pwa_email', 'test@example.com'))
+    await page.reload()
+    await page.waitForTimeout(500)
+    
+    // Should show email icon in titlebar
+    const emailIcon = page.locator('.win-window__titlebar-buttons span[title="Alterar e-mail"]')
+    await expect(emailIcon).toBeVisible()
+    await expect(emailIcon).toContainText('✉')
+  })
+
+  test('should allow changing email from titlebar', async ({ page }) => {
+    // Set email in localStorage
+    await page.evaluate(() => localStorage.setItem('pwa_email', 'old@example.com'))
+    await page.reload()
+    await page.waitForTimeout(500)
+    
+    // Click email icon
+    const emailIcon = page.locator('.win-window__titlebar-buttons span[title="Alterar e-mail"]')
+    await emailIcon.click()
+    
+    // Should show email prompt modal
+    await expect(page.locator('.modal-overlay')).toBeVisible()
+    
+    // Should pre-fill with current email
+    const modalEmailInput = page.locator('#pwa-email')
+    await expect(modalEmailInput).toHaveValue('old@example.com')
+    
+    // Change email
+    await modalEmailInput.fill('new@example.com')
+    await page.getByRole('button', { name: /Salvar e Continuar/i }).click()
+    
+    // Should update localStorage
+    const savedEmail = await page.evaluate(() => localStorage.getItem('pwa_email'))
+    expect(savedEmail).toBe('new@example.com')
+  })
 })
 
 test.describe('Non-PWA Mode (Web Browser)', () => {
