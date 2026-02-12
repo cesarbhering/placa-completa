@@ -55,7 +55,7 @@ export default defineNuxtConfig({
 
   site: {
     url: "https://placacompleta.com.br",
-    name: "Placa Completa",
+    name: "PlacaCompleta",
     description:
       "Consulta veicular gratuita por placa. Receba dados completos do veículo no seu e-mail.",
     defaultLocale: "pt-BR",
@@ -385,7 +385,7 @@ export default defineNuxtConfig({
           innerHTML: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "WebApplication",
-            name: "Placa Completa",
+            name: "PlacaCompleta",
             description:
               "Consulta veicular gratuita por placa. Receba dados completos do veículo no seu e-mail.",
             url: "https://placacompleta.com.br",
