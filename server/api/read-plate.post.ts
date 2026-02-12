@@ -1,3 +1,5 @@
+import { isValidBase64Image } from '../utils/validation'
+
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
@@ -9,8 +11,9 @@ export default defineEventHandler(async (event) => {
   }
 
   // Validate it's a base64 image
-  if (!image.startsWith('data:image/')) {
-    throw createError({ statusCode: 400, message: 'Formato de imagem inválido.' })
+  // Validate base64 image format and size (max 5MB)
+  if (!isValidBase64Image(image, 5)) {
+    throw createError({ statusCode: 400, message: 'Formato de imagem inválido ou arquivo muito grande (máx. 5MB).' })
   }
 
   const headers = getRequestHeaders(event)

@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -9,6 +10,19 @@ export default defineEventHandler(async (event) => {
   if (!email || !placa) {
     throw createError({ statusCode: 400, message: 'E-mail e placa são obrigatórios.' })
   }
+
+  // Validate email format
+  if (!isValidEmail(email)) {
+    throw createError({ statusCode: 400, message: 'E-mail inválido.' })
+  }
+
+  // Validate phone if provided
+  if (phone && !isValidPhone(phone)) {
+    throw createError({ statusCode: 400, message: 'Telefone inválido.' })
+  }
+
+  // Sanitize email to prevent injection
+  const sanitizedEmail = sanitizeEmail(email)
 
   const headers = getRequestHeaders(event)
   const ip = headers['x-forwarded-for']?.split(',')[0]?.trim()
@@ -46,7 +60,7 @@ export default defineEventHandler(async (event) => {
 
     const supabase = useSupabaseServer()
     await supabase.from('consultas').insert({
-      email,
+      email: sanitizedEmail,
       phone: phone || null,
       placa: placaClean,
       ip_address: ip,
@@ -66,7 +80,7 @@ export default defineEventHandler(async (event) => {
   } else {
     const supabase = useSupabaseServer()
     await supabase.from('consultas').insert({
-      email,
+      email: sanitizedEmail,
       phone: phone || null,
       placa: placaClean,
       ip_address: ip,
@@ -87,7 +101,7 @@ export default defineEventHandler(async (event) => {
 
       await resend.emails.send({
         from: 'PlacaCompleta <consulta@placacompleta.com.br>',
-        to: email,
+        to: sanitizedEmail,
         subject: `PlacaCompleta - Consulta Veicular ${placaClean}`,
         html: htmlEmail,
       })

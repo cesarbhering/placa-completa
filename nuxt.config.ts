@@ -429,6 +429,7 @@ export default defineNuxtConfig({
     apiKeyOpenai: process.env.API_KEY_OPENAI || "",
     oneSignalAppId: process.env.ONESIGNAL_APP_ID || "",
     oneSignalRestApiKey: process.env.ONESIGNAL_REST_API_KEY || "",
+    dashboardLookerGoogleAnalytics: process.env.DASHBOARD_LOOKER_GOOGLE_ANALYTICS || "",
     public: {
       supabaseUrl:
         process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",
