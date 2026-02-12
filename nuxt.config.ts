@@ -17,6 +17,8 @@ export default defineNuxtConfig({
 
   pwa: {
     registerType: 'autoUpdate',
+    filename: 'sw.js',
+    manifestFilename: 'manifest.json',
     manifest: {
       name: 'PlacaCompleta',
       short_name: 'PlacaCompleta',
