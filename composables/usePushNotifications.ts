@@ -26,13 +26,21 @@ export const usePushNotifications = () => {
         return { success: true, userId }
       }
 
-      // Use native browser permission prompt (in system language - Portuguese)
-      console.log('🔔 Pedindo permissão nativa...')
-      const permission = await Notification.requestPermission()
-      console.log('📱 Resposta da permissão:', permission)
+      // Check if already has permission (don't request again)
+      const currentPermission = Notification.permission
+      console.log('📊 Permissão atual do browser:', currentPermission)
 
-      if (permission !== 'granted') {
-        return { error: `Permissão: ${permission}`, success: false }
+      if (currentPermission !== 'granted') {
+        // Only request if not granted yet
+        console.log('🔔 Pedindo permissão nativa...')
+        const permission = await Notification.requestPermission()
+        console.log('📱 Resposta da permissão:', permission)
+
+        if (permission !== 'granted') {
+          return { error: `Permissão: ${permission}`, success: false }
+        }
+      } else {
+        console.log('✅ Já tem permissão granted')
       }
 
       // After permission granted, let OneSignal register the subscription
