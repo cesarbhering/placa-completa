@@ -196,7 +196,7 @@ async function shareVehicleData() {
     if (navigator.share && navigator.canShare({ files: [file] })) {
       await navigator.share({
         title: `Dados do Veículo - ${placa.value}`,
-        text: `Consulta realizada em PlacaCompleta`,
+        text: `Consulta realizada em www.PlacaCompleta.com.br`,
         files: [file],
       })
       track('vehicle_data_shared', { placa: placa.value })
@@ -641,7 +641,7 @@ async function handleSubmit() {
               type="button"
               class="win-btn win-btn--primary win-btn--block"
               disabled
-              style="cursor: default; opacity: 1;"
+              style="cursor: default; opacity: 1; color: #ffffff !important;"
             >
               www.placacompleta.com.br
             </button>
@@ -661,35 +661,20 @@ async function handleSubmit() {
                 @click="shareVehicleData"
                 title="Compartilhar"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" shape-rendering="crispEdges">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 16 16" fill="currentColor" style="image-rendering: pixelated;">
                   <!-- Pixelated share icon (Windows 95 style) -->
-                  <!-- Top circle -->
-                  <rect x="12" y="0" width="4" height="1" />
-                  <rect x="11" y="1" width="1" height="1" />
-                  <rect x="16" y="1" width="1" height="1" />
-                  <rect x="11" y="2" width="1" height="2" />
-                  <rect x="16" y="2" width="1" height="2" />
-                  <rect x="12" y="4" width="4" height="1" />
+                  <!-- Top node -->
+                  <rect x="11" y="0" width="5" height="5" />
 
-                  <!-- Middle circle -->
-                  <rect x="0" y="6" width="4" height="1" />
-                  <rect x="-1" y="7" width="1" height="1" />
-                  <rect x="4" y="7" width="1" height="1" />
-                  <rect x="-1" y="8" width="1" height="2" />
-                  <rect x="4" y="8" width="1" height="2" />
-                  <rect x="0" y="10" width="4" height="1" />
+                  <!-- Middle node -->
+                  <rect x="0" y="5.5" width="5" height="5" />
 
-                  <!-- Bottom circle -->
-                  <rect x="12" y="11" width="4" height="1" />
-                  <rect x="11" y="12" width="1" height="1" />
-                  <rect x="16" y="12" width="1" height="1" />
-                  <rect x="11" y="13" width="1" height="2" />
-                  <rect x="16" y="13" width="1" height="2" />
-                  <rect x="12" y="15" width="4" height="1" />
+                  <!-- Bottom node -->
+                  <rect x="11" y="11" width="5" height="5" />
 
-                  <!-- Lines connecting -->
-                  <rect x="4" y="7" width="8" height="1" />
-                  <rect x="4" y="9" width="8" height="1" />
+                  <!-- Lines -->
+                  <rect x="5" y="7" width="6" height="1.5" />
+                  <rect x="5" y="12.5" width="6" height="1.5" />
                 </svg>
               </button>
             </div>
