@@ -96,10 +96,10 @@ onMounted(async () => {
       addDebugLog('📢 Iniciando pedido de permissão...')
       const { requestPermissionAndSave, listenForMessages } = usePushNotifications()
       const result = await requestPermissionAndSave()
-      if (result) {
-        addDebugLog('✅ Permissão concedida! ID: ' + result.substring(0, 20) + '...')
+      if (result.success) {
+        addDebugLog('✅ Sucesso! ID: ' + result.userId?.substring(0, 20) + '...')
       } else {
-        addDebugLog('❌ Permissão negada ou erro')
+        addDebugLog('❌ Falhou: ' + result.error)
       }
       listenForMessages()
     } else {
