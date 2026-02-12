@@ -179,7 +179,7 @@ async function shareVehicleData() {
 
     // Capture screenshot with high quality settings
     const canvas = await html2canvas(modalWindowRef.value, {
-      backgroundColor: '#c0c0c0',
+      backgroundColor: null, // Transparent to avoid gray haze/fog effect
       scale: 3, // Higher resolution for better quality
       logging: false,
       useCORS: true,
