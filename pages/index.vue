@@ -175,6 +175,45 @@ function triggerPhotoCapture() {
   track('photo_capture_initiated')
 }
 
+async function compressImage(file: File, maxWidth = 1024, quality = 0.8): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+
+        // Calculate new dimensions
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width
+          width = maxWidth
+        }
+
+        canvas.width = width
+        canvas.height = height
+
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'))
+          return
+        }
+
+        ctx.drawImage(img, 0, 0, width, height)
+
+        // Convert to JPEG base64 with compression
+        const compressedBase64 = canvas.toDataURL('image/jpeg', quality)
+        resolve(compressedBase64)
+      }
+      img.onerror = reject
+      img.src = e.target?.result as string
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 async function onPhotoCapture(e: Event) {
   const target = e.target as HTMLInputElement
   const file = target.files?.[0]
@@ -187,13 +226,8 @@ async function onPhotoCapture(e: Event) {
   track('photo_capture_started')
 
   try {
-    // Convert image to base64
-    const reader = new FileReader()
-    const base64 = await new Promise<string>((resolve, reject) => {
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
+    // Compress image before sending
+    const base64 = await compressImage(file, 1024, 0.8)
 
     // Send to API for OCR
     const result = await $fetch<{ success: boolean; placa: string; message?: string }>('/api/read-plate', {
@@ -340,7 +374,7 @@ async function handleSubmit() {
         <hr class="win-separator" />
 
         <form v-if="!success" @submit.prevent="handleSubmit" novalidate>
-          <div class="form-group">
+          <div v-if="!processingPhoto" class="form-group">
             <label class="form-group__label" for="placa">Placa do Veículo</label>
             <input
               id="placa"
@@ -373,18 +407,24 @@ async function handleSubmit() {
             />
             <button
               type="button"
-              class="win-btn win-btn--secondary win-btn--block"
+              class="win-btn win-btn--photo win-btn--block"
               :disabled="processingPhoto || loading"
               @click="triggerPhotoCapture"
             >
-              {{ processingPhoto ? '📷 Processando...' : '📷 Tirar Foto da Placa' }}
+              <svg v-if="!processingPhoto" class="camera-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="7" width="20" height="13" rx="1" stroke="currentColor" stroke-width="2"/>
+                <path d="M7 7L8.5 4H15.5L17 7" stroke="currentColor" stroke-width="2"/>
+                <circle cx="12" cy="13" r="3" stroke="currentColor" stroke-width="2"/>
+                <rect x="17" y="9" width="2" height="2" fill="currentColor"/>
+              </svg>
+              <span>{{ processingPhoto ? 'Processando Foto...' : 'Tirar Foto da Placa' }}</span>
             </button>
             <div v-if="processingPhoto" class="loading-bar">
               <div class="loading-bar__fill" />
             </div>
           </div>
 
-          <div v-if="!isPWA" class="form-group">
+          <div v-if="!isPWA && !processingPhoto" class="form-group">
             <label class="form-group__label" for="email">Seu e-mail</label>
             <input
               id="email"
@@ -403,6 +443,7 @@ async function handleSubmit() {
           </div>
 
           <button
+            v-if="!processingPhoto"
             type="submit"
             class="win-btn win-btn--primary win-btn--block"
             :disabled="loading"
@@ -861,6 +902,33 @@ async function handleSubmit() {
   font-size: 0.875rem;
   margin-bottom: 0;
   font-weight: 600;
+}
+
+.win-btn--photo {
+  background: $smart-blue;
+  color: $ivory;
+  font-size: 1.125rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-xs;
+  padding: $space-sm $space-lg;
+
+  &:disabled {
+    opacity: 0.6;
+  }
+
+  .camera-icon {
+    width: 24px;
+    height: 24px;
+    color: $ivory;
+    flex-shrink: 0;
+  }
+
+  span {
+    letter-spacing: 0.5px;
+  }
 }
 
 .snackbar {
