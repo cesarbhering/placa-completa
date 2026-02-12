@@ -21,7 +21,6 @@ export default defineNuxtConfig({
     manifestFilename: 'manifest.json',
     manifest: {
       name: 'PlacaCompleta',
-      short_name: 'PlacaCompleta',
       lang: 'pt-BR',
       display: 'standalone',
       orientation: 'portrait-primary',
