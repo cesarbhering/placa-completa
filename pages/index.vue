@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import packageInfo from '../package.json'
-
 const { isPWA, isMobile } = useAppMode()
 const email = ref('')
 const placa = ref('')
@@ -28,7 +26,7 @@ const emailRef = ref<HTMLInputElement | null>(null)
 const formStarted = ref(false)
 
 const appTitle = computed(() => {
-  return isPWA.value ? `PlacaCompleta v${packageInfo.version}` : 'PlacaCompleta'
+  return 'PlacaCompleta'
 })
 
 const mainVehicleData = computed(() => {
