@@ -25,6 +25,8 @@ const placaRef = ref<HTMLInputElement | null>(null)
 const emailRef = ref<HTMLInputElement | null>(null)
 const formStarted = ref(false)
 const permissionRequested = ref(false)
+const modalWindowRef = ref<HTMLElement | null>(null)
+const preparingShare = ref(false)
 
 const appTitle = computed(() => {
   return 'PlacaCompleta'
@@ -159,6 +161,66 @@ function copyToClipboard(text: string, label: string) {
       showSnackbar.value = false
     }, 2000)
   })
+}
+
+async function shareVehicleData() {
+  if (!modalWindowRef.value) return
+
+  try {
+    // Import html2canvas dynamically
+    const html2canvas = (await import('html2canvas')).default
+
+    // Set flag to modify modal for screenshot
+    preparingShare.value = true
+
+    // Wait for DOM update
+    await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    // Capture screenshot
+    const canvas = await html2canvas(modalWindowRef.value, {
+      backgroundColor: '#c0c0c0',
+      scale: 2,
+      logging: false,
+    })
+
+    // Convert to blob
+    const blob = await new Promise<Blob>((resolve) => {
+      canvas.toBlob((blob) => resolve(blob!), 'image/png', 1.0)
+    })
+
+    // Create file
+    const file = new File([blob], `placacompleta-${placa.value}.png`, { type: 'image/png' })
+
+    // Check if Web Share API is available
+    if (navigator.share && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        title: `Dados do Veículo - ${placa.value}`,
+        text: `Consulta realizada em PlacaCompleta`,
+        files: [file],
+      })
+      track('vehicle_data_shared', { placa: placa.value })
+    } else {
+      // Fallback: download the image
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `placacompleta-${placa.value}.png`
+      a.click()
+      URL.revokeObjectURL(url)
+      track('vehicle_data_downloaded', { placa: placa.value })
+    }
+  } catch (error) {
+    console.error('Share error:', error)
+    snackbarMessage.value = 'Erro ao compartilhar'
+    showSnackbar.value = true
+    setTimeout(() => {
+      showSnackbar.value = false
+    }, 2000)
+  } finally {
+    // Restore modal to normal state
+    preparingShare.value = false
+  }
 }
 
 function savePwaEmail() {
@@ -549,7 +611,7 @@ async function handleSubmit() {
 
     <!-- Data Modal for PWA -->
     <div v-if="showDataModal" class="modal-overlay" @click="showDataModal = false">
-      <div class="modal-window" @click.stop>
+      <div class="modal-window" ref="modalWindowRef" @click.stop>
         <div class="win-window">
           <div class="win-window__titlebar">
             <span>Dados do Veículo - {{ placa }}</span>
@@ -569,14 +631,37 @@ async function handleSubmit() {
                 <span class="data-table__value">{{ value }}</span>
               </div>
             </div>
-            <p class="data-table__hint">Clique nos valores para copiar</p>
-            <button
-              type="button"
-              class="win-btn win-btn--primary win-btn--block"
-              @click="showDataModal = false; resetForm()"
-            >
-              Nova Consulta
-            </button>
+
+            <!-- Show hint only when not preparing share -->
+            <p v-if="!preparingShare" class="data-table__hint">Clique nos valores para copiar</p>
+
+            <!-- Show site URL when preparing share -->
+            <p v-if="preparingShare" class="data-table__url">placacompleta.com.br</p>
+
+            <!-- Buttons (hide when preparing share) -->
+            <div v-if="!preparingShare" class="modal-actions">
+              <button
+                type="button"
+                class="win-btn win-btn--primary"
+                @click="showDataModal = false; resetForm()"
+              >
+                Nova Consulta
+              </button>
+              <button
+                type="button"
+                class="win-btn win-btn--secondary modal-share-btn"
+                @click="shareVehicleData"
+                title="Compartilhar"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="18" cy="5" r="3"></circle>
+                  <circle cx="6" cy="12" r="3"></circle>
+                  <circle cx="18" cy="19" r="3"></circle>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -853,6 +938,39 @@ async function handleSubmit() {
     text-align: center;
     margin: 0 0 $space-sm;
     font-style: italic;
+  }
+
+  &__url {
+    font-family: $font-display;
+    font-size: 0.875rem;
+    color: $smart-blue;
+    text-align: center;
+    margin: $space-sm 0;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+}
+
+.modal-actions {
+  display: flex;
+  gap: $space-sm;
+  align-items: center;
+
+  .win-btn--primary {
+    flex: 1;
+  }
+
+  .modal-share-btn {
+    flex-shrink: 0;
+    padding: $space-sm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+
+    svg {
+      display: block;
+    }
   }
 }
 
