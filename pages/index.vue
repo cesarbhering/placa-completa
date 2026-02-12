@@ -635,8 +635,16 @@ async function handleSubmit() {
             <!-- Show hint only when not preparing share -->
             <p v-if="!preparingShare" class="data-table__hint">Clique nos valores para copiar</p>
 
-            <!-- Show site URL when preparing share -->
-            <p v-if="preparingShare" class="data-table__url">placacompleta.com.br</p>
+            <!-- Show site URL as button when preparing share -->
+            <button
+              v-if="preparingShare"
+              type="button"
+              class="win-btn win-btn--primary win-btn--block"
+              disabled
+              style="cursor: default; opacity: 1;"
+            >
+              www.placacompleta.com.br
+            </button>
 
             <!-- Buttons (hide when preparing share) -->
             <div v-if="!preparingShare" class="modal-actions">
@@ -653,12 +661,35 @@ async function handleSubmit() {
                 @click="shareVehicleData"
                 title="Compartilhar"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="18" cy="5" r="3"></circle>
-                  <circle cx="6" cy="12" r="3"></circle>
-                  <circle cx="18" cy="19" r="3"></circle>
-                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" shape-rendering="crispEdges">
+                  <!-- Pixelated share icon (Windows 95 style) -->
+                  <!-- Top circle -->
+                  <rect x="12" y="0" width="4" height="1" />
+                  <rect x="11" y="1" width="1" height="1" />
+                  <rect x="16" y="1" width="1" height="1" />
+                  <rect x="11" y="2" width="1" height="2" />
+                  <rect x="16" y="2" width="1" height="2" />
+                  <rect x="12" y="4" width="4" height="1" />
+
+                  <!-- Middle circle -->
+                  <rect x="0" y="6" width="4" height="1" />
+                  <rect x="-1" y="7" width="1" height="1" />
+                  <rect x="4" y="7" width="1" height="1" />
+                  <rect x="-1" y="8" width="1" height="2" />
+                  <rect x="4" y="8" width="1" height="2" />
+                  <rect x="0" y="10" width="4" height="1" />
+
+                  <!-- Bottom circle -->
+                  <rect x="12" y="11" width="4" height="1" />
+                  <rect x="11" y="12" width="1" height="1" />
+                  <rect x="16" y="12" width="1" height="1" />
+                  <rect x="11" y="13" width="1" height="2" />
+                  <rect x="16" y="13" width="1" height="2" />
+                  <rect x="12" y="15" width="4" height="1" />
+
+                  <!-- Lines connecting -->
+                  <rect x="4" y="7" width="8" height="1" />
+                  <rect x="4" y="9" width="8" height="1" />
                 </svg>
               </button>
             </div>
@@ -939,16 +970,6 @@ async function handleSubmit() {
     margin: 0 0 $space-sm;
     font-style: italic;
   }
-
-  &__url {
-    font-family: $font-display;
-    font-size: 0.875rem;
-    color: $smart-blue;
-    text-align: center;
-    margin: $space-sm 0;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-  }
 }
 
 .modal-actions {
@@ -962,11 +983,11 @@ async function handleSubmit() {
 
   .modal-share-btn {
     flex-shrink: 0;
-    padding: $space-sm;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 44px;
+    width: 48px;
+    height: auto;
 
     svg {
       display: block;
