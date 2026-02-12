@@ -22,11 +22,19 @@ export const usePushNotifications = () => {
         return userId
       }
 
-      // Request permission
-      await OneSignal.Slidedown.promptPush()
+      // Use native browser permission prompt (in system language - Portuguese)
+      const permission = await Notification.requestPermission()
+
+      if (permission !== 'granted') {
+        console.log('Permission denied')
+        return null
+      }
+
+      // After permission granted, let OneSignal register the subscription
+      await OneSignal.User.PushSubscription.optIn()
 
       // Wait a bit for subscription to complete
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise(resolve => setTimeout(resolve, 1500))
 
       // Get subscription info
       const subscription = await OneSignal.User.PushSubscription.id
