@@ -43,36 +43,45 @@ export const usePushNotifications = () => {
         console.log('✅ Já tem permissão granted')
       }
 
+      // Set up event listener for subscription changes BEFORE calling optIn
+      console.log('📝 Configurando listener de subscription...')
+      const subscriptionPromise = new Promise<{ id: string, token: string }>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Timeout aguardando subscription (15s)'))
+        }, 15000)
+
+        OneSignal.User.PushSubscription.addEventListener('change', function(event: any) {
+          console.log('🔔 Subscription change event:', event)
+          const id = event.current.id
+          const token = event.current.token
+
+          if (id) {
+            clearTimeout(timeout)
+            console.log('✅ Subscription ID recebido via event:', id)
+            resolve({ id, token })
+          }
+        })
+      })
+
       // After permission granted, let OneSignal register the subscription
       console.log('📝 Registrando no OneSignal...')
       await OneSignal.User.PushSubscription.optIn()
       console.log('✅ OptIn chamado')
 
-      // Wait longer for subscription to complete
-      console.log('⏳ Aguardando 3 segundos...')
-      await new Promise(resolve => setTimeout(resolve, 3000))
-
-      // Get subscription info
-      console.log('🔍 Buscando subscription ID...')
-      const subscription = await OneSignal.User.PushSubscription.id
-      const token = await OneSignal.User.PushSubscription.token
-      const optedIn = await OneSignal.User.PushSubscription.optedIn
+      // Wait for subscription event
+      console.log('⏳ Aguardando subscription change event...')
+      const { id: subscription, token } = await subscriptionPromise
 
       console.log('📊 Estado OneSignal:', {
         id: subscription,
-        token: token ? 'presente' : 'ausente',
-        optedIn
+        token: token ? 'presente' : 'ausente'
       })
 
-      if (subscription) {
-        // Save to database
-        console.log('💾 Salvando no banco...')
-        await saveTokenToDatabase(subscription, token)
-        console.log('✅ OneSignal subscription saved:', subscription)
-        return { success: true, userId: subscription }
-      }
-
-      return { error: 'Sem subscription ID após 3s de espera', success: false }
+      // Save to database
+      console.log('💾 Salvando no banco...')
+      await saveTokenToDatabase(subscription, token)
+      console.log('✅ OneSignal subscription saved:', subscription)
+      return { success: true, userId: subscription }
     } catch (error: any) {
       console.error('Error requesting notification permission:', error)
       return { error: error.message || 'Erro desconhecido', success: false }
