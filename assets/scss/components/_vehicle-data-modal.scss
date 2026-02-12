@@ -90,7 +90,7 @@
     font-family: $font-body;
     font-size: 0.875rem;
     z-index: 1001;
-    @include win-border;
+    @include win-border-raised;
   }
 }
 
