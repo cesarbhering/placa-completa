@@ -10,9 +10,6 @@ export default defineNuxtPlugin(() => {
   // Initialize OneSignal
   window.OneSignalDeferred = window.OneSignalDeferred || []
   window.OneSignalDeferred.push(async function(OneSignal: any) {
-    console.log('🔧 Inicializando OneSignal...')
-    console.log('📋 App ID:', '9ac2bca4-3290-4cf7-b797-524616b57d4d')
-
     try {
       await OneSignal.init({
         appId: '9ac2bca4-3290-4cf7-b797-524616b57d4d',
@@ -20,27 +17,12 @@ export default defineNuxtPlugin(() => {
         serviceWorkerParam: { scope: '/' },
         serviceWorkerPath: 'OneSignalSDKWorker.js',
         notifyButton: {
-          enable: false, // Disable default button, we'll handle permission ourselves
+          enable: false,
         },
-        allowLocalhostAsSecureOrigin: true, // For local dev
-      })
-      console.log('✅ OneSignal inicializado!')
-
-      // Log Service Worker status
-      if ('serviceWorker' in navigator) {
-        const reg = await navigator.serviceWorker.getRegistration()
-        console.log('📋 Service Worker registration:', reg ? 'OK' : 'FALHOU')
-        if (reg?.active) {
-          console.log('✅ SW Script:', reg.active.scriptURL)
-        }
-      }
-
-      // Log any errors
-      OneSignal.Notifications.addEventListener('permissionChange', (granted: boolean) => {
-        console.log('🔔 Permission change:', granted ? 'granted' : 'denied')
+        allowLocalhostAsSecureOrigin: true,
       })
     } catch (error: any) {
-      console.error('❌ Erro ao inicializar OneSignal:', error.message)
+      console.error('Error initializing OneSignal:', error.message)
     }
   })
 
