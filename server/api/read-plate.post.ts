@@ -41,16 +41,16 @@ export default defineEventHandler(async (event) => {
                 type: 'text',
                 text: `Read the Brazilian license plate from this image. Return only the plate characters (example: ABC1D23 or ABC1234).
 
-IMPORTANT - Character Recognition Rules:
-• Zero (0): Has a narrower, more elongated shape. Often has a diagonal cut or slash through it. In Brazilian plates, zeros appear ONLY in numeric positions (4th, 6th, and 7th positions).
-• Letter O: Is perfectly round and circular, following the pattern of capital letters. In Brazilian plates, letter O appears ONLY in letter positions (1st, 2nd, 3rd, and 5th positions in Mercosul format).
+                      IMPORTANT - Character Recognition Rules:
+                      • Zero (0): Has a narrower, more elongated shape. Often has a diagonal cut or slash through it. In Brazilian plates, zeros appear ONLY in numeric positions (4th, 6th, and 7th positions).
+                      • Letter O: Is perfectly round and circular, following the pattern of capital letters. In Brazilian plates, letter O appears ONLY in letter positions (1st, 2nd, 3rd, and 5th positions in Mercosul format).
 
-Brazilian plate formats:
-- Old format: ABC1234 (3 letters + 4 numbers)
-- Mercosul format: ABC1D23 (3 letters + 1 number + 1 letter + 2 numbers)
+                      Brazilian plate formats:
+                      - Old format: ABC1234 (3 letters + 4 numbers) - The plate, usually, has a gray background with black characters.
+                      - Mercosul format: ABC1D23 (3 letters + 1 number + 1 letter + 2 numbers) - The plate, usually, has a white background with black characters, and a blue strip on top with the country and state information.
 
-Pay special attention to distinguish 0 (zero) from O (letter) based on position and shape.`
-              },
+                      Pay special attention to distinguish 0 (zero) from O (letter) based on position and shape.`
+                },
               {
                 type: 'image_url',
                 image_url: {
