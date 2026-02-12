@@ -817,7 +817,7 @@ async function handleSubmit() {
 }
 
 .photo-btn {
-  margin-top: $space-xs;
+  margin-top: $space-md;
   font-size: 0.75rem;
   padding: $space-xs $space-sm;
   display: flex;
