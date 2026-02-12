@@ -2,10 +2,11 @@
 const isReady = ref(false)
 
 onMounted(() => {
-  // Small delay to ensure hydration is complete
+  // Wait for PWA detection and hydration to complete
+  // This prevents flash when hiding/showing elements based on isPWA
   setTimeout(() => {
     isReady.value = true
-  }, 100)
+  }, 200)
 })
 </script>
 
