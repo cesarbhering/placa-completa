@@ -10,17 +10,17 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'E-mail e placa são obrigatórios.' })
   }
 
-  const placaClean = placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
-  const placaRegex = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/
-  if (!placaRegex.test(placaClean)) {
-    throw createError({ statusCode: 400, message: 'Formato de placa inválido.' })
-  }
-
   const headers = getRequestHeaders(event)
   const ip = headers['x-forwarded-for']?.split(',')[0]?.trim()
     || headers['x-real-ip']
     || 'unknown'
   const userAgent = headers['user-agent'] || 'unknown'
+
+  const placaClean = placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
+  const placaRegex = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/
+  if (!placaRegex.test(placaClean)) {
+    throw createError({ statusCode: 400, message: 'Formato de placa inválido.' })
+  }
 
   const isMobile = /mobile|android|iphone/i.test(userAgent)
   const deviceInfo = isMobile ? 'Mobile' : 'Desktop'
@@ -33,6 +33,17 @@ export default defineEventHandler(async (event) => {
     const apiResult = await $fetch<Record<string, any>>(apiUrl)
     apiResponse = apiResult
   } catch (err: any) {
+    // Send error email
+    await sendErrorEmail({
+      endpoint: '/api/consulta',
+      errorMessage: err?.message || 'Erro ao consultar API de placas',
+      errorStack: err?.stack,
+      requestBody: { placa: placaClean, isPWA },
+      userAgent,
+      ip,
+      timestamp: new Date().toISOString(),
+    })
+
     const supabase = useSupabaseServer()
     await supabase.from('consultas').insert({
       email,
@@ -81,6 +92,17 @@ export default defineEventHandler(async (event) => {
       emailSent = true
     } catch (err: any) {
       console.error('Resend error:', err)
+
+      // Send error notification
+      await sendErrorEmail({
+        endpoint: '/api/consulta (email sending)',
+        errorMessage: `Failed to send email to ${email}: ${err?.message}`,
+        errorStack: err?.stack,
+        requestBody: { placa: placaClean },
+        userAgent,
+        ip,
+        timestamp: new Date().toISOString(),
+      })
     }
   }
 

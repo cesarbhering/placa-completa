@@ -22,7 +22,7 @@ export default defineNuxtConfig({
       short_name: 'PlacaCompleta',
       lang: 'pt-BR',
       display: 'standalone',
-      orientation: 'any',
+      orientation: 'portrait',
       theme_color: '#090c9b',
       background_color: '#ffffff',
       icons: [
