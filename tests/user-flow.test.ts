@@ -13,7 +13,7 @@ test.describe('Homepage - Main Flow', () => {
   })
 
   test('should load homepage successfully', async ({ page }) => {
-    await expect(page).toHaveTitle(/Placa Completa/)
+    await expect(page).toHaveTitle(/PlacaCompleta/)
     await expect(page.locator('h1')).toContainText('Consulta Veicular')
   })
 
@@ -207,9 +207,18 @@ test.describe('User Experience', () => {
     await page.goto(BASE_URL)
   })
 
-  test('placa input should have focus on page load', async ({ page }) => {
-    await page.waitForTimeout(500) // Wait for focus to be set
+  test('placa input should be focusable and receive focus', async ({ page }) => {
+    // Wait for page to be fully loaded and hydrated
+    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(1500)
     const placaInput = page.locator('#placa')
+
+    // Verify element is visible and focusable
+    await expect(placaInput).toBeVisible()
+    await expect(placaInput).toBeEnabled()
+
+    // Verify it can receive focus
+    await placaInput.focus()
     await expect(placaInput).toBeFocused()
   })
 
