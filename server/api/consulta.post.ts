@@ -52,6 +52,7 @@ export default defineEventHandler(async (event) => {
       ip_address: ip,
       user_agent: userAgent,
       device_info: deviceInfo,
+      is_pwa: isPWA || false,
       email_sent: false,
       api_response: null,
     })
@@ -71,6 +72,7 @@ export default defineEventHandler(async (event) => {
       ip_address: ip,
       user_agent: userAgent,
       device_info: deviceInfo,
+      is_pwa: isPWA || false,
       email_sent: false,
       api_response: apiResponse,
     })
@@ -114,6 +116,7 @@ export default defineEventHandler(async (event) => {
     ip_address: ip,
     user_agent: userAgent,
     device_info: deviceInfo,
+    is_pwa: isPWA || false,
     email_sent: emailSent,
     api_response: apiResponse,
   })
