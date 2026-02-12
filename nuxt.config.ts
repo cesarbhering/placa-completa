@@ -19,7 +19,7 @@ export default defineNuxtConfig({
     registerType: 'autoUpdate',
     manifest: {
       name: 'PlacaCompleta',
-      short_name: 'Placa',
+      short_name: 'PlacaCompleta',
       lang: 'pt-BR',
       display: 'standalone',
       orientation: 'portrait-primary',
@@ -290,7 +290,7 @@ export default defineNuxtConfig({
       htmlAttrs: { lang: "pt-BR" },
       charset: "utf-8",
       viewport: "width=device-width, initial-scale=1",
-      title: "Placa Completa - Consulta Veicular Grátis por Placa",
+      title: "PlacaCompleta",
       meta: [
         {
           name: "description",
