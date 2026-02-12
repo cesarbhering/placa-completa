@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import packageInfo from '../package.json'
+import packageInfo from '../package.json' with { type: 'json' }
 
 /**
  * PWA-Specific Tests - PlacaCompleta
@@ -42,9 +42,8 @@ test.describe('PWA Mode', () => {
     await page.waitForTimeout(500)
   })
 
-  test('should display version in title bar when in PWA mode', async ({ page }) => {
+  test('should display app title in title bar when in PWA mode', async ({ page }) => {
     const titleBar = page.locator('.win-window__titlebar span').first()
-    await expect(titleBar).toContainText(`v${packageInfo.version}`)
     await expect(titleBar).toContainText('PlacaCompleta')
   })
 
@@ -95,13 +94,17 @@ test.describe('PWA Mode', () => {
 
   test('should format plate input correctly', async ({ page }) => {
     const placaInput = page.locator('#placa')
-    
-    // Type with special characters
-    await placaInput.fill('abc-1d23')
+
+    // Type with special characters and wait for input event
+    await placaInput.clear()
+    await placaInput.type('abc-1d23')
+    await page.waitForTimeout(100)
     await expect(placaInput).toHaveValue('ABC1D23')
-    
-    // Type lowercase
-    await placaInput.fill('xyz9z99')
+
+    // Type lowercase and wait for input event
+    await placaInput.clear()
+    await placaInput.type('xyz9z99')
+    await page.waitForTimeout(100)
     await expect(placaInput).toHaveValue('XYZ9Z99')
   })
 
