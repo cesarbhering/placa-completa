@@ -128,6 +128,7 @@ if (countData.value?.count) {
 onMounted(async () => {
   if (isPWA.value) {
     addDebugLog('🚀 PWA detectado')
+    addDebugLog(`🌐 URL: ${window.location.href}`)
     showDebugButton.value = true
 
     // For PWA, load persistent email
