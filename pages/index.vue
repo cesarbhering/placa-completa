@@ -19,6 +19,7 @@ const pwaEmail = ref('')
 const pwaEmailError = ref('')
 const photoInput = ref<HTMLInputElement | null>(null)
 const processingPhoto = ref(false)
+const photoProcessMessage = ref('')
 
 const placaRef = ref<HTMLInputElement | null>(null)
 const emailRef = ref<HTMLInputElement | null>(null)
@@ -215,10 +216,12 @@ async function onPhotoCapture(e: Event) {
   track('photo_capture_started')
 
   try {
-    // Compress image before sending
+    // Step 1: Compress image
+    photoProcessMessage.value = 'Enviando foto para processamento...'
     const base64 = await compressImage(file, 1024, 0.8)
 
-    // Send to API for OCR
+    // Step 2: Send to OCR API
+    photoProcessMessage.value = 'Aguardando identificação da placa...'
     const result = await $fetch<{ success: boolean; placa: string; message?: string }>('/api/read-plate', {
       method: 'POST',
       body: { image: base64 }
@@ -228,7 +231,8 @@ async function onPhotoCapture(e: Event) {
       placa.value = result.placa
       track('photo_capture_success', { placa: result.placa })
 
-      // Auto-submit after photo capture
+      // Step 3: Auto-submit after photo capture
+      photoProcessMessage.value = `Consultando placa ${result.placa}...`
       await handleSubmit()
     } else {
       placaError.value = result.message || 'Não foi possível ler a placa da foto. Tente novamente.'
@@ -240,6 +244,7 @@ async function onPhotoCapture(e: Event) {
     track('photo_capture_error', { error_message: errMsg })
   } finally {
     processingPhoto.value = false
+    photoProcessMessage.value = ''
     // Reset input to allow same file again
     target.value = ''
   }
@@ -440,11 +445,15 @@ async function handleSubmit() {
             <div class="loading-bar__fill" />
           </div>
 
-          <div v-if="message" class="win-alert" :class="`win-alert--${messageType}`">
+          <div v-if="photoProcessMessage" class="win-alert win-alert--info">
+            {{ photoProcessMessage }}
+          </div>
+
+          <div v-if="message && !photoProcessMessage" class="win-alert" :class="`win-alert--${messageType}`">
             {{ message }}
           </div>
 
-          <p v-if="!processingPhoto && !loading" class="trust-line">Resultado em segundos. Sem cadastro. 100% grátis.</p>
+          <p class="trust-line">Resultado em segundos. Sem cadastro. 100% grátis.</p>
         </form>
 
         <!-- Post-success state -->
