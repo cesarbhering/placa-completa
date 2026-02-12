@@ -64,6 +64,7 @@ export const usePushNotifications = () => {
 
   const saveTokenToDatabase = async (subscriptionId: string, token: string) => {
     try {
+      console.log('💾 Salvando no banco...')
       const userAgent = navigator.userAgent
       const isMobile = /mobile|android|iphone/i.test(userAgent)
       const deviceInfo = isMobile ? 'Mobile' : 'Desktop'
@@ -73,7 +74,7 @@ export const usePushNotifications = () => {
       const webEmail = localStorage.getItem('pc_email')
       const userEmail = pwaEmail || webEmail || null
 
-      await $fetch('/api/fcm-token/save', {
+      const response = await $fetch('/api/fcm-token/save', {
         method: 'POST',
         body: {
           token: subscriptionId,
@@ -83,8 +84,10 @@ export const usePushNotifications = () => {
           pushToken: token // Store the actual push token too
         }
       })
-    } catch (error) {
-      console.error('Error saving subscription to database:', error)
+      console.log('✅ Salvo no banco:', response)
+    } catch (error: any) {
+      console.error('❌ Erro salvando no banco:', error.message)
+      throw error
     }
   }
 
