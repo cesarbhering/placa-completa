@@ -20,6 +20,8 @@ const showPwaEmailPrompt = ref(false)
 const pwaEmail = ref('')
 const pwaEmailError = ref('')
 const showMoreData = ref(false)
+const photoInput = ref<HTMLInputElement | null>(null)
+const processingPhoto = ref(false)
 
 const placaRef = ref<HTMLInputElement | null>(null)
 const emailRef = ref<HTMLInputElement | null>(null)
@@ -168,6 +170,58 @@ function changePwaEmail() {
   track('pwa_email_change_requested')
 }
 
+function triggerPhotoCapture() {
+  photoInput.value?.click()
+  track('photo_capture_initiated')
+}
+
+async function onPhotoCapture(e: Event) {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+
+  if (!file) return
+
+  processingPhoto.value = true
+  placaError.value = ''
+  message.value = ''
+  track('photo_capture_started')
+
+  try {
+    // Convert image to base64
+    const reader = new FileReader()
+    const base64 = await new Promise<string>((resolve, reject) => {
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
+    // Send to API for OCR
+    const result = await $fetch<{ success: boolean; placa: string; message?: string }>('/api/read-plate', {
+      method: 'POST',
+      body: { image: base64 }
+    })
+
+    if (result.success && result.placa) {
+      placa.value = result.placa
+      track('photo_capture_success', { placa: result.placa })
+
+      // Auto-submit after photo capture
+      await handleSubmit()
+    } else {
+      placaError.value = result.message || 'Não foi possível ler a placa da foto. Tente novamente.'
+      track('photo_capture_failed', { reason: result.message })
+    }
+  } catch (err: any) {
+    const errMsg = err?.data?.message || err?.message || 'Erro ao processar a foto. Tente novamente.'
+    placaError.value = errMsg
+    track('photo_capture_error', { error_message: errMsg })
+  } finally {
+    processingPhoto.value = false
+    // Reset input to allow same file again
+    target.value = ''
+  }
+}
+
 async function handleSubmit() {
   emailError.value = ''
   placaError.value = ''
@@ -305,6 +359,29 @@ async function handleSubmit() {
               @input="onPlacaInput"
             />
             <span v-if="placaError" class="form-group__error">{{ placaError }}</span>
+          </div>
+
+          <!-- Photo Capture for PWA -->
+          <div v-if="isPWA" class="form-group">
+            <input
+              ref="photoInput"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style="display: none"
+              @change="onPhotoCapture"
+            />
+            <button
+              type="button"
+              class="win-btn win-btn--secondary win-btn--block"
+              :disabled="processingPhoto || loading"
+              @click="triggerPhotoCapture"
+            >
+              {{ processingPhoto ? '📷 Processando...' : '📷 Tirar Foto da Placa' }}
+            </button>
+            <div v-if="processingPhoto" class="loading-bar">
+              <div class="loading-bar__fill" />
+            </div>
           </div>
 
           <div v-if="!isPWA" class="form-group">
