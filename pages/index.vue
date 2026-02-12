@@ -20,8 +20,16 @@ const pwaEmailError = ref('')
 const photoInput = ref<HTMLInputElement | null>(null)
 const processingPhoto = ref(false)
 const photoProcessMessage = ref('')
+const debugLogs = ref<string[]>([])
 
 const placaRef = ref<HTMLInputElement | null>(null)
+
+function addDebugLog(message: string) {
+  if (isPWA.value) {
+    debugLogs.value.push(`${new Date().toLocaleTimeString()}: ${message}`)
+    console.log(message)
+  }
+}
 const emailRef = ref<HTMLInputElement | null>(null)
 const formStarted = ref(false)
 
@@ -75,6 +83,8 @@ if (countData.value?.count) {
 
 onMounted(async () => {
   if (isPWA.value) {
+    addDebugLog('🚀 PWA detectado')
+
     // For PWA, load persistent email
     const savedPwaEmail = localStorage.getItem('pwa_email')
     if (savedPwaEmail) {
@@ -83,9 +93,17 @@ onMounted(async () => {
 
     // Request notification permission automatically
     if ('Notification' in window) {
+      addDebugLog('📢 Iniciando pedido de permissão...')
       const { requestPermissionAndSave, listenForMessages } = usePushNotifications()
-      await requestPermissionAndSave()
+      const result = await requestPermissionAndSave()
+      if (result) {
+        addDebugLog('✅ Permissão concedida! ID: ' + result.substring(0, 20) + '...')
+      } else {
+        addDebugLog('❌ Permissão negada ou erro')
+      }
       listenForMessages()
+    } else {
+      addDebugLog('❌ Notification API não disponível')
     }
   } else {
     // For web, load last used email
@@ -596,6 +614,16 @@ async function handleSubmit() {
 
     </main>
 
+    <!-- Debug console (only in PWA) -->
+    <div v-if="isPWA && debugLogs.length > 0" class="debug-console">
+      <div class="debug-console__header">🔍 Debug</div>
+      <div class="debug-console__logs">
+        <div v-for="(log, index) in debugLogs" :key="index" class="debug-console__log">
+          {{ log }}
+        </div>
+      </div>
+    </div>
+
     <footer class="footer">
       <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta — Consulta veicular grátis e segura.</p>
       <p class="footer__email">contato[at]placacompleta.com.br</p>
@@ -885,6 +913,40 @@ async function handleSubmit() {
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+  }
+}
+
+.debug-console {
+  position: fixed;
+  bottom: 60px;
+  left: 10px;
+  right: 10px;
+  max-height: 150px;
+  background: rgba(0, 0, 0, 0.9);
+  color: #0f0;
+  font-family: monospace;
+  font-size: 10px;
+  border: 1px solid #0f0;
+  border-radius: 4px;
+  z-index: 9999;
+  overflow: hidden;
+
+  &__header {
+    background: #0f0;
+    color: #000;
+    padding: 4px 8px;
+    font-weight: bold;
+  }
+
+  &__logs {
+    padding: 8px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  &__log {
+    margin-bottom: 4px;
+    word-break: break-all;
   }
 }
 </style>
