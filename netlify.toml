@@ -3,12 +3,6 @@
   publish = "dist"
 
 [[redirects]]
-  from = "https://www.placacompleta.com.br/*"
-  to = "https://placacompleta.com.br/:splat"
-  status = 301
-  force = true
-
-[[redirects]]
   from = "https://dashboard.placacompleta.com.br"
   to = "/dash"
   status = 200
@@ -18,4 +12,10 @@
   from = "https://dashboard.placacompleta.com.br/*"
   to = "/dash"
   status = 200
+  force = true
+
+[[redirects]]
+  from = "https://www.placacompleta.com.br/*"
+  to = "https://placacompleta.com.br/:splat"
+  status = 301
   force = true

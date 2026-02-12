@@ -367,7 +367,11 @@ body {
 
   .desktop {
     justify-content: flex-start;
-    padding-top: $space-lg;
+    padding-top: max(env(safe-area-inset-top, 0px) + $space-xl, $space-xl);
+  }
+
+  .win-window {
+    margin-top: $space-lg;
   }
 }
 

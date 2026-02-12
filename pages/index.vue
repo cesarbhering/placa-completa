@@ -241,7 +241,6 @@ async function handleSubmit() {
               placeholder="seu@email.com"
               autocomplete="email"
               inputmode="email"
-              required
               @input="onEmailInput"
             />
             <span v-if="emailError" class="form-group__error">{{ emailError }}</span>
