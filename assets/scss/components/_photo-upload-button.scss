@@ -4,6 +4,7 @@
  * Botão para upload e processamento de fotos de placas
  */
 
+@use 'sass:color';
 @use '../variables' as *;
 
 .photo-upload {
@@ -19,8 +20,8 @@
     @include win-border-sunken;
 
     &--success {
-      background: lighten($success-green, 40%);
-      color: darken($success-green, 10%);
+      background: color.adjust($success-green, $lightness: 40%);
+      color: color.adjust($success-green, $lightness: -10%);
     }
   }
 }
