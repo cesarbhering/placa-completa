@@ -19,6 +19,7 @@
     "prepare-hooks": "node scripts/setup-git-hooks.js"
   },
   "dependencies": {
+    "@khmyznikov/pwa-install": "^0.6.3",
     "@nuxt/image": "^2.0.0",
     "@nuxtjs/seo": "^3.4.0",
     "@nuxtjs/sitemap": "^7.6.0",

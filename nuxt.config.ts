@@ -20,7 +20,6 @@ export default defineNuxtConfig({
     manifest: {
       name: 'PlacaCompleta',
       short_name: 'PlacaCompleta',
-      description: 'Consulta veicular gratuita por placa.',
       lang: 'pt-BR',
       display: 'standalone',
       theme_color: '#090c9b',
@@ -345,6 +344,7 @@ export default defineNuxtConfig({
         { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       ],
       link: [
+        { rel: "manifest", href: "/manifest.json" },
         { rel: "preconnect", href: "https://www.googletagmanager.com" },
         { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
         {
