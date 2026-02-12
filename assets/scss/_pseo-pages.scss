@@ -8,6 +8,7 @@
  * - Win95 style relaxado
  */
 
+@use 'sass:color';
 @use 'variables' as *;
 
 // Estilos aplicados apenas em páginas com classe .pseo-page
@@ -109,18 +110,18 @@
         font-weight: 500;
         padding: $space-md $space-xl;
         border: 3px solid;
-        border-color: lighten($smart-blue, 20%) darken($smart-blue, 10%) darken($smart-blue, 10%) lighten($smart-blue, 20%);
+        border-color: color.adjust($smart-blue, $lightness: 20%) color.adjust($smart-blue, $lightness: -10%) color.adjust($smart-blue, $lightness: -10%) color.adjust($smart-blue, $lightness: 20%);
         letter-spacing: 1px;
         transition: all 0.2s;
 
         &:hover {
-          background: lighten($smart-blue, 5%);
+          background: color.adjust($smart-blue, $lightness: 5%);
           color: #ffffff;
-          border-color: lighten($smart-blue, 25%) darken($smart-blue, 5%) darken($smart-blue, 5%) lighten($smart-blue, 25%);
+          border-color: color.adjust($smart-blue, $lightness: 25%) color.adjust($smart-blue, $lightness: -5%) color.adjust($smart-blue, $lightness: -5%) color.adjust($smart-blue, $lightness: 25%);
         }
 
         &:active {
-          border-color: darken($smart-blue, 10%) lighten($smart-blue, 20%) lighten($smart-blue, 20%) darken($smart-blue, 10%);
+          border-color: color.adjust($smart-blue, $lightness: -10%) color.adjust($smart-blue, $lightness: 20%) color.adjust($smart-blue, $lightness: 20%) color.adjust($smart-blue, $lightness: -10%);
           padding: 15px 33px 13px 35px;
         }
 
