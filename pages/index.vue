@@ -34,7 +34,11 @@ const allVehicleData = computed(() => {
   if (!vehicleData.value) return null
   const data = vehicleData.value
   const extra = data.extra || {}
-  const fipeData = data.fipe?.dados?.[0]
+
+  // Find FIPE entry with highest score (best match)
+  const fipeData = data.fipe?.dados?.reduce((max, item) =>
+    (item.score > (max?.score || 0)) ? item : max
+  , null)
 
   // PWA: Show full chassis from extra if available, fallback to obfuscated
   // Web: Always show obfuscated chassis
