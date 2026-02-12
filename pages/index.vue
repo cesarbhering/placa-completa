@@ -58,7 +58,17 @@ async function testPermissionManual() {
     if (result === 'granted') {
       addDebugLog('🎉 Permissão concedida! Registrando no OneSignal...')
       const { requestPermissionAndSave } = usePushNotifications()
-      await requestPermissionAndSave()
+
+      try {
+        const response = await requestPermissionAndSave()
+        if (response.success) {
+          addDebugLog(`✅ Registrado! ID: ${response.userId}`)
+        } else {
+          addDebugLog(`❌ Falha no registro: ${response.error}`)
+        }
+      } catch (err: any) {
+        addDebugLog(`❌ Erro ao registrar: ${err.message}`)
+      }
     }
   } catch (error: any) {
     addDebugLog(`❌ Erro: ${error.message}`)
