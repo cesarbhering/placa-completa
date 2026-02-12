@@ -4,6 +4,8 @@
  * Modal para exibição dos dados do veículo consultado
  */
 
+@use '../variables' as *;
+
 .vehicle-data-modal {
   &__overlay {
     position: fixed;

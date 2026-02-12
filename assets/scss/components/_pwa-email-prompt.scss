@@ -4,6 +4,8 @@
  * Modal para solicitar e salvar email do usuário no PWA
  */
 
+@use '../variables' as *;
+
 .pwa-email-prompt {
   &__overlay {
     position: fixed;
