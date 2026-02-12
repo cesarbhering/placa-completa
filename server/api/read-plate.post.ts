@@ -13,6 +13,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Formato de imagem inválido.' })
   }
 
+  const headers = getRequestHeaders(event)
+  const ip = headers['x-forwarded-for']?.split(',')[0]?.trim()
+    || headers['x-real-ip']
+    || 'unknown'
+  const userAgent = headers['user-agent'] || 'unknown'
+
   try {
     // Call OpenAI Vision API
     const response = await $fetch('https://api.openai.com/v1/chat/completions', {
@@ -76,6 +82,17 @@ export default defineEventHandler(async (event) => {
     }
   } catch (err: any) {
     console.error('OpenAI API error:', err)
+
+    // Send error notification
+    await sendErrorEmail({
+      endpoint: '/api/read-plate',
+      errorMessage: err?.message || 'OpenAI API error',
+      errorStack: err?.stack,
+      requestBody: { imageSize: image?.length || 0 },
+      userAgent,
+      ip,
+      timestamp: new Date().toISOString(),
+    })
 
     // Check for specific error types
     if (err?.data?.error?.code === 'invalid_api_key') {
