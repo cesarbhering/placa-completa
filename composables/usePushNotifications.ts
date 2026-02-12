@@ -46,14 +46,23 @@ export const usePushNotifications = () => {
       // After permission granted, let OneSignal register the subscription
       console.log('📝 Registrando no OneSignal...')
       await OneSignal.User.PushSubscription.optIn()
+      console.log('✅ OptIn chamado')
 
-      // Wait a bit for subscription to complete
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Wait longer for subscription to complete
+      console.log('⏳ Aguardando 3 segundos...')
+      await new Promise(resolve => setTimeout(resolve, 3000))
 
       // Get subscription info
+      console.log('🔍 Buscando subscription ID...')
       const subscription = await OneSignal.User.PushSubscription.id
       const token = await OneSignal.User.PushSubscription.token
-      console.log('🆔 Subscription ID:', subscription)
+      const optedIn = await OneSignal.User.PushSubscription.optedIn
+
+      console.log('📊 Estado OneSignal:', {
+        id: subscription,
+        token: token ? 'presente' : 'ausente',
+        optedIn
+      })
 
       if (subscription) {
         // Save to database
@@ -63,7 +72,7 @@ export const usePushNotifications = () => {
         return { success: true, userId: subscription }
       }
 
-      return { error: 'Sem subscription ID', success: false }
+      return { error: 'Sem subscription ID após 3s de espera', success: false }
     } catch (error: any) {
       console.error('Error requesting notification permission:', error)
       return { error: error.message || 'Erro desconhecido', success: false }
