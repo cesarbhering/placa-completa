@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const { isPWA, isMobile } = usePWA()
+import packageInfo from '../package.json'
+
+const { isPWA, isMobile } = useAppMode()
 const email = ref('')
 const placa = ref('')
 const loading = ref(false)
@@ -18,6 +20,10 @@ const snackbarMessage = ref('')
 const placaRef = ref<HTMLInputElement | null>(null)
 const emailRef = ref<HTMLInputElement | null>(null)
 const formStarted = ref(false)
+
+const appTitle = computed(() => {
+  return isPWA.value ? `PlacaCompleta v${packageInfo.version}` : 'PlacaCompleta'
+})
 
 function track(event: string, params?: Record<string, any>) {
   if (import.meta.client && window.gtag) {
@@ -169,7 +175,7 @@ async function handleSubmit() {
     <main>
       <div class="win-window">
       <div class="win-window__titlebar">
-        <span>PlacaCompleta</span>
+        <span>{{ appTitle }}</span>
         <div class="win-window__titlebar-buttons">
           <span class="win-window__titlebar-btn">_</span>
           <span class="win-window__titlebar-btn">&square;</span>
