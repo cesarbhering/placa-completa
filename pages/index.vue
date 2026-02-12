@@ -177,14 +177,20 @@ async function shareVehicleData() {
     await nextTick()
     await new Promise(resolve => setTimeout(resolve, 100))
 
-    // Capture screenshot
+    // Capture screenshot with high quality settings
     const canvas = await html2canvas(modalWindowRef.value, {
       backgroundColor: '#c0c0c0',
-      scale: 2,
+      scale: 3, // Higher resolution for better quality
       logging: false,
+      useCORS: true,
+      allowTaint: true,
+      imageTimeout: 0,
+      removeContainer: true,
+      windowWidth: modalWindowRef.value.scrollWidth,
+      windowHeight: modalWindowRef.value.scrollHeight,
     })
 
-    // Convert to blob
+    // Convert to blob with maximum quality
     const blob = await new Promise<Blob>((resolve) => {
       canvas.toBlob((blob) => resolve(blob!), 'image/png', 1.0)
     })
