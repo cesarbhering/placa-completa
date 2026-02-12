@@ -16,6 +16,17 @@ export const usePushNotifications = () => {
       const isSubscribed = await OneSignal.User.PushSubscription.optedIn
       if (isSubscribed) {
         const userId = await OneSignal.User.PushSubscription.id
+        const token = await OneSignal.User.PushSubscription.token
+
+        // Save to database even if already subscribed (sync OneSignal -> Supabase)
+        if (userId) {
+          try {
+            await saveTokenToDatabase(userId, token || '')
+          } catch (error) {
+            // Continue even if save fails
+          }
+        }
+
         return { success: true, userId }
       }
 
