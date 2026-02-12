@@ -1,13 +1,18 @@
 <script setup lang="ts">
 const isReady = ref(false)
 
-onMounted(() => {
-  // Wait for PWA detection and hydration to complete
-  // This prevents flash when hiding/showing elements based on isPWA
-  setTimeout(() => {
-    isReady.value = true
-  }, 200)
-})
+// Wait for PWA Service Worker to be ready before showing app
+// This prevents flicker during auto-update by keeping loading screen active
+const pwaReady = useState('pwaReady', () => false)
+
+watch(pwaReady, (ready) => {
+  if (ready) {
+    // Small delay to ensure smooth transition and isPWA detection
+    setTimeout(() => {
+      isReady.value = true
+    }, 100)
+  }
+}, { immediate: true })
 </script>
 
 <template>
