@@ -175,12 +175,16 @@ async function shareVehicleData() {
 
     // Wait for DOM update and ensure footer with URL is rendered
     await nextTick()
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     await new Promise(resolve => setTimeout(resolve, 300))
 
     // Capture screenshot with high quality settings
+    // html2canvas clones the ENTIRE document including parent elements.
+    // The modal-overlay (rgba(0,0,0,0.7)) was bleeding through causing
+    // a non-deterministic fog/haze effect. onclone strips those backgrounds.
     const canvas = await html2canvas(modalWindowRef.value, {
-      backgroundColor: '#c0c0c0', // Match Windows 95 modal background
-      scale: 3, // Higher resolution for better quality
+      backgroundColor: '#c0c0c0',
+      scale: 3,
       logging: false,
       useCORS: true,
       allowTaint: true,
@@ -188,6 +192,17 @@ async function shareVehicleData() {
       removeContainer: true,
       windowWidth: modalWindowRef.value.scrollWidth,
       windowHeight: modalWindowRef.value.scrollHeight,
+      onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
+        // Remove parent overlay background from cloned DOM
+        const overlay = clonedElement.closest('.modal-overlay')
+        if (overlay) {
+          ;(overlay as HTMLElement).style.background = 'transparent'
+        }
+        // Remove body background (navy gradient) from clone
+        _clonedDoc.body.style.background = '#c0c0c0'
+        // Disable animations that may interfere with capture
+        clonedElement.style.animation = 'none'
+      },
     })
 
     // Convert to blob with maximum quality
