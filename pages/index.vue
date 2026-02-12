@@ -19,6 +19,7 @@ const snackbarMessage = ref('')
 const showPwaEmailPrompt = ref(false)
 const pwaEmail = ref('')
 const pwaEmailError = ref('')
+const showMoreData = ref(false)
 
 const placaRef = ref<HTMLInputElement | null>(null)
 const emailRef = ref<HTMLInputElement | null>(null)
@@ -26,6 +27,39 @@ const formStarted = ref(false)
 
 const appTitle = computed(() => {
   return isPWA.value ? `PlacaCompleta v${packageInfo.version}` : 'PlacaCompleta'
+})
+
+const mainVehicleData = computed(() => {
+  if (!vehicleData.value) return null
+  const data = vehicleData.value
+  return {
+    Marca: data.MARCA || data.marca || '-',
+    Modelo: data.MODELO || data.modelo || '-',
+    'Ano/Modelo': `${data.ano || '-'}/${data.anoModelo || '-'}`,
+    Placa: placa.value || '-',
+    Chassi: data.chassi || '-',
+  }
+})
+
+const extraVehicleData = computed(() => {
+  if (!vehicleData.value) return null
+  const data = vehicleData.value
+  const extra = data.extra || {}
+  const fipeData = data.fipe?.dados?.[0]
+
+  return {
+    Cor: data.cor || '-',
+    Combustível: extra.combustivel || '-',
+    Tipo: extra.tipo_veiculo || '-',
+    Espécie: extra.especie || '-',
+    Passageiros: extra.quantidade_passageiro || '-',
+    Município: `${data.municipio || '-'} - ${data.uf || '-'}`,
+    Origem: data.origem || '-',
+    Situação: data.situacao || '-',
+    'Valor FIPE': fipeData?.texto_valor || '-',
+    'Modelo FIPE': fipeData?.texto_modelo || '-',
+    'Ref. FIPE': fipeData?.mes_referencia || '-',
+  }
 })
 
 function track(event: string, params?: Record<string, any>) {
@@ -94,6 +128,7 @@ function resetForm() {
   sentToEmail.value = ''
   messageType.value = 'info'
   formStarted.value = false
+  showMoreData.value = false
   track('new_consulta_click')
   nextTick(() => {
     placaRef.value?.focus()
@@ -366,27 +401,52 @@ async function handleSubmit() {
       <div class="modal-window" @click.stop>
         <div class="win-window">
           <div class="win-window__titlebar">
-            <span>Dados do Veículo</span>
+            <span>Dados do Veículo - {{ placa }}</span>
             <div class="win-window__titlebar-buttons">
               <span class="win-window__titlebar-btn" @click="showDataModal = false">×</span>
             </div>
           </div>
           <div class="win-window__body">
-            <p class="modal-instruction">Clique nos valores para copiar</p>
-            <div class="data-table">
-              <div 
-                v-for="(value, key) in vehicleData" 
-                :key="key"
-                class="data-table__row"
-                @click="copyToClipboard(value, key)"
+            <!-- Main Data -->
+            <div class="data-section">
+              <div class="data-main">
+                <div
+                  v-for="(value, key) in mainVehicleData"
+                  :key="key"
+                  class="data-main__row"
+                >
+                  <span class="data-main__label">{{ key }}</span>
+                  <span class="data-main__value">{{ value }}</span>
+                </div>
+              </div>
+
+              <!-- Toggle Button -->
+              <button
+                type="button"
+                class="win-btn win-btn--secondary win-btn--block"
+                @click="showMoreData = !showMoreData"
               >
-                <span class="data-table__label">{{ key }}</span>
-                <span class="data-table__value">{{ value }}</span>
+                {{ showMoreData ? '▲ Ocultar Dados Extras' : '▼ Ver Mais Dados' }}
+              </button>
+
+              <!-- Extra Data (Accordion) -->
+              <div v-if="showMoreData" class="data-extra">
+                <div
+                  v-for="(value, key) in extraVehicleData"
+                  :key="key"
+                  class="data-extra__row"
+                  @click="copyToClipboard(value, key)"
+                >
+                  <span class="data-extra__label">{{ key }}</span>
+                  <span class="data-extra__value">{{ value }}</span>
+                </div>
+                <p class="data-extra__hint">Clique para copiar</p>
               </div>
             </div>
+
             <button
               type="button"
-              class="win-btn win-btn--primary win-btn--block mt-md"
+              class="win-btn win-btn--primary win-btn--block"
               @click="showDataModal = false; resetForm()"
             >
               Nova Consulta
@@ -412,7 +472,7 @@ async function handleSubmit() {
             </div>
           </div>
           <div class="win-window__body">
-            <p class="modal-instruction">Para rastrear suas consultas, precisamos do seu e-mail. Você só precisa informar uma vez.</p>
+            <p class="modal-instruction">Será necessário informar seu e-mail apenas uma vez.</p>
             <div class="form-group">
               <label class="form-group__label" for="pwa-email">Seu e-mail</label>
               <input
@@ -580,12 +640,22 @@ async function handleSubmit() {
   justify-content: center;
   z-index: 1000;
   padding: $space-md;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-window {
   max-width: 480px;
   width: 100%;
+  max-height: 90vh;
   animation: slideUp 0.3s ease-out;
+  margin: auto;
+
+  .win-window__body {
+    max-height: calc(90vh - 60px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @keyframes slideUp {
@@ -608,25 +678,66 @@ async function handleSubmit() {
   font-style: italic;
 }
 
-.data-table {
+.data-section {
+  margin-bottom: $space-md;
+}
+
+.data-main {
   @include win-border-sunken;
   background: $win-white;
   padding: $space-sm;
+  margin-bottom: $space-sm;
 
   &__row {
     display: flex;
     justify-content: space-between;
-    padding: $space-xs $space-sm;
+    padding: $space-xs 0;
+    border-bottom: 1px dotted #9ab1d0;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__label {
+    font-weight: 600;
+    color: $graphite;
+    font-size: 0.8125rem;
+  }
+
+  &__value {
+    color: $navy-electric;
+    text-align: right;
+    font-weight: 700;
+    font-family: $font-display;
+    font-size: 0.8125rem;
+  }
+}
+
+.data-extra {
+  @include win-border-sunken;
+  background: $win-white;
+  padding: $space-sm;
+  margin-top: $space-sm;
+  animation: slideDown 0.2s ease-out;
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    padding: $space-xs 0;
     border-bottom: 1px dotted #9ab1d0;
     cursor: pointer;
     transition: background 0.1s;
 
     &:last-child {
       border-bottom: none;
+      margin-bottom: $space-xs;
     }
 
     &:hover {
       background: $powder-blue;
+      padding-left: 4px;
+      padding-right: 4px;
     }
 
     &:active {
@@ -638,13 +749,41 @@ async function handleSubmit() {
   &__label {
     font-weight: 600;
     color: $graphite;
-    text-transform: capitalize;
+    font-size: 0.75rem;
   }
 
   &__value {
     color: $navy-electric;
     text-align: right;
+    font-size: 0.75rem;
   }
+
+  &__hint {
+    font-size: 0.625rem;
+    color: $win-darker;
+    text-align: center;
+    margin: $space-xs 0 0;
+    font-style: italic;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+.win-btn--secondary {
+  background: $win-bg;
+  color: $graphite;
+  font-size: 0.875rem;
+  margin-bottom: 0;
+  font-weight: 600;
 }
 
 .snackbar {
