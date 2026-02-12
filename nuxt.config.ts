@@ -424,6 +424,7 @@ export default defineNuxtConfig({
     supabaseKey: process.env.SUPABASE_SERVICE_KEY || "",
     resendApiKey: process.env.RESEND_API_KEY || "",
     placaApiToken: process.env.PLACA_API_TOKEN || "",
+    apiKeyOpenai: process.env.API_KEY_OPENAI || "",
     public: {
       supabaseUrl:
         process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",
