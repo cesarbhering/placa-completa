@@ -179,7 +179,7 @@ async function shareVehicleData() {
 
     // Capture screenshot with high quality settings
     const canvas = await html2canvas(modalWindowRef.value, {
-      backgroundColor: null, // Transparent to avoid gray haze/fog effect
+      backgroundColor: '#c0c0c0', // Match Windows 95 modal background
       scale: 3, // Higher resolution for better quality
       logging: false,
       useCORS: true,
@@ -188,8 +188,6 @@ async function shareVehicleData() {
       removeContainer: true,
       windowWidth: modalWindowRef.value.scrollWidth,
       windowHeight: modalWindowRef.value.scrollHeight,
-      scrollY: -window.scrollY,
-      scrollX: -window.scrollX,
     })
 
     // Convert to blob with maximum quality
