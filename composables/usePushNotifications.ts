@@ -3,34 +3,40 @@ export const usePushNotifications = () => {
     try {
       // Wait for OneSignal to be ready
       if (!window.OneSignalDeferred) {
-        console.error('OneSignal not loaded')
-        return null
+        const error = 'OneSignal not loaded'
+        console.error(error)
+        return { error, success: false }
       }
 
+      console.log('⏳ Aguardando OneSignal carregar...')
       await new Promise((resolve) => {
         window.OneSignalDeferred.push(resolve)
       })
 
       const OneSignal = (window as any).OneSignal
+      console.log('✅ OneSignal carregado')
 
       // Check if already subscribed
       const isSubscribed = await OneSignal.User.PushSubscription.optedIn
+      console.log('📊 Já inscrito?', isSubscribed)
 
       if (isSubscribed) {
         const userId = await OneSignal.User.PushSubscription.id
         console.log('✅ Already subscribed, User ID:', userId)
-        return userId
+        return { success: true, userId }
       }
 
       // Use native browser permission prompt (in system language - Portuguese)
+      console.log('🔔 Pedindo permissão nativa...')
       const permission = await Notification.requestPermission()
+      console.log('📱 Resposta da permissão:', permission)
 
       if (permission !== 'granted') {
-        console.log('Permission denied')
-        return null
+        return { error: `Permissão: ${permission}`, success: false }
       }
 
       // After permission granted, let OneSignal register the subscription
+      console.log('📝 Registrando no OneSignal...')
       await OneSignal.User.PushSubscription.optIn()
 
       // Wait a bit for subscription to complete
@@ -39,18 +45,20 @@ export const usePushNotifications = () => {
       // Get subscription info
       const subscription = await OneSignal.User.PushSubscription.id
       const token = await OneSignal.User.PushSubscription.token
+      console.log('🆔 Subscription ID:', subscription)
 
       if (subscription) {
         // Save to database
+        console.log('💾 Salvando no banco...')
         await saveTokenToDatabase(subscription, token)
         console.log('✅ OneSignal subscription saved:', subscription)
-        return subscription
+        return { success: true, userId: subscription }
       }
 
-      return null
-    } catch (error) {
+      return { error: 'Sem subscription ID', success: false }
+    } catch (error: any) {
       console.error('Error requesting notification permission:', error)
-      return null
+      return { error: error.message || 'Erro desconhecido', success: false }
     }
   }
 
