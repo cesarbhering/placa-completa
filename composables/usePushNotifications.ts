@@ -87,8 +87,21 @@ export const usePushNotifications = () => {
       if ('serviceWorker' in navigator) {
         const swReg = await navigator.serviceWorker.getRegistration()
         console.log('📋 SW status:', swReg ? 'registrado' : 'não registrado')
-        if (swReg?.active) {
-          console.log('✅ SW ativo:', swReg.active.scriptURL)
+
+        if (swReg) {
+          if (swReg.active) {
+            console.log('✅ SW já ativo:', swReg.active.scriptURL)
+          } else {
+            console.log('⏳ SW registrado mas não ativo ainda, aguardando...')
+            // Wait for Service Worker to become active
+            await navigator.serviceWorker.ready
+            console.log('✅ SW agora está ativo!')
+          }
+        } else {
+          console.log('⚠️ SW não registrado, aguardando registro...')
+          // Wait for Service Worker to be registered
+          await navigator.serviceWorker.ready
+          console.log('✅ SW registrado e ativo!')
         }
       }
 
