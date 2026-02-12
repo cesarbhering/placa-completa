@@ -36,12 +36,18 @@ const allVehicleData = computed(() => {
   const extra = data.extra || {}
   const fipeData = data.fipe?.dados?.[0]
 
+  // PWA: Show full chassis from extra if available, fallback to obfuscated
+  // Web: Always show obfuscated chassis
+  const chassiValue = isPWA.value
+    ? (extra.chassi || data.chassi || '-')
+    : (data.chassi || '-')
+
   return {
     Placa: placa.value || '-',
     Marca: data.MARCA || data.marca || '-',
     Modelo: data.MODELO || data.modelo || '-',
     'Ano/Modelo': `${data.ano || '-'}/${data.anoModelo || '-'}`,
-    Chassi: data.chassi || '-',
+    Chassi: chassiValue,
     Cor: data.cor || '-',
     Combustível: extra.combustivel || '-',
     Tipo: extra.tipo_veiculo || '-',
