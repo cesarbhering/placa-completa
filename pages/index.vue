@@ -73,12 +73,19 @@ if (countData.value?.count) {
   consultaCount.value = countData.value.count
 }
 
-onMounted(() => {
+onMounted(async () => {
   if (isPWA.value) {
     // For PWA, load persistent email
     const savedPwaEmail = localStorage.getItem('pwa_email')
     if (savedPwaEmail) {
       email.value = savedPwaEmail
+    }
+
+    // Request notification permission automatically
+    if ('Notification' in window) {
+      const { requestPermissionAndSave, listenForMessages } = usePushNotifications()
+      await requestPermissionAndSave()
+      listenForMessages()
     }
   } else {
     // For web, load last used email
