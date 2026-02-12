@@ -9,10 +9,15 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "test": "npx playwright test",
-    "test:headed": "npx playwright test --headed",
-    "test:ui": "npx playwright test --ui",
-    "test:report": "npx playwright show-report",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "npx playwright test",
+    "test:e2e:headed": "npx playwright test --headed",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:e2e:report": "npx playwright show-report",
+    "test:all": "npm run test && npm run test:e2e",
     "test:full": "./scripts/run-tests.sh",
     "dev:no-analytics": "DISABLE_ANALYTICS=true npm run dev",
     "prepare": "husky"
@@ -31,8 +36,15 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@testing-library/vue": "^8.1.0",
     "@vite-pwa/nuxt": "^1.1.1",
+    "@vitest/ui": "^4.0.18",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^20.6.1",
     "husky": "^9.1.7",
-    "sass-embedded": "^1.87.0"
+    "msw": "^2.12.10",
+    "sass-embedded": "^1.87.0",
+    "vitest": "^4.0.18"
   }
 }
