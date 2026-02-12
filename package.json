@@ -1,5 +1,6 @@
 {
   "name": "placa-completa",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,10 +10,13 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test": "playwright test tests/user-flow.test.ts",
+    "test:pwa": "playwright test tests/pwa.test.ts",
+    "test:all": "playwright test tests/user-flow.test.ts tests/pwa.test.ts",
     "test:dev": "playwright test tests/user-flow.test.ts --headed",
     "test:ui": "playwright test --ui",
     "test:report": "playwright show-report",
-    "dev:no-analytics": "DISABLE_ANALYTICS=true npm run dev"
+    "dev:no-analytics": "DISABLE_ANALYTICS=true npm run dev",
+    "prepare-hooks": "node scripts/setup-git-hooks.js"
   },
   "dependencies": {
     "@nuxt/image": "^2.0.0",

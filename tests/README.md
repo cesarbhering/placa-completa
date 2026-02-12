@@ -38,6 +38,17 @@ Testes E2E focados em **funcionalidade** e **experiência do usuário**.
 - Email salvo no localStorage
 - Contador de consultas (se disponível)
 
+### ✅ PWA (Progressive Web App)
+- 📱 Modo standalone detectado corretamente
+- 🔢 Versão exibida na barra de título (PWA)
+- 📧 Email input oculto em modo PWA
+- 📋 Sample preview oculto em modo PWA
+- 🔘 Texto do botão adaptado ("Consultar Placa")
+- 📋 Modal de dados exibido em modo PWA
+- 📋 Copy to clipboard funcional
+- 🔔 Snackbar de notificação aparece
+- 🎯 Window centralizado em mobile/PWA
+
 ---
 
 ## 🚀 Como Rodar os Testes
@@ -58,6 +69,12 @@ npm run dev
 # Rodar todos os testes (headless)
 npm test
 
+# Rodar testes de PWA
+npm run test:pwa
+
+# Rodar TODOS os testes (user flow + PWA)
+npm run test:all
+
 # Rodar com interface visual (headed)
 npm run test:dev
 
@@ -69,7 +86,8 @@ npm run test:report
 ```
 
 ---
-
+pwa.test.ts          # Testes de PWA (standalone mode)
+├── 
 ## 📊 Estrutura dos Testes
 
 ```
@@ -137,7 +155,66 @@ test('should do something', async ({ page }) => {
   await page.locator('#meu-input').fill('valor')
   await page.click('button')
 
-  // 3. Verificar
+  /🔐 Pre-Commit Hook
+
+Os testes rodam automaticamente antes de cada commit!
+
+### Como funciona
+- Instalado automaticamente após `npm install`
+- Executa `npm run test:all` antes de cada commit
+- Bloqueia o commit se os testes falharem
+
+### Pular testes (quando necessário)
+```bash
+git commit --no-verify -m "Mensagem do commit"
+```
+
+### Reinstalar o hook
+```bash
+npm run prepare-hooks
+```
+
+---
+
+## 📱 Testando PWA
+
+### Simular PWA no Playwright
+Os testes de PWA simulam o `display-mode: standalone` usando `matchMedia`:
+
+```typescript
+await context.addInitScript(() => {
+  window.matchMedia = (query: string) => {
+    if (query === '(display-mode: standalone)') {
+      return { matches: true, ... }
+    }
+    return originalMatchMedia(query)
+  }
+})
+```
+
+### Testar PWA localmente
+
+1. **Build e preview:**
+   ```bash
+   npm run build
+   npm run preview
+   ```
+
+2. **No navegador:**
+   - Abra DevTools (F12)
+   - Vá para aba Application
+   - Verifique Service Worker
+   - Teste "Add to Home Screen"
+
+3. **No mobile:**
+   - Faça deploy
+   - Visite no celular
+   - Adicione à tela inicial
+   - Abra como PWA
+
+---
+
+## / 3. Verificar
   await expect(page.locator('.resultado')).toBeVisible()
 })
 ```
