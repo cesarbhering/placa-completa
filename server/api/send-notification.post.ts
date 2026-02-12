@@ -1,22 +1,3 @@
-import * as admin from 'firebase-admin'
-
-let firebaseApp: admin.app.App | null = null
-
-function getFirebaseAdmin() {
-  if (firebaseApp) {
-    return firebaseApp
-  }
-
-  const config = useRuntimeConfig()
-  const serviceAccount = JSON.parse(config.firebaseServiceAccount)
-
-  firebaseApp = admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-  })
-
-  return firebaseApp
-}
-
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const { title, message, targetAll = true, targetEmails = [] } = body
@@ -26,6 +7,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    const config = useRuntimeConfig()
     const supabase = useSupabaseServer()
 
     // Get tokens from database
@@ -45,30 +27,36 @@ export default defineEventHandler(async (event) => {
       return { success: true, sent: 0, message: 'Nenhum token encontrado' }
     }
 
-    // Send notifications
-    const firebaseAdmin = getFirebaseAdmin()
-    const messaging = firebaseAdmin.messaging()
+    // Get subscription IDs
+    const subscriptionIds = tokens.map(t => t.token)
 
-    const tokenStrings = tokens.map(t => t.token)
-
-    const payload = {
-      notification: {
-        title,
-        body: message
+    // Send notification via OneSignal REST API
+    const response = await $fetch('https://onesignal.com/api/v1/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${config.oneSignalRestApiKey}`
       },
-      tokens: tokenStrings
-    }
-
-    const response = await messaging.sendEachForMulticast(payload)
+      body: {
+        app_id: config.oneSignalAppId,
+        headings: { en: title },
+        contents: { en: message },
+        include_subscription_ids: subscriptionIds,
+        web_url: 'https://placacompleta.com.br'
+      }
+    })
 
     return {
       success: true,
-      sent: response.successCount,
-      failed: response.failureCount,
-      total: tokens.length
+      sent: (response as any).recipients || subscriptionIds.length,
+      total: subscriptionIds.length,
+      oneSignalId: (response as any).id
     }
   } catch (error: any) {
     console.error('Error sending notifications:', error)
-    throw createError({ statusCode: 500, message: 'Erro ao enviar notificações' })
+    throw createError({
+      statusCode: 500,
+      message: `Erro ao enviar notificações: ${error.message}`
+    })
   }
 })
