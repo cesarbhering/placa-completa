@@ -344,7 +344,6 @@ export default defineNuxtConfig({
         { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       ],
       link: [
-        { rel: "manifest", href: "/manifest.json" },
         { rel: "preconnect", href: "https://www.googletagmanager.com" },
         { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
         {
