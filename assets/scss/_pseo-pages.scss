@@ -1,0 +1,149 @@
+/**
+ * pSEO Pages Styles
+ *
+ * Estilos específicos para páginas de Programmatic SEO
+ * - Layout mais amplo para facilitar leitura
+ * - Fontes maiores e mais legíveis
+ * - Contraste melhorado
+ * - Win95 style relaxado
+ */
+
+@use 'variables' as *;
+
+// Estilos aplicados apenas em páginas com classe .pseo-page
+.pseo-page {
+  // Remover background pattern do Win95
+  background: $navy-electric;
+  background-image: none;
+
+  // Layout mais amplo
+  .desktop {
+    max-width: 900px;
+    padding: $space-lg;
+  }
+
+  .win-window {
+    max-width: 100%;
+
+    &__body {
+      padding: $space-xl;
+      font-size: 1rem; // Aumentar tamanho base da fonte
+      line-height: 1.7; // Melhorar espaçamento entre linhas
+    }
+  }
+
+  // Conteúdo SEO
+  .seo-title {
+    font-family: $font-display;
+    font-size: 2rem;
+    color: $navy-electric;
+    margin-bottom: $space-lg;
+    letter-spacing: 0.5px;
+    line-height: 1.3;
+
+    @media (max-width: 520px) {
+      font-size: 1.5rem;
+    }
+  }
+
+  .seo-content {
+    font-family: $font-body;
+    font-size: 1rem;
+    line-height: 1.7;
+    color: $graphite;
+
+    p {
+      margin-bottom: $space-md;
+      font-weight: 400;
+    }
+
+    h2 {
+      font-family: $font-display;
+      font-size: 1.5rem;
+      color: $navy-electric;
+      margin-top: $space-xl;
+      margin-bottom: $space-md;
+      letter-spacing: 0.5px;
+    }
+
+    h3 {
+      font-family: $font-display;
+      font-size: 1.25rem;
+      color: $smart-blue;
+      margin-top: $space-lg;
+      margin-bottom: $space-sm;
+    }
+
+    ul, ol {
+      margin-bottom: $space-md;
+      padding-left: $space-xl;
+
+      li {
+        margin-bottom: $space-xs;
+        line-height: 1.7;
+      }
+    }
+
+    strong {
+      font-weight: 700;
+      color: $navy-electric;
+    }
+
+    a {
+      color: $smart-blue;
+      text-decoration: underline;
+      transition: color 0.2s;
+
+      &:hover {
+        color: $navy-electric;
+      }
+
+      // Fix para botões com classe .win-btn .win-btn--primary
+      &.win-btn {
+        display: inline-block;
+        text-decoration: none;
+        background: $smart-blue;
+        color: #ffffff; // Branco puro para máximo contraste
+        font-family: $font-display;
+        font-size: 1.5rem;
+        font-weight: 700;
+        padding: $space-md $space-xl;
+        border: 3px solid;
+        border-color: lighten($smart-blue, 20%) darken($smart-blue, 10%) darken($smart-blue, 10%) lighten($smart-blue, 20%);
+        letter-spacing: 1px;
+        transition: all 0.2s;
+
+        &:hover {
+          background: lighten($smart-blue, 5%);
+          color: #ffffff;
+          border-color: lighten($smart-blue, 25%) darken($smart-blue, 5%) darken($smart-blue, 5%) lighten($smart-blue, 25%);
+        }
+
+        &:active {
+          border-color: darken($smart-blue, 10%) lighten($smart-blue, 20%) lighten($smart-blue, 20%) darken($smart-blue, 10%);
+          padding: 15px 33px 13px 35px;
+        }
+
+        @media (max-width: 520px) {
+          font-size: 1.25rem;
+          padding: $space-sm $space-lg;
+        }
+      }
+    }
+  }
+
+  // Melhorar responsividade
+  @media (max-width: 768px) {
+    .desktop {
+      padding: $space-md;
+    }
+
+    .win-window__body {
+      padding: $space-lg;
+    }
+
+    .seo-content {
+      font-size: 0.9375rem; // 15px
+    }
+  }
+}

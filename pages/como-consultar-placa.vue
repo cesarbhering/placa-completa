@@ -17,7 +17,7 @@ useHead({
 </script>
 
 <template>
-  <div class="desktop">
+  <div class="desktop pseo-page">
     <main>
       <div class="win-window">
       <div class="win-window__titlebar">
