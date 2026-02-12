@@ -173,9 +173,9 @@ async function shareVehicleData() {
     // Set flag to modify modal for screenshot
     preparingShare.value = true
 
-    // Wait for DOM update
+    // Wait for DOM update and ensure footer with URL is rendered
     await nextTick()
-    await new Promise(resolve => setTimeout(resolve, 100))
+    await new Promise(resolve => setTimeout(resolve, 300))
 
     // Capture screenshot with high quality settings
     const canvas = await html2canvas(modalWindowRef.value, {
@@ -188,6 +188,8 @@ async function shareVehicleData() {
       removeContainer: true,
       windowWidth: modalWindowRef.value.scrollWidth,
       windowHeight: modalWindowRef.value.scrollHeight,
+      scrollY: -window.scrollY,
+      scrollX: -window.scrollX,
     })
 
     // Convert to blob with maximum quality
@@ -617,7 +619,7 @@ async function handleSubmit() {
 
     <!-- Data Modal for PWA -->
     <div v-if="showDataModal" class="modal-overlay" @click="showDataModal = false">
-      <div class="modal-window" ref="modalWindowRef" @click.stop>
+      <div class="modal-window" :class="{ 'modal-window--capturing': preparingShare }" ref="modalWindowRef" @click.stop>
         <div class="win-window">
           <div class="win-window__titlebar">
             <span>Dados do Veículo - {{ placa }}</span>
@@ -874,6 +876,17 @@ async function handleSubmit() {
     max-height: calc(90vh - 60px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+  }
+}
+
+// Remove height restrictions when capturing screenshot
+// This ensures the footer with site URL is included in the share image
+.modal-window--capturing {
+  max-height: none !important;
+
+  .win-window__body {
+    max-height: none !important;
+    overflow-y: visible !important;
   }
 }
 
