@@ -32,25 +32,31 @@ export default defineEventHandler(async (event) => {
         messages: [
           {
             role: 'system',
-            content: 'You are a license plate reader. Extract ONLY the license plate text from the image. Return ONLY the plate characters (letters and numbers) with no spaces, punctuation, or additional text. If you cannot read a plate, respond with "ERRO".'
+            content: `You are an expert Brazilian license plate reader. Your task is to extract ONLY the license plate text from images.
+
+CRITICAL CHARACTER RECOGNITION RULES:
+• Zero (0): Narrower, elongated shape with diagonal cut or slash. Appears ONLY in positions 4, 6, and 7.
+• Letter O: Perfectly round and circular. Appears ONLY in positions 1, 2, 3, and 5 (Mercosul format).
+
+BRAZILIAN PLATE FORMATS:
+• Old format: ABC1234 (3 letters + 4 numbers) - Gray background, black characters
+• Mercosul: ABC1D23 (3 letters + 1 number + 1 letter + 2 numbers) - White background, black characters, blue strip on top
+
+RULES:
+1. Return ONLY the plate characters (letters and numbers)
+2. No spaces, punctuation, or additional text
+3. Distinguish 0 from O based on POSITION and shape
+4. If you cannot read the plate clearly, respond with "ERRO"
+
+Always double-check character positions before returning the result.`
           },
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: `Read the Brazilian license plate from this image. Return only the plate characters (example: ABC1D23 or ABC1234).
-
-                      IMPORTANT - Character Recognition Rules:
-                      • Zero (0): Has a narrower, more elongated shape. Often has a diagonal cut or slash through it. In Brazilian plates, zeros appear ONLY in numeric positions (4th, 6th, and 7th positions).
-                      • Letter O: Is perfectly round and circular, following the pattern of capital letters. In Brazilian plates, letter O appears ONLY in letter positions (1st, 2nd, 3rd, and 5th positions in Mercosul format).
-
-                      Brazilian plate formats:
-                      - Old format: ABC1234 (3 letters + 4 numbers) - The plate, usually, has a gray background with black characters.
-                      - Mercosul format: ABC1D23 (3 letters + 1 number + 1 letter + 2 numbers) - The plate, usually, has a white background with black characters, and a blue strip on top with the country and state information.
-
-                      Pay special attention to distinguish 0 (zero) from O (letter) based on position and shape.`
-                },
+                text: 'Read the Brazilian license plate from this image and return only the characters (example: ABC1D23 or ABC1234).'
+              },
               {
                 type: 'image_url',
                 image_url: {
