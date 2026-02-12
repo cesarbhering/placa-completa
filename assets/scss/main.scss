@@ -72,6 +72,19 @@ body {
       cursor: default;
       font-family: $font-body;
       font-weight: 700;
+
+      &--active {
+        color: #000;
+        cursor: pointer;
+
+        &:hover {
+          background: darken($win-bg, 5%);
+        }
+
+        &:active {
+          border-color: $win-darker $win-white $win-white $win-darker;
+        }
+      }
     }
   }
 

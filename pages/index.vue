@@ -336,7 +336,7 @@ async function handleSubmit() {
       <div class="win-window__titlebar">
         <span>{{ appTitle }}</span>
         <div class="win-window__titlebar-buttons">
-          <span v-if="isPWA && email" class="win-window__titlebar-btn" @click="changePwaEmail" title="Alterar e-mail">✉</span>
+          <span v-if="isPWA && email" class="win-window__titlebar-btn win-window__titlebar-btn--active" @click="changePwaEmail" title="Alterar e-mail">✉</span>
           <span class="win-window__titlebar-btn">_</span>
           <span class="win-window__titlebar-btn">&square;</span>
           <span class="win-window__titlebar-btn">&times;</span>
@@ -515,7 +515,7 @@ async function handleSubmit() {
           <div class="win-window__titlebar">
             <span>Dados do Veículo - {{ placa }}</span>
             <div class="win-window__titlebar-buttons">
-              <span class="win-window__titlebar-btn" @click="showDataModal = false">×</span>
+              <span class="win-window__titlebar-btn win-window__titlebar-btn--active" @click="showDataModal = false">×</span>
             </div>
           </div>
           <div class="win-window__body">
@@ -555,7 +555,7 @@ async function handleSubmit() {
           <div class="win-window__titlebar">
             <span>Configurar E-mail</span>
             <div class="win-window__titlebar-buttons">
-              <span class="win-window__titlebar-btn" @click="showPwaEmailPrompt = false">×</span>
+              <span class="win-window__titlebar-btn win-window__titlebar-btn--active" @click="showPwaEmailPrompt = false">×</span>
             </div>
           </div>
           <div class="win-window__body">
