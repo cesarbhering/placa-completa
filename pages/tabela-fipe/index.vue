@@ -11,7 +11,7 @@ const carBrands = Object.values(fipeBrands).filter(b => b.type === 'carros')
 const motoBrands = Object.values(fipeBrands).filter(b => b.type === 'motos')
 
 useHead({
-  title: 'Tabela FIPE - Consulte o Valor de Qualquer Veículo | PlacaCompleta',
+  title: 'Tabela FIPE - Consulte o Valor de Qualquer Veículo',
   meta: [
     { name: 'description', content: 'Consulte o valor na Tabela FIPE de carros, motos e caminhões. Preços atualizados de todas as marcas e modelos. Grátis e sem cadastro.' },
     { name: 'keywords', content: 'tabela fipe, valor fipe, preço fipe, tabela fipe carros, tabela fipe motos, consulta fipe grátis' },

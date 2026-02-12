@@ -1,6 +1,6 @@
 <script setup lang="ts">
 useHead({
-  title: 'Política de Privacidade - Placa Completa',
+  title: 'Política de Privacidade',
   meta: [
     { name: 'description', content: 'Política de Privacidade do Placa Completa, em conformidade com a LGPD (Lei nº 13.709/2018).' },
     { name: 'robots', content: 'noindex, follow' },

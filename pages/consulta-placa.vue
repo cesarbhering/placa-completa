@@ -6,7 +6,7 @@ function onCtaClick() {
 }
 
 useHead({
-  title: 'Consulta de Placa Veicular Grátis Online - Placa Completa',
+  title: 'Consulta de Placa Veicular Grátis Online',
   meta: [
     { name: 'description', content: 'Faça a consulta de placa veicular grátis e receba por e-mail marca, modelo, ano, cor, tabela FIPE, município e situação do veículo. Sem cadastro.' },
     { name: 'keywords', content: 'consulta de placa, consulta placa veicular, consultar placa online, consulta veicular grátis, pesquisar placa de carro' },

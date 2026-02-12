@@ -4,7 +4,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Admin - PlacaCompleta',
+  title: 'Admin',
   robots: 'noindex, nofollow',
 })
 

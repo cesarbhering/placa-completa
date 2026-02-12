@@ -6,7 +6,7 @@ function onCtaClick() {
 }
 
 useHead({
-  title: 'Consultar Tabela FIPE por Placa Grátis - Valor do Veículo | Placa Completa',
+  title: 'Consultar Tabela FIPE por Placa Grátis - Valor do Veículo',
   meta: [
     { name: 'description', content: 'Descubra o valor do veículo na tabela FIPE pela placa. Consulta grátis com valor FIPE atualizado enviado direto no seu e-mail. Ideal para compra e venda.' },
     { name: 'keywords', content: 'tabela FIPE por placa, valor FIPE pela placa, consultar FIPE grátis, preço veículo por placa, valor carro pela placa' },
