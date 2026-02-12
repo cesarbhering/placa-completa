@@ -53,26 +53,54 @@ export const usePushNotifications = () => {
       console.log('📝 Configurando listener de subscription...')
       const subscriptionPromise = new Promise<{ id: string, token: string }>((resolve, reject) => {
         const timeout = setTimeout(() => {
-          reject(new Error('Timeout aguardando subscription (15s)'))
+          console.log('⏰ Timeout atingido - verificando estado final...')
+          // Check final state before rejecting
+          OneSignal.User.PushSubscription.id.then((finalId: string) => {
+            console.log('📊 ID final após timeout:', finalId)
+            if (finalId) {
+              resolve({ id: finalId, token: '' })
+            } else {
+              reject(new Error('Timeout aguardando subscription (15s)'))
+            }
+          })
         }, 15000)
 
         OneSignal.User.PushSubscription.addEventListener('change', function(event: any) {
-          console.log('🔔 Subscription change event:', event)
-          const id = event.current.id
-          const token = event.current.token
+          console.log('🔔 Subscription change event:', JSON.stringify(event))
+          const id = event.current?.id
+          const token = event.current?.token
+
+          console.log('📊 Event data - id:', id, 'token:', token ? 'presente' : 'ausente')
 
           if (id) {
             clearTimeout(timeout)
             console.log('✅ Subscription ID recebido via event:', id)
             resolve({ id, token })
+          } else {
+            console.log('⚠️ Event sem ID')
           }
         })
       })
 
+      // Check Service Worker registration before optIn
+      console.log('🔍 Verificando Service Worker...')
+      if ('serviceWorker' in navigator) {
+        const swReg = await navigator.serviceWorker.getRegistration()
+        console.log('📋 SW status:', swReg ? 'registrado' : 'não registrado')
+        if (swReg?.active) {
+          console.log('✅ SW ativo:', swReg.active.scriptURL)
+        }
+      }
+
       // After permission granted, let OneSignal register the subscription
       console.log('📝 Registrando no OneSignal...')
-      await OneSignal.User.PushSubscription.optIn()
-      console.log('✅ OptIn chamado')
+      try {
+        await OneSignal.User.PushSubscription.optIn()
+        console.log('✅ OptIn completou sem erro')
+      } catch (optInError: any) {
+        console.log('❌ Erro no optIn:', optInError.message)
+        throw optInError
+      }
 
       // Wait for subscription event
       console.log('⏳ Aguardando subscription change event...')
