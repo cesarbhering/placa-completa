@@ -1,8 +1,63 @@
 <script setup lang="ts">
+definePageMeta({
+  layout: false,
+})
+
+useSeoMeta({
+  title: 'Admin - PlacaCompleta',
+  robots: 'noindex, nofollow',
+})
+
+const authenticated = ref(false)
+const password = ref('')
+const authError = ref('')
+const authLoading = ref(false)
+const passwordRef = ref<HTMLInputElement | null>(null)
+
 const title = ref('')
 const message = ref('')
 const sending = ref(false)
 const result = ref('')
+
+onMounted(() => {
+  nextTick(() => {
+    passwordRef.value?.focus()
+  })
+})
+
+async function handleAuth() {
+  authError.value = ''
+
+  if (!password.value.trim()) {
+    authError.value = 'Digite a senha'
+    return
+  }
+
+  authLoading.value = true
+
+  try {
+    const authResult = await $fetch<{ success: boolean; message?: string }>('/api/dash-auth', {
+      method: 'POST',
+      body: {
+        password: password.value,
+      },
+    })
+
+    if (authResult.success) {
+      authenticated.value = true
+    } else {
+      authError.value = authResult.message || 'Senha incorreta'
+      password.value = ''
+      nextTick(() => passwordRef.value?.focus())
+    }
+  } catch (err: any) {
+    authError.value = 'Erro ao verificar senha'
+    password.value = ''
+    nextTick(() => passwordRef.value?.focus())
+  } finally {
+    authLoading.value = false
+  }
+}
 
 async function sendNotification() {
   if (!title.value || !message.value) {
@@ -50,9 +105,62 @@ async function sendNotification() {
           </div>
         </div>
         <div class="win-window__body">
-          <h1 class="admin-title">Enviar Notificação Push</h1>
+          <!-- Auth Screen -->
+          <div v-if="!authenticated">
+            <NuxtImg
+              src="/logo-nobg-200.png"
+              alt="PlacaCompleta Admin"
+              class="logo"
+              width="200"
+              height="200"
+              sizes="xs:140px sm:180px md:200px"
+              format="webp"
+              quality="85"
+              loading="eager"
+              fetchpriority="high"
+            />
 
-          <form @submit.prevent="sendNotification">
+            <h1 class="admin-title">Admin Panel</h1>
+            <p class="page-subtitle">Acesso restrito</p>
+
+            <hr class="win-separator" />
+
+            <form @submit.prevent="handleAuth" novalidate>
+              <div class="form-group">
+                <label class="form-group__label" for="password">Senha de Acesso</label>
+                <input
+                  id="password"
+                  ref="passwordRef"
+                  v-model="password"
+                  type="password"
+                  class="win-input"
+                  placeholder="Digite a senha"
+                  :disabled="authLoading"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                class="win-btn win-btn--primary win-btn--block"
+                :disabled="authLoading || !password.trim()"
+              >
+                {{ authLoading ? 'Verificando...' : 'Entrar' }}
+              </button>
+
+              <div v-if="authError" class="win-alert win-alert--error">
+                {{ authError }}
+              </div>
+            </form>
+
+            <NuxtLink to="/" class="back-link">← Voltar para home</NuxtLink>
+          </div>
+
+          <!-- Admin Panel -->
+          <div v-else>
+            <h1 class="admin-title">Enviar Notificação Push</h1>
+
+            <form @submit.prevent="sendNotification">
             <div class="form-group">
               <label class="form-group__label" for="title">Título</label>
               <input
@@ -100,6 +208,7 @@ async function sendNotification() {
           </div>
 
           <NuxtLink to="/" class="back-link">← Voltar para home</NuxtLink>
+          </div>
         </div>
       </div>
     </main>
@@ -107,6 +216,17 @@ async function sendNotification() {
 </template>
 
 <style lang="scss" scoped>
+.logo {
+  display: block;
+  margin: 0 auto $space-md;
+  width: 140px;
+  height: auto;
+
+  @media (min-width: 600px) {
+    width: 180px;
+  }
+}
+
 .admin-title {
   font-family: $font-display;
   font-size: 1.5rem;
@@ -114,6 +234,14 @@ async function sendNotification() {
   text-align: center;
   margin-bottom: $space-md;
   letter-spacing: 1px;
+}
+
+.page-subtitle {
+  font-family: $font-body;
+  font-size: 0.875rem;
+  color: $graphite;
+  text-align: center;
+  margin-bottom: $space-md;
 }
 
 textarea.win-input {
