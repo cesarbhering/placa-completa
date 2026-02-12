@@ -16,6 +16,9 @@ const showDataModal = ref(false)
 const vehicleData = ref<any>(null)
 const showSnackbar = ref(false)
 const snackbarMessage = ref('')
+const showPwaEmailPrompt = ref(false)
+const pwaEmail = ref('')
+const pwaEmailError = ref('')
 
 const placaRef = ref<HTMLInputElement | null>(null)
 const emailRef = ref<HTMLInputElement | null>(null)
@@ -44,8 +47,17 @@ if (countData.value?.count) {
 }
 
 onMounted(() => {
-  const saved = localStorage.getItem('pc_email')
-  if (saved) email.value = saved
+  if (isPWA.value) {
+    // For PWA, load persistent email
+    const savedPwaEmail = localStorage.getItem('pwa_email')
+    if (savedPwaEmail) {
+      email.value = savedPwaEmail
+    }
+  } else {
+    // For web, load last used email
+    const saved = localStorage.getItem('pc_email')
+    if (saved) email.value = saved
+  }
 
   nextTick(() => {
     placaRef.value?.focus()
@@ -98,6 +110,29 @@ function copyToClipboard(text: string, label: string) {
   })
 }
 
+function savePwaEmail() {
+  pwaEmailError.value = ''
+  
+  if (!validateEmail(pwaEmail.value)) {
+    pwaEmailError.value = 'E-mail inválido.'
+    return
+  }
+  
+  localStorage.setItem('pwa_email', pwaEmail.value)
+  email.value = pwaEmail.value
+  showPwaEmailPrompt.value = false
+  track('pwa_email_saved')
+  
+  // After saving email, proceed with the query
+  handleSubmit()
+}
+
+function changePwaEmail() {
+  pwaEmail.value = email.value
+  showPwaEmailPrompt.value = true
+  track('pwa_email_change_requested')
+}
+
 async function handleSubmit() {
   emailError.value = ''
   placaError.value = ''
@@ -110,7 +145,13 @@ async function handleSubmit() {
     return
   }
   
-  // Skip email validation in PWA mode
+  // In PWA mode, check if email is stored, if not prompt for it
+  if (isPWA.value && !email.value) {
+    showPwaEmailPrompt.value = true
+    return
+  }
+  
+  // Skip email validation in PWA mode (already validated when stored)
   if (!isPWA.value && !validateEmail(email.value)) {
     emailError.value = 'E-mail inválido.'
     track('form_validation_error', { error_field: 'email' })
@@ -128,9 +169,10 @@ async function handleSubmit() {
     const result = await $fetch<{ success: boolean; emailSent: boolean; message: string; data?: any }>('/api/consulta', {
       method: 'POST',
       body: {
-        email: isPWA.value ? null : email.value,
+        email: email.value,
         phone: null,
         placa: placa.value,
+        isPWA: isPWA.value,
       },
     })
 
@@ -177,6 +219,7 @@ async function handleSubmit() {
       <div class="win-window__titlebar">
         <span>{{ appTitle }}</span>
         <div class="win-window__titlebar-buttons">
+          <span v-if="isPWA && email" class="win-window__titlebar-btn" @click="changePwaEmail" title="Alterar e-mail">✉</span>
           <span class="win-window__titlebar-btn">_</span>
           <span class="win-window__titlebar-btn">&square;</span>
           <span class="win-window__titlebar-btn">&times;</span>
@@ -233,6 +276,7 @@ async function handleSubmit() {
             <label class="form-group__label" for="email">Seu e-mail</label>
             <input
               id="email"
+              required
               ref="emailRef"
               v-model="email"
               type="email"
@@ -355,6 +399,45 @@ async function handleSubmit() {
     <!-- Snackbar notification -->
     <div v-if="showSnackbar" class="snackbar">
       {{ snackbarMessage }}
+    </div>
+
+    <!-- PWA Email Prompt Modal -->
+    <div v-if="showPwaEmailPrompt" class="modal-overlay" @click="showPwaEmailPrompt = false">
+      <div class="modal-window" @click.stop>
+        <div class="win-window">
+          <div class="win-window__titlebar">
+            <span>Configurar E-mail</span>
+            <div class="win-window__titlebar-buttons">
+              <span class="win-window__titlebar-btn" @click="showPwaEmailPrompt = false">×</span>
+            </div>
+          </div>
+          <div class="win-window__body">
+            <p class="modal-instruction">Para rastrear suas consultas, precisamos do seu e-mail. Você só precisa informar uma vez.</p>
+            <div class="form-group">
+              <label class="form-group__label" for="pwa-email">Seu e-mail</label>
+              <input
+                id="pwa-email"
+                v-model="pwaEmail"
+                type="email"
+                class="win-input"
+                :class="{ 'win-input--error': pwaEmailError }"
+                placeholder="seu@email.com"
+                autocomplete="email"
+                inputmode="email"
+                @keyup.enter="savePwaEmail"
+              />
+              <span v-if="pwaEmailError" class="form-group__error">{{ pwaEmailError }}</span>
+            </div>
+            <button
+              type="button"
+              class="win-btn win-btn--primary win-btn--block"
+              @click="savePwaEmail"
+            >
+              Salvar e Continuar
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     </main>
