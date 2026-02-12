@@ -48,6 +48,11 @@ RULES:
 3. Distinguish 0 from O based on POSITION and shape
 4. If you cannot read the plate clearly, respond with "ERRO"
 
+CRITICAL VALIDATION:
+• If the plate has Mercosul color scheme (white background + blue strip), it MUST follow ABC1D23 format
+• In Mercosul plates: If you see "O" in positions 4, 6, or 7 (numeric positions), interpret it as "0" (zero)
+• In Mercosul plates: If you see "0" in positions 1, 2, 3, or 5 (letter positions), interpret it as "O" (letter)
+
 Always double-check character positions before returning the result.`
           },
           {
