@@ -19,7 +19,7 @@ export default defineNuxtConfig({
     registerType: 'autoUpdate',
     manifest: {
       name: 'PlacaCompleta',
-      short_name: 'PlacaCompleta',
+      short_name: 'Placa',
       lang: 'pt-BR',
       display: 'standalone',
       orientation: 'portrait-primary',
