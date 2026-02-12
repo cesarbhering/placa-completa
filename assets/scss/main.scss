@@ -375,3 +375,29 @@ body {
   }
 }
 
+// Force portrait orientation
+@media (orientation: landscape) and (max-height: 520px) {
+  body::before {
+    content: '📱 Vire seu telefone para vertical';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: $navy-electric;
+    color: $ivory;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    font-family: $font-display;
+    font-size: 1.5rem;
+    text-align: center;
+    padding: $space-lg;
+  }
+
+  .desktop {
+    display: none;
+  }
+}
+
