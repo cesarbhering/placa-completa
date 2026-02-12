@@ -24,6 +24,7 @@ const photoProcessMessage = ref('')
 const placaRef = ref<HTMLInputElement | null>(null)
 const emailRef = ref<HTMLInputElement | null>(null)
 const formStarted = ref(false)
+const permissionRequested = ref(false)
 
 const appTitle = computed(() => {
   return 'PlacaCompleta'
@@ -79,6 +80,12 @@ onMounted(async () => {
     const savedPwaEmail = localStorage.getItem('pwa_email')
     if (savedPwaEmail) {
       email.value = savedPwaEmail
+    }
+
+    // Check if permission was already requested
+    const wasRequested = localStorage.getItem('pwa_permission_requested')
+    if (wasRequested) {
+      permissionRequested.value = true
     }
 
     // Auto-register for push notifications if permission already granted
@@ -261,6 +268,21 @@ async function handleSubmit() {
   emailError.value = ''
   placaError.value = ''
   message.value = ''
+
+  // PWA: Request push notification permission on first submit
+  if (isPWA.value && !permissionRequested.value) {
+    permissionRequested.value = true
+    localStorage.setItem('pwa_permission_requested', 'true')
+
+    if ('Notification' in window && Notification.permission === 'default') {
+      try {
+        await Notification.requestPermission()
+        // Let the composable handle registration on next app open
+      } catch (error) {
+        // Continue even if permission fails
+      }
+    }
+  }
 
   if (!validatePlaca(placa.value)) {
     placaError.value = 'Placa inválida. Use o formato ABC1D23 ou ABC1234.'
