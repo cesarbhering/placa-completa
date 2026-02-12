@@ -4,7 +4,7 @@
  * Importa todos os estilos de componentes
  */
 
-@import './consulta-form';
-@import './pwa-email-prompt';
-@import './photo-upload-button';
-@import './vehicle-data-modal';
+@use './consulta-form';
+@use './pwa-email-prompt';
+@use './photo-upload-button';
+@use './vehicle-data-modal';

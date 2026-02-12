@@ -4,6 +4,8 @@
  * Botão para upload e processamento de fotos de placas
  */
 
+@use '../variables' as *;
+
 .photo-upload {
   margin-bottom: $space-sm;
 

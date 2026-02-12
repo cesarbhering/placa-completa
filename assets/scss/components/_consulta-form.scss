@@ -4,6 +4,8 @@
  * Formulário principal de consulta de placas
  */
 
+@use '../variables' as *;
+
 .consulta-form {
   &__placa-input {
     text-transform: uppercase;

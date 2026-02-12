@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+
+###############################################################################
+# Pre-commit Hook
+#
+# Roda o script de testes completo antes de permitir o commit
+# Garante que o código commitado sempre passa nos testes
+###############################################################################
+
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run the full test suite
+npm run test:full
