@@ -1,0 +1,20 @@
+/**
+ * ConsultaForm Component Styles
+ *
+ * Formulário principal de consulta de placas
+ */
+
+.consulta-form {
+  &__placa-input {
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-family: $font-mono;
+  }
+
+  &__email-sent-to {
+    display: block;
+    font-size: 0.75rem;
+    margin-top: $space-xs;
+    opacity: 0.8;
+  }
+}

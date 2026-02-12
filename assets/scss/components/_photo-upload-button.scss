@@ -1,0 +1,35 @@
+/**
+ * PhotoUploadButton Component Styles
+ *
+ * Botão para upload e processamento de fotos de placas
+ */
+
+.photo-upload {
+  margin-bottom: $space-sm;
+
+  &__message {
+    margin-top: $space-xs;
+    padding: $space-xs $space-sm;
+    font-family: $font-body;
+    font-size: 0.75rem;
+    background: $powder-blue;
+    border-radius: 4px;
+    @include win-border-sunken;
+
+    &--success {
+      background: lighten($success-green, 40%);
+      color: darken($success-green, 10%);
+    }
+  }
+}
+
+// Transitions
+.photo-upload__message-enter-active,
+.photo-upload__message-leave-active {
+  transition: opacity 0.3s;
+}
+
+.photo-upload__message-enter-from,
+.photo-upload__message-leave-to {
+  opacity: 0;
+}
