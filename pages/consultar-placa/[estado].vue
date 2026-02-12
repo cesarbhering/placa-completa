@@ -16,7 +16,7 @@ function onCtaClick() {
 }
 
 useHead({
-  title: `Consultar Placa de Veículo em ${data.name} (${data.uf}) - Grátis | PlacaCompleta`,
+  title: `Consultar Placa de Veículo em ${data.name} (${data.uf}) - Grátis`,
   meta: [
     { name: 'description', content: `Consulte a placa de qualquer veículo registrado em ${data.name} (${data.uf}). Receba marca, modelo, ano, FIPE e situação no e-mail. Grátis e instantâneo.` },
     { name: 'keywords', content: `consultar placa ${data.uf}, consulta placa ${data.name.toLowerCase()}, consultar veículo ${data.name.toLowerCase()}, placa ${data.uf} grátis` },

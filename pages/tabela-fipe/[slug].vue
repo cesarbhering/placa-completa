@@ -26,7 +26,7 @@ function onCtaClick() {
 if (isBrandPage) {
   // Brand hub page
   useHead({
-    title: `Tabela FIPE ${pageData.name} ${new Date().getFullYear()} - Todos os Modelos | PlacaCompleta`,
+    title: `Tabela FIPE ${pageData.name} ${new Date().getFullYear()} - Todos os Modelos`,
     meta: [
       { name: 'description', content: `Consulte a Tabela FIPE ${pageData.name} atualizada. Veja preços de todos os modelos: ${pageData.models.slice(0, 5).map(m => m.name).join(', ')} e mais. Grátis.` },
       { name: 'keywords', content: `tabela fipe ${pageData.name.toLowerCase()}, valor fipe ${pageData.name.toLowerCase()}, preço ${pageData.name.toLowerCase()}, fipe ${pageData.name.toLowerCase()} ${new Date().getFullYear()}` },
@@ -64,7 +64,7 @@ if (isBrandPage) {
 } else {
   // Brand + Model page
   useHead({
-    title: `Tabela FIPE ${pageData.name} ${model!.name} ${new Date().getFullYear()} - Valor Atualizado | PlacaCompleta`,
+    title: `Tabela FIPE ${pageData.name} ${model!.name} ${new Date().getFullYear()} - Valor Atualizado`,
     meta: [
       { name: 'description', content: `Consulte o valor na Tabela FIPE do ${pageData.name} ${model!.name}. Preço atualizado para todos os anos. Consulte pela placa e receba o valor exato no e-mail.` },
       { name: 'keywords', content: `tabela fipe ${pageData.name.toLowerCase()} ${model!.name.toLowerCase()}, valor fipe ${model!.name.toLowerCase()}, preço ${pageData.name.toLowerCase()} ${model!.name.toLowerCase()}, fipe ${model!.name.toLowerCase()} ${new Date().getFullYear()}` },

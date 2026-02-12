@@ -4,7 +4,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Dashboard - PlacaCompleta',
+  title: 'Dashboard',
   robots: 'noindex, nofollow',
 })
 
@@ -16,7 +16,7 @@ const passwordRef = ref<HTMLInputElement | null>(null)
 const LOOKER_URL = 'https://lookerstudio.google.com/reporting/8d735c12-980a-4594-8f5a-f5b5bec252ba'
 
 useSeoMeta({
-  title: 'Dashboard - PlacaCompleta',
+  title: 'Dashboard',
   robots: 'noindex, nofollow',
 })
 

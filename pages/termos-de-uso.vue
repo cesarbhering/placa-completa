@@ -1,6 +1,6 @@
 <script setup lang="ts">
 useHead({
-  title: 'Termos de Uso - Placa Completa',
+  title: 'Termos de Uso',
   meta: [
     { name: 'description', content: 'Termos de Uso do serviço Placa Completa - consulta veicular gratuita por placa.' },
     { name: 'robots', content: 'noindex, follow' },
