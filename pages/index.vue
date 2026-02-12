@@ -21,6 +21,7 @@ const photoInput = ref<HTMLInputElement | null>(null)
 const processingPhoto = ref(false)
 const photoProcessMessage = ref('')
 const debugLogs = ref<string[]>([])
+const showDebugButton = ref(false)
 
 const placaRef = ref<HTMLInputElement | null>(null)
 
@@ -28,6 +29,39 @@ function addDebugLog(message: string) {
   if (isPWA.value) {
     debugLogs.value.push(`${new Date().toLocaleTimeString()}: ${message}`)
     console.log(message)
+  }
+}
+
+async function testPermissionManual() {
+  addDebugLog('🖱️ Botão clicado - tentando pedir permissão...')
+
+  try {
+    // Check current permission
+    const current = Notification.permission
+    addDebugLog(`📊 Permissão atual: ${current}`)
+
+    if (current === 'granted') {
+      addDebugLog('✅ Já tem permissão!')
+      return
+    }
+
+    if (current === 'denied') {
+      addDebugLog('🚫 Permissão foi negada antes. Resete nas configs do Safari!')
+      return
+    }
+
+    // Request permission
+    addDebugLog('🔔 Chamando Notification.requestPermission()...')
+    const result = await Notification.requestPermission()
+    addDebugLog(`📱 Resultado: ${result}`)
+
+    if (result === 'granted') {
+      addDebugLog('🎉 Permissão concedida! Registrando no OneSignal...')
+      const { requestPermissionAndSave } = usePushNotifications()
+      await requestPermissionAndSave()
+    }
+  } catch (error: any) {
+    addDebugLog(`❌ Erro: ${error.message}`)
   }
 }
 const emailRef = ref<HTMLInputElement | null>(null)
@@ -84,6 +118,7 @@ if (countData.value?.count) {
 onMounted(async () => {
   if (isPWA.value) {
     addDebugLog('🚀 PWA detectado')
+    showDebugButton.value = true
 
     // For PWA, load persistent email
     const savedPwaEmail = localStorage.getItem('pwa_email')
@@ -91,17 +126,22 @@ onMounted(async () => {
       email.value = savedPwaEmail
     }
 
-    // Request notification permission automatically
+    // Check notification support and current permission
     if ('Notification' in window) {
-      addDebugLog('📢 Iniciando pedido de permissão...')
-      const { requestPermissionAndSave, listenForMessages } = usePushNotifications()
-      const result = await requestPermissionAndSave()
-      if (result.success) {
-        addDebugLog('✅ Sucesso! ID: ' + result.userId?.substring(0, 20) + '...')
+      const currentPermission = Notification.permission
+      addDebugLog(`📊 Permissão: ${currentPermission}`)
+
+      if (currentPermission === 'granted') {
+        addDebugLog('✅ Já tem permissão! Registrando...')
+        const { requestPermissionAndSave, listenForMessages } = usePushNotifications()
+        const result = await requestPermissionAndSave()
+        if (result.success) {
+          addDebugLog('✅ Registrado! ID: ' + result.userId?.substring(0, 20))
+        }
+        listenForMessages()
       } else {
-        addDebugLog('❌ Falhou: ' + result.error)
+        addDebugLog('⏸️ Use o botão abaixo para testar permissão')
       }
-      listenForMessages()
     } else {
       addDebugLog('❌ Notification API não disponível')
     }
@@ -622,6 +662,9 @@ async function handleSubmit() {
           {{ log }}
         </div>
       </div>
+      <button v-if="showDebugButton" @click="testPermissionManual" class="debug-console__button">
+        🔔 Testar Permissão Manual
+      </button>
     </div>
 
     <footer class="footer">
@@ -921,7 +964,7 @@ async function handleSubmit() {
   bottom: 60px;
   left: 10px;
   right: 10px;
-  max-height: 150px;
+  max-height: 200px;
   background: rgba(0, 0, 0, 0.9);
   color: #0f0;
   font-family: monospace;
@@ -947,6 +990,22 @@ async function handleSubmit() {
   &__log {
     margin-bottom: 4px;
     word-break: break-all;
+  }
+
+  &__button {
+    width: 100%;
+    padding: 8px;
+    background: #0f0;
+    color: #000;
+    border: none;
+    font-family: monospace;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+
+    &:active {
+      background: #0c0;
+    }
   }
 }
 </style>
