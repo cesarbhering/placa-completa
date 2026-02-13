@@ -1,0 +1,381 @@
+# PlacaCompleta - Consulta Veicular Gratuita
+
+## Sobre o Produto
+
+PlacaCompleta é um serviço web gratuito de consulta veicular por placa licenciada no Brasil.
+O serviço permite que usuários consultem informações completas de qualquer veículo através da
+placa e recebam os dados detalhados diretamente no e-mail, sem necessidade de cadastro.
+
+## Website
+
+URL: https://placacompleta.com.br
+Tipo: Progressive Web App (PWA)
+Idioma: Português (pt-BR)
+
+## Principais Funcionalidades
+
+### 1. Consulta de Placa Veicular
+- Suporte aos formatos de placa antigo (ABC1234) e Mercosul (ABC1D23)
+- Consulta gratuita e ilimitada
+- Sem necessidade de cadastro prévio
+- Resultado enviado por e-mail em segundos
+
+### 2. Dados Fornecidos na Consulta
+Os usuários recebem as seguintes informações sobre o veículo:
+- Marca e modelo completo
+- Ano de fabricação e ano modelo
+- Cor oficial registrada
+- Valor atualizado na Tabela FIPE (Fundação Instituto de Pesquisas Econômicas)
+- Município e estado de registro (UF)
+- Situação do veículo (restrições, débitos, se houver)
+- Chassi (parcial, por segurança)
+- Tipo de combustível
+- Cilindradas (para motos)
+- Tipo de carroceria
+- Capacidade de passageiros (quando aplicável)
+- Peso bruto total (para veículos pesados)
+- Número de eixos (para caminhões)
+
+### 3. Tabela FIPE por Placa
+Consulta especializada do valor de mercado do veículo pela placa, com preços atualizados
+mensalmente pela FIPE. Ideal para:
+- Compradores que desejam saber o valor justo
+- Vendedores que querem precificar corretamente
+- Lojistas que avaliam veículos para troca
+
+### 4. Progressive Web App (PWA)
+- Instalável em dispositivos móveis e desktop
+- Funciona offline após instalação
+- Interface otimizada para uso rápido
+- Armazena o e-mail do usuário para consultas futuras (apenas no modo PWA)
+- Notificações push para atualizações importantes
+
+### 5. Leitura de Placa por Foto (IA)
+- Upload de foto da placa do veículo
+- Reconhecimento automático usando OpenAI Vision API
+- Extração da placa da imagem
+- Preenchimento automático do formulário
+
+## Casos de Uso
+
+### Para Compradores de Veículos
+- Verificar autenticidade dos dados fornecidos pelo vendedor
+- Consultar valor de mercado (FIPE) antes de negociar
+- Identificar restrições ou débitos pendentes
+- Confirmar ano real de fabricação vs. ano modelo
+- Validar cor oficial do documento
+
+### Para Vendedores
+- Obter valor FIPE atualizado para precificação
+- Confirmar dados corretos para anúncios
+- Demonstrar transparência ao comprador
+
+### Para Lojistas e Revendedores
+- Avaliar veículos para troca rapidamente
+- Consultar múltiplos veículos durante o dia
+- Verificar procedência antes de aceitar em consignação
+- Confirmar dados para documentação de venda
+
+### Para Transportadoras e Frotistas
+- Consultar dados de caminhões para documentação
+- Verificar peso bruto total (PBT) e capacidades
+- Validar número de eixos e especificações técnicas
+- Confirmar situação regular do veículo
+
+### Para Consumidores Gerais
+- Curiosidade sobre veículos na rua
+- Pesquisa antes de visitar concessionária
+- Comparação de modelos similares
+- Verificação de dados de veículo da família
+
+## Tipos de Veículos Suportados
+
+### Carros (Automóveis)
+Todas as marcas nacionais e importadas:
+- Volkswagen, Fiat, Chevrolet, Hyundai, Toyota, Honda
+- Renault, Jeep, Ford, Nissan, Peugeot, Citroën
+- Mitsubishi, BMW, Audi, Mercedes-Benz, BYD
+- E todas as outras marcas registradas no Brasil
+
+### Motos (Motocicletas)
+Todas as marcas e cilindradas:
+- Honda, Yamaha, Suzuki, BMW, Kawasaki
+- Triumph, Ducati, Royal Enfield, Harley-Davidson
+- Do modelo popular ao esportivo
+- Scooters, trail, street, sport
+
+### Caminhões
+Veículos de carga de todas as categorias:
+- Mercedes-Benz, Volvo, Scania, Volkswagen
+- DAF, Iveco, Ford, MAN
+- Do caminhão leve ao extrapesado
+- Carretas e semi-reboques
+
+### Ônibus e Micro-ônibus
+Veículos de transporte coletivo:
+- Mercedes-Benz, Volvo, Scania, Volkswagen
+- Iveco, Agrale
+- Ônibus urbanos, rodoviários, micro-ônibus
+
+### Vans e Utilitários
+Veículos comerciais leves:
+- Mercedes-Benz Sprinter, Fiat Ducato
+- Renault Master, Peugeot Boxer
+- Citroën Jumper, Iveco Daily
+- E todas as outras vans registradas
+
+## Diferenciais Competitivos
+
+1. **100% Gratuito**: Sem taxas, mensalidades ou cobranças ocultas
+2. **Sem Cadastro**: Apenas e-mail necessário para receber o resultado
+3. **Dados Completos**: Não apenas básicos, mas informações detalhadas incluindo FIPE
+4. **E-mail Instantâneo**: Resultado chega em segundos, bem formatado e legível
+5. **PWA Moderno**: Experiência de app nativo sem download de loja
+6. **Privacidade**: Dados não são vendidos ou compartilhados
+7. **LGPD Compliant**: Em conformidade com a Lei Geral de Proteção de Dados
+8. **Suporte a Foto**: Leitura automática de placa por IA
+9. **Mobile-First**: Otimizado para uso em smartphones
+10. **SEO Otimizado**: Fácil de encontrar em buscadores
+
+## Tecnologia
+
+### Stack Técnico
+- Frontend: Nuxt 3 (Vue.js) + TypeScript
+- Styling: SCSS com design system customizado
+- Backend: Nuxt Server API (Node.js)
+- Banco de Dados: Supabase (PostgreSQL)
+- E-mail: Resend API
+- IA: OpenAI Vision API (reconhecimento de placa)
+- PWA: Vite PWA Plugin
+- Notificações: OneSignal
+- Hospedagem: Netlify
+- Analytics: Google Analytics 4
+
+### Segurança
+- Row Level Security (RLS) no Supabase
+- Rate limiting em todos os endpoints
+- Validação de entrada (email, placa, imagens)
+- Sanitização contra injection
+- Audit logging de eventos sensíveis
+- HTTPS obrigatório
+- Headers de segurança configurados
+- Retenção de dados com cleanup automático (90 dias)
+
+## Páginas e Conteúdo
+
+### Página Principal (/)
+Formulário de consulta com:
+- Input de placa (com validação em tempo real)
+- Input de e-mail
+- Botão de upload de foto
+- Preview de dados de exemplo
+- Contador de consultas realizadas
+
+### Páginas Informacionais
+- **/consulta-placa**: Explicação sobre consulta veicular
+- **/como-consultar-placa**: Tutorial passo a passo
+- **/tabela-fipe-por-placa**: Informações sobre consulta FIPE
+
+### Páginas pSEO (Programmatic SEO)
+
+#### Por Tipo de Veículo
+- /consultar-placa-de-carro
+- /consultar-placa-de-moto
+- /consultar-placa-de-caminhao
+- /consultar-placa-de-onibus
+- /consultar-placa-de-van
+
+#### Por Estado (27 páginas)
+- /consultar-placa/acre
+- /consultar-placa/sao-paulo
+- /consultar-placa/rio-de-janeiro
+- ... (todos os estados brasileiros)
+
+#### Tabela FIPE por Marca e Modelo (200+ páginas)
+- /tabela-fipe (índice)
+- /tabela-fipe/volkswagen
+- /tabela-fipe/volkswagen-gol
+- /tabela-fipe/fiat
+- /tabela-fipe/fiat-argo
+- /tabela-fipe/honda-motos
+- /tabela-fipe/honda-motos-cg-160
+- ... (principais marcas e modelos populares)
+
+### Páginas Legais
+- **/termos-de-uso**: Termos e condições do serviço
+- **/politica-de-privacidade**: Política de privacidade LGPD
+
+### Área Administrativa (Protegida)
+- **/admin**: Painel de envio de notificações push
+- **/dash**: Dashboard de analytics (Google Looker Studio)
+
+## Modelo de Negócio
+
+### Receita Atual
+- **Gratuito para usuários**: Sem cobrança ao consumidor final
+- **Monetização futura planejada**:
+  - Anúncios não-intrusivos
+  - API para empresas (plano empresarial)
+  - Parcerias com seguradoras e lojistas
+
+### Custos Operacionais
+- API de consulta de placas (externa)
+- Serviço de e-mail (Resend)
+- Banco de dados (Supabase)
+- IA para reconhecimento de placa (OpenAI)
+- Hospedagem (Netlify - free tier)
+- Domínio (.com.br)
+
+## Métricas e Performance
+
+### Performance Técnica
+- Lighthouse Score: 95+ em Performance
+- First Contentful Paint: < 1.5s
+- Time to Interactive: < 3s
+- PWA Score: 100/100
+
+### SEO
+- Core Web Vitals: Todas as métricas no verde
+- Mobile-friendly: 100%
+- Schema.org markup implementado
+- Sitemap XML dinâmico
+- Canonical tags em todas as páginas
+- Open Graph e Twitter Cards
+
+## Público-Alvo
+
+### Demográfico
+- **Idade**: 25-55 anos (foco principal)
+- **Gênero**: Todos (leve predominância masculina no segmento automotivo)
+- **Localização**: Todo o Brasil
+- **Classes**: B, C e D
+
+### Perfis de Usuário
+1. **Comprador de Veículo Usado** (40%)
+   - Primeira compra ou troca
+   - Pesquisa antes de visitar vendedor
+   - Valida informações do anúncio
+
+2. **Lojista/Revendedor** (25%)
+   - Avalia veículos para troca
+   - Consulta múltiplas placas por dia
+   - Precisa de informações rápidas
+
+3. **Curioso/Pesquisador** (20%)
+   - Quer saber valor do próprio carro
+   - Curiosidade sobre veículos na rua
+   - Comparação de modelos
+
+4. **Vendedor Particular** (10%)
+   - Precisa precificar para venda
+   - Quer dados corretos para anúncio
+
+5. **Profissional (Transportadora/Despachante)** (5%)
+   - Necessita dados técnicos
+   - Documentação e compliance
+
+## Palavras-Chave (SEO)
+
+### Primary Keywords
+- consulta placa
+- consultar placa grátis
+- consulta veicular
+- placa completa
+- dados veículo por placa
+- tabela FIPE por placa
+
+### Long-tail Keywords
+- como consultar placa de carro grátis
+- consulta placa veicular online
+- ver dados do carro pela placa
+- consultar valor FIPE pela placa
+- informações veículo por placa
+- consulta gratuita placa carro
+
+### Location-based
+- consultar placa SP
+- consulta veicular São Paulo
+- placa Rio de Janeiro
+- [nome do estado] + consulta placa
+
+## Contato e Suporte
+
+- **E-mail**: contato@placacompleta.com.br
+- **Website**: https://placacompleta.com.br
+- **Suporte**: Via e-mail, resposta em até 24h úteis
+
+## Compliance e Legal
+
+### LGPD (Lei Geral de Proteção de Dados)
+- Política de privacidade publicada
+- Dados coletados: apenas e-mail e placa consultada
+- Uso: exclusivo para envio do resultado da consulta
+- Retenção: 90 dias, com cleanup automático
+- Não vendemos ou compartilhamos dados
+- Usuário pode solicitar exclusão a qualquer momento
+
+### Fonte de Dados
+- Dados veiculares obtidos de APIs públicas e legais
+- Tabela FIPE oficial da Fundação Instituto de Pesquisas Econômicas
+- Informações de registro de órgãos públicos brasileiros
+
+### Termos de Uso
+- Serviço fornecido "como está"
+- Não garantimos 100% de precisão (depende de fontes externas)
+- Proibido uso para fins ilegais ou fraudulentos
+- Uso comercial em larga escala requer autorização
+
+## Roadmap Futuro
+
+### Curto Prazo (3 meses)
+- [ ] Histórico de consultas para usuários PWA
+- [ ] Comparação de múltiplas placas lado a lado
+- [ ] Exportação de resultado em PDF
+- [ ] Integração com mais fontes de dados
+
+### Médio Prazo (6 meses)
+- [ ] API pública para desenvolvedores
+- [ ] Plano empresarial para lojistas
+- [ ] Dashboard de analytics para usuário
+- [ ] Alertas de mudança de preço FIPE
+
+### Longo Prazo (12 meses)
+- [ ] App nativo iOS e Android
+- [ ] Consulta de débitos e multas
+- [ ] Histórico de proprietários
+- [ ] Score de precificação inteligente
+
+## Estatísticas de Uso
+
+### Métricas Típicas (exemplo)
+- Consultas diárias: 500-1000+
+- Taxa de conversão (visita → consulta): ~15%
+- Tempo médio no site: 2-3 minutos
+- Taxa de retorno: ~30%
+- Instalações PWA: Crescimento de 5% ao mês
+
+### Dispositivos
+- Mobile: 70%
+- Desktop: 25%
+- Tablet: 5%
+
+### Browsers
+- Chrome: 60%
+- Safari: 25%
+- Firefox: 10%
+- Outros: 5%
+
+## Conclusão
+
+PlacaCompleta é uma solução completa, moderna e gratuita para consulta veicular no Brasil,
+combinando facilidade de uso, dados completos e tecnologia de ponta. O serviço atende desde
+o usuário casual que quer saber o valor do próprio carro até o lojista profissional que
+consulta dezenas de veículos por dia.
+
+Com foco em privacidade, segurança e experiência do usuário, o PlacaCompleta se posiciona
+como a referência em consulta veicular gratuita no mercado brasileiro.
+
+---
+
+Última atualização: Fevereiro 2026
+Versão: 1.0
