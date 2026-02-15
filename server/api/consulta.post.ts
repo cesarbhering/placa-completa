@@ -123,8 +123,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = useSupabaseServer()
-  const { error: insertError } = await supabase.from('consultas').insert({
-    email: sanitizedEmail,
+  await supabase.from('consultas').insert({
+    email,
     phone: phone || null,
     placa: placaClean,
     ip_address: ip,
@@ -134,20 +134,6 @@ export default defineEventHandler(async (event) => {
     email_sent: emailSent,
     api_response: apiResponse,
   })
-
-  if (insertError) {
-    console.error('Supabase insert error:', insertError)
-    // Send error notification but don't fail the request
-    await sendErrorEmail({
-      endpoint: '/api/consulta (supabase insert)',
-      errorMessage: `Failed to save consulta to database: ${insertError.message}`,
-      errorStack: JSON.stringify(insertError, null, 2),
-      requestBody: { placa: placaClean, isPWA, emailSent },
-      userAgent,
-      ip,
-      timestamp: new Date().toISOString(),
-    })
-  }
 
   return {
     success: true,
