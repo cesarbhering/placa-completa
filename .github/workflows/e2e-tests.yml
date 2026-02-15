@@ -49,7 +49,7 @@ jobs:
     env:
       # App runtime config (needed for API endpoints to work)
       SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
-      SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       RESEND_API_KEY: dummy-key-for-tests
       PLACA_API_TOKEN: dummy-token-for-tests
       API_KEY_OPENAI: dummy-openai-key
