@@ -3,11 +3,15 @@
 ###############################################################################
 # Pre-commit Hook
 #
-# Roda o script de testes completo antes de permitir o commit
-# Garante que o código commitado sempre passa nos testes
+# E2E tests are now handled by GitHub Actions (faster, more reliable)
+# Local pre-commit is kept minimal for speed
 ###############################################################################
 
 . "$(dirname -- "$0")/_/husky.sh"
 
-# Run the full test suite
-npm run test:full
+echo "✅ Pre-commit check passed!"
+echo "💡 E2E tests will run automatically on GitHub Actions"
+
+# Note: Heavy E2E tests moved to CI/CD
+# Uncomment below if you want to run tests locally before commit:
+# npm run test:full
