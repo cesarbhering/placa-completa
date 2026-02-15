@@ -28,11 +28,6 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Start dev server
-        run: |
-          npm run dev &
-          npx wait-on http://localhost:3000 -t 60000
-
       - name: Run user flow tests
         run: npx playwright test user-flow
 
@@ -72,11 +67,6 @@ jobs:
         run: |
           echo "PUBLIC_SUPABASE_URL=${{ secrets.PUBLIC_SUPABASE_URL }}" >> .env.test
           echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.test
-
-      - name: Start dev server
-        run: |
-          npm run dev &
-          npx wait-on http://localhost:3000 -t 60000
 
       - name: Run lead capture tests
         run: npm run test:leads
