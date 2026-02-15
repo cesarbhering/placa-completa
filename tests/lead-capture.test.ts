@@ -55,6 +55,27 @@ const findConsultaInDb = async (email: string, placa: string) => {
   return data
 }
 
+// Helper to cleanup test data
+const cleanupTestData = async () => {
+  if (!supabase) return
+
+  // Delete all test records (emails starting with "test+")
+  const { error } = await supabase
+    .from('consultas')
+    .delete()
+    .like('email', 'test+%@placacompleta.com.br')
+
+  if (error) {
+    console.error('Cleanup error:', error)
+  }
+}
+
+// Cleanup test data after all tests complete
+test.afterAll(async () => {
+  await cleanupTestData()
+  console.log('✅ Test data cleaned up from database')
+})
+
 test.describe('Lead Capture - WEB Version', () => {
   test.skip(!hasSupabaseCredentials, 'Supabase credentials not configured')
 
