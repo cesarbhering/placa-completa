@@ -32,3 +32,4 @@ __pycache__
 # Skill archives (generated logo iterations)
 .skill-archive/
 .env.local
+.env.test
