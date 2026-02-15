@@ -106,8 +106,18 @@ test.describe('Lead Capture - WEB Version', () => {
     await page.locator('#email').fill(testData.email)
     await page.getByRole('button', { name: /Receber Dados/i }).click()
 
+    // Wait for either success or error message
+    await page.waitForSelector('.win-alert', { timeout: 10000 })
+
+    // Check if there's an error message
+    const errorAlert = page.locator('.win-alert--error')
+    if (await errorAlert.isVisible()) {
+      const errorText = await errorAlert.textContent()
+      throw new Error(`API returned error: ${errorText}`)
+    }
+
     // Wait for success message
-    await expect(page.locator('.win-alert--success')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.win-alert--success')).toBeVisible({ timeout: 2000 })
 
     // Wait a bit for database insert to complete
     await page.waitForTimeout(2000)
@@ -226,8 +236,18 @@ test.describe('Lead Capture - PWA Version', () => {
     await page.locator('#placa').fill(testData.placa)
     await page.getByRole('button', { name: /Consultar Placa/i }).click()
 
+    // Wait for either modal or error message
+    await page.waitForSelector('.modal-overlay, .win-alert', { timeout: 10000 })
+
+    // Check if there's an error message
+    const errorAlert = page.locator('.win-alert--error')
+    if (await errorAlert.isVisible()) {
+      const errorText = await errorAlert.textContent()
+      throw new Error(`API returned error: ${errorText}`)
+    }
+
     // Wait for modal to appear (PWA shows modal instead of success message)
-    await expect(page.locator('.modal-overlay')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.modal-overlay')).toBeVisible({ timeout: 2000 })
 
     // Wait for database insert
     await page.waitForTimeout(2000)
