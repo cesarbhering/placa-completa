@@ -17,6 +17,8 @@
     "test:e2e:headed": "npx playwright test --headed",
     "test:e2e:ui": "npx playwright test --ui",
     "test:e2e:report": "npx playwright show-report",
+    "test:leads": "npx playwright test lead-capture",
+    "test:leads:headed": "npx playwright test lead-capture --headed",
     "test:all": "npm run test && npm run test:e2e",
     "test:full": "./scripts/run-tests.sh",
     "dev:no-analytics": "DISABLE_ANALYTICS=true npm run dev",

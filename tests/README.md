@@ -4,6 +4,15 @@ Testes E2E focados em **funcionalidade** e **experiência do usuário**.
 
 ## 📋 O que é testado
 
+### 🎯 **CRÍTICO** - Captura de Leads
+> ⚠️ **Estes testes validam o objetivo principal do negócio: capturar emails de leads**
+
+- ✅ **Web**: Consultas salvas no Supabase com `is_pwa=false`
+- ✅ **PWA**: Consultas salvas no Supabase com `is_pwa=true`
+- ✅ Política RLS aceita `email_sent=true` (web) e `email_sent=false` (PWA)
+- ✅ Erros de API ainda salvam consulta no banco
+- ✅ Email, placa, IP, user-agent são capturados corretamente
+
 ### ✅ Fluxo Principal do Usuário
 - Carregamento da homepage
 - Visualização de elementos principais (formulário, inputs, botões)
@@ -59,9 +68,35 @@ Testes E2E focados em **funcionalidade** e **experiência do usuário**.
 # Instalar dependências (se ainda não instalou)
 npm install
 
+# Configurar variáveis de ambiente para testes de lead capture
+cp .env.test.example .env.test
+# Edite .env.test e adicione suas credenciais Supabase
+
 # Iniciar servidor de desenvolvimento
 npm run dev
 ```
+
+### ⚠️ Testes de Captura de Leads (Requer configuração)
+
+Os testes em `lead-capture.test.ts` **requerem** acesso ao Supabase para validar que os dados estão sendo salvos:
+
+1. **Copie o arquivo de exemplo:**
+   ```bash
+   cp .env.test.example .env.test
+   ```
+
+2. **Adicione suas credenciais em `.env.test`:**
+   ```bash
+   PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=eyJhbG...  # Service role key (não anon key!)
+   ```
+
+3. **Rode os testes:**
+   ```bash
+   npm run test:leads  # Apenas testes de lead capture
+   ```
+
+> 💡 **Dica:** O service role key permite que os testes leiam dados do banco ignorando RLS policies. Encontre-o em: Supabase Dashboard > Settings > API > service_role
 
 ### Rodar os Testes
 
@@ -86,13 +121,14 @@ npm run test:report
 ```
 
 ---
-pwa.test.ts          # Testes de PWA (standalone mode)
-├── 
+
 ## 📊 Estrutura dos Testes
 
 ```
 tests/
+├── lead-capture.test.ts # 🎯 CRÍTICO - Testes de captura de leads (Supabase)
 ├── user-flow.test.ts    # Testes de fluxo do usuário
+├── pwa.test.ts          # Testes de PWA (standalone mode)
 ├── seo.test.ts          # Testes de SEO (opcional)
 └── README.md            # Esta documentação
 ```
