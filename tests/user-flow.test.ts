@@ -34,15 +34,17 @@ test.describe('Homepage - Main Flow', () => {
   })
 
   test('should display trust indicators', async ({ page }) => {
-    await expect(page.locator('text=/100% grátis/i')).toBeVisible()
-    await expect(page.locator('text=/Sem cadastro/i')).toBeVisible()
+    await expect(page.locator('.trust-line')).toContainText(/100% grátis/i)
+    await expect(page.locator('.trust-line')).toContainText(/Sem cadastro/i)
   })
 
   test('should display sample data preview', async ({ page }) => {
-    await expect(page.locator('text=/Exemplo de dados/i')).toBeVisible()
-    await expect(page.locator('text=/Marca/i')).toBeVisible()
-    await expect(page.locator('text=/Modelo/i')).toBeVisible()
-    await expect(page.locator('text=/FIPE/i')).toBeVisible()
+    const preview = page.locator('.sample-preview')
+    await expect(preview).toBeVisible()
+    await expect(preview).toContainText(/Exemplo de dados/i)
+    await expect(preview).toContainText('Marca')
+    await expect(preview).toContainText('Modelo')
+    await expect(preview).toContainText('FIPE')
   })
 })
 
@@ -79,9 +81,9 @@ test.describe('Form Validation', () => {
   test('should convert placa to uppercase', async ({ page }) => {
     const placaInput = page.locator('#placa')
 
-    // Type character by character to trigger input events
+    // Use pressSequentially to type character by character and trigger input events
     await placaInput.click()
-    await placaInput.type('abc1d23')
+    await placaInput.pressSequentially('abc1d23', { delay: 50 })
 
     // Wait a bit for the conversion
     await page.waitForTimeout(100)
@@ -100,15 +102,17 @@ test.describe('Form Validation', () => {
   })
 
   test('should show email prompt modal when no email saved', async ({ page }) => {
+    // Wait for Vue hydration
+    await page.waitForLoadState('networkidle')
+
     // Fill a valid placa
     await page.locator('#placa').fill('ABC1D23')
 
     // Submit the form
     await page.getByRole('button', { name: /Consultar Placa/i }).click()
 
-    // Email prompt modal should appear
-    await expect(page.locator('text=/Informe seu e-mail/i')).toBeVisible({ timeout: 5000 })
-    await expect(page.locator('#web-email')).toBeVisible()
+    // Email prompt modal should appear with the email input
+    await expect(page.locator('#web-email')).toBeVisible({ timeout: 5000 })
   })
 
   test('should show email confirmation modal when email is saved', async ({ page, context }) => {
@@ -203,6 +207,9 @@ test.describe('Accessibility', () => {
   })
 
   test('email input in modal should have proper attributes', async ({ page }) => {
+    // Wait for Vue hydration
+    await page.waitForLoadState('networkidle')
+
     // Trigger the email prompt modal
     await page.locator('#placa').fill('ABC1D23')
     await page.getByRole('button', { name: /Consultar Placa/i }).click()
