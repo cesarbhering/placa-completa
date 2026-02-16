@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { homepageFaqs } from '~/data/homepage-faqs'
+
 const { isPWA, isMobile } = useAppMode()
 const email = ref('')
 const placa = ref('')
@@ -17,12 +19,14 @@ const snackbarMessage = ref('')
 const showPwaEmailPrompt = ref(false)
 const pwaEmail = ref('')
 const pwaEmailError = ref('')
+const showWebEmailPrompt = ref(false)
+const webEmail = ref('')
+const webEmailError = ref('')
 const photoInput = ref<HTMLInputElement | null>(null)
 const processingPhoto = ref(false)
 const photoProcessMessage = ref('')
 
 const placaRef = ref<HTMLInputElement | null>(null)
-const emailRef = ref<HTMLInputElement | null>(null)
 const formStarted = ref(false)
 const permissionRequested = ref(false)
 const modalWindowRef = ref<HTMLElement | null>(null)
@@ -86,6 +90,26 @@ if (countData.value?.count) {
   consultaCount.value = countData.value.count
 }
 
+useHead({
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: homepageFaqs.map(faq => ({
+          '@type': 'Question',
+          name: faq.question,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: faq.answer,
+          },
+        })),
+      }),
+    },
+  ],
+})
+
 onMounted(async () => {
   if (isPWA.value) {
     // For PWA, load persistent email
@@ -127,9 +151,6 @@ function onPlacaInput(e: Event) {
   placaError.value = ''
 }
 
-function onEmailInput() {
-  emailError.value = ''
-}
 
 function validateEmail(val: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)
@@ -258,6 +279,22 @@ function savePwaEmail() {
   track('pwa_email_saved')
   
   // After saving email, proceed with the query
+  handleSubmit()
+}
+
+function saveWebEmail() {
+  webEmailError.value = ''
+
+  if (!validateEmail(webEmail.value)) {
+    webEmailError.value = 'E-mail inválido.'
+    return
+  }
+
+  localStorage.setItem('pc_email', webEmail.value)
+  email.value = webEmail.value
+  showWebEmailPrompt.value = false
+  track('web_email_saved')
+
   handleSubmit()
 }
 
@@ -390,11 +427,16 @@ async function handleSubmit() {
     return
   }
   
+  // Web: if no email saved, show modal to collect it
+  if (!isPWA.value && !email.value) {
+    showWebEmailPrompt.value = true
+    return
+  }
+
   // Skip email validation in PWA mode (already validated when stored)
   if (!isPWA.value && !validateEmail(email.value)) {
     emailError.value = 'E-mail inválido.'
     track('form_validation_error', { error_field: 'email' })
-    nextTick(() => emailRef.value?.focus())
     return
   }
 
@@ -480,7 +522,7 @@ async function handleSubmit() {
 
         <h1 class="page-title">Consulta Veicular Grátis</h1>
         <p class="page-subtitle">
-          Digite a placa e receba os dados completos do veículo no seu e-mail.
+          Digite a placa e descubra os dados completos do veículo.
         </p>
 
         <p v-if="consultaCount > 0" class="counter">
@@ -511,31 +553,13 @@ async function handleSubmit() {
             <span v-if="placaError" class="form-group__error">{{ placaError }}</span>
           </div>
 
-          <div v-if="!isPWA && !processingPhoto && !loading" class="form-group">
-            <label class="form-group__label" for="email">Seu e-mail</label>
-            <input
-              id="email"
-              required
-              ref="emailRef"
-              v-model="email"
-              type="email"
-              class="win-input email-input"
-              :class="{ 'win-input--error': emailError }"
-              placeholder="seu@email.com"
-              autocomplete="email"
-              inputmode="email"
-              @input="onEmailInput"
-            />
-            <span v-if="emailError" class="form-group__error">{{ emailError }}</span>
-          </div>
-
           <button
             v-if="!processingPhoto && !loading"
             type="submit"
             class="win-btn win-btn--primary win-btn--block"
             :disabled="loading"
           >
-            {{ isPWA ? 'Consultar Placa' : 'Receber Dados no E-mail' }}
+            Consultar Placa
           </button>
 
           <!-- Photo Capture for PWA -->
@@ -625,6 +649,15 @@ async function handleSubmit() {
             </div>
           </div>
           <p class="sample-preview__note">+ chassi, combustível, município, tipo e mais</p>
+        </div>
+
+        <!-- FAQ Section (web only) -->
+        <div v-if="!isPWA" class="faq-section">
+          <h2 class="faq-section__title">Perguntas Frequentes</h2>
+          <div v-for="faq in homepageFaqs" :key="faq.question" class="faq-item">
+            <h3>{{ faq.question }}</h3>
+            <p>{{ faq.answer }}</p>
+          </div>
         </div>
 
       </div>
@@ -734,17 +767,46 @@ async function handleSubmit() {
       </div>
     </div>
 
-    </main>
+    <!-- Web Email Prompt Modal -->
+    <div v-if="showWebEmailPrompt" class="modal-overlay" @click="showWebEmailPrompt = false">
+      <div class="modal-window" @click.stop>
+        <div class="win-window">
+          <div class="win-window__titlebar">
+            <span>Informe seu E-mail</span>
+            <div class="win-window__titlebar-buttons">
+              <span class="win-window__titlebar-btn win-window__titlebar-btn--active" @click="showWebEmailPrompt = false">×</span>
+            </div>
+          </div>
+          <div class="win-window__body">
+            <p class="modal-instruction">Informe seu e-mail para receber os dados completos do veículo.</p>
+            <div class="form-group">
+              <label class="form-group__label" for="web-email">Seu e-mail</label>
+              <input
+                id="web-email"
+                v-model="webEmail"
+                type="email"
+                class="win-input"
+                :class="{ 'win-input--error': webEmailError }"
+                placeholder="seu@email.com"
+                autocomplete="email"
+                inputmode="email"
+                @keyup.enter="saveWebEmail"
+              />
+              <span v-if="webEmailError" class="form-group__error">{{ webEmailError }}</span>
+            </div>
+            <button
+              type="button"
+              class="win-btn win-btn--primary win-btn--block"
+              @click="saveWebEmail"
+            >
+              Receber Dados no E-mail
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <footer class="footer">
-      <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta — Consulta veicular grátis e segura.</p>
-      <p class="footer__email">contato[at]placacompleta.com.br</p>
-      <nav class="footer__links">
-        <NuxtLink to="/termos-de-uso">Termos de Uso</NuxtLink>
-        <span class="footer__sep">|</span>
-        <NuxtLink to="/politica-de-privacidade">Política de Privacidade</NuxtLink>
-      </nav>
-    </footer>
+    </main>
   </div>
 </template>
 
@@ -774,10 +836,6 @@ async function handleSubmit() {
   text-align: center;
   margin-bottom: $space-sm;
   letter-spacing: 0.5px;
-}
-
-.email-input {
-  text-align: center;
 }
 
 .placa-input {
@@ -1059,6 +1117,38 @@ async function handleSubmit() {
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+  }
+}
+
+.faq-section {
+  margin-top: $space-lg;
+
+  &__title {
+    font-family: $font-display;
+    font-size: 1.25rem;
+    color: $navy-electric;
+    margin-bottom: $space-sm;
+  }
+}
+
+.faq-item {
+  @include win-border-sunken;
+  background: $win-white;
+  padding: $space-sm $space-md;
+  margin-bottom: $space-sm;
+
+  h3 {
+    font-family: $font-display;
+    font-size: 1.0625rem;
+    color: $smart-blue;
+    margin-bottom: $space-xs;
+  }
+
+  p {
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    color: $graphite;
+    margin: 0;
   }
 }
 

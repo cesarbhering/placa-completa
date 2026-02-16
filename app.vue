@@ -24,6 +24,15 @@ watch(pwaReady, (ready) => {
 
     <div v-show="isReady">
       <NuxtPage />
+      <footer class="footer">
+        <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta — Consulta veicular grátis e segura.</p>
+        <p class="footer__email">contato[at]placacompleta.com.br</p>
+        <nav class="footer__links">
+          <NuxtLink to="/termos-de-uso">Termos de Uso</NuxtLink>
+          <span class="footer__sep">|</span>
+          <NuxtLink to="/politica-de-privacidade">Política de Privacidade</NuxtLink>
+        </nav>
+      </footer>
     </div>
 
     <!-- PWA Install Prompt (appears automatically on supported devices) -->

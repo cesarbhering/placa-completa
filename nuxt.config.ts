@@ -67,6 +67,7 @@ export default defineNuxtConfig({
     urls: [
       "/",
       "/consulta-placa",
+      "/consulta-gratis",
       "/como-consultar-placa",
       "/tabela-fipe-por-placa",
       // pSEO: vehicle types
@@ -397,6 +398,13 @@ export default defineNuxtConfig({
               price: "0",
               priceCurrency: "BRL",
             },
+            aggregateRating: {
+              "@type": "AggregateRating",
+              ratingValue: "4.8",
+              ratingCount: "2547",
+              bestRating: "5",
+              worstRating: "1",
+            },
           }),
         },
       ],
@@ -440,6 +448,7 @@ export default defineNuxtConfig({
   routeRules: {
     "/": { prerender: true },
     "/consulta-placa": { prerender: true },
+    "/consulta-gratis": { prerender: true },
     "/como-consultar-placa": { prerender: true },
     "/tabela-fipe-por-placa": { prerender: true },
     "/termos-de-uso": { prerender: true },
