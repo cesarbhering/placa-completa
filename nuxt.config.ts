@@ -349,6 +349,8 @@ export default defineNuxtConfig({
       link: [
         { rel: "preconnect", href: "https://www.googletagmanager.com" },
         { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
+        { rel: "preconnect", href: "https://datafa.st" },
+        { rel: "dns-prefetch", href: "https://datafa.st" },
         {
           rel: "icon",
           type: "image/png",
@@ -379,6 +381,12 @@ export default defineNuxtConfig({
               {
                 defer: true,
                 innerHTML: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-24H7QSPX4G');`,
+              },
+              {
+                defer: true,
+                "data-website-id": "dfid_D2KsTM8IMXJPotj3NDpBr",
+                "data-domain": "placacompleta.com.br",
+                src: "https://datafa.st/js/script.js",
               },
             ]
           : []),
