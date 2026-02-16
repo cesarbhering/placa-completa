@@ -66,6 +66,7 @@ export default defineNuxtConfig({
   sitemap: {
     urls: [
       "/",
+      "/landing",
       "/consulta-placa",
       "/consulta-gratis",
       "/como-consultar-placa",
@@ -455,6 +456,7 @@ export default defineNuxtConfig({
 
   routeRules: {
     "/": { prerender: true },
+    "/landing": { prerender: true },
     "/consulta-placa": { prerender: true },
     "/consulta-gratis": { prerender: true },
     "/como-consultar-placa": { prerender: true },
