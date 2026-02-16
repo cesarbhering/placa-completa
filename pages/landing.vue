@@ -38,6 +38,8 @@ const loading = ref(false)
 const consultaCount = ref(0)
 const openFaqIndex = ref<number | null>(null)
 const showMobileMenu = ref(false)
+const showEmailModal = ref(false)
+const emailStep = ref<'input' | 'confirm'>('input')
 
 // Fetch consultation count
 const { data: countData } = await useFetch('/api/count')
@@ -46,6 +48,7 @@ if (countData.value?.count) {
 }
 
 const placaRef = ref<HTMLInputElement | null>(null)
+const emailInputRef = ref<HTMLInputElement | null>(null)
 
 // Load saved email + override body styles for dark theme
 onMounted(() => {
@@ -97,14 +100,42 @@ function scrollTo(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
 }
 
-async function handleSubmit() {
+function handlePlacaSubmit() {
   placaError.value = ''
-  emailError.value = ''
 
   if (!validatePlaca(placa.value)) {
     placaError.value = 'Placa inválida. Use o formato ABC1D23 ou ABC1234.'
     return
   }
+
+  const savedEmail = localStorage.getItem('pc_email')
+  if (savedEmail) {
+    email.value = savedEmail
+    emailStep.value = 'confirm'
+  } else {
+    email.value = ''
+    emailStep.value = 'input'
+  }
+
+  showEmailModal.value = true
+
+  if (!savedEmail) {
+    nextTick(() => {
+      emailInputRef.value?.focus()
+    })
+  }
+}
+
+function changeEmail() {
+  emailStep.value = 'input'
+  email.value = ''
+  nextTick(() => {
+    emailInputRef.value?.focus()
+  })
+}
+
+async function handleSubmit() {
+  emailError.value = ''
 
   if (!validateEmail(email.value)) {
     emailError.value = 'Informe um e-mail válido.'
@@ -148,7 +179,7 @@ const showcaseData = [
   { label: 'Município', value: 'SAO PAULO - SP' },
   { label: 'Situação', value: 'Sem restrição' },
   { label: 'Valor FIPE', value: 'R$ 28.799,00' },
-  { label: 'Chassi', value: '9BWAA05U**********' },
+  { label: 'Chassi', value: '*************57092' },
 ]
 
 const includedItems = [
@@ -236,7 +267,7 @@ const includedItems = [
             Marca, modelo, FIPE, situação e mais &mdash; em segundos.
           </p>
 
-          <form class="lp-hero__form" @submit.prevent="handleSubmit" novalidate>
+          <form class="lp-hero__form" @submit.prevent="handlePlacaSubmit" novalidate>
             <div class="lp-hero__form-row">
               <div class="lp-hero__field">
                 <input
@@ -254,25 +285,11 @@ const includedItems = [
                 />
                 <span v-if="placaError" class="lp-hero__error">{{ placaError }}</span>
               </div>
-              <div class="lp-hero__field">
-                <input
-                  v-model="email"
-                  type="email"
-                  class="lp-hero__input"
-                  :class="{ 'lp-hero__input--error': emailError }"
-                  placeholder="seu@email.com"
-                  autocomplete="email"
-                  inputmode="email"
-                />
-                <span v-if="emailError" class="lp-hero__error">{{ emailError }}</span>
-              </div>
               <button
                 type="submit"
                 class="lp-hero__submit"
-                :disabled="loading"
               >
-                <span v-if="loading" class="lp-hero__submit-loading"></span>
-                <span v-else>Consultar Grátis &rarr;</span>
+                Consultar Grátis &rarr;
               </button>
             </div>
           </form>
@@ -296,8 +313,8 @@ const includedItems = [
           </div>
           <div class="lp-step">
             <div class="lp-step__number">2</div>
-            <h3 class="lp-step__title">Informe seu e-mail</h3>
-            <p class="lp-step__desc">Para receber os dados completos diretamente na sua caixa de entrada.</p>
+            <h3 class="lp-step__title">Confirme seu e-mail</h3>
+            <p class="lp-step__desc">Informe ou confirme o e-mail para receber os dados na sua caixa de entrada.</p>
           </div>
           <div class="lp-step">
             <div class="lp-step__number">3</div>
@@ -366,6 +383,64 @@ const includedItems = [
         </button>
       </div>
     </section>
+
+    <!-- Email Modal -->
+    <div v-if="showEmailModal" class="lp-email-overlay" @click.self="showEmailModal = false">
+      <div class="lp-email-modal">
+        <button class="lp-email-modal__close" @click="showEmailModal = false">&times;</button>
+
+        <!-- Confirm existing email -->
+        <template v-if="emailStep === 'confirm'">
+          <div class="lp-email-modal__icon">&#9993;</div>
+          <h3 class="lp-email-modal__title">Confirmar e-mail</h3>
+          <p class="lp-email-modal__text">
+            Enviaremos os dados da placa <strong>{{ placa }}</strong> para:
+          </p>
+          <p class="lp-email-modal__address">{{ email }}</p>
+          <button
+            class="lp-hero__submit lp-email-modal__submit"
+            :disabled="loading"
+            @click="handleSubmit"
+          >
+            <span v-if="loading" class="lp-hero__submit-loading"></span>
+            <span v-else>Confirmar e Enviar &rarr;</span>
+          </button>
+          <button class="lp-email-modal__change" @click="changeEmail">
+            Usar outro e-mail
+          </button>
+        </template>
+
+        <!-- Input new email -->
+        <template v-else>
+          <div class="lp-email-modal__icon">&#9993;</div>
+          <h3 class="lp-email-modal__title">Informe seu e-mail</h3>
+          <p class="lp-email-modal__text">
+            Para receber os dados completos da placa <strong>{{ placa }}</strong>:
+          </p>
+          <form @submit.prevent="handleSubmit" novalidate>
+            <input
+              ref="emailInputRef"
+              v-model="email"
+              type="email"
+              class="lp-hero__input lp-email-modal__input"
+              :class="{ 'lp-hero__input--error': emailError }"
+              placeholder="seu@email.com"
+              autocomplete="email"
+              inputmode="email"
+            />
+            <span v-if="emailError" class="lp-hero__error">{{ emailError }}</span>
+            <button
+              type="submit"
+              class="lp-hero__submit lp-email-modal__submit"
+              :disabled="loading"
+            >
+              <span v-if="loading" class="lp-hero__submit-loading"></span>
+              <span v-else>Enviar Consulta &rarr;</span>
+            </button>
+          </form>
+        </template>
+      </div>
+    </div>
 
     <!-- Footer handled by app.vue -->
   </div>
@@ -1121,6 +1196,114 @@ $lp-card-border: rgba(48, 102, 190, 0.15);
 }
 
 /* ===================== */
+/* EMAIL MODAL           */
+/* ===================== */
+.lp-email-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+  animation: overlayFadeIn 0.2s ease-out;
+}
+
+.lp-email-modal {
+  background: $lp-bg-card;
+  border: 1px solid rgba($lp-blue, 0.3);
+  border-radius: 16px;
+  padding: 40px 32px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  position: relative;
+  animation: modalSlideUp 0.3s ease-out;
+
+  &__close {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    background: none;
+    border: none;
+    color: $lp-text-muted;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+    transition: color 0.2s;
+
+    &:hover {
+      color: $lp-ivory;
+    }
+  }
+
+  &__icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+  }
+
+  &__title {
+    font-family: $font-display;
+    font-size: 1.5rem;
+    color: $lp-ivory;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+  }
+
+  &__text {
+    font-size: 0.9375rem;
+    color: $lp-text;
+    margin-bottom: 20px;
+    line-height: 1.5;
+
+    strong {
+      color: $lp-ivory;
+      font-family: $font-display;
+      letter-spacing: 1px;
+    }
+  }
+
+  &__address {
+    font-family: $font-body;
+    font-size: 1.125rem;
+    color: $lp-blue;
+    font-weight: 600;
+    margin-bottom: 24px;
+    word-break: break-all;
+  }
+
+  &__input {
+    margin-bottom: 8px;
+  }
+
+  &__submit {
+    width: 100%;
+    margin-top: 16px;
+  }
+
+  &__change {
+    background: none;
+    border: none;
+    color: $lp-text-muted;
+    font-size: 0.875rem;
+    cursor: pointer;
+    margin-top: 12px;
+    text-decoration: underline;
+    transition: color 0.2s;
+
+    &:hover {
+      color: $lp-ivory;
+    }
+  }
+}
+
+/* ===================== */
 /* ANIMATIONS            */
 /* ===================== */
 @keyframes heroSlideInLeft {
@@ -1159,6 +1342,22 @@ $lp-card-border: rgba(48, 102, 190, 0.15);
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>
