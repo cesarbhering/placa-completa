@@ -24,19 +24,13 @@ test.describe('Homepage - Main Flow', () => {
     // Check placa input
     await expect(page.locator('#placa')).toBeVisible()
 
-    // Check email input
-    await expect(page.locator('#email')).toBeVisible()
-
     // Check submit button
-    await expect(page.getByRole('button', { name: /Receber Dados/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /Consultar Placa/i })).toBeVisible()
   })
 
-  test('should show placeholder text in inputs', async ({ page }) => {
+  test('should show placeholder text in placa input', async ({ page }) => {
     const placaInput = page.locator('#placa')
-    const emailInput = page.locator('#email')
-
     await expect(placaInput).toHaveAttribute('placeholder', /ABC1D23/i)
-    await expect(emailInput).toHaveAttribute('placeholder', /email\.com/i)
   })
 
   test('should display trust indicators', async ({ page }) => {
@@ -60,11 +54,6 @@ test.describe('Form Validation', () => {
   test('placa input should have required attribute', async ({ page }) => {
     const placaInput = page.locator('#placa')
     await expect(placaInput).toHaveAttribute('required')
-  })
-
-  test('email input should have required attribute', async ({ page }) => {
-    const emailInput = page.locator('#email')
-    await expect(emailInput).toHaveAttribute('required')
   })
 
   test('should accept valid placa format (old pattern)', async ({ page }) => {
@@ -110,13 +99,39 @@ test.describe('Form Validation', () => {
     expect(value.length).toBeLessThanOrEqual(7)
   })
 
-  test('should disable submit button while loading', async ({ page }) => {
-    const submitBtn = page.getByRole('button', { name: /Receber Dados/i })
+  test('should show email prompt modal when no email saved', async ({ page }) => {
+    // Fill a valid placa
+    await page.locator('#placa').fill('ABC1D23')
 
-    // Button should be enabled initially
-    await expect(submitBtn).toBeEnabled()
+    // Submit the form
+    await page.getByRole('button', { name: /Consultar Placa/i }).click()
 
-    // TODO: Test loading state when API is available
+    // Email prompt modal should appear
+    await expect(page.locator('text=/Informe seu e-mail/i')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('#web-email')).toBeVisible()
+  })
+
+  test('should show email confirmation modal when email is saved', async ({ page, context }) => {
+    const testEmail = 'test@email.com'
+
+    // Pre-populate localStorage
+    await context.addInitScript((email) => {
+      localStorage.setItem('pc_email', email)
+    }, testEmail)
+
+    await page.goto(BASE_URL)
+    await page.waitForLoadState('domcontentloaded')
+    await page.waitForTimeout(500)
+
+    // Fill a valid placa
+    await page.locator('#placa').fill('ABC1D23')
+
+    // Submit the form
+    await page.getByRole('button', { name: /Consultar Placa/i }).click()
+
+    // Email confirmation modal should appear with saved email
+    await expect(page.locator('text=/Confirmar E-mail/i')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('.confirm-email')).toContainText(testEmail)
   })
 })
 
@@ -160,7 +175,6 @@ test.describe('Responsive Design', () => {
     // Check if elements are visible on mobile
     await expect(page.locator('form')).toBeVisible()
     await expect(page.locator('#placa')).toBeVisible()
-    await expect(page.locator('#email')).toBeVisible()
   })
 
   test('should display correctly on tablet', async ({ page }) => {
@@ -185,14 +199,18 @@ test.describe('Accessibility', () => {
 
   test('form inputs should have labels', async ({ page }) => {
     const placaLabel = page.locator('label[for="placa"]')
-    const emailLabel = page.locator('label[for="email"]')
-
     await expect(placaLabel).toBeVisible()
-    await expect(emailLabel).toBeVisible()
   })
 
-  test('inputs should have proper autocomplete attributes', async ({ page }) => {
-    const emailInput = page.locator('#email')
+  test('email input in modal should have proper attributes', async ({ page }) => {
+    // Trigger the email prompt modal
+    await page.locator('#placa').fill('ABC1D23')
+    await page.getByRole('button', { name: /Consultar Placa/i }).click()
+
+    // Wait for modal
+    await expect(page.locator('#web-email')).toBeVisible({ timeout: 5000 })
+
+    const emailInput = page.locator('#web-email')
     await expect(emailInput).toHaveAttribute('autocomplete', 'email')
   })
 
@@ -222,7 +240,7 @@ test.describe('User Experience', () => {
     await expect(placaInput).toBeFocused()
   })
 
-  test('should load email from localStorage if available', async ({ page, context }) => {
+  test('should load email from localStorage and show in confirmation modal', async ({ page, context }) => {
     const testEmail = 'saved@email.com'
 
     // Pre-populate localStorage before visiting page
@@ -232,14 +250,15 @@ test.describe('User Experience', () => {
 
     // Now visit the page
     await page.goto(BASE_URL)
-
-    // Wait for page to hydrate
     await page.waitForLoadState('domcontentloaded')
     await page.waitForTimeout(1000)
 
-    // Email should be loaded from localStorage
-    const emailInput = page.locator('#email')
-    await expect(emailInput).toHaveValue(testEmail, { timeout: 5000 })
+    // Fill placa and submit
+    await page.locator('#placa').fill('ABC1D23')
+    await page.getByRole('button', { name: /Consultar Placa/i }).click()
+
+    // Email confirmation modal should show the saved email
+    await expect(page.locator('.confirm-email')).toContainText(testEmail, { timeout: 5000 })
   })
 
   test('should show counter if available', async ({ page }) => {
