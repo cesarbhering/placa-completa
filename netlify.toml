@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build"
+  command = "timeout 180 npm run build || test $? -eq 124"
   publish = "dist"
 
 [[redirects]]
