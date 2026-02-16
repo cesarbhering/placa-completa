@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 /**
  * Lead Capture Tests - Critical Business Logic
  * Validates that both web and PWA queries are being saved to Supabase
- * 
+ *
  * IMPORTANT: These tests directly validate the main business goal - capturing leads
  */
 
@@ -70,18 +70,17 @@ const cleanupTestData = async () => {
   }
 }
 
-// Cleanup test data after all tests complete
-test.afterAll(async () => {
-  await cleanupTestData()
-  console.log('✅ Test data cleaned up from database')
-})
-
 test.describe('Lead Capture - WEB Version', () => {
   test.skip(!hasSupabaseCredentials, 'Supabase credentials not configured')
 
+  test.afterAll(async () => {
+    await cleanupTestData()
+    console.log('✅ Test data cleaned up from database')
+  })
+
   test.skip('should save web query to Supabase with is_pwa=false', async ({ page, context }) => {
     const testData = generateTestData()
-    
+
     // Mock external plate API
     await page.route('https://wdapi2.com.br/consulta/**', async (route) => {
       await route.fulfill({
@@ -122,10 +121,14 @@ test.describe('Lead Capture - WEB Version', () => {
     await page.goto(BASE_URL)
     await page.waitForLoadState('networkidle')
 
-    // Fill and submit form
+    // Fill placa and submit to trigger email modal
     await page.locator('#placa').fill(testData.placa)
-    await page.locator('#email').fill(testData.email)
-    await page.getByRole('button', { name: /Receber Dados/i }).click()
+    await page.getByRole('button', { name: /Consultar Placa/i }).click()
+
+    // Email prompt modal should appear (no email saved)
+    await expect(page.locator('#web-email')).toBeVisible({ timeout: 5000 })
+    await page.locator('#web-email').fill(testData.email)
+    await page.getByRole('button', { name: /Receber Dados no E-mail/i }).click()
 
     // Wait for either success or error message
     await page.waitForSelector('.win-alert', { timeout: 10000 })
@@ -145,7 +148,7 @@ test.describe('Lead Capture - WEB Version', () => {
 
     // Verify in database
     const consulta = await findConsultaInDb(testData.email, testData.placa)
-    
+
     expect(consulta).toBeTruthy()
     expect(consulta?.email).toBe(testData.email)
     expect(consulta?.placa).toBe(testData.placa)
@@ -156,7 +159,7 @@ test.describe('Lead Capture - WEB Version', () => {
 
   test('should handle API errors and still save to database', async ({ page }) => {
     const testData = generateTestData()
-    
+
     // Mock external plate API to return error
     await page.route('https://wdapi2.com.br/consulta/**', async (route) => {
       await route.abort('failed')
@@ -165,10 +168,14 @@ test.describe('Lead Capture - WEB Version', () => {
     await page.goto(BASE_URL)
     await page.waitForLoadState('networkidle')
 
-    // Fill and submit form
+    // Fill placa and submit to trigger email modal
     await page.locator('#placa').fill(testData.placa)
-    await page.locator('#email').fill(testData.email)
-    await page.getByRole('button', { name: /Receber Dados/i }).click()
+    await page.getByRole('button', { name: /Consultar Placa/i }).click()
+
+    // Email prompt modal should appear (no email saved)
+    await expect(page.locator('#web-email')).toBeVisible({ timeout: 5000 })
+    await page.locator('#web-email').fill(testData.email)
+    await page.getByRole('button', { name: /Receber Dados no E-mail/i }).click()
 
     // Wait for error message
     await expect(page.locator('.win-alert--error')).toBeVisible({ timeout: 10000 })
@@ -178,7 +185,7 @@ test.describe('Lead Capture - WEB Version', () => {
 
     // Verify error is still saved in database
     const consulta = await findConsultaInDb(testData.email, testData.placa)
-    
+
     expect(consulta).toBeTruthy()
     expect(consulta?.email).toBe(testData.email)
     expect(consulta?.placa).toBe(testData.placa)
@@ -250,9 +257,6 @@ test.describe('Lead Capture - PWA Version', () => {
     await page.goto(BASE_URL)
     await page.waitForLoadState('networkidle')
 
-    // In PWA mode, email field should not be visible
-    await expect(page.locator('#email')).not.toBeVisible()
-
     // Fill placa and submit
     await page.locator('#placa').fill(testData.placa)
     await page.getByRole('button', { name: /Consultar Placa/i }).click()
@@ -275,7 +279,7 @@ test.describe('Lead Capture - PWA Version', () => {
 
     // Verify in database
     const consulta = await findConsultaInDb(testData.email, testData.placa)
-    
+
     expect(consulta).toBeTruthy()
     expect(consulta?.email).toBe(testData.email)
     expect(consulta?.placa).toBe(testData.placa)
