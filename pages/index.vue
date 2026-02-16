@@ -22,6 +22,9 @@ const pwaEmailError = ref('')
 const showWebEmailPrompt = ref(false)
 const webEmail = ref('')
 const webEmailError = ref('')
+const showEmailConfirm = ref(false)
+const emailConfirmed = ref(false)
+const openFaq = ref<number | null>(null)
 const photoInput = ref<HTMLInputElement | null>(null)
 const processingPhoto = ref(false)
 const photoProcessMessage = ref('')
@@ -295,7 +298,20 @@ function saveWebEmail() {
   showWebEmailPrompt.value = false
   track('web_email_saved')
 
+  emailConfirmed.value = true
   handleSubmit()
+}
+
+function confirmEmail() {
+  showEmailConfirm.value = false
+  emailConfirmed.value = true
+  handleSubmit()
+}
+
+function changeEmail() {
+  showEmailConfirm.value = false
+  webEmail.value = email.value
+  showWebEmailPrompt.value = true
 }
 
 function changePwaEmail() {
@@ -432,6 +448,13 @@ async function handleSubmit() {
     showWebEmailPrompt.value = true
     return
   }
+
+  // Web: if email is saved, confirm before proceeding
+  if (!isPWA.value && email.value && !emailConfirmed.value) {
+    showEmailConfirm.value = true
+    return
+  }
+  emailConfirmed.value = false
 
   // Skip email validation in PWA mode (already validated when stored)
   if (!isPWA.value && !validateEmail(email.value)) {
@@ -651,15 +674,34 @@ async function handleSubmit() {
           <p class="sample-preview__note">+ chassi, combustível, município, tipo e mais</p>
         </div>
 
-        <!-- FAQ Section (web only) -->
-        <div v-if="!isPWA" class="faq-section">
-          <h2 class="faq-section__title">Perguntas Frequentes</h2>
-          <div v-for="faq in homepageFaqs" :key="faq.question" class="faq-item">
+      </div>
+    </div>
+
+    <!-- FAQ Section (web only) - separate win-window -->
+    <div v-if="!isPWA" class="win-window faq-window">
+      <div class="win-window__titlebar">
+        <span>Perguntas Frequentes</span>
+        <div class="win-window__titlebar-buttons">
+          <span class="win-window__titlebar-btn">_</span>
+          <span class="win-window__titlebar-btn">&square;</span>
+          <span class="win-window__titlebar-btn">&times;</span>
+        </div>
+      </div>
+      <div class="win-window__body faq-body">
+        <div
+          v-for="(faq, index) in homepageFaqs"
+          :key="faq.question"
+          class="faq-item"
+          :class="{ 'faq-item--open': openFaq === index }"
+        >
+          <button class="faq-item__toggle" @click="openFaq = openFaq === index ? null : index">
+            <span class="faq-item__icon">{{ openFaq === index ? '−' : '+' }}</span>
             <h3>{{ faq.question }}</h3>
+          </button>
+          <div v-show="openFaq === index" class="faq-item__answer">
             <p>{{ faq.answer }}</p>
           </div>
         </div>
-
       </div>
     </div>
 
@@ -762,6 +804,40 @@ async function handleSubmit() {
             >
               Salvar e Continuar
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Email Confirmation Modal -->
+    <div v-if="showEmailConfirm" class="modal-overlay" @click="showEmailConfirm = false">
+      <div class="modal-window" @click.stop>
+        <div class="win-window">
+          <div class="win-window__titlebar">
+            <span>Confirmar E-mail</span>
+            <div class="win-window__titlebar-buttons">
+              <span class="win-window__titlebar-btn win-window__titlebar-btn--active" @click="showEmailConfirm = false">&times;</span>
+            </div>
+          </div>
+          <div class="win-window__body">
+            <p class="modal-instruction">Enviar resultado da consulta para:</p>
+            <p class="confirm-email">{{ email }}</p>
+            <div class="confirm-actions">
+              <button
+                type="button"
+                class="win-btn win-btn--primary win-btn--block"
+                @click="confirmEmail"
+              >
+                Enviar para este e-mail
+              </button>
+              <button
+                type="button"
+                class="win-btn win-btn--block"
+                @click="changeEmail"
+              >
+                Usar outro e-mail
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -981,6 +1057,21 @@ async function handleSubmit() {
   font-style: italic;
 }
 
+.confirm-email {
+  font-family: $font-display;
+  font-size: 1.125rem;
+  color: $navy-electric;
+  text-align: center;
+  margin-bottom: $space-md;
+  word-break: break-all;
+}
+
+.confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+}
+
 .data-table {
   @include win-border-sunken;
   background: $win-white;
@@ -1120,35 +1211,72 @@ async function handleSubmit() {
   }
 }
 
-.faq-section {
-  margin-top: $space-lg;
+.faq-window {
+  margin-top: $space-md;
+  overflow: hidden;
+}
 
-  &__title {
-    font-family: $font-display;
-    font-size: 1.25rem;
-    color: $navy-electric;
-    margin-bottom: $space-sm;
-  }
+.faq-body {
+  padding: $space-xs !important;
 }
 
 .faq-item {
   @include win-border-sunken;
   background: $win-white;
-  padding: $space-sm $space-md;
-  margin-bottom: $space-sm;
+  margin-bottom: $space-xs;
 
-  h3 {
-    font-family: $font-display;
-    font-size: 1.0625rem;
-    color: $smart-blue;
-    margin-bottom: $space-xs;
+  &:last-child {
+    margin-bottom: 0;
   }
 
-  p {
-    font-size: 0.8125rem;
-    line-height: 1.6;
-    color: $graphite;
-    margin: 0;
+  &--open {
+    .faq-item__toggle {
+      background: $powder-blue;
+    }
+  }
+
+  &__toggle {
+    display: flex;
+    align-items: center;
+    gap: $space-xs;
+    width: 100%;
+    padding: $space-sm;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover {
+      background: $powder-blue;
+    }
+
+    h3 {
+      font-family: $font-display;
+      font-size: 0.9375rem;
+      color: $smart-blue;
+      margin: 0;
+    }
+  }
+
+  &__icon {
+    font-family: $font-display;
+    font-size: 1.125rem;
+    color: $navy-electric;
+    min-width: 16px;
+    text-align: center;
+    font-weight: 700;
+  }
+
+  &__answer {
+    padding: 0 $space-sm $space-sm;
+    border-top: 1px dotted #9ab1d0;
+
+    p {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      color: $graphite;
+      margin: $space-sm 0 0;
+    }
   }
 }
 
