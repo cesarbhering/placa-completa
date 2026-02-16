@@ -14,6 +14,7 @@ const consultaCount = ref(0)
 const sentToEmail = ref('')
 const showDataModal = ref(false)
 const vehicleData = ref<any>(null)
+  
 const showSnackbar = ref(false)
 const snackbarMessage = ref('')
 const showPwaEmailPrompt = ref(false)
