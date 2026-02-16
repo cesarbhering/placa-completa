@@ -46,6 +46,9 @@ jobs:
     name: Lead Capture Tests (Critical)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
     env:
       # App runtime config (needed for API endpoints to work)
       SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
