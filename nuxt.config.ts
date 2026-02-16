@@ -50,7 +50,7 @@ export default defineNuxtConfig({
       navigateFallback: '/',
     },
     devOptions: {
-      enabled: true,
+      enabled: process.env.NODE_ENV === 'development',
       type: 'module',
     },
   },
