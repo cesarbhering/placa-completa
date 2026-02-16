@@ -1,24 +1,37 @@
 <script setup lang="ts">
 const isReady = ref(false)
+const isPWA = ref(false)
+
+// Detect PWA mode synchronously on client
+if (import.meta.client) {
+  isPWA.value = window.matchMedia('(display-mode: standalone)').matches ||
+                (window.navigator as any).standalone === true ||
+                document.referrer.includes('android-app://')
+}
 
 // Wait for PWA Service Worker to be ready before showing app
 // This prevents flicker during auto-update by keeping loading screen active
 const pwaReady = useState('pwaReady', () => false)
 
-watch(pwaReady, (ready) => {
-  if (ready) {
-    // Small delay to ensure smooth transition and isPWA detection
-    setTimeout(() => {
-      isReady.value = true
-    }, 100)
-  }
-}, { immediate: true })
+if (!isPWA.value) {
+  // Web: show app immediately, no loading screen
+  isReady.value = true
+} else {
+  watch(pwaReady, (ready) => {
+    if (ready) {
+      // Small delay to ensure smooth transition and isPWA detection
+      setTimeout(() => {
+        isReady.value = true
+      }, 100)
+    }
+  }, { immediate: true })
+}
 </script>
 
 <template>
   <div>
-    <!-- PWA Loading Screen -->
-    <div v-if="!isReady" class="pwa-loader">
+    <!-- PWA Loading Screen (PWA only) -->
+    <div v-if="isPWA && !isReady" class="pwa-loader">
       <img src="/logo-nobg-200.png" alt="PlacaCompleta" class="pwa-loader__logo" />
     </div>
 

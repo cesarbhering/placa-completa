@@ -97,13 +97,13 @@ test.describe('PWA Mode', () => {
 
     // Type with special characters and wait for input event
     await placaInput.clear()
-    await placaInput.type('abc-1d23')
+    await placaInput.pressSequentially('abc-1d23', { delay: 50 })
     await page.waitForTimeout(100)
     await expect(placaInput).toHaveValue('ABC1D23')
 
     // Type lowercase and wait for input event
     await placaInput.clear()
-    await placaInput.type('xyz9z99')
+    await placaInput.pressSequentially('xyz9z99', { delay: 50 })
     await page.waitForTimeout(100)
     await expect(placaInput).toHaveValue('XYZ9Z99')
   })
@@ -228,9 +228,16 @@ test.describe('Non-PWA Mode (Web Browser)', () => {
     await expect(titleBar).not.toContainText('v')
   })
 
-  test('should show email input field in web mode', async ({ page }) => {
-    const emailInput = page.locator('#email')
-    await expect(emailInput).toBeVisible()
+  test('should show email prompt modal when submitting in web mode', async ({ page }) => {
+    // Wait for hydration
+    await page.waitForLoadState('networkidle')
+
+    // Fill placa and submit to trigger email modal
+    await page.locator('#placa').fill('ABC1D23')
+    await page.getByRole('button', { name: /Consultar Placa/i }).click()
+
+    // Email input should appear in modal
+    await expect(page.locator('#web-email')).toBeVisible({ timeout: 5000 })
   })
 
   test('should show sample preview in web mode', async ({ page }) => {
@@ -238,21 +245,26 @@ test.describe('Non-PWA Mode (Web Browser)', () => {
     await expect(samplePreview).toBeVisible()
   })
 
-  test('should show "Receber Dados no E-mail" button text in web mode', async ({ page }) => {
-    const submitButton = page.getByRole('button', { name: /Receber Dados no E-mail/i })
+  test('should show "Consultar Placa" button text in web mode', async ({ page }) => {
+    const submitButton = page.getByRole('button', { name: /Consultar Placa/i })
     await expect(submitButton).toBeVisible()
   })
 
-  test('should validate both email and plate in web mode', async ({ page }) => {
-    const placaInput = page.locator('#placa')
-    const emailInput = page.locator('#email')
-    const submitButton = page.getByRole('button', { name: /Receber Dados/i })
-    
-    // Valid plate, invalid email
-    await placaInput.fill('ABC1D23')
-    await emailInput.fill('invalid-email')
-    await submitButton.click()
-    
+  test('should validate email in web mode modal', async ({ page }) => {
+    // Wait for hydration
+    await page.waitForLoadState('networkidle')
+
+    // Fill valid placa and submit to trigger email modal
+    await page.locator('#placa').fill('ABC1D23')
+    await page.getByRole('button', { name: /Consultar Placa/i }).click()
+
+    // Wait for email modal
+    await expect(page.locator('#web-email')).toBeVisible({ timeout: 5000 })
+
+    // Fill invalid email and submit
+    await page.locator('#web-email').fill('invalid-email')
+    await page.getByRole('button', { name: /Receber Dados no E-mail/i }).click()
+
     // Should show email error
     await expect(page.locator('.form-group__error')).toContainText(/E-mail inválido/i)
   })
@@ -262,13 +274,13 @@ test.describe('Responsive Behavior', () => {
   test('should work on mobile viewport (non-PWA)', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto(BASE_URL)
-    
-    // Should still show email in mobile web
-    const emailInput = page.locator('#email')
-    await expect(emailInput).toBeVisible()
-    
+
+    // Form and placa input should be visible
+    await expect(page.locator('form')).toBeVisible()
+    await expect(page.locator('#placa')).toBeVisible()
+
     // Window should be visible and properly sized
-    const winWindow = page.locator('.win-window')
+    const winWindow = page.locator('.win-window').first()
     await expect(winWindow).toBeVisible()
   })
 })
