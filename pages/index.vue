@@ -34,6 +34,7 @@ const formStarted = ref(false)
 const permissionRequested = ref(false)
 const modalWindowRef = ref<HTMLElement | null>(null)
 const preparingShare = ref(false)
+const fipePriceHistory = ref<any>(null)
 
 const appTitle = computed(() => {
   return 'PlacaCompleta'
@@ -108,6 +109,33 @@ useHead({
             text: faq.answer,
           },
         })),
+      }),
+    },
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'PlacaCompleta',
+        alternateName: 'Consulta Veicular Grátis',
+        url: 'https://placacompleta.com.br',
+        inLanguage: 'pt-BR',
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: 'https://placacompleta.com.br/?placa={search_term_string}',
+          'query-input': 'required name=search_term_string',
+        },
+      }),
+    },
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'PlacaCompleta',
+        url: 'https://placacompleta.com.br',
+        logo: 'https://placacompleta.com.br/logo-nobg-200.png',
+        areaServed: 'BR',
       }),
     },
   ],
@@ -497,11 +525,21 @@ async function handleSubmit() {
       messageType.value = result.emailSent ? 'success' : 'info'
       success.value = result.emailSent
       sentToEmail.value = email.value
-      
+
       if (result.emailSent) {
         track('consulta_success')
       } else {
         track('consulta_success_no_email', { api_message: result.message })
+      }
+
+      // Fetch FIPE price history in background (non-blocking)
+      const fipeItem = result.data?.fipe?.dados?.reduce((max: any, item: any) =>
+        (item.score > (max?.score || 0)) ? item : max
+      , null)
+      if (fipeItem?.codigo_modelo) {
+        $fetch(`/api/fipe-history`, { params: { fipeCode: fipeItem.codigo_modelo } })
+          .then((res) => { fipePriceHistory.value = res })
+          .catch(() => { /* silent fail — non-critical */ })
       }
     }
     consultaCount.value++
@@ -517,8 +555,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="desktop">
-    <main>
+  <main class="desktop">
       <div class="win-window">
       <div class="win-window__titlebar">
         <span>{{ appTitle }}</span>
@@ -554,7 +591,7 @@ async function handleSubmit() {
 
         <hr class="win-separator" />
 
-        <form v-if="!success" @submit.prevent="handleSubmit" novalidate>
+        <form v-if="!success" @submit.prevent="handleSubmit" novalidate role="search" aria-label="Consulta veicular por placa">
           <div v-if="!processingPhoto && !loading" class="form-group">
             <label class="form-group__label" for="placa">Placa do Veículo</label>
             <input
@@ -570,10 +607,12 @@ async function handleSubmit() {
               autocapitalize="characters"
               inputmode="text"
               required
+              aria-describedby="placa-help"
               @focus="onFormStart"
               @input="onPlacaInput"
             />
-            <span v-if="placaError" class="form-group__error">{{ placaError }}</span>
+            <small id="placa-help" class="form-group__help">Formato padrão (ABC1234) ou Mercosul (ABC1D23)</small>
+            <span v-if="placaError" class="form-group__error" role="alert">{{ placaError }}</span>
           </div>
 
           <button
@@ -678,9 +717,9 @@ async function handleSubmit() {
     </div>
 
     <!-- FAQ Section (web only) - separate win-window -->
-    <div v-if="!isPWA" class="win-window faq-window">
+    <section v-if="!isPWA" class="win-window faq-window" aria-labelledby="faq-heading">
       <div class="win-window__titlebar">
-        <span>Perguntas Frequentes</span>
+        <h2 id="faq-heading" class="win-window__titlebar-text">Perguntas Frequentes</h2>
         <div class="win-window__titlebar-buttons">
           <span class="win-window__titlebar-btn">_</span>
           <span class="win-window__titlebar-btn">&square;</span>
@@ -688,22 +727,27 @@ async function handleSubmit() {
         </div>
       </div>
       <div class="win-window__body faq-body">
-        <div
+        <article
           v-for="(faq, index) in homepageFaqs"
           :key="faq.question"
           class="faq-item"
           :class="{ 'faq-item--open': openFaq === index }"
         >
-          <button class="faq-item__toggle" @click="openFaq = openFaq === index ? null : index">
+          <button
+            class="faq-item__toggle"
+            :aria-expanded="openFaq === index ? 'true' : 'false'"
+            :aria-controls="`faq-answer-${index}`"
+            @click="openFaq = openFaq === index ? null : index"
+          >
             <span class="faq-item__icon">{{ openFaq === index ? '−' : '+' }}</span>
             <h3>{{ faq.question }}</h3>
           </button>
-          <div v-show="openFaq === index" class="faq-item__answer">
+          <div v-show="openFaq === index" :id="`faq-answer-${index}`" class="faq-item__answer" role="region">
             <p>{{ faq.answer }}</p>
           </div>
-        </div>
+        </article>
       </div>
-    </div>
+    </section>
 
     <!-- Data Modal for PWA -->
     <div v-if="showDataModal" class="modal-overlay" @click="showDataModal = false">
@@ -882,8 +926,7 @@ async function handleSubmit() {
       </div>
     </div>
 
-    </main>
-  </div>
+  </main>
 </template>
 
 <style lang="scss" scoped>
@@ -920,6 +963,20 @@ async function handleSubmit() {
   text-align: center;
   letter-spacing: 4px;
   text-transform: uppercase;
+}
+
+.form-group__help {
+  display: block;
+  font-size: 0.6875rem;
+  color: $win-darker;
+  margin-top: $space-xs;
+}
+
+.win-window__titlebar-text {
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  margin: 0;
 }
 
 .trust-line {
