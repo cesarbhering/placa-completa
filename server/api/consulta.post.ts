@@ -93,11 +93,36 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Placa não encontrada ou sem dados disponíveis.' })
   }
 
+  // Fetch FIPE price history for chart (best-effort)
+  let chartUrl: string | null = null
+  if (!isPWA) {
+    try {
+      const fipeDados = apiResponse.fipe?.dados
+      if (fipeDados?.length) {
+        // Pick the FIPE item with highest score
+        const bestFipe = fipeDados.reduce((best: any, item: any) =>
+          (item.score || 0) > (best.score || 0) ? item : best, fipeDados[0])
+        const fipeCode = bestFipe.codigo_modelo
+
+        if (fipeCode) {
+          const historyData = await $fetch<any>(
+            `${config.fipeApiUrl}/models/fipe/${fipeCode}/price-history`,
+            { headers: { Authorization: `Bearer ${config.fipeApiToken}` } }
+          )
+          chartUrl = buildChartUrl(historyData?.data || historyData, apiResponse.anoModelo, bestFipe.texto_modelo)
+        }
+      }
+    } catch (err) {
+      // Non-critical — email will be sent without chart
+      console.warn('Failed to fetch FIPE history for chart:', err)
+    }
+  }
+
   // Skip email sending for PWA mode
   if (!isPWA) {
     try {
       const resend = new Resend(config.resendApiKey)
-      const htmlEmail = buildEmailHtml(apiResponse, placaClean)
+      const htmlEmail = buildEmailHtml(apiResponse, placaClean, chartUrl)
 
       await resend.emails.send({
         from: 'PlacaCompleta <consulta@placacompleta.com.br>',
@@ -145,7 +170,75 @@ export default defineEventHandler(async (event) => {
   }
 })
 
-function buildEmailHtml(data: Record<string, any>, placa: string): string {
+function buildChartUrl(historyData: any, anoModelo: string | number, textoModelo: string): string | null {
+  if (!historyData?.price_history?.length) return null
+
+  const anoStr = String(anoModelo)
+  // Find matching year-model or fallback to first
+  let entries = historyData.price_history.find((h: any) => String(h.year) === anoStr)
+  if (!entries) entries = historyData.price_history[0]
+  if (!entries?.prices?.length) return null
+
+  // Sort chronologically (oldest → newest)
+  const sorted = [...entries.prices].sort((a: any, b: any) => {
+    const da = new Date(a.year, a.month - 1)
+    const db = new Date(b.year, b.month - 1)
+    return da.getTime() - db.getTime()
+  })
+
+  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  const labels = sorted.map((h: any) => `${months[h.month - 1]}/${String(h.year).slice(2)}`)
+  const values = sorted.map((h: any) => h.price)
+
+  const chartConfigStr = `{
+    type:'line',
+    data:{
+      labels:${JSON.stringify(labels)},
+      datasets:[{
+        data:${JSON.stringify(values)},
+        borderColor:'#3066be',
+        backgroundColor:'rgba(48,102,190,0.1)',
+        fill:true,
+        pointRadius:4,
+        pointBackgroundColor:'#3066be',
+        borderWidth:2,
+        tension:0.3,
+        datalabels:{
+          display:true,
+          align:function(ctx){return ctx.dataIndex===0?'right':'top'},
+          color:'#333',
+          font:{size:10,weight:'bold'},
+          formatter:function(v){return 'R$'+(v/1000).toFixed(1)+'k'}
+        }
+      }]
+    },
+    options:{
+      legend:{display:false},
+      plugins:{
+        datalabels:{display:true}
+      },
+      layout:{padding:{top:25,left:0,right:5}},
+      scales:{
+        yAxes:[{
+          ticks:{fontColor:'#666',stepSize:500,fontSize:10,callback:function(value,index,values){return 'R$'+(value/1000).toFixed(1)+'k'}},
+          gridLines:{color:'#e0e0e0'}
+        }],
+        xAxes:[{
+          ticks:{fontColor:'#666',maxRotation:45},
+          gridLines:{display:false}
+        }]
+      }
+    }
+  }`
+
+  const encoded = encodeURIComponent(chartConfigStr)
+  const chartOnly = `https://quickchart.io/chart?w=480&h=250&bkg=white&c=${encoded}`
+  const logoUrl = 'https://placacompleta.com.br/logo-nobg-200.png'
+
+  return `https://quickchart.io/watermark?mainImageUrl=${encodeURIComponent(chartOnly)}&markImageUrl=${encodeURIComponent(logoUrl)}&markRatio=0.3&position=center&opacity=0.15&margin=0&imageWidth=480`
+}
+
+function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: string | null = null): string {
   const marca = data.MARCA || data.marca || '-'
   const modelo = data.MODELO || data.modelo || '-'
   const ano = data.ano || '-'
@@ -171,10 +264,11 @@ function buildEmailHtml(data: Record<string, any>, placa: string): string {
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><meta charset="UTF-8"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;font-family:'Courier New',monospace;">
   <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px;">
     <tr><td align="center">
+
       <table width="480" cellpadding="0" cellspacing="0" style="background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;">
         <!-- Title Bar -->
         <tr>
@@ -218,6 +312,14 @@ function buildEmailHtml(data: Record<string, any>, placa: string): string {
               ${emailRow('Modelo FIPE', fipeModelo)}
               ${emailRow('Valor', fipeValor)}
               ${emailRow('Referência', fipeRef)}
+              ${chartUrl ? `
+              <tr>
+                <td colspan="2" style="padding:8px;text-align:center;">
+                  <img src="${chartUrl}" alt="Histórico FIPE" width="420" style="width:100%;max-width:420px;height:auto;display:block;margin:0 auto;" />
+                  <p style="font-size:11px;color:#3c3744;margin:6px 0 0;">Evolução do preço nos últimos meses</p>
+                </td>
+              </tr>
+              ` : ''}
             </table>
             ` : ''}
 
@@ -230,6 +332,7 @@ function buildEmailHtml(data: Record<string, any>, placa: string): string {
           </td>
         </tr>
       </table>
+
     </td></tr>
   </table>
 </body>
