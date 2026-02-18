@@ -33,3 +33,4 @@ __pycache__
 .skill-archive/
 .env.local
 .env.test
+API-DOCS.md
