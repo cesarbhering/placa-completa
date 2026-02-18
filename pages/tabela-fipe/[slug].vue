@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { fipeBrands, findBrandModel } from '~/data/fipe-brands'
+import fipePricesData from '~/data/fipe-prices.json'
 
 const route = useRoute()
 const slug = route.params.slug as string
@@ -16,18 +17,13 @@ const isBrandPage = !!brand
 const pageData = isBrandPage ? brand : brandModel!.brand
 const model = brandModel?.model
 
-// Fetch FIPE prices for brand+model pages that have fipeCode
-const hasFipeData = !isBrandPage && model?.fipeCode
-const { data: fipeData } = hasFipeData
-  ? await useAsyncData(`fipe-prices-${model!.fipeCode}`, () =>
-      $fetch('/api/fipe-prices', { params: { fipeCode: model!.fipeCode } })
-    )
-  : { data: ref(null) }
+// Load FIPE prices from pre-fetched static JSON
+const fipeData = !isBrandPage ? (fipePricesData as Record<string, any>)[slug] || null : null
 
-const priceTable = computed(() => fipeData.value?.success ? fipeData.value.data?.priceTable || [] : [])
-const historyChart = computed(() => fipeData.value?.success ? fipeData.value.data?.historyChart || [] : [])
-const referenceLabel = computed(() => fipeData.value?.success ? fipeData.value.data?.referenceLabel || '' : '')
-const fipeModelName = computed(() => fipeData.value?.success ? fipeData.value.data?.modelName || '' : '')
+const priceTable = computed(() => fipeData?.priceTable || [])
+const historyChart = computed(() => fipeData?.historyChart || [])
+const referenceLabel = computed(() => fipeData?.referenceLabel || '')
+const fipeModelName = computed(() => fipeData?.modelName || '')
 
 // Chart helpers
 const chartMaxPrice = computed(() => {
