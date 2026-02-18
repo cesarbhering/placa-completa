@@ -442,6 +442,8 @@ export default defineNuxtConfig({
     supabaseKey: process.env.SUPABASE_SERVICE_KEY || "",
     resendApiKey: process.env.RESEND_API_KEY || "",
     placaApiToken: process.env.PLACA_API_TOKEN || "",
+    fipeApiToken: process.env.FIPE_API_TOKEN || "",
+    fipeApiUrl: process.env.FIPE_API_URL || "http://163.176.199.88:3000/api/v1",
     apiKeyOpenai: process.env.API_KEY_OPENAI || "",
     oneSignalAppId: process.env.ONESIGNAL_APP_ID || "",
     oneSignalRestApiKey: process.env.ONESIGNAL_REST_API_KEY || "",
