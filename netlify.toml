@@ -1,6 +1,6 @@
 [build]
   command = "npx tsx scripts/fetch-fipe-prices.ts && npm run build"
-  publish = "dist"
+  publish = ".output/public"
 
 [[redirects]]
   from = "https://dashboard.placacompleta.com.br"
