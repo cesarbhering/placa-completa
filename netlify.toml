@@ -1,6 +1,10 @@
 [build]
   command = "npx tsx scripts/fetch-fipe-prices.ts && npm run build"
-  publish = ".output/public"
+  publish = "dist"
+
+[functions]
+  directory = ".netlify/functions-internal"
+  node_bundler = "esbuild"
 
 [[redirects]]
   from = "https://dashboard.placacompleta.com.br"
