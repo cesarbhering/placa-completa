@@ -256,7 +256,10 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
   const tipoVeiculo = extra.tipo_veiculo || '-'
   const passageiros = extra.quantidade_passageiro || '-'
 
-  const fipeData = data.fipe?.dados?.[0]
+  // Find FIPE entry with highest score (best match)
+  const fipeData = data.fipe?.dados?.reduce((max: any, item: any) =>
+    (item.score > (max?.score || 0)) ? item : max
+  , null)
   const fipeValor = fipeData?.texto_valor || '-'
   const fipeModelo = fipeData?.texto_modelo || '-'
   const fipeRef = fipeData?.mes_referencia || '-'

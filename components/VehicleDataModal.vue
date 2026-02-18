@@ -16,7 +16,10 @@ const allVehicleData = computed(() => {
   if (!props.vehicleData) return null
   const data = props.vehicleData
   const extra = data.extra || {}
-  const fipeData = data.fipe?.dados?.[0]
+  // Find FIPE entry with highest score (best match)
+  const fipeData = data.fipe?.dados?.reduce((max: any, item: any) =>
+    (item.score > (max?.score || 0)) ? item : max
+  , null)
 
   return {
     Placa: data.placa || '-',
