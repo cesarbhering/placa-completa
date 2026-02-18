@@ -457,16 +457,16 @@ export default defineNuxtConfig({
 
   routeRules: {
     "/": { prerender: true },
-    "/consulta-placa": { prerender: true },
-    "/consulta-gratis": { prerender: true },
-    "/como-consultar-placa": { prerender: true },
-    "/tabela-fipe-por-placa": { prerender: true },
     "/termos-de-uso": { prerender: true },
     "/politica-de-privacidade": { prerender: true },
-    "/consultar-placa-de-**": { prerender: true },
-    "/consultar-placa/**": { prerender: true },
-    "/tabela-fipe": { prerender: true },
-    "/tabela-fipe/**": { prerender: true },
+    "/consulta-placa": { swr: 86400 },
+    "/consulta-gratis": { swr: 86400 },
+    "/como-consultar-placa": { swr: 86400 },
+    "/tabela-fipe-por-placa": { swr: 86400 },
+    "/consultar-placa-de-**": { swr: 86400 },
+    "/consultar-placa/**": { swr: 86400 },
+    "/tabela-fipe": { swr: 86400 },
+    "/tabela-fipe/**": { swr: 86400 },
   },
 
   nitro: {
