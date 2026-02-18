@@ -16,6 +16,39 @@ const isBrandPage = !!brand
 const pageData = isBrandPage ? brand : brandModel!.brand
 const model = brandModel?.model
 
+// Fetch FIPE prices for brand+model pages that have fipeCode
+const hasFipeData = !isBrandPage && model?.fipeCode
+const { data: fipeData } = hasFipeData
+  ? await useAsyncData(`fipe-prices-${model!.fipeCode}`, () =>
+      $fetch('/api/fipe-prices', { params: { fipeCode: model!.fipeCode } })
+    )
+  : { data: ref(null) }
+
+const priceTable = computed(() => fipeData.value?.success ? fipeData.value.data?.priceTable || [] : [])
+const historyChart = computed(() => fipeData.value?.success ? fipeData.value.data?.historyChart || [] : [])
+const referenceLabel = computed(() => fipeData.value?.success ? fipeData.value.data?.referenceLabel || '' : '')
+const fipeModelName = computed(() => fipeData.value?.success ? fipeData.value.data?.modelName || '' : '')
+
+// Chart helpers
+const chartMaxPrice = computed(() => {
+  if (!historyChart.value.length) return 0
+  return Math.max(...historyChart.value.map((p: any) => p.price))
+})
+const chartMinPrice = computed(() => {
+  if (!historyChart.value.length) return 0
+  return Math.min(...historyChart.value.map((p: any) => p.price))
+})
+
+function formatPrice(value: number): string {
+  return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+}
+
+function barHeight(price: number): number {
+  const range = chartMaxPrice.value - chartMinPrice.value
+  if (range === 0) return 80
+  return 20 + ((price - chartMinPrice.value) / range) * 80
+}
+
 function onCtaClick() {
   if (import.meta.client && window.gtag) {
     const page = isBrandPage ? `tabela-fipe-${slug}` : `tabela-fipe-${slug}`
@@ -63,49 +96,80 @@ if (isBrandPage) {
   })
 } else {
   // Brand + Model page
+  const schemaScripts: any[] = [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: [
+          {
+            '@type': 'Question',
+            name: `Quanto custa um ${pageData.name} ${model!.name} na Tabela FIPE?`,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: `O valor FIPE do ${pageData.name} ${model!.name} varia conforme o ano e versão. Para saber o valor exato, consulte a placa do veículo no PlacaCompleta e receba o preço FIPE atualizado no seu e-mail.`,
+            },
+          },
+          {
+            '@type': 'Question',
+            name: `Como saber o valor FIPE de um ${pageData.name} ${model!.name} usado?`,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: `A forma mais precisa é consultar pela placa. Acesse placacompleta.com.br, informe a placa e seu e-mail, e receba o valor FIPE exato para o ano e versão específica do veículo.`,
+            },
+          },
+          {
+            '@type': 'Question',
+            name: `O ${pageData.name} ${model!.name} é um bom carro para comprar?`,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: `Antes de comprar, é importante verificar os dados completos do veículo. Use o PlacaCompleta para consultar a placa e receber informações como situação, restrições, ano real, cor e valor FIPE no e-mail.`,
+            },
+          },
+        ],
+      }),
+    },
+  ]
+
+  // Add Product schema if we have FIPE price data
+  if (priceTable.value.length > 0) {
+    const lowestPrice = Math.min(...priceTable.value.map((p: any) => p.price))
+    const highestPrice = Math.max(...priceTable.value.map((p: any) => p.price))
+    schemaScripts.push({
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: `${pageData.name} ${model!.name}`,
+        brand: {
+          '@type': 'Brand',
+          name: pageData.name,
+        },
+        description: `Valor na Tabela FIPE do ${pageData.name} ${model!.name}. Preços atualizados para todos os anos.`,
+        offers: {
+          '@type': 'AggregateOffer',
+          priceCurrency: 'BRL',
+          lowPrice: lowestPrice,
+          highPrice: highestPrice,
+          offerCount: priceTable.value.length,
+        },
+      }),
+    })
+  }
+
   useHead({
     title: `Tabela FIPE ${pageData.name} ${model!.name} ${new Date().getFullYear()} - Valor Atualizado`,
     meta: [
-      { name: 'description', content: `Consulte o valor na Tabela FIPE do ${pageData.name} ${model!.name}. Preço atualizado para todos os anos. Consulte pela placa e receba o valor exato no e-mail.` },
+      { name: 'description', content: priceTable.value.length > 0
+        ? `${pageData.name} ${model!.name} na Tabela FIPE: a partir de ${priceTable.value[priceTable.value.length - 1]?.priceFormatted}. Veja preços por ano e histórico. Consulte pela placa grátis.`
+        : `Consulte o valor na Tabela FIPE do ${pageData.name} ${model!.name}. Preço atualizado para todos os anos. Consulte pela placa e receba o valor exato no e-mail.`
+      },
       { name: 'keywords', content: `tabela fipe ${pageData.name.toLowerCase()} ${model!.name.toLowerCase()}, valor fipe ${model!.name.toLowerCase()}, preço ${pageData.name.toLowerCase()} ${model!.name.toLowerCase()}, fipe ${model!.name.toLowerCase()} ${new Date().getFullYear()}` },
       { property: 'og:title', content: `Tabela FIPE ${pageData.name} ${model!.name} - Preço Atualizado` },
       { property: 'og:description', content: `Veja o valor FIPE atualizado do ${pageData.name} ${model!.name} para todos os anos.` },
     ],
-    script: [
-      {
-        type: 'application/ld+json',
-        innerHTML: JSON.stringify({
-          '@context': 'https://schema.org',
-          '@type': 'FAQPage',
-          mainEntity: [
-            {
-              '@type': 'Question',
-              name: `Quanto custa um ${pageData.name} ${model!.name} na Tabela FIPE?`,
-              acceptedAnswer: {
-                '@type': 'Answer',
-                text: `O valor FIPE do ${pageData.name} ${model!.name} varia conforme o ano e versão. Para saber o valor exato, consulte a placa do veículo no PlacaCompleta e receba o preço FIPE atualizado no seu e-mail.`,
-              },
-            },
-            {
-              '@type': 'Question',
-              name: `Como saber o valor FIPE de um ${pageData.name} ${model!.name} usado?`,
-              acceptedAnswer: {
-                '@type': 'Answer',
-                text: `A forma mais precisa é consultar pela placa. Acesse placacompleta.com.br, informe a placa e seu e-mail, e receba o valor FIPE exato para o ano e versão específica do veículo.`,
-              },
-            },
-            {
-              '@type': 'Question',
-              name: `O ${pageData.name} ${model!.name} é um bom carro para comprar?`,
-              acceptedAnswer: {
-                '@type': 'Answer',
-                text: `Antes de comprar, é importante verificar os dados completos do veículo. Use o PlacaCompleta para consultar a placa e receber informações como situação, restrições, ano real, cor e valor FIPE no e-mail.`,
-              },
-            },
-          ],
-        }),
-      },
-    ],
+    script: schemaScripts,
   })
 }
 </script>
@@ -192,6 +256,73 @@ if (isBrandPage) {
                 Consultar {{ model!.name }} pela Placa
               </NuxtLink>
             </div>
+
+            <!-- FIPE PRICE TABLE -->
+            <template v-if="priceTable.length > 0">
+              <h2>Preços FIPE {{ pageData.name }} {{ model!.name }} por Ano</h2>
+              <p v-if="fipeModelName" class="fipe-ref">
+                Referência: {{ fipeModelName }}
+              </p>
+              <div class="fipe-table-wrapper">
+                <table class="fipe-table">
+                  <thead>
+                    <tr>
+                      <th>Ano/Versão</th>
+                      <th>Preço FIPE</th>
+                      <th>Variação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in priceTable" :key="row.fuel">
+                      <td>{{ row.fuel }}</td>
+                      <td class="price-cell">{{ row.priceFormatted }}</td>
+                      <td class="variation-cell">
+                        <template v-if="row.variation !== null">
+                          <span :class="row.variation >= 0 ? 'variation-up' : 'variation-down'">
+                            {{ row.variation >= 0 ? '+' : '' }}{{ row.variation }}%
+                          </span>
+                        </template>
+                        <template v-else>
+                          <span class="variation-neutral">-</span>
+                        </template>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="table-footnote">
+                Valores atualizados em {{ priceTable[0]?.referenceMonth }}/{{ priceTable[0]?.referenceYear }}.
+                Variação em relação ao mês anterior.
+              </p>
+
+              <!-- PRICE HISTORY CHART -->
+              <template v-if="historyChart.length > 1">
+                <h2>Histórico de Preço FIPE {{ model!.name }}</h2>
+                <p>Evolução do preço para <strong>{{ referenceLabel }}</strong>:</p>
+                <div class="chart-container">
+                  <div class="chart-bars">
+                    <div
+                      v-for="(point, i) in historyChart"
+                      :key="i"
+                      class="chart-bar-col"
+                    >
+                      <span class="chart-bar-value">{{ formatPrice(point.price) }}</span>
+                      <div
+                        class="chart-bar"
+                        :style="{ height: barHeight(point.price) + '%' }"
+                      />
+                      <span class="chart-bar-label">{{ point.label }}</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <div class="text-center mt-md mb-md">
+                <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
+                  Consultar {{ model!.name }} pela Placa
+                </NuxtLink>
+              </div>
+            </template>
 
             <h2>Valor FIPE {{ pageData.name }} {{ model!.name }}</h2>
             <p>
@@ -349,5 +480,121 @@ if (isBrandPage) {
     color: $win-dark;
     margin: 0 2px;
   }
+}
+
+// FIPE Price Table
+.fipe-ref {
+  font-size: 0.75rem;
+  color: $win-dark;
+  margin-bottom: $space-sm;
+}
+
+.fipe-table-wrapper {
+  @include win-border-sunken;
+  overflow-x: auto;
+  margin-bottom: $space-sm;
+}
+
+.fipe-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  font-family: $font-mono;
+
+  th, td {
+    padding: $space-xs $space-sm;
+    text-align: left;
+    border-bottom: 1px solid $win-dark;
+  }
+
+  th {
+    background: $win-bg;
+    font-family: $font-display;
+    font-size: 0.875rem;
+    color: $navy-electric;
+    white-space: nowrap;
+  }
+
+  tbody tr:hover {
+    background: $powder-blue;
+  }
+
+  .price-cell {
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .variation-cell {
+    white-space: nowrap;
+  }
+}
+
+.variation-up {
+  color: $success-green;
+}
+
+.variation-down {
+  color: #dc3545;
+}
+
+.variation-neutral {
+  color: $win-dark;
+}
+
+.table-footnote {
+  font-size: 0.6875rem;
+  color: $win-dark;
+  margin-bottom: $space-md;
+}
+
+// History Chart
+.chart-container {
+  @include win-border-sunken;
+  background: $win-white;
+  padding: $space-md $space-sm $space-xs;
+  margin-bottom: $space-md;
+  overflow-x: auto;
+}
+
+.chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 160px;
+  min-width: fit-content;
+}
+
+.chart-bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 52px;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.chart-bar-value {
+  font-size: 0.5625rem;
+  font-family: $font-mono;
+  color: $graphite;
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+
+.chart-bar {
+  width: 100%;
+  max-width: 36px;
+  background: $navy-electric;
+  min-height: 4px;
+  transition: height 0.3s ease;
+}
+
+.chart-bar-label {
+  font-size: 0.5625rem;
+  font-family: $font-mono;
+  color: $win-dark;
+  margin-top: 2px;
+  white-space: nowrap;
 }
 </style>
