@@ -7,6 +7,11 @@ export default defineEventHandler(async (event) => {
 
   const { fipeApiToken, fipeApiUrl } = useRuntimeConfig()
 
+  if (!fipeApiToken || !fipeApiUrl) {
+    console.error('[fipe-prices] Missing config:', { hasToken: !!fipeApiToken, hasUrl: !!fipeApiUrl })
+    return { success: false, data: null }
+  }
+
   try {
     const response = await $fetch<{
       success: boolean
@@ -74,7 +79,8 @@ export default defineEventHandler(async (event) => {
         referenceLabel: mostRecent?.fuel || '',
       },
     }
-  } catch {
+  } catch (error) {
+    console.error(`[fipe-prices] Error fetching fipeCode=${fipeCode}:`, error)
     return { success: false, data: null }
   }
 })
