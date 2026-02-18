@@ -1,5 +1,5 @@
 [build]
-  command = "npx tsx scripts/fetch-fipe-prices.ts && npm run build"
+  command = "npx tsx scripts/fetch-fipe-prices.ts && (timeout 90 npm run build || test $? -eq 124)"
   publish = "dist"
 
 [functions]
