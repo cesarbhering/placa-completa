@@ -1,11 +1,12 @@
 import { Resend } from 'resend'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
+import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
 
-  const { email, phone, placa, isPWA } = body
+  const { email, phone, placa, isPWA, includeFipeChart, includeIcv5, icv5Uf } = body
 
   if (!email || !placa) {
     throw createError({ statusCode: 400, message: 'E-mail e placa são obrigatórios.' })
@@ -95,7 +96,7 @@ export default defineEventHandler(async (event) => {
 
   // Fetch FIPE price history for chart (best-effort)
   let chartUrl: string | null = null
-  if (!isPWA) {
+  if (!isPWA && includeFipeChart !== false) {
     try {
       const fipeDados = apiResponse.fipe?.dados
       if (fipeDados?.length) {
@@ -118,11 +119,37 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Calculate ICV5 (web only)
+  let icv5Result: ICV5Result | null = null
+  if (!isPWA && includeIcv5 !== false && icv5Uf) {
+    try {
+      const fipeDados = apiResponse.fipe?.dados
+      if (fipeDados?.length) {
+        const bestFipe = fipeDados.reduce((best: any, item: any) =>
+          (item.score || 0) > (best.score || 0) ? item : best, fipeDados[0])
+
+        // Parse valor FIPE: "R$ 28.799,00" -> 28799
+        const textoValor = bestFipe.texto_valor || ''
+        const valorFipe = parseFloat(textoValor.replace(/[^\d,]/g, '').replace(',', '.'))
+
+        const anoFab = parseInt(String(apiResponse.ano)) || new Date().getFullYear()
+        const extra = apiResponse.extra || {}
+        const categoria = inferirCategoria(extra.sub_segmento || '', extra.combustivel || '')
+
+        if (valorFipe > 0) {
+          icv5Result = calcularICV5({ valorFipe, anoFabricacao: anoFab, uf: icv5Uf, categoria })
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to calculate ICV5:', err)
+    }
+  }
+
   // Skip email sending for PWA mode
   if (!isPWA) {
     try {
       const resend = new Resend(config.resendApiKey)
-      const htmlEmail = buildEmailHtml(apiResponse, placaClean, chartUrl)
+      const htmlEmail = buildEmailHtml(apiResponse, placaClean, chartUrl, icv5Result)
 
       await resend.emails.send({
         from: 'PlacaCompleta <consulta@placacompleta.com.br>',
@@ -238,7 +265,7 @@ function buildChartUrl(historyData: any, anoModelo: string | number, textoModelo
   return `https://quickchart.io/watermark?mainImageUrl=${encodeURIComponent(chartOnly)}&markImageUrl=${encodeURIComponent(logoUrl)}&markRatio=0.3&position=center&opacity=0.15&margin=0&imageWidth=480`
 }
 
-function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: string | null = null): string {
+function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: string | null = null, icv5: ICV5Result | null = null): string {
   const marca = data.MARCA || data.marca || '-'
   const modelo = data.MODELO || data.modelo || '-'
   const ano = data.ano || '-'
@@ -326,6 +353,20 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
             </table>
             ` : ''}
 
+            ${icv5 ? `
+            <table width="100%" cellpadding="6" cellspacing="0" style="background:#fff;border:2px solid;border-color:#404040 #fff #fff #404040;font-size:13px;margin-top:12px;">
+              <tr style="background:#3066be;">
+                <td colspan="2" style="font-weight:bold;color:#fff;padding:8px;">ICV5 - Custo para Manter em 5 Anos em ${icv5.uf}</td>
+              </tr>
+              ${emailRow('Manutenção anual', formatBRL(icv5.manutencaoAnual))}
+              ${emailRow('Manutenção 5 anos', formatBRL(icv5.manutencao5anos))}
+              ${emailRow('IPVA anual', formatBRL(icv5.ipvaAnual))}
+              ${emailRow('IPVA 5 anos', formatBRL(icv5.ipva5anos))}
+              ${emailRow('Custo total 5 anos', formatBRL(icv5.custoTotal5anos))}
+              ${emailRow('Índice ICV5', `${icv5.indiceIcv5}% - ${icv5.classificacao}`)}
+            </table>
+            ` : ''}
+
             <!-- Statusbar -->
             <table width="100%" cellpadding="4" cellspacing="0" style="margin-top:16px;border:2px solid;border-color:#404040 #fff #fff #404040;background:#c0c0c0;font-size:12px;color:#3c3744;">
               <tr>
@@ -347,4 +388,8 @@ function emailRow(label: string, value: string): string {
     <td style="font-weight:600;color:#3c3744;width:40%;padding:6px;border-bottom:1px dotted #ddd;">${label}</td>
     <td style="font-weight:700;color:#090c9b;padding:6px;border-bottom:1px dotted #ddd;">${value}</td>
   </tr>`
+}
+
+function formatBRL(value: number): string {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
