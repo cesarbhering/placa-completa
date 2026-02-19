@@ -35,6 +35,14 @@ const permissionRequested = ref(false)
 const modalWindowRef = ref<HTMLElement | null>(null)
 const preparingShare = ref(false)
 const fipePriceHistory = ref<any>(null)
+const includeFipeChart = ref(true)
+const includeIcv5 = ref(true)
+const icv5Uf = ref('')
+
+const ufOptions = [
+  'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS',
+  'MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO',
+]
 
 const appTitle = computed(() => {
   return 'PlacaCompleta'
@@ -165,6 +173,11 @@ onMounted(async () => {
     // For web, load last used email
     const saved = localStorage.getItem('pc_email')
     if (saved) email.value = saved
+
+    // Pre-select UF via IP geolocation
+    $fetch<{ uf: string }>('/api/geo')
+      .then((res) => { if (res?.uf) icv5Uf.value = res.uf })
+      .catch(() => { icv5Uf.value = 'SP' })
   }
 
   nextTick(() => {
@@ -505,6 +518,9 @@ async function handleSubmit() {
         phone: null,
         placa: placa.value,
         isPWA: isPWA.value,
+        includeFipeChart: includeFipeChart.value,
+        includeIcv5: includeIcv5.value,
+        icv5Uf: icv5Uf.value,
       },
     })
 
@@ -613,6 +629,37 @@ async function handleSubmit() {
             />
             <small id="placa-help" class="form-group__help">Formato padrão (ABC1234) ou Mercosul (ABC1D23)</small>
             <span v-if="placaError" class="form-group__error" role="alert">{{ placaError }}</span>
+          </div>
+
+          <label v-if="!isPWA && !processingPhoto && !loading" class="fipe-chart-option">
+            <input
+              type="checkbox"
+              v-model="includeFipeChart"
+              class="fipe-chart-option__checkbox"
+            />
+            <span class="fipe-chart-option__label">Incluir gráfico FIPE</span>
+            <span class="fipe-chart-option__tooltip" data-tip="Inclui no e-mail um gráfico com a evolução do preço FIPE do veículo nos últimos meses">?</span>
+          </label>
+
+          <label v-if="!isPWA && !processingPhoto && !loading" class="fipe-chart-option">
+            <input
+              type="checkbox"
+              v-model="includeIcv5"
+              class="fipe-chart-option__checkbox"
+            />
+            <span class="fipe-chart-option__label">Incluir ICV5</span>
+            <span class="fipe-chart-option__tooltip" data-tip="Calcula uma estimativa do custo total para manter este veículo nos próximos 5 anos, incluindo manutenção e IPVA">?</span>
+          </label>
+
+          <div v-if="!isPWA && !processingPhoto && !loading && includeIcv5" class="uf-select-group">
+            <label class="uf-select-group__label" for="icv5-uf">Estado (UF)</label>
+            <select
+              id="icv5-uf"
+              v-model="icv5Uf"
+              class="win-input uf-select-group__select"
+            >
+              <option v-for="u in ufOptions" :key="u" :value="u">{{ u }}</option>
+            </select>
           </div>
 
           <button
@@ -977,6 +1024,107 @@ async function handleSubmit() {
   font-weight: inherit;
   color: inherit;
   margin: 0;
+}
+
+.fipe-chart-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: $space-sm;
+  cursor: pointer;
+  user-select: none;
+
+  &__checkbox {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    accent-color: $smart-blue;
+  }
+
+  &__label {
+    font-family: $font-body;
+    font-size: 0.75rem;
+    color: $graphite;
+  }
+
+  &__tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: $win-darker;
+    color: $win-white;
+    font-size: 0.625rem;
+    font-weight: 700;
+    cursor: help;
+    flex-shrink: 0;
+
+    &::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: $navy-electric;
+      color: $ivory;
+      font-size: 0.6875rem;
+      font-weight: 400;
+      padding: 6px 10px;
+      border-radius: 4px;
+      white-space: normal;
+      width: 220px;
+      line-height: 1.4;
+      text-align: center;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 10;
+    }
+
+    &::before {
+      content: '';
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      border: 4px solid transparent;
+      border-top-color: $navy-electric;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 10;
+    }
+
+    &:hover::after,
+    &:hover::before {
+      opacity: 1;
+    }
+  }
+}
+
+.uf-select-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: $space-sm;
+
+  &__label {
+    font-family: $font-body;
+    font-size: 0.75rem;
+    color: $graphite;
+    white-space: nowrap;
+  }
+
+  &__select {
+    font-family: $font-body;
+    font-size: 0.75rem;
+    padding: 2px 4px;
+    width: auto;
+    min-width: 60px;
+  }
 }
 
 .trust-line {
