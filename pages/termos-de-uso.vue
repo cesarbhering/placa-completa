@@ -32,24 +32,38 @@ useHead({
 
           <h2>2. Descrição do Serviço</h2>
           <p>
-            O Placa Completa é um serviço gratuito de consulta veicular por placa. O usuário
-            informa a placa de um veículo e recebe, por e-mail, os dados públicos disponíveis
-            sobre o veículo, incluindo marca, modelo, ano, cor, valor na tabela FIPE,
-            município de registro e situação.
+            O Placa Completa é um serviço de consulta veicular por placa. O usuário informa
+            a placa de um veículo e recebe os dados disponíveis sobre o veículo, incluindo
+            dados cadastrais, situação, restrições, gravames, débitos e multas, histórico de
+            roubo/furto, recall e restrições judiciais.
+          </p>
+          <p>
+            Os dados veiculares são obtidos junto à
+            <strong>Secretaria Nacional de Trânsito (SENATRAN)</strong>, por meio do
+            <strong>Serpro</strong>, nos termos da <strong>Portaria SENATRAN nº 139/2025</strong>,
+            sendo o Placa Completa entidade devidamente credenciada para esse acesso.
+            Informações de precificação (ex.: tabela FIPE) podem ser obtidas de fontes
+            complementares e são identificadas separadamente.
           </p>
 
           <h2>3. Uso Permitido</h2>
           <p>O Serviço destina-se exclusivamente para fins lícitos, tais como:</p>
           <ul>
             <li>Verificação de dados de veículos para compra e venda;</li>
-            <li>Consulta de valor FIPE para referência de mercado;</li>
+            <li>Consulta de valor de mercado para referência;</li>
+            <li>Conferência de restrições, débitos e situação do veículo antes de uma transação;</li>
+            <li>Verificação de recall e segurança veicular;</li>
             <li>Conferência de informações para fins pessoais ou comerciais legítimos.</li>
           </ul>
-          <p>
-            É vedado o uso do Serviço para finalidades ilegais, abusivas, fraudulentas, ou que
-            violem direitos de terceiros. O uso automatizado (bots, scrapers) sem autorização
-            prévia é proibido.
-          </p>
+          <p>É <strong>expressamente vedado</strong> o uso do Serviço para:</p>
+          <ul>
+            <li>Atividades ilegais, abusivas, fraudulentas ou que violem direitos de terceiros;</li>
+            <li><strong>Marketing, prospecção comercial ou envio de comunicações não solicitadas</strong> com base nos dados obtidos;</li>
+            <li><strong>Scoring, classificação ou perfilização de pessoas</strong> a partir dos dados veiculares;</li>
+            <li><strong>Discriminação de qualquer natureza</strong> com base nas informações retornadas;</li>
+            <li>Uso automatizado (bots, scrapers) sem autorização prévia por escrito;</li>
+            <li>Qualquer finalidade diversa das expressamente previstas nestes Termos.</li>
+          </ul>
 
           <h2>4. Dados Pessoais e LGPD</h2>
           <p>
@@ -60,47 +74,62 @@ useHead({
             <NuxtLink to="/politica-de-privacidade">Política de Privacidade</NuxtLink>.
           </p>
 
-          <h2>5. Limitação de Responsabilidade</h2>
+          <h2>5. Dados de Origem SENATRAN — Obrigações do Usuário</h2>
           <p>
-            As informações veiculares fornecidas pelo Serviço são obtidas de bases de dados
-            públicas e de terceiros. O Placa Completa <strong>não garante</strong> a exatidão,
-            completude ou atualidade dos dados retornados. O Serviço é oferecido "como está"
-            (<em>as is</em>), sem garantias de qualquer natureza.
+            Parte dos dados veiculares disponibilizados pelo Serviço tem origem nos sistemas da
+            SENATRAN, acessados mediante credenciamento formal. Ao utilizar o Serviço, você
+            declara e concorda que:
+          </p>
+          <ul>
+            <li>Os dados obtidos serão utilizados <strong>exclusivamente para as finalidades lícitas</strong> descritas na cláusula 3;</li>
+            <li>É <strong>vedado repassar, revender ou disponibilizar</strong> os dados a terceiros sem autorização do Placa Completa;</li>
+            <li>Não utilizará os dados para criar perfis, scores ou classificações de pessoas, veículos ou transações para fins comerciais não autorizados;</li>
+            <li>Está ciente de que o acesso aos dados é monitorado e auditável pela SENATRAN e pelo Serpro, nos termos da Portaria SENATRAN nº 139/2025;</li>
+            <li>O uso indevido pode configurar violação à legislação brasileira, sujeitando o usuário às sanções civis, administrativas e penais cabíveis.</li>
+          </ul>
+
+          <h2>6. Limitação de Responsabilidade</h2>
+          <p>
+            As informações veiculares fornecidas pelo Serviço são obtidas junto à SENATRAN
+            (via Serpro) e outras fontes públicas ou licenciadas. O Placa Completa
+            <strong>não garante</strong> a exatidão, completude ou atualidade dos dados
+            retornados, uma vez que dependem da atualização nas bases de origem.
+            O Serviço é oferecido "como está" (<em>as is</em>), sem garantias de qualquer natureza.
           </p>
           <p>
             O Placa Completa não se responsabiliza por decisões tomadas com base nas informações
             fornecidas, incluindo, mas não se limitando a, decisões de compra e venda de veículos.
           </p>
 
-          <h2>6. Disponibilidade</h2>
+          <h2>7. Disponibilidade</h2>
           <p>
             Não garantimos que o Serviço estará disponível de forma ininterrupta ou livre de erros.
             Podemos suspender, modificar ou descontinuar o Serviço a qualquer momento, sem aviso
             prévio.
           </p>
 
-          <h2>7. Propriedade Intelectual</h2>
+          <h2>8. Propriedade Intelectual</h2>
           <p>
             Todo o conteúdo do site — incluindo marca, logotipo, layout e código — é de
             propriedade do Placa Completa e está protegido pela legislação brasileira de
             propriedade intelectual. É proibida a reprodução sem autorização.
           </p>
 
-          <h2>8. Alterações nos Termos</h2>
+          <h2>9. Alterações nos Termos</h2>
           <p>
             Reservamo-nos o direito de alterar estes Termos a qualquer momento. Alterações entram
             em vigor imediatamente após a publicação nesta página. O uso continuado do Serviço
             após alterações constitui aceitação dos novos Termos.
           </p>
 
-          <h2>9. Legislação Aplicável e Foro</h2>
+          <h2>10. Legislação Aplicável e Foro</h2>
           <p>
             Estes Termos são regidos pelas leis da República Federativa do Brasil. Fica eleito o
             foro da comarca do domicílio do usuário para dirimir quaisquer litígios, conforme
             o art. 101, I, do Código de Defesa do Consumidor (Lei nº 8.078/1990).
           </p>
 
-          <h2>10. Contato</h2>
+          <h2>11. Contato</h2>
           <p>
             Dúvidas sobre estes Termos podem ser encaminhadas para
             <strong>contato@placacompleta.com.br</strong>.

@@ -87,9 +87,51 @@ useHead({
             </li>
           </ul>
 
-          <h2>4. Compartilhamento de Dados</h2>
+          <h2>4. Dados Veiculares — Fonte SENATRAN</h2>
+          <p>
+            As informações sobre veículos disponibilizadas pelo Placa Completa têm origem nos
+            sistemas e subsistemas informatizados da
+            <strong>Secretaria Nacional de Trânsito (SENATRAN)</strong>, controladora dos
+            dados veiculares, acessados por meio do
+            <strong>Serpro</strong> (operador técnico), nos termos da
+            <strong>Portaria SENATRAN nº 139/2025</strong>. O Placa Completa é entidade
+            credenciada, atuando como usuário autorizado conforme Termo de Autorização
+            publicado no Diário Oficial da União.
+          </p>
+          <p>
+            Os dados consultados referem-se ao <strong>veículo</strong> (e não ao seu
+            proprietário) e incluem: dados cadastrais (RENAVAM), restrições e gravames,
+            situação de roubo/furto, débitos e multas (RENAINF), recall e restrições judiciais
+            (RENAJUD). O tratamento observa o princípio da necessidade — apenas os dados
+            indispensáveis à finalidade de cada caso de uso aprovado são acessados.
+          </p>
+          <p>
+            Como o usuário que realiza a consulta <strong>não é necessariamente o proprietário
+            do veículo consultado</strong>, a base legal aplicável ao acesso a esses dados é o
+            <strong>legítimo interesse (art. 7º, IX da LGPD)</strong>, para fins de
+            transparência veicular e proteção patrimonial do consulente, e a
+            <strong>prevenção à fraude (art. 7º, VII da LGPD)</strong>, para dados de
+            restrições e ocorrências.
+          </p>
+          <p>
+            Em caso de incidente de segurança envolvendo dados de origem SENATRAN, o Placa
+            Completa notificará a SENATRAN/Serpro imediatamente, além de seguir os
+            procedimentos previstos na LGPD.
+          </p>
+          <p class="legal-quote">
+            O acesso e uso dos dados veiculares obedecem estritamente aos casos de uso
+            aprovados pela SENATRAN. É vedado o uso para marketing, scoring, prospecção
+            comercial ou qualquer finalidade diversa das autorizadas na Portaria SENATRAN
+            nº 139/2025.
+          </p>
+
+          <h2>5. Compartilhamento de Dados</h2>
           <p>Seus dados podem ser compartilhados com:</p>
           <ul>
+            <li>
+              <strong>SENATRAN e Serpro</strong> — para fins de supervisão, auditoria e
+              controle do acesso autorizado, conforme Portaria SENATRAN nº 139/2025;
+            </li>
             <li>
               <strong>Provedor de e-mail transacional (Resend)</strong> — para envio do e-mail
               com o resultado da consulta. O Resend processa apenas o endereço de e-mail e o
@@ -106,7 +148,8 @@ useHead({
           </ul>
           <p>
             Não vendemos, alugamos ou compartilhamos seus dados pessoais com terceiros para
-            fins de marketing.
+            fins de marketing. Dados de origem SENATRAN não são cedidos a terceiros sem
+            autorização expressa da SENATRAN.
           </p>
           <p class="legal-quote">
             Conforme o <strong>art. 7º, §5º da LGPD</strong>: "O controlador que obteve o
@@ -116,7 +159,7 @@ useHead({
             do serviço solicitado por você.
           </p>
 
-          <h2>5. Armazenamento e Segurança</h2>
+          <h2>6. Armazenamento e Segurança</h2>
           <p>
             Seus dados são armazenados em servidores seguros fornecidos pelo Supabase, com
             criptografia em trânsito (TLS/SSL) e em repouso. Adotamos medidas técnicas e
@@ -130,7 +173,7 @@ useHead({
             perda, alteração, comunicação ou qualquer forma de tratamento inadequado ou ilícito."
           </p>
 
-          <h2>6. Retenção dos Dados</h2>
+          <h2>7. Retenção dos Dados</h2>
           <p>
             Os registros de consulta são mantidos pelo período necessário ao cumprimento das
             finalidades descritas nesta Política, ou conforme exigido por obrigação legal.
@@ -142,7 +185,7 @@ useHead({
             do consentimento; ou por determinação da autoridade nacional.
           </p>
 
-          <h2>7. Direitos do Titular (art. 18 da LGPD)</h2>
+          <h2>8. Direitos do Titular (art. 18 da LGPD)</h2>
           <p>
             Você, como titular dos dados pessoais, tem os seguintes direitos garantidos pela
             LGPD, que podem ser exercidos a qualquer momento:
@@ -169,7 +212,7 @@ useHead({
             conforme previsto no art. 18, §3º da LGPD.
           </p>
 
-          <h2>8. Cookies e Tecnologias de Rastreamento</h2>
+          <h2>9. Cookies e Tecnologias de Rastreamento</h2>
           <p>
             Utilizamos o <strong>Google Analytics</strong> para análise de tráfego. O Google
             Analytics pode utilizar cookies para coletar informações de forma agregada e
@@ -177,7 +220,7 @@ useHead({
             seu navegador.
           </p>
 
-          <h2>9. Transferência Internacional de Dados</h2>
+          <h2>10. Transferência Internacional de Dados</h2>
           <p>
             Alguns dos nossos prestadores de serviços (Supabase, Resend, Google) podem
             armazenar dados em servidores localizados fora do Brasil. Nesses casos, garantimos
@@ -185,7 +228,7 @@ useHead({
             cláusulas contratuais que assegurem nível adequado de proteção.
           </p>
 
-          <h2>10. Menores de Idade</h2>
+          <h2>11. Menores de Idade</h2>
           <p>
             O Serviço não é direcionado a menores de 18 anos. Não coletamos intencionalmente
             dados de menores. Conforme o <strong>art. 14 da LGPD</strong>, o tratamento de dados
@@ -193,13 +236,13 @@ useHead({
             de pelo menos um dos pais ou responsável legal.
           </p>
 
-          <h2>11. Alterações nesta Política</h2>
+          <h2>12. Alterações nesta Política</h2>
           <p>
             Esta Política pode ser atualizada periodicamente. Alterações entram em vigor
             imediatamente após a publicação nesta página. Recomendamos a consulta periódica.
           </p>
 
-          <h2>12. Contato e Encarregado (DPO)</h2>
+          <h2>13. Contato e Encarregado (DPO)</h2>
           <p>
             Para questões relacionadas a esta Política ou ao tratamento dos seus dados pessoais,
             entre em contato:
