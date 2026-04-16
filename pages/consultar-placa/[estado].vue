@@ -16,14 +16,25 @@ function onCtaClick() {
 }
 
 useHead({
-  title: `Consultar Placa de Veículo em ${data.name} (${data.uf}) - Grátis`,
+  title: `Consultar Placa ${data.uf} Grátis — Marca, Modelo, Ano e FIPE`,
   meta: [
     { name: 'description', content: `Consulte qualquer placa registrada em ${data.name} (${data.uf}). Veja marca, modelo, ano, cor, situação e valor FIPE do veículo. Resultado grátis em segundos.` },
     { name: 'keywords', content: `consultar placa ${data.uf}, consulta placa ${data.name.toLowerCase()}, consultar veículo ${data.name.toLowerCase()}, placa ${data.uf} grátis` },
-    { property: 'og:title', content: `Consultar Placa em ${data.name} - Grátis` },
+    { property: 'og:title', content: `Consultar Placa ${data.uf} Grátis — Dados do Veículo` },
     { property: 'og:description', content: `Consulte qualquer placa registrada em ${data.name} e veja marca, modelo, ano, situação e valor FIPE. Grátis e rápido.` },
   ],
   script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Consultar Placa', item: 'https://placacompleta.com.br' },
+          { '@type': 'ListItem', position: 2, name: `${data.name} (${data.uf})` },
+        ],
+      }),
+    },
     {
       type: 'application/ld+json',
       innerHTML: JSON.stringify({
