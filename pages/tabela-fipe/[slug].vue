@@ -17,6 +17,11 @@ const isBrandPage = !!brand
 const pageData = isBrandPage ? brand : brandModel!.brand
 const model = brandModel?.model
 
+const ptMonths = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+const _now = new Date()
+const currentMonth = ptMonths[_now.getMonth()]
+const currentYear = _now.getFullYear()
+
 // Load FIPE prices from pre-fetched static JSON
 const fipeData = !isBrandPage ? (fipePricesData as Record<string, any>)[slug] || null : null
 
@@ -55,10 +60,10 @@ function onCtaClick() {
 if (isBrandPage) {
   // Brand hub page
   useHead({
-    title: `Tabela FIPE ${pageData.name} ${new Date().getFullYear()} - Todos os Modelos`,
+    title: `Tabela FIPE ${pageData.name} ${currentMonth} ${currentYear} - Todos os Modelos`,
     meta: [
-      { name: 'description', content: `Consulte a Tabela FIPE ${pageData.name} atualizada. Veja preços de todos os modelos: ${pageData.models.slice(0, 5).map(m => m.name).join(', ')} e mais. Grátis.` },
-      { name: 'keywords', content: `tabela fipe ${pageData.name.toLowerCase()}, valor fipe ${pageData.name.toLowerCase()}, preço ${pageData.name.toLowerCase()}, fipe ${pageData.name.toLowerCase()} ${new Date().getFullYear()}` },
+      { name: 'description', content: `Tabela FIPE ${pageData.name} atualizada em ${currentMonth} ${currentYear}. Veja preços de todos os modelos: ${pageData.models.slice(0, 5).map(m => m.name).join(', ')} e mais. Grátis.` },
+      { name: 'keywords', content: `tabela fipe ${pageData.name.toLowerCase()}, valor fipe ${pageData.name.toLowerCase()}, preço ${pageData.name.toLowerCase()}, fipe ${pageData.name.toLowerCase()} ${currentYear}` },
       { property: 'og:title', content: `Tabela FIPE ${pageData.name} - Preços Atualizados` },
       { property: 'og:description', content: `Veja os valores FIPE atualizados de todos os modelos ${pageData.name}.` },
     ],
@@ -155,13 +160,13 @@ if (isBrandPage) {
   }
 
   useHead({
-    title: `Tabela FIPE ${pageData.name} ${model!.name} ${new Date().getFullYear()} - Valor Atualizado`,
+    title: `Tabela FIPE ${pageData.name} ${model!.name} ${currentMonth} ${currentYear} - Valor Atualizado`,
     meta: [
       { name: 'description', content: priceTable.value.length > 0
-        ? `${pageData.name} ${model!.name} na Tabela FIPE: a partir de ${priceTable.value[priceTable.value.length - 1]?.priceFormatted}. Veja preços por ano e histórico. Consulte pela placa grátis.`
-        : `Consulte o valor na Tabela FIPE do ${pageData.name} ${model!.name}. Preço atualizado para todos os anos. Consulte pela placa e receba o valor exato no e-mail.`
+        ? `${pageData.name} ${model!.name} na Tabela FIPE ${currentMonth} ${currentYear}: a partir de ${priceTable.value[priceTable.value.length - 1]?.priceFormatted}. Veja preços por ano e histórico. Grátis.`
+        : `Tabela FIPE ${pageData.name} ${model!.name} atualizada em ${currentMonth} ${currentYear}. Preços para todos os anos e versões. Consulte pela placa e veja o valor exato.`
       },
-      { name: 'keywords', content: `tabela fipe ${pageData.name.toLowerCase()} ${model!.name.toLowerCase()}, valor fipe ${model!.name.toLowerCase()}, preço ${pageData.name.toLowerCase()} ${model!.name.toLowerCase()}, fipe ${model!.name.toLowerCase()} ${new Date().getFullYear()}` },
+      { name: 'keywords', content: `tabela fipe ${pageData.name.toLowerCase()} ${model!.name.toLowerCase()}, valor fipe ${model!.name.toLowerCase()}, preço ${pageData.name.toLowerCase()} ${model!.name.toLowerCase()}, fipe ${model!.name.toLowerCase()} ${currentYear}` },
       { property: 'og:title', content: `Tabela FIPE ${pageData.name} ${model!.name} - Preço Atualizado` },
       { property: 'og:description', content: `Veja o valor FIPE atualizado do ${pageData.name} ${model!.name} para todos os anos.` },
     ],
@@ -333,6 +338,9 @@ if (isBrandPage) {
                 <strong>Dica:</strong> Para saber o valor FIPE exato de um {{ pageData.name }}
                 {{ model!.name }} específico, consulte a placa do veículo. Assim você recebe o
                 preço FIPE para o ano e versão exata.
+              </p>
+              <p>
+                <NuxtLink to="/tabela-fipe-por-placa">Como funciona a consulta FIPE pela placa →</NuxtLink>
               </p>
             </div>
 

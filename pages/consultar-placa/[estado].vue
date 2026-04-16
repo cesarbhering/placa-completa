@@ -18,10 +18,10 @@ function onCtaClick() {
 useHead({
   title: `Consultar Placa de Veículo em ${data.name} (${data.uf}) - Grátis`,
   meta: [
-    { name: 'description', content: `Consulte a placa de qualquer veículo registrado em ${data.name} (${data.uf}). Receba marca, modelo, ano, FIPE e situação no e-mail. Grátis e instantâneo.` },
+    { name: 'description', content: `Consulte qualquer placa registrada em ${data.name} (${data.uf}). Veja marca, modelo, ano, cor, situação e valor FIPE do veículo. Resultado grátis em segundos.` },
     { name: 'keywords', content: `consultar placa ${data.uf}, consulta placa ${data.name.toLowerCase()}, consultar veículo ${data.name.toLowerCase()}, placa ${data.uf} grátis` },
     { property: 'og:title', content: `Consultar Placa em ${data.name} - Grátis` },
-    { property: 'og:description', content: `Consulte qualquer placa de veículo registrado em ${data.name} e receba os dados completos no e-mail.` },
+    { property: 'og:description', content: `Consulte qualquer placa registrada em ${data.name} e veja marca, modelo, ano, situação e valor FIPE. Grátis e rápido.` },
   ],
   script: [
     {
