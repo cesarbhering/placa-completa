@@ -63,8 +63,6 @@ function goHome() {
 </template>
 
 <style lang="scss" scoped>
-@use '~/assets/scss/variables' as *;
-
 .error-desktop {
   min-height: 100vh;
   display: flex;
