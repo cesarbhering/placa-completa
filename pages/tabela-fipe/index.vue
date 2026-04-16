@@ -10,6 +10,11 @@ function onCtaClick() {
 const carBrands = Object.values(fipeBrands).filter(b => b.type === 'carros')
 const motoBrands = Object.values(fipeBrands).filter(b => b.type === 'motos')
 
+const ptMonths = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+const _now = new Date()
+const currentMonth = ptMonths[_now.getMonth()]
+const currentYear = _now.getFullYear()
+
 const faqs = [
   {
     question: 'Como descobrir o valor FIPE de um veículo pela placa?',
@@ -34,14 +39,48 @@ const faqs = [
 ]
 
 useHead({
-  title: 'Tabela FIPE — Consulta Veicular por Placa Grátis',
+  title: `Tabela FIPE ${currentMonth} ${currentYear} — Valores de Carros e Motos`,
   meta: [
-    { name: 'description', content: 'Consulte o valor na Tabela FIPE de carros, motos e caminhões pela placa. Consulta veicular grátis com preços atualizados de todas as marcas e modelos.' },
+    { name: 'description', content: `Tabela FIPE atualizada em ${currentMonth} ${currentYear}. Consulte valores de carros, motos e caminhões por marca ou pela placa. Todas as marcas e modelos. Grátis.` },
     { name: 'keywords', content: 'tabela fipe, valor fipe, preço fipe, tabela fipe carros, tabela fipe motos, consulta fipe grátis, consulta veicular placa, consulta veicular grátis, valor veículo por placa' },
-    { property: 'og:title', content: 'Tabela FIPE — Consulta Veicular por Placa Grátis' },
-    { property: 'og:description', content: 'Consulte valores FIPE atualizados de carros e motos pela placa. Grátis e instantâneo.' },
+    { property: 'og:title', content: `Tabela FIPE ${currentMonth} ${currentYear} — Valores Atualizados` },
+    { property: 'og:description', content: `Tabela FIPE atualizada em ${currentMonth} ${currentYear}. Valores de carros e motos por marca ou pela placa. Grátis.` },
   ],
   script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'PlacaCompleta', item: 'https://placacompleta.com.br' },
+          { '@type': 'ListItem', position: 2, name: 'Tabela FIPE' },
+        ],
+      }),
+    },
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: `Tabela FIPE ${currentMonth} ${currentYear} — Marcas`,
+        description: 'Lista de marcas de veículos com preços na Tabela FIPE',
+        itemListElement: [
+          ...carBrands.map((b, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            name: b.name,
+            url: `https://placacompleta.com.br/tabela-fipe/${b.slug}`,
+          })),
+          ...motoBrands.map((b, i) => ({
+            '@type': 'ListItem',
+            position: carBrands.length + i + 1,
+            name: b.name,
+            url: `https://placacompleta.com.br/tabela-fipe/${b.slug}`,
+          })),
+        ],
+      }),
+    },
     {
       type: 'application/ld+json',
       innerHTML: JSON.stringify({

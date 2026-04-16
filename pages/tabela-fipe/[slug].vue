@@ -72,6 +72,17 @@ if (isBrandPage) {
         type: 'application/ld+json',
         innerHTML: JSON.stringify({
           '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'Tabela FIPE', item: 'https://placacompleta.com.br/tabela-fipe' },
+            { '@type': 'ListItem', position: 2, name: pageData.name },
+          ],
+        }),
+      },
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          '@context': 'https://schema.org',
           '@type': 'FAQPage',
           mainEntity: [
             {
@@ -132,6 +143,20 @@ if (isBrandPage) {
       }),
     },
   ]
+
+  // Add BreadcrumbList schema
+  schemaScripts.push({
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Tabela FIPE', item: 'https://placacompleta.com.br/tabela-fipe' },
+        { '@type': 'ListItem', position: 2, name: pageData.name, item: `https://placacompleta.com.br/tabela-fipe/${pageData.slug}` },
+        { '@type': 'ListItem', position: 3, name: model!.name },
+      ],
+    }),
+  })
 
   // Add Product schema if we have FIPE price data
   if (priceTable.value.length > 0) {
