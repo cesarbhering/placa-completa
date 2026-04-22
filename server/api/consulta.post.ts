@@ -244,9 +244,26 @@ function buildChartUrl(historyData: any, anoModelo: string | number, textoModelo
     return da.getTime() - db.getTime()
   })
 
+  // Downsample to at most 10 points, always including oldest and most recent
+  const MAX_POINTS = 10
+  let downsampled = sorted
+  if (sorted.length > MAX_POINTS) {
+    const step = (sorted.length - 1) / (MAX_POINTS - 1)
+    downsampled = Array.from({ length: MAX_POINTS }, (_, i) => sorted[Math.round(i * step)])
+  }
+
   const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-  const labels = sorted.map((h: any) => `${months[h.month - 1]}/${String(h.year).slice(2)}`)
-  const values = sorted.map((h: any) => h.price)
+  const labels = downsampled.map((h: any) => `${months[h.month - 1]}/${String(h.year).slice(2)}`)
+  const values = downsampled.map((h: any) => h.price)
+
+  // Compute a "nice" Y-axis stepSize targeting ~5 ticks
+  const minVal = Math.min(...values)
+  const maxVal = Math.max(...values)
+  const range = maxVal - minVal || 1
+  const rawStep = range / 5
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)))
+  const norm = rawStep / magnitude
+  const yStep = norm < 1.5 ? magnitude : norm < 3 ? 2 * magnitude : norm < 7 ? 5 * magnitude : 10 * magnitude
 
   const chartConfigStr = `{
     type:'line',
@@ -278,7 +295,7 @@ function buildChartUrl(historyData: any, anoModelo: string | number, textoModelo
       layout:{padding:{top:25,left:0,right:5}},
       scales:{
         yAxes:[{
-          ticks:{fontColor:'#666',stepSize:500,fontSize:10,callback:function(value,index,values){return 'R$'+(value/1000).toFixed(1)+'k'}},
+          ticks:{fontColor:'#666',stepSize:${yStep},fontSize:10,callback:function(value,index,values){return 'R$'+(value/1000).toFixed(1)+'k'}},
           gridLines:{color:'#e0e0e0'}
         }],
         xAxes:[{
