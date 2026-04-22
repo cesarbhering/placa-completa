@@ -104,6 +104,17 @@ export default defineNuxtConfig({
       "/consultar-placa/sao-paulo",
       "/consultar-placa/sergipe",
       "/consultar-placa/tocantins",
+      // pSEO: capital cities
+      "/consultar-placa/capital/sao-paulo",
+      "/consultar-placa/capital/rio-de-janeiro",
+      "/consultar-placa/capital/brasilia",
+      "/consultar-placa/capital/fortaleza",
+      "/consultar-placa/capital/salvador",
+      "/consultar-placa/capital/belo-horizonte",
+      "/consultar-placa/capital/manaus",
+      "/consultar-placa/capital/curitiba",
+      "/consultar-placa/capital/recife",
+      "/consultar-placa/capital/porto-alegre",
       // pSEO: FIPE brands and models
       "/tabela-fipe",
       "/tabela-fipe/volkswagen",
