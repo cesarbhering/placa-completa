@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { states } from '~/data/states'
+import { capitalSlugByStateSlug } from '~/data/capitals'
 
 const route = useRoute()
 const slug = route.params.estado as string
@@ -8,6 +9,8 @@ const data = states[slug]
 if (!data) {
   throw createError({ statusCode: 404, message: 'Estado não encontrado' })
 }
+
+const capitalSlug = capitalSlugByStateSlug[slug]
 
 function onCtaClick() {
   if (import.meta.client && window.gtag) {
@@ -118,6 +121,16 @@ useHead({
             acesse o site oficial:
             <a :href="data.detranSite" target="_blank" rel="noopener noreferrer">{{ data.detranSite }}</a>.
           </p>
+
+          <template v-if="capitalSlug">
+            <h2>Consultar placa em {{ data.capital }}</h2>
+            <p>
+              A maior parte da frota de {{ data.name }} está registrada em {{ data.capital }}.
+              Veja a
+              <NuxtLink :to="`/consultar-placa/capital/${capitalSlug}`">página dedicada para consulta de placas em {{ data.capital }}</NuxtLink>,
+              com informações específicas sobre DETRAN, IPVA e principais bairros da capital.
+            </p>
+          </template>
 
           <h2>Perguntas frequentes</h2>
           <div v-for="faq in data.faqs" :key="faq.question" class="faq-item">
