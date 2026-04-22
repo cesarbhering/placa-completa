@@ -179,7 +179,8 @@ export default defineEventHandler(async (event) => {
   if (!isPWA) {
     try {
       const resend = new Resend(config.resendApiKey)
-      const htmlEmail = buildEmailHtml(apiResponse, placaClean, chartUrl, icv5Result)
+      const rodizio = icv5Uf === 'SP' ? getSpRodizioInfo(placaClean) : null
+      const htmlEmail = buildEmailHtml(apiResponse, placaClean, chartUrl, icv5Result, rodizio)
 
       await resend.emails.send({
         from: 'PlacaCompleta <consulta@placacompleta.com.br>',
@@ -295,7 +296,29 @@ function buildChartUrl(historyData: any, anoModelo: string | number, textoModelo
   return `https://quickchart.io/watermark?mainImageUrl=${encodeURIComponent(chartOnly)}&markImageUrl=${encodeURIComponent(logoUrl)}&markRatio=0.3&position=center&opacity=0.15&margin=0&imageWidth=480`
 }
 
-function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: string | null = null, icv5: ICV5Result | null = null): string {
+interface SpRodizio {
+  day: string
+  digits: string
+}
+
+function getSpRodizioInfo(placa: string): SpRodizio | null {
+  const lastDigit = placa.slice(-1)
+  const map: Record<string, SpRodizio> = {
+    '1': { day: 'Segunda-feira', digits: '1 e 2' },
+    '2': { day: 'Segunda-feira', digits: '1 e 2' },
+    '3': { day: 'Terça-feira', digits: '3 e 4' },
+    '4': { day: 'Terça-feira', digits: '3 e 4' },
+    '5': { day: 'Quarta-feira', digits: '5 e 6' },
+    '6': { day: 'Quarta-feira', digits: '5 e 6' },
+    '7': { day: 'Quinta-feira', digits: '7 e 8' },
+    '8': { day: 'Quinta-feira', digits: '7 e 8' },
+    '9': { day: 'Sexta-feira', digits: '9 e 0' },
+    '0': { day: 'Sexta-feira', digits: '9 e 0' },
+  }
+  return map[lastDigit] || null
+}
+
+function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: string | null = null, icv5: ICV5Result | null = null, rodizio: SpRodizio | null = null): string {
   const marca = data.MARCA || data.marca || '-'
   const modelo = data.MODELO || data.modelo || '-'
   const ano = data.ano || '-'
@@ -380,6 +403,24 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
                 </td>
               </tr>
               ` : ''}
+            </table>
+            ` : ''}
+
+            ${rodizio ? `
+            <table width="100%" cellpadding="6" cellspacing="0" style="background:#fff;border:2px solid;border-color:#404040 #fff #fff #404040;font-size:13px;margin-top:12px;">
+              <tr style="background:#3066be;">
+                <td colspan="2" style="font-weight:bold;color:#fff;padding:8px;">Rodízio Municipal - São Paulo Capital</td>
+              </tr>
+              ${emailRow('Final da placa', placa.slice(-1))}
+              ${emailRow('Dia do rodízio', rodizio.day)}
+              ${emailRow('Finais restritos', rodizio.digits)}
+              ${emailRow('Horário', '7h às 10h e 17h às 20h')}
+              <tr>
+                <td colspan="2" style="padding:8px;font-size:11px;color:#3c3744;line-height:1.4;">
+                  Restrição válida apenas no Centro Expandido de SP capital, dias úteis.
+                  Isentos: veículos elétricos, táxis, motos, ônibus, ambulâncias e veículos de deficientes.
+                </td>
+              </tr>
             </table>
             ` : ''}
 
