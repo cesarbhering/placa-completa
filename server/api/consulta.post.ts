@@ -22,8 +22,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Telefone inválido.' })
   }
 
-  // Sanitize email to prevent injection
-  const sanitizedEmail = sanitizeEmail(email)
+  // Sanitize email to prevent injection + normalize case for consistent dedupe
+  const sanitizedEmail = sanitizeEmail(email).toLowerCase()
 
   const headers = getRequestHeaders(event)
   const ip = headers['x-forwarded-for']?.split(',')[0]?.trim()
@@ -39,6 +39,36 @@ export default defineEventHandler(async (event) => {
 
   const isMobile = /mobile|android|iphone/i.test(userAgent)
   const deviceInfo = isMobile ? 'Mobile' : 'Desktop'
+
+  // Dedupe: if the same email already received this placa in the last hour,
+  // skip the paid API call + Resend and inform the user the email was already sent.
+  // Non-PWA only — PWA returns data inline, not via email.
+  if (!isPWA) {
+    const supabase = useSupabaseServer()
+    const { data: existing, error: dedupeError } = await supabase
+      .from('consultas')
+      .select('created_at')
+      .eq('email', sanitizedEmail)
+      .eq('placa', placaClean)
+      .eq('email_sent', true)
+      .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (dedupeError) {
+      console.warn('[dedupe] Supabase error:', dedupeError.message)
+    }
+
+    if (existing) {
+      const minutesAgo = Math.max(1, Math.round((Date.now() - new Date(existing.created_at).getTime()) / 60000))
+      return {
+        success: true,
+        emailSent: true,
+        message: `Você já consultou essa placa há ${minutesAgo === 1 ? 'menos de 1 minuto' : `${minutesAgo} min`}. O e-mail com os dados foi enviado para ${sanitizedEmail} — verifique sua caixa de entrada e a pasta de spam.`,
+      }
+    }
+  }
 
   let apiResponse = null
   let emailSent = false
@@ -176,7 +206,7 @@ export default defineEventHandler(async (event) => {
 
   const supabase = useSupabaseServer()
   await supabase.from('consultas').insert({
-    email,
+    email: sanitizedEmail,
     phone: phone || null,
     placa: placaClean,
     ip_address: ip,
