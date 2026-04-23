@@ -2,6 +2,13 @@
 
 > Cesar revisa o conteúdo antes de qualquer implementação de código. Nunca publique um post sem revisão do Cesar.
 
+## Tipos de post mensais
+
+Cada mês gera **dois posts**:
+
+1. **IBV do mês** (`ibv-{mes}-{ano}`) — visão geral: variação nacional, modelos, regiões, elétricos
+2. **Vencedores e Perdedores** (`vencedores-perdedores-{mes}-{ano}`) — análise por estado usando dados do Excel, top 4 altas + top 4 baixas com contexto de tendência
+
 ## Onde encontrar o relatório
 
 O IBV Auto é publicado mensalmente pelo banco BV, normalmente na primeira semana do mês seguinte (ex: dados de março saem em abril).
@@ -9,13 +16,28 @@ O IBV Auto é publicado mensalmente pelo banco BV, normalmente na primeira seman
 - **Listagem de relatórios:** https://www.bv.com.br/economia/relatorios/
 - **Padrão de URL do relatório:** `https://www.bv.com.br/economia/relatorios/ibv-{mes}-{ano}`
   - Exemplos: `ibv-marco-2026`, `ibv-abril-2026`, `ibv-maio-2026`
+- **Excel com série histórica completa (estados + regiões, MoM e YoY):** https://econoreports.bv.com.br/Projecoes/IBV_Auto.xlsx
+  - Baixar todo mês — o arquivo é substituído no mesmo URL com dados atualizados
+  - 3 abas: `indice_de_precos_nivel`, `indice_de_precos_mom`, `indice_de_precos_yoy`
+  - Colunas: Período | BRASIL | Norte | Nordeste | Sudeste | Sul | Centro-Oeste | RO | AC | AM | RR | PA | AP | TO | MA | PI | CE | RN | PB | PE | AL | SE | BA | MG | ES | RJ | SP | PR | SC | RS | MS | MT | GO | DF
+  - Dados começam na linha 13 (linha 12 é cabeçalho, header row com "Período")
+  - Valores em percentual (ex: `0.71` = 0,71%)
 - **Fonte dos dados no post:** "Banco BV (IBV Auto), publicado em DD/MM/AAAA"
 
-## Checklist para cada novo post
+## Checklist para cada novo mês
 
+### Post 1 — IBV do mês
 - [ ] Cesar revisou e aprovou o conteúdo
-- [ ] Imagens baixadas de `econoreports.bv.com.br`
+- [ ] Imagens baixadas de `econoreports.bv.com.br` (4 imagens)
 - [ ] Post adicionado a `data/ibv-posts.ts`
+- [ ] Sitemap atualizado em `nuxt.config.ts`
+
+### Post 2 — Vencedores e Perdedores
+- [ ] Cesar revisou e aprovou o conteúdo
+- [ ] Excel baixado de https://econoreports.bv.com.br/Projecoes/IBV_Auto.xlsx
+- [ ] Análise dos dados feita (top 4 e bottom 4 por MoM, com YoY e tendência de 6 meses)
+- [ ] Imagem `variacao-por-uf-acumulado.png` copiada da mesma pasta do mês
+- [ ] Post adicionado a `data/ibv-posts.ts` (como primeiro item do array — mais recente primeiro)
 - [ ] Sitemap atualizado em `nuxt.config.ts`
 
 ---
@@ -142,7 +164,121 @@ Adicione um novo objeto no array `ibvPosts`, **antes** dos posts existentes (ord
 
 ---
 
-## 3. Atualizar o sitemap em `nuxt.config.ts`
+## 3. Template para o post "Vencedores e Perdedores"
+
+Baixe o Excel, rode o Python abaixo para extrair os dados, depois escreva o conteúdo:
+
+```bash
+curl -sL "https://econoreports.bv.com.br/Projecoes/IBV_Auto.xlsx" -o /tmp/IBV_Auto.xlsx
+```
+
+```python
+import openpyxl
+from datetime import datetime
+
+wb = openpyxl.load_workbook('/tmp/IBV_Auto.xlsx', read_only=True, data_only=True)
+
+def get_sheet_data(sheet_name):
+    ws = wb[sheet_name]
+    all_rows = list(ws.iter_rows(values_only=True))
+    headers = None
+    data = []
+    for i, row in enumerate(all_rows):
+        non_none = [v for v in row if v is not None]
+        if non_none and non_none[0] == 'Período':
+            headers = list(row)
+            for j in range(i+1, len(all_rows)):
+                r = list(all_rows[j])
+                if r[0] is not None and isinstance(r[0], datetime):
+                    data.append(r)
+    return headers, data
+
+headers, data_mom = get_sheet_data('indice_de_precos_mom')
+_, data_yoy = get_sheet_data('indice_de_precos_yoy')
+_, data_lvl = get_sheet_data('indice_de_precos_nivel')
+
+def by_month(data):
+    return {(r[0].year, r[0].month): r for r in data if r[0] is not None}
+
+mom_idx = by_month(data_mom)
+yoy_idx = by_month(data_yoy)
+lvl_idx = by_month(data_lvl)
+
+# Change YEAR and MONTH here:
+YEAR, MONTH = 2026, 4   # April 2026
+PREV_MONTH = (YEAR, MONTH-1) if MONTH > 1 else (YEAR-1, 12)
+
+target_mom = mom_idx[(YEAR, MONTH)]
+target_yoy = yoy_idx[(YEAR, MONTH)]
+target_lvl = lvl_idx[(YEAR, MONTH)]
+
+state_headers = headers[7:]   # RO, AC, AM, ...
+region_headers = headers[1:7] # BRASIL, Norte, Nordeste, Sudeste, Sul, Centro-Oeste
+
+# State ranking
+state_data = []
+for i, h in enumerate(state_headers):
+    col = i + 7
+    state_data.append({
+        'state': h,
+        'mom': target_mom[col] or 0,
+        'yoy': target_yoy[col] or 0,
+        'lvl': target_lvl[col] or 0,
+        'prev_mom': (mom_idx.get(PREV_MONTH) or [None]*34)[col] or 0,
+    })
+
+ranked = sorted(state_data, key=lambda x: x['mom'], reverse=True)
+
+print("=== TOP 4 ===")
+for r in ranked[:4]:
+    print(f"  {r['state']}: MoM={r['mom']:.2f}% | YoY={r['yoy']:.2f}% | Prev={r['prev_mom']:.2f}% | Level={r['lvl']:.1f}")
+
+print("\n=== BOTTOM 4 ===")
+for r in ranked[-4:]:
+    print(f"  {r['state']}: MoM={r['mom']:.2f}% | YoY={r['yoy']:.2f}% | Prev={r['prev_mom']:.2f}% | Level={r['lvl']:.1f}")
+
+print("\n=== REGIONS ===")
+for i, h in enumerate(region_headers):
+    col = i + 1
+    print(f"  {h}: MoM={target_mom[col] or 0:.2f}% | YoY={target_yoy[col] or 0:.2f}%")
+
+# Trend: last 6 months for top 4 and bottom 4
+print("\n=== TREND (last 6 months) ===")
+months_recent = []
+y, m = YEAR, MONTH
+for _ in range(6):
+    months_recent.insert(0, (y, m))
+    m -= 1
+    if m == 0: m = 12; y -= 1
+
+for r in ranked[:4] + ranked[-4:]:
+    si = headers.index(r['state'])
+    vals = [f"{(mom_idx.get(ym) or [None]*34)[si]:+.2f}%" if (mom_idx.get(ym) or [None]*34)[si] else "N/A" for ym in months_recent]
+    print(f"  {r['state']}: {' '.join(vals)}")
+```
+
+**Slug:** `vencedores-perdedores-{mes}-{ano}`
+
+**Estrutura de seções:**
+1. **intro** — contexto: o IBV nacional do mês + a dispersão entre estados como gancho
+2. **heading** "Os 4 estados que mais valorizaram" — análise rica: MoM, YoY, nível, tendência, contexto regional
+3. **image** — `variacao-por-uf.png` (barras MoM por estado)
+4. **heading** "Os 4 estados que mais perderam (ou ficaram para trás)" — mesmo tratamento
+5. **image** — `variacao-por-uf-acumulado.png` (barras YoY por estado)
+6. **heading** "O padrão regional" — qual região acelerou, qual desacelerou, por quê
+7. **image** — `mapa-brasil-acumulado.png`
+8. **heading** "Modelos: quem subiu e quem caiu no mês" — dados do gráfico image_005 do BV
+9. **image** — `modelos-alta-baixa.png`
+10. **highlight** "O que isso significa na prática?" — acionável por perfil (vendedor vs comprador)
+11. **cta** — consulta de placa
+
+**Tom:** análise de dados, não jornalismo de release. Trabalhar com os números reais do Excel — tendências de 6 meses, nível do índice, comparação mês anterior — em vez de apenas listar o que o BV já destaca na página do relatório.
+
+**Imagem extra necessária:** `variacao-por-uf-acumulado.png` — verificar qual `image_NNN.png` do BV é o gráfico de barras YoY por UF (geralmente `image_007`). Copiar para `public/images/ibv/{mes}-{ano}/variacao-por-uf-acumulado.png`.
+
+---
+
+## 4. Atualizar o sitemap em `nuxt.config.ts`
 
 Na seção `sitemap: { urls: [...] }`, adicione as duas novas URLs **junto às outras URLs do IBV**:
 
