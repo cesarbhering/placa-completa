@@ -384,8 +384,17 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background-color:#0d2db5;font-family:Tahoma,Verdana,Geneva,sans-serif;">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <style>
+    :root { color-scheme: light; supported-color-schemes: light; }
+    u + .body, body { color-scheme: light !important; }
+  </style>
+</head>
+<body class="body" style="margin:0;padding:0;background-color:#0d2db5;color-scheme:light;font-family:Tahoma,Verdana,Geneva,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d2db5" style="padding:12px 6px;background-color:#0d2db5;">
     <tr><td align="center">
 
@@ -430,7 +439,7 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
         ${emailRow('Índice ICV5', `${icv5.indiceIcv5}% - ${icv5.classificacao}`, true)}
       `) : ''}
 
-      <p style="font-size:11px;color:rgba(255,255,255,0.75);text-align:center;font-family:Tahoma,sans-serif;margin:4px 0 0;max-width:520px;">
+      <p style="font-size:11px;color:#c5d2f0;text-align:center;font-family:Tahoma,sans-serif;margin:4px 0 0;max-width:520px;">
         Consulta realizada em ${timestamp} &nbsp;|&nbsp; placacompleta.com.br
       </p>
 
