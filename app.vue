@@ -32,7 +32,7 @@ if (!isPWA.value) {
   <div>
     <!-- PWA Loading Screen (PWA only) -->
     <div v-if="isPWA && !isReady" class="pwa-loader">
-      <img src="/logo-nobg-200.png" alt="PlacaCompleta" class="pwa-loader__logo" />
+      <PlacaCompletaIcon variant="inverted" class="pwa-loader__logo" />
     </div>
 
     <div v-show="isReady">
