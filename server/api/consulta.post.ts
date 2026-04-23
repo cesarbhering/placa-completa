@@ -361,113 +361,114 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
   const fipeModelo = fipeData?.texto_modelo || '-'
   const fipeRef = fipeData?.mes_referencia || '-'
 
-  const titleBarStyle = "background:#1d52c9;background-image:linear-gradient(180deg,#3a7dd8 0%,#1d52c9 50%,#0f389b 100%);color:#ffffff;font-family:'Trebuchet MS',Tahoma,sans-serif;text-shadow:1px 1px 0 rgba(0,0,30,0.5);"
-  const sectionHeaderStyle = `${titleBarStyle}padding:7px 10px;font-weight:bold;font-size:12px;letter-spacing:0.2px;`
+  const timestamp = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+
+  const fipeExtra = chartUrl ? `
+    <tr>
+      <td colspan="2" style="padding:12px 10px;text-align:center;background:#ffffff;border-top:1px solid #e8e6db;">
+        <img src="${chartUrl}" alt="Histórico FIPE" width="420" style="width:100%;max-width:420px;height:auto;display:block;margin:0 auto;border:1px solid #c8c4b0;border-radius:3px;" />
+        <p style="font-size:11px;color:#5a5a6a;margin:8px 0 0;font-family:Tahoma,sans-serif;">Evolução do preço nos últimos meses</p>
+      </td>
+    </tr>
+  ` : ''
+
+  const rodizioDisclaimer = `
+    <tr>
+      <td colspan="2" style="padding:10px;font-size:11px;color:#5a5a6a;line-height:1.45;background:#f8f7ee;border-top:1px solid #e8e6db;font-family:Tahoma,sans-serif;font-style:italic;">
+        Restrição válida apenas no Centro Expandido de SP capital, dias úteis.
+        Isentos: veículos elétricos, táxis, motos, ônibus, ambulâncias e veículos de deficientes.
+      </td>
+    </tr>
+  `
 
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background-color:#0d2db5;font-family:Tahoma,Verdana,Geneva,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d2db5" style="padding:16px 8px;background-color:#0d2db5;">
+  <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d2db5" style="padding:12px 6px;background-color:#0d2db5;">
     <tr><td align="center">
 
-      <!--[if mso]><table width="520" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
-      <table width="520" cellpadding="0" cellspacing="0" style="background:#ece9d8;border-collapse:separate;max-width:520px;width:100%;">
-        <!-- Body -->
-        <tr>
-          <td style="padding:16px 14px;font-family:Tahoma,Verdana,sans-serif;">
-            <p style="font-size:13px;margin:0 0 14px;color:#1a1a2e;line-height:1.5;">
-              Resultado da consulta para a placa <strong style="color:#0831d9;">${placa}</strong>:
-            </p>
+      ${emailWindow(`Dados do Veículo - ${placa}`, `
+        ${emailRow('Placa', placa)}
+        ${emailRow('Marca', marca)}
+        ${emailRow('Modelo', modelo)}
+        ${emailRow('Ano Fab.', ano)}
+        ${emailRow('Ano Modelo', anoModelo)}
+        ${emailRow('Cor', cor)}
+        ${emailRow('Combustível', combustivel)}
+        ${emailRow('Tipo', tipoVeiculo)}
+        ${emailRow('Espécie', especie)}
+        ${emailRow('Passageiros', passageiros)}
+        ${emailRow('Chassi', chassi)}
+        ${emailRow('Município', `${municipio} - ${uf}`)}
+        ${emailRow('Origem', origem)}
+        ${emailRow('Situação', situacao, true)}
+      `)}
 
-            <!-- Data Table -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #7f9db9;font-size:12px;border-collapse:collapse;">
-              <tr>
-                <td colspan="2" bgcolor="#1d52c9" style="${sectionHeaderStyle}">Dados do Veículo</td>
-              </tr>
-              ${emailRow('Placa', placa)}
-              ${emailRow('Marca', marca)}
-              ${emailRow('Modelo', modelo)}
-              ${emailRow('Ano Fab.', ano)}
-              ${emailRow('Ano Modelo', anoModelo)}
-              ${emailRow('Cor', cor)}
-              ${emailRow('Combustível', combustivel)}
-              ${emailRow('Tipo', tipoVeiculo)}
-              ${emailRow('Espécie', especie)}
-              ${emailRow('Passageiros', passageiros)}
-              ${emailRow('Chassi', chassi)}
-              ${emailRow('Município', `${municipio} - ${uf}`)}
-              ${emailRow('Origem', origem)}
-              ${emailRow('Situação', situacao, true)}
-            </table>
+      ${fipeValor !== '-' ? emailWindow('Tabela FIPE', `
+        ${emailRow('Modelo FIPE', fipeModelo)}
+        ${emailRow('Valor', fipeValor)}
+        ${emailRow('Referência', fipeRef, !chartUrl)}
+        ${fipeExtra}
+      `) : ''}
 
-            ${fipeValor !== '-' ? `
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #7f9db9;font-size:12px;margin-top:14px;border-collapse:collapse;">
-              <tr>
-                <td colspan="2" bgcolor="#1d52c9" style="${sectionHeaderStyle}">Tabela FIPE</td>
-              </tr>
-              ${emailRow('Modelo FIPE', fipeModelo)}
-              ${emailRow('Valor', fipeValor)}
-              ${emailRow('Referência', fipeRef, !chartUrl)}
-              ${chartUrl ? `
-              <tr>
-                <td colspan="2" style="padding:12px 10px;text-align:center;background:#ffffff;border-top:1px solid #e8e6db;">
-                  <img src="${chartUrl}" alt="Histórico FIPE" width="420" style="width:100%;max-width:420px;height:auto;display:block;margin:0 auto;border:1px solid #c8c4b0;border-radius:3px;" />
-                  <p style="font-size:11px;color:#5a5a6a;margin:8px 0 0;font-family:Tahoma,sans-serif;">Evolução do preço nos últimos meses</p>
-                </td>
-              </tr>
-              ` : ''}
-            </table>
-            ` : ''}
+      ${rodizio ? emailWindow('Rodízio Municipal - São Paulo Capital', `
+        ${emailRow('Final da placa', placa.slice(-1))}
+        ${emailRow('Dia do rodízio', rodizio.day)}
+        ${emailRow('Finais restritos', rodizio.digits)}
+        ${emailRow('Horário', '7h às 10h e 17h às 20h', true)}
+        ${rodizioDisclaimer}
+      `) : ''}
 
-            ${rodizio ? `
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #7f9db9;font-size:12px;margin-top:14px;border-collapse:collapse;">
-              <tr>
-                <td colspan="2" bgcolor="#1d52c9" style="${sectionHeaderStyle}">Rodízio Municipal - São Paulo Capital</td>
-              </tr>
-              ${emailRow('Final da placa', placa.slice(-1))}
-              ${emailRow('Dia do rodízio', rodizio.day)}
-              ${emailRow('Finais restritos', rodizio.digits)}
-              ${emailRow('Horário', '7h às 10h e 17h às 20h', true)}
-              <tr>
-                <td colspan="2" style="padding:10px;font-size:11px;color:#5a5a6a;line-height:1.45;background:#f8f7ee;border-top:1px solid #e8e6db;font-family:Tahoma,sans-serif;font-style:italic;">
-                  Restrição válida apenas no Centro Expandido de SP capital, dias úteis.
-                  Isentos: veículos elétricos, táxis, motos, ônibus, ambulâncias e veículos de deficientes.
-                </td>
-              </tr>
-            </table>
-            ` : ''}
+      ${icv5 ? emailWindow(`ICV5 - Custo para Manter em 5 Anos em ${icv5.uf}`, `
+        ${emailRow('Manutenção anual', formatBRL(icv5.manutencaoAnual))}
+        ${emailRow('Manutenção 5 anos', formatBRL(icv5.manutencao5anos))}
+        ${emailRow('IPVA anual', formatBRL(icv5.ipvaAnual))}
+        ${emailRow('IPVA 5 anos', formatBRL(icv5.ipva5anos))}
+        ${emailRow('Custo total 5 anos', formatBRL(icv5.custoTotal5anos))}
+        ${emailRow('Índice ICV5', `${icv5.indiceIcv5}% - ${icv5.classificacao}`, true)}
+      `) : ''}
 
-            ${icv5 ? `
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #7f9db9;font-size:12px;margin-top:14px;border-collapse:collapse;">
-              <tr>
-                <td colspan="2" bgcolor="#1d52c9" style="${sectionHeaderStyle}">ICV5 - Custo para Manter em 5 Anos em ${icv5.uf}</td>
-              </tr>
-              ${emailRow('Manutenção anual', formatBRL(icv5.manutencaoAnual))}
-              ${emailRow('Manutenção 5 anos', formatBRL(icv5.manutencao5anos))}
-              ${emailRow('IPVA anual', formatBRL(icv5.ipvaAnual))}
-              ${emailRow('IPVA 5 anos', formatBRL(icv5.ipva5anos))}
-              ${emailRow('Custo total 5 anos', formatBRL(icv5.custoTotal5anos))}
-              ${emailRow('Índice ICV5', `${icv5.indiceIcv5}% - ${icv5.classificacao}`, true)}
-            </table>
-            ` : ''}
-
-            <!-- Statusbar -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;background:#ece9d8;border:1px solid #aca899;border-top-color:#fdfdfd;border-left-color:#fdfdfd;font-size:11px;color:#3c3744;font-family:Tahoma,sans-serif;border-collapse:separate;">
-              <tr>
-                <td style="padding:6px 10px;">Consulta realizada em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} &nbsp;|&nbsp; placacompleta.com.br</td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-      <!--[if mso]></td></tr></table><![endif]-->
+      <p style="font-size:11px;color:rgba(255,255,255,0.75);text-align:center;font-family:Tahoma,sans-serif;margin:4px 0 0;max-width:520px;">
+        Consulta realizada em ${timestamp} &nbsp;|&nbsp; placacompleta.com.br
+      </p>
 
     </td></tr>
   </table>
 </body>
 </html>`
+}
+
+function emailWindow(title: string, bodyRowsHtml: string): string {
+  const titleBarBg = "background:#1d52c9;background-image:linear-gradient(180deg,#3a7dd8 0%,#1d52c9 50%,#0f389b 100%);"
+  const btnBg = "background:#1a4bb2;background-image:linear-gradient(180deg,#3a7dd8 0%,#1a4bb2 100%);"
+  const closeBg = "background:#b5241b;background-image:linear-gradient(180deg,#ef6c5d 0%,#b5241b 100%);"
+  const btnStyle = `${btnBg}color:#fff;border:1px solid rgba(0,0,30,0.35);border-radius:3px;font-size:10px;font-weight:bold;font-family:Tahoma,sans-serif;`
+  const closeStyle = `${closeBg}color:#fff;border:1px solid rgba(0,0,30,0.35);border-radius:3px;font-size:10px;font-weight:bold;font-family:Tahoma,sans-serif;`
+
+  return `
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;margin:0 auto 10px;background:#ffffff;border:1px solid #7f9db9;border-collapse:collapse;">
+  <tr>
+    <td colspan="2" bgcolor="#1d52c9" style="${titleBarBg}padding:4px 5px 4px 10px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="color:#ffffff;font-size:12px;font-weight:bold;font-family:'Trebuchet MS',Tahoma,sans-serif;text-shadow:1px 1px 0 rgba(0,0,30,0.5);letter-spacing:0.2px;">${title}</td>
+          <td align="right" width="76">
+            <table cellpadding="0" cellspacing="0"><tr>
+              <td width="20" height="18" align="center" bgcolor="#1a4bb2" style="${btnStyle}">_</td>
+              <td width="3">&nbsp;</td>
+              <td width="20" height="18" align="center" bgcolor="#1a4bb2" style="${btnStyle}">&#9633;</td>
+              <td width="3">&nbsp;</td>
+              <td width="20" height="18" align="center" bgcolor="#b5241b" style="${closeStyle}">&times;</td>
+            </tr></table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  ${bodyRowsHtml}
+</table>`
 }
 
 function emailRow(label: string, value: string, isLast: boolean = false): string {
