@@ -296,6 +296,9 @@ export default defineNuxtConfig({
       "/tabela-fipe/yamaha-tenere",
       "/tabela-fipe/yamaha-xtz-150",
       "/tabela-fipe/yamaha-r3",
+      // IBV Auto blog
+      "/ibv",
+      "/ibv/marco-2026",
     ],
   },
 
@@ -478,6 +481,8 @@ export default defineNuxtConfig({
     "/consultar-placa/**": { swr: 86400 },
     "/tabela-fipe": { swr: 86400 },
     "/tabela-fipe/**": { swr: 86400 },
+    "/ibv": { swr: 86400 },
+    "/ibv/**": { swr: 86400 },
   },
 
   nitro: {
