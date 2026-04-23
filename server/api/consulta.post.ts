@@ -361,32 +361,52 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
   const fipeModelo = fipeData?.texto_modelo || '-'
   const fipeRef = fipeData?.mes_referencia || '-'
 
+  const titleBarStyle = "background:#1d52c9;background-image:linear-gradient(180deg,#3a7dd8 0%,#1d52c9 50%,#0f389b 100%);color:#ffffff;font-family:'Trebuchet MS',Tahoma,sans-serif;text-shadow:1px 1px 0 rgba(0,0,30,0.5);"
+  const sectionHeaderStyle = `${titleBarStyle}padding:7px 10px;font-weight:bold;font-size:12px;letter-spacing:0.2px;`
+
   return `
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;font-family:'Courier New',monospace;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px;">
+<body style="margin:0;padding:0;background-color:#0d2db5;font-family:Tahoma,Verdana,Geneva,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d2db5" style="padding:24px 12px;background-color:#0d2db5;">
     <tr><td align="center">
 
-      <table width="480" cellpadding="0" cellspacing="0" style="background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;">
+      <!--[if mso]><table width="520" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ece9d8;border-collapse:separate;border:3px solid #0831d9;border-radius:8px 8px 0 0;max-width:520px;width:100%;">
         <!-- Title Bar -->
         <tr>
-          <td style="background:linear-gradient(90deg,#000080,#3066be);color:#fff;padding:4px 8px;font-size:14px;font-weight:bold;">
-            Consulta Veicular - ${placa}
+          <td bgcolor="#1d52c9" style="${titleBarStyle}padding:6px 8px 6px 12px;font-size:13px;font-weight:bold;border-radius:5px 5px 0 0;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="color:#ffffff;font-size:13px;font-weight:bold;font-family:'Trebuchet MS',Tahoma,sans-serif;text-shadow:1px 1px 0 rgba(0,0,30,0.5);">
+                  Consulta Veicular - ${placa}
+                </td>
+                <td align="right" width="80">
+                  <table cellpadding="0" cellspacing="0"><tr>
+                    <td width="22" height="20" align="center" bgcolor="#1a4bb2" style="background:#1a4bb2;background-image:linear-gradient(180deg,#3a7dd8 0%,#1a4bb2 100%);color:#fff;border:1px solid rgba(0,0,30,0.35);border-radius:3px;font-size:10px;font-weight:bold;font-family:Tahoma,sans-serif;">_</td>
+                    <td width="4">&nbsp;</td>
+                    <td width="22" height="20" align="center" bgcolor="#1a4bb2" style="background:#1a4bb2;background-image:linear-gradient(180deg,#3a7dd8 0%,#1a4bb2 100%);color:#fff;border:1px solid rgba(0,0,30,0.35);border-radius:3px;font-size:10px;font-weight:bold;font-family:Tahoma,sans-serif;">&#9633;</td>
+                    <td width="4">&nbsp;</td>
+                    <td width="22" height="20" align="center" bgcolor="#b5241b" style="background:#b5241b;background-image:linear-gradient(180deg,#ef6c5d 0%,#b5241b 100%);color:#fff;border:1px solid rgba(0,0,30,0.35);border-radius:3px;font-size:11px;font-weight:bold;font-family:Tahoma,sans-serif;">&times;</td>
+                  </tr></table>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
+
         <!-- Body -->
         <tr>
-          <td style="padding:16px;">
-            <p style="font-size:14px;margin:0 0 12px;color:#3c3744;">
-              Resultado da consulta para a placa <strong style="color:#090c9b;">${placa}</strong>:
+          <td style="padding:20px 18px;font-family:Tahoma,Verdana,sans-serif;">
+            <p style="font-size:13px;margin:0 0 16px;color:#1a1a2e;line-height:1.5;">
+              Resultado da consulta para a placa <strong style="color:#0831d9;">${placa}</strong>:
             </p>
 
             <!-- Data Table -->
-            <table width="100%" cellpadding="6" cellspacing="0" style="background:#fff;border:2px solid;border-color:#404040 #fff #fff #404040;font-size:13px;">
-              <tr style="background:#3066be;">
-                <td colspan="2" style="font-weight:bold;color:#fff;padding:8px;">Dados do Veículo</td>
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #7f9db9;font-size:12px;border-collapse:collapse;">
+              <tr>
+                <td colspan="2" bgcolor="#1d52c9" style="${sectionHeaderStyle}">Dados do Veículo</td>
               </tr>
               ${emailRow('Placa', placa)}
               ${emailRow('Marca', marca)}
@@ -401,22 +421,22 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
               ${emailRow('Chassi', chassi)}
               ${emailRow('Município', `${municipio} - ${uf}`)}
               ${emailRow('Origem', origem)}
-              ${emailRow('Situação', situacao)}
+              ${emailRow('Situação', situacao, true)}
             </table>
 
             ${fipeValor !== '-' ? `
-            <table width="100%" cellpadding="6" cellspacing="0" style="background:#fff;border:2px solid;border-color:#404040 #fff #fff #404040;font-size:13px;margin-top:12px;">
-              <tr style="background:#3066be;">
-                <td colspan="2" style="font-weight:bold;color:#fff;padding:8px;">Tabela FIPE</td>
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #7f9db9;font-size:12px;margin-top:14px;border-collapse:collapse;">
+              <tr>
+                <td colspan="2" bgcolor="#1d52c9" style="${sectionHeaderStyle}">Tabela FIPE</td>
               </tr>
               ${emailRow('Modelo FIPE', fipeModelo)}
               ${emailRow('Valor', fipeValor)}
-              ${emailRow('Referência', fipeRef)}
+              ${emailRow('Referência', fipeRef, !chartUrl)}
               ${chartUrl ? `
               <tr>
-                <td colspan="2" style="padding:8px;text-align:center;">
-                  <img src="${chartUrl}" alt="Histórico FIPE" width="420" style="width:100%;max-width:420px;height:auto;display:block;margin:0 auto;" />
-                  <p style="font-size:11px;color:#3c3744;margin:6px 0 0;">Evolução do preço nos últimos meses</p>
+                <td colspan="2" style="padding:12px 10px;text-align:center;background:#ffffff;border-top:1px solid #e8e6db;">
+                  <img src="${chartUrl}" alt="Histórico FIPE" width="420" style="width:100%;max-width:420px;height:auto;display:block;margin:0 auto;border:1px solid #c8c4b0;border-radius:3px;" />
+                  <p style="font-size:11px;color:#5a5a6a;margin:8px 0 0;font-family:Tahoma,sans-serif;">Evolução do preço nos últimos meses</p>
                 </td>
               </tr>
               ` : ''}
@@ -424,16 +444,16 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
             ` : ''}
 
             ${rodizio ? `
-            <table width="100%" cellpadding="6" cellspacing="0" style="background:#fff;border:2px solid;border-color:#404040 #fff #fff #404040;font-size:13px;margin-top:12px;">
-              <tr style="background:#3066be;">
-                <td colspan="2" style="font-weight:bold;color:#fff;padding:8px;">Rodízio Municipal - São Paulo Capital</td>
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #7f9db9;font-size:12px;margin-top:14px;border-collapse:collapse;">
+              <tr>
+                <td colspan="2" bgcolor="#1d52c9" style="${sectionHeaderStyle}">Rodízio Municipal - São Paulo Capital</td>
               </tr>
               ${emailRow('Final da placa', placa.slice(-1))}
               ${emailRow('Dia do rodízio', rodizio.day)}
               ${emailRow('Finais restritos', rodizio.digits)}
-              ${emailRow('Horário', '7h às 10h e 17h às 20h')}
+              ${emailRow('Horário', '7h às 10h e 17h às 20h', true)}
               <tr>
-                <td colspan="2" style="padding:8px;font-size:11px;color:#3c3744;line-height:1.4;">
+                <td colspan="2" style="padding:10px;font-size:11px;color:#5a5a6a;line-height:1.45;background:#f8f7ee;border-top:1px solid #e8e6db;font-family:Tahoma,sans-serif;font-style:italic;">
                   Restrição válida apenas no Centro Expandido de SP capital, dias úteis.
                   Isentos: veículos elétricos, táxis, motos, ônibus, ambulâncias e veículos de deficientes.
                 </td>
@@ -442,28 +462,29 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
             ` : ''}
 
             ${icv5 ? `
-            <table width="100%" cellpadding="6" cellspacing="0" style="background:#fff;border:2px solid;border-color:#404040 #fff #fff #404040;font-size:13px;margin-top:12px;">
-              <tr style="background:#3066be;">
-                <td colspan="2" style="font-weight:bold;color:#fff;padding:8px;">ICV5 - Custo para Manter em 5 Anos em ${icv5.uf}</td>
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #7f9db9;font-size:12px;margin-top:14px;border-collapse:collapse;">
+              <tr>
+                <td colspan="2" bgcolor="#1d52c9" style="${sectionHeaderStyle}">ICV5 - Custo para Manter em 5 Anos em ${icv5.uf}</td>
               </tr>
               ${emailRow('Manutenção anual', formatBRL(icv5.manutencaoAnual))}
               ${emailRow('Manutenção 5 anos', formatBRL(icv5.manutencao5anos))}
               ${emailRow('IPVA anual', formatBRL(icv5.ipvaAnual))}
               ${emailRow('IPVA 5 anos', formatBRL(icv5.ipva5anos))}
               ${emailRow('Custo total 5 anos', formatBRL(icv5.custoTotal5anos))}
-              ${emailRow('Índice ICV5', `${icv5.indiceIcv5}% - ${icv5.classificacao}`)}
+              ${emailRow('Índice ICV5', `${icv5.indiceIcv5}% - ${icv5.classificacao}`, true)}
             </table>
             ` : ''}
 
             <!-- Statusbar -->
-            <table width="100%" cellpadding="4" cellspacing="0" style="margin-top:16px;border:2px solid;border-color:#404040 #fff #fff #404040;background:#c0c0c0;font-size:12px;color:#3c3744;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:18px;background:#ece9d8;border:1px solid #aca899;border-top-color:#fdfdfd;border-left-color:#fdfdfd;font-size:11px;color:#3c3744;font-family:Tahoma,sans-serif;border-collapse:separate;">
               <tr>
-                <td>Consulta realizada em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} | placacompleta.com.br</td>
+                <td style="padding:6px 10px;">Consulta realizada em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })} &nbsp;|&nbsp; placacompleta.com.br</td>
               </tr>
             </table>
           </td>
         </tr>
       </table>
+      <!--[if mso]></td></tr></table><![endif]-->
 
     </td></tr>
   </table>
@@ -471,10 +492,11 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
 </html>`
 }
 
-function emailRow(label: string, value: string): string {
-  return `<tr style="border-bottom:1px dotted #808080;">
-    <td style="font-weight:600;color:#3c3744;width:40%;padding:6px;border-bottom:1px dotted #ddd;">${label}</td>
-    <td style="font-weight:700;color:#090c9b;padding:6px;border-bottom:1px dotted #ddd;">${value}</td>
+function emailRow(label: string, value: string, isLast: boolean = false): string {
+  const borderBottom = isLast ? '' : 'border-bottom:1px solid #e8e6db;'
+  return `<tr>
+    <td style="font-weight:bold;color:#1a1a2e;width:42%;padding:7px 12px;${borderBottom}background:#f8f7ee;font-family:Tahoma,Verdana,sans-serif;font-size:12px;">${label}</td>
+    <td style="color:#0831d9;padding:7px 12px;${borderBottom}background:#ffffff;font-family:Tahoma,Verdana,sans-serif;font-weight:bold;font-size:12px;">${value}</td>
   </tr>`
 }
 
