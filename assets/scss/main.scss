@@ -19,111 +19,167 @@ html {
 
 body {
   font-family: $font-body;
-  background-color: $navy-electric;
-  background-image:
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba($smart-blue, 0.08) 2px,
-      rgba($smart-blue, 0.08) 4px
-    );
-  color: $graphite;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(80, 140, 230, 0.35) 0%, transparent 60%),
+    linear-gradient(175deg, #0b1b8f 0%, #0d2db5 45%, #3066be 100%);
+  color: $xp-text;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-// Win95 Window Component
+// XP Window
 .win-window {
-  background: $win-bg;
-  @include win-border-raised;
+  background: $xp-bg;
+  border-radius: 8px 8px 0 0;
+  border: 3px solid $xp-title-deep;
+  border-top: none;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 30, 0.45),
+    0 4px 14px rgba(0, 0, 30, 0.3);
   max-width: 480px;
   width: 100%;
   margin: $space-xl auto $space-sm;
+  overflow: hidden;
 
   &__titlebar {
-    background: linear-gradient(90deg, $win-title, $smart-blue);
-    color: $win-title-text;
+    @include xp-titlebar-bg;
+    color: $xp-title-text;
     font-family: $font-display;
-    font-size: 1.25rem;
-    padding: $space-xs $space-sm;
+    font-weight: 700;
+    font-size: 0.875rem;
+    padding: 4px 5px 4px 8px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     user-select: none;
-    letter-spacing: 1px;
+    letter-spacing: 0.2px;
+    text-shadow: 1px 1px 0 rgba(0, 0, 20, 0.55);
+    border-radius: 6px 6px 0 0;
+    min-height: 28px;
 
     &-buttons {
       display: flex;
       gap: 2px;
+      align-items: center;
     }
 
     &-btn {
-      width: 18px;
-      height: 18px;
-      background: $win-bg;
-      @include win-border-raised;
-      display: flex;
+      width: 22px;
+      height: 22px;
+      border: 1px solid rgba(0, 0, 30, 0.35);
+      border-radius: 3px;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
-      line-height: 1;
-      cursor: default;
+      color: $win-white;
       font-family: $font-body;
       font-weight: 700;
+      font-size: 0.75rem;
+      line-height: 1;
+      cursor: default;
+      background:
+        radial-gradient(ellipse at 30% 25%, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.05) 55%, transparent 70%),
+        linear-gradient(180deg, #3a7dd8 0%, #1a4bb2 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+      text-shadow: 1px 1px 0 rgba(0, 0, 30, 0.45);
 
       &--active {
-        color: #000;
         cursor: pointer;
+        background:
+          radial-gradient(ellipse at 30% 25%, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.1) 50%, transparent 70%),
+          linear-gradient(180deg, $xp-close-top 0%, $xp-close-bot 100%);
 
-        &:hover {
-          background: #b8b8b8;
-        }
-
-        &:active {
-          border-color: $win-darker $win-white $win-white $win-darker;
-        }
+        &:hover { filter: brightness(1.1); }
+        &:active { filter: brightness(0.85); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3); }
       }
     }
   }
 
   &__body {
     padding: $space-md;
+    background: $xp-bg;
   }
 }
 
-// Win95 Button
+// XP Button
 .win-btn {
-  font-family: $font-display;
-  font-size: 1.125rem;
-  padding: $space-xs $space-lg;
-  background: $win-bg;
-  @include win-border-raised;
+  @include xp-button-face;
+  font-family: $font-body;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  padding: 5px 16px;
+  color: $xp-text;
   cursor: pointer;
-  letter-spacing: 1px;
-  color: $graphite;
   outline: none;
+  letter-spacing: 0;
+  min-height: 26px;
+  transition: filter 0.08s ease;
+
+  &:hover {
+    filter: brightness(1.03);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.9),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+      0 0 0 1px rgba(58, 125, 216, 0.35),
+      0 0 4px rgba(58, 125, 216, 0.3);
+  }
 
   &:active,
   &--pressed {
-    border-color: $win-darker $win-white $win-white $win-darker;
-    padding: 5px 23px 3px 25px;
+    @include xp-button-face-pressed;
+    padding: 6px 15px 4px 17px;
   }
 
   &:focus-visible {
-    outline: 1px dotted $graphite;
+    outline: 1px dotted rgba(0, 0, 0, 0.55);
     outline-offset: -4px;
   }
 
   &--primary {
-    background: $smart-blue;
-    color: $ivory;
-    font-weight: 500;
-    font-size: 1.25rem;
+    background:
+      linear-gradient(180deg,
+        rgba(255, 255, 255, 0.35) 0%,
+        rgba(255, 255, 255, 0) 50%,
+        rgba(0, 0, 0, 0.08) 100%),
+      linear-gradient(180deg,
+        #5a9bf4 0%,
+        #2e6bd6 18%,
+        #1d52c9 55%,
+        #0e3a9e 100%);
+    border: 1px solid #0a2c6b;
+    color: $xp-title-text;
+    font-weight: 700;
+    text-shadow: 1px 1px 0 rgba(0, 0, 30, 0.55);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+      0 1px 2px rgba(0, 0, 30, 0.18);
+
+    &:hover {
+      filter: brightness(1.08);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+        0 0 0 1px rgba(58, 125, 216, 0.45),
+        0 0 6px rgba(58, 125, 216, 0.35);
+    }
+
+    &:active {
+      background:
+        linear-gradient(180deg,
+          #0e3a9e 0%,
+          #1d52c9 60%,
+          #3a7dd8 100%);
+      box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.32);
+      padding: 6px 15px 4px 17px;
+    }
   }
 
   &--block {
@@ -132,32 +188,40 @@ body {
   }
 
   &:disabled {
-    color: $win-dark;
+    color: $xp-face-dark;
     cursor: not-allowed;
+    background: linear-gradient(180deg, $xp-face-top 0%, $xp-face-bot 100%);
+    text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.7);
+
+    &.win-btn--primary {
+      color: rgba(255, 255, 255, 0.65);
+      filter: grayscale(0.4) brightness(0.85);
+    }
   }
 }
 
-// Win95 Input
+// XP Input
 .win-input {
+  @include xp-input;
   font-family: $font-body;
   font-size: 0.875rem;
-  padding: $space-xs $space-sm;
-  background: $win-white;
-  @include win-border-sunken;
   width: 100%;
   outline: none;
-  color: $graphite;
+  color: $xp-text;
+  transition: border-color 0.12s, box-shadow 0.12s;
 
   &::placeholder {
-    color: $win-dark;
+    color: #8a8a8a;
   }
 
   &:focus {
-    outline: none;
+    border-color: $xp-input-focus;
+    box-shadow: inset 0 0 0 1px rgba(10, 96, 232, 0.25);
   }
 
   &--error {
-    background: #fff0f0;
+    background: #fff5f5;
+    border-color: #c73a3a;
   }
 }
 
@@ -174,24 +238,26 @@ body {
 
   &__label {
     display: block;
-    font-family: $font-display;
-    font-size: 1.125rem;
+    font-family: $font-body;
+    font-weight: 700;
+    font-size: 0.8125rem;
     margin-bottom: $space-xs;
-    color: $graphite;
-    letter-spacing: 0.5px;
+    color: $xp-text;
+    letter-spacing: 0;
 
     &--optional {
       &::after {
         content: ' (opcional)';
-        font-size: 0.875rem;
-        color: $win-dark;
+        font-weight: 400;
+        font-size: 0.75rem;
+        color: $xp-face-dark;
       }
     }
   }
 
   &__error {
     font-size: 0.75rem;
-    color: #cc0000;
+    color: #b93030;
     margin-top: $space-xs;
     font-family: $font-body;
   }
@@ -200,61 +266,71 @@ body {
 // Statusbar
 .win-statusbar {
   @include win-border-sunken;
-  background: $win-bg;
+  background: $xp-bg;
   padding: $space-xs $space-sm;
   font-family: $font-body;
   font-size: 0.75rem;
-  color: $graphite;
+  color: $xp-text;
   margin-top: $space-sm;
 }
 
-// Loading animation
+// Loading animation — XP style green striped progress
 .loading-bar {
-  height: 16px;
-  @include win-border-sunken;
+  height: 18px;
+  border: 1px solid $xp-input-border;
   background: $win-white;
+  padding: 2px;
   overflow: hidden;
   margin: $space-sm 0;
+  border-radius: 0;
 
   &__fill {
     height: 100%;
-    background: repeating-linear-gradient(
-      -45deg,
-      $smart-blue,
-      $smart-blue 8px,
-      $navy-electric 8px,
-      $navy-electric 16px
-    );
-    animation: loading-slide 0.8s linear infinite;
-    width: 100%;
+    background:
+      repeating-linear-gradient(
+        90deg,
+        #5fa54e 0px,
+        #5fa54e 6px,
+        #509240 6px,
+        #509240 8px,
+        transparent 8px,
+        transparent 10px
+      );
+    animation: loading-slide 0.5s linear infinite;
   }
 }
 
 @keyframes loading-slide {
   from { background-position: 0 0; }
-  to { background-position: 24px 0; }
+  to { background-position: 10px 0; }
 }
 
-// Alert/Message boxes
+// Alerts — soft XP-style message bars with gradients
 .win-alert {
-  @include win-border-sunken;
+  border: 1px solid;
+  border-radius: 4px;
   padding: $space-sm $space-md;
   margin: $space-sm 0;
   font-size: 0.8125rem;
+  font-family: $font-body;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 
   &--success {
-    background: #d4edda;
-    color: #155724;
+    background: linear-gradient(180deg, #e9f7e2 0%, #c8e7b7 100%);
+    border-color: #5fa54e;
+    color: #2a5a21;
   }
 
   &--error {
-    background: #f8d7da;
-    color: #721c24;
+    background: linear-gradient(180deg, #fdeceb 0%, #f6c7c4 100%);
+    border-color: #c73a3a;
+    color: #7a1e1e;
   }
 
   &--info {
-    background: $powder-blue;
-    color: $graphite;
+    background: linear-gradient(180deg, #ebf2fb 0%, #c9daf2 100%);
+    border-color: #5a9bf4;
+    color: $navy-electric;
   }
 }
 
@@ -270,8 +346,9 @@ body {
 // Separator
 .win-separator {
   border: none;
-  border-top: 1px solid $win-dark;
-  border-bottom: 1px solid $win-white;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.15) 20%, rgba(0, 0, 0, 0.15) 80%, transparent 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
   margin: $space-md 0;
 }
 
@@ -295,7 +372,7 @@ body {
   color: $powder-blue;
   text-align: center;
   padding: $space-md;
-  opacity: 0.7;
+  opacity: 0.75;
 
   a {
     color: $ivory;
@@ -331,7 +408,7 @@ body {
     display: flex;
     justify-content: space-between;
     padding: $space-xs 0;
-    border-bottom: 1px dotted $win-dark;
+    border-bottom: 1px dotted $xp-face-dark;
     font-size: 0.8125rem;
 
     &:last-child {
@@ -341,7 +418,7 @@ body {
 
   &__label {
     font-weight: 600;
-    color: $graphite;
+    color: $xp-text;
   }
 
   &__value {
@@ -415,4 +492,3 @@ body {
     overflow-x: hidden;
   }
 }
-

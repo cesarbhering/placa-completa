@@ -1005,11 +1005,13 @@ async function handleSubmit() {
 }
 
 .placa-input {
-  font-family: $font-display;
+  font-family: $font-plate;
+  font-weight: 700;
   font-size: 1.5rem;
   text-align: center;
   letter-spacing: 4px;
   text-transform: uppercase;
+  color: $navy-electric;
 }
 
 .form-group__help {

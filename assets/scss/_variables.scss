@@ -1,4 +1,4 @@
-// Placa Completa - Color Palette
+// Placa Completa - Brand Palette
 $graphite: #3c3744;
 $navy-electric: #090c9b;
 $smart-blue: #3066be;
@@ -6,20 +6,47 @@ $powder-blue: #b4c5e4;
 $ivory: #fbfff1;
 $success-green: #28a745;
 
-// Win95 System Colors
-$win-bg: #c0c0c0;
-$win-dark: #808080;
-$win-darker: #404040;
-$win-light: #dfdfdf;
-$win-white: #ffffff;
-$win-title: #000080;
-$win-title-text: #ffffff;
-$win-button-face: #c0c0c0;
+// Windows XP Luna — title bar / accents
+$xp-title-deep:    #0831d9;
+$xp-title-top:     #3a7dd8;
+$xp-title-mid:     #1d52c9;
+$xp-title-bottom:  #0f389b;
+$xp-title-edge:    #003c74;
+$xp-title-text:    #ffffff;
 
-// Typography
-$font-display: 'VT323', monospace;
-$font-body: 'IBM Plex Mono', monospace;
-$font-mono: 'IBM Plex Mono', monospace;
+// Windows XP Luna — body / buttons
+$xp-bg:         #ece9d8; // classic XP beige-gray surface
+$xp-bg-alt:     #f1efe2;
+$xp-face-top:   #fdfdfd;
+$xp-face-mid:   #f5f4ea;
+$xp-face-bot:   #ddd9c4;
+$xp-face-dark:  #aca899;
+$xp-border:     #919b9c;
+$xp-border-dk:  #716f64;
+$xp-text:       #1a1a2e;
+$xp-input-border:  #7f9db9;
+$xp-input-focus:   #0a60e8;
+
+// XP close/close-hover red pill
+$xp-close-top:    #ef6c5d;
+$xp-close-bot:    #b5241b;
+
+// Legacy Win95 aliases (reassigned to XP equivalents for backwards compat)
+$win-bg:         $xp-bg;
+$win-dark:       $xp-face-dark;
+$win-darker:     $xp-border-dk;
+$win-light:      $xp-face-top;
+$win-white:      #ffffff;
+$win-title:      $xp-title-deep;
+$win-title-text: $xp-title-text;
+$win-button-face: $xp-face-mid;
+
+// Typography — XP signature is Tahoma / Trebuchet MS
+$font-display: 'Trebuchet MS', 'Segoe UI', Tahoma, Geneva, sans-serif;
+$font-body:    Tahoma, 'Segoe UI', Verdana, Geneva, sans-serif;
+$font-plate:   'IBM Plex Mono', 'Courier New', monospace;
+$font-mono:    'IBM Plex Mono', 'Courier New', monospace;
+$font-pixel:   'VT323', monospace; // preserved for deliberate pixel accents
 
 // Spacing
 $space-xs: 4px;
@@ -29,18 +56,65 @@ $space-lg: 24px;
 $space-xl: 32px;
 $space-2xl: 48px;
 
-// Win95 borders
+// XP title bar — glossy blue with double-gradient (shine + base)
+@mixin xp-titlebar-bg {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.45) 0%,
+      rgba(255, 255, 255, 0.08) 9%,
+      rgba(255, 255, 255, 0) 18%,
+      rgba(255, 255, 255, 0) 82%,
+      rgba(0, 0, 0, 0.18) 100%
+    ),
+    linear-gradient(
+      180deg,
+      #0b45a8 0%,
+      #3a7dd8 3%,
+      #1d52c9 45%,
+      #164bb5 88%,
+      #0f389b 100%
+    );
+}
+
+// XP raised (3D bevel) button face
+@mixin xp-button-face {
+  background: linear-gradient(180deg, $xp-face-top 0%, $xp-face-mid 50%, $xp-face-bot 100%);
+  border: 1px solid $xp-title-edge;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+@mixin xp-button-face-pressed {
+  background: linear-gradient(180deg, #c5bfa8 0%, #e2dec9 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.28);
+}
+
+@mixin xp-input {
+  background: $win-white;
+  border: 1px solid $xp-input-border;
+  border-radius: 0;
+  padding: 4px 6px;
+}
+
+// Backwards-compat mixins (still referenced by pSEO page etc.) — given XP look
 @mixin win-border-raised {
-  border: 2px solid;
-  border-color: $win-white $win-darker $win-darker $win-white;
+  border-radius: 3px;
+  border: 1px solid $xp-title-edge;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
 }
 
 @mixin win-border-sunken {
-  border: 2px solid;
-  border-color: $win-darker $win-white $win-white $win-darker;
+  border: 1px solid $xp-input-border;
+  border-radius: 0;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 @mixin win-border-field {
-  border: 2px solid;
-  border-color: $win-dark $win-white $win-white $win-dark;
+  border: 1px solid $xp-input-border;
 }
