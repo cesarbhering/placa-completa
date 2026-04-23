@@ -369,37 +369,15 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
 <html lang="pt-BR">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background-color:#0d2db5;font-family:Tahoma,Verdana,Geneva,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d2db5" style="padding:24px 12px;background-color:#0d2db5;">
+  <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d2db5" style="padding:16px 8px;background-color:#0d2db5;">
     <tr><td align="center">
 
       <!--[if mso]><table width="520" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
-      <table width="520" cellpadding="0" cellspacing="0" style="background:#ece9d8;border-collapse:separate;border:3px solid #0831d9;border-radius:8px 8px 0 0;max-width:520px;width:100%;">
-        <!-- Title Bar -->
-        <tr>
-          <td bgcolor="#1d52c9" style="${titleBarStyle}padding:6px 8px 6px 12px;font-size:13px;font-weight:bold;border-radius:5px 5px 0 0;">
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="color:#ffffff;font-size:13px;font-weight:bold;font-family:'Trebuchet MS',Tahoma,sans-serif;text-shadow:1px 1px 0 rgba(0,0,30,0.5);">
-                  Consulta Veicular - ${placa}
-                </td>
-                <td align="right" width="80">
-                  <table cellpadding="0" cellspacing="0"><tr>
-                    <td width="22" height="20" align="center" bgcolor="#1a4bb2" style="background:#1a4bb2;background-image:linear-gradient(180deg,#3a7dd8 0%,#1a4bb2 100%);color:#fff;border:1px solid rgba(0,0,30,0.35);border-radius:3px;font-size:10px;font-weight:bold;font-family:Tahoma,sans-serif;">_</td>
-                    <td width="4">&nbsp;</td>
-                    <td width="22" height="20" align="center" bgcolor="#1a4bb2" style="background:#1a4bb2;background-image:linear-gradient(180deg,#3a7dd8 0%,#1a4bb2 100%);color:#fff;border:1px solid rgba(0,0,30,0.35);border-radius:3px;font-size:10px;font-weight:bold;font-family:Tahoma,sans-serif;">&#9633;</td>
-                    <td width="4">&nbsp;</td>
-                    <td width="22" height="20" align="center" bgcolor="#b5241b" style="background:#b5241b;background-image:linear-gradient(180deg,#ef6c5d 0%,#b5241b 100%);color:#fff;border:1px solid rgba(0,0,30,0.35);border-radius:3px;font-size:11px;font-weight:bold;font-family:Tahoma,sans-serif;">&times;</td>
-                  </tr></table>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ece9d8;border-collapse:separate;max-width:520px;width:100%;">
         <!-- Body -->
         <tr>
-          <td style="padding:20px 18px;font-family:Tahoma,Verdana,sans-serif;">
-            <p style="font-size:13px;margin:0 0 16px;color:#1a1a2e;line-height:1.5;">
+          <td style="padding:16px 14px;font-family:Tahoma,Verdana,sans-serif;">
+            <p style="font-size:13px;margin:0 0 14px;color:#1a1a2e;line-height:1.5;">
               Resultado da consulta para a placa <strong style="color:#0831d9;">${placa}</strong>:
             </p>
 

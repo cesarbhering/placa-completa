@@ -39,6 +39,51 @@ const includeFipeChart = ref(true)
 const includeIcv5 = ref(true)
 const icv5Uf = ref('')
 
+const consultaStage = ref('')
+let stageTimer: ReturnType<typeof setInterval> | null = null
+
+function computeStages(): string[] {
+  if (isPWA.value) {
+    return [
+      'Consultando placa no banco de dados...',
+      'Buscando preço na tabela FIPE...',
+      'Preparando resultado...',
+    ]
+  }
+  const stages = [
+    'Consultando placa no banco de dados...',
+    'Buscando preço na tabela FIPE...',
+  ]
+  if (includeFipeChart.value) stages.push('Gerando gráfico de preços...')
+  if (includeIcv5.value) stages.push('Calculando custo de manutenção em 5 anos...')
+  stages.push('Enviando e-mail com o resultado...')
+  return stages
+}
+
+function startStageCycle() {
+  const stages = computeStages()
+  let i = 0
+  consultaStage.value = stages[0]
+  stageTimer = setInterval(() => {
+    if (i < stages.length - 1) {
+      i++
+      consultaStage.value = stages[i]
+    }
+  }, 1500)
+}
+
+function stopStageCycle() {
+  if (stageTimer) {
+    clearInterval(stageTimer)
+    stageTimer = null
+  }
+  consultaStage.value = ''
+}
+
+onBeforeUnmount(() => {
+  stopStageCycle()
+})
+
 const ufOptions = [
   'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS',
   'MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO',
@@ -508,6 +553,7 @@ async function handleSubmit() {
     localStorage.setItem('pc_email', email.value)
   }
   loading.value = true
+  startStageCycle()
   track('form_submit', { form_name: 'plate_consultation', pwa_mode: isPWA.value })
 
   try {
@@ -565,6 +611,7 @@ async function handleSubmit() {
     messageType.value = 'error'
     track('consulta_error', { error_message: errMsg })
   } finally {
+    stopStageCycle()
     loading.value = false
   }
 }
@@ -699,6 +746,16 @@ async function handleSubmit() {
           <div v-if="loading || processingPhoto" class="loading-bar">
             <div class="loading-bar__fill" />
           </div>
+
+          <Transition name="stage" mode="out-in">
+            <p
+              v-if="loading && consultaStage && !photoProcessMessage"
+              :key="consultaStage"
+              class="loading-stage"
+            >
+              {{ consultaStage }}
+            </p>
+          </Transition>
 
           <div v-if="photoProcessMessage" class="win-alert win-alert--info">
             {{ photoProcessMessage }}
@@ -1137,6 +1194,23 @@ async function handleSubmit() {
   margin-top: $space-md;
   letter-spacing: 0.3px;
 }
+
+.loading-stage {
+  font-family: $font-body;
+  font-size: 0.75rem;
+  color: $xp-text;
+  text-align: center;
+  margin-top: $space-xs;
+  opacity: 0.85;
+  font-style: italic;
+}
+
+.stage-enter-active,
+.stage-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+.stage-enter-from { opacity: 0; transform: translateY(-3px); }
+.stage-leave-to   { opacity: 0; transform: translateY(3px); }
 
 .success-state {
   text-align: center;
