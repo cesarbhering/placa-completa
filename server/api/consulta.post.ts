@@ -345,7 +345,7 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
   const uf = data.uf || '-'
   const situacao = data.situacao || '-'
   const origem = data.origem || '-'
-  const chassi = data.chassi || '-'
+  const chassi = data.extra?.chassi || data.chassi || '-'
 
   const extra = data.extra || {}
   const combustivel = extra.combustivel || '-'
