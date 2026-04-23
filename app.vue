@@ -48,13 +48,6 @@ if (!isPWA.value) {
       </footer>
     </div>
 
-    <!-- PWA Install Prompt (appears automatically on supported devices) -->
-    <ClientOnly>
-      <pwa-install
-        name="PlacaCompleta"
-        icon="/pwa-192x192.png"
-      />
-    </ClientOnly>
   </div>
 </template>
 
