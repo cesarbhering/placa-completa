@@ -107,18 +107,7 @@ async function sendNotification() {
         <div class="win-window__body">
           <!-- Auth Screen -->
           <div v-if="!authenticated">
-            <NuxtImg
-              src="/logo-nobg-200.png"
-              alt="PlacaCompleta Admin"
-              class="logo"
-              width="200"
-              height="200"
-              sizes="xs:140px sm:180px md:200px"
-              format="webp"
-              quality="85"
-              loading="eager"
-              fetchpriority="high"
-            />
+            <PlacaCompletaLogo class="logo" />
 
             <h1 class="admin-title">Admin Panel</h1>
             <p class="page-subtitle">Acesso restrito</p>

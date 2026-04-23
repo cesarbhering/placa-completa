@@ -75,18 +75,7 @@ async function handleSubmit() {
           </div>
         </div>
         <div class="win-window__body">
-          <NuxtImg
-            src="/logo-nobg-200.png"
-            alt="PlacaCompleta Dashboard"
-            class="logo"
-            width="200"
-            height="200"
-            sizes="xs:140px sm:180px md:200px"
-            format="webp"
-            quality="85"
-            loading="eager"
-            fetchpriority="high"
-          />
+          <PlacaCompletaLogo class="logo" />
 
           <h1 class="page-title">Dashboard Analytics</h1>
           <p class="page-subtitle">

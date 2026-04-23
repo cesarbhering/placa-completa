@@ -368,6 +368,11 @@ export default defineNuxtConfig({
         { rel: "dns-prefetch", href: "https://datafa.st" },
         {
           rel: "icon",
+          type: "image/svg+xml",
+          href: "/favicon.svg",
+        },
+        {
+          rel: "icon",
           type: "image/png",
           sizes: "48x48",
           href: "/favicon-48.png",
