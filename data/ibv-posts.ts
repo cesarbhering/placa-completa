@@ -23,68 +23,57 @@ export interface IbvPostSection {
 export const ibvPosts: IbvPost[] = [
   {
     slug: 'vencedores-perdedores-marco-2026',
-    title: 'Vencedores e Perdedores de Março 2026: os Estados que Mais Valorizaram (e Desvalorizaram) Carros Usados',
-    metaDescription: 'PE +1,43%, RS +1,23%, SE +1,23%, SP +0,97% lideraram em março. TO e GO caíram. Análise completa com dados do IBV Auto por estado, região e tendência de 6 meses.',
+    title: 'Vencedores e Perdedores de Março 2026: Hilux SW4 dispara +5,17% enquanto Fiesta cai -3,56%',
+    metaDescription: 'Hilux SW4 +5,17%, Corolla +1,03%, Onix +0,94% lideraram as altas em março. Fiesta -3,56%, HR-V -0,76% e Gol -0,66% puxaram para baixo. Análise completa com contexto de mercado.',
     publishedAt: '2026-04-07',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Março 2026',
     content: [
       {
         type: 'intro',
-        text: 'Em março de 2026, o IBV Auto registrou alta de 0,71% no Brasil — mas a média esconde uma enorme dispersão entre estados. Pernambuco valorizou 1,43% no mês, enquanto Tocantins recuou 0,38%. São mercados do mesmo país com dinâmicas completamente diferentes. Aqui destrinchamos os dados estado a estado, com contexto de tendência e acumulado, usando o dataset completo do Banco BV.',
-      },
-      {
-        type: 'heading',
-        heading: 'Os 4 estados que mais valorizaram em março',
-        text: 'Pernambuco (PE) liderou com +1,43% no mês — o maior salto entre todos os 27 estados. No acumulado de 12 meses, PE chega a +8,02%, a maior valorização do país, acima da média nacional de 7,33%. O estado já havia registrado +1,72% em janeiro, sinalizando um mercado persistentemente aquecido. O índice de nível do PE (179,1) é um dos mais baixos do Brasil, o que sugere um mercado que ainda tem espaço para se valorizar em relação às médias históricas.\n\nRio Grande do Sul (RS) e Sergipe (SE) empataram tecnicamente em +1,23%. O RS chama atenção pelo índice de nível mais alto do grupo (186,9 — já bastante valorizado) e por uma trajetória de recuperação clara: em outubro de 2025 havia caído -0,46%, e desde então acumula cinco meses consecutivos de alta. Sergipe segue padrão oposto: mercado menor, mais volátil, com dezembro quase estável (+0,04%) e aceleração forte em janeiro e março.\n\nSão Paulo (SP) fechou em +0,97%. O dado impressiona pelo contexto: SP havia caído -1,17% em dezembro de 2025 — a maior queda entre todos os estados naquele mês — e se recuperou nos três meses seguintes. Sendo o maior mercado do país em volume, SP carrega peso desproporcional no índice nacional. No acumulado anual, SP está em +5,83%, abaixo da média brasileira, mas o mês de março foi o terceiro mais forte de sua série recente.',
-      },
-      {
-        type: 'image',
-        src: '/images/ibv/marco-2026/variacao-por-uf.png',
-        alt: 'Gráfico de barras: variação mensal por estado em março de 2026. PE lidera com +1,43%, TO fecha com -0,38%',
-        caption: 'Variação mensal por estado — março de 2026. Fonte: Banco BV (IBV Auto).',
-      },
-      {
-        type: 'heading',
-        heading: 'Os 4 estados que mais perderam (ou ficaram para trás)',
-        text: 'Tocantins (TO) recuou -0,38%, o maior recuo entre todos os estados em março. É uma reversão abrupta: TO havia registrado +0,95% em janeiro e +0,55% em fevereiro. O índice de nível do estado (186,7) é um dos mais elevados do Brasil, o que pode indicar que o mercado local estava precificando acima do equilíbrio e agora corrige.\n\nGoiás (GO) caiu -0,35%. Diferente de TO, GO vinha com sequência positiva consistente nos seis meses anteriores (entre +0,26% e +0,95% ao mês), o que torna a queda de março uma quebra de tendência mais relevante. No acumulado de 12 meses, GO ainda está em +6,22% — em linha com a média nacional.\n\nAmapá (AP) e Roraima (RR) registraram quedas pequenas (-0,09% e -0,06%, respectivamente), mas merecem atenção porque ambos vinham de fevereiro forte: AP em +0,99% e RR em +1,01%. Os dois estados ficam no Norte e têm mercados muito menores em volume, mas a reversão simultânea depois de um mês aquecido sugere volatilidade estrutural da região — não necessariamente uma tendência de baixa.',
-      },
-      {
-        type: 'image',
-        src: '/images/ibv/marco-2026/variacao-por-uf-acumulado.png',
-        alt: 'Gráfico de barras: variação acumulada em 12 meses por estado. PE lidera com +8,02%, SC fecha com +4,34%',
-        caption: 'Variação acumulada em 12 meses por estado — março de 2026. Fonte: Banco BV (IBV Auto).',
-      },
-      {
-        type: 'heading',
-        heading: 'O padrão regional que os dados revelam',
-        text: 'Março foi um mês de divergência regional clara. O Norte registrou apenas +0,10% — pior desempenho entre as cinco regiões, puxado para baixo por TO, AP e RR. Em fevereiro, o Norte havia sido o segundo melhor (+0,73%). O Centro-Oeste também desacelerou forte: de +0,77% em fevereiro para +0,22% em março, reflexo da queda em GO.\n\nNo sentido oposto, o Nordeste acelerou de +0,31% (fevereiro) para +0,72% (março), liderado por PE, SE e MA (+0,97%). O Sudeste foi de +0,39% para +0,78%, impulsionado por SP e MG. O Sul manteve ritmo: de +0,53% para +0,59%, com RS puxando.\n\nO padrão que emerge: mercados do Nordeste e Sudeste estão com demanda aquecida e sustentada. Mercados do Norte e Centro-Oeste tiveram pico em janeiro–fevereiro e mostram sinais de acomodação.',
-      },
-      {
-        type: 'image',
-        src: '/images/ibv/marco-2026/mapa-brasil-acumulado.png',
-        alt: 'Mapa do Brasil com variação acumulada em 12 meses por estado, cores mais escuras indicam maior valorização',
-        caption: 'Acumulado de 12 meses por estado — Nordeste e Sudeste lideram. Fonte: Banco BV (IBV Auto).',
-      },
-      {
-        type: 'heading',
-        heading: 'Modelos: quem subiu e quem caiu no mês',
-        text: 'Nos veículos, a Toyota Hilux SW4 foi o grande destaque positivo do mês, com alta de +5,17% — um salto que isoladamente já puxaria qualquer índice. O Toyota Corolla (+1,03%) e o GM Onix (+0,94%) completam o pódio das altas, sendo que o Onix aparece em alta pelo segundo mês consecutivo, sinalizando pressão contínua no segmento de populares.\n\nNa ponta negativa, o Ford Fiesta recuou -3,56% — o maior recuo entre os modelos destacados. O Honda HR-V caiu -0,76% e o VW Gol -0,66%. O Gol em queda é relevante: modelo de saída para compradores de primeiro carro, sua desvalorização sugere que a base da pirâmide de preços ainda está sob pressão.',
+        text: 'O IBV Auto de março de 2026 fechou em +0,71% para o Brasil — mas a média não conta a história completa. Enquanto a Hilux SW4 valorizou 5,17% em um único mês, o Ford Fiesta perdeu 3,56%. Isso é uma distância de quase 9 pontos percentuais entre os extremos do mesmo mercado, no mesmo período. Aqui analisamos o que está por trás de cada movimento.',
       },
       {
         type: 'image',
         src: '/images/ibv/marco-2026/modelos-alta-baixa.png',
-        alt: 'Destaques de modelos: Hilux SW4 +5,17%, Corolla +1,03%, Onix +0,94% nas altas; Fiesta -3,56%, HR-V -0,76%, Gol -0,66% nas baixas',
+        alt: 'Modelos com maior alta e maior queda no IBV Auto de março de 2026: Hilux SW4 +5,17%, Corolla +1,03%, Onix +0,94% nas altas; Fiesta -3,56%, HR-V -0,76%, Gol -0,66% nas baixas',
         caption: 'Modelos com maiores variações em março de 2026. Fonte: Banco BV (IBV Auto).',
       },
       {
+        type: 'heading',
+        heading: 'Os modelos que mais valorizaram',
+        text: 'A Toyota Hilux SW4 foi o grande destaque positivo de março, com alta de +5,17% — um salto que não tem paralelo entre os modelos monitorados no mês. A SW4 é uma SUV de grande porte com motor 2.8 turbodiesel, posicionada acima da Hilux picape convencional. O movimento de março reflete uma combinação de oferta enxuta no mercado de usados (poucos proprietários vendem esse modelo antes de 3–4 anos) e demanda consistente de compradores que buscam capacidade off-road sem pagar o preço de um Land Cruiser. No acumulado de 12 meses, a SW4 está entre os modelos que mais subiram no segmento premium.\n\nO Toyota Corolla subiu +1,03% em março. O dado é mais importante do que parece: o Corolla é o sedã mais vendido do Brasil na faixa intermediária e seu preço de tabela novo cresceu nos últimos 18 meses, o que puxa o usado para cima por arbitragem. Quem compra um Corolla 2022 ou 2023 usado está pagando menos do que o novo — e isso sustenta a demanda. A valorização de março confirma uma tendência de alta consistente desde meados de 2025.\n\nO GM Onix registrou +0,94% — e isso é a notícia que mais importa para o bolso da maioria dos brasileiros. O Onix é o carro mais vendido do Brasil, tanto zero quanto usado, e aparece em alta pelo segundo mês consecutivo em 2026. A pressão vem dos dois lados: o preço do zero-km sobe (câmbio, insumos), e a procura por usados aumenta como alternativa. Quem está com um Onix na garagem e pensa em vender está num bom momento.',
+      },
+      {
+        type: 'heading',
+        heading: 'Os modelos que mais perderam',
+        text: 'O Ford Fiesta registrou queda de -3,56% — o maior recuo entre os modelos destacados pelo IBV de março, e um número expressivo para apenas 30 dias. O Fiesta foi descontinuado no Brasil em 2021 e a Ford encerrou operações no país logo depois. Sem rede de concessionárias ativa, sem peças diretas de fábrica e sem modelo substituto na mesma faixa de preço, os compradores que poderiam considerar o Fiesta migraram para alternativas com suporte mais fácil. A tendência de queda do Fiesta não é de março: é estrutural e deve continuar.\n\nO Honda HR-V caiu -0,76% em março. O HR-V enfrenta um problema diferente: o mercado de SUVs compactos ficou extremamente competitivo nos últimos dois anos. Chegaram o Jeep Renegade atualizado, o Caoa Chery Tiggo, e versões atualizadas de rivais com mais conteúdo. O HR-V de segunda geração (lançado em 2022) ainda se segura bem, mas as versões mais antigas — 2016 a 2020 — começam a perder atratividade relativa. A queda de março reflete essa pressão competitiva.\n\nO VW Gol recuou -0,66%. Para quem está vendendo um Gol, o dado preocupa. O Gol foi descontinuado em 2023 e é o maior símbolo de uma geração de carros de entrada que estão perdendo espaço para o Polo Track e o Argo. A depreciação do Gol deve se acelerar ao longo de 2026, especialmente nas versões mais antigas, à medida que a distância para o zero-km atual aumenta.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/marco-2026/variacao-mensal.png',
+        alt: 'Gráfico de barras: variação mensal dos preços de automóveis leves usados — taxa mensal jan/25 a mar/26',
+        caption: 'Variação mensal do IBV Auto — contexto histórico. Fonte: Banco BV (IBV Auto), abril/2026.',
+      },
+      {
+        type: 'heading',
+        heading: 'O que une os vencedores — e o que separa os perdedores',
+        text: 'Olhando os três modelos em alta, há um padrão claro: todos têm produção ativa ou rede de apoio robusta, e todos atendem a segmentos onde a oferta de usados é menor do que a demanda. A SW4 é escassa. O Corolla tem uma fila de espera no zero-km. O Onix vende tanto que qualquer variação de demanda impacta rapidamente o preço.\n\nNa ponta negativa, o padrão também é claro: modelos descontinuados (Fiesta, Gol) ou sob pressão competitiva crescente (HR-V) tendem a perder valor de forma acelerada. Descontinuação não significa queda imediata — mas com o tempo, a ausência de uma versão nova no mercado torna cada ano modelo mais antigo relativamente menos atraente.\n\nA região importa, mas menos do que o modelo. Pernambuco valorizou +1,43% em março no agregado, mas um Fiesta em PE caiu junto com o mercado nacional de Fiestas. O preço de um modelo específico é determinado principalmente pela dinâmica nacional daquele modelo, não pelo estado onde o carro está registrado.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/marco-2026/variacao-por-uf.png',
+        alt: 'Gráfico de barras com variação mensal por estado em março de 2026',
+        caption: 'Contexto regional: variação por estado em março de 2026. Fonte: Banco BV (IBV Auto).',
+      },
+      {
         type: 'highlight',
-        heading: 'O que isso significa na prática?',
-        text: 'Se você está em PE, RS, SE ou SP e pensa em vender seu carro, março foi um bom mês — e a tendência de curto prazo segue favorável nessas praças. Se você está em GO ou TO e quer comprar, o recuo de março pode ser uma janela de negociação. Para quem está de olho em populares como Onix, o mercado segue pressionado para cima. Para quem considera um Gol ou HR-V, a leve queda em março abre margem.',
+        heading: 'O que fazer com essa informação?',
+        text: 'Se você tem um Onix ou Corolla e está pensando em vender, março foi um bom mês e a tendência de curto prazo segue favorável. Se você tem um Fiesta ou Gol e está esperando o preço subir para vender — os dados sugerem que esperar pode não ajudar: a trajetória desses modelos é de queda estrutural. Para quem está comprando, o HR-V com leve queda em março pode ser uma janela — especialmente nas versões 2019–2021, que equilibram preço e equipamentos.',
       },
       {
         type: 'cta',
-        text: 'Consulte a placa e veja quanto vale o seu carro hoje, no seu estado.',
+        text: 'Quer saber quanto vale o seu carro agora, pelo número da placa?',
         ctaLabel: 'Consultar Placa Grátis',
         ctaTo: '/',
       },
