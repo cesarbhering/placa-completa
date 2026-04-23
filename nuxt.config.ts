@@ -299,6 +299,7 @@ export default defineNuxtConfig({
       // IBV Auto blog
       "/ibv",
       "/ibv/marco-2026",
+      "/ibv/vencedores-perdedores-marco-2026",
     ],
   },
 
