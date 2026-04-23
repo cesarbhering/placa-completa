@@ -52,7 +52,7 @@ if (!isPWA.value) {
     <ClientOnly>
       <pwa-install
         name="PlacaCompleta"
-        icon="/logo-nobg-200.png"
+        icon="/pwa-192x192.png"
       />
     </ClientOnly>
   </div>
