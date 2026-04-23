@@ -259,22 +259,24 @@ for r in ranked[:4] + ranked[-4:]:
 
 **Slug:** `vencedores-perdedores-{mes}-{ano}`
 
+**Foco:** modelos de veículos, não estados. Os estados são contexto secundário no final.
+
+**Dados de modelos:** vêm do gráfico `image_005` da página BV (infográfico de setas com 3 altas e 3 baixas). O Excel não tem dados por modelo — só por estado/região.
+
 **Estrutura de seções:**
-1. **intro** — contexto: o IBV nacional do mês + a dispersão entre estados como gancho
-2. **heading** "Os 4 estados que mais valorizaram" — análise rica: MoM, YoY, nível, tendência, contexto regional
-3. **image** — `variacao-por-uf.png` (barras MoM por estado)
-4. **heading** "Os 4 estados que mais perderam (ou ficaram para trás)" — mesmo tratamento
-5. **image** — `variacao-por-uf-acumulado.png` (barras YoY por estado)
-6. **heading** "O padrão regional" — qual região acelerou, qual desacelerou, por quê
-7. **image** — `mapa-brasil-acumulado.png`
-8. **heading** "Modelos: quem subiu e quem caiu no mês" — dados do gráfico image_005 do BV
-9. **image** — `modelos-alta-baixa.png`
-10. **highlight** "O que isso significa na prática?" — acionável por perfil (vendedor vs comprador)
-11. **cta** — consulta de placa
+1. **intro** — IBV nacional do mês + gancho de dispersão entre modelos (diferença entre o maior vencedor e maior perdedor)
+2. **image** — `modelos-alta-baixa.png` (infográfico com as 3 altas e 3 baixas)
+3. **heading** "Os modelos que mais valorizaram" — análise por modelo: por que subiu? contexto de segmento, oferta/demanda, situação do zero-km, continuidade ou descontinuação
+4. **heading** "Os modelos que mais perderam" — mesmo tratamento: por que caiu? descontinuação? pressão competitiva? perda de relevância no segmento?
+5. **image** — `variacao-mensal.png` (contexto histórico do índice)
+6. **heading** "O que une os vencedores — e o que separa os perdedores" — padrões estruturais: oferta escassa vs modelo descontinuado, zero-km como âncora de preço, etc.
+7. **image** — `variacao-por-uf.png` (contexto regional, como item secundário)
+8. **highlight** "O que fazer com essa informação?" — acionável por perfil (vendedor vs comprador, por modelo)
+9. **cta** — consulta de placa
 
-**Tom:** análise de dados, não jornalismo de release. Trabalhar com os números reais do Excel — tendências de 6 meses, nível do índice, comparação mês anterior — em vez de apenas listar o que o BV já destaca na página do relatório.
+**Tom:** análise de dados, não jornalismo de release. Ir além do que o BV já mostra: contexto de descontinuação, pressão competitiva, dinâmica de oferta e demanda, comparação com o zero-km, trajetória dos últimos meses. Os números do BV são o ponto de partida, não o destino.
 
-**Imagem extra necessária:** `variacao-por-uf-acumulado.png` — verificar qual `image_NNN.png` do BV é o gráfico de barras YoY por UF (geralmente `image_007`). Copiar para `public/images/ibv/{mes}-{ano}/variacao-por-uf-acumulado.png`.
+**Imagem extra necessária:** `variacao-por-uf-acumulado.png` — gráfico de barras YoY por UF (geralmente `image_007`). Copiar para `public/images/ibv/{mes}-{ano}/variacao-por-uf-acumulado.png`.
 
 ---
 
