@@ -20,7 +20,7 @@ useHead({
       </div>
       <div class="win-window__body">
         <h1 class="legal-title">Política de Privacidade</h1>
-        <p class="legal-updated">Última atualização: fevereiro de 2026</p>
+        <p class="legal-updated">Última atualização: 24 de abril de 2026</p>
 
         <div class="legal-content">
           <p>
