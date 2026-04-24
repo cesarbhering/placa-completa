@@ -87,23 +87,19 @@ useHead({
             </li>
           </ul>
 
-          <h2>4. Dados Veiculares — Fonte SENATRAN</h2>
+          <h2>4. Dados Veiculares</h2>
           <p>
-            As informações sobre veículos disponibilizadas pelo Placa Completa têm origem nos
-            sistemas e subsistemas informatizados da
-            <strong>Secretaria Nacional de Trânsito (SENATRAN)</strong>, controladora dos
-            dados veiculares, acessados por meio do
-            <strong>Serpro</strong> (operador técnico), nos termos da
-            <strong>Portaria SENATRAN nº 139/2025</strong>. O Placa Completa é entidade
-            credenciada, atuando como usuário autorizado conforme Termo de Autorização
-            publicado no Diário Oficial da União.
+            As informações sobre veículos disponibilizadas pelo Placa Completa são obtidas de
+            fontes públicas e licenciadas. Operamos em observância às diretrizes de privacidade
+            e uso de dados estabelecidas pela <strong>SERPRO</strong> e pela
+            <strong>Secretaria Nacional de Trânsito (SENATRAN)</strong>.
           </p>
           <p>
             Os dados consultados referem-se ao <strong>veículo</strong> (e não ao seu
-            proprietário) e incluem: dados cadastrais (RENAVAM), restrições e gravames,
-            situação de roubo/furto, débitos e multas (RENAINF), recall e restrições judiciais
-            (RENAJUD). O tratamento observa o princípio da necessidade — apenas os dados
-            indispensáveis à finalidade de cada caso de uso aprovado são acessados.
+            proprietário) e podem incluir: dados cadastrais, restrições e gravames,
+            situação de roubo/furto, débitos e multas, recall e restrições judiciais.
+            O tratamento observa o princípio da necessidade — coletamos apenas os dados
+            indispensáveis à finalidade da consulta.
           </p>
           <p>
             Como o usuário que realiza a consulta <strong>não é necessariamente o proprietário
@@ -114,24 +110,19 @@ useHead({
             restrições e ocorrências.
           </p>
           <p>
-            Em caso de incidente de segurança envolvendo dados de origem SENATRAN, o Placa
-            Completa notificará a SENATRAN/Serpro imediatamente, além de seguir os
-            procedimentos previstos na LGPD.
+            Em caso de incidente de segurança envolvendo dados veiculares, o Placa Completa
+            seguirá os procedimentos previstos na LGPD, incluindo notificação à Autoridade
+            Nacional de Proteção de Dados (ANPD) quando aplicável.
           </p>
           <p class="legal-quote">
-            O acesso e uso dos dados veiculares obedecem estritamente aos casos de uso
-            aprovados pela SENATRAN. É vedado o uso para marketing, scoring, prospecção
-            comercial ou qualquer finalidade diversa das autorizadas na Portaria SENATRAN
-            nº 139/2025.
+            O uso dos dados veiculares obedece estritamente às finalidades lícitas descritas
+            nesta Política. É vedado o uso para marketing, scoring, prospecção comercial ou
+            qualquer finalidade diversa das aqui previstas.
           </p>
 
           <h2>5. Compartilhamento de Dados</h2>
           <p>Seus dados podem ser compartilhados com:</p>
           <ul>
-            <li>
-              <strong>SENATRAN e Serpro</strong> — para fins de supervisão, auditoria e
-              controle do acesso autorizado, conforme Portaria SENATRAN nº 139/2025;
-            </li>
             <li>
               <strong>Provedor de e-mail transacional (Resend)</strong> — para envio do e-mail
               com o resultado da consulta. O Resend processa apenas o endereço de e-mail e o
@@ -148,8 +139,7 @@ useHead({
           </ul>
           <p>
             Não vendemos, alugamos ou compartilhamos seus dados pessoais com terceiros para
-            fins de marketing. Dados de origem SENATRAN não são cedidos a terceiros sem
-            autorização expressa da SENATRAN.
+            fins de marketing.
           </p>
           <p class="legal-quote">
             Conforme o <strong>art. 7º, §5º da LGPD</strong>: "O controlador que obteve o

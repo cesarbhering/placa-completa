@@ -38,10 +38,9 @@ useHead({
             roubo/furto, recall e restrições judiciais.
           </p>
           <p>
-            Os dados veiculares são obtidos junto à
-            <strong>Secretaria Nacional de Trânsito (SENATRAN)</strong>, por meio do
-            <strong>Serpro</strong>, nos termos da <strong>Portaria SENATRAN nº 139/2025</strong>,
-            sendo o Placa Completa entidade devidamente credenciada para esse acesso.
+            Os dados veiculares são obtidos de fontes públicas e licenciadas, operando em
+            observância às diretrizes de privacidade e uso de dados estabelecidas pela
+            <strong>SERPRO</strong> e pela <strong>Secretaria Nacional de Trânsito (SENATRAN)</strong>.
             Informações de precificação (ex.: tabela FIPE) podem ser obtidas de fontes
             complementares e são identificadas separadamente.
           </p>
@@ -74,24 +73,23 @@ useHead({
             <NuxtLink to="/politica-de-privacidade">Política de Privacidade</NuxtLink>.
           </p>
 
-          <h2>5. Dados de Origem SENATRAN — Obrigações do Usuário</h2>
+          <h2>5. Dados Veiculares — Obrigações do Usuário</h2>
           <p>
-            Parte dos dados veiculares disponibilizados pelo Serviço tem origem nos sistemas da
-            SENATRAN, acessados mediante credenciamento formal. Ao utilizar o Serviço, você
-            declara e concorda que:
+            Parte dos dados veiculares disponibilizados pelo Serviço tem origem em fontes
+            públicas e licenciadas, operando em observância às diretrizes de privacidade da
+            SERPRO e da SENATRAN. Ao utilizar o Serviço, você declara e concorda que:
           </p>
           <ul>
             <li>Os dados obtidos serão utilizados <strong>exclusivamente para as finalidades lícitas</strong> descritas na cláusula 3;</li>
             <li>É <strong>vedado repassar, revender ou disponibilizar</strong> os dados a terceiros sem autorização do Placa Completa;</li>
             <li>Não utilizará os dados para criar perfis, scores ou classificações de pessoas, veículos ou transações para fins comerciais não autorizados;</li>
-            <li>Está ciente de que o acesso aos dados é monitorado e auditável pela SENATRAN e pelo Serpro, nos termos da Portaria SENATRAN nº 139/2025;</li>
             <li>O uso indevido pode configurar violação à legislação brasileira, sujeitando o usuário às sanções civis, administrativas e penais cabíveis.</li>
           </ul>
 
           <h2>6. Limitação de Responsabilidade</h2>
           <p>
-            As informações veiculares fornecidas pelo Serviço são obtidas junto à SENATRAN
-            (via Serpro) e outras fontes públicas ou licenciadas. O Placa Completa
+            As informações veiculares fornecidas pelo Serviço são obtidas de fontes públicas
+            e licenciadas. O Placa Completa
             <strong>não garante</strong> a exatidão, completude ou atualidade dos dados
             retornados, uma vez que dependem da atualização nas bases de origem.
             O Serviço é oferecido "como está" (<em>as is</em>), sem garantias de qualquer natureza.
