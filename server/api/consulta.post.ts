@@ -40,6 +40,53 @@ export default defineEventHandler(async (event) => {
   const isMobile = /mobile|android|iphone/i.test(userAgent)
   const deviceInfo = isMobile ? 'Mobile' : 'Desktop'
 
+  // Rate limit: 5 successful consultas per hour per email AND per IP (web only — PWA bypasses).
+  // Skips IP check when IP is 'unknown' to avoid penalising users behind shared/proxied connections.
+  if (!isPWA) {
+    const supabase = useSupabaseServer()
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const ipCheckable = ip && ip !== 'unknown'
+
+    const [emailRes, ipRes] = await Promise.all([
+      supabase
+        .from('consultas')
+        .select('created_at', { count: 'exact' })
+        .eq('email', sanitizedEmail)
+        .eq('email_sent', true)
+        .gte('created_at', oneHourAgo)
+        .order('created_at', { ascending: true })
+        .limit(1),
+      ipCheckable
+        ? supabase
+            .from('consultas')
+            .select('created_at', { count: 'exact' })
+            .eq('ip_address', ip)
+            .eq('email_sent', true)
+            .gte('created_at', oneHourAgo)
+            .order('created_at', { ascending: true })
+            .limit(1)
+        : Promise.resolve({ count: 0, data: null, error: null } as any),
+    ])
+
+    const emailCount = emailRes?.count ?? 0
+    const ipCount = ipRes?.count ?? 0
+
+    if (emailCount >= 5 || ipCount >= 5) {
+      const oldestIso = emailCount >= 5
+        ? emailRes?.data?.[0]?.created_at
+        : ipRes?.data?.[0]?.created_at
+      let minutesUntilReset = 60
+      if (oldestIso) {
+        const minutesElapsed = Math.floor((Date.now() - new Date(oldestIso).getTime()) / 60000)
+        minutesUntilReset = Math.max(1, 60 - minutesElapsed)
+      }
+      throw createError({
+        statusCode: 429,
+        message: `Limite de 5 consultas por hora atingido. Tente novamente em ~${minutesUntilReset} min.`,
+      })
+    }
+  }
+
   // Dedupe: if the same email already received this placa in the last hour,
   // skip the paid API call + Resend and inform the user the email was already sent.
   // Non-PWA only — PWA returns data inline, not via email.
