@@ -2,7 +2,7 @@
 useHead({
   title: 'Política de Privacidade',
   meta: [
-    { name: 'description', content: 'Política de Privacidade do Placa Completa, em conformidade com a LGPD (Lei nº 13.709/2018).' },
+    { name: 'description', content: 'Política de Privacidade do Placa Completa, em conformidade com a LGPD (Lei nº 13.709/2018) e com a Portaria SENATRAN nº 139/2025.' },
     { name: 'robots', content: 'noindex, follow' },
   ],
 })
@@ -20,142 +20,168 @@ useHead({
       </div>
       <div class="win-window__body">
         <h1 class="legal-title">Política de Privacidade</h1>
-        <p class="legal-updated">Última atualização: 24 de abril de 2026</p>
+        <p class="legal-updated">Última atualização: 14 de maio de 2026</p>
 
         <div class="legal-content">
           <p>
             Esta Política de Privacidade descreve como o <strong>Placa Completa</strong>
-            ("nós", "nosso") coleta, usa e protege os dados pessoais dos usuários ("você",
-            "titular"), em conformidade com a
-            <strong>Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 — LGPD)</strong>.
+            ("nós", "nosso") coleta, usa, compartilha e protege os dados pessoais dos usuários
+            ("você", "titular"), em conformidade com a
+            <strong>Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 — LGPD)</strong>
+            e com a <strong>Portaria SENATRAN nº 139, de 20 de fevereiro de 2025</strong>, que
+            regulamenta o acesso a dados da base veicular federal.
           </p>
 
-          <h2>1. Dados Pessoais Coletados</h2>
-          <p>Ao utilizar nosso serviço, coletamos os seguintes dados:</p>
+          <h2>1. Controlador, Operadores e Encarregado (DPO)</h2>
+          <p>
+            O controlador dos dados pessoais tratados nesta plataforma é:
+          </p>
+          <ul>
+            <li><strong>Razão social:</strong> CESAR CANCADO BHERING TECNOLOGIA LTDA</li>
+            <li><strong>CNPJ:</strong> 62.569.152/0001-67</li>
+            <li><strong>Endereço:</strong> Rua Bom Pastor, Sala 03, Ipiranga, São Paulo/SP</li>
+            <li><strong>Nome fantasia / marca:</strong> Placa Completa</li>
+          </ul>
+          <p>
+            <strong>Encarregado pelo Tratamento de Dados (DPO):</strong>
+            Cesar Cancado Bhering — e-mail
+            <strong>cesarcbhering@gmail.com</strong>.
+          </p>
+          <p>
+            Para os dados de origem da base veicular federal, o controlador originário é a
+            <strong>Secretaria Nacional de Trânsito (SENATRAN)</strong>, sendo o
+            <strong>Serpro</strong> o operador técnico responsável pela disponibilização do
+            serviço <em>Consulta Online SENATRAN</em>. O Placa Completa figura como entidade
+            usuária credenciada nos termos da Portaria SENATRAN nº 139/2025.
+          </p>
 
-          <h3>1.1 Dados fornecidos por você:</h3>
+          <h2>2. Modalidade de Acesso à Base SENATRAN</h2>
+          <p>
+            Em observância ao <strong>art. 6º, inciso I, da Portaria SENATRAN nº 139/2025</strong>,
+            o Placa Completa atua na <strong>modalidade DIRETO</strong> de acesso aos dados da
+            base veicular federal. Isso significa que:
+          </p>
+          <ul>
+            <li>O Placa Completa integra-se diretamente às APIs do Serpro/SENATRAN, sem intermediação de terceiros;</li>
+            <li>Os dados são consumidos exclusivamente para as finalidades declaradas no Termo de Compromisso de Manuseio Seguro (TCMS) e nos Casos de Uso aprovados;</li>
+            <li><strong>Não há revenda, sublicenciamento, redistribuição em massa ou cessão de dados</strong> a terceiros.</li>
+          </ul>
+
+          <h2>3. Dados Pessoais Coletados</h2>
+
+          <h3>3.1 Dados fornecidos pelo usuário da plataforma</h3>
           <ul>
             <li><strong>Endereço de e-mail</strong> — para envio do resultado da consulta;</li>
             <li><strong>Número de telefone</strong> (opcional) — caso informado voluntariamente;</li>
-            <li><strong>Placa do veículo</strong> — para realizar a consulta.</li>
+            <li><strong>Placa do veículo</strong> — para identificar o objeto da consulta.</li>
           </ul>
 
-          <h3>1.2 Dados coletados automaticamente:</h3>
+          <h3>3.2 Dados coletados automaticamente</h3>
           <ul>
             <li><strong>Endereço IP</strong>;</li>
             <li><strong>User-Agent</strong> (tipo de navegador e sistema operacional);</li>
             <li><strong>Tipo de dispositivo</strong> (mobile/desktop);</li>
-            <li><strong>Data e hora</strong> da consulta.</li>
+            <li><strong>Data e hora</strong> da consulta, para fins de registro de operações.</li>
           </ul>
-          <p class="legal-quote">
-            Conforme o <strong>art. 7º, I da LGPD</strong>: "O tratamento de dados pessoais
-            somente poderá ser realizado [...] mediante o fornecimento de consentimento pelo
-            titular." — Ao submeter o formulário de consulta, você consente com o tratamento
-            dos dados aqui descritos para as finalidades indicadas.
-          </p>
 
-          <h2>2. Finalidades do Tratamento</h2>
-          <p>Utilizamos seus dados pessoais para as seguintes finalidades:</p>
+          <h3>3.3 Dados veiculares obtidos da SENATRAN (via Serpro)</h3>
+          <p>
+            A consulta retorna informações sobre o <strong>veículo</strong> (não sobre o seu
+            proprietário), distribuídas nos seguintes Casos de Uso aprovados:
+          </p>
           <ul>
-            <li><strong>Execução do serviço:</strong> realizar a consulta veicular e enviar o resultado ao seu e-mail;</li>
-            <li><strong>Registro de operações:</strong> manter log das consultas para controle interno e prevenção de abusos;</li>
-            <li><strong>Melhoria do serviço:</strong> análise agregada e anônima de uso para aprimoramento da plataforma;</li>
-            <li><strong>Cumprimento de obrigação legal:</strong> atender exigências legais e regulatórias quando aplicável.</li>
+            <li><strong>CU-01 — Dados cadastrais (RENAVAM):</strong> identificação e ficha técnica do veículo;</li>
+            <li><strong>CU-02 — Restrições e gravames (RENAVAM):</strong> verificação de restrições e risco de comercialização;</li>
+            <li><strong>CU-03 — Roubo e furto (RENAVAM / Infoseg):</strong> verificação da situação de ocorrência;</li>
+            <li><strong>CU-04 — Débitos, multas e situação fiscal (RENAINF);</strong></li>
+            <li><strong>CU-05 — Campanhas de recall (base de recall SENATRAN);</strong></li>
+            <li><strong>CU-06 — Restrições judiciais (RENAJUD).</strong></li>
           </ul>
-          <p class="legal-quote">
-            Conforme o <strong>art. 6º da LGPD</strong>, o tratamento observa os princípios de
-            <em>finalidade</em>, <em>adequação</em>, <em>necessidade</em> e
-            <em>transparência</em>, coletando apenas os dados estritamente necessários para a
-            prestação do serviço.
+
+          <h3>3.4 Dados que NÃO são tratados</h3>
+          <p>
+            O Placa Completa <strong>não trata dados pessoais sensíveis</strong>
+            (art. 5º, II, da LGPD), tais como dados biométricos, fotografia do titular,
+            informações de saúde, exame toxicológico, dados de origem racial ou étnica,
+            convicção religiosa ou orientação sexual.
           </p>
 
-          <h2>3. Bases Legais para o Tratamento</h2>
-          <p>O tratamento dos seus dados se fundamenta nas seguintes bases legais da LGPD:</p>
+          <h2>4. Finalidades do Tratamento</h2>
           <ul>
-            <li>
-              <strong>Consentimento (art. 7º, I)</strong> — ao preencher e enviar o formulário,
-              você consente com o tratamento dos dados para a finalidade específica de consulta
-              veicular;
-            </li>
-            <li>
-              <strong>Legítimo interesse (art. 7º, IX)</strong> — para manutenção de registros
-              de segurança e prevenção de fraudes;
-            </li>
-            <li>
-              <strong>Cumprimento de obrigação legal (art. 7º, II)</strong> — quando necessário
-              para atender exigências legais.
-            </li>
+            <li><strong>Execução do serviço:</strong> realizar a consulta veicular e enviar o resultado ao e-mail informado;</li>
+            <li><strong>Prevenção à fraude e proteção patrimonial:</strong> permitir ao consulente verificar restrições, gravames, roubo/furto, débitos e ônus antes de transações envolvendo o veículo;</li>
+            <li><strong>Proteção ao crédito:</strong> subsidiar análises de risco em negociações que envolvam o veículo como garantia ou objeto da operação;</li>
+            <li><strong>Registro de operações:</strong> manter logs de consultas para controle interno, auditabilidade pela SENATRAN/Serpro e prevenção de abusos;</li>
+            <li><strong>Melhoria do serviço:</strong> análise agregada e anônima de uso para aprimoramento da plataforma.</li>
           </ul>
-
-          <h2>4. Dados Veiculares</h2>
           <p>
-            As informações sobre veículos disponibilizadas pelo Placa Completa são obtidas de
-            fontes públicas e licenciadas. Operamos em observância às diretrizes de privacidade
-            e uso de dados estabelecidas pela <strong>SERPRO</strong> e pela
-            <strong>Secretaria Nacional de Trânsito (SENATRAN)</strong>.
-          </p>
-          <p>
-            Os dados consultados referem-se ao <strong>veículo</strong> (e não ao seu
-            proprietário) e podem incluir: dados cadastrais, restrições e gravames,
-            situação de roubo/furto, débitos e multas, recall e restrições judiciais.
-            O tratamento observa o princípio da necessidade — coletamos apenas os dados
-            indispensáveis à finalidade da consulta.
-          </p>
-          <p>
-            Como o usuário que realiza a consulta <strong>não é necessariamente o proprietário
-            do veículo consultado</strong>, a base legal aplicável ao acesso a esses dados é o
-            <strong>legítimo interesse (art. 7º, IX da LGPD)</strong>, para fins de
-            transparência veicular e proteção patrimonial do consulente, e a
-            <strong>prevenção à fraude (art. 7º, VII da LGPD)</strong>, para dados de
-            restrições e ocorrências.
-          </p>
-          <p>
-            Em caso de incidente de segurança envolvendo dados veiculares, o Placa Completa
-            seguirá os procedimentos previstos na LGPD, incluindo notificação à Autoridade
-            Nacional de Proteção de Dados (ANPD) quando aplicável.
-          </p>
-          <p class="legal-quote">
-            O uso dos dados veiculares obedece estritamente às finalidades lícitas descritas
-            nesta Política. É vedado o uso para marketing, scoring, prospecção comercial ou
-            qualquer finalidade diversa das aqui previstas.
+            É <strong>vedado</strong> o uso dos dados para marketing, prospecção comercial,
+            scoring, perfilização ou discriminação de pessoas.
           </p>
 
-          <h2>5. Compartilhamento de Dados</h2>
-          <p>Seus dados podem ser compartilhados com:</p>
+          <h2>5. Bases Legais (LGPD)</h2>
+          <p>
+            O tratamento dos dados realizados pelo Placa Completa, em especial no acesso à base
+            veicular SENATRAN, fundamenta-se nas seguintes hipóteses do
+            <strong>art. 7º da LGPD</strong>:
+          </p>
           <ul>
             <li>
-              <strong>Provedor de e-mail transacional (Resend)</strong> — para envio do e-mail
-              com o resultado da consulta. O Resend processa apenas o endereço de e-mail e o
-              conteúdo da mensagem;
+              <strong>Art. 7º, IX — Legítimo interesse do controlador ou de terceiro
+              (base legal principal):</strong> transparência veicular, prevenção à fraude e
+              proteção patrimonial do consulente em transações civis e comerciais envolvendo
+              veículos;
             </li>
             <li>
-              <strong>Provedor de banco de dados (Supabase)</strong> — para armazenamento
-              seguro dos registros de consulta;
+              <strong>Art. 7º, X — Proteção do crédito:</strong> para subsidiar a verificação
+              de restrições, gravames e ônus que afetem a viabilidade econômica e jurídica de
+              operações que envolvam o veículo;
             </li>
             <li>
-              <strong>Google Analytics</strong> — para análise agregada de tráfego e uso
-              (dados anonimizados).
+              <strong>Art. 7º, V — Execução de contrato ou de procedimentos preliminares a
+              contrato:</strong> aplicável às negociações de compra e venda, financiamento,
+              leasing, locação e seguros em que a consulta veicular é etapa prévia natural.
             </li>
           </ul>
           <p>
-            Não vendemos, alugamos ou compartilhamos seus dados pessoais com terceiros para
-            fins de marketing.
-          </p>
-          <p class="legal-quote">
-            Conforme o <strong>art. 7º, §5º da LGPD</strong>: "O controlador que obteve o
-            consentimento [...] que necessitar comunicar ou compartilhar dados pessoais com
-            outros controladores deverá obter consentimento específico do titular para esse
-            fim." — O compartilhamento aqui descrito é estritamente necessário para a execução
-            do serviço solicitado por você.
+            O Placa Completa <strong>não utiliza consentimento (art. 7º, I) como base legal
+            principal</strong> para o acesso aos dados veiculares, dado que o titular dos dados
+            do veículo (proprietário) não é, necessariamente, a pessoa que realiza a consulta.
+            Para o tratamento dos dados de cadastro do próprio usuário da plataforma
+            (e-mail, telefone) prevalecem o legítimo interesse (art. 7º, IX) e a execução
+            contratual (art. 7º, V).
           </p>
 
-          <h2>6. Armazenamento e Segurança</h2>
+          <h2>6. Acesso, Autenticação e Registros</h2>
+          <ul>
+            <li>Acesso aos sistemas SENATRAN/Serpro mediante credenciais individuais com autenticação multifator (MFA);</li>
+            <li>Comunicação exclusivamente por HTTPS/TLS;</li>
+            <li>Logs de autenticação e de consultas registrados e guardados por <strong>no mínimo 12 meses</strong> (24 meses para dados de roubo/furto e RENAJUD);</li>
+            <li>Inventário de acessos disponível para auditoria pela SENATRAN e pelo Serpro.</li>
+          </ul>
+
+          <h2>7. Compartilhamento de Dados</h2>
+          <p>Seus dados podem ser compartilhados com os seguintes agentes, exclusivamente para a execução do serviço:</p>
+          <ul>
+            <li><strong>SENATRAN e Serpro</strong> — para supervisão, auditoria e controle do acesso autorizado, nos termos da Portaria 139/2025;</li>
+            <li><strong>Resend</strong> — provedor de e-mail transacional, que processa apenas o e-mail e o conteúdo da mensagem com o resultado da consulta;</li>
+            <li><strong>Supabase</strong> — provedor de banco de dados utilizado para armazenamento seguro dos registros de consulta;</li>
+            <li><strong>Google Analytics</strong> — análise agregada e anonimizada de tráfego.</li>
+          </ul>
           <p>
-            Seus dados são armazenados em servidores seguros fornecidos pelo Supabase, com
-            criptografia em trânsito (TLS/SSL) e em repouso. Adotamos medidas técnicas e
-            organizacionais para proteger seus dados contra acesso não autorizado, destruição,
-            perda ou alteração.
+            Os dados de origem SENATRAN <strong>não são cedidos, revendidos ou
+            redistribuídos</strong> a terceiros sem autorização expressa da SENATRAN. Não há
+            venda, aluguel ou compartilhamento de dados para fins de marketing.
           </p>
+
+          <h2>8. Armazenamento e Segurança da Informação</h2>
+          <ul>
+            <li>Criptografia em trânsito (TLS/SSL) e em repouso;</li>
+            <li>Controle de acesso com MFA e princípio do menor privilégio;</li>
+            <li>Firewall e segmentação de rede (OCI Security Lists);</li>
+            <li>Atualizações de segurança aplicadas em até 15 dias, e em até 48 horas para falhas críticas;</li>
+            <li>Em caso de incidente de segurança envolvendo dados SENATRAN, notificação imediata à SENATRAN/Serpro e à <strong>Autoridade Nacional de Proteção de Dados (ANPD)</strong>, conforme procedimentos previstos na Portaria 139/2025 e na LGPD.</li>
+          </ul>
           <p class="legal-quote">
             Conforme o <strong>art. 46 da LGPD</strong>: "Os agentes de tratamento devem adotar
             medidas de segurança, técnicas e administrativas aptas a proteger os dados pessoais
@@ -163,19 +189,14 @@ useHead({
             perda, alteração, comunicação ou qualquer forma de tratamento inadequado ou ilícito."
           </p>
 
-          <h2>7. Retenção dos Dados</h2>
-          <p>
-            Os registros de consulta são mantidos pelo período necessário ao cumprimento das
-            finalidades descritas nesta Política, ou conforme exigido por obrigação legal.
-            Após esse período, os dados são eliminados ou anonimizados.
-          </p>
-          <p class="legal-quote">
-            Conforme o <strong>art. 15 da LGPD</strong>, o término do tratamento ocorrerá quando:
-            a finalidade for alcançada; os dados deixarem de ser necessários; houver revogação
-            do consentimento; ou por determinação da autoridade nacional.
-          </p>
+          <h2>9. Retenção e Eliminação</h2>
+          <ul>
+            <li>Dados do usuário da plataforma: retidos pelo período necessário à prestação do serviço e ao cumprimento de obrigações legais;</li>
+            <li>Logs de consulta: mínimo 12 meses; 24 meses para dados de roubo/furto e RENAJUD;</li>
+            <li>Após o prazo, os dados são eliminados de forma segura ou anonimizados.</li>
+          </ul>
 
-          <h2>8. Direitos do Titular (art. 18 da LGPD)</h2>
+          <h2>10. Direitos do Titular (art. 18 da LGPD)</h2>
           <p>
             Você, como titular dos dados pessoais, tem os seguintes direitos garantidos pela
             LGPD, que podem ser exercidos a qualquer momento:
@@ -184,67 +205,68 @@ useHead({
             <li><strong>I</strong> — Confirmação da existência de tratamento;</li>
             <li><strong>II</strong> — Acesso aos seus dados;</li>
             <li><strong>III</strong> — Correção de dados incompletos, inexatos ou desatualizados;</li>
-            <li><strong>IV</strong> — Anonimização, bloqueio ou eliminação de dados desnecessários ou excessivos;</li>
+            <li><strong>IV</strong> — Anonimização, bloqueio ou eliminação de dados desnecessários, excessivos ou tratados em desconformidade;</li>
             <li><strong>V</strong> — Portabilidade dos dados;</li>
             <li><strong>VI</strong> — Eliminação dos dados tratados com consentimento;</li>
-            <li><strong>VII</strong> — Informação sobre compartilhamento de dados;</li>
-            <li><strong>VIII</strong> — Informação sobre a possibilidade de não consentir e as consequências;</li>
-            <li><strong>IX</strong> — Revogação do consentimento.</li>
+            <li><strong>VII</strong> — Informação sobre compartilhamento;</li>
+            <li><strong>VIII</strong> — Informação sobre a possibilidade de não fornecer consentimento;</li>
+            <li><strong>IX</strong> — Revogação do consentimento, quando aplicável.</li>
           </ul>
-          <p class="legal-quote">
-            Conforme o <strong>art. 18 da LGPD</strong>: "O titular dos dados pessoais tem
-            direito a obter do controlador, em relação aos dados do titular por ele tratados,
-            a qualquer momento e mediante requisição [...]"
+          <p>
+            Para exercer qualquer desses direitos, entre em contato pelo e-mail
+            <strong>contato@placacompleta.com.br</strong> ou diretamente com o Encarregado
+            (DPO) em <strong>cesarcbhering@gmail.com</strong>. Responderemos em até 15 dias
+            úteis, conforme art. 18, §3º da LGPD.
           </p>
           <p>
-            Para exercer qualquer desses direitos, entre em contato conosco pelo e-mail
-            <strong>contato@placacompleta.com.br</strong>. Responderemos em até 15 dias úteis,
-            conforme previsto no art. 18, §3º da LGPD.
-          </p>
-
-          <h2>9. Cookies e Tecnologias de Rastreamento</h2>
-          <p>
-            Utilizamos o <strong>Google Analytics</strong> para análise de tráfego. O Google
-            Analytics pode utilizar cookies para coletar informações de forma agregada e
-            anônima sobre o uso do site. Você pode desativar cookies nas configurações do
-            seu navegador.
+            Observação: para os dados de origem SENATRAN, cujo controlador é a própria
+            SENATRAN, o titular também pode se dirigir diretamente àquele órgão.
           </p>
 
-          <h2>10. Transferência Internacional de Dados</h2>
+          <h2>11. Canal Permanente ao Titular (art. 22 da Portaria 139/2025)</h2>
           <p>
-            Alguns dos nossos prestadores de serviços (Supabase, Resend, Google) podem
-            armazenar dados em servidores localizados fora do Brasil. Nesses casos, garantimos
-            que a transferência atende ao disposto no art. 33 da LGPD, incluindo a adoção de
-            cláusulas contratuais que assegurem nível adequado de proteção.
-          </p>
-
-          <h2>11. Menores de Idade</h2>
-          <p>
-            O Serviço não é direcionado a menores de 18 anos. Não coletamos intencionalmente
-            dados de menores. Conforme o <strong>art. 14 da LGPD</strong>, o tratamento de dados
-            pessoais de crianças e adolescentes deve ser realizado com consentimento específico
-            de pelo menos um dos pais ou responsável legal.
-          </p>
-
-          <h2>12. Alterações nesta Política</h2>
-          <p>
-            Esta Política pode ser atualizada periodicamente. Alterações entram em vigor
-            imediatamente após a publicação nesta página. Recomendamos a consulta periódica.
-          </p>
-
-          <h2>13. Contato e Encarregado (DPO)</h2>
-          <p>
-            Para questões relacionadas a esta Política ou ao tratamento dos seus dados pessoais,
-            entre em contato:
+            Em cumprimento ao <strong>art. 22 da Portaria SENATRAN nº 139/2025</strong>,
+            mantemos canal permanente de atendimento ao titular dos dados:
           </p>
           <ul>
-            <li><strong>E-mail:</strong> contato@placacompleta.com.br</li>
+            <li><strong>E-mail dedicado:</strong> contato@placacompleta.com.br</li>
+            <li><strong>Disponibilidade:</strong> 24 horas, com resposta em até 15 dias úteis.</li>
           </ul>
-          <p class="legal-quote">
-            Conforme o <strong>art. 41 da LGPD</strong>: "O controlador deverá indicar
-            encarregado pelo tratamento de dados pessoais. [...] A identidade e as informações
-            de contato do encarregado deverão ser divulgadas publicamente, de forma clara e
-            objetiva, preferencialmente no sítio eletrônico do controlador."
+
+          <h2>12. Cookies e Tecnologias de Rastreamento</h2>
+          <p>
+            Utilizamos o <strong>Google Analytics</strong> para análise de tráfego. Cookies
+            podem ser usados para coletar informações de forma agregada e anônima sobre o uso
+            do site. Você pode desativar cookies nas configurações do seu navegador.
+          </p>
+
+          <h2>13. Transferência Internacional de Dados</h2>
+          <p>
+            Alguns prestadores (Supabase, Resend, Google) podem armazenar dados em servidores
+            localizados fora do Brasil. Nesses casos, asseguramos que a transferência atende
+            ao disposto no art. 33 da LGPD, incluindo cláusulas contratuais que garantam
+            nível adequado de proteção.
+          </p>
+
+          <h2>14. Menores de Idade</h2>
+          <p>
+            O Serviço não é direcionado a menores de 18 anos e não coletamos intencionalmente
+            dados de menores. O tratamento eventual observará o art. 14 da LGPD.
+          </p>
+
+          <h2>15. Alterações nesta Política</h2>
+          <p>
+            Esta Política pode ser atualizada periodicamente. A versão vigente é sempre
+            publicada em <strong>https://placacompleta.com.br/politica-de-privacidade</strong>
+            com a respectiva data de atualização. Recomendamos consulta periódica.
+          </p>
+
+          <h2>16. Contato</h2>
+          <p>
+            CESAR CANCADO BHERING TECNOLOGIA LTDA — CNPJ 62.569.152/0001-67<br>
+            Rua Bom Pastor, Sala 03, Ipiranga, São Paulo/SP<br>
+            <strong>E-mail geral:</strong> contato@placacompleta.com.br<br>
+            <strong>Encarregado (DPO):</strong> Cesar Cancado Bhering — cesarcbhering@gmail.com
           </p>
         </div>
 
