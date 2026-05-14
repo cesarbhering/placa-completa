@@ -45,7 +45,7 @@ useHead({
           <p>
             <strong>Encarregado pelo Tratamento de Dados (DPO):</strong>
             Cesar Cancado Bhering — e-mail
-            <strong>cesarcbhering@gmail.com</strong>.
+            <strong>cesarcbhering@placacompleta.com.br</strong>.
           </p>
           <p>
             Para os dados de origem da base veicular federal, o controlador originário é a
@@ -215,7 +215,7 @@ useHead({
           <p>
             Para exercer qualquer desses direitos, entre em contato pelo e-mail
             <strong>contato@placacompleta.com.br</strong> ou diretamente com o Encarregado
-            (DPO) em <strong>cesarcbhering@gmail.com</strong>. Responderemos em até 15 dias
+            (DPO) em <strong>cesarcbhering@placacompleta.com.br</strong>. Responderemos em até 15 dias
             úteis, conforme art. 18, §3º da LGPD.
           </p>
           <p>
@@ -266,7 +266,7 @@ useHead({
             CESAR CANCADO BHERING TECNOLOGIA LTDA — CNPJ 62.569.152/0001-67<br>
             Rua Bom Pastor, Sala 03, Ipiranga, São Paulo/SP<br>
             <strong>E-mail geral:</strong> contato@placacompleta.com.br<br>
-            <strong>Encarregado (DPO):</strong> Cesar Cancado Bhering — cesarcbhering@gmail.com
+            <strong>Encarregado (DPO):</strong> Cesar Cancado Bhering — cesarcbhering@placacompleta.com.br
           </p>
         </div>
 
