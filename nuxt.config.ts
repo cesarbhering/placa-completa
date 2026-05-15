@@ -47,7 +47,9 @@ export default defineNuxtConfig({
       ],
     },
     workbox: {
-      navigateFallback: '/',
+      // No navigateFallback: site is SSR, so '/' is not precached. Workbox
+      // would otherwise throw "non-precached-url" on every navigation.
+      navigateFallback: null,
     },
     devOptions: {
       enabled: process.env.NODE_ENV === 'development',
@@ -307,7 +309,7 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: "pt-BR" },
       charset: "utf-8",
-      viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+      viewport: "width=device-width, initial-scale=1",
       meta: [
         {
           name: "description",
@@ -358,6 +360,7 @@ export default defineNuxtConfig({
         },
         { name: "robots", content: "index, follow" },
         { name: "theme-color", content: "#090c9bff" },
+        { name: "mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       ],
