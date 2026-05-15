@@ -142,9 +142,20 @@ function onFormStart() {
   }
 }
 
+// SSR fetch: gives an instant value on first paint (Netlify edge-cached for ~60s).
 const { data: countData } = await useFetch('/api/count')
 if (countData.value?.count) {
   consultaCount.value = countData.value.count
+}
+
+// Client refresh: after hydration, fetch the latest count so the number is
+// always fresh — independent of Netlify's HTML cache / build time.
+if (import.meta.client) {
+  onMounted(() => {
+    $fetch<{ count: number }>('/api/count')
+      .then((res) => { if (res?.count) consultaCount.value = res.count })
+      .catch(() => { /* keep SSR value */ })
+  })
 }
 
 useHead({
