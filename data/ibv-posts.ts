@@ -24,7 +24,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'abril-2026',
     title: 'IBV Auto Abril 2026: Preços de Usados Sobem 0,27% — Desaceleração Marca o Fim do Trimestre',
-    metaDescription: 'IBV Auto de abril desacelerou para +0,27% (ante +0,71% em março). Celta, Palio e Onix puxaram as altas. Norte cresceu +1,35%; Centro-Oeste registrou queda. Veja a análise completa.',
+    metaDescription: 'IBV Auto de abril desacelerou para +0,27% (ante +0,71% em março). Celta +2,66%, Palio +1,47% e Onix +0,57% puxaram as altas; Fox -1,29%, Nivus -1,00%, Gol -0,50% caíram. Tocantins lidera regiões com +1,97%.',
     publishedAt: '2026-05-12',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Abril 2026',
@@ -34,14 +34,38 @@ export const ibvPosts: IbvPost[] = [
         text: 'O Índice BV Auto (IBV) de abril de 2026 mostra uma desaceleração nítida da inflação de carros usados no Brasil: alta de apenas 0,27% sobre março, bem abaixo do +0,71% do mês anterior. Para quem acompanha o mercado, o dado sugere que o ciclo de aceleração de preços observado no primeiro trimestre (média de +0,72%) está perdendo força. No acumulado de 12 meses, os preços subiram 6,99% — também um leve recuo em relação aos 7,33% do fechamento de março.',
       },
       {
-        type: 'heading',
-        heading: 'O que mudou em abril',
-        text: 'Em março, o IBV foi puxado por modelos premium e populares ao mesmo tempo — Hilux SW4 com +5,17%, Corolla com +1,03% e Onix com +0,94%. Em abril, o padrão se inverte: a alta foi puxada por modelos mais antigos, populares e descontinuados. O Chevrolet Celta e o Fiat Palio aparecem entre os modelos com maior contribuição para a alta, ao lado do Onix — que segue entre os destaques pelo terceiro mês consecutivo.\n\nO movimento de Celta e Palio é típico de mercado pressionado: são carros descontinuados há anos (Celta em 2016, Palio em 2017), mas mantêm volume relevante no mercado de usados. Quando os preços dos populares novos sobem (caso do Onix em 2026), os compradores migram para usados mais antigos como alternativa — e isso valoriza temporariamente carros que tradicionalmente desvalorizam mais rápido.',
+        type: 'image',
+        src: '/images/ibv/abril-2026/variacao-mensal.png',
+        alt: 'Gráfico de barras com variação mensal dos preços de automóveis leves usados de jan/25 a abr/26, mostrando +0,27% em abril/26',
+        caption: 'Variação mensal do IBV Auto — destaque para a desaceleração em abril. Fonte: Banco BV (IBV Auto), maio/2026.',
       },
       {
         type: 'heading',
-        heading: 'Variação por região: Norte na ponta, Centro-Oeste em queda',
-        text: 'O Norte registrou a maior inflação de veículos usados em abril, com alta de +1,35% e praticamente todos os estados da região marcando variação acima de 1%. É um movimento expressivo, considerando que historicamente o Norte tem menos volume e maior volatilidade nos preços.\n\nNa contramão, o Centro-Oeste foi o destaque negativo. Mato Grosso do Sul caiu -0,57% e Mato Grosso recuou -0,48% — entre as poucas quedas estaduais em abril. No total, 22 dos 27 estados ainda registraram alta no mês, mostrando que o cenário geral segue de alta, apenas com menor intensidade.\n\nNo acumulado de 12 meses, a liderança regional segue clara: Minas Gerais (+8,52%) e Rio de Janeiro (+8,16%) lideram, seguidos pelo Amazonas (+7,43%). Na ponta menor, Mato Grosso (+4,50%), Espírito Santo (+4,85%) e Santa Catarina (+5,17%) — todos ainda em alta, mas em ritmo bem mais lento.',
+        heading: 'O que mudou em abril',
+        text: 'Em março, o IBV foi puxado por modelos premium e populares ao mesmo tempo — Hilux SW4 com +5,17%, Corolla com +1,03% e Onix com +0,94%. Em abril, o padrão se inverte: a alta foi puxada por modelos mais antigos, populares e descontinuados. O Chevrolet Celta liderou com +2,66%, seguido por Fiat Palio (+1,47%) e GM Onix (+0,57%) — este último entre os destaques pelo terceiro mês consecutivo.\n\nNa ponta negativa, o VW Fox foi o que mais caiu (-1,29%), seguido por VW Nivus (-1,00%) e VW Gol (-0,50%). É interessante notar que os três modelos em queda são da mesma montadora — sinal de pressão competitiva específica no portfólio da Volkswagen no mercado de usados.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/abril-2026/modelos-alta-baixa.png',
+        alt: 'Modelos com maior alta e maior queda no IBV Auto abril 2026: GM Celta +2,66%, Fiat Palio +1,47%, GM Onix +0,57% nas altas; VW Fox -1,29%, VW Nivus -1,00%, VW Gol -0,50% nas baixas',
+        caption: 'Modelos de maior destaque positivo e negativo em abril de 2026. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Variação por região: Tocantins na liderança, Centro-Oeste em queda',
+        text: 'A grande surpresa de abril foi o Tocantins, que liderou a variação mensal com alta de +1,97%, seguido por Acre (+1,78%), Amazonas (+1,58%), Amapá (+1,37%) e Roraima (+1,22%). O Norte foi a região mais aquecida do mês, com altas acima de 1% em praticamente todos os estados — movimento expressivo considerando que historicamente o Norte tem menos volume e maior volatilidade.\n\nNa contramão, o Centro-Oeste foi o destaque negativo. Mato Grosso do Sul caiu -0,57%, Mato Grosso recuou -0,48% e o Rio Grande do Sul também registrou queda (-0,45%) — quatro estados ficaram negativos junto com Distrito Federal (-0,12%) e Pernambuco (-0,24%). No total, 21 dos 27 estados ainda registraram alta no mês, mostrando que o cenário geral segue de alta, apenas com menor intensidade.\n\nNo acumulado de 12 meses, a liderança regional segue clara: Minas Gerais (+8,52%) e Rio de Janeiro (+8,16%) lideram, seguidos por Amazonas (+7,43%), Alagoas (+7,41%) e Maranhão (+7,28%). Na ponta menor, Mato Grosso (+4,50%), Espírito Santo (+4,85%) e Santa Catarina (+5,17%) — todos ainda em alta, mas em ritmo bem mais lento.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/abril-2026/variacao-por-uf.png',
+        alt: 'Gráfico de barras: variação mensal por estado em abril de 2026, com Tocantins liderando em +1,97% e Mato Grosso do Sul fechando em -0,57%',
+        caption: 'Variação mensal por estado (UF) — abril de 2026. Brasil em +0,27%. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/abril-2026/mapa-brasil-acumulado.png',
+        alt: 'Mapa do Brasil com variação acumulada em 12 meses por estado em abril de 2026 — Minas Gerais lidera com 8,5%',
+        caption: 'Variação acumulada em 12 meses por estado. Fonte: Banco BV (IBV Auto), maio/2026.',
       },
       {
         type: 'heading',
@@ -49,9 +73,15 @@ export const ibvPosts: IbvPost[] = [
         text: 'O dado mais relevante para compradores de carros elétricos: a depreciação dos modelos elétricos seguiu acelerando em abril. Modelos elétricos lançados em 2023 acumulam desvalorização de -45,6% até abril de 2026 (era -44,6% até março — piorou em 1 ponto percentual em um único mês). Modelos elétricos de 2022 já perderam -49,0% do valor original.\n\nComparativo do ano modelo 2023:\n- Elétricos: -45,6%\n- Híbridos: -25,2%\n- Combustão: -19,3%\n\nA diferença é estrutural: a entrada constante de modelos elétricos novos no Brasil — com tecnologia superior e preços mais agressivos — pressiona o valor de revenda dos modelos antigos. Se você comprou um elétrico 2023 por R$ 250 mil, vale algo perto de R$ 135 mil hoje.\n\nPara quem está comprando, o lado bom: é a melhor janela dos últimos anos para entrar em um elétrico usado com desconto significativo. Para quem tem um elétrico para vender, o sinal é claro — esperar não vai ajudar.',
       },
       {
+        type: 'image',
+        src: '/images/ibv/abril-2026/desvalorizacao-2023.png',
+        alt: 'Gráfico comparando desvalorização de elétricos (-45,6%), híbridos (-25,2%) e veículos a combustão (-19,3%) ano modelo 2023 até abril de 2026',
+        caption: 'Desvalorização acumulada por tipo de propulsão — modelos ano 2023. Fonte: Banco BV.',
+      },
+      {
         type: 'highlight',
         heading: 'O que isso significa para você?',
-        text: 'Se você está vendendo um carro popular (Onix, Celta, Palio), abril ainda foi um bom mês, mas o ritmo de alta diminuiu — se for vender, não há ganho esperando muito mais. Se está no Centro-Oeste e quer comprar, espere mais um mês: os preços recuaram e podem continuar pressionados localmente. Para elétricos usados, abril confirmou: comprar tem desconto cada vez maior, vender tem urgência cada vez maior.',
+        text: 'Se você está vendendo um carro popular (Onix, Celta, Palio), abril ainda foi um bom mês, mas o ritmo de alta diminuiu — se for vender, não há ganho esperando muito mais. Se você tem um VW Fox, Nivus ou Gol, a queda foi expressiva: considere vender logo ou aceitar segurar com preço pressionado. Se está no Centro-Oeste e quer comprar, espere mais um mês: os preços recuaram e podem continuar pressionados localmente. Para elétricos usados, abril confirmou: comprar tem desconto cada vez maior, vender tem urgência cada vez maior.',
       },
       {
         type: 'cta',
@@ -63,40 +93,58 @@ export const ibvPosts: IbvPost[] = [
   },
   {
     slug: 'vencedores-perdedores-abril-2026',
-    title: 'Vencedores de Abril 2026: Celta, Palio e Onix Lideram Altas no IBV Auto',
-    metaDescription: 'Em abril o IBV Auto desacelerou para +0,27%, mas Celta, Palio e Onix puxaram o índice. Norte +1,35% lidera regiões; Centro-Oeste cai. Análise dos modelos que mais se valorizaram.',
+    title: 'Vencedores e Perdedores de Abril 2026: Celta dispara +2,66% e Fox cai -1,29% no IBV Auto',
+    metaDescription: 'GM Celta +2,66%, Fiat Palio +1,47% e GM Onix +0,57% lideram altas em abril. VW Fox -1,29%, VW Nivus -1,00% e VW Gol -0,50% caem. Volkswagen sob pressão competitiva.',
     publishedAt: '2026-05-12',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Abril 2026',
     content: [
       {
         type: 'intro',
-        text: 'O IBV Auto de abril de 2026 fechou em +0,27% para o Brasil — uma desaceleração significativa frente a +0,71% de março. Mas o detalhe importante não está na média: os modelos que puxaram a alta de abril são radicalmente diferentes dos de março. Em vez de SUVs premium e sedãs intermediários (Hilux SW4, Corolla), os destaques do mês foram populares mais antigos: Celta, Palio e Onix. Esta inversão diz algo sobre o ciclo do mercado.',
+        text: 'O IBV Auto de abril de 2026 fechou em +0,27% para o Brasil — uma desaceleração significativa frente a +0,71% de março. Mas o detalhe está nos extremos: o Chevrolet Celta valorizou 2,66% em um único mês, enquanto o VW Fox perdeu 1,29%. Quase 4 pontos percentuais separando os extremos. E o padrão dos vencedores muda completamente em relação a março: em vez de SUVs premium e sedãs intermediários (Hilux SW4, Corolla), os destaques de abril são populares antigos.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/abril-2026/modelos-alta-baixa.png',
+        alt: 'Modelos com maior alta e maior queda no IBV Auto de abril de 2026: GM Celta +2,66%, Fiat Palio +1,47%, GM Onix +0,57% nas altas; VW Fox -1,29%, VW Nivus -1,00%, VW Gol -0,50% nas baixas',
+        caption: 'Modelos com maiores variações em abril de 2026. Fonte: Banco BV (IBV Auto).',
       },
       {
         type: 'heading',
         heading: 'Os modelos que mais valorizaram em abril',
-        text: 'O Chevrolet Celta foi um dos três modelos com maior contribuição positiva para o IBV de abril. O Celta foi descontinuado em 2016 — já são quase 10 anos sem produção. Ainda assim, o estoque de usados é gigantesco (foram mais de 1,7 milhão de unidades vendidas no Brasil) e a demanda persiste porque o Celta é um dos carros mais baratos do mercado nacional de usados. Quando o preço do zero-km sobe (que é o caso do Onix em 2026), o Celta vira alternativa para quem não consegue chegar nos populares novos. O movimento de abril confirma essa pressão.\n\nO Fiat Palio também entrou no top de altas — outro modelo descontinuado (em 2017) que mantém volume relevante no mercado brasileiro. O Palio foi por décadas o segundo carro mais vendido do Brasil. Como o Celta, ele cumpre o papel de "alternativa barata" quando o segmento popular novo fica inacessível. A alta de abril é sintoma de mercado pressionado por baixo, não por cima.\n\nO Chevrolet Onix aparece entre os destaques pelo terceiro mês consecutivo. Isso é importante de notar: o Onix é o carro mais vendido do Brasil, o que significa que qualquer movimento sustentado de preço dele tem impacto desproporcional no IBV. Três meses consecutivos de alta indicam que a pressão sobre os populares não foi um pico — é tendência. Para quem está com um Onix usado e pensando em vender, o cenário ainda é favorável, mas com o ritmo desacelerando.',
+        text: 'O Chevrolet Celta liderou a alta de abril com expressivos +2,66%. O Celta foi descontinuado em 2016 — já são quase 10 anos sem produção. Ainda assim, o estoque de usados é gigantesco (foram mais de 1,7 milhão de unidades vendidas no Brasil) e a demanda persiste porque o Celta é um dos carros mais baratos do mercado nacional de usados. Quando o preço do zero-km sobe (caso do Onix em 2026), o Celta vira alternativa para quem não consegue chegar nos populares novos. A alta de abril foi quase 3× maior que a média do índice.\n\nO Fiat Palio subiu +1,47% — outro modelo descontinuado (em 2017) que mantém volume relevante no mercado brasileiro. O Palio foi por décadas o segundo carro mais vendido do Brasil. Como o Celta, cumpre o papel de "alternativa barata" quando o segmento popular novo fica inacessível. A alta de abril é sintoma de mercado pressionado por baixo, não por cima.\n\nO Chevrolet Onix subiu +0,57% e aparece entre os destaques pelo terceiro mês consecutivo. O Onix é o carro mais vendido do Brasil, o que significa que qualquer movimento sustentado de preço dele tem impacto desproporcional no IBV. Três meses consecutivos de alta indicam que a pressão sobre os populares não foi um pico — é tendência. Para quem está com um Onix usado e pensando em vender, o cenário ainda é favorável, mas com o ritmo desacelerando.',
       },
       {
         type: 'heading',
-        heading: 'O que une os três',
-        text: 'O padrão é claro: os três modelos que mais subiram em abril são populares ou ex-populares, todos com estoque alto no mercado de usados, todos abaixo de R$ 50 mil em versões médias. É o oposto do padrão de março, quando os destaques eram modelos premium e médios (Hilux SW4, Corolla). Essa rotação sugere que o consumidor brasileiro está se movendo para baixo na escala de preço — comprando menos do que comprava em março.\n\nA desaceleração do índice (de +0,71% para +0,27%) é consistente com essa leitura: o mercado segue em alta, mas perdeu fôlego no topo da pirâmide.',
+        heading: 'Os modelos que mais perderam — três VWs',
+        text: 'Curiosamente, os três modelos com maior queda em abril são todos da Volkswagen.\n\nO VW Fox foi o maior recuo: -1,29%. O Fox foi descontinuado em 2021 e está numa trajetória estrutural de queda, mas a aceleração de abril é notável. Sem produção, sem reposição na concessionária e com Polo Track e Argo dominando o segmento de hatches populares novos, o Fox perde espaço de forma contínua.\n\nO VW Nivus caiu -1,00% — surpresa, porque é um modelo ATUAL, ainda em produção. O Nivus é um SUV compacto que enfrenta competição direta crescente: Chevrolet Tracker renovado, Hyundai Creta atualizado, e os SUVs chineses chegando com força (BYD, GWM, Caoa Chery). A queda de 1% num modelo novo é sinal de pressão competitiva no segmento, não de problema do produto em si.\n\nO VW Gol recuou -0,50%. Já era esperado — o Gol foi descontinuado em 2023 e é símbolo de uma geração de carros de entrada que perdem espaço a cada mês. A queda de abril segue a tendência estrutural, mas a aceleração é uma luz amarela para quem espera vender.\n\nO padrão dos três: pressão competitiva específica no portfólio Volkswagen, seja por descontinuação (Fox, Gol) ou por concorrência ativa (Nivus). Não é uma queda do mercado em geral — é uma queda concentrada numa marca.',
       },
       {
         type: 'heading',
-        heading: 'Os perdedores: Centro-Oeste em queda',
-        text: 'O relatório de abril do banco BV não destacou modelos específicos em queda, mas a pressão negativa apareceu na geografia. O Centro-Oeste foi a região que mais perdeu valor em abril:\n\n- Mato Grosso do Sul: -0,57%\n- Mato Grosso: -0,48%\n\nEssas quedas são especialmente notáveis porque MT é também o estado com menor inflação acumulada em 12 meses (+4,50%), seguido por ES (+4,85%) e SC (+5,17%). É um sinal regional de mercado mais frio — possivelmente ligado à dinâmica do agronegócio, principal motor econômico do Centro-Oeste, que enfrentou pressão de margens no início de 2026.\n\nPara quem está comprando carro no Centro-Oeste, abril foi um bom mês. Para quem está vendendo lá, especialmente em MT/MS, espere o ciclo virar antes de listar.',
+        heading: 'Variação por região: Tocantins surpreende',
+        text: 'A grande surpresa de abril foi o Tocantins, liderando as altas mensais com +1,97% — mais de 7× a média nacional. Seguido por Acre (+1,78%), Amazonas (+1,58%), Amapá (+1,37%) e Roraima (+1,22%). O Norte foi a região mais aquecida do mês, com altas acima de 1% em quase todos os estados.\n\nNa contramão, o Centro-Oeste foi o destaque negativo:\n- Mato Grosso do Sul: -0,57%\n- Mato Grosso: -0,48%\n- Rio Grande do Sul: -0,45%\n- Pernambuco: -0,24%\n- Distrito Federal: -0,12%\n\nMT é também o estado com menor inflação acumulada em 12 meses (+4,50%) — possivelmente ligado à dinâmica do agronegócio, principal motor econômico do Centro-Oeste, que enfrentou pressão de margens no início de 2026.\n\nPara quem está comprando carro no Centro-Oeste, abril foi um bom mês. Para quem está vendendo lá, especialmente em MT/MS, espere o ciclo virar antes de listar.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/abril-2026/variacao-por-uf.png',
+        alt: 'Gráfico de barras com variação mensal por estado em abril de 2026: Tocantins lidera com +1,97%, Mato Grosso do Sul fecha com -0,57%',
+        caption: 'Variação mensal por estado (UF) — abril de 2026. Fonte: Banco BV (IBV Auto).',
       },
       {
         type: 'heading',
         heading: 'Líderes regionais em 12 meses',
-        text: 'No acumulado de 12 meses até abril, a hierarquia regional consolidou:\n\n- Minas Gerais: +8,52%\n- Rio de Janeiro: +8,16%\n- Amazonas: +7,43%\n\nMG e RJ vinham na liderança desde março (+7,75% cada) e abriram distância em abril. Para vendedores, são os dois estados onde o ciclo de valorização foi mais favorável nos últimos 12 meses. Para compradores, é onde o ágio de mercado está mais alto.',
+        text: 'No acumulado de 12 meses até abril, a hierarquia regional consolidou:\n\n- Minas Gerais: +8,52%\n- Rio de Janeiro: +8,16%\n- Amazonas: +7,43%\n- Alagoas: +7,41%\n- Maranhão: +7,28%\n\nMG e RJ vinham na liderança desde março (+7,75% cada) e abriram distância em abril. Para vendedores, são os dois estados onde o ciclo de valorização foi mais favorável nos últimos 12 meses. Para compradores, é onde o ágio de mercado está mais alto.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/abril-2026/mapa-brasil-acumulado.png',
+        alt: 'Mapa do Brasil com variação acumulada em 12 meses por estado em abril de 2026 — concentração de alta em MG, RJ e Norte',
+        caption: 'Variação acumulada em 12 meses por estado. Fonte: Banco BV (IBV Auto), maio/2026.',
       },
       {
         type: 'highlight',
         heading: 'Como usar essa informação',
-        text: 'Se você tem um Celta, Palio ou Onix e pensa em vender: abril foi favorável, mas o ritmo desacelerou — vale acelerar a decisão. Se você está em MG ou RJ vendendo, o ciclo acumulado segue favorável. Se você está em MT/MS comprando, esta é a janela. Se você tem um elétrico usado, a queda de valor segue acelerando — vender quanto antes é a melhor estratégia.',
+        text: 'Se você tem um Celta, Palio ou Onix e pensa em vender: abril foi favorável, mas o ritmo desacelerou — vale acelerar a decisão. Se você tem um VW Fox, Nivus ou Gol: a janela de queda abriu — pesa muito esperar mais. Se você está em MG ou RJ vendendo, o ciclo acumulado segue favorável. Se você está em MT/MS comprando, esta é a janela. Se você tem um elétrico usado, a queda de valor segue acelerando — vender quanto antes é a melhor estratégia.',
       },
       {
         type: 'cta',
