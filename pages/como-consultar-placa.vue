@@ -13,6 +13,94 @@ useHead({
     { property: 'og:title', content: 'Como Consultar Placa de Veículo Grátis' },
     { property: 'og:description', content: 'Passo a passo para consultar qualquer placa de veículo gratuitamente e receber os dados no seu e-mail.' },
   ],
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'HowTo',
+        name: 'Como consultar placa de veículo grátis',
+        description: 'Passo a passo para consultar qualquer placa de veículo no Brasil gratuitamente.',
+        totalTime: 'PT1M',
+        step: [
+          {
+            '@type': 'HowToStep',
+            position: 1,
+            name: 'Acesse o PlacaCompleta',
+            text: 'Acesse placacompleta.com.br pelo navegador no celular ou computador.',
+            url: 'https://placacompleta.com.br',
+          },
+          {
+            '@type': 'HowToStep',
+            position: 2,
+            name: 'Informe seu e-mail',
+            text: 'Digite um e-mail válido para receber os dados do veículo.',
+          },
+          {
+            '@type': 'HowToStep',
+            position: 3,
+            name: 'Digite a placa',
+            text: 'Informe a placa no formato Mercosul (ABC1D23) ou antigo (ABC1234).',
+          },
+          {
+            '@type': 'HowToStep',
+            position: 4,
+            name: 'Receba o resultado',
+            text: 'Em segundos você recebe marca, modelo, ano, cor, valor FIPE e situação do veículo no e-mail.',
+          },
+        ],
+      }),
+    },
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: [
+          {
+            '@type': 'Question',
+            name: 'Como consultar a placa de um carro grátis?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Acesse placacompleta.com.br, digite a placa do veículo (formato Mercosul ABC1D23 ou antigo ABC1234), informe seu e-mail e clique em consultar. Em segundos você recebe marca, modelo, ano, FIPE e situação no e-mail. É 100% grátis, sem cadastro.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Preciso pagar para consultar uma placa?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Não. A consulta de placa no PlacaCompleta é totalmente gratuita. Os dados são públicos, mantidos pelo DETRAN, e a Lei 9.503/97 (Código de Trânsito Brasileiro) garante o direito à consulta de dados não sensíveis.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Quais dados aparecem na consulta de placa?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'A consulta retorna marca, modelo, ano de fabricação, ano modelo, cor oficial, município e estado de registro, situação do veículo, valor atualizado na Tabela FIPE, tipo de combustível, chassi parcial e categoria do veículo (carro, moto, caminhão, ônibus, van).',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Posso consultar placa pelo celular?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Sim. O PlacaCompleta é um Progressive Web App (PWA) otimizado para celular. Você pode instalar como aplicativo na tela inicial e usar offline depois da primeira consulta.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'A consulta de placa funciona com placa Mercosul?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Sim. O PlacaCompleta funciona com placas Mercosul (formato ABC1D23) e placas antigas (formato ABC1234). Não é preciso converter — basta digitar como está escrito.',
+            },
+          },
+        ],
+      }),
+    },
+  ],
 })
 </script>
 

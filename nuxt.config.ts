@@ -3,6 +3,28 @@ export default defineNuxtConfig({
 
   modules: ["@nuxtjs/seo", "@nuxtjs/sitemap", "@nuxt/image", "@vite-pwa/nuxt"],
 
+  // GEO: explicit allow for AI crawlers + standard SEO bots.
+  // @nuxtjs/robots generates /robots.txt from this config.
+  robots: {
+    sitemap: 'https://placacompleta.com.br/sitemap.xml',
+    groups: [
+      { userAgent: ['*'], allow: '/' },
+      { userAgent: ['GPTBot'], allow: '/' },
+      { userAgent: ['ChatGPT-User'], allow: '/' },
+      { userAgent: ['OAI-SearchBot'], allow: '/' },
+      { userAgent: ['ClaudeBot'], allow: '/' },
+      { userAgent: ['anthropic-ai'], allow: '/' },
+      { userAgent: ['Claude-Web'], allow: '/' },
+      { userAgent: ['PerplexityBot'], allow: '/' },
+      { userAgent: ['Perplexity-User'], allow: '/' },
+      { userAgent: ['Google-Extended'], allow: '/' },
+      { userAgent: ['CCBot'], allow: '/' },
+      { userAgent: ['Applebot-Extended'], allow: '/' },
+      { userAgent: ['Meta-ExternalAgent'], allow: '/' },
+      { userAgent: ['Bytespider'], allow: '/' },
+    ],
+  },
+
   image: {
     format: ["webp", "png"],
     quality: 85,
@@ -117,6 +139,23 @@ export default defineNuxtConfig({
       "/consultar-placa/capital/curitiba",
       "/consultar-placa/capital/recife",
       "/consultar-placa/capital/porto-alegre",
+      "/consultar-placa/capital/goiania",
+      "/consultar-placa/capital/belem",
+      "/consultar-placa/capital/sao-luis",
+      "/consultar-placa/capital/maceio",
+      "/consultar-placa/capital/natal",
+      "/consultar-placa/capital/campo-grande",
+      "/consultar-placa/capital/teresina",
+      "/consultar-placa/capital/joao-pessoa",
+      "/consultar-placa/capital/florianopolis",
+      "/consultar-placa/capital/aracaju",
+      "/consultar-placa/capital/cuiaba",
+      "/consultar-placa/capital/porto-velho",
+      "/consultar-placa/capital/macapa",
+      "/consultar-placa/capital/rio-branco",
+      "/consultar-placa/capital/boa-vista",
+      "/consultar-placa/capital/palmas",
+      "/consultar-placa/capital/vitoria",
       // pSEO: FIPE brands and models
       "/tabela-fipe",
       "/tabela-fipe/volkswagen",
@@ -302,6 +341,8 @@ export default defineNuxtConfig({
       "/ibv",
       "/ibv/marco-2026",
       "/ibv/vencedores-perdedores-marco-2026",
+      "/ibv/abril-2026",
+      "/ibv/vencedores-perdedores-abril-2026",
     ],
   },
 
@@ -358,7 +399,7 @@ export default defineNuxtConfig({
           name: "twitter:image",
           content: "https://placacompleta.com.br/og-image.png",
         },
-        { name: "robots", content: "index, follow" },
+        { name: "robots", content: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" },
         { name: "theme-color", content: "#090c9bff" },
         { name: "mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-capable", content: "yes" },

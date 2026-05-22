@@ -271,7 +271,18 @@ if (isBrandPage) {
           <h1 class="seo-title">Tabela FIPE {{ pageData.name }} {{ model!.name }}</h1>
 
           <div class="seo-content">
-            <p>
+            <!-- Self-contained answer: lead with the actual price range when available -->
+            <p v-if="priceTable.length > 0">
+              O <strong>{{ pageData.name }} {{ model!.name }}</strong> na Tabela FIPE de
+              {{ priceTable[0]?.referenceMonth }}/{{ priceTable[0]?.referenceYear }} vale entre
+              <strong>{{ priceTable[priceTable.length - 1]?.priceFormatted }}</strong> e
+              <strong>{{ priceTable[0]?.priceFormatted }}</strong>, dependendo do ano de fabricação
+              e versão. A Tabela FIPE (Fundação Instituto de Pesquisas Econômicas) é atualizada
+              mensalmente e serve de referência oficial para compra, venda, financiamento e seguro
+              de veículos no Brasil. Para o valor exato do seu {{ model!.name }} específico,
+              consulte pela placa abaixo.
+            </p>
+            <p v-else>
               Consulte o valor atualizado do <strong>{{ pageData.name }} {{ model!.name }}</strong>
               na Tabela FIPE. Para saber o preço exato para o ano e versão específica do seu veículo,
               consulte pela placa no PlacaCompleta e receba todos os dados no e-mail.
