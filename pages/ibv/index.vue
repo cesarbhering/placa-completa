@@ -32,7 +32,7 @@ function formatDate(iso: string) {
 </script>
 
 <template>
-  <div class="desktop pseo-page">
+  <div class="desktop content-page">
     <main>
       <div class="win-window">
         <div class="win-window__titlebar">
