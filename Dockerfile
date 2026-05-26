@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 # ------------------------------------------------------------
 # Build stage — install deps + build Nuxt
 # ------------------------------------------------------------
@@ -26,7 +25,24 @@ COPY . .
 ENV NITRO_PRESET=node-server
 ENV NODE_ENV=production
 
-RUN npm run build
+# Workaround Nuxt 3 ESM worker zombie: nuxt build sometimes won't exit after
+# completing because esbuild workers stay alive. We watch for the output
+# artifact, then force-kill the workers so the RUN step can return.
+RUN bash -c 'set -e; \
+    npm run build & BUILD_PID=$!; \
+    while kill -0 $BUILD_PID 2>/dev/null; do \
+        if [ -f .output/server/index.mjs ]; then \
+            sleep 5; \
+            pkill -9 -f esbuild 2>/dev/null || true; \
+            kill -TERM $BUILD_PID 2>/dev/null || true; \
+            sleep 2; \
+            kill -9 $BUILD_PID 2>/dev/null || true; \
+            break; \
+        fi; \
+        sleep 2; \
+    done; \
+    wait $BUILD_PID 2>/dev/null || true; \
+    test -f .output/server/index.mjs'
 
 # Reduce node_modules size (Nitro already bundled what it needs into .output)
 RUN npm prune --omit=dev || true
