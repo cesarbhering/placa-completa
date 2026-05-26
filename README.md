@@ -62,3 +62,5 @@ Para testes e2e, copie `.env.test.example` para `.env.test`.
 | 1.000 consultas | fim de março/2026 | - |
 | 5.000 consultas | fim de abril/2026 | - |
 | Licença SENATRAN em mãos | fim de maio/2026 | - |
+
+<!-- hosted on Coolify VPS, auto-deploy via webhook -->
