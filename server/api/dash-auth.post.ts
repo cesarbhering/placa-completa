@@ -61,5 +61,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, message: 'Senha incorreta' })
   }
 
+  issueAdminSession(event)
+
   return { success: true }
 })
