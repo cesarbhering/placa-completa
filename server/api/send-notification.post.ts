@@ -1,4 +1,6 @@
 export default defineEventHandler(async (event) => {
+  requireAdminSession(event)
+
   const body = await readBody(event)
   const { title, message, targetAll = true, targetEmails = [] } = body
 
@@ -56,7 +58,7 @@ export default defineEventHandler(async (event) => {
     console.error('Error sending notifications:', error)
     throw createError({
       statusCode: 500,
-      message: `Erro ao enviar notificações: ${error.message}`
+      message: 'Erro ao enviar notificações'
     })
   }
 })
