@@ -383,30 +383,33 @@ function getSpRodizioInfo(placa: string): SpRodizio | null {
 }
 
 function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: string | null = null, icv5: ICV5Result | null = null, rodizio: SpRodizio | null = null): string {
-  const marca = data.MARCA || data.marca || '-'
-  const modelo = data.MODELO || data.modelo || '-'
-  const ano = data.ano || '-'
-  const anoModelo = data.anoModelo || '-'
-  const cor = data.cor || '-'
-  const municipio = data.municipio || '-'
-  const uf = data.uf || '-'
-  const situacao = data.situacao || '-'
-  const origem = data.origem || '-'
-  const chassi = data.extra?.chassi || data.chassi || '-'
+  // Fields from the upstream wdapi2 payload must be HTML-escaped before
+  // interpolation — a compromised or hostile upstream could otherwise
+  // inject script-bearing markup into the email body.
+  const marca = escapeHtml(data.MARCA || data.marca || '-')
+  const modelo = escapeHtml(data.MODELO || data.modelo || '-')
+  const ano = escapeHtml(data.ano || '-')
+  const anoModelo = escapeHtml(data.anoModelo || '-')
+  const cor = escapeHtml(data.cor || '-')
+  const municipio = escapeHtml(data.municipio || '-')
+  const uf = escapeHtml(data.uf || '-')
+  const situacao = escapeHtml(data.situacao || '-')
+  const origem = escapeHtml(data.origem || '-')
+  const chassi = escapeHtml(data.extra?.chassi || data.chassi || '-')
 
   const extra = data.extra || {}
-  const combustivel = extra.combustivel || '-'
-  const especie = extra.especie || '-'
-  const tipoVeiculo = extra.tipo_veiculo || '-'
-  const passageiros = extra.quantidade_passageiro || '-'
+  const combustivel = escapeHtml(extra.combustivel || '-')
+  const especie = escapeHtml(extra.especie || '-')
+  const tipoVeiculo = escapeHtml(extra.tipo_veiculo || '-')
+  const passageiros = escapeHtml(extra.quantidade_passageiro || '-')
 
   // Find FIPE entry with highest score (best match)
   const fipeData = data.fipe?.dados?.reduce((max: any, item: any) =>
     (item.score > (max?.score || 0)) ? item : max
   , null)
-  const fipeValor = fipeData?.texto_valor || '-'
-  const fipeModelo = fipeData?.texto_modelo || '-'
-  const fipeRef = fipeData?.mes_referencia || '-'
+  const fipeValor = escapeHtml(fipeData?.texto_valor || '-')
+  const fipeModelo = escapeHtml(fipeData?.texto_modelo || '-')
+  const fipeRef = escapeHtml(fipeData?.mes_referencia || '-')
 
   const timestamp = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
