@@ -1,0 +1,23 @@
+# gitleaks configuration — extends the built-in default ruleset.
+# Docs: https://github.com/gitleaks/gitleaks#configuration
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Public IDs, sample placeholders, and known non-secret tokens in this repo"
+
+# Files that are pure documentation / examples and only contain placeholders.
+paths = [
+  '''\.env\.example$''',
+  '''CONFIGURAR-GITHUB-SECRETS\.md$''',
+]
+
+# String patterns that look like secrets but are not:
+#  - GA4 measurement id and OneSignal App ID are public (ship in browser bundle).
+#  - "your-...-key" / "your-..." are env example placeholders.
+regexes = [
+  '''G-[A-Z0-9]{10}''',
+  '''9ac2bca4-[0-9a-f-]{27}''',
+  '''your-[a-z-]+(-key)?''',
+]
