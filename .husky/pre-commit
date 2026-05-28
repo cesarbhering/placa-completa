@@ -3,15 +3,23 @@
 ###############################################################################
 # Pre-commit Hook
 #
-# E2E tests are now handled by GitHub Actions (faster, more reliable)
-# Local pre-commit is kept minimal for speed
+# 1) gitleaks — block commits that introduce secrets matching known patterns
+# 2) E2E tests run on GitHub Actions, not here
 ###############################################################################
 
 . "$(dirname -- "$0")/_/husky.sh"
 
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --no-banner --config=.gitleaks.toml || {
+    echo ""
+    echo "❌ gitleaks: commit blocked because a potential secret was found in your staged changes."
+    echo "   Review the report above. If it's a false positive, add an allowlist entry to .gitleaks.toml."
+    exit 1
+  }
+else
+  echo "⚠️  gitleaks is not installed — secret scanning skipped."
+  echo "    Install: https://github.com/gitleaks/gitleaks#installing"
+fi
+
 echo "✅ Pre-commit check passed!"
 echo "💡 E2E tests will run automatically on GitHub Actions"
-
-# Note: Heavy E2E tests moved to CI/CD
-# Uncomment below if you want to run tests locally before commit:
-# npm run test:full
