@@ -14,10 +14,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -36,21 +36,26 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report-basic
           path: playwright-report/
           retention-days: 7
 
+  # Lead-capture tests hit a real Supabase project with the service role
+  # key, which bypasses RLS. Running this job on PRs would give anyone who
+  # can open a PR (collaborators, or anyone touching the workflow file)
+  # an opportunity to exfiltrate the secret via a crafted step. We restrict
+  # it to `push: main` (post-merge validation) until a dedicated staging
+  # project with a scoped service role exists.
   test-lead-capture:
-    name: Lead Capture Tests (Critical)
+    name: Lead Capture Tests (post-merge)
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      pull-requests: write
       contents: read
     env:
-      # App runtime config (needed for API endpoints to work)
       SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
       SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       RESEND_API_KEY: dummy-key-for-tests
@@ -59,10 +64,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -83,27 +88,8 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: playwright-report-leads
           path: playwright-report/
           retention-days: 7
-
-      - name: Comment PR with results
-        if: always() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const testsPassed = ${{ job.status == 'success' }};
-            const emoji = testsPassed ? '✅' : '❌';
-            const status = testsPassed ? 'PASSED' : 'FAILED';
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `${emoji} **Lead Capture Tests ${status}**\n\n` +
-                    `These tests validate that queries are being saved to Supabase correctly.\n\n` +
-                    `[View full test report](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
-            })
