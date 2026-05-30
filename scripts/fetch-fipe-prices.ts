@@ -13,8 +13,12 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-const API_URL = process.env.FIPE_API_URL || 'http://163.176.199.88:3000/api/v1'
-const API_TOKEN = process.env.FIPE_API_TOKEN || 'placa_completa_2026'
+const API_URL = process.env.FIPE_API_URL
+const API_TOKEN = process.env.FIPE_API_TOKEN
+if (!API_URL || !API_TOKEN) {
+  console.error('FIPE_API_URL and FIPE_API_TOKEN must be set in the environment.')
+  process.exit(1)
+}
 
 interface PriceEntry {
   year: number
