@@ -1,0 +1,42 @@
+// CSP in Report-Only mode. Browsers evaluate the policy and POST any
+// violations to /api/csp-report (logged server-side) without blocking
+// the page. This is the baseline used to size a real allowlist before
+// switching to enforced CSP.
+//
+// 'unsafe-inline' is intentionally allowed for both script-src and
+// style-src during the baseline week:
+//   - Vue scoped styles + 4 style="..." attrs (see pages/index.vue:728,
+//     pages/index.vue:888, pages/tabela-fipe/[slug].vue:349,
+//     components/PhotoUploadButton.vue:39) — style-attr can't use
+//     nonces.
+//   - 20+ inline <script> blocks carry GA bootstrap and JSON-LD
+//     (nuxt.config.ts head, plus per-page useHead({script}) in pSEO
+//     pages). Migration to nonce-per-request needs middleware that
+//     also clears SWR caching for those routes.
+//
+// Once the report stream is quiet, drop 'unsafe-inline' from script-src,
+// add 'nonce-${nonce}' generated per request, and flip the header to
+// `Content-Security-Policy`.
+
+const POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "frame-src 'none'",
+  "form-action 'self'",
+  "upgrade-insecure-requests",
+  "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.onesignal.com https://www.clarity.ms https://scripts.clarity.ms",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https://www.google-analytics.com https://www.googletagmanager.com",
+  "font-src 'self'",
+  "connect-src 'self' https://www.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.onesignal.com https://onesignal.com https://*.os.tc https://www.clarity.ms https://*.clarity.ms",
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "media-src 'self'",
+  "report-uri /api/csp-report",
+].join('; ')
+
+export default defineEventHandler((event) => {
+  setHeader(event, 'Content-Security-Policy-Report-Only', POLICY)
+})
