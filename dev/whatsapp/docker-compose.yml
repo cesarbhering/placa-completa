@@ -1,0 +1,75 @@
+# Local dev stack for the WhatsApp delivery feature.
+# Brings up Evolution API + its Postgres + Redis, exposed only on
+# 127.0.0.1 so it never reaches the public internet.
+#
+# Boot:    ./up.sh
+# Tear down: ./down.sh
+# Logs:    docker compose logs -f evolution
+#
+# Real WhatsApp pairing (QR code) is described in WHATSAPP.md.
+# Until you scan the QR, the API is up but the instance is offline —
+# perfectly fine for backend wiring and unit tests.
+
+name: pc-whatsapp-dev
+
+services:
+  evolution:
+    image: evoapicloud/evolution-api:latest
+    container_name: pc-evolution
+    restart: unless-stopped
+    depends_on:
+      evolution-db:
+        condition: service_healthy
+      evolution-redis:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8081:8080"
+    env_file:
+      - .env
+    environment:
+      SERVER_URL: http://localhost:8081
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:${POSTGRES_PASSWORD}@evolution-db:5432/evolution
+      DATABASE_CONNECTION_CLIENT_NAME: evolution
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://evolution-redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_REDIS_SAVE_INSTANCES: "false"
+      CACHE_LOCAL_ENABLED: "false"
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+      DEL_INSTANCE: "false"
+      QRCODE_LIMIT: "30"
+      LANGUAGE: "pt-BR"
+      CONFIG_SESSION_PHONE_CLIENT: "PlacaCompleta"
+      CONFIG_SESSION_PHONE_NAME: "Chrome"
+      LOG_LEVEL: "DEBUG"
+      LOG_BAILEYS: "info"
+      LOG_COLOR: "false"
+
+  evolution-db:
+    image: postgres:16-alpine
+    container_name: pc-evolution-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: evolution
+    volumes:
+      - evolution-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evolution -d evolution"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  evolution-redis:
+    image: redis:7-alpine
+    container_name: pc-evolution-redis
+    restart: unless-stopped
+    volumes:
+      - evolution-redis:/data
+
+volumes:
+  evolution-db:
+  evolution-redis:

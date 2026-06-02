@@ -1,29 +1,53 @@
 import { Resend } from 'resend'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
+import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
+
+type Channel = 'email' | 'whatsapp'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
 
   const { email, phone, placa, isPWA, includeFipeChart, includeIcv5, icv5Uf } = body
+  const channel: Channel = body.channel === 'whatsapp' ? 'whatsapp' : 'email'
 
-  if (!email || !placa) {
-    throw createError({ statusCode: 400, message: 'E-mail e placa são obrigatórios.' })
+  if (!placa) {
+    throw createError({ statusCode: 400, message: 'Placa é obrigatória.' })
   }
 
-  // Validate email format
-  if (!isValidEmail(email)) {
-    throw createError({ statusCode: 400, message: 'E-mail inválido.' })
+  // Channel-specific validation. WhatsApp is web-only — PWA always uses
+  // the inline-data path, so isPWA + channel=whatsapp would be ambiguous.
+  if (channel === 'whatsapp') {
+    if (isPWA) {
+      throw createError({ statusCode: 400, message: 'WhatsApp não disponível no modo PWA.' })
+    }
+    if (!phone) {
+      throw createError({ statusCode: 400, message: 'Telefone é obrigatório para envio via WhatsApp.' })
+    }
+    if (!isValidPhone(phone)) {
+      throw createError({ statusCode: 400, message: 'Telefone inválido.' })
+    }
+  } else {
+    if (!email) {
+      throw createError({ statusCode: 400, message: 'E-mail é obrigatório.' })
+    }
+    if (!isValidEmail(email)) {
+      throw createError({ statusCode: 400, message: 'E-mail inválido.' })
+    }
+    if (phone && !isValidPhone(phone)) {
+      throw createError({ statusCode: 400, message: 'Telefone inválido.' })
+    }
   }
 
-  // Validate phone if provided
-  if (phone && !isValidPhone(phone)) {
+  // Sanitize email to prevent injection + normalize case for consistent dedupe.
+  // For whatsapp-only consultas there is no email; we store NULL.
+  const sanitizedEmail = email ? sanitizeEmail(email).toLowerCase() : null
+  // Phone normalized to E.164-without-plus for both delivery and dedupe.
+  const normalizedPhone = phone ? normalizePhoneForWhatsApp(phone) : null
+  if (channel === 'whatsapp' && !normalizedPhone) {
     throw createError({ statusCode: 400, message: 'Telefone inválido.' })
   }
-
-  // Sanitize email to prevent injection + normalize case for consistent dedupe
-  const sanitizedEmail = sanitizeEmail(email).toLowerCase()
 
   const headers = getRequestHeaders(event)
   const ip = headers['x-forwarded-for']?.split(',')[0]?.trim()
@@ -40,19 +64,24 @@ export default defineEventHandler(async (event) => {
   const isMobile = /mobile|android|iphone/i.test(userAgent)
   const deviceInfo = isMobile ? 'Mobile' : 'Desktop'
 
-  // Rate limit: 5 successful consultas per hour per email AND per IP (web only — PWA bypasses).
+  // Rate limit: 5 successful consultas per hour per recipient AND per IP (web only — PWA bypasses).
+  // The "recipient" field switches with the channel so each delivery medium has its own quota.
   // Skips IP check when IP is 'unknown' to avoid penalising users behind shared/proxied connections.
+  const recipientField = channel === 'whatsapp' ? 'phone' : 'email'
+  const recipientValue = channel === 'whatsapp' ? normalizedPhone : sanitizedEmail
+  const sentField = channel === 'whatsapp' ? 'whatsapp_sent' : 'email_sent'
+
   if (!isPWA) {
     const supabase = useSupabaseServer()
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const ipCheckable = ip && ip !== 'unknown'
 
-    const [emailRes, ipRes] = await Promise.all([
+    const [recipientRes, ipRes] = await Promise.all([
       supabase
         .from('consultas')
         .select('created_at', { count: 'exact' })
-        .eq('email', sanitizedEmail)
-        .eq('email_sent', true)
+        .eq(recipientField, recipientValue as string)
+        .eq(sentField, true)
         .gte('created_at', oneHourAgo)
         .order('created_at', { ascending: true })
         .limit(1),
@@ -61,19 +90,19 @@ export default defineEventHandler(async (event) => {
             .from('consultas')
             .select('created_at', { count: 'exact' })
             .eq('ip_address', ip)
-            .eq('email_sent', true)
+            .eq(sentField, true)
             .gte('created_at', oneHourAgo)
             .order('created_at', { ascending: true })
             .limit(1)
         : Promise.resolve({ count: 0, data: null, error: null } as any),
     ])
 
-    const emailCount = emailRes?.count ?? 0
+    const recipientCount = recipientRes?.count ?? 0
     const ipCount = ipRes?.count ?? 0
 
-    if (emailCount >= 5 || ipCount >= 5) {
-      const oldestIso = emailCount >= 5
-        ? emailRes?.data?.[0]?.created_at
+    if (recipientCount >= 5 || ipCount >= 5) {
+      const oldestIso = recipientCount >= 5
+        ? recipientRes?.data?.[0]?.created_at
         : ipRes?.data?.[0]?.created_at
       let minutesUntilReset = 60
       if (oldestIso) {
@@ -87,17 +116,16 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Dedupe: if the same email already received this placa in the last hour,
-  // skip the paid API call + Resend and inform the user the email was already sent.
-  // Non-PWA only — PWA returns data inline, not via email.
+  // Dedupe per channel: same recipient + same placa in the last hour → skip the
+  // paid API call and tell the user the delivery already went out. Non-PWA only.
   if (!isPWA) {
     const supabase = useSupabaseServer()
     const { data: existing, error: dedupeError } = await supabase
       .from('consultas')
       .select('created_at')
-      .eq('email', sanitizedEmail)
+      .eq(recipientField, recipientValue as string)
       .eq('placa', placaClean)
-      .eq('email_sent', true)
+      .eq(sentField, true)
       .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
@@ -109,16 +137,22 @@ export default defineEventHandler(async (event) => {
 
     if (existing) {
       const minutesAgo = Math.max(1, Math.round((Date.now() - new Date(existing.created_at).getTime()) / 60000))
+      const where = channel === 'whatsapp'
+        ? `enviado por WhatsApp para o número informado`
+        : `enviado para ${sanitizedEmail}`
       return {
         success: true,
-        emailSent: true,
-        message: `Você já consultou essa placa há ${minutesAgo === 1 ? 'menos de 1 minuto' : `${minutesAgo} min`}. O e-mail com os dados foi enviado para ${sanitizedEmail} — verifique sua caixa de entrada e a pasta de spam.`,
+        emailSent: channel === 'email',
+        whatsappSent: channel === 'whatsapp',
+        channel,
+        message: `Você já consultou essa placa há ${minutesAgo === 1 ? 'menos de 1 minuto' : `${minutesAgo} min`}. O resultado foi ${where} — verifique seu histórico.`,
       }
     }
   }
 
   let apiResponse = null
   let emailSent = false
+  let whatsappSent = false
 
   try {
     const apiUrl = `https://wdapi2.com.br/consulta/${placaClean}/${config.placaApiToken}`
@@ -130,7 +164,7 @@ export default defineEventHandler(async (event) => {
       endpoint: '/api/consulta',
       errorMessage: err?.message || 'Erro ao consultar API de placas',
       errorStack: err?.stack,
-      requestBody: { placa: placaClean, isPWA },
+      requestBody: { placa: placaClean, isPWA, channel },
       userAgent,
       ip,
       timestamp: new Date().toISOString(),
@@ -139,13 +173,15 @@ export default defineEventHandler(async (event) => {
     const supabase = useSupabaseServer()
     await supabase.from('consultas').insert({
       email: sanitizedEmail,
-      phone: phone || null,
+      phone: normalizedPhone,
       placa: placaClean,
       ip_address: ip,
       user_agent: userAgent,
       device_info: deviceInfo,
       is_pwa: isPWA || false,
+      channel,
       email_sent: false,
+      whatsapp_sent: false,
       api_response: null,
     })
     throw createError({ statusCode: 502, message: 'Erro ao consultar dados da placa. Tente novamente.' })
@@ -159,13 +195,15 @@ export default defineEventHandler(async (event) => {
     const supabase = useSupabaseServer()
     await supabase.from('consultas').insert({
       email: sanitizedEmail,
-      phone: phone || null,
+      phone: normalizedPhone,
       placa: placaClean,
       ip_address: ip,
       user_agent: userAgent,
       device_info: deviceInfo,
       is_pwa: isPWA || false,
+      channel,
       email_sent: false,
+      whatsapp_sent: false,
       api_response: apiResponse,
     })
     throw createError({ statusCode: 404, message: 'Placa não encontrada ou sem dados disponíveis.' })
@@ -222,55 +260,91 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Skip email sending for PWA mode
+  // Delivery — only for non-PWA web requests. PWA returns inline data.
   if (!isPWA) {
-    try {
-      const resend = new Resend(config.resendApiKey)
-      const rodizio = icv5Uf === 'SP' ? getSpRodizioInfo(placaClean) : null
-      const htmlEmail = buildEmailHtml(apiResponse, placaClean, chartUrl, icv5Result, rodizio)
-
-      await resend.emails.send({
-        from: 'PlacaCompleta <consulta@placacompleta.com.br>',
-        to: sanitizedEmail,
-        subject: `PlacaCompleta - Consulta Veicular ${placaClean}`,
-        html: htmlEmail,
-      })
-      emailSent = true
-    } catch (err: any) {
-      console.error('Resend error:', err)
-
-      // Send error notification
-      await sendErrorEmail({
-        endpoint: '/api/consulta (email sending)',
-        errorMessage: `Failed to send email to ${email}: ${err?.message}`,
-        errorStack: err?.stack,
-        requestBody: { placa: placaClean },
-        userAgent,
-        ip,
-        timestamp: new Date().toISOString(),
-      })
+    const rodizio = icv5Uf === 'SP' ? getSpRodizioInfo(placaClean) : null
+    if (channel === 'email') {
+      try {
+        const resend = new Resend(config.resendApiKey)
+        const htmlEmail = buildEmailHtml(apiResponse, placaClean, chartUrl, icv5Result, rodizio)
+        await resend.emails.send({
+          from: 'PlacaCompleta <consulta@placacompleta.com.br>',
+          to: sanitizedEmail as string,
+          subject: `PlacaCompleta - Consulta Veicular ${placaClean}`,
+          html: htmlEmail,
+        })
+        emailSent = true
+      } catch (err: any) {
+        console.error('Resend error:', err)
+        await sendErrorEmail({
+          endpoint: '/api/consulta (email sending)',
+          errorMessage: `Failed to send email to ${email}: ${err?.message}`,
+          errorStack: err?.stack,
+          requestBody: { placa: placaClean },
+          userAgent,
+          ip,
+          timestamp: new Date().toISOString(),
+        })
+      }
+    } else {
+      // channel === 'whatsapp'. If we already built a FIPE chart for the
+      // email-equivalent payload, ride along: chart as the media + the
+      // textual breakdown as the caption. Otherwise fall back to plain
+      // text so the user still gets the data.
+      const text = buildWhatsAppText(apiResponse, placaClean, icv5Result, rodizio)
+      const result = chartUrl
+        ? await sendWhatsAppImage(normalizedPhone as string, chartUrl, text)
+        : await sendWhatsAppText(normalizedPhone as string, text)
+      if (result.ok) {
+        whatsappSent = true
+      } else {
+        console.error('Evolution API error:', result.status, result.error)
+        await sendErrorEmail({
+          endpoint: '/api/consulta (whatsapp sending)',
+          errorMessage: `Failed to send WhatsApp (status ${result.status}): ${result.error}`,
+          requestBody: { placa: placaClean, phone: normalizedPhone, hadChart: Boolean(chartUrl) },
+          userAgent,
+          ip,
+          timestamp: new Date().toISOString(),
+        })
+      }
     }
   }
 
   const supabase = useSupabaseServer()
   await supabase.from('consultas').insert({
     email: sanitizedEmail,
-    phone: phone || null,
+    phone: normalizedPhone,
     placa: placaClean,
     ip_address: ip,
     user_agent: userAgent,
     device_info: deviceInfo,
     is_pwa: isPWA || false,
+    channel,
     email_sent: emailSent,
+    whatsapp_sent: whatsappSent,
     api_response: apiResponse,
   })
 
+  let message: string
+  if (isPWA) {
+    message = 'Consulta realizada.'
+  } else if (channel === 'whatsapp') {
+    message = whatsappSent
+      ? 'Consulta realizada! Verifique seu WhatsApp.'
+      : 'Consulta realizada, mas houve um erro ao enviar pelo WhatsApp. Tente novamente.'
+  } else {
+    message = emailSent
+      ? 'Consulta realizada! Verifique seu e-mail.'
+      : 'Consulta realizada, mas houve um erro ao enviar o e-mail. Tente novamente.'
+  }
+
   return {
     success: true,
+    channel,
     emailSent,
-    message: emailSent
-      ? 'Consulta realizada! Verifique seu e-mail.'
-      : 'Consulta realizada, mas houve um erro ao enviar o e-mail. Tente novamente.',
+    whatsappSent,
+    message,
     data: isPWA ? apiResponse : undefined,
   }
 })
@@ -540,4 +614,80 @@ function emailRow(label: string, value: string, isLast: boolean = false): string
 
 function formatBRL(value: number): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+// Plain-text version of the consulta payload, formatted for WhatsApp.
+// Uses *bold* and _italic_ markdown that WhatsApp renders natively.
+// Wdapi2 fields are untrusted, but text-only output cannot inject markup,
+// so escapeHtml is not required here.
+function buildWhatsAppText(
+  data: Record<string, any>,
+  placa: string,
+  icv5: ICV5Result | null = null,
+  rodizio: SpRodizio | null = null,
+): string {
+  const marca = data.MARCA || data.marca || '-'
+  const modelo = data.MODELO || data.modelo || '-'
+  const ano = data.ano || '-'
+  const anoModelo = data.anoModelo || '-'
+  const cor = data.cor || '-'
+  const municipio = data.municipio || '-'
+  const uf = data.uf || '-'
+  const situacao = data.situacao || '-'
+  const chassi = data.extra?.chassi || data.chassi || '-'
+  const extra = data.extra || {}
+  const combustivel = extra.combustivel || '-'
+  const tipoVeiculo = extra.tipo_veiculo || '-'
+
+  const fipeData = data.fipe?.dados?.reduce(
+    (max: any, item: any) => ((item.score || 0) > (max?.score || 0) ? item : max),
+    null,
+  )
+  const fipeValor = fipeData?.texto_valor || null
+  const fipeModelo = fipeData?.texto_modelo || null
+
+  const lines: string[] = [
+    `*PlacaCompleta — ${placa}*`,
+    '',
+    `*Veículo*`,
+    `Marca:        ${marca}`,
+    `Modelo:       ${modelo}`,
+    `Ano fab/mod:  ${ano}/${anoModelo}`,
+    `Cor:          ${cor}`,
+    `Combustível:  ${combustivel}`,
+    `Tipo:         ${tipoVeiculo}`,
+    `Chassi:       ${chassi}`,
+    `Município:    ${municipio} - ${uf}`,
+    `Situação:     ${situacao}`,
+  ]
+
+  if (fipeValor) {
+    lines.push('', '*Tabela FIPE*')
+    if (fipeModelo) lines.push(`Modelo:  ${fipeModelo}`)
+    lines.push(`Valor:   ${fipeValor}`)
+  }
+
+  if (rodizio) {
+    lines.push(
+      '',
+      '*Rodízio SP*',
+      `Dia:           ${rodizio.day}`,
+      `Finais:        ${rodizio.digits}`,
+      `Horário:       7h-10h e 17h-20h`,
+    )
+  }
+
+  if (icv5) {
+    lines.push(
+      '',
+      `*ICV5 — Custo 5 anos em ${icv5.uf}*`,
+      `Manutenção:    ${formatBRL(icv5.manutencao5anos)}`,
+      `IPVA:          ${formatBRL(icv5.ipva5anos)}`,
+      `Total:         ${formatBRL(icv5.custoTotal5anos)}`,
+      `Índice ICV5:   ${icv5.indiceIcv5}% (${icv5.classificacao})`,
+    )
+  }
+
+  lines.push('', '_placacompleta.com.br_')
+  return lines.join('\n')
 }
