@@ -137,6 +137,11 @@ export async function sendWhatsAppText(
 // Sends an image (by URL or data URI) with an optional text caption.
 // Used when the consulta has a FIPE chart to attach — the chart goes
 // as the media, the textual breakdown rides along as the caption.
+//
+// Evolution v2's sendMedia accepts the `media` field as either a URL
+// or a *raw* base64 string. It rejects `data:image/...;base64,...`
+// data URIs with "Owned media must be a url or base64". We normalize
+// callers' input here so they can pass either form transparently.
 export async function sendWhatsAppImage(
   phone: string,
   mediaUrl: string,
@@ -146,12 +151,22 @@ export async function sendWhatsAppImage(
   const { instance } = getEvolutionConfig()
   const number = normalizePhoneForWhatsApp(phone)
   if (!number) return { ok: false, status: 400, error: 'invalid phone' }
+
+  let media = mediaUrl
+  let mimetype = 'image/png'
+  const dataMatch = mediaUrl.match(/^data:([^;]+);base64,(.+)$/)
+  if (dataMatch) {
+    mimetype = dataMatch[1]
+    media = dataMatch[2]
+  }
+
   return postEvolution(
     `/message/sendMedia/${encodeURIComponent(instance)}`,
     {
       number,
       mediatype: 'image',
-      media: mediaUrl,
+      mimetype,
+      media,
       caption,
       fileName,
     },
