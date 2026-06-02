@@ -287,16 +287,32 @@ export default defineEventHandler(async (event) => {
         })
       }
     } else {
-      // channel === 'whatsapp'. Two layers of resilience:
-      //   1) postEvolution() retries 5xx/network errors with exponential
+      // channel === 'whatsapp'. Layers of resilience:
+      //   1) Pre-fetch the chart server-side and pass it inline as
+      //      base64 — avoids Evolution having to wait for QuickChart's
+      //      watermark endpoint, which sometimes exceeds Baileys' fetch
+      //      timeout and gets the request rejected as 400.
+      //   2) postEvolution() retries 5xx/network errors with exponential
       //      backoff (3 attempts).
-      //   2) If the image send fails despite retries (QuickChart slow,
-      //      Baileys mid-reconnect, Evolution rejects the URL), fall
-      //      back to plain text — the user still gets the data.
+      //   3) If the image send fails despite retries, fall back to
+      //      plain text — the user still gets the data.
       const text = buildWhatsAppText(apiResponse, placaClean, icv5Result, rodizio)
 
+      let inlineMedia: string | null = null
+      if (chartUrl) {
+        try {
+          const buf = await $fetch<ArrayBuffer>(chartUrl, {
+            responseType: 'arrayBuffer',
+            timeout: 12_000,
+          })
+          inlineMedia = `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
+        } catch (err: any) {
+          console.warn('[whatsapp] chart prefetch failed, will retry with URL:', err?.message)
+        }
+      }
+
       let result = chartUrl
-        ? await sendWhatsAppImage(normalizedPhone as string, chartUrl, text)
+        ? await sendWhatsAppImage(normalizedPhone as string, inlineMedia || chartUrl, text)
         : await sendWhatsAppText(normalizedPhone as string, text)
 
       if (!result.ok && chartUrl) {
