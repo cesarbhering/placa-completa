@@ -34,3 +34,7 @@ __pycache__
 .env.local
 .env.test
 API-DOCS.md
+
+# Local WhatsApp dev stack creds (Evolution API key + Postgres pw)
+dev/whatsapp/.env
+!dev/whatsapp/.env.example
