@@ -111,6 +111,93 @@ NUXT_PUBLIC_WHATSAPP_ENABLED=true
 Pointed at the staging Supabase project (`nqhlxsvggrumgcceamwg`) so
 the migration is in scope, prod is untouched.
 
+## Run this feature on your laptop
+
+Requisitos: Node 22, Docker, git, ~2 GB livres.
+
+### 1. Clonar a branch
+
+```bash
+git clone git@github.com:cesarbhering/placa-completa.git
+cd placa-completa
+git checkout feature/whatsapp
+npm install
+```
+
+### 2. Subir o Evolution API local
+
+```bash
+cd dev/whatsapp
+./up.sh
+# Anote a API key impressa na primeira execução, ou veja em dev/whatsapp/.env
+cd ../..
+```
+
+Sobe Evolution + Postgres + Redis em `127.0.0.1:8081`. Manager UI em
+http://127.0.0.1:8081/manager (login = a API key gerada).
+
+### 3. Criar `.env` na raiz com os 6 valores
+
+```bash
+cp .env.example .env
+```
+
+Edite e preencha:
+
+| Variável | De onde vem |
+|---|---|
+| `SUPABASE_URL` | Dashboard Supabase → projeto **placa-completa-staging** (ref `nqhlxsvggrumgcceamwg`) → Settings → API |
+| `SUPABASE_SERVICE_KEY` | Mesmo lugar (Legacy `service_role`). **Use staging — não a de prod** |
+| `PLACA_API_TOKEN` | Coolify → app placa-completa → Environment Variables |
+| `FIPE_API_TOKEN` + `FIPE_API_URL` | Idem Coolify |
+| `RESEND_API_KEY` | Pode deixar vazio se for testar só o caminho WhatsApp |
+| `API_KEY_OPENAI` | Pode deixar vazio (só usado pelo PWA pra OCR de foto) |
+| `EVOLUTION_API_URL` | `http://127.0.0.1:8081` |
+| `EVOLUTION_API_KEY` | O que apareceu no `up.sh` (ou veja `dev/whatsapp/.env`) |
+| `EVOLUTION_INSTANCE` | `placa-completa` |
+| `NUXT_PUBLIC_WHATSAPP_ENABLED` | `true` — sem isso o toggle não aparece |
+
+### 4. Subir o Nuxt em dev
+
+```bash
+npm run dev
+```
+
+http://localhost:3000
+
+### 5. Testar o caminho WhatsApp
+
+- Digite uma placa válida (qualquer placa brasileira real)
+- Clica em Consultar
+- Modal abre com toggle **E-mail | WhatsApp**
+- Escolhe WhatsApp, digita seu telefone, manda
+
+⚠️ Sem parear o número no Evolution (passo abaixo) a mensagem vai falhar na entrega. O backend retorna `whatsappSent: false` e mostra erro genérico. **Útil mesmo assim** pra ver toda a UX e o request indo pra Evolution. Pra ver a mensagem chegar de verdade no celular, faça o pareamento (próxima seção).
+
+### 6. Pra ver chegar no celular (opcional)
+
+Depois do `up.sh`:
+
+```bash
+cd dev/whatsapp
+./create-instance.sh placa-completa
+```
+
+Abra `http://127.0.0.1:8081/manager`, log com a API key, clica em
+`placa-completa`, escaneia o QR no WhatsApp → Configurações → Aparelhos
+conectados → Conectar aparelho. Pode usar o número que você tem
+disponível pra teste.
+
+### 7. Parar tudo
+
+```bash
+cd dev/whatsapp && ./down.sh
+# (Ctrl+C no terminal do npm run dev)
+```
+
+Sem `--wipe` o estado do Evolution (incluindo o pareamento) fica salvo
+pra próxima vez que você der `up.sh`.
+
 ## How to pair a real WhatsApp number (QR flow)
 
 1. `cd dev/whatsapp && ./up.sh` (or the prod-equivalent compose later)
