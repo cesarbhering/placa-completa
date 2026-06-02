@@ -2,6 +2,8 @@ import { Resend } from 'resend'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
+import { renderHtmlToPng } from '../utils/htmlToImage'
+import { buildWhatsAppCardHtml } from '../utils/buildWhatsAppCard'
 
 type Channel = 'email' | 'whatsapp'
 
@@ -287,32 +289,72 @@ export default defineEventHandler(async (event) => {
         })
       }
     } else {
-      // channel === 'whatsapp'. Layers of resilience:
-      //   1) Pre-fetch the chart server-side and pass it inline as
-      //      base64 — avoids Evolution having to wait for QuickChart's
-      //      watermark endpoint, which sometimes exceeds Baileys' fetch
-      //      timeout and gets the request rejected as 400.
-      //   2) postEvolution() retries 5xx/network errors with exponential
-      //      backoff (3 attempts).
-      //   3) If the image send fails despite retries, fall back to
-      //      plain text — the user still gets the data.
+      // channel === 'whatsapp'. Delivery ladder, best first:
+      //
+      //   A) Rich card: prefetch chart as base64, build self-contained
+      //      HTML, render to PNG via Gotenberg, send inline. This is
+      //      the "feels like the email" delivery — same data, single
+      //      well-formatted image.
+      //   B) Chart-only image: if Gotenberg is unavailable or rendering
+      //      fails, fall back to the QuickChart watermark image with
+      //      text caption.
+      //   C) Plain text: if image delivery fails altogether, send the
+      //      formatted text so the user still has the data.
+      //
+      // Every layer down emits an internal alert so we can track
+      // degradation without losing the consulta itself.
       const text = buildWhatsAppText(apiResponse, placaClean, icv5Result, rodizio)
 
-      let inlineMedia: string | null = null
+      // Always try to prefetch the chart bytes — used by both A and B.
+      let chartDataUri: string | null = null
       if (chartUrl) {
         try {
           const buf = await $fetch<ArrayBuffer>(chartUrl, {
             responseType: 'arrayBuffer',
             timeout: 12_000,
           })
-          inlineMedia = `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
+          chartDataUri = `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
         } catch (err: any) {
-          console.warn('[whatsapp] chart prefetch failed, will retry with URL:', err?.message)
+          console.warn('[whatsapp] chart prefetch failed:', err?.message)
         }
       }
 
-      let result = chartUrl
-        ? await sendWhatsAppImage(normalizedPhone as string, inlineMedia || chartUrl, text)
+      // ----- Layer A: rich card via Gotenberg -----
+      let cardDataUri: string | null = null
+      if (config.gotenbergUrl) {
+        const cardHtml = buildWhatsAppCardHtml({
+          data: apiResponse,
+          placa: placaClean,
+          chartDataUri,
+          icv5: icv5Result,
+          rodizio,
+        })
+        const renderRes = await renderHtmlToPng(cardHtml, { width: 480, timeoutMs: 12_000 })
+        if (renderRes.ok && renderRes.bytes) {
+          cardDataUri = `data:image/png;base64,${renderRes.bytes.toString('base64')}`
+        } else {
+          console.warn(
+            '[whatsapp] gotenberg render failed:',
+            renderRes.status,
+            renderRes.error,
+            'durationMs=' + renderRes.durationMs,
+          )
+          await sendErrorEmail({
+            endpoint: '/api/consulta (whatsapp card render)',
+            errorMessage: `Gotenberg render failed (status ${renderRes.status}): ${renderRes.error}. Will fall back to chart-only.`,
+            requestBody: { placa: placaClean, phone: normalizedPhone, gotenbergStatus: renderRes.status, durationMs: renderRes.durationMs },
+            userAgent,
+            ip,
+            timestamp: new Date().toISOString(),
+          })
+        }
+      }
+
+      const primaryMedia = cardDataUri || chartDataUri || chartUrl
+      const primaryCaption = cardDataUri ? `Consulta ${placaClean} - placacompleta.com.br` : text
+
+      let result = primaryMedia
+        ? await sendWhatsAppImage(normalizedPhone as string, primaryMedia, primaryCaption)
         : await sendWhatsAppText(normalizedPhone as string, text)
 
       if (!result.ok && chartUrl) {
