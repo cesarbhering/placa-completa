@@ -14,7 +14,7 @@ name: pc-whatsapp-dev
 
 services:
   evolution:
-    image: atendai/evolution-api:homolog
+    image: atendai/evolution-api:v2.3.7
     container_name: pc-evolution
     restart: unless-stopped
     depends_on:
