@@ -1,7 +1,7 @@
 import { Resend } from 'resend'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
-import { sendWhatsAppText, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
+import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 
 type Channel = 'email' | 'whatsapp'
 
@@ -287,9 +287,14 @@ export default defineEventHandler(async (event) => {
         })
       }
     } else {
-      // channel === 'whatsapp'
+      // channel === 'whatsapp'. If we already built a FIPE chart for the
+      // email-equivalent payload, ride along: chart as the media + the
+      // textual breakdown as the caption. Otherwise fall back to plain
+      // text so the user still gets the data.
       const text = buildWhatsAppText(apiResponse, placaClean, icv5Result, rodizio)
-      const result = await sendWhatsAppText(normalizedPhone as string, text)
+      const result = chartUrl
+        ? await sendWhatsAppImage(normalizedPhone as string, chartUrl, text)
+        : await sendWhatsAppText(normalizedPhone as string, text)
       if (result.ok) {
         whatsappSent = true
       } else {
@@ -297,7 +302,7 @@ export default defineEventHandler(async (event) => {
         await sendErrorEmail({
           endpoint: '/api/consulta (whatsapp sending)',
           errorMessage: `Failed to send WhatsApp (status ${result.status}): ${result.error}`,
-          requestBody: { placa: placaClean, phone: normalizedPhone },
+          requestBody: { placa: placaClean, phone: normalizedPhone, hadChart: Boolean(chartUrl) },
           userAgent,
           ip,
           timestamp: new Date().toISOString(),

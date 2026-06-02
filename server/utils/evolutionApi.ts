@@ -45,28 +45,16 @@ export interface SendWhatsAppResult {
   error?: string
 }
 
-// Sends a plain-text WhatsApp message. Returns a structured result
-// instead of throwing on HTTP errors so callers can decide whether
-// to surface a generic error or retry.
-export async function sendWhatsAppText(
-  phone: string,
-  text: string,
+async function postEvolution(
+  endpointPath: string,
+  body: Record<string, unknown>,
 ): Promise<SendWhatsAppResult> {
-  const { baseUrl, apiKey, instance } = getEvolutionConfig()
-  const number = normalizePhoneForWhatsApp(phone)
-  if (!number) {
-    return { ok: false, status: 400, error: 'invalid phone' }
-  }
-
-  const url = `${baseUrl}/message/sendText/${encodeURIComponent(instance)}`
+  const { baseUrl, apiKey } = getEvolutionConfig()
   try {
-    const res = await $fetch.raw(url, {
+    const res = await $fetch.raw(`${baseUrl}${endpointPath}`, {
       method: 'POST',
-      headers: {
-        apikey: apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: { number, text },
+      headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+      body,
       ignoreResponseError: true,
     })
     const status = res.status
@@ -88,4 +76,44 @@ export async function sendWhatsAppText(
   } catch (err: any) {
     return { ok: false, status: 0, error: err?.message || 'fetch failed' }
   }
+}
+
+// Sends a plain-text WhatsApp message. Returns a structured result
+// instead of throwing on HTTP errors so callers can decide whether
+// to surface a generic error or retry.
+export async function sendWhatsAppText(
+  phone: string,
+  text: string,
+): Promise<SendWhatsAppResult> {
+  const { instance } = getEvolutionConfig()
+  const number = normalizePhoneForWhatsApp(phone)
+  if (!number) return { ok: false, status: 400, error: 'invalid phone' }
+  return postEvolution(
+    `/message/sendText/${encodeURIComponent(instance)}`,
+    { number, text },
+  )
+}
+
+// Sends an image (by URL or data URI) with an optional text caption.
+// Used when the consulta has a FIPE chart to attach — the chart goes
+// as the media, the textual breakdown rides along as the caption.
+export async function sendWhatsAppImage(
+  phone: string,
+  mediaUrl: string,
+  caption: string,
+  fileName = 'consulta.png',
+): Promise<SendWhatsAppResult> {
+  const { instance } = getEvolutionConfig()
+  const number = normalizePhoneForWhatsApp(phone)
+  if (!number) return { ok: false, status: 400, error: 'invalid phone' }
+  return postEvolution(
+    `/message/sendMedia/${encodeURIComponent(instance)}`,
+    {
+      number,
+      mediatype: 'image',
+      media: mediaUrl,
+      caption,
+      fileName,
+    },
+  )
 }
