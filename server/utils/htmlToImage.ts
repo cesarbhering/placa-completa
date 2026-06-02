@@ -40,22 +40,21 @@ export async function renderHtmlToPng(
   const scale = options.scale ?? 2
   const timeoutMs = options.timeoutMs ?? 15_000
 
+  // Gotenberg multipart shape: the field MUST be named "files" and the
+  // entrypoint HTML MUST be filename "index.html".
   const form = new FormData()
   form.append(
-    'index.html',
+    'files',
     new Blob([html], { type: 'text/html' }),
     'index.html',
   )
-  form.append('width', String(width / 96)) // Gotenberg uses inches
-  form.append('paperWidth', String(width / 96))
-  form.append('paperHeight', '0') // 0 = auto
+  form.append('paperWidth', String(width / 96)) // inches
+  form.append('paperHeight', '0') // 0 = auto from content
   form.append('omitBackground', 'false')
   form.append('emulatedMediaType', 'screen')
-  form.append('preferCssPageSize', 'true')
   form.append('format', 'png')
   form.append('optimizeForSpeed', 'true')
   form.append('quality', '90')
-  form.append('clip', 'true')
 
   const started = Date.now()
   try {
