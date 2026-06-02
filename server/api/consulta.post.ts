@@ -287,22 +287,46 @@ export default defineEventHandler(async (event) => {
         })
       }
     } else {
-      // channel === 'whatsapp'. If we already built a FIPE chart for the
-      // email-equivalent payload, ride along: chart as the media + the
-      // textual breakdown as the caption. Otherwise fall back to plain
-      // text so the user still gets the data.
+      // channel === 'whatsapp'. Two layers of resilience:
+      //   1) postEvolution() retries 5xx/network errors with exponential
+      //      backoff (3 attempts).
+      //   2) If the image send fails despite retries (QuickChart slow,
+      //      Baileys mid-reconnect, Evolution rejects the URL), fall
+      //      back to plain text — the user still gets the data.
       const text = buildWhatsAppText(apiResponse, placaClean, icv5Result, rodizio)
-      const result = chartUrl
+
+      let result = chartUrl
         ? await sendWhatsAppImage(normalizedPhone as string, chartUrl, text)
         : await sendWhatsAppText(normalizedPhone as string, text)
-      if (result.ok) {
+
+      if (!result.ok && chartUrl) {
+        console.warn('[whatsapp] image send failed, falling back to text:', result.status, result.error, result.rawResponse)
+        const fallback = await sendWhatsAppText(normalizedPhone as string, text)
+        if (fallback.ok) {
+          whatsappSent = true
+          // Image delivery is degraded — alert internally even though
+          // the user got the data.
+          await sendErrorEmail({
+            endpoint: '/api/consulta (whatsapp image fallback)',
+            errorMessage: `Image send failed (status ${result.status}), text fallback OK. Evolution body: ${result.rawResponse?.slice(0, 300)}`,
+            requestBody: { placa: placaClean, phone: normalizedPhone, hadChart: true, attempts: result.attempts },
+            userAgent,
+            ip,
+            timestamp: new Date().toISOString(),
+          })
+        } else {
+          result = fallback
+        }
+      } else if (result.ok) {
         whatsappSent = true
-      } else {
-        console.error('Evolution API error:', result.status, result.error)
+      }
+
+      if (!whatsappSent) {
+        console.error('Evolution API error:', result.status, result.error, result.rawResponse)
         await sendErrorEmail({
           endpoint: '/api/consulta (whatsapp sending)',
-          errorMessage: `Failed to send WhatsApp (status ${result.status}): ${result.error}`,
-          requestBody: { placa: placaClean, phone: normalizedPhone, hadChart: Boolean(chartUrl) },
+          errorMessage: `Failed to send WhatsApp (status ${result.status}): ${result.error}. Evolution body: ${result.rawResponse?.slice(0, 300)}`,
+          requestBody: { placa: placaClean, phone: normalizedPhone, hadChart: Boolean(chartUrl), attempts: result.attempts },
           userAgent,
           ip,
           timestamp: new Date().toISOString(),
