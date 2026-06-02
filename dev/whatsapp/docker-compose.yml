@@ -14,7 +14,7 @@ name: pc-whatsapp-dev
 
 services:
   evolution:
-    image: atendai/evolution-api:v2.2.3
+    image: atendai/evolution-api:latest
     container_name: pc-evolution
     restart: unless-stopped
     depends_on:
@@ -43,7 +43,8 @@ services:
       LANGUAGE: "pt-BR"
       CONFIG_SESSION_PHONE_CLIENT: "PlacaCompleta"
       CONFIG_SESSION_PHONE_NAME: "Chrome"
-      LOG_LEVEL: "ERROR"
+      LOG_LEVEL: "DEBUG"
+      LOG_BAILEYS: "info"
       LOG_COLOR: "false"
 
   evolution-db:
