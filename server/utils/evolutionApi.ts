@@ -43,39 +43,79 @@ export interface SendWhatsAppResult {
   status: number
   messageId?: string
   error?: string
+  // Full body of the failed response, helpful for diagnosing why
+  // Evolution refused a request. Stringified, truncated to keep logs
+  // sane.
+  rawResponse?: string
+  attempts?: number
 }
+
+function isRetriable(status: number): boolean {
+  // 5xx and network errors (status 0) are likely transient. 408 is
+  // a request timeout. Everything else (incl. 400, 401, 422) is
+  // treated as a definitive client error.
+  if (status === 0) return true
+  if (status === 408 || status === 425 || status === 429) return true
+  return status >= 500 && status <= 599
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function postEvolution(
   endpointPath: string,
   body: Record<string, unknown>,
+  { maxAttempts = 3 }: { maxAttempts?: number } = {},
 ): Promise<SendWhatsAppResult> {
   const { baseUrl, apiKey } = getEvolutionConfig()
-  try {
-    const res = await $fetch.raw(`${baseUrl}${endpointPath}`, {
-      method: 'POST',
-      headers: { apikey: apiKey, 'Content-Type': 'application/json' },
-      body,
-      ignoreResponseError: true,
-    })
-    const status = res.status
-    const payload = res._data as any
-    if (status >= 200 && status < 300) {
-      return {
-        ok: true,
-        status,
-        messageId: payload?.key?.id || payload?.messageId,
+  let lastResult: SendWhatsAppResult = { ok: false, status: 0 }
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await $fetch.raw(`${baseUrl}${endpointPath}`, {
+        method: 'POST',
+        headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+        body,
+        ignoreResponseError: true,
+      })
+      const status = res.status
+      const payload = res._data as any
+      if (status >= 200 && status < 300) {
+        return {
+          ok: true,
+          status,
+          messageId: payload?.key?.id || payload?.messageId,
+          attempts: attempt,
+        }
       }
-    }
-    return {
-      ok: false,
-      status,
-      error: typeof payload === 'string'
+
+      const rawResponse = (() => {
+        try {
+          return typeof payload === 'string' ? payload.slice(0, 500) : JSON.stringify(payload).slice(0, 500)
+        } catch {
+          return String(payload).slice(0, 500)
+        }
+      })()
+      const error = typeof payload === 'string'
         ? payload.slice(0, 200)
-        : payload?.message || payload?.error || `HTTP ${status}`,
+        : payload?.message || payload?.error || `HTTP ${status}`
+
+      lastResult = { ok: false, status, error, rawResponse, attempts: attempt }
+      if (!isRetriable(status) || attempt === maxAttempts) {
+        return lastResult
+      }
+    } catch (err: any) {
+      lastResult = {
+        ok: false,
+        status: 0,
+        error: err?.message || 'fetch failed',
+        attempts: attempt,
+      }
+      if (attempt === maxAttempts) return lastResult
     }
-  } catch (err: any) {
-    return { ok: false, status: 0, error: err?.message || 'fetch failed' }
+    // Exponential backoff: 200ms → 800ms → 3200ms
+    await sleep(200 * Math.pow(4, attempt - 1))
   }
+  return lastResult
 }
 
 // Sends a plain-text WhatsApp message. Returns a structured result
