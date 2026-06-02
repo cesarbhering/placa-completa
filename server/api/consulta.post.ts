@@ -3,7 +3,6 @@ import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../util
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
-import { buildWhatsAppCardHtml } from '../utils/buildWhatsAppCard'
 
 type Channel = 'email' | 'whatsapp'
 
@@ -319,17 +318,13 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      // ----- Layer A: rich card via Gotenberg -----
+      // ----- Layer A: render the same email HTML to PNG via Gotenberg -----
+      // Reuses buildEmailHtml so the WhatsApp image is visually identical
+      // to the email a user would otherwise receive.
       let cardDataUri: string | null = null
       if (config.gotenbergUrl) {
-        const cardHtml = buildWhatsAppCardHtml({
-          data: apiResponse,
-          placa: placaClean,
-          chartDataUri,
-          icv5: icv5Result,
-          rodizio,
-        })
-        const renderRes = await renderHtmlToPng(cardHtml, { width: 480, timeoutMs: 12_000 })
+        const emailHtml = buildEmailHtml(apiResponse, placaClean, chartDataUri, icv5Result, rodizio)
+        const renderRes = await renderHtmlToPng(emailHtml, { width: 560, timeoutMs: 15_000 })
         if (renderRes.ok && renderRes.bytes) {
           cardDataUri = `data:image/png;base64,${renderRes.bytes.toString('base64')}`
         } else {
