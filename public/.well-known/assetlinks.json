@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "br.com.placacompleta",
+      "sha256_cert_fingerprints": [
+        "0C:23:56:C2:25:50:0B:58:25:C4:27:45:FB:66:14:B2:9E:1F:8F:1D:D5:16:EA:F8:AC:98:80:BD:EB:40:2A:20"
+      ]
+    }
+  }
+]
