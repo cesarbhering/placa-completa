@@ -322,7 +322,7 @@ export default defineEventHandler(async (event) => {
       // Reuses buildEmailHtml so the WhatsApp image is visually identical
       // to the email a user would otherwise receive.
       let cardDataUri: string | null = null
-      if (config.gotenbergUrl) {
+      if (config.gotenbergUrl || process.env.GOTENBERG_URL) {
         const emailHtml = buildEmailHtml(apiResponse, placaClean, chartDataUri, icv5Result, rodizio)
         const renderRes = await renderHtmlToPng(emailHtml, { width: 560, timeoutMs: 15_000 })
         if (renderRes.ok && renderRes.bytes) {
