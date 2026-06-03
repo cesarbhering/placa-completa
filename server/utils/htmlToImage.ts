@@ -30,8 +30,14 @@ export async function renderHtmlToPng(
   html: string,
   options: RenderOptions = {},
 ): Promise<RenderHtmlResult> {
+  // Nuxt's runtimeConfig bakes process.env values at build time and only
+  // accepts NUXT_<KEY> for runtime overrides. Our Coolify env uses plain
+  // GOTENBERG_URL, so fall back to process.env directly when the baked
+  // value is empty — keeps the wiring working without renaming envs.
   const config = useRuntimeConfig()
-  const baseUrl = String(config.gotenbergUrl || '').replace(/\/+$/, '')
+  const baseUrl = String(
+    config.gotenbergUrl || process.env.GOTENBERG_URL || ''
+  ).replace(/\/+$/, '')
   if (!baseUrl) {
     return { ok: false, status: 500, error: 'GOTENBERG_URL not configured' }
   }
