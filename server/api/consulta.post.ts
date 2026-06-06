@@ -20,6 +20,17 @@ export default defineEventHandler(async (event) => {
   // Channel-specific validation. WhatsApp is web-only — PWA always uses
   // the inline-data path, so isPWA + channel=whatsapp would be ambiguous.
   if (channel === 'whatsapp') {
+    // Feature flag — UI hides the toggle when whatsappEnabled is false,
+    // but a crafted POST can still reach us. Refuse here too.
+    const whatsappEnabled =
+      Boolean(config.public?.whatsappEnabled) ||
+      process.env.NUXT_PUBLIC_WHATSAPP_ENABLED === 'true'
+    if (!whatsappEnabled) {
+      throw createError({
+        statusCode: 503,
+        message: 'Envio por WhatsApp temporariamente indisponível. Selecione e-mail.',
+      })
+    }
     if (isPWA) {
       throw createError({ statusCode: 400, message: 'WhatsApp não disponível no modo PWA.' })
     }
