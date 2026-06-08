@@ -2,6 +2,17 @@
 
 Quota diária do GSC: ~10-20 URLs por propriedade. Voltar amanhã e fazer o restante.
 
+## Pendentes — IBV Maio 2026 (08/jun/2026)
+
+```
+https://placacompleta.com.br/ibv/maio-2026
+https://placacompleta.com.br/ibv/vencedores-perdedores-maio-2026
+```
+
+(Também vale re-solicitar `https://placacompleta.com.br/ibv` para o Google reler a listagem com os novos cards.)
+
+---
+
 ## Status atual (22/mai/2026)
 
 ### Já solicitadas hoje
