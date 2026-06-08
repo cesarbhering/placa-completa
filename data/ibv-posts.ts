@@ -276,6 +276,139 @@ export const ibvPosts: IbvPost[] = [
       },
     ],
   },
+  {
+    slug: 'maio-2026',
+    title: 'IBV Auto Maio 2026: Usados sobem 0,43% — Kwid lidera altas, Onix Plus puxa quedas',
+    metaDescription: 'IBV Auto de maio acelerou para +0,43% (ante +0,27% em abril). Renault Kwid +4,58%, Honda HR-V +1,85% e VW Gol +1,60% lideram altas; Onix Plus -1,39%, Mobi -1,14% e Uno -1,12% caem. Centro-Oeste lidera regiões com +0,99%; Norte vira para -0,23%.',
+    publishedAt: '2026-06-08',
+    source: 'Banco BV (IBV Auto)',
+    referenceMonth: 'Maio 2026',
+    content: [
+      {
+        type: 'intro',
+        text: 'O Índice BV Auto (IBV) de maio de 2026 mostra reaceleração da inflação de carros usados no Brasil: alta de 0,43% sobre abril — quase o dobro do +0,27% registrado no mês anterior, mas ainda abaixo da média de +0,72% do primeiro trimestre. No acumulado de 12 meses, os preços subiram 6,94% — leve desaceleração frente aos 6,99% fechados em abril.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/maio-2026/variacao-mensal.png',
+        alt: 'Gráfico de barras com variação mensal dos preços de automóveis leves usados de jan/25 a mai/26, mostrando +0,43% em maio/26',
+        caption: 'Variação mensal do IBV Auto — reaceleração em maio após desaceleração de abril. Fonte: Banco BV (IBV Auto), junho/2026.',
+      },
+      {
+        type: 'heading',
+        heading: 'O que mudou em maio',
+        text: 'Em abril, a alta foi puxada por populares antigos e descontinuados (Celta, Palio). Em maio, o quadro muda: o Renault Kwid lidera com +4,58% — uma alta excepcional para um único mês, mais de 10× a média do índice. Honda HR-V vem na sequência com +1,85% e o VW Gol fecha o pódio com +1,60%. Foram esses três os modelos que mais contribuíram para a aceleração do índice.\n\nNa ponta negativa, o destaque é a virada do Chevrolet Onix. Depois de puxar a alta do índice por três meses consecutivos, o Onix caiu -0,36% em maio. Seu irmão sedã, o Onix Plus, registrou a maior queda do mês com -1,39%. Em seguida vieram Fiat Mobi (-1,14%) e Fiat Uno (-1,12%) — sinal de que a pressão nas pontas migrou para o segmento de sedãs compactos e ultra populares.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/maio-2026/modelos-alta-baixa.png',
+        alt: 'Modelos com maior alta e maior queda no IBV Auto maio 2026: Renault Kwid +4,58%, Honda HR-V +1,85%, VW Gol +1,60% nas altas; Onix Plus -1,39%, Mobi -1,14%, Uno -1,12%, Onix -0,36% nas baixas',
+        caption: 'Modelos de maior destaque positivo e negativo em maio de 2026. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Variação por região: Centro-Oeste assume e Norte devolve a alta',
+        text: 'A inversão regional foi nítida: em abril, o Centro-Oeste foi o destaque negativo (com MS, MT e RS em queda) e o Norte foi o mais aquecido (TO, AC e AM lideraram as altas). Em maio, os papéis se invertem. O Centro-Oeste registrou +0,99% e foi a região com maior alta — puxada pelo Mato Grosso do Sul, que avançou +1,19% e teve a maior taxa entre os 27 estados. GO (+0,98%) e MT (+0,91%) completam o trio do Centro-Oeste no topo.\n\nO Norte fez o caminho inverso e fechou em -0,23%, devolvendo parte da forte alta de abril. Cinco dos sete estados da região terminaram negativos, com Amapá e Tocantins empatados em -0,41% — as maiores quedas do mês entre todos os estados. No total, 20 dos 27 estados ainda registraram alta no mês.\n\nNo acumulado de 12 meses, o ranking ganhou nova liderança: Rio de Janeiro assume com +7,84%, seguido por Paraná (+7,42%) e Minas Gerais (+7,29%) — MG perdeu o primeiro lugar que detinha em abril. Na ponta menor: Espírito Santo (+4,91%), Mato Grosso (+5,05%) e Santa Catarina (+5,27%). Todos ainda em alta, mas em ritmo bem mais lento.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/maio-2026/variacao-por-uf.png',
+        alt: 'Gráfico de barras: variação mensal por estado em maio de 2026, com Mato Grosso do Sul liderando em +1,19% e Tocantins/Amapá fechando em -0,41%',
+        caption: 'Variação mensal por estado (UF) — maio de 2026. Brasil em +0,43%. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/maio-2026/mapa-brasil-acumulado.png',
+        alt: 'Mapa do Brasil com variação acumulada em 12 meses por estado em maio de 2026 — Rio de Janeiro lidera com +7,84%',
+        caption: 'Variação acumulada em 12 meses por estado. Fonte: Banco BV (IBV Auto), junho/2026.',
+      },
+      {
+        type: 'heading',
+        heading: 'Elétricos seguem desvalorizando mais que o mercado',
+        text: 'A foto da depreciação por tipo de propulsão continuou estável em maio, com a hierarquia já consolidada nos meses anteriores. Modelos elétricos lançados em 2023 acumulam desvalorização de 45,6% até maio de 2026 — o mesmo nível visto até abril. Há sinal de estabilização, mas o patamar permanece alto.\n\nComparativo por ano modelo até maio/2026:\n- 2023 — Elétricos: -45,6% | Híbridos: -25,2% | Combustão: -20,0%\n- 2022 — Elétricos: -49,3% | Híbridos: -18,9% | Combustão: -13,4%\n- 2021 — Híbridos: -17,0% | Combustão: -5,1%\n\nO racional segue o mesmo: a entrada constante de elétricos novos no Brasil, com tecnologia superior e preços mais agressivos, pressiona o valor de revenda dos modelos antigos. Para quem está comprando elétrico usado, a janela de desconto se mantém aberta. Para quem está vendendo, o sinal estrutural continua claro.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/maio-2026/desvalorizacao-2023.png',
+        alt: 'Gráfico comparando desvalorização de elétricos (-45,6%), híbridos (-25,2%) e veículos a combustão (-20,0%) ano modelo 2023 até maio de 2026',
+        caption: 'Desvalorização acumulada por tipo de propulsão — modelos ano 2023. Fonte: Banco BV.',
+      },
+      {
+        type: 'highlight',
+        heading: 'O que isso significa para você?',
+        text: 'Se você tem um Renault Kwid, Honda HR-V ou VW Gol, maio foi um mês excepcional de valorização — janela favorável para vender. Se você tem um Onix Plus, Mobi ou Uno, a queda foi expressiva e acelerada: vale acelerar a decisão. Se está no Centro-Oeste e quer vender, este foi o melhor mês recente — especialmente em MS, MT e GO. No Norte, a janela é o oposto: bom mês para comprar, mês difícil para vender. Para elétricos usados, o cenário não muda — comprar tem desconto cada vez maior, vender tem urgência cada vez maior.',
+      },
+      {
+        type: 'cta',
+        text: 'Quer saber quanto vale o seu carro pela placa, com base na FIPE atualizada?',
+        ctaLabel: 'Consultar Placa Grátis',
+        ctaTo: '/',
+      },
+    ],
+  },
+  {
+    slug: 'vencedores-perdedores-maio-2026',
+    title: 'Vencedores e Perdedores de Maio 2026: Kwid dispara +4,58% e Onix Plus cai -1,39% no IBV Auto',
+    metaDescription: 'Renault Kwid +4,58%, Honda HR-V +1,85% e VW Gol +1,60% lideram altas em maio. Onix Plus -1,39%, Mobi -1,14% e Uno -1,12% caem. Onix vira após 3 meses no topo. MS lidera estados com +1,19%.',
+    publishedAt: '2026-06-08',
+    source: 'Banco BV (IBV Auto)',
+    referenceMonth: 'Maio 2026',
+    content: [
+      {
+        type: 'intro',
+        text: 'O IBV Auto de maio de 2026 fechou em +0,43% para o Brasil — quase o dobro do +0,27% de abril. Mas o detalhe está nos extremos: o Renault Kwid valorizou 4,58% em um único mês, enquanto o Onix Plus perdeu 1,39%. Quase 6 pontos percentuais separando os extremos. E o padrão muda completamente em relação a abril: em vez de populares antigos descontinuados (Celta, Palio) liderando, é a vez dos populares atuais e premium acessível dispararem.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/maio-2026/modelos-alta-baixa.png',
+        alt: 'Modelos com maior alta e maior queda no IBV Auto de maio de 2026: Renault Kwid +4,58%, Honda HR-V +1,85%, VW Gol +1,60% nas altas; Onix Plus -1,39%, Mobi -1,14%, Uno -1,12%, Onix -0,36% nas baixas',
+        caption: 'Modelos com maiores variações em maio de 2026. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Os modelos que mais valorizaram em maio',
+        text: 'O Renault Kwid liderou a alta de maio com expressivos +4,58% — alta atípica para um único mês e mais de 10× a média do índice. O Kwid é hoje um dos hatches mais baratos do mercado brasileiro de zero-km. Quando o preço do popular novo sobe ou trava em escassez, o Kwid usado vira destino natural de quem foi expulso do segmento de entrada. A alta de maio sugere demanda represada migrando para o seminovo barato.\n\nO Honda HR-V subiu +1,85% — o SUV mais conhecido da Honda no Brasil entrou na geração nova em 2022 e segue como referência de SUV compacto premium acessível. A alta de maio mostra que o segmento de SUV médio ainda tem fôlego, mesmo com a chegada agressiva dos SUVs chineses. Para quem tem um HR-V usado, é janela boa de venda.\n\nO VW Gol fechou o pódio com +1,60%. O movimento é particularmente interessante porque, em abril, o Gol foi um dos três modelos que mais caíram (-0,50%) — virou em um mês. O Gol descontinuado em 2023 segue como um dos sedãs/hatches mais procurados no usado por questão de preço, e a alta de maio sugere que a queda de abril foi exagerada e o mercado corrigiu.',
+      },
+      {
+        type: 'heading',
+        heading: 'Os modelos que mais perderam — Onix Plus, Mobi, Uno e o fim do reinado do Onix',
+        text: 'A maior queda do mês foi do Chevrolet Onix Plus com -1,39%. O Onix Plus é o sedã derivado do Onix hatch, e essa queda forte indica que a pressão competitiva no segmento de sedãs compactos ficou pesada: HB20S, Versa, Virtus e os chineses (BYD Dolphin, Caoa Chery) seguem disputando o mesmo bolso. Para quem tem um Onix Plus, a janela de queda abriu — não vale esperar.\n\nO Fiat Mobi caiu -1,14%. O Mobi é o carro mais barato em produção no Brasil, mas perdeu espaço para Kwid e Renault Kardian na disputa pelo segmento de entrada. Em maio, a curva de queda foi acelerada.\n\nO Fiat Uno recuou -1,12%. O Uno é descontinuado desde 2021, mas segue com volume gigantesco no usado. A queda de maio acompanha a tendência estrutural de erosão dos populares descontinuados — sem reposição, sem suporte e com versões novas concorrendo no mesmo preço.\n\nO destaque mais simbólico, porém, foi o Chevrolet Onix: -0,36% após puxar a alta do índice por TRÊS meses consecutivos. É a primeira queda do modelo mais vendido do Brasil em 2026. O movimento pode ser correção natural depois de três meses no topo, mas também pode marcar o início de pressão maior no popular nacional — algo a acompanhar nos próximos meses.',
+      },
+      {
+        type: 'heading',
+        heading: 'Variação por região: Centro-Oeste vira líder e Norte devolve a alta',
+        text: 'A inversão regional foi a história do mês. O Centro-Oeste, que em abril foi o destaque negativo (MS -0,57%, MT -0,48%), passou em maio à condição de líder regional com +0,99%. Mato Grosso do Sul foi o estado com maior alta entre os 27, em +1,19%. GO (+0,98%) e MT (+0,91%) completam o trio do Centro-Oeste no topo.\n\nNa contramão, o Norte — que em abril liderou com Tocantins em +1,97% e Acre em +1,78% — fechou maio em -0,23%, com cinco dos sete estados da região em baixa. Amapá e Tocantins lideraram as quedas, ambos em -0,41% (as maiores do mês). O movimento devolve parcialmente a forte alta de abril e sugere ajuste de mercado depois do pico anterior.\n\nAo todo, 20 dos 27 estados registraram alta em maio — mostra que o ambiente segue dominantemente positivo, apenas com geografia bem diferente.\n\nPara quem está comprando no Norte agora, esta é a melhor janela em meses. Para quem está vendendo no Centro-Oeste, especialmente em MS, é a melhor janela do ano.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/maio-2026/variacao-por-uf.png',
+        alt: 'Gráfico de barras com variação mensal por estado em maio de 2026: Mato Grosso do Sul lidera com +1,19%, Tocantins e Amapá fecham com -0,41%',
+        caption: 'Variação mensal por estado (UF) — maio de 2026. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Líderes regionais em 12 meses — RJ assume',
+        text: 'No acumulado de 12 meses até maio, a hierarquia ganhou nova liderança:\n\n- Rio de Janeiro: +7,84%\n- Paraná: +7,42%\n- Minas Gerais: +7,29%\n- Pernambuco: +7,17%\n- Alagoas: +7,06%\n\nMinas Gerais, que vinha liderando em abril (+8,52%), recuou para terceiro. O Rio de Janeiro assumiu a ponta — para vendedores fluminenses, é o melhor ciclo acumulado dos últimos meses.\n\nNa ponta menor: Espírito Santo (+4,91%), Mato Grosso (+5,05%) e Santa Catarina (+5,27%). Esses três estados acumulam menos da metade da inflação dos líderes — o que para compradores significa menos ágio de mercado, e para vendedores significa que o ciclo de valorização vai chegar mais devagar.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/maio-2026/mapa-brasil-acumulado.png',
+        alt: 'Mapa do Brasil com variação acumulada em 12 meses por estado em maio de 2026 — concentração de alta em RJ, PR, MG e Nordeste',
+        caption: 'Variação acumulada em 12 meses por estado. Fonte: Banco BV (IBV Auto), junho/2026.',
+      },
+      {
+        type: 'highlight',
+        heading: 'Como usar essa informação',
+        text: 'Se você tem um Renault Kwid, Honda HR-V ou VW Gol e pensa em vender: maio foi excepcional — acelere a decisão antes que o mercado corrija. Se você tem um Onix Plus, Mobi ou Uno: a janela de queda abriu, vender antes de mais erosão é a estratégia. Se você tem um Chevrolet Onix: três meses no topo terminaram em maio — a melhor janela de venda do ano talvez já tenha passado. Se você está em MS, GO ou MT vendendo, a janela está aberta agora. Se você está no Norte (especialmente AP e TO) comprando, é a melhor janela em meses. Se você tem um elétrico usado, a desvalorização segue estrutural — vender quanto antes continua sendo a melhor estratégia.',
+      },
+      {
+        type: 'cta',
+        text: 'Quer saber o valor atualizado do seu carro pela placa?',
+        ctaLabel: 'Consultar Placa Grátis',
+        ctaTo: '/',
+      },
+    ],
+  },
 ]
 
 export function findIbvPost(slug: string): IbvPost | undefined {
