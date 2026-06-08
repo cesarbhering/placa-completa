@@ -15,10 +15,11 @@ function formatDate(iso: string) {
   return `${day} de ${months[month - 1]} de ${year}`
 }
 
-defineOgImageComponent('IbvPost', {
+defineOgImageComponent('NuxtSeo', {
   title: post.ogTitle ?? post.title,
-  referenceMonth: post.referenceMonth,
-  highlight: post.ogHighlight,
+  description: `IBV Auto · ${post.referenceMonth}${post.ogHighlight ? ` · ${post.ogHighlight}` : ''}`,
+  theme: '#090C9B',
+  colorMode: 'dark',
 })
 
 useHead({
