@@ -15,13 +15,6 @@ function formatDate(iso: string) {
   return `${day} de ${months[month - 1]} de ${year}`
 }
 
-defineOgImageComponent('NuxtSeo', {
-  title: post.ogTitle ?? post.title,
-  description: `IBV Auto · ${post.referenceMonth}${post.ogHighlight ? ` · ${post.ogHighlight}` : ''}`,
-  theme: '#090C9B',
-  colorMode: 'dark',
-})
-
 useHead({
   title: post.title,
   meta: [
@@ -29,6 +22,7 @@ useHead({
     { property: 'og:title', content: post.title },
     { property: 'og:description', content: post.metaDescription },
     { property: 'og:type', content: 'article' },
+    { property: 'og:image', content: 'https://placacompleta.com.br/og-image.png' },
     { property: 'article:published_time', content: post.publishedAt },
     { name: 'twitter:card', content: 'summary_large_image' },
     { name: 'twitter:title', content: post.title },
