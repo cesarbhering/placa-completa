@@ -5,6 +5,10 @@ export interface IbvPost {
   publishedAt: string // ISO date string
   source: string
   referenceMonth: string // e.g. "Março 2026"
+  /** Optional short title for the OG image (fits the card width better than the full title). */
+  ogTitle?: string
+  /** Optional eye-catching number for the OG image (e.g. "+0,43%"). */
+  ogHighlight?: string
   content: IbvPostSection[]
 }
 
@@ -283,6 +287,8 @@ export const ibvPosts: IbvPost[] = [
     publishedAt: '2026-06-08',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Maio 2026',
+    ogTitle: 'Usados sobem 0,43% em maio. Kwid lidera, Onix Plus puxa quedas.',
+    ogHighlight: '+0,43%',
     content: [
       {
         type: 'intro',
@@ -353,6 +359,8 @@ export const ibvPosts: IbvPost[] = [
     publishedAt: '2026-06-08',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Maio 2026',
+    ogTitle: 'Vencedores e perdedores de maio. Kwid +4,58%, Onix Plus -1,39%.',
+    ogHighlight: 'Maio',
     content: [
       {
         type: 'intro',
