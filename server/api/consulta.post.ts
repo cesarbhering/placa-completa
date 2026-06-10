@@ -484,16 +484,16 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
 
   const fipeExtra = chartUrl ? `
     <tr>
-      <td colspan="2" style="padding:12px 10px;text-align:center;background:#ffffff;border-top:1px solid #e8e6db;">
-        <img src="${chartUrl}" alt="Histórico FIPE" width="420" style="width:100%;max-width:420px;height:auto;display:block;margin:0 auto;border:1px solid #c8c4b0;border-radius:3px;" />
-        <p style="font-size:11px;color:#5a5a6a;margin:8px 0 0;font-family:Tahoma,sans-serif;">Evolução do preço nos últimos meses</p>
+      <td colspan="2" style="padding:14px 12px;text-align:center;background:#ffffff;border-top:1px solid #e3e7ef;border-radius:0 0 12px 12px;">
+        <img src="${chartUrl}" alt="Histórico FIPE" width="420" style="width:100%;max-width:420px;height:auto;display:block;margin:0 auto;border:1px solid #dde3ee;border-radius:8px;" />
+        <p style="font-size:11px;color:#7d8597;margin:8px 0 0;font-family:'Segoe UI',Arial,sans-serif;">Evolução do preço nos últimos meses</p>
       </td>
     </tr>
   ` : ''
 
   const rodizioDisclaimer = `
     <tr>
-      <td colspan="2" style="padding:10px;font-size:11px;color:#5a5a6a;line-height:1.45;background:#f8f7ee;border-top:1px solid #e8e6db;font-family:Tahoma,sans-serif;font-style:italic;">
+      <td colspan="2" style="padding:10px 14px;font-size:11px;color:#5c677d;line-height:1.45;background:#f5f7fa;border-top:1px solid #e3e7ef;border-radius:0 0 12px 12px;font-family:'Segoe UI',Arial,sans-serif;font-style:italic;">
         Restrição válida apenas no Centro Expandido de SP capital, dias úteis.
         Isentos: veículos elétricos, táxis, motos, ônibus, ambulâncias e veículos de deficientes.
       </td>
@@ -513,8 +513,8 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
     u + .body, body { color-scheme: light !important; }
   </style>
 </head>
-<body class="body" style="margin:0;padding:0;background-color:#0d2db5;color-scheme:light;font-family:Tahoma,Verdana,Geneva,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#0d2db5" style="padding:12px 6px;background-color:#0d2db5;">
+<body class="body" style="margin:0;padding:0;background-color:#001233;color-scheme:light;font-family:'Segoe UI',Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" bgcolor="#001233" style="padding:16px 8px;background-color:#001233;">
     <tr><td align="center">
 
       ${emailWindow(`Dados do Veículo - ${placa}`, `
@@ -558,7 +558,7 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
         ${emailRow('Índice ICV5', `${icv5.indiceIcv5}% - ${icv5.classificacao}`, true)}
       `) : ''}
 
-      <p style="font-size:11px;color:#c5d2f0;text-align:center;font-family:Tahoma,sans-serif;margin:4px 0 0;max-width:520px;">
+      <p style="font-size:11px;color:#979dac;text-align:center;font-family:'Segoe UI',Arial,sans-serif;margin:6px 0 0;max-width:520px;">
         Consulta realizada em ${timestamp} &nbsp;|&nbsp; placacompleta.com.br
       </p>
 
@@ -569,26 +569,24 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
 }
 
 function emailWindow(title: string, bodyRowsHtml: string): string {
-  const titleBarBg = "background:#1d52c9;background-image:linear-gradient(180deg,#3a7dd8 0%,#1d52c9 50%,#0f389b 100%);"
-  const btnBg = "background:#1a4bb2;background-image:linear-gradient(180deg,#3a7dd8 0%,#1a4bb2 100%);"
-  const closeBg = "background:#b5241b;background-image:linear-gradient(180deg,#ef6c5d 0%,#b5241b 100%);"
-  const btnStyle = `${btnBg}color:#fff;border:1px solid rgba(0,0,30,0.35);border-radius:3px;font-size:10px;font-weight:bold;font-family:Tahoma,sans-serif;`
-  const closeStyle = `${closeBg}color:#fff;border:1px solid rgba(0,0,30,0.35);border-radius:3px;font-size:10px;font-weight:bold;font-family:Tahoma,sans-serif;`
+  const titleBarBg = "background:#0466c8;background-image:linear-gradient(180deg,#0466c8 0%,#0353a4 100%);"
+  const btnStyle = "background:#2a82d8;color:#ffffff;border-radius:6px;font-size:10px;font-weight:bold;font-family:'Segoe UI',Arial,sans-serif;"
+  const closeStyle = "background:#d65a4e;color:#ffffff;border-radius:6px;font-size:10px;font-weight:bold;font-family:'Segoe UI',Arial,sans-serif;"
 
   return `
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;margin:0 auto 10px;background:#ffffff;border:1px solid #7f9db9;border-collapse:collapse;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;margin:0 auto 12px;background:#ffffff;border-collapse:separate;border-spacing:0;border-radius:12px;">
   <tr>
-    <td colspan="2" bgcolor="#1d52c9" style="${titleBarBg}padding:4px 5px 4px 10px;">
+    <td colspan="2" bgcolor="#0466c8" style="${titleBarBg}padding:9px 10px 9px 14px;border-radius:12px 12px 0 0;">
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
-          <td style="color:#ffffff;font-size:12px;font-weight:bold;font-family:'Trebuchet MS',Tahoma,sans-serif;text-shadow:1px 1px 0 rgba(0,0,30,0.5);letter-spacing:0.2px;">${title}</td>
+          <td style="color:#ffffff;font-size:13px;font-weight:600;font-family:'Segoe UI',Arial,Helvetica,sans-serif;letter-spacing:0.3px;">${title}</td>
           <td align="right" width="76">
             <table cellpadding="0" cellspacing="0"><tr>
-              <td width="20" height="18" align="center" bgcolor="#1a4bb2" style="${btnStyle}">_</td>
-              <td width="3">&nbsp;</td>
-              <td width="20" height="18" align="center" bgcolor="#1a4bb2" style="${btnStyle}">&#9633;</td>
-              <td width="3">&nbsp;</td>
-              <td width="20" height="18" align="center" bgcolor="#b5241b" style="${closeStyle}">&times;</td>
+              <td width="20" height="18" align="center" bgcolor="#2a82d8" style="${btnStyle}">_</td>
+              <td width="4">&nbsp;</td>
+              <td width="20" height="18" align="center" bgcolor="#2a82d8" style="${btnStyle}">&#9633;</td>
+              <td width="4">&nbsp;</td>
+              <td width="20" height="18" align="center" bgcolor="#d65a4e" style="${closeStyle}">&times;</td>
             </tr></table>
           </td>
         </tr>
@@ -600,10 +598,12 @@ function emailWindow(title: string, bodyRowsHtml: string): string {
 }
 
 function emailRow(label: string, value: string, isLast: boolean = false): string {
-  const borderBottom = isLast ? '' : 'border-bottom:1px solid #e8e6db;'
+  const borderBottom = isLast ? '' : 'border-bottom:1px solid #e3e7ef;'
+  const radiusLabel = isLast ? 'border-radius:0 0 0 12px;' : ''
+  const radiusValue = isLast ? 'border-radius:0 0 12px 0;' : ''
   return `<tr>
-    <td style="font-weight:bold;color:#1a1a2e;width:42%;padding:7px 12px;${borderBottom}background:#f8f7ee;font-family:Tahoma,Verdana,sans-serif;font-size:12px;">${label}</td>
-    <td style="color:#0831d9;padding:7px 12px;${borderBottom}background:#ffffff;font-family:Tahoma,Verdana,sans-serif;font-weight:bold;font-size:12px;">${value}</td>
+    <td style="font-weight:600;color:#33415c;width:42%;padding:8px 14px;${borderBottom}${radiusLabel}background:#f5f7fa;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:12px;">${label}</td>
+    <td style="color:#0353a4;padding:8px 14px;${borderBottom}${radiusValue}background:#ffffff;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-weight:700;font-size:12px;">${value}</td>
   </tr>`
 }
 

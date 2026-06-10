@@ -87,9 +87,10 @@ $shadow-btn:  0 6px 16px rgba(4, 102, 200, 0.32);
 // Mixins (legacy names, modern output)
 // ------------------------------------------------------------
 
-// Card header strip (was the XP glossy titlebar)
+// Card header strip (was the XP glossy titlebar) — vivid blue so the card
+// header reads clearly against the dark prussian page background
 @mixin xp-titlebar-bg {
-  background: linear-gradient(180deg, $prussian-blue 0%, $prussian-blue-2 100%);
+  background: linear-gradient(180deg, $smart-blue 0%, $sapphire 100%);
 }
 
 // Secondary button face
