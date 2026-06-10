@@ -726,78 +726,89 @@ async function handleSubmit() {
 
         <h1 class="page-title">Consulta Veicular Grátis</h1>
         <p class="page-subtitle">
-          Digite a placa e descubra os dados completos do veículo.
+          Digite a placa e receba <strong>marca, modelo, ano, valor FIPE e situação</strong> do veículo em segundos.
         </p>
 
         <p v-if="consultaCount > 0" class="counter">
+          <svg class="counter__check" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="currentColor" opacity="0.15"/><path d="M4.5 8.5L7 11L11.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           {{ consultaCount.toLocaleString('pt-BR') }} consultas realizadas
         </p>
 
-        <hr class="win-separator" />
-
         <form v-if="!success" @submit.prevent="handleSubmit" novalidate role="search" aria-label="Consulta veicular por placa">
           <div v-if="!processingPhoto && !loading" class="form-group">
-            <label class="form-group__label" for="placa">Placa do Veículo</label>
-            <input
-              id="placa"
-              ref="placaRef"
-              :value="placa"
-              type="text"
-              class="win-input placa-input"
-              :class="{ 'win-input--error': placaError }"
-              placeholder="ABC1D23"
-              maxlength="7"
-              autocomplete="off"
-              autocapitalize="characters"
-              inputmode="text"
-              required
-              aria-describedby="placa-help"
-              @focus="onFormStart"
-              @input="onPlacaInput"
-            />
-            <small id="placa-help" class="form-group__help">Formato padrão (ABC1234) ou Mercosul (ABC1D23)</small>
+            <label class="form-group__label visually-hidden" for="placa">Placa do Veículo</label>
+            <div class="plate-field" :class="{ 'plate-field--error': placaError }">
+              <div class="plate-field__band">
+                <span class="plate-field__country">BRASIL</span>
+              </div>
+              <input
+                id="placa"
+                ref="placaRef"
+                :value="placa"
+                type="text"
+                class="plate-field__input"
+                placeholder="ABC1D23"
+                maxlength="7"
+                autocomplete="off"
+                autocapitalize="characters"
+                inputmode="text"
+                required
+                aria-describedby="placa-help"
+                @focus="onFormStart"
+                @input="onPlacaInput"
+              />
+            </div>
+            <small id="placa-help" class="form-group__help">Aceita placa antiga (ABC1234) e Mercosul (ABC1D23)</small>
             <span v-if="placaError" class="form-group__error" role="alert">{{ placaError }}</span>
-          </div>
-
-          <label v-if="!isPWA && !processingPhoto && !loading" class="fipe-chart-option">
-            <input
-              type="checkbox"
-              v-model="includeFipeChart"
-              class="fipe-chart-option__checkbox"
-            />
-            <span class="fipe-chart-option__label">Incluir gráfico FIPE</span>
-            <span class="fipe-chart-option__tooltip" data-tip="Inclui no e-mail um gráfico com a evolução do preço FIPE do veículo nos últimos meses">?</span>
-          </label>
-
-          <label v-if="!isPWA && !processingPhoto && !loading" class="fipe-chart-option">
-            <input
-              type="checkbox"
-              v-model="includeIcv5"
-              class="fipe-chart-option__checkbox"
-            />
-            <span class="fipe-chart-option__label">Incluir ICV5</span>
-            <span class="fipe-chart-option__tooltip" data-tip="Calcula uma estimativa do custo total para manter este veículo nos próximos 5 anos, incluindo manutenção e IPVA">?</span>
-          </label>
-
-          <div v-if="!isPWA && !processingPhoto && !loading && includeIcv5" class="uf-select-group">
-            <label class="uf-select-group__label" for="icv5-uf">Estado (UF)</label>
-            <select
-              id="icv5-uf"
-              v-model="icv5Uf"
-              class="win-input uf-select-group__select"
-            >
-              <option v-for="u in ufOptions" :key="u" :value="u">{{ u }}</option>
-            </select>
           </div>
 
           <button
             v-if="!processingPhoto && !loading"
             type="submit"
-            class="win-btn win-btn--primary win-btn--block"
+            class="win-btn win-btn--primary win-btn--block cta-main"
             :disabled="loading"
           >
-            Consultar Placa
+            Consultar Placa Grátis
           </button>
+
+          <p v-if="!processingPhoto && !loading" class="trust-line trust-line--cta">
+            100% grátis &middot; Sem cadastro &middot; Resultado em segundos
+          </p>
+
+          <div v-if="!isPWA && !processingPhoto && !loading" class="options-row">
+            <span class="options-row__caption">Incluir no resultado:</span>
+
+            <label class="fipe-chart-option">
+              <input
+                type="checkbox"
+                v-model="includeFipeChart"
+                class="fipe-chart-option__checkbox"
+              />
+              <span class="fipe-chart-option__label">Gráfico FIPE</span>
+              <span class="fipe-chart-option__tooltip" data-tip="Inclui no e-mail um gráfico com a evolução do preço FIPE do veículo nos últimos meses">?</span>
+            </label>
+
+            <label class="fipe-chart-option">
+              <input
+                type="checkbox"
+                v-model="includeIcv5"
+                class="fipe-chart-option__checkbox"
+              />
+              <span class="fipe-chart-option__label">Custo 5 anos (ICV5)</span>
+              <span class="fipe-chart-option__tooltip" data-tip="Calcula uma estimativa do custo total para manter este veículo nos próximos 5 anos, incluindo manutenção e IPVA">?</span>
+            </label>
+
+            <div v-if="includeIcv5" class="uf-select-group">
+              <label class="uf-select-group__label" for="icv5-uf">UF</label>
+              <select
+                id="icv5-uf"
+                v-model="icv5Uf"
+                class="win-input uf-select-group__select"
+              >
+                <option v-for="u in ufOptions" :key="u" :value="u">{{ u }}</option>
+              </select>
+            </div>
+          </div>
 
           <!-- Photo Capture for PWA -->
           <div v-if="isPWA && !processingPhoto && !loading">
@@ -845,8 +856,6 @@ async function handleSubmit() {
           <div v-if="message && !photoProcessMessage" class="win-alert" :class="`win-alert--${messageType}`">
             {{ message }}
           </div>
-
-          <p class="trust-line">Resultado em segundos. Sem cadastro. 100% grátis.</p>
         </form>
 
         <!-- Post-success state -->
@@ -868,7 +877,7 @@ async function handleSubmit() {
 
         <!-- Sample result preview -->
         <div v-if="!isPWA" class="sample-preview">
-          <p class="sample-preview__title">Exemplo de dados recebidos:</p>
+          <p class="sample-preview__title">O que você recebe na consulta:</p>
           <div class="sample-preview__table">
             <div class="sample-preview__row">
               <span class="sample-preview__label">Marca</span>
@@ -1166,39 +1175,144 @@ async function handleSubmit() {
 <style lang="scss" scoped>
 .page-title {
   font-family: $font-display;
-  font-size: 2rem;
-  color: $navy-electric;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: $prussian-blue;
   text-align: center;
-  margin-bottom: $space-xs;
-  letter-spacing: 1px;
+  margin-bottom: $space-sm;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
 }
 
 .page-subtitle {
   font-family: $font-body;
-  font-size: 0.8125rem;
-  color: $graphite;
+  font-size: 0.9375rem;
+  color: $blue-slate;
   text-align: center;
-  margin-bottom: $space-xs;
-  line-height: 1.4;
+  margin-bottom: $space-md;
+  line-height: 1.55;
+  max-width: 360px;
+  margin-left: auto;
+  margin-right: auto;
+
+  strong {
+    color: $regal-navy;
+    font-weight: 600;
+  }
 }
 
 .counter {
-  font-family: $font-display;
-  font-size: 0.9375rem;
-  color: $smart-blue;
-  text-align: center;
-  margin-bottom: $space-sm;
-  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: $font-body;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: $success-green;
+  background: #eef9f1;
+  border-radius: 99px;
+  padding: 5px 14px;
+  margin-bottom: $space-lg;
+
+  &__check {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
 }
 
-.placa-input {
-  font-family: $font-plate;
-  font-weight: 700;
-  font-size: 1.5rem;
-  text-align: center;
-  letter-spacing: 4px;
-  text-transform: uppercase;
-  color: $navy-electric;
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+// Mercosul-style plate input
+.plate-field {
+  max-width: 290px;
+  margin: 0 auto;
+  border: 2.5px solid $prussian-blue-3;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(0, 18, 51, 0.12);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+
+  &:focus-within {
+    border-color: $smart-blue;
+    box-shadow: 0 0 0 4px rgba(4, 102, 200, 0.18), 0 4px 14px rgba(0, 18, 51, 0.12);
+  }
+
+  &--error {
+    border-color: $error-red;
+  }
+
+  &__band {
+    background: linear-gradient(180deg, #0353a4 0%, #023e7d 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 10px;
+  }
+
+  &__country {
+    color: #ffffff;
+    font-family: $font-body;
+    font-weight: 700;
+    font-size: 0.625rem;
+    letter-spacing: 4px;
+  }
+
+  &__input {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-family: $font-plate;
+    font-weight: 700;
+    font-size: 2rem;
+    text-align: center;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: $prussian-blue-3;
+    padding: 8px 10px 10px;
+    background: transparent;
+
+    &::placeholder {
+      color: #c8cedd;
+      letter-spacing: 6px;
+    }
+  }
+}
+
+.cta-main {
+  margin-top: $space-md;
+  font-size: 1.0625rem;
+  min-height: 52px;
+}
+
+.options-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 14px;
+  margin-top: $space-md;
+  padding-top: $space-md;
+  border-top: 1px solid $border-light;
+
+  &__caption {
+    font-size: 0.75rem;
+    color: $slate-grey;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 2px;
+  }
 }
 
 .form-group__help {
@@ -1319,10 +1433,14 @@ async function handleSubmit() {
 .trust-line {
   font-family: $font-body;
   font-size: 0.75rem;
-  color: $graphite;
+  color: $slate-grey;
   text-align: center;
   margin-top: $space-md;
   letter-spacing: 0.3px;
+
+  &--cta {
+    margin-top: $space-sm;
+  }
 }
 
 .loading-stage {

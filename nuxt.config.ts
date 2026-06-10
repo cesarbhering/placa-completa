@@ -47,7 +47,7 @@ export default defineNuxtConfig({
       lang: 'pt-BR',
       display: 'standalone',
       orientation: 'portrait-primary',
-      theme_color: '#090c9b',
+      theme_color: '#001233',
       background_color: '#ffffff',
       icons: [
         {
@@ -101,6 +101,7 @@ export default defineNuxtConfig({
       "/consultar-placa-de-onibus",
       "/consultar-placa-de-van",
       // pSEO: states
+      "/consultar-placa",
       "/consultar-placa/acre",
       "/consultar-placa/alagoas",
       "/consultar-placa/amapa",
@@ -402,7 +403,7 @@ export default defineNuxtConfig({
           content: "https://placacompleta.com.br/og-image.png",
         },
         { name: "robots", content: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" },
-        { name: "theme-color", content: "#090c9bff" },
+        { name: "theme-color", content: "#001233" },
         { name: "mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-status-bar-style", content: "default" },
@@ -428,9 +429,9 @@ export default defineNuxtConfig({
         },
         {
           rel: "preload",
-          href: "/fonts/VT323-Regular.ttf",
+          href: "/fonts/ibm-plex-mono-700-latin.woff2",
           as: "font",
-          type: "font/ttf",
+          type: "font/woff2",
           crossorigin: "",
         },
       ],
