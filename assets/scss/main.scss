@@ -351,6 +351,15 @@ body {
     margin-top: $space-xs;
   }
 
+  &__nav {
+    margin-bottom: $space-sm;
+    line-height: 1.9;
+
+    a {
+      white-space: nowrap;
+    }
+  }
+
   &__sep {
     margin: 0 $space-xs;
     opacity: 0.5;

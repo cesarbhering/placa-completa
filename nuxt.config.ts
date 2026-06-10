@@ -101,6 +101,7 @@ export default defineNuxtConfig({
       "/consultar-placa-de-onibus",
       "/consultar-placa-de-van",
       // pSEO: states
+      "/consultar-placa",
       "/consultar-placa/acre",
       "/consultar-placa/alagoas",
       "/consultar-placa/amapa",

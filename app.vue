@@ -38,6 +38,17 @@ if (!isPWA.value) {
     <div v-show="isReady">
       <NuxtPage />
       <footer class="footer">
+        <nav class="footer__nav" aria-label="Conteúdo do site">
+          <NuxtLink to="/consultar-placa">Consultar por Estado</NuxtLink>
+          <span class="footer__sep">|</span>
+          <NuxtLink to="/tabela-fipe">Tabela FIPE</NuxtLink>
+          <span class="footer__sep">|</span>
+          <NuxtLink to="/tabela-fipe-por-placa">FIPE pela Placa</NuxtLink>
+          <span class="footer__sep">|</span>
+          <NuxtLink to="/como-consultar-placa">Como Consultar</NuxtLink>
+          <span class="footer__sep">|</span>
+          <NuxtLink to="/ibv">IBV Auto</NuxtLink>
+        </nav>
         <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta — Consulta veicular grátis e segura.</p>
         <p class="footer__email">contato[at]placacompleta.com.br</p>
         <nav class="footer__links">
