@@ -2,6 +2,14 @@
 
 Quota diária do GSC: ~10-20 URLs por propriedade. Voltar amanhã e fazer o restante.
 
+## Pendentes — Hub de estados (10/jun/2026, após merge do redesign-v2)
+
+> Solicitar SOMENTE depois do merge do PR #40 e deploy em produção — a URL ainda é 404 na main.
+
+```
+https://placacompleta.com.br/consultar-placa
+```
+
 ## Pendentes — IBV Maio 2026 (08/jun/2026)
 
 ```
