@@ -52,6 +52,8 @@ if (!isPWA.value) {
         <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta — Consulta veicular grátis e segura.</p>
         <p class="footer__email">contato[at]placacompleta.com.br</p>
         <nav class="footer__links">
+          <NuxtLink to="/sobre">Sobre</NuxtLink>
+          <span class="footer__sep">|</span>
           <NuxtLink to="/termos-de-uso">Termos de Uso</NuxtLink>
           <span class="footer__sep">|</span>
           <NuxtLink to="/politica-de-privacidade">Política de Privacidade</NuxtLink>
