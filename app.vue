@@ -58,7 +58,7 @@ if (!isPWA.value) {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, #090c9b 0%, #3066be 100%);
+  background: linear-gradient(135deg, #001233 0%, #0466c8 100%);
   display: flex;
   align-items: center;
   justify-content: center;

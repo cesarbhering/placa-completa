@@ -1,52 +1,72 @@
-// Placa Completa - Brand Palette
-$graphite: #3c3744;
-$navy-electric: #090c9b;
-$smart-blue: #3066be;
-$powder-blue: #b4c5e4;
-$ivory: #fbfff1;
-$success-green: #28a745;
+// ============================================================
+// PlacaCompleta v2.0 — Professional palette
+// ============================================================
+$smart-blue:       #0466c8;
+$sapphire:         #0353a4;
+$regal-navy:       #023e7d;
+$prussian-blue:    #002855;
+$prussian-blue-2:  #001845;
+$prussian-blue-3:  #001233;
+$twilight-indigo:  #33415c;
+$blue-slate:       #5c677d;
+$slate-grey:       #7d8597;
+$lavender-grey:    #979dac;
 
-// Windows XP Luna — title bar / accents
-$xp-title-deep:    #0831d9;
-$xp-title-top:     #3a7dd8;
-$xp-title-mid:     #1d52c9;
-$xp-title-bottom:  #0f389b;
-$xp-title-edge:    #003c74;
+// Surfaces & semantic
+$surface:        #ffffff;
+$surface-alt:    #f5f7fa;
+$border-light:   #dde3ee;
+$border-mid:     #c4ccdc;
+$success-green:  #1e9e4a;
+$error-red:      #d33a3a;
+
+// Brand aliases used across pages (remapped to v2 palette)
+$graphite:      $twilight-indigo;  // body text
+$navy-electric: $regal-navy;       // headings / strong accents
+$powder-blue:   #e3eefb;           // light blue tint (highlight boxes, hovers)
+$ivory:         $surface-alt;      // light text on dark bg
+
+// ------------------------------------------------------------
+// Legacy XP token names (kept so existing scoped styles compile;
+// all values remapped to the v2 professional palette)
+// ------------------------------------------------------------
+$xp-title-deep:    $prussian-blue;
+$xp-title-top:     $sapphire;
+$xp-title-mid:     $regal-navy;
+$xp-title-bottom:  $prussian-blue-2;
+$xp-title-edge:    $border-mid;
 $xp-title-text:    #ffffff;
 
-// Windows XP Luna — body / buttons
-$xp-bg:         #ece9d8; // classic XP beige-gray surface
-$xp-bg-alt:     #f1efe2;
-$xp-face-top:   #fdfdfd;
-$xp-face-mid:   #f5f4ea;
-$xp-face-bot:   #ddd9c4;
-$xp-face-dark:  #aca899;
-$xp-border:     #919b9c;
-$xp-border-dk:  #716f64;
-$xp-text:       #1a1a2e;
-$xp-input-border:  #7f9db9;
-$xp-input-focus:   #0a60e8;
+$xp-bg:         $surface;
+$xp-bg-alt:     $surface-alt;
+$xp-face-top:   #ffffff;
+$xp-face-mid:   $surface-alt;
+$xp-face-bot:   #eef1f6;
+$xp-face-dark:  $slate-grey;
+$xp-border:     $border-light;
+$xp-border-dk:  $blue-slate;
+$xp-text:       $twilight-indigo;
+$xp-input-border:  $border-mid;
+$xp-input-focus:   $smart-blue;
 
-// XP close/close-hover red pill
-$xp-close-top:    #ef6c5d;
-$xp-close-bot:    #b5241b;
+$xp-close-top:    #e4685c;
+$xp-close-bot:    #c0392b;
 
-// Legacy Win95 aliases (reassigned to XP equivalents for backwards compat)
-$win-bg:         $xp-bg;
-$win-dark:       $xp-face-dark;
-$win-darker:     $xp-border-dk;
-$win-light:      $xp-face-top;
+$win-bg:         $surface;
+$win-dark:       $slate-grey;
+$win-darker:     $blue-slate;
+$win-light:      #ffffff;
 $win-white:      #ffffff;
-$win-title:      $xp-title-deep;
-$win-title-text: $xp-title-text;
-$win-button-face: $xp-face-mid;
+$win-title:      $prussian-blue;
+$win-title-text: #ffffff;
+$win-button-face: $surface-alt;
 
-// Typography — XP signature is Tahoma / Trebuchet MS
-$font-display: 'Trebuchet MS', 'Segoe UI', Tahoma, Geneva, sans-serif;
-$font-body:    Tahoma, 'Segoe UI', Verdana, Geneva, sans-serif;
+// Typography — professional system stack; mono kept for plates
+$font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+$font-body:    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 $font-plate:   'IBM Plex Mono', 'Courier New', monospace;
 $font-mono:    'IBM Plex Mono', 'Courier New', monospace;
-$font-pixel:   'VT323', monospace; // preserved for deliberate pixel accents
+$font-pixel:   'VT323', monospace; // legacy, unused in v2
 
 // Spacing
 $space-xs: 4px;
@@ -56,65 +76,55 @@ $space-lg: 24px;
 $space-xl: 32px;
 $space-2xl: 48px;
 
-// XP title bar — glossy blue with double-gradient (shine + base)
+// Radii & shadows
+$radius-sm: 8px;
+$radius-md: 12px;
+$radius-lg: 16px;
+$shadow-card: 0 20px 50px rgba(0, 18, 51, 0.35), 0 4px 14px rgba(0, 18, 51, 0.18);
+$shadow-btn:  0 6px 16px rgba(4, 102, 200, 0.32);
+
+// ------------------------------------------------------------
+// Mixins (legacy names, modern output)
+// ------------------------------------------------------------
+
+// Card header strip (was the XP glossy titlebar)
 @mixin xp-titlebar-bg {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.45) 0%,
-      rgba(255, 255, 255, 0.08) 9%,
-      rgba(255, 255, 255, 0) 18%,
-      rgba(255, 255, 255, 0) 82%,
-      rgba(0, 0, 0, 0.18) 100%
-    ),
-    linear-gradient(
-      180deg,
-      #0b45a8 0%,
-      #3a7dd8 3%,
-      #1d52c9 45%,
-      #164bb5 88%,
-      #0f389b 100%
-    );
+  background: linear-gradient(180deg, $prussian-blue 0%, $prussian-blue-2 100%);
 }
 
-// XP raised (3D bevel) button face
+// Secondary button face
 @mixin xp-button-face {
-  background: linear-gradient(180deg, $xp-face-top 0%, $xp-face-mid 50%, $xp-face-bot 100%);
-  border: 1px solid $xp-title-edge;
-  border-radius: 3px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.85),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.08),
-    0 1px 0 rgba(255, 255, 255, 0.25);
+  background: $surface;
+  border: 1px solid $border-mid;
+  border-radius: $radius-sm;
+  box-shadow: 0 1px 2px rgba(0, 18, 51, 0.06);
 }
 
 @mixin xp-button-face-pressed {
-  background: linear-gradient(180deg, #c5bfa8 0%, #e2dec9 100%);
-  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.28);
+  background: $surface-alt;
+  box-shadow: inset 0 1px 3px rgba(0, 18, 51, 0.12);
 }
 
 @mixin xp-input {
-  background: $win-white;
-  border: 1px solid $xp-input-border;
-  border-radius: 0;
-  padding: 4px 6px;
+  background: $surface;
+  border: 1.5px solid $border-mid;
+  border-radius: $radius-sm;
+  padding: 10px 14px;
 }
 
-// Backwards-compat mixins (still referenced by pSEO page etc.) — given XP look
 @mixin win-border-raised {
-  border-radius: 3px;
-  border: 1px solid $xp-title-edge;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  border-radius: $radius-md;
+  border: 1px solid $border-light;
+  box-shadow: 0 2px 8px rgba(0, 18, 51, 0.07);
 }
 
 @mixin win-border-sunken {
-  border: 1px solid $xp-input-border;
-  border-radius: 0;
-  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.08);
+  border: 1px solid $border-light;
+  border-radius: $radius-md;
+  background: $surface-alt;
 }
 
 @mixin win-border-field {
-  border: 1px solid $xp-input-border;
+  border: 1.5px solid $border-mid;
+  border-radius: $radius-sm;
 }
