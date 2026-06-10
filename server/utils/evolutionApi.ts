@@ -43,6 +43,79 @@ export interface SendWhatsAppResult {
   status: number
   messageId?: string
   error?: string
+  // Full body of the failed response, helpful for diagnosing why
+  // Evolution refused a request. Stringified, truncated to keep logs
+  // sane.
+  rawResponse?: string
+  attempts?: number
+}
+
+function isRetriable(status: number): boolean {
+  // 5xx and network errors (status 0) are likely transient. 408 is
+  // a request timeout. Everything else (incl. 400, 401, 422) is
+  // treated as a definitive client error.
+  if (status === 0) return true
+  if (status === 408 || status === 425 || status === 429) return true
+  return status >= 500 && status <= 599
+}
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function postEvolution(
+  endpointPath: string,
+  body: Record<string, unknown>,
+  { maxAttempts = 3 }: { maxAttempts?: number } = {},
+): Promise<SendWhatsAppResult> {
+  const { baseUrl, apiKey } = getEvolutionConfig()
+  let lastResult: SendWhatsAppResult = { ok: false, status: 0 }
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await $fetch.raw(`${baseUrl}${endpointPath}`, {
+        method: 'POST',
+        headers: { apikey: apiKey, 'Content-Type': 'application/json' },
+        body,
+        ignoreResponseError: true,
+      })
+      const status = res.status
+      const payload = res._data as any
+      if (status >= 200 && status < 300) {
+        return {
+          ok: true,
+          status,
+          messageId: payload?.key?.id || payload?.messageId,
+          attempts: attempt,
+        }
+      }
+
+      const rawResponse = (() => {
+        try {
+          return typeof payload === 'string' ? payload.slice(0, 500) : JSON.stringify(payload).slice(0, 500)
+        } catch {
+          return String(payload).slice(0, 500)
+        }
+      })()
+      const error = typeof payload === 'string'
+        ? payload.slice(0, 200)
+        : payload?.message || payload?.error || `HTTP ${status}`
+
+      lastResult = { ok: false, status, error, rawResponse, attempts: attempt }
+      if (!isRetriable(status) || attempt === maxAttempts) {
+        return lastResult
+      }
+    } catch (err: any) {
+      lastResult = {
+        ok: false,
+        status: 0,
+        error: err?.message || 'fetch failed',
+        attempts: attempt,
+      }
+      if (attempt === maxAttempts) return lastResult
+    }
+    // Exponential backoff: 200ms → 800ms → 3200ms
+    await sleep(200 * Math.pow(4, attempt - 1))
+  }
+  return lastResult
 }
 
 // Sends a plain-text WhatsApp message. Returns a structured result
@@ -52,40 +125,50 @@ export async function sendWhatsAppText(
   phone: string,
   text: string,
 ): Promise<SendWhatsAppResult> {
-  const { baseUrl, apiKey, instance } = getEvolutionConfig()
+  const { instance } = getEvolutionConfig()
   const number = normalizePhoneForWhatsApp(phone)
-  if (!number) {
-    return { ok: false, status: 400, error: 'invalid phone' }
+  if (!number) return { ok: false, status: 400, error: 'invalid phone' }
+  return postEvolution(
+    `/message/sendText/${encodeURIComponent(instance)}`,
+    { number, text },
+  )
+}
+
+// Sends an image (by URL or data URI) with an optional text caption.
+// Used when the consulta has a FIPE chart to attach — the chart goes
+// as the media, the textual breakdown rides along as the caption.
+//
+// Evolution v2's sendMedia accepts the `media` field as either a URL
+// or a *raw* base64 string. It rejects `data:image/...;base64,...`
+// data URIs with "Owned media must be a url or base64". We normalize
+// callers' input here so they can pass either form transparently.
+export async function sendWhatsAppImage(
+  phone: string,
+  mediaUrl: string,
+  caption: string,
+  fileName = 'consulta.png',
+): Promise<SendWhatsAppResult> {
+  const { instance } = getEvolutionConfig()
+  const number = normalizePhoneForWhatsApp(phone)
+  if (!number) return { ok: false, status: 400, error: 'invalid phone' }
+
+  let media = mediaUrl
+  let mimetype = 'image/png'
+  const dataMatch = mediaUrl.match(/^data:([^;]+);base64,(.+)$/)
+  if (dataMatch) {
+    mimetype = dataMatch[1]
+    media = dataMatch[2]
   }
 
-  const url = `${baseUrl}/message/sendText/${encodeURIComponent(instance)}`
-  try {
-    const res = await $fetch.raw(url, {
-      method: 'POST',
-      headers: {
-        apikey: apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: { number, text },
-      ignoreResponseError: true,
-    })
-    const status = res.status
-    const payload = res._data as any
-    if (status >= 200 && status < 300) {
-      return {
-        ok: true,
-        status,
-        messageId: payload?.key?.id || payload?.messageId,
-      }
-    }
-    return {
-      ok: false,
-      status,
-      error: typeof payload === 'string'
-        ? payload.slice(0, 200)
-        : payload?.message || payload?.error || `HTTP ${status}`,
-    }
-  } catch (err: any) {
-    return { ok: false, status: 0, error: err?.message || 'fetch failed' }
-  }
+  return postEvolution(
+    `/message/sendMedia/${encodeURIComponent(instance)}`,
+    {
+      number,
+      mediatype: 'image',
+      mimetype,
+      media,
+      caption,
+      fileName,
+    },
+  )
 }

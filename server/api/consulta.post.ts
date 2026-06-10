@@ -1,7 +1,8 @@
 import { Resend } from 'resend'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
-import { sendWhatsAppText, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
+import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
+import { renderHtmlToPng } from '../utils/htmlToImage'
 
 type Channel = 'email' | 'whatsapp'
 
@@ -19,6 +20,17 @@ export default defineEventHandler(async (event) => {
   // Channel-specific validation. WhatsApp is web-only — PWA always uses
   // the inline-data path, so isPWA + channel=whatsapp would be ambiguous.
   if (channel === 'whatsapp') {
+    // Feature flag — UI hides the toggle when whatsappEnabled is false,
+    // but a crafted POST can still reach us. Refuse here too.
+    const whatsappEnabled =
+      Boolean(config.public?.whatsappEnabled) ||
+      process.env.NUXT_PUBLIC_WHATSAPP_ENABLED === 'true'
+    if (!whatsappEnabled) {
+      throw createError({
+        statusCode: 503,
+        message: 'Envio por WhatsApp temporariamente indisponível. Selecione e-mail.',
+      })
+    }
     if (isPWA) {
       throw createError({ statusCode: 400, message: 'WhatsApp não disponível no modo PWA.' })
     }
@@ -287,17 +299,98 @@ export default defineEventHandler(async (event) => {
         })
       }
     } else {
-      // channel === 'whatsapp'
+      // channel === 'whatsapp'. Delivery ladder, best first:
+      //
+      //   A) Rich card: prefetch chart as base64, build self-contained
+      //      HTML, render to PNG via Gotenberg, send inline. This is
+      //      the "feels like the email" delivery — same data, single
+      //      well-formatted image.
+      //   B) Chart-only image: if Gotenberg is unavailable or rendering
+      //      fails, fall back to the QuickChart watermark image with
+      //      text caption.
+      //   C) Plain text: if image delivery fails altogether, send the
+      //      formatted text so the user still has the data.
+      //
+      // Every layer down emits an internal alert so we can track
+      // degradation without losing the consulta itself.
       const text = buildWhatsAppText(apiResponse, placaClean, icv5Result, rodizio)
-      const result = await sendWhatsAppText(normalizedPhone as string, text)
-      if (result.ok) {
+
+      // Always try to prefetch the chart bytes — used by both A and B.
+      let chartDataUri: string | null = null
+      if (chartUrl) {
+        try {
+          const buf = await $fetch<ArrayBuffer>(chartUrl, {
+            responseType: 'arrayBuffer',
+            timeout: 12_000,
+          })
+          chartDataUri = `data:image/png;base64,${Buffer.from(buf).toString('base64')}`
+        } catch (err: any) {
+          console.warn('[whatsapp] chart prefetch failed:', err?.message)
+        }
+      }
+
+      // ----- Layer A: render the same email HTML to PNG via Gotenberg -----
+      // Reuses buildEmailHtml so the WhatsApp image is visually identical
+      // to the email a user would otherwise receive.
+      let cardDataUri: string | null = null
+      if (config.gotenbergUrl || process.env.GOTENBERG_URL) {
+        const emailHtml = buildEmailHtml(apiResponse, placaClean, chartDataUri, icv5Result, rodizio)
+        const renderRes = await renderHtmlToPng(emailHtml, { width: 560, timeoutMs: 15_000 })
+        if (renderRes.ok && renderRes.bytes) {
+          cardDataUri = `data:image/png;base64,${renderRes.bytes.toString('base64')}`
+        } else {
+          console.warn(
+            '[whatsapp] gotenberg render failed:',
+            renderRes.status,
+            renderRes.error,
+            'durationMs=' + renderRes.durationMs,
+          )
+          await sendErrorEmail({
+            endpoint: '/api/consulta (whatsapp card render)',
+            errorMessage: `Gotenberg render failed (status ${renderRes.status}): ${renderRes.error}. Will fall back to chart-only.`,
+            requestBody: { placa: placaClean, phone: normalizedPhone, gotenbergStatus: renderRes.status, durationMs: renderRes.durationMs },
+            userAgent,
+            ip,
+            timestamp: new Date().toISOString(),
+          })
+        }
+      }
+
+      const primaryMedia = cardDataUri || chartDataUri || chartUrl
+      const primaryCaption = cardDataUri ? `Consulta ${placaClean} - placacompleta.com.br` : text
+
+      let result = primaryMedia
+        ? await sendWhatsAppImage(normalizedPhone as string, primaryMedia, primaryCaption)
+        : await sendWhatsAppText(normalizedPhone as string, text)
+
+      if (!result.ok && chartUrl) {
+        console.warn('[whatsapp] image send failed, falling back to text:', result.status, result.error, result.rawResponse)
+        const fallback = await sendWhatsAppText(normalizedPhone as string, text)
+        if (fallback.ok) {
+          whatsappSent = true
+          // Image delivery is degraded — alert internally even though
+          // the user got the data.
+          await sendErrorEmail({
+            endpoint: '/api/consulta (whatsapp image fallback)',
+            errorMessage: `Image send failed (status ${result.status}), text fallback OK. Evolution body: ${result.rawResponse?.slice(0, 300)}`,
+            requestBody: { placa: placaClean, phone: normalizedPhone, hadChart: true, attempts: result.attempts },
+            userAgent,
+            ip,
+            timestamp: new Date().toISOString(),
+          })
+        } else {
+          result = fallback
+        }
+      } else if (result.ok) {
         whatsappSent = true
-      } else {
-        console.error('Evolution API error:', result.status, result.error)
+      }
+
+      if (!whatsappSent) {
+        console.error('Evolution API error:', result.status, result.error, result.rawResponse)
         await sendErrorEmail({
           endpoint: '/api/consulta (whatsapp sending)',
-          errorMessage: `Failed to send WhatsApp (status ${result.status}): ${result.error}`,
-          requestBody: { placa: placaClean, phone: normalizedPhone },
+          errorMessage: `Failed to send WhatsApp (status ${result.status}): ${result.error}. Evolution body: ${result.rawResponse?.slice(0, 300)}`,
+          requestBody: { placa: placaClean, phone: normalizedPhone, hadChart: Boolean(chartUrl), attempts: result.attempts },
           userAgent,
           ip,
           timestamp: new Date().toISOString(),
