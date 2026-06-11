@@ -517,7 +517,7 @@ function buildChartUrl(historyData: any, anoModelo: string | number, textoModelo
 
   const encoded = encodeURIComponent(chartConfigStr)
   const chartOnly = `https://quickchart.io/chart?w=480&h=250&bkg=white&c=${encoded}`
-  const logoUrl = 'https://placacompleta.com.br/logo-nobg-200.png'
+  const logoUrl = 'https://placacompleta.com.br/logo-horizontal-600.png'
 
   return `https://quickchart.io/watermark?mainImageUrl=${encodeURIComponent(chartOnly)}&markImageUrl=${encodeURIComponent(logoUrl)}&markRatio=0.3&position=center&opacity=0.15&margin=0&imageWidth=480`
 }
