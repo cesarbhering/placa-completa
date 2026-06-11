@@ -41,7 +41,7 @@ test.describe('Homepage - Main Flow', () => {
   test('should display sample data preview', async ({ page }) => {
     const preview = page.locator('.sample-preview')
     await expect(preview).toBeVisible()
-    await expect(preview).toContainText(/Exemplo de dados/i)
+    await expect(preview).toContainText(/O que você recebe/i)
     await expect(preview).toContainText('Marca')
     await expect(preview).toContainText('Modelo')
     await expect(preview).toContainText('FIPE')
