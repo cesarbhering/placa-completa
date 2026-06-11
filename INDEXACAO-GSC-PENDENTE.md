@@ -2,14 +2,28 @@
 
 Quota diária do GSC: ~10-20 URLs por propriedade. Voltar amanhã e fazer o restante.
 
-## Pendentes — IBV Maio 2026 (08/jun/2026)
+## Pendentes — Hub de estados (10/jun/2026, após merge do redesign-v2)
+
+> Solicitar SOMENTE depois do merge do PR #40 e deploy em produção — a URL ainda é 404 na main.
 
 ```
-https://placacompleta.com.br/ibv/maio-2026
-https://placacompleta.com.br/ibv/vencedores-perdedores-maio-2026
+https://placacompleta.com.br/consultar-placa
 ```
 
-(Também vale re-solicitar `https://placacompleta.com.br/ibv` para o Google reler a listagem com os novos cards.)
+## Solicitadas em 10/jun/2026
+- [x] https://placacompleta.com.br/ibv/maio-2026
+- [x] https://placacompleta.com.br/ibv/vencedores-perdedores-maio-2026
+- [x] https://placacompleta.com.br/ibv (re-crawl da listagem)
+- [x] https://placacompleta.com.br/consultar-placa/capital/joao-pessoa
+- [x] https://placacompleta.com.br/consultar-placa/capital/campo-grande
+- [x] https://placacompleta.com.br/consultar-placa/capital/aracaju
+- [x] https://placacompleta.com.br/consultar-placa/capital/porto-velho
+- [x] https://placacompleta.com.br/consultar-placa/capital/macapa
+- [x] https://placacompleta.com.br/consultar-placa/capital/rio-branco
+- [x] https://placacompleta.com.br/consultar-placa/capital/boa-vista
+- [x] https://placacompleta.com.br/consultar-placa/capital/palmas
+- [x] https://placacompleta.com.br/ (opcional, re-crawl)
+- [x] https://placacompleta.com.br/consultar-placa/piaui (opcional, re-crawl)
 
 ---
 
@@ -30,30 +44,9 @@ https://placacompleta.com.br/ibv/vencedores-perdedores-maio-2026
 - [x] https://placacompleta.com.br/consultar-placa/capital/natal
 - [x] https://placacompleta.com.br/consultar-placa/capital/maceio
 
-### Pendentes — solicitar amanhã (23/mai)
-
-Copia/cola uma por uma na barra de inspeção do GSC:
+### Opcionais restantes (re-crawl de top performers, se sobrar cota)
 
 ```
-https://placacompleta.com.br/consultar-placa/capital/joao-pessoa
-https://placacompleta.com.br/consultar-placa/capital/campo-grande
-https://placacompleta.com.br/consultar-placa/capital/aracaju
-https://placacompleta.com.br/consultar-placa/capital/porto-velho
-https://placacompleta.com.br/consultar-placa/capital/macapa
-https://placacompleta.com.br/consultar-placa/capital/rio-branco
-https://placacompleta.com.br/consultar-placa/capital/boa-vista
-https://placacompleta.com.br/consultar-placa/capital/palmas
-```
-
-### Pendentes — depois de amanhã (24/mai)
-
-(Última leva — só 0 URLs sobrando depois desse batch)
-
-Caso queira aproveitar a cota livre depois de pegar as URLs acima, pode também reforçar páginas top performers:
-
-```
-https://placacompleta.com.br/
-https://placacompleta.com.br/consultar-placa/piaui
 https://placacompleta.com.br/consultar-placa/parana
 https://placacompleta.com.br/consultar-placa/sao-paulo
 https://placacompleta.com.br/tabela-fipe/honda-civic
