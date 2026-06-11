@@ -207,7 +207,7 @@ useHead({
         '@type': 'Organization',
         name: 'PlacaCompleta',
         url: 'https://placacompleta.com.br',
-        logo: 'https://placacompleta.com.br/logo-nobg-200.png',
+        logo: 'https://placacompleta.com.br/logo-horizontal-600.png',
         areaServed: 'BR',
       }),
     },

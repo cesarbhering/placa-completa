@@ -49,7 +49,7 @@ useHead({
           url: 'https://placacompleta.com.br',
           logo: {
             '@type': 'ImageObject',
-            url: 'https://placacompleta.com.br/logo.png',
+            url: 'https://placacompleta.com.br/logo-horizontal-600.png',
           },
         },
         mainEntityOfPage: {
