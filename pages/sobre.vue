@@ -18,7 +18,7 @@ useHead({
           '@type': 'Organization',
           name: 'PlacaCompleta',
           url: 'https://placacompleta.com.br',
-          logo: 'https://placacompleta.com.br/logo-nobg-200.png',
+          logo: 'https://placacompleta.com.br/logo-horizontal-600.png',
           areaServed: 'BR',
           email: 'contato@placacompleta.com.br',
           description: 'Serviço gratuito de consulta veicular por placa no Brasil. Dados de marca, modelo, ano, cor, situação e valor FIPE, enviados por e-mail em segundos.',
