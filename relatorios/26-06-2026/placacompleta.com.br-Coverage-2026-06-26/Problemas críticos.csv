@@ -1,0 +1,10 @@
+Motivo,Fonte,Validação,Páginas
+Página com redirecionamento,Site,Falha,1
+"Rastreada, mas não indexada no momento",Sistemas do Google,Falha,51
+"Excluída pela tag ""noindex""",Site,Não foi iniciado,3
+Página alternativa com tag canônica adequada,Site,Não foi iniciado,2
+Não encontrado (404),Site,Não foi iniciado,1
+Bloqueada devido a acesso proibido (403),Site,Não foi iniciado,1
+Erro soft 404,Site,Iniciado,1
+"Cópia, o Google e o usuário selecionaram uma página canônica diferente",Sistemas do Google,Aprovado,0
+"Detectada, mas não indexada no momento",Sistemas do Google,Aprovado,0

@@ -1,0 +1,533 @@
+# ----------------------------------------
+# Visão geral da aquisição
+# Conta: temBRjogando
+# Propriedade: PlacCompleta
+# ----------------------------------------
+#  
+# Data de início: 20260328
+# Data de término: 20260625
+Nª semana,Usuários ativos
+0000,3
+0001,35
+0002,54
+0003,86
+0004,85
+0005,82
+0006,198
+0007,348
+0008,216
+0009,255
+0010,156
+0011,246
+0012,165
+0013,181
+
+# Data de início: 20260328
+# Data de término: 20260625
+Nª semana,Novos usuários
+0000,3
+0001,30
+0002,52
+0003,81
+0004,80
+0005,80
+0006,193
+0007,329
+0008,204
+0009,235
+0010,144
+0011,239
+0012,152
+0013,158
+
+#  
+# Data de início: 20260328
+# Data de término: 20260625
+Grupo principal de canais do primeiro usuário (Agrupamento de canais padrão),Novos usuários
+Organic Search,760
+Direct,424
+Unassigned,370
+Referral,195
+AI Assistant,158
+Organic Video,70
+Cross-network,3
+
+#  
+# Data de início: 20260328
+# Data de término: 20260625
+Grupo principal de canais da sessão (Agrupamento de canais padrão),Sessões
+Organic Search,877
+Direct,739
+Unassigned,508
+Referral,238
+AI Assistant,174
+Organic Video,161
+Organic Social,10
+Cross-network,3
+
+#  
+# Data de início: 20260328
+# Data de término: 20260625
+Sessão da campanha do Google Ads,Sessões
+
+
+#  
+# Data de início: 20260226
+# Data de término: 20260625
+Coorte,Valor médio de 120 dias
+0000,0
+0001,0
+0002,0
+0003,0
+0004,0
+0005,0
+0006,0
+0007,0
+0008,0
+0009,0
+0010,0
+0011,0
+0012,0
+0013,0
+0014,0
+0015,0
+0016,0
+0017,0
+0018,0
+0019,0
+0020,0
+0021,0
+0022,0
+0023,0
+0024,0
+0025,0
+0026,0
+0027,0
+0028,0
+0029,0
+0030,0
+0031,0
+0032,0
+0033,0
+0034,0
+0035,0
+0036,0
+0037,0
+0038,0
+0039,0
+0040,0
+0041,0
+0042,0
+0043,0
+0044,0
+0045,0
+0046,0
+0047,0
+0048,0
+0049,0
+0050,0
+0051,0
+0052,0
+0053,0
+0054,0
+0055,0
+0056,0
+0057,0
+0058,0
+0059,0
+0060,0
+0061,0
+0062,0
+0063,0
+0064,0
+0065,0
+0066,0
+0067,0
+0068,0
+0069,0
+0070,0
+0071,0
+0072,0
+0073,0
+0074,0
+0075,0
+0076,0
+0077,0
+0078,0
+0079,0
+0080,0
+0081,0
+0082,0
+0083,0
+0084,0
+0085,0
+0086,0
+0087,0
+0088,0
+0089,0
+0090,0
+0091,0
+0092,0
+0093,0
+0094,0
+0095,0
+0096,0
+0097,0
+0098,0
+0099,0
+0100,0
+0101,0
+0102,0
+0103,0
+0104,0
+0105,0
+0106,0
+0107,0
+0108,0
+0109,0
+0110,0
+0111,0
+0112,0
+0113,0
+0114,0
+0115,0
+0116,0
+0117,0
+0118,0
+0119,0
+
+#  
+# Data de início: 20260328
+# Data de término: 20260625
+Página de destino + string de consulta,Impressões orgânicas da Pesquisa Google
+/tabela-fipe/yamaha-mt-03,1555
+/tabela-fipe-por-placa,1452
+/consultar-placa/parana,1147
+/tabela-fipe/yamaha-lander,986
+/consultar-placa/capital/cuiaba,975
+/consultar-placa/piaui,926
+/tabela-fipe/yamaha-r3,915
+/consultar-placa/distrito-federal,491
+/consultar-placa/capital/goiania,430
+/tabela-fipe/volkswagen-nivus,411
+/tabela-fipe/honda-hr-v,409
+/tabela-fipe/chevrolet-celta,391
+/tabela-fipe/honda-civic,384
+/tabela-fipe/honda-motos-cg-160,367
+/consultar-placa/capital/belem,360
+/tabela-fipe/chevrolet-cruze,352
+/,337
+/tabela-fipe/honda-motos-biz,329
+/consultar-placa/bahia,320
+/consultar-placa/pernambuco,301
+/consultar-placa/rio-de-janeiro,301
+/tabela-fipe/bmw-320i,299
+/consultar-placa/capital/teresina,263
+/tabela-fipe/volkswagen-gol,261
+/tabela-fipe/hyundai-veloster,188
+/tabela-fipe/honda-fit,170
+/tabela-fipe/byd,164
+/tabela-fipe/honda-motos-cb-650r,161
+/consultar-placa/capital/sao-luis,158
+/tabela-fipe/ford-f-250,157
+/tabela-fipe/fiat-strada,150
+/tabela-fipe/mitsubishi-lancer,149
+/tabela-fipe/audi-q3,147
+/consultar-placa/capital/salvador,145
+/tabela-fipe/fiat-palio,143
+/consultar-placa/alagoas,136
+/tabela-fipe/yamaha-fazer-250,134
+/tabela-fipe/volkswagen-up,132
+/tabela-fipe/fiat-uno,122
+/consultar-placa/goias,119
+/tabela-fipe/renault-clio,119
+/tabela-fipe/peugeot-206,118
+/tabela-fipe/chevrolet-cobalt,113
+/consultar-placa/sergipe,109
+/tabela-fipe/ford-ecosport,107
+/tabela-fipe/chevrolet-montana,106
+/consultar-placa/capital/fortaleza,105
+/tabela-fipe/toyota-etios,104
+/consultar-placa/ceara,103
+/tabela-fipe/renault-captur,97
+/tabela-fipe/fiat-siena,94
+/tabela-fipe/peugeot-207,91
+/tabela-fipe/volkswagen-voyage,90
+/tabela-fipe/ford-focus,85
+/tabela-fipe/honda-motos-nxr-160-bros,83
+/tabela-fipe/yamaha-crosser,81
+/consultar-placa/capital/porto-velho,80
+/tabela-fipe/mitsubishi-pajero,80
+/consultar-placa/capital/recife,79
+/tabela-fipe/ford-fiesta,79
+/consultar-placa/capital/campo-grande,78
+/tabela-fipe/ford-fusion,78
+/tabela-fipe/toyota,77
+/tabela-fipe/volkswagen-fox,76
+/consultar-placa/rio-grande-do-norte,74
+/tabela-fipe/chevrolet-prisma,74
+/tabela-fipe/ford-ka,74
+/tabela-fipe/volkswagen-polo,74
+/consultar-placa/maranhao,71
+/tabela-fipe/volkswagen-fusca,71
+/tabela-fipe/honda-motos-xre-300,69
+/tabela-fipe/honda-wr-v,69
+/tabela-fipe/fiat-mobi,65
+/tabela-fipe/toyota-hilux-sw4,65
+/consultar-placa/capital/joao-pessoa,64
+/consultar-placa/capital/natal,62
+/consultar-placa/sao-paulo,61
+/tabela-fipe/fiat-doblo,61
+/tabela-fipe/hyundai-azera,60
+/tabela-fipe/yamaha-tenere,59
+/tabela-fipe/fiat-500,58
+/tabela-fipe/hyundai-tucson,56
+/tabela-fipe/peugeot-308,56
+/tabela-fipe/hyundai-creta,55
+/tabela-fipe/jeep-grand-cherokee,54
+/tabela-fipe/nissan-versa,54
+/tabela-fipe/jeep-renegade,53
+/tabela-fipe/toyota-camry,53
+/consultar-placa/capital/boa-vista,50
+/consultar-placa/capital/florianopolis,48
+/consultar-placa/rio-grande-do-sul,48
+/tabela-fipe/chevrolet-corsa,48
+/tabela-fipe/honda-motos-pop-110,48
+/tabela-fipe/renault-sandero,48
+/tabela-fipe/yamaha-mt-09,48
+/tabela-fipe/byd-dolphin,45
+/tabela-fipe/peugeot-3008,45
+/tabela-fipe/jeep-compass,44
+/tabela-fipe/toyota-corolla-cross,44
+/tabela-fipe/chevrolet-onix,43
+/tabela-fipe/chevrolet-s10,43
+/tabela-fipe/fiat-fastback,43
+/tabela-fipe/fiat-fiorino,43
+/tabela-fipe/renault-logan,43
+/tabela-fipe/audi-a5,41
+/consultar-placa/capital/brasilia,40
+/consultar-placa/paraiba,39
+/tabela-fipe/fiat,39
+/tabela-fipe/toyota-hilux,39
+/tabela-fipe/nissan-march,38
+/consultar-placa/capital/rio-branco,37
+/tabela-fipe/honda-motos-cb-300,37
+/consultar-placa/capital/aracaju,36
+/tabela-fipe/mitsubishi-pajero-sport,36
+/consultar-placa/amazonas,35
+/tabela-fipe/toyota-bandeirante,35
+/tabela-fipe/toyota-corolla,35
+/consultar-placa/capital/rio-de-janeiro,34
+/tabela-fipe/audi-a3,34
+/tabela-fipe/chevrolet,34
+/tabela-fipe/hyundai-ix35,34
+/consultar-placa/santa-catarina,33
+/tabela-fipe/bmw,33
+/tabela-fipe/hyundai-i30,33
+/tabela-fipe/honda-motos-cbr-650,32
+/tabela-fipe/nissan-livina,32
+/tabela-fipe/renault,31
+/tabela-fipe/jeep,30
+/tabela-fipe/volkswagen-jetta,30
+/consultar-placa/capital/macapa,29
+/consultar-placa/capital/vitoria,29
+/tabela-fipe/byd-seal,29
+/tabela-fipe/byd-song-plus,29
+/tabela-fipe/ford-maverick,29
+/tabela-fipe/honda-city,29
+/tabela-fipe/honda-motos-pcx,29
+/tabela-fipe/hyundai-hb20x,29
+/tabela-fipe/toyota-rav4,29
+/consultar-placa/minas-gerais,28
+/consultar-placa/rondonia,28
+/tabela-fipe,28
+/tabela-fipe/audi-a4,28
+/tabela-fipe/honda-accord,28
+/ibv/abril-2026,27
+/tabela-fipe/chevrolet-onix-plus,27
+/tabela-fipe/citroen-c4-lounge,27
+/tabela-fipe/hyundai,27
+/tabela-fipe/nissan-frontier,27
+/tabela-fipe/volkswagen-amarok,27
+/tabela-fipe/honda-motos-elite-125,26
+/tabela-fipe/ford-bronco-sport,25
+/tabela-fipe/jeep-commander,24
+/tabela-fipe/renault-oroch,24
+/consultar-placa/espirito-santo,23
+/tabela-fipe/byd-king,23
+/tabela-fipe/citroen-aircross,23
+/tabela-fipe/toyota-prius,23
+/tabela-fipe/fiat-pulse,22
+/tabela-fipe/volkswagen-virtus,22
+/consultar-placa-de-caminhao,21
+/consultar-placa/acre,21
+/consultar-placa/capital/palmas,21
+/tabela-fipe/byd-shark,21
+/tabela-fipe/ford,21
+/tabela-fipe/honda-motos,21
+/tabela-fipe/nissan-kicks,21
+/tabela-fipe/jeep-cherokee,20
+/tabela-fipe/peugeot-208,20
+/tabela-fipe/chevrolet-tracker,19
+/tabela-fipe/renault-duster,19
+/tabela-fipe/volkswagen-saveiro,19
+/tabela-fipe/volkswagen-t-cross,19
+/tabela-fipe/byd-tan,18
+/tabela-fipe/fiat-argo,18
+/tabela-fipe/nissan,18
+/tabela-fipe/peugeot,18
+/tabela-fipe/yamaha,18
+/tabela-fipe/hyundai-hb20s,16
+/tabela-fipe/mitsubishi-l200-triton,16
+/tabela-fipe/mitsubishi-outlander,16
+/tabela-fipe/ford-territory,15
+/tabela-fipe/honda-motos-africa-twin,15
+/tabela-fipe/peugeot-2008,14
+/ibv/vencedores-perdedores-maio-2026,13
+/tabela-fipe/honda,13
+/tabela-fipe/yamaha-nmax,13
+/consultar-placa/capital/belo-horizonte,12
+/consultar-placa/roraima,12
+/tabela-fipe/bmw-x5,12
+/tabela-fipe/citroen-c3,12
+/tabela-fipe/byd-dolphin-mini,11
+/tabela-fipe/chevrolet-spin,11
+/tabela-fipe/fiat-toro,11
+/tabela-fipe/honda-motos-cb-500,11
+/tabela-fipe/volkswagen,11
+/tabela-fipe/volkswagen-taos,11
+/tabela-fipe/yamaha-mt-07,11
+/consultar-placa/capital/curitiba,10
+/sobre,10
+/tabela-fipe/bmw-x3,10
+/tabela-fipe/citroen-c4-cactus,10
+/consultar-placa,9
+/tabela-fipe/citroen,9
+/tabela-fipe/ford-ranger,9
+/tabela-fipe/mitsubishi-eclipse-cross,9
+/consultar-placa/tocantins,8
+/tabela-fipe/byd-han,8
+/tabela-fipe/mitsubishi-asx,8
+/tabela-fipe/renault-kwid,8
+/tabela-fipe/renault-master,8
+/como-consultar-placa,7
+/consultar-placa/capital/sao-paulo,7
+/ibv,7
+/tabela-fipe/audi,7
+/tabela-fipe/fiat-ducato,7
+/tabela-fipe/hyundai-hb20,7
+/tabela-fipe/yamaha-factor,7
+/consultar-placa/amapa,6
+/tabela-fipe/honda-zr-v,6
+/ibv/maio-2026,5
+/tabela-fipe/audi-q5,5
+/tabela-fipe/bmw-serie-1,5
+/tabela-fipe/bmw-serie-3,5
+/tabela-fipe/fiat-cronos,5
+/tabela-fipe/bmw-x1,4
+/tabela-fipe/chevrolet-equinox,4
+/tabela-fipe/honda-cr-v,4
+/tabela-fipe/nissan-sentra,4
+/consultar-placa/para,3
+/tabela-fipe/mitsubishi,3
+/consultar-placa-de-van,2
+/consultar-placa/mato-grosso,2
+/tabela-fipe/audi-q7,2
+/consulta-placa,1
+/consultar-placa-de-carro,1
+/consultar-placa-de-moto,1
+/consultar-placa-de-onibus,1
+/consultar-placa/mato-grosso-do-sul,1
+/tabela-fipe/byd-song-pro,1
+/tabela-fipe/chevrolet-trailblazer,1
+/tabela-fipe/citroen-c3-aircross,1
+/tabela-fipe/jeep-wrangler,1
+
+#  
+# Data de início: 20260328
+# Data de término: 20260625
+Consulta de Pesquisa orgânica do Google,Cliques orgânicos da Pesquisa Google
+placa completa,35
+consulta placa,15
+consultar placa,7
+consultar veículo pela placa grátis,5
+consulta placa de carro,4
+consultar placa de carro,3
+placa,3
+tabela fipe pela placa,3
+consulta de placa,2
+consulta placa carro,2
+consulta placa gratis,2
+consultar placa gratis,2
+consultar veiculo pela placa,2
+pesquisa placa,2
+pesquisar carro pela placa,2
+placa consultar,2
+placa de carro pesquisa,2
+placa veiculo,2
+busca plac,1
+busca placa,1
+busca placa veiculo,1
+buscar placa,1
+buscar veiculo,1
+carro por placa,1
+consulta dados do veiculo pela placa,1
+consulta de placa de carro,1
+consulta de placa gratis,1
+consulta de placa veicular,1
+consulta de veículo pela placa,1
+consulta pela placa grátis,1
+consulta placa completo,1
+consulta placa de veiculo,1
+consulta placa veiculo,1
+consulta placa veiculo gratis,1
+consulta veiculo pela placa gratis,1
+consultar carro pela placa,1
+consultar placa carro,1
+consultar placa de carro gratuito,1
+consultar placa de veículo grátis,1
+consultar placa do veiculo,1
+consultar placa mercosul grátis,1
+consultar placa veiculo,1
+consultar placa veiculo gratis,1
+encontrar placa,1
+fipe pela placa,1
+localizar placa,1
+pesquisa de placas de veículos,1
+pesquisar placa de carro,1
+pesquisar placa de veículo,1
+pesquisar veículo pela placa,1
+placa carro,1
+placa carro consulta,1
+placa carro consultar,1
+placa de carro,1
+placa de carro consulta,1
+placa de veiculo consultar,1
+placa do carro,1
+placa do carro consultar,1
+placa do veiculo,1
+placa veiculo consulta,1
+procurar placa,1
+tabela fipe pela placa do veículo gratis,1
+verificar placa de carro,1
+
+#  
+# Data de início: 20260328
+# Data de término: 20260625
+Origem da campanha manual da sessão,Sessões
+chatgpt.com,839
+bing,391
+google,345
+youtube.com,161
+br.search.yahoo.com,123
+test,21
+duckduckgo,14
+t.co,10
+ui.awin.com,5
+yahoo,5
+perplexity.ai,4
+app.neilpatel.com,3
+copilot.com,3
+perplexity,2
+freshy.com,1
+search.google.com,1
