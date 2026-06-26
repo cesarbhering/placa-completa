@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { fipeBrands, findBrandModel } from '~/data/fipe-brands'
+import { getModelSeoIntro } from '~/data/fipe-model-intros'
 import fipePricesData from '~/data/fipe-prices.json'
 
 const route = useRoute()
@@ -29,6 +30,18 @@ const priceTable = computed(() => fipeData?.priceTable || [])
 const historyChart = computed(() => fipeData?.historyChart || [])
 const referenceLabel = computed(() => fipeData?.referenceLabel || '')
 const fipeModelName = computed(() => fipeData?.modelName || '')
+
+// Conteudo unico SEO por modelo (resolve "Rastreada, nao indexada")
+const modelSeoIntro = !isBrandPage || (isBrandPage && getModelSeoIntro(slug))
+  ? getModelSeoIntro(slug)
+  : null
+
+function relatedLabel(relSlug: string): string {
+  const found = findBrandModel(relSlug)
+  if (found) return `${found.brand.name} ${found.model.name}`
+  const b = fipeBrands[relSlug]
+  return b ? b.name : relSlug
+}
 
 // Chart helpers
 const chartMaxPrice = computed(() => {
@@ -184,6 +197,34 @@ if (isBrandPage) {
     })
   }
 
+  // Schema Vehicle: identidade do veiculo (marca/modelo/categoria) para enriquecer
+  // rich results e diferenciar a pagina das paginas templated de outros modelos.
+  schemaScripts.push({
+    type: 'application/ld+json',
+    innerHTML: JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Vehicle',
+      name: `${pageData.name} ${model!.name}`,
+      brand: { '@type': 'Brand', name: pageData.name },
+      model: model!.name,
+      vehicleConfiguration: pageData.type === 'motos' ? 'Motocicleta' : 'Automóvel',
+      bodyType: pageData.type === 'motos' ? 'Motorcycle' : undefined,
+      manufacturer: { '@type': 'Organization', name: pageData.name },
+      url: `https://placacompleta.com.br/tabela-fipe/${slug}`,
+      ...(priceTable.value.length > 0
+        ? {
+            offers: {
+              '@type': 'AggregateOffer',
+              priceCurrency: 'BRL',
+              lowPrice: Math.min(...priceTable.value.map((p: any) => p.price)),
+              highPrice: Math.max(...priceTable.value.map((p: any) => p.price)),
+              offerCount: priceTable.value.length,
+            },
+          }
+        : {}),
+    }),
+  })
+
   useHead({
     title: `Tabela FIPE ${pageData.name} ${model!.name} ${currentMonth} ${currentYear} - Valor Atualizado`,
     meta: [
@@ -219,6 +260,13 @@ if (isBrandPage) {
 
           <div class="seo-content">
             <p>{{ pageData.description }}</p>
+
+            <!-- Per-brand unique SEO copy quando disponivel -->
+            <section v-if="modelSeoIntro" class="model-intro">
+              <p v-for="(paragraph, i) in modelSeoIntro.intro.split('\n\n')" :key="i">
+                {{ paragraph }}
+              </p>
+            </section>
 
             <div class="text-center mt-md mb-md">
               <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
@@ -287,6 +335,22 @@ if (isBrandPage) {
               na Tabela FIPE. Para saber o preço exato para o ano e versão específica do seu veículo,
               consulte pela placa no PlacaCompleta e receba todos os dados no e-mail.
             </p>
+
+            <!-- Per-model unique SEO copy (resolve "Rastreada, nao indexada") -->
+            <section v-if="modelSeoIntro" class="model-intro">
+              <p v-for="(paragraph, i) in modelSeoIntro.intro.split('\n\n')" :key="i">
+                {{ paragraph }}
+              </p>
+              <p v-if="modelSeoIntro.related && modelSeoIntro.related.length > 0" class="related-models">
+                <strong>Veja também:</strong>
+                <NuxtLink
+                  v-for="(rel, i) in modelSeoIntro.related"
+                  :key="rel"
+                  :to="`/tabela-fipe/${rel}`"
+                  class="related-link"
+                >{{ relatedLabel(rel) }}<span v-if="i < modelSeoIntro.related.length - 1">, </span></NuxtLink>
+              </p>
+            </section>
 
             <div class="text-center mt-md mb-md">
               <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
@@ -636,5 +700,36 @@ if (isBrandPage) {
   color: $win-dark;
   margin-top: 2px;
   white-space: nowrap;
+}
+
+.model-intro {
+  margin: 1.25rem 0;
+  padding: 1rem 1.25rem;
+  background: rgba(0, 0, 0, 0.02);
+  border-left: 3px solid $navy-electric;
+  border-radius: 4px;
+}
+
+.model-intro p {
+  margin: 0 0 0.75rem 0;
+  line-height: 1.55;
+}
+
+.model-intro p:last-child {
+  margin-bottom: 0;
+}
+
+.related-models {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+.related-link {
+  color: $navy-electric;
+  text-decoration: none;
+}
+
+.related-link:hover {
+  text-decoration: underline;
 }
 </style>
