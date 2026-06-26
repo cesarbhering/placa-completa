@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { states } from '~/data/states'
 import { capitalSlugByStateSlug } from '~/data/capitals'
+import { getStateSeoIntro } from '~/data/state-seo-intros'
 
 const route = useRoute()
 const slug = route.params.estado as string
@@ -11,6 +12,7 @@ if (!data) {
 }
 
 const capitalSlug = capitalSlugByStateSlug[slug]
+const seoIntro = getStateSeoIntro(slug)
 
 function onCtaClick() {
   if (import.meta.client && window.gtag) {
@@ -19,12 +21,15 @@ function onCtaClick() {
 }
 
 useHead({
-  title: `Consultar Placa ${data.uf} Grátis — Marca, Modelo, Ano e FIPE`,
+  title: `Consultar Placa ${data.uf} Grátis: Marca, Modelo, Ano e FIPE`,
   meta: [
     { name: 'description', content: `Consulte qualquer placa registrada em ${data.name} (${data.uf}). Veja marca, modelo, ano, cor, situação e valor FIPE do veículo. Resultado grátis em segundos.` },
     { name: 'keywords', content: `consultar placa ${data.uf}, consulta placa ${data.name.toLowerCase()}, consultar veículo ${data.name.toLowerCase()}, placa ${data.uf} grátis` },
-    { property: 'og:title', content: `Consultar Placa ${data.uf} Grátis — Dados do Veículo` },
+    { property: 'og:title', content: `Consultar Placa ${data.uf} Grátis: Dados do Veículo` },
     { property: 'og:description', content: `Consulte qualquer placa registrada em ${data.name} e veja marca, modelo, ano, situação e valor FIPE. Grátis e rápido.` },
+  ],
+  link: [
+    { rel: 'canonical', href: `https://placacompleta.com.br/consultar-placa/${slug}` },
   ],
   script: [
     {
@@ -53,6 +58,19 @@ useHead({
         })),
       }),
     },
+    {
+      // GovernmentService schema apontando pro DETRAN local
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'GovernmentService',
+        name: `DETRAN ${data.uf}`,
+        serviceType: 'Consulta veicular',
+        serviceArea: { '@type': 'State', name: data.name },
+        provider: { '@type': 'GovernmentOrganization', name: `DETRAN ${data.uf}`, url: data.detranSite },
+        availableChannel: { '@type': 'ServiceChannel', serviceUrl: data.detranSite },
+      }),
+    },
   ],
 })
 </script>
@@ -78,6 +96,13 @@ useHead({
             <strong>{{ data.name }} ({{ data.uf }})</strong> e receba os dados completos no
             seu e-mail em segundos. {{ data.context }}
           </p>
+
+          <!-- Conteudo SEO extendido por estado (resolve "Rastreada, nao indexada") -->
+          <section v-if="seoIntro" class="state-extended-intro">
+            <p v-for="(p, i) in seoIntro.extendedIntro.split('\n\n')" :key="`intro-${i}`">
+              {{ p }}
+            </p>
+          </section>
 
           <div class="text-center mt-md mb-md">
             <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
@@ -121,6 +146,12 @@ useHead({
             acesse o site oficial:
             <a :href="data.detranSite" target="_blank" rel="noopener noreferrer">{{ data.detranSite }}</a>.
           </p>
+          <p v-if="seoIntro">{{ seoIntro.detranInfo }}</p>
+
+          <template v-if="seoIntro">
+            <h2>Dicas para comprar veículo em {{ data.name }}</h2>
+            <p>{{ seoIntro.tipsBuying }}</p>
+          </template>
 
           <template v-if="capitalSlug">
             <h2>Consultar placa em {{ data.capital }}</h2>
@@ -198,5 +229,22 @@ useHead({
   background: $win-white;
   padding: $space-sm $space-md;
   margin-bottom: $space-sm;
+}
+
+.state-extended-intro {
+  margin: $space-md 0;
+  padding: $space-sm $space-md;
+  background: rgba(0, 0, 0, 0.02);
+  border-left: 3px solid $smart-blue;
+  border-radius: 4px;
+}
+
+.state-extended-intro p {
+  margin: 0 0 $space-sm 0;
+  line-height: 1.55;
+}
+
+.state-extended-intro p:last-child {
+  margin-bottom: 0;
 }
 </style>
