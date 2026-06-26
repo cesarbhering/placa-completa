@@ -3,6 +3,10 @@ export interface FipeModel {
   name: string
   fipeCode?: string
   years?: string
+  /** Texto único de 2-3 parágrafos para evitar páginas templated-demais (SEO). */
+  seoIntro?: string
+  /** Lista de modelos relacionados pra interlinking. */
+  related?: string[]
 }
 
 export interface FipeBrand {
