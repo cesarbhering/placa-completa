@@ -26,6 +26,15 @@ if (!isPWA.value) {
     }
   }, { immediate: true })
 }
+
+function onStoreClick() {
+  if (import.meta.client && (window as any).gtag) {
+    (window as any).gtag('event', 'store_badge_click', {
+      source: 'footer',
+      store: 'google_play',
+    })
+  }
+}
 </script>
 
 <template>
@@ -49,7 +58,26 @@ if (!isPWA.value) {
           <span class="footer__sep">|</span>
           <NuxtLink to="/ibv">IBV Auto</NuxtLink>
         </nav>
-        <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta — Consulta veicular grátis e segura.</p>
+
+        <a
+          v-if="!isPWA"
+          href="https://play.google.com/store/apps/details?id=br.com.placacompleta&utm_source=site&utm_medium=footer&utm_campaign=download_badge"
+          target="_blank"
+          rel="noopener"
+          class="footer__store-badge"
+          aria-label="Baixe o PlacaCompleta na Google Play Store"
+          @click="onStoreClick"
+        >
+          <img
+            src="/badges/google-play-pt-br.png"
+            alt="Disponível no Google Play"
+            width="180"
+            height="70"
+            loading="lazy"
+          >
+        </a>
+
+        <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta. Consulta veicular grátis e segura.</p>
         <p class="footer__email">contato[at]placacompleta.com.br</p>
         <nav class="footer__links">
           <NuxtLink to="/sobre">Sobre</NuxtLink>
@@ -92,6 +120,34 @@ if (!isPWA.value) {
   50% {
     opacity: 0.7;
     transform: scale(0.95);
+  }
+}
+</style>
+
+<style>
+/* Global (not scoped) so .footer__store-badge applies to the footer in app.vue.
+   .footer styles are defined globally in assets/styles. */
+.footer__store-badge {
+  display: inline-block;
+  margin: 16px auto 8px;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.footer__store-badge:hover,
+.footer__store-badge:focus-visible {
+  transform: translateY(-1px);
+  opacity: 0.92;
+}
+
+.footer__store-badge img {
+  display: block;
+  height: 56px;
+  width: auto;
+}
+
+@media (max-width: 480px) {
+  .footer__store-badge img {
+    height: 48px;
   }
 }
 </style>
