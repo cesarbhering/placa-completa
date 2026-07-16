@@ -15,6 +15,67 @@ function formatDate(iso: string) {
   return `${day} de ${months[month - 1]} de ${year}`
 }
 
+// --- Lightweight markdown renderer ---
+// Suporta apenas o subset usado nos posts: **negrito**, [texto](url), e listas
+// prefixadas com "- " ou "1. ". Conteúdo vem de arquivos versionados no repo,
+// não de entrada de usuário, mas escapo HTML por segurança e uso whitelist.
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function renderInline(s: string): string {
+  let out = escapeHtml(s)
+  // [text](url) -> <a>
+  out = out.replace(
+    /\[([^\]]+)\]\(([^)\s]+)\)/g,
+    (_m, text, url) => {
+      const isExternal = /^https?:\/\//.test(url) && !url.startsWith('https://placacompleta.com.br')
+      const attrs = isExternal
+        ? ' target="_blank" rel="noopener noreferrer"'
+        : ''
+      return `<a href="${url}"${attrs}>${text}</a>`
+    }
+  )
+  // **bold** -> <strong>
+  out = out.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+  return out
+}
+
+/**
+ * Converte texto multiline em blocos HTML. Blocos são separados por `\n\n`.
+ * Um bloco cujas linhas começam todas com "- " vira <ul>; começando com
+ * "N. " vira <ol>; caso contrário vira <p>. Cada linha passa por renderInline.
+ */
+function renderRichText(text: string): string {
+  if (!text) return ''
+  const blocks = text.split(/\n\n+/)
+  const html: string[] = []
+  for (const block of blocks) {
+    const lines = block.split('\n').filter(l => l.trim() !== '')
+    if (lines.length === 0) continue
+    const isBulletList = lines.every(l => /^-\s+/.test(l))
+    const isNumberedList = lines.every(l => /^\d+\.\s+/.test(l))
+    if (isBulletList) {
+      const items = lines.map(l => `<li>${renderInline(l.replace(/^-\s+/, ''))}</li>`).join('')
+      html.push(`<ul>${items}</ul>`)
+    } else if (isNumberedList) {
+      const items = lines.map(l => `<li>${renderInline(l.replace(/^\d+\.\s+/, ''))}</li>`).join('')
+      html.push(`<ol>${items}</ol>`)
+    } else {
+      // Preserva quebras de linha simples dentro do parágrafo com <br>
+      const inner = lines.map(renderInline).join('<br>')
+      html.push(`<p>${inner}</p>`)
+    }
+  }
+  return html.join('')
+}
+
 useHead({
   title: post.title,
   meta: [
@@ -105,23 +166,23 @@ useHead({
           <div class="seo-content">
             <template v-for="(section, i) in post.content" :key="i">
               <!-- intro -->
-              <p v-if="section.type === 'intro'" class="intro-text">
-                {{ section.text }}
-              </p>
+              <div
+                v-if="section.type === 'intro'"
+                class="intro-text rich-text"
+                v-html="renderRichText(section.text!)"
+              />
 
               <!-- heading section -->
               <template v-else-if="section.type === 'heading'">
                 <h2>{{ section.heading }}</h2>
-                <template v-for="(para, j) in section.text!.split('\n\n')" :key="j">
-                  <p>{{ para }}</p>
-                </template>
+                <div class="rich-text" v-html="renderRichText(section.text!)" />
               </template>
 
               <!-- highlight box -->
               <template v-else-if="section.type === 'highlight'">
                 <div class="highlight-box">
                   <h2 class="highlight-box__heading">{{ section.heading }}</h2>
-                  <p>{{ section.text }}</p>
+                  <div class="rich-text" v-html="renderRichText(section.text!)" />
                 </div>
               </template>
 
@@ -282,5 +343,39 @@ useHead({
     color: $win-dark;
     margin: 0 2px;
   }
+}
+
+.rich-text p {
+  margin: 0 0 $space-md 0;
+}
+
+.rich-text p:last-child {
+  margin-bottom: 0;
+}
+
+.rich-text ul,
+.rich-text ol {
+  margin: 0 0 $space-md $space-md;
+  padding-left: $space-md;
+}
+
+.rich-text li {
+  margin-bottom: $space-xs;
+  line-height: 1.55;
+}
+
+.rich-text strong {
+  font-weight: 700;
+  color: $win-dark;
+}
+
+.rich-text a {
+  color: $navy-electric;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.rich-text a:hover {
+  color: $smart-blue;
 }
 </style>
