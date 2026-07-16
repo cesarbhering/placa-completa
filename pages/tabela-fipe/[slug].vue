@@ -197,33 +197,32 @@ if (isBrandPage) {
     })
   }
 
-  // Schema Vehicle: identidade do veiculo (marca/modelo/categoria) para enriquecer
-  // rich results e diferenciar a pagina das paginas templated de outros modelos.
-  schemaScripts.push({
-    type: 'application/ld+json',
-    innerHTML: JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'Vehicle',
-      name: `${pageData.name} ${model!.name}`,
-      brand: { '@type': 'Brand', name: pageData.name },
-      model: model!.name,
-      vehicleConfiguration: pageData.type === 'motos' ? 'Motocicleta' : 'Automóvel',
-      bodyType: pageData.type === 'motos' ? 'Motorcycle' : undefined,
-      manufacturer: { '@type': 'Organization', name: pageData.name },
-      url: `https://placacompleta.com.br/tabela-fipe/${slug}`,
-      ...(priceTable.value.length > 0
-        ? {
-            offers: {
-              '@type': 'AggregateOffer',
-              priceCurrency: 'BRL',
-              lowPrice: Math.min(...priceTable.value.map((p: any) => p.price)),
-              highPrice: Math.max(...priceTable.value.map((p: any) => p.price)),
-              offerCount: priceTable.value.length,
-            },
-          }
-        : {}),
-    }),
-  })
+  // Schema Vehicle: SO EMITE quando temos priceTable, porque o Google exige
+  // offers | review | aggregateRating para validar Vehicle como rich result.
+  // Sem offers, o schema era detectado como invalido pelo Rich Results Test.
+  if (priceTable.value.length > 0) {
+    schemaScripts.push({
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Vehicle',
+        name: `${pageData.name} ${model!.name}`,
+        brand: { '@type': 'Brand', name: pageData.name },
+        model: model!.name,
+        vehicleConfiguration: pageData.type === 'motos' ? 'Motocicleta' : 'Automóvel',
+        bodyType: pageData.type === 'motos' ? 'Motorcycle' : undefined,
+        manufacturer: { '@type': 'Organization', name: pageData.name },
+        url: `https://placacompleta.com.br/tabela-fipe/${slug}`,
+        offers: {
+          '@type': 'AggregateOffer',
+          priceCurrency: 'BRL',
+          lowPrice: Math.min(...priceTable.value.map((p: any) => p.price)),
+          highPrice: Math.max(...priceTable.value.map((p: any) => p.price)),
+          offerCount: priceTable.value.length,
+        },
+      }),
+    })
+  }
 
   useHead({
     title: `Tabela FIPE ${pageData.name} ${model!.name} ${currentMonth} ${currentYear} - Valor Atualizado`,
