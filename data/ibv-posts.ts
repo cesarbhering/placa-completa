@@ -417,6 +417,212 @@ export const ibvPosts: IbvPost[] = [
       },
     ],
   },
+  {
+    slug: 'junho-2026',
+    title: 'IBV Auto Junho 2026: Usados sobem 0,57% e todos os 27 estados fecham no positivo',
+    metaDescription: 'IBV Auto de junho acelerou para +0,57% (ante +0,43% em maio). Renault Kwid +3,52%, VW Fox +2,53% e GM Onix +0,94% lideram altas; HR-V -1,21%, T-Cross -1,12% e HB20 -0,44% caem. MG lidera estados com +1,64%; 1º semestre acumula +3,49%.',
+    publishedAt: '2026-07-16',
+    source: 'Banco BV (IBV Auto)',
+    referenceMonth: 'Junho 2026',
+    ogTitle: 'Usados sobem 0,57% em junho. Kwid dispara e Fox surpreende.',
+    ogHighlight: '+0,57%',
+    content: [
+      {
+        type: 'intro',
+        text: 'O Índice BV Auto (IBV) de junho de 2026 mostra continuidade da aceleração observada em maio: alta de 0,57% sobre o mês anterior, ante +0,43% em maio e +0,27% em abril. É o terceiro mês consecutivo de aceleração, mas o índice segue abaixo da média do primeiro trimestre (+0,72%). No acumulado do primeiro semestre, os preços subiram 3,49%, quase o dobro dos 1,98% registrados no mesmo período de 2025. No acumulado de 12 meses, o IBV fechou junho em +6,87%, leve desaceleração frente aos 6,94% de maio.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/junho-2026/variacao-mensal.png',
+        alt: 'Gráfico de barras com variação mensal dos preços de automóveis leves usados de jan/25 a jun/26, mostrando +0,57% em junho/26',
+        caption: 'Variação mensal do IBV Auto. Três meses consecutivos de aceleração após o piso de abril. Fonte: Banco BV (IBV Auto), julho/2026.',
+      },
+      {
+        type: 'heading',
+        heading: 'O que mudou em junho',
+        text: 'O Renault Kwid continua no topo pelo segundo mês consecutivo, agora com +3,52% (era +4,58% em maio). Alta significativa e sustentada, difícil de explicar apenas por fatores de estoque. É pressão real de demanda no popular usado. A grande surpresa do mês foi o VW Fox: +2,53%. O Fox foi um dos maiores destaques de queda em abril (-1,29%), zerou em maio, e agora dispara. Movimento típico de mercado que corrigiu queda exagerada. O GM Onix voltou pra alta com +0,94% depois da queda de -0,36% em maio, retomando o padrão de 3 meses consecutivos que tinha antes.\n\nNa ponta negativa, virada nítida do Honda HR-V: em maio foi um dos três modelos que MAIS subiram (+1,85%), agora é a maior queda do mês (-1,21%). Correção da subida anterior. Junto vieram VW T-Cross (-1,12%), pressão contínua no segmento de SUV compacto que a VW enfrenta, e Hyundai HB20 (-0,44%), sinal de que a pressão no popular pode estar chegando aos líderes de vendas.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/junho-2026/modelos-alta-baixa.png',
+        alt: 'Modelos com maior alta e maior queda no IBV Auto junho 2026: Renault Kwid +3,52%, VW Fox +2,53%, GM Onix +0,94% nas altas; Honda HR-V -1,21%, VW T-Cross -1,12%, Hyundai HB20 -0,44% nas baixas',
+        caption: 'Modelos de maior destaque positivo e negativo em junho de 2026. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Variação por região: Sudeste lidera e todos os 27 estados sobem',
+        text: 'Nova inversão regional. Em maio, o Centro-Oeste liderou com +0,99%. Em junho, cai pra última posição com +0,32%. O Sudeste assume a ponta com +0,83%, puxado por Minas Gerais que registrou a MAIOR variação entre os 27 estados: +1,64%. Bahia (+1,42%) e Piauí (+1,19%) completam o pódio dos estados individuais.\n\nO fato mais relevante do mês não é quem liderou. É que TODOS os 27 estados brasileiros registraram alta em junho. É a primeira vez em 2026 que isso acontece. A menor variação foi de MS (+0,09%), quase zero, mas ainda positiva. Sinal de que a pressão de alta se generalizou geograficamente, algo que não víamos há meses.\n\nNo acumulado de 12 meses, a hierarquia mudou pouco: Minas Gerais segue líder com folga (+8,48%), seguido por Rio de Janeiro (+7,20%), Sergipe (+7,08%) e Piauí (+7,06%). Na ponta menor, Mato Grosso permanece no fundo do ranking (+4,34%), seguido por São Paulo (+5,27%) e Santa Catarina (+5,38%).',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/junho-2026/variacao-por-uf.png',
+        alt: 'Gráfico de barras: variação mensal por estado em junho de 2026, com Minas Gerais liderando em +1,64% e Mato Grosso do Sul fechando em +0,09%',
+        caption: 'Variação mensal por estado (UF) em junho de 2026. Todos os 27 estados no positivo. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/junho-2026/mapa-brasil-acumulado.png',
+        alt: 'Mapa do Brasil com variação acumulada em 12 meses por estado em junho de 2026, com Minas Gerais liderando em +8,48%',
+        caption: 'Variação acumulada em 12 meses por estado. Fonte: Banco BV (IBV Auto), julho/2026.',
+      },
+      {
+        type: 'heading',
+        heading: 'Elétricos seguem em desvalorização estrutural',
+        text: 'A foto por tipo de propulsão mudou pouco em relação a maio, mas piorou marginalmente para elétricos: modelos elétricos lançados em 2023 acumulam agora -46,1% de desvalorização até junho de 2026 (era -45,6% em maio). Modelos elétricos de 2022 acumulam -50,5% (era -49,3%).\n\nComparativo por ano modelo até junho/2026:\n- 2023: Elétricos -46,1% | Híbridos -26,1% | Combustão -19,6%\n- 2022: Elétricos -50,5% | Híbridos -19,3% | Combustão -13,2%\n- 2021: Híbridos -18,2% | Combustão -6,3%\n\nO recado estrutural continua: elétrico usado perde valor em ritmo aproximadamente 2,5x maior que combustão equivalente. Para uma análise dedicada com comparativo entre marcas chinesas e europeias, veja nosso post [Elétricos usados junho 2026](/ibv/eletricos-junho-2026).',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/junho-2026/desvalorizacao-2023.png',
+        alt: 'Gráfico comparando desvalorização de elétricos (-46,1%), híbridos (-26,1%) e veículos a combustão (-19,6%) ano modelo 2023 até junho de 2026',
+        caption: 'Desvalorização acumulada por tipo de propulsão, modelos ano 2023. Fonte: Banco BV.',
+      },
+      {
+        type: 'highlight',
+        heading: 'O que isso significa para você?',
+        text: 'Se você tem um Renault Kwid, VW Fox ou Chevrolet Onix, o momento de venda continua favorável. Se você tem um Honda HR-V ou VW T-Cross, atenção: viraram pra queda depois de meses no positivo. Se você está em MG, BA ou PI, o ciclo local está no melhor momento do ano. Se está em MS ou RJ (que quase zeraram em junho), o momento é diferente do resto do país e vale esperar. Se você tem um elétrico usado, o cenário continua o mesmo: quanto antes vender, melhor.',
+      },
+      {
+        type: 'cta',
+        text: 'Quer saber quanto vale o seu carro pela placa, com base na FIPE atualizada?',
+        ctaLabel: 'Consultar Placa Grátis',
+        ctaTo: '/',
+      },
+    ],
+  },
+  {
+    slug: 'vencedores-perdedores-junho-2026',
+    title: 'Vencedores e Perdedores de Junho 2026: Kwid emplaca 2º mês seguido e HR-V vira pra queda',
+    metaDescription: 'Renault Kwid +3,52%, VW Fox +2,53% e Chevrolet Onix +0,94% lideram altas em junho. Honda HR-V -1,21%, VW T-Cross -1,12% e Hyundai HB20 -0,44% caem. MG lidera estados com +1,64%; primeira vez em 2026 que todos os 27 estados sobem.',
+    publishedAt: '2026-07-16',
+    source: 'Banco BV (IBV Auto)',
+    referenceMonth: 'Junho 2026',
+    ogTitle: 'Vencedores e perdedores de junho: Kwid emplaca 2 meses, HR-V vira.',
+    ogHighlight: 'Junho',
+    content: [
+      {
+        type: 'intro',
+        text: 'O IBV Auto de junho fechou em +0,57% para o Brasil. Nos extremos: Renault Kwid subiu 3,52% e Honda HR-V perdeu 1,21%. Quase 5 pontos percentuais entre o topo e o fundo. Duas viradas notáveis em relação a maio: o VW Fox saltou de queda (-1,29% em abril) direto pra 2ª maior alta do mês, e o Honda HR-V passou de 2ª maior alta (+1,85% em maio) pra maior queda em junho.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/junho-2026/modelos-alta-baixa.png',
+        alt: 'Modelos com maior alta e maior queda no IBV Auto de junho de 2026: Renault Kwid +3,52%, VW Fox +2,53%, GM Onix +0,94% nas altas; Honda HR-V -1,21%, VW T-Cross -1,12%, Hyundai HB20 -0,44% nas baixas',
+        caption: 'Modelos com maiores variações em junho de 2026. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Os modelos que mais valorizaram em junho',
+        text: 'O Renault Kwid liderou pelo segundo mês consecutivo. Em maio foi +4,58%, em junho +3,52%. Somando dois meses, a valorização acumulada do Kwid passa de 8%. É o tipo de sinal que raramente acontece em ciclos normais de mercado e sugere pressão real de demanda no popular de entrada, e não apenas fator de estoque. Kwid seminovo virou destino de quem foi expulso do zero-km por escassez ou preço.\n\nO VW Fox subiu +2,53%. Movimento surpreendente porque o Fox foi um dos três modelos que MAIS caíram em abril (-1,29%). Foi descontinuado em 2021 e o padrão esperado era queda contínua. A alta forte de junho pode ser correção do exagero de queda anterior, e também reflexo do vácuo deixado por outros populares descontinuados que já saíram do estoque relevante do mercado. Para quem tem um Fox, momento de vender.\n\nO Chevrolet Onix voltou pra alta com +0,94% depois da queda pontual de -0,36% em maio. Antes disso, tinha 3 meses consecutivos no topo. A retomada em junho sugere que a queda de maio foi correção pontual, não mudança de tendência. Como o Onix é o carro mais vendido do Brasil, qualquer movimento sustentado impacta o IBV inteiro.',
+      },
+      {
+        type: 'heading',
+        heading: 'Os modelos que mais perderam em junho',
+        text: 'A maior queda do mês veio de um lugar inesperado: o Honda HR-V com -1,21%. Em maio, o HR-V foi o SEGUNDO modelo que mais subiu do país (+1,85%). Em junho, virou o que mais caiu. Diferença de 3 pontos em um mês. Movimento típico de correção depois de alta forte, mas também pode indicar pressão específica no segmento de SUV médio premium: BYD Song Plus, Chery Tiggo 7 e a nova geração do Corolla Cross híbrido estão desafiando o HR-V em preço, tecnologia e economia.\n\nO VW T-Cross caiu -1,12%. É o terceiro mês seguido em que um SUV compacto da VW aparece nas maiores quedas (T-Cross agora, Nivus antes). Pressão competitiva no portfolio SUV da VW segue clara: Tracker renovado, Creta atualizada, HR-V versão híbrida e SUVs chineses (BYD Yuan Plus, GWM Ora, Caoa Chery) dividem o mesmo bolso do comprador.\n\nO Hyundai HB20 recuou -0,44%. Menor queda entre os três negativos, mas mais preocupante do ponto de vista estrutural: HB20 é dos populares mais vendidos, e queda no seu preço usado costuma anteceder queda mais ampla no segmento popular. Vale monitorar próximos meses.',
+      },
+      {
+        type: 'heading',
+        heading: 'Variação por região: Sudeste lidera e todos os 27 estados no positivo',
+        text: 'A grande notícia regional de junho não é o líder. É a base: pela primeira vez em 2026, TODOS os 27 estados brasileiros registraram alta nos preços de usados. Em maio, o Norte tinha 5 estados no negativo. Em abril, o Centro-Oeste tinha 4. Em junho, ZERO estados no vermelho. Sinal de pressão de alta generalizada geograficamente.\n\nMinas Gerais liderou com +1,64%, maior variação individual. Junto no topo: Bahia (+1,42%), Piauí (+1,19%), Espírito Santo (+0,96%) e Pará (+0,88%). Padrão diverso: MG e ES no Sudeste, BA e PI no Nordeste, PA no Norte. Sem concentração regional.\n\nNa ponta menor, Mato Grosso do Sul mal escapou do zero (+0,09%). Amazonas (+0,19%), Pernambuco (+0,23%), Mato Grosso (+0,25%) e Rondônia (+0,33%) também ficaram bem abaixo da média nacional (+0,57%). Curiosidade: o Rio de Janeiro, apesar de estar na 2ª colocação no acumulado 12 meses (+7,20%), teve mês fraco (+0,15%). Sinal de que o ciclo de alta forte do RJ pode estar dando trégua.\n\nPara quem está comprando no MS, RJ, AM ou PE, o momento é o mais favorável em meses. Para quem está vendendo em MG, BA, PI ou ES, é o oposto: ciclo local no auge.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/junho-2026/variacao-por-uf.png',
+        alt: 'Gráfico de barras com variação mensal por estado em junho de 2026: Minas Gerais lidera com +1,64%, Mato Grosso do Sul fecha com +0,09%',
+        caption: 'Variação mensal por estado (UF) em junho de 2026. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Líderes regionais em 12 meses: MG consolida liderança',
+        text: 'No acumulado 12 meses até junho, MG ampliou vantagem:\n\n- Minas Gerais: +8,48%\n- Rio de Janeiro: +7,20%\n- Sergipe: +7,08%\n- Piauí: +7,06%\n- Bahia: +6,95%\n\nMG lidera com folga de mais de 1 ponto sobre o 2º colocado. Vantagem grande em métrica que costuma ficar apertada. Para vendedores mineiros, o ciclo dos últimos 12 meses foi excepcional.\n\nNa ponta menor: Mato Grosso (+4,34%), São Paulo (+5,27%), Santa Catarina (+5,38%). Nota importante: SP na penúltima posição parece contra-intuitivo, mas reflete o mercado paulista mais líquido, com maior oferta e concorrência entre revendedores puxando preços pra baixo. Compradores em SP se beneficiam disso.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/junho-2026/mapa-brasil-acumulado.png',
+        alt: 'Mapa do Brasil com variação acumulada em 12 meses por estado em junho de 2026 com destaque para MG (+8,48%) e RJ (+7,20%)',
+        caption: 'Variação acumulada em 12 meses por estado. Fonte: Banco BV (IBV Auto), julho/2026.',
+      },
+      {
+        type: 'highlight',
+        heading: 'Como usar essa informação',
+        text: 'Se você tem Kwid ou Fox, o momento de venda continua excepcional. Se tem Onix, a queda de maio foi ponto fora da curva e o padrão de valorização voltou. Se você tem Honda HR-V ou VW T-Cross, o cenário mudou: ambos entraram em queda depois de meses no positivo. Vale acelerar decisão. Se está em MG, BA ou PI vendendo, o ciclo local está no auge. Se está em MS, RJ, AM ou PE comprando, o momento é o mais favorável dos últimos meses. Para elétricos, veja nosso [post dedicado](/ibv/eletricos-junho-2026) com análise por marca.',
+      },
+      {
+        type: 'cta',
+        text: 'Quer saber o valor atualizado do seu carro pela placa?',
+        ctaLabel: 'Consultar Placa Grátis',
+        ctaTo: '/',
+      },
+    ],
+  },
+  {
+    slug: 'eletricos-junho-2026',
+    title: 'Elétricos Usados Junho 2026: BYD, GWM e o Colapso Estrutural do Valor de Revenda',
+    metaDescription: 'Elétricos usados 2023 acumulam -46,1% até junho, 2,5x mais que combustão equivalente. Análise da desvalorização por marca, comparativo entre chinesas (BYD, GWM, JAC, Chery) e europeias, e por que o cenário deve piorar antes de melhorar.',
+    publishedAt: '2026-07-16',
+    source: 'Banco BV (IBV Auto) + análise PlacaCompleta',
+    referenceMonth: 'Junho 2026',
+    ogTitle: 'Elétricos usados perdem 46% em 3 anos. O que está acontecendo.',
+    ogHighlight: '-46,1%',
+    content: [
+      {
+        type: 'intro',
+        text: 'Este é o primeiro de uma série mensal dedicada exclusivamente ao mercado de veículos elétricos usados no Brasil. O motivo é simples: os dados do IBV Auto de junho de 2026 confirmam que a depreciação de elétricos segue em patamar estrutural, muito acima da média de combustão. Um elétrico 2023 comprado zero por R$ 250 mil vale hoje cerca de R$ 135 mil. Um combustão equivalente da mesma safra vale R$ 200 mil. O choque estrutural do segmento elétrico brasileiro merece uma leitura própria.',
+      },
+      {
+        type: 'heading',
+        heading: 'O panorama de junho: elétrico piorou, híbrido estável',
+        text: 'A foto agregada do BV em junho de 2026 mostra:\n\n- Elétricos 2023: -46,1% (era -45,6% em maio)\n- Elétricos 2022: -50,5% (era -49,3%)\n- Híbridos 2023: -26,1% (estável)\n- Híbridos 2022: -19,3% (estável)\n- Combustão 2023: -19,6% (estável)\n- Combustão 2022: -13,2% (estável)\n\nDois padrões relevantes:\n\n1. **Elétricos continuam piorando.** Enquanto híbridos e combustão estabilizaram em 2026, elétricos seguem em curva de queda mês a mês. É a única categoria que ainda perde valor de forma incremental depois de 3 anos de uso.\n\n2. **A distância elétrico-combustão aumentou.** Em maio, um elétrico 2023 valia proporcionalmente 56% do combustão equivalente. Em junho, 55%. Diferença sutil no mês, mas o vetor é claro.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/junho-2026/desvalorizacao-2023.png',
+        alt: 'Gráfico comparando desvalorização de elétricos (-46,1%), híbridos (-26,1%) e veículos a combustão (-19,6%) ano modelo 2023 até junho de 2026',
+        caption: 'Depreciação por propulsão, modelos 2023. A distância entre elétrico e combustão ampliou em 2026. Fonte: Banco BV.',
+      },
+      {
+        type: 'heading',
+        heading: 'Por que elétrico deprecia mais? Cinco fatores',
+        text: '**1. Preço do zero cai rápido.** Enquanto o valor de um combustão novo se mantém, o elétrico novo perde preço todo trimestre. BYD Dolphin lançou em 2023 por R$ 149 mil. Em 2024 caiu pra R$ 129 mil. Em 2025, versão base pra R$ 119 mil. Quem comprou em 2023 já viu o novo custar 20% menos, então o seminovo do mesmo modelo obrigatoriamente vale menos.\n\n**2. Tecnologia evolui rápido.** Um elétrico 2023 tem geralmente 20% menos autonomia real e 30-40% mais tempo de recarga rápida que a versão 2026 do mesmo modelo. Comprador de usado enxerga essa diferença e desconta.\n\n**3. Bateria como incógnita.** A saúde da bateria (SoH) só é auditável por scanner especializado, e o preço de reposição pode chegar a R$ 80-120 mil dependendo do modelo. Comprador de usado precifica esse risco e desconta significativamente.\n\n**4. Marcas chinesas em disputa agressiva.** BYD, GWM e Chery estão em fase de conquista de mercado no Brasil. Preços baixos e lançamentos frequentes pressionam o valor da geração anterior.\n\n**5. Volume ainda pequeno no seminovo.** Poucos compradores no mercado secundário de elétrico significa preços puxados pra baixo pra fechar negócio, mesmo com veículo em bom estado.',
+      },
+      {
+        type: 'heading',
+        heading: 'Marcas chinesas: quem preserva mais valor',
+        text: 'O IBV agrega elétricos sem separar por marca, mas o padrão observado no mercado de seminovos brasileiro em junho de 2026 permite uma leitura direcional. O ranking abaixo é qualitativo, baseado em cruzamento de anúncios de portais (Webmotors, OLX, Mercado Livre) com valor original de tabela:\n\n**Melhor retenção de valor (chinesas):**\n- **BYD Dolphin.** Modelo de entrada com volume relevante no seminovo. Preserva relativamente bem por causa da demanda constante em faixa acessível.\n- **BYD Song Plus / Yuan Plus.** SUVs médios da BYD com boa aceitação. Perda ainda alta (30-35%), mas menor que da média de elétricos.\n\n**Retenção mediana:**\n- **GWM Ora 03.** Elétrico compacto premium. Retém razoavelmente pelo posicionamento distintivo, mas volume baixo cria variância.\n- **Chery Tiggo 8 PHEV.** Híbrido plug-in, comportamento próximo ao de híbrido puro (melhor que elétrico puro).\n\n**Pior retenção:**\n- **JAC E-JS1 e iEV.** Modelos mais antigos, tecnologia defasada, redução da rede de assistência da JAC no Brasil. Depreciação acumulada frequentemente acima de 50%.\n- **BYD Tan (2022-2023).** SUV grande importado, preço original alto (R$ 500k+), impacto forte da queda de preço do novo. Perda proporcional entre as maiores do segmento.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/junho-2026/desvalorizacao-2022.png',
+        alt: 'Gráfico de desvalorização de elétricos, híbridos e combustão do ano modelo 2022 até junho de 2026, com elétricos em -50,5%',
+        caption: 'Depreciação ano 2022: elétricos já perderam metade do valor em 4 anos. Fonte: Banco BV.',
+      },
+      {
+        type: 'heading',
+        heading: 'Marcas europeias premium: retenção acima da média',
+        text: 'Elétricos premium europeus (Volvo, BMW, Audi) preservam valor melhor que a média chinesa, mas ainda depreciam bem acima de combustão equivalente. Fatores:\n\n**Volvo XC40 Recharge / EX40.** Marca com percepção premium consolidada, plataforma compartilhada com a versão a combustão (facilita revenda). Depreciação real observada em anúncios: 35-45% em 3 anos.\n\n**BMW iX3 / i4.** Volume pequeno mas nicho fiel. Bateria da BMW tem reputação boa. Depreciação 40-50%.\n\n**Porsche Taycan.** Volume ínfimo no Brasil. Ainda considerado premium-premium e retém melhor. Menor amostra pra generalizar.\n\nO padrão claro: quanto mais premium o posicionamento e mais estável a marca, maior a retenção. Mas nenhum elétrico no Brasil preserva valor como um combustão premium equivalente. Um Mercedes GLA 2023 combustão perdeu 25-30%. Um EQA 2023 elétrico perdeu 40-45%.',
+      },
+      {
+        type: 'heading',
+        heading: 'Comprando elétrico usado: janela cada vez melhor',
+        text: 'A outra face da moeda da depreciação estrutural: para quem está comprando, é a melhor janela do mercado brasileiro de elétricos.\n\nUm BYD Dolphin 2023 vendido por R$ 90 mil hoje custou R$ 149 mil zero. Diferença de R$ 60 mil em pouco mais de 2 anos de uso. Se você faz 15 mil km por ano em cidade, o custo/km do usado é significativamente menor que financiar um zero mesmo levando em conta a menor autonomia.\n\nRecomendações práticas para comprar elétrico usado em 2026:\n\n1. **Auditar bateria antes de comprar.** SoH abaixo de 85% é sinal amarelo. Concessionárias autorizadas fazem esse teste (BYD, Volvo, GWM). Custo baixo, diagnóstico crítico.\n2. **Preferir modelos com plataforma compartilhada.** Volvo XC40 Recharge, Peugeot e-208 e outros que dividem plataforma com versão combustão tendem a ter peças e manutenção mais acessíveis.\n3. **Confirmar garantia da bateria.** Muitas marcas dão 8 anos de garantia na bateria. Se o veículo tem 2-3 anos, sobra bastante cobertura. Verificar transferência para segundo proprietário.\n4. **Rodar em condições reais.** Autonomia declarada NUNCA é a autonomia real. Faça test drive de pelo menos 40 km com ar condicionado ligado.\n5. **Consultar o valor FIPE atualizado pela placa.** O preço médio de mercado do modelo/ano específico ajuda a negociar. Use nossa [consulta gratuita](/) pra ter esse dado antes de fechar.',
+      },
+      {
+        type: 'heading',
+        heading: 'Vendendo elétrico usado: urgência mantida',
+        text: 'Se você comprou um elétrico entre 2022 e 2024, o cenário continua sendo o mesmo desde o início do ano: quanto antes vender, melhor. Cada mês adicional de espera implica em nova queda de preço, provocada pela combinação de:\n\n- Lançamentos mensais de novos modelos elétricos mais baratos e com mais autonomia\n- Estratégia agressiva de precificação da BYD, GWM e Chery que arrasta a média de preço do segmento pra baixo\n- Envelhecimento natural da bateria que reduz o valor percebido\n- Redução de incentivos fiscais para importados que já rebaixou custo de aquisição do novo\n\nO ideal, se possível: negociar troca por outro elétrico novo. Nesse caso, o "prejuízo" na revenda é parcialmente absorvido pela vantagem do preço do zero atual e pela permanência no ecossistema (garantia, rede de recarga, familiaridade com o produto).',
+      },
+      {
+        type: 'highlight',
+        heading: 'O que esperar dos próximos meses',
+        text: 'Nossa previsão pros próximos 90 dias: o patamar de -46% da safra 2023 deve estabilizar ou piorar marginalmente (chegar próximo a -48% até setembro). Motivo: continuidade dos lançamentos BYD (Han restyling, Dolphin Mini com preço abaixo de R$ 100k) e das promoções agressivas de fim de trimestre. Compradores devem esperar mais 60-90 dias antes de fechar negócio. Vendedores devem acelerar a decisão. Para uma leitura do mercado inteiro (não só elétricos), veja a [análise completa do IBV Auto de junho](/ibv/junho-2026).',
+      },
+      {
+        type: 'cta',
+        text: 'Quer saber o valor FIPE atualizado do seu carro pela placa?',
+        ctaLabel: 'Consultar Placa Grátis',
+        ctaTo: '/',
+      },
+    ],
+  },
 ]
 
 export function findIbvPost(slug: string): IbvPost | undefined {
