@@ -221,9 +221,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Placa não encontrada ou sem dados disponíveis.' })
   }
 
-  // Fetch FIPE price history for chart (best-effort)
+  // Fetch FIPE price history (best-effort). Web usa pra montar o chart do
+  // e-mail (QuickChart); PWA recebe os pontos estruturados e renderiza na tela.
   let chartUrl: string | null = null
-  if (!isPWA && includeFipeChart !== false) {
+  let fipeHistoryPoints: { label: string; price: number }[] | null = null
+  if (includeFipeChart !== false) {
     try {
       const fipeDados = apiResponse.fipe?.dados
       if (fipeDados?.length) {
@@ -237,11 +239,16 @@ export default defineEventHandler(async (event) => {
             `${config.fipeApiUrl}/models/fipe/${fipeCode}/price-history`,
             { headers: { Authorization: `Bearer ${config.fipeApiToken}` } }
           )
-          chartUrl = buildChartUrl(historyData?.data || historyData, apiResponse.anoModelo, bestFipe.texto_modelo)
+          const normalized = historyData?.data || historyData
+          if (isPWA) {
+            fipeHistoryPoints = buildHistoryPoints(normalized, apiResponse.anoModelo)
+          } else {
+            chartUrl = buildChartUrl(normalized, apiResponse.anoModelo, bestFipe.texto_modelo)
+          }
         }
       }
     } catch (err) {
-      // Non-critical — email will be sent without chart
+      // Non-critical — segue sem chart
       console.warn('Failed to fetch FIPE history for chart:', err)
     }
   }
@@ -434,8 +441,45 @@ export default defineEventHandler(async (event) => {
     whatsappSent,
     message,
     data: isPWA ? apiResponse : undefined,
+    fipeHistory: isPWA ? fipeHistoryPoints : undefined,
   }
 })
+
+/**
+ * Normaliza o price_history da FIPE API em pontos ordenados e downsampled
+ * ({label: 'Jan/25', price: 28799}), prontos pra renderizar como barras.
+ * Mesma logica de selecao/downsample usada pelo chart do e-mail.
+ */
+function buildHistoryPoints(historyData: any, anoModelo: string | number): { label: string; price: number }[] | null {
+  if (!historyData?.price_history?.length) return null
+
+  const anoStr = String(anoModelo)
+  let entries = historyData.price_history.find((h: any) => String(h.year) === anoStr)
+  if (!entries) entries = historyData.price_history[0]
+  if (!entries?.prices?.length) return null
+
+  const sorted = [...entries.prices].sort((a: any, b: any) => {
+    const da = new Date(a.year, a.month - 1)
+    const db = new Date(b.year, b.month - 1)
+    return da.getTime() - db.getTime()
+  })
+
+  const MAX_POINTS = 8 // tela de celular comporta menos barras que o e-mail
+  let downsampled = sorted
+  if (sorted.length > MAX_POINTS) {
+    const step = (sorted.length - 1) / (MAX_POINTS - 1)
+    downsampled = Array.from({ length: MAX_POINTS }, (_, i) => sorted[Math.round(i * step)])
+  }
+
+  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  const points = downsampled
+    .filter((h: any) => typeof h.price === 'number' && h.price > 0)
+    .map((h: any) => ({
+      label: `${months[h.month - 1]}/${String(h.year).slice(2)}`,
+      price: h.price,
+    }))
+  return points.length > 1 ? points : null
+}
 
 function buildChartUrl(historyData: any, anoModelo: string | number, textoModelo: string): string | null {
   if (!historyData?.price_history?.length) return null
