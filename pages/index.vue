@@ -43,7 +43,7 @@ const formStarted = ref(false)
 const permissionRequested = ref(false)
 const modalWindowRef = ref<HTMLElement | null>(null)
 const preparingShare = ref(false)
-const fipePriceHistory = ref<any>(null)
+const pwaFipeHistory = ref<{ label: string; price: number }[] | null>(null)
 const includeFipeChart = ref(true)
 const includeIcv5 = ref(true)
 const icv5Uf = ref('')
@@ -299,6 +299,7 @@ function onWebPhoneInput(e: Event) {
 
 function resetForm() {
   placa.value = ''
+  pwaFipeHistory.value = null
   message.value = ''
   success.value = false
   sentToEmail.value = ''
@@ -308,6 +309,20 @@ function resetForm() {
   nextTick(() => {
     placaRef.value?.focus()
   })
+}
+
+function formatChartPrice(value: number): string {
+  return `R$ ${(value / 1000).toFixed(0)}k`
+}
+
+function chartBarHeight(price: number): number {
+  if (!pwaFipeHistory.value?.length) return 0
+  const prices = pwaFipeHistory.value.map(p => p.price)
+  const min = Math.min(...prices)
+  const max = Math.max(...prices)
+  const range = max - min
+  if (range === 0) return 80
+  return 25 + ((price - min) / range) * 75
 }
 
 function copyToClipboard(text: string, label: string) {
@@ -661,6 +676,7 @@ async function handleSubmit() {
 
     if (isPWA.value) {
       // Show modal with data in PWA mode
+      pwaFipeHistory.value = result.fipeHistory || null
       vehicleData.value = result.data || {
         marca: 'VW',
         modelo: 'CROSSFOX 1.6',
@@ -684,16 +700,6 @@ async function handleSubmit() {
         track('consulta_success', { channel: channel.value })
       } else {
         track('consulta_success_no_delivery', { channel: channel.value, api_message: result.message })
-      }
-
-      // Fetch FIPE price history in background (non-blocking)
-      const fipeItem = result.data?.fipe?.dados?.reduce((max: any, item: any) =>
-        (item.score > (max?.score || 0)) ? item : max
-      , null)
-      if (fipeItem?.codigo_modelo) {
-        $fetch(`/api/fipe-history`, { params: { fipeCode: fipeItem.codigo_modelo } })
-          .then((res) => { fipePriceHistory.value = res })
-          .catch(() => { /* silent fail — non-critical */ })
       }
     }
     consultaCount.value++
@@ -963,6 +969,22 @@ async function handleSubmit() {
               >
                 <span class="data-table__label">{{ key }}</span>
                 <span class="data-table__value">{{ value }}</span>
+              </div>
+            </div>
+
+            <!-- FIPE price history chart (PWA) -->
+            <div v-if="pwaFipeHistory && pwaFipeHistory.length > 1" class="pwa-chart">
+              <p class="pwa-chart__title">Histórico FIPE</p>
+              <div class="pwa-chart__bars">
+                <div
+                  v-for="(point, i) in pwaFipeHistory"
+                  :key="i"
+                  class="pwa-chart__col"
+                >
+                  <span class="pwa-chart__value">{{ formatChartPrice(point.price) }}</span>
+                  <div class="pwa-chart__bar" :style="{ height: chartBarHeight(point.price) + '%' }" />
+                  <span class="pwa-chart__label">{{ point.label }}</span>
+                </div>
               </div>
             </div>
 
@@ -1837,4 +1859,60 @@ async function handleSubmit() {
   }
 }
 
+
+.pwa-chart {
+  margin: $space-md 0 $space-sm;
+}
+
+.pwa-chart__title {
+  font-family: $font-display;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: $graphite;
+  margin: 0 0 $space-xs;
+}
+
+.pwa-chart__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 110px;
+  padding: $space-xs;
+  background: $win-white;
+  @include win-border-sunken;
+  overflow-x: auto;
+}
+
+.pwa-chart__col {
+  flex: 1;
+  min-width: 34px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.pwa-chart__value {
+  font-family: $font-mono;
+  font-size: 0.5625rem;
+  color: $graphite;
+  white-space: nowrap;
+  margin-bottom: 2px;
+}
+
+.pwa-chart__bar {
+  width: 100%;
+  max-width: 26px;
+  background: $navy-electric;
+  min-height: 4px;
+}
+
+.pwa-chart__label {
+  font-family: $font-mono;
+  font-size: 0.5625rem;
+  color: $win-dark;
+  margin-top: 2px;
+  white-space: nowrap;
+}
 </style>
