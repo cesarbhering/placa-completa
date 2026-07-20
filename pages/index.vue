@@ -177,6 +177,11 @@ if (import.meta.client) {
 }
 
 useHead({
+  // Web: title com keyword pro SERP (a homepage ranqueia pra "consulta placa"
+  // com CTR em disputa). PWA/TWA: título curto, melhor em contexto de app.
+  title: computed(() => isPWA.value
+    ? 'PlacaCompleta'
+    : 'Consulta Placa Grátis: FIPE, Marca e Modelo | PlacaCompleta'),
   script: [
     {
       type: 'application/ld+json',
@@ -688,11 +693,11 @@ async function handleSubmit() {
       // Show modal with data in PWA mode
       pwaFipeHistory.value = result.fipeHistory || null
       vehicleData.value = result.data || {
-        marca: 'VW',
-        modelo: 'CROSSFOX 1.6',
-        ano: '2007/2007',
-        cor: 'Prata',
-        fipe: 'R$ 28.799,00',
+        marca: 'Honda',
+        modelo: 'HR-V EXL 1.8',
+        ano: '2021/2021',
+        cor: 'Branco',
+        fipe: 'R$ 113.297,00',
         situacao: 'Sem restrição'
       }
       showDataModal.value = true
@@ -929,23 +934,23 @@ function applyEmailSuggestion() {
           <div class="sample-preview__table">
             <div class="sample-preview__row">
               <span class="sample-preview__label">Marca</span>
-              <span class="sample-preview__value">VW</span>
+              <span class="sample-preview__value">Honda</span>
             </div>
             <div class="sample-preview__row">
               <span class="sample-preview__label">Modelo</span>
-              <span class="sample-preview__value">CROSSFOX 1.6</span>
+              <span class="sample-preview__value">HR-V EXL 1.8</span>
             </div>
             <div class="sample-preview__row">
               <span class="sample-preview__label">Ano</span>
-              <span class="sample-preview__value">2007/2007</span>
+              <span class="sample-preview__value">2021/2021</span>
             </div>
             <div class="sample-preview__row">
               <span class="sample-preview__label">Cor</span>
-              <span class="sample-preview__value">Prata</span>
+              <span class="sample-preview__value">Branco</span>
             </div>
             <div class="sample-preview__row">
               <span class="sample-preview__label">FIPE</span>
-              <span class="sample-preview__value">R$ 28.799,00</span>
+              <span class="sample-preview__value">R$ 113.297,00</span>
             </div>
             <div class="sample-preview__row">
               <span class="sample-preview__label">Situação</span>
