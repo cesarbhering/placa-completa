@@ -181,7 +181,7 @@ useHead({
   // com CTR em disputa). PWA/TWA: título curto, melhor em contexto de app.
   title: computed(() => isPWA.value
     ? 'PlacaCompleta'
-    : 'Consulta Placa Grátis: FIPE, Marca e Modelo | PlacaCompleta'),
+    : 'Consulta Placa Grátis: FIPE, Marca e Modelo'),
   script: [
     {
       type: 'application/ld+json',
