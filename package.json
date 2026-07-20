@@ -29,6 +29,7 @@
     "@nuxtjs/seo": "^3.4.0",
     "@nuxtjs/sitemap": "^7.6.0",
     "@supabase/supabase-js": "^2.49.1",
+    "disposable-email-domains": "^1.0.62",
     "html2canvas": "^1.4.1",
     "nuxt": "^3.16.1",
     "react-onesignal": "^3.4.6",

@@ -44,6 +44,7 @@ const permissionRequested = ref(false)
 const modalWindowRef = ref<HTMLElement | null>(null)
 const preparingShare = ref(false)
 const pwaFipeHistory = ref<{ label: string; price: number }[] | null>(null)
+const emailSuggestion = ref('')
 const includeFipeChart = ref(true)
 const includeIcv5 = ref(true)
 const icv5Uf = ref('')
@@ -300,6 +301,7 @@ function onWebPhoneInput(e: Event) {
 function resetForm() {
   placa.value = ''
   pwaFipeHistory.value = null
+  emailSuggestion.value = ''
   message.value = ''
   success.value = false
   sentToEmail.value = ''
@@ -707,11 +709,24 @@ async function handleSubmit() {
     const errMsg = err?.data?.message || err?.message || 'Erro inesperado. Tente novamente.'
     message.value = errMsg
     messageType.value = 'error'
-    track('consulta_error', { error_message: errMsg })
+    emailSuggestion.value = err?.data?.data?.suggestion || ''
+    track('consulta_error', { error_message: errMsg, has_suggestion: Boolean(emailSuggestion.value) })
   } finally {
     stopStageCycle()
     loading.value = false
   }
+}
+
+function applyEmailSuggestion() {
+  if (!emailSuggestion.value) return
+  if (isPWA.value) {
+    pwaEmail.value = emailSuggestion.value
+  }
+  email.value = emailSuggestion.value
+  webEmail.value = emailSuggestion.value
+  message.value = ''
+  emailSuggestion.value = ''
+  track('email_suggestion_applied')
 }
 </script>
 
@@ -861,6 +876,14 @@ async function handleSubmit() {
 
           <div v-if="message && !photoProcessMessage" class="win-alert" :class="`win-alert--${messageType}`">
             {{ message }}
+            <button
+              v-if="emailSuggestion"
+              type="button"
+              class="email-suggestion-btn"
+              @click="applyEmailSuggestion"
+            >
+              Você quis dizer <strong>{{ emailSuggestion }}</strong>? Clique para corrigir.
+            </button>
           </div>
         </form>
 
@@ -1914,5 +1937,27 @@ async function handleSubmit() {
   color: $win-dark;
   margin-top: 2px;
   white-space: nowrap;
+}
+
+.email-suggestion-btn {
+  display: block;
+  width: 100%;
+  margin-top: $space-xs;
+  padding: $space-xs $space-sm;
+  background: $win-white;
+  color: $navy-electric;
+  font-family: $font-body;
+  font-size: 0.8125rem;
+  text-align: left;
+  cursor: pointer;
+  @include win-border;
+
+  strong {
+    text-decoration: underline;
+  }
+
+  &:hover {
+    background: $powder-blue;
+  }
 }
 </style>

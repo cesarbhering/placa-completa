@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
+import { checkEmailDeliverability } from '../utils/email-deliverability'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
@@ -49,6 +50,29 @@ export default defineEventHandler(async (event) => {
     }
     if (phone && !isValidPhone(phone)) {
       throw createError({ statusCode: 400, message: 'Telefone inválido.' })
+    }
+
+    // Deliverability (etapa 1, sem porta 25): typo -> sugestao clicavel na UI;
+    // descartavel/no-MX -> bloqueia ANTES de gastar a consulta paga.
+    const deliv = await checkEmailDeliverability(email)
+    if (!deliv.ok) {
+      if (deliv.reason === 'typo' && deliv.suggestion) {
+        throw createError({
+          statusCode: 422,
+          message: 'Verifique o e-mail digitado.',
+          data: { suggestion: deliv.suggestion },
+        })
+      }
+      if (deliv.reason === 'disposable') {
+        throw createError({
+          statusCode: 422,
+          message: 'E-mails temporários não são aceitos. Use seu e-mail real para receber o resultado.',
+        })
+      }
+      throw createError({
+        statusCode: 422,
+        message: 'Este e-mail não parece receber mensagens. Confira se digitou certo.',
+      })
     }
   }
 
