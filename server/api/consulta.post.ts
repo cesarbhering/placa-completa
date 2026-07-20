@@ -1,6 +1,7 @@
 import { Resend } from 'resend'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { checkEmailDeliverability } from '../utils/email-deliverability'
+import { getClientIp } from '../utils/client-ip'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
@@ -86,9 +87,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const headers = getRequestHeaders(event)
-  const ip = headers['x-forwarded-for']?.split(',')[0]?.trim()
-    || headers['x-real-ip']
-    || 'unknown'
+  const ip = getClientIp(event)
   const userAgent = headers['user-agent'] || 'unknown'
 
   const placaClean = placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase()

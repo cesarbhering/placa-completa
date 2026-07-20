@@ -1,10 +1,9 @@
-export default defineEventHandler(async (event) => {
-  const headers = getRequestHeaders(event)
-  const ip = headers['x-forwarded-for']?.split(',')[0]?.trim()
-    || headers['x-real-ip']
-    || ''
+import { getClientIp } from '../utils/client-ip'
 
-  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === 'unknown') {
+export default defineEventHandler(async (event) => {
+  const ip = getClientIp(event)
+
+  if (ip === 'unknown') {
     return { uf: 'SP' }
   }
 
