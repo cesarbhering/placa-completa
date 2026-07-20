@@ -2,6 +2,10 @@
 import { homepageFaqs } from '~/data/homepage-faqs'
 
 const { isPWA, isMobile } = useAppMode()
+const route = useRoute()
+// Landing de intencao-app: anuncios do ad group "App Intent" chegam com ?app=1
+// e trocam o contador de consultas pelo badge do Play. Fallback: contador normal.
+const appIntent = computed(() => route.query.app === '1' && !isPWA.value)
 const email = ref('')
 const placa = ref('')
 const loading = ref(false)
@@ -143,6 +147,10 @@ function track(event: string, params?: Record<string, any>) {
   if (import.meta.client && window.gtag) {
     window.gtag('event', event, params)
   }
+}
+
+function trackAppIntentClick() {
+  track('store_badge_click', { source: 'app_intent_hero', store: 'google_play' })
 }
 
 function onFormStart() {
@@ -750,7 +758,18 @@ function applyEmailSuggestion() {
           Digite a placa e receba <strong>marca, modelo, ano, valor FIPE e situação</strong> do veículo em segundos.
         </p>
 
-        <p v-if="consultaCount > 0" class="counter">
+        <a
+          v-if="appIntent"
+          href="https://play.google.com/store/apps/details?id=br.com.placacompleta&utm_source=google&utm_medium=cpc&utm_campaign=app_intent_hero"
+          target="_blank"
+          rel="noopener"
+          class="app-intent-badge"
+          aria-label="Baixe o app PlacaCompleta na Google Play"
+          @click="trackAppIntentClick"
+        >
+          <img src="/badges/google-play-pt-br.png" alt="Disponível no Google Play" width="180" height="70">
+        </a>
+        <p v-else-if="consultaCount > 0" class="counter">
           <svg class="counter__check" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="currentColor" opacity="0.15"/><path d="M4.5 8.5L7 11L11.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           {{ consultaCount.toLocaleString('pt-BR') }} consultas realizadas
         </p>
@@ -1958,6 +1977,17 @@ function applyEmailSuggestion() {
 
   &:hover {
     background: $powder-blue;
+  }
+}
+
+.app-intent-badge {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 $space-sm;
+
+  img {
+    height: 48px;
+    width: auto;
   }
 }
 </style>
