@@ -2,6 +2,32 @@
 
 Quota diária do GSC: ~10-20 URLs por propriedade. Voltar amanhã e fazer o restante.
 
+## Solicitadas em 17/jul/2026 (todas 21 URLs foram enviadas)
+
+Também: schema Vehicle corrigido (PR #51) e clicado "Validar correção" no GSC → Snippets do produto.
+
+- [x] https://placacompleta.com.br/ibv/junho-2026
+- [x] https://placacompleta.com.br/ibv/vencedores-perdedores-junho-2026
+- [x] https://placacompleta.com.br/ibv/eletricos-junho-2026
+- [x] https://placacompleta.com.br/ibv
+- [x] https://placacompleta.com.br/tabela-fipe-por-placa
+- [x] https://placacompleta.com.br/consultar-placa/minas-gerais
+- [x] https://placacompleta.com.br/consultar-placa/rio-de-janeiro
+- [x] https://placacompleta.com.br/consultar-placa/rio-grande-do-sul
+- [x] https://placacompleta.com.br/consultar-placa/mato-grosso-do-sul
+- [x] https://placacompleta.com.br/consultar-placa/mato-grosso
+- [x] https://placacompleta.com.br/consultar-placa/alagoas
+- [x] https://placacompleta.com.br/consultar-placa/amapa
+- [x] https://placacompleta.com.br/consultar-placa/roraima
+- [x] https://placacompleta.com.br/consultar-placa/rondonia
+- [x] https://placacompleta.com.br/consultar-placa/para
+- [x] https://placacompleta.com.br/consultar-placa/maranhao
+- [x] https://placacompleta.com.br/tabela-fipe/honda-civic
+- [x] https://placacompleta.com.br/tabela-fipe/volkswagen-gol
+- [x] https://placacompleta.com.br/tabela-fipe/chevrolet-onix
+- [x] https://placacompleta.com.br/tabela-fipe/renault-kwid
+- [x] https://placacompleta.com.br/tabela-fipe/toyota-corolla
+
 ## Pendentes — Hub de estados (10/jun/2026, após merge do redesign-v2)
 
 > Solicitar SOMENTE depois do merge do PR #40 e deploy em produção — a URL ainda é 404 na main.
