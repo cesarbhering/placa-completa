@@ -1950,7 +1950,7 @@ function applyEmailSuggestion() {
   font-size: 0.8125rem;
   text-align: left;
   cursor: pointer;
-  @include win-border;
+  @include win-border-raised;
 
   strong {
     text-decoration: underline;
