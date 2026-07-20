@@ -128,3 +128,15 @@ Rascunho — vamos refinar quando aprovar:
 - [ ] Confirmar `Formulário` e `Meta sugerida` rebaixadas pra acao secundaria (cosmetico, nao urgente)
 - [ ] Dia 30 (19/ago): campanha para sozinha via end_date. Avaliar: custo por consulta < R$2 = escalar; R$2-5 = iterar; > R$5 = matar
 - [ ] Fast-follow de produto: embutir formulario de consulta direto em /tabela-fipe-por-placa (reduz atrito do clique pago)
+
+## Log (20/jul, noite) — campanha de app + realocacao
+
+- Orcamento realocado: FIPE Search 10,00 -> 7,33/dia (~R$220/30d).
+- Nova campanha App Install criada via scripts/pc-ads-create-app-campaign.py:
+  ID 24055226065, R$2,67/dia (~R$80/30d), App Campaign (Play/Search/YouTube/
+  Display, sem controle de canal - limitacao do produto), assets text-only
+  pra enviesar veiculacao pra busca do Play, bidding maximizar instalacoes,
+  termina em +30d. Ativada pelo Cesar na UI.
+- ASO: listing do Play atualizada (titulo "PlacaCompleta: Consulta Placa",
+  descricao curta e completa otimizadas com keywords + feature do grafico
+  FIPE). Enviada pra revisao do Google em 20/jul.
