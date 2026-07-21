@@ -53,3 +53,13 @@ Quando conseguir email, formato: `nome-do-site|email@dominio.com`
   2. Enviar dia 1-2 do mês, junto com o release IBV, enquanto é novidade
   3. Sem follow-up da rodada 1 — voltar nos mesmos 8 em agosto com
      pitch regionalizado constrói familiaridade sem queimar simpatia
+
+## 🆕 Adicionados para a rodada 2 (agosto, pitch regionalizado)
+
+| Veículo | Site | Email | Região |
+|---|---|---|---|
+| Gazeta de São João del Rei | gazetadesaojoaodelrei.com.br | ncpproducoes@gmail.com | MG - Campo das Vertentes |
+| Tribuna do Leste | tribunadoleste.com.br | jtribunadoleste@gmail.com | MG - Leste de Minas (Manhuaçu) |
+
+Ambos MG: recebem o recorte mineiro do IBV de agosto (desvalorização por
+modelo em MG; se houver volume, modelos mais consultados no estado).
