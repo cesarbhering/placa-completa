@@ -144,6 +144,20 @@ export default defineEventHandler(async (event) => {
         const minutesElapsed = Math.floor((Date.now() - new Date(oldestIso).getTime()) / 60000)
         minutesUntilReset = Math.max(1, 60 - minutesElapsed)
       }
+
+      // Log duravel do bloqueio (fire-and-forget): 429 nao aparece nos logs
+      // do container e docker logs morrem a cada deploy. Sem await pra nao
+      // atrasar a resposta; falha de insert nao afeta o usuario.
+      supabase.from('blocked_requests').insert({
+        reason: recipientCount >= 5 ? 'rate_limit_recipient' : 'rate_limit_ip',
+        ip_address: ip,
+        recipient: recipientValue as string,
+        placa: placa?.replace(/[^A-Za-z0-9]/g, '').toUpperCase() || null,
+        user_agent: userAgent,
+      }).then(({ error }) => {
+        if (error) console.warn('[blocked_requests] insert falhou:', error.message)
+      })
+
       throw createError({
         statusCode: 429,
         message: `Limite de 5 consultas por hora atingido. Tente novamente em ~${minutesUntilReset} min.`,
