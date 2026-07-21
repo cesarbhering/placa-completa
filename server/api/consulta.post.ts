@@ -2,6 +2,8 @@ import { Resend } from 'resend'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { checkEmailDeliverability } from '../utils/email-deliverability'
 import { getClientIp } from '../utils/client-ip'
+import { lookupIpGeo } from '../utils/ip-geo'
+import { getRegiaoSusep } from '../utils/regiao-susep'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
@@ -89,6 +91,10 @@ export default defineEventHandler(async (event) => {
   const headers = getRequestHeaders(event)
   const ip = getClientIp(event)
   const userAgent = headers['user-agent'] || 'unknown'
+  // Geo por IP (cacheado; fail-open pra null). Precisao de cidade e
+  // aproximada em mobile/CGNAT - tratar como regiao provavel.
+  const ipGeo = await lookupIpGeo(ip)
+  const regiao = ipGeo?.country === 'BR' ? getRegiaoSusep(ipGeo.uf, ipGeo.city) : null
 
   const placaClean = placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
   const placaRegex = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/
@@ -225,6 +231,10 @@ export default defineEventHandler(async (event) => {
       phone: normalizedPhone,
       placa: placaClean,
       ip_address: ip,
+      geo_city: ipGeo?.city ?? null,
+      geo_uf: ipGeo?.uf ?? null,
+      geo_country: ipGeo?.country ?? null,
+      geo_region_code: regiao?.code ?? null,
       user_agent: userAgent,
       device_info: deviceInfo,
       is_pwa: isPWA || false,
@@ -247,6 +257,10 @@ export default defineEventHandler(async (event) => {
       phone: normalizedPhone,
       placa: placaClean,
       ip_address: ip,
+      geo_city: ipGeo?.city ?? null,
+      geo_uf: ipGeo?.uf ?? null,
+      geo_country: ipGeo?.country ?? null,
+      geo_region_code: regiao?.code ?? null,
       user_agent: userAgent,
       device_info: deviceInfo,
       is_pwa: isPWA || false,
@@ -449,6 +463,10 @@ export default defineEventHandler(async (event) => {
     phone: normalizedPhone,
     placa: placaClean,
     ip_address: ip,
+    geo_city: ipGeo?.city ?? null,
+    geo_uf: ipGeo?.uf ?? null,
+    geo_country: ipGeo?.country ?? null,
+    geo_region_code: regiao?.code ?? null,
     user_agent: userAgent,
     device_info: deviceInfo,
     is_pwa: isPWA || false,
