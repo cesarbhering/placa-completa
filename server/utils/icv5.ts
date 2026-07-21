@@ -3,14 +3,28 @@
  * Estima o custo total de manutenção + IPVA de um veículo nos próximos 5 anos.
  */
 
-// Percentual do valor FIPE gasto em manutenção por ano, conforme idade do veículo
-export function manutencaoPercentualPorIdade(idade: number): number {
-  if (idade <= 1) return 0.03
-  if (idade <= 3) return 0.05
-  if (idade <= 5) return 0.07
-  if (idade <= 8) return 0.10
-  if (idade <= 12) return 0.13
-  return 0.16
+// Fator de idade aplicado sobre o custo-base de manutenção.
+// Modelo antigo usava % direto do FIPE (13-16% a.a. pra carros velhos), o que
+// estourava em 2-4x pra popular usado: Strada 2014 dava R$10k/ano de manutenção.
+// Recalibrado em 21/jul/2026 pro modelo híbrido (ver manutencaoAnualBase).
+export function fatorIdade(idade: number): number {
+  if (idade <= 1) return 0.6
+  if (idade <= 3) return 0.8
+  if (idade <= 5) return 1.0
+  if (idade <= 8) return 1.25
+  if (idade <= 12) return 1.5
+  return 1.8
+}
+
+// Manutenção anual = (piso absoluto + componente proporcional ao FIPE) ajustado
+// por idade e categoria. O piso (óleo, filtros, desgaste) todo carro paga; o
+// componente proporcional captura que peça de carro caro custa mais, de forma
+// sub-linear ao valor - manutenção real não escala 1:1 com FIPE.
+const MANUTENCAO_PISO_ANUAL = 800
+const MANUTENCAO_PCT_FIPE = 0.015
+
+export function manutencaoAnualBase(valorFipe: number, idade: number, categoria: string): number {
+  return (MANUTENCAO_PISO_ANUAL + valorFipe * MANUTENCAO_PCT_FIPE) * fatorIdade(idade) * fatorCategoria(categoria)
 }
 
 // Fator multiplicador por categoria do veículo
@@ -105,10 +119,7 @@ export function calcularICV5({ valorFipe, anoFabricacao, uf, categoria }: ICV5In
 
   let manutencaoTotal = 0
   for (let i = 0; i < 5; i++) {
-    const idadeNoAno = idadeAtual + i
-    const percentual = manutencaoPercentualPorIdade(idadeNoAno)
-    const fator = fatorCategoria(categoria)
-    manutencaoTotal += valorFipe * percentual * fator
+    manutencaoTotal += manutencaoAnualBase(valorFipe, idadeAtual + i, categoria)
   }
 
   const manutencaoAnual = manutencaoTotal / 5
@@ -130,9 +141,11 @@ export function calcularICV5({ valorFipe, anoFabricacao, uf, categoria }: ICV5In
   }
 }
 
+// Faixas recalibradas junto com o modelo de manutenção (os índices caíram):
+// custo de 5 anos como % do valor FIPE.
 export function classificarICV5(indice: number): string {
-  if (indice <= 40) return 'Econômico'
-  if (indice <= 60) return 'Moderado'
-  if (indice <= 80) return 'Elevado'
+  if (indice <= 30) return 'Econômico'
+  if (indice <= 50) return 'Moderado'
+  if (indice <= 75) return 'Elevado'
   return 'Muito Elevado'
 }
