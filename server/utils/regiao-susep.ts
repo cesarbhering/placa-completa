@@ -340,6 +340,19 @@ export interface RegiaoSusep {
  * Resolve o codigo REGSUSEP a partir de UF (+ cidade quando disponivel).
  * Cidade desconhecida ou ausente cai no catch-all da UF; UF invalida -> null.
  */
+/**
+ * Codigo catch-all ("demais regioes") da UF de um codigo de regiao.
+ * Ex: '17' (MG Vale do Aco) -> '16' (MG catch-all). Retorna null se o
+ * codigo ja e o catch-all da propria UF ou nao tem UF conhecida.
+ */
+export function getRegiaoCatchAll(code: string): string | null {
+  const label = REGIOES[code]
+  if (!label) return null
+  const uf = label.slice(0, 2)
+  const def = UF_DEFAULT[uf]
+  return def && def !== code ? def : null
+}
+
 export function getRegiaoSusep(uf: string | null | undefined, city?: string | null): RegiaoSusep | null {
   if (!uf) return null
   const ufNorm = uf.toUpperCase().trim()
