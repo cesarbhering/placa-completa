@@ -1,0 +1,469 @@
+{
+ "compiladoEm": "2026-07-24",
+ "estados": {
+  "SP": {
+   "regiao": {
+    "codigo": "11",
+    "nome": "Grande São Paulo"
+   },
+   "mediaPopulares": 2034,
+   "amostraModelos": 4
+  },
+  "RJ": {
+   "regiao": {
+    "codigo": "18",
+    "nome": "Grande Rio de Janeiro"
+   },
+   "mediaPopulares": 2615,
+   "amostraModelos": 4
+  },
+  "MG": {
+   "regiao": {
+    "codigo": "16",
+    "nome": "Grande Belo Horizonte"
+   },
+   "mediaPopulares": 1863,
+   "amostraModelos": 4
+  },
+  "RS": {
+   "regiao": {
+    "codigo": "01",
+    "nome": "Grande Porto Alegre e Caxias"
+   },
+   "mediaPopulares": 1880,
+   "amostraModelos": 4
+  },
+  "PR": {
+   "regiao": {
+    "codigo": "07",
+    "nome": "Grande Curitiba"
+   },
+   "mediaPopulares": 1637,
+   "amostraModelos": 4
+  },
+  "SC": {
+   "regiao": {
+    "codigo": "03",
+    "nome": "Grande Florianópolis e Sul"
+   },
+   "mediaPopulares": 1567,
+   "amostraModelos": 4
+  },
+  "GO": {
+   "regiao": {
+    "codigo": "39",
+    "nome": "Goiás"
+   },
+   "mediaPopulares": 1965,
+   "amostraModelos": 4
+  },
+  "ES": {
+   "regiao": {
+    "codigo": "20",
+    "nome": "Espírito Santo"
+   },
+   "mediaPopulares": 1498,
+   "amostraModelos": 4
+  },
+  "BA": {
+   "regiao": {
+    "codigo": "21",
+    "nome": "Bahia"
+   },
+   "mediaPopulares": 2053,
+   "amostraModelos": 4
+  },
+  "SE": {
+   "regiao": {
+    "codigo": "22",
+    "nome": "Sergipe"
+   },
+   "mediaPopulares": 1842,
+   "amostraModelos": 4
+  },
+  "PE": {
+   "regiao": {
+    "codigo": "23",
+    "nome": "Pernambuco"
+   },
+   "mediaPopulares": 2186,
+   "amostraModelos": 4
+  },
+  "PB": {
+   "regiao": {
+    "codigo": "24",
+    "nome": "Paraíba"
+   },
+   "mediaPopulares": 1754,
+   "amostraModelos": 4
+  },
+  "RN": {
+   "regiao": {
+    "codigo": "25",
+    "nome": "Rio Grande do Norte"
+   },
+   "mediaPopulares": 1975,
+   "amostraModelos": 4
+  },
+  "AL": {
+   "regiao": {
+    "codigo": "26",
+    "nome": "Alagoas"
+   },
+   "mediaPopulares": 1739,
+   "amostraModelos": 4
+  },
+  "CE": {
+   "regiao": {
+    "codigo": "27",
+    "nome": "Ceará"
+   },
+   "mediaPopulares": 2123,
+   "amostraModelos": 4
+  },
+  "PI": {
+   "regiao": {
+    "codigo": "28",
+    "nome": "Piauí"
+   },
+   "mediaPopulares": 2204,
+   "amostraModelos": 4
+  },
+  "MA": {
+   "regiao": {
+    "codigo": "29",
+    "nome": "Maranhão"
+   },
+   "mediaPopulares": 2380,
+   "amostraModelos": 4
+  },
+  "PA": {
+   "regiao": {
+    "codigo": "30",
+    "nome": "Pará"
+   },
+   "mediaPopulares": 2353,
+   "amostraModelos": 4
+  },
+  "AM": {
+   "regiao": {
+    "codigo": "31",
+    "nome": "Amazonas"
+   },
+   "mediaPopulares": 2253,
+   "amostraModelos": 4
+  },
+  "AP": {
+   "regiao": {
+    "codigo": "32",
+    "nome": "Amapá"
+   },
+   "mediaPopulares": 2498,
+   "amostraModelos": 4
+  },
+  "RO": {
+   "regiao": {
+    "codigo": "33",
+    "nome": "Rondônia"
+   },
+   "mediaPopulares": 1618,
+   "amostraModelos": 4
+  },
+  "RR": {
+   "regiao": {
+    "codigo": "34",
+    "nome": "Roraima"
+   },
+   "mediaPopulares": 2421,
+   "amostraModelos": 4
+  },
+  "AC": {
+   "regiao": {
+    "codigo": "35",
+    "nome": "Acre"
+   },
+   "mediaPopulares": 1985,
+   "amostraModelos": 4
+  },
+  "MT": {
+   "regiao": {
+    "codigo": "36",
+    "nome": "Mato Grosso"
+   },
+   "mediaPopulares": 2312,
+   "amostraModelos": 4
+  },
+  "MS": {
+   "regiao": {
+    "codigo": "37",
+    "nome": "Mato Grosso do Sul"
+   },
+   "mediaPopulares": 1784,
+   "amostraModelos": 4
+  },
+  "DF": {
+   "regiao": {
+    "codigo": "38",
+    "nome": "Distrito Federal"
+   },
+   "mediaPopulares": 1755,
+   "amostraModelos": 4
+  },
+  "TO": {
+   "regiao": {
+    "codigo": "40",
+    "nome": "Tocantins"
+   },
+   "mediaPopulares": 2026,
+   "amostraModelos": 4
+  }
+ },
+ "ranking": [
+  {
+   "codigo": "18",
+   "nome": "RJ - Met. do Rio de Janeiro",
+   "media": 2615,
+   "amostra": 4
+  },
+  {
+   "codigo": "32",
+   "nome": "AP - Amapá",
+   "media": 2498,
+   "amostra": 4
+  },
+  {
+   "codigo": "34",
+   "nome": "RR - Roraima",
+   "media": 2421,
+   "amostra": 4
+  },
+  {
+   "codigo": "29",
+   "nome": "MA - Maranhão",
+   "media": 2380,
+   "amostra": 4
+  },
+  {
+   "codigo": "30",
+   "nome": "PA - Pará",
+   "media": 2353,
+   "amostra": 4
+  },
+  {
+   "codigo": "36",
+   "nome": "MT - Mato Grosso",
+   "media": 2312,
+   "amostra": 4
+  },
+  {
+   "codigo": "31",
+   "nome": "AM - Amazonas",
+   "media": 2253,
+   "amostra": 4
+  },
+  {
+   "codigo": "28",
+   "nome": "PI - Piauí",
+   "media": 2204,
+   "amostra": 4
+  },
+  {
+   "codigo": "23",
+   "nome": "PE - Pernambuco",
+   "media": 2186,
+   "amostra": 4
+  },
+  {
+   "codigo": "10",
+   "nome": "SP - Litoral Norte e Baixada Santista",
+   "media": 2174,
+   "amostra": 4
+  },
+  {
+   "codigo": "27",
+   "nome": "CE - Ceará",
+   "media": 2123,
+   "amostra": 4
+  },
+  {
+   "codigo": "21",
+   "nome": "BA - Bahia",
+   "media": 2053,
+   "amostra": 4
+  },
+  {
+   "codigo": "11",
+   "nome": "SP - Met. de São Paulo",
+   "media": 2034,
+   "amostra": 4
+  },
+  {
+   "codigo": "40",
+   "nome": "TO - Tocantins",
+   "media": 2026,
+   "amostra": 4
+  },
+  {
+   "codigo": "35",
+   "nome": "AC - Acre",
+   "media": 1985,
+   "amostra": 4
+  },
+  {
+   "codigo": "25",
+   "nome": "RN - Rio Grande do Norte",
+   "media": 1975,
+   "amostra": 4
+  },
+  {
+   "codigo": "39",
+   "nome": "GO - Goiás",
+   "media": 1965,
+   "amostra": 4
+  },
+  {
+   "codigo": "01",
+   "nome": "RS - Met. Porto Alegre e Caxias do Sul",
+   "media": 1880,
+   "amostra": 4
+  },
+  {
+   "codigo": "16",
+   "nome": "MG - Met. BH-Centro Oeste-Zona da Mata",
+   "media": 1863,
+   "amostra": 4
+  },
+  {
+   "codigo": "09",
+   "nome": "SP - Vale do Paraíba e Ribeira",
+   "media": 1847,
+   "amostra": 4
+  },
+  {
+   "codigo": "22",
+   "nome": "SE - Sergipe",
+   "media": 1842,
+   "amostra": 4
+  },
+  {
+   "codigo": "41",
+   "nome": "GO - Sudeste de Goiás",
+   "media": 1831,
+   "amostra": 4
+  },
+  {
+   "codigo": "19",
+   "nome": "RJ - Interior",
+   "media": 1809,
+   "amostra": 4
+  },
+  {
+   "codigo": "37",
+   "nome": "MS - Mato Grosso do Sul",
+   "media": 1784,
+   "amostra": 4
+  },
+  {
+   "codigo": "12",
+   "nome": "SP - Grande Campinas",
+   "media": 1778,
+   "amostra": 4
+  },
+  {
+   "codigo": "17",
+   "nome": "MG - Vale do Aço-Norte-Jequitinhonha",
+   "media": 1774,
+   "amostra": 4
+  },
+  {
+   "codigo": "38",
+   "nome": "DF - Brasília",
+   "media": 1755,
+   "amostra": 4
+  },
+  {
+   "codigo": "24",
+   "nome": "PB - Paraíba",
+   "media": 1754,
+   "amostra": 4
+  },
+  {
+   "codigo": "26",
+   "nome": "AL - Alagoas",
+   "media": 1739,
+   "amostra": 4
+  },
+  {
+   "codigo": "06",
+   "nome": "PR - Foz do Iguaçu-Medianeira-Cascavel-Toledo",
+   "media": 1710,
+   "amostra": 4
+  },
+  {
+   "codigo": "14",
+   "nome": "MG - Triângulo Mineiro",
+   "media": 1695,
+   "amostra": 4
+  },
+  {
+   "codigo": "07",
+   "nome": "PR - Met. Curitiba",
+   "media": 1637,
+   "amostra": 4
+  },
+  {
+   "codigo": "15",
+   "nome": "MG - Sul",
+   "media": 1636,
+   "amostra": 4
+  },
+  {
+   "codigo": "33",
+   "nome": "RO - Rondônia",
+   "media": 1618,
+   "amostra": 4
+  },
+  {
+   "codigo": "08",
+   "nome": "PR - Demais regiões",
+   "media": 1593,
+   "amostra": 4
+  },
+  {
+   "codigo": "03",
+   "nome": "SC - Met. Florianópolis e Sul",
+   "media": 1567,
+   "amostra": 4
+  },
+  {
+   "codigo": "05",
+   "nome": "SC - Blumenau e demais regiões",
+   "media": 1542,
+   "amostra": 4
+  },
+  {
+   "codigo": "20",
+   "nome": "ES - Espírito Santo",
+   "media": 1498,
+   "amostra": 4
+  },
+  {
+   "codigo": "02",
+   "nome": "RS - Demais regiões",
+   "media": 1469,
+   "amostra": 4
+  },
+  {
+   "codigo": "04",
+   "nome": "SC - Oeste",
+   "media": 1410,
+   "amostra": 4
+  },
+  {
+   "codigo": "13",
+   "nome": "SP - Ribeirão Preto e demais municípios",
+   "media": 1398,
+   "amostra": 4
+  }
+ ]
+}

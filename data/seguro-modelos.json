@@ -1,0 +1,2494 @@
+{
+ "volkswagen-gol": {
+  "nome": "Volkswagen Gol",
+  "ano": 2017,
+  "regioes": {
+   "11": {
+    "premio": 1881,
+    "franquia": 2881
+   },
+   "16": {
+    "premio": 1301,
+    "franquia": 2205
+   },
+   "18": {
+    "premio": 2345,
+    "franquia": 3173
+   },
+   "07": {
+    "premio": 1104,
+    "franquia": 2487
+   }
+  },
+  "faixa": {
+   "min": 1104,
+   "max": 2345
+  },
+  "fipeValor": 46254,
+  "pctFipe": 3.6
+ },
+ "volkswagen-polo": {
+  "nome": "Volkswagen Polo",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 1651,
+    "franquia": 3785
+   },
+   "16": {
+    "premio": 1590,
+    "franquia": 2634
+   },
+   "18": {
+    "premio": 2224,
+    "franquia": 3709
+   },
+   "07": {
+    "premio": 1553,
+    "franquia": 2933
+   }
+  },
+  "faixa": {
+   "min": 1553,
+   "max": 2224
+  },
+  "fipeValor": 66236,
+  "pctFipe": 2.6
+ },
+ "volkswagen-t-cross": {
+  "nome": "Volkswagen T-Cross",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 2079,
+    "franquia": 4965
+   },
+   "16": {
+    "premio": 1836,
+    "franquia": 4062
+   },
+   "18": {
+    "premio": 2784,
+    "franquia": 4460
+   },
+   "07": {
+    "premio": 1743,
+    "franquia": 4262
+   }
+  },
+  "faixa": {
+   "min": 1743,
+   "max": 2784
+  },
+  "fipeValor": 111831,
+  "pctFipe": 1.9
+ },
+ "volkswagen-virtus": {
+  "nome": "Volkswagen Virtus",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 2134,
+    "franquia": 4516
+   },
+   "16": {
+    "premio": 2070,
+    "franquia": 3535
+   },
+   "18": {
+    "premio": 2702,
+    "franquia": 4097
+   },
+   "07": {
+    "premio": 1490,
+    "franquia": 3094
+   }
+  },
+  "faixa": {
+   "min": 1490,
+   "max": 2702
+  },
+  "fipeValor": 74518,
+  "pctFipe": 2.8
+ },
+ "volkswagen-nivus": {
+  "nome": "Volkswagen Nivus",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 2078,
+    "franquia": 5006
+   },
+   "16": {
+    "premio": 2087,
+    "franquia": 4035
+   },
+   "18": {
+    "premio": 2291,
+    "franquia": 4285
+   },
+   "07": {
+    "premio": 2089,
+    "franquia": 4704
+   }
+  },
+  "faixa": {
+   "min": 2078,
+   "max": 2291
+  },
+  "fipeValor": 95283,
+  "pctFipe": 2.2
+ },
+ "volkswagen-amarok": {
+  "nome": "Volkswagen Amarok",
+  "ano": 2018,
+  "regioes": {
+   "11": {
+    "premio": 4959,
+    "franquia": 10818
+   },
+   "16": {
+    "premio": 3482,
+    "franquia": 6641
+   },
+   "18": {
+    "premio": 5425,
+    "franquia": 11430
+   },
+   "07": {
+    "premio": 3043,
+    "franquia": 6061
+   }
+  },
+  "faixa": {
+   "min": 3043,
+   "max": 5425
+  },
+  "fipeValor": 89738,
+  "pctFipe": 4.7
+ },
+ "volkswagen-tcross": {
+  "nome": "Volkswagen Tiguan",
+  "ano": 2017,
+  "regioes": {
+   "11": {
+    "premio": 2717,
+    "franquia": 6128
+   },
+   "16": {
+    "premio": 2444,
+    "franquia": 5526
+   },
+   "18": {
+    "premio": 2774,
+    "franquia": 6513
+   },
+   "07": {
+    "premio": 2161,
+    "franquia": 5282
+   }
+  },
+  "faixa": {
+   "min": 2161,
+   "max": 2774
+  },
+  "fipeValor": 79965,
+  "pctFipe": 3.2
+ },
+ "volkswagen-voyage": {
+  "nome": "Volkswagen Voyage",
+  "ano": 2017,
+  "regioes": {
+   "11": {
+    "premio": 1671,
+    "franquia": 3825
+   },
+   "16": {
+    "premio": 1128,
+    "franquia": 2306
+   },
+   "18": {
+    "premio": 2155,
+    "franquia": 3254
+   },
+   "07": {
+    "premio": 985,
+    "franquia": 2826
+   }
+  },
+  "faixa": {
+   "min": 985,
+   "max": 2155
+  },
+  "fipeValor": 43256,
+  "pctFipe": 3.4
+ },
+ "volkswagen-fox": {
+  "nome": "Volkswagen Fox",
+  "ano": 2018,
+  "regioes": {
+   "11": {
+    "premio": 1582,
+    "franquia": 3431
+   },
+   "16": {
+    "premio": 1137,
+    "franquia": 2588
+   },
+   "18": {
+    "premio": 1887,
+    "franquia": 2779
+   },
+   "07": {
+    "premio": 1138,
+    "franquia": 2673
+   }
+  },
+  "faixa": {
+   "min": 1137,
+   "max": 1887
+  },
+  "fipeValor": 58386,
+  "pctFipe": 2.5
+ },
+ "volkswagen-up": {
+  "nome": "Volkswagen Up!",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 1320,
+    "franquia": 2807
+   },
+   "16": {
+    "premio": 1257,
+    "franquia": 2473
+   },
+   "18": {
+    "premio": 1644,
+    "franquia": 2882
+   },
+   "07": {
+    "premio": 1287,
+    "franquia": 2550
+   }
+  },
+  "faixa": {
+   "min": 1257,
+   "max": 1644
+  },
+  "fipeValor": 57774,
+  "pctFipe": 2.4
+ },
+ "volkswagen-jetta": {
+  "nome": "Volkswagen Jetta",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 2595,
+    "franquia": 7169
+   },
+   "16": {
+    "premio": 2580,
+    "franquia": 4897
+   },
+   "18": {
+    "premio": 4027,
+    "franquia": 6180
+   },
+   "07": {
+    "premio": 2294,
+    "franquia": 5673
+   }
+  },
+  "faixa": {
+   "min": 2294,
+   "max": 4027
+  },
+  "fipeValor": 92434,
+  "pctFipe": 3.1
+ },
+ "fiat-argo": {
+  "nome": "Fiat Argo",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 1887,
+    "franquia": 3469
+   },
+   "16": {
+    "premio": 1938,
+    "franquia": 2385
+   },
+   "18": {
+    "premio": 2667,
+    "franquia": 3341
+   },
+   "07": {
+    "premio": 1875,
+    "franquia": 2560
+   }
+  },
+  "faixa": {
+   "min": 1875,
+   "max": 2667
+  },
+  "fipeValor": 55470,
+  "pctFipe": 3.8
+ },
+ "fiat-mobi": {
+  "nome": "Fiat Mobi",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 838,
+    "franquia": 3092
+   },
+   "16": {
+    "premio": 1157,
+    "franquia": 2275
+   },
+   "18": {
+    "premio": 1632,
+    "franquia": 2005
+   },
+   "07": {
+    "premio": 1164,
+    "franquia": 2291
+   }
+  },
+  "faixa": {
+   "min": 838,
+   "max": 1632
+  },
+  "fipeValor": 45054,
+  "pctFipe": 2.7
+ },
+ "fiat-toro": {
+  "nome": "Fiat Toro",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 3220,
+    "franquia": 4710
+   },
+   "16": {
+    "premio": 2446,
+    "franquia": 3913
+   },
+   "18": {
+    "premio": 4695,
+    "franquia": 5253
+   },
+   "07": {
+    "premio": 2401,
+    "franquia": 3848
+   }
+  },
+  "faixa": {
+   "min": 2401,
+   "max": 4695
+  },
+  "fipeValor": 99656,
+  "pctFipe": 3.2
+ },
+ "fiat-cronos": {
+  "nome": "Fiat Cronos",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 1604,
+    "franquia": 3721
+   },
+   "16": {
+    "premio": 1384,
+    "franquia": 2381
+   },
+   "18": {
+    "premio": 2465,
+    "franquia": 3615
+   },
+   "07": {
+    "premio": 1230,
+    "franquia": 2419
+   }
+  },
+  "faixa": {
+   "min": 1230,
+   "max": 2465
+  },
+  "fipeValor": 60427,
+  "pctFipe": 2.8
+ },
+ "fiat-uno": {
+  "nome": "Fiat Uno",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 1770,
+    "franquia": 3180
+   },
+   "16": {
+    "premio": 1389,
+    "franquia": 2355
+   },
+   "18": {
+    "premio": 2519,
+    "franquia": 3434
+   },
+   "07": {
+    "premio": 1663,
+    "franquia": 2360
+   }
+  },
+  "faixa": {
+   "min": 1389,
+   "max": 2519
+  },
+  "fipeValor": 44369,
+  "pctFipe": 4.1
+ },
+ "fiat-palio": {
+  "nome": "Fiat Palio",
+  "ano": 2017,
+  "regioes": {
+   "11": {
+    "premio": 1525,
+    "franquia": 3179
+   },
+   "16": {
+    "premio": 1183,
+    "franquia": 1999
+   },
+   "18": {
+    "premio": 1487,
+    "franquia": 2528
+   },
+   "07": {
+    "premio": 1077,
+    "franquia": 2501
+   }
+  },
+  "faixa": {
+   "min": 1077,
+   "max": 1525
+  },
+  "fipeValor": 33504,
+  "pctFipe": 3.9
+ },
+ "fiat-siena": {
+  "nome": "Fiat Siena",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 2146,
+    "franquia": 2474
+   },
+   "16": {
+    "premio": 1310,
+    "franquia": 1883
+   },
+   "18": {
+    "premio": 2559,
+    "franquia": 3005
+   },
+   "07": {
+    "premio": 2752,
+    "franquia": 3800
+   }
+  },
+  "faixa": {
+   "min": 1310,
+   "max": 2752
+  },
+  "fipeValor": 44410,
+  "pctFipe": 4.9
+ },
+ "fiat-fiorino": {
+  "nome": "Fiat Fiorino",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 2992,
+    "franquia": 3601
+   },
+   "16": {
+    "premio": 2798,
+    "franquia": 2776
+   },
+   "18": {
+    "premio": 3028,
+    "franquia": 4099
+   },
+   "07": {
+    "premio": 3723,
+    "franquia": 3332
+   }
+  },
+  "faixa": {
+   "min": 2798,
+   "max": 3723
+  },
+  "fipeValor": 74369,
+  "pctFipe": 4.2
+ },
+ "fiat-ducato": {
+  "nome": "Fiat Ducato",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 5827,
+    "franquia": 9843
+   },
+   "16": {
+    "premio": 4340,
+    "franquia": 8554
+   },
+   "18": {
+    "premio": 10065,
+    "franquia": 8589
+   },
+   "07": {
+    "premio": 6065,
+    "franquia": 16455
+   }
+  },
+  "faixa": {
+   "min": 4340,
+   "max": 10065
+  },
+  "fipeValor": 132923,
+  "pctFipe": 4.9
+ },
+ "fiat-500": {
+  "nome": "Fiat 500",
+  "ano": 2017,
+  "regioes": {
+   "11": {
+    "premio": 1441,
+    "franquia": 3529
+   },
+   "16": {
+    "premio": 1417,
+    "franquia": 2889
+   },
+   "18": {
+    "premio": 1300,
+    "franquia": 3330
+   },
+   "07": {
+    "premio": 1745,
+    "franquia": 3053
+   }
+  },
+  "faixa": {
+   "min": 1300,
+   "max": 1745
+  },
+  "fipeValor": 71936,
+  "pctFipe": 2.1
+ },
+ "chevrolet-onix": {
+  "nome": "Chevrolet Onix",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 2102,
+    "franquia": 3310
+   },
+   "16": {
+    "premio": 2113,
+    "franquia": 2425
+   },
+   "18": {
+    "premio": 2156,
+    "franquia": 3921
+   },
+   "07": {
+    "premio": 1449,
+    "franquia": 2335
+   }
+  },
+  "faixa": {
+   "min": 1449,
+   "max": 2156
+  },
+  "fipeValor": 58959,
+  "pctFipe": 3.3
+ },
+ "chevrolet-tracker": {
+  "nome": "Chevrolet Tracker",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 1699,
+    "franquia": 4056
+   },
+   "16": {
+    "premio": 1697,
+    "franquia": 3513
+   },
+   "18": {
+    "premio": 2182,
+    "franquia": 4165
+   },
+   "07": {
+    "premio": 1598,
+    "franquia": 3282
+   }
+  },
+  "faixa": {
+   "min": 1598,
+   "max": 2182
+  },
+  "fipeValor": 85881,
+  "pctFipe": 2.1
+ },
+ "chevrolet-spin": {
+  "nome": "Chevrolet Spin",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 2243,
+    "franquia": 4539
+   },
+   "16": {
+    "premio": 1810,
+    "franquia": 2720
+   },
+   "18": {
+    "premio": 2605,
+    "franquia": 4255
+   },
+   "07": {
+    "premio": 1573,
+    "franquia": 2954
+   }
+  },
+  "faixa": {
+   "min": 1573,
+   "max": 2605
+  },
+  "fipeValor": 72764,
+  "pctFipe": 2.8
+ },
+ "chevrolet-montana": {
+  "nome": "Chevrolet Montana",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 2419,
+    "franquia": 3516
+   },
+   "16": {
+    "premio": 2054,
+    "franquia": 2158
+   },
+   "18": {
+    "premio": 3253,
+    "franquia": 3601
+   },
+   "07": {
+    "premio": 627,
+    "franquia": 2741
+   }
+  },
+  "faixa": {
+   "min": 627,
+   "max": 3253
+  },
+  "fipeValor": 60843,
+  "pctFipe": 3.4
+ },
+ "chevrolet-equinox": {
+  "nome": "Chevrolet Equinox",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 3186,
+    "franquia": 5429
+   },
+   "16": {
+    "premio": 3521,
+    "franquia": 7413
+   },
+   "18": {
+    "premio": 4856,
+    "franquia": 6165
+   },
+   "07": {
+    "premio": 2698,
+    "franquia": 5922
+   }
+  },
+  "faixa": {
+   "min": 2698,
+   "max": 4856
+  },
+  "fipeValor": 107766,
+  "pctFipe": 3.3
+ },
+ "chevrolet-cruze": {
+  "nome": "Chevrolet Cruze",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 1555,
+    "franquia": 3723
+   },
+   "16": {
+    "premio": 1430,
+    "franquia": 3686
+   },
+   "18": {
+    "premio": 2981,
+    "franquia": 3545
+   },
+   "07": {
+    "premio": 1989,
+    "franquia": 3731
+   }
+  },
+  "faixa": {
+   "min": 1430,
+   "max": 2981
+  },
+  "fipeValor": 83452,
+  "pctFipe": 2.4
+ },
+ "chevrolet-prisma": {
+  "nome": "Chevrolet Prisma",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 1791,
+    "franquia": 3188
+   },
+   "16": {
+    "premio": 1792,
+    "franquia": 1868
+   },
+   "18": {
+    "premio": 2528,
+    "franquia": 3116
+   },
+   "07": {
+    "premio": 1429,
+    "franquia": 2548
+   }
+  },
+  "faixa": {
+   "min": 1429,
+   "max": 2528
+  },
+  "fipeValor": 64290,
+  "pctFipe": 2.9
+ },
+ "chevrolet-cobalt": {
+  "nome": "Chevrolet Cobalt",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 1940,
+    "franquia": 3017
+   },
+   "16": {
+    "premio": 3156,
+    "franquia": 3169
+   },
+   "18": {
+    "premio": 1689,
+    "franquia": 2695
+   }
+  },
+  "faixa": {
+   "min": 1689,
+   "max": 3156
+  },
+  "fipeValor": 62466,
+  "pctFipe": 3.6
+ },
+ "chevrolet-trailblazer": {
+  "nome": "Chevrolet TrailBlazer",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 4650,
+    "franquia": 8381
+   },
+   "16": {
+    "premio": 4102,
+    "franquia": 8148
+   },
+   "18": {
+    "premio": 3732,
+    "franquia": 8926
+   },
+   "07": {
+    "premio": 3522,
+    "franquia": 7811
+   }
+  },
+  "faixa": {
+   "min": 3522,
+   "max": 4650
+  },
+  "fipeValor": 154663,
+  "pctFipe": 2.6
+ },
+ "hyundai-hb20": {
+  "nome": "Hyundai HB20",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 1795,
+    "franquia": 2889
+   },
+   "16": {
+    "premio": 1335,
+    "franquia": 2432
+   },
+   "18": {
+    "premio": 2224,
+    "franquia": 3031
+   },
+   "07": {
+    "premio": 1285,
+    "franquia": 2492
+   }
+  },
+  "faixa": {
+   "min": 1285,
+   "max": 2224
+  },
+  "fipeValor": 68623,
+  "pctFipe": 2.4
+ },
+ "hyundai-hb20s": {
+  "nome": "Hyundai HB20S",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 1822,
+    "franquia": 3306
+   },
+   "16": {
+    "premio": 1183,
+    "franquia": 3013
+   },
+   "18": {
+    "premio": 2392,
+    "franquia": 2980
+   },
+   "07": {
+    "premio": 1387,
+    "franquia": 2811
+   }
+  },
+  "faixa": {
+   "min": 1183,
+   "max": 2392
+  },
+  "fipeValor": 67453,
+  "pctFipe": 2.5
+ },
+ "hyundai-creta": {
+  "nome": "Hyundai Creta",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 1898,
+    "franquia": 4070
+   },
+   "16": {
+    "premio": 1967,
+    "franquia": 4133
+   },
+   "18": {
+    "premio": 2695,
+    "franquia": 4195
+   },
+   "07": {
+    "premio": 1658,
+    "franquia": 3863
+   }
+  },
+  "faixa": {
+   "min": 1658,
+   "max": 2695
+  },
+  "fipeValor": 87340,
+  "pctFipe": 2.4
+ },
+ "hyundai-tucson": {
+  "nome": "Hyundai Tucson",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 1707,
+    "franquia": 4643
+   },
+   "16": {
+    "premio": 988,
+    "franquia": 3544
+   },
+   "18": {
+    "premio": 2351,
+    "franquia": 3650
+   },
+   "07": {
+    "premio": 4402,
+    "franquia": 7737
+   }
+  },
+  "faixa": {
+   "min": 988,
+   "max": 4402
+  },
+  "fipeValor": 90347,
+  "pctFipe": 2.6
+ },
+ "hyundai-ix35": {
+  "nome": "Hyundai ix35",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 1945,
+    "franquia": 6205
+   },
+   "16": {
+    "premio": 2435,
+    "franquia": 6931
+   },
+   "18": {
+    "premio": 2168,
+    "franquia": 7286
+   },
+   "07": {
+    "premio": 1377,
+    "franquia": 5181
+   }
+  },
+  "faixa": {
+   "min": 1377,
+   "max": 2435
+  },
+  "fipeValor": 94363,
+  "pctFipe": 2.1
+ },
+ "hyundai-santa-fe": {
+  "nome": "Hyundai Santa Fe",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 5219,
+    "franquia": 15902
+   },
+   "16": {
+    "premio": 7183,
+    "franquia": 8570
+   },
+   "18": {
+    "premio": 5176,
+    "franquia": 7125
+   },
+   "07": {
+    "premio": 6099,
+    "franquia": 13343
+   }
+  },
+  "faixa": {
+   "min": 5176,
+   "max": 7183
+  },
+  "fipeValor": 181018,
+  "pctFipe": 3.3
+ },
+ "hyundai-hb20x": {
+  "nome": "Hyundai HB20X",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 1846,
+    "franquia": 4578
+   },
+   "16": {
+    "premio": 1179,
+    "franquia": 2269
+   },
+   "18": {
+    "premio": 2440,
+    "franquia": 3582
+   },
+   "07": {
+    "premio": 1559,
+    "franquia": 2268
+   }
+  },
+  "faixa": {
+   "min": 1179,
+   "max": 2440
+  },
+  "fipeValor": 80124,
+  "pctFipe": 2.2
+ },
+ "hyundai-azera": {
+  "nome": "Hyundai Azera",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 4851,
+    "franquia": 9539
+   },
+   "18": {
+    "premio": 7077,
+    "franquia": 7746
+   },
+   "07": {
+    "premio": 5294,
+    "franquia": 7097
+   }
+  },
+  "faixa": {
+   "min": 4851,
+   "max": 7077
+  },
+  "fipeValor": 164667,
+  "pctFipe": 3.5
+ },
+ "toyota-corolla": {
+  "nome": "Toyota Corolla",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 2759,
+    "franquia": 4815
+   },
+   "16": {
+    "premio": 2693,
+    "franquia": 3871
+   },
+   "18": {
+    "premio": 5077,
+    "franquia": 5400
+   },
+   "07": {
+    "premio": 2332,
+    "franquia": 4213
+   }
+  },
+  "faixa": {
+   "min": 2332,
+   "max": 5077
+  },
+  "fipeValor": 129315,
+  "pctFipe": 2.5
+ },
+ "toyota-hilux": {
+  "nome": "Toyota Hilux",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 2354,
+    "franquia": 11480
+   },
+   "16": {
+    "premio": 2836,
+    "franquia": 7362
+   },
+   "18": {
+    "premio": 4562,
+    "franquia": 9075
+   },
+   "07": {
+    "premio": 4347,
+    "franquia": 7659
+   }
+  },
+  "faixa": {
+   "min": 2354,
+   "max": 4562
+  },
+  "fipeValor": 162065,
+  "pctFipe": 2.2
+ },
+ "toyota-yaris": {
+  "nome": "Toyota Yaris",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 1962,
+    "franquia": 2803
+   },
+   "16": {
+    "premio": 2149,
+    "franquia": 2345
+   },
+   "18": {
+    "premio": 3203,
+    "franquia": 3907
+   },
+   "07": {
+    "premio": 1202,
+    "franquia": 2275
+   }
+  },
+  "faixa": {
+   "min": 1202,
+   "max": 3203
+  },
+  "fipeValor": 85132,
+  "pctFipe": 2.5
+ },
+ "toyota-rav4": {
+  "nome": "Toyota RAV4",
+  "ano": 2018,
+  "regioes": {
+   "11": {
+    "premio": 3043,
+    "franquia": 6801
+   },
+   "16": {
+    "premio": 2262,
+    "franquia": 5798
+   },
+   "18": {
+    "premio": 3550,
+    "franquia": 6876
+   },
+   "07": {
+    "premio": 2291,
+    "franquia": 5440
+   }
+  },
+  "faixa": {
+   "min": 2262,
+   "max": 3550
+  },
+  "fipeValor": 116538,
+  "pctFipe": 2.4
+ },
+ "toyota-etios": {
+  "nome": "Toyota Etios",
+  "ano": 2018,
+  "regioes": {
+   "11": {
+    "premio": 1467,
+    "franquia": 2797
+   },
+   "16": {
+    "premio": 1470,
+    "franquia": 2395
+   },
+   "18": {
+    "premio": 1787,
+    "franquia": 2869
+   },
+   "07": {
+    "premio": 1231,
+    "franquia": 2584
+   }
+  },
+  "faixa": {
+   "min": 1231,
+   "max": 1787
+  },
+  "fipeValor": 65084,
+  "pctFipe": 2.3
+ },
+ "toyota-camry": {
+  "nome": "Toyota Camry",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 6208,
+    "franquia": 21574
+   },
+   "16": {
+    "premio": 3760,
+    "franquia": 10932
+   }
+  },
+  "faixa": {
+   "min": 3760,
+   "max": 6208
+  },
+  "fipeValor": 173917,
+  "pctFipe": 2.9
+ },
+ "toyota-prius": {
+  "nome": "Toyota Prius",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 3237,
+    "franquia": 4789
+   }
+  },
+  "faixa": {
+   "min": 3237,
+   "max": 3237
+  },
+  "fipeValor": 121477,
+  "pctFipe": 2.7
+ },
+ "honda-civic": {
+  "nome": "Honda Civic",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 3744,
+    "franquia": 7098
+   },
+   "16": {
+    "premio": 3934,
+    "franquia": 6234
+   }
+  },
+  "faixa": {
+   "min": 3744,
+   "max": 3934
+  },
+  "fipeValor": 168894,
+  "pctFipe": 2.3
+ },
+ "honda-hr-v": {
+  "nome": "Honda HR-V",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 2281,
+    "franquia": 4640
+   },
+   "16": {
+    "premio": 2004,
+    "franquia": 3400
+   },
+   "18": {
+    "premio": 3092,
+    "franquia": 3933
+   },
+   "07": {
+    "premio": 1650,
+    "franquia": 3736
+   }
+  },
+  "faixa": {
+   "min": 1650,
+   "max": 3092
+  },
+  "fipeValor": 111712,
+  "pctFipe": 2
+ },
+ "honda-city": {
+  "nome": "Honda City",
+  "ano": 2017,
+  "regioes": {
+   "11": {
+    "premio": 1936,
+    "franquia": 4161
+   },
+   "16": {
+    "premio": 1309,
+    "franquia": 4587
+   },
+   "18": {
+    "premio": 2528,
+    "franquia": 4008
+   },
+   "07": {
+    "premio": 1287,
+    "franquia": 2991
+   }
+  },
+  "faixa": {
+   "min": 1287,
+   "max": 2528
+  },
+  "fipeValor": 69002,
+  "pctFipe": 2.6
+ },
+ "honda-fit": {
+  "nome": "Honda Fit",
+  "ano": 2017,
+  "regioes": {
+   "11": {
+    "premio": 1649,
+    "franquia": 3367
+   },
+   "16": {
+    "premio": 1516,
+    "franquia": 2841
+   },
+   "18": {
+    "premio": 1938,
+    "franquia": 3214
+   },
+   "07": {
+    "premio": 1308,
+    "franquia": 3127
+   }
+  },
+  "faixa": {
+   "min": 1308,
+   "max": 1938
+  },
+  "fipeValor": 67893,
+  "pctFipe": 2.4
+ },
+ "honda-wr-v": {
+  "nome": "Honda WR-V",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 2067,
+    "franquia": 3583
+   },
+   "16": {
+    "premio": 2022,
+    "franquia": 2771
+   },
+   "18": {
+    "premio": 2827,
+    "franquia": 3514
+   },
+   "07": {
+    "premio": 1643,
+    "franquia": 3177
+   }
+  },
+  "faixa": {
+   "min": 1643,
+   "max": 2827
+  },
+  "fipeValor": 89174,
+  "pctFipe": 2.4
+ },
+ "honda-cr-v": {
+  "nome": "Honda CR-V",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 3886,
+    "franquia": 9778
+   },
+   "16": {
+    "premio": 3623,
+    "franquia": 7965
+   },
+   "18": {
+    "premio": 4790,
+    "franquia": 10104
+   },
+   "07": {
+    "premio": 3321,
+    "franquia": 8517
+   }
+  },
+  "faixa": {
+   "min": 3321,
+   "max": 4790
+  },
+  "fipeValor": 147531,
+  "pctFipe": 2.6
+ },
+ "honda-accord": {
+  "nome": "Honda Accord",
+  "ano": 2017,
+  "regioes": {
+   "11": {
+    "premio": 3568,
+    "franquia": 10300
+   },
+   "16": {
+    "premio": 3264,
+    "franquia": 7138
+   },
+   "18": {
+    "premio": 4793,
+    "franquia": 14176
+   },
+   "07": {
+    "premio": 3851,
+    "franquia": 5992
+   }
+  },
+  "faixa": {
+   "min": 3264,
+   "max": 4793
+  },
+  "fipeValor": 120160,
+  "pctFipe": 3.2
+ },
+ "renault-kwid": {
+  "nome": "Renault Kwid",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 1538,
+    "franquia": 2927
+   },
+   "16": {
+    "premio": 1388,
+    "franquia": 2455
+   },
+   "18": {
+    "premio": 1801,
+    "franquia": 2757
+   },
+   "07": {
+    "premio": 1420,
+    "franquia": 2423
+   }
+  },
+  "faixa": {
+   "min": 1388,
+   "max": 1801
+  },
+  "fipeValor": 41941,
+  "pctFipe": 3.7
+ },
+ "renault-duster": {
+  "nome": "Renault Duster",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 1535,
+    "franquia": 3543
+   },
+   "16": {
+    "premio": 1536,
+    "franquia": 3170
+   },
+   "18": {
+    "premio": 2041,
+    "franquia": 3854
+   },
+   "07": {
+    "premio": 1453,
+    "franquia": 3220
+   }
+  },
+  "faixa": {
+   "min": 1453,
+   "max": 2041
+  },
+  "fipeValor": 69130,
+  "pctFipe": 2.4
+ },
+ "renault-sandero": {
+  "nome": "Renault Sandero",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 1305,
+    "franquia": 3662
+   },
+   "16": {
+    "premio": 1461,
+    "franquia": 3190
+   },
+   "18": {
+    "premio": 1969,
+    "franquia": 3113
+   },
+   "07": {
+    "premio": 1301,
+    "franquia": 2633
+   }
+  },
+  "faixa": {
+   "min": 1301,
+   "max": 1969
+  },
+  "fipeValor": 41749,
+  "pctFipe": 3.6
+ },
+ "renault-logan": {
+  "nome": "Renault Logan",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 2173,
+    "franquia": 4120
+   },
+   "16": {
+    "premio": 1356,
+    "franquia": 1929
+   },
+   "18": {
+    "premio": 2656,
+    "franquia": 3515
+   },
+   "07": {
+    "premio": 1085,
+    "franquia": 2890
+   }
+  },
+  "faixa": {
+   "min": 1085,
+   "max": 2656
+  },
+  "fipeValor": 37368,
+  "pctFipe": 4.9
+ },
+ "renault-captur": {
+  "nome": "Renault Captur",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 1229,
+    "franquia": 4879
+   },
+   "16": {
+    "premio": 2443,
+    "franquia": 3679
+   },
+   "18": {
+    "premio": 3382,
+    "franquia": 4880
+   },
+   "07": {
+    "premio": 1819,
+    "franquia": 3501
+   }
+  },
+  "faixa": {
+   "min": 1229,
+   "max": 3382
+  },
+  "fipeValor": 78355,
+  "pctFipe": 2.8
+ },
+ "renault-oroch": {
+  "nome": "Renault Oroch",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 2057,
+    "franquia": 3681
+   },
+   "16": {
+    "premio": 1977,
+    "franquia": 3335
+   },
+   "18": {
+    "premio": 3520,
+    "franquia": 4359
+   },
+   "07": {
+    "premio": 1913,
+    "franquia": 3328
+   }
+  },
+  "faixa": {
+   "min": 1913,
+   "max": 3520
+  },
+  "fipeValor": 80269,
+  "pctFipe": 2.9
+ },
+ "renault-master": {
+  "nome": "Renault Master",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 7587,
+    "franquia": 7097
+   },
+   "18": {
+    "premio": 5449,
+    "franquia": 5995
+   },
+   "07": {
+    "premio": 3470,
+    "franquia": 6895
+   }
+  },
+  "faixa": {
+   "min": 3470,
+   "max": 7587
+  },
+  "fipeValor": 150183,
+  "pctFipe": 3.7
+ },
+ "jeep-renegade": {
+  "nome": "Jeep Renegade",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 1850,
+    "franquia": 4532
+   },
+   "16": {
+    "premio": 1891,
+    "franquia": 4234
+   },
+   "18": {
+    "premio": 2839,
+    "franquia": 4798
+   },
+   "07": {
+    "premio": 1805,
+    "franquia": 4129
+   }
+  },
+  "faixa": {
+   "min": 1805,
+   "max": 2839
+  },
+  "fipeValor": 75895,
+  "pctFipe": 2.8
+ },
+ "jeep-compass": {
+  "nome": "Jeep Compass",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 3548,
+    "franquia": 8239
+   },
+   "16": {
+    "premio": 3197,
+    "franquia": 7404
+   },
+   "18": {
+    "premio": 3943,
+    "franquia": 8473
+   },
+   "07": {
+    "premio": 2993,
+    "franquia": 7660
+   }
+  },
+  "faixa": {
+   "min": 2993,
+   "max": 3943
+  },
+  "fipeValor": 112312,
+  "pctFipe": 3
+ },
+ "jeep-wrangler": {
+  "nome": "Jeep Wrangler",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 8413,
+    "franquia": 28805
+   },
+   "07": {
+    "premio": 6865,
+    "franquia": 15920
+   }
+  },
+  "faixa": {
+   "min": 6865,
+   "max": 8413
+  },
+  "fipeValor": 337162,
+  "pctFipe": 2.3
+ },
+ "ford-ka": {
+  "nome": "Ford Ka",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 1889,
+    "franquia": 2662
+   },
+   "16": {
+    "premio": 1329,
+    "franquia": 2187
+   },
+   "18": {
+    "premio": 1715,
+    "franquia": 2415
+   },
+   "07": {
+    "premio": 1483,
+    "franquia": 2109
+   }
+  },
+  "faixa": {
+   "min": 1329,
+   "max": 1889
+  },
+  "fipeValor": 52203,
+  "pctFipe": 3.1
+ },
+ "ford-ecosport": {
+  "nome": "Ford EcoSport",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 2151,
+    "franquia": 3589
+   },
+   "16": {
+    "premio": 1395,
+    "franquia": 2848
+   },
+   "18": {
+    "premio": 2462,
+    "franquia": 3725
+   },
+   "07": {
+    "premio": 1488,
+    "franquia": 3134
+   }
+  },
+  "faixa": {
+   "min": 1395,
+   "max": 2462
+  },
+  "fipeValor": 74444,
+  "pctFipe": 2.5
+ },
+ "ford-territory": {
+  "nome": "Ford Territory",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 2512,
+    "franquia": 9180
+   },
+   "16": {
+    "premio": 4409,
+    "franquia": 5956
+   },
+   "18": {
+    "premio": 5416,
+    "franquia": 8427
+   },
+   "07": {
+    "premio": 3545,
+    "franquia": 4841
+   }
+  },
+  "faixa": {
+   "min": 2512,
+   "max": 5416
+  },
+  "fipeValor": 111450,
+  "pctFipe": 3.6
+ },
+ "ford-focus": {
+  "nome": "Ford Focus",
+  "ano": 2018,
+  "regioes": {
+   "11": {
+    "premio": 1925,
+    "franquia": 3597
+   },
+   "16": {
+    "premio": 1865,
+    "franquia": 2896
+   },
+   "18": {
+    "premio": 2179,
+    "franquia": 3273
+   },
+   "07": {
+    "premio": 1551,
+    "franquia": 2755
+   }
+  },
+  "faixa": {
+   "min": 1551,
+   "max": 2179
+  },
+  "fipeValor": 68081,
+  "pctFipe": 2.8
+ },
+ "ford-fusion": {
+  "nome": "Ford Fusion",
+  "ano": 2018,
+  "regioes": {
+   "11": {
+    "premio": 2704,
+    "franquia": 6908
+   },
+   "18": {
+    "premio": 1801,
+    "franquia": 6247
+   },
+   "07": {
+    "premio": 2824,
+    "franquia": 5684
+   }
+  },
+  "faixa": {
+   "min": 1801,
+   "max": 2824
+  },
+  "fipeValor": 79877,
+  "pctFipe": 3.1
+ },
+ "nissan-kicks": {
+  "nome": "Nissan Kicks",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 1757,
+    "franquia": 4032
+   },
+   "16": {
+    "premio": 1589,
+    "franquia": 3387
+   },
+   "18": {
+    "premio": 2147,
+    "franquia": 3965
+   },
+   "07": {
+    "premio": 1618,
+    "franquia": 3617
+   }
+  },
+  "faixa": {
+   "min": 1589,
+   "max": 2147
+  },
+  "fipeValor": 64116,
+  "pctFipe": 2.8
+ },
+ "nissan-frontier": {
+  "nome": "Nissan Frontier",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 4913,
+    "franquia": 7264
+   },
+   "16": {
+    "premio": 4124,
+    "franquia": 7211
+   },
+   "18": {
+    "premio": 5918,
+    "franquia": 7239
+   },
+   "07": {
+    "premio": 4269,
+    "franquia": 6732
+   }
+  },
+  "faixa": {
+   "min": 4124,
+   "max": 5918
+  },
+  "fipeValor": 142611,
+  "pctFipe": 3.4
+ },
+ "nissan-versa": {
+  "nome": "Nissan Versa",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 1910,
+    "franquia": 4057
+   },
+   "16": {
+    "premio": 1965,
+    "franquia": 2712
+   },
+   "18": {
+    "premio": 2014,
+    "franquia": 3526
+   },
+   "07": {
+    "premio": 1709,
+    "franquia": 3429
+   }
+  },
+  "faixa": {
+   "min": 1709,
+   "max": 2014
+  },
+  "fipeValor": 51024,
+  "pctFipe": 3.7
+ },
+ "nissan-march": {
+  "nome": "Nissan March",
+  "ano": 2017,
+  "regioes": {
+   "11": {
+    "premio": 1146,
+    "franquia": 3046
+   },
+   "16": {
+    "premio": 1118,
+    "franquia": 2390
+   },
+   "18": {
+    "premio": 1298,
+    "franquia": 2918
+   },
+   "07": {
+    "premio": 899,
+    "franquia": 2372
+   }
+  },
+  "faixa": {
+   "min": 899,
+   "max": 1298
+  },
+  "fipeValor": 52129,
+  "pctFipe": 2.1
+ },
+ "peugeot-208": {
+  "nome": "Peugeot 208",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 1559,
+    "franquia": 2927
+   },
+   "16": {
+    "premio": 1395,
+    "franquia": 3204
+   },
+   "18": {
+    "premio": 2276,
+    "franquia": 3830
+   },
+   "07": {
+    "premio": 1462,
+    "franquia": 3287
+   }
+  },
+  "faixa": {
+   "min": 1395,
+   "max": 2276
+  },
+  "fipeValor": 45726,
+  "pctFipe": 3.7
+ },
+ "peugeot-2008": {
+  "nome": "Peugeot 2008",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 1822,
+    "franquia": 6782
+   },
+   "18": {
+    "premio": 2605,
+    "franquia": 7462
+   },
+   "07": {
+    "premio": 1797,
+    "franquia": 4117
+   }
+  },
+  "faixa": {
+   "min": 1797,
+   "max": 2605
+  },
+  "fipeValor": 63854,
+  "pctFipe": 3.2
+ },
+ "peugeot-3008": {
+  "nome": "Peugeot 3008",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 3243,
+    "franquia": 5725
+   },
+   "16": {
+    "premio": 3434,
+    "franquia": 4270
+   },
+   "18": {
+    "premio": 5156,
+    "franquia": 5858
+   },
+   "07": {
+    "premio": 3057,
+    "franquia": 5573
+   }
+  },
+  "faixa": {
+   "min": 3057,
+   "max": 5156
+  },
+  "fipeValor": 106845,
+  "pctFipe": 3.5
+ },
+ "peugeot-308": {
+  "nome": "Peugeot 308",
+  "ano": 2017,
+  "regioes": {
+   "11": {
+    "premio": 1878,
+    "franquia": 3975
+   },
+   "16": {
+    "premio": 2514,
+    "franquia": 3854
+   },
+   "18": {
+    "premio": 2412,
+    "franquia": 3579
+   },
+   "07": {
+    "premio": 1549,
+    "franquia": 3837
+   }
+  },
+  "faixa": {
+   "min": 1549,
+   "max": 2514
+  },
+  "fipeValor": 54856,
+  "pctFipe": 3.8
+ },
+ "citroen-c3": {
+  "nome": "Citroën C3",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 1762,
+    "franquia": 3036
+   },
+   "18": {
+    "premio": 1753,
+    "franquia": 2600
+   },
+   "07": {
+    "premio": 1305,
+    "franquia": 2792
+   }
+  },
+  "faixa": {
+   "min": 1305,
+   "max": 1762
+  },
+  "fipeValor": 60938,
+  "pctFipe": 2.6
+ },
+ "citroen-c4-cactus": {
+  "nome": "Citroën C4 Cactus",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 2626,
+    "franquia": 4344
+   },
+   "16": {
+    "premio": 2742,
+    "franquia": 4057
+   },
+   "18": {
+    "premio": 2116,
+    "franquia": 5043
+   },
+   "07": {
+    "premio": 1940,
+    "franquia": 3904
+   }
+  },
+  "faixa": {
+   "min": 1940,
+   "max": 2742
+  },
+  "fipeValor": 81351,
+  "pctFipe": 2.9
+ },
+ "citroen-aircross": {
+  "nome": "Citroën Aircross",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 1927,
+    "franquia": 2737
+   },
+   "16": {
+    "premio": 1635,
+    "franquia": 1790
+   },
+   "07": {
+    "premio": 1030,
+    "franquia": 4460
+   }
+  },
+  "faixa": {
+   "min": 1030,
+   "max": 1927
+  },
+  "fipeValor": 62953,
+  "pctFipe": 2.4
+ },
+ "citroen-c4-lounge": {
+  "nome": "Citroën C4 Lounge",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 2161,
+    "franquia": 4138
+   },
+   "16": {
+    "premio": 1852,
+    "franquia": 3389
+   }
+  },
+  "faixa": {
+   "min": 1852,
+   "max": 2161
+  },
+  "fipeValor": 74293,
+  "pctFipe": 2.7
+ },
+ "mitsubishi-outlander": {
+  "nome": "Mitsubishi Outlander",
+  "ano": 2018,
+  "regioes": {
+   "11": {
+    "premio": 2718,
+    "franquia": 8750
+   },
+   "16": {
+    "premio": 2496,
+    "franquia": 5390
+   },
+   "18": {
+    "premio": 3282,
+    "franquia": 9405
+   },
+   "07": {
+    "premio": 2234,
+    "franquia": 6312
+   }
+  },
+  "faixa": {
+   "min": 2234,
+   "max": 3282
+  },
+  "fipeValor": 101625,
+  "pctFipe": 2.6
+ },
+ "mitsubishi-eclipse-cross": {
+  "nome": "Mitsubishi Eclipse Cross",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 3899,
+    "franquia": 5687
+   },
+   "18": {
+    "premio": 7874,
+    "franquia": 16778
+   }
+  },
+  "faixa": {
+   "min": 3899,
+   "max": 7874
+  },
+  "fipeValor": 105711,
+  "pctFipe": 5.6
+ },
+ "mitsubishi-l200-triton": {
+  "nome": "Mitsubishi L200 Triton",
+  "ano": 2018,
+  "regioes": {
+   "11": {
+    "premio": 4649,
+    "franquia": 6333
+   },
+   "16": {
+    "premio": 3133,
+    "franquia": 6738
+   },
+   "18": {
+    "premio": 7435,
+    "franquia": 10463
+   },
+   "07": {
+    "premio": 1661,
+    "franquia": 8260
+   }
+  },
+  "faixa": {
+   "min": 1661,
+   "max": 7435
+  },
+  "fipeValor": 97030,
+  "pctFipe": 4.3
+ },
+ "mitsubishi-asx": {
+  "nome": "Mitsubishi ASX",
+  "ano": 2017,
+  "regioes": {
+   "11": {
+    "premio": 2138,
+    "franquia": 4522
+   },
+   "16": {
+    "premio": 2246,
+    "franquia": 4133
+   },
+   "18": {
+    "premio": 2790,
+    "franquia": 4777
+   },
+   "07": {
+    "premio": 2720,
+    "franquia": 4216
+   }
+  },
+  "faixa": {
+   "min": 2138,
+   "max": 2790
+  },
+  "fipeValor": 77544,
+  "pctFipe": 3.2
+ },
+ "mitsubishi-pajero-sport": {
+  "nome": "Mitsubishi Pajero Sport",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 8749,
+    "franquia": 13969
+   },
+   "16": {
+    "premio": 5719,
+    "franquia": 12945
+   },
+   "18": {
+    "premio": 7104,
+    "franquia": 9330
+   },
+   "07": {
+    "premio": 5628,
+    "franquia": 10696
+   }
+  },
+  "faixa": {
+   "min": 5628,
+   "max": 8749
+  },
+  "fipeValor": 223295,
+  "pctFipe": 3
+ },
+ "mitsubishi-lancer": {
+  "nome": "Mitsubishi Lancer",
+  "ano": 2018,
+  "regioes": {
+   "11": {
+    "premio": 2188,
+    "franquia": 4542
+   },
+   "18": {
+    "premio": 951,
+    "franquia": 3771
+   }
+  },
+  "faixa": {
+   "min": 951,
+   "max": 2188
+  },
+  "fipeValor": 66837,
+  "pctFipe": 2.3
+ },
+ "bmw-x1": {
+  "nome": "BMW X1",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 4555,
+    "franquia": 10175
+   },
+   "16": {
+    "premio": 4028,
+    "franquia": 10769
+   },
+   "18": {
+    "premio": 4746,
+    "franquia": 8263
+   },
+   "07": {
+    "premio": 4398,
+    "franquia": 9539
+   }
+  },
+  "faixa": {
+   "min": 4028,
+   "max": 4746
+  },
+  "fipeValor": 152746,
+  "pctFipe": 2.9
+ },
+ "bmw-x3": {
+  "nome": "BMW X3",
+  "ano": 2020,
+  "regioes": {
+   "11": {
+    "premio": 13955,
+    "franquia": 21815
+   },
+   "16": {
+    "premio": 14319,
+    "franquia": 18855
+   }
+  },
+  "faixa": {
+   "min": 13955,
+   "max": 14319
+  },
+  "fipeValor": 403188,
+  "pctFipe": 3.5
+ },
+ "bmw-x5": {
+  "nome": "BMW X5",
+  "ano": 2018,
+  "regioes": {
+   "11": {
+    "premio": 13932,
+    "franquia": 17326
+   },
+   "16": {
+    "premio": 6168,
+    "franquia": 14785
+   },
+   "07": {
+    "premio": 9957,
+    "franquia": 19199
+   }
+  },
+  "faixa": {
+   "min": 6168,
+   "max": 13932
+  },
+  "fipeValor": 287024,
+  "pctFipe": 3.5
+ },
+ "bmw-320i": {
+  "nome": "BMW 320i",
+  "ano": 2021,
+  "regioes": {
+   "11": {
+    "premio": 7607,
+    "franquia": 14492
+   },
+   "16": {
+    "premio": 6798,
+    "franquia": 12299
+   },
+   "18": {
+    "premio": 8167,
+    "franquia": 13766
+   },
+   "07": {
+    "premio": 6447,
+    "franquia": 12568
+   }
+  },
+  "faixa": {
+   "min": 6447,
+   "max": 8167
+  },
+  "fipeValor": 205670,
+  "pctFipe": 3.5
+ },
+ "audi-q3": {
+  "nome": "Audi Q3",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 4013,
+    "franquia": 8715
+   },
+   "16": {
+    "premio": 3083,
+    "franquia": 7383
+   },
+   "18": {
+    "premio": 5270,
+    "franquia": 8537
+   },
+   "07": {
+    "premio": 3458,
+    "franquia": 9643
+   }
+  },
+  "faixa": {
+   "min": 3083,
+   "max": 5270
+  },
+  "fipeValor": 110513,
+  "pctFipe": 3.6
+ },
+ "audi-q5": {
+  "nome": "Audi Q5",
+  "ano": 2017,
+  "regioes": {
+   "11": {
+    "premio": 5212,
+    "franquia": 10485
+   }
+  },
+  "faixa": {
+   "min": 5212,
+   "max": 5212
+  },
+  "fipeValor": 117761,
+  "pctFipe": 4.4
+ },
+ "audi-a5": {
+  "nome": "Audi A5",
+  "ano": 2018,
+  "regioes": {
+   "11": {
+    "premio": 6067,
+    "franquia": 14766
+   },
+   "16": {
+    "premio": 4832,
+    "franquia": 9151
+   },
+   "18": {
+    "premio": 6999,
+    "franquia": 10885
+   },
+   "07": {
+    "premio": 5842,
+    "franquia": 11480
+   }
+  },
+  "faixa": {
+   "min": 4832,
+   "max": 6999
+  },
+  "fipeValor": 144431,
+  "pctFipe": 4.1
+ },
+ "audi-q7": {
+  "nome": "Audi Q7",
+  "ano": 2019,
+  "regioes": {
+   "11": {
+    "premio": 12952,
+    "franquia": 25770
+   },
+   "16": {
+    "premio": 8080,
+    "franquia": 24582
+   },
+   "18": {
+    "premio": 17824,
+    "franquia": 25062
+   },
+   "07": {
+    "premio": 9364,
+    "franquia": 15465
+   }
+  },
+  "faixa": {
+   "min": 8080,
+   "max": 17824
+  },
+  "fipeValor": 206472,
+  "pctFipe": 5.8
+ }
+}

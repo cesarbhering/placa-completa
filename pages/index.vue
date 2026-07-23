@@ -1103,6 +1103,7 @@ function applyEmailSuggestion() {
               <p class="seguro-modal__detalhe">
                 <template v-if="seguroEstimado.regiaoDoUsuario">de seguro na sua região ({{ seguroEstimado.regiao.descricao }}). </template>
                 <template v-else>de seguro. </template>
+                <template v-if="(seguroEstimado as any).percentualFipe">Isso é {{ (seguroEstimado as any).percentualFipe }}% do valor FIPE do carro. </template>
                 Franquia média: R$ {{ formatBRL(seguroEstimado.franquia) }}.
               </p>
               <button type="button" class="win-btn win-btn--primary win-btn--block" @click="seguroStep = 'telefone'">

@@ -1,0 +1,902 @@
+{
+ "SP": {
+  "regiao": {
+   "codigo": "11",
+   "nome": "Grande São Paulo"
+  },
+  "modelos": [
+   {
+    "slug": "nissan-leaf",
+    "nome": "Nissan Leaf (elétrico)",
+    "ano": 2020,
+    "premio": 3569,
+    "franquia": 5150,
+    "fipeValor": 90497,
+    "pctFipe": 3.9
+   },
+   {
+    "slug": "chevrolet-bolt",
+    "nome": "Chevrolet Bolt (elétrico)",
+    "ano": 2020,
+    "premio": 3895,
+    "franquia": 3297,
+    "fipeValor": 133200,
+    "pctFipe": 2.9
+   },
+   {
+    "slug": "renault-zoe",
+    "nome": "Renault Zoe (elétrico)",
+    "ano": 2019,
+    "premio": 6093,
+    "franquia": 6203,
+    "fipeValor": 87145,
+    "pctFipe": 7
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2020,
+    "premio": 3237,
+    "franquia": 4789,
+    "fipeValor": 121477,
+    "pctFipe": 2.7
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 3148,
+    "franquia": 4019,
+    "fipeValor": 161951,
+    "pctFipe": 1.9
+   }
+  ],
+  "mediaPremio": 3988
+ },
+ "RJ": {
+  "regiao": {
+   "codigo": "18",
+   "nome": "Grande Rio de Janeiro"
+  },
+  "modelos": [
+   {
+    "slug": "nissan-leaf",
+    "nome": "Nissan Leaf (elétrico)",
+    "ano": 2020,
+    "premio": 5343,
+    "franquia": 7850,
+    "fipeValor": 90497,
+    "pctFipe": 5.9
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 2756,
+    "franquia": 4878,
+    "fipeValor": 99905,
+    "pctFipe": 2.8
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 3630,
+    "franquia": 5157,
+    "fipeValor": 161951,
+    "pctFipe": 2.2
+   }
+  ],
+  "mediaPremio": 3910
+ },
+ "MG": {
+  "regiao": {
+   "codigo": "16",
+   "nome": "Grande Belo Horizonte"
+  },
+  "modelos": [
+   {
+    "slug": "nissan-leaf",
+    "nome": "Nissan Leaf (elétrico)",
+    "ano": 2020,
+    "premio": 3056,
+    "franquia": 4040,
+    "fipeValor": 90497,
+    "pctFipe": 3.4
+   },
+   {
+    "slug": "renault-zoe",
+    "nome": "Renault Zoe (elétrico)",
+    "ano": 2019,
+    "premio": 3259,
+    "franquia": 6815,
+    "fipeValor": 87145,
+    "pctFipe": 3.7
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 2674,
+    "franquia": 4816,
+    "fipeValor": 99905,
+    "pctFipe": 2.7
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 2457,
+    "franquia": 4369,
+    "fipeValor": 161951,
+    "pctFipe": 1.5
+   }
+  ],
+  "mediaPremio": 2862
+ },
+ "RS": {
+  "regiao": {
+   "codigo": "01",
+   "nome": "Grande Porto Alegre e Caxias"
+  },
+  "modelos": [
+   {
+    "slug": "nissan-leaf",
+    "nome": "Nissan Leaf (elétrico)",
+    "ano": 2020,
+    "premio": 7982,
+    "franquia": 19034,
+    "fipeValor": 90497,
+    "pctFipe": 8.8
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 2994,
+    "franquia": 5485,
+    "fipeValor": 99905,
+    "pctFipe": 3
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 2342,
+    "franquia": 4075,
+    "fipeValor": 161951,
+    "pctFipe": 1.4
+   }
+  ],
+  "mediaPremio": 4439
+ },
+ "PR": {
+  "regiao": {
+   "codigo": "07",
+   "nome": "Grande Curitiba"
+  },
+  "modelos": [
+   {
+    "slug": "nissan-leaf",
+    "nome": "Nissan Leaf (elétrico)",
+    "ano": 2020,
+    "premio": 3921,
+    "franquia": 2268,
+    "fipeValor": 90497,
+    "pctFipe": 4.3
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 3370,
+    "franquia": 5699,
+    "fipeValor": 99905,
+    "pctFipe": 3.4
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 2276,
+    "franquia": 3749,
+    "fipeValor": 161951,
+    "pctFipe": 1.4
+   }
+  ],
+  "mediaPremio": 3189
+ },
+ "SC": {
+  "regiao": {
+   "codigo": "03",
+   "nome": "Grande Florianópolis e Sul"
+  },
+  "modelos": [
+   {
+    "slug": "chevrolet-bolt",
+    "nome": "Chevrolet Bolt (elétrico)",
+    "ano": 2020,
+    "premio": 5922,
+    "franquia": 12357,
+    "fipeValor": 133200,
+    "pctFipe": 4.4
+   },
+   {
+    "slug": "renault-zoe",
+    "nome": "Renault Zoe (elétrico)",
+    "ano": 2019,
+    "premio": 7879,
+    "franquia": 4506,
+    "fipeValor": 87145,
+    "pctFipe": 9
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2021,
+    "premio": 2799,
+    "franquia": 3253,
+    "fipeValor": 170125,
+    "pctFipe": 1.6
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 3130,
+    "franquia": 3466,
+    "fipeValor": 161951,
+    "pctFipe": 1.9
+   }
+  ],
+  "mediaPremio": 4933
+ },
+ "GO": {
+  "regiao": {
+   "codigo": "39",
+   "nome": "Goiás"
+  },
+  "modelos": [
+   {
+    "slug": "nissan-leaf",
+    "nome": "Nissan Leaf (elétrico)",
+    "ano": 2020,
+    "premio": 3074,
+    "franquia": 2495,
+    "fipeValor": 90497,
+    "pctFipe": 3.4
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 3436,
+    "franquia": 4358,
+    "fipeValor": 99905,
+    "pctFipe": 3.4
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 3047,
+    "franquia": 4444,
+    "fipeValor": 161951,
+    "pctFipe": 1.9
+   }
+  ],
+  "mediaPremio": 3186
+ },
+ "ES": {
+  "regiao": {
+   "codigo": "20",
+   "nome": "Espírito Santo"
+  },
+  "modelos": [
+   {
+    "slug": "nissan-leaf",
+    "nome": "Nissan Leaf (elétrico)",
+    "ano": 2020,
+    "premio": 5096,
+    "franquia": 8579,
+    "fipeValor": 90497,
+    "pctFipe": 5.6
+   },
+   {
+    "slug": "chevrolet-bolt",
+    "nome": "Chevrolet Bolt (elétrico)",
+    "ano": 2020,
+    "premio": 5749,
+    "franquia": 13365,
+    "fipeValor": 133200,
+    "pctFipe": 4.3
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2020,
+    "premio": 4077,
+    "franquia": 2994,
+    "fipeValor": 121477,
+    "pctFipe": 3.4
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 2898,
+    "franquia": 4497,
+    "fipeValor": 161951,
+    "pctFipe": 1.8
+   }
+  ],
+  "mediaPremio": 4455
+ },
+ "BA": {
+  "regiao": {
+   "codigo": "21",
+   "nome": "Bahia"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 3065,
+    "franquia": 7083,
+    "fipeValor": 99905,
+    "pctFipe": 3.1
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 3513,
+    "franquia": 4339,
+    "fipeValor": 161951,
+    "pctFipe": 2.2
+   }
+  ],
+  "mediaPremio": 3289
+ },
+ "SE": {
+  "regiao": {
+   "codigo": "22",
+   "nome": "Sergipe"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 2949,
+    "franquia": 4321,
+    "fipeValor": 99905,
+    "pctFipe": 3
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 4116,
+    "franquia": 3381,
+    "fipeValor": 161951,
+    "pctFipe": 2.5
+   }
+  ],
+  "mediaPremio": 3533
+ },
+ "PE": {
+  "regiao": {
+   "codigo": "23",
+   "nome": "Pernambuco"
+  },
+  "modelos": [
+   {
+    "slug": "chevrolet-bolt",
+    "nome": "Chevrolet Bolt (elétrico)",
+    "ano": 2020,
+    "premio": 8441,
+    "franquia": 12639,
+    "fipeValor": 133200,
+    "pctFipe": 6.3
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 1809,
+    "franquia": 5403,
+    "fipeValor": 99905,
+    "pctFipe": 1.8
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 4679,
+    "franquia": 4744,
+    "fipeValor": 161951,
+    "pctFipe": 2.9
+   }
+  ],
+  "mediaPremio": 4976
+ },
+ "PB": {
+  "regiao": {
+   "codigo": "24",
+   "nome": "Paraíba"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2018,
+    "premio": 2762,
+    "franquia": 4324,
+    "fipeValor": 88736,
+    "pctFipe": 3.1
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 2968,
+    "franquia": 4255,
+    "fipeValor": 161951,
+    "pctFipe": 1.8
+   }
+  ],
+  "mediaPremio": 2865
+ },
+ "RN": {
+  "regiao": {
+   "codigo": "25",
+   "nome": "Rio Grande do Norte"
+  },
+  "modelos": [
+   {
+    "slug": "chevrolet-bolt",
+    "nome": "Chevrolet Bolt (elétrico)",
+    "ano": 2020,
+    "premio": 4018,
+    "franquia": 30770,
+    "fipeValor": 133200,
+    "pctFipe": 3
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 5151,
+    "franquia": 5513,
+    "fipeValor": 99905,
+    "pctFipe": 5.2
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 2642,
+    "franquia": 3469,
+    "fipeValor": 161951,
+    "pctFipe": 1.6
+   }
+  ],
+  "mediaPremio": 3937
+ },
+ "AL": {
+  "regiao": {
+   "codigo": "26",
+   "nome": "Alagoas"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 2438,
+    "franquia": 6533,
+    "fipeValor": 99905,
+    "pctFipe": 2.4
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 4029,
+    "franquia": 4953,
+    "fipeValor": 161951,
+    "pctFipe": 2.5
+   }
+  ],
+  "mediaPremio": 3234
+ },
+ "CE": {
+  "regiao": {
+   "codigo": "27",
+   "nome": "Ceará"
+  },
+  "modelos": [
+   {
+    "slug": "nissan-leaf",
+    "nome": "Nissan Leaf (elétrico)",
+    "ano": 2020,
+    "premio": 6473,
+    "franquia": 2382,
+    "fipeValor": 90497,
+    "pctFipe": 7.2
+   },
+   {
+    "slug": "renault-zoe",
+    "nome": "Renault Zoe (elétrico)",
+    "ano": 2019,
+    "premio": 5759,
+    "franquia": 5240,
+    "fipeValor": 87145,
+    "pctFipe": 6.6
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 2634,
+    "franquia": 5965,
+    "fipeValor": 99905,
+    "pctFipe": 2.6
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 3302,
+    "franquia": 3988,
+    "fipeValor": 161951,
+    "pctFipe": 2
+   }
+  ],
+  "mediaPremio": 4542
+ },
+ "PI": {
+  "regiao": {
+   "codigo": "28",
+   "nome": "Piauí"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2018,
+    "premio": 3624,
+    "franquia": 5185,
+    "fipeValor": 88736,
+    "pctFipe": 4.1
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 2593,
+    "franquia": 3412,
+    "fipeValor": 161951,
+    "pctFipe": 1.6
+   }
+  ],
+  "mediaPremio": 3109
+ },
+ "MA": {
+  "regiao": {
+   "codigo": "29",
+   "nome": "Maranhão"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 3256,
+    "franquia": 5408,
+    "fipeValor": 99905,
+    "pctFipe": 3.3
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 3346,
+    "franquia": 5780,
+    "fipeValor": 161951,
+    "pctFipe": 2.1
+   }
+  ],
+  "mediaPremio": 3301
+ },
+ "PA": {
+  "regiao": {
+   "codigo": "30",
+   "nome": "Pará"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 2967,
+    "franquia": 5728,
+    "fipeValor": 99905,
+    "pctFipe": 3
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 4098,
+    "franquia": 4628,
+    "fipeValor": 161951,
+    "pctFipe": 2.5
+   }
+  ],
+  "mediaPremio": 3533
+ },
+ "AM": {
+  "regiao": {
+   "codigo": "31",
+   "nome": "Amazonas"
+  },
+  "modelos": [
+   {
+    "slug": "nissan-leaf",
+    "nome": "Nissan Leaf (elétrico)",
+    "ano": 2020,
+    "premio": 4754,
+    "franquia": 2495,
+    "fipeValor": 90497,
+    "pctFipe": 5.3
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2020,
+    "premio": 3160,
+    "franquia": 3097,
+    "fipeValor": 121477,
+    "pctFipe": 2.6
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 2151,
+    "franquia": 3927,
+    "fipeValor": 161951,
+    "pctFipe": 1.3
+   }
+  ],
+  "mediaPremio": 3355
+ },
+ "AP": {
+  "regiao": {
+   "codigo": "32",
+   "nome": "Amapá"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 3999,
+    "franquia": 4036,
+    "fipeValor": 99905,
+    "pctFipe": 4
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 5385,
+    "franquia": 1993,
+    "fipeValor": 161951,
+    "pctFipe": 3.3
+   }
+  ],
+  "mediaPremio": 4692
+ },
+ "RO": {
+  "regiao": {
+   "codigo": "33",
+   "nome": "Rondônia"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2020,
+    "premio": 3161,
+    "franquia": 4267,
+    "fipeValor": 154005,
+    "pctFipe": 2.1
+   }
+  ],
+  "mediaPremio": 3161
+ },
+ "RR": {
+  "regiao": {
+   "codigo": "34",
+   "nome": "Roraima"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2018,
+    "premio": 3705,
+    "franquia": 5441,
+    "fipeValor": 88736,
+    "pctFipe": 4.2
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 5316,
+    "franquia": 3493,
+    "fipeValor": 161951,
+    "pctFipe": 3.3
+   }
+  ],
+  "mediaPremio": 4511
+ },
+ "AC": {
+  "regiao": {
+   "codigo": "35",
+   "nome": "Acre"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 1853,
+    "franquia": 11811,
+    "fipeValor": 99905,
+    "pctFipe": 1.9
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 3174,
+    "franquia": 3681,
+    "fipeValor": 161951,
+    "pctFipe": 2
+   }
+  ],
+  "mediaPremio": 2514
+ },
+ "MT": {
+  "regiao": {
+   "codigo": "36",
+   "nome": "Mato Grosso"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 4589,
+    "franquia": 5465,
+    "fipeValor": 99905,
+    "pctFipe": 4.6
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 3754,
+    "franquia": 4005,
+    "fipeValor": 161951,
+    "pctFipe": 2.3
+   }
+  ],
+  "mediaPremio": 4172
+ },
+ "MS": {
+  "regiao": {
+   "codigo": "37",
+   "nome": "Mato Grosso do Sul"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 2946,
+    "franquia": 5748,
+    "fipeValor": 99905,
+    "pctFipe": 2.9
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 3302,
+    "franquia": 3951,
+    "fipeValor": 161951,
+    "pctFipe": 2
+   }
+  ],
+  "mediaPremio": 3124
+ },
+ "DF": {
+  "regiao": {
+   "codigo": "38",
+   "nome": "Distrito Federal"
+  },
+  "modelos": [
+   {
+    "slug": "nissan-leaf",
+    "nome": "Nissan Leaf (elétrico)",
+    "ano": 2020,
+    "premio": 5676,
+    "franquia": 15114,
+    "fipeValor": 90497,
+    "pctFipe": 6.3
+   },
+   {
+    "slug": "chevrolet-bolt",
+    "nome": "Chevrolet Bolt (elétrico)",
+    "ano": 2020,
+    "premio": 5249,
+    "franquia": 7032,
+    "fipeValor": 133200,
+    "pctFipe": 3.9
+   },
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2019,
+    "premio": 3063,
+    "franquia": 6011,
+    "fipeValor": 99905,
+    "pctFipe": 3.1
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 2700,
+    "franquia": 3975,
+    "fipeValor": 161951,
+    "pctFipe": 1.7
+   }
+  ],
+  "mediaPremio": 4172
+ },
+ "TO": {
+  "regiao": {
+   "codigo": "40",
+   "nome": "Tocantins"
+  },
+  "modelos": [
+   {
+    "slug": "toyota-prius",
+    "nome": "Toyota Prius (híbrido)",
+    "ano": 2018,
+    "premio": 3043,
+    "franquia": 5480,
+    "fipeValor": 88736,
+    "pctFipe": 3.4
+   },
+   {
+    "slug": "toyota-corolla-hybrid",
+    "nome": "Toyota Corolla Hybrid",
+    "ano": 2021,
+    "premio": 3250,
+    "franquia": 6145,
+    "fipeValor": 161951,
+    "pctFipe": 2
+   }
+  ],
+  "mediaPremio": 3147
+ }
+}
