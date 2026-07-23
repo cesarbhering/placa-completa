@@ -48,6 +48,10 @@ const findConsultaInDb = async (email: string, placa: string) => {
     .limit(1)
     .single()
 
+  if (error) {
+    console.error('[findConsultaInDb] supabase error:', JSON.stringify(error))
+  }
+
   if (error && error.code !== 'PGRST116') {
     console.error('Supabase query error:', error)
   }
