@@ -16,9 +16,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY package.json package-lock.json* ./
 
-# Workaround npm bug with optionalDependencies when lockfile is from another platform
-RUN rm -f package-lock.json && \
-    npm install --include=optional --no-audit --no-fund
+# Build deterministico: npm ci respeita o package-lock.json commitado.
+# (O workaround antigo deletava o lockfile e resolvia versoes novas a cada
+# build - em 23/jul/2026 isso quebrou o deploy com um bug do npm 10.9
+# disparado por release nova de dependencia. Dev e build sao Linux x64,
+# entao o motivo original do workaround nao existe mais.)
+RUN npm ci --include=optional --no-audit --no-fund
 
 COPY . .
 
