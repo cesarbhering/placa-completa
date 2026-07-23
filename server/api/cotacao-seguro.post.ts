@@ -1,0 +1,103 @@
+import { Resend } from 'resend'
+import { normalizePhoneForWhatsApp, sendWhatsAppText } from '../utils/evolutionApi'
+
+/**
+ * Lead de cotacao real de seguro: o usuario viu a estimativa SUSEP no
+ * modal pos-consulta e deixou o telefone pra receber contato de corretor.
+ * Grava em cotacoes_seguro e notifica (email + WhatsApp, fire-and-forget).
+ */
+export default defineEventHandler(async (event) => {
+  const body = await readBody(event)
+  const { phone, email, placa, veiculo, seguro } = body || {}
+
+  const normalizedPhone = phone ? normalizePhoneForWhatsApp(String(phone)) : null
+  if (!normalizedPhone) {
+    throw createError({ statusCode: 400, message: 'Telefone inválido. Confira o DDD e o número.' })
+  }
+
+  const placaClean = typeof placa === 'string'
+    ? placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 7)
+    : null
+
+  const supabase = useSupabaseServer()
+
+  // Dedupe: mesmo telefone + placa na ultima hora = duplo clique/reenvio
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const { count } = await supabase
+    .from('cotacoes_seguro')
+    .select('id', { count: 'exact', head: true })
+    .eq('phone', normalizedPhone)
+    .eq('placa', placaClean)
+    .gte('created_at', oneHourAgo)
+  if ((count ?? 0) > 0) {
+    return { success: true }
+  }
+
+  const row = {
+    email: typeof email === 'string' ? email.trim().toLowerCase().slice(0, 200) : null,
+    phone: normalizedPhone,
+    placa: placaClean,
+    marca: veiculo?.marca ? String(veiculo.marca).slice(0, 100) : null,
+    modelo: veiculo?.modelo ? String(veiculo.modelo).slice(0, 150) : null,
+    ano_modelo: veiculo?.ano ? parseInt(String(veiculo.ano), 10) || null : null,
+    regiao_code: seguro?.regiao?.codigo ? String(seguro.regiao.codigo).slice(0, 4) : null,
+    premio_estimado: typeof seguro?.premioAnual === 'number' ? seguro.premioAnual : null,
+    franquia_estimada: typeof seguro?.franquia === 'number' ? seguro.franquia : null,
+  }
+
+  const { error } = await supabase.from('cotacoes_seguro').insert(row)
+  if (error) {
+    console.error('[cotacao-seguro] insert falhou:', error.message)
+    throw createError({ statusCode: 500, message: 'Não conseguimos registrar. Tente novamente.' })
+  }
+
+  // Notificacoes fire-and-forget: lead ja esta salvo, resposta nao espera
+  notifyLead(row).catch((e) => console.warn('[cotacao-seguro] notificacao falhou:', e?.message))
+
+  return { success: true }
+})
+
+async function notifyLead(row: {
+  email: string | null
+  phone: string
+  placa: string | null
+  marca: string | null
+  modelo: string | null
+  ano_modelo: number | null
+  premio_estimado: number | null
+  franquia_estimada: number | null
+  regiao_code: string | null
+}) {
+  const config = useRuntimeConfig()
+  const veiculo = [row.marca, row.modelo, row.ano_modelo].filter(Boolean).join(' ')
+  const premio = row.premio_estimado ? `R$ ${row.premio_estimado.toFixed(2)}` : '-'
+  const fone = `+${row.phone}`
+
+  const resumo = [
+    `Veículo: ${veiculo || row.placa || '-'}`,
+    `Placa: ${row.placa || '-'}`,
+    `Telefone: ${fone}`,
+    `Email: ${row.email || '-'}`,
+    `Estimativa exibida: ${premio}/ano (região ${row.regiao_code || '-'})`,
+  ].join('\n')
+
+  // Email
+  try {
+    const resend = new Resend(config.resendApiKey)
+    await resend.emails.send({
+      from: 'PlacaCompleta Leads <leads@placacompleta.com.br>',
+      to: 'cesar.bhering@placacompleta.com.br',
+      subject: `🔥 Lead de seguro: ${veiculo || row.placa} — ${fone}`,
+      text: `Novo pedido de cotação real de seguro:\n\n${resumo}\n\nStatus no Supabase: cotacoes_seguro (marcar como contatado depois).`,
+    })
+  } catch (e: any) {
+    console.warn('[cotacao-seguro] email de notificacao falhou:', e?.message)
+  }
+
+  // WhatsApp pro corretor (env SEGURO_LEAD_NOTIFY_PHONE; ausente = pula)
+  const notifyPhone = process.env.SEGURO_LEAD_NOTIFY_PHONE
+  if (notifyPhone) {
+    const r = await sendWhatsAppText(notifyPhone, `🔥 Lead de seguro!\n\n${resumo}`)
+    if (!r.ok) console.warn('[cotacao-seguro] whatsapp de notificacao falhou:', r.error)
+  }
+}

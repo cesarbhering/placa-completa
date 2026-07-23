@@ -16,6 +16,79 @@ const emailError = ref('')
 const placaError = ref('')
 const consultaCount = ref(0)
 const sentToEmail = ref('')
+
+// Modal de seguro pos-consulta (fluxo web): estimativa SUSEP + captura de lead
+interface SeguroEstimado {
+  premioAnual: number
+  franquia: number
+  regiao: { codigo: string; descricao: string }
+  veiculo: { marca: string; modelo: string; ano: number }
+}
+const seguroEstimado = ref<SeguroEstimado | null>(null)
+const showSeguroModal = ref(false)
+const seguroStep = ref<'oferta' | 'telefone' | 'confirmado'>('oferta')
+const seguroPhone = ref('')
+const seguroPhoneError = ref('')
+const seguroSending = ref(false)
+const seguroSendError = ref(false)
+
+function formatBRL(v: number): string {
+  return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
+
+function openSeguroModal() {
+  seguroStep.value = 'oferta'
+  seguroPhoneError.value = ''
+  seguroSendError.value = false
+  // pre-preenche se o usuario ja deixou telefone (canal whatsapp)
+  if (channel.value === 'whatsapp' && phone.value) seguroPhone.value = phone.value
+  showSeguroModal.value = true
+  track('seguro_modal_shown', { premio: seguroEstimado.value?.premioAnual })
+}
+
+function dismissSeguroModal() {
+  showSeguroModal.value = false
+  if (seguroStep.value !== 'confirmado') {
+    track('seguro_modal_dismissed', { step: seguroStep.value })
+  }
+}
+
+async function submitCotacao() {
+  seguroPhoneError.value = ''
+  seguroSendError.value = false
+  const digits = seguroPhone.value.replace(/\D/g, '')
+  if (digits.length < 10 || digits.length > 13) {
+    seguroPhoneError.value = 'Confira o DDD e o número (ex: 31 99999-9999).'
+    return
+  }
+  seguroSending.value = true
+  try {
+    await $fetch('/api/cotacao-seguro', {
+      method: 'POST',
+      body: {
+        phone: seguroPhone.value,
+        email: email.value,
+        placa: placa.value,
+        veiculo: seguroEstimado.value?.veiculo,
+        seguro: {
+          premioAnual: seguroEstimado.value?.premioAnual,
+          franquia: seguroEstimado.value?.franquia,
+          regiao: seguroEstimado.value?.regiao,
+        },
+      },
+    })
+    seguroStep.value = 'confirmado'
+    track('cotacao_solicitada', { premio: seguroEstimado.value?.premioAnual })
+  } catch (err: any) {
+    if (err?.statusCode === 400 || err?.status === 400) {
+      seguroPhoneError.value = err?.data?.message || 'Telefone inválido.'
+    } else {
+      seguroSendError.value = true
+    }
+  } finally {
+    seguroSending.value = false
+  }
+}
 const showDataModal = ref(false)
 const vehicleData = ref<any>(null)
 const showSnackbar = ref(false)
@@ -713,6 +786,11 @@ async function handleSubmit() {
 
       if (delivered) {
         track('consulta_success', { channel: channel.value })
+        if (result.seguroEstimado) {
+          seguroEstimado.value = result.seguroEstimado
+          // a tela de sucesso assenta primeiro; o modal chega como proximo passo
+          setTimeout(() => { if (success.value) openSeguroModal() }, 1200)
+        }
       } else {
         track('consulta_success_no_delivery', { channel: channel.value, api_message: result.message })
       }
@@ -997,6 +1075,72 @@ function applyEmailSuggestion() {
     </section>
 
     <!-- Data Modal for PWA -->
+    <div v-if="showSeguroModal && seguroEstimado" class="modal-overlay" @click="dismissSeguroModal">
+      <div class="modal-window" @click.stop>
+        <div class="win-window">
+          <div class="win-window__titlebar">
+            <span>Seguro do seu carro</span>
+            <div class="win-window__titlebar-buttons">
+              <span class="win-window__titlebar-btn win-window__titlebar-btn--active" @click="dismissSeguroModal">×</span>
+            </div>
+          </div>
+          <div class="win-window__body seguro-modal">
+            <template v-if="seguroStep === 'oferta'">
+              <p class="seguro-modal__lead">
+                Carros como o seu (<strong>{{ seguroEstimado.veiculo.marca }} {{ seguroEstimado.veiculo.modelo }} {{ seguroEstimado.veiculo.ano }}</strong>)
+                pagam em média
+              </p>
+              <p class="seguro-modal__premio">R$ {{ formatBRL(seguroEstimado.premioAnual) }}<span>/ano</span></p>
+              <p class="seguro-modal__detalhe">
+                de seguro na sua região ({{ seguroEstimado.regiao.descricao }}).
+                Franquia média: R$ {{ formatBRL(seguroEstimado.franquia) }}.
+              </p>
+              <button type="button" class="win-btn win-btn--primary win-btn--block" @click="seguroStep = 'telefone'">
+                Quero uma cotação real
+              </button>
+              <button type="button" class="win-btn win-btn--block seguro-modal__later" @click="dismissSeguroModal">
+                Agora não
+              </button>
+              <p class="seguro-modal__fonte">Estimativa com base em dados oficiais SUSEP, corrigida pelo IPCA.</p>
+            </template>
+
+            <template v-else-if="seguroStep === 'telefone'">
+              <p class="seguro-modal__lead">
+                Deixe seu telefone e um corretor entra em contato com uma cotação de verdade.
+              </p>
+              <div class="form-group">
+                <label class="form-group__label" for="seguro-phone">Telefone com DDD</label>
+                <input
+                  id="seguro-phone"
+                  v-model="seguroPhone"
+                  type="tel"
+                  inputmode="tel"
+                  class="win-input"
+                  placeholder="(31) 99999-9999"
+                  :disabled="seguroSending"
+                  @keyup.enter="submitCotacao"
+                >
+                <p v-if="seguroPhoneError" class="seguro-modal__erro">{{ seguroPhoneError }}</p>
+                <p v-if="seguroSendError" class="seguro-modal__erro">Não conseguimos enviar. Tente de novo.</p>
+              </div>
+              <button type="button" class="win-btn win-btn--primary win-btn--block" :disabled="seguroSending" @click="submitCotacao">
+                {{ seguroSending ? 'Enviando...' : 'Receber contato' }}
+              </button>
+              <p class="seguro-modal__fonte">Ao enviar, você autoriza o contato telefônico sobre sua cotação.</p>
+            </template>
+
+            <template v-else>
+              <p class="seguro-modal__confirmado">✅ Recebido!</p>
+              <p class="seguro-modal__lead">Um corretor entrará em contato.</p>
+              <button type="button" class="win-btn win-btn--primary win-btn--block" @click="dismissSeguroModal">
+                Fechar
+              </button>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div v-if="showDataModal" class="modal-overlay" @click="showDataModal = false">
       <div class="modal-window" :class="{ 'modal-window--capturing': preparingShare }" ref="modalWindowRef" @click.stop>
         <div class="win-window">
@@ -1993,6 +2137,60 @@ function applyEmailSuggestion() {
   img {
     height: 48px;
     width: auto;
+  }
+}
+
+.seguro-modal {
+  text-align: center;
+
+  &__lead {
+    margin: 0 0 $space-sm;
+  }
+
+  &__premio {
+    font-size: 2rem;
+    font-weight: 700;
+    color: $navy-electric;
+    margin: 0 0 $space-xs;
+
+    span {
+      font-size: 1rem;
+      font-weight: 400;
+      color: $graphite;
+    }
+  }
+
+  &__detalhe {
+    font-size: 0.875rem;
+    color: $graphite;
+    margin: 0 0 $space-md;
+  }
+
+  &__later {
+    margin-top: $space-xs;
+  }
+
+  &__fonte {
+    font-size: 0.72rem;
+    color: $slate-grey;
+    margin: $space-sm 0 0;
+  }
+
+  &__erro {
+    color: $error-red;
+    font-size: 0.82rem;
+    margin: $space-xs 0 0;
+  }
+
+  &__confirmado {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 0 0 $space-xs;
+  }
+
+  .form-group {
+    text-align: left;
+    margin-bottom: $space-sm;
   }
 }
 </style>
