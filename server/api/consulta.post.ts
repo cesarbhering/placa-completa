@@ -3,7 +3,7 @@ import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../util
 import { checkEmailDeliverability } from '../utils/email-deliverability'
 import { getClientIp } from '../utils/client-ip'
 import { lookupIpGeo } from '../utils/ip-geo'
-import { getRegiaoSusep } from '../utils/regiao-susep'
+import { getRegiaoSusep, getRegiaoCatchAll } from '../utils/regiao-susep'
 import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
@@ -317,37 +317,54 @@ export default defineEventHandler(async (event) => {
     premioAnual: number
     franquia: number
     regiao: { codigo: string; descricao: string }
+    regiaoDoUsuario: boolean
     veiculo: { marca: string; modelo: string; ano: number }
   } | null = null
   if (!isPWA && fipeModelId) {
-    try {
-      const anoSeguro = parseInt(String(apiResponse.anoModelo || apiResponse.ano || ''), 10)
-      const regiaoSeguro = regiao?.code ?? '11'  // fallback SP Met., consistente com o fallback de UF
-      if (anoSeguro) {
-        const est = await $fetch<any>(
-          `${config.fipeApiUrl}/models/${fipeModelId}/insurance-estimate`,
-          {
-            params: { ano: anoSeguro, regiao: regiaoSeguro },
-            headers: { Authorization: `Bearer ${config.fipeApiToken}` },
-            timeout: 3000,
+    const anoSeguro = parseInt(String(apiResponse.anoModelo || apiResponse.ano || ''), 10)
+    if (anoSeguro) {
+      // Cascata de regioes: a do usuario -> catch-all do estado dele -> 11
+      // (SP Met., maior amostra do pais). Quando cai em fallback, o modal
+      // omite o "na sua regiao" (regiaoDoUsuario: false) pra nao afirmar
+      // uma regiao que nao e a da pessoa.
+      const regiaoUsuario = regiao?.code ?? null
+      const tentativas: { codigo: string; doUsuario: boolean }[] = []
+      if (regiaoUsuario) {
+        tentativas.push({ codigo: regiaoUsuario, doUsuario: true })
+        const catchAll = getRegiaoCatchAll(regiaoUsuario)
+        if (catchAll) tentativas.push({ codigo: catchAll, doUsuario: false })
+      }
+      if (!tentativas.some(t => t.codigo === '11')) tentativas.push({ codigo: '11', doUsuario: false })
+
+      for (const tentativa of tentativas) {
+        try {
+          const est = await $fetch<any>(
+            `${config.fipeApiUrl}/models/${fipeModelId}/insurance-estimate`,
+            {
+              params: { ano: anoSeguro, regiao: tentativa.codigo },
+              headers: { Authorization: `Bearer ${config.fipeApiToken}` },
+              timeout: 3000,
+            }
+          )
+          const d = est?.data
+          if (d?.seguro?.premioMedioEstimado) {
+            seguroEstimado = {
+              premioAnual: Math.round(d.seguro.premioMedioEstimado * 100) / 100,
+              franquia: Math.round((d.seguro.franquiaMediaEstimada || 0) * 100) / 100,
+              regiao: { codigo: d.regiao?.codigo ?? tentativa.codigo, descricao: d.regiao?.descricao ?? '' },
+              regiaoDoUsuario: tentativa.doUsuario,
+              veiculo: {
+                marca: apiResponse.MARCA || apiResponse.marca || '',
+                modelo: apiResponse.MODELO || apiResponse.modelo || '',
+                ano: anoSeguro,
+              },
+            }
+            break
           }
-        )
-        const d = est?.data
-        if (d?.seguro?.premioMedioEstimado) {
-          seguroEstimado = {
-            premioAnual: Math.round(d.seguro.premioMedioEstimado * 100) / 100,
-            franquia: Math.round((d.seguro.franquiaMediaEstimada || 0) * 100) / 100,
-            regiao: { codigo: d.regiao?.codigo ?? regiaoSeguro, descricao: d.regiao?.descricao ?? '' },
-            veiculo: {
-              marca: apiResponse.MARCA || apiResponse.marca || '',
-              modelo: apiResponse.MODELO || apiResponse.modelo || '',
-              ano: anoSeguro,
-            },
-          }
+        } catch {
+          // 404 dessa regiao ou API fora — tenta a proxima da cascata
         }
       }
-    } catch {
-      // combinacao sem dado na base SUSEP ou API fora — segue sem estimativa
     }
   }
 

@@ -22,6 +22,7 @@ interface SeguroEstimado {
   premioAnual: number
   franquia: number
   regiao: { codigo: string; descricao: string }
+  regiaoDoUsuario: boolean
   veiculo: { marca: string; modelo: string; ano: number }
 }
 const seguroEstimado = ref<SeguroEstimado | null>(null)
@@ -1092,7 +1093,8 @@ function applyEmailSuggestion() {
               </p>
               <p class="seguro-modal__premio">R$ {{ formatBRL(seguroEstimado.premioAnual) }}<span>/ano</span></p>
               <p class="seguro-modal__detalhe">
-                de seguro na sua região ({{ seguroEstimado.regiao.descricao }}).
+                <template v-if="seguroEstimado.regiaoDoUsuario">de seguro na sua região ({{ seguroEstimado.regiao.descricao }}). </template>
+                <template v-else>de seguro. </template>
                 Franquia média: R$ {{ formatBRL(seguroEstimado.franquia) }}.
               </p>
               <button type="button" class="win-btn win-btn--primary win-btn--block" @click="seguroStep = 'telefone'">
