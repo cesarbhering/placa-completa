@@ -17,6 +17,14 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
 
   const { email, phone, placa, isPWA, includeFipeChart, includeIcv5, icv5Uf } = body
+  // Origem de trafego (gclid/utm) capturada pelo plugin track-origin no client
+  const origin = body?.origin && typeof body.origin === 'object' ? body.origin : {}
+  const trafego = {
+    gclid: typeof origin.gclid === 'string' ? origin.gclid.slice(0, 200) : null,
+    utm_source: typeof origin.utm_source === 'string' ? origin.utm_source.slice(0, 100) : null,
+    utm_medium: typeof origin.utm_medium === 'string' ? origin.utm_medium.slice(0, 100) : null,
+    utm_campaign: typeof origin.utm_campaign === 'string' ? origin.utm_campaign.slice(0, 150) : null,
+  }
   const channel: Channel = body.channel === 'whatsapp' ? 'whatsapp' : 'email'
 
   if (!placa) {
@@ -246,6 +254,7 @@ export default defineEventHandler(async (event) => {
       geo_uf: ipGeo?.uf ?? null,
       geo_country: ipGeo?.country ?? null,
       geo_region_code: regiao?.code ?? null,
+      ...trafego,
       user_agent: userAgent,
       device_info: deviceInfo,
       is_pwa: isPWA || false,
@@ -272,6 +281,7 @@ export default defineEventHandler(async (event) => {
       geo_uf: ipGeo?.uf ?? null,
       geo_country: ipGeo?.country ?? null,
       geo_region_code: regiao?.code ?? null,
+      ...trafego,
       user_agent: userAgent,
       device_info: deviceInfo,
       is_pwa: isPWA || false,
@@ -496,6 +506,7 @@ export default defineEventHandler(async (event) => {
     geo_uf: ipGeo?.uf ?? null,
     geo_country: ipGeo?.country ?? null,
     geo_region_code: regiao?.code ?? null,
+    ...trafego,
     user_agent: userAgent,
     device_info: deviceInfo,
     is_pwa: isPWA || false,

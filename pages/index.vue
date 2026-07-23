@@ -217,6 +217,13 @@ const allVehicleData = computed(() => {
   }
 })
 
+function getTrackOrigin(): Record<string, string> | undefined {
+  try {
+    const raw = sessionStorage.getItem('pc_origin')
+    return raw ? JSON.parse(raw) : undefined
+  } catch { return undefined }
+}
+
 function track(event: string, params?: Record<string, any>) {
   if (import.meta.client && window.gtag) {
     window.gtag('event', event, params)
@@ -760,6 +767,7 @@ async function handleSubmit() {
         includeFipeChart: includeFipeChart.value,
         includeIcv5: includeIcv5.value,
         icv5Uf: icv5Uf.value,
+        origin: getTrackOrigin(),
       },
     })
 
