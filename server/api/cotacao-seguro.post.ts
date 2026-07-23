@@ -8,7 +8,8 @@ import { normalizePhoneForWhatsApp, sendWhatsAppText } from '../utils/evolutionA
  */
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const { phone, email, placa, veiculo, seguro } = body || {}
+  const { phone, placa, veiculo, seguro, consultaId } = body || {}
+  let { email } = body || {}
 
   const normalizedPhone = phone ? normalizePhoneForWhatsApp(String(phone)) : null
   if (!normalizedPhone) {
@@ -20,6 +21,17 @@ export default defineEventHandler(async (event) => {
     : null
 
   const supabase = useSupabaseServer()
+
+  // Lead vindo da pagina /cotacao (link do email): resolve o email da
+  // consulta server-side pelo uuid, sem nunca expor o email completo no front
+  if (!email && typeof consultaId === 'string' && /^[0-9a-f-]{36}$/i.test(consultaId)) {
+    const { data: consulta } = await supabase
+      .from('consultas')
+      .select('email')
+      .eq('id', consultaId)
+      .maybeSingle()
+    if (consulta?.email) email = consulta.email
+  }
 
   // Dedupe: mesmo telefone + placa na ultima hora = duplo clique/reenvio
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
