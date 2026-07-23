@@ -282,6 +282,7 @@ export default defineEventHandler(async (event) => {
   // e-mail (QuickChart); PWA recebe os pontos estruturados e renderiza na tela.
   let chartUrl: string | null = null
   let fipeHistoryPoints: { label: string; price: number }[] | null = null
+  let fipeModelId: number | null = null
   if (includeFipeChart !== false) {
     try {
       const fipeDados = apiResponse.fipe?.dados
@@ -297,6 +298,7 @@ export default defineEventHandler(async (event) => {
             { headers: { Authorization: `Bearer ${config.fipeApiToken}` } }
           )
           const normalized = historyData?.data || historyData
+          fipeModelId = normalized?.model?.id ?? null
           if (isPWA) {
             fipeHistoryPoints = buildHistoryPoints(normalized, apiResponse.anoModelo)
           } else {
@@ -307,6 +309,45 @@ export default defineEventHandler(async (event) => {
     } catch (err) {
       // Non-critical — segue sem chart
       console.warn('Failed to fetch FIPE history for chart:', err)
+    }
+  }
+
+  // Estimativa de seguro (web apenas) — fipe-api/SUSEP; fail-open: null = modal nao aparece
+  let seguroEstimado: {
+    premioAnual: number
+    franquia: number
+    regiao: { codigo: string; descricao: string }
+    veiculo: { marca: string; modelo: string; ano: number }
+  } | null = null
+  if (!isPWA && fipeModelId) {
+    try {
+      const anoSeguro = parseInt(String(apiResponse.anoModelo || apiResponse.ano || ''), 10)
+      const regiaoSeguro = regiao?.code ?? '11'  // fallback SP Met., consistente com o fallback de UF
+      if (anoSeguro) {
+        const est = await $fetch<any>(
+          `${config.fipeApiUrl}/models/${fipeModelId}/insurance-estimate`,
+          {
+            params: { ano: anoSeguro, regiao: regiaoSeguro },
+            headers: { Authorization: `Bearer ${config.fipeApiToken}` },
+            timeout: 3000,
+          }
+        )
+        const d = est?.data
+        if (d?.seguro?.premioMedioEstimado) {
+          seguroEstimado = {
+            premioAnual: Math.round(d.seguro.premioMedioEstimado * 100) / 100,
+            franquia: Math.round((d.seguro.franquiaMediaEstimada || 0) * 100) / 100,
+            regiao: { codigo: d.regiao?.codigo ?? regiaoSeguro, descricao: d.regiao?.descricao ?? '' },
+            veiculo: {
+              marca: apiResponse.MARCA || apiResponse.marca || '',
+              modelo: apiResponse.MODELO || apiResponse.modelo || '',
+              ano: anoSeguro,
+            },
+          }
+        }
+      }
+    } catch {
+      // combinacao sem dado na base SUSEP ou API fora — segue sem estimativa
     }
   }
 
@@ -503,6 +544,7 @@ export default defineEventHandler(async (event) => {
     message,
     data: isPWA ? apiResponse : undefined,
     fipeHistory: isPWA ? fipeHistoryPoints : undefined,
+    seguroEstimado: !isPWA ? seguroEstimado : undefined,
   }
 })
 
