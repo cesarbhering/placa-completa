@@ -83,17 +83,6 @@ jobs:
           echo "PUBLIC_SUPABASE_URL=${{ secrets.PUBLIC_SUPABASE_URL }}" >> .env.test
           echo "SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" >> .env.test
 
-      - name: Debug Supabase reachability (temporario)
-        run: |
-          echo "host hash: $(echo -n "${{ secrets.PUBLIC_SUPABASE_URL }}" | md5sum | head -c 8)"
-          KEY="${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}"
-          URL="${{ secrets.PUBLIC_SUPABASE_URL }}"
-          echo "select consultas: HTTP $(curl -s -o /dev/null -w '%{http_code}' "$URL/rest/v1/consultas?select=id&limit=1" -H "apikey: $KEY" -H "Authorization: Bearer $KEY")"
-          BODY='{"email":"test+ci-debug@placacompleta.com.br","placa":"DBG0001","ip_address":"unknown","geo_city":null,"geo_uf":null,"geo_country":null,"geo_region_code":null,"is_pwa":false,"channel":"email","email_sent":false,"whatsapp_sent":false,"user_agent":"ci-debug"}'
-          RESP=$(curl -s -w '\nHTTP %{http_code}' -X POST "$URL/rest/v1/consultas" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -H "Prefer: return=minimal" -d "$BODY")
-          echo "insert com colunas geo: $RESP"
-          curl -s -o /dev/null -w 'delete debug: HTTP %{http_code}\n' -X DELETE "$URL/rest/v1/consultas?email=eq.test%2Bci-debug@placacompleta.com.br" -H "apikey: $KEY" -H "Authorization: Bearer $KEY"
-
       - name: Run lead capture tests
         run: npm run test:leads
 
