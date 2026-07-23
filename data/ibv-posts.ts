@@ -26,6 +26,54 @@ export interface IbvPostSection {
 
 export const ibvPosts: IbvPost[] = [
   {
+    slug: 'seguro-mais-caro-brasil-2026',
+    title: 'As 5 regiões com seguro de carro mais caro do Brasil (e as 5 mais baratas)',
+    metaDescription: 'Ranking inédito: comparamos o seguro médio de Onix, HB20, Gol, Strada e Corolla nas 41 regiões de tarifação do país, com dados oficiais SUSEP corrigidos pelo IPCA. O spread chega a 87%.',
+    publishedAt: '2026-07-24',
+    source: 'SUSEP (base R_AUTO) + IPCA/IBGE',
+    referenceMonth: 'Julho 2026',
+    ogTitle: 'Onde o seguro é mais caro no Brasil',
+    ogHighlight: '+87%',
+    content: [
+      {
+        type: 'intro',
+        text: 'O mesmo carro, com o mesmo condutor, pode pagar quase o dobro de seguro dependendo de onde ele dorme. Compilamos o seguro médio anual de uma cesta de 5 populares (Chevrolet Onix, Hyundai HB20, VW Gol, Fiat Strada e Toyota Corolla) nas **41 regiões de tarifação** usadas pelas seguradoras, a partir de dados oficiais da SUSEP corrigidos pela inflação do seguro medida pelo IBGE. O resultado: **87% de diferença** entre a região mais cara e a mais barata do país.',
+      },
+      { type: 'heading', heading: 'As 5 regiões com seguro mais CARO' },
+      {
+        type: 'paragraph',
+        text: '1. **Grande Rio de Janeiro**: R$ 2.615/ano\n2. **Amapá**: R$ 2.498/ano\n3. **Roraima**: R$ 2.421/ano\n4. **Maranhão**: R$ 2.380/ano\n5. **Pará**: R$ 2.353/ano',
+      },
+      {
+        type: 'paragraph',
+        text: 'O Rio metropolitano no topo não surpreende ninguém: índice de roubo e furto de veículos historicamente entre os maiores do país, densidade de tráfego e custo de reparo elevado. A surpresa é o **Norte dominando o restante do pódio**. Amapá, Roraima e Pará combinam três fatores que encarecem o risco: logística cara de peças (tudo chega de longe), rede menor de oficinas referenciadas e frota segurada pequena, o que dilui menos o risco entre os segurados.',
+      },
+      { type: 'heading', heading: 'As 5 regiões com seguro mais BARATO' },
+      {
+        type: 'paragraph',
+        text: '1. **Ribeirão Preto e demais municípios de SP**: R$ 1.398/ano\n2. **Oeste de Santa Catarina**: R$ 1.410/ano\n3. **Interior do Rio Grande do Sul**: R$ 1.469/ano\n4. **Espírito Santo**: R$ 1.498/ano\n5. **Blumenau e demais regiões de SC**: R$ 1.542/ano',
+      },
+      {
+        type: 'paragraph',
+        text: 'O padrão é claro: **interior do Sul e do Sudeste**. Menos roubo, trânsito mais leve, oficina mais barata. Um Onix que paga R$ 2,6 mil de seguro na Grande Rio custa R$ 1,4 mil no interior paulista — o mesmo carro, praticamente metade do preço.',
+      },
+      {
+        type: 'highlight',
+        text: 'A diferença entre a região mais cara (Grande Rio, R$ 2.615) e a mais barata (interior de SP, R$ 1.398) é de **87%**. Na prática, o CEP pesa tanto quanto o modelo na conta do seguro.',
+      },
+      { type: 'heading', heading: 'Metodologia' },
+      {
+        type: 'paragraph',
+        text: 'Calculamos o prêmio médio anual de seguro compreensivo da cesta de populares (Onix, HB20, Gol, Strada e Corolla, anos-modelo 2020-2021) em cada uma das 41 regiões de tarifação da SUSEP, usando a base oficial de apólices R_AUTO. Os valores foram corrigidos pelo subitem "seguro voluntário de veículo" do IPCA/IBGE pra refletir preços de hoje. Estimativas estatísticas: o valor real do seu seguro depende do seu perfil e da cobertura.',
+      },
+      {
+        type: 'paragraph',
+        text: 'Quer saber o seguro médio do SEU carro na SUA região? Consulte a placa no PlacaCompleta e receba a estimativa por e-mail, ou veja o [seguro médio de carro elétrico por estado](/seguro/carro-eletrico).',
+      },
+      { type: 'cta', ctaLabel: 'Pedir cotação real gratuita', ctaTo: '/cotacao' },
+    ],
+  },
+  {
     slug: 'abril-2026',
     title: 'IBV Auto Abril 2026: Preços de Usados Sobem 0,27% — Desaceleração Marca o Fim do Trimestre',
     metaDescription: 'IBV Auto de abril desacelerou para +0,27% (ante +0,71% em março). Celta +2,66%, Palio +1,47% e Onix +0,57% puxaram as altas; Fox -1,29%, Nivus -1,00%, Gol -0,50% caíram. Tocantins lidera regiões com +1,97%.',

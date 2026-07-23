@@ -339,6 +339,21 @@ export default defineEventHandler(async (event) => {
         marca: apiResponse.MARCA || apiResponse.marca || '',
         modelo: apiResponse.MODELO || apiResponse.modelo || '',
       })
+      // % do FIPE: metrica universal ("seguro = X% do valor do carro")
+      if (seguroEstimado) {
+        try {
+          const fipeDados2 = apiResponse.fipe?.dados
+          const best = fipeDados2?.length
+            ? fipeDados2.reduce((b: any, i: any) => (i.score || 0) > (b.score || 0) ? i : b, fipeDados2[0])
+            : null
+          const valorNum = best?.texto_valor
+            ? parseFloat(String(best.texto_valor).replace(/[^\d,]/g, '').replace(',', '.'))
+            : null
+          if (valorNum && valorNum > 1000) {
+            ;(seguroEstimado as any).percentualFipe = Math.round((seguroEstimado.premioAnual / valorNum) * 1000) / 10
+          }
+        } catch { /* metrica opcional */ }
+      }
     }
   }
 

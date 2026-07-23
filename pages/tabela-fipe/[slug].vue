@@ -2,6 +2,7 @@
 import { fipeBrands, findBrandModel } from '~/data/fipe-brands'
 import { getModelSeoIntro } from '~/data/fipe-model-intros'
 import fipePricesData from '~/data/fipe-prices.json'
+import seguroModelosData from '~/data/seguro-modelos.json'
 
 const route = useRoute()
 const slug = route.params.slug as string
@@ -25,6 +26,12 @@ const currentYear = _now.getFullYear()
 
 // Load FIPE prices from pre-fetched static JSON
 const fipeData = !isBrandPage ? (fipePricesData as Record<string, any>)[slug] || null : null
+
+const seguroData = !isBrandPage ? (seguroModelosData as Record<string, any>)[slug] || null : null
+const REGIAO_LABEL: Record<string, string> = { '11': 'Grande São Paulo', '18': 'Grande Rio', '16': 'Grande BH', '07': 'Grande Curitiba' }
+function brlSeguro(v: number): string {
+  return 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+}
 
 const priceTable = computed(() => fipeData?.priceTable || [])
 const historyChart = computed(() => fipeData?.historyChart || [])
@@ -128,6 +135,14 @@ if (isBrandPage) {
         '@context': 'https://schema.org',
         '@type': 'FAQPage',
         mainEntity: [
+          ...(seguroData ? [{
+            '@type': 'Question',
+            name: `Quanto custa o seguro do ${pageData.name} ${model!.name}?`,
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: `Com base em dados oficiais da SUSEP corrigidos pelo IPCA, o seguro do ${pageData.name} ${model!.name} ${seguroData.ano} custa entre ${brlSeguro(seguroData.faixa.min)} e ${brlSeguro(seguroData.faixa.max)} por ano, conforme a região do país.`,
+            },
+          }] : []),
           {
             '@type': 'Question',
             name: `Quanto custa um ${pageData.name} ${model!.name} na Tabela FIPE?`,
@@ -443,6 +458,35 @@ if (isBrandPage) {
               </p>
             </div>
 
+            <template v-if="seguroData">
+              <h2>Seguro do {{ pageData.name }} {{ model!.name }}: valor médio</h2>
+              <p>
+                Com base em dados oficiais da SUSEP (apólices reais) corrigidos pelo IPCA, o seguro
+                do {{ pageData.name }} {{ model!.name }} {{ seguroData.ano }} custa entre
+                <strong>{{ brlSeguro(seguroData.faixa.min) }} e {{ brlSeguro(seguroData.faixa.max) }} por ano</strong>,
+                dependendo da região do país<template v-if="seguroData.pctFipe"> — cerca de
+                <strong>{{ seguroData.pctFipe }}% do valor FIPE</strong> do veículo</template>:
+              </p>
+              <div class="table-scroll">
+                <table class="seguro-table">
+                  <thead>
+                    <tr><th>Região</th><th>Seguro médio/ano</th><th>Franquia média</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(v, cod) in seguroData.regioes" :key="cod">
+                      <td>{{ REGIAO_LABEL[cod] || cod }}</td>
+                      <td><strong>{{ brlSeguro(v.premio) }}</strong></td>
+                      <td>{{ brlSeguro(v.franquia) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="metodologia-seguro">
+                Estimativa estatística; não substitui cotação real.
+                <NuxtLink to="/cotacao">Peça uma cotação real gratuita →</NuxtLink>
+              </p>
+            </template>
+
             <h2>Como saber o valor FIPE do meu {{ model!.name }}?</h2>
             <ol>
               <li>Acesse <NuxtLink to="/">placacompleta.com.br</NuxtLink></li>
@@ -730,5 +774,25 @@ if (isBrandPage) {
 
 .related-link:hover {
   text-decoration: underline;
+}
+
+.table-scroll { overflow-x: auto; }
+
+.seguro-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+
+  th, td { border: 1px solid $border-light; padding: 8px 10px; text-align: left; }
+  th { background: $surface-alt; }
+  td strong { color: $navy-electric; }
+}
+
+.metodologia-seguro {
+  font-size: 0.78rem;
+  color: $slate-grey;
+  margin-top: 6px;
+
+  a { color: $navy-electric; }
 }
 </style>

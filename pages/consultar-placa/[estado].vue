@@ -2,10 +2,21 @@
 import { states } from '~/data/states'
 import { capitalSlugByStateSlug } from '~/data/capitals'
 import { getStateSeoIntro } from '~/data/state-seo-intros'
+import seguroEstadosData from '~/data/seguro-estados.json'
+import seguroEletricosData from '~/data/seguro-eletricos.json'
+
+// Seguro medio do estado (cesta de populares; compilado da base SUSEP)
+// e disponibilidade da pagina de eletricos pro internal linking
 
 const route = useRoute()
 const slug = route.params.estado as string
 const data = states[slug]
+
+const seguroUf = (seguroEstadosData as any).estados?.[data?.uf] || null
+const temEletrico = Boolean(data && (seguroEletricosData as Record<string, any>)[data.uf]?.mediaPremio)
+function brlSeguro(v: number): string {
+  return 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+}
 
 if (!data) {
   throw createError({ statusCode: 404, message: 'Estado não encontrado' })
@@ -160,6 +171,22 @@ useHead({
               Veja a
               <NuxtLink :to="`/consultar-placa/capital/${capitalSlug}`">página dedicada para consulta de placas em {{ data.capital }}</NuxtLink>,
               com informações específicas sobre DETRAN, IPVA e principais bairros da capital.
+            </p>
+          </template>
+
+          <template v-if="seguroUf?.mediaPopulares">
+            <h2>Seguro de carro em {{ data.name }}</h2>
+            <p>
+              Com base em dados oficiais da SUSEP corrigidos pelo IPCA, o seguro dos carros
+              populares mais vendidos (Onix, HB20, Gol, Strada e Corolla) custa em média
+              <strong>{{ brlSeguro(seguroUf.mediaPopulares) }} por ano</strong> em
+              {{ data.name }} (região {{ seguroUf.regiao.nome }}). O valor exato depende do
+              modelo, do ano e do perfil do condutor.
+              <NuxtLink to="/cotacao">Peça uma cotação real gratuita →</NuxtLink>
+            </p>
+            <p v-if="temEletrico">
+              Tem ou pensa em ter um elétrico? Veja o
+              <NuxtLink :to="`/seguro/carro-eletrico/${slug}`">seguro médio de carro elétrico em {{ data.name }}</NuxtLink>.
             </p>
           </template>
 
