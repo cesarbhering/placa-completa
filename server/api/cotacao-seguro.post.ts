@@ -1,5 +1,8 @@
 import { Resend } from 'resend'
 import { normalizePhoneForWhatsApp, sendWhatsAppText } from '../utils/evolutionApi'
+import { REGIOES } from '../utils/regiao-susep'
+import { getClientIp } from '../utils/client-ip'
+import { lookupIpGeo } from '../utils/ip-geo'
 
 /**
  * Lead de cotacao real de seguro: o usuario viu a estimativa SUSEP no
@@ -20,17 +23,24 @@ export default defineEventHandler(async (event) => {
     ? placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 7)
     : null
 
+  // Cidade/UF de quem esta pedindo a cotacao (geo do IP na hora; fail-open)
+  const ipGeo = await lookupIpGeo(getClientIp(event))
+  let cidadeLead = ipGeo?.country === 'BR' && ipGeo.city ? `${ipGeo.city} - ${ipGeo.uf}` : null
+
   const supabase = useSupabaseServer()
 
   // Lead vindo da pagina /cotacao (link do email): resolve o email da
   // consulta server-side pelo uuid, sem nunca expor o email completo no front
-  if (!email && typeof consultaId === 'string' && /^[0-9a-f-]{36}$/i.test(consultaId)) {
+  if (typeof consultaId === 'string' && /^[0-9a-f-]{36}$/i.test(consultaId)) {
     const { data: consulta } = await supabase
       .from('consultas')
-      .select('email')
+      .select('email, geo_city, geo_uf')
       .eq('id', consultaId)
       .maybeSingle()
-    if (consulta?.email) email = consulta.email
+    if (consulta) {
+      if (!email && consulta.email) email = consulta.email
+      if (!cidadeLead && consulta.geo_city) cidadeLead = `${consulta.geo_city} - ${consulta.geo_uf ?? ''}`.trim()
+    }
   }
 
   // Dedupe: mesmo telefone + placa na ultima hora = duplo clique/reenvio
@@ -64,7 +74,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Notificacoes fire-and-forget: lead ja esta salvo, resposta nao espera
-  notifyLead(row).catch((e) => console.warn('[cotacao-seguro] notificacao falhou:', e?.message))
+  notifyLead({ ...row, cidade: cidadeLead }).catch((e) => console.warn('[cotacao-seguro] notificacao falhou:', e?.message))
 
   return { success: true }
 })
@@ -79,6 +89,7 @@ async function notifyLead(row: {
   premio_estimado: number | null
   franquia_estimada: number | null
   regiao_code: string | null
+  cidade: string | null
 }) {
   const config = useRuntimeConfig()
   const veiculo = [row.marca, row.modelo, row.ano_modelo].filter(Boolean).join(' ')
@@ -89,8 +100,9 @@ async function notifyLead(row: {
     `Veículo: ${veiculo || row.placa || '-'}`,
     `Placa: ${row.placa || '-'}`,
     `Telefone: ${fone}`,
+    `Cidade (via IP): ${row.cidade || '-'}`,
     `Email: ${row.email || '-'}`,
-    `Estimativa exibida: ${premio}/ano (região ${row.regiao_code || '-'})`,
+    `Estimativa exibida: ${premio}/ano (região ${row.regiao_code ? `${row.regiao_code} - ${REGIOES[row.regiao_code] || '?'}` : '-'})`,
   ].join('\n')
 
   // Email
