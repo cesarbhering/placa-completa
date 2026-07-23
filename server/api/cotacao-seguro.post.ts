@@ -1,5 +1,6 @@
 import { Resend } from 'resend'
 import { normalizePhoneForWhatsApp, sendWhatsAppText } from '../utils/evolutionApi'
+import { REGIOES } from '../utils/regiao-susep'
 
 /**
  * Lead de cotacao real de seguro: o usuario viu a estimativa SUSEP no
@@ -90,7 +91,7 @@ async function notifyLead(row: {
     `Placa: ${row.placa || '-'}`,
     `Telefone: ${fone}`,
     `Email: ${row.email || '-'}`,
-    `Estimativa exibida: ${premio}/ano (região ${row.regiao_code || '-'})`,
+    `Estimativa exibida: ${premio}/ano (região ${row.regiao_code ? `${row.regiao_code} - ${REGIOES[row.regiao_code] || '?'}` : '-'})`,
   ].join('\n')
 
   // Email
