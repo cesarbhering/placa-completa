@@ -78,114 +78,117 @@ useHead({
 </script>
 
 <template>
-  <div class="cotacao-page">
-    <header class="cotacao-page__header">
-      <NuxtLink to="/" class="cotacao-page__brand">PlacaCompleta</NuxtLink>
-    </header>
-
-    <main class="cotacao-page__main">
-      <template v-if="!done">
-        <h1 v-if="prefilled && veiculo" class="cotacao-page__title">
-          Cotação de seguro pro seu {{ veiculo.marca }} {{ veiculo.modelo }}
-        </h1>
-        <h1 v-else class="cotacao-page__title">Cotação de seguro pro seu carro</h1>
-
-        <div v-if="prefilled && veiculo" class="cotacao-page__card">
-          <div class="cotacao-page__card-row"><span>Placa</span><strong>{{ veiculo.placa }}</strong></div>
-          <div class="cotacao-page__card-row"><span>Veículo</span><strong>{{ veiculo.marca }} {{ veiculo.modelo }}</strong></div>
-          <div v-if="veiculo.ano" class="cotacao-page__card-row"><span>Ano</span><strong>{{ veiculo.ano }}</strong></div>
-        </div>
-
-        <div v-if="seguro" class="cotacao-page__estimativa">
-          <p class="cotacao-page__estimativa-lead">Carros como o seu pagam em média</p>
-          <p class="cotacao-page__premio">R$ {{ formatBRL(seguro.premioAnual) }}<span>/ano</span></p>
-          <p class="cotacao-page__detalhe">
-            <template v-if="seguro.regiaoDoUsuario">de seguro na sua região ({{ seguro.regiao.descricao }}). </template>
-            <template v-else>de seguro. </template>
-            Franquia média: R$ {{ formatBRL(seguro.franquia) }}.
-          </p>
-        </div>
-        <p v-else class="cotacao-page__pitch">
-          Deixe seu telefone e receba uma cotação real, feita por corretor, sem compromisso.
-        </p>
-
-        <form class="cotacao-page__form" @submit.prevent="submit">
-          <div v-if="!prefilled" class="cotacao-page__field">
-            <label for="cotacao-placa">Placa do veículo (opcional)</label>
-            <input id="cotacao-placa" v-model="placaInput" type="text" maxlength="8" placeholder="ABC1D23" autocapitalize="characters">
+  <div class="desktop content-page">
+    <main class="cotacao-main">
+      <div class="win-window">
+        <div class="win-window__titlebar">
+          <span>Cotação de Seguro</span>
+          <div class="win-window__titlebar-buttons">
+            <span class="win-window__titlebar-btn">_</span>
+            <span class="win-window__titlebar-btn">□</span>
+            <span class="win-window__titlebar-btn">×</span>
           </div>
-          <div class="cotacao-page__field">
-            <label for="cotacao-phone">Telefone com DDD</label>
-            <input
-              id="cotacao-phone"
-              v-model="phoneInput"
-              type="tel"
-              inputmode="tel"
-              placeholder="(31) 99999-9999"
-              :disabled="sending"
-            >
-            <p v-if="phoneError" class="cotacao-page__erro">{{ phoneError }}</p>
-            <p v-if="sendError" class="cotacao-page__erro">Não conseguimos enviar. Tente de novo.</p>
-          </div>
-          <button type="submit" class="cotacao-page__cta" :disabled="sending">
-            {{ sending ? 'Enviando...' : 'Receber contato' }}
-          </button>
-          <p class="cotacao-page__lgpd">Ao enviar, você autoriza o contato telefônico sobre sua cotação.</p>
-          <p class="cotacao-page__fonte">Estimativa com base em dados oficiais SUSEP, corrigida pelo IPCA. Não substitui cotação de seguradora.</p>
-        </form>
-      </template>
-
-      <template v-else>
-        <div class="cotacao-page__done">
-          <p class="cotacao-page__done-icon">✅</p>
-          <h1 class="cotacao-page__title">Recebido!</h1>
-          <p class="cotacao-page__pitch">Um corretor entrará em contato.</p>
-          <NuxtLink to="/" class="cotacao-page__voltar">Voltar pro PlacaCompleta</NuxtLink>
         </div>
-      </template>
+        <div class="win-window__body">
+          <template v-if="!done">
+            <h1 v-if="prefilled && veiculo" class="cotacao-title">
+              Cotação de seguro pro seu {{ veiculo.marca }} {{ veiculo.modelo }}
+            </h1>
+            <h1 v-else class="cotacao-title">Cotação de seguro pro seu carro</h1>
+
+            <div v-if="prefilled && veiculo" class="cotacao-card">
+              <div class="cotacao-card__row"><span>Placa</span><strong>{{ veiculo.placa }}</strong></div>
+              <div class="cotacao-card__row"><span>Veículo</span><strong>{{ veiculo.marca }} {{ veiculo.modelo }}</strong></div>
+              <div v-if="veiculo.ano" class="cotacao-card__row"><span>Ano</span><strong>{{ veiculo.ano }}</strong></div>
+            </div>
+
+            <div v-if="seguro" class="cotacao-estimativa">
+              <p class="cotacao-estimativa__lead">Carros como o seu pagam em média</p>
+              <p class="cotacao-estimativa__premio">R$ {{ formatBRL(seguro.premioAnual) }}<span>/ano</span></p>
+              <p class="cotacao-estimativa__detalhe">
+                <template v-if="seguro.regiaoDoUsuario">de seguro na sua região ({{ seguro.regiao.descricao }}). </template>
+                <template v-else>de seguro. </template>
+                Franquia média: R$ {{ formatBRL(seguro.franquia) }}.
+              </p>
+            </div>
+            <p v-else class="cotacao-pitch">
+              Deixe seu telefone e receba uma cotação real, feita por corretor, sem compromisso.
+            </p>
+
+            <form @submit.prevent="submit">
+              <div v-if="!prefilled" class="form-group">
+                <label class="form-group__label" for="cotacao-placa">Placa do veículo (opcional)</label>
+                <input
+                  id="cotacao-placa"
+                  v-model="placaInput"
+                  type="text"
+                  maxlength="8"
+                  placeholder="ABC1D23"
+                  autocapitalize="characters"
+                  class="win-input"
+                >
+              </div>
+              <div class="form-group">
+                <label class="form-group__label" for="cotacao-phone">Telefone com DDD</label>
+                <input
+                  id="cotacao-phone"
+                  v-model="phoneInput"
+                  type="tel"
+                  inputmode="tel"
+                  placeholder="(31) 99999-9999"
+                  :disabled="sending"
+                  class="win-input"
+                >
+              </div>
+              <div v-if="phoneError" class="win-alert win-alert--error">{{ phoneError }}</div>
+              <div v-if="sendError" class="win-alert win-alert--error">Não conseguimos enviar. Tente de novo.</div>
+              <button type="submit" class="win-btn win-btn--primary win-btn--block" :disabled="sending">
+                {{ sending ? 'Enviando...' : 'Receber contato' }}
+              </button>
+              <p class="cotacao-lgpd">Ao enviar, você autoriza o contato telefônico sobre sua cotação.</p>
+              <p class="cotacao-fonte">Estimativa com base em dados oficiais SUSEP, corrigida pelo IPCA. Não substitui cotação de seguradora.</p>
+            </form>
+          </template>
+
+          <template v-else>
+            <div class="cotacao-done">
+              <div class="win-alert win-alert--success">✅ Recebido! Um corretor entrará em contato.</div>
+              <NuxtLink to="/" class="win-btn win-btn--block cotacao-done__voltar">Voltar pro PlacaCompleta</NuxtLink>
+            </div>
+          </template>
+        </div>
+      </div>
     </main>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.cotacao-page {
-  min-height: 100vh;
+.cotacao-main {
+  width: 100%;          // flex item do .desktop (align-center): sem isso vira fit-content e estoura o viewport
+  max-width: 480px;
+  margin: 0 auto;
+
+  // o .win-window global tem largura fixa; aqui ele se adapta ao viewport
+  .win-window {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+.cotacao-title {
+  font-size: 1.25rem;
+  color: $navy-electric;
+  margin: 0 0 $space-md;
+  text-wrap: balance;
+}
+
+.cotacao-card {
+  border: 1px solid $border-mid;
   background: $surface-alt;
+  padding: $space-xs $space-sm;
+  margin-bottom: $space-md;
 
-  &__header {
-    background: $prussian-blue;
-    padding: $space-sm $space-md;
-  }
-
-  &__brand {
-    color: #fff;
-    font-weight: 700;
-    text-decoration: none;
-    font-size: 1.1rem;
-  }
-
-  &__main {
-    max-width: 480px;
-    margin: 0 auto;
-    padding: $space-lg $space-md $space-xl;
-  }
-
-  &__title {
-    font-size: 1.4rem;
-    color: $navy-electric;
-    margin: 0 0 $space-md;
-    text-wrap: balance;
-  }
-
-  &__card {
-    background: $surface;
-    border: 1px solid $border-light;
-    border-radius: 10px;
-    padding: $space-sm $space-md;
-    margin-bottom: $space-md;
-  }
-
-  &__card-row {
+  &__row {
     display: flex;
     justify-content: space-between;
     gap: $space-sm;
@@ -197,16 +200,16 @@ useHead({
 
     & + & { border-top: 1px solid $border-light; }
   }
+}
 
-  &__estimativa {
-    text-align: center;
-    background: $powder-blue;
-    border-radius: 10px;
-    padding: $space-md;
-    margin-bottom: $space-md;
-  }
+.cotacao-estimativa {
+  text-align: center;
+  background: $powder-blue;
+  border: 1px solid $border-light;
+  padding: $space-md;
+  margin-bottom: $space-md;
 
-  &__estimativa-lead { margin: 0 0 4px; font-size: 0.9rem; color: $graphite; }
+  &__lead { margin: 0 0 4px; font-size: 0.9rem; color: $graphite; }
 
   &__premio {
     font-size: 2.2rem;
@@ -218,46 +221,34 @@ useHead({
   }
 
   &__detalhe { margin: 4px 0 0; font-size: 0.85rem; color: $graphite; }
+}
 
-  &__pitch { color: $graphite; margin: 0 0 $space-md; }
+.cotacao-pitch { color: $graphite; margin: 0 0 $space-md; }
 
-  &__field {
-    margin-bottom: $space-sm;
+.cotacao-lgpd {
+  font-size: 0.78rem;
+  color: $slate-grey;
+  margin: $space-sm 0 0;
+  text-align: center;
+}
 
-    label { display: block; font-size: 0.85rem; font-weight: 600; color: $graphite; margin-bottom: 4px; }
+.cotacao-fonte {
+  font-size: 0.72rem;
+  color: $lavender-grey;
+  margin: $space-xs 0 0;
+  text-align: center;
+}
 
-    input {
-      width: 100%;
-      padding: 12px 14px;
-      font-size: 1.05rem;
-      border: 1px solid $border-mid;
-      border-radius: 8px;
-      background: $surface;
+.cotacao-done {
+  text-align: center;
 
-      &:focus { outline: 2px solid $smart-blue; border-color: $smart-blue; }
-    }
+  &__voltar {
+    margin-top: $space-md;
+    text-decoration: none;
   }
+}
 
-  &__cta {
-    width: 100%;
-    padding: 14px;
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #fff;
-    background: $smart-blue;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-
-    &:disabled { opacity: 0.6; cursor: default; }
-  }
-
-  &__erro { color: $error-red; font-size: 0.85rem; margin: 6px 0 0; }
-  &__lgpd { font-size: 0.78rem; color: $slate-grey; margin: $space-sm 0 0; text-align: center; }
-  &__fonte { font-size: 0.72rem; color: $lavender-grey; margin: $space-xs 0 0; text-align: center; }
-
-  &__done { text-align: center; padding-top: $space-xl; }
-  &__done-icon { font-size: 3rem; margin: 0 0 $space-sm; }
-  &__voltar { color: $smart-blue; display: inline-block; margin-top: $space-md; }
+.win-alert {
+  margin-bottom: $space-sm;
 }
 </style>
