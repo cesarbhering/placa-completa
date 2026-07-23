@@ -4,6 +4,7 @@ import { checkEmailDeliverability } from '../utils/email-deliverability'
 import { getClientIp } from '../utils/client-ip'
 import { lookupIpGeo } from '../utils/ip-geo'
 import { getRegiaoSusep } from '../utils/regiao-susep'
+import { isWhitelisted } from '../utils/rate-limit-whitelist'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
@@ -112,7 +113,11 @@ export default defineEventHandler(async (event) => {
   const recipientValue = channel === 'whatsapp' ? normalizedPhone : sanitizedEmail
   const sentField = channel === 'whatsapp' ? 'whatsapp_sent' : 'email_sent'
 
-  if (!isPWA) {
+  // Destinatarios na whitelist (tabela rate_limit_whitelist) pulam o rate
+  // limit inteiro - inclusive o por IP, senao o proprio IP bloquearia na 6a.
+  const whitelisted = !isPWA && await isWhitelisted(recipientValue as string)
+
+  if (!isPWA && !whitelisted) {
     const supabase = useSupabaseServer()
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const ipCheckable = ip && ip !== 'unknown'
