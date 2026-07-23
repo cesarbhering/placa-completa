@@ -4,7 +4,7 @@ import { checkEmailDeliverability } from '../utils/email-deliverability'
 import { getClientIp } from '../utils/client-ip'
 import { lookupIpGeo } from '../utils/ip-geo'
 import { getRegiaoSusep } from '../utils/regiao-susep'
-import { isWhitelisted } from '../utils/rate-limit-whitelist'
+import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
@@ -113,11 +113,12 @@ export default defineEventHandler(async (event) => {
   const recipientValue = channel === 'whatsapp' ? normalizedPhone : sanitizedEmail
   const sentField = channel === 'whatsapp' ? 'whatsapp_sent' : 'email_sent'
 
-  // Destinatarios na whitelist (tabela rate_limit_whitelist) pulam o rate
-  // limit inteiro - inclusive o por IP, senao o proprio IP bloquearia na 6a.
-  const whitelisted = !isPWA && await isWhitelisted(recipientValue as string)
+  // Limite customizado por destinatario (tabela rate_limit_whitelist):
+  // N/hora ou ilimitado (Infinity). Aplica aos DOIS checks (destinatario e
+  // IP), senao o proprio IP bloquearia antes do limite customizado valer.
+  const hourlyLimit = isPWA ? DEFAULT_HOURLY_LIMIT : await getHourlyLimit(recipientValue as string)
 
-  if (!isPWA && !whitelisted) {
+  if (!isPWA && hourlyLimit !== Infinity) {
     const supabase = useSupabaseServer()
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const ipCheckable = ip && ip !== 'unknown'
@@ -146,8 +147,8 @@ export default defineEventHandler(async (event) => {
     const recipientCount = recipientRes?.count ?? 0
     const ipCount = ipRes?.count ?? 0
 
-    if (recipientCount >= 5 || ipCount >= 5) {
-      const oldestIso = recipientCount >= 5
+    if (recipientCount >= hourlyLimit || ipCount >= hourlyLimit) {
+      const oldestIso = recipientCount >= hourlyLimit
         ? recipientRes?.data?.[0]?.created_at
         : ipRes?.data?.[0]?.created_at
       let minutesUntilReset = 60
@@ -160,7 +161,7 @@ export default defineEventHandler(async (event) => {
       // do container e docker logs morrem a cada deploy. Sem await pra nao
       // atrasar a resposta; falha de insert nao afeta o usuario.
       supabase.from('blocked_requests').insert({
-        reason: recipientCount >= 5 ? 'rate_limit_recipient' : 'rate_limit_ip',
+        reason: recipientCount >= hourlyLimit ? 'rate_limit_recipient' : 'rate_limit_ip',
         ip_address: ip,
         recipient: recipientValue as string,
         placa: placa?.replace(/[^A-Za-z0-9]/g, '').toUpperCase() || null,
@@ -171,7 +172,7 @@ export default defineEventHandler(async (event) => {
 
       throw createError({
         statusCode: 429,
-        message: `Limite de 5 consultas por hora atingido. Tente novamente em ~${minutesUntilReset} min.`,
+        message: `Limite de ${hourlyLimit} consultas por hora atingido. Tente novamente em ~${minutesUntilReset} min.`,
       })
     }
   }
