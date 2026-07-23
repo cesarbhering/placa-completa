@@ -3,7 +3,8 @@ import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../util
 import { checkEmailDeliverability } from '../utils/email-deliverability'
 import { getClientIp } from '../utils/client-ip'
 import { lookupIpGeo } from '../utils/ip-geo'
-import { getRegiaoSusep, getRegiaoCatchAll } from '../utils/regiao-susep'
+import { getRegiaoSusep } from '../utils/regiao-susep'
+import { getSeguroEstimado, type SeguroEstimado } from '../utils/seguro-estimate'
 import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
@@ -96,6 +97,10 @@ export default defineEventHandler(async (event) => {
   // aproximada em mobile/CGNAT - tratar como regiao provavel.
   const ipGeo = await lookupIpGeo(ip)
   const regiao = ipGeo?.country === 'BR' ? getRegiaoSusep(ipGeo.uf, ipGeo.city) : null
+  // UUID da consulta gerado ANTES do envio: vira o token do link de cotacao
+  // no email (/cotacao?c=<uuid>) e e passado como id explicito no insert final.
+  const consultaId = crypto.randomUUID()
+  const cotacaoUrl = `https://placacompleta.com.br/cotacao?c=${consultaId}`
 
   const placaClean = placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
   const placaRegex = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/
@@ -313,58 +318,17 @@ export default defineEventHandler(async (event) => {
   }
 
   // Estimativa de seguro (web apenas) — fipe-api/SUSEP; fail-open: null = modal nao aparece
-  let seguroEstimado: {
-    premioAnual: number
-    franquia: number
-    regiao: { codigo: string; descricao: string }
-    regiaoDoUsuario: boolean
-    veiculo: { marca: string; modelo: string; ano: number }
-  } | null = null
+  let seguroEstimado: SeguroEstimado | null = null
   if (!isPWA && fipeModelId) {
     const anoSeguro = parseInt(String(apiResponse.anoModelo || apiResponse.ano || ''), 10)
     if (anoSeguro) {
-      // Cascata de regioes: a do usuario -> catch-all do estado dele -> 11
-      // (SP Met., maior amostra do pais). Quando cai em fallback, o modal
-      // omite o "na sua regiao" (regiaoDoUsuario: false) pra nao afirmar
-      // uma regiao que nao e a da pessoa.
-      const regiaoUsuario = regiao?.code ?? null
-      const tentativas: { codigo: string; doUsuario: boolean }[] = []
-      if (regiaoUsuario) {
-        tentativas.push({ codigo: regiaoUsuario, doUsuario: true })
-        const catchAll = getRegiaoCatchAll(regiaoUsuario)
-        if (catchAll) tentativas.push({ codigo: catchAll, doUsuario: false })
-      }
-      if (!tentativas.some(t => t.codigo === '11')) tentativas.push({ codigo: '11', doUsuario: false })
-
-      for (const tentativa of tentativas) {
-        try {
-          const est = await $fetch<any>(
-            `${config.fipeApiUrl}/models/${fipeModelId}/insurance-estimate`,
-            {
-              params: { ano: anoSeguro, regiao: tentativa.codigo },
-              headers: { Authorization: `Bearer ${config.fipeApiToken}` },
-              timeout: 3000,
-            }
-          )
-          const d = est?.data
-          if (d?.seguro?.premioMedioEstimado) {
-            seguroEstimado = {
-              premioAnual: Math.round(d.seguro.premioMedioEstimado * 100) / 100,
-              franquia: Math.round((d.seguro.franquiaMediaEstimada || 0) * 100) / 100,
-              regiao: { codigo: d.regiao?.codigo ?? tentativa.codigo, descricao: d.regiao?.descricao ?? '' },
-              regiaoDoUsuario: tentativa.doUsuario,
-              veiculo: {
-                marca: apiResponse.MARCA || apiResponse.marca || '',
-                modelo: apiResponse.MODELO || apiResponse.modelo || '',
-                ano: anoSeguro,
-              },
-            }
-            break
-          }
-        } catch {
-          // 404 dessa regiao ou API fora — tenta a proxima da cascata
-        }
-      }
+      seguroEstimado = await getSeguroEstimado({
+        fipeModelId,
+        ano: anoSeguro,
+        regiaoCode: regiao?.code ?? null,
+        marca: apiResponse.MARCA || apiResponse.marca || '',
+        modelo: apiResponse.MODELO || apiResponse.modelo || '',
+      })
     }
   }
 
@@ -400,7 +364,7 @@ export default defineEventHandler(async (event) => {
     if (channel === 'email') {
       try {
         const resend = new Resend(config.resendApiKey)
-        const htmlEmail = buildEmailHtml(apiResponse, placaClean, chartUrl, icv5Result, rodizio)
+        const htmlEmail = buildEmailHtml(apiResponse, placaClean, chartUrl, icv5Result, rodizio, seguroEstimado, cotacaoUrl)
         await resend.emails.send({
           from: 'PlacaCompleta <consulta@placacompleta.com.br>',
           to: sanitizedEmail as string,
@@ -435,7 +399,7 @@ export default defineEventHandler(async (event) => {
       //
       // Every layer down emits an internal alert so we can track
       // degradation without losing the consulta itself.
-      const text = buildWhatsAppText(apiResponse, placaClean, icv5Result, rodizio)
+      const text = buildWhatsAppText(apiResponse, placaClean, icv5Result, rodizio, seguroEstimado, cotacaoUrl)
 
       // Always try to prefetch the chart bytes — used by both A and B.
       let chartDataUri: string | null = null
@@ -456,7 +420,7 @@ export default defineEventHandler(async (event) => {
       // to the email a user would otherwise receive.
       let cardDataUri: string | null = null
       if (config.gotenbergUrl || process.env.GOTENBERG_URL) {
-        const emailHtml = buildEmailHtml(apiResponse, placaClean, chartDataUri, icv5Result, rodizio)
+        const emailHtml = buildEmailHtml(apiResponse, placaClean, chartDataUri, icv5Result, rodizio, seguroEstimado, cotacaoUrl)
         const renderRes = await renderHtmlToPng(emailHtml, { width: 560, timeoutMs: 15_000 })
         if (renderRes.ok && renderRes.bytes) {
           cardDataUri = `data:image/png;base64,${renderRes.bytes.toString('base64')}`
@@ -523,6 +487,7 @@ export default defineEventHandler(async (event) => {
 
   const supabase = useSupabaseServer()
   await supabase.from('consultas').insert({
+    id: consultaId,
     email: sanitizedEmail,
     phone: normalizedPhone,
     placa: placaClean,
@@ -708,7 +673,7 @@ function getSpRodizioInfo(placa: string): SpRodizio | null {
   return map[lastDigit] || null
 }
 
-function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: string | null = null, icv5: ICV5Result | null = null, rodizio: SpRodizio | null = null): string {
+function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: string | null = null, icv5: ICV5Result | null = null, rodizio: SpRodizio | null = null, seguro: SeguroEstimado | null = null, cotacaoUrl: string | null = null): string {
   // Fields from the upstream wdapi2 payload must be HTML-escaped before
   // interpolation — a compromised or hostile upstream could otherwise
   // inject script-bearing markup into the email body.
@@ -791,6 +756,8 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
         ${emailRow('Situação', situacao, true)}
       `)}
 
+      ${cotacaoUrl ? emailSeguroSection(seguro, cotacaoUrl) : ''}
+
       ${fipeValor !== '-' ? emailWindow('Tabela FIPE', `
         ${emailRow('Modelo FIPE', fipeModelo)}
         ${emailRow('Valor', fipeValor)}
@@ -823,6 +790,42 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
   </table>
 </body>
 </html>`
+}
+
+// Secao de seguro do email: estimativa SUSEP (quando ha) + botao de
+// cotacao real linkando /cotacao?c=<uuid da consulta>. Sempre presente
+// (versao generica sem estimativa) por decisao de produto.
+function emailSeguroSection(seguro: SeguroEstimado | null, cotacaoUrl: string): string {
+  const fmt = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+  const botao = (label: string) => `
+    <tr><td colspan="2" style="padding:14px 16px 6px;text-align:center;background:#ffffff;">
+      <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
+        <td bgcolor="#0466c8" style="border-radius:8px;">
+          <a href="${cotacaoUrl}" target="_blank"
+             style="display:inline-block;padding:11px 28px;font-family:'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:8px;">
+            ${label}
+          </a>
+        </td>
+      </tr></table>
+    </td></tr>
+    <tr><td colspan="2" style="padding:4px 16px 12px;text-align:center;background:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#7d8597;">
+      Estimativa com base em dados oficiais SUSEP, corrigida pelo IPCA. Não substitui cotação de seguradora.
+    </td></tr>`
+
+  if (seguro) {
+    return emailWindow('Seguro do seu carro', `
+      ${emailRow('Seguro médio anual', fmt(seguro.premioAnual))}
+      ${emailRow('Franquia média', fmt(seguro.franquia))}
+      ${seguro.regiaoDoUsuario ? emailRow('Região', seguro.regiao.descricao, true) : ''}
+      ${botao('Pedir cotação real →')}
+    `)
+  }
+  return emailWindow('Seguro do seu carro', `
+    <tr><td colspan="2" style="padding:14px 16px 2px;text-align:center;background:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#33415c;">
+      Quer saber quanto custa segurar esse carro? Peça uma cotação gratuita.
+    </td></tr>
+    ${botao('Pedir cotação →')}
+  `)
 }
 
 function emailWindow(title: string, bodyRowsHtml: string): string {
@@ -877,6 +880,8 @@ function buildWhatsAppText(
   placa: string,
   icv5: ICV5Result | null = null,
   rodizio: SpRodizio | null = null,
+  seguro: SeguroEstimado | null = null,
+  cotacaoUrl: string | null = null,
 ): string {
   const marca = data.MARCA || data.marca || '-'
   const modelo = data.MODELO || data.modelo || '-'
@@ -938,6 +943,17 @@ function buildWhatsAppText(
       `Total:         ${formatBRL(icv5.custoTotal5anos)}`,
       `Índice ICV5:   ${icv5.indiceIcv5}% (${icv5.classificacao})`,
     )
+  }
+
+  if (cotacaoUrl) {
+    lines.push('')
+    if (seguro) {
+      const fmt = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+      lines.push('*Seguro do seu carro*', `Seguro médio: ${fmt(seguro.premioAnual)}/ano (franquia ${fmt(seguro.franquia)})`)
+    } else {
+      lines.push('*Seguro do seu carro*', 'Quer saber quanto custa segurar esse carro?')
+    }
+    lines.push(`Peça uma cotação real: ${cotacaoUrl}`)
   }
 
   lines.push('', '_placacompleta.com.br_')
