@@ -25,6 +25,8 @@ interface SeguroEstimado {
   regiaoDoUsuario: boolean
   veiculo: { marca: string; modelo: string; ano: number }
 }
+const shareInfo = ref<{ marca: string; modelo: string; ano: string; fipe: string | null } | null>(null)
+
 const seguroEstimado = ref<SeguroEstimado | null>(null)
 const showSeguroModal = ref(false)
 const seguroStep = ref<'oferta' | 'telefone' | 'confirmado'>('oferta')
@@ -35,6 +37,22 @@ const seguroSendError = ref(false)
 
 function formatBRL(v: number): string {
   return v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
+
+function buildShareText(): string {
+  const s = shareInfo.value
+  const veiculo = s ? `${s.marca} ${s.modelo} ${s.ano}`.trim() : ''
+  const fipe = s?.fipe ? ` (FIPE ${s.fipe})` : ''
+  return `Consultei a placa ${placa.value} no PlacaCompleta: ${veiculo}${fipe}. Consulta grátis com FIPE e seguro médio: https://placacompleta.com.br`
+}
+
+async function shareWhatsApp() {
+  const text = buildShareText()
+  track('share_whatsapp', { origem: 'success_screen' })
+  if (navigator.share) {
+    try { await navigator.share({ text }); return } catch { /* usuario cancelou */ }
+  }
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
 }
 
 function openSeguroModal() {
@@ -795,6 +813,7 @@ async function handleSubmit() {
 
       if (delivered) {
         track('consulta_success', { channel: channel.value })
+        shareInfo.value = (result as any).share || null
         if (result.seguroEstimado) {
           seguroEstimado.value = result.seguroEstimado
           // a tela de sucesso assenta primeiro; o modal chega como proximo passo
@@ -1006,6 +1025,14 @@ function applyEmailSuggestion() {
           <p class="success-state__sent-to">
             Enviado para <strong>{{ sentToEmail }}</strong>
           </p>
+          <button
+            v-if="shareInfo"
+            type="button"
+            class="win-btn win-btn--block share-whatsapp-btn"
+            @click="shareWhatsApp"
+          >
+            Compartilhar no WhatsApp
+          </button>
           <button
             type="button"
             class="win-btn win-btn--primary win-btn--block"
@@ -2203,5 +2230,14 @@ function applyEmailSuggestion() {
     text-align: left;
     margin-bottom: $space-sm;
   }
+}
+
+.share-whatsapp-btn {
+  background: #25d366;
+  color: #fff;
+  border-color: #1faa52;
+  margin-bottom: $space-xs;
+
+  &:hover { background: #1faa52; }
 }
 </style>
