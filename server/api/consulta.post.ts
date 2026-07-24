@@ -553,6 +553,15 @@ export default defineEventHandler(async (event) => {
     data: isPWA ? apiResponse : undefined,
     fipeHistory: isPWA ? fipeHistoryPoints : undefined,
     seguroEstimado: !isPWA ? seguroEstimado : undefined,
+    // payload minimo pro botao de compartilhar no WhatsApp (web)
+    share: !isPWA ? {
+      marca: apiResponse.MARCA || apiResponse.marca || '',
+      modelo: apiResponse.MODELO || apiResponse.modelo || '',
+      ano: apiResponse.anoModelo || apiResponse.ano || '',
+      fipe: (apiResponse.fipe?.dados?.length
+        ? apiResponse.fipe.dados.reduce((b: any, i: any) => (i.score || 0) > (b.score || 0) ? i : b, apiResponse.fipe.dados[0])?.texto_valor
+        : null) || null,
+    } : undefined,
   }
 })
 
@@ -784,6 +793,8 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
 
       ${cotacaoUrl ? emailSeguroSection(seguro, cotacaoUrl) : ''}
 
+      ${emailShareButton(marca, modelo, anoModelo, placa)}
+
       ${fipeValor !== '-' ? emailWindow('Tabela FIPE', `
         ${emailRow('Modelo FIPE', fipeModelo)}
         ${emailRow('Valor', fipeValor)}
@@ -816,6 +827,27 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
   </table>
 </body>
 </html>`
+}
+
+// Botao verde de compartilhar no WhatsApp: texto pronto com o veiculo +
+// link do site. O wa.me so aceita TEXTO (nao anexa imagem) - o link
+// clicavel e o que traz a consulta nova.
+function emailShareButton(marca: string, modelo: string, ano: string, placa: string): string {
+  const texto = encodeURIComponent(
+    `Consultei a placa ${placa} no PlacaCompleta: ${marca} ${modelo} ${ano}. ` +
+    `Consulta gratis com FIPE e seguro medio: https://placacompleta.com.br`
+  )
+  // contexto: dentro do <td> central do email (irmao das janelas), entao
+  // o botao e uma table standalone, nao um <tr> solto
+  return `
+      <table cellpadding="0" cellspacing="0" style="margin:4px auto 18px;"><tr>
+        <td bgcolor="#25D366" style="border-radius:8px;">
+          <a href="https://wa.me/?text=${texto}" target="_blank"
+             style="display:inline-block;padding:10px 24px;font-family:'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:8px;">
+            Compartilhar no WhatsApp
+          </a>
+        </td>
+      </tr></table>`
 }
 
 // Secao de seguro do email: estimativa SUSEP (quando ha) + botao de
