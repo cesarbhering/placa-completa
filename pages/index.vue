@@ -1042,8 +1042,8 @@ function applyEmailSuggestion() {
           </button>
         </div>
 
-        <!-- Sample result preview -->
-        <div v-if="!isPWA" class="sample-preview">
+        <!-- Sample result preview (so na landing; some no loading/sucesso) -->
+        <div v-if="!isPWA && !success && !loading && !processingPhoto" class="sample-preview">
           <p class="sample-preview__title">O que você recebe na consulta:</p>
           <div class="sample-preview__table">
             <div class="sample-preview__row">
@@ -1260,7 +1260,7 @@ function applyEmailSuggestion() {
     </div>
 
     <!-- PWA Email Prompt Modal -->
-    <div v-if="showPwaEmailPrompt" class="modal-overlay" @click="showPwaEmailPrompt = false">
+    <div v-if="showPwaEmailPrompt" class="modal-overlay">
       <div class="modal-window" @click.stop>
         <div class="win-window">
           <div class="win-window__titlebar">
@@ -1299,7 +1299,7 @@ function applyEmailSuggestion() {
     </div>
 
     <!-- Email/WhatsApp Confirmation Modal -->
-    <div v-if="showEmailConfirm" class="modal-overlay" @click="showEmailConfirm = false">
+    <div v-if="showEmailConfirm" class="modal-overlay">
       <div class="modal-window" @click.stop>
         <div class="win-window">
           <div class="win-window__titlebar">
@@ -1333,7 +1333,7 @@ function applyEmailSuggestion() {
     </div>
 
     <!-- Web delivery prompt (Email/WhatsApp choice) -->
-    <div v-if="showWebEmailPrompt" class="modal-overlay" @click="showWebEmailPrompt = false">
+    <div v-if="showWebEmailPrompt" class="modal-overlay">
       <div class="modal-window" @click.stop>
         <div class="win-window">
           <div class="win-window__titlebar">

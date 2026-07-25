@@ -19,6 +19,14 @@ html {
   scrollbar-gutter: stable;
 }
 
+// O body e flex (align-items: center), o que fazia o #__nuxt dimensionar
+// por fit-content: o max-width de 480px da win-window resolvia cheio e
+// vazava ~50px de cada lado em telas < 490px (bug reportado em iPhones).
+// Largura explicita quebra o ciclo; .desktop centraliza com margin auto.
+#__nuxt {
+  width: 100%;
+}
+
 body {
   font-family: $font-body;
   background:
@@ -319,6 +327,16 @@ body {
   padding: $space-sm $space-md;
   max-width: 580px;
   width: 100%;
+  margin: 0 auto;
+
+  // .desktop e flex-column com align-center: filhos diretos (main etc)
+  // dimensionariam por fit-content e tabelas largas estourariam o
+  // viewport. Largura explicita empurra o scroll pra dentro dos
+  // containers com overflow-x (ex: .table-scroll).
+  > main {
+    width: 100%;
+    min-width: 0;
+  }
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -347,13 +365,25 @@ body {
     margin-top: $space-xs;
   }
 
+  // Flex+wrap: o Vue condensa o whitespace entre os links no build, e com
+  // nowrap nos <a> a linha inteira virava um bloco inquebravel que vazava
+  // o viewport no mobile (bug dos iPhones, 25/jul). Flex quebra entre
+  // itens sem depender de espacos no HTML.
   &__links {
     margin-top: $space-xs;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    column-gap: 6px;
   }
 
   &__nav {
     margin-bottom: $space-sm;
     line-height: 1.9;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    column-gap: 6px;
 
     a {
       white-space: nowrap;
