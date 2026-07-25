@@ -328,6 +328,15 @@ body {
   max-width: 580px;
   width: 100%;
   margin: 0 auto;
+
+  // .desktop e flex-column com align-center: filhos diretos (main etc)
+  // dimensionariam por fit-content e tabelas largas estourariam o
+  // viewport. Largura explicita empurra o scroll pra dentro dos
+  // containers com overflow-x (ex: .table-scroll).
+  > main {
+    width: 100%;
+    min-width: 0;
+  }
   display: flex;
   flex-direction: column;
   align-items: center;
