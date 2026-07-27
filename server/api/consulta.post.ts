@@ -129,9 +129,12 @@ export default defineEventHandler(async (event) => {
   // Limite customizado por destinatario (tabela rate_limit_whitelist):
   // N/hora ou ilimitado (Infinity). Aplica aos DOIS checks (destinatario e
   // IP), senao o proprio IP bloquearia antes do limite customizado valer.
-  const hourlyLimit = isPWA ? DEFAULT_HOURLY_LIMIT : await getHourlyLimit(recipientValue as string)
+  const hourlyLimit = await getHourlyLimit(recipientValue as string)
 
-  if (!isPWA && hourlyLimit !== Infinity) {
+  // Vale pra web E PWA: sem isso, um POST com isPWA:true pulava o rate
+  // limit e recebia o apiResponse completo - consultas ilimitadas de graca
+  // na API paga (fechado em 28/jul/2026).
+  if (hourlyLimit !== Infinity) {
     const supabase = useSupabaseServer()
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const ipCheckable = ip && ip !== 'unknown'
