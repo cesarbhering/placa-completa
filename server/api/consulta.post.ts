@@ -16,6 +16,24 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
 
+  // Barragem de clients de script (Postman, curl, python etc) - PRIMEIRA
+  // checagem do handler, antes de qualquer validacao. User-agent e
+  // falsificavel: lombada contra scraper preguicoso, nao muralha; o rate
+  // limit continua sendo a contencao real. Log em blocked_requests.
+  const uaCheck = getRequestHeaders(event)['user-agent'] || ''
+  const UA_BLOQUEADOS = /postmanruntime|curl\/|wget\/|python-requests|python-urllib|httpie|insomnia|axios\/|go-http-client|okhttp|libwww|scrapy|aiohttp/i
+  if (!uaCheck || UA_BLOQUEADOS.test(uaCheck)) {
+    const supabaseUa = useSupabaseServer()
+    supabaseUa.from('blocked_requests').insert({
+      reason: 'blocked_user_agent',
+      ip_address: getClientIp(event),
+      recipient: typeof body?.email === 'string' ? body.email.slice(0, 200) : null,
+      placa: typeof body?.placa === 'string' ? body.placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 7) : null,
+      user_agent: (uaCheck || 'vazio').slice(0, 300),
+    }).then(({ error }) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
+    throw createError({ statusCode: 403, message: 'Acesso não autorizado.' })
+  }
+
   const { email, phone, placa, isPWA, includeFipeChart, includeIcv5, icv5Uf } = body
   // Origem de trafego (gclid/utm) capturada pelo plugin track-origin no client
   const origin = body?.origin && typeof body.origin === 'object' ? body.origin : {}
@@ -129,9 +147,12 @@ export default defineEventHandler(async (event) => {
   // Limite customizado por destinatario (tabela rate_limit_whitelist):
   // N/hora ou ilimitado (Infinity). Aplica aos DOIS checks (destinatario e
   // IP), senao o proprio IP bloquearia antes do limite customizado valer.
-  const hourlyLimit = isPWA ? DEFAULT_HOURLY_LIMIT : await getHourlyLimit(recipientValue as string)
+  const hourlyLimit = await getHourlyLimit(recipientValue as string)
 
-  if (!isPWA && hourlyLimit !== Infinity) {
+  // Vale pra web E PWA: sem isso, um POST com isPWA:true pulava o rate
+  // limit e recebia o apiResponse completo - consultas ilimitadas de graca
+  // na API paga (fechado em 28/jul/2026).
+  if (hourlyLimit !== Infinity) {
     const supabase = useSupabaseServer()
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const ipCheckable = ip && ip !== 'unknown'
