@@ -7,21 +7,24 @@ export default defineNuxtConfig({
   // @nuxtjs/robots generates /robots.txt from this config.
   robots: {
     sitemap: 'https://placacompleta.com.br/sitemap.xml',
+    // disallow /api/ em CADA grupo: bot casa com o grupo mais especifico e
+    // ignora o '*' (os crawlers de IA martelavam /api/csp-report, que e
+    // anunciado no header CSP de toda pagina - crawl budget desperdicado)
     groups: [
-      { userAgent: ['*'], allow: '/' },
-      { userAgent: ['GPTBot'], allow: '/' },
-      { userAgent: ['ChatGPT-User'], allow: '/' },
-      { userAgent: ['OAI-SearchBot'], allow: '/' },
-      { userAgent: ['ClaudeBot'], allow: '/' },
-      { userAgent: ['anthropic-ai'], allow: '/' },
-      { userAgent: ['Claude-Web'], allow: '/' },
-      { userAgent: ['PerplexityBot'], allow: '/' },
-      { userAgent: ['Perplexity-User'], allow: '/' },
-      { userAgent: ['Google-Extended'], allow: '/' },
-      { userAgent: ['CCBot'], allow: '/' },
-      { userAgent: ['Applebot-Extended'], allow: '/' },
-      { userAgent: ['Meta-ExternalAgent'], allow: '/' },
-      { userAgent: ['Bytespider'], allow: '/' },
+      { userAgent: ['*'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['GPTBot'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['ChatGPT-User'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['OAI-SearchBot'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['ClaudeBot'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['anthropic-ai'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['Claude-Web'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['PerplexityBot'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['Perplexity-User'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['Google-Extended'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['CCBot'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['Applebot-Extended'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['Meta-ExternalAgent'], allow: '/', disallow: ['/api/'] },
+      { userAgent: ['Bytespider'], allow: '/', disallow: ['/api/'] },
     ],
   },
 
