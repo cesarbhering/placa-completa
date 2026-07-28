@@ -16,6 +16,24 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
 
+  // Barragem de clients de script (Postman, curl, python etc) - PRIMEIRA
+  // checagem do handler, antes de qualquer validacao. User-agent e
+  // falsificavel: lombada contra scraper preguicoso, nao muralha; o rate
+  // limit continua sendo a contencao real. Log em blocked_requests.
+  const uaCheck = getRequestHeaders(event)['user-agent'] || ''
+  const UA_BLOQUEADOS = /postmanruntime|curl\/|wget\/|python-requests|python-urllib|httpie|insomnia|axios\/|go-http-client|okhttp|libwww|scrapy|aiohttp/i
+  if (!uaCheck || UA_BLOQUEADOS.test(uaCheck)) {
+    const supabaseUa = useSupabaseServer()
+    supabaseUa.from('blocked_requests').insert({
+      reason: 'blocked_user_agent',
+      ip_address: getClientIp(event),
+      recipient: typeof body?.email === 'string' ? body.email.slice(0, 200) : null,
+      placa: typeof body?.placa === 'string' ? body.placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 7) : null,
+      user_agent: (uaCheck || 'vazio').slice(0, 300),
+    }).then(({ error }) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
+    throw createError({ statusCode: 403, message: 'Acesso não autorizado.' })
+  }
+
   const { email, phone, placa, isPWA, includeFipeChart, includeIcv5, icv5Uf } = body
   // Origem de trafego (gclid/utm) capturada pelo plugin track-origin no client
   const origin = body?.origin && typeof body.origin === 'object' ? body.origin : {}
