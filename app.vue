@@ -57,6 +57,8 @@ function onStoreClick() {
           <NuxtLink to="/como-consultar-placa">Como Consultar</NuxtLink>
           <span class="footer__sep">|</span>
           <NuxtLink to="/ibv">IBV Auto</NuxtLink>
+          <span class="footer__sep">|</span>
+          <NuxtLink to="/estudos">Estudos</NuxtLink>
         </nav>
 
         <a

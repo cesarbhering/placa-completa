@@ -343,7 +343,8 @@ export default defineNuxtConfig({
       "/tabela-fipe/yamaha-xtz-150",
       "/tabela-fipe/yamaha-r3",
       // IBV Auto blog
-      "/seguro/carro-eletrico",
+      "/estudos",
+    "/seguro/carro-eletrico",
     "/seguro/carro-eletrico/acre",
     "/seguro/carro-eletrico/alagoas",
     "/seguro/carro-eletrico/amapa",
@@ -575,6 +576,7 @@ export default defineNuxtConfig({
     "/consultar-placa-de-**": { swr: 86400 },
     "/consultar-placa/**": { swr: 86400 },
     "/tabela-fipe": { swr: 86400 },
+    "/estudos": { swr: 86400 },
     "/seguro/**": { swr: 86400 },
     "/tabela-fipe/**": { swr: 86400 },
     "/ibv": { swr: 86400 },
