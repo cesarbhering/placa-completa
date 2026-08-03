@@ -74,6 +74,46 @@ escalar (<R$2). Máquina saudável.
 - Conversão modal→lead ~3-4% (proxy), **no meio da previsão (1-6%)**.
 - Detalhe: consultas de agosto (159 em 3 dias) mantêm o ritmo de ~50/dia.
 
+## 6b. Histórico de crescimento (todas as auditorias)
+
+GSC em 90 dias acumulados (base comparável entre ciclos):
+
+| Métrica | 22/abr (base) | 22/mai | 26/jun | 03/ago | Δ abr→ago |
+|---|---|---|---|---|---|
+| Cliques (GSC 90d) | 90 | 152 | 328 | **607** | **+574%** (6,7x) |
+| Impressões (90d) | 14.828 | 17.353 | 24.164 | **40.385** | +172% |
+| CTR médio | 0,61% | 0,88% | 1,36% | **1,50%** | +146% |
+| Posição média | ~15 | 14,21 | 9,78 | **9,54** | subiu 5,5 pos. |
+| Sessões GA4 (90d) | — | 1.662 | 2.710 | **4.690** | +182% (mai→ago) |
+
+Ritmo de cliques entre ciclos: +69% → +116% → +85%. Composto e consistente.
+(Nota: o ciclo de agosto tem ~1 semana a mais de dados que os anteriores pelo
+atraso, então o +85% está levemente inflado.)
+
+### Canais GA4 (05/mai–02/ago, 90d)
+
+| Canal | Sessões | Engaj. | Tempo méd. |
+|---|---|---|---|
+| Organic Search | **1.579** | 78% | 43s |
+| Direct | 1.194 | 66% | 25s |
+| **AI Assistant** | **623** | **91%** | 45s |
+| Paid Search | 453 | 82% | 42s |
+| Unassigned (prob. IA) | 430 | 83% | 45s |
+| Referral | 217 | 89% | 44s |
+| Organic Video | 166 | 55% | 17s |
+| Social | 20 | — | — |
+
+**Três leituras:**
+1. **Orgânico do Google multiplicou por ~9** (170 sessões em mai → 1.579).
+   Virou nossa maior fonte identificável, confirmando o +574% de cliques do GSC.
+2. **IA é o 3º canal e o mais engajado** — AI Assistant (623) + provável
+   spillover em Unassigned (430) ≈ 1.000 sessões, 91% engajamento, 45s. E
+   ANTES do destravamento dos crawlers na Cloudflare fazer efeito pleno.
+   O llms.txt/GEO está pagando.
+3. **Referral só 217 = a prova do gargalo de backlink.** É o canal que os
+   links externos alimentam; está baixo porque temos quase nenhum. A rodada
+   de agosto vira essa curva e, de tabela, destrava a posição orgânica.
+
 ## 7. Ações priorizadas (próximo ciclo)
 
 1. **Backlinks é o gargalo nº1** — executar a rodada 2 do release de agosto
@@ -97,3 +137,5 @@ escalar (<R$2). Máquina saudável.
 | Não-indexadas | ~95 | 94 | reduzir ⚠ (estabilizou) |
 | Leads de seguro | 0 | 13 | novo ✓ |
 | Custo/consulta ads | R$0,64 | R$0,38 | reduzir ✓ |
+| Sessões GA4 (90d) | 2.710 | 4.690 | crescer ✓ (+73%) |
+| Sessões de IA (90d) | ~174 | ~1.000 | crescer ✓✓ |
