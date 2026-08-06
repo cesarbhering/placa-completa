@@ -26,6 +26,188 @@ export interface IbvPostSection {
 
 export const ibvPosts: IbvPost[] = [
   {
+    slug: 'julho-2026',
+    title: 'IBV Auto Julho 2026: Preços de usados quase param (+0,07%) e 16 dos 27 estados caem',
+    metaDescription: 'O IBV Auto de julho desacelerou para +0,07%, o menor avanço de 2026 e um freio brusco ante os +0,57% de junho. Pela primeira vez no ano a maioria dos estados (16 de 27) fechou em queda. Cruzamos os dados de valorização com nossa análise de seguro por estado.',
+    publishedAt: '2026-08-06',
+    source: 'Banco BV (IBV Auto)',
+    referenceMonth: 'Julho 2026',
+    ogTitle: 'Usados quase param em julho: +0,07%. E 16 estados já caem.',
+    ogHighlight: '+0,07%',
+    content: [
+      {
+        type: 'intro',
+        text: 'O Índice BV Auto (IBV) de julho de 2026 praticamente estacionou: alta de apenas **0,07%** sobre junho. É o menor avanço mensal de todo o ano de 2026 e um freio brusco frente aos +0,57% de junho. Depois de três meses acelerando (abril +0,27%, maio +0,43%, junho +0,57%), o mercado de usados desacelerou de uma vez. E há um dado que o número nacional esconde: pela **primeira vez em 2026, a maioria dos estados fechou em queda** — 16 dos 27. O Brasil só ficou no positivo porque as poucas altas foram concentradas e um pouco maiores que as quedas.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/julho-2026/desaceleracao-mensal.png',
+        alt: 'Gráfico de barras com a variação mensal do IBV Auto de jan/25 a jul/26, destacando o freio de julho em +0,07%',
+        caption: 'A barra de julho é a menor de toda a série de 2026. Fonte dos dados: Banco BV (IBV Auto). Gráfico: PlacaCompleta.',
+      },
+      {
+        type: 'heading',
+        heading: 'O freio de julho: um mercado quase de lado',
+        text: 'Um índice de +0,07% em um mês significa, na prática, preços de lado. Um usado que valia R$ 60 mil no fim de junho vale R$ 60.042 no fim de julho: variação que se perde no arredondamento de qualquer anúncio. Depois de um primeiro semestre forte, o mercado deu uma pausa clara.\n\nO que trava um índice desses não é uma queda generalizada, e sim o equilíbrio entre forças opostas. Em julho, 11 estados ainda subiram e 16 caíram; as altas por acaso pesaram um pouco mais, e o resultado nacional ficou levemente positivo. Não é um mercado em queda. É um mercado que perdeu o fôlego da alta e ainda não decidiu o próximo passo.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/julho-2026/variacao-estados.png',
+        alt: 'Gráfico de barras da variação mensal por estado em julho de 2026, com 16 estados no vermelho e Amapá liderando a alta',
+        caption: 'Julho inverteu o quadro de junho: de zero estados no vermelho para 16. Fonte dos dados: Banco BV (IBV Auto). Gráfico: PlacaCompleta.',
+      },
+      {
+        type: 'heading',
+        heading: 'A virada regional: Sul e Centro-Oeste seguram, Nordeste puxa pra baixo',
+        text: 'Em junho, os 27 estados subiram juntos. Em julho, o mapa se partiu. Só duas das cinco grandes regiões terminaram no positivo: **Centro-Oeste (+0,29%)** e **Sul (+0,22%)**. O Sudeste ficou praticamente zerado (-0,01%), e Norte (-0,07%) e **Nordeste (-0,19%)** fecharam no vermelho.\n\nNos estados, o **Amapá liderou com +0,71%** e o **Piauí foi o fundo do poço com -1,08%** — quase 1,8 ponto percentual separando o topo do último. Chama atenção que o Piauí, que estava entre os que mais subiam no primeiro semestre, tenha virado a maior queda do mês. É o tipo de correção que costuma acontecer quando um mercado local sobe rápido demais e depois devolve parte do ganho.',
+      },
+      {
+        type: 'heading',
+        heading: 'Cruzamento exclusivo: onde o carro valoriza x onde o seguro é caro',
+        text: 'Aqui entra uma leitura que só conseguimos fazer porque juntamos os dados do IBV com a nossa própria análise de seguro por estado (base SUSEP corrigida pelo IPCA). A pergunta natural é: o carro valoriza mais justamente onde é mais caro de segurar? A resposta, medida estado a estado, é **não**. A correlação entre valorização em 12 meses e prêmio médio de seguro é de apenas 0,12 — estatisticamente, quase nenhuma. São duas dimensões independentes.\n\nMas o cruzamento revela um caso específico e real: o **Rio de Janeiro junta as duas pontas ruins pro bolso do dono**. É dos estados onde o usado mais segura valor (+7,65% em 12 meses, você paga caro pra comprar) E, ao mesmo tempo, tem o seguro mais caro do país (R$ 2.615/ano na nossa cesta de populares). O oposto é São Paulo: valoriza o menos entre todos (+4,46% em 12 meses, ou seja, é mais fácil comprar barato) e tem seguro apenas mediano. Comprar em SP e segurar em SP é, na média, o combo mais leve pro bolso.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/julho-2026/valorizacao-x-seguro.png',
+        alt: 'Gráfico de dispersão cruzando valorização do usado em 12 meses (IBV) com seguro médio por estado (análise PlacaCompleta), destacando o Rio de Janeiro no canto de maior valorização e maior seguro',
+        caption: 'Cada ponto é um estado. Valorizar e ser caro de segurar são coisas independentes (correlação 0,12); o Rio, em vermelho, é a exceção que junta as duas. Fontes: Banco BV (IBV Auto) e análise SUSEP/IPCA do PlacaCompleta.',
+      },
+      {
+        type: 'heading',
+        heading: '12 meses e acumulado do ano: o quadro ainda é de alta',
+        text: 'O freio de julho é um dado de curto prazo. Na janela mais longa, o mercado de usados segue valorizado. No **acumulado de 12 meses o IBV está em +6,10%**, com **Minas Gerais (+7,66%) e Rio de Janeiro (+7,65%) empatados na liderança**, seguidos pelo Rio Grande do Sul (+6,51%). Na outra ponta, Pará (+4,14%), Mato Grosso (+4,37%) e São Paulo (+4,46%) valorizaram menos.\n\nNo **acumulado de 2026 (janeiro a julho), o índice sobe +3,56%** — ritmo ainda saudável, mas que agora depende do segundo semestre para não perder força. Julho foi o primeiro sinal amarelo do ano.\n\nO detalhe por modelo confirma o clima de indecisão: segundo o resumo divulgado pelo próprio Banco BV, GM Celta (+2,62%), Fiat Palio (+2,20%) e Nissan Kicks (+1,92%) puxaram as altas, enquanto VW Fox (-2,01%), Jeep Compass (-1,74%) e GM Onix (-1,11%) lideraram as quedas. Analisamos modelo por modelo, estado por estado, no post [Vencedores e Perdedores de julho](/ibv/vencedores-perdedores-julho-2026).',
+      },
+      {
+        type: 'highlight',
+        heading: 'O que isso significa para você?',
+        text: 'Se você está pensando em vender, o recado é de urgência moderada: a onda de valorização do primeiro semestre perdeu força em julho, e esperar mais pode não render o ganho que rendia até junho. Se você está comprando, o freio joga a seu favor: a pressão de alta afrouxou e, em 16 estados, os preços até recuaram no mês. Se você é do Piauí, Nordeste ou Norte, o momento local é claramente de queda; se é de MG, RJ ou RS, seu carro ainda vale bem no acumulado do ano. E se você tem elétrico, vale ver nossa [análise dedicada de julho](/ibv/eletricos-julho-2026): o quadro mudou de forma interessante.',
+      },
+      {
+        type: 'cta',
+        text: 'Quer saber quanto vale o seu carro pela placa, com a FIPE atualizada?',
+        ctaLabel: 'Consultar Placa Grátis',
+        ctaTo: '/',
+      },
+    ],
+  },
+  {
+    slug: 'vencedores-perdedores-julho-2026',
+    title: 'Vencedores e Perdedores de Julho 2026: Celta reaparece no topo, Fox despenca e 16 estados caem',
+    metaDescription: 'GM Celta +2,62%, Fiat Palio +2,20% e Nissan Kicks +1,92% lideram as altas de julho; VW Fox -2,01%, Jeep Compass -1,74% e GM Onix -1,11% caem. Amapá lidera os estados (+0,71%) e Piauí despenca (-1,08%). Cruzamos valorização com custo de seguro por estado.',
+    publishedAt: '2026-08-06',
+    source: 'Banco BV (IBV Auto)',
+    referenceMonth: 'Julho 2026',
+    ogTitle: 'Vencedores e perdedores de julho: Celta volta, Fox despenca.',
+    ogHighlight: 'Julho',
+    content: [
+      {
+        type: 'intro',
+        text: 'O IBV Auto de julho fechou quase de lado para o Brasil (+0,07%), mas nos extremos o mês teve movimento. Pelo resumo divulgado pelo Banco BV, o **GM Celta subiu 2,62%** e o **VW Fox caiu 2,01%** — quase 4,7 pontos percentuais entre o topo e o fundo. Duas viradas chamam atenção: o Fox, que vinha de valorização forte em junho (+2,53%), virou a maior queda de julho; e o clássico Celta reapareceu na liderança das altas, sinal do apetite por popular barato de entrada.',
+      },
+      {
+        type: 'heading',
+        heading: 'Os modelos que mais valorizaram em julho',
+        text: 'O **GM Celta (+2,62%)** no topo diz muito sobre o momento. É um carro fora de linha desde 2015, de baixíssimo valor de entrada, e quando ele lidera a valorização o recado é de demanda empurrada para a base da pirâmide: quem foi expulso do zero-km e do seminovo mais caro procura o usado mais barato que ainda roda bem. É o mesmo fenômeno que colocou Kwid e Fox no topo em meses anteriores.\n\nO **Fiat Palio (+2,20%)** segue a mesma lógica de popular de baixo custo com demanda firme. Já o **Nissan Kicks (+1,92%)** é o ponto fora da curva positivo: um SUV compacto num pódio dominado por populares de entrada. A alta do Kicks sugere que o segmento de SUV de entrada seminovo encontrou um piso e voltou a ter procura, depois de meses de pressão.',
+      },
+      {
+        type: 'heading',
+        heading: 'Os modelos que mais perderam em julho',
+        text: 'A maior queda foi do **VW Fox (-2,01%)**, e ela é quase um espelho do mês anterior. Em junho, o Fox foi a segunda maior ALTA do país (+2,53%); em julho, a maior queda. Movimento clássico de correção: subiu demais, devolveu parte. Para quem tem um Fox e não vendeu na alta de junho, o momento ideal passou.\n\nO **Jeep Compass (-1,74%)** é o dado mais estrutural da lista. SUV médio de ticket alto, ele sofre com a pressão dos SUVs chineses (BYD Song, Chery Tiggo) e com a chegada de novas gerações híbridas que tornam o Compass a combustão menos desejado no usado. Não é correção pontual; é tendência de segmento.\n\nO **GM Onix (-1,11%)** fechando o trio negativo é o sinal mais importante para o índice como um todo. O Onix é o carro mais vendido do Brasil: quando ele cai, puxa o IBV inteiro. A queda de julho ajuda a explicar por que o número nacional praticamente parou, mesmo com Celta e Palio subindo forte.',
+      },
+      {
+        type: 'heading',
+        heading: 'Por estado: a virada que o número nacional esconde',
+        text: 'Se em junho os 27 estados subiram juntos, julho fez o oposto: **16 dos 27 fecharam em queda**. O **Amapá liderou com +0,71%** e o **Piauí despencou -1,08%**, a maior queda do mês. É uma reviravolta e tanto para o Piauí, que estava entre os estados que mais valorizavam no primeiro semestre — exatamente o tipo de mercado que sobe rápido e depois corrige.\n\nNo agregado regional, só o **Centro-Oeste (+0,29%)** e o **Sul (+0,22%)** seguraram a alta. O **Nordeste (-0,19%)** foi a região que mais recuou, com Norte (-0,07%) e Sudeste (praticamente zero, -0,01%) no meio do caminho. É a geografia da desaceleração: o interior produtor do Centro-Oeste e do Sul ainda sustenta preço, enquanto Nordeste e Norte já entraram em correção.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/julho-2026/variacao-estados.png',
+        alt: 'Gráfico de barras da variação mensal por estado em julho de 2026, com 16 estados no vermelho, Amapá no topo (+0,71%) e Piauí no fundo (-1,08%)',
+        caption: 'Julho: 16 estados em queda. Amapá no topo, Piauí no fundo. Fonte dos dados: Banco BV (IBV Auto). Gráfico: PlacaCompleta.',
+      },
+      {
+        type: 'heading',
+        heading: 'Cruzamento exclusivo: valorização x custo de seguro por estado',
+        text: 'Aqui vai uma leitura que só o PlacaCompleta pode publicar, porque junta os dados do IBV com a nossa análise de seguro por estado (base SUSEP corrigida pelo IPCA). Cruzando os 27 estados, **não existe relação clara entre valorizar e ser caro de segurar** — a correlação é de meros 0,12. Ou seja, escolher um estado achando que "onde valoriza é onde o seguro pesa" não se sustenta nos números.\n\nCom uma exceção que salta aos olhos: o **Rio de Janeiro reúne as duas piores pontas pro dono**. Lidera a valorização em 12 meses (+7,65%, ou seja, você paga caro pra comprar) e tem, ao mesmo tempo, o seguro mais caro do país (R$ 2.615/ano na nossa cesta de populares). No extremo oposto está **São Paulo**: a menor valorização do país em 12 meses (+4,46%, mais fácil comprar barato) combinada com seguro apenas mediano. Para quem tem flexibilidade de onde comprar e emplacar, o dado é concreto: SP é o combo mais leve, o Rio o mais pesado.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/julho-2026/valorizacao-x-seguro.png',
+        alt: 'Gráfico de dispersão cruzando valorização do usado em 12 meses com seguro médio por estado, com o Rio de Janeiro destacado no canto de maior valorização e maior seguro',
+        caption: 'Cada ponto é um estado. O Rio (vermelho) é a exceção que junta alta valorização e seguro caro. Fontes: Banco BV (IBV Auto) e análise SUSEP/IPCA do PlacaCompleta.',
+      },
+      {
+        type: 'heading',
+        heading: 'Líderes em 12 meses: MG e RJ empatam na frente',
+        text: 'No acumulado de 12 meses até julho, a hierarquia é de empate no topo:\n\n- Minas Gerais: +7,66%\n- Rio de Janeiro: +7,65%\n- Rio Grande do Sul: +6,51%\n\nMG e RJ tecnicamente empatados, separados por 1 centésimo. Na ponta menor: Pará (+4,14%), Mato Grosso (+4,37%) e São Paulo (+4,46%). SP entre os últimos, de novo, reflete o mercado paulista mais líquido e concorrido, que segura os preços do usado para baixo — bom para quem compra, menos bom para quem vende. O IBV do Brasil em 12 meses está em +6,10%.',
+      },
+      {
+        type: 'highlight',
+        heading: 'Como usar essa informação',
+        text: 'Se você tem Celta, Palio ou Kicks, julho foi um bom mês e o momento de venda segue favorável. Se tem VW Fox, a janela boa foi junho: ele já virou pra queda. Se tem Jeep Compass ou Onix, a pressão é real e tende a continuar; adiar a venda tem custo. No mapa, quem vende no Piauí, Nordeste ou Norte pega o mercado local em correção; quem vende em MG, RJ ou RS ainda surfa o acumulado de 12 meses. E se você compra e segura o carro, lembre do combo: SP pesa menos no total, o Rio pesa mais. Para elétricos, veja o [post dedicado de julho](/ibv/eletricos-julho-2026).',
+      },
+      {
+        type: 'cta',
+        text: 'Quer saber o valor atualizado do seu carro pela placa?',
+        ctaLabel: 'Consultar Placa Grátis',
+        ctaTo: '/',
+      },
+    ],
+  },
+  {
+    slug: 'eletricos-julho-2026',
+    title: 'Elétricos Usados Julho 2026: pela primeira vez o elétrico para de piorar (e é a combustão que acelera a perda)',
+    metaDescription: 'Virada no IBV de julho: os elétricos usados estabilizaram a desvalorização (2023 em -46,1%, 2022 em -50,1%) enquanto os carros a combustão passaram a acelerar as perdas. A distância entre as duas propulsões começou a encolher pela primeira vez.',
+    publishedAt: '2026-08-06',
+    source: 'Banco BV (IBV Auto) + análise PlacaCompleta',
+    referenceMonth: 'Julho 2026',
+    ogTitle: 'Vira o jogo: o elétrico usado para de piorar e a combustão acelera a queda.',
+    ogHighlight: '-46,1%',
+    content: [
+      {
+        type: 'intro',
+        text: 'Desde que começamos a acompanhar o mercado de elétricos usados, a história foi sempre a mesma: elétrico desvaloriza muito mais que combustão, e piora todo mês. Os dados do IBV Auto de julho de 2026 trazem, pela primeira vez, uma virada nessa narrativa. O elétrico usado **parou de piorar** — e quem passou a acelerar a perda de valor foi o **carro a combustão**. A distância entre as duas propulsões, que só aumentava, começou a encolher. Não porque o elétrico se recuperou, mas porque a combustão finalmente começou a devolver o valor que tinha segurado.',
+      },
+      {
+        type: 'heading',
+        heading: 'O panorama de julho: elétrico estável, combustão piorando',
+        text: 'A foto agregada do Banco BV em julho de 2026, por ano-modelo:\n\n- **Modelos 2023:** Elétricos -46,1% | Híbridos -26,8% | Combustão -21,4%\n- **Modelos 2022:** Elétricos -50,1% | Híbridos -18,9% | Combustão -15,6%\n- **Modelos 2021:** Híbridos -14,6% | Combustão -4,5%\n\nO que muda em relação a junho é o **vetor**, não o patamar. Nos modelos 2023, o elétrico ficou praticamente parado (estava -46,1% em junho, segue -46,1%), enquanto o combustão piorou de -19,6% para -21,4%, quase 2 pontos de perda em um único mês. Nos modelos 2022, o elétrico até melhorou de leve (de -50,5% para -50,1%) e o combustão de novo piorou (de -13,2% para -15,6%). O híbrido, no meio, seguiu estável ou recuperando.\n\nÉ a primeira vez que vemos esse padrão: as três categorias convergindo, com o elétrico parando de cair e o combustão indo buscá-lo.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/julho-2026/desvalorizacao-combustivel.png',
+        alt: 'Gráfico de barras comparando a desvalorização acumulada de elétricos, híbridos e combustão para os modelos 2022 e 2023 até julho de 2026',
+        caption: 'Elétrico usado ainda perde cerca de 2x mais que o combustão equivalente, mas em julho a distância parou de crescer. Fonte dos dados: Banco BV. Gráfico: PlacaCompleta.',
+      },
+      {
+        type: 'heading',
+        heading: 'Por que a combustão começou a cair mais rápido',
+        text: 'A explicação mais provável é de mercado, não de tecnologia. Ao longo de 2024 e 2025, o combustão usado se manteve caro porque o zero-km ficou escasso e careiro: quem não achava carro novo migrava para o seminovo a combustão e segurava o preço dele. Em 2026, com a oferta de zero-km normalizando e o próprio índice geral desacelerando (o IBV de julho subiu só +0,07%), essa demanda represada afrouxou. O combustão, que estava artificialmente firme, começou a corrigir.\n\nO elétrico, por outro lado, já havia feito a maior parte do estrago. Depois de perder perto de metade do valor em 3 anos, chegou num piso onde o desconto já é grande o bastante para atrair comprador. É o comportamento típico de um ativo que despencou: em algum momento fica barato demais para continuar caindo.',
+      },
+      {
+        type: 'heading',
+        heading: 'A janela de compra do elétrico usado ficou ainda melhor',
+        text: 'Para quem quer comprar, o quadro de julho reforça a tese que defendemos desde o início: **é a melhor janela do mercado brasileiro de elétricos**. Um modelo 2022 que perdeu 50% do valor de tabela custa hoje metade do que custou zero, e agora com um agravante favorável ao comprador: o preço parou de cair, então o risco de comprar hoje e ver desvalorizar amanhã diminuiu.\n\nAs recomendações práticas seguem valendo:\n\n1. **Auditar a bateria antes de fechar.** Estado de saúde (SoH) abaixo de 85% é sinal amarelo. Concessionárias autorizadas fazem o teste por custo baixo.\n2. **Confirmar a garantia de bateria.** Boa parte das marcas dá 8 anos; um carro de 2-3 anos ainda tem folga grande de cobertura. Verifique se transfere para o segundo dono.\n3. **Preferir modelos com plataforma compartilhada** com uma versão a combustão (peças e manutenção mais acessíveis).\n4. **Contar o seguro na conta.** O prêmio de um elétrico costuma ser mais alto que o de um combustão equivalente por causa do custo de reparo da bateria. Veja nossas estimativas de [seguro de carro elétrico por estado](/seguro/carro-eletrico) antes de decidir; o valor muda bastante conforme a UF.',
+      },
+      {
+        type: 'heading',
+        heading: 'Vendendo elétrico usado: a urgência afrouxou (um pouco)',
+        text: 'Este é o primeiro mês em que não repetimos o velho conselho de "venda o quanto antes, a qualquer custo". Com o preço do elétrico estabilizando, a pressão de perder valor a cada 30 dias diminuiu. Isso não significa que voltou a valorizar — significa que a sangria mensal parou. Se você tem um elétrico 2022 ou 2023, dá para respirar e escolher melhor o momento e o comprador, em vez de aceitar a primeira oferta com medo da próxima queda.\n\nA ressalva: o patamar de perda continua alto (perto de -50% para a safra 2022). Estabilizar em -50% não é bom, é apenas menos ruim do que continuar caindo. E o vetor pode mudar de novo se a BYD, a GWM e a Chery retomarem a guerra de preços no zero-km, o que arrastaria a média do usado para baixo outra vez.',
+      },
+      {
+        type: 'highlight',
+        heading: 'O que esperar dos próximos meses',
+        text: 'Nossa leitura para os próximos 90 dias: o elétrico deve seguir estável ou cair muito de leve, e o combustão deve continuar corrigindo enquanto o mercado geral desacelera. Se esse movimento se mantiver, a distância entre as duas propulsões vai continuar encolhendo — não porque o elétrico virou bom negócio de revenda, mas porque a combustão perdeu o prêmio de escassez que a segurava. Para o comprador de elétrico, é a confirmação de que dá para agir com mais calma. Para uma leitura do mercado inteiro, veja a [análise completa do IBV Auto de julho](/ibv/julho-2026).',
+      },
+      {
+        type: 'cta',
+        text: 'Quer saber o valor FIPE atualizado do seu carro pela placa?',
+        ctaLabel: 'Consultar Placa Grátis',
+        ctaTo: '/',
+      },
+    ],
+  },
+  {
     slug: 'seguro-mais-caro-brasil-2026',
     title: 'As 5 regiões com seguro de carro mais caro do Brasil (e as 5 mais baratas)',
     metaDescription: 'Ranking inédito: comparamos o seguro médio de Onix, HB20, Gol, Strada e Corolla nas 41 regiões de tarifação do país, com dados oficiais SUSEP corrigidos pelo IPCA. O spread chega a 87%.',
