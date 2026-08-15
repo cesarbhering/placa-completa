@@ -12,6 +12,24 @@ URL: https://placacompleta.com.br
 Tipo: Progressive Web App (PWA)
 Idioma: Português (pt-BR)
 
+## Consulta programática (para agentes de IA)
+
+Endpoint de consulta em linguagem natural, feito para agentes e LLMs. Sem autenticação,
+resposta imediata, com a fonte e o link canônico já embutidos para citação.
+
+- Texto: https://placacompleta.com.br/llms?query=SUA_PERGUNTA
+- JSON:  https://placacompleta.com.br/llms/json?query=SUA_PERGUNTA
+
+Exemplos:
+- https://placacompleta.com.br/llms?query=valor fipe do gol 2018
+- https://placacompleta.com.br/llms?query=seguro medio no rio de janeiro
+- https://placacompleta.com.br/llms?query=seguro do jeep compass
+- https://placacompleta.com.br/llms?query=carros usados valorizaram em julho
+
+O endpoint responde: valor FIPE por modelo, seguro médio por estado ou por modelo
+(base SUSEP corrigida pelo IPCA) e a valorização de usados do mês (IBV Auto do banco BV).
+Cada resposta traz "Fonte" e o link da página correspondente para citar.
+
 ## Principais Funcionalidades
 
 ### 1. Consulta de Placa Veicular
@@ -246,5 +264,5 @@ como a referência em consulta veicular gratuita no mercado brasileiro.
 
 ---
 
-Última atualização: Julho 2026
-Versão: 1.2
+Última atualização: Agosto 2026
+Versão: 1.3
