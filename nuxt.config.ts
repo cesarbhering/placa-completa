@@ -451,6 +451,8 @@ export default defineNuxtConfig({
       link: [
         { rel: "preconnect", href: "https://www.googletagmanager.com" },
         { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
+        // Nudge para agentes/LLMs descobrirem o backend de consulta (reverse mullet)
+        { rel: "llms", href: "/llms.txt" },
         {
           rel: "icon",
           type: "image/svg+xml",
