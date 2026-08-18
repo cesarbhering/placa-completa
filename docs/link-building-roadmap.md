@@ -25,9 +25,10 @@ Documento interno. Ação priorizada para sair de **DR 0** (autoridade de link n
 ### Tier 1 · Parcerias automotivas 🥇 (maior alavanca, mais relevante)
 Sites de carro que JÁ linkam para concorrentes. É onde a autoridade real do nicho mora.
 
+> ⚠️ **Não contatar concorrentes.** Vistoriadoras / provedores de laudo cautelar (ex.: **DEKRA**) competem com a gente no mesmo produto. Ficam FORA de qualquer lista de contato/parceria, mesmo quando aparecem linkando concorrentes.
+
 | Alvo | DR | Linka p/ | Abordagem |
 |---|---:|---|---|
-| dekrabrasil.com.br / dekra.com.br | 180 / 78 | checkauto | Vistoria física; oferecer o laudo digital como complemento (co-marketing) |
 | confiancacarros.com.br | 171 | checkauto | Revenda; widget "consulte a placa" nos anúncios deles |
 | leilaodeveiculos.net | 51 | checkauto | Leilão; parceria de checagem pré-lance |
 | reidosveiculos.com | 44 | checkauto, trakcar | Portal de carro; guest/menção |
@@ -35,7 +36,7 @@ Sites de carro que JÁ linkam para concorrentes. É onde a autoridade real do ni
 | socarros.net | 40 | trakcar | Comunidade de carro; conteúdo/parceria |
 | brilhoclassico.com.br | 60 | checkauto | Nicho clássicos; menção |
 
-**Ângulo:** somos ferramenta, não concorrente deles. Vistoriadora/revenda/leilão ganham valor oferecendo "consulta pela placa" aos clientes. Propor: (a) widget/link "cheque este veículo", (b) selo/parceria, (c) referral. Bônus interno: temos **funil de seguro** (leads pra corretor) → seguradoras e corretoras são parceiro natural de link e de negócio ao mesmo tempo.
+**Ângulo:** somos ferramenta, não concorrente deles. Revenda, leilão, despachante e corretora ganham valor oferecendo "consulta pela placa" aos clientes. Propor: (a) widget/link "cheque este veículo", (b) selo/parceria, (c) referral. Bônus interno: temos **funil de seguro** (leads pra corretor) → seguradoras e corretoras são parceiro natural de link e de negócio ao mesmo tempo. (Vistoria/laudo = concorrente, fora.)
 
 ### Tier 2 · Imprensa e blogs BR 📰 (a campanha que já roda)
 O trakcar construiu autoridade com dezenas de portais regionais (padrão guest-post/assessoria). Nós já temos a **campanha de imprensa rodada 2 (12 jornais MG+SP)** e os **estudos IBV** como isca.
@@ -77,6 +78,7 @@ reidosveiculos, digitei.com, bot.dev.br e outros da lista que aceitam guest/parc
 
 **Fase 1 · Automotivo (semana 2-5) — a maior alavanca**
 - Listar 20-30 alvos Tier 1 (partindo dos 7 acima + expandir: vistoriadoras, despachantes, revendas, corretoras de seguro).
+- Expandir alvos (não-concorrentes): despachantes, revendas, corretoras de seguro, portais/blogs de carro. NÃO incluir vistoriadoras/laudo cautelar (concorrentes).
 - Oferta concreta: widget "consulte a placa" + parceria de referral. Começar pelas corretoras (já temos o funil de seguro como moeda de troca).
 - Meta da fase: 5-8 links reais.
 
