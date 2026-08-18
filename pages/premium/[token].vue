@@ -9,6 +9,7 @@ const { data, pending, error, refresh } = await useFetch<any>('/api/premium/repo
 // historico local: registra/atualiza este pedido e, se ainda nao entregue,
 // fica dando refresh ate liberar (o "Concluir" do historico cai aqui).
 const { itens, sync: histSync, add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
+const { trackConversionPaga } = useAnalytics()
 
 function copiar() {
   if (data.value?.brCode) navigator.clipboard?.writeText(data.value.brCode)
@@ -21,10 +22,12 @@ onMounted(() => {
   const existe = itens.value.some((x) => x.token === token)
   if (existe) histUpdate(token, data.value.status)
   else histAdd({ token, placa: data.value.placa, veiculo: g('descricaoMarcaModelo') || null, status: data.value.status })
+  if (['pago', 'consultando', 'entregue'].includes(data.value.status)) trackConversionPaga(token)
   if (data.value.status !== 'entregue') {
     poll = setInterval(async () => {
       await refresh()
       if (data.value) histUpdate(token, data.value.status)
+      if (data.value && ['pago', 'consultando', 'entregue'].includes(data.value.status)) trackConversionPaga(token)
       if (data.value?.status === 'entregue') clearInterval(poll)
     }, 4000)
   }
