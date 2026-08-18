@@ -3,6 +3,17 @@
 // barra navy arredondada, logo a esquerda + nav ancora a direita.
 // Os alvos das ancoras (#como-funciona, #o-que-inclui, #duvidas) vivem em
 // pages/index.vue. Scroll suave herda do html{scroll-behavior:smooth} global.
+interface Props {
+  // A home v2.1 tem nav clara (guia HP: nav em canvas com hairline), entao
+  // pede o logo escuro. O default fica no invertido pra nao mudar quem ja
+  // usa o header sobre fundo escuro.
+  logoVariant?: 'default' | 'brutalist' | 'fintech' | 'inverted'
+}
+
+withDefaults(defineProps<Props>(), {
+  logoVariant: 'inverted',
+})
+
 const links = [
   { href: '#como-funciona', label: 'Como funciona' },
   { href: '#o-que-inclui', label: 'O que inclui' },
@@ -13,7 +24,7 @@ const links = [
 <template>
   <header class="home-header">
     <a href="#top" class="home-header__brand" aria-label="PlacaCompleta, ir para o topo">
-      <PlacaCompletaLogo variant="inverted" class="home-header__logo" />
+      <PlacaCompletaLogo :variant="logoVariant" class="home-header__logo" />
       <small class="home-header__tag">· consulta veicular</small>
     </a>
     <nav class="home-header__nav" aria-label="Navegação principal">

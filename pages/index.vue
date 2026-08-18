@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { PLANOS, PLANOS_PAGOS, RECURSOS, RECURSOS_BLOQUEADOS, inclui, isPlanoPago, precoBRL } from '~/shared/planos'
+
 import { homepageFaqs } from '~/data/homepage-faqs'
 
 const { isPWA, isMobile } = useAppMode()
@@ -6,6 +8,17 @@ const route = useRoute()
 // Landing de intencao-app: anuncios do ad group "App Intent" chegam com ?app=1
 // e trocam o contador de consultas pelo badge do Play. Fallback: contador normal.
 const appIntent = computed(() => route.query.app === '1' && !isPWA.value)
+
+// Volta do relatorio basico querendo o upgrade: /?placa=ABC1D23&plano=completa
+// pre-preenche a placa e ja abre o checkout no plano pedido.
+onMounted(() => {
+  const qPlaca = String(route.query.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
+  if (!qPlaca) return
+  placa.value = qPlaca
+  if (isPlanoPago(route.query.plano)) {
+    nextTick(() => openPremiumCheckout(route.query.plano))
+  }
+})
 const email = ref('')
 const placa = ref('')
 const loading = ref(false)
@@ -141,8 +154,15 @@ const formStarted = ref(false)
 // Reusa a mesma placa do input. O fluxo grátis (handleSubmit) vira link secundário.
 const showPremiumCheckout = ref(false)
 const premiumPlaca = ref('')
+const premiumPlano = ref<'basica' | 'completa'>('completa')
 
-function openPremiumCheckout() {
+// Bloco livre mostrado na tela depois da consulta gratis (o "o que e o carro").
+// Vem de /api/consulta; nada aqui e SENATRAN.
+const resultadoBasico = ref<Record<string, any> | null>(null)
+
+// `plano` chega tanto de um clique direto (`@click="abrir('basica')"`) quanto
+// de um handler sem argumento, que passaria o MouseEvent. isPlanoPago filtra.
+function openPremiumCheckout(plano?: unknown) {
   placaError.value = ''
   if (!validatePlaca(placa.value)) {
     placaError.value = 'Placa inválida. Use o formato ABC1D23 ou ABC1234.'
@@ -150,16 +170,45 @@ function openPremiumCheckout() {
     nextTick(() => placaRef.value?.focus())
     return
   }
+  premiumPlano.value = isPlanoPago(plano) ? plano : 'completa'
   premiumPlaca.value = placa.value
   showPremiumCheckout.value = true
-  track('premium_checkout_open', { origin: 'home_hero' })
+  track('premium_checkout_open', { origin: 'home_hero', plano: premiumPlano.value })
 }
+
+// O bloco bloqueado sai da matriz de recursos: mover um item entre planos
+// atualiza a tela de resultado junto, sem lista paralela pra esquecer.
+// Os RÓTULOS sao reais (dizem o que voce leva); os VALORES sao marcadores — o
+// dado so e consultado depois do pagamento, entao nao ha nada escondido aqui.
+// Nunca colocar alarme falso: afirmar "ATENÇÃO" sobre um carro que nao
+// consultamos seria inventar defeito pra forcar a venda.
+const camposBloqueados = RECURSOS_BLOQUEADOS
+
+// Os itens que so a completa entrega — o painel do herói vende exatamente isso.
+const recursosRisco = RECURSOS.filter((r) => r.planos.length === 1 && r.planos[0] === 'completa')
+
+// O que a consulta gratis efetivamente devolveu, so com o que veio preenchido.
+const camposLivres = computed(() => {
+  const b = resultadoBasico.value
+  if (!b) return []
+  return [
+    ['Placa', b.placa],
+    ['Marca', b.marca],
+    ['Modelo', b.modelo],
+    ['Ano fab./modelo', b.anoFabricacao && b.ano ? `${b.anoFabricacao}/${b.ano}` : b.ano],
+    ['Cor', b.cor],
+    ['Combustível', b.combustivel],
+    ['Município/UF', b.municipio && b.uf ? `${b.municipio}/${b.uf}` : null],
+    ['Situação', b.situacao],
+    ['Valor FIPE', b.fipe],
+  ].filter(([, v]) => v !== null && v !== undefined && v !== '')
+})
 
 // CTA "Consultar agora" do grid de Preço: leva o foco ao input do herói e
 // abre o checkout premium (openPremiumCheckout valida/foca se a placa faltar).
-function consultFromGrid() {
+function consultFromGrid(plano?: unknown) {
   placaRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  openPremiumCheckout()
+  openPremiumCheckout(plano)
 }
 
 // CTA "Fazer consulta grátis" (card básico do compare): leva o foco ao input do
@@ -468,6 +517,7 @@ function resetForm() {
   sentToEmail.value = ''
   messageType.value = 'info'
   formStarted.value = false
+  resultadoBasico.value = null
   track('new_consulta_click')
   nextTick(() => {
     placaRef.value?.focus()
@@ -863,6 +913,9 @@ async function handleSubmit() {
       if (delivered) {
         track('consulta_success', { channel: channel.value })
         shareInfo.value = (result as any).share || null
+        // resultado na tela (padrao dos concorrentes): o que e o carro aparece
+        // na hora; o que decide a compra fica atras do pagamento.
+        resultadoBasico.value = (result as any).basico || null
         if (result.seguroEstimado) {
           seguroEstimado.value = result.seguroEstimado
           // a tela de sucesso assenta primeiro; o modal chega como proximo passo
@@ -906,19 +959,19 @@ function applyEmailSuggestion() {
          WEB (combo 3): herói acolhedor + editorial. PWA intacto abaixo.
          ======================================================= -->
     <template v-if="!isPWA">
-      <!-- utility-strip fino -->
-      <div class="cb-utility">
-        <div class="cb-utility__inner">Pagamento via Pix · resultado na hora · sem cadastro</div>
+      <!-- nav (slab navy full-bleed; o header para na coluna do %wrap) -->
+      <div class="cb-navband">
+        <HomeHeader logo-variant="default" @consult="consultFromGrid" />
       </div>
 
-      <!-- nav (slab navy) -->
-      <HomeHeader @consult="consultFromGrid" />
-
       <!-- ===== HERO ===== -->
+      <!-- Antes da consulta: pitch curto + placa em destaque. O exemplo de
+           relatorio saiu daqui pra uma section propria; o espaco livre e o que
+           deixa o formulario dominar a dobra. -->
       <header id="hero" class="cb-hero">
-        <div class="cb-hero__grid">
-          <!-- LEFT: título + placa + CTA -->
+        <div v-if="!success" class="cb-hero__grid">
           <div class="cb-hero__left">
+            <p class="cb-eyebrow">Consulta veicular por placa</p>
             <h1 class="cb-h1">
               O anúncio mostra o carro.<br>
               <span class="cb-accent">O relatório mostra o resto.</span>
@@ -954,13 +1007,11 @@ function applyEmailSuggestion() {
               <small id="placa-help" class="cb-plate-help">Aceita placa antiga (ABC1234) e Mercosul (ABC1D23)</small>
               <span v-if="placaError" class="form-group__error cb-error" role="alert">{{ placaError }}</span>
 
+              <!-- O CTA primario e a consulta gratis: e ela que abre o resultado
+                   na tela. O pago aparece depois, em cima do que ficou bloqueado. -->
               <template v-if="!loading">
-                <button type="button" class="cb-btn cb-btn--blue cb-btn--lg cb-btn--block" @click="openPremiumCheckout">
-                  Ver relatório completo · R$ 45
-                </button>
-                <div class="cb-cta-sub">Pix · na hora · sem cadastro</div>
-                <button type="submit" class="cb-free-link">
-                  ou faça a <u>consulta básica grátis por e-mail</u>
+                <button type="submit" class="cb-btn cb-btn--blue cb-btn--lg cb-btn--block">
+                  Consultar placa
                 </button>
               </template>
 
@@ -980,22 +1031,6 @@ function applyEmailSuggestion() {
                   Você quis dizer <strong>{{ emailSuggestion }}</strong>? Clique para corrigir.
                 </button>
               </div>
-
-              <div v-if="success" class="cb-success">
-                <div class="win-alert win-alert--success">{{ message }}</div>
-                <p class="success-state__sent-to">Enviado para <strong>{{ sentToEmail }}</strong></p>
-                <button v-if="shareInfo" type="button" class="cb-btn cb-btn--ghost cb-btn--block" @click="shareWhatsApp">
-                  Compartilhar no WhatsApp
-                </button>
-                <button type="button" class="cb-btn cb-btn--blue cb-btn--block" @click="resetForm">
-                  Consultar outra placa
-                </button>
-              </div>
-
-              <div class="cb-seal">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                Estorno automático se não achar o veículo
-              </div>
             </form>
 
             <div class="cb-trust">
@@ -1006,49 +1041,178 @@ function applyEmailSuggestion() {
             </div>
           </div>
 
-          <!-- RIGHT: prévia do relatório -->
-          <aside class="cb-report-col" aria-label="Prévia do relatório">
-            <HomeReportPreview />
+          <!-- Coluna da direita: o que a placa entrega. Enche a metade que
+               estava vazia com argumento, nao com enfeite. -->
+          <aside class="cb-hero__side" aria-label="O que o relatório responde">
+            <div class="cb-panel">
+              <p class="cb-panel__kick">O que a placa revela</p>
+              <p class="cb-panel__h">O vendedor conta a versão dele.<br>A placa conta a oficial.</p>
+              <ul class="cb-panel__list">
+                <li v-for="r in recursosRisco" :key="r.label">
+                  <svg class="cb-ico cb-ico--check" viewBox="0 0 20 20" aria-hidden="true">
+                    <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
+                    <path d="M6 10.2l2.6 2.6L14 7.4" fill="none" stroke="currentColor" stroke-width="2"
+                          stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                  {{ r.label }}
+                </li>
+              </ul>
+              <!-- Piso de mil: numero baixo (banco local, ou um reset) vira
+                   prova social contra nos. Abaixo disso, some. -->
+              <p v-if="consultaCount >= 1000" class="cb-panel__foot">
+                <strong>{{ consultaCount.toLocaleString('pt-BR') }}</strong> consultas já realizadas
+              </p>
+            </div>
           </aside>
+        </div>
+
+        <!-- ===== RESULTADO NA TELA ===== -->
+        <div v-else class="cb-result">
+          <p class="cb-result__kick">Consulta grátis concluída</p>
+          <h1 class="cb-result__h">Encontramos o veículo da placa {{ resultadoBasico?.placa || placa }}.</h1>
+          <p class="cb-result__lead">
+            Estas informações são as que liberamos sem custo. Também enviamos para
+            <strong>{{ sentToEmail }}</strong>.
+          </p>
+
+          <div v-if="camposLivres.length" class="cb-result__card">
+            <div class="cb-result__grid">
+              <div v-for="([k, val]) in camposLivres" :key="k" class="cb-field">
+                <span class="cb-field__k">{{ k }}</span>
+                <span class="cb-field__v">{{ val }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cb-locked">
+            <h2 class="cb-locked__h">
+              Faltam <strong>{{ camposBloqueados.length }}</strong> informações sobre este veículo
+            </h2>
+            <!-- Honestidade: os rotulos sao reais, os valores nao existem ainda.
+                 A consulta oficial so roda depois do pagamento — por isso o texto
+                 diz "ainda não consultamos" em vez de fingir que o dado esta ali. -->
+            <p class="cb-locked__sub">
+              Ainda não consultamos nenhuma delas: a consulta oficial roda depois do pagamento.
+            </p>
+
+            <div class="cb-locked__box">
+              <div class="cb-locked__grid">
+                <div v-for="c in camposBloqueados" :key="c.label" class="cb-locked__item">
+                  <span class="cb-locked__k">{{ c.label }}</span>
+                  <span class="cb-locked__v" aria-hidden="true">••••••••</span>
+                  <span class="visually-hidden">não incluído na consulta grátis</span>
+                </div>
+              </div>
+
+              <div class="cb-locked__over">
+                <div class="cb-locked__cta">
+                  <button type="button" class="cb-btn cb-btn--blue cb-btn--lg" @click="openPremiumCheckout('completa')">
+                    Liberar tudo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+                  </button>
+                  <button type="button" class="cb-btn cb-btn--ghost" @click="openPremiumCheckout('basica')">
+                    Só a ficha técnica · {{ precoBRL(PLANOS.basica.valorCentavos) }}
+                  </button>
+                  <p class="cb-locked__pix">Pix · na hora · estorno se não acharmos o veículo</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cb-result__foot">
+            <button v-if="shareInfo" type="button" class="cb-btn cb-btn--ghost" @click="shareWhatsApp">
+              Compartilhar no WhatsApp
+            </button>
+            <button type="button" class="cb-free-link" @click="resetForm">consultar outra placa</button>
+          </div>
         </div>
       </header>
 
       <!-- ===== COMPARE: grátis vs completo ===== -->
+      <!-- Comparativo dos tres niveis. Rotulos, precos e itens saem todos de
+           shared/planos.ts, a mesma fonte que o servidor usa pra cobrar e pra
+           filtrar os campos do relatorio — nao tem como a tabela mentir. -->
+      <!-- Comparativo dos tres niveis. TODOS os cards listam TODOS os itens:
+           check no que entra, X vermelho no que nao. Esconder as linhas
+           ausentes deixaria os cards incomparaveis — e o que falta e
+           justamente o que explica o degrau de preco.
+           Rotulos, precos e a matriz saem de shared/planos.ts, a mesma fonte
+           que o servidor usa pra cobrar e filtrar os campos do relatorio. -->
       <section id="o-que-inclui" class="cb-compare">
         <div class="cb-cmp-head">
-          <h2>Duas formas de olhar a placa</h2>
-          <p>A grátis te diz o que é o carro. A completa te diz se dá pra confiar.</p>
+          <h2>Três formas de olhar a placa</h2>
+          <p>A grátis diz o que é o carro. A básica prova quem ele é.</p>
+          <p style="font-weight: 700;">A completa diz se dá pra confiar.</p>
         </div>
         <div class="cb-cmp-grid">
-          <div class="cb-cmp-card">
-            <div class="cb-cmp-kick">Consulta básica</div>
-            <div class="cb-cmp-price">Grátis <small>por e-mail</small></div>
-            <div class="cb-cmp-note">O retrato do veículo, sem custo.</div>
+          <div
+            v-for="p in [PLANOS.gratis, PLANOS.basica, PLANOS.completa]"
+            :key="p.id"
+            class="cb-cmp-card"
+            :class="{ 'cb-cmp-card--hi': p.id === 'completa' }"
+          >
+            <span v-if="p.destaque" class="cb-cmp-flag">{{ p.destaque }}</span>
+            <div class="cb-cmp-kick">{{ p.nome }}</div>
+            <div class="cb-cmp-price">
+              <template v-if="p.valorCentavos === 0">Grátis <small>por e-mail</small></template>
+              <template v-else>{{ precoBRL(p.valorCentavos) }} <small>Pix, uma vez</small></template>
+            </div>
+            <div class="cb-cmp-note">{{ p.chamada }}</div>
+
             <ul class="cb-cmp-list">
-              <li><span class="cb-tick cb-tick--green" aria-hidden="true" />Marca, modelo e ano</li>
-              <li><span class="cb-tick cb-tick--green" aria-hidden="true" />Cor</li>
-              <li><span class="cb-tick cb-tick--green" aria-hidden="true" />Valor FIPE</li>
-              <li><span class="cb-tick cb-tick--green" aria-hidden="true" />Situação do veículo</li>
+              <li
+                v-for="r in RECURSOS"
+                :key="r.label"
+                :class="{ 'cb-cmp-item--off': !inclui(r, p.id) }"
+              >
+                <svg v-if="inclui(r, p.id)" class="cb-ico cb-ico--yes" viewBox="0 0 20 20" aria-hidden="true">
+                  <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
+                  <path d="M6 10.2l2.6 2.6L14 7.4" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <svg v-else class="cb-ico cb-ico--no" viewBox="0 0 20 20" aria-hidden="true">
+                  <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
+                  <path d="M7 7l6 6M13 7l-6 6" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" />
+                </svg>
+                <span>{{ r.label }}</span>
+                <span class="visually-hidden">{{ inclui(r, p.id) ? 'incluído' : 'não incluído' }}</span>
+              </li>
             </ul>
-            <button type="button" class="cb-btn cb-btn--ghost cb-btn--block cb-cmp-cta" @click="scrollToPlaca">
+
+            <button
+              v-if="p.id === 'gratis'"
+              type="button"
+              class="cb-btn cb-btn--ghost cb-btn--block cb-cmp-cta"
+              @click="scrollToPlaca"
+            >
               Fazer consulta grátis
             </button>
-          </div>
-          <div class="cb-cmp-card cb-cmp-card--hi">
-            <div class="cb-cmp-kick">Relatório completo</div>
-            <div class="cb-cmp-price">R$ 45 <small>Pix, uma vez</small></div>
-            <div class="cb-cmp-note">Tudo da básica, mais o que decide a compra.</div>
-            <ul class="cb-cmp-list">
-              <li><span class="cb-tick cb-tick--blue" aria-hidden="true" />Restrições nacionais e estaduais</li>
-              <li><span class="cb-tick cb-tick--blue" aria-hidden="true" />Roubo, furto, leilão e gravame</li>
-              <li><span class="cb-tick cb-tick--blue" aria-hidden="true" />RENAJUD, recall e indicador de multas</li>
-              <li><span class="cb-tick cb-tick--blue" aria-hidden="true" />Ficha técnica: chassi e Renavam</li>
-              <li><span class="cb-tick cb-tick--blue" aria-hidden="true" />Seguro estimado e custo em 5 anos</li>
-            </ul>
-            <button type="button" class="cb-btn cb-btn--blue cb-btn--block cb-cmp-cta" @click="consultFromGrid">
-              Ver relatório completo · R$ 45
+            <button
+              v-else
+              type="button"
+              class="cb-btn cb-btn--block cb-cmp-cta"
+              :class="p.id === 'completa' ? 'cb-btn--blue' : 'cb-btn--ghost'"
+              @click="consultFromGrid(p.id)"
+            >
+              {{ p.nome }} · {{ precoBRL(p.valorCentavos) }}
             </button>
           </div>
+        </div>
+      </section>
+
+      <!-- ===== EXEMPLO DE RELATÓRIO =====
+           Saiu do herói (onde disputava atencao com o formulario) e virou uma
+           section propria, onde tem espaco pra ser lido de verdade. -->
+      <section id="exemplo" class="cb-exemplo">
+        <div class="cb-exemplo__head">
+          <p class="cb-eyebrow">Exemplo de relatório</p>
+          <h2>É assim que o relatório chega.</h2>
+          <p class="cb-exemplo__sub">
+            Um exemplo real do que você recebe: cada verificação com resultado, sem jargão.
+          </p>
+        </div>
+        <div class="cb-exemplo__card">
+          <HomeReportPreview />
         </div>
       </section>
 
@@ -1071,7 +1235,7 @@ function applyEmailSuggestion() {
           <div class="cb-step">
             <div class="cb-num">02</div>
             <h3>Pague no Pix</h3>
-            <p>R$ 45, uma vez. Sem assinatura, sem pegadinha na renovação.</p>
+            <p>Uma vez. Sem assinatura, sem pegadinhas.</p>
           </div>
           <div class="cb-step">
             <div class="cb-num">03</div>
@@ -1087,7 +1251,8 @@ function applyEmailSuggestion() {
           <div class="cb-doc-kick">O documento revelado</div>
           <h2>Tudo que a placa carrega, num relatório só.</h2>
           <p class="cb-doc-lead">
-            A grátis te diz o que é o carro. A completa te diz se dá pra confiar. R$ 45, uma vez. Não achou? Estorno.
+            A grátis te diz o que é o carro. A completa te diz se dá pra confiar.
+            {{ precoBRL(PLANOS.completa.valorCentavos) }}, uma vez.
           </p>
           <div class="cb-doc-tags">
             <span class="cb-doc-tag"><i class="cb-d2" />Restrições nacionais e estaduais</span>
@@ -1112,15 +1277,22 @@ function applyEmailSuggestion() {
 
       <!-- ===== PREÇO + GARANTIA ===== -->
       <section id="preco" class="cb-price">
+        <!-- Ordem: manchete -> botao -> garantia. Os dois eram inline-flex e
+             caiam lado a lado na mesma linha. -->
         <div class="cb-price-card">
-          <p class="cb-price-big">R$ 45 <span class="cb-mut">para não perder</span> R$ 45 mil.</p>
+          <p class="cb-price-big">
+            {{ precoBRL(PLANOS.completa.valorCentavos) }}
+            <span class="cb-mut">para não perder</span> R$ 45 mil.
+          </p>
+          <div class="cb-price-card__cta">
+            <button type="button" class="cb-btn cb-btn--blue cb-btn--lg" @click="consultFromGrid('completa')">
+              Consultar agora · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+            </button>
+          </div>
           <div class="cb-guar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
             Não achou o veículo? Estorno automático no Pix.
           </div>
-          <button type="button" class="cb-btn cb-btn--blue cb-btn--lg" @click="consultFromGrid">
-            Consultar agora · R$ 45
-          </button>
           <div class="cb-cta-sub">Pix · na hora · sem cadastro</div>
         </div>
       </section>
@@ -1146,7 +1318,7 @@ function applyEmailSuggestion() {
             @click="openFaq = openFaq === index ? null : index"
           >
             <h3>{{ faq.question }}</h3>
-            <span class="cb-qa__icon" aria-hidden="true">{{ openFaq === index ? '−' : '+' }}</span>
+            <span class="cb-qa__icon" aria-hidden="true" />
           </button>
           <div v-show="openFaq === index" :id="`faq-answer-${index}`" class="cb-qa__answer" role="region">
             <p>{{ faq.answer }}</p>
@@ -1157,9 +1329,9 @@ function applyEmailSuggestion() {
       <!-- ===== CTA FINAL ===== -->
       <section class="cb-final">
         <h2>Antes de fechar negócio, olhe a placa.</h2>
-        <p>O que o vendedor não conta, o relatório revela. R$ 45, na hora, no Pix.</p>
-        <button type="button" class="cb-btn cb-btn--blue cb-btn--lg" @click="consultFromGrid">
-          Ver relatório completo · R$ 45
+        <p>O que o vendedor não conta, o relatório revela. Na hora, no Pix.</p>
+        <button type="button" class="cb-btn cb-btn--on-slab cb-btn--lg" @click="consultFromGrid('completa')">
+          Ver relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
         </button>
         <div class="cb-cta-sub">ou faça a consulta básica grátis por e-mail</div>
       </section>
@@ -1655,591 +1827,1075 @@ function applyEmailSuggestion() {
 // Hexes hardcoded do mockup; NÃO altera tokens globais nem outras páginas.
 // Overrides de .win-window / .win-btn / FAQ ficam sob .home-v2 via :deep().
 // ============================================================
+// HOME v2.1 — revamp sob o guia .agents/DESIGN-hp.md
+//
+// Adotado do guia: vocabulario fechado de superficies (canvas / cloud /
+// fog / slab escuro), escala tipografica com display em peso 500 e
+// line-height 1.0 (inclusive no herói — e a decisao mais caracteristica do
+// sistema), dois niveis de raio (4px interativo x 16px container),
+// elevacao quase toda plana (hairline; Soft Lift so em card), ritmo de
+// 80px entre faixas e a disciplina de um acento so, no maximo 2x por tela.
+//
+// NAO adotado, de proposito: o #024ad8 e o chevron derivado do wordmark da
+// HP — sao marca deles. O acento aqui e o azul da casa e os slabs escuros
+// ficam no navy do projeto (o rodape global ja e navy; o near-black do guia
+// abriria uma emenda visivel entre a faixa de fecho e o rodape).
+//
+// Tudo escopado em .home-v2: nao encosta em tokens globais nem em outras
+// paginas.
+// ============================================================
 .home-v2 {
-  // ---- Paleta combo 3 (clara/quente). Hexes hardcoded do mockup; NÃO altera
-  // tokens globais nem o body. Escopado sob .home-v2 (só a home web). ----
-  $c-bg: #FBFAF8;
-  $c-card: #ffffff;
-  $c-ink: #1B2430;
-  $c-gray: #6B7280;
-  $c-blue: #1f6feb;
+  // ---- Superficies: o vocabulario inteiro, so isso ----
+  $c-canvas:   #ffffff;  // fundo universal
+  $c-cloud:    #f7f7f7;  // faixa alternada
+  $c-fog:      #e8e8e8;  // painel utilitario
+  $c-slab:     #0B1F3A;  // faixa escura (navy da casa no lugar do ink do guia)
+  $c-hair:     #e8e8e8;  // hairline
+  $c-steel:    #c2c2c2;  // borda de input, estado desabilitado
+
+  // ---- Tinta ----
+  $c-ink:      #1a1a1a;  // titulo e corpo sobre branco
+  $c-charcoal: #3d3d3d;  // descricao secundaria
+  $c-graphite: #636363;  // letra miuda, metadado
+  $c-on-slab:  #ffffff;
+
+  // ---- Acento: um so, e escasso ----
+  $c-blue:        #1f6feb;
+  $c-blue-deep:   #17539f;  // pressed
+  $c-blue-bright: #4d8bf5;  // variante clara, so dentro de slab escuro
+
+  // ---- Semantico (guia: erro; verde fica so no icone da garantia) ----
   $c-green: #1e9e4a;
-  $c-red: #d33a3a;
-  $c-hair: #E7E5E1;
-  $c-navy: #0B1F3A;
+  $c-red:   #d33a3a;
 
   $c-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
-  // A home vira uma "folha" clara sobre o body. Full-bleed, sem cartão arredondado.
+  // ---- Espacamento: base 8, meio-passo 4 ----
+  $s-xxs: 4px;  $s-xs: 8px;   $s-sm: 12px;  $s-md: 16px;
+  $s-lg: 20px;  $s-xl: 24px;  $s-xxl: 32px;
+
+  // ---- Raio: dois niveis. E a assinatura do sistema. ----
+  $r-md: 4px;    // botao, input — quase retilineo
+  $r-lg: 8px;    // badge, linha de FAQ
+  $r-xl: 16px;   // card, moldura de conteudo
+  $r-pill: 9999px;
+
+  // ---- Elevacao: Soft Lift e o unico nivel com sombra ----
+  $e-lift: 0 2px 8px rgba(26, 26, 26, 0.08);
+
+  // hairline sobre a faixa cloud (o #e8e8e8 sumiria contra o #f7f7f7)
+  $c-hairline-locked: #dcdcdc;
+
+  // Ritmo de 80px entre faixas, 48px no mobile (guia). Custom property
+  // porque variavel Sass nao muda dentro de media query.
+  --band-y: 80px;
+  @media (max-width: 860px) { --band-y: 48px; }
+
   max-width: none;
   width: 100%;
   margin: 0;
   padding: 0;
-  background: $c-bg;
+  background: $c-canvas;
   color: $c-ink;
   font-family: $c-font;
-  line-height: 1.6;
+  line-height: 1.4;
   text-align: left;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 
-  @media (min-width: 860px) { max-width: none; }
+  // .desktop e flex-column com align-items:center, entao cada filho direto
+  // (as faixas) dimensionava por fit-content. Stretch faz cada faixa ocupar
+  // a largura inteira; o recuo de leitura fica no %wrap dentro de cada uma.
+  align-items: stretch;
+  justify-content: flex-start;
+
+  // O .desktop--hero-web (resquicio do heroi v1, mais abaixo neste arquivo)
+  // impoe max-width:1080px de 860px pra cima. Mesma especificidade que
+  // .home-v2 e declarado depois, entao vencia por ordem de cascata. Ancorar
+  // nas duas classes (sempre juntas: ambas dependem de !isPWA) desempata.
+  &.desktop--hero-web { max-width: none; }
+
   @media (max-width: 520px) { border-radius: 0; padding: 0; margin: 0; }
 
-  // Wrapper de largura padrão de cada seção
-  %wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+  // Coluna de conteudo. So largura — o respiro vertical fica em cada secao,
+  // pra faixa full-bleed e coluna usarem a mesma regra sem conflito.
+  //
+  // O `width: 100%` nao e decorativo: margem auto no eixo CRUZADO cancela o
+  // align-items:stretch do flex container, entao sem ele cada secao passa a
+  // dimensionar por conteudo. Era isso que fazia o FAQ pular de 426px pra
+  // 820px ao abrir uma resposta — a secao crescia junto com o texto.
+  %wrap { width: 100%; max-width: 1366px; margin-left: auto; margin-right: auto; }
 
-  // ---------- BOTÕES ----------
+  // ---------- BOTOES ----------
+  // Guia: label em CAIXA ALTA com 0.7px de tracking — o unico lugar do
+  // sistema que espaceja letra. Raio 4px: "um botao de 8px+ ja le como
+  // outra marca".
   .cb-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: $s-xs;
+    min-height: 44px;
+    padding: $s-sm $s-xl;
     font-family: $c-font;
-    font-weight: 700;
-    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    border-radius: $r-md;
+    border: 1px solid transparent;
     cursor: pointer;
-    border: 0;
-    font-size: 15px;
-    line-height: 1.15;
-    padding: 13px 20px;
-    transition: filter 0.15s ease;
     text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 
-    &:hover { filter: brightness(1.05); }
     &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
 
-    &--blue { background: $c-blue; color: #fff; }
-    &--ghost { background: #fff; color: $c-ink; border: 1px solid $c-hair; }
-    &--lg { padding: 17px 26px; font-size: 16.5px; border-radius: 11px; }
+    // button-primary: o unico preenchimento azul da pagina
+    &--blue {
+      background: $c-blue;
+      color: #fff;
+
+      &:hover  { background: $c-blue-deep; }
+      &:active { background: $c-blue-deep; }
+      &:disabled { background: $c-steel; color: #fff; cursor: default; }
+    }
+
+    // button-outline-ink: acao secundaria, neutra contra o azul
+    &--ghost {
+      background: $c-canvas;
+      color: $c-ink;
+      border-color: $c-ink;
+
+      &:hover { background: $c-cloud; }
+    }
+
+    // Dentro de slab escuro o azul profundo encardiria; guia manda subir
+    // pro tom claro.
+    &--on-slab {
+      background: $c-blue-bright;
+      color: #06122a;
+
+      &:hover { background: #6ba0f8; }
+    }
+
+    &--lg { min-height: 52px; padding: $s-md $s-xxl; }
     &--block { display: flex; width: 100%; }
   }
 
-  // ---------- UTILITY STRIP ----------
-  .cb-utility {
-    background: $c-navy;
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 12.5px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-
-    &__inner { @extend %wrap; padding-top: 9px; padding-bottom: 9px; text-align: center; }
+  // ---------- NAV ----------
+  // Guia: a nav e branca com hairline embaixo, nao um slab. A faixa escura
+  // do topo e so a utility strip. .cb-navband pinta a faixa de ponta a ponta
+  // e o HomeHeader para na coluna do %wrap.
+  .cb-navband {
+    background: $c-canvas;
+    border-bottom: 1px solid $c-hair;
   }
 
-  // ---------- NAV (HomeHeader reestilizado combo 3) ----------
   :deep(.home-header) {
-    max-width: 1160px;
-    margin: 0 auto;
-    background: $c-navy;
+    @extend %wrap;
+    min-height: 76px;
+    padding: $s-sm $s-xl;
+    background: transparent;
     border-radius: 0;
     box-shadow: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 16px 24px;
+    border-bottom: 0;
+    margin-bottom: 0;
   }
-  :deep(.home-header__nav) { gap: 26px; }
-  :deep(.home-header__link) { font-size: 15px; font-weight: 600; }
+  // Logo maior: estava em 24px de altura (61px de largura) contra ~100px dos
+  // concorrentes, e sumia na barra. 40px de altura da 101px de largura no
+  // viewBox 304x120 — mesma presenca deles.
+  :deep(.home-header__brand) { min-height: 52px; gap: 12px; }
+  :deep(.home-header__logo),
+  :deep(.home-header__logo .placa-logo) { height: 52px; width: auto; }
+  :deep(.home-header__tag) { color: $c-graphite; }
+  :deep(.home-header__nav) { gap: $s-xs; }
+
+  :deep(.home-header__link) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: $c-ink;
+    font-size: 16px;
+    font-weight: 400;
+    padding: 0 $s-md;
+    border-radius: 0;
+    border-bottom: 2px solid transparent;
+
+    &:hover { color: $c-blue; border-bottom-color: $c-blue; }
+  }
+
+  // Colapso da nav no estreito. O guia manda a lista do meio virar gaveta de
+  // hamburguer abaixo de 1024px; sem JS novo, a versao honesta e empilhar em
+  // duas linhas centradas (marca em cima, links embaixo) em vez de deixar os
+  // tres links embolarem em volta do logo.
+  // Precisa vir DEPOIS das regras base: mesma especificidade, quem decide e a
+  // ordem — foi assim que a primeira tentativa nao pegou.
+  @media (max-width: 700px) {
+    :deep(.home-header) {
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0;
+      padding: $s-xs $s-md;
+    }
+    :deep(.home-header__brand) { width: 100%; justify-content: center; }
+    :deep(.home-header__nav) { width: 100%; justify-content: center; gap: $s-xxs; }
+    :deep(.home-header__link) { font-size: 14px; padding: 0 10px; }
+    :deep(.home-header__logo),
+    :deep(.home-header__logo .placa-logo) { height: 40px; }
+  }
 
   // ---------- HERO ----------
   .cb-hero {
     @extend %wrap;
-    padding-top: 58px;
-    padding-bottom: 68px;
+    padding: var(--band-y) $s-xl;
 
+    // Duas colunas: copy + formulario na esquerda, o que a placa entrega na
+    // direita. Coluna unica desperdicava dois tercos da tela no desktop.
     &__grid {
       display: grid;
-      grid-template-columns: 1.05fr 0.95fr;
-      gap: 52px;
-      align-items: start;
+      grid-template-columns: 1.02fr 0.98fr;
+      gap: 56px;
+      align-items: center;
+    }
+
+    &__left { display: block; text-align: left; }
+
+    &__side { display: block; }
+  }
+
+  // Painel da direita: argumento, nao enfeite — lista o que so o relatorio
+  // completo responde, com a contagem real de consultas como prova social.
+  .cb-panel {
+    background: $c-cloud;
+    border: 1px solid $c-hair;
+    border-radius: $r-xl;
+    padding: $s-xxl;
+
+    &__kick {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: $c-graphite;
+      margin-bottom: $s-sm;
+    }
+
+    &__h {
+      font-size: 24px;
+      font-weight: 500;
+      letter-spacing: 0;
+      line-height: 1.17;
+      color: $c-ink;
+      margin-bottom: $s-xl;
+    }
+
+    &__list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: $s-sm;
+
+      li {
+        display: flex;
+        align-items: center;
+        gap: $s-sm;
+        font-size: 16px;
+        line-height: 1.38;
+        color: $c-ink;
+      }
+    }
+
+    &__foot {
+      margin: $s-xl 0 0;
+      padding-top: $s-md;
+      border-top: 1px solid $c-hairline-locked;
+      font-size: 14px;
+      line-height: 1.5;
+      color: $c-graphite;
+
+      strong { color: $c-ink; font-weight: 700; }
     }
   }
 
+  // Icones de inclusao. Circulo + marca: legivel em 20px e nao depende de cor
+  // sozinha pra dizer sim/nao (o desenho ja diferencia).
+  .cb-ico {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+
+    &--yes { color: $c-blue; }
+    &--check { color: $c-blue; }
+    &--no { color: $c-red; }
+  }
+
+  .cb-eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: $c-graphite;
+    margin-bottom: $s-sm;
+  }
+
+  // Guia: peso 500 em TODO tamanho de display, ate no maior. A maioria dos
+  // sistemas editoriais sobe pra 700 no herói; este nao — e o que faz o
+  // resultado ler como aberto em vez de imperativo. Tracking 0.
+  // Antes ia a 72px e dominava a tela inteira. O guia so pede peso 500 e
+  // lh 1.0 — nao pede tamanho maximo. Em display-lg a chamada informa e o
+  // formulario comanda, que e o equilibrio dos concorrentes.
   .cb-h1 {
-    font-size: clamp(34px, 4.6vw, 54px);
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.04;
-    margin-bottom: 20px;
+    font-size: clamp(30px, 3.6vw, 44px);
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.0;
+    margin-bottom: $s-lg;
     color: $c-ink;
   }
 
-  .cb-accent { color: $c-blue; }
-  .cb-mut { color: $c-gray; }
+  // O azul e escasso: no herói ele fica no CTA e no link de texto. O titulo
+  // vai inteiro em tinta e a hierarquia vem do contraste com o grafite.
+  .cb-accent { color: $c-ink; }
+  .cb-mut { color: $c-graphite; }
 
   .cb-sub {
-    font-size: 19px;
-    color: $c-gray;
+    font-size: 18px;
+    line-height: 1.33;
+    color: $c-charcoal;
     max-width: 520px;
-    margin-bottom: 28px;
+    margin: 0 0 $s-xxl;
 
-    b { color: $c-ink; font-weight: 600; }
+    b { color: $c-ink; font-weight: 500; }
   }
 
-  // Painel da placa (card branco)
+  // ---------- PAINEL DA PLACA ----------
+  // card: raio 16px + Soft Lift (o guia reserva sombra pra card, e so).
   .cb-plate-panel {
-    background: $c-card;
+    background: $c-canvas;
     border: 1px solid $c-hair;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(27, 36, 48, 0.05), 0 8px 26px rgba(27, 36, 48, 0.05);
-    padding: 22px;
+    border-radius: $r-xl;
+    box-shadow: $e-lift;
+    padding: $s-xxl;
     max-width: 520px;
+    text-align: left;
   }
 
   .cb-plate-label {
     display: block;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
-    color: $c-gray;
+    color: $c-graphite;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin-bottom: 10px;
+    letter-spacing: 0.08em;
+    margin-bottom: $s-sm;
   }
 
-  // Placa Mercosul: reusa .plate-field mas com o visual combo 3 (banda navy)
+  // A placa Mercosul e um artefato do mundo real, nao um input generico:
+  // mantem a banda navy e fica no raio 8px (proporcao de placa de verdade)
+  // em vez dos 4px de input do guia.
   .cb-plate {
     max-width: none;
     margin: 0;
-    border: 2px solid $c-navy;
-    border-radius: 9px;
+    border: 1px solid $c-steel;
+    border-radius: $r-lg;
     box-shadow: none;
+    overflow: hidden;
 
+    // Guia: foco troca a borda por tinta, sem halo. Mantido o :focus-visible
+    // do botao pra navegacao por teclado continuar visivel.
     &:focus-within {
-      border-color: $c-blue;
-      box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.18);
+      border-color: $c-ink;
+      box-shadow: none;
     }
 
     &.plate-field--error { border-color: $c-red; }
 
     &__band {
-      background: $c-navy;
+      background: $c-slab;
       flex-direction: column;
-      padding: 0 12px;
+      padding: 0 $s-sm;
     }
 
     &__flag {
       color: #fff;
       font-size: 9px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: 0.14em;
     }
 
-    &__country { color: #fff; font-size: 13px; font-weight: 800; letter-spacing: 0.1em; }
+    &__country { color: #fff; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; }
 
     &__input {
       font-family: $c-font;
       font-size: 30px;
-      font-weight: 800;
+      font-weight: 600;
       letter-spacing: 0.14em;
-      color: $c-navy;
-      padding: 16px 8px;
+      color: $c-ink;
+      padding: $s-md $s-xs;
 
-      &::placeholder { color: #c8cdd4; letter-spacing: 0.14em; }
+      &::placeholder { color: $c-steel; letter-spacing: 0.14em; }
     }
   }
 
-  .cb-plate-help { display: block; font-size: 12px; color: $c-gray; margin-top: 8px; }
-  .cb-error { display: block; color: $c-red; font-size: 13px; margin-top: 6px; }
+  .cb-plate-help { display: block; font-size: 12px; line-height: 1.33; color: $c-graphite; margin-top: $s-xs; }
+  .cb-error { display: block; color: $c-red; font-size: 14px; margin-top: 6px; }
 
-  .cb-plate-panel .cb-btn--block { margin-top: 16px; }
-  .cb-cta-sub { font-size: 13.5px; color: $c-gray; text-align: center; margin-top: 8px; }
+  .cb-plate-panel .cb-btn--block { margin-top: $s-md; }
+  .cb-cta-sub { font-size: 14px; line-height: 1.5; color: $c-graphite; text-align: center; margin-top: $s-sm; }
 
+  // button-text-link
   .cb-free-link {
+    // display:block de proposito: com flex o texto e o <u> viram itens
+    // separados e o espaco entre "a" e "consulta" some. Os 44px de alvo de
+    // toque do guia saem do padding (22px de linha + 11px em cima e embaixo).
     display: block;
     width: 100%;
-    margin-top: 12px;
-    padding: 4px 0;
+    margin-top: $s-xxs;
+    padding: 11px 0;
     background: transparent;
     border: 0;
     font-family: $c-font;
-    font-size: 15px;
-    font-weight: 600;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.38;
     color: $c-blue;
     text-align: center;
     cursor: pointer;
 
     u { text-decoration-thickness: 1px; text-underline-offset: 2px; }
+    &:hover { color: $c-blue-deep; }
     &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
   }
 
-  .cb-alert { margin-top: 14px; }
-  .cb-success { margin-top: 14px; text-align: center; }
+  .cb-alert { margin-top: $s-md; }
+  .cb-success { margin-top: $s-md; text-align: center; }
 
+  // badge-pill-outline: sem bloco tingido — a hairline sustenta. O verde
+  // sobra so no icone, como sinal semantico.
   .cb-seal {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    background: rgba(30, 158, 74, 0.09);
-    color: $c-green;
-    border: 1px solid rgba(30, 158, 74, 0.25);
-    border-radius: 999px;
-    padding: 8px 14px;
-    font-size: 13.5px;
-    font-weight: 700;
-    margin-top: 16px;
+    gap: $s-xs;
+    background: $c-canvas;
+    color: $c-ink;
+    border: 1px solid $c-hair;
+    border-radius: $r-lg;
+    padding: 6px $s-sm;
+    font-size: 14px;
+    font-weight: 400;
+    margin-top: $s-md;
 
-    svg { width: 16px; height: 16px; }
+    svg { width: 16px; height: 16px; color: $c-green; flex-shrink: 0; }
   }
 
   .cb-trust {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px 18px;
-    margin-top: 22px;
-    font-size: 13.5px;
-    color: $c-gray;
-    font-weight: 500;
+    gap: $s-sm $s-lg;
+    margin-top: $s-xl;
+    font-size: 14px;
+    line-height: 1.5;
+    color: $c-graphite;
+    font-weight: 400;
+    max-width: 520px;
+    align-items: center; justify-content: space-around;
 
     span { display: inline-flex; align-items: center; gap: 7px; }
   }
 
   .cb-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 999px;
+    width: 5px;
+    height: 5px;
+    border-radius: $r-pill;
     background: $c-green;
     display: inline-block;
     flex-shrink: 0;
   }
 
-  // Coluna direita: prévia do relatório (HomeReportPreview) num card branco
-  .cb-report-col {
-    background: $c-card;
-    border: 1px solid $c-hair;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(27, 36, 48, 0.05), 0 10px 30px rgba(27, 36, 48, 0.06);
-    padding: 20px;
+  // ---------- TELA DE RESULTADO ----------
+  // Padrao dos concorrentes: o que e o carro aparece na hora; o que decide a
+  // compra fica atras do pagamento, com os rotulos visiveis pra pessoa saber
+  // exatamente o que esta comprando.
+  .cb-result {
+    @extend %wrap;
+    max-width: 820px;
+    text-align: center;
+
+    &__kick {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: $c-graphite;
+      margin-bottom: $s-sm;
+    }
+
+    &__h {
+      font-size: clamp(26px, 3.2vw, 40px);
+      font-weight: 500;
+      letter-spacing: 0;
+      line-height: 1.0;
+      color: $c-ink;
+      margin-bottom: $s-sm;
+    }
+
+    &__lead {
+      font-size: 16px;
+      line-height: 1.38;
+      color: $c-charcoal;
+      margin-bottom: $s-xxl;
+
+      strong { color: $c-ink; font-weight: 500; }
+    }
+
+    &__card {
+      background: $c-canvas;
+      border: 1px solid $c-hair;
+      border-radius: $r-xl;
+      box-shadow: $e-lift;
+      padding: $s-xl;
+      text-align: left;
+    }
+
+    &__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: $s-md $s-xl;
+    }
+
+    &__foot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: $s-xs;
+      margin-top: $s-xxl;
+    }
   }
 
-  // ---------- COMPARE ----------
+  .cb-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: $s-sm;
+    border-bottom: 1px solid $c-hair;
+
+    &__k { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: $c-graphite; }
+    &__v { font-size: 16px; line-height: 1.38; color: $c-ink; }
+  }
+
+  // ---------- BLOCO BLOQUEADO ----------
+  .cb-locked {
+    margin-top: var(--band-y);
+
+    &__h {
+      font-size: clamp(22px, 2.6vw, 32px);
+      font-weight: 500;
+      letter-spacing: 0;
+      line-height: 1.0;
+      color: $c-ink;
+      margin-bottom: $s-sm;
+
+      strong { font-weight: 500; color: $c-blue; }
+    }
+
+    &__sub { font-size: 16px; line-height: 1.38; color: $c-charcoal; margin-bottom: $s-xl; }
+
+    &__box {
+      position: relative;
+      border: 1px solid $c-hair;
+      border-radius: $r-xl;
+      background: $c-cloud;
+      padding: $s-xl;
+      overflow: hidden;
+    }
+
+    &__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: $s-md $s-xl;
+      text-align: left;
+    }
+
+    &__item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding-bottom: $s-sm;
+      border-bottom: 1px solid $c-hairline-locked;
+    }
+
+    &__k { font-size: 14px; font-weight: 500; line-height: 1.38; color: $c-charcoal; }
+
+    // O valor e um marcador, nao um dado escondido: nao existe resposta no DOM
+    // pra vazar. O borrao aqui e so a linguagem visual do "ainda bloqueado".
+    &__v {
+      font-size: 16px;
+      color: $c-steel;
+      filter: blur(5px);
+      user-select: none;
+      letter-spacing: 0.1em;
+    }
+
+    // Sobreposicao: o CTA fica EM CIMA do bloqueado, nao depois dele.
+    &__over {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      // Leve de proposito: o rotulo e o argumento de venda ("Roubo e furto",
+      // "Gravame") e precisa ser lido. Quem some e o valor, que nao existe.
+      background: linear-gradient(180deg, rgba(247, 247, 247, 0.25) 0%, rgba(247, 247, 247, 0.82) 45%, rgba(247, 247, 247, 0.6) 100%);
+    }
+
+    &__cta {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: $s-sm;
+      padding: $s-md;
+    }
+
+    &__pix { font-size: 13px; line-height: 1.5; color: $c-graphite; margin: 0; }
+  }
+
+  // ---------- EXEMPLO DE RELATÓRIO ----------
+  .cb-exemplo {
+    background: $c-cloud;
+    padding: var(--band-y) $s-xl;
+
+    &__head {
+      max-width: 640px;
+      margin: 0 auto $s-xxl;
+      text-align: center;
+
+      h2 { font-size: clamp(28px, 3.4vw, 44px); font-weight: 500; letter-spacing: 0; line-height: 1.0; }
+    }
+
+    &__sub { color: $c-charcoal; font-size: 18px; line-height: 1.33; margin-top: $s-sm; }
+
+    &__card {
+      max-width: 720px;
+      margin: 0 auto;
+      background: $c-canvas;
+      border: 1px solid $c-hair;
+      border-radius: $r-xl;
+      box-shadow: $e-lift;
+      padding: $s-lg;
+    }
+  }
+
+  // ---------- COMPARE (faixa cloud) ----------
   .cb-compare {
-    @extend %wrap;
-    padding-top: 12px;
-    padding-bottom: 76px;
+    background: $c-cloud;
+    padding: var(--band-y) $s-xl;
   }
 
   .cb-cmp-head {
     text-align: center;
     max-width: 640px;
-    margin: 0 auto 34px;
+    margin: 0 auto $s-xxl;
 
-    h2 { font-size: clamp(26px, 3.2vw, 34px); font-weight: 800; letter-spacing: -0.02em; }
-    p { color: $c-gray; font-size: 17px; margin-top: 8px; }
+    h2 { font-size: clamp(28px, 3.4vw, 44px); font-weight: 500; letter-spacing: 0; line-height: 1.0; }
+    p { color: $c-charcoal; font-size: 18px; line-height: 1.33; margin-top: $s-sm; }
   }
 
   .cb-cmp-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 22px;
-    max-width: 920px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: $s-xl;
+    max-width: 1080px;
     margin: 0 auto;
+    align-items: stretch;
+
+    @media (max-width: 1023px) { grid-template-columns: 1fr; max-width: 520px; }
   }
 
+  // card-pricing-tier
   .cb-cmp-card {
-    background: $c-card;
+    position: relative;
+    background: $c-canvas;
     border: 1px solid $c-hair;
-    border-radius: 12px;
-    padding: 26px;
-    box-shadow: 0 1px 3px rgba(27, 36, 48, 0.04);
+    border-radius: $r-xl;
+    padding: $s-xl;
+    box-shadow: $e-lift;
     display: flex;
     flex-direction: column;
 
+    // Guia: a coluna em destaque ganha o azul no carimbo de preco e um fio
+    // azul — nunca um fundo colorido nem inversao pra escuro. O selo e a
+    // elevacao dao o destaque extra sem quebrar essa regra.
     &--hi {
-      border-color: rgba(31, 111, 235, 0.5);
-      box-shadow: 0 1px 3px rgba(27, 36, 48, 0.05), 0 14px 34px rgba(31, 111, 235, 0.1);
+      border: 2px solid $c-blue;
+      box-shadow: 0 8px 24px rgba(31, 111, 235, 0.16);
 
-      .cb-cmp-kick { color: $c-blue; }
+      .cb-cmp-price { color: $c-blue; }
+
+      // Sobe o card em relacao aos vizinhos, so onde as tres colunas convivem.
+      @media (min-width: 1024px) {
+        margin-top: -$s-lg;
+        margin-bottom: -$s-lg;
+        padding-top: calc(#{$s-xl} + #{$s-lg});
+        padding-bottom: calc(#{$s-xl} + #{$s-lg});
+      }
     }
   }
 
+  // Selo do card em destaque. Fica a cavaleiro da borda superior.
+  .cb-cmp-flag {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: $c-blue;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    padding: 6px $s-md;
+    border-radius: $r-md;
+    white-space: nowrap;
+  }
+
   .cb-cmp-kick {
-    font-size: 12.5px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: $c-gray;
+    color: $c-graphite;
   }
 
+  // price-md
   .cb-cmp-price {
-    font-size: 30px;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    margin: 6px 0 4px;
+    font-size: 32px;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.17;
+    margin: 6px 0 $s-xxs;
 
-    small { font-size: 14px; font-weight: 600; color: $c-gray; }
+    small { font-size: 14px; font-weight: 400; color: $c-graphite; }
   }
 
-  .cb-cmp-note { font-size: 13.5px; color: $c-gray; margin-bottom: 16px; }
+  .cb-cmp-note { font-size: 14px; line-height: 1.5; color: $c-charcoal; margin-bottom: $s-md; }
 
   .cb-cmp-list {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 11px;
-    margin: 0 0 20px;
+    gap: $s-sm;
+    margin: 0 0 $s-lg;
     padding: 0;
 
-    li { display: flex; gap: 10px; font-size: 14.5px; align-items: flex-start; }
+    li {
+      display: flex;
+      gap: $s-sm;
+      font-size: 15px;
+      line-height: 1.33;
+      align-items: flex-start;
+    }
+
+    // Item ausente: cinza + X. A cor sozinha nao carrega o significado — o
+    // desenho do icone ja diferencia, e ha texto so pra leitor de tela.
+    .cb-cmp-item--off {
+      color: $c-graphite;
+
+      span:first-of-type { text-decoration: line-through; text-decoration-thickness: 1px; }
+    }
+
+    .cb-ico { margin-top: 1px; }
   }
 
+  // Marcador legado (usado fora do comparativo).
   .cb-tick {
     width: 18px;
     height: 18px;
     flex: 0 0 18px;
     margin-top: 2px;
     background: no-repeat center / 14px 14px;
-    // Checkmark inline (data-uri) tingido por cor via mask
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") no-repeat center / contain;
 
-    &--green { background-color: $c-green; }
-    &--blue { background-color: $c-blue; }
+    &--green { background-color: $c-ink; }
+    &--blue  { background-color: $c-ink; }
   }
 
   .cb-cmp-cta { margin-top: auto; }
 
-  // ---------- STATEMENT ----------
+  // ---------- STATEMENT (faixa canvas) ----------
   .cb-statement {
-    padding: 82px 0;
-    border-top: 1px solid $c-hair;
-    background: #fff;
+    padding: var(--band-y) $s-xl;
+    background: $c-canvas;
 
     .cb-big-decl {
       @extend %wrap;
       max-width: 960px;
-      font-size: clamp(34px, 5.6vw, 66px);
-      font-weight: 800;
-      letter-spacing: -0.035em;
-      line-height: 1.02;
+      font-size: clamp(36px, 5.6vw, 72px);
+      font-weight: 500;
+      letter-spacing: 0;
+      line-height: 1.0;
       color: $c-ink;
     }
   }
 
-  // ---------- COMO FUNCIONA (números gigantes) ----------
+  // ---------- COMO FUNCIONA ----------
   .cb-how {
     @extend %wrap;
-    padding-top: 80px;
-    padding-bottom: 80px;
+    padding: var(--band-y) $s-xl;
+    border-top: 1px solid $c-hair;
 
     h2 {
-      font-size: clamp(26px, 3.4vw, 38px);
-      font-weight: 800;
-      letter-spacing: -0.025em;
-      margin-bottom: 44px;
+      font-size: clamp(28px, 3.4vw, 44px);
+      font-weight: 500;
+      letter-spacing: 0;
+      line-height: 1.0;
+      margin-bottom: $s-xxl;
     }
   }
 
   .cb-steps {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 34px;
+    gap: $s-xxl;
   }
 
   .cb-step {
-    border-top: 2px solid $c-ink;
-    padding-top: 14px;
+    border-top: 1px solid $c-ink;
+    padding-top: $s-md;
 
-    h3 { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; margin: 14px 0 8px; }
-    p { color: $c-gray; font-size: 15.5px; }
+    h3 { font-size: 20px; font-weight: 500; letter-spacing: 0; line-height: 1.0; margin: $s-md 0 $s-xs; }
+    p { color: $c-charcoal; font-size: 16px; line-height: 1.38; }
   }
 
   .cb-num {
-    font-size: clamp(56px, 7vw, 84px);
-    font-weight: 800;
-    letter-spacing: -0.04em;
-    line-height: 0.9;
+    font-size: clamp(48px, 6vw, 72px);
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.0;
     color: $c-ink;
   }
 
-  // ---------- DOCUMENTO REVELADO (slab navy) ----------
+  // ---------- DOCUMENTO REVELADO (slab escuro) ----------
   .cb-doc {
-    padding: 80px 0;
-    background: $c-navy;
-    color: #fff;
+    padding: var(--band-y) $s-xl;
+    background: $c-slab;
+    color: $c-on-slab;
 
     &__in { @extend %wrap; max-width: 980px; }
   }
 
   .cb-doc-kick {
-    font-size: 13px;
-    font-weight: 800;
+    font-size: 12px;
+    font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #8fb4ff;
+    color: $c-blue-bright;
   }
 
   .cb-doc h2 {
-    font-size: clamp(30px, 4.4vw, 52px);
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.03;
-    margin: 12px 0 22px;
+    font-size: clamp(32px, 4.4vw, 56px);
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.0;
+    margin: $s-sm 0 $s-lg;
   }
 
-  .cb-doc-lead { font-size: 19px; color: #c3ccdb; max-width: 640px; }
+  .cb-doc-lead { font-size: 18px; line-height: 1.33; color: rgba(255, 255, 255, 0.72); max-width: 640px; }
 
   .cb-doc-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 34px;
+    gap: $s-sm;
+    margin-top: $s-xxl;
   }
 
+  // badge-pill-outline sobre slab: raio 8px, nao pill — mantem o sistema
+  // nos dois niveis de raio.
   .cb-doc-tag {
-    border: 1px solid rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     background: rgba(255, 255, 255, 0.04);
-    border-radius: 999px;
-    padding: 11px 18px;
-    font-size: 14.5px;
-    font-weight: 600;
+    border-radius: $r-lg;
+    padding: 6px $s-sm;
+    font-size: 16px;
+    font-weight: 400;
     display: inline-flex;
     align-items: center;
-    gap: 9px;
+    gap: $s-xs;
   }
 
   .cb-d2 {
-    width: 6px;
-    height: 6px;
-    border-radius: 999px;
-    background: #8fb4ff;
+    width: 5px;
+    height: 5px;
+    border-radius: $r-pill;
+    background: rgba(255, 255, 255, 0.45);
     display: inline-block;
     flex-shrink: 0;
   }
 
-  // ---------- MANIFESTO ----------
+  // ---------- MANIFESTO (faixa canvas) ----------
   .cb-manifesto {
-    padding: 88px 24px;
+    padding: var(--band-y) $s-xl;
     text-align: center;
 
     p {
       max-width: 900px;
       margin: 0 auto;
-      font-size: clamp(30px, 4.6vw, 54px);
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      line-height: 1.05;
+      font-size: clamp(32px, 4.6vw, 56px);
+      font-weight: 500;
+      letter-spacing: 0;
+      line-height: 1.0;
       color: $c-ink;
     }
   }
 
-  // ---------- PREÇO + GARANTIA ----------
+  // ---------- PRECO + GARANTIA (faixa cloud) ----------
   .cb-price {
-    @extend %wrap;
-    padding-top: 24px;
-    padding-bottom: 84px;
+    background: $c-cloud;
+    padding: var(--band-y) $s-xl;
   }
 
   .cb-price-card {
     max-width: 760px;
     margin: 0 auto;
-    background: $c-card;
+    background: $c-canvas;
     border: 1px solid $c-hair;
-    border-radius: 16px;
-    box-shadow: 0 1px 3px rgba(27, 36, 48, 0.05), 0 18px 44px rgba(27, 36, 48, 0.07);
-    padding: 44px 40px;
+    border-radius: $r-xl;
+    box-shadow: $e-lift;
+    padding: $s-xxl;
     text-align: center;
   }
 
   .cb-price-big {
-    font-size: clamp(30px, 4.4vw, 46px);
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.08;
+    font-size: clamp(32px, 4.4vw, 44px);
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.0;
     color: $c-ink;
   }
 
   .cb-guar {
     display: inline-flex;
     align-items: center;
-    gap: 9px;
-    margin: 22px 0 26px;
-    background: rgba(30, 158, 74, 0.09);
-    border: 1px solid rgba(30, 158, 74, 0.25);
-    color: $c-green;
-    border-radius: 999px;
-    padding: 10px 18px;
-    font-size: 14.5px;
-    font-weight: 700;
+    gap: $s-xs;
+    margin: 0 0 $s-sm;
+    background: $c-canvas;
+    border: 1px solid $c-hair;
+    color: $c-ink;
+    border-radius: $r-lg;
+    padding: 6px $s-sm;
+    font-size: 14px;
+    font-weight: 400;
 
-    svg { width: 17px; height: 17px; }
+    svg { width: 16px; height: 16px; color: $c-green; flex-shrink: 0; }
   }
 
+  // Botao numa linha propria: antes ele e a garantia eram inline-flex e
+  // dividiam a mesma linha.
+  .cb-price-card__cta { margin: $s-xl 0 $s-md; }
   .cb-price-card .cb-btn { margin: 0 auto; }
-  .cb-price-card .cb-cta-sub { margin-top: 12px; }
+  .cb-price-card .cb-guar { margin: 0 0 $s-sm; }
+  .cb-price-card .cb-cta-sub { margin-top: $s-sm; }
 
   // ---------- FAQ ----------
+  // faq-row do guia: linha em canvas, raio 8px, divisor hairline, chevron
+  // a direita (pra baixo fechado, pra cima aberto).
   .cb-faq {
     @extend %wrap;
     max-width: 820px;
-    padding-top: 12px;
-    padding-bottom: 84px;
+    padding: var(--band-y) $s-xl;
 
     h2 {
-      font-size: clamp(26px, 3.2vw, 36px);
-      font-weight: 800;
-      letter-spacing: -0.025em;
-      margin-bottom: 30px;
+      font-size: clamp(28px, 3.2vw, 44px);
+      font-weight: 500;
+      letter-spacing: 0;
+      line-height: 1.0;
+      margin-bottom: $s-xxl;
     }
   }
 
   .cb-qa {
-    border-top: 1px solid $c-hair;
+    border-bottom: 1px solid $c-hair;
 
-    &:last-child { border-bottom: 1px solid $c-hair; }
+    &:first-of-type { border-top: 1px solid $c-hair; }
 
     &__toggle {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
+      gap: $s-sm;
       width: 100%;
-      padding: 22px 0;
-      background: transparent;
+      padding: $s-lg $s-xl;
+      background: $c-canvas;
       border: 0;
+      border-radius: $r-lg;
       cursor: pointer;
       text-align: left;
 
-      h3 { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; color: $c-ink; margin: 0; }
-      &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+      h3 { font-size: 16px; font-weight: 500; line-height: 1.38; letter-spacing: 0; color: $c-ink; margin: 0; }
+      &:hover { background: $c-cloud; }
+      &:focus-visible { outline: 2px solid $c-blue; outline-offset: -2px; }
     }
 
-    &__icon { font-size: 22px; font-weight: 700; color: $c-gray; flex-shrink: 0; }
+    // Chevron em CSS puro (o markup passou a nao ter glifo).
+    &__icon {
+      width: 9px;
+      height: 9px;
+      flex-shrink: 0;
+      margin: -3px $s-xxs 0 $s-xs;
+      border-right: 2px solid $c-graphite;
+      border-bottom: 2px solid $c-graphite;
+      transform: rotate(45deg);
+      transition: transform 0.18s ease;
+    }
+
+    &--open &__icon { transform: rotate(-135deg); }
 
     &__answer {
-      padding: 0 0 22px;
+      padding: 0 $s-xl $s-lg;
 
-      p { color: $c-gray; font-size: 15.5px; margin: 0; }
+      p { color: $c-charcoal; font-size: 16px; line-height: 1.38; margin: 0; }
     }
   }
 
-  // ---------- CTA FINAL ----------
+  // ---------- CTA FINAL (slab escuro fecha o ritmo) ----------
+  // Guia: toda pagina fecha em faixa escura antes do rodape.
   .cb-final {
-    @extend %wrap;
-    max-width: 820px;
-    padding-top: 78px;
-    padding-bottom: 78px;
+    padding: var(--band-y) $s-xl;
     text-align: center;
-    border-top: 1px solid $c-hair;
-    background: #fff;
+    background: $c-slab;
+    color: $c-on-slab;
+
+    > * { max-width: 820px; margin-left: auto; margin-right: auto; }
 
     h2 {
-      font-size: clamp(30px, 4.4vw, 50px);
-      font-weight: 800;
-      letter-spacing: -0.03em;
-      line-height: 1.04;
-      margin-bottom: 10px;
-      color: $c-ink;
+      font-size: clamp(32px, 4.4vw, 56px);
+      font-weight: 500;
+      letter-spacing: 0;
+      line-height: 1.0;
+      margin-bottom: $s-sm;
+      color: $c-on-slab;
     }
 
-    p { color: $c-gray; font-size: 18px; margin-bottom: 26px; }
+    p { color: rgba(255, 255, 255, 0.72); font-size: 18px; line-height: 1.33; margin-bottom: $s-xl; }
+
+    .cb-cta-sub { color: rgba(255, 255, 255, 0.6); }
   }
 
   // ---------- RESPONSIVO ----------
+  @media (max-width: 1023px) {
+    .cb-hero__grid { grid-template-columns: 1fr; gap: 40px; }
+    // No estreito o painel vem depois do formulario: quem chegou pra
+    // consultar nao precisa rolar por argumento antes de digitar a placa.
+    .cb-hero__side { order: 2; }
+  }
+
   @media (max-width: 860px) {
-    .cb-hero__grid { grid-template-columns: 1fr; gap: 38px; }
-    .cb-cmp-grid { grid-template-columns: 1fr; }
-    .cb-steps { grid-template-columns: 1fr; gap: 30px; }
+    .cb-steps { grid-template-columns: 1fr; gap: $s-xxl; }
     .cb-plate-panel { max-width: none; }
   }
 }
-
 // v2.0 herói web: split de 2 colunas. No mobile (e no PWA) empilha em coluna
 // única — a "tira" de sempre. O split só ganha largura extra no desktop web.
 .hero-split {

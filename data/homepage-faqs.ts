@@ -3,29 +3,54 @@ export interface HomepageFaq {
   answer: string
 }
 
+// Alimenta o acordeao da home E o schema.org FAQPage. Resposta errada aqui vira
+// rich result errado no Google, entao vale so o que e verdade do produto.
+//
+// Regras de copy (.agents/product-marketing.md): nao nomear a fonte dos dados,
+// nada de travessao, nenhum numero que o dono nao tenha confirmado.
 export const homepageFaqs: HomepageFaq[] = [
   {
     question: 'O que é o PlacaCompleta?',
-    answer: 'O PlacaCompleta é um serviço online e gratuito de consulta veicular. Basta digitar a placa do veículo para receber dados completos como marca, modelo, ano, cor, valor FIPE, situação e muito mais diretamente no seu e-mail.',
+    answer: 'É uma consulta veicular por placa. Você digita a placa e vê na hora o que o carro é. Se quiser ir além, os níveis pagos mostram o que ele carrega: restrição, roubo e furto, passagem por leilão, gravame e a ficha completa. Sem cadastro e sem assinatura.',
   },
   {
-    question: 'A consulta é realmente grátis?',
-    answer: 'Sim, 100% grátis. Não cobramos nada, não exigimos cadastro e não há limite de consultas. Os dados são enviados direto no seu e-mail em segundos.',
+    question: 'A consulta é grátis?',
+    answer: 'A primeira olhada é. A consulta grátis mostra marca, modelo, ano, cor, situação, valor FIPE, seguro estimado e custo em 5 anos. Quem precisa de mais tem dois níveis pagos: a consulta básica, por R$ 19,90, traz a ficha técnica completa com chassi e Renavam; o relatório completo, por R$ 44,90, traz também restrição, roubo e furto, leilão, gravame, bloqueio judicial e indicador de multas.',
   },
   {
-    question: 'Quais dados eu recebo na consulta?',
-    answer: 'Você recebe marca, modelo, ano de fabricação e modelo, cor, valor atualizado na tabela FIPE, município e estado de registro, situação do veículo, chassi parcial, tipo de combustível, espécie, quantidade de passageiros e mais.',
+    question: 'Quais as formas de pagamento?',
+    answer: 'Só Pix. É pagamento único, na hora, sem assinatura e sem guardar cartão. Assim que o Pix cai, o link do relatório libera sozinho.',
   },
   {
-    question: 'Como funciona a consulta por placa?',
-    answer: 'É simples: digite a placa do veículo no formato ABC1D23 ou ABC1234, informe seu e-mail e clique em consultar. Em segundos você recebe todos os dados no e-mail informado.',
+    question: 'Preciso criar conta ou assinar alguma coisa?',
+    answer: 'Não. Não tem cadastro, senha nem mensalidade. Você paga uma vez pela consulta que fez. O link do relatório fica salvo no seu navegador para reabrir depois, no mesmo aparelho.',
+  },
+  {
+    question: 'Quanto tempo leva para o relatório ficar pronto?',
+    answer: 'Segundos, na maioria das vezes. O sistema funciona 24 horas por dia, todo dia: você não depende de horário comercial nem entra em fila.',
+  },
+  {
+    question: 'Paguei no Pix e o relatório não abriu. O que faço?',
+    answer: 'Aguarde alguns instantes e recarregue a página: o relatório libera sozinho assim que o pagamento é confirmado. Se você fechou a aba, o link fica salvo no histórico do seu navegador, no mesmo aparelho. Se ainda assim não abrir, fale com a gente pelo contato do rodapé.',
+  },
+  {
+    question: 'E se vocês não acharem o veículo?',
+    answer: 'O valor volta pelo Pix automaticamente. Você não paga por uma consulta que não trouxe resultado.',
+  },
+  {
+    question: 'Dá para descobrir o nome ou o endereço do dono pela placa?',
+    answer: 'Não. Dado pessoal do proprietário é protegido por lei e não entra em nenhum dos nossos relatórios. O que você recebe é a situação do veículo, não a identificação de quem está no documento.',
+  },
+  {
+    question: 'Consigo consultar um veículo antigo?',
+    answer: 'Na maioria dos casos, sim. Veículos muito antigos podem ter registro incompleto, porque o cadastro nacional é mais recente do que eles. Se não acharmos o veículo, o valor é estornado automaticamente.',
+  },
+  {
+    question: 'A consulta vale para todo o Brasil e qualquer veículo?',
+    answer: 'Sim. A busca é nacional e aceita placa antiga (ABC1234) e Mercosul (ABC1D23), para carro, moto, caminhão, ônibus, van e qualquer veículo registrado no país.',
   },
   {
     question: 'Meus dados estão seguros?',
-    answer: 'Sim. Seu e-mail é utilizado apenas para enviar o resultado da consulta. Não compartilhamos suas informações com terceiros e seguimos as diretrizes da LGPD.',
-  },
-  {
-    question: 'Posso consultar qualquer tipo de veículo?',
-    answer: 'Sim, o PlacaCompleta consulta carros, motos, caminhões, ônibus, vans e qualquer veículo registrado no Brasil com placa no formato padrão ou Mercosul.',
+    answer: 'Sim. Seu e-mail serve apenas para enviar o resultado da consulta e o link do relatório é privado, só seu. Não vendemos nem compartilhamos suas informações, e seguimos a LGPD.',
   },
 ]
