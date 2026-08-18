@@ -11,8 +11,12 @@ import { lookupIpGeo } from '../utils/ip-geo'
  */
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const { phone, placa, veiculo, seguro, consultaId } = body || {}
+  const { phone, placa, veiculo, seguro, consultaId, origem } = body || {}
   let { email } = body || {}
+
+  // origem do lead: 'premium' quando vem do relatorio pago (usuario ja pagou,
+  // intencao mais alta); 'gratis' e o default (modal pos-consulta gratuita).
+  const origemLead = origem === 'premium' ? 'premium' : 'gratis'
 
   const normalizedPhone = phone ? normalizePhoneForWhatsApp(String(phone)) : null
   if (!normalizedPhone) {
@@ -65,6 +69,7 @@ export default defineEventHandler(async (event) => {
     regiao_code: seguro?.regiao?.codigo ? String(seguro.regiao.codigo).slice(0, 4) : null,
     premio_estimado: typeof seguro?.premioAnual === 'number' ? seguro.premioAnual : null,
     franquia_estimada: typeof seguro?.franquia === 'number' ? seguro.franquia : null,
+    origem: origemLead,
   }
 
   const { error } = await supabase.from('cotacoes_seguro').insert(row)
@@ -90,13 +95,18 @@ async function notifyLead(row: {
   franquia_estimada: number | null
   regiao_code: string | null
   cidade: string | null
+  origem: string
 }) {
   const config = useRuntimeConfig()
   const veiculo = [row.marca, row.modelo, row.ano_modelo].filter(Boolean).join(' ')
   const premio = row.premio_estimado ? `R$ ${row.premio_estimado.toFixed(2)}` : '-'
   const fone = `+${row.phone}`
+  const isPremium = row.origem === 'premium'
+  // lead premium = usuario que pagou o relatorio: sinaliza no topo pra priorizar
+  const selo = isPremium ? 'PREMIUM (consulta paga)' : 'gratis'
 
   const resumo = [
+    `Origem: ${selo}`,
     `Veículo: ${veiculo || row.placa || '-'}`,
     `Placa: ${row.placa || '-'}`,
     `Telefone: ${fone}`,
@@ -111,7 +121,7 @@ async function notifyLead(row: {
     await resend.emails.send({
       from: 'PlacaCompleta Leads <leads@placacompleta.com.br>',
       to: 'cesar.bhering@placacompleta.com.br',
-      subject: `🔥 Lead de seguro: ${veiculo || row.placa} — ${fone}`,
+      subject: `${isPremium ? '⭐🔥 Lead PREMIUM' : '🔥 Lead'} de seguro: ${veiculo || row.placa} · ${fone}`,
       text: `Novo pedido de cotação real de seguro:\n\n${resumo}\n\nStatus no Supabase: cotacoes_seguro (marcar como contatado depois).`,
     })
   } catch (e: any) {
@@ -121,7 +131,7 @@ async function notifyLead(row: {
   // WhatsApp pro corretor (env SEGURO_LEAD_NOTIFY_PHONE; ausente = pula)
   const notifyPhone = process.env.SEGURO_LEAD_NOTIFY_PHONE
   if (notifyPhone) {
-    const r = await sendWhatsAppText(notifyPhone, `🔥 Lead de seguro!\n\n${resumo}`)
+    const r = await sendWhatsAppText(notifyPhone, `${isPremium ? '⭐ Lead PREMIUM de seguro!' : '🔥 Lead de seguro!'}\n\n${resumo}`)
     if (!r.ok) console.warn('[cotacao-seguro] whatsapp de notificacao falhou:', r.error)
   }
 }

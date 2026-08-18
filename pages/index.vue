@@ -136,6 +136,39 @@ const photoProcessMessage = ref('')
 
 const placaRef = ref<HTMLInputElement | null>(null)
 const formStarted = ref(false)
+
+// v2.0 herói web (não-PWA): CTA primário abre o checkout premium inline (overlay).
+// Reusa a mesma placa do input. O fluxo grátis (handleSubmit) vira link secundário.
+const showPremiumCheckout = ref(false)
+const premiumPlaca = ref('')
+
+function openPremiumCheckout() {
+  placaError.value = ''
+  if (!validatePlaca(placa.value)) {
+    placaError.value = 'Placa inválida. Use o formato ABC1D23 ou ABC1234.'
+    track('form_validation_error', { error_field: 'placa', origin: 'premium_cta' })
+    nextTick(() => placaRef.value?.focus())
+    return
+  }
+  premiumPlaca.value = placa.value
+  showPremiumCheckout.value = true
+  track('premium_checkout_open', { origin: 'home_hero' })
+}
+
+// CTA "Consultar agora" do grid de Preço: leva o foco ao input do herói e
+// abre o checkout premium (openPremiumCheckout valida/foca se a placa faltar).
+function consultFromGrid() {
+  placaRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  openPremiumCheckout()
+}
+
+// CTA "Fazer consulta grátis" (card básico do compare): leva o foco ao input do
+// herói para o usuário digitar e disparar o fluxo grátis (handleSubmit) pelo form.
+function scrollToPlaca() {
+  placaRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  nextTick(() => placaRef.value?.focus())
+}
+
 const permissionRequested = ref(false)
 const modalWindowRef = ref<HTMLElement | null>(null)
 const preparingShare = ref(false)
@@ -274,6 +307,22 @@ if (import.meta.client) {
       .catch(() => { /* keep SSR value */ })
   })
 }
+
+// OG proprio da home (novo momento: temos um produto pago a vender). O <title>
+// segue otimizado pra busca ("gratis", traz o organico); o card social e a
+// pagina e que vendem o relatorio completo. Sem revelar fonte dos dados.
+useSeoMeta({
+  ogTitle: 'PlacaCompleta · Relatório completo do veículo pela placa',
+  ogDescription: 'Restrições, roubo/furto, gravame, leilão, recall, ficha completa, FIPE, seguro e custo em 5 anos. Pagamento único no Pix, resultado na hora. Consulta básica grátis por e-mail.',
+  ogImage: 'https://placacompleta.com.br/og-home.png',
+  ogImageWidth: 1200,
+  ogImageHeight: 630,
+  ogImageAlt: 'PlacaCompleta: relatório completo do veículo pela placa',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'PlacaCompleta · Relatório completo do veículo pela placa',
+  twitterDescription: 'Restrições, roubo/furto, gravame, leilão, recall, FIPE, seguro e custo em 5 anos. Pagamento único no Pix, resultado na hora.',
+  twitterImage: 'https://placacompleta.com.br/og-home.png',
+})
 
 useHead({
   // Web: title com keyword pro SERP (a homepage ranqueia pra "consulta placa"
@@ -850,12 +899,281 @@ function applyEmailSuggestion() {
 </script>
 
 <template>
-  <main class="desktop">
-      <div class="win-window">
+  <main class="desktop" :class="{ 'desktop--hero-web': !isPWA, 'home-v2': !isPWA }">
+    <span id="top" class="anchor-top" aria-hidden="true" />
+
+    <!-- =======================================================
+         WEB (combo 3): herói acolhedor + editorial. PWA intacto abaixo.
+         ======================================================= -->
+    <template v-if="!isPWA">
+      <!-- utility-strip fino -->
+      <div class="cb-utility">
+        <div class="cb-utility__inner">Pagamento via Pix · resultado na hora · sem cadastro</div>
+      </div>
+
+      <!-- nav (slab navy) -->
+      <HomeHeader @consult="consultFromGrid" />
+
+      <!-- ===== HERO ===== -->
+      <header id="hero" class="cb-hero">
+        <div class="cb-hero__grid">
+          <!-- LEFT: título + placa + CTA -->
+          <div class="cb-hero__left">
+            <h1 class="cb-h1">
+              O anúncio mostra o carro.<br>
+              <span class="cb-accent">O relatório mostra o resto.</span>
+            </h1>
+            <p class="cb-sub">
+              Restrição, roubo, gravame, leilão, dívida. <b>O que o vendedor não conta, a placa revela.</b>
+            </p>
+
+            <form class="cb-plate-panel" @submit.prevent="handleSubmit" novalidate role="search" aria-label="Consulta veicular por placa">
+              <label class="cb-plate-label" for="placa">Digite a placa do veículo</label>
+              <div class="plate-field cb-plate" :class="{ 'plate-field--error': placaError }">
+                <div class="plate-field__band cb-plate__band">
+                  <span class="cb-plate__flag" aria-hidden="true">★ ★ ★</span>
+                  <span class="plate-field__country cb-plate__country">BRASIL</span>
+                </div>
+                <input
+                  id="placa"
+                  ref="placaRef"
+                  :value="placa"
+                  type="text"
+                  class="plate-field__input cb-plate__input"
+                  placeholder="ABC1D23"
+                  maxlength="7"
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  inputmode="text"
+                  required
+                  aria-describedby="placa-help"
+                  @focus="onFormStart"
+                  @input="onPlacaInput"
+                />
+              </div>
+              <small id="placa-help" class="cb-plate-help">Aceita placa antiga (ABC1234) e Mercosul (ABC1D23)</small>
+              <span v-if="placaError" class="form-group__error cb-error" role="alert">{{ placaError }}</span>
+
+              <template v-if="!loading">
+                <button type="button" class="cb-btn cb-btn--blue cb-btn--lg cb-btn--block" @click="openPremiumCheckout">
+                  Ver relatório completo · R$ 45
+                </button>
+                <div class="cb-cta-sub">Pix · na hora · sem cadastro</div>
+                <button type="submit" class="cb-free-link">
+                  ou faça a <u>consulta básica grátis por e-mail</u>
+                </button>
+              </template>
+
+              <div v-if="loading" class="loading-bar"><div class="loading-bar__fill" /></div>
+              <Transition name="stage" mode="out-in">
+                <p v-if="loading && consultaStage" :key="consultaStage" class="loading-stage">{{ consultaStage }}</p>
+              </Transition>
+
+              <div v-if="message" class="win-alert cb-alert" :class="`win-alert--${messageType}`">
+                {{ message }}
+                <button
+                  v-if="emailSuggestion"
+                  type="button"
+                  class="email-suggestion-btn"
+                  @click="applyEmailSuggestion"
+                >
+                  Você quis dizer <strong>{{ emailSuggestion }}</strong>? Clique para corrigir.
+                </button>
+              </div>
+
+              <div v-if="success" class="cb-success">
+                <div class="win-alert win-alert--success">{{ message }}</div>
+                <p class="success-state__sent-to">Enviado para <strong>{{ sentToEmail }}</strong></p>
+                <button v-if="shareInfo" type="button" class="cb-btn cb-btn--ghost cb-btn--block" @click="shareWhatsApp">
+                  Compartilhar no WhatsApp
+                </button>
+                <button type="button" class="cb-btn cb-btn--blue cb-btn--block" @click="resetForm">
+                  Consultar outra placa
+                </button>
+              </div>
+
+              <div class="cb-seal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                Estorno automático se não achar o veículo
+              </div>
+            </form>
+
+            <div class="cb-trust">
+              <span><i class="cb-dot" />Pix</span>
+              <span><i class="cb-dot" />na hora</span>
+              <span><i class="cb-dot" />link privado</span>
+              <span><i class="cb-dot" />sem cadastro</span>
+            </div>
+          </div>
+
+          <!-- RIGHT: prévia do relatório -->
+          <aside class="cb-report-col" aria-label="Prévia do relatório">
+            <HomeReportPreview />
+          </aside>
+        </div>
+      </header>
+
+      <!-- ===== COMPARE: grátis vs completo ===== -->
+      <section id="o-que-inclui" class="cb-compare">
+        <div class="cb-cmp-head">
+          <h2>Duas formas de olhar a placa</h2>
+          <p>A grátis te diz o que é o carro. A completa te diz se dá pra confiar.</p>
+        </div>
+        <div class="cb-cmp-grid">
+          <div class="cb-cmp-card">
+            <div class="cb-cmp-kick">Consulta básica</div>
+            <div class="cb-cmp-price">Grátis <small>por e-mail</small></div>
+            <div class="cb-cmp-note">O retrato do veículo, sem custo.</div>
+            <ul class="cb-cmp-list">
+              <li><span class="cb-tick cb-tick--green" aria-hidden="true" />Marca, modelo e ano</li>
+              <li><span class="cb-tick cb-tick--green" aria-hidden="true" />Cor</li>
+              <li><span class="cb-tick cb-tick--green" aria-hidden="true" />Valor FIPE</li>
+              <li><span class="cb-tick cb-tick--green" aria-hidden="true" />Situação do veículo</li>
+            </ul>
+            <button type="button" class="cb-btn cb-btn--ghost cb-btn--block cb-cmp-cta" @click="scrollToPlaca">
+              Fazer consulta grátis
+            </button>
+          </div>
+          <div class="cb-cmp-card cb-cmp-card--hi">
+            <div class="cb-cmp-kick">Relatório completo</div>
+            <div class="cb-cmp-price">R$ 45 <small>Pix, uma vez</small></div>
+            <div class="cb-cmp-note">Tudo da básica, mais o que decide a compra.</div>
+            <ul class="cb-cmp-list">
+              <li><span class="cb-tick cb-tick--blue" aria-hidden="true" />Restrições nacionais e estaduais</li>
+              <li><span class="cb-tick cb-tick--blue" aria-hidden="true" />Roubo, furto, leilão e gravame</li>
+              <li><span class="cb-tick cb-tick--blue" aria-hidden="true" />RENAJUD, recall e indicador de multas</li>
+              <li><span class="cb-tick cb-tick--blue" aria-hidden="true" />Ficha técnica: chassi e Renavam</li>
+              <li><span class="cb-tick cb-tick--blue" aria-hidden="true" />Seguro estimado e custo em 5 anos</li>
+            </ul>
+            <button type="button" class="cb-btn cb-btn--blue cb-btn--block cb-cmp-cta" @click="consultFromGrid">
+              Ver relatório completo · R$ 45
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== STATEMENT ===== -->
+      <section class="cb-statement">
+        <p class="cb-big-decl">
+          O carro parece perfeito. <span class="cb-mut">Até você olhar a</span> <span class="cb-accent">placa.</span>
+        </p>
+      </section>
+
+      <!-- ===== COMO FUNCIONA (números gigantes) ===== -->
+      <section id="como-funciona" class="cb-how">
+        <h2>Como funciona</h2>
+        <div class="cb-steps">
+          <div class="cb-step">
+            <div class="cb-num">01</div>
+            <h3>Digite a placa</h3>
+            <p>Sem cadastro, sem conta. Só a placa que está no anúncio.</p>
+          </div>
+          <div class="cb-step">
+            <div class="cb-num">02</div>
+            <h3>Pague no Pix</h3>
+            <p>R$ 45, uma vez. Sem assinatura, sem pegadinha na renovação.</p>
+          </div>
+          <div class="cb-step">
+            <div class="cb-num">03</div>
+            <h3>Receba na hora</h3>
+            <p>Link privado com o relatório completo, direto no seu aparelho.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== DOCUMENTO REVELADO ===== -->
+      <section class="cb-doc">
+        <div class="cb-doc__in">
+          <div class="cb-doc-kick">O documento revelado</div>
+          <h2>Tudo que a placa carrega, num relatório só.</h2>
+          <p class="cb-doc-lead">
+            A grátis te diz o que é o carro. A completa te diz se dá pra confiar. R$ 45, uma vez. Não achou? Estorno.
+          </p>
+          <div class="cb-doc-tags">
+            <span class="cb-doc-tag"><i class="cb-d2" />Restrições nacionais e estaduais</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />Roubo e furto</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />Leilão</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />Gravame</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />RENAJUD</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />Recall</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />Indicador de multas</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />Chassi e Renavam</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />FIPE</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />Seguro estimado</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />Custo em 5 anos</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== MANIFESTO ===== -->
+      <section class="cb-manifesto">
+        <p>A gente existe por um motivo: pra você <span class="cb-accent">não comprar problema.</span></p>
+      </section>
+
+      <!-- ===== PREÇO + GARANTIA ===== -->
+      <section id="preco" class="cb-price">
+        <div class="cb-price-card">
+          <p class="cb-price-big">R$ 45 <span class="cb-mut">para não perder</span> R$ 45 mil.</p>
+          <div class="cb-guar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+            Não achou o veículo? Estorno automático no Pix.
+          </div>
+          <button type="button" class="cb-btn cb-btn--blue cb-btn--lg" @click="consultFromGrid">
+            Consultar agora · R$ 45
+          </button>
+          <div class="cb-cta-sub">Pix · na hora · sem cadastro</div>
+        </div>
+      </section>
+
+      <!-- Suas consultas: histórico local do navegador (não renderiza quando vazio) -->
+      <ClientOnly>
+        <ConsultasHistory style="display:block;margin:0 auto 40px;max-width:760px" />
+      </ClientOnly>
+
+      <!-- ===== FAQ ===== -->
+      <section id="duvidas" class="cb-faq" aria-labelledby="faq-heading">
+        <h2 id="faq-heading">Perguntas diretas</h2>
+        <article
+          v-for="(faq, index) in homepageFaqs"
+          :key="faq.question"
+          class="cb-qa"
+          :class="{ 'cb-qa--open': openFaq === index }"
+        >
+          <button
+            class="cb-qa__toggle"
+            :aria-expanded="openFaq === index ? 'true' : 'false'"
+            :aria-controls="`faq-answer-${index}`"
+            @click="openFaq = openFaq === index ? null : index"
+          >
+            <h3>{{ faq.question }}</h3>
+            <span class="cb-qa__icon" aria-hidden="true">{{ openFaq === index ? '−' : '+' }}</span>
+          </button>
+          <div v-show="openFaq === index" :id="`faq-answer-${index}`" class="cb-qa__answer" role="region">
+            <p>{{ faq.answer }}</p>
+          </div>
+        </article>
+      </section>
+
+      <!-- ===== CTA FINAL ===== -->
+      <section class="cb-final">
+        <h2>Antes de fechar negócio, olhe a placa.</h2>
+        <p>O que o vendedor não conta, o relatório revela. R$ 45, na hora, no Pix.</p>
+        <button type="button" class="cb-btn cb-btn--blue cb-btn--lg" @click="consultFromGrid">
+          Ver relatório completo · R$ 45
+        </button>
+        <div class="cb-cta-sub">ou faça a consulta básica grátis por e-mail</div>
+      </section>
+    </template>
+
+    <!-- =======================================================
+         PWA (inalterado): fluxo grátis direto.
+         ======================================================= -->
+    <div v-else class="hero-split">
+      <div class="win-window hero-split__action">
       <div class="win-window__titlebar">
         <span>{{ appTitle }}</span>
         <div class="win-window__titlebar-buttons">
-          <span v-if="isPWA && email" class="win-window__titlebar-btn win-window__titlebar-btn--active" @click="changePwaEmail" title="Alterar e-mail">✉</span>
+          <span v-if="email" class="win-window__titlebar-btn win-window__titlebar-btn--active" @click="changePwaEmail" title="Alterar e-mail">✉</span>
           <span class="win-window__titlebar-btn">_</span>
           <span class="win-window__titlebar-btn">&square;</span>
           <span class="win-window__titlebar-btn">&times;</span>
@@ -887,13 +1205,13 @@ function applyEmailSuggestion() {
 
         <form v-if="!success" @submit.prevent="handleSubmit" novalidate role="search" aria-label="Consulta veicular por placa">
           <div v-if="!processingPhoto && !loading" class="form-group">
-            <label class="form-group__label visually-hidden" for="placa">Placa do Veículo</label>
+            <label class="form-group__label visually-hidden" for="placa-pwa">Placa do Veículo</label>
             <div class="plate-field" :class="{ 'plate-field--error': placaError }">
               <div class="plate-field__band">
                 <span class="plate-field__country">BRASIL</span>
               </div>
               <input
-                id="placa"
+                id="placa-pwa"
                 ref="placaRef"
                 :value="placa"
                 type="text"
@@ -904,65 +1222,31 @@ function applyEmailSuggestion() {
                 autocapitalize="characters"
                 inputmode="text"
                 required
-                aria-describedby="placa-help"
+                aria-describedby="placa-help-pwa"
                 @focus="onFormStart"
                 @input="onPlacaInput"
               />
             </div>
-            <small id="placa-help" class="form-group__help">Aceita placa antiga (ABC1234) e Mercosul (ABC1D23)</small>
+            <small id="placa-help-pwa" class="form-group__help">Aceita placa antiga (ABC1234) e Mercosul (ABC1D23)</small>
             <span v-if="placaError" class="form-group__error" role="alert">{{ placaError }}</span>
           </div>
 
-          <button
-            v-if="!processingPhoto && !loading"
-            type="submit"
-            class="win-btn win-btn--primary win-btn--block cta-main"
-            :disabled="loading"
-          >
-            Consultar Placa Grátis
-          </button>
+          <template v-if="!processingPhoto && !loading">
+            <button
+              type="submit"
+              class="win-btn win-btn--primary win-btn--block cta-main"
+              :disabled="loading"
+            >
+              Consultar Placa Grátis
+            </button>
 
-          <p v-if="!processingPhoto && !loading" class="trust-line trust-line--cta">
-            100% grátis &middot; Sem cadastro &middot; Resultado em segundos
-          </p>
-
-          <div v-if="!isPWA && !processingPhoto && !loading" class="options-row">
-            <span class="options-row__caption">Incluir no resultado:</span>
-
-            <label class="fipe-chart-option">
-              <input
-                type="checkbox"
-                v-model="includeFipeChart"
-                class="fipe-chart-option__checkbox"
-              />
-              <span class="fipe-chart-option__label">Gráfico FIPE</span>
-              <span class="fipe-chart-option__tooltip" data-tip="Inclui no e-mail um gráfico com a evolução do preço FIPE do veículo nos últimos meses">?</span>
-            </label>
-
-            <label class="fipe-chart-option">
-              <input
-                type="checkbox"
-                v-model="includeIcv5"
-                class="fipe-chart-option__checkbox"
-              />
-              <span class="fipe-chart-option__label">Custo 5 anos (ICV5)</span>
-              <span class="fipe-chart-option__tooltip" data-tip="Calcula uma estimativa do custo total para manter este veículo nos próximos 5 anos, incluindo manutenção e IPVA">?</span>
-            </label>
-
-            <div v-if="includeIcv5" class="uf-select-group">
-              <label class="uf-select-group__label" for="icv5-uf">UF</label>
-              <select
-                id="icv5-uf"
-                v-model="icv5Uf"
-                class="win-input uf-select-group__select"
-              >
-                <option v-for="u in ufOptions" :key="u" :value="u">{{ u }}</option>
-              </select>
-            </div>
-          </div>
+            <p class="trust-line trust-line--cta">
+              100% grátis &middot; Sem cadastro &middot; Resultado em segundos
+            </p>
+          </template>
 
           <!-- Photo Capture for PWA -->
-          <div v-if="isPWA && !processingPhoto && !loading">
+          <div v-if="!processingPhoto && !loading">
             <input
               ref="photoInput"
               type="file"
@@ -1041,74 +1325,9 @@ function applyEmailSuggestion() {
             Consultar Outra Placa
           </button>
         </div>
-
-        <!-- Sample result preview (so na landing; some no loading/sucesso) -->
-        <div v-if="!isPWA && !success && !loading && !processingPhoto" class="sample-preview">
-          <p class="sample-preview__title">O que você recebe na consulta:</p>
-          <div class="sample-preview__table">
-            <div class="sample-preview__row">
-              <span class="sample-preview__label">Marca</span>
-              <span class="sample-preview__value">Honda</span>
-            </div>
-            <div class="sample-preview__row">
-              <span class="sample-preview__label">Modelo</span>
-              <span class="sample-preview__value">HR-V EXL 1.8</span>
-            </div>
-            <div class="sample-preview__row">
-              <span class="sample-preview__label">Ano</span>
-              <span class="sample-preview__value">2021/2021</span>
-            </div>
-            <div class="sample-preview__row">
-              <span class="sample-preview__label">Cor</span>
-              <span class="sample-preview__value">Branco</span>
-            </div>
-            <div class="sample-preview__row">
-              <span class="sample-preview__label">FIPE</span>
-              <span class="sample-preview__value">R$ 113.297,00</span>
-            </div>
-            <div class="sample-preview__row">
-              <span class="sample-preview__label">Situação</span>
-              <span class="sample-preview__value">Sem restrição</span>
-            </div>
-          </div>
-          <p class="sample-preview__note">+ chassi, combustível, município, tipo e mais</p>
-        </div>
-
       </div>
     </div>
-
-    <!-- FAQ Section (web only) - separate win-window -->
-    <section v-if="!isPWA" class="win-window faq-window" aria-labelledby="faq-heading">
-      <div class="win-window__titlebar">
-        <h2 id="faq-heading" class="win-window__titlebar-text">Perguntas Frequentes</h2>
-        <div class="win-window__titlebar-buttons">
-          <span class="win-window__titlebar-btn">_</span>
-          <span class="win-window__titlebar-btn">&square;</span>
-          <span class="win-window__titlebar-btn">&times;</span>
-        </div>
-      </div>
-      <div class="win-window__body faq-body">
-        <article
-          v-for="(faq, index) in homepageFaqs"
-          :key="faq.question"
-          class="faq-item"
-          :class="{ 'faq-item--open': openFaq === index }"
-        >
-          <button
-            class="faq-item__toggle"
-            :aria-expanded="openFaq === index ? 'true' : 'false'"
-            :aria-controls="`faq-answer-${index}`"
-            @click="openFaq = openFaq === index ? null : index"
-          >
-            <span class="faq-item__icon">{{ openFaq === index ? '−' : '+' }}</span>
-            <h3>{{ faq.question }}</h3>
-          </button>
-          <div v-show="openFaq === index" :id="`faq-answer-${index}`" class="faq-item__answer" role="region">
-            <p>{{ faq.answer }}</p>
-          </div>
-        </article>
-      </div>
-    </section>
+    </div>
 
     <!-- Data Modal for PWA -->
     <div v-if="showSeguroModal && seguroEstimado" class="modal-overlay" @click="dismissSeguroModal">
@@ -1420,10 +1639,720 @@ function applyEmailSuggestion() {
       </div>
     </div>
 
+    <!-- Checkout premium inline (overlay): roda o fluxo pago sem sair da home -->
+    <PremiumInlineCheckout
+      v-if="showPremiumCheckout"
+      :placa="premiumPlaca"
+      @close="showPremiumCheckout = false"
+    />
+
   </main>
 </template>
 
 <style lang="scss" scoped>
+// ============================================================
+// home-v2: escopo do visual do MOCKUP aprovado (só na home web).
+// Hexes hardcoded do mockup; NÃO altera tokens globais nem outras páginas.
+// Overrides de .win-window / .win-btn / FAQ ficam sob .home-v2 via :deep().
+// ============================================================
+.home-v2 {
+  // ---- Paleta combo 3 (clara/quente). Hexes hardcoded do mockup; NÃO altera
+  // tokens globais nem o body. Escopado sob .home-v2 (só a home web). ----
+  $c-bg: #FBFAF8;
+  $c-card: #ffffff;
+  $c-ink: #1B2430;
+  $c-gray: #6B7280;
+  $c-blue: #1f6feb;
+  $c-green: #1e9e4a;
+  $c-red: #d33a3a;
+  $c-hair: #E7E5E1;
+  $c-navy: #0B1F3A;
+
+  $c-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  // A home vira uma "folha" clara sobre o body. Full-bleed, sem cartão arredondado.
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: $c-bg;
+  color: $c-ink;
+  font-family: $c-font;
+  line-height: 1.6;
+  text-align: left;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+
+  @media (min-width: 860px) { max-width: none; }
+  @media (max-width: 520px) { border-radius: 0; padding: 0; margin: 0; }
+
+  // Wrapper de largura padrão de cada seção
+  %wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+  // ---------- BOTÕES ----------
+  .cb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-family: $c-font;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 0;
+    font-size: 15px;
+    line-height: 1.15;
+    padding: 13px 20px;
+    transition: filter 0.15s ease;
+    text-decoration: none;
+
+    &:hover { filter: brightness(1.05); }
+    &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+
+    &--blue { background: $c-blue; color: #fff; }
+    &--ghost { background: #fff; color: $c-ink; border: 1px solid $c-hair; }
+    &--lg { padding: 17px 26px; font-size: 16.5px; border-radius: 11px; }
+    &--block { display: flex; width: 100%; }
+  }
+
+  // ---------- UTILITY STRIP ----------
+  .cb-utility {
+    background: $c-navy;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+
+    &__inner { @extend %wrap; padding-top: 9px; padding-bottom: 9px; text-align: center; }
+  }
+
+  // ---------- NAV (HomeHeader reestilizado combo 3) ----------
+  :deep(.home-header) {
+    max-width: 1160px;
+    margin: 0 auto;
+    background: $c-navy;
+    border-radius: 0;
+    box-shadow: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 16px 24px;
+  }
+  :deep(.home-header__nav) { gap: 26px; }
+  :deep(.home-header__link) { font-size: 15px; font-weight: 600; }
+
+  // ---------- HERO ----------
+  .cb-hero {
+    @extend %wrap;
+    padding-top: 58px;
+    padding-bottom: 68px;
+
+    &__grid {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 52px;
+      align-items: start;
+    }
+  }
+
+  .cb-h1 {
+    font-size: clamp(34px, 4.6vw, 54px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.04;
+    margin-bottom: 20px;
+    color: $c-ink;
+  }
+
+  .cb-accent { color: $c-blue; }
+  .cb-mut { color: $c-gray; }
+
+  .cb-sub {
+    font-size: 19px;
+    color: $c-gray;
+    max-width: 520px;
+    margin-bottom: 28px;
+
+    b { color: $c-ink; font-weight: 600; }
+  }
+
+  // Painel da placa (card branco)
+  .cb-plate-panel {
+    background: $c-card;
+    border: 1px solid $c-hair;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(27, 36, 48, 0.05), 0 8px 26px rgba(27, 36, 48, 0.05);
+    padding: 22px;
+    max-width: 520px;
+  }
+
+  .cb-plate-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    color: $c-gray;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+
+  // Placa Mercosul: reusa .plate-field mas com o visual combo 3 (banda navy)
+  .cb-plate {
+    max-width: none;
+    margin: 0;
+    border: 2px solid $c-navy;
+    border-radius: 9px;
+    box-shadow: none;
+
+    &:focus-within {
+      border-color: $c-blue;
+      box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.18);
+    }
+
+    &.plate-field--error { border-color: $c-red; }
+
+    &__band {
+      background: $c-navy;
+      flex-direction: column;
+      padding: 0 12px;
+    }
+
+    &__flag {
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+    }
+
+    &__country { color: #fff; font-size: 13px; font-weight: 800; letter-spacing: 0.1em; }
+
+    &__input {
+      font-family: $c-font;
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      color: $c-navy;
+      padding: 16px 8px;
+
+      &::placeholder { color: #c8cdd4; letter-spacing: 0.14em; }
+    }
+  }
+
+  .cb-plate-help { display: block; font-size: 12px; color: $c-gray; margin-top: 8px; }
+  .cb-error { display: block; color: $c-red; font-size: 13px; margin-top: 6px; }
+
+  .cb-plate-panel .cb-btn--block { margin-top: 16px; }
+  .cb-cta-sub { font-size: 13.5px; color: $c-gray; text-align: center; margin-top: 8px; }
+
+  .cb-free-link {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    padding: 4px 0;
+    background: transparent;
+    border: 0;
+    font-family: $c-font;
+    font-size: 15px;
+    font-weight: 600;
+    color: $c-blue;
+    text-align: center;
+    cursor: pointer;
+
+    u { text-decoration-thickness: 1px; text-underline-offset: 2px; }
+    &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+  }
+
+  .cb-alert { margin-top: 14px; }
+  .cb-success { margin-top: 14px; text-align: center; }
+
+  .cb-seal {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(30, 158, 74, 0.09);
+    color: $c-green;
+    border: 1px solid rgba(30, 158, 74, 0.25);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 13.5px;
+    font-weight: 700;
+    margin-top: 16px;
+
+    svg { width: 16px; height: 16px; }
+  }
+
+  .cb-trust {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    margin-top: 22px;
+    font-size: 13.5px;
+    color: $c-gray;
+    font-weight: 500;
+
+    span { display: inline-flex; align-items: center; gap: 7px; }
+  }
+
+  .cb-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: $c-green;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  // Coluna direita: prévia do relatório (HomeReportPreview) num card branco
+  .cb-report-col {
+    background: $c-card;
+    border: 1px solid $c-hair;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(27, 36, 48, 0.05), 0 10px 30px rgba(27, 36, 48, 0.06);
+    padding: 20px;
+  }
+
+  // ---------- COMPARE ----------
+  .cb-compare {
+    @extend %wrap;
+    padding-top: 12px;
+    padding-bottom: 76px;
+  }
+
+  .cb-cmp-head {
+    text-align: center;
+    max-width: 640px;
+    margin: 0 auto 34px;
+
+    h2 { font-size: clamp(26px, 3.2vw, 34px); font-weight: 800; letter-spacing: -0.02em; }
+    p { color: $c-gray; font-size: 17px; margin-top: 8px; }
+  }
+
+  .cb-cmp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+    max-width: 920px;
+    margin: 0 auto;
+  }
+
+  .cb-cmp-card {
+    background: $c-card;
+    border: 1px solid $c-hair;
+    border-radius: 12px;
+    padding: 26px;
+    box-shadow: 0 1px 3px rgba(27, 36, 48, 0.04);
+    display: flex;
+    flex-direction: column;
+
+    &--hi {
+      border-color: rgba(31, 111, 235, 0.5);
+      box-shadow: 0 1px 3px rgba(27, 36, 48, 0.05), 0 14px 34px rgba(31, 111, 235, 0.1);
+
+      .cb-cmp-kick { color: $c-blue; }
+    }
+  }
+
+  .cb-cmp-kick {
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $c-gray;
+  }
+
+  .cb-cmp-price {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 6px 0 4px;
+
+    small { font-size: 14px; font-weight: 600; color: $c-gray; }
+  }
+
+  .cb-cmp-note { font-size: 13.5px; color: $c-gray; margin-bottom: 16px; }
+
+  .cb-cmp-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 11px;
+    margin: 0 0 20px;
+    padding: 0;
+
+    li { display: flex; gap: 10px; font-size: 14.5px; align-items: flex-start; }
+  }
+
+  .cb-tick {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    margin-top: 2px;
+    background: no-repeat center / 14px 14px;
+    // Checkmark inline (data-uri) tingido por cor via mask
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") no-repeat center / contain;
+
+    &--green { background-color: $c-green; }
+    &--blue { background-color: $c-blue; }
+  }
+
+  .cb-cmp-cta { margin-top: auto; }
+
+  // ---------- STATEMENT ----------
+  .cb-statement {
+    padding: 82px 0;
+    border-top: 1px solid $c-hair;
+    background: #fff;
+
+    .cb-big-decl {
+      @extend %wrap;
+      max-width: 960px;
+      font-size: clamp(34px, 5.6vw, 66px);
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.02;
+      color: $c-ink;
+    }
+  }
+
+  // ---------- COMO FUNCIONA (números gigantes) ----------
+  .cb-how {
+    @extend %wrap;
+    padding-top: 80px;
+    padding-bottom: 80px;
+
+    h2 {
+      font-size: clamp(26px, 3.4vw, 38px);
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 44px;
+    }
+  }
+
+  .cb-steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 34px;
+  }
+
+  .cb-step {
+    border-top: 2px solid $c-ink;
+    padding-top: 14px;
+
+    h3 { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; margin: 14px 0 8px; }
+    p { color: $c-gray; font-size: 15.5px; }
+  }
+
+  .cb-num {
+    font-size: clamp(56px, 7vw, 84px);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 0.9;
+    color: $c-ink;
+  }
+
+  // ---------- DOCUMENTO REVELADO (slab navy) ----------
+  .cb-doc {
+    padding: 80px 0;
+    background: $c-navy;
+    color: #fff;
+
+    &__in { @extend %wrap; max-width: 980px; }
+  }
+
+  .cb-doc-kick {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #8fb4ff;
+  }
+
+  .cb-doc h2 {
+    font-size: clamp(30px, 4.4vw, 52px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.03;
+    margin: 12px 0 22px;
+  }
+
+  .cb-doc-lead { font-size: 19px; color: #c3ccdb; max-width: 640px; }
+
+  .cb-doc-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 34px;
+  }
+
+  .cb-doc-tag {
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 999px;
+    padding: 11px 18px;
+    font-size: 14.5px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .cb-d2 {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #8fb4ff;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  // ---------- MANIFESTO ----------
+  .cb-manifesto {
+    padding: 88px 24px;
+    text-align: center;
+
+    p {
+      max-width: 900px;
+      margin: 0 auto;
+      font-size: clamp(30px, 4.6vw, 54px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      color: $c-ink;
+    }
+  }
+
+  // ---------- PREÇO + GARANTIA ----------
+  .cb-price {
+    @extend %wrap;
+    padding-top: 24px;
+    padding-bottom: 84px;
+  }
+
+  .cb-price-card {
+    max-width: 760px;
+    margin: 0 auto;
+    background: $c-card;
+    border: 1px solid $c-hair;
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(27, 36, 48, 0.05), 0 18px 44px rgba(27, 36, 48, 0.07);
+    padding: 44px 40px;
+    text-align: center;
+  }
+
+  .cb-price-big {
+    font-size: clamp(30px, 4.4vw, 46px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.08;
+    color: $c-ink;
+  }
+
+  .cb-guar {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    margin: 22px 0 26px;
+    background: rgba(30, 158, 74, 0.09);
+    border: 1px solid rgba(30, 158, 74, 0.25);
+    color: $c-green;
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-size: 14.5px;
+    font-weight: 700;
+
+    svg { width: 17px; height: 17px; }
+  }
+
+  .cb-price-card .cb-btn { margin: 0 auto; }
+  .cb-price-card .cb-cta-sub { margin-top: 12px; }
+
+  // ---------- FAQ ----------
+  .cb-faq {
+    @extend %wrap;
+    max-width: 820px;
+    padding-top: 12px;
+    padding-bottom: 84px;
+
+    h2 {
+      font-size: clamp(26px, 3.2vw, 36px);
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      margin-bottom: 30px;
+    }
+  }
+
+  .cb-qa {
+    border-top: 1px solid $c-hair;
+
+    &:last-child { border-bottom: 1px solid $c-hair; }
+
+    &__toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      padding: 22px 0;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      text-align: left;
+
+      h3 { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; color: $c-ink; margin: 0; }
+      &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+    }
+
+    &__icon { font-size: 22px; font-weight: 700; color: $c-gray; flex-shrink: 0; }
+
+    &__answer {
+      padding: 0 0 22px;
+
+      p { color: $c-gray; font-size: 15.5px; margin: 0; }
+    }
+  }
+
+  // ---------- CTA FINAL ----------
+  .cb-final {
+    @extend %wrap;
+    max-width: 820px;
+    padding-top: 78px;
+    padding-bottom: 78px;
+    text-align: center;
+    border-top: 1px solid $c-hair;
+    background: #fff;
+
+    h2 {
+      font-size: clamp(30px, 4.4vw, 50px);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.04;
+      margin-bottom: 10px;
+      color: $c-ink;
+    }
+
+    p { color: $c-gray; font-size: 18px; margin-bottom: 26px; }
+  }
+
+  // ---------- RESPONSIVO ----------
+  @media (max-width: 860px) {
+    .cb-hero__grid { grid-template-columns: 1fr; gap: 38px; }
+    .cb-cmp-grid { grid-template-columns: 1fr; }
+    .cb-steps { grid-template-columns: 1fr; gap: 30px; }
+    .cb-plate-panel { max-width: none; }
+  }
+}
+
+// v2.0 herói web: split de 2 colunas. No mobile (e no PWA) empilha em coluna
+// única — a "tira" de sempre. O split só ganha largura extra no desktop web.
+.hero-split {
+  width: 100%;
+
+  &__preview {
+    // No mobile a prévia aparece abaixo do card de consulta.
+    .win-window__body { padding: $space-md; }
+  }
+}
+
+// Desktop web: quebra o teto de 580px do .desktop pra caber as 2 colunas.
+.desktop--hero-web {
+  @media (min-width: 860px) {
+    max-width: 1080px;
+  }
+}
+
+.hero-split--web {
+  @media (min-width: 860px) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-lg;
+    align-items: stretch;
+
+    .hero-split__action,
+    .hero-split__preview {
+      margin-top: $space-xl;
+      margin-bottom: 0;
+      max-width: none;
+      width: 100%;
+    }
+
+    // No split o texto do card de ação fica alinhado à esquerda (como no mockup).
+    .hero-split__action {
+      .page-title,
+      .page-subtitle { text-align: left; margin-left: 0; }
+      .page-subtitle { max-width: none; }
+      .logo { margin-left: 0; }
+      .plate-field { margin-left: 0; }
+    }
+  }
+}
+
+.page-title--hero {
+  em {
+    color: $smart-blue;
+    font-style: normal;
+  }
+}
+
+// CTA primário premium (subtexto do preço embaixo)
+.cta-premium {
+  display: block;
+
+  small {
+    display: block;
+    font-weight: 600;
+    font-size: 0.75rem;
+    opacity: 0.9;
+    margin-top: 2px;
+  }
+}
+
+// Link secundário: fluxo grátis por e-mail (é um <button type="submit">
+// estilizado como link, pra disparar o handleSubmit sem sair do <form>)
+.cta-free {
+  display: block;
+  width: 100%;
+  margin-top: $space-sm;
+  padding: $space-xs 0;
+  background: transparent;
+  border: none;
+  color: $blue-slate;
+  font-family: $font-body;
+  font-size: 0.8125rem;
+  text-align: center;
+  cursor: pointer;
+
+  strong { color: $regal-navy; }
+
+  &:hover { text-decoration: underline; }
+  &:focus-visible { outline: 2px solid $smart-blue; outline-offset: 2px; }
+}
+
+// Linha de garantias sob o CTA
+.assur {
+  display: flex;
+  gap: 14px;
+  margin-top: $space-md;
+  flex-wrap: wrap;
+  justify-content: center;
+  color: $blue-slate;
+  font-size: 0.75rem;
+
+  span { display: flex; align-items: center; gap: 5px; }
+
+  &__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: $success-green;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+}
+
+.hero-split--web {
+  @media (min-width: 860px) {
+    .assur { justify-content: flex-start; }
+  }
+}
+
 .page-title {
   font-family: $font-display;
   font-size: 1.75rem;

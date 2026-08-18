@@ -17,6 +17,9 @@ const pix = ref<{ brCode: string; brCodeBase64: string; token: string; valor: nu
 const pendingStatus = ref('aguardando_pagamento')
 let poll: any = null
 
+// historico local: religar/retomar consultas sem login (ver useConsultaHistory)
+const { add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
+
 async function entrar() {
   loading.value = true; msg.value = ''
   try { await $fetch('/api/premium/gate', { method: 'POST', body: { password: senha.value } }); step.value = 'placa' }
@@ -42,6 +45,12 @@ async function pagar() {
       body: { placa: preview.value.placa, email: email.value, telefone: telefone.value, preview: preview.value.raw },
     })
     step.value = 'pending'
+    histAdd({
+      token: pix.value!.token,
+      placa: preview.value.placa,
+      veiculo: preview.value?.encontrado ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ') : null,
+      status: 'aguardando_pagamento',
+    })
     poll = setInterval(checarStatus, 4000)
   } catch (e: any) { msg.value = e?.data?.message || 'Falha ao gerar o Pix.' }
   finally { loading.value = false }
@@ -52,6 +61,7 @@ async function checarStatus() {
   try {
     const r: any = await $fetch('/api/premium/status', { query: { token: pix.value.token } })
     pendingStatus.value = r.status
+    histUpdate(pix.value.token, r.status)
     if (r.status === 'entregue') { clearInterval(poll); navigateTo(`/premium/${pix.value.token}`) }
     if (['expirado', 'falha', 'reembolsado'].includes(r.status)) clearInterval(poll)
   } catch { /* segue tentando */ }
@@ -76,7 +86,7 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
       <div v-else-if="step === 'placa'" class="stepbox">
         <p>Digite a placa do veículo.</p>
-        <input v-model="placa" placeholder="ABC1D23" maxlength="7" style="text-transform:uppercase" @keyup.enter="consultarPreview" />
+        <input v-model="placa" placeholder="ABC1D23" maxlength="7" autofocus style="text-transform:uppercase" @keyup.enter="consultarPreview" />
         <button :disabled="loading" @click="consultarPreview">Continuar</button>
       </div>
 

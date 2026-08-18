@@ -4,7 +4,32 @@ const route = useRoute()
 const token = route.params.token as string
 useHead({ title: 'Relatório Premium', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
-const { data, pending, error } = await useFetch<any>('/api/premium/report', { query: { token } })
+const { data, pending, error, refresh } = await useFetch<any>('/api/premium/report', { query: { token } })
+
+// historico local: registra/atualiza este pedido e, se ainda nao entregue,
+// fica dando refresh ate liberar (o "Concluir" do historico cai aqui).
+const { itens, sync: histSync, add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
+
+function copiar() {
+  if (data.value?.brCode) navigator.clipboard?.writeText(data.value.brCode)
+}
+
+let poll: any = null
+onMounted(() => {
+  histSync()
+  if (!data.value) return
+  const existe = itens.value.some((x) => x.token === token)
+  if (existe) histUpdate(token, data.value.status)
+  else histAdd({ token, placa: data.value.placa, veiculo: g('descricaoMarcaModelo') || null, status: data.value.status })
+  if (data.value.status !== 'entregue') {
+    poll = setInterval(async () => {
+      await refresh()
+      if (data.value) histUpdate(token, data.value.status)
+      if (data.value?.status === 'entregue') clearInterval(poll)
+    }, 4000)
+  }
+})
+onUnmounted(() => poll && clearInterval(poll))
 
 const v = computed(() => data.value?.consulta?.response || {})
 const g = (k: string) => (v.value ? v.value[k] : null)
@@ -56,7 +81,29 @@ const cadastro = computed(() => [
         <p class="placa">Placa {{ data.placa }}</p>
 
         <div v-if="data.status !== 'entregue'" class="aviso">
-          Status: {{ data.status }}. Se você acabou de pagar, atualize em instantes.
+          <template v-if="['pago', 'consultando'].includes(data.status)">
+            <h2 class="av-h">Pagamento confirmado ✓</h2>
+            <p>Estamos rodando sua consulta completa. Isso leva alguns segundos.</p>
+          </template>
+          <template v-else-if="data.status === 'aguardando_pagamento' && data.brCode">
+            <h2 class="av-h">Conclua o pagamento</h2>
+            <p>Use o Pix copia e cola abaixo. Assim que cair, o relatório libera sozinho.</p>
+            <button class="ghost" @click="copiar">Copiar código Pix</button>
+            <p class="small">{{ data.brCode }}</p>
+          </template>
+          <template v-else-if="data.expirado || data.status === 'expirado'">
+            <h2 class="av-h">Este Pix expirou</h2>
+            <p>Inicie uma nova consulta para gerar outro pagamento.</p>
+            <NuxtLink class="btnlink" to="/premium">Nova consulta</NuxtLink>
+          </template>
+          <template v-else-if="data.status === 'reembolsado'">
+            <h2 class="av-h">Não foi possível concluir</h2>
+            <p>O valor foi reembolsado.</p>
+          </template>
+          <template v-else>
+            <h2 class="av-h">Status: {{ data.status }}</h2>
+            <p>Se você acabou de pagar, aguarde alguns instantes.</p>
+          </template>
         </div>
 
         <template v-else>
@@ -91,7 +138,11 @@ const cadastro = computed(() => [
 .card { max-width: 640px; margin: 0 auto; background: #111a2e; border: 1px solid #24324d; border-radius: 12px; padding: 24px; }
 h1 { font-size: 20px; margin: 0; } h2 { font-size: 14px; text-transform: uppercase; color: #8296b8; letter-spacing: .5px; margin: 22px 0 8px; }
 .placa { color: #9db8e8; margin: 4px 0 0; }
-.aviso { background: #0b1424; border: 1px solid #24324d; border-radius: 8px; padding: 14px; margin-top: 16px; }
+.aviso { background: #0b1424; border: 1px solid #24324d; border-radius: 8px; padding: 16px; margin-top: 16px; }
+.av-h { font-size: 16px; margin: 0 0 8px; text-transform: none; color: #dbe4f4; letter-spacing: 0; }
+.ghost { background: transparent; border: 1px solid #24324d; color: #9db8e8; border-radius: 7px; padding: 10px 12px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 6px; }
+.small { color: #8296b8; font-size: 11px; word-break: break-all; margin: 8px 0 0; }
+.btnlink { display: inline-block; margin-top: 10px; background: #0466c8; color: #fff; text-decoration: none; border-radius: 7px; padding: 10px 14px; font-size: 14px; font-weight: 600; }
 .inds { display: flex; flex-wrap: wrap; gap: 6px; }
 .ind { font-size: 12px; padding: 4px 8px; border-radius: 6px; background: rgba(30,158,74,.15); color: #4ade80; }
 .ind.on { background: rgba(224,83,61,.18); color: #f87171; font-weight: 600; }

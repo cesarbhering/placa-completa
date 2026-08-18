@@ -16,8 +16,10 @@ paths = [
 # String patterns that look like secrets but are not:
 #  - GA4 measurement id and OneSignal App ID are public (ship in browser bundle).
 #  - "your-...-key" / "your-..." are env example placeholders.
+#  - pc_consultas_v1 is a localStorage key name (const KEY), not a secret.
 regexes = [
   '''G-[A-Z0-9]{10}''',
   '''9ac2bca4-[0-9a-f-]{27}''',
   '''your-[a-z-]+(-key)?''',
+  '''pc_consultas_v1''',
 ]
