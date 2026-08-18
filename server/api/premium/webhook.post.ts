@@ -29,32 +29,8 @@ export default defineEventHandler(async (event) => {
   if (!pedido) return { ok: true, semPedido: true }
 
   // idempotencia: so processa se ainda nao entrou em consulta/entrega
-  if (['consultando', 'entregue', 'reembolsado'].includes(pedido.status)) return { ok: true, jaProcessado: true }
-
-  await supabase.from('pedidos_premium').update({ status: 'consultando', pago_em: new Date().toISOString() }).eq('id', pedido.id)
-
-  try {
-    const r = await consultarSenatran(pedido.placa)
-    await supabase
-      .from('pedidos_premium')
-      .update({ status: 'entregue', entregue_em: new Date().toISOString(), consulta_id: r.consultaId })
-      .eq('id', pedido.id)
-    await enviarRelatorioEmail(pedido.email, pedido.token_entrega)
-  } catch (e: any) {
-    await supabase.from('pedidos_premium').update({ status: 'falha', erro: String(e?.message || e) }).eq('id', pedido.id)
-    // falhou depois de pago -> reembolsa automatico
-    let reembolsado = false
-    if (pedido.abacatepay_id) reembolsado = await reembolsarPix(pedido.abacatepay_id)
-    if (reembolsado) {
-      await supabase.from('pedidos_premium').update({ status: 'reembolsado' }).eq('id', pedido.id)
-    } else {
-      // reembolso automatico falhou -> alerta interno pra fazer manual
-      await sendErrorEmail({
-        endpoint: '/api/premium/webhook',
-        errorMessage: `PAGO, CONSULTA FALHOU e REEMBOLSO AUTOMATICO FALHOU. Reembolsar manual. pedido=${pedido.id} placa=${pedido.placa} charge=${pedido.abacatepay_id} erro=${String(e?.message || e)}`,
-      })
-    }
-  }
+  // processador compartilhado (idempotente via claim atomico)
+  await processarPedidoPago(supabase, pedido)
   if (abacatepayId) await supabase.from('webhook_events').update({ processado: true }).eq('abacatepay_id', abacatepayId)
   return { ok: true }
 })
