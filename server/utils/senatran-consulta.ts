@@ -60,7 +60,9 @@ export async function consultarSenatran(placa: string): Promise<{ consultaId: st
   const consentRes = await fetch(`${config.gccBase}/consentimentos-ciencias`, {
     method: 'POST',
     headers: { accept: 'application/json', 'Api-Key': chave.api_key, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tipo_titular: null, cpf_cnpj: '', tipo_de_usuario: 1, cnpj_provedor: config.senatranCnpjProvedor, template_id: config.senatranTemplateId }),
+    // String() obrigatorio: o runtimeConfig do Nitro (destr) converte a string
+    // numerica do env em NUMBER, e o GCC exige o CNPJ como STRING.
+    body: JSON.stringify({ tipo_titular: null, cpf_cnpj: '', tipo_de_usuario: 1, cnpj_provedor: String(config.senatranCnpjProvedor || '37115342004154'), template_id: String(config.senatranTemplateId || '2932026-00001') }),
   })
   const consentText = await consentRes.text()
   let consentResp: any = {}
