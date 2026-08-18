@@ -55,14 +55,21 @@ export async function consultarSenatran(placa: string): Promise<{ consultaId: st
   const chave = await chaveAtiva(supabase)
   if (!chave) throw createError({ statusCode: 503, message: 'Sem chave GCC ativa.' })
 
-  // 1) hash de consentimento (pago)
-  const consentResp = await $fetch<any>(`${config.gccBase}/consentimentos-ciencias`, {
+  // 1) hash de consentimento (pago). fetch nativo + parse explicito (o ofetch
+  // se mostrou fragil aqui; o nativo funciona igual ao CLI que valida).
+  const consentRes = await fetch(`${config.gccBase}/consentimentos-ciencias`, {
     method: 'POST',
     headers: { accept: 'application/json', 'Api-Key': chave.api_key, 'Content-Type': 'application/json' },
-    body: { tipo_titular: null, cpf_cnpj: '', tipo_de_usuario: 1, cnpj_provedor: config.senatranCnpjProvedor, template_id: config.senatranTemplateId },
+    body: JSON.stringify({ tipo_titular: null, cpf_cnpj: '', tipo_de_usuario: 1, cnpj_provedor: config.senatranCnpjProvedor, template_id: config.senatranTemplateId }),
   })
+  const consentText = await consentRes.text()
+  let consentResp: any = {}
+  try { consentResp = JSON.parse(consentText) } catch { /* deixa vazio */ }
   const hash = findHash(consentResp)
-  if (!hash) throw createError({ statusCode: 502, message: 'Nao obtive numero_hash_consulta.' })
+  if (!hash) {
+    console.error('[senatran] consent sem hash. status=', consentRes.status, 'body=', consentText.slice(0, 300))
+    throw createError({ statusCode: 502, message: 'Nao obtive numero_hash_consulta.' })
+  }
   const { data: consent } = await supabase
     .from('gcc_consentimentos')
     .insert({ numero_hash_consulta: hash, status: 'created', api_key_id: chave.id, placa, raw_response: consentResp })
