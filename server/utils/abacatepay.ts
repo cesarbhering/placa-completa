@@ -58,14 +58,14 @@ export async function checarPix(id: string): Promise<{ status: string } | null> 
   }
 }
 
-// Reembolso (falha pos-pagamento). Endpoint provavel; tratado como best-effort.
-export async function reembolsarPix(id: string): Promise<boolean> {
+// Reembolso (POST /v2/transparents/refund {id, reason}). Suportado.
+export async function reembolsarPix(id: string, reason = 'Consulta nao pode ser concluida apos pagamento.'): Promise<boolean> {
   const { base, key } = cfg()
   try {
-    const res = await $fetch<AbacateResp<any>>(`${base}/transparents/refund`, {
+    const res = await $fetch<AbacateResp<{ refundPublicId: string }>>(`${base}/transparents/refund`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: { id },
+      body: { id, reason },
     })
     return !!res.success
   } catch {
@@ -73,13 +73,43 @@ export async function reembolsarPix(id: string): Promise<boolean> {
   }
 }
 
-// Verifica a assinatura HMAC do webhook (payload cru + secret).
-export function verificarWebhook(rawBody: string, signature: string | undefined): boolean {
-  const { secret } = cfg()
-  if (!secret || !signature) return false
-  const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
+// Simula pagamento em DEV (pra testar o fluxo inteiro sem Pix real).
+export async function simularPagamento(id: string): Promise<boolean> {
+  const { base, key } = cfg()
   try {
-    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))
+    const res = await $fetch<AbacateResp<any>>(`${base}/transparents/simulate-payment`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}` },
+      query: { id },
+    })
+    return !!res.success
+  } catch {
+    return false
+  }
+}
+
+// Verifica o webhook: secret via query (?webhookSecret=), assinatura HMAC-SHA256
+// em BASE64 no header x-webhook-signature, e timestamp anti-replay (±5min).
+export function verificarWebhook(opts: {
+  rawBody: string
+  signature?: string
+  timestamp?: string
+  querySecret?: string
+}): boolean {
+  const { secret } = cfg()
+  if (!secret) return false
+  // 1) secret na query
+  if (opts.querySecret && opts.querySecret !== secret) return false
+  // 2) timestamp (anti-replay)
+  if (opts.timestamp) {
+    const t = parseInt(opts.timestamp, 10)
+    if (!t || Math.abs(Date.now() / 1000 - t) > 300) return false
+  }
+  // 3) assinatura HMAC base64
+  if (!opts.signature) return !!opts.querySecret // se so tem query secret valido, aceita
+  const expected = crypto.createHmac('sha256', secret).update(opts.rawBody).digest('base64')
+  try {
+    return crypto.timingSafeEqual(Buffer.from(opts.signature, 'base64'), Buffer.from(expected, 'base64'))
   } catch {
     return false
   }

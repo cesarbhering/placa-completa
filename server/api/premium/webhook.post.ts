@@ -1,12 +1,12 @@
 // Webhook AbacatePay. Confirma pagamento (HMAC) e dispara a consulta SENATRAN
 // UMA vez (idempotente). Falhou a consulta -> reembolsa. Nunca exige gate.
 export default defineEventHandler(async (event) => {
-  const raw = (await readRawBody(event)) || ''
-  const sig =
-    getRequestHeader(event, 'x-abacatepay-signature') ||
-    getRequestHeader(event, 'abacatepay-signature') ||
-    getRequestHeader(event, 'x-webhook-signature')
-  if (!verificarWebhook(String(raw), sig)) throw createError({ statusCode: 401, message: 'assinatura invalida' })
+  const raw = String((await readRawBody(event)) || '')
+  const signature = getRequestHeader(event, 'x-webhook-signature')
+  const timestamp = getRequestHeader(event, 'x-webhook-timestamp')
+  const querySecret = String((getQuery(event).webhookSecret as string) || '')
+  if (!verificarWebhook({ rawBody: raw, signature, timestamp, querySecret }))
+    throw createError({ statusCode: 401, message: 'assinatura invalida' })
 
   let payload: any = {}
   try { payload = JSON.parse(String(raw)) } catch { /* noop */ }
@@ -42,10 +42,17 @@ export default defineEventHandler(async (event) => {
     await enviarRelatorioEmail(pedido.email, pedido.token_entrega)
   } catch (e: any) {
     await supabase.from('pedidos_premium').update({ status: 'falha', erro: String(e?.message || e) }).eq('id', pedido.id)
-    // falhou depois de pago -> reembolsa
-    if (pedido.abacatepay_id) {
-      const ok = await reembolsarPix(pedido.abacatepay_id)
-      if (ok) await supabase.from('pedidos_premium').update({ status: 'reembolsado' }).eq('id', pedido.id)
+    // falhou depois de pago -> reembolsa automatico
+    let reembolsado = false
+    if (pedido.abacatepay_id) reembolsado = await reembolsarPix(pedido.abacatepay_id)
+    if (reembolsado) {
+      await supabase.from('pedidos_premium').update({ status: 'reembolsado' }).eq('id', pedido.id)
+    } else {
+      // reembolso automatico falhou -> alerta interno pra fazer manual
+      await sendErrorEmail({
+        endpoint: '/api/premium/webhook',
+        errorMessage: `PAGO, CONSULTA FALHOU e REEMBOLSO AUTOMATICO FALHOU. Reembolsar manual. pedido=${pedido.id} placa=${pedido.placa} charge=${pedido.abacatepay_id} erro=${String(e?.message || e)}`,
+      })
     }
   }
   if (abacatepayId) await supabase.from('webhook_events').update({ processado: true }).eq('abacatepay_id', abacatepayId)
