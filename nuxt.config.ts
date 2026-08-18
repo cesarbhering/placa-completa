@@ -552,6 +552,24 @@ export default defineNuxtConfig({
     evolutionApiUrl: process.env.EVOLUTION_API_URL || "",
     evolutionApiKey: process.env.EVOLUTION_API_KEY || "",
     evolutionInstance: process.env.EVOLUTION_INSTANCE || "",
+    // v2.0 Consulta Premium (homologacao) - so na branch, prod nao seta estes envs
+    premiumSupabaseUrl: process.env.PREMIUM_SUPABASE_URL || "",
+    premiumSupabaseKey: process.env.PREMIUM_SUPABASE_KEY || "",
+    premiumPagePassword: process.env.PREMIUM_PAGE_PASSWORD || "",
+    abacatepayApiKey: process.env.ABACATEPAY_API_KEY || "",
+    abacatepayWebhookSecret: process.env.ABACATEPAY_WEBHOOK_SECRET || "",
+    abacatepayBase: process.env.ABACATEPAY_BASE || "https://api.abacatepay.com/v2",
+    premiumBaseUrl: process.env.PREMIUM_BASE_URL || "https://placacompleta.com.br",
+    premiumValorCentavos: process.env.PREMIUM_VALOR_CENTAVOS || "4500",
+    // SENATRAN homologacao (GCC + SERPRO). Certs via PEM em env (base64 ou texto).
+    gccBase: process.env.GCC_BASE || "https://company.hml.quemmeviu.com.br",
+    senatranUrl:
+      process.env.SENATRAN_URL ||
+      "https://hom-pgcc.np.bsa.estaleiro.serpro.gov.br/pgcc/api/v1/consultar/veiculo",
+    senatranCnpjProvedor: process.env.SENATRAN_CNPJ_PROVEDOR || "37115342004154",
+    senatranTemplateId: process.env.SENATRAN_TEMPLATE_ID || "2932026-00001",
+    senatranCertPem: process.env.SENATRAN_CERT_PEM || "",
+    senatranKeyPem: process.env.SENATRAN_KEY_PEM || "",
     public: {
       whatsappEnabled: process.env.NUXT_PUBLIC_WHATSAPP_ENABLED === "true",
       supabaseUrl:
