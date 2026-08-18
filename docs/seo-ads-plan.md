@@ -66,6 +66,8 @@ Princípio de linkagem interna: **toda página de topo (FIPE, estado) aponta par
 
 Ranqueadas por **intenção comercial** (CPC alto/competição alta = dinheiro), não por volume bruto. Todos os números são reais (DataForSEO / Google Ads BR).
 
+> ⚠️ **Limite do dado (não prometer o que não entregamos).** Na nossa consulta, **multa e leilão são apenas INDICADORES**: multa = existe multa **ATIVA** (sim/não); leilão = o veículo **já passou por leilão** (sim/não). NÃO temos valor/detalhe de débitos, lista de multas, nem histórico/detalhe do leilão. Portanto, todo SEO e CTA desses clusters (débitos, multas, leilão) deve prometer **só o indicador** ("descubra SE o veículo tem multa ativa ou já passou por leilão"), **nunca** valores ou lista ("veja quanto deve", "todas as suas multas", "detalhes do leilão"). Prometer o que não temos gera erro do usuário, reembolso e review ruim. Termos que exigem detalhe (ex.: "quanto devo de multa/IPVA", "valor dos débitos", "parcelamento de débitos") ficam **fora** do Ads e não viram landing dedicada; usar esses volumes só como tráfego informativo com o enquadramento correto de indicador.
+
 ### 4.1 Clusters de compra iminente 🟢 — CRIAR páginas/hub dedicado
 
 | Cluster / página nova | Keyword-âncora | Volume/mês | CPC (R$) | Comp. | Prioridade |
@@ -176,6 +178,7 @@ Não tive acesso programático ao Search Console nesta rodada. Ação: exportar 
 
 **Negativas (críticas para não queimar orçamento)**:
 `grátis`, `gratis`, `gratuito`, `app`, `aplicativo`, `download`, `detran` (busca institucional), `renavam por placa grátis`, `como consultar` (informacional), `emitir` (quer o boleto, não o laudo), nomes de concorrentes. Objetivo: cortar o tráfego de vitrine/grátis que não paga R$ 45.
+Adicionar também negativas de **detalhe que não entregamos** (só temos indicador de multa/leilão): `valor`, `quanto`, `parcelar`, `parcelamento`, `2 via`, `segunda via`, `boleto`, `guia`, `pagar multa`, `quitar`. Quem busca isso quer o valor/pagar o débito, não o alerta. E o **texto do anúncio** deve prometer só o indicador ("descubra SE tem multa ativa ou passou por leilão"), nunca valores.
 
 ### Economics (CPC real → faixa de CPA)
 - CPC médio dos termos-alvo: **R$ 0,50 a R$ 1,75** (média ponderada ~R$ 0,70).
@@ -264,7 +267,7 @@ Somos de **40x a ~300x menores** em tráfego orgânico. O gargalo estrutural é 
 Achado que muda a leitura: **o nicho inteiro tem perfil de link fraco/spam.** Até o líder de tráfego (buscaplacas, 188k) tem só ~55 referring domains amostrados, quase todos lixo (url shorteners, web directories, sites aleatórios). Os domínios que linkam para vários concorrentes são majoritariamente diretórios/PBN rank 0 — **não replicar** (risco tóxico).
 
 Ou seja: **não precisamos ganhar uma corrida de backlinks** — ninguém aqui tem autoridade editorial de verdade. Sair de DR 0 para DR ~30 já nos coloca no jogo. O que é legítimo e vale mirar:
-- **Parcerias automotivas** (a única fonte de link real que apareceu): checkauto tem links de dekrabrasil.com.br / dekra.com.br (DEKRA, vistoria) e confiancacarros.com.br (revenda). Alvo: vistoriadoras, despachantes, revendas, seguradoras.
+- **Parcerias automotivas** (a única fonte de link real que apareceu): checkauto é linkado por revenda (confiancacarros.com.br) e por vistoria (DEKRA). Atenção: **vistoria/laudo cautelar é CONCORRENTE (ex.: DEKRA) — fora de qualquer contato.** Alvo (não-concorrentes): revendas, despachantes, seguradoras/corretoras, portais e blogs de carro.
 - **Imprensa e blogs de carro**: trakcar/historicar têm links de jornais e blogs BR. Casar com a campanha de imprensa já em curso e os estudos IBV.
 - **Isca de citação**: o `/llms` + dados abertos (reverse-mullet) para ganhar menção e link editorial.
 - Meta: DR 0 para 30+ em ~6 meses, foco em qualidade (poucos links reais), não volume de diretório.
