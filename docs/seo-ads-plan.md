@@ -232,7 +232,46 @@ Não tive acesso programático ao Search Console nesta rodada. Ação: exportar 
 
 ---
 
-## 8. Apêndice
+## 8. Concorrência: tamanho, drivers e link-building (medido)
+
+Medido via DataForSEO (BR/pt) em 18/ago/2026. "Tráfego est." = ETV orgânico (modelo DataForSEO, bom para comparação relativa). DR = backlink rank DataForSEO (0 a 1000).
+
+### 8.1 Tamanho (footprint orgânico + autoridade)
+
+| Domínio | Keywords org. | Tráfego est./mês | Top 3 | Top 10 | DR (autoridade) |
+|---|---:|---:|---:|---:|---:|
+| buscaplacas.com.br | 885 | 187.674 | 28 | 86 | 144 |
+| placaon.com.br | 770 | 34.618 | 0 | 13 | 189 |
+| trakcar.com.br | 3.459 | 30.286 | 12 | 148 | 276 |
+| checkauto.com.br | 781 | 25.711 | 8 | 60 | 223 |
+| historicar.com.br | 611 | 24.360 | 21 | 168 | 161 |
+| **placacompleta.com.br (nós)** | **150** | **592** | **0** | **5** | **0** |
+
+Somos de **40x a ~300x menores** em tráfego orgânico. O gargalo estrutural é autoridade: **DR 0** contra 144 a 276. (checkauto medido no root; `nova.` é o subdomínio do app.)
+
+### 8.2 O que puxa o tráfego de cada um (top keywords reais)
+
+- **buscaplacas** (líder, 188k): domina o head genérico. "consulta placas" pos3 (450.000/mês), "busca placa/placas" pos1 (135.000), "placas" pos7 (110.000). Jogo todo em volume genérico no topo. Difícil deslocar no curto prazo.
+- **placaon** (34k): dono do cluster FIPE-pela-placa. "placa fipe" pos5 (246.000), "fipe pela placa" pos7 (110.000), "tabela fipe pela placa". É o NOSSO cluster tabela-fipe, e ele nos ganha (estamos na pos56). Concorrente direto da nossa escadinha.
+- **checkauto** (26k): "consulta placa" pos9, "dut" pos5 (22.200), e rankeia **pos4 para "consulta veicular completa"** (nosso termo-dinheiro) e "historico veicular" pos4. Contestável.
+- **historicar** (24k): "busca placa" pos7 + informacional grátis/leilão ("consulta histórico grátis" pos3, "consultar veículo leilão grátis" pos5). Dono do conteúdo pré-venda.
+- **trakcar** (30k, 3.459 kw): long-tail DETRAN estadual ("detran-pe/pa/ce consulta placa"), "keplaca". Muita página, posições rasas.
+
+**Implicação:** o head genérico (buscaplacas) e o FIPE (placaon) já têm dono forte. Mas **nenhum domina o cluster transacional de alta intenção** (laudo cautelar, gravame, débitos) — é whitespace, confirma a priorização da seção 4. E "consulta veicular completa" está só em pos4 (checkauto): contestável com landing dedicada.
+
+### 8.3 Perfil de backlink e link-building (sair do DR 0)
+
+Achado que muda a leitura: **o nicho inteiro tem perfil de link fraco/spam.** Até o líder de tráfego (buscaplacas, 188k) tem só ~55 referring domains amostrados, quase todos lixo (url shorteners, web directories, sites aleatórios). Os domínios que linkam para vários concorrentes são majoritariamente diretórios/PBN rank 0 — **não replicar** (risco tóxico).
+
+Ou seja: **não precisamos ganhar uma corrida de backlinks** — ninguém aqui tem autoridade editorial de verdade. Sair de DR 0 para DR ~30 já nos coloca no jogo. O que é legítimo e vale mirar:
+- **Parcerias automotivas** (a única fonte de link real que apareceu): checkauto tem links de dekrabrasil.com.br / dekra.com.br (DEKRA, vistoria) e confiancacarros.com.br (revenda). Alvo: vistoriadoras, despachantes, revendas, seguradoras.
+- **Imprensa e blogs de carro**: trakcar/historicar têm links de jornais e blogs BR. Casar com a campanha de imprensa já em curso e os estudos IBV.
+- **Isca de citação**: o `/llms` + dados abertos (reverse-mullet) para ganhar menção e link editorial.
+- Meta: DR 0 para 30+ em ~6 meses, foco em qualidade (poucos links reais), não volume de diretório.
+
+---
+
+## 9. Apêndice
 
 ### Metodologia
 Todos os volumes/CPC/competição de `keywords_search_volume` (Google Ads via DataForSEO) e `labs_keyword_ideas`; footprint de `labs_ranked_keywords`; SERPs de `serp_google_organic`. Location `Brazil`, language `Portuguese`. Nenhum número foi inventado.
