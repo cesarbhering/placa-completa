@@ -7,12 +7,18 @@ arquivo antes de escrever. Mantenha atualizado. Idioma da copy: português do Br
 
 ## Resumo do produto
 
-PlacaCompleta é uma consulta veicular por placa. Dois níveis:
+PlacaCompleta é uma consulta veicular por placa. Três níveis (fonte de verdade
+técnica: `shared/planos.ts`, de onde saem preço, itens e o gate de campos da API):
 
-- **Consulta básica (grátis):** o usuário digita a placa e recebe por e-mail marca,
-  modelo, ano, cor, valor FIPE e situação. Serve de isca e de primeira olhada. Também
-  alimenta agentes/SEO (dado público/derivado: FIPE, seguro estimado).
-- **Relatório completo (pago · R$ 45, Pix):** o produto principal. Reúne os itens de
+- **Consulta grátis:** o usuário digita a placa, informa o e-mail e vê **na tela, na
+  hora**, marca, modelo, ano, cor, situação, valor FIPE, seguro estimado e custo em 5
+  anos. Também chega por e-mail. Serve de isca e de primeira olhada, e alimenta
+  agentes/SEO (dado público/derivado).
+- **Consulta básica (pago · R$ 19,90, Pix):** a identidade completa do veículo. Ficha
+  técnica com chassi e Renavam completos, espécie, tipo, categoria, potência,
+  cilindrada, eixos, lotação, UF de jurisdição, recall pendente e FIPE com histórico
+  de depreciação.
+- **Relatório completo (pago · R$ 44,90, Pix):** o produto principal. Reúne os itens de
   risco e a ficha completa do veículo em um só lugar: restrições (nacionais e
   estaduais), roubo e furto, histórico de leilão, gravame (financiamento/alienação),
   RENAJUD, recall, indicador de multas, ficha cadastral e técnica (chassi, Renavam,
@@ -29,7 +35,8 @@ PlacaCompleta é uma consulta veicular por placa. Dois níveis:
   (modelo, ano, FIPE). O relatório completo diz **se você pode confiar** nele
   (restrição, roubo/furto, leilão, gravame, dívida). É a diferença entre identificar o
   carro e evitar um prejuízo de milhares de reais.
-- **Frase-guia interna:** "R$ 45 pra não perder R$ 45 mil."
+- **Frase-guia interna:** "R$ 44,90 pra não perder R$ 45 mil." (o preço na página sai
+  de `shared/planos.ts`; a frase acompanha)
 
 ---
 
@@ -47,10 +54,10 @@ Não é especialista: conhece "documento", "dívida", "multa", mas nem sempre "g
 não é roubado, não veio de leilão, não tem dívida/financiamento em aberto nem restrição
 que impeça a transferência.
 
-**Objeção nº1 a derrubar: "vale o preço?"** ("por que pagar R$ 45 se tem consulta
+**Objeção nº1 a derrubar: "vale o preço?"** ("por que pagar R$ 44,90 se tem consulta
 grátis por aí?"). Resposta na copy: o grátis mostra dado de vitrine (modelo, ano, FIPE);
 ele não te protege de comprar um carro com gravame, de leilão ou com restrição. O
-completo é o que revela o risco. E se não achar o veículo, o valor é estornado — o risco
+completo é o que revela o risco. E se não achar o veículo, o valor é estornado, então o risco
 de pagar é zero.
 
 **Outras objeções (na ordem):** confiança nos dados ("isso é confiável mesmo?"),
@@ -73,12 +80,14 @@ Espelhe estes termos, evite jargão de órgão/técnico quando der:
 
 ## Oferta e prova
 
-- **Preço:** R$ 45, pagamento único no **Pix**. Sem assinatura, sem cadastro.
+- **Preço:** R$ 19,90 (básica) ou R$ 44,90 (completa), pagamento único no **Pix**.
+  Sem assinatura, sem cadastro.
 - **Entrega:** na hora, em **link privado** só do usuário. Fica salvo no navegador
   (histórico local) pra reabrir depois ou concluir um pagamento pendente.
 - **Garantia:** não achou o veículo? **Estorno automático no Pix.** (derruba o risco de
   pagar por nada.)
-- **Grátis:** consulta básica por e-mail (marca, modelo, ano, cor, FIPE, situação).
+- **Grátis:** resultado na tela e por e-mail (marca, modelo, ano, cor, situação, FIPE,
+  seguro estimado e custo em 5 anos).
 - **Provas (usar SÓ números verificados — confirmar com o dono antes de publicar):**
   - `[CONFIRMAR]` volume de consultas realizadas (ex.: "+50 mil" — validar antes de usar).
   - `[CONFIRMAR]` número de campos do relatório completo (usei "52" internamente; validar).
@@ -135,9 +144,10 @@ completas" (vago), e qualquer clichê de agência.
 
 ## Ações primárias por página
 
-- **Home / landing:** ação primária = iniciar o relatório completo (digitar a placa →
-  R$ 45 no Pix). Secundária = consulta básica grátis por e-mail.
-- **Página de preço:** ação primária = consultar agora (R$ 45).
+- **Home / landing:** ação primária = digitar a placa e rodar a consulta grátis, que
+  abre o resultado na tela; o pago é oferecido ali, sobre o que ficou bloqueado.
+  Secundária = ir direto ao relatório completo.
+- **Página de preço:** ação primária = consultar agora (R$ 44,90).
 - **Origem de tráfego:** orgânico (SEO forte em "consulta placa", tabela FIPE, estados) +
   direto. O visitante chega buscando "consulta grátis"; a copy da home converte parte
   desse tráfego pra consulta paga sem esconder a opção grátis.

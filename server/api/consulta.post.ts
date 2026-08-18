@@ -574,6 +574,24 @@ export default defineEventHandler(async (event) => {
     data: isPWA ? apiResponse : undefined,
     fipeHistory: isPWA ? fipeHistoryPoints : undefined,
     seguroEstimado: !isPWA ? seguroEstimado : undefined,
+    // Bloco livre mostrado NA TELA na web (o "o que e o carro"). E o mesmo
+    // conjunto que a consulta gratis sempre entregou por e-mail — nada aqui
+    // vem do SENATRAN, que so roda depois do pagamento.
+    basico: !isPWA ? {
+      placa: placaClean,
+      marca: apiResponse.MARCA || apiResponse.marca || null,
+      modelo: apiResponse.MODELO || apiResponse.modelo || null,
+      ano: apiResponse.anoModelo || apiResponse.ano || null,
+      anoFabricacao: apiResponse.ano || null,
+      cor: apiResponse.cor || apiResponse.COR || null,
+      situacao: apiResponse.situacao || null,
+      combustivel: apiResponse.extra?.combustivel || null,
+      municipio: apiResponse.municipio || null,
+      uf: apiResponse.uf || null,
+      fipe: (apiResponse.fipe?.dados?.length
+        ? apiResponse.fipe.dados.reduce((b: any, i: any) => (i.score || 0) > (b.score || 0) ? i : b, apiResponse.fipe.dados[0])?.texto_valor
+        : null) || null,
+    } : undefined,
     // payload minimo pro botao de compartilhar no WhatsApp (web)
     share: !isPWA ? {
       marca: apiResponse.MARCA || apiResponse.marca || '',

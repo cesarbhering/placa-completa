@@ -2,7 +2,7 @@
 // Relatorio premium (superficie paga, token e a credencial).
 const route = useRoute()
 const token = route.params.token as string
-useHead({ title: 'Relatório Premium', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
+useHead({ title: 'Relatório Veicular', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
 const { data, pending, error, refresh } = await useFetch<any>('/api/premium/report', { query: { token } })
 
@@ -30,6 +30,12 @@ onMounted(() => {
   }
 })
 onUnmounted(() => poll && clearInterval(poll))
+
+// Plano do pedido: a basica nao recebe os campos de risco (o corte e no
+// servidor), entao a tela some com os blocos em vez de mostrar vazio.
+const plano = computed<string>(() => data.value?.plano || 'completa')
+const isBasica = computed(() => plano.value === 'basica')
+const restantes = computed<number>(() => data.value?.camposRestantes || 0)
 
 const v = computed(() => data.value?.consulta?.response || {})
 const g = (k: string) => (v.value ? v.value[k] : null)
@@ -77,13 +83,13 @@ const cadastro = computed(() => [
       <div v-if="pending">Carregando…</div>
       <div v-else-if="error || !data">Relatório não encontrado.</div>
       <template v-else>
-        <h1>Relatório Veicular Completo</h1>
+        <h1>{{ isBasica ? 'Consulta Básica' : 'Relatório Veicular Completo' }}</h1>
         <p class="placa">Placa {{ data.placa }}</p>
 
         <div v-if="data.status !== 'entregue'" class="aviso">
           <template v-if="['pago', 'consultando'].includes(data.status)">
             <h2 class="av-h">Pagamento confirmado ✓</h2>
-            <p>Estamos rodando sua consulta completa. Isso leva alguns segundos.</p>
+            <p>Estamos rodando sua consulta. Isso leva alguns segundos.</p>
           </template>
           <template v-else-if="data.status === 'aguardando_pagamento' && data.brCode">
             <h2 class="av-h">Conclua o pagamento</h2>
@@ -107,22 +113,42 @@ const cadastro = computed(() => [
         </div>
 
         <template v-else>
-          <h2>Indicadores</h2>
-          <div class="inds">
-            <span v-for="i in indicadores" :key="i.k" class="ind" :class="{ on: i.on }">
-              {{ i.label }}: {{ i.on ? 'SIM' : 'não' }}
-            </span>
-          </div>
+          <template v-if="!isBasica">
+            <h2>Indicadores</h2>
+            <div class="inds">
+              <span v-for="i in indicadores" :key="i.k" class="ind" :class="{ on: i.on }">
+                {{ i.label }}: {{ i.on ? 'SIM' : 'não' }}
+              </span>
+            </div>
 
-          <template v-if="restricoes.length">
-            <h2>Restrições</h2>
-            <ul><li v-for="(r, idx) in restricoes" :key="idx">{{ r }}</li></ul>
+            <template v-if="restricoes.length">
+              <h2>Restrições</h2>
+              <ul><li v-for="(r, idx) in restricoes" :key="idx">{{ r }}</li></ul>
+            </template>
           </template>
 
           <h2>Ficha cadastral</h2>
           <table><tbody>
             <tr v-for="(row, idx) in cadastro" :key="idx"><td>{{ row[0] }}</td><td>{{ row[1] }}</td></tr>
           </tbody></table>
+
+          <!-- Upsell honesto: diz quantos campos a completa ainda traria e o
+               que sao, sem fingir que o dado ja esta aqui. -->
+          <div v-if="isBasica" class="up">
+            <h2 class="av-h">Faltam os dados de risco</h2>
+            <p>
+              A consulta básica mostra o que o veículo é. O relatório completo mostra
+              se dá pra confiar nele:
+              <template v-if="restantes">
+                são <strong>{{ restantes }}</strong> informações a mais:
+              </template>
+              restrições nacionais e estaduais, roubo e furto, passagem por leilão,
+              gravame, RENAJUD, indicador de multas, seguro estimado e custo em 5 anos.
+            </p>
+            <NuxtLink class="btnlink" :to="`/?placa=${data.placa}&plano=completa`">
+              Ver relatório completo · R$ 45
+            </NuxtLink>
+          </div>
 
           <details class="raw"><summary>Dados completos (JSON)</summary>
             <pre>{{ JSON.stringify(v, null, 2) }}</pre>
@@ -150,6 +176,9 @@ table { width: 100%; border-collapse: collapse; }
 td { padding: 7px 0; border-bottom: 1px solid #1c2740; font-size: 14px; }
 td:first-child { color: #8296b8; width: 42%; }
 ul { margin: 0; padding-left: 18px; } li { margin: 3px 0; }
+.up { margin-top: 24px; background: #0b1424; border: 1px solid #24324d; border-radius: 8px; padding: 16px; }
+.up p { font-size: 14px; line-height: 1.5; color: #9db8e8; margin: 0 0 12px; }
+.up strong { color: #dbe4f4; }
 .raw { margin-top: 20px; } summary { cursor: pointer; color: #9db8e8; font-size: 12px; }
 pre { background: #0b1424; border: 1px solid #24324d; border-radius: 8px; padding: 12px; overflow: auto; font-size: 11px; max-height: 340px; }
 </style>

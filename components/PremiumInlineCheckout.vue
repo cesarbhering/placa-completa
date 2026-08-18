@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { PLANOS, recursosDoPlano } from '~/shared/planos'
+
 // Checkout premium inline: roda o fluxo pago SEM sair da home, num overlay.
 // Espelha a logica de pages/premium/index.vue (gate -> preview -> checkout ->
 // poll status -> navega pro relatorio). Recebe a placa ja digitada no herbi da
@@ -7,7 +9,12 @@
 //
 // Nao revela fonte dos dados em nenhum texto.
 
-const props = defineProps<{ placa: string }>()
+// `plano` decide o preco e o que o relatorio vai liberar. O servidor recalcula
+// o valor pela tabela dele, entao aqui e so apresentacao — nada de confiar no
+// numero que sai do cliente.
+const props = withDefaults(defineProps<{ placa: string; plano?: 'basica' | 'completa' }>(), {
+  plano: 'completa',
+})
 const emit = defineEmits<{ close: [] }>()
 
 type Step = 'loading' | 'gate' | 'confirm' | 'pending' | 'erro'
@@ -28,6 +35,9 @@ let poll: ReturnType<typeof setInterval> | null = null
 const { add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
 
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
+
+const planoInfo = computed(() => PLANOS[props.plano])
+const planoItens = computed(() => recursosDoPlano(props.plano))
 
 const placaClean = computed(() =>
   String(props.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7),
@@ -92,6 +102,7 @@ async function pagar() {
         email: email.value,
         telefone: telefone.value,
         preview: preview.value.raw,
+        plano: props.plano,
       },
     })
     step.value = 'pending'
@@ -192,9 +203,11 @@ onUnmounted(() => {
               Não achamos os dados básicos, mas você pode seguir com a placa {{ preview?.placa }}.
             </div>
             <p class="pic-inclui">
-              O relatório completo inclui restrições, roubo/furto, gravame, leilão, recall, RENAJUD,
-              a ficha completa do veículo, valor FIPE, seguro estimado e o custo em 5 anos.
+              <strong>{{ planoInfo.nome }}</strong> · {{ planoInfo.chamada }}
             </p>
+            <ul class="pic-lista">
+              <li v-for="item in planoItens" :key="item">{{ item }}</li>
+            </ul>
             <div class="form-group">
               <label class="form-group__label" for="pic-email">Seu e-mail (para receber o relatório)</label>
               <input
@@ -220,7 +233,7 @@ onUnmounted(() => {
               >
             </div>
             <button type="button" class="win-btn win-btn--primary win-btn--block" :disabled="loading" @click="pagar">
-              {{ loading ? 'Gerando Pix...' : `Pagar ${reais(4500)} via Pix` }}
+              {{ loading ? 'Gerando Pix...' : `Pagar ${reais(planoInfo.valorCentavos)} via Pix` }}
             </button>
             <button type="button" class="win-btn win-btn--block" @click="fechar">Cancelar</button>
           </div>
@@ -277,6 +290,10 @@ onUnmounted(() => {
 </template>
 
 <style lang="scss" scoped>
+.pic-lista { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pic-lista li { font-size: 13.5px; line-height: 1.35; padding-left: 18px; position: relative; }
+.pic-lista li::before { content: '✓'; position: absolute; left: 0; opacity: 0.7; }
+
 // Reaproveita .modal-overlay / .modal-window / .win-window (globais em main.scss).
 .pic-body {
   text-align: left;
