@@ -69,19 +69,37 @@ const ROTULOS: Record<string, string> = {
   OFICIAL: 'Oficial',
 }
 
+// Siglas nao sao palavras: baixar o caixa-alta transformava "RFB" em "Rfb" e
+// "RENAJUD" em "Renajud". Ficam intactas, inclusive no meio de uma frase.
+const SIGLAS = new Set([
+  'RFB', 'RENAJUD', 'RENAINF', 'CRV', 'CRLV', 'SINIAV', 'DETRAN', 'DENATRAN',
+  'IPVA', 'DPVAT', 'PRF', 'BIN', 'SRF', 'DI', 'UF', 'CNPJ', 'CPF',
+])
+
 function humanizar(x: any): string {
   const t = String(x ?? '').trim()
   if (!t) return ''
   const chave = t.toUpperCase().replace(/[\s-]+/g, '_')
   if (ROTULOS[chave]) return ROTULOS[chave]
+  if (SIGLAS.has(chave)) return chave
   if (!/^[A-Z0-9_]+$/.test(t)) return t
-  const frase = t.replace(/_/g, ' ').toLowerCase()
-  return frase.charAt(0).toUpperCase() + frase.slice(1)
+  return t.split('_').map((palavra, i) => {
+    if (SIGLAS.has(palavra)) return palavra
+    const min = palavra.toLowerCase()
+    return i === 0 ? min.charAt(0).toUpperCase() + min.slice(1) : min
+  }).join(' ')
 }
 const g = (k: string) => (v.value ? v.value[k] : null)
 const has = (k: string) => {
   const x = g(k)
   return x !== undefined && x !== null && x !== ''
+}
+// Em medida, zero e ausencia de dado e nao valor: a homologacao devolve
+// `cilindrada: 0` num Peugeot e `capacidadeMaximaDeCarga: 0` em carro de
+// passeio. "0 cm³" na ficha so faz o cliente duvidar do resto.
+const medida = (k: string) => {
+  const n = Number(g(k))
+  return Number.isFinite(n) && n > 0
 }
 
 // ---------- indicadores ----------
@@ -150,6 +168,21 @@ const veredito = computed(() => {
 // ---------- ficha ----------
 const linha = (rot: string, val: any) => (val === null || val === undefined || val === '' ? null : [rot, String(val)])
 
+// `ultimoLicenciamento` vem como objeto e ate agora era pago e descartado.
+// Diz ao comprador se o veiculo esta em dia com o licenciamento do ano, que e
+// exatamente o tipo de coisa que trava a transferencia.
+const licAno = computed(() => {
+  const l = g('ultimoLicenciamento') as any
+  return l && typeof l === 'object' && l.anoLicenciamento ? String(l.anoLicenciamento) : null
+})
+const licEmissao = computed(() => {
+  const l = g('ultimoLicenciamento') as any
+  const d = l && typeof l === 'object' ? l.dataHoraEmissao : null
+  if (!d) return null
+  const dt = new Date(d)
+  return Number.isNaN(dt.getTime()) ? null : dt.toLocaleDateString('pt-BR')
+})
+
 const fichaCadastral = computed(() => [
   linha('Placa', data.value?.placa),
   linha('Renavam', g('renavam')),
@@ -163,17 +196,19 @@ const fichaCadastral = computed(() => [
   linha('Situação', humanizar(g('situacao'))),
   linha('UF da jurisdição', g('ufJurisdicao')),
   linha('Município', humanizar(g('municipio'))),
+  linha('Último licenciamento', licAno.value),
+  linha('Emissão do documento', licEmissao.value),
 ].filter(Boolean) as [string, string][])
 
 // Unidades explicitas: "97" e "1400" sozinhos nao dizem nada.
 const fichaTecnica = computed(() => [
-  linha('Potência', has('potencia') ? `${g('potencia')} cv` : null),
-  linha('Cilindrada', has('cilindrada') ? `${g('cilindrada')} cm³` : null),
-  linha('Número de eixos', g('quantidadeDeEixos')),
-  linha('Lotação', has('lotacao') ? `${g('lotacao')} lugares` : null),
-  linha('Peso bruto total', has('pesoBruto') ? `${g('pesoBruto')} t` : null),
-  linha('Cap. máx. de carga', has('capacidadeMaximaDeCarga') ? `${g('capacidadeMaximaDeCarga')} t` : null),
-  linha('Cap. máx. de tração', has('capacidadeMaximaDeTracao') ? `${g('capacidadeMaximaDeTracao')} t` : null),
+  linha('Potência', medida('potencia') ? `${g('potencia')} cv` : null),
+  linha('Cilindrada', medida('cilindrada') ? `${g('cilindrada')} cm³` : null),
+  linha('Número de eixos', medida('quantidadeDeEixos') ? g('quantidadeDeEixos') : null),
+  linha('Lotação', medida('lotacao') ? `${g('lotacao')} lugares` : null),
+  linha('Peso bruto total', medida('pesoBruto') ? `${g('pesoBruto')} t` : null),
+  linha('Cap. máx. de carga', medida('capacidadeMaximaDeCarga') ? `${g('capacidadeMaximaDeCarga')} t` : null),
+  linha('Cap. máx. de tração', medida('capacidadeMaximaDeTracao') ? `${g('capacidadeMaximaDeTracao')} t` : null),
 ].filter(Boolean) as [string, string][])
 
 // ---------- retomada do Pix ----------
@@ -327,7 +362,7 @@ onUnmounted(() => poll && clearInterval(poll))
                       .filter(Boolean).join(' · ') }}
                 </span>
               </span>
-              <span class="rel__placa-tag">{{ data.placa }}</span>
+              <PlacaMercosul :placa="data.placa" mini class="rel__placa-tag" />
             </div>
 
             <div v-if="veredito" class="rel__veredito" :class="`rel__veredito--${veredito.tom}`">
@@ -561,15 +596,11 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     span { font-size: 13.5px; color: $c-graphite; }
   }
 
+  // A mesma placa simulada do hero, em miniatura: o cliente reconhece o objeto
+  // que digitou. Largura fixa porque o dimensionamento interno e por container
+  // query, entao a proporcao se resolve sozinha a partir dela.
   &__placa-tag {
-    background: $c-slab;
-    color: #fff;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    border-radius: 4px;
-    padding: 6px 10px;
-    white-space: nowrap;
+    width: 132px;
     flex-shrink: 0;
   }
 
