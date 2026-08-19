@@ -52,25 +52,23 @@ const inicial = computed(() => tokenMarca.value.charAt(0) || '?')
 
 <style lang="scss" scoped>
 // Paleta local, mesma convencao dos outros componentes v2.
-$c-hair: #e8e8e8;
 $c-ink: #1a1a1a;
 $c-graphite: #636363;
 
+// Sem moldura: dentro de uma caixinha o simbolo encolhia pra ~26px e sumia.
+// Solto, ele ocupa a altura inteira da linha do veiculo.
 .ml {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   flex-shrink: 0;
-  border: 1px solid $c-hair;
-  border-radius: 8px;
-  background: #fff;
 }
 
 .ml__svg {
-  width: 26px;
-  height: 26px;
+  width: 100%;
+  height: 100%;
   // Tinta, nao a cor da marca: logos coloridos disputariam com o acento da
   // pagina, e o guia so admite um.
   fill: $c-ink;
@@ -78,7 +76,7 @@ $c-graphite: #636363;
 }
 
 .ml__mono {
-  font-size: 18px;
+  font-size: 32px;
   font-weight: 700;
   color: $c-graphite;
   line-height: 1;

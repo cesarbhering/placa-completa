@@ -134,6 +134,41 @@ const restricoes = computed<string[]>(() => {
   return Array.isArray(arr) ? arr.map(humanizar).filter(Boolean) : []
 })
 
+// `ultimoLicenciamento` vem como objeto e ate agora era pago e descartado.
+// Diz ao comprador se o veiculo esta em dia com o licenciamento do ano, que e
+// exatamente o tipo de coisa que trava a transferencia.
+const licAno = computed(() => {
+  const l = g('ultimoLicenciamento') as any
+  return l && typeof l === 'object' && l.anoLicenciamento ? String(l.anoLicenciamento) : null
+})
+const licEmissao = computed(() => {
+  const l = g('ultimoLicenciamento') as any
+  const d = l && typeof l === 'object' ? l.dataHoraEmissao : null
+  if (!d) return null
+  const dt = new Date(d)
+  return Number.isNaN(dt.getTime()) ? null : dt.toLocaleDateString('pt-BR')
+})
+
+// Faixa de licenciamento acima da ficha: e o dado que diz se o documento esta
+// em dia, e enterrado como linha de tabela ninguem via. O tom segue o ano:
+// exercicio atual (ou adiante) em dia; ano anterior pode so nao ter vencido
+// ainda, porque o calendario corre pelo final da placa e varia por UF; dois
+// anos ou mais e atraso sem desculpa.
+const licenciamento = computed(() => {
+  if (!licAno.value) return null
+  const ano = parseInt(licAno.value, 10)
+  if (!Number.isFinite(ano)) return null
+  const atual = new Date().getFullYear()
+  if (ano >= atual) return { ano: licAno.value, emissao: licEmissao.value, tom: 'ok', rotulo: 'Em dia', nota: null }
+  if (ano === atual - 1) {
+    return {
+      ano: licAno.value, emissao: licEmissao.value, tom: 'atencao', rotulo: 'Confira',
+      nota: `O licenciamento ${atual} pode ainda estar no prazo do calendário da UF.`,
+    }
+  }
+  return { ano: licAno.value, emissao: licEmissao.value, tom: 'alerta', rotulo: 'Atrasado', nota: null }
+})
+
 // ---------- veredito ----------
 // O resumo que a pessoa procura antes de ler o resto: o que pesa contra, em
 // uma frase. Sai dos proprios indicadores, sem inventar gravidade.
@@ -145,7 +180,12 @@ const veredito = computed(() => {
   // afirmar que checamos coisas que nem foram consultadas.
   if (isBasica.value) return null
   if (!indicadores.value.length) return null
-  if (!alertas.value.length) {
+  // Documento atrasado ha dois anos ou mais trava transferencia e derruba o
+  // "nada consta" igual a qualquer restricao. O caso ambar (ano anterior) NAO
+  // entra: pode so estar dentro do calendario da UF, e a faixa da ficha ja
+  // manda conferir.
+  const licAtrasado = licenciamento.value?.tom === 'alerta'
+  if (!alertas.value.length && !licAtrasado) {
     return {
       tom: 'ok' as const,
       titulo: 'Nada consta contra este veículo.',
@@ -154,7 +194,7 @@ const veredito = computed(() => {
   }
   // Os rotulos sao siglas e nomes proprios (RENAJUD, RFB): baixar tudo pra
   // minuscula deixava "Atenção: renajud." Mantem a caixa e monta a frase.
-  const nomes = alertas.value
+  const nomes = [...alertas.value, ...(licAtrasado ? ['licenciamento atrasado'] : [])]
   const lista = nomes.length === 1
     ? nomes[0]
     : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`
@@ -214,40 +254,6 @@ const temGrafico = computed(() => (vc.value?.historico?.length ?? 0) > 1)
 // ---------- ficha ----------
 const linha = (rot: string, val: any) => (val === null || val === undefined || val === '' ? null : [rot, String(val)])
 
-// `ultimoLicenciamento` vem como objeto e ate agora era pago e descartado.
-// Diz ao comprador se o veiculo esta em dia com o licenciamento do ano, que e
-// exatamente o tipo de coisa que trava a transferencia.
-const licAno = computed(() => {
-  const l = g('ultimoLicenciamento') as any
-  return l && typeof l === 'object' && l.anoLicenciamento ? String(l.anoLicenciamento) : null
-})
-const licEmissao = computed(() => {
-  const l = g('ultimoLicenciamento') as any
-  const d = l && typeof l === 'object' ? l.dataHoraEmissao : null
-  if (!d) return null
-  const dt = new Date(d)
-  return Number.isNaN(dt.getTime()) ? null : dt.toLocaleDateString('pt-BR')
-})
-
-// Faixa de licenciamento acima da ficha: e o dado que diz se o documento esta
-// em dia, e enterrado como linha de tabela ninguem via. O tom segue o ano:
-// exercicio atual (ou adiante) em dia; ano anterior pode so nao ter vencido
-// ainda, porque o calendario corre pelo final da placa e varia por UF; dois
-// anos ou mais e atraso sem desculpa.
-const licenciamento = computed(() => {
-  if (!licAno.value) return null
-  const ano = parseInt(licAno.value, 10)
-  if (!Number.isFinite(ano)) return null
-  const atual = new Date().getFullYear()
-  if (ano >= atual) return { ano: licAno.value, emissao: licEmissao.value, tom: 'ok', rotulo: 'Em dia', nota: null }
-  if (ano === atual - 1) {
-    return {
-      ano: licAno.value, emissao: licEmissao.value, tom: 'atencao', rotulo: 'Confira',
-      nota: `O licenciamento ${atual} pode ainda estar no prazo do calendário da UF.`,
-    }
-  }
-  return { ano: licAno.value, emissao: licEmissao.value, tom: 'alerta', rotulo: 'Atrasado', nota: null }
-})
 
 const fichaCadastral = computed(() => [
   linha('Placa', data.value?.placa),
