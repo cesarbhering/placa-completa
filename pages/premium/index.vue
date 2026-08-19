@@ -4,6 +4,10 @@ useHead({ title: 'Consulta Premium (homologação)', meta: [{ name: 'robots', co
 
 type Step = 'gate' | 'placa' | 'confirm' | 'pending' | 'erro'
 const step = ref<Step>('gate')
+
+const { itens, sync: histSync } = useConsultaHistory()
+const showConsultas = ref(false)
+onMounted(() => histSync())
 const loading = ref(false)
 const msg = ref('')
 
@@ -78,6 +82,13 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
       <h1>Consulta Veicular Completa</h1>
       <p class="tag">Homologação · acesso restrito</p>
 
+      <!-- Atalho pro historico: quem esta aqui pra comprar de novo costuma
+           querer o relatorio que ja pagou, e sem isto so chegava nele pela home.
+           So aparece quando ha algo salvo neste navegador. -->
+      <button v-if="itens.length" type="button" class="hist-link" @click="showConsultas = true">
+        Suas consultas ({{ itens.length }})
+      </button>
+
       <div v-if="step === 'gate'" class="stepbox">
         <p>Área restrita. Informe a senha de acesso.</p>
         <input v-model="senha" type="password" placeholder="Senha" @keyup.enter="entrar" />
@@ -123,6 +134,8 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
       <p v-if="msg" class="err">{{ msg }}</p>
     </div>
+
+    <ConsultasHistory :aberto="showConsultas" @fechar="showConsultas = false" />
   </div>
 </template>
 
@@ -131,6 +144,8 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 .card { background: #111a2e; color: #dbe4f4; border: 1px solid #24324d; border-radius: 12px; padding: 26px; max-width: 420px; width: 100%; font-family: system-ui; }
 h1 { font-size: 20px; margin: 0; } h2 { font-size: 17px; margin: 0 0 10px; }
 .tag { color: #8296b8; font-size: 12px; margin: 4px 0 18px; }
+/* Atalho discreto: e navegacao, nao a acao da tela. */
+.hist-link { background: transparent; border: 1px solid #24324d; color: #9db8e8; width: 100%; margin-bottom: 16px; font-weight: 500; }
 .stepbox { display: flex; flex-direction: column; gap: 10px; }
 input { background: #0b1424; border: 1px solid #24324d; color: #dbe4f4; border-radius: 7px; padding: 11px; font-size: 15px; }
 button { background: #0466c8; color: #fff; border: 0; border-radius: 7px; padding: 12px; font-size: 15px; font-weight: 600; cursor: pointer; }

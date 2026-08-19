@@ -168,6 +168,7 @@ const veredito = computed(() => {
 // ---------- retomada de um Pix vencido ----------
 // O provedor nao cobra por QR gerado, entao vencer nao precisa custar o pedido
 // inteiro: placa, plano e e-mail ja estao confirmados e so falta o codigo.
+const showConsultas = ref(false)
 const renovando = ref(false)
 const erroRenovar = ref('')
 
@@ -325,8 +326,18 @@ onUnmounted(() => poll && clearInterval(poll))
     <!-- Mesmo cabecalho do site: o rodape ja vem do app.vue em toda pagina, e
          o relatorio nao tinha motivo pra ser a unica tela sem cabecalho. -->
     <div class="rel__navband">
-      <HomeHeader logo-variant="default" :mostrar-busca="false" />
+      <HomeHeader
+        logo-variant="default"
+        :mostrar-busca="false"
+        :consultas="itens.length"
+        @abrir-consultas="showConsultas = true"
+      />
     </div>
+
+    <!-- Historico tambem aqui: quem chega pelo link do e-mail cai direto nesta
+         pagina, e sem isto nao teria como voltar aos outros relatorios sem
+         passar pela home. -->
+    <ConsultasHistory :aberto="showConsultas" @fechar="showConsultas = false" />
 
     <div class="rel__wrap">
       <span class="rel__tipo-fora">{{ isBasica ? PLANOS.basica.nome : PLANOS.completa.nome }}</span>
