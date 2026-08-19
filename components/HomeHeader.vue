@@ -57,6 +57,36 @@ const naHome = computed(() => route.path === '/')
 const alvo = (href: string) => (href.startsWith('#') && !naHome.value ? `/${href}` : href)
 const ehAncora = (href: string) => href.startsWith('#')
 
+// O logo faz as duas coisas que se espera dele, na ordem que a pessoa espera:
+// fora do topo, sobe a pagina; ja no topo, o unico sentido possivel do clique e
+// "me leva pra home". Antes decidia pela rota, entao na home ele nunca levava a
+// lugar nenhum e fora dela nunca subia.
+const noTopo = ref(true)
+const rotuloLogo = computed(() =>
+  noTopo.value ? 'PlacaCompleta, ir para a home' : 'PlacaCompleta, voltar ao topo da página')
+
+function aoClicarLogo(e: MouseEvent) {
+  // href="/" continua real (clique do meio, "abrir em nova aba", crawler);
+  // o clique normal e que ganha o comportamento.
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+  e.preventDefault()
+  if (noTopo.value) navigateTo('/')
+  else window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function aoBuscar() {
+  emit('submit')
+  // O resultado aparece no topo da pagina. Sem subir junto, a pessoa busca do
+  // meio da home e nada visivel muda.
+  if (import.meta.client) window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+if (import.meta.client) {
+  const marcar = () => { noTopo.value = window.scrollY <= 4 }
+  onMounted(() => { marcar(); window.addEventListener('scroll', marcar, { passive: true }) })
+  onUnmounted(() => window.removeEventListener('scroll', marcar))
+}
+
 // Menu do mobile. Abaixo de 1024px os cinco links nao cabem na barra e
 // quebravam em duas linhas; viram gaveta atras do hamburguer (o guia HP pede
 // exatamente isso abaixo desse ponto).
@@ -72,12 +102,9 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
 
 <template>
   <header class="home-header">
-    <a v-if="naHome" href="#top" class="home-header__brand" aria-label="PlacaCompleta, ir para o topo">
+    <a href="/" class="home-header__brand" :aria-label="rotuloLogo" @click="aoClicarLogo">
       <PlacaCompletaLogo :variant="logoVariant" crop class="home-header__logo" />
     </a>
-    <NuxtLink v-else to="/" class="home-header__brand" aria-label="PlacaCompleta, voltar para a home">
-      <PlacaCompletaLogo :variant="logoVariant" crop class="home-header__logo" />
-    </NuxtLink>
     <!-- Centro do header: enquanto nao consultou, um campo de placa sempre a
          mao; depois, o selo da placa consultada. Com o header fixo, a acao
          principal nunca sai da tela. -->
@@ -91,7 +118,7 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
                 stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </div>
-      <form v-else-if="mostrarBusca" class="home-header__search" @submit.prevent="emit('submit')">
+      <form v-else-if="mostrarBusca && naHome" class="home-header__search" @submit.prevent="aoBuscar">
         <label class="home-header__search-label" for="hdr-placa">Insira aqui a placa</label>
         <input
           id="hdr-placa"
