@@ -3,11 +3,8 @@ import { PLANOS, PLANOS_PAGOS, RECURSOS, RECURSOS_BLOQUEADOS, inclui, isPlanoPag
 
 import { homepageFaqs } from '~/data/homepage-faqs'
 
-// A consulta feita passa a viver num endereco proprio, /placa/ABC1D23, em vez
-// de acontecer "dentro" da home. E um alias da MESMA pagina: o componente nao
-// remonta na troca de URL, entao o resultado nao pisca, e quem abre o link
-// direto cai numa rota real que refaz a consulta sozinha.
-definePageMeta({ alias: ['/placa/:placa'] })
+// A consulta feita passa a viver num endereco proprio, /placa/ABC1D23, que
+// aponta pra esta mesma pagina. O registro da rota fica em app/router.options.ts.
 
 const { isPWA, isMobile } = useAppMode()
 const route = useRoute()
@@ -36,6 +33,8 @@ onMounted(() => {
   // consulta e refeita, porque o resultado nunca foi guardado nesta URL.
   if (route.params.placa) nextTick(() => handleSubmit())
 })
+const { itens: consultasSalvas, sync: syncConsultas } = useConsultaHistory()
+onMounted(syncConsultas)
 const email = ref('')
 const placa = ref('')
 const loading = ref(false)
@@ -181,9 +180,6 @@ const placaJaConsultada = ref(false)
 
 // "Suas consultas": historico local, agora atras de um item do header em vez
 // de uma section fixa no meio da home.
-const { itens: consultasSalvas, sync: syncConsultas } = useConsultaHistory()
-const showConsultas = ref(false)
-onMounted(syncConsultas)
 
 // Clicou num CTA pago sem ter placa: o proximo envio do formulario vai pro
 // fluxo PAGO, nao pro gratuito.
@@ -1134,8 +1130,6 @@ function applyEmailSuggestion() {
           :placa="placa"
           :consultada="success"
           :mostrar-busca="mostrarBuscaHeader"
-          :consultas="consultasSalvas.length"
-          @abrir-consultas="showConsultas = true"
           @consult="consultFromGrid"
           @update:placa="(v) => { placa = formatPlaca(v); placaError = '' }"
           @submit="handleSubmit"
@@ -2081,7 +2075,8 @@ function applyEmailSuggestion() {
     </div>
 
     <!-- Checkout premium inline (overlay): roda o fluxo pago sem sair da home -->
-    <ConsultasHistory :aberto="showConsultas" @fechar="showConsultas = false" />
+    <!-- O modal de consultas vive no app.vue, uma vez so pro site inteiro; o
+         header abre por estado compartilhado. -->
 
     <PremiumInlineCheckout
       v-if="showPremiumCheckout"
