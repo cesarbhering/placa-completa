@@ -15,7 +15,7 @@ export const homepageFaqs: HomepageFaq[] = [
   },
   {
     question: 'A consulta é grátis?',
-    answer: 'A primeira olhada é. A consulta grátis mostra marca, modelo, ano, cor, situação, valor FIPE, seguro estimado e custo em 5 anos. Quem precisa de mais tem dois níveis pagos: a consulta básica, por R$ 19,90, traz a ficha técnica completa com chassi e Renavam; o relatório completo, por R$ 44,90, traz também restrição, roubo e furto, leilão, gravame, bloqueio judicial e indicador de multas.',
+    answer: 'A primeira olhada é. A consulta grátis aparece na própria tela, sem cadastro e sem pedir e-mail, e mostra marca, modelo, ano, cor, situação, valor FIPE, seguro estimado e custo em 5 anos. Quem precisa de mais tem dois níveis pagos: a consulta básica, por R$ 19,90, traz a ficha técnica completa e o histórico de depreciação da FIPE; o relatório completo, por R$ 44,90, traz também chassi e Renavam completos, restrição, roubo e furto, leilão, gravame, bloqueio judicial e indicador de multas.',
   },
   {
     question: 'Quais as formas de pagamento?',
@@ -23,7 +23,7 @@ export const homepageFaqs: HomepageFaq[] = [
   },
   {
     question: 'Preciso criar conta ou assinar alguma coisa?',
-    answer: 'Não. Não tem cadastro, senha nem mensalidade. Você paga uma vez pela consulta que fez. O link do relatório fica salvo no seu navegador para reabrir depois, no mesmo aparelho.',
+    answer: 'Não. A consulta grátis não pede nem e-mail: o resultado aparece na tela. Nos níveis pagos você informa um e-mail apenas para receber o link do relatório, e não há cadastro, senha nem mensalidade.',
   },
   {
     question: 'Quanto tempo leva para o relatório ficar pronto?',
@@ -51,6 +51,6 @@ export const homepageFaqs: HomepageFaq[] = [
   },
   {
     question: 'Meus dados estão seguros?',
-    answer: 'Sim. Seu e-mail serve apenas para enviar o resultado da consulta e o link do relatório é privado, só seu. Não vendemos nem compartilhamos suas informações, e seguimos a LGPD.',
+    answer: 'Sim. A consulta grátis não coleta nada seu. Nos níveis pagos, o e-mail serve apenas para enviar o link do relatório, que é privado. Não vendemos nem compartilhamos suas informações, e seguimos a LGPD.',
   },
 ]

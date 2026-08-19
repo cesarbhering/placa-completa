@@ -68,6 +68,8 @@ async function shareWhatsApp() {
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
 }
 
+// seguro (desativado) — abre o modal. Sem chamador enquanto a oferta estiver
+// fora; mantido inteiro pra religar sem reescrever.
 function openSeguroModal() {
   seguroStep.value = 'oferta'
   seguroPhoneError.value = ''
@@ -156,6 +158,90 @@ const showPremiumCheckout = ref(false)
 const premiumPlaca = ref('')
 const premiumPlano = ref<'basica' | 'completa'>('completa')
 
+// A placa desta sessao ja passou por uma consulta? Se sim, o CTA pago pula a
+// pergunta "e este veiculo?" (o veiculo ja apareceu na tela) e vai direto pro
+// pagamento; a confirmacao acontece depois, junto com o relatorio.
+const placaJaConsultada = ref(false)
+
+// "Suas consultas": historico local, agora atras de um item do header em vez
+// de uma section fixa no meio da home.
+const { itens: consultasSalvas, sync: syncConsultas } = useConsultaHistory()
+const showConsultas = ref(false)
+onMounted(syncConsultas)
+
+// Clicou num CTA pago sem ter placa: o proximo envio do formulario vai pro
+// fluxo PAGO, nao pro gratuito.
+const aguardandoPlacaPaga = ref(false)
+
+// ---------------------------------------------------------------
+// Header reativo ao scroll.
+//
+// Dois IntersectionObserver em vez de listener de scroll (mais barato e sem
+// throttle na mao):
+//   - .cb-plate-panel -> o formulario do herói ainda esta na tela?
+//   - .cb-eyebrow     -> o "consulta veicular por placa" ja chegou no header?
+//
+// Regras:
+//   * o campo de placa do header so aparece quando o formulario do herói sai
+//     de vista (senao seriam dois campos iguais disputando a mesma acao);
+//   * o header recolhe quando o formulario ainda esta visivel E o eyebrow esta
+//     prestes a passar por baixo dele. Antes o gatilho era uma sentinela de 1px
+//     no topo, que saia de vista com qualquer rolagem minima e fazia o header
+//     sumir cedo demais.
+// ---------------------------------------------------------------
+const formHeroVisivel = ref(true)
+// true = o eyebrow ainda esta abaixo do header, sem encostar nele
+const eyebrowLivre = ref(true)
+
+const headerRecolhido = computed(() => formHeroVisivel.value && !eyebrowLivre.value)
+const mostrarBuscaHeader = computed(() => !formHeroVisivel.value)
+
+let obsForm: IntersectionObserver | null = null
+let obsEyebrow: IntersectionObserver | null = null
+
+function observarHero() {
+  obsForm?.disconnect()
+  obsEyebrow?.disconnect()
+
+  // Sem formulario na tela (ex.: depois da consulta, quando ele da lugar ao
+  // resultado) o header fica visivel, com o selo da placa.
+  const form = document.querySelector('.cb-plate-panel')
+  if (!form) {
+    formHeroVisivel.value = false
+  } else {
+    obsForm = new IntersectionObserver(
+      ([e]) => { formHeroVisivel.value = e.isIntersecting },
+      { rootMargin: '-72px 0px 0px 0px' },
+    )
+    obsForm.observe(form)
+  }
+
+  const eyebrow = document.querySelector('.cb-eyebrow')
+  if (!eyebrow) {
+    eyebrowLivre.value = true
+  } else {
+    // -100px encolhe o topo da raiz um pouco alem da altura do header (80px):
+    // o eyebrow deixa de intersectar quando esta a poucos pixels de passar por
+    // baixo dele, que e o "prestes a atingir".
+    obsEyebrow = new IntersectionObserver(
+      ([e]) => { eyebrowLivre.value = e.isIntersecting },
+      { rootMargin: '-100px 0px 0px 0px' },
+    )
+    obsEyebrow.observe(eyebrow)
+  }
+}
+
+onMounted(() => {
+  if (!('IntersectionObserver' in window)) return
+  observarHero()
+})
+
+// O herói da lugar a tela de resultado (v-if), entao os alvos antigos morrem
+// e os observers precisam ser refeitos.
+watch(success, () => nextTick(observarHero))
+
+onUnmounted(() => { obsForm?.disconnect(); obsEyebrow?.disconnect() })
+
 // Bloco livre mostrado na tela depois da consulta gratis (o "o que e o carro").
 // Vem de /api/consulta; nada aqui e SENATRAN.
 const resultadoBasico = ref<Record<string, any> | null>(null)
@@ -165,15 +251,23 @@ const resultadoBasico = ref<Record<string, any> | null>(null)
 function openPremiumCheckout(plano?: unknown) {
   placaError.value = ''
   if (!validatePlaca(placa.value)) {
-    placaError.value = 'Placa inválida. Use o formato ABC1D23 ou ABC1234.'
-    track('form_validation_error', { error_field: 'placa', origin: 'premium_cta' })
-    nextTick(() => placaRef.value?.focus())
+    // Sem placa nao da pra cobrar. Em vez de erro seco, leva pro campo com a
+    // instrucao e marca que o proximo envio e do fluxo PAGO.
+    premiumPlano.value = isPlanoPago(plano) ? plano : 'completa'
+    aguardandoPlacaPaga.value = true
+    placaError.value = ''
+    track('premium_cta_sem_placa', { plano: premiumPlano.value })
+    nextTick(() => {
+      placaRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      placaRef.value?.focus()
+    })
     return
   }
   premiumPlano.value = isPlanoPago(plano) ? plano : 'completa'
   premiumPlaca.value = placa.value
+  aguardandoPlacaPaga.value = false
   showPremiumCheckout.value = true
-  track('premium_checkout_open', { origin: 'home_hero', plano: premiumPlano.value })
+  track('premium_checkout_open', { origin: 'home_hero', plano: premiumPlano.value, ja_consultada: placaJaConsultada.value })
 }
 
 // O bloco bloqueado sai da matriz de recursos: mover um item entre planos
@@ -186,6 +280,8 @@ const camposBloqueados = RECURSOS_BLOQUEADOS
 
 // Os itens que so a completa entrega — o painel do herói vende exatamente isso.
 const recursosRisco = RECURSOS.filter((r) => r.planos.length === 1 && r.planos[0] === 'completa')
+
+const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
 // O que a consulta gratis efetivamente devolveu, so com o que veio preenchido.
 const camposLivres = computed(() => {
@@ -201,6 +297,8 @@ const camposLivres = computed(() => {
     ['Município/UF', b.municipio && b.uf ? `${b.municipio}/${b.uf}` : null],
     ['Situação', b.situacao],
     ['Valor FIPE', b.fipe],
+    ['Seguro estimado', b.seguroAnual ? `${brl(b.seguroAnual)} / ano` : null],
+    ['Custo em 5 anos', b.custo5anos ? brl(b.custo5anos) : null],
   ].filter(([, v]) => v !== null && v !== undefined && v !== '')
 })
 
@@ -362,7 +460,7 @@ if (import.meta.client) {
 // pagina e que vendem o relatorio completo. Sem revelar fonte dos dados.
 useSeoMeta({
   ogTitle: 'PlacaCompleta · Relatório completo do veículo pela placa',
-  ogDescription: 'Restrições, roubo/furto, gravame, leilão, recall, ficha completa, FIPE, seguro e custo em 5 anos. Pagamento único no Pix, resultado na hora. Consulta básica grátis por e-mail.',
+  ogDescription: 'Restrições, roubo/furto, gravame, leilão, recall, ficha completa, FIPE, seguro e custo em 5 anos. Pagamento único no Pix, resultado na hora. Consulta grátis sem cadastro.',
   ogImage: 'https://placacompleta.com.br/og-home.png',
   ogImageWidth: 1200,
   ogImageHeight: 630,
@@ -518,6 +616,8 @@ function resetForm() {
   messageType.value = 'info'
   formStarted.value = false
   resultadoBasico.value = null
+  placaJaConsultada.value = false
+  aguardandoPlacaPaga.value = false
   track('new_consulta_click')
   nextTick(() => {
     placaRef.value?.focus()
@@ -825,39 +925,10 @@ async function handleSubmit() {
     return
   }
 
-  // Web: missing recipient for the selected channel → open the modal
-  const webRecipientMissing = !isPWA.value && (
-    (channel.value === 'email' && !email.value) ||
-    (channel.value === 'whatsapp' && !phone.value)
-  )
-  if (webRecipientMissing) {
-    if (channel.value === 'whatsapp') webPhone.value = phone.value
-    else webEmail.value = email.value
-    showWebEmailPrompt.value = true
-    return
-  }
-
-  // Web: confirm the saved recipient before billing the API
-  if (!isPWA.value && !emailConfirmed.value) {
-    showEmailConfirm.value = true
-    return
-  }
-  emailConfirmed.value = false
-
-  // Web validation (PWA validated email when stored)
-  if (!isPWA.value) {
-    if (channel.value === 'whatsapp') {
-      if (!validatePhone(phone.value)) {
-        webPhoneError.value = 'Telefone inválido.'
-        track('form_validation_error', { error_field: 'phone' })
-        return
-      }
-    } else if (!validateEmail(email.value)) {
-      emailError.value = 'E-mail inválido.'
-      track('form_validation_error', { error_field: 'email' })
-      return
-    }
-  }
+  // A consulta gratis da web nao coleta mais contato: o resultado aparece na
+  // propria tela (canal 'tela' na API). Sairam daqui o modal de e-mail, o de
+  // confirmar destinatario e a validacao de e-mail/telefone. O PWA segue com o
+  // fluxo antigo (acima), porque la o e-mail ja e do proprio app.
 
   if (!isPWA.value) {
     if (channel.value === 'whatsapp') {
@@ -868,6 +939,16 @@ async function handleSubmit() {
       localStorage.setItem('pc_channel', 'email')
     }
   }
+  // Chegou aqui por um CTA pago (clicou em comprar sem ter placa): a placa
+  // agora existe, entao o destino e o checkout, nao a consulta gratis.
+  if (aguardandoPlacaPaga.value && !isPWA.value) {
+    aguardandoPlacaPaga.value = false
+    premiumPlaca.value = placa.value
+    showPremiumCheckout.value = true
+    track('premium_checkout_open', { origin: 'hero_apos_cta', plano: premiumPlano.value, ja_consultada: false })
+    return
+  }
+
   loading.value = true
   startStageCycle()
   track('form_submit', { form_name: 'plate_consultation', pwa_mode: isPWA.value })
@@ -876,9 +957,10 @@ async function handleSubmit() {
     const result = await $fetch<{ success: boolean; emailSent: boolean; whatsappSent?: boolean; channel?: 'email' | 'whatsapp'; message: string; data?: any }>('/api/consulta', {
       method: 'POST',
       body: {
-        email: channel.value === 'email' ? email.value : null,
-        phone: channel.value === 'whatsapp' ? phone.value : null,
-        channel: channel.value,
+        // Web: canal 'tela', sem destinatario. PWA mantem o e-mail do app.
+        email: isPWA.value ? email.value : null,
+        phone: null,
+        channel: isPWA.value ? 'email' : 'tela',
         placa: placa.value,
         isPWA: isPWA.value,
         includeFipeChart: includeFipeChart.value,
@@ -902,9 +984,8 @@ async function handleSubmit() {
       showDataModal.value = true
       track('consulta_success_pwa')
     } else {
-      const delivered = channel.value === 'whatsapp'
-        ? Boolean(result.whatsappSent)
-        : Boolean(result.emailSent)
+      // No canal 'tela' nao ha envio: o sucesso e ter vindo o bloco basico.
+      const delivered = Boolean(result.basico)
       message.value = result.message
       messageType.value = delivered ? 'success' : 'info'
       success.value = delivered
@@ -916,11 +997,20 @@ async function handleSubmit() {
         // resultado na tela (padrao dos concorrentes): o que e o carro aparece
         // na hora; o que decide a compra fica atras do pagamento.
         resultadoBasico.value = (result as any).basico || null
-        if (result.seguroEstimado) {
-          seguroEstimado.value = result.seguroEstimado
-          // a tela de sucesso assenta primeiro; o modal chega como proximo passo
-          setTimeout(() => { if (success.value) openSeguroModal() }, 1200)
-        }
+        // A partir daqui o CTA pago pula a pergunta "e este veiculo?".
+        placaJaConsultada.value = true
+        // Oferta de seguro desativada por ora: o modal disputava com a
+        // tela de resultado, que agora e o momento de venda do relatorio.
+        // O dado continua chegando e ja aparece como "Seguro estimado" no
+        // bloco livre; o que saiu de cena foi a abordagem em modal.
+        // Pra religar, e so descomentar as tres partes marcadas com
+        // "seguro (desativado)".
+        //
+        // seguro (desativado) — gatilho
+        // if (result.seguroEstimado) {
+        //   seguroEstimado.value = result.seguroEstimado
+        //   setTimeout(() => { if (success.value) openSeguroModal() }, 1200)
+        // }
       } else {
         track('consulta_success_no_delivery', { channel: channel.value, api_message: result.message })
       }
@@ -959,16 +1049,26 @@ function applyEmailSuggestion() {
          WEB (combo 3): herói acolhedor + editorial. PWA intacto abaixo.
          ======================================================= -->
     <template v-if="!isPWA">
-      <!-- nav (slab navy full-bleed; o header para na coluna do %wrap) -->
-      <div class="cb-navband">
-        <HomeHeader logo-variant="default" @consult="consultFromGrid" />
+      <!-- nav full-bleed; o header para na coluna do %wrap -->
+      <div class="cb-navband" :class="{ 'cb-navband--oculto': headerRecolhido }">
+        <HomeHeader
+          logo-variant="default"
+          :placa="placa"
+          :consultada="success"
+          :mostrar-busca="mostrarBuscaHeader"
+          :consultas="consultasSalvas.length"
+          @abrir-consultas="showConsultas = true"
+          @consult="consultFromGrid"
+          @update:placa="(v) => { placa = formatPlaca(v); placaError = '' }"
+          @submit="handleSubmit"
+        />
       </div>
 
       <!-- ===== HERO ===== -->
       <!-- Antes da consulta: pitch curto + placa em destaque. O exemplo de
            relatorio saiu daqui pra uma section propria; o espaco livre e o que
            deixa o formulario dominar a dobra. -->
-      <header id="hero" class="cb-hero">
+      <header id="hero" class="cb-hero" :class="{ 'cb-hero--resultado': success }">
         <div v-if="!success" class="cb-hero__grid">
           <div class="cb-hero__left">
             <p class="cb-eyebrow">Consulta veicular por placa</p>
@@ -982,10 +1082,23 @@ function applyEmailSuggestion() {
 
             <form class="cb-plate-panel" @submit.prevent="handleSubmit" novalidate role="search" aria-label="Consulta veicular por placa">
               <label class="cb-plate-label" for="placa">Digite a placa do veículo</label>
+              <!-- Placa Mercosul: moldura preta, tarja azul com o selo do
+                   Mercosul a esquerda, BRASIL centralizado e a bandeira a
+                   direita, "BR" no canto inferior esquerdo. -->
               <div class="plate-field cb-plate" :class="{ 'plate-field--error': placaError }">
                 <div class="plate-field__band cb-plate__band">
-                  <span class="cb-plate__flag" aria-hidden="true">★ ★ ★</span>
+                  <span class="cb-plate__merco" aria-hidden="true">
+                    <svg viewBox="0 0 44 20" class="cb-plate__estrelas">
+                      <!-- as quatro estrelas do selo, em arco -->
+                      <path d="M8 9 L8.9 11.1 11.1 11.3 9.4 12.8 9.9 15 8 13.8 6.1 15 6.6 12.8 4.9 11.3 7.1 11.1Z" />
+                      <path d="M17 5.5 L17.9 7.6 20.1 7.8 18.4 9.3 18.9 11.5 17 10.3 15.1 11.5 15.6 9.3 13.9 7.8 16.1 7.6Z" />
+                      <path d="M27 5.5 L27.9 7.6 30.1 7.8 28.4 9.3 28.9 11.5 27 10.3 25.1 11.5 25.6 9.3 23.9 7.8 26.1 7.6Z" />
+                      <path d="M36 9 L36.9 11.1 39.1 11.3 37.4 12.8 37.9 15 36 13.8 34.1 15 34.6 12.8 32.9 11.3 35.1 11.1Z" />
+                    </svg>
+                    <span class="cb-plate__merco-txt">MERCOSUL</span>
+                  </span>
                   <span class="plate-field__country cb-plate__country">BRASIL</span>
+                  <img src="/flag-br.svg" alt="" class="cb-plate__bandeira" aria-hidden="true" width="30" height="21">
                 </div>
                 <input
                   id="placa"
@@ -1003,8 +1116,13 @@ function applyEmailSuggestion() {
                   @focus="onFormStart"
                   @input="onPlacaInput"
                 />
+                <span class="cb-plate__br" aria-hidden="true">BR</span>
               </div>
-              <small id="placa-help" class="cb-plate-help">Aceita placa antiga (ABC1234) e Mercosul (ABC1D23)</small>
+              <small v-if="aguardandoPlacaPaga" class="cb-plate-help cb-plate-help--cta">
+                Consulte a placa primeiro. Digite acima para seguir com o
+                {{ PLANOS[premiumPlano].nome.toLowerCase() }}.
+              </small>
+              <small v-else id="placa-help" class="cb-plate-help">Aceita placa antiga (ABC1234) e Mercosul (ABC1D23)</small>
               <span v-if="placaError" class="form-group__error cb-error" role="alert">{{ placaError }}</span>
 
               <!-- O CTA primario e a consulta gratis: e ela que abre o resultado
@@ -1071,8 +1189,8 @@ function applyEmailSuggestion() {
           <p class="cb-result__kick">Consulta grátis concluída</p>
           <h1 class="cb-result__h">Encontramos o veículo da placa {{ resultadoBasico?.placa || placa }}.</h1>
           <p class="cb-result__lead">
-            Estas informações são as que liberamos sem custo. Também enviamos para
-            <strong>{{ sentToEmail }}</strong>.
+            Grátis e sem cadastro. Isto é o que a placa diz sobre o carro.
+            <strong>O que ela diz sobre o negócio está logo abaixo.</strong>
           </p>
 
           <div v-if="camposLivres.length" class="cb-result__card">
@@ -1085,14 +1203,20 @@ function applyEmailSuggestion() {
           </div>
 
           <div class="cb-locked">
+            <!-- "Faltam" jogava a falta pra cima da gente, como se nao
+                 tivessemos os dados. "Disponíveis" inverte pro que interessa:
+                 existem mais verificacoes e nos entregamos.
+                 O que NAO da pra escrever e "já temos essas informações": a
+                 consulta oficial deste veiculo so roda depois do pagamento, e
+                 afirmar que o dado ja esta na mao seria mentira. Por isso a
+                 promessa aqui e de entrega ("sai na hora"), nao de posse. -->
+            <p class="cb-locked__kick">Atenção: tem mais nessa placa</p>
             <h2 class="cb-locked__h">
-              Faltam <strong>{{ camposBloqueados.length }}</strong> informações sobre este veículo
+              Mais <strong>{{ camposBloqueados.length }}</strong> verificações disponíveis para este veículo
             </h2>
-            <!-- Honestidade: os rotulos sao reais, os valores nao existem ainda.
-                 A consulta oficial so roda depois do pagamento — por isso o texto
-                 diz "ainda não consultamos" em vez de fingir que o dado esta ali. -->
             <p class="cb-locked__sub">
-              Ainda não consultamos nenhuma delas: a consulta oficial roda depois do pagamento.
+              Restrições, roubo e furto, leilão, gravame, bloqueio judicial, multas e mais.
+              Entram no relatório completo, liberado em até 5 minutos depois do pagamento.
             </p>
 
             <div class="cb-locked__box">
@@ -1106,13 +1230,16 @@ function applyEmailSuggestion() {
 
               <div class="cb-locked__over">
                 <div class="cb-locked__cta">
-                  <button type="button" class="cb-btn cb-btn--blue cb-btn--lg" @click="openPremiumCheckout('completa')">
-                    Liberar tudo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+                  <button type="button" class="cb-btn cb-btn--blue" @click="openPremiumCheckout('completa')">
+                    Relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
                   </button>
+                  <!-- Oferta da basica desativada aqui: duas opcoes no mesmo
+                       ponto dividiam a decisao. A basica segue viva no
+                       comparativo de precos. Pra voltar, e so descomentar.
                   <button type="button" class="cb-btn cb-btn--ghost" @click="openPremiumCheckout('basica')">
                     Só a ficha técnica · {{ precoBRL(PLANOS.basica.valorCentavos) }}
                   </button>
-                  <p class="cb-locked__pix">Pix · na hora · estorno se não acharmos o veículo</p>
+                  -->
                 </div>
               </div>
             </div>
@@ -1127,10 +1254,70 @@ function applyEmailSuggestion() {
         </div>
       </header>
 
-      <!-- ===== COMPARE: grátis vs completo ===== -->
-      <!-- Comparativo dos tres niveis. Rotulos, precos e itens saem todos de
-           shared/planos.ts, a mesma fonte que o servidor usa pra cobrar e pra
-           filtrar os campos do relatorio — nao tem como a tabela mentir. -->
+      <!-- ===== POR QUE CONSULTAR =====
+           Subiu pra logo depois do herói: e o argumento que faz a pessoa
+           querer o relatorio, entao vem antes dos precos, nao depois. Os
+           quatro itens seguem a linha do tempo de quem compra. -->
+      <section class="cb-ganhos">
+  <div class="cb-ganhos__grid">
+              <div class="cb-ganho">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.7" />
+                  <path d="M12 6.6V12l3.4 2.2" fill="none" stroke="currentColor"
+                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <h3>Você não perde a viagem</h3>
+                <p>
+                  Consulte antes de sair de casa. Se a placa já mostra gravame, leilão ou
+                  restrição, você economiza a tarde, a gasolina e a conversa de ir ver uma
+                  bomba que não ia dar em nada.
+                </p>
+              </div>
+
+              <div class="cb-ganho">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2.8 20 6v6c0 4.5-3.3 7.9-8 9.2C7.3 19.9 4 16.5 4 12V6Z"
+                        fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                  <path d="M8.6 12.2l2.4 2.4 4.4-4.8" fill="none" stroke="currentColor"
+                        stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <h3>Você não leva o problema pra casa</h3>
+                <p>
+                  Roubo, furto, passagem por leilão e bloqueio judicial aparecem antes de
+                  você entregar o dinheiro. Depois de assinado, o problema já é seu.
+                </p>
+              </div>
+
+              <div class="cb-ganho">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3 12h4l2.5 5 5-14 2.5 9h4" fill="none" stroke="currentColor"
+                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <h3>Você negocia com dado na mão</h3>
+                <p>
+                  Multa em aberto, financiamento não quitado ou custo de manutenção alto
+                  derrubam o preço. Saber disso antes vira desconto na conversa, ou motivo
+                  pra sair fora a tempo.
+                </p>
+              </div>
+
+              <div class="cb-ganho">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1" fill="none" stroke="currentColor"
+                        stroke-width="1.8" stroke-linecap="round" />
+                  <path d="M20.8 3.6v4.2h-4.2" fill="none" stroke="currentColor"
+                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <h3>Você não toma susto na revenda</h3>
+                <p>
+                  Restrição que trava a transferência não some sozinha. Descobrir hoje é
+                  assunto do vendedor; descobrir na hora de vender é prejuízo seu.
+                </p>
+              </div>
+            </div>
+      </section>
+
+      <!-- ===== COMPARE: os tres niveis ===== -->
       <!-- Comparativo dos tres niveis. TODOS os cards listam TODOS os itens:
            check no que entra, X vermelho no que nao. Esconder as linhas
            ausentes deixaria os cards incomparaveis — e o que falta e
@@ -1153,7 +1340,7 @@ function applyEmailSuggestion() {
             <span v-if="p.destaque" class="cb-cmp-flag">{{ p.destaque }}</span>
             <div class="cb-cmp-kick">{{ p.nome }}</div>
             <div class="cb-cmp-price">
-              <template v-if="p.valorCentavos === 0">Grátis <small>por e-mail</small></template>
+              <template v-if="p.valorCentavos === 0">Grátis <small>na tela</small></template>
               <template v-else>{{ precoBRL(p.valorCentavos) }} <small>Pix, uma vez</small></template>
             </div>
             <div class="cb-cmp-note">{{ p.chamada }}</div>
@@ -1206,7 +1393,7 @@ function applyEmailSuggestion() {
       <section id="exemplo" class="cb-exemplo">
         <div class="cb-exemplo__head">
           <p class="cb-eyebrow">Exemplo de relatório</p>
-          <h2>É assim que o relatório chega.</h2>
+          <h2>É assim que o relatório completo fica.</h2>
           <p class="cb-exemplo__sub">
             Um exemplo real do que você recebe: cada verificação com resultado, sem jargão.
           </p>
@@ -1240,7 +1427,7 @@ function applyEmailSuggestion() {
           <div class="cb-step">
             <div class="cb-num">03</div>
             <h3>Receba na hora</h3>
-            <p>Link privado com o relatório completo, direto no seu aparelho.</p>
+            <p>Link privado com o relatório completo, direto no seu aparelho. De fácil compartilhamento.</p>
           </div>
         </div>
       </section>
@@ -1267,6 +1454,7 @@ function applyEmailSuggestion() {
             <span class="cb-doc-tag"><i class="cb-d2" />Seguro estimado</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Custo em 5 anos</span>
           </div>
+
         </div>
       </section>
 
@@ -1297,10 +1485,6 @@ function applyEmailSuggestion() {
         </div>
       </section>
 
-      <!-- Suas consultas: histórico local do navegador (não renderiza quando vazio) -->
-      <ClientOnly>
-        <ConsultasHistory style="display:block;margin:0 auto 40px;max-width:760px" />
-      </ClientOnly>
 
       <!-- ===== FAQ ===== -->
       <section id="duvidas" class="cb-faq" aria-labelledby="faq-heading">
@@ -1333,7 +1517,7 @@ function applyEmailSuggestion() {
         <button type="button" class="cb-btn cb-btn--on-slab cb-btn--lg" @click="consultFromGrid('completa')">
           Ver relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
         </button>
-        <div class="cb-cta-sub">ou faça a consulta básica grátis por e-mail</div>
+        <div class="cb-cta-sub">ou faça a consulta grátis, sem cadastro</div>
       </section>
     </template>
 
@@ -1502,6 +1686,9 @@ function applyEmailSuggestion() {
     </div>
 
     <!-- Data Modal for PWA -->
+    <!-- seguro (desativado) — markup do modal. showSeguroModal nunca vira true
+         enquanto o gatilho em handleSubmit estiver comentado, entao isto nao
+         renderiza; fica aqui pra voltar sem reescrever. -->
     <div v-if="showSeguroModal && seguroEstimado" class="modal-overlay" @click="dismissSeguroModal">
       <div class="modal-window" @click.stop>
         <div class="win-window">
@@ -1812,9 +1999,13 @@ function applyEmailSuggestion() {
     </div>
 
     <!-- Checkout premium inline (overlay): roda o fluxo pago sem sair da home -->
+    <ConsultasHistory :aberto="showConsultas" @fechar="showConsultas = false" />
+
     <PremiumInlineCheckout
       v-if="showPremiumCheckout"
       :placa="premiumPlaca"
+      :plano="premiumPlano"
+      :ja-consultada="placaJaConsultada"
       @close="showPremiumCheckout = false"
     />
 
@@ -1886,10 +2077,12 @@ function applyEmailSuggestion() {
   // hairline sobre a faixa cloud (o #e8e8e8 sumiria contra o #f7f7f7)
   $c-hairline-locked: #dcdcdc;
 
-  // Ritmo de 80px entre faixas, 48px no mobile (guia). Custom property
-  // porque variavel Sass nao muda dentro de media query.
-  --band-y: 80px;
-  @media (max-width: 860px) { --band-y: 48px; }
+  // Ritmo entre faixas. O guia HP usa 80px como constante; aqui fica em 55px
+  // por decisao de densidade — a pagina e longa e o respiro de 80px empurrava
+  // conteudo de venda pra fora da dobra. Custom property porque variavel Sass
+  // nao muda dentro de media query.
+  --band-y: 55px;
+  @media (max-width: 860px) { --band-y: 40px; }
 
   max-width: none;
   width: 100%;
@@ -1901,7 +2094,9 @@ function applyEmailSuggestion() {
   line-height: 1.4;
   text-align: left;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  // `clip` e nao `hidden`: hidden cria um contexto de rolagem e anula o
+  // position:sticky do .cb-navband. Corta igual, sem virar scroll container.
+  overflow-x: clip;
 
   // .desktop e flex-column com align-items:center, entao cada filho direto
   // (as faixas) dimensionava por fit-content. Stretch faz cada faixa ocupar
@@ -1987,15 +2182,56 @@ function applyEmailSuggestion() {
   // Guia: a nav e branca com hairline embaixo, nao um slab. A faixa escura
   // do topo e so a utility strip. .cb-navband pinta a faixa de ponta a ponta
   // e o HomeHeader para na coluna do %wrap.
+  // Fixo no topo: o slot central so faz sentido se acompanhar a rolagem.
+  // z-index abaixo do overlay do checkout (que usa 1000+).
+  //
+  // So a partir de 1024px: no celular a barra tem 178px (logo + nav em duas
+  // linhas) e, fixa, comeria um quinto da tela. Um menu hamburguer resolveria,
+  // mas ai e outro trabalho.
   .cb-navband {
-    background: $c-canvas;
+    // Translucido: deixa entrever o que passa atras em vez de tapar. O
+    // saturate compensa a lavagem que o blur causa nas cores por baixo.
+    background: rgba(255, 255, 255, 0.72);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    backdrop-filter: blur(14px) saturate(160%);
     border-bottom: 1px solid $c-hair;
+
+    // Sem suporte a backdrop-filter o fundo tem que voltar a ser opaco, senao
+    // o texto do header fica ilegivel sobre o conteudo rolando por tras.
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      background: $c-canvas;
+    }
+
+    @media (min-width: 1024px) {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      // Mais lento e com curva suave: some e reaparece com calma, em vez de
+      // piscar. A opacidade fecha antes do movimento terminar, senao o header
+      // "desliza visivel" por cima do conteudo.
+      transition: transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1),
+                  opacity 0.28s ease;
+
+      // Recolhido enquanto o formulario do herói esta na tela: nao faz sentido
+      // uma barra fixa competindo com o campo principal.
+      &--oculto {
+        transform: translateY(-100%);
+        opacity: 0;
+        pointer-events: none;
+      }
+    }
+
+    // Quem prefere menos movimento nao ganha o slide; so aparece e some.
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
   }
 
   :deep(.home-header) {
     @extend %wrap;
-    min-height: 76px;
-    padding: $s-sm $s-xl;
+    min-height: 80px;
+    padding: $s-xs $s-xl;
+    gap: $s-lg;
     background: transparent;
     border-radius: 0;
     box-shadow: none;
@@ -2005,11 +2241,114 @@ function applyEmailSuggestion() {
   // Logo maior: estava em 24px de altura (61px de largura) contra ~100px dos
   // concorrentes, e sumia na barra. 40px de altura da 101px de largura no
   // viewBox 304x120 — mesma presenca deles.
-  :deep(.home-header__brand) { min-height: 52px; gap: 12px; }
+  // Logo grande de verdade: 64px de altura dao 162px de largura no viewBox
+  // 304x120. O respiro vertical do header encolhe pra barra nao inchar junto.
+  :deep(.home-header__brand) { min-height: 56px; gap: 10px; flex-shrink: 0; }
   :deep(.home-header__logo),
-  :deep(.home-header__logo .placa-logo) { height: 52px; width: auto; }
-  :deep(.home-header__tag) { color: $c-graphite; }
+  :deep(.home-header__logo .placa-logo) { height: 56px; width: auto; flex-shrink: 0; }
+
+  // ---------- slot central do header ----------
+  :deep(.home-header__center) { flex: 0 1 auto; }
+
+
+  :deep(.home-header__search) {
+    display: flex;
+    align-items: center;
+    gap: $s-sm;
+    background: $c-cloud;
+    border: 1px solid $c-hair;
+    border-radius: $r-md;
+    padding: 4px 4px 4px $s-md;
+  }
+
+  :deep(.home-header__search-label) {
+    font-size: 14px;
+    line-height: 1.5;
+    color: $c-graphite;
+    white-space: nowrap;
+  }
+
+  :deep(.home-header__search-input) {
+    width: 108px;
+    border: 0;
+    background: transparent;
+    font-family: $c-font;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: $c-ink;
+    text-transform: uppercase;
+    min-height: 44px;
+
+    &::placeholder { color: $c-steel; font-weight: 400; letter-spacing: 0.08em; }
+    &:focus { outline: none; }
+    &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; border-radius: $r-md; }
+  }
+
+  :deep(.home-header__search-btn) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: $r-md;
+    background: $c-blue;
+    color: #fff;
+    cursor: pointer;
+
+    svg { width: 20px; height: 20px; }
+    &:hover { background: $c-blue-deep; }
+    &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+  }
+
+  :deep(.home-header__done) {
+    display: inline-flex;
+    align-items: center;
+    gap: $s-sm;
+    background: $c-cloud;
+    border: 1px solid $c-hair;
+    border-radius: $r-md;
+    padding: $s-xs $s-md;
+    min-height: 44px;
+
+    strong {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: $c-ink;
+    }
+
+    svg { width: 22px; height: 22px; color: $c-green; flex-shrink: 0; }
+  }
+
+  :deep(.home-header__done-label) {
+    font-size: 14px;
+    line-height: 1.5;
+    color: $c-graphite;
+    white-space: nowrap;
+  }
+
+  // Abaixo de 1280px o campo do header some: com os cinco links da nav nao
+  // sobra largura pros tres blocos, e ele duplicaria o formulario do herói.
+  // O selo da placa consultada fica, porque esse continua util ao rolar.
+  // Precisa vir DEPOIS das regras base: mesma especificidade, quem decide e a
+  // ordem.
+  @media (max-width: 1279px) {
+    :deep(.home-header__search) { display: none; }
+  }
   :deep(.home-header__nav) { gap: $s-xs; }
+
+  // Sem borda inferior: o guia usa o fio de 2px pra marcar a pagina ATIVA,
+  // nao o hover. No hover ele so lia como sublinhado de link comum. Aqui o
+  // hover troca a cor, e ponto.
+  :deep(.home-header__link--btn) {
+    background: transparent;
+    border: 0;
+    font-family: $c-font;
+    cursor: pointer;
+  }
 
   :deep(.home-header__link) {
     display: inline-flex;
@@ -2020,35 +2359,79 @@ function applyEmailSuggestion() {
     font-weight: 400;
     padding: 0 $s-md;
     border-radius: 0;
-    border-bottom: 2px solid transparent;
+    border-bottom: 0;
+    text-decoration: none;
 
-    &:hover { color: $c-blue; border-bottom-color: $c-blue; }
+    &:hover { color: $c-blue; }
   }
 
-  // Colapso da nav no estreito. O guia manda a lista do meio virar gaveta de
-  // hamburguer abaixo de 1024px; sem JS novo, a versao honesta e empilhar em
-  // duas linhas centradas (marca em cima, links embaixo) em vez de deixar os
-  // tres links embolarem em volta do logo.
+  // ---------- hamburguer (abaixo de 1024px) ----------
+  // Antes a nav empilhava em duas linhas centradas. Agora e o padrao que o
+  // guia pede e que a pessoa espera no celular: logo a esquerda, hamburguer a
+  // direita, links numa gaveta lateral.
   // Precisa vir DEPOIS das regras base: mesma especificidade, quem decide e a
-  // ordem — foi assim que a primeira tentativa nao pegou.
-  @media (max-width: 700px) {
+  // ordem.
+  :deep(.home-header__burger) { display: none; }
+
+  @media (max-width: 1023px) {
     :deep(.home-header) {
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 0;
+      flex-wrap: nowrap;
+      justify-content: space-between;
+      gap: $s-md;
       padding: $s-xs $s-md;
     }
-    :deep(.home-header__brand) { width: 100%; justify-content: center; }
-    :deep(.home-header__nav) { width: 100%; justify-content: center; gap: $s-xxs; }
-    :deep(.home-header__link) { font-size: 14px; padding: 0 10px; }
+    :deep(.home-header__brand) { width: auto; justify-content: flex-start; }
+    :deep(.home-header__nav) { display: none; }
     :deep(.home-header__logo),
-    :deep(.home-header__logo .placa-logo) { height: 40px; }
+    :deep(.home-header__logo .placa-logo) { height: 44px; }
+
+    :deep(.home-header__burger) {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      position: relative;
+      z-index: 60;
+
+      // Tres tracos a partir de um unico span: ::before e ::after sao o de
+      // cima e o de baixo. Abrindo, viram um X.
+      span,
+      span::before,
+      span::after {
+        content: '';
+        display: block;
+        position: absolute;
+        width: 22px;
+        height: 2px;
+        border-radius: 2px;
+        background: $c-ink;
+        transition: transform 0.22s ease, background-color 0.16s ease;
+      }
+      span::before { transform: translateY(-7px); }
+      span::after { transform: translateY(7px); }
+
+      span.is-x { background: transparent; }
+      span.is-x::before { transform: rotate(45deg); }
+      span.is-x::after { transform: rotate(-45deg); }
+
+      &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+    }
   }
 
   // ---------- HERO ----------
   .cb-hero {
     @extend %wrap;
     padding: var(--band-y) $s-xl;
+
+    // Na tela de resultado o respiro de faixa (80px) so empurra o bloco de
+    // venda pra fora da dobra. Aqui o topo encolhe: o que importa e o box
+    // aparecer junto com o resumo.
+    &--resultado { padding-top: $s-lg; padding-bottom: $s-xxl; }
 
     // Duas colunas: copy + formulario na esquerda, o que a placa entrega na
     // direita. Coluna unica desperdicava dois tercos da tela no desktop.
@@ -2193,54 +2576,152 @@ function applyEmailSuggestion() {
     margin-bottom: $s-sm;
   }
 
-  // A placa Mercosul e um artefato do mundo real, nao um input generico:
-  // mantem a banda navy e fica no raio 8px (proporcao de placa de verdade)
-  // em vez dos 4px de input do guia.
+  // ---------- PLACA MERCOSUL ----------
+  // Reproduz a placa fisica: moldura preta, tarja azul com selo do Mercosul +
+  // BRASIL + bandeira, corpo branco e "BR" no canto inferior esquerdo.
+  //
+  // A proporcao e travada em 400x130mm (~3,08:1) por `aspect-ratio`. Antes a
+  // largura seguia o container e a altura seguia um clamp de fonte, entao o
+  // formato variava de 2,17:1 a 4,58:1 conforme o breakpoint — ora quadrada,
+  // ora achatada.
+  //
+  // Todo o conteudo e medido em `cqw` (% da largura da propria placa), nao em
+  // px: assim tarja, letras, selo e bandeira crescem juntos e a placa fica
+  // igual em qualquer tamanho. Cada regra tem um valor em px antes, que vale
+  // como fallback onde container query nao existe.
   .cb-plate {
-    max-width: none;
-    margin: 0;
-    border: 1px solid $c-steel;
-    border-radius: $r-lg;
+    position: relative;
+    container-type: inline-size;
+    aspect-ratio: 400 / 130;
+    width: 100%;
+    max-width: 460px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    border: 3px solid #111;
+    border-radius: 10px;
     box-shadow: none;
     overflow: hidden;
+    background: #fff;
 
-    // Guia: foco troca a borda por tinta, sem halo. Mantido o :focus-visible
-    // do botao pra navegacao por teclado continuar visivel.
+    // Guia: foco troca a borda, sem halo. Aqui a moldura preta e da propria
+    // placa, entao o foco vai num anel externo pra nao descaracterizar o objeto.
     &:focus-within {
-      border-color: $c-ink;
-      box-shadow: none;
+      border-color: #111;
+      box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.45);
     }
 
     &.plate-field--error { border-color: $c-red; }
 
     &__band {
-      background: $c-slab;
+      flex: 0 0 26%;   // a tarja ocupa ~25% da altura na placa real
+      // Mesmo azul do CTA logo abaixo, em vez do navy da placa fisica: a
+      // tarja passa a conversar com o botao "Consultar placa".
+      background: $c-blue;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 1.5cqw;
+      padding: 0 2cqw;
+    }
+
+    // selo do Mercosul (estrelas + palavra), alinhado a esquerda
+    &__merco {
+      display: flex;
       flex-direction: column;
-      padding: 0 $s-sm;
+      align-items: flex-start;
+      gap: 0.3cqw;
+      line-height: 1;
     }
 
-    &__flag {
+    &__estrelas {
+      width: 30px;
+      width: 7cqw;
+      height: 13px;
+      height: 3.2cqw;
+      fill: #fff;
+      display: block;
+    }
+
+    &__merco-txt {
+      font-size: 6px;
+      font-size: 1.6cqw;
+      font-weight: 700;
+      letter-spacing: 0.06em;
       color: #fff;
-      font-size: 9px;
-      font-weight: 600;
-      letter-spacing: 0.14em;
     }
 
-    &__country { color: #fff; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; }
+    &__country {
+      color: #fff;
+      font-family: $c-font;
+      font-size: 15px;
+      font-size: 3.6cqw;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-align: center;
+      text-indent: 0.22em;   // o tracking desloca; compensa pra centrar de fato
+      line-height: 1;
+    }
+
+    &__bandeira {
+      width: 30px;
+      width: 7cqw;
+      height: 21px;
+      height: 4.9cqw;
+      display: block;
+      justify-self: end;
+      border-radius: 1px;
+    }
+
+    // "BR" no canto inferior esquerdo, em caixa preta
+    &__br {
+      position: absolute;
+      left: 1.2cqw;
+      bottom: 1.2cqw;
+      background: #111;
+      color: #fff;
+      font-family: $c-font;
+      font-size: 12px;
+      font-size: 2.6cqw;
+      font-weight: 800;
+      line-height: 1;
+      padding: 0.6cqw 0.8cqw;
+      border-radius: 2px;
+      pointer-events: none;
+    }
 
     &__input {
+      flex: 1;
+      min-height: 0;
       font-family: $c-font;
-      font-size: 30px;
-      font-weight: 600;
-      letter-spacing: 0.14em;
-      color: $c-ink;
-      padding: $s-md $s-xs;
+      // A placa real usa a FE-Schrift, estreita e pesada. Sem ela, peso maximo
+      // com tracking largo e o que mais aproxima. 15cqw deixa o glifo em ~34%
+      // da altura da placa (na fisica sao ~37%).
+      font-size: 40px;
+      font-size: 15cqw;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      line-height: 1;
+      color: #111;
+      text-align: center;
+      padding: 0 2cqw 0 6cqw;   // folga a esquerda pro selo "BR"
+      text-transform: uppercase;
 
-      &::placeholder { color: $c-steel; letter-spacing: 0.14em; }
+      &::placeholder { color: #c9c9c9; letter-spacing: 0.1em; font-weight: 800; }
     }
   }
 
-  .cb-plate-help { display: block; font-size: 12px; line-height: 1.33; color: $c-graphite; margin-top: $s-xs; }
+  .cb-plate-help {
+    display: block;
+    font-size: 12px;
+    line-height: 1.33;
+    color: $c-graphite;
+    margin-top: $s-xs;
+
+    // Quando o campo virou pre-requisito de uma compra, a instrucao deixa de
+    // ser rodape e vira aviso.
+    &--cta { color: $c-blue; font-weight: 500; font-size: 13px; }
+  }
   .cb-error { display: block; color: $c-red; font-size: 14px; margin-top: 6px; }
 
   .cb-plate-panel .cb-btn--block { margin-top: $s-md; }
@@ -2334,19 +2815,19 @@ function applyEmailSuggestion() {
     }
 
     &__h {
-      font-size: clamp(26px, 3.2vw, 40px);
+      font-size: clamp(24px, 2.6vw, 32px);
       font-weight: 500;
       letter-spacing: 0;
-      line-height: 1.0;
+      line-height: 1.05;
       color: $c-ink;
-      margin-bottom: $s-sm;
+      margin-bottom: $s-xs;
     }
 
     &__lead {
       font-size: 16px;
       line-height: 1.38;
       color: $c-charcoal;
-      margin-bottom: $s-xxl;
+      margin-bottom: $s-lg;
 
       strong { color: $c-ink; font-weight: 500; }
     }
@@ -2356,14 +2837,16 @@ function applyEmailSuggestion() {
       border: 1px solid $c-hair;
       border-radius: $r-xl;
       box-shadow: $e-lift;
-      padding: $s-xl;
+      padding: $s-lg;
       text-align: left;
     }
 
     &__grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: $s-md $s-xl;
+      // minmax menor cabe mais colunas: os 11 campos passam de 4 linhas
+      // para 3, e o box de venda sobe junto.
+      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      gap: $s-sm $s-md;
     }
 
     &__foot {
@@ -2373,61 +2856,76 @@ function applyEmailSuggestion() {
       gap: $s-xs;
       margin-top: $s-xxl;
     }
+
   }
 
   .cb-field {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding-bottom: $s-sm;
+    gap: 1px;
+    padding-bottom: 6px;
     border-bottom: 1px solid $c-hair;
 
-    &__k { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: $c-graphite; }
-    &__v { font-size: 16px; line-height: 1.38; color: $c-ink; }
+    &__k { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: $c-graphite; }
+    &__v { font-size: 15px; line-height: 1.3; color: $c-ink; }
   }
 
   // ---------- BLOCO BLOQUEADO ----------
   .cb-locked {
-    margin-top: var(--band-y);
+    // Respiro menor que o ritmo padrao de faixa: aqui o objetivo e o box
+    // caber na tela junto com o resumo, nao separar duas secoes.
+    margin-top: $s-xxl;
+
+    &__kick {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: $c-blue;
+      margin-bottom: $s-xs;
+    }
 
     &__h {
-      font-size: clamp(22px, 2.6vw, 32px);
+      font-size: clamp(21px, 2.2vw, 28px);
       font-weight: 500;
       letter-spacing: 0;
-      line-height: 1.0;
+      line-height: 1.05;
       color: $c-ink;
-      margin-bottom: $s-sm;
+      margin-bottom: $s-xxs;
 
       strong { font-weight: 500; color: $c-blue; }
     }
 
-    &__sub { font-size: 16px; line-height: 1.38; color: $c-charcoal; margin-bottom: $s-xl; }
+    &__sub { font-size: 15px; line-height: 1.38; color: $c-charcoal; margin-bottom: $s-md; max-width: 620px; margin-left: auto; margin-right: auto; }
 
     &__box {
       position: relative;
       border: 1px solid $c-hair;
       border-radius: $r-xl;
       background: $c-cloud;
-      padding: $s-xl;
+      padding: $s-lg;
       overflow: hidden;
     }
 
     &__grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-      gap: $s-md $s-xl;
+      // minmax menor rende mais colunas no desktop (menos linhas, box mais
+      // baixo) e ainda quebra o mobile em 2 colunas, cortando pela metade a
+      // altura do box no celular.
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: $s-xs $s-sm;
       text-align: left;
     }
 
     &__item {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding-bottom: $s-sm;
+      gap: 2px;
+      padding-bottom: 6px;
       border-bottom: 1px solid $c-hairline-locked;
     }
 
-    &__k { font-size: 14px; font-weight: 500; line-height: 1.38; color: $c-charcoal; }
+    &__k { font-size: 13px; font-weight: 500; line-height: 1.3; color: $c-charcoal; }
 
     // O valor e um marcador, nao um dado escondido: nao existe resposta no DOM
     // pra vazar. O borrao aqui e so a linguagem visual do "ainda bloqueado".
@@ -2451,12 +2949,23 @@ function applyEmailSuggestion() {
       background: linear-gradient(180deg, rgba(247, 247, 247, 0.25) 0%, rgba(247, 247, 247, 0.82) 45%, rgba(247, 247, 247, 0.6) 100%);
     }
 
+    // Os dois CTAs com a mesma caixa: mesma largura e mesma altura. Antes um
+    // era --lg (52px) e o outro 44px, e cada um tinha a largura do proprio
+    // texto, o que fazia a dupla parecer desalinhada.
     &__cta {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: stretch;
       gap: $s-sm;
       padding: $s-md;
+      width: min(340px, 100%);
+
+      .cb-btn {
+        width: 100%;
+        min-height: 52px;
+        padding-left: $s-md;
+        padding-right: $s-md;
+      }
     }
 
     &__pix { font-size: 13px; line-height: 1.5; color: $c-graphite; margin: 0; }
@@ -2511,7 +3020,17 @@ function applyEmailSuggestion() {
     margin: 0 auto;
     align-items: stretch;
 
-    @media (max-width: 1023px) { grid-template-columns: 1fr; max-width: 520px; }
+    // Empilhado, a ordem se inverte: o completo (que e o produto) vem
+    // primeiro, depois a basica, e a gratis por ultimo. Em coluna unica quem
+    // esta no topo leva a atencao.
+    @media (max-width: 1023px) {
+      grid-template-columns: 1fr;
+      max-width: 520px;
+
+      .cb-cmp-card:nth-child(1) { order: 3; }   // grátis
+      .cb-cmp-card:nth-child(2) { order: 2; }   // básica
+      .cb-cmp-card:nth-child(3) { order: 1; }   // completa
+    }
   }
 
   // card-pricing-tier
@@ -2725,11 +3244,59 @@ function applyEmailSuggestion() {
     gap: $s-xs;
   }
 
+  // ---------- ganhos (o que o relatorio evita) ----------
+  // ---------- POR QUE CONSULTAR ----------
+  // Quatro razoes, na ordem em que a pessoa vive a compra: antes de sair de
+  // casa, na hora de fechar, na negociacao e la na frente, na revenda.
+  // Saiu do slab escuro pra ca, entao a tinta volta pro par ink/charcoal.
+  .cb-ganhos {
+    @extend %wrap;
+    padding: var(--band-y) $s-xl;
+    border-top: 1px solid $c-hair;
+
+    &__grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: $s-xxl $s-xl;
+
+      // 2x2 no meio do caminho: com quatro colunas a coluna fica estreita
+      // demais e as linhas quebram em duas palavras.
+      @media (max-width: 1199px) { grid-template-columns: repeat(2, 1fr); }
+      @media (max-width: 640px) { grid-template-columns: 1fr; }
+    }
+  }
+
+  .cb-ganho {
+    svg {
+      width: 28px;
+      height: 28px;
+      color: $c-blue;
+      display: block;
+      margin-bottom: $s-sm;
+    }
+
+    h3 {
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: 0;
+      line-height: 1.17;
+      color: $c-ink;
+      margin: 0 0 $s-xs;
+    }
+
+    p {
+      font-size: 16px;
+      line-height: 1.45;
+      color: $c-charcoal;
+      margin: 0;
+    }
+  }
+
   .cb-d2 {
     width: 5px;
     height: 5px;
     border-radius: $r-pill;
-    background: rgba(255, 255, 255, 0.45);
+    background: $c-green;
     display: inline-block;
     flex-shrink: 0;
   }
@@ -2960,7 +3527,7 @@ function applyEmailSuggestion() {
   }
 }
 
-// Link secundário: fluxo grátis por e-mail (é um <button type="submit">
+// Link secundário: fluxo grátis na tela (é um <button type="submit">
 // estilizado como link, pra disparar o handleSubmit sem sair do <form>)
 .cta-free {
   display: block;
