@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('status,placa,plano,preview,consulta_id,entregue_em,criado_em,br_code,expira_em')
+    .select('status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Relatorio nao encontrado' })
@@ -38,6 +38,8 @@ export default defineEventHandler(async (event) => {
     status: pedido.status,
     placa: pedido.placa,
     plano,
+    // usado na tela de retomada do Pix, pra pessoa reconferir o que esta pagando
+    valorCentavos: pedido.valor_centavos,
     // quantos campos a completa ainda entregaria alem deste plano (upsell)
     camposRestantes: restantes,
     preview: pedido.preview,
