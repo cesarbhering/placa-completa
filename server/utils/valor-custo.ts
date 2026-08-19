@@ -34,12 +34,10 @@ function pontos(historyData: any, anoModelo: string | number) {
   const ordenado = [...entries.prices].sort((a: any, b: any) =>
     new Date(a.year, a.month - 1).getTime() - new Date(b.year, b.month - 1).getTime())
 
-  const MAX = 8
-  const amostra = ordenado.length > MAX
-    ? Array.from({ length: MAX }, (_, i) => ordenado[Math.round(i * ((ordenado.length - 1) / (MAX - 1)))])
-    : ordenado
-
-  const pts = amostra
+  // A serie vai INTEIRA: o grafico do relatorio tem zoom, e zoom em serie
+  // reamostrada nao revela nada. Quem precisa de poucos pontos (o grafico do
+  // e-mail/PWA) tem o proprio reamostrador em consulta.post.ts.
+  const pts = ordenado
     .filter((h: any) => typeof h.price === 'number' && h.price > 0)
     .map((h: any) => ({ label: `${MESES[h.month - 1]}/${String(h.year).slice(2)}`, price: h.price }))
   return pts.length > 1 ? pts : null
