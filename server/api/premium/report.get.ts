@@ -16,9 +16,37 @@ function localDoVeiculo(pedido: any): { uf: string | null; municipio: string | n
 // Dados do relatorio premium pelo token (superficie PAGA, token e a credencial).
 // O corte por plano acontece AQUI, no servidor: o que a basica nao comprou nunca
 // chega ao cliente. Borrar no CSS deixaria o dado no DOM.
+// Cache do valor/custo da amostra: cada getValorCusto gasta um credito da
+// fonte de FIPE, e a pagina de amostra recarrega o tempo todo em dev.
+let amostraValorCusto: Awaited<ReturnType<typeof getValorCusto>> | undefined
+
 export default defineEventHandler(async (event) => {
   const { token } = getQuery(event)
   if (!token) throw createError({ statusCode: 400, message: 'token obrigatorio' })
+
+  // /premium/_amostra: relatorio de desenvolvimento com um payload real dificil
+  // (furto declarado, alienacao, RENAINF, licenciamento atrasado). So em dev:
+  // em producao cai no fluxo normal e vira 404.
+  if (import.meta.dev && token === '_amostra') {
+    const { AMOSTRA_QNA3903 } = await import('../../dev/amostra-relatorio')
+    if (amostraValorCusto === undefined) {
+      amostraValorCusto = await getValorCusto('QNA3903', 'MG', 'Belo Horizonte').catch(() => null)
+    }
+    return {
+      status: 'entregue',
+      placa: 'QNA3903',
+      plano: 'completa',
+      valorCentavos: 4490,
+      camposRestantes: 0,
+      preview: null,
+      entregue_em: new Date().toISOString(),
+      consulta: { placa: 'QNA3903', response: filtrarPorPlano(AMOSTRA_QNA3903, 'completa') },
+      valorCusto: amostraValorCusto,
+      brCode: null,
+      expiraEm: null,
+      expirado: false,
+    }
+  }
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
