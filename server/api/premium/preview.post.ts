@@ -15,7 +15,15 @@ export default defineEventHandler(async (event) => {
       modelo: r.MODELO || r.modelo || null,
       ano: r.anoModelo || r.ano || r.ANO || null,
       cor: r.cor || r.COR || null,
-      raw: { marca: r.MARCA || r.marca, modelo: r.MODELO || r.modelo, ano: r.anoModelo || r.ano, cor: r.cor },
+      // municipio/uf entram pra confirmacao pos-pagamento: sem a cidade, duas
+      // placas parecidas do mesmo modelo e cor ficam indistinguiveis.
+      municipio: r.municipio || null,
+      uf: r.uf || null,
+      raw: {
+        marca: r.MARCA || r.marca, modelo: r.MODELO || r.modelo,
+        ano: r.anoModelo || r.ano, cor: r.cor,
+        municipio: r.municipio || null, uf: r.uf || null,
+      },
     }
   } catch {
     return { placa: placaClean, encontrado: false }
