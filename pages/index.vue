@@ -33,8 +33,6 @@ onMounted(() => {
   // consulta e refeita, porque o resultado nunca foi guardado nesta URL.
   if (route.params.placa) nextTick(() => handleSubmit())
 })
-const { itens: consultasSalvas, sync: syncConsultas } = useConsultaHistory()
-onMounted(syncConsultas)
 const email = ref('')
 const placa = ref('')
 const loading = ref(false)

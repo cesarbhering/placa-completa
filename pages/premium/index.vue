@@ -6,7 +6,7 @@ type Step = 'gate' | 'placa' | 'confirm' | 'pending' | 'erro'
 const step = ref<Step>('gate')
 
 const { itens, sync: histSync } = useConsultaHistory()
-const showConsultas = ref(false)
+const modalConsultas = useState('pc-consultas-aberto', () => false)
 onMounted(() => histSync())
 const loading = ref(false)
 const msg = ref('')
@@ -85,7 +85,7 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
       <!-- Atalho pro historico: quem esta aqui pra comprar de novo costuma
            querer o relatorio que ja pagou, e sem isto so chegava nele pela home.
            So aparece quando ha algo salvo neste navegador. -->
-      <button v-if="itens.length" type="button" class="hist-link" @click="showConsultas = true">
+      <button v-if="itens.length" type="button" class="hist-link" @click="modalConsultas = true">
         Suas consultas ({{ itens.length }})
       </button>
 
@@ -135,7 +135,6 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
       <p v-if="msg" class="err">{{ msg }}</p>
     </div>
 
-    <ConsultasHistory :aberto="showConsultas" @fechar="showConsultas = false" />
   </div>
 </template>
 
