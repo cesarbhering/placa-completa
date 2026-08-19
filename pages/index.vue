@@ -301,6 +301,26 @@ const camposBloqueados = RECURSOS_BLOQUEADOS
 // silhueta e estreita. As ancoras miram onde a coisa acontece: placa
 // dianteira, freio da roda, lugar do motorista, teto. Se a arte trocar, tudo
 // isto precisa ser remirado.
+// A entrada roda UMA vez, quando o bloco aparece na tela. Sem observer, no
+// celular ela aconteceria fora de vista (o carro fica abaixo do formulario) e a
+// pessoa chegaria depois do fim, achando que nao ha animacao nenhuma.
+const carroRef = ref<HTMLElement | null>(null)
+const carroEntrou = ref(false)
+
+onMounted(() => {
+  const alvo = carroRef.value
+  if (!alvo) return
+  if (!('IntersectionObserver' in window)) { carroEntrou.value = true; return }
+  const obs = new IntersectionObserver((entradas) => {
+    if (entradas.some((e) => e.isIntersecting)) {
+      carroEntrou.value = true
+      obs.disconnect()   // uma vez so: nao reanima a cada rolagem
+    }
+  }, { threshold: 0.25 })
+  obs.observe(alvo)
+  onUnmounted(() => obs.disconnect())
+})
+
 const alertasIlustrativos = [
   // teto
   { label: 'Já foi leiloado',    lado: 'esq',   y: '7%',  ex: '38%', ey: '7%',  ax: '52%', ay: '23%' },
@@ -1183,7 +1203,7 @@ function applyEmailSuggestion() {
                    so que a pessoa ve o problema colado no objeto. Ilustracao,
                    nao um veiculo real: o rotulo abaixo diz isso em letra miuda
                    pra ninguem ler como laudo de um carro especifico. -->
-              <div class="cb-carro">
+              <div ref="carroRef" class="cb-carro" :class="{ 'is-entrando': carroEntrou }">
                 <img src="/carro-hero.webp" alt="" class="cb-carro__img" aria-hidden="true" width="1024" height="1024">
 
                 <!-- Linhas e pontos numa camada SVG so: como sao todas
@@ -1192,20 +1212,21 @@ function applyEmailSuggestion() {
                      de proposito, pra 1 unidade continuar sendo 1px e o ponto
                      nao virar elipse quando a caixa muda de proporcao. -->
                 <svg class="cb-carro__linhas" aria-hidden="true">
-                  <g v-for="(a, i) in alertasIlustrativos" :key="'l-' + a.label">
-                    <line :x1="a.lado === 'esq' ? '0%' : a.lado === 'dir' ? '100%' : a.cx" :y1="a.y" :x2="a.ex" :y2="a.ey" />
-                    <line :x1="a.ex" :y1="a.ey" :x2="a.ax" :y2="a.ay" />
-                    <!-- atraso escalonado: piscando junto virava pisca-alerta -->
-                    <circle :cx="a.ax" :cy="a.ay" r="4" :style="{ animationDelay: `${i * 0.45}s` }" />
+                  <!-- pathLength=1 normaliza o comprimento: o traco pode ser
+                       desenhado com dasharray 1 sem medir cada linha. -->
+                  <g v-for="(a, i) in alertasIlustrativos" :key="'l-' + a.label" :style="{ '--d': `${i * 0.09}s` }">
+                    <line pathLength="1" :x1="a.lado === 'esq' ? '0%' : a.lado === 'dir' ? '100%' : a.cx" :y1="a.y" :x2="a.ex" :y2="a.ey" />
+                    <line pathLength="1" :x1="a.ex" :y1="a.ey" :x2="a.ax" :y2="a.ay" />
+                    <circle :cx="a.ax" :cy="a.ay" r="4" />
                   </g>
                 </svg>
 
                 <span
-                  v-for="a in alertasIlustrativos"
+                  v-for="(a, i) in alertasIlustrativos"
                   :key="a.label"
                   class="cb-carro__pin"
                   :class="`cb-carro__pin--${a.lado}`"
-                  :style="a.lado === 'baixo' ? { top: a.y, left: a.cx } : { top: a.y }"
+                  :style="a.lado === 'baixo' ? { top: a.y, left: a.cx, '--d': `${i * 0.09}s` } : { top: a.y, '--d': `${i * 0.09}s` }"
                 >{{ a.label }}</span>
               </div>
 
@@ -2489,8 +2510,31 @@ function applyEmailSuggestion() {
     50% { opacity: 0.5; }
   }
 
+  // Entrada, na ordem que a leitura pede: o ponto marca o lugar no carro, a
+  // linha sai dele em direcao a borda, e so entao o rotulo diz o que e.
+  @keyframes cb-ponto-entra {
+    from { opacity: 0; transform: scale(0); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  // dashoffset NEGATIVO desenha de x2 pra x1, ou seja, do fim da linha pro
+  // comeco. E o que faz o traco nascer no ponto e correr ate a borda, e nao o
+  // contrario.
+  @keyframes cb-traco-entra {
+    from { stroke-dashoffset: -1; }
+    to   { stroke-dashoffset: 0; }
+  }
+
+  @keyframes cb-rotulo-entra {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .cb-carro__linhas circle { animation: none; }
+    .cb-carro__linhas circle,
+    .cb-carro.is-entrando .cb-carro__linhas circle,
+    .cb-carro.is-entrando .cb-carro__linhas line,
+    .cb-carro.is-entrando .cb-carro__pin { animation: none; }
   }
 
   // Carro ilustrativo com os alertas em volta.
@@ -2528,8 +2572,42 @@ function applyEmailSuggestion() {
         fill: $c-red;
         stroke: #fff;
         stroke-width: 2;
+        transform-origin: center;
+        transform-box: fill-box;   // sem isso o scale gira em torno do 0,0 do SVG
+        // atraso escalonado: pulsando junto virava pisca-alerta
         animation: cb-pulso 2.8s ease-in-out infinite;
+        animation-delay: var(--d, 0s);
       }
+    }
+
+    // A animacao de entrada so existe depois que o JS marca a classe. Assim, se
+    // ela nao rodar, nada fica escondido: o estado normal e tudo visivel.
+    // Classes escritas por extenso, sem `&__x`: em posicao de descendente o `&`
+    // expande a cadeia INTEIRA do pai (.home-v2 .cb-carro), e o seletor sai
+    // como `.cb-carro.is-entrando .home-v2 .cb-carro__linhas`, que nunca casa.
+    &.is-entrando .cb-carro__linhas {
+      circle {
+        animation:
+          cb-ponto-entra 0.4s cubic-bezier(0.34, 1.3, 0.64, 1) backwards,
+          cb-pulso 2.8s ease-in-out infinite;
+        animation-delay: var(--d, 0s), calc(var(--d, 0s) + 1.5s);
+      }
+
+      line {
+        stroke-dasharray: 1;
+        animation: cb-traco-entra 0.5s ease-out both;
+      }
+
+      // o trecho colado no ponto sai primeiro; o que vai ate a borda vem depois
+      line:nth-of-type(2) { animation-delay: calc(var(--d, 0s) + 0.3s); }
+      line:nth-of-type(1) { animation-delay: calc(var(--d, 0s) + 0.7s); }
+    }
+
+    // So opacidade: o rotulo ja usa transform pra se centrar na linha, e animar
+    // transform aqui atropelaria o posicionamento.
+    &.is-entrando .cb-carro__pin {
+      animation: cb-rotulo-entra 0.35s ease-out both;
+      animation-delay: calc(var(--d, 0s) + 1.15s);
     }
 
     // Pilula neutra: o guia reserva o acento pra acao, entao o alerta vem do
