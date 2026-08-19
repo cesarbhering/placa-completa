@@ -207,18 +207,51 @@ const vc = computed(() => data.value?.valorCusto ?? null)
 const temValor = computed(() => Boolean(vc.value?.fipe || vc.value?.seguroAnual || vc.value?.custo5anos))
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
-// Escala pela FAIXA da serie, nao pelo zero: variacao de 8% num grafico
-// ancorado no zero vira oito barras iguais e nao mostra nada. O menor ponto
-// fica em 20% pra barra continuar existindo, e o maior em 100%.
-function alturaBarra(price: number): string {
+// Grafico de linha em SVG, montado aqui: sao ~40 linhas de geometria contra
+// uma biblioteca inteira baixada numa pagina que a pessoa pagou pra abrir. E
+// SVG imprime nitido, que canvas nao faz.
+//
+// O eixo Y nao comeca no zero, e isso e correto pra serie de preco: ancorado no
+// zero, uma variacao de 8% vira linha reta. O que torna honesto e o eixo estar
+// rotulado com os valores de verdade, coisa que barra sem eixo nao permitia.
+const GRAF = { W: 480, H: 190, padL: 62, padR: 10, padT: 14, padB: 24 }
+
+const grafico = computed(() => {
   const pts = vc.value?.historico || []
-  if (pts.length < 2) return '100%'
+  if (pts.length < 2) return null
+
   const vals = pts.map((p: any) => p.price)
   const min = Math.min(...vals)
   const max = Math.max(...vals)
-  if (max === min) return '100%'
-  return `${Math.round(20 + ((price - min) / (max - min)) * 80)}%`
-}
+  // Folga de 18% da amplitude em cima e embaixo pra linha nao encostar na
+  // moldura nem nos rotulos do eixo.
+  const amp = max - min || Math.max(1, max * 0.02)
+  const baixo = min - amp * 0.18
+  const alto = max + amp * 0.18
+
+  const { W, H, padL, padR, padT, padB } = GRAF
+  const px = (i: number) => padL + (i / (pts.length - 1)) * (W - padL - padR)
+  const py = (v: number) => padT + (1 - (v - baixo) / (alto - baixo)) * (H - padT - padB)
+
+  const vertices = pts.map((p: any, i: number) => ({ ...p, cx: px(i), cy: py(p.price) }))
+  const linha = vertices.map((v, i) => `${i ? 'L' : 'M'}${v.cx.toFixed(1)},${v.cy.toFixed(1)}`).join(' ')
+  const base = H - padB
+  const area = `${linha} L${vertices[vertices.length - 1].cx.toFixed(1)},${base} L${vertices[0].cx.toFixed(1)},${base} Z`
+
+  // Tres marcas: teto, meio e piso da faixa desenhada.
+  const marcas = [alto, (alto + baixo) / 2, baixo].map((v) => ({ v, y: py(v) }))
+
+  // Com muitos pontos os rotulos do eixo X encavalam; mostra um sim, um nao.
+  // As pontas ancoram pra dentro: centradas, a primeira e a ultima vazavam a
+  // largura do grafico e a ultima aparecia cortada.
+  const passo = pts.length > 5 ? 2 : 1
+  const ultimo = vertices.length - 1
+  const rotulos = vertices
+    .map((v, i) => ({ ...v, ancora: i === 0 ? 'start' : i === ultimo ? 'end' : 'middle' }))
+    .filter((_, i) => i % passo === 0 || i === ultimo)
+
+  return { ...GRAF, base, linha, area, vertices, marcas, rotulos }
+})
 
 // ---------- ficha ----------
 const linha = (rot: string, val: any) => (val === null || val === undefined || val === '' ? null : [rot, String(val)])
@@ -498,16 +531,45 @@ onUnmounted(() => poll && clearInterval(poll))
               </div>
             </div>
 
-            <!-- depreciacao: a barra e proporcional ao maior valor da serie,
-                 entao a queda aparece sem precisar de eixo nem biblioteca -->
-            <div v-if="vc?.historico?.length" class="rel__dep">
+            <div v-if="grafico" class="rel__dep">
               <span class="rel__sub">Como o valor andou</span>
-              <div class="rel__dep-barras">
-                <div v-for="pt in vc.historico" :key="pt.label" class="rel__dep-col">
-                  <div class="rel__dep-barra" :style="{ height: alturaBarra(pt.price) }" />
-                  <span class="rel__dep-lab">{{ pt.label }}</span>
-                </div>
-              </div>
+              <svg
+                class="rel__graf"
+                :viewBox="`0 0 ${grafico.W} ${grafico.H}`"
+                preserveAspectRatio="xMidYMid meet"
+                role="img"
+                :aria-label="`Variação do valor FIPE de ${vc.historico[0].label} a ${vc.historico[vc.historico.length - 1].label}`"
+              >
+                <!-- grade + eixo Y -->
+                <g class="rel__graf-grade">
+                  <line
+                    v-for="m in grafico.marcas" :key="'g' + m.y"
+                    :x1="grafico.padL" :y1="m.y" :x2="grafico.W - grafico.padR" :y2="m.y"
+                  />
+                </g>
+                <g class="rel__graf-eixo">
+                  <text
+                    v-for="m in grafico.marcas" :key="'t' + m.y"
+                    :x="grafico.padL - 8" :y="m.y + 3.5" text-anchor="end"
+                  >{{ brl(m.v) }}</text>
+                </g>
+
+                <path :d="grafico.area" class="rel__graf-area" />
+                <path :d="grafico.linha" class="rel__graf-linha" />
+
+                <circle
+                  v-for="(v, i) in grafico.vertices" :key="'p' + i"
+                  :cx="v.cx" :cy="v.cy" :r="i === grafico.vertices.length - 1 ? 4 : 2.5"
+                  :class="i === grafico.vertices.length - 1 ? 'rel__graf-fim' : 'rel__graf-ponto'"
+                />
+
+                <g class="rel__graf-eixo">
+                  <text
+                    v-for="v in grafico.rotulos" :key="'x' + v.label"
+                    :x="v.cx" :y="grafico.H - 8" :text-anchor="v.ancora"
+                  >{{ v.label }}</text>
+                </g>
+              </svg>
               <!-- As barras sao escaladas pela faixa da serie, nao pelo zero:
                    sem isso, oito barras iguais. Em troca, a legenda diz os
                    valores das pontas, senao a variacao parece maior do que e. -->
@@ -743,34 +805,50 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     margin-top: 20px;
   }
 
-  &__dep-barras {
-    display: flex;
-    align-items: flex-end;
-    gap: 6px;
-    height: 88px;
-    margin-top: 10px;
-  }
-
-  &__dep-col {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-    height: 100%;
-    gap: 6px;
-  }
-
-  &__dep-barra {
+  &__graf {
+    display: block;
     width: 100%;
-    background: $c-slab;
-    border-radius: 2px 2px 0 0;
+    height: auto;
+    margin-top: 10px;
+    overflow: visible;
   }
 
-  &__dep-lab {
+  // Grade em fio, nunca em traco cheio: o guia pede que a estrutura recue e o
+  // dado apareca.
+  &__graf-grade line {
+    stroke: $c-hair;
+    stroke-width: 1;
+  }
+
+  &__graf-eixo text {
+    font-family: inherit;
     font-size: 10px;
-    color: $c-graphite;
-    white-space: nowrap;
+    fill: $c-graphite;
+  }
+
+  &__graf-area {
+    fill: rgba(11, 31, 58, 0.07);
+  }
+
+  &__graf-linha {
+    fill: none;
+    stroke: $c-slab;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+
+  &__graf-ponto {
+    fill: $c-canvas;
+    stroke: $c-slab;
+    stroke-width: 1.5;
+  }
+
+  // O ultimo ponto e o valor de hoje: e o unico que ganha peso.
+  &__graf-fim {
+    fill: $c-slab;
+    stroke: $c-canvas;
+    stroke-width: 2;
   }
 
   &__dep-txt {
