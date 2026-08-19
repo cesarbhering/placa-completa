@@ -124,17 +124,42 @@ export function precoBRL(centavos: number): string {
 // omissao em vez de vazar por esquecimento.
 // ------------------------------------------------------------
 
+/**
+ * Achata a resposta da consulta num objeto unico.
+ *
+ * O que chega e um ARRAY de um elemento, com os indicadores aninhados em
+ * `restricoes` e as restricoes detalhadas em `restricoes.items[].tipoRestricao`.
+ * Sem normalizar, qualquer acesso por chave falha: era isso que fazia o
+ * relatorio nao mostrar nada, e o gate da basica devolver objeto vazio.
+ */
+export function normalizarResposta(response: any): Record<string, any> {
+  const raw = Array.isArray(response) ? (response[0] ?? {}) : (response ?? {})
+  if (!raw || typeof raw !== 'object') return {}
+  const { restricoes, ...resto } = raw as Record<string, any>
+  const bloco = (restricoes && typeof restricoes === 'object') ? restricoes : {}
+
+  // indicadores sobem pro topo; o resto de `restricoes` vira uma lista simples
+  const indicadores = Object.fromEntries(
+    Object.entries(bloco).filter(([k]) => k.startsWith('indicador')),
+  )
+  const itens = Array.isArray((bloco as any).items)
+    ? (bloco as any).items.map((i: any) => i?.tipoRestricao).filter(Boolean)
+    : []
+
+  return { ...resto, ...indicadores, restricoesItens: itens }
+}
+
 export const CAMPOS_BASICA: readonly string[] = [
-  // identificacao
-  'placa', 'descricaoMarcaModelo', 'marca', 'modelo',
-  'anoFabricacao', 'anoModelo', 'descricaoCor', 'cor',
+  // identificacao (nomes conferidos contra a resposta real da API)
+  'placa', 'descricaoMarcaModelo', 'anoFabricacao', 'anoModelo', 'descricaoCor',
   // ficha tecnica. chassi e renavam NAO entram: sao exclusivos da completa, e
   // a whitelist e o unico lugar que decide isso de fato — tirar so do rotulo
   // deixaria a API continuar entregando.
   'descricaoEspecie', 'descricaoTipoVeiculo', 'descricaoCategoria',
   'situacao', 'ufJurisdicao', 'municipio',
-  'potencia', 'cilindrada', 'lotacao', 'quantidadeDeEixos',
-  'combustivel', 'descricaoCombustivel', 'numeroMotor', 'tipoCarroceria',
+  'potencia', 'cilindrada', 'quantidadeDeEixos', 'lotacao',
+  'pesoBruto', 'capacidadeMaximaDeCarga', 'capacidadeMaximaDeTracao',
+  'codigoCombustivel', 'codigoTipoCarroceria',
   // seguranca (nao e risco de negociacao, entra como brinde da basica)
   'indicadorRecall',
 ]
@@ -144,15 +169,16 @@ export const CAMPOS_BASICA: readonly string[] = [
  * pela whitelist. Qualquer outro valor devolve objeto vazio — falha fechada.
  */
 export function filtrarPorPlano(
-  response: Record<string, any> | null | undefined,
+  response: any,
   plano: PlanoId | string | null | undefined,
 ): Record<string, any> {
-  if (!response) return {}
-  if (plano === 'completa') return response
+  const flat = normalizarResposta(response)
+  if (!Object.keys(flat).length) return {}
+  if (plano === 'completa') return flat
   if (plano !== 'basica') return {}
   const out: Record<string, any> = {}
   for (const k of CAMPOS_BASICA) {
-    if (response[k] !== undefined) out[k] = response[k]
+    if (flat[k] !== undefined) out[k] = flat[k]
   }
   return out
 }
@@ -162,12 +188,13 @@ export function filtrarPorPlano(
  * Alimenta o upsell do relatorio basico.
  */
 export function camposRestantes(
-  response: Record<string, any> | null | undefined,
+  response: any,
   plano: PlanoId | string | null | undefined,
 ): number {
-  if (!response) return 0
+  const flat = normalizarResposta(response)
+  if (!Object.keys(flat).length) return 0
   const liberado = filtrarPorPlano(response, plano)
-  return Object.keys(response).filter(
-    (k) => !(k in liberado) && response[k] !== null && response[k] !== undefined && response[k] !== '',
+  return Object.keys(flat).filter(
+    (k) => !(k in liberado) && flat[k] !== null && flat[k] !== undefined && flat[k] !== '',
   ).length
 }

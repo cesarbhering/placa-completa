@@ -28,7 +28,56 @@ const isBasica = computed(() => plano.value === 'basica')
 const restantes = computed<number>(() => data.value?.camposRestantes || 0)
 const entregue = computed(() => data.value?.status === 'entregue')
 
+// O servidor ja devolve a resposta achatada (ver normalizarResposta): array de
+// um elemento, com os indicadores que vinham aninhados em `restricoes` subidos
+// pro topo e as restricoes detalhadas em `restricoesItens`.
 const v = computed(() => data.value?.consulta?.response || {})
+
+// A API manda ENUM em caixa alta, com underscore e SEM acento
+// ("EM_CIRCULACAO", "PENDENCIA_DE_EMISSAO_CRV"). Jogar isso na tela e entregar
+// o banco cru; so trocar underscore por espaco produz "Em circulacao", que e
+// portugues errado na cara do cliente. Os valores conhecidos ganham a grafia
+// certa aqui; o resto cai no formatador generico, que ao menos tira o caixa-alta.
+const ROTULOS: Record<string, string> = {
+  EM_CIRCULACAO: 'Em circulação',
+  BAIXADO: 'Baixado',
+  ROUBO_FURTO: 'Roubo ou furto',
+  PENDENCIA_DE_EMISSAO_CRV: 'Pendência de emissão do CRV',
+  PENDENCIA_EMISSAO_CRV: 'Pendência de emissão do CRV',
+  ALIENACAO_FIDUCIARIA: 'Alienação fiduciária',
+  ARRENDAMENTO_MERCANTIL: 'Arrendamento mercantil',
+  RESERVA_DE_DOMINIO: 'Reserva de domínio',
+  PENHOR: 'Penhor',
+  BUSCA_E_APREENSAO: 'Busca e apreensão',
+  RESTRICAO_JUDICIAL: 'Restrição judicial',
+  RESTRICAO_ADMINISTRATIVA: 'Restrição administrativa',
+  RESTRICAO_TRIBUTARIA: 'Restrição tributária',
+  COMUNICACAO_DE_VENDA: 'Comunicação de venda',
+  AUTOMOVEL: 'Automóvel',
+  CAMINHONETE: 'Caminhonete',
+  MOTOCICLETA: 'Motocicleta',
+  CAMINHAO: 'Caminhão',
+  ONIBUS: 'Ônibus',
+  MICROONIBUS: 'Micro-ônibus',
+  UTILITARIO: 'Utilitário',
+  REBOQUE: 'Reboque',
+  PASSAGEIRO: 'Passageiro',
+  CARGA: 'Carga',
+  MISTO: 'Misto',
+  PARTICULAR: 'Particular',
+  ALUGUEL: 'Aluguel',
+  OFICIAL: 'Oficial',
+}
+
+function humanizar(x: any): string {
+  const t = String(x ?? '').trim()
+  if (!t) return ''
+  const chave = t.toUpperCase().replace(/[\s-]+/g, '_')
+  if (ROTULOS[chave]) return ROTULOS[chave]
+  if (!/^[A-Z0-9_]+$/.test(t)) return t
+  const frase = t.replace(/_/g, ' ').toLowerCase()
+  return frase.charAt(0).toUpperCase() + frase.slice(1)
+}
 const g = (k: string) => (v.value ? v.value[k] : null)
 const has = (k: string) => {
   const x = g(k)
@@ -62,11 +111,10 @@ const indicadores = computed(() =>
   }),
 )
 
-const restricoes = computed(() =>
-  ['descricaoRestricao1', 'descricaoRestricao2', 'descricaoRestricao3', 'descricaoRestricao4', 'descricaoRestricaoRfb']
-    .map((k) => g(k))
-    .filter(Boolean) as string[],
-)
+const restricoes = computed<string[]>(() => {
+  const arr = v.value?.restricoesItens
+  return Array.isArray(arr) ? arr.map(humanizar).filter(Boolean) : []
+})
 
 // ---------- veredito ----------
 // O resumo que a pessoa procura antes de ler o resto: o que pesa contra, em
@@ -108,23 +156,24 @@ const fichaCadastral = computed(() => [
   linha('Chassi', g('chassi')),
   linha('Marca / modelo', g('descricaoMarcaModelo')),
   linha('Ano fab. / modelo', has('anoFabricacao') ? `${g('anoFabricacao')} / ${g('anoModelo')}` : null),
-  linha('Cor', g('descricaoCor')),
-  linha('Espécie', g('descricaoEspecie')),
-  linha('Tipo do veículo', g('descricaoTipoVeiculo')),
-  linha('Categoria', g('descricaoCategoria')),
-  linha('Situação', g('situacao')),
+  linha('Cor', humanizar(g('descricaoCor'))),
+  linha('Espécie', humanizar(g('descricaoEspecie'))),
+  linha('Tipo do veículo', humanizar(g('descricaoTipoVeiculo'))),
+  linha('Categoria', humanizar(g('descricaoCategoria'))),
+  linha('Situação', humanizar(g('situacao'))),
   linha('UF da jurisdição', g('ufJurisdicao')),
-  linha('Município', g('municipio')),
+  linha('Município', humanizar(g('municipio'))),
 ].filter(Boolean) as [string, string][])
 
+// Unidades explicitas: "97" e "1400" sozinhos nao dizem nada.
 const fichaTecnica = computed(() => [
-  linha('Potência', g('potencia')),
-  linha('Cilindrada', g('cilindrada')),
-  linha('Combustível', g('descricaoCombustivel') || g('combustivel')),
-  linha('Carroceria', g('tipoCarroceria')),
+  linha('Potência', has('potencia') ? `${g('potencia')} cv` : null),
+  linha('Cilindrada', has('cilindrada') ? `${g('cilindrada')} cm³` : null),
   linha('Número de eixos', g('quantidadeDeEixos')),
-  linha('Lotação', g('lotacao')),
-  linha('Número do motor', g('numeroMotor')),
+  linha('Lotação', has('lotacao') ? `${g('lotacao')} lugares` : null),
+  linha('Peso bruto total', has('pesoBruto') ? `${g('pesoBruto')} t` : null),
+  linha('Cap. máx. de carga', has('capacidadeMaximaDeCarga') ? `${g('capacidadeMaximaDeCarga')} t` : null),
+  linha('Cap. máx. de tração', has('capacidadeMaximaDeTracao') ? `${g('capacidadeMaximaDeTracao')} t` : null),
 ].filter(Boolean) as [string, string][])
 
 // ---------- retomada do Pix ----------
@@ -153,16 +202,17 @@ function imprimir() {
   if (import.meta.client) window.print()
 }
 
-const compartilhar = computed(() => {
-  if (!import.meta.client || !entregue.value) return '#'
-  const msg = `Fiz a consulta veicular completa no PlacaCompleta, olha o relatório: ${window.location.href}`
-  return `https://wa.me/?text=${encodeURIComponent(msg)}`
-})
+// Precisa ser ref preenchida no onMounted, nao computed: no SSR nao existe
+// `window`, e o computed ficava cacheado em '#'. O botao entao abria a propria
+// pagina numa aba nova em vez do WhatsApp.
+const compartilhar = ref('#')
 
 // ---------- historico local + polling ----------
 let poll: any = null
 onMounted(() => {
   histSync()
+  const msg = `Fiz a consulta veicular no PlacaCompleta, olha o relatório: ${window.location.href}`
+  compartilhar.value = `https://wa.me/?text=${encodeURIComponent(msg)}`
   if (data.value?.status === 'aguardando_pagamento' && data.value?.brCode) buscarQr()
   if (!data.value) return
   const existe = itens.value.some((x) => x.token === token)
@@ -182,14 +232,14 @@ onUnmounted(() => poll && clearInterval(poll))
 
 <template>
   <div class="rel">
+    <!-- Mesmo cabecalho do site: o rodape ja vem do app.vue em toda pagina, e
+         o relatorio nao tinha motivo pra ser a unica tela sem cabecalho. -->
+    <div class="rel__navband">
+      <HomeHeader logo-variant="default" :mostrar-busca="false" />
+    </div>
+
     <div class="rel__wrap">
-      <!-- barra do documento -->
-      <header class="rel__topo">
-        <NuxtLink to="/" class="rel__marca" aria-label="PlacaCompleta">
-          <PlacaCompletaLogo variant="default" crop class="rel__logo" />
-        </NuxtLink>
-        <span class="rel__tipo">{{ isBasica ? PLANOS.basica.nome : PLANOS.completa.nome }}</span>
-      </header>
+      <span class="rel__tipo-fora">{{ isBasica ? PLANOS.basica.nome : PLANOS.completa.nome }}</span>
 
       <div v-if="pending" class="rel__card rel__card--centro">
         <p class="rel__hint">Carregando…</p>
@@ -272,8 +322,8 @@ onUnmounted(() => poll && clearInterval(poll))
                 <strong>{{ g('descricaoMarcaModelo') || 'Veículo consultado' }}</strong>
                 <span>
                   {{ [has('anoFabricacao') ? `${g('anoFabricacao')}/${g('anoModelo')}` : null,
-                      g('descricaoCor'), g('descricaoTipoVeiculo'),
-                      g('municipio') && g('ufJurisdicao') ? `${g('municipio')}/${g('ufJurisdicao')}` : g('ufJurisdicao')]
+                      humanizar(g('descricaoCor')), humanizar(g('descricaoTipoVeiculo')),
+                      g('municipio') && g('ufJurisdicao') ? `${humanizar(g('municipio'))}/${g('ufJurisdicao')}` : g('ufJurisdicao')]
                       .filter(Boolean).join(' · ') }}
                 </span>
               </span>
@@ -396,16 +446,45 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__wrap { max-width: 860px; margin: 0 auto; }
 
-  &__topo {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 20px;
+  &__navband {
+    background: $c-canvas;
+    border-bottom: 1px solid $c-hair;
+    margin: -24px -16px 24px;
+    padding: 0 16px;
   }
 
-  &__marca { display: inline-flex; }
-  &__logo { height: 44px; width: auto; }
+  :deep(.home-header) {
+    max-width: 860px;
+    margin: 0 auto;
+    min-height: 72px;
+    padding: 8px 0;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    border-bottom: 0;
+  }
+  :deep(.home-header__logo),
+  :deep(.home-header__logo .placa-logo) { height: 48px; width: auto; flex-shrink: 0; }
+  :deep(.home-header__link) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 12px;
+    color: $c-ink;
+    font-size: 15px;
+    text-decoration: none;
+    &:hover { color: $c-blue; }
+  }
+
+  &__tipo-fora {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $c-graphite;
+    margin-bottom: 12px;
+  }
 
   &__tipo {
     font-size: 12px;
@@ -705,7 +784,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 // Impressao: o relatorio e um documento, entao tem que sair limpo no papel.
 @media print {
   .rel { background: #fff; padding: 0; }
-  .rel__acoes, .rel__topo { display: none !important; }
+  .rel__acoes, .rel__navband { display: none !important; }
   .rel__card { border-color: #ccc; box-shadow: none; break-inside: avoid; }
 }
 </style>
