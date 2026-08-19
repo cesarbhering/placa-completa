@@ -700,6 +700,12 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     gap: 12px;
     padding-bottom: 16px;
     border-bottom: 1px solid $c-hair;
+
+    // No celular os tres blocos nao cabem lado a lado: espremido, o nome do
+    // veiculo quebrava palavra a palavra. A placa desce pra linha de baixo.
+    @media (max-width: 640px) {
+      flex-wrap: wrap;
+    }
   }
 
   // Faixa do licenciamento: mesmo vocabulario dos indicadores (verde bom,
@@ -739,6 +745,13 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     min-width: 0;
     flex: 1;
 
+    // No celular o texto exige largura minima de verdade: com min-width 0 ele
+    // encolhia ate caber espremido ao lado da placa em vez de empurra-la pra
+    // linha de baixo, e o nome quebrava palavra a palavra.
+    @media (max-width: 640px) {
+      min-width: 200px;
+    }
+
     strong { font-size: 18px; font-weight: 500; }
     span { font-size: 13.5px; color: $c-graphite; }
   }
@@ -746,9 +759,19 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // A mesma placa simulada do hero, em miniatura: o cliente reconhece o objeto
   // que digitou. Largura fixa porque o dimensionamento interno e por container
   // query, entao a proporcao se resolve sozinha a partir dela.
+  // A placa e o identificador do laudo: 132px sumia ao lado do logo de 56px.
+  // 190px poe os caracteres na mesma escala do nome do veiculo. No celular
+  // encolhe, senao logo + placa nao deixam largura pro texto.
   &__placa-tag {
-    width: 132px;
+    width: 190px;
     flex-shrink: 0;
+
+    @media (max-width: 640px) {
+      width: 178px;
+      // Sem recuo: a placa alinha na borda esquerda da propria linha. (Um
+      // margin-left aqui perderia mesmo: .cb-plate.is-mini zera margin com
+      // duas classes de especificidade.)
+    }
   }
 
   // Valor e custo: tres numeros grandes lado a lado, mesma logica dos cartoes
