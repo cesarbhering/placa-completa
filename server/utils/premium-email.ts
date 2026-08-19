@@ -67,12 +67,17 @@ function montarHtml(link: string, plano?: string | null, placa?: string | null):
           </tr>
 
           <tr>
-            <td style="padding:32px 32px 8px;font-family:${FONTE};">
-              <h1 style="margin:0 0 12px;font-size:24px;line-height:1.2;font-weight:600;color:${TINTA};">
+            <td align="center" style="padding:32px 32px 8px;font-family:${FONTE};text-align:center;">
+              <h1 style="margin:0 0 16px;font-size:24px;line-height:1.2;font-weight:600;color:${TINTA};text-align:center;">
                 ${g.seu} ${nome.toLowerCase()} está ${g.pronto}.
               </h1>
-              <p style="margin:0;font-size:16px;line-height:1.5;color:${GRAFITE};">
-                A consulta${daPlaca} foi concluída. ${g.o} <strong style="color:${TINTA}">${nome}</strong> está no link abaixo.
+              <!-- Duas frases, duas linhas: juntas viravam um bloco que a
+                   pessoa le em diagonal e nao registra a placa. -->
+              <p style="margin:0 0 8px;font-size:16px;line-height:1.5;color:${GRAFITE};text-align:center;">
+                A consulta${daPlaca} foi concluída.
+              </p>
+              <p style="margin:0;font-size:16px;line-height:1.5;color:${GRAFITE};text-align:center;">
+                ${g.o} <strong style="color:${TINTA}">${nome}</strong> está no link abaixo.
               </p>
             </td>
           </tr>
@@ -135,7 +140,8 @@ function montarTexto(link: string, plano?: string | null, placa?: string | null)
   return [
     `${g.seu} ${nome.toLowerCase()} está ${g.pronto}.`,
     '',
-    `A consulta${placa ? ` da placa ${placa}` : ''} foi concluída. ${g.o} ${nome} está neste link:`,
+    `A consulta${placa ? ` da placa ${placa}` : ''} foi concluída.`,
+    `${g.o} ${nome} está neste link:`,
     link,
     '',
     'Guarde este e-mail. O link é o seu acesso ao relatório, e ele não expira.',
