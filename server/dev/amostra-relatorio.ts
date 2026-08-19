@@ -1,0 +1,70 @@
+// Payload de amostra pro relatorio de desenvolvimento (/premium/_amostra).
+// E o retorno real de uma consulta do dono (QNA3903) com ocorrencia de furto,
+// alienacao e RENAINF: o caso mais carregado que o relatorio precisa aguentar.
+// So o handler dev-only importa este arquivo.
+export const AMOSTRA_QNA3903 = [
+  {
+    placa: 'QNA3903',
+    chassi: '9BWAG45UXJT036030',
+    lotacao: 5,
+    renavam: '01129294215',
+    potencia: 82,
+    situacao: 'EM_CIRCULACAO',
+    anoModelo: 2018,
+    pesoBruto: 1.41,
+    cilindrada: 999,
+    importacao: {
+      codigoOrgaoSrf: '0',
+      numeroProcessoImportacao: '0',
+      numeroDeclaracaoImportacao: '0',
+      numeroRegistroDespachoAduaneira: '0',
+    },
+    restricoes: {
+      items: [
+        { tipoRestricao: 'ROUBO_FURTO' },
+        { tipoRestricao: 'ALIENACAO_FIDUCIARIA_FILE_VEICULOS' },
+        { tipoRestricao: 'RENAINF' },
+      ],
+      indicadorAlarme: false,
+      indicadorLeilao: false,
+      indicadorRecall: false,
+      indicadorSiniav: false,
+      descricaoRestricao1: 'ALIENACAO_FIDUCIARIA_FILE_VEICULOS',
+      indicadorRouboFurto: true,
+      indicadorMultaRenainf: true,
+      indicadorRestricaoRfb: false,
+      indicadorComunicacaoVenda: false,
+      indicadorPendenciaEmissao: false,
+      indicadorRestricaoRenajud: false,
+    },
+    procedencia: 'NACIONAL',
+    descricaoCor: 'PRATA',
+    ufJurisdicao: 'MG',
+    anoFabricacao: 2017,
+    descricaoEspecie: 'PASSAGEIRO',
+    codigoCombustivel: '16',
+    quantidadeDeEixos: 2,
+    descricaoCategoria: 'PARTICULAR',
+    ultimoLicenciamento: {
+      dataHoraEmissao: '2024-04-03T06:58:17',
+      anoLicenciamento: '2024',
+    },
+    codigoTipoCarroceria: '999',
+    descricaoMarcaModelo: 'VW/NOVO GOL TL MCV',
+    descricaoTipoVeiculo: 'AUTOMOVEL',
+    ocorrenciasRouboFurto: {
+      ocorrencias: [
+        {
+          dataOcorrencia: '2024-05-24',
+          categoriaOcorrencia: 'DECLARACAO',
+          tipoOcorrenciaDeclaracao: 'FURTO',
+          nomeCorNoRegistroOcorrencia: 'PRATA',
+          ufJurisdicaoNoRegistroOcorrencia: 'MG',
+          nomeMarcaModeloNoRegistroOcorrencia: 'VW/NOVO GOL TL MCV',
+        },
+      ],
+    },
+    capacidadeMaximaDeCarga: 0,
+    capacidadeMaximaDeTracao: 1.61,
+  },
+]

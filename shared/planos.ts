@@ -159,7 +159,7 @@ export const CAMPOS_BASICA: readonly string[] = [
   // ficha tecnica. chassi e renavam NAO entram: sao exclusivos da completa, e
   // a whitelist e o unico lugar que decide isso de fato — tirar so do rotulo
   // deixaria a API continuar entregando.
-  'descricaoEspecie', 'descricaoTipoVeiculo', 'descricaoCategoria',
+  'descricaoEspecie', 'descricaoTipoVeiculo', 'descricaoCategoria', 'procedencia',
   'situacao', 'ufJurisdicao', 'municipio',
   'potencia', 'cilindrada', 'quantidadeDeEixos', 'lotacao',
   'pesoBruto', 'capacidadeMaximaDeCarga', 'capacidadeMaximaDeTracao',

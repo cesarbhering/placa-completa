@@ -42,6 +42,14 @@ const ROTULOS: Record<string, string> = {
   EM_CIRCULACAO: 'Em circulação',
   BAIXADO: 'Baixado',
   ROUBO_FURTO: 'Roubo ou furto',
+  // O sufixo _FILE_VEICULOS e ruido do sistema de origem, nao informacao.
+  ALIENACAO_FIDUCIARIA_FILE_VEICULOS: 'Alienação fiduciária',
+  RENAINF: 'Multas em aberto (RENAINF)',
+  FURTO: 'Furto',
+  ROUBO: 'Roubo',
+  DECLARACAO: 'Declaração',
+  APROPRIACAO_INDEBITA: 'Apropriação indébita',
+  ESTELIONATO: 'Estelionato',
   PENDENCIA_DE_EMISSAO_CRV: 'Pendência de emissão do CRV',
   PENDENCIA_EMISSAO_CRV: 'Pendência de emissão do CRV',
   ALIENACAO_FIDUCIARIA: 'Alienação fiduciária',
@@ -255,6 +263,28 @@ const temGrafico = computed(() => (vc.value?.historico?.length ?? 0) > 1)
 const linha = (rot: string, val: any) => (val === null || val === undefined || val === '' ? null : [rot, String(val)])
 
 
+// Ocorrencias de roubo e furto: quando o indicador acende, ISTO e o detalhe
+// que interessa — data, tipo e como o veiculo estava registrado na ocorrencia.
+// So a completa recebe o objeto (whitelist).
+const ocorrencias = computed(() => {
+  const bloco: any = g('ocorrenciasRouboFurto')
+  const lista = bloco && typeof bloco === 'object' ? bloco.ocorrencias : null
+  if (!Array.isArray(lista)) return []
+  return lista.map((o: any) => ({
+    data: (() => {
+      const d = new Date(String(o?.dataOcorrencia || '') + 'T12:00:00')
+      return Number.isNaN(d.getTime()) ? String(o?.dataOcorrencia || '') : d.toLocaleDateString('pt-BR')
+    })(),
+    tipo: humanizar(o?.tipoOcorrenciaDeclaracao || o?.categoriaOcorrencia || 'Ocorrência'),
+    categoria: humanizar(o?.categoriaOcorrencia),
+    registro: [
+      humanizar(o?.nomeMarcaModeloNoRegistroOcorrencia),
+      humanizar(o?.nomeCorNoRegistroOcorrencia),
+      o?.ufJurisdicaoNoRegistroOcorrencia,
+    ].filter(Boolean).join(' · '),
+  }))
+})
+
 const fichaCadastral = computed(() => [
   linha('Placa', data.value?.placa),
   linha('Renavam', g('renavam')),
@@ -265,6 +295,7 @@ const fichaCadastral = computed(() => [
   linha('Espécie', humanizar(g('descricaoEspecie'))),
   linha('Tipo do veículo', humanizar(g('descricaoTipoVeiculo'))),
   linha('Categoria', humanizar(g('descricaoCategoria'))),
+  linha('Procedência', humanizar(g('procedencia'))),
   linha('Situação', humanizar(g('situacao'))),
   linha('UF da jurisdição', g('ufJurisdicao')),
   linha('Município', humanizar(g('municipio'))),
@@ -492,6 +523,25 @@ onUnmounted(() => poll && clearInterval(poll))
             </div>
           </section>
 
+          <!-- ocorrencias de roubo/furto: o detalhe por tras do indicador -->
+          <section v-if="ocorrencias.length" class="rel__card">
+            <h2 class="rel__h2">Ocorrências de roubo e furto</h2>
+            <div v-for="(o, idx) in ocorrencias" :key="idx" class="rel__ocorr">
+              <div class="rel__ocorr-topo">
+                <span class="rel__tag">{{ o.tipo }}</span>
+                <span class="rel__ocorr-data">{{ o.data }}</span>
+              </div>
+              <p class="rel__ocorr-det">
+                <template v-if="o.categoria && o.categoria !== o.tipo">{{ o.categoria }} · </template>
+                Veículo no registro da ocorrência: {{ o.registro }}
+              </p>
+            </div>
+            <p class="rel__ocorr-nota">
+              Uma ocorrência registrada não some quando o veículo é recuperado.
+              Peça ao vendedor o boletim e a baixa antes de seguir com o negócio.
+            </p>
+          </section>
+
           <!-- valor e custo: saiu da consulta gratis e agora e o que a basica
                entrega de imediato, antes da ficha tecnica -->
           <section v-if="temValor" class="rel__card">
@@ -706,6 +756,44 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     @media (max-width: 640px) {
       flex-wrap: wrap;
     }
+  }
+
+  // Ocorrencias: cada uma e um bloco datado; a nota final orienta o que fazer.
+  &__ocorr {
+    padding: 12px 14px;
+    border: 1px solid rgba(211, 58, 58, 0.35);
+    background: #fdf1f1;
+    border-radius: 4px;
+
+    & + & { margin-top: 10px; }
+  }
+
+  &__ocorr-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  &__ocorr-data {
+    font-size: 13px;
+    font-weight: 700;
+    color: #8c2323;
+    white-space: nowrap;
+  }
+
+  &__ocorr-det {
+    margin: 8px 0 0;
+    font-size: 14px;
+    line-height: 1.45;
+    color: $c-charcoal;
+  }
+
+  &__ocorr-nota {
+    margin: 12px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: $c-graphite;
   }
 
   // Faixa do licenciamento: mesmo vocabulario dos indicadores (verde bom,
