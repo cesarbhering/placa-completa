@@ -253,6 +253,49 @@ const grafico = computed(() => {
   return { ...GRAF, base, linha, area, vertices, marcas, rotulos }
 })
 
+// ---------- hover do grafico ----------
+// Sem biblioteca: achar o vertice mais proximo do cursor e desenhar mira +
+// cartao dentro do proprio SVG. O indice e a unica coisa reativa.
+const grafHover = ref<number | null>(null)
+
+function grafMover(e: PointerEvent) {
+  const g = grafico.value
+  if (!g) return
+  const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
+  // converte o x do mouse pra coordenada do viewBox (o SVG escala com a caixa)
+  const x = ((e.clientX - r.left) / r.width) * g.W
+  let melhor = 0
+  let menor = Infinity
+  g.vertices.forEach((v: any, i: number) => {
+    const d = Math.abs(v.cx - x)
+    if (d < menor) { menor = d; melhor = i }
+  })
+  grafHover.value = melhor
+}
+
+function grafSair(e: PointerEvent) {
+  // No toque nao existe "pousar o dedo": o tap mostra o cartao e ele fica ate
+  // o proximo tap. Limpar no pointerleave (que dispara ao soltar) o apagaria
+  // antes de dar tempo de ler.
+  if (e.pointerType === 'touch') return
+  grafHover.value = null
+}
+
+// Geometria do cartao: flipa pro outro lado do ponto quando encostaria na
+// borda, em x e em y.
+const grafDica = computed(() => {
+  const g = grafico.value
+  if (!g || grafHover.value === null) return null
+  const v: any = g.vertices[grafHover.value]
+  const w = 104
+  const h = 40
+  let x = v.cx + 12
+  if (x + w > g.W - g.padR) x = v.cx - 12 - w
+  let y = v.cy - h - 10
+  if (y < 2) y = v.cy + 12
+  return { v, x, y, w, h }
+})
+
 // ---------- ficha ----------
 const linha = (rot: string, val: any) => (val === null || val === undefined || val === '' ? null : [rot, String(val)])
 
@@ -539,6 +582,9 @@ onUnmounted(() => poll && clearInterval(poll))
                 preserveAspectRatio="xMidYMid meet"
                 role="img"
                 :aria-label="`Variação do valor FIPE de ${vc.historico[0].label} a ${vc.historico[vc.historico.length - 1].label}`"
+                @pointermove="grafMover"
+                @pointerdown="grafMover"
+                @pointerleave="grafSair"
               >
                 <!-- grade + eixo Y -->
                 <g class="rel__graf-grade">
@@ -568,6 +614,27 @@ onUnmounted(() => poll && clearInterval(poll))
                     v-for="v in grafico.rotulos" :key="'x' + v.label"
                     :x="v.cx" :y="grafico.H - 8" :text-anchor="v.ancora"
                   >{{ v.label }}</text>
+                </g>
+
+                <!-- mira + cartao do hover. pointer-events none no grupo todo,
+                     senao o proprio cartao vira alvo e o hover treme. -->
+                <g v-if="grafDica" pointer-events="none">
+                  <line
+                    :x1="grafDica.v.cx" :y1="grafico.padT"
+                    :x2="grafDica.v.cx" :y2="grafico.base"
+                    class="rel__graf-mira"
+                  />
+                  <circle :cx="grafDica.v.cx" :cy="grafDica.v.cy" r="4.5" class="rel__graf-alvo" />
+                  <rect
+                    :x="grafDica.x" :y="grafDica.y" :width="grafDica.w" :height="grafDica.h"
+                    rx="4" class="rel__graf-cartao"
+                  />
+                  <text :x="grafDica.x + grafDica.w / 2" :y="grafDica.y + 16" text-anchor="middle" class="rel__graf-cartao-mes">
+                    {{ grafDica.v.label }}
+                  </text>
+                  <text :x="grafDica.x + grafDica.w / 2" :y="grafDica.y + 32" text-anchor="middle" class="rel__graf-cartao-preco">
+                    {{ brl(grafDica.v.price) }}
+                  </text>
                 </g>
               </svg>
               <!-- As barras sao escaladas pela faixa da serie, nao pelo zero:
@@ -643,6 +710,7 @@ $c-blue-deep: #17539f;
 $c-green: #1e9e4a;
 $c-red: #d33a3a;
 $c-slab: #0B1F3A;
+$c-steel: #c2c2c2;
 $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
 .rel {
@@ -849,6 +917,38 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     fill: $c-slab;
     stroke: $c-canvas;
     stroke-width: 2;
+  }
+
+  &__graf { cursor: crosshair; }
+
+  &__graf-mira {
+    stroke: $c-steel;
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+  }
+
+  &__graf-alvo {
+    fill: $c-slab;
+    stroke: $c-canvas;
+    stroke-width: 2;
+  }
+
+  &__graf-cartao {
+    fill: $c-canvas;
+    stroke: $c-hair;
+    // sombra leve pro cartao descolar da area preenchida
+    filter: drop-shadow(0 2px 6px rgba(26, 26, 26, 0.12));
+  }
+
+  &__graf-cartao-mes {
+    font-size: 10px;
+    fill: $c-graphite;
+  }
+
+  &__graf-cartao-preco {
+    font-size: 13px;
+    font-weight: 700;
+    fill: $c-ink;
   }
 
   &__dep-txt {
