@@ -10,7 +10,34 @@ import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
 
-type Channel = 'email' | 'whatsapp'
+/**
+ * Registra a consulta e RECLAMA se o banco recusar.
+ *
+ * Antes era `await supabase.from('consultas').insert(...)` puro. O cliente do
+ * Supabase nao lanca excecao em erro: devolve `{ error }`. Sem checar, uma
+ * falha de gravacao passava calada — a tela mostrava sucesso e o registro
+ * nunca acontecia. Foi assim que a constraint do canal 'tela' ficou escondida
+ * por horas, com o contador e o rate limit por IP zerados o tempo todo.
+ *
+ * O erro vai pro log do servidor, nunca pra resposta: quem consultou nao tem
+ * o que fazer com isso, e a consulta em si deu certo.
+ */
+async function registrarConsulta(supabase: any, row: Record<string, any>, origem: string) {
+  const { error } = await supabase.from('consultas').insert(row)
+  if (error) {
+    console.error(
+      `[consultas] insert falhou (${origem}): ${error.message}` +
+      (error.code ? ` [${error.code}]` : '') +
+      (error.details ? ` — ${error.details}` : ''),
+    )
+  }
+  return !error
+}
+
+// 'tela': consulta gratis sem coleta de contato. Roda a consulta, registra e
+// devolve o bloco basico pra pagina mostrar. Nao envia nada, entao nao pede
+// nem valida e-mail/telefone.
+type Channel = 'email' | 'whatsapp' | 'tela'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -43,7 +70,10 @@ export default defineEventHandler(async (event) => {
     utm_medium: typeof origin.utm_medium === 'string' ? origin.utm_medium.slice(0, 100) : null,
     utm_campaign: typeof origin.utm_campaign === 'string' ? origin.utm_campaign.slice(0, 150) : null,
   }
-  const channel: Channel = body.channel === 'whatsapp' ? 'whatsapp' : 'email'
+  const channel: Channel =
+    body.channel === 'whatsapp' ? 'whatsapp'
+    : body.channel === 'tela' ? 'tela'
+    : 'email'
 
   if (!placa) {
     throw createError({ statusCode: 400, message: 'Placa é obrigatória.' })
@@ -51,7 +81,10 @@ export default defineEventHandler(async (event) => {
 
   // Channel-specific validation. WhatsApp is web-only — PWA always uses
   // the inline-data path, so isPWA + channel=whatsapp would be ambiguous.
-  if (channel === 'whatsapp') {
+  if (channel === 'tela') {
+    // Sem destinatario nao ha o que validar. O freio de abuso aqui e o rate
+    // limit por IP, ja aplicado abaixo.
+  } else if (channel === 'whatsapp') {
     // Feature flag — UI hides the toggle when whatsappEnabled is false,
     // but a crafted POST can still reach us. Refuse here too.
     const whatsappEnabled =
@@ -143,11 +176,17 @@ export default defineEventHandler(async (event) => {
   const recipientField = channel === 'whatsapp' ? 'phone' : 'email'
   const recipientValue = channel === 'whatsapp' ? normalizedPhone : sanitizedEmail
   const sentField = channel === 'whatsapp' ? 'whatsapp_sent' : 'email_sent'
+  // No canal 'tela' nao existe destinatario: o unico limite e o do IP. Sem
+  // isso o teto por hora sumiria junto com o e-mail e a consulta paga ficaria
+  // aberta pra raspagem.
+  const semDestinatario = channel === 'tela'
 
   // Limite customizado por destinatario (tabela rate_limit_whitelist):
   // N/hora ou ilimitado (Infinity). Aplica aos DOIS checks (destinatario e
   // IP), senao o proprio IP bloquearia antes do limite customizado valer.
-  const hourlyLimit = await getHourlyLimit(recipientValue as string)
+  const hourlyLimit = semDestinatario
+    ? await getHourlyLimit('')   // sem destinatario: cai no limite padrao
+    : await getHourlyLimit(recipientValue as string)
 
   // Vale pra web E PWA: sem isso, um POST com isPWA:true pulava o rate
   // limit e recebia o apiResponse completo - consultas ilimitadas de graca
@@ -157,25 +196,35 @@ export default defineEventHandler(async (event) => {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const ipCheckable = ip && ip !== 'unknown'
 
+    const vazio = Promise.resolve({ count: 0, data: null, error: null } as any)
+
     const [recipientRes, ipRes] = await Promise.all([
-      supabase
-        .from('consultas')
-        .select('created_at', { count: 'exact' })
-        .eq(recipientField, recipientValue as string)
-        .eq(sentField, true)
-        .gte('created_at', oneHourAgo)
-        .order('created_at', { ascending: true })
-        .limit(1),
-      ipCheckable
-        ? supabase
+      // Sem destinatario nao ha o que contar por destinatario.
+      semDestinatario
+        ? vazio
+        : supabase
             .from('consultas')
             .select('created_at', { count: 'exact' })
-            .eq('ip_address', ip)
+            .eq(recipientField, recipientValue as string)
             .eq(sentField, true)
             .gte('created_at', oneHourAgo)
             .order('created_at', { ascending: true })
-            .limit(1)
-        : Promise.resolve({ count: 0, data: null, error: null } as any),
+            .limit(1),
+      ipCheckable
+        ? (() => {
+            const q = supabase
+              .from('consultas')
+              .select('created_at', { count: 'exact' })
+              .eq('ip_address', ip)
+              .gte('created_at', oneHourAgo)
+            // No canal 'tela' nada e "enviado", entao filtrar por sentField=true
+            // zeraria o contador e o teto por IP deixaria de existir — consulta
+            // paga aberta pra raspagem. Aqui o criterio e ter havido consulta.
+            return (semDestinatario ? q.eq('channel', 'tela') : q.eq(sentField, true))
+              .order('created_at', { ascending: true })
+              .limit(1)
+          })()
+        : vazio,
     ])
 
     const recipientCount = recipientRes?.count ?? 0
@@ -266,7 +315,7 @@ export default defineEventHandler(async (event) => {
     })
 
     const supabase = useSupabaseServer()
-    await supabase.from('consultas').insert({
+    await registrarConsulta(supabase, {
       email: sanitizedEmail,
       phone: normalizedPhone,
       placa: placaClean,
@@ -283,7 +332,7 @@ export default defineEventHandler(async (event) => {
       email_sent: false,
       whatsapp_sent: false,
       api_response: null,
-    })
+    }, 'pwa')
     throw createError({ statusCode: 502, message: 'Erro ao consultar dados da placa. Tente novamente.' })
   }
 
@@ -293,7 +342,7 @@ export default defineEventHandler(async (event) => {
     // also valid response
   } else {
     const supabase = useSupabaseServer()
-    await supabase.from('consultas').insert({
+    await registrarConsulta(supabase, {
       email: sanitizedEmail,
       phone: normalizedPhone,
       placa: placaClean,
@@ -310,7 +359,7 @@ export default defineEventHandler(async (event) => {
       email_sent: false,
       whatsapp_sent: false,
       api_response: apiResponse,
-    })
+    }, 'erro-api')
     throw createError({ statusCode: 404, message: 'Placa não encontrada ou sem dados disponíveis.' })
   }
 
@@ -405,7 +454,9 @@ export default defineEventHandler(async (event) => {
   }
 
   // Delivery — only for non-PWA web requests. PWA returns inline data.
-  if (!isPWA) {
+  // 'tela' nao entrega por canal nenhum: o resultado vai pra propria pagina.
+  // Sem esta guarda o `else` do e-mail cairia no ramo do WhatsApp.
+  if (!isPWA && channel !== 'tela') {
     const rodizio = icv5Uf === 'SP' ? getSpRodizioInfo(placaClean) : null
     if (channel === 'email') {
       try {
@@ -532,7 +583,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = useSupabaseServer()
-  await supabase.from('consultas').insert({
+  await registrarConsulta(supabase, {
     id: consultaId,
     email: sanitizedEmail,
     phone: normalizedPhone,
@@ -550,10 +601,12 @@ export default defineEventHandler(async (event) => {
     email_sent: emailSent,
     whatsapp_sent: whatsappSent,
     api_response: apiResponse,
-  })
+  }, 'web')
 
   let message: string
   if (isPWA) {
+    message = 'Consulta realizada.'
+  } else if (channel === 'tela') {
     message = 'Consulta realizada.'
   } else if (channel === 'whatsapp') {
     message = whatsappSent
@@ -591,6 +644,11 @@ export default defineEventHandler(async (event) => {
       fipe: (apiResponse.fipe?.dados?.length
         ? apiResponse.fipe.dados.reduce((b: any, i: any) => (i.score || 0) > (b.score || 0) ? i : b, apiResponse.fipe.dados[0])?.texto_valor
         : null) || null,
+      // Sem coleta de e-mail, o que antes so ia no e-mail precisa aparecer na
+      // tela: senao a consulta gratis promete FIPE, seguro e custo em 5 anos e
+      // nao entrega nenhum deles.
+      seguroAnual: seguroEstimado?.premioAnual ?? null,
+      custo5anos: icv5Result?.custoTotal5anos ?? null,
     } : undefined,
     // payload minimo pro botao de compartilhar no WhatsApp (web)
     share: !isPWA ? {
