@@ -947,5 +947,20 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   .rel { background: #fff; padding: 0; }
   .rel__acoes, .rel__navband { display: none !important; }
   .rel__card { border-color: #ccc; box-shadow: none; break-inside: avoid; }
+
+  // O upsell e conversa de tela: no papel vira panfleto grampeado no laudo.
+  .rel__card--up { display: none !important; }
+
+  // O rodape e os overlays vivem no app.vue e no body (Teleport): CSS escopado
+  // nao os alcanca, e era por isso que o PDF saia com rodape, selo do Google
+  // Play e afins. O :global cria a regra sem escopo; o body:has(...) prende o
+  // efeito a paginas onde o relatorio esta montado, senao a folha de estilo
+  // desta pagina (que sobrevive a navegacao no SPA) apagaria o rodape da
+  // impressao de qualquer outra tela.
+  :global(body:has(.rel__wrap) .footer) { display: none !important; }
+  :global(body:has(.rel__wrap) .pch-overlay) { display: none !important; }
+  :global(body:has(.rel__wrap) .pch-card) { display: none !important; }
+  :global(body:has(.rel__wrap) .home-header__gaveta) { display: none !important; }
+  :global(body:has(.rel__wrap) .home-header__scrim) { display: none !important; }
 }
 </style>
