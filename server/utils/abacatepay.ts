@@ -44,14 +44,24 @@ export async function criarPixTransparente(opts: {
   return res.data
 }
 
-export async function checarPix(id: string): Promise<{ status: string } | null> {
+/**
+ * Consulta a cobranca existente. Devolve o status e, quando o provedor manda,
+ * tambem o copia-e-cola e o QR — a tela de retomada usa isso pra mostrar o QR
+ * de novo sem criar outra cobranca (duplicar cobranca seria pior que nao ter QR).
+ */
+export async function checarPix(
+  id: string,
+): Promise<{ status: string; brCode?: string; brCodeBase64?: string } | null> {
   const { base, key } = cfg()
   try {
-    const res = await $fetch<AbacateResp<{ status: string }>>(`${base}/transparents/check`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${key}` },
-      query: { id },
-    })
+    const res = await $fetch<AbacateResp<{ status: string; brCode?: string; brCodeBase64?: string }>>(
+      `${base}/transparents/check`,
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${key}` },
+        query: { id },
+      },
+    )
     return res.data
   } catch {
     return null
