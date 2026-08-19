@@ -348,7 +348,9 @@ const alertasIlustrativos = [
   { label: 'Documento atrasado', lado: 'esq',   y: '92%', ex: '19%', ey: '92%', ax: '25%', ay: '67%' },
   // freio, atras dos raios da roda dianteira: rotulo debaixo do pneu, linha
   // subindo reto antes de virar
-  { label: 'Recall pendente',    lado: 'baixo', y: '92%', cx: '55%', ex: '55%', ey: '82%', ax: '57%', ay: '72%' },
+  // Rotulo deslocado pra esquerda do ponto de proposito: alinhado com ele, a
+  // linha subia quase reta e o joelho nao aparecia.
+  { label: 'Recall pendente',    lado: 'baixo', y: '92%', cx: '44%', ex: '44%', ey: '81%', ax: '57%', ay: '72%' },
   // lugar do motorista
   { label: 'Multa em aberto',    lado: 'dir',   y: '92%', ex: '76%', ey: '92%', ax: '51%', ay: '35%' },
 ]
