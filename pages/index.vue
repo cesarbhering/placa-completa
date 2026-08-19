@@ -1184,7 +1184,7 @@ function applyEmailSuggestion() {
                    nao um veiculo real: o rotulo abaixo diz isso em letra miuda
                    pra ninguem ler como laudo de um carro especifico. -->
               <div class="cb-carro">
-                <img src="/raw-renegade.png" alt="" class="cb-carro__img" aria-hidden="true" width="2048" height="2048">
+                <img src="/carro-hero.webp" alt="" class="cb-carro__img" aria-hidden="true" width="1024" height="1024">
 
                 <!-- Linhas e pontos numa camada SVG so: como sao todas
                      horizontais, o rotulo opaco por cima esconde o comeco da
