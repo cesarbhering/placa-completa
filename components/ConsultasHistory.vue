@@ -138,13 +138,21 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   background: rgba(26, 26, 26, 0.55);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
-  overflow-y: auto;
+  // O veu nao rola. Antes ele e que ganhava a barra quando a lista crescia, o
+  // que na tela parecia a PAGINA rolando atras do modal, com o titulo subindo
+  // junto. Quem rola agora e so o corpo do cartao.
+  overflow: hidden;
 }
 
 .pch-card {
   width: 100%;
   max-width: 560px;
-  margin: auto;
+  // dvh acompanha a barra de URL do celular, que o vh nao enxerga; o vh fica
+  // como reserva pra quem nao tem a unidade.
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  display: flex;
+  flex-direction: column;
   background: $c-canvas;
   border: 1px solid $c-hair;
   border-radius: 16px;
@@ -155,7 +163,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
 }
 
+// Cabecalho preso: e o que da o ponto de referencia e onde fica o fechar.
 .pch-topo {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -190,7 +200,15 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &:focus-visible { outline: 2px solid $c-blue; outline-offset: -2px; }
 }
 
-.pch-body { padding: 20px; }
+// min-height:0 e obrigatorio: sem ele o item flex usa o conteudo como altura
+// minima, nunca encolhe, e o overflow-y nao chega a acontecer.
+.pch-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px;
+}
 
 .pch-cap {
   font-size: 13px;
