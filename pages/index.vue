@@ -3,8 +3,21 @@ import { PLANOS, PLANOS_PAGOS, RECURSOS, RECURSOS_BLOQUEADOS, inclui, isPlanoPag
 
 import { homepageFaqs } from '~/data/homepage-faqs'
 
+// A consulta feita passa a viver num endereco proprio, /placa/ABC1D23, em vez
+// de acontecer "dentro" da home. E um alias da MESMA pagina: o componente nao
+// remonta na troca de URL, entao o resultado nao pisca, e quem abre o link
+// direto cai numa rota real que refaz a consulta sozinha.
+definePageMeta({ alias: ['/placa/:placa'] })
+
 const { isPWA, isMobile } = useAppMode()
 const route = useRoute()
+const router = useRouter()
+
+// Placa que veio na URL, por qualquer um dos dois caminhos.
+const placaDaRota = computed(() => {
+  const bruto = String(route.params.placa || route.query.placa || '')
+  return bruto.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
+})
 // Landing de intencao-app: anuncios do ad group "App Intent" chegam com ?app=1
 // e trocam o contador de consultas pelo badge do Play. Fallback: contador normal.
 const appIntent = computed(() => route.query.app === '1' && !isPWA.value)
@@ -12,12 +25,16 @@ const appIntent = computed(() => route.query.app === '1' && !isPWA.value)
 // Volta do relatorio basico querendo o upgrade: /?placa=ABC1D23&plano=completa
 // pre-preenche a placa e ja abre o checkout no plano pedido.
 onMounted(() => {
-  const qPlaca = String(route.query.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
+  const qPlaca = placaDaRota.value
   if (!qPlaca) return
   placa.value = qPlaca
   if (isPlanoPago(route.query.plano)) {
     nextTick(() => openPremiumCheckout(route.query.plano))
+    return
   }
+  // Chegou por /placa/ABC1D23 (link compartilhado, recarga, favorito): a
+  // consulta e refeita, porque o resultado nunca foi guardado nesta URL.
+  if (route.params.placa) nextTick(() => handleSubmit())
 })
 const email = ref('')
 const placa = ref('')
@@ -509,7 +526,10 @@ if (import.meta.client) {
 // OG proprio da home (novo momento: temos um produto pago a vender). O <title>
 // segue otimizado pra busca ("gratis", traz o organico); o card social e a
 // pagina e que vendem o relatorio completo. Sem revelar fonte dos dados.
+// Uma URL por placa daria infinitas paginas quase identicas, com dado de
+// veiculo dentro. Nao entra em indice.
 useSeoMeta({
+  robots: () => (route.params.placa ? 'noindex, nofollow' : 'index, follow'),
   ogTitle: 'PlacaCompleta · Relatório completo do veículo pela placa',
   ogDescription: 'Restrições, roubo/furto, gravame, leilão, recall, ficha completa, FIPE, seguro e custo em 5 anos. Pagamento único no Pix, resultado na hora. Consulta grátis sem cadastro.',
   ogImage: 'https://placacompleta.com.br/og-home.png',
@@ -1050,6 +1070,11 @@ async function handleSubmit() {
         resultadoBasico.value = (result as any).basico || null
         // A partir daqui o CTA pago pula a pergunta "e este veiculo?".
         placaJaConsultada.value = true
+        // O endereco passa a dizer o que esta na tela. `push` e nao `replace`:
+        // voltar tem que devolver a home limpa, que e de onde a pessoa veio.
+        // Como e alias da mesma pagina, isto nao remonta nada.
+        const alvoUrl = `/placa/${placa.value.replace(/[^A-Z0-9]/gi, '').toUpperCase()}`
+        if (route.path !== alvoUrl) router.push(alvoUrl)
         // Oferta de seguro desativada por ora: o modal disputava com a
         // tela de resultado, que agora e o momento de venda do relatorio.
         // O dado continua chegando e ja aparece como "Seguro estimado" no
