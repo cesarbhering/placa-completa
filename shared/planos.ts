@@ -32,13 +32,13 @@ export const PLANOS: Record<PlanoId, Plano> = {
   gratis: {
     id: 'gratis',
     nome: 'Consulta grátis',
-    chamada: 'O retrato do veículo, sem custo.',
+    chamada: 'O retrato do veículo na tela, sem cadastro.',
     valorCentavos: 0,
   },
   basica: {
     id: 'basica',
     nome: 'Consulta básica',
-    chamada: 'A identidade completa do veículo, com chassi e Renavam.',
+    chamada: 'A ficha técnica completa, além do que a grátis mostra.',
     valorCentavos: 1990,
   },
   completa: {
@@ -69,14 +69,15 @@ export interface Recurso {
 export const RECURSOS: Recurso[] = [
   { label: 'Marca, modelo, ano e cor',              planos: ['gratis', 'basica', 'completa'] },
   { label: 'Situação do veículo',                   planos: ['gratis', 'basica', 'completa'] },
-  { label: 'Valor FIPE',                            planos: ['gratis', 'basica', 'completa'] },
   { label: 'Seguro estimado e custo em 5 anos',     planos: ['gratis', 'basica', 'completa'] },
-  { label: 'Chassi e Renavam completos',            planos: ['basica', 'completa'] },
+  { label: 'Valor FIPE',                            planos: ['gratis', 'basica', 'completa'] },
+  // logo abaixo do valor FIPE: e a evolucao do mesmo numero
+  { label: 'FIPE com histórico de depreciação',     planos: ['basica', 'completa'] },
   { label: 'Ficha técnica: espécie, tipo, categoria', planos: ['basica', 'completa'] },
   { label: 'Potência, cilindrada, eixos e lotação', planos: ['basica', 'completa'] },
   { label: 'UF de jurisdição e situação cadastral', planos: ['basica', 'completa'] },
-  { label: 'FIPE com histórico de depreciação',     planos: ['basica', 'completa'] },
   { label: 'Recall pendente',                       planos: ['basica', 'completa'] },
+  { label: 'Chassi e Renavam completos',            planos: ['completa'] },
   { label: 'Restrições nacionais e estaduais',      planos: ['completa'] },
   { label: 'Roubo e furto',                         planos: ['completa'] },
   { label: 'Passagem por leilão',                   planos: ['completa'] },
@@ -127,9 +128,11 @@ export const CAMPOS_BASICA: readonly string[] = [
   // identificacao
   'placa', 'descricaoMarcaModelo', 'marca', 'modelo',
   'anoFabricacao', 'anoModelo', 'descricaoCor', 'cor',
-  // ficha tecnica
+  // ficha tecnica. chassi e renavam NAO entram: sao exclusivos da completa, e
+  // a whitelist e o unico lugar que decide isso de fato — tirar so do rotulo
+  // deixaria a API continuar entregando.
   'descricaoEspecie', 'descricaoTipoVeiculo', 'descricaoCategoria',
-  'chassi', 'renavam', 'situacao', 'ufJurisdicao', 'municipio',
+  'situacao', 'ufJurisdicao', 'municipio',
   'potencia', 'cilindrada', 'lotacao', 'quantidadeDeEixos',
   'combustivel', 'descricaoCombustivel', 'numeroMotor', 'tipoCarroceria',
   // seguranca (nao e risco de negociacao, entra como brinde da basica)
