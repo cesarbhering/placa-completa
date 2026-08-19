@@ -38,7 +38,7 @@ interface SeguroEstimado {
   regiaoDoUsuario: boolean
   veiculo: { marca: string; modelo: string; ano: number }
 }
-const shareInfo = ref<{ marca: string; modelo: string; ano: string; fipe: string | null } | null>(null)
+const shareInfo = ref<{ marca: string; modelo: string; ano: string } | null>(null)
 
 const seguroEstimado = ref<SeguroEstimado | null>(null)
 const showSeguroModal = ref(false)
@@ -55,8 +55,7 @@ function formatBRL(v: number): string {
 function buildShareText(): string {
   const s = shareInfo.value
   const veiculo = s ? `${s.marca} ${s.modelo} ${s.ano}`.trim() : ''
-  const fipe = s?.fipe ? ` (FIPE ${s.fipe})` : ''
-  return `Consultei a placa ${placa.value} no PlacaCompleta: ${veiculo}${fipe}. Consulta grátis com FIPE e seguro médio: https://placacompleta.com.br`
+  return `Consultei a placa ${placa.value} no PlacaCompleta: ${veiculo}. Consulta grátis, sem cadastro: https://placacompleta.com.br`
 }
 
 async function shareWhatsApp() {
@@ -281,8 +280,6 @@ const camposBloqueados = RECURSOS_BLOQUEADOS
 // Os itens que so a completa entrega — o painel do herói vende exatamente isso.
 const recursosRisco = RECURSOS.filter((r) => r.planos.length === 1 && r.planos[0] === 'completa')
 
-const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
-
 // O que a consulta gratis efetivamente devolveu, so com o que veio preenchido.
 const camposLivres = computed(() => {
   const b = resultadoBasico.value
@@ -291,14 +288,12 @@ const camposLivres = computed(() => {
     ['Placa', b.placa],
     ['Marca', b.marca],
     ['Modelo', b.modelo],
-    ['Ano fab./modelo', b.anoFabricacao && b.ano ? `${b.anoFabricacao}/${b.ano}` : b.ano],
+    ['Ano de fabricação', b.anoFabricacao],
+    ['Ano do modelo', b.ano],
     ['Cor', b.cor],
     ['Combustível', b.combustivel],
-    ['Município/UF', b.municipio && b.uf ? `${b.municipio}/${b.uf}` : null],
-    ['Situação', b.situacao],
-    ['Valor FIPE', b.fipe],
-    ['Seguro estimado', b.seguroAnual ? `${brl(b.seguroAnual)} / ano` : null],
-    ['Custo em 5 anos', b.custo5anos ? brl(b.custo5anos) : null],
+    ['Origem', b.origem],
+    ['Chassi', b.chassiParcial],
   ].filter(([, v]) => v !== null && v !== undefined && v !== '')
 })
 
@@ -476,7 +471,7 @@ useHead({
   // com CTR em disputa). PWA/TWA: título curto, melhor em contexto de app.
   title: computed(() => isPWA.value
     ? 'PlacaCompleta'
-    : 'Consulta Placa Grátis: FIPE, Marca e Modelo'),
+    : 'Consulta Placa Grátis: Marca, Modelo, Ano e Cor'),
   script: [
     {
       type: 'application/ld+json',

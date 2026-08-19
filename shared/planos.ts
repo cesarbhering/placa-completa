@@ -67,15 +67,19 @@ export interface Recurso {
 }
 
 export const RECURSOS: Recurso[] = [
+  // A gratis identifica o veiculo e para ai: e o suficiente pra pessoa saber
+  // que achou o carro certo, e nada do que pesa na negociacao.
   { label: 'Marca, modelo, ano e cor',              planos: ['gratis', 'basica', 'completa'] },
-  { label: 'Situação do veículo',                   planos: ['gratis', 'basica', 'completa'] },
-  { label: 'Seguro estimado e custo em 5 anos',     planos: ['gratis', 'basica', 'completa'] },
-  { label: 'Valor FIPE',                            planos: ['gratis', 'basica', 'completa'] },
+  { label: 'Combustível e origem',                  planos: ['gratis', 'basica', 'completa'] },
+  { label: 'Início do chassi',                      planos: ['gratis', 'basica', 'completa'] },
+  { label: 'Valor FIPE',                            planos: ['basica', 'completa'] },
   // logo abaixo do valor FIPE: e a evolucao do mesmo numero
   { label: 'FIPE com histórico de depreciação',     planos: ['basica', 'completa'] },
+  { label: 'Seguro estimado e custo em 5 anos',     planos: ['basica', 'completa'] },
+  { label: 'Situação do veículo',                   planos: ['basica', 'completa'] },
   { label: 'Ficha técnica: espécie, tipo, categoria', planos: ['basica', 'completa'] },
   { label: 'Potência, cilindrada, eixos e lotação', planos: ['basica', 'completa'] },
-  { label: 'UF de jurisdição e situação cadastral', planos: ['basica', 'completa'] },
+  { label: 'Município e UF de jurisdição',          planos: ['basica', 'completa'] },
   { label: 'Recall pendente',                       planos: ['basica', 'completa'] },
   { label: 'Chassi e Renavam completos',            planos: ['completa'] },
   { label: 'Restrições nacionais e estaduais',      planos: ['completa'] },

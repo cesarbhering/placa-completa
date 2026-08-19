@@ -1,4 +1,17 @@
 import { filtrarPorPlano, camposRestantes } from '../../../shared/planos'
+import { getValorCusto } from '../../utils/valor-custo'
+
+// Local do VEICULO, nao de quem abre o relatorio: e o que os calculos de IPVA
+// e seguro precisam, e quem abre o link pode nao ser quem consultou. O preview
+// guarda os dois desde o checkout.
+function localDoVeiculo(pedido: any): { uf: string | null; municipio: string | null } {
+  const p = pedido?.preview
+  if (!p || typeof p !== 'object') return { uf: null, municipio: null }
+  return {
+    uf: typeof p.uf === 'string' ? p.uf : null,
+    municipio: typeof p.municipio === 'string' ? p.municipio : null,
+  }
+}
 
 // Dados do relatorio premium pelo token (superficie PAGA, token e a credencial).
 // O corte por plano acontece AQUI, no servidor: o que a basica nao comprou nunca
@@ -21,6 +34,15 @@ export default defineEventHandler(async (event) => {
 
   const plano = pedido.plano || 'completa'
 
+  // Valor FIPE, seguro e custo em 5 anos sairam da gratis e viraram conteudo
+  // pago: quem comprou precisa receber. So pra pedido ja entregue, e nunca na
+  // tela de retomada do Pix (ali ninguem pagou ainda).
+  let valorCusto: Awaited<ReturnType<typeof getValorCusto>> = null
+  if (!pendente && pedido.status === 'entregue') {
+    const local = localDoVeiculo(pedido)
+    valorCusto = await getValorCusto(pedido.placa, local.uf, local.municipio)
+  }
+
   let consulta: any = null
   let restantes = 0
   if (pedido.consulta_id) {
@@ -42,6 +64,7 @@ export default defineEventHandler(async (event) => {
     valorCentavos: pedido.valor_centavos,
     // quantos campos a completa ainda entregaria alem deste plano (upsell)
     camposRestantes: restantes,
+    valorCusto,
     preview: pedido.preview,
     entregue_em: pedido.entregue_em,
     consulta,

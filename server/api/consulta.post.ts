@@ -39,6 +39,15 @@ async function registrarConsulta(supabase: any, row: Record<string, any>, origem
 // nem valida e-mail/telefone.
 type Channel = 'email' | 'whatsapp' | 'tela'
 
+// Mostra o inicio do chassi e esconde o resto: o comprador confere contra o
+// documento sem que a superficie gratis entregue o numero inteiro.
+function mascararChassi(chassi: unknown): string | null {
+  const c = String(chassi || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  if (c.length < 8) return null
+  const visivel = c.slice(0, 5)
+  return visivel + '*'.repeat(c.length - visivel.length)
+}
+
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const body = await readBody(event)
@@ -634,30 +643,24 @@ export default defineEventHandler(async (event) => {
       placa: placaClean,
       marca: apiResponse.MARCA || apiResponse.marca || null,
       modelo: apiResponse.MODELO || apiResponse.modelo || null,
-      ano: apiResponse.anoModelo || apiResponse.ano || null,
-      anoFabricacao: apiResponse.ano || null,
+      ano: apiResponse.extra?.ano_modelo || apiResponse.anoModelo || apiResponse.ano || null,
+      anoFabricacao: apiResponse.extra?.ano_fabricacao || apiResponse.ano || null,
       cor: apiResponse.cor || apiResponse.COR || null,
-      situacao: apiResponse.situacao || null,
       combustivel: apiResponse.extra?.combustivel || null,
-      municipio: apiResponse.municipio || null,
-      uf: apiResponse.uf || null,
-      fipe: (apiResponse.fipe?.dados?.length
-        ? apiResponse.fipe.dados.reduce((b: any, i: any) => (i.score || 0) > (b.score || 0) ? i : b, apiResponse.fipe.dados[0])?.texto_valor
-        : null) || null,
-      // Sem coleta de e-mail, o que antes so ia no e-mail precisa aparecer na
-      // tela: senao a consulta gratis promete FIPE, seguro e custo em 5 anos e
-      // nao entrega nenhum deles.
-      seguroAnual: seguroEstimado?.premioAnual ?? null,
-      custo5anos: icv5Result?.custoTotal5anos ?? null,
+      // Nacional ou importado. Muda revenda, seguro e preco de peca, entao vale
+      // como isca; nao entrega nada que so o cadastro pago tem.
+      origem: apiResponse.extra?.nacionalidade || null,
+      // So o comeco do chassi: confere com o do documento sem entregar o
+      // numero, que e do relatorio pago.
+      chassiParcial: mascararChassi(apiResponse.extra?.chassi),
     } : undefined,
     // payload minimo pro botao de compartilhar no WhatsApp (web)
+    // Sem FIPE: virou conteudo pago, e o texto de compartilhamento e superficie
+    // publica.
     share: !isPWA ? {
       marca: apiResponse.MARCA || apiResponse.marca || '',
       modelo: apiResponse.MODELO || apiResponse.modelo || '',
       ano: apiResponse.anoModelo || apiResponse.ano || '',
-      fipe: (apiResponse.fipe?.dados?.length
-        ? apiResponse.fipe.dados.reduce((b: any, i: any) => (i.score || 0) > (b.score || 0) ? i : b, apiResponse.fipe.dados[0])?.texto_valor
-        : null) || null,
     } : undefined,
   }
 })
