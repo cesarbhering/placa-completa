@@ -16,32 +16,35 @@ function localDoVeiculo(pedido: any): { uf: string | null; municipio: string | n
 // Dados do relatorio premium pelo token (superficie PAGA, token e a credencial).
 // O corte por plano acontece AQUI, no servidor: o que a basica nao comprou nunca
 // chega ao cliente. Borrar no CSS deixaria o dado no DOM.
-// Cache do valor/custo da amostra: cada getValorCusto gasta um credito da
+// Cache do valor/custo por amostra: cada getValorCusto gasta um credito da
 // fonte de FIPE, e a pagina de amostra recarrega o tempo todo em dev.
-let amostraValorCusto: Awaited<ReturnType<typeof getValorCusto>> | undefined
+const amostraValorCusto: Record<string, Awaited<ReturnType<typeof getValorCusto>>> = {}
 
 export default defineEventHandler(async (event) => {
   const { token } = getQuery(event)
   if (!token) throw createError({ statusCode: 400, message: 'token obrigatorio' })
 
-  // /premium/_amostra: relatorio de desenvolvimento com um payload real dificil
-  // (furto declarado, alienacao, RENAINF, licenciamento atrasado). So em dev:
-  // em producao cai no fluxo normal e vira 404.
-  if (import.meta.dev && token === '_amostra') {
-    const { AMOSTRA_QNA3903 } = await import('../../dev/amostra-relatorio')
-    if (amostraValorCusto === undefined) {
-      amostraValorCusto = await getValorCusto('QNA3903', 'MG', 'Belo Horizonte').catch(() => null)
+  // /premium/_amostra*: relatorios de desenvolvimento com payloads reais (o
+  // catalogo vive em server/dev/amostra-relatorio.ts). So em dev: em producao
+  // cai no fluxo normal e vira 404.
+  if (import.meta.dev && String(token).startsWith('_amostra')) {
+    const { AMOSTRAS } = await import('../../dev/amostra-relatorio')
+    const amostra = AMOSTRAS[String(token)]
+    if (!amostra) throw createError({ statusCode: 404, message: 'Amostra desconhecida' })
+    if (!(String(token) in amostraValorCusto)) {
+      amostraValorCusto[String(token)] =
+        await getValorCusto(amostra.placa, amostra.uf, amostra.municipio).catch(() => null)
     }
     return {
       status: 'entregue',
-      placa: 'QNA3903',
+      placa: amostra.placa,
       plano: 'completa',
       valorCentavos: 4490,
       camposRestantes: 0,
       preview: null,
       entregue_em: new Date().toISOString(),
-      consulta: { placa: 'QNA3903', response: filtrarPorPlano(AMOSTRA_QNA3903, 'completa') },
-      valorCusto: amostraValorCusto,
+      consulta: { placa: amostra.placa, response: filtrarPorPlano(amostra.payload, 'completa') },
+      valorCusto: amostraValorCusto[String(token)],
       brCode: null,
       expiraEm: null,
       expirado: false,
