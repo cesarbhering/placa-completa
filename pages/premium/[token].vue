@@ -165,6 +165,24 @@ const veredito = computed(() => {
   }
 })
 
+// ---------- valor e custo ----------
+const vc = computed(() => data.value?.valorCusto ?? null)
+const temValor = computed(() => Boolean(vc.value?.fipe || vc.value?.seguroAnual || vc.value?.custo5anos))
+const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+
+// Escala pela FAIXA da serie, nao pelo zero: variacao de 8% num grafico
+// ancorado no zero vira oito barras iguais e nao mostra nada. O menor ponto
+// fica em 20% pra barra continuar existindo, e o maior em 100%.
+function alturaBarra(price: number): string {
+  const pts = vc.value?.historico || []
+  if (pts.length < 2) return '100%'
+  const vals = pts.map((p: any) => p.price)
+  const min = Math.min(...vals)
+  const max = Math.max(...vals)
+  if (max === min) return '100%'
+  return `${Math.round(20 + ((price - min) / (max - min)) * 80)}%`
+}
+
 // ---------- ficha ----------
 const linha = (rot: string, val: any) => (val === null || val === undefined || val === '' ? null : [rot, String(val)])
 
@@ -408,6 +426,50 @@ onUnmounted(() => poll && clearInterval(poll))
             </div>
           </section>
 
+          <!-- valor e custo: saiu da consulta gratis e agora e o que a basica
+               entrega de imediato, antes da ficha tecnica -->
+          <section v-if="temValor" class="rel__card">
+            <h2 class="rel__h2">Valor e custo de manter</h2>
+            <div class="rel__valores">
+              <div v-if="vc?.fipe" class="rel__valor">
+                <span class="rel__valor-k">Valor FIPE</span>
+                <span class="rel__valor-v">{{ vc.fipe }}</span>
+                <span v-if="vc.fipeModelo" class="rel__valor-nota">{{ vc.fipeModelo }}</span>
+              </div>
+              <div v-if="vc?.seguroAnual" class="rel__valor">
+                <span class="rel__valor-k">Seguro estimado</span>
+                <span class="rel__valor-v">{{ brl(vc.seguroAnual) }} / ano</span>
+                <span v-if="vc.percentualFipe" class="rel__valor-nota">{{ vc.percentualFipe }}% do valor do carro</span>
+              </div>
+              <div v-if="vc?.custo5anos" class="rel__valor">
+                <span class="rel__valor-k">Custo em 5 anos</span>
+                <span class="rel__valor-v">{{ brl(vc.custo5anos) }}</span>
+                <span class="rel__valor-nota">Seguro, IPVA, manutenção e depreciação</span>
+              </div>
+            </div>
+
+            <!-- depreciacao: a barra e proporcional ao maior valor da serie,
+                 entao a queda aparece sem precisar de eixo nem biblioteca -->
+            <div v-if="vc?.historico?.length" class="rel__dep">
+              <span class="rel__sub">Como o valor andou</span>
+              <div class="rel__dep-barras">
+                <div v-for="pt in vc.historico" :key="pt.label" class="rel__dep-col">
+                  <div class="rel__dep-barra" :style="{ height: alturaBarra(pt.price) }" />
+                  <span class="rel__dep-lab">{{ pt.label }}</span>
+                </div>
+              </div>
+              <!-- As barras sao escaladas pela faixa da serie, nao pelo zero:
+                   sem isso, oito barras iguais. Em troca, a legenda diz os
+                   valores das pontas, senao a variacao parece maior do que e. -->
+              <p v-if="vc.quedaAno !== null" class="rel__dep-txt">
+                De {{ brl(vc.historico[0].price) }} em {{ vc.historico[0].label }}
+                para {{ brl(vc.historico[vc.historico.length - 1].price) }} em
+                {{ vc.historico[vc.historico.length - 1].label }}:
+                <strong>{{ vc.quedaAno < 0 ? 'queda' : 'alta' }} de {{ Math.abs(vc.quedaAno).toLocaleString('pt-BR') }}%</strong>.
+              </p>
+            </div>
+          </section>
+
           <!-- ficha -->
           <section class="rel__card">
             <h2 class="rel__h2">Ficha cadastral e técnica</h2>
@@ -602,6 +664,83 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__placa-tag {
     width: 132px;
     flex-shrink: 0;
+  }
+
+  // Valor e custo: tres numeros grandes lado a lado, mesma logica dos cartoes
+  // de indicador, sem cor de destaque (o guia reserva o acento pra acao).
+  &__valores {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  &__valor {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px 14px;
+    border: 1px solid $c-hair;
+    border-radius: 4px;
+  }
+
+  &__valor-k {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $c-graphite;
+  }
+
+  &__valor-v {
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1;
+    color: $c-ink;
+  }
+
+  &__valor-nota {
+    font-size: 12px;
+    color: $c-graphite;
+  }
+
+  &__dep {
+    margin-top: 20px;
+  }
+
+  &__dep-barras {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 88px;
+    margin-top: 10px;
+  }
+
+  &__dep-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+    gap: 6px;
+  }
+
+  &__dep-barra {
+    width: 100%;
+    background: $c-slab;
+    border-radius: 2px 2px 0 0;
+  }
+
+  &__dep-lab {
+    font-size: 10px;
+    color: $c-graphite;
+    white-space: nowrap;
+  }
+
+  &__dep-txt {
+    margin-top: 10px;
+    font-size: 13px;
+    color: $c-charcoal;
   }
 
   &__veredito {
