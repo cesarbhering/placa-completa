@@ -4,7 +4,12 @@
 // so um processo "reivindica" o pedido; os outros saem.
 export async function processarPedidoPago(
   supabase: any,
-  pedido: { id: string; placa: string; email: string | null; token_entrega: string; abacatepay_id: string | null },
+  pedido: {
+    id: string; placa: string; email: string | null; token_entrega: string
+    abacatepay_id: string | null
+    // usado no assunto e no corpo do e-mail de entrega
+    plano?: string | null
+  },
 ): Promise<void> {
   const { data: claimed } = await supabase
     .from('pedidos_premium')
@@ -20,7 +25,15 @@ export async function processarPedidoPago(
       .from('pedidos_premium')
       .update({ status: 'entregue', entregue_em: new Date().toISOString(), consulta_id: r.consultaId })
       .eq('id', pedido.id)
-    await enviarRelatorioEmail(pedido.email, pedido.token_entrega)
+    // Placa e plano entram no assunto e no corpo: "seu relatorio completo da
+    // placa ABC1D23 esta pronto" e reconhecivel na caixa de entrada, "sua
+    // consulta esta pronta" nao.
+    await enviarRelatorioEmail({
+      email: pedido.email,
+      token: pedido.token_entrega,
+      plano: pedido.plano,
+      placa: pedido.placa,
+    })
   } catch (e: any) {
     await supabase.from('pedidos_premium').update({ status: 'falha', erro: String(e?.message || e) }).eq('id', pedido.id)
     let reembolsado = false
