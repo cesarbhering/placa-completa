@@ -1,14 +1,28 @@
 <script setup lang="ts">
-// "Suas consultas": lista as consultas premium salvas neste navegador
-// (localStorage). Nao renderiza nada quando vazio, entao e seguro montar na
-// home sem poluir quem nunca consultou. Ver useConsultaHistory.
+// "Suas consultas": modal com as consultas premium salvas neste navegador
+// (localStorage). Antes era uma section fixa no meio da home, que aparecia pra
+// quem ja tinha consultado e empurrava o resto da pagina pra baixo. Agora vive
+// atras de um item do header e so abre quando a pessoa pede.
+//
+// Vai pro body via Teleport pelo mesmo motivo da gaveta do menu: o .cb-navband
+// tem backdrop-filter, e isso vira bloco de contencao pro position:fixed.
+const props = defineProps<{ aberto: boolean }>()
+const emit = defineEmits<{ fechar: [] }>()
+
 const { itens, sync, clear } = useConsultaHistory()
 onMounted(sync)
+
+// Reler ao abrir: outra aba pode ter concluido um pagamento nesse meio tempo.
+watch(() => props.aberto, (v) => {
+  if (v) sync()
+  if (import.meta.client) document.body.style.overflow = v ? 'hidden' : ''
+})
+onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
 
 const pago = (s: string) => s === 'entregue' || s === 'pago' || s === 'consultando'
 
 function rotuloStatus(s: string) {
-  if (s === 'entregue') return 'Pago'
+  if (s === 'entregue') return 'Pronto'
   if (s === 'pago' || s === 'consultando') return 'Processando'
   if (s === 'expirado') return 'Pix expirou'
   if (s === 'reembolsado') return 'Reembolsado'
@@ -16,122 +30,250 @@ function rotuloStatus(s: string) {
 }
 
 function fmtData(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString('pt-BR')
-  } catch {
-    return ''
-  }
+  try { return new Date(iso).toLocaleDateString('pt-BR') } catch { return '' }
 }
 </script>
 
 <template>
-  <section v-if="itens.length" class="pcHist">
-    <div class="pcHist__bar">
-      <b>Suas consultas</b>
-      <button type="button" class="pcHist__clear" @click="clear">Limpar</button>
-    </div>
-    <div class="pcHist__body">
-      <p class="pcHist__cap">
-        <span aria-hidden="true">🔒</span>
-        Salvas só neste navegador. Um jeito rápido de voltar aos seus relatórios ou concluir um pagamento.
-      </p>
-      <ul class="pcHist__list">
-        <li v-for="it in itens" :key="it.token" class="pcHist__row">
-          <span class="pcHist__pl">{{ it.placa }}</span>
-          <span class="pcHist__info">
-            <b>{{ it.veiculo || 'Consulta veicular' }}</b>
-            <small>{{ pago(it.status) ? 'Consultada' : 'Iniciada' }} em {{ fmtData(it.criadoEm) }}</small>
-          </span>
-          <span class="pcHist__st" :class="pago(it.status) ? 'ok' : 'pend'">{{ rotuloStatus(it.status) }}</span>
-          <NuxtLink v-if="it.status === 'entregue'" class="pcHist__act" :to="`/premium/${it.token}`">Ver relatório</NuxtLink>
-          <NuxtLink v-else class="pcHist__act pcHist__act--pay" :to="`/premium/${it.token}`">Concluir</NuxtLink>
-        </li>
-      </ul>
-    </div>
-  </section>
+  <ClientOnly>
+    <Teleport to="body">
+      <div v-if="aberto" class="pch-overlay" role="dialog" aria-modal="true" aria-labelledby="pch-titulo" @click="emit('fechar')">
+        <div class="pch-card" @click.stop>
+          <div class="pch-topo">
+            <span id="pch-titulo" class="pch-titulo">Suas consultas</span>
+            <button type="button" class="pch-x" aria-label="Fechar" @click="emit('fechar')">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="pch-body">
+            <p class="pch-cap">
+              Salvas só neste navegador. Serve pra voltar a um relatório que você já pagou
+              ou concluir um pagamento que ficou pela metade.
+            </p>
+
+            <p v-if="!itens.length" class="pch-vazio">
+              Nenhuma consulta paga por aqui ainda.
+            </p>
+
+            <ul v-else class="pch-lista">
+              <li v-for="it in itens" :key="it.token" class="pch-item">
+                <span class="pch-placa">{{ it.placa }}</span>
+                <span class="pch-info">
+                  <strong>{{ it.veiculo || 'Consulta veicular' }}</strong>
+                  <small>
+                    {{ pago(it.status) ? 'Consultada' : 'Iniciada' }} em {{ fmtData(it.criadoEm) }}
+                    · <span :class="pago(it.status) ? 'pch-st--ok' : 'pch-st--pend'">{{ rotuloStatus(it.status) }}</span>
+                  </small>
+                </span>
+                <NuxtLink
+                  class="pch-acao"
+                  :class="{ 'pch-acao--primaria': it.status !== 'entregue' }"
+                  :to="`/premium/${it.token}`"
+                  @click="emit('fechar')"
+                >
+                  {{ it.status === 'entregue' ? 'Ver relatório' : 'Concluir' }}
+                </NuxtLink>
+              </li>
+            </ul>
+          </div>
+
+          <div v-if="itens.length" class="pch-rodape">
+            <button type="button" class="pch-limpar" @click="clear">Limpar histórico</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+  </ClientOnly>
 </template>
 
-<style scoped>
-.pcHist {
-  border: 1px solid #c4ccdc;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #fff;
-  box-shadow: 0 8px 24px rgba(0, 40, 85, 0.08);
-  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+<style lang="scss" scoped>
+// Mesma linguagem da home v2 (guia HP): canvas branco, tinta near-black, um
+// acento azul, 4px no interativo e 16px no container, hairline no lugar de
+// sombra pesada.
+$c-canvas: #ffffff;
+$c-cloud: #f7f7f7;
+$c-hair: #e8e8e8;
+$c-ink: #1a1a1a;
+$c-charcoal: #3d3d3d;
+$c-graphite: #636363;
+$c-blue: #1f6feb;
+$c-blue-deep: #17539f;
+$c-green: #1e9e4a;
+$c-amber: #9a6400;
+$c-slab: #0B1F3A;
+$fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+.pch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(26, 26, 26, 0.55);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  overflow-y: auto;
 }
-.pcHist__bar {
+
+.pch-card {
+  width: 100%;
+  max-width: 560px;
+  margin: auto;
+  background: $c-canvas;
+  border: 1px solid $c-hair;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(26, 26, 26, 0.12);
+  font-family: $fonte;
+  color: $c-ink;
+  line-height: 1.4;
+  overflow: hidden;
+}
+
+.pch-topo {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(180deg, #0a3d78, #002855);
-  color: #fff;
-  padding: 8px 14px;
-  font-size: 14px;
+  gap: 12px;
+  padding: 14px 12px 14px 20px;
+  border-bottom: 1px solid $c-hair;
 }
-.pcHist__clear {
+
+.pch-titulo {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $c-graphite;
+}
+
+.pch-x {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: 0;
-  color: #b9c7dd;
-  font-size: 12px;
+  border-radius: 4px;
+  color: $c-ink;
   cursor: pointer;
-  padding: 2px 4px;
+
+  svg { width: 20px; height: 20px; }
+  &:hover { background: $c-cloud; }
+  &:focus-visible { outline: 2px solid $c-blue; outline-offset: -2px; }
 }
-.pcHist__clear:hover { color: #fff; text-decoration: underline; }
-.pcHist__cap {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #6b7a95;
-  font-size: 12px;
-  margin: 0;
-  padding: 12px 16px 4px;
+
+.pch-body { padding: 20px; }
+
+.pch-cap {
+  font-size: 13px;
+  line-height: 1.45;
+  color: $c-graphite;
+  margin: 0 0 16px;
 }
-.pcHist__list { list-style: none; margin: 0; padding: 0; }
-.pcHist__row {
+
+.pch-vazio {
+  font-size: 15px;
+  color: $c-charcoal;
+  text-align: center;
+  margin: 24px 0;
+}
+
+.pch-lista { list-style: none; margin: 0; padding: 0; }
+
+.pch-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
-  border-top: 1px solid #eef2f8;
+  padding: 12px 0;
+  border-top: 1px solid $c-hair;
+
+  &:first-child { border-top: 0; }
+
+  // No estreito a acao desce pra linha propria em vez de espremer o texto.
+  @media (max-width: 520px) {
+    flex-wrap: wrap;
+    .pch-info { flex-basis: calc(100% - 92px); }
+    .pch-acao { margin-left: auto; }
+  }
 }
-.pcHist__pl {
-  background: #002855;
+
+.pch-placa {
+  background: $c-slab;
   color: #fff;
-  font-weight: 700;
   font-size: 12px;
-  letter-spacing: 1px;
-  border-radius: 5px;
-  padding: 4px 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  border-radius: 4px;
+  padding: 6px 8px;
   white-space: nowrap;
+  flex-shrink: 0;
 }
-.pcHist__info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
-.pcHist__info b { font-size: 14px; color: #12203a; }
-.pcHist__info small { color: #6b7a95; font-size: 12px; }
-.pcHist__st { font-size: 12px; font-weight: 700; white-space: nowrap; }
-.pcHist__st.ok { color: #1e9e4a; }
-.pcHist__st.pend { color: #c67c00; }
-.pcHist__act {
-  border: 1px solid #002855;
-  color: #002855;
-  background: #fff;
-  border-radius: 7px;
-  padding: 7px 12px;
-  font-size: 12px;
-  font-weight: 700;
+
+.pch-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+
+  strong { font-size: 15px; font-weight: 500; color: $c-ink; }
+  small { font-size: 12.5px; color: $c-graphite; }
+}
+
+.pch-st--ok { color: $c-green; font-weight: 700; }
+.pch-st--pend { color: $c-amber; font-weight: 700; }
+
+.pch-acao {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: $c-ink;
+  background: $c-canvas;
+  border: 1px solid $c-ink;
+  border-radius: 4px;
   text-decoration: none;
   white-space: nowrap;
+  flex-shrink: 0;
+
+  &:hover { background: $c-cloud; }
+
+  &--primaria {
+    background: $c-blue;
+    border-color: $c-blue;
+    color: #fff;
+    &:hover { background: $c-blue-deep; border-color: $c-blue-deep; }
+  }
 }
-.pcHist__act:hover { background: #e3eefb; }
-.pcHist__act--pay {
-  background: linear-gradient(180deg, #0466c8, #0353a4);
-  color: #fff;
-  border-color: transparent;
+
+.pch-rodape {
+  padding: 12px 20px;
+  border-top: 1px solid $c-hair;
+  background: $c-cloud;
+  text-align: right;
 }
-.pcHist__act--pay:hover { background: linear-gradient(180deg, #0466c8, #024a92); }
-@media (max-width: 560px) {
-  .pcHist__row { flex-wrap: wrap; }
-  .pcHist__info { flex-basis: calc(100% - 90px); }
-  .pcHist__act { margin-left: auto; }
+
+.pch-limpar {
+  background: transparent;
+  border: 0;
+  color: $c-graphite;
+  font-family: $fonte;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 8px;
+  min-height: 44px;
+
+  &:hover { color: $c-ink; }
 }
 </style>
