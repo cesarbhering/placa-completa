@@ -194,7 +194,14 @@ export function camposRestantes(
   const flat = normalizarResposta(response)
   if (!Object.keys(flat).length) return 0
   const liberado = filtrarPorPlano(response, plano)
-  return Object.keys(flat).filter(
-    (k) => !(k in liberado) && flat[k] !== null && flat[k] !== undefined && flat[k] !== '',
-  ).length
+  return Object.keys(flat).filter((k) => {
+    if (k in liberado) return false
+    const val = flat[k]
+    if (val === null || val === undefined || val === '') return false
+    // Objeto e array nao sao "uma verificacao a mais": `importacao` vem com
+    // quatro zeros e nao vira linha nenhuma no relatorio. Contar isso inflava
+    // a promessa do upsell acima do que a completa realmente entrega.
+    if (typeof val === 'object') return false
+    return true
+  }).length
 }

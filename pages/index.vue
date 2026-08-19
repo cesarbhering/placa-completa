@@ -1082,30 +1082,13 @@ function applyEmailSuggestion() {
 
             <form class="cb-plate-panel" @submit.prevent="handleSubmit" novalidate role="search" aria-label="Consulta veicular por placa">
               <label class="cb-plate-label" for="placa">Digite a placa do veículo</label>
-              <!-- Placa Mercosul: moldura preta, tarja azul com o selo do
-                   Mercosul a esquerda, BRASIL centralizado e a bandeira a
-                   direita, "BR" no canto inferior esquerdo. -->
-              <div class="plate-field cb-plate" :class="{ 'plate-field--error': placaError }">
-                <div class="plate-field__band cb-plate__band">
-                  <span class="cb-plate__merco" aria-hidden="true">
-                    <svg viewBox="0 0 44 20" class="cb-plate__estrelas">
-                      <!-- as quatro estrelas do selo, em arco -->
-                      <path d="M8 9 L8.9 11.1 11.1 11.3 9.4 12.8 9.9 15 8 13.8 6.1 15 6.6 12.8 4.9 11.3 7.1 11.1Z" />
-                      <path d="M17 5.5 L17.9 7.6 20.1 7.8 18.4 9.3 18.9 11.5 17 10.3 15.1 11.5 15.6 9.3 13.9 7.8 16.1 7.6Z" />
-                      <path d="M27 5.5 L27.9 7.6 30.1 7.8 28.4 9.3 28.9 11.5 27 10.3 25.1 11.5 25.6 9.3 23.9 7.8 26.1 7.6Z" />
-                      <path d="M36 9 L36.9 11.1 39.1 11.3 37.4 12.8 37.9 15 36 13.8 34.1 15 34.6 12.8 32.9 11.3 35.1 11.1Z" />
-                    </svg>
-                    <span class="cb-plate__merco-txt">MERCOSUL</span>
-                  </span>
-                  <span class="plate-field__country cb-plate__country">BRASIL</span>
-                  <img src="/flag-br.svg" alt="" class="cb-plate__bandeira" aria-hidden="true" width="30" height="21">
-                </div>
+              <PlacaMercosul :erro="!!placaError">
                 <input
                   id="placa"
                   ref="placaRef"
                   :value="placa"
                   type="text"
-                  class="plate-field__input cb-plate__input"
+                  class="cb-plate__input"
                   placeholder="ABC1D23"
                   maxlength="7"
                   autocomplete="off"
@@ -1116,8 +1099,7 @@ function applyEmailSuggestion() {
                   @focus="onFormStart"
                   @input="onPlacaInput"
                 />
-                <span class="cb-plate__br" aria-hidden="true">BR</span>
-              </div>
+              </PlacaMercosul>
               <small v-if="aguardandoPlacaPaga" class="cb-plate-help cb-plate-help--cta">
                 Consulte a placa primeiro. Digite acima para seguir com o
                 {{ PLANOS[premiumPlano].nome.toLowerCase() }}.
@@ -2589,128 +2571,7 @@ function applyEmailSuggestion() {
   // px: assim tarja, letras, selo e bandeira crescem juntos e a placa fica
   // igual em qualquer tamanho. Cada regra tem um valor em px antes, que vale
   // como fallback onde container query nao existe.
-  .cb-plate {
-    position: relative;
-    container-type: inline-size;
-    aspect-ratio: 400 / 130;
-    width: 100%;
-    max-width: 460px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    border: 3px solid #111;
-    border-radius: 10px;
-    box-shadow: none;
-    overflow: hidden;
-    background: #fff;
-
-    // Guia: foco troca a borda, sem halo. Aqui a moldura preta e da propria
-    // placa, entao o foco vai num anel externo pra nao descaracterizar o objeto.
-    &:focus-within {
-      border-color: #111;
-      box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.45);
-    }
-
-    &.plate-field--error { border-color: $c-red; }
-
-    &__band {
-      flex: 0 0 26%;   // a tarja ocupa ~25% da altura na placa real
-      // Mesmo azul do CTA logo abaixo, em vez do navy da placa fisica: a
-      // tarja passa a conversar com o botao "Consultar placa".
-      background: $c-blue;
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 1.5cqw;
-      padding: 0 2cqw;
-    }
-
-    // selo do Mercosul (estrelas + palavra), alinhado a esquerda
-    &__merco {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.3cqw;
-      line-height: 1;
-    }
-
-    &__estrelas {
-      width: 30px;
-      width: 7cqw;
-      height: 13px;
-      height: 3.2cqw;
-      fill: #fff;
-      display: block;
-    }
-
-    &__merco-txt {
-      font-size: 6px;
-      font-size: 1.6cqw;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      color: #fff;
-    }
-
-    &__country {
-      color: #fff;
-      font-family: $c-font;
-      font-size: 15px;
-      font-size: 3.6cqw;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-align: center;
-      text-indent: 0.22em;   // o tracking desloca; compensa pra centrar de fato
-      line-height: 1;
-    }
-
-    &__bandeira {
-      width: 30px;
-      width: 7cqw;
-      height: 21px;
-      height: 4.9cqw;
-      display: block;
-      justify-self: end;
-      border-radius: 1px;
-    }
-
-    // "BR" no canto inferior esquerdo, em caixa preta
-    &__br {
-      position: absolute;
-      left: 1.2cqw;
-      bottom: 1.2cqw;
-      background: #111;
-      color: #fff;
-      font-family: $c-font;
-      font-size: 12px;
-      font-size: 2.6cqw;
-      font-weight: 800;
-      line-height: 1;
-      padding: 0.6cqw 0.8cqw;
-      border-radius: 2px;
-      pointer-events: none;
-    }
-
-    &__input {
-      flex: 1;
-      min-height: 0;
-      font-family: $c-font;
-      // A placa real usa a FE-Schrift, estreita e pesada. Sem ela, peso maximo
-      // com tracking largo e o que mais aproxima. 15cqw deixa o glifo em ~34%
-      // da altura da placa (na fisica sao ~37%).
-      font-size: 40px;
-      font-size: 15cqw;
-      font-weight: 800;
-      letter-spacing: 0.1em;
-      line-height: 1;
-      color: #111;
-      text-align: center;
-      padding: 0 2cqw 0 6cqw;   // folga a esquerda pro selo "BR"
-      text-transform: uppercase;
-
-      &::placeholder { color: #c9c9c9; letter-spacing: 0.1em; font-weight: 800; }
-    }
-  }
-
+  // .cb-plate vive em components/PlacaMercosul.vue
   .cb-plate-help {
     display: block;
     font-size: 12px;

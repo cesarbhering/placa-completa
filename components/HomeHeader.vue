@@ -49,6 +49,12 @@ const links = [
   { href: '/estudos', label: 'Estudos' },
   { href: '#duvidas', label: 'Dúvidas' },
 ]
+// Fora da home nenhuma dessas ancoras existe na pagina: '#duvidas' vira clique
+// morto e o logo levava pro topo do proprio relatorio em vez de voltar pra
+// home. Prefixando com '/', o link volta pra home e cai na secao certa.
+const route = useRoute()
+const naHome = computed(() => route.path === '/')
+const alvo = (href: string) => (href.startsWith('#') && !naHome.value ? `/${href}` : href)
 const ehAncora = (href: string) => href.startsWith('#')
 
 // Menu do mobile. Abaixo de 1024px os cinco links nao cabem na barra e
@@ -66,9 +72,12 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
 
 <template>
   <header class="home-header">
-    <a href="#top" class="home-header__brand" aria-label="PlacaCompleta, ir para o topo">
+    <a v-if="naHome" href="#top" class="home-header__brand" aria-label="PlacaCompleta, ir para o topo">
       <PlacaCompletaLogo :variant="logoVariant" crop class="home-header__logo" />
     </a>
+    <NuxtLink v-else to="/" class="home-header__brand" aria-label="PlacaCompleta, voltar para a home">
+      <PlacaCompletaLogo :variant="logoVariant" crop class="home-header__logo" />
+    </NuxtLink>
     <!-- Centro do header: enquanto nao consultou, um campo de placa sempre a
          mao; depois, o selo da placa consultada. Com o header fixo, a acao
          principal nunca sai da tela. -->
@@ -106,8 +115,8 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
 
     <nav class="home-header__nav" aria-label="Navegação principal">
       <template v-for="link in links" :key="link.href">
-        <a v-if="ehAncora(link.href)" :href="link.href" class="home-header__link">{{ link.label }}</a>
-        <NuxtLink v-else :to="link.href" class="home-header__link">{{ link.label }}</NuxtLink>
+        <a v-if="ehAncora(alvo(link.href))" :href="link.href" class="home-header__link">{{ link.label }}</a>
+        <NuxtLink v-else :to="alvo(link.href)" class="home-header__link">{{ link.label }}</NuxtLink>
       </template>
       <button
         v-if="consultas > 0"
@@ -152,8 +161,8 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
             </svg>
           </button>
           <template v-for="link in links" :key="'m-' + link.href">
-            <a v-if="ehAncora(link.href)" :href="link.href" class="home-header__gaveta-link" @click="fechaMenu">{{ link.label }}</a>
-            <NuxtLink v-else :to="link.href" class="home-header__gaveta-link" @click="fechaMenu">{{ link.label }}</NuxtLink>
+            <a v-if="ehAncora(alvo(link.href))" :href="link.href" class="home-header__gaveta-link" @click="fechaMenu">{{ link.label }}</a>
+            <NuxtLink v-else :to="alvo(link.href)" class="home-header__gaveta-link" @click="fechaMenu">{{ link.label }}</NuxtLink>
           </template>
           <button
             v-if="consultas > 0"
