@@ -165,6 +165,43 @@ const veredito = computed(() => {
   }
 })
 
+// ---------- retomada de um Pix vencido ----------
+// O provedor nao cobra por QR gerado, entao vencer nao precisa custar o pedido
+// inteiro: placa, plano e e-mail ja estao confirmados e so falta o codigo.
+const renovando = ref(false)
+const erroRenovar = ref('')
+
+// Renova sozinho ao abrir: quem clica num pedido pendente no historico quer
+// pagar, nao ler um aviso. Uma tentativa por carregamento (`jaTentou`), senao
+// uma falha viraria laco de chamadas ao provedor.
+const jaTentou = ref(false)
+onMounted(async () => {
+  await nextTick()
+  const d: any = data.value
+  if (!d || jaTentou.value) return
+  if (d.status === 'aguardando_pagamento' && (d.expirado || !d.brCode)) {
+    jaTentou.value = true
+    await renovarPix()
+  }
+})
+
+async function renovarPix() {
+  renovando.value = true
+  erroRenovar.value = ''
+  try {
+    await $fetch('/api/premium/renovar-pix', { method: 'POST', body: { token } })
+    // Recarrega em vez de montar a tela na mao: com br_code novo e prazo em dia,
+    // o proprio ramo de pagamento pendente assume.
+    await refresh()
+  } catch (e: any) {
+    erroRenovar.value = e?.data?.message === 'O pagamento atual ainda esta valido.'
+      ? 'O código anterior voltou a valer. Atualize a página.'
+      : 'Não conseguimos gerar o código agora. Tente de novo em instantes.'
+  } finally {
+    renovando.value = false
+  }
+}
+
 // ---------- valor e custo ----------
 const vc = computed(() => data.value?.valorCusto ?? null)
 const temValor = computed(() => Boolean(vc.value?.fipe || vc.value?.seguroAnual || vc.value?.custo5anos))
@@ -345,8 +382,16 @@ onUnmounted(() => poll && clearInterval(poll))
           </template>
           <template v-else-if="data.expirado || data.status === 'expirado'">
             <h1 class="rel__h">Este Pix expirou</h1>
-            <p class="rel__hint">Nada foi cobrado. Faça uma nova consulta para gerar outro pagamento.</p>
-            <NuxtLink to="/" class="rel__btn rel__btn--primario">Nova consulta</NuxtLink>
+            <p class="rel__hint">
+              Nada foi cobrado. Seus dados continuam salvos, é só gerar um novo código
+              para a placa {{ data.placa }}.
+            </p>
+            <button type="button" class="rel__btn rel__btn--primario" :disabled="renovando" @click="renovarPix">
+              {{ renovando ? 'Gerando…' : 'Gerar novo Pix' }}
+            </button>
+            <!-- O botao continua existindo: e o caminho quando a renovacao
+                 automatica falha, e o que a pessoa ve enquanto ela acontece. -->
+            <p v-if="erroRenovar" class="rel__hint rel__hint--erro">{{ erroRenovar }}</p>
           </template>
           <template v-else-if="data.status === 'reembolsado'">
             <h1 class="rel__h">Não foi possível concluir</h1>
@@ -637,7 +682,11 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     margin: 0 0 12px;
   }
 
-  &__hint { font-size: 15px; line-height: 1.45; color: $c-charcoal; margin: 0; strong { color: $c-ink; } }
+  &__hint {
+    font-size: 15px; line-height: 1.45; color: $c-charcoal; margin: 0;
+    strong { color: $c-ink; }
+    &--erro { color: $c-red; margin-top: 12px; }
+  }
 
   // ---- veiculo + veredito ----
   &__veh {
