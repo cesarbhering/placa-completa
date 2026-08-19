@@ -110,7 +110,7 @@ function montarHtml(link: string, plano?: string | null, placa?: string | null):
                 Precisa de ajuda?
               </p>
               <p style="margin:0;font-size:13px;line-height:1.5;color:rgba(255,255,255,0.75);">
-                Responda este e-mail ou escreva para
+                Escreva para
                 <a href="mailto:contato@placacompleta.com.br" style="color:#ffffff;text-decoration:underline;">contato@placacompleta.com.br</a>
               </p>
             </td>
@@ -140,7 +140,7 @@ function montarTexto(link: string, plano?: string | null, placa?: string | null)
     '',
     'Guarde este e-mail. O link é o seu acesso ao relatório, e ele não expira.',
     '',
-    'Precisa de ajuda? Responda este e-mail ou escreva para contato@placacompleta.com.br',
+    'Precisa de ajuda? Escreva para contato@placacompleta.com.br',
     '',
     'PlacaCompleta · consulta veicular por placa',
   ].join('\n')
@@ -163,8 +163,11 @@ export async function enviarRelatorioEmail(entrega: Entrega): Promise<boolean> {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' },
       body: {
-        from: 'PlacaCompleta <contato@placacompleta.com.br>',
+        from: 'PlacaCompleta <noreply@placacompleta.com.br>',
         to: [email],
+        // Remetente e noreply, mas resposta acidental nao pode cair no vazio:
+        // quem apertar "responder" chega no contato do mesmo jeito.
+        reply_to: 'contato@placacompleta.com.br',
         subject: assunto,
         html: montarHtml(link, plano, placa),
         // Alternativa em texto: filtro de spam desconfia de e-mail so-HTML, e
