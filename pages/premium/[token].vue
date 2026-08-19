@@ -229,6 +229,26 @@ const licEmissao = computed(() => {
   return Number.isNaN(dt.getTime()) ? null : dt.toLocaleDateString('pt-BR')
 })
 
+// Faixa de licenciamento acima da ficha: e o dado que diz se o documento esta
+// em dia, e enterrado como linha de tabela ninguem via. O tom segue o ano:
+// exercicio atual (ou adiante) em dia; ano anterior pode so nao ter vencido
+// ainda, porque o calendario corre pelo final da placa e varia por UF; dois
+// anos ou mais e atraso sem desculpa.
+const licenciamento = computed(() => {
+  if (!licAno.value) return null
+  const ano = parseInt(licAno.value, 10)
+  if (!Number.isFinite(ano)) return null
+  const atual = new Date().getFullYear()
+  if (ano >= atual) return { ano: licAno.value, emissao: licEmissao.value, tom: 'ok', rotulo: 'Em dia', nota: null }
+  if (ano === atual - 1) {
+    return {
+      ano: licAno.value, emissao: licEmissao.value, tom: 'atencao', rotulo: 'Confira',
+      nota: `O licenciamento ${atual} pode ainda estar no prazo do calendário da UF.`,
+    }
+  }
+  return { ano: licAno.value, emissao: licEmissao.value, tom: 'alerta', rotulo: 'Atrasado', nota: null }
+})
+
 const fichaCadastral = computed(() => [
   linha('Placa', data.value?.placa),
   linha('Renavam', g('renavam')),
@@ -242,8 +262,6 @@ const fichaCadastral = computed(() => [
   linha('Situação', humanizar(g('situacao'))),
   linha('UF da jurisdição', g('ufJurisdicao')),
   linha('Município', humanizar(g('municipio'))),
-  linha('Último licenciamento', licAno.value),
-  linha('Emissão do documento', licEmissao.value),
 ].filter(Boolean) as [string, string][])
 
 // Unidades explicitas: "97" e "1400" sozinhos nao dizem nada.
@@ -412,6 +430,7 @@ onUnmounted(() => poll && clearInterval(poll))
           <!-- resumo + veredito -->
           <section class="rel__card">
             <div class="rel__veh">
+              <MarcaLogo :marca="g('descricaoMarcaModelo')" />
               <span class="rel__veh-txt">
                 <strong>{{ g('descricaoMarcaModelo') || 'Veículo consultado' }}</strong>
                 <span>
@@ -507,6 +526,14 @@ onUnmounted(() => poll && clearInterval(poll))
           <!-- ficha -->
           <section class="rel__card">
             <h2 class="rel__h2">Ficha cadastral e técnica</h2>
+
+            <div v-if="licenciamento" class="rel__lic" :class="`rel__lic--${licenciamento.tom}`">
+              <span class="rel__lic-pill">{{ licenciamento.rotulo }}</span>
+              <span class="rel__lic-txt">
+                Último licenciamento <strong>{{ licenciamento.ano }}</strong><template v-if="licenciamento.emissao"> · documento emitido em {{ licenciamento.emissao }}</template><template v-if="licenciamento.nota"> · {{ licenciamento.nota }}</template>
+              </span>
+            </div>
+
             <div class="rel__ficha">
               <div v-if="fichaCadastral.length">
                 <span class="rel__sub">Cadastral</span>
@@ -667,6 +694,37 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     gap: 12px;
     padding-bottom: 16px;
     border-bottom: 1px solid $c-hair;
+  }
+
+  // Faixa do licenciamento: mesmo vocabulario dos indicadores (verde bom,
+  // ambar confira, vermelho problema), acima das colunas da ficha.
+  &__lic {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    line-height: 1.45;
+
+    strong { font-weight: 700; }
+
+    &--ok      { background: #eef9f1; border-color: rgba(30, 158, 74, 0.35); color: #14622f; }
+    &--atencao { background: #fdf8ec; border-color: rgba(154, 100, 0, 0.35); color: #6d4a05; }
+    &--alerta  { background: #fdf1f1; border-color: rgba(211, 58, 58, 0.35); color: #8c2323; }
+  }
+
+  &__lic-pill {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 3px 8px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.75);
   }
 
   &__veh-txt {
