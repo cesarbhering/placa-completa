@@ -2,6 +2,22 @@
 const isReady = ref(false)
 const isPWA = ref(false)
 
+// Header nas paginas de conteudo. A home e a area premium montam o proprio
+// (uma precisa ligar o campo de placa ao formulario do herói, a outra vive
+// dentro de uma faixa branca), entao aqui ele cobre so o resto do site, que
+// antes nao tinha cabecalho nenhum.
+const route = useRoute()
+const headerGlobal = computed(() => {
+  const p = route.path
+  if (p === '/' || p.startsWith('/placa/') || p.startsWith('/premium')) return false
+  // /admin e /dash sao telas internas, nao site.
+  return !p.startsWith('/admin') && !p.startsWith('/dash')
+})
+
+// Modal de consultas: mora aqui pra existir em qualquer rota. O header abre
+// pelo mesmo estado compartilhado, sem a pagina no meio.
+const modalConsultas = useState('pc-consultas-aberto', () => false)
+
 // Detect PWA mode synchronously on client
 if (import.meta.client) {
   isPWA.value = window.matchMedia('(display-mode: standalone)').matches ||
@@ -45,7 +61,17 @@ function onStoreClick() {
     </div>
 
     <div v-show="isReady">
+      <!-- Faixa clara atras do header: as paginas legadas ainda vivem no
+           gradiente navy do body, e o header e transparente com tinta escura.
+           Sem a faixa ele sairia praticamente invisivel la. Sai quando essas
+           paginas forem pro fundo claro. -->
+      <div v-if="headerGlobal" class="faixa-header">
+        <HomeHeader logo-variant="default" />
+      </div>
+
       <NuxtPage />
+
+      <ConsultasHistory :aberto="modalConsultas" @fechar="modalConsultas = false" />
       <footer class="footer">
         <nav class="footer__nav" aria-label="Conteúdo do site">
           <NuxtLink to="/consultar-placa">Consultar por Estado</NuxtLink>

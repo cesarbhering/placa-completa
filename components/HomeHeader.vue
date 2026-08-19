@@ -18,27 +18,29 @@ interface Props {
    * disputando a mesma acao.
    */
   mostrarBusca?: boolean
-  /**
-   * Quantas consultas pagas existem no historico local. Zero esconde o item:
-   * "Suas consultas" vazio so daria uma porta pra lugar nenhum.
-   */
-  consultas?: number
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   logoVariant: 'inverted',
   placa: '',
   consultada: false,
   mostrarBusca: true,
-  consultas: 0,
 })
 
 const emit = defineEmits<{
   consult: []
   'update:placa': [value: string]
   submit: []
-  'abrir-consultas': []
 }>()
+
+// O header le o historico e abre o modal por conta propria. Passar isso por
+// prop e evento obrigava cada pagina a lembrar de ligar os dois, e as legadas
+// simplesmente nao ligavam: o item nunca aparecia la.
+const { itens: consultasSalvas, sync: syncHistorico } = useConsultaHistory()
+const modalConsultas = useState('pc-consultas-aberto', () => false)
+// Zero esconde o item: "Suas consultas" vazio so daria uma porta pra lugar nenhum.
+const totalConsultas = computed(() => consultasSalvas.value.length)
+onMounted(() => syncHistorico())
 
 // Ancoras da propria home + as paginas de conteudo. Rota usa NuxtLink (SPA);
 // ancora fica em <a> normal, senao o NuxtLink tentaria resolver "#x" como rota.
@@ -53,7 +55,11 @@ const links = [
 // morto e o logo levava pro topo do proprio relatorio em vez de voltar pra
 // home. Prefixando com '/', o link volta pra home e cai na secao certa.
 const route = useRoute()
-const naHome = computed(() => route.path === '/')
+// /placa/ABC1D23 e alias da home: mesmas ancoras, mesmo comportamento. Sem
+// isto, ao consultar a URL mudava e o header passava a se achar em outra
+// pagina, mandando '#duvidas' pra '/#duvidas' e perdendo o resultado.
+const naHome = computed(() => route.path === '/' || route.path.startsWith('/placa/'))
+const naAreaPremium = computed(() => route.path.startsWith('/premium'))
 const alvo = (href: string) => (href.startsWith('#') && !naHome.value ? `/${href}` : href)
 const ehAncora = (href: string) => href.startsWith('#')
 
@@ -74,7 +80,35 @@ function aoClicarLogo(e: MouseEvent) {
   else window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+// Na home o campo entra so quando o formulario do herói sai da tela (dois
+// campos identicos disputando a mesma acao seria pior). Nas paginas de
+// conteudo nao existe outro campo, entao ele fica sempre. Na area premium a
+// pessoa esta no meio de um pedido: consultar outra placa ali seria desvio.
+const mostrarCampo = computed(() => {
+  if (naAreaPremium.value) return false
+  return naHome.value ? props.mostrarBusca : true
+})
+
+// Fora da home ninguem escuta 'update:placa'/'submit', entao o campo precisa
+// do proprio estado e do proprio destino.
+const placaLocal = ref('')
+const valorCampo = computed(() => (naHome.value ? props.placa : placaLocal.value))
+const limpaPlaca = (v: string) => v.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
+
+function aoDigitar(e: Event) {
+  const v = limpaPlaca((e.target as HTMLInputElement).value)
+  if (naHome.value) emit('update:placa', v)
+  else placaLocal.value = v
+}
+
 function aoBuscar() {
+  if (!naHome.value) {
+    // Sem placa completa nao ha o que consultar; devolve o foco em vez de
+    // navegar pra uma rota que so mostraria erro.
+    if (placaLocal.value.length < 7) return
+    navigateTo(`/placa/${placaLocal.value}`)
+    return
+  }
   emit('submit')
   // O resultado aparece no topo da pagina. Sem subir junto, a pessoa busca do
   // meio da home e nada visivel muda.
@@ -118,18 +152,18 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
                 stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </div>
-      <form v-else-if="mostrarBusca && naHome" class="home-header__search" @submit.prevent="aoBuscar">
+      <form v-else-if="mostrarCampo" class="home-header__search" @submit.prevent="aoBuscar">
         <label class="home-header__search-label" for="hdr-placa">Insira aqui a placa</label>
         <input
           id="hdr-placa"
           class="home-header__search-input"
-          :value="placa"
+          :value="valorCampo"
           type="text"
           placeholder="ABC1D23"
           maxlength="7"
           autocomplete="off"
           autocapitalize="characters"
-          @input="emit('update:placa', ($event.target as HTMLInputElement).value)"
+          @input="aoDigitar"
         />
         <button type="submit" class="home-header__search-btn" aria-label="Consultar placa">
           <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -146,12 +180,12 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
         <NuxtLink v-else :to="alvo(link.href)" class="home-header__link">{{ link.label }}</NuxtLink>
       </template>
       <button
-        v-if="consultas > 0"
+        v-if="totalConsultas > 0"
         type="button"
         class="home-header__link home-header__link--btn"
-        @click="emit('abrir-consultas')"
+        @click="modalConsultas = true"
       >
-        Suas consultas <span class="home-header__badge">{{ consultas }}</span>
+        Suas consultas <span class="home-header__badge">{{ totalConsultas }}</span>
       </button>
     </nav>
 
@@ -192,12 +226,12 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
             <NuxtLink v-else :to="alvo(link.href)" class="home-header__gaveta-link" @click="fechaMenu">{{ link.label }}</NuxtLink>
           </template>
           <button
-            v-if="consultas > 0"
+            v-if="totalConsultas > 0"
             type="button"
             class="home-header__gaveta-link home-header__gaveta-link--btn"
-            @click="fechaMenu(); emit('abrir-consultas')"
+            @click="fechaMenu(); modalConsultas = true"
           >
-            Suas consultas <span class="home-header__badge">{{ consultas }}</span>
+            Suas consultas <span class="home-header__badge">{{ totalConsultas }}</span>
           </button>
         </nav>
       </Teleport>

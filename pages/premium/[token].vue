@@ -168,7 +168,6 @@ const veredito = computed(() => {
 // ---------- retomada de um Pix vencido ----------
 // O provedor nao cobra por QR gerado, entao vencer nao precisa custar o pedido
 // inteiro: placa, plano e e-mail ja estao confirmados e so falta o codigo.
-const showConsultas = ref(false)
 const renovando = ref(false)
 const erroRenovar = ref('')
 
@@ -330,15 +329,9 @@ onUnmounted(() => poll && clearInterval(poll))
            proprio header, pela rota. A pagina nao precisa saber disso. -->
       <HomeHeader
         logo-variant="default"
-        :consultas="itens.length"
-        @abrir-consultas="showConsultas = true"
       />
     </div>
 
-    <!-- Historico tambem aqui: quem chega pelo link do e-mail cai direto nesta
-         pagina, e sem isto nao teria como voltar aos outros relatorios sem
-         passar pela home. -->
-    <ConsultasHistory :aberto="showConsultas" @fechar="showConsultas = false" />
 
     <div class="rel__wrap">
       <span class="rel__tipo-fora">{{ isBasica ? PLANOS.basica.nome : PLANOS.completa.nome }}</span>

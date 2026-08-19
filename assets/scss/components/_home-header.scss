@@ -363,3 +363,12 @@ $h-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   @include logo-altura(40px);
 }
+
+// Faixa clara atras do header nas paginas de conteudo. Provisoria: existe
+// porque elas ainda estao no fundo navy do body e o header e tinta escura
+// sobre transparente. Quando o fundo delas clarear, isto pode sair.
+.faixa-header {
+  background: $h-canvas;
+  border-bottom: 1px solid $h-hair;
+  width: 100%;
+}
