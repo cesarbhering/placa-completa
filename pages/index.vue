@@ -3486,6 +3486,30 @@ function applyEmailSuggestion() {
     .cb-steps { grid-template-columns: 1fr; gap: $s-xxl; }
     .cb-plate-panel { max-width: none; }
   }
+
+  // No celular a barra de URL do navegador ja come ~200px da tela. Com header
+  // de 80px e o respiro de faixa inteiro, o botao de consultar caia abaixo da
+  // dobra: a acao principal do site nascia escondida. Aqui a barra encolhe e o
+  // topo do herói aperta, so no telefone.
+  //
+  // Fica no FIM do bloco de proposito: as regras base de .cb-hero, .cb-h1 e
+  // .cb-sub vem depois do header no arquivo, e media query com a mesma
+  // especificidade perde por ordem de cascata se vier antes delas.
+  @media (max-width: 640px) {
+    :deep(.home-header) { min-height: 56px; padding: $s-xxs $s-md; }
+    :deep(.home-header__brand) { min-height: 40px; }
+    :deep(.home-header__logo),
+    :deep(.home-header__logo .placa-logo) { height: 40px; }
+
+    .cb-hero { padding-top: $s-lg; }
+    .cb-h1 { margin-bottom: $s-sm; }
+    .cb-sub { margin-bottom: $s-lg; }
+    .cb-eyebrow { margin-bottom: $s-xxs; }
+
+    // Os selos repetem o que o proprio formulario ja diz e ficam abaixo dele,
+    // fora da dobra: no telefone so custam altura.
+    .cb-trust { display: none; }
+  }
 }
 // v2.0 herói web: split de 2 colunas. No mobile (e no PWA) empilha em coluna
 // única — a "tira" de sempre. O split só ganha largura extra no desktop web.
