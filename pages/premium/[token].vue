@@ -326,9 +326,10 @@ onUnmounted(() => poll && clearInterval(poll))
     <!-- Mesmo cabecalho do site: o rodape ja vem do app.vue em toda pagina, e
          o relatorio nao tinha motivo pra ser a unica tela sem cabecalho. -->
     <div class="rel__navband">
+      <!-- Sem :mostrar-busca: quem decide se o campo de placa existe e o
+           proprio header, pela rota. A pagina nao precisa saber disso. -->
       <HomeHeader
         logo-variant="default"
-        :mostrar-busca="false"
         :consultas="itens.length"
         @abrir-consultas="showConsultas = true"
       />
