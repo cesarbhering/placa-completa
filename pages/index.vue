@@ -277,8 +277,44 @@ function openPremiumCheckout(plano?: unknown) {
 // consultamos seria inventar defeito pra forcar a venda.
 const camposBloqueados = RECURSOS_BLOQUEADOS
 
-// Os itens que so a completa entrega — o painel do herói vende exatamente isso.
-const recursosRisco = RECURSOS.filter((r) => r.planos.length === 1 && r.planos[0] === 'completa')
+// Alertas colados na ilustracao do carro. Posicao em % da caixa da imagem,
+// mirando partes do veiculo (teto, traseira, roda, frente). Sao EXEMPLOS do
+// que o relatorio mostra, nunca dados de um carro real.
+// Callouts do carro. `y` e a altura da linha (e do rotulo, que fica centrado
+// nela); `ax` e onde a linha encosta no veiculo. Os dois lados se alternam em
+// alturas diferentes pra nenhum par de rotulos disputar a mesma faixa, o que
+// no celular seria colisao na certa.
+//
+// As coordenadas miram partes reais da arte: para-brisa, grade, para-choque,
+// coluna traseira, porta e roda de tras. Se a imagem trocar, isto precisa ser
+// remirado.
+// Callouts do carro. Cada um sai de uma borda da caixa, corre reto ate o
+// cotovelo (`ex`, `ey`) e so entao vira em diagonal ate o ponto (`ax`, `ay`).
+//
+// Regra do cotovelo: a diagonal tem que CONTINUAR no sentido do trecho reto.
+// Rotulo da esquerda anda pra direita, entao `ax` > `ex`; o da direita anda pra
+// esquerda, entao `ax` < `ex`. Quebrar isso faz a linha avancar e voltar, um
+// recuo que parece erro de desenho.
+//
+// Nenhum rotulo encosta no carro: os de cima e de baixo ficam nas faixas
+// vazias que a proporcao 5/4 abre, e os do meio so existem na altura em que a
+// silhueta e estreita. As ancoras miram onde a coisa acontece: placa
+// dianteira, freio da roda, lugar do motorista, teto. Se a arte trocar, tudo
+// isto precisa ser remirado.
+const alertasIlustrativos = [
+  // teto
+  { label: 'Já foi leiloado',    lado: 'esq',   y: '7%',  ex: '38%', ey: '7%',  ax: '52%', ay: '23%' },
+  { label: 'Histórico de furto', lado: 'dir',   y: '7%',  ex: '84%', ey: '7%',  ax: '70%', ay: '24%' },
+  // grade
+  { label: 'Gravame ativo',      lado: 'esq',   y: '34%', ex: '24%', ey: '34%', ax: '32%', ay: '48%' },
+  // onde ficaria a placa dianteira (a arte nao tem placa, por motivos obvios)
+  { label: 'Documento atrasado', lado: 'esq',   y: '92%', ex: '19%', ey: '92%', ax: '25%', ay: '67%' },
+  // freio, atras dos raios da roda dianteira: rotulo debaixo do pneu, linha
+  // subindo reto antes de virar
+  { label: 'Recall pendente',    lado: 'baixo', y: '92%', cx: '55%', ex: '55%', ey: '82%', ax: '57%', ay: '72%' },
+  // lugar do motorista
+  { label: 'Multa em aberto',    lado: 'dir',   y: '92%', ex: '76%', ey: '92%', ax: '51%', ay: '35%' },
+]
 
 // O que a consulta gratis efetivamente devolveu, so com o que veio preenchido.
 const camposLivres = computed(() => {
@@ -1142,16 +1178,37 @@ function applyEmailSuggestion() {
             <div class="cb-panel">
               <p class="cb-panel__kick">O que a placa revela</p>
               <p class="cb-panel__h">O vendedor conta a versão dele.<br>A placa conta a oficial.</p>
-              <ul class="cb-panel__list">
-                <li v-for="r in recursosRisco" :key="r.label">
-                  <svg class="cb-ico cb-ico--check" viewBox="0 0 20 20" aria-hidden="true">
-                    <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
-                    <path d="M6 10.2l2.6 2.6L14 7.4" fill="none" stroke="currentColor" stroke-width="2"
-                          stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                  {{ r.label }}
-                </li>
-              </ul>
+
+              <!-- Carro com os alertas saindo dele: o mesmo argumento da lista,
+                   so que a pessoa ve o problema colado no objeto. Ilustracao,
+                   nao um veiculo real: o rotulo abaixo diz isso em letra miuda
+                   pra ninguem ler como laudo de um carro especifico. -->
+              <div class="cb-carro">
+                <img src="/raw-renegade.png" alt="" class="cb-carro__img" aria-hidden="true" width="2048" height="2048">
+
+                <!-- Linhas e pontos numa camada SVG so: como sao todas
+                     horizontais, o rotulo opaco por cima esconde o comeco da
+                     linha e ela parece nascer da borda da pilula. Sem viewBox
+                     de proposito, pra 1 unidade continuar sendo 1px e o ponto
+                     nao virar elipse quando a caixa muda de proporcao. -->
+                <svg class="cb-carro__linhas" aria-hidden="true">
+                  <g v-for="(a, i) in alertasIlustrativos" :key="'l-' + a.label">
+                    <line :x1="a.lado === 'esq' ? '0%' : a.lado === 'dir' ? '100%' : a.cx" :y1="a.y" :x2="a.ex" :y2="a.ey" />
+                    <line :x1="a.ex" :y1="a.ey" :x2="a.ax" :y2="a.ay" />
+                    <!-- atraso escalonado: piscando junto virava pisca-alerta -->
+                    <circle :cx="a.ax" :cy="a.ay" r="4" :style="{ animationDelay: `${i * 0.45}s` }" />
+                  </g>
+                </svg>
+
+                <span
+                  v-for="a in alertasIlustrativos"
+                  :key="a.label"
+                  class="cb-carro__pin"
+                  :class="`cb-carro__pin--${a.lado}`"
+                  :style="a.lado === 'baixo' ? { top: a.y, left: a.cx } : { top: a.y }"
+                >{{ a.label }}</span>
+              </div>
+
               <!-- Piso de mil: numero baixo (banco local, ou um reset) vira
                    prova social contra nos. Abaixo disso, some. -->
               <p v-if="consultaCount >= 1000" class="cb-panel__foot">
@@ -2422,6 +2479,117 @@ function applyEmailSuggestion() {
     &__left { display: block; text-align: left; }
 
     &__side { display: block; }
+  }
+
+  // Pulsacao discreta dos pontos: chama o olho sem virar enfeite piscante. Fica
+  // na opacidade, nao no tamanho, pra nao empurrar layout nem competir com o
+  // CTA. Quem pediu menos movimento no sistema nao ve nada disso.
+  @keyframes cb-pulso {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cb-carro__linhas circle { animation: none; }
+  }
+
+  // Carro ilustrativo com os alertas em volta.
+  .cb-carro {
+    position: relative;
+    margin: $s-lg 0 $s-sm;
+    // 5/4 em vez de 4/3: com cover a partir de uma arte quadrada, a caixa mais
+    // alta deixa aparecer mais da margem transparente, e sao essas faixas
+    // vazias em cima e embaixo que dao lugar aos rotulos fora do carro.
+    aspect-ratio: 5 / 4;
+    overflow: visible;
+
+    &__img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center 42%;
+      display: block;
+    }
+
+    &__linhas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+
+      line {
+        stroke: $c-graphite;
+        stroke-width: 1;
+        stroke-linecap: round;
+      }
+
+      circle {
+        fill: $c-red;
+        stroke: #fff;
+        stroke-width: 2;
+        animation: cb-pulso 2.8s ease-in-out infinite;
+      }
+    }
+
+    // Pilula neutra: o guia reserva o acento pra acao, entao o alerta vem do
+    // ponto vermelho na ponta da linha, nao do fundo do rotulo.
+    &__pin {
+      position: absolute;
+      transform: translateY(-50%);
+      background: #fff;
+      border: 1px solid $c-hair;
+      border-radius: 4px;
+      padding: 5px 9px;
+      font-size: 12px;
+      font-weight: 600;
+      color: $c-ink;
+      white-space: nowrap;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.07);
+
+      &--esq { left: 0; }
+      &--dir { right: 0; }
+      // centrado no proprio x: a linha sobe do meio do rotulo
+      &--baixo { transform: translate(-50%, -50%); }
+    }
+
+    // Numa coluna so, seis rotulos de 12px num box de ~260px cobrem o carro
+    // inteiro e as linhas somem atras deles. Aqui o desenho vira outro: carro
+    // limpo em cima, alertas como lista logo abaixo. Media query DEPOIS das
+    // regras base de proposito, senao perde por ordem de cascata.
+    @media (max-width: 1023px) {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      aspect-ratio: auto;
+
+      &__img {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 4 / 3;
+      }
+
+      &__linhas { display: none; }
+
+      &__pin {
+        position: static;
+        transform: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+
+        &::before {
+          content: '';
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: $c-red;
+          flex-shrink: 0;
+        }
+      }
+    }
   }
 
   // Painel da direita: argumento, nao enfeite — lista o que so o relatorio
