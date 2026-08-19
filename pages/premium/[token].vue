@@ -207,94 +207,9 @@ const vc = computed(() => data.value?.valorCusto ?? null)
 const temValor = computed(() => Boolean(vc.value?.fipe || vc.value?.seguroAnual || vc.value?.custo5anos))
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
-// Grafico de linha em SVG, montado aqui: sao ~40 linhas de geometria contra
-// uma biblioteca inteira baixada numa pagina que a pessoa pagou pra abrir. E
-// SVG imprime nitido, que canvas nao faz.
-//
-// O eixo Y nao comeca no zero, e isso e correto pra serie de preco: ancorado no
-// zero, uma variacao de 8% vira linha reta. O que torna honesto e o eixo estar
-// rotulado com os valores de verdade, coisa que barra sem eixo nao permitia.
-const GRAF = { W: 480, H: 190, padL: 62, padR: 10, padT: 14, padB: 24 }
-
-const grafico = computed(() => {
-  const pts = vc.value?.historico || []
-  if (pts.length < 2) return null
-
-  const vals = pts.map((p: any) => p.price)
-  const min = Math.min(...vals)
-  const max = Math.max(...vals)
-  // Folga de 18% da amplitude em cima e embaixo pra linha nao encostar na
-  // moldura nem nos rotulos do eixo.
-  const amp = max - min || Math.max(1, max * 0.02)
-  const baixo = min - amp * 0.18
-  const alto = max + amp * 0.18
-
-  const { W, H, padL, padR, padT, padB } = GRAF
-  const px = (i: number) => padL + (i / (pts.length - 1)) * (W - padL - padR)
-  const py = (v: number) => padT + (1 - (v - baixo) / (alto - baixo)) * (H - padT - padB)
-
-  const vertices = pts.map((p: any, i: number) => ({ ...p, cx: px(i), cy: py(p.price) }))
-  const linha = vertices.map((v, i) => `${i ? 'L' : 'M'}${v.cx.toFixed(1)},${v.cy.toFixed(1)}`).join(' ')
-  const base = H - padB
-  const area = `${linha} L${vertices[vertices.length - 1].cx.toFixed(1)},${base} L${vertices[0].cx.toFixed(1)},${base} Z`
-
-  // Tres marcas: teto, meio e piso da faixa desenhada.
-  const marcas = [alto, (alto + baixo) / 2, baixo].map((v) => ({ v, y: py(v) }))
-
-  // Com muitos pontos os rotulos do eixo X encavalam; mostra um sim, um nao.
-  // As pontas ancoram pra dentro: centradas, a primeira e a ultima vazavam a
-  // largura do grafico e a ultima aparecia cortada.
-  const passo = pts.length > 5 ? 2 : 1
-  const ultimo = vertices.length - 1
-  const rotulos = vertices
-    .map((v, i) => ({ ...v, ancora: i === 0 ? 'start' : i === ultimo ? 'end' : 'middle' }))
-    .filter((_, i) => i % passo === 0 || i === ultimo)
-
-  return { ...GRAF, base, linha, area, vertices, marcas, rotulos }
-})
-
-// ---------- hover do grafico ----------
-// Sem biblioteca: achar o vertice mais proximo do cursor e desenhar mira +
-// cartao dentro do proprio SVG. O indice e a unica coisa reativa.
-const grafHover = ref<number | null>(null)
-
-function grafMover(e: PointerEvent) {
-  const g = grafico.value
-  if (!g) return
-  const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
-  // converte o x do mouse pra coordenada do viewBox (o SVG escala com a caixa)
-  const x = ((e.clientX - r.left) / r.width) * g.W
-  let melhor = 0
-  let menor = Infinity
-  g.vertices.forEach((v: any, i: number) => {
-    const d = Math.abs(v.cx - x)
-    if (d < menor) { menor = d; melhor = i }
-  })
-  grafHover.value = melhor
-}
-
-function grafSair(e: PointerEvent) {
-  // No toque nao existe "pousar o dedo": o tap mostra o cartao e ele fica ate
-  // o proximo tap. Limpar no pointerleave (que dispara ao soltar) o apagaria
-  // antes de dar tempo de ler.
-  if (e.pointerType === 'touch') return
-  grafHover.value = null
-}
-
-// Geometria do cartao: flipa pro outro lado do ponto quando encostaria na
-// borda, em x e em y.
-const grafDica = computed(() => {
-  const g = grafico.value
-  if (!g || grafHover.value === null) return null
-  const v: any = g.vertices[grafHover.value]
-  const w = 104
-  const h = 40
-  let x = v.cx + 12
-  if (x + w > g.W - g.padR) x = v.cx - 12 - w
-  let y = v.cy - h - 10
-  if (y < 2) y = v.cy + 12
-  return { v, x, y, w, h }
-})
+// O grafico do historico vive em components/GraficoValor.vue (ECharts, SVG).
+// So resta decidir aqui SE ha o que mostrar.
+const temGrafico = computed(() => (vc.value?.historico?.length ?? 0) > 1)
 
 // ---------- ficha ----------
 const linha = (rot: string, val: any) => (val === null || val === undefined || val === '' ? null : [rot, String(val)])
@@ -574,69 +489,9 @@ onUnmounted(() => poll && clearInterval(poll))
               </div>
             </div>
 
-            <div v-if="grafico" class="rel__dep">
+            <div v-if="temGrafico" class="rel__dep">
               <span class="rel__sub">Como o valor andou</span>
-              <svg
-                class="rel__graf"
-                :viewBox="`0 0 ${grafico.W} ${grafico.H}`"
-                preserveAspectRatio="xMidYMid meet"
-                role="img"
-                :aria-label="`Variação do valor FIPE de ${vc.historico[0].label} a ${vc.historico[vc.historico.length - 1].label}`"
-                @pointermove="grafMover"
-                @pointerdown="grafMover"
-                @pointerleave="grafSair"
-              >
-                <!-- grade + eixo Y -->
-                <g class="rel__graf-grade">
-                  <line
-                    v-for="m in grafico.marcas" :key="'g' + m.y"
-                    :x1="grafico.padL" :y1="m.y" :x2="grafico.W - grafico.padR" :y2="m.y"
-                  />
-                </g>
-                <g class="rel__graf-eixo">
-                  <text
-                    v-for="m in grafico.marcas" :key="'t' + m.y"
-                    :x="grafico.padL - 8" :y="m.y + 3.5" text-anchor="end"
-                  >{{ brl(m.v) }}</text>
-                </g>
-
-                <path :d="grafico.area" class="rel__graf-area" />
-                <path :d="grafico.linha" class="rel__graf-linha" />
-
-                <circle
-                  v-for="(v, i) in grafico.vertices" :key="'p' + i"
-                  :cx="v.cx" :cy="v.cy" :r="i === grafico.vertices.length - 1 ? 4 : 2.5"
-                  :class="i === grafico.vertices.length - 1 ? 'rel__graf-fim' : 'rel__graf-ponto'"
-                />
-
-                <g class="rel__graf-eixo">
-                  <text
-                    v-for="v in grafico.rotulos" :key="'x' + v.label"
-                    :x="v.cx" :y="grafico.H - 8" :text-anchor="v.ancora"
-                  >{{ v.label }}</text>
-                </g>
-
-                <!-- mira + cartao do hover. pointer-events none no grupo todo,
-                     senao o proprio cartao vira alvo e o hover treme. -->
-                <g v-if="grafDica" pointer-events="none">
-                  <line
-                    :x1="grafDica.v.cx" :y1="grafico.padT"
-                    :x2="grafDica.v.cx" :y2="grafico.base"
-                    class="rel__graf-mira"
-                  />
-                  <circle :cx="grafDica.v.cx" :cy="grafDica.v.cy" r="4.5" class="rel__graf-alvo" />
-                  <rect
-                    :x="grafDica.x" :y="grafDica.y" :width="grafDica.w" :height="grafDica.h"
-                    rx="4" class="rel__graf-cartao"
-                  />
-                  <text :x="grafDica.x + grafDica.w / 2" :y="grafDica.y + 16" text-anchor="middle" class="rel__graf-cartao-mes">
-                    {{ grafDica.v.label }}
-                  </text>
-                  <text :x="grafDica.x + grafDica.w / 2" :y="grafDica.y + 32" text-anchor="middle" class="rel__graf-cartao-preco">
-                    {{ brl(grafDica.v.price) }}
-                  </text>
-                </g>
-              </svg>
+              <GraficoValor :historico="vc.historico" />
               <!-- As barras sao escaladas pela faixa da serie, nao pelo zero:
                    sem isso, oito barras iguais. Em troca, a legenda diz os
                    valores das pontas, senao a variacao parece maior do que e. -->
@@ -871,84 +726,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__dep {
     margin-top: 20px;
-  }
-
-  &__graf {
-    display: block;
-    width: 100%;
-    height: auto;
-    margin-top: 10px;
-    overflow: visible;
-  }
-
-  // Grade em fio, nunca em traco cheio: o guia pede que a estrutura recue e o
-  // dado apareca.
-  &__graf-grade line {
-    stroke: $c-hair;
-    stroke-width: 1;
-  }
-
-  &__graf-eixo text {
-    font-family: inherit;
-    font-size: 10px;
-    fill: $c-graphite;
-  }
-
-  &__graf-area {
-    fill: rgba(11, 31, 58, 0.07);
-  }
-
-  &__graf-linha {
-    fill: none;
-    stroke: $c-slab;
-    stroke-width: 2;
-    stroke-linejoin: round;
-    stroke-linecap: round;
-  }
-
-  &__graf-ponto {
-    fill: $c-canvas;
-    stroke: $c-slab;
-    stroke-width: 1.5;
-  }
-
-  // O ultimo ponto e o valor de hoje: e o unico que ganha peso.
-  &__graf-fim {
-    fill: $c-slab;
-    stroke: $c-canvas;
-    stroke-width: 2;
-  }
-
-  &__graf { cursor: crosshair; }
-
-  &__graf-mira {
-    stroke: $c-steel;
-    stroke-width: 1;
-    stroke-dasharray: 3 3;
-  }
-
-  &__graf-alvo {
-    fill: $c-slab;
-    stroke: $c-canvas;
-    stroke-width: 2;
-  }
-
-  &__graf-cartao {
-    fill: $c-canvas;
-    stroke: $c-hair;
-    // sombra leve pro cartao descolar da area preenchida
-    filter: drop-shadow(0 2px 6px rgba(26, 26, 26, 0.12));
-  }
-
-  &__graf-cartao-mes {
-    font-size: 10px;
-    fill: $c-graphite;
-  }
-
-  &__graf-cartao-preco {
-    font-size: 13px;
-    font-weight: 700;
-    fill: $c-ink;
   }
 
   &__dep-txt {
