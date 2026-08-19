@@ -1,0 +1,365 @@
+// ============================================================
+// HomeHeader — barra de navegacao do site
+//
+// Global de proposito. O visual v2 morava nos :deep() de pages/index.vue, o
+// que amarrava a aparencia do header a uma pagina: montar o componente em
+// qualquer outra rota trazia de volta a barra navy antiga, com logo de 24px.
+// Aqui as regras valem onde quer que o componente seja montado, e cada pagina
+// so escolhe COMPORTAMENTO (variante do logo, se ha campo de placa), nunca a
+// aparencia.
+//
+// Nao usa os tokens de .home-v2 porque eles sao locais aquele bloco; os
+// valores vem repetidos abaixo, como ja acontecia na gaveta do componente.
+// ============================================================
+
+$h-canvas:   #ffffff;
+$h-cloud:    #f7f7f7;
+$h-hair:     #e8e8e8;
+$h-steel:    #c2c2c2;
+$h-ink:      #1a1a1a;
+$h-graphite: #636363;
+$h-blue:     #1f6feb;
+$h-blue-deep:#17539f;
+$h-green:    #1e9e4a;
+$h-radius:   4px;
+$h-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+// O SVG do logo carrega estilo escopado proprio
+// (`.placa-logo[data-v-x] { height: auto }`), que empata em especificidade com
+// uma classe sozinha e ganha por ordem de injecao. Por isso o tamanho passa
+// pelo __brand: tres classes vencem sem precisar de !important. Vale pras
+// variantes responsivas tambem.
+@mixin logo-altura($h) {
+  .home-header .home-header__brand .home-header__logo,
+  .home-header .home-header__brand .placa-logo {
+    height: $h;
+    width: auto;
+    flex-shrink: 0;
+  }
+}
+
+@include logo-altura(56px);
+
+.home-header {
+  // mesma coluna de leitura das faixas da home
+  width: 100%;
+  max-width: 1366px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 80px;
+  padding: 8px 24px;
+  background: transparent;
+  color: $h-ink;
+
+  // Logo grande: 24px de altura dava 61px de largura contra ~100px dos
+  // concorrentes, e sumia na barra. 56px dao 142px no viewBox 304x120.
+  &__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 56px;
+    min-width: 0;
+    flex-shrink: 0;
+    text-decoration: none;
+
+    &:focus-visible {
+      outline: 2px solid $h-blue;
+      outline-offset: 3px;
+      border-radius: $h-radius;
+    }
+  }
+
+
+  &__tag {
+    font-weight: 600;
+    font-size: 0.8125rem;
+    color: $h-graphite;
+    white-space: nowrap;
+  }
+
+  // ---------- slot central ----------
+  &__center { flex: 0 1 auto; }
+
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: $h-cloud;
+    border: 1px solid $h-hair;
+    border-radius: $h-radius;
+    padding: 4px 4px 4px 16px;
+  }
+
+  &__search-label,
+  &__done-label {
+    font-size: 14px;
+    line-height: 1.5;
+    color: $h-graphite;
+    white-space: nowrap;
+  }
+
+  &__search-input {
+    width: 108px;
+    border: 0;
+    background: transparent;
+    font-family: $h-font;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: $h-ink;
+    text-transform: uppercase;
+    min-height: 44px;
+
+    &::placeholder { color: $h-steel; font-weight: 400; letter-spacing: 0.08em; }
+    &:focus { outline: none; }
+    &:focus-visible { outline: 2px solid $h-blue; outline-offset: 2px; border-radius: $h-radius; }
+  }
+
+  &__search-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: $h-radius;
+    background: $h-blue;
+    color: #fff;
+    cursor: pointer;
+
+    svg { width: 20px; height: 20px; }
+    &:hover { background: $h-blue-deep; }
+    &:focus-visible { outline: 2px solid $h-blue; outline-offset: 2px; }
+  }
+
+  &__done {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: $h-cloud;
+    border: 1px solid $h-hair;
+    border-radius: $h-radius;
+    padding: 8px 16px;
+    min-height: 44px;
+
+    strong {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: $h-ink;
+    }
+
+    svg { width: 22px; height: 22px; color: $h-green; flex-shrink: 0; }
+  }
+
+  // ---------- nav ----------
+  &__nav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  // Sem borda inferior: o guia usa o fio de 2px pra marcar a pagina ATIVA, nao
+  // o hover. No hover ele so lia como sublinhado de link comum.
+  &__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: $h-ink;
+    font-size: 16px;
+    font-weight: 400;
+    padding: 0 16px;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover { color: $h-blue; }
+    &:focus-visible { outline: 2px solid $h-blue; outline-offset: 2px; }
+  }
+
+  &__link--btn {
+    background: transparent;
+    border: 0;
+    font-family: $h-font;
+    cursor: pointer;
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    margin-left: 6px;
+    border-radius: 999px;
+    background: $h-blue;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  &__burger { display: none; }
+}
+
+// ---------- gaveta do mobile ----------
+// Fica fora de .home-header porque o Teleport joga estes elementos pro body:
+// qualquer seletor descendente do header deixaria de alcanca-los.
+.home-header__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(26, 26, 26, 0.45);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+.home-header__gaveta {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1210;
+  width: min(300px, 82vw);
+  background: $h-canvas;
+  border-left: 1px solid $h-hair;
+  padding: 72px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(101%);
+  transition: transform 0.26s cubic-bezier(0.22, 0.61, 0.36, 1);
+  overflow-y: auto;
+
+  &.is-open { transform: translateX(0); }
+
+  @media (prefers-reduced-motion: reduce) { transition: none; }
+  // Acima de 1024px a nav normal volta e a gaveta nao existe.
+  @media (min-width: 1024px) { display: none; }
+}
+
+.home-header__gaveta-x {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: $h-ink;
+  cursor: pointer;
+
+  svg { width: 22px; height: 22px; }
+  &:focus-visible { outline: 2px solid $h-blue; outline-offset: 2px; }
+}
+
+.home-header__gaveta-link {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 0 8px;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.38;
+  color: $h-ink;
+  text-decoration: none;
+  border-bottom: 1px solid $h-hair;
+
+  &:last-child { border-bottom: 0; }
+  &:hover { color: $h-blue; }
+}
+
+.home-header__gaveta-link--btn {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid $h-hair;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+// ============================================================
+// Responsivo. Vem DEPOIS das regras base: mesma especificidade, quem decide e
+// a ordem de cascata.
+// ============================================================
+
+// Abaixo de 1280px o campo de placa some: com os cinco links da nav nao sobra
+// largura pros tres blocos, e ele duplicaria o formulario do herói. O selo da
+// placa consultada fica, porque esse continua util ao rolar.
+@media (max-width: 1279px) {
+  .home-header__search { display: none; }
+}
+
+// Abaixo de 1024px: logo a esquerda, hamburguer a direita, links na gaveta.
+@media (max-width: 1023px) {
+  @include logo-altura(44px);
+
+  .home-header {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 8px 16px;
+
+    &__brand { width: auto; justify-content: flex-start; }
+    &__nav { display: none; }
+
+    &__burger {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      position: relative;
+      z-index: 60;
+
+      // Tres tracos a partir de um unico span: ::before e ::after sao o de cima
+      // e o de baixo. Abrindo, viram um X.
+      span,
+      span::before,
+      span::after {
+        content: '';
+        display: block;
+        position: absolute;
+        width: 22px;
+        height: 2px;
+        border-radius: 2px;
+        background: $h-ink;
+        transition: transform 0.22s ease, background-color 0.16s ease;
+      }
+
+      span::before { transform: translateY(-7px); }
+      span::after  { transform: translateY(7px); }
+
+      span.is-x { background: transparent; }
+      span.is-x::before { transform: rotate(45deg); }
+      span.is-x::after  { transform: rotate(-45deg); }
+
+      &:focus-visible { outline: 2px solid $h-blue; outline-offset: 2px; }
+    }
+  }
+}
+
+// No celular a barra de URL do navegador ja come ~200px de altura. Com header
+// de 80px, a acao principal da home nascia abaixo da dobra.
+@media (max-width: 640px) {
+  .home-header {
+    min-height: 56px;
+    padding: 4px 16px;
+
+    &__brand { min-height: 40px; }
+  }
+
+  @include logo-altura(40px);
+}

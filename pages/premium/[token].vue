@@ -607,28 +607,10 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     padding: 0 16px;
   }
 
-  :deep(.home-header) {
-    max-width: 860px;
-    margin: 0 auto;
-    min-height: 72px;
-    padding: 8px 0;
-    background: transparent;
-    border-radius: 0;
-    box-shadow: none;
-    border-bottom: 0;
-  }
-  :deep(.home-header__logo),
-  :deep(.home-header__logo .placa-logo) { height: 48px; width: auto; flex-shrink: 0; }
-  :deep(.home-header__link) {
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    padding: 0 12px;
-    color: $c-ink;
-    font-size: 15px;
-    text-decoration: none;
-    &:hover { color: $c-blue; }
-  }
+  // Esta pagina nao decide NADA sobre o header: ele vem inteiro do parcial
+  // global. Chegou a ter max-width de 860px pra casar com a coluna do
+  // relatorio, mas nessa largura os cinco links quebravam em duas linhas e a
+  // barra ia a 112px contra 80px da home.
 
   &__tipo-fora {
     display: block;
