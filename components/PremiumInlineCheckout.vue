@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PLANOS, recursosDoPlano } from '~/shared/planos'
+import { PLANOS } from '~/shared/planos'
 
 // Checkout premium inline: roda o fluxo pago SEM sair da home, num overlay.
 // Espelha a logica de pages/premium/index.vue (gate -> preview -> checkout ->
@@ -12,12 +12,23 @@ import { PLANOS, recursosDoPlano } from '~/shared/planos'
 // `plano` decide o preco e o que o relatorio vai liberar. O servidor recalcula
 // o valor pela tabela dele, entao aqui e so apresentacao — nada de confiar no
 // numero que sai do cliente.
-const props = withDefaults(defineProps<{ placa: string; plano?: 'basica' | 'completa' }>(), {
+const props = withDefaults(defineProps<{
+  placa: string
+  plano?: 'basica' | 'completa'
+  /**
+   * A placa ja passou por uma consulta nesta sessao, entao o veiculo ja foi
+   * mostrado na tela. Perguntar "e este veiculo?" de novo so adiciona um
+   * passo: aqui vai direto pro pagamento, e a confirmacao acontece depois,
+   * junto com o relatorio.
+   */
+  jaConsultada?: boolean
+}>(), {
   plano: 'completa',
+  jaConsultada: false,
 })
 const emit = defineEmits<{ close: [] }>()
 
-type Step = 'loading' | 'gate' | 'confirm' | 'pending' | 'erro'
+type Step = 'loading' | 'gate' | 'confirm' | 'reconfirma' | 'pending' | 'erro'
 const step = ref<Step>('loading')
 const loading = ref(false)
 const msg = ref('')
@@ -37,11 +48,35 @@ const { add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
 const planoInfo = computed(() => PLANOS[props.plano])
-const planoItens = computed(() => recursosDoPlano(props.plano))
+
+// A placa comeca na prop mas pode ser corrigida aqui dentro (o lapis do passo
+// de reconferencia), entao vira estado local em vez de derivar so da prop.
+const placaLocal = ref(String(props.placa || ''))
+watch(() => props.placa, (v) => { placaLocal.value = String(v || '') })
 
 const placaClean = computed(() =>
-  String(props.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7),
+  placaLocal.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7),
 )
+
+// Passo de reconferencia, entre o "pagar" e a geracao do Pix.
+const editandoPlaca = ref(false)
+const placaRascunho = ref('')
+
+function abrirEdicao() {
+  placaRascunho.value = placaClean.value
+  editandoPlaca.value = true
+}
+
+async function salvarPlaca() {
+  const nova = placaRascunho.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
+  if (nova.length < 7) { msg.value = 'Placa incompleta. Use ABC1D23 ou ABC1234.' ; return }
+  msg.value = ''
+  editandoPlaca.value = false
+  placaLocal.value = nova
+  step.value = 'loading'
+  await consultarPreview()   // o veiculo muda junto com a placa
+  step.value = 'reconfirma'
+}
 
 // Pre-preenche email salvo do fluxo grativo (mesmo navegador)
 onMounted(() => {
@@ -66,7 +101,13 @@ async function consultarPreview() {
     if (e?.statusCode === 401 || e?.status === 401 || e?.response?.status === 401) {
       step.value = 'gate'
     } else {
-      msg.value = e?.data?.message || 'Não foi possível consultar esta placa.'
+      // Nunca ecoar a mensagem do servidor: coisas como "Premium nao
+      // configurado" sao recado de infraestrutura e nao dizem nada pra quem
+      // esta tentando comprar. O detalhe tecnico fica no console.
+      if (import.meta.dev) console.warn('[checkout] preview falhou:', e?.data?.message || e)
+      msg.value = e?.statusCode === 404
+        ? 'Não encontramos essa placa. Confira os caracteres e tente de novo.'
+        : 'Não conseguimos abrir o pagamento agora. Tente de novo em instantes.'
       step.value = 'erro'
     }
   } finally {
@@ -85,6 +126,19 @@ async function entrar() {
   } finally {
     loading.value = false
   }
+}
+
+// Antes de gerar o Pix, uma ultima olhada na placa. E o unico dado que a
+// pessoa digitou e o unico que, se estiver errado, faz ela pagar pelo carro
+// de outro.
+function irParaReconferencia() {
+  if (!email.value.includes('@')) {
+    msg.value = 'Informe um e-mail válido.'
+    return
+  }
+  msg.value = ''
+  editandoPlaca.value = false
+  step.value = 'reconfirma'
 }
 
 async function pagar() {
@@ -116,7 +170,8 @@ async function pagar() {
     })
     poll = setInterval(checarStatus, 4000)
   } catch (e: any) {
-    msg.value = e?.data?.message || 'Falha ao gerar o Pix.'
+    if (import.meta.dev) console.warn('[checkout] pagar falhou:', e?.data?.message || e)
+    msg.value = 'Não conseguimos gerar o Pix agora. Tente de novo em instantes.'
   } finally {
     loading.value = false
   }
@@ -152,21 +207,17 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="modal-overlay" @click="fechar">
-    <div class="modal-window" @click.stop>
-      <div class="win-window">
-        <div class="win-window__titlebar">
-          <span>Relatório completo · {{ placaClean }}</span>
-          <div class="win-window__titlebar-buttons">
-            <span
-              class="win-window__titlebar-btn win-window__titlebar-btn--active"
-              role="button"
-              aria-label="Fechar"
-              @click="fechar"
-            >×</span>
-          </div>
-        </div>
-        <div class="win-window__body pic-body">
+  <div class="pic-overlay" role="dialog" aria-modal="true" aria-labelledby="pic-titulo" @click="fechar">
+    <div class="pic-card" @click.stop>
+      <div class="pic-topo">
+        <span id="pic-titulo" class="pic-titulo">{{ planoInfo.nome }} · {{ placaClean }}</span>
+        <button type="button" class="pic-x" aria-label="Fechar" @click="fechar">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div class="pic-body">
           <!-- Carregando preview -->
           <div v-if="step === 'loading'" class="pic-center">
             <div class="loading-bar"><div class="loading-bar__fill" /></div>
@@ -176,25 +227,25 @@ onUnmounted(() => {
           <!-- Gate por senha (homologacao) -->
           <div v-else-if="step === 'gate'" class="pic-stack">
             <p class="pic-lead">Área em homologação. Informe a senha de acesso para continuar.</p>
-            <div class="form-group">
-              <label class="form-group__label" for="pic-senha">Senha</label>
+            <div class="pic-campo">
+              <label class="pic-label" for="pic-senha">Senha</label>
               <input
                 id="pic-senha"
                 v-model="senha"
                 type="password"
-                class="win-input"
+                class="pic-input"
                 placeholder="Senha"
                 @keyup.enter="entrar"
               >
             </div>
-            <button type="button" class="win-btn win-btn--primary win-btn--block" :disabled="loading" @click="entrar">
+            <button type="button" class="pic-btn pic-btn--primary" :disabled="loading" @click="entrar">
               {{ loading ? 'Entrando...' : 'Entrar' }}
             </button>
           </div>
 
           <!-- Confirmar veiculo + coletar contato -->
           <div v-else-if="step === 'confirm'" class="pic-stack">
-            <h3 class="pic-h">É este veículo?</h3>
+            <h3 class="pic-h">{{ jaConsultada ? 'Pagar e liberar o relatório' : 'É este veículo?' }}</h3>
             <div v-if="preview?.encontrado" class="pic-veiculo">
               <strong>{{ preview.marca }} {{ preview.modelo }}</strong>
               <span>{{ preview.ano }} · {{ preview.cor }} · placa {{ preview.placa }}</span>
@@ -202,171 +253,490 @@ onUnmounted(() => {
             <div v-else class="pic-veiculo">
               Não achamos os dados básicos, mas você pode seguir com a placa {{ preview?.placa }}.
             </div>
-            <p class="pic-inclui">
-              <strong>{{ planoInfo.nome }}</strong> · {{ planoInfo.chamada }}
-            </p>
-            <ul class="pic-lista">
-              <li v-for="item in planoItens" :key="item">{{ item }}</li>
-            </ul>
-            <div class="form-group">
-              <label class="form-group__label" for="pic-email">Seu e-mail (para receber o relatório)</label>
+            <!-- Sem a lista item a item: quem chegou aqui ja viu o que entra
+                 no comparativo e no bloco bloqueado. Aqui basta dizer o que
+                 esta sendo comprado, por quanto e pra qual placa. -->
+            <div class="pic-resumo">
+              <span class="pic-resumo__linha">
+                <span>Relatório</span><strong>{{ planoInfo.nome }}</strong>
+              </span>
+              <span class="pic-resumo__linha">
+                <span>Placa</span><strong class="pic-resumo__placa">{{ placaClean }}</strong>
+              </span>
+              <span class="pic-resumo__linha pic-resumo__linha--total">
+                <span>Total</span><strong>{{ reais(planoInfo.valorCentavos) }}</strong>
+              </span>
+            </div>
+            <div class="pic-campo">
+              <label class="pic-label" for="pic-email">Seu e-mail (para receber o relatório)</label>
               <input
                 id="pic-email"
                 v-model="email"
                 type="email"
-                class="win-input"
+                class="pic-input"
                 placeholder="seu@email.com"
                 autocomplete="email"
                 inputmode="email"
               >
             </div>
-            <div class="form-group">
+            <div class="pic-campo">
               <label class="form-group__label form-group__label--optional" for="pic-tel">WhatsApp</label>
               <input
                 id="pic-tel"
                 v-model="telefone"
                 type="tel"
-                class="win-input"
+                class="pic-input"
                 placeholder="(11) 91234-5678"
                 autocomplete="tel"
                 inputmode="tel"
               >
             </div>
-            <button type="button" class="win-btn win-btn--primary win-btn--block" :disabled="loading" @click="pagar">
+            <button type="button" class="pic-btn pic-btn--primary" :disabled="loading" @click="irParaReconferencia">
               {{ loading ? 'Gerando Pix...' : `Pagar ${reais(planoInfo.valorCentavos)} via Pix` }}
             </button>
-            <button type="button" class="win-btn win-btn--block" @click="fechar">Cancelar</button>
+            <button type="button" class="pic-btn" @click="fechar">Cancelar</button>
+          </div>
+
+          <!-- Reconferencia da placa, ultimo passo antes do Pix -->
+          <div v-else-if="step === 'reconfirma'" class="pic-stack pic-center">
+            <h3 class="pic-h">Confirme a placa</h3>
+
+            <div v-if="!editandoPlaca" class="pic-placa-bloco">
+              <div class="pic-placa-destaque pic-placa-destaque--edit">
+                <span>Vamos consultar</span>
+                <span class="pic-placa-linha">
+                  <strong>{{ placaClean }}</strong>
+                  <button type="button" class="pic-lapis" aria-label="Corrigir a placa" @click="abrirEdicao">
+                    <!-- lapis do Feather (edit-2): traco unico, sem a "gota" que
+                         o desenho anterior fazia na ponta -->
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                    </svg>
+                  </button>
+                </span>
+              </div>
+              <!-- A instrucao fica colada na placa, que e o que ela manda
+                   corrigir. Embaixo do veiculo parecia falar do veiculo. -->
+              <p class="pic-hint pic-hint--lapis">Caso não seja esta, clique no lápis para corrigir.</p>
+            </div>
+
+            <div v-else class="pic-campo">
+              <label class="pic-label" for="pic-placa-edit">Digite a placa correta</label>
+              <input
+                id="pic-placa-edit"
+                v-model="placaRascunho"
+                class="pic-input pic-input--placa"
+                type="text"
+                maxlength="7"
+                autocomplete="off"
+                autocapitalize="characters"
+                placeholder="ABC1D23"
+                @keyup.enter="salvarPlaca"
+              >
+              <button type="button" class="pic-btn" @click="salvarPlaca">Usar esta placa</button>
+            </div>
+
+            <div v-if="!editandoPlaca && preview?.encontrado" class="pic-veiculo">
+              <strong>{{ preview.marca }} {{ preview.modelo }}</strong>
+              <span>{{ [preview.ano, preview.cor, preview.municipio, preview.uf].filter(Boolean).join(' · ') }}</span>
+            </div>
+
+            <button
+              v-if="!editandoPlaca"
+              type="button"
+              class="pic-btn pic-btn--primary"
+              :disabled="loading"
+              @click="pagar"
+            >
+              {{ loading ? 'Gerando Pix...' : `Pagar ${reais(planoInfo.valorCentavos)} via Pix` }}
+            </button>
+            <button v-if="!editandoPlaca" type="button" class="pic-btn" @click="step = 'confirm'">Voltar</button>
           </div>
 
           <!-- Pagamento Pix + polling -->
           <div v-else-if="step === 'pending'" class="pic-stack pic-center">
             <template v-if="pendingStatus === 'aguardando_pagamento'">
               <h3 class="pic-h">Pague com Pix para liberar</h3>
+              <!-- Na hora de pagar a pessoa precisa reconferir o que esta
+                   levando: tipo de relatorio, valor e, sobretudo, a placa. -->
+              <div class="pic-resumo">
+                <span class="pic-resumo__linha">
+                  <span>Relatório</span><strong>{{ planoInfo.nome }}</strong>
+                </span>
+                <span class="pic-resumo__linha pic-resumo__linha--total">
+                  <span>Total</span><strong>{{ reais(pix?.valor ?? planoInfo.valorCentavos) }}</strong>
+                </span>
+              </div>
+              <div class="pic-placa-destaque">
+                <span>Consultando a placa</span>
+                <strong>{{ placaClean }}</strong>
+              </div>
               <img v-if="pix?.brCodeBase64" :src="pix.brCodeBase64" alt="QR Code Pix" class="pic-qr">
-              <button type="button" class="win-btn win-btn--block" @click="copiar">
+              <button type="button" class="pic-btn" @click="copiar">
                 Copiar código Pix (copia e cola)
               </button>
               <p class="pic-brcode">{{ pix?.brCode }}</p>
-              <p class="pic-hint">Assim que o pagamento cair, o relatório é liberado automaticamente.</p>
+              <p class="pic-hint">O relatório libera sozinho em até 5 minutos depois do pagamento.</p>
             </template>
             <template v-else-if="['pago', 'consultando'].includes(pendingStatus)">
               <h3 class="pic-h">Pagamento confirmado ✓</h3>
+              <!-- Confirmacao do veiculo depois do pagamento: e aqui que a
+                   pessoa ve modelo, cor e cidade e tem a chance de dizer que
+                   errou a placa, antes de o relatorio virar o assunto. -->
+              <div v-if="preview?.encontrado" class="pic-veiculo pic-veiculo--check">
+                <strong>{{ preview.marca }} {{ preview.modelo }}</strong>
+                <span>
+                  {{ [preview.ano, preview.cor, preview.municipio, preview.uf].filter(Boolean).join(' · ') }}
+                </span>
+                <span class="pic-veiculo__placa">Placa {{ preview.placa }}</span>
+              </div>
               <div class="loading-bar"><div class="loading-bar__fill" /></div>
               <p class="pic-hint">Preparando seu relatório completo...</p>
             </template>
+            <!-- 'entregue' precisa de ramo proprio: checarStatus seta o estado e
+                 so depois navega, entao o Vue re-renderiza antes da navegacao.
+                 Sem isto o status caia no v-else e piscava "Algo deu errado"
+                 justo no momento do sucesso. -->
+            <template v-else-if="pendingStatus === 'entregue'">
+              <h3 class="pic-h">Relatório pronto ✓</h3>
+              <div class="loading-bar"><div class="loading-bar__fill" /></div>
+              <p class="pic-hint">Abrindo seu relatório...</p>
+            </template>
+            <template v-else-if="pendingStatus === 'falha'">
+              <h3 class="pic-h">Não conseguimos concluir</h3>
+              <p class="pic-hint">
+                O valor está sendo estornado no seu Pix. Se preferir, fale com a gente
+                pelo contato do rodapé.
+              </p>
+              <button type="button" class="pic-btn" @click="fechar">Fechar</button>
+            </template>
             <template v-else-if="pendingStatus === 'expirado'">
               <h3 class="pic-h">Pix expirou</h3>
-              <button type="button" class="win-btn win-btn--primary win-btn--block" @click="step = 'confirm'">
+              <button type="button" class="pic-btn pic-btn--primary" @click="step = 'confirm'">
                 Gerar novo Pix
               </button>
             </template>
             <template v-else-if="pendingStatus === 'reembolsado'">
               <h3 class="pic-h">Não foi possível concluir</h3>
               <p class="pic-hint">O valor foi reembolsado no seu Pix.</p>
-              <button type="button" class="win-btn win-btn--block" @click="fechar">Fechar</button>
+              <button type="button" class="pic-btn" @click="fechar">Fechar</button>
             </template>
             <template v-else>
               <h3 class="pic-h">Algo deu errado</h3>
-              <p class="pic-hint">{{ pendingStatus }}</p>
-              <button type="button" class="win-btn win-btn--block" @click="fechar">Fechar</button>
+              <!-- pendingStatus e nome de estado interno; nao vai pra tela. -->
+              <p class="pic-hint">Se você já pagou, o relatório libera sozinho. Guarde esta aba ou fale com a gente.</p>
+              <button type="button" class="pic-btn" @click="fechar">Fechar</button>
             </template>
           </div>
 
           <!-- Erro no preview -->
           <div v-else class="pic-stack pic-center">
-            <h3 class="pic-h">Não deu certo</h3>
+            <h3 class="pic-h">Não conseguimos continuar</h3>
             <p class="pic-hint">{{ msg }}</p>
-            <button type="button" class="win-btn win-btn--primary win-btn--block" @click="consultarPreview">
+            <button type="button" class="pic-btn pic-btn--primary" @click="consultarPreview">
               Tentar de novo
             </button>
-            <button type="button" class="win-btn win-btn--block" @click="fechar">Fechar</button>
+            <button type="button" class="pic-btn" @click="fechar">Fechar</button>
           </div>
 
           <p v-if="msg && step !== 'erro'" class="pic-err">{{ msg }}</p>
-        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.pic-lista { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.pic-lista li { font-size: 13.5px; line-height: 1.35; padding-left: 18px; position: relative; }
-.pic-lista li::before { content: '✓'; position: absolute; left: 0; opacity: 0.7; }
+// ============================================================
+// Checkout inline, na linguagem visual do .agents/DESIGN-hp.md (a mesma da
+// home v2): superficie branca, tinta near-black, um acento azul so, raio 4px
+// no interativo e 16px no container, hairline no lugar de sombra pesada.
+// Antes herdava a "janela XP" navy do v1, que destoava da pagina inteira.
+// ============================================================
+$c-canvas: #ffffff;
+$c-cloud: #f7f7f7;
+$c-hair: #e8e8e8;
+$c-steel: #c2c2c2;
+$c-ink: #1a1a1a;
+$c-charcoal: #3d3d3d;
+$c-graphite: #636363;
+$c-blue: #1f6feb;
+$c-blue-deep: #17539f;
+$c-green: #1e9e4a;
+$c-red: #d33a3a;
+$fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
-// Reaproveita .modal-overlay / .modal-window / .win-window (globais em main.scss).
-.pic-body {
+.pic-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(26, 26, 26, 0.55);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  overflow-y: auto;
+}
+
+.pic-card {
+  width: 100%;
+  max-width: 460px;
+  background: $c-canvas;
+  border: 1px solid $c-hair;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(26, 26, 26, 0.12);
+  font-family: $fonte;
+  color: $c-ink;
+  line-height: 1.4;
+  overflow: hidden;
+  margin: auto;
+}
+
+.pic-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 12px 14px 20px;
+  border-bottom: 1px solid $c-hair;
+}
+
+.pic-titulo {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $c-graphite;
+}
+
+.pic-x {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: $c-ink;
+  cursor: pointer;
+  border-radius: 4px;
+
+  svg { width: 20px; height: 20px; }
+  &:hover { background: $c-cloud; }
+  &:focus-visible { outline: 2px solid $c-blue; outline-offset: -2px; }
+}
+
+.pic-body { padding: 20px; }
+.pic-stack { display: flex; flex-direction: column; gap: 14px; }
+.pic-center { text-align: center; display: flex; flex-direction: column; gap: 14px; }
+
+.pic-h {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 1.17;
+  color: $c-ink;
+  margin: 0;
+}
+
+.pic-hint { font-size: 14px; line-height: 1.45; color: $c-charcoal; margin: 0; }
+.pic-lead { font-size: 15px; line-height: 1.45; color: $c-charcoal; margin: 0; }
+
+// veiculo confirmado
+.pic-veiculo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: $c-cloud;
+  border: 1px solid $c-hair;
+  border-radius: 8px;
+  padding: 12px 14px;
+  text-align: left;
+
+  strong { font-size: 16px; font-weight: 500; color: $c-ink; }
+  span { font-size: 13px; color: $c-graphite; }
+}
+.pic-veiculo--check { border-left: 3px solid $c-green; }
+.pic-veiculo__placa { font-size: 12px; letter-spacing: 0.06em; }
+
+// resumo do pedido: o que, pra qual placa, por quanto
+.pic-resumo {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid $c-hair;
+  border-radius: 8px;
+  overflow: hidden;
+  text-align: left;
+
+  &__linha {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid $c-hair;
+    font-size: 14px;
+    color: $c-graphite;
+
+    &:last-child { border-bottom: 0; }
+    strong { font-size: 15px; font-weight: 500; color: $c-ink; text-align: right; }
+  }
+
+  &__placa { letter-spacing: 0.08em; }
+
+  &__linha--total {
+    background: $c-cloud;
+    strong { font-size: 20px; font-weight: 500; color: $c-ink; }
+  }
+}
+
+.pic-placa-bloco { display: flex; flex-direction: column; gap: 8px; }
+.pic-hint--lapis { font-size: 13px; color: $c-graphite; }
+.pic-placa-destaque--edit { gap: 6px; }
+.pic-placa-linha { display: flex; align-items: center; gap: 10px; }
+.pic-lapis {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: $c-cloud;
+  border: 1px solid $c-hair;
+  border-radius: 4px;
+  color: $c-blue;
+  cursor: pointer;
+
+  svg { width: 18px; height: 18px; }
+  &:hover { background: $c-canvas; border-color: $c-blue; }
+  &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+}
+.pic-input--placa {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+// A placa e o que a pessoa mais precisa reconferir antes de pagar: ganha
+// tratamento de placa mesmo, nao de linha de tabela.
+.pic-placa-destaque {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px;
+  border: 2px solid $c-ink;
+  border-radius: 8px;
+
+  span { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: $c-graphite; }
+  strong { font-size: 28px; font-weight: 800; letter-spacing: 0.12em; color: $c-ink; }
+}
+
+// campos
+.pic-campo { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.pic-label { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: $c-graphite; }
+.pic-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-family: $fonte;
+  font-size: 16px;
+  color: $c-ink;
+  background: $c-canvas;
+  border: 1px solid $c-steel;
+  border-radius: 4px;
+
+  &::placeholder { color: $c-steel; }
+  // guia: foco troca a borda por tinta, sem halo
+  &:focus { outline: none; border-color: $c-ink; }
+  &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+}
+
+// botoes: raio 4px, caixa alta, 0.7px de tracking, 44px de altura
+.pic-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 24px;
+  font-family: $fonte;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: $c-ink;
+  background: $c-canvas;
+  border: 1px solid $c-ink;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+  &:hover { background: $c-cloud; }
+  &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+  &:disabled { border-color: $c-steel; color: $c-steel; cursor: default; }
+
+  &--primary {
+    background: $c-blue;
+    border-color: $c-blue;
+    color: #fff;
+
+    &:hover { background: $c-blue-deep; border-color: $c-blue-deep; }
+    &:disabled { background: $c-steel; border-color: $c-steel; color: #fff; }
+  }
+}
+
+.pic-link {
+  background: transparent;
+  border: 0;
+  color: $c-blue;
+  font-family: $fonte;
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 8px;
+  min-height: 44px;
+}
+
+.pic-err { font-size: 14px; line-height: 1.4; color: $c-red; margin: 12px 0 0; }
+.pic-qr { width: 190px; height: 190px; align-self: center; border-radius: 8px; border: 1px solid $c-hair; }
+.pic-brcode {
+  font-size: 11px;
+  line-height: 1.4;
+  color: $c-graphite;
+  word-break: break-all;
+  background: $c-cloud;
+  border: 1px solid $c-hair;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 0;
   text-align: left;
 }
 
-.pic-stack {
-  display: flex;
-  flex-direction: column;
-  gap: $space-sm;
+// barra de progresso do "preparando o relatorio"
+.loading-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: $c-hair;
+  overflow: hidden;
 }
-
-.pic-center {
-  text-align: center;
-  align-items: center;
+.loading-bar__fill {
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: $c-blue;
+  animation: pic-desliza 1.1s ease-in-out infinite;
 }
-
-.pic-h {
-  font-family: $font-display;
-  font-size: 1.0625rem;
-  font-weight: 700;
-  color: $prussian-blue;
-  margin: 0 0 $space-xs;
+@keyframes pic-desliza {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
 }
-
-.pic-lead {
-  font-size: 0.875rem;
-  color: $graphite;
-  margin: 0;
-}
-
-.pic-veiculo {
-  @include win-border-sunken;
-  background: $surface-alt;
-  padding: 12px;
-  font-size: 0.9375rem;
-  color: $prussian-blue-3;
-
-  strong { display: block; }
-  span { color: $blue-slate; font-size: 0.8125rem; }
-}
-
-.pic-inclui {
-  color: $blue-slate;
-  font-size: 0.8125rem;
-  margin: 0;
-  line-height: 1.5;
-}
-
-.pic-qr {
-  width: 220px;
-  height: 220px;
-  align-self: center;
-  background: #fff;
-  border-radius: 8px;
-}
-
-.pic-brcode {
-  color: $slate-grey;
-  font-size: 0.6875rem;
-  word-break: break-all;
-  margin: 0;
-  font-family: $font-mono;
-}
-
-.pic-hint {
-  color: $blue-slate;
-  font-size: 0.8125rem;
-  margin: 0;
-}
-
-.pic-err {
-  color: $error-red;
-  font-size: 0.8125rem;
-  margin: $space-sm 0 0;
+@media (prefers-reduced-motion: reduce) {
+  .loading-bar__fill { animation: none; width: 100%; }
 }
 </style>
