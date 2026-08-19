@@ -177,6 +177,29 @@ async function pagar() {
   }
 }
 
+/**
+ * Leva pro relatorio depois que ele fica pronto.
+ *
+ * Isto e chamado de dentro de um setInterval, onde o contexto do Nuxt pode nao
+ * estar disponivel — e navigateTo(), que depende dele, falha calada. Era o
+ * cenario que deixava a pessoa parada na home depois de pagar.
+ *
+ * Entao: tenta a navegacao do router e, se em meio segundo a URL nao mudou,
+ * cai pra navegacao dura. Recarregar a pagina aqui nao custa nada (o destino e
+ * outra rota) e garante que ninguem fica preso.
+ */
+function irParaRelatorio(token: string) {
+  const destino = `/premium/${token}`
+  try { navigateTo(destino) } catch { /* cai no fallback abaixo */ }
+  if (import.meta.client) {
+    setTimeout(() => {
+      if (!window.location.pathname.startsWith('/premium/')) {
+        window.location.assign(destino)
+      }
+    }, 500)
+  }
+}
+
 async function checarStatus() {
   if (!pix.value) return
   try {
@@ -185,7 +208,7 @@ async function checarStatus() {
     histUpdate(pix.value.token, r.status)
     if (r.status === 'entregue') {
       if (poll) clearInterval(poll)
-      navigateTo(`/premium/${pix.value.token}`)
+      irParaRelatorio(pix.value.token)
     }
     if (['expirado', 'falha', 'reembolsado'].includes(r.status) && poll) clearInterval(poll)
   } catch {

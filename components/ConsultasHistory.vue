@@ -9,7 +9,7 @@
 const props = defineProps<{ aberto: boolean }>()
 const emit = defineEmits<{ fechar: [] }>()
 
-const { itens, sync, clear } = useConsultaHistory()
+const { itens, sync } = useConsultaHistory()
 onMounted(sync)
 
 // Reler ao abrir: outra aba pode ter concluido um pagamento nesse meio tempo.
@@ -37,7 +37,10 @@ function fmtData(iso: string) {
 <template>
   <ClientOnly>
     <Teleport to="body">
-      <div v-if="aberto" class="pch-overlay" role="dialog" aria-modal="true" aria-labelledby="pch-titulo" @click="emit('fechar')">
+      <!-- Transition em vez de v-if seco: o modal entra e sai com um fade no
+           veu e um leve deslize no cartao, em vez de aparecer de estalo. -->
+      <Transition name="pch">
+        <div v-if="aberto" class="pch-overlay" role="dialog" aria-modal="true" aria-labelledby="pch-titulo" @click="emit('fechar')">
         <div class="pch-card" @click.stop>
           <div class="pch-topo">
             <span id="pch-titulo" class="pch-titulo">Suas consultas</span>
@@ -80,16 +83,34 @@ function fmtData(iso: string) {
             </ul>
           </div>
 
-          <div v-if="itens.length" class="pch-rodape">
-            <button type="button" class="pch-limpar" @click="clear">Limpar histórico</button>
           </div>
         </div>
-      </div>
+      </Transition>
     </Teleport>
   </ClientOnly>
 </template>
 
 <style lang="scss" scoped>
+// Entrada e saida do modal: o veu faz fade e o cartao sobe um pouco. Curto de
+// proposito — passou de ~200ms, um modal que abre e fecha o tempo todo comeca
+// a parecer lento.
+.pch-enter-active,
+.pch-leave-active { transition: opacity 0.18s ease; }
+.pch-enter-from,
+.pch-leave-to { opacity: 0; }
+
+.pch-enter-active .pch-card,
+.pch-leave-active .pch-card { transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1); }
+.pch-enter-from .pch-card { transform: translateY(12px) scale(0.98); }
+.pch-leave-to .pch-card { transform: translateY(6px) scale(0.99); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pch-enter-active,
+  .pch-leave-active,
+  .pch-enter-active .pch-card,
+  .pch-leave-active .pch-card { transition: none; }
+}
+
 // Mesma linguagem da home v2 (guia HP): canvas branco, tinta near-black, um
 // acento azul, 4px no interativo e 16px no container, hairline no lugar de
 // sombra pesada.
