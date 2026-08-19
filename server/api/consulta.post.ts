@@ -649,7 +649,9 @@ export default defineEventHandler(async (event) => {
       combustivel: apiResponse.extra?.combustivel || null,
       // Nacional ou importado. Muda revenda, seguro e preco de peca, entao vale
       // como isca; nao entrega nada que so o cadastro pago tem.
-      origem: apiResponse.extra?.nacionalidade || null,
+      // O bloco `extra` nao vem pra toda placa (QZZ1I96, por exemplo, chega
+      // com extra: null); quando falta, a origem existe no topo do payload.
+      origem: apiResponse.extra?.nacionalidade || apiResponse.origem || null,
       // So o comeco do chassi: confere com o do documento sem entregar o
       // numero, que e do relatorio pago.
       chassiParcial: mascararChassi(apiResponse.extra?.chassi),
