@@ -25,6 +25,7 @@ const indicadores = [
   { label: 'Comunicação de venda', valor: 'NÃO', risco: false },
   { label: 'SINIAV', valor: 'NÃO', risco: false },
   { label: 'Circulação', valor: 'LIVRE', risco: false },
+  { label: 'Outras restrições', valor: 'NADA CONSTA', risco: false },
 ]
 
 // A ficha e o produto: mostrar resumida esconde justamente o que se vende.
@@ -400,19 +401,36 @@ $font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     @media (max-width: 720px) { grid-template-columns: repeat(2, 1fr); }
   }
 
+  // mesmo criterio do laudo: ok neutro com ponto verde, problema com fundo
   &__ind {
     border: 1px solid $c-hair;
-    border-radius: 8px;
-    padding: 9px 8px;
-    text-align: center;
-    background: $c-cloud;
+    border-radius: 4px;
+    padding: 8px 10px;
+    background: $c-canvas;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
-  &__ind-lab { display: block; font-size: 11px; color: $c-graphite; margin-bottom: 3px; }
-  &__ind-val { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; }
+  &__ind-lab { font-size: 11px; color: $c-graphite; }
 
-  &__ind--ok { background: #edf7f1; border-color: #c3e4d1; .hrp__ind-val { color: $c-green; } }
-  &__ind--bad { background: #fdeeec; border-color: #f2c3bd; .hrp__ind-val { color: $c-red; } }
+  &__ind-val {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+
+    &::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  }
+
+  &__ind--ok .hrp__ind-val { color: #14622f; &::before { background: $c-green; } }
+  &__ind--bad {
+    background: #fdf1f1;
+    border-color: rgba(211, 58, 58, 0.35);
+    .hrp__ind-val { color: $c-red; &::before { background: $c-red; } }
+  }
 
   // ---- restricoes ----
   &__restr {
