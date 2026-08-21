@@ -64,6 +64,10 @@ export async function consultarSenatran(placa: string): Promise<{ consultaId: st
   // proxima requisicao nem tentar) e passa pra seguinte.
   let hash: string | null = null
   let chave: { id: string; api_key: string } | null = null
+  // Fora do laco: o insert de gcc_consentimentos, mais abaixo, grava a
+  // resposta da chave vencedora. Declarada dentro, dava ReferenceError em
+  // producao de pedido — e o catch generico transformava isso em estorno.
+  let consentResp: any = {}
   for (const candidata of chaves) {
     const consentRes = await fetch(`${config.gccBase}/consentimentos-ciencias`, {
       method: 'POST',
@@ -73,7 +77,7 @@ export async function consultarSenatran(placa: string): Promise<{ consultaId: st
       body: JSON.stringify({ tipo_titular: null, cpf_cnpj: '', tipo_de_usuario: 1, cnpj_provedor: String(config.senatranCnpjProvedor || '37115342004154'), template_id: String(config.senatranTemplateId || '2932026-00001') }),
     })
     const consentText = await consentRes.text()
-    let consentResp: any = {}
+    consentResp = {}
     try { consentResp = JSON.parse(consentText) } catch { /* deixa vazio */ }
     hash = findHash(consentResp)
     if (hash) { chave = candidata; break }
