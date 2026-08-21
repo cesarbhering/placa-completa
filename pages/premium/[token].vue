@@ -22,6 +22,7 @@ useHead({ title: 'Relatório Veicular', meta: [{ name: 'robots', content: 'noind
 const { data, pending, error, refresh } = await useFetch<any>('/api/premium/report', { query: { token } })
 
 const { itens, sync: histSync, add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
+const { trackConversionPaga } = useAnalytics()
 
 const plano = computed<string>(() => data.value?.plano || 'completa')
 const isBasica = computed(() => plano.value === 'basica')
@@ -537,7 +538,7 @@ onMounted(() => {
   const existe = itens.value.some((x) => x.token === token)
   if (existe) histUpdate(token, data.value.status)
   else histAdd({ token, placa: data.value.placa, veiculo: g('descricaoMarcaModelo') || null, status: data.value.status })
-
+  if (['pago', 'consultando', 'entregue'].includes(data.value.status)) trackConversionPaga(token)
   if (data.value.status !== 'entregue') {
     // Polla o /status, que e leve e e quem detecta pagamento ate sem webhook.
     // A versao anterior chamava refresh() do relatorio INTEIRO a cada 4s: alem
@@ -550,6 +551,9 @@ onMounted(() => {
         await refresh()          // o estado mudou de verdade: agora sim recarrega
         await buscarQr()         // se veio br_code novo, o QR acompanha
         if (data.value) histUpdate(token, data.value.status)
+        // conversao do Ads/GA4 (veio do outro lado do merge): dispara quando o
+        // pagamento se confirma; a funcao e idempotente por token
+        if (data.value && ['pago', 'consultando', 'entregue'].includes(data.value.status)) trackConversionPaga(token)
         if (data.value?.status === 'entregue') clearInterval(poll)
       } catch { /* rede oscilou; proxima volta tenta de novo */ }
     }, 5000)
