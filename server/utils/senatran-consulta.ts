@@ -5,19 +5,46 @@ import https from 'node:https'
 // (pago) -> consulta o veiculo no SERPRO gastando o hash (mTLS). Grava tudo no
 // Supabase de homologacao. NUNCA chamar de superficie gratuita.
 
+export type Ambiente = 'homolog' | 'producao'
+
 function pemFromEnv(v: string): Buffer | null {
   if (!v) return null
   const s = v.includes('BEGIN') ? v : Buffer.from(v, 'base64').toString('utf8')
   return Buffer.from(s)
 }
 
-// Todas as chaves candidatas, da mais nova pra mais antiga. Lista, e nao uma:
-// ja aconteceu de a chave MAIS RECENTE estar expirada no GCC com uma valida
-// logo atras — preso na primeira, o fluxo estornava pedido pagavel.
-async function chavesCandidatas(supabase: any): Promise<{ id: string; api_key: string }[]> {
-  const { data } = await supabase.from('gcc_api_keys').select('id,api_key').eq('status', 'active').order('created_at', { ascending: false })
+// Resolve o conjunto de config (GCC + SERPRO) por ambiente. Prod REUSA cert/key
+// de homolog quando os de prod estao vazios; cnpj/template idem (fallback).
+function configPorAmbiente(config: any, ambiente: Ambiente) {
+  if (ambiente === 'producao') {
+    return {
+      gccBase: String(config.gccBaseProd || ''),
+      senatranUrl: String(config.senatranUrlProd || ''),
+      cnpj: String(config.senatranCnpjProvedorProd || config.senatranCnpjProvedor || ''),
+      template: String(config.senatranTemplateIdProd || config.senatranTemplateId || ''),
+      certPem: String(config.senatranCertPemProd || config.senatranCertPem || ''),
+      keyPem: String(config.senatranKeyPemProd || config.senatranKeyPem || ''),
+    }
+  }
+  return {
+    gccBase: String(config.gccBase || ''),
+    senatranUrl: String(config.senatranUrl || ''),
+    cnpj: String(config.senatranCnpjProvedor || ''),
+    template: String(config.senatranTemplateId || ''),
+    certPem: String(config.senatranCertPem || ''),
+    keyPem: String(config.senatranKeyPem || ''),
+  }
+}
+
+// Todas as chaves candidatas do ambiente pedido, da mais nova pra mais antiga.
+// Lista, e nao uma: ja aconteceu de a chave MAIS RECENTE estar expirada no GCC
+// com uma valida logo atras. Preso na primeira, o fluxo estornava pedido
+// pagavel. O filtro por ambiente so RESTRINGE o conjunto; NUNCA cai pra chave
+// de outro ambiente.
+async function chavesCandidatas(supabase: any, ambiente: Ambiente): Promise<{ id: string; api_key: string }[]> {
+  const { data } = await supabase.from('gcc_api_keys').select('id,api_key').eq('ambiente', ambiente).eq('status', 'active').order('created_at', { ascending: false })
   if (data && data.length) return data
-  const { data: todas } = await supabase.from('gcc_api_keys').select('id,api_key').order('created_at', { ascending: false }).limit(1)
+  const { data: todas } = await supabase.from('gcc_api_keys').select('id,api_key').eq('ambiente', ambiente).order('created_at', { ascending: false }).limit(1)
   return todas || []
 }
 
@@ -48,15 +75,32 @@ function senatranGet(opts: { url: string; placa: string; hash: string; cert: Buf
 }
 
 // Executa a consulta paga. Retorna o id da linha em senatran_consultas + o dado.
-export async function consultarSenatran(placa: string): Promise<{ consultaId: string; ok: boolean; response: any }> {
+// ambiente ausente => 'homolog' (comportamento identico ao de hoje).
+export async function consultarSenatran(placa: string, ambiente: Ambiente = 'homolog'): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[] }> {
+  // trace de homologacao: cada chamada externa (GCC + SERPRO) com URL, status e
+  // corpo. Anexado ao erro em toda falha e devolvido no sucesso. Pode expor
+  // detalhe (ferramenta de teste), mas NUNCA a api-key inteira (so prefixo).
+  const trace: any[] = []
   const config = useRuntimeConfig()
-  const cert = pemFromEnv(config.senatranCertPem as string)
-  const key = pemFromEnv(config.senatranKeyPem as string)
-  if (!cert || !key) throw createError({ statusCode: 503, message: 'Certificados SENATRAN nao configurados.' })
+  const env = configPorAmbiente(config, ambiente)
+  const cert = pemFromEnv(env.certPem)
+  const key = pemFromEnv(env.keyPem)
+  if (!cert || !key) {
+    trace.push({ etapa: 'config', erro: 'Certificados SENATRAN nao configurados.' })
+    const err = createError({ statusCode: 503, message: 'Certificados SENATRAN nao configurados.' })
+    ;(err as any).trace = trace
+    throw err
+  }
   const supabase = usePremiumSupabase()
 
-  const chaves = await chavesCandidatas(supabase)
-  if (!chaves.length) throw createError({ statusCode: 503, message: 'Sem chave GCC ativa.' })
+  const chaves = await chavesCandidatas(supabase, ambiente)
+  trace.push({ etapa: 'config', ambiente, gccBase: env.gccBase, senatranUrl: env.senatranUrl, cnpj: env.cnpj, template: env.template, chavePrefix: (chaves[0]?.api_key || '').slice(0, 6) })
+  if (!chaves.length) {
+    trace.push({ etapa: 'chave GCC', erro: 'sem chave ativa pra ambiente ' + ambiente })
+    const err = createError({ statusCode: 503, message: 'Sem chave GCC ativa.' })
+    ;(err as any).trace = trace
+    throw err
+  }
 
   // 1) hash de consentimento (pago). fetch nativo + parse explicito (o ofetch
   // se mostrou fragil aqui; o nativo funciona igual ao CLI que valida).
@@ -66,20 +110,34 @@ export async function consultarSenatran(placa: string): Promise<{ consultaId: st
   let chave: { id: string; api_key: string } | null = null
   // Fora do laco: o insert de gcc_consentimentos, mais abaixo, grava a
   // resposta da chave vencedora. Declarada dentro, dava ReferenceError em
-  // producao de pedido — e o catch generico transformava isso em estorno.
+  // producao de pedido, e o catch generico transformava isso em estorno.
   let consentResp: any = {}
+  let ultimaHttp = 0
+  let ultimoTexto = ''
   for (const candidata of chaves) {
-    const consentRes = await fetch(`${config.gccBase}/consentimentos-ciencias`, {
-      method: 'POST',
-      headers: { accept: 'application/json', 'Api-Key': candidata.api_key, 'Content-Type': 'application/json' },
-      // String() obrigatorio: o runtimeConfig do Nitro (destr) converte a string
-      // numerica do env em NUMBER, e o GCC exige o CNPJ como STRING.
-      body: JSON.stringify({ tipo_titular: null, cpf_cnpj: '', tipo_de_usuario: 1, cnpj_provedor: String(config.senatranCnpjProvedor || '37115342004154'), template_id: String(config.senatranTemplateId || '2932026-00001') }),
-    })
-    const consentText = await consentRes.text()
+    let consentRes: Response
+    let consentText = ''
+    try {
+      consentRes = await fetch(`${env.gccBase}/consentimentos-ciencias`, {
+        method: 'POST',
+        headers: { accept: 'application/json', 'Api-Key': candidata.api_key, 'Content-Type': 'application/json' },
+        // String() obrigatorio: o runtimeConfig do Nitro (destr) converte a string
+        // numerica do env em NUMBER, e o GCC exige o CNPJ como STRING.
+        body: JSON.stringify({ tipo_titular: null, cpf_cnpj: '', tipo_de_usuario: 1, cnpj_provedor: String(env.cnpj), template_id: String(env.template) }),
+      })
+      consentText = await consentRes.text()
+    } catch (e: any) {
+      trace.push({ etapa: 'GCC consentimento', metodo: 'POST', url: `${env.gccBase}/consentimentos-ciencias`, chavePrefix: candidata.api_key.slice(0, 6), erro: String(e) })
+      const err = createError({ statusCode: 502, message: 'Falha de rede no GCC.' })
+      ;(err as any).trace = trace
+      throw err
+    }
+    ultimaHttp = consentRes.status
+    ultimoTexto = consentText
     consentResp = {}
     try { consentResp = JSON.parse(consentText) } catch { /* deixa vazio */ }
     hash = findHash(consentResp)
+    trace.push({ etapa: 'GCC consentimento', metodo: 'POST', url: `${env.gccBase}/consentimentos-ciencias`, chavePrefix: candidata.api_key.slice(0, 6), http: consentRes.status, ok: consentRes.ok, hashObtido: !!hash, resumo: consentText.slice(0, 1200) })
     if (hash) { chave = candidata; break }
     console.error('[senatran] consent sem hash. chave=', candidata.api_key.slice(0, 8), 'status=', consentRes.status, 'body=', consentText.slice(0, 200))
     if (consentRes.status === 401) {
@@ -87,7 +145,10 @@ export async function consultarSenatran(placa: string): Promise<{ consultaId: st
     }
   }
   if (!hash || !chave) {
-    throw createError({ statusCode: 502, message: 'Nao obtive numero_hash_consulta.' })
+    console.error('[senatran] nenhuma chave obteve hash. status=', ultimaHttp, 'body=', ultimoTexto.slice(0, 300))
+    const err = createError({ statusCode: 502, message: 'Nao obtive numero_hash_consulta.' })
+    ;(err as any).trace = trace
+    throw err
   }
   const { data: consent } = await supabase
     .from('gcc_consentimentos')
@@ -96,10 +157,19 @@ export async function consultarSenatran(placa: string): Promise<{ consultaId: st
     .single()
 
   // 2) consulta SENATRAN (gasta o hash)
-  const out = await senatranGet({ url: config.senatranUrl as string, placa, hash, cert, key })
+  let out: { status: number; body: string }
+  try {
+    out = await senatranGet({ url: env.senatranUrl, placa, hash, cert, key })
+  } catch (e: any) {
+    trace.push({ etapa: 'SERPRO consulta', metodo: 'GET', url: env.senatranUrl + ' (placa=' + placa + ')', erro: String(e) })
+    const err = createError({ statusCode: 502, message: 'Falha de rede no SERPRO.' })
+    ;(err as any).trace = trace
+    throw err
+  }
   let parsed: any
   try { parsed = JSON.parse(out.body) } catch { parsed = { _raw: out.body } }
   const ok = out.status >= 200 && out.status < 300
+  trace.push({ etapa: 'SERPRO consulta', metodo: 'GET', url: env.senatranUrl + ' (placa=' + placa + ')', http: out.status, ok, resumo: (out.body || '').slice(0, 1200) })
 
   const { data: consulta } = await supabase
     .from('senatran_consultas')
@@ -108,6 +178,10 @@ export async function consultarSenatran(placa: string): Promise<{ consultaId: st
     .single()
   await supabase.from('gcc_consentimentos').update({ status: ok ? 'spent' : 'error', spent_at: new Date().toISOString() }).eq('id', consent?.id)
 
-  if (!ok) throw createError({ statusCode: 502, message: 'SENATRAN retornou HTTP ' + out.status })
-  return { consultaId: consulta.id, ok, response: parsed }
+  if (!ok) {
+    const err = createError({ statusCode: 502, message: 'SENATRAN retornou HTTP ' + out.status })
+    ;(err as any).trace = trace
+    throw err
+  }
+  return { consultaId: consulta.id, ok, response: parsed, trace }
 }

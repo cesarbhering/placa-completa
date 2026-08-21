@@ -570,7 +570,21 @@ export default defineNuxtConfig({
     senatranTemplateId: process.env.SENATRAN_TEMPLATE_ID || "2932026-00001",
     senatranCertPem: process.env.SENATRAN_CERT_PEM || "",
     senatranKeyPem: process.env.SENATRAN_KEY_PEM || "",
+    // SENATRAN producao (GCC + SERPRO). URLs nao sao segredo (default hardcoded).
+    // Cert/key de prod reusam os de homolog quando vazios (ver senatran-consulta.ts).
+    gccBaseProd: process.env.GCC_BASE_PROD || "https://company.quemmeviu.com.br",
+    senatranUrlProd:
+      process.env.SENATRAN_URL_PROD ||
+      "https://pgcc.bsa.estaleiro.serpro.gov.br/pgcc/api/v1/consultar/veiculo",
+    senatranCnpjProvedorProd:
+      process.env.SENATRAN_CNPJ_PROVEDOR_PROD || process.env.SENATRAN_CNPJ_PROVEDOR || "37115342004154",
+    senatranTemplateIdProd: process.env.SENATRAN_TEMPLATE_ID_PROD || "41102026-00001",
+    senatranCertPemProd: process.env.SENATRAN_CERT_PEM_PROD || "",
+    senatranKeyPemProd: process.env.SENATRAN_KEY_PEM_PROD || "",
     public: {
+      // Gate do homolog: so o container de homologacao seta NUXT_PUBLIC_HOMOLOG=true.
+      // Prod/main nao seta, entao o overlay de senha nunca liga em producao.
+      homolog: process.env.NUXT_PUBLIC_HOMOLOG === "true",
       whatsappEnabled: process.env.NUXT_PUBLIC_WHATSAPP_ENABLED === "true",
       supabaseUrl:
         process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",

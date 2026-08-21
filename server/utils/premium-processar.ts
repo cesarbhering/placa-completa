@@ -9,8 +9,11 @@ export async function processarPedidoPago(
     abacatepay_id: string | null
     // usado no assunto e no corpo do e-mail de entrega
     plano?: string | null
+    // controle de teste: 'producao' dispara consulta real; ausente => 'homolog'
+    ambiente?: string | null
   },
 ): Promise<void> {
+  const ambiente = pedido.ambiente === 'producao' ? 'producao' : 'homolog'
   const { data: claimed } = await supabase
     .from('pedidos_premium')
     .update({ status: 'consultando', pago_em: new Date().toISOString() })
@@ -20,10 +23,10 @@ export async function processarPedidoPago(
   if (!claimed || !claimed.length) return // ja reivindicado/processado
 
   try {
-    const r = await consultarSenatran(pedido.placa)
+    const r = await consultarSenatran(pedido.placa, ambiente)
     await supabase
       .from('pedidos_premium')
-      .update({ status: 'entregue', entregue_em: new Date().toISOString(), consulta_id: r.consultaId })
+      .update({ status: 'entregue', entregue_em: new Date().toISOString(), consulta_id: r.consultaId, debug_trace: r.trace })
       .eq('id', pedido.id)
     // Placa e plano entram no assunto e no corpo: "seu relatorio completo da
     // placa ABC1D23 esta pronto" e reconhecivel na caixa de entrada, "sua
@@ -35,7 +38,7 @@ export async function processarPedidoPago(
       placa: pedido.placa,
     })
   } catch (e: any) {
-    await supabase.from('pedidos_premium').update({ status: 'falha', erro: String(e?.message || e) }).eq('id', pedido.id)
+    await supabase.from('pedidos_premium').update({ status: 'falha', erro: String(e?.message || e), debug_trace: (e as any)?.trace ?? null }).eq('id', pedido.id)
     let reembolsado = false
     if (pedido.abacatepay_id) reembolsado = await reembolsarPix(pedido.abacatepay_id)
     if (reembolsado) {

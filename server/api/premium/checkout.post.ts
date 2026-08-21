@@ -11,6 +11,9 @@ export default defineEventHandler(async (event) => {
   const placa = String(body.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
   const email = String(body.email || '').trim().toLowerCase()
   const telefone = String(body.telefone || '').replace(/\D/g, '') || null
+  // Controle de teste: 'producao' dispara consulta real no SERPRO; qualquer
+  // outra coisa (inclusive ausencia) cai em 'homolog'.
+  const ambiente = body.ambiente === 'producao' ? 'producao' : 'homolog'
   if (placa.length < 7) throw createError({ statusCode: 400, message: 'Placa invalida' })
   if (!email || !email.includes('@')) throw createError({ statusCode: 400, message: 'Email obrigatorio' })
 
@@ -32,6 +35,7 @@ export default defineEventHandler(async (event) => {
       token_entrega: token, placa, placa_confirmada: true, email, telefone,
       status: 'aguardando_pagamento', valor_centavos: valor, plano,
       preview: body.preview || null,
+      ambiente,
     })
     .select()
     .single()

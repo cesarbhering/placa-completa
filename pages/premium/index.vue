@@ -7,7 +7,12 @@ const step = ref<Step>('gate')
 
 const { itens, sync: histSync } = useConsultaHistory()
 const modalConsultas = useState('pc-consultas-aberto', () => false)
-onMounted(() => histSync())
+onMounted(() => {
+  histSync()
+  // Se ja passou pelo gate do homolog (overlay), nao repede a senha aqui:
+  // o overlay ja setou o cookie premium. Pula direto pra placa.
+  try { if (localStorage.getItem('homolog_ok') === '1') step.value = 'placa' } catch { /* modo privado */ }
+})
 const loading = ref(false)
 const msg = ref('')
 
@@ -15,10 +20,13 @@ const senha = ref('')
 const placa = ref('')
 const email = ref('')
 const telefone = ref('')
+const ambiente = ref('homolog')
 const preview = ref<any>(null)
 
 const pix = ref<{ brCode: string; brCodeBase64: string; token: string; valor: number } | null>(null)
 const pendingStatus = ref('aguardando_pagamento')
+const trace = ref<any[] | null>(null)
+const erroMsg = ref('')
 let poll: any = null
 
 // historico local: religar/retomar consultas sem login (ver useConsultaHistory)
@@ -47,7 +55,7 @@ async function pagar() {
   try {
     pix.value = await $fetch('/api/premium/checkout', {
       method: 'POST',
-      body: { placa: preview.value.placa, email: email.value, telefone: telefone.value, preview: preview.value.raw },
+      body: { placa: preview.value.placa, email: email.value, telefone: telefone.value, preview: preview.value.raw, ambiente: ambiente.value },
     })
     step.value = 'pending'
     histAdd({
@@ -64,8 +72,10 @@ async function pagar() {
 async function checarStatus() {
   if (!pix.value) return
   try {
-    const r: any = await $fetch('/api/premium/status', { query: { token: pix.value.token } })
+    const r: any = await $fetch('/api/premium/status', { query: { token: pix.value.token, debug: 1 } })
     pendingStatus.value = r.status
+    if (r.debug_trace) trace.value = r.debug_trace
+    if (r.erro) erroMsg.value = r.erro
     histUpdate(pix.value.token, r.status)
     if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token)
     if (r.status === 'entregue') { clearInterval(poll); navigateTo(`/premium/${pix.value.token}`) }
@@ -113,6 +123,14 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
         <p class="inclui">A consulta completa inclui: restrições, roubo/furto, recall, RENAJUD, leilão, débitos e a ficha cadastral completa (dados oficiais SENATRAN).</p>
         <input v-model="email" type="email" placeholder="Seu email (para receber o relatório)" />
         <input v-model="telefone" placeholder="WhatsApp (opcional)" />
+        <div class="ambiente">
+          <label for="ambiente-sel">Ambiente SERPRO/GCC (controle de teste)</label>
+          <select id="ambiente-sel" v-model="ambiente">
+            <option value="homolog">Homologação</option>
+            <option value="producao">Produção</option>
+          </select>
+          <p v-if="ambiente === 'producao'" class="aviso">Atenção: Produção dispara consulta real no SERPRO.</p>
+        </div>
         <button :disabled="loading" @click="pagar">Pagar {{ reais(4500) }} via Pix</button>
         <button class="ghost" @click="step = 'placa'">Voltar</button>
       </div>
@@ -132,6 +150,21 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
         <template v-else-if="pendingStatus === 'expirado'"><h2>Pix expirou</h2><button @click="step = 'confirm'">Gerar novo</button></template>
         <template v-else-if="pendingStatus === 'reembolsado'"><h2>Não foi possível concluir</h2><p>O valor foi reembolsado.</p></template>
         <template v-else><h2>Algo deu errado</h2><p>{{ pendingStatus }}</p></template>
+
+        <div v-if="trace?.length" class="debug">
+          <p class="debug-title">Chamadas (debug)</p>
+          <p v-if="erroMsg" class="debug-erro">{{ erroMsg }}</p>
+          <div v-for="(t, i) in trace" :key="i" class="debug-item">
+            <div class="debug-head">
+              <span class="debug-etapa">{{ t.etapa }}</span>
+              <span v-if="t.metodo" class="debug-metodo">{{ t.metodo }}</span>
+              <span v-if="t.http != null" class="debug-http" :class="{ bad: t.ok === false }">HTTP {{ t.http }}</span>
+              <span v-if="t.ok != null" class="debug-ok">{{ t.ok ? 'ok' : 'falhou' }}</span>
+            </div>
+            <div v-if="t.url" class="debug-url">{{ t.url }}</div>
+            <pre v-if="t.resumo || t.erro" class="debug-body">{{ t.erro || t.resumo }}</pre>
+          </div>
+        </div>
       </div>
 
       <p v-if="msg" class="err">{{ msg }}</p>
@@ -154,7 +187,24 @@ button.ghost { background: transparent; border: 1px solid #24324d; color: #9db8e
 button:disabled { opacity: .5; }
 .veiculo { background: #0b1424; border: 1px solid #24324d; border-radius: 8px; padding: 12px; }
 .inclui { color: #8296b8; font-size: 13px; }
+.ambiente { display: flex; flex-direction: column; gap: 6px; background: #0b1424; border: 1px solid #24324d; border-radius: 8px; padding: 12px; }
+.ambiente label { color: #8296b8; font-size: 12px; }
+.ambiente select { background: #0b1424; border: 1px solid #24324d; color: #dbe4f4; border-radius: 7px; padding: 10px; font-size: 15px; }
+.ambiente .aviso { color: #fbbf24; font-size: 12px; margin: 2px 0 0; }
 .qr { width: 220px; height: 220px; align-self: center; background: #fff; border-radius: 8px; }
 .small { color: #8296b8; font-size: 11px; word-break: break-all; }
 .err { color: #f87171; font-size: 13px; margin-top: 12px; }
+.debug { margin-top: 16px; border: 1px solid #24324d; border-radius: 8px; background: #0b1424; padding: 12px; }
+.debug-title { color: #8296b8; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; margin: 0 0 8px; }
+.debug-erro { color: #f87171; font-size: 12px; margin: 0 0 10px; word-break: break-word; }
+.debug-item { border-top: 1px solid #1a263c; padding: 8px 0; }
+.debug-item:first-of-type { border-top: 0; }
+.debug-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 12px; }
+.debug-etapa { color: #dbe4f4; font-weight: 600; }
+.debug-metodo { color: #9db8e8; font-family: ui-monospace, monospace; }
+.debug-http { color: #34d399; font-family: ui-monospace, monospace; }
+.debug-http.bad { color: #f87171; }
+.debug-ok { color: #8296b8; }
+.debug-url { color: #8296b8; font-size: 11px; font-family: ui-monospace, monospace; word-break: break-all; margin: 4px 0; }
+.debug-body { color: #cbd5e8; font-size: 11px; font-family: ui-monospace, monospace; background: #060c17; border: 1px solid #1a263c; border-radius: 6px; padding: 8px; margin: 4px 0 0; max-height: 220px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
 </style>

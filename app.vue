@@ -55,6 +55,9 @@ function onStoreClick() {
 
 <template>
   <div>
+    <!-- Gate de homologacao: overlay de senha uma-vez (so quando public.homolog). -->
+    <HomologGate />
+
     <!-- PWA Loading Screen (PWA only) -->
     <div v-if="isPWA && !isReady" class="pwa-loader">
       <PlacaCompletaIcon variant="inverted" class="pwa-loader__logo" />
