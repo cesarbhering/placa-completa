@@ -11,11 +11,14 @@ function pemFromEnv(v: string): Buffer | null {
   return Buffer.from(s)
 }
 
-async function chaveAtiva(supabase: any): Promise<{ id: string; api_key: string } | null> {
-  let { data } = await supabase.from('gcc_api_keys').select('id,api_key').eq('status', 'active').order('created_at', { ascending: false }).limit(1)
-  if (data && data.length) return data[0]
-  ;({ data } = await supabase.from('gcc_api_keys').select('id,api_key').order('created_at', { ascending: false }).limit(1))
-  return data && data.length ? data[0] : null
+// Todas as chaves candidatas, da mais nova pra mais antiga. Lista, e nao uma:
+// ja aconteceu de a chave MAIS RECENTE estar expirada no GCC com uma valida
+// logo atras — preso na primeira, o fluxo estornava pedido pagavel.
+async function chavesCandidatas(supabase: any): Promise<{ id: string; api_key: string }[]> {
+  const { data } = await supabase.from('gcc_api_keys').select('id,api_key').eq('status', 'active').order('created_at', { ascending: false })
+  if (data && data.length) return data
+  const { data: todas } = await supabase.from('gcc_api_keys').select('id,api_key').order('created_at', { ascending: false }).limit(1)
+  return todas || []
 }
 
 function findHash(obj: any): string | null {
@@ -52,24 +55,34 @@ export async function consultarSenatran(placa: string): Promise<{ consultaId: st
   if (!cert || !key) throw createError({ statusCode: 503, message: 'Certificados SENATRAN nao configurados.' })
   const supabase = usePremiumSupabase()
 
-  const chave = await chaveAtiva(supabase)
-  if (!chave) throw createError({ statusCode: 503, message: 'Sem chave GCC ativa.' })
+  const chaves = await chavesCandidatas(supabase)
+  if (!chaves.length) throw createError({ statusCode: 503, message: 'Sem chave GCC ativa.' })
 
   // 1) hash de consentimento (pago). fetch nativo + parse explicito (o ofetch
   // se mostrou fragil aqui; o nativo funciona igual ao CLI que valida).
-  const consentRes = await fetch(`${config.gccBase}/consentimentos-ciencias`, {
-    method: 'POST',
-    headers: { accept: 'application/json', 'Api-Key': chave.api_key, 'Content-Type': 'application/json' },
-    // String() obrigatorio: o runtimeConfig do Nitro (destr) converte a string
-    // numerica do env em NUMBER, e o GCC exige o CNPJ como STRING.
-    body: JSON.stringify({ tipo_titular: null, cpf_cnpj: '', tipo_de_usuario: 1, cnpj_provedor: String(config.senatranCnpjProvedor || '37115342004154'), template_id: String(config.senatranTemplateId || '2932026-00001') }),
-  })
-  const consentText = await consentRes.text()
-  let consentResp: any = {}
-  try { consentResp = JSON.parse(consentText) } catch { /* deixa vazio */ }
-  const hash = findHash(consentResp)
-  if (!hash) {
-    console.error('[senatran] consent sem hash. status=', consentRes.status, 'body=', consentText.slice(0, 300))
+  // Tenta as chaves em ordem; 401 marca a chave como invalida no banco (pra
+  // proxima requisicao nem tentar) e passa pra seguinte.
+  let hash: string | null = null
+  let chave: { id: string; api_key: string } | null = null
+  for (const candidata of chaves) {
+    const consentRes = await fetch(`${config.gccBase}/consentimentos-ciencias`, {
+      method: 'POST',
+      headers: { accept: 'application/json', 'Api-Key': candidata.api_key, 'Content-Type': 'application/json' },
+      // String() obrigatorio: o runtimeConfig do Nitro (destr) converte a string
+      // numerica do env em NUMBER, e o GCC exige o CNPJ como STRING.
+      body: JSON.stringify({ tipo_titular: null, cpf_cnpj: '', tipo_de_usuario: 1, cnpj_provedor: String(config.senatranCnpjProvedor || '37115342004154'), template_id: String(config.senatranTemplateId || '2932026-00001') }),
+    })
+    const consentText = await consentRes.text()
+    let consentResp: any = {}
+    try { consentResp = JSON.parse(consentText) } catch { /* deixa vazio */ }
+    hash = findHash(consentResp)
+    if (hash) { chave = candidata; break }
+    console.error('[senatran] consent sem hash. chave=', candidata.api_key.slice(0, 8), 'status=', consentRes.status, 'body=', consentText.slice(0, 200))
+    if (consentRes.status === 401) {
+      await supabase.from('gcc_api_keys').update({ status: 'invalid' }).eq('id', candidata.id)
+    }
+  }
+  if (!hash || !chave) {
     throw createError({ statusCode: 502, message: 'Nao obtive numero_hash_consulta.' })
   }
   const { data: consent } = await supabase
