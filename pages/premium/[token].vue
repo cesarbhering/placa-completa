@@ -160,6 +160,20 @@ const INDICADORES: { k: string; label: string; sim: string; nao: string; risco: 
 // - Circulacao: deriva de `situacao` (em circulacao x baixado).
 const TIPOS_GRAVAME = ['ALIENACAO_FIDUCIARIA', 'ARRENDAMENTO_MERCANTIL', 'RESERVA_DE_DOMINIO', 'PENHOR']
 
+// Que conceito de cartao cobre cada tipo de restricao. Usado duas vezes: pro
+// cartao generico saber o que NAO tem cartao proprio, e pro veredito nao
+// repetir o que um indicador aceso ja nomeia.
+const COBERTURA_RESTRICAO: [RegExp, string][] = [
+  [/^ROUBO/, 'Roubo / furto'],
+  [/^(ALIENACAO|ARRENDAMENTO|RESERVA_DE_DOMINIO|PENHOR)/, 'Gravame'],
+  [/^RENAINF/, 'Multa RENAINF'],
+  [/^(RFB|RESTRICAO_RFB)/, 'Restrição RFB'],
+  [/^PENDENCIA/, 'Pendência de emissão'],
+  [/^COMUNICACAO_DE_VENDA/, 'Comunicação de venda'],
+]
+
+const normalizaChave = (r: any) => String(r).toUpperCase().replace(/[\s-]+/g, '_')
+
 const indicadores = computed(() => {
   const base: any[] = INDICADORES.filter((i) => has(i.k)).map((i) => {
     const ligado = g(i.k) === true
@@ -168,10 +182,7 @@ const indicadores = computed(() => {
 
   const itens = v.value?.restricoesItens
   if (Array.isArray(itens)) {
-    const tem = itens.some((r: any) => {
-      const c = String(r).toUpperCase().replace(/[\s-]+/g, '_')
-      return TIPOS_GRAVAME.some((t) => c.startsWith(t))
-    })
+    const tem = itens.some((r: any) => TIPOS_GRAVAME.some((t) => normalizaChave(r).startsWith(t)))
     base.splice(Math.min(2, base.length), 0, {
       k: 'gravame', label: 'Gravame', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
       dica: 'Financiamento ou garantia registrada sobre o veículo: alienação, leasing, reserva de domínio ou penhor.',
@@ -185,6 +196,18 @@ const indicadores = computed(() => {
       k: 'circulacao', label: 'Circulação', sim: 'BAIXADO', nao: 'LIVRE', risco: true,
       dica: 'Situação cadastral do veículo. Baixado significa retirado de circulação em definitivo.',
       ligado: baixado, alerta: baixado,
+    })
+  }
+
+  // Cartao generico: pega restricao que nao tem cartao proprio (beneficio
+  // tributario, por exemplo). Sem ele, a grade ficava toda verde com uma
+  // restricao listada logo abaixo — toda restricao precisa acender ALGO.
+  if (Array.isArray(itens)) {
+    const semCartao = itens.some((r: any) => !COBERTURA_RESTRICAO.some(([re]) => re.test(normalizaChave(r))))
+    base.push({
+      k: 'outrasRestricoes', label: 'Outras restrições', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
+      dica: 'Qualquer restrição registrada que não se encaixa nos cartões específicos, como benefício fiscal com prazo de carência. O detalhe aparece na seção de Restrições.',
+      ligado: semCartao, alerta: semCartao,
     })
   }
 
@@ -268,27 +291,13 @@ const licenciamento = computed(() => {
 // uma frase. Sai dos proprios indicadores, sem inventar gravidade.
 const alertas = computed(() => indicadores.value.filter((i) => i.alerta).map((i) => i.label))
 
-// Restricao sem flag correspondente na fonte (beneficio tributario, por
-// exemplo) nao acende indicador nenhum — e o veredito, olhando so os flags,
-// dizia "Nada consta" com a restricao listada logo abaixo (caso DCC0017).
-// Cada item que um indicador ACESO ja nomeia e pulado pra lista nao repetir.
-const COBERTURA_RESTRICAO: [RegExp, string][] = [
-  [/^ROUBO/, 'Roubo / furto'],
-  [/^(ALIENACAO|ARRENDAMENTO|RESERVA_DE_DOMINIO|PENHOR)/, 'Gravame'],
-  [/^RENAINF/, 'Multa RENAINF'],
-  [/^(RFB|RESTRICAO_RFB)/, 'Restrição RFB'],
-  [/^PENDENCIA/, 'Pendência de emissão'],
-  [/^COMUNICACAO_DE_VENDA/, 'Comunicação de venda'],
-]
-
 const restricoesForaDosIndicadores = computed<string[]>(() => {
   const itens = v.value?.restricoesItens
   if (!Array.isArray(itens)) return []
   const acesos = new Set(alertas.value)
   const fora: string[] = []
   for (const bruto of itens) {
-    const chave = String(bruto).toUpperCase().replace(/[\s-]+/g, '_')
-    const cobre = COBERTURA_RESTRICAO.find(([re]) => re.test(chave))
+    const cobre = COBERTURA_RESTRICAO.find(([re]) => re.test(normalizaChave(bruto)))
     if (cobre && acesos.has(cobre[1])) continue
     const rotulo = humanizar(String(bruto))
     if (rotulo && !fora.includes(rotulo)) fora.push(rotulo)
@@ -316,8 +325,11 @@ const veredito = computed(() => {
   }
   // Os rotulos sao siglas e nomes proprios (RENAJUD, RFB): baixar tudo pra
   // minuscula deixava "Atenção: renajud." Mantem a caixa e monta a frase.
+  // O cartao generico aceso e sempre renomeado aqui pelo tipo especifico
+  // (restricoesForaDosIndicadores) — listar os dois diria a mesma coisa duas
+  // vezes: "consta Outras restrições e Restrição de benefício tributário".
   const nomes = [
-    ...alertas.value,
+    ...alertas.value.filter((l) => l !== 'Outras restrições'),
     ...restricoesForaDosIndicadores.value,
     ...(licAtrasado ? ['licenciamento atrasado'] : []),
   ]
@@ -1367,18 +1379,44 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     gap: 8px;
   }
 
+  // Quieto quando esta bem, alto quando nao esta: doze caixas verdes gritando
+  // deixavam o problema sem contraste. O ok e neutro com ponto verde; so o
+  // problema ganha fundo e borda de cor.
   &__ind {
     border: 1px solid $c-hair;
-    border-radius: 8px;
-    padding: 10px;
-    text-align: center;
-    background: $c-cloud;
+    border-radius: 4px;
+    padding: 10px 12px;
+    background: $c-canvas;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
   }
 
-  &__ind-lab { display: block; font-size: 11.5px; color: $c-graphite; margin-bottom: 3px; }
-  &__ind-val { display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.03em; }
-  &__ind--ok { background: #edf7f1; border-color: #c3e4d1; .rel__ind-val { color: $c-green; } }
-  &__ind--bad { background: #fdeeec; border-color: #f2c3bd; .rel__ind-val { color: $c-red; } }
+  &__ind-lab { font-size: 11.5px; color: $c-graphite; }
+
+  &__ind-val {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+
+    &::before {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+  }
+
+  &__ind--ok .rel__ind-val { color: #14622f; &::before { background: $c-green; } }
+  &__ind--bad {
+    background: #fdf1f1;
+    border-color: rgba(211, 58, 58, 0.35);
+    .rel__ind-val { color: $c-red; &::before { background: $c-red; } }
+  }
 
   // ---- restricoes ----
   &__restr {
