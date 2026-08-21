@@ -97,6 +97,15 @@ function humanizar(x: any): string {
     return i === 0 ? min.charAt(0).toUpperCase() + min.slice(1) : min
   }).join(' ')
 }
+// Ultima palavra do rotulo + icone viajam juntos (white-space: nowrap no
+// span): quando o titulo quebra linha, o "i" quebra COM a palavra, nunca
+// sozinho no meio do cartao.
+function rotuloPartes(label: string): { inicio: string; fim: string } {
+  const partes = label.trim().split(' ')
+  const fim = partes.pop() || ''
+  return { inicio: partes.length ? partes.join(' ') + ' ' : '', fim }
+}
+
 const g = (k: string) => (v.value ? v.value[k] : null)
 const has = (k: string) => {
   const x = g(k)
@@ -617,15 +626,14 @@ onUnmounted(() => poll && clearInterval(poll))
                 :class="i.alerta ? 'rel__ind--bad' : 'rel__ind--ok'"
               >
                 <span class="rel__ind-lab">
-                  {{ i.label }}
-                  <button type="button" class="rel__info" :data-dica="i.dica" :aria-label="i.dica">
+                  {{ rotuloPartes(i.label).inicio }}<span class="rel__ind-glue">{{ rotuloPartes(i.label).fim }}<button type="button" class="rel__info" :data-dica="i.dica" :aria-label="i.dica">
                     <!-- Feather "info": mesmo vocabulario de traco dos outros icones do site -->
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <circle cx="12" cy="12" r="10" />
                       <line x1="12" y1="16" x2="12" y2="12" />
                       <line x1="12" y1="8" x2="12.01" y2="8" />
                     </svg>
-                  </button>
+                  </button></span>
                 </span>
                 <span class="rel__ind-val">{{ i.ligado ? i.sim : i.nao }}</span>
               </div>
@@ -654,7 +662,9 @@ onUnmounted(() => poll && clearInterval(poll))
             <div v-for="(o, idx) in ocorrencias" :key="idx" class="rel__ocorr">
               <div class="rel__ocorr-topo">
                 <span class="rel__tag">{{ o.tipo }}</span>
-                <span class="rel__ocorr-data">{{ o.data }}</span>
+                <!-- Rotulada: a data solta fez ate o dono perguntar "isso e a
+                     data do roubo?". E a data do REGISTRO da ocorrencia. -->
+                <span class="rel__ocorr-data">Ocorrência registrada em {{ o.data }}</span>
               </div>
               <p class="rel__ocorr-det">
                 <template v-if="o.categoria && o.categoria !== o.tipo">{{ o.categoria }} · </template>
@@ -1019,8 +1029,15 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // Tooltip dos indicadores: botao de foco de verdade, entao funciona por
   // hover no mouse e por toque/Tab no resto. O texto vem de data-dica via
   // content: attr(), sem JS.
+  &__ind-glue { white-space: nowrap; }
+
   &__info {
-    display: inline-flex;
+    // Tooltip e coisa de ponteiro: no celular nao ha hover e o toque ja tem
+    // dono (o cartao). O icone so existe do desktop pra cima.
+    display: none;
+
+    @media (min-width: 1024px) { display: inline-flex; }
+    align-items: center;
     align-items: center;
     justify-content: center;
     width: 16px;
