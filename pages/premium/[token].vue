@@ -618,7 +618,14 @@ onUnmounted(() => poll && clearInterval(poll))
               >
                 <span class="rel__ind-lab">
                   {{ i.label }}
-                  <button type="button" class="rel__info" :data-dica="i.dica" :aria-label="i.dica">i</button>
+                  <button type="button" class="rel__info" :data-dica="i.dica" :aria-label="i.dica">
+                    <!-- Feather "info": mesmo vocabulario de traco dos outros icones do site -->
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="16" x2="12" y2="12" />
+                      <line x1="12" y1="8" x2="12.01" y2="8" />
+                    </svg>
+                  </button>
                 </span>
                 <span class="rel__ind-val">{{ i.ligado ? i.sim : i.nao }}</span>
               </div>
@@ -1016,21 +1023,20 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 15px;
-    height: 15px;
-    margin-left: 5px;
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
     padding: 0;
-    border: 1px solid $c-steel;
-    border-radius: 50%;
+    border: 0;
     background: transparent;
-    color: $c-graphite;
-    font-size: 9px;
-    font-weight: 700;
-    font-style: italic;
-    line-height: 1;
+    color: $c-steel;
     cursor: help;
     position: relative;
     vertical-align: middle;
+
+    svg { width: 15px; height: 15px; display: block; }
+
+    &:hover, &:focus { color: $c-graphite; }
 
     &::after {
       content: attr(data-dica);
