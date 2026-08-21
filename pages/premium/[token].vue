@@ -292,8 +292,8 @@ const numSecao = computed(() => {
   if (indicadores.value.length) ordem.push('ind')
   if (!isBasica.value && indicadores.value.length) ordem.push('restr')
   if (ocorrencias.value.length) ordem.push('ocorr')
-  if (temValor.value) ordem.push('valor')
   ordem.push('ficha')
+  if (temValor.value) ordem.push('valor')
   const m: Record<string, number> = {}
   ordem.forEach((k, i) => { m[k] = i + 1 })
   return m
@@ -611,6 +611,37 @@ onUnmounted(() => poll && clearInterval(poll))
             </p>
           </section>
 
+          <!-- ficha -->
+          <section class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.ficha }}. Ficha cadastral e técnica</h2>
+
+            <div v-if="licenciamento" class="rel__lic" :class="`rel__lic--${licenciamento.tom}`">
+              <span class="rel__lic-pill">{{ licenciamento.rotulo }}</span>
+              <span class="rel__lic-txt">
+                Último licenciamento <strong>{{ licenciamento.ano }}</strong><template v-if="licenciamento.emissao"> · documento emitido em {{ licenciamento.emissao }}</template><template v-if="licenciamento.nota"> · {{ licenciamento.nota }}</template>
+              </span>
+            </div>
+
+            <div class="rel__ficha">
+              <div v-if="fichaCadastral.length">
+                <span class="rel__sub">Cadastral</span>
+                <table class="rel__tab">
+                  <tbody>
+                    <tr v-for="([k, val]) in fichaCadastral" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div v-if="fichaTecnica.length">
+                <span class="rel__sub">Técnica</span>
+                <table class="rel__tab">
+                  <tbody>
+                    <tr v-for="([k, val]) in fichaTecnica" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
           <!-- valor e custo: saiu da consulta gratis e agora e o que a basica
                entrega de imediato, antes da ficha tecnica -->
           <section v-if="temValor" class="rel__card">
@@ -645,37 +676,6 @@ onUnmounted(() => poll && clearInterval(poll))
                 {{ vc.historico[vc.historico.length - 1].label }}:
                 <strong>{{ vc.quedaAno < 0 ? 'queda' : 'alta' }} de {{ Math.abs(vc.quedaAno).toLocaleString('pt-BR') }}%</strong>.
               </p>
-            </div>
-          </section>
-
-          <!-- ficha -->
-          <section class="rel__card">
-            <h2 class="rel__h2">{{ numSecao.ficha }}. Ficha cadastral e técnica</h2>
-
-            <div v-if="licenciamento" class="rel__lic" :class="`rel__lic--${licenciamento.tom}`">
-              <span class="rel__lic-pill">{{ licenciamento.rotulo }}</span>
-              <span class="rel__lic-txt">
-                Último licenciamento <strong>{{ licenciamento.ano }}</strong><template v-if="licenciamento.emissao"> · documento emitido em {{ licenciamento.emissao }}</template><template v-if="licenciamento.nota"> · {{ licenciamento.nota }}</template>
-              </span>
-            </div>
-
-            <div class="rel__ficha">
-              <div v-if="fichaCadastral.length">
-                <span class="rel__sub">Cadastral</span>
-                <table class="rel__tab">
-                  <tbody>
-                    <tr v-for="([k, val]) in fichaCadastral" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div v-if="fichaTecnica.length">
-                <span class="rel__sub">Técnica</span>
-                <table class="rel__tab">
-                  <tbody>
-                    <tr v-for="([k, val]) in fichaTecnica" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
-                  </tbody>
-                </table>
-              </div>
             </div>
           </section>
 
