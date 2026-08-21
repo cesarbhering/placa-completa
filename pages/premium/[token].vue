@@ -461,11 +461,20 @@ onMounted(() => {
   else histAdd({ token, placa: data.value.placa, veiculo: g('descricaoMarcaModelo') || null, status: data.value.status })
 
   if (data.value.status !== 'entregue') {
+    // Polla o /status, que e leve e e quem detecta pagamento ate sem webhook.
+    // A versao anterior chamava refresh() do relatorio INTEIRO a cada 4s: alem
+    // do peso, o pending ligava e o template trocava a tela pelo "Carregando"
+    // — era o flick periodico visto na tela do Pix.
     poll = setInterval(async () => {
-      await refresh()
-      if (data.value) histUpdate(token, data.value.status)
-      if (data.value?.status === 'entregue') clearInterval(poll)
-    }, 4000)
+      try {
+        const r: any = await $fetch('/api/premium/status', { query: { token } })
+        if (!r?.status || r.status === data.value?.status) return
+        await refresh()          // o estado mudou de verdade: agora sim recarrega
+        await buscarQr()         // se veio br_code novo, o QR acompanha
+        if (data.value) histUpdate(token, data.value.status)
+        if (data.value?.status === 'entregue') clearInterval(poll)
+      } catch { /* rede oscilou; proxima volta tenta de novo */ }
+    }, 5000)
   }
 })
 onUnmounted(() => poll && clearInterval(poll))
@@ -487,7 +496,9 @@ onUnmounted(() => poll && clearInterval(poll))
     <div class="rel__wrap">
       <span v-if="!entregue" class="rel__tipo-fora">{{ isBasica ? PLANOS.basica.nome : PLANOS.completa.nome }}</span>
 
-      <div v-if="pending" class="rel__card rel__card--centro">
+      <!-- pending && !data: o "Carregando" e so da PRIMEIRA carga. Em refresh
+           de fundo os dados antigos ficam na tela ate os novos chegarem. -->
+      <div v-if="pending && !data" class="rel__card rel__card--centro">
         <p class="rel__hint">Carregando…</p>
       </div>
 
