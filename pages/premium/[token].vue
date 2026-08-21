@@ -60,6 +60,7 @@ const ROTULOS: Record<string, string> = {
   RESTRICAO_JUDICIAL: 'Restrição judicial',
   RESTRICAO_ADMINISTRATIVA: 'Restrição administrativa',
   RESTRICAO_TRIBUTARIA: 'Restrição tributária',
+  RESTRICAO_BENEFICIO_TRIBUTARIO: 'Restrição de benefício tributário',
   COMUNICACAO_DE_VENDA: 'Comunicação de venda',
   AUTOMOVEL: 'Automóvel',
   CAMINHONETE: 'Caminhonete',
@@ -87,7 +88,8 @@ const SIGLAS = new Set([
 function humanizar(x: any): string {
   const t = String(x ?? '').trim()
   if (!t) return ''
-  const chave = t.toUpperCase().replace(/[\s-]+/g, '_')
+  // "_FILE_VEICULOS" e sufixo do sistema de origem, nunca informacao
+  const chave = t.toUpperCase().replace(/[\s-]+/g, '_').replace(/_FILE_VEICULOS$/, '')
   if (ROTULOS[chave]) return ROTULOS[chave]
   if (SIGLAS.has(chave)) return chave
   if (!/^[A-Z0-9_]+$/.test(t)) return t
@@ -201,6 +203,7 @@ const EXPLICA_RESTRICAO: Record<string, string> = {
   RESTRICAO_JUDICIAL: 'Uma decisão da Justiça impede a transferência do veículo.',
   RESTRICAO_ADMINISTRATIVA: 'Um órgão de trânsito bloqueou alterações no cadastro do veículo.',
   RESTRICAO_TRIBUTARIA: 'O veículo tem pendência ou benefício fiscal que limita a transferência, como isenção de impostos com prazo de carência.',
+  RESTRICAO_BENEFICIO_TRIBUTARIO: 'O veículo foi comprado com isenção ou redução de imposto e tem prazo de carência. Transferir antes do prazo exige quitar o imposto ou obter autorização fiscal.',
   COMUNICACAO_DE_VENDA: 'O dono anterior informou a venda ao órgão de trânsito. Falta o novo dono concluir a transferência.',
   PENDENCIA_DE_EMISSAO_CRV: 'O documento de transferência (CRV) ainda não foi emitido. Sem ele a venda não se conclui.',
   PENDENCIA_EMISSAO_CRV: 'O documento de transferência (CRV) ainda não foi emitido. Sem ele a venda não se conclui.',
@@ -265,6 +268,34 @@ const licenciamento = computed(() => {
 // uma frase. Sai dos proprios indicadores, sem inventar gravidade.
 const alertas = computed(() => indicadores.value.filter((i) => i.alerta).map((i) => i.label))
 
+// Restricao sem flag correspondente na fonte (beneficio tributario, por
+// exemplo) nao acende indicador nenhum — e o veredito, olhando so os flags,
+// dizia "Nada consta" com a restricao listada logo abaixo (caso DCC0017).
+// Cada item que um indicador ACESO ja nomeia e pulado pra lista nao repetir.
+const COBERTURA_RESTRICAO: [RegExp, string][] = [
+  [/^ROUBO/, 'Roubo / furto'],
+  [/^(ALIENACAO|ARRENDAMENTO|RESERVA_DE_DOMINIO|PENHOR)/, 'Gravame'],
+  [/^RENAINF/, 'Multa RENAINF'],
+  [/^(RFB|RESTRICAO_RFB)/, 'Restrição RFB'],
+  [/^PENDENCIA/, 'Pendência de emissão'],
+  [/^COMUNICACAO_DE_VENDA/, 'Comunicação de venda'],
+]
+
+const restricoesForaDosIndicadores = computed<string[]>(() => {
+  const itens = v.value?.restricoesItens
+  if (!Array.isArray(itens)) return []
+  const acesos = new Set(alertas.value)
+  const fora: string[] = []
+  for (const bruto of itens) {
+    const chave = String(bruto).toUpperCase().replace(/[\s-]+/g, '_')
+    const cobre = COBERTURA_RESTRICAO.find(([re]) => re.test(chave))
+    if (cobre && acesos.has(cobre[1])) continue
+    const rotulo = humanizar(String(bruto))
+    if (rotulo && !fora.includes(rotulo)) fora.push(rotulo)
+  }
+  return fora
+})
+
 const veredito = computed(() => {
   if (!entregue.value) return null
   // So a completa verifica risco. Dizer "nada consta" numa basica seria
@@ -276,7 +307,7 @@ const veredito = computed(() => {
   // entra: pode so estar dentro do calendario da UF, e a faixa da ficha ja
   // manda conferir.
   const licAtrasado = licenciamento.value?.tom === 'alerta'
-  if (!alertas.value.length && !licAtrasado) {
+  if (!alertas.value.length && !restricoesForaDosIndicadores.value.length && !licAtrasado) {
     return {
       tom: 'ok' as const,
       titulo: 'Nada consta contra este veículo.',
@@ -285,7 +316,11 @@ const veredito = computed(() => {
   }
   // Os rotulos sao siglas e nomes proprios (RENAJUD, RFB): baixar tudo pra
   // minuscula deixava "Atenção: renajud." Mantem a caixa e monta a frase.
-  const nomes = [...alertas.value, ...(licAtrasado ? ['licenciamento atrasado'] : [])]
+  const nomes = [
+    ...alertas.value,
+    ...restricoesForaDosIndicadores.value,
+    ...(licAtrasado ? ['licenciamento atrasado'] : []),
+  ]
   const lista = nomes.length === 1
     ? nomes[0]
     : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`
