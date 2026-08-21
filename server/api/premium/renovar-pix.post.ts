@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,valor_centavos,expira_em')
+    .select('id,status,valor_centavos,expira_em,abacatepay_id')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
@@ -25,11 +25,23 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 409, message: 'Este pedido nao esta aguardando pagamento.' })
   }
 
-  // E so quando o atual ja venceu. Sem isso, cada carregamento da tela poderia
-  // disparar uma cobranca nova enquanto a anterior ainda vale.
-  const vencido = !pedido.expira_em || new Date(pedido.expira_em).getTime() < Date.now()
-  if (!vencido) {
-    throw createError({ statusCode: 409, message: 'O pagamento atual ainda esta valido.' })
+  // E so quando o atual ja nao serve. O relogio local decide o caso obvio;
+  // quando ele diz "ainda vale", quem confirma e o PROVEDOR (/transparents/
+  // check): cobranca cancelada ou expirada la fora com expira_em ainda no
+  // futuro deixaria o cliente pagando um QR morto.
+  const vencidoLocal = !pedido.expira_em || new Date(pedido.expira_em).getTime() < Date.now()
+  if (!vencidoLocal) {
+    const { checarPix } = await import('../../utils/abacatepay')
+    const chk = pedido.abacatepay_id ? await checarPix(pedido.abacatepay_id) : null
+    // sem resposta do provedor, prevalece o relogio local (fail-safe: nao
+    // gerar cobranca nova por causa de instabilidade de rede)
+    if (!chk || /pending|created|aguard/i.test(chk.status || '')) {
+      throw createError({ statusCode: 409, message: 'O pagamento atual ainda esta valido.' })
+    }
+    if (/paid|completed|pago/i.test(chk.status || '')) {
+      throw createError({ statusCode: 409, message: 'Este pagamento ja foi confirmado.' })
+    }
+    // qualquer outro estado (expired/cancelled): segue pra renovacao
   }
 
   const pix = await criarPixTransparente({

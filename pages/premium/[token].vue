@@ -547,7 +547,20 @@ onUnmounted(() => poll && clearInterval(poll))
           </template>
           <template v-else-if="data.status === 'reembolsado'">
             <h1 class="rel__h">Não foi possível concluir</h1>
-            <p class="rel__hint">O valor foi estornado no seu Pix.</p>
+            <p class="rel__hint">
+              Este pedido foi encerrado e o valor devolvido no seu Pix. Nada ficou
+              cobrado. Se ainda quiser o relatório da placa {{ data.placa }}, é só
+              começar um pedido novo.
+            </p>
+            <!-- Estorno e terminal: reabrir o Pix AQUI cobraria de novo um pedido
+                 ja devolvido. O caminho certo e um pedido novo, com a placa e o
+                 plano ja preenchidos. -->
+            <NuxtLink
+              class="rel__btn rel__btn--primario"
+              :to="`/?placa=${data.placa}&plano=${isBasica ? 'basica' : 'completa'}`"
+            >
+              Refazer a consulta desta placa
+            </NuxtLink>
             <NuxtLink to="/" class="rel__btn">Voltar ao início</NuxtLink>
           </template>
           <template v-else>
