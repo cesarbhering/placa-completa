@@ -64,6 +64,12 @@ export const PLANOS_PAGOS: Plano[] = [PLANOS.basica, PLANOS.completa]
 export interface Recurso {
   label: string
   planos: PlanoId[]
+  /**
+   * Nao renderizar a linha nos cards destes planos. Serve pra versao rebaixada
+   * de um recurso ("Início do chassi") nao aparecer riscada em quem ja tem a
+   * versao completa.
+   */
+  ocultarEm?: PlanoId[]
 }
 
 export const RECURSOS: Recurso[] = [
@@ -71,7 +77,7 @@ export const RECURSOS: Recurso[] = [
   // que achou o carro certo, e nada do que pesa na negociacao.
   { label: 'Marca, modelo, ano e cor',              planos: ['gratis', 'basica', 'completa'] },
   { label: 'Combustível e origem',                  planos: ['gratis', 'basica', 'completa'] },
-  { label: 'Início do chassi',                      planos: ['gratis'] },
+  { label: 'Início do chassi',                      planos: ['gratis'], ocultarEm: ['basica', 'completa'] },
   { label: 'Chassi completo',                       planos: ['basica', 'completa'] },
   { label: 'Valor FIPE',                            planos: ['basica', 'completa'] },
   // logo abaixo do valor FIPE: e a evolucao do mesmo numero

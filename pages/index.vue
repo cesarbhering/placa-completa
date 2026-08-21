@@ -1421,7 +1421,7 @@ function applyEmailSuggestion() {
 
             <ul class="cb-cmp-list">
               <li
-                v-for="r in RECURSOS"
+                v-for="r in RECURSOS.filter((x) => !(x.ocultarEm || []).includes(p.id))"
                 :key="r.label"
                 :class="{ 'cb-cmp-item--off': !inclui(r, p.id) }"
               >
