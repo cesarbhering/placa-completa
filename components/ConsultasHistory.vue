@@ -20,6 +20,14 @@ watch(() => props.aberto, (v) => {
 onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
 
 const pago = (s: string) => s === 'entregue' || s === 'pago' || s === 'consultando'
+// Estorno e falha sao terminais: nao ha o que "concluir" neles. O rotulo da
+// acao acompanha o estado, senao o botao promete um pagamento que nao existe.
+const terminalSemRelatorio = (s: string) => s === 'reembolsado' || s === 'falha'
+function rotuloAcao(s: string): string {
+  if (s === 'entregue') return 'Ver relatório'
+  if (terminalSemRelatorio(s)) return 'Refazer'
+  return 'Concluir'
+}
 
 function rotuloStatus(s: string) {
   if (s === 'entregue') return 'Pronto'
@@ -71,13 +79,16 @@ function fmtData(iso: string) {
                     · <span :class="pago(it.status) ? 'pch-st--ok' : 'pch-st--pend'">{{ rotuloStatus(it.status) }}</span>
                   </small>
                 </span>
+                <!-- Todos vao pra pagina do pedido: pendente cai direto no QR
+                     (com renovacao automatica se venceu), estornado cai na tela
+                     que explica a devolucao e oferece refazer com o plano certo. -->
                 <NuxtLink
                   class="pch-acao"
-                  :class="{ 'pch-acao--primaria': it.status !== 'entregue' }"
+                  :class="{ 'pch-acao--primaria': it.status !== 'entregue' && !terminalSemRelatorio(it.status) }"
                   :to="`/premium/${it.token}`"
                   @click="emit('fechar')"
                 >
-                  {{ it.status === 'entregue' ? 'Ver relatório' : 'Concluir' }}
+                  {{ rotuloAcao(it.status) }}
                 </NuxtLink>
               </li>
             </ul>
