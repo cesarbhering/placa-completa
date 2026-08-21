@@ -293,6 +293,7 @@ async function renovarPix() {
     // Recarrega em vez de montar a tela na mao: com br_code novo e prazo em dia,
     // o proprio ramo de pagamento pendente assume.
     await refresh()
+    await buscarQr()   // o codigo mudou; o QR desenhado precisa acompanhar
   } catch (e: any) {
     erroRenovar.value = e?.data?.message === 'O pagamento atual ainda esta valido.'
       ? 'O código anterior voltou a valer. Atualize a página.'
@@ -417,14 +418,17 @@ const fichaTecnica = computed(() => [
 const valorPedido = computed(() => data.value?.valorCentavos ?? PLANOS[plano.value as 'basica' | 'completa']?.valorCentavos ?? 0)
 const copiado = ref(false)
 
-// QR da retomada: buscado sob demanda, so quando a tela de pagamento pendente
-// aparece. Nao vem no /report porque envolve uma chamada ao provedor de
-// pagamento, e quem ja pagou nao tem por que esperar por ela.
+// QR da retomada, gerado AQUI a partir do copia-e-cola: o QR do Pix e apenas
+// o br_code codificado. A versao anterior pedia a imagem ao provedor via
+// /transparents/check, que devolve so {id, status, expiresAt} — o QR desta
+// tela nunca chegou a aparecer. Local nao tem latencia externa nem esse limite.
 const qr = ref<string | null>(null)
 async function buscarQr() {
+  const codigo = data.value?.brCode
+  if (!codigo) { qr.value = null; return }
   try {
-    const r: any = await $fetch('/api/premium/pix-qr', { query: { token } })
-    qr.value = r?.brCodeBase64 || null
+    const { renderSVG } = await import('uqr')
+    qr.value = 'data:image/svg+xml;utf8,' + encodeURIComponent(renderSVG(codigo, { border: 2 }))
   } catch { qr.value = null }
 }
 
