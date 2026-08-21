@@ -11,11 +11,11 @@
 
 // MESMOS 10 indicadores do relatorio real, mesmos rotulos, mesma ordem
 // (pages/premium/[token].vue). O exemplo e vitrine do produto: divergir daqui
-// e prometer um documento diferente do que se entrega. "Gravame" nao esta
-// aqui de proposito — no laudo real ele aparece na secao de Restricoes.
+// e prometer um documento diferente do que se entrega.
 const indicadores = [
   { label: 'Roubo / furto', valor: 'NADA CONSTA', risco: false },
   { label: 'Leilão', valor: 'NADA CONSTA', risco: false },
+  { label: 'Gravame', valor: 'CONSTA', risco: true },
   { label: 'RENAJUD', valor: 'CONSTA', risco: true },
   { label: 'Restrição RFB', valor: 'NADA CONSTA', risco: false },
   { label: 'Multa RENAINF', valor: 'NADA CONSTA', risco: false },
@@ -24,6 +24,7 @@ const indicadores = [
   { label: 'Alarme', valor: 'NÃO', risco: false },
   { label: 'Comunicação de venda', valor: 'NÃO', risco: false },
   { label: 'SINIAV', valor: 'NÃO', risco: false },
+  { label: 'Circulação', valor: 'LIVRE', risco: false },
 ]
 
 // A ficha e o produto: mostrar resumida esconde justamente o que se vende.

@@ -137,7 +137,7 @@ const INDICADORES: { k: string; label: string; sim: string; nao: string; risco: 
   { k: 'indicadorRestricaoRfb', label: 'Restrição RFB', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
     dica: 'Restrições da Receita Federal, em geral ligadas a importação ou regime fiscal do veículo.' },
   { k: 'indicadorMultaRenainf', label: 'Multa RENAINF', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
-    dica: 'Multas registradas fora do estado do veículo e ainda em aberto.' },
+    dica: 'Multas em aberto registradas contra o veículo, dentro e fora do estado.' },
   { k: 'indicadorRecall', label: 'Recall', sim: 'PENDENTE', nao: 'EM DIA', risco: true,
     dica: 'Chamados de segurança do fabricante ainda não atendidos para este veículo.' },
   { k: 'indicadorPendenciaEmissao', label: 'Pendência de emissão', sim: 'CONSTA', nao: 'NÃO', risco: true,
@@ -151,12 +151,43 @@ const INDICADORES: { k: string; label: string; sim: string; nao: string; risco: 
     dica: 'Mostra se o veículo tem a etiqueta eletrônica de identificação (SINIAV). É informativo, não é problema.' },
 ]
 
-const indicadores = computed(() =>
-  INDICADORES.filter((i) => has(i.k)).map((i) => {
+// Dois cartoes DERIVADOS entram junto dos flags da fonte:
+// - Gravame: nao existe flag proprio; deriva das restricoes de garantia. Isso
+//   tambem conserta o veredito — carro cuja unica pendencia e alienacao dizia
+//   "Nada consta" com a restricao listada logo abaixo.
+// - Circulacao: deriva de `situacao` (em circulacao x baixado).
+const TIPOS_GRAVAME = ['ALIENACAO_FIDUCIARIA', 'ARRENDAMENTO_MERCANTIL', 'RESERVA_DE_DOMINIO', 'PENHOR']
+
+const indicadores = computed(() => {
+  const base: any[] = INDICADORES.filter((i) => has(i.k)).map((i) => {
     const ligado = g(i.k) === true
     return { ...i, ligado, alerta: ligado && i.risco }
-  }),
-)
+  })
+
+  const itens = v.value?.restricoesItens
+  if (Array.isArray(itens)) {
+    const tem = itens.some((r: any) => {
+      const c = String(r).toUpperCase().replace(/[\s-]+/g, '_')
+      return TIPOS_GRAVAME.some((t) => c.startsWith(t))
+    })
+    base.splice(Math.min(2, base.length), 0, {
+      k: 'gravame', label: 'Gravame', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
+      dica: 'Financiamento ou garantia registrada sobre o veículo: alienação, leasing, reserva de domínio ou penhor.',
+      ligado: tem, alerta: tem,
+    })
+  }
+
+  if (has('situacao')) {
+    const baixado = String(g('situacao')).toUpperCase().includes('BAIXADO')
+    base.push({
+      k: 'circulacao', label: 'Circulação', sim: 'BAIXADO', nao: 'LIVRE', risco: true,
+      dica: 'Situação cadastral do veículo. Baixado significa retirado de circulação em definitivo.',
+      ligado: baixado, alerta: baixado,
+    })
+  }
+
+  return base
+})
 
 // O rotulo diz O QUE consta; a explicacao diz O QUE ISSO SIGNIFICA pra quem
 // esta comprando. Sem ela, "Reserva de domínio" e jargao.
@@ -173,7 +204,7 @@ const EXPLICA_RESTRICAO: Record<string, string> = {
   COMUNICACAO_DE_VENDA: 'O dono anterior informou a venda ao órgão de trânsito. Falta o novo dono concluir a transferência.',
   PENDENCIA_DE_EMISSAO_CRV: 'O documento de transferência (CRV) ainda não foi emitido. Sem ele a venda não se conclui.',
   PENDENCIA_EMISSAO_CRV: 'O documento de transferência (CRV) ainda não foi emitido. Sem ele a venda não se conclui.',
-  RENAINF: 'Constam multas registradas fora do estado do veículo e ainda não quitadas. Elas acompanham o carro, não o motorista.',
+  RENAINF: 'Constam multas em aberto registradas contra o veículo, dentro e fora do estado. Elas acompanham o carro, não o motorista.',
   RFB: 'Restrição da Receita Federal, comum em veículo com pendência de importação ou de regime fiscal.',
 }
 
