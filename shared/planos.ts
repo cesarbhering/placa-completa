@@ -71,7 +71,8 @@ export const RECURSOS: Recurso[] = [
   // que achou o carro certo, e nada do que pesa na negociacao.
   { label: 'Marca, modelo, ano e cor',              planos: ['gratis', 'basica', 'completa'] },
   { label: 'Combustível e origem',                  planos: ['gratis', 'basica', 'completa'] },
-  { label: 'Início do chassi',                      planos: ['gratis', 'basica', 'completa'] },
+  { label: 'Início do chassi',                      planos: ['gratis'] },
+  { label: 'Chassi completo',                       planos: ['basica', 'completa'] },
   { label: 'Valor FIPE',                            planos: ['basica', 'completa'] },
   // logo abaixo do valor FIPE: e a evolucao do mesmo numero
   { label: 'FIPE com histórico de depreciação',     planos: ['basica', 'completa'] },
@@ -81,7 +82,7 @@ export const RECURSOS: Recurso[] = [
   { label: 'Potência, cilindrada, eixos e lotação', planos: ['basica', 'completa'] },
   { label: 'Município e UF de jurisdição',          planos: ['basica', 'completa'] },
   { label: 'Recall pendente',                       planos: ['basica', 'completa'] },
-  { label: 'Chassi e Renavam completos',            planos: ['completa'] },
+  { label: 'Renavam completo',                      planos: ['completa'] },
   { label: 'Restrições nacionais e estaduais',      planos: ['completa'] },
   { label: 'Roubo e furto',                         planos: ['completa'] },
   { label: 'Passagem por leilão',                   planos: ['completa'] },
@@ -156,9 +157,10 @@ export function normalizarResposta(response: any): Record<string, any> {
 export const CAMPOS_BASICA: readonly string[] = [
   // identificacao (nomes conferidos contra a resposta real da API)
   'placa', 'descricaoMarcaModelo', 'anoFabricacao', 'anoModelo', 'descricaoCor',
-  // ficha tecnica. chassi e renavam NAO entram: sao exclusivos da completa, e
-  // a whitelist e o unico lugar que decide isso de fato — tirar so do rotulo
-  // deixaria a API continuar entregando.
+  // Chassi completo entrou na basica por decisao de produto (o card de preco
+  // promete). Renavam NAO entra: segue exclusivo da completa, e a whitelist e o
+  // unico lugar que decide isso de fato.
+  'chassi',
   'descricaoEspecie', 'descricaoTipoVeiculo', 'descricaoCategoria', 'procedencia',
   'situacao', 'ufJurisdicao', 'municipio',
   'potencia', 'cilindrada', 'quantidadeDeEixos', 'lotacao',
