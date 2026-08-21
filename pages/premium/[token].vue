@@ -197,7 +197,7 @@ const veredito = computed(() => {
     return {
       tom: 'ok' as const,
       titulo: 'Nada consta contra este veículo.',
-      texto: 'Nenhum dos indicadores verificados aponta restrição, roubo, furto, leilão ou pendência.',
+      texto: 'Na data de emissão, nenhum dos indicadores verificados aponta restrição, roubo, furto, leilão ou pendência.',
     }
   }
   // Os rotulos sao siglas e nomes proprios (RENAJUD, RFB): baixar tudo pra
@@ -209,7 +209,7 @@ const veredito = computed(() => {
   return {
     tom: 'alerta' as const,
     titulo: `Atenção: consta ${lista}.`,
-    texto: 'Veja os detalhes abaixo antes de fechar negócio. O que consta aqui pode travar a transferência.',
+    texto: 'Verifique os detalhes nas seções seguintes antes de concluir a negociação. As pendências apontadas podem impedir a transferência do veículo.',
   }
 })
 
@@ -249,6 +249,55 @@ async function renovarPix() {
     renovando.value = false
   }
 }
+
+// ---------- identidade do documento ----------
+// Numero derivado do token por hash: deterministico (recarregar nao muda o
+// numero) e verificavel, sem inventar sequencia que nao existe.
+const numeroDoc = computed(() => {
+  const t = String(token || '')
+  let h = 5381
+  for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0
+  const ano = data.value?.entregue_em ? new Date(data.value.entregue_em).getFullYear() : new Date().getFullYear()
+  return `PC-${ano}-${h.toString(36).toUpperCase().padStart(6, '0').slice(0, 6)}`
+})
+
+// Fuso fixo: sem ele, servidor e navegador formatam horas diferentes e o Vue
+// acusa hydration mismatch.
+const emissaoFmt = computed(() => {
+  const iso = data.value?.entregue_em
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const dia = d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+  const hora = d.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' })
+  return `${dia} às ${hora}`
+})
+
+// QR de autenticidade: aponta pra propria URL do relatorio. Quem recebe o
+// papel escaneia e ve o original vivo — e o que separa um laudo de um print.
+// So no cliente, porque a URL vem do window; o espaco fica reservado no CSS.
+const qrSvg = ref('')
+onMounted(async () => {
+  try {
+    const { renderSVG } = await import('uqr')
+    qrSvg.value = renderSVG(window.location.origin + window.location.pathname, { border: 1 })
+  } catch { /* sem QR o rodape continua com o endereco por extenso */ }
+})
+
+// ---------- numeracao das secoes ----------
+// Dinamica porque nem toda secao existe em todo laudo (a basica nao tem
+// indicadores; sem FIPE nao ha secao de valor). Numeracao fixa deixaria buraco.
+const numSecao = computed(() => {
+  const ordem: string[] = ['veh']
+  if (indicadores.value.length) ordem.push('ind')
+  if (!isBasica.value && indicadores.value.length) ordem.push('restr')
+  if (ocorrencias.value.length) ordem.push('ocorr')
+  if (temValor.value) ordem.push('valor')
+  ordem.push('ficha')
+  const m: Record<string, number> = {}
+  ordem.forEach((k, i) => { m[k] = i + 1 })
+  return m
+})
 
 // ---------- valor e custo ----------
 const vc = computed(() => data.value?.valorCusto ?? null)
@@ -380,7 +429,7 @@ onUnmounted(() => poll && clearInterval(poll))
 
 
     <div class="rel__wrap">
-      <span class="rel__tipo-fora">{{ isBasica ? PLANOS.basica.nome : PLANOS.completa.nome }}</span>
+      <span v-if="!entregue" class="rel__tipo-fora">{{ isBasica ? PLANOS.basica.nome : PLANOS.completa.nome }}</span>
 
       <div v-if="pending" class="rel__card rel__card--centro">
         <p class="rel__hint">Carregando…</p>
@@ -457,6 +506,20 @@ onUnmounted(() => poll && clearInterval(poll))
 
         <!-- ============ 3. O RELATORIO ============ -->
         <template v-else>
+          <!-- Cabecalho de documento: identidade, numero e emissao. E o que
+               faz laudo parecer laudo — estrutura, nao enfeite. -->
+          <header class="rel__doc">
+            <PlacaCompletaLogo variant="default" crop class="rel__doc-logo" />
+            <div class="rel__doc-meta">
+              <span class="rel__doc-titulo">Relatório de Consulta Veicular</span>
+              <span class="rel__doc-linha">{{ isBasica ? PLANOS.basica.nome : PLANOS.completa.nome }} · Documento {{ numeroDoc }}</span>
+              <span v-if="emissaoFmt" class="rel__doc-linha">Emitido em {{ emissaoFmt }}</span>
+            </div>
+          </header>
+          <p class="rel__doc-validade">
+            Este documento retrata a situação do veículo na data e hora de emissão.
+          </p>
+
           <div class="rel__acoes">
             <button type="button" class="rel__btn rel__btn--mini" @click="imprimir">Imprimir</button>
             <a :href="compartilhar" target="_blank" rel="noopener" class="rel__btn rel__btn--mini">
@@ -464,8 +527,9 @@ onUnmounted(() => poll && clearInterval(poll))
             </a>
           </div>
 
-          <!-- resumo + veredito -->
+          <!-- resumo + parecer -->
           <section class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.veh }}. Identificação do veículo</h2>
             <div class="rel__veh">
               <MarcaLogo :marca="g('descricaoMarcaModelo')" />
               <span class="rel__veh-txt">
@@ -480,6 +544,7 @@ onUnmounted(() => poll && clearInterval(poll))
               <PlacaMercosul :placa="data.placa" mini class="rel__placa-tag" />
             </div>
 
+            <span v-if="veredito" class="rel__parecer-rotulo">Parecer</span>
             <div v-if="veredito" class="rel__veredito" :class="`rel__veredito--${veredito.tom}`">
               <svg v-if="veredito.tom === 'alerta'" viewBox="0 0 20 20" aria-hidden="true">
                 <path d="M10 2.5 18.5 17.5H1.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
@@ -500,7 +565,7 @@ onUnmounted(() => poll && clearInterval(poll))
 
           <!-- indicadores (so na completa; a basica nem recebe os campos) -->
           <section v-if="indicadores.length" class="rel__card">
-            <h2 class="rel__h2">Indicadores</h2>
+            <h2 class="rel__h2">{{ numSecao.ind }}. Indicadores verificados</h2>
             <div class="rel__inds">
               <div
                 v-for="i in indicadores"
@@ -514,18 +579,22 @@ onUnmounted(() => poll && clearInterval(poll))
             </div>
           </section>
 
-          <!-- restricoes detalhadas -->
-          <section v-if="restricoes.length" class="rel__card">
-            <h2 class="rel__h2">Restrições detalhadas</h2>
-            <div v-for="(r, idx) in restricoes" :key="idx" class="rel__restr">
-              <span class="rel__tag">Restrição</span>
-              <span>{{ r }}</span>
-            </div>
+          <!-- restricoes: na completa a secao existe sempre. Laudo lista a
+               secao e diz "nada consta"; omitir deixaria duvida se foi checado. -->
+          <section v-if="numSecao.restr" class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.restr }}. Restrições</h2>
+            <template v-if="restricoes.length">
+              <div v-for="(r, idx) in restricoes" :key="idx" class="rel__restr">
+                <span class="rel__tag">Restrição</span>
+                <span>{{ r }}</span>
+              </div>
+            </template>
+            <p v-else class="rel__nada">Nada consta na data de emissão.</p>
           </section>
 
           <!-- ocorrencias de roubo/furto: o detalhe por tras do indicador -->
           <section v-if="ocorrencias.length" class="rel__card">
-            <h2 class="rel__h2">Ocorrências de roubo e furto</h2>
+            <h2 class="rel__h2">{{ numSecao.ocorr }}. Ocorrências de roubo e furto</h2>
             <div v-for="(o, idx) in ocorrencias" :key="idx" class="rel__ocorr">
               <div class="rel__ocorr-topo">
                 <span class="rel__tag">{{ o.tipo }}</span>
@@ -537,15 +606,15 @@ onUnmounted(() => poll && clearInterval(poll))
               </p>
             </div>
             <p class="rel__ocorr-nota">
-              Uma ocorrência registrada não some quando o veículo é recuperado.
-              Peça ao vendedor o boletim e a baixa antes de seguir com o negócio.
+              Ocorrências registradas permanecem no histórico mesmo após a recuperação
+              do veículo. Solicite ao vendedor o boletim de ocorrência e a respectiva baixa.
             </p>
           </section>
 
           <!-- valor e custo: saiu da consulta gratis e agora e o que a basica
                entrega de imediato, antes da ficha tecnica -->
           <section v-if="temValor" class="rel__card">
-            <h2 class="rel__h2">Valor e custo de manter</h2>
+            <h2 class="rel__h2">{{ numSecao.valor }}. Valor de mercado e custo de propriedade</h2>
             <div class="rel__valores">
               <div v-if="vc?.fipe" class="rel__valor">
                 <span class="rel__valor-k">Valor FIPE</span>
@@ -565,7 +634,7 @@ onUnmounted(() => poll && clearInterval(poll))
             </div>
 
             <div v-if="temGrafico" class="rel__dep">
-              <span class="rel__sub">Como o valor andou</span>
+              <span class="rel__sub">Evolução do valor de mercado</span>
               <GraficoValor :historico="vc.historico" />
               <!-- As barras sao escaladas pela faixa da serie, nao pelo zero:
                    sem isso, oito barras iguais. Em troca, a legenda diz os
@@ -581,7 +650,7 @@ onUnmounted(() => poll && clearInterval(poll))
 
           <!-- ficha -->
           <section class="rel__card">
-            <h2 class="rel__h2">Ficha cadastral e técnica</h2>
+            <h2 class="rel__h2">{{ numSecao.ficha }}. Ficha cadastral e técnica</h2>
 
             <div v-if="licenciamento" class="rel__lic" :class="`rel__lic--${licenciamento.tom}`">
               <span class="rel__lic-pill">{{ licenciamento.rotulo }}</span>
@@ -626,9 +695,23 @@ onUnmounted(() => poll && clearInterval(poll))
             </NuxtLink>
           </section>
 
-          <p class="rel__rodape">
-            Relatório gerado pelo PlacaCompleta · placa {{ data.placa }}
-          </p>
+          <footer class="rel__aut">
+            <div v-if="qrSvg" class="rel__aut-qr" aria-hidden="true" v-html="qrSvg" />
+            <div class="rel__aut-txt">
+              <strong>Verificação de autenticidade</strong>
+              <span>
+                Aponte a câmera para o código ou acesse o endereço deste relatório para
+                conferir o documento original.
+              </span>
+              <span class="rel__aut-id">Documento {{ numeroDoc }} · placa {{ data.placa }} · placacompleta.com.br</span>
+            </div>
+          </footer>
+
+          <!-- so na impressao: marca d'agua e rodape corrido de cada folha -->
+          <img src="/logo-horizontal-600.png" alt="" class="rel__print-marca" aria-hidden="true">
+          <div class="rel__print-pe" aria-hidden="true">
+            Relatório de Consulta Veicular · Documento {{ numeroDoc }} · placa {{ data.placa }} · verifique em placacompleta.com.br
+          </div>
         </template>
       </template>
     </div>
@@ -742,6 +825,110 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     strong { color: $c-ink; }
     &--erro { color: $c-red; margin-top: 12px; }
   }
+
+  // ---- cabecalho de documento ----
+  &__doc {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 4px 2px 14px;
+    border-bottom: 2px solid $c-slab;
+  }
+
+  &__doc-logo,
+  &__doc-logo :deep(.placa-logo) { height: 48px; width: auto; flex-shrink: 0; }
+
+  &__doc-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    text-align: right;
+  }
+
+  &__doc-titulo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $c-slab;
+  }
+
+  &__doc-linha {
+    font-size: 12.5px;
+    color: $c-graphite;
+  }
+
+  &__doc-validade {
+    margin: 8px 2px 0;
+    font-size: 12.5px;
+    color: $c-graphite;
+  }
+
+  @media (max-width: 640px) {
+    &__doc { flex-direction: column; align-items: flex-start; }
+    &__doc-meta { align-items: flex-start; text-align: left; }
+  }
+
+  &__parecer-rotulo {
+    display: block;
+    margin: 16px 0 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: $c-graphite;
+  }
+
+  &__nada {
+    margin: 0;
+    font-size: 14px;
+    color: $c-charcoal;
+  }
+
+  // ---- verificacao de autenticidade ----
+  &__aut {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 8px;
+    padding: 14px 16px;
+    border: 1px solid $c-hair;
+    border-radius: 4px;
+    background: $c-canvas;
+  }
+
+  &__aut-qr {
+    width: 76px;
+    height: 76px;
+    flex-shrink: 0;
+
+    :deep(svg) { width: 100%; height: 100%; display: block; }
+  }
+
+  &__aut-txt {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: $c-graphite;
+
+    strong {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: $c-ink;
+    }
+  }
+
+  &__aut-id { color: $c-charcoal; }
+
+  // so existem no papel
+  &__print-marca,
+  &__print-pe { display: none; }
 
   // ---- veiculo + veredito ----
   &__veh {
@@ -1121,6 +1308,39 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 @media print {
   .rel { background: #fff; padding: 0; }
   .rel__acoes, .rel__navband { display: none !important; }
+
+  // Marca d'agua e rodape corrido: position fixed em impressao repete em TODA
+  // folha no Chromium — e o unico jeito confiavel de rodape por pagina, ja que
+  // margin boxes de @page nao tem suporte la.
+  .rel__print-marca {
+    display: block !important;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 420px;
+    height: auto;
+    transform: translate(-50%, -50%);
+    opacity: 0.05;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .rel__print-pe {
+    display: block !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 4px 0 2px;
+    border-top: 1px solid #ccc;
+    background: #fff;
+    font-size: 9px;
+    text-align: center;
+    color: #636363;
+  }
+
+  // folga pro rodape fixo nao cobrir a ultima linha de conteudo
+  .rel__wrap { padding-bottom: 34px; }
   .rel__card { border-color: #ccc; box-shadow: none; break-inside: avoid; }
 
   // O upsell e conversa de tela: no papel vira panfleto grampeado no laudo.
