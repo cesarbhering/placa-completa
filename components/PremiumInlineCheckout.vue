@@ -44,6 +44,7 @@ let poll: ReturnType<typeof setInterval> | null = null
 
 // historico local: religar/retomar consultas sem login
 const { add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
+const { trackBeginCheckout, trackConversionPaga } = useAnalytics()
 
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
@@ -84,6 +85,7 @@ onMounted(() => {
     const saved = localStorage.getItem('pc_email')
     if (saved) email.value = saved
   }
+  trackBeginCheckout(placaClean.value)
   consultarPreview()
 })
 
@@ -206,6 +208,7 @@ async function checarStatus() {
     const r: any = await $fetch('/api/premium/status', { query: { token: pix.value.token } })
     pendingStatus.value = r.status
     histUpdate(pix.value.token, r.status)
+    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token)
     if (r.status === 'entregue') {
       if (poll) clearInterval(poll)
       irParaRelatorio(pix.value.token)
