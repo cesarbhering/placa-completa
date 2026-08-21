@@ -9,17 +9,21 @@
 // Estatico e ilustrativo de proposito: dado inventado aqui nao vira promessa,
 // porque a tela deixa claro que e exemplo. Nao revela a fonte dos dados.
 
+// MESMOS 10 indicadores do relatorio real, mesmos rotulos, mesma ordem
+// (pages/premium/[token].vue). O exemplo e vitrine do produto: divergir daqui
+// e prometer um documento diferente do que se entrega. "Gravame" nao esta
+// aqui de proposito — no laudo real ele aparece na secao de Restricoes.
 const indicadores = [
   { label: 'Roubo / furto', valor: 'NADA CONSTA', risco: false },
   { label: 'Leilão', valor: 'NADA CONSTA', risco: false },
-  { label: 'Gravame', valor: 'ALIENADO', risco: true },
   { label: 'RENAJUD', valor: 'CONSTA', risco: true },
-  { label: 'Recall', valor: 'EM DIA', risco: false },
   { label: 'Restrição RFB', valor: 'NADA CONSTA', risco: false },
   { label: 'Multa RENAINF', valor: 'NADA CONSTA', risco: false },
-  { label: 'Comunic. venda', valor: 'NÃO', risco: false },
-  { label: 'Pend. emissão', valor: 'NÃO', risco: false },
-  { label: 'Circulação', valor: 'LIVRE', risco: false },
+  { label: 'Recall', valor: 'EM DIA', risco: false },
+  { label: 'Pendência de emissão', valor: 'NÃO', risco: false },
+  { label: 'Alarme', valor: 'NÃO', risco: false },
+  { label: 'Comunicação de venda', valor: 'NÃO', risco: false },
+  { label: 'SINIAV', valor: 'NÃO', risco: false },
 ]
 
 // A ficha e o produto: mostrar resumida esconde justamente o que se vende.
@@ -59,33 +63,52 @@ const ficha: { grupo: string; linhas: [string, string][] }[] = [
 
 // Licenciamento sai da grade de duas colunas e vira uma linha acima delas: sao
 // so dois campos, e numa coluna de tabela eles ficavam perdidos no fim.
-const licenciamento: [string, string][] = [
-  ['CRLV · exercício', '2026'],
-  ['CRLV · emissão', '21/05/2026'],
-  ['Situação do licenciamento', 'Em dia'],
+// Faixa de status, igual a do relatorio de verdade.
+const licenciamento = { rotulo: 'Em dia', texto: 'Último licenciamento 2026 · documento emitido em 21/05/2026' }
+
+// Restricoes com a explicacao de consequencia, como no laudo real.
+const restricoes = [
+  { rotulo: 'Alienação fiduciária', explica: 'O veículo está financiado e é a garantia do contrato. A transferência depende da quitação e da baixa do gravame.' },
+  { rotulo: 'Restrição judicial (RENAJUD)', explica: 'Uma decisão da Justiça impede a transferência do veículo até a liberação.' },
 ]
+
+// QR de autenticidade do exemplo: real e escaneavel (aponta pra home), gerado
+// no cliente com a mesma lib do laudo.
+const qrExemplo = ref('')
+onMounted(async () => {
+  try {
+    const { renderSVG } = await import('uqr')
+    qrExemplo.value = renderSVG('https://placacompleta.com.br', { border: 1 })
+  } catch { /* sem QR o rodape segue com o texto */ }
+})
 </script>
 
 <template>
   <article class="hrp" aria-label="Exemplo de relatório completo">
-    <!-- barra do documento -->
-    <header class="hrp__bar">
-      <span class="hrp__bar-title">Relatório completo</span>
-      <span class="hrp__bar-meta">Consulta #A1B2C3 · 18/08/2026</span>
-    </header>
-
     <div class="hrp__body">
-      <!-- resumo do veiculo -->
+      <!-- cabecalho de documento, como no laudo real -->
+      <header class="hrp__doc">
+        <PlacaCompletaLogo variant="default" crop class="hrp__doc-logo" />
+        <div class="hrp__doc-meta">
+          <span class="hrp__doc-titulo">Relatório de Consulta Veicular</span>
+          <span class="hrp__doc-linha">Relatório completo · Documento PC-2026-EXEMPLO</span>
+          <span class="hrp__doc-linha">Emitido em 18/08/2026 às 14h32</span>
+        </div>
+      </header>
+      <p class="hrp__doc-validade">Este documento retrata a situação do veículo na data e hora de emissão.</p>
+
+      <!-- 1. identificacao -->
+      <h4 class="hrp__h">1. Identificação do veículo</h4>
       <div class="hrp__veh">
-        <span class="hrp__ic" aria-hidden="true"><img src="/brand-vw.svg" alt="" class="hrp__brand"></span>
+        <MarcaLogo marca="VW/GOL" />
         <span class="hrp__veh-txt">
           <strong>VW Gol 1.0 Flex 12V 5p</strong>
           <span>2018/2018 · Branco · Automóvel · São Paulo/SP</span>
         </span>
-        <span class="hrp__plate">ABC1D23</span>
+        <PlacaMercosul placa="ABC1D23" mini class="hrp__placa" />
       </div>
 
-      <!-- veredito: e o que a pessoa procura no relatorio -->
+      <span class="hrp__parecer-rotulo">Parecer</span>
       <div class="hrp__verdict">
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="M10 2.5 18.5 17.5H1.5Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
@@ -93,13 +116,13 @@ const licenciamento: [string, string][] = [
           <circle cx="10" cy="14.6" r="1" fill="currentColor" />
         </svg>
         <span>
-          <strong>Atenção: gravame ativo e restrição RENAJUD.</strong>
-          Nada consta de roubo, furto, leilão ou recall. Veja os detalhes antes de negociar.
+          <strong>Atenção: consta alienação fiduciária e restrição judicial.</strong>
+          Verifique os detalhes nas seções seguintes antes de concluir a negociação.
         </span>
       </div>
 
-      <!-- indicadores -->
-      <h4 class="hrp__h">Indicadores</h4>
+      <!-- 2. indicadores -->
+      <h4 class="hrp__h">2. Indicadores verificados</h4>
       <div class="hrp__inds">
         <div
           v-for="i in indicadores"
@@ -112,26 +135,38 @@ const licenciamento: [string, string][] = [
         </div>
       </div>
 
-      <!-- restricoes detalhadas -->
-      <h4 class="hrp__h">Restrições detalhadas</h4>
-      <div class="hrp__restr">
-        <span class="hrp__tag">Gravame</span>
+      <!-- 3. restricoes -->
+      <h4 class="hrp__h">3. Restrições</h4>
+      <div v-for="r in restricoes" :key="r.rotulo" class="hrp__restr">
+        <span class="hrp__tag">Restrição</span>
         <span>
-          <strong>Alienação fiduciária</strong>
-          Financiamento em aberto. A baixa do gravame é necessária para transferir o veículo.
-        </span>
-      </div>
-      <div class="hrp__restr">
-        <span class="hrp__tag">Judicial</span>
-        <span>
-          <strong>Restrição RENAJUD ativa</strong>
-          Bloqueio judicial registrado. Pode impedir a transferência até a liberação.
+          <strong>{{ r.rotulo }}</strong>
+          {{ r.explica }}
         </span>
       </div>
 
-      <!-- numeros: faixa de tres. Antes viviam numa coluna lateral e deixavam
-           ~1600px vazios ao lado da ficha, que e comprida. -->
-      <h4 class="hrp__h">Valor, seguro e custo de posse</h4>
+      <!-- 4. ficha (antes do valor, como no laudo) -->
+      <h4 class="hrp__h">4. Ficha cadastral e técnica</h4>
+      <div class="hrp__lic">
+        <span class="hrp__lic-pill">{{ licenciamento.rotulo }}</span>
+        <span>{{ licenciamento.texto }}</span>
+      </div>
+      <div class="hrp__ficha">
+        <div v-for="g in ficha" :key="g.grupo" class="hrp__grupo">
+          <span class="hrp__sub">{{ g.grupo }}</span>
+          <table class="hrp__tab">
+            <tbody>
+              <tr v-for="([k, v]) in g.linhas" :key="k">
+                <td>{{ k }}</td>
+                <td>{{ v }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 5. valor -->
+      <h4 class="hrp__h">5. Valor de mercado e custo de propriedade</h4>
       <div class="hrp__nums">
         <div class="hrp__num">
           <span class="hrp__num-lab">Valor de mercado</span>
@@ -158,31 +193,14 @@ const licenciamento: [string, string][] = [
         </div>
       </div>
 
-      <!-- ficha completa: e o que se vende, entao vai inteira, em duas colunas -->
-      <h4 class="hrp__h">Ficha cadastral, técnica e licenciamento</h4>
-
-      <div class="hrp__linha">
-        <span class="hrp__sub hrp__sub--linha">Licenciamento</span>
-        <div class="hrp__pares">
-          <span v-for="([k, v]) in licenciamento" :key="k" class="hrp__par">
-            <em>{{ k }}</em><b>{{ v }}</b>
-          </span>
+      <!-- verificacao de autenticidade, como no laudo -->
+      <footer class="hrp__aut">
+        <div v-if="qrExemplo" class="hrp__aut-qr" aria-hidden="true" v-html="qrExemplo" />
+        <div class="hrp__aut-txt">
+          <strong>Verificação de autenticidade</strong>
+          <span>Todo relatório tem código próprio e endereço permanente para conferir o documento original.</span>
         </div>
-      </div>
-
-      <div class="hrp__ficha">
-        <div v-for="g in ficha" :key="g.grupo" class="hrp__grupo">
-          <span class="hrp__sub">{{ g.grupo }}</span>
-          <table class="hrp__tab">
-            <tbody>
-              <tr v-for="([k, v]) in g.linhas" :key="k">
-                <td>{{ k }}</td>
-                <td>{{ v }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+      </footer>
     </div>
 
     <p class="hrp__foot">Exemplo ilustrativo. O seu relatório traz os dados do veículo que você consultar.</p>
@@ -213,22 +231,45 @@ $font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
   text-align: left;
 
-  // barra do documento: da o enquadramento de "isto e um arquivo"
-  &__bar {
+  &__body { padding: 20px; }
+
+  // cabecalho de documento: mesma gramatica do laudo real
+  &__doc {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
-    gap: 12px;
-    background: $c-slab;
-    color: #fff;
-    padding: 12px 20px;
-    flex-wrap: wrap;
+    gap: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid $c-slab;
   }
 
-  &__bar-title { font-size: 14px; font-weight: 600; letter-spacing: 0.7px; text-transform: uppercase; }
-  &__bar-meta { font-size: 12px; color: rgba(255, 255, 255, 0.65); }
+  &__doc-logo,
+  &__doc-logo :deep(.placa-logo) { height: 36px; width: auto; flex-shrink: 0; }
 
-  &__body { padding: 20px; }
+  &__doc-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    text-align: right;
+  }
+
+  &__doc-titulo {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $c-slab;
+  }
+
+  &__doc-linha { font-size: 11px; color: $c-graphite; }
+
+  &__doc-validade { margin: 6px 0 0; font-size: 11px; color: $c-graphite; }
+
+  @media (max-width: 560px) {
+    &__doc { flex-direction: column; align-items: flex-start; }
+    &__doc-meta { align-items: flex-start; text-align: left; }
+  }
 
   // ---- veiculo ----
   &__veh {
@@ -239,19 +280,6 @@ $font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border-bottom: 1px solid $c-hair;
   }
 
-  &__ic {
-    width: 44px;
-    height: 44px;
-    border-radius: 8px;
-    background: $c-cloud;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  &__brand { width: 30px; height: 30px; object-fit: contain; }
-
   &__veh-txt {
     display: flex;
     flex-direction: column;
@@ -261,16 +289,76 @@ $font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     span { font-size: 13px; color: $c-graphite; }
   }
 
-  &__plate {
-    margin-left: auto;
-    background: $c-slab;
-    color: #fff;
-    font-size: 14px;
+  // a mesma placa Mercosul do laudo, em miniatura
+  &__placa { width: 132px; flex-shrink: 0; margin-left: auto; }
+
+  &__parecer-rotulo {
+    display: block;
+    margin: 14px 0 4px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: $c-graphite;
+  }
+
+  &__lic {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(30, 158, 74, 0.35);
+    background: #eef9f1;
     border-radius: 4px;
-    padding: 6px 10px;
+    font-size: 12px;
+    color: #14622f;
+  }
+
+  &__lic-pill {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.75);
+  }
+
+  &__aut {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 20px;
+    padding: 12px 14px;
+    border: 1px solid $c-hair;
+    border-radius: 4px;
+  }
+
+  &__aut-qr {
+    width: 52px;
+    height: 52px;
     flex-shrink: 0;
+
+    :deep(svg) { width: 100%; height: 100%; display: block; }
+  }
+
+  &__aut-txt {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: $c-graphite;
+
+    strong {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: $c-ink;
+    }
   }
 
   // ---- veredito ----
@@ -278,7 +366,7 @@ $font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     display: flex;
     gap: 10px;
     align-items: flex-start;
-    margin-top: 16px;
+    margin-top: 0;
     padding: 12px 14px;
     border: 1px solid #e6c07a;
     background: #fdf5e6;
@@ -409,28 +497,8 @@ $font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   // Faixa do licenciamento, acima das duas colunas.
-  &__linha {
-    border: 1px solid $c-hair;
-    border-radius: 8px;
-    padding: 12px 14px;
-    margin-bottom: 18px;
-  }
 
-  &__pares {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 28px;
-  }
 
-  &__par {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-    font-size: 13px;
-
-    em { font-style: normal; color: $c-graphite; }
-    b { font-weight: 500; color: $c-ink; }
-  }
 
   &__sub--linha { margin-bottom: 10px; }
 
