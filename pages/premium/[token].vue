@@ -116,18 +116,30 @@ const medida = (k: string) => {
 // ruim: SINIAV ligado significa que o veiculo TEM emplacamento eletronico
 // registrado, o que e normal. Sem essa distincao o relatorio dizia
 // "Atenção: SINIAV" como se fosse defeito.
-const INDICADORES: { k: string; label: string; sim: string; nao: string; risco: boolean }[] = [
-  { k: 'indicadorRouboFurto', label: 'Roubo / furto', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true },
-  { k: 'indicadorLeilao', label: 'Leilão', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true },
-  { k: 'indicadorRestricaoRenajud', label: 'RENAJUD', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true },
-  { k: 'indicadorRestricaoRfb', label: 'Restrição RFB', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true },
-  { k: 'indicadorMultaRenainf', label: 'Multa RENAINF', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true },
-  { k: 'indicadorRecall', label: 'Recall', sim: 'PENDENTE', nao: 'EM DIA', risco: true },
-  { k: 'indicadorPendenciaEmissao', label: 'Pendência de emissão', sim: 'CONSTA', nao: 'NÃO', risco: true },
-  { k: 'indicadorAlarme', label: 'Alarme', sim: 'CONSTA', nao: 'NÃO', risco: true },
+// `dica` vira tooltip no cartao: sigla sem explicacao obriga o cliente a sair
+// do relatorio pra pesquisar o que ele acabou de comprar.
+const INDICADORES: { k: string; label: string; sim: string; nao: string; risco: boolean; dica: string }[] = [
+  { k: 'indicadorRouboFurto', label: 'Roubo / furto', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
+    dica: 'Verifica se existe registro ativo de roubo ou furto para este veículo.' },
+  { k: 'indicadorLeilao', label: 'Leilão', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
+    dica: 'Verifica se o veículo tem passagem por leilão registrada, o que costuma derrubar o valor de revenda.' },
+  { k: 'indicadorRestricaoRenajud', label: 'RENAJUD', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
+    dica: 'Bloqueios determinados pela Justiça diretamente no cadastro do veículo, como penhora em processo.' },
+  { k: 'indicadorRestricaoRfb', label: 'Restrição RFB', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
+    dica: 'Restrições da Receita Federal, em geral ligadas a importação ou regime fiscal do veículo.' },
+  { k: 'indicadorMultaRenainf', label: 'Multa RENAINF', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
+    dica: 'Multas registradas fora do estado do veículo e ainda em aberto.' },
+  { k: 'indicadorRecall', label: 'Recall', sim: 'PENDENTE', nao: 'EM DIA', risco: true,
+    dica: 'Chamados de segurança do fabricante ainda não atendidos para este veículo.' },
+  { k: 'indicadorPendenciaEmissao', label: 'Pendência de emissão', sim: 'CONSTA', nao: 'NÃO', risco: true,
+    dica: 'O documento de transferência (CRV) ainda não foi emitido. Sem ele a venda não se conclui.' },
+  { k: 'indicadorAlarme', label: 'Alarme', sim: 'CONSTA', nao: 'NÃO', risco: true,
+    dica: 'Alerta registrado no cadastro do veículo, em geral ligado a suspeita de irregularidade.' },
   // informativos: `true` nao e problema, so estado do cadastro
-  { k: 'indicadorComunicacaoVenda', label: 'Comunicação de venda', sim: 'SIM', nao: 'NÃO', risco: false },
-  { k: 'indicadorSiniav', label: 'SINIAV', sim: 'SIM', nao: 'NÃO', risco: false },
+  { k: 'indicadorComunicacaoVenda', label: 'Comunicação de venda', sim: 'SIM', nao: 'NÃO', risco: false,
+    dica: 'Mostra se o dono anterior já comunicou a venda. SIM significa que falta o novo dono concluir a transferência.' },
+  { k: 'indicadorSiniav', label: 'SINIAV', sim: 'SIM', nao: 'NÃO', risco: false,
+    dica: 'Mostra se o veículo tem a etiqueta eletrônica de identificação (SINIAV). É informativo, não é problema.' },
 ]
 
 const indicadores = computed(() =>
@@ -137,9 +149,40 @@ const indicadores = computed(() =>
   }),
 )
 
-const restricoes = computed<string[]>(() => {
+// O rotulo diz O QUE consta; a explicacao diz O QUE ISSO SIGNIFICA pra quem
+// esta comprando. Sem ela, "Reserva de domínio" e jargao.
+const EXPLICA_RESTRICAO: Record<string, string> = {
+  ROUBO_FURTO: 'Consta registro ativo de roubo ou furto. A transferência fica bloqueada e o veículo pode ser apreendido em fiscalização. Não conclua o negócio antes de esclarecer a situação.',
+  ALIENACAO_FIDUCIARIA: 'O veículo está financiado e é a garantia do contrato. A transferência depende da quitação e da baixa do gravame.',
+  ARRENDAMENTO_MERCANTIL: 'O veículo está em contrato de leasing: quem o usa não é o proprietário até o fim do contrato.',
+  RESERVA_DE_DOMINIO: 'O vendedor original mantém a propriedade até o pagamento integral do contrato de compra.',
+  PENHOR: 'O veículo foi dado como garantia de uma dívida e não pode ser transferido enquanto ela existir.',
+  BUSCA_E_APREENSAO: 'Existe ordem para recolher o veículo, normalmente por financiamento não pago. Risco alto: o carro pode ser apreendido do novo dono.',
+  RESTRICAO_JUDICIAL: 'Uma decisão da Justiça impede a transferência do veículo.',
+  RESTRICAO_ADMINISTRATIVA: 'Um órgão de trânsito bloqueou alterações no cadastro do veículo.',
+  RESTRICAO_TRIBUTARIA: 'O veículo tem pendência ou benefício fiscal que limita a transferência, como isenção de impostos com prazo de carência.',
+  COMUNICACAO_DE_VENDA: 'O dono anterior informou a venda ao órgão de trânsito. Falta o novo dono concluir a transferência.',
+  PENDENCIA_DE_EMISSAO_CRV: 'O documento de transferência (CRV) ainda não foi emitido. Sem ele a venda não se conclui.',
+  PENDENCIA_EMISSAO_CRV: 'O documento de transferência (CRV) ainda não foi emitido. Sem ele a venda não se conclui.',
+  RENAINF: 'Constam multas registradas fora do estado do veículo e ainda não quitadas. Elas acompanham o carro, não o motorista.',
+  RFB: 'Restrição da Receita Federal, comum em veículo com pendência de importação ou de regime fiscal.',
+}
+
+function explicaRestricao(bruto: string): string {
+  const chave = String(bruto || '').toUpperCase().replace(/[\s-]+/g, '_')
+  if (EXPLICA_RESTRICAO[chave]) return EXPLICA_RESTRICAO[chave]
+  // variantes com sufixo de sistema ("_FILE_VEICULOS" etc): casa pelo prefixo
+  const pref = Object.keys(EXPLICA_RESTRICAO).find((k) => chave.startsWith(k))
+  if (pref) return EXPLICA_RESTRICAO[pref]
+  return 'Uma restrição registrada condiciona ou impede a transferência do veículo. Esclareça com o vendedor antes de fechar negócio.'
+}
+
+const restricoes = computed<{ rotulo: string; explica: string }[]>(() => {
   const arr = v.value?.restricoesItens
-  return Array.isArray(arr) ? arr.map(humanizar).filter(Boolean) : []
+  if (!Array.isArray(arr)) return []
+  return arr
+    .filter(Boolean)
+    .map((r: any) => ({ rotulo: humanizar(r), explica: explicaRestricao(String(r)) }))
 })
 
 // `ultimoLicenciamento` vem como objeto e ate agora era pago e descartado.
@@ -573,7 +616,10 @@ onUnmounted(() => poll && clearInterval(poll))
                 class="rel__ind"
                 :class="i.alerta ? 'rel__ind--bad' : 'rel__ind--ok'"
               >
-                <span class="rel__ind-lab">{{ i.label }}</span>
+                <span class="rel__ind-lab">
+                  {{ i.label }}
+                  <button type="button" class="rel__info" :data-dica="i.dica" :aria-label="i.dica">i</button>
+                </span>
                 <span class="rel__ind-val">{{ i.ligado ? i.sim : i.nao }}</span>
               </div>
             </div>
@@ -585,8 +631,11 @@ onUnmounted(() => poll && clearInterval(poll))
             <h2 class="rel__h2">{{ numSecao.restr }}. Restrições</h2>
             <template v-if="restricoes.length">
               <div v-for="(r, idx) in restricoes" :key="idx" class="rel__restr">
-                <span class="rel__tag">Restrição</span>
-                <span>{{ r }}</span>
+                <div class="rel__restr-topo">
+                  <span class="rel__tag">Restrição</span>
+                  <strong>{{ r.rotulo }}</strong>
+                </div>
+                <p class="rel__restr-explica">{{ r.explica }}</p>
               </div>
             </template>
             <p v-else class="rel__nada">Nada consta na data de emissão.</p>
@@ -945,6 +994,86 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     }
   }
 
+  &__restr-topo {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+
+    strong { color: $c-ink; font-weight: 600; }
+  }
+
+  &__restr-explica {
+    margin: 6px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: $c-graphite;
+  }
+
+  // Tooltip dos indicadores: botao de foco de verdade, entao funciona por
+  // hover no mouse e por toque/Tab no resto. O texto vem de data-dica via
+  // content: attr(), sem JS.
+  &__info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 15px;
+    height: 15px;
+    margin-left: 5px;
+    padding: 0;
+    border: 1px solid $c-steel;
+    border-radius: 50%;
+    background: transparent;
+    color: $c-graphite;
+    font-size: 9px;
+    font-weight: 700;
+    font-style: italic;
+    line-height: 1;
+    cursor: help;
+    position: relative;
+    vertical-align: middle;
+
+    &::after {
+      content: attr(data-dica);
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: min(220px, 58vw);
+      padding: 8px 10px;
+      border-radius: 4px;
+      background: $c-slab;
+      color: #fff;
+      font-size: 11.5px;
+      font-weight: 400;
+      font-style: normal;
+      line-height: 1.45;
+      text-align: left;
+      white-space: normal;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.12s ease;
+      z-index: 30;
+    }
+
+    &::before {
+      content: '';
+      position: absolute;
+      bottom: calc(100% + 3px);
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: $c-slab;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+    }
+
+    &:hover::after, &:focus::after,
+    &:hover::before, &:focus::before { opacity: 1; }
+
+    &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+  }
+
   // Ocorrencias: cada uma e um bloco datado; a nota final orienta o que fazer.
   &__ocorr {
     padding: 12px 14px;
@@ -1136,9 +1265,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   // ---- restricoes ----
   &__restr {
-    display: flex;
-    gap: 10px;
-    align-items: flex-start;
     padding: 10px 0;
     border-bottom: 1px solid $c-hair;
     font-size: 14px;
@@ -1307,7 +1433,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 // Impressao: o relatorio e um documento, entao tem que sair limpo no papel.
 @media print {
   .rel { background: #fff; padding: 0; }
-  .rel__acoes, .rel__navband { display: none !important; }
+  .rel__acoes, .rel__navband, .rel__info { display: none !important; }
 
   // Marca d'agua e rodape corrido: position fixed em impressao repete em TODA
   // folha no Chromium — e o unico jeito confiavel de rodape por pagina, ja que
