@@ -38,6 +38,9 @@ const msg = ref('')
 const senha = ref('')
 const email = ref('')
 const telefone = ref('')
+// Controle de teste (so no homolog): escolhe se GCC/SERPRO batem em producao ou
+// homologacao. AbacatePay fica sempre no dev/homolog por ora.
+const ambiente = ref<'homolog' | 'producao'>('homolog')
 const preview = ref<any>(null)
 
 const pix = ref<{ brCode: string; brCodeBase64: string; token: string; valor: number } | null>(null)
@@ -169,6 +172,7 @@ async function pagar() {
         telefone: telefone.value,
         preview: preview.value.raw,
         plano: props.plano,
+        ambiente: ambiente.value,
       },
     })
     step.value = 'pending'
@@ -231,6 +235,22 @@ async function checarStatus() {
 
 function copiar() {
   if (pix.value) navigator.clipboard?.writeText(pix.value.brCode)
+}
+
+// Homolog: confirma o pagamento sem Pix real (AbacatePay dev). Depois o poll de
+// checarStatus detecta "pago" e o fluxo segue sozinho.
+async function simular() {
+  if (!pix.value) return
+  loading.value = true
+  try {
+    await $fetch('/api/premium/simular-pagamento', { method: 'POST', body: { token: pix.value.token } })
+    await checarStatus()
+  } catch (e: any) {
+    if (import.meta.dev) console.warn('[checkout] simular falhou:', e?.data?.message || e)
+    msg.value = 'Falha ao simular o pagamento.'
+  } finally {
+    loading.value = false
+  }
 }
 
 function fechar() {
@@ -302,6 +322,14 @@ onUnmounted(() => {
               <span class="pic-resumo__linha pic-resumo__linha--total">
                 <span>Total</span><strong>{{ reais(planoInfo.valorCentavos) }}</strong>
               </span>
+            </div>
+            <div v-if="cfg.public.homolog" class="pic-campo">
+              <label class="pic-label" for="pic-ambiente">Ambiente SERPRO/GCC (teste)</label>
+              <select id="pic-ambiente" v-model="ambiente" class="pic-input">
+                <option value="homolog">Homologação</option>
+                <option value="producao">Produção</option>
+              </select>
+              <p v-if="ambiente === 'producao'" class="pic-aviso">Atenção: Produção dispara consulta real no SERPRO.</p>
             </div>
             <div class="pic-campo">
               <label class="pic-label" for="pic-email">Seu e-mail (para receber o relatório)</label>
@@ -414,6 +442,16 @@ onUnmounted(() => {
               </button>
               <p class="pic-brcode">{{ pix?.brCode }}</p>
               <p class="pic-hint">O relatório libera sozinho em até 5 minutos depois do pagamento.</p>
+              <!-- Homolog: confirma o pagamento sem Pix real (AbacatePay dev). -->
+              <button
+                v-if="cfg.public.homolog"
+                type="button"
+                class="pic-btn pic-btn--sim"
+                :disabled="loading"
+                @click="simular"
+              >
+                {{ loading ? 'Confirmando...' : 'Confirmar pagamento (simular)' }}
+              </button>
             </template>
             <template v-else-if="['pago', 'consultando'].includes(pendingStatus)">
               <h3 class="pic-h">Pagamento confirmado ✓</h3>
@@ -579,6 +617,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 .pic-hint { font-size: 14px; line-height: 1.45; color: $c-charcoal; margin: 0; }
+.pic-aviso { font-size: 13px; line-height: 1.4; color: #b45309; margin: 6px 0 0; }
+.pic-btn--sim { border: 1px dashed #b45309; color: #b45309; background: #fff7ed; }
 .pic-lead { font-size: 15px; line-height: 1.45; color: $c-charcoal; margin: 0; }
 
 // veiculo confirmado
