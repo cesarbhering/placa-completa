@@ -168,6 +168,13 @@ const formStarted = ref(false)
 // v2.0 herói web (não-PWA): CTA primário abre o checkout premium inline (overlay).
 // Reusa a mesma placa do input. O fluxo grátis (handleSubmit) vira link secundário.
 const showPremiumCheckout = ref(false)
+
+// Scroll cue do herói: rola suave pro primeiro bloco de conteúdo (cb-ganhos).
+function rolarParaConteudo() {
+  if (import.meta.client) {
+    document.querySelector('.cb-ganhos')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
 const premiumPlaca = ref('')
 const premiumPlano = ref<'basica' | 'completa'>('completa')
 
@@ -1326,6 +1333,21 @@ function applyEmailSuggestion() {
             <button type="button" class="cb-free-link" @click="resetForm">consultar outra placa</button>
           </div>
         </div>
+
+        <!-- Scroll cue: mata o "false bottom". So no estado inicial (sem
+             resultado), sinaliza que ha mais conteudo abaixo do herói. -->
+        <button
+          v-if="!success"
+          type="button"
+          class="cb-scrollcue"
+          aria-label="Rolar para ver o que entra no relatório"
+          @click="rolarParaConteudo"
+        >
+          <span class="cb-scrollcue__txt">o que entra no relatório</span>
+          <svg class="cb-scrollcue__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
       </header>
 
       <!-- ===== POR QUE CONSULTAR =====
@@ -2324,6 +2346,35 @@ function applyEmailSuggestion() {
     &__left { display: block; text-align: left; }
 
     &__side { display: block; }
+  }
+
+  // Scroll cue: pista visual de que ha conteudo abaixo do herói (mata o
+  // "false bottom" em telas onde o herói preenche a dobra, tipo MacBook Air).
+  .cb-scrollcue {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin: 36px auto 0;
+    padding: 6px 10px;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    color: #6b7280;
+    animation: cb-cue-bounce 1.9s ease-in-out infinite;
+
+    &__txt { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+    &__chev { width: 26px; height: 26px; }
+
+    &:hover, &:focus-visible { color: #1f6feb; }
+    &:focus-visible { outline: 2px solid #1f6feb; outline-offset: 4px; border-radius: 6px; }
+  }
+  @keyframes cb-cue-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(6px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cb-scrollcue { animation: none; }
   }
 
   // Pulsacao discreta dos pontos: chama o olho sem virar enfeite piscante. Fica
