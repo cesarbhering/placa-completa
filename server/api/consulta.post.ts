@@ -200,7 +200,9 @@ export default defineEventHandler(async (event) => {
   // Vale pra web E PWA: sem isso, um POST com isPWA:true pulava o rate
   // limit e recebia o apiResponse completo - consultas ilimitadas de graca
   // na API paga (fechado em 28/jul/2026).
-  if (hourlyLimit !== Infinity) {
+  // No homolog (ambiente de teste) o teto por hora nao se aplica: quem testa
+  // precisa consultar a vontade. Prod segue com o limite normal.
+  if (hourlyLimit !== Infinity && !config.public.homolog) {
     const supabase = useSupabaseServer()
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const ipCheckable = ip && ip !== 'unknown'
@@ -295,7 +297,8 @@ export default defineEventHandler(async (event) => {
 
   // Dedupe per channel: same recipient + same placa in the last hour → skip the
   // paid API call and tell the user the delivery already went out. Non-PWA only.
-  if (!isPWA) {
+  // Pulado no homolog: testar a mesma placa varias vezes nao pode ser barrado.
+  if (!isPWA && !config.public.homolog) {
     const supabase = useSupabaseServer()
     const { data: existing, error: dedupeError } = await supabase
       .from('consultas')
