@@ -36,6 +36,9 @@ export default defineEventHandler(async (event) => {
       status: 'aguardando_pagamento', valor_centavos: valor, plano,
       preview: body.preview || null,
       ambiente,
+      // IP do comprador: usado pra resetar o limite gratis por hora (uma compra
+      // paga zera o contador do usuario, casado por IP ou email).
+      ip_address: getClientIp(event),
     })
     .select()
     .single()

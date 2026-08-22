@@ -47,12 +47,10 @@ export async function getValorCusto(placa: string, uf?: string | null, municipio
   const config = useRuntimeConfig()
   if (!config.placaApiToken) return null
 
-  let dados: any = null
-  try {
-    dados = await $fetch<any>(`https://wdapi2.com.br/consulta/${placa}/${config.placaApiToken}`)
-  } catch {
-    return null
-  }
+  // Via cache (placa_cache): reaproveita a resposta da wdapi ja obtida na
+  // consulta/preview da mesma placa. Ver server/utils/placa-lookup.ts.
+  const dados = await consultarPlacaWdapi(placa)
+  if (!dados) return null
   const lista = dados?.fipe?.dados
   if (!lista?.length) return null
 
