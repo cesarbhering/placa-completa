@@ -93,6 +93,17 @@ async function checarStatus() {
 }
 
 function copiar() { if (pix.value) navigator.clipboard?.writeText(pix.value.brCode) }
+
+// Homolog: confirma o pagamento sem Pix real (AbacatePay dev).
+async function simular() {
+  if (!pix.value) return
+  loading.value = true; msg.value = ''
+  try {
+    await $fetch('/api/premium/simular-pagamento', { method: 'POST', body: { token: pix.value.token } })
+    await checarStatus()
+  } catch (e: any) { msg.value = e?.data?.message || 'Falha ao simular pagamento.' }
+  finally { loading.value = false }
+}
 onUnmounted(() => poll && clearInterval(poll))
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 </script>
@@ -151,6 +162,7 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
           <button class="ghost" @click="copiar">Copiar código Pix (copia e cola)</button>
           <p class="small">{{ pix?.brCode }}</p>
           <p class="small">Assim que o pagamento cair, a consulta roda automaticamente.</p>
+          <button v-if="cfg.public.homolog" :disabled="loading" @click="simular">{{ loading ? 'Confirmando...' : 'Confirmar pagamento (simular)' }}</button>
         </template>
         <template v-else-if="['pago', 'consultando'].includes(pendingStatus)">
           <h2>Pagamento confirmado ✓</h2>
