@@ -28,6 +28,13 @@ COPY . .
 ENV NITRO_PRESET=node-server
 ENV NODE_ENV=production
 
+# Config publica do Nuxt (public.homolog) e assada no bundle do client em build:
+# o override de runtime via NUXT_PUBLIC_* nao chega no client. Default false =
+# prod intocada (Coolify nao passa o build-arg). Imagem de homolog builda com
+# --build-arg NUXT_PUBLIC_HOMOLOG=true pra ligar overlay/gate/painel de teste.
+ARG NUXT_PUBLIC_HOMOLOG=false
+ENV NUXT_PUBLIC_HOMOLOG=$NUXT_PUBLIC_HOMOLOG
+
 # Workaround Nuxt 3 ESM worker zombie: nuxt build sometimes won't exit after
 # completing because esbuild workers stay alive. We watch for the output
 # artifact, then force-kill the workers so the RUN step can return.
