@@ -2,17 +2,17 @@
 // v2.0 Consulta Premium (homologacao). Pagina gated por senha.
 useHead({ title: 'Consulta Premium (homologação)', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
+const cfg = useRuntimeConfig()
+
 type Step = 'gate' | 'placa' | 'confirm' | 'pending' | 'erro'
-const step = ref<Step>('gate')
+// No homolog o gate e pedido SO no acesso a home (overlay HomologGate), que ja
+// seta o cookie premium; aqui a pagina ja comeca na placa, sem repedir a senha.
+// Fora do homolog (sem overlay) a pagina se auto-protege com o gate local.
+const step = ref<Step>(cfg.public.homolog ? 'placa' : 'gate')
 
 const { itens, sync: histSync } = useConsultaHistory()
 const modalConsultas = useState('pc-consultas-aberto', () => false)
-onMounted(() => {
-  histSync()
-  // Se ja passou pelo gate do homolog (overlay), nao repede a senha aqui:
-  // o overlay ja setou o cookie premium. Pula direto pra placa.
-  try { if (localStorage.getItem('homolog_ok') === '1') step.value = 'placa' } catch { /* modo privado */ }
-})
+onMounted(() => { histSync() })
 const loading = ref(false)
 const msg = ref('')
 
@@ -45,7 +45,16 @@ async function consultarPreview() {
   try {
     preview.value = await $fetch('/api/premium/preview', { method: 'POST', body: { placa: placa.value } })
     step.value = 'confirm'
-  } catch (e: any) { msg.value = e?.data?.message || 'Falha na consulta básica.' }
+  } catch (e: any) {
+    // 401: sessao do gate expirou. No homolog volta pro overlay do home; fora
+    // dele cai no gate local (mesma logica do checkout inline).
+    if (e?.statusCode === 401 || e?.status === 401) {
+      if (cfg.public.homolog && import.meta.client) {
+        try { localStorage.removeItem('homolog_ok') } catch { /* modo privado */ }
+        window.location.reload()
+      } else { step.value = 'gate' }
+    } else { msg.value = e?.data?.message || 'Falha na consulta básica.' }
+  }
   finally { loading.value = false }
 }
 

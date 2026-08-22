@@ -44,3 +44,9 @@ dev/whatsapp/.env
 *.env
 !dev/whatsapp/.env.example
 !dev/whatsapp/.env.example
+
+# Playwright run artifacts
+test-results/
+
+# agent worktrees / scratch
+.claude/worktrees/
