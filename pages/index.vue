@@ -2348,33 +2348,43 @@ function applyEmailSuggestion() {
     &__side { display: block; }
   }
 
-  // Scroll cue: pista visual de que ha conteudo abaixo do herói (mata o
-  // "false bottom" em telas onde o herói preenche a dobra, tipo MacBook Air).
+  // Anti "false bottom": em telas onde o herói preenchia a dobra (ex: MacBook
+  // Air, ~812px de altura util), o herói inicial encolhe o suficiente pra caber
+  // e deixar a próxima seção espiar (~60px), com um scroll cue compacto no fim.
+  // So o estado inicial (sem resultado); a tela de resultado mantem o proprio
+  // respiro. Especificidade 0,2,0 pra vencer as regras base independente da ordem.
+  .cb-hero:not(.cb-hero--resultado) { padding-top: 24px; padding-bottom: 8px; }
+  // A lateral era o teto de altura por causa da ilustracao (552x442). Limitada,
+  // ela deixa de ser o piso e a dobra abre espaco pro peek — sem mexer na copy.
+  .cb-hero__side .cb-carro { max-width: 400px; margin-left: auto; margin-right: auto; }
+
   .cb-scrollcue {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 6px;
-    margin: 36px auto 0;
-    padding: 6px 10px;
+    justify-content: center;
+    gap: 8px;
+    margin: 8px auto 0;
+    padding: 4px 10px;
     background: none;
     border: 0;
     cursor: pointer;
     color: #6b7280;
-    animation: cb-cue-bounce 1.9s ease-in-out infinite;
 
     &__txt { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-    &__chev { width: 26px; height: 26px; }
+    // So o chevron pulsa (bounce no botao inteiro empurrava layout e chamava
+    // atencao demais). Move so o icone, sinal discreto de "role pra baixo".
+    &__chev { width: 20px; height: 20px; animation: cb-cue-bounce 1.9s ease-in-out infinite; }
 
     &:hover, &:focus-visible { color: #1f6feb; }
     &:focus-visible { outline: 2px solid #1f6feb; outline-offset: 4px; border-radius: 6px; }
   }
   @keyframes cb-cue-bounce {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(6px); }
+    50% { transform: translateY(5px); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .cb-scrollcue { animation: none; }
+    .cb-scrollcue__chev { animation: none; }
   }
 
   // Pulsacao discreta dos pontos: chama o olho sem virar enfeite piscante. Fica
