@@ -5,9 +5,10 @@ export default defineEventHandler(async (event) => {
   const { placa } = await readBody(event)
   const placaClean = String(placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
   if (placaClean.length < 7) throw createError({ statusCode: 400, message: 'Placa invalida' })
-  const config = useRuntimeConfig()
-  try {
-    const r = await $fetch<Record<string, any>>(`https://wdapi2.com.br/consulta/${placaClean}/${config.placaApiToken}`)
+  // Fonte free via cache (placa_cache) pra nao pagar a wdapi de novo se a placa
+  // ja foi consultada. Ver server/utils/placa-lookup.ts.
+  const r = await consultarPlacaWdapi(placaClean)
+  if (r) {
     return {
       placa: placaClean,
       encontrado: true,
@@ -25,7 +26,6 @@ export default defineEventHandler(async (event) => {
         municipio: r.municipio || null, uf: r.uf || null,
       },
     }
-  } catch {
-    return { placa: placaClean, encontrado: false }
   }
+  return { placa: placaClean, encontrado: false }
 })

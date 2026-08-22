@@ -205,6 +205,30 @@ export default defineEventHandler(async (event) => {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const ipCheckable = ip && ip !== 'unknown'
 
+    // Reset apos compra paga: se o usuario tem um pedido premium pago na ultima
+    // hora (casado por IP ou email), a janela de contagem gratis comeca no
+    // pagamento -> ele volta a ter o teto cheio (as consultas de antes nao
+    // contam). Falha/ausencia de premium: mantem a janela normal de 1h.
+    let janelaInicio = oneHourAgo
+    try {
+      const orParts: string[] = []
+      if (ipCheckable) orParts.push(`ip_address.eq.${ip}`)
+      if (!semDestinatario && recipientValue) orParts.push(`email.eq.${recipientValue}`)
+      if (orParts.length) {
+        const premium = usePremiumSupabase()
+        const { data: pago } = await premium
+          .from('pedidos_premium')
+          .select('created_at')
+          .in('status', ['pago', 'consultando', 'entregue'])
+          .or(orParts.join(','))
+          .gte('created_at', oneHourAgo)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (pago?.created_at) janelaInicio = new Date(pago.created_at).toISOString()
+      }
+    } catch { /* premium nao configurado ou lookup falhou: sem reset */ }
+
     const vazio = Promise.resolve({ count: 0, data: null, error: null } as any)
 
     const [recipientRes, ipRes] = await Promise.all([
@@ -216,7 +240,7 @@ export default defineEventHandler(async (event) => {
             .select('created_at', { count: 'exact' })
             .eq(recipientField, recipientValue as string)
             .eq(sentField, true)
-            .gte('created_at', oneHourAgo)
+            .gte('created_at', janelaInicio)
             .order('created_at', { ascending: true })
             .limit(1),
       ipCheckable
@@ -225,7 +249,7 @@ export default defineEventHandler(async (event) => {
               .from('consultas')
               .select('created_at', { count: 'exact' })
               .eq('ip_address', ip)
-              .gte('created_at', oneHourAgo)
+              .gte('created_at', janelaInicio)
             // No canal 'tela' nada e "enviado", entao filtrar por sentField=true
             // zeraria o contador e o teto por IP deixaria de existir — consulta
             // paga aberta pra raspagem. Aqui o criterio e ter havido consulta.
@@ -308,8 +332,10 @@ export default defineEventHandler(async (event) => {
   let whatsappSent = false
 
   try {
-    const apiUrl = `https://wdapi2.com.br/consulta/${placaClean}/${config.placaApiToken}`
-    const apiResult = await $fetch<Record<string, any>>(apiUrl)
+    // Via cache (placa_cache) pra nao pagar a wdapi de novo na mesma placa.
+    // Ver server/utils/placa-lookup.ts.
+    const apiResult = await consultarPlacaWdapi(placaClean)
+    if (!apiResult) throw new Error('Sem retorno da API de placas')
     apiResponse = apiResult
   } catch (err: any) {
     // Send error email
