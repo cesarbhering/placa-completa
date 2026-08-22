@@ -79,6 +79,12 @@ export default defineEventHandler(async (event) => {
     return
   }
 
+  // Homolog e ambiente de teste: sem rate limit pra nao travar quem esta
+  // testando. So o container de homolog seta NUXT_PUBLIC_HOMOLOG; prod nao.
+  if (useRuntimeConfig().public.homolog) {
+    return
+  }
+
   const ip = getClientIP(event)
   const config = getRateLimitConfig(path)
   const key = `${ip}:${path}`
