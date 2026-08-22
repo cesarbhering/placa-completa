@@ -28,6 +28,8 @@ const props = withDefaults(defineProps<{
 })
 const emit = defineEmits<{ close: [] }>()
 
+const cfg = useRuntimeConfig()
+
 type Step = 'loading' | 'gate' | 'confirm' | 'reconfirma' | 'pending' | 'erro'
 const step = ref<Step>('loading')
 const loading = ref(false)
@@ -99,9 +101,17 @@ async function consultarPreview() {
     })
     step.value = 'confirm'
   } catch (e: any) {
-    // 401 => precisa passar pelo gate de homologacao
     if (e?.statusCode === 401 || e?.status === 401 || e?.response?.status === 401) {
-      step.value = 'gate'
+      // No homolog o gate e pedido SO no acesso a home (overlay), nunca no meio
+      // da compra: se a sessao expirou aqui, voltamos pro gate do home (limpa a
+      // flag e recarrega -> o overlay reaparece). Fora do homolog nao ha overlay,
+      // entao mantemos o gate local pra nao entrar em loop de reload.
+      if (cfg.public.homolog && import.meta.client) {
+        try { localStorage.removeItem('homolog_ok') } catch { /* modo privado */ }
+        window.location.reload()
+      } else {
+        step.value = 'gate'
+      }
     } else {
       // Nunca ecoar a mensagem do servidor: coisas como "Premium nao
       // configurado" sao recado de infraestrutura e nao dizem nada pra quem

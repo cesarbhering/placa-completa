@@ -16,6 +16,9 @@ export default defineEventHandler(async (event) => {
   // a senha certa devolvia 200 e a tela voltava a pedir senha, sem explicacao.
   // Em producao o acesso e https, entao a flag continua ligada.
   const https = getRequestProtocol(event) === 'https'
-  setCookie(event, 'premium_gate', expected, { httpOnly: true, sameSite: 'lax', secure: https, path: '/', maxAge: 60 * 60 * 24 * 30 })
+  // maxAge longo (400 dias, o teto que os browsers aceitam) pra o cookie durar
+  // tanto quanto a flag em localStorage: assim, depois de passar pelo gate do
+  // home uma vez, o fluxo de compra nunca cai em 401 no meio.
+  setCookie(event, 'premium_gate', expected, { httpOnly: true, sameSite: 'lax', secure: https, path: '/', maxAge: 60 * 60 * 24 * 400 })
   return { ok: true }
 })
