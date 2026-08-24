@@ -372,6 +372,7 @@ const camposLivres = computed(() => {
     ['Placa', b.placa],
     ['Marca', b.marca],
     ['Modelo', b.modelo],
+    ['Valor FIPE', b.fipe],
     ['Ano de fabricação', b.anoFabricacao],
     ['Ano do modelo', b.ano],
     ['Cor', b.cor],
