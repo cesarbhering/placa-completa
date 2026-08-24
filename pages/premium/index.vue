@@ -20,7 +20,9 @@ const senha = ref('')
 const placa = ref('')
 const email = ref('')
 const telefone = ref('')
-const ambiente = ref('homolog')
+// Staging (espelho de prod, sem dropdown) precisa cair em 'producao'; homolog
+// comeca em 'homolog' e o dropdown alterna. Ver PremiumInlineCheckout.
+const ambiente = ref(cfg.public.staging ? 'producao' : 'homolog')
 const preview = ref<any>(null)
 
 const pix = ref<{ brCode: string; brCodeBase64: string; token: string; valor: number } | null>(null)
