@@ -1,3 +1,5 @@
+import { PLANOS } from '../../../shared/planos'
+
 // Gera um Pix novo para um pedido que ainda nao foi pago e cujo QR venceu.
 //
 // Antes, o beco sem saida: o Pix expirava e a tela so oferecia "fazer nova
@@ -14,7 +16,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,valor_centavos,expira_em,abacatepay_id')
+    .select('id,status,valor_centavos,expira_em,abacatepay_id,plano')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
@@ -44,10 +46,13 @@ export default defineEventHandler(async (event) => {
     // qualquer outro estado (expired/cancelled): segue pra renovacao
   }
 
+  const planoPedido = (pedido.plano === 'basica' || pedido.plano === 'completa') ? pedido.plano : 'completa'
   const pix = await criarPixTransparente({
     amountCentavos: pedido.valor_centavos,
     pedidoId: pedido.id,
     expiresIn: 900,
+    descricao: PLANOS[planoPedido].nome,
+    metadata: { plano: planoPedido, externalId: `plano-${planoPedido}` },
   })
   await supabase
     .from('pedidos_premium')

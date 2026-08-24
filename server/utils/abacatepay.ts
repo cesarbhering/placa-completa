@@ -25,6 +25,11 @@ export async function criarPixTransparente(opts: {
   pedidoId: string
   descricao?: string
   expiresIn?: number
+  // Distincao no dashboard da AbacatePay: o Pix transparente nao linka produto
+  // (isso e so pra checkout hosted/assinatura), entao amarramos o plano pela
+  // `description` (nome do produto) e pelo `metadata` (plano + externalId, que
+  // batem com o produto criado no catalogo). Assim cada cobranca e rastreavel.
+  metadata?: Record<string, string>
 }): Promise<PixCharge> {
   const { base, key } = cfg()
   const res = await $fetch<AbacateResp<PixCharge>>(`${base}/transparents/create`, {
@@ -36,7 +41,7 @@ export async function criarPixTransparente(opts: {
         amount: opts.amountCentavos,
         description: opts.descricao || 'Consulta Premium PlacaCompleta',
         expiresIn: opts.expiresIn ?? 900,
-        metadata: { pedidoId: opts.pedidoId },
+        metadata: { pedidoId: opts.pedidoId, ...(opts.metadata || {}) },
       },
     },
   })

@@ -50,7 +50,15 @@ export default defineEventHandler(async (event) => {
     .single()
   if (error || !pedido) throw createError({ statusCode: 500, message: 'Falha ao criar pedido' })
 
-  const pix = await criarPixTransparente({ amountCentavos: valor, pedidoId: pedido.id, expiresIn: 900 })
+  // Nome do plano vira a descricao da cobranca; plano+externalId no metadata
+  // batem com o produto do catalogo (prod_...): distincao no dashboard.
+  const pix = await criarPixTransparente({
+    amountCentavos: valor,
+    pedidoId: pedido.id,
+    expiresIn: 900,
+    descricao: PLANOS[plano].nome,
+    metadata: { plano, externalId: `plano-${plano}` },
+  })
   await supabase
     .from('pedidos_premium')
     .update({ abacatepay_id: pix.id, br_code: pix.brCode, expira_em: pix.expiresAt })
