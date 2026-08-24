@@ -6,6 +6,14 @@ import { homepageFaqs } from '~/data/homepage-faqs'
 // A consulta feita passa a viver num endereco proprio, /placa/ABC1D23, que
 // aponta pra esta mesma pagina. O registro da rota fica em app/router.options.ts.
 
+// A home e /placa/:placa sao a MESMA pagina (registro clonado em
+// router.options.ts). Sem uma key fixa, o NuxtPage usa o path como key: navegar
+// de "/" pra "/placa/ABC1D23" remontava a pagina, resetando o resultado (piscava
+// a home) e disparando o onMounted que re-consultava (piscava o resultado de
+// novo) — alem de uma segunda chamada a API. Key constante = a instancia e
+// reaproveitada, sem remount, sem flicker, sem consulta dupla.
+definePageMeta({ key: () => 'home' })
+
 const { isPWA, isMobile } = useAppMode()
 const route = useRoute()
 const router = useRouter()
