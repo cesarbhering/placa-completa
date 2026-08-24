@@ -58,6 +58,10 @@ function onStoreClick() {
     <!-- Gate de acesso: overlay de senha uma-vez (homolog e staging, via public.gated). -->
     <HomologGate />
 
+    <!-- Empurrao de atualizacao do app Android antigo (TWA v1). So dispara no
+         app da Play rodando no dominio principal e quando o servidor liga a flag. -->
+    <ForceAppUpdate />
+
     <!-- PWA Loading Screen (PWA only) -->
     <div v-if="isPWA && !isReady" class="pwa-loader">
       <PlacaCompletaIcon variant="inverted" class="pwa-loader__logo" />

@@ -552,6 +552,10 @@ export default defineNuxtConfig({
     evolutionApiUrl: process.env.EVOLUTION_API_URL || "",
     evolutionApiKey: process.env.EVOLUTION_API_KEY || "",
     evolutionInstance: process.env.EVOLUTION_INSTANCE || "",
+    // Empurrao de atualizacao do app Android antigo (TWA v1). Private + runtime:
+    // liga com FORCE_APP_UPDATE=true (ou NUXT_FORCE_APP_UPDATE) sem rebuild.
+    // Fica OFF ate o app novo (v2) estar publicado na Play.
+    forceAppUpdate: process.env.FORCE_APP_UPDATE === "true",
     // v2.0 Consulta Premium (homologacao) - so na branch, prod nao seta estes envs
     premiumSupabaseUrl: process.env.PREMIUM_SUPABASE_URL || "",
     premiumSupabaseKey: process.env.PREMIUM_SUPABASE_KEY || "",
