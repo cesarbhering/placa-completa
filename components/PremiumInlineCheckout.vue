@@ -484,8 +484,9 @@ onUnmounted(() => {
             <template v-else-if="pendingStatus === 'falha'">
               <h3 class="pic-h">Não conseguimos concluir</h3>
               <p class="pic-hint">
-                O valor está sendo estornado no seu Pix. Se preferir, fale com a gente
-                pelo contato do rodapé.
+                Não conseguimos concluir a consulta. Se o pagamento foi feito, vamos
+                devolver o valor e falar com você pelo e-mail. Qualquer coisa, fale com
+                a gente pelo contato do rodapé.
               </p>
               <button type="button" class="pic-btn" @click="fechar">Fechar</button>
             </template>
