@@ -207,10 +207,13 @@ export default defineEventHandler(async (event) => {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const ipCheckable = ip && ip !== 'unknown'
 
-    // Reset apos compra paga: se o usuario tem um pedido premium pago na ultima
+    // Reset apos compra paga: se o usuario tem um pedido premium PAGO na ultima
     // hora (casado por IP ou email), a janela de contagem gratis comeca no
     // pagamento -> ele volta a ter o teto cheio (as consultas de antes nao
-    // contam). Falha/ausencia de premium: mantem a janela normal de 1h.
+    // contam). Quem pagou nao pode ser barrado no gratis — vale mesmo se a
+    // consulta falhou/estornou depois (pago_em preenchido = pagamento entrou).
+    // A tabela usa `pago_em`/`criado_em` (nao created_at): usar a coluna errada
+    // fazia a query dar erro e o reset nunca acontecer.
     let janelaInicio = oneHourAgo
     try {
       const orParts: string[] = []
@@ -220,14 +223,14 @@ export default defineEventHandler(async (event) => {
         const premium = usePremiumSupabase()
         const { data: pago } = await premium
           .from('pedidos_premium')
-          .select('created_at')
-          .in('status', ['pago', 'consultando', 'entregue'])
+          .select('pago_em')
+          .not('pago_em', 'is', null)
           .or(orParts.join(','))
-          .gte('created_at', oneHourAgo)
-          .order('created_at', { ascending: false })
+          .gte('pago_em', oneHourAgo)
+          .order('pago_em', { ascending: false })
           .limit(1)
           .maybeSingle()
-        if (pago?.created_at) janelaInicio = new Date(pago.created_at).toISOString()
+        if (pago?.pago_em) janelaInicio = new Date(pago.pago_em).toISOString()
       }
     } catch { /* premium nao configurado ou lookup falhou: sem reset */ }
 
