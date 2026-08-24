@@ -50,18 +50,24 @@ export default defineEventHandler(async (event) => {
     .single()
   if (error || !pedido) throw createError({ statusCode: 500, message: 'Falha ao criar pedido' })
 
+  // Cliente na AbacatePay: registra quem comprou (rastreio no dashboard) e o id
+  // fica guardado no pedido. Fail-open: se falhar, o checkout segue sem o id.
+  const customerId = await criarOuObterCliente({ email, telefone })
+
   // Nome do plano vira a descricao da cobranca; plano+externalId no metadata
-  // batem com o produto do catalogo (prod_...): distincao no dashboard.
+  // batem com o produto do catalogo (prod_...): distincao no dashboard. O
+  // customer inline associa a compra ao cliente (o transparente nao aceita id).
   const pix = await criarPixTransparente({
     amountCentavos: valor,
     pedidoId: pedido.id,
     expiresIn: 900,
     descricao: PLANOS[plano].nome,
     metadata: { plano, externalId: `plano-${plano}` },
+    customer: { email, ...(telefone ? { cellphone: telefone } : {}) },
   })
   await supabase
     .from('pedidos_premium')
-    .update({ abacatepay_id: pix.id, br_code: pix.brCode, expira_em: pix.expiresAt })
+    .update({ abacatepay_id: pix.id, br_code: pix.brCode, expira_em: pix.expiresAt, abacatepay_customer_id: customerId })
     .eq('id', pedido.id)
 
   return { token, plano, brCode: pix.brCode, brCodeBase64: pix.brCodeBase64, expiresAt: pix.expiresAt, valor }
