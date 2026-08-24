@@ -656,6 +656,14 @@ export default defineEventHandler(async (event) => {
       : 'Consulta realizada, mas houve um erro ao enviar o e-mail. Tente novamente.'
   }
 
+  // Valor FIPE ATUAL (so o numero, sem o historico/grafico — esse segue pago).
+  // Melhor match por score no payload da wdapi, mesmo criterio do valor-custo.
+  const fipeLista = apiResponse?.fipe?.dados
+  const fipeMelhor = Array.isArray(fipeLista) && fipeLista.length
+    ? fipeLista.reduce((b: any, i: any) => ((i?.score || 0) > (b?.score || 0) ? i : b), fipeLista[0])
+    : null
+  const fipeValorAtual = fipeMelhor?.texto_valor || null
+
   return {
     success: true,
     channel,
@@ -684,6 +692,9 @@ export default defineEventHandler(async (event) => {
       // So o comeco do chassi: confere com o do documento sem entregar o
       // numero, que e do relatorio pago.
       chassiParcial: mascararChassi(apiResponse.extra?.chassi),
+      // Valor FIPE atual (referencia de mercado). So o valor corrente; o
+      // historico/grafico continua sendo conteudo pago.
+      fipe: fipeValorAtual,
     } : undefined,
     // payload minimo pro botao de compartilhar no WhatsApp (web)
     // Sem FIPE: virou conteudo pago, e o texto de compartilhamento e superficie
