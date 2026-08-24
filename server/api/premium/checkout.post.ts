@@ -55,15 +55,15 @@ export default defineEventHandler(async (event) => {
   const customerId = await criarOuObterCliente({ email, telefone })
 
   // Nome do plano vira a descricao da cobranca; plano+externalId no metadata
-  // batem com o produto do catalogo (prod_...): distincao no dashboard. O
-  // customer inline associa a compra ao cliente (o transparente nao aceita id).
+  // batem com o produto do catalogo (prod_...). O `customer` inline do
+  // transparente exige name+taxId (que nao coletamos), entao amarramos o
+  // cliente pelo customerId no metadata (rastreavel no dashboard).
   const pix = await criarPixTransparente({
     amountCentavos: valor,
     pedidoId: pedido.id,
     expiresIn: 900,
     descricao: PLANOS[plano].nome,
-    metadata: { plano, externalId: `plano-${plano}` },
-    customer: { email, ...(telefone ? { cellphone: telefone } : {}) },
+    metadata: { plano, externalId: `plano-${plano}`, ...(customerId ? { customerId } : {}) },
   })
   await supabase
     .from('pedidos_premium')
