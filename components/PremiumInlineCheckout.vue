@@ -109,7 +109,7 @@ async function consultarPreview() {
       // da compra: se a sessao expirou aqui, voltamos pro gate do home (limpa a
       // flag e recarrega -> o overlay reaparece). Fora do homolog nao ha overlay,
       // entao mantemos o gate local pra nao entrar em loop de reload.
-      if (cfg.public.homolog && import.meta.client) {
+      if (cfg.public.gated && import.meta.client) {
         try { localStorage.removeItem('homolog_ok') } catch { /* modo privado */ }
         window.location.reload()
       } else {

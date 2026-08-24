@@ -8,7 +8,7 @@ type Step = 'gate' | 'placa' | 'confirm' | 'pending' | 'erro'
 // No homolog o gate e pedido SO no acesso a home (overlay HomologGate), que ja
 // seta o cookie premium; aqui a pagina ja comeca na placa, sem repedir a senha.
 // Fora do homolog (sem overlay) a pagina se auto-protege com o gate local.
-const step = ref<Step>(cfg.public.homolog ? 'placa' : 'gate')
+const step = ref<Step>(cfg.public.gated ? 'placa' : 'gate')
 
 const { itens, sync: histSync } = useConsultaHistory()
 const modalConsultas = useState('pc-consultas-aberto', () => false)
@@ -49,7 +49,7 @@ async function consultarPreview() {
     // 401: sessao do gate expirou. No homolog volta pro overlay do home; fora
     // dele cai no gate local (mesma logica do checkout inline).
     if (e?.statusCode === 401 || e?.status === 401) {
-      if (cfg.public.homolog && import.meta.client) {
+      if (cfg.public.gated && import.meta.client) {
         try { localStorage.removeItem('homolog_ok') } catch { /* modo privado */ }
         window.location.reload()
       } else { step.value = 'gate' }

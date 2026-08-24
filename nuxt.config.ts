@@ -582,9 +582,17 @@ export default defineNuxtConfig({
     senatranCertPemProd: process.env.SENATRAN_CERT_PEM_PROD || "",
     senatranKeyPemProd: process.env.SENATRAN_KEY_PEM_PROD || "",
     public: {
-      // Gate do homolog: so o container de homologacao seta NUXT_PUBLIC_HOMOLOG=true.
-      // Prod/main nao seta, entao o overlay de senha nunca liga em producao.
+      // homolog: ambiente de teste com ferramentas (dropdown de ambiente das
+      // APIs, botao de simular pagamento). So o container de homolog seta a env.
       homolog: process.env.NUXT_PUBLIC_HOMOLOG === "true",
+      // staging: espelho de prod (endpoints reais), sem as ferramentas de teste.
+      staging: process.env.NUXT_PUBLIC_STAGING === "true",
+      // gated: liga o overlay de senha na primeira renderizacao. Vale pros dois
+      // ambientes protegidos (homolog e staging); prod/main nao seta nenhum dos
+      // dois, entao o gate nunca aparece em producao.
+      gated:
+        process.env.NUXT_PUBLIC_HOMOLOG === "true" ||
+        process.env.NUXT_PUBLIC_STAGING === "true",
       whatsappEnabled: process.env.NUXT_PUBLIC_WHATSAPP_ENABLED === "true",
       supabaseUrl:
         process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",

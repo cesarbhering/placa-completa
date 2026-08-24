@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // Gate de acesso ao homolog. Pede a senha UMA vez (no primeiro acesso), antes
 // de usar o site; quando aceita, salva em localStorage e nao pede mais neste
-// navegador. Liga SO quando public.homolog=true (o container de homolog seta a
-// env); em prod/main a flag nao existe, entao o overlay nunca aparece. A senha
+// navegador. Liga quando public.gated=true (containers de homolog e staging
+// setam a env); em prod/main a flag nao existe, entao o overlay nunca aparece.
+// A senha
 // e validada no servidor (/api/premium/gate, que tambem seta o cookie premium),
 // entao a senha nunca vive no bundle e o /premium ja fica liberado junto.
 const cfg = useRuntimeConfig()
@@ -12,7 +13,7 @@ const erro = ref('')
 const loading = ref(false)
 
 onMounted(() => {
-  if (!cfg.public.homolog) return
+  if (!cfg.public.gated) return
   try { if (localStorage.getItem('homolog_ok') === '1') return } catch { /* modo privado */ }
   ativo.value = true
   document.body.style.overflow = 'hidden'

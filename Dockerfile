@@ -34,6 +34,10 @@ ENV NODE_ENV=production
 # --build-arg NUXT_PUBLIC_HOMOLOG=true pra ligar overlay/gate/painel de teste.
 ARG NUXT_PUBLIC_HOMOLOG=false
 ENV NUXT_PUBLIC_HOMOLOG=$NUXT_PUBLIC_HOMOLOG
+# Imagem de staging builda com --build-arg NUXT_PUBLIC_STAGING=true: liga o gate
+# de senha (via public.gated) sem as ferramentas de teste do homolog.
+ARG NUXT_PUBLIC_STAGING=false
+ENV NUXT_PUBLIC_STAGING=$NUXT_PUBLIC_STAGING
 
 # Workaround Nuxt 3 ESM worker zombie: nuxt build sometimes won't exit after
 # completing because esbuild workers stay alive. We watch for the output
