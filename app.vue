@@ -55,7 +55,7 @@ function onStoreClick() {
 
 <template>
   <div>
-    <!-- Gate de homologacao: overlay de senha uma-vez (so quando public.homolog). -->
+    <!-- Gate de acesso: overlay de senha uma-vez (homolog e staging, via public.gated). -->
     <HomologGate />
 
     <!-- PWA Loading Screen (PWA only) -->
