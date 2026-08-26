@@ -13,12 +13,6 @@
       "skillPath": "dataforseo/SKILL.md",
       "computedHash": "ff5934c530c7b9693e548e535b07db93431af0e76bc5d100262bfb186b1550e7"
     },
-    "google-ads-manager": {
-      "source": "claude-office-skills/skills",
-      "sourceType": "github",
-      "skillPath": "google-ads-manager/SKILL.md",
-      "computedHash": "821d4199d97cae69dc1ec42a92ed991510a7e1010766dda8c2f4eaa472fd34b5"
-    },
     "x-api": {
       "source": "affaan-m/everything-claude-code",
       "sourceType": "github",
