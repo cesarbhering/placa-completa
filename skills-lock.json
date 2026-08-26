@@ -7,12 +7,6 @@
       "skillPath": "skills/copywriting/SKILL.md",
       "computedHash": "c8d63b1f77be04fd54981720de65697988810bd28331097dbe0aaf3e166d638a"
     },
-    "dataforseo": {
-      "source": "nikhilbhansali/dataforseo-skill-claude",
-      "sourceType": "github",
-      "skillPath": "dataforseo/SKILL.md",
-      "computedHash": "ff5934c530c7b9693e548e535b07db93431af0e76bc5d100262bfb186b1550e7"
-    },
     "x-api": {
       "source": "affaan-m/everything-claude-code",
       "sourceType": "github",
