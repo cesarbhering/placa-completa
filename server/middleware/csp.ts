@@ -5,10 +5,8 @@
 //
 // 'unsafe-inline' is intentionally allowed for both script-src and
 // style-src during the baseline week:
-//   - Vue scoped styles + 4 style="..." attrs (see pages/index.vue:728,
-//     pages/index.vue:888, pages/tabela-fipe/[slug].vue:349,
-//     components/PhotoUploadButton.vue:39) — style-attr can't use
-//     nonces.
+//   - Vue scoped styles + inline style="..." attrs (e.g. pages/index.vue,
+//     pages/tabela-fipe/[slug].vue) — style-attr can't use nonces.
 //   - 20+ inline <script> blocks carry GA bootstrap and JSON-LD
 //     (nuxt.config.ts head, plus per-page useHead({script}) in pSEO
 //     pages). Migration to nonce-per-request needs middleware that

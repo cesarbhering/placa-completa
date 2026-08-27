@@ -545,7 +545,6 @@ export default defineNuxtConfig({
     placaApiToken: process.env.PLACA_API_TOKEN || "",
     fipeApiToken: process.env.FIPE_API_TOKEN || "",
     fipeApiUrl: process.env.FIPE_API_URL || "",
-    apiKeyOpenai: process.env.API_KEY_OPENAI || "",
     oneSignalAppId: process.env.ONESIGNAL_APP_ID || "",
     oneSignalRestApiKey: process.env.ONESIGNAL_REST_API_KEY || "",
     dashboardLookerGoogleAnalytics: process.env.DASHBOARD_LOOKER_GOOGLE_ANALYTICS || "",
