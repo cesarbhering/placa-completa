@@ -79,7 +79,9 @@ export const RECURSOS: Recurso[] = [
   { label: 'Combustível e origem',                  planos: ['gratis', 'basica', 'completa'] },
   { label: 'Início do chassi',                      planos: ['gratis'], ocultarEm: ['basica', 'completa'] },
   { label: 'Chassi completo',                       planos: ['basica', 'completa'] },
-  { label: 'Valor FIPE',                            planos: ['basica', 'completa'] },
+  // O valor FIPE atual (so o numero) voltou pra gratis; a evolucao/historico
+  // de depreciacao (a linha abaixo) segue exclusiva do pago.
+  { label: 'Valor FIPE',                            planos: ['gratis', 'basica', 'completa'] },
   // logo abaixo do valor FIPE: e a evolucao do mesmo numero
   { label: 'FIPE com histórico de depreciação',     planos: ['basica', 'completa'] },
   { label: 'Seguro estimado e custo em 5 anos',     planos: ['basica', 'completa'] },
