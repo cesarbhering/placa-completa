@@ -256,23 +256,13 @@ if (isBrandPage) {
 </script>
 
 <template>
-  <div class="desktop content-page">
-    <main>
-      <div class="win-window">
-      <div class="win-window__titlebar">
-        <span>{{ isBrandPage ? `FIPE ${pageData.name}` : `FIPE ${pageData.name} ${model!.name}` }}</span>
-        <div class="win-window__titlebar-buttons">
-          <span class="win-window__titlebar-btn">_</span>
-          <span class="win-window__titlebar-btn">&square;</span>
-          <span class="win-window__titlebar-btn">&times;</span>
-        </div>
-      </div>
-      <div class="win-window__body">
+  <div class="pc-page">
+    <main class="pc-container">
         <!-- BRAND HUB PAGE -->
         <template v-if="isBrandPage">
-          <h1 class="seo-title">Tabela FIPE {{ pageData.name }}</h1>
+          <h1 class="pc-h1">Tabela FIPE {{ pageData.name }}</h1>
 
-          <div class="seo-content">
+          <div class="pc-prose">
             <p>{{ pageData.description }}</p>
 
             <!-- Per-brand unique SEO copy quando disponivel -->
@@ -282,8 +272,8 @@ if (isBrandPage) {
               </p>
             </section>
 
-            <div class="text-center mt-md mb-md">
-              <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
+            <div class="pc-cta">
+              <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
                 Consultar {{ pageData.name }} pela Placa
               </NuxtLink>
             </div>
@@ -320,7 +310,7 @@ if (isBrandPage) {
               <li>Chassi, combustível e mais</li>
             </ul>
 
-            <nav class="breadcrumb">
+            <nav class="pc-breadcrumb">
               <NuxtLink to="/tabela-fipe">Tabela FIPE</NuxtLink>
               <span> &rsaquo; </span>
               <strong>{{ pageData.name }}</strong>
@@ -330,9 +320,9 @@ if (isBrandPage) {
 
         <!-- BRAND + MODEL PAGE -->
         <template v-else>
-          <h1 class="seo-title">Tabela FIPE {{ pageData.name }} {{ model!.name }}</h1>
+          <h1 class="pc-h1">Tabela FIPE {{ pageData.name }} {{ model!.name }}</h1>
 
-          <div class="seo-content">
+          <div class="pc-prose">
             <!-- Self-contained answer: lead with the actual price range when available -->
             <p v-if="priceTable.length > 0">
               O <strong>{{ pageData.name }} {{ model!.name }}</strong> na Tabela FIPE de
@@ -366,8 +356,8 @@ if (isBrandPage) {
               </p>
             </section>
 
-            <div class="text-center mt-md mb-md">
-              <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
+            <div class="pc-cta">
+              <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
                 Consultar {{ model!.name }} pela Placa
               </NuxtLink>
             </div>
@@ -432,8 +422,8 @@ if (isBrandPage) {
                 </div>
               </template>
 
-              <div class="text-center mt-md mb-md">
-                <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
+              <div class="pc-cta">
+                <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
                   Consultar {{ model!.name }} pela Placa
                 </NuxtLink>
               </div>
@@ -514,7 +504,7 @@ if (isBrandPage) {
               </NuxtLink>
             </div>
 
-            <nav class="breadcrumb">
+            <nav class="pc-breadcrumb">
               <NuxtLink to="/tabela-fipe">Tabela FIPE</NuxtLink>
               <span> &rsaquo; </span>
               <NuxtLink :to="`/tabela-fipe/${pageData.slug}`">{{ pageData.name }}</NuxtLink>
@@ -524,275 +514,167 @@ if (isBrandPage) {
           </div>
         </template>
 
-        <div class="text-center mt-md">
-          <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
-            Consultar Placa Grátis
-          </NuxtLink>
-        </div>
+      <div class="pc-cta">
+        <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
+          Consultar Placa Grátis
+        </NuxtLink>
       </div>
-    </div>
     </main>
   </div>
 </template>
 
+
 <style lang="scss" scoped>
-.seo-title {
-  font-family: $font-display;
-  font-size: 1.75rem;
-  color: $navy-electric;
-  text-align: center;
-  margin-bottom: $space-md;
+// Tabela FIPE (marca / modelo) no design novo (tokens --pc-*). Conteudo, dados
+// dinamicos e schema ficam intactos; muda so o visual. Cards/tabelas com
+// hairline no lugar dos bevels win-*; grafico de barras no azul do acento.
+
+.model-intro {
+  margin: 20px 0;
+  p { margin: 0 0 12px; line-height: 1.6; color: var(--pc-charcoal); }
+  p:last-child { margin-bottom: 0; }
 }
 
-.seo-content {
-  font-size: 0.8125rem;
-  line-height: 1.6;
-  color: $graphite;
-
-  p { margin-bottom: $space-md; }
-
-  h2 {
-    font-family: $font-display;
-    font-size: 1.25rem;
-    color: $navy-electric;
-    margin: $space-md 0 $space-sm;
-  }
-
-  ul, ol {
-    padding-left: $space-lg;
-    margin-bottom: $space-md;
-  }
-
-  li { margin-bottom: $space-xs; }
-
-  a {
-    color: $smart-blue;
-    text-decoration: underline;
-  }
+.related-models {
+  font-size: 0.9375rem;
+  color: var(--pc-charcoal);
+  strong { color: var(--pc-ink); font-weight: 600; }
+}
+.related-link {
+  color: var(--pc-blue);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(31, 111, 235, 0.35);
+  &:hover { border-bottom-color: var(--pc-blue); }
 }
 
+// grade de modelos
 .model-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: $space-xs;
-  margin-bottom: $space-md;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 12px 0 20px;
 }
-
 .model-card {
-  @include win-border-raised;
-  background: $win-bg;
-  padding: $space-xs $space-sm;
-  text-align: center;
+  display: block;
+  padding: 12px 14px;
+  border: 1px solid var(--pc-hairline);
+  border-radius: 12px;
+  background: var(--pc-canvas);
   text-decoration: none;
-  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 
-  &:active {
-    border-color: $win-darker $win-white $win-white $win-darker;
-  }
-
-  &:hover {
-    background: $powder-blue;
-  }
-
-  &__name {
-    font-family: $font-display;
-    font-size: 0.9375rem;
-    color: $graphite;
-  }
+  &:hover { border-color: var(--pc-blue); background: var(--pc-cloud); }
+  &__name { color: var(--pc-ink); font-weight: 600; font-size: 0.9375rem; }
 }
 
-.info-box {
-  @include win-border-sunken;
-  background: $powder-blue;
-  padding: $space-sm $space-md;
-  margin: $space-sm 0;
+.fipe-ref { font-size: 0.85rem; color: var(--pc-graphite); margin: 0 0 10px; }
 
-  p {
-    margin-bottom: 0;
-  }
-}
-
-.breadcrumb {
-  font-size: 0.75rem;
-  margin-top: $space-lg;
-  padding-top: $space-sm;
-  border-top: 1px solid $win-dark;
-
-  a {
-    color: $smart-blue;
-    text-decoration: underline;
-  }
-
-  span {
-    color: $win-dark;
-    margin: 0 2px;
-  }
-}
-
-// FIPE Price Table
-.fipe-ref {
-  font-size: 0.75rem;
-  color: $win-dark;
-  margin-bottom: $space-sm;
-}
-
-.fipe-table-wrapper {
-  @include win-border-sunken;
+// tabelas: hairline, cabecalho cloud, rolagem horizontal propria
+.fipe-table-wrapper,
+.table-scroll {
   overflow-x: auto;
-  margin-bottom: $space-sm;
+  margin-bottom: 12px;
+  border: 1px solid var(--pc-hairline);
+  border-radius: 12px;
 }
 
-.fipe-table {
+.fipe-table,
+.seguro-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.8125rem;
-  font-family: $font-mono;
-
-  th, td {
-    padding: $space-xs $space-sm;
-    text-align: left;
-    border-bottom: 1px solid $win-dark;
-  }
+  font-size: 0.9375rem;
+  min-width: 340px;
 
   th {
-    background: $win-bg;
-    font-family: $font-display;
-    font-size: 0.875rem;
-    color: $navy-electric;
-    white-space: nowrap;
-  }
-
-  tbody tr:hover {
-    background: $powder-blue;
-  }
-
-  .price-cell {
+    background: var(--pc-cloud);
+    color: var(--pc-graphite);
+    font-size: 0.75rem;
     font-weight: 700;
-    white-space: nowrap;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--pc-hairline);
   }
-
-  .variation-cell {
-    white-space: nowrap;
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--pc-hairline);
+    color: var(--pc-charcoal);
+    strong { color: var(--pc-ink); font-weight: 600; }
   }
+  tr:last-child td { border-bottom: 0; }
 }
 
-.variation-up {
-  color: $success-green;
+.price-cell { font-weight: 600; color: var(--pc-ink); }
+.variation-cell { white-space: nowrap; }
+.variation-up { color: var(--pc-green); font-weight: 600; }
+.variation-down { color: var(--pc-red); font-weight: 600; }
+.variation-neutral { color: var(--pc-steel); }
+
+.table-footnote,
+.metodologia-seguro {
+  font-size: 0.8125rem;
+  color: var(--pc-graphite);
+  margin: 8px 0 20px;
+
+  a { color: var(--pc-blue); text-decoration: none; border-bottom: 1px solid rgba(31, 111, 235, 0.35); }
 }
 
-.variation-down {
-  color: #dc3545;
-}
-
-.variation-neutral {
-  color: $win-dark;
-}
-
-.table-footnote {
-  font-size: 0.6875rem;
-  color: $win-dark;
-  margin-bottom: $space-md;
-}
-
-// History Chart
+// grafico de barras: barras no azul do acento, topo arredondado, hairline
 .chart-container {
-  @include win-border-sunken;
-  background: $win-white;
-  padding: $space-md $space-sm $space-xs;
-  margin-bottom: $space-md;
+  border: 1px solid var(--pc-hairline);
+  border-radius: 12px;
+  padding: 16px 12px 12px;
+  margin: 12px 0 20px;
   overflow-x: auto;
 }
-
 .chart-bars {
   display: flex;
   align-items: flex-end;
-  gap: 2px;
-  height: 160px;
-  min-width: fit-content;
+  gap: 10px;
+  height: 200px;
+  min-width: min-content;
 }
-
 .chart-bar-col {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 1;
-  min-width: 52px;
-  height: 100%;
   justify-content: flex-end;
+  gap: 6px;
+  flex: 1 0 44px;
+  height: 100%;
 }
-
 .chart-bar-value {
-  font-size: 0.5625rem;
-  font-family: $font-mono;
-  color: $graphite;
+  font-size: 0.6875rem;
+  color: var(--pc-ink);
+  font-weight: 600;
   white-space: nowrap;
-  margin-bottom: 2px;
 }
-
 .chart-bar {
   width: 100%;
-  max-width: 36px;
-  background: $navy-electric;
+  max-width: 40px;
+  background: var(--pc-blue);
+  border-radius: 4px 4px 0 0;
   min-height: 4px;
-  transition: height 0.3s ease;
 }
-
 .chart-bar-label {
-  font-size: 0.5625rem;
-  font-family: $font-mono;
-  color: $win-dark;
-  margin-top: 2px;
+  font-size: 0.6875rem;
+  color: var(--pc-graphite);
   white-space: nowrap;
 }
 
-.model-intro {
-  margin: 1.25rem 0;
-  padding: 1rem 1.25rem;
-  background: rgba(0, 0, 0, 0.02);
-  border-left: 3px solid $navy-electric;
-  border-radius: 4px;
-}
+// callout de dica
+.info-box {
+  background: var(--pc-cloud);
+  border: 1px solid var(--pc-hairline);
+  border-left: 3px solid var(--pc-blue);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin: 20px 0;
 
-.model-intro p {
-  margin: 0 0 0.75rem 0;
-  line-height: 1.55;
-}
-
-.model-intro p:last-child {
-  margin-bottom: 0;
-}
-
-.related-models {
-  margin-top: 1rem;
-  font-size: 0.875rem;
-}
-
-.related-link {
-  color: $navy-electric;
-  text-decoration: none;
-}
-
-.related-link:hover {
-  text-decoration: underline;
-}
-
-.table-scroll { overflow-x: auto; }
-
-.seguro-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-
-  th, td { border: 1px solid $border-light; padding: 8px 10px; text-align: left; }
-  th { background: $surface-alt; }
-  td strong { color: $navy-electric; }
-}
-
-.metodologia-seguro {
-  font-size: 0.78rem;
-  color: $slate-grey;
-  margin-top: 6px;
-
-  a { color: $navy-electric; }
+  p { margin: 0 0 10px; color: var(--pc-charcoal); }
+  p:last-child { margin-bottom: 0; }
+  a { color: var(--pc-blue); text-decoration: none; border-bottom: 1px solid rgba(31, 111, 235, 0.35); }
+  strong { color: var(--pc-ink); font-weight: 600; }
 }
 </style>
