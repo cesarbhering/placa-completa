@@ -5,7 +5,9 @@ import crypto from 'node:crypto'
 // check:  GET  /transparents/check?id=...
 type AbacateResp<T> = { data: T | null; success: boolean; error: string | null }
 
-function cfg() {
+// Exportado pra ser reutilizado por outros utils server-side que tambem
+// falam com a AbacatePay (ex.: server/utils/cupons.ts).
+export function cfg() {
   const c = useRuntimeConfig()
   if (!c.abacatepayApiKey) throw createError({ statusCode: 503, message: 'AbacatePay nao configurado.' })
   return { base: c.abacatepayBase as string, key: c.abacatepayApiKey as string, secret: c.abacatepayWebhookSecret as string }
