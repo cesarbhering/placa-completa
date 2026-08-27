@@ -62,29 +62,36 @@ export async function criarOuObterCliente(opts: {
   let customerId: string | null = null
 
   try {
-    const lista = await $fetch<AbacateResp<any[]>>(`${base}/customers/list`, {
+    const lista = await $fetch<any>(`${base}/customers/list`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${key}` },
       query: { email },
     })
-    const candidatos = (lista.data || []).filter((c) => c?.email?.toLowerCase() === email)
+    // Defensivo quanto ao envelope: endpoints da AbacatePay nao sao
+    // consistentes (transparents/create usa {data,success,error}; getCoupon
+    // devolve o objeto cru, sem wrapper). Aceita os dois formatos pra lista:
+    // {data:[...]} OU array direto.
+    const arr = Array.isArray(lista?.data) ? lista.data : (Array.isArray(lista) ? lista : [])
+    const candidatos = arr.filter((c: any) => c?.email?.toLowerCase() === email)
     if (candidatos.length) {
       // Canonico = mais antigo. createdAt pode nao vir no shape; se faltar em
       // todos, o array ja costuma vir em ordem de criacao (mais antigo primeiro).
-      const maisAntigo = candidatos.reduce((best, cur) => {
+      const maisAntigo = candidatos.reduce((best: any, cur: any) => {
         const bd = best?.createdAt ? new Date(best.createdAt).getTime() : 0
         const cd = cur?.createdAt ? new Date(cur.createdAt).getTime() : 0
         return cd && (!bd || cd < bd) ? cur : best
       }, candidatos[0])
       customerId = maisAntigo?.id || null
+    } else {
+      console.warn(`[cliente] listCustomers: 0 candidatos pro email (resposta tinha ${arr.length} itens no total, envelope=${Array.isArray(lista?.data) ? 'data[]' : Array.isArray(lista) ? 'array-cru' : typeof lista})`)
     }
   } catch (e: any) {
-    console.warn('[cliente] listCustomers falhou:', e?.data?.error || e?.message)
+    console.warn('[cliente] listCustomers falhou:', e?.status || e?.statusCode, e?.data?.error || e?.data?.message || e?.message)
   }
 
   if (!customerId) {
     try {
-      const res = await $fetch<AbacateResp<{ id: string }>>(`${base}/customers/create`, {
+      const res = await $fetch<any>(`${base}/customers/create`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
         body: {
@@ -93,9 +100,14 @@ export async function criarOuObterCliente(opts: {
           ...(opts.telefone ? { cellphone: opts.telefone } : {}),
         },
       })
-      customerId = res.data?.id || null
+      // Mesmo cuidado de envelope aqui: aceita res.data.id (wrapped) OU
+      // res.id (objeto cru). Sem isso, um create que teve SUCESSO na
+      // AbacatePay (customer criado de verdade) podia voltar customerId=null
+      // pra nos por engano de parse — silencioso, sem erro nenhum no log.
+      customerId = res?.data?.id || res?.id || null
+      if (!customerId) console.warn('[cliente] criar: resposta sem id reconhecivel, envelope=', JSON.stringify(res).slice(0, 300))
     } catch (e: any) {
-      console.warn('[cliente] criar falhou:', e?.data?.error || e?.message)
+      console.warn('[cliente] criar falhou:', e?.status || e?.statusCode, e?.data?.error || e?.data?.message || e?.message)
     }
   }
 
