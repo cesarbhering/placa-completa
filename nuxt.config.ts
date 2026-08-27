@@ -614,10 +614,12 @@ export default defineNuxtConfig({
         "Cross-Origin-Opener-Policy": "same-origin",
       },
     },
-    // Reforco server-side de nao-indexacao dos RELATORIOS premium (/premium/{token}).
-    // So os subpaths: a landing /premium segue indexavel. Nao usar Disallow no
-    // robots.txt — bloquearia o crawler de ver o noindex.
-    "/premium/**": { headers: { "X-Robots-Tag": "noindex, nofollow" } },
+    // Nao-indexacao dos RELATORIOS premium (/premium/{token}) via a chave nativa
+    // do @nuxtjs/robots: ele emite o X-Robots-Tag noindex e casa com o meta da
+    // pagina. Um header cru aqui era sobrescrito pelo modulo. So os subpaths: a
+    // landing /premium segue indexavel. Sem Disallow no robots.txt (o crawler
+    // precisa poder ver o noindex).
+    "/premium/**": { robots: "noindex, nofollow" },
     "/": { prerender: true },
     "/termos-de-uso": { prerender: true },
     "/politica-de-privacidade": { prerender: true },
