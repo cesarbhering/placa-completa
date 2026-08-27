@@ -213,4 +213,55 @@
 
     &:hover { background: var(--pc-blue-deep); border-color: var(--pc-blue-deep); }
   }
+
+  &--block { width: 100%; }
+
+  &:disabled { border-color: var(--pc-steel); color: var(--pc-steel); background: var(--pc-canvas); cursor: default; }
+  &--primary:disabled { background: var(--pc-steel); border-color: var(--pc-steel); color: #fff; }
+}
+
+// ---- Formulario ----
+.pc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.pc-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pc-graphite);
+}
+
+.pc-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px;
+  font-family: var(--pc-font);
+  font-size: 16px;
+  color: var(--pc-ink);
+  background: var(--pc-canvas);
+  border: 1px solid var(--pc-steel);
+  border-radius: var(--pc-radius-btn);
+
+  &::placeholder { color: var(--pc-steel); }
+  &:focus { outline: none; border-color: var(--pc-ink); }
+  &:focus-visible { outline: 2px solid var(--pc-blue); outline-offset: 2px; }
+  &:disabled { background: var(--pc-cloud); color: var(--pc-graphite); }
+}
+
+.pc-alert {
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  margin-bottom: 12px;
+  border: 1px solid var(--pc-hairline);
+  color: var(--pc-charcoal);
+
+  &--error { background: #fdf1f1; border-color: rgba(211, 58, 58, 0.35); color: #a11414; }
+  &--success { background: #eef9f1; border-color: rgba(30, 158, 74, 0.35); color: #14622f; }
 }

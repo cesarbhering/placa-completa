@@ -78,19 +78,9 @@ useHead({
 </script>
 
 <template>
-  <div class="desktop content-page">
+  <div class="pc-page">
     <main class="cotacao-main">
-      <div class="win-window">
-        <div class="win-window__titlebar">
-          <span>Cotação de Seguro</span>
-          <div class="win-window__titlebar-buttons">
-            <span class="win-window__titlebar-btn">_</span>
-            <span class="win-window__titlebar-btn">□</span>
-            <span class="win-window__titlebar-btn">×</span>
-          </div>
-        </div>
-        <div class="win-window__body">
-          <template v-if="!done">
+      <template v-if="!done">
             <h1 v-if="prefilled && veiculo" class="cotacao-title">
               Cotação de seguro pro seu {{ veiculo.marca }} {{ veiculo.modelo }}
             </h1>
@@ -116,8 +106,8 @@ useHead({
             </p>
 
             <form @submit.prevent="submit">
-              <div v-if="!prefilled" class="form-group">
-                <label class="form-group__label" for="cotacao-placa">Placa do veículo (opcional)</label>
+              <div v-if="!prefilled" class="pc-field">
+                <label class="pc-label" for="cotacao-placa">Placa do veículo (opcional)</label>
                 <input
                   id="cotacao-placa"
                   v-model="placaInput"
@@ -125,11 +115,11 @@ useHead({
                   maxlength="8"
                   placeholder="ABC1D23"
                   autocapitalize="characters"
-                  class="win-input"
+                  class="pc-input"
                 >
               </div>
-              <div class="form-group">
-                <label class="form-group__label" for="cotacao-phone">Telefone com DDD</label>
+              <div class="pc-field">
+                <label class="pc-label" for="cotacao-phone">Telefone com DDD</label>
                 <input
                   id="cotacao-phone"
                   v-model="phoneInput"
@@ -137,12 +127,12 @@ useHead({
                   inputmode="tel"
                   placeholder="(31) 99999-9999"
                   :disabled="sending"
-                  class="win-input"
+                  class="pc-input"
                 >
               </div>
-              <div v-if="phoneError" class="win-alert win-alert--error">{{ phoneError }}</div>
-              <div v-if="sendError" class="win-alert win-alert--error">Não conseguimos enviar. Tente de novo.</div>
-              <button type="submit" class="win-btn win-btn--primary win-btn--block" :disabled="sending">
+              <div v-if="phoneError" class="pc-alert pc-alert--error">{{ phoneError }}</div>
+              <div v-if="sendError" class="pc-alert pc-alert--error">Não conseguimos enviar. Tente de novo.</div>
+              <button type="submit" class="pc-btn pc-btn--primary pc-btn--block" :disabled="sending">
                 {{ sending ? 'Enviando...' : 'Receber contato' }}
               </button>
               <p class="cotacao-lgpd">Ao enviar, você autoriza o contato telefônico sobre sua cotação.</p>
@@ -150,105 +140,97 @@ useHead({
             </form>
           </template>
 
-          <template v-else>
-            <div class="cotacao-done">
-              <div class="win-alert win-alert--success">✅ Recebido! Um corretor entrará em contato.</div>
-              <NuxtLink to="/" class="win-btn win-btn--block cotacao-done__voltar">Voltar pro PlacaCompleta</NuxtLink>
-            </div>
-          </template>
+      <template v-else>
+        <div class="cotacao-done">
+          <div class="pc-alert pc-alert--success">✅ Recebido! Um corretor entrará em contato.</div>
+          <NuxtLink to="/" class="pc-btn pc-btn--block cotacao-done__voltar">Voltar pro PlacaCompleta</NuxtLink>
         </div>
-      </div>
+      </template>
     </main>
   </div>
 </template>
 
 <style lang="scss" scoped>
+// Cotacao no design novo (tokens --pc-*). A logica do form e o noindex ficam
+// intactos; muda so o visual.
 .cotacao-main {
-  width: 100%;          // flex item do .desktop (align-center): sem isso vira fit-content e estoura o viewport
+  width: 100%;   // flex item do body (align-center): sem isso vira fit-content e estoura o viewport
   max-width: 480px;
   margin: 0 auto;
-
-  // o .win-window global tem largura fixa; aqui ele se adapta ao viewport
-  .win-window {
-    width: 100%;
-    max-width: 100%;
-  }
 }
 
 .cotacao-title {
-  font-size: 1.25rem;
-  color: $navy-electric;
-  margin: 0 0 $space-md;
+  font-family: var(--pc-font);
+  font-size: 1.375rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--pc-ink);
+  margin: 0 0 16px;
   text-wrap: balance;
 }
 
 .cotacao-card {
-  border: 1px solid $border-mid;
-  background: $surface-alt;
-  padding: $space-xs $space-sm;
-  margin-bottom: $space-md;
+  border: 1px solid var(--pc-hairline);
+  border-radius: 12px;
+  background: var(--pc-cloud);
+  padding: 6px 14px;
+  margin-bottom: 16px;
 
   &__row {
     display: flex;
     justify-content: space-between;
-    gap: $space-sm;
-    padding: 6px 0;
-    font-size: 0.9rem;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 0.9375rem;
 
-    span { color: $slate-grey; }
-    strong { color: $graphite; text-align: right; }
+    span { color: var(--pc-graphite); }
+    strong { color: var(--pc-ink); font-weight: 600; text-align: right; }
 
-    & + & { border-top: 1px solid $border-light; }
+    & + & { border-top: 1px solid var(--pc-hairline); }
   }
 }
 
 .cotacao-estimativa {
   text-align: center;
-  background: $powder-blue;
-  border: 1px solid $border-light;
-  padding: $space-md;
-  margin-bottom: $space-md;
+  background: var(--pc-cloud);
+  border: 1px solid var(--pc-hairline);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
 
-  &__lead { margin: 0 0 4px; font-size: 0.9rem; color: $graphite; }
+  &__lead { margin: 0 0 4px; font-size: 0.9rem; color: var(--pc-graphite); }
 
   &__premio {
     font-size: 2.2rem;
     font-weight: 700;
-    color: $navy-electric;
+    color: var(--pc-ink);
     margin: 0;
 
-    span { font-size: 1rem; font-weight: 400; color: $graphite; }
+    span { font-size: 1rem; font-weight: 400; color: var(--pc-graphite); }
   }
 
-  &__detalhe { margin: 4px 0 0; font-size: 0.85rem; color: $graphite; }
+  &__detalhe { margin: 4px 0 0; font-size: 0.85rem; color: var(--pc-graphite); }
 }
 
-.cotacao-pitch { color: $graphite; margin: 0 0 $space-md; }
+.cotacao-pitch { color: var(--pc-charcoal); margin: 0 0 16px; line-height: 1.5; }
 
 .cotacao-lgpd {
   font-size: 0.78rem;
-  color: $slate-grey;
-  margin: $space-sm 0 0;
+  color: var(--pc-graphite);
+  margin: 12px 0 0;
   text-align: center;
 }
 
 .cotacao-fonte {
   font-size: 0.72rem;
-  color: $lavender-grey;
-  margin: $space-xs 0 0;
+  color: var(--pc-steel);
+  margin: 8px 0 0;
   text-align: center;
 }
 
 .cotacao-done {
   text-align: center;
 
-  &__voltar {
-    margin-top: $space-md;
-    text-decoration: none;
-  }
-}
-
-.win-alert {
-  margin-bottom: $space-sm;
+  &__voltar { margin-top: 16px; }
 }
 </style>
