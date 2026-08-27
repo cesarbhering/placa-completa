@@ -1143,7 +1143,11 @@ function applyEmailSuggestion() {
                    especifico). Nos variants moto/caminhao e foto real de um
                    modelo especifico (Honda CB600F Hornet / Volvo FH), entao
                    leva alt descritivo de verdade — nao e mais decorativo. -->
-              <div ref="carroRef" class="cb-carro" :class="{ 'is-entrando': carroEntrou }">
+              <div
+                ref="carroRef"
+                class="cb-carro"
+                :class="{ 'is-entrando': carroEntrou, 'cb-carro--contido': siteVariant.variant !== 'default' }"
+              >
                 <img
                   :src="siteVariant.heroImage"
                   :alt="siteVariant.heroImageAlt"
@@ -2323,6 +2327,18 @@ function applyEmailSuggestion() {
       object-fit: cover;
       object-position: center 42%;
       display: block;
+    }
+
+    // Variants moto/caminhao: fotos reais (Honda CB600F Hornet, Volvo FH)
+    // numa proporcao BEM diferente da arte quadrada do carro (que o
+    // aspect-ratio/object-position acima foi calibrado especificamente pra
+    // ela). object-fit:cover cortava a moto/o caminhao pras bordas — troca
+    // pra contain: a foto inteira aparece dentro da caixa, sem cortar nada
+    // (pode sobrar espaco vazio nas laterais/topo, aceitavel — melhor que
+    // cortar o veiculo).
+    &--contido &__img {
+      object-fit: contain;
+      object-position: center;
     }
 
     &__linhas {
