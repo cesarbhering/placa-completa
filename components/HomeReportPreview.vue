@@ -107,7 +107,7 @@ onMounted(async () => {
           <strong>VW Gol 1.0 Flex 12V 5p</strong>
           <span>2018/2018 · Branco · Automóvel · São Paulo/SP</span>
         </span>
-        <PlacaMercosul placa="ABC1D23" mini class="hrp__placa" />
+        <PlacaMercosul placa="ABC1D23" mini :width="132" class="hrp__placa" />
       </div>
 
       <span class="hrp__parecer-rotulo">Parecer</span>
@@ -296,16 +296,20 @@ $font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     span { font-size: 13px; color: $c-graphite; }
   }
 
-  // a mesma placa Mercosul do laudo, em miniatura
-  &__placa { width: 132px; flex-shrink: 0; }
+  // a mesma placa Mercosul do laudo, em miniatura. Largura BASE (132px) vem
+  // da prop `width` do PlacaMercosul (style inline), nao mais desta classe —
+  // evita o flash de "nasce grande, encolhe depois" (mesma causa e fix do
+  // rel__placa-tag em pages/premium/[token].vue: ver o comentario la).
 
   // Mobile estreito: o logo + texto + placa de 132px nao cabem numa linha so e
   // estouravam o card (o overflow:hidden do .hrp cortava a direita). A linha
   // passa a quebrar e a placa desce pra segunda linha, alinhada a esquerda.
+  // !important e a UNICA forma de uma classe vencer o style inline da largura
+  // base.
   @media (max-width: 480px) {
     &__veh { flex-wrap: wrap; }
     &__veh-txt { flex: 1 1 60%; }
-    &__placa { width: 116px; }
+    &__placa { width: 116px !important; }
   }
 
   &__parecer-rotulo {
