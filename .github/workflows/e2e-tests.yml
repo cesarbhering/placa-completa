@@ -1,10 +1,11 @@
 name: E2E Tests
 
+# Phase-out: os testes E2E nao rodam mais automaticamente em PR/push.
+# Ficam disponiveis apenas por acionamento manual (workflow_dispatch) e o
+# codigo dos testes (tests/, playwright.config.ts, vitest.config.ts)
+# permanece versionado como memoria/referencia.
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   test-basic:
@@ -43,14 +44,12 @@ jobs:
           retention-days: 7
 
   # Lead-capture tests hit a real Supabase project with the service role
-  # key, which bypasses RLS. Running this job on PRs would give anyone who
-  # can open a PR (collaborators, or anyone touching the workflow file)
-  # an opportunity to exfiltrate the secret via a crafted step. We restrict
-  # it to `push: main` (post-merge validation) until a dedicated staging
-  # project with a scoped service role exists.
+  # key, which bypasses RLS. Nunca rodam em PR para evitar exfiltracao do
+  # secret via step malicioso; agora so por acionamento manual
+  # (workflow_dispatch), que exige permissao de escrita no repo.
   test-lead-capture:
-    name: Lead Capture Tests (post-merge)
-    if: github.event_name == 'push'
+    name: Lead Capture Tests (manual)
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
