@@ -282,17 +282,22 @@ $font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border-bottom: 1px solid $c-hair;
   }
 
+  // flex:1 (mesmo padrao do laudo real em pages/premium/[token].vue) faz o
+  // bloco de texto ocupar o espaco sobrando e empurrar a placa pra direita —
+  // sem isso os dois grupos (texto/placa) ficavam colados a esquerda em vez
+  // de "respirarem" nas telas largas.
   &__veh-txt {
     display: flex;
     flex-direction: column;
     min-width: 0;
+    flex: 1;
 
     strong { font-size: 16px; font-weight: 500; }
     span { font-size: 13px; color: $c-graphite; }
   }
 
   // a mesma placa Mercosul do laudo, em miniatura
-  &__placa { width: 132px; flex-shrink: 0; margin-left: auto; }
+  &__placa { width: 132px; flex-shrink: 0; }
 
   // Mobile estreito: o logo + texto + placa de 132px nao cabem numa linha so e
   // estouravam o card (o overflow:hidden do .hrp cortava a direita). A linha
@@ -300,7 +305,7 @@ $font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   @media (max-width: 480px) {
     &__veh { flex-wrap: wrap; }
     &__veh-txt { flex: 1 1 60%; }
-    &__placa { width: 116px; margin-left: 0; }
+    &__placa { width: 116px; }
   }
 
   &__parecer-rotulo {
