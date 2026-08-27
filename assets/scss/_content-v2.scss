@@ -37,6 +37,15 @@
   margin: 0 0 20px;
 }
 
+// Paragrafo de abertura, um pouco maior
+.pc-lead {
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  color: var(--pc-charcoal);
+  margin: 0 0 20px;
+  strong { color: var(--pc-ink); font-weight: 600; }
+}
+
 // Bloco de texto corrido
 .pc-prose {
   font-size: 1rem;

@@ -35,22 +35,12 @@ useHead({
 </script>
 
 <template>
-  <div class="desktop content-page">
-    <main>
-      <div class="win-window">
-        <div class="win-window__titlebar">
-          <span>Estudos e Dados</span>
-          <div class="win-window__titlebar-buttons">
-            <span class="win-window__titlebar-btn">_</span>
-            <span class="win-window__titlebar-btn">□</span>
-            <span class="win-window__titlebar-btn">×</span>
-          </div>
-        </div>
-        <div class="win-window__body">
-          <h1 class="seo-title">Estudos e Dados do Mercado Automotivo</h1>
+  <div class="pc-page">
+    <main class="pc-container">
+      <h1 class="pc-h1">Estudos e Dados do Mercado Automotivo</h1>
 
-          <div class="seo-content">
-            <p class="lead">
+      <div class="pc-prose">
+        <p class="pc-lead">
               O PlacaCompleta compila e analisa dados oficiais para ajudar brasileiros a
               entender o mercado de veículos: quanto custa segurar um carro em cada região,
               como os preços de usados se movem e qual o valor de mercado de cada modelo.
@@ -66,7 +56,7 @@ useHead({
               inflação do seguro de veículo medida pelo <strong>IBGE</strong> (subitem do IPCA)
               e segmentadas pelas 41 regiões de tarifação usadas pelas seguradoras.
             </p>
-            <ul class="estudos-list">
+            <ul>
               <li>
                 <NuxtLink to="/ibv/seguro-mais-caro-brasil-2026">
                   As 5 regiões com seguro de carro mais caro do Brasil (e as 5 mais baratas)
@@ -90,7 +80,7 @@ useHead({
               que mais valorizaram ou desvalorizaram. A fonte primária é sempre o
               <strong>Banco BV</strong>.
             </p>
-            <ul class="estudos-list">
+            <ul>
               <li v-if="ultimoIbv">
                 <NuxtLink :to="`/ibv/${ultimoIbv.slug}`">{{ ultimoIbv.title }}</NuxtLink>
                 — análise mais recente.
@@ -107,7 +97,7 @@ useHead({
               Econômicas) por modelo e ano, com histórico de variação. A FIPE é a referência
               nacional de valor de mercado, atualizada mensalmente.
             </p>
-            <ul class="estudos-list">
+            <ul>
               <li>
                 <NuxtLink to="/tabela-fipe">Tabela FIPE por marca e modelo</NuxtLink>
                 — preços e histórico. Fonte: FIPE.
@@ -127,29 +117,11 @@ useHead({
               pedidos de dados: <strong>contato[at]placacompleta.com.br</strong>.
             </p>
 
-            <div class="text-center mt-md mb-md">
-              <NuxtLink to="/" class="win-btn win-btn--primary">Consultar placa grátis</NuxtLink>
-            </div>
-          </div>
+        <div class="pc-cta">
+          <NuxtLink to="/" class="pc-btn pc-btn--primary">Consultar placa grátis</NuxtLink>
         </div>
       </div>
     </main>
   </div>
 </template>
 
-<style lang="scss" scoped>
-.estudos-list {
-  margin: 0 0 $space-md;
-  padding-left: 1.2rem;
-  line-height: 1.7;
-
-  li {
-    margin-bottom: $space-xs;
-  }
-
-  a {
-    color: $navy-electric;
-    font-weight: 600;
-  }
-}
-</style>
