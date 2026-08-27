@@ -9,17 +9,9 @@ useHead({
 </script>
 
 <template>
-  <div class="desktop">
-    <main>
-      <div class="win-window win-window--wide">
-      <div class="win-window__titlebar">
-        <span>Política de Privacidade</span>
-        <div class="win-window__titlebar-buttons">
-          <NuxtLink to="/" class="win-window__titlebar-btn">&times;</NuxtLink>
-        </div>
-      </div>
-      <div class="win-window__body">
-        <h1 class="legal-title">Política de Privacidade</h1>
+  <div class="pc-page">
+    <main class="pc-container">
+      <h1 class="legal-title">Política de Privacidade</h1>
         <p class="legal-updated">Última atualização: 14 de maio de 2026</p>
 
         <div class="legal-content">
@@ -270,72 +262,77 @@ useHead({
           </p>
         </div>
 
-        <div class="text-center mt-md">
-          <NuxtLink to="/" class="win-btn">Voltar</NuxtLink>
+        <div class="pc-cta">
+          <NuxtLink to="/" class="pc-btn">Voltar</NuxtLink>
         </div>
-      </div>
-    </div>
     </main>
   </div>
 </template>
 
+
 <style lang="scss" scoped>
+// Pagina legal no design novo (tokens --pc-*). SO o visual muda; o texto
+// juridico fica intacto.
 .legal-title {
-  font-family: $font-display;
-  font-size: 1.75rem;
-  color: $navy-electric;
+  font-family: var(--pc-font);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 600;
+  color: var(--pc-ink);
   text-align: center;
-  margin-bottom: $space-xs;
+  margin-bottom: 6px;
 }
 
 .legal-updated {
-  font-size: 0.75rem;
-  color: $win-dark;
+  font-size: 0.8125rem;
+  color: var(--pc-graphite);
   text-align: center;
-  margin-bottom: $space-md;
+  margin-bottom: 24px;
 }
 
 .legal-content {
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
   line-height: 1.7;
-  color: $graphite;
+  color: var(--pc-charcoal);
 
   h2 {
-    font-family: $font-display;
-    font-size: 1.125rem;
-    color: $navy-electric;
-    margin: $space-lg 0 $space-sm;
+    font-family: var(--pc-font);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--pc-ink);
+    margin: 28px 0 10px;
   }
 
   h3 {
-    font-family: $font-display;
-    font-size: 1rem;
-    color: $graphite;
-    margin: $space-md 0 $space-xs;
+    font-family: var(--pc-font);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--pc-ink);
+    margin: 18px 0 8px;
   }
 
-  p { margin-bottom: $space-sm; }
-
-  ul, ol {
-    padding-left: $space-lg;
-    margin-bottom: $space-sm;
-  }
-
-  li { margin-bottom: $space-xs; }
+  p { margin-bottom: 12px; }
+  ul, ol { padding-left: 22px; margin-bottom: 12px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--pc-ink); font-weight: 600; }
 
   a {
-    color: $smart-blue;
-    text-decoration: underline;
+    color: var(--pc-blue);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(31, 111, 235, 0.35);
+    &:hover { border-bottom-color: var(--pc-blue); }
   }
 }
 
 .legal-quote {
-  @include win-border-sunken;
-  background: $powder-blue;
-  padding: $space-sm $space-md;
+  background: var(--pc-cloud);
+  border: 1px solid var(--pc-hairline);
+  border-left: 3px solid var(--pc-blue);
+  border-radius: 12px;
+  padding: 12px 16px;
   font-style: italic;
-  font-size: 0.75rem;
-  margin: $space-sm 0 $space-md;
+  font-size: 0.875rem;
   line-height: 1.6;
+  color: var(--pc-charcoal);
+  margin: 12px 0 16px;
 }
 </style>
