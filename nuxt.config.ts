@@ -569,6 +569,10 @@ export default defineNuxtConfig({
     abacatepayApiKey: process.env.ABACATEPAY_API_KEY || "",
     abacatepayWebhookSecret: process.env.ABACATEPAY_WEBHOOK_SECRET || "",
     abacatepayBase: process.env.ABACATEPAY_BASE || "https://api.abacatepay.com/v2",
+    // Servico interno de decode de VIN/chassi (services/vin-decoder), rede
+    // docker interna, sem porta publica. Fail-open: se estiver fora, o bloco
+    // "Origem do chassi" so nao aparece no relatorio, nunca quebra a entrega.
+    vinDecoderUrl: process.env.VIN_DECODER_URL || "http://vin-decoder:3000",
     premiumBaseUrl: process.env.PREMIUM_BASE_URL || "https://placacompleta.com.br",
     premiumValorCentavos: process.env.PREMIUM_VALOR_CENTAVOS || "4500",
     // SENATRAN homologacao (GCC + SERPRO). Certs via PEM em env (base64 ou texto).
