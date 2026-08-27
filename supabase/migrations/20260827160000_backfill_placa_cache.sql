@@ -36,6 +36,10 @@ from (
   from public.consultas
   where api_response is not null
     and jsonb_typeof(api_response) = 'object'
+    -- so dentro da janela de TTL das encontradas (180 dias): row mais antiga ja
+    -- nasceria vencida no cache (idade > TTL -> re-consulta), so incharia a
+    -- tabela sem beneficio.
+    and created_at >= now() - interval '180 days'
     and coalesce(
       nullif(api_response->>'MARCA', ''), nullif(api_response->>'marca', ''),
       nullif(api_response->>'MODELO', ''), nullif(api_response->>'modelo', ''),
