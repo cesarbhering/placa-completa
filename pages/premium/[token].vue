@@ -437,6 +437,7 @@ const numSecao = computed(() => {
   // diferencial (veiculo importado), mas nao e mais destaque de topo — fica
   // no fluxo normal da leitura, logo antes da ficha cadastral/tecnica.
   if (fichaImportacao.value.length) ordem.push('importado')
+  if (fichaChassiOrigem.value.length) ordem.push('chassiOrigem')
   ordem.push('ficha')
   if (temValor.value) ordem.push('valor')
   const m: Record<string, number> = {}
@@ -532,6 +533,22 @@ const fichaImportacao = computed(() => {
     linhaImportacao('Órgão de despacho (Receita/SRF)', imp.codigoOrgaoSrf),
     linhaImportacao('Nº do processo de importação', imp.numeroProcessoImportacao),
     linhaImportacao('Nº do registro de despacho aduaneiro', imp.numeroRegistroDespachoAduaneira),
+  ].filter(Boolean) as [string, string][]
+})
+
+// Origem do chassi: decode de VIN (services/vin-decoder), so completa. O
+// server ja faz o gate por plano (nunca monta chassiOrigem pra basica) — aqui
+// e so questao de ter o dado ou nao (fail-open: servico fora, campo vem
+// null, secao inteira some). Cada linha omite campo null individualmente
+// (ex: planta e frequentemente desconhecida).
+const fichaChassiOrigem = computed(() => {
+  const co = data.value?.chassiOrigem
+  if (!co) return []
+  return [
+    linha('Fabricante', co.fabricante),
+    linha('País de fabricação', co.pais),
+    linha('Ano-modelo (pelo chassi)', co.anoModelo),
+    linha('Planta', co.planta),
   ].filter(Boolean) as [string, string][]
 })
 
@@ -846,6 +863,17 @@ onUnmounted(() => poll && clearInterval(poll))
             <table class="rel__tab">
               <tbody>
                 <tr v-for="([k, val]) in fichaImportacao" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <!-- Origem do chassi: decode de VIN, so completa. Some sozinha se
+               o servico de decode estiver fora (fail-open no server). -->
+          <section v-if="fichaChassiOrigem.length" class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.chassiOrigem }}. Origem do chassi</h2>
+            <table class="rel__tab">
+              <tbody>
+                <tr v-for="([k, val]) in fichaChassiOrigem" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
               </tbody>
             </table>
           </section>
