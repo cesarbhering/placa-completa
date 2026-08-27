@@ -28,8 +28,8 @@ const chartConfig = {
     datasets: [{
       label: 'Honda Civic EXL 2020 (R$)',
       data: [122500, 121800, 120400, 118900, 117300, 115800, 114200],
-      borderColor: '#1a2a6c',
-      backgroundColor: 'rgba(26,42,108,0.1)',
+      borderColor: '#1f6feb',
+      backgroundColor: 'rgba(31,111,235,0.1)',
       fill: true,
       tension: 0.3,
     }],
@@ -175,29 +175,19 @@ useHead({
 </script>
 
 <template>
-  <div class="desktop content-page">
-    <main>
-      <div class="win-window">
-        <div class="win-window__titlebar">
-          <span>Tabela FIPE por Placa</span>
-          <div class="win-window__titlebar-buttons">
-            <span class="win-window__titlebar-btn">_</span>
-            <span class="win-window__titlebar-btn">□</span>
-            <span class="win-window__titlebar-btn">×</span>
-          </div>
-        </div>
-        <div class="win-window__body">
-          <h1 class="seo-title">Tabela FIPE pela Placa</h1>
+  <div class="pc-page">
+    <main class="pc-container">
+      <h1 class="pc-h1">Tabela FIPE pela Placa</h1>
 
-          <div class="seo-content">
-            <p class="lead">
+      <div class="pc-prose">
+        <p class="pc-lead">
               Você digita a placa, recebe no e-mail o <strong>valor FIPE atualizado</strong> do
               veículo em {{ currentMonth }} de {{ currentYear }}, junto com marca, modelo, ano,
               versão e código FIPE da versão exata. Grátis, sem cadastro, em segundos.
             </p>
 
-            <div class="text-center mt-md mb-md">
-              <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
+            <div class="pc-cta">
+              <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
                 Consultar FIPE pela Placa Agora
               </NuxtLink>
             </div>
@@ -318,8 +308,8 @@ useHead({
               <li>Situação do veículo na base do Denatran</li>
             </ul>
 
-            <div class="text-center mt-md mb-md">
-              <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
+            <div class="pc-cta">
+              <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
                 Consultar Valor FIPE pela Placa
               </NuxtLink>
             </div>
@@ -349,132 +339,67 @@ useHead({
             </div>
 
             <h2>Perguntas frequentes sobre a Tabela FIPE pela placa</h2>
-            <div v-for="faq in faqs" :key="faq.q" class="faq-item">
+            <div v-for="faq in faqs" :key="faq.q" class="pc-faq__item">
               <h3>{{ faq.q }}</h3>
               <p>{{ faq.a }}</p>
             </div>
 
-            <nav class="breadcrumb">
+            <nav class="pc-breadcrumb">
               <NuxtLink to="/">Início</NuxtLink>
               <span> &rsaquo; </span>
               <strong>Tabela FIPE pela Placa</strong>
             </nav>
           </div>
 
-          <div class="text-center mt-md">
-            <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
-              Consultar FIPE Agora
-            </NuxtLink>
-          </div>
-        </div>
+      <div class="pc-cta">
+        <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
+          Consultar FIPE Agora
+        </NuxtLink>
       </div>
     </main>
   </div>
 </template>
 
+
 <style lang="scss" scoped>
-.seo-title {
-  font-family: $font-display;
-  font-size: 1.75rem;
-  color: $navy-electric;
-  text-align: center;
-  margin-bottom: $space-md;
-}
-
-.seo-content {
-  font-size: 0.8125rem;
-  line-height: 1.6;
-  color: $graphite;
-
-  p { margin-bottom: $space-md; }
-
-  .lead {
-    font-size: 0.9375rem;
-    font-weight: 500;
-  }
-
-  h2 {
-    font-family: $font-display;
-    font-size: 1.25rem;
-    color: $navy-electric;
-    margin: $space-md 0 $space-sm;
-  }
-
-  h3 {
-    font-family: $font-display;
-    font-size: 1rem;
-    color: $smart-blue;
-    margin-bottom: $space-xs;
-  }
-
-  ul, ol {
-    padding-left: $space-lg;
-    margin-bottom: $space-md;
-  }
-
-  li { margin-bottom: $space-xs; }
-
-  a {
-    color: $smart-blue;
-    text-decoration: underline;
-  }
-}
-
-.chart-wrap {
-  text-align: center;
-  img {
-    max-width: 100%;
-    height: auto;
-    @include win-border-sunken;
-    background: white;
-  }
-}
+// Tabela FIPE pela placa no design novo (tokens --pc-*). Grades de link em cards
+// hairline; o grafico externo dentro de uma moldura hairline. Conteudo, headings,
+// FAQ, schema e internal links ficam intactos.
 
 .link-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: $space-xs;
-  margin-bottom: $space-md;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 12px 0 20px;
 }
-
 .link-card {
-  @include win-border-raised;
-  background: $win-bg;
-  padding: $space-xs $space-sm;
-  text-align: center;
-  text-decoration: none;
-  font-family: $font-display;
+  display: block;
+  padding: 12px 14px;
+  border: 1px solid var(--pc-hairline);
+  border-radius: 12px;
+  background: var(--pc-canvas);
+  color: var(--pc-ink);
+  font-weight: 600;
   font-size: 0.9375rem;
-  color: $graphite;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
 
-  &:hover { background: $powder-blue; }
-  &:active { border-color: $win-darker $win-white $win-white $win-darker; }
+  &:hover { border-color: var(--pc-blue); background: var(--pc-cloud); }
 }
 
-.faq-item {
-  @include win-border-sunken;
-  background: $win-white;
-  padding: $space-sm $space-md;
-  margin-bottom: $space-sm;
+.chart-wrap {
+  margin: 12px 0 20px;
+  border: 1px solid var(--pc-hairline);
+  border-radius: 12px;
+  background: var(--pc-canvas);
+  padding: 12px;
+  overflow-x: auto;
 
-  h3 { margin-top: 0; }
-  p:last-child { margin-bottom: 0; }
-}
-
-.breadcrumb {
-  font-size: 0.75rem;
-  margin-top: $space-lg;
-  padding-top: $space-sm;
-  border-top: 1px solid $win-dark;
-
-  a {
-    color: $smart-blue;
-    text-decoration: underline;
-  }
-
-  span {
-    color: $win-dark;
-    margin: 0 2px;
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
   }
 }
 </style>
