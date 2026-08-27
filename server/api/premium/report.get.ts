@@ -65,9 +65,10 @@ export default defineEventHandler(async (event) => {
 
   const plano = pedido.plano || 'completa'
 
-  // Valor FIPE, seguro e custo em 5 anos sairam da gratis e viraram conteudo
-  // pago: quem comprou precisa receber. So pra pedido ja entregue, e nunca na
-  // tela de retomada do Pix (ali ninguem pagou ainda).
+  // Seguro estimado e custo em 5 anos sao conteudo pago (o valor FIPE atual
+  // voltou pra gratis; so a evolucao/historico de depreciacao segue pago). Quem
+  // comprou precisa receber isto. So pra pedido ja entregue, e nunca na tela de
+  // retomada do Pix (ali ninguem pagou ainda).
   let valorCusto: Awaited<ReturnType<typeof getValorCusto>> = null
   if (!pendente && pedido.status === 'entregue') {
     const local = localDoVeiculo(pedido)
