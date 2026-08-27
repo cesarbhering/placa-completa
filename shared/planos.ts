@@ -90,7 +90,7 @@ export const RECURSOS: Recurso[] = [
   { label: 'Potência, cilindrada, eixos e lotação', planos: ['basica', 'completa'] },
   { label: 'Município e UF de jurisdição',          planos: ['basica', 'completa'] },
   { label: 'Recall pendente',                       planos: ['basica', 'completa'] },
-  { label: 'Renavam completo',                      planos: ['completa'] },
+  { label: 'Renavam completo',                      planos: ['basica', 'completa'] },
   { label: 'Restrições nacionais e estaduais',      planos: ['completa'] },
   { label: 'Roubo e furto',                         planos: ['completa'] },
   { label: 'Passagem por leilão',                   planos: ['completa'] },
@@ -165,10 +165,10 @@ export function normalizarResposta(response: any): Record<string, any> {
 export const CAMPOS_BASICA: readonly string[] = [
   // identificacao (nomes conferidos contra a resposta real da API)
   'placa', 'descricaoMarcaModelo', 'anoFabricacao', 'anoModelo', 'descricaoCor',
-  // Chassi completo entrou na basica por decisao de produto (o card de preco
-  // promete). Renavam NAO entra: segue exclusivo da completa, e a whitelist e o
-  // unico lugar que decide isso de fato.
-  'chassi',
+  // Chassi completo e Renavam completo entraram na basica por decisao de produto
+  // (os cards de preco prometem). A whitelist e o unico lugar que decide isso de
+  // fato; o Renavam segue tambem na completa (superset).
+  'chassi', 'renavam',
   'descricaoEspecie', 'descricaoTipoVeiculo', 'descricaoCategoria', 'procedencia',
   'situacao', 'ufJurisdicao', 'municipio',
   'potencia', 'cilindrada', 'quantidadeDeEixos', 'lotacao',
