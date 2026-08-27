@@ -37,4 +37,16 @@ API-DOCS.md
 
 # Local WhatsApp dev stack creds (Evolution API key + Postgres pw)
 dev/whatsapp/.env
+
+# Credenciais de homologacao do premium. O padrao .env/.env.* nao pega este
+# nome (ele termina em .env, nao comeca), e o arquivo carrega chave privada do
+# SENATRAN, service key do Supabase e token do AbacatePay.
+*.env
 !dev/whatsapp/.env.example
+!dev/whatsapp/.env.example
+
+# Playwright run artifacts
+test-results/
+
+# agent worktrees / scratch
+.claude/worktrees/

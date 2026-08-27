@@ -29,7 +29,6 @@ interface RateLimitConfig {
 // Rate limit configurations by endpoint pattern
 const rateLimitConfigs: Record<string, RateLimitConfig> = {
   '/api/consulta': { windowMs: 60 * 1000, maxRequests: 10 }, // 10 per minute
-  '/api/read-plate': { windowMs: 60 * 1000, maxRequests: 5 }, // 5 per minute (expensive AI call)
   '/api/send-notification': { windowMs: 60 * 1000, maxRequests: 5 }, // 5 per minute
   '/api/dash-auth': { windowMs: 60 * 60 * 1000, maxRequests: 5 }, // 5 per hour (auth)
   '/api/fcm-token/save': { windowMs: 60 * 1000, maxRequests: 10 }, // 10 per minute
@@ -76,6 +75,12 @@ export default defineEventHandler(async (event) => {
 
   // Skip rate limiting for GET /api/count (public metric)
   if (path === '/api/count' && getMethod(event) === 'GET') {
+    return
+  }
+
+  // Homolog e ambiente de teste: sem rate limit pra nao travar quem esta
+  // testando. So o container de homolog seta NUXT_PUBLIC_HOMOLOG; prod nao.
+  if (useRuntimeConfig().public.homolog) {
     return
   }
 
