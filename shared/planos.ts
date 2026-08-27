@@ -155,6 +155,32 @@ export function recursosDoPlano(plano: PlanoId): string[] {
  */
 export const RECURSOS_BLOQUEADOS: Recurso[] = RECURSOS.filter((r) => !inclui(r, 'gratis'))
 
+// ------------------------------------------------------------
+// Cards de comparacao "em heranca" (Opcao C, escolhida pelo Cesar): cada
+// plano pago mostra SO o que ele ADICIONA ao anterior na escada, sem repetir
+// o que ja apareceu no card de baixo — em vez da grade completa com X pra
+// cada item que falta. Some o X/risco: a heranca substitui a comparacao por
+// negacao.
+// ------------------------------------------------------------
+
+/** O plano "de baixo" na escada, cujo card o de cima herda e complementa. */
+export const PLANO_ANTERIOR: Partial<Record<PlanoId, PlanoId>> = {
+  basica: 'gratis',
+  completa: 'basica',
+}
+
+/**
+ * Recursos que ESTE plano tem e o anterior na escada nao — as "novidades" do
+ * card. Pro plano sem anterior (gratis, a base da escada), devolve os
+ * recursos que ele proprio tem (nao ha o que herdar). DERIVADO do proprio
+ * RECURSOS: um item novo na matriz cai no card certo sozinho, sem lista
+ * paralela pra manter sincronizada.
+ */
+export function recursosNovosNoPlano(plano: PlanoId): Recurso[] {
+  const anterior = PLANO_ANTERIOR[plano]
+  return RECURSOS.filter((r) => inclui(r, plano) && !(anterior && inclui(r, anterior)))
+}
+
 export function isPlanoPago(v: unknown): v is 'basica' | 'completa' {
   return v === 'basica' || v === 'completa'
 }

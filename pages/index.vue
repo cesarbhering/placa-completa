@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PLANOS, PLANOS_PAGOS, RECURSOS, RECURSOS_BLOQUEADOS, inclui, isPlanoPago, precoBRL } from '~/shared/planos'
+import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL } from '~/shared/planos'
 
 import { homepageFaqs } from '~/data/homepage-faqs'
 
@@ -1356,24 +1356,25 @@ function applyEmailSuggestion() {
             </div>
             <div class="cb-cmp-note">{{ p.chamada }}</div>
 
+            <!-- Cards em heranca: cada plano pago mostra SO o que ele
+                 adiciona ao anterior (o pill diz o resto). Sem X/risco — a
+                 heranca substitui a comparacao por negacao. -->
+            <!-- PLANO_ANTERIOR so mapeia basica->gratis e completa->basica:
+                 o anterior e sempre "Consulta ..." (feminino), entao "da"
+                 fixo funciona pros dois casos sem precisar de logica de
+                 genero — nunca ha "do relatório" aqui. -->
+            <span v-if="PLANO_ANTERIOR[p.id]" class="cb-cmp-heranca">
+              Tudo da {{ PLANOS[PLANO_ANTERIOR[p.id]].nome.toLowerCase() }}, e mais:
+            </span>
+
             <ul class="cb-cmp-list">
-              <li
-                v-for="r in RECURSOS.filter((x) => !(x.ocultarEm || []).includes(p.id))"
-                :key="r.label"
-                :class="{ 'cb-cmp-item--off': !inclui(r, p.id) }"
-              >
-                <svg v-if="inclui(r, p.id)" class="cb-ico cb-ico--yes" viewBox="0 0 20 20" aria-hidden="true">
+              <li v-for="r in recursosNovosNoPlano(p.id)" :key="r.label">
+                <svg class="cb-ico cb-ico--yes" viewBox="0 0 20 20" aria-hidden="true">
                   <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
                   <path d="M6 10.2l2.6 2.6L14 7.4" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
-                <svg v-else class="cb-ico cb-ico--no" viewBox="0 0 20 20" aria-hidden="true">
-                  <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
-                  <path d="M7 7l6 6M13 7l-6 6" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" />
-                </svg>
                 <span>{{ r.label }}</span>
-                <span class="visually-hidden">{{ inclui(r, p.id) ? 'incluído' : 'não incluído' }}</span>
               </li>
             </ul>
 
@@ -2505,8 +2506,6 @@ function applyEmailSuggestion() {
     flex: 0 0 20px;
 
     &--yes { color: $c-blue; }
-    &--check { color: $c-blue; }
-    &--no { color: $c-red; }
   }
 
   .cb-eyebrow {
@@ -2980,6 +2979,20 @@ function applyEmailSuggestion() {
 
   .cb-cmp-note { font-size: 14px; line-height: 1.5; color: $c-charcoal; margin-bottom: $s-md; }
 
+  // Pill "Tudo da consulta X, e mais:" — cards em heranca (Opcao C): so
+  // aparece nos planos pagos, que herdam do anterior na escada.
+  .cb-cmp-heranca {
+    display: inline-block;
+    align-self: flex-start;
+    font-size: 13px;
+    font-weight: 600;
+    color: $c-blue;
+    background: rgba(31, 111, 235, 0.08);
+    border-radius: 999px;
+    padding: 5px 12px;
+    margin-bottom: $s-sm;
+  }
+
   .cb-cmp-list {
     list-style: none;
     display: flex;
@@ -2994,14 +3007,6 @@ function applyEmailSuggestion() {
       font-size: 15px;
       line-height: 1.33;
       align-items: flex-start;
-    }
-
-    // Item ausente: cinza + X. A cor sozinha nao carrega o significado — o
-    // desenho do icone ja diferencia, e ha texto so pra leitor de tela.
-    .cb-cmp-item--off {
-      color: $c-graphite;
-
-      span:first-of-type { text-decoration: line-through; text-decoration-thickness: 1px; }
     }
 
     .cb-ico { margin-top: 1px; }
