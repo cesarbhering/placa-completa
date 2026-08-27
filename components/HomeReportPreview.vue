@@ -294,6 +294,15 @@ $font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // a mesma placa Mercosul do laudo, em miniatura
   &__placa { width: 132px; flex-shrink: 0; margin-left: auto; }
 
+  // Mobile estreito: o logo + texto + placa de 132px nao cabem numa linha so e
+  // estouravam o card (o overflow:hidden do .hrp cortava a direita). A linha
+  // passa a quebrar e a placa desce pra segunda linha, alinhada a esquerda.
+  @media (max-width: 480px) {
+    &__veh { flex-wrap: wrap; }
+    &__veh-txt { flex: 1 1 60%; }
+    &__placa { width: 116px; margin-left: 0; }
+  }
+
   &__parecer-rotulo {
     display: block;
     margin: 14px 0 4px;
@@ -541,6 +550,9 @@ $font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       padding: 7px 0;
       border-bottom: 1px solid $c-hair;
       font-size: 13px;
+      // codigos longos sem espaco (chassi/renavam) nao podem forcar a largura
+      // da tabela alem do container no mobile
+      overflow-wrap: anywhere;
     }
     td:first-child { color: $c-graphite; width: 52%; }
     td:last-child { font-weight: 500; text-align: right; }
