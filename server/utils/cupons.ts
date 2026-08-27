@@ -1,20 +1,47 @@
 import { aplicarCupom, PLANOS, type PlanoId } from '../../shared/planos'
 
-// Validacao + calculo de cupom (v1). Usado tanto pelo endpoint de validar
-// (blur do input, so pra mostrar o preco) quanto pelo checkout (que RECALCULA
-// tudo de novo antes de gravar o pedido — nunca confia no preco que o client
-// mandou, mesmo que tenha vindo desta mesma funcao segundos antes).
+// Validacao + calculo de cupom (v1). A AbacatePay E A FONTE DA VERDADE do
+// cupom (o Cesar cria/gerencia os cupons direto no dashboard dela) — nao
+// validamos mais contra uma tabela nossa. GET /coupons/get?id=<codigo>: o
+// `id` do cupom na API da AbacatePay E o proprio codigo (confirmado ao vivo:
+// criar com code="HEMORROIDAS" -> id volta "HEMORROIDAS").
+//
+// O nosso checkout e Pix TRANSPARENTE: a AbacatePay nao aplica o cupom
+// sozinha (isso so existe no checkout hosted dela). Entao o desconto e
+// calculado aqui (aplicarCupom, com piso) e aplicado no amountCentavos do
+// Pix — SEMPRE recalculado no checkout.post.ts, nunca confia no client.
+//
+// Limite de uso: o `maxRedeems`/`redeemsCount` da AbacatePay NAO reflete
+// nosso fluxo (ela so incrementa redeemsCount quando o cupom e usado nos
+// checkouts/subscriptions hosted dela, que a gente nao usa). Por isso o
+// limite global e SEMPRE contado na nossa tabela `cupons_premium_usos` (que
+// virou so um log, sem mais referencia a `cupons_premium`), usando o
+// maxRedeems que a AbacatePay devolve como teto. Por-cliente: sem suporte
+// nativo na AbacatePay, mantemos o teto de 1 uso por email/cupom aqui — ja
+// era assim na v1 e segue como higiene anti-abuso razoavel.
 //
 // Falha SEMPRE fechada: qualquer motivo de recusa devolve ok:false com um
 // motivo, nunca deixa passar por omissao.
 
+const LIMITE_USO_POR_CLIENTE = 1
+
 export interface CupomValidado {
   ok: boolean
   motivo?: string
+  /** Id do cupom na AbacatePay — que E o codigo, guardado no log de uso. */
   cupomId?: string
   precoBrutoCentavos: number
   descontoCentavos: number
   precoLiquidoCentavos: number
+}
+
+interface AbacateCoupon {
+  id: string
+  status: 'ACTIVE' | 'DELETED' | 'DISABLED'
+  discountKind: 'PERCENTAGE' | 'FIXED'
+  discount: number
+  maxRedeems: number
+  redeemsCount: number
 }
 
 export async function validarCupom(
@@ -33,53 +60,50 @@ export async function validarCupom(
   const codigo = codigoBruto.trim().toUpperCase().replace(/\s+/g, '')
   if (!codigo) return { ...semDesconto, motivo: 'Informe um cupom.' }
 
-  const { data: cupom, error } = await supabase
-    .from('cupons_premium')
-    .select('*')
-    .eq('codigo', codigo)
-    .maybeSingle()
-
-  if (error || !cupom) return { ...semDesconto, motivo: 'Cupom nao encontrado.' }
-  if (!cupom.ativo) return { ...semDesconto, motivo: 'Cupom inativo.' }
-
-  const agora = Date.now()
-  if (cupom.valido_de && new Date(cupom.valido_de).getTime() > agora) {
-    return { ...semDesconto, motivo: 'Cupom ainda nao esta valido.' }
+  const { base, key } = cfg()
+  let cupom: AbacateCoupon | null = null
+  try {
+    const res = await $fetch<{ data: AbacateCoupon | null; success: boolean; error: string | null }>(
+      `${base}/coupons/get`,
+      { method: 'GET', headers: { Authorization: `Bearer ${key}` }, query: { id: codigo } },
+    )
+    cupom = res.data
+  } catch (e: any) {
+    // 404 e o caso normal de "cupom nao existe" — nao e erro de infra.
+    if (e?.statusCode !== 404 && e?.response?.status !== 404) {
+      console.warn('[cupom] getCoupon falhou:', e?.data?.error || e?.message)
+    }
+    return { ...semDesconto, motivo: 'Cupom nao encontrado.' }
   }
-  if (cupom.valido_ate && new Date(cupom.valido_ate).getTime() < agora) {
-    return { ...semDesconto, motivo: 'Cupom expirado.' }
-  }
-  if (!Array.isArray(cupom.planos) || !cupom.planos.includes(plano)) {
-    return { ...semDesconto, motivo: 'Cupom nao vale para este plano.' }
-  }
+  if (!cupom) return { ...semDesconto, motivo: 'Cupom nao encontrado.' }
+  if (cupom.status !== 'ACTIVE') return { ...semDesconto, motivo: 'Cupom inativo.' }
 
-  // Limite global e por-cliente contados na tabela de usos (fonte da verdade),
-  // nao no contador `usos_atual` (que e so um cache pra leitura rapida no
-  // dashboard e pode ficar defasado sem quebrar a regra de negocio).
-  if (cupom.limite_uso_global != null) {
+  // Limite global: usa maxRedeems da AbacatePay como teto, mas CONTA no nosso
+  // log (redeemsCount dela nao reflete o Pix transparente).
+  if (cupom.maxRedeems != null && cupom.maxRedeems !== -1) {
     const { count } = await supabase
       .from('cupons_premium_usos')
       .select('id', { count: 'exact', head: true })
       .eq('cupom_id', cupom.id)
-    if ((count || 0) >= cupom.limite_uso_global) {
+    if ((count || 0) >= cupom.maxRedeems) {
       return { ...semDesconto, motivo: 'Cupom esgotado.' }
     }
   }
-  if (cupom.limite_uso_por_cliente != null) {
-    const { count } = await supabase
-      .from('cupons_premium_usos')
-      .select('id', { count: 'exact', head: true })
-      .eq('cupom_id', cupom.id)
-      .eq('email', email)
-    if ((count || 0) >= cupom.limite_uso_por_cliente) {
-      return { ...semDesconto, motivo: 'Voce ja usou este cupom.' }
-    }
+
+  // Limite por-cliente: 1 uso por email/cupom (sem suporte nativo na API).
+  const { count: usoCliente } = await supabase
+    .from('cupons_premium_usos')
+    .select('id', { count: 'exact', head: true })
+    .eq('cupom_id', cupom.id)
+    .eq('email', email)
+  if ((usoCliente || 0) >= LIMITE_USO_POR_CLIENTE) {
+    return { ...semDesconto, motivo: 'Voce ja usou este cupom.' }
   }
 
   const { precoBrutoCentavos: bruto, descontoCentavos, precoLiquidoCentavos } = aplicarCupom(plano, {
-    tipo: cupom.tipo,
-    valor: cupom.valor,
-    planos: cupom.planos,
+    tipo: cupom.discountKind === 'PERCENTAGE' ? 'percentual' : 'fixo',
+    valor: cupom.discount,
+    planos: ['basica', 'completa'], // AbacatePay nao restringe cupom por plano; a gente nao restringe tambem
   })
 
   return {
@@ -93,7 +117,9 @@ export async function validarCupom(
 
 // Registra o uso (chamado SO pelo checkout, apos criar o pedido). pedido_id e
 // UNIQUE na tabela: se o checkout for chamado 2x pro mesmo pedido (retry),
-// o segundo insert falha e e ignorado — sem double-count no P&L.
+// o segundo insert falha e e ignorado — sem double-count no P&L. cupom_id
+// aqui e o codigo do cupom na AbacatePay (texto), NAO uma FK — a tabela
+// cupons_premium_usos e so log pro P&L, a fonte da verdade do cupom e a API.
 export async function registrarUsoCupom(
   supabase: ReturnType<typeof usePremiumSupabase>,
   opts: {
@@ -114,18 +140,6 @@ export async function registrarUsoCupom(
       valor_desconto: opts.descontoCentavos,
       preco_liquido: opts.precoLiquidoCentavos,
     })
-    // Contador best-effort pro dashboard; nao e a fonte da verdade (validarCupom
-    // sempre conta a tabela de usos), entao a leve race aqui (read-then-write,
-    // sem lock) nao afeta nenhuma regra de negocio, so a exibicao do numero.
-    const { data: atual } = await supabase
-      .from('cupons_premium')
-      .select('usos_atual')
-      .eq('id', opts.cupomId)
-      .maybeSingle()
-    await supabase
-      .from('cupons_premium')
-      .update({ usos_atual: (atual?.usos_atual || 0) + 1, updated_at: new Date().toISOString() })
-      .eq('id', opts.cupomId)
   } catch (e: any) {
     console.warn('[cupom] registrar uso falhou:', e?.message)
   }
