@@ -487,7 +487,7 @@ export default defineNuxtConfig({
               },
               {
                 defer: true,
-                innerHTML: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-24H7QSPX4G');`,
+                innerHTML: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-24H7QSPX4G');gtag('config','AW-18330779331');`,
               },
             ]
           : []),
@@ -545,14 +545,57 @@ export default defineNuxtConfig({
     placaApiToken: process.env.PLACA_API_TOKEN || "",
     fipeApiToken: process.env.FIPE_API_TOKEN || "",
     fipeApiUrl: process.env.FIPE_API_URL || "",
-    apiKeyOpenai: process.env.API_KEY_OPENAI || "",
     oneSignalAppId: process.env.ONESIGNAL_APP_ID || "",
     oneSignalRestApiKey: process.env.ONESIGNAL_REST_API_KEY || "",
     dashboardLookerGoogleAnalytics: process.env.DASHBOARD_LOOKER_GOOGLE_ANALYTICS || "",
     evolutionApiUrl: process.env.EVOLUTION_API_URL || "",
     evolutionApiKey: process.env.EVOLUTION_API_KEY || "",
     evolutionInstance: process.env.EVOLUTION_INSTANCE || "",
+    // Empurrao de atualizacao do app Android antigo (TWA v1). Private + runtime:
+    // liga com FORCE_APP_UPDATE=true (ou NUXT_FORCE_APP_UPDATE) sem rebuild.
+    // Fica OFF ate o app novo (v2) estar publicado na Play.
+    forceAppUpdate: process.env.FORCE_APP_UPDATE === "true",
+    // v2.0 Consulta Premium (homologacao) - so na branch, prod nao seta estes envs
+    premiumSupabaseUrl: process.env.PREMIUM_SUPABASE_URL || "",
+    premiumSupabaseKey: process.env.PREMIUM_SUPABASE_KEY || "",
+    premiumPagePassword: process.env.PREMIUM_PAGE_PASSWORD || "",
+    abacatepayApiKey: process.env.ABACATEPAY_API_KEY || "",
+    abacatepayWebhookSecret: process.env.ABACATEPAY_WEBHOOK_SECRET || "",
+    abacatepayBase: process.env.ABACATEPAY_BASE || "https://api.abacatepay.com/v2",
+    premiumBaseUrl: process.env.PREMIUM_BASE_URL || "https://placacompleta.com.br",
+    premiumValorCentavos: process.env.PREMIUM_VALOR_CENTAVOS || "4500",
+    // SENATRAN homologacao (GCC + SERPRO). Certs via PEM em env (base64 ou texto).
+    gccBase: process.env.GCC_BASE || "https://company.hml.quemmeviu.com.br",
+    senatranUrl:
+      process.env.SENATRAN_URL ||
+      "https://hom-pgcc.np.bsa.estaleiro.serpro.gov.br/pgcc/api/v1/consultar/veiculo",
+    senatranCnpjProvedor: process.env.SENATRAN_CNPJ_PROVEDOR || "37115342004154",
+    senatranTemplateId: process.env.SENATRAN_TEMPLATE_ID || "2932026-00001",
+    senatranCertPem: process.env.SENATRAN_CERT_PEM || "",
+    senatranKeyPem: process.env.SENATRAN_KEY_PEM || "",
+    // SENATRAN producao (GCC + SERPRO). URLs nao sao segredo (default hardcoded).
+    // Cert/key de prod reusam os de homolog quando vazios (ver senatran-consulta.ts).
+    gccBaseProd: process.env.GCC_BASE_PROD || "https://company.quemmeviu.com.br",
+    senatranUrlProd:
+      process.env.SENATRAN_URL_PROD ||
+      "https://pgcc.bsa.estaleiro.serpro.gov.br/pgcc/api/v1/consultar/veiculo",
+    senatranCnpjProvedorProd:
+      process.env.SENATRAN_CNPJ_PROVEDOR_PROD || process.env.SENATRAN_CNPJ_PROVEDOR || "37115342004154",
+    senatranTemplateIdProd: process.env.SENATRAN_TEMPLATE_ID_PROD || "41102026-00001",
+    senatranCertPemProd: process.env.SENATRAN_CERT_PEM_PROD || "",
+    senatranKeyPemProd: process.env.SENATRAN_KEY_PEM_PROD || "",
     public: {
+      // homolog: ambiente de teste com ferramentas (dropdown de ambiente das
+      // APIs, botao de simular pagamento). So o container de homolog seta a env.
+      homolog: process.env.NUXT_PUBLIC_HOMOLOG === "true",
+      // staging: espelho de prod (endpoints reais), sem as ferramentas de teste.
+      staging: process.env.NUXT_PUBLIC_STAGING === "true",
+      // gated: liga o overlay de senha na primeira renderizacao. Vale pros dois
+      // ambientes protegidos (homolog e staging); prod/main nao seta nenhum dos
+      // dois, entao o gate nunca aparece em producao.
+      gated:
+        process.env.NUXT_PUBLIC_HOMOLOG === "true" ||
+        process.env.NUXT_PUBLIC_STAGING === "true",
       whatsappEnabled: process.env.NUXT_PUBLIC_WHATSAPP_ENABLED === "true",
       supabaseUrl:
         process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",

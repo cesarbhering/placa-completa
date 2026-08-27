@@ -2,6 +2,22 @@
 const isReady = ref(false)
 const isPWA = ref(false)
 
+// Header nas paginas de conteudo. A home e a area premium montam o proprio
+// (uma precisa ligar o campo de placa ao formulario do herói, a outra vive
+// dentro de uma faixa branca), entao aqui ele cobre so o resto do site, que
+// antes nao tinha cabecalho nenhum.
+const route = useRoute()
+const headerGlobal = computed(() => {
+  const p = route.path
+  if (p === '/' || p.startsWith('/placa/') || p.startsWith('/premium')) return false
+  // /admin e /dash sao telas internas, nao site.
+  return !p.startsWith('/admin') && !p.startsWith('/dash')
+})
+
+// Modal de consultas: mora aqui pra existir em qualquer rota. O header abre
+// pelo mesmo estado compartilhado, sem a pagina no meio.
+const modalConsultas = useState('pc-consultas-aberto', () => false)
+
 // Detect PWA mode synchronously on client
 if (import.meta.client) {
   isPWA.value = window.matchMedia('(display-mode: standalone)').matches ||
@@ -39,13 +55,30 @@ function onStoreClick() {
 
 <template>
   <div>
+    <!-- Gate de acesso: overlay de senha uma-vez (homolog e staging, via public.gated). -->
+    <HomologGate />
+
+    <!-- Empurrao de atualizacao do app Android antigo (TWA v1). So dispara no
+         app da Play rodando no dominio principal e quando o servidor liga a flag. -->
+    <ForceAppUpdate />
+
     <!-- PWA Loading Screen (PWA only) -->
     <div v-if="isPWA && !isReady" class="pwa-loader">
       <PlacaCompletaIcon variant="inverted" class="pwa-loader__logo" />
     </div>
 
     <div v-show="isReady">
+      <!-- Faixa clara atras do header: as paginas legadas ainda vivem no
+           gradiente navy do body, e o header e transparente com tinta escura.
+           Sem a faixa ele sairia praticamente invisivel la. Sai quando essas
+           paginas forem pro fundo claro. -->
+      <div v-if="headerGlobal" class="faixa-header">
+        <HomeHeader logo-variant="default" />
+      </div>
+
       <NuxtPage />
+
+      <ConsultasHistory :aberto="modalConsultas" @fechar="modalConsultas = false" />
       <footer class="footer">
         <nav class="footer__nav" aria-label="Conteúdo do site">
           <NuxtLink to="/consultar-placa">Consultar por Estado</NuxtLink>
@@ -80,7 +113,9 @@ function onStoreClick() {
         </a>
 
         <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta. Consulta veicular grátis e segura.</p>
-        <p class="footer__email">contato[at]placacompleta.com.br</p>
+        <p class="footer__email">
+          Contato: <a href="mailto:contato@placacompleta.com.br">contato@placacompleta.com.br</a>
+        </p>
         <nav class="footer__links">
           <NuxtLink to="/sobre">Sobre</NuxtLink>
           <span class="footer__sep">|</span>

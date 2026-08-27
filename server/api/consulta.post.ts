@@ -10,7 +10,43 @@ import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
 
-type Channel = 'email' | 'whatsapp'
+/**
+ * Registra a consulta e RECLAMA se o banco recusar.
+ *
+ * Antes era `await supabase.from('consultas').insert(...)` puro. O cliente do
+ * Supabase nao lanca excecao em erro: devolve `{ error }`. Sem checar, uma
+ * falha de gravacao passava calada — a tela mostrava sucesso e o registro
+ * nunca acontecia. Foi assim que a constraint do canal 'tela' ficou escondida
+ * por horas, com o contador e o rate limit por IP zerados o tempo todo.
+ *
+ * O erro vai pro log do servidor, nunca pra resposta: quem consultou nao tem
+ * o que fazer com isso, e a consulta em si deu certo.
+ */
+async function registrarConsulta(supabase: any, row: Record<string, any>, origem: string) {
+  const { error } = await supabase.from('consultas').insert(row)
+  if (error) {
+    console.error(
+      `[consultas] insert falhou (${origem}): ${error.message}` +
+      (error.code ? ` [${error.code}]` : '') +
+      (error.details ? ` — ${error.details}` : ''),
+    )
+  }
+  return !error
+}
+
+// 'tela': consulta gratis sem coleta de contato. Roda a consulta, registra e
+// devolve o bloco basico pra pagina mostrar. Nao envia nada, entao nao pede
+// nem valida e-mail/telefone.
+type Channel = 'email' | 'whatsapp' | 'tela'
+
+// Mostra o inicio do chassi e esconde o resto: o comprador confere contra o
+// documento sem que a superficie gratis entregue o numero inteiro.
+function mascararChassi(chassi: unknown): string | null {
+  const c = String(chassi || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  if (c.length < 8) return null
+  const visivel = c.slice(0, 5)
+  return visivel + '*'.repeat(c.length - visivel.length)
+}
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -43,7 +79,10 @@ export default defineEventHandler(async (event) => {
     utm_medium: typeof origin.utm_medium === 'string' ? origin.utm_medium.slice(0, 100) : null,
     utm_campaign: typeof origin.utm_campaign === 'string' ? origin.utm_campaign.slice(0, 150) : null,
   }
-  const channel: Channel = body.channel === 'whatsapp' ? 'whatsapp' : 'email'
+  const channel: Channel =
+    body.channel === 'whatsapp' ? 'whatsapp'
+    : body.channel === 'tela' ? 'tela'
+    : 'email'
 
   if (!placa) {
     throw createError({ statusCode: 400, message: 'Placa é obrigatória.' })
@@ -51,7 +90,10 @@ export default defineEventHandler(async (event) => {
 
   // Channel-specific validation. WhatsApp is web-only — PWA always uses
   // the inline-data path, so isPWA + channel=whatsapp would be ambiguous.
-  if (channel === 'whatsapp') {
+  if (channel === 'tela') {
+    // Sem destinatario nao ha o que validar. O freio de abuso aqui e o rate
+    // limit por IP, ja aplicado abaixo.
+  } else if (channel === 'whatsapp') {
     // Feature flag — UI hides the toggle when whatsappEnabled is false,
     // but a crafted POST can still reach us. Refuse here too.
     const whatsappEnabled =
@@ -143,39 +185,84 @@ export default defineEventHandler(async (event) => {
   const recipientField = channel === 'whatsapp' ? 'phone' : 'email'
   const recipientValue = channel === 'whatsapp' ? normalizedPhone : sanitizedEmail
   const sentField = channel === 'whatsapp' ? 'whatsapp_sent' : 'email_sent'
+  // No canal 'tela' nao existe destinatario: o unico limite e o do IP. Sem
+  // isso o teto por hora sumiria junto com o e-mail e a consulta paga ficaria
+  // aberta pra raspagem.
+  const semDestinatario = channel === 'tela'
 
   // Limite customizado por destinatario (tabela rate_limit_whitelist):
   // N/hora ou ilimitado (Infinity). Aplica aos DOIS checks (destinatario e
   // IP), senao o proprio IP bloquearia antes do limite customizado valer.
-  const hourlyLimit = await getHourlyLimit(recipientValue as string)
+  const hourlyLimit = semDestinatario
+    ? await getHourlyLimit('')   // sem destinatario: cai no limite padrao
+    : await getHourlyLimit(recipientValue as string)
 
   // Vale pra web E PWA: sem isso, um POST com isPWA:true pulava o rate
   // limit e recebia o apiResponse completo - consultas ilimitadas de graca
   // na API paga (fechado em 28/jul/2026).
-  if (hourlyLimit !== Infinity) {
+  // No homolog (ambiente de teste) o teto por hora nao se aplica: quem testa
+  // precisa consultar a vontade. Prod segue com o limite normal.
+  if (hourlyLimit !== Infinity && !config.public.homolog) {
     const supabase = useSupabaseServer()
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const ipCheckable = ip && ip !== 'unknown'
 
+    // Reset apos compra paga: se o usuario tem um pedido premium PAGO na ultima
+    // hora (casado por IP ou email), a janela de contagem gratis comeca no
+    // pagamento -> ele volta a ter o teto cheio (as consultas de antes nao
+    // contam). Quem pagou nao pode ser barrado no gratis — vale mesmo se a
+    // consulta falhou/estornou depois (pago_em preenchido = pagamento entrou).
+    // A tabela usa `pago_em`/`criado_em` (nao created_at): usar a coluna errada
+    // fazia a query dar erro e o reset nunca acontecer.
+    let janelaInicio = oneHourAgo
+    try {
+      const orParts: string[] = []
+      if (ipCheckable) orParts.push(`ip_address.eq.${ip}`)
+      if (!semDestinatario && recipientValue) orParts.push(`email.eq.${recipientValue}`)
+      if (orParts.length) {
+        const premium = usePremiumSupabase()
+        const { data: pago } = await premium
+          .from('pedidos_premium')
+          .select('pago_em')
+          .not('pago_em', 'is', null)
+          .or(orParts.join(','))
+          .gte('pago_em', oneHourAgo)
+          .order('pago_em', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (pago?.pago_em) janelaInicio = new Date(pago.pago_em).toISOString()
+      }
+    } catch { /* premium nao configurado ou lookup falhou: sem reset */ }
+
+    const vazio = Promise.resolve({ count: 0, data: null, error: null } as any)
+
     const [recipientRes, ipRes] = await Promise.all([
-      supabase
-        .from('consultas')
-        .select('created_at', { count: 'exact' })
-        .eq(recipientField, recipientValue as string)
-        .eq(sentField, true)
-        .gte('created_at', oneHourAgo)
-        .order('created_at', { ascending: true })
-        .limit(1),
-      ipCheckable
-        ? supabase
+      // Sem destinatario nao ha o que contar por destinatario.
+      semDestinatario
+        ? vazio
+        : supabase
             .from('consultas')
             .select('created_at', { count: 'exact' })
-            .eq('ip_address', ip)
+            .eq(recipientField, recipientValue as string)
             .eq(sentField, true)
-            .gte('created_at', oneHourAgo)
+            .gte('created_at', janelaInicio)
             .order('created_at', { ascending: true })
-            .limit(1)
-        : Promise.resolve({ count: 0, data: null, error: null } as any),
+            .limit(1),
+      ipCheckable
+        ? (() => {
+            const q = supabase
+              .from('consultas')
+              .select('created_at', { count: 'exact' })
+              .eq('ip_address', ip)
+              .gte('created_at', janelaInicio)
+            // No canal 'tela' nada e "enviado", entao filtrar por sentField=true
+            // zeraria o contador e o teto por IP deixaria de existir — consulta
+            // paga aberta pra raspagem. Aqui o criterio e ter havido consulta.
+            return (semDestinatario ? q.eq('channel', 'tela') : q.eq(sentField, true))
+              .order('created_at', { ascending: true })
+              .limit(1)
+          })()
+        : vazio,
     ])
 
     const recipientCount = recipientRes?.count ?? 0
@@ -213,7 +300,8 @@ export default defineEventHandler(async (event) => {
 
   // Dedupe per channel: same recipient + same placa in the last hour → skip the
   // paid API call and tell the user the delivery already went out. Non-PWA only.
-  if (!isPWA) {
+  // Pulado no homolog: testar a mesma placa varias vezes nao pode ser barrado.
+  if (!isPWA && !config.public.homolog) {
     const supabase = useSupabaseServer()
     const { data: existing, error: dedupeError } = await supabase
       .from('consultas')
@@ -250,8 +338,10 @@ export default defineEventHandler(async (event) => {
   let whatsappSent = false
 
   try {
-    const apiUrl = `https://wdapi2.com.br/consulta/${placaClean}/${config.placaApiToken}`
-    const apiResult = await $fetch<Record<string, any>>(apiUrl)
+    // Via cache (placa_cache) pra nao pagar a wdapi de novo na mesma placa.
+    // Ver server/utils/placa-lookup.ts.
+    const apiResult = await consultarPlacaWdapi(placaClean)
+    if (!apiResult) throw new Error('Sem retorno da API de placas')
     apiResponse = apiResult
   } catch (err: any) {
     // Send error email
@@ -266,7 +356,7 @@ export default defineEventHandler(async (event) => {
     })
 
     const supabase = useSupabaseServer()
-    await supabase.from('consultas').insert({
+    await registrarConsulta(supabase, {
       email: sanitizedEmail,
       phone: normalizedPhone,
       placa: placaClean,
@@ -283,7 +373,7 @@ export default defineEventHandler(async (event) => {
       email_sent: false,
       whatsapp_sent: false,
       api_response: null,
-    })
+    }, 'pwa')
     throw createError({ statusCode: 502, message: 'Erro ao consultar dados da placa. Tente novamente.' })
   }
 
@@ -293,7 +383,7 @@ export default defineEventHandler(async (event) => {
     // also valid response
   } else {
     const supabase = useSupabaseServer()
-    await supabase.from('consultas').insert({
+    await registrarConsulta(supabase, {
       email: sanitizedEmail,
       phone: normalizedPhone,
       placa: placaClean,
@@ -310,7 +400,7 @@ export default defineEventHandler(async (event) => {
       email_sent: false,
       whatsapp_sent: false,
       api_response: apiResponse,
-    })
+    }, 'erro-api')
     throw createError({ statusCode: 404, message: 'Placa não encontrada ou sem dados disponíveis.' })
   }
 
@@ -405,7 +495,9 @@ export default defineEventHandler(async (event) => {
   }
 
   // Delivery — only for non-PWA web requests. PWA returns inline data.
-  if (!isPWA) {
+  // 'tela' nao entrega por canal nenhum: o resultado vai pra propria pagina.
+  // Sem esta guarda o `else` do e-mail cairia no ramo do WhatsApp.
+  if (!isPWA && channel !== 'tela') {
     const rodizio = icv5Uf === 'SP' ? getSpRodizioInfo(placaClean) : null
     if (channel === 'email') {
       try {
@@ -532,7 +624,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = useSupabaseServer()
-  await supabase.from('consultas').insert({
+  await registrarConsulta(supabase, {
     id: consultaId,
     email: sanitizedEmail,
     phone: normalizedPhone,
@@ -550,10 +642,12 @@ export default defineEventHandler(async (event) => {
     email_sent: emailSent,
     whatsapp_sent: whatsappSent,
     api_response: apiResponse,
-  })
+  }, 'web')
 
   let message: string
   if (isPWA) {
+    message = 'Consulta realizada.'
+  } else if (channel === 'tela') {
     message = 'Consulta realizada.'
   } else if (channel === 'whatsapp') {
     message = whatsappSent
@@ -565,6 +659,14 @@ export default defineEventHandler(async (event) => {
       : 'Consulta realizada, mas houve um erro ao enviar o e-mail. Tente novamente.'
   }
 
+  // Valor FIPE ATUAL (so o numero, sem o historico/grafico — esse segue pago).
+  // Melhor match por score no payload da wdapi, mesmo criterio do valor-custo.
+  const fipeLista = apiResponse?.fipe?.dados
+  const fipeMelhor = Array.isArray(fipeLista) && fipeLista.length
+    ? fipeLista.reduce((b: any, i: any) => ((i?.score || 0) > (b?.score || 0) ? i : b), fipeLista[0])
+    : null
+  const fipeValorAtual = fipeMelhor?.texto_valor || null
+
   return {
     success: true,
     channel,
@@ -574,14 +676,36 @@ export default defineEventHandler(async (event) => {
     data: isPWA ? apiResponse : undefined,
     fipeHistory: isPWA ? fipeHistoryPoints : undefined,
     seguroEstimado: !isPWA ? seguroEstimado : undefined,
+    // Bloco livre mostrado NA TELA na web (o "o que e o carro"). E o mesmo
+    // conjunto que a consulta gratis sempre entregou por e-mail — nada aqui
+    // vem do SENATRAN, que so roda depois do pagamento.
+    basico: !isPWA ? {
+      placa: placaClean,
+      marca: apiResponse.MARCA || apiResponse.marca || null,
+      modelo: apiResponse.MODELO || apiResponse.modelo || null,
+      ano: apiResponse.extra?.ano_modelo || apiResponse.anoModelo || apiResponse.ano || null,
+      anoFabricacao: apiResponse.extra?.ano_fabricacao || apiResponse.ano || null,
+      cor: apiResponse.cor || apiResponse.COR || null,
+      combustivel: apiResponse.extra?.combustivel || null,
+      // Nacional ou importado. Muda revenda, seguro e preco de peca, entao vale
+      // como isca; nao entrega nada que so o cadastro pago tem.
+      // O bloco `extra` nao vem pra toda placa (QZZ1I96, por exemplo, chega
+      // com extra: null); quando falta, a origem existe no topo do payload.
+      origem: apiResponse.extra?.nacionalidade || apiResponse.origem || null,
+      // So o comeco do chassi: confere com o do documento sem entregar o
+      // numero, que e do relatorio pago.
+      chassiParcial: mascararChassi(apiResponse.extra?.chassi),
+      // Valor FIPE atual (referencia de mercado). So o valor corrente; o
+      // historico/grafico continua sendo conteudo pago.
+      fipe: fipeValorAtual,
+    } : undefined,
     // payload minimo pro botao de compartilhar no WhatsApp (web)
+    // Sem FIPE: virou conteudo pago, e o texto de compartilhamento e superficie
+    // publica.
     share: !isPWA ? {
       marca: apiResponse.MARCA || apiResponse.marca || '',
       modelo: apiResponse.MODELO || apiResponse.modelo || '',
       ano: apiResponse.anoModelo || apiResponse.ano || '',
-      fipe: (apiResponse.fipe?.dados?.length
-        ? apiResponse.fipe.dados.reduce((b: any, i: any) => (i.score || 0) > (b.score || 0) ? i : b, apiResponse.fipe.dados[0])?.texto_valor
-        : null) || null,
     } : undefined,
   }
 })

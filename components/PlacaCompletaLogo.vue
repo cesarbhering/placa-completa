@@ -3,11 +3,29 @@ import { computed } from 'vue'
 
 interface Props {
   variant?: 'default' | 'brutalist' | 'fintech' | 'inverted'
+  /**
+   * Corta o vazio vertical do viewBox original (0 0 304 120), que tem 28
+   * unidades sobrando em cima e 12,5 embaixo: 34% da altura sem tinta, e
+   * assimetrico, o que ainda empurra a marca pra baixo dentro da caixa.
+   *
+   * O corte sai da GEOMETRIA, nao de getBBox(): os cantos vao de y=28 a y=100
+   * e os dois textos sao caixa alta com baseline em y=100, entao abaixo disso
+   * so existe descendente vazio. Assim o recorte nao depende da fonte estar
+   * instalada. Na horizontal nao mexo: a largura do texto muda conforme a
+   * Trebuchet exista ou caia no fallback, e cortar ali arriscaria clipar.
+   *
+   * Opcional porque quem dimensiona por largura (dash, admin, PWA) veria a
+   * altura encolher. Ligado so onde foi pedido.
+   */
+  crop?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   variant: 'default',
+  crop: false,
 })
+
+const viewBox = computed(() => (props.crop ? '0 26 304 76' : '0 0 304 120'))
 
 const colors = computed(() => {
   switch (props.variant) {
@@ -26,7 +44,7 @@ const colors = computed(() => {
 <template>
   <svg
     class="placa-logo"
-    viewBox="0 0 304 120"
+    :viewBox="viewBox"
     xmlns="http://www.w3.org/2000/svg"
     role="img"
     aria-label="PlacaCompleta"
