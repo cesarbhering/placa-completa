@@ -166,9 +166,6 @@ const webPhone = ref('')
 const webPhoneError = ref('')
 const whatsappEnabled = computed(() => Boolean(useRuntimeConfig().public.whatsappEnabled))
 const openFaq = ref<number | null>(null)
-const photoInput = ref<HTMLInputElement | null>(null)
-const processingPhoto = ref(false)
-const photoProcessMessage = ref('')
 
 const placaRef = ref<HTMLInputElement | null>(null)
 const formStarted = ref(false)
@@ -885,96 +882,6 @@ function changePwaEmail() {
   track('pwa_email_change_requested')
 }
 
-function triggerPhotoCapture() {
-  photoInput.value?.click()
-  track('photo_capture_initiated')
-}
-
-async function compressImage(file: File, maxWidth = 1024, quality = 0.8): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        let width = img.width
-        let height = img.height
-
-        // Calculate new dimensions
-        if (width > maxWidth) {
-          height = (height * maxWidth) / width
-          width = maxWidth
-        }
-
-        canvas.width = width
-        canvas.height = height
-
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          reject(new Error('Failed to get canvas context'))
-          return
-        }
-
-        ctx.drawImage(img, 0, 0, width, height)
-
-        // Convert to JPEG base64 with compression
-        const compressedBase64 = canvas.toDataURL('image/jpeg', quality)
-        resolve(compressedBase64)
-      }
-      img.onerror = reject
-      img.src = e.target?.result as string
-    }
-    reader.onerror = reject
-    reader.readAsDataURL(file)
-  })
-}
-
-async function onPhotoCapture(e: Event) {
-  const target = e.target as HTMLInputElement
-  const file = target.files?.[0]
-
-  if (!file) return
-
-  processingPhoto.value = true
-  placaError.value = ''
-  message.value = ''
-  track('photo_capture_started')
-
-  try {
-    // Step 1: Compress image
-    photoProcessMessage.value = 'Enviando foto para processamento...'
-    const base64 = await compressImage(file, 1024, 0.8)
-
-    // Step 2: Send to OCR API
-    photoProcessMessage.value = 'Aguardando identificação da placa...'
-    const result = await $fetch<{ success: boolean; placa: string; message?: string }>('/api/read-plate', {
-      method: 'POST',
-      body: { image: base64 }
-    })
-
-    if (result.success && result.placa) {
-      placa.value = result.placa
-      track('photo_capture_success', { placa: result.placa })
-
-      // Step 3: Auto-submit after photo capture
-      photoProcessMessage.value = `Consultando placa ${result.placa}...`
-      await handleSubmit()
-    } else {
-      placaError.value = result.message || 'Não foi possível ler a placa da foto. Tente novamente.'
-      track('photo_capture_failed', { reason: result.message })
-    }
-  } catch (err: any) {
-    const errMsg = err?.data?.message || err?.message || 'Erro ao processar a foto. Tente novamente.'
-    placaError.value = errMsg
-    track('photo_capture_error', { error_message: errMsg })
-  } finally {
-    processingPhoto.value = false
-    photoProcessMessage.value = ''
-    // Reset input to allow same file again
-    target.value = ''
-  }
-}
-
 async function handleSubmit() {
   emailError.value = ''
   placaError.value = ''
@@ -1665,7 +1572,7 @@ function applyEmailSuggestion() {
         </p>
 
         <form v-if="!success" @submit.prevent="handleSubmit" novalidate role="search" aria-label="Consulta veicular por placa">
-          <div v-if="!processingPhoto && !loading" class="form-group">
+          <div v-if="!loading" class="form-group">
             <label class="form-group__label visually-hidden" for="placa-pwa">Placa do Veículo</label>
             <div class="plate-field" :class="{ 'plate-field--error': placaError }">
               <div class="plate-field__band">
@@ -1692,7 +1599,7 @@ function applyEmailSuggestion() {
             <span v-if="placaError" class="form-group__error" role="alert">{{ placaError }}</span>
           </div>
 
-          <template v-if="!processingPhoto && !loading">
+          <template v-if="!loading">
             <button
               type="submit"
               class="win-btn win-btn--primary win-btn--block cta-main"
@@ -1706,38 +1613,13 @@ function applyEmailSuggestion() {
             </p>
           </template>
 
-          <!-- Photo Capture for PWA -->
-          <div v-if="!processingPhoto && !loading">
-            <input
-              ref="photoInput"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              style="display: none"
-              @change="onPhotoCapture"
-            />
-            <button
-              type="button"
-              class="win-btn win-btn--secondary photo-btn"
-              @click="triggerPhotoCapture"
-            >
-              <svg class="camera-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="2" y="7" width="20" height="13" rx="1" stroke="currentColor" stroke-width="2"/>
-                <path d="M7 7L8.5 4H15.5L17 7" stroke="currentColor" stroke-width="2"/>
-                <circle cx="12" cy="13" r="3" stroke="currentColor" stroke-width="2"/>
-                <rect x="17" y="9" width="2" height="2" fill="currentColor"/>
-              </svg>
-              <span>ou tirar foto da placa</span>
-            </button>
-          </div>
-
-          <div v-if="loading || processingPhoto" class="loading-bar">
+          <div v-if="loading" class="loading-bar">
             <div class="loading-bar__fill" />
           </div>
 
           <Transition name="stage" mode="out-in">
             <p
-              v-if="loading && consultaStage && !photoProcessMessage"
+              v-if="loading && consultaStage"
               :key="consultaStage"
               class="loading-stage"
             >
@@ -1745,11 +1627,7 @@ function applyEmailSuggestion() {
             </p>
           </Transition>
 
-          <div v-if="photoProcessMessage" class="win-alert win-alert--info">
-            {{ photoProcessMessage }}
-          </div>
-
-          <div v-if="message && !photoProcessMessage" class="win-alert" :class="`win-alert--${messageType}`">
+          <div v-if="message" class="win-alert" :class="`win-alert--${messageType}`">
             {{ message }}
             <button
               v-if="emailSuggestion"
@@ -4135,35 +4013,6 @@ function applyEmailSuggestion() {
   font-size: 0.875rem;
   margin-bottom: 0;
   font-weight: 600;
-}
-
-.photo-btn {
-  margin-top: $space-lg;
-  font-size: 0.75rem;
-  padding: $space-xs $space-sm;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  opacity: 0.85;
-  transition: opacity 0.2s;
-
-  &:hover {
-    opacity: 1;
-  }
-
-  .camera-icon {
-    width: 16px;
-    height: 16px;
-    color: $graphite;
-    flex-shrink: 0;
-  }
-
-  span {
-    letter-spacing: 0.3px;
-    font-style: italic;
-  }
 }
 
 .snackbar {
