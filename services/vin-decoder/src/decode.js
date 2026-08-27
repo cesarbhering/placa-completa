@@ -77,9 +77,16 @@ export function decodeVin(rawVin) {
   // usam WMI de 2 chars + o 12o caractere do VIN pra completar — o vPIC
   // registra esses como codigo de 2 chars mesmo).
   const row = getWmiExact.get(wmi3) || getWmiExact.get(wmi2)
-  const override = row ? getWmiOverride.get(row.code) : null
+  // Override e consultado pelo codigo BATIDO no VIN (wmi3/wmi2), NAO pelo
+  // codigo do row — antes so olhava o override quando `row` ja existia
+  // (linha `row ? getWmiOverride.get(row.code) : null`), entao override
+  // nao funcionava como fallback sozinho pra WMI ainda ausente da tabela
+  // `wmi` (ex: seed do vPIC incompleto/nao rodado ainda). Override PRECISA
+  // valer standalone: e a curadoria manual dos WMIs BR principais, tem que
+  // resolver mesmo com a tabela `wmi` vazia.
+  const override = getWmiOverride.get(wmi3) || (row ? getWmiOverride.get(row.code) : null) || getWmiOverride.get(wmi2)
 
-  const achouWmi = !!row
+  const achouWmi = !!row || !!override
   const fabricante = override?.display_name || row?.display_name || row?.manufacturer_raw || null
   const pais = override?.country || row?.country || null
   const regiao = override?.region || row?.region || regiaoPorPrimeiroChar(vin[0])
@@ -90,7 +97,8 @@ export function decodeVin(rawVin) {
     ? (/[0-9]/.test(vin[6]) ? yearRow.year_low : yearRow.year_high)
     : null
 
-  const plantRow = row ? getPlant.get(row.code, vin[10]) : null
+  const resolvedCode = row?.code || (override ? wmi3 : null)
+  const plantRow = resolvedCode ? getPlant.get(resolvedCode, vin[10]) : null
   const planta = plantRow?.plant_name || null
 
   const vinHash = crypto.createHash('sha256').update(vin).digest('hex').slice(0, 16)
