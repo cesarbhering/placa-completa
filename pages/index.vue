@@ -953,7 +953,12 @@ async function handleSubmit() {
         channel: isPWA.value ? 'email' : 'tela',
         placa: placa.value,
         isPWA: isPWA.value,
-        includeFipeChart: includeFipeChart.value,
+        // Decisao de produto: gratis mostra so o VALOR da FIPE, sem grafico/
+        // historico. No app/PWA isso e forcado aqui pra nao vir fipeHistory
+        // na resposta (o mini-grafico do modal fica escondido por falta de
+        // dado). No web (canal 'tela') o resultado gratis nunca usou
+        // fipeHistory mesmo, entao o valor do ref so importa pro e-mail.
+        includeFipeChart: isPWA.value ? false : includeFipeChart.value,
         includeIcv5: includeIcv5.value,
         icv5Uf: icv5Uf.value,
         origin: getTrackOrigin(),
