@@ -94,7 +94,9 @@ async function checarStatus() {
     if (r.debug_trace) trace.value = r.debug_trace
     if (r.erro) erroMsg.value = r.erro
     histUpdate(pix.value.token, r.status)
-    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token)
+    // Esta pagina so vende a completa (o checkout nao manda plano -> o server
+    // cai em 'completa'), entao a conversao reporta o valor da completa.
+    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token, 'completa')
     if (r.status === 'entregue') { clearInterval(poll); navigateTo(`/premium/${pix.value.token}`) }
     if (['expirado', 'falha', 'reembolsado'].includes(r.status)) clearInterval(poll)
   } catch { /* segue tentando */ }
