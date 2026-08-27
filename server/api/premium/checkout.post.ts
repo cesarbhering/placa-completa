@@ -11,15 +11,15 @@ export default defineEventHandler(async (event) => {
   const placa = String(body.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
   const email = String(body.email || '').trim().toLowerCase()
   const telefone = String(body.telefone || '').replace(/\D/g, '') || null
-  // Ambiente das consultas (GCC/SERPRO). Explicito vindo do cliente vence
-  // (dropdown do homolog manda 'homolog' ou 'producao'). Sem valor: staging
-  // espelha prod, entao cai em 'producao'; homolog e o resto caem em 'homolog'.
+  // Ambiente das consultas (GCC/SERPRO). SO o build de homolog tem o dropdown
+  // que deixa escolher: la o valor do cliente vence (default 'homolog'). Em
+  // qualquer outro build (staging espelha prod; prod e prod) o ambiente vindo
+  // do body e IGNORADO e forcamos 'producao' — um cliente malicioso nao pode
+  // empurrar a consulta pro SERPRO de homologacao em producao.
   const config = useRuntimeConfig()
-  const ambiente = body.ambiente === 'producao'
-    ? 'producao'
-    : body.ambiente === 'homolog'
-      ? 'homolog'
-      : config.public.staging ? 'producao' : 'homolog'
+  const ambiente = config.public.homolog
+    ? (body.ambiente === 'producao' ? 'producao' : 'homolog')
+    : 'producao'
   if (placa.length < 7) throw createError({ statusCode: 400, message: 'Placa invalida' })
   if (!email || !email.includes('@')) throw createError({ statusCode: 400, message: 'Email obrigatorio' })
 

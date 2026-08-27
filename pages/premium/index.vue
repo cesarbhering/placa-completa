@@ -1,6 +1,8 @@
 <script setup lang="ts">
-// v2.0 Consulta Premium (homologacao). Pagina gated por senha.
-useHead({ title: 'Consulta Premium (homologação)', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
+import { PLANOS } from '~/shared/planos'
+// v2.0 Consulta Premium. Nos ambientes protegidos (homolog/staging) a pagina e
+// gated por senha; em prod fica aberta.
+useHead({ title: 'Consulta Premium', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
 const cfg = useRuntimeConfig()
 
@@ -20,9 +22,10 @@ const senha = ref('')
 const placa = ref('')
 const email = ref('')
 const telefone = ref('')
-// Staging (espelho de prod, sem dropdown) precisa cair em 'producao'; homolog
-// comeca em 'homolog' e o dropdown alterna. Ver PremiumInlineCheckout.
-const ambiente = ref(cfg.public.staging ? 'producao' : 'homolog')
+// So o build de homolog tem o dropdown e comeca em 'homolog'; qualquer outro
+// build (staging espelha prod; prod e prod) cai em 'producao'. O server ainda
+// faz o clamp final. Ver PremiumInlineCheckout.
+const ambiente = ref(cfg.public.homolog ? 'homolog' : 'producao')
 const preview = ref<any>(null)
 
 const pix = ref<{ brCode: string; brCodeBase64: string; token: string; valor: number } | null>(null)
@@ -114,7 +117,7 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
   <div class="premium">
     <div class="card">
       <h1>Consulta Veicular Completa</h1>
-      <p class="tag">Homologação · acesso restrito</p>
+      <p v-if="cfg.public.gated" class="tag">Homologação · acesso restrito</p>
 
       <!-- Atalho pro historico: quem esta aqui pra comprar de novo costuma
            querer o relatorio que ja pagou, e sem isto so chegava nele pela home.
@@ -153,7 +156,7 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
           </select>
           <p v-if="ambiente === 'producao'" class="aviso">Atenção: Produção dispara consulta real no SERPRO.</p>
         </div>
-        <button :disabled="loading" @click="pagar">Pagar {{ reais(4500) }} via Pix</button>
+        <button :disabled="loading" @click="pagar">Pagar {{ reais(PLANOS.completa.valorCentavos) }} via Pix</button>
         <button class="ghost" @click="step = 'placa'">Voltar</button>
       </div>
 
