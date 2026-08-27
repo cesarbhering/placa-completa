@@ -7,10 +7,11 @@ useHead({ title: 'Consulta Premium', meta: [{ name: 'robots', content: 'noindex,
 const cfg = useRuntimeConfig()
 
 type Step = 'gate' | 'placa' | 'confirm' | 'pending' | 'erro'
-// No homolog o gate e pedido SO no acesso a home (overlay HomologGate), que ja
-// seta o cookie premium; aqui a pagina ja comeca na placa, sem repedir a senha.
-// Fora do homolog (sem overlay) a pagina se auto-protege com o gate local.
-const step = ref<Step>(cfg.public.gated ? 'placa' : 'gate')
+// A pagina sempre comeca na placa. Em homolog/staging o gate por senha e feito
+// pelo overlay sitewide (HomologGate), que ja seta o cookie premium antes daqui;
+// em prod a area e aberta (server no-op). O passo 'gate' segue como fallback do
+// handler de 401 (sessao expirada), inofensivo em prod.
+const step = ref<Step>('placa')
 
 const { itens, sync: histSync } = useConsultaHistory()
 const modalConsultas = useState('pc-consultas-aberto', () => false)
@@ -22,6 +23,8 @@ const senha = ref('')
 const placa = ref('')
 const email = ref('')
 const telefone = ref('')
+// WhatsApp oculto ate a feature existir; ref telefone segue vivo (API opcional).
+const mostraWhatsapp = false
 // So o build de homolog tem o dropdown e comeca em 'homolog'; qualquer outro
 // build (staging espelha prod; prod e prod) cai em 'producao'. O server ainda
 // faz o clamp final. Ver PremiumInlineCheckout.
@@ -147,7 +150,8 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
         <div v-else class="veiculo">Não achamos os dados básicos, mas você pode seguir com a placa {{ preview?.placa }}.</div>
         <p class="inclui">A consulta completa inclui: restrições, roubo/furto, recall, RENAJUD, leilão, débitos e a ficha cadastral completa (dados oficiais SENATRAN).</p>
         <input v-model="email" type="email" placeholder="Seu email (para receber o relatório)" />
-        <input v-model="telefone" placeholder="WhatsApp (opcional)" />
+        <!-- WhatsApp oculto ate a feature existir (ref telefone segue vivo). -->
+        <input v-if="mostraWhatsapp" v-model="telefone" placeholder="WhatsApp (opcional)" />
         <div class="ambiente">
           <label for="ambiente-sel">Ambiente SERPRO/GCC (controle de teste)</label>
           <select id="ambiente-sel" v-model="ambiente">
