@@ -53,6 +53,41 @@ export const PLANOS: Record<PlanoId, Plano> = {
 /** Planos pagos, na ordem em que aparecem na tela. */
 export const PLANOS_PAGOS: Plano[] = [PLANOS.basica, PLANOS.completa]
 
+/**
+ * Piso de preco pra cupom (v1): mesmo com desconto, o pedido nunca pode
+ * custar menos que isto. Cobre custo fixo (fee AbacatePay ~R$0,80; a completa
+ * ainda soma a consulta SERPRO, ~R$5). SEM bypass de 100% na v1 — o cupom
+ * sempre desconta, nunca zera.
+ */
+export const PISO_CUPOM_CENTAVOS: Record<'basica' | 'completa', number> = {
+  basica: 990,
+  completa: 1490,
+}
+
+/**
+ * Aplica um cupom (percentual ou fixo) sobre o preco de tabela do plano,
+ * respeitando o piso. Funcao pura, sem I/O — usada tanto no endpoint de
+ * validar quanto no checkout, pra garantir que os dois calculam o MESMO
+ * numero. Cupom fora do plano ou tipo invalido devolve o preco cheio, sem erro
+ * (quem chama decide se isso e "cupom invalido").
+ */
+export function aplicarCupom(
+  plano: 'basica' | 'completa',
+  cupom: { tipo: 'percentual' | 'fixo'; valor: number; planos: string[] } | null | undefined,
+): { precoBrutoCentavos: number; descontoCentavos: number; precoLiquidoCentavos: number } {
+  const precoBrutoCentavos = PLANOS[plano].valorCentavos
+  const piso = PISO_CUPOM_CENTAVOS[plano]
+  if (!cupom || !cupom.planos.includes(plano)) {
+    return { precoBrutoCentavos, descontoCentavos: 0, precoLiquidoCentavos: precoBrutoCentavos }
+  }
+  const descontoBruto = cupom.tipo === 'percentual'
+    ? Math.round(precoBrutoCentavos * (cupom.valor / 100))
+    : Math.round(cupom.valor)
+  const precoLiquidoCentavos = Math.max(piso, precoBrutoCentavos - descontoBruto)
+  const descontoCentavos = precoBrutoCentavos - precoLiquidoCentavos
+  return { precoBrutoCentavos, descontoCentavos, precoLiquidoCentavos }
+}
+
 // ------------------------------------------------------------
 // Matriz de recursos.
 //
