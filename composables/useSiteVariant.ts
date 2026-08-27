@@ -24,23 +24,6 @@ const HOST_VARIANTS: Record<string, SiteVariant> = {
   'www.olhonocaminhao.com.br': 'caminhao',
 }
 
-// A home ("/") e PRERENDERIZADA (routeRules `{ "/": { prerender: true } }`):
-// gerada UMA vez no build, sem Host de requisicao nenhum pra detectar —
-// servir a mesma pagina estatica pra todo mundo era o bug (dominio tematico
-// mostrando hero de carro). Fix: /variante-moto e /variante-caminhao sao a
-// MESMA pagina (pages/index.vue, clonada em app/router.options.ts),
-// prerenderizadas cada uma com sua variante FORCADA pelo path — o
-// server/middleware/00.host-theme-rewrite.ts reescreve "/" pra uma dessas
-// ANTES do Nitro resolver a rota, conforme o Host. No SSR desse rewrite,
-// route.path e "/variante-moto" (o override abaixo pega). No client, a URL
-// na barra continua "/" (o rewrite e so interno) — a hidratacao cai no
-// fallback por Host mesmo, que da o MESMO resultado (o browser esta
-// realmente em olhonamoto.com.br), entao nunca ha mismatch de hidratacao.
-const PATH_VARIANT_OVERRIDE: Record<string, SiteVariant> = {
-  '/variante-moto': 'moto',
-  '/variante-caminhao': 'caminhao',
-}
-
 export interface SiteVariantContent {
   variant: SiteVariant
   siteName: string
@@ -106,9 +89,6 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
  * mapeado (staging, preview, localhost) — nunca quebra por host desconhecido.
  */
 export function useSiteVariant(): SiteVariant {
-  const route = useRoute()
-  const porPath = route?.path ? PATH_VARIANT_OVERRIDE[route.path] : undefined
-  if (porPath) return porPath
   const { hostname } = useRequestURL()
   return HOST_VARIANTS[hostname] || 'default'
 }
