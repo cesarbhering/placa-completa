@@ -83,7 +83,7 @@ export const RECURSOS: Recurso[] = [
   // logo abaixo do valor FIPE: e a evolucao do mesmo numero
   { label: 'FIPE com histórico de depreciação',     planos: ['basica', 'completa'] },
   { label: 'Seguro estimado e custo em 5 anos',     planos: ['basica', 'completa'] },
-  { label: 'Situação do veículo',                   planos: ['basica', 'completa'] },
+  { label: 'Situação cadastral (em circulação / baixado)', planos: ['basica', 'completa'] },
   { label: 'Ficha técnica: espécie, tipo, categoria', planos: ['basica', 'completa'] },
   { label: 'Potência, cilindrada, eixos e lotação', planos: ['basica', 'completa'] },
   { label: 'Município e UF de jurisdição',          planos: ['basica', 'completa'] },

@@ -474,7 +474,7 @@ onUnmounted(() => {
                 <span class="pic-veiculo__placa">Placa {{ preview.placa }}</span>
               </div>
               <div class="loading-bar"><div class="loading-bar__fill" /></div>
-              <p class="pic-hint">Preparando seu relatório completo...</p>
+              <p class="pic-hint">Preparando seu relatório...</p>
             </template>
             <!-- 'entregue' precisa de ramo proprio: checarStatus seta o estado e
                  so depois navega, entao o Vue re-renderiza antes da navegacao.
