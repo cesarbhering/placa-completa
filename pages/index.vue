@@ -2878,8 +2878,14 @@ function applyEmailSuggestion() {
     background: $c-cloud;
     padding: var(--band-y) $s-xl;
 
+    // 640px (mesma largura do cb-cmp-head vizinho) apertava demais AQUI: o
+    // titulo desta secao e mais longo ("É assim que o relatório completo
+    // fica.") e quebrava em 2 linhas mesmo em monitor largo, com a fonte no
+    // teto do clamp (44px). 960px da espaco pra caber numa linha so nas
+    // telas largas sem esticar demais nas estreitas (o clamp/vw ja cuida
+    // da fonte encolher antes de precisar quebrar).
     &__head {
-      max-width: 640px;
+      max-width: 960px;
       margin: 0 auto $s-xxl;
       text-align: center;
 
