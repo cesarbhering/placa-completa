@@ -54,10 +54,11 @@ export const PLANOS: Record<PlanoId, Plano> = {
 export const PLANOS_PAGOS: Plano[] = [PLANOS.basica, PLANOS.completa]
 
 /**
- * Piso de preco pra cupom (v1): mesmo com desconto, o pedido nunca pode
- * custar menos que isto. Cobre custo fixo (fee AbacatePay ~R$0,80; a completa
- * ainda soma a consulta SERPRO, ~R$5). SEM bypass de 100% na v1 — o cupom
- * sempre desconta, nunca zera.
+ * Piso de preco pra cupom: mesmo com desconto, o pedido nunca pode custar
+ * menos que isto. Cobre custo fixo (fee AbacatePay ~R$0,80; a completa ainda
+ * soma a consulta SERPRO, ~R$5). SO cupons marcados `permiteGratis` furam
+ * esse piso ate zero — todo o resto (percentual/fixo comum) fica sempre
+ * travado aqui, mesmo que o valor calculado do desconto passe do preco cheio.
  */
 export const PISO_CUPOM_CENTAVOS: Record<'basica' | 'completa', number> = {
   basica: 990,
@@ -66,17 +67,18 @@ export const PISO_CUPOM_CENTAVOS: Record<'basica' | 'completa', number> = {
 
 /**
  * Aplica um cupom (percentual ou fixo) sobre o preco de tabela do plano,
- * respeitando o piso. Funcao pura, sem I/O — usada tanto no endpoint de
- * validar quanto no checkout, pra garantir que os dois calculam o MESMO
- * numero. Cupom fora do plano ou tipo invalido devolve o preco cheio, sem erro
- * (quem chama decide se isso e "cupom invalido").
+ * respeitando o piso — EXCETO quando `cupom.permiteGratis` e true, caso em
+ * que o piso vira 0 (o relatorio pode sair de graca). Funcao pura, sem I/O —
+ * usada tanto no endpoint de validar quanto no checkout, pra garantir que os
+ * dois calculam o MESMO numero. Cupom fora do plano ou tipo invalido devolve
+ * o preco cheio, sem erro (quem chama decide se isso e "cupom invalido").
  */
 export function aplicarCupom(
   plano: 'basica' | 'completa',
-  cupom: { tipo: 'percentual' | 'fixo'; valor: number; planos: string[] } | null | undefined,
+  cupom: { tipo: 'percentual' | 'fixo'; valor: number; planos: string[]; permiteGratis?: boolean } | null | undefined,
 ): { precoBrutoCentavos: number; descontoCentavos: number; precoLiquidoCentavos: number } {
   const precoBrutoCentavos = PLANOS[plano].valorCentavos
-  const piso = PISO_CUPOM_CENTAVOS[plano]
+  const piso = cupom?.permiteGratis ? 0 : PISO_CUPOM_CENTAVOS[plano]
   if (!cupom || !cupom.planos.includes(plano)) {
     return { precoBrutoCentavos, descontoCentavos: 0, precoLiquidoCentavos: precoBrutoCentavos }
   }

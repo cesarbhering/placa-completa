@@ -93,7 +93,7 @@ const mostraWhatsapp = false
 const ambiente = ref<'homolog' | 'producao'>(cfg.public.homolog ? 'homolog' : 'producao')
 const preview = ref<any>(null)
 
-const pix = ref<{ brCode: string; brCodeBase64: string; token: string; valor: number } | null>(null)
+const pix = ref<{ brCode?: string; brCodeBase64?: string; token: string; valor: number; gratis?: boolean } | null>(null)
 const pendingStatus = ref('aguardando_pagamento')
 let poll: ReturnType<typeof setInterval> | null = null
 
@@ -107,6 +107,10 @@ const planoInfo = computed(() => PLANOS[props.plano])
 const precoExibidoCentavos = computed(() =>
   Math.max(0, planoInfo.value.valorCentavos - cupomDescontoCentavos.value),
 )
+// So pra rotular o botao: o preco final real (gratis ou nao) sai sempre do
+// server, isto e so cosmetico. Cupom parcial que so encosta no piso (ex.:
+// R$9,90) NAO conta como gratis — so quando zera de verdade.
+const cupomGratis = computed(() => cupomValido.value && precoExibidoCentavos.value === 0)
 
 // A placa comeca na prop mas pode ser corrigida aqui dentro (o lapis do passo
 // de reconferencia), entao vira estado local em vez de derivar so da prop.
@@ -242,6 +246,10 @@ async function pagar() {
       status: 'aguardando_pagamento',
     })
     poll = setInterval(checarStatus, 4000)
+    // Gratis: o server ja processou a entrega ANTES de responder (sem Pix pra
+    // esperar). Confere o status na hora em vez de deixar a pessoa olhando
+    // pra tela de "aguardando pagamento" ate o proximo tick do poll (4s).
+    if (pix.value?.gratis) await checarStatus()
   } catch (e: any) {
     if (import.meta.dev) console.warn('[checkout] pagar falhou:', e?.data?.message || e)
     msg.value = 'Não conseguimos gerar o Pix agora. Tente de novo em instantes.'
@@ -279,7 +287,7 @@ async function checarStatus() {
     const r: any = await $fetch('/api/premium/status', { query: { token: pix.value.token } })
     pendingStatus.value = r.status
     histUpdate(pix.value.token, r.status)
-    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token, props.plano)
+    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token, props.plano, pix.value.valor)
     if (r.status === 'entregue') {
       if (poll) clearInterval(poll)
       irParaRelatorio(pix.value.token)
@@ -291,7 +299,7 @@ async function checarStatus() {
 }
 
 function copiar() {
-  if (pix.value) navigator.clipboard?.writeText(pix.value.brCode)
+  if (pix.value?.brCode) navigator.clipboard?.writeText(pix.value.brCode)
 }
 
 // Homolog: confirma o pagamento sem Pix real (AbacatePay dev). Depois o poll de
@@ -445,7 +453,7 @@ onUnmounted(() => {
               >
             </div>
             <button type="button" class="pic-btn pic-btn--primary" :disabled="loading" @click="irParaReconferencia">
-              {{ loading ? 'Gerando Pix...' : `Pagar ${reais(precoExibidoCentavos)} via Pix` }}
+              {{ loading ? (cupomGratis ? 'Liberando...' : 'Gerando Pix...') : (cupomGratis ? 'Liberar relatório grátis' : `Pagar ${reais(precoExibidoCentavos)} via Pix`) }}
             </button>
             <button type="button" class="pic-btn" @click="fechar">Cancelar</button>
           </div>
@@ -502,14 +510,23 @@ onUnmounted(() => {
               :disabled="loading"
               @click="pagar"
             >
-              {{ loading ? 'Gerando Pix...' : `Pagar ${reais(precoExibidoCentavos)} via Pix` }}
+              {{ loading ? (cupomGratis ? 'Liberando...' : 'Gerando Pix...') : (cupomGratis ? 'Liberar relatório grátis' : `Pagar ${reais(precoExibidoCentavos)} via Pix`) }}
             </button>
             <button v-if="!editandoPlaca" type="button" class="pic-btn" @click="step = 'confirm'">Voltar</button>
           </div>
 
           <!-- Pagamento Pix + polling -->
           <div v-else-if="step === 'pending'" class="pic-stack pic-center">
-            <template v-if="pendingStatus === 'aguardando_pagamento'">
+            <template v-if="pix?.gratis && pendingStatus === 'aguardando_pagamento'">
+              <!-- Gratis: nao ha Pix pra mostrar. O server ja disparou a
+                   entrega antes de responder; este trecho so aparece por uma
+                   fracao de segundo, ate o checarStatus() imediato do pagar()
+                   atualizar pendingStatus. -->
+              <h3 class="pic-h">Liberando seu relatório grátis</h3>
+              <div class="loading-bar"><div class="loading-bar__fill" /></div>
+              <p class="pic-hint">Só um instante...</p>
+            </template>
+            <template v-else-if="pendingStatus === 'aguardando_pagamento'">
               <h3 class="pic-h">Pague com Pix para liberar</h3>
               <!-- Na hora de pagar a pessoa precisa reconferir o que esta
                    levando: tipo de relatorio, valor e, sobretudo, a placa. -->
@@ -543,7 +560,7 @@ onUnmounted(() => {
               </button>
             </template>
             <template v-else-if="['pago', 'consultando'].includes(pendingStatus)">
-              <h3 class="pic-h">Pagamento confirmado ✓</h3>
+              <h3 class="pic-h">{{ pix?.gratis ? 'Relatório liberado ✓' : 'Pagamento confirmado ✓' }}</h3>
               <!-- Confirmacao do veiculo depois do pagamento: e aqui que a
                    pessoa ve modelo, cor e cidade e tem a chance de dizer que
                    errou a placa, antes de o relatorio virar o assunto. -->
