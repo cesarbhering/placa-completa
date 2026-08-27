@@ -18,6 +18,11 @@ const { isPWA, isMobile } = useAppMode()
 const route = useRoute()
 const router = useRouter()
 
+// Theming por dominio (hibrido de dominios): hero/copy/meta trocam conforme
+// o Host (olhonamoto.com.br / olhonocaminhao.com.br), placacompleta segue
+// default. So apresentacao — o canonical NAO muda (ver useSiteVariant.ts).
+const siteVariant = useSiteVariantContent()
+
 // Placa que veio na URL, por qualquer um dos dois caminhos.
 const placaDaRota = computed(() => {
   const bruto = String(route.params.placa || route.query.placa || '')
@@ -539,24 +544,32 @@ if (import.meta.client) {
 // veiculo dentro. Nao entra em indice.
 useSeoMeta({
   robots: () => (route.params.placa ? 'noindex, nofollow' : 'index, follow'),
-  ogTitle: 'PlacaCompleta · Relatório completo do veículo pela placa',
-  ogDescription: 'Restrições, roubo/furto, gravame, leilão, recall, ficha completa, FIPE, seguro e custo em 5 anos. Pagamento único no Pix, resultado na hora. Consulta grátis sem cadastro.',
+  ogTitle: siteVariant.ogTitle,
+  ogDescription: siteVariant.ogDescription,
+  // Imagem OG segue a do placacompleta ate ter uma por dominio (mesmo
+  // placeholder do hero: nao existe asset de moto/caminhao ainda).
   ogImage: 'https://placacompleta.com.br/og-home.png',
   ogImageWidth: 1200,
   ogImageHeight: 630,
-  ogImageAlt: 'PlacaCompleta: relatório completo do veículo pela placa',
+  ogImageAlt: `${siteVariant.siteName}: relatório completo do veículo pela placa`,
   twitterCard: 'summary_large_image',
-  twitterTitle: 'PlacaCompleta · Relatório completo do veículo pela placa',
-  twitterDescription: 'Restrições, roubo/furto, gravame, leilão, recall, FIPE, seguro e custo em 5 anos. Pagamento único no Pix, resultado na hora.',
+  twitterTitle: siteVariant.ogTitle,
+  twitterDescription: siteVariant.ogDescription,
   twitterImage: 'https://placacompleta.com.br/og-home.png',
 })
 
 useHead({
   // Web: title com keyword pro SERP (a homepage ranqueia pra "consulta placa"
-  // com CTR em disputa). PWA/TWA: título curto, melhor em contexto de app.
+  // com CTR em disputa) e ja no idioma do dominio (moto/caminhao/carro).
+  // PWA/TWA: título curto, melhor em contexto de app — sempre PlacaCompleta,
+  // o app nunca abre nos dominios tematicos.
   title: computed(() => isPWA.value
     ? 'PlacaCompleta'
-    : 'Consulta Placa Grátis: Marca, Modelo, Ano e Cor'),
+    : siteVariant.metaTitle),
+  // Os JSON-LD abaixo (FAQPage/WebSite/Organization) ficam SEMPRE com a
+  // identidade do PlacaCompleta, de proposito: e a entidade canonica pra
+  // onde o canonical desta pagina aponta nos 3 dominios (ver
+  // composables/useSiteVariant.ts). Nao trocar por dominio.
   script: [
     {
       type: 'application/ld+json',
@@ -1064,10 +1077,10 @@ function applyEmailSuggestion() {
       <header id="hero" class="cb-hero" :class="{ 'cb-hero--resultado': success }">
         <div v-if="!success" class="cb-hero__grid">
           <div class="cb-hero__left">
-            <p class="cb-eyebrow">Consulta veicular por placa</p>
+            <p class="cb-eyebrow">{{ siteVariant.eyebrow }}</p>
             <h1 class="cb-h1">
-              O anúncio mostra o carro.<br>
-              <span class="cb-accent">O relatório mostra o resto.</span>
+              {{ siteVariant.h1Line1 }}<br>
+              <span class="cb-accent">{{ siteVariant.h1Accent }}</span>
             </h1>
             <p class="cb-sub">
               Restrição, roubo, gravame, leilão, dívida. <b>O que o vendedor não conta, a placa revela.</b>
@@ -1146,7 +1159,7 @@ function applyEmailSuggestion() {
                    nao um veiculo real: o rotulo abaixo diz isso em letra miuda
                    pra ninguem ler como laudo de um carro especifico. -->
               <div ref="carroRef" class="cb-carro" :class="{ 'is-entrando': carroEntrou }">
-                <img src="/carro-hero.webp" alt="" class="cb-carro__img" aria-hidden="true" width="1024" height="1024">
+                <img :src="siteVariant.heroImage" alt="" class="cb-carro__img" aria-hidden="true" width="1024" height="1024">
 
                 <!-- Linhas e pontos numa camada SVG so: como sao todas
                      horizontais, o rotulo opaco por cima esconde o comeco da
