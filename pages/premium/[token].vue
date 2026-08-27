@@ -430,6 +430,10 @@ onMounted(async () => {
 // indicadores; sem FIPE nao ha secao de valor). Numeracao fixa deixaria buraco.
 const numSecao = computed(() => {
   const ordem: string[] = ['veh']
+  // Logo apos a identificacao: "veiculo importado" e um diferencial que o
+  // comprador valoriza, entao o card fica em destaque perto do topo, nao
+  // enterrado dentro da ficha tecnica.
+  if (fichaImportacao.value.length) ordem.push('importado')
   if (indicadores.value.length) ordem.push('ind')
   if (!isBasica.value && indicadores.value.length) ordem.push('restr')
   if (ocorrencias.value.length) ordem.push('ocorr')
@@ -763,6 +767,28 @@ onUnmounted(() => poll && clearInterval(poll))
             </div>
           </section>
 
+          <!-- Importacao: card PROPRIO e destacado (nao enterrado dentro da
+               ficha), so pra veiculo importado (procedencia ESTRANGEIRO) —
+               e uma caracteristica que o comprador valoriza. -->
+          <section v-if="fichaImportacao.length" class="rel__card rel__card--import">
+            <div class="rel__import-topo">
+              <span class="rel__import-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z" />
+                </svg>
+                Veículo importado
+              </span>
+              <h2 class="rel__h2 rel__h2--import">{{ numSecao.importado }}. Importação</h2>
+            </div>
+            <table class="rel__tab">
+              <tbody>
+                <tr v-for="([k, val]) in fichaImportacao" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+              </tbody>
+            </table>
+          </section>
+
           <!-- indicadores (so na completa; a basica nem recebe os campos) -->
           <section v-if="indicadores.length" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.ind }}. Indicadores verificados</h2>
@@ -850,16 +876,6 @@ onUnmounted(() => poll && clearInterval(poll))
                 <table class="rel__tab">
                   <tbody>
                     <tr v-for="([k, val]) in fichaTecnica" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <!-- So aparece pra veiculo importado (procedencia ESTRANGEIRO);
-                   nacional nao tem nada aqui pra mostrar. -->
-              <div v-if="fichaImportacao.length">
-                <span class="rel__sub">Importação</span>
-                <table class="rel__tab">
-                  <tbody>
-                    <tr v-for="([k, val]) in fichaImportacao" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1017,6 +1033,43 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     }
 
     &--up { border-color: $c-blue; }
+
+    // Importacao: destaque de proposito (o Cesar pediu pra chamar atencao —
+    // "veiculo importado" pesa na decisao de compra). Mesmo acento azul do
+    // resto do relatorio, so que aplicado no card inteiro em vez de so na
+    // borda: fundo tingido de leve + borda mais forte.
+    &--import {
+      border-color: $c-blue;
+      border-width: 2px;
+      background: linear-gradient(180deg, rgba(31, 111, 235, 0.05), $c-canvas 120px);
+    }
+  }
+
+  &__import-topo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  &__import-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #fff;
+    background: $c-blue;
+    border-radius: 999px;
+    padding: 5px 12px;
+
+    svg { width: 14px; height: 14px; flex-shrink: 0; }
+  }
+
+  &__h2--import {
+    color: $c-blue-deep;
+    margin: 0;
   }
 
   &__kick {
