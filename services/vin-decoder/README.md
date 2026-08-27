@@ -12,6 +12,7 @@ O relatório completo ganha um bloco "Origem do chassi" (fabricante, país, ano-
 npm install
 npm run import:vpic          # popula a tabela wmi a partir da API pública do vPIC/NHTSA (demora — pagina milhares de fabricantes)
 npm run import:overrides-br  # aplica nomes amigáveis + correções pros WMIs mais comuns no Brasil
+npm run import:plants-br     # curadoria de plantas de fabricação (posição 11) — lista pequena de propósito, ver comentário no arquivo
 npm start                    # sobe o Fastify na porta 3000
 ```
 
