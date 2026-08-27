@@ -260,11 +260,13 @@ export default defineEventHandler(async (event) => {
     // passar o path inline (email_sent=false) — foi por onde um bot enumerou
     // placas e drenou os creditos. Aqui contamos TODAS as rows do IP na janela e
     // barramos ANTES da wdapi. Vale pra web E app/PWA (pedido do Cesar).
-    // Teto de 5/IP/hora (decisao do Cesar): mesmo teto do web anonimo, valendo
-    // igual pra web e app/PWA, sem excecao. Um atacante nao paga, entao o reset
-    // pos-compra (janelaInicio) nao abre brecha e protege quem pagou. Escape via
+    // Teto de 15/IP/hora (meio-termo decidido pelo Cesar): mais folgado que os 5
+    // do web anonimo pra nao dar falso-positivo em CGNAT de operadora, e ainda
+    // segura o abuso (o ataque foi 47 em 15min). Vale igual pra web e app/PWA,
+    // contando TODAS as rows do IP. Um atacante nao paga, entao o reset pos-compra
+    // (janelaInicio) nao abre brecha e protege quem pagou. Escape via
     // rate_limit_whitelist (whitelistar um IP pra Infinity ou teto maior).
-    const IP_WDAPI_HOURLY_LIMIT = 5
+    const IP_WDAPI_HOURLY_LIMIT = 15
     if (ipCheckable) {
       const ipLimit = await getHourlyLimit(ip)
       if (ipLimit !== Infinity) {
