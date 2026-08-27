@@ -38,6 +38,9 @@ const msg = ref('')
 const senha = ref('')
 const email = ref('')
 const telefone = ref('')
+// WhatsApp oculto ate a feature de notificacao por WhatsApp existir. O ref
+// telefone segue vivo (API aceita opcional); so nao aparece na UI.
+const mostraWhatsapp = false
 // Controle de teste: SO o build de homolog mostra o dropdown e comeca em
 // 'homolog'. Qualquer outro build (staging espelha prod; prod e prod) nao tem
 // dropdown e precisa cair em 'producao' — senao o front mandaria 'homolog' e a
@@ -346,7 +349,9 @@ onUnmounted(() => {
                 inputmode="email"
               >
             </div>
-            <div class="pic-campo">
+            <!-- WhatsApp oculto ate a feature de notificacao por WhatsApp existir.
+                 A logica (ref telefone, envio opcional pra API) fica intacta. -->
+            <div v-if="mostraWhatsapp" class="pic-campo">
               <label class="form-group__label form-group__label--optional" for="pic-tel">WhatsApp</label>
               <input
                 id="pic-tel"
