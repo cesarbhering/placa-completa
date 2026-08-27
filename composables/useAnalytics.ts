@@ -59,16 +59,23 @@ export const useAnalytics = () => {
    * (receita/ecommerce e importacao). Idempotente via localStorage. O `value` e
    * o preco real do plano; o send_to do Ads segue inalterado.
    */
-  const trackConversionPaga = (token?: string, plano?: string) => {
+  /**
+   * `valorPagoCentavos` sobrescreve o preco de tabela quando o que a pessoa
+   * pagou de verdade e diferente (cupom): sem isso, um resgate GRATIS
+   * reportaria o preco cheio do plano pro Ads/GA4, inflando ROAS com receita
+   * que nunca existiu.
+   */
+  const trackConversionPaga = (token?: string, plano?: string, valorPagoCentavos?: number) => {
     if (!import.meta.client || !window.gtag || !token) return
     const key = 'pc_conv_' + token
     try {
       if (localStorage.getItem(key)) return
       localStorage.setItem(key, '1')
     } catch { /* modo privado: segue (pode duplicar, aceitavel) */ }
-    const { value, item } = infoPlano(plano)
+    const { value: valorTabela, item } = infoPlano(plano)
+    const value = valorPagoCentavos != null ? valorPagoCentavos / 100 : valorTabela
     window.gtag('event', 'conversion', { send_to: AW_SEND_TO, value, currency: 'BRL', transaction_id: token })
-    window.gtag('event', 'purchase', { transaction_id: token, value, currency: 'BRL', items: [item] })
+    window.gtag('event', 'purchase', { transaction_id: token, value, currency: 'BRL', items: [{ ...item, price: value }] })
   }
 
   return {
