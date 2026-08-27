@@ -128,6 +128,7 @@ export const RECURSOS: Recurso[] = [
   { label: 'Município e UF de jurisdição',          planos: ['basica', 'completa'] },
   { label: 'Recall pendente',                       planos: ['basica', 'completa'] },
   { label: 'Renavam completo',                      planos: ['basica', 'completa'] },
+  { label: 'Informações de importação (veículos importados)', planos: ['completa'] },
   { label: 'Restrições nacionais e estaduais',      planos: ['completa'] },
   { label: 'Roubo e furto',                         planos: ['completa'] },
   { label: 'Passagem por leilão',                   planos: ['completa'] },
