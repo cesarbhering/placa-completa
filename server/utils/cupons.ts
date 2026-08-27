@@ -15,6 +15,9 @@ export interface CupomValidado {
   precoBrutoCentavos: number
   descontoCentavos: number
   precoLiquidoCentavos: number
+  /** true = este cupom pode zerar o preco (bypass do Pix), se o desconto cobrir tudo. */
+  permiteGratis?: boolean
+  limiteUsoPorCliente?: number | null
 }
 
 export async function validarCupom(
@@ -80,6 +83,7 @@ export async function validarCupom(
     tipo: cupom.tipo,
     valor: cupom.valor,
     planos: cupom.planos,
+    permiteGratis: !!cupom.permite_gratis,
   })
 
   return {
@@ -88,6 +92,46 @@ export async function validarCupom(
     precoBrutoCentavos: bruto,
     descontoCentavos,
     precoLiquidoCentavos,
+    permiteGratis: !!cupom.permite_gratis,
+    limiteUsoPorCliente: cupom.limite_uso_por_cliente,
+  }
+}
+
+/**
+ * SO pro caminho gratis (preco liquido = 0): reivindica atomicamente 1 uso do
+ * cupom via RPC que trava a linha do cupom (evita corrida — sem isso, duas
+ * requisicoes concorrentes podiam ler o mesmo contador e as duas passarem, e
+ * cada resgate da completa custa ~R$5 de SERPRO real). Chamar ANTES de criar
+ * o pedido; se devolver false, NAO libera o relatorio de graca (cai pro preco
+ * cheio, tratado por quem chamou).
+ */
+export async function reivindicarUsoCupomGratis(
+  supabase: ReturnType<typeof usePremiumSupabase>,
+  cupomId: string,
+  email: string,
+  limitePorCliente: number | null | undefined,
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('reivindicar_uso_cupom_gratis', {
+    p_cupom_id: cupomId,
+    p_email: email,
+    p_limite_por_cliente: limitePorCliente ?? null,
+  })
+  if (error) {
+    console.warn('[cupom] reivindicar uso gratis falhou:', error.message)
+    return false
+  }
+  return !!data
+}
+
+/** Contrapartida do reivindicar: solta a vaga se o pedido nao puder ser criado depois. */
+export async function liberarUsoCupomGratis(
+  supabase: ReturnType<typeof usePremiumSupabase>,
+  cupomId: string,
+): Promise<void> {
+  try {
+    await supabase.rpc('liberar_uso_cupom_gratis', { p_cupom_id: cupomId })
+  } catch (e: any) {
+    console.warn('[cupom] liberar uso gratis falhou:', e?.message)
   }
 }
 
@@ -103,6 +147,12 @@ export async function registrarUsoCupom(
     precoBrutoCentavos: number
     descontoCentavos: number
     precoLiquidoCentavos: number
+    /**
+     * true quando reivindicarUsoCupomGratis() ja incrementou usos_atual pra
+     * este uso (caminho gratis) — evita contar 2x. false/omitido = caminho
+     * normal (pago com desconto), incrementa aqui mesmo (best-effort).
+     */
+    jaReivindicado?: boolean
   },
 ): Promise<void> {
   try {
@@ -114,6 +164,7 @@ export async function registrarUsoCupom(
       valor_desconto: opts.descontoCentavos,
       preco_liquido: opts.precoLiquidoCentavos,
     })
+    if (opts.jaReivindicado) return
     // Contador best-effort pro dashboard; nao e a fonte da verdade (validarCupom
     // sempre conta a tabela de usos), entao a leve race aqui (read-then-write,
     // sem lock) nao afeta nenhuma regra de negocio, so a exibicao do numero.

@@ -42,7 +42,26 @@ export default defineEventHandler(async (event) => {
   const cupomValidado = codigoCupom
     ? await validarCupom(supabase, codigoCupom, plano, email)
     : null
-  const valor = cupomValidado?.ok ? cupomValidado.precoLiquidoCentavos : PLANOS[plano].valorCentavos
+
+  // Cupom gratis (permite_gratis + desconto cobre 100%): reivindica a vaga
+  // ATOMICAMENTE (trava a linha do cupom no banco) ANTES de criar o pedido.
+  // Se a reivindicacao falhar (esgotado ou ja usado por este email), cai pro
+  // preco cheio em vez de falhar o checkout — mesma filosofia fail-open dos
+  // outros motivos de cupom invalido.
+  const tentaGratis = !!(cupomValidado?.ok && cupomValidado.permiteGratis && cupomValidado.precoLiquidoCentavos === 0)
+  const gratisReivindicado = tentaGratis && cupomValidado?.cupomId
+    ? await reivindicarUsoCupomGratis(supabase, cupomValidado.cupomId, email, cupomValidado.limiteUsoPorCliente)
+    : false
+
+  // Se a tentativa de gratis falhou (esgotado/ja usado), NAO usa o preco
+  // liquido=0 que o cupom calculou — sem a vaga reivindicada, ninguem leva de
+  // graca. Cai pro preco cheio (mais seguro que aplicar so o desconto parcial
+  // de um cupom que era, por definicao, "tudo ou nada").
+  const valor = gratisReivindicado
+    ? 0
+    : tentaGratis
+      ? PLANOS[plano].valorCentavos
+      : (cupomValidado?.ok ? cupomValidado.precoLiquidoCentavos : PLANOS[plano].valorCentavos)
 
   const { data: pedido, error } = await supabase
     .from('pedidos_premium')
@@ -57,20 +76,45 @@ export default defineEventHandler(async (event) => {
     })
     .select()
     .single()
-  if (error || !pedido) throw createError({ statusCode: 500, message: 'Falha ao criar pedido' })
+  if (error || !pedido) {
+    // Pedido nao foi criado: se a gente ja tinha reivindicado a vaga gratis,
+    // solta ela de volta (senao o cupom perde um uso sem ninguem ter recebido nada).
+    if (gratisReivindicado && cupomValidado?.cupomId) await liberarUsoCupomGratis(supabase, cupomValidado.cupomId)
+    throw createError({ statusCode: 500, message: 'Falha ao criar pedido' })
+  }
 
   // Uso do cupom: so registra DEPOIS que o pedido existe (precisa do pedido_id,
   // unique na tabela de usos). Fail-open: erro aqui nao derruba o checkout, o
   // pedido ja foi criado com o preco correto de qualquer forma.
-  if (cupomValidado?.ok && cupomValidado.cupomId) {
+  if (cupomValidado?.ok && cupomValidado.cupomId && (gratisReivindicado || !tentaGratis)) {
     await registrarUsoCupom(supabase, {
       cupomId: cupomValidado.cupomId,
       pedidoId: pedido.id,
       email,
       precoBrutoCentavos: cupomValidado.precoBrutoCentavos,
-      descontoCentavos: cupomValidado.descontoCentavos,
-      precoLiquidoCentavos: cupomValidado.precoLiquidoCentavos,
+      descontoCentavos: gratisReivindicado ? cupomValidado.precoBrutoCentavos : cupomValidado.descontoCentavos,
+      precoLiquidoCentavos: valor,
+      jaReivindicado: gratisReivindicado,
     })
+  }
+
+  // Caminho GRATIS: sem Pix nenhum. Marca o pedido pra entrega e dispara na
+  // hora — processarPedidoPago ja sabe lidar com abacatepay_id nulo (nao
+  // tenta reembolso de uma cobranca que nunca existiu).
+  if (gratisReivindicado) {
+    await processarPedidoPago(supabase, {
+      id: pedido.id, placa, email, token_entrega: token,
+      abacatepay_id: null, plano, ambiente,
+    })
+    const { data: atualizado } = await supabase
+      .from('pedidos_premium')
+      .select('status')
+      .eq('id', pedido.id)
+      .maybeSingle()
+    return {
+      token, plano, valor: 0, gratis: true, status: atualizado?.status || 'consultando',
+      cupomAplicado: { descontoCentavos: cupomValidado!.precoBrutoCentavos },
+    }
   }
 
   // Cliente na AbacatePay: registra quem comprou (rastreio no dashboard) e o id
@@ -95,6 +139,9 @@ export default defineEventHandler(async (event) => {
 
   return {
     token, plano, brCode: pix.brCode, brCodeBase64: pix.brCodeBase64, expiresAt: pix.expiresAt, valor,
-    cupomAplicado: cupomValidado?.ok ? { descontoCentavos: cupomValidado.descontoCentavos } : null,
+    // tentaGratis-e-falhou cai aqui com preco cheio: nesse caso NAO aplicou
+    // desconto nenhum (a vaga gratis nao foi concedida), entao nao anuncia
+    // cupom aplicado pro client.
+    cupomAplicado: (cupomValidado?.ok && !tentaGratis) ? { descontoCentavos: cupomValidado.descontoCentavos } : null,
   }
 })
