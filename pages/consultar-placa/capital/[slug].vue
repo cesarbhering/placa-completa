@@ -61,30 +61,20 @@ useHead({
 </script>
 
 <template>
-  <div class="desktop content-page">
-    <main>
-      <div class="win-window">
-      <div class="win-window__titlebar">
-        <span>Consulta Placa {{ capital.name }}</span>
-        <div class="win-window__titlebar-buttons">
-          <span class="win-window__titlebar-btn">_</span>
-          <span class="win-window__titlebar-btn">&square;</span>
-          <span class="win-window__titlebar-btn">&times;</span>
-        </div>
-      </div>
-      <div class="win-window__body">
-        <h1 class="seo-title">Consultar Placa de Veículo em {{ capital.name }} - {{ state.uf }}</h1>
+  <div class="pc-page">
+    <main class="pc-container">
+      <h1 class="pc-h1">Consultar Placa de Veículo em {{ capital.name }} - {{ state.uf }}</h1>
 
-        <div class="seo-content">
-          <p>
+      <div class="pc-prose">
+        <p>
             Consulte gratuitamente a placa de qualquer veículo registrado em
             <strong>{{ capital.name }}</strong>, capital de
             <NuxtLink :to="`/consultar-placa/${state.slug}`">{{ state.name }} ({{ state.uf }})</NuxtLink>.
             {{ capital.context }}
           </p>
 
-          <div class="text-center mt-md mb-md">
-            <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
+          <div class="pc-cta">
+            <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
               Consultar Placa em {{ capital.name }} Agora
             </NuxtLink>
           </div>
@@ -135,12 +125,12 @@ useHead({
           </p>
 
           <h2>Perguntas frequentes sobre placas em {{ capital.name }}</h2>
-          <div v-for="faq in capital.faqs" :key="faq.question" class="faq-item">
+          <div v-for="faq in capital.faqs" :key="faq.question" class="pc-faq__item">
             <h3>{{ faq.question }}</h3>
             <p>{{ faq.answer }}</p>
           </div>
 
-          <nav class="breadcrumb">
+          <nav class="pc-breadcrumb">
             <NuxtLink to="/">Início</NuxtLink>
             <span> &rsaquo; </span>
             <NuxtLink :to="`/consultar-placa/${state.slug}`">{{ state.name }}</NuxtLink>
@@ -149,81 +139,12 @@ useHead({
           </nav>
         </div>
 
-        <div class="text-center mt-md">
-          <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
-            Consultar Placa Grátis
-          </NuxtLink>
-        </div>
+      <div class="pc-cta">
+        <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
+          Consultar Placa Grátis
+        </NuxtLink>
       </div>
-    </div>
     </main>
   </div>
 </template>
 
-<style lang="scss" scoped>
-.seo-title {
-  font-family: $font-display;
-  font-size: 1.75rem;
-  color: $navy-electric;
-  text-align: center;
-  margin-bottom: $space-md;
-}
-
-.seo-content {
-  font-size: 0.8125rem;
-  line-height: 1.6;
-  color: $graphite;
-
-  p { margin-bottom: $space-md; }
-
-  h2 {
-    font-family: $font-display;
-    font-size: 1.25rem;
-    color: $navy-electric;
-    margin: $space-md 0 $space-sm;
-  }
-
-  h3 {
-    font-family: $font-display;
-    font-size: 1.0625rem;
-    color: $smart-blue;
-    margin-bottom: $space-xs;
-  }
-
-  ul, ol {
-    padding-left: $space-lg;
-    margin-bottom: $space-md;
-  }
-
-  li { margin-bottom: $space-xs; }
-
-  a {
-    color: $smart-blue;
-    text-decoration: underline;
-  }
-}
-
-.faq-item {
-  @include win-border-sunken;
-  background: $win-white;
-  padding: $space-sm $space-md;
-  margin-bottom: $space-sm;
-}
-
-.breadcrumb {
-  font-size: 0.75rem;
-  margin-top: $space-lg;
-  padding-top: $space-sm;
-  border-top: 1px solid $win-dark;
-
-  a {
-    color: $smart-blue;
-    text-decoration: underline;
-  }
-
-  span {
-    color: $win-dark;
-    margin: 0 2px;
-  }
-}
-</style>
