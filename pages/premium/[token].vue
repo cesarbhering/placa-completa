@@ -437,7 +437,8 @@ const numSecao = computed(() => {
   // diferencial (veiculo importado), mas nao e mais destaque de topo — fica
   // no fluxo normal da leitura, logo antes da ficha cadastral/tecnica.
   if (fichaImportacao.value.length) ordem.push('importado')
-  if (fichaChassiOrigem.value.length) ordem.push('chassiOrigem')
+  // chassiOrigem NAO entra na numeracao: virou subsecao dentro da ficha
+  // (rel__sub), igual Cadastral/Tecnica — nao e mais card proprio numerado.
   ordem.push('ficha')
   if (temValor.value) ordem.push('valor')
   const m: Record<string, number> = {}
@@ -867,17 +868,6 @@ onUnmounted(() => poll && clearInterval(poll))
             </table>
           </section>
 
-          <!-- Origem do chassi: decode de VIN, so completa. Some sozinha se
-               o servico de decode estiver fora (fail-open no server). -->
-          <section v-if="fichaChassiOrigem.length" class="rel__card">
-            <h2 class="rel__h2">{{ numSecao.chassiOrigem }}. Origem do chassi</h2>
-            <table class="rel__tab">
-              <tbody>
-                <tr v-for="([k, val]) in fichaChassiOrigem" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
-              </tbody>
-            </table>
-          </section>
-
           <!-- ficha -->
           <section class="rel__card">
             <h2 class="rel__h2">{{ numSecao.ficha }}. Ficha cadastral e técnica</h2>
@@ -903,6 +893,16 @@ onUnmounted(() => poll && clearInterval(poll))
                 <table class="rel__tab">
                   <tbody>
                     <tr v-for="([k, val]) in fichaTecnica" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <!-- Origem do chassi: decode de VIN, so completa. Some sozinha
+                   se o servico de decode estiver fora (fail-open no server). -->
+              <div v-if="fichaChassiOrigem.length">
+                <span class="rel__sub">Origem do chassi</span>
+                <table class="rel__tab">
+                  <tbody>
+                    <tr v-for="([k, val]) in fichaChassiOrigem" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
                   </tbody>
                 </table>
               </div>
