@@ -1,4 +1,5 @@
 @use 'variables' as *;
+@use 'tokens';
 @use 'fonts';
 @use 'components';
 @use 'content-pages';
@@ -29,10 +30,12 @@ html {
 
 body {
   font-family: $font-body;
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(4, 102, 200, 0.28) 0%, transparent 70%),
-    linear-gradient(175deg, $prussian-blue-3 0%, $prussian-blue-2 50%, $prussian-blue 100%);
-  color: $xp-text;
+  // Canvas branco do design novo (era o gradiente navy do skin antigo). As
+  // paginas do dinheiro pintam o proprio fundo (home branco, /premium dark) e
+  // escondem o header, entao nao dependem disto; as paginas legadas .win-*
+  // ficam sobre branco ate serem refrescadas.
+  background: var(--pc-canvas);
+  color: var(--pc-ink);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -345,19 +348,27 @@ body {
 }
 
 // Footer
+// Rodape do design novo: slab escuro auto-contido (padrao footer-dark do
+// DESIGN-hp), com fundo proprio, entao funciona sobre qualquer body. Fecha a
+// home branca com um bloco definido no lugar do antigo texto claro solto sobre
+// o body navy.
 .footer {
-  font-family: $font-body;
-  font-size: 0.78125rem;
-  color: $lavender-grey;
+  font-family: var(--pc-font);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--pc-on-slab-soft);
+  background: var(--pc-slab);
   text-align: center;
-  padding: $space-md;
+  padding: 40px $space-md;
 
   a {
-    color: #cfd5e2;
-    text-decoration: underline;
+    color: var(--pc-on-slab);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s ease;
 
     &:hover {
-      color: #ffffff;
+      border-bottom-color: var(--pc-on-slab);
     }
   }
 
