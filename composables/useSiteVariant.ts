@@ -9,8 +9,10 @@
 // de toda pagina de funil (consulta/checkout/premium, home) continua
 // apontando pra placacompleta.com.br automaticamente (o comportamento ja
 // existente, sem codigo novo) — evita conteudo duplicado indexado nos 3
-// dominios. Paginas de CONTEUDO PROPRIO (ex.: moto) que devem ranquear por
-// conta propria usam useSelfCanonical() pra furar esse default.
+// dominios. Paginas de CONTEUDO PROPRIO (ex.: moto, cluster "tabela fipe
+// moto") que devem ranquear por conta propria sao self-canonical — a regra
+// completa (prefixos de rota alinhados com o @seo) mora em
+// useDomainCanonical(), chamada uma vez em app.vue.
 // ============================================================
 
 export type SiteVariant = 'moto' | 'caminhao' | 'default'
@@ -29,7 +31,6 @@ export interface SiteVariantContent {
   h1Line1: string
   h1Accent: string
   sub: string
-  /** Ate as imagens definitivas chegarem, todos os variants usam o hero atual. */
   heroImage: string
   heroImageAlt: string
   metaTitle: string
@@ -58,11 +59,9 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     h1Line1: 'O anúncio mostra a moto.',
     h1Accent: 'O relatório mostra o resto.',
     sub: 'Restrição, roubo, gravame, leilão, dívida. O que o vendedor não conta, a placa revela.',
-    // TODO(web): trocar pelo hero definitivo de moto quando o Cesar mandar
-    // (tunel caiu). Placeholder = mesma imagem do default, so pra nao ter
-    // <img> quebrada.
-    heroImage: '/carro-hero.webp',
-    heroImageAlt: '',
+    // Honda CB600F Hornet, fundo transparente (recorte do Cesar).
+    heroImage: '/hero-moto.webp',
+    heroImageAlt: 'Honda CB600F Hornet vista de lado',
     metaTitle: 'Consulta Placa de Moto Grátis: Marca, Modelo, Ano e Cor',
     ogTitle: 'Olho na Moto · Relatório completo da moto pela placa',
     ogDescription: 'Restrições, roubo/furto, gravame, leilão, recall, ficha completa, FIPE, seguro e custo em 5 anos. Pagamento único no Pix, resultado na hora. Consulta grátis sem cadastro.',
@@ -74,9 +73,9 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     h1Line1: 'O anúncio mostra o caminhão.',
     h1Accent: 'O relatório mostra o resto.',
     sub: 'Restrição, roubo, gravame, leilão, dívida. O que o vendedor não conta, a placa revela.',
-    // TODO(web): idem — placeholder ate o hero definitivo de caminhao chegar.
-    heroImage: '/carro-hero.webp',
-    heroImageAlt: '',
+    // Volvo FH, fundo transparente (recorte do Cesar).
+    heroImage: '/hero-caminhao.webp',
+    heroImageAlt: 'Caminhão Volvo FH visto de lado',
     metaTitle: 'Consulta Placa de Caminhão Grátis: Marca, Modelo, Ano e Cor',
     ogTitle: 'Olho no Caminhão · Relatório completo do caminhão pela placa',
     ogDescription: 'Restrições, roubo/furto, gravame, leilão, recall, ficha completa, FIPE, seguro e custo em 5 anos. Pagamento único no Pix, resultado na hora. Consulta grátis sem cadastro.',
