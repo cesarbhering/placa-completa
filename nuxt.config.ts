@@ -631,21 +631,21 @@ export default defineNuxtConfig({
     // landing /premium segue indexavel. Sem Disallow no robots.txt (o crawler
     // precisa poder ver o noindex).
     "/premium/**": { robots: "noindex, nofollow" },
-    "/": { prerender: true },
-    // Rotas internas do theming por dominio (ver
-    // server/middleware/00.host-theme-rewrite.ts): a home ("/") e
-    // prerenderizada UMA vez no build, entao o Host da requisicao nunca
-    // chega no momento do prerender — useSiteVariant() nao tem como saber
-    // qual dominio pediu. Essas duas rotas sao a MESMA pagina (pages/index.vue)
-    // com a variante forcada pelo PATH em vez do Host (ver useSiteVariant.ts),
-    // prerenderizadas com o HTML certo cada uma. O middleware reescreve
-    // internamente "/" -> "/variante-moto" (ou -caminhao) ANTES do Nitro
-    // resolver a rota, conforme o Host da requisicao — a URL na barra do
-    // navegador continua sendo so "/", nunca aparece pro usuario. noindex
-    // pra nao expor o path interno em resultado de busca (o canonical de "/"
-    // ja aponta pro placacompleta de qualquer forma).
-    "/variante-moto": { prerender: true, robots: "noindex, nofollow" },
-    "/variante-caminhao": { prerender: true, robots: "noindex, nofollow" },
+    // A home NAO e mais prerenderizada de proposito (theming por dominio —
+    // ver composables/useSiteVariant.ts): tentamos prerender + rewrite
+    // interno por Host (server/middleware), mas o Nitro serve rota
+    // prerenderizada como asset ESTATICO, por um caminho que roda ANTES de
+    // qualquer server/middleware — o rewrite nunca chegava a executar em
+    // build de producao real (so funcionava em dev, onde "/" nunca e
+    // estatico). Testado e confirmado: com prerender, olhonamoto/
+    // olhonocaminhao sempre serviam o hero de carro (default), platform
+    // nenhuma dava pra interceptar antes. Tirando o prerender, cada request
+    // roda SSR de verdade e le o Host correto sempre. SEM swr tambem: cache
+    // de swr e por PATH, nao por Host — a home tem UM path so ("/") pros 3
+    // dominios, entao o SWR serviria a mesma variante cacheada (a que
+    // "ganhou" a corrida de que dominio pediu primeiro) pra todo mundo,
+    // mesmo bug do prerender so que preenchido em runtime em vez de build.
+    // Custo aceito: TTFB da home sobe (sem cache de borda no HTML).
     "/termos-de-uso": { prerender: true },
     "/politica-de-privacidade": { prerender: true },
     "/consulta-placa": { swr: 86400 },
@@ -664,11 +664,5 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: "netlify",
-    prerender: {
-      // /variante-moto e /variante-caminhao nao tem link nenhum no site (sao
-      // so destino do rewrite por Host) — o crawler de prerender do Nitro so
-      // acha rota que alguma pagina linka, entao precisam entrar aqui na mao.
-      routes: ["/variante-moto", "/variante-caminhao"],
-    },
   },
 });
