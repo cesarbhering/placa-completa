@@ -9,7 +9,8 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "import:vpic": "node scripts/import-vpic.mjs",
-    "import:overrides-br": "node scripts/overrides-br.mjs"
+    "import:overrides-br": "node scripts/overrides-br.mjs",
+    "import:plants-br": "node scripts/plants-br.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.5.0",
