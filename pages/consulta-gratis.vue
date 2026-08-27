@@ -57,22 +57,12 @@ useHead({
 </script>
 
 <template>
-  <div class="desktop content-page">
-    <main>
-      <div class="win-window">
-      <div class="win-window__titlebar">
-        <span>Consulta Grátis</span>
-        <div class="win-window__titlebar-buttons">
-          <span class="win-window__titlebar-btn">_</span>
-          <span class="win-window__titlebar-btn">&square;</span>
-          <span class="win-window__titlebar-btn">&times;</span>
-        </div>
-      </div>
-      <div class="win-window__body">
-        <h1 class="seo-title">Consultar Placa Grátis</h1>
+  <div class="pc-page">
+    <main class="pc-container">
+      <h1 class="pc-h1">Consultar Placa Grátis</h1>
 
-        <div class="seo-content">
-          <p>
+      <div class="pc-prose">
+        <p>
             No <strong>Placa Completa</strong> você consulta qualquer placa de veículo de forma
             totalmente grátis, sem cadastro e com resultado em segundos. Basta informar a placa
             e seu e-mail para receber todos os dados disponíveis do veículo.
@@ -106,77 +96,18 @@ useHead({
             <li>Pronto! Os dados completos chegam no seu e-mail em segundos.</li>
           </ol>
 
-          <h2>Perguntas Frequentes</h2>
-          <div v-for="faq in faqs" :key="faq.question" class="faq-item">
-            <h3>{{ faq.question }}</h3>
-            <p>{{ faq.answer }}</p>
-          </div>
+        <h2>Perguntas Frequentes</h2>
+        <div v-for="faq in faqs" :key="faq.question" class="pc-faq__item">
+          <h3>{{ faq.question }}</h3>
+          <p>{{ faq.answer }}</p>
         </div>
-
-        <div class="text-center mt-md">
-          <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
-            Consultar Placa Grátis
-          </NuxtLink>
-        </div>
-
       </div>
-    </div>
+
+      <div class="pc-cta">
+        <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
+          Consultar Placa Grátis
+        </NuxtLink>
+      </div>
     </main>
   </div>
 </template>
-
-<style lang="scss" scoped>
-.seo-title {
-  font-family: $font-display;
-  font-size: 1.75rem;
-  color: $navy-electric;
-  text-align: center;
-  margin-bottom: $space-md;
-}
-
-.seo-content {
-  font-size: 0.8125rem;
-  line-height: 1.6;
-  color: $graphite;
-
-  p { margin-bottom: $space-md; }
-
-  h2 {
-    font-family: $font-display;
-    font-size: 1.25rem;
-    color: $navy-electric;
-    margin: $space-md 0 $space-sm;
-  }
-
-  ul, ol {
-    padding-left: $space-lg;
-    margin-bottom: $space-md;
-  }
-
-  li { margin-bottom: $space-xs; }
-
-  a {
-    color: $smart-blue;
-    text-decoration: underline;
-  }
-}
-
-.faq-item {
-  margin-bottom: $space-md;
-  padding: $space-sm;
-  @include win-border-sunken;
-  background: $win-white;
-
-  h3 {
-    font-family: $font-display;
-    font-size: 1rem;
-    color: $navy-electric;
-    margin-bottom: $space-xs;
-  }
-
-  p {
-    margin-bottom: 0;
-    font-size: 0.8125rem;
-  }
-}
-</style>
