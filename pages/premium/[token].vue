@@ -864,7 +864,7 @@ onUnmounted(() => poll && clearInterval(poll))
               <template v-if="restantes">são <strong>{{ restantes }}</strong> informações a mais, com</template>
               <template v-else>traz</template>
               restrições nacionais e estaduais, roubo e furto, passagem por leilão, gravame,
-              RENAJUD, indicador de multas e chassi e Renavam completos.
+              RENAJUD e indicador de multas.
             </p>
             <NuxtLink class="rel__btn rel__btn--primario" :to="`/?placa=${data.placa}&plano=completa`">
               Relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
