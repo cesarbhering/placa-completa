@@ -502,6 +502,35 @@ const fichaTecnica = computed(() => [
   linha('Cap. máx. de tração', medida('capacidadeMaximaDeTracao') ? `${g('capacidadeMaximaDeTracao')} t` : null),
 ].filter(Boolean) as [string, string][])
 
+// Importacao: SO pra veiculo estrangeiro (procedencia === 'ESTRANGEIRO').
+// `importacao` vem com campos zerados/vazios pra veiculo nacional (o
+// comentario de camposRestantes() em shared/planos.ts ja nota isso — "quatro
+// zeros"), entao alem do gate por procedencia cada campo tambem descarta
+// "0"/vazio individualmente, senao a linha aparece com um zero sem sentido.
+const dataBR = (iso: any) => {
+  if (!iso) return null
+  const dt = new Date(String(iso))
+  return Number.isNaN(dt.getTime()) ? null : dt.toLocaleDateString('pt-BR')
+}
+const linhaImportacao = (rot: string, val: any) => {
+  if (val === null || val === undefined || val === '') return null
+  const s = String(val)
+  if (s === '0' || s === '00000000000') return null
+  return [rot, s]
+}
+const fichaImportacao = computed(() => {
+  if (String(g('procedencia') || '').toUpperCase() !== 'ESTRANGEIRO') return []
+  const imp = g('importacao') as any
+  if (!imp || typeof imp !== 'object') return []
+  return [
+    linhaImportacao('Data da declaração', dataBR(imp.dataDeclaracaoImportacao)),
+    linhaImportacao('Nº da declaração de importação', imp.numeroDeclaracaoImportacao),
+    linhaImportacao('Órgão de despacho (Receita/SRF)', imp.codigoOrgaoSrf),
+    linhaImportacao('Nº do processo de importação', imp.numeroProcessoImportacao),
+    linhaImportacao('Nº do registro de despacho aduaneiro', imp.numeroRegistroDespachoAduaneira),
+  ].filter(Boolean) as [string, string][]
+})
+
 // ---------- retomada do Pix ----------
 const valorPedido = computed(() => data.value?.valorCentavos ?? PLANOS[plano.value as 'basica' | 'completa']?.valorCentavos ?? 0)
 const copiado = ref(false)
@@ -821,6 +850,16 @@ onUnmounted(() => poll && clearInterval(poll))
                 <table class="rel__tab">
                   <tbody>
                     <tr v-for="([k, val]) in fichaTecnica" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <!-- So aparece pra veiculo importado (procedencia ESTRANGEIRO);
+                   nacional nao tem nada aqui pra mostrar. -->
+              <div v-if="fichaImportacao.length">
+                <span class="rel__sub">Importação</span>
+                <table class="rel__tab">
+                  <tbody>
+                    <tr v-for="([k, val]) in fichaImportacao" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
                   </tbody>
                 </table>
               </div>
