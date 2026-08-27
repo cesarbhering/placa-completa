@@ -10,6 +10,9 @@ function safeEq(a: string, b: string) {
 // 'premium_gate' (setado pelo /api/premium/gate) ou header 'x-premium-pass'.
 export function assertPremiumGate(event: H3Event) {
   const config = useRuntimeConfig()
+  // Prod/main nao seta `gated`: a area premium fica aberta pra todo comprador.
+  // O gate por senha vale so pros ambientes protegidos (homolog e staging).
+  if (!config.public.gated) return
   const expected = config.premiumPagePassword as string
   if (!expected) throw createError({ statusCode: 503, message: 'Premium nao configurado.' })
   const given = getCookie(event, 'premium_gate') || getRequestHeader(event, 'x-premium-pass') || ''

@@ -4,6 +4,9 @@ import crypto from 'node:crypto'
 export default defineEventHandler(async (event) => {
   const { password } = await readBody(event)
   const config = useRuntimeConfig()
+  // Prod nao e gated: o front nunca chama isto, mas se chamar nao pode dar 503
+  // por falta de senha configurada — responde ok e segue.
+  if (!config.public.gated) return { ok: true }
   const expected = config.premiumPagePassword as string
   if (!expected) throw createError({ statusCode: 503, message: 'Premium nao configurado.' })
   const ok =

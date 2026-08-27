@@ -38,13 +38,12 @@ const msg = ref('')
 const senha = ref('')
 const email = ref('')
 const telefone = ref('')
-// Controle de teste (so no homolog): escolhe se GCC/SERPRO batem em producao ou
-// homologacao. AbacatePay fica sempre no dev/homolog por ora.
-// No staging o dropdown fica escondido (espelho de prod), entao o default TEM
-// que ser 'producao' — senao o front manda 'homolog' e a consulta bate no
-// SENATRAN de homologacao (que so tem placas de teste, 404 pra placa real).
-// No homolog o default segue 'homolog' e o dropdown deixa alternar.
-const ambiente = ref<'homolog' | 'producao'>(cfg.public.staging ? 'producao' : 'homolog')
+// Controle de teste: SO o build de homolog mostra o dropdown e comeca em
+// 'homolog'. Qualquer outro build (staging espelha prod; prod e prod) nao tem
+// dropdown e precisa cair em 'producao' — senao o front mandaria 'homolog' e a
+// consulta bateria no SENATRAN de homologacao (que so tem placas de teste, 404
+// pra placa real). O server ainda faz o clamp final por seguranca.
+const ambiente = ref<'homolog' | 'producao'>(cfg.public.homolog ? 'homolog' : 'producao')
 const preview = ref<any>(null)
 
 const pix = ref<{ brCode: string; brCodeBase64: string; token: string; valor: number } | null>(null)
