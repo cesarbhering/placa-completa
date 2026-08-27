@@ -70,6 +70,25 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, message: 'Acesso não autorizado.' })
   }
 
+  // Blocklist de contencao pontual (IPs/e-mails de abuso confirmado). Mesmo
+  // esquema do UA: 403 ANTES de qualquer consulta paga, log em blocked_requests.
+  // Escala pra abuso especifico; o rate-limit por IP abaixo e a contencao geral.
+  const IP_BLOQUEADOS = new Set<string>(['177.44.134.147'])
+  const EMAIL_BLOQUEADOS = new Set<string>(['vs6285950@gmail.com'])
+  const ipInicial = getClientIp(event)
+  const emailInicial = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
+  if (IP_BLOQUEADOS.has(ipInicial) || (emailInicial && EMAIL_BLOQUEADOS.has(emailInicial))) {
+    const supabaseBl = useSupabaseServer()
+    supabaseBl.from('blocked_requests').insert({
+      reason: 'blocklist',
+      ip_address: ipInicial,
+      recipient: emailInicial ? emailInicial.slice(0, 200) : null,
+      placa: typeof body?.placa === 'string' ? body.placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 7) : null,
+      user_agent: (uaCheck || 'vazio').slice(0, 300),
+    }).then(({ error }) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
+    throw createError({ statusCode: 403, message: 'Acesso não autorizado.' })
+  }
+
   const { email, phone, placa, isPWA, includeFipeChart, includeIcv5, icv5Uf } = body
   // Origem de trafego (gclid/utm) capturada pelo plugin track-origin no client
   const origin = body?.origin && typeof body.origin === 'object' ? body.origin : {}
@@ -233,6 +252,55 @@ export default defineEventHandler(async (event) => {
         if (pago?.pago_em) janelaInicio = new Date(pago.pago_em).toISOString()
       }
     } catch { /* premium nao configurado ou lookup falhou: sem reset */ }
+
+    // ===== FURO FECHADO: teto por IP que conta TODAS as chamadas wdapi =====
+    // Cada row de `consultas` = 1 chamada a wdapi (API paga), independente de
+    // canal ('tela'/PWA/email/whatsapp), isPWA ou email_sent. O check por
+    // destinatario/sent mais abaixo e so a UX de "N entregas/hora" e deixava
+    // passar o path inline (email_sent=false) — foi por onde um bot enumerou
+    // placas e drenou os creditos. Aqui contamos TODAS as rows do IP na janela e
+    // barramos ANTES da wdapi. Vale pra web E app/PWA (pedido do Cesar).
+    // Teto de 15/IP/hora (decisao do Cesar): meio-termo entre 5 (restritivo) e
+    // 30, com folga pra CGNAT de operadora movel (88% do trafego e mobile, e o
+    // 4G/5G empilha varios usuarios reais num mesmo IP publico). Barra a
+    // enumeracao (o ataque foi 47 em 15 min) sem falso-positivar o app legitimo.
+    // Vale igual pra web e app/PWA, sem excecao. Um atacante nao paga, entao o
+    // reset pos-compra (janelaInicio) nao abre brecha e protege quem pagou. O
+    // limite por destinatario/email segue 5/h. Escape via rate_limit_whitelist
+    // (whitelistar um IP pra Infinity ou teto maior).
+    const IP_WDAPI_HOURLY_LIMIT = 15
+    if (ipCheckable) {
+      const ipLimit = await getHourlyLimit(ip)
+      if (ipLimit !== Infinity) {
+        const teto = Math.max(IP_WDAPI_HOURLY_LIMIT, ipLimit)
+        const { count: ipWdapiCount, data: ipWdapiRows } = await supabase
+          .from('consultas')
+          .select('created_at', { count: 'exact' })
+          .eq('ip_address', ip)
+          .gte('created_at', janelaInicio)
+          .order('created_at', { ascending: true })
+          .limit(1)
+        if ((ipWdapiCount ?? 0) >= teto) {
+          const oldestIso = ipWdapiRows?.[0]?.created_at
+          let minutesUntilReset = 60
+          if (oldestIso) {
+            const minutesElapsed = Math.floor((Date.now() - new Date(oldestIso).getTime()) / 60000)
+            minutesUntilReset = Math.max(1, 60 - minutesElapsed)
+          }
+          supabase.from('blocked_requests').insert({
+            reason: 'rate_limit_ip_wdapi',
+            ip_address: ip,
+            recipient: recipientValue ?? null,
+            placa: placaClean || null,
+            user_agent: userAgent,
+          }).then(({ error }) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
+          throw createError({
+            statusCode: 429,
+            message: `Limite de ${teto} consultas por hora atingido. Tente novamente em ~${minutesUntilReset} min.`,
+          })
+        }
+      }
+    }
 
     const vazio = Promise.resolve({ count: 0, data: null, error: null } as any)
 
