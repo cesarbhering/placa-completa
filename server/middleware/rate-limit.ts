@@ -73,11 +73,6 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  // Skip rate limiting for GET /api/count (public metric)
-  if (path === '/api/count' && getMethod(event) === 'GET') {
-    return
-  }
-
   // Homolog e ambiente de teste: sem rate limit pra nao travar quem esta
   // testando. So o container de homolog seta NUXT_PUBLIC_HOMOLOG; prod nao.
   if (useRuntimeConfig().public.homolog) {
