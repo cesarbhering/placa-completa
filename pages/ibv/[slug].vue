@@ -141,29 +141,19 @@ useHead({
 </script>
 
 <template>
-  <div class="desktop content-page">
-    <main>
-      <div class="win-window">
-        <div class="win-window__titlebar">
-          <span>IBV Auto — {{ post.referenceMonth }}</span>
-          <div class="win-window__titlebar-buttons">
-            <span class="win-window__titlebar-btn">_</span>
-            <span class="win-window__titlebar-btn">&square;</span>
-            <span class="win-window__titlebar-btn">&times;</span>
-          </div>
+  <div class="pc-page">
+    <main class="pc-container">
+      <div class="post-header">
+        <div class="post-header__badge">IBV Auto · {{ post.referenceMonth }}</div>
+        <h1 class="pc-h1 post-header__title">{{ post.title }}</h1>
+        <div class="post-header__meta">
+          <span>Publicado em {{ formatDate(post.publishedAt) }}</span>
+          <span class="meta-sep">·</span>
+          <span>Fonte: {{ post.source }}</span>
         </div>
-        <div class="win-window__body">
-          <div class="post-header">
-            <div class="post-header__badge">IBV Auto · {{ post.referenceMonth }}</div>
-            <h1 class="seo-title">{{ post.title }}</h1>
-            <div class="post-header__meta">
-              <span>Publicado em {{ formatDate(post.publishedAt) }}</span>
-              <span class="meta-sep">·</span>
-              <span>Fonte: {{ post.source }}</span>
-            </div>
-          </div>
+      </div>
 
-          <div class="seo-content">
+      <div class="ibv-post">
             <template v-for="(section, i) in post.content" :key="i">
               <!-- intro -->
               <div
@@ -207,7 +197,7 @@ useHead({
                 <div class="cta-block">
                   <p>{{ section.text }}</p>
                   <p>
-                    <NuxtLink :to="section.ctaTo!" class="win-btn win-btn--primary">
+                    <NuxtLink :to="section.ctaTo!" class="pc-btn pc-btn--primary">
                       {{ section.ctaLabel }}
                     </NuxtLink>
                   </p>
@@ -219,163 +209,155 @@ useHead({
               </template>
             </template>
 
-            <nav class="breadcrumb">
+            <nav class="pc-breadcrumb">
               <NuxtLink to="/">PlacaCompleta</NuxtLink>
               <span> &rsaquo; </span>
               <NuxtLink to="/ibv">IBV Auto</NuxtLink>
               <span> &rsaquo; </span>
               <strong>{{ post.referenceMonth }}</strong>
-            </nav>
-          </div>
-        </div>
+        </nav>
       </div>
     </main>
   </div>
 </template>
 
 <style lang="scss" scoped>
+// Post editorial do IBV no design novo (tokens --pc-*). Os nomes de classe e o
+// renderer de rich-text (v-html) ficam intactos; muda so o visual.
 .post-header {
-  margin-bottom: $space-lg;
+  margin-bottom: 28px;
   text-align: center;
 
   &__badge {
     display: inline-block;
-    font-family: $font-display;
-    font-size: 1rem;
-    background: $navy-electric;
-    color: $win-white;
-    padding: 2px $space-md;
-    margin-bottom: $space-sm;
-    letter-spacing: 1px;
+    font-family: var(--pc-font);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: var(--pc-ink);
+    color: var(--pc-on-slab);
+    padding: 6px 12px;
+    border-radius: 8px;
+    margin-bottom: 14px;
   }
 
+  &__title { margin-bottom: 12px; }
+
   &__meta {
-    font-family: $font-mono;
-    font-size: 0.75rem;
-    color: $win-dark;
-    margin-top: $space-sm;
+    font-family: var(--pc-font);
+    font-size: 0.8125rem;
+    color: var(--pc-graphite);
+    margin-top: 10px;
   }
 }
 
-.meta-sep {
-  margin: 0 $space-xs;
+.meta-sep { margin: 0 6px; color: var(--pc-steel); }
+
+.ibv-post {
+  font-family: var(--pc-font);
+  color: var(--pc-charcoal);
+
+  h2 {
+    font-family: var(--pc-font);
+    font-size: 1.375rem;
+    font-weight: 600;
+    line-height: 1.25;
+    color: var(--pc-ink);
+    margin: 32px 0 12px;
+  }
 }
 
 .intro-text {
   font-size: 1.0625rem;
-  font-weight: 500;
-  color: $graphite;
-  border-left: 4px solid $navy-electric;
-  padding-left: $space-md;
-  margin-bottom: $space-lg;
+  line-height: 1.55;
+  color: var(--pc-charcoal);
+  border-left: 3px solid var(--pc-blue);
+  padding-left: 16px;
+  margin-bottom: 28px;
 }
 
 .highlight-box {
-  @include win-border-sunken;
-  background: $powder-blue;
-  padding: $space-md;
-  margin: $space-lg 0;
+  background: var(--pc-cloud);
+  border: 1px solid var(--pc-hairline);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin: 24px 0;
 
   &__heading {
-    font-family: $font-display;
-    font-size: 1.25rem;
-    color: $navy-electric;
-    margin-bottom: $space-sm;
-    margin-top: 0;
+    font-family: var(--pc-font);
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--pc-ink);
+    margin: 0 0 8px;
   }
 
   p { margin-bottom: 0; }
 }
 
 .cta-block {
-  margin-top: $space-xl;
+  margin-top: 32px;
   text-align: center;
-  padding: $space-lg;
-  @include win-border-raised;
-  background: $win-white;
+  padding: 24px;
+  border: 1px solid var(--pc-hairline);
+  border-radius: 16px;
+  background: var(--pc-canvas);
 
-  p { margin-bottom: $space-md; }
+  p { margin-bottom: 16px; }
+  p:last-child { margin-bottom: 0; }
 }
 
 .cta-alt-links {
   font-size: 0.875rem;
-  color: $graphite;
+  color: var(--pc-graphite);
 
-  a {
-    color: $smart-blue;
-    text-decoration: underline;
-  }
+  a { color: var(--pc-blue); text-decoration: none; border-bottom: 1px solid rgba(31, 111, 235, 0.35); }
+  a:hover { border-bottom-color: var(--pc-blue); }
 }
 
 .chart-figure {
-  margin: $space-lg 0;
-  @include win-border-sunken;
-  background: $win-white;
-  padding: $space-sm;
+  margin: 24px 0;
+  border: 1px solid var(--pc-hairline);
+  border-radius: 12px;
+  background: var(--pc-canvas);
+  padding: 12px;
+  overflow: hidden;
 }
 
 .chart-img {
   display: block;
   width: 100%;
   height: auto;
+  border-radius: 8px;
 }
 
 .chart-caption {
-  font-family: $font-mono;
-  font-size: 0.6875rem;
-  color: $win-dark;
-  margin-top: $space-xs;
+  font-family: var(--pc-font);
+  font-size: 0.75rem;
+  color: var(--pc-graphite);
+  margin-top: 8px;
   text-align: center;
 }
 
-.breadcrumb {
-  font-size: 0.75rem;
-  margin-top: $space-xl;
-  padding-top: $space-sm;
-  border-top: 1px solid $win-dark;
-
-  a {
-    color: $smart-blue;
-    text-decoration: underline;
-  }
-
-  span {
-    color: $win-dark;
-    margin: 0 2px;
-  }
-}
-
-.rich-text p {
-  margin: 0 0 $space-md 0;
-}
-
-.rich-text p:last-child {
-  margin-bottom: 0;
-}
+// conteudo gerado (v-html) — prosa no design novo
+.rich-text p { margin: 0 0 16px; line-height: 1.6; }
+.rich-text p:last-child { margin-bottom: 0; }
 
 .rich-text ul,
 .rich-text ol {
-  margin: 0 0 $space-md $space-md;
-  padding-left: $space-md;
+  margin: 0 0 16px;
+  padding-left: 22px;
 }
 
-.rich-text li {
-  margin-bottom: $space-xs;
-  line-height: 1.55;
-}
+.rich-text li { margin-bottom: 6px; line-height: 1.55; }
 
-.rich-text strong {
-  font-weight: 700;
-  color: $win-dark;
-}
+.rich-text strong { font-weight: 600; color: var(--pc-ink); }
 
 .rich-text a {
-  color: $navy-electric;
-  text-decoration: underline;
+  color: var(--pc-blue);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(31, 111, 235, 0.35);
   text-underline-offset: 2px;
 }
-
-.rich-text a:hover {
-  color: $smart-blue;
-}
+.rich-text a:hover { border-bottom-color: var(--pc-blue); }
 </style>

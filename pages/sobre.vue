@@ -42,22 +42,12 @@ useHead({
 </script>
 
 <template>
-  <div class="desktop content-page">
-    <main>
-      <div class="win-window">
-        <div class="win-window__titlebar">
-          <span>Sobre o PlacaCompleta</span>
-          <div class="win-window__titlebar-buttons">
-            <span class="win-window__titlebar-btn">_</span>
-            <span class="win-window__titlebar-btn">&square;</span>
-            <span class="win-window__titlebar-btn">&times;</span>
-          </div>
-        </div>
-        <div class="win-window__body">
-          <h1 class="seo-title">Sobre o PlacaCompleta</h1>
+  <div class="pc-page">
+    <main class="pc-container">
+      <h1 class="pc-h1">Sobre o PlacaCompleta</h1>
 
-          <div class="seo-content">
-            <p>
+      <div class="pc-prose">
+        <p>
               O <strong>PlacaCompleta</strong> é um serviço brasileiro e gratuito de consulta
               veicular por placa. Digitando a placa de qualquer veículo registrado no Brasil,
               você recebe marca, modelo, ano de fabricação e modelo, cor, município de registro,
@@ -119,39 +109,19 @@ useHead({
               Erros factuais em análises do blog são corrigidos com nota de atualização no próprio post.
             </p>
 
-            <div class="text-center mt-md">
-              <NuxtLink to="/" class="win-btn win-btn--primary">
+            <div class="pc-cta">
+              <NuxtLink to="/" class="pc-btn pc-btn--primary">
                 Consultar Placa Grátis
               </NuxtLink>
             </div>
 
-            <nav class="breadcrumb">
-              <NuxtLink to="/">PlacaCompleta</NuxtLink>
-              <span> &rsaquo; </span>
-              <strong>Sobre</strong>
-            </nav>
-          </div>
-        </div>
+        <nav class="pc-breadcrumb">
+          <NuxtLink to="/">PlacaCompleta</NuxtLink>
+          <span> &rsaquo; </span>
+          <strong>Sobre</strong>
+        </nav>
       </div>
     </main>
   </div>
 </template>
 
-<style lang="scss" scoped>
-.breadcrumb {
-  font-size: 0.75rem;
-  margin-top: $space-lg;
-  padding-top: $space-sm;
-  border-top: 1px solid $win-dark;
-
-  a {
-    color: $smart-blue;
-    text-decoration: underline;
-  }
-
-  span {
-    color: $win-dark;
-    margin: 0 2px;
-  }
-}
-</style>
