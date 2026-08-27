@@ -33,7 +33,16 @@ export default defineEventHandler(async (event) => {
   // Preco sai SO da tabela. Antes a completa vinha de PREMIUM_VALOR_CENTAVOS,
   // o que abria a porta pra cobrar um valor e mostrar outro na tela (a tela le
   // a tabela). Fonte unica evita a divergencia.
-  const valor = PLANOS[plano].valorCentavos
+  //
+  // Cupom (opcional): RECALCULADO aqui, nunca confia no preco que o client
+  // mandou (nem no que /api/premium/coupon devolveu segundos antes — o client
+  // podia ter adulterado). Se o codigo mandado nao validar mais por qualquer
+  // motivo, o checkout segue com o preco cheio em vez de falhar a compra.
+  const codigoCupom = String(body.cupom || '').trim()
+  const cupomValidado = codigoCupom
+    ? await validarCupom(supabase, codigoCupom, plano, email)
+    : null
+  const valor = cupomValidado?.ok ? cupomValidado.precoLiquidoCentavos : PLANOS[plano].valorCentavos
 
   const { data: pedido, error } = await supabase
     .from('pedidos_premium')
@@ -49,6 +58,20 @@ export default defineEventHandler(async (event) => {
     .select()
     .single()
   if (error || !pedido) throw createError({ statusCode: 500, message: 'Falha ao criar pedido' })
+
+  // Uso do cupom: so registra DEPOIS que o pedido existe (precisa do pedido_id,
+  // unique na tabela de usos). Fail-open: erro aqui nao derruba o checkout, o
+  // pedido ja foi criado com o preco correto de qualquer forma.
+  if (cupomValidado?.ok && cupomValidado.cupomId) {
+    await registrarUsoCupom(supabase, {
+      cupomId: cupomValidado.cupomId,
+      pedidoId: pedido.id,
+      email,
+      precoBrutoCentavos: cupomValidado.precoBrutoCentavos,
+      descontoCentavos: cupomValidado.descontoCentavos,
+      precoLiquidoCentavos: cupomValidado.precoLiquidoCentavos,
+    })
+  }
 
   // Cliente na AbacatePay: registra quem comprou (rastreio no dashboard) e o id
   // fica guardado no pedido. Fail-open: se falhar, o checkout segue sem o id.
@@ -70,5 +93,8 @@ export default defineEventHandler(async (event) => {
     .update({ abacatepay_id: pix.id, br_code: pix.brCode, expira_em: pix.expiresAt, abacatepay_customer_id: customerId })
     .eq('id', pedido.id)
 
-  return { token, plano, brCode: pix.brCode, brCodeBase64: pix.brCodeBase64, expiresAt: pix.expiresAt, valor }
+  return {
+    token, plano, brCode: pix.brCode, brCodeBase64: pix.brCodeBase64, expiresAt: pix.expiresAt, valor,
+    cupomAplicado: cupomValidado?.ok ? { descontoCentavos: cupomValidado.descontoCentavos } : null,
+  }
 })
