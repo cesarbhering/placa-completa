@@ -47,6 +47,7 @@ dev/whatsapp/.env
 
 # Playwright run artifacts
 test-results/
+playwright-report/
 
 # agent worktrees / scratch
 .claude/worktrees/
