@@ -38,6 +38,50 @@ const msg = ref('')
 const senha = ref('')
 const email = ref('')
 const telefone = ref('')
+
+// Cupom de desconto (v1): campo expansivel, valida no blur do input E de novo
+// ao clicar pagar (o preco pode ter mudado entre uma coisa e outra — cupom
+// esgotado, expirado etc). O servidor SEMPRE recalcula tudo de novo no
+// checkout.post.ts; o que roda aqui e so pra mostrar o preco certo na tela.
+const cupomAberto = ref(false)
+const cupomCodigo = ref('')
+const cupomValidando = ref(false)
+const cupomMsg = ref('')
+const cupomDescontoCentavos = ref(0)
+const cupomValido = computed(() => cupomDescontoCentavos.value > 0)
+
+async function validarCupom(): Promise<boolean> {
+  const codigo = cupomCodigo.value.trim()
+  cupomMsg.value = ''
+  if (!codigo) { cupomDescontoCentavos.value = 0; return false }
+  if (!email.value.includes('@')) {
+    cupomMsg.value = 'Informe seu e-mail antes de aplicar o cupom.'
+    cupomDescontoCentavos.value = 0
+    return false
+  }
+  cupomValidando.value = true
+  try {
+    const r: any = await $fetch('/api/premium/coupon', {
+      method: 'POST',
+      body: { codigo, plano: props.plano, email: email.value },
+    })
+    if (r?.ok) {
+      cupomDescontoCentavos.value = r.descontoCentavos || 0
+      cupomMsg.value = cupomDescontoCentavos.value > 0 ? 'Cupom aplicado!' : ''
+      return true
+    }
+    cupomDescontoCentavos.value = 0
+    cupomMsg.value = r?.motivo || 'Cupom inválido.'
+    return false
+  } catch (e: any) {
+    cupomDescontoCentavos.value = 0
+    cupomMsg.value = 'Não conseguimos validar o cupom agora.'
+    if (import.meta.dev) console.warn('[checkout] cupom falhou:', e?.data?.message || e)
+    return false
+  } finally {
+    cupomValidando.value = false
+  }
+}
 // WhatsApp oculto ate a feature de notificacao por WhatsApp existir. O ref
 // telefone segue vivo (API aceita opcional); so nao aparece na UI.
 const mostraWhatsapp = false
@@ -60,6 +104,9 @@ const { trackBeginCheckout, trackConversionPaga } = useAnalytics()
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
 const planoInfo = computed(() => PLANOS[props.plano])
+const precoExibidoCentavos = computed(() =>
+  Math.max(0, planoInfo.value.valorCentavos - cupomDescontoCentavos.value),
+)
 
 // A placa comeca na prop mas pode ser corrigida aqui dentro (o lapis do passo
 // de reconferencia), entao vira estado local em vez de derivar so da prop.
@@ -169,6 +216,9 @@ async function pagar() {
   }
   loading.value = true
   msg.value = ''
+  // Revalida o cupom bem antes de pagar (pode ter esgotado/expirado desde o
+  // blur). Se cair, segue a compra sem cupom em vez de travar o pagamento.
+  if (cupomCodigo.value.trim()) await validarCupom()
   try {
     pix.value = await $fetch('/api/premium/checkout', {
       method: 'POST',
@@ -179,6 +229,7 @@ async function pagar() {
         preview: preview.value.raw,
         plano: props.plano,
         ambiente: ambiente.value,
+        cupom: cupomValido.value ? cupomCodigo.value.trim() : undefined,
       },
     })
     step.value = 'pending'
@@ -325,9 +376,39 @@ onUnmounted(() => {
               <span class="pic-resumo__linha">
                 <span>Placa</span><strong class="pic-resumo__placa">{{ placaClean }}</strong>
               </span>
-              <span class="pic-resumo__linha pic-resumo__linha--total">
-                <span>Total</span><strong>{{ reais(planoInfo.valorCentavos) }}</strong>
+              <span v-if="cupomValido" class="pic-resumo__linha">
+                <span>Cupom</span><strong>-{{ reais(cupomDescontoCentavos) }}</strong>
               </span>
+              <span class="pic-resumo__linha pic-resumo__linha--total">
+                <span>Total</span><strong>{{ reais(precoExibidoCentavos) }}</strong>
+              </span>
+            </div>
+            <!-- Campo de cupom, expansivel: some por padrao pra nao poluir o
+                 checkout de quem nao tem cupom. -->
+            <div class="pic-cupom">
+              <button
+                v-if="!cupomAberto"
+                type="button"
+                class="pic-link pic-link--cupom"
+                @click="cupomAberto = true"
+              >
+                Tem um cupom de desconto?
+              </button>
+              <div v-else class="pic-campo">
+                <label class="pic-label" for="pic-cupom">Cupom de desconto</label>
+                <input
+                  id="pic-cupom"
+                  v-model="cupomCodigo"
+                  type="text"
+                  class="pic-input"
+                  placeholder="CODIGO"
+                  autocapitalize="characters"
+                  autocomplete="off"
+                  @blur="validarCupom"
+                >
+                <p v-if="cupomValidando" class="pic-hint">Validando cupom...</p>
+                <p v-else-if="cupomMsg" :class="cupomValido ? 'pic-cupom__ok' : 'pic-cupom__erro'">{{ cupomMsg }}</p>
+              </div>
             </div>
             <div v-if="cfg.public.homolog" class="pic-campo">
               <label class="pic-label" for="pic-ambiente">Ambiente SERPRO/GCC (teste)</label>
@@ -364,7 +445,7 @@ onUnmounted(() => {
               >
             </div>
             <button type="button" class="pic-btn pic-btn--primary" :disabled="loading" @click="irParaReconferencia">
-              {{ loading ? 'Gerando Pix...' : `Pagar ${reais(planoInfo.valorCentavos)} via Pix` }}
+              {{ loading ? 'Gerando Pix...' : `Pagar ${reais(precoExibidoCentavos)} via Pix` }}
             </button>
             <button type="button" class="pic-btn" @click="fechar">Cancelar</button>
           </div>
@@ -421,7 +502,7 @@ onUnmounted(() => {
               :disabled="loading"
               @click="pagar"
             >
-              {{ loading ? 'Gerando Pix...' : `Pagar ${reais(planoInfo.valorCentavos)} via Pix` }}
+              {{ loading ? 'Gerando Pix...' : `Pagar ${reais(precoExibidoCentavos)} via Pix` }}
             </button>
             <button v-if="!editandoPlaca" type="button" class="pic-btn" @click="step = 'confirm'">Voltar</button>
           </div>
@@ -787,6 +868,11 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   padding: 8px;
   min-height: 44px;
 }
+
+.pic-cupom { display: flex; flex-direction: column; }
+.pic-link--cupom { align-self: flex-start; padding: 4px 0; min-height: auto; }
+.pic-cupom__ok { font-size: 13px; color: $c-green; margin: 2px 0 0; }
+.pic-cupom__erro { font-size: 13px; color: $c-red; margin: 2px 0 0; }
 
 .pic-err { font-size: 14px; line-height: 1.4; color: $c-red; margin: 12px 0 0; }
 .pic-qr { width: 190px; height: 190px; align-self: center; border-radius: 8px; border: 1px solid $c-hair; }
