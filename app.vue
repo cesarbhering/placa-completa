@@ -113,7 +113,9 @@ function onStoreClick() {
         </a>
 
         <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta. Consulta veicular grátis e segura.</p>
-        <p class="footer__email">contato[at]placacompleta.com.br</p>
+        <p class="footer__email">
+          Contato: <a href="mailto:contato@placacompleta.com.br">contato@placacompleta.com.br</a>
+        </p>
         <nav class="footer__links">
           <NuxtLink to="/sobre">Sobre</NuxtLink>
           <span class="footer__sep">|</span>

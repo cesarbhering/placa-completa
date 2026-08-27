@@ -53,4 +53,8 @@ export const homepageFaqs: HomepageFaq[] = [
     question: 'Meus dados estão seguros?',
     answer: 'Sim. A consulta grátis não coleta nada seu. Nos níveis pagos, o e-mail serve apenas para enviar o link do relatório, que é privado. Não vendemos nem compartilhamos suas informações, e seguimos a LGPD.',
   },
+  {
+    question: 'Vocês emitem nota fiscal?',
+    answer: 'Sim, emitimos. Basta solicitar pelo e-mail contato@placacompleta.com.br e disponibilizamos a nota em até 24 horas.',
+  },
 ]
