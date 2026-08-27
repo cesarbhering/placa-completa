@@ -62,14 +62,6 @@ function onEmailInput() {
   emailError.value = ''
 }
 
-function handlePlacaDetected(detectedPlaca: string) {
-  placa.value = detectedPlaca
-  placaError.value = ''
-  nextTick(() => {
-    placaRef.value?.focus()
-  })
-}
-
 async function handleSubmit() {
   emailError.value = ''
   placaError.value = ''
@@ -126,12 +118,6 @@ defineExpose({
 
 <template>
   <form @submit.prevent="handleSubmit" novalidate>
-    <!-- Photo Upload (PWA only) -->
-    <PhotoUploadButton
-      v-if="isPWA && !loading"
-      @placa-detected="handlePlacaDetected"
-    />
-
     <!-- Placa Input -->
     <div v-if="!loading" class="form-group">
       <label class="form-group__label" for="placa">Placa do Veículo</label>
