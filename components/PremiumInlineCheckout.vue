@@ -96,7 +96,7 @@ onMounted(() => {
     const saved = localStorage.getItem('pc_email')
     if (saved) email.value = saved
   }
-  trackBeginCheckout(placaClean.value)
+  trackBeginCheckout(props.plano, placaClean.value)
   consultarPreview()
 })
 
@@ -228,7 +228,7 @@ async function checarStatus() {
     const r: any = await $fetch('/api/premium/status', { query: { token: pix.value.token } })
     pendingStatus.value = r.status
     histUpdate(pix.value.token, r.status)
-    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token)
+    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token, props.plano)
     if (r.status === 'entregue') {
       if (poll) clearInterval(poll)
       irParaRelatorio(pix.value.token)
