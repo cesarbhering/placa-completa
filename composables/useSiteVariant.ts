@@ -24,17 +24,6 @@ const HOST_VARIANTS: Record<string, SiteVariant> = {
   'www.olhonocaminhao.com.br': 'caminhao',
 }
 
-// A home ("/") de proposito NAO tem routeRule de cache nenhum (nem
-// prerender, nem swr): so assim cada request roda SSR de verdade e le o
-// Host correto sempre. Ja tentamos prerender + rewrite interno por Host
-// (ver historico do PR) — o Nitro serve rota prerenderizada como asset
-// ESTATICO, por um caminho que roda ANTES de qualquer server middleware, e
-// o rewrite nunca chegava a executar em build de producao real. swr tambem
-// nao serve: o cache dele e por PATH, nao por Host, e "/" e um path so pros
-// 3 dominios — serviria a variante que "ganhou" a corrida de quem pediu
-// primeiro pra todo mundo, mesmo bug preenchido em runtime. Custo aceito:
-// TTFB da home sobe (sem cache de borda no HTML).
-
 export interface SiteVariantContent {
   variant: SiteVariant
   siteName: string
