@@ -1,0 +1,62 @@
+// ============================================================
+// Tokens do design novo (HP-inspired), como CSS custom properties.
+//
+// Fonte de verdade: .agents/DESIGN-hp.md. Os VALORES aqui espelham 1:1 a
+// paleta que a home (pages/index.vue, bloco .home-v2) e o HomeHeader ja usam
+// localmente — pra as paginas internas ficarem identicas a home, nao ao guia
+// (o guia sugere azul #024ad8 e ink #1a1a1a; a casa implementou azul #1f6feb e
+// um slab navy #0B1F3A no lugar do ink puro). Seguimos a home, que e a
+// referencia viva.
+//
+// ADITIVO: este arquivo NAO substitui assets/scss/_variables.scss (as paginas
+// legadas .win-* ainda dependem dele). E carregado UMA vez pelo main.scss.
+// Paginas novas/refrescadas consomem via var(--pc-*), sem depender do SCSS
+// injetado globalmente (evita colisao de nomes com _variables.scss).
+// ============================================================
+
+:root {
+  // ---- Superficies ----
+  --pc-canvas: #ffffff;   // fundo universal
+  --pc-cloud: #f7f7f7;    // faixa clara alternada
+  --pc-fog: #e8e8e8;      // painel utilitario
+  --pc-slab: #0B1F3A;     // faixa/rodape escuro (navy da casa)
+  --pc-hairline: #e8e8e8; // borda fina
+  --pc-steel: #c2c2c2;    // borda de input, estado desabilitado
+
+  // ---- Tinta ----
+  --pc-ink: #1a1a1a;      // titulo e corpo sobre branco
+  --pc-charcoal: #3d3d3d; // descricao secundaria
+  --pc-graphite: #636363; // letra miuda, metadado
+  --pc-on-slab: #ffffff;  // texto sobre slab escuro
+  --pc-on-slab-soft: #b9c4d4; // texto secundario sobre slab
+
+  // ---- Acento: um azul so, e escasso (CTA/link) ----
+  --pc-blue: #1f6feb;
+  --pc-blue-deep: #17539f;  // pressed
+  --pc-blue-bright: #4d8bf5; // variante clara, so dentro de slab escuro
+
+  // ---- Semantico ----
+  --pc-green: #1e9e4a;
+  --pc-red: #d33a3a;
+
+  // ---- Tipografia ----
+  --pc-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  // ---- Raio: botao 4px, card 16px (split de dois niveis do guia) ----
+  --pc-radius-btn: 4px;
+  --pc-radius-card: 16px;
+  --pc-radius-pill: 9999px;
+
+  // ---- Elevacao: hairline > soft-lift; nada de sombra pesada ----
+  --pc-shadow-lift: 0 2px 8px rgba(26, 26, 26, 0.08);
+
+  // ---- Espacamento: base 8, meio-passo 4 ----
+  --pc-s-xxs: 4px;
+  --pc-s-xs: 8px;
+  --pc-s-sm: 12px;
+  --pc-s-md: 16px;
+  --pc-s-lg: 20px;
+  --pc-s-xl: 24px;
+  --pc-s-xxl: 32px;
+  --pc-s-section: 80px;
+}
