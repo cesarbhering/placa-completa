@@ -433,12 +433,9 @@ const numSecao = computed(() => {
   if (indicadores.value.length) ordem.push('ind')
   if (!isBasica.value && indicadores.value.length) ordem.push('restr')
   if (ocorrencias.value.length) ordem.push('ocorr')
-  // Depois de indicadores/restricoes/ocorrencias, ANTES da ficha: e um
-  // diferencial (veiculo importado), mas nao e mais destaque de topo — fica
-  // no fluxo normal da leitura, logo antes da ficha cadastral/tecnica.
-  if (fichaImportacao.value.length) ordem.push('importado')
-  // chassiOrigem NAO entra na numeracao: virou subsecao dentro da ficha
-  // (rel__sub), igual Cadastral/Tecnica — nao e mais card proprio numerado.
+  // Importacao e chassiOrigem NAO entram na numeracao: viraram subsecoes
+  // dentro da ficha (rel__sub), igual Cadastral/Tecnica — nao sao mais card
+  // proprio numerado.
   ordem.push('ficha')
   if (temValor.value) ordem.push('valor')
   const m: Record<string, number> = {}
@@ -542,12 +539,40 @@ const fichaImportacao = computed(() => {
 // e so questao de ter o dado ou nao (fail-open: servico fora, campo vem
 // null, secao inteira some). Cada linha omite campo null individualmente
 // (ex: planta e frequentemente desconhecida).
+// Pais/fabricante do vin-decoder: overrides curados (nossos) ja vem bem
+// formatados ("Volkswagen do Brasil", "Brasil"); o que sobra do vPIC cru
+// (WMI nao curado) vem GRITANDO em ingles ("MEXICO"). Traduz os paises mais
+// comuns; title-case so entra se a string estiver TODA em maiuscula (senao
+// "Volkswagen do Brasil" virava "Volkswagen Do Brasil" — capitaliza
+// conectivo errado).
+const PAISES_PT: Record<string, string> = {
+  MEXICO: 'México', GERMANY: 'Alemanha', JAPAN: 'Japão',
+  'UNITED STATES': 'Estados Unidos', 'UNITED STATES OF AMERICA': 'Estados Unidos', USA: 'Estados Unidos',
+  'SOUTH KOREA': 'Coreia do Sul', KOREA: 'Coreia do Sul', ITALY: 'Itália', FRANCE: 'França',
+  SPAIN: 'Espanha', BRAZIL: 'Brasil', ARGENTINA: 'Argentina', CHINA: 'China', CANADA: 'Canadá',
+  'UNITED KINGDOM': 'Reino Unido', INDIA: 'Índia', SWEDEN: 'Suécia', 'CZECH REPUBLIC': 'República Tcheca',
+  POLAND: 'Polônia', BELGIUM: 'Bélgica', THAILAND: 'Tailândia', AUSTRIA: 'Áustria',
+  SLOVAKIA: 'Eslováquia', TURKEY: 'Turquia', PORTUGAL: 'Portugal', RUSSIA: 'Rússia',
+  'SOUTH AFRICA': 'África do Sul',
+}
+const CONECTIVOS_PT = new Set(['de', 'da', 'do', 'das', 'dos', 'e'])
+function humanizarPaisFabricante(bruto: any, ehPais: boolean): string | null {
+  if (!bruto) return null
+  const s = String(bruto).trim()
+  if (ehPais) {
+    const traduzido = PAISES_PT[s.toUpperCase()]
+    if (traduzido) return traduzido
+  }
+  const gritando = s === s.toUpperCase() && /[A-ZÀ-Ú]/.test(s)
+  if (!gritando) return s
+  return s.toLowerCase().split(' ').map((w, i) => (CONECTIVOS_PT.has(w) && i > 0 ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ')
+}
 const fichaChassiOrigem = computed(() => {
   const co = data.value?.chassiOrigem
   if (!co) return []
   return [
-    linha('Fabricante', co.fabricante),
-    linha('País de fabricação', co.pais),
+    linha('Fabricante', humanizarPaisFabricante(co.fabricante, false)),
+    linha('País de fabricação', humanizarPaisFabricante(co.pais, true)),
     linha('Ano-modelo (pelo chassi)', co.anoModelo),
     linha('Planta', co.planta),
   ].filter(Boolean) as [string, string][]
@@ -847,27 +872,6 @@ onUnmounted(() => poll && clearInterval(poll))
             </p>
           </section>
 
-          <!-- Importacao: card normal (sem destaque), so pra veiculo
-               importado (procedencia ESTRANGEIRO). Fica antes da ficha,
-               depois de indicadores/restricoes/ocorrencias. Badge
-               "Veículo importado" embaixo do titulo, nao ao lado. -->
-          <section v-if="fichaImportacao.length" class="rel__card">
-            <h2 class="rel__h2">{{ numSecao.importado }}. Importação</h2>
-            <span class="rel__import-badge">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z" />
-              </svg>
-              Veículo importado
-            </span>
-            <table class="rel__tab">
-              <tbody>
-                <tr v-for="([k, val]) in fichaImportacao" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
-              </tbody>
-            </table>
-          </section>
-
           <!-- ficha -->
           <section class="rel__card">
             <h2 class="rel__h2">{{ numSecao.ficha }}. Ficha cadastral e técnica</h2>
@@ -896,8 +900,32 @@ onUnmounted(() => poll && clearInterval(poll))
                   </tbody>
                 </table>
               </div>
+              <!-- Importacao: so pra veiculo importado (procedencia
+                   ESTRANGEIRO). Fica na coluna ESQUERDA (junto de Cadastral)
+                   pra balancear com Origem do chassi na direita (junto de
+                   Tecnica) — a ordem no DOM decide a coluna no grid 2x2
+                   (auto-flow por linha): Cadastral/Tecnica na linha 1,
+                   Importacao/Origem do chassi na linha 2. -->
+              <div v-if="fichaImportacao.length">
+                <span class="rel__sub">Importação</span>
+                <span class="rel__import-badge">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z" />
+                  </svg>
+                  Veículo importado
+                </span>
+                <table class="rel__tab">
+                  <tbody>
+                    <tr v-for="([k, val]) in fichaImportacao" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+                  </tbody>
+                </table>
+              </div>
               <!-- Origem do chassi: decode de VIN, so completa. Some sozinha
-                   se o servico de decode estiver fora (fail-open no server). -->
+                   se o servico de decode estiver fora (fail-open no server).
+                   Na coluna DIREITA (pedido do Cesar, equilibra melhor as
+                   linhas com Tecnica do que ficando embaixo de Importacao). -->
               <div v-if="fichaChassiOrigem.length">
                 <span class="rel__sub">Origem do chassi</span>
                 <table class="rel__tab">
