@@ -20,31 +20,96 @@ export interface PixCharge {
   expiresAt: string | null
 }
 
-// Cria (ou reusa) o cliente na AbacatePay pelo email/telefone. Dedup por CPF
-// quando ha taxId; sem CPF, ao menos registra o cliente e devolve o id pra
-// guardar no pedido (rastreio de "quem comprou" no dashboard). Fail-open: erro
-// aqui nao derruba o checkout, so ficamos sem o customerId.
+// Cria (ou reusa) o cliente na AbacatePay pelo email. Antes isto so fazia
+// customers/create, nunca buscava antes: cada compra virava um customer novo
+// pro mesmo email (confirmado no dashboard). Agora e get-or-create de verdade,
+// com a tabela `usuarios` (email unique -> abacatepay_customer_id) como cache
+// local e fonte da verdade pro "canonico".
+//
+// Ordem de resolucao:
+//  1. usuarios.email ja tem customer_id? usa direto, sem chamar a AbacatePay.
+//  2. senao, lista customers na AbacatePay por email (listCustomers) — se
+//     achar 1+, o canonico e o MAIS ANTIGO (createdAt), pra nao trocar de
+//     cliente numa conta que ja tem historico de compra.
+//  3. senao, cria (customers/create).
+//  Em qualquer caso que resolver um id, faz upsert em `usuarios` (best-effort:
+//  falha no upsert nao derruba o checkout, so perde o cache pra proxima vez).
+//
+// Fail-open: qualquer erro aqui nao derruba o checkout, so ficamos sem o
+// customerId (pedido segue sem rastreio de cliente no dashboard).
 export async function criarOuObterCliente(opts: {
   email: string
   telefone?: string | null
   nome?: string | null
 }): Promise<string | null> {
   const { base, key } = cfg()
+  const email = opts.email.trim().toLowerCase()
+  if (!email) return null
+
+  const supabase = usePremiumSupabase()
+
   try {
-    const res = await $fetch<AbacateResp<{ id: string }>>(`${base}/customers/create`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: {
-        email: opts.email,
-        ...(opts.nome ? { name: opts.nome } : {}),
-        ...(opts.telefone ? { cellphone: opts.telefone } : {}),
-      },
-    })
-    return res.data?.id || null
+    const { data: cached } = await supabase
+      .from('usuarios')
+      .select('abacatepay_customer_id')
+      .eq('email', email)
+      .maybeSingle()
+    if (cached?.abacatepay_customer_id) return cached.abacatepay_customer_id
   } catch (e: any) {
-    console.warn('[cliente] criar/obter falhou:', e?.data?.error || e?.message)
-    return null
+    console.warn('[cliente] lookup em usuarios falhou:', e?.message)
   }
+
+  let customerId: string | null = null
+
+  try {
+    const lista = await $fetch<AbacateResp<any[]>>(`${base}/customers/list`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${key}` },
+      query: { email },
+    })
+    const candidatos = (lista.data || []).filter((c) => c?.email?.toLowerCase() === email)
+    if (candidatos.length) {
+      // Canonico = mais antigo. createdAt pode nao vir no shape; se faltar em
+      // todos, o array ja costuma vir em ordem de criacao (mais antigo primeiro).
+      const maisAntigo = candidatos.reduce((best, cur) => {
+        const bd = best?.createdAt ? new Date(best.createdAt).getTime() : 0
+        const cd = cur?.createdAt ? new Date(cur.createdAt).getTime() : 0
+        return cd && (!bd || cd < bd) ? cur : best
+      }, candidatos[0])
+      customerId = maisAntigo?.id || null
+    }
+  } catch (e: any) {
+    console.warn('[cliente] listCustomers falhou:', e?.data?.error || e?.message)
+  }
+
+  if (!customerId) {
+    try {
+      const res = await $fetch<AbacateResp<{ id: string }>>(`${base}/customers/create`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: {
+          email,
+          ...(opts.nome ? { name: opts.nome } : {}),
+          ...(opts.telefone ? { cellphone: opts.telefone } : {}),
+        },
+      })
+      customerId = res.data?.id || null
+    } catch (e: any) {
+      console.warn('[cliente] criar falhou:', e?.data?.error || e?.message)
+    }
+  }
+
+  if (customerId) {
+    try {
+      await supabase
+        .from('usuarios')
+        .upsert({ email, abacatepay_customer_id: customerId, updated_at: new Date().toISOString() }, { onConflict: 'email' })
+    } catch (e: any) {
+      console.warn('[cliente] upsert em usuarios falhou:', e?.message)
+    }
+  }
+
+  return customerId
 }
 
 export async function criarPixTransparente(opts: {
