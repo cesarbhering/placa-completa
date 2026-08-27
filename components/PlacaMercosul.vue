@@ -6,17 +6,36 @@
 //
 // Dois modos: com slot vira campo digitavel (hero), sem slot vira leitura
 // (relatorio), usando a prop `placa`.
+//
+// `width`: usado pelos usos "mini" (relatorio, exemplo da home) que
+// precisam de uma largura menor que o max-width padrao (460px). ANTES isso
+// era feito passando uma class externa (ex: class="rel__placa-tag") que o
+// Vue funde no elemento raiz do componente — mas essa class e o CSS proprio
+// do componente (.cb-plate { width:100% }) ficam com a MESMA especificidade
+// (ambos ganham o atributo de escopo do Vue), entao quem vence e so questao
+// de qual chunk de CSS carregou primeiro. Isso causava o flash reportado: a
+// placa nascia no tamanho grande (460px, CSS do proprio componente) e so
+// encolhia pro tamanho certo (190px/132px) quando o CSS da PAGINA que passa
+// a class terminava de carregar, as vezes um bom tempo depois do primeiro
+// paint. Prop + inline style e IMEDIATO e nao depende de ordem de carga:
+// style inline sempre vence qualquer regra de classe, mesma especificidade
+// ou nao.
 defineProps<{
   placa?: string
   erro?: boolean
   mini?: boolean
+  width?: number | string
 }>()
 </script>
 
 <template>
   <!-- moldura preta, tarja azul com o selo do Mercosul a esquerda, BRASIL
        centralizado e a bandeira a direita, "BR" no canto inferior esquerdo. -->
-  <div class="cb-plate" :class="{ 'is-erro': erro, 'is-mini': mini }">
+  <div
+    class="cb-plate"
+    :class="{ 'is-erro': erro, 'is-mini': mini }"
+    :style="width ? { width: typeof width === 'number' ? `${width}px` : width, flexShrink: 0 } : undefined"
+  >
     <div class="cb-plate__band">
       <span class="cb-plate__merco" aria-hidden="true">
         <svg viewBox="0 0 44 20" class="cb-plate__estrelas">
