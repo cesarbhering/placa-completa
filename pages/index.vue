@@ -1154,12 +1154,22 @@ function applyEmailSuggestion() {
               <p class="cb-panel__kick">O que a placa revela</p>
               <p class="cb-panel__h">O vendedor conta a versão dele.<br>A placa conta a oficial.</p>
 
-              <!-- Carro com os alertas saindo dele: o mesmo argumento da lista,
-                   so que a pessoa ve o problema colado no objeto. Ilustracao,
-                   nao um veiculo real: o rotulo abaixo diz isso em letra miuda
-                   pra ninguem ler como laudo de um carro especifico. -->
+              <!-- Veiculo com os alertas saindo dele: o mesmo argumento da lista,
+                   so que a pessoa ve o problema colado no objeto. No default
+                   (carro) e ilustracao generica, decorativa (alt vazio +
+                   aria-hidden, pra ninguem ler como laudo de um carro
+                   especifico). Nos variants moto/caminhao e foto real de um
+                   modelo especifico (Honda CB600F Hornet / Volvo FH), entao
+                   leva alt descritivo de verdade — nao e mais decorativo. -->
               <div ref="carroRef" class="cb-carro" :class="{ 'is-entrando': carroEntrou }">
-                <img :src="siteVariant.heroImage" alt="" class="cb-carro__img" aria-hidden="true" width="1024" height="1024">
+                <img
+                  :src="siteVariant.heroImage"
+                  :alt="siteVariant.heroImageAlt"
+                  :aria-hidden="siteVariant.heroImageAlt ? undefined : 'true'"
+                  class="cb-carro__img"
+                  width="1024"
+                  height="1024"
+                >
 
                 <!-- Linhas e pontos numa camada SVG so: como sao todas
                      horizontais, o rotulo opaco por cima esconde o comeco da
