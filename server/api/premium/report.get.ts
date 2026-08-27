@@ -88,6 +88,17 @@ export default defineEventHandler(async (event) => {
       consulta = { ...data, response: filtrarPorPlano(data.response, plano) }
     }
   }
+
+  // Origem do chassi (decode de VIN): exclusivo da completa, decisao de
+  // produto. `chassi` ja e liberado pra basica (filtrarPorPlano acima), mas
+  // o RESULTADO do decode e um campo novo que so montamos pra completa — a
+  // basica nunca chama o servico, nunca recebe o campo. Fail-open: erro/fora
+  // do ar = sem bloco, relatorio segue normal.
+  let chassiOrigem: Awaited<ReturnType<typeof decodificarChassi>> = null
+  if (!pendente && pedido.status === 'entregue' && plano === 'completa' && consulta?.response?.chassi) {
+    chassiOrigem = await decodificarChassi(consulta.response.chassi)
+  }
+
   return {
     status: pedido.status,
     placa: pedido.placa,
@@ -97,6 +108,7 @@ export default defineEventHandler(async (event) => {
     // quantos campos a completa ainda entregaria alem deste plano (upsell)
     camposRestantes: restantes,
     valorCusto,
+    chassiOrigem,
     preview: pedido.preview,
     entregue_em: pedido.entregue_em,
     consulta,
