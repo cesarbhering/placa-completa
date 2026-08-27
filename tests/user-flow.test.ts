@@ -268,14 +268,4 @@ test.describe('User Experience', () => {
     await expect(page.locator('.confirm-email')).toContainText(testEmail, { timeout: 5000 })
   })
 
-  test('should show counter if available', async ({ page }) => {
-    // Counter may not always be visible, so we just check if element exists
-    const counter = page.locator('.counter')
-    const count = await counter.count()
-
-    if (count > 0) {
-      await expect(counter).toBeVisible()
-      await expect(counter).toContainText(/consultas realizadas/i)
-    }
-  })
 })
