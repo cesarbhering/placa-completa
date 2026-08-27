@@ -2336,9 +2336,22 @@ function applyEmailSuggestion() {
     // pra contain: a foto inteira aparece dentro da caixa, sem cortar nada
     // (pode sobrar espaco vazio nas laterais/topo, aceitavel — melhor que
     // cortar o veiculo).
-    &--contido &__img {
-      object-fit: contain;
-      object-position: center;
+    //
+    // BUG que rolou em prod (achado inspecionando o CSS compilado ao vivo):
+    // "&--contido &__img" com DOIS "&" na mesma linha, dentro de um bloco
+    // ja aninhado sob ".home-v2 &" mais acima no arquivo, expande a cadeia
+    // INTEIRA do pai a cada "&" — saia ".home-v2 .cb-carro--contido .home-v2
+    // .cb-carro__img", com ".home-v2" duplicado, que NUNCA casava (por isso
+    // a moto/caminhao continuavam cortados mesmo com a classe certa no
+    // elemento). Mesma armadilha ja documentada no comentario do
+    // ".is-entrando .cb-carro__linhas" logo abaixo — dessa vez eu mesmo caí
+    // nela. Fix: aninha de verdade (nested block), com o nome da classe
+    // FILHA por extenso em vez de um segundo "&".
+    &--contido {
+      .cb-carro__img {
+        object-fit: contain;
+        object-position: center;
+      }
     }
 
     &__linhas {
