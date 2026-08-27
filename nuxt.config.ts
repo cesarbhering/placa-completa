@@ -487,7 +487,14 @@ export default defineNuxtConfig({
               },
               {
                 defer: true,
-                innerHTML: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-24H7QSPX4G');gtag('config','AW-18330779331');`,
+                // site_hostname: mesma propriedade GA4 (G-24H7QSPX4G) atende
+                // placacompleta.com.br + olhonamoto.com.br + olhonocaminhao.com.br
+                // (hibrido de dominios). Manda o hostname como parametro de
+                // evento pra dar pra segmentar moto/caminhao/carro nos
+                // relatorios sem duplicar propriedade — metricas somam no
+                // placacompleta. location.hostname roda no browser, sempre
+                // reflete o dominio real que serviu a pagina.
+                innerHTML: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-24H7QSPX4G',{site_hostname:location.hostname});gtag('config','AW-18330779331');`,
               },
             ]
           : []),
