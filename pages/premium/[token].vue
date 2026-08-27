@@ -171,6 +171,15 @@ const COBERTURA_RESTRICAO: [RegExp, string][] = [
   [/^(RFB|RESTRICAO_RFB)/, 'Restrição RFB'],
   [/^PENDENCIA/, 'Pendência de emissão'],
   [/^COMUNICACAO_DE_VENDA/, 'Comunicação de venda'],
+  // RECALL: faltava aqui, entao um veiculo com SO recall acendia o card
+  // proprio (indicadorRecall) E "Outras restrições" pro mesmo item —
+  // duplicado. Achado num relatorio real (placa OLO2I01).
+  [/^RECALL/, 'Recall'],
+  // RESTRICAO_JUDICIAL: mesma familia de bug, achada na auditoria pedida.
+  // A chave ja aparece em EXPLICA_RESTRICAO (alguem ja viu essa string em
+  // dado real), e a dica do indicadorRestricaoRenajud descreve exatamente
+  // isso ("Bloqueios determinados pela Justiça diretamente no cadastro").
+  [/^RESTRICAO_JUDICIAL/, 'RENAJUD'],
 ]
 
 const normalizaChave = (r: any) => String(r).toUpperCase().replace(/[\s-]+/g, '_')
