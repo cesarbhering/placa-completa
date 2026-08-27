@@ -631,7 +631,21 @@ export default defineNuxtConfig({
     // landing /premium segue indexavel. Sem Disallow no robots.txt (o crawler
     // precisa poder ver o noindex).
     "/premium/**": { robots: "noindex, nofollow" },
-    "/": { prerender: true },
+    // A home NAO e mais prerenderizada de proposito (theming por dominio —
+    // ver composables/useSiteVariant.ts): tentamos prerender + rewrite
+    // interno por Host (server/middleware), mas o Nitro serve rota
+    // prerenderizada como asset ESTATICO, por um caminho que roda ANTES de
+    // qualquer server/middleware — o rewrite nunca chegava a executar em
+    // build de producao real (so funcionava em dev, onde "/" nunca e
+    // estatico). Testado e confirmado: com prerender, olhonamoto/
+    // olhonocaminhao sempre serviam o hero de carro (default), platform
+    // nenhuma dava pra interceptar antes. Tirando o prerender, cada request
+    // roda SSR de verdade e le o Host correto sempre. SEM swr tambem: cache
+    // de swr e por PATH, nao por Host — a home tem UM path so ("/") pros 3
+    // dominios, entao o SWR serviria a mesma variante cacheada (a que
+    // "ganhou" a corrida de que dominio pediu primeiro) pra todo mundo,
+    // mesmo bug do prerender so que preenchido em runtime em vez de build.
+    // Custo aceito: TTFB da home sobe (sem cache de borda no HTML).
     "/termos-de-uso": { prerender: true },
     "/politica-de-privacidade": { prerender: true },
     "/consulta-placa": { swr: 86400 },
