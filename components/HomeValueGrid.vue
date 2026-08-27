@@ -46,7 +46,6 @@ defineEmits<{ consult: [] }>()
           <li><i class="hvg__dot" aria-hidden="true">◆</i> Não achou o veículo? Estorno automático no Pix.</li>
           <li><i class="hvg__dot" aria-hidden="true">◆</i> Pagamento via Pix, sem guardar dados de cartão.</li>
           <li><i class="hvg__dot" aria-hidden="true">◆</i> Relatório com link privado, só seu.</li>
-          <li><i class="hvg__dot" aria-hidden="true">◆</i> +50 mil consultas realizadas.</li>
         </ul>
       </div>
     </section>

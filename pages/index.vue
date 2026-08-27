@@ -54,7 +54,6 @@ const message = ref('')
 const messageType = ref<'success' | 'error' | 'info'>('info')
 const emailError = ref('')
 const placaError = ref('')
-const consultaCount = ref(0)
 const sentToEmail = ref('')
 
 // Modal de seguro pos-consulta (fluxo web): estimativa SUSEP + captura de lead
@@ -519,22 +518,6 @@ function onFormStart() {
     formStarted.value = true
     track('form_start', { form_name: 'plate_consultation' })
   }
-}
-
-// SSR fetch: gives an instant value on first paint (Netlify edge-cached for ~60s).
-const { data: countData } = await useFetch('/api/count')
-if (countData.value?.count) {
-  consultaCount.value = countData.value.count
-}
-
-// Client refresh: after hydration, fetch the latest count so the number is
-// always fresh — independent of Netlify's HTML cache / build time.
-if (import.meta.client) {
-  onMounted(() => {
-    $fetch<{ count: number }>('/api/count')
-      .then((res) => { if (res?.count) consultaCount.value = res.count })
-      .catch(() => { /* keep SSR value */ })
-  })
 }
 
 // OG proprio da home (novo momento: temos um produto pago a vender). O <title>
@@ -1023,7 +1006,6 @@ async function handleSubmit() {
         track('consulta_success_no_delivery', { channel: channel.value, api_message: result.message })
       }
     }
-    consultaCount.value++
   } catch (err: any) {
     const errMsg = err?.data?.message || err?.message || 'Erro inesperado. Tente novamente.'
     message.value = errMsg
@@ -1194,12 +1176,6 @@ function applyEmailSuggestion() {
                   :style="a.lado === 'baixo' ? { top: a.y, left: a.cx, '--d': `${i * 0.09}s` } : { top: a.y, '--d': `${i * 0.09}s` }"
                 >{{ a.label }}</span>
               </div>
-
-              <!-- Piso de mil: numero baixo (banco local, ou um reset) vira
-                   prova social contra nos. Abaixo disso, some. -->
-              <p v-if="consultaCount >= 1000" class="cb-panel__foot">
-                <strong>{{ consultaCount.toLocaleString('pt-BR') }}</strong> consultas já realizadas
-              </p>
             </div>
           </aside>
         </div>
@@ -1589,11 +1565,6 @@ function applyEmailSuggestion() {
         >
           <img src="/badges/google-play-pt-br.png" alt="Disponível no Google Play" width="180" height="70">
         </a>
-        <p v-else-if="consultaCount > 0" class="counter">
-          <svg class="counter__check" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="currentColor" opacity="0.15"/><path d="M4.5 8.5L7 11L11.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          {{ consultaCount.toLocaleString('pt-BR') }} consultas realizadas
-        </p>
-
         <form v-if="!success" @submit.prevent="handleSubmit" novalidate role="search" aria-label="Consulta veicular por placa">
           <div v-if="!loading" class="form-group">
             <label class="form-group__label visually-hidden" for="placa-pwa">Placa do Veículo</label>
@@ -3530,26 +3501,6 @@ function applyEmailSuggestion() {
   strong {
     color: $regal-navy;
     font-weight: 600;
-  }
-}
-
-.counter {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: $font-body;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: $success-green;
-  background: #eef9f1;
-  border-radius: 99px;
-  padding: 5px 14px;
-  margin-bottom: $space-lg;
-
-  &__check {
-    width: 15px;
-    height: 15px;
-    flex-shrink: 0;
   }
 }
 
