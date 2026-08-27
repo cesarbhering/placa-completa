@@ -578,6 +578,69 @@ const fichaChassiOrigem = computed(() => {
   ].filter(Boolean) as [string, string][]
 })
 
+// Balanceamento das colunas da ficha: em vez de distribuicao FIXA
+// (Cadastral+Importacao | Tecnica+Origem), calcula qual coluna cada bloco
+// deve ir pra MINIMIZAR a diferenca de altura entre as duas — o numero de
+// blocos e de linhas varia por relatorio (nem todo veiculo tem
+// Importacao/Origem do chassi; o numero de linhas de cada tabela varia por
+// plano/veiculo), entao a distribuicao ideal muda caso a caso.
+//
+// Peso de cada bloco = numero de linhas da tabela + 1.5 (constante pro
+// titulo/label da subsecao — as linhas tem altura uniforme, entao isso
+// aproxima bem a altura real sem medir pixel nenhum). Com no maximo 4
+// blocos (Cadastral/Tecnica sempre + Importacao/Origem as vezes), forca
+// bruta nas 2^n particoes e escolhe a que minimiza |somaEsq - somaDir| e'
+// trivial (no maximo 16 combinacoes).
+//
+// Determinismo: deriva SO dos arrays de linha ja computados (fichaCadastral
+// etc), nada de medir DOM/ResizeObserver — mesmo resultado no SSR e no
+// client, sem risco de mismatch de hidratacao.
+interface BlocoFicha { key: string; titulo: string; linhas: [string, string][] }
+const fichaColunas = computed(() => {
+  const candidatos: BlocoFicha[] = [
+    { key: 'cadastral', titulo: 'Cadastral', linhas: fichaCadastral.value },
+    { key: 'tecnica', titulo: 'Técnica', linhas: fichaTecnica.value },
+    { key: 'importacao', titulo: 'Importação', linhas: fichaImportacao.value },
+    { key: 'chassiOrigem', titulo: 'Origem do chassi', linhas: fichaChassiOrigem.value },
+  ]
+  const blocos = candidatos.filter((b) => b.linhas.length > 0)
+  const pesos = blocos.map((b) => b.linhas.length + 1.5)
+  const n = blocos.length
+  const totalCombinacoes = 1 << n // no maximo 16 (n<=4)
+
+  let melhorMask = 0
+  let melhorDiff = Infinity
+  for (let mask = 0; mask < totalCombinacoes; mask++) {
+    let esq = 0
+    let dir = 0
+    for (let i = 0; i < n; i++) {
+      if (mask & (1 << i)) esq += pesos[i]
+      else dir += pesos[i]
+    }
+    const diff = Math.abs(esq - dir)
+    // Desempate: cadastral (indice 0, quando presente) na esquerda —
+    // mask testado em ordem crescente, entao o primeiro empate encontrado
+    // com cadastral do lado esquerdo (bit 0 ligado) ja fica, sem precisar
+    // de logica extra: so troca de melhor quando estritamente MELHOR.
+    if (diff < melhorDiff || (diff === melhorDiff && (mask & 1) && !(melhorMask & 1))) {
+      melhorDiff = diff
+      melhorMask = mask
+    }
+  }
+
+  const esquerda: BlocoFicha[] = []
+  const direita: BlocoFicha[] = []
+  blocos.forEach((b, i) => {
+    // Ordem de leitura preservada: itera na ordem original (nao na ordem do
+    // bit), entao cada coluna sai com os blocos na sequencia natural
+    // (Cadastral antes de Tecnica antes de Importacao antes de Origem),
+    // so filtrados pra qual coluna o bit mandou.
+    if (melhorMask & (1 << i)) esquerda.push(b)
+    else direita.push(b)
+  })
+  return { esquerda, direita }
+})
+
 // ---------- retomada do Pix ----------
 const valorPedido = computed(() => data.value?.valorCentavos ?? PLANOS[plano.value as 'basica' | 'completa']?.valorCentavos ?? 0)
 const copiado = ref(false)
@@ -883,52 +946,35 @@ onUnmounted(() => poll && clearInterval(poll))
               </span>
             </div>
 
-            <!-- Ficha em DUAS colunas EXPLICITAS (nao mais grid 2xN): grid
+            <!-- Ficha em DUAS colunas EXPLICITAS (nao grid 2xN): grid
                  alinha as row-tracks entre as colunas (cada linha fica da
                  altura do bloco mais alto), entao um bloco curto deixava
                  buraco branco ate o vizinho da linha terminar. Cada
                  .rel__ficha-col e flex column independente — os blocos
                  dela empacotam colados, sem alinhamento cruzado nenhum com
-                 a outra coluna. -->
+                 a outra coluna.
+
+                 A distribuicao dos blocos entre as colunas vem de
+                 fichaColunas (computed): balanceia caso a caso pra
+                 minimizar a diferenca de altura, em vez de uma distribuicao
+                 fixa — o numero de blocos e de linhas varia por relatorio. -->
             <div class="rel__ficha">
               <div class="rel__ficha-col">
-                <div v-if="fichaCadastral.length">
-                  <span class="rel__sub">Cadastral</span>
+                <div v-for="bloco in fichaColunas.esquerda" :key="bloco.key">
+                  <span class="rel__sub">{{ bloco.titulo }}</span>
                   <table class="rel__tab">
                     <tbody>
-                      <tr v-for="([k, val]) in fichaCadastral" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <!-- Importacao: so pra veiculo importado (procedencia
-                     ESTRANGEIRO). Sem badge — o Cesar pediu pra tirar o
-                     selo "Veículo importado", fica so o titulo da subsecao. -->
-                <div v-if="fichaImportacao.length">
-                  <span class="rel__sub">Importação</span>
-                  <table class="rel__tab">
-                    <tbody>
-                      <tr v-for="([k, val]) in fichaImportacao" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+                      <tr v-for="([k, val]) in bloco.linhas" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
                     </tbody>
                   </table>
                 </div>
               </div>
               <div class="rel__ficha-col">
-                <div v-if="fichaTecnica.length">
-                  <span class="rel__sub">Técnica</span>
+                <div v-for="bloco in fichaColunas.direita" :key="bloco.key">
+                  <span class="rel__sub">{{ bloco.titulo }}</span>
                   <table class="rel__tab">
                     <tbody>
-                      <tr v-for="([k, val]) in fichaTecnica" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <!-- Origem do chassi: decode de VIN, so completa. Some
-                     sozinha se o servico de decode estiver fora (fail-open
-                     no server). Coluna direita, pedido do Cesar. -->
-                <div v-if="fichaChassiOrigem.length">
-                  <span class="rel__sub">Origem do chassi</span>
-                  <table class="rel__tab">
-                    <tbody>
-                      <tr v-for="([k, val]) in fichaChassiOrigem" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+                      <tr v-for="([k, val]) in bloco.linhas" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
                     </tbody>
                   </table>
                 </div>
