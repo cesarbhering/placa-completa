@@ -2,6 +2,11 @@
 const isReady = ref(false)
 const isPWA = ref(false)
 
+// Theming por dominio: regra global de canonical (moto conteudo-proprio vs
+// funil cross-domain pro placacompleta). Uma chamada so, cobre toda pagina —
+// ver composables/useSelfCanonical.ts.
+useDomainCanonical()
+
 // Header nas paginas de conteudo. A home e a area premium montam o proprio
 // (uma precisa ligar o campo de placa ao formulario do herói, a outra vive
 // dentro de uma faixa branca), entao aqui ele cobre so o resto do site, que
