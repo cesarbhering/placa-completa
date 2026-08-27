@@ -883,56 +883,55 @@ onUnmounted(() => poll && clearInterval(poll))
               </span>
             </div>
 
+            <!-- Ficha em DUAS colunas EXPLICITAS (nao mais grid 2xN): grid
+                 alinha as row-tracks entre as colunas (cada linha fica da
+                 altura do bloco mais alto), entao um bloco curto deixava
+                 buraco branco ate o vizinho da linha terminar. Cada
+                 .rel__ficha-col e flex column independente — os blocos
+                 dela empacotam colados, sem alinhamento cruzado nenhum com
+                 a outra coluna. -->
             <div class="rel__ficha">
-              <div v-if="fichaCadastral.length">
-                <span class="rel__sub">Cadastral</span>
-                <table class="rel__tab">
-                  <tbody>
-                    <tr v-for="([k, val]) in fichaCadastral" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
-                  </tbody>
-                </table>
+              <div class="rel__ficha-col">
+                <div v-if="fichaCadastral.length">
+                  <span class="rel__sub">Cadastral</span>
+                  <table class="rel__tab">
+                    <tbody>
+                      <tr v-for="([k, val]) in fichaCadastral" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <!-- Importacao: so pra veiculo importado (procedencia
+                     ESTRANGEIRO). Sem badge — o Cesar pediu pra tirar o
+                     selo "Veículo importado", fica so o titulo da subsecao. -->
+                <div v-if="fichaImportacao.length">
+                  <span class="rel__sub">Importação</span>
+                  <table class="rel__tab">
+                    <tbody>
+                      <tr v-for="([k, val]) in fichaImportacao" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              <div v-if="fichaTecnica.length">
-                <span class="rel__sub">Técnica</span>
-                <table class="rel__tab">
-                  <tbody>
-                    <tr v-for="([k, val]) in fichaTecnica" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <!-- Importacao: so pra veiculo importado (procedencia
-                   ESTRANGEIRO). Fica na coluna ESQUERDA (junto de Cadastral)
-                   pra balancear com Origem do chassi na direita (junto de
-                   Tecnica) — a ordem no DOM decide a coluna no grid 2x2
-                   (auto-flow por linha): Cadastral/Tecnica na linha 1,
-                   Importacao/Origem do chassi na linha 2. -->
-              <div v-if="fichaImportacao.length">
-                <span class="rel__sub">Importação</span>
-                <span class="rel__import-badge">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="2" y1="12" x2="22" y2="12" />
-                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z" />
-                  </svg>
-                  Veículo importado
-                </span>
-                <table class="rel__tab">
-                  <tbody>
-                    <tr v-for="([k, val]) in fichaImportacao" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <!-- Origem do chassi: decode de VIN, so completa. Some sozinha
-                   se o servico de decode estiver fora (fail-open no server).
-                   Na coluna DIREITA (pedido do Cesar, equilibra melhor as
-                   linhas com Tecnica do que ficando embaixo de Importacao). -->
-              <div v-if="fichaChassiOrigem.length">
-                <span class="rel__sub">Origem do chassi</span>
-                <table class="rel__tab">
-                  <tbody>
-                    <tr v-for="([k, val]) in fichaChassiOrigem" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
-                  </tbody>
-                </table>
+              <div class="rel__ficha-col">
+                <div v-if="fichaTecnica.length">
+                  <span class="rel__sub">Técnica</span>
+                  <table class="rel__tab">
+                    <tbody>
+                      <tr v-for="([k, val]) in fichaTecnica" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <!-- Origem do chassi: decode de VIN, so completa. Some
+                     sozinha se o servico de decode estiver fora (fail-open
+                     no server). Coluna direita, pedido do Cesar. -->
+                <div v-if="fichaChassiOrigem.length">
+                  <span class="rel__sub">Origem do chassi</span>
+                  <table class="rel__tab">
+                    <tbody>
+                      <tr v-for="([k, val]) in fichaChassiOrigem" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </section>
@@ -1088,25 +1087,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     }
 
     &--up { border-color: $c-blue; }
-  }
-
-  // Importacao: badge embaixo do titulo (nao ao lado) — h2 e bloco, entao o
-  // span fica na linha seguinte sozinho, sem precisar de flex/wrapper extra.
-  // Card sem destaque de proposito: fica igual aos outros da ficha.
-  &__import-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    color: $c-blue-deep;
-    background: rgba(31, 111, 235, 0.1);
-    border-radius: 999px;
-    padding: 5px 12px;
-    margin-bottom: 14px;
-
-    svg { width: 14px; height: 14px; flex-shrink: 0; }
   }
 
   &__kick {
@@ -1595,13 +1575,24 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   // ---- ficha ----
+  // Duas colunas EXPLICITAS (flex), nao mais grid: grid alinha as row-tracks
+  // entre colunas (linha vira a altura do bloco mais alto), deixando buraco
+  // branco sob um bloco curto ate o vizinho da linha terminar. Cada coluna
+  // aqui e independente — os blocos dela empacotam colados.
   &__ficha {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px 28px;
-    align-items: start;
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
 
-    @media (max-width: 640px) { grid-template-columns: 1fr; }
+    @media (max-width: 640px) { flex-direction: column; gap: 20px; }
+  }
+
+  &__ficha-col {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
   }
 
   &__sub {
