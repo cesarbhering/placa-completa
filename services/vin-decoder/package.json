@@ -1,0 +1,18 @@
+{
+  "name": "vin-decoder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Decodificador de VIN/chassi (ISO 3779), servico interno na rede docker. Sem porta publica.",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "import:vpic": "node scripts/import-vpic.mjs",
+    "import:overrides-br": "node scripts/overrides-br.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "fastify": "^5.1.0"
+  }
+}
