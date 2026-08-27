@@ -745,7 +745,7 @@ onUnmounted(() => poll && clearInterval(poll))
                       .filter(Boolean).join(' · ') }}
                 </span>
               </span>
-              <PlacaMercosul :placa="data.placa" mini class="rel__placa-tag" />
+              <PlacaMercosul :placa="data.placa" mini :width="190" class="rel__placa-tag" />
             </div>
 
             <span v-if="veredito" class="rel__parecer-rotulo">Parecer</span>
@@ -1381,12 +1381,22 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // A placa e o identificador do laudo: 132px sumia ao lado do logo de 56px.
   // 190px poe os caracteres na mesma escala do nome do veiculo. No celular
   // encolhe, senao logo + placa nao deixam largura pro texto.
+  //
+  // A largura BASE (190px) agora vem da prop `width` do PlacaMercosul (style
+  // inline no proprio componente) e nao mais desta classe: essa classe e o
+  // CSS de escopo do PROPRIO PlacaMercosul (.cb-plate{width:100%}) ficavam
+  // com a MESMA especificidade no elemento raiz (Vue funde a class externa
+  // nele), entao quem vencia era so questao de qual chunk de CSS carregava
+  // primeiro — causava o flash reportado (placa nascia grande, 460px, e so
+  // encolhia quando o CSS da pagina terminava de carregar). Style inline
+  // resolve isso de vez, sem depender de ordem de carga.
+  //
+  // O media query do celular PRECISA de !important: e a UNICA forma de uma
+  // regra de classe vencer um style inline (que sempre tem prioridade maior
+  // que qualquer classe, com ou sem !important do outro lado).
   &__placa-tag {
-    width: 190px;
-    flex-shrink: 0;
-
     @media (max-width: 640px) {
-      width: 178px;
+      width: 178px !important;
       // Sem recuo: a placa alinha na borda esquerda da propria linha. (Um
       // margin-left aqui perderia mesmo: .cb-plate.is-mini zera margin com
       // duas classes de especificidade.)
