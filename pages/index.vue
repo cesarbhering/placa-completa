@@ -359,7 +359,7 @@ const alertasIlustrativos = [
   // subindo reto antes de virar
   // Rotulo deslocado pra esquerda do ponto de proposito: alinhado com ele, a
   // linha subia quase reta e o joelho nao aparecia.
-  { label: 'Recall pendente',    lado: 'baixo', y: '92%', cx: '44%', ex: '44%', ey: '81%', ax: '57%', ay: '72%' },
+  { label: 'Recall pendente',    lado: 'baixo', y: '92%', cx: '50%', ex: '50%', ey: '81%', ax: '57%', ay: '72%' },
   // lugar do motorista
   { label: 'Multa em aberto',    lado: 'dir',   y: '92%', ex: '76%', ey: '92%', ax: '51%', ay: '35%' },
 ]
@@ -2348,7 +2348,10 @@ function applyEmailSuggestion() {
     &__grid {
       display: grid;
       grid-template-columns: 1.02fr 0.98fr;
-      gap: 56px;
+      // Calha enxuta: os 56px de antes abriam um vao morto entre os dois cards
+      // e ainda espremiam a ilustracao. Recuperado, o espaco vira largura pro
+      // carro (max-width abaixo), que e o que espalha os rotulos de baixo.
+      gap: 32px;
       align-items: center;
     }
 
@@ -2365,7 +2368,7 @@ function applyEmailSuggestion() {
   .cb-hero:not(.cb-hero--resultado) { padding-top: 24px; padding-bottom: 8px; }
   // A lateral era o teto de altura por causa da ilustracao (552x442). Limitada,
   // ela deixa de ser o piso e a dobra abre espaco pro peek — sem mexer na copy.
-  .cb-hero__side .cb-carro { max-width: 400px; margin-left: auto; margin-right: auto; }
+  .cb-hero__side .cb-carro { max-width: 460px; margin-left: auto; margin-right: auto; }
 
   .cb-scrollcue {
     display: flex;
@@ -2570,7 +2573,9 @@ function applyEmailSuggestion() {
     background: $c-cloud;
     border: 1px solid $c-hair;
     border-radius: $r-xl;
-    padding: $s-xxl;
+    // Menos padding lateral (32→20): a moldura sozinha nao precisa de tanto
+    // recuo e os 12px de cada lado sao largura util pra ilustracao respirar.
+    padding: $s-xxl $s-lg;
 
     &__kick {
       font-size: 12px;
