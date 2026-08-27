@@ -26,21 +26,6 @@
   margin: 0 auto;
 }
 
-// Migalha de pao
-.pc-breadcrumb {
-  font-size: 0.8125rem;
-  color: var(--pc-graphite);
-  margin-bottom: 20px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-
-  a { color: var(--pc-graphite); text-decoration: none; }
-  a:hover { color: var(--pc-ink); }
-  .pc-breadcrumb__sep { color: var(--pc-steel); }
-}
-
 // Titulo da pagina
 .pc-h1 {
   font-family: var(--pc-font);
@@ -102,6 +87,37 @@
   border-radius: 12px;
   padding: 16px 18px;
   margin-bottom: 12px;
+}
+
+// Migalha de pao (definida depois de .pc-prose pra vencer o cascade quando
+// aparece aninhada dentro de um bloco de prose)
+.pc-breadcrumb {
+  font-size: 0.8125rem;
+  color: var(--pc-graphite);
+  margin: 24px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+
+  a { color: var(--pc-graphite); text-decoration: none; border-bottom: 0; }
+  a:hover { color: var(--pc-ink); }
+  strong { color: var(--pc-ink); font-weight: 600; }
+  span, .pc-breadcrumb__sep { color: var(--pc-steel); }
+}
+
+// Callout com acento a esquerda (intro estendida, aviso)
+.pc-callout {
+  background: var(--pc-cloud);
+  border: 1px solid var(--pc-hairline);
+  border-left: 3px solid var(--pc-blue);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin: 20px 0;
+  color: var(--pc-charcoal);
+
+  > p { margin: 0 0 10px; }
+  > p:last-child { margin-bottom: 0; }
 }
 
 // Lista de FAQ
