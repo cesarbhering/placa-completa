@@ -39,7 +39,7 @@ export const PLANOS: Record<PlanoId, Plano> = {
     id: 'basica',
     nome: 'Consulta básica',
     chamada: 'A ficha técnica completa, além do que a grátis mostra.',
-    valorCentavos: 1990,
+    valorCentavos: 2500,
   },
   completa: {
     id: 'completa',
