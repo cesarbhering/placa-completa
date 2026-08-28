@@ -185,8 +185,8 @@ const opcao = computed(() => ({
 }
 
 @media (max-width: 640px) {
-  // No mobile o HUD substitui o tooltip como leitura principal: fica FIXO no
-  // topo do grafico (nunca embaixo do dedo), atualiza pelo axisPointer.
+  /* No mobile o HUD substitui o tooltip como leitura principal: fica FIXO no
+     topo do grafico (nunca embaixo do dedo), atualiza pelo axisPointer. */
   .gv-hud {
     display: flex;
     align-items: baseline;
