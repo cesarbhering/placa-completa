@@ -306,9 +306,14 @@ if (isBrandPage) {
               <li>Cor do veículo</li>
               <li><strong>Valor atualizado na Tabela FIPE</strong></li>
               <li>Município e estado de registro</li>
-              <li>Situação (restrições, débitos)</li>
+              <li>Situação do veículo (em circulação, baixado)</li>
               <li>Chassi, combustível e mais</li>
             </ul>
+            <p>
+              Já tem a placa em mãos? Veja também débitos, indicadores de roubo/furto e
+              leilão, e o histórico completo no
+              <NuxtLink to="/">relatório completo por placa</NuxtLink>.
+            </p>
 
             <nav class="pc-breadcrumb">
               <NuxtLink to="/tabela-fipe">Tabela FIPE</NuxtLink>
@@ -454,7 +459,7 @@ if (isBrandPage) {
                 Com base em dados oficiais da SUSEP (apólices reais) corrigidos pelo IPCA, o seguro
                 do {{ pageData.name }} {{ model!.name }} {{ seguroData.ano }} custa entre
                 <strong>{{ brlSeguro(seguroData.faixa.min) }} e {{ brlSeguro(seguroData.faixa.max) }} por ano</strong>,
-                dependendo da região do país<template v-if="seguroData.pctFipe"> — cerca de
+                dependendo da região do país<template v-if="seguroData.pctFipe">, cerca de
                 <strong>{{ seguroData.pctFipe }}% do valor FIPE</strong> do veículo</template>:
               </p>
               <div class="table-scroll">

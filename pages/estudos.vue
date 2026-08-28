@@ -61,17 +61,17 @@ useHead({
                 <NuxtLink to="/ibv/seguro-mais-caro-brasil-2026">
                   As 5 regiões com seguro de carro mais caro do Brasil (e as 5 mais baratas)
                 </NuxtLink>
-                — ranking das 41 regiões de tarifação. Fonte: SUSEP + IPCA/IBGE.
+                : ranking das 41 regiões de tarifação. Fonte: SUSEP + IPCA/IBGE.
               </li>
               <li>
                 <NuxtLink to="/seguro/carro-eletrico">
                   Seguro de carro elétrico por estado
                 </NuxtLink>
-                — preço médio em cada UF, por modelo. Fonte: SUSEP + IPCA/IBGE.
+                : preço médio em cada UF, por modelo. Fonte: SUSEP + IPCA/IBGE.
               </li>
             </ul>
 
-            <h2>IBV Auto — valorização de usados (análise)</h2>
+            <h2>IBV Auto: valorização de usados (análise)</h2>
             <p>
               O <strong>IBV (Índice BV Auto) é um índice do Banco BV</strong> que mede a
               variação mensal dos preços de veículos usados no Brasil. O PlacaCompleta
@@ -83,15 +83,15 @@ useHead({
             <ul>
               <li v-if="ultimoIbv">
                 <NuxtLink :to="`/ibv/${ultimoIbv.slug}`">{{ ultimoIbv.title }}</NuxtLink>
-                — análise mais recente.
+                : análise mais recente.
               </li>
               <li>
                 <NuxtLink to="/ibv">Todas as análises do IBV Auto</NuxtLink>
-                — histórico mensal. Fonte dos dados: Banco BV (IBV Auto).
+                : histórico mensal. Fonte dos dados: Banco BV (IBV Auto).
               </li>
             </ul>
 
-            <h2>Tabela FIPE — valor de mercado</h2>
+            <h2>Tabela FIPE: valor de mercado</h2>
             <p>
               Preços da <strong>Tabela FIPE</strong> (Fundação Instituto de Pesquisas
               Econômicas) por modelo e ano, com histórico de variação. A FIPE é a referência
@@ -100,7 +100,7 @@ useHead({
             <ul>
               <li>
                 <NuxtLink to="/tabela-fipe">Tabela FIPE por marca e modelo</NuxtLink>
-                — preços e histórico. Fonte: FIPE.
+                : preços e histórico. Fonte: FIPE.
               </li>
               <li>
                 <NuxtLink to="/tabela-fipe-por-placa">Como consultar a FIPE pela placa</NuxtLink>
@@ -109,7 +109,7 @@ useHead({
 
             <h2>Sobre a metodologia e citação</h2>
             <p>
-              Nossos números são estimativas estatísticas com base em dados oficiais — não
+              Nossos números são estimativas estatísticas com base em dados oficiais, não
               substituem cotação de seguradora nem a consulta oficial de cada órgão. Para
               citar em reportagens ou trabalhos, use <strong>“PlacaCompleta
               (placacompleta.com.br)”</strong> e, quando aplicável, a fonte primária: SUSEP
