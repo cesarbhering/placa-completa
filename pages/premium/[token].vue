@@ -272,8 +272,13 @@ const licEmissao = computed(() => {
   const l = g('ultimoLicenciamento') as any
   const d = l && typeof l === 'object' ? l.dataHoraEmissao : null
   if (!d) return null
+  // Data PURA (sem hora relevante pra exibicao): formata em UTC, nao no fuso
+  // de quem abre. "2012-04-20" vira Date UTC-meia-noite; formatar no fuso de
+  // Brasilia (America/Sao_Paulo, UTC-3) subtrai 3h e cai pro dia anterior
+  // (19/04). timeZone:'UTC' devolve sempre o mesmo dia do calendario que veio
+  // no dado, e elimina hydration mismatch (SSR roda em UTC, o navegador nao).
   const dt = new Date(d)
-  return Number.isNaN(dt.getTime()) ? null : dt.toLocaleDateString('pt-BR')
+  return Number.isNaN(dt.getTime()) ? null : dt.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 })
 
 // Faixa de licenciamento acima da ficha: e o dado que diz se o documento esta
@@ -464,9 +469,13 @@ const ocorrencias = computed(() => {
   const lista = bloco && typeof bloco === 'object' ? bloco.ocorrencias : null
   if (!Array.isArray(lista)) return []
   return lista.map((o: any) => ({
+    // Data pura: formata em UTC (ver comentario em licEmissao acima). O
+    // 'T12:00:00' que existia aqui era uma tentativa de contornar o mesmo bug
+    // por outro caminho (ancorar ao meio-dia pra sobreviver ao offset) — com
+    // timeZone:'UTC' explicito ele fica desnecessario, a data crua ja basta.
     data: (() => {
-      const d = new Date(String(o?.dataOcorrencia || '') + 'T12:00:00')
-      return Number.isNaN(d.getTime()) ? String(o?.dataOcorrencia || '') : d.toLocaleDateString('pt-BR')
+      const d = new Date(String(o?.dataOcorrencia || ''))
+      return Number.isNaN(d.getTime()) ? String(o?.dataOcorrencia || '') : d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
     })(),
     tipo: humanizar(o?.tipoOcorrenciaDeclaracao || o?.categoriaOcorrencia || 'Ocorrência'),
     categoria: humanizar(o?.categoriaOcorrencia),
@@ -520,10 +529,13 @@ const fichaTecnica = computed(() => [
 // comentario de camposRestantes() em shared/planos.ts ja nota isso — "quatro
 // zeros"), entao alem do gate por procedencia cada campo tambem descarta
 // "0"/vazio individualmente, senao a linha aparece com um zero sem sentido.
+// Data pura (declaracao de importacao): mesmo motivo do timeZone:'UTC' em
+// licEmissao/ocorrencias acima — sem isto, "2012-04-20" pode virar 19/04
+// pro fuso de Brasilia, e SSR/client podem divergir (hydration mismatch).
 const dataBR = (iso: any) => {
   if (!iso) return null
   const dt = new Date(String(iso))
-  return Number.isNaN(dt.getTime()) ? null : dt.toLocaleDateString('pt-BR')
+  return Number.isNaN(dt.getTime()) ? null : dt.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 }
 const linhaImportacao = (rot: string, val: any) => {
   if (val === null || val === undefined || val === '') return null
