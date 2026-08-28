@@ -246,4 +246,55 @@ describe('escolherMelhorFipe', () => {
     expect(resultado.escolhido?.codigo_fipe).toBe('004425-3')
     expect(resultado.escolhido?.codigoModelo).toBe('6233')
   })
+
+  // Payload real (senatran_consultas + placa_cache, staging) da placa
+  // OLO2I01: Fiat 500 Cult, cilindrada 1400 (1.4), sem NENHUM sinal de
+  // cambio na descricao SENATRAN ("I/FIAT 500 CULT"). Versao "CULT" isola
+  // os 2 candidatos Cult (exclui Lounge/Sport), mas Dualogic vs Mec. so se
+  // resolve por cambio - que a gente nao tem como saber aqui. Isso E
+  // ambiguidade legitima: tem que sair shortlist, nao chute.
+  const SENATRAN_OLO2I01 = {
+    cilindrada: 1400,
+    potencia: 88,
+    descricaoMarcaModelo: 'I/FIAT 500 CULT',
+    anoModelo: 2012,
+  }
+
+  const WDAPI_OLO2I01 = {
+    marca: 'FIAT',
+    MODELO: '500 CULT',
+    SUBMODELO: '500',
+    VERSAO: 'CULT',
+    anoModelo: '2012',
+    extra: { combustivel: 'Alcool / Gasolina' },
+    fipe: {
+      dados: [
+        { score: 75, codigo_fipe: '001362-5', codigo_modelo: '5613', texto_modelo: '500 Cult 1.4 Flex 8V EVO Dualogic', texto_valor: 'R$ 42.423,00', texto_marca: 'Fiat', combustivel: 'Flex', mes_referencia: 'julho de 2026' },
+        { score: 73, codigo_fipe: '001361-7', codigo_modelo: '5614', texto_modelo: '500 Cult 1.4 Flex 8V EVO Mec.', texto_valor: 'R$ 41.655,00', combustivel: 'Flex', mes_referencia: 'julho de 2026' },
+        { score: 46, codigo_fipe: '001360-9', codigo_modelo: '5615', texto_modelo: '500 Lounge Air 1.4/ 1.4 Flex 16V Aut.', texto_valor: 'R$ 54.307,00', combustivel: 'Gasolina', mes_referencia: 'julho de 2026' },
+        { score: 46, codigo_fipe: '001358-7', codigo_modelo: '5617', texto_modelo: '500 Sport Air 1.4 16V/1.4 Flex Mec.', texto_valor: 'R$ 48.188,00', combustivel: 'Gasolina', mes_referencia: 'julho de 2026' },
+      ],
+    },
+  }
+
+  it('OLO2I01 (Fiat 500 Cult): AMBIGUO entre Dualogic e Mec. quando nao ha sinal de cambio (shortlist, sem chutar)', async () => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+
+    const resultado = await escolherMelhorFipe({
+      senatran: SENATRAN_OLO2I01,
+      wdapi: WDAPI_OLO2I01,
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1',
+      fipeApiToken: 'token-teste',
+      // sem anthropicApiKey: sem cambio na descricao, nem o Haiku teria base -
+      // o funil ja deve devolver ambiguo sozinho.
+    })
+
+    expect(resultado.decididoPor).toBe('ambiguo')
+    expect(resultado.escolhido).toBeNull()
+    const codigos = resultado.candidatos.map((c) => c.codigo_fipe).sort()
+    expect(codigos).toEqual(['001361-7', '001362-5'])
+  })
 })
