@@ -73,6 +73,14 @@ export default defineEventHandler(async (event) => {
     return
   }
 
+  // /api/csp-report nunca pode devolver erro: e o proprio browser reportando
+  // violacao de CSP, e um 429 aqui vira "Failed to load resource" no console
+  // (o remedio fica pior que a doenca). O endpoint faz sampling interno e
+  // sempre responde 204.
+  if (path.startsWith('/api/csp-report')) {
+    return
+  }
+
   // Homolog e ambiente de teste: sem rate limit pra nao travar quem esta
   // testando. So o container de homolog seta NUXT_PUBLIC_HOMOLOG; prod nao.
   if (useRuntimeConfig().public.homolog) {
