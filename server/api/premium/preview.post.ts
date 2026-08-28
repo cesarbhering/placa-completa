@@ -5,6 +5,31 @@ export default defineEventHandler(async (event) => {
   const { placa } = await readBody(event)
   const placaClean = String(placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
   if (placaClean.length < 7) throw createError({ statusCode: 400, message: 'Placa invalida' })
+
+  // Mesmo teto de 15/IP/hora do /api/consulta, e COMBINADO com ele (ver
+  // server/utils/ip-wdapi-limit.ts): este endpoint tambem custa credito wdapi
+  // e nao tinha nenhum limite antes — um bot podia raspar placas por aqui sem
+  // esbarrar no rate-limit do /api/consulta. assertPremiumGate acima e no-op
+  // em producao (so vale pra homolog/staging), entao sem isto o preview ficava
+  // completamente aberto.
+  const config = useRuntimeConfig()
+  const ip = getClientIp(event)
+  const supabase = useSupabaseServer()
+  const limite = await checarLimiteIpWdapi(supabase, ip, { homolog: config.public.homolog })
+  if (!limite.ok) {
+    supabase.from('blocked_requests').insert({
+      reason: 'rate_limit_ip_wdapi',
+      ip_address: ip,
+      placa: placaClean || null,
+      user_agent: getRequestHeader(event, 'user-agent') || null,
+    }).then(({ error }: any) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
+    throw createError({
+      statusCode: 429,
+      message: `Limite de ${limite.teto} consultas por hora atingido. Tente novamente em ~${limite.minutesUntilReset} min.`,
+    })
+  }
+  registrarChamadaPreviewWdapi(supabase, ip)
+
   // Fonte free via cache (placa_cache) pra nao pagar a wdapi de novo se a placa
   // ja foi consultada. Ver server/utils/placa-lookup.ts.
   const r = await consultarPlacaWdapi(placaClean)
