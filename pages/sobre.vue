@@ -1,9 +1,9 @@
 <script setup lang="ts">
 useHead({
-  title: 'Sobre o PlacaCompleta — Quem Somos, Fontes de Dados e Metodologia',
+  title: 'Sobre o PlacaCompleta: Quem Somos, Fontes de Dados e Metodologia',
   meta: [
     { name: 'description', content: 'Conheça o PlacaCompleta: como funciona a consulta veicular gratuita, de onde vêm os dados (DETRAN, FIPE, banco BV), metodologia das análises IBV e compromisso com a LGPD.' },
-    { property: 'og:title', content: 'Sobre o PlacaCompleta — Fontes de Dados e Metodologia' },
+    { property: 'og:title', content: 'Sobre o PlacaCompleta: Metodologia e Privacidade' },
     { property: 'og:description', content: 'Transparência sobre fontes de dados, metodologia e privacidade da consulta veicular gratuita mais simples do Brasil.' },
   ],
   script: [
