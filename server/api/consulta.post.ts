@@ -737,6 +737,19 @@ export default defineEventHandler(async (event) => {
     : null
   const fipeValorAtual = fipeMelhor?.texto_valor || null
 
+  // Sem preco FIPE: se o veiculo e ANTIGO, a causa mais provavel e a tabela
+  // mesmo nao cobrir aquele ano (a FIPE tem corte historico) — avisa em vez de
+  // so sumir o campo, que parece falha nossa. So dispara quando falta o preco
+  // (veiculo novo sem match e outro problema, nao cabe nesta nota). Achado
+  // real: Opala 1972 na placa GSZ6753 (fipe.dados=[]).
+  const anoParaNota = parseInt(
+    String(apiResponse.extra?.ano_modelo || apiResponse.anoModelo || apiResponse.ano || ''), 10,
+  )
+  const ANO_LIMITE_FIPE = 1990
+  const fipeNotaAntigo = !fipeValorAtual && Number.isFinite(anoParaNota) && anoParaNota < ANO_LIMITE_FIPE
+    ? 'Veículos antigos podem não constar na tabela FIPE.'
+    : null
+
   return {
     success: true,
     channel,
@@ -773,6 +786,7 @@ export default defineEventHandler(async (event) => {
       // Valor FIPE atual (referencia de mercado). So o valor corrente; o
       // historico/grafico continua sendo conteudo pago.
       fipe: fipeValorAtual,
+      fipeNota: fipeNotaAntigo,
     } : undefined,
     // payload minimo pro botao de compartilhar no WhatsApp (web)
     // Sem FIPE: virou conteudo pago, e o texto de compartilhamento e superficie
