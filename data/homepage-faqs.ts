@@ -1,3 +1,5 @@
+import { PLANOS, precoBRL } from '~/shared/planos'
+
 export interface HomepageFaq {
   question: string
   answer: string
@@ -8,6 +10,12 @@ export interface HomepageFaq {
 //
 // Regras de copy (.agents/product-marketing.md): nao nomear a fonte dos dados,
 // nada de travessao, nenhum numero que o dono nao tenha confirmado.
+//
+// Precos vem de shared/planos.ts (fonte unica) - nunca literal aqui, pra nao
+// ficar defasado quando o preco mudar (ja aconteceu: R$19,90 -> R$25,00).
+const precoBasica = precoBRL(PLANOS.basica.valorCentavos)
+const precoCompleta = precoBRL(PLANOS.completa.valorCentavos)
+
 export const homepageFaqs: HomepageFaq[] = [
   {
     question: 'O que é o PlacaCompleta?',
@@ -15,7 +23,7 @@ export const homepageFaqs: HomepageFaq[] = [
   },
   {
     question: 'A consulta é grátis?',
-    answer: 'A primeira olhada é. A consulta grátis aparece na própria tela, sem cadastro e sem pedir e-mail, e mostra marca, modelo, ano de fabricação e do modelo, cor, combustível, origem e o começo do chassi. Quem precisa de mais tem dois níveis pagos: a consulta básica, por R$ 19,90, traz valor FIPE com histórico de depreciação, seguro estimado, custo em 5 anos e a ficha técnica completa; o relatório completo, por R$ 44,90, traz também chassi e Renavam completos, restrição, roubo e furto, leilão, gravame, bloqueio judicial e indicador de multas.',
+    answer: `A primeira olhada é. A consulta grátis aparece na própria tela, sem cadastro e sem pedir e-mail, e mostra marca, modelo, ano de fabricação e do modelo, cor, combustível, origem e o começo do chassi. Quem precisa de mais tem dois níveis pagos: a consulta básica, por ${precoBasica}, traz valor FIPE com histórico de depreciação, seguro estimado, custo em 5 anos e a ficha técnica completa; o relatório completo, por ${precoCompleta}, traz também chassi e Renavam completos, restrição, roubo e furto, leilão, gravame, bloqueio judicial e indicador de multas.`,
   },
   {
     question: 'Quais as formas de pagamento?',
