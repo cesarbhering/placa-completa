@@ -24,7 +24,10 @@ export async function validarCupom(
   supabase: ReturnType<typeof usePremiumSupabase>,
   codigoBruto: string,
   plano: PlanoId,
-  email: string,
+  // Opcional: na validacao previa (pessoa digitou o cupom antes do e-mail) o
+  // limite por cliente e simplesmente pulado. O checkout final SEMPRE chama
+  // esta funcao com o e-mail, entao a regra continua valendo onde importa.
+  email?: string,
 ): Promise<CupomValidado> {
   const precoBrutoCentavos = plano === 'basica' || plano === 'completa' ? PLANOS[plano].valorCentavos : 0
   const semDesconto = { ok: false as const, precoBrutoCentavos, descontoCentavos: 0, precoLiquidoCentavos: precoBrutoCentavos }
@@ -68,7 +71,7 @@ export async function validarCupom(
       return { ...semDesconto, motivo: 'Cupom esgotado.' }
     }
   }
-  if (cupom.limite_uso_por_cliente != null) {
+  if (cupom.limite_uso_por_cliente != null && email) {
     const { count } = await supabase
       .from('cupons_premium_usos')
       .select('id', { count: 'exact', head: true })
