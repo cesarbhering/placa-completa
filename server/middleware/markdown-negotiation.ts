@@ -5,7 +5,7 @@
 const HOME_MARKDOWN = `# PlacaCompleta
 
 Consulta veicular completa por placa: dados do veiculo, historico, tabela FIPE
-e indicadores de multa e leilao, em um relatorio unico.
+e indicadores de multa e registro de leilao, em um relatorio unico.
 
 ## Como consultar
 Digite a placa em https://placacompleta.com.br e receba o relatorio completo.

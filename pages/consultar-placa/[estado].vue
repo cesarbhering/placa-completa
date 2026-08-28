@@ -132,7 +132,7 @@ useHead({
           </ul>
           <p>
             Precisa de mais? O <NuxtLink to="/">relatório completo</NuxtLink> traz débitos,
-            indicadores de roubo/furto e leilão, e o histórico completo do veículo.
+            indicadores de roubo/furto e registro de leilão, e o histórico completo do veículo.
           </p>
 
           <h2>Placas de {{ data.name }}</h2>
