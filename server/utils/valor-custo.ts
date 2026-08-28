@@ -1,6 +1,7 @@
 import { getRegiaoSusep } from './regiao-susep'
 import { getSeguroEstimado } from './seguro-estimate'
 import { calcularICV5, inferirCategoria } from './icv5'
+import { escolherMelhorFipe, type FipeMelhorCandidatoResultado } from './fipe-candidato'
 
 // Valor FIPE, historico de depreciacao, seguro estimado e custo em 5 anos.
 //
@@ -20,6 +21,28 @@ export type ValorCusto = {
   seguroAnual: number | null
   percentualFipe: number | null
   custo5anos: number | null
+  // So preenchido no fluxo pago (ver docs/feat-fipe-melhor-candidato.md):
+  // auditoria de como o modelo FIPE foi escolhido, e shortlist quando
+  // ambiguo (a UI mostra "versoes compativeis" em vez de afirmar errado).
+  fipeCandidato?: {
+    decididoPor: FipeMelhorCandidatoResultado['decididoPor']
+    confianca?: FipeMelhorCandidatoResultado['confianca']
+    candidatos: { codigo_fipe: string; modelo: string; valor: number | null }[]
+  } | null
+}
+
+// Fatos do SENATRAN usados pelo funil do melhor-candidato. So disponiveis no
+// fluxo pago (a consulta gratis nao tem SENATRAN).
+export interface FatosSenatranFipe {
+  cilindrada?: number | string | null
+  potencia?: number | string | null
+  descricaoMarcaModelo?: string | null
+  anoModelo?: number | string | null
+}
+
+function formatarReais(valor: number | null): string | null {
+  if (!Number.isFinite(valor as number)) return null
+  return (valor as number).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
@@ -43,7 +66,12 @@ function pontos(historyData: any, anoModelo: string | number) {
   return pts.length > 1 ? pts : null
 }
 
-export async function getValorCusto(placa: string, uf?: string | null, municipio?: string | null): Promise<ValorCusto | null> {
+export async function getValorCusto(
+  placa: string,
+  uf?: string | null,
+  municipio?: string | null,
+  fipeCandidatoOpts?: { senatran: FatosSenatranFipe; ativo: boolean },
+): Promise<ValorCusto | null> {
   const config = useRuntimeConfig()
   if (!config.placaApiToken) return null
 
@@ -54,7 +82,45 @@ export async function getValorCusto(placa: string, uf?: string | null, municipio
   const lista = dados?.fipe?.dados
   if (!lista?.length) return null
 
-  const melhor = lista.reduce((b: any, i: any) => ((i.score || 0) > (b.score || 0) ? i : b), lista[0])
+  let melhor: any = lista.reduce((b: any, i: any) => ((i.score || 0) > (b.score || 0) ? i : b), lista[0])
+  let fipeCandidato: ValorCusto['fipeCandidato'] = null
+
+  // Melhor candidato via funil + Haiku: SO no fluxo pago (opts.ativo), com
+  // fail-open total - qualquer problema aqui e `melhor` continua sendo o
+  // score da wdapi de sempre.
+  if (fipeCandidatoOpts?.ativo) {
+    try {
+      const resultado = await escolherMelhorFipe({
+        senatran: fipeCandidatoOpts.senatran,
+        wdapi: dados,
+        fipeApiUrl: config.fipeApiUrl,
+        fipeApiToken: config.fipeApiToken,
+        anthropicApiKey: config.anthropicApiKey,
+      })
+      if (resultado.decididoPor !== 'fallback' && resultado.escolhido) {
+        // Recupera o codigo_modelo (so existe no item original da wdapi) pra
+        // nao perder o historico de preco quando o escolhido veio dela.
+        const origemWdapi = lista.find((i: any) => String(i.codigo_fipe) === resultado.escolhido!.codigo_fipe)
+        melhor = origemWdapi || {
+          codigo_fipe: resultado.escolhido.codigo_fipe,
+          texto_modelo: resultado.escolhido.modelo,
+          texto_valor: resultado.escolhido.texto_valor || formatarReais(resultado.escolhido.valor),
+          combustivel: resultado.escolhido.combustivel,
+          mes_referencia: resultado.escolhido.mes_referencia,
+        }
+      }
+      if (resultado.decididoPor === 'ambiguo' || resultado.candidatos.length > 1) {
+        fipeCandidato = {
+          decididoPor: resultado.decididoPor,
+          confianca: resultado.confianca,
+          candidatos: resultado.candidatos.map((c) => ({ codigo_fipe: c.codigo_fipe, modelo: c.modelo, valor: c.valor })),
+        }
+      }
+    } catch (err) {
+      console.error('[valor-custo] fipe-candidato falhou, mantendo score wdapi:', err)
+    }
+  }
+
   const fipe = melhor?.texto_valor || null
   const valorFipe = fipe ? parseFloat(String(fipe).replace(/[^\d,]/g, '').replace(',', '.')) : NaN
   const anoModelo = dados.anoModelo || dados.ano || null
@@ -120,5 +186,6 @@ export async function getValorCusto(placa: string, uf?: string | null, municipio
     seguroAnual,
     percentualFipe,
     custo5anos,
+    fipeCandidato,
   }
 }
