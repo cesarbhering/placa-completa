@@ -98,11 +98,14 @@ export async function getValorCusto(
         anthropicApiKey: config.anthropicApiKey,
       })
       if (resultado.decididoPor !== 'fallback' && resultado.escolhido) {
-        // Recupera o codigo_modelo (so existe no item original da wdapi) pra
-        // nao perder o historico de preco quando o escolhido veio dela.
-        const origemWdapi = lista.find((i: any) => String(i.codigo_fipe) === resultado.escolhido!.codigo_fipe)
-        melhor = origemWdapi || {
+        // codigoModelo ja vem resolvido do fipe-candidato.ts (direto da wdapi
+        // quando o candidato e dela, ou buscado sob demanda na fipe-api
+        // quando nao e) - e o que price-history/seguro usam abaixo. Sem ele
+        // (falhou a resolucao), so historico/seguro ficam nulos - fail-open,
+        // valor FIPE e o resto do relatorio continuam valendo.
+        melhor = {
           codigo_fipe: resultado.escolhido.codigo_fipe,
+          codigo_modelo: resultado.escolhido.codigoModelo || null,
           texto_modelo: resultado.escolhido.modelo,
           texto_valor: resultado.escolhido.texto_valor || formatarReais(resultado.escolhido.valor),
           combustivel: resultado.escolhido.combustivel,
