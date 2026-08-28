@@ -14,7 +14,7 @@ técnica: `shared/planos.ts`, de onde saem preço, itens e o gate de campos da A
   hora**, marca, modelo, ano, cor, situação, valor FIPE, seguro estimado e custo em 5
   anos. Também chega por e-mail. Serve de isca e de primeira olhada, e alimenta
   agentes/SEO (dado público/derivado).
-- **Consulta básica (pago · R$ 19,90, Pix):** a identidade completa do veículo. Ficha
+- **Consulta básica (pago · R$ 25,00, Pix):** a identidade completa do veículo. Ficha
   técnica com chassi e Renavam completos, espécie, tipo, categoria, potência,
   cilindrada, eixos, lotação, UF de jurisdição, recall pendente e FIPE com histórico
   de depreciação.
@@ -80,7 +80,7 @@ Espelhe estes termos, evite jargão de órgão/técnico quando der:
 
 ## Oferta e prova
 
-- **Preço:** R$ 19,90 (básica) ou R$ 44,90 (completa), pagamento único no **Pix**.
+- **Preço:** R$ 25,00 (básica) ou R$ 44,90 (completa), pagamento único no **Pix**.
   Sem assinatura, sem cadastro.
 - **Entrega:** na hora, em **link privado** só do usuário. Fica salvo no navegador
   (histórico local) pra reabrir depois ou concluir um pagamento pendente.
