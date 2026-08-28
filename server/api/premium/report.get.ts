@@ -1,18 +1,6 @@
 import { filtrarPorPlano, camposRestantes } from '../../../shared/planos'
 import { getValorCusto } from '../../utils/valor-custo'
 
-// Local do VEICULO, nao de quem abre o relatorio: e o que os calculos de IPVA
-// e seguro precisam, e quem abre o link pode nao ser quem consultou. O preview
-// guarda os dois desde o checkout.
-function localDoVeiculo(pedido: any): { uf: string | null; municipio: string | null } {
-  const p = pedido?.preview
-  if (!p || typeof p !== 'object') return { uf: null, municipio: null }
-  return {
-    uf: typeof p.uf === 'string' ? p.uf : null,
-    municipio: typeof p.municipio === 'string' ? p.municipio : null,
-  }
-}
-
 // Dados do relatorio premium pelo token (superficie PAGA, token e a credencial).
 // O corte por plano acontece AQUI, no servidor: o que a basica nao comprou nunca
 // chega ao cliente. Borrar no CSS deixaria o dado no DOM.
@@ -53,7 +41,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em')
+    .select('status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Relatorio nao encontrado' })
@@ -65,38 +53,43 @@ export default defineEventHandler(async (event) => {
 
   const plano = pedido.plano || 'completa'
 
-  // Seguro estimado e custo em 5 anos sao conteudo pago (o valor FIPE atual
-  // voltou pra gratis; so a evolucao/historico de depreciacao segue pago). Quem
-  // comprou precisa receber isto. So pra pedido ja entregue, e nunca na tela de
-  // retomada do Pix (ali ninguem pagou ainda).
+  // Snapshot imutavel: pedido entregue ja tem o relatorio congelado (gravado
+  // na entrega, ver premium-processar.ts) — serve ELE, sem nenhuma chamada
+  // externa (nem vin-decoder nem FIPE). So monta na hora (e tenta gravar,
+  // fail-open) quando o pedido e velho e nunca ganhou snapshot. NUNCA
+  // remonta por cima de um snapshot ja existente: e a fonte da verdade fixa
+  // do que a pessoa comprou, mesmo que uma nova consulta atualize os dados
+  // (isso vira um pedido novo, nao reescreve este).
   let valorCusto: Awaited<ReturnType<typeof getValorCusto>> = null
-  if (!pendente && pedido.status === 'entregue') {
-    const local = localDoVeiculo(pedido)
-    valorCusto = await getValorCusto(pedido.placa, local.uf, local.municipio)
-  }
-
   let consulta: any = null
   let restantes = 0
-  if (pedido.consulta_id) {
-    const { data } = await supabase
-      .from('senatran_consultas')
-      .select('response,placa,created_at')
-      .eq('id', pedido.consulta_id)
-      .single()
-    if (data) {
-      restantes = camposRestantes(data.response, plano)
-      consulta = { ...data, response: filtrarPorPlano(data.response, plano) }
-    }
-  }
-
-  // Origem do chassi (decode de VIN): exclusivo da completa, decisao de
-  // produto. `chassi` ja e liberado pra basica (filtrarPorPlano acima), mas
-  // o RESULTADO do decode e um campo novo que so montamos pra completa — a
-  // basica nunca chama o servico, nunca recebe o campo. Fail-open: erro/fora
-  // do ar = sem bloco, relatorio segue normal.
   let chassiOrigem: Awaited<ReturnType<typeof decodificarChassi>> = null
-  if (!pendente && pedido.status === 'entregue' && plano === 'completa' && consulta?.response?.chassi) {
-    chassiOrigem = await decodificarChassi(consulta.response.chassi)
+
+  if (!pendente && pedido.status === 'entregue') {
+    if (pedido.relatorio_snapshot) {
+      const snap = pedido.relatorio_snapshot as any
+      consulta = snap.consulta ?? null
+      restantes = snap.camposRestantes ?? 0
+      valorCusto = snap.valorCusto ?? null
+      chassiOrigem = snap.chassiOrigem ?? null
+    } else {
+      const snapshot = await montarRelatorioSnapshot(supabase, {
+        placa: pedido.placa, plano, consulta_id: pedido.consulta_id, preview: pedido.preview,
+      })
+      consulta = snapshot.consulta
+      restantes = snapshot.camposRestantes
+      valorCusto = snapshot.valorCusto
+      chassiOrigem = snapshot.chassiOrigem
+      // Backfill lazy: grava pra proxima visita ja vir do snapshot. Fail-open
+      // — se der erro (corrida com outra leitura, rede etc), so tenta de novo
+      // na proxima visualizacao, o relatorio desta ja saiu montado do jeito certo.
+      await supabase
+        .from('pedidos_premium')
+        .update({ relatorio_snapshot: snapshot, snapshot_em: new Date().toISOString() })
+        .eq('token_entrega', String(token))
+        .is('relatorio_snapshot', null)
+        .then(() => {}, () => {})
+    }
   }
 
   return {
