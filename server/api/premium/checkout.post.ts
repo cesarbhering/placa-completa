@@ -104,7 +104,7 @@ export default defineEventHandler(async (event) => {
   if (gratisReivindicado) {
     await processarPedidoPago(supabase, {
       id: pedido.id, placa, email, token_entrega: token,
-      abacatepay_id: null, plano, ambiente,
+      abacatepay_id: null, plano, ambiente, preview: body.preview || null,
     })
     const { data: atualizado } = await supabase
       .from('pedidos_premium')
