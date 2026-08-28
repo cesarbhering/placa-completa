@@ -11,6 +11,7 @@
 // VIN nao usa I, O, Q (confundem com 1/0) — validado aqui.
 
 import { db } from './db.js'
+import { paisPorFaixaWmi } from './paises.js'
 import crypto from 'node:crypto'
 
 const VALID_CHARS = /^[A-HJ-NPR-Z0-9]{17}$/
@@ -102,7 +103,9 @@ export function decodeVin(rawVin) {
 
   const achouWmi = !!row || !!override
   const fabricante = override?.display_name || row?.display_name || row?.manufacturer_raw || null
-  const pais = override?.country || row?.country || null
+  // Sem WMI na base, o pais ainda sai da faixa ISO 3780 (ver paises.js):
+  // melhor "Argentina" que um campo vazio num relatorio pago.
+  const pais = override?.country || row?.country || paisPorFaixaWmi(wmi3) || null
   const regiao = override?.region || row?.region || regiaoPorPrimeiroChar(vin[0])
 
   const yearRow = getYear.get(vin[9])
