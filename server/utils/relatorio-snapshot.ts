@@ -64,6 +64,14 @@ export async function montarRelatorioSnapshot(
   let chassiOrigem: RelatorioSnapshot['chassiOrigem'] = null
   if (pedido.plano === 'completa' && consulta?.response?.chassi) {
     chassiOrigem = await decodificarChassi(consulta.response.chassi).catch(() => null)
+    // O digito de ano do VIN se repete a cada 30 anos e o decoder, sozinho,
+    // sempre chuta o ciclo mais recente (um Civic 1995 virava "2025"). Aqui
+    // temos o ano do registro, entao o ciclo certo e escolhido; sem candidato
+    // proximo, o ano sai do relatorio em vez de contradizer o registro.
+    chassiOrigem = corrigirAnoChassi(
+      chassiOrigem,
+      senatranBruto?.anoModelo ?? senatranBruto?.anoFabricacao ?? null,
+    )
   }
 
   return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem }

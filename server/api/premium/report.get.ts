@@ -72,6 +72,14 @@ export default defineEventHandler(async (event) => {
       restantes = snap.camposRestantes ?? 0
       valorCusto = snap.valorCusto ?? null
       chassiOrigem = snap.chassiOrigem ?? null
+      // Correcao de EXIBICAO no snapshot antigo (gravado antes do ajuste de
+      // ciclo de 30 anos): o snapshot no banco fica intacto, so o ano do
+      // chassi e reconciliado com o ano do registro antes de ir pra tela.
+      const brutoSnap = Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response
+      chassiOrigem = corrigirAnoChassi(
+        chassiOrigem,
+        brutoSnap?.anoModelo ?? brutoSnap?.anoFabricacao ?? null,
+      )
     } else {
       const snapshot = await montarRelatorioSnapshot(supabase, {
         placa: pedido.placa, plano, consulta_id: pedido.consulta_id, preview: pedido.preview,
