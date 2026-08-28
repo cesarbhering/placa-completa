@@ -1209,19 +1209,29 @@ function applyEmailSuggestion() {
                  O que NAO da pra escrever e "já temos essas informações": a
                  consulta oficial deste veiculo so roda depois do pagamento, e
                  afirmar que o dado ja esta na mao seria mentira. Por isso a
-                 promessa aqui e de entrega ("sai na hora"), nao de posse. -->
-            <p class="cb-locked__kick">Atenção: tem mais nessa placa</p>
+                 promessa aqui e de entrega ("sai na hora"), nao de posse.
+                 Copy provocante (risco + curiosidade): "indicador" em tudo
+                 que e sinalizacao e nao fato consumado (roubo/furto, leilão,
+                 multa) — nunca afirma que o problema existe, so que a placa
+                 pode revelar. Nunca cita a fonte dos dados. -->
+            <p class="cb-locked__kick">Risco oculto nesta placa</p>
             <h2 class="cb-locked__h">
-              Mais <strong>{{ camposBloqueados.length }}</strong> verificações disponíveis para este veículo
+              Indicador de roubo, leilão ou dívida escondida?
+              <strong>A consulta grátis não mostra.</strong>
             </h2>
             <p class="cb-locked__sub">
-              Restrições, roubo e furto, leilão, gravame, bloqueio judicial, multas e mais.
-              Entram no relatório completo, liberado em até 5 minutos depois do pagamento.
+              Mais <strong>{{ camposBloqueados.length }}</strong> verificações para este veículo: restrição,
+              indicador de roubo e furto, indicador de leilão, gravame, bloqueio judicial, indicador de multas e mais.
+              Descubra antes de fechar negócio: liberado em até 5 minutos depois do pagamento.
             </p>
 
             <div class="cb-locked__box">
               <div class="cb-locked__grid">
                 <div v-for="c in camposBloqueados" :key="c.label" class="cb-locked__item">
+                  <svg class="cb-locked__lock" viewBox="0 0 20 20" aria-hidden="true">
+                    <rect x="4.5" y="9" width="11" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+                    <path d="M7 9V6.5a3 3 0 0 1 6 0V9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                  </svg>
                   <span class="cb-locked__k">{{ c.label }}</span>
                   <span class="cb-locked__v" aria-hidden="true">••••••••</span>
                   <span class="visually-hidden">não incluído na consulta grátis</span>
@@ -1231,8 +1241,9 @@ function applyEmailSuggestion() {
               <div class="cb-locked__over">
                 <div class="cb-locked__cta">
                   <button type="button" class="cb-btn cb-btn--blue" @click="openPremiumCheckout('completa')">
-                    Relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+                    Ver o que essa placa revela · {{ precoBRL(PLANOS.completa.valorCentavos) }}
                   </button>
+                  <p class="cb-locked__pix">Pix, na hora, sem assinatura.</p>
                   <!-- Oferta da basica desativada aqui: duas opcoes no mesmo
                        ponto dividiam a decisao. A basica segue viva no
                        comparativo de precos. Pra voltar, e so descomentar.
@@ -1251,6 +1262,21 @@ function applyEmailSuggestion() {
             </button>
             <button type="button" class="cb-free-link" @click="resetForm">consultar outra placa</button>
           </div>
+        </div>
+
+        <!-- Barra fixa de upsell, SO mobile (ver media query): garante que o
+             chamariz do relatorio completo fica visivel na primeira tela do
+             resultado sem depender de o card de campos livres caber antes —
+             em telas pequenas ele empilha em 1 coluna e fica alto demais pra
+             o bloco bloqueado entrar na dobra. -->
+        <div v-if="success && !showPremiumCheckout" class="cb-sticky-upsell">
+          <div class="cb-sticky-upsell__txt">
+            <strong>Risco oculto nesta placa</strong>
+            <span>Mais {{ camposBloqueados.length }} verificações, incluindo indicador de roubo e leilão</span>
+          </div>
+          <button type="button" class="cb-btn cb-btn--blue cb-sticky-upsell__cta" @click="openPremiumCheckout('completa')">
+            Ver agora · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+          </button>
         </div>
 
         <!-- Scroll cue: mata o "false bottom". So no estado inicial (sem
@@ -2777,12 +2803,14 @@ function applyEmailSuggestion() {
     // caber na tela junto com o resumo, nao separar duas secoes.
     margin-top: $s-xxl;
 
+    // Vermelho aqui, nao azul: e o unico ponto do resultado que carrega
+    // urgencia/risco de proposito — o resto da pagina e todo tinta+azul.
     &__kick {
       font-size: 12px;
       font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: $c-blue;
+      color: $c-red;
       margin-bottom: $s-xs;
     }
 
@@ -2824,9 +2852,21 @@ function applyEmailSuggestion() {
       gap: 2px;
       padding-bottom: 6px;
       border-bottom: 1px solid $c-hairline-locked;
+      position: relative;
     }
 
-    &__k { font-size: 13px; font-weight: 500; line-height: 1.3; color: $c-charcoal; }
+    // Cadeado no canto: reforca "bloqueado" sem precisar de mais texto —
+    // o borrao no valor ja diz "sem dado", o cadeado diz "por que".
+    &__lock {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 13px;
+      height: 13px;
+      color: $c-steel;
+    }
+
+    &__k { font-size: 13px; font-weight: 500; line-height: 1.3; color: $c-charcoal; padding-right: 16px; }
 
     // O valor e um marcador, nao um dado escondido: nao existe resposta no DOM
     // pra vazar. O borrao aqui e so a linguagem visual do "ainda bloqueado".
@@ -2870,6 +2910,57 @@ function applyEmailSuggestion() {
     }
 
     &__pix { font-size: 13px; line-height: 1.5; color: $c-graphite; margin: 0; }
+  }
+
+  // ---------- BARRA FIXA DE UPSELL (so mobile) ----------
+  // O card de campos livres empilha em 1 coluna no celular e ocupa a tela
+  // inteira sozinho — o bloco bloqueado so aparece depois de rolar. Esta
+  // barra fixa garante o chamariz visivel JA na primeira tela do resultado,
+  // sem depender de reduzir/cortar o card de dados gratis. So mobile: no
+  // desktop o bloco bloqueado ja cabe acima da dobra, a barra so duplicaria.
+  .cb-sticky-upsell {
+    display: none;
+  }
+
+  @media (max-width: 640px) {
+    .cb-sticky-upsell {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: $s-sm;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 900;
+      padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+      background: $c-canvas;
+      border-top: 1px solid $c-hair;
+      box-shadow: 0 -6px 20px rgba(26, 26, 26, 0.10);
+
+      &__txt {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        min-width: 0;
+
+        strong { font-size: 12px; font-weight: 700; letter-spacing: 0.02em; color: $c-red; }
+        span { font-size: 11px; line-height: 1.25; color: $c-graphite; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      }
+
+      &__cta {
+        flex-shrink: 0;
+        width: auto;
+        min-height: 44px;
+        padding: 0 16px;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+    }
+
+    // Sem isto o rodape do resultado (compartilhar/consultar outra placa) e
+    // o resto da pagina ficam parcialmente cobertos pela barra fixa.
+    .cb-result { padding-bottom: 68px; }
   }
 
   // ---------- EXEMPLO DE RELATÓRIO ----------
