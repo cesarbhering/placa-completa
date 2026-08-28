@@ -311,7 +311,7 @@ if (isBrandPage) {
             </ul>
             <p>
               Já tem a placa em mãos? Veja também débitos, indicadores de roubo/furto e
-              leilão, e o histórico completo no
+              registro de leilão, e o histórico completo no
               <NuxtLink to="/">relatório completo por placa</NuxtLink>.
             </p>
 

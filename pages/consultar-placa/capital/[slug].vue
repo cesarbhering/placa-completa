@@ -100,7 +100,7 @@ useHead({
           </ul>
           <p>
             Precisa de mais? O <NuxtLink to="/">relatório completo</NuxtLink> traz débitos,
-            indicadores de roubo/furto e leilão, e o histórico completo do veículo.
+            indicadores de roubo/furto e registro de leilão, e o histórico completo do veículo.
           </p>
 
           <h2>Principais regiões de {{ capital.name }}</h2>
@@ -126,7 +126,7 @@ useHead({
             Além dos dados básicos, a consulta retorna o valor atualizado na
             <NuxtLink to="/tabela-fipe-por-placa">tabela FIPE pela placa</NuxtLink>,
             útil para compra, venda, financiamento ou seguro de veículos em {{ capital.name }}.
-            Para conferir também multas, indicadores de roubo/furto e leilão, e o histórico
+            Para conferir também multas, indicadores de roubo/furto e registro de leilão, e o histórico
             completo do veículo, veja o
             <NuxtLink to="/">relatório completo</NuxtLink>.
           </p>
