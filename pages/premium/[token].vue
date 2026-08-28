@@ -1039,7 +1039,7 @@ onUnmounted(() => poll && clearInterval(poll))
                  com risco de erro, mostra as versoes compativeis com a
                  configuracao do veiculo (cilindrada/carroceria) e deixa a
                  decisao final com quem esta lendo. -->
-            <div v-if="vc?.fipeCandidato?.candidatos?.length" class="rel__fipe-ambiguo">
+            <div v-if="vc?.fipeCandidato?.decididoPor === 'ambiguo' && vc.fipeCandidato.candidatos.length > 1" class="rel__fipe-ambiguo">
               <span class="rel__sub">Versões compatíveis com esta configuração</span>
               <p class="rel__fipe-ambiguo-txt">
                 A tabela FIPE tem mais de uma versão com a mesma cilindrada e carroceria deste veículo. Confira qual bate com o seu:

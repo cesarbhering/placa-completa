@@ -112,7 +112,12 @@ export async function getValorCusto(
           mes_referencia: resultado.escolhido.mes_referencia,
         }
       }
-      if (resultado.decididoPor === 'ambiguo' || resultado.candidatos.length > 1) {
+      // Grava a decisao SEMPRE que o funil rodou (menos fallback puro, que e
+      // o comportamento antigo e nao tem nada de novo pra auditar) - inclusive
+      // regra-com-1-sobrevivente, pra metrica de quanto o funil resolve sem
+      // Haiku. candidatos fica com so o escolhido nesse caso (nao e shortlist
+      // de ambiguidade, e log de auditoria).
+      if (resultado.decididoPor !== 'fallback') {
         fipeCandidato = {
           decididoPor: resultado.decididoPor,
           confianca: resultado.confianca,
