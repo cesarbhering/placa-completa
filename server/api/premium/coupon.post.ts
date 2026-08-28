@@ -10,11 +10,11 @@ export default defineEventHandler(async (event) => {
   const codigo = String(body.codigo || '')
   const plano = isPlanoPago(body.plano) ? body.plano : 'completa'
   const email = String(body.email || '').trim().toLowerCase()
-  if (!email || !email.includes('@')) {
-    throw createError({ statusCode: 400, message: 'Email obrigatorio para validar cupom.' })
-  }
+  // E-mail e opcional aqui: sem ele a validacao pula so o limite por cliente
+  // (o resto — existe, ativo, vigente, plano, limite global — continua valendo).
+  // Quem cobra de verdade e o checkout.post.ts, que revalida com o e-mail.
 
   const supabase = usePremiumSupabase()
-  const resultado = await validarCupom(supabase, codigo, plano, email)
+  const resultado = await validarCupom(supabase, codigo, plano, email || undefined)
   return resultado
 })
