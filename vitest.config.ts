@@ -15,7 +15,9 @@ export default defineConfig({
     environment: 'happy-dom',
     setupFiles: ['./tests/setup.ts'],
     include: ['**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
-    exclude: ['node_modules', 'dist', '.nuxt', 'tests/user-flow.test.ts', 'tests/pwa.test.ts', 'tests/seo.test.ts', 'tests/lead-capture.test.ts'],
+    // services/ tem suite propria (node --test, usa node:test, que o vite nao
+    // consegue bundlar): roda com `npm test` dentro do servico.
+    exclude: ['node_modules', 'dist', '.nuxt', 'services/**', 'tests/user-flow.test.ts', 'tests/pwa.test.ts', 'tests/seo.test.ts', 'tests/lead-capture.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
