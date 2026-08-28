@@ -1200,6 +1200,9 @@ function applyEmailSuggestion() {
                 <span class="cb-field__v">{{ val }}</span>
               </div>
             </div>
+            <!-- Sem preco FIPE em veiculo antigo: avisa em vez de so sumir o
+                 campo, que parece falha nossa (achado real: Opala 1972). -->
+            <p v-if="resultadoBasico?.fipeNota" class="cb-result__nota">{{ resultadoBasico.fipeNota }}</p>
           </div>
 
           <div class="cb-locked">
@@ -2774,6 +2777,15 @@ function applyEmailSuggestion() {
       // para 3, e o box de venda sobe junto.
       grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
       gap: $s-sm $s-md;
+    }
+
+    &__nota {
+      font-size: 12px;
+      line-height: 1.4;
+      color: $c-graphite;
+      margin: $s-sm 0 0;
+      padding-top: $s-sm;
+      border-top: 1px solid $c-hair;
     }
 
     &__foot {
