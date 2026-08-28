@@ -141,8 +141,11 @@ const medida = (k: string) => {
 const INDICADORES: { k: string; label: string; sim: string; nao: string; risco: boolean; dica: string }[] = [
   { k: 'indicadorRouboFurto', label: 'Roubo / furto', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
     dica: 'Verifica se existe registro ativo de roubo ou furto para este veículo.' },
-  { k: 'indicadorLeilao', label: 'Leilão', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
-    dica: 'Verifica se o veículo tem passagem por leilão registrada, o que costuma derrubar o valor de revenda.' },
+  // "Leilão registrado no documento", nunca "Leilão": leiloeiro nem sempre
+  // registra a passagem, entao ausencia de registro NAO e prova de que o
+  // veiculo nunca foi leiloado. O rodape da secao repete isso em texto.
+  { k: 'indicadorLeilao', label: 'Leilão registrado no documento', sim: 'CONSTA', nao: 'SEM REGISTRO', risco: true,
+    dica: 'Verifica se existe passagem por leilão registrada no documento do veículo, o que costuma derrubar o valor de revenda. Nem todo leilão é registrado pelos leiloeiros.' },
   { k: 'indicadorRestricaoRenajud', label: 'RENAJUD', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
     dica: 'Bloqueios determinados pela Justiça diretamente no cadastro do veículo, como penhora em processo.' },
   { k: 'indicadorRestricaoRfb', label: 'Restrição RFB', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
@@ -309,6 +312,8 @@ const licenciamento = computed(() => {
 // O resumo que a pessoa procura antes de ler o resto: o que pesa contra, em
 // uma frase. Sai dos proprios indicadores, sem inventar gravidade.
 const alertas = computed(() => indicadores.value.filter((i) => i.alerta).map((i) => i.label))
+// Rodape honesto do leilao: so aparece quando o indicador esta na tela.
+const temIndicadorLeilao = computed(() => indicadores.value.some((i: any) => i.k === 'indicadorLeilao'))
 
 const restricoesForaDosIndicadores = computed<string[]>(() => {
   const itens = v.value?.restricoesItens
@@ -339,7 +344,7 @@ const veredito = computed(() => {
     return {
       tom: 'ok' as const,
       titulo: 'Nada consta contra este veículo.',
-      texto: 'Na data de emissão, nenhum dos indicadores verificados aponta restrição, roubo, furto, leilão ou pendência.',
+      texto: 'Na data de emissão, nenhum dos indicadores verificados aponta restrição, roubo, furto, registro de leilão ou pendência.',
     }
   }
   // Os rotulos sao siglas e nomes proprios (RENAJUD, RFB): baixar tudo pra
@@ -917,6 +922,9 @@ onUnmounted(() => poll && clearInterval(poll))
                 <span class="rel__ind-val">{{ i.ligado ? i.sim : i.nao }}</span>
               </div>
             </div>
+            <p v-if="temIndicadorLeilao" class="rel__ind-nota">
+              Nem todo leilão é registrado pelos leiloeiros. A ausência de registro não garante que o veículo nunca passou por leilão.
+            </p>
           </section>
 
           <!-- restricoes: na completa a secao existe sempre. Laudo lista a
@@ -1067,7 +1075,7 @@ onUnmounted(() => poll && clearInterval(poll))
               pra confiar nele:
               <template v-if="restantes">são <strong>{{ restantes }}</strong> informações a mais, com</template>
               <template v-else>traz</template>
-              restrições nacionais e estaduais, roubo e furto, passagem por leilão, gravame,
+              restrições nacionais e estaduais, roubo e furto, registro de leilão, gravame,
               RENAJUD e indicador de multas.
             </p>
             <NuxtLink class="rel__btn rel__btn--primario" :to="`/?placa=${data.placa}&plano=completa`">
@@ -1649,6 +1657,13 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       border-radius: 50%;
       flex-shrink: 0;
     }
+  }
+
+  &__ind-nota {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #636363;
+    margin: 12px 0 0;
   }
 
   &__ind--ok .rel__ind-val { color: #14622f; &::before { background: $c-green; } }

@@ -13,7 +13,7 @@ defineEmits<{ consult: [] }>()
       <div class="win-window__body">
         <ul class="hvg__list">
           <li><i class="hvg__ck" aria-hidden="true">✓</i> Situação e restrições (nacional e estadual)</li>
-          <li><i class="hvg__ck" aria-hidden="true">✓</i> Roubo/furto e histórico de leilão</li>
+          <li><i class="hvg__ck" aria-hidden="true">✓</i> Roubo/furto e registro de leilão</li>
           <li><i class="hvg__ck" aria-hidden="true">✓</i> Gravame (financiamento/alienação)</li>
           <li><i class="hvg__ck" aria-hidden="true">✓</i> RENAJUD, recall e multa (indicador)</li>
           <li><i class="hvg__ck" aria-hidden="true">✓</i> Ficha cadastral e técnica completa</li>

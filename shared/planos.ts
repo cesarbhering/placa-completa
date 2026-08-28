@@ -132,7 +132,7 @@ export const RECURSOS: Recurso[] = [
   { label: 'Origem de fabricação pelo chassi',                planos: ['completa'] },
   { label: 'Restrições nacionais e estaduais',      planos: ['completa'] },
   { label: 'Roubo e furto',                         planos: ['completa'] },
-  { label: 'Passagem por leilão',                   planos: ['completa'] },
+  { label: 'Registro de leilão no documento',       planos: ['completa'] },
   { label: 'Gravame e alienação',                   planos: ['completa'] },
   { label: 'RENAJUD e restrições judiciais',        planos: ['completa'] },
   { label: 'Indicador de multas (RENAINF)',         planos: ['completa'] },

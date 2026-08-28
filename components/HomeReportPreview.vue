@@ -14,7 +14,7 @@
 // e prometer um documento diferente do que se entrega.
 const indicadores = [
   { label: 'Roubo / furto', valor: 'NADA CONSTA', risco: false },
-  { label: 'Leilão', valor: 'NADA CONSTA', risco: false },
+  { label: 'Registro de leilão', valor: 'SEM REGISTRO', risco: false },
   { label: 'Gravame', valor: 'CONSTA', risco: true },
   { label: 'RENAJUD', valor: 'CONSTA', risco: true },
   { label: 'Restrição RFB', valor: 'NADA CONSTA', risco: false },
