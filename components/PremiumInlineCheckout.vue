@@ -203,12 +203,23 @@ async function entrar() {
 // Antes de gerar o Pix, uma ultima olhada na placa. E o unico dado que a
 // pessoa digitou e o unico que, se estiver errado, faz ela pagar pelo carro
 // de outro.
-function irParaReconferencia() {
+async function irParaReconferencia() {
   if (!email.value.includes('@')) {
     msg.value = 'Informe um e-mail válido.'
     return
   }
   msg.value = ''
+  // Se tem cupom digitado mas o blur nao chegou a validar (ex: clicou em
+  // Pagar rapido demais), espera a validacao terminar ANTES de avancar — senao
+  // o resumo na tela de reconferencia mostra o preco antigo (sem desconto, ou
+  // com desconto de um cupom que ja mudou) por estar com cupomDescontoCentavos
+  // desatualizado. O checkout real e sempre recalculado no servidor, mas a
+  // pessoa precisa ver o preco certo ANTES de confirmar que vai pagar aquilo.
+  if (cupomCodigo.value.trim() && !cupomValidando.value) {
+    loading.value = true
+    await validarCupom()
+    loading.value = false
+  }
   editandoPlaca.value = false
   step.value = 'reconfirma'
 }
@@ -233,7 +244,13 @@ async function pagar() {
         preview: preview.value.raw,
         plano: props.plano,
         ambiente: ambiente.value,
-        cupom: cupomValido.value ? cupomCodigo.value.trim() : undefined,
+        // Manda o codigo digitado mesmo se a validacao local achou invalido/
+        // vazio-de-desconto: quem decide de verdade e o servidor (checkout.post.ts
+        // revalida do zero). Antes so mandava quando cupomValido, entao um cupom
+        // que ficou stale (ex: esgotou por outra aba enquanto a pessoa reconferia
+        // a placa, cupomDescontoCentavos ainda positivo de um validarCupom antigo)
+        // podia cobrar o preco errado sem o servidor nem saber que havia cupom.
+        cupom: cupomCodigo.value.trim() || undefined,
       },
     })
     step.value = 'pending'
