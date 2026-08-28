@@ -409,10 +409,11 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Via cache (placa_cache) pra nao pagar a wdapi de novo na mesma placa.
-    // Ver server/utils/placa-lookup.ts.
-    const apiResult = await consultarPlacaWdapi(placaClean)
-    if (!apiResult) throw new Error('Sem retorno da API de placas')
-    apiResponse = apiResult
+    // Ver server/utils/placa-lookup.ts. Contrato: null = nao encontrada (ou
+    // indisponivel) — segue pro bloco de validacao abaixo e vira 404, nunca
+    // 502 (null aqui tratado como erro fazia toda nao-encontrada cacheada
+    // responder 502 + email de erro pro time).
+    apiResponse = await consultarPlacaWdapi(placaClean)
   } catch (err: any) {
     // Send error email
     await sendErrorEmail({
