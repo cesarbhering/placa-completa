@@ -58,12 +58,22 @@ export async function processarPedidoPago(
     // Placa e plano entram no assunto e no corpo: "seu relatorio completo da
     // placa ABC1D23 esta pronto" e reconhecivel na caixa de entrada, "sua
     // consulta esta pronta" nao.
-    await enviarRelatorioEmail({
+    const emailOk = await enviarRelatorioEmail({
       email: pedido.email,
       token: pedido.token_entrega,
       plano: pedido.plano,
       placa: pedido.placa,
     })
+    // A consulta e a entrega DERAM CERTO mesmo se o e-mail falhar (o pedido
+    // fica 'entregue' de verdade, a pessoa acessa pelo link/historico) — nao
+    // e caso de 'falha'/reembolso. Mas sem alerta ninguem no time saberia que
+    // essa entrega especifica nao chegou na caixa de entrada de quem pagou.
+    if (!emailOk) {
+      await sendErrorEmail({
+        endpoint: '/premium/processar',
+        errorMessage: `Entrega OK mas e-mail de entrega FALHOU. pedido=${pedido.id} placa=${pedido.placa} email=${pedido.email} token=${pedido.token_entrega}`,
+      })
+    }
   } catch (e: any) {
     await supabase.from('pedidos_premium').update({ status: 'falha', erro: String(e?.message || e), debug_trace: (e as any)?.trace ?? null }).eq('id', pedido.id)
     const reembolso = pedido.abacatepay_id
