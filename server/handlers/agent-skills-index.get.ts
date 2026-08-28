@@ -11,7 +11,7 @@ export default defineEventHandler((event) => {
       {
         name: 'consulta-veicular',
         description:
-          'Consulta veicular deterministica por placa: dados do veiculo, FIPE, indicadores de multa e leilao. Pensado pra uso por agentes/LLMs.',
+          'Consulta veicular deterministica por placa: dados do veiculo, FIPE, indicadores de multa e registro de leilao. Pensado pra uso por agentes/LLMs.',
         endpoint: 'https://placacompleta.com.br/llms/json',
         method: 'GET',
         parameters: {
