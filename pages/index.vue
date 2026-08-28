@@ -379,6 +379,9 @@ const camposLivres = computed(() => {
     ['Cor', b.cor],
     ['Combustível', b.combustivel],
     ['Origem', b.origem],
+    // Municipio do 1o emplacamento (wdapi), nao a jurisdicao atual (essa e
+    // exclusiva do relatorio pago, vem do SENATRAN). Complementar.
+    ['Município (1º emplacamento)', [b.municipio, b.uf].filter(Boolean).join(' - ')],
     ['Chassi', b.chassiParcial],
   ].filter(([, v]) => v !== null && v !== undefined && v !== '')
 })

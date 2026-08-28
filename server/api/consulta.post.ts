@@ -760,6 +760,11 @@ export default defineEventHandler(async (event) => {
       // O bloco `extra` nao vem pra toda placa (QZZ1I96, por exemplo, chega
       // com extra: null); quando falta, a origem existe no topo do payload.
       origem: apiResponse.extra?.nacionalidade || apiResponse.origem || null,
+      // Municipio do PRIMEIRO EMPLACAMENTO (nao a jurisdicao atual — esse dado
+      // e do SENATRAN, so no relatorio pago). Complementar, nao duplica nada
+      // que a gratis ja mostrava.
+      municipio: apiResponse.municipio || null,
+      uf: apiResponse.uf || null,
       // So o comeco do chassi: confere com o do documento sem entregar o
       // numero, que e do relatorio pago.
       chassiParcial: mascararChassi(apiResponse.extra?.chassi),
