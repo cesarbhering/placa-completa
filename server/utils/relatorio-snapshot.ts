@@ -44,7 +44,19 @@ export async function montarRelatorioSnapshot(
   }
 
   const local = localDoVeiculo(pedido.preview)
-  const valorCusto = await getValorCusto(pedido.placa, local.uf, local.municipio).catch(() => null)
+  // Melhor candidato FIPE (funil + Haiku): so no fluxo pago, e so quando a
+  // consulta trouxe o registro SENATRAN pra tirar cilindrada/carroceria dele.
+  // Ver docs/feat-fipe-melhor-candidato.md.
+  const senatranBruto = Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response
+  const valorCusto = await getValorCusto(pedido.placa, local.uf, local.municipio, {
+    ativo: true,
+    senatran: {
+      cilindrada: senatranBruto?.cilindrada ?? null,
+      potencia: senatranBruto?.potencia ?? null,
+      descricaoMarcaModelo: senatranBruto?.descricaoMarcaModelo ?? null,
+      anoModelo: senatranBruto?.anoModelo ?? null,
+    },
+  }).catch(() => null)
 
   // Origem do chassi (decode de VIN): exclusivo da completa (decisao de
   // produto, ver report.get.ts historico). Fail-open: erro/fora do ar = sem
