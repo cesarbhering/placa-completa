@@ -350,7 +350,7 @@ onMounted(() => {
 
 const alertasIlustrativos = [
   // teto
-  { label: 'Já foi leiloado',    lado: 'esq',   y: '7%',  ex: '38%', ey: '7%',  ax: '52%', ay: '23%' },
+  { label: 'Leilão registrado',    lado: 'esq',   y: '7%',  ex: '38%', ey: '7%',  ax: '52%', ay: '23%' },
   { label: 'Histórico de furto', lado: 'dir',   y: '7%',  ex: '84%', ey: '7%',  ax: '70%', ay: '24%' },
   // grade
   { label: 'Gravame ativo',      lado: 'esq',   y: '34%', ex: '24%', ey: '34%', ax: '32%', ay: '48%' },
@@ -1065,7 +1065,7 @@ function applyEmailSuggestion() {
               <span class="cb-accent">{{ siteVariant.h1Accent }}</span>
             </h1>
             <p class="cb-sub">
-              Restrição, roubo, gravame, leilão, dívida. <b>O que o vendedor não conta, a placa revela.</b>
+              Restrição, roubo, gravame, registro de leilão, dívida. <b>O que o vendedor não conta, a placa revela.</b>
             </p>
 
             <form class="cb-plate-panel" @submit.prevent="handleSubmit" novalidate role="search" aria-label="Consulta veicular por placa">
@@ -1219,12 +1219,12 @@ function applyEmailSuggestion() {
                  pode revelar. Nunca cita a fonte dos dados. -->
             <p class="cb-locked__kick">Risco oculto nesta placa</p>
             <h2 class="cb-locked__h">
-              Indicador de roubo, leilão ou dívida escondida?
+              Indicador de roubo, registro de leilão ou dívida escondida?
               <strong>A consulta grátis não mostra.</strong>
             </h2>
             <p class="cb-locked__sub">
               Mais <strong>{{ camposBloqueados.length }}</strong> verificações para este veículo: restrição,
-              indicador de roubo e furto, indicador de leilão, gravame, bloqueio judicial, indicador de multas e mais.
+              indicador de roubo e furto, registro de leilão, gravame, bloqueio judicial, indicador de multas e mais.
               Descubra antes de fechar negócio: liberado em até 5 minutos depois do pagamento.
             </p>
 
@@ -1275,7 +1275,7 @@ function applyEmailSuggestion() {
         <div v-if="success && !showPremiumCheckout" class="cb-sticky-upsell">
           <div class="cb-sticky-upsell__txt">
             <strong>Risco oculto nesta placa</strong>
-            <span>Mais {{ camposBloqueados.length }} verificações, incluindo indicador de roubo e leilão</span>
+            <span>Mais {{ camposBloqueados.length }} verificações, incluindo indicador de roubo e registro de leilão</span>
           </div>
           <button type="button" class="cb-btn cb-btn--blue cb-sticky-upsell__cta" @click="openPremiumCheckout('completa')">
             Ver agora · {{ precoBRL(PLANOS.completa.valorCentavos) }}
@@ -1312,7 +1312,7 @@ function applyEmailSuggestion() {
                 </svg>
                 <h3>Você não perde a viagem</h3>
                 <p>
-                  Consulte antes de sair de casa. Se a placa já mostra gravame, leilão ou
+                  Consulte antes de sair de casa. Se a placa já mostra gravame, registro de leilão ou
                   restrição, você economiza a tarde, a gasolina e a conversa de ir ver uma
                   bomba que não ia dar em nada.
                 </p>
@@ -1327,7 +1327,7 @@ function applyEmailSuggestion() {
                 </svg>
                 <h3>Você não leva o problema pra casa</h3>
                 <p>
-                  Roubo, furto, passagem por leilão e bloqueio judicial aparecem antes de
+                  Roubo, furto, registro de leilão e bloqueio judicial aparecem antes de
                   você entregar o dinheiro. Depois de assinado, o problema já é seu.
                 </p>
               </div>
@@ -1489,7 +1489,7 @@ function applyEmailSuggestion() {
           <div class="cb-doc-tags">
             <span class="cb-doc-tag"><i class="cb-d2" />Restrições nacionais e estaduais</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Roubo e furto</span>
-            <span class="cb-doc-tag"><i class="cb-d2" />Leilão</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />Registro de leilão</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Gravame</span>
             <span class="cb-doc-tag"><i class="cb-d2" />RENAJUD</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Recall</span>

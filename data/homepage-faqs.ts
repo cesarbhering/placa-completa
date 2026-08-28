@@ -19,11 +19,11 @@ const precoCompleta = precoBRL(PLANOS.completa.valorCentavos)
 export const homepageFaqs: HomepageFaq[] = [
   {
     question: 'O que é o PlacaCompleta?',
-    answer: 'É uma consulta veicular por placa. Você digita a placa e vê na hora o que o carro é. Se quiser ir além, os níveis pagos mostram o que ele carrega: restrição, roubo e furto, passagem por leilão, gravame e a ficha completa. Sem cadastro e sem assinatura.',
+    answer: 'É uma consulta veicular por placa. Você digita a placa e vê na hora o que o carro é. Se quiser ir além, os níveis pagos mostram o que ele carrega: restrição, roubo e furto, registro de leilão, gravame e a ficha completa. Sem cadastro e sem assinatura.',
   },
   {
     question: 'A consulta é grátis?',
-    answer: `A primeira olhada é. A consulta grátis aparece na própria tela, sem cadastro e sem pedir e-mail, e mostra marca, modelo, ano de fabricação e do modelo, cor, combustível, origem e o começo do chassi. Quem precisa de mais tem dois níveis pagos: a consulta básica, por ${precoBasica}, traz valor FIPE com histórico de depreciação, seguro estimado, custo em 5 anos e a ficha técnica completa; o relatório completo, por ${precoCompleta}, traz também chassi e Renavam completos, restrição, roubo e furto, leilão, gravame, bloqueio judicial e indicador de multas.`,
+    answer: `A primeira olhada é. A consulta grátis aparece na própria tela, sem cadastro e sem pedir e-mail, e mostra marca, modelo, ano de fabricação e do modelo, cor, combustível, origem e o começo do chassi. Quem precisa de mais tem dois níveis pagos: a consulta básica, por ${precoBasica}, traz valor FIPE com histórico de depreciação, seguro estimado, custo em 5 anos e a ficha técnica completa; o relatório completo, por ${precoCompleta}, traz também chassi e Renavam completos, restrição, roubo e furto, registro de leilão, gravame, bloqueio judicial e indicador de multas.`,
   },
   {
     question: 'Quais as formas de pagamento?',
