@@ -496,6 +496,13 @@ export default defineNuxtConfig({
                 // reflete o dominio real que serviu a pagina.
                 innerHTML: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-24H7QSPX4G',{site_hostname:location.hostname});gtag('config','AW-18330779331');`,
               },
+              // Bing/Microsoft Ads UET (tag "PlacaCompleta", id 97265456): teste
+              // head-to-head Google vs Bing aprovado pelo Cesar. Snippet padrao
+              // da Microsoft; enableAutoSpaTracking cobre as trocas de rota do
+              // Nuxt sem precisar disparar page_view manual a cada navegacao.
+              {
+                innerHTML: `(function(w,d,t,r,u){var f,n,i;w[u]=w[u]||[],f=function(){var o={ti:"97265456",enableAutoSpaTracking:true};o.q=w[u],w[u]=new UET(o),w[u].push("pageLoad")};n=d.createElement(t),n.src=r,n.async=1,n.onload=n.onreadystatechange=function(){var s=this.readyState;s&&s!=="loaded"&&s!=="complete"||(f(),n.onload=n.onreadystatechange=null)},i=d.getElementsByTagName(t)[0],i.parentNode.insertBefore(n,i)})(window,document,"script","https://bat.bing.com/bat.js","uetq");`,
+              },
             ]
           : []),
         {
