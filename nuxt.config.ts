@@ -11,7 +11,14 @@ export default defineNuxtConfig({
     // ignora o '*' (os crawlers de IA martelavam /api/csp-report, que e
     // anunciado no header CSP de toda pagina - crawl budget desperdicado)
     groups: [
-      { userAgent: ['*'], allow: '/', disallow: ['/api/'] },
+      {
+        userAgent: ['*'],
+        allow: ['/', '/llms', '/llms.txt', '/llms/json'],
+        disallow: ['/api/'],
+        // GEO: presenca ativa em respostas de agentes/IA (casa com /llms).
+        // https://contentsignals.org
+        contentSignal: { search: 'yes', 'ai-input': 'yes', 'ai-train': 'yes' },
+      },
       { userAgent: ['GPTBot'], allow: '/', disallow: ['/api/'] },
       { userAgent: ['ChatGPT-User'], allow: '/', disallow: ['/api/'] },
       { userAgent: ['OAI-SearchBot'], allow: '/', disallow: ['/api/'] },
@@ -671,5 +678,10 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: "netlify",
+    handlers: [
+      { route: "/.well-known/api-catalog", handler: "~/server/handlers/well-known-api-catalog.get.ts" },
+      { route: "/.well-known/skills/index.json", handler: "~/server/handlers/agent-skills-index.get.ts" },
+      { route: "/agent-skills/index.json", handler: "~/server/handlers/agent-skills-index.get.ts" },
+    ],
   },
 });
