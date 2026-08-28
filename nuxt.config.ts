@@ -609,6 +609,10 @@ export default defineNuxtConfig({
     senatranTemplateIdProd: process.env.SENATRAN_TEMPLATE_ID_PROD || "41102026-00001",
     senatranCertPemProd: process.env.SENATRAN_CERT_PEM_PROD || "",
     senatranKeyPemProd: process.env.SENATRAN_KEY_PEM_PROD || "",
+    // Juiz Haiku pro melhor-candidato FIPE (so fluxo pago, ver
+    // server/utils/fipe-candidato.ts). Fail-open: sem chave ou erro/timeout
+    // = cai no comportamento antigo (melhor score da wdapi).
+    anthropicApiKey: process.env.NUXT_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || "",
     public: {
       // homolog: ambiente de teste com ferramentas (dropdown de ambiente das
       // APIs, botao de simular pagamento). So o container de homolog seta a env.
