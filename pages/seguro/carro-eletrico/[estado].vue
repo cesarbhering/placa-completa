@@ -138,7 +138,7 @@ useHead({
               Gol, Strada e Corolla) em {{ state.name }} é de <strong>{{ brl(mediaPopular) }}/ano</strong>,
               contra {{ brl(mediaEletrico) }}/ano dos elétricos. A diferença reflete principalmente o
               valor segurado mais alto dos elétricos e o custo de reposição de componentes como a
-              bateria — não necessariamente um risco maior de sinistro.
+              bateria, não necessariamente um risco maior de sinistro.
             </p>
 
             <h2>Por que o seguro de carro elétrico é diferente?</h2>
@@ -148,7 +148,7 @@ useHead({
               <strong>custo de reparo</strong> (bateria e eletrônica embarcada encarecem sinistros
               parciais) e o <strong>perfil do condutor</strong> (proprietários de elétricos têm, na
               média das seguradoras, menor frequência de sinistros, o que joga o prêmio pra baixo).
-              O resultado líquido varia por modelo e região — por isso publicamos os números reais
+              O resultado líquido varia por modelo e região, por isso publicamos os números reais
               em vez de generalizações.
             </p>
             <p>
@@ -160,7 +160,7 @@ useHead({
             <h2>Descubra o seguro médio do seu carro</h2>
             <p>
               Consulte qualquer placa no PlacaCompleta e receba por e-mail os dados do veículo com a
-              tabela FIPE e a <strong>estimativa de seguro do modelo na sua região</strong> — grátis.
+              tabela FIPE e a <strong>estimativa de seguro do modelo na sua região</strong>, grátis.
             </p>
             <div class="text-center mt-md mb-md">
               <NuxtLink to="/" class="win-btn win-btn--primary">Consultar placa grátis</NuxtLink>

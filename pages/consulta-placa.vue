@@ -35,10 +35,14 @@ useHead({
           <li><strong>Cor</strong> do veículo</li>
           <li><strong>Valor na tabela FIPE</strong></li>
           <li><strong>Município</strong> e estado de registro</li>
-          <li><strong>Situação</strong> (restrições, débitos)</li>
+          <li><strong>Situação</strong> do veículo (em circulação, baixado)</li>
           <li><strong>Chassi</strong> (parcial)</li>
           <li><strong>Combustível</strong>, tipo e espécie</li>
         </ul>
+        <p>
+          Precisa de mais detalhes, como débitos, indicadores de roubo/furto e leilão, e
+          histórico completo? Veja o <NuxtLink to="/">relatório completo</NuxtLink>.
+        </p>
 
         <h2>Como consultar?</h2>
         <ol>

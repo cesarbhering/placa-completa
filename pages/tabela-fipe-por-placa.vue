@@ -35,7 +35,7 @@ const chartConfig = {
     }],
   },
   options: {
-    title: { display: true, text: 'Evolução FIPE — exemplo de modelo' },
+    title: { display: true, text: 'Evolução FIPE: exemplo de modelo' },
     legend: { display: true, position: 'bottom' },
     scales: { yAxes: [{ ticks: { beginAtZero: false } }] },
   },
@@ -45,7 +45,7 @@ const chartUrl = `https://quickchart.io/chart?w=640&h=320&bkg=white&c=${encodeUR
 const faqs = [
   {
     q: 'A consulta da Tabela FIPE pela placa é grátis?',
-    a: 'Sim. No PlacaCompleta, você consulta o valor FIPE de qualquer veículo pela placa sem pagar nada. Basta informar a placa e um e-mail válido — o resultado chega em segundos com marca, modelo, ano e o preço FIPE atualizado do mês de referência.',
+    a: 'Sim. No PlacaCompleta, você consulta o valor FIPE de qualquer veículo pela placa sem pagar nada. Basta informar a placa e um e-mail válido, e o resultado chega em segundos com marca, modelo, ano e o preço FIPE atualizado do mês de referência.',
   },
   {
     q: 'Qual a diferença entre o valor FIPE e o preço de mercado (Webmotors, OLX)?',
@@ -77,11 +77,11 @@ const faqs = [
   },
   {
     q: 'O que é o código FIPE e para que serve?',
-    a: 'O código FIPE é um identificador único para cada versão de cada modelo (ex.: 038003-2 para o Honda Civic EXL 2.0). É o que garante que você está olhando o valor da versão certa — porque dentro do mesmo nome comercial podem existir várias versões com FIPE diferente.',
+    a: 'O código FIPE é um identificador único para cada versão de cada modelo (ex.: 038003-2 para o Honda Civic EXL 2.0). É o que garante que você está olhando o valor da versão certa, porque dentro do mesmo nome comercial podem existir várias versões com FIPE diferente.',
   },
   {
     q: 'A FIPE considera quilometragem ou estado de conservação?',
-    a: 'Não. A FIPE é um valor padronizado por marca, modelo, ano e versão — assume veículo em estado médio de conservação para a idade. Para precificar com precisão, você precisa partir da FIPE e ajustar: para cima se o carro está acima da média (baixa km, segundo dono, revisões), para baixo se está abaixo (alta km, retoques de pintura, pendências).',
+    a: 'Não. A FIPE é um valor padronizado por marca, modelo, ano e versão: assume veículo em estado médio de conservação para a idade. Para precificar com precisão, você precisa partir da FIPE e ajustar: para cima se o carro está acima da média (baixa km, segundo dono, revisões), para baixo se está abaixo (alta km, retoques de pintura, pendências).',
   },
   {
     q: 'Posso financiar pelo valor FIPE?',
@@ -218,23 +218,23 @@ useHead({
             </p>
             <p>
               A tendência geral é de queda gradual ao longo do ano (depreciação natural), com
-              alguns modelos invertendo a curva em períodos de baixa oferta de carros novos —
+              alguns modelos invertendo a curva em períodos de baixa oferta de carros novos:
               foi o que aconteceu entre 2021 e 2023, quando a crise de semicondutores valorizou
               usados em quase todas as categorias.
             </p>
 
             <h2>Por que consultar a FIPE pela placa (e não pelo modelo)</h2>
             <p>
-              A consulta tradicional na FIPE pede marca, modelo, ano e versão — e é aí que a
+              A consulta tradicional na FIPE pede marca, modelo, ano e versão, e é aí que a
               maioria das pessoas erra. Um Honda Civic 2020, por exemplo, tem versões EX, EXL,
               Touring e Sport, cada uma com código FIPE e valor diferente. Se você escolhe a
               versão errada, está olhando um preço que não é o do seu carro.
             </p>
             <p>
-              Pela placa, o caminho é direto: o sistema cruza a placa com a base do Denatran,
-              identifica chassi, ano modelo e versão exata, e devolve o valor FIPE da versão
-              correta. Você evita o erro mais comum em compras de usados, que é negociar com
-              base na FIPE da versão errada.
+              Pela placa, o caminho é direto: o sistema identifica chassi, ano modelo e versão
+              exata a partir de bases oficiais, e devolve o valor FIPE da versão correta. Você
+              evita o erro mais comum em compras de usados, que é negociar com base na FIPE da
+              versão errada.
             </p>
 
             <h2>Evolução de preço FIPE: como ler o histórico</h2>
@@ -255,7 +255,7 @@ useHead({
             </p>
             <p>
               Na consulta pela placa, o e-mail traz a FIPE do mês atual, e cada nova consulta
-              da mesma placa mostra a variação acumulada — útil para acompanhar a depreciação
+              da mesma placa mostra a variação acumulada, útil para acompanhar a depreciação
               do seu carro ao longo do tempo.
             </p>
 
@@ -264,7 +264,7 @@ useHead({
               A FIPE é uma média estatística. O preço pedido em portais como Webmotors, iCarros
               e OLX costuma ficar entre 5% e 15% acima da FIPE, porque vendedores deixam margem
               para negociação. O <strong>valor de venda efetivo</strong> tende a fechar entre
-              a FIPE e o preço de anúncio — em mercados aquecidos perto da FIPE, em mercados
+              a FIPE e o preço de anúncio: em mercados aquecidos perto da FIPE, em mercados
               parados abaixo dela.
             </p>
             <p>
@@ -282,7 +282,7 @@ useHead({
               <li><strong>Cor:</strong> branco, prata e preto valem mais que cores fora de moda. A diferença pode chegar a 5%.</li>
               <li><strong>Versão:</strong> dentro do mesmo nome comercial, versão top de linha vale 15% a 30% mais que a versão de entrada.</li>
               <li><strong>Único dono:</strong> reduz desconfiança e tende a sustentar valor próximo da FIPE.</li>
-              <li><strong>Pendências:</strong> multas, IPVA atrasado, gravame de financiamento e restrições derrubam valor de venda — mesmo que a FIPE não mude.</li>
+              <li><strong>Pendências:</strong> multas, IPVA atrasado, gravame de financiamento e restrições derrubam valor de venda, mesmo que a FIPE não mude.</li>
               <li><strong>Final de ano:</strong> entre outubro e dezembro, FIPE e mercado caem juntos por causa da chegada dos modelos do ano seguinte.</li>
             </ul>
 
@@ -305,8 +305,13 @@ useHead({
               <li>Marca, modelo, versão (motor, câmbio, acabamento)</li>
               <li>Ano de fabricação e ano modelo</li>
               <li>Combustível, cor, município de registro</li>
-              <li>Situação do veículo na base do Denatran</li>
+              <li>Situação do veículo (em circulação, baixado)</li>
             </ul>
+            <p>
+              Já tem a placa em mãos? O <NuxtLink to="/">relatório completo</NuxtLink> traz
+              também débitos, indicadores de roubo/furto e leilão, e o histórico completo do
+              veículo.
+            </p>
 
             <div class="pc-cta">
               <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
