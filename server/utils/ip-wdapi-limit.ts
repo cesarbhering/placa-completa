@@ -1,0 +1,114 @@
+// Teto de 15/IP/hora pra chamadas que custam credito wdapi (API paga),
+// COMBINANDO as duas rotas que batem nela: /api/consulta (grava 1 row por
+// request em `consultas`, ver comentario la — conta TODA request, nao so
+// cache-miss) e /api/premium/preview (grava em `wdapi_preview_calls`, tabela
+// leve so pra isso). Sem a soma, um bot que revezasse entre as duas rotas
+// dobrava o orcamento efetivo pra 30/hora.
+import { getHourlyLimit } from './rate-limit-whitelist'
+
+const IP_WDAPI_HOURLY_LIMIT = 15
+
+// Reset apos compra: se o IP (ou o destinatario) tem um pedido premium PAGO
+// na ultima hora, a janela de contagem comeca no pagamento -- quem pagou nao
+// fica preso atras das consultas gratis de antes. Mesma logica que ja existia
+// em consulta.post.ts, extraida pra ser compartilhada com o preview.
+async function calcularJanelaInicio(
+  ip: string,
+  ipCheckable: boolean,
+  recipientValue?: string | null,
+): Promise<string> {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  try {
+    const orParts: string[] = []
+    if (ipCheckable) orParts.push(`ip_address.eq.${ip}`)
+    if (recipientValue) orParts.push(`email.eq.${recipientValue}`)
+    if (!orParts.length) return oneHourAgo
+    const premium = usePremiumSupabase()
+    const { data: pago } = await premium
+      .from('pedidos_premium')
+      .select('pago_em')
+      .not('pago_em', 'is', null)
+      .or(orParts.join(','))
+      .gte('pago_em', oneHourAgo)
+      .order('pago_em', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    return pago?.pago_em ? new Date(pago.pago_em).toISOString() : oneHourAgo
+  } catch {
+    // premium nao configurado ou lookup falhou: sem reset, segue a janela padrao.
+    return oneHourAgo
+  }
+}
+
+export interface LimiteWdapiResultado {
+  ok: boolean
+  teto?: number
+  minutesUntilReset?: number
+}
+
+/**
+ * Confere o teto combinado (consultas + wdapi_preview_calls) pro IP. Nao
+ * lanca: devolve { ok:false, teto, minutesUntilReset } pro chamador decidir
+ * a mensagem/log (cada rota loga o bloqueio com seus proprios campos de
+ * contexto — placa, recipient etc).
+ */
+export async function checarLimiteIpWdapi(
+  supabase: any,
+  ip: string,
+  opts: { recipientValue?: string | null; homolog?: boolean; janelaInicio?: string } = {},
+): Promise<LimiteWdapiResultado> {
+  const ipCheckable = !!ip && ip !== 'unknown'
+  if (!ipCheckable || opts.homolog) return { ok: true }
+
+  const ipLimit = await getHourlyLimit(ip)
+  if (ipLimit === Infinity) return { ok: true }
+  const teto = Math.max(IP_WDAPI_HOURLY_LIMIT, ipLimit)
+
+  // Chamador pode ja ter calculado a janela (consulta.post.ts calcula pro
+  // check de destinatario tambem, e reusa aqui pra nao duplicar a query do
+  // reset pos-pagamento); quem nao tem (preview.post.ts) deixa calcular.
+  const janelaInicio = opts.janelaInicio ?? await calcularJanelaInicio(ip, ipCheckable, opts.recipientValue)
+
+  const [consultasRes, previewRes] = await Promise.all([
+    supabase
+      .from('consultas')
+      .select('created_at', { count: 'exact' })
+      .eq('ip_address', ip)
+      .gte('created_at', janelaInicio)
+      .order('created_at', { ascending: true })
+      .limit(1),
+    supabase
+      .from('wdapi_preview_calls')
+      .select('created_at', { count: 'exact' })
+      .eq('ip_address', ip)
+      .gte('created_at', janelaInicio)
+      .order('created_at', { ascending: true })
+      .limit(1),
+  ])
+
+  const total = (consultasRes.count ?? 0) + (previewRes.count ?? 0)
+  if (total < teto) return { ok: true }
+
+  const oldest = [consultasRes.data?.[0]?.created_at, previewRes.data?.[0]?.created_at]
+    .filter(Boolean)
+    .sort()[0]
+  let minutesUntilReset = 60
+  if (oldest) {
+    const minutesElapsed = Math.floor((Date.now() - new Date(oldest).getTime()) / 60000)
+    minutesUntilReset = Math.max(1, 60 - minutesElapsed)
+  }
+  return { ok: false, teto, minutesUntilReset }
+}
+
+// Marca uma chamada de /api/premium/preview pro teto combinado. Best-effort:
+// falha de gravacao nao pode derrubar o preview (fail-open, mesma filosofia
+// do resto do rate limit — nunca trava quem esta comprando por causa de log).
+export async function registrarChamadaPreviewWdapi(supabase: any, ip: string) {
+  if (!ip || ip === 'unknown') return
+  supabase
+    .from('wdapi_preview_calls')
+    .insert({ ip_address: ip })
+    .then(({ error }: any) => {
+      if (error) console.warn('[wdapi_preview_calls] insert falhou:', error.message)
+    })
+}
