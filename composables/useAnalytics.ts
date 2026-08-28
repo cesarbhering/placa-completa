@@ -56,8 +56,10 @@ export const useAnalytics = () => {
   /**
    * Conversao do relatorio pago. Dispara UMA vez por pedido (token), quando o
    * pagamento e confirmado. Envia a conversao do Google Ads + o purchase do GA4
-   * (receita/ecommerce e importacao). Idempotente via localStorage. O `value` e
-   * o preco real do plano; o send_to do Ads segue inalterado.
+   * (receita/ecommerce e importacao) E o purchase do Bing UET (teste
+   * head-to-head Google vs Bing). Idempotente via localStorage, MESMA chave
+   * pros dois — uma unica gravacao cobre ambos, revisita nao duplica nenhum.
+   * O `value` e o preco real do plano; o send_to do Ads segue inalterado.
    */
   /**
    * `valorPagoCentavos` sobrescreve o preco de tabela quando o que a pessoa
@@ -66,7 +68,7 @@ export const useAnalytics = () => {
    * que nunca existiu.
    */
   const trackConversionPaga = (token?: string, plano?: string, valorPagoCentavos?: number) => {
-    if (!import.meta.client || !window.gtag || !token) return
+    if (!import.meta.client || !token) return
     const key = 'pc_conv_' + token
     try {
       if (localStorage.getItem(key)) return
@@ -74,8 +76,13 @@ export const useAnalytics = () => {
     } catch { /* modo privado: segue (pode duplicar, aceitavel) */ }
     const { value: valorTabela, item } = infoPlano(plano)
     const value = valorPagoCentavos != null ? valorPagoCentavos / 100 : valorTabela
-    window.gtag('event', 'conversion', { send_to: AW_SEND_TO, value, currency: 'BRL', transaction_id: token })
-    window.gtag('event', 'purchase', { transaction_id: token, value, currency: 'BRL', items: [{ ...item, price: value }] })
+    if (window.gtag) {
+      window.gtag('event', 'conversion', { send_to: AW_SEND_TO, value, currency: 'BRL', transaction_id: token })
+      window.gtag('event', 'purchase', { transaction_id: token, value, currency: 'BRL', items: [{ ...item, price: value }] })
+    }
+    if (window.uetq) {
+      window.uetq.push('event', 'purchase', { revenue_value: value, currency: 'BRL' })
+    }
   }
 
   return {
