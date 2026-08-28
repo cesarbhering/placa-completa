@@ -52,6 +52,18 @@ const OVERRIDES = [
   ['9C6', 'Yamaha Motor da Amazônia', 'Brasil', 'América do Sul'], // vPIC: YAMAHA MOTOR CORPORATION, planta Amazonas (corrigido — nao e Peugeot)
   ['93U', 'Audi Brasil', 'Brasil', 'América do Sul'], // fonte wiki (corrigido — nao e Renault)
   ['93Y', 'Renault do Brasil', 'Brasil', 'América do Sul'], // fonte wiki (corrigido — nao e Hyundai)
+  // ---- Mercosul: Argentina (fonte: tabela wiki, csv/wmi-from-wiki.csv) ----
+  // Achado num relatorio real (I/VW SPACEFOX, chassi 8AW...): o vPIC nao
+  // tem nenhum WMI 8A* (Count 0 no decodewmi), entao esses vinham sem
+  // fabricante e sem pais. So entram os codes que a tabela wiki lista.
+  ['8AW', 'Volkswagen Argentina', 'Argentina', 'América do Sul'],
+  ['8AP', 'Fiat Argentina', 'Argentina', 'América do Sul'],
+  ['8AF', 'Ford Argentina', 'Argentina', 'América do Sul'],
+  ['8AG', 'Chevrolet Argentina', 'Argentina', 'América do Sul'],
+  ['8AD', 'Peugeot Argentina', 'Argentina', 'América do Sul'],
+  ['8AJ', 'Toyota Argentina', 'Argentina', 'América do Sul'],
+  ['8AK', 'Suzuki Argentina', 'Argentina', 'América do Sul'],
+  ['8A1', 'Renault Argentina', 'Argentina', 'América do Sul'],
   // ---- Importados comuns no BR (confirmado via vPIC) ----
   ['JHM', 'Honda (Japão)', 'Japão', 'Ásia'],
   ['JTD', 'Toyota (Japão)', 'Japão', 'Ásia'],
