@@ -49,21 +49,32 @@ const cupomValidando = ref(false)
 const cupomMsg = ref('')
 const cupomDescontoCentavos = ref(0)
 const cupomValido = computed(() => cupomDescontoCentavos.value > 0)
+const emailErro = ref('')
 
+// O servidor responde sem acento e em linguagem interna; aqui vira copy.
+function mensagemCupom(motivo?: string): string {
+  if (!motivo) return 'Cupom inválido.'
+  if (/ja usou/i.test(motivo)) return 'Este cupom já foi utilizado por este e-mail.'
+  if (/esgotado/i.test(motivo)) return 'Este cupom já foi totalmente utilizado.'
+  if (/expirado/i.test(motivo)) return 'Este cupom está expirado.'
+  if (/nao encontrado|inativo/i.test(motivo)) return 'Cupom inválido.'
+  if (/nao vale para este plano/i.test(motivo)) return 'Este cupom não vale para este plano.'
+  return motivo
+}
+
+// Valida o cupom. Sem e-mail (a pessoa digitou o cupom primeiro) o servidor
+// pula so o limite por pessoa e ja aplica o desconto na tela; o check por
+// e-mail acontece de novo no clique final, quando o e-mail existe.
 async function validarCupom(): Promise<boolean> {
   const codigo = cupomCodigo.value.trim()
   cupomMsg.value = ''
   if (!codigo) { cupomDescontoCentavos.value = 0; return false }
-  if (!email.value.includes('@')) {
-    cupomMsg.value = 'Informe seu e-mail antes de aplicar o cupom.'
-    cupomDescontoCentavos.value = 0
-    return false
-  }
+  const temEmail = email.value.includes('@')
   cupomValidando.value = true
   try {
     const r: any = await $fetch('/api/premium/coupon', {
       method: 'POST',
-      body: { codigo, plano: props.plano, email: email.value },
+      body: { codigo, plano: props.plano, email: temEmail ? email.value : undefined },
     })
     if (r?.ok) {
       cupomDescontoCentavos.value = r.descontoCentavos || 0
@@ -71,7 +82,7 @@ async function validarCupom(): Promise<boolean> {
       return true
     }
     cupomDescontoCentavos.value = 0
-    cupomMsg.value = r?.motivo || 'Cupom inválido.'
+    cupomMsg.value = mensagemCupom(r?.motivo)
     return false
   } catch (e: any) {
     cupomDescontoCentavos.value = 0
@@ -204,21 +215,31 @@ async function entrar() {
 // pessoa digitou e o unico que, se estiver errado, faz ela pagar pelo carro
 // de outro.
 async function irParaReconferencia() {
+  // E-mail so vira obrigatorio aqui, no clique final: quem digita o cupom
+  // antes do e-mail nao leva erro no meio do caminho.
+  emailErro.value = ''
   if (!email.value.includes('@')) {
-    msg.value = 'Informe um e-mail válido.'
+    emailErro.value = 'Informe um e-mail válido para receber o relatório.'
+    msg.value = ''
+    if (import.meta.client) {
+      const campo = document.getElementById('pic-email') as HTMLInputElement | null
+      campo?.focus()
+    }
     return
   }
   msg.value = ''
-  // Se tem cupom digitado mas o blur nao chegou a validar (ex: clicou em
-  // Pagar rapido demais), espera a validacao terminar ANTES de avancar — senao
-  // o resumo na tela de reconferencia mostra o preco antigo (sem desconto, ou
-  // com desconto de um cupom que ja mudou) por estar com cupomDescontoCentavos
-  // desatualizado. O checkout real e sempre recalculado no servidor, mas a
-  // pessoa precisa ver o preco certo ANTES de confirmar que vai pagar aquilo.
-  if (cupomCodigo.value.trim() && !cupomValidando.value) {
+  // Revalida o cupom AGORA com o e-mail (limite por pessoa) e espera terminar
+  // antes de avancar — senao o resumo da reconferencia mostraria um preco que
+  // ja mudou. Se o cupom cair aqui, nao avanca: a pessoa precisa ver que o
+  // preco voltou ao cheio antes de confirmar. Nada que ela digitou se perde.
+  if (cupomCodigo.value.trim()) {
     loading.value = true
-    await validarCupom()
+    const ok = await validarCupom()
     loading.value = false
+    if (!ok) {
+      cupomAberto.value = true
+      return
+    }
   }
   editandoPlaca.value = false
   step.value = 'reconfirma'
@@ -453,7 +474,10 @@ onUnmounted(() => {
                 placeholder="seu@email.com"
                 autocomplete="email"
                 inputmode="email"
+                :aria-invalid="emailErro ? 'true' : undefined"
+                @input="emailErro = ''"
               >
+              <p v-if="emailErro" class="pic-cupom__erro">{{ emailErro }}</p>
             </div>
             <!-- WhatsApp oculto ate a feature de notificacao por WhatsApp existir.
                  A logica (ref telefone, envio opcional pra API) fica intacta. -->
