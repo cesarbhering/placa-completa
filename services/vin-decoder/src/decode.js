@@ -52,6 +52,20 @@ const insertLog = db.prepare(
   'INSERT INTO decode_log (vin_hash, wmi_prefix, achou_wmi, fabricante, pais) VALUES (?, ?, ?, ?, ?)',
 )
 
+// Ano-modelo pelo ciclo de 30 anos do codigo (posicao 10 do VIN): o mesmo
+// caractere serve pra 1980-2009, 2010-2039, 2040-2069 etc. Sem uma
+// heuristica de regiao pra desempatar (a de pos7-numerica/alfabetica e
+// NAFTA-only, nao vale pra VIN BR — era a causa do bug), a escolha
+// deterministica e SEMPRE o candidato mais recente que nao passa de
+// (ano atual + 1) — cobre veiculo 0km anunciado com ano-modelo do ano
+// seguinte, sem nunca "adivinhar" um ano no futuro alem disso.
+function melhorAnoDoCiclo(yearLow) {
+  const limite = new Date().getFullYear() + 1
+  const candidatos = [yearLow, yearLow + 30, yearLow + 60]
+  const validos = candidatos.filter((c) => c <= limite)
+  return validos.length ? Math.max(...validos) : yearLow
+}
+
 // Regiao pelo 1o caractere do WMI (fallback quando o WMI completo nao esta
 // na base — ainda da algo util em vez de nada).
 function regiaoPorPrimeiroChar(c) {
@@ -92,10 +106,16 @@ export function decodeVin(rawVin) {
   const regiao = override?.region || row?.region || regiaoPorPrimeiroChar(vin[0])
 
   const yearRow = getYear.get(vin[9])
-  // posicao 7 numerica = 1980-2009; alfabetica = 2010+ (heuristica padrao).
-  const anoModelo = yearRow
-    ? (/[0-9]/.test(vin[6]) ? yearRow.year_low : yearRow.year_high)
-    : null
+  // BUG achado num relatorio real (moto Yamaha 2018, chassi
+  // 9C6RG3810J0006627, pos10='J'): a heuristica antiga (pos7 numerica =
+  // 1980-2009, alfabetica = 2010+) e uma convencao NORTH AMERICA (NAFTA),
+  // que NAO vale pra VIN brasileiro — devolvia 1988 pro que era 2018.
+  // O codigo de ano se REPETE a cada 30 anos (J = 1988, 2018, 2048, ...).
+  // Fix: gera os candidatos do ciclo (year_low, +30, +60) e escolhe o MAIS
+  // RECENTE que nao passe de (ano atual + 1) — cobre carro 0km anunciado
+  // com "ano modelo" do ano seguinte, sem nunca cair num ano futuro alem
+  // disso nem regredir 30 anos por engano.
+  const anoModelo = yearRow ? melhorAnoDoCiclo(yearRow.year_low) : null
 
   const resolvedCode = row?.code || (override ? wmi3 : null)
   const plantRow = resolvedCode ? getPlant.get(resolvedCode, vin[10]) : null
