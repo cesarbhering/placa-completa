@@ -359,6 +359,14 @@ $h-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     padding: 4px 16px;
 
     &__brand { min-height: 40px; }
+
+    // Selo "placa consultada" (crachá com a placa + check verde) nao tem
+    // espaco no celular: entre o logo e o hamburguer, o header e estreito
+    // demais pro texto de 18px + a placa inteira, e quebrava/estourava.
+    // Desktop mantem (o header la e largo o bastante). Pedido do Cesar:
+    // header limpo no mobile — o resultado ja mostra a placa consultada
+    // logo abaixo, entao o selo aqui e redundante nesse tamanho de tela.
+    &__done { display: none; }
   }
 
   @include logo-altura(40px);
