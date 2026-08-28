@@ -63,7 +63,7 @@ useHead({
       innerHTML: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'ItemList',
-        name: `Tabela FIPE ${currentMonth} ${currentYear} — Marcas`,
+        name: `Tabela FIPE ${currentMonth} ${currentYear}: Marcas`,
         description: 'Lista de marcas de veículos com preços na Tabela FIPE',
         itemListElement: [
           ...carBrands.map((b, i) => ({

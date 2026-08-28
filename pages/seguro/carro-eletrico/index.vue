@@ -92,7 +92,7 @@ useHead({
             <h2>Como saber o seguro médio do seu carro?</h2>
             <p>
               Consulte a placa no PlacaCompleta: você recebe por e-mail os dados do veículo, a tabela
-              FIPE e a estimativa de seguro do seu modelo na sua região — grátis, em segundos.
+              FIPE e a estimativa de seguro do seu modelo na sua região, grátis, em segundos.
             </p>
             <div class="text-center mt-md mb-md">
               <NuxtLink to="/" class="win-btn win-btn--primary">Consultar placa grátis</NuxtLink>

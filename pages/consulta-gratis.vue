@@ -16,7 +16,7 @@ const faqs = [
   },
   {
     question: 'Quantas consultas posso fazer de graça?',
-    answer: 'Você pode realizar quantas consultas quiser, sem limite. Cada consulta retorna os dados completos do veículo gratuitamente.',
+    answer: 'Você pode realizar quantas consultas quiser, sem limite. Cada consulta retorna os dados básicos do veículo gratuitamente.',
   },
   {
     question: 'Quais dados recebo na consulta grátis?',
@@ -29,11 +29,11 @@ const faqs = [
 ]
 
 useHead({
-  title: 'Consultar Placa Grátis: Dados Completos do Veículo',
+  title: 'Consultar Placa Grátis: Dados do Veículo',
   meta: [
-    { name: 'description', content: 'Consulte qualquer placa de veículo grátis e receba dados completos por e-mail: marca, modelo, ano, FIPE, situação e mais. Sem cadastro, resultado em segundos.' },
+    { name: 'description', content: 'Consulte qualquer placa de veículo grátis e receba os dados por e-mail: marca, modelo, ano, FIPE, situação e mais. Sem cadastro, resultado em segundos.' },
     { name: 'keywords', content: 'consultar placa grátis, consulta placa grátis, consulta veicular grátis, pesquisa placa grátis, consultar placa de carro grátis' },
-    { property: 'og:title', content: 'Consultar Placa Grátis: Dados Completos do Veículo' },
+    { property: 'og:title', content: 'Consultar Placa Grátis: Dados do Veículo' },
     { property: 'og:description', content: 'Consulta veicular grátis e sem cadastro. Receba marca, modelo, FIPE, situação e mais no seu e-mail em segundos.' },
   ],
   script: [
@@ -72,7 +72,7 @@ useHead({
           <p>
             Acreditamos que informações básicas sobre veículos devem ser acessíveis a todos.
             O Placa Completa é mantido para ajudar compradores, vendedores e qualquer pessoa
-            que precise verificar dados de um veículo — sem barreiras e sem custos escondidos.
+            que precise verificar dados de um veículo, sem barreiras e sem custos escondidos.
           </p>
 
           <h2>O que está incluído na consulta grátis?</h2>
@@ -82,10 +82,14 @@ useHead({
             <li><strong>Cor</strong> do veículo</li>
             <li><strong>Valor na tabela FIPE</strong> atualizado</li>
             <li><strong>Município</strong> e estado de registro</li>
-            <li><strong>Situação</strong> (restrições, débitos)</li>
+            <li><strong>Situação</strong> do veículo (em circulação, baixado)</li>
             <li><strong>Chassi</strong> (parcial)</li>
             <li><strong>Combustível</strong>, tipo e espécie</li>
           </ul>
+          <p>
+            Quer débitos, indicadores de roubo/furto e leilão, e o histórico completo do
+            veículo? Isso está no <NuxtLink to="/">relatório completo</NuxtLink>.
+          </p>
 
           <h2>Como consultar?</h2>
           <ol>
@@ -93,7 +97,7 @@ useHead({
             <li>Digite seu e-mail</li>
             <li>Informe a placa do veículo (antiga ou Mercosul)</li>
             <li>Clique em "Consultar Placa"</li>
-            <li>Pronto! Os dados completos chegam no seu e-mail em segundos.</li>
+            <li>Pronto! Os dados chegam no seu e-mail em segundos.</li>
           </ol>
 
         <h2>Perguntas Frequentes</h2>

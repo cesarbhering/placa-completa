@@ -69,7 +69,7 @@ useHead({
             <p>
               A consulta de placa no PlacaCompleta funciona para veículos registrados em
               <strong>qualquer estado do Brasil</strong>. Escolha abaixo o estado ou a capital
-              para ver informações específicas — DETRAN local, regras de IPVA, séries de placa —
+              para ver informações específicas (DETRAN local, regras de IPVA, séries de placa)
               ou <NuxtLink to="/">consulte direto pela placa</NuxtLink> e receba marca, modelo,
               ano, valor FIPE e situação em segundos.
             </p>
@@ -107,7 +107,7 @@ useHead({
 
             <h2>Como funciona a consulta?</h2>
             <p>
-              Os dados do veículo são públicos e mantidos pelo DETRAN de cada estado. Com a placa
+              Os dados do veículo são públicos, consultados a partir de bases oficiais. Com a placa
               Mercosul, a identificação da UF passou a ser feita pelo município de registro.
               Independente do estado, a consulta no PlacaCompleta retorna os mesmos dados:
               marca, modelo, ano de fabricação e modelo, cor, município, situação, chassi parcial e

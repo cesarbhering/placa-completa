@@ -122,7 +122,7 @@ async function handleSubmit() {
     </main>
 
     <footer class="footer">
-      <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta — Dashboard de Analytics</p>
+      <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta: Dashboard de Analytics</p>
       <nav class="footer__links">
         <NuxtLink to="/">Voltar ao Site</NuxtLink>
       </nav>

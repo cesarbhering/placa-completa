@@ -150,7 +150,7 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
           <span>{{ preview.ano }} · {{ preview.cor }} · placa {{ preview.placa }}</span>
         </div>
         <div v-else class="veiculo">Não achamos os dados básicos, mas você pode seguir com a placa {{ preview?.placa }}.</div>
-        <p class="inclui">A consulta completa inclui: restrições, roubo/furto, recall, RENAJUD, leilão, débitos e a ficha cadastral completa (dados oficiais SENATRAN).</p>
+        <p class="inclui">A consulta completa inclui: restrições, roubo/furto, recall, RENAJUD, leilão, débitos e a ficha cadastral completa.</p>
         <input v-model="email" type="email" placeholder="Seu email (para receber o relatório)" />
         <!-- WhatsApp oculto ate a feature existir (ref telefone segue vivo). -->
         <input v-if="mostraWhatsapp" v-model="telefone" placeholder="WhatsApp (opcional)" />
