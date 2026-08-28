@@ -29,11 +29,19 @@ const ICONES: Record<string, { path: string }> = {
   DUCATI: siDucati,
 }
 
+// Importado vem com prefixo, e ele varia: "I/FORD FOCUS", "IMP/HONDA CIVIC".
+// Sem tirar o prefixo, a marca lida era "IMP" e um Civic saia com monograma
+// "I" no lugar do simbolo da Honda.
+const PREFIXOS_IMPORTADO = /^(?:IMP|IMPORT|I)\s*\//
 const tokenMarca = computed(() => {
   const bruto = String(props.marca || '').toUpperCase().trim()
   if (!bruto) return ''
-  const semImportado = bruto.replace(/^I\//, '')
-  return (semImportado.split('/')[0] || '').trim().split(/\s+/)[0] || ''
+  const semImportado = bruto.replace(PREFIXOS_IMPORTADO, '').trim()
+  const token = (semImportado.split('/')[0] || '').trim().split(/\s+/)[0] || ''
+  // "IMP" sozinho (a wdapi devolve isso no campo marca de importado) nao e
+  // marca nenhuma: sem simbolo e sem monograma, melhor que um "I" errado.
+  if (token === 'IMP' || token === 'I' || token === 'IMPORT') return ''
+  return token
 })
 
 const icone = computed(() => ICONES[tokenMarca.value] || null)
