@@ -29,11 +29,11 @@ const faqs = [
 ]
 
 useHead({
-  title: 'Consultar Placa Grátis — Dados Completos do Veículo',
+  title: 'Consultar Placa Grátis: Dados Completos do Veículo',
   meta: [
     { name: 'description', content: 'Consulte qualquer placa de veículo grátis e receba dados completos por e-mail: marca, modelo, ano, FIPE, situação e mais. Sem cadastro, resultado em segundos.' },
     { name: 'keywords', content: 'consultar placa grátis, consulta placa grátis, consulta veicular grátis, pesquisa placa grátis, consultar placa de carro grátis' },
-    { property: 'og:title', content: 'Consultar Placa Grátis — Dados Completos do Veículo' },
+    { property: 'og:title', content: 'Consultar Placa Grátis: Dados Completos do Veículo' },
     { property: 'og:description', content: 'Consulta veicular grátis e sem cadastro. Receba marca, modelo, FIPE, situação e mais no seu e-mail em segundos.' },
   ],
   script: [

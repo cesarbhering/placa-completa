@@ -61,7 +61,7 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     heroImageAlt: '',
     metaTitle: 'Consulta Placa Grátis: Marca, Modelo, Ano e Cor',
     ogTitle: 'PlacaCompleta · Relatório completo do veículo pela placa',
-    ogDescription: 'Restrições, roubo/furto, gravame, leilão, recall, ficha completa, FIPE, seguro e custo em 5 anos. Pagamento único no Pix, resultado na hora. Consulta grátis sem cadastro.',
+    ogDescription: 'Consulta grátis na hora e relatório completo com indicador de roubo e furto, leilão, gravame, restrições, recall, valor FIPE e seguro. Pagamento único no Pix, sem assinatura.',
   },
   moto: {
     variant: 'moto',
@@ -75,7 +75,7 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     heroImageAlt: 'Honda CB600F Hornet vista de lado',
     metaTitle: 'Consulta Placa de Moto Grátis: Marca, Modelo, Ano e Cor',
     ogTitle: 'Olho na Moto · Relatório completo da moto pela placa',
-    ogDescription: 'Restrições, roubo/furto, gravame, leilão, recall, ficha completa, FIPE, seguro e custo em 5 anos. Pagamento único no Pix, resultado na hora. Consulta grátis sem cadastro.',
+    ogDescription: 'Consulta grátis na hora e relatório completo com indicador de roubo e furto, leilão, gravame, restrições, recall, valor FIPE e seguro. Pagamento único no Pix, sem assinatura.',
   },
   caminhao: {
     variant: 'caminhao',
@@ -89,7 +89,7 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     heroImageAlt: 'Caminhão Volvo FH visto de lado',
     metaTitle: 'Consulta Placa de Caminhão Grátis: Marca, Modelo, Ano e Cor',
     ogTitle: 'Olho no Caminhão · Relatório completo do caminhão pela placa',
-    ogDescription: 'Restrições, roubo/furto, gravame, leilão, recall, ficha completa, FIPE, seguro e custo em 5 anos. Pagamento único no Pix, resultado na hora. Consulta grátis sem cadastro.',
+    ogDescription: 'Consulta grátis na hora e relatório completo com indicador de roubo e furto, leilão, gravame, restrições, recall, valor FIPE e seguro. Pagamento único no Pix, sem assinatura.',
   },
 }
 

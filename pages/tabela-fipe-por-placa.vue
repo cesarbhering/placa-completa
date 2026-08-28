@@ -94,11 +94,11 @@ const faqs = [
 ]
 
 useHead({
-  title: `Tabela FIPE pela Placa ${currentYear} — Valor FIPE Atualizado em Segundos`,
+  title: `Tabela FIPE pela Placa ${currentYear}: Valor FIPE Atualizado em Segundos`,
   meta: [
     { name: 'description', content: `Consulte o valor da Tabela FIPE de qualquer veículo pela placa em ${currentMonth} de ${currentYear}. Resultado com marca, modelo, ano, código FIPE e preço atualizado do mês. Grátis.` },
     { name: 'keywords', content: 'tabela FIPE por placa, valor FIPE pela placa, consultar FIPE grátis, preço veículo por placa, fipe pela placa, tabela fipe pela placa, codigo fipe placa' },
-    { property: 'og:title', content: 'Tabela FIPE pela Placa — Valor do Veículo Grátis' },
+    { property: 'og:title', content: 'Tabela FIPE pela Placa: Valor do Veículo Grátis' },
     { property: 'og:description', content: 'Descubra o valor FIPE de qualquer veículo pela placa. Resultado com marca, modelo, ano e preço FIPE. Grátis.' },
   ],
   link: [
