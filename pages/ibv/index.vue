@@ -44,7 +44,7 @@ function formatDate(iso: string) {
           </div>
         </div>
         <div class="win-window__body">
-          <h1 class="seo-title">IBV Auto — Índice de Preços de Carros Usados</h1>
+          <h1 class="seo-title">IBV Auto: Índice de Preços de Carros Usados</h1>
 
           <div class="seo-content">
             <p>

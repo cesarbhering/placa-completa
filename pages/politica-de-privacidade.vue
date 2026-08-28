@@ -19,7 +19,7 @@ useHead({
             Esta Política de Privacidade descreve como o <strong>Placa Completa</strong>
             ("nós", "nosso") coleta, usa, compartilha e protege os dados pessoais dos usuários
             ("você", "titular"), em conformidade com a
-            <strong>Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018 — LGPD)</strong>
+            <strong>Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018, LGPD)</strong>
             e com a <strong>Portaria SENATRAN nº 139, de 20 de fevereiro de 2025</strong>, que
             regulamenta o acesso a dados da base veicular federal.
           </p>
@@ -36,7 +36,7 @@ useHead({
           </ul>
           <p>
             <strong>Encarregado pelo Tratamento de Dados (DPO):</strong>
-            Cesar Cancado Bhering — e-mail
+            Cesar Cancado Bhering, e-mail
             <strong>cesarcbhering@placacompleta.com.br</strong>.
           </p>
           <p>
@@ -63,9 +63,9 @@ useHead({
 
           <h3>3.1 Dados fornecidos pelo usuário da plataforma</h3>
           <ul>
-            <li><strong>Endereço de e-mail</strong> — para envio do resultado da consulta;</li>
-            <li><strong>Número de telefone</strong> (opcional) — caso informado voluntariamente;</li>
-            <li><strong>Placa do veículo</strong> — para identificar o objeto da consulta.</li>
+            <li><strong>Endereço de e-mail</strong>: para envio do resultado da consulta;</li>
+            <li><strong>Número de telefone</strong> (opcional), caso informado voluntariamente;</li>
+            <li><strong>Placa do veículo</strong>: para identificar o objeto da consulta.</li>
           </ul>
 
           <h3>3.2 Dados coletados automaticamente</h3>
@@ -82,12 +82,12 @@ useHead({
             proprietário), distribuídas nos seguintes Casos de Uso aprovados:
           </p>
           <ul>
-            <li><strong>CU-01 — Dados cadastrais (RENAVAM):</strong> identificação e ficha técnica do veículo;</li>
-            <li><strong>CU-02 — Restrições e gravames (RENAVAM):</strong> verificação de restrições e risco de comercialização;</li>
-            <li><strong>CU-03 — Roubo e furto (RENAVAM / Infoseg):</strong> verificação da situação de ocorrência;</li>
-            <li><strong>CU-04 — Débitos, multas e situação fiscal (RENAINF);</strong></li>
-            <li><strong>CU-05 — Campanhas de recall (base de recall SENATRAN);</strong></li>
-            <li><strong>CU-06 — Restrições judiciais (RENAJUD).</strong></li>
+            <li><strong>CU-01, Dados cadastrais (RENAVAM):</strong> identificação e ficha técnica do veículo;</li>
+            <li><strong>CU-02, Restrições e gravames (RENAVAM):</strong> verificação de restrições e risco de comercialização;</li>
+            <li><strong>CU-03, Roubo e furto (RENAVAM / Infoseg):</strong> verificação da situação de ocorrência;</li>
+            <li><strong>CU-04, Débitos, multas e situação fiscal (RENAINF);</strong></li>
+            <li><strong>CU-05, Campanhas de recall (base de recall SENATRAN);</strong></li>
+            <li><strong>CU-06, Restrições judiciais (RENAJUD).</strong></li>
           </ul>
 
           <h3>3.4 Dados que NÃO são tratados</h3>
@@ -119,18 +119,18 @@ useHead({
           </p>
           <ul>
             <li>
-              <strong>Art. 7º, IX — Legítimo interesse do controlador ou de terceiro
+              <strong>Art. 7º, IX: Legítimo interesse do controlador ou de terceiro
               (base legal principal):</strong> transparência veicular, prevenção à fraude e
               proteção patrimonial do consulente em transações civis e comerciais envolvendo
               veículos;
             </li>
             <li>
-              <strong>Art. 7º, X — Proteção do crédito:</strong> para subsidiar a verificação
+              <strong>Art. 7º, X, Proteção do crédito:</strong> para subsidiar a verificação
               de restrições, gravames e ônus que afetem a viabilidade econômica e jurídica de
               operações que envolvam o veículo;
             </li>
             <li>
-              <strong>Art. 7º, V — Execução de contrato ou de procedimentos preliminares a
+              <strong>Art. 7º, V: Execução de contrato ou de procedimentos preliminares a
               contrato:</strong> aplicável às negociações de compra e venda, financiamento,
               leasing, locação e seguros em que a consulta veicular é etapa prévia natural.
             </li>
@@ -155,10 +155,10 @@ useHead({
           <h2>7. Compartilhamento de Dados</h2>
           <p>Seus dados podem ser compartilhados com os seguintes agentes, exclusivamente para a execução do serviço:</p>
           <ul>
-            <li><strong>SENATRAN e Serpro</strong> — para supervisão, auditoria e controle do acesso autorizado, nos termos da Portaria 139/2025;</li>
-            <li><strong>Resend</strong> — provedor de e-mail transacional, que processa apenas o e-mail e o conteúdo da mensagem com o resultado da consulta;</li>
-            <li><strong>Supabase</strong> — provedor de banco de dados utilizado para armazenamento seguro dos registros de consulta;</li>
-            <li><strong>Google Analytics</strong> — análise agregada e anonimizada de tráfego.</li>
+            <li><strong>SENATRAN e Serpro</strong>: para supervisão, auditoria e controle do acesso autorizado, nos termos da Portaria 139/2025;</li>
+            <li><strong>Resend</strong>: provedor de e-mail transacional, que processa apenas o e-mail e o conteúdo da mensagem com o resultado da consulta;</li>
+            <li><strong>Supabase</strong>: provedor de banco de dados utilizado para armazenamento seguro dos registros de consulta;</li>
+            <li><strong>Google Analytics</strong>: análise agregada e anonimizada de tráfego.</li>
           </ul>
           <p>
             Os dados de origem SENATRAN <strong>não são cedidos, revendidos ou
@@ -194,15 +194,15 @@ useHead({
             LGPD, que podem ser exercidos a qualquer momento:
           </p>
           <ul>
-            <li><strong>I</strong> — Confirmação da existência de tratamento;</li>
-            <li><strong>II</strong> — Acesso aos seus dados;</li>
-            <li><strong>III</strong> — Correção de dados incompletos, inexatos ou desatualizados;</li>
-            <li><strong>IV</strong> — Anonimização, bloqueio ou eliminação de dados desnecessários, excessivos ou tratados em desconformidade;</li>
-            <li><strong>V</strong> — Portabilidade dos dados;</li>
-            <li><strong>VI</strong> — Eliminação dos dados tratados com consentimento;</li>
-            <li><strong>VII</strong> — Informação sobre compartilhamento;</li>
-            <li><strong>VIII</strong> — Informação sobre a possibilidade de não fornecer consentimento;</li>
-            <li><strong>IX</strong> — Revogação do consentimento, quando aplicável.</li>
+            <li><strong>I</strong>: Confirmação da existência de tratamento;</li>
+            <li><strong>II</strong>: Acesso aos seus dados;</li>
+            <li><strong>III</strong>: Correção de dados incompletos, inexatos ou desatualizados;</li>
+            <li><strong>IV</strong>: Anonimização, bloqueio ou eliminação de dados desnecessários, excessivos ou tratados em desconformidade;</li>
+            <li><strong>V</strong>: Portabilidade dos dados;</li>
+            <li><strong>VI</strong>: Eliminação dos dados tratados com consentimento;</li>
+            <li><strong>VII</strong>: Informação sobre compartilhamento;</li>
+            <li><strong>VIII</strong>: Informação sobre a possibilidade de não fornecer consentimento;</li>
+            <li><strong>IX</strong>: Revogação do consentimento, quando aplicável.</li>
           </ul>
           <p>
             Para exercer qualquer desses direitos, entre em contato pelo e-mail
@@ -255,10 +255,10 @@ useHead({
 
           <h2>16. Contato</h2>
           <p>
-            CESAR CANCADO BHERING TECNOLOGIA LTDA — CNPJ 62.569.152/0001-67<br>
+            CESAR CANCADO BHERING TECNOLOGIA LTDA, CNPJ 62.569.152/0001-67<br>
             Rua Bom Pastor, Sala 03, Ipiranga, São Paulo/SP<br>
             <strong>E-mail geral:</strong> contato@placacompleta.com.br<br>
-            <strong>Encarregado (DPO):</strong> Cesar Cancado Bhering — cesarcbhering@placacompleta.com.br
+            <strong>Encarregado (DPO):</strong> Cesar Cancado Bhering, cesarcbhering@placacompleta.com.br
           </p>
         </div>
 

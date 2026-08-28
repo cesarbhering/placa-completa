@@ -127,9 +127,13 @@ useHead({
             <li>Cor do veículo</li>
             <li>Valor atualizado na tabela FIPE</li>
             <li>Município de registro em {{ data.uf }}</li>
-            <li>Situação (restrições, débitos)</li>
+            <li>Situação do veículo (em circulação, baixado)</li>
             <li>Chassi (parcial), combustível e tipo</li>
           </ul>
+          <p>
+            Precisa de mais? O <NuxtLink to="/">relatório completo</NuxtLink> traz débitos,
+            indicadores de roubo/furto e leilão, e o histórico completo do veículo.
+          </p>
 
           <h2>Placas de {{ data.name }}</h2>
           <p>

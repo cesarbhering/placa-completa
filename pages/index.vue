@@ -575,7 +575,7 @@ useHead({
         '@context': 'https://schema.org',
         '@type': 'WebSite',
         name: 'PlacaCompleta',
-        alternateName: 'Consulta Veicular Grátis',
+        alternateName: 'Consulta Veicular Completa',
         url: 'https://placacompleta.com.br',
         inLanguage: 'pt-BR',
         potentialAction: {
