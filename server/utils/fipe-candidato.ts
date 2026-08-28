@@ -19,6 +19,13 @@ export interface FipeCandidato {
   texto_valor: string | null
   combustivel: string | null
   mes_referencia: string | null
+  // Identificador interno da fipe-api usado por /models/fipe/{codigo_modelo}
+  // /price-history - NAO e o mesmo numero que codigo_fipe (ex: codigo_fipe
+  // "002122-9" tem codigo_modelo "6246"). So vem de graca quando o candidato
+  // e da wdapi; quando vem do universo da fipe-api (/modelos, que nao expoe
+  // esse campo) e resolvido sob demanda so pro escolhido, ver
+  // resolverCodigoModelo().
+  codigoModelo?: string | null
 }
 
 export type FipeDecididoPor = 'regra' | 'haiku' | 'ambiguo' | 'fallback'
@@ -111,7 +118,70 @@ function candidatosDaWdapi(wdapi: any): FipeCandidato[] {
       texto_valor: d.texto_valor ?? null,
       combustivel: d.combustivel ?? null,
       mes_referencia: d.mes_referencia ?? null,
+      codigoModelo: d.codigo_modelo ? String(d.codigo_modelo) : null,
     }))
+}
+
+// ---------------------------------------------------------------------------
+// Resolucao lazy do codigo_modelo (so pro escolhido, so quando falta).
+// /brands e /brands/{id}/models nao mudam com frequencia - cache em memoria
+// do processo e suficiente, fail-open (null) em qualquer erro.
+// ---------------------------------------------------------------------------
+
+const brandIdCache = new Map<string, number>()
+
+async function resolverBrandId(marca: string, fipeApiUrl: string, fipeApiToken: string): Promise<number | null> {
+  const key = marca.trim().toLowerCase()
+  if (brandIdCache.has(key)) return brandIdCache.get(key)!
+  try {
+    const res = await fetch(`${fipeApiUrl}/brands`, { headers: { Authorization: `Bearer ${fipeApiToken}` } })
+    if (!res.ok) return null
+    const body = await res.json()
+    const lista = Array.isArray(body?.data) ? body.data : []
+    for (const b of lista) {
+      if (typeof b?.name === 'string' && typeof b?.id === 'number') {
+        brandIdCache.set(b.name.trim().toLowerCase(), b.id)
+      }
+    }
+    return brandIdCache.get(key) ?? null
+  } catch {
+    return null
+  }
+}
+
+async function resolverCodigoModelo(
+  marca: string,
+  modeloNome: string,
+  fipeApiUrl: string,
+  fipeApiToken: string,
+): Promise<string | null> {
+  try {
+    const brandId = await resolverBrandId(marca, fipeApiUrl, fipeApiToken)
+    if (!brandId) return null
+    const res = await fetch(`${fipeApiUrl}/brands/${brandId}/models`, { headers: { Authorization: `Bearer ${fipeApiToken}` } })
+    if (!res.ok) return null
+    const body = await res.json()
+    const lista = Array.isArray(body?.data) ? body.data : []
+    const match = lista.find((m: any) => typeof m?.name === 'string' && m.name.trim() === modeloNome.trim())
+    return match?.fipe_code ? String(match.fipe_code) : null
+  } catch {
+    return null
+  }
+}
+
+// Preenche codigoModelo do escolhido quando faltar (candidato veio do
+// universo da fipe-api, nao da wdapi) - sem isso, price-history e seguro
+// ficam sem series pra ele. Fail-open: erro/nao-achado deixa null, quem
+// consome (valor-custo.ts) ja trata price-history/seguro ausentes.
+async function comCodigoModelo(
+  candidato: FipeCandidato,
+  marca: string,
+  fipeApiUrl: string,
+  fipeApiToken: string,
+): Promise<FipeCandidato> {
+  if (candidato.codigoModelo) return candidato
+  const codigoModelo = await resolverCodigoModelo(marca, candidato.modelo, fipeApiUrl, fipeApiToken)
+  return { ...candidato, codigoModelo }
 }
 
 function unirUniverso(a: FipeCandidato[], b: FipeCandidato[]): FipeCandidato[] {
@@ -175,6 +245,25 @@ function carroceriaDaDescricao(descricaoMarcaModelo: unknown): Carroceria {
   return null
 }
 
+type Transmissao = 'manual' | 'automatico' | null
+
+// SENATRAN as vezes gruda o cambio na cilindrada ("1.4MT", sem espaco) -
+// por isso o (^|[^A-Z]) no lugar de \b antes de MT/AT/CVT.
+function transmissaoDaDescricao(descricaoMarcaModelo: unknown): Transmissao {
+  const texto = String(descricaoMarcaModelo || '').toUpperCase()
+  if (/(?:^|[^A-Z])MT\b/.test(texto)) return 'manual'
+  if (/(?:^|[^A-Z])(AT|CVT)\b/.test(texto)) return 'automatico'
+  return null
+}
+
+function candidatoEManual(modelo: string): boolean {
+  return /\bMec\b|\bMec\./i.test(modelo)
+}
+
+function candidatoEAutomatico(modelo: string): boolean {
+  return /\bAut\b|\bAut\./i.test(modelo)
+}
+
 function candidatoESedan(modelo: string): boolean {
   return /\bSED\b|\bSEDAN\b/i.test(modelo)
 }
@@ -202,16 +291,18 @@ interface Fatos {
   litragem: string | null
   carroceria: Carroceria
   versao: string | null
+  transmissao: Transmissao
 }
 
 function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any): Fatos {
   const litragem = litragemDaCilindrada(senatran?.cilindrada)
   const carroceria = carroceriaDaDescricao(senatran?.descricaoMarcaModelo)
+  const transmissao = transmissaoDaDescricao(senatran?.descricaoMarcaModelo)
   const versaoBruta = typeof wdapi?.VERSAO === 'string' ? wdapi.VERSAO.trim() : null
   // versao generica demais pra discriminar sozinha (ex: vazia, "0", marca
   // repetida) - melhor nao filtrar do que filtrar tudo fora por engano.
   const versao = versaoBruta && versaoBruta.length >= 1 && versaoBruta.length <= 12 ? versaoBruta : null
-  return { litragem, carroceria, versao }
+  return { litragem, carroceria, versao, transmissao }
 }
 
 function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] {
@@ -235,6 +326,13 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
   if (fatos.versao) {
     const porVersao = restantes.filter((c) => candidatoTemVersao(c.modelo, fatos.versao!))
     if (porVersao.length) restantes = porVersao
+  }
+
+  if (fatos.transmissao) {
+    const porTransmissao = restantes.filter((c) =>
+      fatos.transmissao === 'manual' ? candidatoEManual(c.modelo) : candidatoEAutomatico(c.modelo),
+    )
+    if (porTransmissao.length) restantes = porTransmissao
   }
 
   return restantes
@@ -284,7 +382,7 @@ async function julgarComHaiku(
     `- ano modelo: ${wdapi?.anoModelo ?? senatran?.anoModelo ?? 'desconhecido'}`,
     `- combustivel (wdapi): ${wdapi?.extra?.combustivel || 'desconhecido'}`,
     '',
-    'Candidatos da tabela FIPE (ja pre-filtrados por cilindrada/carroceria/versao):',
+    'Candidatos da tabela FIPE (ja pre-filtrados por cilindrada/carroceria/versao/cambio):',
     ...candidatos.map((c) => `- codigo_fipe=${c.codigo_fipe} | ${c.modelo} | valor=${c.valor ?? 'desconhecido'}`),
     '',
     'Escolha o candidato que melhor corresponde aos dados oficiais. Responda',
@@ -335,7 +433,13 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
   })
 
   try {
-    const marca = input.wdapi?.marca || input.wdapi?.MARCA
+    // texto_marca (fipe.dados) e o nome no "idioma" da propria FIPE/fipe-api -
+    // NEM SEMPRE bate com wdapi.marca/MARCA (taxonomia da apiplacas/SENATRAN).
+    // Achado real testando ONIX: wdapi.marca = "CHEVROLET", mas a fipe-api so
+    // reconhece "GM - Chevrolet" (existe um outro brand "CHEVROLET" pra
+    // CAMINHOES, entao usar o nome errado nao so falha - podia casar marca
+    // errada). Cai pro wdapi.marca/MARCA so se fipe.dados vier vazio.
+    const marca = input.wdapi?.fipe?.dados?.[0]?.texto_marca || input.wdapi?.marca || input.wdapi?.MARCA
     const ano = input.wdapi?.anoModelo || input.senatran?.anoModelo
     if (!marca || !ano) return fallback()
 
@@ -355,7 +459,8 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     if (filtrados.length === 0) return fallback()
 
     if (filtrados.length === 1) {
-      return { escolhido: filtrados[0], decididoPor: 'regra', candidatos: filtrados, confianca: 'alta' }
+      const escolhido = await comCodigoModelo(filtrados[0], marca, input.fipeApiUrl, input.fipeApiToken)
+      return { escolhido, decididoPor: 'regra', candidatos: filtrados, confianca: 'alta' }
     }
 
     if (!input.anthropicApiKey) {
@@ -370,8 +475,9 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
       return fallback()
     }
 
-    const escolhido = filtrados.find((c) => c.codigo_fipe === veredito.codigo_fipe) || null
-    if (!escolhido) return fallback()
+    const achado = filtrados.find((c) => c.codigo_fipe === veredito.codigo_fipe) || null
+    if (!achado) return fallback()
+    const escolhido = await comCodigoModelo(achado, marca, input.fipeApiUrl, input.fipeApiToken)
 
     if (veredito.confianca === 'baixa') {
       return {
