@@ -19,7 +19,7 @@ export const EXPLICA_RESTRICAO: Record<string, string> = {
   RESTRICAO_RENAJUD: 'Há um bloqueio determinado pela Justiça e registrado eletronicamente no cadastro do veículo. Enquanto ele estiver ativo, a transferência fica impedida.',
   RESTRICAO_ADMINISTRATIVA: 'Há um bloqueio administrativo registrado por órgão competente. Enquanto ativo, pode impedir licenciamento e transferência. Recomendamos verificar a origem da restrição antes de qualquer negociação.',
   GRAVAME: 'O veículo está financiado e a instituição financeira consta como credora até a quitação. A transferência depende de quitar o contrato e baixar o gravame.',
-  LEILAO: 'Consta passagem por leilão no histórico do veículo. Isso costuma indicar recuperação de sinistro ou apreensão, reduz o valor de mercado e pede uma vistoria cuidadosa.',
+  LEILAO: 'Consta registro de passagem por leilão no documento do veículo. Isso costuma indicar recuperação de sinistro ou apreensão, reduz o valor de mercado e pede uma vistoria cuidadosa.',
   RESTRICAO_TRIBUTARIA: 'O veículo tem pendência ou benefício fiscal que limita a transferência, como isenção de impostos com prazo de carência.',
   RESTRICAO_BENEFICIO_TRIBUTARIO: 'O veículo foi comprado com isenção ou redução de imposto e tem prazo de carência. Transferir antes do prazo exige quitar o imposto ou obter autorização fiscal.',
   COMUNICACAO_DE_VENDA: 'O dono anterior informou a venda ao órgão de trânsito. Falta o novo dono concluir a transferência.',

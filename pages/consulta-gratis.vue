@@ -87,7 +87,7 @@ useHead({
             <li><strong>Combustível</strong>, tipo e espécie</li>
           </ul>
           <p>
-            Quer débitos, indicadores de roubo/furto e leilão, e o histórico completo do
+            Quer débitos, indicadores de roubo/furto e registro de leilão, e o histórico completo do
             veículo? Isso está no <NuxtLink to="/">relatório completo</NuxtLink>.
           </p>
 
