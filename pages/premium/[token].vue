@@ -1035,6 +1035,25 @@ onUnmounted(() => poll && clearInterval(poll))
               </div>
             </div>
 
+            <!-- Versao FIPE ambigua: em vez de afirmar uma versao especifica
+                 com risco de erro, mostra as versoes compativeis com a
+                 configuracao do veiculo (cilindrada/carroceria) e deixa a
+                 decisao final com quem esta lendo. -->
+            <div v-if="vc?.fipeCandidato?.candidatos?.length" class="rel__fipe-ambiguo">
+              <span class="rel__sub">Versões compatíveis com esta configuração</span>
+              <p class="rel__fipe-ambiguo-txt">
+                A tabela FIPE tem mais de uma versão com a mesma cilindrada e carroceria deste veículo. Confira qual bate com o seu:
+              </p>
+              <table class="rel__tab">
+                <tbody>
+                  <tr v-for="c in vc.fipeCandidato.candidatos.slice(0, 3)" :key="c.codigo_fipe">
+                    <td>{{ c.modelo }}</td>
+                    <td>{{ c.valor ? brl(c.valor) : '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
             <div v-if="temGrafico" class="rel__dep">
               <span class="rel__sub">Evolução do valor de mercado</span>
               <GraficoValor :historico="vc.historico" />
@@ -1571,6 +1590,16 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__dep-txt {
     margin-top: 10px;
+    font-size: 13px;
+    color: $c-charcoal;
+  }
+
+  &__fipe-ambiguo {
+    margin-top: 20px;
+  }
+
+  &__fipe-ambiguo-txt {
+    margin: 6px 0 10px;
     font-size: 13px;
     color: $c-charcoal;
   }
