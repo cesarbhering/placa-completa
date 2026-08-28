@@ -228,11 +228,26 @@ const FAIXAS_CILINDRADA: { min: number; max: number; label: string }[] = [
   { min: 2451, max: 3200, label: '3.0' },
 ]
 
-function litragemDaCilindrada(cilindrada: unknown): string | null {
+// Motores reais nao respeitam fronteira exata (1.4 costuma vir 1368-1398cc,
+// 1.5 costuma vir 1451-1499cc, mas varia por fabricante/ano). Perto da
+// fronteira entre duas faixas, devolve AS DUAS - na duvida entre rotulos
+// vizinhos, o funil nao elimina nenhum (melhor sobrar candidato de menos pra
+// decidir por nome/Haiku do que eliminar o certo por engano).
+const TOLERANCIA_FRONTEIRA_CC = 20
+
+function litragensDaCilindrada(cilindrada: unknown): string[] {
   const cc = Number(cilindrada)
-  if (!Number.isFinite(cc) || cc <= 0) return null
-  const faixa = FAIXAS_CILINDRADA.find((f) => cc >= f.min && cc <= f.max)
-  return faixa?.label ?? null
+  if (!Number.isFinite(cc) || cc <= 0) return []
+  const idx = FAIXAS_CILINDRADA.findIndex((f) => cc >= f.min && cc <= f.max)
+  if (idx === -1) return []
+  const labels = new Set([FAIXAS_CILINDRADA[idx].label])
+  if (idx + 1 < FAIXAS_CILINDRADA.length && FAIXAS_CILINDRADA[idx].max - cc <= TOLERANCIA_FRONTEIRA_CC) {
+    labels.add(FAIXAS_CILINDRADA[idx + 1].label)
+  }
+  if (idx - 1 >= 0 && cc - FAIXAS_CILINDRADA[idx].min <= TOLERANCIA_FRONTEIRA_CC) {
+    labels.add(FAIXAS_CILINDRADA[idx - 1].label)
+  }
+  return [...labels]
 }
 
 type Carroceria = 'hatch' | 'sedan' | 'sw' | null
@@ -272,8 +287,8 @@ function candidatoESw(modelo: string): boolean {
   return /\bSW\b|\bPERUA\b/i.test(modelo)
 }
 
-function candidatoTemLitragem(modelo: string, label: string): boolean {
-  return modelo.includes(label)
+function candidatoTemLitragem(modelo: string, labels: string[]): boolean {
+  return labels.some((label) => modelo.includes(label))
 }
 
 function escapeRegex(s: string): string {
@@ -288,14 +303,14 @@ function candidatoTemVersao(modelo: string, versao: string): boolean {
 }
 
 interface Fatos {
-  litragem: string | null
+  litragem: string[]
   carroceria: Carroceria
   versao: string | null
   transmissao: Transmissao
 }
 
 function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any): Fatos {
-  const litragem = litragemDaCilindrada(senatran?.cilindrada)
+  const litragem = litragensDaCilindrada(senatran?.cilindrada)
   const carroceria = carroceriaDaDescricao(senatran?.descricaoMarcaModelo)
   const transmissao = transmissaoDaDescricao(senatran?.descricaoMarcaModelo)
   const versaoBruta = typeof wdapi?.VERSAO === 'string' ? wdapi.VERSAO.trim() : null
@@ -308,8 +323,8 @@ function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any
 function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] {
   let restantes = universo
 
-  if (fatos.litragem) {
-    const porLitragem = restantes.filter((c) => candidatoTemLitragem(c.modelo, fatos.litragem!))
+  if (fatos.litragem.length) {
+    const porLitragem = restantes.filter((c) => candidatoTemLitragem(c.modelo, fatos.litragem))
     if (porLitragem.length) restantes = porLitragem
   }
 
@@ -389,6 +404,9 @@ async function julgarComHaiku(
     'APENAS com um JSON no formato exato:',
     '{"codigo_fipe": "...", "confianca": "alta"|"media"|"baixa", "justificativa": "..."}',
     'Use "confianca":"baixa" se nao tiver certeza suficiente pra decidir entre os candidatos.',
+    'IMPORTANTE: se os candidatos so se diferenciam pelo cambio (Mec./Aut./',
+    'Dualogic/CVT) e NENHUM dado oficial acima indica o cambio do veiculo,',
+    'isso e ambiguidade real, nao adivinhe - responda "confianca":"baixa".',
   ].join('\n')
 
   const controller = new AbortController()
