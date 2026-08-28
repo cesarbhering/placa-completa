@@ -27,6 +27,36 @@ const FONTE = "'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-ser
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
+// HUD fixo no mobile: o tooltip padrao do ECharts nasce embaixo do dedo (segue
+// o ponto de toque), entao no celular ele fica ESCONDIDO ATRAS DO PROPRIO DEDO
+// — feedback de cliente real. No desktop o tooltip no cursor continua normal
+// (mouse nao tampa a propria leitura). So no mobile a leitura sai daqui: uma
+// faixa fixa no topo do grafico, atualizada conforme o dedo arrasta pelo eixo.
+// Comeca no ultimo ponto (valor mais recente), que e o que a pessoa quer ver
+// antes mesmo de tocar.
+const hud = ref<{ label: string; price: number }>(
+  props.historico[props.historico.length - 1],
+)
+function aoMoverPonteiro(params: any) {
+  const idx = params?.axesInfo?.[0]?.value
+  const ponto = typeof idx === 'number' ? props.historico[Math.round(idx)] : null
+  if (ponto) hud.value = ponto
+}
+
+// Mesmo breakpoint do CSS que mostra o HUD (640px): quando o HUD assume a
+// leitura, o tooltip nativo do ECharts (que nasce sob o dedo) so atrapalharia
+// — desliga ele nesse caso. Desktop mantem o tooltip no cursor normalmente.
+const ehMobile = ref(false)
+let mql: MediaQueryList | null = null
+function atualizaMobile() { ehMobile.value = !!mql?.matches }
+onMounted(() => {
+  if (!import.meta.client) return
+  mql = window.matchMedia('(max-width: 640px)')
+  atualizaMobile()
+  mql.addEventListener('change', atualizaMobile)
+})
+onUnmounted(() => mql?.removeEventListener('change', atualizaMobile))
+
 const opcao = computed(() => ({
   animationDuration: 350,
   textStyle: { fontFamily: FONTE },
@@ -63,6 +93,10 @@ const opcao = computed(() => ({
     splitLine: { lineStyle: { color: HAIR } },
   },
   tooltip: {
+    // No mobile o HUD fixo no topo assume a leitura (ver .gv-hud); o tooltip
+    // nativo nasceria embaixo do dedo, escondido, entao some. axisPointer
+    // (a linha vertical que acompanha o toque) continua — so o balao some.
+    show: !ehMobile.value,
     trigger: 'axis',
     backgroundColor: '#ffffff',
     borderColor: HAIR,
@@ -114,13 +148,22 @@ const opcao = computed(() => ({
   <!-- ECharts mede o container no mount: so cliente. O fallback reserva a
        altura pra pagina nao pular quando o grafico chegar. -->
   <ClientOnly>
-    <VChart
-      class="gv"
-      :option="opcao"
-      autoresize
-      role="img"
-      :aria-label="`Variação do valor FIPE de ${historico[0].label} a ${historico[historico.length - 1].label}`"
-    />
+    <div class="gv-wrap">
+      <!-- So visivel no mobile via CSS (ver media query abaixo); atualizado
+           pelo evento de axis pointer independente da tela, custo desprezivel. -->
+      <div class="gv-hud" aria-hidden="true">
+        <span class="gv-hud__label">{{ hud.label }}</span>
+        <strong class="gv-hud__price">{{ brl(hud.price) }}</strong>
+      </div>
+      <VChart
+        class="gv"
+        :option="opcao"
+        autoresize
+        role="img"
+        :aria-label="`Variação do valor FIPE de ${historico[0].label} a ${historico[historico.length - 1].label}`"
+        @updateAxisPointer="aoMoverPonteiro"
+      />
+    </div>
     <template #fallback>
       <div class="gv" aria-hidden="true" />
     </template>
@@ -128,8 +171,43 @@ const opcao = computed(() => ({
 </template>
 
 <style scoped>
+.gv-wrap {
+  position: relative;
+}
+
 .gv {
   width: 100%;
   height: 280px;
+}
+
+.gv-hud {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  // No mobile o HUD substitui o tooltip como leitura principal: fica FIXO no
+  // topo do grafico (nunca embaixo do dedo), atualiza pelo axisPointer.
+  .gv-hud {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    position: absolute;
+    top: 4px;
+    left: 8px;
+    right: 8px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .gv-hud__label {
+    font-size: 11px;
+    color: #636363;
+  }
+
+  .gv-hud__price {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
 }
 </style>
