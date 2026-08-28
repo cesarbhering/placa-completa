@@ -60,9 +60,9 @@ useHead({
             <li>Dados cadastrais (CU-01);</li>
             <li>Restrições e gravames (CU-02);</li>
             <li>Histórico de roubo e furto (CU-03);</li>
-            <li>Débitos, multas e situação fiscal — RENAINF (CU-04);</li>
+            <li>Débitos, multas e situação fiscal (RENAINF, CU-04);</li>
             <li>Campanhas de recall (CU-05);</li>
-            <li>Restrições judiciais — RENAJUD (CU-06).</li>
+            <li>Restrições judiciais (RENAJUD, CU-06).</li>
           </ul>
           <p>
             Informações complementares (ex.: tabela FIPE) podem ser obtidas de fontes
@@ -80,7 +80,7 @@ useHead({
             <li>Conferência de informações para fins pessoais ou comerciais legítimos.</li>
           </ul>
 
-          <h2>6. Proibições — Vedações da Portaria SENATRAN 139/2025</h2>
+          <h2>6. Proibições: Vedações da Portaria SENATRAN 139/2025</h2>
           <p>
             Em cumprimento à Portaria SENATRAN nº 139/2025 e à LGPD, é
             <strong>expressamente vedado</strong> ao usuário do Serviço:
@@ -141,8 +141,8 @@ useHead({
 
           <h2>10. Propriedade Intelectual</h2>
           <p>
-            Todo o conteúdo do site — incluindo marca, logotipo, layout, código e organização
-            das informações — é de propriedade do Placa Completa e está protegido pela
+            Todo o conteúdo do site, incluindo marca, logotipo, layout, código e organização
+            das informações, é de propriedade do Placa Completa e está protegido pela
             legislação brasileira de propriedade intelectual. É proibida a reprodução,
             distribuição ou utilização sem autorização prévia e expressa.
           </p>
@@ -166,7 +166,7 @@ useHead({
 
           <h2>13. Contato</h2>
           <p>
-            CESAR CANCADO BHERING TECNOLOGIA LTDA — CNPJ 62.569.152/0001-67<br>
+            CESAR CANCADO BHERING TECNOLOGIA LTDA, CNPJ 62.569.152/0001-67<br>
             Rua Bom Pastor, Sala 03, Ipiranga, São Paulo/SP<br>
             <strong>E-mail:</strong> contato@placacompleta.com.br
           </p>

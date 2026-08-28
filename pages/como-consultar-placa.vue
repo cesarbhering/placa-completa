@@ -70,7 +70,7 @@ useHead({
             name: 'Preciso pagar para consultar uma placa?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'Não. A consulta de placa no PlacaCompleta é totalmente gratuita. Os dados são públicos, mantidos pelo DETRAN, e a Lei 9.503/97 (Código de Trânsito Brasileiro) garante o direito à consulta de dados não sensíveis.',
+              text: 'Não. A consulta de placa no PlacaCompleta é totalmente gratuita. Os dados são públicos, mantidos em bases oficiais, e a Lei 9.503/97 (Código de Trânsito Brasileiro) garante o direito à consulta de dados não sensíveis.',
             },
           },
           {
@@ -94,7 +94,7 @@ useHead({
             name: 'A consulta de placa funciona com placa Mercosul?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'Sim. O PlacaCompleta funciona com placas Mercosul (formato ABC1D23) e placas antigas (formato ABC1234). Não é preciso converter — basta digitar como está escrito.',
+              text: 'Sim. O PlacaCompleta funciona com placas Mercosul (formato ABC1D23) e placas antigas (formato ABC1234). Não é preciso converter, basta digitar como está escrito.',
             },
           },
         ],
@@ -151,16 +151,16 @@ useHead({
 
           <h2>Por que usar o Placa Completa?</h2>
           <ul>
-            <li><strong>100% grátis</strong> — sem custos escondidos</li>
-            <li><strong>Sem cadastro</strong> — só precisa do e-mail</li>
-            <li><strong>Rápido</strong> — resultado em segundos</li>
-            <li><strong>Completo</strong> — inclui tabela FIPE, chassi, município</li>
-            <li><strong>Seguro</strong> — seus dados ficam protegidos</li>
+            <li><strong>100% grátis</strong>: sem custos escondidos</li>
+            <li><strong>Sem cadastro</strong>: só precisa do e-mail</li>
+            <li><strong>Rápido</strong>: resultado em segundos</li>
+            <li><strong>Dados essenciais</strong>: tabela FIPE, chassi parcial, município</li>
+            <li><strong>Seguro</strong>: seus dados ficam protegidos</li>
           </ul>
 
           <h2>Quando é útil consultar a placa?</h2>
           <ul>
-            <li>Na <strong>compra de veículo usado</strong> — verifique restrições e dados</li>
+            <li>Na <strong>compra de veículo usado</strong>: confira os dados básicos antes de negociar</li>
             <li>Para <strong>confirmar informações</strong> de um veículo</li>
             <li>Para <strong>saber o valor FIPE</strong> atualizado</li>
             <li>Para <strong>lojistas</strong> que precisam consultar placas diariamente</li>
