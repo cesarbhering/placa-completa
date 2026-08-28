@@ -39,13 +39,28 @@ async function registrarConsulta(supabase: any, row: Record<string, any>, origem
 // nem valida e-mail/telefone.
 type Channel = 'email' | 'whatsapp' | 'tela'
 
-// Mostra o inicio do chassi e esconde o resto: o comprador confere contra o
+// Mostra parte do chassi e esconde o resto: o comprador confere contra o
 // documento sem que a superficie gratis entregue o numero inteiro.
 function mascararChassi(chassi: unknown): string | null {
   const c = String(chassi || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
   if (c.length < 8) return null
   const visivel = c.slice(0, 5)
   return visivel + '*'.repeat(c.length - visivel.length)
+}
+
+// `extra` (com o chassi INTEIRO) nao vem pra toda placa — falta com frequencia
+// em veiculo mais antigo (ex: Opala 1972 na placa GSZ6753). Quando falta, o
+// payload raiz as vezes ja traz `chassi` PRE-MASCARADO PELA PROPRIA WDAPI, so
+// que ao contrario do nosso padrao: esconde o COMECO e mostra o FINAL
+// ("*****55388"). Rodar mascararChassi() em cima disso e o bug que fazia o
+// campo sumir: a regex tira os "*" (nao sao alfanumericos), sobra so "55388"
+// (5 chars), cai no guard de <8 e devolve null. Aqui so usamos o valor como
+// veio quando ja mascarado — sem re-mascarar.
+function chassiParaExibicao(apiResponse: any): string | null {
+  const completo = apiResponse?.extra?.chassi
+  if (completo) return mascararChassi(completo)
+  const bruto = apiResponse?.chassi
+  return typeof bruto === 'string' && bruto.trim() ? bruto.trim() : null
 }
 
 export default defineEventHandler(async (event) => {
@@ -754,7 +769,7 @@ export default defineEventHandler(async (event) => {
       uf: apiResponse.uf || null,
       // So o comeco do chassi: confere com o do documento sem entregar o
       // numero, que e do relatorio pago.
-      chassiParcial: mascararChassi(apiResponse.extra?.chassi),
+      chassiParcial: chassiParaExibicao(apiResponse),
       // Valor FIPE atual (referencia de mercado). So o valor corrente; o
       // historico/grafico continua sendo conteudo pago.
       fipe: fipeValorAtual,
@@ -922,8 +937,6 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
   const ano = escapeHtml(data.ano || '-')
   const anoModelo = escapeHtml(data.anoModelo || '-')
   const cor = escapeHtml(data.cor || '-')
-  const municipio = escapeHtml(data.municipio || '-')
-  const uf = escapeHtml(data.uf || '-')
   const situacao = escapeHtml(data.situacao || '-')
   const origem = escapeHtml(data.origem || '-')
   const chassi = escapeHtml(data.extra?.chassi || data.chassi || '-')
@@ -990,8 +1003,7 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
         ${emailRow('Tipo', tipoVeiculo)}
         ${emailRow('Espécie', especie)}
         ${emailRow('Passageiros', passageiros)}
-        ${emailRow('Chassi', chassi)}
-        ${emailRow('Município', `${municipio} - ${uf}`)}
+        ${emailRow('Parte do chassi', chassi)}
         ${emailRow('Origem', origem)}
         ${emailRow('Situação', situacao, true)}
       `)}
@@ -1151,8 +1163,6 @@ function buildWhatsAppText(
   const ano = data.ano || '-'
   const anoModelo = data.anoModelo || '-'
   const cor = data.cor || '-'
-  const municipio = data.municipio || '-'
-  const uf = data.uf || '-'
   const situacao = data.situacao || '-'
   const chassi = data.extra?.chassi || data.chassi || '-'
   const extra = data.extra || {}
@@ -1176,9 +1186,8 @@ function buildWhatsAppText(
     `Cor:          ${cor}`,
     `Combustível:  ${combustivel}`,
     `Tipo:         ${tipoVeiculo}`,
-    `Chassi:       ${chassi}`,
-    `Município:    ${municipio} - ${uf}`,
-    `Situação:     ${situacao}`,
+    `Parte do chassi: ${chassi}`,
+    `Situação:        ${situacao}`,
   ]
 
   if (fipeValor) {
