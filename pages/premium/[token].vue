@@ -492,6 +492,16 @@ const fichaCadastral = computed(() => [
   linha('Situação', humanizar(g('situacao'))),
   linha('UF da jurisdição', g('ufJurisdicao')),
   linha('Município', humanizar(g('municipio'))),
+  // Dado DIFERENTE do par acima: aquele e a jurisdicao ATUAL (SENATRAN); este
+  // e o municipio do PRIMEIRO EMPLACAMENTO (wdapi, guardado no preview do
+  // pedido desde o checkout — nao muda mesmo que o veiculo tenha sido
+  // transferido de UF depois). Complementar, nao substitui.
+  linha(
+    'Primeiro emplacamento',
+    data.value?.preview?.municipio
+      ? [data.value.preview.municipio, data.value.preview.uf].filter(Boolean).join(' - ')
+      : null,
+  ),
 ].filter(Boolean) as [string, string][])
 
 // Unidades explicitas: "97" e "1400" sozinhos nao dizem nada.
