@@ -2,10 +2,10 @@
 import { ibvPosts } from '~/data/ibv-posts'
 
 useHead({
-  title: 'IBV Auto — Índice de Inflação de Carros Usados | PlacaCompleta',
+  title: 'IBV Auto: Índice de Inflação de Carros Usados | PlacaCompleta',
   meta: [
     { name: 'description', content: 'Acompanhe o Índice BV Auto (IBV), referência mensal de inflação de automóveis usados no Brasil. Dados por modelo, estado e tipo de combustível.' },
-    { property: 'og:title', content: 'IBV Auto — Índice de Preços de Carros Usados' },
+    { property: 'og:title', content: 'IBV Auto: Índice de Preços de Carros Usados' },
     { property: 'og:description', content: 'Relatórios mensais do Índice BV Auto (IBV): inflação de automóveis usados no Brasil por modelo, estado e tipo de combustível.' },
     { property: 'og:type', content: 'website' },
   ],
