@@ -187,6 +187,20 @@ const normalizaChave = (r: any) => String(r).toUpperCase().replace(/[\s-]+/g, '_
 const indicadores = computed(() => {
   const base: any[] = INDICADORES.filter((i) => has(i.k)).map((i) => {
     const ligado = g(i.k) === true
+    // Caso achado num relatorio real (placa GRU3557): indicadorRouboFurto
+    // pode vir `false` (sem registro ATIVO agora) mesmo quando existem
+    // declaracoes de furto/roubo no HISTORICO (ocorrenciasRouboFurto). O
+    // cartao verde "NADA CONSTA" nesse caso e enganoso — quem le a sigla
+    // "nada consta" entende "nunca teve problema", e nao e verdade. Se tem
+    // ocorrencia registrada, o cartao acende mesmo com o indicador desligado.
+    if (i.k === 'indicadorRouboFurto' && !ligado && ocorrencias.value.length) {
+      return {
+        ...i,
+        nao: 'Não ativo, mas tem histórico',
+        ligado,
+        alerta: true,
+      }
+    }
     return { ...i, ligado, alerta: ligado && i.risco }
   })
 
@@ -501,16 +515,11 @@ const fichaCadastral = computed(() => [
   linha('Situação', humanizar(g('situacao'))),
   linha('UF da jurisdição', g('ufJurisdicao')),
   linha('Município', humanizar(g('municipio'))),
-  // Dado DIFERENTE do par acima: aquele e a jurisdicao ATUAL (SENATRAN); este
-  // e o municipio do PRIMEIRO EMPLACAMENTO (wdapi, guardado no preview do
-  // pedido desde o checkout — nao muda mesmo que o veiculo tenha sido
-  // transferido de UF depois). Complementar, nao substitui.
-  linha(
-    'Primeiro emplacamento',
-    data.value?.preview?.municipio
-      ? [data.value.preview.municipio, data.value.preview.uf].filter(Boolean).join(' - ')
-      : null,
-  ),
+  // "Primeiro emplacamento" (municipio da wdapi, via preview do pedido) foi
+  // removido: o Cesar constatou que o dado vem inconsistente (as vezes e o
+  // 1o emplacamento de fato, as vezes reflete a situacao atual, sem como
+  // diferenciar so pelo payload). O 'Município' acima (SENATRAN) e confiavel
+  // e fica. Sem fonte confiavel = sem exibir (mesmo criterio do vin-decoder).
 ].filter(Boolean) as [string, string][])
 
 // Unidades explicitas: "97" e "1400" sozinhos nao dizem nada.
@@ -1054,6 +1063,18 @@ onUnmounted(() => poll && clearInterval(poll))
             </p>
             <NuxtLink class="rel__btn rel__btn--primario" :to="`/?placa=${data.placa}&plano=completa`">
               Relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+            </NuxtLink>
+          </section>
+
+          <!-- Nova consulta: incentivo pra voltar depois de ver o relatorio
+               pronto. So tela (mesmo tratamento do upsell da basica acima,
+               .rel__card--up some na impressao: e conversa de produto, nao
+               parte do laudo). -->
+          <section class="rel__card rel__card--up">
+            <h2 class="rel__h2">Precisa consultar outro veículo?</h2>
+            <p class="rel__hint">Faça uma nova consulta grátis pela placa.</p>
+            <NuxtLink class="rel__btn rel__btn--primario" to="/">
+              Realizar nova consulta
             </NuxtLink>
           </section>
 
