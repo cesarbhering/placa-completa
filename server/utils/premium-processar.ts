@@ -11,6 +11,11 @@ export async function processarPedidoPago(
     plano?: string | null
     // controle de teste: 'producao' dispara consulta real; ausente => 'homolog'
     ambiente?: string | null
+    // preview salvo no checkout (uf/municipio do veiculo) — usado so pra
+    // montar o snapshot do relatorio (valorCusto). Opcional: quando ausente
+    // (chamadores antigos/parciais), o snapshot ainda grava, so sem
+    // uf/municipio (getValorCusto cai pro fallback dele).
+    preview?: any
   },
 ): Promise<void> {
   const ambiente = pedido.ambiente === 'producao' ? 'producao' : 'homolog'
@@ -28,6 +33,28 @@ export async function processarPedidoPago(
       .from('pedidos_premium')
       .update({ status: 'entregue', entregue_em: new Date().toISOString(), consulta_id: r.consultaId, debug_trace: r.trace })
       .eq('id', pedido.id)
+
+    // Snapshot imutavel: monta o payload agregado (consulta filtrada por
+    // plano + valorCusto + chassiOrigem + camposRestantes) UMA VEZ, aqui na
+    // entrega, pra report.get nunca mais precisar refazer chamadas externas
+    // (vin-decoder/FIPE/seguro) nas visualizacoes seguintes. Fail-safe: se a
+    // gravacao falhar, so loga — report.get tem fallback lazy que monta e
+    // grava na 1a visualizacao caso o snapshot ainda nao exista.
+    try {
+      const snapshot = await montarRelatorioSnapshot(supabase, {
+        placa: pedido.placa,
+        plano: pedido.plano || 'completa',
+        consulta_id: r.consultaId,
+        preview: pedido.preview,
+      })
+      await supabase
+        .from('pedidos_premium')
+        .update({ relatorio_snapshot: snapshot, snapshot_em: new Date().toISOString() })
+        .eq('id', pedido.id)
+    } catch (snapErr: any) {
+      if (import.meta.dev) console.warn('[premium] snapshot falhou na entrega, fallback lazy cobre depois:', snapErr?.message || snapErr)
+    }
+
     // Placa e plano entram no assunto e no corpo: "seu relatorio completo da
     // placa ABC1D23 esta pronto" e reconhecivel na caixa de entrada, "sua
     // consulta esta pronta" nao.
