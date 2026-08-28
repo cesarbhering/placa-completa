@@ -27,6 +27,16 @@ export const useAnalytics = () => {
     }
   }
 
+  /**
+   * Restricao do relatorio que caiu no texto generico por nao ter copy
+   * propria. Manda SO o codigo do tipo (ex: RESTRICAO_ADMINISTRATIVA_X),
+   * nunca placa/chassi/token: serve pra saber quais tipos ainda faltam no
+   * dicionario de explicacoes.
+   */
+  const trackRestricaoDesconhecida = (tipo: string) => {
+    track('restricao_sem_copy', { tipo_restricao: tipo })
+  }
+
   // Google Ads: acao de conversao "Consulta paga (Pix)", BRL.
   const AW_SEND_TO = 'AW-18330779331/KeCcCOXO7OMcEMP95aRE'
 
@@ -89,5 +99,6 @@ export const useAnalytics = () => {
     track,
     trackBeginCheckout,
     trackConversionPaga,
+    trackRestricaoDesconhecida,
   }
 }

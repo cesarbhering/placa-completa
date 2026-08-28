@@ -14,6 +14,7 @@
 // O corte por plano acontece no servidor: o que a basica nao comprou nem chega
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
+import { explicaRestricao } from '~/shared/restricoes'
 
 const route = useRoute()
 const token = route.params.token as string
@@ -60,6 +61,13 @@ const ROTULOS: Record<string, string> = {
   BUSCA_E_APREENSAO: 'Busca e apreensão',
   RESTRICAO_JUDICIAL: 'Restrição judicial',
   RESTRICAO_ADMINISTRATIVA: 'Restrição administrativa',
+  RESTRICAO_RENAJUD: 'Restrição judicial (RENAJUD)',
+  BAIXA: 'Veículo baixado',
+  BAIXADO_DEFINITIVO: 'Veículo baixado',
+  RECUPERADO_SINISTRO: 'Recuperado de sinistro',
+  SINISTRO: 'Sinistro registrado',
+  GRAVAME: 'Gravame (financiamento)',
+  LEILAO: 'Passagem por leilão',
   RESTRICAO_TRIBUTARIA: 'Restrição tributária',
   RESTRICAO_BENEFICIO_TRIBUTARIO: 'Restrição de benefício tributário',
   COMUNICACAO_DE_VENDA: 'Comunicação de venda',
@@ -238,33 +246,15 @@ const indicadores = computed(() => {
   return base
 })
 
-// O rotulo diz O QUE consta; a explicacao diz O QUE ISSO SIGNIFICA pra quem
-// esta comprando. Sem ela, "Reserva de domínio" e jargao.
-const EXPLICA_RESTRICAO: Record<string, string> = {
-  ROUBO_FURTO: 'Consta registro ativo de roubo ou furto. A transferência fica bloqueada e o veículo pode ser apreendido em fiscalização. Não conclua o negócio antes de esclarecer a situação.',
-  ALIENACAO_FIDUCIARIA: 'O veículo está financiado e é a garantia do contrato. A transferência depende da quitação e da baixa do gravame.',
-  ARRENDAMENTO_MERCANTIL: 'O veículo está em contrato de leasing: quem o usa não é o proprietário até o fim do contrato.',
-  RESERVA_DE_DOMINIO: 'O vendedor original mantém a propriedade até o pagamento integral do contrato de compra.',
-  PENHOR: 'O veículo foi dado como garantia de uma dívida e não pode ser transferido enquanto ela existir.',
-  BUSCA_E_APREENSAO: 'Existe ordem para recolher o veículo, normalmente por financiamento não pago. Risco alto: o carro pode ser apreendido do novo dono.',
-  RESTRICAO_JUDICIAL: 'Uma decisão da Justiça impede a transferência do veículo.',
-  RESTRICAO_ADMINISTRATIVA: 'Um órgão de trânsito bloqueou alterações no cadastro do veículo.',
-  RESTRICAO_TRIBUTARIA: 'O veículo tem pendência ou benefício fiscal que limita a transferência, como isenção de impostos com prazo de carência.',
-  RESTRICAO_BENEFICIO_TRIBUTARIO: 'O veículo foi comprado com isenção ou redução de imposto e tem prazo de carência. Transferir antes do prazo exige quitar o imposto ou obter autorização fiscal.',
-  COMUNICACAO_DE_VENDA: 'O dono anterior informou a venda ao órgão de trânsito. Falta o novo dono concluir a transferência.',
-  PENDENCIA_DE_EMISSAO_CRV: 'O documento de transferência (CRV) ainda não foi emitido. Sem ele a venda não se conclui.',
-  PENDENCIA_EMISSAO_CRV: 'O documento de transferência (CRV) ainda não foi emitido. Sem ele a venda não se conclui.',
-  RENAINF: 'Constam multas em aberto registradas contra o veículo, dentro e fora do estado. Elas acompanham o carro, não o motorista.',
-  RFB: 'Restrição da Receita Federal, comum em veículo com pendência de importação ou de regime fiscal.',
-}
-
-function explicaRestricao(bruto: string): string {
-  const chave = String(bruto || '').toUpperCase().replace(/[\s-]+/g, '_')
-  if (EXPLICA_RESTRICAO[chave]) return EXPLICA_RESTRICAO[chave]
-  // variantes com sufixo de sistema ("_FILE_VEICULOS" etc): casa pelo prefixo
-  const pref = Object.keys(EXPLICA_RESTRICAO).find((k) => chave.startsWith(k))
-  if (pref) return EXPLICA_RESTRICAO[pref]
-  return 'Uma restrição registrada condiciona ou impede a transferência do veículo. Esclareça com o vendedor antes de fechar negócio.'
+// Copy das restricoes (dicionario + fallback) vive em shared/restricoes.ts,
+// que e testavel sem montar a pagina. Aqui fica so o gancho de telemetria pro
+// tipo que ainda nao tem copy propria.
+const tiposRestricaoDesconhecidos = new Set<string>()
+function registraTipoDesconhecido(chave: string) {
+  if (!chave || tiposRestricaoDesconhecidos.has(chave)) return
+  tiposRestricaoDesconhecidos.add(chave)
+  if (import.meta.dev) console.warn('[relatorio] restricao sem copy especifica:', chave)
+  try { trackRestricaoDesconhecida(chave) } catch { /* telemetria e best-effort */ }
 }
 
 const restricoes = computed<{ rotulo: string; explica: string }[]>(() => {
@@ -272,7 +262,7 @@ const restricoes = computed<{ rotulo: string; explica: string }[]>(() => {
   if (!Array.isArray(arr)) return []
   return arr
     .filter(Boolean)
-    .map((r: any) => ({ rotulo: humanizar(r), explica: explicaRestricao(String(r)) }))
+    .map((r: any) => ({ rotulo: humanizar(r), explica: explicaRestricao(String(r), registraTipoDesconhecido) }))
 })
 
 // `ultimoLicenciamento` vem como objeto e ate agora era pago e descartado.
