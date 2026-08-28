@@ -268,37 +268,24 @@ export default defineEventHandler(async (event) => {
     // reset pos-compra (janelaInicio) nao abre brecha e protege quem pagou. O
     // limite por destinatario/email segue 5/h. Escape via rate_limit_whitelist
     // (whitelistar um IP pra Infinity ou teto maior).
-    const IP_WDAPI_HOURLY_LIMIT = 15
+    //
+    // Combinado com /api/premium/preview (que tambem custa wdapi, ver
+    // server/utils/ip-wdapi-limit.ts): sem a soma, um bot que revezasse entre
+    // as duas rotas dobrava o orcamento efetivo pra 30/hora.
     if (ipCheckable) {
-      const ipLimit = await getHourlyLimit(ip)
-      if (ipLimit !== Infinity) {
-        const teto = Math.max(IP_WDAPI_HOURLY_LIMIT, ipLimit)
-        const { count: ipWdapiCount, data: ipWdapiRows } = await supabase
-          .from('consultas')
-          .select('created_at', { count: 'exact' })
-          .eq('ip_address', ip)
-          .gte('created_at', janelaInicio)
-          .order('created_at', { ascending: true })
-          .limit(1)
-        if ((ipWdapiCount ?? 0) >= teto) {
-          const oldestIso = ipWdapiRows?.[0]?.created_at
-          let minutesUntilReset = 60
-          if (oldestIso) {
-            const minutesElapsed = Math.floor((Date.now() - new Date(oldestIso).getTime()) / 60000)
-            minutesUntilReset = Math.max(1, 60 - minutesElapsed)
-          }
-          supabase.from('blocked_requests').insert({
-            reason: 'rate_limit_ip_wdapi',
-            ip_address: ip,
-            recipient: recipientValue ?? null,
-            placa: placaClean || null,
-            user_agent: userAgent,
-          }).then(({ error }) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
-          throw createError({
-            statusCode: 429,
-            message: `Limite de ${teto} consultas por hora atingido. Tente novamente em ~${minutesUntilReset} min.`,
-          })
-        }
+      const limite = await checarLimiteIpWdapi(supabase, ip, { recipientValue, janelaInicio })
+      if (!limite.ok) {
+        supabase.from('blocked_requests').insert({
+          reason: 'rate_limit_ip_wdapi',
+          ip_address: ip,
+          recipient: recipientValue ?? null,
+          placa: placaClean || null,
+          user_agent: userAgent,
+        }).then(({ error }) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
+        throw createError({
+          statusCode: 429,
+          message: `Limite de ${limite.teto} consultas por hora atingido. Tente novamente em ~${limite.minutesUntilReset} min.`,
+        })
       }
     }
 
