@@ -591,7 +591,7 @@ onUnmounted(() => {
 <template v-if="!editandoPlaca">
             <!-- Faixa de confianca: as tres duvidas que travam o clique
                  (e se o carro nao aparecer? vai virar assinatura? quem
-                 processa o pagamento?), respondidas com o que o produto ja
+                 processa o Pix?), respondidas com o que o produto ja
                  faz de verdade. Nada de prova social inventada. -->
             <ul class="pic-conf">
               <li class="pic-conf__item pic-conf__item--forte">
@@ -599,7 +599,7 @@ onUnmounted(() => {
                   <path d="M12 3 20 6v6c0 4.5-3.3 7.9-8 9-4.7-1.1-8-4.5-8-9V6Z" />
                   <path d="m9 12 2 2 4-4" />
                 </svg>
-                <span><strong>Estorno automático no Pix</strong> se não conseguirmos entregar o relatório deste veículo.</span>
+                <span><strong>Estorno automático no Pix</strong> se não conseguirmos gerar seu relatório.</span>
               </li>
               <li class="pic-conf__item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -679,7 +679,7 @@ onUnmounted(() => {
                   <rect x="4" y="10" width="16" height="10" rx="2" />
                   <path d="M8 10V7a4 4 0 0 1 8 0v3" />
                 </svg>
-                <span>Cobrança única de {{ reais(pix?.valor ?? planoInfo.valorCentavos) }} via Pix, processada pela Woovi. Se não conseguirmos entregar o relatório, o estorno é automático.</span>
+                <span>Cobrança única de {{ reais(pix?.valor ?? planoInfo.valorCentavos) }} via Pix, processada pela Woovi. Se não conseguirmos gerar seu relatório, o estorno é automático.</span>
               </p>
               <!-- Homolog: confirma o pagamento sem Pix real (AbacatePay dev). -->
               <button
