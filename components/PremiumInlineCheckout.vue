@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PLANOS } from '~/shared/planos'
+import { PLANOS, RECURSOS } from '~/shared/planos'
 
 // Checkout premium inline: roda o fluxo pago SEM sair da home, num overlay.
 // Espelha a logica de pages/premium/index.vue (gate -> preview -> checkout ->
@@ -104,7 +104,41 @@ const mostraWhatsapp = false
 const ambiente = ref<'homolog' | 'producao'>(cfg.public.homolog ? 'homolog' : 'producao')
 const preview = ref<any>(null)
 
-const pix = ref<{ brCode?: string; brCodeBase64?: string; token: string; valor: number; gratis?: boolean } | null>(null)
+const pix = ref<{ brCode?: string; brCodeBase64?: string; token: string; valor: number; gratis?: boolean; expiresAt?: string | null } | null>(null)
+
+// Contagem regressiva do Pix: a cobranca expira em 15 minutos e ate agora a
+// tela nao dizia isso. Prazo visivel evita tanto a pressa ansiosa ("vai
+// sumir?") quanto o abandono de quem acha que pode voltar amanha.
+const agora = ref(Date.now())
+let tickRestante: ReturnType<typeof setInterval> | null = null
+const segundosRestantes = computed(() => {
+  const fim = pix.value?.expiresAt ? new Date(pix.value.expiresAt).getTime() : 0
+  if (!fim) return null
+  return Math.max(0, Math.floor((fim - agora.value) / 1000))
+})
+const tempoRestante = computed(() => {
+  const s = segundosRestantes.value
+  if (s === null) return null
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+})
+
+// O que este plano libera, na ordem em que a pessoa pensa no problema. Sai da
+// fonte unica de recursos (shared/planos.ts), entao muda junto com o produto.
+const oQueLibera = computed(() => {
+  const rotulos = RECURSOS
+    .filter((r) => r.planos.includes(props.plano as any))
+    .map((r) => r.label)
+  const destaque = [
+    'Roubo e furto',
+    'Registro de leilão no documento',
+    'Gravame e alienação',
+    'Restrições nacionais e estaduais',
+    'Indicador de multas (RENAINF)',
+    'Valor FIPE',
+  ]
+  const escolhidos = destaque.filter((d) => rotulos.some((r) => r.startsWith(d)))
+  return (escolhidos.length ? escolhidos : rotulos).slice(0, 5)
+})
 const pendingStatus = ref('aguardando_pagamento')
 let poll: ReturnType<typeof setInterval> | null = null
 
@@ -115,6 +149,13 @@ const { trackBeginCheckout, trackConversionPaga } = useAnalytics()
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
 const planoInfo = computed(() => PLANOS[props.plano])
+// O botao diz o que a pessoa leva, nao so o que ela paga: "Pagar R$44,90" e
+// custo puro; com o desfecho junto, o clique tem um motivo.
+const rotuloPagar = computed(() => {
+  if (loading.value) return cupomGratis.value ? 'Liberando...' : 'Gerando Pix...'
+  if (cupomGratis.value) return 'Liberar relatório grátis'
+  return `Pagar ${reais(precoExibidoCentavos.value)} e ver o ${planoInfo.value.nome.toLowerCase()}`
+})
 const precoExibidoCentavos = computed(() =>
   Math.max(0, planoInfo.value.valorCentavos - cupomDescontoCentavos.value),
 )
@@ -284,6 +325,8 @@ async function pagar() {
       status: 'aguardando_pagamento',
     })
     poll = setInterval(checarStatus, 4000)
+    agora.value = Date.now()
+    if (!tickRestante) tickRestante = setInterval(() => { agora.value = Date.now() }, 1000)
     // Gratis: o server ja processou a entrega ANTES de responder (sem Pix pra
     // esperar). Confere o status na hora em vez de deixar a pessoa olhando
     // pra tela de "aguardando pagamento" ate o proximo tick do poll (4s).
@@ -362,6 +405,7 @@ function fechar() {
 
 onUnmounted(() => {
   if (poll) clearInterval(poll)
+  if (tickRestante) clearInterval(tickRestante)
 })
 </script>
 
@@ -494,7 +538,7 @@ onUnmounted(() => {
               >
             </div>
             <button type="button" class="pic-btn pic-btn--primary" :disabled="loading" @click="irParaReconferencia">
-              {{ loading ? (cupomGratis ? 'Liberando...' : 'Gerando Pix...') : (cupomGratis ? 'Liberar relatório grátis' : `Pagar ${reais(precoExibidoCentavos)} via Pix`) }}
+              {{ rotuloPagar }}
             </button>
             <button type="button" class="pic-btn" @click="fechar">Cancelar</button>
           </div>
@@ -544,6 +588,34 @@ onUnmounted(() => {
               <span>{{ [preview.ano, preview.cor, preview.municipio, preview.uf].filter(Boolean).join(' · ') }}</span>
             </div>
 
+<template v-if="!editandoPlaca">
+            <!-- Faixa de confianca: as tres duvidas que travam o clique
+                 (e se o carro nao aparecer? vai virar assinatura? quem
+                 processa o pagamento?), respondidas com o que o produto ja
+                 faz de verdade. Nada de prova social inventada. -->
+            <ul class="pic-conf">
+              <li class="pic-conf__item pic-conf__item--forte">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 3 20 6v6c0 4.5-3.3 7.9-8 9-4.7-1.1-8-4.5-8-9V6Z" />
+                  <path d="m9 12 2 2 4-4" />
+                </svg>
+                <span><strong>Estorno automático no Pix</strong> se não conseguirmos entregar o relatório deste veículo.</span>
+              </li>
+              <li class="pic-conf__item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="4" y="10" width="16" height="10" rx="2" />
+                  <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                </svg>
+                <span>Pagamento único. Sem assinatura e sem cadastro.</span>
+              </li>
+              <li class="pic-conf__item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 2 3 6v5c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V6Z" />
+                </svg>
+                <span>Pix processado pela AbacatePay. Seus dados trafegam protegidos.</span>
+              </li>
+            </ul>
+            </template>
             <button
               v-if="!editandoPlaca"
               type="button"
@@ -551,7 +623,7 @@ onUnmounted(() => {
               :disabled="loading"
               @click="pagar"
             >
-              {{ loading ? (cupomGratis ? 'Liberando...' : 'Gerando Pix...') : (cupomGratis ? 'Liberar relatório grátis' : `Pagar ${reais(precoExibidoCentavos)} via Pix`) }}
+              {{ rotuloPagar }}
             </button>
             <button v-if="!editandoPlaca" type="button" class="pic-btn" @click="step = 'confirm'">Voltar</button>
           </div>
@@ -584,11 +656,31 @@ onUnmounted(() => {
                 <strong>{{ placaClean }}</strong>
               </div>
               <img v-if="pix?.brCodeBase64" :src="pix.brCodeBase64" alt="QR Code Pix" class="pic-qr">
+              <p v-if="tempoRestante" class="pic-prazo">
+                Este Pix vale por <strong>{{ tempoRestante }}</strong>. Depois disso é só gerar outro.
+              </p>
               <button type="button" class="pic-btn" @click="copiar">
                 Copiar código Pix (copia e cola)
               </button>
+              <p class="pic-hint pic-hint--forte">Pode deixar esta tela aberta: assim que o pagamento cair, o relatório abre sozinho aqui.</p>
+
+              <!-- Enquanto ela abre o app do banco, a tela lembra o que esta
+                   comprando. Os itens saem da lista de recursos do plano, nao
+                   de uma promessa escrita a mao aqui. -->
+              <div class="pic-libera">
+                <p class="pic-libera__tit">Assim que o pagamento cair, você vê</p>
+                <ul class="pic-libera__lista">
+                  <li v-for="item in oQueLibera" :key="item">{{ item }}</li>
+                </ul>
+              </div>
               <p class="pic-brcode">{{ pix?.brCode }}</p>
-              <p class="pic-hint">O relatório libera sozinho em até 5 minutos depois do pagamento.</p>
+              <p class="pic-selo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="4" y="10" width="16" height="10" rx="2" />
+                  <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                </svg>
+                <span>Cobrança única de {{ reais(pix?.valor ?? planoInfo.valorCentavos) }} via Pix, processada pela AbacatePay. Se não conseguirmos entregar o relatório, o estorno é automático.</span>
+              </p>
               <!-- Homolog: confirma o pagamento sem Pix real (AbacatePay dev). -->
               <button
                 v-if="cfg.public.homolog"
@@ -765,6 +857,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 .pic-hint { font-size: 14px; line-height: 1.45; color: $c-charcoal; margin: 0; }
+// Frase que tira o medo de pagar e perder a tela: precisa pesar mais que uma
+// dica comum, por isso vem depois de .pic-hint (mesma especificidade, ganha).
+.pic-hint--forte { color: $c-ink; font-weight: 600; }
 .pic-aviso { font-size: 13px; line-height: 1.4; color: #b45309; margin: 6px 0 0; }
 .pic-btn--sim { border: 1px dashed #b45309; color: #b45309; background: #fff7ed; }
 .pic-lead { font-size: 15px; line-height: 1.45; color: $c-charcoal; margin: 0; }
@@ -787,6 +882,123 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 .pic-veiculo__placa { font-size: 12px; letter-spacing: 0.06em; }
 
 // resumo do pedido: o que, pra qual placa, por quanto
+// ---- confianca ----
+// Regra do bloco: hairline e tinta, nunca um mural de selos coloridos. O unico
+// desvio de cor e o escudo do estorno, que e a garantia mais forte e a unica
+// que merece peso visual.
+.pic-conf {
+  list-style: none;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid $c-hair;
+  border-radius: 8px;
+  background: $c-cloud;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  &__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: $c-graphite;
+
+    svg {
+      width: 17px;
+      height: 17px;
+      flex-shrink: 0;
+      margin-top: 1px;
+      color: $c-steel;
+    }
+
+    strong { color: $c-ink; font-weight: 700; }
+  }
+
+  &__item--forte {
+    color: $c-charcoal;
+    svg { color: $c-green; }
+  }
+}
+
+// ---- tela do Pix ----
+.pic-prazo {
+  margin: 0;
+  font-size: 13px;
+  color: $c-graphite;
+
+  strong {
+    font-variant-numeric: tabular-nums;
+    color: $c-ink;
+  }
+}
+
+.pic-libera {
+  width: 100%;
+  border: 1px solid $c-hair;
+  border-radius: 8px;
+  padding: 12px 14px;
+  text-align: left;
+
+  &__tit {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $c-graphite;
+  }
+
+  &__lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    li {
+      position: relative;
+      padding-left: 20px;
+      font-size: 14px;
+      line-height: 1.4;
+      color: $c-charcoal;
+
+      &::before {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 8px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: $c-blue;
+      }
+    }
+  }
+}
+
+.pic-selo {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: left;
+  color: $c-graphite;
+
+  svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: $c-steel;
+  }
+}
+
 .pic-resumo {
   display: flex;
   flex-direction: column;
