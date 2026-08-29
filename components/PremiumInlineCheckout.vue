@@ -612,7 +612,7 @@ onUnmounted(() => {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M12 2 3 6v5c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V6Z" />
                 </svg>
-                <span>Pix processado pela AbacatePay. Seus dados trafegam protegidos.</span>
+                <span>Pix processado pela Woovi. Seus dados trafegam protegidos.</span>
               </li>
             </ul>
             </template>
@@ -679,7 +679,7 @@ onUnmounted(() => {
                   <rect x="4" y="10" width="16" height="10" rx="2" />
                   <path d="M8 10V7a4 4 0 0 1 8 0v3" />
                 </svg>
-                <span>Cobrança única de {{ reais(pix?.valor ?? planoInfo.valorCentavos) }} via Pix, processada pela AbacatePay. Se não conseguirmos entregar o relatório, o estorno é automático.</span>
+                <span>Cobrança única de {{ reais(pix?.valor ?? planoInfo.valorCentavos) }} via Pix, processada pela Woovi. Se não conseguirmos entregar o relatório, o estorno é automático.</span>
               </p>
               <!-- Homolog: confirma o pagamento sem Pix real (AbacatePay dev). -->
               <button
