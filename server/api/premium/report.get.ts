@@ -1,4 +1,4 @@
-import { filtrarPorPlano, camposRestantes } from '../../../shared/planos'
+import { filtrarPorPlano, camposRestantes, PLANOS } from '../../../shared/planos'
 import { getValorCusto } from '../../utils/valor-custo'
 
 // Dados do relatorio premium pelo token (superficie PAGA, token e a credencial).
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
       status: 'entregue',
       placa: amostra.placa,
       plano: 'completa',
-      valorCentavos: 4490,
+      valorCentavos: PLANOS.completa.valorCentavos,
       camposRestantes: 0,
       preview: null,
       entregue_em: new Date().toISOString(),
