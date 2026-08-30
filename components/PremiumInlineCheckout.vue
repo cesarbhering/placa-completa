@@ -149,7 +149,7 @@ const { trackBeginCheckout, trackConversionPaga } = useAnalytics()
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
 const planoInfo = computed(() => PLANOS[props.plano])
-// O botao diz o que a pessoa leva, nao so o que ela paga: "Pagar R$44,90" e
+// O botao diz o que a pessoa leva, nao so o que ela paga: o preco sozinho e
 // custo puro; com o desfecho junto, o clique tem um motivo.
 const rotuloPagar = computed(() => {
   if (loading.value) return cupomGratis.value ? 'Liberando...' : 'Gerando Pix...'
