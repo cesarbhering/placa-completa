@@ -15,7 +15,26 @@ const step = ref<Step>('placa')
 
 const { itens, sync: histSync } = useConsultaHistory()
 const modalConsultas = useState('pc-consultas-aberto', () => false)
-onMounted(() => { histSync() })
+const route = useRoute()
+
+// Placa pela URL (/premium?placa=ABC1D23): o e-mail de recuperacao de Pix
+// abandonado manda a pessoa de volta com a placa que ela ja tinha digitado.
+// Sem isto ela caia num campo em branco e tinha que lembrar o que consultou.
+// Query invalida e simplesmente ignorada: o fluxo normal continua igual.
+function placaDaQuery(): string {
+  const bruto = Array.isArray(route.query.placa) ? route.query.placa[0] : route.query.placa
+  const limpa = String(bruto || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
+  return limpa.length === 7 ? limpa : ''
+}
+
+onMounted(() => {
+  histSync()
+  const daQuery = placaDaQuery()
+  if (daQuery) {
+    placa.value = daQuery
+    consultarPreview()
+  }
+})
 const loading = ref(false)
 const msg = ref('')
 

@@ -30,7 +30,7 @@ const emit = defineEmits<{ close: [] }>()
 
 const cfg = useRuntimeConfig()
 
-type Step = 'loading' | 'gate' | 'confirm' | 'reconfirma' | 'pending' | 'erro'
+type Step = 'loading' | 'gate' | 'confirm' | 'pending' | 'erro'
 const step = ref<Step>('loading')
 const loading = ref(false)
 const msg = ref('')
@@ -189,8 +189,7 @@ async function salvarPlaca() {
   editandoPlaca.value = false
   placaLocal.value = nova
   step.value = 'loading'
-  await consultarPreview()   // o veiculo muda junto com a placa
-  step.value = 'reconfirma'
+  await consultarPreview()   // o veiculo muda junto com a placa (volta em 'confirm')
 }
 
 // Pre-preenche email salvo do fluxo grativo (mesmo navegador)
@@ -252,10 +251,12 @@ async function entrar() {
   }
 }
 
-// Antes de gerar o Pix, uma ultima olhada na placa. E o unico dado que a
-// pessoa digitou e o unico que, se estiver errado, faz ela pagar pelo carro
-// de outro.
-async function irParaReconferencia() {
+// Porta de entrada do pagamento: valida o que precisa ser validado e so
+// entao gera o Pix. A tela dedicada de reconferencia da placa saiu do fluxo
+// (um degrau a mais entre o checkout e o Pix, com dado que a tela de
+// confirmacao ja mostra); a correcao da placa continua existindo, agora como
+// lapis na propria linha do resumo.
+async function confirmarEPagar() {
   // E-mail so vira obrigatorio aqui, no clique final: quem digita o cupom
   // antes do e-mail nao leva erro no meio do caminho.
   emailErro.value = ''
@@ -283,7 +284,7 @@ async function irParaReconferencia() {
     }
   }
   editandoPlaca.value = false
-  step.value = 'reconfirma'
+  await pagar()
 }
 
 async function pagar() {
@@ -464,7 +465,20 @@ onUnmounted(() => {
                 <span>Relatório</span><strong>{{ planoInfo.nome }}</strong>
               </span>
               <span class="pic-resumo__linha">
-                <span>Placa</span><strong class="pic-resumo__placa">{{ placaClean }}</strong>
+                <span>Placa</span>
+                <!-- Unico dado que a pessoa digitou, e o unico que, errado,
+                     faz ela pagar pelo carro de outro: a correcao mora aqui,
+                     na propria linha, em vez de ocupar uma tela inteira. -->
+                <span class="pic-resumo__placa-linha">
+                  <strong class="pic-resumo__placa">{{ placaClean }}</strong>
+                  <button type="button" class="pic-lapis" aria-label="Corrigir a placa" @click="abrirEdicao">
+                    <!-- lapis do Feather (edit-2) -->
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                    </svg>
+                  </button>
+                </span>
               </span>
               <span v-if="cupomValido" class="pic-resumo__linha">
                 <span>Cupom</span><strong>-{{ reais(cupomDescontoCentavos) }}</strong>
@@ -472,6 +486,21 @@ onUnmounted(() => {
               <span class="pic-resumo__linha pic-resumo__linha--total">
                 <span>Total</span><strong>{{ reais(precoExibidoCentavos) }}</strong>
               </span>
+            </div>
+            <div v-if="editandoPlaca" class="pic-campo">
+              <label class="pic-label" for="pic-placa-edit">Digite a placa correta</label>
+              <input
+                id="pic-placa-edit"
+                v-model="placaRascunho"
+                class="pic-input pic-input--placa"
+                type="text"
+                maxlength="7"
+                autocomplete="off"
+                autocapitalize="characters"
+                placeholder="ABC1D23"
+                @keyup.enter="salvarPlaca"
+              >
+              <button type="button" class="pic-btn" @click="salvarPlaca">Usar esta placa</button>
             </div>
             <!-- Campo de cupom, expansivel: some por padrao pra nao poluir o
                  checkout de quem nao tem cupom. -->
@@ -537,58 +566,6 @@ onUnmounted(() => {
                 inputmode="tel"
               >
             </div>
-            <button type="button" class="pic-btn pic-btn--primary" :disabled="loading" @click="irParaReconferencia">
-              {{ rotuloPagar }}
-            </button>
-            <button type="button" class="pic-btn" @click="fechar">Cancelar</button>
-          </div>
-
-          <!-- Reconferencia da placa, ultimo passo antes do Pix -->
-          <div v-else-if="step === 'reconfirma'" class="pic-stack pic-center">
-            <h3 class="pic-h">Confirme a placa</h3>
-
-            <div v-if="!editandoPlaca" class="pic-placa-bloco">
-              <div class="pic-placa-destaque pic-placa-destaque--edit">
-                <span>Vamos consultar</span>
-                <span class="pic-placa-linha">
-                  <strong>{{ placaClean }}</strong>
-                  <button type="button" class="pic-lapis" aria-label="Corrigir a placa" @click="abrirEdicao">
-                    <!-- lapis do Feather (edit-2): traco unico, sem a "gota" que
-                         o desenho anterior fazia na ponta -->
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                    </svg>
-                  </button>
-                </span>
-              </div>
-              <!-- A instrucao fica colada na placa, que e o que ela manda
-                   corrigir. Embaixo do veiculo parecia falar do veiculo. -->
-              <p class="pic-hint pic-hint--lapis">Caso não seja esta, clique no lápis para corrigir.</p>
-            </div>
-
-            <div v-else class="pic-campo">
-              <label class="pic-label" for="pic-placa-edit">Digite a placa correta</label>
-              <input
-                id="pic-placa-edit"
-                v-model="placaRascunho"
-                class="pic-input pic-input--placa"
-                type="text"
-                maxlength="7"
-                autocomplete="off"
-                autocapitalize="characters"
-                placeholder="ABC1D23"
-                @keyup.enter="salvarPlaca"
-              >
-              <button type="button" class="pic-btn" @click="salvarPlaca">Usar esta placa</button>
-            </div>
-
-            <div v-if="!editandoPlaca && preview?.encontrado" class="pic-veiculo">
-              <strong>{{ preview.marca }} {{ preview.modelo }}</strong>
-              <span>{{ [preview.ano, preview.cor, preview.municipio, preview.uf].filter(Boolean).join(' · ') }}</span>
-            </div>
-
-<template v-if="!editandoPlaca">
             <!-- Faixa de confianca: as tres duvidas que travam o clique
                  (e se o carro nao aparecer? vai virar assinatura? quem
                  processa o Pix?), respondidas com o que o produto ja
@@ -615,19 +592,13 @@ onUnmounted(() => {
                 <span>Pix processado pela Woovi. Seus dados trafegam protegidos.</span>
               </li>
             </ul>
-            </template>
-            <button
-              v-if="!editandoPlaca"
-              type="button"
-              class="pic-btn pic-btn--primary"
-              :disabled="loading"
-              @click="pagar"
-            >
+            <button type="button" class="pic-btn pic-btn--primary" :disabled="loading || editandoPlaca" @click="confirmarEPagar">
               {{ rotuloPagar }}
             </button>
-            <button v-if="!editandoPlaca" type="button" class="pic-btn" @click="step = 'confirm'">Voltar</button>
+            <button type="button" class="pic-btn" @click="fechar">Cancelar</button>
           </div>
 
+          <!-- Reconferencia da placa, ultimo passo antes do Pix -->
           <!-- Pagamento Pix + polling -->
           <div v-else-if="step === 'pending'" class="pic-stack pic-center">
             <template v-if="pix?.gratis && pendingStatus === 'aguardando_pagamento'">
@@ -1023,16 +994,23 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__placa { letter-spacing: 0.08em; }
 
+  // Placa + lapis na mesma linha do resumo: o botao encolhe pra caber na
+  // altura da linha, em vez do alvo de 40px que ele tinha na tela dedicada.
+  &__placa-linha {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    .pic-lapis { width: 30px; height: 30px; }
+    .pic-lapis svg { width: 15px; height: 15px; }
+  }
+
   &__linha--total {
     background: $c-cloud;
     strong { font-size: 20px; font-weight: 500; color: $c-ink; }
   }
 }
 
-.pic-placa-bloco { display: flex; flex-direction: column; gap: 8px; }
-.pic-hint--lapis { font-size: 13px; color: $c-graphite; }
-.pic-placa-destaque--edit { gap: 6px; }
-.pic-placa-linha { display: flex; align-items: center; gap: 10px; }
 .pic-lapis {
   width: 40px;
   height: 40px;
