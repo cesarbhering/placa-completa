@@ -45,7 +45,7 @@ export const PLANOS: Record<PlanoId, Plano> = {
     id: 'completa',
     nome: 'Relatório completo',
     chamada: 'Tudo da básica, mais o que decide a compra.',
-    valorCentavos: 4490,
+    valorCentavos: 3990,
     destaque: 'Mais escolhido',
   },
 }
@@ -185,7 +185,7 @@ export function isPlanoPago(v: unknown): v is 'basica' | 'completa' {
   return v === 'basica' || v === 'completa'
 }
 
-/** "R$ 19,90" / "R$ 44,90" — sem os centavos quando forem zero. */
+/** "R$ 25,00" / "R$ 39,90" — sem os centavos quando forem zero. */
 export function precoBRL(centavos: number): string {
   const semCentavos = centavos % 100 === 0
   return (centavos / 100).toLocaleString('pt-BR', {
