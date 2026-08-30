@@ -164,8 +164,8 @@ const precoExibidoCentavos = computed(() =>
 // R$9,90) NAO conta como gratis — so quando zera de verdade.
 const cupomGratis = computed(() => cupomValido.value && precoExibidoCentavos.value === 0)
 
-// A placa comeca na prop mas pode ser corrigida aqui dentro (o lapis do passo
-// de reconferencia), entao vira estado local em vez de derivar so da prop.
+// A placa comeca na prop mas pode ser corrigida aqui dentro (o lapis na linha
+// do resumo), entao vira estado local em vez de derivar so da prop.
 const placaLocal = ref(String(props.placa || ''))
 watch(() => props.placa, (v) => { placaLocal.value = String(v || '') })
 
@@ -173,7 +173,7 @@ const placaClean = computed(() =>
   placaLocal.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7),
 )
 
-// Passo de reconferencia, entre o "pagar" e a geracao do Pix.
+// Correcao da placa, inline na linha do resumo do checkout.
 const editandoPlaca = ref(false)
 const placaRascunho = ref('')
 
@@ -271,9 +271,9 @@ async function confirmarEPagar() {
   }
   msg.value = ''
   // Revalida o cupom AGORA com o e-mail (limite por pessoa) e espera terminar
-  // antes de avancar — senao o resumo da reconferencia mostraria um preco que
-  // ja mudou. Se o cupom cair aqui, nao avanca: a pessoa precisa ver que o
-  // preco voltou ao cheio antes de confirmar. Nada que ela digitou se perde.
+  // antes de cobrar — senao a pessoa geraria um Pix com um preco que ja mudou.
+  // Se o cupom cair aqui, nao cobra: ela precisa ver que o preco voltou ao
+  // cheio antes de confirmar. Nada que ela digitou se perde.
   if (cupomCodigo.value.trim()) {
     loading.value = true
     const ok = await validarCupom()
@@ -598,7 +598,6 @@ onUnmounted(() => {
             <button type="button" class="pic-btn" @click="fechar">Cancelar</button>
           </div>
 
-          <!-- Reconferencia da placa, ultimo passo antes do Pix -->
           <!-- Pagamento Pix + polling -->
           <div v-else-if="step === 'pending'" class="pic-stack pic-center">
             <template v-if="pix?.gratis && pendingStatus === 'aguardando_pagamento'">
