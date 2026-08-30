@@ -2,7 +2,13 @@
 // Grid de valor abaixo do split (web): O que você recebe / Preço / Por que
 // confiar. O CTA de "Preço" emite 'consult' pra home acionar o checkout premium
 // com a placa do herói. Sem revelar fonte dos dados.
+import { PLANOS, precoBRL } from '~/shared/planos'
+
 defineEmits<{ consult: [] }>()
+
+// Preco sai da fonte unica (shared/planos.ts): escrito a mao, ele defasa na
+// primeira mudanca de tabela e ninguem lembra deste componente.
+const precoCompleta = precoBRL(PLANOS.completa.valorCentavos)
 </script>
 
 <template>
@@ -26,10 +32,10 @@ defineEmits<{ consult: [] }>()
     <section class="win-window hvg__card">
       <div class="win-window__titlebar"><span>Preço</span></div>
       <div class="win-window__body hvg__price-body">
-        <p class="hvg__price"><span class="hvg__price-val">R$ 45</span> <small>/ consulta</small></p>
+        <p class="hvg__price"><span class="hvg__price-val">{{ precoCompleta }}</span> <small>/ consulta</small></p>
         <p class="hvg__price-txt">
           Pagamento único no Pix. Sem assinatura, sem pegadinha.
-          Não achou o veículo? Reembolso automático.
+          Sem o relatório, o valor volta automático no Pix.
         </p>
         <button type="button" class="win-btn win-btn--primary win-btn--block" @click="$emit('consult')">
           Consultar agora
