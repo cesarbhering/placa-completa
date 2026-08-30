@@ -43,7 +43,7 @@ export const useAnalytics = () => {
   /**
    * Resolve valor/item do plano a partir da fonte unica (shared/planos.ts).
    * O valor de conversao TEM que ser o preco real do plano (basica R$25,00,
-   * completa R$44,90): o Ads otimiza os lances por esse numero, entao um R$45
+   * completa R$39,90): o Ads otimiza os lances por esse numero, entao um valor
    * fixo pra todo mundo distorcia a otimizacao. `value` vai em reais.
    * Plano ausente/invalido cai em 'completa' (default historico do checkout).
    */
