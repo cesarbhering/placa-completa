@@ -12,6 +12,8 @@
 // parse ruim) cai no comportamento de sempre - melhor score da wdapi - e so
 // loga. Isto nunca pode quebrar a montagem do relatorio.
 
+import { marcaExibicao } from '../../shared/marca-exibicao'
+
 export interface FipeCandidato {
   codigo_fipe: string
   modelo: string
@@ -393,7 +395,7 @@ async function julgarComHaiku(
     `- descricao SENATRAN: ${senatran?.descricaoMarcaModelo || 'desconhecida'}`,
     `- cilindrada: ${senatran?.cilindrada ?? 'desconhecida'}`,
     `- potencia: ${senatran?.potencia ?? 'desconhecida'}`,
-    `- marca/modelo/submodelo/versao (wdapi): ${wdapi?.marca || ''} / ${wdapi?.MODELO || ''} / ${wdapi?.SUBMODELO || ''} / ${wdapi?.VERSAO || ''}`,
+    `- marca/modelo/submodelo/versao (wdapi): ${marcaExibicao(wdapi)} / ${wdapi?.MODELO || ''} / ${wdapi?.SUBMODELO || ''} / ${wdapi?.VERSAO || ''}`,
     `- ano modelo: ${wdapi?.anoModelo ?? senatran?.anoModelo ?? 'desconhecido'}`,
     `- combustivel (wdapi): ${wdapi?.extra?.combustivel || 'desconhecido'}`,
     '',
@@ -456,8 +458,10 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     // Achado real testando ONIX: wdapi.marca = "CHEVROLET", mas a fipe-api so
     // reconhece "GM - Chevrolet" (existe um outro brand "CHEVROLET" pra
     // CAMINHOES, entao usar o nome errado nao so falha - podia casar marca
-    // errada). Cai pro wdapi.marca/MARCA so se fipe.dados vier vazio.
-    const marca = input.wdapi?.fipe?.dados?.[0]?.texto_marca || input.wdapi?.marca || input.wdapi?.MARCA
+    // errada). Cai pro wdapi so se fipe.dados vier vazio — e ai usa a marca de
+    // EXIBICAO, nao o campo cru: em importado o cru e um codigo ("I"), que
+    // buscaria o universo FIPE de uma marca inexistente.
+    const marca = input.wdapi?.fipe?.dados?.[0]?.texto_marca || marcaExibicao(input.wdapi)
     const ano = input.wdapi?.anoModelo || input.senatran?.anoModelo
     if (!marca || !ano) return fallback()
 
