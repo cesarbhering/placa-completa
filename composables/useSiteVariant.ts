@@ -59,7 +59,10 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     sub: 'Restrição, roubo, gravame, registro de leilão, dívida. O que o vendedor não conta, a placa revela.',
     heroImage: '/carro-hero.webp',
     heroImageAlt: '',
-    metaTitle: 'Consulta de Placa Grátis: Roubo, Dívida e Leilão | PlacaCompleta',
+    // Sem sufixo de marca aqui: o modulo de SEO ja anexa " | PlacaCompleta"
+    // sozinho, a partir de site.name no nuxt.config. Escrever a marca no
+    // texto fazia o titulo sair duplicado em producao.
+    metaTitle: 'Consulta de Placa Grátis: Roubo, Dívida e Leilão',
     ogTitle: 'PlacaCompleta · Relatório completo do veículo pela placa',
     ogDescription: 'Consulta grátis na hora e relatório completo com indicador de roubo e furto, registro de leilão, gravame, restrições, recall, valor FIPE e seguro. Pagamento único no Pix, sem assinatura.',
   },
