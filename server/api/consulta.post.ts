@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { marcaExibicao } from '../../shared/marca-exibicao'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { checkEmailDeliverability } from '../utils/email-deliverability'
 import { getClientIp } from '../utils/client-ip'
@@ -518,7 +519,7 @@ export default defineEventHandler(async (event) => {
         fipeModelId,
         ano: anoSeguro,
         regiaoCode: regiao?.code ?? null,
-        marca: apiResponse.MARCA || apiResponse.marca || '',
+        marca: marcaExibicao(apiResponse),
         modelo: apiResponse.MODELO || apiResponse.modelo || '',
       })
       // % do FIPE: metrica universal ("seguro = X% do valor do carro")
@@ -765,7 +766,9 @@ export default defineEventHandler(async (event) => {
     // vem do SENATRAN, que so roda depois do pagamento.
     basico: !isPWA ? {
       placa: placaClean,
-      marca: apiResponse.MARCA || apiResponse.marca || null,
+      // Importado traz um codigo no campo MARCA ("I"); marcaExibicao
+      // resolve a marca de verdade e mantem o caso domestico intacto.
+      marca: marcaExibicao(apiResponse) || null,
       modelo: apiResponse.MODELO || apiResponse.modelo || null,
       ano: apiResponse.extra?.ano_modelo || apiResponse.anoModelo || apiResponse.ano || null,
       anoFabricacao: apiResponse.extra?.ano_fabricacao || apiResponse.ano || null,
@@ -793,7 +796,7 @@ export default defineEventHandler(async (event) => {
     // Sem FIPE: virou conteudo pago, e o texto de compartilhamento e superficie
     // publica.
     share: !isPWA ? {
-      marca: apiResponse.MARCA || apiResponse.marca || '',
+      marca: marcaExibicao(apiResponse),
       modelo: apiResponse.MODELO || apiResponse.modelo || '',
       ano: apiResponse.anoModelo || apiResponse.ano || '',
     } : undefined,
@@ -947,7 +950,7 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
   // Fields from the upstream wdapi2 payload must be HTML-escaped before
   // interpolation — a compromised or hostile upstream could otherwise
   // inject script-bearing markup into the email body.
-  const marca = escapeHtml(data.MARCA || data.marca || '-')
+  const marca = escapeHtml(marcaExibicao(data) || '-')
   const modelo = escapeHtml(data.MODELO || data.modelo || '-')
   const ano = escapeHtml(data.ano || '-')
   const anoModelo = escapeHtml(data.anoModelo || '-')
@@ -1173,7 +1176,7 @@ function buildWhatsAppText(
   seguro: SeguroEstimado | null = null,
   cotacaoUrl: string | null = null,
 ): string {
-  const marca = data.MARCA || data.marca || '-'
+  const marca = marcaExibicao(data) || '-'
   const modelo = data.MODELO || data.modelo || '-'
   const ano = data.ano || '-'
   const anoModelo = data.anoModelo || '-'

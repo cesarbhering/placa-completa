@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { marcaExibicao } from '~/shared/marca-exibicao'
 const props = defineProps<{
   show: boolean
   vehicleData: any
@@ -23,7 +24,7 @@ const allVehicleData = computed(() => {
 
   return {
     Placa: data.placa || '-',
-    Marca: data.MARCA || data.marca || '-',
+    Marca: marcaExibicao(data) || '-',
     Modelo: data.MODELO || data.modelo || '-',
     'Ano/Modelo': `${data.ano || '-'}/${data.anoModelo || '-'}`,
     Chassi: data.chassi || '-',
