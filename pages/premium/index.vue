@@ -58,7 +58,7 @@ let poll: any = null
 
 // historico local: religar/retomar consultas sem login (ver useConsultaHistory)
 const { add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
-const { trackConversionPaga } = useAnalytics()
+const { trackAddPaymentInfo, trackConversionPaga } = useAnalytics()
 
 async function entrar() {
   loading.value = true; msg.value = ''
@@ -88,6 +88,9 @@ async function consultarPreview() {
 async function pagar() {
   if (!email.value.includes('@')) { msg.value = 'Informe um email válido.'; return }
   loading.value = true; msg.value = ''
+  // Passo do meio do funil (mesmo evento do checkout inline), antes do POST.
+  // Esta pagina so vende a completa.
+  trackAddPaymentInfo('completa', placa.value)
   try {
     pix.value = await $fetch('/api/premium/checkout', {
       method: 'POST',

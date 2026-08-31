@@ -703,6 +703,19 @@ const compartilhar = ref('#')
 
 // ---------- historico local + polling ----------
 let poll: any = null
+
+// Janela em que a abertura do relatorio ainda representa a compra que acabou
+// de acontecer. Pedido sem data de entrega (ainda pagando) conta como recente:
+// e exatamente o fluxo de quem esta na tela esperando o Pix cair.
+const JANELA_CONVERSAO_MS = 6 * 60 * 60 * 1000
+function entregaRecente(): boolean {
+  const entregue = data.value?.entregue_em
+  if (!entregue) return true
+  const t = new Date(entregue).getTime()
+  if (!Number.isFinite(t)) return true
+  return Date.now() - t < JANELA_CONVERSAO_MS
+}
+
 onMounted(() => {
   histSync()
   const msg = `Fiz a consulta veicular no PlacaCompleta, olha o relatório: ${window.location.href}`
@@ -712,7 +725,16 @@ onMounted(() => {
   const existe = itens.value.some((x) => x.token === token)
   if (existe) histUpdate(token, data.value.status)
   else histAdd({ token, placa: data.value.placa, veiculo: g('descricaoMarcaModelo') || null, status: data.value.status })
-  if (['pago', 'consultando', 'entregue'].includes(data.value.status)) trackConversionPaga(token, data.value.plano)
+  // Na abertura, so conta conversao de relatorio RECEM entregue. O guard por
+  // token vive no navegador, entao ele nao cobre a revisita em OUTRO aparelho
+  // (paga no celular, abre o link do e-mail no computador semanas depois), e
+  // cada abertura dessas virava um purchase novo pro GA4 e pro Ads. Uma
+  // entrega tem minutos de vida, nao dias: fora dessa janela, a abertura e
+  // leitura, nao compra. A transicao ao vivo (poll abaixo) segue reportando
+  // sempre, que e o caminho de quem acabou de pagar.
+  if (['pago', 'consultando', 'entregue'].includes(data.value.status) && entregaRecente()) {
+    trackConversionPaga(token, data.value.plano)
+  }
   if (data.value.status !== 'entregue') {
     // Polla o /status, que e leve e e quem detecta pagamento ate sem webhook.
     // A versao anterior chamava refresh() do relatorio INTEIRO a cada 4s: alem
