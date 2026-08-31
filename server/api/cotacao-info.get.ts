@@ -1,4 +1,5 @@
 import { getSeguroEstimado } from '../utils/seguro-estimate'
+import { marcaExibicao } from '../../shared/marca-exibicao'
 
 const NOVENTA_DIAS_MS = 90 * 24 * 60 * 60 * 1000
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -36,7 +37,7 @@ export default defineEventHandler(async (event) => {
     ? JSON.parse(consulta.api_response)
     : (consulta.api_response || {})
 
-  const marca = api.MARCA || api.marca || ''
+  const marca = marcaExibicao(api)
   const modelo = api.MODELO || api.modelo || ''
   const ano = parseInt(String(api.anoModelo || api.ano || ''), 10) || null
 

@@ -1,5 +1,6 @@
 // Preview GRATIS pra confirmar o veiculo antes de pagar (marca/modelo/ano).
 // Fonte free atual (wdapi2). NAO expoe nada de SENATRAN. Gated.
+import { marcaExibicao } from '../../../shared/marca-exibicao'
 export default defineEventHandler(async (event) => {
   assertPremiumGate(event)
   const { placa } = await readBody(event)
@@ -37,7 +38,8 @@ export default defineEventHandler(async (event) => {
     return {
       placa: placaClean,
       encontrado: true,
-      marca: r.MARCA || r.marca || null,
+      // Importado traz codigo ("I") no campo MARCA; ver shared/marca-exibicao.
+      marca: marcaExibicao(r) || null,
       modelo: r.MODELO || r.modelo || null,
       ano: r.anoModelo || r.ano || r.ANO || null,
       cor: r.cor || r.COR || null,
@@ -46,7 +48,7 @@ export default defineEventHandler(async (event) => {
       municipio: r.municipio || null,
       uf: r.uf || null,
       raw: {
-        marca: r.MARCA || r.marca, modelo: r.MODELO || r.modelo,
+        marca: marcaExibicao(r), modelo: r.MODELO || r.modelo,
         ano: r.anoModelo || r.ano, cor: r.cor,
         municipio: r.municipio || null, uf: r.uf || null,
       },

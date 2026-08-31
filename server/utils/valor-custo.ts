@@ -1,4 +1,5 @@
 import { getRegiaoSusep } from './regiao-susep'
+import { marcaExibicao } from '../../shared/marca-exibicao'
 import { getSeguroEstimado } from './seguro-estimate'
 import { calcularICV5, inferirCategoria } from './icv5'
 import { escolherMelhorFipe, type FipeMelhorCandidatoResultado } from './fipe-candidato'
@@ -162,7 +163,7 @@ export async function getValorCusto(
       fipeModelId,
       ano: anoNum,
       regiaoCode: regiao?.code ?? null,
-      marca: dados.MARCA || dados.marca || '',
+      marca: marcaExibicao(dados),
       modelo: dados.MODELO || dados.modelo || '',
     })
     if (est) {
