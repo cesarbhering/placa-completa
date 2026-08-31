@@ -59,7 +59,7 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     sub: 'Restrição, roubo, gravame, registro de leilão, dívida. O que o vendedor não conta, a placa revela.',
     heroImage: '/carro-hero.webp',
     heroImageAlt: '',
-    metaTitle: 'Consulta Placa Grátis: Marca, Modelo, Ano e Cor',
+    metaTitle: 'Consulta de Placa Grátis: Roubo, Dívida e Leilão | PlacaCompleta',
     ogTitle: 'PlacaCompleta · Relatório completo do veículo pela placa',
     ogDescription: 'Consulta grátis na hora e relatório completo com indicador de roubo e furto, registro de leilão, gravame, restrições, recall, valor FIPE e seguro. Pagamento único no Pix, sem assinatura.',
   },
@@ -73,7 +73,7 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     // Honda CB600F Hornet, fundo transparente (recorte do Cesar).
     heroImage: '/hero-moto.webp',
     heroImageAlt: 'Honda CB600F Hornet vista de lado',
-    metaTitle: 'Consulta Placa de Moto Grátis: Marca, Modelo, Ano e Cor',
+    metaTitle: 'Consulta Placa de Moto Grátis: Roubo, Dívida e Leilão',
     ogTitle: 'Olho na Moto · Relatório completo da moto pela placa',
     ogDescription: 'Consulta grátis na hora e relatório completo com indicador de roubo e furto, registro de leilão, gravame, restrições, recall, valor FIPE e seguro. Pagamento único no Pix, sem assinatura.',
   },
@@ -87,7 +87,7 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     // Volvo FH, fundo transparente (recorte do Cesar).
     heroImage: '/hero-caminhao.webp',
     heroImageAlt: 'Caminhão Volvo FH visto de lado',
-    metaTitle: 'Consulta Placa de Caminhão Grátis: Marca, Modelo, Ano e Cor',
+    metaTitle: 'Consulta Placa de Caminhão Grátis: Roubo, Dívida e Leilão',
     ogTitle: 'Olho no Caminhão · Relatório completo do caminhão pela placa',
     ogDescription: 'Consulta grátis na hora e relatório completo com indicador de roubo e furto, registro de leilão, gravame, restrições, recall, valor FIPE e seguro. Pagamento único no Pix, sem assinatura.',
   },
