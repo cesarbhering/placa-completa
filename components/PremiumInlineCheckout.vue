@@ -144,7 +144,7 @@ let poll: ReturnType<typeof setInterval> | null = null
 
 // historico local: religar/retomar consultas sem login
 const { add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
-const { trackBeginCheckout, trackConversionPaga } = useAnalytics()
+const { trackBeginCheckout, trackAddPaymentInfo, trackConversionPaga } = useAnalytics()
 
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
@@ -284,6 +284,9 @@ async function confirmarEPagar() {
     }
   }
   editandoPlaca.value = false
+  // Passo do meio do funil: registra a intencao ANTES da chamada do checkout,
+  // pra falha de rede na geracao do Pix nao virar "ninguem clicou".
+  trackAddPaymentInfo(props.plano, placaClean.value, precoExibidoCentavos.value)
   await pagar()
 }
 

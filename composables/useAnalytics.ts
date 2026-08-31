@@ -7,6 +7,48 @@ import { PLANOS, isPlanoPago } from '~/shared/planos'
  *
  * @returns {Object} Objeto com função de tracking
  */
+// Tokens que ja reportaram conversao NESTA aba. Fica fora do composable de
+// proposito: cada chamada de useAnalytics cria um escopo novo, e o modal, a
+// pagina do checkout e a do relatorio chamam cada um o seu.
+const conversoesReportadas = new Set<string>()
+
+/**
+ * Decide se a conversao deste token ainda precisa ser reportada, e ja marca
+ * que foi. Chamar DUAS vezes com o mesmo token devolve true so na primeira.
+ *
+ * Tres camadas, da mais forte pra mais fraca:
+ * 1) memoria do processo, que pega o poll chamando em rajada dentro da mesma
+ *    sessao mesmo quando o storage lanca (modo privado, cookies bloqueados) —
+ *    antes disso, storage indisponivel significava conversao repetida a cada
+ *    tick do poll;
+ * 2) localStorage, que sobrevive ao reload e a revisita do relatorio;
+ * 3) sessionStorage, rede de seguranca pra quando o localStorage esta cheio
+ *    ou particionado mas o de sessao funciona.
+ *
+ * Exportada pra ser testavel sem gtag: e a regra que impede a mesma compra de
+ * virar duas conversoes no Ads.
+ */
+export function reivindicarConversao(token: string): boolean {
+  if (!token) return false
+  if (conversoesReportadas.has(token)) return false
+  conversoesReportadas.add(token)
+  const key = 'pc_conv_' + token
+  let jaFoi = false
+  try { jaFoi = !!globalThis.localStorage?.getItem(key) } catch { /* storage indisponivel */ }
+  if (!jaFoi) {
+    try { jaFoi = !!globalThis.sessionStorage?.getItem(key) } catch { /* idem */ }
+  }
+  if (jaFoi) return false
+  try { globalThis.localStorage?.setItem(key, '1') } catch { /* modo privado */ }
+  try { globalThis.sessionStorage?.setItem(key, '1') } catch { /* idem */ }
+  return true
+}
+
+/** So pra teste: esquece o que ja foi reportado nesta sessao. */
+export function _limparConversoesReportadas() {
+  conversoesReportadas.clear()
+}
+
 export const useAnalytics = () => {
   /**
    * Envia evento para o Google Analytics
@@ -57,6 +99,25 @@ export const useAnalytics = () => {
     }
   }
 
+  /**
+   * Clique no botao que gera a cobranca, disparado ANTES do POST do checkout.
+   * Sem ele o funil do GA4 pulava de "abriu o modal" pra "pagou", entao a
+   * tela de confirmacao, que e onde mais gente desiste, nao era mensuravel.
+   * Nome padrao do funil de e-commerce do GA4, pros relatorios prontos
+   * funcionarem sem configuracao.
+   */
+  const trackAddPaymentInfo = (plano?: string, placa?: string, valorCentavos?: number) => {
+    const { value: valorTabela, item } = infoPlano(plano)
+    const value = valorCentavos != null ? valorCentavos / 100 : valorTabela
+    track('add_payment_info', {
+      currency: 'BRL',
+      value,
+      payment_type: 'Pix',
+      items: [{ ...item, price: value }],
+      placa,
+    })
+  }
+
   /** Inicio do checkout pago (clique no CTA de pagar). Valor real por plano. */
   const trackBeginCheckout = (plano?: string, placa?: string) => {
     const { value, item } = infoPlano(plano)
@@ -79,11 +140,7 @@ export const useAnalytics = () => {
    */
   const trackConversionPaga = (token?: string, plano?: string, valorPagoCentavos?: number) => {
     if (!import.meta.client || !token) return
-    const key = 'pc_conv_' + token
-    try {
-      if (localStorage.getItem(key)) return
-      localStorage.setItem(key, '1')
-    } catch { /* modo privado: segue (pode duplicar, aceitavel) */ }
+    if (!reivindicarConversao(token)) return
     const { value: valorTabela, item } = infoPlano(plano)
     const value = valorPagoCentavos != null ? valorPagoCentavos / 100 : valorTabela
     if (window.gtag) {
@@ -98,6 +155,7 @@ export const useAnalytics = () => {
   return {
     track,
     trackBeginCheckout,
+    trackAddPaymentInfo,
     trackConversionPaga,
     trackRestricaoDesconhecida,
   }
