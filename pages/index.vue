@@ -46,6 +46,16 @@ onMounted(() => {
   // consulta e refeita, porque o resultado nunca foi guardado nesta URL.
   if (route.params.placa) nextTick(() => handleSubmit())
 })
+// A home e /placa/ABC1D23 sao a MESMA instancia (key fixa acima, pra nao
+// remontar e nao reconsultar). O efeito colateral e que voltar pra "/" trocava
+// so a URL: o resultado continuava na tela, entao clicar no logo parecia nao
+// fazer nada. Sair da URL da placa agora limpa o resultado de verdade.
+watch(() => route.path, (novo, antigo) => {
+  if (novo === antigo) return
+  const aindaTemPlaca = !!route.params.placa || !!route.query.placa
+  if (novo === '/' && !aindaTemPlaca) limparResultado()
+})
+
 const email = ref('')
 const placa = ref('')
 const loading = ref(false)
@@ -423,7 +433,7 @@ function computeStages(): string[] {
   ]
   if (includeFipeChart.value) stages.push('Gerando gráfico de preços...')
   if (includeIcv5.value) stages.push('Calculando custo de manutenção em 5 anos...')
-  stages.push('Enviando e-mail com o resultado...')
+  stages.push('Montando a ficha do veículo...')
   return stages
 }
 
@@ -682,7 +692,9 @@ function onWebPhoneInput(e: Event) {
   webPhoneError.value = ''
 }
 
-function resetForm() {
+// Estado da tela de resultado, sem efeito nenhum: serve tanto pro botao de
+// nova consulta quanto pra volta pra home pelo logo.
+function limparResultado() {
   placa.value = ''
   pwaFipeHistory.value = null
   emailSuggestion.value = ''
@@ -694,6 +706,10 @@ function resetForm() {
   resultadoBasico.value = null
   placaJaConsultada.value = false
   aguardandoPlacaPaga.value = false
+}
+
+function resetForm() {
+  limparResultado()
   track('new_consulta_click')
   nextTick(() => {
     placaRef.value?.focus()
