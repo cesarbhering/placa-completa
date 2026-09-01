@@ -165,19 +165,12 @@ const snackbarMessage = ref('')
 const showPwaEmailPrompt = ref(false)
 const pwaEmail = ref('')
 const pwaEmailError = ref('')
-const showWebEmailPrompt = ref(false)
-const webEmail = ref('')
-const webEmailError = ref('')
-const showEmailConfirm = ref(false)
-const emailConfirmed = ref(false)
 
 // WhatsApp delivery (web only — PWA always uses inline data).
 // Hidden behind a public runtime flag so we can land the wiring
 // without flipping the UI on for end users.
 const channel = ref<'email' | 'whatsapp'>('email')
 const phone = ref('')
-const webPhone = ref('')
-const webPhoneError = ref('')
 const whatsappEnabled = computed(() => Boolean(useRuntimeConfig().public.whatsappEnabled))
 const openFaq = ref<number | null>(null)
 
@@ -672,26 +665,6 @@ function validatePlaca(val: string): boolean {
   return /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(clean)
 }
 
-function validatePhone(val: string): boolean {
-  if (!val) return false
-  const d = val.replace(/\D/g, '')
-  return d.length >= 10 && d.length <= 13
-}
-
-function formatPhone(val: string): string {
-  const d = val.replace(/\D/g, '').slice(0, 11)
-  if (d.length <= 2) return d.length ? `(${d}` : ''
-  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`
-  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
-  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
-}
-
-function onWebPhoneInput(e: Event) {
-  const t = e.target as HTMLInputElement
-  webPhone.value = formatPhone(t.value)
-  webPhoneError.value = ''
-}
-
 // Estado da tela de resultado, sem efeito nenhum: serve tanto pro botao de
 // nova consulta quanto pra volta pra home pelo logo.
 function limparResultado() {
@@ -836,56 +809,6 @@ function savePwaEmail() {
   
   // After saving email, proceed with the query
   handleSubmit()
-}
-
-function saveWebEmail() {
-  webEmailError.value = ''
-  webPhoneError.value = ''
-
-  if (channel.value === 'whatsapp') {
-    if (!validatePhone(webPhone.value)) {
-      webPhoneError.value = 'Telefone inválido. Use DDD + número, ex.: (11) 91234-5678.'
-      return
-    }
-    localStorage.setItem('pc_phone', webPhone.value)
-    localStorage.setItem('pc_channel', 'whatsapp')
-    phone.value = webPhone.value
-    showWebEmailPrompt.value = false
-    emailConfirmed.value = true
-    track('web_phone_saved')
-    handleSubmit()
-    return
-  }
-
-  if (!validateEmail(webEmail.value)) {
-    webEmailError.value = 'E-mail inválido.'
-    return
-  }
-
-  localStorage.setItem('pc_email', webEmail.value)
-  localStorage.setItem('pc_channel', 'email')
-  email.value = webEmail.value
-  showWebEmailPrompt.value = false
-  track('web_email_saved')
-
-  emailConfirmed.value = true
-  handleSubmit()
-}
-
-function confirmEmail() {
-  showEmailConfirm.value = false
-  emailConfirmed.value = true
-  handleSubmit()
-}
-
-function changeEmail() {
-  showEmailConfirm.value = false
-  if (channel.value === 'whatsapp') {
-    webPhone.value = phone.value
-  } else {
-    webEmail.value = email.value
-  }
-  showWebEmailPrompt.value = true
 }
 
 function changePwaEmail() {
@@ -1040,7 +963,6 @@ function applyEmailSuggestion() {
     pwaEmail.value = emailSuggestion.value
   }
   email.value = emailSuggestion.value
-  webEmail.value = emailSuggestion.value
   message.value = ''
   emailSuggestion.value = ''
   track('email_suggestion_applied')
@@ -1898,128 +1820,6 @@ function applyEmailSuggestion() {
             >
               Salvar e Continuar
             </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Email/WhatsApp Confirmation Modal -->
-    <div v-if="showEmailConfirm" class="modal-overlay">
-      <div class="modal-window" @click.stop>
-        <div class="win-window">
-          <div class="win-window__titlebar">
-            <span>{{ channel === 'whatsapp' ? 'Confirmar WhatsApp' : 'Confirmar E-mail' }}</span>
-            <div class="win-window__titlebar-buttons">
-              <span class="win-window__titlebar-btn win-window__titlebar-btn--active" @click="showEmailConfirm = false">&times;</span>
-            </div>
-          </div>
-          <div class="win-window__body">
-            <p class="modal-instruction">Enviar resultado da consulta para:</p>
-            <p class="confirm-email">{{ channel === 'whatsapp' ? phone : email }}</p>
-            <div class="confirm-actions">
-              <button
-                type="button"
-                class="win-btn win-btn--primary win-btn--block"
-                @click="confirmEmail"
-              >
-                {{ channel === 'whatsapp' ? 'Enviar para este WhatsApp' : 'Enviar para este e-mail' }}
-              </button>
-              <button
-                type="button"
-                class="win-btn win-btn--block"
-                @click="changeEmail"
-              >
-                {{ channel === 'whatsapp' ? 'Usar outro número' : 'Usar outro e-mail' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Web delivery prompt (Email/WhatsApp choice) -->
-    <div v-if="showWebEmailPrompt" class="modal-overlay">
-      <div class="modal-window" @click.stop>
-        <div class="win-window">
-          <div class="win-window__titlebar">
-            <span>{{ channel === 'whatsapp' ? 'Informe seu WhatsApp' : 'Informe seu E-mail' }}</span>
-            <div class="win-window__titlebar-buttons">
-              <span class="win-window__titlebar-btn win-window__titlebar-btn--active" @click="showWebEmailPrompt = false">×</span>
-            </div>
-          </div>
-          <div class="win-window__body">
-            <!-- Channel toggle (only when whatsappEnabled) -->
-            <div v-if="whatsappEnabled" class="channel-toggle">
-              <button
-                type="button"
-                class="channel-toggle__btn"
-                :class="{ 'channel-toggle__btn--active': channel === 'email' }"
-                @click="channel = 'email'; webEmailError = ''; webPhoneError = ''"
-              >
-                E-mail
-              </button>
-              <button
-                type="button"
-                class="channel-toggle__btn"
-                :class="{ 'channel-toggle__btn--active': channel === 'whatsapp' }"
-                @click="channel = 'whatsapp'; webEmailError = ''; webPhoneError = ''"
-              >
-                WhatsApp
-              </button>
-            </div>
-
-            <template v-if="channel === 'whatsapp'">
-              <p class="modal-instruction">Informe seu WhatsApp para receber os dados do veículo.</p>
-              <div class="form-group">
-                <label class="form-group__label" for="web-phone">Seu WhatsApp</label>
-                <input
-                  id="web-phone"
-                  :value="webPhone"
-                  type="tel"
-                  class="win-input"
-                  :class="{ 'win-input--error': webPhoneError }"
-                  placeholder="(11) 91234-5678"
-                  autocomplete="tel-national"
-                  inputmode="tel"
-                  @input="onWebPhoneInput"
-                  @keyup.enter="saveWebEmail"
-                />
-                <span v-if="webPhoneError" class="form-group__error">{{ webPhoneError }}</span>
-              </div>
-              <button
-                type="button"
-                class="win-btn win-btn--primary win-btn--block"
-                @click="saveWebEmail"
-              >
-                Receber Dados no WhatsApp
-              </button>
-            </template>
-
-            <template v-else>
-              <p class="modal-instruction">Informe seu e-mail para receber os dados completos do veículo.</p>
-              <div class="form-group">
-                <label class="form-group__label" for="web-email">Seu e-mail</label>
-                <input
-                  id="web-email"
-                  v-model="webEmail"
-                  type="email"
-                  class="win-input"
-                  :class="{ 'win-input--error': webEmailError }"
-                  placeholder="seu@email.com"
-                  autocomplete="email"
-                  inputmode="email"
-                  @keyup.enter="saveWebEmail"
-                />
-                <span v-if="webEmailError" class="form-group__error">{{ webEmailError }}</span>
-              </div>
-              <button
-                type="button"
-                class="win-btn win-btn--primary win-btn--block"
-                @click="saveWebEmail"
-              >
-                Receber Dados no E-mail
-              </button>
-            </template>
           </div>
         </div>
       </div>
@@ -4020,49 +3820,6 @@ function applyEmailSuggestion() {
   text-align: center;
   margin-bottom: $space-md;
   font-style: italic;
-}
-
-.channel-toggle {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: $space-xs;
-  margin-bottom: $space-md;
-
-  &__btn {
-    font-family: $font-body;
-    font-size: 0.8125rem;
-    padding: $space-xs $space-sm;
-    border: 1px solid $graphite;
-    background: #fff;
-    color: $graphite;
-    cursor: pointer;
-    transition: background-color 0.1s, color 0.1s;
-
-    &:hover {
-      background: rgba(0, 0, 0, 0.04);
-    }
-
-    &--active {
-      background: $navy-electric;
-      color: #fff;
-      border-color: $navy-electric;
-    }
-  }
-}
-
-.confirm-email {
-  font-family: $font-display;
-  font-size: 1.125rem;
-  color: $navy-electric;
-  text-align: center;
-  margin-bottom: $space-md;
-  word-break: break-all;
-}
-
-.confirm-actions {
-  display: flex;
-  flex-direction: column;
-  gap: $space-xs;
 }
 
 .data-table {
