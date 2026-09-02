@@ -106,10 +106,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const { email, phone, placa, isPWA, includeFipeChart, includeIcv5, icv5Uf } = body
-  // Origem de trafego (gclid/utm) capturada pelo plugin track-origin no client
+  // Origem de trafego (gclid, msclkid e utm) capturada pelo plugin
+  // track-origin no client
   const origin = body?.origin && typeof body.origin === 'object' ? body.origin : {}
   const trafego = {
     gclid: typeof origin.gclid === 'string' ? origin.gclid.slice(0, 200) : null,
+    msclkid: typeof origin.msclkid === 'string' ? origin.msclkid.slice(0, 200) : null,
     utm_source: typeof origin.utm_source === 'string' ? origin.utm_source.slice(0, 100) : null,
     utm_medium: typeof origin.utm_medium === 'string' ? origin.utm_medium.slice(0, 100) : null,
     utm_campaign: typeof origin.utm_campaign === 'string' ? origin.utm_campaign.slice(0, 150) : null,
