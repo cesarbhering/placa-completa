@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { sanearOrigem } from '../../../shared/origem-trafego'
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
 
 // Cria o pedido (pending) + o Pix transparente. Retorna o QR/copia-e-cola.
@@ -73,6 +74,12 @@ export default defineEventHandler(async (event) => {
       // IP do comprador: usado pra resetar o limite gratis por hora (uma compra
       // paga zera o contador do usuario, casado por IP ou email).
       ip_address: getClientIp(event),
+      // Origem do trafego no PROPRIO pedido. Antes ela so existia na consulta
+      // gratis e o caminho ate ela era o consulta_id — que aponta pra consulta
+      // SENATRAN paga, nao pra `consultas`, entao o join perdia a origem de
+      // toda venda. Gravando aqui, a atribuicao para de depender de casar
+      // placa com janela de tempo.
+      ...sanearOrigem(body.origin),
     })
     .select()
     .single()

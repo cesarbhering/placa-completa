@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PLANOS } from '~/shared/planos'
+import { origemDaSessao } from '~/shared/origem-trafego'
 // v2.0 Consulta Premium. Nos ambientes protegidos (homolog/staging) a pagina e
 // gated por senha; em prod fica aberta.
 useHead({ title: 'Consulta Premium', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
@@ -94,7 +95,12 @@ async function pagar() {
   try {
     pix.value = await $fetch('/api/premium/checkout', {
       method: 'POST',
-      body: { placa: preview.value.placa, email: email.value, telefone: telefone.value, preview: preview.value.raw, ambiente: ambiente.value },
+      body: {
+        placa: preview.value.placa, email: email.value, telefone: telefone.value,
+        preview: preview.value.raw, ambiente: ambiente.value,
+        // Mesma marca de anuncio que o checkout da home manda.
+        origin: origemDaSessao(),
+      },
     })
     step.value = 'pending'
     histAdd({
