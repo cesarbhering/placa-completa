@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PLANOS, RECURSOS } from '~/shared/planos'
+import { origemDaSessao } from '~/shared/origem-trafego'
 
 // Checkout premium inline: roda o fluxo pago SEM sair da home, num overlay.
 // Espelha a logica de pages/premium/index.vue (gate -> preview -> checkout ->
@@ -317,6 +318,9 @@ async function pagar() {
         // a placa, cupomDescontoCentavos ainda positivo de um validarCupom antigo)
         // podia cobrar o preco errado sem o servidor nem saber que havia cupom.
         cupom: cupomCodigo.value.trim() || undefined,
+        // Marca de anuncio da sessao (gclid/msclkid/utm), pra origem da venda
+        // ficar gravada no proprio pedido.
+        origin: origemDaSessao(),
       },
     })
     step.value = 'pending'
