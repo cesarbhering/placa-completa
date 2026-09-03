@@ -36,8 +36,8 @@ useHead({
   meta: [
     { name: 'description', content: `Consulte qualquer placa registrada em ${data.name} (${data.uf}). Veja marca, modelo, ano, cor, situação e valor FIPE do veículo. Resultado grátis em segundos.` },
     { name: 'keywords', content: `consultar placa ${data.uf}, consulta placa ${data.name.toLowerCase()}, consultar veículo ${data.name.toLowerCase()}, placa ${data.uf} grátis` },
-    { property: 'og:title', content: `Consultar Placa ${data.uf} Grátis: Dados do Veículo` },
-    { property: 'og:description', content: `Consulte qualquer placa registrada em ${data.name} e veja marca, modelo, ano, situação e valor FIPE. Grátis e rápido.` },
+    { property: 'og:title', content: `Consultar Placa ${data.uf}: Dados do Veículo` },
+    { property: 'og:description', content: `Consulte qualquer placa registrada em ${data.name} e veja marca, modelo, ano, situação e valor FIPE na hora.` },
   ],
   link: [
     { rel: 'canonical', href: `https://placacompleta.com.br/consultar-placa/${slug}` },

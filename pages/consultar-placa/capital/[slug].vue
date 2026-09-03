@@ -25,8 +25,8 @@ useHead({
   meta: [
     { name: 'description', content: `Consulte qualquer placa de veículo em ${capital.name} - ${state.uf}. Veja marca, modelo, ano, cor, situação e valor FIPE. Resultado grátis em segundos.` },
     { name: 'keywords', content: `consultar placa ${capital.name.toLowerCase()}, consulta placa ${capital.name.toLowerCase()}, consultar veículo ${capital.name.toLowerCase()}, placa ${state.uf} grátis` },
-    { property: 'og:title', content: `Consultar Placa em ${capital.name}: Dados do Veículo Grátis` },
-    { property: 'og:description', content: `Consulte qualquer placa de veículo em ${capital.name} (${state.uf}) e veja marca, modelo, ano, situação e valor FIPE. Grátis e rápido.` },
+    { property: 'og:title', content: `Consultar Placa em ${capital.name}: Dados do Veículo` },
+    { property: 'og:description', content: `Consulte qualquer placa de veículo em ${capital.name} (${state.uf}) e veja marca, modelo, ano, situação e valor FIPE na hora.` },
   ],
   script: [
     {
