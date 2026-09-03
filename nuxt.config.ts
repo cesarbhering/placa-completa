@@ -643,11 +643,19 @@ export default defineNuxtConfig({
         "Cross-Origin-Opener-Policy": "same-origin",
       },
     },
-    // Nao-indexacao dos RELATORIOS premium (/premium/{token}) via a chave nativa
-    // do @nuxtjs/robots: ele emite o X-Robots-Tag noindex e casa com o meta da
-    // pagina. Um header cru aqui era sobrescrito pelo modulo. So os subpaths: a
-    // landing /premium segue indexavel. Sem Disallow no robots.txt (o crawler
-    // precisa poder ver o noindex).
+    // Area premium fora do indice, via a chave nativa do @nuxtjs/robots (ele
+    // emite o X-Robots-Tag e casa com o meta da pagina; header cru aqui era
+    // sobrescrito pelo modulo).
+    //
+    // /premium/{token} e a consulta do cliente: conteudo de quem pagou, nunca
+    // pode virar resultado de busca.
+    //
+    // /premium (a raiz) saiu do indice por decisao do Cesar: e a tela de teste
+    // do fluxo pago, e a regra passou a ser nao expor nem deixar crawlear.
+    // Perdemos uma landing indexavel, o que foi aceito de proposito. Sem
+    // Disallow no robots.txt: o crawler precisa poder buscar a pagina pra ler
+    // o noindex nela.
+    "/premium": { robots: "noindex, nofollow" },
     "/premium/**": { robots: "noindex, nofollow" },
     // A home NAO e mais prerenderizada de proposito (theming por dominio —
     // ver composables/useSiteVariant.ts): tentamos prerender + rewrite
