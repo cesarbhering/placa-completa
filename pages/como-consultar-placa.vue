@@ -10,7 +10,7 @@ useHead({
   meta: [
     { name: 'description', content: 'Aprenda como consultar a placa de qualquer veículo gratuitamente. Passo a passo simples para verificar dados como marca, modelo, FIPE e situação.' },
     { name: 'keywords', content: 'como consultar placa, como pesquisar placa de carro, como verificar placa, consulta gratuita de placa, passo a passo consulta placa' },
-    { property: 'og:title', content: 'Como Consultar Placa de Veículo Grátis' },
+    { property: 'og:title', content: 'Como Consultar a Placa de um Veículo' },
     { property: 'og:description', content: 'Passo a passo para consultar qualquer placa de veículo gratuitamente e receber os dados no seu e-mail.' },
   ],
   script: [
