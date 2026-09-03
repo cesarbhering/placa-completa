@@ -415,12 +415,12 @@ export default defineNuxtConfig({
         {
           property: "og:title",
           content:
-            "Consulta Veicular Grátis por Placa - Receba Dados Completos no E-mail",
+            "PlacaCompleta: o relatório completo do veículo pela placa",
         },
         {
           property: "og:description",
           content:
-            "Consulte qualquer placa veicular e receba marca, modelo, ano, cor, FIPE, município e situação no seu e-mail. Resultado instantâneo, 100% grátis e sem cadastro.",
+            "Digite a placa e veja o que o anúncio não conta: restrição, roubo e furto, registro de leilão, gravame, recall, valor FIPE e a ficha completa do veículo.",
         },
         { property: "og:type", content: "website" },
         {
@@ -431,19 +431,19 @@ export default defineNuxtConfig({
         { property: "og:image:height", content: "630" },
         {
           property: "og:image:alt",
-          content: "PlacaCompleta - Consulta Veicular Grátis por Placa",
+          content: "PlacaCompleta: relatório completo do veículo pela placa",
         },
         { property: "og:locale", content: "pt_BR" },
         { name: "twitter:card", content: "summary_large_image" },
         {
           name: "twitter:title",
           content:
-            "Consulta Veicular Grátis por Placa - Receba Dados Completos no E-mail",
+            "PlacaCompleta: o relatório completo do veículo pela placa",
         },
         {
           name: "twitter:description",
           content:
-            "Consulte qualquer placa veicular e receba marca, modelo, ano, cor, FIPE, município e situação no seu e-mail. Resultado instantâneo, 100% grátis e sem cadastro.",
+            "Digite a placa e veja o que o anúncio não conta: restrição, roubo e furto, registro de leilão, gravame, recall, valor FIPE e a ficha completa do veículo.",
         },
         {
           name: "twitter:image",

@@ -10,8 +10,8 @@ useHead({
   meta: [
     { name: 'description', content: 'Faça a consulta de placa veicular grátis e receba por e-mail marca, modelo, ano, cor, tabela FIPE, município e situação do veículo. Sem cadastro.' },
     { name: 'keywords', content: 'consulta de placa, consulta placa veicular, consultar placa online, consulta veicular grátis, pesquisar placa de carro' },
-    { property: 'og:title', content: 'Consulta de Placa Veicular Grátis Online' },
-    { property: 'og:description', content: 'Consulte qualquer placa veicular e receba os dados completos no seu e-mail. Grátis e instantâneo.' },
+    { property: 'og:title', content: 'Consulta de Placa Veicular Online' },
+    { property: 'og:description', content: 'Consulte qualquer placa e veja os dados do veículo na hora, na própria tela.' },
   ],
 })
 </script>
