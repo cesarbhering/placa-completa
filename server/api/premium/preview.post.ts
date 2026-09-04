@@ -51,12 +51,6 @@ export default defineEventHandler(async (event) => {
         marca: marcaExibicao(r), modelo: r.MODELO || r.modelo,
         ano: r.anoModelo || r.ano, cor: r.cor,
         municipio: r.municipio || null, uf: r.uf || null,
-        // Numero do motor: NAO vai pra tela, viaja junto porque e a unica
-        // fonte dele. Conferi os 34 campos que o registro do veiculo devolve
-        // num pedido real e nenhum traz o motor; aqui ele existe. Sem este
-        // campo, toda passagem de leilao que so pode ser casada pelo motor
-        // fica invisivel pra gente (foi o caso do Detran PR na DCN3708).
-        motor: r.extra?.motor || null,
       },
     }
   }

@@ -604,7 +604,7 @@ onUnmounted(() => {
                   <path d="M6 20V9l6-4 6 4v11" />
                   <path d="M10 20v-5h4v5" />
                 </svg>
-                <span>Inclui o histórico de leilão de <strong>mais de 1 milhão de veículos</strong>.</span>
+                <span>Inclui o histórico de leilão, cruzado com uma base de <strong>mais de 1 milhão de veículos leiloados</strong>.</span>
               </li>
             </ul>
             <button type="button" class="pic-btn pic-btn--primary" :disabled="loading || editandoPlaca" @click="confirmarEPagar">
