@@ -473,7 +473,12 @@ const passagensLeilao = computed(() => {
     // Nome PUBLICO, resolvido pela API: "Detran SP" pra orgao, "Leiloeira
     // particular" pra casa privada. Nome de leiloeira particular nunca vai pra
     // tela (regra do Cesar), entao aqui NAO se usa o campo `fonte` cru.
-    fonte: p.fonte_exibicao,
+    //
+    // O fallback existe pros snapshots gravados ANTES deste campo: eles sao
+    // imutaveis, entao continuam sem `fonte_exibicao` pra sempre, e sem isto o
+    // cartao aparecia sem nome de fonte nenhum. Orgao vira "Detran SP" a partir
+    // do codigo da fonte; privada vira o rotulo generico, nunca o nome da casa.
+    fonte: p.fonte_exibicao || (p.fonte_tipo === 'detran' ? nomeDaFonte(p.fonte) : 'Leiloeira particular'),
     gravidade: p.gravidade,
     // Em fonte privada o proprio nome de exibicao ja diz o que e ("Leiloeira
     // particular"), entao o rotulo de tipo so aparece pro orgao oficial, que e
