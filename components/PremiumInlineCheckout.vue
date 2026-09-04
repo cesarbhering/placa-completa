@@ -598,6 +598,14 @@ onUnmounted(() => {
                 </svg>
                 <span>Pix processado pela Woovi. Seus dados trafegam protegidos.</span>
               </li>
+              <li v-if="props.plano === 'completa'" class="pic-conf__item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M4 20h16" />
+                  <path d="M6 20V9l6-4 6 4v11" />
+                  <path d="M10 20v-5h4v5" />
+                </svg>
+                <span>Inclui o histórico de leilão de <strong>mais de 1 milhão de veículos</strong>.</span>
+              </li>
             </ul>
             <button type="button" class="pic-btn pic-btn--primary" :disabled="loading || editandoPlaca" @click="confirmarEPagar">
               {{ rotuloPagar }}

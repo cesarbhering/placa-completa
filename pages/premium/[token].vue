@@ -1188,6 +1188,7 @@ onUnmounted(() => poll && clearInterval(poll))
           <!-- historico de leilao (so completa, so onde o servico existe) -->
           <section v-if="temSecaoLeilao" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.leilao }}. Histórico de leilão</h2>
+            <p class="rel__leilao-base">Placa e chassi cruzados com mais de 1 milhão de veículos leiloados, em editais de órgãos de trânsito e catálogos de leiloeiras.</p>
 
             <template v-if="!historicoLeilao?.resumo?.tem_indicio">
               <p class="rel__nada">
@@ -2023,6 +2024,13 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__leilao-lista--conflito li::before { background: $c-red; }
+
+  &__leilao-base {
+    margin: 0 0 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: $c-graphite;
+  }
 
   &__leilao-aviso {
     margin: 12px 0 0;

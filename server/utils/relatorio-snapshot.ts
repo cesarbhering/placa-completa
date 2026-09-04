@@ -106,6 +106,10 @@ export async function montarRelatorioSnapshot(
       placa: pedido.placa,
       chassi: senatranBruto?.chassi ?? null,
       renavam: senatranBruto?.renavam ?? null,
+      // O motor vem do preview (fonte livre), nao do registro: o registro nao
+      // devolve esse campo. Pedido antigo nao tem, e ai a inferencia por motor
+      // simplesmente nao acontece, como acontecia antes.
+      motor: pedido.preview?.motor ?? null,
       marca: marcaDoRegistro(senatranBruto),
       modelo: modeloDoRegistro(senatranBruto),
       ano: senatranBruto?.anoModelo ?? senatranBruto?.anoFabricacao ?? null,
