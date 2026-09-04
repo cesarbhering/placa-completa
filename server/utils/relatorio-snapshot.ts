@@ -106,10 +106,13 @@ export async function montarRelatorioSnapshot(
       placa: pedido.placa,
       chassi: senatranBruto?.chassi ?? null,
       renavam: senatranBruto?.renavam ?? null,
-      // O motor vem do preview (fonte livre), nao do registro: o registro nao
-      // devolve esse campo. Pedido antigo nao tem, e ai a inferencia por motor
-      // simplesmente nao acontece, como acontecia antes.
-      motor: pedido.preview?.motor ?? null,
+      // Motor: nenhuma fonte nossa expoe esse numero. O registro do veiculo
+      // devolve 34 campos e nenhum e o motor; a fonte livre tem a chave, mas
+      // vem vazia (0 de 5.555 consultas salvas em producao). O campo fica no
+      // contrato porque pode chegar de outra fonte um dia, e enquanto isso o
+      // ramo motor-only da API de leiloes (cerca de 144 mil veiculos, PR e RS
+      // antigos) permanece invisivel pra gente.
+      motor: null,
       marca: marcaDoRegistro(senatranBruto),
       modelo: modeloDoRegistro(senatranBruto),
       ano: senatranBruto?.anoModelo ?? senatranBruto?.anoFabricacao ?? null,

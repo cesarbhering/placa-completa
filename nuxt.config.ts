@@ -420,7 +420,7 @@ export default defineNuxtConfig({
         {
           property: "og:description",
           content:
-            "Digite a placa e veja o que o anúncio não conta: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão de mais de 1 milhão de veículos.",
+            "Digite a placa e veja o que o anúncio não conta: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão, com base de mais de 1 milhão de veículos.",
         },
         { property: "og:type", content: "website" },
         {
@@ -443,7 +443,7 @@ export default defineNuxtConfig({
         {
           name: "twitter:description",
           content:
-            "Digite a placa e veja o que o anúncio não conta: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão de mais de 1 milhão de veículos.",
+            "Digite a placa e veja o que o anúncio não conta: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão, com base de mais de 1 milhão de veículos.",
         },
         {
           name: "twitter:image",
