@@ -95,6 +95,15 @@ function corpo(perfil: PerfilVeiculo) {
   }
 }
 
+/** "detran_sp" vira "Detran SP". So pra fonte oficial. */
+function nomeDeOrgao(bruto: unknown): string {
+  const partes = String(bruto || '').split(/[_\s]+/).filter(Boolean)
+  if (!partes.length) return 'Órgão de trânsito'
+  return partes
+    .map((x) => (x.length === 2 ? x.toUpperCase() : x.charAt(0).toUpperCase() + x.slice(1).toLowerCase()))
+    .join(' ')
+}
+
 const CORES = ['verde', 'amarelo', 'laranja', 'vermelho', 'cinza']
 
 function sanearGravidade(g: any): GravidadeLeilao | null {
@@ -123,9 +132,11 @@ function sanear(res: any): HistoricoLeilao | null {
       fonte: String(p.fonte || ''),
       fonte_tipo: String(p.fonte_tipo || ''),
       fonte_uf: texto(p.fonte_uf),
-      // Sem fonte_exibicao (API antiga), cai no rotulo generico em vez de
-      // vazar o nome da casa privada.
-      fonte_exibicao: texto(p.fonte_exibicao) || (p.fonte_tipo === 'detran' ? 'Órgão de trânsito' : 'Leiloeira particular'),
+      // Sem fonte_exibicao (resposta de uma versao anterior da API), monta o
+      // nome aqui: orgao pode ser nomeado ("detran_sp" vira "Detran SP"),
+      // casa privada nunca, entao cai no rotulo generico.
+      fonte_exibicao: texto(p.fonte_exibicao)
+        || (p.fonte_tipo === 'detran' ? nomeDeOrgao(p.fonte) : 'Leiloeira particular'),
       gravidade: sanearGravidade(p.gravidade),
       detalhes: p.detalhes && typeof p.detalhes === 'object' && !Array.isArray(p.detalhes) ? p.detalhes : {},
       data_leilao: texto(p.data_leilao),
