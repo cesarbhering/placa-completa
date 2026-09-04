@@ -108,23 +108,44 @@ export default defineEventHandler(async (event) => {
         brutoSnap?.anoModelo ?? brutoSnap?.anoFabricacao ?? null,
       )
     } else {
-      const snapshot = await montarRelatorioSnapshot(supabase, {
-        placa: pedido.placa, plano, consulta_id: pedido.consulta_id, preview: pedido.preview,
-      })
-      consulta = snapshot.consulta
-      restantes = snapshot.camposRestantes
-      valorCusto = snapshot.valorCusto
-      chassiOrigem = snapshot.chassiOrigem
-      historicoLeilao = snapshot.historicoLeilao
-      // Backfill lazy: grava pra proxima visita ja vir do snapshot. Fail-open
-      // — se der erro (corrida com outra leitura, rede etc), so tenta de novo
-      // na proxima visualizacao, o relatorio desta ja saiu montado do jeito certo.
-      await supabase
+      // Relê o pedido antes de montar. Sem isso, quando a pessoa abre o
+      // relatorio no mesmo instante em que a entrega esta gravando o snapshot,
+      // as duas montagens acontecem em paralelo e o relatorio consulta os
+      // servicos auxiliares duas vezes (visto em producao: duas chamadas a
+      // leiloes-api com 0,1s de diferenca pro mesmo pedido). A consulta paga
+      // nunca duplica, porque ela tem claim atomico; o desperdicio e so de
+      // chamada interna, mas nao custa nada evita-lo.
+      const { data: recente } = await supabase
         .from('pedidos_premium')
-        .update({ relatorio_snapshot: snapshot, snapshot_em: new Date().toISOString() })
+        .select('relatorio_snapshot')
         .eq('token_entrega', String(token))
-        .is('relatorio_snapshot', null)
-        .then(() => {}, () => {})
+        .maybeSingle()
+      if (recente?.relatorio_snapshot) {
+        const snap = recente.relatorio_snapshot as any
+        consulta = snap.consulta ?? null
+        restantes = snap.camposRestantes ?? 0
+        valorCusto = snap.valorCusto ?? null
+        chassiOrigem = snap.chassiOrigem ?? null
+        historicoLeilao = snap.historicoLeilao ?? null
+      } else {
+        const snapshot = await montarRelatorioSnapshot(supabase, {
+          placa: pedido.placa, plano, consulta_id: pedido.consulta_id, preview: pedido.preview,
+        })
+        consulta = snapshot.consulta
+        restantes = snapshot.camposRestantes
+        valorCusto = snapshot.valorCusto
+        chassiOrigem = snapshot.chassiOrigem
+        historicoLeilao = snapshot.historicoLeilao
+        // Backfill lazy: grava pra proxima visita ja vir do snapshot. Fail-open
+        // — se der erro (corrida com outra leitura, rede etc), so tenta de novo
+        // na proxima visualizacao, o relatorio desta ja saiu montado do jeito certo.
+        await supabase
+          .from('pedidos_premium')
+          .update({ relatorio_snapshot: snapshot, snapshot_em: new Date().toISOString() })
+          .eq('token_entrega', String(token))
+          .is('relatorio_snapshot', null)
+          .then(() => {}, () => {})
+      }
     }
   }
 

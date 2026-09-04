@@ -40,6 +40,9 @@ function nomeDoPlano(plano?: string | null): string {
 function montarHtml(link: string, plano?: string | null, placa?: string | null): string {
   const nome = nomeDoPlano(plano)
   const g = GENERO[planoDe(plano)]
+  // O historico de leilao e exclusivo da completa: prometer isso no e-mail da
+  // basica seria vender o que a pessoa nao comprou.
+  const ehCompleta = planoDe(plano) === 'completa'
   const daPlaca = placa ? ` da placa <strong style="color:${TINTA}">${placa}</strong>` : ''
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -99,6 +102,9 @@ function montarHtml(link: string, plano?: string | null, placa?: string | null):
 
           <tr>
             <td style="padding:20px 32px 32px;font-family:${FONTE};">
+              ${ehCompleta ? `<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">
+                Inclui o histórico de leilão: a placa e o chassi deste veículo foram cruzados com mais de 1 milhão de veículos leiloados.
+              </p>` : ''}
               <p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">
                 Guarde este e-mail. O link é o seu acesso ao relatório, e ele não expira.
               </p>

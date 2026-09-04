@@ -70,7 +70,7 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     // texto fazia o titulo sair duplicado em producao.
     metaTitle: 'Consulta de Placa Grátis: Roubo, Dívida e Leilão',
     ogTitle: 'PlacaCompleta · Relatório completo do veículo pela placa',
-    ogDescription: 'O que o anúncio não conta sobre o carro: restrição, roubo e furto, registro de leilão, gravame, recall, valor FIPE e seguro estimado. Pagamento único no Pix, sem assinatura.',
+    ogDescription: 'O que o anúncio não conta sobre o carro: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão de mais de 1 milhão de veículos. Pagamento único no Pix, sem assinatura.',
   },
   moto: {
     variant: 'moto',
@@ -84,7 +84,7 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     heroImageAlt: 'Honda CB600F Hornet vista de lado',
     metaTitle: 'Consulta Placa de Moto Grátis: Roubo, Dívida e Leilão',
     ogTitle: 'Olho na Moto · Relatório completo da moto pela placa',
-    ogDescription: 'O que o anúncio não conta sobre a moto: restrição, roubo e furto, registro de leilão, gravame, recall, valor FIPE e seguro estimado. Pagamento único no Pix, sem assinatura.',
+    ogDescription: 'O que o anúncio não conta sobre a moto: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão de mais de 1 milhão de veículos. Pagamento único no Pix, sem assinatura.',
   },
   caminhao: {
     variant: 'caminhao',
@@ -98,7 +98,7 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     heroImageAlt: 'Caminhão Volvo FH visto de lado',
     metaTitle: 'Consulta Placa de Caminhão Grátis: Roubo, Dívida e Leilão',
     ogTitle: 'Olho no Caminhão · Relatório completo do caminhão pela placa',
-    ogDescription: 'O que o anúncio não conta sobre o caminhão: restrição, roubo e furto, registro de leilão, gravame, recall, valor FIPE e seguro estimado. Pagamento único no Pix, sem assinatura.',
+    ogDescription: 'O que o anúncio não conta sobre o caminhão: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão de mais de 1 milhão de veículos. Pagamento único no Pix, sem assinatura.',
   },
 }
 
