@@ -505,29 +505,38 @@ const passagensLeilao = computed(() => {
   }))
 })
 
-// O que a fonte expoe sobre o estado do veiculo. So os rotulos conhecidos sao
-// traduzidos; chave desconhecida aparece com o proprio nome, sem inventar um
-// rotulo bonito que possa mentir sobre o que o campo significa.
+// O que a fonte expoe sobre o ESTADO DO VEICULO, e so isso. A lista e curada
+// de proposito: com dado real, cada passagem vinha tambem com "status:
+// encerrado" (situacao do lote no site da leiloeira) e "subcategoria: Hatches"
+// (tipo de carroceria), que nao dizem nada sobre o carro e empurravam a
+// informacao util pra baixo. Chave fora da lista e ignorada; a ordem aqui e a
+// ordem da tela, do que pesa mais pro que pesa menos na decisao de compra.
 const ROTULO_DETALHE: Record<string, string> = {
+  sucata: 'Sucata',
   monta: 'Monta',
   sinistro: 'Sinistro',
-  sucata: 'Sucata',
-  km: 'Quilometragem',
   dano: 'Dano',
   condicao: 'Condição',
+  km: 'Quilometragem',
+  patio: 'Pátio',
   desfecho: 'Desfecho',
   valor_final: 'Valor final',
   observacao: 'Observação',
 }
+const ORDEM_DETALHE = Object.keys(ROTULO_DETALHE)
 
 function detalhesLegiveis(bruto: unknown): { rotulo: string; valor: string }[] {
   if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) return []
-  return Object.entries(bruto as Record<string, unknown>)
-    .filter(([, v]) => v !== null && v !== undefined && v !== '')
-    .map(([k, v]) => ({
-      rotulo: ROTULO_DETALHE[k] || k.replace(/_/g, ' '),
-      valor: typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : String(v),
-    }))
+  const dados = bruto as Record<string, unknown>
+  return ORDEM_DETALHE
+    .filter((k) => dados[k] !== null && dados[k] !== undefined && dados[k] !== '')
+    .map((k) => {
+      const v = dados[k]
+      return {
+        rotulo: ROTULO_DETALHE[k],
+        valor: typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : String(v),
+      }
+    })
 }
 
 // Sigla de UF vira caixa alta ("sp" -> "SP"); o resto ganha inicial maiuscula.
