@@ -593,6 +593,7 @@ export default defineNuxtConfig({
     // prefixo public de proposito, entao nunca entra no bundle do browser.
     leiloesApiUrl: process.env.LEILOES_API_URL || "",
     leiloesApiKey: process.env.LEILOES_API_KEY || "",
+    leiloesApiTimeoutMs: process.env.LEILOES_API_TIMEOUT_MS || "15000",
     premiumBaseUrl: process.env.PREMIUM_BASE_URL || "https://placacompleta.com.br",
     premiumValorCentavos: process.env.PREMIUM_VALOR_CENTAVOS || "4500",
     // SENATRAN homologacao (GCC + SERPRO). Certs via PEM em env (base64 ou texto).
