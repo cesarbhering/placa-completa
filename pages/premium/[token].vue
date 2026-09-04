@@ -500,6 +500,17 @@ function formatarDataLeilao(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 }
 
+// Confirmado e provavel aparecem sempre. Os "possivel" ficam recolhidos atras
+// de um botao: no teste com dado real, um Gol comum trouxe 4 passagens
+// possiveis da mesma leiloeira, todas por final de placa e modelo, quase
+// certamente carros diferentes. Empilhar isso no topo da secao daria ao
+// palpite o mesmo peso visual de um edital com o chassi inteiro, e assustaria
+// quem esta comprando um carro sem historico nenhum. A contagem continua
+// visivel no resumo, entao nada e escondido.
+const passagensFortes = computed(() => passagensLeilao.value.filter((p) => p.nivel !== 'possivel'))
+const passagensPossiveis = computed(() => passagensLeilao.value.filter((p) => p.nivel === 'possivel'))
+const possiveisAbertas = ref(false)
+
 // Uma passagem por vez aberta: a lista precisa continuar escaneavel.
 const passagemAberta = ref<number | null>(null)
 function alternarPassagem(idx: number) {
@@ -1083,7 +1094,7 @@ onUnmounted(() => poll && clearInterval(poll))
                 <span v-if="resumoLeilao">{{ resumoLeilao }}</span>
               </p>
 
-              <div v-for="p in passagensLeilao" :key="p.idx" class="rel__leilao">
+              <div v-for="p in passagensFortes" :key="p.idx" class="rel__leilao">
                 <div class="rel__leilao-topo">
                   <span class="rel__nivel" :class="`rel__nivel--${p.nivel}`">{{ p.rotuloNivel }}</span>
                   <span class="rel__leilao-fonte">{{ p.fonte }}</span>
@@ -1127,6 +1138,65 @@ onUnmounted(() => poll && clearInterval(poll))
                   </template>
                 </div>
               </div>
+              <template v-if="passagensPossiveis.length">
+                <button
+                  type="button"
+                  class="rel__leilao-toggle"
+                  :aria-expanded="possiveisAbertas"
+                  @click="possiveisAbertas = !possiveisAbertas"
+                >
+                  {{ possiveisAbertas ? 'Ocultar' : 'Ver' }}
+                  {{ passagensPossiveis.length }}
+                  {{ passagensPossiveis.length > 1 ? 'indícios possíveis' : 'indício possível' }}
+                </button>
+                <p v-if="!possiveisAbertas" class="rel__leilao-explica">
+                  Indício possível vem de fonte que publica pouca coisa do identificador, então pode ser outro carro do mesmo modelo e ano.
+                </p>
+                <template v-if="possiveisAbertas">
+                  <div v-for="p in passagensPossiveis" :key="p.idx" class="rel__leilao">
+                    <div class="rel__leilao-topo">
+                      <span class="rel__nivel" :class="`rel__nivel--${p.nivel}`">{{ p.rotuloNivel }}</span>
+                      <span class="rel__leilao-fonte">{{ p.fonte }}</span>
+                      <span class="rel__leilao-tipo">{{ p.tipoFonte }}</span>
+                    </div>
+                    <p class="rel__leilao-det">
+                      <template v-if="p.data">Leilão de {{ p.data }}</template>
+                      <template v-if="p.ref"> · Edital {{ p.ref }}</template>
+                      <template v-if="p.lote"> · Lote {{ p.lote }}</template>
+                      <template v-if="p.situacao"> · {{ p.situacao }}</template>
+                      <template v-if="p.valor"> · {{ p.valor }}</template>
+                    </p>
+                    <p v-if="p.leiloeiro || p.comitente" class="rel__leilao-det">
+                      <template v-if="p.leiloeiro">Leiloeiro: {{ p.leiloeiro }}</template>
+                      <template v-if="p.leiloeiro && p.comitente"> · </template>
+                      <template v-if="p.comitente">Comitente: {{ p.comitente }}</template>
+                    </p>
+                    <button
+                      type="button"
+                      class="rel__leilao-mais"
+                      :aria-expanded="passagemAberta === p.idx"
+                      @click="alternarPassagem(p.idx)"
+                    >
+                      {{ passagemAberta === p.idx ? 'Ocultar o que foi comparado' : 'Ver o que foi comparado' }}
+                    </button>
+                    <div v-if="passagemAberta === p.idx" class="rel__leilao-evid">
+                      <p class="rel__leilao-explica">{{ p.explicaNivel }}</p>
+                      <template v-if="p.evidencias.length">
+                        <p class="rel__leilao-sub">Bateu</p>
+                        <ul class="rel__leilao-lista">
+                          <li v-for="(e, i) in p.evidencias" :key="`pe${i}`">{{ e }}</li>
+                        </ul>
+                      </template>
+                      <template v-if="p.conflitos.length">
+                        <p class="rel__leilao-sub">Não bateu</p>
+                        <ul class="rel__leilao-lista rel__leilao-lista--conflito">
+                          <li v-for="(c, i) in p.conflitos" :key="`pc${i}`">{{ c }}</li>
+                        </ul>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </template>
             </template>
 
             <p v-if="historicoLeilao?.aviso" class="rel__leilao-aviso">{{ historicoLeilao.aviso }}</p>
@@ -1704,6 +1774,23 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     text-decoration: underline;
     cursor: pointer;
 
+    &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+  }
+
+  &__leilao-toggle {
+    display: inline-block;
+    margin: 4px 0 8px;
+    padding: 9px 14px;
+    background: $c-cloud;
+    border: 1px solid $c-hair;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: $c-charcoal;
+    cursor: pointer;
+
+    &:hover { border-color: $c-steel; }
     &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
   }
 
