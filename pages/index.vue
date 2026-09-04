@@ -1422,6 +1422,7 @@ function applyEmailSuggestion() {
             <span class="cb-doc-tag"><i class="cb-d2" />Restrições nacionais e estaduais</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Roubo e furto</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Registro de leilão</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />Histórico de leilão (1 milhão de veículos)</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Gravame</span>
             <span class="cb-doc-tag"><i class="cb-d2" />RENAJUD</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Recall</span>
