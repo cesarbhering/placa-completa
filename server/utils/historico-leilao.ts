@@ -10,12 +10,30 @@
 
 export type NivelLeilao = 'confirmado' | 'provavel' | 'possivel'
 
+/** Termometro de gravidade que a API calcula por passagem. */
+export interface GravidadeLeilao {
+  nivel: string
+  cor: 'verde' | 'amarelo' | 'laranja' | 'vermelho' | 'cinza' | string
+  rotulo: string
+  motivo: string
+}
+
 export interface PassagemLeilao {
   nivel: NivelLeilao
   score: number
   fonte: string
   fonte_tipo: 'detran' | 'privado' | string
   fonte_uf: string | null
+  /**
+   * Nome PUBLICO da fonte, ja resolvido pela API: "Detran SP" pra orgao,
+   * "Leiloeira particular" pra casa privada. E este que vai pra tela; o `fonte`
+   * cru fica so pra log, porque nome de leiloeira particular nao pode aparecer
+   * pro cliente (regra do Cesar).
+   */
+  fonte_exibicao: string
+  gravidade: GravidadeLeilao | null
+  /** O que a fonte expoe sobre o estado do veiculo (monta, sucata, km, dano). */
+  detalhes: Record<string, unknown>
   data_leilao: string | null
   ref: string | null
   lote: string | null
@@ -77,6 +95,22 @@ function corpo(perfil: PerfilVeiculo) {
   }
 }
 
+const CORES = ['verde', 'amarelo', 'laranja', 'vermelho', 'cinza']
+
+function sanearGravidade(g: any): GravidadeLeilao | null {
+  if (!g || typeof g !== 'object') return null
+  const rotulo = texto(g.rotulo)
+  if (!rotulo) return null
+  return {
+    nivel: texto(g.nivel) || 'desconhecido',
+    // Cor fora da paleta vira cinza: melhor um termometro neutro que um estilo
+    // quebrado, e a cor aqui e o sinal mais forte da tela.
+    cor: CORES.includes(String(g.cor)) ? String(g.cor) : 'cinza',
+    rotulo,
+    motivo: texto(g.motivo) || '',
+  }
+}
+
 /** Confia so no formato, nunca no conteudo: resposta torta vira null. */
 function sanear(res: any): HistoricoLeilao | null {
   if (!res || typeof res !== 'object' || !res.resumo) return null
@@ -89,12 +123,20 @@ function sanear(res: any): HistoricoLeilao | null {
       fonte: String(p.fonte || ''),
       fonte_tipo: String(p.fonte_tipo || ''),
       fonte_uf: texto(p.fonte_uf),
+      // Sem fonte_exibicao (API antiga), cai no rotulo generico em vez de
+      // vazar o nome da casa privada.
+      fonte_exibicao: texto(p.fonte_exibicao) || (p.fonte_tipo === 'detran' ? 'Órgão de trânsito' : 'Leiloeira particular'),
+      gravidade: sanearGravidade(p.gravidade),
+      detalhes: p.detalhes && typeof p.detalhes === 'object' && !Array.isArray(p.detalhes) ? p.detalhes : {},
       data_leilao: texto(p.data_leilao),
       ref: texto(p.ref),
       lote: texto(p.lote),
       valor: typeof p.valor === 'number' ? p.valor : null,
       situacao: texto(p.situacao),
-      leiloeiro: texto(p.leiloeiro),
+      // Leiloeiro de casa PRIVADA nunca sai daqui, nem no JSON: o relatorio e
+      // publico por token, entao filtrar so na tela deixaria o nome exposto pra
+      // quem abrisse a resposta. A API ja zera, isto e a nossa garantia.
+      leiloeiro: p.fonte_tipo === 'detran' ? texto(p.leiloeiro) : null,
       comitente: texto(p.comitente),
       veiculo_na_fonte: p.veiculo_na_fonte && typeof p.veiculo_na_fonte === 'object' ? p.veiculo_na_fonte : null,
       evidencias: Array.isArray(p.evidencias) ? p.evidencias.map(String) : [],
@@ -133,10 +175,12 @@ export async function consultarHistoricoLeilao(perfil: PerfilVeiculo): Promise<H
       method: 'POST',
       headers: { 'X-API-Key': key, 'X-Origem': 'homolog-premium' },
       body,
-      // 3s cobre com folga o que a API leva hoje (medi de 0,3s a 2,2s contra o
-      // indice real), mas fica ajustavel por env: se a base crescer, da pra
-      // afrouxar sem mexer em codigo. O relatorio nunca espera mais que isto.
-      timeout: Number(config.leiloesApiTimeoutMs) || 3000,
+      // 15s: a API cruza o perfil com ~1,4M linhas e a latencia varia muito
+      // (medi de 0,4s a 2,4s pra mesma placa, e o teto de 3s ja cortou uma
+      // resposta boa em producao de teste). Como o fluxo aqui e a montagem do
+      // relatorio ja pago, esperar e melhor que entregar sem a secao. Segue
+      // ajustavel por env.
+      timeout: Number(config.leiloesApiTimeoutMs) || 15000,
     })
     return sanear(res)
   } catch (e: any) {
