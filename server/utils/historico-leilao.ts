@@ -133,7 +133,10 @@ export async function consultarHistoricoLeilao(perfil: PerfilVeiculo): Promise<H
       method: 'POST',
       headers: { 'X-API-Key': key, 'X-Origem': 'homolog-premium' },
       body,
-      timeout: 3000,
+      // 3s cobre com folga o que a API leva hoje (medi de 0,3s a 2,2s contra o
+      // indice real), mas fica ajustavel por env: se a base crescer, da pra
+      // afrouxar sem mexer em codigo. O relatorio nunca espera mais que isto.
+      timeout: Number(config.leiloesApiTimeoutMs) || 3000,
     })
     return sanear(res)
   } catch (e: any) {
