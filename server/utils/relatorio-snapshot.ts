@@ -1,4 +1,5 @@
 import { filtrarPorPlano, camposRestantes } from '../../shared/planos'
+import { marcaExibicao } from '../../shared/marca-exibicao'
 
 // Monta o payload agregado do relatorio (consulta filtrada por plano +
 // valorCusto + chassiOrigem + camposRestantes) — o mesmo bloco que report.get
@@ -12,6 +13,27 @@ export interface RelatorioSnapshot {
   camposRestantes: number
   valorCusto: Awaited<ReturnType<typeof getValorCusto>>
   chassiOrigem: Awaited<ReturnType<typeof decodificarChassi>> | null
+  /** null quando o servico nao esta configurado (prod hoje) ou nao respondeu. */
+  historicoLeilao: Awaited<ReturnType<typeof consultarHistoricoLeilao>> | null
+}
+
+// O registro traz "MARCA/MODELO" numa string so ("I/HONDA CIVIC LX"). A API de
+// leiloes casa melhor com os dois separados, e a marca importada precisa do
+// mesmo tratamento que o resto do relatorio ja da (ver shared/marca-exibicao).
+function marcaDoRegistro(bruto: any): string | null {
+  const desc = String(bruto?.descricaoMarcaModelo || '').trim()
+  if (!desc) return null
+  return marcaExibicao({ MARCA: desc.split('/')[0], MODELO: desc, marcaModelo: desc }) || null
+}
+
+function modeloDoRegistro(bruto: any): string | null {
+  const desc = String(bruto?.descricaoMarcaModelo || '').trim()
+  if (!desc) return null
+  // Tira o prefixo de importado e o token da marca, sobra o modelo.
+  const semImportado = desc.replace(/^(?:IMP|IMPORT|I)\s*\//i, '').trim()
+  const partes = semImportado.split('/')
+  const resto = partes.length > 1 ? partes.slice(1).join('/') : semImportado.split(/\s+/).slice(1).join(' ')
+  return resto.trim() || null
 }
 
 // Local do VEICULO (nao de quem abre o link): mora dentro do preview salvo no
@@ -74,5 +96,23 @@ export async function montarRelatorioSnapshot(
     )
   }
 
-  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem }
+  // Historico de passagem por leilao: exclusivo da completa, pela mesma regra
+  // de produto do bloco de origem do chassi. Roda so onde o servico esta
+  // configurado (hoje, homolog); em prod a env nao existe e a consulta nem
+  // acontece. Fail-open: erro ou timeout = relatorio sem a secao.
+  let historicoLeilao: RelatorioSnapshot['historicoLeilao'] = null
+  if (pedido.plano === 'completa' && consulta?.response) {
+    historicoLeilao = await consultarHistoricoLeilao({
+      placa: pedido.placa,
+      chassi: senatranBruto?.chassi ?? null,
+      renavam: senatranBruto?.renavam ?? null,
+      marca: marcaDoRegistro(senatranBruto),
+      modelo: modeloDoRegistro(senatranBruto),
+      ano: senatranBruto?.anoModelo ?? senatranBruto?.anoFabricacao ?? null,
+      cor: senatranBruto?.descricaoCor ?? null,
+      uf: senatranBruto?.ufJurisdicao ?? local.uf ?? null,
+    }).catch(() => null)
+  }
+
+  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao }
 }
