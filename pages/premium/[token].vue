@@ -475,6 +475,16 @@ const passagensLeilao = computed(() => {
     fonte: nomeDaFonte(p.fonte),
     tipoFonte: p.fonte_tipo === 'detran' ? 'Edital de órgão oficial' : 'Catálogo de leiloeira',
     data: p.data_leilao ? formatarDataLeilao(p.data_leilao) : null,
+    // Linha montada como lista pra nunca comecar com separador solto: no teste
+    // real do homolog, uma passagem do DETRAN-SP sem data saiu como
+    // "· Edital 001/2016 · Lote 02872".
+    detalhe: [
+      p.data_leilao ? `Leilão de ${formatarDataLeilao(p.data_leilao)}` : null,
+      p.ref ? `Edital ${p.ref}` : null,
+      p.lote ? `Lote ${p.lote}` : null,
+      p.situacao ? humanizar(p.situacao) : null,
+      typeof p.valor === 'number' ? p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null,
+    ].filter(Boolean).join(' · '),
     ref: p.ref,
     lote: p.lote,
     situacao: p.situacao ? humanizar(p.situacao) : null,
@@ -1100,13 +1110,7 @@ onUnmounted(() => poll && clearInterval(poll))
                   <span class="rel__leilao-fonte">{{ p.fonte }}</span>
                   <span class="rel__leilao-tipo">{{ p.tipoFonte }}</span>
                 </div>
-                <p class="rel__leilao-det">
-                  <template v-if="p.data">Leilão de {{ p.data }}</template>
-                  <template v-if="p.ref"> · Edital {{ p.ref }}</template>
-                  <template v-if="p.lote"> · Lote {{ p.lote }}</template>
-                  <template v-if="p.situacao"> · {{ p.situacao }}</template>
-                  <template v-if="p.valor"> · {{ p.valor }}</template>
-                </p>
+                <p v-if="p.detalhe" class="rel__leilao-det">{{ p.detalhe }}</p>
                 <p v-if="p.leiloeiro || p.comitente" class="rel__leilao-det">
                   <template v-if="p.leiloeiro">Leiloeiro: {{ p.leiloeiro }}</template>
                   <template v-if="p.leiloeiro && p.comitente"> · </template>
@@ -1159,13 +1163,7 @@ onUnmounted(() => poll && clearInterval(poll))
                       <span class="rel__leilao-fonte">{{ p.fonte }}</span>
                       <span class="rel__leilao-tipo">{{ p.tipoFonte }}</span>
                     </div>
-                    <p class="rel__leilao-det">
-                      <template v-if="p.data">Leilão de {{ p.data }}</template>
-                      <template v-if="p.ref"> · Edital {{ p.ref }}</template>
-                      <template v-if="p.lote"> · Lote {{ p.lote }}</template>
-                      <template v-if="p.situacao"> · {{ p.situacao }}</template>
-                      <template v-if="p.valor"> · {{ p.valor }}</template>
-                    </p>
+                    <p v-if="p.detalhe" class="rel__leilao-det">{{ p.detalhe }}</p>
                     <p v-if="p.leiloeiro || p.comitente" class="rel__leilao-det">
                       <template v-if="p.leiloeiro">Leiloeiro: {{ p.leiloeiro }}</template>
                       <template v-if="p.leiloeiro && p.comitente"> · </template>
