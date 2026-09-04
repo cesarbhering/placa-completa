@@ -195,6 +195,13 @@ const COBERTURA_RESTRICAO: [RegExp, string][] = [
 
 const normalizaChave = (r: any) => String(r).toUpperCase().replace(/[\s-]+/g, '_')
 
+// Historico de leilao vem do servico de leiloes, nao do payload da consulta.
+// Declarado aqui, antes dos indicadores, porque a grade de indicadores le
+// dele.
+const historicoLeilao = computed(() => data.value?.historicoLeilao ?? null)
+const temSecaoLeilao = computed(() => !!historicoLeilao.value)
+
+
 const indicadores = computed(() => {
   const base: any[] = INDICADORES.filter((i) => has(i.k)).map((i) => {
     const ligado = g(i.k) === true
@@ -244,6 +251,52 @@ const indicadores = computed(() => {
       dica: 'Qualquer restrição registrada que não se encaixa nos cartões específicos, como benefício fiscal com prazo de carência. O detalhe aparece na seção de Restrições.',
       ligado: semCartao, alerta: semCartao,
     })
+  }
+
+  // Historico de leilao: o unico indicador que NAO vem do payload da consulta,
+  // e sim do servico de leiloes. Fica junto dos outros porque a pergunta que
+  // ele responde ("esse carro foi leiloado?") e do mesmo tipo, e porque a
+  // grade e o lugar onde as pessoas passam o olho primeiro.
+  //
+  // Se o servico nao respondeu, o indicador NAO entra: um cartao verde ali
+  // seria dizer "nada consta" sem ter olhado, que e pior que nao dizer nada.
+  if (historicoLeilao.value?.resumo) {
+    const r = historicoLeilao.value.resumo
+    const total = (r.n_confirmado || 0) + (r.n_provavel || 0) + (r.n_possivel || 0)
+    const plural = (n: number) => (n > 1 ? 's' : '')
+    let valor = 'NADA CONSTA'
+    let alerta = false
+    if (r.n_confirmado > 0) {
+      valor = `CONSTA (${r.n_confirmado} confirmado${plural(r.n_confirmado)})`
+      alerta = true
+    } else if (r.n_provavel > 0) {
+      valor = `PROVÁVEL (${r.n_provavel})`
+      alerta = true
+    } else if (r.n_possivel > 0) {
+      // Indicio fraco nao acende alerta: pode ser outro carro do mesmo modelo,
+      // e um cartao vermelho aqui condenaria um veiculo por semelhanca.
+      valor = `INDÍCIO FRACO (${r.n_possivel})`
+      alerta = false
+    }
+    const cartaoLeilao = {
+      k: 'historicoLeilao',
+      label: 'Histórico de leilão (fontes públicas)',
+      sim: valor,
+      nao: 'NADA CONSTA',
+      risco: true,
+      dica: 'Cruzamos o veículo com editais de DETRAN e catálogos de leiloeiras, mais de 1 milhão de veículos. Confirmado quer dizer chassi ou placa completos iguais; provável e possível são inferência por identificador parcial, então podem ser outro carro. O detalhe de cada registro aparece na seção Histórico de leilão.',
+      ligado: total > 0,
+      alerta,
+    }
+    // Entra colado no "Leilão registrado no documento", que responde a outra
+    // pergunta: aquele diz se o leilao foi anotado no registro do veiculo, este
+    // diz se o veiculo apareceu em edital ou catalogo. Um "sem registro" ao
+    // lado de um "consta" parece contradicao quando os dois estao longe um do
+    // outro; lado a lado, a diferenca fica evidente, e ela e justamente o que a
+    // nossa base acrescenta.
+    const posDoc = base.findIndex((i) => i.k === 'indicadorLeilao')
+    if (posDoc >= 0) base.splice(posDoc + 1, 0, cartaoLeilao)
+    else base.push(cartaoLeilao)
   }
 
   return base
@@ -448,8 +501,6 @@ onMounted(async () => {
 // e um catalogo de leiloeira que so publica o final da placa (inferencia). Sem
 // o rotulo, as duas coisas pareceriam iguais na tela, e a segunda pode ser
 // outro carro.
-const historicoLeilao = computed(() => data.value?.historicoLeilao ?? null)
-const temSecaoLeilao = computed(() => !!historicoLeilao.value)
 
 const ROTULO_NIVEL: Record<string, string> = {
   confirmado: 'Confirmado',
@@ -1077,7 +1128,7 @@ onUnmounted(() => poll && clearInterval(poll))
                 v-for="i in indicadores"
                 :key="i.k"
                 class="rel__ind"
-                :class="i.alerta ? 'rel__ind--bad' : 'rel__ind--ok'"
+                :class="i.alerta ? 'rel__ind--bad' : (i.ligado && i.risco ? 'rel__ind--atencao' : 'rel__ind--ok')"
               >
                 <span class="rel__ind-lab">
                   {{ rotuloPartes(i.label).inicio }}<span class="rel__ind-glue">{{ rotuloPartes(i.label).fim }}<button type="button" class="rel__info" :data-dica="i.dica" :aria-label="i.dica">
@@ -2175,6 +2226,15 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     line-height: 1.5;
     color: #636363;
     margin: 12px 0 0;
+  }
+
+  // Terceiro estado: aceso, mas sem afirmar problema. Nasceu do indicio
+  // "possivel" de leilao, que pode ser outro carro do mesmo modelo: pintar de
+  // verde esconderia o achado, e de vermelho condenaria o veiculo por
+  // semelhanca.
+  &__ind--atencao {
+    border-color: rgba(180, 83, 9, 0.35);
+    .rel__ind-val { color: #8a5200; &::before { background: #e0a800; } }
   }
 
   &__ind--ok .rel__ind-val { color: #14622f; &::before { background: $c-green; } }

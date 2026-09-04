@@ -184,7 +184,13 @@ export async function consultarHistoricoLeilao(perfil: PerfilVeiculo): Promise<H
   try {
     const res = await $fetch<any>(`${base}/v1/historico`, {
       method: 'POST',
-      headers: { 'X-API-Key': key, 'X-Origem': 'homolog-premium' },
+      // Identifica a origem no log da API. Sem isto, consulta de PRODUCAO
+      // apareceria como homolog no api_consultas e a analise de uso viraria
+      // ficcao.
+      headers: {
+        'X-API-Key': key,
+        'X-Origem': config.public.gated ? 'homolog-premium' : 'prod-premium',
+      },
       body,
       // 15s: a API cruza o perfil com ~1,4M linhas e a latencia varia muito
       // (medi de 0,4s a 2,4s pra mesma placa, e o teto de 3s ja cortou uma
