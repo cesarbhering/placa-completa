@@ -587,6 +587,13 @@ export default defineNuxtConfig({
     // docker interna, sem porta publica. Fail-open: se estiver fora, o bloco
     // "Origem do chassi" so nao aparece no relatorio, nunca quebra a entrega.
     vinDecoderUrl: process.env.VIN_DECODER_URL || "http://vin-decoder:3000",
+    // Historico de passagem por leilao (servico leiloes-api, rede docker).
+    // Sem URL a secao do relatorio nem e montada: e assim que a feature fica
+    // restrita ao homolog sem flag espalhada pelo codigo. A key NAO tem
+    // prefixo public de proposito, entao nunca entra no bundle do browser.
+    leiloesApiUrl: process.env.LEILOES_API_URL || "",
+    leiloesApiKey: process.env.LEILOES_API_KEY || "",
+    leiloesApiTimeoutMs: process.env.LEILOES_API_TIMEOUT_MS || "15000",
     premiumBaseUrl: process.env.PREMIUM_BASE_URL || "https://placacompleta.com.br",
     premiumValorCentavos: process.env.PREMIUM_VALOR_CENTAVOS || "4500",
     // SENATRAN homologacao (GCC + SERPRO). Certs via PEM em env (base64 ou texto).
@@ -643,11 +650,19 @@ export default defineNuxtConfig({
         "Cross-Origin-Opener-Policy": "same-origin",
       },
     },
-    // Nao-indexacao dos RELATORIOS premium (/premium/{token}) via a chave nativa
-    // do @nuxtjs/robots: ele emite o X-Robots-Tag noindex e casa com o meta da
-    // pagina. Um header cru aqui era sobrescrito pelo modulo. So os subpaths: a
-    // landing /premium segue indexavel. Sem Disallow no robots.txt (o crawler
-    // precisa poder ver o noindex).
+    // Area premium fora do indice, via a chave nativa do @nuxtjs/robots (ele
+    // emite o X-Robots-Tag e casa com o meta da pagina; header cru aqui era
+    // sobrescrito pelo modulo).
+    //
+    // /premium/{token} e a consulta do cliente: conteudo de quem pagou, nunca
+    // pode virar resultado de busca.
+    //
+    // /premium (a raiz) saiu do indice por decisao do Cesar: e a tela de teste
+    // do fluxo pago, e a regra passou a ser nao expor nem deixar crawlear.
+    // Perdemos uma landing indexavel, o que foi aceito de proposito. Sem
+    // Disallow no robots.txt: o crawler precisa poder buscar a pagina pra ler
+    // o noindex nela.
+    "/premium": { robots: "noindex, nofollow" },
     "/premium/**": { robots: "noindex, nofollow" },
     // A home NAO e mais prerenderizada de proposito (theming por dominio —
     // ver composables/useSiteVariant.ts): tentamos prerender + rewrite

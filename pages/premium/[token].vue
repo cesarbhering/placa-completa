@@ -195,6 +195,13 @@ const COBERTURA_RESTRICAO: [RegExp, string][] = [
 
 const normalizaChave = (r: any) => String(r).toUpperCase().replace(/[\s-]+/g, '_')
 
+// Historico de leilao vem do servico de leiloes, nao do payload da consulta.
+// Declarado aqui, antes dos indicadores, porque a grade de indicadores le
+// dele.
+const historicoLeilao = computed(() => data.value?.historicoLeilao ?? null)
+const temSecaoLeilao = computed(() => !!historicoLeilao.value)
+
+
 const indicadores = computed(() => {
   const base: any[] = INDICADORES.filter((i) => has(i.k)).map((i) => {
     const ligado = g(i.k) === true
@@ -244,6 +251,52 @@ const indicadores = computed(() => {
       dica: 'Qualquer restrição registrada que não se encaixa nos cartões específicos, como benefício fiscal com prazo de carência. O detalhe aparece na seção de Restrições.',
       ligado: semCartao, alerta: semCartao,
     })
+  }
+
+  // Historico de leilao: o unico indicador que NAO vem do payload da consulta,
+  // e sim do servico de leiloes. Fica junto dos outros porque a pergunta que
+  // ele responde ("esse carro foi leiloado?") e do mesmo tipo, e porque a
+  // grade e o lugar onde as pessoas passam o olho primeiro.
+  //
+  // Se o servico nao respondeu, o indicador NAO entra: um cartao verde ali
+  // seria dizer "nada consta" sem ter olhado, que e pior que nao dizer nada.
+  if (historicoLeilao.value?.resumo) {
+    const r = historicoLeilao.value.resumo
+    const total = (r.n_confirmado || 0) + (r.n_provavel || 0) + (r.n_possivel || 0)
+    const plural = (n: number) => (n > 1 ? 's' : '')
+    let valor = 'NADA CONSTA'
+    let alerta = false
+    if (r.n_confirmado > 0) {
+      valor = `CONSTA (${r.n_confirmado} confirmado${plural(r.n_confirmado)})`
+      alerta = true
+    } else if (r.n_provavel > 0) {
+      valor = `PROVÁVEL (${r.n_provavel})`
+      alerta = true
+    } else if (r.n_possivel > 0) {
+      // Indicio fraco nao acende alerta: pode ser outro carro do mesmo modelo,
+      // e um cartao vermelho aqui condenaria um veiculo por semelhanca.
+      valor = `INDÍCIO FRACO (${r.n_possivel})`
+      alerta = false
+    }
+    const cartaoLeilao = {
+      k: 'historicoLeilao',
+      label: 'Histórico de leilão (fontes públicas)',
+      sim: valor,
+      nao: 'NADA CONSTA',
+      risco: true,
+      dica: 'Cruzamos o veículo com editais de DETRAN e catálogos de leiloeiras, mais de 1 milhão de veículos. Confirmado quer dizer chassi ou placa completos iguais; provável e possível são inferência por identificador parcial, então podem ser outro carro. O detalhe de cada registro aparece na seção Histórico de leilão.',
+      ligado: total > 0,
+      alerta,
+    }
+    // Entra colado no "Leilão registrado no documento", que responde a outra
+    // pergunta: aquele diz se o leilao foi anotado no registro do veiculo, este
+    // diz se o veiculo apareceu em edital ou catalogo. Um "sem registro" ao
+    // lado de um "consta" parece contradicao quando os dois estao longe um do
+    // outro; lado a lado, a diferenca fica evidente, e ela e justamente o que a
+    // nossa base acrescenta.
+    const posDoc = base.findIndex((i) => i.k === 'indicadorLeilao')
+    if (posDoc >= 0) base.splice(posDoc + 1, 0, cartaoLeilao)
+    else base.push(cartaoLeilao)
   }
 
   return base
@@ -439,6 +492,151 @@ onMounted(async () => {
   } catch { /* sem QR o rodape continua com o endereco por extenso */ }
 })
 
+// ---------- historico de leilao ----------
+// So existe quando o servico esta configurado no ambiente (hoje, homolog) e o
+// plano e completa; o servidor ja aplica as duas regras, aqui e so exibicao.
+//
+// A copy trata cada passagem pelo NIVEL DE CONFIANCA, porque a fonte varia: a
+// mesma consulta pode achar um edital de DETRAN com o chassi inteiro (certeza)
+// e um catalogo de leiloeira que so publica o final da placa (inferencia). Sem
+// o rotulo, as duas coisas pareceriam iguais na tela, e a segunda pode ser
+// outro carro.
+
+const ROTULO_NIVEL: Record<string, string> = {
+  confirmado: 'Confirmado',
+  provavel: 'Provável',
+  possivel: 'Possível',
+}
+const EXPLICA_NIVEL: Record<string, string> = {
+  confirmado: 'O chassi, a placa ou o Renavam completos deste veículo constam no registro do leilão.',
+  provavel: 'A fonte publica só parte do identificador, e o trecho publicado bate com este veículo, assim como marca, modelo e ano.',
+  possivel: 'A fonte publica pouca coisa do identificador. O que dá para comparar bate com este veículo, mas pode ser outro carro do mesmo modelo e ano.',
+}
+
+const passagensLeilao = computed(() => {
+  const lista = historicoLeilao.value?.passagens
+  if (!Array.isArray(lista)) return []
+  return lista.map((p: any, idx: number) => ({
+    idx,
+    nivel: p.nivel as string,
+    rotuloNivel: ROTULO_NIVEL[p.nivel] || humanizar(p.nivel),
+    explicaNivel: EXPLICA_NIVEL[p.nivel] || '',
+    // Nome PUBLICO, resolvido pela API: "Detran SP" pra orgao, "Leiloeira
+    // particular" pra casa privada. Nome de leiloeira particular nunca vai pra
+    // tela (regra do Cesar), entao aqui NAO se usa o campo `fonte` cru.
+    //
+    // O fallback existe pros snapshots gravados ANTES deste campo: eles sao
+    // imutaveis, entao continuam sem `fonte_exibicao` pra sempre, e sem isto o
+    // cartao aparecia sem nome de fonte nenhum. Orgao vira "Detran SP" a partir
+    // do codigo da fonte; privada vira o rotulo generico, nunca o nome da casa.
+    fonte: p.fonte_exibicao || (p.fonte_tipo === 'detran' ? nomeDaFonte(p.fonte) : 'Leiloeira particular'),
+    gravidade: p.gravidade,
+    // Em fonte privada o proprio nome de exibicao ja diz o que e ("Leiloeira
+    // particular"), entao o rotulo de tipo so aparece pro orgao oficial, que e
+    // a informacao que muda a leitura da passagem.
+    tipoFonte: p.fonte_tipo === 'detran' ? 'Edital de órgão oficial' : '',
+    data: p.data_leilao ? formatarDataLeilao(p.data_leilao) : null,
+    // Linha montada como lista pra nunca comecar com separador solto: no teste
+    // real do homolog, uma passagem do DETRAN-SP sem data saiu como
+    // "· Edital 001/2016 · Lote 02872".
+    detalhe: [
+      p.data_leilao ? `Leilão de ${formatarDataLeilao(p.data_leilao)}` : null,
+      p.ref ? `Edital ${p.ref}` : null,
+      p.lote ? `Lote ${p.lote}` : null,
+      // Com termometro, a situacao crua ("SUCATA") viraria eco do rotulo.
+      p.gravidade || !p.situacao ? null : humanizar(p.situacao),
+      typeof p.valor === 'number' ? p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null,
+    ].filter(Boolean).join(' · '),
+    ref: p.ref,
+    lote: p.lote,
+    situacao: p.situacao ? humanizar(p.situacao) : null,
+    valor: typeof p.valor === 'number' ? p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null,
+    // Leiloeiro nao entra na tela: em casa privada ele identifica a leiloeira.
+    // Comitente fica, porque banco ou seguradora e justamente o sinal de que a
+    // passagem foi retomada de financiamento, nao sinistro.
+    comitente: p.comitente,
+    detalhes: detalhesLegiveis(p.detalhes),
+    evidencias: Array.isArray(p.evidencias) ? p.evidencias : [],
+    conflitos: Array.isArray(p.conflitos) ? p.conflitos : [],
+  }))
+})
+
+// O que a fonte expoe sobre o ESTADO DO VEICULO, e so isso. A lista e curada
+// de proposito: com dado real, cada passagem vinha tambem com "status:
+// encerrado" (situacao do lote no site da leiloeira) e "subcategoria: Hatches"
+// (tipo de carroceria), que nao dizem nada sobre o carro e empurravam a
+// informacao util pra baixo. Chave fora da lista e ignorada; a ordem aqui e a
+// ordem da tela, do que pesa mais pro que pesa menos na decisao de compra.
+const ROTULO_DETALHE: Record<string, string> = {
+  sucata: 'Sucata',
+  monta: 'Monta',
+  sinistro: 'Sinistro',
+  dano: 'Dano',
+  condicao: 'Condição',
+  km: 'Quilometragem',
+  patio: 'Pátio',
+  desfecho: 'Desfecho',
+  valor_final: 'Valor final',
+  observacao: 'Observação',
+}
+const ORDEM_DETALHE = Object.keys(ROTULO_DETALHE)
+
+function detalhesLegiveis(bruto: unknown): { rotulo: string; valor: string }[] {
+  if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) return []
+  const dados = bruto as Record<string, unknown>
+  return ORDEM_DETALHE
+    .filter((k) => dados[k] !== null && dados[k] !== undefined && dados[k] !== '')
+    .map((k) => {
+      const v = dados[k]
+      return {
+        rotulo: ROTULO_DETALHE[k],
+        valor: typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : String(v),
+      }
+    })
+}
+
+// Sigla de UF vira caixa alta ("sp" -> "SP"); o resto ganha inicial maiuscula.
+function nomeDaFonte(bruto: unknown): string {
+  return String(bruto || '')
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((parte) => (parte.length === 2 ? parte.toUpperCase() : parte.charAt(0).toUpperCase() + parte.slice(1).toLowerCase()))
+    .join(' ')
+}
+
+function formatarDataLeilao(iso: string): string {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+}
+
+// Confirmado e provavel aparecem sempre. Os "possivel" ficam recolhidos atras
+// de um botao: no teste com dado real, um Gol comum trouxe 4 passagens
+// possiveis da mesma leiloeira, todas por final de placa e modelo, quase
+// certamente carros diferentes. Empilhar isso no topo da secao daria ao
+// palpite o mesmo peso visual de um edital com o chassi inteiro, e assustaria
+// quem esta comprando um carro sem historico nenhum. A contagem continua
+// visivel no resumo, entao nada e escondido.
+const passagensFortes = computed(() => passagensLeilao.value.filter((p) => p.nivel !== 'possivel'))
+const passagensPossiveis = computed(() => passagensLeilao.value.filter((p) => p.nivel === 'possivel'))
+const possiveisAbertas = ref(false)
+
+// Uma passagem por vez aberta: a lista precisa continuar escaneavel.
+const passagemAberta = ref<number | null>(null)
+function alternarPassagem(idx: number) {
+  passagemAberta.value = passagemAberta.value === idx ? null : idx
+}
+
+const resumoLeilao = computed(() => {
+  const r = historicoLeilao.value?.resumo
+  if (!r) return null
+  const partes: string[] = []
+  const plural = (n: number, um: string, muitos: string) => `${n} ${n > 1 ? muitos : um}`
+  if (r.n_confirmado) partes.push(plural(r.n_confirmado, 'confirmada', 'confirmadas'))
+  if (r.n_provavel) partes.push(plural(r.n_provavel, 'provável', 'prováveis'))
+  if (r.n_possivel) partes.push(plural(r.n_possivel, 'possível', 'possíveis'))
+  return partes.join(' · ')
+})
+
 // ---------- numeracao das secoes ----------
 // Dinamica porque nem toda secao existe em todo laudo (a basica nao tem
 // indicadores; sem FIPE nao ha secao de valor). Numeracao fixa deixaria buraco.
@@ -447,6 +645,7 @@ const numSecao = computed(() => {
   if (indicadores.value.length) ordem.push('ind')
   if (!isBasica.value && indicadores.value.length) ordem.push('restr')
   if (ocorrencias.value.length) ordem.push('ocorr')
+  if (temSecaoLeilao.value) ordem.push('leilao')
   // Importacao e chassiOrigem NAO entram na numeracao: viraram subsecoes
   // dentro da ficha (rel__sub), igual Cadastral/Tecnica — nao sao mais card
   // proprio numerado.
@@ -929,7 +1128,7 @@ onUnmounted(() => poll && clearInterval(poll))
                 v-for="i in indicadores"
                 :key="i.k"
                 class="rel__ind"
-                :class="i.alerta ? 'rel__ind--bad' : 'rel__ind--ok'"
+                :class="i.alerta ? 'rel__ind--bad' : (i.ligado && i.risco ? 'rel__ind--atencao' : 'rel__ind--ok')"
               >
                 <span class="rel__ind-lab">
                   {{ rotuloPartes(i.label).inicio }}<span class="rel__ind-glue">{{ rotuloPartes(i.label).fim }}<button type="button" class="rel__info" :data-dica="i.dica" :aria-label="i.dica">
@@ -984,6 +1183,143 @@ onUnmounted(() => poll && clearInterval(poll))
               Ocorrências registradas permanecem no histórico mesmo após a recuperação
               do veículo. Solicite ao vendedor o boletim de ocorrência e a respectiva baixa.
             </p>
+          </section>
+
+          <!-- historico de leilao (so completa, so onde o servico existe) -->
+          <section v-if="temSecaoLeilao" class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.leilao }}. Histórico de leilão</h2>
+
+            <template v-if="!historicoLeilao?.resumo?.tem_indicio">
+              <p class="rel__nada">
+                Nenhum indício de passagem por leilão nas fontes consultadas.
+              </p>
+            </template>
+
+            <template v-else>
+              <p class="rel__leilao-resumo">
+                <span class="rel__nivel" :class="`rel__nivel--${historicoLeilao?.resumo?.nivel_max}`">
+                  {{ ROTULO_NIVEL[historicoLeilao?.resumo?.nivel_max || ''] }}
+                </span>
+                <span v-if="resumoLeilao">{{ resumoLeilao }}</span>
+              </p>
+
+              <div v-for="p in passagensFortes" :key="p.idx" class="rel__leilao">
+                <div class="rel__leilao-topo">
+                  <span class="rel__nivel" :class="`rel__nivel--${p.nivel}`">{{ p.rotuloNivel }}</span>
+                  <span class="rel__leilao-fonte">{{ p.fonte }}</span>
+                  <span v-if="p.tipoFonte" class="rel__leilao-tipo">{{ p.tipoFonte }}</span>
+                </div>
+                <!-- Termometro: e a primeira coisa que a pessoa precisa ver.
+                     "Retomada de financiamento" em verde diz, sem rodeio, que
+                     o carro passou por leilao mas NAO foi sinistro. -->
+                <p v-if="p.gravidade" class="rel__grav" :class="`rel__grav--${p.gravidade.cor}`">
+                  <span class="rel__grav-barra" aria-hidden="true" />
+                  <span class="rel__grav-rotulo">{{ p.gravidade.rotulo }}</span>
+                </p>
+                <p v-if="p.detalhe" class="rel__leilao-det">{{ p.detalhe }}</p>
+                <ul v-if="p.detalhes.length" class="rel__leilao-detalhes">
+                  <li v-for="d in p.detalhes" :key="d.rotulo">
+                    <span>{{ d.rotulo }}</span><strong>{{ d.valor }}</strong>
+                  </li>
+                </ul>
+                <p v-if="p.leiloeiro || p.comitente" class="rel__leilao-det">
+                  <template v-if="p.leiloeiro">Leiloeiro: {{ p.leiloeiro }}</template>
+                  <template v-if="p.leiloeiro && p.comitente"> · </template>
+                  <template v-if="p.comitente">Comitente: {{ p.comitente }}</template>
+                </p>
+
+                <button
+                  type="button"
+                  class="rel__leilao-mais"
+                  :aria-expanded="passagemAberta === p.idx"
+                  @click="alternarPassagem(p.idx)"
+                >
+                  {{ passagemAberta === p.idx ? 'Ocultar o que foi comparado' : 'Ver o que foi comparado' }}
+                </button>
+
+                <div v-if="passagemAberta === p.idx" class="rel__leilao-evid">
+                  <p v-if="p.gravidade?.motivo" class="rel__leilao-explica">{{ p.gravidade.motivo }}</p>
+                  <p class="rel__leilao-explica">{{ p.explicaNivel }}</p>
+                  <template v-if="p.evidencias.length">
+                    <p class="rel__leilao-sub">Bateu</p>
+                    <ul class="rel__leilao-lista">
+                      <li v-for="(e, i) in p.evidencias" :key="`e${i}`">{{ e }}</li>
+                    </ul>
+                  </template>
+                  <template v-if="p.conflitos.length">
+                    <p class="rel__leilao-sub">Não bateu</p>
+                    <ul class="rel__leilao-lista rel__leilao-lista--conflito">
+                      <li v-for="(c, i) in p.conflitos" :key="`c${i}`">{{ c }}</li>
+                    </ul>
+                  </template>
+                </div>
+              </div>
+              <template v-if="passagensPossiveis.length">
+                <button
+                  type="button"
+                  class="rel__leilao-toggle"
+                  :aria-expanded="possiveisAbertas"
+                  @click="possiveisAbertas = !possiveisAbertas"
+                >
+                  {{ possiveisAbertas ? 'Ocultar' : 'Ver' }}
+                  {{ passagensPossiveis.length }}
+                  {{ passagensPossiveis.length > 1 ? 'indícios possíveis' : 'indício possível' }}
+                </button>
+                <p v-if="!possiveisAbertas" class="rel__leilao-explica">
+                  Indício possível vem de fonte que publica pouca coisa do identificador, então pode ser outro carro do mesmo modelo e ano.
+                </p>
+                <template v-if="possiveisAbertas">
+                  <div v-for="p in passagensPossiveis" :key="p.idx" class="rel__leilao">
+                    <div class="rel__leilao-topo">
+                      <span class="rel__nivel" :class="`rel__nivel--${p.nivel}`">{{ p.rotuloNivel }}</span>
+                      <span class="rel__leilao-fonte">{{ p.fonte }}</span>
+                      <span v-if="p.tipoFonte" class="rel__leilao-tipo">{{ p.tipoFonte }}</span>
+                    </div>
+                    <p v-if="p.gravidade" class="rel__grav" :class="`rel__grav--${p.gravidade.cor}`">
+                      <span class="rel__grav-barra" aria-hidden="true" />
+                      <span class="rel__grav-rotulo">{{ p.gravidade.rotulo }}</span>
+                    </p>
+                    <p v-if="p.detalhe" class="rel__leilao-det">{{ p.detalhe }}</p>
+                    <ul v-if="p.detalhes.length" class="rel__leilao-detalhes">
+                      <li v-for="d in p.detalhes" :key="d.rotulo">
+                        <span>{{ d.rotulo }}</span><strong>{{ d.valor }}</strong>
+                      </li>
+                    </ul>
+                    <p v-if="p.leiloeiro || p.comitente" class="rel__leilao-det">
+                      <template v-if="p.leiloeiro">Leiloeiro: {{ p.leiloeiro }}</template>
+                      <template v-if="p.leiloeiro && p.comitente"> · </template>
+                      <template v-if="p.comitente">Comitente: {{ p.comitente }}</template>
+                    </p>
+                    <button
+                      type="button"
+                      class="rel__leilao-mais"
+                      :aria-expanded="passagemAberta === p.idx"
+                      @click="alternarPassagem(p.idx)"
+                    >
+                      {{ passagemAberta === p.idx ? 'Ocultar o que foi comparado' : 'Ver o que foi comparado' }}
+                    </button>
+                    <div v-if="passagemAberta === p.idx" class="rel__leilao-evid">
+                      <p v-if="p.gravidade?.motivo" class="rel__leilao-explica">{{ p.gravidade.motivo }}</p>
+                      <p class="rel__leilao-explica">{{ p.explicaNivel }}</p>
+                      <template v-if="p.evidencias.length">
+                        <p class="rel__leilao-sub">Bateu</p>
+                        <ul class="rel__leilao-lista">
+                          <li v-for="(e, i) in p.evidencias" :key="`pe${i}`">{{ e }}</li>
+                        </ul>
+                      </template>
+                      <template v-if="p.conflitos.length">
+                        <p class="rel__leilao-sub">Não bateu</p>
+                        <ul class="rel__leilao-lista rel__leilao-lista--conflito">
+                          <li v-for="(c, i) in p.conflitos" :key="`pc${i}`">{{ c }}</li>
+                        </ul>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </template>
+            </template>
+
+            <p v-if="historicoLeilao?.aviso" class="rel__leilao-aviso">{{ historicoLeilao.aviso }}</p>
           </section>
 
           <!-- ficha -->
@@ -1491,6 +1827,210 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     color: $c-graphite;
   }
 
+  // ---- historico de leilao ----
+  // Regra visual: o NIVEL manda. Confirmado usa a mesma tinta de alerta dos
+  // indicadores ruins (e fato); provavel usa ambar (pede conferencia);
+  // possivel fica cinza, quase nota de rodape, porque pode ser outro carro.
+  &__nivel {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+  &__nivel--confirmado { color: #a32020; border-color: rgba(211, 58, 58, 0.4); background: rgba(211, 58, 58, 0.08); }
+  &__nivel--provavel { color: #8a5200; border-color: rgba(180, 83, 9, 0.4); background: rgba(180, 83, 9, 0.08); }
+  &__nivel--possivel { color: $c-graphite; border-color: $c-hair; background: $c-cloud; }
+
+  &__leilao-resumo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 14px;
+    font-size: 14px;
+    color: $c-charcoal;
+  }
+
+  &__leilao {
+    border: 1px solid $c-hair;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 10px;
+
+    &:last-of-type { margin-bottom: 0; }
+  }
+
+  &__leilao-topo {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  &__leilao-fonte { font-size: 15px; font-weight: 600; color: $c-ink; }
+  &__leilao-tipo { font-size: 12px; color: $c-graphite; }
+
+  &__leilao-det {
+    margin: 0 0 4px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: $c-charcoal;
+  }
+
+  &__leilao-mais {
+    margin-top: 6px;
+    padding: 4px 0;
+    background: none;
+    border: 0;
+    font: inherit;
+    font-size: 13px;
+    color: $c-blue;
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+  }
+
+  // ---- termometro de gravidade ----
+  // A cor vem pronta da API (verde/amarelo/laranja/vermelho/cinza) e e o sinal
+  // mais rapido da secao: diz se a passagem foi sinistro feio, sinistro leve ou
+  // so retomada de financiamento. Barra curta a esquerda + rotulo, pra ler de
+  // relance sem depender so de cor (o texto diz a mesma coisa).
+  &__grav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  &__grav-barra {
+    width: 26px;
+    height: 6px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    background: $c-steel;
+  }
+
+  &__grav--verde { color: #14622f; .rel__grav-barra { background: $c-green; } }
+  &__grav--amarelo { color: #8a6100; .rel__grav-barra { background: #e0a800; } }
+  &__grav--laranja { color: #8a4b00; .rel__grav-barra { background: #e07a00; } }
+  &__grav--vermelho { color: #a32020; .rel__grav-barra { background: $c-red; } }
+  &__grav--cinza { color: $c-graphite; .rel__grav-barra { background: $c-steel; } }
+
+  &__leilao-detalhes {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    li {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13px;
+      color: $c-graphite;
+      border-bottom: 1px dashed $c-hair;
+      padding: 4px 0;
+
+      &:last-child { border-bottom: 0; }
+    }
+
+    strong {
+      font-weight: 600;
+      color: $c-charcoal;
+      text-align: right;
+    }
+  }
+
+  &__leilao-toggle {
+    display: inline-block;
+    margin: 4px 0 8px;
+    padding: 9px 14px;
+    background: $c-cloud;
+    border: 1px solid $c-hair;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: $c-charcoal;
+    cursor: pointer;
+
+    &:hover { border-color: $c-steel; }
+    &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+  }
+
+  &__leilao-evid {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid $c-hair;
+  }
+
+  &__leilao-explica {
+    margin: 0 0 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: $c-graphite;
+  }
+
+  &__leilao-sub {
+    margin: 0 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $c-graphite;
+  }
+
+  &__leilao-lista {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    li {
+      position: relative;
+      padding-left: 16px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: $c-charcoal;
+
+      &::before {
+        content: '';
+        position: absolute;
+        left: 2px;
+        top: 7px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: $c-green;
+      }
+    }
+
+    &:last-child { margin-bottom: 0; }
+  }
+
+  &__leilao-lista--conflito li::before { background: $c-red; }
+
+  &__leilao-aviso {
+    margin: 12px 0 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: $c-graphite;
+  }
+
   // Faixa do licenciamento: mesmo vocabulario dos indicadores (verde bom,
   // ambar confira, vermelho problema), acima das colunas da ficha.
   &__lic {
@@ -1686,6 +2226,15 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     line-height: 1.5;
     color: #636363;
     margin: 12px 0 0;
+  }
+
+  // Terceiro estado: aceso, mas sem afirmar problema. Nasceu do indicio
+  // "possivel" de leilao, que pode ser outro carro do mesmo modelo: pintar de
+  // verde esconderia o achado, e de vermelho condenaria o veiculo por
+  // semelhanca.
+  &__ind--atencao {
+    border-color: rgba(180, 83, 9, 0.35);
+    .rel__ind-val { color: #8a5200; &::before { background: #e0a800; } }
   }
 
   &__ind--ok .rel__ind-val { color: #14622f; &::before { background: $c-green; } }

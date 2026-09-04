@@ -8,6 +8,24 @@ import { getValorCusto } from '../../utils/valor-custo'
 // fonte de FIPE, e a pagina de amostra recarrega o tempo todo em dev.
 const amostraValorCusto: Record<string, Awaited<ReturnType<typeof getValorCusto>>> = {}
 
+// Perfil do veiculo da amostra pra consulta de leilao. O payload as vezes vem
+// como array de um elemento (mesmo formato cru da consulta), entao normaliza
+// antes de ler os campos.
+function perfilDaAmostra(amostra: { placa: string; uf: string; payload: any }) {
+  const bruto = Array.isArray(amostra.payload) ? amostra.payload[0] : amostra.payload
+  const desc = String(bruto?.descricaoMarcaModelo || '')
+  return {
+    placa: amostra.placa,
+    chassi: bruto?.chassi ?? null,
+    renavam: bruto?.renavam ?? null,
+    marca: desc ? desc.split('/')[0] : null,
+    modelo: desc || null,
+    ano: bruto?.anoModelo ?? bruto?.anoFabricacao ?? null,
+    cor: bruto?.descricaoCor ?? null,
+    uf: bruto?.ufJurisdicao ?? amostra.uf,
+  }
+}
+
 export default defineEventHandler(async (event) => {
   const { token } = getQuery(event)
   if (!token) throw createError({ statusCode: 400, message: 'token obrigatorio' })
@@ -33,6 +51,10 @@ export default defineEventHandler(async (event) => {
       entregue_em: new Date().toISOString(),
       consulta: { placa: amostra.placa, response: filtrarPorPlano(amostra.payload, 'completa') },
       valorCusto: amostraValorCusto[String(token)],
+      // A amostra tambem consulta o historico de leilao quando o servico esta
+      // configurado: e por aqui que da pra ver a secao renderizada sem gerar
+      // pedido pago. Sem env, volta null e a secao nao aparece.
+      historicoLeilao: await consultarHistoricoLeilao(perfilDaAmostra(amostra)).catch(() => null),
       brCode: null,
       expiraEm: null,
       expirado: false,
@@ -64,6 +86,7 @@ export default defineEventHandler(async (event) => {
   let consulta: any = null
   let restantes = 0
   let chassiOrigem: Awaited<ReturnType<typeof decodificarChassi>> = null
+  let historicoLeilao: Awaited<ReturnType<typeof consultarHistoricoLeilao>> = null
 
   if (!pendente && pedido.status === 'entregue') {
     if (pedido.relatorio_snapshot) {
@@ -72,6 +95,10 @@ export default defineEventHandler(async (event) => {
       restantes = snap.camposRestantes ?? 0
       valorCusto = snap.valorCusto ?? null
       chassiOrigem = snap.chassiOrigem ?? null
+      // Snapshot gravado antes da feature existir simplesmente nao tem o
+      // campo: a secao some, e nao ha remontagem por cima do que a pessoa
+      // comprou (a regra do snapshot imutavel vale aqui tambem).
+      historicoLeilao = snap.historicoLeilao ?? null
       // Correcao de EXIBICAO no snapshot antigo (gravado antes do ajuste de
       // ciclo de 30 anos): o snapshot no banco fica intacto, so o ano do
       // chassi e reconciliado com o ano do registro antes de ir pra tela.
@@ -88,6 +115,7 @@ export default defineEventHandler(async (event) => {
       restantes = snapshot.camposRestantes
       valorCusto = snapshot.valorCusto
       chassiOrigem = snapshot.chassiOrigem
+      historicoLeilao = snapshot.historicoLeilao
       // Backfill lazy: grava pra proxima visita ja vir do snapshot. Fail-open
       // — se der erro (corrida com outra leitura, rede etc), so tenta de novo
       // na proxima visualizacao, o relatorio desta ja saiu montado do jeito certo.
@@ -110,6 +138,7 @@ export default defineEventHandler(async (event) => {
     camposRestantes: restantes,
     valorCusto,
     chassiOrigem,
+    historicoLeilao,
     preview: pedido.preview,
     entregue_em: pedido.entregue_em,
     consulta,
