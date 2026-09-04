@@ -439,6 +439,84 @@ onMounted(async () => {
   } catch { /* sem QR o rodape continua com o endereco por extenso */ }
 })
 
+// ---------- historico de leilao ----------
+// So existe quando o servico esta configurado no ambiente (hoje, homolog) e o
+// plano e completa; o servidor ja aplica as duas regras, aqui e so exibicao.
+//
+// A copy trata cada passagem pelo NIVEL DE CONFIANCA, porque a fonte varia: a
+// mesma consulta pode achar um edital de DETRAN com o chassi inteiro (certeza)
+// e um catalogo de leiloeira que so publica o final da placa (inferencia). Sem
+// o rotulo, as duas coisas pareceriam iguais na tela, e a segunda pode ser
+// outro carro.
+const historicoLeilao = computed(() => data.value?.historicoLeilao ?? null)
+const temSecaoLeilao = computed(() => !!historicoLeilao.value)
+
+const ROTULO_NIVEL: Record<string, string> = {
+  confirmado: 'Confirmado',
+  provavel: 'Provável',
+  possivel: 'Possível',
+}
+const EXPLICA_NIVEL: Record<string, string> = {
+  confirmado: 'O chassi, a placa ou o Renavam completos deste veículo constam no registro do leilão.',
+  provavel: 'A fonte publica só parte do identificador, e o trecho publicado bate com este veículo, assim como marca, modelo e ano.',
+  possivel: 'A fonte publica pouca coisa do identificador. O que dá para comparar bate com este veículo, mas pode ser outro carro do mesmo modelo e ano.',
+}
+
+const passagensLeilao = computed(() => {
+  const lista = historicoLeilao.value?.passagens
+  if (!Array.isArray(lista)) return []
+  return lista.map((p: any, idx: number) => ({
+    idx,
+    nivel: p.nivel as string,
+    rotuloNivel: ROTULO_NIVEL[p.nivel] || humanizar(p.nivel),
+    explicaNivel: EXPLICA_NIVEL[p.nivel] || '',
+    // "detran_sp" e nome de tabela, nao de fonte. Vira "Detran SP" na tela; a
+    // natureza da fonte (orgao oficial ou casa de leilao) vai no rotulo ao lado.
+    fonte: nomeDaFonte(p.fonte),
+    tipoFonte: p.fonte_tipo === 'detran' ? 'Edital de órgão oficial' : 'Catálogo de leiloeira',
+    data: p.data_leilao ? formatarDataLeilao(p.data_leilao) : null,
+    ref: p.ref,
+    lote: p.lote,
+    situacao: p.situacao ? humanizar(p.situacao) : null,
+    valor: typeof p.valor === 'number' ? p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null,
+    leiloeiro: p.leiloeiro,
+    comitente: p.comitente,
+    evidencias: Array.isArray(p.evidencias) ? p.evidencias : [],
+    conflitos: Array.isArray(p.conflitos) ? p.conflitos : [],
+  }))
+})
+
+// Sigla de UF vira caixa alta ("sp" -> "SP"); o resto ganha inicial maiuscula.
+function nomeDaFonte(bruto: unknown): string {
+  return String(bruto || '')
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((parte) => (parte.length === 2 ? parte.toUpperCase() : parte.charAt(0).toUpperCase() + parte.slice(1).toLowerCase()))
+    .join(' ')
+}
+
+function formatarDataLeilao(iso: string): string {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+}
+
+// Uma passagem por vez aberta: a lista precisa continuar escaneavel.
+const passagemAberta = ref<number | null>(null)
+function alternarPassagem(idx: number) {
+  passagemAberta.value = passagemAberta.value === idx ? null : idx
+}
+
+const resumoLeilao = computed(() => {
+  const r = historicoLeilao.value?.resumo
+  if (!r) return null
+  const partes: string[] = []
+  const plural = (n: number, um: string, muitos: string) => `${n} ${n > 1 ? muitos : um}`
+  if (r.n_confirmado) partes.push(plural(r.n_confirmado, 'confirmada', 'confirmadas'))
+  if (r.n_provavel) partes.push(plural(r.n_provavel, 'provável', 'prováveis'))
+  if (r.n_possivel) partes.push(plural(r.n_possivel, 'possível', 'possíveis'))
+  return partes.join(' · ')
+})
+
 // ---------- numeracao das secoes ----------
 // Dinamica porque nem toda secao existe em todo laudo (a basica nao tem
 // indicadores; sem FIPE nao ha secao de valor). Numeracao fixa deixaria buraco.
@@ -447,6 +525,7 @@ const numSecao = computed(() => {
   if (indicadores.value.length) ordem.push('ind')
   if (!isBasica.value && indicadores.value.length) ordem.push('restr')
   if (ocorrencias.value.length) ordem.push('ocorr')
+  if (temSecaoLeilao.value) ordem.push('leilao')
   // Importacao e chassiOrigem NAO entram na numeracao: viraram subsecoes
   // dentro da ficha (rel__sub), igual Cadastral/Tecnica — nao sao mais card
   // proprio numerado.
@@ -986,6 +1065,73 @@ onUnmounted(() => poll && clearInterval(poll))
             </p>
           </section>
 
+          <!-- historico de leilao (so completa, so onde o servico existe) -->
+          <section v-if="temSecaoLeilao" class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.leilao }}. Histórico de leilão</h2>
+
+            <template v-if="!historicoLeilao?.resumo?.tem_indicio">
+              <p class="rel__nada">
+                Nenhum indício de passagem por leilão nas fontes consultadas.
+              </p>
+            </template>
+
+            <template v-else>
+              <p class="rel__leilao-resumo">
+                <span class="rel__nivel" :class="`rel__nivel--${historicoLeilao?.resumo?.nivel_max}`">
+                  {{ ROTULO_NIVEL[historicoLeilao?.resumo?.nivel_max || ''] }}
+                </span>
+                <span v-if="resumoLeilao">{{ resumoLeilao }}</span>
+              </p>
+
+              <div v-for="p in passagensLeilao" :key="p.idx" class="rel__leilao">
+                <div class="rel__leilao-topo">
+                  <span class="rel__nivel" :class="`rel__nivel--${p.nivel}`">{{ p.rotuloNivel }}</span>
+                  <span class="rel__leilao-fonte">{{ p.fonte }}</span>
+                  <span class="rel__leilao-tipo">{{ p.tipoFonte }}</span>
+                </div>
+                <p class="rel__leilao-det">
+                  <template v-if="p.data">Leilão de {{ p.data }}</template>
+                  <template v-if="p.ref"> · Edital {{ p.ref }}</template>
+                  <template v-if="p.lote"> · Lote {{ p.lote }}</template>
+                  <template v-if="p.situacao"> · {{ p.situacao }}</template>
+                  <template v-if="p.valor"> · {{ p.valor }}</template>
+                </p>
+                <p v-if="p.leiloeiro || p.comitente" class="rel__leilao-det">
+                  <template v-if="p.leiloeiro">Leiloeiro: {{ p.leiloeiro }}</template>
+                  <template v-if="p.leiloeiro && p.comitente"> · </template>
+                  <template v-if="p.comitente">Comitente: {{ p.comitente }}</template>
+                </p>
+
+                <button
+                  type="button"
+                  class="rel__leilao-mais"
+                  :aria-expanded="passagemAberta === p.idx"
+                  @click="alternarPassagem(p.idx)"
+                >
+                  {{ passagemAberta === p.idx ? 'Ocultar o que foi comparado' : 'Ver o que foi comparado' }}
+                </button>
+
+                <div v-if="passagemAberta === p.idx" class="rel__leilao-evid">
+                  <p class="rel__leilao-explica">{{ p.explicaNivel }}</p>
+                  <template v-if="p.evidencias.length">
+                    <p class="rel__leilao-sub">Bateu</p>
+                    <ul class="rel__leilao-lista">
+                      <li v-for="(e, i) in p.evidencias" :key="`e${i}`">{{ e }}</li>
+                    </ul>
+                  </template>
+                  <template v-if="p.conflitos.length">
+                    <p class="rel__leilao-sub">Não bateu</p>
+                    <ul class="rel__leilao-lista rel__leilao-lista--conflito">
+                      <li v-for="(c, i) in p.conflitos" :key="`c${i}`">{{ c }}</li>
+                    </ul>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            <p v-if="historicoLeilao?.aviso" class="rel__leilao-aviso">{{ historicoLeilao.aviso }}</p>
+          </section>
+
           <!-- ficha -->
           <section class="rel__card">
             <h2 class="rel__h2">{{ numSecao.ficha }}. Ficha cadastral e técnica</h2>
@@ -1487,6 +1633,137 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__ocorr-nota {
     margin: 12px 0 0;
     font-size: 13px;
+    line-height: 1.5;
+    color: $c-graphite;
+  }
+
+  // ---- historico de leilao ----
+  // Regra visual: o NIVEL manda. Confirmado usa a mesma tinta de alerta dos
+  // indicadores ruins (e fato); provavel usa ambar (pede conferencia);
+  // possivel fica cinza, quase nota de rodape, porque pode ser outro carro.
+  &__nivel {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+  &__nivel--confirmado { color: #a32020; border-color: rgba(211, 58, 58, 0.4); background: rgba(211, 58, 58, 0.08); }
+  &__nivel--provavel { color: #8a5200; border-color: rgba(180, 83, 9, 0.4); background: rgba(180, 83, 9, 0.08); }
+  &__nivel--possivel { color: $c-graphite; border-color: $c-hair; background: $c-cloud; }
+
+  &__leilao-resumo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 14px;
+    font-size: 14px;
+    color: $c-charcoal;
+  }
+
+  &__leilao {
+    border: 1px solid $c-hair;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 10px;
+
+    &:last-of-type { margin-bottom: 0; }
+  }
+
+  &__leilao-topo {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  &__leilao-fonte { font-size: 15px; font-weight: 600; color: $c-ink; }
+  &__leilao-tipo { font-size: 12px; color: $c-graphite; }
+
+  &__leilao-det {
+    margin: 0 0 4px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: $c-charcoal;
+  }
+
+  &__leilao-mais {
+    margin-top: 6px;
+    padding: 4px 0;
+    background: none;
+    border: 0;
+    font: inherit;
+    font-size: 13px;
+    color: $c-blue;
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+  }
+
+  &__leilao-evid {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid $c-hair;
+  }
+
+  &__leilao-explica {
+    margin: 0 0 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: $c-graphite;
+  }
+
+  &__leilao-sub {
+    margin: 0 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $c-graphite;
+  }
+
+  &__leilao-lista {
+    list-style: none;
+    margin: 0 0 10px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    li {
+      position: relative;
+      padding-left: 16px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: $c-charcoal;
+
+      &::before {
+        content: '';
+        position: absolute;
+        left: 2px;
+        top: 7px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: $c-green;
+      }
+    }
+
+    &:last-child { margin-bottom: 0; }
+  }
+
+  &__leilao-lista--conflito li::before { background: $c-red; }
+
+  &__leilao-aviso {
+    margin: 12px 0 0;
+    font-size: 12px;
     line-height: 1.5;
     color: $c-graphite;
   }

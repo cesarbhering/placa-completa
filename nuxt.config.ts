@@ -587,6 +587,12 @@ export default defineNuxtConfig({
     // docker interna, sem porta publica. Fail-open: se estiver fora, o bloco
     // "Origem do chassi" so nao aparece no relatorio, nunca quebra a entrega.
     vinDecoderUrl: process.env.VIN_DECODER_URL || "http://vin-decoder:3000",
+    // Historico de passagem por leilao (servico leiloes-api, rede docker).
+    // Sem URL a secao do relatorio nem e montada: e assim que a feature fica
+    // restrita ao homolog sem flag espalhada pelo codigo. A key NAO tem
+    // prefixo public de proposito, entao nunca entra no bundle do browser.
+    leiloesApiUrl: process.env.LEILOES_API_URL || "",
+    leiloesApiKey: process.env.LEILOES_API_KEY || "",
     premiumBaseUrl: process.env.PREMIUM_BASE_URL || "https://placacompleta.com.br",
     premiumValorCentavos: process.env.PREMIUM_VALOR_CENTAVOS || "4500",
     // SENATRAN homologacao (GCC + SERPRO). Certs via PEM em env (base64 ou texto).
