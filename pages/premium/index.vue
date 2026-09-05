@@ -150,6 +150,7 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
   <div class="premium">
     <div class="card">
       <h1>Consulta Veicular Completa</h1>
+      <p class="mote">Com histórico de leilão, cruzado por placa e chassi com uma base de mais de 1 milhão de veículos leiloados.</p>
       <p v-if="cfg.public.gated" class="tag">Homologação · acesso restrito</p>
 
       <!-- Atalho pro historico: quem esta aqui pra comprar de novo costuma
@@ -178,7 +179,7 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
           <span>{{ preview.ano }} · {{ preview.cor }} · placa {{ preview.placa }}</span>
         </div>
         <div v-else class="veiculo">Não achamos os dados básicos, mas você pode seguir com a placa {{ preview?.placa }}.</div>
-        <p class="inclui">A consulta completa inclui: restrições, roubo/furto, recall, RENAJUD, registro de leilão, débitos, a ficha cadastral completa e o histórico de leilão cruzado com mais de 1 milhão de veículos.</p>
+        <p class="inclui">A consulta completa inclui: restrições, roubo/furto, recall, RENAJUD, registro de leilão, débitos, a ficha cadastral completa e o histórico de leilão, cruzado com uma base de mais de 1 milhão de veículos leiloados.</p>
         <input v-model="email" type="email" placeholder="Seu email (para receber o relatório)" />
         <!-- WhatsApp oculto ate a feature existir (ref telefone segue vivo). -->
         <input v-if="mostraWhatsapp" v-model="telefone" placeholder="WhatsApp (opcional)" />
@@ -247,6 +248,7 @@ button.ghost { background: transparent; border: 1px solid #24324d; color: #9db8e
 button:disabled { opacity: .5; }
 .veiculo { background: #0b1424; border: 1px solid #24324d; border-radius: 8px; padding: 12px; }
 .inclui { color: #8296b8; font-size: 13px; }
+.mote { color: #cfe0ff; font-size: 14px; line-height: 1.45; margin: 6px 0 0; }
 .ambiente { display: flex; flex-direction: column; gap: 6px; background: #0b1424; border: 1px solid #24324d; border-radius: 8px; padding: 12px; }
 .ambiente label { color: #8296b8; font-size: 12px; }
 .ambiente select { background: #0b1424; border: 1px solid #24324d; color: #dbe4f4; border-radius: 7px; padding: 10px; font-size: 15px; }
