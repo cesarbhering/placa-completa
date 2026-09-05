@@ -133,10 +133,11 @@ export const RECURSOS: Recurso[] = [
   { label: 'Restrições nacionais e estaduais',      planos: ['completa'] },
   { label: 'Roubo e furto',                         planos: ['completa'] },
   { label: 'Registro de leilão no documento',       planos: ['completa'] },
-  // Base propria de leiloes, cruzada por chassi e placa. O numero e o de
-  // veiculos consultaveis hoje (1.018.234), arredondado pra baixo: a promessa
-  // tem que continuar verdadeira quando a base variar.
-  { label: 'Histórico de leilão de mais de 1 milhão de veículos', planos: ['completa'] },
+  // Base propria de leiloes, cruzada por chassi e placa. A frase fala do
+  // TAMANHO DA BASE, nao de quantos a gente consegue casar: parte do indice so
+  // pode ser casada por numero de motor, que nenhuma fonte nossa expoe, entao
+  // prometer "1 milhao consultaveis" seria promessa maior que a entrega.
+  { label: 'Histórico de leilão: base de mais de 1 milhão de veículos', planos: ['completa'] },
   { label: 'Gravame e alienação',                   planos: ['completa'] },
   { label: 'RENAJUD e restrições judiciais',        planos: ['completa'] },
   { label: 'Indicador de multas (RENAINF)',         planos: ['completa'] },
