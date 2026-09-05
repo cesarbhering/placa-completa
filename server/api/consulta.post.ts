@@ -90,11 +90,11 @@ export default defineEventHandler(async (event) => {
   // Blocklist de contencao pontual (IPs/e-mails de abuso confirmado). Mesmo
   // esquema do UA: 403 ANTES de qualquer consulta paga, log em blocked_requests.
   // Escala pra abuso especifico; o rate-limit por IP abaixo e a contencao geral.
-  const IP_BLOQUEADOS = new Set<string>(['177.44.134.147'])
-  const EMAIL_BLOQUEADOS = new Set<string>(['vs6285950@gmail.com'])
+  // A lista vive em server/utils/blocklist.ts porque o preview do premium bate
+  // na mesma fonte paga e precisa da mesma lista.
   const ipInicial = getClientIp(event)
   const emailInicial = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
-  if (IP_BLOQUEADOS.has(ipInicial) || (emailInicial && EMAIL_BLOQUEADOS.has(emailInicial))) {
+  if (estaBloqueado(ipInicial, emailInicial)) {
     const supabaseBl = useSupabaseServer()
     supabaseBl.from('blocked_requests').insert({
       reason: 'blocklist',
@@ -294,6 +294,13 @@ export default defineEventHandler(async (event) => {
           placa: placaClean || null,
           user_agent: userAgent,
         }).then(({ error }) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
+        // Avisa o time na hora, com dedupe de uma hora por IP. Nao usa await:
+        // quem bateu no teto ja vai levar 429, e o aviso nunca pode segurar a
+        // resposta nem falhar por causa dela.
+        contarBloqueiosNaHora(supabase, ip).then((bloqueiosNaHora) => avisarAbuso({
+          ip, rota: '/api/consulta', teto: limite.teto, email: recipientValue ?? null,
+          userAgent, bloqueiosNaHora,
+        }))
         throw createError({
           statusCode: 429,
           message: `Limite de ${limite.teto} consultas por hora atingido. Tente novamente em ~${limite.minutesUntilReset} min.`,

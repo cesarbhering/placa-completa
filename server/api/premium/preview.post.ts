@@ -16,6 +16,19 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const ip = getClientIp(event)
   const supabase = useSupabaseServer()
+
+  // Mesma blocklist do /api/consulta: sem ela, quem estava bloqueado la
+  // continuava consultando por aqui, que bate na mesma fonte paga.
+  if (estaBloqueado(ip)) {
+    supabase.from('blocked_requests').insert({
+      reason: 'blocklist',
+      ip_address: ip,
+      placa: placaClean || null,
+      user_agent: getRequestHeader(event, 'user-agent') || null,
+    }).then(({ error }: any) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
+    throw createError({ statusCode: 403, message: 'Acesso não autorizado.' })
+  }
+
   const limite = await checarLimiteIpWdapi(supabase, ip, { homolog: config.public.homolog })
   if (!limite.ok) {
     supabase.from('blocked_requests').insert({
@@ -24,6 +37,10 @@ export default defineEventHandler(async (event) => {
       placa: placaClean || null,
       user_agent: getRequestHeader(event, 'user-agent') || null,
     }).then(({ error }: any) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
+    contarBloqueiosNaHora(supabase, ip).then((bloqueiosNaHora) => avisarAbuso({
+      ip, rota: '/api/premium/preview', teto: limite.teto,
+      userAgent: getRequestHeader(event, 'user-agent') || null, bloqueiosNaHora,
+    }))
     throw createError({
       statusCode: 429,
       message: `Limite de ${limite.teto} consultas por hora atingido. Tente novamente em ~${limite.minutesUntilReset} min.`,
