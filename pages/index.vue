@@ -1159,6 +1159,10 @@ function applyEmailSuggestion() {
               indicador de roubo e furto, registro de leilão, gravame, bloqueio judicial, indicador de multas e mais.
               Descubra antes de fechar negócio: liberado em até 5 minutos depois do pagamento.
             </p>
+            <p class="cb-locked__leilao">
+              O relatório completo ainda cruza a placa e o chassi com uma
+              <strong>base de mais de 1 milhão de veículos leiloados</strong>, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras.
+            </p>
 
             <div class="cb-locked__box">
               <div class="cb-locked__grid">
@@ -1207,7 +1211,7 @@ function applyEmailSuggestion() {
         <div v-if="success && !showPremiumCheckout" class="cb-sticky-upsell">
           <div class="cb-sticky-upsell__txt">
             <strong>Risco oculto nesta placa</strong>
-            <span>Mais {{ camposBloqueados.length }} verificações, incluindo indicador de roubo e registro de leilão</span>
+            <span>Mais {{ camposBloqueados.length }} verificações e o histórico de leilão, com base de mais de 1 milhão de veículos</span>
           </div>
           <button type="button" class="cb-btn cb-btn--blue cb-sticky-upsell__cta" @click="openPremiumCheckout('completa')">
             Ver agora · {{ precoBRL(PLANOS.completa.valorCentavos) }}
@@ -1422,7 +1426,7 @@ function applyEmailSuggestion() {
             <span class="cb-doc-tag"><i class="cb-d2" />Restrições nacionais e estaduais</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Roubo e furto</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Registro de leilão</span>
-            <span class="cb-doc-tag"><i class="cb-d2" />Histórico de leilão (1 milhão de veículos)</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />Histórico de leilão (base de 1 milhão de veículos)</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Gravame</span>
             <span class="cb-doc-tag"><i class="cb-d2" />RENAJUD</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Recall</span>
@@ -2649,6 +2653,22 @@ function applyEmailSuggestion() {
     }
 
     &__sub { font-size: 15px; line-height: 1.38; color: $c-charcoal; margin-bottom: $s-md; max-width: 620px; margin-left: auto; margin-right: auto; }
+
+    // Argumento da base de leiloes, no ponto em que a pessoa decide comprar.
+    // Fundo proprio pra nao virar mais uma linha de texto no meio do bloco.
+    &__leilao {
+      font-size: 15px;
+      line-height: 1.45;
+      color: $c-charcoal;
+      background: $c-cloud;
+      border: 1px solid $c-hair;
+      border-radius: $r-md;
+      padding: $s-sm $s-md;
+      margin: 0 auto $s-md;
+      max-width: 620px;
+
+      strong { color: $c-ink; }
+    }
 
     &__box {
       position: relative;
