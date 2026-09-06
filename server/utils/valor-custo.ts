@@ -74,7 +74,7 @@ export async function getValorCusto(
   placa: string,
   uf?: string | null,
   municipio?: string | null,
-  fipeCandidatoOpts?: { senatran: FatosSenatranFipe; ativo: boolean },
+  fipeCandidatoOpts?: { senatran: FatosSenatranFipe; ativo: boolean; segmento?: Segmento },
 ): Promise<ValorCusto | null> {
   const config = useRuntimeConfig()
   if (!config.placaApiToken) return null
@@ -184,8 +184,15 @@ export async function getValorCusto(
     }
   }
 
+  // Custo de cinco anos e conta de AUTOMOVEL: aliquota de IPVA de passeio,
+  // piso de manutencao de carro e fator por carroceria. Numa moto isso infla o
+  // numero de forma grosseira (uma 150cc nao paga manutencao de sedan), entao o
+  // relatorio prefere nao mostrar a mostrar errado. Mesma regra pra caminhao.
+  const segmento = fipeCandidatoOpts?.segmento ?? 'carro'
+  const podeEstimarCusto = aceitaCustoDeCarro(segmento)
+
   let custo5anos: number | null = null
-  if (uf && Number.isFinite(valorFipe) && valorFipe > 0) {
+  if (podeEstimarCusto && uf && Number.isFinite(valorFipe) && valorFipe > 0) {
     try {
       const extra = dados.extra || {}
       custo5anos = calcularICV5({

@@ -44,6 +44,8 @@ export interface PassagemLeilao {
   veiculo_na_fonte: Record<string, any> | null
   evidencias: string[]
   conflitos: string[]
+  /** URLs de foto do lote, servidas pelo nosso armazenamento. */
+  fotos: string[]
 }
 
 export interface HistoricoLeilao {
@@ -162,6 +164,11 @@ function sanear(res: any): HistoricoLeilao | null {
       comitente: texto(p.comitente),
       veiculo_na_fonte: p.veiculo_na_fonte && typeof p.veiculo_na_fonte === 'object' ? p.veiculo_na_fonte : null,
       evidencias: Array.isArray(p.evidencias) ? p.evidencias.map(String) : [],
+      // So http(s) e so do nosso dominio de midia: URL de terceiro aqui viraria
+      // hotlink de leiloeira na pagina do cliente.
+      fotos: Array.isArray(p.fotos)
+        ? p.fotos.filter((f: any) => typeof f === 'string' && /^https:\/\//.test(f)).slice(0, 3)
+        : [],
       conflitos: Array.isArray(p.conflitos) ? p.conflitos.map(String) : [],
     }))
 
