@@ -408,6 +408,10 @@ export default defineEventHandler(async (event) => {
   }
 
   let apiResponse = null
+  // true quando a resposta veio do placa_cache, false quando custou uma chamada
+  // real a API paga. Vai pra linha da consulta pro relatorio de uso conseguir
+  // separar custo de trafego (hoje isso e estimativa).
+  let cacheHit = false
   let emailSent = false
   let whatsappSent = false
 
@@ -417,7 +421,9 @@ export default defineEventHandler(async (event) => {
     // indisponivel) — segue pro bloco de validacao abaixo e vira 404, nunca
     // 502 (null aqui tratado como erro fazia toda nao-encontrada cacheada
     // responder 502 + email de erro pro time).
-    apiResponse = await consultarPlacaWdapi(placaClean)
+    const wdapi = await consultarPlacaWdapiDetalhado(placaClean)
+    apiResponse = wdapi.payload
+    cacheHit = wdapi.cacheHit
   } catch (err: any) {
     // Send error email
     await sendErrorEmail({
@@ -716,6 +722,7 @@ export default defineEventHandler(async (event) => {
     channel,
     email_sent: emailSent,
     whatsapp_sent: whatsappSent,
+    cache_hit: cacheHit,
     api_response: apiResponse,
   }, 'web')
 
