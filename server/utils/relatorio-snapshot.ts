@@ -15,6 +15,8 @@ export interface RelatorioSnapshot {
   chassiOrigem: Awaited<ReturnType<typeof decodificarChassi>> | null
   /** null quando o servico nao esta configurado (prod hoje) ou nao respondeu. */
   historicoLeilao: Awaited<ReturnType<typeof consultarHistoricoLeilao>> | null
+  /** carro, moto, caminhao: muda checagem, copy e o que faz sentido estimar. */
+  segmento: Segmento
 }
 
 // O registro traz "MARCA/MODELO" numa string so ("I/HONDA CIVIC LX"). A API de
@@ -66,12 +68,19 @@ export async function montarRelatorioSnapshot(
   }
 
   const local = localDoVeiculo(pedido.preview)
+  const senatranParaSegmento = Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response
+  const segmento = detectarSegmento({
+    wdapi: pedido.preview,
+    senatran: senatranParaSegmento,
+    chassi: senatranParaSegmento?.chassi,
+  })
   // Melhor candidato FIPE (funil + Haiku): so no fluxo pago, e so quando a
   // consulta trouxe o registro SENATRAN pra tirar cilindrada/carroceria dele.
   // Ver docs/feat-fipe-melhor-candidato.md.
   const senatranBruto = Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response
   const valorCusto = await getValorCusto(pedido.placa, local.uf, local.municipio, {
     ativo: true,
+    segmento,
     senatran: {
       cilindrada: senatranBruto?.cilindrada ?? null,
       potencia: senatranBruto?.potencia ?? null,
@@ -127,5 +136,5 @@ export async function montarRelatorioSnapshot(
     }).catch(() => null)
   }
 
-  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao }
+  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento }
 }
