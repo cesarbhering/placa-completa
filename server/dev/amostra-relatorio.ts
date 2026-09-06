@@ -128,4 +128,7 @@ const AMOSTRA_GGO6C06 = [
 export const AMOSTRAS: Record<string, { placa: string; uf: string; municipio: string; payload: any }> = {
   _amostra: { placa: 'QNA3903', uf: 'MG', municipio: 'Belo Horizonte', payload: AMOSTRA_QNA3903 },
   '_amostra-kicks': { placa: 'GGO6C06', uf: 'SP', municipio: 'São Paulo', payload: AMOSTRA_GGO6C06 },
+  // Mesmo veiculo da amostra padrao; o que muda e o valorCusto, forcado pra
+  // "versao FIPE nao identificada" no report.get. Serve pra revisar essa tela.
+  '_amostra-fipe-incerta': { placa: 'QNA3903', uf: 'MG', municipio: 'Belo Horizonte', payload: AMOSTRA_QNA3903 },
 }
