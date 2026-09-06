@@ -117,6 +117,37 @@ function nomeDeOrgao(bruto: unknown): string {
     .join(' ')
 }
 
+/**
+ * Hosts de onde a pagina do cliente pode carregar foto de lote. A lista e
+ * allowlist mesmo, nao "https e pronto": sem ela, bastaria a API devolver a URL
+ * do site da leiloeira pra pagina do nosso cliente virar hotlink de terceiro,
+ * com o banner de quem a gente decidiu nao nomear, e ainda dependendo de um
+ * servidor que a gente nao controla pra pagina carregar.
+ *
+ * Configuravel por env (NUXT_LEILOES_FOTOS_HOSTS, separada por virgula) pra dar
+ * pra trocar de bucket sem deploy de codigo.
+ */
+const FOTOS_HOSTS_PADRAO = 'fotos.placacompleta.com.br'
+
+export function sanearFotos(bruto: unknown, config?: { leiloesFotosHosts?: string }): string[] {
+  const permitidos = String(config?.leiloesFotosHosts || FOTOS_HOSTS_PADRAO)
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean)
+  if (!Array.isArray(bruto) || !permitidos.length) return []
+  const saida: string[] = []
+  for (const item of bruto) {
+    if (typeof item !== 'string') continue
+    let url: URL
+    try { url = new URL(item) } catch { continue }
+    if (url.protocol !== 'https:') continue
+    if (!permitidos.includes(url.hostname.toLowerCase())) continue
+    saida.push(url.toString())
+    if (saida.length === 3) break
+  }
+  return saida
+}
+
 const CORES = ['verde', 'amarelo', 'laranja', 'vermelho', 'cinza']
 
 function sanearGravidade(g: any): GravidadeLeilao | null {
@@ -134,7 +165,7 @@ function sanearGravidade(g: any): GravidadeLeilao | null {
 }
 
 /** Confia so no formato, nunca no conteudo: resposta torta vira null. */
-function sanear(res: any): HistoricoLeilao | null {
+function sanear(res: any, config?: { leiloesFotosHosts?: string }): HistoricoLeilao | null {
   if (!res || typeof res !== 'object' || !res.resumo) return null
   const brutas = Array.isArray(res.passagens) ? res.passagens : []
   const passagens: PassagemLeilao[] = brutas
@@ -164,11 +195,7 @@ function sanear(res: any): HistoricoLeilao | null {
       comitente: texto(p.comitente),
       veiculo_na_fonte: p.veiculo_na_fonte && typeof p.veiculo_na_fonte === 'object' ? p.veiculo_na_fonte : null,
       evidencias: Array.isArray(p.evidencias) ? p.evidencias.map(String) : [],
-      // So http(s) e so do nosso dominio de midia: URL de terceiro aqui viraria
-      // hotlink de leiloeira na pagina do cliente.
-      fotos: Array.isArray(p.fotos)
-        ? p.fotos.filter((f: any) => typeof f === 'string' && /^https:\/\//.test(f)).slice(0, 3)
-        : [],
+      fotos: sanearFotos(p.fotos, config),
       conflitos: Array.isArray(p.conflitos) ? p.conflitos.map(String) : [],
     }))
 
@@ -218,7 +245,7 @@ export async function consultarHistoricoLeilao(perfil: PerfilVeiculo): Promise<H
       // ajustavel por env.
       timeout: Number(config.leiloesApiTimeoutMs) || 15000,
     })
-    return sanear(res)
+    return sanear(res, { leiloesFotosHosts: String(config.leiloesFotosHosts || '') })
   } catch (e: any) {
     // Fora do ar, timeout, key errada, 5xx: tudo cai aqui. So um log.
     console.warn('[leiloes-api] historico falhou (fail-open):', e?.message)
