@@ -53,6 +53,12 @@ export interface HistoricoLeilao {
     n_confirmado: number
     n_provavel: number
     n_possivel: number
+    /**
+     * Lotes que casaram por um perfil comum demais (mesmo conjunto de
+     * evidencias em varios lotes diferentes). Nao sao indicio: apontam para
+     * "existem varios carros assim", nao para este carro.
+     */
+    possiveis_ambiguos: number
     fontes_com_passagem: string[]
   }
   passagens: PassagemLeilao[]
@@ -69,6 +75,9 @@ export interface PerfilVeiculo {
   marca?: string | null
   modelo?: string | null
   ano?: string | number | null
+  /** Ano de fabricacao e ano-modelo separados: a API compara cada um com o seu. */
+  ano_fab?: string | number | null
+  ano_mod?: string | number | null
   cor?: string | null
   uf?: string | null
 }
@@ -90,6 +99,8 @@ function corpo(perfil: PerfilVeiculo) {
     marca: texto(perfil.marca),
     modelo: texto(perfil.modelo),
     ano: texto(perfil.ano),
+    ano_fab: texto(perfil.ano_fab),
+    ano_mod: texto(perfil.ano_mod),
     cor: texto(perfil.cor),
     uf: texto(perfil.uf),
   }
@@ -161,6 +172,7 @@ function sanear(res: any): HistoricoLeilao | null {
       n_confirmado: Number(res.resumo.n_confirmado) || 0,
       n_provavel: Number(res.resumo.n_provavel) || 0,
       n_possivel: Number(res.resumo.n_possivel) || 0,
+      possiveis_ambiguos: Number(res.resumo.possiveis_ambiguos) || 0,
       fontes_com_passagem: Array.isArray(res.resumo.fontes_com_passagem)
         ? res.resumo.fontes_com_passagem.map(String)
         : [],

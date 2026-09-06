@@ -393,6 +393,9 @@ export default defineNuxtConfig({
       "/ibv/julho-2026",
       "/ibv/vencedores-perdedores-julho-2026",
       "/ibv/eletricos-julho-2026",
+      "/ibv/agosto-2026",
+      "/ibv/vencedores-perdedores-agosto-2026",
+      "/ibv/eletricos-agosto-2026",
     ],
   },
 

@@ -22,15 +22,24 @@ function temVeiculo(p: any): boolean {
 }
 
 /**
- * Retorna o payload bruto da wdapi2 (do cache quando fresco), ou null se nao deu
- * pra obter / placa nao encontrada. Nao lanca: os call sites tratam null como
- * "nao encontrado".
+ * Igual a consultarPlacaWdapi, mas diz TAMBEM se a resposta veio do cache.
+ *
+ * Existe porque o relatorio de uso precisa separar chamada real a API paga de
+ * leitura do cache; sem isso o numero de "chamadas ao wdapi por canal" e
+ * estimativa. Quem nao se importa com a origem continua usando a funcao de
+ * sempre, que e um wrapper desta.
+ *
+ * cacheHit e false quando a placa nao foi encontrada, mesmo que a resposta
+ * tenha saido do cache de nao-encontradas: nesse caminho tambem nao houve
+ * chamada paga, mas nao houve consulta util nenhuma pra contabilizar.
  */
-export async function consultarPlacaWdapi(placa: string): Promise<any | null> {
+export async function consultarPlacaWdapiDetalhado(
+  placa: string,
+): Promise<{ payload: any | null; cacheHit: boolean }> {
   const placaClean = normalizarPlaca(placa)
-  if (placaClean.length < 7) return null
+  if (placaClean.length < 7) return { payload: null, cacheHit: false }
   const config = useRuntimeConfig()
-  if (!config.placaApiToken) return null
+  if (!config.placaApiToken) return { payload: null, cacheHit: false }
 
   const supabase = useSupabaseServer()
 
@@ -57,9 +66,9 @@ export async function consultarPlacaWdapi(placa: string): Promise<any | null> {
       const idade = Date.now() - new Date(data.fetched_at).getTime()
       if (data.encontrado === false) {
         // nao-encontrada ainda fresca: devolve null sem bater na wdapi.
-        if (idade < TTL_NAO_ENCONTRADA_MS) return null
+        if (idade < TTL_NAO_ENCONTRADA_MS) return { payload: null, cacheHit: false }
       } else if (data.payload && idade < TTL_MS) {
-        return data.payload
+        return { payload: data.payload, cacheHit: true }
       }
     }
   } catch (e: any) {
@@ -79,7 +88,7 @@ export async function consultarPlacaWdapi(placa: string): Promise<any | null> {
     // e transitorio: NAO cacheia, so devolve null.
     const status = e?.status ?? e?.statusCode ?? e?.response?.status
     if (status === 404 || status === 400) gravar(false, null)
-    return null
+    return { payload: null, cacheHit: false }
   }
 
   // 3) grava no cache: encontrada (TTL longo) ou nao-encontrada (TTL curto).
@@ -87,8 +96,17 @@ export async function consultarPlacaWdapi(placa: string): Promise<any | null> {
   // nao-encontrado legitimo, nao erro de rede.
   if (temVeiculo(payload)) {
     gravar(true, payload)
-    return payload
+    return { payload, cacheHit: false }
   }
   gravar(false, payload)
-  return payload
+  return { payload, cacheHit: false }
+}
+
+/**
+ * Retorna o payload bruto da wdapi2 (do cache quando fresco), ou null se nao deu
+ * pra obter / placa nao encontrada. Nao lanca: os call sites tratam null como
+ * "nao encontrado".
+ */
+export async function consultarPlacaWdapi(placa: string): Promise<any | null> {
+  return (await consultarPlacaWdapiDetalhado(placa)).payload
 }
