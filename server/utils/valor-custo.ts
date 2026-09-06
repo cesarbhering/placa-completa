@@ -39,6 +39,9 @@ export interface FatosSenatranFipe {
   potencia?: number | string | null
   descricaoMarcaModelo?: string | null
   anoModelo?: number | string | null
+  /** Usados so pra saber se e moto: o funil de carro nao vale pra duas rodas. */
+  descricaoTipoVeiculo?: string | null
+  descricaoEspecie?: string | null
 }
 
 function formatarReais(valor: number | null): string | null {
@@ -71,7 +74,7 @@ export async function getValorCusto(
   placa: string,
   uf?: string | null,
   municipio?: string | null,
-  fipeCandidatoOpts?: { senatran: FatosSenatranFipe; ativo: boolean },
+  fipeCandidatoOpts?: { senatran: FatosSenatranFipe; ativo: boolean; segmento?: Segmento },
 ): Promise<ValorCusto | null> {
   const config = useRuntimeConfig()
   if (!config.placaApiToken) return null
@@ -98,7 +101,14 @@ export async function getValorCusto(
         fipeApiToken: config.fipeApiToken,
         anthropicApiKey: config.anthropicApiKey,
       })
-      if (resultado.decididoPor !== 'fallback' && resultado.escolhido) {
+      // AMBIGUO NAO VIRA VALOR. Antes, quando o juiz respondia com confianca
+      // baixa, o candidato dele substituia o melhor score da fonte livre e ia
+      // pra tela como se fosse a FIPE do veiculo. Foi assim que uma scooter
+      // 150 apareceu valendo R$58 mil, com o custo de cinco anos calculado em
+      // cima disso. Sem certeza, o relatorio mantem o candidato de sempre e a
+      // tela avisa que a versao nao foi identificada.
+      const ambiguo = resultado.decididoPor === 'ambiguo' || resultado.confianca === 'baixa'
+      if (!ambiguo && resultado.decididoPor !== 'fallback' && resultado.escolhido) {
         // codigoModelo ja vem resolvido do fipe-candidato.ts (direto da wdapi
         // quando o candidato e dela, ou buscado sob demanda na fipe-api
         // quando nao e) - e o que price-history/seguro usam abaixo. Sem ele
@@ -174,8 +184,15 @@ export async function getValorCusto(
     }
   }
 
+  // Custo de cinco anos e conta de AUTOMOVEL: aliquota de IPVA de passeio,
+  // piso de manutencao de carro e fator por carroceria. Numa moto isso infla o
+  // numero de forma grosseira (uma 150cc nao paga manutencao de sedan), entao o
+  // relatorio prefere nao mostrar a mostrar errado. Mesma regra pra caminhao.
+  const segmento = fipeCandidatoOpts?.segmento ?? 'carro'
+  const podeEstimarCusto = aceitaCustoDeCarro(segmento)
+
   let custo5anos: number | null = null
-  if (uf && Number.isFinite(valorFipe) && valorFipe > 0) {
+  if (podeEstimarCusto && uf && Number.isFinite(valorFipe) && valorFipe > 0) {
     try {
       const extra = dados.extra || {}
       custo5anos = calcularICV5({

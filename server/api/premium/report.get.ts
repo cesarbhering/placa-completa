@@ -8,6 +8,29 @@ import { getValorCusto } from '../../utils/valor-custo'
 // fonte de FIPE, e a pagina de amostra recarrega o tempo todo em dev.
 const amostraValorCusto: Record<string, Awaited<ReturnType<typeof getValorCusto>>> = {}
 
+// Estado "versao FIPE nao identificada": os numeros aqui sao os do caso real
+// que originou o cuidado (uma scooter 150 que apareceu valendo R$58 mil por
+// ter sido casada com uma CB 1000R). Serve pra conferir que a tela NAO exibe
+// valor, seguro nem custo de cinco anos quando a identificacao falhou.
+const VALOR_CUSTO_FIPE_INCERTA: any = {
+  fipe: 'R$ 58.380,00',
+  fipeModelo: 'CB 1000R/ABS',
+  historico: null,
+  quedaAno: null,
+  seguroAnual: 4200,
+  percentualFipe: 7.2,
+  custo5anos: 23000,
+  fipeCandidato: {
+    decididoPor: 'ambiguo',
+    confianca: 'baixa',
+    candidatos: [
+      { codigo_fipe: '811100-6', modelo: 'CB 1000R/ABS', valor: 58380 },
+      { codigo_fipe: '811101-4', modelo: 'NC 750X ABS', valor: 42100 },
+      { codigo_fipe: '811116-2', modelo: 'PCX 150/DLX', valor: 15328 },
+    ],
+  },
+}
+
 // Perfil do veiculo da amostra pra consulta de leilao. O payload as vezes vem
 // como array de um elemento (mesmo formato cru da consulta), entao normaliza
 // antes de ler os campos.
@@ -50,7 +73,15 @@ export default defineEventHandler(async (event) => {
       preview: null,
       entregue_em: new Date().toISOString(),
       consulta: { placa: amostra.placa, response: filtrarPorPlano(amostra.payload, 'completa') },
-      valorCusto: amostraValorCusto[String(token)],
+      segmento: detectarSegmento({
+        senatran: Array.isArray(amostra.payload) ? amostra.payload[0] : amostra.payload,
+      }),
+      // A amostra "_amostra-fipe-incerta" existe pra revisar a tela de quando a
+      // versao FIPE NAO foi identificada com seguranca, sem depender de topar
+      // com um pedido real nesse estado. Dev-only, como todo este ramo.
+      valorCusto: String(token) === '_amostra-fipe-incerta'
+        ? VALOR_CUSTO_FIPE_INCERTA
+        : amostraValorCusto[String(token)],
       // A amostra tambem consulta o historico de leilao quando o servico esta
       // configurado: e por aqui que da pra ver a secao renderizada sem gerar
       // pedido pago. Sem env, volta null e a secao nao aparece.
@@ -87,6 +118,7 @@ export default defineEventHandler(async (event) => {
   let restantes = 0
   let chassiOrigem: Awaited<ReturnType<typeof decodificarChassi>> = null
   let historicoLeilao: Awaited<ReturnType<typeof consultarHistoricoLeilao>> = null
+  let segmento: Segmento = 'outro'
 
   if (!pendente && pedido.status === 'entregue') {
     if (pedido.relatorio_snapshot) {
@@ -99,6 +131,9 @@ export default defineEventHandler(async (event) => {
       // campo: a secao some, e nao ha remontagem por cima do que a pessoa
       // comprou (a regra do snapshot imutavel vale aqui tambem).
       historicoLeilao = snap.historicoLeilao ?? null
+      // Snapshot antigo nao tem segmento gravado: recalcula na leitura a partir
+      // da propria consulta, pra copy e checagens valerem no que ja foi vendido.
+      segmento = snap.segmento ?? 'outro'
       // Correcao de EXIBICAO no snapshot antigo (gravado antes do ajuste de
       // ciclo de 30 anos): o snapshot no banco fica intacto, so o ano do
       // chassi e reconciliado com o ano do registro antes de ir pra tela.
@@ -127,6 +162,7 @@ export default defineEventHandler(async (event) => {
         valorCusto = snap.valorCusto ?? null
         chassiOrigem = snap.chassiOrigem ?? null
         historicoLeilao = snap.historicoLeilao ?? null
+        segmento = snap.segmento ?? 'outro'
       } else {
         const snapshot = await montarRelatorioSnapshot(supabase, {
           placa: pedido.placa, plano, consulta_id: pedido.consulta_id, preview: pedido.preview,
@@ -136,6 +172,7 @@ export default defineEventHandler(async (event) => {
         valorCusto = snapshot.valorCusto
         chassiOrigem = snapshot.chassiOrigem
         historicoLeilao = snapshot.historicoLeilao
+        segmento = snapshot.segmento
         // Backfill lazy: grava pra proxima visita ja vir do snapshot. Fail-open
         // — se der erro (corrida com outra leitura, rede etc), so tenta de novo
         // na proxima visualizacao, o relatorio desta ja saiu montado do jeito certo.
@@ -160,6 +197,11 @@ export default defineEventHandler(async (event) => {
     valorCusto,
     chassiOrigem,
     historicoLeilao,
+    segmento: segmento === 'outro' ? detectarSegmento({
+      wdapi: pedido.preview,
+      senatran: Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response,
+      chassi: (Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response)?.chassi,
+    }) : segmento,
     preview: pedido.preview,
     entregue_em: pedido.entregue_em,
     consulta,
