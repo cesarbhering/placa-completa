@@ -115,7 +115,13 @@ export async function montarRelatorioSnapshot(
       motor: null,
       marca: marcaDoRegistro(senatranBruto),
       modelo: modeloDoRegistro(senatranBruto),
+      // Os dois anos separados: a API compara fabricacao com fabricacao e
+      // modelo com modelo. Mandar um so fazia um veiculo 2019/2020 casar com
+      // lote 2020/2020, que e outra moto (caso real, CDR2189). `ano` continua
+      // indo por compatibilidade com a versao anterior da API.
       ano: senatranBruto?.anoModelo ?? senatranBruto?.anoFabricacao ?? null,
+      ano_fab: senatranBruto?.anoFabricacao ?? null,
+      ano_mod: senatranBruto?.anoModelo ?? null,
       cor: senatranBruto?.descricaoCor ?? null,
       uf: senatranBruto?.ufJurisdicao ?? local.uf ?? null,
     }).catch(() => null)
