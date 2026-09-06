@@ -26,6 +26,216 @@ export interface IbvPostSection {
 
 export const ibvPosts: IbvPost[] = [
   {
+    slug: 'agosto-2026',
+    title: 'IBV Auto Agosto 2026: primeira queda do ano (-0,01%) e o ciclo de alta perde força',
+    metaDescription: 'O IBV Auto de agosto fechou negativo pela primeira vez em meses (-0,01%), com o acumulado de 12 meses desacelerando para +5,12%. Fiat Uno lidera as altas, Ford Ka as quedas. Veja por modelo, região e estado.',
+    publishedAt: '2026-09-04',
+    source: 'Banco BV (IBV Auto)',
+    referenceMonth: 'Agosto 2026',
+    ogTitle: 'IBV de agosto vira negativo: -0,01%. O ciclo de alta perdeu força de vez.',
+    ogHighlight: '-0,01%',
+    content: [
+      {
+        type: 'intro',
+        text: 'O Índice BV Auto (IBV) de agosto de 2026 fechou em **-0,01%**, a primeira leitura negativa da série recente depois de um julho que já tinha desacelerado para +0,07%. Não é um tombo, é um sinal: dois meses seguidos de freio, o segundo já cruzando pro vermelho. No acumulado de 12 meses, o índice está em **+5,12%**, ante os +6,10% de julho, a valorização do usado segue existindo, só que cada vez mais fraca. No ano, o acumulado de 2026 está em +3,55%, praticamente empatado com o mesmo período de 2025 (+3,74%).',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/agosto-2026/variacao-mensal.png',
+        alt: 'Gráfico de barras com a variação mensal do IBV Auto de jan/2025 a ago/2026, mostrando a virada para negativo em agosto',
+        caption: 'Agosto é a primeira barra negativa da série recente. Fonte dos dados: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'De +0,92% a -0,01% em sete meses: o gráfico de uma desaceleração',
+        text: 'Olhando a série completa, o padrão é claro: agosto de 2025 marcou o pico do ciclo (+0,92%), e desde então o índice mensal só perdeu força, com solavancos (janeiro de 2026 chegou a repicar para +0,90%) mas numa tendência de queda que culmina no -0,01% de agora. Não é um evento isolado, é o fim de um ciclo de valorização que durou mais de um ano.',
+      },
+      {
+        type: 'heading',
+        heading: 'Quais modelos mais subiram e mais caíram?',
+        text: 'Segundo o resumo divulgado pelo Banco BV, o **Fiat Uno liderou as altas com +1,68%**, seguido por **VW Fox (+1,39%)** e **Toyota Corolla (+0,51%)**. Do outro lado, o **Ford Ka foi a maior queda (-2,27%)**, com **Fiat Mobi (-2,06%)** e **VW T-Cross (-1,66%)** completando o trio negativo.\n\nO padrão dos vencedores repete o que já vimos em meses anteriores: populares antigos e baratos (Uno, Fox) puxando a demanda de quem foi empurrado para a base da pirâmide. O T-Cross entre as maiores quedas chama atenção por ser um SUV compacto relativamente recente, sinal de que a pressão de preço já alcança segmentos mais caros, não só o popular de entrada.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/agosto-2026/modelos-alta-baixa.png',
+        alt: 'Infográfico com os modelos de maior alta e maior queda no IBV Auto de agosto de 2026: Fiat Uno, VW Fox e Toyota Corolla em alta; Ford Ka, Fiat Mobi e VW T-Cross em queda',
+        caption: 'Modelos de destaque no IBV Auto de agosto de 2026. Fonte: Banco BV.',
+      },
+      {
+        type: 'heading',
+        heading: 'Por região: Centro-Oeste sobe, Sul puxa a queda',
+        text: 'O **Centro-Oeste foi a região que mais subiu no mês (+0,81%)**, acelerando frente aos +0,29% de julho. No extremo oposto, o **Sul teve a maior queda (-0,44%)**, uma reversão completa: em julho a região tinha subido +0,22%. O Sudeste ficou perto de zero (-0,11%), no mesmo padrão de estagnação do índice nacional.\n\nPor estado, o mês foi mais positivo do que negativo na contagem bruta: **19 dos 27 estados subiram, 8 caíram**. O **Piauí liderou com +1,27%**, revertendo a forte queda de julho (-1,08%), clássico movimento de correção depois de um mês ruim. **Distrito Federal (+1,12%)** e **Mato Grosso (+1,06%)** completam o topo. Na ponta oposta, **Roraima teve a maior queda (-0,88%)**, seguido de **Amapá (-0,83%)** e **Rio Grande do Sul (-0,74%)**.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/agosto-2026/variacao-por-uf.png',
+        alt: 'Gráfico de barras com a variação mensal por estado em agosto de 2026, do maior ao menor, com Piauí no topo e Roraima no fundo',
+        caption: 'Variação mensal por estado (UF) em agosto de 2026. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/agosto-2026/mapa-brasil-acumulado.png',
+        alt: 'Mapa do Brasil colorido com a variação acumulada em 12 meses por estado até agosto de 2026, Rio de Janeiro liderando e Santa Catarina na lanterna',
+        caption: 'Variação acumulada em 12 meses por estado. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: '12 meses: Rio de Janeiro assume a liderança',
+        text: 'No acumulado de 12 meses, o **Rio de Janeiro passou a liderar com +6,28%**, à frente de **Sergipe (+6,18%)** e **Mato Grosso (+6,15%)**. Na outra ponta, **Santa Catarina (+3,20%)** e **São Paulo (+3,33%)** seguem com a menor valorização do país, os dois estados mais líquidos e concorridos do mercado de usados, onde a oferta maior segura o preço para baixo. O Brasil em 12 meses está em +5,12%.',
+      },
+      {
+        type: 'heading',
+        heading: 'Elétricos: veja a análise dedicada',
+        text: 'O relatório de agosto também trouxe o corte por tipo de propulsão (elétrico, híbrido, combustão), com um dado que já está virando polêmica: quem comprou elétrico chinês 0km em 2022 já perdeu metade do valor de tabela. Analisamos em detalhe no [post dedicado de agosto](/ibv/eletricos-agosto-2026).',
+      },
+      {
+        type: 'highlight',
+        heading: 'O que isso significa para você?',
+        text: 'Se você está pensando em vender, agosto reforça o recado de julho: o ciclo de alta perdeu força e a primeira leitura negativa em meses é um sinal de que esperar mais não deve compensar. Se você está comprando, o momento favorece: 8 estados já caíram no mês, e a tendência de 12 meses desacelera mês a mês (+6,10% em julho, +5,12% em agosto). Quem é de Roraima, Amapá ou Rio Grande do Sul pega o mercado local em queda no mês; quem é do Rio, Sergipe ou Mato Grosso ainda segura o acumulado de 12 meses mais forte do país. Detalhamos modelo a modelo e estado a estado no post [Vencedores e Perdedores de agosto](/ibv/vencedores-perdedores-agosto-2026).',
+      },
+      {
+        type: 'cta',
+        text: 'Quer saber quanto vale o seu carro pela placa, com FIPE atualizada e histórico de leilão (base de mais de 1 milhão de veículos)?',
+        ctaLabel: 'Consultar Placa Grátis',
+        ctaTo: '/',
+      },
+    ],
+  },
+  {
+    slug: 'vencedores-perdedores-agosto-2026',
+    title: 'Vencedores e Perdedores de Agosto 2026: Uno lidera as altas, Ford Ka despenca, Piauí lidera entre estados',
+    metaDescription: 'Fiat Uno +1,68%, VW Fox +1,39% e Toyota Corolla +0,51% lideram as altas de agosto; Ford Ka -2,27%, Fiat Mobi -2,06% e VW T-Cross -1,66% caem. Piauí lidera os estados (+1,27%), Roraima despenca (-0,88%).',
+    publishedAt: '2026-09-04',
+    source: 'Banco BV (IBV Auto)',
+    referenceMonth: 'Agosto 2026',
+    ogTitle: 'Vencedores e perdedores de agosto: Uno sobe, Ka despenca.',
+    ogHighlight: 'Agosto',
+    content: [
+      {
+        type: 'intro',
+        text: 'O IBV Auto de agosto fechou no vermelho pela primeira vez em meses (-0,01%), mas nos extremos o mercado teve movimento de sobra. Segundo o resumo divulgado pelo Banco BV, o **Fiat Uno subiu 1,68%** e o **Ford Ka caiu 2,27%**, quase 4 pontos percentuais de distância entre o topo e o fundo da tabela de modelos.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/agosto-2026/modelos-alta-baixa.png',
+        alt: 'Infográfico com os modelos de maior alta e maior queda no IBV Auto de agosto de 2026',
+        caption: 'Modelos de destaque no IBV Auto de agosto de 2026. Fonte: Banco BV.',
+      },
+      {
+        type: 'heading',
+        heading: 'Os modelos que mais valorizaram em agosto',
+        text: 'O **Fiat Uno (+1,68%)** no topo é o retrato mais claro do momento do mercado: carro fora de linha, ticket de entrada baixíssimo, puxado pela demanda de quem foi empurrado pra base da pirâmide de preço. O **VW Fox (+1,39%)** segue a mesma lógica de popular antigo com procura firme, vale lembrar que o Fox já tinha aparecido no topo em junho e no fundo em julho, um modelo que oscila forte mês a mês.\n\nJá o **Toyota Corolla (+0,51%)** é o ponto fora da curva: um sedã médio, não um popular de entrada, mantendo valorização positiva num mês em que o índice geral foi negativo. Reforça a reputação da marca de segurar valor de revenda mesmo em ciclo de desaceleração.',
+      },
+      {
+        type: 'heading',
+        heading: 'Os modelos que mais perderam em agosto',
+        text: 'A maior queda foi do **Ford Ka (-2,27%)**. A Ford encerrou a produção no Brasil em 2021, e um modelo descontinuado sem reposição de peças nova tende a perder valor de forma mais acelerada conforme envelhece, sem um zero-km equivalente para ancorar o preço do usado.\n\nO **Fiat Mobi (-2,06%)** é o dado mais estrutural da lista: hatch de entrada relativamente recente, sofrendo pressão direta da onda de populares chineses (BYD Dolphin Mini, GWM) que chegou com preço agressivo. Já o **VW T-Cross (-1,66%)** fechando o trio é o alerta que interessa a quem tem SUV compacto: mesmo um modelo em linha ainda ativo já sente a mesma pressão que os populares, sinal de que a queda não fica restrita à base da pirâmide.',
+      },
+      {
+        type: 'heading',
+        heading: 'Por estado: Piauí corrige a queda de julho, Roraima vira a lanterna',
+        text: 'No mês, **19 dos 27 estados subiram e 8 caíram**, uma contagem bruta melhor do que a de julho, mesmo com o índice nacional fechando negativo (as quedas, concentradas em poucos estados, pesaram mais que as altas espalhadas). O **Piauí liderou com +1,27%**, uma reversão completa depois de ter sido a maior queda de julho (-1,08%): o tipo de correção que acontece quando um mercado local cai rápido demais e devolve parte da perda. **Distrito Federal (+1,12%)** e **Mato Grosso (+1,06%)** vêm na sequência.\n\nNa ponta oposta, **Roraima teve a maior queda do mês (-0,88%)**, revertendo a leve queda de julho (-0,19%) para um recuo bem mais forte. **Amapá (-0,83%)** e **Rio Grande do Sul (-0,74%)** completam o trio negativo.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/agosto-2026/variacao-por-uf.png',
+        alt: 'Gráfico de barras da variação mensal por estado em agosto de 2026, com Piauí no topo e Roraima no fundo',
+        caption: 'Agosto: Piauí lidera com +1,27%, Roraima cai -0,88%. Fonte dos dados: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'O que une os vencedores e o que separa os perdedores',
+        text: 'Os vencedores de agosto (Uno, Fox, Corolla) não têm um fio condutor único: dois são populares de entrada muito antigos, um é um sedã médio consolidado. O que os une é ausência de concorrência direta recente, nenhum dos três compete de frente com o volume de lançamento chinês que pressiona o mercado.\n\nJá os perdedores (Ka, Mobi, T-Cross) têm uma lógica mais clara: Ka é descontinuado sem reposição; Mobi e T-Cross competem direto com a onda de SUVs e hatches compactos chineses que chegou com preço agressivo no zero-km. É a mesma dinâmica que já vimos pressionando o Jeep Compass em meses anteriores, agora alcançando modelos de ticket menor.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/agosto-2026/variacao-por-uf-acumulado.png',
+        alt: 'Gráfico de barras com a variação acumulada em 12 meses por estado até agosto de 2026, Rio de Janeiro na liderança',
+        caption: 'Variação acumulada em 12 meses por estado até agosto de 2026. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Líderes em 12 meses: Rio de Janeiro assume a ponta',
+        text: 'No acumulado de 12 meses até agosto:\n\n- Rio de Janeiro: +6,28%\n- Sergipe: +6,18%\n- Mato Grosso: +6,15%\n\nNa ponta menor: Santa Catarina (+3,20%) e São Paulo (+3,33%), os dois mercados mais líquidos do país, onde a oferta maior mantém o preço do usado mais contido. O Brasil em 12 meses está em +5,12%, desacelerando frente aos +6,10% de julho.',
+      },
+      {
+        type: 'highlight',
+        heading: 'Como usar essa informação',
+        text: 'Se você tem Uno, Fox ou Corolla, agosto foi um mês favorável para vender. Se tem Ford Ka, a ausência de zero-km equivalente tende a manter a pressão de queda; não há razão estrutural para o cenário virar. Se tem Mobi ou T-Cross, a concorrência chinesa deve continuar pressionando, considerar vender agora, antes de mais perda. No mapa, quem vende em Roraima, Amapá ou Rio Grande do Sul pega o mercado local em queda no mês; quem vende no Rio, Sergipe ou Mato Grosso ainda surfa o acumulado de 12 meses mais forte do país.',
+      },
+      {
+        type: 'cta',
+        text: 'Quer saber o valor atualizado do seu carro pela placa, com histórico de leilão incluído?',
+        ctaLabel: 'Consultar Placa Grátis',
+        ctaTo: '/',
+      },
+    ],
+  },
+  {
+    slug: 'eletricos-agosto-2026',
+    title: 'Elétricos Usados Agosto 2026: o tombo de 50% já aconteceu, agora a queda estabilizou',
+    metaDescription: 'IBV Auto (Banco BV): elétricos 0km de 2022 acumulam -50,1% de desvalorização, contra -14,1% do combustão. Mas nosso levantamento na FIPE mostra que, nos últimos 12 meses, elétrico e combustão desvalorizaram igual: -2,3%.',
+    publishedAt: '2026-09-04',
+    source: 'Banco BV (IBV Auto) + análise PlacaCompleta',
+    referenceMonth: 'Agosto 2026',
+    ogTitle: 'Elétrico 2022 já perdeu metade do valor. O combustão equivalente, 14%.',
+    ogHighlight: '-50,1%',
+    content: [
+      {
+        type: 'intro',
+        text: 'O relatório de agosto do Banco BV trouxe um número que resume o problema de quem comprou elétrico chinês 0km em 2022: a desvalorização acumulada já chegou a **-50,1%**. Metade do valor, em menos de 4 anos. O combustão equivalente do mesmo ano-modelo perdeu **-14,1%** no mesmo período. A diferença não é sutil, é de mais de 3 vezes.',
+      },
+      {
+        type: 'heading',
+        heading: 'O tamanho da diferença, por ano-modelo',
+        text: 'A desvalorização acumulada até agosto de 2026, segundo o Banco BV, por ano-modelo e tipo de propulsão:\n\n- **Modelos 2023:** Elétricos -46,15% | Híbridos -26,36% | Combustão -21,72%\n- **Modelos 2022:** Elétricos -50,10% | Híbridos -22,59% | Combustão -14,07%\n- **Modelos 2021:** Híbridos -17,47% | Combustão -6,49% (sem elétrico 2021 nessa cesta)\n\nEm todos os anos-modelo com dado disponível, a ordem é sempre a mesma: elétrico perde mais que híbrido, híbrido perde mais que combustão. Na safra 2022, a distância é a maior de todas: o elétrico perdeu **3,6 vezes mais valor proporcional** do que o combustão equivalente.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/agosto-2026/desvalorizacao-2022.png',
+        alt: 'Gráfico de barras comparando a desvalorização acumulada de elétricos, híbridos e combustão para modelos 2022 até agosto de 2026',
+        caption: 'Elétricos 0km de 2022 perderam metade do valor de tabela. Fonte dos dados: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Por que o elétrico chinês perde tanto valor',
+        text: 'A explicação apontada pelo próprio Banco BV não é sobre a tecnologia em si: é sobre o preço do zero-km. A entrada agressiva de BYD, GWM e outras montadoras chinesas no Brasil, com guerra de preço constante nos modelos novos, empurra o valor do 0km pra baixo mês a mês, e, como o usado se referencia no preço do novo equivalente, o efeito cascateia direto pra quem já comprou.\n\nQuem pagou o preço de lançamento em 2022, antes da guerra de preço se intensificar, é quem mais sente: o carro dele compete no usado com um 0km cada vez mais barato do mesmo modelo (ou um substituto ainda mais barato). O combustão não tem esse problema na mesma escala porque o zero-km a combustão não caiu de preço no mesmo ritmo, ficou até mais caro em termos reais em boa parte do período.',
+      },
+      {
+        type: 'heading',
+        heading: 'O tombo já aconteceu. E agora?',
+        text: 'A pergunta que fica depois do número acumulado é: essa sangria continua, ou já parou de piorar? Pra responder, cruzamos o dado do Banco BV (acumulado desde o lançamento) com um levantamento próprio na tabela FIPE, medindo só os **últimos 12 meses**, comparando sempre o mesmo ano-modelo ao longo do tempo (sem misturar safras diferentes, o erro mais comum nesse tipo de conta).\n\nO resultado muda a leitura: nos últimos 12 meses, a média de variação de 6 elétricos/híbridos chineses (BYD Dolphin, Dolphin Mini, Seal, Song Plus, GWM Haval H6 híbrido e Ora 03) ficou em **-2,3%**, exatamente empatada com a média de 6 combustão equivalentes (Corolla Cross, Compass, T-Cross, HB20, Pulse e Onix), também em **-2,3%**. Ou seja: o tombo grande dos elétricos já aconteceu, majoritariamente entre 2023 e 2025, puxado pela queda de preço do 0km chinês. Nos últimos 12 meses, elétrico e combustão desvalorizaram praticamente igual.',
+      },
+      {
+        type: 'heading',
+        heading: 'O que não estabilizou: a dispersão entre modelos',
+        text: 'Empate na média não quer dizer que ficou tudo igual. Levantamento PlacaCompleta (tabela FIPE): entre os elétricos, a variação de 12 meses foi de **+1,4% (BYD Dolphin Mini, o único que não perdeu valor) a -8,0% (GWM Ora 03, o pior)**. Entre os combustão, o intervalo foi bem mais estreito: de **-0,3% (Toyota Corolla Cross) a -3,6% (VW T-Cross)**.\n\nNo combustão, a categoria já protege um pouco: todo modelo desvaloriza de forma parecida. No elétrico chinês, não. Escolher o modelo certo pesa muito mais no bolso do que escolher "elétrico" em si, a diferença entre acertar e errar o modelo é de quase 10 pontos percentuais.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/agosto-2026/desvalorizacao-2023.png',
+        alt: 'Gráfico de barras comparando a desvalorização acumulada de elétricos, híbridos e combustão para modelos 2023 até agosto de 2026',
+        caption: 'Modelos 2023: elétrico perde mais que o dobro do combustão equivalente. Fonte dos dados: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'O que isso significa pra quem tem, ou quer comprar',
+        text: 'Para quem já tem um elétrico chinês 2022, a notícia ruim já aconteceu: metade do valor já foi embora, e segurar o carro esperando recuperação não tem base nos dados até aqui. Para quem está pensando em COMPRAR um elétrico usado, o quadro é oposto: um desconto de 50% sobre o valor de tabela original é uma oportunidade real, desde que a bateria esteja auditada e a garantia ainda cubra o carro.\n\nRecomendações práticas antes de fechar negócio:\n\n1. **Auditar o estado de saúde da bateria (SoH)** antes de qualquer coisa. Abaixo de 85% é sinal de alerta.\n2. **Confirmar a garantia de bateria e se ela transfere** para o segundo dono.\n3. **Considerar que o desconto de tabela não é desconto real** se o carro tiver histórico de sinistro, restrição ou passagem por leilão, isso pesa tanto quanto (ou mais que) a desvalorização de mercado. Vale conferir o histórico completo antes de fechar.',
+      },
+      {
+        type: 'highlight',
+        heading: 'O que esperar dos próximos meses',
+        text: 'A leitura mais honesta dos dois levantamentos juntos: o estrago grande já foi feito entre 2023 e 2025, e nos últimos 12 meses o ritmo de queda do elétrico chinês se igualou ao do combustão. Isso não é recuperação, é estabilização num patamar já bem mais baixo. Enquanto a guerra de preço no 0km chinês continuar, modelos específicos ainda podem sofrer puxadas fortes (como o Ora 03, -8,0% em 12 meses) mesmo com a média do grupo estabilizada. Pra quem decide comprar ou vender, o modelo importa mais do que a categoria. Para uma leitura do mercado de usados como um todo, veja a [análise completa do IBV Auto de agosto](/ibv/agosto-2026).',
+      },
+      {
+        type: 'cta',
+        text: 'Comprando um usado, elétrico ou não? Consulte a placa antes: histórico de leilão, restrição e indicador de sinistro, numa base com mais de 1 milhão de veículos leiloados.',
+        ctaLabel: 'Consultar Placa Grátis',
+        ctaTo: '/',
+      },
+    ],
+  },
+  {
     slug: 'julho-2026',
     title: 'IBV Auto Julho 2026: Preços de usados quase param (+0,07%) e 16 dos 27 estados caem',
     metaDescription: 'O IBV Auto de julho desacelerou para +0,07%, o menor avanço de 2026 e um freio brusco ante os +0,57% de junho. Pela primeira vez no ano a maioria dos estados (16 de 27) fechou em queda. Cruzamos os dados de valorização com nossa análise de seguro por estado.',

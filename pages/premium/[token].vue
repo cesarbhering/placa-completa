@@ -262,7 +262,10 @@ const indicadores = computed(() => {
   // seria dizer "nada consta" sem ter olhado, que e pior que nao dizer nada.
   if (historicoLeilao.value?.resumo) {
     const r = historicoLeilao.value.resumo
-    const total = (r.n_confirmado || 0) + (r.n_provavel || 0) + (r.n_possivel || 0)
+    // Ambiguo nao entra na conta: ele diz "existem varios carros com este
+    // perfil", nao "este carro passou por leilao". Contar aqui pintaria de
+    // amarelo um veiculo sem nenhum indicio real.
+    const total = (r.n_confirmado || 0) + (r.n_provavel || 0) + passagensPossiveis.value.length
     const plural = (n: number) => (n > 1 ? 's' : '')
     let valor = 'NADA CONSTA'
     let alerta = false
@@ -272,10 +275,10 @@ const indicadores = computed(() => {
     } else if (r.n_provavel > 0) {
       valor = `PROVÁVEL (${r.n_provavel})`
       alerta = true
-    } else if (r.n_possivel > 0) {
+    } else if (passagensPossiveis.value.length > 0) {
       // Indicio fraco nao acende alerta: pode ser outro carro do mesmo modelo,
       // e um cartao vermelho aqui condenaria um veiculo por semelhanca.
-      valor = `INDÍCIO FRACO (${r.n_possivel})`
+      valor = `INDÍCIO FRACO (${passagensPossiveis.value.length})`
       alerta = false
     }
     const cartaoLeilao = {
@@ -617,7 +620,47 @@ function formatarDataLeilao(iso: string): string {
 // quem esta comprando um carro sem historico nenhum. A contagem continua
 // visivel no resumo, entao nada e escondido.
 const passagensFortes = computed(() => passagensLeilao.value.filter((p) => p.nivel !== 'possivel'))
-const passagensPossiveis = computed(() => passagensLeilao.value.filter((p) => p.nivel === 'possivel'))
+
+// Lote ambiguo: varios lotes DIFERENTES que casaram exatamente pelas mesmas
+// evidencias. Isso nao aponta um veiculo, aponta que o perfil (marca, modelo,
+// ano, final de placa) e comum demais. Caso real: uma Fazer trouxe tres
+// "possiveis" do mesmo catalogo, que eram tres motos distintas.
+//
+// A API ja separa isso e manda em resumo.possiveis_ambiguos. Aqui a gente
+// REFAZ a conta a partir das evidencias porque o snapshot e imutavel: o
+// relatorio ja comprado guarda a resposta antiga, com os lotes ambiguos ainda
+// na lista, e sem isto ele continuaria mostrando indicio onde nao ha. Mesmo
+// caminho ja usado pro ano do chassi e pro nome da fonte: o snapshot no banco
+// fica intacto, so a exibicao e reconciliada.
+function assinaturaDaPassagem(p: any): string {
+  return [...(p.evidencias || [])].sort().join('|')
+}
+
+const possiveisAgrupados = computed(() => {
+  const possiveis = passagensLeilao.value.filter((p) => p.nivel === 'possivel')
+  const porAssinatura = new Map<string, typeof possiveis>()
+  for (const p of possiveis) {
+    const chave = assinaturaDaPassagem(p)
+    const lista = porAssinatura.get(chave) || []
+    lista.push(p)
+    porAssinatura.set(chave, lista)
+  }
+  const distintas: typeof possiveis = []
+  let ambiguas = 0
+  for (const lista of porAssinatura.values()) {
+    if (lista.length > 1) ambiguas += lista.length
+    else distintas.push(lista[0])
+  }
+  return { distintas, ambiguas }
+})
+
+const passagensPossiveis = computed(() => possiveisAgrupados.value.distintas)
+
+// O maior entre o que a API contou e o que a gente detectou no snapshot: a API
+// nova ja tira os ambiguos das passagens, entao ali o nosso calculo da zero.
+const ambiguos = computed(() =>
+  Math.max(historicoLeilao.value?.resumo?.possiveis_ambiguos || 0, possiveisAgrupados.value.ambiguas),
+)
 const possiveisAbertas = ref(false)
 
 // Uma passagem por vez aberta: a lista precisa continuar escaneavel.
@@ -626,6 +669,23 @@ function alternarPassagem(idx: number) {
   passagemAberta.value = passagemAberta.value === idx ? null : idx
 }
 
+// "Tem indicio" passa a significar passagem que APONTA este veiculo. Um lote
+// ambiguo nao aponta nada, entao a secao trata o caso como sem indicio e a
+// linha explicativa aparece logo abaixo.
+const temIndicioReal = computed(() =>
+  passagensFortes.value.length > 0 || passagensPossiveis.value.length > 0,
+)
+
+// Nivel que a tela mostra. Sai das passagens que sobraram, nao do nivel_max da
+// resposta: quando os "possiveis" eram todos ambiguos e sairam, o nivel_max
+// antigo continuaria dizendo "possivel" num relatorio que nao mostra passagem
+// nenhuma.
+const nivelExibido = computed<string>(() => {
+  if (passagensFortes.value.some((p) => p.nivel === 'confirmado')) return 'confirmado'
+  if (passagensFortes.value.some((p) => p.nivel === 'provavel')) return 'provavel'
+  return 'possivel'
+})
+
 const resumoLeilao = computed(() => {
   const r = historicoLeilao.value?.resumo
   if (!r) return null
@@ -633,7 +693,7 @@ const resumoLeilao = computed(() => {
   const plural = (n: number, um: string, muitos: string) => `${n} ${n > 1 ? muitos : um}`
   if (r.n_confirmado) partes.push(plural(r.n_confirmado, 'confirmada', 'confirmadas'))
   if (r.n_provavel) partes.push(plural(r.n_provavel, 'provável', 'prováveis'))
-  if (r.n_possivel) partes.push(plural(r.n_possivel, 'possível', 'possíveis'))
+  if (passagensPossiveis.value.length) partes.push(plural(passagensPossiveis.value.length, 'possível', 'possíveis'))
   return partes.join(' · ')
 })
 
@@ -1190,7 +1250,7 @@ onUnmounted(() => poll && clearInterval(poll))
             <h2 class="rel__h2">{{ numSecao.leilao }}. Histórico de leilão</h2>
             <p class="rel__leilao-base">Placa e chassi cruzados com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras.</p>
 
-            <template v-if="!historicoLeilao?.resumo?.tem_indicio">
+            <template v-if="!temIndicioReal">
               <p class="rel__nada">
                 Nenhum indício de passagem por leilão nas fontes consultadas.
               </p>
@@ -1198,8 +1258,8 @@ onUnmounted(() => poll && clearInterval(poll))
 
             <template v-else>
               <p class="rel__leilao-resumo">
-                <span class="rel__nivel" :class="`rel__nivel--${historicoLeilao?.resumo?.nivel_max}`">
-                  {{ ROTULO_NIVEL[historicoLeilao?.resumo?.nivel_max || ''] }}
+                <span class="rel__nivel" :class="`rel__nivel--${nivelExibido}`">
+                  {{ ROTULO_NIVEL[nivelExibido] }}
                 </span>
                 <span v-if="resumoLeilao">{{ resumoLeilao }}</span>
               </p>
@@ -1320,6 +1380,9 @@ onUnmounted(() => poll && clearInterval(poll))
               </template>
             </template>
 
+            <p v-if="ambiguos" class="rel__leilao-ambiguo">
+              {{ ambiguos }} {{ ambiguos > 1 ? 'lotes de leilão têm' : 'lote de leilão tem' }} perfil parecido com este veículo (marca, modelo, ano e final de placa), sem identificação que permita apontar o carro. Não é indício.
+            </p>
             <p v-if="historicoLeilao?.aviso" class="rel__leilao-aviso">{{ historicoLeilao.aviso }}</p>
           </section>
 
@@ -2027,6 +2090,13 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__leilao-base {
     margin: 0 0 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: $c-graphite;
+  }
+
+  &__leilao-ambiguo {
+    margin: 12px 0 0;
     font-size: 13px;
     line-height: 1.5;
     color: $c-graphite;
