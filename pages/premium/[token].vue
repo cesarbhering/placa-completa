@@ -718,6 +718,18 @@ const numSecao = computed(() => {
 
 // ---------- valor e custo ----------
 const vc = computed(() => data.value?.valorCusto ?? null)
+
+// Versao FIPE nao identificada com seguranca. Vale pro que vier daqui pra
+// frente E pros relatorios ja gravados: o snapshot e imutavel, entao um
+// relatorio antigo continua trazendo o valor do candidato ambiguo, e sem esta
+// checagem ele seguiria exibindo numero errado como se fosse FIPE. Mesmo
+// caminho ja usado no ano do chassi, no nome da fonte de leilao e nos lotes
+// ambiguos.
+const fipeIncerta = computed(() => {
+  const c = vc.value?.fipeCandidato
+  if (!c) return false
+  return c.decididoPor === 'ambiguo' || c.confianca === 'baixa'
+})
 const temValor = computed(() => Boolean(vc.value?.fipe || vc.value?.seguroAnual || vc.value?.custo5anos))
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
@@ -1437,7 +1449,18 @@ onUnmounted(() => poll && clearInterval(poll))
                entrega de imediato, antes da ficha tecnica -->
           <section v-if="temValor" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.valor }}. Valor de mercado e custo de propriedade</h2>
-            <div class="rel__valores">
+            <!-- Sem versao identificada com seguranca, nada de numero: valor,
+                 seguro e custo em cinco anos saem todos do mesmo valor FIPE, e
+                 um valor errado contamina os tres. Prefiro dizer que nao sei a
+                 dizer que uma scooter vale R$58 mil. -->
+            <div v-if="fipeIncerta" class="rel__fipe-incerta">
+              <p class="rel__fipe-incerta-tit">Não foi possível identificar a versão FIPE com segurança</p>
+              <p class="rel__fipe-incerta-txt">
+                A tabela FIPE tem mais de uma versão compatível com a configuração deste veículo, e nenhuma bate o suficiente para afirmarmos qual é a certa. Confira no documento qual versão é a sua e use o valor correspondente na lista abaixo.
+              </p>
+            </div>
+
+            <div v-else class="rel__valores">
               <div v-if="vc?.fipe" class="rel__valor">
                 <span class="rel__valor-k">Valor FIPE</span>
                 <span class="rel__valor-v">{{ vc.fipe }}</span>
@@ -1459,11 +1482,8 @@ onUnmounted(() => poll && clearInterval(poll))
                  com risco de erro, mostra as versoes compativeis com a
                  configuracao do veiculo (cilindrada/carroceria) e deixa a
                  decisao final com quem esta lendo. -->
-            <div v-if="vc?.fipeCandidato?.decididoPor === 'ambiguo' && vc.fipeCandidato.candidatos.length > 1" class="rel__fipe-ambiguo">
-              <span class="rel__sub">Versões compatíveis com esta configuração</span>
-              <p class="rel__fipe-ambiguo-txt">
-                A tabela FIPE tem mais de uma versão com a mesma cilindrada e carroceria deste veículo. Confira qual bate com o seu:
-              </p>
+            <div v-if="fipeIncerta && (vc?.fipeCandidato?.candidatos?.length || 0) > 1" class="rel__fipe-ambiguo">
+              <span class="rel__sub">Versões compatíveis</span>
               <table class="rel__tab">
                 <tbody>
                   <tr v-for="c in vc.fipeCandidato.candidatos.slice(0, 3)" :key="c.codigo_fipe">
@@ -1474,7 +1494,7 @@ onUnmounted(() => poll && clearInterval(poll))
               </table>
             </div>
 
-            <div v-if="temGrafico" class="rel__dep">
+            <div v-if="temGrafico && !fipeIncerta" class="rel__dep">
               <span class="rel__sub">Evolução do valor de mercado</span>
               <GraficoValor :historico="vc.historico" />
               <!-- As barras sao escaladas pela faixa da serie, nao pelo zero:
@@ -2229,6 +2249,28 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__dep-txt {
     margin-top: 10px;
     font-size: 13px;
+    color: $c-charcoal;
+  }
+
+  &__fipe-incerta {
+    border: 1px solid rgba(180, 83, 9, 0.35);
+    background: #fdf8ec;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+
+  &__fipe-incerta-tit {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #8a5200;
+  }
+
+  &__fipe-incerta-txt {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
     color: $c-charcoal;
   }
 

@@ -30,7 +30,7 @@ export interface FipeCandidato {
   codigoModelo?: string | null
 }
 
-export type FipeDecididoPor = 'regra' | 'haiku' | 'ambiguo' | 'fallback'
+export type FipeDecididoPor = 'regra' | 'haiku' | 'ambiguo' | 'fallback' | 'wdapi'
 
 export interface FipeMelhorCandidatoResultado {
   escolhido: FipeCandidato | null
@@ -47,6 +47,10 @@ export interface FipeMelhorCandidatoInput {
     potencia?: number | string | null
     descricaoMarcaModelo?: string | null
     anoModelo?: number | string | null
+    // So pra saber se e moto: o funil de carro (litragem, carroceria, cambio)
+    // nao vale pra duas rodas.
+    descricaoTipoVeiculo?: string | null
+    descricaoEspecie?: string | null
   } | null
   // payload cru da wdapi (fipe.dados[], VERSAO, marca, anoModelo, extra.combustivel)
   wdapi: any
@@ -210,6 +214,27 @@ function melhorScoreWdapi(wdapi: any): FipeCandidato | null {
   }
 }
 
+/**
+ * Melhor candidato da fonte livre QUANDO da pra confiar nele sozinho: score
+ * alto e nome do modelo casando com o registro. Os dois juntos importam: score
+ * alto com nome que nao bate ja apontou carro errado, e nome batendo com score
+ * baixo e coincidencia de familia.
+ */
+const SCORE_CONFIAVEL = 85
+
+function candidatoWdapiConfiavel(wdapi: any, tokensModelo: string[]): FipeCandidato | null {
+  if (!tokensModelo.length) return null
+  const melhor = melhorScoreWdapi(wdapi)
+  if (!melhor) return null
+  const dados = wdapi?.fipe?.dados
+  const score = Array.isArray(dados)
+    ? Math.max(...dados.filter((d: any) => d?.codigo_fipe === melhor.codigo_fipe).map((d: any) => Number(d?.score) || 0))
+    : 0
+  if (score < SCORE_CONFIAVEL) return null
+  const nome = tokensModelo[0]
+  return new RegExp(`\\b${escapeRegex(nome)}`, 'i').test(melhor.modelo) ? melhor : null
+}
+
 // ---------------------------------------------------------------------------
 // Funil deterministico
 // ---------------------------------------------------------------------------
@@ -297,6 +322,29 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+// Palavras que aparecem no campo VERSAO mas NAO distinguem versao nenhuma:
+// sao equipamento, cambio, combustivel ou adjetivo comercial, e o nome do
+// modelo na FIPE quase nunca as repete.
+//
+// Isto virou bug de produto (placa FZK5F28): VERSAO chegou como "ABS", o funil
+// filtrou o universo por "ABS" no nome, e o PCX 150/DLX correto, que na FIPE
+// nao tem "ABS" no nome, foi eliminado. Sobraram tres motos grandes com "ABS"
+// no nome, e a scooter 150 virou uma CB 1000R de R$58 mil no relatorio.
+const VERSAO_GENERICA = new Set([
+  'ABS', 'CBS', 'FLEX', 'DLX', 'DELUXE', 'CVT', 'AT', 'MT', 'AUT', 'MEC',
+  '4X4', '4X2', 'AWD', '4WD', 'TURBO', 'GNV', 'HIB', 'HYBRID', 'ELET',
+  'ELETRICO', 'LIMITED', 'PLUS', 'SPORT', 'STD', 'BASE', 'PREMIUM', 'TOP',
+  'FULL', 'ADV', 'PRO', 'MAX', 'GL', 'GLS', 'STANDARD', 'ESPECIAL',
+])
+
+/** Versao que serve pra filtrar: existe, e curta, e nao e palavra generica. */
+function versaoDiscriminante(bruta: unknown): string | null {
+  const v = String(bruta ?? '').trim()
+  if (!v || v.length > 12) return null
+  if (VERSAO_GENERICA.has(v.toUpperCase())) return null
+  return v
+}
+
 function candidatoTemVersao(modelo: string, versao: string): boolean {
   const v = versao.trim()
   if (!v) return true
@@ -309,21 +357,83 @@ interface Fatos {
   carroceria: Carroceria
   versao: string | null
   transmissao: Transmissao
+  /** Duas rodas: o funil de carro nao vale, e cilindrada nao vira litragem. */
+  moto: boolean
+  /** Nome e cilindrada do modelo, pra casar moto por texto ("PCX", "150"). */
+  tokensModelo: string[]
+  /** Cabine da picape: simples e dupla sao veiculos de preco bem diferente. */
+  cabine: 'simples' | 'dupla' | null
+}
+
+function cabineDaDescricao(descricao: unknown): 'simples' | 'dupla' | null {
+  const d = String(descricao ?? '').toUpperCase()
+  if (/\bCD\b|CABINE DUPLA/.test(d)) return 'dupla'
+  if (/\bCS\b|CABINE SIMPLES/.test(d)) return 'simples'
+  return null
+}
+
+// Tokens uteis do nome do modelo, pra casar moto por nome em vez de cilindrada:
+// "HONDA/PCX 150 DLX ABS" vira ["PCX", "150"]. Marca, generico e numero solto
+// de 4 digitos ficam de fora.
+function tokensDoModelo(descricao: unknown): string[] {
+  const bruto = String(descricao ?? '').toUpperCase()
+  const semMarca = bruto.includes('/') ? bruto.slice(bruto.indexOf('/') + 1) : bruto
+  return semMarca
+    .split(/[^A-Z0-9.]+/)
+    .filter(Boolean)
+    .filter((t) => t.length >= 2 && !VERSAO_GENERICA.has(t))
+    .slice(0, 4)
+}
+
+/** Mantem os candidatos que casam com o PRIMEIRO token do modelo (o nome). */
+function filtrarPorTokensDoModelo(universo: FipeCandidato[], tokens: string[]): FipeCandidato[] {
+  if (!tokens.length) return universo
+  const nome = tokens[0]
+  const comNome = universo.filter((c) => new RegExp(`\\b${escapeRegex(nome)}`, 'i').test(c.modelo))
+  if (!comNome.length) return []
+  if (tokens.length < 2) return comNome
+  // Com o segundo token (normalmente a cilindrada, "150") da pra separar
+  // PCX 150 de PCX 160 sem depender do funil de carro.
+  const comSegundo = comNome.filter((c) => c.modelo.toUpperCase().includes(tokens[1]))
+  return comSegundo.length ? comSegundo : comNome
+}
+
+// Moto pela fonte livre (segmento/tipo) ou pelo registro (especie/tipo). A
+// cilindrada sozinha NAO decide: 149cc e moto, mas 1000cc tambem pode ser.
+function ehMoto(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any): boolean {
+  const sinais = [
+    wdapi?.segmento, wdapi?.sub_segmento, wdapi?.extra?.tipo_veiculo,
+    wdapi?.extra?.especie, wdapi?.extra?.segmento,
+    senatran?.descricaoTipoVeiculo, senatran?.descricaoEspecie,
+  ]
+  return sinais.some((v) => /MOTO|SCOOTER|CICLOMOTOR|TRICICLO/i.test(String(v ?? '')))
 }
 
 function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any): Fatos {
   const litragem = litragensDaCilindrada(senatran?.cilindrada)
   const carroceria = carroceriaDaDescricao(senatran?.descricaoMarcaModelo)
   const transmissao = transmissaoDaDescricao(senatran?.descricaoMarcaModelo)
-  const versaoBruta = typeof wdapi?.VERSAO === 'string' ? wdapi.VERSAO.trim() : null
-  // versao generica demais pra discriminar sozinha (ex: vazia, "0", marca
-  // repetida) - melhor nao filtrar do que filtrar tudo fora por engano.
-  const versao = versaoBruta && versaoBruta.length >= 1 && versaoBruta.length <= 12 ? versaoBruta : null
-  return { litragem, carroceria, versao, transmissao }
+  // Versao generica (ABS, FLEX, DLX...) nao filtra: ver VERSAO_GENERICA.
+  const versao = versaoDiscriminante(wdapi?.VERSAO)
+  return {
+    litragem, carroceria, versao, transmissao,
+    moto: ehMoto(senatran, wdapi),
+    tokensModelo: tokensDoModelo(senatran?.descricaoMarcaModelo || wdapi?.MODELO),
+    cabine: cabineDaDescricao(senatran?.descricaoMarcaModelo),
+  }
 }
 
 function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] {
   let restantes = universo
+
+  // Moto nao passa pelo funil de carro. Cilindrada de moto nao vira "litragem"
+  // (149cc nao e "1.4"), scooter nao tem carroceria sedan/hatch/SW e o cambio
+  // da descricao nao se aplica. Rodar esse funil numa moto so servia pra
+  // eliminar o candidato certo, que foi o que aconteceu com a PCX 150.
+  if (fatos.moto) {
+    const porModelo = filtrarPorTokensDoModelo(restantes, fatos.tokensModelo)
+    return porModelo.length ? porModelo : restantes
+  }
 
   if (fatos.litragem.length) {
     const porLitragem = restantes.filter((c) => candidatoTemLitragem(c.modelo, fatos.litragem))
@@ -338,6 +448,18 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
       return !candidatoESedan(c.modelo) && !candidatoESw(c.modelo)
     })
     if (porCarroceria.length) restantes = porCarroceria
+  }
+
+  // Cabine da picape: CS (simples) e CD (dupla) sao carros diferentes com
+  // precos bem diferentes. Caso real (GMF8I88): "SAVEIRO CS RB MF" tinha entre
+  // os candidatos a Saveiro Extreme CD, R$25 mil mais cara que a Robust certa.
+  if (fatos.cabine) {
+    const porCabine = restantes.filter((c) => {
+      const temCd = /\bCD\b|CABINE DUPLA/i.test(c.modelo)
+      const temCs = /\bCS\b|CABINE SIMPLES/i.test(c.modelo)
+      return fatos.cabine === 'simples' ? !temCd : !temCs
+    })
+    if (porCabine.length) restantes = porCabine
   }
 
   if (fatos.versao) {
@@ -476,6 +598,18 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     if (!universo.length) return fallback()
 
     const fatos = extrairFatos(input.senatran, input.wdapi)
+
+    // Atalho de confianca: quando a fonte livre ja tem um candidato com score
+    // alto E o nome dele bate com o modelo do registro, ele E a resposta. Nao
+    // ha por que passar isso por funil e por LLM: no caso da PCX 150 o
+    // candidato certo vinha com score 92 e foi descartado no meio do caminho,
+    // trocado por uma moto de 1000cc.
+    const forte = candidatoWdapiConfiavel(input.wdapi, fatos.tokensModelo)
+    if (forte) {
+      const escolhido = await comCodigoModelo(forte, marca, input.fipeApiUrl, input.fipeApiToken)
+      return { escolhido, decididoPor: 'wdapi', candidatos: [forte], confianca: 'alta' }
+    }
+
     const filtrados = aplicarFunil(universo, fatos)
 
     if (filtrados.length === 0) return fallback()
