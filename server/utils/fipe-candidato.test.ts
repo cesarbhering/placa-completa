@@ -298,3 +298,154 @@ describe('escolherMelhorFipe', () => {
     expect(codigos).toEqual(['001361-7', '001362-5'])
   })
 })
+
+// ---------------------------------------------------------------------------
+// Caso real FZK5F28 (P0): scooter PCX 150 virou CB 1000R de R$58 mil.
+// A fonte livre ja trazia o candidato certo com score 92; o funil de CARRO
+// eliminou ele por causa de VERSAO="ABS" (o nome FIPE do PCX nao tem "ABS"),
+// sobraram tres motos grandes que TEM "ABS" no nome, e o juiz escolheu uma.
+// ---------------------------------------------------------------------------
+const SENATRAN_FZK5F28 = {
+  cilindrada: 149,
+  potencia: 13,
+  descricaoMarcaModelo: 'HONDA/PCX 150 DLX ABS',
+  anoModelo: 2020,
+  descricaoTipoVeiculo: 'MOTOCICLETA',
+  descricaoEspecie: 'PASSAGEIRO',
+}
+
+const WDAPI_FZK5F28 = {
+  marca: 'HONDA',
+  MODELO: 'PCX 150 DLX ABS',
+  SUBMODELO: 'PCX',
+  VERSAO: 'ABS',
+  segmento: 'Moto',
+  anoModelo: '2020',
+  extra: { tipo_veiculo: 'Motoneta', combustivel: 'Gasolina' },
+  fipe: {
+    dados: [
+      { score: 92, codigo_fipe: '811116-2', texto_modelo: 'PCX 150/DLX', texto_valor: 'R$ 15.328,00', combustivel: 'Gasolina', mes_referencia: 'agosto de 2026', codigo_modelo: '7139' },
+      { score: 55, codigo_fipe: '811117-0', texto_modelo: 'PCX 150 SPORT', texto_valor: 'R$ 15.010,00', combustivel: 'Gasolina', mes_referencia: 'agosto de 2026' },
+    ],
+  },
+}
+
+// Universo Honda 2020 da fipe-api: motos grandes e carros, tudo junto.
+const FIPE_API_HONDA_2020 = [
+  { codigo_fipe: '811100-6', modelo: 'CB 1000R/ABS', valor: 58380, combustivel: 'Gasolina', mes_referencia: 'julho de 2026' },
+  { codigo_fipe: '811101-4', modelo: 'NC 750X ABS', valor: 42100, combustivel: 'Gasolina', mes_referencia: 'julho de 2026' },
+  { codigo_fipe: '811102-2', modelo: 'XRE 300 ABS', valor: 24500, combustivel: 'Gasolina', mes_referencia: 'julho de 2026' },
+  { codigo_fipe: '811116-2', modelo: 'PCX 150/DLX', valor: 15328, combustivel: 'Gasolina', mes_referencia: 'julho de 2026' },
+  { codigo_fipe: '014001-0', modelo: 'CIVIC Sedan EXL 2.0 Flex Aut.', valor: 118000, combustivel: 'Flex', mes_referencia: 'julho de 2026' },
+]
+
+function mockFetchHonda2020() {
+  return vi.fn(async (url: string) => {
+    if (String(url).includes('/modelos')) {
+      return { ok: true, json: async () => ({ data: FIPE_API_HONDA_2020 }) } as any
+    }
+    throw new Error(`unexpected fetch: ${url}`)
+  })
+}
+
+describe('moto: PCX 150 (caso FZK5F28)', () => {
+  beforeEach(() => { vi.unstubAllGlobals() })
+
+  it('escolhe o PCX 150/DLX, nao a CB 1000R', async () => {
+    vi.stubGlobal('fetch', mockFetchHonda2020())
+    const r = await escolherMelhorFipe({
+      senatran: SENATRAN_FZK5F28, wdapi: WDAPI_FZK5F28,
+      fipeApiUrl: 'http://fipe', fipeApiToken: 't',
+    })
+    expect(r.escolhido?.codigo_fipe).toBe('811116-2')
+    expect(r.escolhido?.modelo).toContain('PCX')
+    expect(r.escolhido?.valor).toBe(15328)
+  })
+
+  it('nao devolve ambiguidade num caso que a fonte livre ja resolvia', async () => {
+    vi.stubGlobal('fetch', mockFetchHonda2020())
+    const r = await escolherMelhorFipe({
+      senatran: SENATRAN_FZK5F28, wdapi: WDAPI_FZK5F28,
+      fipeApiUrl: 'http://fipe', fipeApiToken: 't',
+    })
+    expect(r.decididoPor).not.toBe('ambiguo')
+    expect(r.confianca).toBe('alta')
+  })
+
+  it('nenhum candidato de moto grande sobra na shortlist', async () => {
+    vi.stubGlobal('fetch', mockFetchHonda2020())
+    const r = await escolherMelhorFipe({
+      senatran: SENATRAN_FZK5F28, wdapi: WDAPI_FZK5F28,
+      fipeApiUrl: 'http://fipe', fipeApiToken: 't',
+    })
+    const nomes = r.candidatos.map((c) => c.modelo).join(' ')
+    expect(nomes).not.toContain('CB 1000R')
+    expect(nomes).not.toContain('NC 750X')
+    expect(nomes).not.toContain('CIVIC')
+  })
+
+  it('sem o atalho de score alto, o funil de moto ainda nao deixa sobrar moto grande', async () => {
+    vi.stubGlobal('fetch', mockFetchHonda2020())
+    // mesma moto, mas a fonte livre veio com score baixo: cai no funil
+    const wdapiFraco = { ...WDAPI_FZK5F28, fipe: { dados: WDAPI_FZK5F28.fipe.dados.map((d) => ({ ...d, score: 40 })) } }
+    const r = await escolherMelhorFipe({
+      senatran: SENATRAN_FZK5F28, wdapi: wdapiFraco,
+      fipeApiUrl: 'http://fipe', fipeApiToken: 't',
+    })
+    const nomes = r.candidatos.map((c) => c.modelo).join(' ')
+    expect(nomes).not.toContain('CB 1000R')
+    expect(nomes).toContain('PCX')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Caso real GMF8I88: "VW/SAVEIRO CS RB MF" (cabine SIMPLES, Robust) tinha
+// entre os candidatos a Saveiro Extreme CD (cabine dupla), R$25 mil mais cara.
+// ---------------------------------------------------------------------------
+const SENATRAN_GMF8I88 = {
+  cilindrada: 1598,
+  potencia: 110,
+  descricaoMarcaModelo: 'VW/SAVEIRO CS RB MF',
+  anoModelo: 2024,
+  descricaoTipoVeiculo: 'CAMINHONETE',
+}
+
+const WDAPI_GMF8I88 = {
+  marca: 'VW',
+  MODELO: 'SAVEIRO CS RB MF',
+  SUBMODELO: 'SAVEIRO',
+  VERSAO: 'MF',
+  anoModelo: '2024',
+  extra: { combustivel: 'Alcool / Gasolina' },
+  fipe: {
+    dados: [
+      { score: 61, codigo_fipe: '005546-8', texto_modelo: 'Saveiro Extreme 1.6 Flex 16V CD', texto_valor: 'R$ 99.871,00', combustivel: 'Flex', mes_referencia: 'agosto de 2026', texto_marca: 'VW - VolksWagen' },
+      { score: 61, codigo_fipe: '005538-7', texto_modelo: 'Saveiro Robust 1.6 Total Flex 16V ', texto_valor: 'R$ 74.795,00', combustivel: 'Flex', mes_referencia: 'agosto de 2026', texto_marca: 'VW - VolksWagen' },
+    ],
+  },
+}
+
+const FIPE_API_VW_2024 = [
+  { codigo_fipe: '005546-8', modelo: 'Saveiro Extreme 1.6 Flex 16V CD', valor: 99871, combustivel: 'Flex', mes_referencia: 'julho de 2026' },
+  { codigo_fipe: '005538-7', modelo: 'Saveiro Robust 1.6 Total Flex 16V', valor: 74795, combustivel: 'Flex', mes_referencia: 'julho de 2026' },
+  { codigo_fipe: '005547-6', modelo: 'Saveiro Trendline 1.6 Total Flex 16V CD', valor: 89000, combustivel: 'Flex', mes_referencia: 'julho de 2026' },
+]
+
+describe('picape: cabine simples nao pode virar cabine dupla (caso GMF8I88)', () => {
+  beforeEach(() => { vi.unstubAllGlobals() })
+
+  it('elimina os candidatos de cabine dupla', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: FIPE_API_VW_2024 }) } as any
+      throw new Error('unexpected')
+    }))
+    const r = await escolherMelhorFipe({
+      senatran: SENATRAN_GMF8I88, wdapi: WDAPI_GMF8I88,
+      fipeApiUrl: 'http://fipe', fipeApiToken: 't',
+    })
+    const nomes = r.candidatos.map((c) => c.modelo).join(' | ')
+    expect(nomes).not.toContain('CD')
+    expect(nomes).toContain('Robust')
+    expect(r.escolhido?.modelo || '').not.toContain('CD')
+  })
+})

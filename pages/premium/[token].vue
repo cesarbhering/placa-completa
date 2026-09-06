@@ -198,6 +198,14 @@ const normalizaChave = (r: any) => String(r).toUpperCase().replace(/[\s-]+/g, '_
 // Historico de leilao vem do servico de leiloes, nao do payload da consulta.
 // Declarado aqui, antes dos indicadores, porque a grade de indicadores le
 // dele.
+// Como o relatorio se refere ao veiculo. Com muitos clientes de moto, dizer
+// "carro" pra quem consultou uma scooter e um erro que aparece na cara.
+const segmento = computed<'carro' | 'moto' | 'caminhao' | 'outro'>(() => data.value?.segmento || 'outro')
+const nomeVeiculo = computed(() => (
+  segmento.value === 'moto' ? 'moto' : segmento.value === 'caminhao' ? 'caminhão' : segmento.value === 'carro' ? 'carro' : 'veículo'
+))
+const esteVeiculo = computed(() => `${segmento.value === 'moto' ? 'esta' : 'este'} ${nomeVeiculo.value}`)
+
 const historicoLeilao = computed(() => data.value?.historicoLeilao ?? null)
 const temSecaoLeilao = computed(() => !!historicoLeilao.value)
 
@@ -265,30 +273,35 @@ const indicadores = computed(() => {
     // Ambiguo nao entra na conta: ele diz "existem varios carros com este
     // perfil", nao "este carro passou por leilao". Contar aqui pintaria de
     // amarelo um veiculo sem nenhum indicio real.
-    const total = (r.n_confirmado || 0) + (r.n_provavel || 0) + passagensPossiveis.value.length
     const plural = (n: number) => (n > 1 ? 's' : '')
-    let valor = 'NADA CONSTA'
+    // "Sem ocorrencia" e mais claro que "nada consta" pra uma base nossa, e o
+    // estado do meio existe so quando ha foto pra pessoa comparar.
+    let valor = 'SEM OCORRÊNCIA'
     let alerta = false
+    let aceso = false
     if (r.n_confirmado > 0) {
       valor = `CONSTA (${r.n_confirmado} confirmado${plural(r.n_confirmado)})`
       alerta = true
+      aceso = true
     } else if (r.n_provavel > 0) {
       valor = `PROVÁVEL (${r.n_provavel})`
       alerta = true
-    } else if (passagensPossiveis.value.length > 0) {
-      // Indicio fraco nao acende alerta: pode ser outro carro do mesmo modelo,
-      // e um cartao vermelho aqui condenaria um veiculo por semelhanca.
-      valor = `INDÍCIO FRACO (${passagensPossiveis.value.length})`
+      aceso = true
+    } else if (possiveisComFoto.value.length > 0) {
+      // Nem alerta nem verde: existe um lote parecido COM FOTO, e a decisao de
+      // dizer se e o mesmo veiculo e de quem esta olhando.
+      valor = 'CONFIRA AS FOTOS'
       alerta = false
+      aceso = true
     }
     const cartaoLeilao = {
       k: 'historicoLeilao',
       label: 'Histórico de leilão (fontes públicas)',
       sim: valor,
-      nao: 'NADA CONSTA',
+      nao: 'SEM OCORRÊNCIA',
       risco: true,
-      dica: 'Cruzamos o veículo com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer chassi ou placa completos iguais; provável e possível são inferência por identificador parcial, então podem ser outro carro. O detalhe de cada registro aparece na seção Histórico de leilão.',
-      ligado: total > 0,
+      dica: 'Cruzamos o veículo com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer chassi ou placa completos iguais; provável e possível são inferência por identificador parcial, então podem ser outro veículo. O detalhe de cada registro aparece na seção Histórico de leilão.',
+      ligado: aceso,
       alerta,
     }
     // Entra colado no "Leilão registrado no documento", que responde a outra
@@ -513,7 +526,7 @@ const ROTULO_NIVEL: Record<string, string> = {
 const EXPLICA_NIVEL: Record<string, string> = {
   confirmado: 'O chassi, a placa ou o Renavam completos deste veículo constam no registro do leilão.',
   provavel: 'A fonte publica só parte do identificador, e o trecho publicado bate com este veículo, assim como marca, modelo e ano.',
-  possivel: 'A fonte publica pouca coisa do identificador. O que dá para comparar bate com este veículo, mas pode ser outro carro do mesmo modelo e ano.',
+  possivel: 'A fonte publica pouca coisa do identificador. O que dá para comparar bate com este veículo, mas pode ser outro do mesmo modelo e ano.',
 }
 
 const passagensLeilao = computed(() => {
@@ -560,6 +573,10 @@ const passagensLeilao = computed(() => {
     comitente: p.comitente,
     detalhes: detalhesLegiveis(p.detalhes),
     evidencias: Array.isArray(p.evidencias) ? p.evidencias : [],
+    // Fotos do lote, servidas do nosso armazenamento (nunca link direto da
+    // leiloeira). Sao o unico caminho honesto de mostrar um "possivel": quem
+    // decide se e o veiculo dele e a pessoa, olhando.
+    fotos: Array.isArray(p.fotos) ? p.fotos.filter((f: any) => typeof f === 'string').slice(0, 3) : [],
     conflitos: Array.isArray(p.conflitos) ? p.conflitos : [],
   }))
 })
@@ -656,8 +673,10 @@ const possiveisAgrupados = computed(() => {
 
 const passagensPossiveis = computed(() => possiveisAgrupados.value.distintas)
 
-// O maior entre o que a API contou e o que a gente detectou no snapshot: a API
-// nova ja tira os ambiguos das passagens, entao ali o nosso calculo da zero.
+// Contagem de lotes ambiguos: fica no snapshot e no log, NAO vai pra tela.
+// Dizer ao cliente "existem 4 lotes parecidos que nao dao pra identificar" nao
+// ajuda ele a decidir nada e ainda assusta. O que vale mostrar e o lote com
+// foto, que ele consegue comparar (ver possiveisComFoto).
 const ambiguos = computed(() =>
   Math.max(historicoLeilao.value?.resumo?.possiveis_ambiguos || 0, possiveisAgrupados.value.ambiguas),
 )
@@ -672,8 +691,19 @@ function alternarPassagem(idx: number) {
 // "Tem indicio" passa a significar passagem que APONTA este veiculo. Um lote
 // ambiguo nao aponta nada, entao a secao trata o caso como sem indicio e a
 // linha explicativa aparece logo abaixo.
-const temIndicioReal = computed(() =>
-  passagensFortes.value.length > 0 || passagensPossiveis.value.length > 0,
+// So entra como indicio o que tem grau de certeza: confirmado e provavel. O
+// "possivel" sozinho vira ruido, porque casa por perfil comum e pode ser outro
+// veiculo do mesmo modelo, e o cliente nao tem como julgar. A excecao e quando
+// a fonte publica FOTOS do lote: ai ele consegue comparar com o proprio
+// veiculo, e o bloco aparece com esse proposito, separado e sem alarme.
+const temIndicioReal = computed(() => passagensFortes.value.length > 0)
+
+// Foto vence ambiguidade. Um lote so e "ambiguo" porque casou por um perfil
+// comum e a gente nao consegue provar que e este veiculo; com foto, quem prova
+// e o dono, olhando. Por isso este bloco olha TODOS os possiveis, inclusive os
+// que a regra de ambiguidade tirou da lista textual.
+const possiveisComFoto = computed(() =>
+  passagensLeilao.value.filter((p) => p.nivel === 'possivel' && p.fotos.length > 0).slice(0, 3),
 )
 
 // Nivel que a tela mostra. Sai das passagens que sobraram, nao do nivel_max da
@@ -718,6 +748,18 @@ const numSecao = computed(() => {
 
 // ---------- valor e custo ----------
 const vc = computed(() => data.value?.valorCusto ?? null)
+
+// Versao FIPE nao identificada com seguranca. Vale pro que vier daqui pra
+// frente E pros relatorios ja gravados: o snapshot e imutavel, entao um
+// relatorio antigo continua trazendo o valor do candidato ambiguo, e sem esta
+// checagem ele seguiria exibindo numero errado como se fosse FIPE. Mesmo
+// caminho ja usado no ano do chassi, no nome da fonte de leilao e nos lotes
+// ambiguos.
+const fipeIncerta = computed(() => {
+  const c = vc.value?.fipeCandidato
+  if (!c) return false
+  return c.decididoPor === 'ambiguo' || c.confianca === 'baixa'
+})
 const temValor = computed(() => Boolean(vc.value?.fipe || vc.value?.seguroAnual || vc.value?.custo5anos))
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
@@ -1248,15 +1290,19 @@ onUnmounted(() => poll && clearInterval(poll))
           <!-- historico de leilao (so completa, so onde o servico existe) -->
           <section v-if="temSecaoLeilao" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.leilao }}. Histórico de leilão</h2>
-            <p class="rel__leilao-base">Placa e chassi cruzados com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras.</p>
+            <p v-if="temIndicioReal || possiveisComFoto.length" class="rel__leilao-base">Placa e chassi cruzados com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras.</p>
 
-            <template v-if="!temIndicioReal">
-              <p class="rel__nada">
-                Nenhum indício de passagem por leilão nas fontes consultadas.
+            <!-- Sem nada com grau de certeza, a seção diz UMA coisa só. Antes
+                 empilhava "nenhum indício", mais a contagem de lotes parecidos,
+                 mais o rodapé explicando níveis, e o resultado era um bloco
+                 confuso pra dizer que não há nada. -->
+            <template v-if="!temIndicioReal && !possiveisComFoto.length">
+              <p class="rel__leilao-limpo">
+                Na nossa base com mais de 1 milhão de veículos leiloados, nenhuma ocorrência de leilão foi encontrada para {{ esteVeiculo }}.
               </p>
             </template>
 
-            <template v-else>
+            <template v-else-if="temIndicioReal">
               <p class="rel__leilao-resumo">
                 <span class="rel__nivel" :class="`rel__nivel--${nivelExibido}`">
                   {{ ROTULO_NIVEL[nivelExibido] }}
@@ -1315,75 +1361,42 @@ onUnmounted(() => poll && clearInterval(poll))
                   </template>
                 </div>
               </div>
-              <template v-if="passagensPossiveis.length">
-                <button
-                  type="button"
-                  class="rel__leilao-toggle"
-                  :aria-expanded="possiveisAbertas"
-                  @click="possiveisAbertas = !possiveisAbertas"
-                >
-                  {{ possiveisAbertas ? 'Ocultar' : 'Ver' }}
-                  {{ passagensPossiveis.length }}
-                  {{ passagensPossiveis.length > 1 ? 'indícios possíveis' : 'indício possível' }}
-                </button>
-                <p v-if="!possiveisAbertas" class="rel__leilao-explica">
-                  Indício possível vem de fonte que publica pouca coisa do identificador, então pode ser outro carro do mesmo modelo e ano.
-                </p>
-                <template v-if="possiveisAbertas">
-                  <div v-for="p in passagensPossiveis" :key="p.idx" class="rel__leilao">
-                    <div class="rel__leilao-topo">
-                      <span class="rel__nivel" :class="`rel__nivel--${p.nivel}`">{{ p.rotuloNivel }}</span>
-                      <span class="rel__leilao-fonte">{{ p.fonte }}</span>
-                      <span v-if="p.tipoFonte" class="rel__leilao-tipo">{{ p.tipoFonte }}</span>
-                    </div>
-                    <p v-if="p.gravidade" class="rel__grav" :class="`rel__grav--${p.gravidade.cor}`">
-                      <span class="rel__grav-barra" aria-hidden="true" />
-                      <span class="rel__grav-rotulo">{{ p.gravidade.rotulo }}</span>
-                    </p>
-                    <p v-if="p.detalhe" class="rel__leilao-det">{{ p.detalhe }}</p>
-                    <ul v-if="p.detalhes.length" class="rel__leilao-detalhes">
-                      <li v-for="d in p.detalhes" :key="d.rotulo">
-                        <span>{{ d.rotulo }}</span><strong>{{ d.valor }}</strong>
-                      </li>
-                    </ul>
-                    <p v-if="p.leiloeiro || p.comitente" class="rel__leilao-det">
-                      <template v-if="p.leiloeiro">Leiloeiro: {{ p.leiloeiro }}</template>
-                      <template v-if="p.leiloeiro && p.comitente"> · </template>
-                      <template v-if="p.comitente">Comitente: {{ p.comitente }}</template>
-                    </p>
-                    <button
-                      type="button"
-                      class="rel__leilao-mais"
-                      :aria-expanded="passagemAberta === p.idx"
-                      @click="alternarPassagem(p.idx)"
-                    >
-                      {{ passagemAberta === p.idx ? 'Ocultar o que foi comparado' : 'Ver o que foi comparado' }}
-                    </button>
-                    <div v-if="passagemAberta === p.idx" class="rel__leilao-evid">
-                      <p v-if="p.gravidade?.motivo" class="rel__leilao-explica">{{ p.gravidade.motivo }}</p>
-                      <p class="rel__leilao-explica">{{ p.explicaNivel }}</p>
-                      <template v-if="p.evidencias.length">
-                        <p class="rel__leilao-sub">Bateu</p>
-                        <ul class="rel__leilao-lista">
-                          <li v-for="(e, i) in p.evidencias" :key="`pe${i}`">{{ e }}</li>
-                        </ul>
-                      </template>
-                      <template v-if="p.conflitos.length">
-                        <p class="rel__leilao-sub">Não bateu</p>
-                        <ul class="rel__leilao-lista rel__leilao-lista--conflito">
-                          <li v-for="(c, i) in p.conflitos" :key="`pc${i}`">{{ c }}</li>
-                        </ul>
-                      </template>
-                    </div>
-                  </div>
-                </template>
-              </template>
             </template>
 
-            <p v-if="ambiguos" class="rel__leilao-ambiguo">
-              {{ ambiguos }} {{ ambiguos > 1 ? 'lotes de leilão têm' : 'lote de leilão tem' }} perfil parecido com este veículo (marca, modelo, ano e final de placa), sem identificação que permita apontar o carro. Não é indício.
+            <!-- Lotes de perfil parecido COM FOTO. Não é indício e não acende
+                 alerta: a fonte publica pouco do identificador, então quem
+                 decide se é o veículo é a pessoa, comparando com o que ela tem
+                 na garagem. Sem foto, esse bloco não existe: seria contagem
+                 sem nada que a pessoa possa conferir. -->
+            <div v-if="possiveisComFoto.length" class="rel__leilao-fotos">
+              <p class="rel__leilao-fotos-txt">
+                Encontramos {{ possiveisComFoto.length }}
+                {{ possiveisComFoto.length > 1 ? 'lotes de leilão com perfil parecido' : 'lote de leilão com perfil parecido' }}
+                com {{ esteVeiculo }} (marca, modelo, ano e final de placa), sem identificação completa.
+                Não é indício: compare pelas fotos se é o seu veículo.
+              </p>
+              <div v-for="p in possiveisComFoto.slice(0, 3)" :key="`f${p.idx}`" class="rel__lote">
+                <div class="rel__lote-fotos">
+                  <a
+                    v-for="(foto, i) in p.fotos.slice(0, 3)"
+                    :key="`ft${i}`"
+                    :href="foto"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <img :src="foto" :alt="`Foto ${i + 1} do lote de leilão com perfil parecido`" loading="lazy" class="rel__lote-foto">
+                  </a>
+                </div>
+                <p class="rel__lote-det">
+                  <template v-if="p.detalhe">{{ p.detalhe }}</template>
+                  <template v-if="p.gravidade"> · {{ p.gravidade.rotulo }}</template>
+                </p>
+              </div>
+            </div>
+
+            <p v-if="temIndicioReal || possiveisComFoto.length" class="rel__leilao-aviso">
+              Fonte: editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer placa ou chassi completos iguais; provável quer dizer identificador parcial mais atributos do veículo. Não substitui consulta oficial.
             </p>
-            <p v-if="historicoLeilao?.aviso" class="rel__leilao-aviso">{{ historicoLeilao.aviso }}</p>
           </section>
 
           <!-- ficha -->
@@ -1437,7 +1450,18 @@ onUnmounted(() => poll && clearInterval(poll))
                entrega de imediato, antes da ficha tecnica -->
           <section v-if="temValor" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.valor }}. Valor de mercado e custo de propriedade</h2>
-            <div class="rel__valores">
+            <!-- Sem versao identificada com seguranca, nada de numero: valor,
+                 seguro e custo em cinco anos saem todos do mesmo valor FIPE, e
+                 um valor errado contamina os tres. Prefiro dizer que nao sei a
+                 dizer que uma scooter vale R$58 mil. -->
+            <div v-if="fipeIncerta" class="rel__fipe-incerta">
+              <p class="rel__fipe-incerta-tit">Não foi possível identificar a versão FIPE com segurança</p>
+              <p class="rel__fipe-incerta-txt">
+                A tabela FIPE tem mais de uma versão compatível com a configuração deste veículo, e nenhuma bate o suficiente para afirmarmos qual é a certa. Confira no documento qual versão é a sua e use o valor correspondente na lista abaixo.
+              </p>
+            </div>
+
+            <div v-else class="rel__valores">
               <div v-if="vc?.fipe" class="rel__valor">
                 <span class="rel__valor-k">Valor FIPE</span>
                 <span class="rel__valor-v">{{ vc.fipe }}</span>
@@ -1446,7 +1470,7 @@ onUnmounted(() => poll && clearInterval(poll))
               <div v-if="vc?.seguroAnual" class="rel__valor">
                 <span class="rel__valor-k">Seguro estimado</span>
                 <span class="rel__valor-v">{{ brl(vc.seguroAnual) }} / ano</span>
-                <span v-if="vc.percentualFipe" class="rel__valor-nota">{{ vc.percentualFipe }}% do valor do carro</span>
+                <span v-if="vc.percentualFipe" class="rel__valor-nota">{{ vc.percentualFipe }}% do valor {{ segmento === 'moto' ? 'da moto' : 'do veículo' }}</span>
               </div>
               <div v-if="vc?.custo5anos" class="rel__valor">
                 <span class="rel__valor-k">Custo em 5 anos</span>
@@ -1459,11 +1483,8 @@ onUnmounted(() => poll && clearInterval(poll))
                  com risco de erro, mostra as versoes compativeis com a
                  configuracao do veiculo (cilindrada/carroceria) e deixa a
                  decisao final com quem esta lendo. -->
-            <div v-if="vc?.fipeCandidato?.decididoPor === 'ambiguo' && vc.fipeCandidato.candidatos.length > 1" class="rel__fipe-ambiguo">
-              <span class="rel__sub">Versões compatíveis com esta configuração</span>
-              <p class="rel__fipe-ambiguo-txt">
-                A tabela FIPE tem mais de uma versão com a mesma cilindrada e carroceria deste veículo. Confira qual bate com o seu:
-              </p>
+            <div v-if="fipeIncerta && (vc?.fipeCandidato?.candidatos?.length || 0) > 1" class="rel__fipe-ambiguo">
+              <span class="rel__sub">Versões compatíveis</span>
               <table class="rel__tab">
                 <tbody>
                   <tr v-for="c in vc.fipeCandidato.candidatos.slice(0, 3)" :key="c.codigo_fipe">
@@ -1474,7 +1495,7 @@ onUnmounted(() => poll && clearInterval(poll))
               </table>
             </div>
 
-            <div v-if="temGrafico" class="rel__dep">
+            <div v-if="temGrafico && !fipeIncerta" class="rel__dep">
               <span class="rel__sub">Evolução do valor de mercado</span>
               <GraficoValor :historico="vc.historico" />
               <!-- As barras sao escaladas pela faixa da serie, nao pelo zero:
@@ -2095,12 +2116,57 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     color: $c-graphite;
   }
 
-  &__leilao-ambiguo {
-    margin: 12px 0 0;
-    font-size: 13px;
+  &__leilao-limpo {
+    margin: 0;
+    font-size: 15px;
     line-height: 1.5;
+    color: $c-charcoal;
+  }
+
+  &__leilao-fotos {
+    border: 1px solid $c-hair;
+    border-radius: 8px;
+    padding: 14px;
+    margin-top: 12px;
+  }
+
+  &__leilao-fotos-txt {
+    margin: 0 0 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: $c-charcoal;
+  }
+
+  &__lote {
+    padding-top: 12px;
+    border-top: 1px solid $c-hair;
+    margin-top: 12px;
+
+    &:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+  }
+
+  &__lote-fotos {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+  }
+
+  &__lote-foto {
+    width: 132px;
+    height: 99px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid $c-hair;
+    display: block;
+  }
+
+  &__lote-det {
+    margin: 8px 0 0;
+    font-size: 13px;
+    line-height: 1.45;
     color: $c-graphite;
   }
+
 
   &__leilao-aviso {
     margin: 12px 0 0;
@@ -2229,6 +2295,28 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__dep-txt {
     margin-top: 10px;
     font-size: 13px;
+    color: $c-charcoal;
+  }
+
+  &__fipe-incerta {
+    border: 1px solid rgba(180, 83, 9, 0.35);
+    background: #fdf8ec;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+
+  &__fipe-incerta-tit {
+    margin: 0 0 6px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #8a5200;
+  }
+
+  &__fipe-incerta-txt {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
     color: $c-charcoal;
   }
 
