@@ -49,6 +49,18 @@ export function _limparConversoesReportadas() {
   conversoesReportadas.clear()
 }
 
+/**
+ * Os quatro momentos que o remarketing precisa distinguir, traduzidos pros
+ * nomes que a Meta entende. Evento fora deste mapa nao vai pro pixel: lista de
+ * publico se faz com etapa de funil, nao com todo clique do site.
+ */
+export const EVENTOS_META: Record<string, string> = {
+  consulta_success: 'Search',
+  premium_checkout_open: 'InitiateCheckout',
+  pix_gerado: 'AddPaymentInfo',
+  purchase: 'Purchase',
+}
+
 export const useAnalytics = () => {
   /**
    * Envia evento para o Google Analytics
@@ -67,6 +79,29 @@ export const useAnalytics = () => {
     if (import.meta.client && window.gtag) {
       window.gtag('event', event, params)
     }
+    espelharNaMeta(event, params)
+  }
+
+  /**
+   * Espelha no Pixel da Meta os quatro momentos que o remarketing precisa
+   * distinguir. A Meta so entende os nomes dela, entao o mapa traduz; evento
+   * fora do mapa nao vai, porque lista de publico se faz com etapa de funil,
+   * nao com todo clique do site.
+   *
+   * Nada de identificavel atravessa: placa, chassi, e-mail, telefone e token
+   * ficam de fora, so o valor e a moeda passam.
+   */
+  const espelharNaMeta = (event: string, params?: Record<string, any>) => {
+    if (!import.meta.client) return
+    const nome = EVENTOS_META[event]
+    const fbq = (window as any).fbq
+    if (!nome || typeof fbq !== 'function') return
+    const dados: Record<string, any> = {}
+    if (typeof params?.value === 'number') {
+      dados.value = params.value
+      dados.currency = 'BRL'
+    }
+    fbq('track', nome, dados)
   }
 
   /**
@@ -150,6 +185,9 @@ export const useAnalytics = () => {
     if (window.uetq) {
       window.uetq.push('event', 'purchase', { revenue_value: value, currency: 'BRL' })
     }
+    // A compra nao passa pelo track() (ela fala direto com gtag e uetq, por
+    // causa da dedupe por token), entao o espelho da Meta e chamado a mao aqui.
+    espelharNaMeta('purchase', { value })
   }
 
   return {
