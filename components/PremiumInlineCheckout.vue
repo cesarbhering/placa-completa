@@ -155,7 +155,7 @@ let poll: ReturnType<typeof setInterval> | null = null
 
 // historico local: religar/retomar consultas sem login
 const { add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
-const { trackBeginCheckout, trackAddPaymentInfo, trackConversionPaga } = useAnalytics()
+const { trackBeginCheckout, trackAddPaymentInfo, trackPixGerado, trackConversionPaga } = useAnalytics()
 
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
@@ -206,8 +206,11 @@ async function salvarPlaca() {
 // Pre-preenche email salvo do fluxo grativo (mesmo navegador)
 onMounted(() => {
   if (import.meta.client) {
-    const saved = localStorage.getItem('pc_email')
-    if (saved) email.value = saved
+    // pc_email vem da consulta gratis; pwa_email vem do fluxo do app. Os dois
+    // sao a mesma pessoa no mesmo aparelho, e quem ja digitou o e-mail uma vez
+    // nao devia digitar de novo pra pagar.
+    const saved = localStorage.getItem('pc_email') || localStorage.getItem('pwa_email')
+    if (saved && saved.includes('@')) email.value = saved
   }
   // Cupom pela URL (?cupom=CUPOM10ABCDE): o e-mail de recuperacao de Pix manda
   // a pessoa de volta com o desconto pronto. Sem isto ela teria que copiar o
@@ -279,16 +282,27 @@ async function entrar() {
 // confirmacao ja mostra); a correcao da placa continua existindo, agora como
 // lapis na propria linha do resumo.
 async function confirmarEPagar() {
-  // E-mail so vira obrigatorio aqui, no clique final: quem digita o cupom
-  // antes do e-mail nao leva erro no meio do caminho.
+  // O e-mail NAO trava mais a geracao do Pix. Quase metade de quem abria o
+  // checkout sumia antes da cobranca existir, e o ultimo obstaculo antes de
+  // pagar era digitacao. Ele e pedido na tela do Pix, enquanto a pessoa paga,
+  // e continua obrigatorio pra entrega durar (relatorio no e-mail e
+  // recuperacao de Pix abandonado dependem dele).
+  //
+  // Duas excecoes: e-mail digitado errado nao passa (melhor corrigir agora do
+  // que descobrir depois de pagar), e cupom exige e-mail, porque o limite por
+  // pessoa e por e-mail.
   emailErro.value = ''
-  if (!email.value.includes('@')) {
-    emailErro.value = 'Informe um e-mail válido para receber o relatório.'
+  const preencheu = email.value.trim().length > 0
+  if (preencheu && !email.value.includes('@')) {
+    emailErro.value = 'Este e-mail parece incompleto. Confira antes de pagar.'
     msg.value = ''
-    if (import.meta.client) {
-      const campo = document.getElementById('pic-email') as HTMLInputElement | null
-      campo?.focus()
-    }
+    if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
+    return
+  }
+  if (!preencheu && cupomCodigo.value.trim()) {
+    emailErro.value = 'Para usar um cupom, informe o e-mail que o recebeu.'
+    msg.value = ''
+    if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
     return
   }
   msg.value = ''
@@ -312,22 +326,50 @@ async function confirmarEPagar() {
   await pagar()
 }
 
-async function pagar() {
-  if (!email.value.includes('@')) {
-    msg.value = 'Informe um e-mail válido.'
-    return
+// E-mail pedido na tela do Pix, enquanto a pessoa paga. Salva sozinho no
+// blur: nao ha botao "confirmar e-mail" porque nao ha nada pra confirmar, e um
+// botao a mais nesta tela competiria com o Pix.
+const emailNoPedido = ref('')
+const emailPixSalvo = ref(false)
+// Quem chegou no Pix com e-mail preenchido nao ve campo nenhum aqui: o pedido
+// ja nasceu com ele.
+const emailJaTemos = computed(() => emailPixSalvo.value || !!emailNoPedido.value)
+const emailPixErro = ref('')
+async function salvarEmailDoPix() {
+  const valor = email.value.trim().toLowerCase()
+  emailPixErro.value = ''
+  if (!valor.includes('@') || !pix.value?.token) return
+  try {
+    await $fetch('/api/premium/email', { method: 'POST', body: { token: pix.value.token, email: valor } })
+    emailPixSalvo.value = true
+    if (import.meta.client) localStorage.setItem('pc_email', valor)
+  } catch (e: any) {
+    // Falhar aqui NAO pode assustar quem esta pagando: o relatorio abre nesta
+    // mesma tela de qualquer jeito. O aviso e discreto e a pessoa pode tentar
+    // de novo saindo e voltando do campo.
+    emailPixErro.value = 'Não conseguimos guardar seu e-mail agora. O relatório abre aqui assim que o pagamento cair.'
+    if (import.meta.dev) console.warn('[checkout] salvar email do pix falhou:', e?.data?.message || e)
   }
+}
+
+async function pagar() {
   loading.value = true
   msg.value = ''
   // Revalida o cupom bem antes de pagar (pode ter esgotado/expirado desde o
   // blur). Se cair, segue a compra sem cupom em vez de travar o pagamento.
   if (cupomCodigo.value.trim()) await validarCupom()
   try {
+    // Guarda o que foi mandado no checkout: e isso que decide se a tela do Pix
+    // precisa pedir o e-mail.
+    emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
     pix.value = await $fetch('/api/premium/checkout', {
       method: 'POST',
       body: {
         placa: preview.value.placa,
-        email: email.value,
+        // Vazio e permitido: vira null no pedido e a tela do Pix pede logo em
+        // seguida. O servidor recusa e-mail malformado e exige e-mail quando
+        // ha cupom.
+        email: email.value.trim() || undefined,
         telefone: telefone.value,
         preview: preview.value.raw,
         plano: props.plano,
@@ -345,6 +387,11 @@ async function pagar() {
       },
     })
     step.value = 'pending'
+    // So conta como Pix gerado quando a cobranca existe de verdade (ou quando
+    // o caminho gratis dispensa a cobranca).
+    if (pix.value?.brCode || pix.value?.gratis) {
+      trackPixGerado(props.plano, placaClean.value, pix.value?.valor, !!emailNoPedido.value)
+    }
     histAdd({
       token: pix.value!.token,
       placa: preview.value.placa,
@@ -566,7 +613,7 @@ onUnmounted(() => {
               <p v-if="ambiente === 'producao'" class="pic-aviso">Atenção: Produção dispara consulta real no SERPRO.</p>
             </div>
             <div class="pic-campo">
-              <label class="pic-label" for="pic-email">Seu e-mail (para receber o relatório)</label>
+              <label class="pic-label" for="pic-email">Seu e-mail (opcional, para receber o relatório)</label>
               <input
                 id="pic-email"
                 v-model="email"
@@ -669,6 +716,27 @@ onUnmounted(() => {
                 Copiar código Pix (copia e cola)
               </button>
               <p class="pic-hint pic-hint--forte">Pode deixar esta tela aberta: assim que o pagamento cair, o relatório abre sozinho aqui.</p>
+
+              <!-- E-mail de entrega. Aparece so pra quem ainda nao deu: quem ja
+                   tinha o e-mail preenchido no checkout nao ve campo nenhum
+                   aqui. O relatorio abre nesta tela de qualquer forma; o
+                   e-mail e pra ele durar depois que a aba fechar. -->
+              <div v-if="!emailJaTemos" class="pic-email-pix">
+                <label class="pic-label" for="pic-email-pix">Para onde enviamos seu relatório?</label>
+                <input
+                  id="pic-email-pix"
+                  v-model="email"
+                  type="email"
+                  inputmode="email"
+                  autocomplete="email"
+                  class="pic-input"
+                  placeholder="seu@email.com"
+                  @blur="salvarEmailDoPix"
+                >
+                <p v-if="emailPixSalvo" class="pic-cupom__ok">Pronto. O relatório também vai para o seu e-mail.</p>
+                <p v-else-if="emailPixErro" class="pic-hint">{{ emailPixErro }}</p>
+                <p v-else class="pic-hint">Opcional para pagar. Sem ele, o relatório fica só nesta tela.</p>
+              </div>
 
               <!-- Enquanto ela abre o app do banco, a tela lembra o que esta
                    comprando. Os itens saem da lista de recursos do plano, nao
@@ -1150,6 +1218,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   cursor: pointer;
   padding: 8px;
   min-height: 44px;
+}
+
+.pic-email-pix {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e8e8e8;
 }
 
 .pic-cupom { display: flex; flex-direction: column; }
