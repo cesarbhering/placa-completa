@@ -68,7 +68,12 @@ export async function processarPedidoPago(
     // fica 'entregue' de verdade, a pessoa acessa pelo link/historico) — nao
     // e caso de 'falha'/reembolso. Mas sem alerta ninguem no time saberia que
     // essa entrega especifica nao chegou na caixa de entrada de quem pagou.
-    if (!emailOk) {
+    // Pedido sem e-mail nao e falha de envio: desde que o e-mail saiu da frente
+    // do Pix, existe pedido que nasce sem ele de proposito (a pessoa paga
+    // primeiro e informa depois, ou nunca informa e le o relatorio na propria
+    // tela). Alertar nesse caso encheria a caixa do time de alarme falso e
+    // enterraria a falha de verdade.
+    if (!emailOk && pedido.email) {
       await sendErrorEmail({
         endpoint: '/premium/processar',
         errorMessage: `Entrega OK mas e-mail de entrega FALHOU. pedido=${pedido.id} placa=${pedido.placa} email=${pedido.email} token=${pedido.token_entrega}`,
