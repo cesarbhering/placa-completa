@@ -22,7 +22,21 @@ export default defineEventHandler(async (event) => {
     ? (body.ambiente === 'producao' ? 'producao' : 'homolog')
     : 'producao'
   if (placa.length < 7) throw createError({ statusCode: 400, message: 'Placa invalida' })
-  if (!email || !email.includes('@')) throw createError({ statusCode: 400, message: 'Email obrigatorio' })
+  // E-mail deixou de ser porteira do Pix. Quase metade de quem abria o
+  // checkout sumia antes de gerar a cobranca, e o ultimo obstaculo antes de
+  // pagar era digitacao. Ele continua obrigatorio pra ENTREGA durar (relatorio
+  // no e-mail, recuperacao de Pix abandonado) e e pedido na propria tela do
+  // Pix, enquanto a pessoa paga.
+  //
+  // Duas excecoes onde ele continua obrigatorio AQUI, porque a regra depende
+  // dele: cupom (o limite por pessoa e por e-mail, e sem e-mail nao ha limite
+  // nenhum) e o caminho gratis, que entrega na hora.
+  if (email && !email.includes('@')) {
+    throw createError({ statusCode: 400, message: 'E-mail invalido' })
+  }
+  if (!email && String(body.cupom || '').trim()) {
+    throw createError({ statusCode: 400, message: 'Informe o e-mail para usar um cupom.' })
+  }
 
   // Plano vem do cliente, entao nunca confia no preco que ele mandar: o valor
   // sai da tabela do servidor. Default 'completa' preserva o comportamento de
@@ -67,7 +81,7 @@ export default defineEventHandler(async (event) => {
   const { data: pedido, error } = await supabase
     .from('pedidos_premium')
     .insert({
-      token_entrega: token, placa, placa_confirmada: true, email, telefone,
+      token_entrega: token, placa, placa_confirmada: true, email: email || null, telefone,
       status: 'aguardando_pagamento', valor_centavos: valor, plano,
       preview: body.preview || null,
       ambiente,

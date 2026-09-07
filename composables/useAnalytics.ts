@@ -118,6 +118,27 @@ export const useAnalytics = () => {
     })
   }
 
+  /**
+   * Cobranca Pix criada de verdade (resposta do checkout com brCode na mao).
+   * add_payment_info marca a INTENCAO, antes da chamada; este marca o
+   * resultado. A diferenca entre os dois e exatamente a taxa que o e-mail
+   * fora da frente do Pix deveria melhorar, e sem os dois eventos ela so
+   * existiria no banco, sem quebra por campanha ou dispositivo.
+   */
+  const trackPixGerado = (plano?: string, placa?: string, valorCentavos?: number, comEmail?: boolean) => {
+    const { value: valorTabela, item } = infoPlano(plano)
+    const value = valorCentavos != null ? valorCentavos / 100 : valorTabela
+    track('pix_gerado', {
+      currency: 'BRL',
+      value,
+      items: [{ ...item, price: value }],
+      placa,
+      // Permite comparar quem chegou ao Pix ja com e-mail e quem deixou pra
+      // depois, que e a pergunta de produto por tras da mudanca.
+      com_email: comEmail ? 'sim' : 'nao',
+    })
+  }
+
   /** Inicio do checkout pago (clique no CTA de pagar). Valor real por plano. */
   const trackBeginCheckout = (plano?: string, placa?: string) => {
     const { value, item } = infoPlano(plano)
@@ -156,6 +177,7 @@ export const useAnalytics = () => {
     track,
     trackBeginCheckout,
     trackAddPaymentInfo,
+    trackPixGerado,
     trackConversionPaga,
     trackRestricaoDesconhecida,
   }
