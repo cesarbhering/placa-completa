@@ -105,6 +105,7 @@ export default defineNuxtConfig({
       "/consulta-gratis",
       "/como-consultar-placa",
       "/tabela-fipe-por-placa",
+      "/carro-de-leilao",
       // pSEO: vehicle types
       "/consultar-placa-de-carro",
       "/consultar-placa-de-moto",
