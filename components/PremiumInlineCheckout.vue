@@ -75,7 +75,7 @@ async function validarCupom(): Promise<boolean> {
   try {
     const r: any = await $fetch('/api/premium/coupon', {
       method: 'POST',
-      body: { codigo, plano: props.plano, email: temEmail ? email.value : undefined },
+      body: { codigo, plano: props.plano, email: temEmail ? email.value : undefined, placa: placaClean.value },
     })
     if (r?.ok) {
       cupomDescontoCentavos.value = r.descontoCentavos || 0
@@ -198,6 +198,17 @@ onMounted(() => {
   if (import.meta.client) {
     const saved = localStorage.getItem('pc_email')
     if (saved) email.value = saved
+  }
+  // Cupom pela URL (?cupom=CUPOM10ABCDE): o e-mail de recuperacao de Pix manda
+  // a pessoa de volta com o desconto pronto. Sem isto ela teria que copiar o
+  // codigo do e-mail e achar o campo, que fica fechado por padrao.
+  const daUrl = String(useRoute().query.cupom || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20)
+  if (daUrl) {
+    cupomCodigo.value = daUrl
+    cupomAberto.value = true
+    // Valida sozinho: a pessoa clicou num link com desconto, ver o preco velho
+    // por um instante e ruim. Roda depois do preview, que traz o veiculo.
+    nextTick(() => validarCupom())
   }
   trackBeginCheckout(props.plano, placaClean.value)
   consultarPreview()
