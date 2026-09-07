@@ -1286,8 +1286,11 @@ function applyEmailSuggestion() {
               </div>
 
               <!-- O unico card que fala de algo que so nos temos. Numero
-                   honesto: 1,67 milhao de registros e 921 mil veiculos unicos
-                   na base, entao "mais de 1 milhao" e o piso, nao o teto. -->
+                   honesto: 921 mil veiculos unicos com identificacao completa
+                   mais 346 mil lotes com identificacao parcial, entao "mais de
+                   1 milhao" e o piso, nao o teto. Quantos orgaos de transito
+                   alimentam a base NAO entra na copy: o numero muda a cada
+                   raspagem nova e vira promessa que a gente teria que manter. -->
               <div class="cb-ganho cb-ganho--base">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Z" fill="none"
@@ -1299,7 +1302,7 @@ function applyEmailSuggestion() {
                 </svg>
                 <h3>Mais de 1 milhão de veículos leiloados na nossa base</h3>
                 <p>
-                  Cruzamos a placa e o chassi com editais de 18 órgãos de trânsito e catálogos
+                  Cruzamos a placa e o chassi com editais de órgãos de trânsito e catálogos
                   de leiloeiras. Carro batido que voltou pro mercado costuma deixar rastro ali,
                   e não no anúncio.
                 </p>
