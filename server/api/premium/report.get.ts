@@ -138,6 +138,27 @@ export default defineEventHandler(async (event) => {
       // ciclo de 30 anos): o snapshot no banco fica intacto, so o ano do
       // chassi e reconciliado com o ano do registro antes de ir pra tela.
       const brutoSnap = Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response
+
+      // Campo vazio por falha de servico auxiliar na hora da entrega nao e o
+      // que a pessoa comprou: e o que a nossa infra deixou de entregar. Tenta
+      // preencher agora, uma vez por campo, e grava so aquele campo no
+      // snapshot. Fail-open: se nao der, o relatorio sai como esta hoje.
+      const pendentes = camposLazyPendentes(snap, plano)
+      if (pendentes.length) {
+        const preenchido = await preencherCamposLazy(supabase, {
+          token: String(token),
+          snap,
+          plano,
+          placa: pedido.placa,
+          consulta_id: pedido.consulta_id,
+          preview: pedido.preview,
+          campos: pendentes,
+        })
+        if (preenchido.chassiOrigem !== undefined) chassiOrigem = preenchido.chassiOrigem
+        if (preenchido.valorCusto !== undefined) valorCusto = preenchido.valorCusto
+        if (preenchido.historicoLeilao !== undefined) historicoLeilao = preenchido.historicoLeilao
+      }
+
       chassiOrigem = corrigirAnoChassi(
         chassiOrigem,
         brutoSnap?.anoModelo ?? brutoSnap?.anoFabricacao ?? null,

@@ -52,7 +52,13 @@ function localDoVeiculo(preview: any): { uf: string | null; municipio: string | 
 export async function montarRelatorioSnapshot(
   supabase: any,
   pedido: { placa: string; plano: string; consulta_id: string | null; preview?: any },
+  // Backfill de UM campo que falhou na entrega (ver relatorio-lazy-fill.ts):
+  // limita o trabalho ao que foi pedido. Sem isto, reabrir um relatorio sem
+  // origem do chassi refaria tambem o julgamento FIPE, que custa uma chamada
+  // de modelo por relatorio. Omitido = monta tudo, como na entrega.
+  apenas?: Array<'chassiOrigem' | 'valorCusto' | 'historicoLeilao'>,
 ): Promise<RelatorioSnapshot> {
+  const querem = (campo: 'chassiOrigem' | 'valorCusto' | 'historicoLeilao') => !apenas || apenas.includes(campo)
   let consulta: RelatorioSnapshot['consulta'] = null
   let restantes = 0
   if (pedido.consulta_id) {
@@ -78,7 +84,7 @@ export async function montarRelatorioSnapshot(
   // consulta trouxe o registro SENATRAN pra tirar cilindrada/carroceria dele.
   // Ver docs/feat-fipe-melhor-candidato.md.
   const senatranBruto = Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response
-  const valorCusto = await getValorCusto(pedido.placa, local.uf, local.municipio, {
+  const valorCusto = !querem('valorCusto') ? null : await getValorCusto(pedido.placa, local.uf, local.municipio, {
     ativo: true,
     segmento,
     senatran: {
@@ -93,8 +99,11 @@ export async function montarRelatorioSnapshot(
   // produto, ver report.get.ts historico). Fail-open: erro/fora do ar = sem
   // bloco, snapshot segue normal.
   let chassiOrigem: RelatorioSnapshot['chassiOrigem'] = null
-  if (pedido.plano === 'completa' && consulta?.response?.chassi) {
-    chassiOrigem = await decodificarChassi(consulta.response.chassi).catch(() => null)
+  // Le o chassi de senatranBruto, nao de consulta.response: a resposta pode
+  // vir achatada num array de um elemento, e ai `response.chassi` e undefined
+  // e o bloco sumia sem nem chamar o decoder.
+  if (querem('chassiOrigem') && pedido.plano === 'completa' && senatranBruto?.chassi) {
+    chassiOrigem = await decodificarChassi(senatranBruto.chassi).catch(() => null)
     // O digito de ano do VIN se repete a cada 30 anos e o decoder, sozinho,
     // sempre chuta o ciclo mais recente (um Civic 1995 virava "2025"). Aqui
     // temos o ano do registro, entao o ciclo certo e escolhido; sem candidato
@@ -110,7 +119,7 @@ export async function montarRelatorioSnapshot(
   // configurado (hoje, homolog); em prod a env nao existe e a consulta nem
   // acontece. Fail-open: erro ou timeout = relatorio sem a secao.
   let historicoLeilao: RelatorioSnapshot['historicoLeilao'] = null
-  if (pedido.plano === 'completa' && consulta?.response) {
+  if (querem('historicoLeilao') && pedido.plano === 'completa' && consulta?.response) {
     historicoLeilao = await consultarHistoricoLeilao({
       placa: pedido.placa,
       chassi: senatranBruto?.chassi ?? null,
