@@ -1061,7 +1061,13 @@ function applyEmailSuggestion() {
             <div class="cb-trust">
               <span><i class="cb-dot" />Pagamento por Pix</span>
               <span><i class="cb-dot" />Sem cadastro</span>
-              <span class="cb-trust__leilao"><i class="cb-dot" />Histórico de leilão: mais de 1 milhão de veículos</span>
+              <span class="cb-trust__leilao">
+                <i class="cb-dot" />
+                <span>
+                  Histórico de leilão: mais de 1 milhão de veículos
+                  <small>inclusive os que não constam no documento</small>
+                </span>
+              </span>
             </div>
           </div>
 
@@ -1302,9 +1308,9 @@ function applyEmailSuggestion() {
                 </svg>
                 <h3>Mais de 1 milhão de veículos leiloados na nossa base</h3>
                 <p>
-                  Cruzamos a placa e o chassi com editais de DETRANs e catálogos
-                  de leiloeiras. Carro batido que voltou pro mercado costuma deixar rastro ali,
-                  e não no anúncio.
+                  Cruzamos a placa e o chassi com editais de DETRANs e catálogos de leiloeiras,
+                  inclusive leilões que não aparecem no documento do veículo. Carro batido que
+                  voltou pro mercado costuma deixar rastro ali, e não no anúncio.
                 </p>
               </div>
 
@@ -2563,6 +2569,27 @@ function applyEmailSuggestion() {
     align-items: center; justify-content: space-around;
 
     span { display: inline-flex; align-items: center; gap: 7px; }
+
+    // O selo do leilao tem duas linhas, entao o wrapper de dentro empilha em
+    // vez de seguir o inline-flex em linha dos outros selos.
+    &__leilao > span {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+    }
+
+    // O subtitulo do selo de leilao: diz a parte que ninguem espera, sem
+    // roubar o espaco do numero.
+    &__leilao small {
+      display: block;
+      margin-top: 1px;
+      font-size: 12.5px;
+      line-height: 1.35;
+      // Cinza mais claro que o do selo, mas ainda legivel: $c-steel e borda de
+      // input, nao cor de texto.
+      color: $c-graphite;
+      opacity: 0.85;
+    }
   }
 
   .cb-dot {
@@ -3389,9 +3416,11 @@ function applyEmailSuggestion() {
     // que a maioria chega pelo anuncio.
     .cb-trust {
       justify-content: flex-start;
-      span:not(.cb-trust__leilao) { display: none; }
+      // Filho DIRETO: o selo do leilao tem um span por dentro (titulo mais
+      // subtitulo), e sem o `>` a regra escondia o proprio texto dele.
+      > span:not(.cb-trust__leilao) { display: none; }
     }
-    .cb-trust__leilao { line-height: 1.4; }
+    .cb-trust__leilao { line-height: 1.4; align-items: flex-start; .cb-dot { margin-top: 6px; } }
   }
 }
 // v2.0 herói web: split de 2 colunas. No mobile (e no PWA) empilha em coluna
