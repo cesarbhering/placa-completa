@@ -100,6 +100,12 @@ export function aplicarCupom(
 
 export interface Recurso {
   label: string
+  /**
+   * Segunda linha, menor, sob o label. Existe pro item que tem um argumento
+   * grande demais pra caber no titulo e forte demais pra virar virgula: hoje,
+   * o tamanho da base de leiloes.
+   */
+  detalhe?: string
   planos: PlanoId[]
   /**
    * Nao renderizar a linha nos cards destes planos. Serve pra versao rebaixada
@@ -137,7 +143,11 @@ export const RECURSOS: Recurso[] = [
   // TAMANHO DA BASE, nao de quantos a gente consegue casar: parte do indice so
   // pode ser casada por numero de motor, que nenhuma fonte nossa expoe, entao
   // prometer "1 milhao consultaveis" seria promessa maior que a entrega.
-  { label: 'Histórico de leilão: base de mais de 1 milhão de veículos', planos: ['completa'] },
+  {
+    label: 'Histórico de leilão',
+    detalhe: 'cruzado com mais de 1 milhão de veículos leiloados',
+    planos: ['completa'],
+  },
   { label: 'Gravame e alienação',                   planos: ['completa'] },
   { label: 'RENAJUD e restrições judiciais',        planos: ['completa'] },
   { label: 'Indicador de multas (RENAINF)',         planos: ['completa'] },

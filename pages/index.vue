@@ -1053,11 +1053,15 @@ function applyEmailSuggestion() {
               </div>
             </form>
 
+            <!-- Tres pontos, nao quatro: "na hora" e "link privado" ja sao
+                 ditos logo abaixo, e o que precisa aparecer aqui e o que
+                 nenhum concorrente tem. O ponto do leilao NAO some no
+                 celular: em tela estreita a linha quebra e ele empilha
+                 inteiro, em vez de ser cortado. -->
             <div class="cb-trust">
-              <span><i class="cb-dot" />Pix</span>
-              <span><i class="cb-dot" />na hora</span>
-              <span><i class="cb-dot" />link privado</span>
-              <span><i class="cb-dot" />sem cadastro</span>
+              <span><i class="cb-dot" />Pagamento por Pix</span>
+              <span><i class="cb-dot" />Sem cadastro</span>
+              <span class="cb-trust__leilao"><i class="cb-dot" />Histórico de leilão: mais de 1 milhão de veículos</span>
             </div>
           </div>
 
@@ -1161,7 +1165,7 @@ function applyEmailSuggestion() {
             </p>
             <p class="cb-locked__leilao">
               O relatório completo ainda cruza a placa e o chassi com uma
-              <strong>base de mais de 1 milhão de veículos leiloados</strong>, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras.
+              <strong>base de mais de 1 milhão de veículos leiloados</strong>, montada a partir de editais de DETRANs e catálogos de leiloeiras.
             </p>
 
             <div class="cb-locked__box">
@@ -1281,6 +1285,29 @@ function applyEmailSuggestion() {
                 </p>
               </div>
 
+              <!-- O unico card que fala de algo que so nos temos. Numero
+                   honesto: 921 mil veiculos unicos com identificacao completa
+                   mais 346 mil lotes com identificacao parcial, entao "mais de
+                   1 milhao" e o piso, nao o teto. Quantos orgaos de transito
+                   alimentam a base NAO entra na copy: o numero muda a cada
+                   raspagem nova e vira promessa que a gente teria que manter. -->
+              <div class="cb-ganho cb-ganho--base">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Z" fill="none"
+                        stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" />
+                  <path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7" fill="none" stroke="currentColor"
+                        stroke-width="1.7" stroke-linejoin="round" />
+                  <path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" fill="none" stroke="currentColor"
+                        stroke-width="1.7" stroke-linejoin="round" />
+                </svg>
+                <h3>Mais de 1 milhão de veículos leiloados na nossa base</h3>
+                <p>
+                  Cruzamos a placa e o chassi com editais de DETRANs e catálogos
+                  de leiloeiras. Carro batido que voltou pro mercado costuma deixar rastro ali,
+                  e não no anúncio.
+                </p>
+              </div>
+
               <div class="cb-ganho">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
                   <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1" fill="none" stroke="currentColor"
@@ -1343,7 +1370,13 @@ function applyEmailSuggestion() {
                   <path d="M6 10.2l2.6 2.6L14 7.4" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
-                <span>{{ r.label }}</span>
+                <span :class="{ 'cb-cmp-list__com-det': r.detalhe }">
+                  {{ r.label }}
+                  <!-- Segunda linha de verdade, nao virgula: o tamanho da base
+                       e o argumento mais forte da completa e some quando vira
+                       aposto no fim de uma frase longa. -->
+                  <small v-if="r.detalhe" class="cb-cmp-list__det">{{ r.detalhe }}</small>
+                </span>
               </li>
             </ul>
 
@@ -2973,6 +3006,21 @@ function applyEmailSuggestion() {
     }
 
     .cb-ico { margin-top: 1px; }
+
+    // Item com segunda linha: o titulo vem em negrito pra segurar o olho, ja
+    // que ele carrega o argumento mais forte da completa.
+    &__com-det { font-weight: 600; }
+
+    // Segunda linha do item, menor e mais clara: informa sem competir com o
+    // nome do recurso.
+    &__det {
+      display: block;
+      margin-top: 2px;
+      font-size: 13px;
+      line-height: 1.3;
+      font-weight: 400;
+      color: $c-graphite;
+    }
   }
 
   // Marcador legado (usado fora do comparativo).
@@ -3103,14 +3151,23 @@ function applyEmailSuggestion() {
 
     &__grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      // Cinco cards, nao quatro: em 4 colunas o quinto ficaria sozinho numa
+      // segunda linha, parecendo sobra. Em 3 colunas o card da base de leiloes
+      // abre a segunda linha e ocupa duas, que e onde ele merece estar.
+      grid-template-columns: repeat(3, 1fr);
       gap: $s-xxl $s-xl;
 
-      // 2x2 no meio do caminho: com quatro colunas a coluna fica estreita
-      // demais e as linhas quebram em duas palavras.
       @media (max-width: 1199px) { grid-template-columns: repeat(2, 1fr); }
       @media (max-width: 640px) { grid-template-columns: 1fr; }
     }
+  }
+
+  // O card da base de leiloes ocupa duas colunas: e o argumento que nenhum
+  // concorrente tem, e o titulo dele e longo demais pra caber numa coluna so.
+  .cb-ganho--base {
+    grid-column: span 2;
+
+    @media (max-width: 640px) { grid-column: auto; }
   }
 
   .cb-ganho {
@@ -3326,9 +3383,15 @@ function applyEmailSuggestion() {
     .cb-sub { margin-bottom: $s-lg; }
     .cb-eyebrow { margin-bottom: $s-xxs; }
 
-    // Os selos repetem o que o proprio formulario ja diz e ficam abaixo dele,
-    // fora da dobra: no telefone so custam altura.
-    .cb-trust { display: none; }
+    // Pix e "sem cadastro" repetem o que o proprio formulario ja diz, entao
+    // no telefone eles so custam altura. O ponto do leilao fica: e o unico
+    // que diz algo que nenhum concorrente tem, e some justamente na tela em
+    // que a maioria chega pelo anuncio.
+    .cb-trust {
+      justify-content: flex-start;
+      span:not(.cb-trust__leilao) { display: none; }
+    }
+    .cb-trust__leilao { line-height: 1.4; }
   }
 }
 // v2.0 herói web: split de 2 colunas. No mobile (e no PWA) empilha em coluna
