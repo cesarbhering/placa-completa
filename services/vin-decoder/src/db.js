@@ -46,6 +46,12 @@ db.exec(`
   -- um mapa confiavel disso (varia por fabricante/pais, sem padrao publico
   -- unificado) — comeca vazia, povoada via override manual conforme
   -- confirmarmos casos reais.
+  -- Chave-valor de controle interno (versao da tabela curada de plantas, etc).
+  CREATE TABLE IF NOT EXISTS meta (
+    chave TEXT PRIMARY KEY,
+    valor TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS plants (
     wmi_code TEXT NOT NULL,
     -- '*' quando o WMI inteiro pertence a uma unica fabrica (Fiat 9BD e so

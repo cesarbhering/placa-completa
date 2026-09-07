@@ -26,9 +26,17 @@
 import { db } from '../src/db.js'
 
 const IBGE = 'IBGE, Cadastro Central de Empresas, e comunicacao oficial da montadora'
+const SUFRAMA = 'SUFRAMA, cadastro de empresas do Polo Industrial de Manaus, e site oficial da marca'
+
+// Versao do arquivo curado. O servico compara com o que esta gravado no banco
+// e reimporta sozinho quando sobe (ver src/db.js). Subir esta versao SEMPRE que
+// mexer na lista, senao a mudanca nao chega no container ja rodando.
+export const PLANTS_VERSAO = 2
 
 const PLANTS = [
-  // [wmi, pos11, nome, cidade, uf, pais, ano_de, ano_ate, fonte]
+  // [wmi, pos11, nome, cidade, uf, pais, ano_de, ano_ate, fonte, confianca]
+  // confianca 'alta'                = codigo validado contra a base de leiloes
+  // confianca 'marca_unica_fabrica' = a marca so tem uma fabrica no Brasil
 
   // Volkswagen. Taubate faz a familia Gol; Anchieta faz Santana, Kombi e o
   // Gol antigo; Sao Jose dos Pinhais faz Fox, Golf e T-Cross.
@@ -82,6 +90,23 @@ const PLANTS = [
   ['9BM', 'A', 'Juiz de Fora (MG)', 'Juiz de Fora', 'MG', 'Brasil', null, null, IBGE],
   ['9BM', 'B', 'São Bernardo do Campo (SP)', 'São Bernardo do Campo', 'SP', 'Brasil', null, null, IBGE],
 
+  // Marcas de fabrica UNICA no Brasil. Aqui o argumento nao e a posicao 11: e
+  // que a marca tem uma so fabrica no pais, entao a cidade e certa qualquer que
+  // seja o codigo. Vale so para WMI brasileiro da propria marca; moto importada
+  // tem WMI de outro pais e nem chega nesta tabela.
+  ['9CD', '*', 'Manaus (AM)', 'Manaus', 'AM', 'Brasil', null, null, SUFRAMA, 'marca_unica_fabrica'],
+  ['95V', '*', 'Manaus (AM)', 'Manaus', 'AM', 'Brasil', null, null, SUFRAMA, 'marca_unica_fabrica'],
+  ['94J', '*', 'Manaus (AM)', 'Manaus', 'AM', 'Brasil', null, null, SUFRAMA, 'marca_unica_fabrica'],
+  ['93F', '*', 'Manaus (AM)', 'Manaus', 'AM', 'Brasil', null, null, SUFRAMA, 'marca_unica_fabrica'],
+  // Reforco pelas mesmas razoes, cobrindo os codigos de posicao 11 que a base
+  // nao teve amostra pra confirmar um a um. Hyundai fica de fora de proposito:
+  // a CAOA monta Hyundai em Anapolis, entao a marca nao tem fabrica unica.
+  ['93Y', '*', 'São José dos Pinhais (PR)', 'São José dos Pinhais', 'PR', 'Brasil', null, null, IBGE, 'marca_unica_fabrica'],
+  ['935', '*', 'Porto Real (RJ)', 'Porto Real', 'RJ', 'Brasil', null, null, IBGE, 'marca_unica_fabrica'],
+  ['936', '*', 'Porto Real (RJ)', 'Porto Real', 'RJ', 'Brasil', null, null, IBGE, 'marca_unica_fabrica'],
+  ['93Z', '*', 'Sete Lagoas (MG)', 'Sete Lagoas', 'MG', 'Brasil', null, null, IBGE, 'marca_unica_fabrica'],
+  ['93X', '*', 'Catalão (GO)', 'Catalão', 'GO', 'Brasil', null, null, IBGE, 'marca_unica_fabrica'],
+
   // Fora do Brasil: unico codigo confirmado contra o vPIC real
   // (3C3AFFAR0CT267279, PlantCity TOLUCA).
   ['3C3', 'T', 'Toluca, México', 'Toluca', null, 'México', null, null, 'vPIC/NHTSA DecodeVin'],
@@ -89,13 +114,27 @@ const PLANTS = [
 
 const upsert = db.prepare(`
   INSERT INTO plants (wmi_code, position_11, plant_name, cidade, uf, pais, ano_de, ano_ate, fonte, confianca)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'alta')
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, coalesce(?, 'alta'))
   ON CONFLICT(wmi_code, position_11) DO UPDATE SET
     plant_name = excluded.plant_name, cidade = excluded.cidade, uf = excluded.uf,
     pais = excluded.pais, ano_de = excluded.ano_de, ano_ate = excluded.ano_ate,
     fonte = excluded.fonte, confianca = excluded.confianca
 `)
 
-const run = db.transaction((rows) => { for (const r of rows) upsert.run(...r) })
-run(PLANTS)
-console.log(`${PLANTS.length} planta(s) aplicada(s). Só entra codigo validado contra a base de leiloes (ver docs/validacao-plantas.md).`)
+const run = db.transaction((rows) => {
+  for (const r of rows) upsert.run(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9] ?? 'alta')
+  db.prepare("INSERT INTO meta (chave, valor) VALUES ('plants_versao', ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor")
+    .run(String(PLANTS_VERSAO))
+})
+
+export function aplicarPlantas() {
+  run(PLANTS)
+  return PLANTS.length
+}
+
+// Rodado direto pela linha de comando (npm run import:plants-br). Quando este
+// arquivo e so importado pelo servico, nada acontece na importacao: quem decide
+// e o start, comparando a versao gravada.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  console.log(`${aplicarPlantas()} planta(s) aplicada(s), versao ${PLANTS_VERSAO}.`)
+}

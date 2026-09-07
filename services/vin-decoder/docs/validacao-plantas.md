@@ -63,3 +63,30 @@ producao ja era de Camacari. Por isso o B so publica cidade para veiculo ate
 - **Sem dado na base**: GWM Iracemapolis, BYD Camacari, Chery/CAOA Anapolis e
   Jacarei, Agrale, Troller, Ford Taubate (motores), VW Sao Carlos (motores),
   Hyundai CAOA Anapolis. Modelos recentes demais ou fora do circuito de leilao.
+
+## Marcas com uma unica fabrica no Brasil (aprovado pelo Cesar em 07/set)
+
+Aqui o argumento nao e a posicao 11, e sim que a marca so tem um lugar onde
+montar no pais: a cidade e certa qualquer que seja o codigo. Entram com
+confianca `marca_unica_fabrica` e fonte documental.
+
+- 9CD (Suzuki/JTA), 95V (Dafra), 94J (Sundown), 93F (Kasinski): Manaus (AM),
+  Polo Industrial de Manaus (SUFRAMA e site das marcas).
+- 93Y (Renault), 935 e 936 (Stellantis Porto Real), 93Z (Iveco), 93X
+  (Mitsubishi/HPE): reforco, cobrindo os codigos de posicao 11 sem amostra
+  para confirmar um a um.
+
+Hyundai fica de fora deste reforco de proposito: a CAOA monta Hyundai em
+Anapolis, entao a marca nao tem fabrica unica no Brasil. Vale so o codigo
+9BH P, esse sim validado contra a base.
+
+## Para revisitar
+
+| Codigo | Por que ficou sem cidade | O que destravaria |
+|---|---|---|
+| 9BG B, 9BG C | Misturam Sao Caetano do Sul e Sao Jose dos Campos em volume grande dos dois lados | Documento da GM ligando codigo de posicao 11 a planta, ou uma base com o municipio de emplacamento de origem |
+| 9BR (todos) | Hipotese Indaiatuba/Sorocaba derrubada: 37% de contradicao | Amostra maior de Toyota na base, ou decode oficial da montadora |
+| 9BW B | Logus, Pointer e Apollo sao da era Autolatina, produzidos em mais de uma planta | Fonte historica da Autolatina |
+| 9BW R, 9BW D | Caminhoes e chassis de onibus, amostra de 208 e 32, modelo em campo livre | Mais volume de caminhao na base |
+| 9BS 3 | Scania, 304 veiculos com modelo quase todo em campo livre | Normalizacao do modelo de caminhao na base |
+| GWM, BYD, Chery/CAOA, Agrale, Troller | Sem dado na base: modelos recentes demais ou fora do circuito de leilao | Reavaliar quando esses veiculos comecarem a aparecer em leilao |

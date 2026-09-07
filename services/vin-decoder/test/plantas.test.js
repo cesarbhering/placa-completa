@@ -13,7 +13,8 @@ process.env.VIN_DB_PATH = join(mkdtempSync(join(tmpdir(), 'vin-')), 'vin.db')
 let decodeVin
 before(async () => {
   await import('../scripts/overrides-br.mjs')
-  await import('../scripts/plants-br.mjs')
+  const { aplicarPlantas } = await import('../scripts/plants-br.mjs')
+  aplicarPlantas()
   ;({ decodeVin } = await import('../src/decode.js'))
 })
 
@@ -59,6 +60,24 @@ const SEM_CIDADE = [
   ['9BGJK19H0XB546665', 'Vectra 1999, mesmo caso'],
   ['9BFBSZGDA7B632483', 'Ka 2007: o codigo e de Sao Bernardo, mas em 2007 o Ka ja saia de Camaçari'],
 ]
+
+// Marcas com uma unica fabrica no Brasil: a cidade nao depende da posicao 11,
+// depende de a marca so ter um lugar onde montar. Um chassi real de cada.
+const MARCA_UNICA = [
+  ['9CDNF41AJ7M032804', 'Suzuki/JTA Intruder 2007'],
+  ['95VAC1B899M003237', 'Dafra Super 100 2009'],
+  ['94J2XECE77M021384', 'Sundown Hunter 2007'],
+  ['93FACECACCM000375', 'Kasinski MV Action 2012'],
+]
+
+for (const [vin, oque] of MARCA_UNICA) {
+  test(`${oque}: fabrica unica no Brasil, sai de Manaus`, () => {
+    const r = decodeVin(vin)
+    assert.equal(r.valido, true)
+    assert.equal(r.plantaDetalhe?.cidade, 'Manaus')
+    assert.equal(r.plantaDetalhe?.uf, 'AM')
+  })
+}
 
 for (const [vin, motivo] of SEM_CIDADE) {
   test(`sem cidade: ${motivo}`, () => {
