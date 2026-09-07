@@ -9,6 +9,13 @@ export interface ChassiOrigem {
   regiao: string | null
   anoModelo: number | null
   planta: string | null
+  /**
+   * Cidade da fabrica, so quando confirmada (ver services/vin-decoder,
+   * scripts/plants-br.mjs: cada codigo passou por fonte publica MAIS a nossa
+   * base de leiloes). null quando o codigo nao foi confirmado: o relatorio
+   * mostra montadora e pais, que continuam verdadeiros, e nao inventa cidade.
+   */
+  plantaDetalhe: { cidade: string | null; uf: string | null; pais: string | null } | null
 }
 
 export async function decodificarChassi(chassi: string | null | undefined): Promise<ChassiOrigem | null> {
@@ -34,6 +41,7 @@ export async function decodificarChassi(chassi: string | null | undefined): Prom
       regiao: res.regiao ?? null,
       anoModelo: res.anoModelo ?? null,
       planta: res.planta ?? null,
+      plantaDetalhe: res.plantaDetalhe ?? null,
     }
   } catch (e: any) {
     // Fora do ar, timeout, chassi 422: tudo cai aqui. So um log, sem propagar.

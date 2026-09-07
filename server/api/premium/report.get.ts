@@ -159,6 +159,17 @@ export default defineEventHandler(async (event) => {
         if (preenchido.historicoLeilao !== undefined) historicoLeilao = preenchido.historicoLeilao
       }
 
+      // Relatorio vendido antes da tabela de fabricas existir: o decode e
+      // refeito uma vez, so pra ganhar a planta. Mesmo veiculo, mesma fonte.
+      if (faltaPlanta(snap) && String(brutoSnap?.chassi || '').trim().length === 17) {
+        const enriquecido = await enriquecerPlanta(supabase, {
+          token: String(token),
+          chassi: String(brutoSnap.chassi).trim(),
+          anoReferencia: brutoSnap?.anoModelo ?? brutoSnap?.anoFabricacao ?? null,
+        })
+        if (enriquecido !== undefined) chassiOrigem = enriquecido
+      }
+
       chassiOrigem = corrigirAnoChassi(
         chassiOrigem,
         brutoSnap?.anoModelo ?? brutoSnap?.anoFabricacao ?? null,
