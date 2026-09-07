@@ -55,7 +55,12 @@ const emailErro = ref('')
 // O servidor responde sem acento e em linguagem interna; aqui vira copy.
 function mensagemCupom(motivo?: string): string {
   if (!motivo) return 'Cupom inválido.'
-  if (/ja usou/i.test(motivo)) return 'Este cupom já foi utilizado por este e-mail.'
+  // "venceu em DD/MM as HHhMM" e "e pessoal" vem prontos do servidor: sao os
+  // unicos motivos com dado dentro (a data, e a regra do dono). Repetir a
+  // frase aqui so criaria duas versoes da mesma copy pra sair de sincronia.
+  if (/venceu em/i.test(motivo)) return motivo.replace(' as ', ' às ')
+  if (/pessoal/i.test(motivo)) return 'Este cupom é válido apenas para o e-mail que o recebeu.'
+  if (/ja foi utilizado|ja usou/i.test(motivo)) return 'Este cupom já foi utilizado.'
   if (/esgotado/i.test(motivo)) return 'Este cupom já foi totalmente utilizado.'
   if (/expirado/i.test(motivo)) return 'Este cupom está expirado.'
   if (/nao encontrado|inativo/i.test(motivo)) return 'Cupom inválido.'
@@ -75,11 +80,16 @@ async function validarCupom(): Promise<boolean> {
   try {
     const r: any = await $fetch('/api/premium/coupon', {
       method: 'POST',
-      body: { codigo, plano: props.plano, email: temEmail ? email.value : undefined, placa: placaClean.value },
+      body: { codigo, plano: props.plano, email: temEmail ? email.value : undefined },
     })
     if (r?.ok) {
       cupomDescontoCentavos.value = r.descontoCentavos || 0
-      cupomMsg.value = cupomDescontoCentavos.value > 0 ? 'Cupom aplicado!' : ''
+      cupomMsg.value = cupomDescontoCentavos.value > 0
+        // Cupom pessoal aberto pelo link antes de a pessoa digitar o e-mail:
+        // o desconto ja vale, mas so pra ela. Melhor dizer agora do que deixar
+        // o preco subir de surpresa no clique de pagar.
+        ? (r.exigeEmail ? 'Cupom aplicado. Use o mesmo e-mail que recebeu o cupom.' : 'Cupom aplicado!')
+        : ''
       return true
     }
     cupomDescontoCentavos.value = 0
