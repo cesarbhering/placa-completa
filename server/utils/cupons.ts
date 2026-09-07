@@ -15,9 +15,29 @@ export interface CupomValidado {
   precoBrutoCentavos: number
   descontoCentavos: number
   precoLiquidoCentavos: number
+  /**
+   * true = cupom pessoal validado sem e-mail (prefill pelo link do e-mail).
+   * O desconto ja aparece, mas so vale mesmo pra quem digitar o e-mail certo,
+   * e o checkout final revalida com o e-mail antes de cobrar.
+   */
+  exigeEmail?: boolean
   /** true = este cupom pode zerar o preco (bypass do Pix), se o desconto cobrir tudo. */
   permiteGratis?: boolean
   limiteUsoPorCliente?: number | null
+}
+
+/**
+ * "07/09 as 18h30". Fuso de Brasilia fixo: o prazo do cupom e o prazo que o
+ * e-mail prometeu, e o e-mail foi escrito no horario daqui, nao no do celular
+ * de quem viajou.
+ */
+function formatarVencimento(iso: string): string {
+  const d = new Date(iso)
+  const partes = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(d)
+  const g = (t: string) => partes.find(p => p.type === t)?.value || ''
+  return `${g('day')}/${g('month')} as ${g('hour')}h${g('minute')}`
 }
 
 export async function validarCupom(
@@ -53,11 +73,33 @@ export async function validarCupom(
     return { ...semDesconto, motivo: 'Cupom ainda nao esta valido.' }
   }
   if (cupom.valido_ate && new Date(cupom.valido_ate).getTime() < agora) {
-    return { ...semDesconto, motivo: 'Cupom expirado.' }
+    // Vencido merece data e hora, nao um "invalido" generico: o cupom de
+    // recuperacao dura 24 horas e quem chega 10 minutos tarde precisa entender
+    // que perdeu o prazo, nao achar que digitou errado.
+    return { ...semDesconto, motivo: `Este cupom venceu em ${formatarVencimento(cupom.valido_ate)}.` }
   }
   if (!Array.isArray(cupom.planos) || !cupom.planos.includes(plano)) {
     return { ...semDesconto, motivo: 'Cupom nao vale para este plano.' }
   }
+
+  // Cupom pessoal (recuperacao de Pix abandonado): vale so pra quem recebeu.
+  // Sem isto, o codigo do e-mail de uma pessoa viraria desconto pra qualquer um
+  // que o repassasse. Comparacao sem caixa: quem digita o proprio e-mail no
+  // checkout escreve como quiser.
+  let exigeEmail = false
+  if (cupom.email_restrito) {
+    // Sem e-mail ainda (o link do e-mail abre o checkout com o cupom pronto,
+    // antes de a pessoa digitar qualquer coisa): mostra o desconto e avisa que
+    // ele depende do e-mail. Nao e brecha: o checkout SEMPRE revalida com o
+    // e-mail preenchido, e la a regra abaixo derruba quem nao for o dono.
+    if (!email) exigeEmail = true
+    else if (String(cupom.email_restrito).trim().toLowerCase() !== email.trim().toLowerCase()) {
+      // Nunca revelar QUAL e-mail: o codigo pode ter sido repassado, e o
+      // destinatario original nao autorizou ninguem a descobrir o e-mail dele.
+      return { ...semDesconto, motivo: 'Este cupom e pessoal e vale so para o e-mail que o recebeu.' }
+    }
+  }
+
 
   // Limite global e por-cliente contados na tabela de usos (fonte da verdade),
   // nao no contador `usos_atual` (que e so um cache pra leitura rapida no
@@ -68,7 +110,9 @@ export async function validarCupom(
       .select('id', { count: 'exact', head: true })
       .eq('cupom_id', cupom.id)
     if ((count || 0) >= cupom.limite_uso_global) {
-      return { ...semDesconto, motivo: 'Cupom esgotado.' }
+      // Cupom de uso unico ja gasto: a pessoa precisa saber que ele funcionou
+      // uma vez, senao tenta de novo achando que e erro do site.
+      return { ...semDesconto, motivo: cupom.limite_uso_global === 1 ? 'Este cupom ja foi utilizado.' : 'Cupom esgotado.' }
     }
   }
   if (cupom.limite_uso_por_cliente != null && email) {
@@ -78,7 +122,7 @@ export async function validarCupom(
       .eq('cupom_id', cupom.id)
       .eq('email', email)
     if ((count || 0) >= cupom.limite_uso_por_cliente) {
-      return { ...semDesconto, motivo: 'Voce ja usou este cupom.' }
+      return { ...semDesconto, motivo: 'Este cupom ja foi utilizado.' }
     }
   }
 
@@ -95,6 +139,7 @@ export async function validarCupom(
     precoBrutoCentavos: bruto,
     descontoCentavos,
     precoLiquidoCentavos,
+    exigeEmail,
     permiteGratis: !!cupom.permite_gratis,
     limiteUsoPorCliente: cupom.limite_uso_por_cliente,
   }
