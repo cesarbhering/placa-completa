@@ -134,7 +134,12 @@ export function decodeVin(rawVin) {
   const dentroDaJanela = plantRow
     && (plantRow.ano_de == null || anoModelo == null || anoModelo >= plantRow.ano_de)
     && (plantRow.ano_ate == null || anoModelo == null || anoModelo <= plantRow.ano_ate)
-  const plantaOk = dentroDaJanela && plantRow.confianca === 'alta' ? plantRow : null
+  // Dois niveis vao pra tela, por razoes diferentes: 'alta' e o codigo de
+  // posicao 11 validado contra a base de leiloes; 'marca_unica_fabrica' e a
+  // marca que so tem um lugar onde montar no Brasil, entao a cidade nao
+  // depende do codigo. Qualquer outro nivel fica fora.
+  const PUBLICAVEL = new Set(['alta', 'marca_unica_fabrica'])
+  const plantaOk = dentroDaJanela && PUBLICAVEL.has(plantRow.confianca) ? plantRow : null
   // String legada (o relatorio antigo espera texto) mais o detalhe estruturado.
   const planta = plantaOk?.plant_name || null
   const plantaDetalhe = plantaOk
