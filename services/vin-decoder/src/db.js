@@ -46,10 +46,29 @@ db.exec(`
   -- um mapa confiavel disso (varia por fabricante/pais, sem padrao publico
   -- unificado) — comeca vazia, povoada via override manual conforme
   -- confirmarmos casos reais.
+  -- Chave-valor de controle interno (versao da tabela curada de plantas, etc).
+  CREATE TABLE IF NOT EXISTS meta (
+    chave TEXT PRIMARY KEY,
+    valor TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS plants (
     wmi_code TEXT NOT NULL,
+    -- '*' quando o WMI inteiro pertence a uma unica fabrica (Fiat 9BD e so
+    -- Betim, entao a posicao 11 nao precisa decidir nada).
     position_11 TEXT NOT NULL,
     plant_name TEXT NOT NULL,
+    cidade TEXT,
+    uf TEXT,
+    pais TEXT,
+    -- Ate quando este codigo vale. Ford Sao Bernardo e o caso: o mesmo codigo
+    -- aparece depois de 2001 em carro que ja saia de Camacari, entao a cidade
+    -- so pode ser afirmada ate o ano limite.
+    ano_de INTEGER,
+    ano_ate INTEGER,
+    fonte TEXT,
+    -- 'alta' e o unico nivel que vai pra tela do cliente.
+    confianca TEXT NOT NULL DEFAULT 'alta',
     PRIMARY KEY (wmi_code, position_11)
   );
 
@@ -95,3 +114,14 @@ const YEAR_CODES = [
 const insertYear = db.prepare('INSERT OR IGNORE INTO year_codes (code, year_low, year_high) VALUES (?, ?, ?)')
 const insertYears = db.transaction((rows) => { for (const r of rows) insertYear.run(...r) })
 insertYears(YEAR_CODES)
+
+// Banco antigo ja tem `plants` com so tres colunas. CREATE TABLE IF NOT EXISTS
+// nao acrescenta coluna, entao a adicao e feita aqui, uma vez, ignorando o erro
+// de coluna repetida (e o jeito de "add column if not exists" no SQLite).
+for (const coluna of [
+  'cidade TEXT', 'uf TEXT', 'pais TEXT',
+  'ano_de INTEGER', 'ano_ate INTEGER',
+  'fonte TEXT', "confianca TEXT NOT NULL DEFAULT 'alta'",
+]) {
+  try { db.exec(`ALTER TABLE plants ADD COLUMN ${coluna}`) } catch { /* ja existe */ }
+}

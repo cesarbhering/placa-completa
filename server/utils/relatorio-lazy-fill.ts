@@ -43,6 +43,39 @@ export function camposLazyPendentes(snap: any, plano: string): CampoLazy[] {
 }
 
 /**
+ * Snapshot antigo tem chassiOrigem preenchido, mas sem a planta: a tabela de
+ * fabricas nao existia quando ele foi gerado. Aqui o campo TEM valor e mesmo
+ * assim vale um decode novo, porque continua sendo o mesmo veiculo e a mesma
+ * fonte; o que mudou foi o que a gente sabe ler dele. Uma vez por relatorio,
+ * marcado com planta_em.
+ */
+export function faltaPlanta(snap: any): boolean {
+  if (!snap || typeof snap !== 'object') return false
+  if (snap.planta_em) return false
+  const co = snap.chassiOrigem
+  if (!co || typeof co !== 'object') return false
+  return co.plantaDetalhe === undefined
+}
+
+export async function enriquecerPlanta(
+  supabase: any,
+  opts: { token: string; chassi: string; anoReferencia: number | null },
+): Promise<any | undefined> {
+  try {
+    const novo = corrigirAnoChassi(await decodificarChassi(opts.chassi), opts.anoReferencia)
+    await supabase.rpc('enriquecer_snapshot_planta', {
+      p_token: opts.token,
+      p_valor: novo,
+      p_marcador_em: new Date().toISOString(),
+    })
+    return novo
+  } catch (e: any) {
+    console.warn('[lazy-fill] enriquecer planta falhou (fail-open):', e?.message)
+    return undefined
+  }
+}
+
+/**
  * Roda as tentativas e grava campo a campo. Fail-open em tudo: qualquer erro
  * deixa o relatorio exatamente como esta hoje, que e sair sem a secao.
  *
