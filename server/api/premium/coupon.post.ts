@@ -15,6 +15,10 @@ export default defineEventHandler(async (event) => {
   // Quem cobra de verdade e o checkout.post.ts, que revalida com o e-mail.
 
   const supabase = usePremiumSupabase()
-  const resultado = await validarCupom(supabase, codigo, plano, email || undefined)
+  // A placa vem junto porque o cupom de recuperacao e preso a ela: sem isso, a
+  // validacao previa diria "invalido" pra um cupom que vai funcionar no
+  // checkout, ou o contrario.
+  const placa = String(body.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
+  const resultado = await validarCupom(supabase, codigo, plano, email || undefined, placa || undefined)
   return resultado
 })

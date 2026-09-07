@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
   // motivo, o checkout segue com o preco cheio em vez de falhar a compra.
   const codigoCupom = String(body.cupom || '').trim()
   const cupomValidado = codigoCupom
-    ? await validarCupom(supabase, codigoCupom, plano, email)
+    ? await validarCupom(supabase, codigoCupom, plano, email, placa)
     : null
 
   // Cupom gratis (permite_gratis + desconto cobre 100%): reivindica a vaga

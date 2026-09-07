@@ -28,6 +28,8 @@ export async function validarCupom(
   // limite por cliente e simplesmente pulado. O checkout final SEMPRE chama
   // esta funcao com o e-mail, entao a regra continua valendo onde importa.
   email?: string,
+  // Placa da compra: so precisa quando o cupom e preso a uma placa.
+  placa?: string,
 ): Promise<CupomValidado> {
   const precoBrutoCentavos = plano === 'basica' || plano === 'completa' ? PLANOS[plano].valorCentavos : 0
   const semDesconto = { ok: false as const, precoBrutoCentavos, descontoCentavos: 0, precoLiquidoCentavos: precoBrutoCentavos }
@@ -57,6 +59,31 @@ export async function validarCupom(
   }
   if (!Array.isArray(cupom.planos) || !cupom.planos.includes(plano)) {
     return { ...semDesconto, motivo: 'Cupom nao vale para este plano.' }
+  }
+
+  // Cupom pessoal (recuperacao de Pix abandonado): vale so pra quem recebeu.
+  // Sem isto, o codigo do e-mail de uma pessoa viraria desconto pra qualquer um
+  // que o repassasse. Comparacao sem caixa: quem digita o proprio e-mail no
+  // checkout escreve como quiser.
+  if (cupom.email_restrito) {
+    if (!email) {
+      return { ...semDesconto, motivo: 'Este cupom e pessoal: informe o e-mail que recebeu o cupom.' }
+    }
+    if (String(cupom.email_restrito).trim().toLowerCase() !== email.trim().toLowerCase()) {
+      return { ...semDesconto, motivo: 'Este cupom e pessoal e vale so para o e-mail que o recebeu.' }
+    }
+  }
+
+  // Cupom preso a uma placa (a mesma do Pix abandonado).
+  if (cupom.placa_restrita) {
+    const alvo = String(cupom.placa_restrita).toUpperCase().replace(/[^A-Z0-9]/g, '')
+    const atual = String(placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+    if (!atual) {
+      return { ...semDesconto, motivo: 'Este cupom vale so para a placa da consulta que voce comecou.' }
+    }
+    if (alvo !== atual) {
+      return { ...semDesconto, motivo: 'Este cupom vale so para a placa da consulta que voce comecou.' }
+    }
   }
 
   // Limite global e por-cliente contados na tabela de usos (fonte da verdade),
