@@ -19,7 +19,12 @@ export async function decodificarChassi(chassi: string | null | undefined): Prom
   try {
     const res = await $fetch<any>(`${config.vinDecoderUrl}/decode/${vin}`, {
       method: 'GET',
-      timeout: 500,
+      // 3s, nao 500ms: a chamada e interna na rede docker e responde em menos
+      // de 10ms com a maquina calma, mas sob load alto ja levou 4,5s e o
+      // relatorio saiu sem a secao, congelado assim no snapshot. O custo de
+      // esperar e zero (nao ha cobranca por chamada) e o relatorio ja tolera
+      // 15s do servico de leilao.
+      timeout: 3000,
     })
     if (!res?.valido) return null
     return {
