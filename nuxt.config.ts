@@ -640,6 +640,10 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_HOMOLOG === "true" ||
         process.env.NUXT_PUBLIC_STAGING === "true",
       whatsappEnabled: process.env.NUXT_PUBLIC_WHATSAPP_ENABLED === "true",
+      // Pixel da Meta (remarketing). Vazio = plugin nao carrega nada, nenhuma
+      // requisicao sai do navegador. Preenchido no Coolify quando a conta
+      // existir, sem precisar de deploy de codigo.
+      metaPixelId: process.env.NUXT_PUBLIC_META_PIXEL_ID || "",
       supabaseUrl:
         process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
