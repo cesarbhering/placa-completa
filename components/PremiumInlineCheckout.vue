@@ -55,7 +55,12 @@ const emailErro = ref('')
 // O servidor responde sem acento e em linguagem interna; aqui vira copy.
 function mensagemCupom(motivo?: string): string {
   if (!motivo) return 'Cupom inválido.'
-  if (/ja usou/i.test(motivo)) return 'Este cupom já foi utilizado por este e-mail.'
+  // "venceu em DD/MM as HHhMM" e "e pessoal" vem prontos do servidor: sao os
+  // unicos motivos com dado dentro (a data, e a regra do dono). Repetir a
+  // frase aqui so criaria duas versoes da mesma copy pra sair de sincronia.
+  if (/venceu em/i.test(motivo)) return motivo.replace(' as ', ' às ')
+  if (/pessoal/i.test(motivo)) return 'Este cupom é válido apenas para o e-mail que o recebeu.'
+  if (/ja foi utilizado|ja usou/i.test(motivo)) return 'Este cupom já foi utilizado.'
   if (/esgotado/i.test(motivo)) return 'Este cupom já foi totalmente utilizado.'
   if (/expirado/i.test(motivo)) return 'Este cupom está expirado.'
   if (/nao encontrado|inativo/i.test(motivo)) return 'Cupom inválido.'
@@ -79,7 +84,12 @@ async function validarCupom(): Promise<boolean> {
     })
     if (r?.ok) {
       cupomDescontoCentavos.value = r.descontoCentavos || 0
-      cupomMsg.value = cupomDescontoCentavos.value > 0 ? 'Cupom aplicado!' : ''
+      cupomMsg.value = cupomDescontoCentavos.value > 0
+        // Cupom pessoal aberto pelo link antes de a pessoa digitar o e-mail:
+        // o desconto ja vale, mas so pra ela. Melhor dizer agora do que deixar
+        // o preco subir de surpresa no clique de pagar.
+        ? (r.exigeEmail ? 'Cupom aplicado. Use o mesmo e-mail que recebeu o cupom.' : 'Cupom aplicado!')
+        : ''
       return true
     }
     cupomDescontoCentavos.value = 0
@@ -198,6 +208,17 @@ onMounted(() => {
   if (import.meta.client) {
     const saved = localStorage.getItem('pc_email')
     if (saved) email.value = saved
+  }
+  // Cupom pela URL (?cupom=CUPOM10ABCDE): o e-mail de recuperacao de Pix manda
+  // a pessoa de volta com o desconto pronto. Sem isto ela teria que copiar o
+  // codigo do e-mail e achar o campo, que fica fechado por padrao.
+  const daUrl = String(useRoute().query.cupom || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20)
+  if (daUrl) {
+    cupomCodigo.value = daUrl
+    cupomAberto.value = true
+    // Valida sozinho: a pessoa clicou num link com desconto, ver o preco velho
+    // por um instante e ruim. Roda depois do preview, que traz o veiculo.
+    nextTick(() => validarCupom())
   }
   trackBeginCheckout(props.plano, placaClean.value)
   consultarPreview()
