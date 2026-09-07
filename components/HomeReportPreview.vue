@@ -9,12 +9,18 @@
 // Estatico e ilustrativo de proposito: dado inventado aqui nao vira promessa,
 // porque a tela deixa claro que e exemplo. Nao revela a fonte dos dados.
 
-// MESMOS 10 indicadores do relatorio real, mesmos rotulos, mesma ordem
+import { LEILAO_FORA_DO_DOCUMENTO } from '~/shared/leilao-copy'
+
+// MESMOS indicadores do relatorio real, mesmos rotulos, mesma ordem
 // (pages/premium/[token].vue). O exemplo e vitrine do produto: divergir daqui
 // e prometer um documento diferente do que se entrega.
 const indicadores = [
   { label: 'Roubo / furto', valor: 'NADA CONSTA', risco: false },
-  { label: 'Registro de leilão', valor: 'SEM REGISTRO', risco: false },
+  // Os dois lados da mesma pergunta, lado a lado como no relatorio real: o
+  // documento nao registrou nada, e a nossa base achou. E exatamente essa
+  // diferenca que o produto vende.
+  { label: 'Leilão no documento', valor: 'SEM REGISTRO', risco: false },
+  { label: 'Histórico de leilão', valor: 'CONFIRMADO', risco: true },
   { label: 'Gravame', valor: 'CONSTA', risco: true },
   { label: 'RENAJUD', valor: 'CONSTA', risco: true },
   { label: 'Restrição RFB', valor: 'NADA CONSTA', risco: false },
@@ -67,6 +73,29 @@ const ficha: { grupo: string; linhas: [string, string][] }[] = [
 // so dois campos, e numa coluna de tabela eles ficavam perdidos no fim.
 // Faixa de status, igual a do relatorio de verdade.
 const licenciamento = { rotulo: 'Em dia', texto: 'Último licenciamento 2026 · documento emitido em 21/05/2026' }
+
+// Passagem por leilao do exemplo. Dado FICTICIO, como todo o resto desta
+// previa, mas plausivel e coerente com o Gol 2018 de São Paulo: leilao de
+// retomada de financiamento em 2023, comitente instituicao financeira, sem
+// nome de leiloeira particular (regra do produto: nunca expor a casa).
+//
+// Renderiza igual ao relatorio de verdade porque a previa e vitrine: se o
+// exemplo mostra um bloco que o documento entregue nao tem, a venda promete o
+// que o produto nao cumpre.
+const leilaoExemplo = {
+  nivel: 'Confirmado',
+  fonte: 'Leiloeira particular',
+  gravidade: { rotulo: 'Retomada de financiamento', cor: 'amarelo' },
+  detalhes: [
+    ['Data do leilão', '14/03/2023'],
+    ['Lote', '1042'],
+    ['Situação', 'Vendido'],
+    ['Valor', 'R$ 21.400'],
+    ['Comitente', 'Instituição financeira'],
+  ] as [string, string][],
+  registro: 'VW Gol 1.0 Flex 2018/2018, branco, SP · placa ABC****3',
+  evidencia: 'Chassi completo igual',
+}
 
 // Restricoes com a explicacao de consequencia, como no laudo real.
 const restricoes = [
@@ -147,8 +176,33 @@ onMounted(async () => {
         </span>
       </div>
 
-      <!-- 4. ficha (antes do valor, como no laudo) -->
-      <h4 class="hrp__h">4. Ficha cadastral e técnica</h4>
+      <!-- 4. historico de leilao -->
+      <h4 class="hrp__h">4. Histórico de leilão</h4>
+      <p class="hrp__leilao-base">
+        Placa e chassi cruzados com uma base de mais de 1 milhão de veículos leiloados,
+        montada a partir de editais de DETRANs e catálogos de leiloeiras.
+      </p>
+      <div class="hrp__leilao">
+        <div class="hrp__leilao-topo">
+          <span class="hrp__nivel">{{ leilaoExemplo.nivel }}</span>
+          <span class="hrp__leilao-fonte">{{ leilaoExemplo.fonte }}</span>
+        </div>
+        <p class="hrp__grav" :class="`hrp__grav--${leilaoExemplo.gravidade.cor}`">
+          <span class="hrp__grav-barra" aria-hidden="true" />
+          <span>{{ leilaoExemplo.gravidade.rotulo }}</span>
+        </p>
+        <ul class="hrp__leilao-det">
+          <li v-for="([k, v]) in leilaoExemplo.detalhes" :key="k">
+            <span>{{ k }}</span><strong>{{ v }}</strong>
+          </li>
+        </ul>
+        <p class="hrp__leilao-reg">Veículo na fonte: {{ leilaoExemplo.registro }}</p>
+        <p class="hrp__leilao-reg">Bateu: {{ leilaoExemplo.evidencia }}</p>
+        <p class="hrp__leilao-ctx">{{ LEILAO_FORA_DO_DOCUMENTO }}</p>
+      </div>
+
+      <!-- 5. ficha (antes do valor, como no laudo) -->
+      <h4 class="hrp__h">5. Ficha cadastral e técnica</h4>
       <div class="hrp__lic">
         <span class="hrp__lic-pill">{{ licenciamento.rotulo }}</span>
         <span>{{ licenciamento.texto }}</span>
@@ -168,7 +222,7 @@ onMounted(async () => {
       </div>
 
       <!-- 5. valor -->
-      <h4 class="hrp__h">5. Valor de mercado e custo de propriedade</h4>
+      <h4 class="hrp__h">6. Valor de mercado e custo de propriedade</h4>
       <div class="hrp__nums">
         <div class="hrp__num">
           <span class="hrp__num-lab">Valor de mercado</span>
@@ -451,6 +505,100 @@ $font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   // ---- restricoes ----
+  // Bloco de leilao da previa: mesma anatomia do relatorio real (nivel, fonte,
+  // termometro de gravidade, detalhes, o que bateu, contexto).
+  &__leilao-base {
+    margin: 0 0 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: $c-graphite;
+  }
+
+  &__leilao {
+    border: 1px solid $c-hair;
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  &__leilao-topo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  &__nivel {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(211, 58, 58, 0.1);
+    color: $c-red;
+  }
+
+  &__leilao-fonte { font-size: 13px; color: $c-charcoal; }
+
+  &__grav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  &__grav-barra {
+    width: 4px;
+    align-self: stretch;
+    min-height: 18px;
+    border-radius: 2px;
+    background: currentColor;
+  }
+
+  &__grav--amarelo { color: $c-amber; }
+  &__grav--vermelho { color: $c-red; }
+  &__grav--verde { color: $c-green; }
+
+  &__leilao-det {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px 16px;
+
+    li {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12.5px;
+      color: $c-graphite;
+      border-bottom: 1px solid $c-hair;
+      padding-bottom: 3px;
+    }
+
+    strong { color: $c-ink; font-weight: 500; text-align: right; }
+
+    @media (max-width: 560px) { grid-template-columns: 1fr; }
+  }
+
+  &__leilao-reg {
+    margin: 0 0 3px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: $c-charcoal;
+  }
+
+  &__leilao-ctx {
+    margin: 8px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: $c-graphite;
+  }
+
   &__restr {
     display: flex;
     gap: 10px;

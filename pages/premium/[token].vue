@@ -15,6 +15,7 @@
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { explicaRestricao } from '~/shared/restricoes'
+import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
 
 const route = useRoute()
 const token = route.params.token as string
@@ -1310,7 +1311,7 @@ onUnmounted(() => poll && clearInterval(poll))
           <!-- historico de leilao (so completa, so onde o servico existe) -->
           <section v-if="temSecaoLeilao" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.leilao }}. Histórico de leilão</h2>
-            <p v-if="temIndicioReal || possiveisComFoto.length" class="rel__leilao-base">Placa e chassi cruzados com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras.</p>
+            <p v-if="temIndicioReal || possiveisComFoto.length" class="rel__leilao-base">Placa e chassi cruzados com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de DETRANs e catálogos de leiloeiras.</p>
 
             <!-- Sem nada com grau de certeza, a seção diz UMA coisa só. Antes
                  empilhava "nenhum indício", mais a contagem de lotes parecidos,
@@ -1318,7 +1319,7 @@ onUnmounted(() => poll && clearInterval(poll))
                  confuso pra dizer que não há nada. -->
             <template v-if="!temIndicioReal && !possiveisComFoto.length">
               <p class="rel__leilao-limpo">
-                Na nossa base com mais de 1 milhão de veículos leiloados, nenhuma ocorrência de leilão foi encontrada para {{ esteVeiculo }}.
+                {{ leilaoSemOcorrencia(esteVeiculo) }}
               </p>
             </template>
 
@@ -1344,6 +1345,12 @@ onUnmounted(() => poll && clearInterval(poll))
                   <span class="rel__grav-rotulo">{{ p.gravidade.rotulo }}</span>
                 </p>
                 <p v-if="p.detalhe" class="rel__leilao-det">{{ p.detalhe }}</p>
+                <!-- O que a pessoa pensa ao ver isto e "mas o documento nao
+                     diz nada de leilao". Leilao de seguradora e de leiloeira
+                     muitas vezes nao vira anotacao no documento, entao a
+                     ausencia la nao desmente o registro daqui. Frase sobre o
+                     documento, nunca sobre quem o emite. -->
+                <p class="rel__leilao-ctx">{{ LEILAO_FORA_DO_DOCUMENTO }}</p>
                 <ul v-if="p.detalhes.length" class="rel__leilao-detalhes">
                   <li v-for="d in p.detalhes" :key="d.rotulo">
                     <span>{{ d.rotulo }}</span><strong>{{ d.valor }}</strong>
@@ -1988,6 +1995,15 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     font-size: 14px;
     line-height: 1.5;
     color: $c-charcoal;
+  }
+
+  // Contexto, nao alerta: explica por que o documento pode nao trazer isto,
+  // em tom menor que a passagem em si.
+  &__leilao-ctx {
+    margin: 6px 0 4px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: $c-graphite;
   }
 
   &__leilao-mais {
