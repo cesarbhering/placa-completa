@@ -1165,7 +1165,7 @@ function applyEmailSuggestion() {
             </p>
             <p class="cb-locked__leilao">
               O relatório completo ainda cruza a placa e o chassi com uma
-              <strong>base de mais de 1 milhão de veículos leiloados</strong>, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras.
+              <strong>base de mais de 1 milhão de veículos leiloados</strong>, montada a partir de editais de DETRANs e catálogos de leiloeiras.
             </p>
 
             <div class="cb-locked__box">
@@ -1302,7 +1302,7 @@ function applyEmailSuggestion() {
                 </svg>
                 <h3>Mais de 1 milhão de veículos leiloados na nossa base</h3>
                 <p>
-                  Cruzamos a placa e o chassi com editais de órgãos de trânsito e catálogos
+                  Cruzamos a placa e o chassi com editais de DETRANs e catálogos
                   de leiloeiras. Carro batido que voltou pro mercado costuma deixar rastro ali,
                   e não no anúncio.
                 </p>
