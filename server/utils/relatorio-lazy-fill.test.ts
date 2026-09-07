@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { camposLazyPendentes, marcadorDe } from './relatorio-lazy-fill'
+import { camposLazyPendentes, marcadorDe, faltaPlanta } from './relatorio-lazy-fill'
 
 const snapBase = (extra: any = {}) => ({
   consulta: { placa: 'CSD0B36', response: [{ chassi: '9BGKS48F08G123456', anoModelo: 2008 }] },
@@ -48,5 +48,25 @@ describe('campos que valem uma segunda tentativa', () => {
   it('resposta achatada em objeto (nao array) tambem e lida', () => {
     const snap = snapBase({ consulta: { placa: 'X', response: { chassi: '9BGKS48F08G123456' } } })
     expect(camposLazyPendentes(snap, 'completa')).toEqual(['chassiOrigem'])
+  })
+})
+
+describe('planta em relatorio antigo', () => {
+  const comOrigem = (co: any, extra: any = {}) => ({
+    consulta: { placa: 'X', response: [{ chassi: '9BWAA05U0CT015779' }] },
+    chassiOrigem: co, valorCusto: {}, historicoLeilao: {}, ...extra,
+  })
+
+  it('origem sem planta: vale um decode novo', () => {
+    expect(faltaPlanta(comOrigem({ fabricante: 'Volkswagen', planta: null }))).toBe(true)
+  })
+
+  it('origem que ja passou pelo decode novo nao repete', () => {
+    expect(faltaPlanta(comOrigem({ plantaDetalhe: null }))).toBe(false)
+    expect(faltaPlanta(comOrigem({ fabricante: 'VW' }, { planta_em: '2026-09-07T12:00:00Z' }))).toBe(false)
+  })
+
+  it('sem origem nenhuma, quem resolve e o lazy fill de campo vazio', () => {
+    expect(faltaPlanta(comOrigem(null))).toBe(false)
   })
 })
