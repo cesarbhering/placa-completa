@@ -894,6 +894,24 @@ function humanizarPaisFabricante(bruto: any, ehPais: boolean): string | null {
   if (!gritando) return s
   return s.toLowerCase().split(' ').map((w, i) => (CONECTIVOS_PT.has(w) && i > 0 ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ')
 }
+// Frase da fabrica: o dado que mais encanta neste bloco nao e o codigo, e
+// saber que aquele carro nasceu numa cidade com nome. Fica em cima da tabela,
+// em uma linha, e so aparece quando a planta foi CONFIRMADA (ver
+// services/vin-decoder/scripts/plants-br.mjs). Sem confirmacao, nao ha frase:
+// montadora e pais continuam nas linhas da tabela, sem inventar cidade.
+const frasePlanta = computed<string | null>(() => {
+  const co: any = data.value?.chassiOrigem
+  const p = co?.plantaDetalhe
+  if (!p?.cidade) return null
+  const fabricante = humanizarPaisFabricante(co.fabricante, false)
+  const local = p.uf ? `${p.cidade} (${p.uf})` : p.cidade
+  const feminino = segmento.value === 'moto'
+  const verbo = feminino ? 'Fabricada' : 'Fabricado'
+  return fabricante
+    ? `${verbo} pela ${fabricante} em ${local}.`
+    : `${verbo} em ${local}.`
+})
+
 const fichaChassiOrigem = computed(() => {
   const co = data.value?.chassiOrigem
   if (!co) return []
@@ -901,7 +919,9 @@ const fichaChassiOrigem = computed(() => {
     linha('Fabricante', humanizarPaisFabricante(co.fabricante, false)),
     linha('País de fabricação', humanizarPaisFabricante(co.pais, true)),
     linha('Ano-modelo (pelo chassi)', co.anoModelo),
-    linha('Planta', co.planta),
+    linha('Planta', co.plantaDetalhe?.cidade
+      ? (co.plantaDetalhe.uf ? `${co.plantaDetalhe.cidade} (${co.plantaDetalhe.uf})` : co.plantaDetalhe.cidade)
+      : co.planta),
   ].filter(Boolean) as [string, string][]
 })
 
@@ -922,13 +942,13 @@ const fichaChassiOrigem = computed(() => {
 // Determinismo: deriva SO dos arrays de linha ja computados (fichaCadastral
 // etc), nada de medir DOM/ResizeObserver — mesmo resultado no SSR e no
 // client, sem risco de mismatch de hidratacao.
-interface BlocoFicha { key: string; titulo: string; linhas: [string, string][] }
+interface BlocoFicha { key: string; titulo: string; linhas: [string, string][]; nota?: string | null }
 const fichaColunas = computed(() => {
   const candidatos: BlocoFicha[] = [
     { key: 'cadastral', titulo: 'Cadastral', linhas: fichaCadastral.value },
     { key: 'tecnica', titulo: 'Técnica', linhas: fichaTecnica.value },
     { key: 'importacao', titulo: 'Importação', linhas: fichaImportacao.value },
-    { key: 'chassiOrigem', titulo: 'Origem do chassi', linhas: fichaChassiOrigem.value },
+    { key: 'chassiOrigem', titulo: 'Origem do chassi', linhas: fichaChassiOrigem.value, nota: frasePlanta.value },
   ]
   const blocos = candidatos.filter((b) => b.linhas.length > 0)
   const pesos = blocos.map((b) => b.linhas.length + 1.5)
@@ -1426,6 +1446,7 @@ onUnmounted(() => poll && clearInterval(poll))
               <div class="rel__ficha-col">
                 <div v-for="bloco in fichaColunas.esquerda" :key="bloco.key">
                   <span class="rel__sub">{{ bloco.titulo }}</span>
+                  <p v-if="bloco.nota" class="rel__ficha-nota">{{ bloco.nota }}</p>
                   <table class="rel__tab">
                     <tbody>
                       <tr v-for="([k, val]) in bloco.linhas" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
@@ -1436,6 +1457,7 @@ onUnmounted(() => poll && clearInterval(poll))
               <div class="rel__ficha-col">
                 <div v-for="bloco in fichaColunas.direita" :key="bloco.key">
                   <span class="rel__sub">{{ bloco.titulo }}</span>
+                  <p v-if="bloco.nota" class="rel__ficha-nota">{{ bloco.nota }}</p>
                   <table class="rel__tab">
                     <tbody>
                       <tr v-for="([k, val]) in bloco.linhas" :key="k"><td>{{ k }}</td><td>{{ val }}</td></tr>
@@ -2465,6 +2487,15 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border-bottom: 1px solid $c-blue;
     padding-bottom: 6px;
     margin-bottom: 4px;
+  }
+
+  // Frase da fabrica, acima da tabela de origem do chassi. Uma linha, tom de
+  // texto normal: e informacao boa de ler, nao alerta.
+  &__ficha-nota {
+    margin: 0 0 4px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: $c-ink;
   }
 
   &__tab {

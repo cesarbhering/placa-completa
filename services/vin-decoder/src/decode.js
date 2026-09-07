@@ -47,7 +47,9 @@ function checkDigitOk(vin) {
 
 const getWmiExact = db.prepare('SELECT * FROM wmi WHERE code = ?')
 const getWmiOverride = db.prepare('SELECT * FROM wmi_overrides WHERE code = ?')
-const getPlant = db.prepare('SELECT plant_name FROM plants WHERE wmi_code = ? AND position_11 = ?')
+// Duas buscas: o codigo exato da posicao 11 e, se nao houver, o curinga '*'
+// (WMI de fabrica unica, como o 9BD da Fiat, que so foi Betim).
+const getPlant = db.prepare('SELECT * FROM plants WHERE wmi_code = ? AND position_11 IN (?, \'*\')  ORDER BY position_11 = ? DESC LIMIT 1')
 const getYear = db.prepare('SELECT * FROM year_codes WHERE code = ?')
 const insertLog = db.prepare(
   'INSERT INTO decode_log (vin_hash, wmi_prefix, achou_wmi, fabricante, pais) VALUES (?, ?, ?, ?, ?)',
@@ -120,9 +122,24 @@ export function decodeVin(rawVin) {
   // disso nem regredir 30 anos por engano.
   const anoModelo = yearRow ? melhorAnoDoCiclo(yearRow.year_low) : null
 
-  const resolvedCode = row?.code || (override ? wmi3 : null)
-  const plantRow = resolvedCode ? getPlant.get(resolvedCode, vin[10]) : null
-  const planta = plantRow?.plant_name || null
+  // A planta e procurada pelo WMI batido no VIN, nao so pelo codigo resolvido
+  // na tabela wmi: a curadoria e por WMI real de chassi brasileiro, e o
+  // resolvedCode pode ser um WMI de 2 caracteres.
+  const plantRow = getPlant.get(wmi3, vin[10], vin[10])
+    || (row?.code && row.code !== wmi3 ? getPlant.get(row.code, vin[10], vin[10]) : null)
+  // Fora da janela de anos, a cidade nao pode ser afirmada. E o caso da Ford
+  // em Sao Bernardo: o mesmo codigo de posicao 11 aparece em carro de 2002 em
+  // diante, que ja saia de Camacari. Nesse caso o relatorio mostra so a
+  // montadora e o pais, que continuam verdadeiros.
+  const dentroDaJanela = plantRow
+    && (plantRow.ano_de == null || anoModelo == null || anoModelo >= plantRow.ano_de)
+    && (plantRow.ano_ate == null || anoModelo == null || anoModelo <= plantRow.ano_ate)
+  const plantaOk = dentroDaJanela && plantRow.confianca === 'alta' ? plantRow : null
+  // String legada (o relatorio antigo espera texto) mais o detalhe estruturado.
+  const planta = plantaOk?.plant_name || null
+  const plantaDetalhe = plantaOk
+    ? { cidade: plantaOk.cidade || null, uf: plantaOk.uf || null, pais: plantaOk.pais || null }
+    : null
 
   const vinHash = crypto.createHash('sha256').update(vin).digest('hex').slice(0, 16)
   try {
@@ -138,6 +155,7 @@ export function decodeVin(rawVin) {
     regiao,
     anoModelo,
     planta,
+    plantaDetalhe,
     vds: vin.slice(3, 9),
     serial: vin.slice(11, 17),
   }
