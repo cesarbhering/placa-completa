@@ -671,6 +671,9 @@ export default defineNuxtConfig({
     // o noindex nela.
     "/premium": { robots: "noindex, nofollow" },
     "/premium/**": { robots: "noindex, nofollow" },
+    // Pesquisa de satisfacao: mesma logica do relatorio. O token da URL e a
+    // credencial, e a resposta de um cliente nao pode virar resultado de busca.
+    "/feedback/**": { robots: "noindex, nofollow" },
     // A home NAO e mais prerenderizada de proposito (theming por dominio —
     // ver composables/useSiteVariant.ts): tentamos prerender + rewrite
     // interno por Host (server/middleware), mas o Nitro serve rota
