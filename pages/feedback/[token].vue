@@ -128,12 +128,13 @@ async function enviar() {
 /* Linguagem da home: canvas branco, tinta near-black, um unico acento azul,
    hairline no lugar de sombra. */
 .fb {
-  min-height: 100vh;
+  /* Encostado no topo, nao centralizado na viewport: a pagina ja vive dentro
+     do layout com cabecalho e rodape, e centralizar empurrava o card pro meio
+     de uma tela quase vazia, com rolagem antes de ver a pergunta. */
   background: #f7f7f7;
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding: 24px 16px 48px;
+  padding: 24px 16px 56px;
 }
 .fb__card {
   width: 100%;
