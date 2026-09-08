@@ -1225,7 +1225,20 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 .pic-cupom__erro { font-size: 13px; color: $c-red; margin: 2px 0 0; }
 
 .pic-err { font-size: 14px; line-height: 1.4; color: $c-red; margin: 12px 0 0; }
-.pic-qr { width: 170px; height: 170px; align-self: center; border-radius: 8px; border: 1px solid $c-hair; }
+.pic-qr {
+  width: 170px;
+  height: 170px;
+  align-self: center;
+  border-radius: 8px;
+  border: 1px solid $c-hair;
+
+  // No desktop ha espaco pra um QR que se le de longe, com o celular na mao.
+  @media (min-width: 900px) {
+    width: 220px;
+    height: 220px;
+    align-self: stretch;
+  }
+}
 
 // Duas colunas no desktop: o que a pessoa TOCA (QR e copiar) de um lado, o que
 // ela LE (aviso, e-mail, garantia) do outro. Empilhado, isso passava de mil
@@ -1249,12 +1262,27 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     align-items: flex-start;
     gap: 22px;
 
-    &__acao { flex: 0 0 210px; }
+    // Largura da coluna esquerda = largura do QR, pra o botao de copiar e o
+    // prazo ficarem do mesmo tamanho dele, em vez de flutuarem soltos.
+    &__acao { flex: 0 0 220px; }
     &__info { flex: 1 1 auto; text-align: left; }
   }
 }
 
-.pic-h--pix { margin-bottom: 10px; }
+// O titulo e cabecalho das DUAS colunas, entao ocupa a linha inteira e fica
+// alinhado a esquerda no desktop. Centralizado, ele parecia titulo so da
+// coluna da direita e as duas colunas saiam desencontradas.
+.pic-h--pix {
+  width: 100%;
+  margin-bottom: 12px;
+
+  @media (min-width: 900px) {
+    text-align: left;
+    padding-bottom: 12px;
+    border-bottom: 1px solid $c-hair;
+    margin-bottom: 16px;
+  }
+}
 
 .pic-link--codigo {
   align-self: flex-start;
