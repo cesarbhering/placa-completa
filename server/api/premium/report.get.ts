@@ -86,6 +86,9 @@ export default defineEventHandler(async (event) => {
       // configurado: e por aqui que da pra ver a secao renderizada sem gerar
       // pedido pago. Sem env, volta null e a secao nao aparece.
       historicoLeilao: await consultarHistoricoLeilao(perfilDaAmostra(amostra)).catch(() => null),
+      // A amostra finge um pedido SEM e-mail, pra dar pra revisar a faixa de
+      // entrega por e-mail sem precisar de um pedido real nesse estado.
+      temEmail: false,
       brCode: null,
       expiraEm: null,
       expirado: false,
@@ -94,7 +97,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em')
+    .select('status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Relatorio nao encontrado' })
@@ -235,6 +238,10 @@ export default defineEventHandler(async (event) => {
       chassi: (Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response)?.chassi,
     }) : segmento,
     preview: pedido.preview,
+    // So o FLAG, nunca o e-mail: quem tem o token da pagina nao precisa
+    // descobrir o e-mail de quem comprou, e um token que vaze nao pode virar
+    // vazamento de contato.
+    temEmail: !!pedido.email,
     entregue_em: pedido.entregue_em,
     consulta,
     brCode: pendente && !expirado ? pedido.br_code : null,

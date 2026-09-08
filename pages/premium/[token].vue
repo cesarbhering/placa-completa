@@ -31,6 +31,44 @@ const isBasica = computed(() => plano.value === 'basica')
 const restantes = computed<number>(() => data.value?.camposRestantes || 0)
 const entregue = computed(() => data.value?.status === 'entregue')
 
+// Entrega por e-mail a partir da propria pagina do relatorio. O servidor manda
+// so o FLAG temEmail, nunca o e-mail: quem tem o link nao precisa descobrir o
+// contato de quem comprou.
+const emailEntrega = ref('')
+const enviandoEmail = ref(false)
+const erroEmail = ref('')
+const emailEnviadoPara = ref('')
+const mostrarFaixaEmail = computed(() => !!data.value && data.value.temEmail === false && !!entregue.value)
+
+function mascararEmail(e: string): string {
+  const [antes, dominio] = e.split('@')
+  if (!dominio) return e
+  const visivel = antes.slice(0, 3)
+  return `${visivel}${antes.length > 3 ? '***' : ''}@${dominio}`
+}
+
+async function enviarPorEmail() {
+  const valor = emailEntrega.value.trim().toLowerCase()
+  erroEmail.value = ''
+  if (!valor.includes('@')) {
+    erroEmail.value = 'Informe um e-mail válido.'
+    return
+  }
+  enviandoEmail.value = true
+  try {
+    await $fetch('/api/premium/email', { method: 'POST', body: { token, email: valor } })
+    // Mostra mascarado: a tela pode estar aberta na frente de outra pessoa, e
+    // o e-mail de quem comprou nao precisa ficar exposto ali.
+    emailEnviadoPara.value = mascararEmail(valor)
+  } catch (e: any) {
+    erroEmail.value = e?.data?.message === 'Informe um e-mail válido.'
+      ? 'Informe um e-mail válido.'
+      : 'Não conseguimos enviar agora. O relatório continua nesta página.'
+  } finally {
+    enviandoEmail.value = false
+  }
+}
+
 // O servidor ja devolve a resposta achatada (ver normalizarResposta): array de
 // um elemento, com os indicadores que vinham aninhados em `restricoes` subidos
 // pro topo e as restricoes detalhadas em `restricoesItens`.
@@ -1186,6 +1224,40 @@ onUnmounted(() => poll && clearInterval(poll))
 
         <!-- ============ 3. O RELATORIO ============ -->
         <template v-else>
+          <!-- Faixa de entrega por e-mail. So aparece pra quem comprou sem
+               informar e-mail (o campo do Pix e opcional desde que ele saiu da
+               frente da cobranca). Sem isto, quem fechava o modal do Pix nao
+               tinha onde informar depois, e a entrega virava caso de suporte:
+               aconteceu de verdade com o pedido da KCD1J29.
+               O link continua sendo o acesso, e a frase diz isso: o e-mail e
+               conveniencia, nao condicao. -->
+          <div v-if="mostrarFaixaEmail" class="rel__email">
+            <template v-if="emailEnviadoPara">
+              <p class="rel__email-ok">Enviado para {{ emailEnviadoPara }}. O link desta página continua valendo.</p>
+            </template>
+            <template v-else>
+              <div class="rel__email-txt">
+                <strong>Quer receber este relatório por e-mail?</strong>
+                <span>O link é seu acesso permanente.</span>
+              </div>
+              <form class="rel__email-form" @submit.prevent="enviarPorEmail">
+                <label class="rel__sr" for="rel-email">Seu e-mail</label>
+                <input
+                  id="rel-email"
+                  v-model="emailEntrega"
+                  type="email"
+                  inputmode="email"
+                  autocomplete="email"
+                  class="rel__email-input"
+                  placeholder="seu@email.com"
+                >
+                <button type="submit" class="rel__btn rel__btn--mini" :disabled="enviandoEmail">
+                  {{ enviandoEmail ? 'Enviando...' : 'Enviar' }}
+                </button>
+              </form>
+              <p v-if="erroEmail" class="rel__hint rel__hint--erro">{{ erroEmail }}</p>
+            </template>
+          </div>
           <!-- Cabecalho de documento: identidade, numero e emissao. E o que
                faz laudo parecer laudo — estrutura, nao enfeite. -->
           <header class="rel__doc">
@@ -1730,6 +1802,74 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__doc-linha {
     font-size: 12.5px;
     color: $c-graphite;
+  }
+
+  // Faixa de entrega por e-mail: discreta de proposito. Ela nao pode competir
+  // com o relatorio, que e o que a pessoa veio ver; e um servico oferecido, nao
+  // um passo pendente.
+  &__email {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border: 1px solid $c-hair;
+    border-radius: 12px;
+    background: $c-cloud;
+  }
+
+  &__email-txt {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    font-size: 13.5px;
+    line-height: 1.4;
+
+    strong { color: $c-ink; font-weight: 600; }
+    span { color: $c-graphite; }
+  }
+
+  &__email-form {
+    display: flex;
+    gap: 8px;
+    flex: 1 1 260px;
+    min-width: 0;
+  }
+
+  &__email-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid $c-steel;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 14px;
+    color: $c-ink;
+    background: $c-canvas;
+
+    &:focus-visible { outline: 2px solid $c-blue; outline-offset: 1px; border-color: $c-blue; }
+  }
+
+  // Rotulo so pra leitor de tela: o campo tem placeholder e a frase ao lado ja
+  // diz o que ele e. A classe global visually-hidden nao existe fora da home.
+  &__sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  &__email-ok {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: $c-ink;
   }
 
   &__doc-validade {
