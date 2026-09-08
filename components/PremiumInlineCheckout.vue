@@ -1304,8 +1304,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 }
 
-.pic-h--pix { margin-bottom: 0; }
-
 .pic-h--pix { margin-bottom: 10px; }
 
 .pic-link--codigo {
