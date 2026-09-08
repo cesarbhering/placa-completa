@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import { GENERICAS } from '~/shared/enriquecimento-regional'
+
+// Bloco proprio desta pagina. Ela e quase a home em intencao, entao sem algo
+// que so ela diga o Google trata as duas como a mesma coisa e guarda uma so.
+const blocoPagina = GENERICAS['/consulta-placa']
 function onCtaClick() {
   if (import.meta.client && window.gtag) {
     window.gtag('event', 'cta_click', { source_page: 'consulta-placa' })
@@ -27,6 +32,15 @@ useHead({
           rápida, segura e totalmente grátis. Basta informar a placa do veículo e seu e-mail
           para receber todas as informações disponíveis.
         </p>
+
+        <template v-if="blocoPagina">
+          <h2>{{ blocoPagina.titulo }}</h2>
+          <p>{{ blocoPagina.texto }}</p>
+          <div v-for="q in blocoPagina.faq" :key="q.pergunta" class="pc-faq__item">
+            <h3>{{ q.pergunta }}</h3>
+            <p>{{ q.resposta }}</p>
+          </div>
+        </template>
 
         <h2>Que dados eu recebo na consulta?</h2>
         <ul>
