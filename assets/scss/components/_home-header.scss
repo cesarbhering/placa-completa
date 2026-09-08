@@ -379,4 +379,11 @@ $h-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   background: $h-canvas;
   border-bottom: 1px solid $h-hair;
   width: 100%;
+  // Gruda no topo, como na home. Nas paginas de conteudo, que sao longas, o
+  // cabecalho sumia na primeira rolagem e a pessoa ficava sem caminho de volta
+  // e sem campo de placa: justamente nas paginas que existem pra trazer gente
+  // de busca, que chega sem conhecer o site.
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
