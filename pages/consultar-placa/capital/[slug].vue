@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { capitals } from '~/data/capitals'
 import { states } from '~/data/states'
+import { REGIONAL } from '~/shared/enriquecimento-regional'
 
 const route = useRoute()
 const slug = route.params.slug as string
@@ -13,6 +14,10 @@ if (!capital) {
 const state = states[capital.stateSlug]
 
 const currentYear = new Date().getFullYear()
+// O dado de leilao que temos e estadual, entao a capital usa o bloco da UF
+// dela. Inventar um recorte municipal que a base nao sustenta daria um numero
+// bonito e falso.
+const blocoLeilao = computed(() => (state?.uf ? REGIONAL[state.uf] : undefined))
 
 function onCtaClick() {
   if (import.meta.client && window.gtag) {
@@ -109,6 +114,19 @@ useHead({
             {{ capital.neighborhoods }}. Independente da região de registro,
             qualquer placa de {{ state.uf }} pode ser consultada pelo PlacaCompleta.
           </p>
+
+          <template v-if="blocoLeilao">
+            <h2>{{ blocoLeilao.titulo }}</h2>
+            <p>{{ blocoLeilao.texto }}</p>
+            <p>
+              Veja também o <NuxtLink to="/carro-de-leilao">guia de carro de leilão</NuxtLink>,
+              com os tipos de leilão que existem e o que cada um significa na hora de negociar.
+            </p>
+            <div v-for="q in blocoLeilao.faq" :key="q.pergunta" class="pc-faq__item">
+              <h3>{{ q.pergunta }}</h3>
+              <p>{{ q.resposta }}</p>
+            </div>
+          </template>
 
           <h2>DETRAN-{{ state.uf }} em {{ capital.name }}</h2>
           <p>

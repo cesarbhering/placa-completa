@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { fipeBrands, findBrandModel } from '~/data/fipe-brands'
+import { enriquecimentoDe } from '~/shared/fipe-enriquecimento'
+import { MODELOS_LEILAO } from '~/shared/leilao-modelos'
 import { getModelSeoIntro } from '~/data/fipe-model-intros'
 import fipePricesData from '~/data/fipe-prices.json'
 import seguroModelosData from '~/data/seguro-modelos.json'
@@ -16,6 +18,18 @@ if (!brand && !brandModel) {
 }
 
 const isBrandPage = !!brand
+// Conteudo proprio desta pagina: bloco de leilao do modelo, paragrafo de
+// geracao e FAQ. Existe pra 23 das paginas de modelo, e o resto segue como
+// estava (ver shared/fipe-enriquecimento.ts).
+const enriq = computed(() => (isBrandPage ? undefined : enriquecimentoDe(slug)))
+// Quando ha uma pagina dedicada de leilao daquele modelo, o link aponta pra
+// ela; quando nao ha, aponta pro guia. Casa pelo nome curto, que e como o
+// pSEO de leilao chama o modelo.
+const slugLeilaoDedicado = computed(() => {
+  const nome = enriq.value?.nomeCurto?.toLowerCase()
+  if (!nome) return null
+  return MODELOS_LEILAO.find((m) => m.nome.toLowerCase() === nome)?.slug || null
+})
 const pageData = isBrandPage ? brand : brandModel!.brand
 const model = brandModel?.model
 
@@ -151,6 +165,13 @@ if (isBrandPage) {
               text: `O valor FIPE do ${pageData.name} ${model!.name} varia conforme o ano e versão. Para saber o valor exato, consulte a placa do veículo no PlacaCompleta e receba o preço FIPE atualizado no seu e-mail.`,
             },
           },
+          // Perguntas proprias do modelo (leilao), quando existirem: e o
+          // unico trecho de FAQ que difere de uma pagina pra outra.
+          ...(enriquecimentoDe(slug)?.faq || []).map((q) => ({
+            '@type': 'Question',
+            name: q.pergunta,
+            acceptedAnswer: { '@type': 'Answer', text: q.resposta },
+          })),
           {
             '@type': 'Question',
             name: `Como saber o valor FIPE de um ${pageData.name} ${model!.name} usado?`,
@@ -491,11 +512,39 @@ if (isBrandPage) {
             </ol>
 
             <h2>Sobre o {{ pageData.name }} {{ model!.name }}</h2>
-            <p>
+            <!-- O texto proprio do modelo (geracao, motorizacao, ano mais
+                 frequente na nossa base) substitui o paragrafo generico, que
+                 era a mesma frase com o nome trocado em toda pagina de
+                 modelo. Sem enriquecimento, o generico segue valendo. -->
+            <p v-if="enriq?.paragrafoUnico">{{ enriq.paragrafoUnico }}</p>
+            <p v-else>
               O {{ model!.name }} é um dos modelos da {{ pageData.name }} disponíveis no
               mercado brasileiro. Ao consultar a placa, você recebe não apenas o valor FIPE,
               mas também informações como cor, município de registro, situação, chassi e combustível.
             </p>
+
+            <!-- Historico de leilao: o dado que so nos temos, e o unico bloco
+                 que muda de verdade de um modelo pro outro. -->
+            <template v-if="enriq?.leilao">
+              <h2>Histórico de leilão do {{ enriq.nomeCurto }}</h2>
+              <p>{{ enriq.leilao.dado }}</p>
+              <p v-if="enriq.leilao.categoria">{{ enriq.leilao.categoria }}</p>
+              <p>
+                Antes de comprar um {{ enriq.nomeCurto }} usado, consulte a placa do carro
+                específico: a consulta cruza com nossa base de mais de 1 milhão de registros de
+                leilão e retorna um indício de passagem quando existe registro compatível. Veja
+                também o <NuxtLink to="/carro-de-leilao">guia de carro de leilão</NuxtLink><template v-if="slugLeilaoDedicado"> e a
+                <NuxtLink :to="`/carro-de-leilao/${slugLeilaoDedicado}`">análise dedicada do {{ enriq.nomeCurto }}</NuxtLink></template>.
+              </p>
+            </template>
+
+            <template v-if="enriq?.faq?.length">
+              <h2>Perguntas frequentes sobre o {{ enriq.nomeCurto }}</h2>
+              <div v-for="q in enriq.faq" :key="q.pergunta" class="pc-faq__item">
+                <h3>{{ q.pergunta }}</h3>
+                <p>{{ q.resposta }}</p>
+              </div>
+            </template>
 
             <h2>Outros modelos {{ pageData.name }}</h2>
             <div class="model-grid">
