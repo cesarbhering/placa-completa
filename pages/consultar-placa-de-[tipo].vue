@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import { GENERICAS } from '~/shared/enriquecimento-regional'
 import { vehicleTypes } from '~/data/vehicle-types'
 
 const route = useRoute()
 const slug = route.params.tipo as string
 const data = vehicleTypes[slug]
+// So a van tem bloco proprio por enquanto: e a que estava sem indexar. As
+// outras seguem como estao, em vez de ganharem um texto igual entre si.
+const blocoPagina = computed(() => GENERICAS[`/consultar-placa-de-${slug}`])
 
 if (!data) {
   throw createError({ statusCode: 404, message: 'Tipo de veículo não encontrado' })
@@ -64,6 +68,15 @@ useHead({
           <li>Clique em "Receber Dados no E-mail"</li>
           <li>Pronto! Em segundos os dados chegam no seu e-mail.</li>
         </ol>
+
+        <template v-if="blocoPagina">
+          <h2>{{ blocoPagina.titulo }}</h2>
+          <p>{{ blocoPagina.texto }}</p>
+          <div v-for="q in blocoPagina.faq" :key="q.pergunta" class="pc-faq__item">
+            <h3>{{ q.pergunta }}</h3>
+            <p>{{ q.resposta }}</p>
+          </div>
+        </template>
 
         <h2>Para quem é essa consulta?</h2>
         <p>{{ data.audience }}</p>
