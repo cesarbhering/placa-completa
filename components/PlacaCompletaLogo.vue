@@ -61,12 +61,27 @@ const colors = computed(() => {
     <path d="M16 96 H36 V100 H12 V76 H16 Z" :fill="colors.primary" />
     <path d="M112 96 H92 V100 H116 V76 H112 Z" :fill="colors.primary" />
 
+    <!--
+      textLength trava a largura das duas palavras.
+      Sem ele, a largura dependia de a Trebuchet existir na maquina de quem
+      abre o site: onde ela nao existe (Linux, boa parte dos Androids, e o
+      nosso proprio headless), a fonte de fallback e mais larga e o A final de
+      COMPLETA passava dos 304 do viewBox e ficava CORTADO. Estava assim no
+      cabecalho de todas as paginas.
+      Aumentar o viewBox resolveria o corte mas deixaria a marca flutuando com
+      largura diferente em cada maquina; fixar o comprimento mantem o
+      logotipo igual em qualquer lugar, que e o minimo que se espera de uma
+      marca. lengthAdjust=spacingAndGlyphs condensa letra e espaco juntos, em
+      vez de so espremer os espacos.
+    -->
     <text
       x="140"
       y="70"
       font-family="'Trebuchet MS', Tahoma, 'Segoe UI', sans-serif"
       font-size="36"
       font-weight="700"
+      textLength="120"
+      lengthAdjust="spacingAndGlyphs"
       :fill="colors.primary"
     >PLACA</text>
     <text
@@ -75,6 +90,8 @@ const colors = computed(() => {
       font-family="'Trebuchet MS', Tahoma, 'Segoe UI', sans-serif"
       font-size="32"
       font-weight="400"
+      textLength="156"
+      lengthAdjust="spacingAndGlyphs"
       :fill="colors.primary"
     >COMPLETA</text>
   </svg>
