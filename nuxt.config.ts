@@ -105,6 +105,27 @@ export default defineNuxtConfig({
       "/consulta-gratis",
       "/como-consultar-placa",
       "/tabela-fipe-por-placa",
+      "/carro-de-leilao",
+      // pSEO: modelo de leilao (uma pagina por modelo, ver shared/leilao-modelos.ts)
+      "/carro-de-leilao/gol",
+      "/carro-de-leilao/uno",
+      "/carro-de-leilao/palio",
+      "/carro-de-leilao/corsa",
+      "/carro-de-leilao/celta",
+      "/carro-de-leilao/voyage",
+      "/carro-de-leilao/strada",
+      "/carro-de-leilao/vectra",
+      "/carro-de-leilao/saveiro",
+      "/carro-de-leilao/onix",
+      "/carro-de-leilao/fox",
+      "/carro-de-leilao/astra",
+      "/carro-de-leilao/sandero",
+      "/carro-de-leilao/s10",
+      "/carro-de-leilao/corolla",
+      "/carro-de-leilao/hb20",
+      "/carro-de-leilao/compass",
+      "/carro-de-leilao/t-cross",
+      "/carro-de-leilao/sw4",
       // pSEO: vehicle types
       "/consultar-placa-de-carro",
       "/consultar-placa-de-moto",
@@ -640,6 +661,10 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_HOMOLOG === "true" ||
         process.env.NUXT_PUBLIC_STAGING === "true",
       whatsappEnabled: process.env.NUXT_PUBLIC_WHATSAPP_ENABLED === "true",
+      // Pixel da Meta (remarketing). Vazio = plugin nao carrega nada, nenhuma
+      // requisicao sai do navegador. Preenchido no Coolify quando a conta
+      // existir, sem precisar de deploy de codigo.
+      metaPixelId: process.env.NUXT_PUBLIC_META_PIXEL_ID || "",
       supabaseUrl:
         process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
