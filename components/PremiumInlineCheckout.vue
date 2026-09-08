@@ -728,8 +728,14 @@ onUnmounted(() => {
                    saiu daqui, e o que sobrou cabe sem scroll. No desktop vira
                    duas colunas: o que ela precisa TOCAR de um lado, o que ela
                    precisa LER do outro. -->
-              <h3 class="pic-h pic-h--pix">Pague {{ reais(pix?.valor ?? planoInfo.valorCentavos) }} com Pix</h3>
+              <!-- Titulo, QR e texto vivem no MESMO grid pra o topo do QR
+                   alinhar exatamente com o topo do titulo no desktop. Com o
+                   titulo fora do grid, ele empurrava as duas colunas pra baixo
+                   e elas comecavam em alturas diferentes. No celular o grid
+                   vira uma coluna so e a ordem natural (titulo, QR, texto)
+                   e a mesma de antes. -->
               <div class="pic-pix">
+                <h3 class="pic-h pic-h--pix">Pague {{ reais(pix?.valor ?? planoInfo.valorCentavos) }} com Pix</h3>
                 <div class="pic-pix__acao">
                   <img v-if="pix?.brCodeBase64" :src="pix.brCodeBase64" alt="QR Code Pix" class="pic-qr">
                   <button type="button" class="pic-btn" @click="copiar">
@@ -1225,7 +1231,20 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 .pic-cupom__erro { font-size: 13px; color: $c-red; margin: 2px 0 0; }
 
 .pic-err { font-size: 14px; line-height: 1.4; color: $c-red; margin: 12px 0 0; }
-.pic-qr { width: 170px; height: 170px; align-self: center; border-radius: 8px; border: 1px solid $c-hair; }
+.pic-qr {
+  width: 170px;
+  height: 170px;
+  align-self: center;
+  border-radius: 8px;
+  border: 1px solid $c-hair;
+
+  // No desktop ha espaco pra um QR que se le de longe, com o celular na mao.
+  @media (min-width: 900px) {
+    width: 220px;
+    height: 220px;
+    align-self: stretch;
+  }
+}
 
 // Duas colunas no desktop: o que a pessoa TOCA (QR e copiar) de um lado, o que
 // ela LE (aviso, e-mail, garantia) do outro. Empilhado, isso passava de mil
@@ -1245,14 +1264,24 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   @media (min-width: 900px) {
-    flex-direction: row;
-    align-items: flex-start;
-    gap: 22px;
+    display: grid;
+    // Coluna esquerda com a largura do QR: assim o botao de copiar e o prazo
+    // ficam do tamanho dele, em vez de flutuarem soltos.
+    grid-template-columns: 220px 1fr;
+    grid-template-areas:
+      "acao titulo"
+      "acao info";
+    align-items: start;
+    column-gap: 22px;
+    row-gap: 12px;
 
-    &__acao { flex: 0 0 210px; }
-    &__info { flex: 1 1 auto; text-align: left; }
+    .pic-h--pix { grid-area: titulo; align-self: start; margin: 0; }
+    &__acao { grid-area: acao; }
+    &__info { grid-area: info; text-align: left; }
   }
 }
+
+.pic-h--pix { margin-bottom: 0; }
 
 .pic-h--pix { margin-bottom: 10px; }
 
