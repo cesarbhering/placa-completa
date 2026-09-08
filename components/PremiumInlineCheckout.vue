@@ -693,7 +693,13 @@ onUnmounted(() => {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M12 2 3 6v5c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V6Z" />
                 </svg>
-                <span>Pix processado pela Woovi. Seus dados trafegam protegidos.</span>
+                <!-- Nao citamos mais o nome do processador aqui. Woovi e de
+                     fato quem processa (o QR aponta pra qr.woovi.com), mas nao
+                     e esse o nome que a pessoa ve: no app do banco o recebedor
+                     aparece como HASTE TECHNOLOGIES, a empresa por tras da
+                     AbacatePay. Citar um nome que ela nao vai encontrar nao
+                     ajuda em nada. -->
+                <span>Pagamento por Pix, processado com segurança. Seus dados trafegam protegidos.</span>
               </li>
               <li v-if="props.plano === 'completa'" class="pic-conf__item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -762,12 +768,18 @@ onUnmounted(() => {
                   <!-- Uma linha em vez de lista: ela ja decidiu comprar, isto
                        aqui e so lembrete enquanto abre o app do banco. -->
                   <p class="pic-libera">Libera {{ oQueLibera.slice(0, 3).join(', ').toLowerCase() }} e o resto do relatório.</p>
+                  <!-- O nome que aparece no app do banco nao e o nosso: e o da
+                       empresa que processa o Pix. Sem este aviso, a pessoa ve
+                       um nome desconhecido na hora de confirmar e desiste,
+                       achando que errou de cobranca. Conferido no BR Code real
+                       de pedidos de producao. -->
+                  <p class="pic-recebedor">No app do banco, o recebedor aparece como <strong>Haste Technologies</strong>, a empresa que processa o Pix para a PlacaCompleta.</p>
                   <p class="pic-selo">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <rect x="4" y="10" width="16" height="10" rx="2" />
                       <path d="M8 10V7a4 4 0 0 1 8 0v3" />
                     </svg>
-                    <span>Cobrança única via Woovi. Se não conseguirmos gerar o relatório, o estorno é automático.</span>
+                    <span>Cobrança única via Pix, processada com segurança. Se não conseguirmos gerar o relatório, o estorno é automático.</span>
                   </p>
                   <!-- O copia e cola cru fica atras de um toque: sao 100+
                        caracteres que empurravam o resto pra fora da tela e que
@@ -1043,6 +1055,17 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.45;
   color: $c-charcoal;
   text-align: left;
+}
+
+.pic-recebedor {
+  width: 100%;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: $c-graphite;
+  text-align: left;
+
+  strong { color: $c-ink; font-weight: 600; }
 }
 
 .pic-selo {
