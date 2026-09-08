@@ -787,13 +787,21 @@ onUnmounted(() => {
                     </svg>
                     <span>Cobrança única via Pix, processada com segurança. Se não conseguirmos gerar o relatório, o estorno é automático.</span>
                   </p>
-                  <!-- O copia e cola cru fica atras de um toque: sao 100+
-                       caracteres que empurravam o resto pra fora da tela e que
-                       quase ninguem le, porque o botao acima ja copia. -->
+                  <!-- O copia e cola fica a vista: quem paga do computador
+                       precisa dele na tela pra colar no internet banking, e
+                       esconder atras de um toque so criava um passo. No
+                       celular ele continua atras do toque, porque la o espaco
+                       e o que decide se a tela rola ou nao, e o botao de
+                       copiar ja resolve. -->
                   <button type="button" class="pic-link pic-link--codigo" @click="mostrarCodigo = !mostrarCodigo">
                     {{ mostrarCodigo ? 'Ocultar o código' : 'Ver o código para colar' }}
                   </button>
-                  <p v-if="mostrarCodigo" class="pic-brcode">{{ pix?.brCode }}</p>
+                  <div class="pic-codigo" :class="{ 'pic-codigo--aberto': mostrarCodigo }">
+                    <p class="pic-brcode">{{ pix?.brCode }}</p>
+                    <button type="button" class="pic-codigo__copiar" @click="copiar">
+                      {{ copiado ? 'Copiado' : 'Copiar' }}
+                    </button>
+                  </div>
                 </div>
               </div>
               <!-- Homolog: confirma o pagamento sem Pix real (AbacatePay dev). -->
@@ -1304,13 +1312,44 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 }
 
-.pic-h--pix { margin-bottom: 0; }
-
 .pic-h--pix { margin-bottom: 10px; }
 
 .pic-link--codigo {
   align-self: flex-start;
   font-size: 12.5px;
+
+  // No desktop o codigo ja esta na tela, entao o link nao tem o que revelar.
+  @media (min-width: 900px) { display: none; }
+}
+
+// Caixa do copia e cola. No celular so aparece quando a pessoa pede; no
+// desktop esta sempre visivel.
+.pic-codigo {
+  display: none;
+  gap: 8px;
+  align-items: flex-start;
+  width: 100%;
+
+  &--aberto { display: flex; }
+
+  @media (min-width: 900px) { display: flex; }
+
+  &__copiar {
+    flex: 0 0 auto;
+    align-self: stretch;
+    padding: 0 12px;
+    border: 1px solid $c-ink;
+    border-radius: 4px;
+    background: $c-canvas;
+    font-family: $fonte;
+    font-size: 12px;
+    font-weight: 600;
+    color: $c-ink;
+    cursor: pointer;
+
+    &:hover { background: $c-cloud; }
+    &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+  }
 }
 
 // Telas baixas (o 780 de altura do pedido): tudo encolhe um degrau em vez de
@@ -1321,6 +1360,11 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   .pic-pix__acao, .pic-pix__info { gap: 8px; }
 }
 .pic-brcode {
+  flex: 1 1 auto;
+  min-width: 0;
+  // Monoespacada: o codigo e pra ser conferido caractere a caractere quando
+  // alguem cola no internet banking, e fonte proporcional confunde 0 com O.
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 11px;
   line-height: 1.4;
   color: $c-graphite;
