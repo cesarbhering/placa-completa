@@ -7,6 +7,7 @@
 // ou registro compativel), nunca prometer certeza, e nunca nomear a fonte dos
 // dados do relatorio.
 import { PERGUNTAS_LEILAO } from '~/shared/faq-leilao'
+import { MODELOS_POR_VOLUME } from '~/shared/leilao-modelos'
 
 const CANONICO = 'https://placacompleta.com.br/carro-de-leilao'
 
@@ -195,6 +196,18 @@ const SINAIS = [
           <p>{{ q.resposta }}</p>
         </div>
 
+        <h2>Modelos mais leiloados</h2>
+        <p>
+          Os modelos com mais registros na nossa base, do mais frequente pro menos. Aparecer no topo
+          desta lista não quer dizer que o modelo seja pior: quer dizer que ele é popular, e carro
+          popular aparece mais em tudo, inclusive em leilão.
+        </p>
+        <ul class="pc-modelos">
+          <li v-for="mo in MODELOS_POR_VOLUME" :key="mo.slug">
+            <NuxtLink :to="`/carro-de-leilao/${mo.slug}`">{{ mo.nome }} de leilão</NuxtLink>
+          </li>
+        </ul>
+
         <h2>Onde mais o histórico ajuda</h2>
         <ul>
           <li><NuxtLink to="/">Consulta de placa grátis</NuxtLink>, com marca, modelo, ano e cor</li>
@@ -230,3 +243,13 @@ const SINAIS = [
     </main>
   </div>
 </template>
+
+<style scoped>
+.pc-modelos {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 16px;
+}
+</style>
