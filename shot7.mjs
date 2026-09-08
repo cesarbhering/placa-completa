@@ -1,0 +1,11 @@
+import { chromium } from 'playwright'
+const b = await chromium.launch()
+const p = await b.newPage({ viewport: { width: 390, height: 900 } })
+await p.goto('http://127.0.0.1:3000/carro-de-leilao/gol', { waitUntil: 'domcontentloaded' })
+await p.waitForTimeout(500)
+await p.screenshot({ path: '/tmp/modelo-gol.png' })
+await p.goto('http://127.0.0.1:3000/carro-de-leilao', { waitUntil: 'domcontentloaded' })
+await p.locator('.pc-modelos').first().scrollIntoViewIfNeeded()
+await p.waitForTimeout(400)
+await p.screenshot({ path: '/tmp/guia-modelos.png' })
+await b.close(); console.log('ok')
