@@ -455,8 +455,18 @@ async function checarStatus() {
   }
 }
 
+// O copia e cola cru fica escondido atras de um toque: sao mais de cem
+// caracteres que empurravam o resto da tela pra baixo e que quase ninguem le,
+// porque o botao acima ja copia.
+const mostrarCodigo = ref(false)
+const copiado = ref(false)
 function copiar() {
-  if (pix.value?.brCode) navigator.clipboard?.writeText(pix.value.brCode)
+  if (!pix.value?.brCode) return
+  navigator.clipboard?.writeText(pix.value.brCode)
+  // Confirmacao no proprio botao: sem ela a pessoa clica de novo achando que
+  // nao funcionou, e no celular nem da pra ver a area de transferencia.
+  copiado.value = true
+  setTimeout(() => { copiado.value = false }, 2500)
 }
 
 // Homolog: confirma o pagamento sem Pix real (AbacatePay dev). Depois o poll de
@@ -479,6 +489,23 @@ function fechar() {
   emit('close')
 }
 
+// No desktop, clique fora NAO fecha. Quem esta com o Pix na tela costuma
+// clicar fora ao voltar do app do banco, e fechar ali significa perder a
+// cobranca de vista no meio do pagamento. No celular o gesto de tocar fora e a
+// forma natural de sair, entao la continua fechando.
+function fecharPeloFundo() {
+  if (import.meta.client && window.innerWidth >= 1024) return
+  fechar()
+}
+
+// ESC fecha em qualquer largura: e o atalho que todo mundo espera de modal, e
+// no desktop passa a ser a saida junto com o X.
+function aoTeclar(e: KeyboardEvent) {
+  if (e.key === 'Escape') fechar()
+}
+onMounted(() => { if (import.meta.client) window.addEventListener('keydown', aoTeclar) })
+onUnmounted(() => { if (import.meta.client) window.removeEventListener('keydown', aoTeclar) })
+
 onUnmounted(() => {
   if (poll) clearInterval(poll)
   if (tickRestante) clearInterval(tickRestante)
@@ -486,8 +513,10 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="pic-overlay" role="dialog" aria-modal="true" aria-labelledby="pic-titulo" @click="fechar">
-    <div class="pic-card" @click.stop>
+  <div class="pic-overlay" role="dialog" aria-modal="true" aria-labelledby="pic-titulo" @click="fecharPeloFundo">
+    <!-- Na etapa do Pix o cartao fica mais largo no desktop: e a unica tela
+         em duas colunas, e nos 460px de sempre elas ficariam espremidas. -->
+    <div class="pic-card" :class="{ 'pic-card--largo': step === 'pending' && pendingStatus === 'aguardando_pagamento' }" @click.stop>
       <div class="pic-topo">
         <span id="pic-titulo" class="pic-titulo">{{ planoInfo.nome }} · {{ placaClean }}</span>
         <button type="button" class="pic-x" aria-label="Fechar" @click="fechar">
@@ -693,68 +722,62 @@ onUnmounted(() => {
               <p class="pic-hint">Só um instante...</p>
             </template>
             <template v-else-if="pendingStatus === 'aguardando_pagamento'">
-              <h3 class="pic-h">Pague com Pix para liberar</h3>
-              <!-- Na hora de pagar a pessoa precisa reconferir o que esta
-                   levando: tipo de relatorio, valor e, sobretudo, a placa. -->
-              <div class="pic-resumo">
-                <span class="pic-resumo__linha">
-                  <span>Relatório</span><strong>{{ planoInfo.nome }}</strong>
-                </span>
-                <span class="pic-resumo__linha pic-resumo__linha--total">
-                  <span>Total</span><strong>{{ reais(pix?.valor ?? planoInfo.valorCentavos) }}</strong>
-                </span>
-              </div>
-              <div class="pic-placa-destaque">
-                <span>Consultando a placa</span>
-                <strong>{{ placaClean }}</strong>
-              </div>
-              <img v-if="pix?.brCodeBase64" :src="pix.brCodeBase64" alt="QR Code Pix" class="pic-qr">
-              <p v-if="tempoRestante" class="pic-prazo">
-                Este Pix vale por <strong>{{ tempoRestante }}</strong>. Depois disso é só gerar outro.
-              </p>
-              <button type="button" class="pic-btn" @click="copiar">
-                Copiar código Pix (copia e cola)
-              </button>
-              <p class="pic-hint pic-hint--forte">Pode deixar esta tela aberta: assim que o pagamento cair, o relatório abre sozinho aqui.</p>
+              <!-- Tela do Pix, enxuta de proposito: ela tinha 1.136px de altura
+                   numa janela de 900 e mais ainda no celular, entao a pessoa
+                   pagava rolando. Tudo que o cabecalho ja diz (plano e placa)
+                   saiu daqui, e o que sobrou cabe sem scroll. No desktop vira
+                   duas colunas: o que ela precisa TOCAR de um lado, o que ela
+                   precisa LER do outro. -->
+              <h3 class="pic-h pic-h--pix">Pague {{ reais(pix?.valor ?? planoInfo.valorCentavos) }} com Pix</h3>
+              <div class="pic-pix">
+                <div class="pic-pix__acao">
+                  <img v-if="pix?.brCodeBase64" :src="pix.brCodeBase64" alt="QR Code Pix" class="pic-qr">
+                  <button type="button" class="pic-btn" @click="copiar">
+                    {{ copiado ? 'Código copiado' : 'Copiar código Pix' }}
+                  </button>
+                  <p v-if="tempoRestante" class="pic-prazo">Vale por <strong>{{ tempoRestante }}</strong></p>
+                </div>
+                <div class="pic-pix__info">
+                  <p class="pic-hint pic-hint--forte">Deixe esta tela aberta: quando o pagamento cair, o relatório abre aqui.</p>
 
-              <!-- E-mail de entrega. Aparece so pra quem ainda nao deu: quem ja
-                   tinha o e-mail preenchido no checkout nao ve campo nenhum
-                   aqui. O relatorio abre nesta tela de qualquer forma; o
-                   e-mail e pra ele durar depois que a aba fechar. -->
-              <div v-if="!emailJaTemos" class="pic-email-pix">
-                <label class="pic-label" for="pic-email-pix">Para onde enviamos seu relatório?</label>
-                <input
-                  id="pic-email-pix"
-                  v-model="email"
-                  type="email"
-                  inputmode="email"
-                  autocomplete="email"
-                  class="pic-input"
-                  placeholder="seu@email.com"
-                  @blur="salvarEmailDoPix"
-                >
-                <p v-if="emailPixSalvo" class="pic-cupom__ok">Pronto. O relatório também vai para o seu e-mail.</p>
-                <p v-else-if="emailPixErro" class="pic-hint">{{ emailPixErro }}</p>
-                <p v-else class="pic-hint">Opcional para pagar. Sem ele, o relatório fica só nesta tela.</p>
-              </div>
+                  <!-- E-mail de entrega. So aparece pra quem ainda nao deu, e
+                       cabe na coluna de leitura sem empurrar o QR pra fora da
+                       tela: rotulo curto e uma linha de apoio, nao tres. -->
+                  <div v-if="!emailJaTemos" class="pic-email-pix">
+                    <label class="pic-label" for="pic-email-pix">Receber por e-mail (opcional)</label>
+                    <input
+                      id="pic-email-pix"
+                      v-model="email"
+                      type="email"
+                      inputmode="email"
+                      autocomplete="email"
+                      class="pic-input"
+                      placeholder="seu@email.com"
+                      @blur="salvarEmailDoPix"
+                    >
+                    <p v-if="emailPixSalvo" class="pic-cupom__ok">Pronto, também vai por e-mail.</p>
+                    <p v-else-if="emailPixErro" class="pic-hint">{{ emailPixErro }}</p>
+                  </div>
 
-              <!-- Enquanto ela abre o app do banco, a tela lembra o que esta
-                   comprando. Os itens saem da lista de recursos do plano, nao
-                   de uma promessa escrita a mao aqui. -->
-              <div class="pic-libera">
-                <p class="pic-libera__tit">Assim que o pagamento cair, você vê</p>
-                <ul class="pic-libera__lista">
-                  <li v-for="item in oQueLibera" :key="item">{{ item }}</li>
-                </ul>
+                  <!-- Uma linha em vez de lista: ela ja decidiu comprar, isto
+                       aqui e so lembrete enquanto abre o app do banco. -->
+                  <p class="pic-libera">Libera {{ oQueLibera.slice(0, 3).join(', ').toLowerCase() }} e o resto do relatório.</p>
+                  <p class="pic-selo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="4" y="10" width="16" height="10" rx="2" />
+                      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                    </svg>
+                    <span>Cobrança única via Woovi. Se não conseguirmos gerar o relatório, o estorno é automático.</span>
+                  </p>
+                  <!-- O copia e cola cru fica atras de um toque: sao 100+
+                       caracteres que empurravam o resto pra fora da tela e que
+                       quase ninguem le, porque o botao acima ja copia. -->
+                  <button type="button" class="pic-link pic-link--codigo" @click="mostrarCodigo = !mostrarCodigo">
+                    {{ mostrarCodigo ? 'Ocultar o código' : 'Ver o código para colar' }}
+                  </button>
+                  <p v-if="mostrarCodigo" class="pic-brcode">{{ pix?.brCode }}</p>
+                </div>
               </div>
-              <p class="pic-brcode">{{ pix?.brCode }}</p>
-              <p class="pic-selo">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <rect x="4" y="10" width="16" height="10" rx="2" />
-                  <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-                </svg>
-                <span>Cobrança única de {{ reais(pix?.valor ?? planoInfo.valorCentavos) }} via Pix, processada pela Woovi. Se não conseguirmos gerar seu relatório, o estorno é automático.</span>
-              </p>
               <!-- Homolog: confirma o pagamento sem Pix real (AbacatePay dev). -->
               <button
                 v-if="cfg.public.homolog"
@@ -871,6 +894,10 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 .pic-card {
   width: 100%;
   max-width: 460px;
+
+  &--largo {
+    @media (min-width: 900px) { max-width: 720px; }
+  }
   background: $c-canvas;
   border: 1px solid $c-hair;
   border-radius: 16px;
@@ -1011,47 +1038,11 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
 .pic-libera {
   width: 100%;
-  border: 1px solid $c-hair;
-  border-radius: 8px;
-  padding: 12px 14px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: $c-charcoal;
   text-align: left;
-
-  &__tit {
-    margin: 0 0 8px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: $c-graphite;
-  }
-
-  &__lista {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-
-    li {
-      position: relative;
-      padding-left: 20px;
-      font-size: 14px;
-      line-height: 1.4;
-      color: $c-charcoal;
-
-      &::before {
-        content: '';
-        position: absolute;
-        left: 4px;
-        top: 8px;
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: $c-blue;
-      }
-    }
-  }
 }
 
 .pic-selo {
@@ -1234,7 +1225,49 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 .pic-cupom__erro { font-size: 13px; color: $c-red; margin: 2px 0 0; }
 
 .pic-err { font-size: 14px; line-height: 1.4; color: $c-red; margin: 12px 0 0; }
-.pic-qr { width: 190px; height: 190px; align-self: center; border-radius: 8px; border: 1px solid $c-hair; }
+.pic-qr { width: 170px; height: 170px; align-self: center; border-radius: 8px; border: 1px solid $c-hair; }
+
+// Duas colunas no desktop: o que a pessoa TOCA (QR e copiar) de um lado, o que
+// ela LE (aviso, e-mail, garantia) do outro. Empilhado, isso passava de mil
+// pixels de altura e obrigava a rolar no meio do pagamento.
+.pic-pix {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+
+  &__acao,
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  @media (min-width: 900px) {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 22px;
+
+    &__acao { flex: 0 0 210px; }
+    &__info { flex: 1 1 auto; text-align: left; }
+  }
+}
+
+.pic-h--pix { margin-bottom: 10px; }
+
+.pic-link--codigo {
+  align-self: flex-start;
+  font-size: 12.5px;
+}
+
+// Telas baixas (o 780 de altura do pedido): tudo encolhe um degrau em vez de
+// virar scroll. Um QR de 140px ainda le bem em qualquer camera.
+@media (max-height: 800px) {
+  .pic-qr { width: 140px; height: 140px; }
+  .pic-pix { gap: 10px; }
+  .pic-pix__acao, .pic-pix__info { gap: 8px; }
+}
 .pic-brcode {
   font-size: 11px;
   line-height: 1.4;
