@@ -80,13 +80,18 @@
 
   li { margin-bottom: 6px; }
 
-  a {
+  // O :not(.pc-btn) existe por um bug real em producao: um CTA dentro de um
+  // bloco de prose ficava com texto azul sobre fundo azul, ou seja, invisivel.
+  // `.pc-prose a` tem especificidade maior que `.pc-btn--primary`, entao a cor
+  // do link ganhava da cor do botao. Ate agora nenhuma pagina tinha botao
+  // dentro do texto, e o problema nunca tinha aparecido.
+  a:not(.pc-btn) {
     color: var(--pc-blue);
     text-decoration: none;
     border-bottom: 1px solid rgba(31, 111, 235, 0.35);
     transition: border-color 0.15s ease;
   }
-  a:hover { border-bottom-color: var(--pc-blue); }
+  a:not(.pc-btn):hover { border-bottom-color: var(--pc-blue); }
 }
 
 // Painel/card interno (FAQ, passo, callout): hairline, raio 12px, sem sombra
