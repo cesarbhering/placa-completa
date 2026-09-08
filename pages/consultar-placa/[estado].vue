@@ -3,6 +3,7 @@ import { states } from '~/data/states'
 import { capitalSlugByStateSlug } from '~/data/capitals'
 import { getStateSeoIntro } from '~/data/state-seo-intros'
 import seguroEstadosData from '~/data/seguro-estados.json'
+import { REGIONAL } from '~/shared/enriquecimento-regional'
 import seguroEletricosData from '~/data/seguro-eletricos.json'
 
 // Seguro medio do estado (cesta de populares; compilado da base SUSEP)
@@ -13,6 +14,7 @@ const slug = route.params.estado as string
 const data = states[slug]
 
 const seguroUf = (seguroEstadosData as any).estados?.[data?.uf] || null
+const blocoLeilao = computed(() => (data?.uf ? REGIONAL[data.uf] : undefined))
 const temEletrico = Boolean(data && (seguroEletricosData as Record<string, any>)[data.uf]?.mediaPremio)
 function brlSeguro(v: number): string {
   return 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
@@ -143,6 +145,22 @@ useHead({
 
           <h2>IPVA {{ data.name }} {{ new Date().getFullYear() }}</h2>
           <p>{{ data.ipvaInfo }}</p>
+
+          <!-- Bloco de leilao do estado: hoje so PR e CE, que sao as duas
+               UFs com levantamento pronto. Estado sem bloco segue como estava,
+               em vez de ganhar um texto generico igual ao das outras. -->
+          <template v-if="blocoLeilao">
+            <h2>{{ blocoLeilao.titulo }}</h2>
+            <p>{{ blocoLeilao.texto }}</p>
+            <p>
+              Veja também o <NuxtLink to="/carro-de-leilao">guia de carro de leilão</NuxtLink>,
+              com os tipos de leilão que existem e o que cada um significa na hora de negociar.
+            </p>
+            <div v-for="q in blocoLeilao.faq" :key="q.pergunta" class="pc-faq__item">
+              <h3>{{ q.pergunta }}</h3>
+              <p>{{ q.resposta }}</p>
+            </div>
+          </template>
 
           <h2>DETRAN-{{ data.uf }}</h2>
           <p>
