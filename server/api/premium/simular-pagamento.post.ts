@@ -18,13 +18,13 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id, abacatepay_id, status')
+    .select('id, abacatepay_id, pix_provider, status')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
   if (!pedido.abacatepay_id) throw createError({ statusCode: 409, message: 'Pedido sem cobranca gerada' })
 
-  const ok = await simularPagamento(pedido.abacatepay_id)
+  const ok = await provedorDoPedido((pedido as any).pix_provider).simularPagamento(pedido.abacatepay_id)
   if (!ok) throw createError({ statusCode: 502, message: 'Falha ao simular pagamento' })
   return { ok: true }
 })

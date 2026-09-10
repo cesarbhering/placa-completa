@@ -82,6 +82,7 @@ export default defineEventHandler(async (event) => {
     .from('pedidos_premium')
     .insert({
       token_entrega: token, placa, placa_confirmada: true, email: email || null, telefone,
+      pix_provider: provedorPix().nome,
       status: 'aguardando_pagamento', valor_centavos: valor, plano,
       preview: body.preview || null,
       ambiente,
@@ -146,7 +147,11 @@ export default defineEventHandler(async (event) => {
   // batem com o produto do catalogo (prod_...). O `customer` inline do
   // transparente exige name+taxId (que nao coletamos), entao amarramos o
   // cliente pelo customerId no metadata (rastreavel no dashboard).
-  const pix = await criarPixTransparente({
+  // Provedor escolhido por env (default abacatepay). O pedido guarda qual foi:
+  // sem isso, trocar a env deixaria os pedidos ja criados sem quem responder
+  // pelo status e pelo estorno deles.
+  const provedor = provedorPix()
+  const pix = await provedor.criarPixTransparente({
     amountCentavos: valor,
     pedidoId: pedido.id,
     expiresIn: 900,
@@ -160,6 +165,11 @@ export default defineEventHandler(async (event) => {
 
   return {
     token, plano, brCode: pix.brCode, brCodeBase64: pix.brCodeBase64, expiresAt: pix.expiresAt, valor,
+    // Nome que vai aparecer como recebedor no app do banco. Vem do provedor
+    // DESTA cobranca, e nao de uma constante na tela: quando a conta mudar, a
+    // frase muda junto. Null quando ainda nao confirmamos num Pix real, e ai a
+    // tela nao promete nome nenhum.
+    recebedor: provedor.nomeDoRecebedor(),
     // tentaGratis-e-falhou cai aqui com preco cheio: nesse caso NAO aplicou
     // desconto nenhum (a vaga gratis nao foi concedida), entao nao anuncia
     // cupom aplicado pro client.

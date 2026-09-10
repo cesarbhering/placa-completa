@@ -777,9 +777,12 @@ onUnmounted(() => {
                   <!-- O nome que aparece no app do banco nao e o nosso: e o da
                        empresa que processa o Pix. Sem este aviso, a pessoa ve
                        um nome desconhecido na hora de confirmar e desiste,
-                       achando que errou de cobranca. Conferido no BR Code real
-                       de pedidos de producao. -->
-                  <p class="pic-recebedor">No app do banco, o recebedor aparece como <strong>Haste Technologies</strong>, a empresa que processa o Pix para a PlacaCompleta.</p>
+                       achando que errou de cobranca.
+                       O nome vem do servidor, do provedor DESTA cobranca: com
+                       dois adquirentes convivendo, uma constante aqui viraria
+                       mentira pra metade das cobrancas. Sem nome confirmado, a
+                       linha nao aparece, em vez de chutar. -->
+                  <p v-if="pix?.recebedor" class="pic-recebedor">No app do banco, o recebedor aparece como <strong>{{ pix.recebedor }}</strong>, a empresa que processa o Pix para a PlacaCompleta.</p>
                   <p class="pic-selo">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <rect x="4" y="10" width="16" height="10" rx="2" />

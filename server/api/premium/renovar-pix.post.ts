@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,valor_centavos,expira_em,abacatepay_id,plano')
+    .select('id,status,valor_centavos,expira_em,abacatepay_id,pix_provider,plano')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
@@ -33,8 +33,9 @@ export default defineEventHandler(async (event) => {
   // futuro deixaria o cliente pagando um QR morto.
   const vencidoLocal = !pedido.expira_em || new Date(pedido.expira_em).getTime() < Date.now()
   if (!vencidoLocal) {
-    const { checarPix } = await import('../../utils/abacatepay')
-    const chk = pedido.abacatepay_id ? await checarPix(pedido.abacatepay_id) : null
+    const chk = pedido.abacatepay_id
+      ? await provedorDoPedido((pedido as any).pix_provider).checarPix(pedido.abacatepay_id)
+      : null
     // sem resposta do provedor, prevalece o relogio local (fail-safe: nao
     // gerar cobranca nova por causa de instabilidade de rede)
     if (!chk || /pending|created|aguard/i.test(chk.status || '')) {
@@ -47,7 +48,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const planoPedido = (pedido.plano === 'basica' || pedido.plano === 'completa') ? pedido.plano : 'completa'
-  const pix = await criarPixTransparente({
+  const provedor = provedorPix()
+  const pix = await provedor.criarPixTransparente({
     amountCentavos: pedido.valor_centavos,
     pedidoId: pedido.id,
     expiresIn: 900,
