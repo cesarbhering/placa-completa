@@ -1,4 +1,4 @@
-import { sinalDoHistorico, SINAL_VAZIO, dentroDoTetoDeSinal } from '../utils/sinal-leilao'
+import { sinalDoHistorico, SINAL_INDISPONIVEL, dentroDoTetoDeSinal } from '../utils/sinal-leilao'
 
 // Sinal de leilao para a CONSULTA GRATIS. Endpoint proprio, e nao um campo a
 // mais no /api/consulta, por tres motivos: nao atrasa a consulta gratis (ela
@@ -12,18 +12,19 @@ const TTL_MS = 24 * 60 * 60 * 1000
 /** Teto curto: se a API demorar, a consulta gratis segue sem o sinal. */
 const TIMEOUT_MS = 3000
 
-const cache = new Map<string, { em: number; sinal: { positivo: boolean; quantidade: number } }>()
+const cache = new Map<string, { em: number; sinal: { positivo: boolean | null; quantidade: number } }>()
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const placa = String(body?.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
-  if (placa.length !== 7) return SINAL_VAZIO
+  if (placa.length !== 7) return SINAL_INDISPONIVEL
 
   // Sem teto, da pra varrer placa por placa e montar um indice de quais carros
-  // tem passagem, que e o produto que a gente vende. Falha calada: quem passou
-  // do teto ve a consulta gratis normal, sem o sinal.
+  // tem passagem, que e o produto que a gente vende. Devolve INDISPONIVEL, nao
+  // vazio: quem passou do teto nao pode receber "nao tem registro" como se
+  // fosse resposta da base.
   const ip = getRequestIP(event, { xForwardedFor: true }) || ''
-  if (!dentroDoTetoDeSinal(ip)) return SINAL_VAZIO
+  if (!dentroDoTetoDeSinal(ip)) return SINAL_INDISPONIVEL
 
   const agora = Date.now()
   const emCache = cache.get(placa)
@@ -43,6 +44,8 @@ export default defineEventHandler(async (event) => {
     uf: String(body?.uf || '').trim() || null,
   }, { timeoutMs: TIMEOUT_MS }).catch(() => null)
 
+  // Sem historico (timeout, servico fora, key errada), sinalDoHistorico ja
+  // devolve INDISPONIVEL: a tela nao mostra frase nenhuma.
   const sinal = sinalDoHistorico(historico)
 
   // Guarda so quando a API respondeu. Guardar o vazio de um timeout ensinaria
