@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL } from '~/shared/planos'
+import { sinalDaResposta } from '~/shared/sinal-leilao-resposta'
 
 import { homepageFaqs } from '~/data/homepage-faqs'
 import { origemDaSessao } from '~/shared/origem-trafego'
@@ -320,8 +321,12 @@ async function buscarSinalLeilao() {
         uf: b.uf || null,
       },
     })
-    sinalLeilao.value = { positivo: !!r?.positivo, quantidade: Number(r?.quantidade) || 0 }
-    track('leilao_sinal_visto', { positivo: !!r?.positivo })
+    // Tres estados, nao dois: "nao sabemos" (timeout, servico fora, teto de
+    // uso) nao pode virar "nao tem registro" na tela. Ver
+    // shared/sinal-leilao-resposta.ts.
+    const lido = sinalDaResposta(r)
+    sinalLeilao.value = lido
+    if (lido) track('leilao_sinal_visto', { positivo: lido.positivo })
   } catch {
     // Servico fora do ar ou lento: a consulta gratis segue sem o sinal. Nunca
     // mostrar "nao encontramos" por falha nossa, que seria mentir.

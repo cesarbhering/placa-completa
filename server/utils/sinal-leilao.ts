@@ -10,13 +10,26 @@ import type { HistoricoLeilao } from './historico-leilao'
 // gente vende, nao sobre codigo.
 
 export interface SinalLeilao {
-  /** true quando ha passagem com nivel confirmado ou provavel. */
-  positivo: boolean
-  /** Quantas passagens desse nivel. Zero quando negativo. */
+  /**
+   * true = achamos registro. false = a base respondeu e nao tem registro.
+   * null = NAO SABEMOS: a consulta nao aconteceu (timeout, servico fora,
+   * teto de uso). Os tres estados sao diferentes na tela: null nao mostra
+   * frase nenhuma.
+   *
+   * Sem o null, uma lentidao nossa vira "nenhum registro de leilao
+   * encontrado" na cara de quem esta comprando um carro que talvez tenha
+   * passagem. Seria a nossa falha virando afirmacao sobre o veiculo de
+   * outra pessoa.
+   */
+  positivo: boolean | null
+  /** Quantas passagens de nivel confirmado ou provavel. Zero nos outros casos. */
   quantidade: number
 }
 
+/** A base respondeu e nao ha registro. */
 export const SINAL_VAZIO: SinalLeilao = { positivo: false, quantidade: 0 }
+/** Nao deu pra consultar. A tela nao mostra nada. */
+export const SINAL_INDISPONIVEL: SinalLeilao = { positivo: null, quantidade: 0 }
 
 /**
  * So confirmado e provavel contam como sinal. "Possivel" e inferencia por
@@ -25,7 +38,9 @@ export const SINAL_VAZIO: SinalLeilao = { positivo: false, quantidade: 0 }
  * coincidencia de dado.
  */
 export function sinalDoHistorico(historico: HistoricoLeilao | null | undefined): SinalLeilao {
-  if (!historico?.resumo) return SINAL_VAZIO
+  // Sem historico, a consulta nao aconteceu: isso e "nao sabemos", nunca
+  // "nao tem".
+  if (!historico?.resumo) return SINAL_INDISPONIVEL
   const n = (Number(historico.resumo.n_confirmado) || 0) + (Number(historico.resumo.n_provavel) || 0)
   return n > 0 ? { positivo: true, quantidade: n } : SINAL_VAZIO
 }
@@ -36,6 +51,8 @@ export function sinalDoHistorico(historico: HistoricoLeilao | null | undefined):
  * leilao, porque a nossa base nao prova ausencia.
  */
 export function fraseSinal(sinal: SinalLeilao, esteVeiculo: string): string {
+  // Indisponivel nao tem frase: a tela simplesmente nao fala de leilao.
+  if (sinal.positivo === null) return ''
   if (!sinal.positivo) {
     return `Nenhum registro de leilão encontrado para ${esteVeiculo} na nossa base de mais de 1 milhão de veículos leiloados.`
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { sinalDoHistorico, fraseSinal, SINAL_VAZIO, dentroDoTetoDeSinal, _limparTetoDeSinal } from './sinal-leilao'
+import { sinalDoHistorico, fraseSinal, SINAL_VAZIO, SINAL_INDISPONIVEL, dentroDoTetoDeSinal, _limparTetoDeSinal } from './sinal-leilao'
 
 const hist = (r: any) => ({ resumo: { n_confirmado: 0, n_provavel: 0, n_possivel: 0, ...r }, passagens: [] }) as any
 
@@ -15,10 +15,20 @@ describe('sinal de leilao da consulta gratis', () => {
     expect(sinalDoHistorico(hist({ n_possivel: 5 }))).toEqual(SINAL_VAZIO)
   })
 
-  it('servico fora do ar nao inventa sinal', () => {
-    expect(sinalDoHistorico(null)).toEqual(SINAL_VAZIO)
-    expect(sinalDoHistorico(undefined)).toEqual(SINAL_VAZIO)
-    expect(sinalDoHistorico({} as any)).toEqual(SINAL_VAZIO)
+  // O furo que quase foi pra producao: sem historico, o endpoint devolvia
+  // "nao tem registro", que na tela vira uma AFIRMACAO sobre o carro de outra
+  // pessoa baseada numa lentidao nossa.
+  it('servico fora do ar e "nao sabemos", nunca "nao tem"', () => {
+    expect(sinalDoHistorico(null)).toEqual(SINAL_INDISPONIVEL)
+    expect(sinalDoHistorico(undefined)).toEqual(SINAL_INDISPONIVEL)
+    expect(sinalDoHistorico({} as any)).toEqual(SINAL_INDISPONIVEL)
+    // E os tres estados sao mesmo distinguiveis por quem le a resposta.
+    expect(SINAL_INDISPONIVEL.positivo).toBeNull()
+    expect(SINAL_VAZIO.positivo).toBe(false)
+  })
+
+  it('base respondeu sem registro e "nao tem", e isso pode ir pra tela', () => {
+    expect(sinalDoHistorico(hist({}))).toEqual(SINAL_VAZIO)
   })
 
   it('o sinal nao carrega nada alem de positivo e quantidade', () => {
@@ -31,6 +41,10 @@ describe('sinal de leilao da consulta gratis', () => {
 })
 
 describe('frase do sinal', () => {
+  it('indisponivel nao tem frase: a tela nao fala de leilao', () => {
+    expect(fraseSinal(SINAL_INDISPONIVEL, 'este carro')).toBe('')
+  })
+
   it('negativa fala da NOSSA BASE, nunca que o veiculo nunca foi a leilao', () => {
     const f = fraseSinal(SINAL_VAZIO, 'este carro')
     expect(f).toContain('Nenhum registro de leilão encontrado')
