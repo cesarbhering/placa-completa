@@ -7,6 +7,8 @@ export async function processarPedidoPago(
   pedido: {
     id: string; placa: string; email: string | null; token_entrega: string
     abacatepay_id: string | null
+    /** Qual adquirente criou a cobranca. Sem isso, o estorno bate na porta errada. */
+    pix_provider?: string | null
     // usado no assunto e no corpo do e-mail de entrega
     plano?: string | null
     // controle de teste: 'producao' dispara consulta real; ausente => 'homolog'
@@ -82,7 +84,7 @@ export async function processarPedidoPago(
   } catch (e: any) {
     await supabase.from('pedidos_premium').update({ status: 'falha', erro: String(e?.message || e), debug_trace: (e as any)?.trace ?? null }).eq('id', pedido.id)
     const reembolso = pedido.abacatepay_id
-      ? await reembolsarPix(pedido.abacatepay_id)
+      ? await provedorDoPedido(pedido.pix_provider).reembolsarPix(pedido.abacatepay_id)
       : { ok: false, error: 'pedido sem cobranca' }
     if (reembolso.ok) {
       await supabase.from('pedidos_premium').update({ status: 'reembolsado' }).eq('id', pedido.id)

@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,placa,email,token_entrega,abacatepay_id,expira_em,plano,ambiente,debug_trace,erro,preview')
+    .select('id,status,placa,email,token_entrega,abacatepay_id,pix_provider,expira_em,plano,ambiente,debug_trace,erro,preview')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
@@ -18,7 +18,9 @@ export default defineEventHandler(async (event) => {
       status = 'expirado'
       await supabase.from('pedidos_premium').update({ status }).eq('id', pedido.id)
     } else if (pedido.abacatepay_id) {
-      const chk = await checarPix(pedido.abacatepay_id)
+      // Pergunta pro provedor que criou ESTA cobranca, nao pro configurado
+      // agora: os dois convivem enquanto a troca acontece.
+      const chk = await provedorDoPedido(pedido.pix_provider).checarPix(pedido.abacatepay_id)
       if (chk && /paid|completed|pago/i.test(chk.status)) {
         // pagamento confirmado -> dispara a consulta (claim atomico evita duplicar
         // com o webhook). Fire-and-forget: o container segue processando apos a resposta.
