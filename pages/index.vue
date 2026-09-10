@@ -1242,11 +1242,23 @@ function applyEmailSuggestion() {
             </p>
 
             <p class="cb-locked__kick">Risco oculto nesta placa</p>
-            <h2 class="cb-locked__h">
+            <!-- Com registro encontrado, perguntar "sera que tem leilao?"
+                 contradiz a linha de cima, que acabou de dizer que TEM. O
+                 titulo passa a falar do que fazer com o achado. -->
+            <h2 v-if="sinalLeilao?.positivo" class="cb-locked__h">
+              Registro de leilão encontrado.
+              <strong>Os detalhes estão no relatório completo.</strong>
+            </h2>
+            <h2 v-else class="cb-locked__h">
               Indicador de roubo, registro de leilão ou dívida escondida?
               <strong>A consulta grátis não mostra.</strong>
             </h2>
-            <p class="cb-locked__sub">
+            <p v-if="sinalLeilao?.positivo" class="cb-locked__sub">
+              Data, leiloeira, condição do veículo e mais <strong>{{ camposBloqueados.length }}</strong> verificações
+              para este veículo: restrição, indicador de roubo e furto, gravame, bloqueio judicial, indicador de
+              multas e mais. Liberado em até 5 minutos depois do pagamento.
+            </p>
+            <p v-else class="cb-locked__sub">
               Mais <strong>{{ camposBloqueados.length }}</strong> verificações para este veículo: restrição,
               indicador de roubo e furto, registro de leilão, gravame, bloqueio judicial, indicador de multas e mais.
               Descubra antes de fechar negócio: liberado em até 5 minutos depois do pagamento.
@@ -1306,12 +1318,16 @@ function applyEmailSuggestion() {
              em telas pequenas ele empilha em 1 coluna e fica alto demais pra
              o bloco bloqueado entrar na dobra. -->
         <div v-if="success && !showPremiumCheckout" class="cb-sticky-upsell">
+          <!-- A barra fixa e o que sobra na tela enquanto a pessoa rola. Com
+               registro encontrado, ela repete o achado em vez do argumento
+               generico: e o unico texto que continua a vista. -->
           <div class="cb-sticky-upsell__txt">
-            <strong>Risco oculto nesta placa</strong>
-            <span>Mais {{ camposBloqueados.length }} verificações e o histórico de leilão, com base de mais de 1 milhão de veículos</span>
+            <strong>{{ sinalLeilao?.positivo ? 'Registro de leilão encontrado' : 'Risco oculto nesta placa' }}</strong>
+            <span v-if="sinalLeilao?.positivo">Data, leiloeira e condição do veículo no relatório completo</span>
+            <span v-else>Mais {{ camposBloqueados.length }} verificações e o histórico de leilão, com base de mais de 1 milhão de veículos</span>
           </div>
           <button type="button" class="cb-btn cb-btn--blue cb-sticky-upsell__cta" @click="openPremiumCheckout('completa')">
-            Ver agora · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+            {{ sinalLeilao?.positivo ? 'Ver o leilão' : 'Ver agora' }} · {{ precoBRL(PLANOS.completa.valorCentavos) }}
           </button>
         </div>
 
