@@ -129,13 +129,27 @@ export async function reembolsarPix(
 }
 
 /**
- * A Woovi nao tem endpoint de "simular pagamento": o ambiente de teste
- * (app.woovi-sandbox.com) paga a cobranca de verdade, com Pix de mentira. Sem
- * endpoint, isto devolve false e o botao de simular do homolog fica sem efeito
- * nesse provedor, em vez de fingir que pagou.
+ * Paga a cobranca no ambiente de TESTE: GET /openpix/testing?transactionID=...
+ * (doc: test-environment/test-account/test-pay-pix). So funciona com AppID de
+ * sandbox; com credencial de producao a Woovi recusa, que e o comportamento
+ * desejado, porque simular pagamento em producao seria liberar relatorio sem
+ * dinheiro entrar.
+ *
+ * Recebe o identifier da cobranca, que e o mesmo id que guardamos no pedido.
  */
-export async function simularPagamento(_id: string): Promise<boolean> {
-  return false
+export async function simularPagamento(id: string): Promise<boolean> {
+  const { base } = cfg()
+  try {
+    await $fetch<any>(`${base}/openpix/testing`, {
+      method: 'GET',
+      headers: headers(),
+      query: { transactionID: id },
+    })
+    return true
+  } catch (e: any) {
+    console.warn('[woovi] simular pagamento falhou:', e?.data?.message || e?.message)
+    return false
+  }
 }
 
 // Chave publica da Woovi, usada pra conferir a assinatura do webhook. Buscada
