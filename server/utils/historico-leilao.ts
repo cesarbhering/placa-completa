@@ -217,7 +217,17 @@ function sanear(res: any, config?: { leiloesFotosHosts?: string }): HistoricoLei
   }
 }
 
-export async function consultarHistoricoLeilao(perfil: PerfilVeiculo): Promise<HistoricoLeilao | null> {
+export async function consultarHistoricoLeilao(
+  perfil: PerfilVeiculo,
+  opts?: {
+    /**
+     * Teto de espera em ms. O relatorio pago espera ate 15s porque a secao
+     * vale a espera; a consulta GRATIS nao pode atrasar por causa disto, entao
+     * ela passa um teto curto e desiste calada.
+     */
+    timeoutMs?: number
+  },
+): Promise<HistoricoLeilao | null> {
   const config = useRuntimeConfig()
   const base = String(config.leiloesApiUrl || '').replace(/\/+$/, '')
   const key = String(config.leiloesApiKey || '')
@@ -243,7 +253,7 @@ export async function consultarHistoricoLeilao(perfil: PerfilVeiculo): Promise<H
       // resposta boa em producao de teste). Como o fluxo aqui e a montagem do
       // relatorio ja pago, esperar e melhor que entregar sem a secao. Segue
       // ajustavel por env.
-      timeout: Number(config.leiloesApiTimeoutMs) || 15000,
+      timeout: opts?.timeoutMs || Number(config.leiloesApiTimeoutMs) || 15000,
     })
     return sanear(res, { leiloesFotosHosts: String(config.leiloesFotosHosts || '') })
   } catch (e: any) {
