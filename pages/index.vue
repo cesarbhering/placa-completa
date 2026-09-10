@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL } from '~/shared/planos'
+import { sinalDaResposta } from '~/shared/sinal-leilao-resposta'
 
 import { homepageFaqs } from '~/data/homepage-faqs'
 import { origemDaSessao } from '~/shared/origem-trafego'
@@ -276,6 +277,63 @@ onUnmounted(() => { obsForm?.disconnect(); obsEyebrow?.disconnect() })
 // Vem de /api/consulta; nada aqui e SENATRAN.
 const resultadoBasico = ref<Record<string, any> | null>(null)
 
+// Sinal de leilao da consulta gratis: um numero e um booleano, nada mais (a
+// muralha vive em server/utils/sinal-leilao.ts). Chega DEPOIS do resultado,
+// numa chamada propria, pra nao atrasar em nada o que a pessoa veio ver.
+const sinalLeilao = ref<{ positivo: boolean; quantidade: number } | null>(null)
+
+// "esta moto", "este carro", "este veiculo": mesma linguagem do relatorio.
+const esteVeiculoGratis = computed(() => {
+  const b = resultadoBasico.value
+  const texto = `${b?.marca || ''} ${b?.modelo || ''}`.toLowerCase()
+  if (/\bmoto|scooter|\bcg\b|biz|titan|fan\b|pop\b|xre|factor|ybr/.test(texto)) return 'esta moto'
+  if (/caminh|truck|bitrem|cavalo mec/.test(texto)) return 'este caminhão'
+  return b?.marca ? 'este carro' : 'este veículo'
+})
+
+const fraseSinalLeilao = computed(() => {
+  const s = sinalLeilao.value
+  if (!s) return ''
+  if (!s.positivo) {
+    return `Nenhum registro de leilão encontrado para ${esteVeiculoGratis.value} na nossa base de mais de 1 milhão de veículos leiloados.`
+  }
+  const n = s.quantidade
+  return n === 1
+    ? `Encontramos 1 registro de leilão para ${esteVeiculoGratis.value}. Detalhes (data, leiloeira, condição do veículo) no relatório completo.`
+    : `Encontramos ${n} registros de leilão para ${esteVeiculoGratis.value}. Detalhes (data, leiloeira, condição do veículo) no relatório completo.`
+})
+
+async function buscarSinalLeilao() {
+  const b = resultadoBasico.value
+  if (!b?.placa) return
+  try {
+    const r: any = await $fetch('/api/leilao-sinal', {
+      method: 'POST',
+      body: {
+        placa: b.placa,
+        chassi: b.chassiParcial || null,
+        marca: b.marca || null,
+        modelo: b.modelo || null,
+        ano: b.ano || null,
+        anoFab: b.anoFabricacao || null,
+        anoModelo: b.ano || null,
+        cor: b.cor || null,
+        uf: b.uf || null,
+      },
+    })
+    // Tres estados, nao dois: "nao sabemos" (timeout, servico fora, teto de
+    // uso) nao pode virar "nao tem registro" na tela. Ver
+    // shared/sinal-leilao-resposta.ts.
+    const lido = sinalDaResposta(r)
+    sinalLeilao.value = lido
+    if (lido) track('leilao_sinal_visto', { positivo: lido.positivo })
+  } catch {
+    // Servico fora do ar ou lento: a consulta gratis segue sem o sinal. Nunca
+    // mostrar "nao encontramos" por falha nossa, que seria mentir.
+    sinalLeilao.value = null
+  }
+}
+
 // `plano` chega tanto de um clique direto (`@click="abrir('basica')"`) quanto
 // de um handler sem argumento, que passaria o MouseEvent. isPlanoPago filtra.
 function openPremiumCheckout(plano?: unknown) {
@@ -297,7 +355,14 @@ function openPremiumCheckout(plano?: unknown) {
   premiumPlaca.value = placa.value
   aguardandoPlacaPaga.value = false
   showPremiumCheckout.value = true
-  track('premium_checkout_open', { origin: 'home_hero', plano: premiumPlano.value, ja_consultada: placaJaConsultada.value })
+  track('premium_checkout_open', {
+    origin: 'home_hero',
+    plano: premiumPlano.value,
+    ja_consultada: placaJaConsultada.value,
+    // Mede se quem viu registro de leilao converte mais: e a hipotese
+    // inteira desta feature.
+    leilao_sinal: sinalLeilao.value ? (sinalLeilao.value.positivo ? 'positivo' : 'negativo') : 'sem_sinal',
+  })
 }
 
 // O bloco bloqueado sai da matriz de recursos: mover um item entre planos
@@ -671,6 +736,7 @@ function limparResultado() {
   messageType.value = 'info'
   formStarted.value = false
   resultadoBasico.value = null
+  sinalLeilao.value = null
   placaJaConsultada.value = false
   aguardandoPlacaPaga.value = false
 }
@@ -916,6 +982,9 @@ async function handleSubmit() {
         // resultado na tela (padrao dos concorrentes): o que e o carro aparece
         // na hora; o que decide a compra fica atras do pagamento.
         resultadoBasico.value = (result as any).basico || null
+        // Fire and forget: o resultado ja esta na tela, o sinal entra quando
+        // chegar.
+        buscarSinalLeilao()
         // A partir daqui o CTA pago pula a pergunta "e este veiculo?".
         placaJaConsultada.value = true
         // O endereco passa a dizer o que esta na tela. `push` e nao `replace`:
@@ -1159,6 +1228,19 @@ function applyEmailSuggestion() {
                  que e sinalizacao e nao fato consumado (roubo/furto, leilão,
                  multa) — nunca afirma que o problema existe, so que a placa
                  pode revelar. Nunca cita a fonte dos dados. -->
+            <!-- Sinal de leilao: a unica coisa nesta tela que fala do veiculo
+                 ESPECIFICO em vez de falar do produto. Fica no topo do bloco
+                 pago porque e ele que da o motivo concreto pra pagar; sem
+                 registro, e prova de que a consulta foi feita de verdade. -->
+            <p
+              v-if="fraseSinalLeilao"
+              class="cb-sinal"
+              :class="sinalLeilao?.positivo ? 'cb-sinal--achou' : 'cb-sinal--limpo'"
+            >
+              <span class="cb-sinal__ponto" aria-hidden="true" />
+              <span>{{ fraseSinalLeilao }}</span>
+            </p>
+
             <p class="cb-locked__kick">Risco oculto nesta placa</p>
             <h2 class="cb-locked__h">
               Indicador de roubo, registro de leilão ou dívida escondida?
@@ -1189,8 +1271,13 @@ function applyEmailSuggestion() {
 
               <div class="cb-locked__over">
                 <div class="cb-locked__cta">
+                  <!-- Com registro encontrado, o CTA para de falar do produto
+                       e passa a falar do achado: e o que a pessoa quer saber
+                       naquele segundo. -->
                   <button type="button" class="cb-btn cb-btn--blue" @click="openPremiumCheckout('completa')">
-                    Ver o que essa placa revela · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+                    {{ sinalLeilao?.positivo
+                      ? `Ver o registro de leilão no relatório completo · ${precoBRL(PLANOS.completa.valorCentavos)}`
+                      : `Ver o que essa placa revela · ${precoBRL(PLANOS.completa.valorCentavos)}` }}
                   </button>
                   <p class="cb-locked__pix">Pix, na hora, sem assinatura.</p>
                   <!-- Oferta da basica desativada aqui: duas opcoes no mesmo
@@ -2685,6 +2772,45 @@ function applyEmailSuggestion() {
   }
 
   // ---------- BLOCO BLOQUEADO ----------
+  // Sinal de leilao: a unica linha da tela que fala do veiculo especifico.
+  .cb-sinal {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 0 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 14.5px;
+    line-height: 1.45;
+    border: 1px solid $c-hair;
+    background: $c-canvas;
+    color: $c-charcoal;
+
+    &__ponto {
+      flex: 0 0 auto;
+      width: 9px;
+      height: 9px;
+      margin-top: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    // Achou: ambar, nao vermelho. Passagem por leilao nao quer dizer que o
+    // carro bateu, e a cor nao pode dar um veredito que a frase nao da.
+    &--achou {
+      border-color: rgba(154, 100, 0, 0.35);
+      background: rgba(154, 100, 0, 0.06);
+      color: #7a4f00;
+      font-weight: 500;
+    }
+
+    &--limpo {
+      color: $c-graphite;
+
+      .cb-sinal__ponto { background: $c-green; }
+    }
+  }
+
   .cb-locked {
     // Respiro menor que o ritmo padrao de faixa: aqui o objetivo e o box
     // caber na tela junto com o resumo, nao separar duas secoes.
