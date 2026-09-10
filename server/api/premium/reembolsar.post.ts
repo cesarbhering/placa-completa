@@ -10,14 +10,14 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id, abacatepay_id, status')
+    .select('id, abacatepay_id, pix_provider, status')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
   if (pedido.status === 'reembolsado') return { ok: true, jaReembolsado: true }
   if (!pedido.abacatepay_id) throw createError({ statusCode: 409, message: 'Pedido sem cobranca' })
 
-  const r = await reembolsarPix(pedido.abacatepay_id)
+  const r = await provedorDoPedido((pedido as any).pix_provider).reembolsarPix(pedido.abacatepay_id)
   if (r.ok) {
     await supabase.from('pedidos_premium').update({ status: 'reembolsado' }).eq('id', pedido.id)
   }
