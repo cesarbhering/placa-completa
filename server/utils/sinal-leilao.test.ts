@@ -45,10 +45,16 @@ describe('frase do sinal', () => {
     expect(fraseSinal(SINAL_INDISPONIVEL, 'este carro')).toBe('')
   })
 
-  it('negativa fala da NOSSA BASE, nunca que o veiculo nunca foi a leilao', () => {
+  // Decisao de produto: o gratis nao conta o RESULTADO da busca quando nao ha
+  // registro. Dizer "nenhum registro encontrado" resolvia de graca a duvida
+  // que vende o relatorio, e ela existe em quase toda placa.
+  it('negativa nao entrega o resultado, so diz que a verificacao existe', () => {
     const f = fraseSinal(SINAL_VAZIO, 'este carro')
-    expect(f).toContain('Nenhum registro de leilão encontrado')
-    expect(f).toContain('na nossa base')
+    expect(f.toLowerCase()).not.toContain('nenhum registro')
+    expect(f.toLowerCase()).not.toContain('não encontrado')
+    expect(f).toContain('verificação')
+    expect(f).toContain('relatório completo')
+    // E continua sem afirmar nada sobre o passado do veiculo.
     expect(f.toLowerCase()).not.toContain('nunca foi')
   })
 

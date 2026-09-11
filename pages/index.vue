@@ -294,8 +294,13 @@ const esteVeiculoGratis = computed(() => {
 const fraseSinalLeilao = computed(() => {
   const s = sinalLeilao.value
   if (!s) return ''
+  // Negativo NAO conta o resultado. Dizer "nenhum registro encontrado"
+  // resolvia de graca a duvida que faz a pessoa comprar o relatorio, e ela
+  // acontece em quase toda placa: a maioria dos carros nunca passou por
+  // leilao. O que a linha faz agora e dizer que a verificacao existe, que e
+  // verdade e e argumento, sem entregar a resposta.
   if (!s.positivo) {
-    return `Nenhum registro de leilão encontrado para ${esteVeiculoGratis.value} na nossa base de mais de 1 milhão de veículos leiloados.`
+    return 'Registro de leilão: verificação na base de mais de 1 milhão de veículos leiloados, no relatório completo.'
   }
   const n = s.quantidade
   return n === 1
@@ -1235,7 +1240,7 @@ function applyEmailSuggestion() {
             <p
               v-if="fraseSinalLeilao"
               class="cb-sinal"
-              :class="sinalLeilao?.positivo ? 'cb-sinal--achou' : 'cb-sinal--limpo'"
+              :class="sinalLeilao?.positivo ? 'cb-sinal--achou' : 'cb-sinal--neutro'"
             >
               <span class="cb-sinal__ponto" aria-hidden="true" />
               <span>{{ fraseSinalLeilao }}</span>
@@ -2820,10 +2825,12 @@ function applyEmailSuggestion() {
       font-weight: 500;
     }
 
-    &--limpo {
+    // Neutro: nem verde de "esta tudo bem", nem ambar de alerta. A linha nao
+    // da veredito nenhum, entao a cor tambem nao pode dar.
+    &--neutro {
       color: $c-graphite;
 
-      .cb-sinal__ponto { background: $c-green; }
+      .cb-sinal__ponto { background: $c-steel; }
     }
   }
 
