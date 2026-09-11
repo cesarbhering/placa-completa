@@ -623,6 +623,10 @@ export default defineNuxtConfig({
     // nunca virar hotlink do site da leiloeira.
     leiloesFotosHosts: process.env.LEILOES_FOTOS_HOSTS || "fotos.placacompleta.com.br",
     premiumBaseUrl: process.env.PREMIUM_BASE_URL || "https://placacompleta.com.br",
+    // Adquirente do Pix. Default abacatepay: sem env, producao segue igual.
+    pixProvider: process.env.PIX_PROVIDER || "abacatepay",
+    wooviBase: process.env.WOOVI_BASE || "https://api.woovi.com",
+    wooviAppId: process.env.WOOVI_APP_ID || "",
     premiumValorCentavos: process.env.PREMIUM_VALOR_CENTAVOS || "4500",
     // SENATRAN homologacao (GCC + SERPRO). Certs via PEM em env (base64 ou texto).
     gccBase: process.env.GCC_BASE || "https://company.hml.quemmeviu.com.br",
@@ -696,6 +700,9 @@ export default defineNuxtConfig({
     // o noindex nela.
     "/premium": { robots: "noindex, nofollow" },
     "/premium/**": { robots: "noindex, nofollow" },
+    // Pagina de teste do Pix da Woovi: so existe no homolog e nunca deve ser
+    // rastreada nem em ambiente protegido.
+    "/woovi-teste": { robots: "noindex, nofollow" },
     // A home NAO e mais prerenderizada de proposito (theming por dominio —
     // ver composables/useSiteVariant.ts): tentamos prerender + rewrite
     // interno por Host (server/middleware), mas o Nitro serve rota
