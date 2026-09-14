@@ -76,7 +76,29 @@ function senatranGet(opts: { url: string; placa: string; hash: string; cert: Buf
 
 // Executa a consulta paga. Retorna o id da linha em senatran_consultas + o dado.
 // ambiente ausente => 'homolog' (comportamento identico ao de hoje).
+//
+// Uma oscilacao de rede da VPS derrubou o POST do consentimento e um cliente
+// que tinha acabado de pagar levou estorno em vez do relatorio. Por isso a
+// consulta agora e tentada de novo quando a falha e de TRANSPORTE:
+//   - dentro de uma tentativa, cada chamada externa insiste sozinha (o
+//     consentimento ate 3 vezes, a consulta ao SERPRO 2 vezes com o MESMO
+//     hash, que e barato e seguro enquanto o hash nao foi gasto);
+//   - se ainda assim a tentativa morrer de rede, o fluxo INTEIRO recomeca uma
+//     vez, com consentimento novo. Isso custa um hash, e o Cesar autorizou:
+//     perder a venda de quem ja pagou custa mais.
+// Falha de negocio (401, 4xx, SENATRAN respondeu erro) nunca e repetida.
 export async function consultarSenatran(placa: string, ambiente: Ambiente = 'homolog'): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[] }> {
+  try {
+    return await tentativaDeConsulta(placa, ambiente)
+  } catch (e: any) {
+    if (!ehErroDeRede(e)) throw e
+    console.warn('[senatran] tentativa caiu por rede; refazendo com consentimento novo:', e?.message || e)
+    await esperar(5000)
+    return await tentativaDeConsulta(placa, ambiente)
+  }
+}
+
+async function tentativaDeConsulta(placa: string, ambiente: Ambiente): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[] }> {
   // trace de homologacao: cada chamada externa (GCC + SERPRO) com URL, status e
   // corpo. Anexado ao erro em toda falha e devolvido no sucesso. Pode expor
   // detalhe (ferramenta de teste), mas NUNCA a api-key inteira (so prefixo).
@@ -118,12 +140,16 @@ export async function consultarSenatran(placa: string, ambiente: Ambiente = 'hom
     let consentRes: Response
     let consentText = ''
     try {
-      consentRes = await fetch(`${env.gccBase}/consentimentos-ciencias`, {
+      // Repetir aqui e seguro: sem resposta, nao ha hash pra gastar. No pior
+      // caso o GCC criou um hash que a gente nunca usou.
+      consentRes = await comRetryDeRede(() => fetch(`${env.gccBase}/consentimentos-ciencias`, {
         method: 'POST',
         headers: { accept: 'application/json', 'Api-Key': candidata.api_key, 'Content-Type': 'application/json' },
         // String() obrigatorio: o runtimeConfig do Nitro (destr) converte a string
         // numerica do env em NUMBER, e o GCC exige o CNPJ como STRING.
         body: JSON.stringify({ tipo_titular: null, cpf_cnpj: '', tipo_de_usuario: 1, cnpj_provedor: String(env.cnpj), template_id: String(env.template) }),
+      }), {
+        onRetry: (n, erro) => trace.push({ etapa: 'GCC consentimento', tentativa: n, repetindo: String(erro?.message || erro) }),
       })
       consentText = await consentRes.text()
     } catch (e: any) {
@@ -159,7 +185,15 @@ export async function consultarSenatran(placa: string, ambiente: Ambiente = 'hom
   // 2) consulta SENATRAN (gasta o hash)
   let out: { status: number; body: string }
   try {
-    out = await senatranGet({ url: env.senatranUrl, placa, hash, cert, key })
+    // Duas tentativas com o MESMO hash: enquanto a resposta nao chega, o hash
+    // nao foi marcado como gasto, e repetir e barato. Se as duas cairem por
+    // rede, quem recomeca e o consultarSenatran, com hash novo, porque ai nao
+    // da pra saber se o SERPRO chegou a receber a primeira.
+    out = await comRetryDeRede(() => senatranGet({ url: env.senatranUrl, placa, hash, cert, key }), {
+      tentativas: 2,
+      pausas: [2000],
+      onRetry: (n, erro) => trace.push({ etapa: 'SERPRO consulta', tentativa: n, repetindo: String(erro?.message || erro) }),
+    })
   } catch (e: any) {
     trace.push({ etapa: 'SERPRO consulta', metodo: 'GET', url: env.senatranUrl + ' (placa=' + placa + ')', erro: String(e) })
     const err = createError({ statusCode: 502, message: 'Falha de rede no SERPRO.' })

@@ -127,6 +127,9 @@ export default defineEventHandler(async (event) => {
     await processarPedidoPago(supabase, {
       id: pedido.id, placa, email, token_entrega: token,
       abacatepay_id: null, plano, ambiente, preview: body.preview || null,
+      // Caminho gratis: nao ha cobranca, entao nao ha estorno; os campos de
+      // alerta vao mesmo assim, pra mensagem nunca sair sem contexto.
+      valor_centavos: 0,
     })
     const { data: atualizado } = await supabase
       .from('pedidos_premium')

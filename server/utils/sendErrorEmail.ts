@@ -8,6 +8,12 @@ interface ErrorEmailData {
   userAgent?: string
   ip?: string
   timestamp: string
+  /**
+   * Destinatarios extras, alem da caixa de erros do time. Serve pro que o
+   * Cesar quer ver no proprio e-mail sem virar caixa de log: hoje, todo
+   * estorno automatico.
+   */
+  paraTambem?: string[]
 }
 
 export async function sendErrorEmail(data: ErrorEmailData) {
@@ -93,7 +99,7 @@ export async function sendErrorEmail(data: ErrorEmailData) {
 
     await resend.emails.send({
       from: 'PlacaCompleta Errors <erros@placacompleta.com.br>',
-      to: 'erros@placacompleta.com.br',
+      to: ['erros@placacompleta.com.br', ...(data.paraTambem || [])],
       subject: `[Erro API] ${data.endpoint} - ${new Date().toLocaleString('pt-BR')}`,
       html: htmlContent,
     })
