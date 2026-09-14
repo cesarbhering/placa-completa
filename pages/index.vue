@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL } from '~/shared/planos'
-import { sinalDaResposta } from '~/shared/sinal-leilao-resposta'
+import { sinalDaResposta, fraseSinalNaTela } from '~/shared/sinal-leilao-resposta'
 
 import { homepageFaqs } from '~/data/homepage-faqs'
 import { origemDaSessao } from '~/shared/origem-trafego'
@@ -291,22 +291,7 @@ const esteVeiculoGratis = computed(() => {
   return b?.marca ? 'este carro' : 'este veículo'
 })
 
-const fraseSinalLeilao = computed(() => {
-  const s = sinalLeilao.value
-  if (!s) return ''
-  // Negativo NAO conta o resultado. Dizer "nenhum registro encontrado"
-  // resolvia de graca a duvida que faz a pessoa comprar o relatorio, e ela
-  // acontece em quase toda placa: a maioria dos carros nunca passou por
-  // leilao. O que a linha faz agora e dizer que a verificacao existe, que e
-  // verdade e e argumento, sem entregar a resposta.
-  if (!s.positivo) {
-    return 'Registro de leilão: verificação na base de mais de 1 milhão de veículos leiloados, no relatório completo.'
-  }
-  const n = s.quantidade
-  return n === 1
-    ? `Encontramos 1 registro de leilão para ${esteVeiculoGratis.value}. Detalhes (data, leiloeira, condição do veículo) no relatório completo.`
-    : `Encontramos ${n} registros de leilão para ${esteVeiculoGratis.value}. Detalhes (data, leiloeira, condição do veículo) no relatório completo.`
-})
+const fraseSinalLeilao = computed(() => fraseSinalNaTela(sinalLeilao.value, esteVeiculoGratis.value))
 
 async function buscarSinalLeilao() {
   const b = resultadoBasico.value
@@ -1234,14 +1219,11 @@ function applyEmailSuggestion() {
                  multa) — nunca afirma que o problema existe, so que a placa
                  pode revelar. Nunca cita a fonte dos dados. -->
             <!-- Sinal de leilao: a unica coisa nesta tela que fala do veiculo
-                 ESPECIFICO em vez de falar do produto. Fica no topo do bloco
-                 pago porque e ele que da o motivo concreto pra pagar; sem
-                 registro, e prova de que a consulta foi feita de verdade. -->
-            <p
-              v-if="fraseSinalLeilao"
-              class="cb-sinal"
-              :class="sinalLeilao?.positivo ? 'cb-sinal--achou' : 'cb-sinal--neutro'"
-            >
+                 ESPECIFICO em vez de falar do produto. So aparece quando ha
+                 registro; sem registro a tela nao fala de leilao, porque
+                 contar que nao achamos nada entregava de graca a duvida que
+                 vende o relatorio. -->
+            <p v-if="fraseSinalLeilao" class="cb-sinal cb-sinal--achou">
               <span class="cb-sinal__ponto" aria-hidden="true" />
               <span>{{ fraseSinalLeilao }}</span>
             </p>
@@ -2816,21 +2798,15 @@ function applyEmailSuggestion() {
       background: currentColor;
     }
 
-    // Achou: ambar, nao vermelho. Passagem por leilao nao quer dizer que o
-    // carro bateu, e a cor nao pode dar um veredito que a frase nao da.
+    // Vermelho por decisao do Cesar (14/set). A linha so existe quando ha
+    // registro, e o vermelho e o que faz a pessoa parar de rolar a pagina.
+    // Vale lembrar do que a frase ja cuida: ela fala em REGISTRO, nunca em
+    // sinistro, porque passagem por leilao nao quer dizer que o carro bateu.
     &--achou {
-      border-color: rgba(154, 100, 0, 0.35);
-      background: rgba(154, 100, 0, 0.06);
-      color: #7a4f00;
+      border-color: rgba(211, 58, 58, 0.45);
+      background: rgba(211, 58, 58, 0.06);
+      color: #a32020;
       font-weight: 500;
-    }
-
-    // Neutro: nem verde de "esta tudo bem", nem ambar de alerta. A linha nao
-    // da veredito nenhum, entao a cor tambem nao pode dar.
-    &--neutro {
-      color: $c-graphite;
-
-      .cb-sinal__ponto { background: $c-steel; }
     }
   }
 
