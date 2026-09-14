@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,placa,email,token_entrega,abacatepay_id,pix_provider,expira_em,plano,ambiente,debug_trace,erro,preview')
+    .select('id,status,placa,email,token_entrega,abacatepay_id,pix_provider,expira_em,plano,ambiente,debug_trace,erro,preview,valor_centavos,gclid,msclkid,utm_source,utm_campaign')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
