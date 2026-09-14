@@ -46,20 +46,16 @@ export function sinalDoHistorico(historico: HistoricoLeilao | null | undefined):
 }
 
 /**
- * Frase do sinal. A positiva diz o que achamos e onde esta o resto.
+ * Frase do sinal. So existe frase quando ha registro.
  *
- * A negativa NAO conta o resultado, e isso e decisao de produto, nao descuido:
- * dizer "nenhum registro encontrado" resolvia de graca a duvida que faz a
- * pessoa comprar o relatorio, e essa duvida existe em quase toda placa, porque
- * a maioria dos carros nunca passou por leilao. A linha diz que a verificacao
- * existe, que e verdade e e argumento, sem entregar a resposta.
+ * Sem registro, a tela nao fala de leilao, e isso e decisao de produto, nao
+ * descuido. A copy passou por duas voltas ate aqui: primeiro dizia "nenhum
+ * registro encontrado", que entregava de graca a duvida que vende o relatorio
+ * em quase toda placa; depois virou uma linha neutra dizendo que a verificacao
+ * existe; agora e silencio. Indisponivel (nao sabemos) sempre foi silencio.
  */
 export function fraseSinal(sinal: SinalLeilao, esteVeiculo: string): string {
-  // Indisponivel nao tem frase: a tela simplesmente nao fala de leilao.
-  if (sinal.positivo === null) return ''
-  if (!sinal.positivo) {
-    return 'Registro de leilão: verificação na base de mais de 1 milhão de veículos leiloados, no relatório completo.'
-  }
+  if (!sinal.positivo) return ''
   return sinal.quantidade === 1
     ? `Encontramos 1 registro de leilão para ${esteVeiculo}. Detalhes (data, leiloeira, condição do veículo) no relatório completo.`
     : `Encontramos ${sinal.quantidade} registros de leilão para ${esteVeiculo}. Detalhes (data, leiloeira, condição do veículo) no relatório completo.`
