@@ -617,6 +617,11 @@ const passagensLeilao = computed(() => {
     // decide se e o veiculo dele e a pessoa, olhando.
     fotos: Array.isArray(p.fotos) ? p.fotos.filter((f: any) => typeof f === 'string').slice(0, 3) : [],
     conflitos: Array.isArray(p.conflitos) ? p.conflitos : [],
+    // Edital do orgao: so DETRAN. O snapshot de relatorio antigo nao tem estes
+    // campos, e ai o botao simplesmente nao aparece, que e o comportamento
+    // certo: o snapshot e o que a pessoa comprou.
+    edital_disponivel: p.fonte_tipo === 'detran' && !!p.edital_disponivel,
+    edital_ref: p.fonte_tipo === 'detran' && p.edital_ref ? String(p.edital_ref) : null,
   }))
 })
 
@@ -676,6 +681,29 @@ function formatarDataLeilao(iso: string): string {
 // quem esta comprando um carro sem historico nenhum. A contagem continua
 // visivel no resumo, entao nada e escondido.
 const passagensFortes = computed(() => passagensLeilao.value.filter((p) => p.nivel !== 'possivel'))
+
+// Edital do DETRAN. O link e assinado e vale 24h, entao ele e gerado no clique,
+// nunca guardado: no snapshot, estaria morto no dia seguinte e vivo pra quem
+// copiasse o JSON no primeiro.
+const editalCarregando = ref<string | null>(null)
+const editalErro = ref('')
+
+async function baixarEdital(ref: string) {
+  editalErro.value = ''
+  editalCarregando.value = ref
+  try {
+    const r: any = await $fetch('/api/premium/edital', { method: 'POST', body: { token, edital_ref: ref } })
+    if (!r?.url) throw new Error('sem url')
+    // Nova aba: o relatorio continua aberto atras, que e onde a pessoa estava.
+    window.open(r.url, '_blank', 'noopener')
+  } catch (e: any) {
+    editalErro.value = e?.data?.statusCode === 429
+      ? 'Muitos downloads deste relatório agora. Tente daqui a pouco.'
+      : 'Não conseguimos abrir o edital agora. Tente de novo em instantes.'
+  } finally {
+    editalCarregando.value = null
+  }
+}
 
 // Lote ambiguo: varios lotes DIFERENTES que casaram exatamente pelas mesmas
 // evidencias. Isso nao aponta um veiculo, aponta que o perfil (marca, modelo,
@@ -1434,6 +1462,27 @@ onUnmounted(() => poll && clearInterval(poll))
                   <template v-if="p.comitente">Comitente: {{ p.comitente }}</template>
                 </p>
 
+                <!-- Edital do orgao de transito: o documento que originou o
+                     registro. E a resposta pra pergunta que toda passagem
+                     levanta ("como voces sabem disso?"), na forma mais forte
+                     possivel, que e o papel oficial. So aparece quando a fonte
+                     e orgao publico e o arquivo existe. -->
+                <div v-if="p.edital_disponivel && p.edital_ref" class="rel__edital">
+                  <button
+                    type="button"
+                    class="rel__btn rel__btn--mini"
+                    :disabled="editalCarregando === p.edital_ref"
+                    @click="baixarEdital(p.edital_ref)"
+                  >
+                    {{ editalCarregando === p.edital_ref ? 'Gerando o link...' : 'Baixar o edital do DETRAN (PDF)' }}
+                  </button>
+                  <p class="rel__edital-aviso">
+                    Documento oficial publicado pelo DETRAN. O link vale por 24 horas; depois disso,
+                    abra o relatório de novo para gerar um novo link.
+                  </p>
+                  <p v-if="editalErro && editalCarregando === null" class="rel__hint rel__hint--erro">{{ editalErro }}</p>
+                </div>
+
                 <button
                   type="button"
                   class="rel__leilao-mais"
@@ -2142,6 +2191,21 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__leilao-ctx {
     margin: 6px 0 4px;
     font-size: 13px;
+    line-height: 1.45;
+    color: $c-graphite;
+  }
+
+  &__edital {
+    margin: 10px 0 4px;
+    padding: 10px 12px;
+    border: 1px solid $c-hair;
+    border-radius: 8px;
+    background: $c-cloud;
+  }
+
+  &__edital-aviso {
+    margin: 8px 0 0;
+    font-size: 12.5px;
     line-height: 1.45;
     color: $c-graphite;
   }

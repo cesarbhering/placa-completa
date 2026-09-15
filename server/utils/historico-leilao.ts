@@ -41,6 +41,17 @@ export interface PassagemLeilao {
   situacao: string | null
   leiloeiro: string | null
   comitente: string | null
+  /**
+   * Edital publicado pelo orgao de transito, quando existe. So DETRAN: edital
+   * de casa privada nao e documento publico e nao sai daqui.
+   *
+   * `edital_ref` e um token opaco da leiloes-api ("<id>.<hmac12>"), nao a URL.
+   * A URL assinada dura 24h e e gerada a cada clique; guardar uma no snapshot
+   * significaria entregar um link morto depois de um dia, e um link vivo pra
+   * quem copiasse o JSON no primeiro.
+   */
+  edital_disponivel?: boolean
+  edital_ref?: string | null
   veiculo_na_fonte: Record<string, any> | null
   evidencias: string[]
   conflitos: string[]
@@ -193,6 +204,10 @@ function sanear(res: any, config?: { leiloesFotosHosts?: string }): HistoricoLei
       // quem abrisse a resposta. A API ja zera, isto e a nossa garantia.
       leiloeiro: p.fonte_tipo === 'detran' ? texto(p.leiloeiro) : null,
       comitente: texto(p.comitente),
+      // Mesma regra do leiloeiro: so orgao. Se a API mandar edital de casa
+      // privada um dia, ele morre aqui, nao na tela.
+      edital_disponivel: p.fonte_tipo === 'detran' && !!p.edital_disponivel,
+      edital_ref: p.fonte_tipo === 'detran' ? texto(p.edital_ref) : null,
       veiculo_na_fonte: p.veiculo_na_fonte && typeof p.veiculo_na_fonte === 'object' ? p.veiculo_na_fonte : null,
       evidencias: Array.isArray(p.evidencias) ? p.evidencias.map(String) : [],
       fotos: sanearFotos(p.fotos, config),
