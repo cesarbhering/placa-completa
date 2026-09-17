@@ -89,6 +89,9 @@ export default defineEventHandler(async (event) => {
       // IP do comprador: usado pra resetar o limite gratis por hora (uma compra
       // paga zera o contador do usuario, casado por IP ou email).
       ip_address: getClientIp(event),
+      // Aparelho do comprador (categoria, sem UA cru): responde se quem paga
+      // esta no celular ou no computador, pra ajustar lance por aparelho nos ads.
+      ...getDispositivo(event),
       // Origem do trafego no PROPRIO pedido. Antes ela so existia na consulta
       // gratis e o caminho ate ela era o consulta_id — que aponta pra consulta
       // SENATRAN paga, nao pra `consultas`, entao o join perdia a origem de
