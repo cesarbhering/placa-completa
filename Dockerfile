@@ -136,6 +136,9 @@ ENV NODE_ENV=production
 ENV NITRO_PRESET=node-server
 ENV HOST=0.0.0.0
 ENV PORT=3000
+# Relogio do processo em BRT: e-mails de erro/estorno e logs formatavam a hora
+# em UTC sem dizer o fuso, e o Cesar lia como se fosse horario de Brasilia.
+ENV TZ=America/Sao_Paulo
 
 COPY --chown=node:node --from=builder /app/.output ./.output
 
