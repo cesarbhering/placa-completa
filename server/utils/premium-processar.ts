@@ -52,6 +52,8 @@ export async function processarPedidoPago(
     abacatepay_id: string | null
     /** Qual adquirente criou a cobranca. Sem isso, o estorno bate na porta errada. */
     pix_provider?: string | null
+    /** Pedido do app: o estorno e manual, no Play Console. Vai no alerta. */
+    google_play_order_id?: string | null
     /** So pro alerta de estorno: quanto entrou e saiu. */
     valor_centavos?: number | null
     /** Idem: de onde veio a venda perdida (gclid/msclkid/utm). */
@@ -146,6 +148,35 @@ export async function processarPedidoPago(
   } catch (e: any) {
     const motivo = String(e?.message || e)
     await supabase.from('pedidos_premium').update({ status: 'falha', erro: motivo, debug_trace: (e as any)?.trace ?? null }).eq('id', pedido.id)
+
+    // Compra feita no app, cobrada pelo Google Play: nao existe estorno
+    // automatico nosso pra pedir. O dinheiro esta na loja, e o reembolso sai
+    // do Play Console, na mao. Chamar AbacatePay/Woovi aqui bateria na porta
+    // errada e, pior, poderia estornar a cobranca Pix de outro pedido.
+    // O status 'falha_google_play' separa esses casos na hora de procurar o
+    // que ainda deve devolucao.
+    if (pedido.pix_provider === 'google_play') {
+      await supabase.from('pedidos_premium')
+        .update({ status: 'falha_google_play' })
+        .eq('id', pedido.id)
+      await sendErrorEmail({
+        endpoint: '/premium/processar',
+        errorMessage: [
+          'COMPRA NO APP (Google Play) PAGA e CONSULTA FALHOU. O ESTORNO PRECISA SER FEITO NA MAO no Play Console.',
+          `pedido=${pedido.id}`,
+          `placa=${pedido.placa}`,
+          `valor=${valorEmReais(pedido.valor_centavos)}`,
+          `origem=${origemDoPedido(pedido)}`,
+          `email=${mascararEmail(pedido.email)}`,
+          `etapa=${etapaDaFalha(e)}`,
+          `erro=${motivo}`,
+          `google_play_order_id=${(pedido as any).google_play_order_id || 'nao informado'}`,
+        ].join(' | '),
+        paraTambem: [AVISO_ESTORNO],
+      })
+      return
+    }
+
     const reembolso = pedido.abacatepay_id
       ? await provedorDoPedido(pedido.pix_provider).reembolsarPix(pedido.abacatepay_id)
       : { ok: false, error: 'pedido sem cobranca' }
