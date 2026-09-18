@@ -16,7 +16,11 @@ import { origemDaSessao } from '~/shared/origem-trafego'
 // reaproveitada, sem remount, sem flicker, sem consulta dupla.
 definePageMeta({ key: () => 'home' })
 
-const { isPWA, isMobile } = useAppMode()
+const { isPWA, isMobile, isCapacitor } = useAppMode()
+// Dentro do app Android so existem dois caminhos: a consulta gratis e o
+// relatorio completo pela loja. A basica nao e vendida la (a loja cobra um
+// produto so) e a palavra Pix nao pode aparecer, porque nao e assim que se
+// paga ali.
 const route = useRoute()
 const router = useRouter()
 
@@ -32,6 +36,11 @@ const placaDaRota = computed(() => {
 })
 // Landing de intencao-app: anuncios do ad group "App Intent" chegam com ?app=1
 // e trocam o contador de consultas pelo badge do Play. Fallback: contador normal.
+// Cards de preco: no app a basica sai da lista, senao a pessoa veria uma
+// oferta que nao tem como comprar ali.
+const planosComparados = computed(() => (
+  isCapacitor.value ? [PLANOS.gratis, PLANOS.completa] : [PLANOS.gratis, PLANOS.basica, PLANOS.completa]
+))
 const appIntent = computed(() => route.query.app === '1' && !isPWA.value)
 
 // Volta do relatorio basico querendo o upgrade: /?placa=ABC1D23&plano=completa
@@ -1278,7 +1287,7 @@ function applyEmailSuggestion() {
                       ? `Ver o registro de leilão no relatório completo · ${precoBRL(PLANOS.completa.valorCentavos)}`
                       : `Ver o que essa placa revela · ${precoBRL(PLANOS.completa.valorCentavos)}` }}
                   </button>
-                  <p class="cb-locked__pix">Pix, na hora, sem assinatura.</p>
+                  <p class="cb-locked__pix">{{ isCapacitor ? 'Na hora, sem assinatura.' : 'Pix, na hora, sem assinatura.' }}</p>
                   <!-- Oferta da basica desativada aqui: duas opcoes no mesmo
                        ponto dividiam a decisao. A basica segue viva no
                        comparativo de precos. Pra voltar, e so descomentar.
@@ -1435,7 +1444,7 @@ function applyEmailSuggestion() {
         </div>
         <div class="cb-cmp-grid">
           <div
-            v-for="p in [PLANOS.gratis, PLANOS.basica, PLANOS.completa]"
+            v-for="p in planosComparados"
             :key="p.id"
             class="cb-cmp-card"
             :class="{ 'cb-cmp-card--hi': p.id === 'completa' }"
@@ -1444,7 +1453,7 @@ function applyEmailSuggestion() {
             <div class="cb-cmp-kick">{{ p.nome }}</div>
             <div class="cb-cmp-price">
               <template v-if="p.valorCentavos === 0">Grátis <small>na tela</small></template>
-              <template v-else>{{ precoBRL(p.valorCentavos) }} <small>Pix, uma vez</small></template>
+              <template v-else>{{ precoBRL(p.valorCentavos) }} <small>{{ isCapacitor ? 'pagamento único' : 'Pix, uma vez' }}</small></template>
             </div>
             <div class="cb-cmp-note">{{ p.chamada }}</div>
 

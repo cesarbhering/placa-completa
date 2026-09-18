@@ -33,6 +33,7 @@ Copie `.env.example` para `.env` e preencha:
 | `PLACA_API_TOKEN` | Token da API de consulta de placa |
 | `API_KEY_OPENAI` | API key da OpenAI |
 | `DISABLE_ANALYTICS` | `true` para desabilitar GA em dev |
+| `NUXT_GOOGLE_PLAY_SERVICE_ACCOUNT` | JSON da conta de servico da Google Play Developer API, em base64. Usado so pra conferir compras feitas dentro do app Android (`/api/premium/google-play/verificar`). Sem ela, o endpoint do app responde 503 e o site (Pix) segue normal. |
 
 Para testes e2e, copie `.env.test.example` para `.env.test`.
 
