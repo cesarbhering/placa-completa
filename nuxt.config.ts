@@ -607,6 +607,11 @@ export default defineNuxtConfig({
     abacatepayApiKey: process.env.ABACATEPAY_API_KEY || "",
     abacatepayWebhookSecret: process.env.ABACATEPAY_WEBHOOK_SECRET || "",
     abacatepayBase: process.env.ABACATEPAY_BASE || "https://api.abacatepay.com/v2",
+    // Conta de servico da Google Play Developer API (base64 do JSON), usada so
+    // pra conferir compras feitas DENTRO do app Android. Private: nunca vai
+    // pro bundle do browser. Sem ela, o endpoint do app responde 503 e a web
+    // (Pix) segue intacta.
+    googlePlayServiceAccount: process.env.NUXT_GOOGLE_PLAY_SERVICE_ACCOUNT || "",
     // Servico interno de decode de VIN/chassi (services/vin-decoder), rede
     // docker interna, sem porta publica. Fail-open: se estiver fora, o bloco
     // "Origem do chassi" so nao aparece no relatorio, nunca quebra a entrega.

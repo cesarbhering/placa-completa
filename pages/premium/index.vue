@@ -28,7 +28,13 @@ function placaDaQuery(): string {
   return limpa.length === 7 ? limpa : ''
 }
 
+// A /premium crua e a tela de checkout Pix sem a home em volta. No app ela nao
+// pode existir: a compra ali passa obrigatoriamente pelo Google Play, e esta
+// pagina nao tem esse caminho. Manda pra home, que tem o fluxo certo.
+const { isCapacitor } = useAppMode()
+
 onMounted(() => {
+  if (isCapacitor.value) { navigateTo('/'); return }
   histSync()
   const daQuery = placaDaQuery()
   if (daQuery) {
