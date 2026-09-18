@@ -32,6 +32,10 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   '/api/send-notification': { windowMs: 60 * 1000, maxRequests: 5 }, // 5 per minute
   '/api/dash-auth': { windowMs: 60 * 60 * 1000, maxRequests: 5 }, // 5 per hour (auth)
   '/api/fcm-token/save': { windowMs: 60 * 1000, maxRequests: 10 }, // 10 per minute
+  // Verificacao de compra do Google Play: cada chamada bate na API da Google e
+  // pode virar uma consulta paga no SENATRAN. Ninguem compra dez vezes por hora
+  // do mesmo aparelho, entao o teto e baixo de proposito.
+  '/api/premium/google-play/verificar': { windowMs: 60 * 60 * 1000, maxRequests: 10 }, // 10 por hora
   'default': { windowMs: 60 * 1000, maxRequests: 30 }, // Default: 30 per minute
 }
 
