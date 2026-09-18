@@ -16,6 +16,14 @@ interface ErrorEmailData {
   paraTambem?: string[]
 }
 
+// Sempre em BRT e com o fuso escrito: o container roda em UTC e a hora "pt-BR"
+// sem fuso era lida como horario de Brasilia, 3h adiantada.
+function horaBrasilia(d: string | Date): string {
+  const dt = typeof d === 'string' ? new Date(d) : d
+  if (isNaN(dt.getTime())) return String(d)
+  return dt.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false }) + ' BRT'
+}
+
 export async function sendErrorEmail(data: ErrorEmailData) {
   const config = useRuntimeConfig()
 
@@ -50,8 +58,8 @@ export async function sendErrorEmail(data: ErrorEmailData) {
     <div class="header">🚨 Erro na API - PlacaCompleta</div>
     <div class="content">
       <div class="field">
-        <div class="label">⏰ Timestamp:</div>
-        <div class="value">${data.timestamp}</div>
+        <div class="label">⏰ Horário (Brasília):</div>
+        <div class="value">${horaBrasilia(data.timestamp)}</div>
       </div>
 
       <div class="field">
@@ -100,7 +108,7 @@ export async function sendErrorEmail(data: ErrorEmailData) {
     await resend.emails.send({
       from: 'PlacaCompleta Errors <erros@placacompleta.com.br>',
       to: ['erros@placacompleta.com.br', ...(data.paraTambem || [])],
-      subject: `[Erro API] ${data.endpoint} - ${new Date().toLocaleString('pt-BR')}`,
+      subject: `[Erro API] ${data.endpoint} - ${horaBrasilia(new Date())}`,
       html: htmlContent,
     })
   } catch (emailError) {
