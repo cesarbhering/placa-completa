@@ -226,9 +226,8 @@ quando a base respondeu, nunca quando a consulta falhou.
 roda no navegador, é amostrado e some com bloqueador de anúncio. O web-funil
 fechou uma segunda via: os eventos abaixo vão também para `POST /api/evento` e
 viram linha na tabela `eventos_funil` do Supabase premium. Esse dado não é
-amostrado e não depende do navegador cooperar. Atenção da auditoria: o código
-já está na dev, mas a migration ainda não foi aplicada em produção nem no
-staging, então até isso acontecer o endpoint responde normal e não grava nada.
+amostrado e não depende do navegador cooperar. A migration foi aplicada em
+20/set nos dois projetos, produção e staging.
 
 Eventos novos, nomes exatos: `resultado_exibido` (a consulta grátis renderizou
 com dados), `cta_completa_visto` (o bloco bloqueado entrou na tela de verdade,
@@ -249,9 +248,10 @@ nunca colapsando "não sabemos" em "não tem".
 Privacidade dessa tabela: sem e-mail, sem telefone, sem IP cru e sem
 User-Agent cru. Do aparelho fica só a categoria, celular ou computador, e do IP
 só um hash com sal do servidor, usado apenas para não contar a mesma pessoa
-duas vezes. Esse sal vem de `FUNIL_IP_SALT`, e enquanto ele não estiver
-configurado no ambiente a coluna do hash grava nulo de propósito, o que só
-desliga a dedupe por IP: as etapas e a visão diária continuam funcionando. A sessão é um id anônimo em sessionStorage, não é cookie e morre
+duas vezes. Esse sal vem de `NUXT_FUNIL_IP_SALT`, configurado em
+20/set na produção e no staging, então a dedupe por IP vale a partir do
+primeiro deploy. Sem o sal a coluna gravaria nulo de propósito, o que só
+desligaria a dedupe: as etapas e a visão diária funcionam de todo jeito. A sessão é um id anônimo em sessionStorage, não é cookie e morre
 quando a aba fecha.
 
 **O que continua sem instrumentação**, mesmo depois dessa rodada: o clique em
