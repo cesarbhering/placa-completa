@@ -222,12 +222,41 @@ de compra é deduplicada por token em três camadas, porque houve um dia com 30
 purchases para 17 begin_checkout; e o evento do sinal de leilão só dispara
 quando a base respondeu, nunca quando a consulta falhou.
 
-**O que NÃO está instrumentado**, e é onde o funil fica cego: o clique em copiar
-o código Pix, o preenchimento do e-mail na tela do Pix (não sabemos quantos
-informam depois de pagar, só que 3 dos 24 pedidos sem e-mail ganharam um
-depois), o fechamento do modal (não há evento de abandono), o clique no botão do
-edital, e a rolagem até o bloco pago. O teammate web-funil está trabalhando
-nisso agora; combinei com ele que os nomes novos entram nesta mesma tabela.
+**Medição no nosso servidor, nova.** Até agora tudo acima vivia só no gtag, que
+roda no navegador, é amostrado e some com bloqueador de anúncio. O web-funil
+fechou uma segunda via: os eventos abaixo vão também para `POST /api/evento` e
+viram linha na tabela `eventos_funil` do Supabase premium. Esse dado não é
+amostrado e não depende do navegador cooperar. Atenção da auditoria: o código
+já está na dev, mas a migration ainda não foi aplicada em produção nem no
+staging, então até isso acontecer o endpoint responde normal e não grava nada.
+
+Eventos novos, nomes exatos: `resultado_exibido` (a consulta grátis renderizou
+com dados), `cta_completa_visto` (o bloco bloqueado entrou na tela de verdade,
+30% visível, uma vez por sessão), `cta_completa_click` (com `origem_cta` =
+bloco_bloqueado ou barra_fixa, e que não se confunde com o `cta_click` antigo,
+que é outro botão), `checkout_confirm_visto`, `checkout_fechado_sem_pagar` (com
+o passo em que parou, e que de propósito não dispara depois do Pix gerado,
+porque aí o abandono já está no próprio pedido) e `email_informado` (com `onde`
+= checkout ou tela_pix, guardando só a marca de que informou; o endereço nunca
+sai do navegador). Mais três espelhados dos que já existiam, sem nomes novos:
+`premium_checkout_open`, `pix_gerado` e `leilao_sinal_visto`.
+
+Duas decisões que evitam ler número inflado: a view `funil_diario` conta sessão
+distinta por etapa, não linha, então observer repetido ou reload não infla; e o
+campo do sinal de leilão guarda três estados (positivo, negativo, sem_sinal),
+nunca colapsando "não sabemos" em "não tem".
+
+Privacidade dessa tabela: sem e-mail, sem telefone, sem IP cru e sem
+User-Agent cru. Do aparelho fica só a categoria, celular ou computador, e do IP
+só um hash com sal do servidor, usado apenas para não contar a mesma pessoa
+duas vezes. A sessão é um id anônimo em sessionStorage, não é cookie e morre
+quando a aba fecha.
+
+**O que continua sem instrumentação**, mesmo depois dessa rodada: o clique em
+copiar o código Pix e o clique no botão do edital do DETRAN. O fechamento do
+modal, a rolagem até o bloco pago e o preenchimento do e-mail deixaram a lista
+de lacunas agora (antes só sabíamos que 3 dos 24 pedidos sem e-mail ganharam um
+depois).
 
 ## 8. Cinco sugestões de conversão, com o raciocínio
 
