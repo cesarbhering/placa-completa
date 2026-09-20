@@ -601,12 +601,21 @@ export default defineNuxtConfig({
     // Fica OFF ate o app novo (v2) estar publicado na Play.
     forceAppUpdate: process.env.FORCE_APP_UPDATE === "true",
     // v2.0 Consulta Premium (homologacao) - so na branch, prod nao seta estes envs
+    // Sal do hash de IP dos eventos de funil (server/api/evento.post.ts). Sem
+    // ele o endpoint grava ip_hash nulo: um sha256 de IP sem sal e reversivel
+    // por forca bruta, entao preferimos nao guardar nada.
+    funilIpSalt: process.env.FUNIL_IP_SALT || "",
     premiumSupabaseUrl: process.env.PREMIUM_SUPABASE_URL || "",
     premiumSupabaseKey: process.env.PREMIUM_SUPABASE_KEY || "",
     premiumPagePassword: process.env.PREMIUM_PAGE_PASSWORD || "",
     abacatepayApiKey: process.env.ABACATEPAY_API_KEY || "",
     abacatepayWebhookSecret: process.env.ABACATEPAY_WEBHOOK_SECRET || "",
     abacatepayBase: process.env.ABACATEPAY_BASE || "https://api.abacatepay.com/v2",
+    // Conta de servico da Google Play Developer API (base64 do JSON), usada so
+    // pra conferir compras feitas DENTRO do app Android. Private: nunca vai
+    // pro bundle do browser. Sem ela, o endpoint do app responde 503 e a web
+    // (Pix) segue intacta.
+    googlePlayServiceAccount: process.env.NUXT_GOOGLE_PLAY_SERVICE_ACCOUNT || "",
     // Servico interno de decode de VIN/chassi (services/vin-decoder), rede
     // docker interna, sem porta publica. Fail-open: se estiver fora, o bloco
     // "Origem do chassi" so nao aparece no relatorio, nunca quebra a entrega.

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { PLANOS, RECURSOS } from '~/shared/planos'
 import { origemDaSessao } from '~/shared/origem-trafego'
+import { enfileirarEventoFunil, enviarFunil } from '~/composables/useAnalytics'
 
 // Checkout premium inline: roda o fluxo pago SEM sair da home, num overlay.
 // Espelha a logica de pages/premium/index.vue (gate -> preview -> checkout ->
@@ -30,6 +31,13 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ close: [] }>()
 
 const cfg = useRuntimeConfig()
+
+// Dentro do app Android quem cobra e o Google Play, nao o Pix: a loja exige
+// que todo produto digital passe pela cobranca dela. Entao, e SO ali, o
+// checkout perde cupom, perde a opcao de plano e perde qualquer palavra sobre
+// Pix, e o botao vira uma compra na loja. Na web nada muda.
+const { isCapacitor } = useAppMode()
+const playBilling = usePlayBilling()
 
 type Step = 'loading' | 'gate' | 'confirm' | 'pending' | 'erro'
 const step = ref<Step>('loading')
@@ -157,12 +165,38 @@ let poll: ReturnType<typeof setInterval> | null = null
 const { add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
 const { trackBeginCheckout, trackAddPaymentInfo, trackPixGerado, trackConversionPaga } = useAnalytics()
 
+// Contexto que acompanha toda etapa do funil medida aqui.
+function ctxFunil() {
+  return { placa: placaClean.value, plano: props.plano }
+}
+
+// A tela de confirmacao apareceu. E o ponto onde mais gente desiste, e ate
+// agora so existia no gtag: sem isto nao da pra separar "nem abriu o checkout"
+// de "abriu e parou na confirmacao".
+watch(step, (novo) => {
+  if (novo === 'confirm') enfileirarEventoFunil('checkout_confirm_visto', ctxFunil())
+})
+
+// Informou e-mail (no checkout ou na tela do Pix). SO a marca de que informou:
+// o endereco em si nunca sai daqui.
+let emailJaReportado = false
+function marcarEmailInformado(onde: string) {
+  if (emailJaReportado) return
+  emailJaReportado = true
+  enfileirarEventoFunil('email_informado', { ...ctxFunil(), extra: { onde } })
+}
+
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
 const planoInfo = computed(() => PLANOS[props.plano])
 // O botao diz o que a pessoa leva, nao so o que ela paga: o preco sozinho e
 // custo puro; com o desfecho junto, o clique tem um motivo.
 const rotuloPagar = computed(() => {
+  if (isCapacitor.value) {
+    return loading.value
+      ? 'Abrindo o Google Play...'
+      : `Comprar ${PLANOS.completa.nome} ${reais(PLANOS.completa.valorCentavos)} pelo Google Play`
+  }
   if (loading.value) return cupomGratis.value ? 'Liberando...' : 'Gerando Pix...'
   if (cupomGratis.value) return 'Liberar relatório grátis'
   return `Pagar ${reais(precoExibidoCentavos.value)} e ver o ${planoInfo.value.nome.toLowerCase()}`
@@ -342,6 +376,7 @@ async function salvarEmailDoPix() {
   try {
     await $fetch('/api/premium/email', { method: 'POST', body: { token: pix.value.token, email: valor } })
     emailPixSalvo.value = true
+    marcarEmailInformado('tela_pix')
     if (import.meta.client) localStorage.setItem('pc_email', valor)
   } catch (e: any) {
     // Falhar aqui NAO pode assustar quem esta pagando: o relatorio abre nesta
@@ -349,6 +384,62 @@ async function salvarEmailDoPix() {
     // de novo saindo e voltando do campo.
     emailPixErro.value = 'Não conseguimos guardar seu e-mail agora. O relatório abre aqui assim que o pagamento cair.'
     if (import.meta.dev) console.warn('[checkout] salvar email do pix falhou:', e?.data?.message || e)
+  }
+}
+
+/**
+ * Compra dentro do app: a loja cobra, o servidor confere o comprovante com a
+ * Google e o resto do fluxo (status, entrega, relatorio) e exatamente o mesmo
+ * do Pix. Nenhum preco sai daqui: quem define e a tabela no servidor.
+ */
+async function comprarPeloPlay() {
+  loading.value = true
+  msg.value = ''
+  emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
+  try {
+    const compra = await playBilling.comprar()
+    const r: any = await $fetch('/api/premium/google-play/verificar', {
+      method: 'POST',
+      body: {
+        placa: preview.value.placa,
+        email: email.value.trim() || undefined,
+        preview: preview.value.raw,
+        purchaseToken: compra.purchaseToken,
+        orderId: compra.orderId,
+        productId: compra.productId,
+        ambiente: ambiente.value,
+        origin: origemDaSessao(),
+      },
+    })
+    // Daqui pra frente e igual ao Pix pago: o token_entrega e a credencial do
+    // relatorio e a tela acompanha pelo mesmo polling.
+    pix.value = { token: r.token_entrega, valor: PLANOS.completa.valorCentavos }
+    step.value = 'pending'
+    pendingStatus.value = 'pago'
+    trackConversionPaga(r.token_entrega, 'completa', PLANOS.completa.valorCentavos)
+    histAdd({
+      token: r.token_entrega,
+      placa: preview.value.placa,
+      veiculo: preview.value?.encontrado
+        ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ')
+        : null,
+      status: 'pago',
+    })
+    poll = setInterval(checarStatus, 4000)
+    await checarStatus()
+  } catch (e: any) {
+    // Fechar a tela da loja e desistir, nao falhar: sem esta distincao a
+    // pessoa que so olhou o preco veria uma mensagem de erro.
+    if (playBilling.foiCancelado(e)) {
+      msg.value = ''
+    } else if (e?.statusCode === 402 || e?.response?.status === 402) {
+      msg.value = e?.data?.message || 'Não conseguimos confirmar sua compra agora.'
+    } else {
+      if (import.meta.dev) console.warn('[checkout] compra no Play falhou:', e?.data?.message || e)
+      msg.value = 'Não conseguimos concluir a compra agora. Tente de novo em instantes.'
+    }
+  } finally {
+    loading.value = false
   }
 }
 
@@ -362,6 +453,7 @@ async function pagar() {
     // Guarda o que foi mandado no checkout: e isso que decide se a tela do Pix
     // precisa pedir o e-mail.
     emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
+    if (emailNoPedido.value) marcarEmailInformado('checkout')
     pix.value = await $fetch('/api/premium/checkout', {
       method: 'POST',
       body: {
@@ -449,7 +541,7 @@ async function checarStatus() {
       if (poll) clearInterval(poll)
       irParaRelatorio(pix.value.token)
     }
-    if (['expirado', 'falha', 'reembolsado'].includes(r.status) && poll) clearInterval(poll)
+    if (['expirado', 'falha', 'falha_google_play', 'reembolsado'].includes(r.status) && poll) clearInterval(poll)
   } catch {
     /* segue tentando */
   }
@@ -486,6 +578,13 @@ async function simular() {
 }
 
 function fechar() {
+  // Saiu antes de existir cobranca: e a desistencia que queremos medir. Com
+  // Pix ja gerado o abandono e outro problema (pagou depois, ou nao pagou), e
+  // esse ja tem dado proprio no pedido.
+  if (!pix.value) {
+    enfileirarEventoFunil('checkout_fechado_sem_pagar', { ...ctxFunil(), extra: { step: step.value } })
+    enviarFunil()
+  }
   emit('close')
 }
 
@@ -607,8 +706,10 @@ onUnmounted(() => {
               <button type="button" class="pic-btn" @click="salvarPlaca">Usar esta placa</button>
             </div>
             <!-- Campo de cupom, expansivel: some por padrao pra nao poluir o
-                 checkout de quem nao tem cupom. -->
-            <div class="pic-cupom">
+                 checkout de quem nao tem cupom. No app ele nem existe: a loja
+                 cobra o preco dela, e um desconto que nao pode ser aplicado so
+                 frustraria quem digitasse. -->
+            <div v-if="!isCapacitor" class="pic-cupom">
               <button
                 v-if="!cupomAberto"
                 type="button"
@@ -675,7 +776,7 @@ onUnmounted(() => {
                  processa o Pix?), respondidas com o que o produto ja
                  faz de verdade. Nada de prova social inventada. -->
             <ul class="pic-conf">
-              <li class="pic-conf__item pic-conf__item--forte">
+              <li v-if="!isCapacitor" class="pic-conf__item pic-conf__item--forte">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M12 3 20 6v6c0 4.5-3.3 7.9-8 9-4.7-1.1-8-4.5-8-9V6Z" />
                   <path d="m9 12 2 2 4-4" />
@@ -699,7 +800,8 @@ onUnmounted(() => {
                      aparece como HASTE TECHNOLOGIES, a empresa por tras da
                      AbacatePay. Citar um nome que ela nao vai encontrar nao
                      ajuda em nada. -->
-                <span>Pagamento por Pix, processado com segurança. Seus dados trafegam protegidos.</span>
+                <span v-if="isCapacitor">Pagamento único pelo Google Play, com a forma de pagamento da sua conta.</span>
+                <span v-else>Pagamento por Pix, processado com segurança. Seus dados trafegam protegidos.</span>
               </li>
               <li v-if="props.plano === 'completa'" class="pic-conf__item">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -710,7 +812,12 @@ onUnmounted(() => {
                 <span>Inclui o histórico de leilão, cruzado com uma base de <strong>mais de 1 milhão de veículos leiloados</strong>.</span>
               </li>
             </ul>
-            <button type="button" class="pic-btn pic-btn--primary" :disabled="loading || editandoPlaca" @click="confirmarEPagar">
+            <button
+              type="button"
+              class="pic-btn pic-btn--primary"
+              :disabled="loading || editandoPlaca"
+              @click="isCapacitor ? comprarPeloPlay() : confirmarEPagar()"
+            >
               {{ rotuloPagar }}
             </button>
             <button type="button" class="pic-btn" @click="fechar">Cancelar</button>
@@ -726,6 +833,13 @@ onUnmounted(() => {
               <h3 class="pic-h">Liberando seu relatório grátis</h3>
               <div class="loading-bar"><div class="loading-bar__fill" /></div>
               <p class="pic-hint">Só um instante...</p>
+            </template>
+            <!-- No app nao ha Pix pra mostrar: quando a loja confirma, a
+                 compra ja esta paga e a tela so espera o relatorio. -->
+            <template v-else-if="isCapacitor && pendingStatus === 'aguardando_pagamento'">
+              <h3 class="pic-h">Compra confirmada ✓</h3>
+              <div class="loading-bar"><div class="loading-bar__fill" /></div>
+              <p class="pic-hint">Preparando seu relatório...</p>
             </template>
             <template v-else-if="pendingStatus === 'aguardando_pagamento'">
               <!-- Tela do Pix, enxuta de proposito: ela tinha 1.136px de altura
@@ -841,6 +955,18 @@ onUnmounted(() => {
               <h3 class="pic-h">Relatório pronto ✓</h3>
               <div class="loading-bar"><div class="loading-bar__fill" /></div>
               <p class="pic-hint">Abrindo seu relatório...</p>
+            </template>
+            <!-- Compra no app que nao virou relatorio: o dinheiro esta com a
+                 loja, e a devolucao passa por ela. Prometer estorno automatico
+                 aqui seria prometer o que nao controlamos. -->
+            <template v-else-if="pendingStatus === 'falha_google_play'">
+              <h3 class="pic-h">Não conseguimos concluir</h3>
+              <p class="pic-hint">
+                Sua compra foi registrada, mas não conseguimos gerar o relatório. Já
+                fomos avisados e vamos devolver o valor pelo Google Play e falar com
+                você. Qualquer coisa, fale com a gente pelo contato do rodapé.
+              </p>
+              <button type="button" class="pic-btn" @click="fechar">Fechar</button>
             </template>
             <template v-else-if="pendingStatus === 'falha'">
               <h3 class="pic-h">Não conseguimos concluir</h3>

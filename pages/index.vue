@@ -4,6 +4,7 @@ import { sinalDaResposta, fraseSinalNaTela } from '~/shared/sinal-leilao-respost
 
 import { homepageFaqs } from '~/data/homepage-faqs'
 import { origemDaSessao } from '~/shared/origem-trafego'
+import { espelharEventoNoFunil, enfileirarEventoFunil } from '~/composables/useAnalytics'
 
 // A consulta feita passa a viver num endereco proprio, /placa/ABC1D23, que
 // aponta pra esta mesma pagina. O registro da rota fica em app/router.options.ts.
@@ -16,7 +17,11 @@ import { origemDaSessao } from '~/shared/origem-trafego'
 // reaproveitada, sem remount, sem flicker, sem consulta dupla.
 definePageMeta({ key: () => 'home' })
 
-const { isPWA, isMobile } = useAppMode()
+const { isPWA, isMobile, isCapacitor } = useAppMode()
+// Dentro do app Android so existem dois caminhos: a consulta gratis e o
+// relatorio completo pela loja. A basica nao e vendida la (a loja cobra um
+// produto so) e a palavra Pix nao pode aparecer, porque nao e assim que se
+// paga ali.
 const route = useRoute()
 const router = useRouter()
 
@@ -32,6 +37,11 @@ const placaDaRota = computed(() => {
 })
 // Landing de intencao-app: anuncios do ad group "App Intent" chegam com ?app=1
 // e trocam o contador de consultas pelo badge do Play. Fallback: contador normal.
+// Cards de preco: no app a basica sai da lista, senao a pessoa veria uma
+// oferta que nao tem como comprar ali.
+const planosComparados = computed(() => (
+  isCapacitor.value ? [PLANOS.gratis, PLANOS.completa] : [PLANOS.gratis, PLANOS.basica, PLANOS.completa]
+))
 const appIntent = computed(() => route.query.app === '1' && !isPWA.value)
 
 // Volta do relatorio basico querendo o upgrade: /?placa=ABC1D23&plano=completa
@@ -355,6 +365,51 @@ function openPremiumCheckout(plano?: unknown) {
   })
 }
 
+// Clique no CTA da Completa (bloco bloqueado e barra fixa). Fica separado do
+// `premium_checkout_open` porque o checkout tambem abre por outros caminhos
+// (link com ?plano=, hero apos CTA sem placa): sem este evento nao da pra
+// saber quantos cliques no CTA principal viram checkout aberto.
+function cliqueCtaCompleta(origem: string) {
+  enfileirarEventoFunil('cta_completa_click', {
+    placa: placa.value || null,
+    plano: 'completa',
+    leilao_sinal: sinalLeilao.value ? (sinalLeilao.value.positivo ? 'positivo' : 'negativo') : 'sem_sinal',
+    extra: { origem_cta: origem },
+  })
+  openPremiumCheckout('completa')
+}
+
+// O bloco bloqueado entrou na tela de verdade.
+//
+// E a medicao que faltava: "quantos chegaram a VER a oferta" nao dava pra
+// deduzir de nada. Uma vez por sessao (o observer se desconecta), pra rolagem
+// pra cima e pra baixo nao inflar a etapa.
+const blocoLockedRef = ref<HTMLElement | null>(null)
+let obsLocked: IntersectionObserver | null = null
+let ctaVistoReportado = false
+
+function observarCtaCompleta() {
+  if (!import.meta.client || ctaVistoReportado) return
+  const alvo = blocoLockedRef.value
+  if (!alvo) return
+  obsLocked?.disconnect()
+  if (!('IntersectionObserver' in window)) return
+  obsLocked = new IntersectionObserver((entradas) => {
+    if (!entradas.some((e) => e.isIntersecting)) return
+    ctaVistoReportado = true
+    obsLocked?.disconnect()
+    enfileirarEventoFunil('cta_completa_visto', {
+      placa: placa.value || null,
+      plano: 'completa',
+      leilao_sinal: sinalLeilao.value ? (sinalLeilao.value.positivo ? 'positivo' : 'negativo') : 'sem_sinal',
+    })
+  }, { threshold: 0.3 })
+  obsLocked.observe(alvo)
+}
+
+watch(success, (ok) => { if (ok) nextTick(observarCtaCompleta) })
+onUnmounted(() => obsLocked?.disconnect())
+
 // O bloco bloqueado sai da matriz de recursos: mover um item entre planos
 // atualiza a tela de resultado junto, sem lista paralela pra esquecer.
 // Os RÓTULOS sao reais (dizem o que voce leva); os VALORES sao marcadores — o
@@ -559,6 +614,10 @@ function track(event: string, params?: Record<string, any>) {
   if (import.meta.client && window.gtag) {
     window.gtag('event', event, params)
   }
+  // Espelho no nosso coletor (/api/evento). Nao passa pelo useAnalytics de
+  // proposito: aqui o espelho da Meta NAO deve disparar, senao os mesmos
+  // eventos virariam evento de pixel duas vezes.
+  espelharEventoNoFunil(event, params)
 }
 
 function trackAppIntentClick() {
@@ -968,6 +1027,10 @@ async function handleSubmit() {
 
       if (delivered) {
         track('consulta_success', { channel: channel.value })
+        // Primeira etapa do funil medida por nos: a consulta gratis chegou a
+        // renderizar com dados. Sem ela nao da pra dizer se a queda de
+        // conversao comecou antes ou depois do resultado aparecer.
+        enfileirarEventoFunil('resultado_exibido', { placa: placa.value })
         shareInfo.value = (result as any).share || null
         // resultado na tela (padrao dos concorrentes): o que e o carro aparece
         // na hora; o que decide a compra fica atras do pagamento.
@@ -1206,7 +1269,7 @@ function applyEmailSuggestion() {
             <p v-if="resultadoBasico?.fipeNota" class="cb-result__nota">{{ resultadoBasico.fipeNota }}</p>
           </div>
 
-          <div class="cb-locked">
+          <div ref="blocoLockedRef" class="cb-locked">
             <!-- "Faltam" jogava a falta pra cima da gente, como se nao
                  tivessemos os dados. "Disponíveis" inverte pro que interessa:
                  existem mais verificacoes e nos entregamos.
@@ -1273,12 +1336,12 @@ function applyEmailSuggestion() {
                   <!-- Com registro encontrado, o CTA para de falar do produto
                        e passa a falar do achado: e o que a pessoa quer saber
                        naquele segundo. -->
-                  <button type="button" class="cb-btn cb-btn--blue" @click="openPremiumCheckout('completa')">
+                  <button type="button" class="cb-btn cb-btn--blue" @click="cliqueCtaCompleta('bloco_bloqueado')">
                     {{ sinalLeilao?.positivo
                       ? `Ver o registro de leilão no relatório completo · ${precoBRL(PLANOS.completa.valorCentavos)}`
                       : `Ver o que essa placa revela · ${precoBRL(PLANOS.completa.valorCentavos)}` }}
                   </button>
-                  <p class="cb-locked__pix">Pix, na hora, sem assinatura.</p>
+                  <p class="cb-locked__pix">{{ isCapacitor ? 'Na hora, sem assinatura.' : 'Pix, na hora, sem assinatura.' }}</p>
                   <!-- Oferta da basica desativada aqui: duas opcoes no mesmo
                        ponto dividiam a decisao. A basica segue viva no
                        comparativo de precos. Pra voltar, e so descomentar.
@@ -1313,7 +1376,7 @@ function applyEmailSuggestion() {
             <span v-if="sinalLeilao?.positivo">Data, leiloeira e condição do veículo no relatório completo</span>
             <span v-else>Mais {{ camposBloqueados.length }} verificações e o histórico de leilão, com base de mais de 1 milhão de veículos</span>
           </div>
-          <button type="button" class="cb-btn cb-btn--blue cb-sticky-upsell__cta" @click="openPremiumCheckout('completa')">
+          <button type="button" class="cb-btn cb-btn--blue cb-sticky-upsell__cta" @click="cliqueCtaCompleta('barra_fixa')">
             {{ sinalLeilao?.positivo ? 'Ver o leilão' : 'Ver agora' }} · {{ precoBRL(PLANOS.completa.valorCentavos) }}
           </button>
         </div>
@@ -1435,7 +1498,7 @@ function applyEmailSuggestion() {
         </div>
         <div class="cb-cmp-grid">
           <div
-            v-for="p in [PLANOS.gratis, PLANOS.basica, PLANOS.completa]"
+            v-for="p in planosComparados"
             :key="p.id"
             class="cb-cmp-card"
             :class="{ 'cb-cmp-card--hi': p.id === 'completa' }"
@@ -1444,7 +1507,7 @@ function applyEmailSuggestion() {
             <div class="cb-cmp-kick">{{ p.nome }}</div>
             <div class="cb-cmp-price">
               <template v-if="p.valorCentavos === 0">Grátis <small>na tela</small></template>
-              <template v-else>{{ precoBRL(p.valorCentavos) }} <small>Pix, uma vez</small></template>
+              <template v-else>{{ precoBRL(p.valorCentavos) }} <small>{{ isCapacitor ? 'pagamento único' : 'Pix, uma vez' }}</small></template>
             </div>
             <div class="cb-cmp-note">{{ p.chamada }}</div>
 
