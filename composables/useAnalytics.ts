@@ -1,4 +1,138 @@
 import { PLANOS, isPlanoPago } from '~/shared/planos'
+import { eventoPermitido, MAX_EVENTOS_POR_LOTE, type EventoFunil } from '~/shared/eventos-funil'
+import { origemDaSessao } from '~/shared/origem-trafego'
+
+// ---------------------------------------------------------------------------
+// Funil medido no NOSSO servidor (/api/evento).
+//
+// O gtag continua igual: o que entra aqui e um espelho, nao um substituto. A
+// diferenca e que este dado e nosso, nao e amostrado e nao some com bloqueador
+// de anuncio, entao da pra responder "quantos chegaram a VER o CTA" sem
+// depender de terceiro.
+//
+// Envio em lote a cada 2s (ou no pagehide) porque etapa de funil costuma vir
+// em rajada: resultado na tela, sinal de leilao, CTA aparecendo, tudo em
+// poucos segundos. Uma requisicao por evento seria barulho de rede a toa.
+// ---------------------------------------------------------------------------
+
+export interface EventoNaFila {
+  evento: EventoFunil
+  placa?: string | null
+  sessao?: string | null
+  origem?: Record<string, string> | null
+  leilao_sinal?: string
+  plano?: string | null
+  extra?: Record<string, string | number | boolean> | null
+}
+
+let fila: EventoNaFila[] = []
+let timer: ReturnType<typeof setTimeout> | null = null
+let ouvindoSaida = false
+
+/** Id anonimo por ABA. sessionStorage de proposito: nao e cookie, nao
+ *  sobrevive ao fechamento e nao reconhece ninguem numa visita futura. */
+export function idDaSessao(): string | null {
+  try {
+    let id = sessionStorage.getItem('pc_sess')
+    if (!id) {
+      id = Math.random().toString(36).slice(2) + Date.now().toString(36)
+      sessionStorage.setItem('pc_sess', id)
+    }
+    return id
+  } catch {
+    return null
+  }
+}
+
+/** So pra teste: devolve e limpa o que esta na fila. */
+export function _filaFunil(): EventoNaFila[] {
+  return fila
+}
+export function _limparFilaFunil() {
+  fila = []
+  if (timer) { clearTimeout(timer); timer = null }
+}
+
+/**
+ * Manda o lote. sendBeacon primeiro porque ele sobrevive a pagina fechando,
+ * que e exatamente o caso de `checkout_fechado_sem_pagar`; fetch com keepalive
+ * e o plano B de quem nao tem beacon.
+ */
+export function enviarFunil() {
+  if (timer) { clearTimeout(timer); timer = null }
+  if (!fila.length) return
+  const lote = fila.slice(0, MAX_EVENTOS_POR_LOTE)
+  fila = fila.slice(MAX_EVENTOS_POR_LOTE)
+  const corpo = JSON.stringify({ eventos: lote })
+  try {
+    const beacon = globalThis.navigator?.sendBeacon?.bind(globalThis.navigator)
+    if (beacon && beacon('/api/evento', new Blob([corpo], { type: 'application/json' }))) return
+    void fetch('/api/evento', { method: 'POST', headers: { 'content-type': 'application/json' }, body: corpo, keepalive: true }).catch(() => {})
+  } catch {
+    // Medicao nunca quebra pagina.
+  }
+  if (fila.length) agendarEnvio()
+}
+
+function agendarEnvio() {
+  if (timer) return
+  timer = setTimeout(() => { timer = null; enviarFunil() }, 2000)
+}
+
+/**
+ * Enfileira UMA etapa do funil. Nome fora da allowlist nao entra: a lista de
+ * etapas e um contrato com a tabela, nao um saco de cliques.
+ *
+ * Nada identificavel atravessa: e-mail, telefone, chassi e token ficam de fora
+ * por construcao (o unico campo livre e `extra`, saneado no servidor).
+ */
+export function enfileirarEventoFunil(evento: string, dados?: Omit<EventoNaFila, 'evento'>) {
+  // `typeof window` e nao `import.meta.client`: a checagem precisa valer
+  // tambem fora do build do Nuxt (teste unitario), e o efeito e o mesmo, ja
+  // que no servidor nao existe window.
+  if (typeof window === 'undefined') return
+  if (!eventoPermitido(evento)) return
+  if (fila.length >= 50) return   // teto de memoria se a rede estiver fora
+  fila.push({
+    ...dados,
+    evento,
+    sessao: dados?.sessao ?? idDaSessao(),
+    origem: dados?.origem ?? origemDaSessao() ?? null,
+  })
+  if (!ouvindoSaida && typeof window !== 'undefined') {
+    ouvindoSaida = true
+    window.addEventListener('pagehide', enviarFunil)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') enviarFunil()
+    })
+  }
+  agendarEnvio()
+}
+
+/**
+ * Espelha no nosso coletor as etapas do funil, a partir dos MESMOS parametros
+ * que ja vao pro gtag. Evento fora da allowlist nao vai, e os campos que
+ * viajam sao so os que a tabela entende: placa, sinal de leilao, plano e um
+ * `extra` pequeno.
+ *
+ * Fica no escopo do modulo (e nao dentro do composable) porque pages/index.vue
+ * tem um `track` local proprio, so de gtag, e precisa espelhar pelo mesmo
+ * caminho sem herdar o espelho da Meta junto.
+ */
+export function espelharEventoNoFunil(event: string, params?: Record<string, any>) {
+  if (!eventoPermitido(event)) return
+  const extra: Record<string, string | number | boolean> = {}
+  if (typeof params?.origin === 'string') extra.origem_cta = params.origin
+  if (typeof params?.positivo === 'boolean') extra.positivo = params.positivo
+  if (typeof params?.com_email === 'string') extra.com_email = params.com_email
+  if (typeof params?.ja_consultada === 'boolean') extra.ja_consultada = params.ja_consultada
+  enfileirarEventoFunil(event, {
+    placa: typeof params?.placa === 'string' ? params.placa : null,
+    leilao_sinal: typeof params?.leilao_sinal === 'string' ? params.leilao_sinal : undefined,
+    plano: typeof params?.plano === 'string' ? params.plano : null,
+    extra: Object.keys(extra).length ? extra : null,
+  })
+}
 
 /**
  * Composable para tracking de eventos com Google Analytics
@@ -80,28 +214,7 @@ export const useAnalytics = () => {
       window.gtag('event', event, params)
     }
     espelharNaMeta(event, params)
-  }
-
-  /**
-   * Espelha no Pixel da Meta os quatro momentos que o remarketing precisa
-   * distinguir. A Meta so entende os nomes dela, entao o mapa traduz; evento
-   * fora do mapa nao vai, porque lista de publico se faz com etapa de funil,
-   * nao com todo clique do site.
-   *
-   * Nada de identificavel atravessa: placa, chassi, e-mail, telefone e token
-   * ficam de fora, so o valor e a moeda passam.
-   */
-  const espelharNaMeta = (event: string, params?: Record<string, any>) => {
-    if (!import.meta.client) return
-    const nome = EVENTOS_META[event]
-    const fbq = (window as any).fbq
-    if (!nome || typeof fbq !== 'function') return
-    const dados: Record<string, any> = {}
-    if (typeof params?.value === 'number') {
-      dados.value = params.value
-      dados.currency = 'BRL'
-    }
-    fbq('track', nome, dados)
+    espelharEventoNoFunil(event, params)
   }
 
   /**
@@ -213,6 +326,7 @@ export const useAnalytics = () => {
 
   return {
     track,
+    enfileirarEventoFunil,
     trackBeginCheckout,
     trackAddPaymentInfo,
     trackPixGerado,

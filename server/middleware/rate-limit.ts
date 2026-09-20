@@ -36,6 +36,9 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   // pode virar uma consulta paga no SENATRAN. Ninguem compra dez vezes por hora
   // do mesmo aparelho, entao o teto e baixo de proposito.
   '/api/premium/google-play/verificar': { windowMs: 60 * 60 * 1000, maxRequests: 10 }, // 10 por hora
+  // Coletor do funil: recebe lote de ate 10 eventos por chamada, entao 60/min
+  // cobre uma navegacao intensa com folga e ainda barra despejo automatizado.
+  '/api/evento': { windowMs: 60 * 1000, maxRequests: 60 }, // 60 por minuto
   'default': { windowMs: 60 * 1000, maxRequests: 30 }, // Default: 30 per minute
 }
 
