@@ -27,9 +27,16 @@ Por status, desde 27/ago: 88 entregues, 37 aguardando pagamento, 5 expirados, 2
 reembolsados, 1 travado em "consultando". Receita bruta entregue no período: R$
 2.079,90.
 
-Um dado que merece decisão na auditoria: 35 relatórios saíram a R$ 0,00 no
-período, para 9 pessoas. São cupons de cortesia, e cada um custa consulta paga
-de verdade. É quase um terço do volume entregue.
+Um dado que merece decisão na auditoria, com a ressalva de que ele encolheu
+sozinho: 35 relatórios saíram a R$ 0,00 desde 27/ago, para 9 pessoas. São
+pedidos com valor zero em pedidos_premium, ou seja, cupom de 100%, e cada um
+custa consulta paga de verdade. No acumulado do período isso é 35 de 88
+entregues, mas o número acumulado engana, porque a distribuição por semana
+mostra uma rajada no fim de agosto que foi murchando: 22 na semana de 24/ago, 8
+na de 31/ago, 3 na de 07/set e 2 na de 14/set. Nos últimos 14 dias são 5
+relatórios para 2 pessoas. A pergunta para a auditoria não é como estancar um
+ralo aberto, e sim se a rajada inicial foi investimento consciente em beta
+testers.
 
 ## 2. O que subiu para produção desde 27/ago
 
@@ -263,7 +270,8 @@ fizemos, então merece teste A/B de verdade, não troca direta.
 
 ## 9. O que eu levaria para a auditoria como pergunta aberta
 
-- Os 35 relatórios de cortesia para 9 pessoas: é investimento consciente?
+- Os 35 relatórios de cortesia para 9 pessoas, quase todos concentrados no fim
+  de agosto: foi investimento consciente em beta testers?
 - A Básica continua existindo por quê?
 - O TTFB oscilando com a carga da VPS é problema de infraestrutura, e nenhuma
   otimização de front resolve. Vale discutir com o infra na mesma reunião.
