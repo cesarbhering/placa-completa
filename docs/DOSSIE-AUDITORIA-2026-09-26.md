@@ -249,7 +249,9 @@ nunca colapsando "não sabemos" em "não tem".
 Privacidade dessa tabela: sem e-mail, sem telefone, sem IP cru e sem
 User-Agent cru. Do aparelho fica só a categoria, celular ou computador, e do IP
 só um hash com sal do servidor, usado apenas para não contar a mesma pessoa
-duas vezes. A sessão é um id anônimo em sessionStorage, não é cookie e morre
+duas vezes. Esse sal vem de `FUNIL_IP_SALT`, e enquanto ele não estiver
+configurado no ambiente a coluna do hash grava nulo de propósito, o que só
+desliga a dedupe por IP: as etapas e a visão diária continuam funcionando. A sessão é um id anônimo em sessionStorage, não é cookie e morre
 quando a aba fecha.
 
 **O que continua sem instrumentação**, mesmo depois dessa rodada: o clique em
