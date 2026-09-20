@@ -1,0 +1,83 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import crypto from 'node:crypto'
+
+// A resposta da Google e a unica coisa entre uma compra e a entrega do
+// relatorio. Cada caso aqui ja seria uma entrega indevida (ou uma venda
+// perdida) se o parser lesse errado.
+const config: any = { googlePlayServiceAccount: '' }
+vi.stubGlobal('useRuntimeConfig', () => config)
+vi.stubGlobal('createError', (o: any) => Object.assign(new Error(o.message), o))
+
+const { interpretarCompra, contaDeServico, montarAssertion, PRODUTO_COMPLETA } = await import('./google-play')
+
+describe('interpretar a resposta da Google', () => {
+  it('compra paga e nao consumida entrega', () => {
+    const r = interpretarCompra({ purchaseState: 0, consumptionState: 0, orderId: 'GPA.1', productId: PRODUTO_COMPLETA })
+    expect(r.ok).toBe(true)
+    expect(r.orderId).toBe('GPA.1')
+  })
+
+  it('pagamento pendente nao entrega: o dinheiro ainda nao entrou', () => {
+    const r = interpretarCompra({ purchaseState: 2, consumptionState: 0 })
+    expect(r.ok).toBe(false)
+    expect(r.motivo).toBe('pagamento pendente')
+  })
+
+  it('compra cancelada nao entrega', () => {
+    const r = interpretarCompra({ purchaseState: 1, consumptionState: 0 })
+    expect(r.ok).toBe(false)
+    expect(r.motivo).toBe('compra cancelada')
+  })
+
+  it('compra ja consumida nao entrega de novo: o token ja virou relatorio', () => {
+    const r = interpretarCompra({ purchaseState: 0, consumptionState: 1 })
+    expect(r.ok).toBe(false)
+    expect(r.motivo).toBe('compra ja utilizada')
+  })
+
+  it('resposta vazia ou sem estado falha fechada', () => {
+    expect(interpretarCompra(null).ok).toBe(false)
+    expect(interpretarCompra({}).ok).toBe(false)
+    expect(interpretarCompra({}).motivo).toBe('compra sem estado')
+  })
+
+  it('productId vem da resposta, e cai no consultado quando ela nao traz', () => {
+    expect(interpretarCompra({ purchaseState: 0, consumptionState: 0 }, 'consulta_completa').productId).toBe('consulta_completa')
+    expect(interpretarCompra({ purchaseState: 0, consumptionState: 0, productId: 'outro' }, 'consulta_completa').productId).toBe('outro')
+  })
+})
+
+describe('conta de servico', () => {
+  beforeEach(() => { config.googlePlayServiceAccount = '' })
+
+  it('sem env, o endpoint do app fica fora do ar em vez de entregar sem conferir', () => {
+    expect(() => contaDeServico()).toThrow()
+  })
+
+  it('base64 quebrado nao passa por conta de servico valida', () => {
+    config.googlePlayServiceAccount = Buffer.from('{ isto nao e json').toString('base64')
+    expect(() => contaDeServico()).toThrow()
+  })
+
+  it('JSON sem chave privada e recusado', () => {
+    config.googlePlayServiceAccount = Buffer.from(JSON.stringify({ client_email: 'a@b.com' })).toString('base64')
+    expect(() => contaDeServico()).toThrow()
+  })
+
+  it('assina um JWT que a chave publica correspondente verifica', () => {
+    const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 })
+    config.googlePlayServiceAccount = Buffer.from(JSON.stringify({
+      client_email: 'robo@placacompleta.iam.gserviceaccount.com',
+      private_key: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+    })).toString('base64')
+
+    const jwt = montarAssertion(contaDeServico(), 1_700_000_000)
+    const [h, c, sig] = jwt.split('.')
+    const ok = crypto.createVerify('RSA-SHA256').update(`${h}.${c}`).verify(publicKey, Buffer.from(sig, 'base64url'))
+    expect(ok).toBe(true)
+
+    const claims = JSON.parse(Buffer.from(c, 'base64url').toString('utf8'))
+    expect(claims.scope).toBe('https://www.googleapis.com/auth/androidpublisher')
+    expect(claims.exp - claims.iat).toBe(3600)
+  })
+})
