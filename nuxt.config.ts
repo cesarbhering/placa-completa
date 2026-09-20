@@ -601,6 +601,10 @@ export default defineNuxtConfig({
     // Fica OFF ate o app novo (v2) estar publicado na Play.
     forceAppUpdate: process.env.FORCE_APP_UPDATE === "true",
     // v2.0 Consulta Premium (homologacao) - so na branch, prod nao seta estes envs
+    // Sal do hash de IP dos eventos de funil (server/api/evento.post.ts). Sem
+    // ele o endpoint grava ip_hash nulo: um sha256 de IP sem sal e reversivel
+    // por forca bruta, entao preferimos nao guardar nada.
+    funilIpSalt: process.env.FUNIL_IP_SALT || "",
     premiumSupabaseUrl: process.env.PREMIUM_SUPABASE_URL || "",
     premiumSupabaseKey: process.env.PREMIUM_SUPABASE_KEY || "",
     premiumPagePassword: process.env.PREMIUM_PAGE_PASSWORD || "",
