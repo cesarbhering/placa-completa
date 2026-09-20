@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { PLANOS, RECURSOS } from '~/shared/planos'
 import { origemDaSessao } from '~/shared/origem-trafego'
+import { enfileirarEventoFunil, enviarFunil } from '~/composables/useAnalytics'
 
 // Checkout premium inline: roda o fluxo pago SEM sair da home, num overlay.
 // Espelha a logica de pages/premium/index.vue (gate -> preview -> checkout ->
@@ -163,6 +164,27 @@ let poll: ReturnType<typeof setInterval> | null = null
 // historico local: religar/retomar consultas sem login
 const { add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
 const { trackBeginCheckout, trackAddPaymentInfo, trackPixGerado, trackConversionPaga } = useAnalytics()
+
+// Contexto que acompanha toda etapa do funil medida aqui.
+function ctxFunil() {
+  return { placa: placaClean.value, plano: props.plano }
+}
+
+// A tela de confirmacao apareceu. E o ponto onde mais gente desiste, e ate
+// agora so existia no gtag: sem isto nao da pra separar "nem abriu o checkout"
+// de "abriu e parou na confirmacao".
+watch(step, (novo) => {
+  if (novo === 'confirm') enfileirarEventoFunil('checkout_confirm_visto', ctxFunil())
+})
+
+// Informou e-mail (no checkout ou na tela do Pix). SO a marca de que informou:
+// o endereco em si nunca sai daqui.
+let emailJaReportado = false
+function marcarEmailInformado(onde: string) {
+  if (emailJaReportado) return
+  emailJaReportado = true
+  enfileirarEventoFunil('email_informado', { ...ctxFunil(), extra: { onde } })
+}
 
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
@@ -354,6 +376,7 @@ async function salvarEmailDoPix() {
   try {
     await $fetch('/api/premium/email', { method: 'POST', body: { token: pix.value.token, email: valor } })
     emailPixSalvo.value = true
+    marcarEmailInformado('tela_pix')
     if (import.meta.client) localStorage.setItem('pc_email', valor)
   } catch (e: any) {
     // Falhar aqui NAO pode assustar quem esta pagando: o relatorio abre nesta
@@ -430,6 +453,7 @@ async function pagar() {
     // Guarda o que foi mandado no checkout: e isso que decide se a tela do Pix
     // precisa pedir o e-mail.
     emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
+    if (emailNoPedido.value) marcarEmailInformado('checkout')
     pix.value = await $fetch('/api/premium/checkout', {
       method: 'POST',
       body: {
@@ -554,6 +578,13 @@ async function simular() {
 }
 
 function fechar() {
+  // Saiu antes de existir cobranca: e a desistencia que queremos medir. Com
+  // Pix ja gerado o abandono e outro problema (pagou depois, ou nao pagou), e
+  // esse ja tem dado proprio no pedido.
+  if (!pix.value) {
+    enfileirarEventoFunil('checkout_fechado_sem_pagar', { ...ctxFunil(), extra: { step: step.value } })
+    enviarFunil()
+  }
   emit('close')
 }
 
