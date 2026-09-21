@@ -5,6 +5,7 @@ import { sinalDaResposta, fraseSinalNaTela } from '~/shared/sinal-leilao-respost
 import { homepageFaqs } from '~/data/homepage-faqs'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { espelharEventoNoFunil, enfileirarEventoFunil } from '~/composables/useAnalytics'
+import { decidirVariante, fipeSemCentavos, tituloVarianteB, subVarianteB, garantiaVarianteB, type VarianteAbBloco } from '~/shared/ab-bloco'
 
 // A consulta feita passa a viver num endereco proprio, /placa/ABC1D23, que
 // aponta pra esta mesma pagina. O registro da rota fica em app/router.options.ts.
@@ -417,6 +418,31 @@ onUnmounted(() => obsLocked?.disconnect())
 // Nunca colocar alarme falso: afirmar "ATENÇÃO" sobre um carro que nao
 // consultamos seria inventar defeito pra forcar a venda.
 const camposBloqueados = RECURSOS_BLOQUEADOS
+
+// ---------------------------------------------------------------------------
+// Teste A/B do bloco bloqueado (21/set/2026, 5 dias).
+//
+// A variante e sorteada UMA vez por visita e so quando o resultado da consulta
+// chega, que e o momento em que o bloco nasce: decidir no mounted nao evitaria
+// flicker nenhum (o bloco nem existe ainda) e carimbaria visita que nunca viu
+// a tela. O SSR renderiza sempre A, e como o bloco so aparece depois da
+// consulta (client), a troca nunca acontece com o bloco ja pintado.
+const abBloco = ref<VarianteAbBloco>('A')
+const abBlocoDesligado = computed(() => useRuntimeConfig().public.abBloco === 'off')
+
+// B so vale sem sinal de leilao positivo: com registro encontrado a tela ja
+// fala do achado, e mexer nela seria testar duas coisas ao mesmo tempo.
+const blocoVarianteB = computed(() => abBloco.value === 'B' && !sinalLeilao.value?.positivo)
+
+const fipeSemCentavosAtual = computed(() => fipeSemCentavos(resultadoBasico.value?.fipe))
+const tituloBlocoB = computed(() => tituloVarianteB(
+  resultadoBasico.value?.marca,
+  resultadoBasico.value?.modelo,
+  resultadoBasico.value?.ano,
+))
+const subBlocoB = computed(() => subVarianteB(fipeSemCentavosAtual.value, camposBloqueados.length))
+const garantiaBlocoB = computed(() => garantiaVarianteB(precoBRL(PLANOS.completa.valorCentavos), isCapacitor.value))
+
 
 // Alertas colados na ilustracao do carro. Posicao em % da caixa da imagem,
 // mirando partes do veiculo (teto, traseira, roda, frente). Sao EXEMPLOS do
@@ -1035,6 +1061,9 @@ async function handleSubmit() {
         // resultado na tela (padrao dos concorrentes): o que e o carro aparece
         // na hora; o que decide a compra fica atras do pagamento.
         resultadoBasico.value = (result as any).basico || null
+        // Bloco bloqueado existe a partir daqui: e o momento de sortear (ou
+        // reusar) a variante do teste A/B.
+        abBloco.value = decidirVariante({ desligado: abBlocoDesligado.value })
         // Fire and forget: o resultado ja esta na tela, o sinal entra quando
         // chegar.
         buscarSinalLeilao()
@@ -1291,6 +1320,14 @@ function applyEmailSuggestion() {
               <span>{{ fraseSinalLeilao }}</span>
             </p>
 
+            <!-- Variante B: sem registro de leilao, dizer isso vira prova de
+                 que a base existe e foi consultada, em vez de silencio. Sem
+                 borda e sem bolinha vermelha de proposito: nao e alerta, e
+                 informacao. Nunca cita a fonte dos dados. -->
+            <p v-if="blocoVarianteB && !fraseSinalLeilao" class="cb-sinal cb-sinal--neutro">
+              <span>Nenhum registro de leilão para esta placa na nossa base de mais de 1 milhão de veículos leiloados. O relatório completo confere se há indício de leilão no documento e checa roubo, gravame e dívida.</span>
+            </p>
+
             <p class="cb-locked__kick">Risco oculto nesta placa</p>
             <!-- Com registro encontrado, perguntar "sera que tem leilao?"
                  contradiz a linha de cima, que acabou de dizer que TEM. O
@@ -1298,6 +1335,14 @@ function applyEmailSuggestion() {
             <h2 v-if="sinalLeilao?.positivo" class="cb-locked__h">
               Registro de leilão encontrado.
               <strong>Os detalhes estão no relatório completo.</strong>
+            </h2>
+            <!-- Variante B: o titulo deixa de falar do produto e passa a
+                 falar DESTE carro (marca, modelo, ano). "Pode ter" e nao
+                 "tem": nada aqui afirma defeito. Faltando marca, modelo ou
+                 ano, tituloVarianteB cai no titulo de sempre. -->
+            <h2 v-else-if="blocoVarianteB" class="cb-locked__h">
+              {{ tituloBlocoB }}
+              <strong>A consulta grátis não mostra.</strong>
             </h2>
             <h2 v-else class="cb-locked__h">
               Indicador de roubo, registro de leilão ou dívida escondida?
@@ -1308,6 +1353,10 @@ function applyEmailSuggestion() {
               para este veículo: restrição, indicador de roubo e furto, gravame, bloqueio judicial, indicador de
               multas e mais. Liberado em até 5 minutos depois do pagamento.
             </p>
+            <!-- Variante B: ancora o preco do relatorio no preco do CARRO
+                 (FIPE ja exibido acima). Sem FIPE a oracao do preco some
+                 inteira, em vez de sair "R$ -". -->
+            <p v-else-if="blocoVarianteB" class="cb-locked__sub">{{ subBlocoB }}</p>
             <p v-else class="cb-locked__sub">
               Mais <strong>{{ camposBloqueados.length }}</strong> verificações para este veículo: restrição,
               indicador de roubo e furto, registro de leilão, gravame, bloqueio judicial, indicador de multas e mais.
@@ -1336,12 +1385,18 @@ function applyEmailSuggestion() {
                   <!-- Com registro encontrado, o CTA para de falar do produto
                        e passa a falar do achado: e o que a pessoa quer saber
                        naquele segundo. -->
+                  <!-- Variante B: preco sai do botao e desce pra linha de
+                       baixo, junto do prazo e do estorno. O botao passa a
+                       prometer a RESPOSTA ("da pra confiar?"), nao o produto. -->
                   <button type="button" class="cb-btn cb-btn--blue" @click="cliqueCtaCompleta('bloco_bloqueado')">
                     {{ sinalLeilao?.positivo
                       ? `Ver o registro de leilão no relatório completo · ${precoBRL(PLANOS.completa.valorCentavos)}`
-                      : `Ver o que essa placa revela · ${precoBRL(PLANOS.completa.valorCentavos)}` }}
+                      : blocoVarianteB
+                        ? 'Saber se posso confiar neste carro'
+                        : `Ver o que essa placa revela · ${precoBRL(PLANOS.completa.valorCentavos)}` }}
                   </button>
-                  <p class="cb-locked__pix">{{ isCapacitor ? 'Na hora, sem assinatura.' : 'Pix, na hora, sem assinatura.' }}</p>
+                  <p v-if="blocoVarianteB" class="cb-locked__pix">{{ garantiaBlocoB }}</p>
+                  <p v-else class="cb-locked__pix">{{ isCapacitor ? 'Na hora, sem assinatura.' : 'Pix, na hora, sem assinatura.' }}</p>
                   <!-- Oferta da basica desativada aqui: duas opcoes no mesmo
                        ponto dividiam a decisao. A basica segue viva no
                        comparativo de precos. Pra voltar, e so descomentar.
@@ -2870,6 +2925,18 @@ function applyEmailSuggestion() {
       background: rgba(211, 58, 58, 0.06);
       color: #a32020;
       font-weight: 500;
+    }
+
+    // Variante B do teste A/B: a linha de "nenhum registro". Nao e alerta,
+    // entao nao ganha borda nem bolinha vermelha; e so uma nota de rodape com
+    // peso de texto secundario.
+    &--neutro {
+      border: 0;
+      padding: 0;
+      margin-bottom: $s-sm;
+      background: none;
+      color: $c-graphite;
+      font-size: 13.5px;
     }
   }
 

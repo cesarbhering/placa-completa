@@ -1,6 +1,7 @@
 import { PLANOS, isPlanoPago } from '~/shared/planos'
 import { eventoPermitido, MAX_EVENTOS_POR_LOTE, type EventoFunil } from '~/shared/eventos-funil'
 import { origemDaSessao } from '~/shared/origem-trafego'
+import { varianteAtual } from '~/shared/ab-bloco'
 
 // ---------------------------------------------------------------------------
 // Funil medido no NOSSO servidor (/api/evento).
@@ -93,9 +94,17 @@ export function enfileirarEventoFunil(evento: string, dados?: Omit<EventoNaFila,
   if (typeof window === 'undefined') return
   if (!eventoPermitido(evento)) return
   if (fila.length >= 50) return   // teto de memoria se a rede estiver fora
+  // Variante do teste A/B do bloco bloqueado carimbada em TODO evento da
+  // visita: sem isso da pra medir o clique no CTA, mas nao pix_gerado por
+  // variante, que e a unica etapa que paga a conta. So carimba depois que a
+  // variante existe (ela e sorteada quando o resultado da consulta chega);
+  // evento anterior a isso fica sem o campo, de proposito.
+  const ab = varianteAtual()
+  const extra = ab ? { ...(dados?.extra || {}), ab_bloco: ab } : (dados?.extra ?? null)
   fila.push({
     ...dados,
     evento,
+    extra,
     sessao: dados?.sessao ?? idDaSessao(),
     origem: dados?.origem ?? origemDaSessao() ?? null,
   })
