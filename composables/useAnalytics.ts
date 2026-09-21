@@ -209,6 +209,32 @@ export const useAnalytics = () => {
    * track('form_submit', { form_name: 'plate_consultation' })
    * track('button_click')
    */
+  /**
+   * Espelha no Pixel da Meta os quatro momentos que o remarketing precisa
+   * distinguir. A Meta so entende os nomes dela, entao o mapa traduz; evento
+   * fora do mapa nao vai, porque lista de publico se faz com etapa de funil,
+   * nao com todo clique do site.
+   *
+   * Nada de identificavel atravessa: placa, chassi, e-mail, telefone e token
+   * ficam de fora, so o valor e a moeda passam.
+   *
+   * Sumiu na refatoracao do funil (20/set) e derrubou o checkout inteiro:
+   * ReferenceError no trackBeginCheckout antes do preview, tela presa em
+   * "loading" por um dia. Fica aqui em cima do track() de proposito.
+   */
+  const espelharNaMeta = (event: string, params?: Record<string, any>) => {
+    if (!import.meta.client) return
+    const nome = EVENTOS_META[event]
+    const fbq = (window as any).fbq
+    if (!nome || typeof fbq !== 'function') return
+    const dados: Record<string, any> = {}
+    if (typeof params?.value === 'number') {
+      dados.value = params.value
+      dados.currency = 'BRL'
+    }
+    fbq('track', nome, dados)
+  }
+
   const track = (event: string, params?: Record<string, any>) => {
     if (import.meta.client && window.gtag) {
       window.gtag('event', event, params)
