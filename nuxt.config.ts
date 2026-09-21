@@ -674,6 +674,10 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_HOMOLOG === "true" ||
         process.env.NUXT_PUBLIC_STAGING === "true",
       whatsappEnabled: process.env.NUXT_PUBLIC_WHATSAPP_ENABLED === "true",
+      // Kill switch do teste A/B do bloco bloqueado da consulta gratis.
+      // "off" joga todo mundo na variante A (a tela de hoje) sem deploy de
+      // codigo; qualquer outro valor mantem o sorteio 50/50.
+      abBloco: process.env.NUXT_PUBLIC_AB_BLOCO || "",
       // Pixel da Meta (remarketing). Vazio = plugin nao carrega nada, nenhuma
       // requisicao sai do navegador. Preenchido no Coolify quando a conta
       // existir, sem precisar de deploy de codigo.
