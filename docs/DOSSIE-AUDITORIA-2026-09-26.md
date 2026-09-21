@@ -161,6 +161,55 @@ Incidentes anteriores que ainda valem como contexto: o abuso do wdapi em 27/ago
 (bot raspou a API por um furo do rate limit) e a enumeração de placas pelo app
 em setembro, que gerou a regra de o app nunca ficar atrás do site em segurança.
 
+### Checkout preso em "loading" por 29 horas (20 a 21/set)
+
+O incidente mais caro do período, e o único que não foi o fornecedor nem a
+rede: foi código nosso.
+
+O deploy de 20/set às 11h46 (instrumentação do funil no servidor + checkout do
+Google Play, PR #331) levou uma refatoração do `composables/useAnalytics.ts`
+que apagou a função `espelharNaMeta` e deixou a chamada dela dentro do
+`track()`. Em produção, `trackBeginCheckout` lançava `ReferenceError` antes do
+`consultarPreview()`, e o checkout ficava no passo "loading" para sempre: a
+pessoa clicava em comprar, via "Só um instante..." e ia embora. Voltou às
+16h08 de 21/set (hotfix #334).
+
+Como foi detectado: pela própria instrumentação que entrou no mesmo deploy.
+Em dois dias, 18 aberturas de checkout, zero chegadas na tela de confirmação,
+e todo fechamento com `step: loading`. Um Chromium contra produção reproduziu
+o erro na hora.
+
+Custo: 21 pessoas abriram o checkout na janela e nenhuma pôde pagar. Com a
+taxa dos 7 dias anteriores (6 a 7 pagos a cada 10 checkouts) são 13 a 15
+vendas; pela média histórica dos mesmos dias da semana são 6 a 8. Estimativa:
+**8 a 15 vendas, R$ 320 a R$ 600**, mais R$ 77 de Bing gastos sem poder
+converter. Sábado à tarde o Bing a R$ 50 "não trouxe venda a mais" e a leitura
+na hora foi de orçamento; a leitura certa era de checkout quebrado.
+
+Por que passou: (1) o código entrou na `dev` num commit de documentação, via
+`git add -A` num clone compartilhado por dois agentes, e o diff do
+`useAnalytics` não foi revisado; (2) os testes unitários não pegam porque
+`import.meta.client` é indefinido no vitest, então gtag e pixel da Meta nunca
+são chamados fora do build do Nuxt; (3) não existia teste de página contra
+produção, só testes que simulam.
+
+O que ficou de proteção, nas três camadas onde falhou:
+
+- **Teste de regressão** (`useAnalytics.checkout-nunca-trava.test.ts`, #335):
+  chama toda função de rastreio nos cenários reais (com e sem gtag, com e sem
+  pixel, storage bloqueado) e falha se qualquer uma lançar. Reproduz o bug na
+  versão anterior. Regra que ele protege: medição nunca derruba compra.
+- **Sonda em produção a cada 15 minutos** (`pc-checkout-probe`): um Chromium
+  real abre o site, consulta uma placa, clica na Completa e exige que o
+  checkout saia do "loading" e mostre o botão de pagar. Falha = e-mail ao
+  Cesar na hora. Deploy sem sonda verde é deploy incompleto.
+- **Processo**: um worktree por tarefa, `git add` só dos arquivos da tarefa,
+  nunca `git add -A` em clone compartilhado.
+
+Pergunta que fica para a auditoria: o site mede 22 eventos de analytics no
+navegador, e nenhum deles teria acusado esse problema, porque o erro acontecia
+exatamente dentro do código de medição. O que mais só se mede por dentro?
+
 ## 6. Dívidas técnicas e riscos
 
 **Rate limits.** Hoje existem quatro, em lugares diferentes e com naturezas
