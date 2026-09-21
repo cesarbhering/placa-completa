@@ -19,6 +19,10 @@ const IP_BLOQUEADOS = new Set<string>([
 const EMAIL_BLOQUEADOS = new Set<string>([
   'bloqueado@example.com',
   'bloqueado@example.com',
+  // 83 consultas em 5 dias batendo o limite todo dia (17 a 21/set), e-mail
+  // inexistente (Yahoo devolveu "mailbox not found"): sem como contatar,
+  // Cesar mandou bloquear (21/set).
+  'bloqueado@example.com',
 ])
 
 /** true quando o IP ou o e-mail esta na blocklist. E-mail entra normalizado. */
