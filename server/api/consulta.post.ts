@@ -11,6 +11,7 @@ import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitel
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
+import { classificarUA } from '../utils/dispositivo'
 
 /**
  * Registra a consulta e RECLAMA se o banco recusar.
@@ -192,6 +193,15 @@ export default defineEventHandler(async (event) => {
   const headers = getRequestHeaders(event)
   const ip = getClientIp(event)
   const userAgent = headers['user-agent'] || 'unknown'
+  // Canal (app ou web) lido do UA da requisicao, no servidor. O `isPWA` do
+  // corpo vem do client e, desde que a WebView do app entrou em modo PWA, ele
+  // nao separa mais o app novo de uma PWA instalada pelo navegador.
+  const { canal, app_versao } = classificarUA(
+    userAgent,
+    headers['sec-ch-ua-mobile'],
+    headers['sec-ch-ua-platform'],
+  )
+  const canalDaRequisicao = { canal, app_versao }
   // Geo por IP (cacheado; fail-open pra null). Precisao de cidade e
   // aproximada em mobile/CGNAT - tratar como regiao provavel.
   const ipGeo = await lookupIpGeo(ip)
@@ -450,6 +460,7 @@ export default defineEventHandler(async (event) => {
       user_agent: userAgent,
       device_info: deviceInfo,
       is_pwa: isPWA || false,
+      ...canalDaRequisicao,
       channel,
       email_sent: false,
       whatsapp_sent: false,
@@ -477,6 +488,7 @@ export default defineEventHandler(async (event) => {
       user_agent: userAgent,
       device_info: deviceInfo,
       is_pwa: isPWA || false,
+      ...canalDaRequisicao,
       channel,
       email_sent: false,
       whatsapp_sent: false,
@@ -719,6 +731,7 @@ export default defineEventHandler(async (event) => {
     user_agent: userAgent,
     device_info: deviceInfo,
     is_pwa: isPWA || false,
+    ...canalDaRequisicao,
     channel,
     email_sent: emailSent,
     whatsapp_sent: whatsappSent,
