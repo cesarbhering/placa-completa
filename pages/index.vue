@@ -1053,6 +1053,11 @@ async function handleSubmit() {
 
       if (delivered) {
         track('consulta_success', { channel: channel.value })
+        // A variante do A/B e sorteada ANTES do primeiro evento do funil: se
+        // ela viesse depois, `resultado_exibido` sairia sem `ab_bloco` e a
+        // taxa consulta->checkout por variante ficaria impossivel de ler (era
+        // o que acontecia em 21 e 22/set, com o resultado todo em 'sem_ab').
+        abBloco.value = decidirVariante({ desligado: abBlocoDesligado.value })
         // Primeira etapa do funil medida por nos: a consulta gratis chegou a
         // renderizar com dados. Sem ela nao da pra dizer se a queda de
         // conversao comecou antes ou depois do resultado aparecer.
@@ -1061,9 +1066,6 @@ async function handleSubmit() {
         // resultado na tela (padrao dos concorrentes): o que e o carro aparece
         // na hora; o que decide a compra fica atras do pagamento.
         resultadoBasico.value = (result as any).basico || null
-        // Bloco bloqueado existe a partir daqui: e o momento de sortear (ou
-        // reusar) a variante do teste A/B.
-        abBloco.value = decidirVariante({ desligado: abBlocoDesligado.value })
         // Fire and forget: o resultado ja esta na tela, o sinal entra quando
         // chegar.
         buscarSinalLeilao()
