@@ -260,17 +260,16 @@ const indicadores = computed(() => {
     // "nada consta" entende "nunca teve problema", e nao e verdade. Se tem
     // ocorrencia registrada, o cartao acende mesmo com o indicador desligado.
     if (i.k === 'indicadorRouboFurto' && !ligado && ocorrencias.value.length) {
-      // Episodio ENCERRADO (roubo com devolucao registrada) nao e pendencia:
-      // acender vermelho aqui manda a pessoa desistir de um carro cujo caso
-      // ja se fechou. O cartao fica neutro e aponta a secao, que conta a
-      // historia inteira. So o que segue em aberto continua alertando.
+      // Episodio encerrado muda o TEXTO, nao a cor (decisao do Cesar em
+      // 22/set): registro de roubo continua sendo registro de roubo, e o
+      // cartao do resumo e onde a pessoa passa o olho. O desfecho ela le na
+      // secao, que o proprio cartao aponta.
       if (rouboTudoEncerrado.value) {
         return {
           ...i,
           nao: `Episódio encerrado (ver seção ${numSecao.value.ocorr})`,
           ligado,
-          alerta: false,
-          neutro: true,
+          alerta: true,
         }
       }
       return {
@@ -1433,7 +1432,7 @@ onUnmounted(() => poll && clearInterval(poll))
                 v-for="i in indicadores"
                 :key="i.k"
                 class="rel__ind"
-                :class="i.alerta ? 'rel__ind--bad' : (i.neutro ? 'rel__ind--neutro' : (i.ligado && i.risco ? 'rel__ind--atencao' : 'rel__ind--ok'))"
+                :class="i.alerta ? 'rel__ind--bad' : (i.ligado && i.risco ? 'rel__ind--atencao' : 'rel__ind--ok')"
               >
                 <span class="rel__ind-lab">
                   {{ rotuloPartes(i.label).inicio }}<span class="rel__ind-glue">{{ rotuloPartes(i.label).fim }}<button type="button" class="rel__info" :data-dica="i.dica" :aria-label="i.dica">
@@ -2819,16 +2818,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__ind--ok .rel__ind-val { color: #14622f; &::before { background: $c-green; } }
-
-  // Quarto estado: houve alguma coisa, mas ja terminou. Verde diria "nunca
-  // teve nada" e vermelho diria "tem problema agora": os dois mentem sobre um
-  // roubo com devolucao registrada. Cinza, e a secao conta o resto.
-  &__ind--neutro .rel__ind-val {
-    color: $c-charcoal;
-    letter-spacing: 0;
-    text-transform: none;
-    &::before { background: #9a9a9a; }
-  }
 
   &__ind--bad {
     background: #fdf1f1;
