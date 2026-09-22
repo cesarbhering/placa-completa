@@ -397,7 +397,7 @@ async function comprarPeloPlay() {
   msg.value = ''
   emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
   try {
-    const compra = await playBilling.comprar()
+    const compra = await playBilling.comprar(preview.value.placa)
     const r: any = await $fetch('/api/premium/google-play/verificar', {
       method: 'POST',
       body: {
