@@ -1,4 +1,5 @@
 import https from 'node:https'
+import { placaParaSegundaTentativa } from '../../shared/placa-formato'
 
 // Consulta SENATRAN server-side (homologacao), disparada APOS pagamento
 // confirmado. Fluxo: pega a chave GCC ativa -> gera hash de consentimento
@@ -87,7 +88,67 @@ function senatranGet(opts: { url: string; placa: string; hash: string; cert: Buf
 //     vez, com consentimento novo. Isso custa um hash, e o Cesar autorizou:
 //     perder a venda de quem ja pagou custa mais.
 // Falha de negocio (401, 4xx, SENATRAN respondeu erro) nunca e repetida.
-export async function consultarSenatran(placa: string, ambiente: Ambiente = 'homolog'): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[] }> {
+/**
+ * "Veiculo nao encontrado" com a placa no outro formato. Um pedido pago caiu
+ * assim: a consulta gratis achou a moto como RJH1218 (antiga) e a consulta
+ * paga perguntou por RJH1C18 (Mercosul) e levou 404. O registro converte
+ * antiga para Mercosul, mas nem sempre o contrario.
+ */
+export function ehPlacaNaoEncontrada(e: any): boolean {
+  if (e?.http !== 404) return false
+  const corpo = String(e?.corpo || '')
+  return /n[aã]o\s+encontrado/i.test(corpo) || corpo === ''
+}
+
+/**
+ * A decisao de tentar de novo, isolada de mTLS, Supabase e runtimeConfig: quem
+ * executa a consulta entra por parametro. Assim a regra que evitou o estorno
+ * pode ser testada sem nenhuma consulta paga.
+ */
+export async function comFallbackDePlaca<T extends { trace: any[] }>(
+  placa: string,
+  alternativaConhecida: string | null | undefined,
+  executar: (placa: string) => Promise<T>,
+): Promise<T & { placaConsultada: string }> {
+  try {
+    const r = await executar(placa)
+    return { ...r, placaConsultada: placa }
+  } catch (e: any) {
+    // Placa que o registro nao conhece NESTE formato: tenta uma unica vez no
+    // outro antes de declarar falha, porque o proximo passo seria estornar a
+    // venda de um veiculo que existe.
+    if (!ehPlacaNaoEncontrada(e)) throw e
+    const outra = placaParaSegundaTentativa(placa, alternativaConhecida)
+    if (!outra) throw e
+    console.warn(`[senatran] ${placa} nao encontrada; tentando no outro formato: ${outra}`)
+    try {
+      const r = await executar(outra)
+      // O trace guarda os dois formatos: sem isso, a proxima investigacao
+      // comeca sem saber que houve troca de placa no meio.
+      r.trace.unshift({ etapa: 'placa alternativa', pedida: placa, consultada: outra, motivo: 'registro respondeu nao encontrado para a placa pedida' })
+      return { ...r, placaConsultada: outra }
+    } catch (e2: any) {
+      ;(e2 as any).trace = [
+        { etapa: 'placa alternativa', pedida: placa, consultada: outra, resultado: 'tambem nao encontrada' },
+        ...((e as any).trace || []),
+        ...((e2 as any).trace || []),
+      ]
+      throw e2
+    }
+  }
+}
+
+export async function consultarSenatran(
+  placa: string,
+  ambiente: Ambiente = 'homolog',
+  // Placa equivalente vista na consulta gratis. Dado observado vale mais do
+  // que conversao, entao ela tem preferencia na segunda tentativa.
+  opts: { placaAlternativa?: string | null } = {},
+): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[]; placaConsultada: string }> {
+  return comFallbackDePlaca(placa, opts.placaAlternativa, (p) => umaConsultaComRetryDeRede(p, ambiente))
+}
+
+async function umaConsultaComRetryDeRede(placa: string, ambiente: Ambiente): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[] }> {
   try {
     return await tentativaDeConsulta(placa, ambiente)
   } catch (e: any) {
@@ -213,8 +274,19 @@ async function tentativaDeConsulta(placa: string, ambiente: Ambiente): Promise<{
   await supabase.from('gcc_consentimentos').update({ status: ok ? 'spent' : 'error', spent_at: new Date().toISOString() }).eq('id', consent?.id)
 
   if (!ok) {
-    const err = createError({ statusCode: 502, message: 'SENATRAN retornou HTTP ' + out.status })
+    // O statusCode importa: 502 e lido como falha de TRANSPORTE la fora, e o
+    // fluxo inteiro recomeca com consentimento novo. Um 404 "Veiculo nao
+    // encontrado" nao muda de resposta por insistencia, e cada volta dessas
+    // queimava um consentimento GCC (foram quatro num unico pedido). Resposta
+    // de negocio (4xx) sobe com o proprio status e falha na hora.
+    const negocio = out.status >= 400 && out.status < 500
+    const err = createError({ statusCode: negocio ? out.status : 502, message: 'SENATRAN retornou HTTP ' + out.status })
     ;(err as any).trace = trace
+    // Status e corpo ficam no erro para quem chama decidir se vale tentar a
+    // placa no outro formato: sem isso, 404 de placa e 500 do SERPRO sao a
+    // mesma coisa la fora.
+    ;(err as any).http = out.status
+    ;(err as any).corpo = (out.body || '').slice(0, 1200)
     throw err
   }
   return { consultaId: consulta.id, ok, response: parsed, trace }

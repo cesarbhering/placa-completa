@@ -83,8 +83,13 @@ export async function processarPedidoPago(
 
   try {
     let r
+    // Placa equivalente que a consulta gratis ja tinha visto: entra como plano
+    // B quando o registro responde "nao encontrado" para o formato pedido.
+    const placaAlternativa = pedido.preview?.placaAlternativa
+      || pedido.preview?.raw?.placaAlternativa
+      || null
     try {
-      r = await consultarSenatran(pedido.placa, ambiente)
+      r = await consultarSenatran(pedido.placa, ambiente, { placaAlternativa })
     } catch (e: any) {
       // Ultima chance antes do estorno, e so pra falha de REDE. A pessoa esta
       // na tela esperando: um minuto a mais e melhor que um estorno, e a
@@ -93,11 +98,17 @@ export async function processarPedidoPago(
       if (!ehErroDeRede(e)) throw e
       console.warn('[premium] consulta caiu por rede; ultima tentativa em 60s. pedido=', pedido.id)
       await esperar(60000)
-      r = await consultarSenatran(pedido.placa, ambiente)
+      r = await consultarSenatran(pedido.placa, ambiente, { placaAlternativa })
     }
     await supabase
       .from('pedidos_premium')
-      .update({ status: 'entregue', entregue_em: new Date().toISOString(), consulta_id: r.consultaId, debug_trace: r.trace })
+      .update({
+        status: 'entregue', entregue_em: new Date().toISOString(), consulta_id: r.consultaId, debug_trace: r.trace,
+        // Qual placa o registro realmente respondeu. Quando os dois formatos
+        // existem, so isto explica por que o relatorio traz uma placa
+        // diferente da que a pessoa digitou.
+        placa_consultada: r.placaConsultada,
+      })
       .eq('id', pedido.id)
 
     // Snapshot imutavel: monta o payload agregado (consulta filtrada por
@@ -165,6 +176,7 @@ export async function processarPedidoPago(
           'COMPRA NO APP (Google Play) PAGA e CONSULTA FALHOU. O ESTORNO PRECISA SER FEITO NA MAO no Play Console.',
           `pedido=${pedido.id}`,
           `placa=${pedido.placa}`,
+          `token=${pedido.token_entrega}`,
           `valor=${valorEmReais(pedido.valor_centavos)}`,
           `origem=${origemDoPedido(pedido)}`,
           `email=${mascararEmail(pedido.email)}`,
@@ -207,6 +219,9 @@ export async function processarPedidoPago(
           'ESTORNO AUTOMATICO (o cliente pagou e a consulta falhou).',
           `pedido=${pedido.id}`,
           `placa=${pedido.placa}`,
+          // O token e o que abre a pagina do comprador: sem ele, checar o caso
+          // vira busca no banco.
+          `token=${pedido.token_entrega}`,
           `valor=${valorEmReais(pedido.valor_centavos)}`,
           `origem=${origemDoPedido(pedido)}`,
           `email=${mascararEmail(pedido.email)}`,
@@ -225,7 +240,7 @@ export async function processarPedidoPago(
         .eq('id', pedido.id)
       await sendErrorEmail({
         endpoint: '/premium/processar',
-        errorMessage: `PAGO, CONSULTA FALHOU e REEMBOLSO FALHOU. pedido=${pedido.id} placa=${pedido.placa} valor=${valorEmReais(pedido.valor_centavos)} origem=${origemDoPedido(pedido)} email=${mascararEmail(pedido.email)} charge=${pedido.abacatepay_id} etapa=${etapaDaFalha(e)} consulta_erro=${motivo} reembolso_erro=${reembolso.error}`,
+        errorMessage: `PAGO, CONSULTA FALHOU e REEMBOLSO FALHOU. pedido=${pedido.id} placa=${pedido.placa} token=${pedido.token_entrega} valor=${valorEmReais(pedido.valor_centavos)} origem=${origemDoPedido(pedido)} email=${mascararEmail(pedido.email)} charge=${pedido.abacatepay_id} etapa=${etapaDaFalha(e)} consulta_erro=${motivo} reembolso_erro=${reembolso.error}`,
         paraTambem: [AVISO_ESTORNO],
       })
     }
