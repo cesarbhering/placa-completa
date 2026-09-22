@@ -1309,7 +1309,15 @@ onUnmounted(() => poll && clearInterval(poll))
           </template>
           <template v-else-if="data.status === 'reembolsado'">
             <h1 class="rel__h">Não foi possível concluir</h1>
-            <p class="rel__hint">
+            <!-- Veiculo que o registro nacional nao conhece: dizer isso e mais
+                 util (e mais honesto) do que a frase generica, que deixava a
+                 pessoa achando que o site quebrou e tentando de novo. -->
+            <p v-if="data.motivoFalha === 'veiculo_nao_encontrado'" class="rel__hint">
+              Não encontramos este veículo na base nacional com a placa {{ data.placa }}.
+              O valor foi devolvido no seu Pix e nada ficou cobrado. Confira a placa no
+              documento e, se ela estiver certa, escreva para contato@placacompleta.com.br.
+            </p>
+            <p v-else class="rel__hint">
               Este pedido foi encerrado e o valor devolvido no seu Pix. Nada ficou
               cobrado. Se ainda quiser o relatório da placa {{ data.placa }}, é só
               começar um pedido novo.

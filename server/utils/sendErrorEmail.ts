@@ -7,7 +7,13 @@ interface ErrorEmailData {
   requestBody?: any
   userAgent?: string
   ip?: string
-  timestamp: string
+  /**
+   * Opcional de proposito: quase todo chamador do premium nunca mandou este
+   * campo, e o `horaBrasilia(undefined)` estourava TypeError ANTES do envio.
+   * Resultado: nenhum e-mail de erro do premium saiu, e um pedido estornado so
+   * apareceu por outro caminho. Sem timestamp, a hora e agora.
+   */
+  timestamp?: string
   /**
    * Destinatarios extras, alem da caixa de erros do time. Serve pro que o
    * Cesar quer ver no proprio e-mail sem virar caixa de log: hoje, todo
@@ -18,9 +24,9 @@ interface ErrorEmailData {
 
 // Sempre em BRT e com o fuso escrito: o container roda em UTC e a hora "pt-BR"
 // sem fuso era lida como horario de Brasilia, 3h adiantada.
-function horaBrasilia(d: string | Date): string {
-  const dt = typeof d === 'string' ? new Date(d) : d
-  if (isNaN(dt.getTime())) return String(d)
+export function horaBrasilia(d: string | Date | null | undefined = new Date()): string {
+  const dt = d === null || d === undefined ? new Date() : typeof d === 'string' ? new Date(d) : d
+  if (!(dt instanceof Date) || isNaN(dt.getTime())) return String(d)
   return dt.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false }) + ' BRT'
 }
 
