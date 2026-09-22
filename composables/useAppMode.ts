@@ -1,8 +1,12 @@
 /**
  * Em que casca a pagina esta rodando.
  *
- * - isPWA: instalada na tela inicial (display-mode standalone) ou aberta pelo
- *   app Android antigo (TWA, que chega com referrer android-app://).
+ * - isPWA: instalada na tela inicial (display-mode standalone), aberta pelo
+ *   app Android antigo (TWA, que chega com referrer android-app://) ou rodando
+ *   dentro do app novo. A WebView do Capacitor nao passa em nenhuma das tres
+ *   checagens classicas, entao sem esta ultima perna o app novo caia no fluxo
+ *   do site: sem e-mail pedido, chassi mascarado, modal de seguro. A consulta
+ *   gratis dentro do app tem que se comportar como o app antigo.
  * - isCapacitor: rodando DENTRO do app novo, que carrega o site numa WebView
  *   nativa. So aqui existe Google Play Billing, e so aqui o Pix some.
  * - isApp: qualquer uma das duas cascas de app.
@@ -37,12 +41,13 @@ export const useAppMode = () => {
   if (noNavegador()) {
     // Detect IMMEDIATELY (synchronously) to prevent flicker
     // This runs during composable initialization, before onMounted
-    isPWA.value = window.matchMedia('(display-mode: standalone)').matches ||
-                  (window.navigator as any).standalone === true ||
-                  document.referrer.includes('android-app://')
-
     isMobile.value = window.matchMedia('(max-width: 768px)').matches
     isCapacitor.value = detectarCapacitor()
+
+    isPWA.value = isCapacitor.value ||
+                  window.matchMedia('(display-mode: standalone)').matches ||
+                  (window.navigator as any).standalone === true ||
+                  document.referrer.includes('android-app://')
 
     // Listen for changes (e.g., user adds to home screen while browsing)
     onMounted(() => {
@@ -50,7 +55,8 @@ export const useAppMode = () => {
       const mobileQuery = window.matchMedia('(max-width: 768px)')
 
       const updatePWA = () => {
-        const newValue = mediaQuery.matches ||
+        const newValue = isCapacitor.value ||
+                        mediaQuery.matches ||
                         (window.navigator as any).standalone === true ||
                         document.referrer.includes('android-app://')
         if (newValue !== isPWA.value) isPWA.value = newValue
@@ -60,9 +66,13 @@ export const useAppMode = () => {
         if (mobileQuery.matches !== isMobile.value) isMobile.value = mobileQuery.matches
       }
 
-      // Rechecagem depois da montagem: se o bridge do Capacitor subiu depois da
-      // primeira pintura, e aqui que ele aparece.
-      if (!isCapacitor.value) isCapacitor.value = detectarCapacitor()
+      // Rechecagem depois da montagem: se o bridge do Capacitor subiu depois
+      // da primeira pintura, e aqui que ele aparece. E ele arrasta o isPWA
+      // junto, senao a tela ficaria meio no fluxo do app e meio no do site.
+      if (!isCapacitor.value) {
+        isCapacitor.value = detectarCapacitor()
+        if (isCapacitor.value) isPWA.value = true
+      }
 
       mediaQuery.addEventListener('change', updatePWA)
       mobileQuery.addEventListener('change', updateMobile)
