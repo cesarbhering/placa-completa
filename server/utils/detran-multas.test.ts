@@ -152,14 +152,38 @@ describe('parseResultadoMultas (captura -> detalhe)', () => {
     expect(d.restricoes?.judicial).toMatch(/Renajud/)
   })
 
-  it('nada em aberto e sem restricao vira sem_debito', () => {
+  it('nada em aberto NA PAGINA DE RESULTADO vira sem_debito', () => {
     const d = parseResultadoMultas({
       multas: 'Não há',
       ipva: 'Não há débito pendente',
       licenciamento: 'Nada consta',
       restricoes: { judicial: 'Nada consta' },
+      texto: 'Consultar Débitos e Restrições. Multas: Não há. IPVA: Não há débito. Licenciamento: Nada consta.',
     })
     expect(d.status).toBe('sem_debito')
+  })
+
+  it('SEGURANCA: tela de login do gov.br nunca vira sem_debito', () => {
+    const d = parseResultadoMultas({
+      texto: 'Identifique-se no gov.br com: Número do CPF. Digite seu CPF para acessar sua conta gov.br',
+    })
+    expect(d.status).toBe('sessao_expirada')
+    expect(d.multas_total_centavos).toBeNull()
+  })
+
+  it('SEGURANCA: pagina desconhecida (sem marcas de resultado) vira erro, nao sem_debito', () => {
+    const d = parseResultadoMultas({ texto: 'Página temporariamente indisponível. Tente mais tarde.' })
+    expect(d.status).toBe('erro')
+  })
+
+  it('SEGURANCA: captcha vira captcha', () => {
+    const d = parseResultadoMultas({ texto: 'Confirme que você não é um robô. hCaptcha' })
+    expect(d.status).toBe('captcha')
+  })
+
+  it('status explicito do navegador tem prioridade', () => {
+    expect(parseResultadoMultas({ status: 'sessao_expirada' }).status).toBe('sessao_expirada')
+    expect(parseResultadoMultas({ status: 'captcha' }).status).toBe('captcha')
   })
 
   it('extrai valores em centavos a partir de texto R$', () => {
