@@ -97,7 +97,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email')
+    .select('status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Relatorio nao encontrado' })
@@ -242,6 +242,12 @@ export default defineEventHandler(async (event) => {
     // descobrir o e-mail de quem comprou, e um token que vaze nao pode virar
     // vazamento de contato.
     temEmail: !!pedido.email,
+    // Por que o pedido nao foi adiante, em uma palavra. O texto do erro
+    // (mensagem interna, trace) NUNCA vai pra tela: aqui sai so o codigo que a
+    // pagina sabe transformar em explicacao. Sem isto, quem comprou um veiculo
+    // que o registro nacional nao conhece lia "nao foi possivel concluir" e
+    // ficava achando que o site quebrou.
+    motivoFalha: /HTTP 404/.test(String(pedido.erro || '')) ? 'veiculo_nao_encontrado' : null,
     entregue_em: pedido.entregue_em,
     consulta,
     brCode: pendente && !expirado ? pedido.br_code : null,
