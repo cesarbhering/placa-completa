@@ -608,6 +608,10 @@ export default defineNuxtConfig({
     premiumSupabaseUrl: process.env.PREMIUM_SUPABASE_URL || "",
     premiumSupabaseKey: process.env.PREMIUM_SUPABASE_KEY || "",
     premiumPagePassword: process.env.PREMIUM_PAGE_PASSWORD || "",
+    // Segredo de rotinas internas disparadas na mao (hoje, o backfill de
+    // recall). Sem ele no ambiente, a rota nem existe: 404, e nao 401, porque
+    // rota administrativa nao precisa anunciar que existe.
+    adminSecret: process.env.ADMIN_SECRET || "",
     abacatepayApiKey: process.env.ABACATEPAY_API_KEY || "",
     abacatepayWebhookSecret: process.env.ABACATEPAY_WEBHOOK_SECRET || "",
     abacatepayBase: process.env.ABACATEPAY_BASE || "https://api.abacatepay.com/v2",
