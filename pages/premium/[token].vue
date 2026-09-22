@@ -970,6 +970,76 @@ const recallSubtitulo = computed(() => {
   return ''
 })
 
+// Débitos e restrições no órgão de trânsito do estado (SP hoje). O indicador de
+// multa diz que EXISTE; o valor e o detalhe vêm de uma busca solta na entrega,
+// igual ao recall. A fonte não é citada pro cliente: é "o órgão de trânsito do
+// estado". Só faz sentido pra veículo de SP com multa em aberto.
+const multaIndicadorSP = computed(
+  () => g('indicadorMultaRenainf') === true && String(g('ufJurisdicao') || '').toUpperCase() === 'SP',
+)
+const multasDetalhe = computed(() => {
+  const m: any = data.value?.multas
+  return m && (m.status === 'ok' || m.status === 'sem_debito') ? m : null
+})
+function reais(centavos?: number | null): string | null {
+  if (centavos == null) return null
+  return `R$ ${(centavos / 100).toFixed(2).replace('.', ',')}`
+}
+const multasLinhas = computed(() => {
+  const m = multasDetalhe.value
+  if (!m) return []
+  const linhas: { rotulo: string; valor: string; alerta?: boolean }[] = []
+  if (m.multas_total_centavos != null)
+    linhas.push({
+      rotulo: 'Multas em aberto',
+      valor: m.multas_total_centavos > 0 ? (reais(m.multas_total_centavos) as string) : 'Nada consta',
+      alerta: m.multas_total_centavos > 0,
+    })
+  if (m.ipva_total_centavos != null)
+    linhas.push({
+      rotulo: 'IPVA',
+      valor: m.ipva_total_centavos > 0 ? (reais(m.ipva_total_centavos) as string) : 'Sem débito',
+      alerta: m.ipva_total_centavos > 0,
+    })
+  if (m.licenciamento_centavos != null) {
+    const venc = m.licenciamento_venc ? ` (vence ${formatarDataBR(m.licenciamento_venc)})` : ''
+    linhas.push({
+      rotulo: 'Licenciamento',
+      valor:
+        m.licenciamento_centavos > 0 ? `${reais(m.licenciamento_centavos)}${venc}` : `Em dia${venc}`,
+      alerta: m.licenciamento_centavos > 0,
+    })
+  }
+  return linhas
+})
+const multasHodometro = computed(() => {
+  const m = multasDetalhe.value
+  const lista = Array.isArray(m?.hodometro) ? m!.hodometro : []
+  return lista.map((h: any) => ({ data: formatarDataBR(h?.data), km: Number(h?.km) }))
+})
+const RESTRICOES_MULTAS: { k: string; rotulo: string }[] = [
+  { k: 'bloqueio_furto_roubo', rotulo: 'Bloqueio por furto/roubo' },
+  { k: 'tributaria', rotulo: 'Restrição tributária' },
+  { k: 'financeira', rotulo: 'Restrição financeira' },
+  { k: 'administrativa', rotulo: 'Restrição administrativa' },
+  { k: 'judicial', rotulo: 'Restrição judicial' },
+  { k: 'guincho', rotulo: 'Guincho/remoção' },
+]
+const multasRestricoes = computed(() => {
+  const r: any = multasDetalhe.value?.restricoes
+  if (!r) return []
+  return RESTRICOES_MULTAS.map(({ k, rotulo }) => {
+    const texto = r[k] ? String(r[k]) : null
+    return texto ? { rotulo, texto, alerta: !/nada\s*consta|não\s*consta/i.test(texto) } : null
+  }).filter(Boolean) as { rotulo: string; texto: string; alerta: boolean }[]
+})
+// dd/mm/aaaa a partir de ISO (YYYY-MM-DD), sem depender de timezone.
+function formatarDataBR(iso?: string | null): string {
+  const s = String(iso || '')
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : s
+}
+
 // Historico existe, mas sem nada pendente: o resumo para de acender vermelho e
 // passa a dizer o que de fato aconteceu.
 const rouboTudoEncerrado = computed(() => {
@@ -1271,9 +1341,23 @@ onMounted(() => {
   }, 15000)
 })
 
+// Multas (SP) sem detalhe ainda: a entrega deixou a busca rodando; a tela
+// acompanha por ate 6 minutos (a consulta ao portal e mais lenta que a de
+// recall) e para assim que o bloco chega.
+let pollMultas: any = null
+onMounted(() => {
+  if (!multaIndicadorSP.value || multasDetalhe.value) return
+  const ate = Date.now() + 6 * 60 * 1000
+  pollMultas = setInterval(async () => {
+    if (Date.now() > ate || multasDetalhe.value) { clearInterval(pollMultas); return }
+    try { await refresh() } catch { /* rede oscilou; a proxima volta tenta */ }
+  }, 15000)
+})
+
 onUnmounted(() => {
   if (poll) clearInterval(poll)
   if (pollRecall) clearInterval(pollRecall)
+  if (pollMultas) clearInterval(pollMultas)
 })
 </script>
 
@@ -1532,6 +1616,44 @@ onUnmounted(() => {
                 <p class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
               </template>
               <p v-else class="rel__recall-body">Recall pendente: buscando os detalhes da campanha.</p>
+            </div>
+
+            <!-- Multas e restrições no órgão de trânsito do estado (SP): o
+                 indicador de multa acende, e aqui vem o VALOR e o detalhe. -->
+            <div v-if="multaIndicadorSP" class="rel__multas">
+              <p class="rel__multas-tit">Débitos e restrições no órgão de trânsito do estado</p>
+              <template v-if="multasDetalhe">
+                <ul class="rel__multas-lista">
+                  <li v-for="(l, idx) in multasLinhas" :key="'d' + idx" class="rel__multas-linha">
+                    <span class="rel__multas-rot">{{ l.rotulo }}</span>
+                    <span :class="['rel__multas-val', { 'rel__multas-val--alerta': l.alerta }]">{{ l.valor }}</span>
+                  </li>
+                </ul>
+
+                <div v-if="multasHodometro.length" class="rel__multas-hod">
+                  <p class="rel__multas-sub">Histórico de quilometragem</p>
+                  <p v-if="multasDetalhe.hodometro_suspeito" class="rel__multas-alerta">
+                    Atenção: há leitura de quilometragem menor que uma anterior. Pode indicar adulteração do hodômetro.
+                  </p>
+                  <ul class="rel__multas-km">
+                    <li v-for="(h, idx) in multasHodometro" :key="'k' + idx">
+                      <span>{{ h.data }}</span>
+                      <span>{{ h.km.toLocaleString('pt-BR') }} km</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div v-if="multasRestricoes.length" class="rel__multas-restr">
+                  <p class="rel__multas-sub">Restrições</p>
+                  <ul>
+                    <li v-for="(r, idx) in multasRestricoes" :key="'r' + idx" :class="{ 'rel__multas-restr--alerta': r.alerta }">
+                      <span class="rel__multas-rot">{{ r.rotulo }}</span>
+                      <span>{{ r.texto }}</span>
+                    </li>
+                  </ul>
+                </div>
+              </template>
+              <p v-else class="rel__multas-nota">Multa em aberto: buscando o valor e o detalhe no órgão de trânsito do estado.</p>
             </div>
           </section>
 
@@ -2951,6 +3073,115 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border-radius: 8px;
     padding: 8px 10px;
     font-weight: 600;
+  }
+
+  // ---- multas / débitos e restrições (SP) ----
+  &__multas {
+    margin: 14px 0 0;
+    padding: 12px 14px;
+    border: 1px solid rgba(211, 58, 58, 0.35);
+    background: #fdf1f1;
+    border-radius: 6px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  &__multas-tit {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #a32020;
+  }
+
+  &__multas-sub {
+    margin: 12px 0 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: $c-graphite;
+  }
+
+  &__multas-lista {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  &__multas-linha {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0;
+    font-size: 14px;
+    line-height: 1.4;
+    border-bottom: 1px solid rgba(211, 58, 58, 0.15);
+
+    &:last-child { border-bottom: 0; }
+  }
+
+  &__multas-rot { color: $c-charcoal; }
+
+  &__multas-val {
+    font-weight: 600;
+    color: $c-charcoal;
+    text-align: right;
+
+    &--alerta { color: #a32020; }
+  }
+
+  &__multas-alerta {
+    margin: 0 0 8px;
+    padding: 8px 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    font-weight: 600;
+    color: #a32020;
+    background: #fbe3e3;
+    border-radius: 5px;
+  }
+
+  &__multas-km {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 4px 0;
+      font-size: 13.5px;
+      color: $c-charcoal;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    li:last-child { border-bottom: 0; }
+  }
+
+  &__multas-restr {
+    ul { margin: 0; padding: 0; list-style: none; }
+    li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 5px 0;
+      font-size: 13.5px;
+      line-height: 1.4;
+      color: $c-graphite;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+    li:last-child { border-bottom: 0; }
+    &--alerta {
+      color: #a32020 !important;
+      font-weight: 600;
+    }
+  }
+
+  &__multas-nota {
+    margin: 6px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: $c-graphite;
   }
 
   &__ind-nota {
