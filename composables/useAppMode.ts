@@ -11,7 +11,10 @@
  *   nativa. So aqui existe Google Play Billing, e so aqui o Pix some.
  * - isApp: qualquer uma das duas cascas de app.
  *
- * A deteccao do Capacitor tem duas pernas de proposito. `window.Capacitor` e a
+ * No servidor a deteccao e so uma: o marcador no user-agent da requisicao.
+ * Ela existe porque a hidratacao nao conserta o que o SSR ja pintou errado.
+ *
+ * A deteccao do Capacitor no cliente tem duas pernas de proposito. `window.Capacitor` e a
  * fonte certa, mas ela so existe depois do bridge nativo carregar, e a
  * primeira pintura da tela pode acontecer antes disso. O marcador no
  * user-agent (PlacaCompletaApp/3), que o app injeta, chega junto com a
@@ -36,6 +39,20 @@ export const useAppMode = () => {
     const nativo = (window as any).Capacitor
     if (typeof nativo?.isNativePlatform === 'function' && nativo.isNativePlatform()) return true
     return String(window.navigator?.userAgent || '').includes(MARCADOR_APP)
+  }
+
+  // No SERVIDOR o app se anuncia pelo user-agent da requisicao, e usar isso
+  // aqui nao e luxo: a hidratacao do Vue em producao NAO corrige classe nem
+  // `v-if` que ja vieram errados do SSR. Sem esta perna, a home do app era
+  // pintada com o layout do site e so trocava no proximo re-render, que pode
+  // nunca vir. Com ela, a primeira pintura ja e a do app.
+  if (!noNavegador()) {
+    const ua = String(useRequestHeaders(['user-agent'])['user-agent'] || '')
+    if (ua.includes(MARCADOR_APP)) {
+      isCapacitor.value = true
+      isPWA.value = true
+      isMobile.value = true
+    }
   }
 
   if (noNavegador()) {

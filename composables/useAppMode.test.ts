@@ -7,6 +7,9 @@ import { ref, computed } from 'vue'
 vi.stubGlobal('ref', ref)
 vi.stubGlobal('computed', computed)
 vi.stubGlobal('onMounted', () => {})
+// No teste a pagina esta "no navegador" (happy-dom), entao o ramo de SSR nao
+// roda; o stub existe so pra ele nao explodir caso alguem mude a ordem.
+vi.stubGlobal('useRequestHeaders', () => ({}))
 
 const { useAppMode } = await import('./useAppMode')
 
