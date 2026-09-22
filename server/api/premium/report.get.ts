@@ -122,6 +122,9 @@ export default defineEventHandler(async (event) => {
   let chassiOrigem: Awaited<ReturnType<typeof decodificarChassi>> = null
   let historicoLeilao: Awaited<ReturnType<typeof consultarHistoricoLeilao>> = null
   let segmento: Segmento = 'outro'
+  // Detalhe do recall: vem do snapshot, igual ao resto. Snapshot antigo nao
+  // tem o campo, e ai a tela mostra so o indicador, como sempre mostrou.
+  let recall: any = null
 
   if (!pendente && pedido.status === 'entregue') {
     if (pedido.relatorio_snapshot) {
@@ -134,6 +137,7 @@ export default defineEventHandler(async (event) => {
       // campo: a secao some, e nao ha remontagem por cima do que a pessoa
       // comprou (a regra do snapshot imutavel vale aqui tambem).
       historicoLeilao = snap.historicoLeilao ?? null
+      recall = snap.recall ?? null
       // Snapshot antigo nao tem segmento gravado: recalcula na leitura a partir
       // da propria consulta, pra copy e checagens valerem no que ja foi vendido.
       segmento = snap.segmento ?? 'outro'
@@ -197,6 +201,7 @@ export default defineEventHandler(async (event) => {
         valorCusto = snap.valorCusto ?? null
         chassiOrigem = snap.chassiOrigem ?? null
         historicoLeilao = snap.historicoLeilao ?? null
+        recall = snap.recall ?? null
         segmento = snap.segmento ?? 'outro'
       } else {
         const snapshot = await montarRelatorioSnapshot(supabase, {
@@ -207,6 +212,7 @@ export default defineEventHandler(async (event) => {
         valorCusto = snapshot.valorCusto
         chassiOrigem = snapshot.chassiOrigem
         historicoLeilao = snapshot.historicoLeilao
+        recall = snapshot.recall ?? null
         segmento = snapshot.segmento
         // Backfill lazy: grava pra proxima visita ja vir do snapshot. Fail-open
         // — se der erro (corrida com outra leitura, rede etc), so tenta de novo
@@ -232,6 +238,7 @@ export default defineEventHandler(async (event) => {
     valorCusto,
     chassiOrigem,
     historicoLeilao,
+    recall,
     segmento: segmento === 'outro' ? detectarSegmento({
       wdapi: pedido.preview,
       senatran: Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response,
