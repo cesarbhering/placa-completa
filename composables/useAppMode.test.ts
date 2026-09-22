@@ -44,6 +44,35 @@ describe('useAppMode', () => {
     expect(useAppMode().isCapacitor.value).toBe(false)
   })
 
+  // A consulta gratis dentro do app precisa do modo PWA: e ele que pede
+  // e-mail, mostra o chassi completo e entrega na tela, como o app antigo ja
+  // fazia. Sem isto o app novo caia no fluxo do site.
+  it('app novo (UA do Capacitor) entra em modo PWA sem deixar de ser Capacitor', () => {
+    comAmbiente({ ua: 'Mozilla/5.0 (Linux; Android 14) PlacaCompletaApp/3' })
+    const { isPWA, isCapacitor, isApp } = useAppMode()
+    expect(isPWA.value).toBe(true)
+    expect(isCapacitor.value).toBe(true)
+    expect(isApp.value).toBe(true)
+  })
+
+  it('bridge nativo tambem liga o modo PWA', () => {
+    comAmbiente({ capacitor: { isNativePlatform: () => true } })
+    expect(useAppMode().isPWA.value).toBe(true)
+  })
+
+  it('navegador comum nao entra em modo PWA por acidente', () => {
+    const { isPWA, isCapacitor } = useAppMode()
+    expect(isPWA.value).toBe(false)
+    expect(isCapacitor.value).toBe(false)
+  })
+
+  it('standalone sem marcador do app e PWA, mas nao e Capacitor', () => {
+    comAmbiente({ standalone: true })
+    const { isPWA, isCapacitor } = useAppMode()
+    expect(isPWA.value).toBe(true)
+    expect(isCapacitor.value).toBe(false)
+  })
+
   it('TWA antigo continua PWA e NAO vira Capacitor: la a compra segue no Pix', () => {
     comAmbiente({ referrer: 'android-app://br.com.placacompleta' })
     const { isPWA, isCapacitor, isApp } = useAppMode()
