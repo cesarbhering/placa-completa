@@ -186,34 +186,78 @@ export function temRestricaoAtiva(r: RestricoesDetran | null | undefined): boole
  * no detalhe normalizado que entra no snapshot. Tolerante a campos faltando:
  * o que nao vier vira null/lista vazia, nunca quebra.
  */
+/** Tela de login do gov.br (a sessao caiu e o portal pediu CPF de novo). */
+export function pareceLoginGovbr(texto: string): boolean {
+  return /identifique-se no gov\.br|digite seu cpf|sso\.acesso\.gov\.br|entrar com gov\.br|acesse sua conta gov\.br/i.test(
+    texto,
+  )
+}
+
+/** Desafio de captcha na frente do resultado. */
+export function pareceCaptcha(texto: string): boolean {
+  return /não sou um robô|nao sou um robo|hcaptcha|recaptcha|resolva o desafio/i.test(texto)
+}
+
+/** Marcas de que ESTAMOS de fato na pagina de debitos e restricoes do veiculo. */
+export function pareceResultadoDetran(texto: string): boolean {
+  return /d[eé]bitos e restri|licenciamento|hod[oô]metro|multas?\b|ipva|restri[cç][oõ]es/i.test(texto)
+}
+
 export function parseResultadoMultas(bruto: any): MultasDetalhe {
   const b = bruto && typeof bruto === 'object' ? bruto : {}
   const { hodometro, hodometro_suspeito } = avaliarHodometro(b.hodometro)
   const restricoes = normalizarRestricoes(b.restricoes)
 
-  const multas =
-    b.multas_pix_centavos != null
-      ? parseMoedaBR(b.multas_pix_centavos)
-      : parseMoedaBR(b.multas ?? b.multas_texto)
-  const ipva =
-    b.ipva_total_centavos != null ? parseMoedaBR(b.ipva_total_centavos) : parseMoedaBR(b.ipva)
-  const licenciamento =
-    b.licenciamento_centavos != null
-      ? parseMoedaBR(b.licenciamento_centavos)
-      : parseMoedaBR(b.licenciamento ?? b.licenciamento_texto)
+  // Cada valor so e lido quando o campo VEIO na captura. Campo ausente = null
+  // (nao 0): sem isso, "pagina sem dado nenhum" pareceria "tudo zerado" e o
+  // veiculo seria dado como sem debito por engano.
+  const presente = (...vs: any[]) => vs.some((v) => v != null)
+  const multas = presente(b.multas_pix_centavos, b.multas, b.multas_texto)
+    ? parseMoedaBR(b.multas_pix_centavos ?? b.multas ?? b.multas_texto)
+    : null
+  const ipva = presente(b.ipva_total_centavos, b.ipva)
+    ? parseMoedaBR(b.ipva_total_centavos ?? b.ipva)
+    : null
+  const licenciamento = presente(b.licenciamento_centavos, b.licenciamento, b.licenciamento_texto)
+    ? parseMoedaBR(b.licenciamento_centavos ?? b.licenciamento ?? b.licenciamento_texto)
+    : null
 
-  const semNada =
-    (multas === 0 || multas == null) &&
-    (ipva === 0 || ipva == null) &&
-    (licenciamento === 0 || licenciamento == null) &&
-    !temRestricaoAtiva(restricoes)
+  const pagina = texto(b.texto)
+  // Debito EM ABERTO de verdade (valor > 0) ou restricao ativa.
+  const temDebitoAtivo =
+    (multas ?? 0) > 0 || (ipva ?? 0) > 0 || (licenciamento ?? 0) > 0 || temRestricaoAtiva(restricoes)
+  // Confirmacao de que lemos a pagina de resultado (algum campo veio, havia
+  // restricoes, ou o texto tem as marcas da pagina de debitos).
+  const naPaginaDeResultado =
+    multas != null ||
+    ipva != null ||
+    licenciamento != null ||
+    restricoes != null ||
+    pareceResultadoDetran(pagina)
 
-  const status: StatusMulta = texto(b.status) as StatusMulta || (semNada ? 'sem_debito' : 'ok')
+  // Status: prioridade pra o que o navegador ja concluiu; senao, so afirma
+  // sem_debito quando de fato confirmamos a pagina de resultado. NUNCA dizer
+  // "sem debito" quando na verdade caimos no login ou numa pagina desconhecida:
+  // isso viraria "veiculo sem multa" pra quem pagou, que e pior que nao mostrar
+  // nada. Na duvida, 'erro' -> fail-open (relatorio sem o bloco).
+  let status: StatusMulta
+  const explicito = texto(b.status)
+  if (explicito && ['ok', 'sem_debito', 'sessao_expirada', 'captcha', 'erro'].includes(explicito)) {
+    status = explicito as StatusMulta
+  } else if (pareceLoginGovbr(pagina)) {
+    status = 'sessao_expirada'
+  } else if (pareceCaptcha(pagina)) {
+    status = 'captcha'
+  } else if (temDebitoAtivo) {
+    status = 'ok'
+  } else if (naPaginaDeResultado) {
+    status = 'sem_debito'
+  } else {
+    status = 'erro'
+  }
 
   return {
-    status: ['ok', 'sem_debito', 'sessao_expirada', 'captcha', 'erro'].includes(status)
-      ? status
-      : 'ok',
+    status,
     uf: texto(b.uf).toUpperCase() || 'SP',
     multas_total_centavos: multas,
     ipva_total_centavos: ipva,
@@ -405,7 +449,7 @@ async function navegarDetranSP(
     await p.waitForTimeout(6000)
 
     // Sessao caiu: o portal jogou pra tela de login do gov.br.
-    if (/sso\.acesso\.gov\.br|Digite seu CPF|Alto Contraste/i.test(await txt())) {
+    if (pareceLoginGovbr(await txt())) {
       return { bruto: { status: 'sessao_expirada' }, texto_pagina: 'sessao gov.br expirada' }
     }
 
@@ -432,7 +476,13 @@ async function navegarDetranSP(
     await p.waitForTimeout(4000)
 
     const corpo = await txt()
-    if (/captcha|não sou um robô|nao sou um robo/i.test(corpo)) {
+    // A sessao pode ter caido so agora (redirect tardio pro login do gov.br).
+    // Detectar aqui evita raspar a tela de login como se fosse resultado e,
+    // pior, rotula-la como sem_debito.
+    if (pareceLoginGovbr(corpo)) {
+      return { bruto: { status: 'sessao_expirada' }, texto_pagina: corpo.slice(0, 800) }
+    }
+    if (pareceCaptcha(corpo)) {
       return { bruto: { status: 'captcha' }, texto_pagina: corpo.slice(0, 800) }
     }
 
