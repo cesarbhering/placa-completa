@@ -6,6 +6,33 @@
 // continua recebendo; este e o endereco extra.
 const AVISO_ESTORNO = 'cesarcbhering@gmail.com'
 
+/**
+ * Busca do detalhe do recall, depois que a pessoa ja recebeu o relatorio. Roda solta e
+ * atualiza SO o campo do recall dentro do snapshot ja gravado, para nao
+ * reconstruir o resto (que custa chamadas externas) nem sobrescrever o que
+ * outro processo tenha gravado no meio tempo. Silenciosa por natureza: a
+ * entrega ja aconteceu, e falhar aqui nao pode virar erro pra quem comprou.
+ */
+function completarRecallDepois(supabase: any, pedido: { id: string; placa: string }, consultaId: string | null): void {
+  void (async () => {
+    try {
+      const detalhe = await buscarRecallDetalhe(supabase, { placa: pedido.placa, consultaId })
+      if (!detalhe) return
+      const { data } = await supabase
+        .from('pedidos_premium')
+        .select('relatorio_snapshot')
+        .eq('id', pedido.id)
+        .maybeSingle()
+      const snap = data?.relatorio_snapshot
+      if (!snap || typeof snap !== 'object') return
+      await supabase
+        .from('pedidos_premium')
+        .update({ relatorio_snapshot: { ...snap, recall: detalhe } })
+        .eq('id', pedido.id)
+    } catch { /* entrega ja feita: aqui so se ganha, nunca se perde */ }
+  })()
+}
+
 function valorEmReais(centavos?: number | null): string {
   if (!centavos) return 'nao informado'
   return `R$ ${(centavos / 100).toFixed(2).replace('.', ',')}`
@@ -131,6 +158,13 @@ export async function processarPedidoPago(
     } catch (snapErr: any) {
       if (import.meta.dev) console.warn('[premium] snapshot falhou na entrega, fallback lazy cobre depois:', snapErr?.message || snapErr)
     }
+
+    // Recall pendente: o registro so diz que existe, e quem pagou quer saber
+    // de QUAL campanha se trata. A busca roda SOLTA, depois da entrega: o
+    // e-mail leva o link, nao o conteudo, entao nao ha motivo pra segurar a
+    // entrega por causa dela. Quando a resposta chega, ela entra no snapshot e
+    // a propria pagina, que fica olhando por alguns minutos, mostra o bloco.
+    if (temRecallPendente(r?.response)) completarRecallDepois(supabase, pedido, r.consultaId)
 
     // Placa e plano entram no assunto e no corpo: "seu relatorio completo da
     // placa ABC1D23 esta pronto" e reconhecivel na caixa de entrada, "sua
