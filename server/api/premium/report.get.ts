@@ -125,6 +125,9 @@ export default defineEventHandler(async (event) => {
   // Detalhe do recall: vem do snapshot, igual ao resto. Snapshot antigo nao
   // tem o campo, e ai a tela mostra so o indicador, como sempre mostrou.
   let recall: any = null
+  // Debitos e restricoes do orgao estadual: vem do snapshot, igual ao recall.
+  // Snapshot antigo (ou sem multa) nao tem o campo e a secao some.
+  let multas: any = null
 
   if (!pendente && pedido.status === 'entregue') {
     if (pedido.relatorio_snapshot) {
@@ -138,6 +141,7 @@ export default defineEventHandler(async (event) => {
       // comprou (a regra do snapshot imutavel vale aqui tambem).
       historicoLeilao = snap.historicoLeilao ?? null
       recall = snap.recall ?? null
+      multas = snap.multas ?? null
       // Snapshot antigo nao tem segmento gravado: recalcula na leitura a partir
       // da propria consulta, pra copy e checagens valerem no que ja foi vendido.
       segmento = snap.segmento ?? 'outro'
@@ -202,6 +206,7 @@ export default defineEventHandler(async (event) => {
         chassiOrigem = snap.chassiOrigem ?? null
         historicoLeilao = snap.historicoLeilao ?? null
         recall = snap.recall ?? null
+        multas = snap.multas ?? null
         segmento = snap.segmento ?? 'outro'
       } else {
         const snapshot = await montarRelatorioSnapshot(supabase, {
@@ -213,6 +218,7 @@ export default defineEventHandler(async (event) => {
         chassiOrigem = snapshot.chassiOrigem
         historicoLeilao = snapshot.historicoLeilao
         recall = snapshot.recall ?? null
+        multas = snapshot.multas ?? null
         segmento = snapshot.segmento
         // Backfill lazy: grava pra proxima visita ja vir do snapshot. Fail-open
         // — se der erro (corrida com outra leitura, rede etc), so tenta de novo
@@ -239,6 +245,7 @@ export default defineEventHandler(async (event) => {
     chassiOrigem,
     historicoLeilao,
     recall,
+    multas,
     segmento: segmento === 'outro' ? detectarSegmento({
       wdapi: pedido.preview,
       senatran: Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response,
