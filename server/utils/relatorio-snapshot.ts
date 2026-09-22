@@ -1,6 +1,7 @@
 import { filtrarPorPlano, camposRestantes } from '../../shared/planos'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import type { RecallDetalhe } from './recall-detalhe'
+import type { MultasDetalhe } from './detran-multas'
 
 // Monta o payload agregado do relatorio (consulta filtrada por plano +
 // valorCusto + chassiOrigem + camposRestantes) — o mesmo bloco que report.get
@@ -24,6 +25,13 @@ export interface RelatorioSnapshot {
    * relatorio mostra o indicador vermelho de sempre, so sem o detalhe.
    */
   recall?: RecallDetalhe | null
+  /**
+   * Debitos e restricoes do orgao de transito estadual (SP hoje). Como o recall,
+   * e escrito DEPOIS da entrega por uma busca solta: null quando nao ha multa,
+   * quando a busca nao respondeu a tempo ou quando o servico nao esta
+   * configurado. Nesses casos o relatorio mostra so o indicador de sempre.
+   */
+  multas?: MultasDetalhe | null
 }
 
 // O registro traz "MARCA/MODELO" numa string so ("I/HONDA CIVIC LX"). A API de
@@ -62,6 +70,8 @@ export async function montarRelatorioSnapshot(
     placa: string; plano: string; consulta_id: string | null; preview?: any
     /** Ja buscado na entrega: o snapshot so guarda o que veio. */
     recall?: RecallDetalhe | null
+    /** Idem recall: ja buscado na entrega, o snapshot so guarda o que veio. */
+    multas?: MultasDetalhe | null
   },
   // Backfill de UM campo que falhou na entrega (ver relatorio-lazy-fill.ts):
   // limita o trabalho ao que foi pedido. Sem isto, reabrir um relatorio sem
@@ -156,5 +166,5 @@ export async function montarRelatorioSnapshot(
     }).catch(() => null)
   }
 
-  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null }
+  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null, multas: pedido.multas ?? null }
 }
