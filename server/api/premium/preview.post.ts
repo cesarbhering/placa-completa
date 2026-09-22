@@ -64,10 +64,15 @@ export default defineEventHandler(async (event) => {
       // placas parecidas do mesmo modelo e cor ficam indistinguiveis.
       municipio: r.municipio || null,
       uf: r.uf || null,
+      // A mesma placa no outro formato, quando a fonte livre conhece as duas.
+      // Vai junto para o pedido: se o registro responder "nao encontrado" para
+      // o formato digitado, a consulta paga tenta este antes de estornar.
+      placaAlternativa: r.placa_alternativa || r.placaAlternativa || null,
       raw: {
         marca: marcaExibicao(r), modelo: r.MODELO || r.modelo,
         ano: r.anoModelo || r.ano, cor: r.cor,
         municipio: r.municipio || null, uf: r.uf || null,
+        placaAlternativa: r.placa_alternativa || r.placaAlternativa || null,
       },
     }
   }
