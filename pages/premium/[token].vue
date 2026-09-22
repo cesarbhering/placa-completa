@@ -16,6 +16,7 @@
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { explicaRestricao } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
+import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 
 const route = useRoute()
 const token = route.params.token as string
@@ -259,6 +260,19 @@ const indicadores = computed(() => {
     // "nada consta" entende "nunca teve problema", e nao e verdade. Se tem
     // ocorrencia registrada, o cartao acende mesmo com o indicador desligado.
     if (i.k === 'indicadorRouboFurto' && !ligado && ocorrencias.value.length) {
+      // Episodio ENCERRADO (roubo com devolucao registrada) nao e pendencia:
+      // acender vermelho aqui manda a pessoa desistir de um carro cujo caso
+      // ja se fechou. O cartao fica neutro e aponta a secao, que conta a
+      // historia inteira. So o que segue em aberto continua alertando.
+      if (rouboTudoEncerrado.value) {
+        return {
+          ...i,
+          nao: `Episódio encerrado (ver seção ${numSecao.value.ocorr})`,
+          ligado,
+          alerta: false,
+          neutro: true,
+        }
+      }
       return {
         ...i,
         nao: 'Não ativo, mas tem histórico',
@@ -797,10 +811,22 @@ const resumoLeilao = computed(() => {
 // ---------- numeracao das secoes ----------
 // Dinamica porque nem toda secao existe em todo laudo (a basica nao tem
 // indicadores; sem FIPE nao ha secao de valor). Numeracao fixa deixaria buraco.
+// A grade de indicadores existe? Dito a partir do payload, e nao de
+// `indicadores.value`: o cartao de roubo/furto precisa citar o numero da secao
+// de ocorrencias, e ler `indicadores` daqui fecharia um ciclo entre os dois
+// computeds. Cada ramo abaixo e um trecho que empurra cartao pra grade, entao
+// a resposta e a mesma de `indicadores.value.length > 0`.
+const temIndicadores = computed(() => (
+  INDICADORES.some((i) => has(i.k))
+  || Array.isArray(v.value?.restricoesItens)
+  || has('situacao')
+  || !!historicoLeilao.value?.resumo
+))
+
 const numSecao = computed(() => {
   const ordem: string[] = ['veh']
-  if (indicadores.value.length) ordem.push('ind')
-  if (!isBasica.value && indicadores.value.length) ordem.push('restr')
+  if (temIndicadores.value) ordem.push('ind')
+  if (!isBasica.value && temIndicadores.value) ordem.push('restr')
   if (ocorrencias.value.length) ordem.push('ocorr')
   if (temSecaoLeilao.value) ordem.push('leilao')
   // Importacao e chassiOrigem NAO entram na numeracao: viraram subsecoes
@@ -862,6 +888,62 @@ const ocorrencias = computed(() => {
       o?.ufJurisdicaoNoRegistroOcorrencia,
     ].filter(Boolean).join(' · '),
   }))
+})
+
+// Os mesmos registros contados como HISTORIA: roubo, recuperacao e devolucao
+// de um mesmo episodio viram um cartao so, com o desfecho no cabecalho. Tres
+// cartoes vermelhos em sequencia faziam um caso encerrado em seis dias parecer
+// tres problemas abertos.
+const ETAPA_ROTULO: Record<EtapaEpisodio, string> = {
+  ROUBO: 'Roubo', RECUPERACAO: 'Recuperação', DEVOLUCAO: 'Devolução',
+}
+const ORDEM_ETAPAS: EtapaEpisodio[] = ['ROUBO', 'RECUPERACAO', 'DEVOLUCAO']
+
+const episodiosRoubo = computed(() => {
+  const bloco: any = g('ocorrenciasRouboFurto')
+  const lista = bloco && typeof bloco === 'object' ? bloco.ocorrencias : null
+  return agruparEpisodios(lista).map((ep) => {
+    const porEtapa = new Map(ep.registros.map((r) => [r.etapa, r]))
+    // A tabela mostra sempre as tres etapas: "Sem registro" em vermelho na
+    // linha que falta e o que diz que o caso esta em aberto.
+    const linhas = ORDEM_ETAPAS.map((etapa) => {
+      const r = porEtapa.get(etapa)
+      return {
+        etapa,
+        rotulo: ETAPA_ROTULO[etapa],
+        data: r ? dataBR(r.data) || r.data : null,
+        // UF fica crua: humanizar transformaria "MG" em "Mg".
+        detalhe: r ? [humanizar(r.marcaModelo), humanizar(r.cor), r.uf].filter(Boolean).join(', ') : '',
+      }
+    })
+    const primeira = ep.registros[0]
+    const titulo = ep.encerrado
+      ? 'Episódio encerrado'
+      : ep.etapaInicial === 'ROUBO'
+        ? `${ep.tipoInicial === 'FURTO' ? 'Furto' : 'Roubo'} em aberto`
+        : `${ETAPA_ROTULO[ep.etapaInicial]} sem registro de roubo`
+    const sub = ep.encerrado
+      ? (ep.duracaoDias === null
+          ? 'Roubo, recuperação e devolução registrados'
+          : `Roubo, recuperação e devolução em ${plural(ep.duracaoDias)}`)
+      : 'Sem recuperação nem devolução registradas'
+    return {
+      encerrado: ep.encerrado,
+      titulo,
+      sub,
+      tag: ep.encerrado ? 'Resolvido' : 'Pendente',
+      linhas,
+      chave: `${ep.etapaInicial}-${primeira?.data || 'sem-data'}`,
+    }
+  })
+})
+
+// Historico existe, mas sem nada pendente: o resumo para de acender vermelho e
+// passa a dizer o que de fato aconteceu.
+const rouboTudoEncerrado = computed(() => {
+  const bloco: any = g('ocorrenciasRouboFurto')
+  const lista = bloco && typeof bloco === 'object' ? bloco.ocorrencias : null
+  return tudoEncerrado(agruparEpisodios(lista))
 })
 
 const fichaCadastral = computed(() => [
@@ -1351,7 +1433,7 @@ onUnmounted(() => poll && clearInterval(poll))
                 v-for="i in indicadores"
                 :key="i.k"
                 class="rel__ind"
-                :class="i.alerta ? 'rel__ind--bad' : (i.ligado && i.risco ? 'rel__ind--atencao' : 'rel__ind--ok')"
+                :class="i.alerta ? 'rel__ind--bad' : (i.neutro ? 'rel__ind--neutro' : (i.ligado && i.risco ? 'rel__ind--atencao' : 'rel__ind--ok'))"
               >
                 <span class="rel__ind-lab">
                   {{ rotuloPartes(i.label).inicio }}<span class="rel__ind-glue">{{ rotuloPartes(i.label).fim }}<button type="button" class="rel__info" :data-dica="i.dica" :aria-label="i.dica">
@@ -1387,25 +1469,46 @@ onUnmounted(() => poll && clearInterval(poll))
             <p v-else class="rel__nada">Nada consta na data de emissão.</p>
           </section>
 
-          <!-- ocorrencias de roubo/furto: o detalhe por tras do indicador -->
-          <section v-if="ocorrencias.length" class="rel__card">
+          <!-- Roubo e furto: um cartao por EPISODIO, nao por registro. Roubo,
+               recuperacao e devolucao do mesmo caso sao uma historia so, e o
+               cabecalho colorido ja diz como ela terminou. -->
+          <section v-if="episodiosRoubo.length" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.ocorr }}. Ocorrências de roubo e furto</h2>
-            <div v-for="(o, idx) in ocorrencias" :key="idx" class="rel__ocorr">
-              <div class="rel__ocorr-topo">
-                <span class="rel__tag">{{ o.tipo }}</span>
-                <!-- Rotulada: a data solta fez ate o dono perguntar "isso e a
-                     data do roubo?". E a data do REGISTRO da ocorrencia. -->
-                <span class="rel__ocorr-data">Ocorrência registrada em {{ o.data }}</span>
+            <div v-for="ep in episodiosRoubo" :key="ep.chave" class="rel__caso">
+              <div class="rel__caso-hd" :class="ep.encerrado ? 'rel__caso-hd--ok' : 'rel__caso-hd--bad'">
+                <div>
+                  <strong>{{ ep.titulo }}</strong>
+                  <small>{{ ep.sub }}</small>
+                </div>
+                <span class="rel__tag" :class="ep.encerrado ? 'rel__tag--ok' : 'rel__tag--bad'">{{ ep.tag }}</span>
               </div>
-              <p class="rel__ocorr-det">
-                <template v-if="o.categoria && o.categoria !== o.tipo">{{ o.categoria }} · </template>
-                Veículo no registro da ocorrência: {{ o.registro }}
+              <table class="rel__caso-tab">
+                <tbody>
+                  <tr v-for="l in ep.linhas" :key="l.etapa" :class="{ 'rel__caso-linha--vazia': !l.data }">
+                    <td>{{ l.rotulo }}</td>
+                    <td>
+                      <template v-if="l.data">
+                        {{ l.data }}
+                        <span v-if="l.detalhe" class="rel__caso-det">{{ l.detalhe }}</span>
+                      </template>
+                      <template v-else>Sem registro</template>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <p class="rel__ocorr-nota">
+                <template v-if="ep.encerrado">
+                  O registro do roubo permanece no histórico mesmo depois da devolução.
+                  Peça ao vendedor o boletim de ocorrência e a baixa, e confira se o carro
+                  voltou sem danos.
+                </template>
+                <template v-else>
+                  Não há registro de recuperação nem de devolução. Sem a baixa da
+                  ocorrência, o veículo pode ser apreendido numa blitz. Não feche negócio
+                  sem esclarecer isto.
+                </template>
               </p>
             </div>
-            <p class="rel__ocorr-nota">
-              Ocorrências registradas permanecem no histórico mesmo após a recuperação
-              do veículo. Solicite ao vendedor o boletim de ocorrência e a respectiva baixa.
-            </p>
           </section>
 
           <!-- historico de leilao (so completa, so onde o servico existe) -->
@@ -2123,6 +2226,76 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     color: $c-charcoal;
   }
 
+  // ---- cartao do caso (roubo e furto) ----
+  // O cabecalho colorido carrega o veredito; a tabela embaixo e a ficha das
+  // datas. `break-inside: avoid` porque este relatorio e impresso e mostrado
+  // pro vendedor, e um episodio partido em duas paginas perde o sentido.
+  &__caso {
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    overflow: hidden;
+    break-inside: avoid;
+    page-break-inside: avoid;
+
+    & + & { margin-top: 14px; }
+  }
+
+  &__caso-hd {
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+
+    strong { font-size: 15px; }
+
+    small {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: $c-charcoal;
+      margin-top: 2px;
+    }
+
+    &--ok { background: #eaf7ee; strong { color: #14622f; } }
+    &--bad { background: #fdf1f1; strong { color: #a32020; } }
+  }
+
+  &__caso-tab {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+
+    td {
+      padding: 9px 14px;
+      border-top: 1px solid #eee;
+      vertical-align: top;
+    }
+
+    td:first-child {
+      width: 44%;
+      font-weight: 600;
+      color: $c-graphite;
+    }
+
+    td:last-child {
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  // A etapa que falta e o que mantem o caso em aberto: ela precisa ser a
+  // unica coisa vermelha da tabela.
+  &__caso-linha--vazia td:last-child { color: #a32020; }
+
+  &__caso-det {
+    display: block;
+    margin-top: 2px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $c-graphite;
+  }
+
   &__ocorr-nota {
     margin: 12px 0 0;
     font-size: 13px;
@@ -2646,6 +2819,17 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__ind--ok .rel__ind-val { color: #14622f; &::before { background: $c-green; } }
+
+  // Quarto estado: houve alguma coisa, mas ja terminou. Verde diria "nunca
+  // teve nada" e vermelho diria "tem problema agora": os dois mentem sobre um
+  // roubo com devolucao registrada. Cinza, e a secao conta o resto.
+  &__ind--neutro .rel__ind-val {
+    color: $c-charcoal;
+    letter-spacing: 0;
+    text-transform: none;
+    &::before { background: #9a9a9a; }
+  }
+
   &__ind--bad {
     background: #fdf1f1;
     border-color: rgba(211, 58, 58, 0.35);
@@ -2674,6 +2858,11 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     padding: 3px 7px;
     white-space: nowrap;
     flex-shrink: 0;
+
+    // No cartao do caso a tag e o veredito em uma palavra, entao ela segue a
+    // cor do cabecalho em vez do vermelho padrao de restricao.
+    &--ok { background: #d7efdf; color: #14622f; }
+    &--bad { background: #fdeeec; color: #a32020; }
   }
 
   // ---- ficha ----
