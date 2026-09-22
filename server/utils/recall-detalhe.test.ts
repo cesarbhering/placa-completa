@@ -59,7 +59,11 @@ describe('leitura da resposta do agente', () => {
 })
 
 describe('quando a entrega vai ao portal', () => {
-  const comIndicador = (v: any) => ({ restricoes: { indicadorRecall: v } })
+  // A resposta paga do SENATRAN traz indicadorRecall solto no topo do objeto.
+  const comIndicador = (v: any) => ({ indicadorRecall: v })
+  // Por seguranca ainda aceitamos o caminho aninhado, caso alguma resposta
+  // venha embrulhada em restricoes.
+  const aninhado = (v: any) => ({ restricoes: { indicadorRecall: v } })
 
   it('so com recall pendente no registro', () => {
     expect(temRecallPendente(comIndicador(true))).toBe(true)
@@ -68,8 +72,14 @@ describe('quando a entrega vai ao portal', () => {
     expect(temRecallPendente(null)).toBe(false)
   })
 
+  it('aceita o indicador tambem no caminho aninhado restricoes', () => {
+    expect(temRecallPendente(aninhado(true))).toBe(true)
+    expect(temRecallPendente(aninhado(false))).toBe(false)
+  })
+
   it('resposta achatada num array de um elemento tambem conta', () => {
     expect(temRecallPendente([comIndicador(true)])).toBe(true)
     expect(temRecallPendente([comIndicador(false)])).toBe(false)
+    expect(temRecallPendente([aninhado(true)])).toBe(true)
   })
 })

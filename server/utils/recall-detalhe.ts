@@ -98,14 +98,18 @@ export function parseResultadoRecall(bruto: unknown): RecallDetalhe | null {
 }
 
 /**
- * O indicador vive dentro de `restricoes` na resposta crua, que as vezes chega
- * achatada num array de um elemento (mesmo caso ja tratado no snapshot). Sem
- * esta checagem, toda entrega iria ao portal, inclusive as 9 em cada 10 que
- * nao tem recall nenhum.
+ * Na resposta paga do SENATRAN o `indicadorRecall` vem solto no topo do objeto,
+ * ao lado dos outros indicadores (indicadorLeilao, indicadorRouboFurto, ...).
+ * A resposta as vezes chega achatada num array de um elemento (mesmo caso ja
+ * tratado no snapshot). Por seguranca ainda aceitamos o caminho aninhado
+ * `restricoes.indicadorRecall`, caso alguma resposta venha embrulhada. Sem esta
+ * checagem, toda entrega iria ao portal, inclusive as 9 em cada 10 que nao tem
+ * recall nenhum.
  */
 export function temRecallPendente(response: any): boolean {
   const bruto = Array.isArray(response) ? response[0] : response
-  return bruto?.restricoes?.indicadorRecall === true
+  return bruto?.indicadorRecall === true
+    || bruto?.restricoes?.indicadorRecall === true
 }
 
 /** Status que vale guardar como resposta boa: o resto pode ser tentado de novo. */
