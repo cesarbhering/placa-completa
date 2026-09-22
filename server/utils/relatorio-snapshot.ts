@@ -1,5 +1,6 @@
 import { filtrarPorPlano, camposRestantes } from '../../shared/planos'
 import { marcaExibicao } from '../../shared/marca-exibicao'
+import type { RecallDetalhe } from './recall-detalhe'
 
 // Monta o payload agregado do relatorio (consulta filtrada por plano +
 // valorCusto + chassiOrigem + camposRestantes) — o mesmo bloco que report.get
@@ -17,6 +18,12 @@ export interface RelatorioSnapshot {
   historicoLeilao: Awaited<ReturnType<typeof consultarHistoricoLeilao>> | null
   /** carro, moto, caminhao: muda checagem, copy e o que faz sentido estimar. */
   segmento: Segmento
+  /**
+   * Detalhe do recall pendente. null quando nao ha recall, quando a busca nao
+   * respondeu a tempo ou quando o servico nao esta configurado: nesses casos o
+   * relatorio mostra o indicador vermelho de sempre, so sem o detalhe.
+   */
+  recall?: RecallDetalhe | null
 }
 
 // O registro traz "MARCA/MODELO" numa string so ("I/HONDA CIVIC LX"). A API de
@@ -51,7 +58,11 @@ function localDoVeiculo(preview: any): { uf: string | null; municipio: string | 
 
 export async function montarRelatorioSnapshot(
   supabase: any,
-  pedido: { placa: string; plano: string; consulta_id: string | null; preview?: any },
+  pedido: {
+    placa: string; plano: string; consulta_id: string | null; preview?: any
+    /** Ja buscado na entrega: o snapshot so guarda o que veio. */
+    recall?: RecallDetalhe | null
+  },
   // Backfill de UM campo que falhou na entrega (ver relatorio-lazy-fill.ts):
   // limita o trabalho ao que foi pedido. Sem isto, reabrir um relatorio sem
   // origem do chassi refaria tambem o julgamento FIPE, que custa uma chamada
@@ -145,5 +156,5 @@ export async function montarRelatorioSnapshot(
     }).catch(() => null)
   }
 
-  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento }
+  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null }
 }

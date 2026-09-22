@@ -937,6 +937,25 @@ const episodiosRoubo = computed(() => {
   })
 })
 
+// Recall pendente: o indicador diz que existe, e o detalhe (montadora,
+// campanha, componente) vem do portal publico, buscado na entrega. Enquanto
+// ele nao chega, a secao mostra que a busca esta em andamento em vez de
+// deixar a pessoa com a palavra "pendente" e nada mais.
+const recallPendente = computed(() => g('indicadorRecall') === true)
+const recallDetalhe = computed(() => {
+  const r: any = data.value?.recall
+  return r && r.status === 'ok' && Array.isArray(r.campanhas) && r.campanhas.length ? r : null
+})
+const recallCampanhas = computed(() => (recallDetalhe.value?.campanhas || []).map((c: any) => ({
+  montadora: humanizar(c?.montadora) || null,
+  campanha: c?.campanha || null,
+  componente: humanizar(c?.componente) || null,
+  descricao: c?.descricao || null,
+  data_inicio: c?.data_inicio || null,
+  situacao: humanizar(c?.situacao) || null,
+})))
+const RECALL_ORIENTACAO = 'O reparo é gratuito na concessionária da marca. Leve o veículo ou peça ao vendedor o comprovante do atendimento.'
+
 // Historico existe, mas sem nada pendente: o resumo para de acender vermelho e
 // passa a dizer o que de fato aconteceu.
 const rouboTudoEncerrado = computed(() => {
@@ -1224,7 +1243,24 @@ onMounted(() => {
     }, 5000)
   }
 })
-onUnmounted(() => poll && clearInterval(poll))
+// Recall pendente sem detalhe ainda: a entrega deixou uma busca rodando em
+// segundo plano e ela atualiza o snapshot quando termina. A tela acompanha por
+// no maximo 4 minutos; passou disso, fica so o indicador, sem ficar batendo no
+// servidor pra sempre.
+let pollRecall: any = null
+onMounted(() => {
+  if (!recallPendente.value || recallDetalhe.value) return
+  const ate = Date.now() + 4 * 60 * 1000
+  pollRecall = setInterval(async () => {
+    if (Date.now() > ate || recallDetalhe.value) { clearInterval(pollRecall); return }
+    try { await refresh() } catch { /* rede oscilou; a proxima volta tenta */ }
+  }, 15000)
+})
+
+onUnmounted(() => {
+  if (poll) clearInterval(poll)
+  if (pollRecall) clearInterval(pollRecall)
+})
 </script>
 
 <template>
@@ -1458,6 +1494,26 @@ onUnmounted(() => poll && clearInterval(poll))
             <p v-if="temIndicadorLeilao" class="rel__ind-nota">
               Nem todo leilão é registrado pelos leiloeiros. A ausência de registro não garante que o veículo nunca passou por leilão.
             </p>
+
+            <!-- Recall pendente: logo abaixo da grade, porque a primeira
+                 pergunta de quem ve o cartao vermelho e "recall de que?". -->
+            <div v-if="recallPendente" class="rel__recall">
+              <p class="rel__recall-tit">Recall pendente</p>
+              <template v-if="recallCampanhas.length">
+                <div v-for="(c, idx) in recallCampanhas" :key="idx" class="rel__recall-item">
+                  <p class="rel__recall-linha">
+                    <strong v-if="c.montadora">{{ c.montadora }}</strong>
+                    <span v-if="c.campanha">Campanha {{ c.campanha }}</span>
+                    <span v-if="c.componente">{{ c.componente }}</span>
+                    <span v-if="c.data_inicio">Registrada em {{ c.data_inicio }}</span>
+                    <span v-if="c.situacao">{{ c.situacao }}</span>
+                  </p>
+                  <p v-if="c.descricao" class="rel__recall-desc">{{ c.descricao }}</p>
+                </div>
+                <p class="rel__recall-nota">{{ RECALL_ORIENTACAO }}</p>
+              </template>
+              <p v-else class="rel__recall-nota">Recall pendente: buscando os detalhes da campanha.</p>
+            </div>
           </section>
 
           <!-- restricoes: na completa a secao existe sempre. Laudo lista a
@@ -2807,6 +2863,56 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       border-radius: 50%;
       flex-shrink: 0;
     }
+  }
+
+  // ---- recall pendente ----
+  // Mesma tinta de alerta dos indicadores ruins, porque e pendencia de
+  // verdade; o texto e que faz o trabalho de dizer o que fazer com ela.
+  &__recall {
+    margin: 14px 0 0;
+    padding: 12px 14px;
+    border: 1px solid rgba(211, 58, 58, 0.35);
+    background: #fdf1f1;
+    border-radius: 6px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  &__recall-tit {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #a32020;
+  }
+
+  &__recall-item + &__recall-item {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(211, 58, 58, 0.2);
+  }
+
+  &__recall-linha {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: $c-charcoal;
+
+    // Separador entre os pedacos da campanha sem precisar de span extra.
+    span + span::before, strong + span::before { content: ' · '; color: $c-graphite; }
+  }
+
+  &__recall-desc {
+    margin: 4px 0 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: $c-graphite;
+  }
+
+  &__recall-nota {
+    margin: 10px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: $c-graphite;
   }
 
   &__ind-nota {
