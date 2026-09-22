@@ -6,11 +6,26 @@
  *
  * dispositivo: celular | tablet | computador | desconhecido
  * sistema:     android | ios | windows | mac | linux | outro | desconhecido
+ * canal:       app | web
+ * app_versao:  versao do app quando ela vem no marcador, senao null
+ *
+ * O canal sai do UA da REQUISICAO, no servidor. O cliente ja manda `isPWA` no
+ * corpo da consulta, mas isso e um campo que qualquer POST forjado escreve, e
+ * agora ele tambem liga dentro do app: nao serve nem pra confiar nem pra
+ * separar app novo de PWA instalada. O marcador no UA e injetado pelo app.
  */
 import type { H3Event } from 'h3'
 import { getRequestHeader } from 'h3'
 
-export interface Dispositivo { dispositivo: string; sistema: string }
+export interface Dispositivo {
+  dispositivo: string
+  sistema: string
+  canal: 'app' | 'web'
+  app_versao: string | null
+}
+
+/** Marca que o app injeta no user-agent, combinada com o time do app. */
+const MARCADOR_APP = 'PlacaCompletaApp'
 
 export function classificarUA(ua: string, chMobile?: string, chPlatform?: string): Dispositivo {
   const u = (ua || '').toLowerCase()
@@ -34,7 +49,13 @@ export function classificarUA(ua: string, chMobile?: string, chPlatform?: string
   else if (chMobile === '?1' || /mobile|iphone|ipod|android/.test(u)) dispositivo = 'celular'
   else if (chMobile === '?0' || u) dispositivo = 'computador'
 
-  return { dispositivo, sistema }
+  // "PlacaCompletaApp/3" -> canal app, versao "3". Sem barra, canal app e
+  // versao desconhecida: saber que veio do app ja e o que decide a leitura.
+  const marca = (ua || '').match(new RegExp(`${MARCADOR_APP}(?:/([\\w.]+))?`, 'i'))
+  const canal: 'app' | 'web' = marca ? 'app' : 'web'
+  const app_versao = marca?.[1] || null
+
+  return { dispositivo, sistema, canal, app_versao }
 }
 
 export function getDispositivo(event: H3Event): Dispositivo {

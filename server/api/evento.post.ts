@@ -25,7 +25,9 @@ export default defineEventHandler(async (event) => {
     const cfg = useRuntimeConfig()
     if (!cfg.premiumSupabaseUrl || !cfg.premiumSupabaseKey) return null
 
-    const { dispositivo, sistema } = getDispositivo(event)
+    // canal/app_versao saem do mesmo UA: o funil precisa separar app de web
+    // na mesma linha em que ja separa a variante do teste A/B.
+    const { dispositivo, sistema, canal, app_versao } = getDispositivo(event)
     const ip = getClientIp(event)
     // Sem sal configurado nao guarda hash nenhum: um sha256 de IP sem sal e
     // quebravel por forca bruta (o espaco de IPv4 e pequeno), o que seria
@@ -34,7 +36,7 @@ export default defineEventHandler(async (event) => {
       ? createHash('sha256').update(cfg.funilIpSalt + ip).digest('hex').slice(0, 32)
       : null
 
-    const linhas = eventos.map(e => ({ ...e, dispositivo, sistema, ip_hash: ipHash }))
+    const linhas = eventos.map(e => ({ ...e, dispositivo, sistema, canal, app_versao, ip_hash: ipHash }))
     const supabase = usePremiumSupabase()
     const { error } = await supabase.from('eventos_funil').insert(linhas)
     if (error && import.meta.dev) console.warn('[evento] insert falhou:', error.message)
