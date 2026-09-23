@@ -524,3 +524,63 @@ describe('escolherMelhorFipe - Camada 1 combustivel', () => {
     expect((r.candidatos || []).length).toBeGreaterThanOrEqual(2)
   })
 })
+
+// ── Camada 2: transmissaoHint (do recall) desempata o cambio ──
+const SENATRAN_FIAT500 = {
+  cilindrada: 1368,
+  potencia: 100,
+  descricaoMarcaModelo: 'FIAT/500 CULT', // SEM MT/AT: cambio so pelo hint
+  anoModelo: 2013,
+}
+const WDAPI_FIAT500 = {
+  marca: 'FIAT', MODELO: '500 CULT', SUBMODELO: '500', VERSAO: '', anoModelo: '2013',
+  extra: { combustivel: 'Alcool / Gasolina' },
+  fipe: {
+    dados: [
+      { score: 52, codigo_fipe: '001501-1', texto_modelo: '500 Cult 1.4 Flex 8V Mec.', texto_valor: 'R$ 40.000,00', combustivel: 'Flex', mes_referencia: 'agosto de 2026' },
+      { score: 54, codigo_fipe: '001502-0', texto_modelo: '500 Cult Dualogic 1.4 Flex 8V Aut.', texto_valor: 'R$ 44.000,00', combustivel: 'Flex', mes_referencia: 'agosto de 2026' },
+    ],
+  },
+}
+function mockModelosVazio2() {
+  return vi.fn(async (url: string) => {
+    if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+    throw new Error(`unexpected fetch: ${url}`)
+  })
+}
+
+describe('escolherMelhorFipe - Camada 2 transmissaoHint', () => {
+  beforeEach(() => { vi.restoreAllMocks() })
+
+  it('SEM hint: Mec. vs Aut. sem cambio no registro fica ambiguo', async () => {
+    global.fetch = mockModelosVazio2() as any
+    const r = await escolherMelhorFipe({
+      senatran: SENATRAN_FIAT500, wdapi: WDAPI_FIAT500,
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't',
+    })
+    expect(r.decididoPor).toBe('ambiguo')
+  })
+
+  it('COM transmissaoHint=manual (do recall): crava a versao Mec. por regra', async () => {
+    global.fetch = mockModelosVazio2() as any
+    const r = await escolherMelhorFipe({
+      senatran: { ...SENATRAN_FIAT500, transmissaoHint: 'manual' }, wdapi: WDAPI_FIAT500,
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't',
+    })
+    expect(r.decididoPor).toBe('regra')
+    expect(r.escolhido?.codigo_fipe).toBe('001501-1')
+    expect(r.escolhido?.modelo || '').toMatch(/Mec/i)
+  })
+
+  it('o registro (MT/AT na descricao) tem prioridade sobre o hint', async () => {
+    global.fetch = mockModelosVazio2() as any
+    const r = await escolherMelhorFipe({
+      // descricao diz AT, hint diz manual -> vale o registro (Aut.)
+      senatran: { ...SENATRAN_FIAT500, descricaoMarcaModelo: 'FIAT/500 CULT AT', transmissaoHint: 'manual' },
+      wdapi: WDAPI_FIAT500,
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't',
+    })
+    expect(r.decididoPor).toBe('regra')
+    expect(r.escolhido?.modelo || '').toMatch(/Aut/i)
+  })
+})

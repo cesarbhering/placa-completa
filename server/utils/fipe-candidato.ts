@@ -53,6 +53,9 @@ export interface FipeMelhorCandidatoInput {
     // nao vale pra duas rodas.
     descricaoTipoVeiculo?: string | null
     descricaoEspecie?: string | null
+    // Camada 2: cambio de um sinal externo (recall), usado so quando a descricao
+    // do registro nao traz MT/AT.
+    transmissaoHint?: 'manual' | 'automatico' | null
   } | null
   // payload cru da wdapi (fipe.dados[], VERSAO, marca, anoModelo, extra.combustivel)
   wdapi: any
@@ -434,7 +437,10 @@ function ehMoto(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any): boo
 function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any): Fatos {
   const litragem = litragensDaCilindrada(senatran?.cilindrada)
   const carroceria = carroceriaDaDescricao(senatran?.descricaoMarcaModelo)
-  const transmissao = transmissaoDaDescricao(senatran?.descricaoMarcaModelo)
+  // Cambio: primeiro o do registro (MT/AT na descricao); se nao houver, o hint
+  // externo (Camada 2, texto do recall). O registro sempre tem prioridade.
+  const transmissao =
+    transmissaoDaDescricao(senatran?.descricaoMarcaModelo) ?? (senatran?.transmissaoHint ?? null)
   // Versao generica (ABS, FLEX, DLX...) nao filtra: ver VERSAO_GENERICA.
   const versao = versaoDiscriminante(wdapi?.VERSAO)
   return {

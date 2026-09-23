@@ -13,7 +13,11 @@ const AVISO_ESTORNO = 'cesarcbhering@gmail.com'
  * outro processo tenha gravado no meio tempo. Silenciosa por natureza: a
  * entrega ja aconteceu, e falhar aqui nao pode virar erro pra quem comprou.
  */
-function completarRecallDepois(supabase: any, pedido: { id: string; placa: string }, consultaId: string | null): void {
+function completarRecallDepois(
+  supabase: any,
+  pedido: { id: string; placa: string; plano?: string | null; preview?: any },
+  consultaId: string | null,
+): void {
   void (async () => {
     try {
       const detalhe = await buscarRecallDetalhe(supabase, { placa: pedido.placa, consultaId })
@@ -25,9 +29,35 @@ function completarRecallDepois(supabase: any, pedido: { id: string; placa: strin
         .maybeSingle()
       const snap = data?.relatorio_snapshot
       if (!snap || typeof snap !== 'object') return
+      const patch: any = { ...snap, recall: detalhe }
+
+      // Camada 2: se a FIPE ficou AMBIGUA (empate de cambio sem sinal no
+      // registro) e o texto do recall diz o cambio, re-roda SO a FIPE com esse
+      // contexto e atualiza o valorCusto no mesmo write. Fail-open: qualquer
+      // erro mantem a FIPE de antes.
+      const hint = transmissaoDoRecall(detalhe)
+      const vc: any = snap.valorCusto
+      const fipeAmbigua = vc?.fipeCandidato?.decididoPor === 'ambiguo' || vc?.fipeCandidato?.confianca === 'baixa'
+      if (hint && fipeAmbigua && pedido.plano) {
+        try {
+          const refeito = await montarRelatorioSnapshot(
+            supabase,
+            {
+              placa: pedido.placa,
+              plano: pedido.plano,
+              consulta_id: consultaId,
+              preview: pedido.preview,
+              transmissaoHint: hint,
+            },
+            ['valorCusto'],
+          )
+          if (refeito?.valorCusto) patch.valorCusto = refeito.valorCusto
+        } catch { /* mantem a FIPE de antes */ }
+      }
+
       await supabase
         .from('pedidos_premium')
-        .update({ relatorio_snapshot: { ...snap, recall: detalhe } })
+        .update({ relatorio_snapshot: patch })
         .eq('id', pedido.id)
     } catch { /* entrega ja feita: aqui so se ganha, nunca se perde */ }
   })()
