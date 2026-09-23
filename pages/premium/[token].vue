@@ -954,7 +954,21 @@ const recallCampanhas = computed(() => (recallDetalhe.value?.campanhas || []).ma
   data_inicio: c?.data_inicio || null,
   situacao: humanizar(c?.situacao) || null,
 })))
-const RECALL_ORIENTACAO = 'O reparo é gratuito na concessionária da marca. Leve o veículo ou peça ao vendedor o comprovante do atendimento.'
+const RECALL_ORIENTACAO = 'O reparo é gratuito na concessionária da marca. Peça ao vendedor o comprovante do atendimento antes de fechar negócio.'
+// Legenda "Campanha <id> · registrada em <data>" de uma campanha.
+function legendaCampanha(c: any): string {
+  const partes: string[] = []
+  if (c?.campanha) partes.push(`Campanha ${c.campanha}`)
+  if (c?.data_inicio) partes.push(`registrada em ${c.data_inicio}`)
+  return partes.join(' · ')
+}
+// Subtitulo do cabecalho: a legenda da campanha quando ha uma so; senao o total.
+const recallSubtitulo = computed(() => {
+  const lista = recallCampanhas.value
+  if (lista.length === 1) return legendaCampanha(lista[0])
+  if (lista.length > 1) return `${lista.length} campanhas pendentes`
+  return ''
+})
 
 // Débitos e restrições no órgão de trânsito do estado (SP hoje). O indicador de
 // multa diz que EXISTE; o valor e o detalhe vêm de uma busca solta na entrega,
@@ -1582,21 +1596,26 @@ onUnmounted(() => {
             <!-- Recall pendente: logo abaixo da grade, porque a primeira
                  pergunta de quem ve o cartao vermelho e "recall de que?". -->
             <div v-if="recallPendente" class="rel__recall">
-              <p class="rel__recall-tit">Recall pendente</p>
-              <template v-if="recallCampanhas.length">
-                <div v-for="(c, idx) in recallCampanhas" :key="idx" class="rel__recall-item">
-                  <p class="rel__recall-linha">
-                    <strong v-if="c.montadora">{{ c.montadora }}</strong>
-                    <span v-if="c.campanha">Campanha {{ c.campanha }}</span>
-                    <span v-if="c.componente">{{ c.componente }}</span>
-                    <span v-if="c.data_inicio">Registrada em {{ c.data_inicio }}</span>
-                    <span v-if="c.situacao">{{ c.situacao }}</span>
-                  </p>
-                  <p v-if="c.descricao" class="rel__recall-desc">{{ c.descricao }}</p>
+              <div class="rel__recall-top">
+                <div class="rel__recall-ic">!</div>
+                <div>
+                  <p class="rel__recall-tit">Recall pendente de atendimento</p>
+                  <p v-if="recallSubtitulo" class="rel__recall-sub">{{ recallSubtitulo }}</p>
                 </div>
-                <p class="rel__recall-nota">{{ RECALL_ORIENTACAO }}</p>
+              </div>
+              <template v-if="recallCampanhas.length">
+                <template v-for="(c, idx) in recallCampanhas" :key="idx">
+                  <p v-if="recallCampanhas.length > 1 && (c.campanha || c.data_inicio)" class="rel__recall-sub rel__recall-sub--item">
+                    {{ legendaCampanha(c) }}
+                  </p>
+                  <p class="rel__recall-body">
+                    <b v-if="c.componente">Componente: {{ c.componente }}.</b>
+                    {{ c.descricao }}
+                  </p>
+                </template>
+                <p class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
               </template>
-              <p v-else class="rel__recall-nota">Recall pendente: buscando os detalhes da campanha.</p>
+              <p v-else class="rel__recall-body">Recall pendente: buscando os detalhes da campanha.</p>
             </div>
 
             <!-- Multas e restrições no órgão de trânsito do estado (SP): o
@@ -2987,54 +3006,73 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     }
   }
 
-  // ---- recall pendente ----
-  // Mesma tinta de alerta dos indicadores ruins, porque e pendencia de
-  // verdade; o texto e que faz o trabalho de dizer o que fazer com ela.
+  // ---- recall pendente (Opcao 1 "Alerta classico") ----
+  // Cartao vermelho com icone, titulo, subtitulo da campanha, corpo com o
+  // componente em negrito + descricao, e a linha verde do reparo gratuito.
   &__recall {
     margin: 14px 0 0;
-    padding: 12px 14px;
-    border: 1px solid rgba(211, 58, 58, 0.35);
+    padding: 14px;
+    border: 1px solid #f2c9c9;
     background: #fdf1f1;
-    border-radius: 6px;
+    border-radius: 12px;
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
+  &__recall-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  &__recall-ic {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #d33a3a;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 18px;
+    flex: 0 0 auto;
+  }
+
   &__recall-tit {
-    margin: 0 0 8px;
-    font-size: 14px;
-    font-weight: 700;
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
     color: #a32020;
   }
 
-  &__recall-item + &__recall-item {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(211, 58, 58, 0.2);
+  &__recall-sub {
+    margin: 1px 0 0;
+    font-size: 12px;
+    color: #8a3030;
+
+    &--item {
+      margin-top: 11px;
+      font-weight: 700;
+    }
   }
 
-  &__recall-linha {
-    margin: 0;
-    font-size: 14px;
-    line-height: 1.5;
-    color: $c-charcoal;
-
-    // Separador entre os pedacos da campanha sem precisar de span extra.
-    span + span::before, strong + span::before { content: ' · '; color: $c-graphite; }
-  }
-
-  &__recall-desc {
-    margin: 4px 0 0;
+  &__recall-body {
+    margin: 11px 0 0;
     font-size: 13.5px;
     line-height: 1.5;
-    color: $c-graphite;
+    color: #3d3d3d;
+
+    b { color: #1a1a1a; }
   }
 
-  &__recall-nota {
-    margin: 10px 0 0;
-    font-size: 13px;
-    line-height: 1.5;
-    color: $c-graphite;
+  &__recall-foot {
+    margin: 11px 0 0;
+    font-size: 12.5px;
+    color: #14622f;
+    background: #eaf7ee;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-weight: 600;
   }
 
   // ---- multas / débitos e restrições (SP) ----
