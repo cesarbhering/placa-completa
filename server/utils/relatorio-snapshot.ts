@@ -177,3 +177,38 @@ export async function montarRelatorioSnapshot(
 
   return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null, multas: pedido.multas ?? null }
 }
+
+/**
+ * Camada 2: refina o valorCusto (versao FIPE) quando a FIPE ficou AMBIGUA por
+ * empate de cambio E o texto do recall diz o cambio. Re-roda so a FIPE com esse
+ * contexto. Devolve o novo valorCusto, ou null quando nao ha o que refinar
+ * (sem hint, FIPE nao-ambigua, ou erro) — fail-open. Usado tanto na entrega
+ * (completarRecallDepois) quanto no backfill de recall.
+ */
+export async function refinarValorCustoPeloRecall(
+  supabase: any,
+  snap: any,
+  pedido: { placa: string; plano?: string | null; consulta_id: string | null; preview?: any },
+  recall: RecallDetalhe | null | undefined,
+): Promise<RelatorioSnapshot['valorCusto'] | null> {
+  const hint = transmissaoDoRecall(recall)
+  const vc: any = snap?.valorCusto
+  const fipeAmbigua = vc?.fipeCandidato?.decididoPor === 'ambiguo' || vc?.fipeCandidato?.confianca === 'baixa'
+  if (!hint || !fipeAmbigua || !pedido.plano) return null
+  try {
+    const refeito = await montarRelatorioSnapshot(
+      supabase,
+      {
+        placa: pedido.placa,
+        plano: pedido.plano,
+        consulta_id: pedido.consulta_id,
+        preview: pedido.preview,
+        transmissaoHint: hint,
+      },
+      ['valorCusto'],
+    )
+    return refeito?.valorCusto ?? null
+  } catch {
+    return null
+  }
+}
