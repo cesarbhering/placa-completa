@@ -26,6 +26,18 @@ function dentroDoTeto(): boolean {
   return true
 }
 
+/** Resumo da FIPE pra devolver no resultado: deixa o Cesar ver como ficou o
+ * desempate (decididoPor, versao e valor) sem despejar o valorCusto inteiro. */
+function fipeResumo(vc: any) {
+  if (!vc || typeof vc !== 'object') return null
+  return {
+    decididoPor: vc?.fipeCandidato?.decididoPor ?? null,
+    confianca: vc?.fipeCandidato?.confianca ?? null,
+    fipeModelo: vc?.fipeModelo ?? null,
+    fipe: vc?.fipe ?? null,
+  }
+}
+
 export default defineEventHandler(async (event) => {
   const segredo = String(useRuntimeConfig().adminSecret || '')
   if (!segredo) throw createError({ statusCode: 404, message: 'Not Found' })
@@ -67,7 +79,31 @@ export default defineEventHandler(async (event) => {
     if (limite && feitos >= limite) break
     const snap: any = p.relatorio_snapshot
     if (!snap || typeof snap !== 'object') { resultados.push({ token: p.token_entrega, pulado: 'sem snapshot' }); continue }
-    if (snap.recall) { resultados.push({ token: p.token_entrega, pulado: 'ja tem recall' }); continue }
+    // Pedido que JA tem recall: nao rebusca o recall (custaria caro e sem
+    // motivo), mas ainda tenta o refino da Camada 2 usando o texto de recall
+    // que ja esta no snapshot. Reports antigos, entregues antes de o desempate
+    // por recall existir, ficaram com a FIPE ambigua mesmo tendo recall que diz
+    // o cambio; isto conserta so eles. Fail-open e idempotente: se a FIPE nao
+    // esta ambigua (ou nao ha hint de cambio no recall), refinar retorna null e
+    // o pedido e pulado sem escrever nada. Nao gasta consulta paga nem
+    // navegador: montarRelatorioSnapshot le a consulta do cache por consulta_id.
+    if (snap.recall) {
+      const refeito = await refinarValorCustoPeloRecall(
+        supabase,
+        snap,
+        { placa: p.placa, plano: p.plano, consulta_id: p.consulta_id, preview: p.preview },
+        snap.recall,
+      )
+      if (!refeito) { resultados.push({ token: p.token_entrega, pulado: 'ja tem recall (fipe nao ambigua ou sem hint)' }); continue }
+      const { error: upErr } = await supabase
+        .from('pedidos_premium')
+        .update({ relatorio_snapshot: { ...snap, valorCusto: refeito } })
+        .eq('id', p.id)
+      if (upErr) { resultados.push({ token: p.token_entrega, ok: false, motivo: upErr.message }); continue }
+      feitos++
+      resultados.push({ token: p.token_entrega, ok: true, reRefino: true, fipe: fipeResumo(refeito) })
+      continue
+    }
     if (!temRecallPendente(snap?.consulta?.response)) { resultados.push({ token: p.token_entrega, pulado: 'sem recall pendente' }); continue }
 
     const t0 = Date.now()
@@ -93,7 +129,7 @@ export default defineEventHandler(async (event) => {
     if (upErr) { resultados.push({ token: p.token_entrega, ok: false, segundos, motivo: upErr.message }); continue }
 
     feitos++
-    resultados.push({ token: p.token_entrega, ok: true, segundos, status: detalhe.status, campanhas: detalhe.campanhas.length, fipeRefinada: !!refinado })
+    resultados.push({ token: p.token_entrega, ok: true, segundos, status: detalhe.status, campanhas: detalhe.campanhas.length, fipeRefinada: !!refinado, fipe: refinado ? fipeResumo(refinado) : null })
   }
 
   return { atualizados: feitos, total: (pedidos || []).length, resultados }
