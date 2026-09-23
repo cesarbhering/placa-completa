@@ -47,6 +47,8 @@ export interface FipeMelhorCandidatoInput {
     potencia?: number | string | null
     descricaoMarcaModelo?: string | null
     anoModelo?: number | string | null
+    // Codigo de combustivel do registro: desempata so diesel/eletrico (claros).
+    codigoCombustivel?: number | string | null
     // So pra saber se e moto: o funil de carro (litragem, carroceria, cambio)
     // nao vale pra duas rodas.
     descricaoTipoVeiculo?: string | null
@@ -306,6 +308,24 @@ function candidatoEAutomatico(modelo: string): boolean {
   return /\bAut\b|\bAut\./i.test(modelo)
 }
 
+// SENATRAN codigo de combustivel (RENAVAM) -> so os casos CLAROS e de valor
+// FIPE bem diferente: diesel e eletrico. Flex/gasolina/alcool ficam null (a FIPE
+// nao separa flex de forma consistente; filtrar por eles estreitaria errado).
+function combustivelDoCodigo(codigo: unknown): 'diesel' | 'eletrico' | null {
+  const c = String(codigo ?? '').trim()
+  if (c === '3' || c === '11') return 'diesel' // Diesel / Diesel+GNV
+  if (c === '6' || c === '7') return 'eletrico' // Eletrico (fonte interna/externa)
+  return null
+}
+
+function candidatoEDiesel(c: FipeCandidato): boolean {
+  return /diesel/i.test(`${c.combustivel ?? ''} ${c.modelo ?? ''}`)
+}
+
+function candidatoEEletrico(c: FipeCandidato): boolean {
+  return /el[eé]tric|electric|\bEV\b/i.test(`${c.combustivel ?? ''} ${c.modelo ?? ''}`)
+}
+
 function candidatoESedan(modelo: string): boolean {
   return /\bSED\b|\bSEDAN\b/i.test(modelo)
 }
@@ -357,6 +377,8 @@ interface Fatos {
   carroceria: Carroceria
   versao: string | null
   transmissao: Transmissao
+  /** Diesel/eletrico do registro: desempata versoes de combustivel bem diferente. */
+  combustivel: 'diesel' | 'eletrico' | null
   /** Duas rodas: o funil de carro nao vale, e cilindrada nao vira litragem. */
   moto: boolean
   /** Nome e cilindrada do modelo, pra casar moto por texto ("PCX", "150"). */
@@ -417,6 +439,7 @@ function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any
   const versao = versaoDiscriminante(wdapi?.VERSAO)
   return {
     litragem, carroceria, versao, transmissao,
+    combustivel: combustivelDoCodigo(senatran?.codigoCombustivel),
     moto: ehMoto(senatran, wdapi),
     tokensModelo: tokensDoModelo(senatran?.descricaoMarcaModelo || wdapi?.MODELO),
     cabine: cabineDaDescricao(senatran?.descricaoMarcaModelo),
@@ -438,6 +461,15 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
   if (fatos.litragem.length) {
     const porLitragem = restantes.filter((c) => candidatoTemLitragem(c.modelo, fatos.litragem))
     if (porLitragem.length) restantes = porLitragem
+  }
+
+  // Combustivel: so diesel e eletrico (valor FIPE bem diferente do a gasolina).
+  // Fail-safe: se nenhum candidato bate, mantem todos (nao inventa exclusao).
+  if (fatos.combustivel) {
+    const porCombustivel = restantes.filter((c) =>
+      fatos.combustivel === 'diesel' ? candidatoEDiesel(c) : candidatoEEletrico(c),
+    )
+    if (porCombustivel.length) restantes = porCombustivel
   }
 
   if (fatos.carroceria) {
