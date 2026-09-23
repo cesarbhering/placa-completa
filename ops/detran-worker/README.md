@@ -21,6 +21,11 @@ ou, em falha, `{ "ok": false, "stage": "..." }`. O Nuxt trata qualquer não-200 
 
 `GET /health` → `{ "ok": true, "daemon_alive": <bool> }` (sem auth).
 
+`POST /warm` — header `X-Worker-Secret` — sobe o daemon (start-on-demand) sem
+rodar consulta e reinicia o relógio de ociosidade. Serve pro **pre-warm**
+agendado (timer systemd antes do pico de vendas Bing ~7h-13h), pra a 1ª consulta
+do cliente não pagar o cold-start. Responde `{ "ok": <bool>, "daemon_alive": <bool>, "warm": true }`.
+
 ## Segurança (crítico)
 
 - Bind **explícito em `10.0.1.1:8477`** (gateway do bridge coolify), **NUNCA

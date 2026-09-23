@@ -31,8 +31,9 @@ const TETO_DIARIO_USD = 5
 // pelo proxy residencial). Registramos um custo NOMINAL pra o teto do dia ter
 // dente (a ausencia de custo deixava a busca correr sem limite de gasto).
 const CUSTO_NOMINAL_USD = 0.05
-// O runner deterministico leva ~75-85s; damos margem no timeout do fetch.
-const TIMEOUT_MULTAS_MS = 110 * 1000
+// O runner deterministico leva ~75-85s; na 1a consulta da janela soma o
+// cold-start do daemon (+ relogin se a sessao expirou), entao damos 120s.
+const TIMEOUT_MULTAS_MS = 120 * 1000
 
 export type StatusMulta = 'ok' | 'sem_debito' | 'sessao_expirada' | 'captcha' | 'erro'
 
