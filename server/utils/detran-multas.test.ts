@@ -6,8 +6,6 @@ import {
   parseMoedaBR,
   normalizarData,
   avaliarHodometro,
-  normalizarRestricoes,
-  temRestricaoAtiva,
   parseResultadoMultas,
   detalheDaLinha,
   respostaUtilMulta,
@@ -104,33 +102,8 @@ describe('hodometro', () => {
   })
 })
 
-describe('restricoes', () => {
-  const bruto = {
-    guincho: 'Nada consta',
-    judicial: 'Consta Bloqueio Judicial - Renajud',
-    financeira: 'Nada consta',
-    tributaria: 'Nada consta',
-    administrativa: 'Nada consta',
-    bloqueio_furto_roubo: 'Nada consta',
-  }
-  it('normaliza pras 6 chaves', () => {
-    const r = normalizarRestricoes(bruto)
-    expect(r?.judicial).toMatch(/Renajud/)
-    expect(r?.guincho).toBe('Nada consta')
-  })
-  it('detecta restricao ativa alem de nada consta', () => {
-    expect(temRestricaoAtiva(normalizarRestricoes(bruto))).toBe(true)
-    expect(temRestricaoAtiva({ judicial: 'Nada consta', guincho: 'Nada consta' })).toBe(false)
-    expect(temRestricaoAtiva(null)).toBe(false)
-  })
-  it('objeto vazio/sem chave conhecida vira null', () => {
-    expect(normalizarRestricoes({})).toBeNull()
-    expect(normalizarRestricoes(null)).toBeNull()
-  })
-})
-
 describe('parseResultadoMultas (captura -> detalhe)', () => {
-  it('caso FHB6G05: multa, licenciamento com vencimento, IPVA zerado, restricao judicial', () => {
+  it('caso FHB6G05: multa, licenciamento com vencimento, IPVA zerado', () => {
     const d = parseResultadoMultas({
       uf: 'SP',
       multas_pix_centavos: 14161,
@@ -141,7 +114,6 @@ describe('parseResultadoMultas (captura -> detalhe)', () => {
         { data: '29/06/2017', km: 76999 },
         { data: '16/09/2020', km: 125599 },
       ],
-      restricoes: { judicial: 'Consta Bloqueio Judicial - Renajud' },
     })
     expect(d.status).toBe('ok')
     expect(d.multas_total_centavos).toBe(14161)
@@ -149,7 +121,6 @@ describe('parseResultadoMultas (captura -> detalhe)', () => {
     expect(d.licenciamento_centavos).toBe(17408)
     expect(d.licenciamento_venc).toBe('2026-09-30')
     expect(d.hodometro_suspeito).toBe(false)
-    expect(d.restricoes?.judicial).toMatch(/Renajud/)
   })
 
   it('nada em aberto NA PAGINA DE RESULTADO vira sem_debito', () => {
@@ -157,7 +128,6 @@ describe('parseResultadoMultas (captura -> detalhe)', () => {
       multas: 'Não há',
       ipva: 'Não há débito pendente',
       licenciamento: 'Nada consta',
-      restricoes: { judicial: 'Nada consta' },
       texto: 'Consultar Débitos e Restrições. Multas: Não há. IPVA: Não há débito. Licenciamento: Nada consta.',
     })
     expect(d.status).toBe('sem_debito')
@@ -206,12 +176,11 @@ describe('detalheDaLinha (cache -> detalhe) e respostaUtil', () => {
       { data: '2020-09-16', km: 125599 },
     ],
     hodometro_suspeito: false,
-    restricoes: { judicial: 'Consta Bloqueio Judicial - Renajud' },
   }
   it('reconstroi o detalhe a partir da linha', () => {
     const d = detalheDaLinha(row)
     expect(d?.multas_total_centavos).toBe(14161)
-    expect(d?.restricoes?.judicial).toMatch(/Renajud/)
+    expect(d?.licenciamento_centavos).toBe(17408)
     expect(d?.hodometro.length).toBe(2)
   })
   it('respostaUtilMulta so aceita ok e sem_debito', () => {
