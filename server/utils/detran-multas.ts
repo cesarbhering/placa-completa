@@ -31,9 +31,13 @@ const TETO_DIARIO_USD = 5
 // pelo proxy residencial). Registramos um custo NOMINAL pra o teto do dia ter
 // dente (a ausencia de custo deixava a busca correr sem limite de gasto).
 const CUSTO_NOMINAL_USD = 0.05
-// O runner deterministico leva ~75-85s; na 1a consulta da janela soma o
-// cold-start do daemon (+ relogin se a sessao expirou), entao damos 120s.
-const TIMEOUT_MULTAS_MS = 120 * 1000
+// buscarMultasDetalhe so roda em segundo plano (completarMultasDepois,
+// fire-and-forget DEPOIS da entrega) e no backfill admin — NUNCA no caminho
+// sincrono do checkout. Entao o timeout pode ser generoso: warm ~66-85s, mas um
+// cold-start (daemon + relogin) pode passar de 150s. 240s cobre o pior caso do
+// worker (start do daemon + RUN_TIMEOUT_S=220 do runner) com folga, pra o
+// resultado gravar no cache e a pagina pegar no polling em vez de se perder.
+const TIMEOUT_MULTAS_MS = 240 * 1000
 
 export type StatusMulta = 'ok' | 'sem_debito' | 'sessao_expirada' | 'captcha' | 'erro'
 

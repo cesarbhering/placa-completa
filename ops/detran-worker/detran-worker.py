@@ -40,7 +40,7 @@ RUNNER = os.environ.get("DETRAN_RUNNER", "/root/detran-sp-runner.py")
 HARNESS = os.environ.get("BROWSER_HARNESS_BIN", os.path.expanduser("~/.local/bin/browser-harness"))
 LOCAL_BIN = os.path.dirname(HARNESS) or os.path.expanduser("~/.local/bin")
 IDLE_STOP_S = int(os.environ.get("DETRAN_IDLE_STOP_S", "600"))   # 10 min ocioso -> para o daemon
-RUN_TIMEOUT_S = int(os.environ.get("DETRAN_RUN_TIMEOUT_S", "200"))  # warm ~66-85s; cold+relogin ~160s
+RUN_TIMEOUT_S = int(os.environ.get("DETRAN_RUN_TIMEOUT_S", "220"))  # warm ~66-85s; cold+relogin pode passar de 150s
 START_TIMEOUT_S = int(os.environ.get("DETRAN_START_TIMEOUT_S", "120"))
 LOCK_WAIT_S = int(os.environ.get("DETRAN_LOCK_WAIT_S", "8"))     # espera curta pelo lock; senao 429
 
