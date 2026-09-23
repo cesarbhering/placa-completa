@@ -235,8 +235,17 @@ export function normalizarResposta(response: any): Record<string, any> {
   const indicadores = Object.fromEntries(
     Object.entries(bloco).filter(([k]) => k.startsWith('indicador')),
   )
+  // Alguns registros trazem uma linha placeholder "Nada consta" em
+  // tipoRestricao mesmo quando ha outra restricao real na lista. Sem filtrar,
+  // ela ia pro relatorio como se fosse uma restricao, e "Nada consta" aparecia
+  // ACIMA de uma restricao de verdade. O filtro ancorado derruba so a linha que
+  // e exatamente "nada consta" (com pontuacao solta em volta) e preserva
+  // qualquer texto que apenas COMECE com isso mas diga mais coisa.
+  const ehNadaConsta = (t: string) => /^\s*nada\s*consta\b[\s.,;-]*$/i.test(t)
   const itens = Array.isArray((bloco as any).items)
-    ? (bloco as any).items.map((i: any) => i?.tipoRestricao).filter(Boolean)
+    ? (bloco as any).items
+        .map((i: any) => i?.tipoRestricao)
+        .filter((t: any) => t && !ehNadaConsta(String(t)))
     : []
 
   return { ...resto, ...indicadores, restricoesItens: itens }
