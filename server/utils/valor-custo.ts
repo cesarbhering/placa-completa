@@ -39,6 +39,8 @@ export interface FatosSenatranFipe {
   potencia?: number | string | null
   descricaoMarcaModelo?: string | null
   anoModelo?: number | string | null
+  /** Codigo de combustivel do registro (RENAVAM). So desempata diesel/eletrico. */
+  codigoCombustivel?: number | string | null
   /** Usados so pra saber se e moto: o funil de carro nao vale pra duas rodas. */
   descricaoTipoVeiculo?: string | null
   descricaoEspecie?: string | null
