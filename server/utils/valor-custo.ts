@@ -44,6 +44,11 @@ export interface FatosSenatranFipe {
   /** Usados so pra saber se e moto: o funil de carro nao vale pra duas rodas. */
   descricaoTipoVeiculo?: string | null
   descricaoEspecie?: string | null
+  /**
+   * Camada 2: cambio vindo de um sinal externo (texto do recall) quando a
+   * descricao do registro nao tem MT/AT. So desempata o empate de cambio.
+   */
+  transmissaoHint?: 'manual' | 'automatico' | null
 }
 
 function formatarReais(valor: number | null): string | null {
