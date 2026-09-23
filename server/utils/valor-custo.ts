@@ -39,9 +39,16 @@ export interface FatosSenatranFipe {
   potencia?: number | string | null
   descricaoMarcaModelo?: string | null
   anoModelo?: number | string | null
+  /** Codigo de combustivel do registro (RENAVAM). So desempata diesel/eletrico. */
+  codigoCombustivel?: number | string | null
   /** Usados so pra saber se e moto: o funil de carro nao vale pra duas rodas. */
   descricaoTipoVeiculo?: string | null
   descricaoEspecie?: string | null
+  /**
+   * Camada 2: cambio vindo de um sinal externo (texto do recall) quando a
+   * descricao do registro nao tem MT/AT. So desempata o empate de cambio.
+   */
+  transmissaoHint?: 'manual' | 'automatico' | null
 }
 
 function formatarReais(valor: number | null): string | null {

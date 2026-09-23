@@ -970,6 +970,81 @@ const recallSubtitulo = computed(() => {
   return ''
 })
 
+// Débitos e restrições no órgão de trânsito do estado (SP hoje). O indicador de
+// multa diz que EXISTE; o valor e o detalhe vêm de uma busca solta na entrega,
+// igual ao recall. A fonte não é citada pro cliente: é "o órgão de trânsito do
+// estado". Só faz sentido pra veículo de SP com multa em aberto.
+const multaIndicadorSP = computed(
+  () => g('indicadorMultaRenainf') === true && String(g('ufJurisdicao') || '').toUpperCase() === 'SP',
+)
+const multasDetalhe = computed(() => {
+  const m: any = data.value?.multas
+  return m && (m.status === 'ok' || m.status === 'sem_debito') ? m : null
+})
+function reais(centavos?: number | null): string | null {
+  if (centavos == null) return null
+  return `R$ ${(centavos / 100).toFixed(2).replace('.', ',')}`
+}
+// Total "Para regularizar" = multas + licenciamento em aberto (NAO inclui IPVA
+// quando em dia). null quando nao ha nada a pagar (nao mostra o total).
+const multasTotalCentavos = computed(() => {
+  const m = multasDetalhe.value
+  if (!m) return null
+  const mm = m.multas_total_centavos && m.multas_total_centavos > 0 ? m.multas_total_centavos : 0
+  const lic = m.licenciamento_centavos && m.licenciamento_centavos > 0 ? m.licenciamento_centavos : 0
+  const total = mm + lic
+  return total > 0 ? total : null
+})
+// Breakdown do cartao: Multas (Pix), Licenciamento (com vencimento), IPVA.
+const multasBreakdown = computed(() => {
+  const m = multasDetalhe.value
+  if (!m) return []
+  const rows: { rotulo: string; valor: string; emDia: boolean }[] = []
+  if (m.multas_total_centavos != null)
+    rows.push({
+      rotulo: 'Multas (Pix)',
+      valor: m.multas_total_centavos > 0 ? (reais(m.multas_total_centavos) as string) : 'Nada consta',
+      emDia: !(m.multas_total_centavos > 0),
+    })
+  if (m.licenciamento_centavos != null) {
+    const venc = m.licenciamento_venc ? ` (vence ${formatarDataBR(m.licenciamento_venc)})` : ''
+    rows.push({
+      rotulo: `Licenciamento${venc}`,
+      valor: m.licenciamento_centavos > 0 ? (reais(m.licenciamento_centavos) as string) : 'Em dia',
+      emDia: !(m.licenciamento_centavos > 0),
+    })
+  }
+  if (m.ipva_total_centavos != null)
+    rows.push({
+      rotulo: 'IPVA',
+      valor: m.ipva_total_centavos > 0 ? (reais(m.ipva_total_centavos) as string) : 'Em dia',
+      emDia: !(m.ipva_total_centavos > 0),
+    })
+  return rows
+})
+// Extrato de quilometragem: cada leitura com o quanto rodou desde a anterior
+// (primeira linha "—"). `caiu` marca uma leitura menor que a anterior.
+const hodometroExtrato = computed(() => {
+  const lista = Array.isArray(multasDetalhe.value?.hodometro) ? multasDetalhe.value!.hodometro : []
+  return lista.map((h: any, i: number) => {
+    const km = Number(h?.km)
+    const prev = i > 0 ? Number(lista[i - 1]?.km) : null
+    const delta = prev == null || !Number.isFinite(prev) ? null : km - prev
+    return {
+      data: formatarDataBR(h?.data),
+      km: Number.isFinite(km) ? km.toLocaleString('pt-BR') : '—',
+      rodou: delta == null ? '—' : `${delta >= 0 ? '+' : ''}${delta.toLocaleString('pt-BR')}`,
+      caiu: delta != null && delta < 0,
+    }
+  })
+})
+// dd/mm/aaaa a partir de ISO (YYYY-MM-DD), sem depender de timezone.
+function formatarDataBR(iso?: string | null): string {
+  const s = String(iso || '')
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : s
+}
+
 // Historico existe, mas sem nada pendente: o resumo para de acender vermelho e
 // passa a dizer o que de fato aconteceu.
 const rouboTudoEncerrado = computed(() => {
@@ -1271,9 +1346,23 @@ onMounted(() => {
   }, 15000)
 })
 
+// Multas (SP) sem detalhe ainda: a entrega deixou a busca rodando; a tela
+// acompanha por ate 6 minutos (a consulta ao portal e mais lenta que a de
+// recall) e para assim que o bloco chega.
+let pollMultas: any = null
+onMounted(() => {
+  if (!multaIndicadorSP.value || multasDetalhe.value) return
+  const ate = Date.now() + 6 * 60 * 1000
+  pollMultas = setInterval(async () => {
+    if (Date.now() > ate || multasDetalhe.value) { clearInterval(pollMultas); return }
+    try { await refresh() } catch { /* rede oscilou; a proxima volta tenta */ }
+  }, 15000)
+})
+
 onUnmounted(() => {
   if (poll) clearInterval(poll)
   if (pollRecall) clearInterval(pollRecall)
+  if (pollMultas) clearInterval(pollMultas)
 })
 </script>
 
@@ -1508,9 +1597,74 @@ onUnmounted(() => {
             <p v-if="temIndicadorLeilao" class="rel__ind-nota">
               Nem todo leilão é registrado pelos leiloeiros. A ausência de registro não garante que o veículo nunca passou por leilão.
             </p>
+          </section>
 
-            <!-- Recall pendente: logo abaixo da grade, porque a primeira
-                 pergunta de quem ve o cartao vermelho e "recall de que?". -->
+          <!-- restricoes: na completa a secao existe sempre. Laudo lista a
+               secao e diz "nada consta"; omitir deixaria duvida se foi checado. -->
+          <section v-if="numSecao.restr" class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.restr }}. Restrições</h2>
+            <template v-if="restricoes.length">
+              <div v-for="(r, idx) in restricoes" :key="idx" class="rel__restr">
+                <div class="rel__restr-topo">
+                  <span class="rel__tag">Restrição</span>
+                  <strong>{{ r.rotulo }}</strong>
+                </div>
+                <p class="rel__restr-explica">{{ r.explica }}</p>
+              </div>
+            </template>
+            <p v-else class="rel__nada">Nada consta na data de emissão.</p>
+
+            <!-- Débitos/multas e recall vivem AQUI, no contexto de Restrições
+                 (sao pendencias do veiculo), em vez de soltos apos a
+                 Identificacao. Cada um e um subcard com sua propria moldura. -->
+
+            <!-- Multas e débitos no órgão de trânsito do estado (SP): o
+                 indicador de multa acende, e aqui vem o VALOR e o detalhe. -->
+            <div v-if="multaIndicadorSP" class="rel__multas">
+              <p class="rel__multas-tit">Multas e débitos</p>
+              <template v-if="multasDetalhe">
+                <!-- Multas e débitos: total grande + breakdown -->
+                <div class="rel__multas-m3">
+                  <div v-if="multasTotalCentavos" class="rel__multas-cap">
+                    <span>Para regularizar</span>
+                    <b>{{ reais(multasTotalCentavos) }}</b>
+                  </div>
+                  <div class="rel__multas-bd">
+                    <div v-for="(r, idx) in multasBreakdown" :key="'b' + idx" class="rel__multas-r">
+                      <span>{{ r.rotulo }}</span>
+                      <b :class="{ 'rel__multas-ok': r.emDia }">{{ r.valor }}</b>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Quilometragem: extrato Data | Km | Rodou -->
+                <template v-if="hodometroExtrato.length">
+                  <p class="rel__multas-sub">Quilometragem registrada</p>
+                  <table class="rel__multas-k3">
+                    <tbody>
+                      <tr class="rel__multas-k3head">
+                        <td>Data</td>
+                        <td class="rel__multas-k3km">Km</td>
+                        <td class="rel__multas-k3dl">Rodou</td>
+                      </tr>
+                      <tr v-for="(h, idx) in hodometroExtrato" :key="'k' + idx" :class="{ 'rel__multas-k3caiu': h.caiu }">
+                        <td>{{ h.data }}</td>
+                        <td class="rel__multas-k3km">{{ h.km }}</td>
+                        <td class="rel__multas-k3dl">{{ h.rodou }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <p v-if="multasDetalhe.hodometro_suspeito" class="rel__multas-kmalerta">
+                    Há registro de quilometragem menor que uma leitura anterior, possível adulteração.
+                  </p>
+                  <p v-else class="rel__multas-kmok"><b>Sem regressão de km.</b> Sem indício de hodômetro adulterado.</p>
+                </template>
+              </template>
+              <p v-else class="rel__multas-nota">Multa em aberto: buscando o valor e o detalhe.</p>
+            </div>
+
+            <!-- Recall pendente: a primeira pergunta de quem ve o cartao
+                 vermelho e "recall de que?". -->
             <div v-if="recallPendente" class="rel__recall">
               <div class="rel__recall-top">
                 <div class="rel__recall-ic">!</div>
@@ -1533,22 +1687,6 @@ onUnmounted(() => {
               </template>
               <p v-else class="rel__recall-body">Recall pendente: buscando os detalhes da campanha.</p>
             </div>
-          </section>
-
-          <!-- restricoes: na completa a secao existe sempre. Laudo lista a
-               secao e diz "nada consta"; omitir deixaria duvida se foi checado. -->
-          <section v-if="numSecao.restr" class="rel__card">
-            <h2 class="rel__h2">{{ numSecao.restr }}. Restrições</h2>
-            <template v-if="restricoes.length">
-              <div v-for="(r, idx) in restricoes" :key="idx" class="rel__restr">
-                <div class="rel__restr-topo">
-                  <span class="rel__tag">Restrição</span>
-                  <strong>{{ r.rotulo }}</strong>
-                </div>
-                <p class="rel__restr-explica">{{ r.explica }}</p>
-              </div>
-            </template>
-            <p v-else class="rel__nada">Nada consta na data de emissão.</p>
           </section>
 
           <!-- Roubo e furto: um cartao por EPISODIO, nao por registro. Roubo,
@@ -2951,6 +3089,137 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border-radius: 8px;
     padding: 8px 10px;
     font-weight: 600;
+  }
+
+  // ---- multas / débitos e restrições (SP) ----
+  // ---- multas e débitos (Total grande) + quilometragem (Extrato) ----
+  &__multas {
+    margin: 14px 0 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  &__multas-tit {
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b7280;
+  }
+
+  // cartao "Para regularizar" + breakdown
+  &__multas-cap {
+    background: #fdf1f1;
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+    margin-bottom: 12px;
+
+    span {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #8a3030;
+      font-weight: 700;
+    }
+    b {
+      font-size: 28px;
+      font-weight: 800;
+      color: #a32020;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  &__multas-bd { display: grid; gap: 7px; }
+
+  &__multas-r {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+
+    span { color: #3d3d3d; }
+    b { font-variant-numeric: tabular-nums; color: #1a1a1a; }
+  }
+
+  &__multas-ok { color: #14622f !important; font-weight: 700; }
+
+  &__multas-sub {
+    margin: 16px 0 8px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b7280;
+  }
+
+  // extrato de quilometragem
+  &__multas-k3 {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+
+    td { padding: 8px 4px; border-top: 1px solid #f0f1f3; }
+    tr:first-child td { border-top: 0; }
+  }
+
+  &__multas-k3head td {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #9098a3;
+    font-weight: 700;
+    border: 0 !important;
+    padding-bottom: 2px;
+  }
+
+  &__multas-k3km {
+    text-align: right;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__multas-k3dl {
+    text-align: right;
+    color: #14622f;
+    font-weight: 700;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    width: 74px;
+  }
+
+  // leitura que caiu (km menor que a anterior): destaca vermelho
+  &__multas-k3caiu {
+    td, .rel__multas-k3km { color: #a32020; }
+    .rel__multas-k3dl { color: #a32020; }
+  }
+
+  &__multas-kmok {
+    margin: 10px 0 0;
+    font-size: 12.5px;
+    color: #3d3d3d;
+
+    b { color: #1a1a1a; }
+  }
+
+  &__multas-kmalerta {
+    margin: 10px 0 0;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    font-weight: 600;
+    color: #a32020;
+    background: #fbe3e3;
+    border-radius: 8px;
+  }
+
+  &__multas-nota {
+    margin: 6px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: $c-graphite;
   }
 
   &__ind-nota {

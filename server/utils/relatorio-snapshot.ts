@@ -1,6 +1,7 @@
 import { filtrarPorPlano, camposRestantes } from '../../shared/planos'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import type { RecallDetalhe } from './recall-detalhe'
+import type { MultasDetalhe } from './detran-multas'
 
 // Monta o payload agregado do relatorio (consulta filtrada por plano +
 // valorCusto + chassiOrigem + camposRestantes) — o mesmo bloco que report.get
@@ -24,6 +25,13 @@ export interface RelatorioSnapshot {
    * relatorio mostra o indicador vermelho de sempre, so sem o detalhe.
    */
   recall?: RecallDetalhe | null
+  /**
+   * Debitos e restricoes do orgao de transito estadual (SP hoje). Como o recall,
+   * e escrito DEPOIS da entrega por uma busca solta: null quando nao ha multa,
+   * quando a busca nao respondeu a tempo ou quando o servico nao esta
+   * configurado. Nesses casos o relatorio mostra so o indicador de sempre.
+   */
+  multas?: MultasDetalhe | null
 }
 
 // O registro traz "MARCA/MODELO" numa string so ("I/HONDA CIVIC LX"). A API de
@@ -60,8 +68,12 @@ export async function montarRelatorioSnapshot(
   supabase: any,
   pedido: {
     placa: string; plano: string; consulta_id: string | null; preview?: any
+    /** Camada 2: cambio vindo do recall, pra a FIPE desempatar versao no re-fill. */
+    transmissaoHint?: 'manual' | 'automatico' | null
     /** Ja buscado na entrega: o snapshot so guarda o que veio. */
     recall?: RecallDetalhe | null
+    /** Idem recall: ja buscado na entrega, o snapshot so guarda o que veio. */
+    multas?: MultasDetalhe | null
   },
   // Backfill de UM campo que falhou na entrega (ver relatorio-lazy-fill.ts):
   // limita o trabalho ao que foi pedido. Sem isto, reabrir um relatorio sem
@@ -103,6 +115,13 @@ export async function montarRelatorioSnapshot(
       potencia: senatranBruto?.potencia ?? null,
       descricaoMarcaModelo: senatranBruto?.descricaoMarcaModelo ?? null,
       anoModelo: senatranBruto?.anoModelo ?? null,
+      // Sinais extras pro funil FIPE (Camada 1). Todos opcionais: se vierem
+      // nulos, o funil se comporta como antes (fail-safe).
+      codigoCombustivel: senatranBruto?.codigoCombustivel ?? null,
+      descricaoTipoVeiculo: senatranBruto?.descricaoTipoVeiculo ?? null,
+      descricaoEspecie: senatranBruto?.descricaoEspecie ?? null,
+      // Camada 2: cambio vindo do recall (so no re-fill disparado pelo recall).
+      transmissaoHint: pedido.transmissaoHint ?? null,
     },
   }).catch(() => null)
 
@@ -156,5 +175,40 @@ export async function montarRelatorioSnapshot(
     }).catch(() => null)
   }
 
-  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null }
+  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null, multas: pedido.multas ?? null }
+}
+
+/**
+ * Camada 2: refina o valorCusto (versao FIPE) quando a FIPE ficou AMBIGUA por
+ * empate de cambio E o texto do recall diz o cambio. Re-roda so a FIPE com esse
+ * contexto. Devolve o novo valorCusto, ou null quando nao ha o que refinar
+ * (sem hint, FIPE nao-ambigua, ou erro) — fail-open. Usado tanto na entrega
+ * (completarRecallDepois) quanto no backfill de recall.
+ */
+export async function refinarValorCustoPeloRecall(
+  supabase: any,
+  snap: any,
+  pedido: { placa: string; plano?: string | null; consulta_id: string | null; preview?: any },
+  recall: RecallDetalhe | null | undefined,
+): Promise<RelatorioSnapshot['valorCusto'] | null> {
+  const hint = transmissaoDoRecall(recall)
+  const vc: any = snap?.valorCusto
+  const fipeAmbigua = vc?.fipeCandidato?.decididoPor === 'ambiguo' || vc?.fipeCandidato?.confianca === 'baixa'
+  if (!hint || !fipeAmbigua || !pedido.plano) return null
+  try {
+    const refeito = await montarRelatorioSnapshot(
+      supabase,
+      {
+        placa: pedido.placa,
+        plano: pedido.plano,
+        consulta_id: pedido.consulta_id,
+        preview: pedido.preview,
+        transmissaoHint: hint,
+      },
+      ['valorCusto'],
+    )
+    return refeito?.valorCusto ?? null
+  } catch {
+    return null
+  }
 }
