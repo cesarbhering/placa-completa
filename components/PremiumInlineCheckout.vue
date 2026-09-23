@@ -189,8 +189,10 @@ function marcarEmailInformado(onde: string) {
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
 const planoInfo = computed(() => PLANOS[props.plano])
-// O botao diz o que a pessoa leva, nao so o que ela paga: o preco sozinho e
-// custo puro; com o desfecho junto, o clique tem um motivo.
+// O botao carrega SO o desfecho, nao o preco: o preco ja aparece no resumo
+// logo acima, e repeti-lo no botao so reforca o frame de custo na hora do
+// clique. A linha-helper abaixo do botao cuida da reasseguranca (Pix, estorno,
+// prazo), tirando esse peso de cima da CTA.
 const rotuloPagar = computed(() => {
   if (isCapacitor.value) {
     return loading.value
@@ -199,7 +201,7 @@ const rotuloPagar = computed(() => {
   }
   if (loading.value) return cupomGratis.value ? 'Liberando...' : 'Gerando Pix...'
   if (cupomGratis.value) return 'Liberar relatório grátis'
-  return `Pagar ${reais(precoExibidoCentavos.value)} e ver o ${planoInfo.value.nome.toLowerCase()}`
+  return props.plano === 'completa' ? 'Liberar meu relatório completo' : 'Liberar minha consulta'
 })
 const precoExibidoCentavos = computed(() =>
   Math.max(0, planoInfo.value.valorCentavos - cupomDescontoCentavos.value),
@@ -767,7 +769,12 @@ onUnmounted(() => {
               </select>
               <p v-if="ambiente === 'producao'" class="pic-aviso">Atenção: Produção dispara consulta real no SERPRO.</p>
             </div>
-            <div class="pic-campo">
+            <!-- Na web o e-mail saiu daqui: e pedido (opcional) so na tela do
+                 Pix, o que encurta o modal e tira um input antes da CTA. Fica
+                 aqui em dois casos: no app, que nao tem tela de Pix e precisa
+                 coletar o e-mail em algum lugar, e quando ha cupom aberto,
+                 porque o limite do cupom e contado por e-mail. -->
+            <div v-if="isCapacitor || cupomAberto" class="pic-campo">
               <label class="pic-label" for="pic-email">Seu e-mail (opcional, para receber o relatório)</label>
               <input
                 id="pic-email"
@@ -796,10 +803,12 @@ onUnmounted(() => {
                 inputmode="tel"
               >
             </div>
-            <!-- Faixa de confianca: as tres duvidas que travam o clique
-                 (e se o carro nao aparecer? vai virar assinatura? quem
-                 processa o Pix?), respondidas com o que o produto ja
-                 faz de verdade. Nada de prova social inventada. -->
+            <!-- Faixa de confianca enxuta: so as duas duvidas que de fato
+                 travam o clique (e se o carro nao aparecer? vai virar
+                 assinatura?), respondidas com o que o produto faz de verdade.
+                 O "quem processa o Pix" saiu pra linha-helper embaixo do botao,
+                 e o "+1 milhao de leiloados" e value-prop de pitch, nao do
+                 momento de pagar. Nada de prova social inventada. -->
             <ul class="pic-conf">
               <li v-if="!isCapacitor" class="pic-conf__item pic-conf__item--forte">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -815,27 +824,6 @@ onUnmounted(() => {
                 </svg>
                 <span>Pagamento único. Sem assinatura e sem cadastro.</span>
               </li>
-              <li class="pic-conf__item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M12 2 3 6v5c0 5 3.8 9.4 9 11 5.2-1.6 9-6 9-11V6Z" />
-                </svg>
-                <!-- Nao citamos mais o nome do processador aqui. Woovi e de
-                     fato quem processa (o QR aponta pra qr.woovi.com), mas nao
-                     e esse o nome que a pessoa ve: no app do banco o recebedor
-                     aparece como HASTE TECHNOLOGIES, a empresa por tras da
-                     AbacatePay. Citar um nome que ela nao vai encontrar nao
-                     ajuda em nada. -->
-                <span v-if="isCapacitor">Pagamento único pelo Google Play, com a forma de pagamento da sua conta.</span>
-                <span v-else>Pagamento por Pix, processado com segurança. Seus dados trafegam protegidos.</span>
-              </li>
-              <li v-if="props.plano === 'completa'" class="pic-conf__item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M4 20h16" />
-                  <path d="M6 20V9l6-4 6 4v11" />
-                  <path d="M10 20v-5h4v5" />
-                </svg>
-                <span>Inclui o histórico de leilão, cruzado com uma base de <strong>mais de 1 milhão de veículos leiloados</strong>.</span>
-              </li>
             </ul>
             <button
               type="button"
@@ -845,6 +833,10 @@ onUnmounted(() => {
             >
               {{ rotuloPagar }}
             </button>
+            <!-- Reasseguranca fora do botao: Pix, estorno e prazo numa linha
+                 discreta logo abaixo da CTA. So na web (no app quem cobra e o
+                 Google Play, e o estorno segue a politica da loja). -->
+            <p v-if="!isCapacitor" class="pic-hint pic-hint--cta">Pagamento por Pix · estorno se não acharmos o veículo · entrega em até 5 min</p>
             <button type="button" class="pic-btn" @click="fechar">Cancelar</button>
           </div>
 
@@ -1148,6 +1140,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 // Frase que tira o medo de pagar e perder a tela: precisa pesar mais que uma
 // dica comum, por isso vem depois de .pic-hint (mesma especificidade, ganha).
 .pic-hint--forte { color: $c-ink; font-weight: 600; }
+// Linha-helper logo abaixo da CTA: reasseguranca discreta e centrada, colada
+// no botao (o stack tem gap, por isso o margin-top negativo aproxima).
+.pic-hint--cta { text-align: center; font-size: 13px; margin-top: -4px; }
 .pic-aviso { font-size: 13px; line-height: 1.4; color: #b45309; margin: 6px 0 0; }
 .pic-btn--sim { border: 1px dashed #b45309; color: #b45309; background: #fff7ed; }
 .pic-lead { font-size: 15px; line-height: 1.45; color: $c-charcoal; margin: 0; }
