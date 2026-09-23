@@ -518,6 +518,20 @@ async function pagar() {
  * cai pra navegacao dura. Recarregar a pagina aqui nao custa nada (o destino e
  * outra rota) e garante que ninguem fica preso.
  */
+// Piso de ~40s: quando o registro traz recall e/ou multa, segura a navegacao
+// pra o relatorio por no minimo 40s a partir da entrega, mostrando o que esta
+// sendo buscado. So no fluxo recem-entregue (nunca revisita de link antigo).
+const PISO_MS = 40_000
+const piso = ref<{ ate: number; msg: string } | null>(null)
+let pisoTimer: any = null
+function mensagemPiso(temRecall: boolean, temMulta: boolean): string {
+  if (temRecall && temMulta)
+    return 'Encontramos um recall e multas vinculadas a este veículo. Estamos reunindo os detalhes, leva alguns segundos.'
+  if (temRecall)
+    return 'Encontramos um recall em aberto para este veículo. Estamos buscando os detalhes da campanha, leva alguns segundos.'
+  return 'Encontramos multas e débitos vinculados a este veículo. Estamos levantando os valores, leva alguns segundos.'
+}
+
 function irParaRelatorio(token: string) {
   const destino = `/premium/${token}`
   try { navigateTo(destino) } catch { /* cai no fallback abaixo */ }
@@ -539,7 +553,17 @@ async function checarStatus() {
     if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token, props.plano, pix.value.valor)
     if (r.status === 'entregue') {
       if (poll) clearInterval(poll)
-      irParaRelatorio(pix.value.token)
+      // Piso so vale pra quem ACABOU de receber (entregue ha < 40s); revisita de
+      // link antigo (entregue_em velho) navega na hora, sem segurar.
+      const entregueMs = r.entregue_em ? new Date(r.entregue_em).getTime() : 0
+      const recem = entregueMs > 0 && Date.now() - entregueMs < PISO_MS
+      if ((r.temRecall || r.temMultaSP) && recem) {
+        const ate = entregueMs + PISO_MS
+        piso.value = { ate, msg: mensagemPiso(!!r.temRecall, !!r.temMultaSP) }
+        pisoTimer = setTimeout(() => irParaRelatorio(pix.value!.token), Math.max(0, ate - Date.now()))
+      } else {
+        irParaRelatorio(pix.value.token)
+      }
     }
     if (['expirado', 'falha', 'falha_google_play', 'reembolsado'].includes(r.status) && poll) clearInterval(poll)
   } catch {
@@ -608,6 +632,7 @@ onUnmounted(() => { if (import.meta.client) window.removeEventListener('keydown'
 onUnmounted(() => {
   if (poll) clearInterval(poll)
   if (tickRestante) clearInterval(tickRestante)
+  if (pisoTimer) clearTimeout(pisoTimer)
 })
 </script>
 
@@ -946,6 +971,13 @@ onUnmounted(() => {
               </div>
               <div class="loading-bar"><div class="loading-bar__fill" /></div>
               <p class="pic-hint">Preparando seu relatório...</p>
+            </template>
+            <!-- Piso de ~40s: recall/multa no registro. Mostra o que esta sendo
+                 buscado antes de abrir o relatorio (a navegacao e agendada). -->
+            <template v-else-if="piso">
+              <h3 class="pic-h">Quase lá ✓</h3>
+              <div class="loading-bar"><div class="loading-bar__fill" /></div>
+              <p class="pic-hint">{{ piso.msg }}</p>
             </template>
             <!-- 'entregue' precisa de ramo proprio: checarStatus seta o estado e
                  so depois navega, entao o Vue re-renderiza antes da navegacao.
