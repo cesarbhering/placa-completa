@@ -166,16 +166,33 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             pass
 
+    def _autorizado(self):
+        got = self.headers.get("X-Worker-Secret", "")
+        return bool(SECRET) and hmac.compare_digest(got, SECRET)
+
     def do_GET(self):
         if self.path.rstrip("/") == "/health":
             return self._send(200, {"ok": True, "daemon_alive": daemon_alive()})
         return self._send(404, {"ok": False, "stage": "rota"})
 
     def do_POST(self):
+        # /warm: sobe o daemon (start-on-demand) sem rodar consulta. Serve pro
+        # pre-warm agendado (timer systemd antes do pico de vendas), pra a 1a
+        # consulta do cliente nao pagar o cold-start. Auth como o /consultar.
+        if self.path.rstrip("/") == "/warm":
+            if not self._autorizado():
+                return self._send(401, {"ok": False, "stage": "auth"})
+            if not _consulta_lock.acquire(timeout=LOCK_WAIT_S):
+                return self._send(429, {"ok": False, "stage": "ocupado"})
+            try:
+                alive = ensure_daemon()
+                _last_use[0] = time.time()  # reinicia o relogio de ociosidade
+                return self._send(200, {"ok": bool(alive), "daemon_alive": alive, "warm": True})
+            finally:
+                _consulta_lock.release()
         if self.path.rstrip("/") != "/consultar":
             return self._send(404, {"ok": False, "stage": "rota"})
-        got = self.headers.get("X-Worker-Secret", "")
-        if not SECRET or not hmac.compare_digest(got, SECRET):
+        if not self._autorizado():
             return self._send(401, {"ok": False, "stage": "auth"})
         try:
             n = int(self.headers.get("Content-Length", "0") or "0")
