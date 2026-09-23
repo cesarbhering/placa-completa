@@ -120,6 +120,20 @@ async function pagar() {
   finally { loading.value = false }
 }
 
+// Piso de ~40s quando o registro traz recall e/ou multa: segura a navegacao pra
+// os enriquecimentos rodarem, mostrando o que esta sendo buscado. So no fluxo
+// recem-entregue (nunca revisita de link antigo).
+const PISO_MS = 40_000
+const piso = ref<{ ate: number; msg: string } | null>(null)
+let pisoTimer: any = null
+function mensagemPiso(temRecall: boolean, temMulta: boolean): string {
+  if (temRecall && temMulta)
+    return 'Encontramos um recall e multas vinculadas a este veículo. Estamos reunindo os detalhes, leva alguns segundos.'
+  if (temRecall)
+    return 'Encontramos um recall em aberto para este veículo. Estamos buscando os detalhes da campanha, leva alguns segundos.'
+  return 'Encontramos multas e débitos vinculados a este veículo. Estamos levantando os valores, leva alguns segundos.'
+}
+
 async function checarStatus() {
   if (!pix.value) return
   try {
@@ -131,7 +145,18 @@ async function checarStatus() {
     // Esta pagina so vende a completa (o checkout nao manda plano -> o server
     // cai em 'completa'), entao a conversao reporta o valor da completa.
     if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token, 'completa')
-    if (r.status === 'entregue') { clearInterval(poll); navigateTo(`/premium/${pix.value.token}`) }
+    if (r.status === 'entregue') {
+      clearInterval(poll)
+      const entregueMs = r.entregue_em ? new Date(r.entregue_em).getTime() : 0
+      const recem = entregueMs > 0 && Date.now() - entregueMs < PISO_MS
+      if ((r.temRecall || r.temMultaSP) && recem) {
+        const ate = entregueMs + PISO_MS
+        piso.value = { ate, msg: mensagemPiso(!!r.temRecall, !!r.temMultaSP) }
+        pisoTimer = setTimeout(() => navigateTo(`/premium/${pix.value!.token}`), Math.max(0, ate - Date.now()))
+      } else {
+        navigateTo(`/premium/${pix.value.token}`)
+      }
+    }
     if (['expirado', 'falha', 'reembolsado'].includes(r.status)) clearInterval(poll)
   } catch { /* segue tentando */ }
 }
@@ -148,7 +173,7 @@ async function simular() {
   } catch (e: any) { msg.value = e?.data?.message || 'Falha ao simular pagamento.' }
   finally { loading.value = false }
 }
-onUnmounted(() => poll && clearInterval(poll))
+onUnmounted(() => { if (poll) clearInterval(poll); if (pisoTimer) clearTimeout(pisoTimer) })
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 </script>
 
@@ -216,6 +241,7 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
         </template>
         <template v-else-if="pendingStatus === 'expirado'"><h2>Pix expirou</h2><button @click="step = 'confirm'">Gerar novo</button></template>
         <template v-else-if="pendingStatus === 'reembolsado'"><h2>Não foi possível concluir</h2><p>O valor foi reembolsado.</p></template>
+        <template v-else-if="piso"><h2>Quase lá</h2><p>{{ piso.msg }}</p></template>
         <template v-else><h2>Algo deu errado</h2><p>{{ pendingStatus }}</p></template>
 
         <div v-if="trace?.length" class="debug">
