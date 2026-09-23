@@ -31,29 +31,15 @@ function completarRecallDepois(
       if (!snap || typeof snap !== 'object') return
       const patch: any = { ...snap, recall: detalhe }
 
-      // Camada 2: se a FIPE ficou AMBIGUA (empate de cambio sem sinal no
-      // registro) e o texto do recall diz o cambio, re-roda SO a FIPE com esse
-      // contexto e atualiza o valorCusto no mesmo write. Fail-open: qualquer
-      // erro mantem a FIPE de antes.
-      const hint = transmissaoDoRecall(detalhe)
-      const vc: any = snap.valorCusto
-      const fipeAmbigua = vc?.fipeCandidato?.decididoPor === 'ambiguo' || vc?.fipeCandidato?.confianca === 'baixa'
-      if (hint && fipeAmbigua && pedido.plano) {
-        try {
-          const refeito = await montarRelatorioSnapshot(
-            supabase,
-            {
-              placa: pedido.placa,
-              plano: pedido.plano,
-              consulta_id: consultaId,
-              preview: pedido.preview,
-              transmissaoHint: hint,
-            },
-            ['valorCusto'],
-          )
-          if (refeito?.valorCusto) patch.valorCusto = refeito.valorCusto
-        } catch { /* mantem a FIPE de antes */ }
-      }
+      // Camada 2: se a FIPE ficou AMBIGUA (empate de cambio) e o recall diz o
+      // cambio, re-roda SO a FIPE com esse contexto no mesmo write. Fail-open.
+      const refinado = await refinarValorCustoPeloRecall(
+        supabase,
+        snap,
+        { placa: pedido.placa, plano: pedido.plano, consulta_id: consultaId, preview: pedido.preview },
+        detalhe,
+      )
+      if (refinado) patch.valorCusto = refinado
 
       await supabase
         .from('pedidos_premium')
