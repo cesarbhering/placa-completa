@@ -1,12 +1,13 @@
 // ---------------------------------------------------------------------------
-// Debitos e restricoes no orgao de transito estadual (SP primeiro, 22/set/2026).
+// Multas e debitos no orgao de transito estadual (SP primeiro, 22/set/2026).
 //
 // A consulta paga do SENATRAN diz apenas que EXISTE multa (indicadorMultaRenainf).
 // Quem pagou quer o VALOR e o detalhe: multas, IPVA, licenciamento (valor e
-// vencimento), o historico de hodometro (pra flagrar km rodado pra tras) e as
-// restricoes (bloqueio de furto/roubo, tributaria, financeira, administrativa,
-// judicial/Renajud, guincho). Esse detalhe mora no portal do orgao estadual,
-// atras de um login gov.br, entao quem vai la e um navegador na nuvem com IP BR.
+// vencimento) e o historico de hodometro (pra flagrar km rodado pra tras). As
+// restricoes (bloqueio de furto/roubo, tributaria, judicial/Renajud etc.) NAO
+// entram aqui: o SENATRAN ja as cobre. Esse detalhe mora no portal do orgao
+// estadual, atras de um login gov.br, entao quem vai la e um navegador na nuvem
+// com IP BR.
 //
 // Mesmos freios do recall, porque cada consulta custa dinheiro:
 //   cache de 7 dias por placa, no maximo 2 tentativas por placa na janela, e um
@@ -43,15 +44,6 @@ export interface HodometroLeitura {
   km: number
 }
 
-export interface RestricoesDetran {
-  bloqueio_furto_roubo?: string
-  tributaria?: string
-  financeira?: string
-  administrativa?: string
-  judicial?: string
-  guincho?: string
-}
-
 export interface MultasDetalhe {
   status: StatusMulta
   uf: string | null
@@ -61,7 +53,6 @@ export interface MultasDetalhe {
   licenciamento_venc: string | null // ISO (YYYY-MM-DD)
   hodometro: HodometroLeitura[]
   hodometro_suspeito: boolean
-  restricoes: RestricoesDetran | null
 }
 
 function texto(v: unknown): string {
@@ -150,41 +141,13 @@ export function avaliarHodometro(
   return { hodometro: limpas, hodometro_suspeito: suspeito }
 }
 
-const CHAVES_RESTRICAO: Array<keyof RestricoesDetran> = [
-  'bloqueio_furto_roubo',
-  'tributaria',
-  'financeira',
-  'administrativa',
-  'judicial',
-  'guincho',
-]
-
-/** Normaliza o objeto de restricoes pras 6 chaves conhecidas, texto aparado. */
-export function normalizarRestricoes(bruto: unknown): RestricoesDetran | null {
-  if (!bruto || typeof bruto !== 'object') return null
-  const src = bruto as Record<string, unknown>
-  const out: RestricoesDetran = {}
-  let algum = false
-  for (const k of CHAVES_RESTRICAO) {
-    const val = texto(src[k])
-    if (val) {
-      out[k] = val
-      algum = true
-    }
-  }
-  return algum ? out : null
-}
-
-/** Alguma restricao que nao seja "nada consta": vale destacar no relatorio. */
-export function temRestricaoAtiva(r: RestricoesDetran | null | undefined): boolean {
-  if (!r) return false
-  return Object.values(r).some((v) => v && !/nada\s*consta|n[aã]o\s*consta/i.test(String(v)))
-}
-
 /**
  * Converte a captura estruturada da pagina (o `bruto` que o navegador raspa)
  * no detalhe normalizado que entra no snapshot. Tolerante a campos faltando:
  * o que nao vier vira null/lista vazia, nunca quebra.
+ *
+ * Restricoes NAO entram aqui: o SENATRAN ja cobre bloqueio/roubo/renajud etc.,
+ * entao o servico de multas so traz multas, IPVA, licenciamento e hodometro.
  */
 /** Tela de login do gov.br (a sessao caiu e o portal pediu CPF de novo). */
 export function pareceLoginGovbr(texto: string): boolean {
@@ -206,7 +169,6 @@ export function pareceResultadoDetran(texto: string): boolean {
 export function parseResultadoMultas(bruto: any): MultasDetalhe {
   const b = bruto && typeof bruto === 'object' ? bruto : {}
   const { hodometro, hodometro_suspeito } = avaliarHodometro(b.hodometro)
-  const restricoes = normalizarRestricoes(b.restricoes)
 
   // Cada valor so e lido quando o campo VEIO na captura. Campo ausente = null
   // (nao 0): sem isso, "pagina sem dado nenhum" pareceria "tudo zerado" e o
@@ -223,17 +185,12 @@ export function parseResultadoMultas(bruto: any): MultasDetalhe {
     : null
 
   const pagina = texto(b.texto)
-  // Debito EM ABERTO de verdade (valor > 0) ou restricao ativa.
-  const temDebitoAtivo =
-    (multas ?? 0) > 0 || (ipva ?? 0) > 0 || (licenciamento ?? 0) > 0 || temRestricaoAtiva(restricoes)
-  // Confirmacao de que lemos a pagina de resultado (algum campo veio, havia
-  // restricoes, ou o texto tem as marcas da pagina de debitos).
+  // Debito EM ABERTO de verdade (valor > 0).
+  const temDebitoAtivo = (multas ?? 0) > 0 || (ipva ?? 0) > 0 || (licenciamento ?? 0) > 0
+  // Confirmacao de que lemos a pagina de resultado (algum valor veio, ou o
+  // texto tem as marcas da pagina de debitos).
   const naPaginaDeResultado =
-    multas != null ||
-    ipva != null ||
-    licenciamento != null ||
-    restricoes != null ||
-    pareceResultadoDetran(pagina)
+    multas != null || ipva != null || licenciamento != null || pareceResultadoDetran(pagina)
 
   // Status: prioridade pra o que o navegador ja concluiu; senao, so afirma
   // sem_debito quando de fato confirmamos a pagina de resultado. NUNCA dizer
@@ -265,7 +222,6 @@ export function parseResultadoMultas(bruto: any): MultasDetalhe {
     licenciamento_venc: normalizarData(b.licenciamento_venc),
     hodometro,
     hodometro_suspeito,
-    restricoes,
   }
 }
 
@@ -282,7 +238,6 @@ export function detalheDaLinha(row: any): MultasDetalhe | null {
     licenciamento_venc: row.licenciamento_venc ?? null,
     hodometro,
     hodometro_suspeito: row.hodometro_suspeito ?? hodometro_suspeito,
-    restricoes: normalizarRestricoes(row.restricoes),
   }
 }
 
@@ -342,7 +297,7 @@ async function doCache(supabase: any, placa: string): Promise<MultasDetalhe | nu
     const { data } = await supabase
       .from('multas_consultas')
       .select(
-        'status,uf,multas_total_centavos,ipva_total_centavos,licenciamento_centavos,licenciamento_venc,hodometro,hodometro_suspeito,restricoes',
+        'status,uf,multas_total_centavos,ipva_total_centavos,licenciamento_centavos,licenciamento_venc,hodometro,hodometro_suspeito',
       )
       .eq('placa', placa)
       .in('status', ['ok', 'sem_debito'])
@@ -561,7 +516,6 @@ export async function buscarMultasDetalhe(
       licenciamento_venc: detalhe?.licenciamento_venc ?? null,
       hodometro: detalhe?.hodometro ?? [],
       hodometro_suspeito: detalhe?.hodometro_suspeito ?? false,
-      restricoes: detalhe?.restricoes ?? null,
       bruto: navegado?.bruto ?? null,
       run_id: browserId,
       custo_usd: CUSTO_NOMINAL_USD, // estimativa; browser standalone e cobrado por tempo
