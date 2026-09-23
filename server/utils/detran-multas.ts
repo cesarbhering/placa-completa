@@ -6,8 +6,10 @@
 // vencimento) e o historico de hodometro (pra flagrar km rodado pra tras). As
 // restricoes (bloqueio de furto/roubo, tributaria, judicial/Renajud etc.) NAO
 // entram aqui: o SENATRAN ja as cobre. Esse detalhe mora no portal do orgao
-// estadual, atras de um login gov.br, entao quem vai la e um navegador na nuvem
-// com IP BR.
+// estadual, atras de um login gov.br. Quem navega la e um runner deterministico
+// (browser-harness) num navegador na nuvem com IP BR e sessao no profile gov-br;
+// como o container Nuxt nao roda o harness, a consulta passa por um WORKER HTTP
+// no host da VPS (ver buscarMultasDetalhe / NUXT_DETRAN_WORKER_URL).
 //
 // Mesmos freios do recall, porque cada consulta custa dinheiro:
 //   cache de 7 dias por placa, no maximo 2 tentativas por placa na janela, e um
@@ -20,22 +22,17 @@
 // "multas registradas no orgao de transito do estado".
 // ---------------------------------------------------------------------------
 
-const API = 'https://api.browser-use.com/api/v4'
-
 /** 7 dias: multa/licenciamento mudam pouco de semana em semana, mas mudam. */
 const CACHE_DIAS = 7
 const MAX_TENTATIVAS_POR_PLACA = 2
 /** Teto do dia somado ao recall: as duas fontes puxam do mesmo orcamento. */
 const TETO_DIARIO_USD = 5
-// O browser standalone e cobrado por tempo e o valor exato so fecha depois. Ate
-// conciliar, cada ida registra um custo NOMINAL, so pra o teto do dia ter dente
-// (a ausencia de custo deixava a busca de multa correr sem limite de gasto).
-const CUSTO_NOMINAL_USD = 0.3
-const INTERVALO_POLL_MS = 8000
-const TIMEOUT_MULTAS_MS = 6 * 60 * 1000
-
-const SERVICO_URL =
-  'https://www.detran.sp.gov.br/detransp/pb/servicos/veiculos/consultar_debitos_restricoes?id=carta_de_servico_consultar_debitos_restricoes'
+// Cada consulta ao worker roda um navegador na nuvem (~US$0,02-0,05, dominado
+// pelo proxy residencial). Registramos um custo NOMINAL pra o teto do dia ter
+// dente (a ausencia de custo deixava a busca correr sem limite de gasto).
+const CUSTO_NOMINAL_USD = 0.05
+// O runner deterministico leva ~75-85s; damos margem no timeout do fetch.
+const TIMEOUT_MULTAS_MS = 110 * 1000
 
 export type StatusMulta = 'ok' | 'sem_debito' | 'sessao_expirada' | 'captcha' | 'erro'
 
@@ -166,6 +163,9 @@ export function pareceResultadoDetran(texto: string): boolean {
   return /d[eé]bitos e restri|licenciamento|hod[oô]metro|multas?\b|ipva|restri[cç][oõ]es/i.test(texto)
 }
 
+// NOTA: o motor atual recebe JSON estruturado do runner (ver mapearRespostaRunner),
+// entao parseResultadoMultas nao roda no fluxo. Fica como parser de texto de
+// referencia, coberto por teste, caso volte a existir uma captura por texto.
 export function parseResultadoMultas(bruto: any): MultasDetalhe {
   const b = bruto && typeof bruto === 'object' ? bruto : {}
   const { hodometro, hodometro_suspeito } = avaliarHodometro(b.hodometro)
@@ -248,46 +248,53 @@ export function respostaUtilMulta(d: MultasDetalhe | null): boolean {
 
 // ------------------------------- infra -------------------------------------
 
-function chave(): string | null {
-  const k = process.env.NUXT_BROWSER_USE_API_KEY || ''
-  return k ? k : null
-}
-
-const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const inicioDoDiaUTC = () =>
   new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z').toISOString()
 const desdeCacheISO = () => new Date(Date.now() - CACHE_DIAS * 86400000).toISOString()
 
-async function chamar(caminho: string, init: RequestInit, k: string): Promise<any> {
-  const r = await fetch(`${API}${caminho}`, {
-    ...init,
-    headers: { 'X-Browser-Use-API-Key': k, 'Content-Type': 'application/json', ...(init.headers || {}) },
-  })
-  if (!r.ok) throw new Error(`browser-use ${caminho} respondeu ${r.status}`)
-  return r.json().catch(() => ({}))
+/**
+ * Worker deterministico no HOST da VPS: recebe {placa, renavam}, roda o
+ * browser-harness + runner do DETRAN-SP (sessao gov.br no profile, auto-login),
+ * e devolve o JSON estruturado. O container Nuxt nao roda o harness, entao a
+ * consulta passa por essa ponte HTTP. Sem a env configurada, o relatorio segue
+ * sem o bloco (fail-open).
+ */
+function workerConfig(): { url: string; secret: string } | null {
+  const url = process.env.NUXT_DETRAN_WORKER_URL || ''
+  if (!url) return null
+  return { url: url.replace(/\/+$/, ''), secret: process.env.NUXT_DETRAN_WORKER_SECRET || '' }
+}
+
+function intOuNull(v: unknown): number | null {
+  if (v == null) return null
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.round(n) : null
 }
 
 /**
- * StorageState do gov.br+detran pra reaproveitar a sessao sem relogar. Vem de
- * uma env (JSON) quando existe — no container e o unico jeito — e cai pra um
- * arquivo no host so em dev. Ausente = sem sessao: a busca nao acontece.
+ * Mapeia a resposta do runner (JSON entre <<<JSON>>>) pro MultasDetalhe.
+ * Fail-open: falha do runner (ok:false), veiculo nao localizado (encontrado:false)
+ * ou status desconhecido viram null -> relatorio sem o bloco. `com_debito` do
+ * runner vira `ok`; o hodometro e reordenado/checado pelo mesmo avaliarHodometro
+ * do cache, pra a flag de adulteracao ser consistente nos dois caminhos.
  */
-async function carregarStorageState(): Promise<any | null> {
-  const inline = process.env.NUXT_GOVBR_DETRAN_STATE || ''
-  if (inline) {
-    try {
-      return JSON.parse(inline)
-    } catch {
-      return null
-    }
-  }
-  const caminho = process.env.NUXT_GOVBR_STATE_PATH || ''
-  if (!caminho) return null
-  try {
-    const { readFileSync } = await import('node:fs')
-    return JSON.parse(readFileSync(caminho, 'utf8'))
-  } catch {
-    return null
+export function mapearRespostaRunner(json: any, uf = 'SP'): MultasDetalhe | null {
+  if (!json || typeof json !== 'object') return null
+  if (json.ok === false) return null
+  if (json.encontrado === false) return null
+  const status: StatusMulta | null =
+    json.status === 'com_debito' ? 'ok' : json.status === 'sem_debito' ? 'sem_debito' : null
+  if (!status) return null
+  const { hodometro, hodometro_suspeito } = avaliarHodometro(json.hodometro)
+  return {
+    status,
+    uf: String(json.uf || uf || 'SP').toUpperCase(),
+    multas_total_centavos: intOuNull(json.multas_total_centavos),
+    ipva_total_centavos: intOuNull(json.ipva_total_centavos),
+    licenciamento_centavos: intOuNull(json.licenciamento_centavos),
+    licenciamento_venc: normalizarData(json.licenciamento_venc),
+    hodometro,
+    hodometro_suspeito,
   }
 }
 
@@ -351,127 +358,14 @@ async function registrar(supabase: any, linha: Record<string, any>): Promise<voi
   }
 }
 
-// --------------------------- navegador (fail-open) --------------------------
+// --------------------------- motor (fail-open) ------------------------------
 
 /**
- * Dirige o portal DETRAN-SP num navegador da nuvem com IP BR, reaproveitando a
- * sessao gov.br salva. Passos (validados na mao em 22/set): abrir o servico
- * "Consultar Debitos e Restricoes" > "Entrar com gov.br" (SSO puxa a sessao) >
- * fechar tutorial > "Iniciar Servico" > "Veiculos de outras pessoas" > preencher
- * placa e renavam > "Consultar" > raspar a pagina de resultado.
- *
- * Isolado de proposito num modulo que so carrega o playwright quando de fato vai
- * navegar. Devolve o `bruto` raspado + o texto da pagina, ou null.
- */
-async function navegarDetranSP(
-  cdpUrl: string,
-  state: any,
-  placa: string,
-  renavam: string,
-  limiteMs: number,
-): Promise<{ bruto: any; texto_pagina: string } | null> {
-  // Import dinamico: a rota so puxa o playwright quando realmente vai ao portal.
-  // playwright-core (sem browsers locais): a gente conecta num browser remoto.
-  const { chromium } = await import('playwright-core')
-  const browser = await chromium.connectOverCDP(cdpUrl)
-  const t0 = Date.now()
-  try {
-    const ctx = browser.contexts()[0] || (await browser.newContext())
-    // Injeta a sessao salva (cookies do gov.br + detran) antes de navegar.
-    if (Array.isArray(state?.cookies) && state.cookies.length) {
-      await ctx.addCookies(state.cookies).catch(() => {})
-    }
-    const p = ctx.pages()[0] || (await ctx.newPage())
-    const restante = () => Math.max(5000, limiteMs - (Date.now() - t0))
-    const txt = async () =>
-      (await p.evaluate(() => document.body.innerText).catch(() => '')).replace(/\s+/g, ' ')
-    const clicar = async (sels: string[]) => {
-      for (const s of sels) {
-        const l = p.locator(s).first()
-        if ((await l.count().catch(() => 0)) && (await l.isEnabled().catch(() => false))) {
-          await l.scrollIntoViewIfNeeded().catch(() => {})
-          await l.click().catch(() => {})
-          return true
-        }
-      }
-      return false
-    }
-
-    await p.goto(SERVICO_URL, { waitUntil: 'domcontentloaded', timeout: Math.min(60000, restante()) })
-    await p.waitForTimeout(2500)
-    await clicar(['button:has-text("Fechar")', 'button[aria-label="Fechar"]'])
-    await clicar(['a:has-text("Entrar com gov.br")', 'button:has-text("Entrar com gov.br")'])
-    await p.waitForTimeout(6000)
-
-    // Sessao caiu: o portal jogou pra tela de login do gov.br.
-    if (pareceLoginGovbr(await txt())) {
-      return { bruto: { status: 'sessao_expirada' }, texto_pagina: 'sessao gov.br expirada' }
-    }
-
-    await clicar(['button:has-text("Fechar")', 'button:has-text("Entendi")'])
-    await clicar(['button:has-text("Iniciar Serviço")', 'a:has-text("Iniciar Serviço")', 'button:has-text("Iniciar")'])
-    await p.waitForTimeout(3500)
-    await clicar([
-      '*:has-text("Veículos de outras pessoas")',
-      'button:has-text("Outro")',
-      '*:has-text("veículo de terceiro")',
-    ])
-    await p.waitForTimeout(3000)
-
-    await p.fill('input[name="placa-input"]', placa).catch(() => {})
-    await p.fill('input[name="renavam-input"]', renavam).catch(() => {})
-    await clicar([
-      'button:has-text("Consultar")',
-      'button:has-text("Continuar")',
-      'button:has-text("Avançar")',
-      'button[type="submit"]',
-    ])
-    await p.waitForTimeout(9000)
-    await clicar(['button:has-text("Fechar")', 'button:has-text("Entendi")', 'button:has-text("OK")'])
-    await p.waitForTimeout(4000)
-
-    const corpo = await txt()
-    // A sessao pode ter caido so agora (redirect tardio pro login do gov.br).
-    // Detectar aqui evita raspar a tela de login como se fosse resultado e,
-    // pior, rotula-la como sem_debito.
-    if (pareceLoginGovbr(corpo)) {
-      return { bruto: { status: 'sessao_expirada' }, texto_pagina: corpo.slice(0, 800) }
-    }
-    if (pareceCaptcha(corpo)) {
-      return { bruto: { status: 'captcha' }, texto_pagina: corpo.slice(0, 800) }
-    }
-
-    // Raspa o que a pagina expoe. A extracao estruturada fina roda no browser;
-    // o texto integral vai junto pra parsear/conferir o que faltar.
-    const scrape = await p
-      .evaluate(() => {
-        const t = document.body.innerText || ''
-        const pega = (re: RegExp) => {
-          const m = t.match(re)
-          return m ? m[1].trim() : null
-        }
-        return {
-          multas: pega(/Multas?[^R\n]*(R\$\s*[\d.,]+)/i) || pega(/Multas?[:\s]+([^\n]{0,40})/i),
-          ipva: pega(/IPVA[^R\n]*(R\$\s*[\d.,]+)/i) || pega(/IPVA[:\s]+([^\n]{0,40})/i),
-          licenciamento:
-            pega(/Licenciamento[^R\n]*(R\$\s*[\d.,]+)/i) || pega(/Licenciamento[:\s]+([^\n]{0,40})/i),
-          licenciamento_venc: pega(/Licenciamento[^\n]*?(\d{2}\/\d{2}\/\d{4})/i),
-          texto: t.slice(0, 4000),
-        }
-      })
-      .catch(() => ({ texto: corpo.slice(0, 4000) }))
-
-    return { bruto: { uf: 'SP', ...scrape }, texto_pagina: corpo.slice(0, 800) }
-  } finally {
-    // close() so desconecta o CDP; o browser da nuvem e parado por quem chamou.
-    await browser.close().catch(() => {})
-  }
-}
-
-/**
- * Busca o detalhe de multas/restricoes da placa. Devolve null sempre que nao
- * houver resposta util: quem chama trata null como "relatorio sem o bloco".
- * Fail-open em todos os ramos.
+ * Busca o detalhe de multas da placa pelo worker deterministico. Devolve null
+ * sempre que nao houver resposta util: quem chama trata null como "relatorio sem
+ * o bloco". Fail-open em todos os ramos (worker fora do ar, timeout, JSON
+ * estranho: relatorio sai como sempre saiu). Mantem os freios: cache 7d, teto de
+ * gasto do dia somado ao recall e no maximo 2 tentativas por placa.
  */
 export async function buscarMultasDetalhe(
   supabase: any,
@@ -484,53 +378,56 @@ export async function buscarMultasDetalhe(
   const cache = await doCache(supabase, placa)
   if (cache) return cache
 
-  const k = chave()
-  if (!k) return null // env nao configurada: relatorio segue sem o bloco
-  const state = await carregarStorageState()
-  if (!state) return null // sem sessao gov.br nao da pra consultar
+  const cfg = workerConfig()
+  if (!cfg) return null // worker nao configurado: relatorio segue sem o bloco
   if (!(await podeGastar(supabase, placa))) return null
 
   const limite = opts.timeoutMs ?? TIMEOUT_MULTAS_MS
-  let browserId: string | null = null
+  const uf = opts.uf ?? 'SP'
+
+  // Uma unica chamada HTTP pro worker no host. Erro/timeout viram resp=null e o
+  // fluxo segue registrando a tentativa (pra os freios contarem) e devolvendo null.
+  let resp: any = null
   try {
-    const criado = await chamar(
-      '/browsers',
-      { method: 'POST', body: JSON.stringify({ proxyCountryCode: 'br' }) },
-      k,
-    )
-    browserId = texto(criado?.id) || null
-    const cdpUrl = texto(criado?.cdpUrl || criado?.cdp_url || criado?.wsUrl)
-    if (!browserId || !cdpUrl) return null
-
-    const navegado = await navegarDetranSP(cdpUrl, state, placa, renavam, limite).catch(() => null)
-    const detalhe = navegado ? parseResultadoMultas({ uf: opts.uf ?? 'SP', ...navegado.bruto }) : null
-
-    await registrar(supabase, {
-      placa,
-      consulta_id: opts.consultaId ?? null,
-      uf: opts.uf ?? 'SP',
-      status: detalhe?.status ?? 'erro',
-      multas_total_centavos: detalhe?.multas_total_centavos ?? null,
-      ipva_total_centavos: detalhe?.ipva_total_centavos ?? null,
-      licenciamento_centavos: detalhe?.licenciamento_centavos ?? null,
-      licenciamento_venc: detalhe?.licenciamento_venc ?? null,
-      hodometro: detalhe?.hodometro ?? [],
-      hodometro_suspeito: detalhe?.hodometro_suspeito ?? false,
-      bruto: navegado?.bruto ?? null,
-      run_id: browserId,
-      custo_usd: CUSTO_NOMINAL_USD, // estimativa; browser standalone e cobrado por tempo
-    })
-
-    return respostaUtilMulta(detalhe) ? detalhe : null
-  } catch (e: any) {
-    console.warn(`[multas] falhou (browser=${browserId || 'nao criado'}):`, e?.message || 'erro')
-    return null
-  } finally {
-    // SEMPRE para o navegador da nuvem: standalone e cobrado por tempo.
-    if (browserId) {
-      await chamar(`/browsers/${browserId}`, { method: 'PATCH', body: JSON.stringify({ action: 'stop' }) }, k).catch(
-        () => {},
-      )
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), limite)
+    try {
+      const r = await fetch(`${cfg.url}/consultar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(cfg.secret ? { 'x-worker-secret': cfg.secret } : {}),
+        },
+        body: JSON.stringify({ placa, renavam, uf }),
+        signal: ctrl.signal,
+      })
+      if (r.ok) resp = await r.json().catch(() => null)
+      else console.warn(`[multas] worker respondeu ${r.status}`)
+    } finally {
+      clearTimeout(timer)
     }
+  } catch (e: any) {
+    console.warn('[multas] worker falhou:', e?.message || 'erro')
+    resp = null
   }
+
+  const detalhe = mapearRespostaRunner(resp, uf)
+
+  await registrar(supabase, {
+    placa,
+    consulta_id: opts.consultaId ?? null,
+    uf,
+    status: detalhe?.status ?? (typeof resp?.status === 'string' ? resp.status : 'erro'),
+    multas_total_centavos: detalhe?.multas_total_centavos ?? null,
+    ipva_total_centavos: detalhe?.ipva_total_centavos ?? null,
+    licenciamento_centavos: detalhe?.licenciamento_centavos ?? null,
+    licenciamento_venc: detalhe?.licenciamento_venc ?? null,
+    hodometro: detalhe?.hodometro ?? [],
+    hodometro_suspeito: detalhe?.hodometro_suspeito ?? false,
+    bruto: resp ?? null,
+    run_id: typeof resp?.url === 'string' ? resp.url.slice(0, 300) : null,
+    custo_usd: CUSTO_NOMINAL_USD,
+  })
+
+  return respostaUtilMulta(detalhe) ? detalhe : null
 }
