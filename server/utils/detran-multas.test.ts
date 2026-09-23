@@ -9,6 +9,7 @@ import {
   parseResultadoMultas,
   detalheDaLinha,
   respostaUtilMulta,
+  mapearRespostaRunner,
 } from './detran-multas'
 
 describe('gatilho: so multa em aberto e veiculo de SP', () => {
@@ -187,5 +188,72 @@ describe('detalheDaLinha (cache -> detalhe) e respostaUtil', () => {
     expect(respostaUtilMulta(detalheDaLinha(row))).toBe(true)
     expect(respostaUtilMulta(detalheDaLinha({ ...row, status: 'captcha' }))).toBe(false)
     expect(respostaUtilMulta(null)).toBe(false)
+  })
+})
+
+describe('mapearRespostaRunner (JSON do runner -> detalhe)', () => {
+  const base = {
+    ok: true,
+    encontrado: true,
+    uf: 'SP',
+    status: 'com_debito',
+    multas_total_centavos: 14161,
+    ipva_total_centavos: 0,
+    licenciamento_centavos: 17408,
+    licenciamento_venc: '30/09/2026',
+    // ordem do site: mais novo primeiro
+    hodometro: [
+      { data: '16/09/2020', km: 125599 },
+      { data: '29/06/2017', km: 76999 },
+    ],
+    hodometro_suspeito: false,
+    veiculo: { marca_modelo: 'RENAULT/DUSTER' },
+  }
+
+  it('com_debito vira ok, valores mapeados, venc em ISO, hodometro reordenado', () => {
+    const d = mapearRespostaRunner(base)
+    expect(d?.status).toBe('ok')
+    expect(d?.multas_total_centavos).toBe(14161)
+    expect(d?.ipva_total_centavos).toBe(0)
+    expect(d?.licenciamento_centavos).toBe(17408)
+    expect(d?.licenciamento_venc).toBe('2026-09-30')
+    expect(d?.hodometro.map((h) => h.km)).toEqual([76999, 125599]) // cronológico
+    expect(d?.hodometro_suspeito).toBe(false)
+    expect((d as any)?.restricoes).toBeUndefined()
+  })
+
+  it('sem_debito preserva o status', () => {
+    expect(mapearRespostaRunner({ ...base, status: 'sem_debito' })?.status).toBe('sem_debito')
+  })
+
+  it('hodometro com km pra tras (cronologico) vira suspeito', () => {
+    const d = mapearRespostaRunner({
+      ...base,
+      hodometro: [
+        { data: '16/09/2020', km: 60000 },
+        { data: '29/06/2017', km: 76999 },
+      ],
+    })
+    expect(d?.hodometro_suspeito).toBe(true)
+  })
+
+  it('falha do runner (ok:false) vira null', () => {
+    expect(mapearRespostaRunner({ ok: false, stage: 'consultar-nao-submeteu' })).toBeNull()
+  })
+
+  it('veiculo nao localizado (encontrado:false) vira null', () => {
+    expect(mapearRespostaRunner({ ok: true, encontrado: false })).toBeNull()
+  })
+
+  it('status desconhecido ou entrada invalida vira null', () => {
+    expect(mapearRespostaRunner({ ok: true, status: 'sessao_expirada' })).toBeNull()
+    expect(mapearRespostaRunner(null)).toBeNull()
+    expect(mapearRespostaRunner('erro' as any)).toBeNull()
+  })
+
+  it('licenciamento sem pendencia (null) fica null', () => {
+    const d = mapearRespostaRunner({ ...base, licenciamento_centavos: null, licenciamento_venc: null })
+    expect(d?.licenciamento_centavos).toBeNull()
+    expect(d?.licenciamento_venc).toBeNull()
   })
 })
