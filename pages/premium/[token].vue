@@ -1597,33 +1597,28 @@ onUnmounted(() => {
             <p v-if="temIndicadorLeilao" class="rel__ind-nota">
               Nem todo leilão é registrado pelos leiloeiros. A ausência de registro não garante que o veículo nunca passou por leilão.
             </p>
+          </section>
 
-            <!-- Recall pendente: logo abaixo da grade, porque a primeira
-                 pergunta de quem ve o cartao vermelho e "recall de que?". -->
-            <div v-if="recallPendente" class="rel__recall">
-              <div class="rel__recall-top">
-                <div class="rel__recall-ic">!</div>
-                <div>
-                  <p class="rel__recall-tit">Recall pendente de atendimento</p>
-                  <p v-if="recallSubtitulo" class="rel__recall-sub">{{ recallSubtitulo }}</p>
+          <!-- restricoes: na completa a secao existe sempre. Laudo lista a
+               secao e diz "nada consta"; omitir deixaria duvida se foi checado. -->
+          <section v-if="numSecao.restr" class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.restr }}. Restrições</h2>
+            <template v-if="restricoes.length">
+              <div v-for="(r, idx) in restricoes" :key="idx" class="rel__restr">
+                <div class="rel__restr-topo">
+                  <span class="rel__tag">Restrição</span>
+                  <strong>{{ r.rotulo }}</strong>
                 </div>
+                <p class="rel__restr-explica">{{ r.explica }}</p>
               </div>
-              <template v-if="recallCampanhas.length">
-                <template v-for="(c, idx) in recallCampanhas" :key="idx">
-                  <p v-if="recallCampanhas.length > 1 && (c.campanha || c.data_inicio)" class="rel__recall-sub rel__recall-sub--item">
-                    {{ legendaCampanha(c) }}
-                  </p>
-                  <p class="rel__recall-body">
-                    <b v-if="c.componente">Componente: {{ c.componente }}.</b>
-                    {{ c.descricao }}
-                  </p>
-                </template>
-                <p class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
-              </template>
-              <p v-else class="rel__recall-body">Recall pendente: buscando os detalhes da campanha.</p>
-            </div>
+            </template>
+            <p v-else class="rel__nada">Nada consta na data de emissão.</p>
 
-            <!-- Multas e restrições no órgão de trânsito do estado (SP): o
+            <!-- Débitos/multas e recall vivem AQUI, no contexto de Restrições
+                 (sao pendencias do veiculo), em vez de soltos apos a
+                 Identificacao. Cada um e um subcard com sua propria moldura. -->
+
+            <!-- Multas e débitos no órgão de trânsito do estado (SP): o
                  indicador de multa acende, e aqui vem o VALOR e o detalhe. -->
             <div v-if="multaIndicadorSP" class="rel__multas">
               <p class="rel__multas-tit">Multas e débitos</p>
@@ -1667,22 +1662,31 @@ onUnmounted(() => {
               </template>
               <p v-else class="rel__multas-nota">Multa em aberto: buscando o valor e o detalhe.</p>
             </div>
-          </section>
 
-          <!-- restricoes: na completa a secao existe sempre. Laudo lista a
-               secao e diz "nada consta"; omitir deixaria duvida se foi checado. -->
-          <section v-if="numSecao.restr" class="rel__card">
-            <h2 class="rel__h2">{{ numSecao.restr }}. Restrições</h2>
-            <template v-if="restricoes.length">
-              <div v-for="(r, idx) in restricoes" :key="idx" class="rel__restr">
-                <div class="rel__restr-topo">
-                  <span class="rel__tag">Restrição</span>
-                  <strong>{{ r.rotulo }}</strong>
+            <!-- Recall pendente: a primeira pergunta de quem ve o cartao
+                 vermelho e "recall de que?". -->
+            <div v-if="recallPendente" class="rel__recall">
+              <div class="rel__recall-top">
+                <div class="rel__recall-ic">!</div>
+                <div>
+                  <p class="rel__recall-tit">Recall pendente de atendimento</p>
+                  <p v-if="recallSubtitulo" class="rel__recall-sub">{{ recallSubtitulo }}</p>
                 </div>
-                <p class="rel__restr-explica">{{ r.explica }}</p>
               </div>
-            </template>
-            <p v-else class="rel__nada">Nada consta na data de emissão.</p>
+              <template v-if="recallCampanhas.length">
+                <template v-for="(c, idx) in recallCampanhas" :key="idx">
+                  <p v-if="recallCampanhas.length > 1 && (c.campanha || c.data_inicio)" class="rel__recall-sub rel__recall-sub--item">
+                    {{ legendaCampanha(c) }}
+                  </p>
+                  <p class="rel__recall-body">
+                    <b v-if="c.componente">Componente: {{ c.componente }}.</b>
+                    {{ c.descricao }}
+                  </p>
+                </template>
+                <p class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
+              </template>
+              <p v-else class="rel__recall-body">Recall pendente: buscando os detalhes da campanha.</p>
+            </div>
           </section>
 
           <!-- Roubo e furto: um cartao por EPISODIO, nao por registro. Roubo,
