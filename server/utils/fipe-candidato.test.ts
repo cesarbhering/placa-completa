@@ -449,3 +449,78 @@ describe('picape: cabine simples nao pode virar cabine dupla (caso GMF8I88)', ()
     expect(r.escolhido?.modelo || '').not.toContain('CD')
   })
 })
+
+// ── Camada 1: desempate por combustivel (so diesel/eletrico, conservador) ──
+const SENATRAN_DIESEL = {
+  cilindrada: 1998,
+  potencia: 170,
+  descricaoMarcaModelo: 'JEEP/COMPASS LIMITED',
+  anoModelo: 2021,
+  codigoCombustivel: '3', // Diesel
+}
+// Dois candidatos que sobrevivem a todos os outros passos (mesma litragem 2.0,
+// sem sedan/sw, sem cambio na descricao, versao nao discriminante): so o
+// combustivel os separa.
+const WDAPI_COMPASS = {
+  marca: 'JEEP',
+  MODELO: 'COMPASS LIMITED',
+  SUBMODELO: 'COMPASS',
+  VERSAO: '',
+  anoModelo: '2021',
+  extra: { combustivel: 'Diesel' },
+  fipe: {
+    dados: [
+      { score: 50, codigo_fipe: '017001-1', texto_modelo: 'COMPASS LIMITED 2.0 TD350 TB Diesel Aut.', texto_valor: 'R$ 185.000,00', combustivel: 'Diesel', mes_referencia: 'agosto de 2026' },
+      { score: 52, codigo_fipe: '017002-0', texto_modelo: 'COMPASS LIMITED 2.0 Flex Aut.', texto_valor: 'R$ 150.000,00', combustivel: 'Flex', mes_referencia: 'agosto de 2026' },
+    ],
+  },
+}
+function mockFetchModelosVazio() {
+  return vi.fn(async (url: string) => {
+    if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+    throw new Error(`unexpected fetch: ${url}`)
+  })
+}
+
+describe('escolherMelhorFipe - Camada 1 combustivel', () => {
+  beforeEach(() => { vi.restoreAllMocks() })
+
+  it('veiculo DIESEL crava a versao diesel entre diesel e flex (por REGRA, sem Haiku)', async () => {
+    global.fetch = mockFetchModelosVazio() as any
+    const r = await escolherMelhorFipe({
+      senatran: SENATRAN_DIESEL, wdapi: WDAPI_COMPASS,
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't',
+    })
+    expect(r.decididoPor).toBe('regra')
+    expect(r.escolhido?.codigo_fipe).toBe('017001-1')
+    expect(r.escolhido?.modelo || '').toMatch(/Diesel/i)
+  })
+
+  it('veiculo a GASOLINA (codigo 2) NAO estreita por combustivel: segue ambiguo entre os 2', async () => {
+    global.fetch = mockFetchModelosVazio() as any
+    const r = await escolherMelhorFipe({
+      senatran: { ...SENATRAN_DIESEL, codigoCombustivel: '2' }, wdapi: WDAPI_COMPASS,
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't',
+      // sem anthropicApiKey: 2 sobreviventes viram ambiguo
+    })
+    expect(r.decididoPor).toBe('ambiguo')
+  })
+
+  it('FAIL-SAFE: diesel sem nenhum candidato diesel NAO zera a lista (mantem todos)', async () => {
+    global.fetch = mockFetchModelosVazio() as any
+    const soFlex = {
+      ...WDAPI_COMPASS,
+      fipe: { dados: [
+        { score: 50, codigo_fipe: '017002-0', texto_modelo: 'COMPASS LIMITED 2.0 Flex Aut.', texto_valor: 'R$ 150.000,00', combustivel: 'Flex', mes_referencia: 'agosto de 2026' },
+        { score: 52, codigo_fipe: '017003-8', texto_modelo: 'COMPASS SPORT 2.0 Flex Aut.', texto_valor: 'R$ 130.000,00', combustivel: 'Flex', mes_referencia: 'agosto de 2026' },
+      ] },
+    }
+    const r = await escolherMelhorFipe({
+      senatran: SENATRAN_DIESEL, wdapi: soFlex,
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't',
+    })
+    // combustivel nao achou diesel -> nao exclui ninguem -> 2 sobrevivem -> ambiguo
+    expect(r.decididoPor).toBe('ambiguo')
+    expect((r.candidatos || []).length).toBeGreaterThanOrEqual(2)
+  })
+})

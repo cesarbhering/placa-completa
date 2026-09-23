@@ -113,6 +113,11 @@ export async function montarRelatorioSnapshot(
       potencia: senatranBruto?.potencia ?? null,
       descricaoMarcaModelo: senatranBruto?.descricaoMarcaModelo ?? null,
       anoModelo: senatranBruto?.anoModelo ?? null,
+      // Sinais extras pro funil FIPE (Camada 1). Todos opcionais: se vierem
+      // nulos, o funil se comporta como antes (fail-safe).
+      codigoCombustivel: senatranBruto?.codigoCombustivel ?? null,
+      descricaoTipoVeiculo: senatranBruto?.descricaoTipoVeiculo ?? null,
+      descricaoEspecie: senatranBruto?.descricaoEspecie ?? null,
     },
   }).catch(() => null)
 
