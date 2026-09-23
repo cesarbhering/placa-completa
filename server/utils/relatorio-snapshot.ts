@@ -68,6 +68,8 @@ export async function montarRelatorioSnapshot(
   supabase: any,
   pedido: {
     placa: string; plano: string; consulta_id: string | null; preview?: any
+    /** Camada 2: cambio vindo do recall, pra a FIPE desempatar versao no re-fill. */
+    transmissaoHint?: 'manual' | 'automatico' | null
     /** Ja buscado na entrega: o snapshot so guarda o que veio. */
     recall?: RecallDetalhe | null
     /** Idem recall: ja buscado na entrega, o snapshot so guarda o que veio. */
@@ -118,6 +120,8 @@ export async function montarRelatorioSnapshot(
       codigoCombustivel: senatranBruto?.codigoCombustivel ?? null,
       descricaoTipoVeiculo: senatranBruto?.descricaoTipoVeiculo ?? null,
       descricaoEspecie: senatranBruto?.descricaoEspecie ?? null,
+      // Camada 2: cambio vindo do recall (so no re-fill disparado pelo recall).
+      transmissaoHint: pedido.transmissaoHint ?? null,
     },
   }).catch(() => null)
 
