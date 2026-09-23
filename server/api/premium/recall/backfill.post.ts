@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   let q = supabase
     .from('pedidos_premium')
-    .select('id,placa,token_entrega,consulta_id,relatorio_snapshot')
+    .select('id,placa,token_entrega,consulta_id,relatorio_snapshot,plano,preview')
     .eq('status', 'entregue')
     .not('relatorio_snapshot', 'is', null)
   if (tokens.length) q = q.in('token_entrega', tokens)
@@ -75,14 +75,25 @@ export default defineEventHandler(async (event) => {
     const segundos = Math.round((Date.now() - t0) / 1000)
     if (!detalhe) { resultados.push({ token: p.token_entrega, ok: false, segundos, motivo: 'sem resposta util' }); continue }
 
+    const patch: any = { ...snap, recall: detalhe }
+    // Camada 2: se a FIPE ficou ambigua e o recall diz o cambio, refina a versao
+    // (mesmo comportamento da entrega). Fail-open: mantem a FIPE de antes.
+    const refinado = await refinarValorCustoPeloRecall(
+      supabase,
+      snap,
+      { placa: p.placa, plano: p.plano, consulta_id: p.consulta_id, preview: p.preview },
+      detalhe,
+    )
+    if (refinado) patch.valorCusto = refinado
+
     const { error: upErr } = await supabase
       .from('pedidos_premium')
-      .update({ relatorio_snapshot: { ...snap, recall: detalhe } })
+      .update({ relatorio_snapshot: patch })
       .eq('id', p.id)
     if (upErr) { resultados.push({ token: p.token_entrega, ok: false, segundos, motivo: upErr.message }); continue }
 
     feitos++
-    resultados.push({ token: p.token_entrega, ok: true, segundos, status: detalhe.status, campanhas: detalhe.campanhas.length })
+    resultados.push({ token: p.token_entrega, ok: true, segundos, status: detalhe.status, campanhas: detalhe.campanhas.length, fipeRefinada: !!refinado })
   }
 
   return { atualizados: feitos, total: (pedidos || []).length, resultados }

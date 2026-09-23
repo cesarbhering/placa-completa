@@ -13,7 +13,11 @@ const AVISO_ESTORNO = 'cesarcbhering@gmail.com'
  * outro processo tenha gravado no meio tempo. Silenciosa por natureza: a
  * entrega ja aconteceu, e falhar aqui nao pode virar erro pra quem comprou.
  */
-function completarRecallDepois(supabase: any, pedido: { id: string; placa: string }, consultaId: string | null): void {
+function completarRecallDepois(
+  supabase: any,
+  pedido: { id: string; placa: string; plano?: string | null; preview?: any },
+  consultaId: string | null,
+): void {
   void (async () => {
     try {
       const detalhe = await buscarRecallDetalhe(supabase, { placa: pedido.placa, consultaId })
@@ -25,9 +29,58 @@ function completarRecallDepois(supabase: any, pedido: { id: string; placa: strin
         .maybeSingle()
       const snap = data?.relatorio_snapshot
       if (!snap || typeof snap !== 'object') return
+      const patch: any = { ...snap, recall: detalhe }
+
+      // Camada 2: se a FIPE ficou AMBIGUA (empate de cambio) e o recall diz o
+      // cambio, re-roda SO a FIPE com esse contexto no mesmo write. Fail-open.
+      const refinado = await refinarValorCustoPeloRecall(
+        supabase,
+        snap,
+        { placa: pedido.placa, plano: pedido.plano, consulta_id: consultaId, preview: pedido.preview },
+        detalhe,
+      )
+      if (refinado) patch.valorCusto = refinado
+
       await supabase
         .from('pedidos_premium')
-        .update({ relatorio_snapshot: { ...snap, recall: detalhe } })
+        .update({ relatorio_snapshot: patch })
+        .eq('id', pedido.id)
+    } catch { /* entrega ja feita: aqui so se ganha, nunca se perde */ }
+  })()
+}
+
+/**
+ * Busca de multas e restricoes no orgao de transito estadual, depois da
+ * entrega. Igual ao recall: roda solta, atualiza SO o campo `multas` dentro do
+ * snapshot ja gravado e nunca vira erro pra quem comprou. Renavam e UF saem da
+ * propria resposta paga (o portal pede placa + renavam).
+ */
+function completarMultasDepois(
+  supabase: any,
+  pedido: { id: string; placa: string },
+  ctx: { consultaId: string | null; response: any },
+): void {
+  void (async () => {
+    try {
+      const renavam = renavamDaResposta(ctx.response)
+      if (!renavam) return
+      const detalhe = await buscarMultasDetalhe(supabase, {
+        placa: pedido.placa,
+        renavam,
+        uf: ufDaResposta(ctx.response),
+        consultaId: ctx.consultaId,
+      })
+      if (!detalhe) return
+      const { data } = await supabase
+        .from('pedidos_premium')
+        .select('relatorio_snapshot')
+        .eq('id', pedido.id)
+        .maybeSingle()
+      const snap = data?.relatorio_snapshot
+      if (!snap || typeof snap !== 'object') return
+      await supabase
+        .from('pedidos_premium')
+        .update({ relatorio_snapshot: { ...snap, multas: detalhe } })
         .eq('id', pedido.id)
     } catch { /* entrega ja feita: aqui so se ganha, nunca se perde */ }
   })()
@@ -165,6 +218,11 @@ export async function processarPedidoPago(
     // entrega por causa dela. Quando a resposta chega, ela entra no snapshot e
     // a propria pagina, que fica olhando por alguns minutos, mostra o bloco.
     if (temRecallPendente(r?.response)) completarRecallDepois(supabase, pedido, r.consultaId)
+
+    // Multas e restricoes (SP): o registro so acende o indicador; quem pagou
+    // quer o VALOR e o detalhe. Mesma logica do recall — busca solta depois da
+    // entrega, entra no snapshot e a pagina mostra o bloco quando chega.
+    if (temMultaSP(r?.response)) completarMultasDepois(supabase, pedido, { consultaId: r.consultaId, response: r.response })
 
     // Placa e plano entram no assunto e no corpo: "seu relatorio completo da
     // placa ABC1D23 esta pronto" e reconhecivel na caixa de entrada, "sua

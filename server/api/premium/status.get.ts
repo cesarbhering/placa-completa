@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,placa,email,token_entrega,abacatepay_id,pix_provider,google_play_order_id,expira_em,plano,ambiente,debug_trace,erro,preview,valor_centavos,gclid,msclkid,utm_source,utm_campaign')
+    .select('id,status,placa,email,token_entrega,abacatepay_id,pix_provider,google_play_order_id,expira_em,plano,ambiente,debug_trace,erro,preview,valor_centavos,gclid,msclkid,utm_source,utm_campaign,entregue_em,relatorio_snapshot')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
@@ -29,8 +29,24 @@ export default defineEventHandler(async (event) => {
       }
     }
   }
+  // Piso de loading: quando o registro traz recall e/ou multa (SP), a tela de
+  // checkout segura a navegacao por ~40s pra os enriquecimentos rodarem e a
+  // FIPE ganhar contexto, mostrando o que esta sendo buscado. Expomos as flags
+  // e o entregue_em; o FLOOR e do cliente (so no fluxo recem-entregue, nunca
+  // numa revisita de link antigo). So calcula na entrega (snapshot ja existe).
+  let piso: Record<string, unknown> = {}
+  if (status === 'entregue') {
+    const resp = (pedido.relatorio_snapshot as any)?.consulta?.response
+    piso = {
+      entregue_em: pedido.entregue_em,
+      temRecall: temRecallPendente(resp),
+      temMultaSP: temMultaSP(resp),
+    }
+  }
+
   return {
     status,
+    ...piso,
     ...(String(getQuery(event).debug) === '1' ? { debug_trace: pedido.debug_trace, erro: pedido.erro, ambiente: pedido.ambiente } : {}),
   }
 })

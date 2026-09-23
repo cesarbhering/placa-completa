@@ -47,6 +47,26 @@ export interface RecallDetalhe {
   url_final: string | null
 }
 
+/**
+ * Cambio a partir do texto do recall, pra desempatar a versao FIPE (Camada 2).
+ * CONSERVADOR de proposito: so age em frase CLARA de cambio/transmissao. "manual"
+ * solto NAO conta (ex.: "manual do proprietario"). Na duvida, null (mantem
+ * 'ambiguo'). Ex. real (Fiat 500): "...EQUIPADOS COM CAMBIO MANUAL." -> 'manual'.
+ */
+export function transmissaoDoRecall(recall: RecallDetalhe | null | undefined): 'manual' | 'automatico' | null {
+  if (!recall) return null
+  const texto = [
+    ...(recall.campanhas || []).flatMap((c) => [c?.descricao, c?.componente]),
+    recall.texto_pagina,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+  if (/c[aâ]mbio\s+manual|transmiss[aã]o\s+manual|c[aâ]mbio\s+mec[aâ]nic/.test(texto)) return 'manual'
+  if (/c[aâ]mbio\s+autom[aá]tic|transmiss[aã]o\s+autom[aá]tic/.test(texto)) return 'automatico'
+  return null
+}
+
 function texto(v: unknown): string {
   return typeof v === 'string' ? v.trim() : v === null || v === undefined ? '' : String(v)
 }
