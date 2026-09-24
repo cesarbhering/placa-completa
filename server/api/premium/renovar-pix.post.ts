@@ -48,8 +48,11 @@ export default defineEventHandler(async (event) => {
   }
 
   const planoPedido = (pedido.plano === 'basica' || pedido.plano === 'completa') ? pedido.plano : 'completa'
-  const provedor = provedorPix()
-  const pix = await provedor.criarPixTransparente({
+  // Mesmo failover do checkout: Woovi preferencial, AbacatePay salva-vidas. O
+  // QR novo pode nascer num provedor diferente do da cobranca vencida, entao o
+  // pix_provider e regravado — senao o status e o estorno desta cobranca nova
+  // consultariam a porta errada.
+  const { charge: pix, provedor } = await criarPixComFallback({
     amountCentavos: pedido.valor_centavos,
     pedidoId: pedido.id,
     expiresIn: 900,
@@ -58,8 +61,8 @@ export default defineEventHandler(async (event) => {
   })
   await supabase
     .from('pedidos_premium')
-    .update({ abacatepay_id: pix.id, br_code: pix.brCode, expira_em: pix.expiresAt })
+    .update({ abacatepay_id: pix.id, br_code: pix.brCode, expira_em: pix.expiresAt, pix_provider: provedor.nome })
     .eq('id', pedido.id)
 
-  return { brCode: pix.brCode, brCodeBase64: pix.brCodeBase64, expiresAt: pix.expiresAt }
+  return { brCode: pix.brCode, brCodeBase64: pix.brCodeBase64, expiresAt: pix.expiresAt, recebedor: provedor.nomeDoRecebedor() }
 })
