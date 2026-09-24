@@ -13,13 +13,23 @@ export default defineEventHandler(async (event) => {
   const raw = String((await readRawBody(event)) || '')
   const assinatura = getRequestHeader(event, 'x-webhook-signature') || ''
 
+  // Ping de validacao: ao registrar o webhook, a Woovi bate na URL e SO aceita o
+  // registro se receber 200. Esse ping vem SEM assinatura (e as vezes com um
+  // evento de teste). Responder 200 aqui e seguro porque confirmar pagamento
+  // continua exigindo assinatura valida logo abaixo: um request sem assinatura
+  // nao passa da linha do 401 nem toca em pedido nenhum. Sem este atalho, o
+  // registro do webhook e recusado pra sempre (o ping levava 401).
+  let payload: any = {}
+  try { payload = JSON.parse(raw) } catch { /* corpo nao-JSON cai como vazio */ }
+  const evtBruto = String(payload?.event || payload?.evento || '')
+  if (!assinatura || /test|teste|ping|validation|validacao/i.test(evtBruto)) {
+    return { ok: true, ping: true }
+  }
+
   const chaves = await chavesPublicas()
   if (!verificarAssinatura(raw, assinatura, chaves)) {
     throw createError({ statusCode: 401, message: 'assinatura invalida' })
   }
-
-  let payload: any = {}
-  try { payload = JSON.parse(raw) } catch { /* corpo nao-JSON cai como vazio */ }
 
   const charge = payload?.charge || {}
   const evt = String(payload?.event || '')
