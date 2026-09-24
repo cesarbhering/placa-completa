@@ -153,11 +153,13 @@ export default defineEventHandler(async (event) => {
   // batem com o produto do catalogo (prod_...). O `customer` inline do
   // transparente exige name+taxId (que nao coletamos), entao amarramos o
   // cliente pelo customerId no metadata (rastreavel no dashboard).
-  // Provedor escolhido por env (default abacatepay). O pedido guarda qual foi:
-  // sem isso, trocar a env deixaria os pedidos ja criados sem quem responder
-  // pelo status e pelo estorno deles.
-  const provedor = provedorPix()
-  const pix = await provedor.criarPixTransparente({
+  //
+  // Woovi preferencial, AbacatePay de salva-vidas: se a Woovi falhar ao criar a
+  // cobranca, a AbacatePay assume, pra nao perder a venda por causa de um
+  // gateway fora do ar. `provedor` e QUEM de fato criou — o pedido grava esse
+  // nome (pix_provider) e a tela mostra o recebedor dele. Sem isso, o status e o
+  // estorno bateriam na porta errada.
+  const { charge: pix, provedor } = await criarPixComFallback({
     amountCentavos: valor,
     pedidoId: pedido.id,
     expiresIn: 900,
@@ -166,15 +168,17 @@ export default defineEventHandler(async (event) => {
   })
   await supabase
     .from('pedidos_premium')
-    .update({ abacatepay_id: pix.id, br_code: pix.brCode, expira_em: pix.expiresAt, abacatepay_customer_id: customerId })
+    // pix_provider corrigido pro provedor REAL: o insert gravou o primario
+    // otimista, mas o failover pode ter caido no salva-vidas.
+    .update({ abacatepay_id: pix.id, br_code: pix.brCode, expira_em: pix.expiresAt, abacatepay_customer_id: customerId, pix_provider: provedor.nome })
     .eq('id', pedido.id)
 
   return {
     token, plano, brCode: pix.brCode, brCodeBase64: pix.brCodeBase64, expiresAt: pix.expiresAt, valor,
     // Nome que vai aparecer como recebedor no app do banco. Vem do provedor
-    // DESTA cobranca, e nao de uma constante na tela: quando a conta mudar, a
-    // frase muda junto. Null quando ainda nao confirmamos num Pix real, e ai a
-    // tela nao promete nome nenhum.
+    // DESTA cobranca, e nao de uma constante na tela: Woovi = "PLACA COMPLETA";
+    // se caiu no salva-vidas (AbacatePay), sem nome — a tela nao promete um nome
+    // que nao bate com a conta pra onde o dinheiro foi.
     recebedor: provedor.nomeDoRecebedor(),
     // tentaGratis-e-falhou cai aqui com preco cheio: nesse caso NAO aplicou
     // desconto nenhum (a vaga gratis nao foi concedida), entao nao anuncia

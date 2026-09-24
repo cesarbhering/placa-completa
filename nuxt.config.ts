@@ -640,6 +640,9 @@ export default defineNuxtConfig({
     pixProvider: process.env.PIX_PROVIDER || "abacatepay",
     wooviBase: process.env.WOOVI_BASE || "https://api.woovi.com",
     wooviAppId: process.env.WOOVI_APP_ID || "",
+    // Nome do recebedor a mostrar na tela quando a cobranca nasce na Woovi.
+    // Vazio ate confirmar num Pix real qual e a string exata do BR Code.
+    wooviRecebedor: process.env.WOOVI_RECEBEDOR || "",
     premiumValorCentavos: process.env.PREMIUM_VALOR_CENTAVOS || "4500",
     // SENATRAN homologacao (GCC + SERPRO). Certs via PEM em env (base64 ou texto).
     gccBase: process.env.GCC_BASE || "https://company.hml.quemmeviu.com.br",
