@@ -1,10 +1,33 @@
 # detran-worker
 
-Ponte HTTP **interna** entre o container Nuxt (serviço premium) e o runner
-determinístico do DETRAN-SP (`/root/detran-sp-runner.py`, mantido pelo Lead).
+Ponte HTTP **interna** entre o container Nuxt (serviço premium) e a consulta
+DETRAN-SP. Roda **no host, como root** (o container não tem o `browser-harness`).
 
-O container não roda o `browser-harness` (ferramenta do host), então a consulta
-de multas passa por este worker, que roda **no host, como root**.
+## Motor (caminho B — API direta, rework 24/set)
+
+Em vez de navegar a SPA (~66s), o worker:
+
+1. **Extrai UMA sessão** pelo browser (`browser-harness`, profile `gov-br`):
+   login gov.br automático + bridge → `cdp("Network.getAllCookies")` (pega os
+   cookies **httpOnly** — JSESSIONID, UX-Token, glide_session_store — que
+   `document.cookie` não vê) + `window.g_ck`. Monta o header `Cookie` (só os
+   cookies de domínio `detran.sp.gov.br`) e cacheia `{cookie, g_ck, ua}`.
+2. **Consulta em HTTP puro** (`detran_api.py`, ~2s): 4 GETs na API interna do
+   ServiceNow (base + `debitos-milt`/`debitos-ipva`/`debitos-licenciamento`),
+   com `X-UserToken: <g_ck>`, `X-Use-Polaris: false`, o header Cookie e a mesma
+   `User-Agent` da extração. Parseia no **mesmo contrato do runner antigo**.
+
+A sessão dura ~30min FIXO (não rolling) → **TTL de 25min**; expira no meio
+(401/403) → re-extrai 1× e repete. Qualquer falha da API/extração → **fallback
+para o runner de navegação** (`/root/detran-sp-runner.py`, plano B). A sessão
+persiste em `session.json` (0600) pra sobreviver a restart do worker.
+
+**LGPD:** o `base` da API traz `nomeProprietario` + `idProprietario` (nome +
+CPF/CNPJ do dono). O parser **nunca** lê nem persiste isso — só campos técnicos
+do veículo (`detran_api._veiculo_do_base` + teste que garante ausência na saída).
+
+Arquivos: `detran-worker.py` (ponte + sessão + fallback), `detran_api.py`
+(fetch HTTP + parser), `detran_api_test.py` (24 checks, fiel ao FHB6G05 real).
 
 ## Contrato
 
@@ -21,10 +44,11 @@ ou, em falha, `{ "ok": false, "stage": "..." }`. O Nuxt trata qualquer não-200 
 
 `GET /health` → `{ "ok": true, "daemon_alive": <bool> }` (sem auth).
 
-`POST /warm` — header `X-Worker-Secret` — sobe o daemon (start-on-demand) sem
-rodar consulta e reinicia o relógio de ociosidade. Serve pro **pre-warm**
-agendado (timer systemd antes do pico de vendas Bing ~7h-13h), pra a 1ª consulta
-do cliente não pagar o cold-start. Responde `{ "ok": <bool>, "daemon_alive": <bool>, "warm": true }`.
+`POST /warm` — header `X-Worker-Secret` — **re-extrai a sessão** (browser +
+login) e reinicia o relógio de ociosidade. Serve pro **pre-warm** agendado
+(timer systemd a cada ~25min no pico de vendas Bing ~7h-13h), pra manter a
+sessão quente e a 1ª consulta do cliente não pagar o cold-start do browser.
+Responde `{ "ok": <bool>, "warm": true, "sessao_valida": <bool>, "n_cookies_detran": <int> }`.
 
 ## Segurança (crítico)
 
@@ -59,8 +83,12 @@ runner é auto-curável no login gov.br (captcha auto-resolve). Cold start (~15-
 | `BROWSER_HARNESS_BIN` | `~/.local/bin/browser-harness` | binário do harness |
 | `DETRAN_DAEMON` | `pcdetran` | nome do daemon cloud |
 | `DETRAN_PROFILE` | `gov-br` | profile com a sessão gov.br |
+| `DETRAN_SESSION_FILE` | `/opt/detran-worker/session.json` | cache da sessão (0600) |
+| `DETRAN_SESSION_TTL_S` | `1500` | validade da sessão (25min; TTL real ~30min FIXO) |
+| `DETRAN_EXTRACT_TIMEOUT_S` | `180` | timeout da extração (browser + login gov.br) |
+| `DETRAN_API_TIMEOUT_S` | `30` | timeout de cada GET da API |
 | `DETRAN_IDLE_STOP_S` | `600` | ociosidade antes de parar o daemon |
-| `DETRAN_RUN_TIMEOUT_S` | `150` | timeout do runner |
+| `DETRAN_RUN_TIMEOUT_S` | `220` | timeout do runner de fallback |
 | `DETRAN_LOCK_WAIT_S` | `8` | espera pelo lock antes de 429 |
 
 Precisa no ambiente: `PATH` com `~/.local/bin`, `BROWSER_USE_API_KEY`
