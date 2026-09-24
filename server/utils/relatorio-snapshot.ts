@@ -1,5 +1,6 @@
 import { filtrarPorPlano, camposRestantes } from '../../shared/planos'
 import { marcaExibicao } from '../../shared/marca-exibicao'
+import { candidatoEManual, candidatoEAutomatico } from './fipe-candidato'
 import type { RecallDetalhe } from './recall-detalhe'
 import type { MultasDetalhe } from './detran-multas'
 
@@ -207,8 +208,41 @@ export async function refinarValorCustoPeloRecall(
       },
       ['valorCusto'],
     )
-    return refeito?.valorCusto ?? null
+    const novo = refeito?.valorCusto ?? null
+    // GUARD: so aceita o refino se ele for uma MELHORA confiante E coerente com
+    // o cambio do recall. Se a re-resolucao degradou (a FIPE-api caiu/timeout
+    // sob carga -> escolherMelhorFipe cai no fallback -> fipeCandidato=null e o
+    // fipeModelo vira o top-score da fonte livre, que pode ser o cambio ERRADO),
+    // ou se por qualquer motivo escolheu o cambio OPOSTO ao do recall, NAO
+    // sobrescreve: retorna null e mantem o valorCusto ambiguo honesto. Sem isto
+    // um refino cravava a versao errada com cara de certa. Incidente 23/set
+    // (OBPyTouAGB: recall "cambio manual" virou Dualogic confiante).
+    if (!refinoConfiavelEConsistente(novo, hint)) return null
+    return novo
   } catch {
     return null
   }
+}
+
+/**
+ * O refino da Camada 2 so pode SOBRESCREVER a FIPE ambigua se a re-resolucao:
+ *  - decidiu com confianca de verdade (regra, haiku ou wdapi, com candidatos),
+ *    NAO fallback/ambiguo/null (fallback = FIPE-api indisponivel -> chute do
+ *    top-score da fonte livre), e
+ *  - a versao escolhida BATE com o cambio que o recall indicou (manual->Mec.,
+ *    automatico->Aut.).
+ * Qualquer outra coisa: recusa (fail-open pro estado ambiguo honesto), pra
+ * nunca degradar nem cravar o cambio oposto.
+ */
+export function refinoConfiavelEConsistente(
+  novo: any,
+  hint: 'manual' | 'automatico',
+): boolean {
+  const fc = novo?.fipeCandidato
+  const confiante = !!fc
+    && (fc.decididoPor === 'regra' || fc.decididoPor === 'haiku' || fc.decididoPor === 'wdapi')
+    && (fc.candidatos?.length || 0) > 0
+  if (!confiante) return false
+  const modelo = String(novo?.fipeModelo || '')
+  return hint === 'manual' ? candidatoEManual(modelo) : candidatoEAutomatico(modelo)
 }

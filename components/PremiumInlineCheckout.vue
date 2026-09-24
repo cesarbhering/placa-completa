@@ -837,7 +837,8 @@ onUnmounted(() => {
                  discreta logo abaixo da CTA. So na web (no app quem cobra e o
                  Google Play, e o estorno segue a politica da loja). -->
             <p v-if="!isCapacitor" class="pic-hint pic-hint--cta">Pagamento por Pix · estorno se não acharmos o veículo · entrega em até 5 min</p>
-            <button type="button" class="pic-btn" @click="fechar">Cancelar</button>
+            <!-- Sem "Cancelar" no rodape: o X do cabecalho (pic-x, sempre visivel)
+                 ja fecha o modal. Um botao a mais so competia com a CTA. -->
           </div>
 
           <!-- Pagamento Pix + polling -->
