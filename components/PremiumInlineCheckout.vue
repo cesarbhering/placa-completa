@@ -769,12 +769,15 @@ onUnmounted(() => {
               </select>
               <p v-if="ambiente === 'producao'" class="pic-aviso">Atenção: Produção dispara consulta real no SERPRO.</p>
             </div>
-            <!-- Na web o e-mail saiu daqui: e pedido (opcional) so na tela do
-                 Pix, o que encurta o modal e tira um input antes da CTA. Fica
-                 aqui em dois casos: no app, que nao tem tela de Pix e precisa
-                 coletar o e-mail em algum lugar, e quando ha cupom aberto,
-                 porque o limite do cupom e contado por e-mail. -->
-            <div v-if="isCapacitor || cupomAberto" class="pic-campo">
+            <!-- E-mail (opcional) de volta ao modal a pedido do Cesar (24/set):
+                 vale a pena o cliente receber o link do relatorio por e-mail,
+                 evita dor de cabeca de suporte. Continua OPCIONAL (o checkout
+                 nao exige e-mail; a excecao e cupom, cujo limite e contado por
+                 e-mail). Antes ficava so na tela do Pix, mas la ele sumia pra
+                 quem ja tinha e-mail salvo no navegador -> muita gente nao via
+                 em lugar nenhum. Quem deixar em branco aqui ainda tem a segunda
+                 chance, tambem opcional, na tela do Pix. -->
+            <div class="pic-campo">
               <label class="pic-label" for="pic-email">Seu e-mail (opcional, para receber o relatório)</label>
               <input
                 id="pic-email"
