@@ -303,11 +303,11 @@ function transmissaoDaDescricao(descricaoMarcaModelo: unknown): Transmissao {
   return null
 }
 
-function candidatoEManual(modelo: string): boolean {
+export function candidatoEManual(modelo: string): boolean {
   return /\bMec\b|\bMec\./i.test(modelo)
 }
 
-function candidatoEAutomatico(modelo: string): boolean {
+export function candidatoEAutomatico(modelo: string): boolean {
   return /\bAut\b|\bAut\./i.test(modelo)
 }
 
