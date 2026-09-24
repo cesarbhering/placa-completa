@@ -54,13 +54,54 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event).catch(() => ({}))
+  const supabase = usePremiumSupabase()
+
+  // ---- modo restaurar (rebuildFipe): reconstroi o valorCusto do zero (montar)
+  // e reaplica o refino guardado por recall. Conserta pedido com valorCusto
+  // corrompido (ex.: um refino que degradou pro fallback da FIPE-api e cravou a
+  // versao ERRADA com cara de certa). So escreve se o montar trouxe resultado
+  // REAL (fipeCandidato presente = nao-fallback): se a FIPE-api estiver
+  // instavel, NAO re-corrompe -- pede pra tentar de novo. Idempotente/guardado.
+  const rebuild: string[] = Array.isArray(body?.rebuildFipe) ? body.rebuildFipe.map((t: any) => String(t)) : []
+  if (rebuild.length) {
+    const { data: peds, error: eR } = await supabase
+      .from('pedidos_premium')
+      .select('id,placa,token_entrega,consulta_id,relatorio_snapshot,plano,preview')
+      .eq('status', 'entregue')
+      .not('relatorio_snapshot', 'is', null)
+      .in('token_entrega', rebuild)
+    if (eR) throw createError({ statusCode: 502, message: 'Leitura falhou: ' + eR.message })
+    const out: any[] = []
+    for (const p of peds || []) {
+      const snap: any = p.relatorio_snapshot
+      if (!snap || typeof snap !== 'object') { out.push({ token: p.token_entrega, pulado: 'sem snapshot' }); continue }
+      const alvo = { placa: p.placa, plano: p.plano, consulta_id: p.consulta_id, preview: p.preview }
+      const base = await montarRelatorioSnapshot(supabase, alvo, ['valorCusto']).catch(() => null)
+      const baseVc: any = base?.valorCusto ?? null
+      if (!baseVc?.fipeCandidato) {
+        out.push({ token: p.token_entrega, pulado: 'fipe-api instavel (montar caiu no fallback); tente de novo' })
+        continue
+      }
+      let novoVc = baseVc
+      if (snap.recall) {
+        const ref = await refinarValorCustoPeloRecall(supabase, { ...snap, valorCusto: novoVc }, alvo, snap.recall)
+        if (ref) novoVc = ref
+      }
+      const { error: upErr } = await supabase
+        .from('pedidos_premium')
+        .update({ relatorio_snapshot: { ...snap, valorCusto: novoVc } })
+        .eq('id', p.id)
+      if (upErr) { out.push({ token: p.token_entrega, ok: false, motivo: upErr.message }); continue }
+      out.push({ token: p.token_entrega, ok: true, rebuild: true, fipe: fipeResumo(novoVc) })
+    }
+    return { rebuild: out.length, resultados: out }
+  }
+
   const tokens: string[] = Array.isArray(body?.tokens) ? body.tokens.map((t: any) => String(t)) : []
   const limite = Number(body?.limite) > 0 ? Math.min(Number(body.limite), 50) : null
   if (!tokens.length && !limite) {
-    throw createError({ statusCode: 400, message: 'Informe tokens ou limite.' })
+    throw createError({ statusCode: 400, message: 'Informe tokens, limite ou rebuildFipe.' })
   }
-
-  const supabase = usePremiumSupabase()
   let q = supabase
     .from('pedidos_premium')
     .select('id,placa,token_entrega,consulta_id,relatorio_snapshot,plano,preview')
