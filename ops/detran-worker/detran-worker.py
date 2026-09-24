@@ -283,6 +283,12 @@ def fallback_runner(placa, renavam, uf):
     res = _extrai_json_marcado(r.stdout or "")
     if res is None:
         return {"ok": False, "stage": "sem-json-do-runner", "amostra": (r.stdout or "")[-400:]}
+    # Defense-in-depth (LGPD/credencial): o `log` do runner e o passo-a-passo da
+    # navegacao e o Nuxt grava a resposta em multas_consultas.bruto. Mesmo o
+    # runner ja mascarando CPF/senha, esse log NAO precisa ser persistido -- o
+    # Nuxt so le os campos do contrato. Removo aqui, na fronteira do worker.
+    if isinstance(res, dict):
+        res.pop("log", None)
     return res
 
 
