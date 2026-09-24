@@ -52,8 +52,12 @@ const ABACATEPAY: ProvedorPix = {
   checarPix: abacate.checarPix,
   reembolsarPix: abacate.reembolsarPix,
   simularPagamento: abacate.simularPagamento,
-  // Conferido no campo 59 do BR Code de pedidos reais de producao.
-  nomeDoRecebedor: () => 'Haste Technologies',
+  // No app do banco a AbacatePay aparece como "Haste Technologies", que nao diz
+  // nada pra quem paga (foi a razao da troca). Quando a cobranca cai AQUI e so
+  // porque a Woovi falhou e a AbacatePay assumiu de salva-vidas — nesse caso a
+  // tela NAO promete nome (decisao do Cesar 24/set): melhor nao citar recebedor
+  // do que mostrar um nome que confunde.
+  nomeDoRecebedor: () => null,
 }
 
 const WOOVI: ProvedorPix = {
@@ -62,9 +66,14 @@ const WOOVI: ProvedorPix = {
   checarPix: woovi.checarPix,
   reembolsarPix: woovi.reembolsarPix,
   simularPagamento: woovi.simularPagamento,
-  // Ainda nao confirmado num Pix real. Enquanto for null, a tela nao promete
-  // nome nenhum, em vez de chutar.
-  nomeDoRecebedor: () => null,
+  // A Woovi reflete o nome real da conta no Pix — o motivo da troca. Mas o nome
+  // que aparece no app do banco (campo 59 do BR Code) e o que a conta Woovi tem
+  // registrado, e no sandbox ele veio como o nome legal ("CESAR CANCADO BHERING
+  // TEC"), nao "PLACA COMPLETA". Entao a tela NAO crava o nome: ele vem da env
+  // WOOVI_RECEBEDOR, preenchida so DEPOIS de conferir num Pix real de producao
+  // qual e a string exata. Vazio => null => a tela nao promete nome nenhum, em
+  // vez de prometer um que o pagador nao ve.
+  nomeDoRecebedor: () => String(useRuntimeConfig().wooviRecebedor || '').trim() || null,
 }
 
 /** Provedor escolhido por env. Sem env, nada muda. */
@@ -80,4 +89,51 @@ export function provedorPix(): ProvedorPix {
  */
 export function provedorDoPedido(nome?: string | null): ProvedorPix {
   return String(nome || '').toLowerCase() === 'woovi' ? WOOVI : ABACATEPAY
+}
+
+/**
+ * Cria a cobranca no provedor preferencial e, se ele FALHAR, cai no salva-vidas.
+ *
+ * Decisao do Cesar (24/set): Woovi preferencial, AbacatePay como salva-vidas,
+ * pra nao ficar refem de um gateway so. Se um dia o env voltar pra abacatepay,
+ * e AbacatePay PURO (sem Woovi no caminho) — rollback limpo, previsivel.
+ *
+ * O failover fica SO aqui, na criacao. Depois que a cobranca existe, cada
+ * pedido guarda seu pix_provider e status/estorno batem sempre na porta certa;
+ * "trocar de provedor" com uma cobranca ja criada duplicaria cobranca. Este e
+ * o unico ponto seguro: antes de qualquer dinheiro entrar.
+ *
+ * Devolve QUAL provedor de fato criou. O checkout grava esse nome no pedido e
+ * mostra o recebedor dele: Woovi = "PLACA COMPLETA"; se caiu na AbacatePay, sem
+ * nome (a tela nao promete "PLACA COMPLETA" quando o dinheiro vai pra outra
+ * conta).
+ */
+export async function criarPixComFallback(
+  opts: CriarPixOpts,
+): Promise<{ charge: PixCharge; provedor: ProvedorPix }> {
+  const primario = provedorPix()
+  // So a Woovi tem salva-vidas. AbacatePay primaria = AbacatePay pura.
+  const cadeia = primario.nome === 'woovi' ? [WOOVI, ABACATEPAY] : [ABACATEPAY]
+  let ultimoErro: unknown = null
+  for (const provedor of cadeia) {
+    try {
+      const charge = await provedor.criarPixTransparente(opts)
+      if (provedor !== primario) {
+        console.warn(
+          `[pix] failover: ${primario.nome} falhou, cobranca criada na ${provedor.nome}. pedido=${opts.pedidoId}`,
+        )
+      }
+      return { charge, provedor }
+    } catch (e: any) {
+      ultimoErro = e
+      console.warn(
+        `[pix] ${provedor.nome} falhou ao criar cobranca (pedido=${opts.pedidoId}):`,
+        e?.message || e,
+      )
+    }
+  }
+  // Todos falharam: propaga o erro, o checkout devolve 5xx como sempre fez.
+  throw ultimoErro instanceof Error
+    ? ultimoErro
+    : createError({ statusCode: 502, message: 'Nenhum provedor de Pix disponivel.' })
 }
