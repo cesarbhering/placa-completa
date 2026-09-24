@@ -1,31 +1,43 @@
 import { chavesPublicas, verificarAssinatura } from '../../utils/woovi'
 
-// Webhook da Woovi. Endpoint separado do da AbacatePay de proposito: o formato
-// do payload e, principalmente, o jeito de provar quem mandou sao diferentes.
-// Misturar os dois num handler so significaria um if no meio da unica parte do
-// sistema onde errar deixa qualquer um confirmar pagamento.
+// Webhook da Woovi, handler unico pra TODOS os metodos. Endpoint separado do da
+// AbacatePay de proposito: o formato do payload e, principalmente, o jeito de
+// provar quem mandou sao diferentes. Misturar os dois num handler so significaria
+// um if no meio da unica parte do sistema onde errar deixa qualquer um confirmar
+// pagamento.
 //
-// Aqui a assinatura e RSA-SHA256 com a chave PUBLICA da Woovi (header
-// x-webhook-signature), e nao HMAC com segredo nosso. A diferenca importa: a
-// assinatura por chave publica prova que quem mandou foi a Woovi; um HMAC
-// provaria apenas que alguem conhece o nosso segredo.
+// Por que um arquivo so (e nao .get.ts + .post.ts): ao registrar o webhook, a
+// Woovi valida a URL batendo nela com GET/HEAD (e as vezes um POST de teste) e
+// SO aceita o registro se receber 200. Um handler POST-only devolvia 404 no
+// GET/HEAD e o registro era recusado. Aqui qualquer metodo que nao seja POST e o
+// aperto de mao, responde 200 e nao toca em nada.
+//
+// A assinatura e RSA-SHA256 com a chave PUBLICA da Woovi (header
+// x-webhook-signature), nao HMAC com segredo nosso: a chave publica prova que
+// quem mandou foi a Woovi; um HMAC provaria so que alguem conhece nosso segredo.
 export default defineEventHandler(async (event) => {
+  // Handshake de validacao (GET/HEAD): nao carrega pagamento, 200 fixo.
+  if (event.method !== 'POST') return { ok: true, ping: true }
+
   const raw = String((await readRawBody(event)) || '')
   const assinatura = getRequestHeader(event, 'x-webhook-signature') || ''
 
-  // Ping de validacao: ao registrar o webhook, a Woovi bate na URL e SO aceita o
-  // registro se receber 200. Esse ping vem SEM assinatura (e as vezes com um
-  // evento de teste). Responder 200 aqui e seguro porque confirmar pagamento
-  // continua exigindo assinatura valida logo abaixo: um request sem assinatura
-  // nao passa da linha do 401 nem toca em pedido nenhum. Sem este atalho, o
-  // registro do webhook e recusado pra sempre (o ping levava 401).
   let payload: any = {}
   try { payload = JSON.parse(raw) } catch { /* corpo nao-JSON cai como vazio */ }
   const evtBruto = String(payload?.event || payload?.evento || '')
+
+  // Ping de validacao via POST: sem assinatura, ou evento de teste. Responder
+  // 200 aqui e seguro porque confirmar pagamento continua exigindo assinatura
+  // valida logo abaixo; um request sem assinatura nao passa do 401 nem toca em
+  // pedido nenhum.
   if (!assinatura || /test|teste|ping|validation|validacao/i.test(evtBruto)) {
     return { ok: true, ping: true }
   }
 
+  // Evento real assinado: se a assinatura nao confere, 401. Isso e de proposito
+  // NAO ser 200 no-op: um evento assinado que falha e ou adulteracao ou uma
+  // falha transitoria na busca das chaves publicas, e nos dois casos e melhor a
+  // Woovi reenviar (o polling do status.get.ts tambem cobre a entrega).
   const chaves = await chavesPublicas()
   if (!verificarAssinatura(raw, assinatura, chaves)) {
     throw createError({ statusCode: 401, message: 'assinatura invalida' })
