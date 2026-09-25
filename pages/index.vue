@@ -411,6 +411,19 @@ function observarCtaCompleta() {
 watch(success, (ok) => { if (ok) nextTick(observarCtaCompleta) })
 onUnmounted(() => obsLocked?.disconnect())
 
+// Layout A (variante A): a CTA vive no componente ResultadoLayoutA, que emite
+// 'cta-visto' quando entra na tela. Dispara o MESMO evento de funil que a pagina
+// de hoje (o ab_bloco vem carimbado pelo useAnalytics), uma vez so.
+function onCtaVistoLayoutA() {
+  if (ctaVistoReportado) return
+  ctaVistoReportado = true
+  enfileirarEventoFunil('cta_completa_visto', {
+    placa: placa.value || null,
+    plano: 'completa',
+    leilao_sinal: sinalLeilao.value ? (sinalLeilao.value.positivo ? 'positivo' : 'negativo') : 'sem_sinal',
+  })
+}
+
 // O bloco bloqueado sai da matriz de recursos: mover um item entre planos
 // atualiza a tela de resultado junto, sem lista paralela pra esquecer.
 // Os RÓTULOS sao reais (dizem o que voce leva); os VALORES sao marcadores — o
@@ -442,6 +455,54 @@ const tituloBlocoB = computed(() => tituloVarianteB(
 ))
 const subBlocoB = computed(() => subVarianteB(fipeSemCentavosAtual.value, camposBloqueados.length))
 const garantiaBlocoB = computed(() => garantiaVarianteB(precoBRL(PLANOS.completa.valorCentavos), isCapacitor.value))
+
+// ===== Variante A: novo layout de pagina inteira =====
+// Renderiza a pagina nova SO quando a variante A foi sorteada E o teste esta
+// ligado. Com o kill switch (NUXT_PUBLIC_AB_BLOCO=off) decidirVariante devolve
+// 'A' mas nao sorteia -- ai cai no `!abBlocoDesligado` e todo mundo ve a pagina
+// de hoje (controle seguro).
+const layoutA = computed(() => abBloco.value === 'A' && !abBlocoDesligado.value)
+// Estado do bloco de leilao no layout A: "encontrado" so com registro positivo
+// na base propria; qualquer outra coisa (sem registro, indisponivel) e "oculto"
+// e NUNCA revela ausencia.
+const leilaoEncontrado = computed(() => sinalLeilao.value?.positivo === true)
+const qtdLeiloes = computed(() => sinalLeilao.value?.quantidade ?? 0)
+
+// modelo_curto: 1a palavra do modelo em Title Case (UNO MILLE EP -> Uno);
+// fallback pra marca se o modelo vier vazio.
+const modeloCurto = computed(() => {
+  const base = String(resultadoBasico.value?.modelo || resultadoBasico.value?.marca || '').trim()
+  const primeira = base.split(/\s+/)[0] || ''
+  return primeira ? primeira.charAt(0).toUpperCase() + primeira.slice(1).toLowerCase() : ''
+})
+
+// FIPE em centavos, parseado da string ja formatada do free ("R$ 113.297,00").
+// Guard: vazio/nao-parseavel -> null, e a ancora de preco inteira some (nada de
+// barra quebrada ou "0%").
+const fipeCentavos = computed<number | null>(() => {
+  const limpo = String(resultadoBasico.value?.fipe || '').replace(/[^\d,]/g, '')
+  if (!limpo) return null
+  const num = Number(limpo.replace(',', '.'))
+  return Number.isFinite(num) && num > 0 ? Math.round(num * 100) : null
+})
+const valorFipeCurto = computed(() => {
+  const sem = fipeSemCentavos(resultadoBasico.value?.fipe)
+  return sem ? `R$ ${sem}` : null
+})
+// Largura da barrinha azul do relatorio = max(4px, preco/fipe). % com 4 casas
+// pra nao zerar em carro caro.
+const barraRelatorioStyle = computed(() => {
+  const c = fipeCentavos.value
+  if (!c) return { width: '4px' }
+  const pct = (PLANOS.completa.valorCentavos / c) * 100
+  return { width: `max(4px, ${pct.toFixed(4)}%)` }
+})
+const pctFipe = computed(() => {
+  const c = fipeCentavos.value
+  if (!c) return null
+  const pct = (PLANOS.completa.valorCentavos / c) * 100
+  return `${pct.toFixed(1).replace('.', ',')}%`
+})
 
 
 // Alertas colados na ilustracao do carro. Posicao em % da caixa da imagem,
@@ -1280,6 +1341,24 @@ function applyEmailSuggestion() {
         </div>
 
         <!-- ===== RESULTADO NA TELA ===== -->
+        <!-- Variante A do A/B: novo layout de pagina inteira. B (e o teste
+             desligado) segue na pagina de hoje logo abaixo. -->
+        <ResultadoLayoutA
+          v-else-if="layoutA"
+          :dados="resultadoBasico"
+          :modelo-curto="modeloCurto"
+          :valor-fipe-curto="valorFipeCurto"
+          :fipe-valido="fipeCentavos !== null"
+          :barra-relatorio-style="barraRelatorioStyle"
+          :pct-fipe="pctFipe"
+          :qtd-leiloes="qtdLeiloes"
+          :leilao-encontrado="leilaoEncontrado"
+          :preco-completa="precoBRL(PLANOS.completa.valorCentavos)"
+          :preco-basica="precoBRL(PLANOS.basica.valorCentavos)"
+          @comprar="cliqueCtaCompleta('layout_a')"
+          @cta-visto="onCtaVistoLayoutA"
+        />
+
         <div v-else class="cb-result">
           <p class="cb-result__kick">Consulta grátis concluída</p>
           <h1 class="cb-result__h">Encontramos o veículo da placa {{ resultadoBasico?.placa || placa }}.</h1>
