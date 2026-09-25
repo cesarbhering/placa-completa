@@ -88,11 +88,11 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         <!-- ANCORA DE PRECO (some inteira sem FIPE parseavel). Fica ENTRE os
              dados e o bloco de leilao/pendentes (ordem pedida pelo Cesar). -->
         <section v-if="fipeValido" class="la-card la-ancora">
-          <h2>{{ precoCompleta }} agora, ou um carro que não transfere depois.</h2>
           <div class="la-barra">
-            <div class="la-barra-rot"><span>Valor FIPE deste carro</span><strong>{{ valorFipeCurto }}</strong></div>
+            <div class="la-barra-rot"><span>Tabela FIPE {{ marcaModelo() }}</span><strong>{{ valorFipeCurto }}</strong></div>
             <div class="la-trilho la-trilho--cheio" />
           </div>
+          <h2>{{ precoCompleta }} agora, ou um carro que não transfere depois.</h2>
           <div class="la-barra">
             <div class="la-barra-rot"><span>Relatório completo</span><strong>{{ precoCompleta }}</strong></div>
             <div class="la-trilho"><b :style="barraRelatorioStyle" /></div>
@@ -222,9 +222,9 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 .la-ancora { display:flex; flex-direction:column; gap:14px; }
 .la-ancora h2 { margin:0; font-size:20px; font-weight:800; }
 .la-barra { display:flex; flex-direction:column; gap:6px; }
-.la-barra-rot { display:flex; justify-content:space-between; font-size:14px; }
-.la-barra-rot span { color:var(--la-ink2); }
-.la-barra-rot strong { font-weight:800; }
+.la-barra-rot { display:flex; justify-content:space-between; gap:12px; font-size:14px; }
+.la-barra-rot span { color:var(--la-ink2); min-width:0; }
+.la-barra-rot strong { font-weight:800; white-space:nowrap; }
 .la-trilho { height:14px; border-radius:4px; background:var(--la-lock); }
 .la-trilho--cheio { background:var(--la-navy); }
 .la-trilho b { display:block; width:4px; height:14px; border-radius:4px; background:var(--la-blue); }
