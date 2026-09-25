@@ -411,6 +411,19 @@ function observarCtaCompleta() {
 watch(success, (ok) => { if (ok) nextTick(observarCtaCompleta) })
 onUnmounted(() => obsLocked?.disconnect())
 
+// Layout A (variante A): a CTA vive no componente ResultadoLayoutA, que emite
+// 'cta-visto' quando entra na tela. Dispara o MESMO evento de funil que a pagina
+// de hoje (o ab_bloco vem carimbado pelo useAnalytics), uma vez so.
+function onCtaVistoLayoutA() {
+  if (ctaVistoReportado) return
+  ctaVistoReportado = true
+  enfileirarEventoFunil('cta_completa_visto', {
+    placa: placa.value || null,
+    plano: 'completa',
+    leilao_sinal: sinalLeilao.value ? (sinalLeilao.value.positivo ? 'positivo' : 'negativo') : 'sem_sinal',
+  })
+}
+
 // O bloco bloqueado sai da matriz de recursos: mover um item entre planos
 // atualiza a tela de resultado junto, sem lista paralela pra esquecer.
 // Os RÓTULOS sao reais (dizem o que voce leva); os VALORES sao marcadores — o
@@ -430,9 +443,14 @@ const camposBloqueados = RECURSOS_BLOQUEADOS
 const abBloco = ref<VarianteAbBloco>('A')
 const abBlocoDesligado = computed(() => useRuntimeConfig().public.abBloco === 'off')
 
-// B so vale sem sinal de leilao positivo: com registro encontrado a tela ja
-// fala do achado, e mexer nela seria testar duas coisas ao mesmo tempo.
-const blocoVarianteB = computed(() => abBloco.value === 'B' && !sinalLeilao.value?.positivo)
+// B = pagina de hoje COM a copy personalizada do #338 (decisao do Cesar,
+// assumindo o confound layout+copy). A trava `!sinalLeilao.positivo` saiu
+// (decisao #2): a copy personalizada do B agora vale nos DOIS estados, inclusive
+// com registro de leilao -- por isso ela tem PRECEDENCIA sobre a copy de leilao
+// no titulo/sub/CTA abaixo (a frase do registro achado segue aparecendo, e
+// aditiva). Com o teste desligado, abBloco fica 'A' -> blocoVarianteB false ->
+// a pagina cai na copy de controle.
+const blocoVarianteB = computed(() => abBloco.value === 'B')
 
 const fipeSemCentavosAtual = computed(() => fipeSemCentavos(resultadoBasico.value?.fipe))
 const tituloBlocoB = computed(() => tituloVarianteB(
@@ -442,6 +460,54 @@ const tituloBlocoB = computed(() => tituloVarianteB(
 ))
 const subBlocoB = computed(() => subVarianteB(fipeSemCentavosAtual.value, camposBloqueados.length))
 const garantiaBlocoB = computed(() => garantiaVarianteB(precoBRL(PLANOS.completa.valorCentavos), isCapacitor.value))
+
+// ===== Variante A: novo layout de pagina inteira =====
+// Renderiza a pagina nova SO quando a variante A foi sorteada E o teste esta
+// ligado. Com o kill switch (NUXT_PUBLIC_AB_BLOCO=off) decidirVariante devolve
+// 'A' mas nao sorteia -- ai cai no `!abBlocoDesligado` e todo mundo ve a pagina
+// de hoje (controle seguro).
+const layoutA = computed(() => abBloco.value === 'A' && !abBlocoDesligado.value)
+// Estado do bloco de leilao no layout A: "encontrado" so com registro positivo
+// na base propria; qualquer outra coisa (sem registro, indisponivel) e "oculto"
+// e NUNCA revela ausencia.
+const leilaoEncontrado = computed(() => sinalLeilao.value?.positivo === true)
+const qtdLeiloes = computed(() => sinalLeilao.value?.quantidade ?? 0)
+
+// modelo_curto: 1a palavra do modelo em Title Case (UNO MILLE EP -> Uno);
+// fallback pra marca se o modelo vier vazio.
+const modeloCurto = computed(() => {
+  const base = String(resultadoBasico.value?.modelo || resultadoBasico.value?.marca || '').trim()
+  const primeira = base.split(/\s+/)[0] || ''
+  return primeira ? primeira.charAt(0).toUpperCase() + primeira.slice(1).toLowerCase() : ''
+})
+
+// FIPE em centavos, parseado da string ja formatada do free ("R$ 113.297,00").
+// Guard: vazio/nao-parseavel -> null, e a ancora de preco inteira some (nada de
+// barra quebrada ou "0%").
+const fipeCentavos = computed<number | null>(() => {
+  const limpo = String(resultadoBasico.value?.fipe || '').replace(/[^\d,]/g, '')
+  if (!limpo) return null
+  const num = Number(limpo.replace(',', '.'))
+  return Number.isFinite(num) && num > 0 ? Math.round(num * 100) : null
+})
+const valorFipeCurto = computed(() => {
+  const sem = fipeSemCentavos(resultadoBasico.value?.fipe)
+  return sem ? `R$ ${sem}` : null
+})
+// Largura da barrinha azul do relatorio = max(4px, preco/fipe). % com 4 casas
+// pra nao zerar em carro caro.
+const barraRelatorioStyle = computed(() => {
+  const c = fipeCentavos.value
+  if (!c) return { width: '4px' }
+  const pct = (PLANOS.completa.valorCentavos / c) * 100
+  return { width: `max(4px, ${pct.toFixed(4)}%)` }
+})
+const pctFipe = computed(() => {
+  const c = fipeCentavos.value
+  if (!c) return null
+  const pct = (PLANOS.completa.valorCentavos / c) * 100
+  return `${pct.toFixed(1).replace('.', ',')}%`
+})
 
 
 // Alertas colados na ilustracao do carro. Posicao em % da caixa da imagem,
@@ -1280,6 +1346,24 @@ function applyEmailSuggestion() {
         </div>
 
         <!-- ===== RESULTADO NA TELA ===== -->
+        <!-- Variante A do A/B: novo layout de pagina inteira. B (e o teste
+             desligado) segue na pagina de hoje logo abaixo. -->
+        <ResultadoLayoutA
+          v-else-if="layoutA"
+          :dados="resultadoBasico"
+          :modelo-curto="modeloCurto"
+          :valor-fipe-curto="valorFipeCurto"
+          :fipe-valido="fipeCentavos !== null"
+          :barra-relatorio-style="barraRelatorioStyle"
+          :pct-fipe="pctFipe"
+          :qtd-leiloes="qtdLeiloes"
+          :leilao-encontrado="leilaoEncontrado"
+          :preco-completa="precoBRL(PLANOS.completa.valorCentavos)"
+          :preco-basica="precoBRL(PLANOS.basica.valorCentavos)"
+          @comprar="cliqueCtaCompleta('layout_a')"
+          @cta-visto="onCtaVistoLayoutA"
+        />
+
         <div v-else class="cb-result">
           <p class="cb-result__kick">Consulta grátis concluída</p>
           <h1 class="cb-result__h">Encontramos o veículo da placa {{ resultadoBasico?.placa || placa }}.</h1>
@@ -1334,31 +1418,33 @@ function applyEmailSuggestion() {
             <!-- Com registro encontrado, perguntar "sera que tem leilao?"
                  contradiz a linha de cima, que acabou de dizer que TEM. O
                  titulo passa a falar do que fazer com o achado. -->
-            <h2 v-if="sinalLeilao?.positivo" class="cb-locked__h">
-              Registro de leilão encontrado.
-              <strong>Os detalhes estão no relatório completo.</strong>
-            </h2>
-            <!-- Variante B: o titulo deixa de falar do produto e passa a
-                 falar DESTE carro (marca, modelo, ano). "Pode ter" e nao
-                 "tem": nada aqui afirma defeito. Faltando marca, modelo ou
-                 ano, tituloVarianteB cai no titulo de sempre. -->
-            <h2 v-else-if="blocoVarianteB" class="cb-locked__h">
+            <!-- Variante B (precedencia sobre o estado de leilao, decisao #2): o
+                 titulo fala DESTE carro (marca, modelo, ano). "Pode ter" e nao
+                 "tem": nada aqui afirma defeito. Faltando marca/modelo/ano,
+                 tituloVarianteB cai no titulo de sempre. Quando ha registro de
+                 leilao, a frase do achado (fraseSinalLeilao) aparece acima, entao
+                 o titulo do B convive coerente com o sinal. -->
+            <h2 v-if="blocoVarianteB" class="cb-locked__h">
               {{ tituloBlocoB }}
               <strong>A consulta grátis não mostra.</strong>
+            </h2>
+            <h2 v-else-if="sinalLeilao?.positivo" class="cb-locked__h">
+              Registro de leilão encontrado.
+              <strong>Os detalhes estão no relatório completo.</strong>
             </h2>
             <h2 v-else class="cb-locked__h">
               Indicador de roubo, registro de leilão ou dívida escondida?
               <strong>A consulta grátis não mostra.</strong>
             </h2>
-            <p v-if="sinalLeilao?.positivo" class="cb-locked__sub">
+            <!-- Variante B: ancora o preco do relatorio no preco do CARRO
+                 (FIPE ja exibido acima). Sem FIPE a oracao do preco some
+                 inteira, em vez de sair "R$ -". -->
+            <p v-if="blocoVarianteB" class="cb-locked__sub">{{ subBlocoB }}</p>
+            <p v-else-if="sinalLeilao?.positivo" class="cb-locked__sub">
               Data, leiloeira, condição do veículo e mais <strong>{{ camposBloqueados.length }}</strong> verificações
               para este veículo: restrição, indicador de roubo e furto, gravame, bloqueio judicial, indicador de
               multas e mais. Liberado em até 5 minutos depois do pagamento.
             </p>
-            <!-- Variante B: ancora o preco do relatorio no preco do CARRO
-                 (FIPE ja exibido acima). Sem FIPE a oracao do preco some
-                 inteira, em vez de sair "R$ -". -->
-            <p v-else-if="blocoVarianteB" class="cb-locked__sub">{{ subBlocoB }}</p>
             <p v-else class="cb-locked__sub">
               Mais <strong>{{ camposBloqueados.length }}</strong> verificações para este veículo: restrição,
               indicador de roubo e furto, registro de leilão, gravame, bloqueio judicial, indicador de multas e mais.
@@ -1391,10 +1477,10 @@ function applyEmailSuggestion() {
                        baixo, junto do prazo e do estorno. O botao passa a
                        prometer a RESPOSTA ("da pra confiar?"), nao o produto. -->
                   <button type="button" class="cb-btn cb-btn--blue" @click="cliqueCtaCompleta('bloco_bloqueado')">
-                    {{ sinalLeilao?.positivo
-                      ? `Ver o registro de leilão no relatório completo · ${precoBRL(PLANOS.completa.valorCentavos)}`
-                      : blocoVarianteB
-                        ? 'Saber se posso confiar neste carro'
+                    {{ blocoVarianteB
+                      ? 'Saber se posso confiar neste carro'
+                      : sinalLeilao?.positivo
+                        ? `Ver o registro de leilão no relatório completo · ${precoBRL(PLANOS.completa.valorCentavos)}`
                         : `Ver o que essa placa revela · ${precoBRL(PLANOS.completa.valorCentavos)}` }}
                   </button>
                   <p v-if="blocoVarianteB" class="cb-locked__pix">{{ garantiaBlocoB }}</p>
@@ -2082,6 +2168,7 @@ function applyEmailSuggestion() {
       :placa="premiumPlaca"
       :plano="premiumPlano"
       :ja-consultada="placaJaConsultada"
+      :ab-bloco="abBloco"
       @close="showPremiumCheckout = false"
     />
 
