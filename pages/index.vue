@@ -443,9 +443,14 @@ const camposBloqueados = RECURSOS_BLOQUEADOS
 const abBloco = ref<VarianteAbBloco>('A')
 const abBlocoDesligado = computed(() => useRuntimeConfig().public.abBloco === 'off')
 
-// B so vale sem sinal de leilao positivo: com registro encontrado a tela ja
-// fala do achado, e mexer nela seria testar duas coisas ao mesmo tempo.
-const blocoVarianteB = computed(() => abBloco.value === 'B' && !sinalLeilao.value?.positivo)
+// B = pagina de hoje COM a copy personalizada do #338 (decisao do Cesar,
+// assumindo o confound layout+copy). A trava `!sinalLeilao.positivo` saiu
+// (decisao #2): a copy personalizada do B agora vale nos DOIS estados, inclusive
+// com registro de leilao -- por isso ela tem PRECEDENCIA sobre a copy de leilao
+// no titulo/sub/CTA abaixo (a frase do registro achado segue aparecendo, e
+// aditiva). Com o teste desligado, abBloco fica 'A' -> blocoVarianteB false ->
+// a pagina cai na copy de controle.
+const blocoVarianteB = computed(() => abBloco.value === 'B')
 
 const fipeSemCentavosAtual = computed(() => fipeSemCentavos(resultadoBasico.value?.fipe))
 const tituloBlocoB = computed(() => tituloVarianteB(
@@ -1413,31 +1418,33 @@ function applyEmailSuggestion() {
             <!-- Com registro encontrado, perguntar "sera que tem leilao?"
                  contradiz a linha de cima, que acabou de dizer que TEM. O
                  titulo passa a falar do que fazer com o achado. -->
-            <h2 v-if="sinalLeilao?.positivo" class="cb-locked__h">
-              Registro de leilão encontrado.
-              <strong>Os detalhes estão no relatório completo.</strong>
-            </h2>
-            <!-- Variante B: o titulo deixa de falar do produto e passa a
-                 falar DESTE carro (marca, modelo, ano). "Pode ter" e nao
-                 "tem": nada aqui afirma defeito. Faltando marca, modelo ou
-                 ano, tituloVarianteB cai no titulo de sempre. -->
-            <h2 v-else-if="blocoVarianteB" class="cb-locked__h">
+            <!-- Variante B (precedencia sobre o estado de leilao, decisao #2): o
+                 titulo fala DESTE carro (marca, modelo, ano). "Pode ter" e nao
+                 "tem": nada aqui afirma defeito. Faltando marca/modelo/ano,
+                 tituloVarianteB cai no titulo de sempre. Quando ha registro de
+                 leilao, a frase do achado (fraseSinalLeilao) aparece acima, entao
+                 o titulo do B convive coerente com o sinal. -->
+            <h2 v-if="blocoVarianteB" class="cb-locked__h">
               {{ tituloBlocoB }}
               <strong>A consulta grátis não mostra.</strong>
+            </h2>
+            <h2 v-else-if="sinalLeilao?.positivo" class="cb-locked__h">
+              Registro de leilão encontrado.
+              <strong>Os detalhes estão no relatório completo.</strong>
             </h2>
             <h2 v-else class="cb-locked__h">
               Indicador de roubo, registro de leilão ou dívida escondida?
               <strong>A consulta grátis não mostra.</strong>
             </h2>
-            <p v-if="sinalLeilao?.positivo" class="cb-locked__sub">
+            <!-- Variante B: ancora o preco do relatorio no preco do CARRO
+                 (FIPE ja exibido acima). Sem FIPE a oracao do preco some
+                 inteira, em vez de sair "R$ -". -->
+            <p v-if="blocoVarianteB" class="cb-locked__sub">{{ subBlocoB }}</p>
+            <p v-else-if="sinalLeilao?.positivo" class="cb-locked__sub">
               Data, leiloeira, condição do veículo e mais <strong>{{ camposBloqueados.length }}</strong> verificações
               para este veículo: restrição, indicador de roubo e furto, gravame, bloqueio judicial, indicador de
               multas e mais. Liberado em até 5 minutos depois do pagamento.
             </p>
-            <!-- Variante B: ancora o preco do relatorio no preco do CARRO
-                 (FIPE ja exibido acima). Sem FIPE a oracao do preco some
-                 inteira, em vez de sair "R$ -". -->
-            <p v-else-if="blocoVarianteB" class="cb-locked__sub">{{ subBlocoB }}</p>
             <p v-else class="cb-locked__sub">
               Mais <strong>{{ camposBloqueados.length }}</strong> verificações para este veículo: restrição,
               indicador de roubo e furto, registro de leilão, gravame, bloqueio judicial, indicador de multas e mais.
@@ -1470,10 +1477,10 @@ function applyEmailSuggestion() {
                        baixo, junto do prazo e do estorno. O botao passa a
                        prometer a RESPOSTA ("da pra confiar?"), nao o produto. -->
                   <button type="button" class="cb-btn cb-btn--blue" @click="cliqueCtaCompleta('bloco_bloqueado')">
-                    {{ sinalLeilao?.positivo
-                      ? `Ver o registro de leilão no relatório completo · ${precoBRL(PLANOS.completa.valorCentavos)}`
-                      : blocoVarianteB
-                        ? 'Saber se posso confiar neste carro'
+                    {{ blocoVarianteB
+                      ? 'Saber se posso confiar neste carro'
+                      : sinalLeilao?.positivo
+                        ? `Ver o registro de leilão no relatório completo · ${precoBRL(PLANOS.completa.valorCentavos)}`
                         : `Ver o que essa placa revela · ${precoBRL(PLANOS.completa.valorCentavos)}` }}
                   </button>
                   <p v-if="blocoVarianteB" class="cb-locked__pix">{{ garantiaBlocoB }}</p>
