@@ -13,7 +13,7 @@ const AVISO_ESTORNO = 'cesarcbhering@gmail.com'
  * outro processo tenha gravado no meio tempo. Silenciosa por natureza: a
  * entrega ja aconteceu, e falhar aqui nao pode virar erro pra quem comprou.
  */
-function completarRecallDepois(
+export function completarRecallDepois(
   supabase: any,
   pedido: { id: string; placa: string; plano?: string | null; preview?: any },
   consultaId: string | null,
@@ -55,7 +55,7 @@ function completarRecallDepois(
  * snapshot ja gravado e nunca vira erro pra quem comprou. Renavam e UF saem da
  * propria resposta paga (o portal pede placa + renavam).
  */
-function completarMultasDepois(
+export function completarMultasDepois(
   supabase: any,
   pedido: { id: string; placa: string },
   ctx: { consultaId: string | null; response: any },
