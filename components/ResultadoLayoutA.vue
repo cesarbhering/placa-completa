@@ -85,6 +85,21 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
           <div v-if="dados?.chassiParcial" class="la-dado"><span>PARTE DO CHASSI</span><strong>{{ dados.chassiParcial }}</strong></div>
         </section>
 
+        <!-- ANCORA DE PRECO (some inteira sem FIPE parseavel). Fica ENTRE os
+             dados e o bloco de leilao/pendentes (ordem pedida pelo Cesar). -->
+        <section v-if="fipeValido" class="la-card la-ancora">
+          <h2>{{ precoCompleta }} agora, ou um carro que não transfere depois.</h2>
+          <div class="la-barra">
+            <div class="la-barra-rot"><span>Valor FIPE deste carro</span><strong>{{ valorFipeCurto }}</strong></div>
+            <div class="la-trilho la-trilho--cheio" />
+          </div>
+          <div class="la-barra">
+            <div class="la-barra-rot"><span>Relatório completo</span><strong>{{ precoCompleta }}</strong></div>
+            <div class="la-trilho"><b :style="barraRelatorioStyle" /></div>
+          </div>
+          <small><span>{{ pctFipe }}</span> do valor do carro para saber se ele carrega indício de roubo, leilão, financiamento ou bloqueio.</small>
+        </section>
+
         <!-- BLOCO LEILAO -->
         <section v-if="leilaoEncontrado" class="la-leilao">
           <div class="la-bloco-topo">
@@ -112,20 +127,6 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
             </div>
           </div>
           <p>O histórico de leilão cruza placa e chassi com mais de 1 milhão de veículos leiloados, inclusive leilões que não constam no documento.</p>
-        </section>
-
-        <!-- ANCORA DE PRECO (some inteira sem FIPE parseavel) -->
-        <section v-if="fipeValido" class="la-card la-ancora">
-          <h2>{{ precoCompleta }} agora, ou um carro que não transfere depois.</h2>
-          <div class="la-barra">
-            <div class="la-barra-rot"><span>Valor FIPE deste carro</span><strong>{{ valorFipeCurto }}</strong></div>
-            <div class="la-trilho la-trilho--cheio" />
-          </div>
-          <div class="la-barra">
-            <div class="la-barra-rot"><span>Relatório completo</span><strong>{{ precoCompleta }}</strong></div>
-            <div class="la-trilho"><b :style="barraRelatorioStyle" /></div>
-          </div>
-          <small><span>{{ pctFipe }}</span> do valor do carro para saber se ele carrega indício de roubo, leilão, financiamento ou bloqueio.</small>
         </section>
 
         <!-- FAQ -->
@@ -201,15 +202,19 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 .la-leilao { background:var(--la-orange-bg); border:1px solid var(--la-orange-line); border-radius:16px; padding:24px; display:flex; flex-direction:column; gap:16px; }
 .la-bloco-topo { display:flex; justify-content:space-between; align-items:baseline; gap:24px; }
 .la-bloco-topo h2 { margin:0; font-size:20px; font-weight:800; }
-.la-bloco-topo span { font-size:13px; }
-.la-leilao .la-bloco-topo span, .la-leilao > p { color:var(--la-orange-text); }
+/* So o SUBTITULO (span filho DIRETO do topo) e pequeno. O nome do veiculo
+   ({{ modeloCurto }}) vive DENTRO do h2 e tem que herdar o tamanho/peso/cor do
+   titulo -- por isso `> span` (nao pega o span do h2) + o inherit explicito. */
+.la-bloco-topo > span { font-size:13px; }
+.la-bloco-topo h2 span { font-size:inherit; font-weight:inherit; color:inherit; }
+.la-leilao .la-bloco-topo > span, .la-leilao > p { color:var(--la-orange-text); }
 .la-leilao-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
 .la-leilao-item { background:#fff; border:1px solid var(--la-orange-soft); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:10px; }
 .la-leilao-item > span { font-size:13px; color:var(--la-muted); }
 .la-leilao > p, .la-pendentes > p { margin:0; font-size:14px; line-height:1.5; }
 
 .la-pendentes { display:flex; flex-direction:column; gap:16px; }
-.la-pendentes .la-bloco-topo span, .la-pendentes > p { color:var(--la-muted); }
+.la-pendentes .la-bloco-topo > span, .la-pendentes > p { color:var(--la-muted); }
 .la-pendentes-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
 .la-pendente { background:#f9fafb; border:1px solid #eaecf0; border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:10px; }
 .la-pendente > span { font-size:14px; font-weight:700; }
@@ -253,7 +258,7 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 @media (max-width:960px) {
   .la-pagina { grid-template-columns:1fr; padding:20px 16px; gap:20px; }
   .la-coluna { display:contents; }
-  .la-titulo { order:1; } .la-compra { order:2; position:static; } .la-dados { order:3; } .la-leilao, .la-pendentes { order:4; } .la-ancora { order:5; } .la-faq { order:6; }
+  .la-titulo { order:1; } .la-compra { order:2; position:static; } .la-dados { order:3; } .la-ancora { order:4; } .la-leilao, .la-pendentes { order:5; } .la-faq { order:6; }
   .la-titulo h1 { font-size:28px; }
   .la-dados, .la-leilao-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .la-pendentes-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
