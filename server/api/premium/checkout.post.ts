@@ -42,6 +42,10 @@ export default defineEventHandler(async (event) => {
   // sai da tabela do servidor. Default 'completa' preserva o comportamento de
   // quem chamar sem o campo (checkouts antigos em cache, por exemplo).
   const plano = isPlanoPago(body.plano) ? body.plano : 'completa'
+  // Variante do teste A/B (layout da consulta gratis) que a pessoa viu na hora
+  // da compra. So aceita 'A'/'B'; qualquer outra coisa vira null. Carimba a
+  // atribuicao de venda por variante direto no pedido (sem join por placa).
+  const abBloco = body.ab_bloco === 'A' || body.ab_bloco === 'B' ? body.ab_bloco : null
 
   const supabase = usePremiumSupabase()
   const token = crypto.randomBytes(18).toString('base64url')
@@ -86,6 +90,8 @@ export default defineEventHandler(async (event) => {
       status: 'aguardando_pagamento', valor_centavos: valor, plano,
       preview: body.preview || null,
       ambiente,
+      // Variante do A/B que gerou a compra (null pra pedidos fora do teste).
+      ab_bloco: abBloco,
       // IP do comprador: usado pra resetar o limite gratis por hora (uma compra
       // paga zera o contador do usuario, casado por IP ou email).
       ip_address: getClientIp(event),

@@ -24,9 +24,16 @@ const props = withDefaults(defineProps<{
    * junto com o relatorio.
    */
   jaConsultada?: boolean
+  /**
+   * Variante do teste A/B (layout da consulta gratis) que a pessoa viu. Vai no
+   * corpo do checkout pra carimbar a atribuicao de venda por variante no pedido
+   * (coluna ab_bloco), em vez do join fragil por placa.
+   */
+  abBloco?: 'A' | 'B' | null
 }>(), {
   plano: 'completa',
   jaConsultada: false,
+  abBloco: null,
 })
 const emit = defineEmits<{ close: [] }>()
 
@@ -478,6 +485,8 @@ async function pagar() {
         // Marca de anuncio da sessao (gclid/msclkid/utm), pra origem da venda
         // ficar gravada no proprio pedido.
         origin: origemDaSessao(),
+        // Variante do A/B que a pessoa viu (carimba a atribuicao de venda).
+        ab_bloco: props.abBloco ?? undefined,
       },
     })
     step.value = 'pending'
