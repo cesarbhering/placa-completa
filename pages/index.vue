@@ -2082,6 +2082,7 @@ function applyEmailSuggestion() {
       :placa="premiumPlaca"
       :plano="premiumPlano"
       :ja-consultada="placaJaConsultada"
+      :ab-bloco="abBloco"
       @close="showPremiumCheckout = false"
     />
 
