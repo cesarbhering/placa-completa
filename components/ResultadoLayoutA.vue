@@ -10,11 +10,11 @@
 // Prova social fica de fora no v1 (decisao do Cesar). Precos vem do pai (shared/planos).
 // Header/logo reais sao do site (HomeHeader, ja renderizado acima no index).
 //
-// CTA (rodada 2, 26/set): a acao vive INLINE no fluxo do conteudo, logo apos o
-// bloco bloqueado (leilao/pendentes) -- o padrao que converte no B. A rodada 1
-// punha a CTA num card-aside sticky que parecia tabela de preco e pegou ZERO
-// clique (todo o gap do A veio dai). Agora e coluna unica, um botao de acao que
-// cai no olhar depois de a pessoa ver o que esta bloqueado.
+// CTA (rodada 2, 26/set): a acao vive INLINE no fluxo do conteudo -- logo apos
+// a ancora de preco e ANTES do bloco bloqueado (leilao/pendentes), posicao
+// pedida pelo Cesar. A rodada 1 punha a CTA num card-aside sticky que parecia
+// tabela de preco e pegou ZERO clique (todo o gap do A veio dai). Agora e coluna
+// unica, um botao de acao que cai no olhar logo depois da ancora de preco.
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
 const props = defineProps<{
@@ -105,6 +105,31 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         <small><span>{{ pctFipe }}</span> do valor do carro para saber se ele carrega indício de roubo, leilão, financiamento ou bloqueio.</small>
       </section>
 
+      <!-- ACAO PRINCIPAL: CTA inline no fluxo, logo apos a ancora de preco e
+           ANTES do bloco bloqueado (posicao pedida pelo Cesar). Botao de acao,
+           nao tabela de preco. -->
+      <section class="la-acao" aria-label="Liberar o relatório completo">
+        <h2 v-if="leilaoEncontrado">Libere o leilão e o relatório completo</h2>
+        <h2 v-else-if="modeloCurto">Libere o relatório completo deste <span>{{ modeloCurto }}</span></h2>
+        <h2 v-else>Libere o relatório completo</h2>
+        <p class="la-acao-sub">Tudo que a consulta grátis não mostra, em até 5 minutos depois do Pix.</p>
+        <div class="la-inclui">
+          <span v-for="it in ['Roubo e furto','Leilão','Gravame','RENAJUD','Multas','Restrições']" :key="it">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#067647" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>{{ it }}
+          </span>
+        </div>
+        <button ref="ctaRef" class="la-cta" type="button" @click="emit('comprar')">
+          <span v-if="leilaoEncontrado">Ver o leilão e o relatório · {{ precoCompleta }}</span>
+          <span v-else>Ver relatório completo · {{ precoCompleta }}</span>
+        </button>
+        <div class="la-cta-nota">Pix, uma vez · sem assinatura · nota fiscal sob pedido</div>
+        <p class="la-acao-basica">Só a ficha? Consulta básica por {{ precoBasica }} (sem roubo e restrições).</p>
+        <div class="la-garantia">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#067647" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
+          <div><strong>Não achou o veículo? O Pix volta sozinho.</strong> Sem cadastro, só um e-mail para o link.</div>
+        </div>
+      </section>
+
       <!-- BLOCO LEILAO -->
       <section v-if="leilaoEncontrado" class="la-leilao">
         <div class="la-bloco-topo">
@@ -132,30 +157,6 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
           </div>
         </div>
         <p>O histórico de leilão cruza placa e chassi com mais de 1 milhão de veículos leiloados, inclusive leilões que não constam no documento.</p>
-      </section>
-
-      <!-- ACAO PRINCIPAL: CTA inline no fluxo, logo apos o bloco bloqueado
-           (padrao que converte no B). Botao de acao, nao tabela de preco. -->
-      <section class="la-acao" aria-label="Liberar o relatório completo">
-        <h2 v-if="leilaoEncontrado">Libere o leilão e o relatório completo</h2>
-        <h2 v-else-if="modeloCurto">Libere o relatório completo deste <span>{{ modeloCurto }}</span></h2>
-        <h2 v-else>Libere o relatório completo</h2>
-        <p class="la-acao-sub">Tudo que a consulta grátis não mostra, em até 5 minutos depois do Pix.</p>
-        <div class="la-inclui">
-          <span v-for="it in ['Roubo e furto','Leilão','Gravame','RENAJUD','Multas','Restrições']" :key="it">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#067647" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>{{ it }}
-          </span>
-        </div>
-        <button ref="ctaRef" class="la-cta" type="button" @click="emit('comprar')">
-          <span v-if="leilaoEncontrado">Ver o leilão e o relatório · {{ precoCompleta }}</span>
-          <span v-else>Ver relatório completo · {{ precoCompleta }}</span>
-        </button>
-        <div class="la-cta-nota">Pix, uma vez · sem assinatura · nota fiscal sob pedido</div>
-        <p class="la-acao-basica">Só a ficha? Consulta básica por {{ precoBasica }} (sem roubo e restrições).</p>
-        <div class="la-garantia">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#067647" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
-          <div><strong>Não achou o veículo? O Pix volta sozinho.</strong> Sem cadastro, só um e-mail para o link.</div>
-        </div>
       </section>
 
       <!-- FAQ -->
