@@ -49,6 +49,13 @@ IDLE_STOP_S = int(os.environ.get("DETRAN_IDLE_STOP_S", "600"))
 EXTRACT_TIMEOUT_S = int(os.environ.get("DETRAN_EXTRACT_TIMEOUT_S", "180"))  # browser + login gov.br
 RUN_TIMEOUT_S = int(os.environ.get("DETRAN_RUN_TIMEOUT_S", "220"))  # fallback runner (navegacao)
 START_TIMEOUT_S = int(os.environ.get("DETRAN_START_TIMEOUT_S", "120"))
+# Apos uma extracao FALHAR (login/daemon), nao re-extrai por este tempo: nao
+# adianta martelar o login travado a cada consulta/reabertura -- devolve null e o
+# self-heal/proximo acesso cobre quando o backoff passar.
+EXTRACT_BACKOFF_S = int(os.environ.get("DETRAN_EXTRACT_BACKOFF_S", "300"))  # 5 min
+# Lock residual do harness que trava novos start do daemon (stale-daemon,
+# incidente recorrente): limpar antes de subir.
+SPAWNLOCK = os.path.expanduser("~/.config/browser-harness/runtime/bu-%s.spawnlock" % DAEMON)
 API_TIMEOUT_S = int(os.environ.get("DETRAN_API_TIMEOUT_S", "30"))
 LOCK_WAIT_S = int(os.environ.get("DETRAN_LOCK_WAIT_S", "8"))
 
@@ -57,6 +64,7 @@ _daemon_lock = threading.Lock()
 _session_lock = threading.Lock()
 _session = [None]                   # cache em memoria: dict {cookie,g_ck,ua,extracted_at} | None
 _last_use = [0.0]
+_ultima_falha_extracao = [0.0]   # timestamp da ultima extracao que falhou (backoff)
 
 
 def log(*a):
@@ -111,6 +119,15 @@ def ensure_daemon():
         if daemon_alive():
             return True
         log("daemon nao vivo; subindo cloud browser com profile", PROFILE)
+        # Stale spawnlock trava novos starts (incidente recorrente do harness):
+        # limpa antes. Ausente = ok (nao havia lock).
+        try:
+            os.remove(SPAWNLOCK)
+            log("spawnlock residual removido:", SPAWNLOCK)
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            log("rm spawnlock falhou:", repr(e)[:80])
         # O heredoc TEM que comecar com start_remote_daemon( senao o harness
         # tenta um Chrome local (inexistente no host) e falha.
         script = 'start_remote_daemon("%s", profileName="%s", proxyCountryCode="br")\n' % (DAEMON, PROFILE)
@@ -230,24 +247,44 @@ def _salva_sessao(s):
         log("nao salvou sessao:", repr(e)[:100])
 
 
+def _dentro_do_backoff(agora=None):
+    """True se a ultima extracao falhou ha menos que EXTRACT_BACKOFF_S -- nao
+    re-extrair agora (nao martela o login travado). `agora` injetavel pro teste."""
+    agora = time.time() if agora is None else agora
+    return _ultima_falha_extracao[0] > 0 and (agora - _ultima_falha_extracao[0]) < EXTRACT_BACKOFF_S
+
+
 def extrai_sessao():
     """Sobe o daemon, roda o script de extracao no browser e cacheia a sessao.
-    Devolve o dict da sessao ou None. Deve ser chamado sob _consulta_lock."""
+    Devolve o dict da sessao ou None. Deve ser chamado sob _consulta_lock.
+
+    BACKOFF: se a ultima extracao FALHOU ha < EXTRACT_BACKOFF_S, NAO tenta de novo
+    -- login travado nao vinga em segundos, e re-tentar a cada consulta so martela
+    o gov.br (agrava o throttle) e o daemon flaky. Devolve None; o self-heal /
+    proximo acesso cobre quando o backoff passar."""
+    if _dentro_do_backoff():
+        log("extracao em backoff (ultima falha ha %.0fs < %ds); nao re-extrai" % (time.time() - _ultima_falha_extracao[0], EXTRACT_BACKOFF_S))
+        return None
     if not ensure_daemon():
+        _ultima_falha_extracao[0] = time.time()
         log("extracao: daemon nao subiu")
         return None
     try:
         r = _run_harness_script(EXTRACT_SCRIPT, timeout=EXTRACT_TIMEOUT_S)
     except subprocess.TimeoutExpired:
+        _ultima_falha_extracao[0] = time.time()
         log("extracao: timeout")
         return None
     except Exception as e:
+        _ultima_falha_extracao[0] = time.time()
         log("extracao: erro", repr(e)[:120])
         return None
     s = _extrai_json_marcado(r.stdout or "")
     if not s or s.get("erro") or not s.get("g_ck") or not s.get("cookie"):
+        _ultima_falha_extracao[0] = time.time()
         log("extracao: sem sessao util |", (s or {}).get("erro"), "|", (r.stdout or "")[-160:].replace("\n", " "))
         return None
+    _ultima_falha_extracao[0] = 0.0  # sucesso: zera o backoff
     _session[0] = s
     _salva_sessao(s)
     log("sessao NOVA extraida: %d cookies detran (httpOnly: %s)" % (s.get("n_cookies_detran", 0), s.get("httponly")))
@@ -295,10 +332,18 @@ def fallback_runner(placa, renavam, uf):
 # ---- consulta (API direta, com fallback) -----------------------------------
 
 def consultar(placa, renavam, uf):
-    """Motor API: sessao-cache + 4 GETs. 401/403 -> re-extrai 1x. Falha -> runner."""
+    """Motor API: sessao-cache + 4 GETs. 401/403 -> re-extrai 1x.
+
+    Regra do fallback (o achado do auto-martelo): so cai no runner quando a falha
+    foi a API COM sessao valida (glitch de rede/API) -- ai o runner navega
+    reusando o browser ja logado, sem novo login. Se a sessao NAO existe (login/
+    daemon falhou), NAO cai no runner: ele tambem loga e so DOBRARIA o login
+    travado. Nesse caso e fail-open (o Nuxt entrega sem o bloco; o self-heal
+    cobre quando o login voltar, respeitando o backoff)."""
     s = get_sessao()
     if not s:
-        return fallback_runner(placa, renavam, uf)
+        # login/daemon falhou -> fail-open, SEM runner (nao dobrar o login travado)
+        return {"ok": False, "stage": "sessao-indisponivel", "placa": placa, "renavam": renavam}
     for tentativa in (1, 2):
         try:
             return detran_api.consultar_api(s, placa, renavam, timeout=API_TIMEOUT_S)
@@ -307,13 +352,17 @@ def consultar(placa, renavam, uf):
                 log("sessao expirada no meio; re-extraindo")
                 s = get_sessao(force=True)
                 if not s:
-                    return fallback_runner(placa, renavam, uf)
+                    # re-login falhou (ou em backoff) -> fail-open, SEM runner
+                    return {"ok": False, "stage": "sessao-expirada-sem-relogin", "placa": placa, "renavam": renavam}
                 continue
-            return fallback_runner(placa, renavam, uf)
+            # 401/403 de novo mesmo apos re-logar: sessao/permissao ruim, fail-open
+            return {"ok": False, "stage": "sessao-invalida", "placa": placa, "renavam": renavam}
         except Exception as e:
-            log("consulta API erro:", repr(e)[:140], "-> fallback")
+            # Erro de API/rede COM sessao valida (nao e login): aqui o runner e
+            # alternativa legitima -- navega reusando o browser ja logado.
+            log("consulta API erro (sessao valida):", repr(e)[:140], "-> fallback runner")
             return fallback_runner(placa, renavam, uf)
-    return fallback_runner(placa, renavam, uf)
+    return {"ok": False, "stage": "consulta-falhou", "placa": placa, "renavam": renavam}
 
 
 # ---- HTTP server -----------------------------------------------------------

@@ -18,9 +18,20 @@ Em vez de navegar a SPA (~66s), o worker:
    `User-Agent` da extração. Parseia no **mesmo contrato do runner antigo**.
 
 A sessão dura ~30min FIXO (não rolling) → **TTL de 25min**; expira no meio
-(401/403) → re-extrai 1× e repete. Qualquer falha da API/extração → **fallback
-para o runner de navegação** (`/root/detran-sp-runner.py`, plano B). A sessão
-persiste em `session.json` (0600) pra sobreviver a restart do worker.
+(401/403) → re-extrai 1× e repete. A sessão persiste em `session.json` (0600)
+pra sobreviver a restart do worker.
+
+**Regra do fallback (evita auto-martelo do login gov.br):** o **fallback para o
+runner de navegação** (`/root/detran-sp-runner.py`, plano B) só entra quando a
+falha foi a **API com sessão válida** (glitch de rede/API) — aí o runner navega
+reusando o browser já logado, sem novo login. Se a **sessão não existe** (login/
+daemon falhou), NÃO cai no runner (ele também loga e só dobraria o login
+travado): é **fail-open** (relatório sai sem o bloco; o self-heal do report.get
+cobre depois). Além disso, após uma extração falhar há um **backoff**
+(`DETRAN_EXTRACT_BACKOFF_S`, 5min): não re-extrai a cada consulta/reabertura —
+login travado não vinga em segundos e re-tentar só agrava o throttle. E o
+`ensure_daemon` limpa o **spawnlock** residual antes de subir o daemon
+(stale-daemon recorrente).
 
 **LGPD:** o `base` da API traz `nomeProprietario` + `idProprietario` (nome +
 CPF/CNPJ do dono). O parser **nunca** lê nem persiste isso — só campos técnicos
@@ -86,6 +97,7 @@ runner é auto-curável no login gov.br (captcha auto-resolve). Cold start (~15-
 | `DETRAN_SESSION_FILE` | `/opt/detran-worker/session.json` | cache da sessão (0600) |
 | `DETRAN_SESSION_TTL_S` | `1500` | validade da sessão (25min; TTL real ~30min FIXO) |
 | `DETRAN_EXTRACT_TIMEOUT_S` | `180` | timeout da extração (browser + login gov.br) |
+| `DETRAN_EXTRACT_BACKOFF_S` | `300` | após extração falhar, não re-extrai por este tempo (não martela o login travado) |
 | `DETRAN_API_TIMEOUT_S` | `30` | timeout de cada GET da API |
 | `DETRAN_IDLE_STOP_S` | `600` | ociosidade antes de parar o daemon |
 | `DETRAN_RUN_TIMEOUT_S` | `220` | timeout do runner de fallback |
