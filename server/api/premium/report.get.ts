@@ -97,7 +97,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro')
+    .select('id,status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Relatorio nao encontrado' })
@@ -142,6 +142,29 @@ export default defineEventHandler(async (event) => {
       historicoLeilao = snap.historicoLeilao ?? null
       recall = snap.recall ?? null
       multas = snap.multas ?? null
+      // Self-heal: a entrega busca recall/multas UMA vez e, se a raspagem deu
+      // timeout, o campo ficou null "pra sempre". Ao SERVIR um pedido entregue,
+      // se o INDICADOR diz que ha recall/multa mas o bloco esta null, redispara
+      // a busca em BACKGROUND (fire-and-forget: o relatorio sai como esta agora,
+      // o proximo acesso pega o bloco preenchido). Debounce por tipo+placa (90s)
+      // mata o storm de poll/reabertura; os freios de custo
+      // (podeGastar/TETO/MAX_TENTATIVAS dentro de buscar*) valem por cima,
+      // checados ANTES do run caro -- placa esgotada/acima do teto nao gasta.
+      const respostaSnap = (consulta as any)?.response
+      if (recall == null && temRecallPendente(respostaSnap) && podeReprocessar(`recall:${pedido.placa}`)) {
+        completarRecallDepois(
+          supabase,
+          { id: pedido.id, placa: pedido.placa, plano: pedido.plano, preview: pedido.preview },
+          pedido.consulta_id,
+        )
+      }
+      if (multas == null && temMultaSP(respostaSnap) && podeReprocessar(`multas:${pedido.placa}`)) {
+        completarMultasDepois(
+          supabase,
+          { id: pedido.id, placa: pedido.placa },
+          { consultaId: pedido.consulta_id, response: respostaSnap },
+        )
+      }
       // Snapshot antigo nao tem segmento gravado: recalcula na leitura a partir
       // da propria consulta, pra copy e checagens valerem no que ja foi vendido.
       segmento = snap.segmento ?? 'outro'
