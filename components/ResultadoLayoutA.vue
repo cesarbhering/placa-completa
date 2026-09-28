@@ -28,6 +28,8 @@ const props = defineProps<{
   leilaoEncontrado: boolean
   precoCompleta: string
   precoBasica: string
+  /** Frase de recall (Toyota/Lexus) ja resolvida pelo pai; '' = nao mostra. */
+  fraseRecall?: string
 }>()
 
 const emit = defineEmits<{ (e: 'comprar'): void; (e: 'cta-visto'): void }>()
@@ -77,6 +79,14 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
           <p>Leilão, indício de roubo e furto, financiamento e bloqueio judicial não aparecem na consulta grátis. É isso que trava a transferência ou derruba o preço.</p>
         </template>
       </div>
+
+      <!-- FLAG DE RECALL (Toyota/Lexus). So aparece quando CONSTA. Copy VAGA do
+           Cesar: nunca afirma pendente/atrasado. Ambar, nao vermelho: e aviso
+           pra conferir, nao acusacao. -->
+      <p v-if="fraseRecall" class="la-recall">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+        <span>{{ fraseRecall }}</span>
+      </p>
 
       <!-- DADOS GRATIS -->
       <section class="la-card la-dados" aria-label="Dados do veículo">
@@ -189,6 +199,10 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 .la-titulo h1 { margin:0; font-size:36px; line-height:1.14; font-weight:800; letter-spacing:-.5px; }
 .la-titulo h1 span { font-size:inherit; font-weight:inherit; color:inherit; }
 .la-titulo p { margin:0; font-size:17px; line-height:1.55; color:var(--la-ink2); }
+
+/* Flag de recall: ambar (nao vermelho). Aviso pra conferir, nao acusacao. */
+.la-recall { display:flex; align-items:flex-start; gap:10px; margin:0; padding:14px 16px; border-radius:12px; border:1px solid rgba(180,120,20,.42); background:rgba(214,158,46,.10); color:#8a5a10; font-size:15px; line-height:1.5; font-weight:600; }
+.la-recall svg { flex:0 0 auto; margin-top:1px; }
 
 .la-dados { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px 24px; }
 .la-dado { display:flex; flex-direction:column; gap:4px; min-width:0; }
