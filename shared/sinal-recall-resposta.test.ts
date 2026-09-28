@@ -22,15 +22,15 @@ describe('sinalRecallDaResposta', () => {
 })
 
 describe('fraseRecallNaTela (copy VAGA do Cesar)', () => {
-  it('firme: aviso de risco + verifique se ja foi atendido', () => {
+  it('firme: aviso de risco + aponta pro relatorio completo', () => {
     const f = fraseRecallNaTela({ consta: true, nivel: 'firme' })
     expect(f).toContain('consta em uma campanha de recall')
-    expect(f).toContain('Verifique se já foi atendido')
+    expect(f).toContain('no relatório completo se já foi atendido')
   })
-  it('suave: modelo/ano teve campanha + confira pelo chassi', () => {
+  it('suave: modelo/ano teve campanha + aponta pro relatorio completo', () => {
     const f = fraseRecallNaTela({ consta: true, nivel: 'suave' })
     expect(f).toContain('teve campanha de recall')
-    expect(f).toContain('Confira pelo chassi')
+    expect(f).toContain('no relatório completo se já foi resolvido')
   })
   it('nunca afirma pendente/atrasado', () => {
     for (const nivel of ['firme', 'suave'] as const) {

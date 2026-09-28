@@ -29,6 +29,6 @@ export function sinalRecallDaResposta(resposta: any): SinalRecallNaTela | null {
 export function fraseRecallNaTela(sinal: SinalRecallNaTela | null): string {
   if (!sinal?.consta) return ''
   return sinal.nivel === 'firme'
-    ? 'Este veículo consta em uma campanha de recall (aviso de risco). Verifique se já foi atendido.'
-    : 'Este modelo/ano teve campanha de recall. Confira pelo chassi e se já foi resolvido.'
+    ? 'Este veículo consta em uma campanha de recall (aviso de risco). Confira no relatório completo se já foi atendido.'
+    : 'Este modelo/ano teve campanha de recall. Confira no relatório completo se já foi resolvido.'
 }
