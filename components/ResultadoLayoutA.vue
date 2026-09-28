@@ -30,6 +30,8 @@ const props = defineProps<{
   precoBasica: string
   /** Frase de recall (Toyota/Lexus) ja resolvida pelo pai; '' = nao mostra. */
   fraseRecall?: string
+  /** Frase de leilao (vaga, aponta pro completo) ja resolvida pelo pai; '' = nao mostra. */
+  fraseLeilao?: string
 }>()
 
 const emit = defineEmits<{ (e: 'comprar'): void; (e: 'cta-visto'): void }>()
@@ -63,30 +65,28 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 <template>
   <div class="la-root">
     <main class="la-pagina">
-      <!-- TITULO -->
+      <!-- TITULO: neutro sempre. O leilao NAO vira mais titulo assertivo com
+           contagem (decisao Cesar 28/set): ele aparece como TAG vaga abaixo,
+           igual ao recall, apontando pro relatorio completo. -->
       <div class="la-titulo">
-        <template v-if="leilaoEncontrado">
-          <div class="la-sobre la-sobre--alerta">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-            ATENÇÃO NESTA PLACA
-          </div>
-          <h1>Este <span>{{ modeloCurto }}</span> tem <span>{{ qtdLeiloes }}</span> {{ qtdLeiloes === 1 ? 'registro' : 'registros' }} de leilão na nossa base.</h1>
-          <p>A consulta grátis mostra o que é o carro. Data, leiloeira, motivo e valor do leilão, e se ainda há indício de roubo, financiamento ou bloqueio, estão no relatório completo.</p>
-        </template>
-        <template v-else>
-          <div class="la-sobre">CONSULTA GRÁTIS CONCLUÍDA</div>
-          <h1>Você viu o que é o carro. Falta ver o que ele carrega.</h1>
-          <p>Leilão, indício de roubo e furto, financiamento e bloqueio judicial não aparecem na consulta grátis. É isso que trava a transferência ou derruba o preço.</p>
-        </template>
+        <div class="la-sobre">CONSULTA GRÁTIS CONCLUÍDA</div>
+        <h1>Você viu o que é o carro. Falta ver o que ele carrega.</h1>
+        <p>Leilão, indício de roubo e furto, financiamento e bloqueio judicial não aparecem na consulta grátis. É isso que trava a transferência ou derruba o preço.</p>
       </div>
 
-      <!-- FLAG DE RECALL (Toyota/Lexus). So aparece quando CONSTA. Copy VAGA do
-           Cesar: nunca afirma pendente/atrasado. Ambar, nao vermelho: e aviso
-           pra conferir, nao acusacao. -->
-      <p v-if="fraseRecall" class="la-recall">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-        <span>{{ fraseRecall }}</span>
-      </p>
+      <!-- TAGS de sinal (vagas, apontam pro completo): leilao VERMELHA e recall
+           AMBAR, paralelas e consistentes. So aparecem quando ha sinal. Copy
+           indicativa (Cesar): nunca afirma status/contagem no gratis. -->
+      <div v-if="fraseLeilao || fraseRecall" class="la-tags">
+        <p v-if="fraseLeilao" class="la-tag la-tag--leilao">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <span>{{ fraseLeilao }}</span>
+        </p>
+        <p v-if="fraseRecall" class="la-tag la-tag--recall">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <span>{{ fraseRecall }}</span>
+        </p>
+      </div>
 
       <!-- DADOS GRATIS -->
       <section class="la-card la-dados" aria-label="Dados do veículo">
@@ -140,22 +140,11 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         </div>
       </section>
 
-      <!-- BLOCO LEILAO -->
-      <section v-if="leilaoEncontrado" class="la-leilao">
-        <div class="la-bloco-topo">
-          <h2>Registro de leilão encontrado</h2>
-          <span>Placa e chassi cruzados com mais de 1 milhão de veículos leiloados</span>
-        </div>
-        <div class="la-leilao-grid">
-          <div v-for="rot in ['Data do leilão','Leiloeira','Motivo','Valor de venda']" :key="rot" class="la-leilao-item">
-            <span>{{ rot }}</span>
-            <span class="la-bloqueado"><i /><span class="la-lock" v-html="LockIcon" /></span>
-          </div>
-        </div>
-        <p>Carro de leilão costuma valer menos, pode ter restrição de seguro e às vezes nem consta no documento. Saiba antes de negociar.</p>
-      </section>
-
-      <section v-else class="la-card la-pendentes">
+      <!-- BLOCO BLOQUEADO: sempre o pendentes generico (o "Histórico de leilão"
+           ja e uma das linhas travadas aqui). O bloco laranja assertivo de
+           leilao saiu (Cesar 28/set): o leilao agora e a TAG vermelha vaga la
+           em cima, sem afirmar registro/contagem. -->
+      <section class="la-card la-pendentes">
         <div class="la-bloco-topo">
           <h2>O que decide a compra deste <span>{{ modeloCurto }}</span></h2>
           <span>Liberado no relatório completo</span>
@@ -201,8 +190,14 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 .la-titulo p { margin:0; font-size:17px; line-height:1.55; color:var(--la-ink2); }
 
 /* Flag de recall: ambar (nao vermelho). Aviso pra conferir, nao acusacao. */
-.la-recall { display:flex; align-items:flex-start; gap:10px; margin:0; padding:14px 16px; border-radius:12px; border:1px solid rgba(180,120,20,.42); background:rgba(214,158,46,.10); color:#8a5a10; font-size:15px; line-height:1.5; font-weight:600; }
-.la-recall svg { flex:0 0 auto; margin-top:1px; }
+/* Tags de sinal: leilao (vermelha) e recall (ambar), paralelas e consistentes. */
+.la-tags { display:flex; flex-direction:column; gap:10px; }
+.la-tag { display:flex; align-items:flex-start; gap:10px; margin:0; padding:14px 16px; border-radius:12px; border:1px solid; font-size:15px; line-height:1.5; font-weight:600; }
+.la-tag svg { flex:0 0 auto; margin-top:1px; }
+/* Recall: ambar (aviso pra conferir, nao acusacao). */
+.la-tag--recall { border-color:rgba(180,120,20,.42); background:rgba(214,158,46,.10); color:#8a5a10; }
+/* Leilao: vermelha (sinal de maior severidade). */
+.la-tag--leilao { border-color:rgba(211,58,58,.42); background:rgba(211,58,58,.07); color:#a32020; }
 
 .la-dados { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px 24px; }
 .la-dado { display:flex; flex-direction:column; gap:4px; min-width:0; }

@@ -1399,6 +1399,7 @@ function applyEmailSuggestion() {
           :preco-completa="precoBRL(PLANOS.completa.valorCentavos)"
           :preco-basica="precoBRL(PLANOS.basica.valorCentavos)"
           :frase-recall="fraseRecall"
+          :frase-leilao="fraseSinalLeilao"
           @comprar="cliqueCtaCompleta('layout_a')"
           @cta-visto="onCtaVistoLayoutA"
         />
