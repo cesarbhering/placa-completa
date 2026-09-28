@@ -54,11 +54,10 @@ export function sinalDoHistorico(historico: HistoricoLeilao | null | undefined):
  * em quase toda placa; depois virou uma linha neutra dizendo que a verificacao
  * existe; agora e silencio. Indisponivel (nao sabemos) sempre foi silencio.
  */
-export function fraseSinal(sinal: SinalLeilao, esteVeiculo: string): string {
+export function fraseSinal(sinal: SinalLeilao, _esteVeiculo?: string): string {
   if (!sinal.positivo) return ''
-  return sinal.quantidade === 1
-    ? `Encontramos 1 registro de leilão para ${esteVeiculo}. Detalhes (data, leiloeira, condição do veículo) no relatório completo.`
-    : `Encontramos ${sinal.quantidade} registros de leilão para ${esteVeiculo}. Detalhes (data, leiloeira, condição do veículo) no relatório completo.`
+  // Copy VAGA (Cesar, 28/set): indicativa, sem contagem, aponta pro completo.
+  return 'Existem indícios de leilão deste veículo em nossa base. Confira no relatório completo.'
 }
 
 /**

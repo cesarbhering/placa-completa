@@ -52,10 +52,11 @@ describe('frase do sinal', () => {
     expect(fraseSinal(SINAL_VAZIO, 'este carro')).toBe('')
   })
 
-  it('positiva diz quantos e manda o detalhe pro relatorio', () => {
-    expect(fraseSinal({ positivo: true, quantidade: 1 }, 'esta moto')).toContain('1 registro de leilão para esta moto')
-    expect(fraseSinal({ positivo: true, quantidade: 3 }, 'este carro')).toContain('3 registros')
-    expect(fraseSinal({ positivo: true, quantidade: 1 }, 'este carro')).toContain('relatório completo')
+  it('positiva e VAGA: indica sem contagem e aponta pro completo', () => {
+    const f = fraseSinal({ positivo: true, quantidade: 3 })
+    expect(f).toContain('indícios de leilão')
+    expect(f).toContain('relatório completo')
+    expect(f).not.toMatch(/\d+\s*registro/) // sem contagem no gratis
   })
 
   it('nao vaza detalhe nenhum na frase', () => {
