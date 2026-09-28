@@ -10,7 +10,8 @@ export interface RecallMatch {
   code: string | null
   name: string | null
   model: string | null
-  model_year: number | null
+  /** Vem como string ("2015/2016") do /v1/recall; guardado cru. */
+  model_year: number | string | null
   start_date: string | null
   /** firme = chassi bate (VIN cheio). suave = so modelo/ano. */
   nivel: 'firme' | 'suave'
@@ -45,7 +46,7 @@ function sanearMatches(bruto: unknown): RecallMatch[] {
       code: (m as any).code ?? null,
       name: (m as any).name ?? null,
       model: (m as any).model ?? null,
-      model_year: Number((m as any).model_year) || null,
+      model_year: (m as any).model_year ?? null,
       start_date: (m as any).start_date ?? null,
       nivel,
       situacao: String((m as any).situacao || 'consta_em_campanha'),
@@ -82,9 +83,11 @@ export async function consultarRecallToyota(
         chassi: chassi || null,
         marca: marca || null,
         modelo: String(perfil.modelo || '').trim() || null,
-        ano: perfil.ano ?? null,
-        ano_fab: perfil.ano_fab ?? null,
-        ano_mod: perfil.ano_mod ?? null,
+        // GOTCHA do contrato: ano/ano_fab/ano_mod sao STRING no /v1/recall
+        // (mandar "2015"; int da 422). Ver reports/plano.
+        ano: perfil.ano != null ? String(perfil.ano) : null,
+        ano_fab: perfil.ano_fab != null ? String(perfil.ano_fab) : null,
+        ano_mod: perfil.ano_mod != null ? String(perfil.ano_mod) : null,
       },
       timeout: opts?.timeoutMs || Number(config.leiloesApiTimeoutMs) || 15000,
     })
