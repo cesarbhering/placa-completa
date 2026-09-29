@@ -347,7 +347,7 @@ async function buscarRecallSinal() {
   if (!b?.placa) return
   // Marcas com base de recall (Toyota/Lexus + Chevrolet/GM): fora disso nem
   // chama (o server tambem gateia).
-  if (!/\b(toyota|lexus|chevrolet|gm|general\s*motors)\b/i.test(String(b.marca || ''))) { recallSinal.value = null; return }
+  if (!/\b(toyota|lexus|chevrolet|gm|general\s*motors|volkswagen|vw)\b/i.test(String(b.marca || ''))) { recallSinal.value = null; return }
   try {
     const r: any = await $fetch('/api/recall-sinal', {
       method: 'POST',
