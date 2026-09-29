@@ -37,12 +37,12 @@ export function sinalDoRecall(resposta: RecallResposta | null | undefined): Sina
 }
 
 /**
- * Marcas com base de recall por ora: Toyota/Lexus + Chevrolet/GM + Volkswagen/VW.
- * O escopo por marca do match e server-side (a leiloes-api ja trata o
+ * Marcas com base de recall por ora: Toyota/Lexus + Chevrolet/GM + Volkswagen/VW
+ * + Fiat. O escopo por marca do match e server-side (a leiloes-api ja trata o
  * falso-positivo cross-marca), aqui so liberamos quem chamar. As variantes que o
- * SENATRAN manda (ex "VW/GOL", "VOLKSWAGEN", "I/VW ...", "GM/CHEVROLET") batem
- * pelos tokens vw/volkswagen/chevrolet/gm com \b (o "/" e nao-palavra).
+ * SENATRAN manda (ex "VW/GOL", "VOLKSWAGEN", "I/VW ...", "GM/CHEVROLET",
+ * "FIAT/PALIO", "I/FIAT 500") batem pelos tokens com \b (o "/" e nao-palavra).
  */
 export function marcaTemRecall(marca: string | null | undefined): boolean {
-  return /\b(toyota|lexus|chevrolet|gm|general\s*motors|volkswagen|vw)\b/i.test(String(marca || ''))
+  return /\b(toyota|lexus|chevrolet|gm|general\s*motors|volkswagen|vw|fiat)\b/i.test(String(marca || ''))
 }
