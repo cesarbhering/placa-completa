@@ -20,8 +20,7 @@ export function completarRecallDepois(
 ): void {
   void (async () => {
     try {
-      const detalhe = await buscarRecallDetalhe(supabase, { placa: pedido.placa, consultaId })
-      if (!detalhe) return
+      // Le o snapshot PRIMEIRO: o modo autoritativo (GM) precisa de marca+chassi.
       const { data } = await supabase
         .from('pedidos_premium')
         .select('relatorio_snapshot')
@@ -29,17 +28,48 @@ export function completarRecallDepois(
         .maybeSingle()
       const snap = data?.relatorio_snapshot
       if (!snap || typeof snap !== 'object') return
-      const patch: any = { ...snap, recall: detalhe }
 
-      // Camada 2: se a FIPE ficou AMBIGUA (empate de cambio) e o recall diz o
-      // cambio, re-roda SO a FIPE com esse contexto no mesmo write. Fail-open.
-      const refinado = await refinarValorCustoPeloRecall(
-        supabase,
-        snap,
-        { placa: pedido.placa, plano: pedido.plano, consulta_id: consultaId, preview: pedido.preview },
-        detalhe,
-      )
-      if (refinado) patch.valorCusto = refinado
+      const resp = (snap as any)?.consulta?.response
+      const bruto = Array.isArray(resp) ? resp[0] : resp
+      const desc = String(bruto?.descricaoMarcaModelo || '')
+      const chassi = String(bruto?.chassi || '').trim()
+
+      // MODO AUTORITATIVO GM: so Chevrolet/GM + chassi cheio (17). Diz QUAL recall
+      // esta aberto pra ESTE chassi, direto da fonte da GM (via leiloes-api).
+      let autoritativo: Awaited<ReturnType<typeof consultarRecallAutoritativo>> = null
+      if (/\b(chevrolet|gm|general\s*motors)\b/i.test(desc) && chassi.length === 17) {
+        autoritativo = await consultarRecallAutoritativo({
+          placa: pedido.placa, chassi, marca: desc.split('/')[0], modelo: desc,
+          ano: bruto?.anoModelo ?? bruto?.anoFabricacao ?? null,
+          ano_fab: bruto?.anoFabricacao ?? null, ano_mod: bruto?.anoModelo ?? null,
+        })
+      }
+
+      // O scrape SENATRAN/local (browser) so entra quando o autoritativo NAO
+      // respondeu (ele ja e a fonte da verdade pra Chevrolet). Fail-open: se a GM
+      // caiu, cai no scrape de sempre.
+      let detalhe: Awaited<ReturnType<typeof buscarRecallDetalhe>> = null
+      if (!autoritativo?.consultado) {
+        detalhe = await buscarRecallDetalhe(supabase, { placa: pedido.placa, consultaId })
+      }
+      if (!detalhe && !autoritativo?.consultado) return
+
+      const patch: any = { ...snap }
+      if (detalhe) patch.recall = detalhe
+      if (autoritativo?.consultado) patch.recallAutoritativo = autoritativo
+
+      // Camada 2: se a FIPE ficou AMBIGUA (empate de cambio) e o recall (scrape)
+      // diz o cambio, re-roda SO a FIPE com esse contexto no mesmo write. So com
+      // o scrape (o autoritativo nao traz texto de cambio). Fail-open.
+      if (detalhe) {
+        const refinado = await refinarValorCustoPeloRecall(
+          supabase,
+          snap,
+          { placa: pedido.placa, plano: pedido.plano, consulta_id: consultaId, preview: pedido.preview },
+          detalhe,
+        )
+        if (refinado) patch.valorCusto = refinado
+      }
 
       await supabase
         .from('pedidos_premium')

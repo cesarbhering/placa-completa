@@ -98,3 +98,93 @@ export async function consultarRecallToyota(
     return null
   }
 }
+
+// ---------------------------------------------------------------------------
+// MODO AUTORITATIVO (só Chevrolet/GM + chassi cheio): o /v1/recall com
+// `autoritativo:true` devolve, além dos matches, um bloco vindo da fonte da GM
+// que diz SE o recall está aberto pra ESTE chassi e QUAIS campanhas. É isso que
+// vai no card de recall do relatório PAGO. Fail-open: se o bloco não vier (GM
+// caiu), devolve null e o pago mantém o que já tem (SENATRAN/local).
+// ---------------------------------------------------------------------------
+export interface CampanhaAutoritativa {
+  numero: string
+  titulo: string
+  descricao: string
+  risco: string
+  reparo: string
+  data: string
+}
+
+export interface RecallAutoritativo {
+  consultado: boolean
+  tem_recall_aberto: boolean
+  n_campanhas: number
+  campanhas: CampanhaAutoritativa[]
+}
+
+function sanearAutoritativo(bruto: unknown): RecallAutoritativo | null {
+  if (!bruto || typeof bruto !== 'object') return null
+  const b = bruto as any
+  // consultado FALSE (GM não respondeu) conta como "não veio" -> null (fail-open).
+  if (b.consultado !== true) return null
+  const lista = Array.isArray(b.campanhas) ? b.campanhas : []
+  return {
+    consultado: true,
+    tem_recall_aberto: b.tem_recall_aberto === true,
+    n_campanhas: Number(b.n_campanhas) || lista.length,
+    campanhas: lista.map((c: any) => ({
+      numero: texto(c?.numero),
+      titulo: texto(c?.titulo),
+      descricao: texto(c?.descricao),
+      risco: texto(c?.risco),
+      reparo: texto(c?.reparo),
+      data: texto(c?.data),
+    })).filter((c: CampanhaAutoritativa) => Object.values(c).some((v) => v !== '')),
+  }
+}
+
+function texto(v: unknown): string {
+  return typeof v === 'string' ? v.trim() : v === null || v === undefined ? '' : String(v)
+}
+
+/**
+ * Consulta autoritativa GM (Chevrolet + chassi cheio). Devolve o bloco
+ * autoritativo ou null (fail-open). Só chamar quando marca é Chevrolet/GM e o
+ * chassi está completo — a decisão de gatear fica no chamador.
+ */
+export async function consultarRecallAutoritativo(
+  perfil: PerfilRecall,
+  opts?: { timeoutMs?: number },
+): Promise<RecallAutoritativo | null> {
+  const config = useRuntimeConfig()
+  const base = String(config.leiloesApiUrl || '').replace(/\/+$/, '')
+  const key = String(config.leiloesApiKey || '')
+  if (!base || !key) return null
+  const chassi = String(perfil.chassi || '').trim()
+  if (!chassi) return null // autoritativo exige chassi cheio
+
+  try {
+    const res = await $fetch<any>(`${base}/v1/recall`, {
+      method: 'POST',
+      headers: {
+        'X-API-Key': key,
+        'X-Origem': config.public.gated ? 'homolog-premium' : 'prod-premium',
+      },
+      body: {
+        placa: perfil.placa || null,
+        chassi,
+        marca: String(perfil.marca || '').trim() || null,
+        modelo: String(perfil.modelo || '').trim() || null,
+        ano: perfil.ano != null ? String(perfil.ano) : null,
+        ano_fab: perfil.ano_fab != null ? String(perfil.ano_fab) : null,
+        ano_mod: perfil.ano_mod != null ? String(perfil.ano_mod) : null,
+        autoritativo: true,
+      },
+      timeout: opts?.timeoutMs || Number(config.leiloesApiTimeoutMs) || 15000,
+    })
+    return sanearAutoritativo(res?.autoritativo)
+  } catch (e: any) {
+    console.warn('[leiloes-api] recall autoritativo falhou (fail-open):', e?.message)
+    return null
+  }
+}

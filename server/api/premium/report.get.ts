@@ -125,6 +125,8 @@ export default defineEventHandler(async (event) => {
   // Detalhe do recall: vem do snapshot, igual ao resto. Snapshot antigo nao
   // tem o campo, e ai a tela mostra so o indicador, como sempre mostrou.
   let recall: any = null
+  // Modo autoritativo GM (Chevrolet + chassi cheio): vem do snapshot, igual ao recall.
+  let recallAutoritativo: any = null
   // Debitos e restricoes do orgao estadual: vem do snapshot, igual ao recall.
   // Snapshot antigo (ou sem multa) nao tem o campo e a secao some.
   let multas: any = null
@@ -141,6 +143,7 @@ export default defineEventHandler(async (event) => {
       // comprou (a regra do snapshot imutavel vale aqui tambem).
       historicoLeilao = snap.historicoLeilao ?? null
       recall = snap.recall ?? null
+      recallAutoritativo = snap.recallAutoritativo ?? null
       multas = snap.multas ?? null
       // Self-heal: a entrega busca recall/multas UMA vez e, se a raspagem deu
       // timeout, o campo ficou null "pra sempre". Ao SERVIR um pedido entregue,
@@ -229,6 +232,7 @@ export default defineEventHandler(async (event) => {
         chassiOrigem = snap.chassiOrigem ?? null
         historicoLeilao = snap.historicoLeilao ?? null
         recall = snap.recall ?? null
+        recallAutoritativo = snap.recallAutoritativo ?? null
         multas = snap.multas ?? null
         segmento = snap.segmento ?? 'outro'
       } else {
@@ -241,6 +245,7 @@ export default defineEventHandler(async (event) => {
         chassiOrigem = snapshot.chassiOrigem
         historicoLeilao = snapshot.historicoLeilao
         recall = snapshot.recall ?? null
+        recallAutoritativo = snapshot.recallAutoritativo ?? null
         multas = snapshot.multas ?? null
         segmento = snapshot.segmento
         // Backfill lazy: grava pra proxima visita ja vir do snapshot. Fail-open
@@ -268,6 +273,7 @@ export default defineEventHandler(async (event) => {
     chassiOrigem,
     historicoLeilao,
     recall,
+    recallAutoritativo,
     multas,
     segmento: segmento === 'outro' ? detectarSegmento({
       wdapi: pedido.preview,
