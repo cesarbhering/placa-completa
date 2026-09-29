@@ -34,10 +34,13 @@ export function completarRecallDepois(
       const desc = String(bruto?.descricaoMarcaModelo || '')
       const chassi = String(bruto?.chassi || '').trim()
 
-      // MODO AUTORITATIVO GM: so Chevrolet/GM + chassi cheio (17). Diz QUAL recall
-      // esta aberto pra ESTE chassi, direto da fonte da GM (via leiloes-api).
+      // MODO AUTORITATIVO: marcas com fonte autoritativa (Chevrolet/GM; VW quando
+      // o proxy VW estiver ligado na leiloes-api) + chassi cheio (17). Diz QUAL
+      // recall esta aberto pra ESTE chassi. Pra VW sem proxy, a leiloes-api nao
+      // devolve o bloco autoritativo -> consultarRecallAutoritativo volta null ->
+      // fail-open pro scrape SENATRAN. So deixa o plug marca-aware.
       let autoritativo: Awaited<ReturnType<typeof consultarRecallAutoritativo>> = null
-      if (/\b(chevrolet|gm|general\s*motors)\b/i.test(desc) && chassi.length === 17) {
+      if (/\b(chevrolet|gm|general\s*motors|volkswagen|vw)\b/i.test(desc) && chassi.length === 17) {
         autoritativo = await consultarRecallAutoritativo({
           placa: pedido.placa, chassi, marca: desc.split('/')[0], modelo: desc,
           ano: bruto?.anoModelo ?? bruto?.anoFabricacao ?? null,

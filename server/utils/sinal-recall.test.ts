@@ -21,8 +21,8 @@ describe('sinalDoRecall', () => {
   })
 })
 
-describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM)', () => {
-  it('Toyota, Lexus, Chevrolet e GM passam', () => {
+describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW)', () => {
+  it('Toyota, Lexus, Chevrolet, GM e VW passam', () => {
     expect(marcaTemRecall('TOYOTA')).toBe(true)
     expect(marcaTemRecall('toyota')).toBe(true)
     expect(marcaTemRecall('Lexus')).toBe(true)
@@ -30,10 +30,17 @@ describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM)', () => {
     expect(marcaTemRecall('GM')).toBe(true)
     expect(marcaTemRecall('GM - CHEVROLET')).toBe(true)
     expect(marcaTemRecall('General Motors')).toBe(true)
+    // variantes VW que o SENATRAN manda
+    expect(marcaTemRecall('VOLKSWAGEN')).toBe(true)
+    expect(marcaTemRecall('VW')).toBe(true)
+    expect(marcaTemRecall('VW/GOL')).toBe(true)
+    expect(marcaTemRecall('I/VW FOX')).toBe(true)
   })
   it('outras marcas e vazio nao passam', () => {
     expect(marcaTemRecall('HONDA')).toBe(false)
     expect(marcaTemRecall('')).toBe(false)
     expect(marcaTemRecall(null)).toBe(false)
+    // nao casar 'vw' dentro de outra palavra
+    expect(marcaTemRecall('BMWX')).toBe(false)
   })
 })
