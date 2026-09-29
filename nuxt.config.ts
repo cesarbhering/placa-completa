@@ -689,8 +689,12 @@ export default defineNuxtConfig({
       whatsappEnabled: process.env.NUXT_PUBLIC_WHATSAPP_ENABLED === "true",
       // Cartao (Stripe) habilitado na tela. Secundario ao Pix. Ligado no
       // ambiente que tiver as chaves do Stripe (junto de NUXT_STRIPE_SECRET_KEY);
-      // vazio = o botao "pagar com cartao" nem aparece.
+      // vazio = a aba "cartao" nem aparece.
       cartaoHabilitado: process.env.NUXT_PUBLIC_CARTAO_HABILITADO === "true",
+      // Chave publica do Stripe (pk_test/pk_live): o Stripe Elements no browser
+      // precisa dela pra montar os campos do cartao. Publica por natureza (nao e
+      // segredo). Vazia = a aba cartao nao consegue montar e fica indisponivel.
+      stripePublishableKey: process.env.NUXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
       // Kill switch do teste A/B do bloco bloqueado da consulta gratis.
       // "off" joga todo mundo na variante A (a tela de hoje) sem deploy de
       // codigo; qualquer outro valor mantem o sorteio 50/50.

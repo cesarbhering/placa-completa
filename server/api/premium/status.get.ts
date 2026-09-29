@@ -19,7 +19,11 @@ export default defineEventHandler(async (event) => {
     // trilha. Ver status-pagamento.ts pra a regressao "abriu Pix, trocou pra
     // cartao" que isto conserta.
     const pago = await detectarPagamento(pedido, {
-      checarStripe: async (sid) => stripeSessionPaga(await consultarStripeSession(sid)),
+      // v2 (Elements) guarda o pi_ do PaymentIntent; v1 (Checkout hospedado) o
+      // cs_ da sessao. Detecta os dois.
+      checarStripe: async (id) => id.startsWith('pi_')
+        ? paymentIntentPago(await consultarPaymentIntent(id))
+        : stripeSessionPaga(await consultarStripeSession(id)),
       checarPix: async (provider, chargeId) => {
         // Pergunta pro provedor que criou ESTA cobranca, nao pro configurado
         // agora: os dois convivem enquanto a troca acontece.

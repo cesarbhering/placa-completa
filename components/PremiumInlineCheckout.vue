@@ -52,8 +52,6 @@ const playBilling = usePlayBilling()
 type Step = 'loading' | 'gate' | 'confirm' | 'pending' | 'erro'
 const step = ref<Step>('loading')
 const loading = ref(false)
-// Loading do cartao (Stripe), separado do loading do Pix: cada botao tem o seu.
-const loadingCartao = ref(false)
 const msg = ref('')
 
 const senha = ref('')
@@ -376,14 +374,6 @@ async function confirmarEPagar() {
   await pagar()
 }
 
-// Cartao (Stripe), secundario ao Pix. Mesma validacao; em vez de gerar Pix,
-// cria a Checkout Session hospedada e redireciona pra ela.
-async function confirmarEPagarCartao() {
-  if (!(await validarCheckout())) return
-  trackAddPaymentInfo(props.plano, placaClean.value, precoExibidoCentavos.value)
-  await pagarCartao()
-}
-
 // E-mail pedido na tela do Pix, enquanto a pessoa paga. Salva sozinho no
 // blur: nao ha botao "confirmar e-mail" porque nao ha nada pra confirmar, e um
 // botao a mais nesta tela competiria com o Pix.
@@ -533,19 +523,82 @@ async function pagar() {
   }
 }
 
-// Cartao (Stripe): cria a Checkout Session hospedada no servidor e manda o
-// navegador pra ela. Diferente do Pix, aqui a pessoa SAI do modal pro checkout
-// do Stripe e volta pro success_url (a propria pagina do relatorio, que polla
-// ate a entrega). loadingCartao e separado do loading do Pix pra os dois
-// botoes nao se atrapalharem.
-async function pagarCartao() {
-  loadingCartao.value = true
-  msg.value = ''
-  if (cupomCodigo.value.trim()) await validarCupom()
+// ---------- Cartao v2: Stripe Elements EMBUTIDO (sem redirect) ----------
+// Aba "Cartao" com os campos do Stripe montados DENTRO do modal. O dado do
+// cartao so passa pelos iframes do Stripe (nunca pelo nosso servidor). O
+// PaymentIntent nasce no server (valor server-authoritative) e a confirmacao
+// (com 3DS quando o banco pedir) acontece aqui.
+const metodo = ref<'pix' | 'cartao'>('pix')
+const nomeCartao = ref('')
+const erroCartao = ref('')
+const processandoCartao = ref(false)
+const stripePronto = ref(false)
+let stripe: any = null
+let elements: any = null
+let cardNumber: any = null
+let cartaoMontado = false
+
+function carregarStripeJs(): Promise<any> {
+  const w = window as any
+  if (w.Stripe) return Promise.resolve(w.Stripe)
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = 'https://js.stripe.com/v3/'
+    s.async = true
+    s.onload = () => resolve((window as any).Stripe)
+    s.onerror = () => reject(new Error('falha ao carregar stripe.js'))
+    document.head.appendChild(s)
+  })
+}
+
+// Clicou na aba Cartao: troca de aba e, na PRIMEIRA vez, carrega o Stripe.js e
+// monta os campos. Idempotente (cartaoMontado).
+async function selecionarCartao() {
+  metodo.value = 'cartao'
+  if (cartaoMontado || !import.meta.client) return
+  const pk = String(cfg.public.stripePublishableKey || '')
+  if (!pk) { erroCartao.value = 'Cartão indisponível no momento. Use o Pix.'; return }
+  try {
+    const Stripe = await carregarStripeJs()
+    stripe = Stripe(pk, { locale: 'pt-BR' })
+    elements = stripe.elements()
+    const style = { base: { fontSize: '16px', color: '#1a1a1a', fontFamily: 'inherit', '::placeholder': { color: '#9aa3ad' } }, invalid: { color: '#c0392b' } }
+    cardNumber = elements.create('cardNumber', { style, showIcon: true, placeholder: '1234 1234 1234 1234' })
+    const cardExpiry = elements.create('cardExpiry', { style })
+    const cardCvc = elements.create('cardCvc', { style })
+    await nextTick()
+    cardNumber.mount('#pic-card-number')
+    cardExpiry.mount('#pic-card-expiry')
+    cardCvc.mount('#pic-card-cvc')
+    const onChange = (e: any) => { erroCartao.value = e?.error?.message || '' }
+    cardNumber.on('change', onChange); cardExpiry.on('change', onChange); cardCvc.on('change', onChange)
+    cartaoMontado = true
+    stripePronto.value = true
+  } catch {
+    erroCartao.value = 'Não conseguimos carregar o pagamento com cartão. Use o Pix.'
+  }
+}
+
+function mensagemErroCartao(error: any): string {
+  const m = String(error?.message || '')
+  if (error?.code === 'card_declined' || /declin|recusad/i.test(m)) return 'Cartão recusado. Confira os dados ou tente outro cartão.'
+  if (error?.code === 'expired_card') return 'Cartão vencido. Tente outro cartão.'
+  if (error?.code === 'incorrect_cvc') return 'CVV incorreto. Confira o código de segurança.'
+  return m || 'Não foi possível processar o cartão.'
+}
+
+// Paga com cartao: cria o PaymentIntent no server e confirma aqui (3DS quando o
+// banco pedir). Sucesso -> vai pra pagina do relatorio, que polla ate entregar.
+async function pagarComCartao() {
+  if (!stripe || !cardNumber) { erroCartao.value = 'Aguarde o pagamento carregar.'; return }
+  erroCartao.value = ''
+  if (!(await validarCheckout())) return
+  processandoCartao.value = true
   try {
     emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
     if (emailNoPedido.value) marcarEmailInformado('checkout')
-    const r: any = await $fetch('/api/premium/checkout-stripe', {
+    trackAddPaymentInfo(props.plano, placaClean.value, precoExibidoCentavos.value)
+    const r: any = await $fetch('/api/premium/cartao-intent', {
       method: 'POST',
       body: {
         placa: preview.value.placa,
@@ -557,22 +610,35 @@ async function pagarCartao() {
         cupom: cupomCodigo.value.trim() || undefined,
         origin: origemDaSessao(),
         ab_bloco: props.abBloco ?? undefined,
-        // Pra onde o Stripe volta se a pessoa cancelar: a pagina atual.
-        retornoUrl: import.meta.client ? window.location.href : undefined,
       },
     })
-    if (r?.url && import.meta.client) {
-      // Fora do modal, pro checkout hospedado do Stripe. O retorno cai no
-      // success_url (a pagina do relatorio) que polla ate ficar pronto.
-      window.location.assign(r.url)
+    if (!r?.clientSecret) { erroCartao.value = 'Não conseguimos iniciar o pagamento. Use o Pix.'; return }
+    const { error, paymentIntent } = await stripe.confirmCardPayment(r.clientSecret, {
+      payment_method: {
+        card: cardNumber,
+        billing_details: { name: nomeCartao.value.trim() || undefined, email: email.value.trim() || undefined },
+      },
+    })
+    if (error) { erroCartao.value = mensagemErroCartao(error); return }
+    if (paymentIntent?.status === 'succeeded' || paymentIntent?.status === 'processing') {
+      histAdd({
+        token: r.token,
+        placa: preview.value.placa,
+        veiculo: preview.value?.encontrado ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ') : null,
+        status: 'consultando',
+      })
+      trackConversionPaga(r.token, props.plano, r.valor)
+      // Vai pra pagina do relatorio: ela mostra "Confirmando o pagamento do
+      // cartao..." e polla o /status ate a entrega.
+      if (import.meta.client) window.location.assign(`/premium/${r.token}`)
       return
     }
-    msg.value = 'Não conseguimos abrir o pagamento com cartão agora. Você pode pagar com Pix.'
+    erroCartao.value = 'Pagamento não confirmado. Tente novamente ou use o Pix.'
   } catch (e: any) {
-    if (import.meta.dev) console.warn('[checkout] cartao falhou:', e?.data?.message || e)
-    msg.value = 'Não conseguimos abrir o pagamento com cartão agora. Você pode pagar com Pix.'
+    if (import.meta.dev) console.warn('[checkout] cartao v2 falhou:', e?.data?.message || e)
+    erroCartao.value = 'Não conseguimos processar o cartão agora. Use o Pix.'
   } finally {
-    loadingCartao.value = false
+    processandoCartao.value = false
   }
 }
 
@@ -873,58 +939,87 @@ onUnmounted(() => {
                 inputmode="tel"
               >
             </div>
-            <!-- Faixa de confianca enxuta: so as duas duvidas que de fato
-                 travam o clique (e se o carro nao aparecer? vai virar
-                 assinatura?), respondidas com o que o produto faz de verdade.
-                 O "quem processa o Pix" saiu pra linha-helper embaixo do botao,
-                 e o "+1 milhao de leiloados" e value-prop de pitch, nao do
-                 momento de pagar. Nada de prova social inventada. -->
-            <ul class="pic-conf">
-              <li v-if="!isCapacitor" class="pic-conf__item pic-conf__item--forte">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M12 3 20 6v6c0 4.5-3.3 7.9-8 9-4.7-1.1-8-4.5-8-9V6Z" />
-                  <path d="m9 12 2 2 4-4" />
-                </svg>
-                <span><strong>Estorno automático no Pix</strong> se não conseguirmos gerar seu relatório.</span>
-              </li>
-              <li class="pic-conf__item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <rect x="4" y="10" width="16" height="10" rx="2" />
-                  <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-                </svg>
-                <span>Pagamento único. Sem assinatura e sem cadastro.</span>
-              </li>
-            </ul>
-            <button
-              type="button"
-              class="pic-btn pic-btn--primary"
-              :disabled="loading || editandoPlaca"
-              @click="isCapacitor ? comprarPeloPlay() : confirmarEPagar()"
-            >
-              {{ rotuloPagar }}
-            </button>
-            <!-- Reasseguranca fora do botao: Pix, estorno e prazo numa linha
-                 discreta logo abaixo da CTA. So na web (no app quem cobra e o
-                 Google Play, e o estorno segue a politica da loja). -->
-            <p v-if="!isCapacitor" class="pic-hint pic-hint--cta">Pagamento por Pix · estorno se não acharmos o veículo · entrega em até 5 min</p>
-            <!-- Cartao (Stripe), forma SECUNDARIA no rodape. Discreto de
-                 proposito: o Pix (acima) fica em foco. So na web e so quando o
-                 ambiente tem as chaves do Stripe. -->
-            <div v-if="cartaoHabilitado" class="pic-cartao">
-              <div class="pic-cartao__ou"><span>ou</span></div>
+            <!-- Abas de pagamento: Pix | Cartao. So aparecem quando o cartao esta
+                 habilitado (chaves do Stripe no ambiente); senao o Pix segue sem
+                 abas, exatamente como antes. Pix vem selecionado. -->
+            <div v-if="cartaoHabilitado" class="pic-tabs" role="tablist" aria-label="Forma de pagamento">
+              <button type="button" role="tab" :aria-selected="metodo === 'pix'" class="pic-tab" :class="{ 'pic-tab--on': metodo === 'pix' }" @click="metodo = 'pix'">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 8 6l4 4 4-4-4-4Zm-6 6-4 4 4 4 4-4-4-4Zm12 0-4 4 4 4 4-4-4-4Zm-6 6-4 4 4 4 4-4-4-4Z" /></svg>
+                Pix
+              </button>
+              <button type="button" role="tab" :aria-selected="metodo === 'cartao'" class="pic-tab" :class="{ 'pic-tab--on': metodo === 'cartao' }" @click="selecionarCartao">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>
+                Cartão de crédito
+              </button>
+            </div>
+
+            <!-- Painel PIX (fica montado; a aba so troca a visibilidade). -->
+            <div v-show="metodo === 'pix'">
+              <!-- Faixa de confianca enxuta: so as duas duvidas que de fato travam
+                   o clique (e se o carro nao aparecer? vai virar assinatura?). -->
+              <ul class="pic-conf">
+                <li v-if="!isCapacitor" class="pic-conf__item pic-conf__item--forte">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 3 20 6v6c0 4.5-3.3 7.9-8 9-4.7-1.1-8-4.5-8-9V6Z" />
+                    <path d="m9 12 2 2 4-4" />
+                  </svg>
+                  <span><strong>Estorno automático no Pix</strong> se não conseguirmos gerar seu relatório.</span>
+                </li>
+                <li class="pic-conf__item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="4" y="10" width="16" height="10" rx="2" />
+                    <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                  </svg>
+                  <span>Pagamento único. Sem assinatura e sem cadastro.</span>
+                </li>
+              </ul>
               <button
                 type="button"
-                class="pic-btn pic-btn--cartao"
-                :disabled="loading || loadingCartao || editandoPlaca"
-                @click="confirmarEPagarCartao"
+                class="pic-btn pic-btn--primary"
+                :disabled="loading || editandoPlaca"
+                @click="isCapacitor ? comprarPeloPlay() : confirmarEPagar()"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <rect x="2" y="5" width="20" height="14" rx="2" />
-                  <path d="M2 10h20" />
-                </svg>
-                {{ loadingCartao ? 'Abrindo pagamento...' : 'Pagar com cartão' }}
+                {{ rotuloPagar }}
               </button>
-              <p class="pic-cartao__bandeiras">Visa, Mastercard e Elo · pagamento à vista</p>
+              <p v-if="!isCapacitor" class="pic-hint pic-hint--cta">Pagamento por Pix · estorno se não acharmos o veículo · entrega em até 5 min</p>
+            </div>
+
+            <!-- Painel CARTAO: Stripe Elements montado nos divs abaixo. v-show (nao
+                 v-if) mantem os pontos de montagem no DOM entre as trocas de aba. -->
+            <div v-if="cartaoHabilitado" v-show="metodo === 'cartao'" class="pic-cartao-form">
+              <div class="pic-campo">
+                <label class="pic-label" for="pic-card-number">Número do cartão</label>
+                <div id="pic-card-number" class="pic-input pic-stripe-el" />
+              </div>
+              <div class="pic-card-linha">
+                <div class="pic-campo">
+                  <label class="pic-label" for="pic-card-expiry">Validade</label>
+                  <div id="pic-card-expiry" class="pic-input pic-stripe-el" />
+                </div>
+                <div class="pic-campo">
+                  <label class="pic-label" for="pic-card-cvc">CVV</label>
+                  <div id="pic-card-cvc" class="pic-input pic-stripe-el" />
+                </div>
+              </div>
+              <div class="pic-campo">
+                <label class="pic-label" for="pic-card-nome">Nome no cartão</label>
+                <input id="pic-card-nome" v-model="nomeCartao" type="text" class="pic-input" placeholder="Como aparece no cartão" autocomplete="cc-name">
+              </div>
+              <p v-if="erroCartao" class="pic-cupom__erro">{{ erroCartao }}</p>
+              <button
+                type="button"
+                class="pic-btn pic-btn--primary"
+                :disabled="processandoCartao || !stripePronto || editandoPlaca"
+                @click="pagarComCartao"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+                {{ processandoCartao ? 'Processando...' : `Pagar ${reais(precoExibidoCentavos)}` }}
+              </button>
+              <p v-if="!stripePronto && !erroCartao" class="pic-hint pic-hint--cta">Carregando pagamento seguro...</p>
+              <p class="pic-hint pic-cartao-seguro">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+                Pagamento processado com segurança pelo Stripe. Não armazenamos os dados do seu cartão.
+              </p>
             </div>
             <!-- Sem "Cancelar" no rodape: o X do cabecalho (pic-x, sempre visivel)
                  ja fecha o modal. Um botao a mais so competia com a CTA. -->
@@ -1481,36 +1576,71 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     &:disabled { background: $c-steel; border-color: $c-steel; color: #fff; }
   }
 
-  // Cartao: secundario e discreto (outline), pra nao competir com o Pix acima.
-  &--cartao {
-    gap: 8px;
-    min-height: 42px;
-    text-transform: none;
-    letter-spacing: 0.2px;
-    font-weight: 500;
-    color: $c-charcoal;
-    border-color: $c-steel;
-    background: #fff;
+  svg { flex-shrink: 0; }
+}
 
-    svg { width: 18px; height: 18px; }
-    &:hover { background: $c-cloud; border-color: $c-ink; color: $c-ink; }
+// Abas de pagamento (Pix | Cartao), no nosso estilo (azul da marca, nada roxo).
+.pic-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+.pic-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 10px 12px;
+  font-family: $fonte;
+  font-size: 14px;
+  font-weight: 600;
+  color: $c-charcoal;
+  background: $c-canvas;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  &:hover { border-color: $c-steel; }
+  &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+
+  // Aba ativa: preenchida com o azul da marca.
+  &--on {
+    color: #fff;
+    background: $c-blue;
+    border-color: $c-blue;
+    &:hover { border-color: $c-blue; }
   }
 }
 
-// Bloco do cartao no rodape do checkout (secundario ao Pix).
-.pic-cartao { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
-.pic-cartao__ou {
+// Formulario do cartao (Stripe Elements montado nos .pic-stripe-el).
+.pic-cartao-form { display: flex; flex-direction: column; }
+.pic-card-linha {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+// O Stripe monta um iframe dentro; a caixa precisa da MESMA cara do input, com
+// padding vertical que centre o campo (o iframe nao herda o line-height).
+.pic-stripe-el {
+  display: block;
+  padding-top: 13px;
+  padding-bottom: 13px;
+}
+.pic-cartao-seguro {
   display: flex;
   align-items: center;
-  color: $c-steel;
+  gap: 6px;
+  justify-content: center;
+  text-align: center;
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
+  color: $c-steel;
+  margin-top: 12px;
 
-  &::before, &::after { content: ''; flex: 1; height: 1px; background: #e8e8e8; }
-  span { padding: 0 12px; }
+  svg { flex-shrink: 0; color: $c-steel; }
 }
-.pic-cartao__bandeiras { text-align: center; font-size: 12px; color: $c-steel; margin: 0; }
 
 .pic-link {
   background: transparent;
