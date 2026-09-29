@@ -130,6 +130,46 @@ export function stripeSessionPaga(s: StripeSession | null | undefined): boolean 
 }
 
 /**
+ * Estorno automatico do cartao — paridade com o reembolsarPix. Usado pelo
+ * processarPedidoPago quando o cliente pagou e a consulta falhou. O refund bate
+ * no payment_intent da sessao (nao na session), com Idempotency-Key pelo pedido
+ * pra um retry nao estornar duas vezes. Devolve { ok, error } igual ao Pix.
+ * status 'pending' conta como ok (o banco ainda processa, mas o refund existe).
+ */
+export async function reembolsarStripe(sessionId: string, pedidoId: string): Promise<{ ok: boolean; error?: string }> {
+  const { secret } = stripeConfig()
+  if (!secret) return { ok: false, error: 'stripe nao configurado' }
+  if (!sessionId) return { ok: false, error: 'sessao ausente' }
+  try {
+    // O refund precisa do payment_intent, que a session so revela depois de paga.
+    const rs = await fetch(`${STRIPE_API}/checkout/sessions/${encodeURIComponent(sessionId)}`, {
+      headers: { Authorization: `Bearer ${secret}` },
+    })
+    const sess: any = await rs.json().catch(() => ({}))
+    if (!rs.ok) return { ok: false, error: `sessao: ${sess?.error?.message || rs.status}` }
+    const pi = typeof sess.payment_intent === 'string' ? sess.payment_intent : sess.payment_intent?.id
+    if (!pi) return { ok: false, error: 'sessao sem payment_intent (nao paga?)' }
+
+    const rr = await fetch(`${STRIPE_API}/refunds`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${secret}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        // Retry de rede nao gera dois estornos pro mesmo pedido.
+        'Idempotency-Key': `refund_${pedidoId}`,
+      },
+      body: new URLSearchParams({ payment_intent: pi }).toString(),
+    })
+    const ref: any = await rr.json().catch(() => ({}))
+    if (!rr.ok || !ref?.id) return { ok: false, error: `refund: ${ref?.error?.message || rr.status}` }
+    if (ref.status === 'failed' || ref.status === 'canceled') return { ok: false, error: `refund status ${ref.status}` }
+    return { ok: true }
+  } catch (e: any) {
+    return { ok: false, error: String(e?.message || e) }
+  }
+}
+
+/**
  * Verifica a assinatura do webhook (header Stripe-Signature: "t=<ts>,v1=<hex>").
  * signedPayload = `${t}.${rawBody}`; compara HMAC-SHA256(signedPayload, whsec)
  * com cada v1 em tempo constante. Rejeita timestamp velho (replay) alem da
