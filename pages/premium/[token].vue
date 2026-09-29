@@ -1630,7 +1630,7 @@ onUnmounted(() => {
 
             <!-- Multas e débitos no órgão de trânsito do estado (SP): o
                  indicador de multa acende, e aqui vem o VALOR e o detalhe. -->
-            <div v-if="multaIndicadorSP" class="rel__multas">
+            <div v-if="multaIndicadorSP || multasDetalhe" class="rel__multas">
               <p class="rel__multas-tit">Multas e débitos</p>
               <template v-if="multasDetalhe">
                 <!-- Multas e débitos: total grande + breakdown -->
