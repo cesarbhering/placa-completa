@@ -119,6 +119,13 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
            ANTES do bloco bloqueado (posicao pedida pelo Cesar). Botao de acao,
            nao tabela de preco. -->
       <section class="la-acao" aria-label="Liberar o relatório completo">
+        <!-- Botao NO TOPO do card (Cesar 28/set): em notebook ele ficava abaixo
+             da dobra e exigia scroll. Agora aparece antes do titulo, sem rolar. -->
+        <button ref="ctaRef" class="la-cta" type="button" @click="emit('comprar')">
+          <span v-if="leilaoEncontrado">Ver o leilão e o relatório · {{ precoCompleta }}</span>
+          <span v-else>Ver relatório completo · {{ precoCompleta }}</span>
+        </button>
+        <div class="la-cta-nota">Pix, uma vez · sem assinatura · nota fiscal sob pedido</div>
         <h2 v-if="leilaoEncontrado">Libere o leilão e o relatório completo</h2>
         <h2 v-else-if="modeloCurto">Libere o relatório completo deste <span>{{ modeloCurto }}</span></h2>
         <h2 v-else>Libere o relatório completo</h2>
@@ -128,11 +135,6 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#067647" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>{{ it }}
           </span>
         </div>
-        <button ref="ctaRef" class="la-cta" type="button" @click="emit('comprar')">
-          <span v-if="leilaoEncontrado">Ver o leilão e o relatório · {{ precoCompleta }}</span>
-          <span v-else>Ver relatório completo · {{ precoCompleta }}</span>
-        </button>
-        <div class="la-cta-nota">Pix, uma vez · sem assinatura · nota fiscal sob pedido</div>
         <p class="la-acao-basica">Só a ficha? Consulta básica por {{ precoBasica }} (sem roubo e restrições).</p>
         <div class="la-garantia">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#067647" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
@@ -140,11 +142,26 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         </div>
       </section>
 
-      <!-- BLOCO BLOQUEADO: sempre o pendentes generico (o "Histórico de leilão"
-           ja e uma das linhas travadas aqui). O bloco laranja assertivo de
-           leilao saiu (Cesar 28/set): o leilao agora e a TAG vermelha vaga la
-           em cima, sem afirmar registro/contagem. -->
-      <section class="la-card la-pendentes">
+      <!-- BLOCO LEILAO (isca de venda, restaurado a pedido do Cesar 28/set): os
+           campos travados Data/Leiloeira/Motivo/Valor borrados convertem. O
+           SINAL vago fica na TAG vermelha la em cima; aqui e a isca do que se
+           libera. Titulo neutro (sem contagem). Quando NAO ha leilao, cai no
+           pendentes generico. -->
+      <section v-if="leilaoEncontrado" class="la-leilao">
+        <div class="la-bloco-topo">
+          <h2>Registro de leilão encontrado</h2>
+          <span>Placa e chassi cruzados com mais de 1 milhão de veículos leiloados</span>
+        </div>
+        <div class="la-leilao-grid">
+          <div v-for="rot in ['Data do leilão','Leiloeira','Motivo','Valor de venda']" :key="rot" class="la-leilao-item">
+            <span>{{ rot }}</span>
+            <span class="la-bloqueado"><i /><span class="la-lock" v-html="LockIcon" /></span>
+          </div>
+        </div>
+        <p>Carro de leilão costuma valer menos, pode ter restrição de seguro e às vezes nem consta no documento. Saiba antes de negociar.</p>
+      </section>
+
+      <section v-else class="la-card la-pendentes">
         <div class="la-bloco-topo">
           <h2>O que decide a compra deste <span>{{ modeloCurto }}</span></h2>
           <span>Liberado no relatório completo</span>
