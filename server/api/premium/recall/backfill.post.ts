@@ -118,10 +118,10 @@ export default defineEventHandler(async (event) => {
       const bruto = Array.isArray(resp) ? resp[0] : resp
       const desc = String(bruto?.descricaoMarcaModelo || '')
       const chassi = String(bruto?.chassi || '').trim()
-      const ehChevrolet = /\b(chevrolet|gm|general\s*motors)\b/i.test(desc)
+      const ehMarcaAutoritativa = /\b(chevrolet|gm|general\s*motors|volkswagen|vw)\b/i.test(desc)
       const indicador = temRecallPendente(resp)
-      const diag: any = { token: p.token_entrega, desc, chassiLen: chassi.length, ehChevrolet, indicadorRecall: indicador }
-      if (!ehChevrolet) { out.push({ ...diag, pulado: 'nao Chevrolet' }); continue }
+      const diag: any = { token: p.token_entrega, desc, chassiLen: chassi.length, ehMarcaAutoritativa, indicadorRecall: indicador }
+      if (!ehMarcaAutoritativa) { out.push({ ...diag, pulado: 'marca sem modo autoritativo (nem Chevrolet/GM nem VW)' }); continue }
       if (chassi.length !== 17) { out.push({ ...diag, pulado: 'chassi nao cheio' }); continue }
       if (!indicador) { out.push({ ...diag, pulado: 'SENATRAN nao flaggou indicadorRecall (gate fechado, decisao do Cesar)' }); continue }
       const aut = await consultarRecallAutoritativo({
