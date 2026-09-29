@@ -97,7 +97,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro')
+    .select('id,status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro,forma_pagamento')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Relatorio nao encontrado' })
@@ -296,5 +296,9 @@ export default defineEventHandler(async (event) => {
     brCode: pendente && !expirado ? pedido.br_code : null,
     expiraEm: pendente ? pedido.expira_em : null,
     expirado,
+    // Meio de pagamento: a tela usa pra NUNCA mostrar QR de Pix num pedido de
+    // cartao (mostra "confirmando o cartao" ate o status virar) e pra nao tentar
+    // renovar Pix nele.
+    formaPagamento: (pedido as any).forma_pagamento || 'pix',
   }
 })
