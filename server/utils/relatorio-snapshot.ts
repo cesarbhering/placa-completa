@@ -2,6 +2,7 @@ import { filtrarPorPlano, camposRestantes } from '../../shared/planos'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { candidatoEManual, candidatoEAutomatico } from './fipe-candidato'
 import type { RecallDetalhe } from './recall-detalhe'
+import type { RecallAutoritativo } from './recall-toyota'
 import type { MultasDetalhe } from './detran-multas'
 
 // Monta o payload agregado do relatorio (consulta filtrada por plano +
@@ -26,6 +27,13 @@ export interface RelatorioSnapshot {
    * relatorio mostra o indicador vermelho de sempre, so sem o detalhe.
    */
   recall?: RecallDetalhe | null
+  /**
+   * Modo AUTORITATIVO da GM (só Chevrolet + chassi cheio): diz SE o recall está
+   * aberto pra ESTE chassi e QUAIS campanhas, direto da fonte da GM. Escrito
+   * DEPOIS da entrega (igual ao recall). null = não é Chevrolet, sem chassi
+   * cheio, ou a GM não respondeu (aí o card mantém o recall SENATRAN/local).
+   */
+  recallAutoritativo?: RecallAutoritativo | null
   /**
    * Debitos e restricoes do orgao de transito estadual (SP hoje). Como o recall,
    * e escrito DEPOIS da entrega por uma busca solta: null quando nao ha multa,

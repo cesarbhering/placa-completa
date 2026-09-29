@@ -970,6 +970,16 @@ const recallSubtitulo = computed(() => {
   return ''
 })
 
+// Modo AUTORITATIVO GM (Chevrolet + chassi cheio): a fonte da GM diz SE o recall
+// esta aberto pra ESTE chassi e QUAIS campanhas. Quando vem (consultado), e a
+// verdade; quando nao vem, o card cai no recall SENATRAN/local de cima.
+const recallAutoritativo = computed(() => {
+  const a: any = data.value?.recallAutoritativo
+  return a && a.consultado === true ? a : null
+})
+const recallAbertoGM = computed(() => recallAutoritativo.value?.tem_recall_aberto === true)
+const recallCampanhasGM = computed(() => (recallAutoritativo.value?.campanhas || []).filter((c: any) => c?.titulo || c?.descricao))
+
 // Débitos e restrições no órgão de trânsito do estado (SP hoje). O indicador de
 // multa diz que EXISTE; o valor e o detalhe vêm de uma busca solta na entrega,
 // igual ao recall. A fonte não é citada pro cliente: é "o órgão de trânsito do
@@ -1665,27 +1675,48 @@ onUnmounted(() => {
 
             <!-- Recall pendente: a primeira pergunta de quem ve o cartao
                  vermelho e "recall de que?". -->
-            <div v-if="recallPendente" class="rel__recall">
-              <div class="rel__recall-top">
-                <div class="rel__recall-ic">!</div>
-                <div>
-                  <p class="rel__recall-tit">Recall pendente de atendimento</p>
-                  <p v-if="recallSubtitulo" class="rel__recall-sub">{{ recallSubtitulo }}</p>
+            <div v-if="recallPendente || recallAbertoGM" class="rel__recall">
+              <!-- MODO AUTORITATIVO GM (Chevrolet + chassi cheio): a fonte da GM
+                   confirma o recall ABERTO e QUAIS campanhas. Precede o
+                   SENATRAN/local. -->
+              <template v-if="recallAbertoGM">
+                <div class="rel__recall-top">
+                  <div class="rel__recall-ic">!</div>
+                  <div>
+                    <p class="rel__recall-tit">Recall aberto neste veículo</p>
+                    <p class="rel__recall-sub">{{ recallCampanhasGM.length === 1 ? '1 campanha em aberto' : `${recallCampanhasGM.length} campanhas em aberto` }}</p>
+                  </div>
                 </div>
-              </div>
-              <template v-if="recallCampanhas.length">
-                <template v-for="(c, idx) in recallCampanhas" :key="idx">
-                  <p v-if="recallCampanhas.length > 1 && (c.campanha || c.data_inicio)" class="rel__recall-sub rel__recall-sub--item">
-                    {{ legendaCampanha(c) }}
-                  </p>
-                  <p class="rel__recall-body">
-                    <b v-if="c.componente">Componente: {{ c.componente }}.</b>
-                    {{ c.descricao }}
-                  </p>
+                <template v-for="(c, idx) in recallCampanhasGM" :key="'gm' + idx">
+                  <p v-if="c.titulo" class="rel__recall-sub rel__recall-sub--item">{{ c.titulo }}</p>
+                  <p class="rel__recall-body">{{ c.descricao }}</p>
                 </template>
                 <p class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
               </template>
-              <p v-else class="rel__recall-body">Recall pendente: buscando os detalhes da campanha.</p>
+
+              <!-- SENATRAN/local (fallback quando o autoritativo nao veio). -->
+              <template v-else>
+                <div class="rel__recall-top">
+                  <div class="rel__recall-ic">!</div>
+                  <div>
+                    <p class="rel__recall-tit">Recall pendente de atendimento</p>
+                    <p v-if="recallSubtitulo" class="rel__recall-sub">{{ recallSubtitulo }}</p>
+                  </div>
+                </div>
+                <template v-if="recallCampanhas.length">
+                  <template v-for="(c, idx) in recallCampanhas" :key="idx">
+                    <p v-if="recallCampanhas.length > 1 && (c.campanha || c.data_inicio)" class="rel__recall-sub rel__recall-sub--item">
+                      {{ legendaCampanha(c) }}
+                    </p>
+                    <p class="rel__recall-body">
+                      <b v-if="c.componente">Componente: {{ c.componente }}.</b>
+                      {{ c.descricao }}
+                    </p>
+                  </template>
+                  <p class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
+                </template>
+                <p v-else class="rel__recall-body">Recall pendente: buscando os detalhes da campanha.</p>
+              </template>
             </div>
           </section>
 
