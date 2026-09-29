@@ -1400,7 +1400,7 @@ function applyEmailSuggestion() {
           :preco-basica="precoBRL(PLANOS.basica.valorCentavos)"
           :frase-recall="fraseRecall"
           :frase-leilao="fraseSinalLeilao"
-          @comprar="cliqueCtaCompleta('layout_a')"
+          @comprar="(origem) => cliqueCtaCompleta(origem || 'layout_a')"
           @cta-visto="onCtaVistoLayoutA"
         />
 
@@ -1453,6 +1453,13 @@ function applyEmailSuggestion() {
               <span class="cb-sinal__ponto" aria-hidden="true" />
               <span>{{ fraseRecall }}</span>
             </p>
+
+            <!-- Botao junto das tags (Cesar 29/set): quem ve o indicio ja pode
+                 agir sem rolar. Um so serve leilao e recall. Origem 'tag' pra
+                 medir clique da tag vs card vs barra fixa. -->
+            <button v-if="fraseSinalLeilao || fraseRecall" type="button" class="cb-btn cb-btn--blue cb-sinal-cta" @click="cliqueCtaCompleta('tag')">
+              Ver o relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+            </button>
 
             <!-- Variante B: sem registro de leilao, dizer isso vira prova de
                  que a base existe e foi consultada, em vez de silencio. Sem
@@ -3031,6 +3038,9 @@ function applyEmailSuggestion() {
 
   // ---------- BLOCO BLOQUEADO ----------
   // Sinal de leilao: a unica linha da tela que fala do veiculo especifico.
+  // Botao de acao junto das tags (leilao/recall): full-width, espaco embaixo.
+  .cb-sinal-cta { width: 100%; margin: 0 0 16px; }
+
   .cb-sinal {
     display: flex;
     align-items: flex-start;

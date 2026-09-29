@@ -34,7 +34,9 @@ const props = defineProps<{
   fraseLeilao?: string
 }>()
 
-const emit = defineEmits<{ (e: 'comprar'): void; (e: 'cta-visto'): void }>()
+// 'comprar' aceita uma origem opcional pra instrumentacao (o botao da TAG manda
+// 'tag'; o CTA principal manda vazio -> o pai usa 'layout_a').
+const emit = defineEmits<{ (e: 'comprar', origem?: string): void; (e: 'cta-visto'): void }>()
 
 const marcaModelo = () => [props.dados?.marca, props.dados?.modelo].filter(Boolean).join(' ')
 const anoLabel = () => {
@@ -86,6 +88,10 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
           <span>{{ fraseRecall }}</span>
         </p>
+        <!-- Botao ali mesmo (Cesar 29/set): quem ve o indicio ja pode agir sem
+             rolar ate o card. Um so serve as duas tags. Origem 'tag' na
+             instrumentacao pra medir clique da tag vs card vs barra. -->
+        <button class="la-tag-cta" type="button" @click="emit('comprar', 'tag')">Ver o relatório completo · {{ precoCompleta }}</button>
       </div>
 
       <!-- DADOS GRATIS -->
@@ -215,6 +221,9 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 .la-tag--recall { border-color:rgba(180,120,20,.42); background:rgba(214,158,46,.10); color:#8a5a10; }
 /* Leilao: vermelha (sinal de maior severidade). */
 .la-tag--leilao { border-color:rgba(211,58,58,.42); background:rgba(211,58,58,.07); color:#a32020; }
+/* Botao de acao junto das tags: mesma acao do CTA principal, aqui pra agir sem rolar. */
+.la-tag-cta { width:100%; min-height:52px; border:0; border-radius:12px; background:var(--la-blue); color:#fff; font:inherit; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 6px 16px rgba(31,91,216,.28); }
+.la-tag-cta:hover { background:var(--la-blue-dark); }
 
 .la-dados { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px 24px; }
 .la-dado { display:flex; flex-direction:column; gap:4px; min-width:0; }
