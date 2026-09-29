@@ -234,8 +234,12 @@ export default defineEventHandler(async (event) => {
   // Limite customizado por destinatario (tabela rate_limit_whitelist):
   // N/hora ou ilimitado (Infinity). Aplica aos DOIS checks (destinatario e
   // IP), senao o proprio IP bloquearia antes do limite customizado valer.
+  // Sem destinatario (canal 'tela'): o unico limite e por IP, entao a whitelist
+  // e consultada pela CHAVE 'ip:<IP>' -- assim um IP nosso (sonda de checkout +
+  // testes de prod) pode ter um teto maior sem bypass por header/segredo. IP nao
+  // whitelistado cai no default de sempre.
   const hourlyLimit = semDestinatario
-    ? await getHourlyLimit('')   // sem destinatario: cai no limite padrao
+    ? await getHourlyLimit(`ip:${ip}`)
     : await getHourlyLimit(recipientValue as string)
 
   // Vale pra web E PWA: sem isso, um POST com isPWA:true pulava o rate
