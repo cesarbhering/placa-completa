@@ -21,11 +21,15 @@ describe('sinalDoRecall', () => {
   })
 })
 
-describe('marcaTemRecall (so Toyota/Lexus por ora)', () => {
-  it('Toyota e Lexus passam', () => {
+describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM)', () => {
+  it('Toyota, Lexus, Chevrolet e GM passam', () => {
     expect(marcaTemRecall('TOYOTA')).toBe(true)
     expect(marcaTemRecall('toyota')).toBe(true)
     expect(marcaTemRecall('Lexus')).toBe(true)
+    expect(marcaTemRecall('CHEVROLET')).toBe(true)
+    expect(marcaTemRecall('GM')).toBe(true)
+    expect(marcaTemRecall('GM - CHEVROLET')).toBe(true)
+    expect(marcaTemRecall('General Motors')).toBe(true)
   })
   it('outras marcas e vazio nao passam', () => {
     expect(marcaTemRecall('HONDA')).toBe(false)

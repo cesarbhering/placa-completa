@@ -36,7 +36,11 @@ export function sinalDoRecall(resposta: RecallResposta | null | undefined): Sina
   return { consta: true, nivel: firme ? 'firme' : 'suave' }
 }
 
-/** So Toyota/Lexus por ora (a base de match e so dessas marcas). */
+/**
+ * Marcas com base de recall por ora: Toyota/Lexus + Chevrolet/GM. O escopo por
+ * marca do match e server-side (a leiloes-api ja trata o falso-positivo
+ * cross-marca), aqui so liberamos quem chamar.
+ */
 export function marcaTemRecall(marca: string | null | undefined): boolean {
-  return /\b(toyota|lexus)\b/i.test(String(marca || ''))
+  return /\b(toyota|lexus|chevrolet|gm|general\s*motors)\b/i.test(String(marca || ''))
 }
