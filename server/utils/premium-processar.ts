@@ -45,11 +45,13 @@ export function completarRecallDepois(
         })
       }
 
-      // O scrape SENATRAN/local (browser) so entra quando o autoritativo NAO
-      // respondeu (ele ja e a fonte da verdade pra Chevrolet). Fail-open: se a GM
-      // caiu, cai no scrape de sempre.
+      // O scrape SENATRAN/local (browser) so e PULADO quando a GM CONFIRMOU
+      // recall aberto (ai temos as campanhas dela, nao precisa do scrape). Nos
+      // outros casos (nao-Chevrolet, GM nao respondeu, ou GM consultou e disse
+      // que NAO ha aberto mas o SENATRAN marcou pendente) faz o scrape de sempre,
+      // pra o card ter o detalhe SENATRAN e nao ficar "buscando" pra sempre.
       let detalhe: Awaited<ReturnType<typeof buscarRecallDetalhe>> = null
-      if (!autoritativo?.consultado) {
+      if (!autoritativo?.tem_recall_aberto) {
         detalhe = await buscarRecallDetalhe(supabase, { placa: pedido.placa, consultaId })
       }
       if (!detalhe && !autoritativo?.consultado) return
