@@ -3038,8 +3038,9 @@ function applyEmailSuggestion() {
 
   // ---------- BLOCO BLOQUEADO ----------
   // Sinal de leilao: a unica linha da tela que fala do veiculo especifico.
-  // Botao de acao junto das tags (leilao/recall): full-width, espaco embaixo.
-  .cb-sinal-cta { width: 100%; margin: 0 0 16px; }
+  // Botao de acao COLADO nas tags (leilao/recall): full-width, puxado pra cima
+  // pra ficar logo abaixo da ultima tag (Cesar 29/set), espaco so embaixo.
+  .cb-sinal-cta { width: 100%; margin: -6px 0 18px; }
 
   .cb-sinal {
     display: flex;
