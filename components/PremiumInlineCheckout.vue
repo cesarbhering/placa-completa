@@ -44,11 +44,16 @@ const cfg = useRuntimeConfig()
 // checkout perde cupom, perde a opcao de plano e perde qualquer palavra sobre
 // Pix, e o botao vira uma compra na loja. Na web nada muda.
 const { isCapacitor } = useAppMode()
+// Cartao (Stripe) so aparece na WEB e so quando o ambiente tem as chaves do
+// Stripe (NUXT_PUBLIC_CARTAO_HABILITADO). No app quem cobra e o Google Play.
+const cartaoHabilitado = computed(() => !isCapacitor.value && !!cfg.public.cartaoHabilitado)
 const playBilling = usePlayBilling()
 
 type Step = 'loading' | 'gate' | 'confirm' | 'pending' | 'erro'
 const step = ref<Step>('loading')
 const loading = ref(false)
+// Loading do cartao (Stripe), separado do loading do Pix: cada botao tem o seu.
+const loadingCartao = ref(false)
 const msg = ref('')
 
 const senha = ref('')
@@ -324,49 +329,59 @@ async function entrar() {
 // (um degrau a mais entre o checkout e o Pix, com dado que a tela de
 // confirmacao ja mostra); a correcao da placa continua existindo, agora como
 // lapis na propria linha do resumo.
-async function confirmarEPagar() {
-  // O e-mail NAO trava mais a geracao do Pix. Quase metade de quem abria o
-  // checkout sumia antes da cobranca existir, e o ultimo obstaculo antes de
-  // pagar era digitacao. Ele e pedido na tela do Pix, enquanto a pessoa paga,
-  // e continua obrigatorio pra entrega durar (relatorio no e-mail e
-  // recuperacao de Pix abandonado dependem dele).
-  //
-  // Duas excecoes: e-mail digitado errado nao passa (melhor corrigir agora do
-  // que descobrir depois de pagar), e cupom exige e-mail, porque o limite por
-  // pessoa e por e-mail.
+// Validacao comum aos dois meios de pagamento (Pix e cartao): e-mail digitado
+// errado nao passa (melhor corrigir agora do que depois de pagar) e cupom exige
+// e-mail (o limite por pessoa e por e-mail). Devolve false e foca/abre o campo
+// problematico; true = pode seguir pra cobranca.
+async function validarCheckout(): Promise<boolean> {
   emailErro.value = ''
   const preencheu = email.value.trim().length > 0
   if (preencheu && !email.value.includes('@')) {
     emailErro.value = 'Este e-mail parece incompleto. Confira antes de pagar.'
     msg.value = ''
     if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
-    return
+    return false
   }
   if (!preencheu && cupomCodigo.value.trim()) {
     emailErro.value = 'Para usar um cupom, informe o e-mail que o recebeu.'
     msg.value = ''
     if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
-    return
+    return false
   }
   msg.value = ''
   // Revalida o cupom AGORA com o e-mail (limite por pessoa) e espera terminar
-  // antes de cobrar — senao a pessoa geraria um Pix com um preco que ja mudou.
-  // Se o cupom cair aqui, nao cobra: ela precisa ver que o preco voltou ao
-  // cheio antes de confirmar. Nada que ela digitou se perde.
+  // antes de cobrar — senao a pessoa cobraria com um preco que ja mudou. Se o
+  // cupom cair aqui, nao cobra: ela precisa ver o preco cheio antes de confirmar.
   if (cupomCodigo.value.trim()) {
     loading.value = true
     const ok = await validarCupom()
     loading.value = false
     if (!ok) {
       cupomAberto.value = true
-      return
+      return false
     }
   }
   editandoPlaca.value = false
+  return true
+}
+
+async function confirmarEPagar() {
+  // O e-mail NAO trava mais a geracao do Pix. Quase metade de quem abria o
+  // checkout sumia antes da cobranca existir. Ele e pedido na tela do Pix,
+  // enquanto a pessoa paga, e continua obrigatorio pra entrega durar.
+  if (!(await validarCheckout())) return
   // Passo do meio do funil: registra a intencao ANTES da chamada do checkout,
   // pra falha de rede na geracao do Pix nao virar "ninguem clicou".
   trackAddPaymentInfo(props.plano, placaClean.value, precoExibidoCentavos.value)
   await pagar()
+}
+
+// Cartao (Stripe), secundario ao Pix. Mesma validacao; em vez de gerar Pix,
+// cria a Checkout Session hospedada e redireciona pra ela.
+async function confirmarEPagarCartao() {
+  if (!(await validarCheckout())) return
+  trackAddPaymentInfo(props.plano, placaClean.value, precoExibidoCentavos.value)
+  await pagarCartao()
 }
 
 // E-mail pedido na tela do Pix, enquanto a pessoa paga. Salva sozinho no
@@ -515,6 +530,49 @@ async function pagar() {
     msg.value = 'Não conseguimos gerar o Pix agora. Tente de novo em instantes.'
   } finally {
     loading.value = false
+  }
+}
+
+// Cartao (Stripe): cria a Checkout Session hospedada no servidor e manda o
+// navegador pra ela. Diferente do Pix, aqui a pessoa SAI do modal pro checkout
+// do Stripe e volta pro success_url (a propria pagina do relatorio, que polla
+// ate a entrega). loadingCartao e separado do loading do Pix pra os dois
+// botoes nao se atrapalharem.
+async function pagarCartao() {
+  loadingCartao.value = true
+  msg.value = ''
+  if (cupomCodigo.value.trim()) await validarCupom()
+  try {
+    emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
+    if (emailNoPedido.value) marcarEmailInformado('checkout')
+    const r: any = await $fetch('/api/premium/checkout-stripe', {
+      method: 'POST',
+      body: {
+        placa: preview.value.placa,
+        email: email.value.trim() || undefined,
+        telefone: telefone.value,
+        preview: preview.value.raw,
+        plano: props.plano,
+        ambiente: ambiente.value,
+        cupom: cupomCodigo.value.trim() || undefined,
+        origin: origemDaSessao(),
+        ab_bloco: props.abBloco ?? undefined,
+        // Pra onde o Stripe volta se a pessoa cancelar: a pagina atual.
+        retornoUrl: import.meta.client ? window.location.href : undefined,
+      },
+    })
+    if (r?.url && import.meta.client) {
+      // Fora do modal, pro checkout hospedado do Stripe. O retorno cai no
+      // success_url (a pagina do relatorio) que polla ate ficar pronto.
+      window.location.assign(r.url)
+      return
+    }
+    msg.value = 'Não conseguimos abrir o pagamento com cartão agora. Você pode pagar com Pix.'
+  } catch (e: any) {
+    if (import.meta.dev) console.warn('[checkout] cartao falhou:', e?.data?.message || e)
+    msg.value = 'Não conseguimos abrir o pagamento com cartão agora. Você pode pagar com Pix.'
+  } finally {
+    loadingCartao.value = false
   }
 }
 
@@ -849,6 +907,25 @@ onUnmounted(() => {
                  discreta logo abaixo da CTA. So na web (no app quem cobra e o
                  Google Play, e o estorno segue a politica da loja). -->
             <p v-if="!isCapacitor" class="pic-hint pic-hint--cta">Pagamento por Pix · estorno se não acharmos o veículo · entrega em até 5 min</p>
+            <!-- Cartao (Stripe), forma SECUNDARIA no rodape. Discreto de
+                 proposito: o Pix (acima) fica em foco. So na web e so quando o
+                 ambiente tem as chaves do Stripe. -->
+            <div v-if="cartaoHabilitado" class="pic-cartao">
+              <div class="pic-cartao__ou"><span>ou</span></div>
+              <button
+                type="button"
+                class="pic-btn pic-btn--cartao"
+                :disabled="loading || loadingCartao || editandoPlaca"
+                @click="confirmarEPagarCartao"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="2" y="5" width="20" height="14" rx="2" />
+                  <path d="M2 10h20" />
+                </svg>
+                {{ loadingCartao ? 'Abrindo pagamento...' : 'Pagar com cartão' }}
+              </button>
+              <p class="pic-cartao__bandeiras">Visa, Mastercard e Elo · pagamento à vista</p>
+            </div>
             <!-- Sem "Cancelar" no rodape: o X do cabecalho (pic-x, sempre visivel)
                  ja fecha o modal. Um botao a mais so competia com a CTA. -->
           </div>
@@ -1403,7 +1480,37 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     &:hover { background: $c-blue-deep; border-color: $c-blue-deep; }
     &:disabled { background: $c-steel; border-color: $c-steel; color: #fff; }
   }
+
+  // Cartao: secundario e discreto (outline), pra nao competir com o Pix acima.
+  &--cartao {
+    gap: 8px;
+    min-height: 42px;
+    text-transform: none;
+    letter-spacing: 0.2px;
+    font-weight: 500;
+    color: $c-charcoal;
+    border-color: $c-steel;
+    background: #fff;
+
+    svg { width: 18px; height: 18px; }
+    &:hover { background: $c-cloud; border-color: $c-ink; color: $c-ink; }
+  }
 }
+
+// Bloco do cartao no rodape do checkout (secundario ao Pix).
+.pic-cartao { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+.pic-cartao__ou {
+  display: flex;
+  align-items: center;
+  color: $c-steel;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+
+  &::before, &::after { content: ''; flex: 1; height: 1px; background: #e8e8e8; }
+  span { padding: 0 12px; }
+}
+.pic-cartao__bandeiras { text-align: center; font-size: 12px; color: $c-steel; margin: 0; }
 
 .pic-link {
   background: transparent;
