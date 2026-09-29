@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,placa,email,token_entrega,abacatepay_id,pix_provider,google_play_order_id,expira_em,plano,ambiente,debug_trace,erro,preview,valor_centavos,gclid,msclkid,utm_source,utm_campaign,entregue_em,relatorio_snapshot')
+    .select('id,status,placa,email,token_entrega,abacatepay_id,pix_provider,forma_pagamento,stripe_session_id,google_play_order_id,expira_em,plano,ambiente,debug_trace,erro,preview,valor_centavos,gclid,msclkid,utm_source,utm_campaign,entregue_em,relatorio_snapshot')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
@@ -24,6 +24,15 @@ export default defineEventHandler(async (event) => {
       if (chk && /paid|completed|pago/i.test(chk.status)) {
         // pagamento confirmado -> dispara a consulta (claim atomico evita duplicar
         // com o webhook). Fire-and-forget: o container segue processando apos a resposta.
+        processarPedidoPago(supabase, pedido).catch(() => {})
+        status = 'consultando'
+      }
+    } else if (pedido.forma_pagamento === 'cartao' && pedido.stripe_session_id) {
+      // Cartao (Stripe): pergunta pra sessao se o cartao passou. Igual ao Pix,
+      // isso confirma o pagamento mesmo sem webhook (essencial no homolog, atras
+      // do challenge do Cloudflare, onde o webhook do Stripe toma 403).
+      const s = await consultarStripeSession(pedido.stripe_session_id)
+      if (stripeSessionPaga(s)) {
         processarPedidoPago(supabase, pedido).catch(() => {})
         status = 'consultando'
       }
