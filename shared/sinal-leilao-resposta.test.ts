@@ -29,10 +29,11 @@ describe('leitura da resposta do sinal de leilao', () => {
 describe('frase que vai pra tela', () => {
   const carro = 'este carro'
 
-  it('com registro, diz quantos e manda o detalhe pro relatorio', () => {
+  it('com registro, frase VAGA: indica sem contagem, aponta pro completo', () => {
     expect(fraseSinalNaTela({ positivo: true, quantidade: 1 }, carro))
-      .toBe('Encontramos 1 registro de leilão para este carro. Detalhes (data, leiloeira, condição do veículo) no relatório completo.')
-    expect(fraseSinalNaTela({ positivo: true, quantidade: 3 }, 'esta moto')).toContain('3 registros de leilão para esta moto')
+      .toBe('Existem indícios de leilão deste veículo em nossa base. Confira no relatório completo.')
+    // sem contagem (nem 1 registro nem N registros)
+    expect(fraseSinalNaTela({ positivo: true, quantidade: 3 }, 'esta moto')).not.toMatch(/\d+\s*registro/)
   })
 
   // Decisao de produto, e ja mudou duas vezes: sem registro a tela NAO fala de

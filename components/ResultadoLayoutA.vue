@@ -28,9 +28,15 @@ const props = defineProps<{
   leilaoEncontrado: boolean
   precoCompleta: string
   precoBasica: string
+  /** Frase de recall (Toyota/Lexus) ja resolvida pelo pai; '' = nao mostra. */
+  fraseRecall?: string
+  /** Frase de leilao (vaga, aponta pro completo) ja resolvida pelo pai; '' = nao mostra. */
+  fraseLeilao?: string
 }>()
 
-const emit = defineEmits<{ (e: 'comprar'): void; (e: 'cta-visto'): void }>()
+// 'comprar' aceita uma origem opcional pra instrumentacao (o botao da TAG manda
+// 'tag'; o CTA principal manda vazio -> o pai usa 'layout_a').
+const emit = defineEmits<{ (e: 'comprar', origem?: string): void; (e: 'cta-visto'): void }>()
 
 const marcaModelo = () => [props.dados?.marca, props.dados?.modelo].filter(Boolean).join(' ')
 const anoLabel = () => {
@@ -61,21 +67,31 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 <template>
   <div class="la-root">
     <main class="la-pagina">
-      <!-- TITULO -->
+      <!-- TITULO: neutro sempre. O leilao NAO vira mais titulo assertivo com
+           contagem (decisao Cesar 28/set): ele aparece como TAG vaga abaixo,
+           igual ao recall, apontando pro relatorio completo. -->
       <div class="la-titulo">
-        <template v-if="leilaoEncontrado">
-          <div class="la-sobre la-sobre--alerta">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-            ATENÇÃO NESTA PLACA
-          </div>
-          <h1>Este <span>{{ modeloCurto }}</span> tem <span>{{ qtdLeiloes }}</span> {{ qtdLeiloes === 1 ? 'registro' : 'registros' }} de leilão na nossa base.</h1>
-          <p>A consulta grátis mostra o que é o carro. Data, leiloeira, motivo e valor do leilão, e se ainda há indício de roubo, financiamento ou bloqueio, estão no relatório completo.</p>
-        </template>
-        <template v-else>
-          <div class="la-sobre">CONSULTA GRÁTIS CONCLUÍDA</div>
-          <h1>Você viu o que é o carro. Falta ver o que ele carrega.</h1>
-          <p>Leilão, indício de roubo e furto, financiamento e bloqueio judicial não aparecem na consulta grátis. É isso que trava a transferência ou derruba o preço.</p>
-        </template>
+        <div class="la-sobre">CONSULTA GRÁTIS CONCLUÍDA</div>
+        <h1>Você viu o que é o carro. Falta ver o que ele carrega.</h1>
+        <p>Leilão, indício de roubo e furto, financiamento e bloqueio judicial não aparecem na consulta grátis. É isso que trava a transferência ou derruba o preço.</p>
+      </div>
+
+      <!-- TAGS de sinal (vagas, apontam pro completo): leilao VERMELHA e recall
+           AMBAR, paralelas e consistentes. So aparecem quando ha sinal. Copy
+           indicativa (Cesar): nunca afirma status/contagem no gratis. -->
+      <div v-if="fraseLeilao || fraseRecall" class="la-tags">
+        <p v-if="fraseLeilao" class="la-tag la-tag--leilao">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <span>{{ fraseLeilao }}</span>
+        </p>
+        <p v-if="fraseRecall" class="la-tag la-tag--recall">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+          <span>{{ fraseRecall }}</span>
+        </p>
+        <!-- Botao ali mesmo (Cesar 29/set): quem ve o indicio ja pode agir sem
+             rolar ate o card. Um so serve as duas tags. Origem 'tag' na
+             instrumentacao pra medir clique da tag vs card vs barra. -->
+        <button class="la-tag-cta" type="button" @click="emit('comprar', 'tag')">Ver o relatório completo · {{ precoCompleta }}</button>
       </div>
 
       <!-- DADOS GRATIS -->
@@ -109,6 +125,13 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
            ANTES do bloco bloqueado (posicao pedida pelo Cesar). Botao de acao,
            nao tabela de preco. -->
       <section class="la-acao" aria-label="Liberar o relatório completo">
+        <!-- Botao NO TOPO do card (Cesar 28/set): em notebook ele ficava abaixo
+             da dobra e exigia scroll. Agora aparece antes do titulo, sem rolar. -->
+        <button ref="ctaRef" class="la-cta" type="button" @click="emit('comprar')">
+          <span v-if="leilaoEncontrado">Ver o leilão e o relatório · {{ precoCompleta }}</span>
+          <span v-else>Ver relatório completo · {{ precoCompleta }}</span>
+        </button>
+        <div class="la-cta-nota">Pix, uma vez · sem assinatura · nota fiscal sob pedido</div>
         <h2 v-if="leilaoEncontrado">Libere o leilão e o relatório completo</h2>
         <h2 v-else-if="modeloCurto">Libere o relatório completo deste <span>{{ modeloCurto }}</span></h2>
         <h2 v-else>Libere o relatório completo</h2>
@@ -118,11 +141,6 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#067647" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>{{ it }}
           </span>
         </div>
-        <button ref="ctaRef" class="la-cta" type="button" @click="emit('comprar')">
-          <span v-if="leilaoEncontrado">Ver o leilão e o relatório · {{ precoCompleta }}</span>
-          <span v-else>Ver relatório completo · {{ precoCompleta }}</span>
-        </button>
-        <div class="la-cta-nota">Pix, uma vez · sem assinatura · nota fiscal sob pedido</div>
         <p class="la-acao-basica">Só a ficha? Consulta básica por {{ precoBasica }} (sem roubo e restrições).</p>
         <div class="la-garantia">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#067647" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>
@@ -130,7 +148,11 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         </div>
       </section>
 
-      <!-- BLOCO LEILAO -->
+      <!-- BLOCO LEILAO (isca de venda, restaurado a pedido do Cesar 28/set): os
+           campos travados Data/Leiloeira/Motivo/Valor borrados convertem. O
+           SINAL vago fica na TAG vermelha la em cima; aqui e a isca do que se
+           libera. Titulo neutro (sem contagem). Quando NAO ha leilao, cai no
+           pendentes generico. -->
       <section v-if="leilaoEncontrado" class="la-leilao">
         <div class="la-bloco-topo">
           <h2>Registro de leilão encontrado</h2>
@@ -189,6 +211,19 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 .la-titulo h1 { margin:0; font-size:36px; line-height:1.14; font-weight:800; letter-spacing:-.5px; }
 .la-titulo h1 span { font-size:inherit; font-weight:inherit; color:inherit; }
 .la-titulo p { margin:0; font-size:17px; line-height:1.55; color:var(--la-ink2); }
+
+/* Flag de recall: ambar (nao vermelho). Aviso pra conferir, nao acusacao. */
+/* Tags de sinal: leilao (vermelha) e recall (ambar), paralelas e consistentes. */
+.la-tags { display:flex; flex-direction:column; gap:10px; }
+.la-tag { display:flex; align-items:flex-start; gap:10px; margin:0; padding:14px 16px; border-radius:12px; border:1px solid; font-size:15px; line-height:1.5; font-weight:600; }
+.la-tag svg { flex:0 0 auto; margin-top:1px; }
+/* Recall: ambar (aviso pra conferir, nao acusacao). */
+.la-tag--recall { border-color:rgba(180,120,20,.42); background:rgba(214,158,46,.10); color:#8a5a10; }
+/* Leilao: vermelha (sinal de maior severidade). */
+.la-tag--leilao { border-color:rgba(211,58,58,.42); background:rgba(211,58,58,.07); color:#a32020; }
+/* Botao de acao junto das tags: mesma acao do CTA principal, aqui pra agir sem rolar. */
+.la-tag-cta { width:100%; min-height:52px; border:0; border-radius:12px; background:var(--la-blue); color:#fff; font:inherit; font-size:16px; font-weight:800; cursor:pointer; box-shadow:0 6px 16px rgba(31,91,216,.28); }
+.la-tag-cta:hover { background:var(--la-blue-dark); }
 
 .la-dados { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:20px 24px; }
 .la-dado { display:flex; flex-direction:column; gap:4px; min-width:0; }

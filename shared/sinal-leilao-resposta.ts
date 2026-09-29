@@ -24,10 +24,10 @@ export function sinalDaResposta(resposta: any): SinalNaTela | null {
  * So ha frase quando ha registro. Sem registro e "nao sabemos" nao falam de
  * leilao.
  */
-export function fraseSinalNaTela(sinal: SinalNaTela | null, esteVeiculo: string): string {
+export function fraseSinalNaTela(sinal: SinalNaTela | null, _esteVeiculo?: string): string {
   if (!sinal?.positivo) return ''
-  const n = sinal.quantidade
-  const plural = n === 1 ? '1 registro' : `${n} registros`
-  return `Encontramos ${plural} de leilão para ${esteVeiculo}. `
-    + 'Detalhes (data, leiloeira, condição do veículo) no relatório completo.'
+  // Copy VAGA (Cesar, 28/set): indicativa, SEM contagem, aponta pro completo
+  // (mesma logica do recall = nao entrega o status no gratis, puxa pro pago).
+  // Vale pros dois niveis (confirmado e indicio).
+  return 'Existem indícios de leilão deste veículo em nossa base. Confira no relatório completo.'
 }
