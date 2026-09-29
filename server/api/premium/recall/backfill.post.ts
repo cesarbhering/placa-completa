@@ -97,6 +97,49 @@ export default defineEventHandler(async (event) => {
     return { rebuild: out.length, resultados: out }
   }
 
+  // ---- modo AUTORITATIVO GM: re-dispara o caminho do autoritativo (Chevrolet +
+  // chassi cheio) num pedido JA entregue e grava snap.recallAutoritativo. So
+  // escreve o campo recallAutoritativo (aditivo/idempotente). Devolve o
+  // diagnostico (marca/chassi/indicador) pra achar o pedido certo entre varios.
+  const autoTokens: string[] = Array.isArray(body?.autoritativo) ? body.autoritativo.map((t: any) => String(t)) : []
+  if (autoTokens.length) {
+    const { data: peds, error: eA } = await supabase
+      .from('pedidos_premium')
+      .select('id,placa,token_entrega,relatorio_snapshot')
+      .eq('status', 'entregue')
+      .not('relatorio_snapshot', 'is', null)
+      .in('token_entrega', autoTokens)
+    if (eA) throw createError({ statusCode: 502, message: 'Leitura falhou: ' + eA.message })
+    const out: any[] = []
+    for (const p of peds || []) {
+      const snap: any = p.relatorio_snapshot
+      if (!snap || typeof snap !== 'object') { out.push({ token: p.token_entrega, pulado: 'sem snapshot' }); continue }
+      const resp = snap?.consulta?.response
+      const bruto = Array.isArray(resp) ? resp[0] : resp
+      const desc = String(bruto?.descricaoMarcaModelo || '')
+      const chassi = String(bruto?.chassi || '').trim()
+      const ehChevrolet = /\b(chevrolet|gm|general\s*motors)\b/i.test(desc)
+      const indicador = temRecallPendente(resp)
+      const diag: any = { token: p.token_entrega, desc, chassiLen: chassi.length, ehChevrolet, indicadorRecall: indicador }
+      if (!ehChevrolet) { out.push({ ...diag, pulado: 'nao Chevrolet' }); continue }
+      if (chassi.length !== 17) { out.push({ ...diag, pulado: 'chassi nao cheio' }); continue }
+      if (!indicador) { out.push({ ...diag, pulado: 'SENATRAN nao flaggou indicadorRecall (gate fechado, decisao do Cesar)' }); continue }
+      const aut = await consultarRecallAutoritativo({
+        placa: p.placa, chassi, marca: desc.split('/')[0], modelo: desc,
+        ano: bruto?.anoModelo ?? bruto?.anoFabricacao ?? null,
+        ano_fab: bruto?.anoFabricacao ?? null, ano_mod: bruto?.anoModelo ?? null,
+      })
+      if (!aut?.consultado) { out.push({ ...diag, ok: false, motivo: 'autoritativo nao consultado (GM caiu?) — fail-open, snapshot intacto' }); continue }
+      const { error: upErr } = await supabase
+        .from('pedidos_premium')
+        .update({ relatorio_snapshot: { ...snap, recallAutoritativo: aut } })
+        .eq('id', p.id)
+      if (upErr) { out.push({ ...diag, ok: false, motivo: upErr.message }); continue }
+      out.push({ ...diag, ok: true, gravou: true, tem_recall_aberto: aut.tem_recall_aberto, n_campanhas: aut.n_campanhas, campanhas: aut.campanhas.map((c: any) => ({ numero: c.numero, titulo: c.titulo })) })
+    }
+    return { autoritativo: out.length, resultados: out }
+  }
+
   const tokens: string[] = Array.isArray(body?.tokens) ? body.tokens.map((t: any) => String(t)) : []
   const limite = Number(body?.limite) > 0 ? Math.min(Number(body.limite), 50) : null
   if (!tokens.length && !limite) {
