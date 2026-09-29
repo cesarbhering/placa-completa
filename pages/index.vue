@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL } from '~/shared/planos'
 import { sinalDaResposta, fraseSinalNaTela } from '~/shared/sinal-leilao-resposta'
+import { sinalRecallDaResposta, fraseRecallNaTela } from '~/shared/sinal-recall-resposta'
 
 import { homepageFaqs } from '~/data/homepage-faqs'
 import { origemDaSessao } from '~/shared/origem-trafego'
@@ -332,6 +333,41 @@ async function buscarSinalLeilao() {
     // Servico fora do ar ou lento: a consulta gratis segue sem o sinal. Nunca
     // mostrar "nao encontramos" por falha nossa, que seria mentir.
     sinalLeilao.value = null
+  }
+}
+
+// Sinal de RECALL (Toyota/Lexus por ora): mesma logica do leilao, chamada
+// propria pra nao atrasar a consulta. Copy VAGA (Cesar): a base so sabe que
+// CONSTA em campanha, nunca se ja foi atendido. Ver shared/sinal-recall-resposta.ts.
+const recallSinal = ref<{ consta: boolean; nivel: 'firme' | 'suave' } | null>(null)
+const fraseRecall = computed(() => fraseRecallNaTela(recallSinal.value))
+
+async function buscarRecallSinal() {
+  const b = resultadoBasico.value
+  if (!b?.placa) return
+  // So Toyota/Lexus por ora: fora disso nem chama (o server tambem gateia).
+  if (!/\b(toyota|lexus)\b/i.test(String(b.marca || ''))) { recallSinal.value = null; return }
+  try {
+    const r: any = await $fetch('/api/recall-sinal', {
+      method: 'POST',
+      body: {
+        placa: b.placa,
+        // Chassi CHEIO quando a consulta tiver (extra.chassi) -> pega o firme;
+        // senao vai so com marca/modelo/ano -> suave. Mesmo padrao do leilao.
+        chassi: b.chassi || b.extra?.chassi || null,
+        marca: b.marca || null,
+        modelo: b.modelo || null,
+        ano: b.ano || null,
+        anoFab: b.anoFabricacao || null,
+        anoModelo: b.ano || null,
+      },
+    })
+    // Tres estados: "nao sabemos"/"nao consta" nao mostram frase (null).
+    const lido = sinalRecallDaResposta(r)
+    recallSinal.value = lido
+    if (lido) track('recall_sinal_visto', { nivel: lido.nivel })
+  } catch {
+    recallSinal.value = null
   }
 }
 
@@ -878,6 +914,7 @@ function limparResultado() {
   formStarted.value = false
   resultadoBasico.value = null
   sinalLeilao.value = null
+  recallSinal.value = null
   placaJaConsultada.value = false
   aguardandoPlacaPaga.value = false
 }
@@ -1135,6 +1172,7 @@ async function handleSubmit() {
         // Fire and forget: o resultado ja esta na tela, o sinal entra quando
         // chegar.
         buscarSinalLeilao()
+        buscarRecallSinal()
         // A partir daqui o CTA pago pula a pergunta "e este veiculo?".
         placaJaConsultada.value = true
         // O endereco passa a dizer o que esta na tela. `push` e nao `replace`:
@@ -1360,7 +1398,9 @@ function applyEmailSuggestion() {
           :leilao-encontrado="leilaoEncontrado"
           :preco-completa="precoBRL(PLANOS.completa.valorCentavos)"
           :preco-basica="precoBRL(PLANOS.basica.valorCentavos)"
-          @comprar="cliqueCtaCompleta('layout_a')"
+          :frase-recall="fraseRecall"
+          :frase-leilao="fraseSinalLeilao"
+          @comprar="(origem) => cliqueCtaCompleta(origem || 'layout_a')"
           @cta-visto="onCtaVistoLayoutA"
         />
 
@@ -1405,6 +1445,21 @@ function applyEmailSuggestion() {
               <span class="cb-sinal__ponto" aria-hidden="true" />
               <span>{{ fraseSinalLeilao }}</span>
             </p>
+
+            <!-- Flag de RECALL (Toyota/Lexus). So aparece quando CONSTA. Copy
+                 VAGA do Cesar: nunca afirma pendente/atrasado. Neutro-ambar (nao
+                 vermelho): e aviso pra conferir, nao acusacao. -->
+            <p v-if="fraseRecall" class="cb-sinal cb-sinal--recall">
+              <span class="cb-sinal__ponto" aria-hidden="true" />
+              <span>{{ fraseRecall }}</span>
+            </p>
+
+            <!-- Botao junto das tags (Cesar 29/set): quem ve o indicio ja pode
+                 agir sem rolar. Um so serve leilao e recall. Origem 'tag' pra
+                 medir clique da tag vs card vs barra fixa. -->
+            <button v-if="fraseSinalLeilao || fraseRecall" type="button" class="cb-btn cb-btn--blue cb-sinal-cta" @click="cliqueCtaCompleta('tag')">
+              Ver o relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+            </button>
 
             <!-- Variante B: sem registro de leilao, dizer isso vira prova de
                  que a base existe e foi consultada, em vez de silencio. Sem
@@ -2983,6 +3038,10 @@ function applyEmailSuggestion() {
 
   // ---------- BLOCO BLOQUEADO ----------
   // Sinal de leilao: a unica linha da tela que fala do veiculo especifico.
+  // Botao de acao COLADO nas tags (leilao/recall): full-width, puxado pra cima
+  // pra ficar logo abaixo da ultima tag (Cesar 29/set), espaco so embaixo.
+  .cb-sinal-cta { width: 100%; margin: -6px 0 18px; }
+
   .cb-sinal {
     display: flex;
     align-items: flex-start;
@@ -3013,6 +3072,16 @@ function applyEmailSuggestion() {
       border-color: rgba(211, 58, 58, 0.45);
       background: rgba(211, 58, 58, 0.06);
       color: #a32020;
+      font-weight: 500;
+    }
+
+    // Recall: ambar, nao vermelho. E um aviso pra CONFERIR (o carro consta numa
+    // campanha), nao uma acusacao de defeito ativo. Tom distinto do leilao pra
+    // as duas linhas nao lerem como a mesma coisa quando aparecem juntas.
+    &--recall {
+      border-color: rgba(180, 120, 20, 0.42);
+      background: rgba(214, 158, 46, 0.10);
+      color: #8a5a10;
       font-weight: 500;
     }
 
