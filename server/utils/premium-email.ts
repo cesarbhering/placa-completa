@@ -158,6 +158,144 @@ function montarTexto(link: string, plano?: string | null, placa?: string | null)
   ].join('\n')
 }
 
+// ----------------------------------------------------------------------------
+// E-mail de ESTORNO pro cliente: quando o pagamento foi feito, a consulta falhou
+// e o estorno automatico DEU CERTO. Avisa quem pagou que o dinheiro volta, com o
+// prazo certo por meio de pagamento. Transacional (mesmo Resend/remetente da
+// entrega) e fail-open: erro no envio nunca muda status nem derruba o fluxo.
+
+type Estorno = {
+  email: string | null
+  placa?: string | null
+  valorCentavos?: number | null
+  /** 'cartao' muda a frase do prazo; qualquer outra coisa (default) = Pix. */
+  formaPagamento?: string | null
+}
+
+/**
+ * So avisa o cliente quando o estorno automatico deu certo E o pedido tem
+ * e-mail. Puro de proposito: e o ponto testavel de "envia no ok, nao envia sem
+ * e-mail, nao envia no reembolso falho".
+ */
+export function deveAvisarClienteEstorno(reembolsoOk: boolean, email: string | null | undefined): boolean {
+  return !!reembolsoOk && !!email
+}
+
+function reaisEstorno(centavos?: number | null): string {
+  if (!centavos || centavos <= 0) return 'o valor pago'
+  return `R$ ${(centavos / 100).toFixed(2).replace('.', ',')}`
+}
+
+function ehCartao(forma?: string | null): boolean {
+  return String(forma || '').toLowerCase() === 'cartao'
+}
+
+function estornoLinhaPrazo(forma?: string | null): string {
+  return ehCartao(forma)
+    ? 'O estorno aparece na fatura do cartão em até 10 dias úteis, conforme o banco emissor.'
+    : 'O valor volta para a mesma conta de onde saiu o pagamento.'
+}
+
+function montarHtmlEstorno(placa: string, valor: string, forma?: string | null): string {
+  const via = ehCartao(forma) ? 'cartão' : 'Pix'
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reembolso da consulta ${placa}</title>
+</head>
+<body style="margin:0;padding:0;background:#f7f7f7;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
+    Reembolsamos integralmente ${valor} da consulta da placa ${placa}.
+  </div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f7f7f7;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid ${FIO};border-radius:16px;overflow:hidden;">
+          <tr>
+            <td align="center" style="padding:28px 24px 20px;border-bottom:1px solid ${FIO};">
+              <img src="https://placacompleta.com.br/logo-horizontal-600.png" width="180" height="72" alt="PlacaCompleta" style="display:block;border:0;width:180px;height:auto;">
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 32px 8px;font-family:${FONTE};">
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:${TINTA};">Olá,</p>
+              <p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:${GRAFITE};">
+                Não conseguimos gerar o relatório completo da placa <strong style="color:${TINTA}">${placa}</strong> por uma instabilidade nos servidores que consultamos. Por isso reembolsamos integralmente os <strong style="color:${TINTA}">${valor}</strong> pagos via ${via}.
+              </p>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.5;color:${GRAFITE};">
+                ${estornoLinhaPrazo(forma)}
+              </p>
+              <p style="margin:0 0 4px;font-size:15px;line-height:1.5;color:${GRAFITE};">
+                Pedimos desculpas pelo transtorno. Quando quiser, é só consultar a placa de novo em
+                <a href="https://placacompleta.com.br" style="color:${AZUL};text-decoration:underline;">placacompleta.com.br</a>.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:24px 32px;background:${NAVY};font-family:${FONTE};">
+              <p style="margin:0 0 6px;font-size:13px;line-height:1.5;color:#ffffff;font-weight:600;">Precisa de ajuda?</p>
+              <p style="margin:0;font-size:13px;line-height:1.5;color:rgba(255,255,255,0.75);">
+                Escreva para <a href="mailto:contato@placacompleta.com.br" style="color:#ffffff;text-decoration:underline;">contato@placacompleta.com.br</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:16px 0 0;font-family:${FONTE};font-size:12px;line-height:1.5;color:${GRAFITE};">
+          Equipe PlacaCompleta
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
+function montarTextoEstorno(placa: string, valor: string, forma?: string | null): string {
+  const via = ehCartao(forma) ? 'cartão' : 'Pix'
+  return [
+    'Olá,',
+    '',
+    `Não conseguimos gerar o relatório completo da placa ${placa} por uma instabilidade nos servidores que consultamos. Por isso reembolsamos integralmente os ${valor} pagos via ${via}.`,
+    '',
+    estornoLinhaPrazo(forma),
+    '',
+    'Pedimos desculpas pelo transtorno. Quando quiser, é só consultar a placa de novo em placacompleta.com.br.',
+    '',
+    'Equipe PlacaCompleta',
+  ].join('\n')
+}
+
+export async function enviarEstornoEmail(estorno: Estorno): Promise<boolean> {
+  const config = useRuntimeConfig()
+  const { email } = estorno
+  if (!config.resendApiKey || !email) return false
+
+  const placa = String(estorno.placa || '').toUpperCase() || 'informada'
+  const valor = reaisEstorno(estorno.valorCentavos)
+  try {
+    await $fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' },
+      body: {
+        from: 'PlacaCompleta <noreply@placacompleta.com.br>',
+        to: [email],
+        reply_to: 'contato@placacompleta.com.br',
+        subject: `Seu pagamento da consulta ${placa} foi reembolsado`,
+        html: montarHtmlEstorno(placa, valor, estorno.formaPagamento),
+        text: montarTextoEstorno(placa, valor, estorno.formaPagamento),
+      },
+    })
+    return true
+  } catch (e: any) {
+    // Fail-open: o estorno JA aconteceu e o status ja e 'reembolsado'. Nao
+    // avisar por e-mail e ruim, mas nao pode virar erro que derrube o fluxo.
+    console.error('[premium-email] estorno: envio falhou:', email, String(e?.data?.message || e?.message || e))
+    return false
+  }
+}
+
 export async function enviarRelatorioEmail(entrega: Entrega): Promise<boolean> {
   const config = useRuntimeConfig()
   const { email, token, plano, placa } = entrega
