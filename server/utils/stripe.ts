@@ -108,6 +108,78 @@ export async function criarStripeSession(opts: {
   return { id: data.id, url: data.url, payment_status: data.payment_status, status: data.status }
 }
 
+export interface StripePaymentIntent {
+  id: string
+  client_secret: string | null
+  status?: string
+}
+
+/**
+ * Cria um PaymentIntent (cartao EMBUTIDO, sem redirect — Stripe Elements). O
+ * valor sai do SERVIDOR (nunca do client). O client confirma com o client_secret
+ * (confirmCardPayment), com 3DS quando o banco pedir. Idempotency-Key por pedido:
+ * retry de rede nao cria dois PIs (nem duas cobrancas) pro mesmo pedido.
+ */
+export async function criarPaymentIntent(opts: {
+  pedidoId: string
+  tokenEntrega: string
+  plano: string
+  nome: string
+  valorCentavos: number
+  email?: string | null
+}): Promise<StripePaymentIntent> {
+  const { secret } = stripeConfig()
+  if (!secret) throw createError({ statusCode: 503, message: 'Cartao indisponivel' })
+
+  const form = paraForm({
+    amount: opts.valorCentavos,
+    currency: 'brl',
+    // So cartao (o front usa card Elements + confirmCardPayment). Sem
+    // automatic_payment_methods pra nao habilitar metodos com redirect.
+    payment_method_types: ['card'],
+    description: `${opts.nome} - PlacaCompleta`,
+    metadata: { pedido_id: opts.pedidoId, token_entrega: opts.tokenEntrega, plano: opts.plano },
+    ...(opts.email ? { receipt_email: opts.email } : {}),
+  })
+
+  const resp = await fetch(`${STRIPE_API}/payment_intents`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Idempotency-Key': `pi_${opts.pedidoId}`,
+    },
+    body: form.toString(),
+  })
+  const data: any = await resp.json().catch(() => ({}))
+  if (!resp.ok || !data?.id || !data?.client_secret) {
+    console.warn('[stripe] criar payment intent falhou:', resp.status, data?.error?.message)
+    throw createError({ statusCode: 502, message: 'Falha ao iniciar pagamento com cartao' })
+  }
+  return { id: data.id, client_secret: data.client_secret, status: data.status }
+}
+
+/** Le o PaymentIntent (status polling: confirma pagamento sem depender do webhook). */
+export async function consultarPaymentIntent(piId: string): Promise<{ id: string; status?: string } | null> {
+  const { secret } = stripeConfig()
+  if (!secret || !piId) return null
+  try {
+    const resp = await fetch(`${STRIPE_API}/payment_intents/${encodeURIComponent(piId)}`, {
+      headers: { Authorization: `Bearer ${secret}` },
+    })
+    const data: any = await resp.json().catch(() => ({}))
+    if (!resp.ok || !data?.id) return null
+    return { id: data.id, status: data.status }
+  } catch {
+    return null
+  }
+}
+
+/** Pagamento do cartao confirmado? PaymentIntent 'succeeded'. */
+export function paymentIntentPago(pi: { status?: string } | null | undefined): boolean {
+  return !!pi && pi.status === 'succeeded'
+}
+
 /** Le a sessao (usado pelo status polling: confirma pagamento sem depender do webhook). */
 export async function consultarStripeSession(sessionId: string): Promise<StripeSession | null> {
   const { secret } = stripeConfig()
@@ -136,19 +208,26 @@ export function stripeSessionPaga(s: StripeSession | null | undefined): boolean 
  * pra um retry nao estornar duas vezes. Devolve { ok, error } igual ao Pix.
  * status 'pending' conta como ok (o banco ainda processa, mas o refund existe).
  */
-export async function reembolsarStripe(sessionId: string, pedidoId: string): Promise<{ ok: boolean; error?: string }> {
+export async function reembolsarStripe(idStripe: string, pedidoId: string): Promise<{ ok: boolean; error?: string }> {
   const { secret } = stripeConfig()
   if (!secret) return { ok: false, error: 'stripe nao configurado' }
-  if (!sessionId) return { ok: false, error: 'sessao ausente' }
+  if (!idStripe) return { ok: false, error: 'id stripe ausente' }
   try {
-    // O refund precisa do payment_intent, que a session so revela depois de paga.
-    const rs = await fetch(`${STRIPE_API}/checkout/sessions/${encodeURIComponent(sessionId)}`, {
-      headers: { Authorization: `Bearer ${secret}` },
-    })
-    const sess: any = await rs.json().catch(() => ({}))
-    if (!rs.ok) return { ok: false, error: `sessao: ${sess?.error?.message || rs.status}` }
-    const pi = typeof sess.payment_intent === 'string' ? sess.payment_intent : sess.payment_intent?.id
-    if (!pi) return { ok: false, error: 'sessao sem payment_intent (nao paga?)' }
+    // O refund bate no payment_intent. v2 (Elements) guarda o proprio pi_ id;
+    // v1 (Checkout hospedado) guarda o cs_ da sessao, e o pi so aparece nela
+    // depois de paga.
+    let pi: string | undefined
+    if (idStripe.startsWith('pi_')) {
+      pi = idStripe
+    } else {
+      const rs = await fetch(`${STRIPE_API}/checkout/sessions/${encodeURIComponent(idStripe)}`, {
+        headers: { Authorization: `Bearer ${secret}` },
+      })
+      const sess: any = await rs.json().catch(() => ({}))
+      if (!rs.ok) return { ok: false, error: `sessao: ${sess?.error?.message || rs.status}` }
+      pi = typeof sess.payment_intent === 'string' ? sess.payment_intent : sess.payment_intent?.id
+    }
+    if (!pi) return { ok: false, error: 'sem payment_intent (nao paga?)' }
 
     const rr = await fetch(`${STRIPE_API}/refunds`, {
       method: 'POST',

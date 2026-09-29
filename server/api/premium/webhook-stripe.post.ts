@@ -31,10 +31,11 @@ export default defineEventHandler(async (event) => {
     provider: 'stripe', event: tipo, abacatepay_id: eventoId, payload,
   })
 
-  // So a conclusao paga do checkout interessa. checkout.session.completed com
-  // payment_status='paid' e o cartao aprovado a vista. (async_payment_succeeded
-  // cobre metodos assincronos; no cartao a vista nao ocorre, mas aceitamos.)
-  const pago = (tipo === 'checkout.session.completed' && sessao?.payment_status === 'paid')
+  // Interessa a conclusao paga:
+  //   v2 (Elements): payment_intent.succeeded (data.object = o PaymentIntent).
+  //   v1 (Checkout hospedado): checkout.session.completed com payment_status=paid.
+  const pago = tipo === 'payment_intent.succeeded'
+    || (tipo === 'checkout.session.completed' && sessao?.payment_status === 'paid')
     || tipo === 'checkout.session.async_payment_succeeded'
   if (!pago) return { ok: true, ignored: tipo }
 
