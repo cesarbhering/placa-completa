@@ -371,5 +371,20 @@ export async function processarPedidoPago(
         paraTambem: [AVISO_ESTORNO],
       })
     }
+
+    // E-mail pro CLIENTE quando o estorno automatico deu certo. Fail-open e
+    // transacional (Resend): erro no envio nao muda status nem derruba o fluxo,
+    // so loga. So dispara com reembolso OK + pedido com e-mail — nunca quando o
+    // estorno falhou (a UI/tela nao promete o que nao ocorreu) nem sem e-mail.
+    if (deveAvisarClienteEstorno(reembolso.ok, pedido.email)) {
+      await enviarEstornoEmail({
+        email: pedido.email as string,
+        placa: pedido.placa,
+        valorCentavos: pedido.valor_centavos ?? null,
+        // Muda so a frase do prazo (cartao 10 dias uteis x Pix na hora). Em main
+        // (so Pix) o campo nao existe -> undefined -> Pix, comportamento correto.
+        formaPagamento: (pedido as any).forma_pagamento ?? null,
+      })
+    }
   }
 }
