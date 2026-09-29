@@ -167,6 +167,10 @@ export async function processarPedidoPago(
     abacatepay_id: string | null
     /** Qual adquirente criou a cobranca. Sem isso, o estorno bate na porta errada. */
     pix_provider?: string | null
+    /** 'pix' (default) | 'cartao'. Decide por onde sai o estorno na falha. */
+    forma_pagamento?: string | null
+    /** Sessao do Stripe (cartao): o estorno bate na Stripe por ela, nao no Pix. */
+    stripe_session_id?: string | null
     /** Pedido do app: o estorno e manual, no Play Console. Vai no alerta. */
     google_play_order_id?: string | null
     /** So pro alerta de estorno: quanto entrou e saiu. */
@@ -316,9 +320,17 @@ export async function processarPedidoPago(
       return
     }
 
-    const reembolso = pedido.abacatepay_id
-      ? await provedorDoPedido(pedido.pix_provider).reembolsarPix(pedido.abacatepay_id)
-      : { ok: false, error: 'pedido sem cobranca' }
+    // Estorno automatico: pelo Stripe se a venda foi no cartao (nao tem
+    // abacatepay_id; o refund bate na Stripe pelo payment_intent da sessao),
+    // senao pelo provedor do Pix. Mesma filosofia dos dois: o cliente pagou, a
+    // consulta falhou, o dinheiro volta sozinho.
+    const reembolso = pedido.forma_pagamento === 'cartao'
+      ? (pedido.stripe_session_id
+          ? await reembolsarStripe(pedido.stripe_session_id, pedido.id)
+          : { ok: false, error: 'pedido sem sessao stripe' })
+      : (pedido.abacatepay_id
+          ? await provedorDoPedido(pedido.pix_provider).reembolsarPix(pedido.abacatepay_id)
+          : { ok: false, error: 'pedido sem cobranca' })
     if (reembolso.ok) {
       // O status 'reembolsado' e o que a tela usa pra dizer que o dinheiro
       // voltou. Ele ja falhou em producao (pedido de UDS2J40 ficou em 'falha'
@@ -367,7 +379,7 @@ export async function processarPedidoPago(
         .eq('id', pedido.id)
       await sendErrorEmail({
         endpoint: '/premium/processar',
-        errorMessage: `PAGO, CONSULTA FALHOU e REEMBOLSO FALHOU. pedido=${pedido.id} placa=${pedido.placa} token=${pedido.token_entrega} valor=${valorEmReais(pedido.valor_centavos)} origem=${origemDoPedido(pedido)} email=${mascararEmail(pedido.email)} charge=${pedido.abacatepay_id} etapa=${etapaDaFalha(e)} consulta_erro=${motivo} reembolso_erro=${reembolso.error}`,
+        errorMessage: `PAGO, CONSULTA FALHOU e REEMBOLSO FALHOU. pedido=${pedido.id} placa=${pedido.placa} token=${pedido.token_entrega} valor=${valorEmReais(pedido.valor_centavos)} origem=${origemDoPedido(pedido)} email=${mascararEmail(pedido.email)} meio=${pedido.forma_pagamento === 'cartao' ? 'cartao' : 'pix'} charge=${pedido.abacatepay_id || pedido.stripe_session_id} etapa=${etapaDaFalha(e)} consulta_erro=${motivo} reembolso_erro=${reembolso.error}`,
         paraTambem: [AVISO_ESTORNO],
       })
     }
