@@ -21,8 +21,8 @@ describe('sinalDoRecall', () => {
   })
 })
 
-describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW)', () => {
-  it('Toyota, Lexus, Chevrolet, GM e VW passam', () => {
+describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat)', () => {
+  it('Toyota, Lexus, Chevrolet, GM, VW e Fiat passam', () => {
     expect(marcaTemRecall('TOYOTA')).toBe(true)
     expect(marcaTemRecall('toyota')).toBe(true)
     expect(marcaTemRecall('Lexus')).toBe(true)
@@ -35,6 +35,10 @@ describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW)', () => {
     expect(marcaTemRecall('VW')).toBe(true)
     expect(marcaTemRecall('VW/GOL')).toBe(true)
     expect(marcaTemRecall('I/VW FOX')).toBe(true)
+    // variantes Fiat
+    expect(marcaTemRecall('FIAT')).toBe(true)
+    expect(marcaTemRecall('FIAT/PALIO')).toBe(true)
+    expect(marcaTemRecall('I/FIAT 500')).toBe(true)
   })
   it('outras marcas e vazio nao passam', () => {
     expect(marcaTemRecall('HONDA')).toBe(false)

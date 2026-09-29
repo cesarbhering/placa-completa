@@ -118,7 +118,7 @@ export default defineEventHandler(async (event) => {
       const bruto = Array.isArray(resp) ? resp[0] : resp
       const desc = String(bruto?.descricaoMarcaModelo || '')
       const chassi = String(bruto?.chassi || '').trim()
-      const ehMarcaAutoritativa = /\b(chevrolet|gm|general\s*motors|volkswagen|vw)\b/i.test(desc)
+      const ehMarcaAutoritativa = /\b(chevrolet|gm|general\s*motors|volkswagen|vw|fiat)\b/i.test(desc)
       const indicador = temRecallPendente(resp)
       const diag: any = { token: p.token_entrega, desc, chassiLen: chassi.length, ehMarcaAutoritativa, indicadorRecall: indicador }
       if (!ehMarcaAutoritativa) { out.push({ ...diag, pulado: 'marca sem modo autoritativo (nem Chevrolet/GM nem VW)' }); continue }
