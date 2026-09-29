@@ -45,6 +45,12 @@ begin
 end;
 $$;
 
+-- A RPC devolve um HASH PAGO (~R$7). O RLS de gcc_consentimentos ja bloqueia
+-- anon, mas uma funcao que entrega hash nao pode ficar exposta no PostgREST nem
+-- por acidente: so o service role (que a chama via supabase.rpc no server) deve
+-- executar. Tira o execute de todo mundo que o PostgREST expoe.
+revoke execute on function public.reivindicar_hash_reserva(text) from public, anon, authenticated;
+
 -- Indice do claim: acha rapido a reserva mais antiga valida por ambiente.
 create index if not exists gcc_consentimentos_reserva_idx
   on public.gcc_consentimentos (ambiente, created_at)
