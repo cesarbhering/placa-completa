@@ -17,6 +17,7 @@ import { PLANOS, precoBRL } from '~/shared/planos'
 import { explicaRestricao } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
+import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
 
 const route = useRoute()
 const token = route.params.token as string
@@ -250,6 +251,13 @@ const historicoLeilao = computed(() => data.value?.historicoLeilao ?? null)
 const temSecaoLeilao = computed(() => !!historicoLeilao.value)
 
 
+// Roubo/furto so do DETRAN estadual (SENATRAN em nada consta). Ver shared/roubo-detran.
+const rouboDetran = computed(() => rouboFurtoPeloDetran({
+  senatranLigado: g('indicadorRouboFurto') === true,
+  temOcorrenciasSenatran: ocorrencias.value.length > 0,
+  multas: multasDetalhe.value,
+}))
+
 const indicadores = computed(() => {
   const base: any[] = INDICADORES.filter((i) => has(i.k)).map((i) => {
     const ligado = g(i.k) === true
@@ -259,6 +267,19 @@ const indicadores = computed(() => {
     // cartao verde "NADA CONSTA" nesse caso e enganoso — quem le a sigla
     // "nada consta" entende "nunca teve problema", e nao e verdade. Se tem
     // ocorrencia registrada, o cartao acende mesmo com o indicador desligado.
+    // SENATRAN em NADA CONSTA (sem indicador e sem historico) mas o DETRAN
+    // estadual acusa roubo/furto: o cartao acende com a fonte explicita
+    // (decisao do Cesar, 30/set). Com o SENATRAN acusando, segue como esta.
+    if (i.k === 'indicadorRouboFurto' && rouboDetran.value) {
+      return {
+        ...i,
+        nao: rouboDetran.value.valorCartao,
+        dica: rouboDetran.value.texto,
+        rotuloVeredito: rouboDetran.value.rotuloVeredito,
+        ligado,
+        alerta: true,
+      }
+    }
     if (i.k === 'indicadorRouboFurto' && !ligado && ocorrencias.value.length) {
       // Episodio encerrado muda o TEXTO, nao a cor (decisao do Cesar em
       // 22/set): registro de roubo continua sendo registro de roubo, e o
@@ -473,8 +494,11 @@ const veredito = computed(() => {
   // O cartao generico aceso e sempre renomeado aqui pelo tipo especifico
   // (restricoesForaDosIndicadores) — listar os dois diria a mesma coisa duas
   // vezes: "consta Outras restrições e Restrição de benefício tributário".
+  // Rotulo proprio no veredito quando o cartao acendeu por outra fonte (ex.:
+  // "roubo/furto informado pelo DETRAN-MG", nunca so "Roubo / furto").
+  const rotuloVer = new Map(indicadores.value.filter((i: any) => i.alerta && i.rotuloVeredito).map((i: any) => [i.label, i.rotuloVeredito]))
   const nomes = [
-    ...alertas.value.filter((l) => l !== 'Outras restrições'),
+    ...alertas.value.filter((l) => l !== 'Outras restrições').map((l) => rotuloVer.get(l) || l),
     ...restricoesForaDosIndicadores.value,
     ...(licAtrasado ? ['licenciamento atrasado'] : []),
   ]
