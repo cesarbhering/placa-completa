@@ -987,10 +987,10 @@ const recallCampanhasGM = computed(() => (recallAutoritativo.value?.campanhas ||
 const multaIndicadorSP = computed(
   () => g('indicadorMultaRenainf') === true && String(g('ufJurisdicao') || '').toUpperCase() === 'SP',
 )
-// Veiculo registrado em SP: a consulta DETRAN (Infosimples) roda pra TODO pedido
-// SP (multas, hodometro, IPVA, licenciamento), nao so quando o RENAINF acende.
+// Veiculo registrado em SP ou SC: a consulta DETRAN (Infosimples) roda pra TODO pedido
+// dessas UFs (multas, hodometro, IPVA, licenciamento), nao so quando o RENAINF acende.
 // Por isso o bloco e o poll acompanham qualquer veiculo de SP, nao so multa.
-const ehVeiculoSpTela = computed(() => String(g('ufJurisdicao') || '').toUpperCase() === 'SP')
+const ehVeiculoSpTela = computed(() => ['SP', 'SC'].includes(String(g('ufJurisdicao') || '').toUpperCase()))
 const multasDetalhe = computed(() => {
   const m: any = data.value?.multas
   return m && (m.status === 'ok' || m.status === 'sem_debito') ? m : null
@@ -1018,7 +1018,7 @@ const multasBreakdown = computed(() => {
   if (m.multas_total_centavos != null)
     rows.push({
       // gov.br so listava multa pagavel por Pix; o Infosimples traz TODAS em aberto.
-      rotulo: m.fonte === 'detran_sp' ? 'Multas em aberto' : 'Multas (Pix)',
+      rotulo: String(m.fonte || '').startsWith('detran_') ? 'Multas em aberto' : 'Multas (Pix)',
       valor: m.multas_total_centavos > 0 ? (reais(m.multas_total_centavos) as string) : 'Nada consta',
       emDia: !(m.multas_total_centavos > 0),
     })
@@ -1065,6 +1065,7 @@ function rotuloRestricao(tipo?: string | null): string {
   const map: Record<string, string> = {
     financeira: 'Financeira', judiciaria: 'Judiciária',
     administrativa: 'Administrativa', tributaria: 'Tributária', furto: 'Furto/roubo',
+    sng: 'Gravame (SNG)', situacao: 'Situação', divida_ativa: 'Dívida ativa',
   }
   return map[String(tipo || '')] || 'Restrição'
 }
@@ -1686,6 +1687,15 @@ onUnmounted(() => {
                     </li>
                   </ul>
                 </template>
+
+                <!-- Historico de infracoes (SC): secundario, so contagem. -->
+                <p v-if="multasDetalhe.historico_infracoes && multasDetalhe.historico_infracoes.total" class="rel__multas-nota">
+                  Histórico: {{ multasDetalhe.historico_infracoes.total }}
+                  {{ multasDetalhe.historico_infracoes.total === 1 ? 'infração notificada' : 'infrações notificadas' }}
+                  no DETRAN, {{ multasDetalhe.historico_infracoes.pagas }}
+                  {{ multasDetalhe.historico_infracoes.pagas === 1 ? 'paga' : 'pagas' }}<template v-if="multasDetalhe.historico_infracoes.recursos">,
+                  {{ multasDetalhe.historico_infracoes.recursos }} {{ multasDetalhe.historico_infracoes.recursos === 1 ? 'recurso' : 'recursos' }}</template>.
+                </p>
 
                 <!-- Licenciamento atrasado (mesmo com débito zerado: pode ter ido
                      pra dívida ativa). Copy factual. -->

@@ -1,0 +1,279 @@
+{
+ "dados_do_veiculo": {
+  "placa": "MJL2938",
+  "renavam": "390314714",
+  "placa_anterior": "MJL2938",
+  "tipo": "Automovel",
+  "categoria": "Particular",
+  "especie": "Passageiro",
+  "lugares": 5,
+  "marca_modelo": "I/FORD FIESTA SE",
+  "ano_fabricacao_modelo": "2011/2011",
+  "combustivel": "Alcool-Gasol",
+  "cor": "Preta",
+  "carroceria": "Nao Aplicavel",
+  "nome_proprietario_atual": "FULANO PROPRIETARIO ATUAL",
+  "nome_principal_condutor": "CICRANO CONDUTOR PRINCIPAL",
+  "nome_proprietario_anterior": "BELTRANO PROPRIETARIO ANTERIOR",
+  "origem_dados_veiculo": "Cadastro",
+  "municipio_emplacamento": "JOINVILLE",
+  "licenciado": "2025 CRLV Digital",
+  "data_aquisicao": "12/12/2018",
+  "situacao": "Em circulação",
+  "restricao_venda": "Sem gravame",
+  "pendencias_financeiras_sng": [
+   "Registro de Alienação Fiduciária informado por B**** D******* S* em 29/09/2026 às 16h08min para F****** P*********"
+  ],
+  "normalizado_placa": "MJL2938",
+  "normalizado_renavam": "00390314714",
+  "normalizado_data_aquisicao": "12/12/2018",
+  "categoria_dpvat": null,
+  "recadastro_detran": null,
+  "observacao": null,
+  "restricoes": null
+ },
+ "debitos": {
+  "debitos": [
+   {
+    "classe": "JOINVIL-008806-JV00226652-6602",
+    "vencimento": "13/04/2026",
+    "valor_nominal": 309.61,
+    "valor_atual": null,
+    "multa": null,
+    "juros": null,
+    "numero_detran_net": null,
+    "normalizado_vencimento": "13/04/2026",
+    "normalizado_valor_nominal": 309.61,
+    "normalizado_multa": null,
+    "normalizado_juros": null,
+    "normalizado_valor_atual": null,
+    "guia_pdf_url": null,
+    "guia_download_id": null,
+    "guia_download_id_expires_at": null
+   },
+   {
+    "classe": "IPVA (Cota Unica) 2026",
+    "vencimento": "31/08/2026",
+    "valor_nominal": 669.32,
+    "valor_atual": null,
+    "multa": null,
+    "juros": null,
+    "numero_detran_net": null,
+    "normalizado_vencimento": "31/08/2026",
+    "normalizado_valor_nominal": 669.32,
+    "normalizado_multa": null,
+    "normalizado_juros": null,
+    "normalizado_valor_atual": null,
+    "guia_pdf_url": null,
+    "guia_download_id": null,
+    "guia_download_id_expires_at": null
+   },
+   {
+    "classe": "Licenciamento Anual 2026",
+    "vencimento": "31/10/2026",
+    "valor_nominal": 149.37,
+    "valor_atual": null,
+    "multa": null,
+    "juros": null,
+    "numero_detran_net": null,
+    "normalizado_vencimento": "31/10/2026",
+    "normalizado_valor_nominal": 149.37,
+    "normalizado_multa": null,
+    "normalizado_juros": null,
+    "normalizado_valor_atual": null,
+    "guia_pdf_url": null,
+    "guia_download_id": null,
+    "guia_download_id_expires_at": null
+   }
+  ],
+  "taxas_detran": null,
+  "seguro_dpvat": null,
+  "ipva": null,
+  "multas": null,
+  "normalizado_taxas_detran": 0,
+  "normalizado_seguro_dpvat": 0,
+  "normalizado_ipva": 0,
+  "normalizado_multas": 0
+ },
+ "divida_ativa": [],
+ "historico_infracoes_notificadas": [
+  {
+   "num_auto": "P015R00003",
+   "local_data_hora_multa": "17/06/2016 11:10",
+   "valor": 127.69,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "8793603173",
+   "local_data_hora_multa": "08/01/2017 11:33",
+   "valor": 130.16,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "8793738098",
+   "local_data_hora_multa": "03/09/2017 09:57",
+   "valor": 130.16,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "FT05134792",
+   "local_data_hora_multa": "18/06/2018 01:58",
+   "valor": 293.47,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "P02Y300589",
+   "local_data_hora_multa": "03/06/2019 12:08",
+   "valor": 195.23,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "FT05318938",
+   "local_data_hora_multa": "19/07/2019 04:29",
+   "valor": 293.47,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "P02Y3005S6",
+   "local_data_hora_multa": "24/07/2019 11:24",
+   "valor": 293.47,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "P02Y3005S7",
+   "local_data_hora_multa": "24/07/2019 11:25",
+   "valor": 195.23,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "8805079845",
+   "local_data_hora_multa": "31/12/2019 16:20",
+   "valor": 130.16,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "8805079366",
+   "local_data_hora_multa": "31/12/2019 16:38",
+   "valor": 130.16,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "P02Y3006G7",
+   "local_data_hora_multa": "17/02/2020 10:12",
+   "valor": 195.23,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "8805192979",
+   "local_data_hora_multa": "10/09/2020 15:14",
+   "valor": 130.16,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "8805219780",
+   "local_data_hora_multa": "06/11/2020 15:17",
+   "valor": 130.16,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  },
+  {
+   "num_auto": "8805275451",
+   "local_data_hora_multa": "20/02/2021 12:47",
+   "valor": 130.16,
+   "status": "Paga",
+   "local_complemento": null,
+   "descricao": null,
+   "situacao": null
+  }
+ ],
+ "historico_multas": [],
+ "infracoes_em_autuacao": [],
+ "multas": [
+  {
+   "num_auto": "JV00226652",
+   "situacao": "Penalidade notificada",
+   "descricao": "CONDUZIR O VEÍCULO COM QQ UMA DAS PLACAS SEM LEGIBILID/VISIB",
+   "local_data_hora_multa": "13/11/2025 11:31",
+   "local_complemento": "MONSENHOR GERCINO, 2105 - JOINVILLE/SC",
+   "valor_multa": 293.47,
+   "data_limite_defesa": "19/01/2026"
+  }
+ ],
+ "recursos_infracoes": [
+  {
+   "processo_tipo": "Defesa Autuação",
+   "processo_numero": 1643,
+   "processo_ano": 2016,
+   "numero_auto": "JOINVILLE-008790-P015R00003-5452-2",
+   "processo_data": "2016-08-03",
+   "infracao_descricao": "ESTACIONAR SOBRE FAIXA DESTINADA A PEDESTRE",
+   "infracao_local_data_hora": "17/06/2016 11:10",
+   "infracao_local_complemento": "R. DO PRÍNCIPE, JOINVILLE - SC, BRAZIL",
+   "resultado": "INDEFERIDO em 20/09/2016"
+  }
+ ],
+ "ultimo_processo": {
+  "processo": "13396/2019",
+  "interessado": "FULANO INTERESSADO",
+  "data_hora_inicio": "08/01/2019 15:00",
+  "data_hora_final": "09/01/2019 14:38",
+  "situacao": "Encerrado",
+  "servicos": [
+   {
+    "servico": "Transferência de Propriedade",
+    "data_hora_execucao": "08/01/2019 15:00"
+   },
+   {
+    "servico": "Geração de guia de pagamento",
+    "data_hora_execucao": "08/01/2019 15:00"
+   },
+   {
+    "servico": "Auditoria",
+    "data_hora_execucao": "09/01/2019 14:38"
+   },
+   {
+    "servico": "Emissão CRV(1ª via)",
+    "data_hora_execucao": "09/01/2019 16:39"
+   }
+  ]
+ },
+ "site_receipt": "https://example.invalid/receipt-com-dados-pessoais"
+}
