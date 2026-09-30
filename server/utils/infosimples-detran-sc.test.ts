@@ -21,7 +21,7 @@ describe('parsearDetranSc: LGPD', () => {
     expect(Object.keys(parsearDetranSc(SC, HOJE)).sort()).toEqual([
       'fonte', 'historico_infracoes', 'hodometro', 'hodometro_suspeito', 'ipva_total_centavos',
       'licenciamento_atrasado_ano', 'licenciamento_centavos', 'licenciamento_venc', 'multas_itens',
-      'multas_total_centavos', 'restricoes_detran', 'status',
+      'multas_total_centavos', 'restricoes_detran', 'status', 'ultimo_licenciamento_ano',
     ])
   })
 
