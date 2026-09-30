@@ -19,7 +19,7 @@ export async function encriptarInfosimples(valor: string, encKey: string): Promi
 }
 
 /** Certificado mandado ao Infosimples por UF. Hoje todas usam e-CNPJ; e-CPF fica suportado. */
-export type CertInfosimples = 'ecnpj' | 'ecpf'
+export type CertInfosimples = 'ecnpj' | 'ecpf' | 'govbr_ba'
 
 function infosimplesConfig(cert: CertInfosimples = 'ecnpj') {
   const c = useRuntimeConfig() as any
@@ -42,8 +42,25 @@ function infosimplesConfig(cert: CertInfosimples = 'ecnpj') {
   }
 }
 
-/** Token + chave + o certificado pedido presentes? Sem o cert da UF, a UF nao roda (fail-open). */
+/**
+ * Login gov.br do DETRAN-BA (CPF + senha do Cesar, NAO e certificado). A senha
+ * vai em TEXTO PURO: criptografada o gov.br recusa (608) e cada recusa conta
+ * como tentativa errada na conta dele. Lidas so do process.env.
+ */
+function loginBa() {
+  return {
+    cpf: String(process.env.NUXT_INFOSIMPLES_BA_CPF || '').replace(/\D/g, ''),
+    senha: String(process.env.NUXT_INFOSIMPLES_BA_SENHA || ''),
+  }
+}
+
+/** Credencial da UF presente? Sem ela a UF nao roda (fail-open). */
 export function infosimplesConfigurado(cert: CertInfosimples = 'ecnpj'): boolean {
+  if (cert === 'govbr_ba') {
+    const t = infosimplesConfig('ecnpj').token
+    const l = loginBa()
+    return !!(t && l.cpf && l.senha)
+  }
   const c = infosimplesConfig(cert)
   return !!(c.token && c.encKey && c.pkcs12B64 && c.pkcs12Pass)
 }
@@ -63,6 +80,8 @@ export const DETRAN_UFS = {
   // 'ecpf' segue suportado pra UF futura, mas nenhuma usa hoje.
   SC: { path: 'detran/sc/veiculo', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_sc', fonteCusto: 'infosimples_detran_sc' },
   // MG exige o chassi alem de placa+renavam (vem do SENATRAN).
+  // BA: login gov.br (CPF+senha), renavam sem placa. R$0,30 por chamada.
+  BA: { path: 'detran/ba/multas', cert: 'govbr_ba', gate: 'renainf', fonte: 'detran_ba', fonteCusto: 'infosimples_detran_ba' },
   MG: { path: 'detran/mg/multas-descritivos', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_mg', fonteCusto: 'infosimples_detran_mg', exigeChassi: true },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
@@ -101,24 +120,33 @@ export interface ResultadoDetran {
  * erro de rede vira code=0/data=null (o chamador e fail-open).
  */
 export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null }): Promise<ResultadoDetran> {
-  const certUf = DETRAN_UFS[opts.uf].cert
-  const cfg = infosimplesConfig(certUf)
+  const cfgUf: any = DETRAN_UFS[opts.uf]
+  const certUf: CertInfosimples = cfgUf.cert
+  const cfg = infosimplesConfig(certUf === 'govbr_ba' ? 'ecnpj' : certUf)
   if (!infosimplesConfigurado(certUf)) return { code: 0, codeMessage: `infosimples nao configurado (${certUf})`, preco: 0, data: null }
   try {
-    const [cert, pass] = await Promise.all([
-      encriptarInfosimples(cfg.pkcs12B64, cfg.encKey),
-      encriptarInfosimples(cfg.pkcs12Pass, cfg.encKey),
-    ])
     const body = new URLSearchParams({
       token: cfg.token,
       timeout: '600',
       ignore_site_receipt: '0',
-      pkcs12_cert: cert,
-      pkcs12_pass: pass,
-      placa: opts.placa,
       // Renavam com 11 digitos (o SENATRAN as vezes manda sem os zeros a esquerda).
       renavam: String(opts.renavam).padStart(11, '0'),
     })
+    if (certUf === 'govbr_ba') {
+      // BA: login gov.br, sem placa, chassi vazio, senha em texto puro.
+      const l = loginBa()
+      body.set('chassi', '')
+      body.set('login_cpf', l.cpf)
+      body.set('login_senha', l.senha)
+    } else {
+      const [cert, pass] = await Promise.all([
+        encriptarInfosimples(cfg.pkcs12B64, cfg.encKey),
+        encriptarInfosimples(cfg.pkcs12Pass, cfg.encKey),
+      ])
+      body.set('pkcs12_cert', cert)
+      body.set('pkcs12_pass', pass)
+      body.set('placa', opts.placa)
+    }
     if (opts.chassi) body.set('chassi', String(opts.chassi).toUpperCase())
     const res = await fetch(`${BASE}/${DETRAN_UFS[opts.uf].path}`, {
       method: 'POST',
@@ -517,6 +545,79 @@ export function parsearDetranMg(data: any, hoje: Date = new Date()) {
   }
 }
 
+// ---------- DETRAN-BA (/detran/ba/multas) ----------
+//
+// Whitelist: NUNCA grava `proprietario` (nome do dono), os PDFs
+// (extrato_infracoes_pdf_url, extrato_infracoes_tramitacao_pdf_url) nem o
+// site_receipt. BA nao traz IPVA, licenciamento nem km.
+
+/**
+ * Modela o data[0] do DETRAN-BA: infracoes[] casadas com infracoes_detalhes[]
+ * (numero_controle = codigo_controle) pra AIT, vencimento e municipio;
+ * infracoes_tramitacao[] = em andamento (contagem).
+ */
+export function parsearDetranBa(data: any) {
+  const d = data || {}
+  const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t || null }
+  const detalhes: any[] = Array.isArray(d.infracoes_detalhes) ? d.infracoes_detalhes : []
+  const porControle = new Map(detalhes.map((x: any) => [String(x?.codigo_controle ?? ''), x]))
+
+  const infracoes: any[] = Array.isArray(d.infracoes) ? d.infracoes : []
+  const itens: DetranMulta[] = infracoes.map((m: any) => {
+    const det: any = porControle.get(String(m?.numero_controle ?? '')) || {}
+    return {
+      auto: texto(det.ait),
+      descricao: texto(m?.descricao) || texto(det.descricao),
+      dataInfracao: texto(m?.data) || texto(det.data_hora_infracao),
+      horaInfracao: null,
+      dataVencimento: texto(det.data_vencimento),
+      valor: typeof m?.normalizado_valor === 'number' ? m.normalizado_valor : moeda(m?.valor),
+      local: texto(m?.local) || texto(det.local),
+      municipio: texto(det.municipio),
+      orgao: texto(m?.orgao_autuador) || texto(det.orgao_autuador),
+    }
+  })
+  const tramitacao: any[] = Array.isArray(d.infracoes_tramitacao) ? d.infracoes_tramitacao : []
+
+  return {
+    status: 'ok' as const,
+    fonte: 'detran_ba',
+    multas_total_centavos: Math.round(itens.reduce((acc, i) => acc + i.valor, 0) * 100),
+    licenciamento_centavos: null as number | null,
+    ipva_total_centavos: null as number | null,
+    hodometro: [] as { data: string | null; km: number }[],
+    hodometro_suspeito: false,
+    multas_itens: itens,
+    licenciamento_atrasado_ano: null as number | null,
+    restricoes_detran: [] as { tipo: string; texto: string }[],
+    autuacoes_em_andamento: tramitacao.length,
+  }
+}
+
+// ---------- Trava do login gov.br (BA) ----------
+//
+// 608 = "Usuário e/ou senha inválidos": cada tentativa conta como senha errada
+// na conta gov.br do Cesar, e repetir pode BLOQUEAR a conta. No primeiro 608 o
+// BA para de chamar neste processo (ate restart/deploy, que e quando alguem
+// corrigiu a env) e manda alerta. Sem retry automatico.
+let loginBaTravadoEm: string | null = null
+export function loginBaTravado(): string | null { return loginBaTravadoEm }
+export function destravarLoginBa(): void { loginBaTravadoEm = null }
+/** Pro modo testar do backfill: mesma trava + alerta. */
+export function travarLoginBaPublico(motivo: string): void { void travarLoginBa(motivo) }
+
+async function travarLoginBa(motivo: string): Promise<void> {
+  loginBaTravadoEm = new Date().toISOString()
+  console.error('[infosimples] DETRAN-BA: login gov.br recusado (608); BA travado ate restart.', motivo)
+  try {
+    await sendErrorEmail({
+      endpoint: '/premium/detran-ba',
+      errorMessage: `DETRAN-BA: login gov.br recusado (608: ${motivo}). As consultas BA foram TRAVADAS neste container pra nao bloquear a conta gov.br. Confira NUXT_INFOSIMPLES_BA_CPF/SENHA no Coolify e faça redeploy.`,
+      paraTambem: ['cesarcbhering@gmail.com'],
+    })
+  } catch { /* sem e-mail (teste/dev): o log acima fica */ }
+}
+
 // ---------- Custo por pedido (pro fin somar no P&L) ----------
 
 /** Grava o custo de UMA chamada (sucesso ou erro). Fail-open: nunca derruba nada. */
@@ -543,6 +644,7 @@ export type ResultadoCompletarDetran =
 export function blocoDetranDaUf(uf: UfDetran, data: any) {
   if (uf === 'SC') return parsearDetranSc(data)
   if (uf === 'MG') return parsearDetranMg(data)
+  if (uf === 'BA') return parsearDetranBa(data)
   return detranParaMultas(parsearDetranSp(data))
 }
 
@@ -571,6 +673,7 @@ export async function completarDetran(
   const chassi = chassiDaResposta(ctx.response)
   if ((cfgUf as any).exigeChassi && !chassi) return { ok: false, pulado: 'sem chassi' }
   if (!infosimplesConfigurado(cfgUf.cert)) return { ok: false, pulado: `infosimples nao configurado (${cfgUf.cert})` }
+  if (cfgUf.cert === 'govbr_ba' && loginBaTravado()) return { ok: false, pulado: 'login BA travado (608)' }
 
   const { data } = await supabase
     .from('pedidos_premium')
@@ -586,6 +689,7 @@ export async function completarDetran(
   const res = await consultarDetranInfosimples({ uf, placa: pedido.placa, renavam, chassi: (cfgUf as any).exigeChassi ? chassi : null })
   // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
   await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code })
+  if (cfgUf.cert === 'govbr_ba' && res.code === 608) await travarLoginBa(res.codeMessage)
 
   if (res.code !== 200 || !res.data) {
     return { ok: false, code: res.code, preco: res.preco, motivo: res.codeMessage || 'sem data' }
