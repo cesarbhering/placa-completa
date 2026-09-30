@@ -987,10 +987,10 @@ const recallCampanhasGM = computed(() => (recallAutoritativo.value?.campanhas ||
 const multaIndicadorSP = computed(
   () => g('indicadorMultaRenainf') === true && String(g('ufJurisdicao') || '').toUpperCase() === 'SP',
 )
-// Veiculo registrado em SP: a consulta DETRAN (Infosimples) roda pra TODO pedido
-// SP (multas, hodometro, IPVA, licenciamento), nao so quando o RENAINF acende.
+// Veiculo registrado em SP ou SC: a consulta DETRAN (Infosimples) roda pra TODO pedido
+// dessas UFs (multas, hodometro, IPVA, licenciamento), nao so quando o RENAINF acende.
 // Por isso o bloco e o poll acompanham qualquer veiculo de SP, nao so multa.
-const ehVeiculoSpTela = computed(() => String(g('ufJurisdicao') || '').toUpperCase() === 'SP')
+const ehVeiculoSpTela = computed(() => ['SP', 'SC'].includes(String(g('ufJurisdicao') || '').toUpperCase()))
 const multasDetalhe = computed(() => {
   const m: any = data.value?.multas
   return m && (m.status === 'ok' || m.status === 'sem_debito') ? m : null
@@ -1000,14 +1000,16 @@ function reais(centavos?: number | null): string | null {
   // Com separador de milhar: "R$ 2.970,56", nao "R$ 2970,56".
   return `R$ ${(centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
-// Total "Para regularizar" = multas + licenciamento em aberto (NAO inclui IPVA
-// quando em dia). null quando nao ha nada a pagar (nao mostra o total).
+// Total "Para regularizar" = multas + licenciamento + IPVA em aberto. null quando nao ha nada a pagar (nao mostra o total).
 const multasTotalCentavos = computed(() => {
   const m = multasDetalhe.value
   if (!m) return null
   const mm = m.multas_total_centavos && m.multas_total_centavos > 0 ? m.multas_total_centavos : 0
   const lic = m.licenciamento_centavos && m.licenciamento_centavos > 0 ? m.licenciamento_centavos : 0
-  const total = mm + lic
+  // IPVA em aberto tambem e divida do carro (o comentario sempre disse "NAO
+  // inclui IPVA quando em dia", mas o codigo nunca somava, nem em aberto).
+  const ipva = m.ipva_total_centavos && m.ipva_total_centavos > 0 ? m.ipva_total_centavos : 0
+  const total = mm + lic + ipva
   return total > 0 ? total : null
 })
 // Breakdown do cartao: Multas (Pix), Licenciamento (com vencimento), IPVA.
@@ -1018,7 +1020,7 @@ const multasBreakdown = computed(() => {
   if (m.multas_total_centavos != null)
     rows.push({
       // gov.br so listava multa pagavel por Pix; o Infosimples traz TODAS em aberto.
-      rotulo: m.fonte === 'detran_sp' ? 'Multas em aberto' : 'Multas (Pix)',
+      rotulo: String(m.fonte || '').startsWith('detran_') ? 'Multas em aberto' : 'Multas (Pix)',
       valor: m.multas_total_centavos > 0 ? (reais(m.multas_total_centavos) as string) : 'Nada consta',
       emDia: !(m.multas_total_centavos > 0),
     })
@@ -1028,12 +1030,16 @@ const multasBreakdown = computed(() => {
     // tras (pode ter ido pra divida ativa): senao a linha contradiz o alerta
     // de licenciamento atrasado logo abaixo.
     const atrasado = m.licenciamento_atrasado_ano
+    // Exercicio anterior sem atraso comprovado (calendario por placa): mostra o
+    // ultimo licenciamento, neutro, sem selo de atrasado e sem "Em dia".
+    const ultimo = m.ultimo_licenciamento_ano
+    const anterior = !atrasado && ultimo != null && ultimo < new Date().getFullYear()
     rows.push({
       rotulo: `Licenciamento${venc}`,
       valor: m.licenciamento_centavos > 0
         ? (reais(m.licenciamento_centavos) as string)
-        : atrasado ? `Atrasado (${atrasado})` : 'Em dia',
-      emDia: !(m.licenciamento_centavos > 0) && !atrasado,
+        : atrasado ? `Atrasado (${atrasado})` : anterior ? `Último: ${ultimo}` : 'Em dia',
+      emDia: !(m.licenciamento_centavos > 0) && !atrasado && !anterior,
     })
   }
   if (m.ipva_total_centavos != null)
@@ -1065,6 +1071,7 @@ function rotuloRestricao(tipo?: string | null): string {
   const map: Record<string, string> = {
     financeira: 'Financeira', judiciaria: 'Judiciária',
     administrativa: 'Administrativa', tributaria: 'Tributária', furto: 'Furto/roubo',
+    sng: 'Gravame (SNG)', situacao: 'Situação', divida_ativa: 'Dívida ativa',
   }
   return map[String(tipo || '')] || 'Restrição'
 }
@@ -1686,6 +1693,15 @@ onUnmounted(() => {
                     </li>
                   </ul>
                 </template>
+
+                <!-- Historico de infracoes (SC): secundario, so contagem. -->
+                <p v-if="multasDetalhe.historico_infracoes && multasDetalhe.historico_infracoes.total" class="rel__multas-nota">
+                  Histórico: {{ multasDetalhe.historico_infracoes.total }}
+                  {{ multasDetalhe.historico_infracoes.total === 1 ? 'infração notificada' : 'infrações notificadas' }}
+                  no DETRAN, {{ multasDetalhe.historico_infracoes.pagas }}
+                  {{ multasDetalhe.historico_infracoes.pagas === 1 ? 'paga' : 'pagas' }}<template v-if="multasDetalhe.historico_infracoes.recursos">,
+                  {{ multasDetalhe.historico_infracoes.recursos }} {{ multasDetalhe.historico_infracoes.recursos === 1 ? 'recurso' : 'recursos' }}</template>.
+                </p>
 
                 <!-- Licenciamento atrasado (mesmo com débito zerado: pode ter ido
                      pra dívida ativa). Copy factual. -->

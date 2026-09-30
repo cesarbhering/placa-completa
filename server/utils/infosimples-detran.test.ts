@@ -68,11 +68,34 @@ describe('parsearDetranSp', () => {
     expect(r.hodometro.suspeitaAdulteracao).toBe(true)
   })
 
-  it('licenciamento: ultimo exercicio 2020 < ano atual => atrasado mesmo sem debito', () => {
+  it('licenciamento: ultimo exercicio 2020 (<= ano atual - 2) => atrasado mesmo sem debito', () => {
     const r = parsearDetranSp(REAL, 2026)
     expect(r.licenciamento.ultimoExercicio).toBe(2020)
     expect(r.licenciamento.atrasado).toBe(true)
     expect(r.licenciamento.valor).toBe(0)
+  })
+
+  it('licenciamento: exercicio = ano atual - 1 sem debito vencido NAO e atrasado (calendario por placa)', () => {
+    const r = parsearDetranSp({ ultimo_licenciamento: 'exercicio 2026' }, new Date('2027-03-10T12:00:00-03:00'))
+    expect(r.licenciamento.atrasado).toBe(false)
+    expect(detranParaMultas(r).licenciamento_atrasado_ano).toBeNull()
+    expect(detranParaMultas(r).ultimo_licenciamento_ano).toBe(2026)
+  })
+
+  it('licenciamento: ano atual - 1 COM debito de licenciamento vencido => atrasado', () => {
+    const r = parsearDetranSp({
+      ultimo_licenciamento: 'exercicio 2026',
+      debitos_licenciamento: [{ data_vencimento: '31/07/2027', valor: 160.2 }],
+    }, new Date('2027-09-01T12:00:00-03:00'))
+    expect(r.licenciamento.atrasado).toBe(true)
+  })
+
+  it('licenciamento: debito de licenciamento ainda no prazo nao e atraso', () => {
+    const r = parsearDetranSp({
+      ultimo_licenciamento: 'exercicio 2026',
+      debitos_licenciamento: [{ data_vencimento: '31/12/2027', valor: 160.2 }],
+    }, new Date('2027-09-01T12:00:00-03:00'))
+    expect(r.licenciamento.atrasado).toBe(false)
   })
 
   it('licenciamento: exercicio no ano atual => nao atrasado', () => {
