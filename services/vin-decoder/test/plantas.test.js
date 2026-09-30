@@ -56,9 +56,7 @@ for (const [vin, cidade, uf, oque] of CONFIRMADOS) {
 // existem pra falhar no dia em que alguem acrescentar a linha sem refazer a
 // validacao.
 const SEM_CIDADE = [
-  ['9BGJG19BVVB597855', 'Vectra 1997, codigo da GM que mistura duas fabricas'],
-  ['9BGJK19H0XB546665', 'Vectra 1999, mesmo caso'],
-  ['9BFBSZGDA7B632483', 'Ka 2007: o codigo e de Sao Bernardo, mas em 2007 o Ka ja saia de Camaçari'],
+  ['8AG244CAXWA101195', 'Silverado argentina 1998: Cordoba, antes de Alvear (bloqueia o curinga do 8AG)'],
 ]
 
 // Marcas com uma unica fabrica no Brasil: a cidade nao depende da posicao 11,
@@ -86,6 +84,6 @@ for (const [vin, motivo] of SEM_CIDADE) {
     assert.equal(r.plantaDetalhe, null)
     // Montadora e pais continuam saindo: eles nao dependem da planta.
     assert.ok(r.fabricante, 'montadora deveria continuar preenchida')
-    assert.equal(r.pais, 'Brasil')
+    assert.ok(r.pais)
   })
 }

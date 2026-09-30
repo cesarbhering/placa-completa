@@ -32,7 +32,13 @@ sincronizarPlantas()
 app.get('/health', async () => ({ ok: true }))
 
 app.get('/decode/:vin', async (req, reply) => {
-  const result = decodeVin(req.params.vin)
+  // modelo e ano do registro sao opcionais: sem eles o decode segue igual,
+  // so a regra por modelo (e a janela de ano pelo registro) fica de fora.
+  const ano = Number(req.query?.ano)
+  const result = decodeVin(req.params.vin, {
+    modelo: typeof req.query?.modelo === 'string' ? req.query.modelo.slice(0, 120) : undefined,
+    ano: Number.isInteger(ano) ? ano : undefined,
+  })
   if (!result.valido) {
     reply.code(422)
     return result

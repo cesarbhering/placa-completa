@@ -59,10 +59,13 @@ export function faltaPlanta(snap: any): boolean {
 
 export async function enriquecerPlanta(
   supabase: any,
-  opts: { token: string; chassi: string; anoReferencia: number | null },
+  opts: { token: string; chassi: string; anoReferencia: number | null; modelo?: string | null },
 ): Promise<any | undefined> {
   try {
-    const novo = corrigirAnoChassi(await decodificarChassi(opts.chassi), opts.anoReferencia)
+    const novo = corrigirAnoChassi(
+      await decodificarChassi(opts.chassi, { modelo: opts.modelo ?? null, ano: opts.anoReferencia }),
+      opts.anoReferencia,
+    )
     await supabase.rpc('enriquecer_snapshot_planta', {
       p_token: opts.token,
       p_valor: novo,
