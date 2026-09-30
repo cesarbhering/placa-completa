@@ -1,28 +1,31 @@
 import crypto from 'node:crypto'
 
-// Backfill (e teste) do bloco de multas/restricoes nos relatorios ja entregues.
+// Backfill (e teste) do bloco DETRAN-SP (multas, hodometro, IPVA,
+// licenciamento, restricoes) via Infosimples nos relatorios ja entregues.
 //
 // Rotina interna, disparada na mao: sem pagina, sem painel, so um POST com o
 // segredo no header. Sem a env configurada a rota responde 404, e nao 401:
 // rota administrativa nao precisa confirmar que existe.
 //
 // Dois modos:
-//   - { testar: { placa, renavam, uf? } }: roda a busca UMA vez e devolve o
-//     detalhe. Serve pra validar em staging que o navegador BR sobe, a sessao
-//     gov.br salva loga no DETRAN-SP e a pagina e lida — sem depender de um
-//     pedido pago existir.
+//   - { testar: { placa, renavam } }: UMA chamada direta ao Infosimples, sem
+//     pedido, e devolve o bloco parseado. Custa (~R$0,28) e o custo e gravado
+//     em premium_custos com pedido_id nulo.
 //   - { tokens: [...] } ou { limite: N }: completa o campo `multas` do snapshot
-//     dos pedidos entregues que tem multa de SP e ainda nao tem o bloco.
+//     dos pedidos entregues de veiculo SP que ainda nao tem o bloco do
+//     Infosimples (o bloco antigo do gov.br e sobrescrito).
 //
 // O que ela NAO faz: reconstruir o snapshot. So o campo das multas e escrito,
 // porque o snapshot e o que a pessoa comprou.
 
 import {
-  buscarMultasDetalhe,
-  temMultaSP,
-  renavamDaResposta,
-  ufDaResposta,
-} from '../../../utils/detran-multas'
+  completarDetran,
+  consultarDetranSp,
+  detranParaMultas,
+  infosimplesConfigurado,
+  parsearDetranSp,
+  registrarCusto,
+} from '../../../utils/infosimples-detran'
 
 /** Teto de disparos por hora, contado em memoria do processo. */
 const TETO_POR_HORA = 5
@@ -53,22 +56,33 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event).catch(() => ({}))
   const supabase = usePremiumSupabase()
 
-  // ---- modo teste: uma busca direta, sem pedido ----
+  if (!infosimplesConfigurado()) {
+    throw createError({ statusCode: 503, message: 'Infosimples nao configurado neste ambiente.' })
+  }
+
+  // ---- modo teste: uma chamada direta, sem pedido ----
   if (body?.testar && typeof body.testar === 'object') {
-    const placa = String(body.testar.placa || '')
-    const renavam = String(body.testar.renavam || '')
-    const uf = String(body.testar.uf || 'SP').toUpperCase()
+    const placa = String(body.testar.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+    const renavam = String(body.testar.renavam || '').replace(/[^0-9]/g, '')
     if (!placa || !renavam) {
       throw createError({ statusCode: 400, message: 'testar exige placa e renavam.' })
     }
     const t0 = Date.now()
-    const detalhe = await buscarMultasDetalhe(supabase, { placa, renavam, uf }).catch((e: any) => ({
-      erro: e?.message || 'erro',
-    }))
-    return { modo: 'testar', placa, segundos: Math.round((Date.now() - t0) / 1000), detalhe }
+    const res = await consultarDetranSp({ placa, renavam })
+    await registrarCusto(supabase, { pedidoId: null, fonte: 'infosimples_detran_sp', preco: res.preco, code: res.code })
+    const bloco = res.code === 200 && res.data ? detranParaMultas(parsearDetranSp(res.data)) : null
+    return {
+      modo: 'testar',
+      placa,
+      segundos: Math.round((Date.now() - t0) / 1000),
+      code: res.code,
+      codeMessage: res.codeMessage,
+      preco: res.preco,
+      bloco,
+    }
   }
 
-  // ---- modo backfill: pedidos entregues com multa SP e sem o bloco ----
+  // ---- modo backfill: pedidos entregues de veiculo SP sem o bloco ----
   const tokens: string[] = Array.isArray(body?.tokens) ? body.tokens.map((t: any) => String(t)) : []
   const limite = Number(body?.limite) > 0 ? Math.min(Number(body.limite), 50) : null
   if (!tokens.length && !limite) {
@@ -77,7 +91,7 @@ export default defineEventHandler(async (event) => {
 
   let q = supabase
     .from('pedidos_premium')
-    .select('id,placa,token_entrega,consulta_id,relatorio_snapshot')
+    .select('id,placa,token_entrega,relatorio_snapshot')
     .eq('status', 'entregue')
     .not('relatorio_snapshot', 'is', null)
   if (tokens.length) q = q.in('token_entrega', tokens)
@@ -86,62 +100,25 @@ export default defineEventHandler(async (event) => {
 
   const resultados: any[] = []
   let feitos = 0
+  let chamadas = 0
 
   // Em serie de proposito: em paralelo isto so furaria o teto de gasto mais
-  // rapido.
+  // rapido. `limite` conta CHAMADAS pagas, nao so sucessos.
   for (const p of pedidos || []) {
-    if (limite && feitos >= limite) break
+    if (limite && chamadas >= limite) break
     const snap: any = p.relatorio_snapshot
-    if (!snap || typeof snap !== 'object') {
-      resultados.push({ token: p.token_entrega, pulado: 'sem snapshot' })
-      continue
-    }
-    if (snap.multas) {
-      resultados.push({ token: p.token_entrega, pulado: 'ja tem multas' })
-      continue
-    }
-    const response = snap?.consulta?.response
-    if (!temMultaSP(response)) {
-      resultados.push({ token: p.token_entrega, pulado: 'sem multa SP' })
-      continue
-    }
-    const renavam = renavamDaResposta(response)
-    if (!renavam) {
-      resultados.push({ token: p.token_entrega, pulado: 'sem renavam' })
-      continue
-    }
-
     const t0 = Date.now()
-    const detalhe = await buscarMultasDetalhe(supabase, {
-      placa: p.placa,
-      renavam,
-      uf: ufDaResposta(response),
-      consultaId: p.consulta_id,
-    }).catch(() => null)
+    const r = await completarDetran(supabase, { id: p.id, placa: p.placa }, { response: snap?.consulta?.response })
+      .catch((e: any) => ({ ok: false as const, motivo: e?.message || 'erro' }))
     const segundos = Math.round((Date.now() - t0) / 1000)
-    if (!detalhe) {
-      resultados.push({ token: p.token_entrega, ok: false, segundos, motivo: 'sem resposta util' })
+    if (!r.ok && 'pulado' in r && r.pulado) {
+      resultados.push({ token: p.token_entrega, pulado: r.pulado })
       continue
     }
-
-    const { error: upErr } = await supabase
-      .from('pedidos_premium')
-      .update({ relatorio_snapshot: { ...snap, multas: detalhe } })
-      .eq('id', p.id)
-    if (upErr) {
-      resultados.push({ token: p.token_entrega, ok: false, segundos, motivo: upErr.message })
-      continue
-    }
-
-    feitos++
-    resultados.push({
-      token: p.token_entrega,
-      ok: true,
-      segundos,
-      status: detalhe.status,
-      multas_centavos: detalhe.multas_total_centavos,
-    })
+    chamadas++
+    if (r.ok) feitos++
+    resultados.push({ token: p.token_entrega, segundos, ...r })
   }
 
-  return { atualizados: feitos, total: (pedidos || []).length, resultados }
+  return { atualizados: feitos, chamadas, total: (pedidos || []).length, resultados }
 })
