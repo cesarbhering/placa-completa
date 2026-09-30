@@ -987,6 +987,10 @@ const recallCampanhasGM = computed(() => (recallAutoritativo.value?.campanhas ||
 const multaIndicadorSP = computed(
   () => g('indicadorMultaRenainf') === true && String(g('ufJurisdicao') || '').toUpperCase() === 'SP',
 )
+// Veiculo registrado em SP: a consulta DETRAN (Infosimples) roda pra TODO pedido
+// SP (multas, hodometro, IPVA, licenciamento), nao so quando o RENAINF acende.
+// Por isso o bloco e o poll acompanham qualquer veiculo de SP, nao so multa.
+const ehVeiculoSpTela = computed(() => String(g('ufJurisdicao') || '').toUpperCase() === 'SP')
 const multasDetalhe = computed(() => {
   const m: any = data.value?.multas
   return m && (m.status === 'ok' || m.status === 'sem_debito') ? m : null
@@ -1048,6 +1052,15 @@ const hodometroExtrato = computed(() => {
     }
   })
 })
+// Rotulo humano do tipo de restricao do DETRAN.
+function rotuloRestricao(tipo?: string | null): string {
+  const map: Record<string, string> = {
+    financeira: 'Financeira', judiciaria: 'Judiciária',
+    administrativa: 'Administrativa', tributaria: 'Tributária', furto: 'Furto/roubo',
+  }
+  return map[String(tipo || '')] || 'Restrição'
+}
+
 // dd/mm/aaaa a partir de ISO (YYYY-MM-DD), sem depender de timezone.
 function formatarDataBR(iso?: string | null): string {
   const s = String(iso || '')
@@ -1361,7 +1374,7 @@ onMounted(() => {
 // recall) e para assim que o bloco chega.
 let pollMultas: any = null
 onMounted(() => {
-  if (!multaIndicadorSP.value || multasDetalhe.value) return
+  if ((!multaIndicadorSP.value && !ehVeiculoSpTela.value) || multasDetalhe.value) return
   const ate = Date.now() + 6 * 60 * 1000
   pollMultas = setInterval(async () => {
     if (Date.now() > ate || multasDetalhe.value) { clearInterval(pollMultas); return }
@@ -1630,7 +1643,7 @@ onUnmounted(() => {
 
             <!-- Multas e débitos no órgão de trânsito do estado (SP): o
                  indicador de multa acende, e aqui vem o VALOR e o detalhe. -->
-            <div v-if="multaIndicadorSP || multasDetalhe" class="rel__multas">
+            <div v-if="multaIndicadorSP || ehVeiculoSpTela || multasDetalhe" class="rel__multas">
               <p class="rel__multas-tit">Multas e débitos</p>
               <template v-if="multasDetalhe">
                 <!-- Multas e débitos: total grande + breakdown -->
@@ -1646,6 +1659,41 @@ onUnmounted(() => {
                     </div>
                   </div>
                 </div>
+
+                <!-- Multas em aberto, uma a uma (o que, quando, onde, órgão). -->
+                <template v-if="multasDetalhe.multas_itens && multasDetalhe.multas_itens.length">
+                  <p class="rel__multas-sub">Multas em aberto</p>
+                  <ul class="rel__multas-itens">
+                    <li v-for="(mt, idx) in multasDetalhe.multas_itens" :key="'mi' + idx" class="rel__multas-item">
+                      <div class="rel__multas-item-top">
+                        <span>{{ mt.descricao || 'Infração de trânsito' }}</span>
+                        <b>{{ reais(Math.round((mt.valor || 0) * 100)) }}</b>
+                      </div>
+                      <p class="rel__multas-item-meta">
+                        <span v-if="mt.dataInfracao">{{ mt.dataInfracao }}<span v-if="mt.horaInfracao"> às {{ String(mt.horaInfracao).slice(0, 5) }}</span></span>
+                        <span v-if="mt.local"> · {{ mt.local }}<span v-if="mt.municipio">, {{ mt.municipio }}</span></span>
+                        <span v-if="mt.orgao"> · {{ mt.orgao }}</span>
+                        <span v-if="mt.dataVencimento"> · vencimento {{ mt.dataVencimento }}</span>
+                      </p>
+                    </li>
+                  </ul>
+                </template>
+
+                <!-- Licenciamento atrasado (mesmo com débito zerado: pode ter ido
+                     pra dívida ativa). Copy factual. -->
+                <p v-if="multasDetalhe.licenciamento_atrasado_ano" class="rel__multas-kmalerta">
+                  Licenciamento atrasado: o último exercício licenciado foi {{ multasDetalhe.licenciamento_atrasado_ano }}. O veículo pode estar irregular para circular, confira.
+                </p>
+
+                <!-- Restrições do DETRAN (só as que constam de fato). -->
+                <template v-if="multasDetalhe.restricoes_detran && multasDetalhe.restricoes_detran.length">
+                  <p class="rel__multas-sub">Restrições no DETRAN</p>
+                  <ul class="rel__multas-restr">
+                    <li v-for="(rs, idx) in multasDetalhe.restricoes_detran" :key="'rs' + idx">
+                      <b>{{ rotuloRestricao(rs.tipo) }}:</b> {{ rs.texto }}
+                    </li>
+                  </ul>
+                </template>
 
                 <!-- Quilometragem: extrato Data | Km | Rodou -->
                 <template v-if="hodometroExtrato.length">
@@ -1670,7 +1718,7 @@ onUnmounted(() => {
                   <p v-else class="rel__multas-kmok"><b>Sem regressão de km.</b> Sem indício de hodômetro adulterado.</p>
                 </template>
               </template>
-              <p v-else class="rel__multas-nota">Multa em aberto: buscando o valor e o detalhe.</p>
+              <p v-else class="rel__multas-nota">Consultando débitos, multas e histórico no DETRAN. Aparece aqui em instantes.</p>
             </div>
 
             <!-- Recall pendente: a primeira pergunta de quem ve o cartao
@@ -3184,6 +3232,34 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #6b7280;
+  }
+
+  // lista de multas em aberto (uma a uma)
+  &__multas-itens { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  &__multas-item {
+    padding: 10px 12px;
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 8px;
+  }
+  &__multas-item-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+    line-height: 1.35;
+
+    span { color: #1a1a1a; font-weight: 600; }
+    b { color: #a32020; white-space: nowrap; }
+  }
+  &__multas-item-meta { margin: 4px 0 0; font-size: 12px; line-height: 1.4; color: #6b7280; }
+
+  // restricoes do DETRAN
+  &__multas-restr {
+    list-style: none; margin: 0; padding: 0; display: grid; gap: 6px;
+    font-size: 13px; line-height: 1.4; color: #1a1a1a;
+
+    b { color: #6b7280; }
   }
 
   // extrato de quilometragem
