@@ -191,13 +191,25 @@ export interface DetranParsed {
   temAlgo: boolean
 }
 
+/** Algum debito de licenciamento com vencimento ja passado? (item sem data nao prova atraso) */
+function debitoLicenciamentoVencido(itens: any, hoje: Date): boolean {
+  if (!Array.isArray(itens)) return false
+  return itens.some((x: any) => {
+    const venc = x?.data_vencimento ?? x?.vencimento ?? x?.normalizado_vencimento
+    const t = tsData(venc)
+    return t > 0 && t < hoje.getTime()
+  })
+}
+
 /**
  * Modela o data[0] do Infosimples pro relatorio. Puro (sem rede), pra testar o
  * hodometro (dedupe + ordem + suspeita de adulteracao) e o licenciamento atrasado.
- * anoAtual injetavel pra teste deterministico.
+ * `hoje` injetavel pra teste deterministico (aceita Date ou so o ano).
  */
-export function parsearDetranSp(data: any, anoAtual: number = new Date().getFullYear()): DetranParsed {
+export function parsearDetranSp(data: any, hoje: Date | number = new Date()): DetranParsed {
   const d = data || {}
+  const agora = typeof hoje === 'number' ? new Date(hoje, 0, 1) : hoje
+  const anoAtual = agora.getFullYear()
 
   // Multas em aberto.
   const itens: DetranMulta[] = (Array.isArray(d.debitos_multas) ? d.debitos_multas : []).map((m: any) => ({
@@ -231,10 +243,14 @@ export function parsearDetranSp(data: any, anoAtual: number = new Date().getFull
   const ipvaValor = moeda(d.ipva)
   const ipvaTemDebito = ipvaValor > 0 || (Array.isArray(d.debitos_ipva) && d.debitos_ipva.length > 0)
 
-  // Licenciamento: atrasado quando o ultimo exercicio e anterior ao ano atual,
-  // MESMO com debito zerado (pode ter ido pra divida ativa).
+  // Licenciamento: o calendario SP vence por final de placa (jul-dez), entao
+  // exercicio = ano atual - 1 NAO prova atraso (em jan-jun todo carro em dia
+  // esta assim). Atrasado so com debito de licenciamento JA vencido, ou com o
+  // ultimo exercicio <= ano atual - 2 (mesmo com debito zerado: pode ter ido pra
+  // divida ativa). Mesma regra do SC.
   const ultimoExercicio = anoDoExercicio(d.ultimo_licenciamento)
-  const licAtrasado = ultimoExercicio != null && ultimoExercicio < anoAtual
+  const licVencido = debitoLicenciamentoVencido(d.debitos_licenciamento, agora)
+  const licAtrasado = ultimoExercicio != null && (licVencido || ultimoExercicio <= anoAtual - 2)
 
   const restricoes = {
     financeira: restricaoConsta(d.restricao_financeira),
@@ -289,6 +305,8 @@ export function detranParaMultas(parsed: DetranParsed) {
     // Ano do ultimo licenciamento quando esta atrasado (exercicio < ano atual),
     // mesmo com debito zerado; null quando em dia.
     licenciamento_atrasado_ano: parsed.licenciamento.atrasado ? parsed.licenciamento.ultimoExercicio : null,
+    // Ultimo exercicio licenciado (a UI mostra "Último: X" neutro quando nao e o ano atual e nao ha atraso).
+    ultimo_licenciamento_ano: parsed.licenciamento.ultimoExercicio,
     restricoes_detran: Object.entries(parsed.restricoes)
       .filter(([, v]) => !!v)
       .map(([tipo, texto]) => ({ tipo, texto })),
@@ -368,7 +386,7 @@ export function parsearDetranSc(data: any, hoje: Date = new Date()) {
   const licenciadoAno = anoDoExercicio(veic.licenciado)
   const licVencido = porClasse.licenciamento.some((x) => { const t = tsData(x?.vencimento); return t > 0 && t < hojeTs })
   const anoAtual = hoje.getFullYear()
-  const licAtrasadoAno = licenciadoAno != null && (licVencido || licenciadoAno < anoAtual - 1) ? licenciadoAno : null
+  const licAtrasadoAno = licenciadoAno != null && (licVencido || licenciadoAno <= anoAtual - 2) ? licenciadoAno : null
   const licVenc = porClasse.licenciamento.map((x) => x?.vencimento).filter(Boolean).sort((a: string, b: string) => tsData(a) - tsData(b))[0] || null
 
   const restricoes: { tipo: string; texto: string }[] = []
@@ -398,6 +416,7 @@ export function parsearDetranSc(data: any, hoje: Date = new Date()) {
     hodometro_suspeito: false,
     multas_itens: itens,
     licenciamento_atrasado_ano: licAtrasadoAno,
+    ultimo_licenciamento_ano: licenciadoAno,
     restricoes_detran: restricoes,
     // Historico (secundario): infracoes ja notificadas (a maioria paga) e recursos.
     historico_infracoes: {

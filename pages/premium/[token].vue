@@ -1030,12 +1030,16 @@ const multasBreakdown = computed(() => {
     // tras (pode ter ido pra divida ativa): senao a linha contradiz o alerta
     // de licenciamento atrasado logo abaixo.
     const atrasado = m.licenciamento_atrasado_ano
+    // Exercicio anterior sem atraso comprovado (calendario por placa): mostra o
+    // ultimo licenciamento, neutro, sem selo de atrasado e sem "Em dia".
+    const ultimo = m.ultimo_licenciamento_ano
+    const anterior = !atrasado && ultimo != null && ultimo < new Date().getFullYear()
     rows.push({
       rotulo: `Licenciamento${venc}`,
       valor: m.licenciamento_centavos > 0
         ? (reais(m.licenciamento_centavos) as string)
-        : atrasado ? `Atrasado (${atrasado})` : 'Em dia',
-      emDia: !(m.licenciamento_centavos > 0) && !atrasado,
+        : atrasado ? `Atrasado (${atrasado})` : anterior ? `Último: ${ultimo}` : 'Em dia',
+      emDia: !(m.licenciamento_centavos > 0) && !atrasado && !anterior,
     })
   }
   if (m.ipva_total_centavos != null)
