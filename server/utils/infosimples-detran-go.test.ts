@@ -12,7 +12,7 @@ describe('parsearDetranGo', () => {
   })
   it('bloco so com as chaves da whitelist', () => {
     expect(Object.keys(b).sort()).toEqual([
-      'fonte', 'hodometro', 'hodometro_suspeito', 'ipva_sefaz', 'ipva_total_centavos',
+      'fonte', 'hodometro', 'hodometro_suspeito', 'ipva_itens', 'ipva_sefaz', 'ipva_total_centavos',
       'licenciamento_atrasado_ano', 'licenciamento_centavos', 'licenciamento_venc', 'multas_em_recurso',
       'multas_itens', 'multas_total_centavos', 'restricoes_detran', 'status', 'ultimo_licenciamento_ano',
     ])
@@ -32,11 +32,12 @@ describe('parsearDetranGo', () => {
   })
   it('IPVA "DEBITO NA SEFAZ" por exercicio, com o valor original', () => {
     expect(b.ipva_sefaz).toEqual([
-      { ano: 2025, valor_centavos: 58323 },
-      { ano: 2024, valor_centavos: 54237 },
-      { ano: 2022, valor_centavos: 53457 },
-      { ano: 2021, valor_centavos: 42474 },
+      { ano: 2025, vencimento: '31/10/2025', valor_centavos: 58323 },
+      { ano: 2024, vencimento: '15/10/2024', valor_centavos: 54237 },
+      { ano: 2022, vencimento: '13/12/2022', valor_centavos: 53457 },
+      { ano: 2021, vencimento: '04/11/2021', valor_centavos: 42474 },
     ])
+    expect(b.ipva_itens).toEqual([])
     expect(b.ipva_total_centavos).toBe(58323 + 54237 + 53457 + 42474)
   })
   it('licenciamento PAGO em todos: sem debito, ultimo = 2026, sem atraso', () => {
@@ -58,6 +59,7 @@ describe('parsearDetranGo', () => {
     expect(x.multas_total_centavos).toBe(16050)
     expect(x.multas_em_recurso.map((i) => i.auto)).toEqual(['R1'])
     expect(x.ipva_total_centavos).toBe(120000)
+    expect(x.ipva_itens).toEqual([{ ano: 2026, vencimento: '10/01/2026', valor_centavos: 120000 }])
     expect(x.ipva_sefaz).toEqual([])
     expect(x.licenciamento_centavos).toBe(15000)
     expect(x.licenciamento_venc).toBe('2026-01-10')

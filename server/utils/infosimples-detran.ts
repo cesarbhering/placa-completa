@@ -222,6 +222,29 @@ export function restricaoConsta(v: any): string | null {
   return partes.length ? partes.join(', ') : null
 }
 
+/** Um exercicio de IPVA em aberto, discriminado (lista igual as multas). */
+export interface IpvaItem { ano: number | null; vencimento: string | null; valor_centavos: number }
+
+/**
+ * Item de IPVA de qualquer UF -> {ano, vencimento, valor_centavos}. Defensivo
+ * (SP manda debitos_ipva[] sem shape documentado): ano de exercicio/ano/classe/
+ * descricao ou do vencimento; valor do normalizado/atual/nominal. Sem valor -> null.
+ */
+export function ipvaItemGenerico(x: any): IpvaItem | null {
+  if (!x || typeof x !== 'object') return null
+  const venc = [x.normalizado_vencimento, x.data_vencimento, x.vencimento].map((v) => String(v ?? '').match(/\d{2}\/\d{2}\/\d{4}/)?.[0]).find(Boolean) || null
+  const ano = [x.exercicio, x.ano, x.classe, x.descricao].map((v) => { const m = String(v ?? '').match(/(19|20)\d{2}/); return m ? Number(m[0]) : null }).find((v) => v != null)
+    ?? (venc ? Number(venc.slice(6)) : null)
+  const brutos = [x.normalizado_valor_atual, x.valor_atual, x.normalizado_valor, x.valor, x.normalizado_valor_nominal, x.valor_nominal]
+  const valor = brutos.map((v) => (typeof v === 'number' ? v : moeda(v))).find((v) => v > 0) || 0
+  if (!(valor > 0)) return null
+  return { ano, vencimento: venc, valor_centavos: Math.round(valor * 100) }
+}
+
+function ordenarIpva<T extends { ano: number | null }>(l: T[]): T[] {
+  return l.sort((a, b) => (b.ano ?? 0) - (a.ano ?? 0))
+}
+
 export interface DetranMulta {
   auto: string | null
   descricao: string | null
@@ -237,7 +260,7 @@ export interface DetranMulta {
 export interface DetranParsed {
   multas: { total: number; mensagem: string | null; itens: DetranMulta[] }
   hodometro: { leituras: { data: string; km: number }[]; suspeitaAdulteracao: boolean }
-  ipva: { valor: number; mensagem: string | null; temDebito: boolean }
+  ipva: { valor: number; mensagem: string | null; temDebito: boolean; itens: IpvaItem[] }
   licenciamento: { valor: number; mensagem: string | null; ultimoExercicio: number | null; atrasado: boolean; status: string | null }
   restricoes: { financeira: string | null; judiciaria: string | null; administrativa: string | null; tributaria: string | null; furto: string | null }
   temAlgo: boolean
@@ -318,7 +341,7 @@ export function parsearDetranSp(data: any, hoje: Date | number = new Date()): De
   return {
     multas: { total: multasTotal, mensagem: d.multas_mensagem ?? null, itens },
     hodometro: { leituras, suspeitaAdulteracao },
-    ipva: { valor: ipvaValor, mensagem: d.ipva_mensagem ?? null, temDebito: ipvaTemDebito },
+    ipva: { valor: ipvaValor, mensagem: d.ipva_mensagem ?? null, temDebito: ipvaTemDebito, itens: ordenarIpva((Array.isArray(d.debitos_ipva) ? d.debitos_ipva : []).map(ipvaItemGenerico).filter(Boolean) as IpvaItem[]) },
     licenciamento: {
       valor: moeda(d.licenciamento_valor),
       mensagem: d.licenciamento_mensagem ?? null,
@@ -350,6 +373,8 @@ export function detranParaMultas(parsed: DetranParsed) {
     multas_total_centavos: Math.round(parsed.multas.total * 100),
     licenciamento_centavos: Math.round(parsed.licenciamento.valor * 100),
     ipva_total_centavos: Math.round(parsed.ipva.valor * 100),
+    // IPVA discriminado por exercicio (quando o SP manda itens).
+    ipva_itens: parsed.ipva.itens,
     hodometro: parsed.hodometro.leituras.map((l) => ({ data: brParaIso(l.data), km: l.km })),
     hodometro_suspeito: parsed.hodometro.suspeitaAdulteracao,
     // Extras do Infosimples (blocos novos na secao):
@@ -464,6 +489,8 @@ export function parsearDetranSc(data: any, hoje: Date = new Date()) {
     licenciamento_centavos: Math.round(soma(porClasse.licenciamento) * 100),
     licenciamento_venc: brParaIso(licVenc),
     ipva_total_centavos: Math.round(soma(porClasse.ipva) * 100),
+    // IPVA discriminado: "IPVA (Cota Unica) 2026" -> ano, vencimento, valor.
+    ipva_itens: ordenarIpva(porClasse.ipva.map(ipvaItemGenerico).filter(Boolean) as IpvaItem[]),
     hodometro: [] as { data: string | null; km: number }[],
     hodometro_suspeito: false,
     multas_itens: itens,
@@ -690,21 +717,21 @@ export function parsearDetranGo(data: any, hoje: Date = new Date()) {
   const debitos: any[] = Array.isArray(d.debitos_veiculo) ? d.debitos_veiculo : []
   const ehValor = (v: any) => /\d/.test(String(v ?? '')) && moeda(v) > 0
   const anoVenc = (x: any) => anoDe(x?.data_vencimento)
-  let ipvaDetran = 0
+  const ipvaDetranItens: IpvaItem[] = []
   let licDebito = 0
   let licVenc: string | null = null
   let licVencido = false
   let ultimoLicAno: number | null = null
-  const ipvaSefaz: { ano: number | null; valor_centavos: number }[] = []
+  const ipvaSefaz: IpvaItem[] = []
   for (const x of debitos) {
     const ano = anoVenc(x)
-    if (ehValor(x?.ipva_valor)) ipvaDetran += moeda(x.ipva_valor)
+    const venc = texto(x?.data_vencimento)
+    if (ehValor(x?.ipva_valor)) ipvaDetranItens.push({ ano, vencimento: venc, valor_centavos: Math.round(moeda(x.ipva_valor) * 100) })
     else if (/sefaz/i.test(String(x?.ipva_valor ?? ''))) {
-      ipvaSefaz.push({ ano, valor_centavos: Math.round(moeda(x?.valor_original_ipva) * 100) })
+      ipvaSefaz.push({ ano, vencimento: venc, valor_centavos: Math.round(moeda(x?.valor_original_ipva) * 100) })
     }
     if (ehValor(x?.licenciamento)) {
       licDebito += moeda(x.licenciamento)
-      const venc = texto(x?.data_vencimento)
       if (venc && (!licVenc || tsData(venc) < tsData(licVenc))) licVenc = venc
       const t = tsData(venc)
       if (t > 0 && t < hoje.getTime()) licVencido = true
@@ -712,8 +739,8 @@ export function parsearDetranGo(data: any, hoje: Date = new Date()) {
       ultimoLicAno = ultimoLicAno == null ? ano : Math.max(ultimoLicAno, ano)
     }
   }
-  ipvaSefaz.sort((a, b) => (b.ano ?? 0) - (a.ano ?? 0))
-  const ipvaCentavos = Math.round(ipvaDetran * 100) + ipvaSefaz.reduce((a, x) => a + x.valor_centavos, 0)
+  ordenarIpva(ipvaSefaz); ordenarIpva(ipvaDetranItens)
+  const ipvaCentavos = [...ipvaDetranItens, ...ipvaSefaz].reduce((a, x) => a + x.valor_centavos, 0)
 
   const restricoes: { tipo: string; texto: string }[] = []
   const conta = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
@@ -731,6 +758,8 @@ export function parsearDetranGo(data: any, hoje: Date = new Date()) {
     licenciamento_centavos: Math.round(licDebito * 100),
     licenciamento_venc: brParaIso(licVenc),
     ipva_total_centavos: ipvaCentavos,
+    // IPVA em aberto no DETRAN, por exercicio.
+    ipva_itens: ipvaDetranItens,
     // IPVA em aberto na SEFAZ-GO por exercicio (valor original, sem juros).
     ipva_sefaz: ipvaSefaz,
     hodometro: [] as { data: string | null; km: number }[],

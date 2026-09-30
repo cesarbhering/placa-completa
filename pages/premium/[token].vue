@@ -1132,6 +1132,21 @@ const multasBreakdown = computed(() => {
     rows.push({ rotulo: 'IPVA', valor: `Último pago: ${m.ipva_pago_ano}`, emDia: false })
   return rows
 })
+// IPVA em aberto discriminado: itens do DETRAN (ipva_itens) + SEFAZ (ipva_sefaz,
+// GO), um por exercicio, mais novo primeiro, com o total.
+const ipvaLista = computed(() => {
+  const m: any = multasDetalhe.value
+  const det = Array.isArray(m?.ipva_itens) ? m.ipva_itens.map((x: any) => ({ ...x, sefaz: false })) : []
+  const sef = Array.isArray(m?.ipva_sefaz) ? m.ipva_sefaz.map((x: any) => ({ ...x, sefaz: true })) : []
+  const itens = [...det, ...sef]
+    .filter((x: any) => Number(x?.valor_centavos) > 0)
+    .sort((a: any, b: any) => (Number(b.ano) || 0) - (Number(a.ano) || 0))
+  return {
+    itens,
+    total: itens.reduce((acc: number, x: any) => acc + Number(x.valor_centavos), 0),
+    temSefaz: itens.some((x: any) => x.sefaz),
+  }
+})
 // Extrato de quilometragem: cada leitura com o quanto rodou desde a anterior
 // (primeira linha "-"). `caiu` marca uma leitura menor que a anterior.
 const hodometroExtrato = computed(() => {
@@ -1784,12 +1799,27 @@ onUnmounted(() => {
                   </ul>
                 </template>
 
-                <!-- IPVA em aberto na SEFAZ (GO): por exercicio, valor original. -->
-                <template v-if="multasDetalhe.ipva_sefaz && multasDetalhe.ipva_sefaz.length">
-                  <p v-for="(ip, idx) in multasDetalhe.ipva_sefaz" :key="'ips' + idx" class="rel__multas-nota">
-                    IPVA {{ ip.ano || '' }} em aberto na SEFAZ<template v-if="ip.valor_centavos"> ({{ reais(ip.valor_centavos) }})</template>.
-                  </p>
-                  <p class="rel__multas-nota">Valor original, sem juros e multa da SEFAZ.</p>
+                <!-- IPVA em aberto, um item por exercicio (ano, vencimento, valor) com
+                     o total embaixo, igual as multas. SEFAZ (GO) = valor original. -->
+                <template v-if="ipvaLista.itens.length">
+                  <p class="rel__multas-sub">IPVA em aberto</p>
+                  <ul class="rel__multas-itens">
+                    <li v-for="(ip, idx) in ipvaLista.itens" :key="'ip' + idx" class="rel__multas-item">
+                      <div class="rel__multas-item-top">
+                        <span>IPVA {{ ip.ano || '' }}</span>
+                        <b>{{ reais(ip.valor_centavos) }}</b>
+                      </div>
+                      <p class="rel__multas-item-meta">
+                        <span v-if="ip.vencimento">vencimento {{ ip.vencimento }}</span>
+                        <span v-if="ip.sefaz">{{ ip.vencimento ? ' · ' : '' }}em aberto na SEFAZ</span>
+                      </p>
+                    </li>
+                  </ul>
+                  <div class="rel__multas-r rel__multas-ipvatotal">
+                    <span>Total do IPVA em aberto</span>
+                    <b>{{ reais(ipvaLista.total) }}</b>
+                  </div>
+                  <p v-if="ipvaLista.temSefaz" class="rel__multas-nota">Valores da SEFAZ são o valor original, sem juros e multa.</p>
                 </template>
 
                 <!-- Multas em recurso (GO): nao somam no total. -->
@@ -3395,6 +3425,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__multas-ok { color: #14622f !important; font-weight: 700; }
+
+  // total embaixo da lista de IPVA por exercicio
+  &__multas-ipvatotal {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #e5e7eb;
+    b { font-weight: 800; }
+  }
 
   &__multas-sub {
     margin: 16px 0 8px;
