@@ -120,3 +120,68 @@ describe('detranParaMultas (mapeia pro shape da UI existente)', () => {
     expect(m.restricoes_detran.map((r) => r.tipo).sort()).toEqual(['financeira', 'judiciaria'])
   })
 })
+
+// ---------- completarDetran (orquestracao usada no pos-entrega e no backfill) ----------
+import { vi, afterEach } from 'vitest'
+import { completarDetran } from './infosimples-detran'
+
+function fakeSupabase(snapshot: any) {
+  const inserts: any[] = []
+  const updates: any[] = []
+  const from = (tabela: string) => ({
+    select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { relatorio_snapshot: snapshot } }) }) }),
+    insert: async (row: any) => { inserts.push({ tabela, row }); return { error: null } },
+    update: (row: any) => ({ eq: async () => { updates.push({ tabela, row }); return { error: null } } }),
+  })
+  return { from, inserts, updates }
+}
+
+const RESP_SP = [{ ufJurisdicao: 'SP', renavam: '01136947237' }]
+
+describe('completarDetran', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+  const cfgOk = () => vi.stubGlobal('useRuntimeConfig', () => ({
+    infosimplesToken: 't', infosimplesEncKey: 'k'.repeat(32), infosimplesPkcs12B64: 'cGZ4', infosimplesPkcs12Pass: 'p',
+  }))
+
+  it('nao chama o Infosimples pra veiculo fora de SP', async () => {
+    cfgOk()
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const sb = fakeSupabase({ consulta: {} })
+    const r = await completarDetran(sb, { id: 'p1', placa: 'ABC1D23' }, { response: [{ ufJurisdicao: 'MG', renavam: '1' }] })
+    expect(r.ok).toBe(false)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(sb.inserts).toHaveLength(0)
+  })
+
+  it('cache: snapshot que ja tem o bloco do Infosimples nao gera nova chamada', async () => {
+    cfgOk()
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    const sb = fakeSupabase({ multas: { fonte: 'detran_sp' } })
+    const r = await completarDetran(sb, { id: 'p1', placa: 'FYA8875' }, { response: RESP_SP })
+    expect(r).toMatchObject({ ok: false, pulado: 'ja tem detran_sp' })
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('SP: grava o custo e sobrescreve o bloco antigo (gov.br) com o do Infosimples', async () => {
+    cfgOk()
+    vi.stubGlobal('fetch', vi.fn(async () => ({ status: 200, json: async () => ({ code: 200, header: { price: '0.28' }, data: [REAL] }) })))
+    const sb = fakeSupabase({ consulta: {}, multas: { status: 'ok' } })
+    const r = await completarDetran(sb, { id: 'p1', placa: 'FYA8875' }, { response: RESP_SP })
+    expect(r.ok).toBe(true)
+    expect(sb.inserts[0].row).toMatchObject({ pedido_id: 'p1', fonte: 'infosimples_detran_sp', preco: 0.28, code: 200 })
+    expect(sb.updates[0].row.relatorio_snapshot.multas.fonte).toBe('detran_sp')
+  })
+
+  it('erro do Infosimples: grava o custo mesmo assim e nao mexe no snapshot', async () => {
+    cfgOk()
+    vi.stubGlobal('fetch', vi.fn(async () => ({ status: 200, json: async () => ({ code: 607, code_message: 'renavam invalido', header: { price: '0.28' } }) })))
+    const sb = fakeSupabase({ consulta: {} })
+    const r = await completarDetran(sb, { id: 'p1', placa: 'FYA8875' }, { response: RESP_SP })
+    expect(r).toMatchObject({ ok: false, code: 607 })
+    expect(sb.inserts).toHaveLength(1)
+    expect(sb.updates).toHaveLength(0)
+  })
+})

@@ -1,4 +1,5 @@
 import { encrypt } from 'aes-bridge'
+import { renavamDaResposta, ufDaResposta } from './detran-multas'
 
 // DETRAN estadual via Infosimples (comeca por SP: /detran/sp/debitos). Substitui
 // o runner gov.br quebrado no relatorio PAGO. Traz multas, hodometro (vistorias),
@@ -250,7 +251,7 @@ export function detranParaMultas(parsed: DetranParsed) {
 /** Grava o custo de UMA chamada (sucesso ou erro). Fail-open: nunca derruba nada. */
 export async function registrarCusto(
   supabase: any,
-  opts: { pedidoId: string; fonte: string; preco: number; code: number },
+  opts: { pedidoId: string | null; fonte: string; preco: number; code: number },
 ): Promise<void> {
   try {
     await supabase.from('premium_custos').insert({
@@ -263,11 +264,59 @@ export async function registrarCusto(
 
 // ---------- Orquestracao pos-entrega ----------
 
+export type ResultadoCompletarDetran =
+  | { ok: true; code: number; preco: number; multasCentavos: number; temAlgo: boolean }
+  | { ok: false; pulado?: string; code?: number; preco?: number; motivo?: string }
+
 /**
- * Consulta o DETRAN-SP DEPOIS da entrega e grava o bloco no snapshot. Gated: SO
+ * Nucleo awaitable: consulta o DETRAN-SP e grava o bloco no snapshot. Gated: SO
  * veiculo registrado em SP (UF do SENATRAN), SEMPRE (nao depende de flag de
- * multa). 1 chamada por pedido (cache: nao chama se o snapshot ja tem `detran`).
- * O custo (header.price) e gravado em TODA chamada, ate em erro. Fail-open:
+ * multa). 1 chamada por pedido (cache: nao chama se o snapshot ja tem o bloco
+ * do Infosimples). O custo (header.price) e gravado em TODA chamada, ate em erro.
+ * Usado pelo pos-entrega (fire-and-forget) e pelo backfill admin (em serie).
+ */
+export async function completarDetran(
+  supabase: any,
+  pedido: { id: string; placa: string },
+  ctx: { response: any },
+): Promise<ResultadoCompletarDetran> {
+  const uf = ufDaResposta(ctx.response)
+  if (!ehVeiculoSp(uf)) return { ok: false, pulado: `uf ${uf || '?'} (so SP)` }
+  const renavam = renavamDaResposta(ctx.response)
+  if (!renavam) return { ok: false, pulado: 'sem renavam' }
+  if (!infosimplesConfigurado()) return { ok: false, pulado: 'infosimples nao configurado' }
+
+  const { data } = await supabase
+    .from('pedidos_premium')
+    .select('relatorio_snapshot')
+    .eq('id', pedido.id)
+    .maybeSingle()
+  const snap = data?.relatorio_snapshot
+  if (!snap || typeof snap !== 'object') return { ok: false, pulado: 'sem snapshot' }
+  // `multas.fonte==='detran_sp'` marca que ja consultamos o Infosimples (o
+  // snapshot.multas antigo do gov.br nao tem fonte e e sobrescrito).
+  if ((snap as any).multas?.fonte === 'detran_sp') return { ok: false, pulado: 'ja tem detran_sp' }
+
+  const res = await consultarDetranSp({ placa: pedido.placa, renavam })
+  // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
+  await registrarCusto(supabase, { pedidoId: pedido.id, fonte: 'infosimples_detran_sp', preco: res.preco, code: res.code })
+
+  if (res.code !== 200 || !res.data) {
+    return { ok: false, code: res.code, preco: res.preco, motivo: res.codeMessage || 'sem data' }
+  }
+  const parsed = parsearDetranSp(res.data)
+  const multas = detranParaMultas(parsed)
+  // Grava no MESMO campo que a secao "Multas e débitos" consome (reuso da UI).
+  const { error } = await supabase
+    .from('pedidos_premium')
+    .update({ relatorio_snapshot: { ...snap, multas } })
+    .eq('id', pedido.id)
+  if (error) return { ok: false, code: res.code, preco: res.preco, motivo: 'update: ' + error.message }
+  return { ok: true, code: res.code, preco: res.preco, multasCentavos: multas.multas_total_centavos, temAlgo: parsed.temAlgo }
+}
+
+/**
+ * Pos-entrega: dispara completarDetran sem segurar a entrega. Fail-open:
  * timeout/erro nao derruba o relatorio, so nao grava o bloco.
  */
 export function completarDetranDepois(
@@ -275,39 +324,7 @@ export function completarDetranDepois(
   pedido: { id: string; placa: string },
   ctx: { consultaId: string | null; response: any },
 ): void {
-  void (async () => {
-    try {
-      const uf = ufDaResposta(ctx.response)
-      if (!ehVeiculoSp(uf)) return // so SP por ora
-      const renavam = renavamDaResposta(ctx.response)
-      if (!renavam) return
-      if (!infosimplesConfigurado()) return
-
-      // Cache: 1 chamada por pedido. Se o snapshot ja tem o bloco, nao chama de novo.
-      const { data } = await supabase
-        .from('pedidos_premium')
-        .select('relatorio_snapshot')
-        .eq('id', pedido.id)
-        .maybeSingle()
-      const snap = data?.relatorio_snapshot
-      if (!snap || typeof snap !== 'object') return
-      // Cache: 1 chamada por pedido. `multas.fonte==='detran_sp'` marca que ja
-      // consultamos o Infosimples (o snapshot.multas antigo do gov.br nao tem fonte).
-      if ((snap as any).multas?.fonte === 'detran_sp') return
-
-      const res = await consultarDetranSp({ placa: pedido.placa, renavam })
-      // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
-      await registrarCusto(supabase, { pedidoId: pedido.id, fonte: 'infosimples_detran_sp', preco: res.preco, code: res.code })
-
-      if (res.code !== 200 || !res.data) return // fail-open: sem bloco
-      const parsed = parsearDetranSp(res.data)
-      // Grava no MESMO campo que a secao "Multas e débitos" consome (reuso da UI).
-      await supabase
-        .from('pedidos_premium')
-        .update({ relatorio_snapshot: { ...snap, multas: detranParaMultas(parsed) } })
-        .eq('id', pedido.id)
-    } catch (e: any) {
-      console.warn('[infosimples] completar detran falhou:', e?.message || e)
-    }
-  })()
+  void completarDetran(supabase, pedido, ctx).catch((e: any) => {
+    console.warn('[infosimples] completar detran falhou:', e?.message || e)
+  })
 }
