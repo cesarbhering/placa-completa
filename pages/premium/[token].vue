@@ -1016,16 +1016,23 @@ const multasBreakdown = computed(() => {
   const rows: { rotulo: string; valor: string; emDia: boolean }[] = []
   if (m.multas_total_centavos != null)
     rows.push({
-      rotulo: 'Multas (Pix)',
+      // gov.br so listava multa pagavel por Pix; o Infosimples traz TODAS em aberto.
+      rotulo: m.fonte === 'detran_sp' ? 'Multas em aberto' : 'Multas (Pix)',
       valor: m.multas_total_centavos > 0 ? (reais(m.multas_total_centavos) as string) : 'Nada consta',
       emDia: !(m.multas_total_centavos > 0),
     })
   if (m.licenciamento_centavos != null) {
     const venc = m.licenciamento_venc ? ` (vence ${formatarDataBR(m.licenciamento_venc)})` : ''
+    // Debito zerado NAO e "em dia" se o ultimo exercicio licenciado ficou pra
+    // tras (pode ter ido pra divida ativa): senao a linha contradiz o alerta
+    // de licenciamento atrasado logo abaixo.
+    const atrasado = m.licenciamento_atrasado_ano
     rows.push({
       rotulo: `Licenciamento${venc}`,
-      valor: m.licenciamento_centavos > 0 ? (reais(m.licenciamento_centavos) as string) : 'Em dia',
-      emDia: !(m.licenciamento_centavos > 0),
+      valor: m.licenciamento_centavos > 0
+        ? (reais(m.licenciamento_centavos) as string)
+        : atrasado ? `Atrasado (${atrasado})` : 'Em dia',
+      emDia: !(m.licenciamento_centavos > 0) && !atrasado,
     })
   }
   if (m.ipva_total_centavos != null)
@@ -1037,7 +1044,7 @@ const multasBreakdown = computed(() => {
   return rows
 })
 // Extrato de quilometragem: cada leitura com o quanto rodou desde a anterior
-// (primeira linha "—"). `caiu` marca uma leitura menor que a anterior.
+// (primeira linha "-"). `caiu` marca uma leitura menor que a anterior.
 const hodometroExtrato = computed(() => {
   const lista = Array.isArray(multasDetalhe.value?.hodometro) ? multasDetalhe.value!.hodometro : []
   return lista.map((h: any, i: number) => {
@@ -1046,8 +1053,8 @@ const hodometroExtrato = computed(() => {
     const delta = prev == null || !Number.isFinite(prev) ? null : km - prev
     return {
       data: formatarDataBR(h?.data),
-      km: Number.isFinite(km) ? km.toLocaleString('pt-BR') : '—',
-      rodou: delta == null ? '—' : `${delta >= 0 ? '+' : ''}${delta.toLocaleString('pt-BR')}`,
+      km: Number.isFinite(km) ? km.toLocaleString('pt-BR') : '-',
+      rodou: delta == null ? '-' : `${delta >= 0 ? '+' : ''}${delta.toLocaleString('pt-BR')}`,
       caiu: delta != null && delta < 0,
     }
   })
