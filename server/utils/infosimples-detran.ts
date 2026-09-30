@@ -6,7 +6,7 @@ import { renavamDaResposta, ufDaResposta } from './detran-multas'
 // IPVA, licenciamento e restricoes. Uma chamada por pedido (cada uma custa
 // ~R$0,28, ATE em erro de parametro), gated por UF SP e com cache no snapshot.
 //
-// O certificado e SEMPRE o e-CNPJ, mandado criptografado: base64 do .pfx ->
+// O certificado depende da UF (DETRAN_UFS.cert): hoje SP e SC = e-CNPJ. Mandado criptografado: base64 do .pfx ->
 // aes-bridge encrypt (AES-256-GCM) -> url-safe. A senha do pfx idem. O Infosimples
 // decripta com a mesma ENC_KEY. Criptografado em runtime a cada chamada.
 
@@ -18,22 +18,33 @@ export async function encriptarInfosimples(valor: string, encKey: string): Promi
   return String(cifrado).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function infosimplesConfig() {
+/** Certificado mandado ao Infosimples por UF. Hoje todas usam e-CNPJ; e-CPF fica suportado. */
+export type CertInfosimples = 'ecnpj' | 'ecpf'
+
+function infosimplesConfig(cert: CertInfosimples = 'ecnpj') {
   const c = useRuntimeConfig() as any
   // Fallback pro process.env em runtime: o override automatico do Nuxt mapeia
   // infosimplesPkcs12B64 pra NUXT_INFOSIMPLES_PKCS12B64 (sem o _ antes do B64),
   // entao a env NUXT_INFOSIMPLES_PKCS12_B64 so chegava se existisse no BUILD.
+  // O e-CPF e lido SO do process.env (NUXT_INFOSIMPLES_ECPF_PKCS12_B64/_PASS).
   const env = process.env
+  const pkcs12B64 = cert === 'ecpf'
+    ? String(env.NUXT_INFOSIMPLES_ECPF_PKCS12_B64 || '')
+    : String(c.infosimplesPkcs12B64 || env.NUXT_INFOSIMPLES_PKCS12_B64 || env.NUXT_INFOSIMPLES_PKCS12B64 || '')
+  const pkcs12Pass = cert === 'ecpf'
+    ? String(env.NUXT_INFOSIMPLES_ECPF_PKCS12_PASS || '')
+    : String(c.infosimplesPkcs12Pass || env.NUXT_INFOSIMPLES_PKCS12_PASS || '')
   return {
     token: String(c.infosimplesToken || env.NUXT_INFOSIMPLES_TOKEN || ''),
     encKey: String(c.infosimplesEncKey || env.NUXT_INFOSIMPLES_ENC_KEY || ''),
-    pkcs12B64: String(c.infosimplesPkcs12B64 || env.NUXT_INFOSIMPLES_PKCS12_B64 || env.NUXT_INFOSIMPLES_PKCS12B64 || ''),
-    pkcs12Pass: String(c.infosimplesPkcs12Pass || env.NUXT_INFOSIMPLES_PKCS12_PASS || ''),
+    pkcs12B64,
+    pkcs12Pass,
   }
 }
 
-export function infosimplesConfigurado(): boolean {
-  const c = infosimplesConfig()
+/** Token + chave + o certificado pedido presentes? Sem o cert da UF, a UF nao roda (fail-open). */
+export function infosimplesConfigurado(cert: CertInfosimples = 'ecnpj'): boolean {
+  const c = infosimplesConfig(cert)
   return !!(c.token && c.encKey && c.pkcs12B64 && c.pkcs12Pass)
 }
 
@@ -42,23 +53,39 @@ export function ehVeiculoSp(uf: string | null | undefined): boolean {
   return String(uf || '').trim().toUpperCase() === 'SP'
 }
 
+/** UFs com DETRAN via Infosimples: endpoint, marca no snapshot e fonte de custo. */
+export const DETRAN_UFS = {
+  SP: { path: 'detran/sp/debitos', cert: 'ecnpj', fonte: 'detran_sp', fonteCusto: 'infosimples_detran_sp' },
+  // SC aceitou o e-CNPJ (teste do Lead, 29/set): decisao final do Cesar. O
+  // 'ecpf' segue suportado pra UF futura, mas nenhuma usa hoje.
+  SC: { path: 'detran/sc/veiculo', cert: 'ecnpj', fonte: 'detran_sc', fonteCusto: 'infosimples_detran_sc' },
+} as const
+export type UfDetran = keyof typeof DETRAN_UFS
+
+/** UF (do SENATRAN) com consulta DETRAN disponivel? Devolve a UF normalizada ou null. */
+export function ufDetranSuportada(uf: string | null | undefined): UfDetran | null {
+  const u = String(uf || '').trim().toUpperCase()
+  return u in DETRAN_UFS ? (u as UfDetran) : null
+}
+
 export interface ResultadoDetran {
   code: number
   codeMessage: string
   preco: number
   data: any | null
-  raw: any
 }
 
 /**
- * Consulta o DETRAN-SP (debitos). Devolve o code, o preco (header.price, pra
- * gravar o custo SEMPRE) e o data[0] cru. Nao lanca: erro de rede vira
- * code=0/data=null (o chamador e fail-open). Timeout do proprio Infosimples: 600s;
- * aqui poe um AbortController um pouco maior de rede.
+ * Consulta o DETRAN de uma UF no Infosimples. Devolve o code, o preco
+ * (header.price, pra gravar o custo SEMPRE) e o data[0] cru. A resposta crua
+ * inteira NAO e devolvida: no SC ela traz nome de proprietario/condutor (LGPD);
+ * quem chama so ve o data[0], que vai direto pro parser de whitelist. Nao lanca:
+ * erro de rede vira code=0/data=null (o chamador e fail-open).
  */
-export async function consultarDetranSp(opts: { placa: string; renavam: string }): Promise<ResultadoDetran> {
-  const cfg = infosimplesConfig()
-  if (!infosimplesConfigurado()) return { code: 0, codeMessage: 'infosimples nao configurado', preco: 0, data: null, raw: null }
+export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string }): Promise<ResultadoDetran> {
+  const certUf = DETRAN_UFS[opts.uf].cert
+  const cfg = infosimplesConfig(certUf)
+  if (!infosimplesConfigurado(certUf)) return { code: 0, codeMessage: `infosimples nao configurado (${certUf})`, preco: 0, data: null }
   try {
     const [cert, pass] = await Promise.all([
       encriptarInfosimples(cfg.pkcs12B64, cfg.encKey),
@@ -71,9 +98,10 @@ export async function consultarDetranSp(opts: { placa: string; renavam: string }
       pkcs12_cert: cert,
       pkcs12_pass: pass,
       placa: opts.placa,
-      renavam: opts.renavam,
+      // Renavam com 11 digitos (o SENATRAN as vezes manda sem os zeros a esquerda).
+      renavam: String(opts.renavam).padStart(11, '0'),
     })
-    const res = await fetch(`${BASE}/detran/sp/debitos`, {
+    const res = await fetch(`${BASE}/${DETRAN_UFS[opts.uf].path}`, {
       method: 'POST',
       body,
       signal: AbortSignal.timeout(120000),
@@ -84,11 +112,15 @@ export async function consultarDetranSp(opts: { placa: string; renavam: string }
       codeMessage: String(json?.code_message || ''),
       preco: Number(json?.header?.price || 0),
       data: Array.isArray(json?.data) ? (json.data[0] ?? null) : null,
-      raw: json,
     }
   } catch (e: any) {
-    return { code: 0, codeMessage: String(e?.message || e), preco: 0, data: null, raw: null }
+    return { code: 0, codeMessage: String(e?.message || e), preco: 0, data: null }
   }
+}
+
+/** Atalho do SP (mantido pro backfill/testes). */
+export function consultarDetranSp(opts: { placa: string; renavam: string }): Promise<ResultadoDetran> {
+  return consultarDetranInfosimples({ uf: 'SP', ...opts })
 }
 
 // ---------- Parser (puro, testavel) ----------
@@ -161,13 +193,25 @@ export interface DetranParsed {
   temAlgo: boolean
 }
 
+/** Algum debito de licenciamento com vencimento ja passado? (item sem data nao prova atraso) */
+function debitoLicenciamentoVencido(itens: any, hoje: Date): boolean {
+  if (!Array.isArray(itens)) return false
+  return itens.some((x: any) => {
+    const venc = x?.data_vencimento ?? x?.vencimento ?? x?.normalizado_vencimento
+    const t = tsData(venc)
+    return t > 0 && t < hoje.getTime()
+  })
+}
+
 /**
  * Modela o data[0] do Infosimples pro relatorio. Puro (sem rede), pra testar o
  * hodometro (dedupe + ordem + suspeita de adulteracao) e o licenciamento atrasado.
- * anoAtual injetavel pra teste deterministico.
+ * `hoje` injetavel pra teste deterministico (aceita Date ou so o ano).
  */
-export function parsearDetranSp(data: any, anoAtual: number = new Date().getFullYear()): DetranParsed {
+export function parsearDetranSp(data: any, hoje: Date | number = new Date()): DetranParsed {
   const d = data || {}
+  const agora = typeof hoje === 'number' ? new Date(hoje, 0, 1) : hoje
+  const anoAtual = agora.getFullYear()
 
   // Multas em aberto.
   const itens: DetranMulta[] = (Array.isArray(d.debitos_multas) ? d.debitos_multas : []).map((m: any) => ({
@@ -201,10 +245,14 @@ export function parsearDetranSp(data: any, anoAtual: number = new Date().getFull
   const ipvaValor = moeda(d.ipva)
   const ipvaTemDebito = ipvaValor > 0 || (Array.isArray(d.debitos_ipva) && d.debitos_ipva.length > 0)
 
-  // Licenciamento: atrasado quando o ultimo exercicio e anterior ao ano atual,
-  // MESMO com debito zerado (pode ter ido pra divida ativa).
+  // Licenciamento: o calendario SP vence por final de placa (jul-dez), entao
+  // exercicio = ano atual - 1 NAO prova atraso (em jan-jun todo carro em dia
+  // esta assim). Atrasado so com debito de licenciamento JA vencido, ou com o
+  // ultimo exercicio <= ano atual - 2 (mesmo com debito zerado: pode ter ido pra
+  // divida ativa). Mesma regra do SC.
   const ultimoExercicio = anoDoExercicio(d.ultimo_licenciamento)
-  const licAtrasado = ultimoExercicio != null && ultimoExercicio < anoAtual
+  const licVencido = debitoLicenciamentoVencido(d.debitos_licenciamento, agora)
+  const licAtrasado = ultimoExercicio != null && (licVencido || ultimoExercicio <= anoAtual - 2)
 
   const restricoes = {
     financeira: restricaoConsta(d.restricao_financeira),
@@ -259,9 +307,125 @@ export function detranParaMultas(parsed: DetranParsed) {
     // Ano do ultimo licenciamento quando esta atrasado (exercicio < ano atual),
     // mesmo com debito zerado; null quando em dia.
     licenciamento_atrasado_ano: parsed.licenciamento.atrasado ? parsed.licenciamento.ultimoExercicio : null,
+    // Ultimo exercicio licenciado (a UI mostra "Último: X" neutro quando nao e o ano atual e nao ha atraso).
+    ultimo_licenciamento_ano: parsed.licenciamento.ultimoExercicio,
     restricoes_detran: Object.entries(parsed.restricoes)
       .filter(([, v]) => !!v)
       .map(([tipo, texto]) => ({ tipo, texto })),
+  }
+}
+
+// ---------- DETRAN-SC (/detran/sc/veiculo) ----------
+//
+// LGPD: a resposta do SC traz nome_proprietario_atual, nome_proprietario_anterior,
+// nome_principal_condutor, ultimo_processo.interessado, nomes (mascarados) no
+// texto do SNG e um site_receipt com o comprovante inteiro. O parser e uma
+// WHITELIST: monta o bloco so com os campos abaixo, nunca espalha o objeto cru.
+// Nada disso chega no snapshot, no cache ou em log.
+
+function dataHoraBr(s: any): { data: string | null; hora: string | null } {
+  const m = String(s || '').match(/(\d{2}\/\d{2}\/\d{4})(?:\s+(\d{2}:\d{2}))?/)
+  return { data: m ? m[1] : null, hora: m && m[2] ? m[2] : null }
+}
+
+/** "Registro de ... informado por B**** em 29/09/2026 às 16h08min para I**** F****" -> sem os nomes. */
+export function limparTextoSng(s: any): string | null {
+  let t = String(s ?? '').trim()
+  if (!t) return null
+  t = t.replace(/\s+para\s+.*$/i, '') // "para <comprador>" (sempre no fim)
+  t = t.replace(/\s+por\s+.*?(?=\s+em\s+\d{2}\/\d{2}\/\d{4}|$)/i, '') // "por <agente>"
+  t = t.replace(/\s+às\s+\d{1,2}h\d{0,2}(min)?/i, '')
+  return t.trim() || null
+}
+
+function classeDoDebito(classe: string): 'ipva' | 'licenciamento' | 'seguro' | 'multa' {
+  const c = classe.toLowerCase()
+  if (/\bipva\b/.test(c)) return 'ipva'
+  if (/licenciamento/.test(c)) return 'licenciamento'
+  if (/dpvat|seguro|taxa/.test(c)) return 'seguro'
+  return 'multa'
+}
+
+/**
+ * Modela o data[0] do DETRAN-SC no MESMO shape normalizado do SP (a secao
+ * "Multas e débitos" do relatorio consome os dois). SC nao traz vistorias/km.
+ * `hoje` injetavel pra teste deterministico.
+ */
+export function parsearDetranSc(data: any, hoje: Date = new Date()) {
+  const d = data || {}
+  const veic = d.dados_do_veiculo || {}
+  const debitos: any[] = Array.isArray(d.debitos?.debitos) ? d.debitos.debitos : []
+  const valorDebito = (x: any) => moeda(x?.normalizado_valor_atual ?? x?.valor_atual ?? x?.normalizado_valor_nominal ?? x?.valor_nominal)
+  const hojeTs = hoje.getTime()
+
+  const porClasse = { ipva: [] as any[], licenciamento: [] as any[], seguro: [] as any[], multa: [] as any[] }
+  for (const x of debitos) porClasse[classeDoDebito(String(x?.classe || ''))].push(x)
+  const soma = (l: any[]) => l.reduce((acc, x) => acc + valorDebito(x), 0)
+
+  // Multas em aberto (multas[]), com o vencimento do debito que carrega o auto.
+  const multasArr: any[] = Array.isArray(d.multas) ? d.multas : []
+  const itens: DetranMulta[] = multasArr.map((m: any) => {
+    const { data: dataInfracao, hora } = dataHoraBr(m?.local_data_hora_multa)
+    const auto = m?.num_auto ? String(m.num_auto) : null
+    const deb = auto ? porClasse.multa.find((x) => String(x?.classe || '').includes(auto)) : null
+    return {
+      auto,
+      descricao: m?.descricao ?? null,
+      dataInfracao,
+      horaInfracao: hora,
+      dataVencimento: deb?.vencimento ?? null,
+      valor: moeda(m?.valor_multa),
+      local: m?.local_complemento ?? null,
+      municipio: null,
+      orgao: null,
+    }
+  })
+  const multasTotal = soma(porClasse.multa) || itens.reduce((acc, i) => acc + i.valor, 0)
+
+  // Licenciamento atrasado: so quando ha debito de licenciamento JA vencido (o
+  // calendario de SC e por placa; um exercicio anterior sozinho nao prova atraso),
+  // ou quando o ultimo licenciado ficou 2+ anos pra tras.
+  const licenciadoAno = anoDoExercicio(veic.licenciado)
+  const licVencido = porClasse.licenciamento.some((x) => { const t = tsData(x?.vencimento); return t > 0 && t < hojeTs })
+  const anoAtual = hoje.getFullYear()
+  const licAtrasadoAno = licenciadoAno != null && (licVencido || licenciadoAno <= anoAtual - 2) ? licenciadoAno : null
+  const licVenc = porClasse.licenciamento.map((x) => x?.vencimento).filter(Boolean).sort((a: string, b: string) => tsData(a) - tsData(b))[0] || null
+
+  const restricoes: { tipo: string; texto: string }[] = []
+  const r = veic.restricoes
+  for (const t of (Array.isArray(r) ? r : [r])) { const v = restricaoConsta(t); if (v) restricoes.push({ tipo: 'administrativa', texto: v }) }
+  const venda = String(veic.restricao_venda ?? '').trim()
+  if (venda && !/^sem\s+(gravame|restri)/i.test(venda) && restricaoConsta(venda)) restricoes.push({ tipo: 'financeira', texto: venda })
+  for (const t of (Array.isArray(veic.pendencias_financeiras_sng) ? veic.pendencias_financeiras_sng : [])) {
+    const v = limparTextoSng(t); if (v) restricoes.push({ tipo: 'sng', texto: v })
+  }
+  const situacao = String(veic.situacao ?? '').trim()
+  if (situacao && !/em\s+circula/i.test(situacao)) restricoes.push({ tipo: 'situacao', texto: situacao })
+  const divida: any[] = Array.isArray(d.divida_ativa) ? d.divida_ativa : []
+  if (divida.length) restricoes.push({ tipo: 'divida_ativa', texto: `Consta dívida ativa (${divida.length} ${divida.length === 1 ? 'registro' : 'registros'})` })
+
+  const hist: any[] = Array.isArray(d.historico_infracoes_notificadas) ? d.historico_infracoes_notificadas : []
+  const recursos: any[] = Array.isArray(d.recursos_infracoes) ? d.recursos_infracoes : []
+
+  return {
+    status: 'ok' as const,
+    fonte: 'detran_sc',
+    multas_total_centavos: Math.round(multasTotal * 100),
+    licenciamento_centavos: Math.round(soma(porClasse.licenciamento) * 100),
+    licenciamento_venc: brParaIso(licVenc),
+    ipva_total_centavos: Math.round(soma(porClasse.ipva) * 100),
+    hodometro: [] as { data: string | null; km: number }[],
+    hodometro_suspeito: false,
+    multas_itens: itens,
+    licenciamento_atrasado_ano: licAtrasadoAno,
+    ultimo_licenciamento_ano: licenciadoAno,
+    restricoes_detran: restricoes,
+    // Historico (secundario): infracoes ja notificadas (a maioria paga) e recursos.
+    historico_infracoes: {
+      total: hist.length,
+      pagas: hist.filter((h) => /paga/i.test(String(h?.status || ''))).length,
+      recursos: recursos.length,
+    },
   }
 }
 
@@ -287,23 +451,32 @@ export type ResultadoCompletarDetran =
   | { ok: true; code: number; preco: number; multasCentavos: number; temAlgo: boolean }
   | { ok: false; pulado?: string; code?: number; preco?: number; motivo?: string }
 
+/** data[0] do Infosimples -> bloco normalizado da UF (o que vai pro snapshot). */
+export function blocoDetranDaUf(uf: UfDetran, data: any) {
+  if (uf === 'SC') return parsearDetranSc(data)
+  return detranParaMultas(parsearDetranSp(data))
+}
+
 /**
- * Nucleo awaitable: consulta o DETRAN-SP e grava o bloco no snapshot. Gated: SO
- * veiculo registrado em SP (UF do SENATRAN), SEMPRE (nao depende de flag de
- * multa). 1 chamada por pedido (cache: nao chama se o snapshot ja tem o bloco
- * do Infosimples). O custo (header.price) e gravado em TODA chamada, ate em erro.
- * Usado pelo pos-entrega (fire-and-forget) e pelo backfill admin (em serie).
+ * Nucleo awaitable: consulta o DETRAN da UF do veiculo e grava o bloco no
+ * snapshot. Gated: SO veiculo registrado numa UF suportada (UF do SENATRAN:
+ * SP, SC), SEMPRE (nao depende de flag de multa). 1 chamada por pedido (cache:
+ * nao chama se o snapshot ja tem o bloco da fonte). O custo (header.price) e
+ * gravado em TODA chamada, ate em erro. Usado pelo pos-entrega (fire-and-forget)
+ * e pelo backfill admin (em serie).
  */
 export async function completarDetran(
   supabase: any,
   pedido: { id: string; placa: string },
   ctx: { response: any },
 ): Promise<ResultadoCompletarDetran> {
-  const uf = ufDaResposta(ctx.response)
-  if (!ehVeiculoSp(uf)) return { ok: false, pulado: `uf ${uf || '?'} (so SP)` }
+  const ufBruta = ufDaResposta(ctx.response)
+  const uf = ufDetranSuportada(ufBruta)
+  if (!uf) return { ok: false, pulado: `uf ${ufBruta || '?'} (so ${Object.keys(DETRAN_UFS).join('/')})` }
+  const cfgUf = DETRAN_UFS[uf]
   const renavam = renavamDaResposta(ctx.response)
   if (!renavam) return { ok: false, pulado: 'sem renavam' }
-  if (!infosimplesConfigurado()) return { ok: false, pulado: 'infosimples nao configurado' }
+  if (!infosimplesConfigurado(cfgUf.cert)) return { ok: false, pulado: `infosimples nao configurado (${cfgUf.cert})` }
 
   const { data } = await supabase
     .from('pedidos_premium')
@@ -312,26 +485,27 @@ export async function completarDetran(
     .maybeSingle()
   const snap = data?.relatorio_snapshot
   if (!snap || typeof snap !== 'object') return { ok: false, pulado: 'sem snapshot' }
-  // `multas.fonte==='detran_sp'` marca que ja consultamos o Infosimples (o
+  // `multas.fonte` marca que ja consultamos o Infosimples dessa UF (o
   // snapshot.multas antigo do gov.br nao tem fonte e e sobrescrito).
-  if ((snap as any).multas?.fonte === 'detran_sp') return { ok: false, pulado: 'ja tem detran_sp' }
+  if ((snap as any).multas?.fonte === cfgUf.fonte) return { ok: false, pulado: `ja tem ${cfgUf.fonte}` }
 
-  const res = await consultarDetranSp({ placa: pedido.placa, renavam })
+  const res = await consultarDetranInfosimples({ uf, placa: pedido.placa, renavam })
   // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
-  await registrarCusto(supabase, { pedidoId: pedido.id, fonte: 'infosimples_detran_sp', preco: res.preco, code: res.code })
+  await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code })
 
   if (res.code !== 200 || !res.data) {
     return { ok: false, code: res.code, preco: res.preco, motivo: res.codeMessage || 'sem data' }
   }
-  const parsed = parsearDetranSp(res.data)
-  const multas = detranParaMultas(parsed)
+  const multas: any = blocoDetranDaUf(uf, res.data)
+  const temAlgo = multas.multas_itens.length > 0 || multas.hodometro.length > 0 || multas.restricoes_detran.length > 0
+    || multas.ipva_total_centavos > 0 || multas.licenciamento_centavos > 0 || multas.licenciamento_atrasado_ano != null
   // Grava no MESMO campo que a secao "Multas e débitos" consome (reuso da UI).
   const { error } = await supabase
     .from('pedidos_premium')
     .update({ relatorio_snapshot: { ...snap, multas } })
     .eq('id', pedido.id)
   if (error) return { ok: false, code: res.code, preco: res.preco, motivo: 'update: ' + error.message }
-  return { ok: true, code: res.code, preco: res.preco, multasCentavos: multas.multas_total_centavos, temAlgo: parsed.temAlgo }
+  return { ok: true, code: res.code, preco: res.preco, multasCentavos: multas.multas_total_centavos, temAlgo }
 }
 
 /**
