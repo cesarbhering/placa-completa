@@ -240,3 +240,23 @@ describe('restricaoConsta', () => {
     expect(restricaoConsta('Consta Gravame')).toBe('Consta Gravame')
   })
 })
+
+describe('ipvaItemGenerico (IPVA discriminado, qualquer UF)', () => {
+  it('SP: debitos_ipva vira item por exercicio no bloco', async () => {
+    const { parsearDetranSp, detranParaMultas } = await import('./infosimples-detran')
+    const b = detranParaMultas(parsearDetranSp({ ipva: '1.500,00', debitos_ipva: [
+      { exercicio: '2025', data_vencimento: '20/01/2025', valor: 'R$ 700,00' },
+      { exercicio: '2026', data_vencimento: '20/01/2026', valor: 'R$ 800,00' },
+      { exercicio: '2024', valor: '0' },
+    ] }, 2026))
+    expect(b.ipva_itens).toEqual([
+      { ano: 2026, vencimento: '20/01/2026', valor_centavos: 80000 },
+      { ano: 2025, vencimento: '20/01/2025', valor_centavos: 70000 },
+    ])
+  })
+  it('sem ano explicito usa o ano do vencimento; sem valor = null', async () => {
+    const { ipvaItemGenerico } = await import('./infosimples-detran')
+    expect(ipvaItemGenerico({ vencimento: '31/08/2026', valor_nominal: 669.32 })).toEqual({ ano: 2026, vencimento: '31/08/2026', valor_centavos: 66932 })
+    expect(ipvaItemGenerico({ classe: 'IPVA 2025', valor_nominal: null })).toBeNull()
+  })
+})
