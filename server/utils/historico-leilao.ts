@@ -8,6 +8,8 @@
 // entra no bundle. Sem `leiloesApiUrl` configurada a funcao nem tenta, que e
 // como a feature fica restrita ao homolog por enquanto.
 
+import { ehNotificacao, GRAVIDADE_NOTIFICADO } from '../../shared/leilao-notificacao'
+
 export type NivelLeilao = 'confirmado' | 'provavel' | 'possivel'
 
 /** Termometro de gravidade que a API calcula por passagem. */
@@ -176,7 +178,7 @@ function sanearGravidade(g: any): GravidadeLeilao | null {
 }
 
 /** Confia so no formato, nunca no conteudo: resposta torta vira null. */
-function sanear(res: any, config?: { leiloesFotosHosts?: string }): HistoricoLeilao | null {
+export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string }): HistoricoLeilao | null {
   if (!res || typeof res !== 'object' || !res.resumo) return null
   const brutas = Array.isArray(res.passagens) ? res.passagens : []
   const passagens: PassagemLeilao[] = brutas
@@ -192,7 +194,10 @@ function sanear(res: any, config?: { leiloesFotosHosts?: string }): HistoricoLei
       // casa privada nunca, entao cai no rotulo generico.
       fonte_exibicao: texto(p.fonte_exibicao)
         || (p.fonte_tipo === 'detran' ? nomeDeOrgao(p.fonte) : 'Leiloeira particular'),
-      gravidade: sanearGravidade(p.gravidade),
+      // Edital de NOTIFICACAO nao e leilao realizado. A API anterior ao nivel
+      // 'notificado' pintava essas linhas de "Leilao de patio" amarelo; aqui a
+      // gravidade e fixada no cinza, qualquer que seja a versao da API.
+      gravidade: ehNotificacao(p) ? { ...GRAVIDADE_NOTIFICADO } : sanearGravidade(p.gravidade),
       detalhes: p.detalhes && typeof p.detalhes === 'object' && !Array.isArray(p.detalhes) ? p.detalhes : {},
       data_leilao: texto(p.data_leilao),
       ref: texto(p.ref),
@@ -270,7 +275,7 @@ export async function consultarHistoricoLeilao(
       // ajustavel por env.
       timeout: opts?.timeoutMs || Number(config.leiloesApiTimeoutMs) || 15000,
     })
-    return sanear(res, { leiloesFotosHosts: String(config.leiloesFotosHosts || '') })
+    return sanearHistorico(res, { leiloesFotosHosts: String(config.leiloesFotosHosts || '') })
   } catch (e: any) {
     // Fora do ar, timeout, key errada, 5xx: tudo cai aqui. So um log.
     console.warn('[leiloes-api] historico falhou (fail-open):', e?.message)
