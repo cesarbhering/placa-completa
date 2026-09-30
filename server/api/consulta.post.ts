@@ -8,6 +8,7 @@ import { lookupIpGeo } from '../utils/ip-geo'
 import { getRegiaoSusep } from '../utils/regiao-susep'
 import { getSeguroEstimado, type SeguroEstimado } from '../utils/seguro-estimate'
 import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
+import { mensagemLimiteGratis } from '../utils/ip-wdapi-limit'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
@@ -286,7 +287,7 @@ export default defineEventHandler(async (event) => {
     // passar o path inline (email_sent=false) — foi por onde um bot enumerou
     // placas e drenou os creditos. Aqui contamos TODAS as rows do IP na janela e
     // barramos ANTES da wdapi. Vale pra web E app/PWA (pedido do Cesar).
-    // Teto de 15/IP/hora (decisao do Cesar): meio-termo entre 5 (restritivo) e
+    // Teto de 5/IP/hora (decisao do Cesar, 30/set; era 15): meio-termo entre 5 (restritivo) e
     // 30, com folga pra CGNAT de operadora movel (88% do trafego e mobile, e o
     // 4G/5G empilha varios usuarios reais num mesmo IP publico). Barra a
     // enumeracao (o ataque foi 47 em 15 min) sem falso-positivar o app legitimo.
@@ -317,7 +318,7 @@ export default defineEventHandler(async (event) => {
         }))
         throw createError({
           statusCode: 429,
-          message: `Limite de ${limite.teto} consultas por hora atingido. Tente novamente em ~${limite.minutesUntilReset} min.`,
+          message: mensagemLimiteGratis(limite.teto!, limite.minutesUntilReset!),
         })
       }
     }
@@ -381,7 +382,7 @@ export default defineEventHandler(async (event) => {
 
       throw createError({
         statusCode: 429,
-        message: `Limite de ${hourlyLimit} consultas por hora atingido. Tente novamente em ~${minutesUntilReset} min.`,
+        message: mensagemLimiteGratis(hourlyLimit, minutesUntilReset),
       })
     }
   }

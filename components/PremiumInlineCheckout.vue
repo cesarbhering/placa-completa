@@ -296,7 +296,12 @@ async function consultarPreview() {
       // configurado" sao recado de infraestrutura e nao dizem nada pra quem
       // esta tentando comprar. O detalhe tecnico fica no console.
       if (import.meta.dev) console.warn('[checkout] preview falhou:', e?.data?.message || e)
-      msg.value = e?.statusCode === 404
+      // 429 = teto de consultas gratis: a mensagem e nossa (ip-wdapi-limit),
+      // diz quanto falta e que comprar zera o limite. So ela e ecoada.
+      const status = e?.statusCode ?? e?.status ?? e?.response?.status
+      msg.value = status === 429 && e?.data?.message
+        ? String(e.data.message)
+        : status === 404
         ? 'Não encontramos essa placa. Confira os caracteres e tente de novo.'
         : 'Não conseguimos abrir o pagamento agora. Tente de novo em instantes.'
       step.value = 'erro'
