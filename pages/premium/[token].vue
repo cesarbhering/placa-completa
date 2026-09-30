@@ -1014,13 +1014,13 @@ const multaIndicadorSP = computed(
 // Veiculo registrado em SP, SC ou MG: a consulta DETRAN (Infosimples) roda pra TODO pedido
 // dessas UFs (multas, hodometro, IPVA, licenciamento), nao so quando o RENAINF acende.
 // Por isso o bloco e o poll acompanham qualquer veiculo de SP, nao so multa.
-// Mesmo gate do servidor (DETRAN_UFS.gate): SP sempre; SC, MG e BA so com multa
+// Mesmo gate do servidor (DETRAN_UFS.gate): SP sempre; SC, MG, BA e RS so com multa
 // RENAINF. Sem isso o bloco ficava em "Consultando..." pra sempre num SC/MG
 // que nunca vai ser consultado.
 const ehVeiculoSpTela = computed(() => {
   const uf = String(g('ufJurisdicao') || '').toUpperCase()
   if (uf === 'SP') return true
-  return ['SC', 'MG', 'BA'].includes(uf) && g('indicadorMultaRenainf') === true
+  return ['SC', 'MG', 'BA', 'RS'].includes(uf) && g('indicadorMultaRenainf') === true
 })
 const multasDetalhe = computed(() => {
   const m: any = data.value?.multas
@@ -1742,7 +1742,7 @@ onUnmounted(() => {
                   no DETRAN (ainda sem multa).
                 </p>
 
-                <!-- Historico de infracoes (SC): secundario, so contagem. -->
+                <!-- Historico de infracoes (SC, RS): secundario, so contagem. -->
                 <p v-if="multasDetalhe.historico_infracoes && multasDetalhe.historico_infracoes.total" class="rel__multas-nota">
                   Histórico: {{ multasDetalhe.historico_infracoes.total }}
                   {{ multasDetalhe.historico_infracoes.total === 1 ? 'infração notificada' : 'infrações notificadas' }}
