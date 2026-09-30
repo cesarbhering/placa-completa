@@ -1789,6 +1789,7 @@ onUnmounted(() => {
                   <p v-for="(ip, idx) in multasDetalhe.ipva_sefaz" :key="'ips' + idx" class="rel__multas-nota">
                     IPVA {{ ip.ano || '' }} em aberto na SEFAZ<template v-if="ip.valor_centavos"> ({{ reais(ip.valor_centavos) }})</template>.
                   </p>
+                  <p class="rel__multas-nota">Valor original, sem juros e multa da SEFAZ.</p>
                 </template>
 
                 <!-- Multas em recurso (GO): nao somam no total. -->
