@@ -3,7 +3,7 @@
 // repositor e o consumo entram depois (dependem do fluxo GCC do senatran-consulta).
 
 /**
- * Le o claim `exp` (segundos epoch) do payload de um JWT SEM validar assinatura
+ * Le a validade (claim `exp` ou, no hash do GCC, `dataExpiracao`) do payload de um JWT SEM validar assinatura
  * — so pra saber a validade do hash de consentimento. Devolve Date ou null se
  * o token nao for um JWT decodificavel ou nao tiver exp numerico.
  *
@@ -21,10 +21,19 @@ export function expDoHashJwt(hash: string | null | undefined): Date | null {
     const json = Buffer.from(b64 + pad, 'base64').toString('utf8')
     const payload = JSON.parse(json)
     const exp = payload?.exp
-    if (typeof exp !== 'number' || !Number.isFinite(exp)) return null
-    const ms = exp * 1000
-    const d = new Date(ms)
-    return Number.isNaN(d.getTime()) ? null : d
+    if (typeof exp === 'number' && Number.isFinite(exp)) {
+      const d = new Date(exp * 1000)
+      return Number.isNaN(d.getTime()) ? null : d
+    }
+    // O hash real do GCC NAO tem `exp`: a validade vem em `dataExpiracao`,
+    // horario de Brasilia SEM fuso ("2026-09-30T21:46:48", 24h apos
+    // `dataCriacao`). Visto no smoke do homolog em 29/set.
+    const m = String(payload?.dataExpiracao || '').match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/)
+    if (m) {
+      const d = new Date(`${m[1]}-03:00`)
+      return Number.isNaN(d.getTime()) ? null : d
+    }
+    return null
   } catch {
     return null
   }

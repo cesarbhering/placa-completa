@@ -24,6 +24,11 @@ describe('expDoHashJwt', () => {
     expect(expDoHashJwt(jwt({ exp: 'nao-numero' }))).toBeNull()
   })
 
+  it('le dataExpiracao (BRT sem fuso) do hash real do GCC, que nao tem exp', () => {
+    const d = expDoHashJwt(jwt({ iat: 1790729208, dataCriacao: '2026-09-29T21:46:48', dataExpiracao: '2026-09-30T21:46:48' }))
+    expect(d?.toISOString()).toBe('2026-10-01T00:46:48.000Z')
+  })
+
   it('null pra payload nao-JSON', () => {
     expect(expDoHashJwt('aaa.@@@nao-base64-json@@@.bbb')).toBeNull()
   })
