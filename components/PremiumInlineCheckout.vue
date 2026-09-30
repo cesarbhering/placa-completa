@@ -374,32 +374,8 @@ async function confirmarEPagar() {
   await pagar()
 }
 
-// E-mail pedido na tela do Pix, enquanto a pessoa paga. Salva sozinho no
-// blur: nao ha botao "confirmar e-mail" porque nao ha nada pra confirmar, e um
-// botao a mais nesta tela competiria com o Pix.
+// E-mail que o pedido ja levou (preenchido na primeira tela do modal).
 const emailNoPedido = ref('')
-const emailPixSalvo = ref(false)
-// Quem chegou no Pix com e-mail preenchido nao ve campo nenhum aqui: o pedido
-// ja nasceu com ele.
-const emailJaTemos = computed(() => emailPixSalvo.value || !!emailNoPedido.value)
-const emailPixErro = ref('')
-async function salvarEmailDoPix() {
-  const valor = email.value.trim().toLowerCase()
-  emailPixErro.value = ''
-  if (!valor.includes('@') || !pix.value?.token) return
-  try {
-    await $fetch('/api/premium/email', { method: 'POST', body: { token: pix.value.token, email: valor } })
-    emailPixSalvo.value = true
-    marcarEmailInformado('tela_pix')
-    if (import.meta.client) localStorage.setItem('pc_email', valor)
-  } catch (e: any) {
-    // Falhar aqui NAO pode assustar quem esta pagando: o relatorio abre nesta
-    // mesma tela de qualquer jeito. O aviso e discreto e a pessoa pode tentar
-    // de novo saindo e voltando do campo.
-    emailPixErro.value = 'Não conseguimos guardar seu e-mail agora. O relatório abre aqui assim que o pagamento cair.'
-    if (import.meta.dev) console.warn('[checkout] salvar email do pix falhou:', e?.data?.message || e)
-  }
-}
 
 /**
  * Compra dentro do app: a loja cobra, o servidor confere o comprovante com a
@@ -894,8 +870,7 @@ onUnmounted(() => {
                  nao exige e-mail; a excecao e cupom, cujo limite e contado por
                  e-mail). Antes ficava so na tela do Pix, mas la ele sumia pra
                  quem ja tinha e-mail salvo no navegador -> muita gente nao via
-                 em lugar nenhum. Quem deixar em branco aqui ainda tem a segunda
-                 chance, tambem opcional, na tela do Pix. -->
+                 em lugar nenhum. -->
             <div class="pic-campo">
               <label class="pic-label" for="pic-email">Seu e-mail (opcional, para receber o relatório)</label>
               <input
@@ -1336,9 +1311,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-weight: 600;
   color: $c-ink;
   min-width: 0;
+  line-height: 1.3;
+  // Ate 2 linhas em vez de reticencia: "CHEVROLET S10 LTZ 2.8 4X4" inteiro.
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 .pic-faixa__preco {
   display: inline-flex;
@@ -1359,7 +1339,18 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 .pic-faixa__placa { font-weight: 600; letter-spacing: 0.04em; color: $c-ink; }
 .pic-faixa__plano { text-align: right; font-size: 12px; color: $c-graphite; }
-.pic-lapis--faixa { width: 22px; height: 22px; }
+// Seletor duplo de proposito: o .pic-lapis base vem DEPOIS no arquivo e, com a
+// mesma especificidade, ganhava (40px/18px). O alvo de toque continua ~40px
+// pelo ::after invisivel, sem inflar a linha.
+.pic-lapis.pic-lapis--faixa {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+
+  svg { width: 12px; height: 12px; }
+  &::after { content: ''; position: absolute; inset: -10px; }
+}
 
 // resumo do pedido: o que, pra qual placa, por quanto
 // ---- confianca ----
@@ -1451,47 +1442,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     flex-shrink: 0;
     margin-top: 1px;
     color: $c-steel;
-  }
-}
-
-.pic-resumo {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid $c-hair;
-  border-radius: 8px;
-  overflow: hidden;
-  text-align: left;
-
-  &__linha {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 14px;
-    border-bottom: 1px solid $c-hair;
-    font-size: 14px;
-    color: $c-graphite;
-
-    &:last-child { border-bottom: 0; }
-    strong { font-size: 15px; font-weight: 500; color: $c-ink; text-align: right; }
-  }
-
-  &__placa { letter-spacing: 0.08em; }
-
-  // Placa + lapis na mesma linha do resumo: o botao encolhe pra caber na
-  // altura da linha, em vez do alvo de 40px que ele tinha na tela dedicada.
-  &__placa-linha {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-
-    .pic-lapis { width: 30px; height: 30px; }
-    .pic-lapis svg { width: 15px; height: 15px; }
-  }
-
-  &__linha--total {
-    background: $c-cloud;
-    strong { font-size: 20px; font-weight: 500; color: $c-ink; }
   }
 }
 
@@ -1664,14 +1614,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   cursor: pointer;
   padding: 8px;
   min-height: 44px;
-}
-
-.pic-email-pix {
-  display: flex;
-  flex-direction: column;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid #e8e8e8;
 }
 
 .pic-cupom { display: flex; flex-direction: column; }
