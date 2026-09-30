@@ -72,6 +72,30 @@ db.exec(`
     PRIMARY KEY (wmi_code, position_11)
   );
 
+  -- Regra por MODELO, pra quando a posicao 11 nao separa a fabrica. Toyota
+  -- 9BR e o caso: o mesmo codigo sai em Corolla (Indaiatuba) e em Yaris
+  -- (Sorocaba). Quem chama o decode manda o modelo do registro (SENATRAN,
+  -- "TOYOTA/YARIS HA XLS15"); a regra casa um padrao (regex) no texto
+  -- normalizado. So entra em cena quando a posicao 11 nao deu cidade.
+  CREATE TABLE IF NOT EXISTS plant_modelos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    wmi_code TEXT NOT NULL,
+    -- '*' = qualquer posicao 11 do WMI; senao, a regra vale so naquele codigo.
+    position_11 TEXT NOT NULL DEFAULT '*',
+    padrao TEXT NOT NULL,
+    -- Regex que, se casar, derruba a regra (Corolla sim, Corolla Cross nao).
+    excluir TEXT,
+    plant_name TEXT NOT NULL,
+    cidade TEXT,
+    uf TEXT,
+    pais TEXT,
+    ano_de INTEGER,
+    ano_ate INTEGER,
+    fonte TEXT,
+    confianca TEXT NOT NULL DEFAULT 'alta'
+  );
+  CREATE INDEX IF NOT EXISTS plant_modelos_wmi_idx ON plant_modelos (wmi_code);
+
   -- Ano-modelo pela posicao 10 do VIN (ISO 3779 / SAE J853). Ciclo de 30
   -- anos: o mesmo caractere serve pra duas decadas (ex: 'A' = 1980 OU 2010).
   -- year_low/year_high dao as duas leituras; o decode escolhe pela posicao 7
