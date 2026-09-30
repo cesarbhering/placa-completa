@@ -3,11 +3,11 @@ import { sinalDaResposta, fraseSinalNaTela } from './sinal-leilao-resposta'
 
 describe('leitura da resposta do sinal de leilao', () => {
   it('achou: vira sinal positivo com a contagem', () => {
-    expect(sinalDaResposta({ positivo: true, quantidade: 2 })).toEqual({ positivo: true, quantidade: 2 })
+    expect(sinalDaResposta({ positivo: true, quantidade: 2 })).toEqual({ positivo: true, quantidade: 2, tipo: 'leilao' })
   })
 
   it('base respondeu sem registro: vira sinal negativo, que PODE ir pra tela', () => {
-    expect(sinalDaResposta({ positivo: false, quantidade: 0 })).toEqual({ positivo: false, quantidade: 0 })
+    expect(sinalDaResposta({ positivo: false, quantidade: 0 })).toEqual({ positivo: false, quantidade: 0, tipo: 'leilao' })
   })
 
   it('indisponivel vira null: a tela nao fala de leilao', () => {
@@ -22,7 +22,7 @@ describe('leitura da resposta do sinal de leilao', () => {
   })
 
   it('quantidade quebrada nao vira NaN na tela', () => {
-    expect(sinalDaResposta({ positivo: true, quantidade: 'dois' })).toEqual({ positivo: true, quantidade: 0 })
+    expect(sinalDaResposta({ positivo: true, quantidade: 'dois' })).toEqual({ positivo: true, quantidade: 0, tipo: 'leilao' })
   })
 })
 
@@ -56,5 +56,10 @@ describe('frase que vai pra tela', () => {
 
   it('sem travessao', () => {
     expect(fraseSinalNaTela({ positivo: true, quantidade: 2 }, carro)).not.toContain('—')
+  })
+
+  it('so notificacao chega como tipo notificacao; tipo estranho vira leilao', () => {
+    expect(sinalDaResposta({ positivo: true, quantidade: 1, tipo: 'notificacao' })?.tipo).toBe('notificacao')
+    expect(sinalDaResposta({ positivo: true, quantidade: 1, tipo: 'x' })?.tipo).toBe('leilao')
   })
 })

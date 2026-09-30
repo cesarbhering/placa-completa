@@ -16,6 +16,7 @@
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { explicaRestricao } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
+import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
 
@@ -349,17 +350,28 @@ const indicadores = computed(() => {
     const plural = (n: number) => (n > 1 ? 's' : '')
     // "Sem ocorrencia" e mais claro que "nada consta" pra uma base nossa, e o
     // estado do meio existe so quando ha foto pra pessoa comparar.
+    // Contagem refeita a partir das passagens: a API soma edital de
+    // NOTIFICACAO em n_confirmado, e notificacao nao e leilao realizado.
+    const cont = contarPassagens(historicoLeilao.value.passagens)
     let valor = 'SEM OCORRÊNCIA'
     let alerta = false
     let aceso = false
-    if (r.n_confirmado > 0) {
-      valor = `CONSTA (${r.n_confirmado} confirmado${plural(r.n_confirmado)})`
+    let neutro = false
+    if (cont.confirmado > 0) {
+      valor = `CONSTA (${cont.confirmado} confirmado${plural(cont.confirmado)})`
       alerta = true
       aceso = true
-    } else if (r.n_provavel > 0) {
-      valor = `PROVÁVEL (${r.n_provavel})`
+    } else if (cont.provavel > 0) {
+      valor = `PROVÁVEL (${cont.provavel})`
       alerta = true
       aceso = true
+    } else if (cont.notificado > 0) {
+      // So notificacao: aceso, mas neutro. O DETRAN avisou o dono; o leilao
+      // pode nao ter acontecido.
+      valor = 'NOTIFICADO PARA LEILÃO'
+      alerta = false
+      aceso = true
+      neutro = true
     } else if (possiveisComFoto.value.length > 0) {
       // Nem alerta nem verde: existe um lote parecido COM FOTO, e a decisao de
       // dizer se e o mesmo veiculo e de quem esta olhando.
@@ -376,6 +388,8 @@ const indicadores = computed(() => {
       dica: 'Cruzamos o veículo com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer chassi ou placa completos iguais; provável e possível são inferência por identificador parcial, então podem ser outro veículo. O detalhe de cada registro aparece na seção Histórico de leilão.',
       ligado: aceso,
       alerta,
+      // Cinza: aceso, mas nem problema (vermelho) nem "confira" (ambar).
+      neutro,
     }
     // Entra colado no "Leilão registrado no documento", que responde a outra
     // pergunta: aquele diz se o leilao foi anotado no registro do veiculo, este
@@ -486,7 +500,13 @@ const veredito = computed(() => {
     return {
       tom: 'ok' as const,
       titulo: 'Nada consta contra este veículo.',
-      texto: 'Na data de emissão, nenhum dos indicadores verificados aponta restrição, roubo, furto, registro de leilão ou pendência.',
+      // Notificacao para leilao nao e registro de leilao (nao acende alerta),
+      // mas o parecer nao pode dizer "nada" e a secao logo abaixo mostrar o
+      // aviso do DETRAN sem explicar a diferenca.
+      texto: 'Na data de emissão, nenhum dos indicadores verificados aponta restrição, roubo, furto, registro de leilão ou pendência.'
+        + (passagensNotificadas.value.length
+          ? ' Consta notificação para leilão do DETRAN, que não comprova que o leilão aconteceu (veja o Histórico de leilão).'
+          : ''),
     }
   }
   // Os rotulos sao siglas e nomes proprios (RENAJUD, RFB): baixar tudo pra
@@ -611,6 +631,16 @@ const passagensLeilao = computed(() => {
   return lista.map((p: any, idx: number) => ({
     idx,
     nivel: p.nivel as string,
+    // Edital de notificacao: vai pra um bloco proprio, cinza, e nunca conta
+    // como leilao confirmado. Detectado aqui tambem (e nao so no servidor)
+    // porque o snapshot de relatorio antigo guarda a gravidade velha.
+    notificacao: ehNotificacao(p),
+    // Word joiner depois do hifen: sem ele, no celular a linha quebrava em
+    // "DETRAN-" / "RJ".
+    tituloNotificacao: ehNotificacao(p) ? tituloNotificacao(p).replace('DETRAN-', 'DETRAN-\u2060') : '',
+    // Todos os dados do edital de notificacao, ja legiveis (nunca o nome do
+    // arquivo nem a URL do documento).
+    camposNotificacao: ehNotificacao(p) ? camposNotificacao(p, { semPrevista: true }) : [],
     rotuloNivel: ROTULO_NIVEL[p.nivel] || humanizar(p.nivel),
     explicaNivel: EXPLICA_NIVEL[p.nivel] || '',
     // Nome PUBLICO, resolvido pela API: "Detran SP" pra orgao, "Leiloeira
@@ -622,7 +652,7 @@ const passagensLeilao = computed(() => {
     // cartao aparecia sem nome de fonte nenhum. Orgao vira "Detran SP" a partir
     // do codigo da fonte; privada vira o rotulo generico, nunca o nome da casa.
     fonte: p.fonte_exibicao || (p.fonte_tipo === 'detran' ? nomeDaFonte(p.fonte) : 'Leiloeira particular'),
-    gravidade: p.gravidade,
+    gravidade: ehNotificacao(p) ? GRAVIDADE_NOTIFICADO : p.gravidade,
     // Em fonte privada o proprio nome de exibicao ja diz o que e ("Leiloeira
     // particular"), entao o rotulo de tipo so aparece pro orgao oficial, que e
     // a informacao que muda a leitura da passagem.
@@ -657,8 +687,8 @@ const passagensLeilao = computed(() => {
     // Edital do orgao: so DETRAN. O snapshot de relatorio antigo nao tem estes
     // campos, e ai o botao simplesmente nao aparece, que e o comportamento
     // certo: o snapshot e o que a pessoa comprou.
-    edital_disponivel: p.fonte_tipo === 'detran' && !!p.edital_disponivel,
-    edital_ref: p.fonte_tipo === 'detran' && p.edital_ref ? String(p.edital_ref) : null,
+    edital_disponivel: p.fonte_tipo === 'detran' && !ehNotificacao(p) && !!p.edital_disponivel,
+    edital_ref: p.fonte_tipo === 'detran' && !ehNotificacao(p) && p.edital_ref ? String(p.edital_ref) : null,
   }))
 })
 
@@ -717,7 +747,22 @@ function formatarDataLeilao(iso: string): string {
 // palpite o mesmo peso visual de um edital com o chassi inteiro, e assustaria
 // quem esta comprando um carro sem historico nenhum. A contagem continua
 // visivel no resumo, entao nada e escondido.
-const passagensFortes = computed(() => passagensLeilao.value.filter((p) => p.nivel !== 'possivel'))
+const passagensFortes = computed(() => passagensLeilao.value.filter((p) => p.nivel !== 'possivel' && !p.notificacao))
+
+// Notificacoes com identificacao forte, uma por data (o mesmo edital pode vir
+// repetido de fontes da mesma UF). Notificacao "possivel" nao aparece: casar
+// final de placa com um aviso de notificacao nao diz nada sobre este carro.
+const passagensNotificadas = computed(() => {
+  const vistas = new Set<string>()
+  return passagensLeilao.value.filter((p) => {
+    if (!p.notificacao || p.nivel === 'possivel') return false
+    // Mesma notificacao repetida (mesmo edital e mesmas datas) aparece uma vez.
+    const chave = p.tituloNotificacao + '|' + p.camposNotificacao.map((c) => c.valor).join('|')
+    if (vistas.has(chave)) return false
+    vistas.add(chave)
+    return true
+  })
+})
 
 // Edital do DETRAN. O link e assinado e vale 24h, entao ele e gerado no clique,
 // nunca guardado: no snapshot, estaria morto no dia seguinte e vivo pra quem
@@ -758,7 +803,7 @@ function assinaturaDaPassagem(p: any): string {
 }
 
 const possiveisAgrupados = computed(() => {
-  const possiveis = passagensLeilao.value.filter((p) => p.nivel === 'possivel')
+  const possiveis = passagensLeilao.value.filter((p) => p.nivel === 'possivel' && !p.notificacao)
   const porAssinatura = new Map<string, typeof possiveis>()
   for (const p of possiveis) {
     const chave = assinaturaDaPassagem(p)
@@ -807,7 +852,7 @@ const temIndicioReal = computed(() => passagensFortes.value.length > 0)
 // e o dono, olhando. Por isso este bloco olha TODOS os possiveis, inclusive os
 // que a regra de ambiguidade tirou da lista textual.
 const possiveisComFoto = computed(() =>
-  passagensLeilao.value.filter((p) => p.nivel === 'possivel' && p.fotos.length > 0).slice(0, 3),
+  passagensLeilao.value.filter((p) => p.nivel === 'possivel' && !p.notificacao && p.fotos.length > 0).slice(0, 3),
 )
 
 // Nivel que a tela mostra. Sai das passagens que sobraram, nao do nivel_max da
@@ -825,8 +870,10 @@ const resumoLeilao = computed(() => {
   if (!r) return null
   const partes: string[] = []
   const plural = (n: number, um: string, muitos: string) => `${n} ${n > 1 ? muitos : um}`
-  if (r.n_confirmado) partes.push(plural(r.n_confirmado, 'confirmada', 'confirmadas'))
-  if (r.n_provavel) partes.push(plural(r.n_provavel, 'provável', 'prováveis'))
+  // Sem as notificacoes: elas tem bloco proprio e nao sao leilao confirmado.
+  const cont = contarPassagens(historicoLeilao.value?.passagens)
+  if (cont.confirmado) partes.push(plural(cont.confirmado, 'confirmada', 'confirmadas'))
+  if (cont.provavel) partes.push(plural(cont.provavel, 'provável', 'prováveis'))
   if (passagensPossiveis.value.length) partes.push(plural(passagensPossiveis.value.length, 'possível', 'possíveis'))
   return partes.join(' · ')
 })
@@ -1652,7 +1699,7 @@ onUnmounted(() => {
                 v-for="i in indicadores"
                 :key="i.k"
                 class="rel__ind"
-                :class="i.alerta ? 'rel__ind--bad' : (i.ligado && i.risco ? 'rel__ind--atencao' : 'rel__ind--ok')"
+                :class="i.alerta ? 'rel__ind--bad' : (i.ligado && i.neutro ? 'rel__ind--neutro' : (i.ligado && i.risco ? 'rel__ind--atencao' : 'rel__ind--ok'))"
               >
                 <span class="rel__ind-lab">
                   {{ rotuloPartes(i.label).inicio }}<span class="rel__ind-glue">{{ rotuloPartes(i.label).fim }}<button type="button" class="rel__info" :data-dica="i.dica" :aria-label="i.dica">
@@ -1885,19 +1932,19 @@ onUnmounted(() => {
           <!-- historico de leilao (so completa, so onde o servico existe) -->
           <section v-if="temSecaoLeilao" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.leilao }}. Histórico de leilão</h2>
-            <p v-if="temIndicioReal || possiveisComFoto.length" class="rel__leilao-base">Placa e chassi cruzados com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de DETRANs e catálogos de leiloeiras.</p>
+            <p v-if="temIndicioReal || possiveisComFoto.length || passagensNotificadas.length" class="rel__leilao-base">Placa e chassi cruzados com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de DETRANs e catálogos de leiloeiras.</p>
 
             <!-- Sem nada com grau de certeza, a seção diz UMA coisa só. Antes
                  empilhava "nenhum indício", mais a contagem de lotes parecidos,
                  mais o rodapé explicando níveis, e o resultado era um bloco
                  confuso pra dizer que não há nada. -->
-            <template v-if="!temIndicioReal && !possiveisComFoto.length">
+            <template v-if="!temIndicioReal && !possiveisComFoto.length && !passagensNotificadas.length">
               <p class="rel__leilao-limpo">
                 {{ leilaoSemOcorrencia(esteVeiculo) }}
               </p>
             </template>
 
-            <template v-else-if="temIndicioReal">
+            <template v-if="temIndicioReal">
               <p class="rel__leilao-resumo">
                 <span class="rel__nivel" :class="`rel__nivel--${nivelExibido}`">
                   {{ ROTULO_NIVEL[nivelExibido] }}
@@ -1985,6 +2032,26 @@ onUnmounted(() => {
               </div>
             </template>
 
+            <!-- Edital de NOTIFICACAO do DETRAN: o dono foi avisado de que o
+                 veiculo iria a leilao. Nao prova que o leilao aconteceu, entao
+                 fica cinza, fora da contagem de confirmados, sem data de
+                 leilao, sem "edital" cru (o codigo interno do RJ as vezes traz
+                 "sucata" no nome) e sem o texto de leilao fora do documento. -->
+            <div v-if="passagensNotificadas.length" class="rel__notif-lista">
+              <div v-for="p in passagensNotificadas" :key="`n${p.idx}`" class="rel__leilao rel__leilao--notif">
+                <p class="rel__grav rel__grav--cinza">
+                  <span class="rel__grav-barra" aria-hidden="true" />
+                  <span class="rel__grav-rotulo">{{ p.tituloNotificacao }}</span>
+                </p>
+                <ul v-if="p.camposNotificacao.length" class="rel__leilao-detalhes">
+                  <li v-for="c in p.camposNotificacao" :key="c.rotulo">
+                    <span>{{ c.rotulo }}</span><strong>{{ c.valor }}</strong>
+                  </li>
+                </ul>
+                <p class="rel__leilao-det">{{ EXPLICA_NOTIFICACAO }}</p>
+              </div>
+            </div>
+
             <!-- Lotes de perfil parecido COM FOTO. Não é indício e não acende
                  alerta: a fonte publica pouco do identificador, então quem
                  decide se é o veículo é a pessoa, comparando com o que ela tem
@@ -2016,7 +2083,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <p v-if="temIndicioReal || possiveisComFoto.length" class="rel__leilao-aviso">
+            <p v-if="temIndicioReal || possiveisComFoto.length || passagensNotificadas.length" class="rel__leilao-aviso">
               Fonte: editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer placa ou chassi completos iguais; provável quer dizer identificador parcial mais atributos do veículo. Não substitui consulta oficial.
             </p>
           </section>
@@ -2795,6 +2862,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__grav--laranja { color: #8a4b00; .rel__grav-barra { background: #e07a00; } }
   &__grav--vermelho { color: #a32020; .rel__grav-barra { background: $c-red; } }
   &__grav--cinza { color: $c-graphite; .rel__grav-barra { background: $c-steel; } }
+  // Notificacao para leilao: mesmo cartao da passagem, sem peso de alerta.
+  &__notif-lista { margin-top: 12px; }
+  &__leilao--notif { background: #f6f7f9; .rel__leilao-detalhes { margin-bottom: 10px; } }
 
   &__leilao-detalhes {
     list-style: none;
@@ -3416,6 +3486,10 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border-color: rgba(180, 83, 9, 0.35);
     .rel__ind-val { color: #8a5200; &::before { background: #e0a800; } }
   }
+
+  // Quarto estado, cinza: notificacao para leilao. Existe o registro, mas ele
+  // nao afirma leilao nem condicao do veiculo.
+  &__ind--neutro .rel__ind-val { color: $c-graphite; &::before { background: $c-steel; } }
 
   &__ind--ok .rel__ind-val { color: #14622f; &::before { background: $c-green; } }
 
