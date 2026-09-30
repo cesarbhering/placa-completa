@@ -8,7 +8,7 @@ import crypto from 'node:crypto'
 // rota administrativa nao precisa confirmar que existe.
 //
 // Dois modos:
-//   - { testar: { placa, renavam, uf?, chassi? } } (uf SP|SC|MG, padrao SP; MG exige chassi): UMA chamada direta ao Infosimples, sem
+//   - { testar: { placa, renavam, uf?, chassi? } } (uf SP|SC|MG|BA, padrao SP; MG exige chassi; BA usa so o renavam): UMA chamada direta ao Infosimples, sem
 //     pedido, e devolve o bloco parseado. Custa (~R$0,28) e o custo e gravado
 //     em premium_custos com pedido_id nulo.
 //   - { tokens: [...] } ou { limite: N }: completa o campo `multas` do snapshot
@@ -26,6 +26,8 @@ import {
   infosimplesConfigurado,
   registrarCusto,
   ufDetranSuportada,
+  loginBaTravado,
+  travarLoginBaPublico as travarLoginBaDoTeste,
 } from '../../../utils/infosimples-detran'
 
 /** Teto de disparos por hora, contado em memoria do processo. */
@@ -74,7 +76,11 @@ export default defineEventHandler(async (event) => {
     const t0 = Date.now()
     const chassi = String(body.testar.chassi || '').toUpperCase().replace(/[^A-Z0-9]/g, '') || null
     if ((DETRAN_UFS[uf] as any).exigeChassi && !chassi) throw createError({ statusCode: 400, message: `testar ${uf} exige chassi.` })
+    if ((DETRAN_UFS[uf] as any).cert === 'govbr_ba' && loginBaTravado()) {
+      throw createError({ statusCode: 409, message: 'Login gov.br do BA travado depois de um 608. Confira a senha e faca redeploy.' })
+    }
     const res = await consultarDetranInfosimples({ uf, placa, renavam, chassi })
+    if ((DETRAN_UFS[uf] as any).cert === 'govbr_ba' && res.code === 608) travarLoginBaDoTeste(res.codeMessage)
     await registrarCusto(supabase, { pedidoId: null, fonte: DETRAN_UFS[uf].fonteCusto, preco: res.preco, code: res.code })
     // So o bloco parseado (whitelist) sai daqui: a resposta crua do SC tem nome de pessoa.
     const bloco = res.code === 200 && res.data ? blocoDetranDaUf(uf, res.data) : null
