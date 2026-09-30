@@ -18,14 +18,31 @@ export interface ChassiOrigem {
   plantaDetalhe: { cidade: string | null; uf: string | null; pais: string | null } | null
 }
 
-export async function decodificarChassi(chassi: string | null | undefined): Promise<ChassiOrigem | null> {
+/**
+ * `registro` e opcional: com o modelo e o ano do registro (SENATRAN), o
+ * decoder aplica a regra de fabrica por MODELO onde a posicao 11 do chassi
+ * nao separa a fabrica (Toyota 9BR: Corolla em Indaiatuba, Yaris em Sorocaba)
+ * e usa o ano real nas janelas de ano, em vez do ano do VIN (ambiguo no ciclo
+ * de 30 anos).
+ */
+export async function decodificarChassi(
+  chassi: string | null | undefined,
+  registro?: { modelo?: string | null; ano?: number | string | null },
+): Promise<ChassiOrigem | null> {
   const vin = String(chassi || '').trim().toUpperCase()
   if (vin.length !== 17) return null
+
+  const query: Record<string, string> = {}
+  const modelo = String(registro?.modelo || '').trim()
+  if (modelo) query.modelo = modelo.slice(0, 120)
+  const ano = Number(registro?.ano)
+  if (Number.isInteger(ano) && ano > 1900 && ano < 2100) query.ano = String(ano)
 
   const config = useRuntimeConfig()
   try {
     const res = await $fetch<any>(`${config.vinDecoderUrl}/decode/${vin}`, {
       method: 'GET',
+      query,
       // 3s, nao 500ms: a chamada e interna na rede docker e responde em menos
       // de 10ms com a maquina calma, mas sob load alto ja levou 4,5s e o
       // relatorio saiu sem a secao, congelado assim no snapshot. O custo de

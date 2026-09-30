@@ -90,3 +90,79 @@ Anapolis, entao a marca nao tem fabrica unica no Brasil. Vale so o codigo
 | 9BW R, 9BW D | Caminhoes e chassis de onibus, amostra de 208 e 32, modelo em campo livre | Mais volume de caminhao na base |
 | 9BS 3 | Scania, 304 veiculos com modelo quase todo em campo livre | Normalizacao do modelo de caminhao na base |
 | GWM, BYD, Chery/CAOA, Agrale, Troller | Sem dado na base: modelos recentes demais ou fora do circuito de leilao | Reavaliar quando esses veiculos comecarem a aparecer em leilao |
+
+---
+
+# Revisao v5 (30/set/2026): regra por modelo e tabela completa
+
+Base: 984.038 chassis unicos (leiloes-poc-db, set/2026). A v4 (29/set) estava
+so no container de producao, fora do repositorio; ela e a base desta revisao.
+
+## Regra por modelo (novo)
+
+Quando a posicao 11 nao separa a fabrica, o decode aceita o modelo e o ano do
+registro (`GET /decode/:vin?modelo=...&ano=...`, o site manda o
+`descricaoMarcaModelo` e o `anoModelo` do SENATRAN). Tabela `plant_modelos`:
+regex sobre o modelo normalizado, com janela de ano. So entra quando a posicao
+11 nao deu cidade. O `ano` do registro tambem passa a mandar nas janelas de
+ano da tabela `plants` (antes o ano vinha do VIN, ambiguo no ciclo de 30 anos:
+Escort 1995 com codigo S virava 2025 e perdia Sao Bernardo).
+
+| WMI | Modelo | Fabrica | Anos-modelo |
+|---|---|---|---|
+| 9BR | Corolla Cross | Toyota Sorocaba (SP) | 2021+ |
+| 9BR | Corolla sedan, Fielder | Toyota Indaiatuba (SP) | 1998-2026 (Indaiatuba fechou em jun/2026; Corolla 2027+ fica sem cidade ate confirmar Sorocaba) |
+| 9BR | Etios | Toyota Sorocaba (SP) | 2012-2024 |
+| 9BR | Yaris (nao Yaris Cross) | Toyota Sorocaba (SP) | 2018-2025 |
+| 9BM | Classe C, GLA | Mercedes Iracemapolis (SP) | 2016-2020 |
+| WV1 (pos A) | Amarok | VW General Pacheco (Argentina) | todos |
+
+## Codigos revistos
+
+| WMI | pos11 | Antes | Agora | Evidencia |
+|---|---|---|---|---|
+| 9BG | B | sem cidade | Sao Caetano do Sul (SP) | 35.425 chassis. Monza, Opala, Omega, Vectra, Astra, Cobalt, Spin, Tracker, Cruze, Montana II. Contradicao 0,6% (Montana I 2007-2009). Kadett/Classic/Corsa aparecem nos dois codigos porque foram feitos nas duas fabricas. |
+| 9BG | C | sem cidade | Sao Jose dos Campos (SP) | 37.622 chassis. Chevette, S10, Blazer, Trailblazer, Meriva, Zafira, Montana I, D20. Contradicao 0,01%. |
+| 9BF | B | SBC so ate 2001 | SBC ate 2019 | Ka 1997-2013, Courier ate 2013, New Fiesta 2014-2019 e Cargo so no B; Ka 2014+ e EcoSport so no 8 (Camacari). 1 contradicao em 21.734. A premissa antiga (Ka pos-2001 = Camacari) estava errada. |
+| 935/936 | 1, 2 | Porto Real (pelo curinga) | Sete Lagoas (MG) ate 2017 | 301 chassis, 100% vans Boxer/Jumper, feitas pela Iveco em Sete Lagoas (nov/2000 a dez/2016). Era um erro em producao. |
+| WV1 | A | Ingolstadt | Amarok = General Pacheco (regra de modelo) | O vPIC nao devolve planta pra esses VINs; 198 dos 366 sao Amarok, que nunca foi feita em Ingolstadt. Era um erro em producao. |
+| 8AG | A | Alvear (pelo curinga) | sem cidade | Silverado/Veraneio 1995-1998, anteriores a Alvear. |
+| 9BW | B | sem cidade | SBC ate 1997 | Logus, Pointer, Apollo (Autolatina, fabrica da Ford em SBC). A cidade e a mesma nas duas fabricas da Autolatina. |
+| 9BW | R | sem cidade | Resende (RJ) desde 1996 | Caminhoes e onibus VW. |
+| 9BR | 1 | sem cidade | SBC ate 2001 | 47 chassis, todos Bandeirante. |
+| 9BM | S | sem cidade | Juiz de Fora (MG) 2012-2020 | 44 chassis, so Actros e Accelo. |
+
+## WMIs novos de fabrica unica no Brasil
+
+953 MAN/VWCO Resende; 93W Ducato Sete Lagoas; 95P CAOA Anapolis (Tucson,
+ix35, HD, Tiggo 5x/7/8); 98R Chery Jacarei (QQ, Celer, Tiggo 2/3X, Arrizo);
+98M BMW Araquari; 93U e 99A Audi Sao Jose dos Pinhais; 99J Land Rover
+Itatiaia; 99L BYD Camacari; 9BV Volvo Curitiba (todos os codigos); motos em
+Manaus: 9C2 Honda (todos os codigos), 932 Harley, 97N Triumph, 96P Kawasaki,
+99K JTZ/Haojue, 951 Traxx.
+
+## Exterior
+
+Argentina: +8BC Citroen (El Palomar), +8AC Mercedes (Virrey del Pino).
+Fora do Mercosul, PlantCity do vPIC com 3 chassis reais da base concordando:
+Alemanha (Ingolstadt, Neckarsulm, Wolfsburg, Emden, Zwickau, Munique, Berlim,
+Sindelfingen, Bremen, Rastatt, Leipzig), Hungria (Kecskemet), Reino Unido
+(Solihull, Halewood, Oxford), Belgica (Gent), Mexico (Puebla, Aguascalientes,
+Cuernavaca, Cuautitlan, Hermosillo, Ramos Arizpe, San Luis Potosi, Toluca, El
+Salto), Canada (Alliston, Oakville), EUA (Toledo, Belvidere, Sterling Heights,
+Edison, Marysville, East Liberty), Coreia (Ulsan, Asan, Hwaseong, Gwangju,
+Bupyeong), Japao (Suzuka, Sayama, Hamamatsu, Kumamoto, Hiroshima), Tailandia
+(Bangkok), China (Chongqing, Luoyang, Guangzhou, Jiangmen).
+
+## Ficou sem cidade de proposito
+
+- Toyota 9BR sem modelo no pedido (a posicao 11 nao decide); Yaris Cross;
+  Corolla 2027+.
+- Hyundai fora do 9BH P; Agrale (Caxias e Sao Mateus); Volare; Suzuki Jimny
+  (Itumbiara e depois Catalao).
+- Shineray (99H): fabrica unica em Suape (PE), mas as fontes divergem entre
+  Ipojuca e Cabo de Santo Agostinho. Sem municipio certo, sem cidade.
+- Sem WMI confirmado: GWM Iracemapolis, DAF Ponta Grossa, Royal Enfield,
+  BMW Motorrad Manaus (pos-2016), Haobao, Iros.
+- Reboques (9A9: varios fabricantes no mesmo WMI); motos chinesas importadas
+  sem PlantCity no vPIC (LXY, LAA, LWY etc.).
