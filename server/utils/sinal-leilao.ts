@@ -34,12 +34,12 @@ export const SINAL_INDISPONIVEL: SinalLeilao = { positivo: null, quantidade: 0 }
 
 /**
  * Edital de NOTIFICACAO para leilao (o DETRAN avisou o dono; o leilao pode nao
- * ter acontecido) acende o sinal sozinho? Decisao de produto (30/set): acende,
- * com a mesma copy vaga, porque e indicio e o detalhe honesto ("notificado,
- * pode ter sido retirado") esta no relatorio completo. Desligar aqui tira a
- * notificacao da contagem sem mexer no resto.
+ * ter acontecido) acende o sinal sozinho? Decisao do Cesar (30/set): NAO. A
+ * tela do gratis com sinal promete "registro de leilao" com data, leiloeira e
+ * valor de venda, e quem so tem notificacao nao tem nada disso. Notificacao ao
+ * lado de um leilao real nao muda nada: o leilao real acende sozinho.
  */
-export const NOTIFICACAO_ACENDE_SINAL = true
+export const NOTIFICACAO_ACENDE_SINAL = false
 
 /**
  * So confirmado e provavel contam como sinal. "Possivel" e inferencia por
