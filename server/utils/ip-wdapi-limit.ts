@@ -1,4 +1,4 @@
-// Teto de 15/IP/hora pra chamadas que custam credito wdapi (API paga),
+// Teto de 5/IP/hora pra chamadas que custam credito wdapi (API paga),
 // COMBINANDO as duas rotas que batem nela: /api/consulta (grava 1 row por
 // request em `consultas`, ver comentario la — conta TODA request, nao so
 // cache-miss) e /api/premium/preview (grava em `wdapi_preview_calls`, tabela
@@ -6,7 +6,15 @@
 // dobrava o orcamento efetivo pra 30/hora.
 import { getHourlyLimit } from './rate-limit-whitelist'
 
-const IP_WDAPI_HOURLY_LIMIT = 15
+// 5/IP/hora (Cesar, 30/set; era 15). Somando /api/consulta + preview de placa
+// fora do cache. Pagar zera o contador (janelaInicio pos-compra). Whitelist
+// 'ip:<ip>' pode subir (VPS da sonda = 30).
+export const IP_WDAPI_HOURLY_LIMIT = 5
+
+/** Mensagem unica do 429 de consulta gratis (pagina, app/PWA e checkout). Sem travessao. */
+export function mensagemLimiteGratis(teto: number, minutos: number): string {
+  return `Você chegou ao limite de ${teto} consultas grátis por hora. Tente novamente em ~${minutos} min. Se comprar um relatório, o limite volta a zerar na hora.`
+}
 
 // Reset apos compra: se o IP (ou o destinatario) tem um pedido premium PAGO
 // na ultima hora, a janela de contagem comeca no pagamento -- quem pagou nao
@@ -41,7 +49,7 @@ async function calcularJanelaInicio(
 }
 
 /**
- * Teto wdapi do IP: max(15, whitelist). A whitelist de IP e gravada como
+ * Teto wdapi do IP: max(5, whitelist). A whitelist de IP e gravada como
  * 'ip:<ip>' (ex.: 'ip:62.169.22.218' = VPS, 30/h, PR #387) e o teto so olhava
  * o IP cru, entao nunca casava e a sonda da VPS batia em 15/h. Olha as duas
  * chaves (a crua por compatibilidade) e fica com a maior.
