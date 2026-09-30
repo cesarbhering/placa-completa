@@ -1067,7 +1067,7 @@ const multaIndicadorSP = computed(
 const ehVeiculoSpTela = computed(() => {
   const uf = String(g('ufJurisdicao') || '').toUpperCase()
   if (uf === 'SP') return true
-  return ['SC', 'MG', 'BA', 'RS'].includes(uf) && g('indicadorMultaRenainf') === true
+  return ['SC', 'MG', 'BA', 'RS', 'GO'].includes(uf) && g('indicadorMultaRenainf') === true
 })
 const multasDetalhe = computed(() => {
   const m: any = data.value?.multas
@@ -1154,6 +1154,7 @@ function rotuloRestricao(tipo?: string | null): string {
     financeira: 'Financeira', judiciaria: 'Judiciária',
     administrativa: 'Administrativa', tributaria: 'Tributária', furto: 'Furto/roubo',
     sng: 'Gravame (SNG)', situacao: 'Situação', divida_ativa: 'Dívida ativa', recuperado: 'Veículo recuperado',
+    outros_debitos: 'Outros débitos', licenciamento_notificado: 'Licenciamento notificado',
   }
   return map[String(tipo || '')] || 'Restrição'
 }
@@ -1776,7 +1777,34 @@ onUnmounted(() => {
                         <span v-if="mt.dataInfracao">{{ mt.dataInfracao }}<span v-if="mt.horaInfracao && !String(mt.horaInfracao).startsWith('00:00')"> às {{ String(mt.horaInfracao).slice(0, 5) }}</span></span>
                         <span v-if="mt.local"> · {{ mt.local }}<span v-if="mt.municipio">, {{ mt.municipio }}</span></span>
                         <span v-if="mt.orgao"> · {{ mt.orgao }}</span>
+                        <span v-if="mt.pontos"> · {{ mt.pontos }} {{ mt.pontos === 1 ? 'ponto' : 'pontos' }}<span v-if="mt.grupo"> ({{ String(mt.grupo).toLowerCase() }})</span></span>
                         <span v-if="mt.dataVencimento"> · vencimento {{ mt.dataVencimento }}</span>
+                      </p>
+                    </li>
+                  </ul>
+                </template>
+
+                <!-- IPVA em aberto na SEFAZ (GO): por exercicio, valor original. -->
+                <template v-if="multasDetalhe.ipva_sefaz && multasDetalhe.ipva_sefaz.length">
+                  <p v-for="(ip, idx) in multasDetalhe.ipva_sefaz" :key="'ips' + idx" class="rel__multas-nota">
+                    IPVA {{ ip.ano || '' }} em aberto na SEFAZ<template v-if="ip.valor_centavos"> ({{ reais(ip.valor_centavos) }})</template>.
+                  </p>
+                </template>
+
+                <!-- Multas em recurso (GO): nao somam no total. -->
+                <template v-if="multasDetalhe.multas_em_recurso && multasDetalhe.multas_em_recurso.length">
+                  <p class="rel__multas-sub">Multas em recurso</p>
+                  <ul class="rel__multas-itens">
+                    <li v-for="(mt, idx) in multasDetalhe.multas_em_recurso" :key="'mr' + idx" class="rel__multas-item">
+                      <div class="rel__multas-item-top">
+                        <span>{{ mt.descricao || 'Infração de trânsito' }}</span>
+                        <b>{{ reais(Math.round((mt.valor || 0) * 100)) }}</b>
+                      </div>
+                      <p class="rel__multas-item-meta">
+                        <span v-if="mt.dataInfracao">{{ mt.dataInfracao }}</span>
+                        <span v-if="mt.local"> · {{ mt.local }}</span>
+                        <span v-if="mt.orgao"> · {{ mt.orgao }}</span>
+                        <span> · em recurso</span>
                       </p>
                     </li>
                   </ul>

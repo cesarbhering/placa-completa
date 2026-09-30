@@ -84,6 +84,8 @@ export const DETRAN_UFS = {
   BA: { path: 'detran/ba/multas', cert: 'govbr_ba', gate: 'renainf', fonte: 'detran_ba', fonteCusto: 'infosimples_detran_ba' },
   RS: { path: 'detran/rs/infracoes', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_rs', fonteCusto: 'infosimples_detran_rs' },
   MG: { path: 'detran/mg/multas-descritivos', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_mg', fonteCusto: 'infosimples_detran_mg', exigeChassi: true },
+  // GO: e-CNPJ, placa+renavam. R$0,28 por chamada (teste do Lead, 30/set).
+  GO: { path: 'detran/go/debitos', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_go', fonteCusto: 'infosimples_detran_go' },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 
@@ -644,6 +646,103 @@ export function parsearDetranRs(data: any) {
   }
 }
 
+// ---------- DETRAN-GO (/detran/go/debitos) ----------
+//
+// Whitelist: NUNCA grava boleto_pdf_url, ait_pdf_url, codigo_barras,
+// responsavel_infracao nem site_receipt. GO nao traz km.
+
+/** Grupos de infracao que contam como EM ABERTO (somam no total). */
+const GO_ABERTAS = ['vencidas', 'nao_vencida', 'notificada', 'nao_notificada', 'parcelada'] as const
+
+/**
+ * Modela o data[0] do DETRAN-GO no shape normalizado.
+ * - infracoes: em aberto = vencidas + nao_vencida + notificada + nao_notificada
+ *   + parcelada; sob_juice = em recurso (lista a parte, nao soma); sne fica fora.
+ * - debitos_veiculo[] (um por exercicio, ano = ano do data_vencimento):
+ *   ipva_valor numerico = IPVA em aberto no DETRAN; "DEBITO NA SEFAZ" = IPVA em
+ *   aberto na SEFAZ-GO (valor_original_ipva, sem juros), listado por ano.
+ *   licenciamento numerico = debito; "PAGO" = exercicio licenciado.
+ */
+export function parsearDetranGo(data: any, hoje: Date = new Date()) {
+  const d = data || {}
+  const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t || null }
+  const inf = d.infracoes && typeof d.infracoes === 'object' ? d.infracoes : {}
+  const lista = (k: string): any[] => (Array.isArray(inf[k]) ? inf[k] : [])
+  const valorDe = (m: any) => (typeof m?.valor === 'number' ? m.valor : moeda(m?.valor))
+  const item = (m: any) => ({
+    auto: texto(m?.ait),
+    descricao: texto(m?.infracao_descricao),
+    dataInfracao: texto(m?.data_infracao),
+    horaInfracao: texto(m?.hora_infracao),
+    dataVencimento: texto(m?.data_vencimento),
+    valor: valorDe(m),
+    local: texto(m?.local_infracao),
+    municipio: null,
+    orgao: texto(m?.orgao_atuador),
+    pontos: m?.pontos != null && Number.isFinite(Number(m.pontos)) ? Number(m.pontos) : null,
+    grupo: texto(m?.grupo_infracao),
+    situacao: texto(m?.situacao),
+  })
+  const itens = GO_ABERTAS.flatMap((k) => lista(k)).map(item)
+  const emRecurso = lista('sob_juice').map(item)
+
+  // Debitos por exercicio. "----", "PAGO", "ISENTO", "NAO SE APLICA" nao sao valor.
+  const debitos: any[] = Array.isArray(d.debitos_veiculo) ? d.debitos_veiculo : []
+  const ehValor = (v: any) => /\d/.test(String(v ?? '')) && moeda(v) > 0
+  const anoVenc = (x: any) => anoDe(x?.data_vencimento)
+  let ipvaDetran = 0
+  let licDebito = 0
+  let licVenc: string | null = null
+  let licVencido = false
+  let ultimoLicAno: number | null = null
+  const ipvaSefaz: { ano: number | null; valor_centavos: number }[] = []
+  for (const x of debitos) {
+    const ano = anoVenc(x)
+    if (ehValor(x?.ipva_valor)) ipvaDetran += moeda(x.ipva_valor)
+    else if (/sefaz/i.test(String(x?.ipva_valor ?? ''))) {
+      ipvaSefaz.push({ ano, valor_centavos: Math.round(moeda(x?.valor_original_ipva) * 100) })
+    }
+    if (ehValor(x?.licenciamento)) {
+      licDebito += moeda(x.licenciamento)
+      const venc = texto(x?.data_vencimento)
+      if (venc && (!licVenc || tsData(venc) < tsData(licVenc))) licVenc = venc
+      const t = tsData(venc)
+      if (t > 0 && t < hoje.getTime()) licVencido = true
+    } else if (/^pago$/i.test(String(x?.licenciamento ?? '').trim()) && ano != null) {
+      ultimoLicAno = ultimoLicAno == null ? ano : Math.max(ultimoLicAno, ano)
+    }
+  }
+  ipvaSefaz.sort((a, b) => (b.ano ?? 0) - (a.ano ?? 0))
+  const ipvaCentavos = Math.round(ipvaDetran * 100) + ipvaSefaz.reduce((a, x) => a + x.valor_centavos, 0)
+
+  const restricoes: { tipo: string; texto: string }[] = []
+  const conta = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`
+  const divida: any[] = Array.isArray(d.divida_ativa) ? d.divida_ativa : []
+  if (divida.length) restricoes.push({ tipo: 'divida_ativa', texto: `Consta dívida ativa (${conta(divida.length, 'registro', 'registros')})` })
+  const outros: any[] = Array.isArray(d.outros_debitos) ? d.outros_debitos : []
+  if (outros.length) restricoes.push({ tipo: 'outros_debitos', texto: `Consta(m) outros débitos no DETRAN-GO (${conta(outros.length, 'registro', 'registros')})` })
+  const licNotif: any[] = Array.isArray(d.licenciamento_notificado) ? d.licenciamento_notificado : []
+  if (licNotif.length) restricoes.push({ tipo: 'licenciamento_notificado', texto: `Licenciamento notificado pelo DETRAN-GO (${conta(licNotif.length, 'registro', 'registros')})` })
+
+  return {
+    status: 'ok' as const,
+    fonte: 'detran_go',
+    multas_total_centavos: Math.round(itens.reduce((acc, i) => acc + i.valor, 0) * 100),
+    licenciamento_centavos: Math.round(licDebito * 100),
+    licenciamento_venc: brParaIso(licVenc),
+    ipva_total_centavos: ipvaCentavos,
+    // IPVA em aberto na SEFAZ-GO por exercicio (valor original, sem juros).
+    ipva_sefaz: ipvaSefaz,
+    hodometro: [] as { data: string | null; km: number }[],
+    hodometro_suspeito: false,
+    multas_itens: itens,
+    multas_em_recurso: emRecurso,
+    licenciamento_atrasado_ano: licVencido ? ultimoLicAno : null,
+    ultimo_licenciamento_ano: ultimoLicAno,
+    restricoes_detran: restricoes,
+  }
+}
+
 // ---------- Trava do login gov.br (BA) ----------
 //
 // 608 = "Usuário e/ou senha inválidos": cada tentativa conta como senha errada
@@ -696,6 +795,7 @@ export function blocoDetranDaUf(uf: UfDetran, data: any) {
   if (uf === 'MG') return parsearDetranMg(data)
   if (uf === 'BA') return parsearDetranBa(data)
   if (uf === 'RS') return parsearDetranRs(data)
+  if (uf === 'GO') return parsearDetranGo(data)
   return detranParaMultas(parsearDetranSp(data))
 }
 
@@ -735,7 +835,10 @@ export async function completarDetran(
   if (!snap || typeof snap !== 'object') return { ok: false, pulado: 'sem snapshot' }
   // `multas.fonte` marca que ja consultamos o Infosimples dessa UF (o
   // snapshot.multas antigo do gov.br nao tem fonte e e sobrescrito).
-  if ((snap as any).multas?.fonte === cfgUf.fonte) return { ok: false, pulado: `ja tem ${cfgUf.fonte}` }
+  // Excecao: bloco preenchido A MANO (preenchido_manual_em) e trocado pelo dado
+  // oficial quando a consulta roda.
+  const multasAtual = (snap as any).multas
+  if (multasAtual?.fonte === cfgUf.fonte && !multasAtual?.preenchido_manual_em) return { ok: false, pulado: `ja tem ${cfgUf.fonte}` }
 
   const res = await consultarDetranInfosimples({ uf, placa: pedido.placa, renavam, chassi: (cfgUf as any).exigeChassi ? chassi : null })
   // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
