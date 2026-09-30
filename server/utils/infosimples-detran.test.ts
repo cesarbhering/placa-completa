@@ -204,3 +204,16 @@ describe('moeda', () => {
     expect(detranParaMultas(p).multas_total_centavos).toBe(297056)
   })
 })
+
+import { restricaoConsta } from './infosimples-detran'
+describe('restricaoConsta', () => {
+  it('ignora negativas (nada/nao consta) e mantem so o que consta', () => {
+    expect(restricaoConsta('Nada consta')).toBeNull()
+    expect(restricaoConsta('Não Consta Bloqueio Judicial - Renajud')).toBeNull() // FSP4A20 real
+    expect(restricaoConsta('NAO CONSTA')).toBeNull()
+    expect(restricaoConsta('')).toBeNull()
+    expect(restricaoConsta(null)).toBeNull()
+    expect(restricaoConsta('NADA CONSTA, Consta Bloqueio Judicial - Renajud')).toBe('Consta Bloqueio Judicial - Renajud') // FYA8875 real
+    expect(restricaoConsta('Consta Gravame')).toBe('Consta Gravame')
+  })
+})
