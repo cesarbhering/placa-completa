@@ -13,6 +13,10 @@
 // Nada alem de IP, e-mail e user agent do abusador sai daqui.
 
 const ultimoAviso = new Map<string, number>()
+// Com o teto gratis em 5/h (30/set), cliente legitimo bate no limite com
+// frequencia; abuso e continuar batendo DEPOIS do bloqueio. So avisa a partir
+// do 3o bloqueio do IP na hora (sem contagem disponivel, avisa como antes).
+export const BLOQUEIOS_PRA_AVISAR = 3
 const UMA_HORA_MS = 60 * 60 * 1000
 
 /** Limpa chaves velhas pra memoria nao crescer sem limite num processo longo. */
@@ -39,6 +43,7 @@ export interface AvisoAbuso {
  */
 export async function avisarAbuso(dados: AvisoAbuso): Promise<void> {
   try {
+    if (dados.bloqueiosNaHora != null && dados.bloqueiosNaHora < BLOQUEIOS_PRA_AVISAR) return
     const agora = Date.now()
     const anterior = ultimoAviso.get(dados.ip)
     if (anterior && agora - anterior < UMA_HORA_MS) return
