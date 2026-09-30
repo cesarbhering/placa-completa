@@ -126,11 +126,18 @@ function anoDoExercicio(s: any): number | null {
   return m ? Number(m[1]) : null
 }
 
-/** So mostra restricao que de fato consta (ignora "Nada consta"/vazio). */
-function restricaoConsta(v: any): string | null {
-  const s = String(v ?? '').trim()
-  if (!s || /^nada\s+consta$/i.test(s)) return null
-  return s
+/**
+ * So mostra restricao que de fato consta. O DETRAN manda texto livre, as vezes
+ * uma lista separada por virgula que mistura negativa e positiva:
+ * "Nada consta" / "Não Consta Bloqueio Judicial - Renajud" -> null;
+ * "NADA CONSTA, Consta Bloqueio Judicial - Renajud" -> "Consta Bloqueio Judicial - Renajud".
+ */
+export function restricaoConsta(v: any): string | null {
+  const partes = String(v ?? '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter((p) => p && !/^(nada|n[aã]o)\s+consta\b/i.test(p))
+  return partes.length ? partes.join(', ') : null
 }
 
 export interface DetranMulta {
