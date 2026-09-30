@@ -1000,14 +1000,16 @@ function reais(centavos?: number | null): string | null {
   // Com separador de milhar: "R$ 2.970,56", nao "R$ 2970,56".
   return `R$ ${(centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
-// Total "Para regularizar" = multas + licenciamento em aberto (NAO inclui IPVA
-// quando em dia). null quando nao ha nada a pagar (nao mostra o total).
+// Total "Para regularizar" = multas + licenciamento + IPVA em aberto. null quando nao ha nada a pagar (nao mostra o total).
 const multasTotalCentavos = computed(() => {
   const m = multasDetalhe.value
   if (!m) return null
   const mm = m.multas_total_centavos && m.multas_total_centavos > 0 ? m.multas_total_centavos : 0
   const lic = m.licenciamento_centavos && m.licenciamento_centavos > 0 ? m.licenciamento_centavos : 0
-  const total = mm + lic
+  // IPVA em aberto tambem e divida do carro (o comentario sempre disse "NAO
+  // inclui IPVA quando em dia", mas o codigo nunca somava, nem em aberto).
+  const ipva = m.ipva_total_centavos && m.ipva_total_centavos > 0 ? m.ipva_total_centavos : 0
+  const total = mm + lic + ipva
   return total > 0 ? total : null
 })
 // Breakdown do cartao: Multas (Pix), Licenciamento (com vencimento), IPVA.
