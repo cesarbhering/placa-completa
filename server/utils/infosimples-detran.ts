@@ -59,6 +59,8 @@ export const DETRAN_UFS = {
   // SC aceitou o e-CNPJ (teste do Lead, 29/set): decisao final do Cesar. O
   // 'ecpf' segue suportado pra UF futura, mas nenhuma usa hoje.
   SC: { path: 'detran/sc/veiculo', cert: 'ecnpj', fonte: 'detran_sc', fonteCusto: 'infosimples_detran_sc' },
+  // MG exige o chassi alem de placa+renavam (vem do SENATRAN).
+  MG: { path: 'detran/mg/multas-descritivos', cert: 'ecnpj', fonte: 'detran_mg', fonteCusto: 'infosimples_detran_mg', exigeChassi: true },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 
@@ -66,6 +68,13 @@ export type UfDetran = keyof typeof DETRAN_UFS
 export function ufDetranSuportada(uf: string | null | undefined): UfDetran | null {
   const u = String(uf || '').trim().toUpperCase()
   return u in DETRAN_UFS ? (u as UfDetran) : null
+}
+
+/** Chassi vindo da resposta paga do SENATRAN (o DETRAN-MG exige). */
+export function chassiDaResposta(response: any): string | null {
+  const bruto = Array.isArray(response) ? response[0] : response
+  const c = String(bruto?.chassi ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  return c.length >= 11 ? c : null
 }
 
 export interface ResultadoDetran {
@@ -82,7 +91,7 @@ export interface ResultadoDetran {
  * quem chama so ve o data[0], que vai direto pro parser de whitelist. Nao lanca:
  * erro de rede vira code=0/data=null (o chamador e fail-open).
  */
-export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string }): Promise<ResultadoDetran> {
+export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null }): Promise<ResultadoDetran> {
   const certUf = DETRAN_UFS[opts.uf].cert
   const cfg = infosimplesConfig(certUf)
   if (!infosimplesConfigurado(certUf)) return { code: 0, codeMessage: `infosimples nao configurado (${certUf})`, preco: 0, data: null }
@@ -101,6 +110,7 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       // Renavam com 11 digitos (o SENATRAN as vezes manda sem os zeros a esquerda).
       renavam: String(opts.renavam).padStart(11, '0'),
     })
+    if (opts.chassi) body.set('chassi', String(opts.chassi).toUpperCase())
     const res = await fetch(`${BASE}/${DETRAN_UFS[opts.uf].path}`, {
       method: 'POST',
       body,
@@ -429,6 +439,75 @@ export function parsearDetranSc(data: any, hoje: Date = new Date()) {
   }
 }
 
+// ---------- DETRAN-MG (/detran/mg/multas-descritivos) ----------
+//
+// Whitelist igual ao SC. NUNCA grava html_url das multas,
+// impedimentos_e_restricoes_url nem site_receipt: sao links temporarios do
+// storage do Infosimples (e podem carregar dado pessoal).
+
+function anoDe(s: any): number | null {
+  const m = String(s ?? '').match(/(19|20)\d{2}/)
+  return m ? Number(m[0]) : null
+}
+
+/**
+ * Modela o data[0] do DETRAN-MG no shape normalizado. MG nao traz valor de IPVA
+ * nem de licenciamento (so o ANO pago/licenciado) nem km. ROUBO/FURTO em
+ * impedimentos_e_restricoes vira alerta (texto literal do DETRAN-MG, sem afirmar
+ * que o carro e roubado).
+ */
+export function parsearDetranMg(data: any, hoje: Date = new Date()) {
+  const d = data || {}
+  const anoAtual = hoje.getFullYear()
+  const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t || null }
+
+  const multasArr: any[] = Array.isArray(d.multas) ? d.multas : []
+  const itens: DetranMulta[] = multasArr.map((m: any) => ({
+    auto: texto(m?.ait),
+    descricao: texto(m?.descricao),
+    dataInfracao: texto(m?.data),
+    horaInfracao: texto(m?.hora),
+    dataVencimento: null,
+    valor: typeof m?.normalizado_valor === 'number' ? m.normalizado_valor : moeda(m?.valor),
+    local: texto(m?.local),
+    municipio: texto(m?.municipio),
+    orgao: texto(m?.orgao),
+  }))
+  const multasTotal = itens.reduce((acc, i) => acc + i.valor, 0)
+
+  // Licenciamento: so o ano ("VEICULO LICENCIADO PARA O ANO 2024" / data 3/4/2024).
+  // Sem debito vencido conhecido, atrasado = exercicio <= ano atual - 2.
+  const licAno = anoDe(d.situacao_licenciamento) ?? anoDe(d.data_licenciamento)
+  const licAtrasadoAno = licAno != null && licAno <= anoAtual - 2 ? licAno : null
+
+  const restricoes: { tipo: string; texto: string }[] = []
+  const imped = texto(d.impedimentos_e_restricoes)
+  const rouboFurto = !!imped && /roubo|furto/i.test(imped)
+  if (imped && !rouboFurto && restricaoConsta(imped)) restricoes.push({ tipo: 'administrativa', texto: imped })
+  const recuperado = texto(d.mensagem_veiculo_recuperado)
+  if (recuperado) restricoes.push({ tipo: 'recuperado', texto: recuperado })
+
+  const autuacoes: any[] = Array.isArray(d.autuacoes) ? d.autuacoes : []
+
+  return {
+    status: 'ok' as const,
+    fonte: 'detran_mg',
+    multas_total_centavos: Math.round(multasTotal * 100),
+    licenciamento_centavos: null as number | null,
+    ipva_total_centavos: null as number | null,
+    ipva_pago_ano: anoDe(d.ipva_pago),
+    hodometro: [] as { data: string | null; km: number }[],
+    hodometro_suspeito: false,
+    multas_itens: itens,
+    licenciamento_atrasado_ano: licAtrasadoAno,
+    ultimo_licenciamento_ano: licAno,
+    restricoes_detran: restricoes,
+    // Destaque vermelho no bloco. Texto fixo, factual, citando a fonte.
+    alerta_roubo_furto: rouboFurto ? 'Restrição informada pelo DETRAN-MG: roubo/furto' : null,
+    autuacoes_em_andamento: autuacoes.length,
+  }
+}
+
 // ---------- Custo por pedido (pro fin somar no P&L) ----------
 
 /** Grava o custo de UMA chamada (sucesso ou erro). Fail-open: nunca derruba nada. */
@@ -454,13 +533,14 @@ export type ResultadoCompletarDetran =
 /** data[0] do Infosimples -> bloco normalizado da UF (o que vai pro snapshot). */
 export function blocoDetranDaUf(uf: UfDetran, data: any) {
   if (uf === 'SC') return parsearDetranSc(data)
+  if (uf === 'MG') return parsearDetranMg(data)
   return detranParaMultas(parsearDetranSp(data))
 }
 
 /**
  * Nucleo awaitable: consulta o DETRAN da UF do veiculo e grava o bloco no
  * snapshot. Gated: SO veiculo registrado numa UF suportada (UF do SENATRAN:
- * SP, SC), SEMPRE (nao depende de flag de multa). 1 chamada por pedido (cache:
+ * SP, SC, MG), SEMPRE (nao depende de flag de multa). 1 chamada por pedido (cache:
  * nao chama se o snapshot ja tem o bloco da fonte). O custo (header.price) e
  * gravado em TODA chamada, ate em erro. Usado pelo pos-entrega (fire-and-forget)
  * e pelo backfill admin (em serie).
@@ -476,6 +556,8 @@ export async function completarDetran(
   const cfgUf = DETRAN_UFS[uf]
   const renavam = renavamDaResposta(ctx.response)
   if (!renavam) return { ok: false, pulado: 'sem renavam' }
+  const chassi = chassiDaResposta(ctx.response)
+  if ((cfgUf as any).exigeChassi && !chassi) return { ok: false, pulado: 'sem chassi' }
   if (!infosimplesConfigurado(cfgUf.cert)) return { ok: false, pulado: `infosimples nao configurado (${cfgUf.cert})` }
 
   const { data } = await supabase
@@ -489,7 +571,7 @@ export async function completarDetran(
   // snapshot.multas antigo do gov.br nao tem fonte e e sobrescrito).
   if ((snap as any).multas?.fonte === cfgUf.fonte) return { ok: false, pulado: `ja tem ${cfgUf.fonte}` }
 
-  const res = await consultarDetranInfosimples({ uf, placa: pedido.placa, renavam })
+  const res = await consultarDetranInfosimples({ uf, placa: pedido.placa, renavam, chassi: (cfgUf as any).exigeChassi ? chassi : null })
   // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
   await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code })
 
@@ -498,7 +580,8 @@ export async function completarDetran(
   }
   const multas: any = blocoDetranDaUf(uf, res.data)
   const temAlgo = multas.multas_itens.length > 0 || multas.hodometro.length > 0 || multas.restricoes_detran.length > 0
-    || multas.ipva_total_centavos > 0 || multas.licenciamento_centavos > 0 || multas.licenciamento_atrasado_ano != null
+    || !!multas.alerta_roubo_furto
+    || (multas.ipva_total_centavos ?? 0) > 0 || (multas.licenciamento_centavos ?? 0) > 0 || multas.licenciamento_atrasado_ano != null
   // Grava no MESMO campo que a secao "Multas e débitos" consome (reuso da UI).
   const { error } = await supabase
     .from('pedidos_premium')
