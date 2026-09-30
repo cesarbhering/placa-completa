@@ -987,10 +987,10 @@ const recallCampanhasGM = computed(() => (recallAutoritativo.value?.campanhas ||
 const multaIndicadorSP = computed(
   () => g('indicadorMultaRenainf') === true && String(g('ufJurisdicao') || '').toUpperCase() === 'SP',
 )
-// Veiculo registrado em SP ou SC: a consulta DETRAN (Infosimples) roda pra TODO pedido
+// Veiculo registrado em SP, SC ou MG: a consulta DETRAN (Infosimples) roda pra TODO pedido
 // dessas UFs (multas, hodometro, IPVA, licenciamento), nao so quando o RENAINF acende.
 // Por isso o bloco e o poll acompanham qualquer veiculo de SP, nao so multa.
-const ehVeiculoSpTela = computed(() => ['SP', 'SC'].includes(String(g('ufJurisdicao') || '').toUpperCase()))
+const ehVeiculoSpTela = computed(() => ['SP', 'SC', 'MG'].includes(String(g('ufJurisdicao') || '').toUpperCase()))
 const multasDetalhe = computed(() => {
   const m: any = data.value?.multas
   return m && (m.status === 'ok' || m.status === 'sem_debito') ? m : null
@@ -1024,7 +1024,8 @@ const multasBreakdown = computed(() => {
       valor: m.multas_total_centavos > 0 ? (reais(m.multas_total_centavos) as string) : 'Nada consta',
       emDia: !(m.multas_total_centavos > 0),
     })
-  if (m.licenciamento_centavos != null) {
+  // MG nao traz valor de licenciamento, so o ano: a linha aparece com o ano.
+  if (m.licenciamento_centavos != null || m.ultimo_licenciamento_ano != null || m.licenciamento_atrasado_ano != null) {
     const venc = m.licenciamento_venc ? ` (vence ${formatarDataBR(m.licenciamento_venc)})` : ''
     // Debito zerado NAO e "em dia" se o ultimo exercicio licenciado ficou pra
     // tras (pode ter ido pra divida ativa): senao a linha contradiz o alerta
@@ -1048,6 +1049,9 @@ const multasBreakdown = computed(() => {
       valor: m.ipva_total_centavos > 0 ? (reais(m.ipva_total_centavos) as string) : 'Em dia',
       emDia: !(m.ipva_total_centavos > 0),
     })
+  else if (m.ipva_pago_ano != null)
+    // MG: so o ultimo exercicio de IPVA pago, sem valor. Neutro.
+    rows.push({ rotulo: 'IPVA', valor: `Último pago: ${m.ipva_pago_ano}`, emDia: false })
   return rows
 })
 // Extrato de quilometragem: cada leitura com o quanto rodou desde a anterior
@@ -1071,7 +1075,7 @@ function rotuloRestricao(tipo?: string | null): string {
   const map: Record<string, string> = {
     financeira: 'Financeira', judiciaria: 'Judiciária',
     administrativa: 'Administrativa', tributaria: 'Tributária', furto: 'Furto/roubo',
-    sng: 'Gravame (SNG)', situacao: 'Situação', divida_ativa: 'Dívida ativa',
+    sng: 'Gravame (SNG)', situacao: 'Situação', divida_ativa: 'Dívida ativa', recuperado: 'Veículo recuperado',
   }
   return map[String(tipo || '')] || 'Restrição'
 }
@@ -1661,6 +1665,12 @@ onUnmounted(() => {
             <div v-if="multaIndicadorSP || ehVeiculoSpTela || multasDetalhe" class="rel__multas">
               <p class="rel__multas-tit">Multas e débitos</p>
               <template v-if="multasDetalhe">
+                <!-- DETRAN-MG com ROUBO/FURTO nos impedimentos: destaque, com o
+                     texto da fonte, sem afirmar que o carro e roubado. -->
+                <p v-if="multasDetalhe.alerta_roubo_furto" class="rel__multas-kmalerta">
+                  <b>{{ multasDetalhe.alerta_roubo_furto }}.</b> Confira a situação no DETRAN antes de negociar.
+                </p>
+
                 <!-- Multas e débitos: total grande + breakdown -->
                 <div class="rel__multas-m3">
                   <div v-if="multasTotalCentavos" class="rel__multas-cap">
@@ -1693,6 +1703,13 @@ onUnmounted(() => {
                     </li>
                   </ul>
                 </template>
+
+                <!-- Autuacoes em andamento (MG): ainda nao viraram multa. -->
+                <p v-if="multasDetalhe.autuacoes_em_andamento" class="rel__multas-nota">
+                  {{ multasDetalhe.autuacoes_em_andamento }}
+                  {{ multasDetalhe.autuacoes_em_andamento === 1 ? 'autuação em andamento' : 'autuações em andamento' }}
+                  no DETRAN (ainda sem multa).
+                </p>
 
                 <!-- Historico de infracoes (SC): secundario, so contagem. -->
                 <p v-if="multasDetalhe.historico_infracoes && multasDetalhe.historico_infracoes.total" class="rel__multas-nota">
