@@ -79,7 +79,7 @@ describe('completarDetran MG', () => {
     cfg()
     const fetchSpy = vi.fn(); vi.stubGlobal('fetch', fetchSpy)
     const sb = fakeSb()
-    const r = await completarDetran(sb, { id: 'p1', placa: 'QNA3903' }, { response: [{ ufJurisdicao: 'MG', renavam: '01129294215' }] })
+    const r = await completarDetran(sb, { id: 'p1', placa: 'QNA3903' }, { response: [{ ufJurisdicao: 'MG', renavam: '01129294215', indicadorMultaRenainf: true }] })
     expect(r).toMatchObject({ ok: false, pulado: 'sem chassi' })
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(sb.inserts).toHaveLength(0)
@@ -93,7 +93,7 @@ describe('completarDetran MG', () => {
       return { status: 200, json: async () => ({ code: 200, header: { price: '0.28' }, data: [MG] }) }
     }))
     const sb = fakeSb()
-    const r = await completarDetran(sb, { id: 'p1', placa: 'QNA3903' }, { response: [{ ufJurisdicao: 'MG', renavam: '01129294215', chassi: '9BWAG45UXJT036030' }] })
+    const r = await completarDetran(sb, { id: 'p1', placa: 'QNA3903' }, { response: [{ ufJurisdicao: 'MG', renavam: '01129294215', chassi: '9BWAG45UXJT036030', indicadorMultaRenainf: true }] })
     expect(r.ok).toBe(true)
     expect(chamadas[0].url).toMatch(/\/detran\/mg\/multas-descritivos$/)
     expect(chamadas[0].body.get('chassi')).toBe('9BWAG45UXJT036030')
