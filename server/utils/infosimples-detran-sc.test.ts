@@ -94,7 +94,7 @@ describe('completarDetran SC', () => {
       }),
     }
   }
-  const RESP_SC = [{ ufJurisdicao: 'SC', renavam: '390314714' }]
+  const RESP_SC = [{ ufJurisdicao: 'SC', renavam: '390314714', indicadorMultaRenainf: true }]
 
   it('usa o e-CNPJ no /detran/sc/veiculo (mesmo com e-CPF no ambiente), grava custo SC e o snapshot sem PII', async () => {
     cfgEcnpj()
