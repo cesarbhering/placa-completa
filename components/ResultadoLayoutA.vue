@@ -26,6 +26,8 @@ const props = defineProps<{
   pctFipe: string | null
   qtdLeiloes: number
   leilaoEncontrado: boolean
+  /** So edital de notificacao do DETRAN: campos travados da notificacao, nao do leilao. */
+  soNotificacao?: boolean
   precoCompleta: string
   precoBasica: string
   /** Frase de recall (Toyota/Lexus) ja resolvida pelo pai; '' = nao mostra. */
@@ -36,6 +38,9 @@ const props = defineProps<{
 
 // 'comprar' aceita uma origem opcional pra instrumentacao (o botao da TAG manda
 // 'tag'; o CTA principal manda vazio -> o pai usa 'layout_a').
+const CAMPOS_LEILAO = ['Data do leilão', 'Leiloeira', 'Motivo', 'Valor de venda']
+const CAMPOS_NOTIFICACAO = ['Órgão', 'Publicação do edital', 'Data prevista do leilão', 'Detalhes do edital']
+
 const emit = defineEmits<{ (e: 'comprar', origem?: string): void; (e: 'cta-visto'): void }>()
 
 const marcaModelo = () => [props.dados?.marca, props.dados?.modelo].filter(Boolean).join(' ')
@@ -128,11 +133,13 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         <!-- Botao NO TOPO do card (Cesar 28/set): em notebook ele ficava abaixo
              da dobra e exigia scroll. Agora aparece antes do titulo, sem rolar. -->
         <button ref="ctaRef" class="la-cta" type="button" @click="emit('comprar')">
-          <span v-if="leilaoEncontrado">Ver o leilão e o relatório · {{ precoCompleta }}</span>
+          <span v-if="leilaoEncontrado && soNotificacao">Ver a notificação e o relatório · {{ precoCompleta }}</span>
+          <span v-else-if="leilaoEncontrado">Ver o leilão e o relatório · {{ precoCompleta }}</span>
           <span v-else>Ver relatório completo · {{ precoCompleta }}</span>
         </button>
         <div class="la-cta-nota">Pix, uma vez · sem assinatura · nota fiscal sob pedido</div>
-        <h2 v-if="leilaoEncontrado">Libere o leilão e o relatório completo</h2>
+        <h2 v-if="leilaoEncontrado && soNotificacao">Libere a notificação e o relatório completo</h2>
+        <h2 v-else-if="leilaoEncontrado">Libere o leilão e o relatório completo</h2>
         <h2 v-else-if="modeloCurto">Libere o relatório completo deste <span>{{ modeloCurto }}</span></h2>
         <h2 v-else>Libere o relatório completo</h2>
         <p class="la-acao-sub">Tudo que a consulta grátis não mostra, em até 5 minutos depois do Pix.</p>
@@ -155,16 +162,20 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
            pendentes generico. -->
       <section v-if="leilaoEncontrado" class="la-leilao">
         <div class="la-bloco-topo">
-          <h2>Registro de leilão encontrado</h2>
+          <h2>{{ soNotificacao ? 'Notificação de leilão encontrada' : 'Registro de leilão encontrado' }}</h2>
           <span>Placa e chassi cruzados com mais de 1 milhão de veículos leiloados</span>
         </div>
+        <!-- So notificacao: os campos travados sao os do edital de notificacao.
+             Prometer "Leiloeira" e "Valor de venda" aqui seria vender o que o
+             relatorio nao tem. -->
         <div class="la-leilao-grid">
-          <div v-for="rot in ['Data do leilão','Leiloeira','Motivo','Valor de venda']" :key="rot" class="la-leilao-item">
+          <div v-for="rot in (soNotificacao ? CAMPOS_NOTIFICACAO : CAMPOS_LEILAO)" :key="rot" class="la-leilao-item">
             <span>{{ rot }}</span>
             <span class="la-bloqueado"><i /><span class="la-lock" v-html="LockIcon" /></span>
           </div>
         </div>
-        <p>Carro de leilão costuma valer menos, pode ter restrição de seguro e às vezes nem consta no documento. Saiba antes de negociar.</p>
+        <p v-if="soNotificacao">O DETRAN publicou edital notificando que este veículo iria a leilão. Veja no relatório o edital, o órgão e as datas antes de negociar.</p>
+        <p v-else>Carro de leilão costuma valer menos, pode ter restrição de seguro e às vezes nem consta no documento. Saiba antes de negociar.</p>
       </section>
 
       <section v-else class="la-card la-pendentes">

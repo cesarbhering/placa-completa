@@ -16,7 +16,7 @@
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { explicaRestricao } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
-import { ehNotificacao, tituloNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
+import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
 
@@ -638,6 +638,9 @@ const passagensLeilao = computed(() => {
     // Word joiner depois do hifen: sem ele, no celular a linha quebrava em
     // "DETRAN-" / "RJ".
     tituloNotificacao: ehNotificacao(p) ? tituloNotificacao(p).replace('DETRAN-', 'DETRAN-\u2060') : '',
+    // Todos os dados do edital de notificacao, ja legiveis (nunca o nome do
+    // arquivo nem a URL do documento).
+    camposNotificacao: ehNotificacao(p) ? camposNotificacao(p) : [],
     rotuloNivel: ROTULO_NIVEL[p.nivel] || humanizar(p.nivel),
     explicaNivel: EXPLICA_NIVEL[p.nivel] || '',
     // Nome PUBLICO, resolvido pela API: "Detran SP" pra orgao, "Leiloeira
@@ -684,8 +687,8 @@ const passagensLeilao = computed(() => {
     // Edital do orgao: so DETRAN. O snapshot de relatorio antigo nao tem estes
     // campos, e ai o botao simplesmente nao aparece, que e o comportamento
     // certo: o snapshot e o que a pessoa comprou.
-    edital_disponivel: p.fonte_tipo === 'detran' && !!p.edital_disponivel,
-    edital_ref: p.fonte_tipo === 'detran' && p.edital_ref ? String(p.edital_ref) : null,
+    edital_disponivel: p.fonte_tipo === 'detran' && !ehNotificacao(p) && !!p.edital_disponivel,
+    edital_ref: p.fonte_tipo === 'detran' && !ehNotificacao(p) && p.edital_ref ? String(p.edital_ref) : null,
   }))
 })
 
@@ -753,8 +756,10 @@ const passagensNotificadas = computed(() => {
   const vistas = new Set<string>()
   return passagensLeilao.value.filter((p) => {
     if (!p.notificacao || p.nivel === 'possivel') return false
-    if (vistas.has(p.tituloNotificacao)) return false
-    vistas.add(p.tituloNotificacao)
+    // Mesma notificacao repetida (mesmo edital e mesmas datas) aparece uma vez.
+    const chave = p.tituloNotificacao + '|' + p.camposNotificacao.map((c) => c.valor).join('|')
+    if (vistas.has(chave)) return false
+    vistas.add(chave)
     return true
   })
 })
@@ -2038,6 +2043,11 @@ onUnmounted(() => {
                   <span class="rel__grav-barra" aria-hidden="true" />
                   <span class="rel__grav-rotulo">{{ p.tituloNotificacao }}</span>
                 </p>
+                <ul v-if="p.camposNotificacao.length" class="rel__leilao-detalhes">
+                  <li v-for="c in p.camposNotificacao" :key="c.rotulo">
+                    <span>{{ c.rotulo }}</span><strong>{{ c.valor }}</strong>
+                  </li>
+                </ul>
                 <p class="rel__leilao-det">{{ EXPLICA_NOTIFICACAO }}</p>
               </div>
             </div>
@@ -2854,7 +2864,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__grav--cinza { color: $c-graphite; .rel__grav-barra { background: $c-steel; } }
   // Notificacao para leilao: mesmo cartao da passagem, sem peso de alerta.
   &__notif-lista { margin-top: 12px; }
-  &__leilao--notif { background: #f6f7f9; }
+  &__leilao--notif { background: #f6f7f9; .rel__leilao-detalhes { margin-bottom: 10px; } }
 
   &__leilao-detalhes {
     list-style: none;

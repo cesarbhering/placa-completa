@@ -7,11 +7,21 @@
 export interface SinalNaTela {
   positivo: boolean
   quantidade: number
+  /**
+   * 'notificacao' = so edital de notificacao do DETRAN: a tela troca os campos
+   * travados de leilao (data, leiloeira, valor de venda) pelos da notificacao.
+   * Resposta sem tipo (cache ou versao anterior) vale como 'leilao'.
+   */
+  tipo: 'leilao' | 'notificacao'
 }
 
 export function sinalDaResposta(resposta: any): SinalNaTela | null {
   if (resposta?.positivo !== true && resposta?.positivo !== false) return null
-  return { positivo: resposta.positivo, quantidade: Number(resposta.quantidade) || 0 }
+  return {
+    positivo: resposta.positivo,
+    quantidade: Number(resposta.quantidade) || 0,
+    tipo: resposta.tipo === 'notificacao' ? 'notificacao' : 'leilao',
+  }
 }
 
 /**

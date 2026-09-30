@@ -6,9 +6,9 @@ const hist = (r: any) => ({ resumo: { n_confirmado: 0, n_provavel: 0, n_possivel
 // A muralha: da consulta gratis sai um numero e um booleano, nada mais.
 describe('sinal de leilao da consulta gratis', () => {
   it('confirmado e provavel viram sinal positivo, somados', () => {
-    expect(sinalDoHistorico(hist({ n_confirmado: 1 }))).toEqual({ positivo: true, quantidade: 1 })
-    expect(sinalDoHistorico(hist({ n_provavel: 2 }))).toEqual({ positivo: true, quantidade: 2 })
-    expect(sinalDoHistorico(hist({ n_confirmado: 1, n_provavel: 2 }))).toEqual({ positivo: true, quantidade: 3 })
+    expect(sinalDoHistorico(hist({ n_confirmado: 1 }))).toEqual({ positivo: true, quantidade: 1, tipo: 'leilao' })
+    expect(sinalDoHistorico(hist({ n_provavel: 2 }))).toEqual({ positivo: true, quantidade: 2, tipo: 'leilao' })
+    expect(sinalDoHistorico(hist({ n_confirmado: 1, n_provavel: 2 }))).toEqual({ positivo: true, quantidade: 3, tipo: 'leilao' })
   })
 
   it('possivel NAO vira sinal: e inferencia por identificador parcial', () => {
@@ -36,7 +36,7 @@ describe('sinal de leilao da consulta gratis', () => {
       resumo: { n_confirmado: 1, n_provavel: 0, fontes_com_passagem: ['detran-mg'] },
       passagens: [{ data_leilao: '2023-03-14', leiloeiro: 'Fulano Leiloes', valor: 21400, fotos: ['x'] }],
     } as any
-    expect(Object.keys(sinalDoHistorico(completo)).sort()).toEqual(['positivo', 'quantidade'])
+    expect(Object.keys(sinalDoHistorico(completo)).sort()).toEqual(['positivo', 'quantidade', 'tipo'])
   })
 })
 
@@ -104,25 +104,26 @@ describe('teto por IP', () => {
 describe('sinal com notificacao para leilao', () => {
   const notif = { nivel: 'confirmado', situacao: 'notificado', detalhes: { tipo_registro: 'notificacao_leilao' } }
   const soNotificacao = { resumo: { n_confirmado: 2, n_provavel: 0, n_possivel: 0 }, passagens: [notif, { ...notif }] } as any
+  const misto = {
+    resumo: { n_confirmado: 2, n_provavel: 0 },
+    passagens: [notif, { nivel: 'confirmado', situacao: 'ARREMATADO', detalhes: {} }],
+  } as any
 
-  it('por decisao do Cesar, notificacao sozinha NAO acende o sinal', () => {
-    expect(sinalDoHistorico(soNotificacao)).toEqual(SINAL_VAZIO)
+  it('por decisao do Cesar, so notificacao acende, marcada como notificacao', () => {
+    expect(sinalDoHistorico(soNotificacao)).toEqual({ positivo: true, quantidade: 2, tipo: 'notificacao' })
   })
 
-  it('com a chave ligada, notificacao acenderia', () => {
-    expect(sinalDoHistorico(soNotificacao, true)).toEqual({ positivo: true, quantidade: 2 })
+  it('leilao real ao lado da notificacao e tipo leilao', () => {
+    expect(sinalDoHistorico(misto)).toEqual({ positivo: true, quantidade: 2, tipo: 'leilao' })
   })
 
-  it('com a chave desligada, leilao real ao lado da notificacao continua contando', () => {
-    const misto = {
-      resumo: { n_confirmado: 2, n_provavel: 0 },
-      passagens: [notif, { nivel: 'confirmado', situacao: 'ARREMATADO', detalhes: {} }],
-    } as any
-    expect(sinalDoHistorico(misto, false)).toEqual({ positivo: true, quantidade: 1 })
+  it('com a chave desligada, so notificacao nao acende e o leilao real conta sozinho', () => {
+    expect(sinalDoHistorico(soNotificacao, false)).toEqual(SINAL_VAZIO)
+    expect(sinalDoHistorico(misto, false)).toEqual({ positivo: true, quantidade: 1, tipo: 'leilao' })
   })
 
   it('a frase continua vaga, sem falar em notificacao', () => {
-    expect(fraseSinal(sinalDoHistorico(soNotificacao, true))).toBe(
+    expect(fraseSinal(sinalDoHistorico(soNotificacao))).toBe(
       'Existem indícios de leilão deste veículo em nossa base. Confira no relatório completo.',
     )
   })

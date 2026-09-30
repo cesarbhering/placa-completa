@@ -211,8 +211,11 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
       comitente: texto(p.comitente),
       // Mesma regra do leiloeiro: so orgao. Se a API mandar edital de casa
       // privada um dia, ele morre aqui, nao na tela.
-      edital_disponivel: p.fonte_tipo === 'detran' && !!p.edital_disponivel,
-      edital_ref: p.fonte_tipo === 'detran' ? texto(p.edital_ref) : null,
+      // Edital de NOTIFICACAO nunca e baixavel (decisao do Cesar, 30/set): o
+      // documento traz a relacao de proprietarios. Todos os DADOS dele vao pra
+      // tela; o arquivo, nao.
+      edital_disponivel: p.fonte_tipo === 'detran' && !ehNotificacao(p) && !!p.edital_disponivel,
+      edital_ref: p.fonte_tipo === 'detran' && !ehNotificacao(p) ? texto(p.edital_ref) : null,
       veiculo_na_fonte: p.veiculo_na_fonte && typeof p.veiculo_na_fonte === 'object' ? p.veiculo_na_fonte : null,
       evidencias: Array.isArray(p.evidencias) ? p.evidencias.map(String) : [],
       fotos: sanearFotos(p.fotos, config),

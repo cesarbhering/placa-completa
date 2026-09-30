@@ -51,6 +51,7 @@ describe('sanearHistorico com notificacao', () => {
       passagens: [{
         nivel: 'confirmado', fonte: 'detran_rj', fonte_tipo: 'detran', fonte_uf: 'RJ', situacao: 'notificado',
         detalhes: { situacao: 'notificado', tipo_registro: 'notificacao_leilao' },
+        edital_disponivel: true, edital_ref: '123.abcdef012345',
         gravidade: { nivel: 'patio', cor: 'amarelo', rotulo: 'Leilão de pátio (DETRAN)', motivo: 'x' },
       }, {
         nivel: 'confirmado', fonte: 'detran_sp', fonte_tipo: 'detran', fonte_uf: 'SP', situacao: 'SUCATA',
@@ -59,5 +60,8 @@ describe('sanearHistorico com notificacao', () => {
     })!
     expect(h.passagens[0].gravidade).toMatchObject({ nivel: 'notificado', cor: 'cinza' })
     expect(h.passagens[1].gravidade).toMatchObject({ nivel: 'sucata', cor: 'vermelho' })
+    // Edital de notificacao nunca e baixavel.
+    expect(h.passagens[0].edital_disponivel).toBe(false)
+    expect(h.passagens[0].edital_ref).toBeNull()
   })
 })

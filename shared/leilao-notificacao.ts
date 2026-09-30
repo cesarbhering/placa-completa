@@ -40,19 +40,114 @@ function dataBR(iso: unknown): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
 }
 
+function orgaoDe(p: any): string {
+  const uf = String(p?.fonte_uf || '').trim().toUpperCase()
+  return /^[A-Z]{2}$/.test(uf) ? `DETRAN-${uf}` : 'DETRAN'
+}
+
 /**
- * "Notificado para leilão pelo DETRAN-RJ (leilão previsto para 09/06/2010)".
- * A data do indice nem sempre e a da notificacao: no RJ as vezes e a do D.O.,
- * as vezes a data marcada pro leilao, entao a frase fala em leilao PREVISTO,
- * que e verdade nos dois casos (decisao do Cesar, 30/set). Sem UF, cai no
- * nome generico; sem data, a frase termina no orgao (um terco das linhas do RJ
- * nao tem data, e inventar uma seria pior que omitir).
+ * "Notificado para leilão pelo DETRAN-RJ". A data NAO entra no titulo: no RJ
+ * o `data_leilao` do indice as vezes e a data marcada pro leilao e as vezes a
+ * da publicacao, entao cada data vai pra sua linha, com o rotulo certo (ver
+ * camposNotificacao).
  */
 export function tituloNotificacao(p: any): string {
-  const uf = String(p?.fonte_uf || '').trim().toUpperCase()
-  const orgao = /^[A-Z]{2}$/.test(uf) ? `DETRAN-${uf}` : 'DETRAN'
-  const data = dataBR(p?.data_leilao)
-  return `Notificado para leilão pelo ${orgao}${data ? ` (leilão previsto para ${data})` : ''}`
+  return `Notificado para leilão pelo ${orgaoDe(p)}`
+}
+
+export interface EditalNotificacao {
+  /** Numero legivel ("LD 05/2015"), nunca o nome do arquivo. */
+  numero: string | null
+  /** Data de publicacao no Diario Oficial, dd/mm/aaaa. */
+  publicacao: string | null
+  tipo: string | null
+  retificacao: boolean
+}
+
+function semAcento(s: string): string {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+const TIPOS: Array<[RegExp, string]> = [
+  [/\bsucata\b|\binservive(l|is)\b/, 'Inservível (sucata)'],
+  [/\birrecuperave(l|is)\b/, 'Irrecuperável'],
+  [/\brecuperave(l|is)\b/, 'Recuperável'],
+  [/\bretirada\b/, 'Retirada'],
+  [/\brecolhimento\b/, 'Recolhimento'],
+]
+
+/**
+ * Le o que da pra ler do identificador do edital de notificacao. No RJ ele e o
+ * NOME DO ARQUIVO publicado pelo DETRAN ("NOT:leilão_D.O._28.07.2010",
+ * "NOT:edital_de_notificação_leilao_LD05_2015_recuperavel"), que nunca pode ir
+ * cru pra tela. Daqui sai so o que tem forma conhecida; o resto vira null, e
+ * null nao aparece.
+ */
+export function lerEditalNotificacao(ref: unknown): EditalNotificacao {
+  const saida: EditalNotificacao = { numero: null, publicacao: null, tipo: null, retificacao: false }
+  const t = semAcento(String(ref || '')).toLowerCase().replace(/^not:/, '').replace(/[_]+/g, ' ').trim()
+  if (!t) return saida
+  saida.retificacao = /\bretificacao\b/.test(t)
+  for (const [re, rotulo] of TIPOS) {
+    if (re.test(t)) { saida.tipo = rotulo; break }
+  }
+  // "D.O. 28.07.2010" / "D.O. 22-06-2009": data de publicacao no Diario Oficial.
+  const dou = t.match(/\bd\.?\s?o\.?\s+(\d{2})[.-](\d{2})[.-](\d{4})/)
+  if (dou) saida.publicacao = `${dou[1]}/${dou[2]}/${dou[3]}`
+  // Serie + numero + ano: "LD05 2015", "LD 001 2014", "PR03 2016".
+  const serie = t.match(/\b(ld|pr)\s?(\d{1,3})\s(\d{4})\b/)
+  // "convocacao 04 2013" (numero/ano) x "convocacao 21 01 2014" (data).
+  const convData = t.match(/\bconvocacao\s(\d{2})\s(\d{2})\s(\d{4})\b/)
+  const convNum = t.match(/\bconvocacao\s(\d{1,3})\s(\d{4})\b/)
+  const detran = t.match(/\bdetr[a-z]*\s(\d{1,3})\s(\d{4})\b/)
+  if (serie) saida.numero = `${serie[1].toUpperCase()} ${serie[2]}/${serie[3]}`
+  else if (convData) saida.publicacao = saida.publicacao || `${convData[1]}/${convData[2]}/${convData[3]}`
+  else if (convNum) saida.numero = `${convNum[1]}/${convNum[2]}`
+  else if (detran) saida.numero = `${detran[1]}/${detran[2]}`
+  return saida
+}
+
+function texto(v: unknown): string | null {
+  const s = String(v ?? '').trim()
+  return s ? s : null
+}
+
+/**
+ * Todos os dados do edital de notificacao que a fonte tem, em linhas prontas
+ * pra tela. Ordem: edital, orgao, publicacao, leilao previsto, patio, lote,
+ * tipo. NUNCA a URL do documento (decisao do Cesar, 30/set): nenhum campo de
+ * link e lido aqui.
+ *
+ * Campos preferidos (contrato com a leiloes-api, em `detalhes`): edital_numero,
+ * data_publicacao, data_prevista_leilao, orgao, patio, lote, tipo_notificacao.
+ * Sem eles, cai no que da pra ler do identificador do edital e no data_leilao.
+ */
+export function camposNotificacao(p: any): Array<{ rotulo: string; valor: string }> {
+  const det = p?.detalhes && typeof p.detalhes === 'object' && !Array.isArray(p.detalhes) ? p.detalhes : {}
+  const lido = lerEditalNotificacao(p?.ref)
+  const publicacao = dataBR(det.data_publicacao) || lido.publicacao
+  // data_leilao do indice so vale como "leilao previsto" quando e diferente da
+  // publicacao: no RJ, sem data de leilao no edital, o indice cai na data de
+  // publicacao, e chamar isso de data do leilao seria errado.
+  let prevista = dataBR(det.data_prevista_leilao)
+  if (!prevista) {
+    const dl = dataBR(p?.data_leilao)
+    if (dl && dl !== publicacao) prevista = dl
+  }
+  const numeroBase = texto(det.edital_numero) || lido.numero
+  const numero = numeroBase && lido.retificacao ? `${numeroBase} (retificação)` : numeroBase
+  const linhas: Array<[string, string | null]> = [
+    ['Edital', numero],
+    ['Órgão', texto(det.orgao) || orgaoDe(p)],
+    ['Publicação', publicacao],
+    ['Leilão previsto para', prevista],
+    ['Pátio', texto(det.patio)],
+    ['Lote', texto(det.lote) || texto(p?.lote)],
+    ['Tipo', texto(det.tipo_notificacao) || lido.tipo],
+  ]
+  return linhas
+    .filter(([, v]) => !!v && !/^https?:|\.pdf$/i.test(String(v)))
+    .map(([rotulo, valor]) => ({ rotulo, valor: String(valor) }))
 }
 
 /**

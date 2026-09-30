@@ -5,7 +5,9 @@ import { contarPassagens } from '../../shared/leilao-notificacao'
 // consulta gratis mostra e o que so o relatorio pago entrega.
 //
 // A regra e simples e nao pode ser afrouxada sem decisao de produto: do
-// historico inteiro sai UM numero e um booleano. Data, leiloeira, lote, valor,
+// historico inteiro sai UM numero, um booleano e o TIPO do achado (leilao ou
+// so notificacao, decisao do Cesar de 30/set, pra tela nao prometer data de
+// leilao, leiloeira e valor de venda a quem so tem notificacao). Data, leiloeira, lote, valor,
 // condicao do veiculo, foto, fonte, nada disso atravessa. Se um dia alguem
 // precisar de mais um campo aqui, e sinal de que a conversa e sobre o que a
 // gente vende, nao sobre codigo.
@@ -25,6 +27,11 @@ export interface SinalLeilao {
   positivo: boolean | null
   /** Quantas passagens de nivel confirmado ou provavel. Zero nos outros casos. */
   quantidade: number
+  /**
+   * So quando positivo. 'leilao' = ha ao menos um leilao (com ou sem
+   * notificacao junto); 'notificacao' = so edital de notificacao do DETRAN.
+   */
+  tipo?: 'leilao' | 'notificacao'
 }
 
 /** A base respondeu e nao ha registro. */
@@ -34,12 +41,11 @@ export const SINAL_INDISPONIVEL: SinalLeilao = { positivo: null, quantidade: 0 }
 
 /**
  * Edital de NOTIFICACAO para leilao (o DETRAN avisou o dono; o leilao pode nao
- * ter acontecido) acende o sinal sozinho? Decisao do Cesar (30/set): NAO. A
- * tela do gratis com sinal promete "registro de leilao" com data, leiloeira e
- * valor de venda, e quem so tem notificacao nao tem nada disso. Notificacao ao
- * lado de um leilao real nao muda nada: o leilao real acende sozinho.
+ * ter acontecido) acende o sinal sozinho? Decisao do Cesar (30/set, a ultima):
+ * SIM, com a mesma copy vaga, e o `tipo` = 'notificacao' faz a tela mostrar os
+ * campos da notificacao em vez de data do leilao, leiloeira e valor de venda.
  */
-export const NOTIFICACAO_ACENDE_SINAL = false
+export const NOTIFICACAO_ACENDE_SINAL = true
 
 /**
  * So confirmado e provavel contam como sinal. "Possivel" e inferencia por
@@ -54,10 +60,17 @@ export function sinalDoHistorico(
   // Sem historico, a consulta nao aconteceu: isso e "nao sabemos", nunca
   // "nao tem".
   if (!historico?.resumo) return SINAL_INDISPONIVEL
-  let n = (Number(historico.resumo.n_confirmado) || 0) + (Number(historico.resumo.n_provavel) || 0)
+  const total = (Number(historico.resumo.n_confirmado) || 0) + (Number(historico.resumo.n_provavel) || 0)
   // A API soma notificacao em n_confirmado/n_provavel.
-  if (!acendeComNotificacao) n = Math.max(0, n - contarPassagens(historico.passagens).notificado)
-  return n > 0 ? { positivo: true, quantidade: n } : SINAL_VAZIO
+  const notificacoes = Math.min(total, contarPassagens(historico.passagens).notificado)
+  const leiloes = total - notificacoes
+  if (leiloes > 0) {
+    return { positivo: true, quantidade: acendeComNotificacao ? total : leiloes, tipo: 'leilao' }
+  }
+  if (notificacoes > 0 && acendeComNotificacao) {
+    return { positivo: true, quantidade: notificacoes, tipo: 'notificacao' }
+  }
+  return SINAL_VAZIO
 }
 
 /**
