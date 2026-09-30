@@ -6,7 +6,7 @@ import { renavamDaResposta, ufDaResposta } from './detran-multas'
 // IPVA, licenciamento e restricoes. Uma chamada por pedido (cada uma custa
 // ~R$0,28, ATE em erro de parametro), gated por UF SP e com cache no snapshot.
 //
-// O certificado e SEMPRE o e-CNPJ, mandado criptografado: base64 do .pfx ->
+// O certificado depende da UF (DETRAN_UFS.cert): SP = e-CNPJ, SC = e-CPF. Mandado criptografado: base64 do .pfx ->
 // aes-bridge encrypt (AES-256-GCM) -> url-safe. A senha do pfx idem. O Infosimples
 // decripta com a mesma ENC_KEY. Criptografado em runtime a cada chamada.
 
@@ -18,22 +18,33 @@ export async function encriptarInfosimples(valor: string, encKey: string): Promi
   return String(cifrado).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-function infosimplesConfig() {
+/** Certificado mandado ao Infosimples: e-CNPJ (SP) ou e-CPF (SC), por decisao do Cesar. */
+export type CertInfosimples = 'ecnpj' | 'ecpf'
+
+function infosimplesConfig(cert: CertInfosimples = 'ecnpj') {
   const c = useRuntimeConfig() as any
   // Fallback pro process.env em runtime: o override automatico do Nuxt mapeia
   // infosimplesPkcs12B64 pra NUXT_INFOSIMPLES_PKCS12B64 (sem o _ antes do B64),
   // entao a env NUXT_INFOSIMPLES_PKCS12_B64 so chegava se existisse no BUILD.
+  // O e-CPF e lido SO do process.env (NUXT_INFOSIMPLES_ECPF_PKCS12_B64/_PASS).
   const env = process.env
+  const pkcs12B64 = cert === 'ecpf'
+    ? String(env.NUXT_INFOSIMPLES_ECPF_PKCS12_B64 || '')
+    : String(c.infosimplesPkcs12B64 || env.NUXT_INFOSIMPLES_PKCS12_B64 || env.NUXT_INFOSIMPLES_PKCS12B64 || '')
+  const pkcs12Pass = cert === 'ecpf'
+    ? String(env.NUXT_INFOSIMPLES_ECPF_PKCS12_PASS || '')
+    : String(c.infosimplesPkcs12Pass || env.NUXT_INFOSIMPLES_PKCS12_PASS || '')
   return {
     token: String(c.infosimplesToken || env.NUXT_INFOSIMPLES_TOKEN || ''),
     encKey: String(c.infosimplesEncKey || env.NUXT_INFOSIMPLES_ENC_KEY || ''),
-    pkcs12B64: String(c.infosimplesPkcs12B64 || env.NUXT_INFOSIMPLES_PKCS12_B64 || env.NUXT_INFOSIMPLES_PKCS12B64 || ''),
-    pkcs12Pass: String(c.infosimplesPkcs12Pass || env.NUXT_INFOSIMPLES_PKCS12_PASS || ''),
+    pkcs12B64,
+    pkcs12Pass,
   }
 }
 
-export function infosimplesConfigurado(): boolean {
-  const c = infosimplesConfig()
+/** Token + chave + o certificado pedido presentes? Sem o cert da UF, a UF nao roda (fail-open). */
+export function infosimplesConfigurado(cert: CertInfosimples = 'ecnpj'): boolean {
+  const c = infosimplesConfig(cert)
   return !!(c.token && c.encKey && c.pkcs12B64 && c.pkcs12Pass)
 }
 
@@ -44,8 +55,8 @@ export function ehVeiculoSp(uf: string | null | undefined): boolean {
 
 /** UFs com DETRAN via Infosimples: endpoint, marca no snapshot e fonte de custo. */
 export const DETRAN_UFS = {
-  SP: { path: 'detran/sp/debitos', fonte: 'detran_sp', fonteCusto: 'infosimples_detran_sp' },
-  SC: { path: 'detran/sc/veiculo', fonte: 'detran_sc', fonteCusto: 'infosimples_detran_sc' },
+  SP: { path: 'detran/sp/debitos', cert: 'ecnpj', fonte: 'detran_sp', fonteCusto: 'infosimples_detran_sp' },
+  SC: { path: 'detran/sc/veiculo', cert: 'ecpf', fonte: 'detran_sc', fonteCusto: 'infosimples_detran_sc' },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 
@@ -70,8 +81,9 @@ export interface ResultadoDetran {
  * erro de rede vira code=0/data=null (o chamador e fail-open).
  */
 export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string }): Promise<ResultadoDetran> {
-  const cfg = infosimplesConfig()
-  if (!infosimplesConfigurado()) return { code: 0, codeMessage: 'infosimples nao configurado', preco: 0, data: null }
+  const certUf = DETRAN_UFS[opts.uf].cert
+  const cfg = infosimplesConfig(certUf)
+  if (!infosimplesConfigurado(certUf)) return { code: 0, codeMessage: `infosimples nao configurado (${certUf})`, preco: 0, data: null }
   try {
     const [cert, pass] = await Promise.all([
       encriptarInfosimples(cfg.pkcs12B64, cfg.encKey),
@@ -443,7 +455,7 @@ export async function completarDetran(
   const cfgUf = DETRAN_UFS[uf]
   const renavam = renavamDaResposta(ctx.response)
   if (!renavam) return { ok: false, pulado: 'sem renavam' }
-  if (!infosimplesConfigurado()) return { ok: false, pulado: 'infosimples nao configurado' }
+  if (!infosimplesConfigurado(cfgUf.cert)) return { ok: false, pulado: `infosimples nao configurado (${cfgUf.cert})` }
 
   const { data } = await supabase
     .from('pedidos_premium')

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import SC from './__fixtures__/infosimples-detran-sc.json'
+import { decrypt } from 'aes-bridge'
 import { parsearDetranSc, limparTextoSng, ufDetranSuportada, blocoDetranDaUf, completarDetran } from './infosimples-detran'
 
 // Fixture = resposta REAL do /detran/sc/veiculo (MJL2938, code 200), com os
@@ -75,26 +76,73 @@ describe('gate por UF', () => {
 })
 
 describe('completarDetran SC', () => {
-  afterEach(() => { vi.unstubAllGlobals() })
-  it('chama o endpoint /detran/sc/veiculo, grava custo com fonte SC e o snapshot sem PII', async () => {
-    vi.stubGlobal('useRuntimeConfig', () => ({ infosimplesToken: 't', infosimplesEncKey: 'k'.repeat(32), infosimplesPkcs12B64: 'cGZ4', infosimplesPkcs12Pass: 'p' }))
-    const urls: string[] = []
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => { urls.push(url); return { status: 200, json: async () => ({ code: 200, header: { price: '0.28' }, data: [SC] }) } }))
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    delete process.env.NUXT_INFOSIMPLES_ECPF_PKCS12_B64
+    delete process.env.NUXT_INFOSIMPLES_ECPF_PKCS12_PASS
+  })
+  const KEY = 'k'.repeat(32)
+  const cfgEcnpj = () => vi.stubGlobal('useRuntimeConfig', () => ({ infosimplesToken: 't', infosimplesEncKey: KEY, infosimplesPkcs12B64: 'ECNPJ-PFX', infosimplesPkcs12Pass: 'ecnpj-pass' }))
+  function fakeSb() {
     const inserts: any[] = []; const updates: any[] = []
-    const sb = {
+    return {
+      inserts, updates,
       from: () => ({
         select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { relatorio_snapshot: { consulta: {} } } }) }) }),
         insert: async (row: any) => { inserts.push(row); return { error: null } },
         update: (row: any) => ({ eq: async () => { updates.push(row); return { error: null } } }),
       }),
     }
-    const r = await completarDetran(sb, { id: 'p1', placa: 'MJL2938' }, { response: [{ ufJurisdicao: 'SC', renavam: '390314714' }] })
+  }
+  const RESP_SC = [{ ufJurisdicao: 'SC', renavam: '390314714' }]
+
+  it('sem o e-CPF configurado, SC nao chama o Infosimples (nem com o e-CNPJ presente) e nao cobra', async () => {
+    cfgEcnpj()
+    const fetchSpy = vi.fn(); vi.stubGlobal('fetch', fetchSpy)
+    const sb = fakeSb()
+    const r = await completarDetran(sb, { id: 'p1', placa: 'MJL2938' }, { response: RESP_SC })
+    expect(r).toMatchObject({ ok: false, pulado: 'infosimples nao configurado (ecpf)' })
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(sb.inserts).toHaveLength(0)
+  })
+
+  it('usa o e-CPF no /detran/sc/veiculo, grava custo SC e o snapshot sem PII', async () => {
+    cfgEcnpj()
+    process.env.NUXT_INFOSIMPLES_ECPF_PKCS12_B64 = 'ECPF-PFX'
+    process.env.NUXT_INFOSIMPLES_ECPF_PKCS12_PASS = 'ecpf-pass'
+    const chamadas: { url: string; body: URLSearchParams }[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => {
+      chamadas.push({ url, body: init.body })
+      return { status: 200, json: async () => ({ code: 200, header: { price: '0.28' }, data: [SC] }) }
+    }))
+    const sb = fakeSb()
+    const r = await completarDetran(sb, { id: 'p1', placa: 'MJL2938' }, { response: RESP_SC })
     expect(r.ok).toBe(true)
-    expect(urls[0]).toMatch(/\/detran\/sc\/veiculo$/)
-    expect(inserts[0]).toMatchObject({ pedido_id: 'p1', fonte: 'infosimples_detran_sc', preco: 0.28, code: 200 })
-    const gravado = JSON.stringify(updates[0])
-    expect(updates[0].relatorio_snapshot.multas.fonte).toBe('detran_sc')
+    expect(chamadas[0].url).toMatch(/\/detran\/sc\/veiculo$/)
+    // O cert mandado e o e-CPF (decripta o que foi pro Infosimples).
+    const volta = async (v: string) => new TextDecoder().decode(await decrypt(v.replace(/-/g, '+').replace(/_/g, '/'), KEY))
+    expect(await volta(chamadas[0].body.get('pkcs12_cert')!)).toBe('ECPF-PFX')
+    expect(await volta(chamadas[0].body.get('pkcs12_pass')!)).toBe('ecpf-pass')
+    expect(chamadas[0].body.get('renavam')).toBe('00390314714')
+    expect(sb.inserts[0]).toMatchObject({ pedido_id: 'p1', fonte: 'infosimples_detran_sc', preco: 0.28, code: 200 })
+    const gravado = JSON.stringify(sb.updates[0])
+    expect(sb.updates[0].relatorio_snapshot.multas.fonte).toBe('detran_sc')
     expect(gravado).not.toContain('FULANO')
     expect(gravado).not.toContain('CICRANO')
+  })
+
+  it('SP continua com o e-CNPJ', async () => {
+    cfgEcnpj()
+    process.env.NUXT_INFOSIMPLES_ECPF_PKCS12_B64 = 'ECPF-PFX'
+    process.env.NUXT_INFOSIMPLES_ECPF_PKCS12_PASS = 'ecpf-pass'
+    const chamadas: { url: string; body: URLSearchParams }[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => {
+      chamadas.push({ url, body: init.body })
+      return { status: 200, json: async () => ({ code: 607, header: { price: '0.28' } }) }
+    }))
+    await completarDetran(fakeSb(), { id: 'p1', placa: 'FYA8875' }, { response: [{ ufJurisdicao: 'SP', renavam: '01136947237' }] })
+    expect(chamadas[0].url).toMatch(/\/detran\/sp\/debitos$/)
+    const volta = async (v: string) => new TextDecoder().decode(await decrypt(v.replace(/-/g, '+').replace(/_/g, '/'), KEY))
+    expect(await volta(chamadas[0].body.get('pkcs12_cert')!)).toBe('ECNPJ-PFX')
   })
 })

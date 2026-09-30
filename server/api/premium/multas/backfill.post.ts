@@ -57,7 +57,8 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event).catch(() => ({}))
   const supabase = usePremiumSupabase()
 
-  if (!infosimplesConfigurado()) {
+  // Token/chave basicos; o cert de cada UF (e-CNPJ/e-CPF) e checado na chamada.
+  if (!infosimplesConfigurado('ecnpj') && !infosimplesConfigurado('ecpf')) {
     throw createError({ statusCode: 503, message: 'Infosimples nao configurado neste ambiente.' })
   }
 
