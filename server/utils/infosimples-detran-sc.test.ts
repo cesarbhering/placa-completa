@@ -96,17 +96,7 @@ describe('completarDetran SC', () => {
   }
   const RESP_SC = [{ ufJurisdicao: 'SC', renavam: '390314714' }]
 
-  it('sem o e-CPF configurado, SC nao chama o Infosimples (nem com o e-CNPJ presente) e nao cobra', async () => {
-    cfgEcnpj()
-    const fetchSpy = vi.fn(); vi.stubGlobal('fetch', fetchSpy)
-    const sb = fakeSb()
-    const r = await completarDetran(sb, { id: 'p1', placa: 'MJL2938' }, { response: RESP_SC })
-    expect(r).toMatchObject({ ok: false, pulado: 'infosimples nao configurado (ecpf)' })
-    expect(fetchSpy).not.toHaveBeenCalled()
-    expect(sb.inserts).toHaveLength(0)
-  })
-
-  it('usa o e-CPF no /detran/sc/veiculo, grava custo SC e o snapshot sem PII', async () => {
+  it('usa o e-CNPJ no /detran/sc/veiculo (mesmo com e-CPF no ambiente), grava custo SC e o snapshot sem PII', async () => {
     cfgEcnpj()
     process.env.NUXT_INFOSIMPLES_ECPF_PKCS12_B64 = 'ECPF-PFX'
     process.env.NUXT_INFOSIMPLES_ECPF_PKCS12_PASS = 'ecpf-pass'
@@ -119,10 +109,10 @@ describe('completarDetran SC', () => {
     const r = await completarDetran(sb, { id: 'p1', placa: 'MJL2938' }, { response: RESP_SC })
     expect(r.ok).toBe(true)
     expect(chamadas[0].url).toMatch(/\/detran\/sc\/veiculo$/)
-    // O cert mandado e o e-CPF (decripta o que foi pro Infosimples).
+    // O cert mandado e o e-CNPJ (decripta o que foi pro Infosimples).
     const volta = async (v: string) => new TextDecoder().decode(await decrypt(v.replace(/-/g, '+').replace(/_/g, '/'), KEY))
-    expect(await volta(chamadas[0].body.get('pkcs12_cert')!)).toBe('ECPF-PFX')
-    expect(await volta(chamadas[0].body.get('pkcs12_pass')!)).toBe('ecpf-pass')
+    expect(await volta(chamadas[0].body.get('pkcs12_cert')!)).toBe('ECNPJ-PFX')
+    expect(await volta(chamadas[0].body.get('pkcs12_pass')!)).toBe('ecnpj-pass')
     expect(chamadas[0].body.get('renavam')).toBe('00390314714')
     expect(sb.inserts[0]).toMatchObject({ pedido_id: 'p1', fonte: 'infosimples_detran_sc', preco: 0.28, code: 200 })
     const gravado = JSON.stringify(sb.updates[0])

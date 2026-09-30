@@ -6,7 +6,7 @@ import { renavamDaResposta, ufDaResposta } from './detran-multas'
 // IPVA, licenciamento e restricoes. Uma chamada por pedido (cada uma custa
 // ~R$0,28, ATE em erro de parametro), gated por UF SP e com cache no snapshot.
 //
-// O certificado depende da UF (DETRAN_UFS.cert): SP = e-CNPJ, SC = e-CPF. Mandado criptografado: base64 do .pfx ->
+// O certificado depende da UF (DETRAN_UFS.cert): hoje SP e SC = e-CNPJ. Mandado criptografado: base64 do .pfx ->
 // aes-bridge encrypt (AES-256-GCM) -> url-safe. A senha do pfx idem. O Infosimples
 // decripta com a mesma ENC_KEY. Criptografado em runtime a cada chamada.
 
@@ -18,7 +18,7 @@ export async function encriptarInfosimples(valor: string, encKey: string): Promi
   return String(cifrado).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/** Certificado mandado ao Infosimples: e-CNPJ (SP) ou e-CPF (SC), por decisao do Cesar. */
+/** Certificado mandado ao Infosimples por UF. Hoje todas usam e-CNPJ; e-CPF fica suportado. */
 export type CertInfosimples = 'ecnpj' | 'ecpf'
 
 function infosimplesConfig(cert: CertInfosimples = 'ecnpj') {
@@ -56,7 +56,9 @@ export function ehVeiculoSp(uf: string | null | undefined): boolean {
 /** UFs com DETRAN via Infosimples: endpoint, marca no snapshot e fonte de custo. */
 export const DETRAN_UFS = {
   SP: { path: 'detran/sp/debitos', cert: 'ecnpj', fonte: 'detran_sp', fonteCusto: 'infosimples_detran_sp' },
-  SC: { path: 'detran/sc/veiculo', cert: 'ecpf', fonte: 'detran_sc', fonteCusto: 'infosimples_detran_sc' },
+  // SC aceitou o e-CNPJ (teste do Lead, 29/set): decisao final do Cesar. O
+  // 'ecpf' segue suportado pra UF futura, mas nenhuma usa hoje.
+  SC: { path: 'detran/sc/veiculo', cert: 'ecnpj', fonte: 'detran_sc', fonteCusto: 'infosimples_detran_sc' },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 
