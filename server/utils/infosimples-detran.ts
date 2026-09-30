@@ -20,11 +20,15 @@ export async function encriptarInfosimples(valor: string, encKey: string): Promi
 
 function infosimplesConfig() {
   const c = useRuntimeConfig() as any
+  // Fallback pro process.env em runtime: o override automatico do Nuxt mapeia
+  // infosimplesPkcs12B64 pra NUXT_INFOSIMPLES_PKCS12B64 (sem o _ antes do B64),
+  // entao a env NUXT_INFOSIMPLES_PKCS12_B64 so chegava se existisse no BUILD.
+  const env = process.env
   return {
-    token: String(c.infosimplesToken || ''),
-    encKey: String(c.infosimplesEncKey || ''),
-    pkcs12B64: String(c.infosimplesPkcs12B64 || ''),
-    pkcs12Pass: String(c.infosimplesPkcs12Pass || ''),
+    token: String(c.infosimplesToken || env.NUXT_INFOSIMPLES_TOKEN || ''),
+    encKey: String(c.infosimplesEncKey || env.NUXT_INFOSIMPLES_ENC_KEY || ''),
+    pkcs12B64: String(c.infosimplesPkcs12B64 || env.NUXT_INFOSIMPLES_PKCS12_B64 || env.NUXT_INFOSIMPLES_PKCS12B64 || ''),
+    pkcs12Pass: String(c.infosimplesPkcs12Pass || env.NUXT_INFOSIMPLES_PKCS12_PASS || ''),
   }
 }
 
