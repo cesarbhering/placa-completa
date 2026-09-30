@@ -1,0 +1,13 @@
+[Unit]
+Description=Roda pc-gcc-reserva a cada 10 min (mantem a reserva de hash GCC quente)
+
+[Timer]
+# OnActiveSec ALEM de OnUnitActiveSec: um timer so com OnUnitActiveSec nao dispara
+# a primeira vez e "morre" (incidente pc-venda-origem 02-05/set). Confira o NEXT
+# em `systemctl list-timers pc-gcc-reserva`.
+OnActiveSec=2min
+OnUnitActiveSec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
