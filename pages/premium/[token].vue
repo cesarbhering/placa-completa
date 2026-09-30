@@ -356,6 +356,7 @@ const indicadores = computed(() => {
     let valor = 'SEM OCORRÊNCIA'
     let alerta = false
     let aceso = false
+    let neutro = false
     if (cont.confirmado > 0) {
       valor = `CONSTA (${cont.confirmado} confirmado${plural(cont.confirmado)})`
       alerta = true
@@ -370,6 +371,7 @@ const indicadores = computed(() => {
       valor = 'NOTIFICADO PARA LEILÃO'
       alerta = false
       aceso = true
+      neutro = true
     } else if (possiveisComFoto.value.length > 0) {
       // Nem alerta nem verde: existe um lote parecido COM FOTO, e a decisao de
       // dizer se e o mesmo veiculo e de quem esta olhando.
@@ -386,6 +388,8 @@ const indicadores = computed(() => {
       dica: 'Cruzamos o veículo com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer chassi ou placa completos iguais; provável e possível são inferência por identificador parcial, então podem ser outro veículo. O detalhe de cada registro aparece na seção Histórico de leilão.',
       ligado: aceso,
       alerta,
+      // Cinza: aceso, mas nem problema (vermelho) nem "confira" (ambar).
+      neutro,
     }
     // Entra colado no "Leilão registrado no documento", que responde a outra
     // pergunta: aquele diz se o leilao foi anotado no registro do veiculo, este
@@ -496,7 +500,13 @@ const veredito = computed(() => {
     return {
       tom: 'ok' as const,
       titulo: 'Nada consta contra este veículo.',
-      texto: 'Na data de emissão, nenhum dos indicadores verificados aponta restrição, roubo, furto, registro de leilão ou pendência.',
+      // Notificacao para leilao nao e registro de leilao (nao acende alerta),
+      // mas o parecer nao pode dizer "nada" e a secao logo abaixo mostrar o
+      // aviso do DETRAN sem explicar a diferenca.
+      texto: 'Na data de emissão, nenhum dos indicadores verificados aponta restrição, roubo, furto, registro de leilão ou pendência.'
+        + (passagensNotificadas.value.length
+          ? ' Consta notificação para leilão do DETRAN, que não comprova que o leilão aconteceu (veja o Histórico de leilão).'
+          : ''),
     }
   }
   // Os rotulos sao siglas e nomes proprios (RENAJUD, RFB): baixar tudo pra
@@ -625,7 +635,9 @@ const passagensLeilao = computed(() => {
     // como leilao confirmado. Detectado aqui tambem (e nao so no servidor)
     // porque o snapshot de relatorio antigo guarda a gravidade velha.
     notificacao: ehNotificacao(p),
-    tituloNotificacao: ehNotificacao(p) ? tituloNotificacao(p) : '',
+    // Word joiner depois do hifen: sem ele, no celular a linha quebrava em
+    // "DETRAN-" / "RJ".
+    tituloNotificacao: ehNotificacao(p) ? tituloNotificacao(p).replace('DETRAN-', 'DETRAN-\u2060') : '',
     rotuloNivel: ROTULO_NIVEL[p.nivel] || humanizar(p.nivel),
     explicaNivel: EXPLICA_NIVEL[p.nivel] || '',
     // Nome PUBLICO, resolvido pela API: "Detran SP" pra orgao, "Leiloeira
@@ -1682,7 +1694,7 @@ onUnmounted(() => {
                 v-for="i in indicadores"
                 :key="i.k"
                 class="rel__ind"
-                :class="i.alerta ? 'rel__ind--bad' : (i.ligado && i.risco ? 'rel__ind--atencao' : 'rel__ind--ok')"
+                :class="i.alerta ? 'rel__ind--bad' : (i.ligado && i.neutro ? 'rel__ind--neutro' : (i.ligado && i.risco ? 'rel__ind--atencao' : 'rel__ind--ok'))"
               >
                 <span class="rel__ind-lab">
                   {{ rotuloPartes(i.label).inicio }}<span class="rel__ind-glue">{{ rotuloPartes(i.label).fim }}<button type="button" class="rel__info" :data-dica="i.dica" :aria-label="i.dica">
@@ -3464,6 +3476,10 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border-color: rgba(180, 83, 9, 0.35);
     .rel__ind-val { color: #8a5200; &::before { background: #e0a800; } }
   }
+
+  // Quarto estado, cinza: notificacao para leilao. Existe o registro, mas ele
+  // nao afirma leilao nem condicao do veiculo.
+  &__ind--neutro .rel__ind-val { color: $c-graphite; &::before { background: $c-steel; } }
 
   &__ind--ok .rel__ind-val { color: #14622f; &::before { background: $c-green; } }
 
