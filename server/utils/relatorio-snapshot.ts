@@ -142,7 +142,10 @@ export async function montarRelatorioSnapshot(
   // vir achatada num array de um elemento, e ai `response.chassi` e undefined
   // e o bloco sumia sem nem chamar o decoder.
   if (querem('chassiOrigem') && pedido.plano === 'completa' && senatranBruto?.chassi) {
-    chassiOrigem = await decodificarChassi(senatranBruto.chassi).catch(() => null)
+    chassiOrigem = await decodificarChassi(senatranBruto.chassi, {
+      modelo: senatranBruto?.descricaoMarcaModelo ?? null,
+      ano: senatranBruto?.anoModelo ?? senatranBruto?.anoFabricacao ?? null,
+    }).catch(() => null)
     // O digito de ano do VIN se repete a cada 30 anos e o decoder, sozinho,
     // sempre chuta o ciclo mais recente (um Civic 1995 virava "2025"). Aqui
     // temos o ano do registro, entao o ciclo certo e escolhido; sem candidato

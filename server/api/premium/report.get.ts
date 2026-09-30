@@ -203,6 +203,7 @@ export default defineEventHandler(async (event) => {
           token: String(token),
           chassi: String(brutoSnap.chassi).trim(),
           anoReferencia: brutoSnap?.anoModelo ?? brutoSnap?.anoFabricacao ?? null,
+          modelo: brutoSnap?.descricaoMarcaModelo ?? null,
         })
         if (enriquecido !== undefined) chassiOrigem = enriquecido
       }
