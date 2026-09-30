@@ -22,9 +22,13 @@ describe('notificacao para leilao', () => {
     expect(ehNotificacao({ detalhes: [] })).toBe(false)
   })
 
-  it('titulo so com o orgao (a data vai pra linha certa)', () => {
-    expect(tituloNotificacao(rj)).toBe('Notificado para leilão pelo DETRAN-RJ')
+  it('titulo com leilao previsto so quando a data e mesmo a do leilao', () => {
+    expect(tituloNotificacao(rj)).toBe('Notificado para leilão pelo DETRAN-RJ (leilão previsto para 09/06/2010)')
+    // data do indice = publicacao do D.O.: nao e data de leilao
+    expect(tituloNotificacao({ ...rj, ref: 'NOT:leilão_D.O._01.11.2011', data_leilao: '2011-11-01' }))
+      .toBe('Notificado para leilão pelo DETRAN-RJ')
     expect(tituloNotificacao({ fonte_uf: null })).toBe('Notificado para leilão pelo DETRAN')
+    expect(camposNotificacao(rj, { semPrevista: true }).map((c) => c.rotulo)).toEqual(['Órgão', 'Publicação'])
   })
 
   it('campos do edital do RJ: publicacao do D.O. e leilao previsto, nunca o nome do arquivo', () => {

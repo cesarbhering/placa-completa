@@ -46,13 +46,30 @@ function orgaoDe(p: any): string {
 }
 
 /**
- * "Notificado para leilão pelo DETRAN-RJ". A data NAO entra no titulo: no RJ
- * o `data_leilao` do indice as vezes e a data marcada pro leilao e as vezes a
- * da publicacao, entao cada data vai pra sua linha, com o rotulo certo (ver
- * camposNotificacao).
+ * "Notificado para leilão pelo DETRAN-RJ (leilão previsto para 09/06/2010)".
+ * A data so entra quando e mesmo a do leilao (ver datasNotificacao); sem ela,
+ * o titulo termina no orgao.
  */
 export function tituloNotificacao(p: any): string {
-  return `Notificado para leilão pelo ${orgaoDe(p)}`
+  const { prevista } = datasNotificacao(p)
+  return `Notificado para leilão pelo ${orgaoDe(p)}${prevista ? ` (leilão previsto para ${prevista})` : ''}`
+}
+
+/**
+ * Publicacao e leilao previsto, separados. No RJ o `data_leilao` do indice e
+ * coalesce(data do leilao, data de publicacao): ele so vale como "leilao
+ * previsto" quando e diferente da publicacao, senao seria chamar a data do
+ * Diario Oficial de data do leilao.
+ */
+export function datasNotificacao(p: any): { publicacao: string | null; prevista: string | null } {
+  const det = p?.detalhes && typeof p.detalhes === 'object' && !Array.isArray(p.detalhes) ? p.detalhes : {}
+  const publicacao = dataBR(det.data_publicacao) || lerEditalNotificacao(p?.ref).publicacao
+  let prevista = dataBR(det.data_prevista_leilao)
+  if (!prevista) {
+    const dl = dataBR(p?.data_leilao)
+    if (dl && dl !== publicacao) prevista = dl
+  }
+  return { publicacao, prevista }
 }
 
 export interface EditalNotificacao {
@@ -122,18 +139,15 @@ function texto(v: unknown): string | null {
  * data_publicacao, data_prevista_leilao, orgao, patio, lote, tipo_notificacao.
  * Sem eles, cai no que da pra ler do identificador do edital e no data_leilao.
  */
-export function camposNotificacao(p: any): Array<{ rotulo: string; valor: string }> {
+export function camposNotificacao(
+  p: any,
+  opts: { semPrevista?: boolean } = {},
+): Array<{ rotulo: string; valor: string }> {
   const det = p?.detalhes && typeof p.detalhes === 'object' && !Array.isArray(p.detalhes) ? p.detalhes : {}
   const lido = lerEditalNotificacao(p?.ref)
-  const publicacao = dataBR(det.data_publicacao) || lido.publicacao
-  // data_leilao do indice so vale como "leilao previsto" quando e diferente da
-  // publicacao: no RJ, sem data de leilao no edital, o indice cai na data de
-  // publicacao, e chamar isso de data do leilao seria errado.
-  let prevista = dataBR(det.data_prevista_leilao)
-  if (!prevista) {
-    const dl = dataBR(p?.data_leilao)
-    if (dl && dl !== publicacao) prevista = dl
-  }
+  const { publicacao, prevista: prev } = datasNotificacao(p)
+  // O relatorio ja poe a data prevista no titulo; la ela nao se repete.
+  const prevista = opts.semPrevista ? null : prev
   const numeroBase = texto(det.edital_numero) || lido.numero
   const numero = numeroBase && lido.retificacao ? `${numeroBase} (retificação)` : numeroBase
   const linhas: Array<[string, string | null]> = [

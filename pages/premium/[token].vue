@@ -640,7 +640,7 @@ const passagensLeilao = computed(() => {
     tituloNotificacao: ehNotificacao(p) ? tituloNotificacao(p).replace('DETRAN-', 'DETRAN-\u2060') : '',
     // Todos os dados do edital de notificacao, ja legiveis (nunca o nome do
     // arquivo nem a URL do documento).
-    camposNotificacao: ehNotificacao(p) ? camposNotificacao(p) : [],
+    camposNotificacao: ehNotificacao(p) ? camposNotificacao(p, { semPrevista: true }) : [],
     rotuloNivel: ROTULO_NIVEL[p.nivel] || humanizar(p.nivel),
     explicaNivel: EXPLICA_NIVEL[p.nivel] || '',
     // Nome PUBLICO, resolvido pela API: "Detran SP" pra orgao, "Leiloeira
