@@ -997,7 +997,8 @@ const multasDetalhe = computed(() => {
 })
 function reais(centavos?: number | null): string | null {
   if (centavos == null) return null
-  return `R$ ${(centavos / 100).toFixed(2).replace('.', ',')}`
+  // Com separador de milhar: "R$ 2.970,56", nao "R$ 2970,56".
+  return `R$ ${(centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 // Total "Para regularizar" = multas + licenciamento em aberto (NAO inclui IPVA
 // quando em dia). null quando nao ha nada a pagar (nao mostra o total).
@@ -1677,7 +1678,7 @@ onUnmounted(() => {
                         <b>{{ reais(Math.round((mt.valor || 0) * 100)) }}</b>
                       </div>
                       <p class="rel__multas-item-meta">
-                        <span v-if="mt.dataInfracao">{{ mt.dataInfracao }}<span v-if="mt.horaInfracao"> às {{ String(mt.horaInfracao).slice(0, 5) }}</span></span>
+                        <span v-if="mt.dataInfracao">{{ mt.dataInfracao }}<span v-if="mt.horaInfracao && !String(mt.horaInfracao).startsWith('00:00')"> às {{ String(mt.horaInfracao).slice(0, 5) }}</span></span>
                         <span v-if="mt.local"> · {{ mt.local }}<span v-if="mt.municipio">, {{ mt.municipio }}</span></span>
                         <span v-if="mt.orgao"> · {{ mt.orgao }}</span>
                         <span v-if="mt.dataVencimento"> · vencimento {{ mt.dataVencimento }}</span>
