@@ -82,6 +82,7 @@ export const DETRAN_UFS = {
   // MG exige o chassi alem de placa+renavam (vem do SENATRAN).
   // BA: login gov.br (CPF+senha), renavam sem placa. R$0,30 por chamada.
   BA: { path: 'detran/ba/multas', cert: 'govbr_ba', gate: 'renainf', fonte: 'detran_ba', fonteCusto: 'infosimples_detran_ba' },
+  RS: { path: 'detran/rs/infracoes', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_rs', fonteCusto: 'infosimples_detran_rs' },
   MG: { path: 'detran/mg/multas-descritivos', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_mg', fonteCusto: 'infosimples_detran_mg', exigeChassi: true },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
@@ -594,6 +595,55 @@ export function parsearDetranBa(data: any) {
   }
 }
 
+// ---------- DETRAN-RS (/detran/rs/infracoes) ----------
+//
+// Whitelist: NUNCA grava notificacao_autuacao_url, guia_pagamento_url nem
+// site_receipt. RS nao traz IPVA, licenciamento nem km nesse endpoint.
+
+/**
+ * Em aberto = situacao diferente de "Paga" (vencida, a vencer, em notificacao),
+ * exceto a linha sem situacao e sem valor. As pagas so entram na contagem do historico. O vencimento sai do
+ * texto "Vencida em DD/MM/AAAA" / "Vence em DD/MM/AAAA".
+ */
+export function parsearDetranRs(data: any) {
+  const d = data || {}
+  const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t || null }
+  const todas: any[] = Array.isArray(d.infracoes) ? d.infracoes : []
+  const paga = (x: any) => /^paga$/i.test(String(x?.situacao ?? '').trim())
+  // Sem situacao E com valor zero (visto no IWC7G10 real) nao e debito: seria
+  // uma "multa em aberto" de R$ 0,00. Fica so na contagem do historico.
+  const valorDe = (x: any) => (typeof x?.valor_normalizado === 'number' ? x.valor_normalizado : moeda(x?.valor))
+  const semNada = (x: any) => !String(x?.situacao ?? '').trim() && !(valorDe(x) > 0)
+  const abertas = todas.filter((x) => !paga(x) && !semNada(x))
+
+  const itens: DetranMulta[] = abertas.map((m: any) => ({
+    auto: texto(m?.serie),
+    descricao: texto(m?.descricao),
+    dataInfracao: texto(m?.data),
+    horaInfracao: texto(m?.hora),
+    dataVencimento: (String(m?.situacao ?? '').match(/(\d{2}\/\d{2}\/\d{4})/) || [])[1] ?? null,
+    valor: typeof m?.valor_normalizado === 'number' ? m.valor_normalizado : moeda(m?.valor),
+    local: texto(m?.local),
+    municipio: null,
+    orgao: null,
+  }))
+
+  return {
+    status: 'ok' as const,
+    fonte: 'detran_rs',
+    multas_total_centavos: Math.round(itens.reduce((acc, i) => acc + i.valor, 0) * 100),
+    licenciamento_centavos: null as number | null,
+    ipva_total_centavos: null as number | null,
+    hodometro: [] as { data: string | null; km: number }[],
+    hodometro_suspeito: false,
+    multas_itens: itens,
+    licenciamento_atrasado_ano: null as number | null,
+    restricoes_detran: [] as { tipo: string; texto: string }[],
+    // Historico (secundario): total notificado e quantas ja pagas.
+    historico_infracoes: { total: todas.length, pagas: todas.filter(paga).length, recursos: 0 },
+  }
+}
+
 // ---------- Trava do login gov.br (BA) ----------
 //
 // 608 = "Usuário e/ou senha inválidos": cada tentativa conta como senha errada
@@ -645,6 +695,7 @@ export function blocoDetranDaUf(uf: UfDetran, data: any) {
   if (uf === 'SC') return parsearDetranSc(data)
   if (uf === 'MG') return parsearDetranMg(data)
   if (uf === 'BA') return parsearDetranBa(data)
+  if (uf === 'RS') return parsearDetranRs(data)
   return detranParaMultas(parsearDetranSp(data))
 }
 

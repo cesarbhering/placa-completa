@@ -8,7 +8,7 @@ import crypto from 'node:crypto'
 // rota administrativa nao precisa confirmar que existe.
 //
 // Dois modos:
-//   - { testar: { placa, renavam, uf?, chassi? } } (uf SP|SC|MG|BA, padrao SP; MG exige chassi; BA usa so o renavam): UMA chamada direta ao Infosimples, sem
+//   - { testar: { placa, renavam, uf?, chassi? } } (uf SP|SC|MG|BA|RS, padrao SP; MG exige chassi; BA usa so o renavam): UMA chamada direta ao Infosimples, sem
 //     pedido, e devolve o bloco parseado. Custa (~R$0,28) e o custo e gravado
 //     em premium_custos com pedido_id nulo.
 //   - { tokens: [...] } ou { limite: N }: completa o campo `multas` do snapshot
