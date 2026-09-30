@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 
-// Backfill (e teste) do bloco DETRAN (SP, SC) (multas, hodometro, IPVA,
+// Backfill (e teste) do bloco DETRAN (SP, SC, MG) (multas, hodometro, IPVA,
 // licenciamento, restricoes) via Infosimples nos relatorios ja entregues.
 //
 // Rotina interna, disparada na mao: sem pagina, sem painel, so um POST com o
@@ -8,11 +8,11 @@ import crypto from 'node:crypto'
 // rota administrativa nao precisa confirmar que existe.
 //
 // Dois modos:
-//   - { testar: { placa, renavam, uf? } } (uf SP|SC, padrao SP): UMA chamada direta ao Infosimples, sem
+//   - { testar: { placa, renavam, uf?, chassi? } } (uf SP|SC|MG, padrao SP; MG exige chassi): UMA chamada direta ao Infosimples, sem
 //     pedido, e devolve o bloco parseado. Custa (~R$0,28) e o custo e gravado
 //     em premium_custos com pedido_id nulo.
 //   - { tokens: [...] } ou { limite: N }: completa o campo `multas` do snapshot
-//     dos pedidos entregues de veiculo SP/SC que ainda nao tem o bloco do
+//     dos pedidos entregues de veiculo SP/SC/MG que ainda nao tem o bloco do
 //     Infosimples (o bloco antigo do gov.br e sobrescrito).
 //
 // O que ela NAO faz: reconstruir o snapshot. So o campo das multas e escrito,
@@ -72,7 +72,9 @@ export default defineEventHandler(async (event) => {
     }
     if (!uf) throw createError({ statusCode: 400, message: `uf sem DETRAN: use ${Object.keys(DETRAN_UFS).join(' ou ')}.` })
     const t0 = Date.now()
-    const res = await consultarDetranInfosimples({ uf, placa, renavam })
+    const chassi = String(body.testar.chassi || '').toUpperCase().replace(/[^A-Z0-9]/g, '') || null
+    if ((DETRAN_UFS[uf] as any).exigeChassi && !chassi) throw createError({ statusCode: 400, message: `testar ${uf} exige chassi.` })
+    const res = await consultarDetranInfosimples({ uf, placa, renavam, chassi })
     await registrarCusto(supabase, { pedidoId: null, fonte: DETRAN_UFS[uf].fonteCusto, preco: res.preco, code: res.code })
     // So o bloco parseado (whitelist) sai daqui: a resposta crua do SC tem nome de pessoa.
     const bloco = res.code === 200 && res.data ? blocoDetranDaUf(uf, res.data) : null
