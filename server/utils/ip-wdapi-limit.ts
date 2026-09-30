@@ -40,6 +40,17 @@ async function calcularJanelaInicio(
   }
 }
 
+/**
+ * Teto wdapi do IP: max(15, whitelist). A whitelist de IP e gravada como
+ * 'ip:<ip>' (ex.: 'ip:62.169.22.218' = VPS, 30/h, PR #387) e o teto so olhava
+ * o IP cru, entao nunca casava e a sonda da VPS batia em 15/h. Olha as duas
+ * chaves (a crua por compatibilidade) e fica com a maior.
+ */
+export async function tetoIpWdapi(ip: string): Promise<number> {
+  const [prefixado, cru] = await Promise.all([getHourlyLimit(`ip:${ip}`), getHourlyLimit(ip)])
+  return Math.max(IP_WDAPI_HOURLY_LIMIT, prefixado, cru)
+}
+
 export interface LimiteWdapiResultado {
   ok: boolean
   teto?: number
@@ -60,9 +71,8 @@ export async function checarLimiteIpWdapi(
   const ipCheckable = !!ip && ip !== 'unknown'
   if (!ipCheckable || opts.homolog) return { ok: true }
 
-  const ipLimit = await getHourlyLimit(ip)
-  if (ipLimit === Infinity) return { ok: true }
-  const teto = Math.max(IP_WDAPI_HOURLY_LIMIT, ipLimit)
+  const teto = await tetoIpWdapi(ip)
+  if (teto === Infinity) return { ok: true }
 
   // Chamador pode ja ter calculado a janela (consulta.post.ts calcula pro
   // check de destinatario tambem, e reusa aqui pra nao duplicar a query do
