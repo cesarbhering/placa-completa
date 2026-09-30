@@ -36,4 +36,12 @@ describe('avisarAbuso', () => {
     await avisarAbuso({ ip: '3.3.3.3', rota: '/api/consulta', teto: 15 })
     expect(enviados[0].errorMessage).toContain('Sem e-mail informado')
   })
+
+  it('cliente que bateu no teto 1 ou 2 vezes nao vira alerta de abuso; 3+ vira', async () => {
+    await avisarAbuso({ ip: '4.4.4.4', rota: '/api/consulta', teto: 5, bloqueiosNaHora: 1 })
+    await avisarAbuso({ ip: '4.4.4.4', rota: '/api/consulta', teto: 5, bloqueiosNaHora: 2 })
+    expect(enviados).toHaveLength(0)
+    await avisarAbuso({ ip: '4.4.4.4', rota: '/api/consulta', teto: 5, bloqueiosNaHora: 3 })
+    expect(enviados).toHaveLength(1)
+  })
 })
