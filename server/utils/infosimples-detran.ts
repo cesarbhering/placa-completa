@@ -93,8 +93,16 @@ export async function consultarDetranSp(opts: { placa: string; renavam: string }
 
 // ---------- Parser (puro, testavel) ----------
 
-function moeda(v: any): number {
-  const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.'))
+// Aceita number (2970.56), string decimal com ponto ("2970.56", como o
+// Infosimples manda o multas_total) e formato BR ("R$ 2.970,56"). Tirar todos os
+// pontos sem olhar o formato transformava "2970.56" em 297056.
+export function moeda(v: any): number {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0
+  let t = String(v ?? '').replace(/[^\d,.-]/g, '')
+  if (!t) return 0
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.') // BR: 2.970,56
+  else if (/\.\d{3}(\.|$)/.test(t) && !/\.\d{1,2}$/.test(t)) t = t.replace(/\./g, '') // 2.970 (milhar)
+  const n = Number(t)
   return Number.isFinite(n) ? n : 0
 }
 

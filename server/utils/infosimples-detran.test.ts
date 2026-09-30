@@ -185,3 +185,22 @@ describe('completarDetran', () => {
     expect(sb.updates).toHaveLength(0)
   })
 })
+
+import { moeda } from './infosimples-detran'
+describe('moeda', () => {
+  it('le os formatos que o Infosimples manda', () => {
+    expect(moeda(2970.56)).toBe(2970.56)
+    expect(moeda('2970.56')).toBe(2970.56) // multas_total real do FYA8875
+    expect(moeda('R$ 2.970,56')).toBe(2970.56)
+    expect(moeda('432,10')).toBe(432.1)
+    expect(moeda('2.970')).toBe(2970)
+    expect(moeda('1.234.567')).toBe(1234567)
+    expect(moeda('0.0')).toBe(0)
+    expect(moeda('')).toBe(0)
+    expect(moeda(null)).toBe(0)
+  })
+  it('multas_total em string decimal nao explode o total do bloco', () => {
+    const p = parsearDetranSp({ ...REAL, multas_total: '2970.56' }, 2026)
+    expect(detranParaMultas(p).multas_total_centavos).toBe(297056)
+  })
+})
