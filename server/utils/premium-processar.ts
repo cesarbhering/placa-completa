@@ -258,10 +258,14 @@ export async function processarPedidoPago(
     // a propria pagina, que fica olhando por alguns minutos, mostra o bloco.
     if (temRecallPendente(r?.response)) completarRecallDepois(supabase, pedido, r.consultaId)
 
-    // Multas e restricoes (SP): o registro so acende o indicador; quem pagou
-    // quer o VALOR e o detalhe. Mesma logica do recall — busca solta depois da
-    // entrega, entra no snapshot e a pagina mostra o bloco quando chega.
-    if (temMultaSP(r?.response)) completarMultasDepois(supabase, pedido, { consultaId: r.consultaId, response: r.response })
+    // DETRAN-SP (multas + hodometro + IPVA + licenciamento + restricoes) via
+    // Infosimples, substituindo o runner gov.br quebrado. Gated: SEMPRE pra
+    // veiculo registrado em SP (UF do SENATRAN), sem depender do indicador de
+    // multa RENAINF. Busca solta depois da entrega (1 chamada por pedido, custo
+    // gravado ate em erro), entra no snapshot e a pagina mostra o bloco quando
+    // chega. Fail-open: timeout/erro so omite o bloco. completarDetranDepois se
+    // auto-restringe a SP; pra outras UFs nao ha chamada ate os endpoints delas.
+    completarDetranDepois(supabase, pedido, { consultaId: r.consultaId, response: r.response })
 
     // Placa e plano entram no assunto e no corpo: "seu relatorio completo da
     // placa ABC1D23 esta pronto" e reconhecivel na caixa de entrada, "sua

@@ -29,6 +29,7 @@
     "@nuxtjs/seo": "^3.4.0",
     "@nuxtjs/sitemap": "^7.6.0",
     "@supabase/supabase-js": "^2.49.1",
+    "aes-bridge": "2.1.0",
     "disposable-email-domains": "^1.0.62",
     "echarts": "^6.1.0",
     "html2canvas": "^1.4.1",

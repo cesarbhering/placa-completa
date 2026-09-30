@@ -77,3 +77,10 @@ describe('teto por relatorio', () => {
     expect(dentroDoTetoDeEdital('tok', t0 + 60 * 60 * 1000 + 1)).toBe(true)
   })
 })
+
+describe('edital de notificacao', () => {
+  it('nunca pertence ao relatorio, nem em snapshot antigo', () => {
+    const s = snap([{ edital_disponivel: true, edital_ref: 'r1', situacao: 'notificado' }])
+    expect(refPertenceAoRelatorio(s, 'r1')).toBe(false)
+  })
+})

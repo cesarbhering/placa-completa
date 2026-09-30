@@ -103,6 +103,28 @@ export async function consultarPlacaWdapiDetalhado(
 }
 
 /**
+ * So o cache: payload da placa se estiver no placa_cache como ENCONTRADA e
+ * fresca (TTL_MS), senao null. Nao chama a API paga. Serve pro preview do
+ * checkout decidir o teto: placa ja em cache nao custa wdapi, entao nao conta
+ * nem e barrada (quem acabou de consultar gratis precisa conseguir comprar).
+ */
+export async function lerPlacaCacheFresca(placa: string): Promise<any | null> {
+  const placaClean = normalizarPlaca(placa)
+  if (placaClean.length < 7) return null
+  try {
+    const { data } = await useSupabaseServer()
+      .from('placa_cache')
+      .select('payload, encontrado, fetched_at')
+      .eq('placa', placaClean)
+      .maybeSingle()
+    if (!data?.fetched_at || data.encontrado === false || !data.payload) return null
+    return Date.now() - new Date(data.fetched_at).getTime() < TTL_MS ? data.payload : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Retorna o payload bruto da wdapi2 (do cache quando fresco), ou null se nao deu
  * pra obter / placa nao encontrada. Nao lanca: os call sites tratam null como
  * "nao encontrado".

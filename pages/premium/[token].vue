@@ -16,7 +16,9 @@
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { explicaRestricao } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
+import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
+import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
 
 const route = useRoute()
 const token = route.params.token as string
@@ -254,6 +256,13 @@ const historicoLeilao = computed(() => data.value?.historicoLeilao ?? null)
 const temSecaoLeilao = computed(() => !!historicoLeilao.value)
 
 
+// Roubo/furto so do DETRAN estadual (SENATRAN em nada consta). Ver shared/roubo-detran.
+const rouboDetran = computed(() => rouboFurtoPeloDetran({
+  senatranLigado: g('indicadorRouboFurto') === true,
+  temOcorrenciasSenatran: ocorrencias.value.length > 0,
+  multas: multasDetalhe.value,
+}))
+
 const indicadores = computed(() => {
   const base: any[] = INDICADORES.filter((i) => has(i.k)).map((i) => {
     const ligado = g(i.k) === true
@@ -263,6 +272,19 @@ const indicadores = computed(() => {
     // cartao verde "NADA CONSTA" nesse caso e enganoso — quem le a sigla
     // "nada consta" entende "nunca teve problema", e nao e verdade. Se tem
     // ocorrencia registrada, o cartao acende mesmo com o indicador desligado.
+    // SENATRAN em NADA CONSTA (sem indicador e sem historico) mas o DETRAN
+    // estadual acusa roubo/furto: o cartao acende com a fonte explicita
+    // (decisao do Cesar, 30/set). Com o SENATRAN acusando, segue como esta.
+    if (i.k === 'indicadorRouboFurto' && rouboDetran.value) {
+      return {
+        ...i,
+        nao: rouboDetran.value.valorCartao,
+        dica: rouboDetran.value.texto,
+        rotuloVeredito: rouboDetran.value.rotuloVeredito,
+        ligado,
+        alerta: true,
+      }
+    }
     if (i.k === 'indicadorRouboFurto' && !ligado && ocorrencias.value.length) {
       // Episodio encerrado muda o TEXTO, nao a cor (decisao do Cesar em
       // 22/set): registro de roubo continua sendo registro de roubo, e o
@@ -332,17 +354,28 @@ const indicadores = computed(() => {
     const plural = (n: number) => (n > 1 ? 's' : '')
     // "Sem ocorrencia" e mais claro que "nada consta" pra uma base nossa, e o
     // estado do meio existe so quando ha foto pra pessoa comparar.
+    // Contagem refeita a partir das passagens: a API soma edital de
+    // NOTIFICACAO em n_confirmado, e notificacao nao e leilao realizado.
+    const cont = contarPassagens(historicoLeilao.value.passagens)
     let valor = 'SEM OCORRÊNCIA'
     let alerta = false
     let aceso = false
-    if (r.n_confirmado > 0) {
-      valor = `CONSTA (${r.n_confirmado} confirmado${plural(r.n_confirmado)})`
+    let neutro = false
+    if (cont.confirmado > 0) {
+      valor = `CONSTA (${cont.confirmado} confirmado${plural(cont.confirmado)})`
       alerta = true
       aceso = true
-    } else if (r.n_provavel > 0) {
-      valor = `PROVÁVEL (${r.n_provavel})`
+    } else if (cont.provavel > 0) {
+      valor = `PROVÁVEL (${cont.provavel})`
       alerta = true
       aceso = true
+    } else if (cont.notificado > 0) {
+      // So notificacao: aceso, mas neutro. O DETRAN avisou o dono; o leilao
+      // pode nao ter acontecido.
+      valor = 'NOTIFICADO PARA LEILÃO'
+      alerta = false
+      aceso = true
+      neutro = true
     } else if (possiveisComFoto.value.length > 0) {
       // Nem alerta nem verde: existe um lote parecido COM FOTO, e a decisao de
       // dizer se e o mesmo veiculo e de quem esta olhando.
@@ -359,6 +392,8 @@ const indicadores = computed(() => {
       dica: 'Cruzamos o veículo com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer chassi ou placa completos iguais; provável e possível são inferência por identificador parcial, então podem ser outro veículo. O detalhe de cada registro aparece na seção Histórico de leilão.',
       ligado: aceso,
       alerta,
+      // Cinza: aceso, mas nem problema (vermelho) nem "confira" (ambar).
+      neutro,
     }
     // Entra colado no "Leilão registrado no documento", que responde a outra
     // pergunta: aquele diz se o leilao foi anotado no registro do veiculo, este
@@ -469,7 +504,13 @@ const veredito = computed(() => {
     return {
       tom: 'ok' as const,
       titulo: 'Nada consta contra este veículo.',
-      texto: 'Na data de emissão, nenhum dos indicadores verificados aponta restrição, roubo, furto, registro de leilão ou pendência.',
+      // Notificacao para leilao nao e registro de leilao (nao acende alerta),
+      // mas o parecer nao pode dizer "nada" e a secao logo abaixo mostrar o
+      // aviso do DETRAN sem explicar a diferenca.
+      texto: 'Na data de emissão, nenhum dos indicadores verificados aponta restrição, roubo, furto, registro de leilão ou pendência.'
+        + (passagensNotificadas.value.length
+          ? ' Consta notificação para leilão do DETRAN, que não comprova que o leilão aconteceu (veja o Histórico de leilão).'
+          : ''),
     }
   }
   // Os rotulos sao siglas e nomes proprios (RENAJUD, RFB): baixar tudo pra
@@ -477,8 +518,11 @@ const veredito = computed(() => {
   // O cartao generico aceso e sempre renomeado aqui pelo tipo especifico
   // (restricoesForaDosIndicadores) — listar os dois diria a mesma coisa duas
   // vezes: "consta Outras restrições e Restrição de benefício tributário".
+  // Rotulo proprio no veredito quando o cartao acendeu por outra fonte (ex.:
+  // "roubo/furto informado pelo DETRAN-MG", nunca so "Roubo / furto").
+  const rotuloVer = new Map(indicadores.value.filter((i: any) => i.alerta && i.rotuloVeredito).map((i: any) => [i.label, i.rotuloVeredito]))
   const nomes = [
-    ...alertas.value.filter((l) => l !== 'Outras restrições'),
+    ...alertas.value.filter((l) => l !== 'Outras restrições').map((l) => rotuloVer.get(l) || l),
     ...restricoesForaDosIndicadores.value,
     ...(licAtrasado ? ['licenciamento atrasado'] : []),
   ]
@@ -594,6 +638,16 @@ const passagensLeilao = computed(() => {
   return lista.map((p: any, idx: number) => ({
     idx,
     nivel: p.nivel as string,
+    // Edital de notificacao: vai pra um bloco proprio, cinza, e nunca conta
+    // como leilao confirmado. Detectado aqui tambem (e nao so no servidor)
+    // porque o snapshot de relatorio antigo guarda a gravidade velha.
+    notificacao: ehNotificacao(p),
+    // Word joiner depois do hifen: sem ele, no celular a linha quebrava em
+    // "DETRAN-" / "RJ".
+    tituloNotificacao: ehNotificacao(p) ? tituloNotificacao(p).replace('DETRAN-', 'DETRAN-\u2060') : '',
+    // Todos os dados do edital de notificacao, ja legiveis (nunca o nome do
+    // arquivo nem a URL do documento).
+    camposNotificacao: ehNotificacao(p) ? camposNotificacao(p, { semPrevista: true }) : [],
     rotuloNivel: ROTULO_NIVEL[p.nivel] || humanizar(p.nivel),
     explicaNivel: EXPLICA_NIVEL[p.nivel] || '',
     // Nome PUBLICO, resolvido pela API: "Detran SP" pra orgao, "Leiloeira
@@ -605,7 +659,7 @@ const passagensLeilao = computed(() => {
     // cartao aparecia sem nome de fonte nenhum. Orgao vira "Detran SP" a partir
     // do codigo da fonte; privada vira o rotulo generico, nunca o nome da casa.
     fonte: p.fonte_exibicao || (p.fonte_tipo === 'detran' ? nomeDaFonte(p.fonte) : 'Leiloeira particular'),
-    gravidade: p.gravidade,
+    gravidade: ehNotificacao(p) ? GRAVIDADE_NOTIFICADO : p.gravidade,
     // Em fonte privada o proprio nome de exibicao ja diz o que e ("Leiloeira
     // particular"), entao o rotulo de tipo so aparece pro orgao oficial, que e
     // a informacao que muda a leitura da passagem.
@@ -640,8 +694,8 @@ const passagensLeilao = computed(() => {
     // Edital do orgao: so DETRAN. O snapshot de relatorio antigo nao tem estes
     // campos, e ai o botao simplesmente nao aparece, que e o comportamento
     // certo: o snapshot e o que a pessoa comprou.
-    edital_disponivel: p.fonte_tipo === 'detran' && !!p.edital_disponivel,
-    edital_ref: p.fonte_tipo === 'detran' && p.edital_ref ? String(p.edital_ref) : null,
+    edital_disponivel: p.fonte_tipo === 'detran' && !ehNotificacao(p) && !!p.edital_disponivel,
+    edital_ref: p.fonte_tipo === 'detran' && !ehNotificacao(p) && p.edital_ref ? String(p.edital_ref) : null,
   }))
 })
 
@@ -700,7 +754,22 @@ function formatarDataLeilao(iso: string): string {
 // palpite o mesmo peso visual de um edital com o chassi inteiro, e assustaria
 // quem esta comprando um carro sem historico nenhum. A contagem continua
 // visivel no resumo, entao nada e escondido.
-const passagensFortes = computed(() => passagensLeilao.value.filter((p) => p.nivel !== 'possivel'))
+const passagensFortes = computed(() => passagensLeilao.value.filter((p) => p.nivel !== 'possivel' && !p.notificacao))
+
+// Notificacoes com identificacao forte, uma por data (o mesmo edital pode vir
+// repetido de fontes da mesma UF). Notificacao "possivel" nao aparece: casar
+// final de placa com um aviso de notificacao nao diz nada sobre este carro.
+const passagensNotificadas = computed(() => {
+  const vistas = new Set<string>()
+  return passagensLeilao.value.filter((p) => {
+    if (!p.notificacao || p.nivel === 'possivel') return false
+    // Mesma notificacao repetida (mesmo edital e mesmas datas) aparece uma vez.
+    const chave = p.tituloNotificacao + '|' + p.camposNotificacao.map((c) => c.valor).join('|')
+    if (vistas.has(chave)) return false
+    vistas.add(chave)
+    return true
+  })
+})
 
 // Edital do DETRAN. O link e assinado e vale 24h, entao ele e gerado no clique,
 // nunca guardado: no snapshot, estaria morto no dia seguinte e vivo pra quem
@@ -741,7 +810,7 @@ function assinaturaDaPassagem(p: any): string {
 }
 
 const possiveisAgrupados = computed(() => {
-  const possiveis = passagensLeilao.value.filter((p) => p.nivel === 'possivel')
+  const possiveis = passagensLeilao.value.filter((p) => p.nivel === 'possivel' && !p.notificacao)
   const porAssinatura = new Map<string, typeof possiveis>()
   for (const p of possiveis) {
     const chave = assinaturaDaPassagem(p)
@@ -790,7 +859,7 @@ const temIndicioReal = computed(() => passagensFortes.value.length > 0)
 // e o dono, olhando. Por isso este bloco olha TODOS os possiveis, inclusive os
 // que a regra de ambiguidade tirou da lista textual.
 const possiveisComFoto = computed(() =>
-  passagensLeilao.value.filter((p) => p.nivel === 'possivel' && p.fotos.length > 0).slice(0, 3),
+  passagensLeilao.value.filter((p) => p.nivel === 'possivel' && !p.notificacao && p.fotos.length > 0).slice(0, 3),
 )
 
 // Nivel que a tela mostra. Sai das passagens que sobraram, nao do nivel_max da
@@ -808,8 +877,10 @@ const resumoLeilao = computed(() => {
   if (!r) return null
   const partes: string[] = []
   const plural = (n: number, um: string, muitos: string) => `${n} ${n > 1 ? muitos : um}`
-  if (r.n_confirmado) partes.push(plural(r.n_confirmado, 'confirmada', 'confirmadas'))
-  if (r.n_provavel) partes.push(plural(r.n_provavel, 'provável', 'prováveis'))
+  // Sem as notificacoes: elas tem bloco proprio e nao sao leilao confirmado.
+  const cont = contarPassagens(historicoLeilao.value?.passagens)
+  if (cont.confirmado) partes.push(plural(cont.confirmado, 'confirmada', 'confirmadas'))
+  if (cont.provavel) partes.push(plural(cont.provavel, 'provável', 'prováveis'))
   if (passagensPossiveis.value.length) partes.push(plural(passagensPossiveis.value.length, 'possível', 'possíveis'))
   return partes.join(' · ')
 })
@@ -994,22 +1065,36 @@ const recallCampanhasGM = computed(() => (recallAutoritativo.value?.campanhas ||
 const multaIndicadorSP = computed(
   () => g('indicadorMultaRenainf') === true && String(g('ufJurisdicao') || '').toUpperCase() === 'SP',
 )
+// Veiculo registrado em SP, SC ou MG: a consulta DETRAN (Infosimples) roda pra TODO pedido
+// dessas UFs (multas, hodometro, IPVA, licenciamento), nao so quando o RENAINF acende.
+// Por isso o bloco e o poll acompanham qualquer veiculo de SP, nao so multa.
+// Mesmo gate do servidor (DETRAN_UFS.gate): SP sempre; SC, MG, BA e RS so com multa
+// RENAINF. Sem isso o bloco ficava em "Consultando..." pra sempre num SC/MG
+// que nunca vai ser consultado.
+const ehVeiculoSpTela = computed(() => {
+  const uf = String(g('ufJurisdicao') || '').toUpperCase()
+  if (uf === 'SP') return true
+  return ['SC', 'MG', 'BA', 'RS'].includes(uf) && g('indicadorMultaRenainf') === true
+})
 const multasDetalhe = computed(() => {
   const m: any = data.value?.multas
   return m && (m.status === 'ok' || m.status === 'sem_debito') ? m : null
 })
 function reais(centavos?: number | null): string | null {
   if (centavos == null) return null
-  return `R$ ${(centavos / 100).toFixed(2).replace('.', ',')}`
+  // Com separador de milhar: "R$ 2.970,56", nao "R$ 2970,56".
+  return `R$ ${(centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
-// Total "Para regularizar" = multas + licenciamento em aberto (NAO inclui IPVA
-// quando em dia). null quando nao ha nada a pagar (nao mostra o total).
+// Total "Para regularizar" = multas + licenciamento + IPVA em aberto. null quando nao ha nada a pagar (nao mostra o total).
 const multasTotalCentavos = computed(() => {
   const m = multasDetalhe.value
   if (!m) return null
   const mm = m.multas_total_centavos && m.multas_total_centavos > 0 ? m.multas_total_centavos : 0
   const lic = m.licenciamento_centavos && m.licenciamento_centavos > 0 ? m.licenciamento_centavos : 0
-  const total = mm + lic
+  // IPVA em aberto tambem e divida do carro (o comentario sempre disse "NAO
+  // inclui IPVA quando em dia", mas o codigo nunca somava, nem em aberto).
+  const ipva = m.ipva_total_centavos && m.ipva_total_centavos > 0 ? m.ipva_total_centavos : 0
+  const total = mm + lic + ipva
   return total > 0 ? total : null
 })
 // Breakdown do cartao: Multas (Pix), Licenciamento (com vencimento), IPVA.
@@ -1019,16 +1104,28 @@ const multasBreakdown = computed(() => {
   const rows: { rotulo: string; valor: string; emDia: boolean }[] = []
   if (m.multas_total_centavos != null)
     rows.push({
-      rotulo: 'Multas (Pix)',
+      // gov.br so listava multa pagavel por Pix; o Infosimples traz TODAS em aberto.
+      rotulo: String(m.fonte || '').startsWith('detran_') ? 'Multas em aberto' : 'Multas (Pix)',
       valor: m.multas_total_centavos > 0 ? (reais(m.multas_total_centavos) as string) : 'Nada consta',
       emDia: !(m.multas_total_centavos > 0),
     })
-  if (m.licenciamento_centavos != null) {
+  // MG nao traz valor de licenciamento, so o ano: a linha aparece com o ano.
+  if (m.licenciamento_centavos != null || m.ultimo_licenciamento_ano != null || m.licenciamento_atrasado_ano != null) {
     const venc = m.licenciamento_venc ? ` (vence ${formatarDataBR(m.licenciamento_venc)})` : ''
+    // Debito zerado NAO e "em dia" se o ultimo exercicio licenciado ficou pra
+    // tras (pode ter ido pra divida ativa): senao a linha contradiz o alerta
+    // de licenciamento atrasado logo abaixo.
+    const atrasado = m.licenciamento_atrasado_ano
+    // Exercicio anterior sem atraso comprovado (calendario por placa): mostra o
+    // ultimo licenciamento, neutro, sem selo de atrasado e sem "Em dia".
+    const ultimo = m.ultimo_licenciamento_ano
+    const anterior = !atrasado && ultimo != null && ultimo < new Date().getFullYear()
     rows.push({
       rotulo: `Licenciamento${venc}`,
-      valor: m.licenciamento_centavos > 0 ? (reais(m.licenciamento_centavos) as string) : 'Em dia',
-      emDia: !(m.licenciamento_centavos > 0),
+      valor: m.licenciamento_centavos > 0
+        ? (reais(m.licenciamento_centavos) as string)
+        : atrasado ? `Atrasado (${atrasado})` : anterior ? `Último: ${ultimo}` : 'Em dia',
+      emDia: !(m.licenciamento_centavos > 0) && !atrasado && !anterior,
     })
   }
   if (m.ipva_total_centavos != null)
@@ -1037,10 +1134,13 @@ const multasBreakdown = computed(() => {
       valor: m.ipva_total_centavos > 0 ? (reais(m.ipva_total_centavos) as string) : 'Em dia',
       emDia: !(m.ipva_total_centavos > 0),
     })
+  else if (m.ipva_pago_ano != null)
+    // MG: so o ultimo exercicio de IPVA pago, sem valor. Neutro.
+    rows.push({ rotulo: 'IPVA', valor: `Último pago: ${m.ipva_pago_ano}`, emDia: false })
   return rows
 })
 // Extrato de quilometragem: cada leitura com o quanto rodou desde a anterior
-// (primeira linha "—"). `caiu` marca uma leitura menor que a anterior.
+// (primeira linha "-"). `caiu` marca uma leitura menor que a anterior.
 const hodometroExtrato = computed(() => {
   const lista = Array.isArray(multasDetalhe.value?.hodometro) ? multasDetalhe.value!.hodometro : []
   return lista.map((h: any, i: number) => {
@@ -1049,12 +1149,22 @@ const hodometroExtrato = computed(() => {
     const delta = prev == null || !Number.isFinite(prev) ? null : km - prev
     return {
       data: formatarDataBR(h?.data),
-      km: Number.isFinite(km) ? km.toLocaleString('pt-BR') : '—',
-      rodou: delta == null ? '—' : `${delta >= 0 ? '+' : ''}${delta.toLocaleString('pt-BR')}`,
+      km: Number.isFinite(km) ? km.toLocaleString('pt-BR') : '-',
+      rodou: delta == null ? '-' : `${delta >= 0 ? '+' : ''}${delta.toLocaleString('pt-BR')}`,
       caiu: delta != null && delta < 0,
     }
   })
 })
+// Rotulo humano do tipo de restricao do DETRAN.
+function rotuloRestricao(tipo?: string | null): string {
+  const map: Record<string, string> = {
+    financeira: 'Financeira', judiciaria: 'Judiciária',
+    administrativa: 'Administrativa', tributaria: 'Tributária', furto: 'Furto/roubo',
+    sng: 'Gravame (SNG)', situacao: 'Situação', divida_ativa: 'Dívida ativa', recuperado: 'Veículo recuperado',
+  }
+  return map[String(tipo || '')] || 'Restrição'
+}
+
 // dd/mm/aaaa a partir de ISO (YYYY-MM-DD), sem depender de timezone.
 function formatarDataBR(iso?: string | null): string {
   const s = String(iso || '')
@@ -1368,7 +1478,7 @@ onMounted(() => {
 // recall) e para assim que o bloco chega.
 let pollMultas: any = null
 onMounted(() => {
-  if (!multaIndicadorSP.value || multasDetalhe.value) return
+  if ((!multaIndicadorSP.value && !ehVeiculoSpTela.value) || multasDetalhe.value) return
   const ate = Date.now() + 6 * 60 * 1000
   pollMultas = setInterval(async () => {
     if (Date.now() > ate || multasDetalhe.value) { clearInterval(pollMultas); return }
@@ -1606,7 +1716,7 @@ onUnmounted(() => {
                 v-for="i in indicadores"
                 :key="i.k"
                 class="rel__ind"
-                :class="i.alerta ? 'rel__ind--bad' : (i.ligado && i.risco ? 'rel__ind--atencao' : 'rel__ind--ok')"
+                :class="i.alerta ? 'rel__ind--bad' : (i.ligado && i.neutro ? 'rel__ind--neutro' : (i.ligado && i.risco ? 'rel__ind--atencao' : 'rel__ind--ok'))"
               >
                 <span class="rel__ind-lab">
                   {{ rotuloPartes(i.label).inicio }}<span class="rel__ind-glue">{{ rotuloPartes(i.label).fim }}<button type="button" class="rel__info" :data-dica="i.dica" :aria-label="i.dica">
@@ -1647,9 +1757,15 @@ onUnmounted(() => {
 
             <!-- Multas e débitos no órgão de trânsito do estado (SP): o
                  indicador de multa acende, e aqui vem o VALOR e o detalhe. -->
-            <div v-if="multaIndicadorSP || multasDetalhe" class="rel__multas">
+            <div v-if="multaIndicadorSP || ehVeiculoSpTela || multasDetalhe" class="rel__multas">
               <p class="rel__multas-tit">Multas e débitos</p>
               <template v-if="multasDetalhe">
+                <!-- DETRAN-MG com ROUBO/FURTO nos impedimentos: destaque, com o
+                     texto da fonte, sem afirmar que o carro e roubado. -->
+                <p v-if="multasDetalhe.alerta_roubo_furto" class="rel__multas-kmalerta">
+                  <b>{{ multasDetalhe.alerta_roubo_furto }}.</b> Confira a situação no DETRAN antes de negociar.
+                </p>
+
                 <!-- Multas e débitos: total grande + breakdown -->
                 <div class="rel__multas-m3">
                   <div v-if="multasTotalCentavos" class="rel__multas-cap">
@@ -1663,6 +1779,57 @@ onUnmounted(() => {
                     </div>
                   </div>
                 </div>
+
+                <!-- Multas em aberto, uma a uma (o que, quando, onde, órgão). -->
+                <template v-if="multasDetalhe.multas_itens && multasDetalhe.multas_itens.length">
+                  <p class="rel__multas-sub">Multas em aberto</p>
+                  <ul class="rel__multas-itens">
+                    <li v-for="(mt, idx) in multasDetalhe.multas_itens" :key="'mi' + idx" class="rel__multas-item">
+                      <div class="rel__multas-item-top">
+                        <span>{{ mt.descricao || 'Infração de trânsito' }}</span>
+                        <b>{{ reais(Math.round((mt.valor || 0) * 100)) }}</b>
+                      </div>
+                      <p class="rel__multas-item-meta">
+                        <span v-if="mt.dataInfracao">{{ mt.dataInfracao }}<span v-if="mt.horaInfracao && !String(mt.horaInfracao).startsWith('00:00')"> às {{ String(mt.horaInfracao).slice(0, 5) }}</span></span>
+                        <span v-if="mt.local"> · {{ mt.local }}<span v-if="mt.municipio">, {{ mt.municipio }}</span></span>
+                        <span v-if="mt.orgao"> · {{ mt.orgao }}</span>
+                        <span v-if="mt.dataVencimento"> · vencimento {{ mt.dataVencimento }}</span>
+                      </p>
+                    </li>
+                  </ul>
+                </template>
+
+                <!-- Autuacoes em andamento (MG): ainda nao viraram multa. -->
+                <p v-if="multasDetalhe.autuacoes_em_andamento" class="rel__multas-nota">
+                  {{ multasDetalhe.autuacoes_em_andamento }}
+                  {{ multasDetalhe.autuacoes_em_andamento === 1 ? 'autuação em andamento' : 'autuações em andamento' }}
+                  no DETRAN (ainda sem multa).
+                </p>
+
+                <!-- Historico de infracoes (SC, RS): secundario, so contagem. -->
+                <p v-if="multasDetalhe.historico_infracoes && multasDetalhe.historico_infracoes.total" class="rel__multas-nota">
+                  Histórico: {{ multasDetalhe.historico_infracoes.total }}
+                  {{ multasDetalhe.historico_infracoes.total === 1 ? 'infração notificada' : 'infrações notificadas' }}
+                  no DETRAN, {{ multasDetalhe.historico_infracoes.pagas }}
+                  {{ multasDetalhe.historico_infracoes.pagas === 1 ? 'paga' : 'pagas' }}<template v-if="multasDetalhe.historico_infracoes.recursos">,
+                  {{ multasDetalhe.historico_infracoes.recursos }} {{ multasDetalhe.historico_infracoes.recursos === 1 ? 'recurso' : 'recursos' }}</template>.
+                </p>
+
+                <!-- Licenciamento atrasado (mesmo com débito zerado: pode ter ido
+                     pra dívida ativa). Copy factual. -->
+                <p v-if="multasDetalhe.licenciamento_atrasado_ano" class="rel__multas-kmalerta">
+                  Licenciamento atrasado: o último exercício licenciado foi {{ multasDetalhe.licenciamento_atrasado_ano }}. O veículo pode estar irregular para circular, confira.
+                </p>
+
+                <!-- Restrições do DETRAN (só as que constam de fato). -->
+                <template v-if="multasDetalhe.restricoes_detran && multasDetalhe.restricoes_detran.length">
+                  <p class="rel__multas-sub">Restrições no DETRAN</p>
+                  <ul class="rel__multas-restr">
+                    <li v-for="(rs, idx) in multasDetalhe.restricoes_detran" :key="'rs' + idx">
+                      <b>{{ rotuloRestricao(rs.tipo) }}:</b> {{ rs.texto }}
+                    </li>
+                  </ul>
+                </template>
 
                 <!-- Quilometragem: extrato Data | Km | Rodou -->
                 <template v-if="hodometroExtrato.length">
@@ -1687,7 +1854,7 @@ onUnmounted(() => {
                   <p v-else class="rel__multas-kmok"><b>Sem regressão de km.</b> Sem indício de hodômetro adulterado.</p>
                 </template>
               </template>
-              <p v-else class="rel__multas-nota">Multa em aberto: buscando o valor e o detalhe.</p>
+              <p v-else class="rel__multas-nota">Consultando débitos, multas e histórico no DETRAN. Aparece aqui em instantes.</p>
             </div>
 
             <!-- Recall pendente: a primeira pergunta de quem ve o cartao
@@ -1782,19 +1949,19 @@ onUnmounted(() => {
           <!-- historico de leilao (so completa, so onde o servico existe) -->
           <section v-if="temSecaoLeilao" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.leilao }}. Histórico de leilão</h2>
-            <p v-if="temIndicioReal || possiveisComFoto.length" class="rel__leilao-base">Placa e chassi cruzados com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de DETRANs e catálogos de leiloeiras.</p>
+            <p v-if="temIndicioReal || possiveisComFoto.length || passagensNotificadas.length" class="rel__leilao-base">Placa e chassi cruzados com uma base de mais de 1 milhão de veículos leiloados, montada a partir de editais de DETRANs e catálogos de leiloeiras.</p>
 
             <!-- Sem nada com grau de certeza, a seção diz UMA coisa só. Antes
                  empilhava "nenhum indício", mais a contagem de lotes parecidos,
                  mais o rodapé explicando níveis, e o resultado era um bloco
                  confuso pra dizer que não há nada. -->
-            <template v-if="!temIndicioReal && !possiveisComFoto.length">
+            <template v-if="!temIndicioReal && !possiveisComFoto.length && !passagensNotificadas.length">
               <p class="rel__leilao-limpo">
                 {{ leilaoSemOcorrencia(esteVeiculo) }}
               </p>
             </template>
 
-            <template v-else-if="temIndicioReal">
+            <template v-if="temIndicioReal">
               <p class="rel__leilao-resumo">
                 <span class="rel__nivel" :class="`rel__nivel--${nivelExibido}`">
                   {{ ROTULO_NIVEL[nivelExibido] }}
@@ -1882,6 +2049,26 @@ onUnmounted(() => {
               </div>
             </template>
 
+            <!-- Edital de NOTIFICACAO do DETRAN: o dono foi avisado de que o
+                 veiculo iria a leilao. Nao prova que o leilao aconteceu, entao
+                 fica cinza, fora da contagem de confirmados, sem data de
+                 leilao, sem "edital" cru (o codigo interno do RJ as vezes traz
+                 "sucata" no nome) e sem o texto de leilao fora do documento. -->
+            <div v-if="passagensNotificadas.length" class="rel__notif-lista">
+              <div v-for="p in passagensNotificadas" :key="`n${p.idx}`" class="rel__leilao rel__leilao--notif">
+                <p class="rel__grav rel__grav--cinza">
+                  <span class="rel__grav-barra" aria-hidden="true" />
+                  <span class="rel__grav-rotulo">{{ p.tituloNotificacao }}</span>
+                </p>
+                <ul v-if="p.camposNotificacao.length" class="rel__leilao-detalhes">
+                  <li v-for="c in p.camposNotificacao" :key="c.rotulo">
+                    <span>{{ c.rotulo }}</span><strong>{{ c.valor }}</strong>
+                  </li>
+                </ul>
+                <p class="rel__leilao-det">{{ EXPLICA_NOTIFICACAO }}</p>
+              </div>
+            </div>
+
             <!-- Lotes de perfil parecido COM FOTO. Não é indício e não acende
                  alerta: a fonte publica pouco do identificador, então quem
                  decide se é o veículo é a pessoa, comparando com o que ela tem
@@ -1913,7 +2100,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <p v-if="temIndicioReal || possiveisComFoto.length" class="rel__leilao-aviso">
+            <p v-if="temIndicioReal || possiveisComFoto.length || passagensNotificadas.length" class="rel__leilao-aviso">
               Fonte: editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer placa ou chassi completos iguais; provável quer dizer identificador parcial mais atributos do veículo. Não substitui consulta oficial.
             </p>
           </section>
@@ -2692,6 +2879,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__grav--laranja { color: #8a4b00; .rel__grav-barra { background: #e07a00; } }
   &__grav--vermelho { color: #a32020; .rel__grav-barra { background: $c-red; } }
   &__grav--cinza { color: $c-graphite; .rel__grav-barra { background: $c-steel; } }
+  // Notificacao para leilao: mesmo cartao da passagem, sem peso de alerta.
+  &__notif-lista { margin-top: 12px; }
+  &__leilao--notif { background: #f6f7f9; .rel__leilao-detalhes { margin-bottom: 10px; } }
 
   &__leilao-detalhes {
     list-style: none;
@@ -3203,6 +3393,34 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     color: #6b7280;
   }
 
+  // lista de multas em aberto (uma a uma)
+  &__multas-itens { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  &__multas-item {
+    padding: 10px 12px;
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 8px;
+  }
+  &__multas-item-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+    line-height: 1.35;
+
+    span { color: #1a1a1a; font-weight: 600; }
+    b { color: #a32020; white-space: nowrap; }
+  }
+  &__multas-item-meta { margin: 4px 0 0; font-size: 12px; line-height: 1.4; color: #6b7280; }
+
+  // restricoes do DETRAN
+  &__multas-restr {
+    list-style: none; margin: 0; padding: 0; display: grid; gap: 6px;
+    font-size: 13px; line-height: 1.4; color: #1a1a1a;
+
+    b { color: #6b7280; }
+  }
+
   // extrato de quilometragem
   &__multas-k3 {
     width: 100%;
@@ -3285,6 +3503,10 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border-color: rgba(180, 83, 9, 0.35);
     .rel__ind-val { color: #8a5200; &::before { background: #e0a800; } }
   }
+
+  // Quarto estado, cinza: notificacao para leilao. Existe o registro, mas ele
+  // nao afirma leilao nem condicao do veiculo.
+  &__ind--neutro .rel__ind-val { color: $c-graphite; &::before { background: $c-steel; } }
 
   &__ind--ok .rel__ind-val { color: #14622f; &::before { background: $c-green; } }
 

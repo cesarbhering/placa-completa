@@ -612,6 +612,13 @@ export default defineNuxtConfig({
     // recall). Sem ele no ambiente, a rota nem existe: 404, e nao 401, porque
     // rota administrativa nao precisa anunciar que existe.
     adminSecret: process.env.ADMIN_SECRET || "",
+    // DETRAN estadual via Infosimples (comeca por SP). O cert e SEMPRE o e-CNPJ,
+    // mandado criptografado (aes-bridge) a cada chamada. Private: nunca vao pro
+    // bundle do browser. Sem eles, o bloco DETRAN so nao aparece (fail-open).
+    infosimplesToken: process.env.NUXT_INFOSIMPLES_TOKEN || "",
+    infosimplesEncKey: process.env.NUXT_INFOSIMPLES_ENC_KEY || "",
+    infosimplesPkcs12B64: process.env.NUXT_INFOSIMPLES_PKCS12_B64 || "",
+    infosimplesPkcs12Pass: process.env.NUXT_INFOSIMPLES_PKCS12_PASS || "",
     abacatepayApiKey: process.env.ABACATEPAY_API_KEY || "",
     abacatepayWebhookSecret: process.env.ABACATEPAY_WEBHOOK_SECRET || "",
     abacatepayBase: process.env.ABACATEPAY_BASE || "https://api.abacatepay.com/v2",
