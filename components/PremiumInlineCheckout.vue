@@ -211,7 +211,7 @@ const rotuloPagar = computed(() => {
   }
   if (loading.value) return cupomGratis.value ? 'Liberando...' : 'Gerando Pix...'
   if (cupomGratis.value) return 'Liberar relatório grátis'
-  return props.plano === 'completa' ? 'Liberar meu relatório completo' : 'Liberar minha consulta'
+  return props.plano === 'completa' ? 'Pagar e liberar o relatório' : 'Liberar minha consulta'
 })
 const precoExibidoCentavos = computed(() =>
   Math.max(0, planoInfo.value.valorCentavos - cupomDescontoCentavos.value),
@@ -812,43 +812,29 @@ onUnmounted(() => {
 
           <!-- Confirmar veiculo + coletar contato -->
           <div v-else-if="step === 'confirm'" class="pic-stack">
-            <h3 class="pic-h">{{ jaConsultada ? 'Pagar e liberar o relatório' : 'É este veículo?' }}</h3>
-            <div v-if="preview?.encontrado" class="pic-veiculo">
-              <strong>{{ preview.marca }} {{ preview.modelo }}</strong>
-              <span>{{ preview.ano }} · {{ preview.cor }} · placa {{ preview.placa }}</span>
-            </div>
-            <div v-else class="pic-veiculo">
-              Não achamos os dados básicos, mas você pode seguir com a placa {{ preview?.placa }}.
-            </div>
-            <!-- Sem a lista item a item: quem chegou aqui ja viu o que entra
-                 no comparativo e no bloco bloqueado. Aqui basta dizer o que
-                 esta sendo comprado, por quanto e pra qual placa. -->
-            <div class="pic-resumo">
-              <span class="pic-resumo__linha">
-                <span>Relatório</span><strong>{{ planoInfo.nome }}</strong>
+            <!-- Faixa de resumo (opcao 04): sem titulo. Uma faixa cinza de duas
+                 colunas — carro a esquerda (marca/modelo + ano·placa com lapis),
+                 preco + "Relatorio completo" a direita. Le tudo de uma olhada. -->
+            <div class="pic-faixa">
+              <strong class="pic-faixa__veic">
+                <template v-if="preview?.encontrado">{{ preview.marca }} {{ preview.modelo }}</template>
+                <template v-else>Placa {{ placaClean }}</template>
+              </strong>
+              <span class="pic-faixa__preco">
+                <s v-if="cupomValido" class="pic-faixa__de">{{ reais(planoInfo.valorCentavos) }}</s>
+                <b>{{ reais(precoExibidoCentavos) }}</b>
               </span>
-              <span class="pic-resumo__linha">
-                <span>Placa</span>
-                <!-- Unico dado que a pessoa digitou, e o unico que, errado,
-                     faz ela pagar pelo carro de outro: a correcao mora aqui,
-                     na propria linha, em vez de ocupar uma tela inteira. -->
-                <span class="pic-resumo__placa-linha">
-                  <strong class="pic-resumo__placa">{{ placaClean }}</strong>
-                  <button type="button" class="pic-lapis" aria-label="Corrigir a placa" @click="abrirEdicao">
-                    <!-- lapis do Feather (edit-2) -->
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                    </svg>
-                  </button>
-                </span>
+              <span class="pic-faixa__sub">
+                <template v-if="preview?.encontrado">{{ preview.ano }} · </template>
+                <span class="pic-faixa__placa">{{ placaClean }}</span>
+                <button type="button" class="pic-lapis pic-lapis--faixa" aria-label="Corrigir a placa" @click="abrirEdicao">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                  </svg>
+                </button>
               </span>
-              <span v-if="cupomValido" class="pic-resumo__linha">
-                <span>Cupom</span><strong>-{{ reais(cupomDescontoCentavos) }}</strong>
-              </span>
-              <span class="pic-resumo__linha pic-resumo__linha--total">
-                <span>Total</span><strong>{{ reais(precoExibidoCentavos) }}</strong>
-              </span>
+              <span class="pic-faixa__plano">{{ planoInfo.nome }}</span>
             </div>
             <div v-if="editandoPlaca" class="pic-campo">
               <label class="pic-label" for="pic-placa-edit">Digite a placa correta</label>
@@ -1068,24 +1054,9 @@ onUnmounted(() => {
                 <div class="pic-pix__info">
                   <p class="pic-hint pic-hint--forte">Deixe esta tela aberta: quando o pagamento cair, o relatório abre aqui.</p>
 
-                  <!-- E-mail de entrega. So aparece pra quem ainda nao deu, e
-                       cabe na coluna de leitura sem empurrar o QR pra fora da
-                       tela: rotulo curto e uma linha de apoio, nao tres. -->
-                  <div v-if="!emailJaTemos" class="pic-email-pix">
-                    <label class="pic-label" for="pic-email-pix">Receber por e-mail (opcional)</label>
-                    <input
-                      id="pic-email-pix"
-                      v-model="email"
-                      type="email"
-                      inputmode="email"
-                      autocomplete="email"
-                      class="pic-input"
-                      placeholder="seu@email.com"
-                      @blur="salvarEmailDoPix"
-                    >
-                    <p v-if="emailPixSalvo" class="pic-cupom__ok">Pronto, também vai por e-mail.</p>
-                    <p v-else-if="emailPixErro" class="pic-hint">{{ emailPixErro }}</p>
-                  </div>
+                  <!-- O campo "Receber por e-mail (opcional)" saiu daqui: o e-mail
+                       opcional ja e pedido na primeira tela, antes de pagar. Menos
+                       uma coisa entre o QR e o "pagar", o QR sobe e cabe sem rolar. -->
 
                   <!-- Uma linha em vez de lista: ela ja decidiu comprar, isto
                        aqui e so lembrete enquanto abre o app do banco. -->
@@ -1348,6 +1319,47 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 .pic-veiculo--check { border-left: 3px solid $c-green; }
 .pic-veiculo__placa { font-size: 12px; letter-spacing: 0.06em; }
+
+// Faixa de resumo (opcao 04): 2 colunas, carro x preco/plano. Le de uma olhada.
+.pic-faixa {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  align-items: center;
+  background: $c-cloud;
+  border: 1px solid $c-hair;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.pic-faixa__veic {
+  font-size: 14px;
+  font-weight: 600;
+  color: $c-ink;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pic-faixa__preco {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+  text-align: right;
+
+  b { font-size: 18px; font-weight: 800; color: $c-ink; font-variant-numeric: tabular-nums; }
+}
+.pic-faixa__de { font-size: 12px; color: $c-steel; text-decoration: line-through; }
+.pic-faixa__sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: $c-graphite;
+}
+.pic-faixa__placa { font-weight: 600; letter-spacing: 0.04em; color: $c-ink; }
+.pic-faixa__plano { text-align: right; font-size: 12px; color: $c-graphite; }
+.pic-lapis--faixa { width: 22px; height: 22px; }
 
 // resumo do pedido: o que, pra qual placa, por quanto
 // ---- confianca ----
