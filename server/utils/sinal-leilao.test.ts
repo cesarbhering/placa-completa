@@ -105,12 +105,12 @@ describe('sinal com notificacao para leilao', () => {
   const notif = { nivel: 'confirmado', situacao: 'notificado', detalhes: { tipo_registro: 'notificacao_leilao' } }
   const soNotificacao = { resumo: { n_confirmado: 2, n_provavel: 0, n_possivel: 0 }, passagens: [notif, { ...notif }] } as any
 
-  it('por decisao de produto, notificacao sozinha acende o sinal', () => {
-    expect(sinalDoHistorico(soNotificacao)).toEqual({ positivo: true, quantidade: 2 })
+  it('por decisao do Cesar, notificacao sozinha NAO acende o sinal', () => {
+    expect(sinalDoHistorico(soNotificacao)).toEqual(SINAL_VAZIO)
   })
 
-  it('com a chave desligada, so notificacao nao acende', () => {
-    expect(sinalDoHistorico(soNotificacao, false)).toEqual(SINAL_VAZIO)
+  it('com a chave ligada, notificacao acenderia', () => {
+    expect(sinalDoHistorico(soNotificacao, true)).toEqual({ positivo: true, quantidade: 2 })
   })
 
   it('com a chave desligada, leilao real ao lado da notificacao continua contando', () => {
@@ -122,7 +122,7 @@ describe('sinal com notificacao para leilao', () => {
   })
 
   it('a frase continua vaga, sem falar em notificacao', () => {
-    expect(fraseSinal(sinalDoHistorico(soNotificacao))).toBe(
+    expect(fraseSinal(sinalDoHistorico(soNotificacao, true))).toBe(
       'Existem indícios de leilão deste veículo em nossa base. Confira no relatório completo.',
     )
   })

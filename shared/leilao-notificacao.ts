@@ -41,15 +41,18 @@ function dataBR(iso: unknown): string | null {
 }
 
 /**
- * "Notificado para leilão pelo DETRAN-RJ em 09/06/2010". Sem UF, cai no nome
- * generico; sem data, a frase termina no orgao (um terco das linhas do RJ nao
- * tem data, e inventar uma seria pior que omitir).
+ * "Notificado para leilão pelo DETRAN-RJ (leilão previsto para 09/06/2010)".
+ * A data do indice nem sempre e a da notificacao: no RJ as vezes e a do D.O.,
+ * as vezes a data marcada pro leilao, entao a frase fala em leilao PREVISTO,
+ * que e verdade nos dois casos (decisao do Cesar, 30/set). Sem UF, cai no
+ * nome generico; sem data, a frase termina no orgao (um terco das linhas do RJ
+ * nao tem data, e inventar uma seria pior que omitir).
  */
 export function tituloNotificacao(p: any): string {
   const uf = String(p?.fonte_uf || '').trim().toUpperCase()
   const orgao = /^[A-Z]{2}$/.test(uf) ? `DETRAN-${uf}` : 'DETRAN'
   const data = dataBR(p?.data_leilao)
-  return `Notificado para leilão pelo ${orgao}${data ? ` em ${data}` : ''}`
+  return `Notificado para leilão pelo ${orgao}${data ? ` (leilão previsto para ${data})` : ''}`
 }
 
 /**

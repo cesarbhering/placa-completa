@@ -23,7 +23,7 @@ describe('notificacao para leilao', () => {
   })
 
   it('titulo com orgao e data, sem travessao', () => {
-    expect(tituloNotificacao(rj)).toBe('Notificado para leilão pelo DETRAN-RJ em 09/06/2010')
+    expect(tituloNotificacao(rj)).toBe('Notificado para leilão pelo DETRAN-RJ (leilão previsto para 09/06/2010)')
     expect(tituloNotificacao({ ...rj, data_leilao: null })).toBe('Notificado para leilão pelo DETRAN-RJ')
     expect(tituloNotificacao({ fonte_uf: null, data_leilao: 'lixo' })).toBe('Notificado para leilão pelo DETRAN')
     expect(tituloNotificacao(rj)).not.toContain('—')
