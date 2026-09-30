@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ehNotificacao, tituloNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO } from './leilao-notificacao'
+import { ehNotificacao, tituloNotificacao, camposNotificacao, lerEditalNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO } from './leilao-notificacao'
 
 // Linha real do indice (AIC2103, DETRAN-RJ), como a /v1 devolve hoje.
 const rj = {
@@ -22,11 +22,58 @@ describe('notificacao para leilao', () => {
     expect(ehNotificacao({ detalhes: [] })).toBe(false)
   })
 
-  it('titulo com orgao e data, sem travessao', () => {
-    expect(tituloNotificacao(rj)).toBe('Notificado para leilão pelo DETRAN-RJ (leilão previsto para 09/06/2010)')
-    expect(tituloNotificacao({ ...rj, data_leilao: null })).toBe('Notificado para leilão pelo DETRAN-RJ')
-    expect(tituloNotificacao({ fonte_uf: null, data_leilao: 'lixo' })).toBe('Notificado para leilão pelo DETRAN')
-    expect(tituloNotificacao(rj)).not.toContain('—')
+  it('titulo so com o orgao (a data vai pra linha certa)', () => {
+    expect(tituloNotificacao(rj)).toBe('Notificado para leilão pelo DETRAN-RJ')
+    expect(tituloNotificacao({ fonte_uf: null })).toBe('Notificado para leilão pelo DETRAN')
+  })
+
+  it('campos do edital do RJ: publicacao do D.O. e leilao previsto, nunca o nome do arquivo', () => {
+    const c = camposNotificacao(rj)
+    expect(c).toEqual([
+      { rotulo: 'Órgão', valor: 'DETRAN-RJ' },
+      { rotulo: 'Publicação', valor: '07/05/2010' },
+      { rotulo: 'Leilão previsto para', valor: '09/06/2010' },
+    ])
+    expect(JSON.stringify(c)).not.toMatch(/NOT:|D\.O\._|\.pdf|http|—/)
+  })
+
+  it('data do indice igual a publicacao nao vira "leilao previsto"', () => {
+    const c = camposNotificacao({ ...rj, ref: 'NOT:leilão_D.O._01.11.2011', data_leilao: '2011-11-01' })
+    expect(c.map((x) => x.rotulo)).toEqual(['Órgão', 'Publicação'])
+  })
+
+  it('serie, tipo e retificacao saem legiveis; sucata_prensada vira tipo', () => {
+    const c = camposNotificacao({ ...rj, ref: 'NOT:edital_convocacao_04_2013_sucata_prensada', data_leilao: null })
+    expect(c).toContainEqual({ rotulo: 'Edital', valor: '04/2013' })
+    expect(c).toContainEqual({ rotulo: 'Tipo', valor: 'Inservível (sucata)' })
+    expect(JSON.stringify(c)).not.toMatch(/prensada|convocacao/)
+    expect(lerEditalNotificacao('NOT:edital_de_notificação_leilao_LD05_2015_recuperavel'))
+      .toEqual({ numero: 'LD 05/2015', publicacao: null, tipo: 'Recuperável', retificacao: false })
+    expect(lerEditalNotificacao('NOT:DO_LD001_2014').numero).toBe('LD 001/2014')
+    expect(lerEditalNotificacao('NOT:edital_detrarj_001_2017').numero).toBe('001/2017')
+    expect(lerEditalNotificacao('NOT:RETIFICACAO_edital_notificacao_retirada_japeri'))
+      .toEqual({ numero: null, publicacao: null, tipo: 'Retirada', retificacao: true })
+    expect(lerEditalNotificacao('arquivo_qualquer_sem_forma').numero).toBeNull()
+  })
+
+  it('campos do contrato em detalhes vencem a leitura do ref; URL nunca aparece', () => {
+    const c = camposNotificacao({
+      fonte_uf: 'MT', ref: 'x', lote: '12',
+      detalhes: {
+        tipo_registro: 'notificacao_leilao', edital_numero: '003/2026', data_publicacao: '2026-08-01',
+        data_prevista_leilao: '2026-09-15', patio: 'Pátio Cuiabá', tipo_notificacao: 'Recolhimento',
+        url: 'https://x/edital.pdf',
+      },
+    })
+    expect(c).toEqual([
+      { rotulo: 'Edital', valor: '003/2026' },
+      { rotulo: 'Órgão', valor: 'DETRAN-MT' },
+      { rotulo: 'Publicação', valor: '01/08/2026' },
+      { rotulo: 'Leilão previsto para', valor: '15/09/2026' },
+      { rotulo: 'Pátio', valor: 'Pátio Cuiabá' },
+      { rotulo: 'Lote', valor: '12' },
+      { rotulo: 'Tipo', valor: 'Recolhimento' },
+    ])
   })
 
   it('contagem tira notificacao de confirmado, e ignora notificacao fraca', () => {

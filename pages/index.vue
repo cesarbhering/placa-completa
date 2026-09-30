@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL } from '~/shared/planos'
-import { sinalDaResposta, fraseSinalNaTela } from '~/shared/sinal-leilao-resposta'
+import { sinalDaResposta, fraseSinalNaTela, type SinalNaTela } from '~/shared/sinal-leilao-resposta'
 import { sinalRecallDaResposta, fraseRecallNaTela } from '~/shared/sinal-recall-resposta'
 
 import { homepageFaqs } from '~/data/homepage-faqs'
@@ -292,7 +292,11 @@ const resultadoBasico = ref<Record<string, any> | null>(null)
 // Sinal de leilao da consulta gratis: um numero e um booleano, nada mais (a
 // muralha vive em server/utils/sinal-leilao.ts). Chega DEPOIS do resultado,
 // numa chamada propria, pra nao atrasar em nada o que a pessoa veio ver.
-const sinalLeilao = ref<{ positivo: boolean; quantidade: number } | null>(null)
+const sinalLeilao = ref<SinalNaTela | null>(null)
+// So edital de NOTIFICACAO do DETRAN (sem leilao realizado): a tag acende com a
+// mesma copy vaga, mas o bloco travado promete os campos da notificacao, nao
+// data do leilao, leiloeira e valor de venda, que o relatorio nao vai ter.
+const soNotificacao = computed(() => sinalLeilao.value?.positivo === true && sinalLeilao.value.tipo === 'notificacao')
 
 // "esta moto", "este carro", "este veiculo": mesma linguagem do relatorio.
 const esteVeiculoGratis = computed(() => {
@@ -328,7 +332,7 @@ async function buscarSinalLeilao() {
     // shared/sinal-leilao-resposta.ts.
     const lido = sinalDaResposta(r)
     sinalLeilao.value = lido
-    if (lido) track('leilao_sinal_visto', { positivo: lido.positivo })
+    if (lido) track('leilao_sinal_visto', { positivo: lido.positivo, tipo: lido.positivo ? lido.tipo : null })
   } catch {
     // Servico fora do ar ou lento: a consulta gratis segue sem o sinal. Nunca
     // mostrar "nao encontramos" por falha nossa, que seria mentir.
@@ -1397,6 +1401,7 @@ function applyEmailSuggestion() {
           :pct-fipe="pctFipe"
           :qtd-leiloes="qtdLeiloes"
           :leilao-encontrado="leilaoEncontrado"
+          :so-notificacao="soNotificacao"
           :preco-completa="precoBRL(PLANOS.completa.valorCentavos)"
           :preco-basica="precoBRL(PLANOS.basica.valorCentavos)"
           :frase-recall="fraseRecall"
@@ -1484,6 +1489,10 @@ function applyEmailSuggestion() {
               {{ tituloBlocoB }}
               <strong>A consulta grátis não mostra.</strong>
             </h2>
+            <h2 v-else-if="soNotificacao" class="cb-locked__h">
+              Notificação de leilão encontrada.
+              <strong>Os detalhes estão no relatório completo.</strong>
+            </h2>
             <h2 v-else-if="sinalLeilao?.positivo" class="cb-locked__h">
               Registro de leilão encontrado.
               <strong>Os detalhes estão no relatório completo.</strong>
@@ -1496,6 +1505,11 @@ function applyEmailSuggestion() {
                  (FIPE ja exibido acima). Sem FIPE a oracao do preco some
                  inteira, em vez de sair "R$ -". -->
             <p v-if="blocoVarianteB" class="cb-locked__sub">{{ subBlocoB }}</p>
+            <p v-else-if="soNotificacao" class="cb-locked__sub">
+              Edital, órgão, data prevista do leilão e mais <strong>{{ camposBloqueados.length }}</strong> verificações
+              para este veículo: restrição, indicador de roubo e furto, gravame, bloqueio judicial, indicador de
+              multas e mais. Liberado em até 5 minutos depois do pagamento.
+            </p>
             <p v-else-if="sinalLeilao?.positivo" class="cb-locked__sub">
               Data, leiloeira, condição do veículo e mais <strong>{{ camposBloqueados.length }}</strong> verificações
               para este veículo: restrição, indicador de roubo e furto, gravame, bloqueio judicial, indicador de
@@ -1535,6 +1549,8 @@ function applyEmailSuggestion() {
                   <button type="button" class="cb-btn cb-btn--blue" @click="cliqueCtaCompleta('bloco_bloqueado')">
                     {{ blocoVarianteB
                       ? 'Saber se posso confiar neste carro'
+                      : soNotificacao
+                        ? `Ver a notificação de leilão no relatório completo · ${precoBRL(PLANOS.completa.valorCentavos)}`
                       : sinalLeilao?.positivo
                         ? `Ver o registro de leilão no relatório completo · ${precoBRL(PLANOS.completa.valorCentavos)}`
                         : `Ver o que essa placa revela · ${precoBRL(PLANOS.completa.valorCentavos)}` }}
@@ -1571,12 +1587,13 @@ function applyEmailSuggestion() {
                registro encontrado, ela repete o achado em vez do argumento
                generico: e o unico texto que continua a vista. -->
           <div class="cb-sticky-upsell__txt">
-            <strong>{{ sinalLeilao?.positivo ? 'Registro de leilão encontrado' : 'Risco oculto nesta placa' }}</strong>
-            <span v-if="sinalLeilao?.positivo">Data, leiloeira e condição do veículo no relatório completo</span>
+            <strong>{{ soNotificacao ? 'Notificação de leilão encontrada' : sinalLeilao?.positivo ? 'Registro de leilão encontrado' : 'Risco oculto nesta placa' }}</strong>
+            <span v-if="soNotificacao">Edital, órgão e data prevista do leilão no relatório completo</span>
+            <span v-else-if="sinalLeilao?.positivo">Data, leiloeira e condição do veículo no relatório completo</span>
             <span v-else>Mais {{ camposBloqueados.length }} verificações e o histórico de leilão, com base de mais de 1 milhão de veículos</span>
           </div>
           <button type="button" class="cb-btn cb-btn--blue cb-sticky-upsell__cta" @click="cliqueCtaCompleta('barra_fixa')">
-            {{ sinalLeilao?.positivo ? 'Ver o leilão' : 'Ver agora' }} · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+            {{ soNotificacao ? 'Ver a notificação' : sinalLeilao?.positivo ? 'Ver o leilão' : 'Ver agora' }} · {{ precoBRL(PLANOS.completa.valorCentavos) }}
           </button>
         </div>
 

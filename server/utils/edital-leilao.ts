@@ -1,3 +1,4 @@
+import { ehNotificacao } from '../../shared/leilao-notificacao'
 // Regras de quem pode baixar o edital de um leilao, separadas do endpoint pra
 // poderem ser testadas.
 //
@@ -38,7 +39,8 @@ export function refPertenceAoRelatorio(snapshot: any, ref: string): boolean {
   if (!ref) return false
   const passagens = snapshot?.historicoLeilao?.passagens
   if (!Array.isArray(passagens)) return false
-  return passagens.some((p: any) => p?.edital_disponivel && p?.edital_ref && String(p.edital_ref) === ref)
+  // Edital de notificacao nunca sai, nem de snapshot antigo.
+  return passagens.some((p: any) => p?.edital_disponivel && p?.edital_ref && !ehNotificacao(p) && String(p.edital_ref) === ref)
 }
 
 /** Relatorio que ainda nao foi entregue nao tem edital nenhum pra oferecer. */
