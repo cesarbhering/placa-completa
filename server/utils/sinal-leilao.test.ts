@@ -98,3 +98,32 @@ describe('teto por IP', () => {
     for (let i = 0; i < 100; i++) expect(dentroDoTetoDeSinal('')).toBe(true)
   })
 })
+
+// Edital de notificacao: o DETRAN avisou o dono, o leilao pode nao ter
+// acontecido. A API conta como confirmado (casa pelo chassi inteiro).
+describe('sinal com notificacao para leilao', () => {
+  const notif = { nivel: 'confirmado', situacao: 'notificado', detalhes: { tipo_registro: 'notificacao_leilao' } }
+  const soNotificacao = { resumo: { n_confirmado: 2, n_provavel: 0, n_possivel: 0 }, passagens: [notif, { ...notif }] } as any
+
+  it('por decisao de produto, notificacao sozinha acende o sinal', () => {
+    expect(sinalDoHistorico(soNotificacao)).toEqual({ positivo: true, quantidade: 2 })
+  })
+
+  it('com a chave desligada, so notificacao nao acende', () => {
+    expect(sinalDoHistorico(soNotificacao, false)).toEqual(SINAL_VAZIO)
+  })
+
+  it('com a chave desligada, leilao real ao lado da notificacao continua contando', () => {
+    const misto = {
+      resumo: { n_confirmado: 2, n_provavel: 0 },
+      passagens: [notif, { nivel: 'confirmado', situacao: 'ARREMATADO', detalhes: {} }],
+    } as any
+    expect(sinalDoHistorico(misto, false)).toEqual({ positivo: true, quantidade: 1 })
+  })
+
+  it('a frase continua vaga, sem falar em notificacao', () => {
+    expect(fraseSinal(sinalDoHistorico(soNotificacao))).toBe(
+      'Existem indícios de leilão deste veículo em nossa base. Confira no relatório completo.',
+    )
+  })
+})

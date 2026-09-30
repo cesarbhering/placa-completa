@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sanearFotos } from './historico-leilao'
+import { sanearFotos, sanearHistorico } from './historico-leilao'
 
 // A allowlist e o que impede a pagina do cliente de virar hotlink do site da
 // leiloeira: sem ela, bastaria a API mandar a URL de terceiro.
@@ -41,5 +41,23 @@ describe('sanearFotos', () => {
   it('entrada que nao e lista nao quebra', () => {
     expect(sanearFotos(undefined)).toEqual([])
     expect(sanearFotos('https://fotos.placacompleta.com.br/x.jpg')).toEqual([])
+  })
+})
+
+describe('sanearHistorico com notificacao', () => {
+  it('fixa a gravidade em cinza mesmo quando a API antiga manda patio amarelo', () => {
+    const h = sanearHistorico({
+      resumo: { n_confirmado: 1 },
+      passagens: [{
+        nivel: 'confirmado', fonte: 'detran_rj', fonte_tipo: 'detran', fonte_uf: 'RJ', situacao: 'notificado',
+        detalhes: { situacao: 'notificado', tipo_registro: 'notificacao_leilao' },
+        gravidade: { nivel: 'patio', cor: 'amarelo', rotulo: 'Leilão de pátio (DETRAN)', motivo: 'x' },
+      }, {
+        nivel: 'confirmado', fonte: 'detran_sp', fonte_tipo: 'detran', fonte_uf: 'SP', situacao: 'SUCATA',
+        gravidade: { nivel: 'sucata', cor: 'vermelho', rotulo: 'Sucata / irrecuperável', motivo: 'y' },
+      }],
+    })!
+    expect(h.passagens[0].gravidade).toMatchObject({ nivel: 'notificado', cor: 'cinza' })
+    expect(h.passagens[1].gravidade).toMatchObject({ nivel: 'sucata', cor: 'vermelho' })
   })
 })
