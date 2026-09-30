@@ -55,12 +55,15 @@ export function ehVeiculoSp(uf: string | null | undefined): boolean {
 
 /** UFs com DETRAN via Infosimples: endpoint, marca no snapshot e fonte de custo. */
 export const DETRAN_UFS = {
-  SP: { path: 'detran/sp/debitos', cert: 'ecnpj', fonte: 'detran_sp', fonteCusto: 'infosimples_detran_sp' },
+  // gate: 'sempre' = todo pedido da UF; 'renainf' = so quando o SENATRAN traz
+  // indicadorMultaRenainf=true (decisao do Cesar, 30/set: reduz chamadas). O
+  // backfill manual por token ignora o gate.
+  SP: { path: 'detran/sp/debitos', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_sp', fonteCusto: 'infosimples_detran_sp' },
   // SC aceitou o e-CNPJ (teste do Lead, 29/set): decisao final do Cesar. O
   // 'ecpf' segue suportado pra UF futura, mas nenhuma usa hoje.
-  SC: { path: 'detran/sc/veiculo', cert: 'ecnpj', fonte: 'detran_sc', fonteCusto: 'infosimples_detran_sc' },
+  SC: { path: 'detran/sc/veiculo', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_sc', fonteCusto: 'infosimples_detran_sc' },
   // MG exige o chassi alem de placa+renavam (vem do SENATRAN).
-  MG: { path: 'detran/mg/multas-descritivos', cert: 'ecnpj', fonte: 'detran_mg', fonteCusto: 'infosimples_detran_mg', exigeChassi: true },
+  MG: { path: 'detran/mg/multas-descritivos', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_mg', fonteCusto: 'infosimples_detran_mg', exigeChassi: true },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 
@@ -68,6 +71,12 @@ export type UfDetran = keyof typeof DETRAN_UFS
 export function ufDetranSuportada(uf: string | null | undefined): UfDetran | null {
   const u = String(uf || '').trim().toUpperCase()
   return u in DETRAN_UFS ? (u as UfDetran) : null
+}
+
+/** O SENATRAN acusou multa RENAINF? (indicador na raiz ou em `restricoes`) */
+export function temMultaRenainf(response: any): boolean {
+  const bruto = Array.isArray(response) ? response[0] : response
+  return bruto?.indicadorMultaRenainf === true || bruto?.restricoes?.indicadorMultaRenainf === true
 }
 
 /** Chassi vindo da resposta paga do SENATRAN (o DETRAN-MG exige). */
@@ -548,12 +557,15 @@ export function blocoDetranDaUf(uf: UfDetran, data: any) {
 export async function completarDetran(
   supabase: any,
   pedido: { id: string; placa: string },
-  ctx: { response: any },
+  ctx: { response: any; ignorarGate?: boolean },
 ): Promise<ResultadoCompletarDetran> {
   const ufBruta = ufDaResposta(ctx.response)
   const uf = ufDetranSuportada(ufBruta)
   if (!uf) return { ok: false, pulado: `uf ${ufBruta || '?'} (so ${Object.keys(DETRAN_UFS).join('/')})` }
   const cfgUf = DETRAN_UFS[uf]
+  if (cfgUf.gate === 'renainf' && !ctx.ignorarGate && !temMultaRenainf(ctx.response)) {
+    return { ok: false, pulado: `${uf} so com RENAINF` }
+  }
   const renavam = renavamDaResposta(ctx.response)
   if (!renavam) return { ok: false, pulado: 'sem renavam' }
   const chassi = chassiDaResposta(ctx.response)

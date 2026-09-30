@@ -106,27 +106,45 @@ export default defineEventHandler(async (event) => {
   const { data: pedidos, error } = await q
   if (error) throw createError({ statusCode: 502, message: 'Leitura falhou: ' + error.message })
 
-  const resultados: any[] = []
-  let feitos = 0
-  let chamadas = 0
+  // Por token = decisao nossa: ignora o gate de RENAINF. Por limite (lote) respeita.
+  const ignorarGate = tokens.length > 0
 
   // Em serie de proposito: em paralelo isto so furaria o teto de gasto mais
   // rapido. `limite` conta CHAMADAS pagas, nao so sucessos.
-  for (const p of pedidos || []) {
-    if (limite && chamadas >= limite) break
-    const snap: any = p.relatorio_snapshot
-    const t0 = Date.now()
-    const r = await completarDetran(supabase, { id: p.id, placa: p.placa }, { response: snap?.consulta?.response })
-      .catch((e: any) => ({ ok: false as const, motivo: e?.message || 'erro' }))
-    const segundos = Math.round((Date.now() - t0) / 1000)
-    if (!r.ok && 'pulado' in r && r.pulado) {
-      resultados.push({ token: p.token_entrega, pulado: r.pulado })
-      continue
+  async function processar() {
+    const resultados: any[] = []
+    let feitos = 0
+    let chamadas = 0
+    for (const p of pedidos || []) {
+      if (limite && chamadas >= limite) break
+      const snap: any = p.relatorio_snapshot
+      const t0 = Date.now()
+      const r = await completarDetran(supabase, { id: p.id, placa: p.placa }, { response: snap?.consulta?.response, ignorarGate })
+        .catch((e: any) => ({ ok: false as const, motivo: e?.message || 'erro' }))
+      const segundos = Math.round((Date.now() - t0) / 1000)
+      const linha: any = (!r.ok && 'pulado' in r && r.pulado)
+        ? { token: p.token_entrega, pulado: r.pulado }
+        : { token: p.token_entrega, segundos, ...r }
+      if (!linha.pulado) { chamadas++; if (r.ok) feitos++ }
+      resultados.push(linha)
+      console.log('[backfill-detran]', JSON.stringify(linha))
     }
-    chamadas++
-    if (r.ok) feitos++
-    resultados.push({ token: p.token_entrega, segundos, ...r })
+    return { atualizados: feitos, chamadas, total: (pedidos || []).length, resultados }
   }
 
-  return { atualizados: feitos, chamadas, total: (pedidos || []).length, resultados }
+  // Cada chamada ao DETRAN leva 10-60s e o Cloudflare corta em 100s (524).
+  // Um pedido: responde na hora com o resultado. Mais de um: 202 e processa em
+  // background; o resultado de cada um sai no log ([backfill-detran]), em
+  // premium_custos e no snapshot do pedido.
+  if ((pedidos || []).length <= 1) return await processar()
+  void processar()
+    .then((r) => console.log('[backfill-detran] fim', JSON.stringify({ atualizados: r.atualizados, chamadas: r.chamadas, total: r.total })))
+    .catch((e: any) => console.warn('[backfill-detran] falhou:', e?.message || e))
+  setResponseStatus(event, 202)
+  return {
+    aceito: true,
+    total: (pedidos || []).length,
+    tokens: (pedidos || []).map((p: any) => p.token_entrega),
+    nota: 'Processando em background (em serie). Resultado por pedido no log [backfill-detran], em premium_custos e no snapshot.',
+  }
 })
