@@ -16,7 +16,7 @@ function pemFromEnv(v: string): Buffer | null {
 
 // Resolve o conjunto de config (GCC + SERPRO) por ambiente. Prod REUSA cert/key
 // de homolog quando os de prod estao vazios; cnpj/template idem (fallback).
-function configPorAmbiente(config: any, ambiente: Ambiente) {
+export function configPorAmbiente(config: any, ambiente: Ambiente) {
   if (ambiente === 'producao') {
     return {
       gccBase: String(config.gccBaseProd || ''),
@@ -42,14 +42,14 @@ function configPorAmbiente(config: any, ambiente: Ambiente) {
 // com uma valida logo atras. Preso na primeira, o fluxo estornava pedido
 // pagavel. O filtro por ambiente so RESTRINGE o conjunto; NUNCA cai pra chave
 // de outro ambiente.
-async function chavesCandidatas(supabase: any, ambiente: Ambiente): Promise<{ id: string; api_key: string }[]> {
+export async function chavesCandidatas(supabase: any, ambiente: Ambiente): Promise<{ id: string; api_key: string }[]> {
   const { data } = await supabase.from('gcc_api_keys').select('id,api_key').eq('ambiente', ambiente).eq('status', 'active').order('created_at', { ascending: false })
   if (data && data.length) return data
   const { data: todas } = await supabase.from('gcc_api_keys').select('id,api_key').eq('ambiente', ambiente).order('created_at', { ascending: false }).limit(1)
   return todas || []
 }
 
-function findHash(obj: any): string | null {
+export function findHash(obj: any): string | null {
   let found: string | null = null
   const walk = (o: any) => {
     if (found || o == null || typeof o !== 'object') return
@@ -145,7 +145,26 @@ export async function consultarSenatran(
   // que conversao, entao ela tem preferencia na segunda tentativa.
   opts: { placaAlternativa?: string | null } = {},
 ): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[]; placaConsultada: string }> {
-  return comFallbackDePlaca(placa, opts.placaAlternativa, (p) => umaConsultaComRetryDeRede(p, ambiente))
+  return comReposicaoDaReserva(
+    () => comFallbackDePlaca(placa, opts.placaAlternativa, (p) => umaConsultaComRetryDeRede(p, ambiente)),
+    () => reporReservaDepois(usePremiumSupabase(), ambiente),
+  )
+}
+
+/**
+ * Roda a venda e, DEU CERTO OU NAO, dispara a reposicao da reserva GCC uma vez
+ * no fim. Antes so repunha no sucesso: uma venda que falhava no SENATRAN (404 +
+ * fallback de placa) gastava os 2 hashes da reserva e ela ficava vazia ate o
+ * timer de 10 min. A reposicao e fire-and-forget e conta o que ja existe, entao
+ * repor com a reserva cheia nao gera hash nenhum. Nunca deixa a reposicao
+ * mudar o resultado da venda.
+ */
+export async function comReposicaoDaReserva<T>(venda: () => Promise<T>, repor: () => void): Promise<T> {
+  try {
+    return await venda()
+  } finally {
+    try { repor() } catch (e: any) { console.warn('[gcc-reserva] disparo da reposicao falhou:', e?.message || e) }
+  }
 }
 
 async function umaConsultaComRetryDeRede(placa: string, ambiente: Ambiente): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[] }> {
@@ -197,7 +216,19 @@ async function tentativaDeConsulta(placa: string, ambiente: Ambiente): Promise<{
   let consentResp: any = {}
   let ultimaHttp = 0
   let ultimoTexto = ''
+  // RESERVA primeiro: consome um hash JA pronto (imune a queda do GCC e sem o
+  // custo do POST). Fail-open — reserva vazia ou erro cai no fluxo de gerar hash
+  // na hora, exatamente como antes. consentId != null => veio da reserva (a
+  // linha em gcc_consentimentos ja existe, status 'em_uso').
+  let consentId: string | null = null
+  const reserva = await reivindicarReserva(supabase, ambiente)
+  if (reserva?.numero_hash_consulta) {
+    hash = reserva.numero_hash_consulta
+    consentId = reserva.id
+    trace.push({ etapa: 'GCC reserva', usouReserva: true, hashObtido: true })
+  }
   for (const candidata of chaves) {
+    if (hash) break // reserva ja resolveu: nao gera (nem paga) hash novo
     let consentRes: Response
     let consentText = ''
     try {
@@ -231,17 +262,23 @@ async function tentativaDeConsulta(placa: string, ambiente: Ambiente): Promise<{
       await supabase.from('gcc_api_keys').update({ status: 'invalid' }).eq('id', candidata.id)
     }
   }
-  if (!hash || !chave) {
+  if (!hash) {
     console.error('[senatran] nenhuma chave obteve hash. status=', ultimaHttp, 'body=', ultimoTexto.slice(0, 300))
     const err = createError({ statusCode: 502, message: 'Nao obtive numero_hash_consulta.' })
     ;(err as any).trace = trace
     throw err
   }
-  const { data: consent } = await supabase
-    .from('gcc_consentimentos')
-    .insert({ numero_hash_consulta: hash, status: 'created', api_key_id: chave.id, placa, raw_response: consentResp })
-    .select()
-    .single()
+  // Hash NOVO (nao veio da reserva): grava o consentimento agora. Se veio da
+  // reserva, a linha ja existe (status 'em_uso', consentId setado) e nao insere
+  // de novo — chave pode ser null nesse caso, por isso o guard.
+  if (!consentId) {
+    const { data: consent } = await supabase
+      .from('gcc_consentimentos')
+      .insert({ numero_hash_consulta: hash, status: 'created', api_key_id: chave!.id, placa, raw_response: consentResp })
+      .select()
+      .single()
+    consentId = consent?.id ?? null
+  }
 
   // 2) consulta SENATRAN (gasta o hash)
   let out: { status: number; body: string }
@@ -268,10 +305,10 @@ async function tentativaDeConsulta(placa: string, ambiente: Ambiente): Promise<{
 
   const { data: consulta } = await supabase
     .from('senatran_consultas')
-    .insert({ placa, consentimento_id: consent?.id, numero_hash_consulta: hash, http_status: out.status, ok, response: parsed })
+    .insert({ placa, consentimento_id: consentId, numero_hash_consulta: hash, http_status: out.status, ok, response: parsed })
     .select()
     .single()
-  await supabase.from('gcc_consentimentos').update({ status: ok ? 'spent' : 'error', spent_at: new Date().toISOString() }).eq('id', consent?.id)
+  await supabase.from('gcc_consentimentos').update({ status: ok ? 'spent' : 'error', spent_at: new Date().toISOString() }).eq('id', consentId)
 
   if (!ok) {
     // O statusCode importa: 502 e lido como falha de TRANSPORTE la fora, e o
@@ -289,5 +326,8 @@ async function tentativaDeConsulta(placa: string, ambiente: Ambiente): Promise<{
     ;(err as any).corpo = (out.body || '').slice(0, 1200)
     throw err
   }
+  // A reposicao da reserva roda em consultarSenatran (comReposicaoDaReserva),
+  // uma vez por venda, no sucesso E no erro.
+
   return { consultaId: consulta.id, ok, response: parsed, trace }
 }

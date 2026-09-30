@@ -10,6 +10,11 @@
 // do que a base tem hoje. Quando ela crescer, atualize aqui e as 19 paginas
 // mudam juntas.
 //
+// AO REGERAR: exclua `situacao = 'notificado'` (detalhes.tipo_registro =
+// 'notificacao_leilao'). Desde 30/set o indice tem editais de NOTIFICACAO do
+// DETRAN (34,5 mil so do RJ), que nao sao leilao realizado e inflariam
+// "passagens em leilao". Os numeros abaixo sao de 07/set, antes disso.
+//
 // DUAS REGRAS DE EXIBICAO, definidas pelo Cesar, aplicadas no template e nao
 // no texto (ver pages/carro-de-leilao/[slug].vue):
 //   1. percentual de sucata e recuperavel so aparece com amostra de desfecho

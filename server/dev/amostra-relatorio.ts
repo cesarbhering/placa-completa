@@ -123,6 +123,22 @@ const AMOSTRA_GGO6C06 = [
   },
 ]
 
+// Veiculo REAL da base de leiloes que so tem edital de NOTIFICACAO do
+// DETRAN-RJ (AIC2103, Kombi 1989): serve pra revisar o bloco cinza de
+// "Notificado para leilao". O resto do payload e o do caso limpo (Kicks), so
+// com a identificacao trocada, porque o que importa aqui e a secao de leilao.
+const AMOSTRA_NOTIFICADO = AMOSTRA_GGO6C06.map((v: any) => ({
+  ...v,
+  placa: 'AIC2103',
+  chassi: '9BWZZZ23ZKP011355',
+  renavam: null,
+  descricaoMarcaModelo: 'VW/KOMBI',
+  descricaoCor: 'BRANCA',
+  anoFabricacao: 1989,
+  anoModelo: 1989,
+  ufJurisdicao: 'RJ',
+}))
+
 // uf/municipio espelham o que o fluxo real guardaria no preview (vem da fonte
 // livre na hora do checkout, nao da jurisdicao): e o que alimenta IPVA/seguro.
 export const AMOSTRAS: Record<string, { placa: string; uf: string; municipio: string; payload: any }> = {
@@ -131,4 +147,5 @@ export const AMOSTRAS: Record<string, { placa: string; uf: string; municipio: st
   // Mesmo veiculo da amostra padrao; o que muda e o valorCusto, forcado pra
   // "versao FIPE nao identificada" no report.get. Serve pra revisar essa tela.
   '_amostra-fipe-incerta': { placa: 'QNA3903', uf: 'MG', municipio: 'Belo Horizonte', payload: AMOSTRA_QNA3903 },
+  '_amostra-notificado': { placa: 'AIC2103', uf: 'RJ', municipio: 'Rio de Janeiro', payload: AMOSTRA_NOTIFICADO },
 }

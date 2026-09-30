@@ -1,28 +1,34 @@
 import crypto from 'node:crypto'
 
-// Backfill (e teste) do bloco de multas/restricoes nos relatorios ja entregues.
+// Backfill (e teste) do bloco DETRAN (SP, SC, MG) (multas, hodometro, IPVA,
+// licenciamento, restricoes) via Infosimples nos relatorios ja entregues.
 //
 // Rotina interna, disparada na mao: sem pagina, sem painel, so um POST com o
 // segredo no header. Sem a env configurada a rota responde 404, e nao 401:
 // rota administrativa nao precisa confirmar que existe.
 //
 // Dois modos:
-//   - { testar: { placa, renavam, uf? } }: roda a busca UMA vez e devolve o
-//     detalhe. Serve pra validar em staging que o navegador BR sobe, a sessao
-//     gov.br salva loga no DETRAN-SP e a pagina e lida — sem depender de um
-//     pedido pago existir.
+//   - { testar: { placa, renavam, uf?, chassi? } } (uf SP|SC|MG|BA|RS, padrao SP; MG exige chassi; BA usa so o renavam): UMA chamada direta ao Infosimples, sem
+//     pedido, e devolve o bloco parseado. Custa (~R$0,28) e o custo e gravado
+//     em premium_custos com pedido_id nulo.
 //   - { tokens: [...] } ou { limite: N }: completa o campo `multas` do snapshot
-//     dos pedidos entregues que tem multa de SP e ainda nao tem o bloco.
+//     dos pedidos entregues de veiculo SP/SC/MG que ainda nao tem o bloco do
+//     Infosimples (o bloco antigo do gov.br e sobrescrito).
 //
 // O que ela NAO faz: reconstruir o snapshot. So o campo das multas e escrito,
 // porque o snapshot e o que a pessoa comprou.
 
 import {
-  buscarMultasDetalhe,
-  temMultaSP,
-  renavamDaResposta,
-  ufDaResposta,
-} from '../../../utils/detran-multas'
+  blocoDetranDaUf,
+  completarDetran,
+  consultarDetranInfosimples,
+  DETRAN_UFS,
+  infosimplesConfigurado,
+  registrarCusto,
+  ufDetranSuportada,
+  loginBaTravado,
+  travarLoginBaPublico as travarLoginBaDoTeste,
+} from '../../../utils/infosimples-detran'
 
 /** Teto de disparos por hora, contado em memoria do processo. */
 const TETO_POR_HORA = 5
@@ -53,22 +59,44 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event).catch(() => ({}))
   const supabase = usePremiumSupabase()
 
-  // ---- modo teste: uma busca direta, sem pedido ----
+  // Token/chave basicos; o cert de cada UF (e-CNPJ/e-CPF) e checado na chamada.
+  if (!infosimplesConfigurado('ecnpj') && !infosimplesConfigurado('ecpf')) {
+    throw createError({ statusCode: 503, message: 'Infosimples nao configurado neste ambiente.' })
+  }
+
+  // ---- modo teste: uma chamada direta, sem pedido ----
   if (body?.testar && typeof body.testar === 'object') {
-    const placa = String(body.testar.placa || '')
-    const renavam = String(body.testar.renavam || '')
-    const uf = String(body.testar.uf || 'SP').toUpperCase()
+    const placa = String(body.testar.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+    const renavam = String(body.testar.renavam || '').replace(/[^0-9]/g, '')
+    const uf = ufDetranSuportada(body.testar.uf || 'SP')
     if (!placa || !renavam) {
       throw createError({ statusCode: 400, message: 'testar exige placa e renavam.' })
     }
+    if (!uf) throw createError({ statusCode: 400, message: `uf sem DETRAN: use ${Object.keys(DETRAN_UFS).join(' ou ')}.` })
     const t0 = Date.now()
-    const detalhe = await buscarMultasDetalhe(supabase, { placa, renavam, uf }).catch((e: any) => ({
-      erro: e?.message || 'erro',
-    }))
-    return { modo: 'testar', placa, segundos: Math.round((Date.now() - t0) / 1000), detalhe }
+    const chassi = String(body.testar.chassi || '').toUpperCase().replace(/[^A-Z0-9]/g, '') || null
+    if ((DETRAN_UFS[uf] as any).exigeChassi && !chassi) throw createError({ statusCode: 400, message: `testar ${uf} exige chassi.` })
+    if ((DETRAN_UFS[uf] as any).cert === 'govbr_ba' && loginBaTravado()) {
+      throw createError({ statusCode: 409, message: 'Login gov.br do BA travado depois de um 608. Confira a senha e faca redeploy.' })
+    }
+    const res = await consultarDetranInfosimples({ uf, placa, renavam, chassi })
+    if ((DETRAN_UFS[uf] as any).cert === 'govbr_ba' && res.code === 608) travarLoginBaDoTeste(res.codeMessage)
+    await registrarCusto(supabase, { pedidoId: null, fonte: DETRAN_UFS[uf].fonteCusto, preco: res.preco, code: res.code })
+    // So o bloco parseado (whitelist) sai daqui: a resposta crua do SC tem nome de pessoa.
+    const bloco = res.code === 200 && res.data ? blocoDetranDaUf(uf, res.data) : null
+    return {
+      modo: 'testar',
+      uf,
+      placa,
+      segundos: Math.round((Date.now() - t0) / 1000),
+      code: res.code,
+      codeMessage: res.codeMessage,
+      preco: res.preco,
+      bloco,
+    }
   }
 
-  // ---- modo backfill: pedidos entregues com multa SP e sem o bloco ----
+  // ---- modo backfill: pedidos entregues de veiculo SP sem o bloco ----
   const tokens: string[] = Array.isArray(body?.tokens) ? body.tokens.map((t: any) => String(t)) : []
   const limite = Number(body?.limite) > 0 ? Math.min(Number(body.limite), 50) : null
   if (!tokens.length && !limite) {
@@ -77,71 +105,52 @@ export default defineEventHandler(async (event) => {
 
   let q = supabase
     .from('pedidos_premium')
-    .select('id,placa,token_entrega,consulta_id,relatorio_snapshot')
+    .select('id,placa,token_entrega,relatorio_snapshot')
     .eq('status', 'entregue')
     .not('relatorio_snapshot', 'is', null)
   if (tokens.length) q = q.in('token_entrega', tokens)
   const { data: pedidos, error } = await q
   if (error) throw createError({ statusCode: 502, message: 'Leitura falhou: ' + error.message })
 
-  const resultados: any[] = []
-  let feitos = 0
+  // Por token = decisao nossa: ignora o gate de RENAINF. Por limite (lote) respeita.
+  const ignorarGate = tokens.length > 0
 
   // Em serie de proposito: em paralelo isto so furaria o teto de gasto mais
-  // rapido.
-  for (const p of pedidos || []) {
-    if (limite && feitos >= limite) break
-    const snap: any = p.relatorio_snapshot
-    if (!snap || typeof snap !== 'object') {
-      resultados.push({ token: p.token_entrega, pulado: 'sem snapshot' })
-      continue
+  // rapido. `limite` conta CHAMADAS pagas, nao so sucessos.
+  async function processar() {
+    const resultados: any[] = []
+    let feitos = 0
+    let chamadas = 0
+    for (const p of pedidos || []) {
+      if (limite && chamadas >= limite) break
+      const snap: any = p.relatorio_snapshot
+      const t0 = Date.now()
+      const r = await completarDetran(supabase, { id: p.id, placa: p.placa }, { response: snap?.consulta?.response, ignorarGate })
+        .catch((e: any) => ({ ok: false as const, motivo: e?.message || 'erro' }))
+      const segundos = Math.round((Date.now() - t0) / 1000)
+      const linha: any = (!r.ok && 'pulado' in r && r.pulado)
+        ? { token: p.token_entrega, pulado: r.pulado }
+        : { token: p.token_entrega, segundos, ...r }
+      if (!linha.pulado) { chamadas++; if (r.ok) feitos++ }
+      resultados.push(linha)
+      console.log('[backfill-detran]', JSON.stringify(linha))
     }
-    if (snap.multas) {
-      resultados.push({ token: p.token_entrega, pulado: 'ja tem multas' })
-      continue
-    }
-    const response = snap?.consulta?.response
-    if (!temMultaSP(response)) {
-      resultados.push({ token: p.token_entrega, pulado: 'sem multa SP' })
-      continue
-    }
-    const renavam = renavamDaResposta(response)
-    if (!renavam) {
-      resultados.push({ token: p.token_entrega, pulado: 'sem renavam' })
-      continue
-    }
-
-    const t0 = Date.now()
-    const detalhe = await buscarMultasDetalhe(supabase, {
-      placa: p.placa,
-      renavam,
-      uf: ufDaResposta(response),
-      consultaId: p.consulta_id,
-    }).catch(() => null)
-    const segundos = Math.round((Date.now() - t0) / 1000)
-    if (!detalhe) {
-      resultados.push({ token: p.token_entrega, ok: false, segundos, motivo: 'sem resposta util' })
-      continue
-    }
-
-    const { error: upErr } = await supabase
-      .from('pedidos_premium')
-      .update({ relatorio_snapshot: { ...snap, multas: detalhe } })
-      .eq('id', p.id)
-    if (upErr) {
-      resultados.push({ token: p.token_entrega, ok: false, segundos, motivo: upErr.message })
-      continue
-    }
-
-    feitos++
-    resultados.push({
-      token: p.token_entrega,
-      ok: true,
-      segundos,
-      status: detalhe.status,
-      multas_centavos: detalhe.multas_total_centavos,
-    })
+    return { atualizados: feitos, chamadas, total: (pedidos || []).length, resultados }
   }
 
-  return { atualizados: feitos, total: (pedidos || []).length, resultados }
+  // Cada chamada ao DETRAN leva 10-60s e o Cloudflare corta em 100s (524).
+  // Um pedido: responde na hora com o resultado. Mais de um: 202 e processa em
+  // background; o resultado de cada um sai no log ([backfill-detran]), em
+  // premium_custos e no snapshot do pedido.
+  if ((pedidos || []).length <= 1) return await processar()
+  void processar()
+    .then((r) => console.log('[backfill-detran] fim', JSON.stringify({ atualizados: r.atualizados, chamadas: r.chamadas, total: r.total })))
+    .catch((e: any) => console.warn('[backfill-detran] falhou:', e?.message || e))
+  setResponseStatus(event, 202)
+  return {
+    aceito: true,
+    total: (pedidos || []).length,
+    tokens: (pedidos || []).map((p: any) => p.token_entrega),
+    nota: 'Processando em background (em serie). Resultado por pedido no log [backfill-detran], em premium_custos e no snapshot.',
+  }
 })

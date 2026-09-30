@@ -50,7 +50,40 @@ const getWmiOverride = db.prepare('SELECT * FROM wmi_overrides WHERE code = ?')
 // Duas buscas: o codigo exato da posicao 11 e, se nao houver, o curinga '*'
 // (WMI de fabrica unica, como o 9BD da Fiat, que so foi Betim).
 const getPlant = db.prepare('SELECT * FROM plants WHERE wmi_code = ? AND position_11 IN (?, \'*\')  ORDER BY position_11 = ? DESC LIMIT 1')
+const getRegrasModelo = db.prepare("SELECT * FROM plant_modelos WHERE wmi_code = ? AND position_11 IN (?, '*') ORDER BY position_11 = ? DESC, id")
 const getYear = db.prepare('SELECT * FROM year_codes WHERE code = ?')
+
+// Modelo do registro normalizado pra casar regra: maiusculo, sem acento, sem o
+// prefixo de importado ("I/"), pontuacao virando espaco, com espaco nas pontas
+// pra regex de palavra inteira ficar simples (" COROLLA ").
+export function normalizarModelo(modelo) {
+  const t = String(modelo || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/^I\s*\//, '')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim()
+  return t ? ` ${t} ` : ''
+}
+
+const regexCache = new Map()
+function re(p) {
+  if (!regexCache.has(p)) regexCache.set(p, new RegExp(p))
+  return regexCache.get(p)
+}
+
+function dentroDaJanelaDe(row, ano) {
+  return (row.ano_de == null || ano == null || ano >= row.ano_de)
+    && (row.ano_ate == null || ano == null || ano <= row.ano_ate)
+}
+
+// Dois niveis vao pra tela, por razoes diferentes: 'alta' e o codigo de
+// posicao 11 (ou a regra de modelo) validado contra a base de leiloes;
+// 'marca_unica_fabrica' e a marca que so tem um lugar onde montar, entao a
+// cidade nao depende do codigo. Qualquer outro nivel ('ambigua') fica fora e,
+// numa linha de posicao 11 exata, ainda BLOQUEIA o curinga '*' do WMI: e o
+// jeito de dizer "este codigo nao e da fabrica unica" (van Boxer no 936).
+const PUBLICAVEL = new Set(['alta', 'marca_unica_fabrica'])
 const insertLog = db.prepare(
   'INSERT INTO decode_log (vin_hash, wmi_prefix, achou_wmi, fabricante, pais) VALUES (?, ?, ?, ?, ?)',
 )
@@ -81,7 +114,11 @@ function regiaoPorPrimeiroChar(c) {
   return null
 }
 
-export function decodeVin(rawVin) {
+// opts.modelo: texto de marca/modelo do registro (so usado pela regra por
+// modelo). opts.ano: ano-modelo do registro; quando vem, manda nas janelas de
+// ano no lugar do ano do VIN (que e ambiguo no ciclo de 30 anos: um Escort
+// 1995 de Sao Bernardo virava 2025 e perdia a cidade).
+export function decodeVin(rawVin, opts = {}) {
   const vin = String(rawVin || '').trim().toUpperCase()
 
   if (!VALID_CHARS.test(vin)) {
@@ -127,19 +164,27 @@ export function decodeVin(rawVin) {
   // resolvedCode pode ser um WMI de 2 caracteres.
   const plantRow = getPlant.get(wmi3, vin[10], vin[10])
     || (row?.code && row.code !== wmi3 ? getPlant.get(row.code, vin[10], vin[10]) : null)
+  const anoRef = Number.isInteger(opts.ano) && opts.ano > 1900 && opts.ano < 2100 ? opts.ano : anoModelo
   // Fora da janela de anos, a cidade nao pode ser afirmada. E o caso da Ford
   // em Sao Bernardo: o mesmo codigo de posicao 11 aparece em carro de 2002 em
   // diante, que ja saia de Camacari. Nesse caso o relatorio mostra so a
-  // montadora e o pais, que continuam verdadeiros.
-  const dentroDaJanela = plantRow
-    && (plantRow.ano_de == null || anoModelo == null || anoModelo >= plantRow.ano_de)
-    && (plantRow.ano_ate == null || anoModelo == null || anoModelo <= plantRow.ano_ate)
-  // Dois niveis vao pra tela, por razoes diferentes: 'alta' e o codigo de
-  // posicao 11 validado contra a base de leiloes; 'marca_unica_fabrica' e a
-  // marca que so tem um lugar onde montar no Brasil, entao a cidade nao
-  // depende do codigo. Qualquer outro nivel fica fora.
-  const PUBLICAVEL = new Set(['alta', 'marca_unica_fabrica'])
-  const plantaOk = dentroDaJanela && PUBLICAVEL.has(plantRow.confianca) ? plantRow : null
+  // montadora e o pais, que continuam verdadeiros (ou a regra por modelo
+  // resolve, logo abaixo).
+  let plantaOk = plantRow && dentroDaJanelaDe(plantRow, anoRef) && PUBLICAVEL.has(plantRow.confianca) ? plantRow : null
+
+  // Regra por modelo: so quando a posicao 11 nao deu cidade e quem chamou
+  // mandou o modelo. A primeira regra que casa (padrao sim, excluir nao, ano
+  // dentro da janela) vence; regra de posicao 11 exata vem antes do curinga.
+  const modeloNorm = normalizarModelo(opts.modelo)
+  if (!plantaOk && modeloNorm) {
+    for (const r of getRegrasModelo.all(wmi3, vin[10], vin[10])) {
+      if (!re(r.padrao).test(modeloNorm)) continue
+      if (r.excluir && re(r.excluir).test(modeloNorm)) continue
+      if (!dentroDaJanelaDe(r, anoRef)) continue
+      if (PUBLICAVEL.has(r.confianca)) plantaOk = r
+      break
+    }
+  }
   // String legada (o relatorio antigo espera texto) mais o detalhe estruturado.
   const planta = plantaOk?.plant_name || null
   const plantaDetalhe = plantaOk

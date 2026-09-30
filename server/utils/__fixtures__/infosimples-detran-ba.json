@@ -1,0 +1,49 @@
+{
+ "extrato_infracoes_pdf_url": "https://storage.invalid/extrato-temporario.pdf",
+ "extrato_infracoes_tramitacao_pdf_url": "https://storage.invalid/tramitacao-temporaria.pdf",
+ "infracoes": [
+  {
+   "orgao_autuador": "DEPTO. POLICIA RODOVIARIA FEDERAL",
+   "descricao": "CONDUZIR VEIC COM VIDRO TOTAL/PARCIALEMNTE COBERTO POR PELICULA, PAINEIS/PINTURA",
+   "local": "BA - BR 324 - KM 514.00 - D",
+   "data": "02/05/2026",
+   "situacao": "PENALIZADA",
+   "numero_controle": "509357770",
+   "valor": "R$195,23",
+   "normalizado_valor": 195.23
+  }
+ ],
+ "infracoes_detalhes": [
+  {
+   "codigo_controle": "509357770",
+   "ait": "N005097437",
+   "codigo_infracao": "6700",
+   "pontos": "5",
+   "valor": "R$195,23",
+   "descricao": "CONDUZIR VEIC COM VIDRO TOTAL/PARCIALEMNTE COBERTO POR PELICULA,",
+   "orgao_autuador": "DEPTO. POLICIA RODOVIARIA FEDERAL",
+   "data_notificacao": "24/09/2026",
+   "data_recurso": "22/01/2027",
+   "data_vencimento": "26/06/2026",
+   "data_hora_infracao": "02/05/2026",
+   "natureza": "GRAVE",
+   "local": "BA - BR 324 - KM 514.00 - D",
+   "uf": "RD",
+   "municipio": "FEIRA DE SANTANA",
+   "normalizado_valor": 195.23
+  }
+ ],
+ "infracoes_tramitacao": [],
+ "infracoes_tramitacao_detalhes": [],
+ "proprietario": "FULANO DONO DO CARRO BA",
+ "veiculo": {
+  "placa": "SIP4I06",
+  "renavam": "1357806202",
+  "chassi": "9BD358ATFRYM96986",
+  "marca_modelo": "FIAT/ARGO DRIVE 1.0",
+  "ano_modelo": "2024",
+  "ano_fabricacao": "2023",
+  "cor": "PRATA"
+ },
+ "site_receipt": "https://storage.invalid/receipt-temporario"
+}
