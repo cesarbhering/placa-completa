@@ -47,3 +47,15 @@ describe('validadeDaReserva', () => {
     expect(d.getTime()).toBe(agora.getTime() + 24 * 3600 * 1000)
   })
 })
+
+import { ambienteDoCorpo } from './gcc-reserva'
+describe('ambienteDoCorpo (POST /api/premium/gcc-reserva)', () => {
+  it('exige ambiente explicito: sem default producao', () => {
+    expect(ambienteDoCorpo({ ambiente: 'producao' })).toBe('producao')
+    expect(ambienteDoCorpo({ ambiente: 'homolog' })).toBe('homolog')
+    expect(ambienteDoCorpo({})).toBeNull()
+    expect(ambienteDoCorpo(null)).toBeNull()
+    expect(ambienteDoCorpo({ ambiente: 'PRODUCAO' })).toBeNull()
+    expect(ambienteDoCorpo({ ambiente: 'prod' })).toBeNull()
+  })
+})

@@ -60,6 +60,17 @@ const AVISO_GCC = 'cesarcbhering@gmail.com'
 type Ambiente = 'homolog' | 'producao'
 
 /**
+ * Ambiente pedido no corpo do POST da reserva. SEM default: o staging tem chave
+ * GCC de producao ativa, e um POST sem ambiente num container de homolog
+ * comprava hash real (~R$7). Qualquer coisa fora de 'producao'|'homolog' -> null
+ * (o endpoint responde 400). O timer de prod manda 'producao' explicito.
+ */
+export function ambienteDoCorpo(body: any): Ambiente | null {
+  const a = body?.ambiente
+  return a === 'producao' || a === 'homolog' ? a : null
+}
+
+/**
  * Reivindica ATOMICAMENTE 1 hash da reserva pra uma venda (RPC com
  * `for update skip locked`: dois pedidos concorrentes nunca pegam o mesmo).
  * Devolve { id, numero_hash_consulta, api_key_id } ou null se a reserva estiver

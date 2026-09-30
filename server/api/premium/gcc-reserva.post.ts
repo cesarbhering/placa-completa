@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { ambienteDoCorpo } from '../../utils/gcc-reserva'
 
 // Mantem a RESERVA de hash GCC ("2 de frente"). Batido pelo timer systemd
 // (pc-gcc-reserva, a cada 10 min) e disparavel na mao. Roda: limpa reservas
@@ -18,8 +19,10 @@ export default defineEventHandler(async (event) => {
   if (!ok) throw createError({ statusCode: 404, message: 'Not Found' })
 
   const body = await readBody(event).catch(() => ({}))
-  // producao por padrao (o que interessa manter quente); homolog so quando pedido.
-  const ambiente: 'producao' | 'homolog' = body?.ambiente === 'homolog' ? 'homolog' : 'producao'
+  // Ambiente OBRIGATORIO e explicito (sem default): o timer de prod manda
+  // 'producao'; no homolog, um POST sem ambiente compraria hash real de prod.
+  const ambiente = ambienteDoCorpo(body)
+  if (!ambiente) throw createError({ statusCode: 400, message: "Informe ambiente: 'producao' ou 'homolog'." })
 
   const supabase = usePremiumSupabase()
   const vencidas = await limparReservaVencida(supabase, ambiente)

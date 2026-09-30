@@ -145,7 +145,26 @@ export async function consultarSenatran(
   // que conversao, entao ela tem preferencia na segunda tentativa.
   opts: { placaAlternativa?: string | null } = {},
 ): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[]; placaConsultada: string }> {
-  return comFallbackDePlaca(placa, opts.placaAlternativa, (p) => umaConsultaComRetryDeRede(p, ambiente))
+  return comReposicaoDaReserva(
+    () => comFallbackDePlaca(placa, opts.placaAlternativa, (p) => umaConsultaComRetryDeRede(p, ambiente)),
+    () => reporReservaDepois(usePremiumSupabase(), ambiente),
+  )
+}
+
+/**
+ * Roda a venda e, DEU CERTO OU NAO, dispara a reposicao da reserva GCC uma vez
+ * no fim. Antes so repunha no sucesso: uma venda que falhava no SENATRAN (404 +
+ * fallback de placa) gastava os 2 hashes da reserva e ela ficava vazia ate o
+ * timer de 10 min. A reposicao e fire-and-forget e conta o que ja existe, entao
+ * repor com a reserva cheia nao gera hash nenhum. Nunca deixa a reposicao
+ * mudar o resultado da venda.
+ */
+export async function comReposicaoDaReserva<T>(venda: () => Promise<T>, repor: () => void): Promise<T> {
+  try {
+    return await venda()
+  } finally {
+    try { repor() } catch (e: any) { console.warn('[gcc-reserva] disparo da reposicao falhou:', e?.message || e) }
+  }
 }
 
 async function umaConsultaComRetryDeRede(placa: string, ambiente: Ambiente): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[] }> {
@@ -307,9 +326,8 @@ async function tentativaDeConsulta(placa: string, ambiente: Ambiente): Promise<{
     ;(err as any).corpo = (out.body || '').slice(0, 1200)
     throw err
   }
-  // Consumiu um hash (reserva ou novo): repoe a reserva ate o teto, sem
-  // bloquear a entrega (fire-and-forget). O timer de 10 min e a rede de seguranca.
-  reporReservaDepois(supabase, ambiente)
+  // A reposicao da reserva roda em consultarSenatran (comReposicaoDaReserva),
+  // uma vez por venda, no sucesso E no erro.
 
   return { consultaId: consulta.id, ok, response: parsed, trace }
 }
