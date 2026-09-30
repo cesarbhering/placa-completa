@@ -1,10 +1,13 @@
 import type { HistoricoLeilao } from './historico-leilao'
+import { contarPassagens } from '../../shared/leilao-notificacao'
 
 // O SINAL de leilao da consulta gratis. Aqui mora a muralha entre o que a
 // consulta gratis mostra e o que so o relatorio pago entrega.
 //
 // A regra e simples e nao pode ser afrouxada sem decisao de produto: do
-// historico inteiro sai UM numero e um booleano. Data, leiloeira, lote, valor,
+// historico inteiro sai UM numero, um booleano e o TIPO do achado (leilao ou
+// so notificacao, decisao do Cesar de 30/set, pra tela nao prometer data de
+// leilao, leiloeira e valor de venda a quem so tem notificacao). Data, leiloeira, lote, valor,
 // condicao do veiculo, foto, fonte, nada disso atravessa. Se um dia alguem
 // precisar de mais um campo aqui, e sinal de que a conversa e sobre o que a
 // gente vende, nao sobre codigo.
@@ -24,6 +27,11 @@ export interface SinalLeilao {
   positivo: boolean | null
   /** Quantas passagens de nivel confirmado ou provavel. Zero nos outros casos. */
   quantidade: number
+  /**
+   * So quando positivo. 'leilao' = ha ao menos um leilao (com ou sem
+   * notificacao junto); 'notificacao' = so edital de notificacao do DETRAN.
+   */
+  tipo?: 'leilao' | 'notificacao'
 }
 
 /** A base respondeu e nao ha registro. */
@@ -32,17 +40,37 @@ export const SINAL_VAZIO: SinalLeilao = { positivo: false, quantidade: 0 }
 export const SINAL_INDISPONIVEL: SinalLeilao = { positivo: null, quantidade: 0 }
 
 /**
+ * Edital de NOTIFICACAO para leilao (o DETRAN avisou o dono; o leilao pode nao
+ * ter acontecido) acende o sinal sozinho? Decisao do Cesar (30/set, a ultima):
+ * SIM, com a mesma copy vaga, e o `tipo` = 'notificacao' faz a tela mostrar os
+ * campos da notificacao em vez de data do leilao, leiloeira e valor de venda.
+ */
+export const NOTIFICACAO_ACENDE_SINAL = true
+
+/**
  * So confirmado e provavel contam como sinal. "Possivel" e inferencia por
  * identificador parcial e pode ser outro veiculo: mostrar isso na consulta
  * gratis, sem o detalhe que permite julgar, seria acusar um carro por
  * coincidencia de dado.
  */
-export function sinalDoHistorico(historico: HistoricoLeilao | null | undefined): SinalLeilao {
+export function sinalDoHistorico(
+  historico: HistoricoLeilao | null | undefined,
+  acendeComNotificacao = NOTIFICACAO_ACENDE_SINAL,
+): SinalLeilao {
   // Sem historico, a consulta nao aconteceu: isso e "nao sabemos", nunca
   // "nao tem".
   if (!historico?.resumo) return SINAL_INDISPONIVEL
-  const n = (Number(historico.resumo.n_confirmado) || 0) + (Number(historico.resumo.n_provavel) || 0)
-  return n > 0 ? { positivo: true, quantidade: n } : SINAL_VAZIO
+  const total = (Number(historico.resumo.n_confirmado) || 0) + (Number(historico.resumo.n_provavel) || 0)
+  // A API soma notificacao em n_confirmado/n_provavel.
+  const notificacoes = Math.min(total, contarPassagens(historico.passagens).notificado)
+  const leiloes = total - notificacoes
+  if (leiloes > 0) {
+    return { positivo: true, quantidade: acendeComNotificacao ? total : leiloes, tipo: 'leilao' }
+  }
+  if (notificacoes > 0 && acendeComNotificacao) {
+    return { positivo: true, quantidade: notificacoes, tipo: 'notificacao' }
+  }
+  return SINAL_VAZIO
 }
 
 /**
