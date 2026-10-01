@@ -2,6 +2,7 @@
 import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL } from '~/shared/planos'
 import { sinalDaResposta, fraseSinalNaTela, type SinalNaTela } from '~/shared/sinal-leilao-resposta'
 import { sinalRecallDaResposta, fraseRecallNaTela } from '~/shared/sinal-recall-resposta'
+import { marcaTemRecallGratis } from '~/shared/marcas-recall'
 
 import { homepageFaqs } from '~/data/homepage-faqs'
 import { origemDaSessao } from '~/shared/origem-trafego'
@@ -349,9 +350,9 @@ const fraseRecall = computed(() => fraseRecallNaTela(recallSinal.value))
 async function buscarRecallSinal() {
   const b = resultadoBasico.value
   if (!b?.placa) return
-  // Marcas com base de recall (Toyota/Lexus, GM, VW, Fiat, Stellantis, Honda): fora disso nem
+  // Marcas com base de recall (lista unica em shared/marcas-recall.ts): fora disso nem
   // chama (o server tambem gateia).
-  if (!/\b(toyota|lexus|chevrolet|gm|general\s*motors|volkswagen|vw|fiat|peugeot|citro[eë]n|jeep|ram|dodge|honda)\b/i.test(String(b.marca || ''))) { recallSinal.value = null; return }
+  if (!marcaTemRecallGratis(b.marca)) { recallSinal.value = null; return }
   try {
     const r: any = await $fetch('/api/recall-sinal', {
       method: 'POST',
