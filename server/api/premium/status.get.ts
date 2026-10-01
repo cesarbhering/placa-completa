@@ -7,26 +7,42 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,placa,email,token_entrega,abacatepay_id,pix_provider,google_play_order_id,expira_em,plano,ambiente,debug_trace,erro,preview,valor_centavos,gclid,msclkid,utm_source,utm_campaign,entregue_em,relatorio_snapshot')
+    .select('id,status,placa,email,token_entrega,abacatepay_id,pix_provider,forma_pagamento,stripe_session_id,google_play_order_id,expira_em,plano,ambiente,debug_trace,erro,preview,valor_centavos,gclid,msclkid,utm_source,utm_campaign,entregue_em,relatorio_snapshot')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
 
   let status = pedido.status
   if (status === 'aguardando_pagamento') {
-    if (pedido.expira_em && new Date(pedido.expira_em).getTime() < Date.now()) {
+    const ehCartao = pedido.forma_pagamento === 'cartao'
+    // Cartao PRIMEIRO (Stripe), depois Pix — detecta pagamento em qualquer
+    // trilha. Ver status-pagamento.ts pra a regressao "abriu Pix, trocou pra
+    // cartao" que isto conserta.
+    const pago = await detectarPagamento(pedido, {
+      // v2 (Elements) guarda o pi_ do PaymentIntent; v1 (Checkout hospedado) o
+      // cs_ da sessao. Detecta os dois.
+      checarStripe: async (id) => id.startsWith('pi_')
+        ? paymentIntentPago(await consultarPaymentIntent(id))
+        : stripeSessionPaga(await consultarStripeSession(id)),
+      checarPix: async (provider, chargeId) => {
+        // Pergunta pro provedor que criou ESTA cobranca, nao pro configurado
+        // agora: os dois convivem enquanto a troca acontece.
+        const chk = await provedorDoPedido(provider).checarPix(chargeId)
+        return !!(chk && /paid|completed|pago/i.test(chk.status))
+      },
+    })
+
+    if (pago) {
+      // pagamento confirmado -> dispara a consulta (fire-and-forget; o container
+      // segue processando apos a resposta). Claim atomico evita duplicar.
+      processarPedidoPago(supabase, pedido).catch(() => {})
+      status = 'consultando'
+    } else if (!ehCartao && pedido.expira_em && new Date(pedido.expira_em).getTime() < Date.now()) {
+      // So o Pix expira pela janela do QR (15 min). Pedido de cartao NUNCA vira
+      // 'expirado' por causa de um expira_em de Pix: a sessao Stripe tem prazo
+      // proprio e a tela do cartao segue confirmando ate o pagamento cair.
       status = 'expirado'
       await supabase.from('pedidos_premium').update({ status }).eq('id', pedido.id)
-    } else if (pedido.abacatepay_id) {
-      // Pergunta pro provedor que criou ESTA cobranca, nao pro configurado
-      // agora: os dois convivem enquanto a troca acontece.
-      const chk = await provedorDoPedido(pedido.pix_provider).checarPix(pedido.abacatepay_id)
-      if (chk && /paid|completed|pago/i.test(chk.status)) {
-        // pagamento confirmado -> dispara a consulta (claim atomico evita duplicar
-        // com o webhook). Fire-and-forget: o container segue processando apos a resposta.
-        processarPedidoPago(supabase, pedido).catch(() => {})
-        status = 'consultando'
-      }
     }
   }
   // Piso de loading: quando o registro traz recall e/ou multa (SP), a tela de

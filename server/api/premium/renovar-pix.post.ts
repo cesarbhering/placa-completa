@@ -16,10 +16,19 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,valor_centavos,expira_em,abacatepay_id,pix_provider,plano')
+    .select('id,status,valor_centavos,expira_em,abacatepay_id,pix_provider,plano,forma_pagamento')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
+
+  // Pedido de CARTAO nao gera Pix. Sem esta trava, a tela do relatorio (que
+  // renova o Pix de um pedido pendente sem br_code) criava uma cobranca Pix no
+  // pedido de cartao ao voltar do Stripe — QR na tela em vez do relatorio e
+  // risco de cobranca dupla (Pix + cartao no MESMO pedido). O cartao confirma
+  // pela sessao Stripe, nunca por Pix.
+  if (pedido.forma_pagamento === 'cartao') {
+    throw createError({ statusCode: 409, message: 'Pedido de cartao nao gera Pix.' })
+  }
 
   // So pedido pendente. Qualquer outro status significa que ja houve cobranca:
   // gerar Pix ali seria oferecer um segundo pagamento pelo mesmo relatorio.

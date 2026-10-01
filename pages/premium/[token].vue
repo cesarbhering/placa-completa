@@ -31,6 +31,10 @@ const { trackConversionPaga } = useAnalytics()
 
 const plano = computed<string>(() => data.value?.plano || 'completa')
 const isBasica = computed(() => plano.value === 'basica')
+// Pedido de cartao (Stripe): a tela NUNCA mostra QR de Pix nem tenta renovar Pix.
+// Reconhece pela forma_pagamento do pedido ou pelo ?cartao=1 do success_url do
+// Stripe (cobre o instante em que o report ainda nao trouxe a forma).
+const ehCartao = computed(() => data.value?.formaPagamento === 'cartao' || String(route.query.cartao || '') === '1')
 const restantes = computed<number>(() => data.value?.camposRestantes || 0)
 const entregue = computed(() => data.value?.status === 'entregue')
 
@@ -546,7 +550,10 @@ onMounted(async () => {
   await nextTick()
   const d: any = data.value
   if (!d || jaTentou.value) return
-  if (d.status === 'aguardando_pagamento' && (d.expirado || !d.brCode)) {
+  // Cartao nunca renova Pix: o pagamento e pela sessao Stripe. Sem esta guarda,
+  // o pedido de cartao (que volta do Stripe sem br_code) gerava uma cobranca Pix
+  // aqui — QR na tela em vez do relatorio e risco de cobranca dupla.
+  if (!ehCartao.value && d.status === 'aguardando_pagamento' && (d.expirado || !d.brCode)) {
     jaTentou.value = true
     await renovarPix()
   }
@@ -1433,7 +1440,7 @@ onMounted(() => {
   histSync()
   const msg = `Fiz a consulta veicular no PlacaCompleta, olha o relatório: ${window.location.href}`
   compartilhar.value = `https://wa.me/?text=${encodeURIComponent(msg)}`
-  if (data.value?.status === 'aguardando_pagamento' && data.value?.brCode) buscarQr()
+  if (data.value?.status === 'aguardando_pagamento' && data.value?.brCode && !ehCartao.value) buscarQr()
   if (!data.value) return
   const existe = itens.value.some((x) => x.token === token)
   if (existe) histUpdate(token, data.value.status)
@@ -1458,7 +1465,7 @@ onMounted(() => {
         const r: any = await $fetch('/api/premium/status', { query: { token } })
         if (!r?.status || r.status === data.value?.status) return
         await refresh()          // o estado mudou de verdade: agora sim recarrega
-        await buscarQr()         // se veio br_code novo, o QR acompanha
+        if (!ehCartao.value) await buscarQr()  // Pix: se veio br_code novo, o QR acompanha (cartao nunca tem QR)
         if (data.value) histUpdate(token, data.value.status)
         // conversao do Ads/GA4 (veio do outro lado do merge): dispara quando o
         // pagamento se confirma; a funcao e idempotente por token
@@ -1535,7 +1542,7 @@ onUnmounted(() => {
         <!-- A pessoa iniciou o pagamento e voltou depois. Cai direto no Pix,
              sem passar por confirmacao de veiculo nem por formulario: ela ja
              fez tudo isso antes. -->
-        <div v-if="data.status === 'aguardando_pagamento' && data.brCode" class="rel__card rel__card--centro">
+        <div v-if="data.status === 'aguardando_pagamento' && data.brCode && !ehCartao" class="rel__card rel__card--centro">
           <span class="rel__kick">Pagamento pendente</span>
           <h1 class="rel__h">Conclua para liberar o relatório</h1>
 
@@ -1560,6 +1567,16 @@ onUnmounted(() => {
           </button>
           <p class="rel__brcode">{{ data.brCode }}</p>
           <p class="rel__hint">O relatório libera sozinho em até 5 minutos depois do pagamento.</p>
+        </div>
+
+        <!-- ============ 1b. CONFIRMANDO O CARTAO ============ -->
+        <!-- Pedido de cartao que voltou do Stripe e ainda aguarda a confirmacao
+             do pagamento (o polling do /status consulta a sessao Stripe). NUNCA
+             mostra QR de Pix: o cartao nao se paga por Pix. -->
+        <div v-else-if="data.status === 'aguardando_pagamento' && ehCartao" class="rel__card rel__card--centro">
+          <h1 class="rel__h">Confirmando o pagamento do cartão…</h1>
+          <div class="rel__barra"><div class="rel__barra-fill" /></div>
+          <p class="rel__hint">Assim que o pagamento for aprovado, seu relatório abre aqui. Isso leva alguns instantes.</p>
         </div>
 
         <!-- ============ 2. ESTADOS DE TRANSICAO E FALHA ============ -->
