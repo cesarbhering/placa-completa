@@ -97,7 +97,7 @@ useHead({
   title: `Tabela FIPE pela Placa ${currentYear}: Valor FIPE Atualizado em Segundos`,
   meta: [
     { name: 'description', content: `Consulte o valor da Tabela FIPE de qualquer veículo pela placa em ${currentMonth} de ${currentYear}. Resultado com marca, modelo, ano, código FIPE e preço atualizado do mês. Grátis.` },
-    { name: 'keywords', content: 'tabela FIPE por placa, valor FIPE pela placa, consultar FIPE grátis, preço veículo por placa, fipe pela placa, tabela fipe pela placa, codigo fipe placa' },
+    { name: 'keywords', content: 'tabela FIPE por placa, valor FIPE pela placa, consultar FIPE pela placa, preço veículo por placa, fipe pela placa, tabela fipe pela placa, codigo fipe placa' },
     { property: 'og:title', content: 'Tabela FIPE pela Placa: o valor do veículo' },
     { property: 'og:description', content: 'Descubra o valor FIPE de qualquer veículo pela placa, com marca, modelo, ano e preço na tela.' },
   ],

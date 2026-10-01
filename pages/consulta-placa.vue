@@ -11,10 +11,10 @@ function onCtaClick() {
 }
 
 useHead({
-  title: 'Consulta de Placa Veicular Grátis Online',
+  title: 'Consulta de Placa Veicular Online: Leilão, Roubo e Débitos',
   meta: [
-    { name: 'description', content: 'Faça a consulta de placa veicular grátis e receba por e-mail marca, modelo, ano, cor, tabela FIPE, município e situação do veículo. Sem cadastro.' },
-    { name: 'keywords', content: 'consulta de placa, consulta placa veicular, consultar placa online, consulta veicular grátis, pesquisar placa de carro' },
+    { name: 'description', content: 'Faça a consulta de placa veicular online e veja na hora marca, modelo, ano, tabela FIPE e situação do veículo, com relatório completo de leilão, gravame, roubo e débitos. Sem cadastro.' },
+    { name: 'keywords', content: 'consulta de placa, consulta placa veicular, consultar placa online, consulta veicular completa, consulta de placa com leilão, pesquisar placa de carro' },
     { property: 'og:title', content: 'Consulta de Placa Veicular Online' },
     { property: 'og:description', content: 'Consulte qualquer placa e veja os dados do veículo na hora, na própria tela.' },
   ],

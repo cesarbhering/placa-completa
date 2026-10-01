@@ -82,7 +82,7 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     // Honda CB600F Hornet, fundo transparente (recorte do Cesar).
     heroImage: '/hero-moto.webp',
     heroImageAlt: 'Honda CB600F Hornet vista de lado',
-    metaTitle: 'Consulta Placa de Moto Grátis: Roubo, Dívida e Leilão',
+    metaTitle: 'Consulta Placa de Moto: Leilão, Gravame, Roubo e Débitos',
     ogTitle: 'Olho na Moto · Relatório completo da moto pela placa',
     ogDescription: 'O que o anúncio não conta sobre a moto: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão, com base de mais de 1 milhão de veículos. Pagamento único no Pix, sem assinatura.',
   },
@@ -96,7 +96,7 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     // Volvo FH, fundo transparente (recorte do Cesar).
     heroImage: '/hero-caminhao.webp',
     heroImageAlt: 'Caminhão Volvo FH visto de lado',
-    metaTitle: 'Consulta Placa de Caminhão Grátis: Roubo, Dívida e Leilão',
+    metaTitle: 'Consulta Placa de Caminhão: Leilão, Gravame, Roubo e Débitos',
     ogTitle: 'Olho no Caminhão · Relatório completo do caminhão pela placa',
     ogDescription: 'O que o anúncio não conta sobre o caminhão: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão, com base de mais de 1 milhão de veículos. Pagamento único no Pix, sem assinatura.',
   },
