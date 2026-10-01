@@ -1,0 +1,59 @@
+{
+  "boleto_pdf_url": "https://storage.invalid/x",
+  "chassi": null,
+  "codigo_pix": "PIX-FALSO-000",
+  "lista_aits": [
+    "SG00069363",
+    "T463279514",
+    "E010595122",
+    "V601608092"
+  ],
+  "multas": [
+    {
+      "ait": "SG00069363",
+      "ait_originaria": "--",
+      "dados_infracao": "ESTACIONAR EM LOCAL/HORARIO PROIBIDO ESPECIFICAMEN",
+      "data_infracao": "07/05/2021",
+      "data_vencimento": "03/01/2022",
+      "valor_original": "R$ 130,16",
+      "valor": "R$ 204,51",
+      "normalizado_valor_original": 130.16,
+      "normalizado_valor": 204.51
+    },
+    {
+      "ait": "T463279514",
+      "ait_originaria": "--",
+      "dados_infracao": "ULTRAPASSAR PELA CONTRAMAO LINHA DE DIVISAO DE FLU",
+      "data_infracao": "02/06/2020",
+      "data_vencimento": "30/07/2021",
+      "valor_original": "R$ 1.467,35",
+      "valor": "R$ 2.356,12",
+      "normalizado_valor_original": 1467.35,
+      "normalizado_valor": 2356.12
+    },
+    {
+      "ait": "E010595122",
+      "ait_originaria": "--",
+      "dados_infracao": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITID",
+      "data_infracao": "09/11/2017",
+      "data_vencimento": "07/02/2018",
+      "valor_original": "R$ 130,16",
+      "valor": "R$ 228,95",
+      "normalizado_valor_original": 130.16,
+      "normalizado_valor": 228.95
+    },
+    {
+      "ait": "V601608092",
+      "ait_originaria": "--",
+      "dados_infracao": "TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITID",
+      "data_infracao": "03/04/2017",
+      "data_vencimento": "24/07/2017",
+      "valor_original": "R$ 130,16",
+      "valor": "R$ 234,47",
+      "normalizado_valor_original": 130.16,
+      "normalizado_valor": 234.47
+    }
+  ],
+  "multas_judice": null,
+  "site_receipt": "https://storage.invalid/x"
+}

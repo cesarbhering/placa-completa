@@ -89,7 +89,7 @@ describe('completarDetran BA (login gov.br)', () => {
     expect(loginBaTravado()).toBeTruthy()
     const sb2 = fakeSb()
     const r2 = await completarDetran(sb2, { id: 'p2', placa: 'RPJ6D25' }, { response: RESP })
-    expect(r2).toMatchObject({ ok: false, pulado: 'login BA travado (608)' })
+    expect(r2).toMatchObject({ ok: false, pulado: 'login gov.br travado (608)' })
     expect(f).toHaveBeenCalledTimes(1)
     expect(sb2.inserts).toHaveLength(0)
   })
