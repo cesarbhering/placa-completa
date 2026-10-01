@@ -1,0 +1,17 @@
+{
+  "matches": [],
+  "autoritativo": {
+    "fonte": "mercedes-benz",
+    "consultado": true,
+    "tem_recall_aberto": true,
+    "n_campanhas": 1,
+    "situacao": "consta_em_campanha",
+    "campanhas": [
+      { "codigo": null, "titulo": "Substituição do módulo do airbag do motorista", "status": "aberto" },
+      { "codigo": null, "titulo": "Inspeção da mangueira de combustível", "status": "realizado" }
+    ],
+    "atendimentos": [
+      { "codigo": null, "titulo": "Inspeção da mangueira de combustível", "data": "2019-05-20", "km": null, "concessionaria": "CONCESSIONARIA EXEMPLO", "nome": "FULANO DONO" }
+    ]
+  }
+}
