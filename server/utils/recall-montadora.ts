@@ -45,7 +45,18 @@ export interface RecallMontadora {
 
 const URL_NISSAN = 'https://us-central1-integracao-nissan-x-sem-parar.cloudfunctions.net/nissanRecall/recall/'
 const TTL_MS = 24 * 60 * 60 * 1000
-const TIMEOUT_MS = 8000
+/** GET direto da Nissan (ate a Nissan entrar na leiloes-api). */
+const TIMEOUT_NISSAN_MS = 8000
+/**
+ * Chamada autoritativa na leiloes-api: a API espera ate 30s pela montadora
+ * (ordem do Cesar, 01/out); o site espera 40s, MAIS que a API, pra receber o
+ * fail-open dela em vez de cortar antes. Roda pos-entrega: nao segura o
+ * loading nem nenhuma resposta ao cliente.
+ */
+const TIMEOUT_AUTORITATIVO_MS = 40000
+/** Retry so se a 1a chamada voltou RAPIDO sem o campo (a API nao esperou a montadora). */
+const RETRY_SE_ANTES_DE_MS = 10000
+const RETRY_ESPERA_MS = 2000
 const cache = new Map<string, { em: number; bloco: RecallMontadora }>()
 
 export function marcaMontadora(desc: string | null | undefined): FonteMontadora | null {
@@ -161,12 +172,31 @@ async function consultarMitsubishi(vin: string, perfil: { modelo?: string | null
   return sanearRecallMitsubishi(res?.autoritativo)
 }
 
+/**
+ * 1 chamada; sem o campo (ou erro), 1 retry depois de ~2s SO se a primeira
+ * voltou em menos de 10s. Se ela ja esperou a montadora (perto dos 30s da
+ * API), repetir so dobraria a espera pra provavelmente o mesmo timeout.
+ */
+async function comRetry(
+  chamar: () => Promise<RecallMontadora | null>,
+  opts?: { retryMs?: number; agora?: () => number },
+): Promise<RecallMontadora | null> {
+  const relogio = opts?.agora || Date.now
+  const tentar = async () => { try { return await chamar() } catch (e: any) { console.warn('[recall-montadora] tentativa falhou:', e?.message || e); return null } }
+  const t0 = relogio()
+  const primeira = await tentar()
+  if (primeira) return primeira
+  if (relogio() - t0 >= RETRY_SE_ANTES_DE_MS) return null
+  await new Promise((r) => setTimeout(r, opts?.retryMs ?? RETRY_ESPERA_MS))
+  return tentar()
+}
+
 /** Consulta a montadora do chassi. null = nao deu (fail-open). */
 export async function consultarRecallMontadora(
   fonte: FonteMontadora,
   chassi: string,
   perfil: { modelo?: string | null; ano_fab?: any; ano_mod?: any; placa?: string | null } = {},
-  opts?: { timeoutMs?: number },
+  opts?: { timeoutMs?: number; retryMs?: number; agora?: () => number },
 ): Promise<RecallMontadora | null> {
   const vin = String(chassi || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
   if (vin.length !== 17) return null
@@ -175,8 +205,12 @@ export async function consultarRecallMontadora(
   const c = cache.get(chave)
   if (c && agora - c.em < TTL_MS) return c.bloco
   try {
-    const t = opts?.timeoutMs || TIMEOUT_MS
-    const bloco = fonte === 'nissan' ? await consultarNissan(vin, t) : await consultarMitsubishi(vin, perfil, t)
+    let bloco: RecallMontadora | null
+    if (fonte === 'nissan') {
+      bloco = await consultarNissan(vin, opts?.timeoutMs || TIMEOUT_NISSAN_MS)
+    } else {
+      bloco = await comRetry(() => consultarMitsubishi(vin, perfil, opts?.timeoutMs || TIMEOUT_AUTORITATIVO_MS), opts)
+    }
     if (bloco) {
       cache.set(chave, { em: agora, bloco })
       if (cache.size > 5000) for (const [k, v] of cache) if (agora - v.em >= TTL_MS) cache.delete(k)
