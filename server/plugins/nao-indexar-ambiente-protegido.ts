@@ -1,4 +1,7 @@
-// Homolog e staging nunca podem ser indexados.
+import { hostIndexavel } from '../../shared/hosts-indexaveis'
+
+// Homolog, staging e qualquer host que NAO seja o dominio principal
+// (app.placacompleta.com.br, IP, dominio interno) nunca podem ser indexados.
 //
 // O problema real (achado com curl em homolog.placacompleta.com.br): o
 // subdominio respondia "x-robots-tag: index, follow" e servia robots.txt
@@ -25,10 +28,13 @@ function ambienteProtegido(gated: unknown): boolean {
     || process.env.NUXT_PUBLIC_STAGING === 'true'
 }
 
+const META_ROBOTS = /<meta\s+name=["']robots["']\s+content=["'][^"']*["']\s*\/?>/gi
+
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('beforeResponse', (event, resposta) => {
     const config = useRuntimeConfig(event)
-    if (!ambienteProtegido(config.public.gated)) return
+    const host = getRequestHost(event, { xForwardedHost: true })
+    if (!ambienteProtegido(config.public.gated) && hostIndexavel(host)) return
 
     setResponseHeader(event, 'X-Robots-Tag', 'noindex, nofollow, noarchive')
 
@@ -36,6 +42,14 @@ export default defineNitroPlugin((nitroApp) => {
     if (getRequestURL(event).pathname === '/robots.txt') {
       setResponseHeader(event, 'Content-Type', 'text/plain; charset=utf-8')
       resposta.body = 'User-agent: *\nDisallow: /\n'
+      return
+    }
+
+    // A meta robots fixa do nuxt.config ("index, follow") vai no HTML de toda
+    // pagina: fora do dominio principal ela vira noindex tambem (header e meta
+    // precisam concordar; crawler que so le o HTML obedece a meta).
+    if (typeof resposta.body === 'string' && resposta.body.includes('<meta')) {
+      resposta.body = resposta.body.replace(META_ROBOTS, '<meta name="robots" content="noindex, nofollow">')
     }
   })
 })
