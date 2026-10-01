@@ -1,0 +1,31 @@
+{
+  "dados": {
+    "proprietario": null,
+    "placa": "JUT9G09",
+    "renavam": "00000000000",
+    "cor": "AMARELA",
+    "marca": "TROLLER/T4 TDI",
+    "tipo": "UTILITARIO",
+    "modelo": "2003",
+    "fabricacao": "2004"
+  },
+  "debitos": {
+    "taxas_detran_am": null,
+    "normalizado_taxas_detran_am": null,
+    "multas_detran_am": "",
+    "normalizado_multas_detran_am": 0,
+    "seguro_obrigatorio": null,
+    "normalizado_seguro_obrigatorio": null,
+    "multas_outras_ufs": null,
+    "normalizado_multas_outras_ufs": null,
+    "multas_locais": null,
+    "normalizado_multas_locais": null,
+    "ipva": null,
+    "normalizado_ipva": null,
+    "total": "",
+    "normalizado_total": 0,
+    "boleto_pdf_url": null
+  },
+  "multas": [],
+  "site_receipt": "https://storage.invalid/x"
+}

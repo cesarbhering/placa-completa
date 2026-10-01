@@ -198,14 +198,15 @@ describe('completarDetran', () => {
     expect(sb.updates[0].row.relatorio_snapshot.multas.fonte).toBe('detran_sp')
   })
 
-  it('erro do Infosimples: grava o custo mesmo assim e nao mexe no snapshot', async () => {
+  it('erro do Infosimples: grava o custo mesmo assim e marca o bloco indisponivel (a tela para de esperar)', async () => {
     cfgOk()
     vi.stubGlobal('fetch', vi.fn(async () => ({ status: 200, json: async () => ({ code: 607, code_message: 'renavam invalido', header: { price: '0.28' } }) })))
     const sb = fakeSupabase({ consulta: {} })
     const r = await completarDetran(sb, { id: 'p1', placa: 'FYA8875' }, { response: RESP_SP })
     expect(r).toMatchObject({ ok: false, code: 607 })
     expect(sb.inserts).toHaveLength(1)
-    expect(sb.updates).toHaveLength(0)
+    expect(sb.updates).toHaveLength(1)
+    expect(sb.updates[0].row.relatorio_snapshot.multas).toEqual({ status: 'indisponivel', uf: 'SP' })
   })
 })
 
