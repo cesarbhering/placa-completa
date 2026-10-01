@@ -110,7 +110,33 @@ export function sanearRecallAutoritativo(bruto: unknown, fonte: FonteMontadora):
   const atendimentos: AtendimentoMontadora[] = (Array.isArray(b.atendimentos) ? b.atendimentos : [])
     .map((a: any) => ({ codigo: texto(a?.codigo, 40), titulo: texto(a?.titulo), data: isoData(a?.data), km: kmNum(a?.km), concessionaria: texto(a?.concessionaria, 80) }))
     .filter((a: AtendimentoMontadora) => a.data || a.km != null)
-  return ordenar({ fonte, consultado: true, campanhas, atendimentos })
+  return ordenar({ fonte, consultado: true, campanhas: dedupeCampanhas(campanhas), atendimentos: dedupeAtendimentos(atendimentos) })
+}
+
+/**
+ * A leiloes-api repassa a Nissan com UMA linha por item de reparo (RT030 com 2
+ * itens vem 2x, em campanhas e em atendimentos). Uma campanha por codigo (ou
+ * titulo, sem codigo): aberta se QUALQUER linha esta aberta (conservador),
+ * senao realizada se alguma foi realizada, senao excluida.
+ */
+function dedupeCampanhas(lista: CampanhaMontadora[]): CampanhaMontadora[] {
+  const peso = { aberto: 0, realizado: 1, excluido: 2 } as const
+  const porChave = new Map<string, CampanhaMontadora>()
+  for (const c of lista) {
+    const k = c.codigo || `t:${c.titulo || ''}`
+    const atual = porChave.get(k)
+    if (!atual || peso[c.status] < peso[atual.status]) porChave.set(k, { ...c, titulo: c.titulo || atual?.titulo || null })
+  }
+  return [...porChave.values()]
+}
+function dedupeAtendimentos(lista: AtendimentoMontadora[]): AtendimentoMontadora[] {
+  const vistos = new Set<string>()
+  return lista.filter((a) => {
+    const k = [a.codigo || a.titulo || '', a.data || '', a.km ?? '', a.concessionaria || ''].join('|')
+    if (vistos.has(k)) return false
+    vistos.add(k)
+    return true
+  })
 }
 
 /** Marca que vai no corpo do /v1/recall por fonte. */

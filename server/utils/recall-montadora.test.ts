@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import NISSAN from './__fixtures__/recall-nissan-autoritativo.json'
 import MMC from './__fixtures__/recall-mitsubishi-autoritativo.json'
 import MB from './__fixtures__/recall-mercedes-autoritativo.json'
+import NREAL from './__fixtures__/recall-nissan-autoritativo-real.json'
 import { sanearRecallAutoritativo, consultarRecallMontadora, completarRecallMontadora, marcaMontadora, _limparCacheMontadora } from './recall-montadora'
 
 // Fixtures no formato do /v1/recall {autoritativo:true} da leiloes-api.
@@ -23,6 +24,19 @@ describe('sanearRecallAutoritativo', () => {
     expect(b.atendimentos.map((a) => a.km)).toEqual([41250, 18300])
     const out = JSON.stringify(b)
     for (const p of ['FULANO', '123.456.789', 'OS-998877', 'ABC1D23', 'situacao']) expect(out).not.toContain(p)
+  })
+  it('Nissan REAL da leiloes-api (Frontier, 01/out): duplicatas por item de reparo viram 1 campanha e 1 atendimento', () => {
+    const b = sanearRecallAutoritativo(NREAL.autoritativo, 'nissan')!
+    expect(b.campanhas.map((c) => [c.codigo, c.status])).toEqual([['RT038', 'realizado'], ['RT030', 'realizado'], ['R1202', 'realizado']])
+    expect(b.atendimentos.map((a) => a.codigo)).toEqual(['RT038', 'R1202', 'RT030'])
+    expect(b).toMatchObject({ tem_recall_aberto: false, n_campanhas: 0 })
+  })
+  it('dedupe: um item aberto deixa a campanha aberta', () => {
+    const b = sanearRecallAutoritativo({ fonte: 'nissan', consultado: true, campanhas: [
+      { codigo: 'RT030', titulo: 'X', status: 'realizado' }, { codigo: 'RT030', titulo: 'X', status: 'aberto' },
+    ], atendimentos: [] }, 'nissan')!
+    expect(b.campanhas).toEqual([{ codigo: 'RT030', titulo: 'X', status: 'aberto' }])
+    expect(b.n_campanhas).toBe(1)
   })
   it('Mercedes-Benz: codigo null e km null passam; nome nao', () => {
     const b = sanearRecallAutoritativo(MB.autoritativo, 'mercedes-benz')!
