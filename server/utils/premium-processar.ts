@@ -76,9 +76,20 @@ export function completarRecallDepois(
         if (refinado) patch.valorCusto = refinado
       }
 
+      // Rele o snapshot ANTES de gravar e aplica so os campos do recall: o
+      // scrape leva minutos e o bloco do DETRAN (multas) pode ter chegado no
+      // meio. Espalhar o snapshot lido no inicio apagaria as multas.
+      const { data: fresco } = await supabase
+        .from('pedidos_premium')
+        .select('relatorio_snapshot')
+        .eq('id', pedido.id)
+        .maybeSingle()
+      const base = fresco?.relatorio_snapshot && typeof fresco.relatorio_snapshot === 'object' ? fresco.relatorio_snapshot : snap
+      const final: any = { ...base }
+      for (const k of ['recall', 'recallAutoritativo', 'valorCusto'] as const) if (k in patch && patch[k] !== (snap as any)[k]) final[k] = patch[k]
       await supabase
         .from('pedidos_premium')
-        .update({ relatorio_snapshot: patch })
+        .update({ relatorio_snapshot: final })
         .eq('id', pedido.id)
     } catch { /* entrega ja feita: aqui so se ganha, nunca se perde */ }
   })()
