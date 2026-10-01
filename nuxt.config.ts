@@ -504,6 +504,16 @@ export default defineNuxtConfig({
           sizes: "48x48",
           href: "/favicon-48.png",
         },
+        // favicon.ico real (16/32/48, da mesma arte do favicon.svg). Sem o
+        // arquivo em public/, o renderer do Nitro respondia /favicon.ico com uma
+        // STRING de 78 bytes (GIF 1x1 em data URI) e o Google Ads mostrava o
+        // globo cinza. O static handler serve o public/ antes do renderer.
+        {
+          rel: "icon",
+          type: "image/x-icon",
+          sizes: "16x16 32x32 48x48",
+          href: "/favicon.ico",
+        },
         {
           rel: "apple-touch-icon",
           sizes: "180x180",
