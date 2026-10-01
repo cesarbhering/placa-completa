@@ -1,0 +1,67 @@
+{
+  "ano_fabricacao": "2022",
+  "ano_modelo": "2023",
+  "ano_ultimo_licenciamento": "2026",
+  "averbacao_judicial": "Não",
+  "carroceria": "ABERTA/CAB DUPLA",
+  "categoria": "Particular",
+  "combustivel": "Diesel",
+  "cor": "BRANCA",
+  "data_aquisicao": "01/01/1999",
+  "debitos": [],
+  "especie": "Especial",
+  "gravame": "Sem gravame",
+  "impedimentos": "Nenhum impedimento registrado até esta data.",
+  "indicativo_clonagem": "Não",
+  "informacoes_contrato_aditivo": "Sem dados do contrato e/ou aditivo",
+  "infracoes": [],
+  "lugares": "5",
+  "marca_modelo": "MMC/L200 TRITON SPO GL",
+  "multas": [],
+  "municipio": "VITORIA",
+  "origem": "CADASTRO",
+  "placa": "RVN0B00",
+  "placa_anterior": "RVN0B00",
+  "potencia": "190",
+  "processos": [
+    {
+      "processo": "36254580/2026",
+      "passos": [
+        {
+          "situacao": "Abertura",
+          "data": "08/07/2026 10:42:07",
+          "ciretran": "CDV",
+          "motivo": null
+        },
+        {
+          "situacao": "Emissão CRVe",
+          "data": "08/07/2026 10:42:07",
+          "ciretran": null,
+          "motivo": null
+        },
+        {
+          "situacao": "Procedimento Registrado (BIN)",
+          "data": "08/07/2026 10:35:18",
+          "ciretran": null,
+          "motivo": null
+        },
+        {
+          "situacao": "Validado",
+          "data": "08/07/2026 09:59:35",
+          "ciretran": null,
+          "motivo": null
+        }
+      ]
+    }
+  ],
+  "proprietario": "FULANO ATUAL",
+  "proprietario_anterior": "CICRANO ANTERIOR",
+  "recadastrado_detran": "DetranNet",
+  "recursos": [],
+  "renavam": "00000000000",
+  "restricoes": "Sem gravame",
+  "situacao": "Em Circulação",
+  "tipo": "CAMINHONETE",
+  "ultimo_crlv": "2026 em 08/07/2026 através do Registro de Veículo (CRV)(Via 1)",
+  "site_receipt": "https://storage.invalid/x"
+}

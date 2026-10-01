@@ -349,9 +349,9 @@ const fraseRecall = computed(() => fraseRecallNaTela(recallSinal.value))
 async function buscarRecallSinal() {
   const b = resultadoBasico.value
   if (!b?.placa) return
-  // Marcas com base de recall (Toyota/Lexus + Chevrolet/GM): fora disso nem
+  // Marcas com base de recall (Toyota/Lexus, GM, VW, Fiat, Stellantis, Honda): fora disso nem
   // chama (o server tambem gateia).
-  if (!/\b(toyota|lexus|chevrolet|gm|general\s*motors|volkswagen|vw|fiat|peugeot|citro[eë]n|jeep|ram|dodge)\b/i.test(String(b.marca || ''))) { recallSinal.value = null; return }
+  if (!/\b(toyota|lexus|chevrolet|gm|general\s*motors|volkswagen|vw|fiat|peugeot|citro[eë]n|jeep|ram|dodge|honda)\b/i.test(String(b.marca || ''))) { recallSinal.value = null; return }
   try {
     const r: any = await $fetch('/api/recall-sinal', {
       method: 'POST',
