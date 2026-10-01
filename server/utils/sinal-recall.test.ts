@@ -22,7 +22,7 @@ describe('sinalDoRecall', () => {
   })
 })
 
-describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis + Honda + Renault + Ford + Mitsubishi + Nissan + Yamaha + Mercedes + Hyundai + Iveco)', () => {
+describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis + Honda + Renault + Ford + Mitsubishi + Nissan + Yamaha + Mercedes + Hyundai + Iveco + premium + cauda)', () => {
   it('Toyota, Lexus, Chevrolet, GM, VW, Fiat e Stellantis passam', () => {
     expect(marcaTemRecall('TOYOTA')).toBe(true)
     expect(marcaTemRecall('toyota')).toBe(true)
@@ -103,18 +103,28 @@ describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis +
     for (const m of ['CHEV/ONIX', 'CHEV/TRACKER', 'I/CHEV', 'I/CHEV CAMARO', 'CHEVROLET', 'CHEVROLET/S10']) expect(marcaTemRecall(m)).toBe(true)
     for (const m of ['CHEVALIER', 'CHEVY', 'CHEVETTE', 'CHEVX']) expect(marcaTemRecall(m)).toBe(false)
   })
+  it('premium e cauda: variantes do SENATRAN', () => {
+    for (const m of [
+      'BMW', 'BMW/X1 SDRIVE20I', 'I/BMW 320I', 'AUDI', 'I/AUDI A3', 'AUDI/Q3', 'LAND ROVER/DISCOVERY', 'LR/EVOQUE', 'I/LR RANGE ROVER',
+      'I/JAGUAR XE', 'JAGUAR/F-PACE', 'PORSCHE/CAYENNE', 'I/PORSCHE 911', 'VOLVO/XC60', 'VOLVO/FH 540',
+      'KIA', 'KIA/SPORTAGE', 'I/KIA CERATO', 'CAOACHERY/TIGGO', 'CAOA CHERY/TIGGO 5X', 'CHERY/QQ', 'I/CHERY CELER',
+      'DAFRA/APACHE', 'KAWASAKI/NINJA 400', 'I/KAWASAKI Z900', 'TRIUMPH/TIGER', 'I/TRIUMPH STREET', 'SUZUKI/JIMNY', 'I/SUZUKI GSX',
+      'H.DAVIDSON/FAT BOY', 'HARLEY-DAVIDSON/SPORTSTER', 'I/H.DAVIDSON', 'DUCATI/MONSTER', 'ROYAL ENFIELD/METEOR', 'KTM/390 DUKE', 'I/KTM 200', 'LIFAN/X60',
+    ]) expect(marcaTemRecall(m)).toBe(true)
+  })
+  it('nomes curtos (LR, KTM, KIA) e afins NAO casam no meio de palavra', () => {
+    for (const m of ['LRX', 'FLR', 'BLR/X', 'KTMX', 'XKTM', 'KIAX', 'SKIA', 'NIKIA', 'BMWX', 'AUDIENCIA', 'VOLVOX', 'CHERYX', 'SUZUKIX', 'LIFANS', 'DAFRAS']) {
+      expect(marcaTemRecall(m)).toBe(false)
+    }
+  })
   it('server e tela usam a MESMA lista (shared/marcas-recall)', () => {
     for (const m of ['TOYOTA', 'I/HONDA', 'RENAULT/KWID', 'NISSAN/KICKS', 'FORD/KA', 'MMC/L200', 'YAMAHA/FACTOR', 'RAMPA']) {
       expect(marcaTemRecall(m)).toBe(marcaTemRecallGratis(m))
     }
   })
   it('outras marcas e vazio nao passam', () => {
-    expect(marcaTemRecall('KIA/SPORTAGE')).toBe(false)
-    // proximas marcas ainda fora (base nao no ar)
-    expect(marcaTemRecall('KAWASAKI/NINJA')).toBe(false)
-    // proximas (comentadas): BMW, Audi, Land Rover/Jaguar, Porsche, Volvo
-    for (const m of ['BMW/X1', 'I/AUDI A3', 'LAND ROVER/DISCOVERY', 'I/JAGUAR XE', 'PORSCHE/CAYENNE', 'VOLVO/XC60']) expect(marcaTemRecall(m)).toBe(false)
-    expect(marcaTemRecall('SUZUKI/JIMNY')).toBe(false)
+    // marcas sem base de recall
+    for (const m of ['JAC/T40', 'BYD/DOLPHIN', 'GWM/HAVAL H6', 'SHINERAY/XY', 'HAOJUE/DK150', 'TOYOTAX']) expect(marcaTemRecall(m)).toBe(false)
     expect(marcaTemRecall('')).toBe(false)
     expect(marcaTemRecall(null)).toBe(false)
     // nao casar 'vw' dentro de outra palavra
