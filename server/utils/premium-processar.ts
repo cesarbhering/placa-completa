@@ -269,6 +269,11 @@ export async function processarPedidoPago(
     // a propria pagina, que fica olhando por alguns minutos, mostra o bloco.
     if (temRecallPendente(r?.response)) completarRecallDepois(supabase, pedido, r.consultaId)
 
+    // Nissan com chassi cheio: consulta oficial da Nissan por chassi (status
+    // por campanha: realizado/pendente, data, concessionaria). Pra TODO Nissan,
+    // sem depender da flag de recall (decisao do Cesar, 01/out). Solta e fail-open.
+    completarRecallNissanDepois(supabase, pedido, r.response)
+
     // DETRAN-SP (multas + hodometro + IPVA + licenciamento + restricoes) via
     // Infosimples, substituindo o runner gov.br quebrado. Gated: SEMPRE pra
     // veiculo registrado em SP (UF do SENATRAN), sem depender do indicador de

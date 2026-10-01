@@ -22,7 +22,7 @@ describe('sinalDoRecall', () => {
   })
 })
 
-describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis + Honda + Renault + Ford + Mitsubishi)', () => {
+describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis + Honda + Renault + Ford + Mitsubishi + Nissan + Yamaha)', () => {
   it('Toyota, Lexus, Chevrolet, GM, VW, Fiat e Stellantis passam', () => {
     expect(marcaTemRecall('TOYOTA')).toBe(true)
     expect(marcaTemRecall('toyota')).toBe(true)
@@ -87,6 +87,11 @@ describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis +
     expect(marcaTemRecall('MITSUBISHI/PAJERO')).toBe(true)
     expect(marcaTemRecall('MMCX')).toBe(false)
   })
+  it('Nissan e Yamaha: com e sem I/, com modelo', () => {
+    for (const m of ['NISSAN', 'I/NISSAN', 'I/NISSAN FRONTIER', 'NISSAN/KICKS SV', 'NISSAN/MARCH 16SV', 'YAMAHA', 'I/YAMAHA', 'YAMAHA/FACTOR YBR125', 'YAMAHA/FAZER250']) expect(marcaTemRecall(m)).toBe(true)
+    expect(marcaTemRecall('NISSANX')).toBe(false)
+    expect(marcaTemRecall('YAMAHAX')).toBe(false)
+  })
   it('server e tela usam a MESMA lista (shared/marcas-recall)', () => {
     for (const m of ['TOYOTA', 'I/HONDA', 'RENAULT/KWID', 'NISSAN/KICKS', 'FORD/KA', 'MMC/L200', 'YAMAHA/FACTOR', 'RAMPA']) {
       expect(marcaTemRecall(m)).toBe(marcaTemRecallGratis(m))
@@ -94,9 +99,9 @@ describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis +
   })
   it('outras marcas e vazio nao passam', () => {
     expect(marcaTemRecall('HYUNDAI')).toBe(false)
-    expect(marcaTemRecall('YAMAHA/FACTOR')).toBe(false)
     // proximas marcas ainda fora (base nao no ar)
-    expect(marcaTemRecall('NISSAN/KICKS')).toBe(false)
+    expect(marcaTemRecall('KAWASAKI/NINJA')).toBe(false)
+    expect(marcaTemRecall('SUZUKI/JIMNY')).toBe(false)
     expect(marcaTemRecall('')).toBe(false)
     expect(marcaTemRecall(null)).toBe(false)
     // nao casar 'vw' dentro de outra palavra
