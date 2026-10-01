@@ -5,14 +5,13 @@ import { varianteAtual } from '~/shared/ab-bloco'
 import { analyticsAtivo } from '~/shared/analytics-tags'
 
 /**
- * Tags ligadas neste navegador? Nunca lanca (o checkout ja caiu um dia inteiro
- * por ReferenceError no tracking): sem runtime config (teste), vale so o host.
+ * Tags ligadas? So fora de homolog/staging (gated). Nunca lanca (o checkout ja
+ * caiu um dia inteiro por ReferenceError no tracking): fora do Nuxt (teste)
+ * conta como ligado, igual ao comportamento de antes.
  */
 export function analyticsAtivoAqui(): boolean {
   if (typeof window === 'undefined') return false
-  let gated: unknown = false
-  try { gated = useRuntimeConfig().public.gated } catch { /* fora do Nuxt (teste) */ }
-  try { return analyticsAtivo(gated, window.location.hostname) } catch { return false }
+  try { return analyticsAtivo(useRuntimeConfig().public.gated) } catch { return true }
 }
 
 // ---------------------------------------------------------------------------
@@ -371,8 +370,8 @@ export const useAnalytics = () => {
    */
   const trackConversionPaga = (token?: string, plano?: string, valorPagoCentavos?: number) => {
     if (!import.meta.client || !token) return
-    // Homolog/staging ou host fora da producao: compra NUNCA vai pras tags
-    // (incidente 01/out: purchase falso do homolog no Bing/GA4). Nem reivindica
+    // Homolog/staging: compra NUNCA vai pras tags (incidente 01/out: purchase
+    // falso do homolog no Bing/GA4). Nem reivindica
     // o token, pra nao marcar como "ja reportado" algo que nao foi.
     if (!analyticsAtivoAqui()) return
     if (!reivindicarConversao(token)) return
