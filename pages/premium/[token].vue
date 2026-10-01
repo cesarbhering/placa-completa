@@ -1088,6 +1088,23 @@ const campanhasRealizadas = computed(() => {
     atendimento: atend.find((a: any) => (a.codigo && a.codigo === c.codigo) || (!c.codigo && a.titulo && a.titulo === c.titulo)) || null,
   }))
 })
+// "Campanha X · realizada em DD/MM/AAAA na concessionaria Y, com N km". Sem
+// codigo (Mercedes), comeca direto em "Realizada em...".
+function metaCampanhaRealizada(c: any): string {
+  const partes: string[] = []
+  if (c.codigo) partes.push(`Campanha ${c.codigo}`)
+  if (c.status === 'excluido') {
+    partes.push(`veículo excluído da campanha pela ${nomeMontadora.value}`)
+  } else if (c.atendimento) {
+    const a = c.atendimento
+    let t = a.data ? `realizada em ${dataBr(a.data)}` : 'realizada'
+    if (a.concessionaria) t += ` na concessionária ${a.concessionaria}`
+    if (a.km != null) t += `, com ${Number(a.km).toLocaleString('pt-BR')} km`
+    partes.push(t)
+  }
+  const txt = partes.join(' · ')
+  return txt ? txt.charAt(0).toUpperCase() + txt.slice(1) : ''
+}
 const marcaComConsultaMontadora = computed(() =>
   /\b(nissan|mmc|mitsubishi|m\.?\s*benz|mercedes)\b/i.test(String(g('descricaoMarcaModelo') || '')) && String(g('chassi') || '').trim().length === 17,
 )
@@ -2081,7 +2098,7 @@ onUnmounted(() => {
                       <b class="rel__recall-st--ok">{{ c.status === 'excluido' ? 'Não se aplica' : 'Realizada' }}</b>
                     </div>
                     <p class="rel__recall-item-meta">
-                      <template v-if="c.codigo">Campanha {{ c.codigo }}</template><template v-else>Campanha</template><template v-if="c.status === 'excluido'"> · veículo excluído da campanha pela {{ nomeMontadora }}</template><template v-else-if="c.atendimento"><template v-if="c.atendimento.data"> · realizada em {{ dataBr(c.atendimento.data) }}</template><template v-if="c.atendimento.concessionaria"> na concessionária {{ c.atendimento.concessionaria }}</template><template v-if="c.atendimento.km != null">, com {{ Number(c.atendimento.km).toLocaleString('pt-BR') }} km</template></template>
+                      {{ metaCampanhaRealizada(c) }}
                     </p>
                   </li>
                 </ul>
