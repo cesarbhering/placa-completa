@@ -15,6 +15,8 @@ export const EVENTOS_FUNIL = [
   'resultado_exibido',
   /** A frase de sinal de leilao apareceu (positivo ou negativo). */
   'leilao_sinal_visto',
+  /** A frase de sinal de recall apareceu (so quando consta: firme ou suave). */
+  'recall_sinal_visto',
   /** O bloco bloqueado / botao da Completa entrou na tela. */
   'cta_completa_visto',
   /** Clique no CTA da Completa. */
@@ -44,12 +46,34 @@ export const MAX_EVENTOS_POR_LOTE = 10
 
 export const SINAIS_LEILAO = ['positivo', 'negativo', 'sem_sinal'] as const
 
+/**
+ * Hook de recall na consulta gratis: firme/suave = a frase apareceu;
+ * negativo = a base respondeu "nao consta"; fora_escopo = marca sem base (nem
+ * chama); sem_sinal = erro/timeout/teto ou ainda nao respondeu.
+ */
+export const SINAIS_RECALL = ['firme', 'suave', 'negativo', 'fora_escopo', 'sem_sinal'] as const
+export type SinalRecallMedido = (typeof SINAIS_RECALL)[number]
+
+/** recall_sinal vindo do client -> valor da allowlist (senao null: evento antigo/sem o campo). */
+export function sanearSinalRecall(v: unknown): SinalRecallMedido | null {
+  return typeof v === 'string' && (SINAIS_RECALL as readonly string[]).includes(v) ? (v as SinalRecallMedido) : null
+}
+
+/** recall_marca: so letras/espaco/hifen, maiusculas, ate 30. */
+export function sanearMarcaRecall(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const t = v.toUpperCase().replace(/[^A-ZÀ-Ý \-]/g, '').trim().slice(0, 30)
+  return t || null
+}
+
 export interface EventoFunilSaneado {
   evento: EventoFunil
   placa: string | null
   sessao: string | null
   origem: Record<string, string | null> | null
   leilao_sinal: string
+  recall_sinal: SinalRecallMedido | null
+  recall_marca: string | null
   plano: string | null
   extra: Record<string, string | number | boolean> | null
 }
@@ -111,6 +135,8 @@ export function sanearEvento(bruto: unknown): EventoFunilSaneado | null {
     sessao: texto(o.sessao, 40),
     origem,
     leilao_sinal: sinal,
+    recall_sinal: sanearSinalRecall(o.recall_sinal),
+    recall_marca: sanearMarcaRecall(o.recall_marca),
     plano: typeof o.plano === 'string' && ['basica', 'completa'].includes(o.plano) ? o.plano : null,
     extra,
   }

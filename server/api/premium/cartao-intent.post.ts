@@ -1,3 +1,4 @@
+import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-funil'
 import crypto from 'node:crypto'
 import { sanearOrigem } from '../../../shared/origem-trafego'
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
@@ -59,6 +60,9 @@ export default defineEventHandler(async (event) => {
       preview: body.preview || null,
       ambiente,
       ab_bloco: abBloco,
+      // Hook de recall que a pessoa viu na consulta gratis (allowlist) + marca.
+      recall_sinal: sanearSinalRecall(body.recall_sinal),
+      recall_marca: sanearMarcaRecall(body.recall_marca),
       ip_address: getClientIp(event),
       ...getDispositivo(event),
       ...sanearOrigem(body.origin),

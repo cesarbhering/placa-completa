@@ -21,10 +21,27 @@ export const MARCAS_RECALL_GRATIS: readonly string[] = [
   'ford',
   // Mitsubishi: o SENATRAN manda "MMC/L200 TRITON"; "MITSUBISHI" por extenso tambem.
   'mitsubishi', 'mmc',
-  // Proximas (base ainda nao no ar): 'nissan', 'yamaha'
+  'nissan',
+  // Yamaha: motos ("YAMAHA/FACTOR YBR125", "I/YAMAHA").
+  'yamaha',
 ]
 
 const RE_MARCAS = new RegExp(`\\b(${MARCAS_RECALL_GRATIS.join('|')})\\b`, 'i')
+
+/**
+ * Marca "curta" pra medicao (recall_marca): a marca casada na lista quando esta
+ * no escopo (ex.: "I/NISSAN FRONTIER" -> "NISSAN"), senao a primeira palavra
+ * da marca sem o "I/" de importado ("KAWASAKI/NINJA" -> "KAWASAKI"). So letras,
+ * maiusculas, ate 30 caracteres. Vazio -> null.
+ */
+export function marcaParaMedicao(marca: string | null | undefined): string | null {
+  const s = String(marca || '')
+  const m = s.match(RE_MARCAS)
+  if (m) return m[1].toUpperCase().replace(/\s+/g, ' ').slice(0, 30)
+  const primeira = s.replace(/^\s*I\s*\//i, '').split(/[\/\s]/).find(Boolean) || ''
+  const limpa = primeira.toUpperCase().replace(/[^A-ZÀ-Ý-]/g, '').slice(0, 30)
+  return limpa || null
+}
 
 /** A marca (texto do SENATRAN) tem base de recall no gratis? */
 export function marcaTemRecallGratis(marca: string | null | undefined): boolean {
