@@ -9,6 +9,14 @@ import { analyticsAtivo } from '~/shared/analytics-tags'
  * caiu um dia inteiro por ReferenceError no tracking): fora do Nuxt (teste)
  * conta como ligado, igual ao comportamento de antes.
  */
+/**
+ * Cartao (Stripe): a conversao so sai com o pagamento APROVADO. "processing"
+ * ainda pode recusar; a pagina do relatorio converte quando o /status confirma.
+ */
+export function cartaoConverteAgora(statusPaymentIntent: string | null | undefined): boolean {
+  return statusPaymentIntent === 'succeeded'
+}
+
 export function analyticsAtivoAqui(): boolean {
   if (typeof window === 'undefined') return false
   try { return analyticsAtivo(useRuntimeConfig().public.gated) } catch { return true }
@@ -258,7 +266,7 @@ export const useAnalytics = () => {
    * "loading" por um dia. Fica aqui em cima do track() de proposito.
    */
   const espelharNaMeta = (event: string, params?: Record<string, any>) => {
-    if (!import.meta.client) return
+    if (typeof window === 'undefined') return
     const nome = EVENTOS_META[event]
     const fbq = (window as any).fbq
     if (!nome || typeof fbq !== 'function') return
@@ -369,11 +377,17 @@ export const useAnalytics = () => {
    * que nunca existiu.
    */
   const trackConversionPaga = (token?: string, plano?: string, valorPagoCentavos?: number) => {
-    if (!import.meta.client || !token) return
+    // `typeof window` (nao import.meta.client): mesma semantica no Nuxt e vale
+    // fora do build (teste unitario), igual ao enfileirador do funil.
+    if (typeof window === 'undefined' || !token) return
     // Homolog/staging: compra NUNCA vai pras tags (incidente 01/out: purchase
     // falso do homolog no Bing/GA4). Nem reivindica
     // o token, pra nao marcar como "ja reportado" algo que nao foi.
     if (!analyticsAtivoAqui()) return
+    // Cupom 100% (pagou R$ 0): NAO e venda pros anuncios. Nenhum purchase nem
+    // conversion vai pro Bing, Google Ads, GA4 ou Meta (inflaria conversao e
+    // ROAS com receita que nao existiu). Nem reivindica o token.
+    if (valorPagoCentavos != null && Number(valorPagoCentavos) <= 0) return
     if (!reivindicarConversao(token)) return
     const { value: valorTabela, item } = infoPlano(plano)
     const value = valorPagoCentavos != null ? valorPagoCentavos / 100 : valorTabela
@@ -382,7 +396,9 @@ export const useAnalytics = () => {
       window.gtag('event', 'purchase', { transaction_id: token, value, currency: 'BRL', items: [{ ...item, price: value }] })
     }
     if (window.uetq) {
-      window.uetq.push('event', 'purchase', { revenue_value: value, currency: 'BRL' })
+      // transaction_id (nome do parametro na doc do UET): o token do pedido, o
+      // mesmo do GA4/Ads, pra o Bing poder casar a mesma compra entre aparelhos.
+      window.uetq.push('event', 'purchase', { revenue_value: value, currency: 'BRL', transaction_id: token })
     }
     // A compra nao passa pelo track() (ela fala direto com gtag e uetq, por
     // causa da dedupe por token), entao o espelho da Meta e chamado a mao aqui.

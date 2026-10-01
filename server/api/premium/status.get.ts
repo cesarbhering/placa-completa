@@ -62,6 +62,9 @@ export default defineEventHandler(async (event) => {
 
   return {
     status,
+    // Valor que a pessoa pagou (cupom incluido): a conversao dos anuncios usa
+    // isto e nao dispara quando e 0 (cupom 100%).
+    valorCentavos: pedido.valor_centavos ?? null,
     ...piso,
     ...(String(getQuery(event).debug) === '1' ? { debug_trace: pedido.debug_trace, erro: pedido.erro, ambiente: pedido.ambiente } : {}),
   }

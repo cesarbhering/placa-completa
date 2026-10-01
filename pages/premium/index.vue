@@ -144,7 +144,7 @@ async function checarStatus() {
     histUpdate(pix.value.token, r.status)
     // Esta pagina so vende a completa (o checkout nao manda plano -> o server
     // cai em 'completa'), entao a conversao reporta o valor da completa.
-    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token, 'completa')
+    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token, 'completa', r.valorCentavos ?? undefined)
     if (r.status === 'entregue') {
       clearInterval(poll)
       const entregueMs = r.entregue_em ? new Date(r.entregue_em).getTime() : 0

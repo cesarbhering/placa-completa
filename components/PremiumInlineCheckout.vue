@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PLANOS, RECURSOS } from '~/shared/planos'
 import { origemDaSessao } from '~/shared/origem-trafego'
-import { enfileirarEventoFunil, enviarFunil } from '~/composables/useAnalytics'
+import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora } from '~/composables/useAnalytics'
 
 // Checkout premium inline: roda o fluxo pago SEM sair da home, num overlay.
 // Espelha a logica de pages/premium/index.vue (gate -> preview -> checkout ->
@@ -617,7 +617,10 @@ async function pagarComCartao() {
         veiculo: preview.value?.encontrado ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ') : null,
         status: 'consultando',
       })
-      trackConversionPaga(r.token, props.plano, r.valor)
+      // Conversao SO com o pagamento aprovado ("succeeded"). Em "processing" o
+      // cartao ainda pode recusar: quem dispara e a pagina /premium/<token>
+      // quando o /status confirmar (o poll dela chama trackConversionPaga).
+      if (cartaoConverteAgora(paymentIntent?.status)) trackConversionPaga(r.token, props.plano, r.valor)
       // Vai pra pagina do relatorio: ela mostra "Confirmando o pagamento do
       // cartao..." e polla o /status ate a entrega.
       if (import.meta.client) window.location.assign(`/premium/${r.token}`)
