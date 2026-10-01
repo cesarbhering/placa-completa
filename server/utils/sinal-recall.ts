@@ -38,7 +38,8 @@ export function sinalDoRecall(resposta: RecallResposta | null | undefined): Sina
 
 /**
  * Marcas com base de recall por ora: Toyota/Lexus + Chevrolet/GM + Volkswagen/VW
- * + Fiat + Stellantis (Peugeot/Citroën/Jeep/RAM/Dodge). O escopo por marca do
+ * + Fiat + Stellantis (Peugeot/Citroën/Jeep/RAM/Dodge) + Honda (carro e moto:
+ * "HONDA", "I/HONDA", "HONDA/CG 160"; so no gratis, sem modo autoritativo). O escopo por marca do
  * match e server-side (a leiloes-api ja trata o falso-positivo cross-marca),
  * aqui so liberamos quem chamar. As variantes que o SENATRAN manda (ex "VW/GOL",
  * "GM/CHEVROLET", "FIAT/PALIO", "PEUGEOT/208", "I/CITROEN C3", "JEEP/RENEGADE",
@@ -47,5 +48,5 @@ export function sinalDoRecall(resposta: RecallResposta | null | undefined): Sina
  * RAMPA/TRAMONTINA/GRAN (fronteira de palavra impede match no meio).
  */
 export function marcaTemRecall(marca: string | null | undefined): boolean {
-  return /\b(toyota|lexus|chevrolet|gm|general\s*motors|volkswagen|vw|fiat|peugeot|citro[eë]n|jeep|ram|dodge)\b/i.test(String(marca || ''))
+  return /\b(toyota|lexus|chevrolet|gm|general\s*motors|volkswagen|vw|fiat|peugeot|citro[eë]n|jeep|ram|dodge|honda)\b/i.test(String(marca || ''))
 }
