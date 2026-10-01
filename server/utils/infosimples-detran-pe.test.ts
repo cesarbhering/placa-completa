@@ -6,11 +6,11 @@ import { parsearDetranPe, semUrls, blocoDetranDaUf, completarDetran, DETRAN_UFS 
 // sem debitos) com o site_receipt trocado por um FALSO.
 
 describe('parsearDetranPe', () => {
-  it('tudo NADA CONSTA: zero, restricoes_gerais SIM vira restricao, sem log', () => {
+  it('tudo NADA CONSTA: zero, restricoes_gerais SIM vira restricao de cadastro (neutra, nao administrativa), sem log', () => {
     const log = vi.fn()
     const b = parsearDetranPe(PE, log)
     expect(b).toMatchObject({ fonte: 'detran_pe', multas_total_centavos: 0, ipva_total_centavos: 0, licenciamento_centavos: 0, multas_itens: [], autuacoes_em_andamento: 0 })
-    expect(b.restricoes_detran).toEqual([{ tipo: 'administrativa', texto: 'Consta restrição no DETRAN-PE' }])
+    expect(b.restricoes_detran).toEqual([{ tipo: 'cadastro', texto: 'Consta restrição no cadastro do DETRAN-PE (pode ser alienação/financiamento; veja as restrições acima)' }])
     expect(JSON.stringify(b)).not.toContain('storage.invalid')
     expect(log).not.toHaveBeenCalled()
   })

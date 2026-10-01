@@ -1102,7 +1102,11 @@ export function parsearDetranPe(data: any, log: (msg: string) => void = (m) => c
   if (autuacoes) estranho = true
 
   if (!nadaConsta(d.baixa_gravame)) { const t = texto(d.baixa_gravame); if (t) restricoes.push({ tipo: 'financeira', texto: `Gravame: ${t}` }) }
-  if (/^\s*sim\s*$/i.test(String(d.restricoes_gerais ?? ''))) restricoes.push({ tipo: 'administrativa', texto: 'Consta restrição no DETRAN-PE' })
+  if (/^\s*sim\s*$/i.test(String(d.restricoes_gerais ?? ''))) restricoes.push({
+    // "SIM" reflete o cadastro (ex.: alienacao fiduciaria no SENATRAN do
+    // RZJ5F09), nao uma restricao administrativa: texto neutro.
+    tipo: 'cadastro', texto: 'Consta restrição no cadastro do DETRAN-PE (pode ser alienação/financiamento; veja as restrições acima)',
+  })
   else if (!nadaConsta(d.restricoes_gerais) && !/^\s*n[aã]o\s*$/i.test(String(d.restricoes_gerais))) {
     const t = texto(d.restricoes_gerais); if (t) restricoes.push({ tipo: 'administrativa', texto: t })
   }

@@ -1225,7 +1225,7 @@ function rotuloRestricao(tipo?: string | null): string {
     financeira: 'Financeira', judiciaria: 'Judiciária',
     administrativa: 'Administrativa', tributaria: 'Tributária', furto: 'Furto/roubo',
     sng: 'Gravame (SNG)', situacao: 'Situação', divida_ativa: 'Dívida ativa', recuperado: 'Veículo recuperado',
-    outros_debitos: 'Outros débitos', licenciamento_notificado: 'Licenciamento notificado',
+    outros_debitos: 'Outros débitos', licenciamento_notificado: 'Licenciamento notificado', cadastro: 'Cadastro',
   }
   return map[String(tipo || '')] || 'Restrição'
 }
