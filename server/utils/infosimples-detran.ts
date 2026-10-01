@@ -20,9 +20,10 @@ export async function encriptarInfosimples(valor: string, encKey: string): Promi
 
 /**
  * Credencial mandada ao Infosimples por UF: certificado (e-CNPJ ou e-CPF) ou
- * login gov.br do Cesar (BA e DF usam a MESMA conta: NUXT_INFOSIMPLES_BA_*).
+ * login gov.br do Cesar (BA e DF usam a MESMA conta: NUXT_INFOSIMPLES_BA_*),
+ * ou 'nenhum' (CE, PA, AM: so placa + renavam).
  */
-export type CertInfosimples = 'ecnpj' | 'ecpf' | 'govbr_ba' | 'govbr_df'
+export type CertInfosimples = 'ecnpj' | 'ecpf' | 'govbr_ba' | 'govbr_df' | 'nenhum'
 
 /** UF que entra com o login gov.br (CPF+senha), nao com certificado. */
 export function usaLoginGovbr(cert: string | null | undefined): boolean {
@@ -64,6 +65,7 @@ function loginBa() {
 
 /** Credencial da UF presente? Sem ela a UF nao roda (fail-open). */
 export function infosimplesConfigurado(cert: CertInfosimples = 'ecnpj'): boolean {
+  if (cert === 'nenhum') return !!infosimplesConfig('ecnpj').token
   if (usaLoginGovbr(cert)) {
     const t = infosimplesConfig('ecnpj').token
     const l = loginBa()
@@ -99,6 +101,10 @@ export const DETRAN_UFS = {
   PR: { path: 'detran/pr/multas-descritivos', cert: 'ecpf', gate: 'renainf', fonte: 'detran_pr', fonteCusto: 'infosimples_detran_pr', semPlaca: true, dataLista: true },
   // DF: login gov.br (mesma conta do BA), placa+renavam. R$0,28.
   DF: { path: 'detran/df/debitos', cert: 'govbr_df', gate: 'renainf', fonte: 'detran_df', fonteCusto: 'infosimples_detran_df' },
+  // Sem credencial (so placa + renavam). CE R$0,20; PA e AM R$0,24.
+  CE: { path: 'detran/ce/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_ce', fonteCusto: 'infosimples_detran_ce' },
+  PA: { path: 'detran/pa/infracoes', cert: 'nenhum', gate: 'renainf', fonte: 'detran_pa', fonteCusto: 'infosimples_detran_pa' },
+  AM: { path: 'detran/am/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_am', fonteCusto: 'infosimples_detran_am' },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 
@@ -138,7 +144,7 @@ export interface ResultadoDetran {
 export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null }): Promise<ResultadoDetran> {
   const cfgUf: any = DETRAN_UFS[opts.uf]
   const certUf: CertInfosimples = cfgUf.cert
-  const cfg = infosimplesConfig(usaLoginGovbr(certUf) ? 'ecnpj' : certUf)
+  const cfg = infosimplesConfig(usaLoginGovbr(certUf) || certUf === 'nenhum' ? 'ecnpj' : certUf)
   if (!infosimplesConfigurado(certUf)) return { code: 0, codeMessage: `infosimples nao configurado (${certUf})`, preco: 0, data: null }
   try {
     const body = new URLSearchParams({
@@ -160,6 +166,8 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       body.set('placa', opts.placa)
       body.set('login_cpf', l.cpf)
       body.set('login_senha', l.senha)
+    } else if (certUf === 'nenhum') {
+      body.set('placa', opts.placa)
     } else {
       const [cert, pass] = await Promise.all([
         encriptarInfosimples(cfg.pkcs12B64, cfg.encKey),
@@ -930,6 +938,96 @@ export function parsearDetranDf(data: any, hoje: Date = new Date()) {
   }
 }
 
+// ---------- Multa generica (CE, PA, AM) ----------
+//
+// Shape defensivo: PA e AM vieram sem item no teste. Pega o campo pelo nome
+// que aparecer (whitelist: so texto/valor, nunca objeto cru, PDF, Pix ou boleto).
+
+const primeiro = (m: any, ks: string[]) => ks.map((k) => m?.[k]).find((v) => v != null && String(v).trim() !== '' && String(v).trim() !== '--')
+
+export function multaGenerica(m: any) {
+  const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t && t !== '--' ? t : null }
+  const dataBruta = String(primeiro(m, ['data_infracao', 'data', 'data_hora_infracao', 'data_hora']) ?? '')
+  const { data: dataInfracao, hora } = dataHoraBr(dataBruta)
+  const vencBruto = String(primeiro(m, ['data_vencimento', 'vencimento']) ?? '')
+  const pontos = primeiro(m, ['pontos', 'pontos_infracao', 'pontuacao'])
+  const valorBruto = primeiro(m, ['normalizado_valor', 'valor_normalizado', 'normalizado_valor_atual', 'valor_corrigido', 'valor_atual', 'valor', 'normalizado_valor_original', 'valor_original'])
+  return {
+    auto: texto(primeiro(m, ['ait', 'auto', 'auto_infracao', 'numero_auto', 'numero_ait', 'serie'])),
+    descricao: texto(primeiro(m, ['descricao', 'dados_infracao', 'infracao_descricao', 'desc_infracao', 'descricao_infracao', 'infracao', 'enquadramento'])),
+    dataInfracao,
+    horaInfracao: horaHhMm(primeiro(m, ['hora_infracao', 'hora'])) || hora,
+    dataVencimento: vencBruto.match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? null,
+    valor: typeof valorBruto === 'number' ? valorBruto : moeda(valorBruto),
+    local: texto(primeiro(m, ['local', 'local_infracao', 'local_multa'])),
+    municipio: texto(primeiro(m, ['municipio', 'municipio_infracao'])),
+    orgao: texto(primeiro(m, ['orgao', 'orgao_autuador', 'orgao_atuador'])),
+    pontos: pontos != null && Number.isFinite(Number(pontos)) ? Number(pontos) : null,
+  }
+}
+
+function blocoSoMultas(fonte: string, itens: ReturnType<typeof multaGenerica>[], extra: Record<string, any> = {}) {
+  return {
+    status: 'ok' as const,
+    fonte,
+    multas_total_centavos: Math.round(itens.reduce((acc, i) => acc + i.valor, 0) * 100),
+    licenciamento_centavos: null as number | null,
+    ipva_total_centavos: null as number | null,
+    hodometro: [] as { data: string | null; km: number }[],
+    hodometro_suspeito: false,
+    multas_itens: itens,
+    licenciamento_atrasado_ano: null as number | null,
+    restricoes_detran: [] as { tipo: string; texto: string }[],
+    ...extra,
+  }
+}
+
+const listaDe = (v: any): any[] => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') : [])
+
+/** DETRAN-CE (/detran/ce/multas): total = soma de normalizado_valor (com juros). Sem codigo_pix, boleto nem site_receipt. */
+export function parsearDetranCe(data: any) {
+  const d = data || {}
+  const itens = listaDe(d.multas).map(multaGenerica)
+  const judice = listaDe(d.multas_judice).map(multaGenerica)
+  return blocoSoMultas('detran_ce', itens, { multas_em_recurso: judice })
+}
+
+/** DETRAN-PA (/detran/pa/infracoes): a vencer + vencidas somam; efeito suspensivo = em recurso. */
+export function parsearDetranPa(data: any) {
+  const d = data || {}
+  const itens = [...listaDe(d.infracoes_vencidas), ...listaDe(d.infracoes_a_vencer)].map(multaGenerica)
+  const susp = listaDe(d.infracoes_efeito_suspensivo).map(multaGenerica)
+  return blocoSoMultas('detran_pa', itens, { multas_em_recurso: susp })
+}
+
+/**
+ * DETRAN-AM (/detran/am/multas): o total de multas sai de debitos (DETRAN-AM +
+ * outras UFs + locais) quando maior que a soma dos itens; IPVA de
+ * normalizado_ipva; seguro e taxas viram outros debitos. Nunca grava `dados`
+ * (proprietario/veiculo) nem boleto_pdf_url.
+ */
+export function parsearDetranAm(data: any) {
+  const d = data || {}
+  const deb = d.debitos && typeof d.debitos === 'object' ? d.debitos : {}
+  const n = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : moeda(v))
+  const itens = listaDe(d.multas).map(multaGenerica)
+  const somaItens = itens.reduce((acc, i) => acc + i.valor, 0)
+  const somaDeb = n(deb.normalizado_multas_detran_am) + n(deb.normalizado_multas_outras_ufs) + n(deb.normalizado_multas_locais)
+  const ipva = n(deb.normalizado_ipva)
+  const brl = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const restricoes: { tipo: string; texto: string }[] = []
+  const seguro = n(deb.normalizado_seguro_obrigatorio)
+  if (seguro > 0) restricoes.push({ tipo: 'outros_debitos', texto: `Seguro obrigatório em aberto: ${brl(seguro)}` })
+  const taxas = n(deb.normalizado_taxas_detran_am)
+  if (taxas > 0) restricoes.push({ tipo: 'outros_debitos', texto: `Taxas do DETRAN-AM em aberto: ${brl(taxas)}` })
+  return {
+    ...blocoSoMultas('detran_am', itens),
+    multas_total_centavos: Math.round(Math.max(somaItens, somaDeb) * 100),
+    ipva_total_centavos: Math.round(ipva * 100),
+    restricoes_detran: restricoes,
+  }
+}
+
 // ---------- Trava do login gov.br (BA e DF, mesma conta) ----------
 //
 // 608 = "Usuário e/ou senha inválidos": cada tentativa conta como senha errada
@@ -985,13 +1083,16 @@ export function blocoDetranDaUf(uf: UfDetran, data: any) {
   if (uf === 'GO') return parsearDetranGo(data)
   if (uf === 'PR') return parsearDetranPr(data)
   if (uf === 'DF') return parsearDetranDf(data)
+  if (uf === 'CE') return parsearDetranCe(data)
+  if (uf === 'PA') return parsearDetranPa(data)
+  if (uf === 'AM') return parsearDetranAm(data)
   return detranParaMultas(parsearDetranSp(data))
 }
 
 /**
  * Nucleo awaitable: consulta o DETRAN da UF do veiculo e grava o bloco no
- * snapshot. Gated: SO veiculo registrado numa UF suportada (UF do SENATRAN:
- * SP, SC, MG), SEMPRE (nao depende de flag de multa). 1 chamada por pedido (cache:
+ * snapshot. Gated: SO veiculo registrado numa UF de DETRAN_UFS (UF do SENATRAN);
+ * SP sempre, as demais so com multa RENAINF. 1 chamada por pedido (cache:
  * nao chama se o snapshot ja tem o bloco da fonte). O custo (header.price) e
  * gravado em TODA chamada, ate em erro. Usado pelo pos-entrega (fire-and-forget)
  * e pelo backfill admin (em serie).
@@ -1009,34 +1110,24 @@ export async function completarDetran(
     return { ok: false, pulado: `${uf} so com RENAINF` }
   }
   const renavam = renavamDaResposta(ctx.response)
-  if (!renavam) return { ok: false, pulado: 'sem renavam' }
   const chassi = chassiDaResposta(ctx.response)
-  if ((cfgUf as any).exigeChassi && !chassi) return { ok: false, pulado: 'sem chassi' }
+  // A tela do relatorio pago ESPERA este bloco (ate ~2,5 min) quando o gate
+  // vale. Todo caminho que nao vai trazer o bloco grava multas.status =
+  // 'indisponivel' (sem `fonte`: o backfill por token sobrescreve depois), pra
+  // a tela soltar o relatorio na hora em vez de esperar o limite.
   let indisponivel: string | null = null
-  if (!infosimplesConfigurado(cfgUf.cert)) indisponivel = `infosimples nao configurado (${cfgUf.cert})`
+  if (!renavam) indisponivel = 'sem renavam'
+  else if ((cfgUf as any).exigeChassi && !chassi) indisponivel = 'sem chassi'
+  else if (!infosimplesConfigurado(cfgUf.cert)) indisponivel = `infosimples nao configurado (${cfgUf.cert})`
   else if (usaLoginGovbr(cfgUf.cert) && loginBaTravado()) indisponivel = 'login gov.br travado (608)'
 
-  const { data } = await supabase
-    .from('pedidos_premium')
-    .select('relatorio_snapshot')
-    .eq('id', pedido.id)
-    .maybeSingle()
-  const snap = data?.relatorio_snapshot
   if (indisponivel) {
-    // Sem credencial (ex.: e-CPF do PR fora do Coolify) ou login travado: NAO
-    // chama (nao custa) e marca o bloco como indisponivel, pra tela nao ficar
-    // em "Consultando..." pra sempre. Sem `fonte`: quando a credencial chegar,
-    // o backfill por token consulta e sobrescreve. Nunca pisa num bloco pronto.
-    const atual = snap && typeof snap === 'object' ? (snap as any).multas : null
-    if (snap && typeof snap === 'object' && !(atual && (atual.status === 'ok' || atual.status === 'sem_debito'))) {
-      await supabase
-        .from('pedidos_premium')
-        .update({ relatorio_snapshot: { ...snap, multas: { status: 'indisponivel', uf } } })
-        .eq('id', pedido.id)
-    }
+    // NAO chama (nao custa).
+    await marcarIndisponivel(supabase, pedido.id, uf)
     return { ok: false, pulado: indisponivel }
   }
-  if (!snap || typeof snap !== 'object') return { ok: false, pulado: 'sem snapshot' }
+  const snap = await lerSnapshot(supabase, pedido.id)
+  if (!snap) return { ok: false, pulado: 'sem snapshot' }
   // `multas.fonte` marca que ja consultamos o Infosimples dessa UF (o
   // snapshot.multas antigo do gov.br nao tem fonte e e sobrescrito).
   // Excecao: bloco preenchido A MANO (preenchido_manual_em) e trocado pelo dado
@@ -1044,12 +1135,13 @@ export async function completarDetran(
   const multasAtual = (snap as any).multas
   if (multasAtual?.fonte === cfgUf.fonte && !multasAtual?.preenchido_manual_em) return { ok: false, pulado: `ja tem ${cfgUf.fonte}` }
 
-  const res = await consultarDetranInfosimples({ uf, placa: pedido.placa, renavam, chassi: (cfgUf as any).exigeChassi ? chassi : null })
+  const res = await consultarDetranInfosimples({ uf, placa: pedido.placa, renavam: renavam!, chassi: (cfgUf as any).exigeChassi ? chassi : null })
   // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
   await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code })
   if (usaLoginGovbr(cfgUf.cert) && res.code === 608) await travarLoginBa(res.codeMessage)
 
   if (res.code !== 200 || !res.data) {
+    await marcarIndisponivel(supabase, pedido.id, uf)
     return { ok: false, code: res.code, preco: res.preco, motivo: res.codeMessage || 'sem data' }
   }
   const multas: any = blocoDetranDaUf(uf, res.data)
@@ -1057,12 +1149,41 @@ export async function completarDetran(
     || !!multas.alerta_roubo_furto
     || (multas.ipva_total_centavos ?? 0) > 0 || (multas.licenciamento_centavos ?? 0) > 0 || multas.licenciamento_atrasado_ano != null
   // Grava no MESMO campo que a secao "Multas e débitos" consome (reuso da UI).
+  // Rele o snapshot ANTES de gravar: a chamada pode levar ate 2 min e o recall
+  // pode ter gravado no meio; espalhar o snapshot velho apagaria o recall.
+  const atual = (await lerSnapshot(supabase, pedido.id)) || snap
   const { error } = await supabase
     .from('pedidos_premium')
-    .update({ relatorio_snapshot: { ...snap, multas } })
+    .update({ relatorio_snapshot: { ...atual, multas } })
     .eq('id', pedido.id)
   if (error) return { ok: false, code: res.code, preco: res.preco, motivo: 'update: ' + error.message }
   return { ok: true, code: res.code, preco: res.preco, multasCentavos: multas.multas_total_centavos, temAlgo }
+}
+
+async function lerSnapshot(supabase: any, pedidoId: string): Promise<Record<string, any> | null> {
+  const { data } = await supabase
+    .from('pedidos_premium')
+    .select('relatorio_snapshot')
+    .eq('id', pedidoId)
+    .maybeSingle()
+  const snap = data?.relatorio_snapshot
+  return snap && typeof snap === 'object' ? snap : null
+}
+
+/** multas = {status:'indisponivel'} no snapshot. Nunca pisa num bloco pronto. Fail-open. */
+export async function marcarIndisponivel(supabase: any, pedidoId: string, uf: string): Promise<void> {
+  try {
+    const snap = await lerSnapshot(supabase, pedidoId)
+    if (!snap) return
+    const atual = (snap as any).multas
+    if (atual && (atual.status === 'ok' || atual.status === 'sem_debito')) return
+    await supabase
+      .from('pedidos_premium')
+      .update({ relatorio_snapshot: { ...snap, multas: { status: 'indisponivel', uf } } })
+      .eq('id', pedidoId)
+  } catch (e: any) {
+    console.warn('[infosimples] marcar indisponivel falhou:', e?.message || e)
+  }
 }
 
 /**
@@ -1074,7 +1195,10 @@ export function completarDetranDepois(
   pedido: { id: string; placa: string },
   ctx: { consultaId: string | null; response: any },
 ): void {
-  void completarDetran(supabase, pedido, ctx).catch((e: any) => {
+  void completarDetran(supabase, pedido, ctx).catch(async (e: any) => {
     console.warn('[infosimples] completar detran falhou:', e?.message || e)
+    // A tela espera o bloco: solta ela com "indisponivel" em vez do limite.
+    const uf = ufDetranSuportada(ufDaResposta(ctx.response))
+    if (uf) await marcarIndisponivel(supabase, pedido.id, uf)
   })
 }

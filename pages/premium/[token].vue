@@ -1074,8 +1074,9 @@ const multaIndicadorSP = computed(
 const ehVeiculoSpTela = computed(() => {
   const uf = String(g('ufJurisdicao') || '').toUpperCase()
   if (uf === 'SP') return true
-  return ['SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF'].includes(uf) && g('indicadorMultaRenainf') === true
+  return ['SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM'].includes(uf) && g('indicadorMultaRenainf') === true
 })
+const ufDetranTela = computed(() => String(g('ufJurisdicao') || '').toUpperCase())
 const multasDetalhe = computed(() => {
   const m: any = data.value?.multas
   return m && (m.status === 'ok' || m.status === 'sem_debito') ? m : null
@@ -1083,6 +1084,51 @@ const multasDetalhe = computed(() => {
 // Consulta do DETRAN nao rodou (credencial ausente/travada no servidor): sem
 // isso o bloco ficava em "Consultando..." pra sempre.
 const multasIndisponivel = computed(() => (data.value?.multas as any)?.status === 'indisponivel')
+
+// Ordem do Cesar (30/set): com multa no SENATRAN (RENAINF, ou SP que consulta
+// sempre) o loading ESPERA a consulta ao DETRAN antes de abrir o relatorio. O
+// servidor grava o bloco (ok) ou 'indisponivel' (erro, sem credencial); a tela
+// solta assim que um dos dois chega. Limite: 150s desde a entrega (a chamada
+// ao Infosimples corta em 120s) e, pra quem acabou de pagar, nunca menos de
+// 60s desde que a tela viu a entrega (protege de relogio adiantado). Passou
+// disso, abre o relatorio com "indisponivel" no bloco de multas.
+const LIMITE_DETRAN_MS = 150 * 1000
+const MIN_ESPERA_DETRAN_MS = 60 * 1000
+const agoraMs = ref(Date.now())
+const vistoEntregueEm = ref<number | null>(null)
+const prazoDetran = computed<number | null>(() => {
+  if (!entregue.value || !ehVeiculoSpTela.value) return null
+  const visto = vistoEntregueEm.value ?? agoraMs.value
+  const ent = new Date(data.value?.entregue_em || '').getTime()
+  if (!Number.isFinite(ent)) return visto + LIMITE_DETRAN_MS
+  let prazo = ent + LIMITE_DETRAN_MS
+  // Entrega recente (10 min): garante o minimo de 60s de espera na tela.
+  if (visto - ent < 10 * 60 * 1000) prazo = Math.max(prazo, Math.min(visto + MIN_ESPERA_DETRAN_MS, ent + 10 * 60 * 1000))
+  return prazo
+})
+const aguardandoDetran = computed(() =>
+  prazoDetran.value != null && !multasDetalhe.value && !multasIndisponivel.value && agoraMs.value < prazoDetran.value,
+)
+// Passou do limite sem bloco: a nota do bloco vira "indisponivel", nao "Consultando...".
+const multasSemResposta = computed(() => prazoDetran.value != null && !multasDetalhe.value && !aguardandoDetran.value)
+let tickDetran: any = null
+let pollDetran: any = null
+function pararEsperaDetran() {
+  if (tickDetran) { clearInterval(tickDetran); tickDetran = null }
+  if (pollDetran) { clearInterval(pollDetran); pollDetran = null }
+}
+onMounted(() => {
+  watch(aguardandoDetran, (esperando) => {
+    if (!esperando) { pararEsperaDetran(); return }
+    if (vistoEntregueEm.value == null) vistoEntregueEm.value = Date.now()
+    if (!tickDetran) tickDetran = setInterval(() => { agoraMs.value = Date.now() }, 1000)
+    if (!pollDetran) {
+      pollDetran = setInterval(async () => {
+        try { await refresh() } catch { /* rede oscilou; a proxima volta tenta */ }
+      }, 3000)
+    }
+  }, { immediate: true })
+})
 function reais(centavos?: number | null): string | null {
   if (centavos == null) return null
   // Com separador de milhar: "R$ 2.970,56", nao "R$ 2970,56".
@@ -1497,7 +1543,7 @@ onMounted(() => {
 // recall) e para assim que o bloco chega.
 let pollMultas: any = null
 onMounted(() => {
-  if ((!multaIndicadorSP.value && !ehVeiculoSpTela.value) || multasDetalhe.value || multasIndisponivel.value) return
+  if ((!multaIndicadorSP.value && !ehVeiculoSpTela.value) || multasDetalhe.value || multasIndisponivel.value || aguardandoDetran.value) return
   const ate = Date.now() + 6 * 60 * 1000
   pollMultas = setInterval(async () => {
     if (Date.now() > ate || multasDetalhe.value || multasIndisponivel.value) { clearInterval(pollMultas); return }
@@ -1509,6 +1555,7 @@ onUnmounted(() => {
   if (poll) clearInterval(poll)
   if (pollRecall) clearInterval(pollRecall)
   if (pollMultas) clearInterval(pollMultas)
+  pararEsperaDetran()
 })
 </script>
 
@@ -1583,8 +1630,18 @@ onUnmounted(() => {
         </div>
 
         <!-- ============ 2. ESTADOS DE TRANSICAO E FALHA ============ -->
-        <div v-else-if="!entregue" class="rel__card rel__card--centro">
-          <template v-if="['pago', 'consultando'].includes(data.status)">
+        <div v-else-if="!entregue || aguardandoDetran" class="rel__card rel__card--centro">
+          <!-- Relatorio pronto, esperando o DETRAN (veiculo com multa). -->
+          <template v-if="entregue && aguardandoDetran">
+            <h1 class="rel__h">Pagamento confirmado ✓</h1>
+            <div class="rel__barra"><div class="rel__barra-fill" /></div>
+            <ul class="rel__espera">
+              <li class="rel__espera-ok">Consulta da placa concluída ✓</li>
+              <li class="rel__espera-ativa">Consultando multas no DETRAN-{{ ufDetranTela }}…</li>
+            </ul>
+            <p class="rel__hint">O SENATRAN indicou multa neste veículo. Estamos buscando o detalhe no DETRAN, o que pode levar até 2 minutos.</p>
+          </template>
+          <template v-else-if="['pago', 'consultando'].includes(data.status)">
             <h1 class="rel__h">Pagamento confirmado ✓</h1>
             <div class="rel__barra"><div class="rel__barra-fill" /></div>
             <p class="rel__hint">Estamos montando seu relatório. Isso leva alguns instantes.</p>
@@ -1916,7 +1973,7 @@ onUnmounted(() => {
                   <p v-else class="rel__multas-kmok"><b>Sem regressão de km.</b> Sem indício de hodômetro adulterado.</p>
                 </template>
               </template>
-              <p v-else-if="multasIndisponivel" class="rel__multas-nota">A consulta de débitos e multas no DETRAN do estado não está disponível no momento. Confira direto no site do DETRAN.</p>
+              <p v-else-if="multasIndisponivel || multasSemResposta" class="rel__multas-nota">A consulta de débitos e multas no DETRAN do estado não está disponível no momento. Confira direto no site do DETRAN.</p>
               <p v-else class="rel__multas-nota">Consultando débitos, multas e histórico no DETRAN. Aparece aqui em instantes.</p>
             </div>
 
@@ -3730,6 +3787,10 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     margin: 0;
     text-align: left;
   }
+
+  &__espera { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; text-align: left; font-size: 14px; }
+  &__espera-ok { color: #14622f; }
+  &__espera-ativa { font-weight: 700; }
 
   &__barra { width: 100%; max-width: 320px; height: 4px; border-radius: 999px; background: $c-hair; overflow: hidden; }
   &__barra-fill {
