@@ -10,7 +10,10 @@ import { sinalDoHistorico, SINAL_INDISPONIVEL, dentroDoTetoDeSinal } from '../ut
 /** 24h: a base de leilao e atualizada por raspagem, nao muda de minuto a minuto. */
 const TTL_MS = 24 * 60 * 60 * 1000
 /** Teto curto: se a API demorar, a consulta gratis segue sem o sinal. */
-const TIMEOUT_MS = 3000
+// 5s (era 3s): com a leiloes-api lenta (medicao pesada no leiloes-poc-db) os
+// dois sinais davam "sem_sinal" numa venda (NIY4575, 01/out). A consulta gratis
+// nao espera por isto (chamada propria, depois do resultado na tela).
+const TIMEOUT_MS = 5000
 
 const cache = new Map<string, { em: number; sinal: { positivo: boolean | null; quantidade: number } }>()
 
