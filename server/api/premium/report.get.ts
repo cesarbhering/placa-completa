@@ -127,6 +127,8 @@ export default defineEventHandler(async (event) => {
   let recall: any = null
   // Modo autoritativo GM (Chevrolet + chassi cheio): vem do snapshot, igual ao recall.
   let recallAutoritativo: any = null
+  // Recall oficial Nissan por chassi (status por campanha): vem do snapshot.
+  let recallNissan: any = null
   // Debitos e restricoes do orgao estadual: vem do snapshot, igual ao recall.
   // Snapshot antigo (ou sem multa) nao tem o campo e a secao some.
   let multas: any = null
@@ -144,6 +146,7 @@ export default defineEventHandler(async (event) => {
       historicoLeilao = snap.historicoLeilao ?? null
       recall = snap.recall ?? null
       recallAutoritativo = snap.recallAutoritativo ?? null
+      recallNissan = snap.recallNissan ?? null
       multas = snap.multas ?? null
       // Self-heal: a entrega busca recall/multas UMA vez e, se a raspagem deu
       // timeout, o campo ficou null "pra sempre". Ao SERVIR um pedido entregue,
@@ -234,6 +237,7 @@ export default defineEventHandler(async (event) => {
         historicoLeilao = snap.historicoLeilao ?? null
         recall = snap.recall ?? null
         recallAutoritativo = snap.recallAutoritativo ?? null
+        recallNissan = snap.recallNissan ?? null
         multas = snap.multas ?? null
         segmento = snap.segmento ?? 'outro'
       } else {
@@ -275,6 +279,7 @@ export default defineEventHandler(async (event) => {
     historicoLeilao,
     recall,
     recallAutoritativo,
+    recallNissan,
     multas,
     segmento: segmento === 'outro' ? detectarSegmento({
       wdapi: pedido.preview,

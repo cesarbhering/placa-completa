@@ -1058,6 +1058,22 @@ const recallAutoritativo = computed(() => {
 const recallAbertoGM = computed(() => recallAutoritativo.value?.tem_recall_aberto === true)
 const recallCampanhasGM = computed(() => (recallAutoritativo.value?.campanhas || []).filter((c: any) => c?.titulo || c?.descricao))
 
+// Recall oficial NISSAN por chassi (todo Nissan com chassi cheio, com ou sem a
+// flag do SENATRAN): status por campanha (realizado/pendente), data e
+// concessionaria. Com campanha listada, e a verdade e substitui o card do
+// SENATRAN; sem campanha (lista vazia), o card do SENATRAN segue como sempre.
+const recallNissan = computed(() => {
+  const n: any = data.value?.recallNissan
+  return n && n.consultado === true && Array.isArray(n.campanhas) && n.campanhas.length ? n : null
+})
+const ehNissanComChassi = computed(() =>
+  /\bnissan\b/i.test(String(g('descricaoMarcaModelo') || '')) && String(g('chassi') || '').trim().length === 17,
+)
+function dataBr(iso?: string | null): string {
+  const m = String(iso || '').match(/(\d{4})-(\d{2})-(\d{2})/)
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : ''
+}
+
 // Débitos e restrições no órgão de trânsito do estado (SP hoje). O indicador de
 // multa diz que EXISTE; o valor e o detalhe vêm de uma busca solta na entrega,
 // igual ao recall. A fonte não é citada pro cliente: é "o órgão de trânsito do
@@ -1529,6 +1545,17 @@ onMounted(() => {
 // no maximo 4 minutos; passou disso, fica so o indicador, sem ficar batendo no
 // servidor pra sempre.
 let pollRecall: any = null
+// Nissan: a consulta oficial roda logo depois da entrega (~2s). Se a tela abriu
+// antes, acompanha por ate 1 minuto e para quando o bloco chega.
+let pollNissan: any = null
+onMounted(() => {
+  if (!entregue.value || !ehNissanComChassi.value || data.value?.recallNissan) return
+  const ate = Date.now() + 60 * 1000
+  pollNissan = setInterval(async () => {
+    if (Date.now() > ate || data.value?.recallNissan) { clearInterval(pollNissan); return }
+    try { await refresh() } catch { /* rede oscilou; a proxima volta tenta */ }
+  }, 5000)
+})
 onMounted(() => {
   if (!recallPendente.value || recallDetalhe.value) return
   const ate = Date.now() + 4 * 60 * 1000
@@ -1554,6 +1581,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (poll) clearInterval(poll)
   if (pollRecall) clearInterval(pollRecall)
+  if (pollNissan) clearInterval(pollNissan)
   if (pollMultas) clearInterval(pollMultas)
   pararEsperaDetran()
 })
@@ -1979,7 +2007,36 @@ onUnmounted(() => {
 
             <!-- Recall pendente: a primeira pergunta de quem ve o cartao
                  vermelho e "recall de que?". -->
-            <div v-if="recallPendente || recallAbertoGM" class="rel__recall">
+            <!-- Recall oficial NISSAN por chassi: status de cada campanha. -->
+            <div v-if="recallNissan" class="rel__recall" :class="{ 'rel__recall--ok': !recallNissan.pendentes }">
+              <div class="rel__recall-top">
+                <div class="rel__recall-ic">{{ recallNissan.pendentes ? '!' : '✓' }}</div>
+                <div>
+                  <p class="rel__recall-tit">{{ recallNissan.pendentes ? 'Recall pendente neste veículo' : 'Recalls deste veículo já atendidos' }}</p>
+                  <p class="rel__recall-sub">
+                    Consulta oficial da Nissan pelo chassi ·
+                    <template v-if="recallNissan.pendentes">{{ recallNissan.pendentes === 1 ? '1 campanha pendente' : `${recallNissan.pendentes} campanhas pendentes` }}</template>
+                    <template v-else>{{ recallNissan.campanhas.length === 1 ? '1 campanha' : `${recallNissan.campanhas.length} campanhas` }}</template>
+                  </p>
+                </div>
+              </div>
+              <ul class="rel__recall-lista">
+                <li v-for="c in recallNissan.campanhas" :key="c.numero" class="rel__recall-item">
+                  <div class="rel__recall-item-top">
+                    <span>{{ c.titulo || 'Campanha de recall' }}</span>
+                    <b :class="c.status === 'pendente' ? 'rel__recall-st--pend' : 'rel__recall-st--ok'">
+                      {{ c.status === 'pendente' ? 'Pendente' : c.status === 'excluido' ? 'Não se aplica' : 'Realizado' }}
+                    </b>
+                  </div>
+                  <p class="rel__recall-item-meta">
+                    Campanha {{ c.numero }}<template v-if="c.status === 'realizado' && c.data"> · reparo em {{ dataBr(c.data) }}</template><template v-if="c.status === 'realizado' && c.concessionaria"> · {{ c.concessionaria }}</template><template v-if="c.status === 'excluido'"> · veículo excluído da campanha pela Nissan</template>
+                  </p>
+                </li>
+              </ul>
+              <p v-if="recallNissan.pendentes" class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
+            </div>
+
+            <div v-if="!recallNissan && (recallPendente || recallAbertoGM)" class="rel__recall">
               <!-- MODO AUTORITATIVO GM (Chevrolet + chassi cheio): a fonte da GM
                    confirma o recall ABERTO e QUAIS campanhas. Precede o
                    SENATRAN/local. -->
@@ -3392,6 +3449,22 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     break-inside: avoid;
     page-break-inside: avoid;
   }
+
+  &__recall--ok {
+    border-color: #cfe8d6;
+    background: #f1faf3;
+
+    .rel__recall-ic { background: #1f8a4c; }
+    .rel__recall-tit { color: #14622f; }
+    .rel__recall-sub { color: #2f6b45; }
+  }
+
+  &__recall-lista { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+  &__recall-item { background: rgba(255, 255, 255, 0.7); border-radius: 8px; padding: 8px 10px; }
+  &__recall-item-top { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: #1a1a1a; }
+  &__recall-item-meta { margin: 3px 0 0; font-size: 12px; color: #555; }
+  &__recall-st--pend { color: #a32020; white-space: nowrap; }
+  &__recall-st--ok { color: #14622f; white-space: nowrap; }
 
   &__recall-top {
     display: flex;
