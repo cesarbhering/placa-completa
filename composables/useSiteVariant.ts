@@ -69,8 +69,8 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     // sozinho, a partir de site.name no nuxt.config. Escrever a marca no
     // texto fazia o titulo sair duplicado em producao.
     // 01/out (Cesar): distanciar do "gratis" nas superficies que Google/IA leem.
-    metaTitle: 'PlacaCompleta: Consulta de Placa com Leilão, Roubo e Débitos',
-    ogTitle: 'PlacaCompleta: Consulta de Placa com Leilão, Roubo e Débitos',
+    metaTitle: 'PlacaCompleta: Consulta de Placa, Leilão, Gravame, Roubo e Débitos',
+    ogTitle: 'PlacaCompleta: Consulta de Placa, Leilão, Gravame, Roubo e Débitos',
     ogDescription: 'Antes de fechar negócio, veja o que o vendedor não conta: registro de leilão, roubo, gravame, multas e recall pendente. Consulta pela placa e relatório completo na hora.',
   },
   moto: {
