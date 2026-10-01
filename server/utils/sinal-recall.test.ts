@@ -99,6 +99,10 @@ describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis +
     }
     for (const m of ['BENZINA', 'HYUNDAIX', 'IVECOS', 'MERCEDESX']) expect(marcaTemRecall(m)).toBe(false)
   })
+  it('Chevrolet abreviada "CHEV" (SENATRAN): entra; CHEVY/CHEVALIER nao', () => {
+    for (const m of ['CHEV/ONIX', 'CHEV/TRACKER', 'I/CHEV', 'I/CHEV CAMARO', 'CHEVROLET', 'CHEVROLET/S10']) expect(marcaTemRecall(m)).toBe(true)
+    for (const m of ['CHEVALIER', 'CHEVY', 'CHEVETTE', 'CHEVX']) expect(marcaTemRecall(m)).toBe(false)
+  })
   it('server e tela usam a MESMA lista (shared/marcas-recall)', () => {
     for (const m of ['TOYOTA', 'I/HONDA', 'RENAULT/KWID', 'NISSAN/KICKS', 'FORD/KA', 'MMC/L200', 'YAMAHA/FACTOR', 'RAMPA']) {
       expect(marcaTemRecall(m)).toBe(marcaTemRecallGratis(m))
@@ -132,5 +136,24 @@ describe('marcaParaMedicao', () => {
     expect(marcaParaMedicao('I/BMW X1')).toBe('BMW')
     expect(marcaParaMedicao('')).toBeNull()
     expect(marcaParaMedicao(null)).toBeNull()
+  })
+})
+
+import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas-recall'
+describe('autoritativo GM e normalizacao CHEV', () => {
+  it('CHEV aciona o autoritativo no pago (igual CHEVROLET/GM)', () => {
+    for (const d of ['CHEV/ONIX 10MT LT', 'CHEV/TRACKER', 'I/CHEV CAMARO', 'CHEVROLET/ONIX', 'GM/CELTA', 'VW/GOL', 'FIAT/ARGO', 'JEEP/RENEGADE']) expect(marcaTemAutoritativo(d)).toBe(true)
+    for (const d of ['CHEVALIER', 'HONDA/CIVIC', 'NISSAN/KICKS', 'MMC/L200']) expect(marcaTemAutoritativo(d)).toBe(false)
+  })
+  it('normaliza CHEV -> CHEVROLET pra /v1/recall, o resto igual', () => {
+    expect(normalizarMarcaRecall('CHEV/ONIX')).toBe('CHEVROLET/ONIX')
+    expect(normalizarMarcaRecall('CHEV')).toBe('CHEVROLET')
+    expect(normalizarMarcaRecall('I/CHEV CAMARO')).toBe('I/CHEVROLET CAMARO')
+    expect(normalizarMarcaRecall('CHEVROLET/S10')).toBe('CHEVROLET/S10')
+    expect(normalizarMarcaRecall('CHEVALIER')).toBe('CHEVALIER')
+    expect(normalizarMarcaRecall('VW/GOL')).toBe('VW/GOL')
+    expect(normalizarMarcaRecall(null)).toBe('')
+    // medicao (recall_marca) agrupa CHEV com CHEVROLET
+    expect(marcaParaMedicao('CHEV/ONIX')).toBe('CHEVROLET')
   })
 })
