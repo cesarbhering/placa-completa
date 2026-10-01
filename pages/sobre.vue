@@ -2,9 +2,9 @@
 useHead({
   title: 'Sobre o PlacaCompleta: Quem Somos, Fontes de Dados e Metodologia',
   meta: [
-    { name: 'description', content: 'Conheça o PlacaCompleta: como funciona a consulta veicular gratuita, de onde vêm os dados (bases oficiais, FIPE, banco BV), metodologia das análises IBV e compromisso com a LGPD.' },
+    { name: 'description', content: 'Conheça o PlacaCompleta: como funciona a consulta veicular por placa, de onde vêm os dados (bases oficiais, FIPE, banco BV), metodologia das análises IBV e compromisso com a LGPD.' },
     { property: 'og:title', content: 'Sobre o PlacaCompleta: Metodologia e Privacidade' },
-    { property: 'og:description', content: 'Transparência sobre fontes de dados, metodologia e privacidade da consulta veicular gratuita mais simples do Brasil.' },
+    { property: 'og:description', content: 'Transparência sobre fontes de dados, metodologia e privacidade da consulta veicular por placa do PlacaCompleta.' },
   ],
   script: [
     {
@@ -21,7 +21,7 @@ useHead({
           logo: 'https://placacompleta.com.br/logo-horizontal-600.png',
           areaServed: 'BR',
           email: 'contato@placacompleta.com.br',
-          description: 'Serviço gratuito de consulta veicular por placa no Brasil. Dados de marca, modelo, ano, cor, situação e valor FIPE, enviados por e-mail em segundos.',
+          description: 'Serviço de consulta veicular por placa no Brasil, com relatório completo do veículo: registro de leilão, roubo e furto, gravame, multas, recall, débitos e valor FIPE.',
           knowsAbout: ['Consulta veicular', 'Tabela FIPE', 'Placas Mercosul', 'Documentação veicular', 'Mercado de veículos usados no Brasil'],
         },
       }),
