@@ -481,8 +481,16 @@ export default defineNuxtConfig({
         { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       ],
       link: [
-        { rel: "preconnect", href: "https://www.googletagmanager.com" },
-        { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
+        // Hints do gtag so onde o gtag existe (fora de homolog/staging/teste).
+        ...(scriptsDeAnalytics({
+          desligado: process.env.DISABLE_ANALYTICS === "true",
+          gated: process.env.NUXT_PUBLIC_HOMOLOG === "true" || process.env.NUXT_PUBLIC_STAGING === "true",
+        }).length
+          ? [
+              { rel: "preconnect", href: "https://www.googletagmanager.com" },
+              { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
+            ]
+          : []),
         // Nudge para agentes/LLMs descobrirem o backend de consulta (reverse mullet)
         { rel: "llms", href: "/llms.txt" },
         {
