@@ -275,6 +275,19 @@ const indicadores = computed(() => {
     // SENATRAN em NADA CONSTA (sem indicador e sem historico) mas o DETRAN
     // estadual acusa roubo/furto: o cartao acende com a fonte explicita
     // (decisao do Cesar, 30/set). Com o SENATRAN acusando, segue como esta.
+    // Recall: SENATRAN x montadora (Nissan/Mitsubishi pelo chassi). Decisao do
+    // Cesar (01/out): quando divergirem, a grade mostra as DUAS fontes; quando
+    // concordarem, fica a linha normal.
+    if (i.k === 'indicadorRecall' && recallMontadora.value) {
+      const abertoMontadora = campanhasAbertas.value.length > 0
+      if (ligado && !abertoMontadora) {
+        // A montadora e a fonte do atendimento: amarelo (atencao), sem entrar no veredito como alerta.
+        return { ...i, sim: `PENDENTE no SENATRAN, ATENDIDO segundo a ${nomeMontadora.value}`, ligado, alerta: false }
+      }
+      if (!ligado && abertoMontadora) {
+        return { ...i, nao: `EM DIA no SENATRAN, EM ABERTO segundo a ${nomeMontadora.value}`, ligado, alerta: true }
+      }
+    }
     if (i.k === 'indicadorRouboFurto' && rouboDetran.value) {
       return {
         ...i,
