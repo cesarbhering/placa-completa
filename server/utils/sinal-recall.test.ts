@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { sinalDoRecall, marcaTemRecall, RECALL_VAZIO, RECALL_INDISPONIVEL } from './sinal-recall'
+import { marcaTemRecallGratis } from '../../shared/marcas-recall'
 import type { RecallResposta } from './recall-toyota'
 
 const resp = (matches: any[]): RecallResposta => ({ matches })
@@ -21,7 +22,7 @@ describe('sinalDoRecall', () => {
   })
 })
 
-describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis + Honda)', () => {
+describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis + Honda + Renault)', () => {
   it('Toyota, Lexus, Chevrolet, GM, VW, Fiat e Stellantis passam', () => {
     expect(marcaTemRecall('TOYOTA')).toBe(true)
     expect(marcaTemRecall('toyota')).toBe(true)
@@ -59,9 +60,27 @@ describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis +
     expect(marcaTemRecall('honda')).toBe(true)
     expect(marcaTemRecall('HONDAX')).toBe(false)
   })
+  it('Renault: RENAULT, I/RENAULT, RENAULT/<modelo>', () => {
+    expect(marcaTemRecall('RENAULT')).toBe(true)
+    expect(marcaTemRecall('I/RENAULT')).toBe(true)
+    expect(marcaTemRecall('I/RENAULT KOLEOS')).toBe(true)
+    expect(marcaTemRecall('RENAULT/KWID ZEN 10MT')).toBe(true)
+    expect(marcaTemRecall('RENAULT/SANDERO EXP 16')).toBe(true)
+    expect(marcaTemRecall('renault')).toBe(true)
+    expect(marcaTemRecall('RENAULTX')).toBe(false)
+  })
+  it('server e tela usam a MESMA lista (shared/marcas-recall)', () => {
+    for (const m of ['TOYOTA', 'I/HONDA', 'RENAULT/KWID', 'NISSAN/KICKS', 'FORD/KA', 'MMC/L200', 'YAMAHA/FACTOR', 'RAMPA']) {
+      expect(marcaTemRecall(m)).toBe(marcaTemRecallGratis(m))
+    }
+  })
   it('outras marcas e vazio nao passam', () => {
     expect(marcaTemRecall('HYUNDAI')).toBe(false)
     expect(marcaTemRecall('YAMAHA/FACTOR')).toBe(false)
+    // proximas marcas ainda fora (base nao no ar)
+    expect(marcaTemRecall('FORD/KA')).toBe(false)
+    expect(marcaTemRecall('NISSAN/KICKS')).toBe(false)
+    expect(marcaTemRecall('MMC/L200 TRITON')).toBe(false)
     expect(marcaTemRecall('')).toBe(false)
     expect(marcaTemRecall(null)).toBe(false)
     // nao casar 'vw' dentro de outra palavra
