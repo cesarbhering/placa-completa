@@ -4,18 +4,25 @@
 // (01/out): roda pra TODO veiculo da marca com chassi cheio, sem depender da
 // flag de recall do SENATRAN (e gratis e enriquece).
 //
-// - Nissan: GET oficial por chassi (cloudfunctions nissanRecall), sem captcha e
-//   sem dado pessoal. Uma linha por campanha x item de reparo -> agrupado.
-// - Mitsubishi: POST /v1/recall {autoritativo:true} da leiloes-api (a fonte
-//   da Mitsubishi vaza nome/CPF/OS; a leiloes-api ja devolve so o necessario).
-//   Sem o campo `autoritativo` na resposta, vale o match local (null aqui).
+// Nissan, Mitsubishi e Mercedes-Benz vem CENTRALIZADOS na leiloes-api: POST /v1/recall
+// {chassi, marca, modelo, ano_fab, ano_mod, autoritativo:true} devolve
+// resp.autoritativo = {fonte, consultado, campanhas[{codigo,titulo,status}],
+// atendimentos[{codigo,titulo,data,km,concessionaria}]}. Sem o campo, vale o
+// match local (null aqui). `situacao` ("consta_em_campanha" | "nada_consta")
+// e IGNORADA de proposito: quem decide sao as listas (sem campanha = o card
+// do SENATRAN segue). Mercedes manda codigo null e as vezes km null.
+// (Ate 01/out a Nissan era um GET direto no
+// cloudfunctions da Nissan; a leiloes-api passou a cobrir no mesmo formato.)
 //
 // Fail-open: erro/timeout/formato estranho -> null, o relatorio segue sem o
-// bloco. 1 chamada por pedido; cache por chassi (24h) so de resposta valida.
+// bloco. A fonte da montadora dentro da leiloes-api oscila: sem o campo, 1
+// retry depois de ~2s, SO se a primeira voltou em menos de 10s. Timeout do site
+// (40s) MAIOR que o da leiloes-api (30s). Roda pos-entrega, nao segura o
+// loading. Cache por chassi (24h) so de resposta valida.
 // Whitelist: codigo, titulo, status, data, km e concessionaria. Nada de chassi,
 // nome, CPF, OS, texto longo nem codigo de peca.
 
-export type FonteMontadora = 'nissan' | 'mitsubishi'
+export type FonteMontadora = 'nissan' | 'mitsubishi' | 'mercedes-benz'
 
 export interface CampanhaMontadora {
   codigo: string
@@ -43,30 +50,27 @@ export interface RecallMontadora {
   atendimentos: AtendimentoMontadora[]
 }
 
-const URL_NISSAN = 'https://us-central1-integracao-nissan-x-sem-parar.cloudfunctions.net/nissanRecall/recall/'
 const TTL_MS = 24 * 60 * 60 * 1000
-/** GET direto da Nissan (ate a Nissan entrar na leiloes-api). */
-const TIMEOUT_NISSAN_MS = 8000
 /**
- * Chamada autoritativa na leiloes-api: a API espera ate 30s pela montadora
- * (ordem do Cesar, 01/out); o site espera 40s, MAIS que a API, pra receber o
- * fail-open dela em vez de cortar antes. Roda pos-entrega: nao segura o
- * loading nem nenhuma resposta ao cliente.
+ * A leiloes-api espera ate 30s pela montadora (ordem do Cesar, 01/out); o site
+ * espera 40s, MAIS que a API, pra receber o fail-open dela em vez de cortar
+ * antes. Roda pos-entrega: nao segura o loading nem resposta ao cliente.
  */
-const TIMEOUT_AUTORITATIVO_MS = 40000
+const TIMEOUT_MS = 40000
 /** Retry so se a 1a chamada voltou RAPIDO sem o campo (a API nao esperou a montadora). */
 const RETRY_SE_ANTES_DE_MS = 10000
-const RETRY_ESPERA_MS = 2000
+const RETRY_MS = 2000
 const cache = new Map<string, { em: number; bloco: RecallMontadora }>()
 
 export function marcaMontadora(desc: string | null | undefined): FonteMontadora | null {
   const d = String(desc || '')
   if (/\bnissan\b/i.test(d)) return 'nissan'
   if (/\b(mmc|mitsubishi)\b/i.test(d)) return 'mitsubishi'
+  // Mercedes-Benz: o SENATRAN manda "M.BENZ/...", "MBENZ", "MERCEDES-BENZ".
+  if (/\b(m\.?\s*benz|mercedes)\b/i.test(d)) return 'mercedes-benz'
   return null
 }
 
-const sim = (v: any) => v === true || /^(true|sim|s)$/i.test(String(v ?? '').trim())
 const texto = (v: any, max = 160) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t && t !== 'None' && t !== 'null' ? t.slice(0, max) : null }
 function isoData(v: any): string | null {
   const s = String(v ?? '')
@@ -89,44 +93,13 @@ function ordenar(b: Omit<RecallMontadora, 'n_campanhas' | 'tem_recall_aberto'>):
 }
 
 /**
- * Nissan: lista crua (campanha x item de reparo) -> formato unico. Aberta se
- * QUALQUER item ativo nao foi reparado (conservador); excluida se todos os
- * itens foram excluidos; senao realizada, com UM atendimento (data mais
- * recente + concessionaria). Nissan nao traz km. Nao-lista -> null.
+ * resp.autoritativo da leiloes-api -> formato unico. So aceita a fonte
+ * esperada + consultado true. Copia campo a campo (whitelist): qualquer coisa
+ * a mais que a API mande (nome, CPF, OS, placa, chassi) nao passa.
  */
-export function parsearRecallNissan(bruto: unknown): RecallMontadora | null {
-  if (!Array.isArray(bruto)) return null
-  const grupos = new Map<string, any[]>()
-  for (const x of bruto) {
-    if (!x || typeof x !== 'object') continue
-    const codigo = texto((x as any).numero_da_campanha, 40)
-    if (!codigo) continue
-    if (!grupos.has(codigo)) grupos.set(codigo, [])
-    grupos.get(codigo)!.push(x)
-  }
-  const campanhas: CampanhaMontadora[] = []
-  const atendimentos: AtendimentoMontadora[] = []
-  for (const [codigo, linhas] of grupos) {
-    const titulo = linhas.map((l) => texto(l.nome_da_campanha)).find(Boolean) ?? null
-    const ativas = linhas.filter((l) => !sim(l.excluido_do_recall))
-    if (!ativas.length) { campanhas.push({ codigo, titulo, status: 'excluido' }); continue }
-    if (ativas.some((l) => !sim(l.efetuou_o_reparo))) { campanhas.push({ codigo, titulo, status: 'aberto' }); continue }
-    campanhas.push({ codigo, titulo, status: 'realizado' })
-    const ultima = [...ativas].sort((a, b) => String(isoData(b.data_do_reparo) || '').localeCompare(String(isoData(a.data_do_reparo) || '')))[0]
-    atendimentos.push({ codigo, titulo, data: isoData(ultima?.data_do_reparo), km: null, concessionaria: texto(ultima?.concessionaria, 80) })
-  }
-  return ordenar({ fonte: 'nissan', consultado: true, campanhas, atendimentos })
-}
-
-/**
- * Mitsubishi (resp.autoritativo da leiloes-api): {fonte, consultado,
- * campanhas[{codigo,titulo,status}], atendimentos[{codigo,titulo,data,km,
- * concessionaria}]}. So aceita fonte mitsubishi + consultado true. Copia campo
- * a campo (whitelist): qualquer coisa a mais que a API mande nao passa.
- */
-export function sanearRecallMitsubishi(bruto: unknown): RecallMontadora | null {
+export function sanearRecallAutoritativo(bruto: unknown, fonte: FonteMontadora): RecallMontadora | null {
   const b = bruto as any
-  if (!b || typeof b !== 'object' || b.consultado !== true || String(b.fonte || '').toLowerCase() !== 'mitsubishi') return null
+  if (!b || typeof b !== 'object' || b.consultado !== true || String(b.fonte || '').toLowerCase() !== fonte) return null
   const campanhas: CampanhaMontadora[] = (Array.isArray(b.campanhas) ? b.campanhas : [])
     .map((c: any) => ({
       codigo: texto(c?.codigo, 40) || '',
@@ -137,19 +110,39 @@ export function sanearRecallMitsubishi(bruto: unknown): RecallMontadora | null {
   const atendimentos: AtendimentoMontadora[] = (Array.isArray(b.atendimentos) ? b.atendimentos : [])
     .map((a: any) => ({ codigo: texto(a?.codigo, 40), titulo: texto(a?.titulo), data: isoData(a?.data), km: kmNum(a?.km), concessionaria: texto(a?.concessionaria, 80) }))
     .filter((a: AtendimentoMontadora) => a.data || a.km != null)
-  return ordenar({ fonte: 'mitsubishi', consultado: true, campanhas, atendimentos })
+  return ordenar({ fonte, consultado: true, campanhas: dedupeCampanhas(campanhas), atendimentos: dedupeAtendimentos(atendimentos) })
 }
 
-async function consultarNissan(vin: string, timeoutMs: number): Promise<RecallMontadora | null> {
-  const res = await fetch(URL_NISSAN + vin, {
-    headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' },
-    signal: AbortSignal.timeout(timeoutMs),
+/**
+ * A leiloes-api repassa a Nissan com UMA linha por item de reparo (RT030 com 2
+ * itens vem 2x, em campanhas e em atendimentos). Uma campanha por codigo (ou
+ * titulo, sem codigo): aberta se QUALQUER linha esta aberta (conservador),
+ * senao realizada se alguma foi realizada, senao excluida.
+ */
+function dedupeCampanhas(lista: CampanhaMontadora[]): CampanhaMontadora[] {
+  const peso = { aberto: 0, realizado: 1, excluido: 2 } as const
+  const porChave = new Map<string, CampanhaMontadora>()
+  for (const c of lista) {
+    const k = c.codigo || `t:${c.titulo || ''}`
+    const atual = porChave.get(k)
+    if (!atual || peso[c.status] < peso[atual.status]) porChave.set(k, { ...c, titulo: c.titulo || atual?.titulo || null })
+  }
+  return [...porChave.values()]
+}
+function dedupeAtendimentos(lista: AtendimentoMontadora[]): AtendimentoMontadora[] {
+  const vistos = new Set<string>()
+  return lista.filter((a) => {
+    const k = [a.codigo || a.titulo || '', a.data || '', a.km ?? '', a.concessionaria || ''].join('|')
+    if (vistos.has(k)) return false
+    vistos.add(k)
+    return true
   })
-  if (!res.ok) return null
-  return parsearRecallNissan(await res.json().catch(() => null))
 }
 
-async function consultarMitsubishi(vin: string, perfil: { modelo?: string | null; ano_fab?: any; ano_mod?: any; placa?: string | null }, timeoutMs: number): Promise<RecallMontadora | null> {
+/** Marca que vai no corpo do /v1/recall por fonte. */
+const MARCA_API: Record<FonteMontadora, string> = { nissan: 'NISSAN', mitsubishi: 'MMC', 'mercedes-benz': 'M.BENZ' }
+
+async function consultarLeiloesApi(fonte: FonteMontadora, vin: string, perfil: { modelo?: string | null; ano_fab?: any; ano_mod?: any; placa?: string | null }, timeoutMs: number): Promise<RecallMontadora | null> {
   const config = useRuntimeConfig() as any
   const base = String(config.leiloesApiUrl || '').replace(/\/+$/, '')
   const key = String(config.leiloesApiKey || '')
@@ -160,7 +153,7 @@ async function consultarMitsubishi(vin: string, perfil: { modelo?: string | null
     body: {
       placa: perfil.placa || null,
       chassi: vin,
-      marca: 'MMC',
+      marca: MARCA_API[fonte],
       modelo: String(perfil.modelo || '').trim() || null,
       // GOTCHA do contrato: anos sao STRING no /v1/recall.
       ano_fab: perfil.ano_fab != null ? String(perfil.ano_fab) : null,
@@ -169,27 +162,10 @@ async function consultarMitsubishi(vin: string, perfil: { modelo?: string | null
     },
     timeout: timeoutMs,
   })
-  return sanearRecallMitsubishi(res?.autoritativo)
+  return sanearRecallAutoritativo(res?.autoritativo, fonte)
 }
 
-/**
- * 1 chamada; sem o campo (ou erro), 1 retry depois de ~2s SO se a primeira
- * voltou em menos de 10s. Se ela ja esperou a montadora (perto dos 30s da
- * API), repetir so dobraria a espera pra provavelmente o mesmo timeout.
- */
-async function comRetry(
-  chamar: () => Promise<RecallMontadora | null>,
-  opts?: { retryMs?: number; agora?: () => number },
-): Promise<RecallMontadora | null> {
-  const relogio = opts?.agora || Date.now
-  const tentar = async () => { try { return await chamar() } catch (e: any) { console.warn('[recall-montadora] tentativa falhou:', e?.message || e); return null } }
-  const t0 = relogio()
-  const primeira = await tentar()
-  if (primeira) return primeira
-  if (relogio() - t0 >= RETRY_SE_ANTES_DE_MS) return null
-  await new Promise((r) => setTimeout(r, opts?.retryMs ?? RETRY_ESPERA_MS))
-  return tentar()
-}
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /** Consulta a montadora do chassi. null = nao deu (fail-open). */
 export async function consultarRecallMontadora(
@@ -204,13 +180,20 @@ export async function consultarRecallMontadora(
   const agora = Date.now()
   const c = cache.get(chave)
   if (c && agora - c.em < TTL_MS) return c.bloco
-  try {
-    let bloco: RecallMontadora | null
-    if (fonte === 'nissan') {
-      bloco = await consultarNissan(vin, opts?.timeoutMs || TIMEOUT_NISSAN_MS)
-    } else {
-      bloco = await comRetry(() => consultarMitsubishi(vin, perfil, opts?.timeoutMs || TIMEOUT_AUTORITATIVO_MS), opts)
+  const t = opts?.timeoutMs || TIMEOUT_MS
+  const tentar = async () => {
+    try { return await consultarLeiloesApi(fonte, vin, perfil, t) } catch (e: any) {
+      console.warn(`[recall-${fonte}] consulta falhou (fail-open):`, e?.message || e)
+      return null
     }
+  }
+  try {
+    // 1 retry quando o campo nao vem, SO se a 1a voltou rapido (se ja esperou a
+    // montadora, repetir so dobraria a espera pro mesmo timeout).
+    const relogio = opts?.agora || Date.now
+    const t0 = relogio()
+    let bloco = await tentar()
+    if (!bloco && relogio() - t0 < RETRY_SE_ANTES_DE_MS) { await esperar(opts?.retryMs ?? RETRY_MS); bloco = await tentar() }
     if (bloco) {
       cache.set(chave, { em: agora, bloco })
       if (cache.size > 5000) for (const [k, v] of cache) if (agora - v.em >= TTL_MS) cache.delete(k)
