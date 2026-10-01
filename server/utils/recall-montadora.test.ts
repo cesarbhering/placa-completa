@@ -1,141 +1,142 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
-import NISSAN from './__fixtures__/recall-nissan.json'
+import NISSAN from './__fixtures__/recall-nissan-autoritativo.json'
 import MMC from './__fixtures__/recall-mitsubishi-autoritativo.json'
-import {
-  parsearRecallNissan, sanearRecallMitsubishi, consultarRecallMontadora, completarRecallMontadora,
-  marcaMontadora, _limparCacheMontadora,
-} from './recall-montadora'
+import MB from './__fixtures__/recall-mercedes-autoritativo.json'
+import NREAL from './__fixtures__/recall-nissan-autoritativo-real.json'
+import { sanearRecallAutoritativo, consultarRecallMontadora, completarRecallMontadora, marcaMontadora, _limparCacheMontadora } from './recall-montadora'
 
-// NISSAN = respostas REAIS da consulta oficial (01/out, chassi trocado por
-// FALSO): Frontier com 3 campanhas realizadas (RT030 com 2 itens) e um carro com
-// RT030 pendente. MMC = fixture SINTETICA no formato combinado com a leiloes-api
-// (o endpoint so entra no redeploy), com nome/CPF/OS/placa pra provar a whitelist.
+// Fixtures no formato do /v1/recall {autoritativo:true} da leiloes-api.
+// NISSAN: campanhas/datas/concessionaria de respostas REAIS da Nissan (01/out),
+// com um "chassi" a mais pra provar a whitelist. MMC: SINTETICA, com
+// nome/CPF/OS/placa a mais pelo mesmo motivo.
 
-describe('parsearRecallNissan (formato unico)', () => {
-  it('3 realizadas: campanhas + 1 atendimento por campanha (data, concessionaria, sem km)', () => {
-    const b = parsearRecallNissan(NISSAN.realizadas)!
-    expect(b).toMatchObject({ fonte: 'nissan', consultado: true, tem_recall_aberto: false, n_campanhas: 0 })
-    expect(b.campanhas.map((c) => [c.codigo, c.status])).toEqual([['RT038', 'realizado'], ['RT030', 'realizado'], ['R1202', 'realizado']])
-    expect(b.atendimentos[0]).toEqual({ codigo: 'RT038', titulo: 'Substituição do Gerador de Gases Do Airbag Do Motorista', data: '2021-01-15', km: null, concessionaria: 'NICENTER AV. BRASILIA NBA' })
-    expect(b.atendimentos.find((a) => a.codigo === 'RT030')).toMatchObject({ data: '2019-01-04', concessionaria: 'NICENTER APUCARANA NBA' })
-    const out = JSON.stringify(b)
-    for (const p of ['9XXXXXXXXXXXXXXXX', 'chassis', 'texto_da_campanha', '98510EB79C', 'itens_do_reparo']) expect(out).not.toContain(p)
+describe('sanearRecallAutoritativo', () => {
+  it('Nissan: aberta primeiro, realizada com data/concessionaria (km null), excluida; sem chassi', () => {
+    const b = sanearRecallAutoritativo(NISSAN.autoritativo, 'nissan')!
+    expect(b).toMatchObject({ fonte: 'nissan', tem_recall_aberto: true, n_campanhas: 1 })
+    expect(b.campanhas.map((c) => [c.codigo, c.status])).toEqual([['RT030', 'aberto'], ['RT038', 'realizado'], ['R1202', 'excluido']])
+    expect(b.atendimentos).toEqual([{ codigo: 'RT038', titulo: 'Substituição do Gerador de Gases Do Airbag Do Motorista', data: '2021-01-15', km: null, concessionaria: 'NICENTER AV. BRASILIA NBA' }])
+    expect(JSON.stringify(b)).not.toContain('9XXXXXXXXXXXXXXXX')
   })
-  it('pendente vira aberto, sem atendimento', () => {
-    const b = parsearRecallNissan(NISSAN.pendente)!
-    expect(b).toMatchObject({ tem_recall_aberto: true, n_campanhas: 1, atendimentos: [] })
-    expect(b.campanhas[0]).toMatchObject({ codigo: 'RT030', status: 'aberto' })
-  })
-  it('qualquer item nao reparado deixa a campanha aberta; abertas primeiro', () => {
-    const b = parsearRecallNissan([...NISSAN.realizadas, { ...NISSAN.realizadas[1], efetuou_o_reparo: false, data_do_reparo: null }])!
-    expect(b.campanhas[0]).toMatchObject({ codigo: 'RT030', status: 'aberto' })
-    expect(b.n_campanhas).toBe(1)
-  })
-  it('excluido; lista vazia; nao-lista', () => {
-    expect(parsearRecallNissan([{ ...NISSAN.pendente[0], excluido_do_recall: true }])!.campanhas[0].status).toBe('excluido')
-    expect(parsearRecallNissan([])).toMatchObject({ campanhas: [], atendimentos: [], tem_recall_aberto: false })
-    expect(parsearRecallNissan({ erro: 1 })).toBeNull()
-  })
-})
-
-describe('sanearRecallMitsubishi', () => {
-  it('abertas e realizadas, atendimentos com km; nunca nome/CPF/OS/placa', () => {
-    const b = sanearRecallMitsubishi(MMC.autoritativo)!
+  it('Mitsubishi: atendimentos com km; nunca nome/CPF/OS/placa', () => {
+    const b = sanearRecallAutoritativo(MMC.autoritativo, 'mitsubishi')!
     expect(b).toMatchObject({ fonte: 'mitsubishi', tem_recall_aberto: true, n_campanhas: 1 })
-    expect(b.campanhas.map((c) => [c.codigo, c.status])).toEqual([['MMC-2019-01', 'aberto'], ['MMC-2016-03', 'realizado'], ['MMC-2014-02', 'realizado']])
-    expect(b.atendimentos).toEqual([
-      { codigo: 'MMC-2016-03', titulo: 'Inspeção do cubo da roda traseira', data: '2017-03-10', km: 41250, concessionaria: 'MITSUBISHI MOTORS ALPHA SP' },
-      { codigo: 'MMC-2014-02', titulo: 'Reprogramação da central do motor', data: '2015-06-02', km: 18300, concessionaria: 'MITSUBISHI BETA RJ' },
-    ])
+    expect(b.atendimentos.map((a) => a.km)).toEqual([41250, 18300])
     const out = JSON.stringify(b)
     for (const p of ['FULANO', '123.456.789', 'OS-998877', 'ABC1D23', 'situacao']) expect(out).not.toContain(p)
   })
-  it('sem consultado/fonte errada -> null (vale o match local)', () => {
-    expect(sanearRecallMitsubishi(undefined)).toBeNull()
-    expect(sanearRecallMitsubishi({ ...MMC.autoritativo, consultado: false })).toBeNull()
-    expect(sanearRecallMitsubishi({ ...MMC.autoritativo, fonte: 'gm' })).toBeNull()
+  it('Nissan REAL da leiloes-api (Frontier, 01/out): duplicatas por item de reparo viram 1 campanha e 1 atendimento', () => {
+    const b = sanearRecallAutoritativo(NREAL.autoritativo, 'nissan')!
+    expect(b.campanhas.map((c) => [c.codigo, c.status])).toEqual([['RT038', 'realizado'], ['RT030', 'realizado'], ['R1202', 'realizado']])
+    expect(b.atendimentos.map((a) => a.codigo)).toEqual(['RT038', 'R1202', 'RT030'])
+    expect(b).toMatchObject({ tem_recall_aberto: false, n_campanhas: 0 })
+  })
+  it('dedupe: um item aberto deixa a campanha aberta', () => {
+    const b = sanearRecallAutoritativo({ fonte: 'nissan', consultado: true, campanhas: [
+      { codigo: 'RT030', titulo: 'X', status: 'realizado' }, { codigo: 'RT030', titulo: 'X', status: 'aberto' },
+    ], atendimentos: [] }, 'nissan')!
+    expect(b.campanhas).toEqual([{ codigo: 'RT030', titulo: 'X', status: 'aberto' }])
+    expect(b.n_campanhas).toBe(1)
+  })
+  it('Mercedes-Benz: codigo null e km null passam; nome nao', () => {
+    const b = sanearRecallAutoritativo(MB.autoritativo, 'mercedes-benz')!
+    expect(b).toMatchObject({ fonte: 'mercedes-benz', tem_recall_aberto: true, n_campanhas: 1 })
+    expect(b.campanhas.map((c) => [c.codigo, c.status])).toEqual([['', 'aberto'], ['', 'realizado']])
+    expect(b.atendimentos).toEqual([{ codigo: null, titulo: 'Inspeção da mangueira de combustível', data: '2019-05-20', km: null, concessionaria: 'CONCESSIONARIA EXEMPLO' }])
+    expect(JSON.stringify(b)).not.toContain('FULANO')
+  })
+  it('situacao "nada_consta" (sem campanha): consultado, listas vazias, sem recall aberto (o card do SENATRAN segue)', () => {
+    const b = sanearRecallAutoritativo({ fonte: 'mercedes-benz', consultado: true, situacao: 'nada_consta', campanhas: [], atendimentos: [] }, 'mercedes-benz')!
+    expect(b).toMatchObject({ consultado: true, tem_recall_aberto: false, n_campanhas: 0, campanhas: [], atendimentos: [] })
+  })
+  it('fonte trocada, sem consultado ou sem o campo -> null (vale o match local)', () => {
+    expect(sanearRecallAutoritativo(NISSAN.autoritativo, 'mitsubishi')).toBeNull()
+    expect(sanearRecallAutoritativo({ ...MMC.autoritativo, consultado: false }, 'mitsubishi')).toBeNull()
+    expect(sanearRecallAutoritativo(undefined, 'nissan')).toBeNull()
   })
 })
 
-describe('consultar/completar', () => {
-  beforeEach(() => _limparCacheMontadora())
+describe('consultar/completar via leiloes-api', () => {
+  beforeEach(() => {
+    _limparCacheMontadora()
+    vi.stubGlobal('useRuntimeConfig', () => ({ leiloesApiUrl: 'http://api', leiloesApiKey: 'k', public: { gated: true } }))
+  })
   afterEach(() => vi.unstubAllGlobals())
   const VIN = '3N1AB7AD1KY000000'
-  function fakeSb(snap: any = { consulta: {}, recall: { status: 'ok' } }) {
-    const updates: any[] = []
-    return {
-      updates,
-      from: () => ({
-        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { relatorio_snapshot: snap } }) }) }),
-        update: (row: any) => ({ eq: async () => { updates.push(row); return { error: null } } }),
-      }),
-    }
-  }
 
   it('marcaMontadora', () => {
     expect(marcaMontadora('NISSAN/KICKS')).toBe('nissan')
     expect(marcaMontadora('I/NISSAN FRONTIER')).toBe('nissan')
     expect(marcaMontadora('MMC/L200 TRITON')).toBe('mitsubishi')
     expect(marcaMontadora('MITSUBISHI/PAJERO')).toBe('mitsubishi')
+    expect(marcaMontadora('M.BENZ/C180 CGI')).toBe('mercedes-benz')
+    expect(marcaMontadora('I/M.BENZ GLA200')).toBe('mercedes-benz')
+    expect(marcaMontadora('MERCEDES-BENZ/A200')).toBe('mercedes-benz')
+    expect(marcaMontadora('MBENZ/SPRINTER')).toBe('mercedes-benz')
     expect(marcaMontadora('RENAULT/KWID')).toBeNull()
   })
-  it('Nissan: 1 GET por chassi, com cache', async () => {
-    const f = vi.fn(async () => ({ ok: true, json: async () => NISSAN.pendente }))
-    vi.stubGlobal('fetch', f)
-    const a = await consultarRecallMontadora('nissan', VIN)
-    expect(await consultarRecallMontadora('nissan', VIN.toLowerCase())).toEqual(a)
-    expect(f).toHaveBeenCalledTimes(1)
-    expect(String((f.mock.calls[0] as any)[0])).toMatch(/nissanRecall\/recall\/3N1AB7AD1KY000000$/)
-  })
-  it('Mitsubishi: POST /v1/recall com marca MMC, anos string e autoritativo:true', async () => {
-    vi.stubGlobal('useRuntimeConfig', () => ({ leiloesApiUrl: 'http://api', leiloesApiKey: 'k', public: { gated: true } }))
-    const f = vi.fn(async () => MMC)
-    vi.stubGlobal('$fetch', f)
-    const b = await consultarRecallMontadora('mitsubishi', 'JMYLYV98WGJ000000', { modelo: 'MMC/OUTLANDER', ano_fab: 2015, ano_mod: 2016, placa: 'ABC1D23' })
-    expect(b?.n_campanhas).toBe(1)
+  it('Nissan vai pela leiloes-api (marca NISSAN), sem GET direto na Nissan; timeout 40s', async () => {
+    const f = vi.fn(async () => NISSAN); vi.stubGlobal('$fetch', f)
+    const g = vi.fn(); vi.stubGlobal('fetch', g)
+    const b = await consultarRecallMontadora('nissan', VIN, { modelo: 'NISSAN/FRONTIER', ano_fab: 2008, ano_mod: 2008 })
+    expect(b?.fonte).toBe('nissan')
     const [url, opts]: any = f.mock.calls[0]
     expect(url).toBe('http://api/v1/recall')
-    expect(opts.body).toMatchObject({ chassi: 'JMYLYV98WGJ000000', marca: 'MMC', ano_fab: '2015', ano_mod: '2016', autoritativo: true })
+    expect(opts.body).toMatchObject({ chassi: VIN, marca: 'NISSAN', ano_fab: '2008', autoritativo: true })
+    expect(opts.timeout).toBe(40000)
+    expect(g).not.toHaveBeenCalled()
   })
-  it('Mitsubishi sem o campo nas duas: null, exatamente 2 chamadas, timeout 40s', async () => {
-    vi.stubGlobal('useRuntimeConfig', () => ({ leiloesApiUrl: 'http://api', leiloesApiKey: 'k', public: {} }))
-    const f = vi.fn(async () => ({ matches: [] })); vi.stubGlobal('$fetch', f)
-    expect(await consultarRecallMontadora('mitsubishi', 'JMYLYV98WGJ000000', {}, { retryMs: 1 })).toBeNull()
-    expect(f).toHaveBeenCalledTimes(2)
-    expect((f.mock.calls[0] as any)[1].timeout).toBe(40000)
+  it('Mitsubishi: marca MMC, anos string', async () => {
+    const f = vi.fn(async () => MMC); vi.stubGlobal('$fetch', f)
+    await consultarRecallMontadora('mitsubishi', 'JMYLYV98WGJ000000', { modelo: 'MMC/OUTLANDER', ano_fab: 2015, ano_mod: 2016 })
+    expect((f.mock.calls[0] as any)[1].body).toMatchObject({ marca: 'MMC', ano_fab: '2015', ano_mod: '2016', autoritativo: true })
   })
-  it('Mitsubishi: 1a sem o campo (rapida), retry acerta', async () => {
-    vi.stubGlobal('useRuntimeConfig', () => ({ leiloesApiUrl: 'http://api', leiloesApiKey: 'k', public: {} }))
-    const f = vi.fn().mockResolvedValueOnce({ matches: [] }).mockResolvedValueOnce(MMC); vi.stubGlobal('$fetch', f)
+  it('Mercedes: marca M.BENZ no /v1/recall', async () => {
+    const f = vi.fn(async () => MB); vi.stubGlobal('$fetch', f)
+    const b = await consultarRecallMontadora('mercedes-benz', 'WDDHF8JB0FA000000', { modelo: 'M.BENZ/C180' })
+    expect((f.mock.calls[0] as any)[1].body).toMatchObject({ marca: 'M.BENZ', autoritativo: true })
+    expect(b?.fonte).toBe('mercedes-benz')
+  })
+  it('sem o campo autoritativo: 1 retry e acerta', async () => {
+    const f = vi.fn().mockResolvedValueOnce({ matches: [] }).mockResolvedValueOnce(MMC)
+    vi.stubGlobal('$fetch', f)
     const b = await consultarRecallMontadora('mitsubishi', 'JMYLYV98WGJ000000', {}, { retryMs: 1 })
     expect(f).toHaveBeenCalledTimes(2)
     expect(b?.n_campanhas).toBe(1)
   })
-  it('Mitsubishi: 1a ja esperou a montadora (>= 10s): NAO repete', async () => {
-    vi.stubGlobal('useRuntimeConfig', () => ({ leiloesApiUrl: 'http://api', leiloesApiKey: 'k', public: {} }))
+  it('erro/sem campo nas duas: null depois de exatamente 2 chamadas, sem cache', async () => {
+    const f = vi.fn(async () => { throw new Error('timeout') }); vi.stubGlobal('$fetch', f)
+    expect(await consultarRecallMontadora('nissan', VIN, {}, { retryMs: 1 })).toBeNull()
+    expect(f).toHaveBeenCalledTimes(2)
+    const g = vi.fn(async () => NISSAN); vi.stubGlobal('$fetch', g)
+    expect(await consultarRecallMontadora('nissan', VIN, {}, { retryMs: 1 })).not.toBeNull()
+  })
+  it('1a ja esperou a montadora (>= 10s): NAO repete', async () => {
     let t = 0
     const f = vi.fn(async () => { t += 31000; return { matches: [] } }); vi.stubGlobal('$fetch', f)
     expect(await consultarRecallMontadora('mitsubishi', 'JMYLYV98WGJ000000', {}, { retryMs: 1, agora: () => t })).toBeNull()
     expect(f).toHaveBeenCalledTimes(1)
   })
-  it('fail-open: HTTP erro e excecao -> null', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => ({}) })))
-    expect(await consultarRecallMontadora('nissan', VIN)).toBeNull()
-    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('timeout') }))
-    expect(await consultarRecallMontadora('nissan', VIN)).toBeNull()
+  it('cache por chassi: a segunda consulta nao chama', async () => {
+    const f = vi.fn(async () => NISSAN); vi.stubGlobal('$fetch', f)
+    await consultarRecallMontadora('nissan', VIN)
+    await consultarRecallMontadora('nissan', VIN.toLowerCase())
+    expect(f).toHaveBeenCalledTimes(1)
   })
   it('todo Nissan com chassi cheio, MESMO sem flag: grava recallMontadora sem pisar no resto', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => NISSAN.realizadas })))
-    const sb = fakeSb()
+    vi.stubGlobal('$fetch', vi.fn(async () => NISSAN))
+    const updates: any[] = []
+    const sb = { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { relatorio_snapshot: { consulta: {}, recall: { status: 'ok' } } } }) }) }), update: (row: any) => ({ eq: async () => { updates.push(row); return { error: null } } }) }) }
     const r = await completarRecallMontadora(sb, { id: 'p1' }, [{ descricaoMarcaModelo: 'NISSAN/FRONTIER', chassi: VIN, indicadorRecall: false }])
-    expect(r).toEqual({ ok: true, abertas: 0 })
-    expect(sb.updates[0].relatorio_snapshot.recall).toEqual({ status: 'ok' })
-    expect(sb.updates[0].relatorio_snapshot.recallMontadora.fonte).toBe('nissan')
+    expect(r).toEqual({ ok: true, abertas: 1 })
+    expect(updates[0].relatorio_snapshot.recall).toEqual({ status: 'ok' })
+    expect(updates[0].relatorio_snapshot.recallMontadora.fonte).toBe('nissan')
   })
   it('outra marca ou sem chassi: nao chama', async () => {
-    const f = vi.fn(); vi.stubGlobal('fetch', f); vi.stubGlobal('$fetch', f)
-    expect(await completarRecallMontadora(fakeSb(), { id: 'p1' }, [{ descricaoMarcaModelo: 'RENAULT/KWID', chassi: VIN }])).toMatchObject({ pulado: 'marca sem consulta da montadora' })
-    expect(await completarRecallMontadora(fakeSb(), { id: 'p1' }, [{ descricaoMarcaModelo: 'MMC/ASX', chassi: '' }])).toMatchObject({ pulado: 'sem chassi cheio' })
+    const f = vi.fn(); vi.stubGlobal('$fetch', f)
+    const sb: any = {}
+    expect(await completarRecallMontadora(sb, { id: 'p1' }, [{ descricaoMarcaModelo: 'RENAULT/KWID', chassi: VIN }])).toMatchObject({ pulado: 'marca sem consulta da montadora' })
+    expect(await completarRecallMontadora(sb, { id: 'p1' }, [{ descricaoMarcaModelo: 'MMC/ASX', chassi: '' }])).toMatchObject({ pulado: 'sem chassi cheio' })
     expect(f).not.toHaveBeenCalled()
   })
 })
