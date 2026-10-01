@@ -1074,7 +1074,7 @@ const multaIndicadorSP = computed(
 const ehVeiculoSpTela = computed(() => {
   const uf = String(g('ufJurisdicao') || '').toUpperCase()
   if (uf === 'SP') return true
-  return ['SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM'].includes(uf) && g('indicadorMultaRenainf') === true
+  return ['SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM', 'PE'].includes(uf) && g('indicadorMultaRenainf') === true
 })
 const ufDetranTela = computed(() => String(g('ufJurisdicao') || '').toUpperCase())
 const multasDetalhe = computed(() => {
