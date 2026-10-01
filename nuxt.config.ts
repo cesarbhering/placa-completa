@@ -622,6 +622,12 @@ export default defineNuxtConfig({
     abacatepayApiKey: process.env.ABACATEPAY_API_KEY || "",
     abacatepayWebhookSecret: process.env.ABACATEPAY_WEBHOOK_SECRET || "",
     abacatepayBase: process.env.ABACATEPAY_BASE || "https://api.abacatepay.com/v2",
+    // Cartao via Stripe (forma de pagamento SECUNDARIA; Pix segue principal).
+    // Sem a secret, o cartao nem aparece (endpoint 503). Nomes mapeiam de
+    // NUXT_STRIPE_SECRET_KEY / NUXT_STRIPE_WEBHOOK_SECRET no ambiente. Private:
+    // nunca vao pro bundle do browser.
+    stripeSecretKey: process.env.NUXT_STRIPE_SECRET_KEY || "",
+    stripeWebhookSecret: process.env.NUXT_STRIPE_WEBHOOK_SECRET || "",
     // Conta de servico da Google Play Developer API (base64 do JSON), usada so
     // pra conferir compras feitas DENTRO do app Android. Private: nunca vai
     // pro bundle do browser. Sem ela, o endpoint do app responde 503 e a web
@@ -688,6 +694,14 @@ export default defineNuxtConfig({
         process.env.NUXT_PUBLIC_HOMOLOG === "true" ||
         process.env.NUXT_PUBLIC_STAGING === "true",
       whatsappEnabled: process.env.NUXT_PUBLIC_WHATSAPP_ENABLED === "true",
+      // Cartao (Stripe) habilitado na tela. Secundario ao Pix. Ligado no
+      // ambiente que tiver as chaves do Stripe (junto de NUXT_STRIPE_SECRET_KEY);
+      // vazio = a aba "cartao" nem aparece.
+      cartaoHabilitado: process.env.NUXT_PUBLIC_CARTAO_HABILITADO === "true",
+      // Chave publica do Stripe (pk_test/pk_live): o Stripe Elements no browser
+      // precisa dela pra montar os campos do cartao. Publica por natureza (nao e
+      // segredo). Vazia = a aba cartao nao consegue montar e fica indisponivel.
+      stripePublishableKey: process.env.NUXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
       // Kill switch do teste A/B do bloco bloqueado da consulta gratis.
       // "off" joga todo mundo na variante A (a tela de hoje) sem deploy de
       // codigo; qualquer outro valor mantem o sorteio 50/50.

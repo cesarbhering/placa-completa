@@ -44,6 +44,9 @@ const cfg = useRuntimeConfig()
 // checkout perde cupom, perde a opcao de plano e perde qualquer palavra sobre
 // Pix, e o botao vira uma compra na loja. Na web nada muda.
 const { isCapacitor } = useAppMode()
+// Cartao (Stripe) so aparece na WEB e so quando o ambiente tem as chaves do
+// Stripe (NUXT_PUBLIC_CARTAO_HABILITADO). No app quem cobra e o Google Play.
+const cartaoHabilitado = computed(() => !isCapacitor.value && !!cfg.public.cartaoHabilitado)
 const playBilling = usePlayBilling()
 
 type Step = 'loading' | 'gate' | 'confirm' | 'pending' | 'erro'
@@ -208,7 +211,7 @@ const rotuloPagar = computed(() => {
   }
   if (loading.value) return cupomGratis.value ? 'Liberando...' : 'Gerando Pix...'
   if (cupomGratis.value) return 'Liberar relatório grátis'
-  return props.plano === 'completa' ? 'Liberar meu relatório completo' : 'Liberar minha consulta'
+  return props.plano === 'completa' ? 'Pagar e liberar o relatório' : 'Liberar minha consulta'
 })
 const precoExibidoCentavos = computed(() =>
   Math.max(0, planoInfo.value.valorCentavos - cupomDescontoCentavos.value),
@@ -329,77 +332,55 @@ async function entrar() {
 // (um degrau a mais entre o checkout e o Pix, com dado que a tela de
 // confirmacao ja mostra); a correcao da placa continua existindo, agora como
 // lapis na propria linha do resumo.
-async function confirmarEPagar() {
-  // O e-mail NAO trava mais a geracao do Pix. Quase metade de quem abria o
-  // checkout sumia antes da cobranca existir, e o ultimo obstaculo antes de
-  // pagar era digitacao. Ele e pedido na tela do Pix, enquanto a pessoa paga,
-  // e continua obrigatorio pra entrega durar (relatorio no e-mail e
-  // recuperacao de Pix abandonado dependem dele).
-  //
-  // Duas excecoes: e-mail digitado errado nao passa (melhor corrigir agora do
-  // que descobrir depois de pagar), e cupom exige e-mail, porque o limite por
-  // pessoa e por e-mail.
+// Validacao comum aos dois meios de pagamento (Pix e cartao): e-mail digitado
+// errado nao passa (melhor corrigir agora do que depois de pagar) e cupom exige
+// e-mail (o limite por pessoa e por e-mail). Devolve false e foca/abre o campo
+// problematico; true = pode seguir pra cobranca.
+async function validarCheckout(): Promise<boolean> {
   emailErro.value = ''
   const preencheu = email.value.trim().length > 0
   if (preencheu && !email.value.includes('@')) {
     emailErro.value = 'Este e-mail parece incompleto. Confira antes de pagar.'
     msg.value = ''
     if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
-    return
+    return false
   }
   if (!preencheu && cupomCodigo.value.trim()) {
     emailErro.value = 'Para usar um cupom, informe o e-mail que o recebeu.'
     msg.value = ''
     if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
-    return
+    return false
   }
   msg.value = ''
   // Revalida o cupom AGORA com o e-mail (limite por pessoa) e espera terminar
-  // antes de cobrar — senao a pessoa geraria um Pix com um preco que ja mudou.
-  // Se o cupom cair aqui, nao cobra: ela precisa ver que o preco voltou ao
-  // cheio antes de confirmar. Nada que ela digitou se perde.
+  // antes de cobrar — senao a pessoa cobraria com um preco que ja mudou. Se o
+  // cupom cair aqui, nao cobra: ela precisa ver o preco cheio antes de confirmar.
   if (cupomCodigo.value.trim()) {
     loading.value = true
     const ok = await validarCupom()
     loading.value = false
     if (!ok) {
       cupomAberto.value = true
-      return
+      return false
     }
   }
   editandoPlaca.value = false
+  return true
+}
+
+async function confirmarEPagar() {
+  // O e-mail NAO trava mais a geracao do Pix. Quase metade de quem abria o
+  // checkout sumia antes da cobranca existir. Ele e pedido na tela do Pix,
+  // enquanto a pessoa paga, e continua obrigatorio pra entrega durar.
+  if (!(await validarCheckout())) return
   // Passo do meio do funil: registra a intencao ANTES da chamada do checkout,
   // pra falha de rede na geracao do Pix nao virar "ninguem clicou".
   trackAddPaymentInfo(props.plano, placaClean.value, precoExibidoCentavos.value)
   await pagar()
 }
 
-// E-mail pedido na tela do Pix, enquanto a pessoa paga. Salva sozinho no
-// blur: nao ha botao "confirmar e-mail" porque nao ha nada pra confirmar, e um
-// botao a mais nesta tela competiria com o Pix.
+// E-mail que o pedido ja levou (preenchido na primeira tela do modal).
 const emailNoPedido = ref('')
-const emailPixSalvo = ref(false)
-// Quem chegou no Pix com e-mail preenchido nao ve campo nenhum aqui: o pedido
-// ja nasceu com ele.
-const emailJaTemos = computed(() => emailPixSalvo.value || !!emailNoPedido.value)
-const emailPixErro = ref('')
-async function salvarEmailDoPix() {
-  const valor = email.value.trim().toLowerCase()
-  emailPixErro.value = ''
-  if (!valor.includes('@') || !pix.value?.token) return
-  try {
-    await $fetch('/api/premium/email', { method: 'POST', body: { token: pix.value.token, email: valor } })
-    emailPixSalvo.value = true
-    marcarEmailInformado('tela_pix')
-    if (import.meta.client) localStorage.setItem('pc_email', valor)
-  } catch (e: any) {
-    // Falhar aqui NAO pode assustar quem esta pagando: o relatorio abre nesta
-    // mesma tela de qualquer jeito. O aviso e discreto e a pessoa pode tentar
-    // de novo saindo e voltando do campo.
-    emailPixErro.value = 'Não conseguimos guardar seu e-mail agora. O relatório abre aqui assim que o pagamento cair.'
-    if (import.meta.dev) console.warn('[checkout] salvar email do pix falhou:', e?.data?.message || e)
-  }
-}
 
 /**
  * Compra dentro do app: a loja cobra, o servidor confere o comprovante com a
@@ -520,6 +501,125 @@ async function pagar() {
     msg.value = 'Não conseguimos gerar o Pix agora. Tente de novo em instantes.'
   } finally {
     loading.value = false
+  }
+}
+
+// ---------- Cartao v2: Stripe Elements EMBUTIDO (sem redirect) ----------
+// Aba "Cartao" com os campos do Stripe montados DENTRO do modal. O dado do
+// cartao so passa pelos iframes do Stripe (nunca pelo nosso servidor). O
+// PaymentIntent nasce no server (valor server-authoritative) e a confirmacao
+// (com 3DS quando o banco pedir) acontece aqui.
+const metodo = ref<'pix' | 'cartao'>('pix')
+const nomeCartao = ref('')
+const erroCartao = ref('')
+const processandoCartao = ref(false)
+const stripePronto = ref(false)
+let stripe: any = null
+let elements: any = null
+let cardNumber: any = null
+let cartaoMontado = false
+
+function carregarStripeJs(): Promise<any> {
+  const w = window as any
+  if (w.Stripe) return Promise.resolve(w.Stripe)
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = 'https://js.stripe.com/v3/'
+    s.async = true
+    s.onload = () => resolve((window as any).Stripe)
+    s.onerror = () => reject(new Error('falha ao carregar stripe.js'))
+    document.head.appendChild(s)
+  })
+}
+
+// Clicou na aba Cartao: troca de aba e, na PRIMEIRA vez, carrega o Stripe.js e
+// monta os campos. Idempotente (cartaoMontado).
+async function selecionarCartao() {
+  metodo.value = 'cartao'
+  if (cartaoMontado || !import.meta.client) return
+  const pk = String(cfg.public.stripePublishableKey || '')
+  if (!pk) { erroCartao.value = 'Cartão indisponível no momento. Use o Pix.'; return }
+  try {
+    const Stripe = await carregarStripeJs()
+    stripe = Stripe(pk, { locale: 'pt-BR' })
+    elements = stripe.elements()
+    const style = { base: { fontSize: '16px', color: '#1a1a1a', fontFamily: 'inherit', '::placeholder': { color: '#9aa3ad' } }, invalid: { color: '#c0392b' } }
+    cardNumber = elements.create('cardNumber', { style, showIcon: true, placeholder: '1234 1234 1234 1234' })
+    const cardExpiry = elements.create('cardExpiry', { style })
+    const cardCvc = elements.create('cardCvc', { style })
+    await nextTick()
+    cardNumber.mount('#pic-card-number')
+    cardExpiry.mount('#pic-card-expiry')
+    cardCvc.mount('#pic-card-cvc')
+    const onChange = (e: any) => { erroCartao.value = e?.error?.message || '' }
+    cardNumber.on('change', onChange); cardExpiry.on('change', onChange); cardCvc.on('change', onChange)
+    cartaoMontado = true
+    stripePronto.value = true
+  } catch {
+    erroCartao.value = 'Não conseguimos carregar o pagamento com cartão. Use o Pix.'
+  }
+}
+
+function mensagemErroCartao(error: any): string {
+  const m = String(error?.message || '')
+  if (error?.code === 'card_declined' || /declin|recusad/i.test(m)) return 'Cartão recusado. Confira os dados ou tente outro cartão.'
+  if (error?.code === 'expired_card') return 'Cartão vencido. Tente outro cartão.'
+  if (error?.code === 'incorrect_cvc') return 'CVV incorreto. Confira o código de segurança.'
+  return m || 'Não foi possível processar o cartão.'
+}
+
+// Paga com cartao: cria o PaymentIntent no server e confirma aqui (3DS quando o
+// banco pedir). Sucesso -> vai pra pagina do relatorio, que polla ate entregar.
+async function pagarComCartao() {
+  if (!stripe || !cardNumber) { erroCartao.value = 'Aguarde o pagamento carregar.'; return }
+  erroCartao.value = ''
+  if (!(await validarCheckout())) return
+  processandoCartao.value = true
+  try {
+    emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
+    if (emailNoPedido.value) marcarEmailInformado('checkout')
+    trackAddPaymentInfo(props.plano, placaClean.value, precoExibidoCentavos.value)
+    const r: any = await $fetch('/api/premium/cartao-intent', {
+      method: 'POST',
+      body: {
+        placa: preview.value.placa,
+        email: email.value.trim() || undefined,
+        telefone: telefone.value,
+        preview: preview.value.raw,
+        plano: props.plano,
+        ambiente: ambiente.value,
+        cupom: cupomCodigo.value.trim() || undefined,
+        origin: origemDaSessao(),
+        ab_bloco: props.abBloco ?? undefined,
+      },
+    })
+    if (!r?.clientSecret) { erroCartao.value = 'Não conseguimos iniciar o pagamento. Use o Pix.'; return }
+    const { error, paymentIntent } = await stripe.confirmCardPayment(r.clientSecret, {
+      payment_method: {
+        card: cardNumber,
+        billing_details: { name: nomeCartao.value.trim() || undefined, email: email.value.trim() || undefined },
+      },
+    })
+    if (error) { erroCartao.value = mensagemErroCartao(error); return }
+    if (paymentIntent?.status === 'succeeded' || paymentIntent?.status === 'processing') {
+      histAdd({
+        token: r.token,
+        placa: preview.value.placa,
+        veiculo: preview.value?.encontrado ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ') : null,
+        status: 'consultando',
+      })
+      trackConversionPaga(r.token, props.plano, r.valor)
+      // Vai pra pagina do relatorio: ela mostra "Confirmando o pagamento do
+      // cartao..." e polla o /status ate a entrega.
+      if (import.meta.client) window.location.assign(`/premium/${r.token}`)
+      return
+    }
+    erroCartao.value = 'Pagamento não confirmado. Tente novamente ou use o Pix.'
+  } catch (e: any) {
+    if (import.meta.dev) console.warn('[checkout] cartao v2 falhou:', e?.data?.message || e)
+    erroCartao.value = 'Não conseguimos processar o cartão agora. Use o Pix.'
+  } finally {
+    processandoCartao.value = false
   }
 }
 
@@ -693,43 +793,29 @@ onUnmounted(() => {
 
           <!-- Confirmar veiculo + coletar contato -->
           <div v-else-if="step === 'confirm'" class="pic-stack">
-            <h3 class="pic-h">{{ jaConsultada ? 'Pagar e liberar o relatório' : 'É este veículo?' }}</h3>
-            <div v-if="preview?.encontrado" class="pic-veiculo">
-              <strong>{{ preview.marca }} {{ preview.modelo }}</strong>
-              <span>{{ preview.ano }} · {{ preview.cor }} · placa {{ preview.placa }}</span>
-            </div>
-            <div v-else class="pic-veiculo">
-              Não achamos os dados básicos, mas você pode seguir com a placa {{ preview?.placa }}.
-            </div>
-            <!-- Sem a lista item a item: quem chegou aqui ja viu o que entra
-                 no comparativo e no bloco bloqueado. Aqui basta dizer o que
-                 esta sendo comprado, por quanto e pra qual placa. -->
-            <div class="pic-resumo">
-              <span class="pic-resumo__linha">
-                <span>Relatório</span><strong>{{ planoInfo.nome }}</strong>
+            <!-- Faixa de resumo (opcao 04): sem titulo. Uma faixa cinza de duas
+                 colunas — carro a esquerda (marca/modelo + ano·placa com lapis),
+                 preco + "Relatorio completo" a direita. Le tudo de uma olhada. -->
+            <div class="pic-faixa">
+              <strong class="pic-faixa__veic">
+                <template v-if="preview?.encontrado">{{ preview.marca }} {{ preview.modelo }}</template>
+                <template v-else>Placa {{ placaClean }}</template>
+              </strong>
+              <span class="pic-faixa__preco">
+                <s v-if="cupomValido" class="pic-faixa__de">{{ reais(planoInfo.valorCentavos) }}</s>
+                <b>{{ reais(precoExibidoCentavos) }}</b>
               </span>
-              <span class="pic-resumo__linha">
-                <span>Placa</span>
-                <!-- Unico dado que a pessoa digitou, e o unico que, errado,
-                     faz ela pagar pelo carro de outro: a correcao mora aqui,
-                     na propria linha, em vez de ocupar uma tela inteira. -->
-                <span class="pic-resumo__placa-linha">
-                  <strong class="pic-resumo__placa">{{ placaClean }}</strong>
-                  <button type="button" class="pic-lapis" aria-label="Corrigir a placa" @click="abrirEdicao">
-                    <!-- lapis do Feather (edit-2) -->
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-                    </svg>
-                  </button>
-                </span>
+              <span class="pic-faixa__sub">
+                <template v-if="preview?.encontrado">{{ preview.ano }} · </template>
+                <span class="pic-faixa__placa">{{ placaClean }}</span>
+                <button type="button" class="pic-lapis pic-lapis--faixa" aria-label="Corrigir a placa" @click="abrirEdicao">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                  </svg>
+                </button>
               </span>
-              <span v-if="cupomValido" class="pic-resumo__linha">
-                <span>Cupom</span><strong>-{{ reais(cupomDescontoCentavos) }}</strong>
-              </span>
-              <span class="pic-resumo__linha pic-resumo__linha--total">
-                <span>Total</span><strong>{{ reais(precoExibidoCentavos) }}</strong>
-              </span>
+              <span class="pic-faixa__plano">{{ planoInfo.nome }}</span>
             </div>
             <div v-if="editandoPlaca" class="pic-campo">
               <label class="pic-label" for="pic-placa-edit">Digite a placa correta</label>
@@ -789,8 +875,7 @@ onUnmounted(() => {
                  nao exige e-mail; a excecao e cupom, cujo limite e contado por
                  e-mail). Antes ficava so na tela do Pix, mas la ele sumia pra
                  quem ja tinha e-mail salvo no navegador -> muita gente nao via
-                 em lugar nenhum. Quem deixar em branco aqui ainda tem a segunda
-                 chance, tambem opcional, na tela do Pix. -->
+                 em lugar nenhum. -->
             <div class="pic-campo">
               <label class="pic-label" for="pic-email">Seu e-mail (opcional, para receber o relatório)</label>
               <input
@@ -820,40 +905,88 @@ onUnmounted(() => {
                 inputmode="tel"
               >
             </div>
-            <!-- Faixa de confianca enxuta: so as duas duvidas que de fato
-                 travam o clique (e se o carro nao aparecer? vai virar
-                 assinatura?), respondidas com o que o produto faz de verdade.
-                 O "quem processa o Pix" saiu pra linha-helper embaixo do botao,
-                 e o "+1 milhao de leiloados" e value-prop de pitch, nao do
-                 momento de pagar. Nada de prova social inventada. -->
-            <ul class="pic-conf">
-              <li v-if="!isCapacitor" class="pic-conf__item pic-conf__item--forte">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M12 3 20 6v6c0 4.5-3.3 7.9-8 9-4.7-1.1-8-4.5-8-9V6Z" />
-                  <path d="m9 12 2 2 4-4" />
-                </svg>
-                <span><strong>Estorno automático no Pix</strong> se não conseguirmos gerar seu relatório.</span>
-              </li>
-              <li class="pic-conf__item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <rect x="4" y="10" width="16" height="10" rx="2" />
-                  <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-                </svg>
-                <span>Pagamento único. Sem assinatura e sem cadastro.</span>
-              </li>
-            </ul>
-            <button
-              type="button"
-              class="pic-btn pic-btn--primary"
-              :disabled="loading || editandoPlaca"
-              @click="isCapacitor ? comprarPeloPlay() : confirmarEPagar()"
-            >
-              {{ rotuloPagar }}
-            </button>
-            <!-- Reasseguranca fora do botao: Pix, estorno e prazo numa linha
-                 discreta logo abaixo da CTA. So na web (no app quem cobra e o
-                 Google Play, e o estorno segue a politica da loja). -->
-            <p v-if="!isCapacitor" class="pic-hint pic-hint--cta">Pagamento por Pix · estorno se não acharmos o veículo · entrega em até 5 min</p>
+            <!-- Abas de pagamento: Pix | Cartao. So aparecem quando o cartao esta
+                 habilitado (chaves do Stripe no ambiente); senao o Pix segue sem
+                 abas, exatamente como antes. Pix vem selecionado. -->
+            <div v-if="cartaoHabilitado" class="pic-tabs" role="tablist" aria-label="Forma de pagamento">
+              <button type="button" role="tab" :aria-selected="metodo === 'pix'" class="pic-tab" :class="{ 'pic-tab--on': metodo === 'pix' }" @click="metodo = 'pix'">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 8 6l4 4 4-4-4-4Zm-6 6-4 4 4 4 4-4-4-4Zm12 0-4 4 4 4 4-4-4-4Zm-6 6-4 4 4 4 4-4-4-4Z" /></svg>
+                Pix
+              </button>
+              <button type="button" role="tab" :aria-selected="metodo === 'cartao'" class="pic-tab" :class="{ 'pic-tab--on': metodo === 'cartao' }" @click="selecionarCartao">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20" /></svg>
+                Cartão de crédito
+              </button>
+            </div>
+
+            <!-- Painel PIX (fica montado; a aba so troca a visibilidade). -->
+            <div v-show="metodo === 'pix'">
+              <!-- Faixa de confianca enxuta: so as duas duvidas que de fato travam
+                   o clique (e se o carro nao aparecer? vai virar assinatura?). -->
+              <ul class="pic-conf">
+                <li v-if="!isCapacitor" class="pic-conf__item pic-conf__item--forte">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 3 20 6v6c0 4.5-3.3 7.9-8 9-4.7-1.1-8-4.5-8-9V6Z" />
+                    <path d="m9 12 2 2 4-4" />
+                  </svg>
+                  <span><strong>Estorno automático no Pix</strong> se não conseguirmos gerar seu relatório.</span>
+                </li>
+                <li class="pic-conf__item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="4" y="10" width="16" height="10" rx="2" />
+                    <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+                  </svg>
+                  <span>Pagamento único. Sem assinatura e sem cadastro.</span>
+                </li>
+              </ul>
+              <button
+                type="button"
+                class="pic-btn pic-btn--primary"
+                :disabled="loading || editandoPlaca"
+                @click="isCapacitor ? comprarPeloPlay() : confirmarEPagar()"
+              >
+                {{ rotuloPagar }}
+              </button>
+              <p v-if="!isCapacitor" class="pic-hint pic-hint--cta">Pagamento por Pix · estorno se não acharmos o veículo · entrega em até 5 min</p>
+            </div>
+
+            <!-- Painel CARTAO: Stripe Elements montado nos divs abaixo. v-show (nao
+                 v-if) mantem os pontos de montagem no DOM entre as trocas de aba. -->
+            <div v-if="cartaoHabilitado" v-show="metodo === 'cartao'" class="pic-cartao-form">
+              <div class="pic-campo">
+                <label class="pic-label" for="pic-card-number">Número do cartão</label>
+                <div id="pic-card-number" class="pic-input pic-stripe-el" />
+              </div>
+              <div class="pic-card-linha">
+                <div class="pic-campo">
+                  <label class="pic-label" for="pic-card-expiry">Validade</label>
+                  <div id="pic-card-expiry" class="pic-input pic-stripe-el" />
+                </div>
+                <div class="pic-campo">
+                  <label class="pic-label" for="pic-card-cvc">CVV</label>
+                  <div id="pic-card-cvc" class="pic-input pic-stripe-el" />
+                </div>
+              </div>
+              <div class="pic-campo">
+                <label class="pic-label" for="pic-card-nome">Nome no cartão</label>
+                <input id="pic-card-nome" v-model="nomeCartao" type="text" class="pic-input" placeholder="Como aparece no cartão" autocomplete="cc-name">
+              </div>
+              <p v-if="erroCartao" class="pic-cupom__erro">{{ erroCartao }}</p>
+              <button
+                type="button"
+                class="pic-btn pic-btn--primary"
+                :disabled="processandoCartao || !stripePronto || editandoPlaca"
+                @click="pagarComCartao"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+                {{ processandoCartao ? 'Processando...' : `Pagar ${reais(precoExibidoCentavos)}` }}
+              </button>
+              <p v-if="!stripePronto && !erroCartao" class="pic-hint pic-hint--cta">Carregando pagamento seguro...</p>
+              <p class="pic-hint pic-cartao-seguro">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+                Pagamento processado com segurança pelo Stripe. Não armazenamos os dados do seu cartão.
+              </p>
+            </div>
             <!-- Sem "Cancelar" no rodape: o X do cabecalho (pic-x, sempre visivel)
                  ja fecha o modal. Um botao a mais so competia com a CTA. -->
           </div>
@@ -901,24 +1034,9 @@ onUnmounted(() => {
                 <div class="pic-pix__info">
                   <p class="pic-hint pic-hint--forte">Deixe esta tela aberta: quando o pagamento cair, o relatório abre aqui.</p>
 
-                  <!-- E-mail de entrega. So aparece pra quem ainda nao deu, e
-                       cabe na coluna de leitura sem empurrar o QR pra fora da
-                       tela: rotulo curto e uma linha de apoio, nao tres. -->
-                  <div v-if="!emailJaTemos" class="pic-email-pix">
-                    <label class="pic-label" for="pic-email-pix">Receber por e-mail (opcional)</label>
-                    <input
-                      id="pic-email-pix"
-                      v-model="email"
-                      type="email"
-                      inputmode="email"
-                      autocomplete="email"
-                      class="pic-input"
-                      placeholder="seu@email.com"
-                      @blur="salvarEmailDoPix"
-                    >
-                    <p v-if="emailPixSalvo" class="pic-cupom__ok">Pronto, também vai por e-mail.</p>
-                    <p v-else-if="emailPixErro" class="pic-hint">{{ emailPixErro }}</p>
-                  </div>
+                  <!-- O campo "Receber por e-mail (opcional)" saiu daqui: o e-mail
+                       opcional ja e pedido na primeira tela, antes de pagar. Menos
+                       uma coisa entre o QR e o "pagar", o QR sobe e cabe sem rolar. -->
 
                   <!-- Uma linha em vez de lista: ela ja decidiu comprar, isto
                        aqui e so lembrete enquanto abre o app do banco. -->
@@ -1182,6 +1300,63 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 .pic-veiculo--check { border-left: 3px solid $c-green; }
 .pic-veiculo__placa { font-size: 12px; letter-spacing: 0.06em; }
 
+// Faixa de resumo (opcao 04): 2 colunas, carro x preco/plano. Le de uma olhada.
+.pic-faixa {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  align-items: center;
+  background: $c-cloud;
+  border: 1px solid $c-hair;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.pic-faixa__veic {
+  font-size: 14px;
+  font-weight: 600;
+  color: $c-ink;
+  min-width: 0;
+  line-height: 1.3;
+  // Ate 2 linhas em vez de reticencia: "CHEVROLET S10 LTZ 2.8 4X4" inteiro.
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.pic-faixa__preco {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 6px;
+  text-align: right;
+
+  b { font-size: 18px; font-weight: 800; color: $c-ink; font-variant-numeric: tabular-nums; }
+}
+.pic-faixa__de { font-size: 12px; color: $c-steel; text-decoration: line-through; }
+.pic-faixa__sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: $c-graphite;
+}
+.pic-faixa__placa { font-weight: 600; letter-spacing: 0.04em; color: $c-ink; }
+.pic-faixa__plano { text-align: right; font-size: 12px; color: $c-graphite; }
+// Seletor duplo de proposito: o .pic-lapis base vem DEPOIS no arquivo e, com a
+// mesma especificidade, ganhava (40px/18px). O alvo de toque continua ~40px
+// pelo ::after invisivel, sem inflar a linha.
+.pic-lapis.pic-lapis--faixa {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+
+  svg { width: 12px; height: 12px; }
+  &::after { content: ''; position: absolute; inset: -10px; }
+}
+
 // resumo do pedido: o que, pra qual placa, por quanto
 // ---- confianca ----
 // Regra do bloco: hairline e tinta, nunca um mural de selos coloridos. O unico
@@ -1272,47 +1447,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     flex-shrink: 0;
     margin-top: 1px;
     color: $c-steel;
-  }
-}
-
-.pic-resumo {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid $c-hair;
-  border-radius: 8px;
-  overflow: hidden;
-  text-align: left;
-
-  &__linha {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 14px;
-    border-bottom: 1px solid $c-hair;
-    font-size: 14px;
-    color: $c-graphite;
-
-    &:last-child { border-bottom: 0; }
-    strong { font-size: 15px; font-weight: 500; color: $c-ink; text-align: right; }
-  }
-
-  &__placa { letter-spacing: 0.08em; }
-
-  // Placa + lapis na mesma linha do resumo: o botao encolhe pra caber na
-  // altura da linha, em vez do alvo de 40px que ele tinha na tela dedicada.
-  &__placa-linha {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-
-    .pic-lapis { width: 30px; height: 30px; }
-    .pic-lapis svg { width: 15px; height: 15px; }
-  }
-
-  &__linha--total {
-    background: $c-cloud;
-    strong { font-size: 20px; font-weight: 500; color: $c-ink; }
   }
 }
 
@@ -1408,6 +1542,71 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     &:hover { background: $c-blue-deep; border-color: $c-blue-deep; }
     &:disabled { background: $c-steel; border-color: $c-steel; color: #fff; }
   }
+
+  svg { flex-shrink: 0; }
+}
+
+// Abas de pagamento (Pix | Cartao), no nosso estilo (azul da marca, nada roxo).
+.pic-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+.pic-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 10px 12px;
+  font-family: $fonte;
+  font-size: 14px;
+  font-weight: 600;
+  color: $c-charcoal;
+  background: $c-canvas;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  &:hover { border-color: $c-steel; }
+  &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+
+  // Aba ativa: preenchida com o azul da marca.
+  &--on {
+    color: #fff;
+    background: $c-blue;
+    border-color: $c-blue;
+    &:hover { border-color: $c-blue; }
+  }
+}
+
+// Formulario do cartao (Stripe Elements montado nos .pic-stripe-el).
+.pic-cartao-form { display: flex; flex-direction: column; }
+.pic-card-linha {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+// O Stripe monta um iframe dentro; a caixa precisa da MESMA cara do input, com
+// padding vertical que centre o campo (o iframe nao herda o line-height).
+.pic-stripe-el {
+  display: block;
+  padding-top: 13px;
+  padding-bottom: 13px;
+}
+.pic-cartao-seguro {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  text-align: center;
+  font-size: 12px;
+  color: $c-steel;
+  margin-top: 12px;
+
+  svg { flex-shrink: 0; color: $c-steel; }
 }
 
 .pic-link {
@@ -1420,14 +1619,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   cursor: pointer;
   padding: 8px;
   min-height: 44px;
-}
-
-.pic-email-pix {
-  display: flex;
-  flex-direction: column;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid #e8e8e8;
 }
 
 .pic-cupom { display: flex; flex-direction: column; }
