@@ -1,3 +1,4 @@
+import { marcaTemRecallGratis } from '../../shared/marcas-recall'
 import type { RecallResposta } from './recall-toyota'
 
 // O SINAL de recall da consulta gratis. Muralha igual a do leilao: do conjunto
@@ -37,16 +38,11 @@ export function sinalDoRecall(resposta: RecallResposta | null | undefined): Sina
 }
 
 /**
- * Marcas com base de recall por ora: Toyota/Lexus + Chevrolet/GM + Volkswagen/VW
- * + Fiat + Stellantis (Peugeot/Citroën/Jeep/RAM/Dodge) + Honda (carro e moto:
- * "HONDA", "I/HONDA", "HONDA/CG 160"; so no gratis, sem modo autoritativo). O escopo por marca do
- * match e server-side (a leiloes-api ja trata o falso-positivo cross-marca),
- * aqui so liberamos quem chamar. As variantes que o SENATRAN manda (ex "VW/GOL",
- * "GM/CHEVROLET", "FIAT/PALIO", "PEUGEOT/208", "I/CITROEN C3", "JEEP/RENEGADE",
- * "I/RAM 2500", "DODGE/JOURNEY") batem pelos tokens com \b (o "/" e nao-palavra).
- * Citroën cobre com/sem acento (citro[eë]n). RAM e curto: \bRAM\b NAO casa em
- * RAMPA/TRAMONTINA/GRAN (fronteira de palavra impede match no meio).
+ * Marcas com base de recall no sinal gratis: lista unica em
+ * shared/marcas-recall.ts (a tela usa a mesma). O escopo por marca do match e
+ * server-side (a leiloes-api ja trata o falso-positivo cross-marca), aqui so
+ * liberamos quem chamar.
  */
 export function marcaTemRecall(marca: string | null | undefined): boolean {
-  return /\b(toyota|lexus|chevrolet|gm|general\s*motors|volkswagen|vw|fiat|peugeot|citro[eë]n|jeep|ram|dodge|honda)\b/i.test(String(marca || ''))
+  return marcaTemRecallGratis(marca)
 }
