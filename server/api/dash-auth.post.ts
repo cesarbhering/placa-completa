@@ -1,3 +1,4 @@
+import { getClientIp } from '../utils/client-ip'
 import crypto from 'crypto'
 
 /**
@@ -35,10 +36,8 @@ export default defineEventHandler(async (event) => {
   const isValid = constantTimeCompare(password, correctPassword)
 
   // Log auth attempt to audit log
-  const ip = getHeader(event, 'x-forwarded-for')?.split(',')[0].trim() ||
-             getHeader(event, 'x-real-ip') ||
-             event.node.req.socket.remoteAddress ||
-             'unknown'
+  // IP real (cf-connecting-ip); o XFF atras do Traefik e o IP interno do Docker.
+  const ip = getClientIp(event)
 
   // Use Supabase to log audit (async, don't await)
   try {

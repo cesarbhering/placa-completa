@@ -1,7 +1,7 @@
 import { normalizarMarcaRecall } from '../../shared/marcas-recall'
 import { consultarRecallToyota } from '../utils/recall-toyota'
 import { sinalDoRecall, marcaTemRecall, RECALL_INDISPONIVEL, type SinalRecall } from '../utils/sinal-recall'
-import { dentroDoTetoDeSinal, logarIpDoTeto } from '../utils/sinal-leilao'
+import { dentroDoTetoDeSinal } from '../utils/sinal-leilao'
 import { getClientIp } from '../utils/client-ip'
 
 // Sinal de RECALL pra CONSULTA GRATIS. Endpoint proprio (como o leilao-sinal):
@@ -34,10 +34,6 @@ export default defineEventHandler(async (event) => {
   // Mesmo motivo do leilao-sinal: sem teto da pra varrer placa por placa. IP
   // REAL do visitante e contador PROPRIO do recall (a consulta chama os dois).
   const ip = getClientIp(event)
-  // DIAGNOSTICO TEMPORARIO (01/out, remover depois de confirmado em prod): uma
-  // linha por hora dizendo se o IP que o teto usava (getRequestIP com XFF) era
-  // interno e se o novo e publico. Nao loga o IP, so a classe e o prefixo.
-  logarIpDoTeto(event, ip)
   if (!dentroDoTetoDeSinal(ip, Date.now(), 'recall')) return RECALL_INDISPONIVEL
 
   // Cache por placa+marca (a marca entra pra nao servir um sinal de outra marca
