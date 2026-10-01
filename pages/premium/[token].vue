@@ -1058,16 +1058,29 @@ const recallAutoritativo = computed(() => {
 const recallAbertoGM = computed(() => recallAutoritativo.value?.tem_recall_aberto === true)
 const recallCampanhasGM = computed(() => (recallAutoritativo.value?.campanhas || []).filter((c: any) => c?.titulo || c?.descricao))
 
-// Recall oficial NISSAN por chassi (todo Nissan com chassi cheio, com ou sem a
-// flag do SENATRAN): status por campanha (realizado/pendente), data e
-// concessionaria. Com campanha listada, e a verdade e substitui o card do
-// SENATRAN; sem campanha (lista vazia), o card do SENATRAN segue como sempre.
-const recallNissan = computed(() => {
-  const n: any = data.value?.recallNissan
+// Recall da MONTADORA por chassi (Nissan, Mitsubishi): todo veiculo da marca
+// com chassi cheio, com ou sem a flag do SENATRAN. O status vem da propria
+// montadora (aberto/realizado), com data, concessionaria e km do atendimento.
+// Com campanha listada, e a verdade e substitui o card do SENATRAN; sem
+// campanha, o card do SENATRAN segue como sempre.
+const NOME_MONTADORA: Record<string, string> = { nissan: 'Nissan', mitsubishi: 'Mitsubishi' }
+const recallMontadora = computed(() => {
+  const n: any = data.value?.recallMontadora
   return n && n.consultado === true && Array.isArray(n.campanhas) && n.campanhas.length ? n : null
 })
-const ehNissanComChassi = computed(() =>
-  /\bnissan\b/i.test(String(g('descricaoMarcaModelo') || '')) && String(g('chassi') || '').trim().length === 17,
+const nomeMontadora = computed(() => NOME_MONTADORA[String(recallMontadora.value?.fonte || '')] || 'montadora')
+const campanhasAbertas = computed(() => (recallMontadora.value?.campanhas || []).filter((c: any) => c.status === 'aberto'))
+const campanhasRealizadas = computed(() => {
+  const m: any = recallMontadora.value
+  if (!m) return []
+  const atend: any[] = Array.isArray(m.atendimentos) ? m.atendimentos : []
+  return m.campanhas.filter((c: any) => c.status !== 'aberto').map((c: any) => ({
+    ...c,
+    atendimento: atend.find((a: any) => a.codigo && a.codigo === c.codigo) || null,
+  }))
+})
+const marcaComConsultaMontadora = computed(() =>
+  /\b(nissan|mmc|mitsubishi)\b/i.test(String(g('descricaoMarcaModelo') || '')) && String(g('chassi') || '').trim().length === 17,
 )
 function dataBr(iso?: string | null): string {
   const m = String(iso || '').match(/(\d{4})-(\d{2})-(\d{2})/)
@@ -1221,8 +1234,22 @@ const ipvaLista = computed(() => {
 })
 // Extrato de quilometragem: cada leitura com o quanto rodou desde a anterior
 // (primeira linha "-"). `caiu` marca uma leitura menor que a anterior.
+// Leituras de km de todas as fontes: DETRAN (vistorias) + atendimentos de
+// recall da montadora que trazem km (Mitsubishi), em ordem de data.
+const kmLeituras = computed(() => {
+  const det = (Array.isArray(multasDetalhe.value?.hodometro) ? multasDetalhe.value!.hodometro : [])
+    .map((h: any) => ({ data: h?.data ?? null, km: Number(h?.km), fonte: 'DETRAN' }))
+  const m: any = data.value?.recallMontadora
+  const mont = (m?.consultado && Array.isArray(m.atendimentos) ? m.atendimentos : [])
+    .filter((a: any) => a?.km != null && Number.isFinite(Number(a.km)) && a?.data)
+    .map((a: any) => ({ data: a.data, km: Number(a.km), fonte: `${NOME_MONTADORA[String(m.fonte)] || 'Montadora'} (recall)` }))
+  if (!mont.length) return det
+  return [...det, ...mont].sort((a, b) => String(a.data || '').localeCompare(String(b.data || '')))
+})
+const kmComMontadora = computed(() => kmLeituras.value.some((l: any) => l.fonte !== 'DETRAN'))
+const hodometroSuspeito = computed(() => !!multasDetalhe.value?.hodometro_suspeito || hodometroExtrato.value.some((h) => h.caiu))
 const hodometroExtrato = computed(() => {
-  const lista = Array.isArray(multasDetalhe.value?.hodometro) ? multasDetalhe.value!.hodometro : []
+  const lista = kmLeituras.value
   return lista.map((h: any, i: number) => {
     const km = Number(h?.km)
     const prev = i > 0 ? Number(lista[i - 1]?.km) : null
@@ -1232,6 +1259,7 @@ const hodometroExtrato = computed(() => {
       km: Number.isFinite(km) ? km.toLocaleString('pt-BR') : '-',
       rodou: delta == null ? '-' : `${delta >= 0 ? '+' : ''}${delta.toLocaleString('pt-BR')}`,
       caiu: delta != null && delta < 0,
+      fonte: h?.fonte || 'DETRAN',
     }
   })
 })
@@ -1545,14 +1573,14 @@ onMounted(() => {
 // no maximo 4 minutos; passou disso, fica so o indicador, sem ficar batendo no
 // servidor pra sempre.
 let pollRecall: any = null
-// Nissan: a consulta oficial roda logo depois da entrega (~2s). Se a tela abriu
+// Montadora (Nissan/Mitsubishi): a consulta roda logo depois da entrega (~2s). Se a tela abriu
 // antes, acompanha por ate 1 minuto e para quando o bloco chega.
 let pollNissan: any = null
 onMounted(() => {
-  if (!entregue.value || !ehNissanComChassi.value || data.value?.recallNissan) return
+  if (!entregue.value || !marcaComConsultaMontadora.value || data.value?.recallMontadora) return
   const ate = Date.now() + 60 * 1000
   pollNissan = setInterval(async () => {
-    if (Date.now() > ate || data.value?.recallNissan) { clearInterval(pollNissan); return }
+    if (Date.now() > ate || data.value?.recallMontadora) { clearInterval(pollNissan); return }
     try { await refresh() } catch { /* rede oscilou; a proxima volta tenta */ }
   }, 5000)
 })
@@ -1978,65 +2006,81 @@ onUnmounted(() => {
                   </ul>
                 </template>
 
-                <!-- Quilometragem: extrato Data | Km | Rodou -->
-                <template v-if="hodometroExtrato.length">
-                  <p class="rel__multas-sub">Quilometragem registrada</p>
-                  <table class="rel__multas-k3">
-                    <tbody>
-                      <tr class="rel__multas-k3head">
-                        <td>Data</td>
-                        <td class="rel__multas-k3km">Km</td>
-                        <td class="rel__multas-k3dl">Rodou</td>
-                      </tr>
-                      <tr v-for="(h, idx) in hodometroExtrato" :key="'k' + idx" :class="{ 'rel__multas-k3caiu': h.caiu }">
-                        <td>{{ h.data }}</td>
-                        <td class="rel__multas-k3km">{{ h.km }}</td>
-                        <td class="rel__multas-k3dl">{{ h.rodou }}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <p v-if="multasDetalhe.hodometro_suspeito" class="rel__multas-kmalerta">
-                    Há registro de quilometragem menor que uma leitura anterior, possível adulteração.
-                  </p>
-                  <p v-else class="rel__multas-kmok"><b>Sem regressão de km.</b> Sem indício de hodômetro adulterado.</p>
-                </template>
+
               </template>
               <p v-else-if="multasIndisponivel || multasSemResposta" class="rel__multas-nota">A consulta de débitos e multas no DETRAN do estado não está disponível no momento. Confira direto no site do DETRAN.</p>
               <p v-else class="rel__multas-nota">Consultando débitos, multas e histórico no DETRAN. Aparece aqui em instantes.</p>
             </div>
 
+            <!-- Quilometragem: extrato Data | Km | Rodou, de todas as fontes
+                 (DETRAN e atendimentos de recall da montadora). -->
+            <div v-if="hodometroExtrato.length" class="rel__multas">
+              <p class="rel__multas-tit">Quilometragem registrada</p>
+              <table class="rel__multas-k3">
+                <tbody>
+                  <tr class="rel__multas-k3head">
+                    <td>Data</td>
+                    <td class="rel__multas-k3km">Km</td>
+                    <td class="rel__multas-k3dl">Rodou</td>
+                  </tr>
+                  <tr v-for="(h, idx) in hodometroExtrato" :key="'k' + idx" :class="{ 'rel__multas-k3caiu': h.caiu }">
+                    <td>{{ h.data }}<small v-if="kmComMontadora" class="rel__multas-k3fonte">{{ h.fonte }}</small></td>
+                    <td class="rel__multas-k3km">{{ h.km }}</td>
+                    <td class="rel__multas-k3dl">{{ h.rodou }}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p v-if="hodometroSuspeito" class="rel__multas-kmalerta">
+                Há registro de quilometragem menor que uma leitura anterior, possível adulteração.
+              </p>
+              <p v-else class="rel__multas-kmok"><b>Sem regressão de km.</b> Sem indício de hodômetro adulterado.</p>
+            </div>
+
             <!-- Recall pendente: a primeira pergunta de quem ve o cartao
                  vermelho e "recall de que?". -->
-            <!-- Recall oficial NISSAN por chassi: status de cada campanha. -->
-            <div v-if="recallNissan" class="rel__recall" :class="{ 'rel__recall--ok': !recallNissan.pendentes }">
+            <!-- Recall da MONTADORA por chassi (Nissan/Mitsubishi): abertas e realizadas. -->
+            <div v-if="recallMontadora" class="rel__recall" :class="{ 'rel__recall--ok': !campanhasAbertas.length }">
               <div class="rel__recall-top">
-                <div class="rel__recall-ic">{{ recallNissan.pendentes ? '!' : '✓' }}</div>
+                <div class="rel__recall-ic">{{ campanhasAbertas.length ? '!' : '✓' }}</div>
                 <div>
-                  <p class="rel__recall-tit">{{ recallNissan.pendentes ? 'Recall pendente neste veículo' : 'Recalls deste veículo já atendidos' }}</p>
+                  <p class="rel__recall-tit">{{ campanhasAbertas.length ? 'Recall em aberto neste veículo' : 'Recalls deste veículo já realizados' }}</p>
                   <p class="rel__recall-sub">
-                    Consulta oficial da Nissan pelo chassi ·
-                    <template v-if="recallNissan.pendentes">{{ recallNissan.pendentes === 1 ? '1 campanha pendente' : `${recallNissan.pendentes} campanhas pendentes` }}</template>
-                    <template v-else>{{ recallNissan.campanhas.length === 1 ? '1 campanha' : `${recallNissan.campanhas.length} campanhas` }}</template>
+                    Consulta oficial da {{ nomeMontadora }} pelo chassi ·
+                    <template v-if="campanhasAbertas.length">{{ campanhasAbertas.length === 1 ? '1 campanha em aberto' : `${campanhasAbertas.length} campanhas em aberto` }}</template>
+                    <template v-else>{{ campanhasRealizadas.length === 1 ? '1 campanha' : `${campanhasRealizadas.length} campanhas` }}</template>
                   </p>
                 </div>
               </div>
-              <ul class="rel__recall-lista">
-                <li v-for="c in recallNissan.campanhas" :key="c.numero" class="rel__recall-item">
-                  <div class="rel__recall-item-top">
-                    <span>{{ c.titulo || 'Campanha de recall' }}</span>
-                    <b :class="c.status === 'pendente' ? 'rel__recall-st--pend' : 'rel__recall-st--ok'">
-                      {{ c.status === 'pendente' ? 'Pendente' : c.status === 'excluido' ? 'Não se aplica' : 'Realizado' }}
-                    </b>
-                  </div>
-                  <p class="rel__recall-item-meta">
-                    Campanha {{ c.numero }}<template v-if="c.status === 'realizado' && c.data"> · reparo em {{ dataBr(c.data) }}</template><template v-if="c.status === 'realizado' && c.concessionaria"> · {{ c.concessionaria }}</template><template v-if="c.status === 'excluido'"> · veículo excluído da campanha pela Nissan</template>
-                  </p>
-                </li>
-              </ul>
-              <p v-if="recallNissan.pendentes" class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
+              <template v-if="campanhasAbertas.length">
+                <p class="rel__recall-sub rel__recall-sub--item">Campanhas em aberto</p>
+                <ul class="rel__recall-lista">
+                  <li v-for="c in campanhasAbertas" :key="'ab' + c.codigo" class="rel__recall-item">
+                    <div class="rel__recall-item-top">
+                      <span>{{ c.titulo || 'Campanha de recall' }}</span>
+                      <b class="rel__recall-st--pend">Em aberto</b>
+                    </div>
+                    <p class="rel__recall-item-meta">Campanha {{ c.codigo }}</p>
+                  </li>
+                </ul>
+              </template>
+              <template v-if="campanhasRealizadas.length">
+                <p v-if="campanhasAbertas.length" class="rel__recall-sub rel__recall-sub--item">Campanhas já realizadas</p>
+                <ul class="rel__recall-lista">
+                  <li v-for="c in campanhasRealizadas" :key="'re' + c.codigo" class="rel__recall-item">
+                    <div class="rel__recall-item-top">
+                      <span>{{ c.titulo || 'Campanha de recall' }}</span>
+                      <b class="rel__recall-st--ok">{{ c.status === 'excluido' ? 'Não se aplica' : 'Realizada' }}</b>
+                    </div>
+                    <p class="rel__recall-item-meta">
+                      Campanha {{ c.codigo }}<template v-if="c.status === 'excluido'"> · veículo excluído da campanha pela {{ nomeMontadora }}</template><template v-else-if="c.atendimento"><template v-if="c.atendimento.data"> · realizada em {{ dataBr(c.atendimento.data) }}</template><template v-if="c.atendimento.concessionaria"> na concessionária {{ c.atendimento.concessionaria }}</template><template v-if="c.atendimento.km != null">, com {{ Number(c.atendimento.km).toLocaleString('pt-BR') }} km</template></template>
+                    </p>
+                  </li>
+                </ul>
+              </template>
+              <p v-if="campanhasAbertas.length" class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
             </div>
 
-            <div v-if="!recallNissan && (recallPendente || recallAbertoGM)" class="rel__recall">
+            <div v-if="!recallMontadora && (recallPendente || recallAbertoGM)" class="rel__recall">
               <!-- MODO AUTORITATIVO GM (Chevrolet + chassi cheio): a fonte da GM
                    confirma o recall ABERTO e QUAIS campanhas. Precede o
                    SENATRAN/local. -->
@@ -3458,6 +3502,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     .rel__recall-tit { color: #14622f; }
     .rel__recall-sub { color: #2f6b45; }
   }
+
+  &__multas-k3fonte { display: block; font-size: 11px; color: #777; }
 
   &__recall-lista { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
   &__recall-item { background: rgba(255, 255, 255, 0.7); border-radius: 8px; padding: 8px 10px; }

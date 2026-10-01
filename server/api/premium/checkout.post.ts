@@ -1,3 +1,4 @@
+import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-funil'
 import crypto from 'node:crypto'
 import { sanearOrigem } from '../../../shared/origem-trafego'
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
@@ -92,6 +93,9 @@ export default defineEventHandler(async (event) => {
       ambiente,
       // Variante do A/B que gerou a compra (null pra pedidos fora do teste).
       ab_bloco: abBloco,
+      // Hook de recall que a pessoa viu na consulta gratis (allowlist) + marca.
+      recall_sinal: sanearSinalRecall(body.recall_sinal),
+      recall_marca: sanearMarcaRecall(body.recall_marca),
       // IP do comprador: usado pra resetar o limite gratis por hora (uma compra
       // paga zera o contador do usuario, casado por IP ou email).
       ip_address: getClientIp(event),

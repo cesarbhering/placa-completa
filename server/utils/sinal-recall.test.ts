@@ -112,3 +112,16 @@ describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis +
     expect(marcaTemRecall('GRAN')).toBe(false)
   })
 })
+
+import { marcaParaMedicao } from '../../shared/marcas-recall'
+describe('marcaParaMedicao', () => {
+  it('marca da lista quando no escopo; senao primeira palavra sem I/', () => {
+    expect(marcaParaMedicao('I/NISSAN FRONTIER')).toBe('NISSAN')
+    expect(marcaParaMedicao('MMC/L200 TRITON')).toBe('MMC')
+    expect(marcaParaMedicao('GM - CHEVROLET')).toBe('GM')
+    expect(marcaParaMedicao('KAWASAKI/NINJA 400')).toBe('KAWASAKI')
+    expect(marcaParaMedicao('I/BMW X1')).toBe('BMW')
+    expect(marcaParaMedicao('')).toBeNull()
+    expect(marcaParaMedicao(null)).toBeNull()
+  })
+})

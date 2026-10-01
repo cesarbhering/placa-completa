@@ -2,11 +2,11 @@
 import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL } from '~/shared/planos'
 import { sinalDaResposta, fraseSinalNaTela, type SinalNaTela } from '~/shared/sinal-leilao-resposta'
 import { sinalRecallDaResposta, fraseRecallNaTela } from '~/shared/sinal-recall-resposta'
-import { marcaTemRecallGratis } from '~/shared/marcas-recall'
+import { marcaTemRecallGratis, marcaParaMedicao } from '~/shared/marcas-recall'
 
 import { homepageFaqs } from '~/data/homepage-faqs'
 import { origemDaSessao } from '~/shared/origem-trafego'
-import { espelharEventoNoFunil, enfileirarEventoFunil } from '~/composables/useAnalytics'
+import { espelharEventoNoFunil, enfileirarEventoFunil, definirRecallSinal } from '~/composables/useAnalytics'
 import { decidirVariante, fipeSemCentavos, tituloVarianteB, subVarianteB, garantiaVarianteB, type VarianteAbBloco } from '~/shared/ab-bloco'
 
 // A consulta feita passa a viver num endereco proprio, /placa/ABC1D23, que
@@ -346,13 +346,23 @@ async function buscarSinalLeilao() {
 // CONSTA em campanha, nunca se ja foi atendido. Ver shared/sinal-recall-resposta.ts.
 const recallSinal = ref<{ consta: boolean; nivel: 'firme' | 'suave' } | null>(null)
 const fraseRecall = computed(() => fraseRecallNaTela(recallSinal.value))
+// Medicao (pedido do Cesar): o que o hook de recall mostrou nesta consulta.
+// firme/suave = frase na tela; negativo = base disse "nao consta";
+// fora_escopo = marca sem base; sem_sinal = erro/timeout/teto. Vai no funil
+// (carimbado em todo evento, igual ao ab_bloco) e no pedido.
+const recallMedido = ref<{ sinal: string; marca: string | null } | null>(null)
+function medirRecall(sinal: string | null, marca?: string | null) {
+  recallMedido.value = sinal ? { sinal, marca: marca ?? null } : null
+  definirRecallSinal(sinal, marca)
+}
 
 async function buscarRecallSinal() {
   const b = resultadoBasico.value
   if (!b?.placa) return
   // Marcas com base de recall (lista unica em shared/marcas-recall.ts): fora disso nem
   // chama (o server tambem gateia).
-  if (!marcaTemRecallGratis(b.marca)) { recallSinal.value = null; return }
+  const marcaMedida = marcaParaMedicao(b.marca)
+  if (!marcaTemRecallGratis(b.marca)) { recallSinal.value = null; medirRecall('fora_escopo', marcaMedida); return }
   try {
     const r: any = await $fetch('/api/recall-sinal', {
       method: 'POST',
@@ -371,9 +381,12 @@ async function buscarRecallSinal() {
     // Tres estados: "nao sabemos"/"nao consta" nao mostram frase (null).
     const lido = sinalRecallDaResposta(r)
     recallSinal.value = lido
+    // consta:false = a base respondeu "nao consta"; null/indisponivel = sem sinal.
+    medirRecall(lido ? lido.nivel : (r?.consta === false ? 'negativo' : 'sem_sinal'), marcaMedida)
     if (lido) track('recall_sinal_visto', { nivel: lido.nivel })
   } catch {
     recallSinal.value = null
+    medirRecall('sem_sinal', marcaMedida)
   }
 }
 
@@ -405,6 +418,8 @@ function openPremiumCheckout(plano?: unknown) {
     // Mede se quem viu registro de leilao converte mais: e a hipotese
     // inteira desta feature.
     leilao_sinal: sinalLeilao.value ? (sinalLeilao.value.positivo ? 'positivo' : 'negativo') : 'sem_sinal',
+    recall_sinal: recallMedido.value?.sinal ?? 'sem_sinal',
+    recall_marca: recallMedido.value?.marca ?? null,
   })
 }
 
@@ -921,6 +936,7 @@ function limparResultado() {
   resultadoBasico.value = null
   sinalLeilao.value = null
   recallSinal.value = null
+  medirRecall(null)
   placaJaConsultada.value = false
   aguardandoPlacaPaga.value = false
 }
@@ -2243,6 +2259,8 @@ function applyEmailSuggestion() {
       :plano="premiumPlano"
       :ja-consultada="placaJaConsultada"
       :ab-bloco="abBloco"
+      :recall-sinal="recallMedido?.sinal ?? null"
+      :recall-marca="recallMedido?.marca ?? null"
       @close="showPremiumCheckout = false"
     />
 
