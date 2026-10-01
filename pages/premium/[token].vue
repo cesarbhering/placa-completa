@@ -1074,7 +1074,7 @@ const multaIndicadorSP = computed(
 const ehVeiculoSpTela = computed(() => {
   const uf = String(g('ufJurisdicao') || '').toUpperCase()
   if (uf === 'SP') return true
-  return ['SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM', 'PE'].includes(uf) && g('indicadorMultaRenainf') === true
+  return ['SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM', 'PE', 'ES'].includes(uf) && g('indicadorMultaRenainf') === true
 })
 const ufDetranTela = computed(() => String(g('ufJurisdicao') || '').toUpperCase())
 const multasDetalhe = computed(() => {
@@ -1225,7 +1225,7 @@ function rotuloRestricao(tipo?: string | null): string {
     financeira: 'Financeira', judiciaria: 'Judiciária',
     administrativa: 'Administrativa', tributaria: 'Tributária', furto: 'Furto/roubo',
     sng: 'Gravame (SNG)', situacao: 'Situação', divida_ativa: 'Dívida ativa', recuperado: 'Veículo recuperado',
-    outros_debitos: 'Outros débitos', licenciamento_notificado: 'Licenciamento notificado', cadastro: 'Cadastro',
+    outros_debitos: 'Outros débitos', licenciamento_notificado: 'Licenciamento notificado', cadastro: 'Cadastro', clonagem: 'Clonagem',
   }
   return map[String(tipo || '')] || 'Restrição'
 }

@@ -106,6 +106,8 @@ export const DETRAN_UFS = {
   PA: { path: 'detran/pa/infracoes', cert: 'nenhum', gate: 'renainf', fonte: 'detran_pa', fonteCusto: 'infosimples_detran_pa' },
   AM: { path: 'detran/am/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_am', fonteCusto: 'infosimples_detran_am' },
   // PE: e-CNPJ, placa+renavam+chassi (os tres obrigatorios). R$0,28, LENTO (~40s).
+  // ES: e-CNPJ, placa+renavam. R$0,28, LENTO (~46s).
+  ES: { path: 'detran/es/veiculo', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_es', fonteCusto: 'infosimples_detran_es' },
   PE: { path: 'detran/pe/extrato-geral', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_pe', fonteCusto: 'infosimples_detran_pe', exigeChassi: true },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
@@ -1046,7 +1048,7 @@ export function semUrls(o: any): any {
   if (o && typeof o === 'object') {
     const r: any = {}
     for (const [k, v] of Object.entries(o)) {
-      if (/url|receipt|pdf|boleto|pix|codigo_barras|proprietario|cpf|cnpj|nome/i.test(k)) continue
+      if (/url|receipt|pdf|boleto|pix|codigo_barras|proprietario|cpf|cnpj|nome|aquisicao|condutor|interessado/i.test(k)) continue
       r[k] = typeof v === 'string' && /^https?:\/\//i.test(v) ? '[url]' : semUrls(v)
     }
     return r
@@ -1123,6 +1125,79 @@ export function parsearDetranPe(data: any, log: (msg: string) => void = (m) => c
   }
 }
 
+// ---------- DETRAN-ES (/detran/es/veiculo) ----------
+//
+// LGPD: a resposta traz `proprietario` e `proprietario_anterior` (NOMES),
+// data_aquisicao e site_receipt. Whitelist: nada disso sai daqui, nem pro log
+// (semUrls corta). multas/infracoes/debitos/recursos vieram vazios no teste:
+// parser defensivo + log sem PII quando vier algo.
+
+export function parsearDetranEs(data: any, hoje: Date = new Date(), log: (msg: string) => void = (m) => console.warn(m)) {
+  const d = data || {}
+  const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t || null }
+  const nao = (v: any) => { const t = String(v ?? '').trim(); return !t || /^(n[aã]o|nenhum|nada\s+consta|sem\s+gravame|sem\s+restri)/i.test(t) }
+
+  const multas = listaDe(d.multas)
+  const infracoes = listaDe(d.infracoes)
+  const debitos = listaDe(d.debitos)
+  const recursos = listaDe(d.recursos)
+  // multas[] = em aberto. infracoes[] so entra como item se multas[] vier vazio
+  // (sem exemplo: evita somar a mesma multa duas vezes).
+  const itens = (multas.length ? multas : infracoes).map(multaGenerica)
+  const emRecurso = recursos.map(multaGenerica)
+
+  // debitos[]: classifica pelo texto (IPVA, licenciamento, seguro/taxa, resto = multa).
+  const rotuloDeb = (x: any) => String(x?.classe ?? x?.descricao ?? x?.tipo ?? x?.debito ?? '')
+  const valorDeb = (x: any) => { const v = primeiro(x, ['normalizado_valor', 'normalizado_valor_atual', 'valor_atual', 'valor_total', 'valor']); return typeof v === 'number' ? v : moeda(v) }
+  let ipva = 0; let lic = 0; let outros = 0; let multaDeb = 0
+  const ipvaItens: IpvaItem[] = []
+  let licVencido = false
+  for (const x of debitos) {
+    const c = classeDoDebito(rotuloDeb(x)); const v = valorDeb(x)
+    if (c === 'ipva') { ipva += v; const it = ipvaItemGenerico(x); if (it) ipvaItens.push(it) }
+    else if (c === 'licenciamento') {
+      lic += v
+      const t = tsData(String(primeiro(x, ['data_vencimento', 'vencimento']) ?? ''))
+      if (t > 0 && t < hoje.getTime()) licVencido = true
+    } else if (c === 'seguro') outros += v
+    else multaDeb += v
+  }
+  const somaItens = itens.reduce((a, i) => a + i.valor, 0)
+
+  const restricoes: { tipo: string; texto: string }[] = []
+  const brl = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  if (outros > 0) restricoes.push({ tipo: 'outros_debitos', texto: `Taxas/seguro em aberto no DETRAN-ES: ${brl(outros)}` })
+  if (!nao(d.gravame)) restricoes.push({ tipo: 'financeira', texto: texto(d.gravame)! })
+  if (!nao(d.restricoes) && texto(d.restricoes) !== texto(d.gravame)) restricoes.push({ tipo: 'administrativa', texto: texto(d.restricoes)! })
+  if (!nao(d.impedimentos)) restricoes.push({ tipo: 'administrativa', texto: texto(d.impedimentos)! })
+  if (!nao(d.averbacao_judicial)) restricoes.push({ tipo: 'judiciaria', texto: `Averbação judicial: ${texto(d.averbacao_judicial)}` })
+  if (!nao(d.indicativo_clonagem)) restricoes.push({ tipo: 'clonagem', texto: `Indicativo de clonagem no DETRAN-ES: ${texto(d.indicativo_clonagem)}` })
+  const situacao = texto(d.situacao)
+  if (situacao && !/em\s+circula/i.test(situacao)) restricoes.push({ tipo: 'situacao', texto: situacao })
+
+  const ultimoLicAno = anoDe(d.ano_ultimo_licenciamento)
+  const licAtrasadoAno = ultimoLicAno != null && (licVencido || ultimoLicAno <= hoje.getFullYear() - 2) ? ultimoLicAno : null
+
+  if (multas.length || infracoes.length || debitos.length || recursos.length || restricoes.length) {
+    log('[infosimples] DETRAN-ES com debito (ajustar parser): ' + JSON.stringify(semUrls({
+      multas, infracoes, debitos, recursos, gravame: d.gravame, restricoes: d.restricoes, impedimentos: d.impedimentos,
+      averbacao_judicial: d.averbacao_judicial, indicativo_clonagem: d.indicativo_clonagem, situacao: d.situacao,
+    })))
+  }
+
+  return {
+    ...blocoSoMultas('detran_es', itens, { multas_em_recurso: emRecurso }),
+    multas_total_centavos: Math.round(Math.max(somaItens, multaDeb) * 100),
+    ipva_total_centavos: Math.round(ipva * 100),
+    ipva_itens: ordenarIpva(ipvaItens),
+    licenciamento_centavos: Math.round(lic * 100),
+    licenciamento_atrasado_ano: licAtrasadoAno,
+    ultimo_licenciamento_ano: ultimoLicAno,
+    restricoes_detran: restricoes,
+    autuacoes_em_andamento: multas.length ? infracoes.length : 0,
+  }
+}
+
 // ---------- Trava do login gov.br (BA e DF, mesma conta) ----------
 //
 // 608 = "Usuário e/ou senha inválidos": cada tentativa conta como senha errada
@@ -1182,6 +1257,7 @@ export function blocoDetranDaUf(uf: UfDetran, data: any) {
   if (uf === 'PA') return parsearDetranPa(data)
   if (uf === 'AM') return parsearDetranAm(data)
   if (uf === 'PE') return parsearDetranPe(data)
+  if (uf === 'ES') return parsearDetranEs(data)
   return detranParaMultas(parsearDetranSp(data))
 }
 
