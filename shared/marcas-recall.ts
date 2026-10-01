@@ -32,7 +32,13 @@ export const MARCAS_RECALL_GRATIS: readonly string[] = [
   // Hyundai: "HYUNDAI/HB20", "I/HYUNDAI", "CAOA HYUNDAI".
   'hyundai',
   'iveco',
-  // Proximas (base ainda nao no ar): 'bmw', 'audi', 'land\\s*rover', 'jaguar', 'porsche', 'volvo'
+  // Premium. Land Rover vem tambem como "LR/..." (curto: \blr\b). Volvo: a base
+  // so tem carros; caminhao (FH) passa no gate e a base responde "nao consta".
+  'bmw', 'audi', 'land\\s*rover', 'lr', 'jaguar', 'porsche', 'volvo',
+  // Kia (curto: \bkia\b) e Caoa Chery ("CAOACHERY", "CAOA CHERY", "CHERY/TIGGO").
+  'kia', 'caoa\\s*chery', 'chery',
+  // Motos: Harley vem como "H.DAVIDSON" ou "HARLEY-DAVIDSON"; KTM curto (\bktm\b).
+  'dafra', 'kawasaki', 'triumph', 'suzuki', 'harley', 'h\\.?\\s*davidson', 'ducati', 'royal\\s*enfield', 'ktm', 'lifan',
 ]
 
 const RE_MARCAS = new RegExp(`\\b(${MARCAS_RECALL_GRATIS.join('|')})\\b`, 'i')
