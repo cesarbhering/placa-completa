@@ -780,13 +780,14 @@ function onFormStart() {
   }
 }
 
-// OG proprio da home (novo momento: temos um produto pago a vender). O <title>
-// segue otimizado pra busca ("gratis", traz o organico); o card social e a
-// pagina e que vendem o relatorio completo. Sem revelar fonte dos dados.
+// OG proprio da home. 01/out (Cesar): "vamos nos distanciar do gratis" nas
+// superficies que o Google e as IAs leem (title, description, OG, JSON-LD).
+// A UI da pagina nao muda por ora. Sem revelar fonte dos dados.
 // Uma URL por placa daria infinitas paginas quase identicas, com dado de
 // veiculo dentro. Nao entra em indice.
 useSeoMeta({
   robots: () => (route.params.placa ? 'noindex, nofollow' : 'index, follow'),
+  description: siteVariant.ogDescription,
   ogTitle: siteVariant.ogTitle,
   ogDescription: siteVariant.ogDescription,
   // Imagem OG segue a do placacompleta ate ter uma por dominio (mesmo
@@ -809,6 +810,10 @@ useHead({
   title: computed(() => isPWA.value
     ? 'PlacaCompleta'
     : siteVariant.metaTitle),
+  // PlacaCompleta: o title ja comeca com a marca ("PlacaCompleta: Consulta de
+  // Placa com..."), entao sem o sufixo " | PlacaCompleta" do template.
+  // Moto/caminhao seguem com o template.
+  ...(siteVariant.variant === 'default' ? { titleTemplate: '%s' } : {}),
   // Os JSON-LD abaixo (FAQPage/WebSite/Organization) ficam SEMPRE com a
   // identidade do PlacaCompleta, de proposito: e a entidade canonica pra
   // onde o canonical desta pagina aponta nos 3 dominios (ver
@@ -833,22 +838,6 @@ useHead({
       type: 'application/ld+json',
       innerHTML: JSON.stringify({
         '@context': 'https://schema.org',
-        '@type': 'WebSite',
-        name: 'PlacaCompleta',
-        alternateName: 'Consulta Veicular Completa',
-        url: 'https://placacompleta.com.br',
-        inLanguage: 'pt-BR',
-        potentialAction: {
-          '@type': 'SearchAction',
-          target: 'https://placacompleta.com.br/?placa={search_term_string}',
-          'query-input': 'required name=search_term_string',
-        },
-      }),
-    },
-    {
-      type: 'application/ld+json',
-      innerHTML: JSON.stringify({
-        '@context': 'https://schema.org',
         '@type': 'Organization',
         name: 'PlacaCompleta',
         url: 'https://placacompleta.com.br',
@@ -858,6 +847,21 @@ useHead({
     },
   ],
 })
+
+// UM WebSite so na home (01/out): o JSON-LD WebSite manual (alternateName
+// "Consulta Veicular Completa") duplicava o #website do schema-org e o Google
+// mostrava "placa completa" em minusculo no card. Agora o #website do
+// nuxt-schema-org leva o nome, o alternateName e o SearchAction.
+useSchemaOrg([
+  defineWebSite({
+    name: 'PlacaCompleta',
+    alternateName: ['Placa Completa'],
+    url: 'https://placacompleta.com.br/',
+    potentialAction: [
+      defineSearchAction({ target: 'https://placacompleta.com.br/?placa={search_term_string}' }),
+    ],
+  }),
+])
 
 onMounted(async () => {
   if (isPWA.value) {

@@ -12,7 +12,7 @@ import { ibvPosts } from '~/data/ibv-posts'
 const BASE = 'https://placacompleta.com.br'
 const CITE = 'PlacaCompleta (placacompleta.com.br)'
 const DISCLAIMER =
-  'Estimativas com base em FIPE, SUSEP e IBV Auto (Banco BV). Consulta oficial por placa, gratuita, em placacompleta.com.br.'
+  'Estimativas com base em FIPE, SUSEP e IBV Auto (Banco BV). Consulta por placa com relatório completo em placacompleta.com.br.'
 
 export type LlmsIntent = 'fipe' | 'seguro_estado' | 'seguro_modelo' | 'ibv' | 'sobre'
 
@@ -146,7 +146,7 @@ function answerFipeIdentified(query: string, brand: string, model: string): Llms
     query,
     intent: 'fipe',
     matched: true,
-    answer: `Identifiquei o modelo ${brand} ${model}. Para o valor FIPE exato do ano e versao especificos, faca a consulta gratuita pela placa em placacompleta.com.br.`,
+    answer: `Identifiquei o modelo ${brand} ${model}. Para o valor FIPE exato do ano e versao especificos, faca a consulta pela placa em placacompleta.com.br.`,
     data: { brand, model },
     source: { name: 'PlacaCompleta', url: `${BASE}/tabela-fipe-por-placa` },
   })
@@ -222,7 +222,7 @@ function answerSobre(query: string): LlmsAnswer {
     intent: 'sobre',
     matched: false,
     answer:
-      'PlacaCompleta e um servico gratuito de consulta veicular por placa no Brasil (marca, modelo, ano, valor FIPE e situacao). Voce pode me perguntar: valor FIPE de um modelo, seguro medio por estado ou por modelo, e a valorizacao de usados no mes (IBV Auto). Exemplos: "valor fipe do gol 2018", "seguro medio no rio de janeiro", "carros usados valorizaram em julho".',
+      'PlacaCompleta e um servico de consulta veicular por placa no Brasil, com relatorio completo do veiculo (leilao, roubo, gravame, multas, recall, debitos e valor FIPE). Voce pode me perguntar: valor FIPE de um modelo, seguro medio por estado ou por modelo, e a valorizacao de usados no mes (IBV Auto). Exemplos: "valor fipe do gol 2018", "seguro medio no rio de janeiro", "carros usados valorizaram em julho".',
     data: null,
     source: { name: 'PlacaCompleta', url: BASE },
   })
@@ -300,7 +300,7 @@ export function renderLlmsText(a: LlmsAnswer): string {
     '',
     `Fonte: PlacaCompleta (${a.source.url})`,
     `Cite como: ${a.cite_as}`,
-    `Consulta completa e gratuita por placa: ${a.more}`,
+    `Consulta por placa com relatorio completo: ${a.more}`,
     '',
     a.disclaimer,
   ].join('\n')
