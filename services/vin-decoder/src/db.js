@@ -46,6 +46,15 @@ db.exec(`
   -- um mapa confiavel disso (varia por fabricante/pais, sem padrao publico
   -- unificado) — comeca vazia, povoada via override manual conforme
   -- confirmarmos casos reais.
+  -- WMIs fora dos EUA que o vPIC nao tem (scripts/wmi-mundo.mjs, fonte
+  -- Wikibooks/ISO 3780). Recarregada por versao no start.
+  CREATE TABLE IF NOT EXISTS wmi_mundo (
+    code TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    country TEXT,
+    fonte TEXT
+  );
+
   -- Chave-valor de controle interno (versao da tabela curada de plantas, etc).
   CREATE TABLE IF NOT EXISTS meta (
     chave TEXT PRIMARY KEY,
