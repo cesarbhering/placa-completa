@@ -1,3 +1,4 @@
+import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas-recall'
 // Processa um pedido PAGO: dispara a consulta SENATRAN uma vez, entrega ou
 // reembolsa. Usado pelo WEBHOOK e pelo POLLING de status (o que chegar primeiro).
 // Trava atomica via update condicional (status aguardando/pago -> consultando):
@@ -40,9 +41,9 @@ export function completarRecallDepois(
       // devolve o bloco autoritativo -> consultarRecallAutoritativo volta null ->
       // fail-open pro scrape SENATRAN. So deixa o plug marca-aware.
       let autoritativo: Awaited<ReturnType<typeof consultarRecallAutoritativo>> = null
-      if (/\b(chevrolet|gm|general\s*motors|volkswagen|vw|fiat|peugeot|citro[eë]n|jeep|ram|dodge)\b/i.test(desc) && chassi.length === 17) {
+      if (marcaTemAutoritativo(desc) && chassi.length === 17) {
         autoritativo = await consultarRecallAutoritativo({
-          placa: pedido.placa, chassi, marca: desc.split('/')[0], modelo: desc,
+          placa: pedido.placa, chassi, marca: normalizarMarcaRecall(desc.split('/')[0]), modelo: normalizarMarcaRecall(desc),
           ano: bruto?.anoModelo ?? bruto?.anoFabricacao ?? null,
           ano_fab: bruto?.anoFabricacao ?? null, ano_mod: bruto?.anoModelo ?? null,
         })
