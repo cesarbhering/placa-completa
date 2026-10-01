@@ -97,10 +97,26 @@ describe('consultar/completar', () => {
     expect(url).toBe('http://api/v1/recall')
     expect(opts.body).toMatchObject({ chassi: 'JMYLYV98WGJ000000', marca: 'MMC', ano_fab: '2015', ano_mod: '2016', autoritativo: true })
   })
-  it('Mitsubishi sem o campo autoritativo (antes do redeploy): null', async () => {
+  it('Mitsubishi sem o campo nas duas: null, exatamente 2 chamadas, timeout 40s', async () => {
     vi.stubGlobal('useRuntimeConfig', () => ({ leiloesApiUrl: 'http://api', leiloesApiKey: 'k', public: {} }))
-    vi.stubGlobal('$fetch', vi.fn(async () => ({ matches: [] })))
-    expect(await consultarRecallMontadora('mitsubishi', 'JMYLYV98WGJ000000')).toBeNull()
+    const f = vi.fn(async () => ({ matches: [] })); vi.stubGlobal('$fetch', f)
+    expect(await consultarRecallMontadora('mitsubishi', 'JMYLYV98WGJ000000', {}, { retryMs: 1 })).toBeNull()
+    expect(f).toHaveBeenCalledTimes(2)
+    expect((f.mock.calls[0] as any)[1].timeout).toBe(40000)
+  })
+  it('Mitsubishi: 1a sem o campo (rapida), retry acerta', async () => {
+    vi.stubGlobal('useRuntimeConfig', () => ({ leiloesApiUrl: 'http://api', leiloesApiKey: 'k', public: {} }))
+    const f = vi.fn().mockResolvedValueOnce({ matches: [] }).mockResolvedValueOnce(MMC); vi.stubGlobal('$fetch', f)
+    const b = await consultarRecallMontadora('mitsubishi', 'JMYLYV98WGJ000000', {}, { retryMs: 1 })
+    expect(f).toHaveBeenCalledTimes(2)
+    expect(b?.n_campanhas).toBe(1)
+  })
+  it('Mitsubishi: 1a ja esperou a montadora (>= 10s): NAO repete', async () => {
+    vi.stubGlobal('useRuntimeConfig', () => ({ leiloesApiUrl: 'http://api', leiloesApiKey: 'k', public: {} }))
+    let t = 0
+    const f = vi.fn(async () => { t += 31000; return { matches: [] } }); vi.stubGlobal('$fetch', f)
+    expect(await consultarRecallMontadora('mitsubishi', 'JMYLYV98WGJ000000', {}, { retryMs: 1, agora: () => t })).toBeNull()
+    expect(f).toHaveBeenCalledTimes(1)
   })
   it('fail-open: HTTP erro e excecao -> null', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, json: async () => ({}) })))
