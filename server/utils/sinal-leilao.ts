@@ -100,11 +100,23 @@ const JANELA_MS = 60 * 60 * 1000
 const TETO_POR_IP = 60
 const porIp = new Map<string, { desde: number; n: number }>()
 
-export function dentroDoTetoDeSinal(ip: string, agora = Date.now()): boolean {
-  if (!ip) return true
-  const atual = porIp.get(ip)
+/**
+ * Um contador POR SINAL (leilao e recall separados): uma consulta gratis chama
+ * os dois, e com o contador unico ela gastava 2 da cota. O IP tem que ser o do
+ * VISITANTE (getClientIp: cf-connecting-ip / primeiro IP publico do XFF): ate
+ * 01/out os endpoints usavam getRequestIP(xForwardedFor), que atras do
+ * cloudflared + Traefik devolve o IP INTERNO da rede Docker, o mesmo pra todo
+ * mundo, e o teto de 60/h virava GLOBAL (5 a 9 placas com sinal por hora cheia).
+ * IP vazio/'unknown' (privado, sem header): nao bloqueia.
+ */
+export type TipoSinal = 'leilao' | 'recall'
+
+export function dentroDoTetoDeSinal(ip: string, agora = Date.now(), tipo: TipoSinal = 'leilao'): boolean {
+  if (!ip || ip === 'unknown') return true
+  const chave = `${tipo}|${ip}`
+  const atual = porIp.get(chave)
   if (!atual || agora - atual.desde >= JANELA_MS) {
-    porIp.set(ip, { desde: agora, n: 1 })
+    porIp.set(chave, { desde: agora, n: 1 })
     return true
   }
   atual.n += 1
@@ -114,4 +126,24 @@ export function dentroDoTetoDeSinal(ip: string, agora = Date.now()): boolean {
 /** So pra teste: zera as janelas. */
 export function _limparTetoDeSinal() {
   porIp.clear()
+}
+
+// DIAGNOSTICO TEMPORARIO (01/out): prova em prod de que o IP antigo do teto era
+// o interno do proxy. Uma linha por hora no maximo, sem o IP inteiro.
+let ultimoLogIp = 0
+function classeIp(ip: string): string {
+  const v = String(ip || '').toLowerCase()
+  if (!v || v === 'unknown') return 'vazio'
+  const privado = v === '127.0.0.1' || v === '::1' || v.startsWith('10.') || v.startsWith('192.168.')
+    || /^172\.(1[6-9]|2\d|3[01])\./.test(v) || v.startsWith('fd') || v.startsWith('fc') || v.startsWith('fe80')
+  const prefixo = v.includes(':') ? v.split(':').slice(0, 2).join(':') : v.split('.')[0]
+  return `${privado ? 'PRIVADO' : 'publico'}(${prefixo}...)`
+}
+export function logarIpDoTeto(event: any, ipNovo: string, agora = Date.now()): void {
+  if (agora - ultimoLogIp < 60 * 60 * 1000) return
+  ultimoLogIp = agora
+  try {
+    const antigo = getRequestIP(event, { xForwardedFor: true }) || ''
+    console.log(`[sinal-teto] ip antigo (getRequestIP+XFF)=${classeIp(antigo)} novo (getClientIp)=${classeIp(ipNovo)}`)
+  } catch { /* diagnostico nunca derruba o sinal */ }
 }
