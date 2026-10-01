@@ -1,0 +1,81 @@
+{
+  "realizadas": [
+    {
+      "chassis_elegiveis_a_recall": "9XXXXXXXXXXXXXXXX",
+      "modelo": "FRONTIER",
+      "nome_da_campanha": "Substituição do Gerador de Gases Do Airbag Do Motorista",
+      "numero_da_campanha": "RT038",
+      "efetuou_o_reparo": true,
+      "data_do_reparo": "2021-01-15T03:00:00",
+      "concessionaria": "NICENTER AV. BRASILIA NBA",
+      "tempo_total_de_reparo": "00:36",
+      "codigo_do_item_do_reparo": "98510EB79C",
+      "itens_do_reparo": "MODULO DO AIR BAG, MOTORISTA",
+      "excluido_do_recall": false,
+      "data_da_exclusao": null,
+      "texto_da_campanha": "RIO DE JANEIRO (20 de Janeiro de 2020) – Com a intenção de z"
+    },
+    {
+      "chassis_elegiveis_a_recall": "9XXXXXXXXXXXXXXXX",
+      "modelo": "FRONTIER",
+      "nome_da_campanha": "Substituição do Gerador de Gases Do Módulo Do Airbag Do Passageiro",
+      "numero_da_campanha": "RT030",
+      "efetuou_o_reparo": true,
+      "data_do_reparo": "2019-01-04T03:00:00",
+      "concessionaria": "NICENTER APUCARANA NBA",
+      "tempo_total_de_reparo": "01:18",
+      "codigo_do_item_do_reparo": "985617998E",
+      "itens_do_reparo": "GERADOR DE GASES DE AIRBAG",
+      "excluido_do_recall": false,
+      "data_da_exclusao": null,
+      "texto_da_campanha": "Para zelar pela sua segurança, a Nissan do Brasil Automóveis"
+    },
+    {
+      "chassis_elegiveis_a_recall": "9XXXXXXXXXXXXXXXX",
+      "modelo": "FRONTIER",
+      "nome_da_campanha": "Substituição do Gerador de Gases Do Módulo Do Airbag Do Passageiro",
+      "numero_da_campanha": "RT030",
+      "efetuou_o_reparo": true,
+      "data_do_reparo": "2019-01-04T03:00:00",
+      "concessionaria": "NICENTER APUCARANA NBA",
+      "tempo_total_de_reparo": "01:18",
+      "codigo_do_item_do_reparo": "B4A67EB70D",
+      "itens_do_reparo": "CHICOTE ELETRICO PARA AIRBAG",
+      "excluido_do_recall": false,
+      "data_da_exclusao": null,
+      "texto_da_campanha": "Para zelar pela sua segurança, a Nissan do Brasil Automóveis"
+    },
+    {
+      "chassis_elegiveis_a_recall": "9XXXXXXXXXXXXXXXX",
+      "modelo": "FRONTIER",
+      "nome_da_campanha": "Inspeção e Substituição da Junta Da Coluna de Direção",
+      "numero_da_campanha": "R1202",
+      "efetuou_o_reparo": true,
+      "data_do_reparo": "2021-01-15T03:00:00",
+      "concessionaria": "NICENTER AV. BRASILIA NBA",
+      "tempo_total_de_reparo": "00:30",
+      "codigo_do_item_do_reparo": "D8080JR82A",
+      "itens_do_reparo": "ARTICULACAO DA BARRA (COLUNA) DE DIRECAO",
+      "excluido_do_recall": false,
+      "data_da_exclusao": null,
+      "texto_da_campanha": "SÃO JOSÉ DOS PINHAIS, 22 DE FEVEREIRO DE 2012. A Nissan do B"
+    }
+  ],
+  "pendente": [
+    {
+      "chassis_elegiveis_a_recall": "9XXXXXXXXXXXXXXXX",
+      "modelo": "FRONTIER",
+      "nome_da_campanha": "Substituição do Gerador de Gases Do Módulo Do Airbag Do Passageiro",
+      "numero_da_campanha": "RT030",
+      "efetuou_o_reparo": false,
+      "data_do_reparo": null,
+      "concessionaria": null,
+      "tempo_total_de_reparo": null,
+      "codigo_do_item_do_reparo": null,
+      "itens_do_reparo": null,
+      "excluido_do_recall": false,
+      "data_da_exclusao": null,
+      "texto_da_campanha": "Para zelar pela sua segurança, a Nissan do Brasil Automóveis"
+    }
+  ]
+}

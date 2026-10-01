@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { enfileirarEventoFunil, enviarFunil, _filaFunil, _limparFilaFunil, idDaSessao } from './useAnalytics'
+import { enfileirarEventoFunil, enviarFunil, _filaFunil, _limparFilaFunil, idDaSessao, definirRecallSinal } from './useAnalytics'
 
 // O enfileirador e a metade client do funil: ele decide o que SAI do navegador.
 // Allowlist errada aqui significa dado fora do contrato chegando no banco;
@@ -18,6 +18,18 @@ describe('enfileirador do funil', () => {
     vi.unstubAllGlobals()
     _limparFilaFunil()
     comStorage()
+  })
+
+  it('depois que o sinal de recall resolve, TODO evento sai carimbado (e null ao trocar de placa)', () => {
+    enfileirarEventoFunil('resultado_exibido')
+    definirRecallSinal('firme', 'NISSAN')
+    enfileirarEventoFunil('pix_gerado', { plano: 'completa' })
+    definirRecallSinal(null)
+    enfileirarEventoFunil('cta_completa_visto')
+    const [antes, depois, trocou] = _filaFunil()
+    expect(antes.recall_sinal).toBeUndefined()
+    expect(depois).toMatchObject({ recall_sinal: 'firme', recall_marca: 'NISSAN' })
+    expect(trocou.recall_sinal).toBeUndefined()
   })
 
   it('evento fora da allowlist nao entra na fila', () => {

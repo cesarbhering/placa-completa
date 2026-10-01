@@ -59,7 +59,7 @@ describe('sem PII', () => {
     expect(o.email).toBeUndefined()
     expect(o.ip).toBeUndefined()
     expect(o.user_agent).toBeUndefined()
-    expect(Object.keys(o).sort()).toEqual(['evento', 'extra', 'leilao_sinal', 'origem', 'placa', 'plano', 'sessao'])
+    expect(Object.keys(o).sort()).toEqual(['evento', 'extra', 'leilao_sinal', 'origem', 'placa', 'plano', 'recall_marca', 'recall_sinal', 'sessao'])
   })
 })
 
@@ -81,5 +81,31 @@ describe('lote', () => {
   it('descarta os invalidos e mantem os validos do mesmo lote', () => {
     const lote = sanearLote([{ evento: 'resultado_exibido' }, { evento: 'hack' }, { evento: 'cta_completa_click' }])
     expect(lote.map(e => e.evento)).toEqual(['resultado_exibido', 'cta_completa_click'])
+  })
+})
+
+import { sanearSinalRecall, sanearMarcaRecall } from './eventos-funil'
+describe('recall_sinal / recall_marca', () => {
+  it('allowlist do sinal de recall', () => {
+    for (const v of ['firme', 'suave', 'negativo', 'fora_escopo', 'sem_sinal']) expect(sanearSinalRecall(v)).toBe(v)
+    expect(sanearSinalRecall('talvez')).toBeNull()
+    expect(sanearSinalRecall(undefined)).toBeNull()
+  })
+  it('marca: so letras, maiusculas, ate 30', () => {
+    expect(sanearMarcaRecall('nissan')).toBe('NISSAN')
+    expect(sanearMarcaRecall('<script>x')).toBe('SCRIPTX')
+    expect(sanearMarcaRecall('A'.repeat(50))).toHaveLength(30)
+    expect(sanearMarcaRecall(12)).toBeNull()
+  })
+  it('vai no evento saneado (e evento sem o campo fica null)', () => {
+    const e = sanearEvento({ evento: 'pix_gerado', recall_sinal: 'firme', recall_marca: 'honda' })!
+    expect(e.recall_sinal).toBe('firme')
+    expect(e.recall_marca).toBe('HONDA')
+    const v = sanearEvento({ evento: 'pix_gerado' })!
+    expect(v.recall_sinal).toBeNull()
+    expect(v.recall_marca).toBeNull()
+  })
+  it('recall_sinal_visto esta na allowlist', () => {
+    expect(sanearEvento({ evento: 'recall_sinal_visto' })).not.toBeNull()
   })
 })

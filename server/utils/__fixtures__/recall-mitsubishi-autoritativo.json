@@ -1,0 +1,19 @@
+{
+  "matches": [],
+  "autoritativo": {
+    "fonte": "mitsubishi",
+    "consultado": true,
+    "tem_recall_aberto": true,
+    "n_campanhas": 1,
+    "situacao": "possui campanha em aberto",
+    "campanhas": [
+      { "codigo": "MMC-2019-01", "titulo": "Substituição do insuflador do airbag do passageiro", "status": "aberto" },
+      { "codigo": "MMC-2016-03", "titulo": "Inspeção do cubo da roda traseira", "status": "realizado" },
+      { "codigo": "MMC-2014-02", "titulo": "Reprogramação da central do motor", "status": "realizado" }
+    ],
+    "atendimentos": [
+      { "codigo": "MMC-2016-03", "titulo": "Inspeção do cubo da roda traseira", "data": "2017-03-10", "km": 41250, "concessionaria": "MITSUBISHI MOTORS ALPHA SP", "nome": "FULANO DONO", "cpf": "123.456.789-00", "os": "OS-998877", "placa": "ABC1D23" },
+      { "codigo": "MMC-2014-02", "titulo": "Reprogramação da central do motor", "data": "2015-06-02", "km": "18.300", "concessionaria": "MITSUBISHI BETA RJ" }
+    ]
+  }
+}
