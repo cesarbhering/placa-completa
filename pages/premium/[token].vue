@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { linhaRecallGrade } from '~/shared/recall-grade'
 // Relatorio veicular (superficie PAGA — o token da URL e a credencial).
 //
 // Antes era marcacao crua com os dados do jeito que a API devolve. Agora segue
@@ -278,15 +279,9 @@ const indicadores = computed(() => {
     // Recall: SENATRAN x montadora (Nissan/Mitsubishi pelo chassi). Decisao do
     // Cesar (01/out): quando divergirem, a grade mostra as DUAS fontes; quando
     // concordarem, fica a linha normal.
-    if (i.k === 'indicadorRecall' && recallMontadora.value) {
-      const abertoMontadora = campanhasAbertas.value.length > 0
-      if (ligado && !abertoMontadora) {
-        // A montadora e a fonte do atendimento: amarelo (atencao), sem entrar no veredito como alerta.
-        return { ...i, sim: `PENDENTE no SENATRAN, ATENDIDO segundo a ${nomeMontadora.value}`, ligado, alerta: false }
-      }
-      if (!ligado && abertoMontadora) {
-        return { ...i, nao: `EM DIA no SENATRAN, EM ABERTO segundo a ${nomeMontadora.value}`, ligado, alerta: true }
-      }
+    if (i.k === 'indicadorRecall') {
+      const linha = linhaRecallGrade(ligado, data.value?.recallMontadora)
+      if (linha) return ligado ? { ...i, sim: linha.texto, ligado, alerta: linha.alerta } : { ...i, nao: linha.texto, ligado, alerta: linha.alerta }
     }
     if (i.k === 'indicadorRouboFurto' && rouboDetran.value) {
       return {

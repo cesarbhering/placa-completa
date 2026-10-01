@@ -22,7 +22,7 @@ describe('sinalDoRecall', () => {
   })
 })
 
-describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis + Honda + Renault + Ford + Mitsubishi + Nissan + Yamaha)', () => {
+describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis + Honda + Renault + Ford + Mitsubishi + Nissan + Yamaha + Mercedes + Hyundai + Iveco)', () => {
   it('Toyota, Lexus, Chevrolet, GM, VW, Fiat e Stellantis passam', () => {
     expect(marcaTemRecall('TOYOTA')).toBe(true)
     expect(marcaTemRecall('toyota')).toBe(true)
@@ -92,15 +92,24 @@ describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis +
     expect(marcaTemRecall('NISSANX')).toBe(false)
     expect(marcaTemRecall('YAMAHAX')).toBe(false)
   })
+  it('Mercedes-Benz, Hyundai e Iveco: variantes do SENATRAN', () => {
+    for (const m of ['M.BENZ', 'M.BENZ/C180 CGI', 'MBENZ', 'I/M.BENZ GLA200', 'MERCEDES-BENZ', 'M.BENZ/ACCELO 1016', 'M.BENZ/SPRINTER 415',
+      'HYUNDAI', 'HYUNDAI/HB20 1.0M', 'I/HYUNDAI TUCSON', 'CAOA HYUNDAI', 'HYUNDAI/CRETA', 'IVECO', 'IVECO/DAILY 35-150', 'I/IVECO STRALIS']) {
+      expect(marcaTemRecall(m)).toBe(true)
+    }
+    for (const m of ['BENZINA', 'HYUNDAIX', 'IVECOS', 'MERCEDESX']) expect(marcaTemRecall(m)).toBe(false)
+  })
   it('server e tela usam a MESMA lista (shared/marcas-recall)', () => {
     for (const m of ['TOYOTA', 'I/HONDA', 'RENAULT/KWID', 'NISSAN/KICKS', 'FORD/KA', 'MMC/L200', 'YAMAHA/FACTOR', 'RAMPA']) {
       expect(marcaTemRecall(m)).toBe(marcaTemRecallGratis(m))
     }
   })
   it('outras marcas e vazio nao passam', () => {
-    expect(marcaTemRecall('HYUNDAI')).toBe(false)
+    expect(marcaTemRecall('KIA/SPORTAGE')).toBe(false)
     // proximas marcas ainda fora (base nao no ar)
     expect(marcaTemRecall('KAWASAKI/NINJA')).toBe(false)
+    // proximas (comentadas): BMW, Audi, Land Rover/Jaguar, Porsche, Volvo
+    for (const m of ['BMW/X1', 'I/AUDI A3', 'LAND ROVER/DISCOVERY', 'I/JAGUAR XE', 'PORSCHE/CAYENNE', 'VOLVO/XC60']) expect(marcaTemRecall(m)).toBe(false)
     expect(marcaTemRecall('SUZUKI/JIMNY')).toBe(false)
     expect(marcaTemRecall('')).toBe(false)
     expect(marcaTemRecall(null)).toBe(false)
