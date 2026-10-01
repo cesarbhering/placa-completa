@@ -21,7 +21,7 @@ describe('sinalDoRecall', () => {
   })
 })
 
-describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis)', () => {
+describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis + Honda)', () => {
   it('Toyota, Lexus, Chevrolet, GM, VW, Fiat e Stellantis passam', () => {
     expect(marcaTemRecall('TOYOTA')).toBe(true)
     expect(marcaTemRecall('toyota')).toBe(true)
@@ -50,8 +50,18 @@ describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis)'
     expect(marcaTemRecall('I/RAM 2500')).toBe(true)
     expect(marcaTemRecall('DODGE/JOURNEY')).toBe(true)
   })
+  it('Honda: carro e moto, com e sem I/', () => {
+    expect(marcaTemRecall('HONDA')).toBe(true)
+    expect(marcaTemRecall('I/HONDA')).toBe(true)
+    expect(marcaTemRecall('I/HONDA CIVIC')).toBe(true)
+    expect(marcaTemRecall('HONDA/CG 160')).toBe(true)
+    expect(marcaTemRecall('HONDA/CIVIC EXL CVT')).toBe(true)
+    expect(marcaTemRecall('honda')).toBe(true)
+    expect(marcaTemRecall('HONDAX')).toBe(false)
+  })
   it('outras marcas e vazio nao passam', () => {
-    expect(marcaTemRecall('HONDA')).toBe(false)
+    expect(marcaTemRecall('HYUNDAI')).toBe(false)
+    expect(marcaTemRecall('YAMAHA/FACTOR')).toBe(false)
     expect(marcaTemRecall('')).toBe(false)
     expect(marcaTemRecall(null)).toBe(false)
     // nao casar 'vw' dentro de outra palavra
