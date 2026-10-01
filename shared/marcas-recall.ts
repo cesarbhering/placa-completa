@@ -18,7 +18,10 @@ export const MARCAS_RECALL_GRATIS: readonly string[] = [
   'peugeot', 'citro[eë]n', 'jeep', 'ram', 'dodge',
   'honda',
   'renault',
-  // Proximas (base ainda nao no ar): 'ford', 'nissan', 'mitsubishi', 'mmc', 'yamaha'
+  'ford',
+  // Mitsubishi: o SENATRAN manda "MMC/L200 TRITON"; "MITSUBISHI" por extenso tambem.
+  'mitsubishi', 'mmc',
+  // Proximas (base ainda nao no ar): 'nissan', 'yamaha'
 ]
 
 const RE_MARCAS = new RegExp(`\\b(${MARCAS_RECALL_GRATIS.join('|')})\\b`, 'i')
