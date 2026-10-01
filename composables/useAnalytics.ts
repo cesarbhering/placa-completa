@@ -22,6 +22,8 @@ export interface EventoNaFila {
   sessao?: string | null
   origem?: Record<string, string> | null
   leilao_sinal?: string
+  recall_sinal?: string
+  recall_marca?: string | null
   plano?: string | null
   extra?: Record<string, string | number | boolean> | null
 }
@@ -87,6 +89,16 @@ function agendarEnvio() {
  * Nada identificavel atravessa: e-mail, telefone, chassi e token ficam de fora
  * por construcao (o unico campo livre e `extra`, saneado no servidor).
  */
+// Hook de recall da consulta gratis desta visita (igual ao ab_bloco): depois
+// que o sinal resolve, TODO evento do funil sai carimbado com ele (CTA, checkout,
+// pix_gerado...), pra medir se quem viu a frase de recall compra mais.
+let recallAtual: { sinal: string; marca: string | null } | null = null
+/** pages/index.vue chama quando o sinal resolve; null ao trocar de placa. */
+export function definirRecallSinal(sinal: string | null, marca?: string | null): void {
+  recallAtual = sinal ? { sinal, marca: marca ?? null } : null
+}
+export function recallSinalAtual(): { sinal: string; marca: string | null } | null { return recallAtual }
+
 export function enfileirarEventoFunil(evento: string, dados?: Omit<EventoNaFila, 'evento'>) {
   // `typeof window` e nao `import.meta.client`: a checagem precisa valer
   // tambem fora do build do Nuxt (teste unitario), e o efeito e o mesmo, ja
@@ -102,6 +114,7 @@ export function enfileirarEventoFunil(evento: string, dados?: Omit<EventoNaFila,
   const ab = varianteAtual()
   const extra = ab ? { ...(dados?.extra || {}), ab_bloco: ab } : (dados?.extra ?? null)
   fila.push({
+    ...(recallAtual ? { recall_sinal: recallAtual.sinal, recall_marca: recallAtual.marca } : {}),
     ...dados,
     evento,
     extra,
@@ -138,6 +151,8 @@ export function espelharEventoNoFunil(event: string, params?: Record<string, any
   enfileirarEventoFunil(event, {
     placa: typeof params?.placa === 'string' ? params.placa : null,
     leilao_sinal: typeof params?.leilao_sinal === 'string' ? params.leilao_sinal : undefined,
+    recall_sinal: typeof params?.recall_sinal === 'string' ? params.recall_sinal : undefined,
+    recall_marca: typeof params?.recall_marca === 'string' ? params.recall_marca : undefined,
     plano: typeof params?.plano === 'string' ? params.plano : null,
     extra: Object.keys(extra).length ? extra : null,
   })

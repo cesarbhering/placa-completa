@@ -30,10 +30,15 @@ const props = withDefaults(defineProps<{
    * (coluna ab_bloco), em vez do join fragil por placa.
    */
   abBloco?: 'A' | 'B' | null
+  /** Hook de recall que a pessoa viu na consulta gratis (firme/suave/negativo/fora_escopo/sem_sinal) e a marca. Vai pro pedido. */
+  recallSinal?: string | null
+  recallMarca?: string | null
 }>(), {
   plano: 'completa',
   jaConsultada: false,
   abBloco: null,
+  recallSinal: null,
+  recallMarca: null,
 })
 const emit = defineEmits<{ close: [] }>()
 
@@ -473,6 +478,8 @@ async function pagar() {
         origin: origemDaSessao(),
         // Variante do A/B que a pessoa viu (carimba a atribuicao de venda).
         ab_bloco: props.abBloco ?? undefined,
+        recall_sinal: props.recallSinal ?? undefined,
+        recall_marca: props.recallMarca ?? undefined,
       },
     })
     step.value = 'pending'
@@ -591,6 +598,8 @@ async function pagarComCartao() {
         cupom: cupomCodigo.value.trim() || undefined,
         origin: origemDaSessao(),
         ab_bloco: props.abBloco ?? undefined,
+        recall_sinal: props.recallSinal ?? undefined,
+        recall_marca: props.recallMarca ?? undefined,
       },
     })
     if (!r?.clientSecret) { erroCartao.value = 'Não conseguimos iniciar o pagamento. Use o Pix.'; return }
