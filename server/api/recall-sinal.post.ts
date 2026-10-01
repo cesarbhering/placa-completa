@@ -1,3 +1,4 @@
+import { normalizarMarcaRecall } from '../../shared/marcas-recall'
 import { consultarRecallToyota } from '../utils/recall-toyota'
 import { sinalDoRecall, marcaTemRecall, RECALL_INDISPONIVEL, type SinalRecall } from '../utils/sinal-recall'
 import { dentroDoTetoDeSinal } from '../utils/sinal-leilao'
@@ -22,7 +23,8 @@ export default defineEventHandler(async (event) => {
 
   // Fora do escopo (nao Toyota/Lexus): nao consultamos e nao afirmamos nada.
   // INDISPONIVEL (nao "nao consta"): a tela fica em silencio.
-  const marca = String(body?.marca || '').trim()
+  // "CHEV" (SENATRAN) vira "CHEVROLET" pra /v1/recall (e pro cache).
+  const marca = normalizarMarcaRecall(String(body?.marca || '').trim())
   if (!marcaTemRecall(marca)) return RECALL_INDISPONIVEL
 
   // Mesmo motivo do leilao-sinal: sem teto da pra varrer placa por placa. Reusa
@@ -44,7 +46,7 @@ export default defineEventHandler(async (event) => {
     placa,
     chassi: String(body?.chassi || '').trim() || null,
     marca,
-    modelo: String(body?.modelo || '').trim() || null,
+    modelo: normalizarMarcaRecall(String(body?.modelo || '').trim()) || null,
     ano: body?.ano ?? null,
     ano_fab: body?.anoFab ?? null,
     ano_mod: body?.anoModelo ?? null,
