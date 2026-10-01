@@ -30,6 +30,12 @@ function ambienteProtegido(gated: unknown): boolean {
 
 const META_ROBOTS = /<meta\s+name=["']robots["']\s+content=["'][^"']*["']\s*\/?>/gi
 
+// NAO usar o hook render:response aqui: ele roda ANTES do cache por rota
+// (SWR/ISR do routeRules), e a pagina reescrita pra noindex no host app. era
+// guardada e servida pro dominio principal (testado em 01/out: /consulta-placa
+// do principal saiu noindex). O beforeResponse roda por requisicao, depois do
+// cache, e reescreve so a resposta daquele host. Pagina de erro (404) fica sem
+// o header noindex fora do principal, o que e inofensivo (404 nao indexa).
 export default defineNitroPlugin((nitroApp) => {
   nitroApp.hooks.hook('beforeResponse', (event, resposta) => {
     const config = useRuntimeConfig(event)
