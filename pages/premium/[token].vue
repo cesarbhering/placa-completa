@@ -1068,18 +1068,21 @@ const multaIndicadorSP = computed(
 // Veiculo registrado em SP, SC ou MG: a consulta DETRAN (Infosimples) roda pra TODO pedido
 // dessas UFs (multas, hodometro, IPVA, licenciamento), nao so quando o RENAINF acende.
 // Por isso o bloco e o poll acompanham qualquer veiculo de SP, nao so multa.
-// Mesmo gate do servidor (DETRAN_UFS.gate): SP sempre; SC, MG, BA e RS so com multa
+// Mesmo gate do servidor (DETRAN_UFS.gate): SP sempre; SC, MG, BA, RS, GO, PR e DF so com multa
 // RENAINF. Sem isso o bloco ficava em "Consultando..." pra sempre num SC/MG
 // que nunca vai ser consultado.
 const ehVeiculoSpTela = computed(() => {
   const uf = String(g('ufJurisdicao') || '').toUpperCase()
   if (uf === 'SP') return true
-  return ['SC', 'MG', 'BA', 'RS', 'GO'].includes(uf) && g('indicadorMultaRenainf') === true
+  return ['SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF'].includes(uf) && g('indicadorMultaRenainf') === true
 })
 const multasDetalhe = computed(() => {
   const m: any = data.value?.multas
   return m && (m.status === 'ok' || m.status === 'sem_debito') ? m : null
 })
+// Consulta do DETRAN nao rodou (credencial ausente/travada no servidor): sem
+// isso o bloco ficava em "Consultando..." pra sempre.
+const multasIndisponivel = computed(() => (data.value?.multas as any)?.status === 'indisponivel')
 function reais(centavos?: number | null): string | null {
   if (centavos == null) return null
   // Com separador de milhar: "R$ 2.970,56", nao "R$ 2970,56".
@@ -1494,10 +1497,10 @@ onMounted(() => {
 // recall) e para assim que o bloco chega.
 let pollMultas: any = null
 onMounted(() => {
-  if ((!multaIndicadorSP.value && !ehVeiculoSpTela.value) || multasDetalhe.value) return
+  if ((!multaIndicadorSP.value && !ehVeiculoSpTela.value) || multasDetalhe.value || multasIndisponivel.value) return
   const ate = Date.now() + 6 * 60 * 1000
   pollMultas = setInterval(async () => {
-    if (Date.now() > ate || multasDetalhe.value) { clearInterval(pollMultas); return }
+    if (Date.now() > ate || multasDetalhe.value || multasIndisponivel.value) { clearInterval(pollMultas); return }
     try { await refresh() } catch { /* rede oscilou; a proxima volta tenta */ }
   }, 15000)
 })
@@ -1913,6 +1916,7 @@ onUnmounted(() => {
                   <p v-else class="rel__multas-kmok"><b>Sem regressão de km.</b> Sem indício de hodômetro adulterado.</p>
                 </template>
               </template>
+              <p v-else-if="multasIndisponivel" class="rel__multas-nota">A consulta de débitos e multas no DETRAN do estado não está disponível no momento. Confira direto no site do DETRAN.</p>
               <p v-else class="rel__multas-nota">Consultando débitos, multas e histórico no DETRAN. Aparece aqui em instantes.</p>
             </div>
 

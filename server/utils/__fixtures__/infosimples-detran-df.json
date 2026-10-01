@@ -1,0 +1,51 @@
+{
+  "debitos": {
+    "total_licenciamento": 0,
+    "licenciamentos": [],
+    "total_utilizacao_anual": 0,
+    "total_dpvat": 0,
+    "total_servicos_detran": 0,
+    "total_parcelamento": 0,
+    "total_devido_parcelamento": 0,
+    "tem_debito": false,
+    "infracoes_veiculo": [
+      {
+        "numero_auto": "KK02569188",
+        "orgao_autuador": "DETRAN - DF",
+        "data_notif": "05/08/2026",
+        "data_notif_autuacao": "19/06/2026",
+        "data_infracao": "12/06/2026",
+        "hora_infracao": "16:01",
+        "data_vencimento": "21/09/2026",
+        "velocidade_permitida": 60,
+        "velocidade_aferida": 69,
+        "local_multa": "EIXO W SUL ALTURA EQS 114/115 PROX AO MC DONALDS  SENT. SUL/NORTE",
+        "valor": 131.46,
+        "valor_corrigido": 131.46,
+        "regulamento": "218 * I",
+        "desc_infracao": "TRANSITAR VELOCIDADE SUPERIOR MAX PERMIT ATE 20%",
+        "responsavel_infracao": "CONDUTOR",
+        "grupo_infracao": "MEDIA",
+        "pontos_infracao": 4,
+        "codigo_renainf": "11460504119"
+      }
+    ],
+    "ipva": [],
+    "completo": false
+  },
+  "veiculo": {
+    "chassi": "9XXXXXXXXXXXXXXXX",
+    "placa": "PBX2E59",
+    "renavam": "00000000000",
+    "ano_ultimo_licenciamento": "2026",
+    "marca_modelo": "NISSAN/MARCH 16SV        ",
+    "ano_fabricacao": "2019/2020",
+    "desc_situacao": "EM CIRCULACAO",
+    "servicos_detran": null,
+    "placa_portal": "PBX2E59",
+    "categoria": "PARTICULAR",
+    "tipo": null,
+    "placa_mercosul": true
+  },
+  "site_receipt": "https://storage.invalid/receipt.html"
+}

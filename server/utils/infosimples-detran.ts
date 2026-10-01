@@ -18,8 +18,16 @@ export async function encriptarInfosimples(valor: string, encKey: string): Promi
   return String(cifrado).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
-/** Certificado mandado ao Infosimples por UF. Hoje todas usam e-CNPJ; e-CPF fica suportado. */
-export type CertInfosimples = 'ecnpj' | 'ecpf' | 'govbr_ba'
+/**
+ * Credencial mandada ao Infosimples por UF: certificado (e-CNPJ ou e-CPF) ou
+ * login gov.br do Cesar (BA e DF usam a MESMA conta: NUXT_INFOSIMPLES_BA_*).
+ */
+export type CertInfosimples = 'ecnpj' | 'ecpf' | 'govbr_ba' | 'govbr_df'
+
+/** UF que entra com o login gov.br (CPF+senha), nao com certificado. */
+export function usaLoginGovbr(cert: string | null | undefined): boolean {
+  return cert === 'govbr_ba' || cert === 'govbr_df'
+}
 
 function infosimplesConfig(cert: CertInfosimples = 'ecnpj') {
   const c = useRuntimeConfig() as any
@@ -56,7 +64,7 @@ function loginBa() {
 
 /** Credencial da UF presente? Sem ela a UF nao roda (fail-open). */
 export function infosimplesConfigurado(cert: CertInfosimples = 'ecnpj'): boolean {
-  if (cert === 'govbr_ba') {
+  if (usaLoginGovbr(cert)) {
     const t = infosimplesConfig('ecnpj').token
     const l = loginBa()
     return !!(t && l.cpf && l.senha)
@@ -86,6 +94,11 @@ export const DETRAN_UFS = {
   MG: { path: 'detran/mg/multas-descritivos', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_mg', fonteCusto: 'infosimples_detran_mg', exigeChassi: true },
   // GO: e-CNPJ, placa+renavam. R$0,28 por chamada (teste do Lead, 30/set).
   GO: { path: 'detran/go/debitos', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_go', fonteCusto: 'infosimples_detran_go' },
+  // PR: e-CPF (NAO o e-CNPJ), so renavam (sem placa). R$0,24. A resposta e uma
+  // LISTA (data[] = uma multa por item, pagas e em aberto), nao data[0].
+  PR: { path: 'detran/pr/multas-descritivos', cert: 'ecpf', gate: 'renainf', fonte: 'detran_pr', fonteCusto: 'infosimples_detran_pr', semPlaca: true, dataLista: true },
+  // DF: login gov.br (mesma conta do BA), placa+renavam. R$0,28.
+  DF: { path: 'detran/df/debitos', cert: 'govbr_df', gate: 'renainf', fonte: 'detran_df', fonteCusto: 'infosimples_detran_df' },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 
@@ -125,7 +138,7 @@ export interface ResultadoDetran {
 export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null }): Promise<ResultadoDetran> {
   const cfgUf: any = DETRAN_UFS[opts.uf]
   const certUf: CertInfosimples = cfgUf.cert
-  const cfg = infosimplesConfig(certUf === 'govbr_ba' ? 'ecnpj' : certUf)
+  const cfg = infosimplesConfig(usaLoginGovbr(certUf) ? 'ecnpj' : certUf)
   if (!infosimplesConfigurado(certUf)) return { code: 0, codeMessage: `infosimples nao configurado (${certUf})`, preco: 0, data: null }
   try {
     const body = new URLSearchParams({
@@ -141,6 +154,12 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       body.set('chassi', '')
       body.set('login_cpf', l.cpf)
       body.set('login_senha', l.senha)
+    } else if (certUf === 'govbr_df') {
+      // DF: placa + renavam + login gov.br, senha em texto puro.
+      const l = loginBa()
+      body.set('placa', opts.placa)
+      body.set('login_cpf', l.cpf)
+      body.set('login_senha', l.senha)
     } else {
       const [cert, pass] = await Promise.all([
         encriptarInfosimples(cfg.pkcs12B64, cfg.encKey),
@@ -148,7 +167,7 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       ])
       body.set('pkcs12_cert', cert)
       body.set('pkcs12_pass', pass)
-      body.set('placa', opts.placa)
+      if (!cfgUf.semPlaca) body.set('placa', opts.placa)
     }
     if (opts.chassi) body.set('chassi', String(opts.chassi).toUpperCase())
     const res = await fetch(`${BASE}/${DETRAN_UFS[opts.uf].path}`, {
@@ -157,11 +176,20 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       signal: AbortSignal.timeout(120000),
     })
     const json: any = await res.json().catch(() => ({}))
+    const code = Number(json?.code || res.status || 0)
+    let dados: any = null
+    if (cfgUf.dataLista) {
+      // PR: a lista inteira. 612 = "a consulta nao retornou dados" = nenhuma
+      // multa no DETRAN-PR, vira lista vazia (e cobrado igual).
+      dados = Array.isArray(json?.data) ? json.data : (code === 612 ? [] : null)
+    } else {
+      dados = Array.isArray(json?.data) ? (json.data[0] ?? null) : null
+    }
     return {
-      code: Number(json?.code || res.status || 0),
+      code: cfgUf.dataLista && code === 612 ? 200 : code,
       codeMessage: String(json?.code_message || ''),
       preco: Number(json?.header?.price || 0),
-      data: Array.isArray(json?.data) ? (json.data[0] ?? null) : null,
+      data: dados,
     }
   } catch (e: any) {
     return { code: 0, codeMessage: String(e?.message || e), preco: 0, data: null }
@@ -772,11 +800,141 @@ export function parsearDetranGo(data: any, hoje: Date = new Date()) {
   }
 }
 
-// ---------- Trava do login gov.br (BA) ----------
+// ---------- DETRAN-PR (/detran/pr/multas-descritivos) ----------
+//
+// data[] = uma multa por item (NAO data[0]). Whitelist: NUNCA grava html_url,
+// guia_pagamento_url, codigo_barras, numero_documento_rec nem site_receipt.
+// PR nao traz IPVA, licenciamento nem km nesse endpoint.
+
+/** "12h08" -> "12:08" (a UI corta em 5 caracteres e ignora "00:00"). */
+function horaHhMm(s: any): string | null {
+  const m = String(s ?? '').match(/(\d{1,2})\s*[h:]\s*(\d{2})/i)
+  return m ? `${m[1].padStart(2, '0')}:${m[2]}` : null
+}
+
+/**
+ * Em aberto = tipo diferente de "multa-paga" (soma no total). As pagas so
+ * entram no historico (contagem), nao no total devido.
+ */
+export function parsearDetranPr(lista: any) {
+  const todas: any[] = Array.isArray(lista) ? lista.filter((x) => x && typeof x === 'object') : []
+  const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t || null }
+  const paga = (x: any) => /paga/i.test(String(x?.tipo ?? ''))
+  const abertas = todas.filter((x) => !paga(x))
+
+  const itens: DetranMulta[] = abertas.map((m: any) => ({
+    auto: texto(m?.ait) || texto(m?.auto),
+    // "60412 - Executar ..." -> sem o codigo do enquadramento na frente.
+    descricao: texto(String(m?.descricao ?? '').replace(/^\s*\d+\s*-\s*/, '')),
+    dataInfracao: texto(m?.data),
+    horaInfracao: horaHhMm(m?.hora),
+    dataVencimento: texto(m?.vencimento),
+    valor: typeof m?.normalizado_valor === 'number' ? m.normalizado_valor : moeda(m?.valor),
+    local: texto(m?.local),
+    municipio: null,
+    orgao: texto(m?.orgao),
+  }))
+
+  return {
+    status: 'ok' as const,
+    fonte: 'detran_pr',
+    multas_total_centavos: Math.round(itens.reduce((acc, i) => acc + i.valor, 0) * 100),
+    licenciamento_centavos: null as number | null,
+    ipva_total_centavos: null as number | null,
+    hodometro: [] as { data: string | null; km: number }[],
+    hodometro_suspeito: false,
+    multas_itens: itens,
+    licenciamento_atrasado_ano: null as number | null,
+    restricoes_detran: [] as { tipo: string; texto: string }[],
+    // Historico (secundario): total notificado e quantas ja pagas.
+    historico_infracoes: { total: todas.length, pagas: todas.filter(paga).length, recursos: 0 },
+  }
+}
+
+// ---------- DETRAN-DF (/detran/df/debitos) ----------
+//
+// Whitelist: NUNCA grava responsavel_infracao, codigo_renainf, os dados do
+// veiculo (so o ano do ultimo licenciamento e a situacao) nem site_receipt.
+
+/**
+ * data[0].debitos: infracoes_veiculo[] (em aberto; valor_corrigido no total),
+ * licenciamentos[]/total_licenciamento, ipva[]; DPVAT, utilizacao anual,
+ * servicos do DETRAN e parcelamento viram "outros debitos" com o valor.
+ */
+export function parsearDetranDf(data: any, hoje: Date = new Date()) {
+  const d = data || {}
+  const deb = d.debitos && typeof d.debitos === 'object' ? d.debitos : {}
+  const veic = d.veiculo && typeof d.veiculo === 'object' ? d.veiculo : {}
+  const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t || null }
+  const num = (v: any) => (typeof v === 'number' ? (Number.isFinite(v) ? v : 0) : moeda(v))
+
+  const infr: any[] = Array.isArray(deb.infracoes_veiculo) ? deb.infracoes_veiculo : []
+  const itens = infr.map((m: any) => {
+    const corrigido = num(m?.valor_corrigido)
+    return {
+      auto: texto(m?.numero_auto),
+      descricao: texto(m?.desc_infracao),
+      dataInfracao: texto(m?.data_infracao),
+      horaInfracao: horaHhMm(m?.hora_infracao),
+      dataVencimento: texto(m?.data_vencimento),
+      valor: corrigido > 0 ? corrigido : num(m?.valor),
+      local: texto(m?.local_multa),
+      municipio: null,
+      orgao: texto(m?.orgao_autuador),
+      pontos: m?.pontos_infracao != null && Number.isFinite(Number(m.pontos_infracao)) ? Number(m.pontos_infracao) : null,
+      grupo: texto(m?.grupo_infracao),
+    }
+  })
+
+  // IPVA por exercicio (shape defensivo: sem exemplo real com IPVA ainda).
+  const ipvaItens = ordenarIpva((Array.isArray(deb.ipva) ? deb.ipva : []).map(ipvaItemGenerico).filter(Boolean) as IpvaItem[])
+
+  // Licenciamento: total_licenciamento (ou soma dos itens). Atrasado com
+  // debito ja vencido, ou com o ultimo licenciado 2+ anos pra tras.
+  const licArr: any[] = Array.isArray(deb.licenciamentos) ? deb.licenciamentos : []
+  const licItens = licArr.map(ipvaItemGenerico).filter(Boolean) as IpvaItem[]
+  const licTotal = num(deb.total_licenciamento) || licItens.reduce((a, x) => a + x.valor_centavos, 0) / 100
+  const licVencs = licItens.map((x) => x.vencimento).filter(Boolean) as string[]
+  const licVenc = licVencs.sort((a, b) => tsData(a) - tsData(b))[0] || null
+  const licVencido = licVencs.some((v) => { const t = tsData(v); return t > 0 && t < hoje.getTime() })
+  const ultimoLicAno = anoDe(veic.ano_ultimo_licenciamento)
+  const anoAtual = hoje.getFullYear()
+  const licAtrasadoAno = ultimoLicAno != null && (licVencido || ultimoLicAno <= anoAtual - 2) ? ultimoLicAno : null
+
+  const restricoes: { tipo: string; texto: string }[] = []
+  const brl = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const outros: [string, any][] = [
+    ['DPVAT em aberto', deb.total_dpvat],
+    ['Taxa de utilização anual em aberto', deb.total_utilizacao_anual],
+    ['Serviços do DETRAN-DF em aberto', deb.total_servicos_detran],
+    ['Parcelamento em aberto no DETRAN-DF', deb.total_devido_parcelamento],
+  ]
+  for (const [rotulo, v] of outros) { const n = num(v); if (n > 0) restricoes.push({ tipo: 'outros_debitos', texto: `${rotulo}: ${brl(n)}` }) }
+  const situacao = texto(veic.desc_situacao)
+  if (situacao && !/em\s+circula/i.test(situacao)) restricoes.push({ tipo: 'situacao', texto: situacao })
+
+  return {
+    status: 'ok' as const,
+    fonte: 'detran_df',
+    multas_total_centavos: Math.round(itens.reduce((acc, i) => acc + i.valor, 0) * 100),
+    licenciamento_centavos: Math.round(licTotal * 100),
+    licenciamento_venc: brParaIso(licVenc),
+    ipva_total_centavos: ipvaItens.reduce((a, x) => a + x.valor_centavos, 0),
+    ipva_itens: ipvaItens,
+    hodometro: [] as { data: string | null; km: number }[],
+    hodometro_suspeito: false,
+    multas_itens: itens,
+    licenciamento_atrasado_ano: licAtrasadoAno,
+    ultimo_licenciamento_ano: ultimoLicAno,
+    restricoes_detran: restricoes,
+  }
+}
+
+// ---------- Trava do login gov.br (BA e DF, mesma conta) ----------
 //
 // 608 = "Usuário e/ou senha inválidos": cada tentativa conta como senha errada
-// na conta gov.br do Cesar, e repetir pode BLOQUEAR a conta. No primeiro 608 o
-// BA para de chamar neste processo (ate restart/deploy, que e quando alguem
+// na conta gov.br do Cesar, e repetir pode BLOQUEAR a conta. No primeiro 608
+// (BA OU DF, a conta e a mesma) as duas UFs param de chamar neste processo (ate restart/deploy, que e quando alguem
 // corrigiu a env) e manda alerta. Sem retry automatico.
 let loginBaTravadoEm: string | null = null
 export function loginBaTravado(): string | null { return loginBaTravadoEm }
@@ -786,11 +944,11 @@ export function travarLoginBaPublico(motivo: string): void { void travarLoginBa(
 
 async function travarLoginBa(motivo: string): Promise<void> {
   loginBaTravadoEm = new Date().toISOString()
-  console.error('[infosimples] DETRAN-BA: login gov.br recusado (608); BA travado ate restart.', motivo)
+  console.error('[infosimples] DETRAN BA/DF: login gov.br recusado (608); BA e DF travados ate restart.', motivo)
   try {
     await sendErrorEmail({
       endpoint: '/premium/detran-ba',
-      errorMessage: `DETRAN-BA: login gov.br recusado (608: ${motivo}). As consultas BA foram TRAVADAS neste container pra nao bloquear a conta gov.br. Confira NUXT_INFOSIMPLES_BA_CPF/SENHA no Coolify e faça redeploy.`,
+      errorMessage: `DETRAN BA/DF: login gov.br recusado (608: ${motivo}). As consultas BA e DF foram TRAVADAS neste container pra nao bloquear a conta gov.br. Confira NUXT_INFOSIMPLES_BA_CPF/SENHA no Coolify e faça redeploy.`,
       paraTambem: ['cesarcbhering@gmail.com'],
     })
   } catch { /* sem e-mail (teste/dev): o log acima fica */ }
@@ -825,6 +983,8 @@ export function blocoDetranDaUf(uf: UfDetran, data: any) {
   if (uf === 'BA') return parsearDetranBa(data)
   if (uf === 'RS') return parsearDetranRs(data)
   if (uf === 'GO') return parsearDetranGo(data)
+  if (uf === 'PR') return parsearDetranPr(data)
+  if (uf === 'DF') return parsearDetranDf(data)
   return detranParaMultas(parsearDetranSp(data))
 }
 
@@ -852,8 +1012,9 @@ export async function completarDetran(
   if (!renavam) return { ok: false, pulado: 'sem renavam' }
   const chassi = chassiDaResposta(ctx.response)
   if ((cfgUf as any).exigeChassi && !chassi) return { ok: false, pulado: 'sem chassi' }
-  if (!infosimplesConfigurado(cfgUf.cert)) return { ok: false, pulado: `infosimples nao configurado (${cfgUf.cert})` }
-  if (cfgUf.cert === 'govbr_ba' && loginBaTravado()) return { ok: false, pulado: 'login BA travado (608)' }
+  let indisponivel: string | null = null
+  if (!infosimplesConfigurado(cfgUf.cert)) indisponivel = `infosimples nao configurado (${cfgUf.cert})`
+  else if (usaLoginGovbr(cfgUf.cert) && loginBaTravado()) indisponivel = 'login gov.br travado (608)'
 
   const { data } = await supabase
     .from('pedidos_premium')
@@ -861,6 +1022,20 @@ export async function completarDetran(
     .eq('id', pedido.id)
     .maybeSingle()
   const snap = data?.relatorio_snapshot
+  if (indisponivel) {
+    // Sem credencial (ex.: e-CPF do PR fora do Coolify) ou login travado: NAO
+    // chama (nao custa) e marca o bloco como indisponivel, pra tela nao ficar
+    // em "Consultando..." pra sempre. Sem `fonte`: quando a credencial chegar,
+    // o backfill por token consulta e sobrescreve. Nunca pisa num bloco pronto.
+    const atual = snap && typeof snap === 'object' ? (snap as any).multas : null
+    if (snap && typeof snap === 'object' && !(atual && (atual.status === 'ok' || atual.status === 'sem_debito'))) {
+      await supabase
+        .from('pedidos_premium')
+        .update({ relatorio_snapshot: { ...snap, multas: { status: 'indisponivel', uf } } })
+        .eq('id', pedido.id)
+    }
+    return { ok: false, pulado: indisponivel }
+  }
   if (!snap || typeof snap !== 'object') return { ok: false, pulado: 'sem snapshot' }
   // `multas.fonte` marca que ja consultamos o Infosimples dessa UF (o
   // snapshot.multas antigo do gov.br nao tem fonte e e sobrescrito).
@@ -872,7 +1047,7 @@ export async function completarDetran(
   const res = await consultarDetranInfosimples({ uf, placa: pedido.placa, renavam, chassi: (cfgUf as any).exigeChassi ? chassi : null })
   // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
   await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code })
-  if (cfgUf.cert === 'govbr_ba' && res.code === 608) await travarLoginBa(res.codeMessage)
+  if (usaLoginGovbr(cfgUf.cert) && res.code === 608) await travarLoginBa(res.codeMessage)
 
   if (res.code !== 200 || !res.data) {
     return { ok: false, code: res.code, preco: res.preco, motivo: res.codeMessage || 'sem data' }
