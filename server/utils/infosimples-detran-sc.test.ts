@@ -19,7 +19,7 @@ describe('parsearDetranSc: LGPD', () => {
 
   it('o bloco gravado tem so as chaves da whitelist', () => {
     expect(Object.keys(parsearDetranSc(SC, HOJE)).sort()).toEqual([
-      'fonte', 'historico_infracoes', 'hodometro', 'hodometro_suspeito', 'ipva_total_centavos',
+      'fonte', 'historico_infracoes', 'hodometro', 'hodometro_suspeito', 'ipva_itens', 'ipva_total_centavos',
       'licenciamento_atrasado_ano', 'licenciamento_centavos', 'licenciamento_venc', 'multas_itens',
       'multas_total_centavos', 'restricoes_detran', 'status', 'ultimo_licenciamento_ano',
     ])
@@ -38,6 +38,7 @@ describe('parsearDetranSc: mapeamento (MJL2938 real)', () => {
     expect(b.fonte).toBe('detran_sc')
     expect(b.multas_total_centavos).toBe(30961) // JOINVIL-...-JV00226652 (valor do debito)
     expect(b.ipva_total_centavos).toBe(66932)   // IPVA (Cota Unica) 2026
+    expect(b.ipva_itens).toEqual([{ ano: 2026, vencimento: '31/08/2026', valor_centavos: 66932 }])
     expect(b.licenciamento_centavos).toBe(14937) // Licenciamento Anual 2026
     expect(b.licenciamento_venc).toBe('2026-10-31')
   })
