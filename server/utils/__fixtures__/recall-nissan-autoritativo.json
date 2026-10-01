@@ -1,0 +1,17 @@
+{
+  "matches": [],
+  "autoritativo": {
+    "fonte": "nissan",
+    "consultado": true,
+    "tem_recall_aberto": true,
+    "n_campanhas": 1,
+    "campanhas": [
+      { "codigo": "RT038", "titulo": "Substituição do Gerador de Gases Do Airbag Do Motorista", "status": "realizado" },
+      { "codigo": "RT030", "titulo": "Substituição do Gerador de Gases Do Módulo Do Airbag Do Passageiro", "status": "aberto" },
+      { "codigo": "R1202", "titulo": "Inspeção e Substituição da Junta Da Coluna de Direção", "status": "excluido" }
+    ],
+    "atendimentos": [
+      { "codigo": "RT038", "titulo": "Substituição do Gerador de Gases Do Airbag Do Motorista", "data": "2021-01-15", "km": null, "concessionaria": "NICENTER AV. BRASILIA NBA", "chassi": "9XXXXXXXXXXXXXXXX" }
+    ]
+  }
+}

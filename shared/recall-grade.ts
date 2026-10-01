@@ -3,7 +3,7 @@
 // montadora DIVERGEM, a linha mostra as duas fontes; quando concordam, fica a
 // linha normal (null = nao mexe).
 
-const NOMES: Record<string, string> = { nissan: 'Nissan', mitsubishi: 'Mitsubishi' }
+const NOMES: Record<string, string> = { nissan: 'Nissan', mitsubishi: 'Mitsubishi', 'mercedes-benz': 'Mercedes-Benz' }
 
 export interface LinhaRecallGrade {
   /** Texto do valor da linha. */

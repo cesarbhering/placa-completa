@@ -1071,7 +1071,7 @@ const recallCampanhasGM = computed(() => (recallAutoritativo.value?.campanhas ||
 // montadora (aberto/realizado), com data, concessionaria e km do atendimento.
 // Com campanha listada, e a verdade e substitui o card do SENATRAN; sem
 // campanha, o card do SENATRAN segue como sempre.
-const NOME_MONTADORA: Record<string, string> = { nissan: 'Nissan', mitsubishi: 'Mitsubishi' }
+const NOME_MONTADORA: Record<string, string> = { nissan: 'Nissan', mitsubishi: 'Mitsubishi', 'mercedes-benz': 'Mercedes-Benz' }
 const recallMontadora = computed(() => {
   const n: any = data.value?.recallMontadora
   return n && n.consultado === true && Array.isArray(n.campanhas) && n.campanhas.length ? n : null
@@ -1084,11 +1084,12 @@ const campanhasRealizadas = computed(() => {
   const atend: any[] = Array.isArray(m.atendimentos) ? m.atendimentos : []
   return m.campanhas.filter((c: any) => c.status !== 'aberto').map((c: any) => ({
     ...c,
-    atendimento: atend.find((a: any) => a.codigo && a.codigo === c.codigo) || null,
+    // Casa pelo codigo; sem codigo (Mercedes manda null), pelo titulo.
+    atendimento: atend.find((a: any) => (a.codigo && a.codigo === c.codigo) || (!c.codigo && a.titulo && a.titulo === c.titulo)) || null,
   }))
 })
 const marcaComConsultaMontadora = computed(() =>
-  /\b(nissan|mmc|mitsubishi)\b/i.test(String(g('descricaoMarcaModelo') || '')) && String(g('chassi') || '').trim().length === 17,
+  /\b(nissan|mmc|mitsubishi|m\.?\s*benz|mercedes)\b/i.test(String(g('descricaoMarcaModelo') || '')) && String(g('chassi') || '').trim().length === 17,
 )
 function dataBr(iso?: string | null): string {
   const m = String(iso || '').match(/(\d{4})-(\d{2})-(\d{2})/)
@@ -2062,25 +2063,25 @@ onUnmounted(() => {
               <template v-if="campanhasAbertas.length">
                 <p class="rel__recall-sub rel__recall-sub--item">Campanhas em aberto</p>
                 <ul class="rel__recall-lista">
-                  <li v-for="c in campanhasAbertas" :key="'ab' + c.codigo" class="rel__recall-item">
+                  <li v-for="(c, idx) in campanhasAbertas" :key="'ab' + idx" class="rel__recall-item">
                     <div class="rel__recall-item-top">
                       <span>{{ c.titulo || 'Campanha de recall' }}</span>
                       <b class="rel__recall-st--pend">Em aberto</b>
                     </div>
-                    <p class="rel__recall-item-meta">Campanha {{ c.codigo }}</p>
+                    <p v-if="c.codigo" class="rel__recall-item-meta">Campanha {{ c.codigo }}</p>
                   </li>
                 </ul>
               </template>
               <template v-if="campanhasRealizadas.length">
                 <p v-if="campanhasAbertas.length" class="rel__recall-sub rel__recall-sub--item">Campanhas já realizadas</p>
                 <ul class="rel__recall-lista">
-                  <li v-for="c in campanhasRealizadas" :key="'re' + c.codigo" class="rel__recall-item">
+                  <li v-for="(c, idx) in campanhasRealizadas" :key="'re' + idx" class="rel__recall-item">
                     <div class="rel__recall-item-top">
                       <span>{{ c.titulo || 'Campanha de recall' }}</span>
                       <b class="rel__recall-st--ok">{{ c.status === 'excluido' ? 'Não se aplica' : 'Realizada' }}</b>
                     </div>
                     <p class="rel__recall-item-meta">
-                      Campanha {{ c.codigo }}<template v-if="c.status === 'excluido'"> · veículo excluído da campanha pela {{ nomeMontadora }}</template><template v-else-if="c.atendimento"><template v-if="c.atendimento.data"> · realizada em {{ dataBr(c.atendimento.data) }}</template><template v-if="c.atendimento.concessionaria"> na concessionária {{ c.atendimento.concessionaria }}</template><template v-if="c.atendimento.km != null">, com {{ Number(c.atendimento.km).toLocaleString('pt-BR') }} km</template></template>
+                      <template v-if="c.codigo">Campanha {{ c.codigo }}</template><template v-else>Campanha</template><template v-if="c.status === 'excluido'"> · veículo excluído da campanha pela {{ nomeMontadora }}</template><template v-else-if="c.atendimento"><template v-if="c.atendimento.data"> · realizada em {{ dataBr(c.atendimento.data) }}</template><template v-if="c.atendimento.concessionaria"> na concessionária {{ c.atendimento.concessionaria }}</template><template v-if="c.atendimento.km != null">, com {{ Number(c.atendimento.km).toLocaleString('pt-BR') }} km</template></template>
                     </p>
                   </li>
                 </ul>
