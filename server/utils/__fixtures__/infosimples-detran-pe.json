@@ -1,0 +1,13 @@
+{
+  "baixa_gravame": "NADA CONSTA",
+  "debitos": {
+    "ipva": "NADA CONSTA",
+    "licenciamento": "NADA CONSTA",
+    "multas": "NADA CONSTA",
+    "dpvat": "NADA CONSTA",
+    "autuacoes_tramitacao": "NADA CONSTA"
+  },
+  "placa": "RZJ5F09",
+  "restricoes_gerais": "SIM",
+  "site_receipt": "https://storage.invalid/x"
+}

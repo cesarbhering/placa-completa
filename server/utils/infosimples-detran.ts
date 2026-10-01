@@ -105,6 +105,8 @@ export const DETRAN_UFS = {
   CE: { path: 'detran/ce/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_ce', fonteCusto: 'infosimples_detran_ce' },
   PA: { path: 'detran/pa/infracoes', cert: 'nenhum', gate: 'renainf', fonte: 'detran_pa', fonteCusto: 'infosimples_detran_pa' },
   AM: { path: 'detran/am/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_am', fonteCusto: 'infosimples_detran_am' },
+  // PE: e-CNPJ, placa+renavam+chassi (os tres obrigatorios). R$0,28, LENTO (~40s).
+  PE: { path: 'detran/pe/extrato-geral', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_pe', fonteCusto: 'infosimples_detran_pe', exigeChassi: true },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 
@@ -1028,6 +1030,95 @@ export function parsearDetranAm(data: any) {
   }
 }
 
+// ---------- DETRAN-PE (/detran/pe/extrato-geral) ----------
+//
+// debitos.{ipva, licenciamento, multas, dpvat, autuacoes_tramitacao} vem como
+// texto ("NADA CONSTA" quando limpo). Sem exemplo com debito ainda: lista ou
+// objeto vira itens (multaGenerica); texto com valor vira valor; texto sem
+// valor vira nota em restricoes. Quando algo nao e "NADA CONSTA", a resposta
+// (sem URLs) vai pro log pra ajustar o parser.
+
+const nadaConsta = (v: any) => v == null || /^\s*(nada\s+consta|n[aã]o)?\s*$/i.test(String(v)) || /^\s*nada\s+consta\b/i.test(String(v))
+
+/** Copia sem URLs nem site_receipt (pro log). */
+export function semUrls(o: any): any {
+  if (Array.isArray(o)) return o.map(semUrls)
+  if (o && typeof o === 'object') {
+    const r: any = {}
+    for (const [k, v] of Object.entries(o)) {
+      if (/url|receipt|pdf|boleto|pix|codigo_barras|proprietario|cpf|cnpj|nome/i.test(k)) continue
+      r[k] = typeof v === 'string' && /^https?:\/\//i.test(v) ? '[url]' : semUrls(v)
+    }
+    return r
+  }
+  return o
+}
+
+export function parsearDetranPe(data: any, log: (msg: string) => void = (m) => console.warn(m)) {
+  const d = data || {}
+  const deb = d.debitos && typeof d.debitos === 'object' ? d.debitos : {}
+  const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t || null }
+  const restricoes: { tipo: string; texto: string }[] = []
+  let estranho = false
+
+  // Valor de um campo-texto: numero/"R$ 1.234,56" -> reais; senao nota.
+  const valorOuNota = (v: any, rotulo: string): number => {
+    if (nadaConsta(v)) return 0
+    estranho = true
+    if (typeof v === 'number') return v
+    if (typeof v === 'string') {
+      const n = /\d/.test(v) ? moeda(v) : 0
+      if (n > 0) return n
+      const t = texto(v); if (t) restricoes.push({ tipo: 'outros_debitos', texto: `${rotulo}: ${t}` })
+      return 0
+    }
+    if (v && typeof v === 'object') {
+      const n = typeof v.normalizado_valor === 'number' ? v.normalizado_valor : moeda(v.valor ?? v.total)
+      if (n > 0) return n
+    }
+    restricoes.push({ tipo: 'outros_debitos', texto: `${rotulo}: consta no DETRAN-PE` })
+    return 0
+  }
+
+  // Multas: lista/objeto -> itens; texto -> valor ou nota.
+  let itens: ReturnType<typeof multaGenerica>[] = []
+  let multasTexto = 0
+  const m = deb.multas
+  if (Array.isArray(m)) { estranho = true; itens = listaDe(m).map(multaGenerica) }
+  else if (m && typeof m === 'object') {
+    estranho = true
+    const lista = listaDe(m.multas ?? m.itens ?? m.infracoes)
+    itens = (lista.length ? lista : [m]).map(multaGenerica)
+  } else multasTexto = valorOuNota(m, 'Multas')
+  const somaItens = itens.reduce((a, i) => a + i.valor, 0)
+
+  const ipva = valorOuNota(deb.ipva, 'IPVA')
+  const lic = valorOuNota(deb.licenciamento, 'Licenciamento')
+  const dpvat = valorOuNota(deb.dpvat, 'DPVAT')
+  const brl = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  if (dpvat > 0) restricoes.push({ tipo: 'outros_debitos', texto: `DPVAT em aberto: ${brl(dpvat)}` })
+  const autu = deb.autuacoes_tramitacao
+  const autuacoes = Array.isArray(autu) ? autu.length : (nadaConsta(autu) ? 0 : 1)
+  if (autuacoes) estranho = true
+
+  if (!nadaConsta(d.baixa_gravame)) { const t = texto(d.baixa_gravame); if (t) restricoes.push({ tipo: 'financeira', texto: `Gravame: ${t}` }) }
+  if (/^\s*sim\s*$/i.test(String(d.restricoes_gerais ?? ''))) restricoes.push({ tipo: 'administrativa', texto: 'Consta restrição no DETRAN-PE' })
+  else if (!nadaConsta(d.restricoes_gerais) && !/^\s*n[aã]o\s*$/i.test(String(d.restricoes_gerais))) {
+    const t = texto(d.restricoes_gerais); if (t) restricoes.push({ tipo: 'administrativa', texto: t })
+  }
+
+  if (estranho) log('[infosimples] DETRAN-PE com debito (ajustar parser): ' + JSON.stringify(semUrls(d)))
+
+  return {
+    ...blocoSoMultas('detran_pe', itens),
+    multas_total_centavos: Math.round(Math.max(somaItens, multasTexto) * 100),
+    ipva_total_centavos: Math.round(ipva * 100),
+    licenciamento_centavos: Math.round(lic * 100),
+    restricoes_detran: restricoes,
+    autuacoes_em_andamento: autuacoes,
+  }
+}
+
 // ---------- Trava do login gov.br (BA e DF, mesma conta) ----------
 //
 // 608 = "Usuário e/ou senha inválidos": cada tentativa conta como senha errada
@@ -1086,6 +1177,7 @@ export function blocoDetranDaUf(uf: UfDetran, data: any) {
   if (uf === 'CE') return parsearDetranCe(data)
   if (uf === 'PA') return parsearDetranPa(data)
   if (uf === 'AM') return parsearDetranAm(data)
+  if (uf === 'PE') return parsearDetranPe(data)
   return detranParaMultas(parsearDetranSp(data))
 }
 
