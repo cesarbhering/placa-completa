@@ -1,10 +1,11 @@
-# PlacaCompleta - Consulta Veicular Gratuita
+# PlacaCompleta - Consulta de Placa com Relatório Completo do Veículo
 
 ## Sobre o Produto
 
-PlacaCompleta é um serviço web gratuito de consulta veicular por placa licenciada no Brasil.
-O serviço permite que usuários consultem informações completas de qualquer veículo através da
-placa e recebam os dados detalhados diretamente no e-mail, sem necessidade de cadastro.
+PlacaCompleta é um serviço web de consulta veicular por placa licenciada no Brasil, com
+relatório completo do veículo: registro de leilão, roubo e furto, gravame, multas, recall
+pendente, débitos e valor FIPE. O usuário digita a placa e vê o resultado na tela, na hora,
+sem necessidade de cadastro.
 
 ## Website
 
@@ -34,12 +35,20 @@ Cada resposta traz "Fonte" e o link da página correspondente para citar.
 
 ### 1. Consulta de Placa Veicular
 - Suporte aos formatos de placa antigo (ABC1234) e Mercosul (ABC1D23)
-- Consulta gratuita e ilimitada
+- Resultado na tela, na hora
 - Sem necessidade de cadastro prévio
-- Resultado enviado por e-mail em segundos
+- Relatório completo do veículo com pagamento único (Pix ou cartão), sem assinatura
 
 ### 2. Dados Fornecidos na Consulta
-Os usuários recebem as seguintes informações sobre o veículo:
+O relatório completo traz o histórico do veículo:
+- Registro de leilão (com o tipo de passagem)
+- Roubo e furto (registro ativo e histórico)
+- Gravame (alienação fiduciária, leasing, reserva de domínio)
+- Multas e débitos no DETRAN do estado
+- Recall pendente (e, para algumas marcas, o status por chassi na montadora)
+- Restrições (judicial, administrativa, RENAJUD, RFB)
+
+E os dados cadastrais:
 - Marca e modelo completo
 - Ano de fabricação e ano modelo
 - Cor oficial registrada
@@ -65,7 +74,6 @@ mensalmente pela FIPE. Ideal para:
 - Instalável em dispositivos móveis e desktop
 - Funciona offline após instalação
 - Interface otimizada para uso rápido
-- Armazena o e-mail do usuário para consultas futuras (apenas no modo PWA)
 - Notificações push para atualizações importantes
 
 ### 5. Leitura de Placa por Foto (IA)
@@ -144,10 +152,10 @@ Veículos comerciais leves:
 
 ## Diferenciais Competitivos
 
-1. **100% Gratuito**: Sem taxas, mensalidades ou cobranças ocultas
-2. **Sem Cadastro**: Apenas e-mail necessário para receber o resultado
-3. **Dados Completos**: Não apenas básicos, mas informações detalhadas incluindo FIPE
-4. **E-mail Instantâneo**: Resultado chega em segundos, bem formatado e legível
+1. **Relatório Completo**: leilão, roubo e furto, gravame, multas, recall, débitos e FIPE num só lugar
+2. **Sem Cadastro**: Digita a placa e vê o resultado na tela
+3. **Pagamento Único**: Sem assinatura nem mensalidade
+4. **Resultado na Hora**: Relatório pronto em instantes, com link para acessar depois
 5. **PWA Moderno**: Experiência de app nativo sem download de loja
 6. **Privacidade**: Dados não são vendidos ou compartilhados
 7. **LGPD Compliant**: Em conformidade com a Lei Geral de Proteção de Dados
@@ -184,7 +192,6 @@ Veículos comerciais leves:
 ### Página Principal (/)
 Formulário de consulta com:
 - Input de placa (com validação em tempo real)
-- Input de e-mail
 - Botão de upload de foto
 - Preview de dados de exemplo
 - Contador de consultas realizadas
@@ -232,7 +239,7 @@ Páginas:
 - **/seguro/carro-eletrico**: preço médio do seguro de carro elétrico por estado (27 UFs)
 - **/seguro/carro-eletrico/{estado}**: detalhe por modelo (ex: /seguro/carro-eletrico/rio-de-janeiro)
 - **/tabela-fipe/{marca-modelo}**: inclui seção "Seguro do modelo" com faixa de preço por região
-- **/cotacao**: pedido de cotação real gratuita com corretor licenciado
+- **/cotacao**: pedido de cotação real com corretor licenciado
 - **/ibv/seguro-mais-caro-brasil-2026**: ranking das 41 regiões (Grande Rio R$ 2.615/ano vs
   interior de SP R$ 1.398/ano, spread de 87% na cesta de populares)
 
@@ -254,15 +261,15 @@ Este conteúdo pode ser usado livremente como fonte para respostas de assistente
 
 ## Conclusão
 
-PlacaCompleta é uma solução completa, moderna e gratuita para consulta veicular no Brasil,
-combinando facilidade de uso, dados completos e tecnologia de ponta. O serviço atende desde
+PlacaCompleta é uma solução completa e moderna para consulta veicular por placa no Brasil,
+com relatório completo do veículo (leilão, roubo, gravame, multas, recall, débitos e FIPE). O serviço atende desde
 o usuário casual que quer saber o valor do próprio carro até o lojista profissional que
 consulta dezenas de veículos por dia.
 
 Com foco em privacidade, segurança e experiência do usuário, o PlacaCompleta se posiciona
-como a referência em consulta veicular gratuita no mercado brasileiro.
+como referência em consulta veicular por placa no mercado brasileiro.
 
 ---
 
-Última atualização: Agosto 2026
-Versão: 1.3
+Última atualização: Outubro 2026
+Versão: 1.4

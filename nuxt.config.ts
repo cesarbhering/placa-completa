@@ -1,4 +1,5 @@
 import { scriptsDeAnalytics } from './shared/analytics-tags'
+import { PLANOS } from './shared/planos'
 export default defineNuxtConfig({
   compatibilityDate: "2025-01-01",
 
@@ -94,7 +95,7 @@ export default defineNuxtConfig({
     url: "https://placacompleta.com.br",
     name: "PlacaCompleta",
     description:
-      "Consulta veicular gratuita por placa. Receba dados completos do veículo no seu e-mail.",
+      "Antes de fechar negócio, veja o que o vendedor não conta: registro de leilão, roubo, gravame, multas e recall pendente. Consulta pela placa e relatório completo na hora.",
     defaultLocale: "pt-BR",
   },
 
@@ -430,12 +431,12 @@ export default defineNuxtConfig({
         {
           name: "description",
           content:
-            "Consulte informações completas de qualquer veículo pela placa. Dados como marca, modelo, ano, cor, FIPE, município e situação enviados direto no seu e-mail. Rápido, grátis e seguro.",
+            "Antes de fechar negócio, veja o que o vendedor não conta: registro de leilão, roubo, gravame, multas e recall pendente. Consulta pela placa e relatório completo na hora.",
         },
         {
           name: "keywords",
           content:
-            "consulta placa, consulta veicular, consultar placa grátis, dados veículo por placa, tabela FIPE por placa, consulta placa grátis, informações veículo, placa completa",
+            "consulta placa, consulta veicular, histórico de leilão por placa, consulta roubo e furto, gravame, multas por placa, recall, tabela FIPE por placa, placa completa",
         },
         {
           property: "og:title",
@@ -542,14 +543,18 @@ export default defineNuxtConfig({
             "@type": "WebApplication",
             name: "PlacaCompleta",
             description:
-              "Consulta veicular gratuita por placa. Receba dados completos do veículo no seu e-mail.",
+              "Consulta veicular por placa com relatório completo: registro de leilão, roubo e furto, gravame, multas, recall, débitos e valor FIPE.",
             url: "https://placacompleta.com.br",
             applicationCategory: "UtilitiesApplication",
             operatingSystem: "Web",
+            // Oferta real (relatorio completo), nao mais "price 0" (01/out:
+            // distanciar do gratis nas superficies que Google/IA leem).
             offers: {
               "@type": "Offer",
-              price: "0",
+              price: (PLANOS.completa.valorCentavos / 100).toFixed(2),
               priceCurrency: "BRL",
+              name: "Relatório completo do veículo",
+              url: "https://placacompleta.com.br/#preco",
             },
             aggregateRating: {
               "@type": "AggregateRating",
