@@ -26,10 +26,10 @@ function onCtaClick() {
 }
 
 useHead({
-  title: `Consultar Placa ${capital.name} (${state.uf}) Grátis: Marca, Modelo, Ano e FIPE`,
+  title: `Consultar Placa ${capital.name} (${state.uf}): Leilão, Roubo, Débitos e FIPE`,
   meta: [
-    { name: 'description', content: `Consulte qualquer placa de veículo em ${capital.name} - ${state.uf}. Veja marca, modelo, ano, cor, situação e valor FIPE. Resultado grátis em segundos.` },
-    { name: 'keywords', content: `consultar placa ${capital.name.toLowerCase()}, consulta placa ${capital.name.toLowerCase()}, consultar veículo ${capital.name.toLowerCase()}, placa ${state.uf} grátis` },
+    { name: 'description', content: `Consulte qualquer placa de veículo em ${capital.name} - ${state.uf}. Veja marca, modelo, ano, situação e valor FIPE, e o relatório completo com leilão, gravame, roubo e débitos.` },
+    { name: 'keywords', content: `consultar placa ${capital.name.toLowerCase()}, consulta placa ${capital.name.toLowerCase()}, consultar veículo ${capital.name.toLowerCase()}, consulta placa ${capital.name.toLowerCase()} leilão` },
     { property: 'og:title', content: `Consultar Placa em ${capital.name}: Dados do Veículo` },
     { property: 'og:description', content: `Consulte qualquer placa de veículo em ${capital.name} (${state.uf}) e veja marca, modelo, ano, situação e valor FIPE na hora.` },
   ],

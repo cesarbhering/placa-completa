@@ -42,7 +42,7 @@ useHead({
   title: `Tabela FIPE ${currentMonth} ${currentYear}: Valores de Carros e Motos`,
   meta: [
     { name: 'description', content: `Tabela FIPE atualizada em ${currentMonth} ${currentYear}. Consulte valores de carros, motos e caminhões por marca ou pela placa. Todas as marcas e modelos. Grátis.` },
-    { name: 'keywords', content: 'tabela fipe, valor fipe, preço fipe, tabela fipe carros, tabela fipe motos, consulta fipe grátis, consulta veicular placa, consulta veicular grátis, valor veículo por placa' },
+    { name: 'keywords', content: 'tabela fipe, valor fipe, preço fipe, tabela fipe carros, tabela fipe motos, consulta fipe por placa, consulta veicular placa, consulta de placa com leilão, valor veículo por placa' },
     { property: 'og:title', content: `Tabela FIPE ${currentMonth} ${currentYear}: Valores Atualizados` },
     { property: 'og:description', content: `Tabela FIPE atualizada em ${currentMonth} ${currentYear}. Valores de carros e motos por marca ou pela placa.` },
   ],
