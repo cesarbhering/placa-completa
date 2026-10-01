@@ -1,0 +1,17 @@
+{
+  "autoritativo": {
+    "fonte": "nissan", "consultado": true, "situacao": "consta_em_campanha", "tem_recall_aberto": false,
+    "campanhas": [
+      { "codigo": "RT038", "titulo": "Substituição do Gerador de Gases Do Airbag Do Motorista", "status": "realizado" },
+      { "codigo": "RT030", "titulo": "Substituição do Gerador de Gases Do Módulo Do Airbag Do Passageiro", "status": "realizado" },
+      { "codigo": "RT030", "titulo": "Substituição do Gerador de Gases Do Módulo Do Airbag Do Passageiro", "status": "realizado" },
+      { "codigo": "R1202", "titulo": "Inspeção e Substituição da Junta Da Coluna de Direção", "status": "realizado" }
+    ],
+    "atendimentos": [
+      { "codigo": "RT038", "titulo": "Substituição do Gerador de Gases Do Airbag Do Motorista", "data": "2021-01-15", "km": null, "concessionaria": "NICENTER AV. BRASILIA NBA" },
+      { "codigo": "RT030", "titulo": "Substituição do Gerador de Gases Do Módulo Do Airbag Do Passageiro", "data": "2019-01-04", "km": null, "concessionaria": "NICENTER APUCARANA NBA" },
+      { "codigo": "RT030", "titulo": "Substituição do Gerador de Gases Do Módulo Do Airbag Do Passageiro", "data": "2019-01-04", "km": null, "concessionaria": "NICENTER APUCARANA NBA" },
+      { "codigo": "R1202", "titulo": "Inspeção e Substituição da Junta Da Coluna de Direção", "data": "2021-01-15", "km": null, "concessionaria": "NICENTER AV. BRASILIA NBA" }
+    ]
+  }
+}
