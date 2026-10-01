@@ -1,3 +1,4 @@
+import { getClientIp } from '../utils/client-ip'
 // Receives Content-Security-Policy violation reports from browsers.
 // During the baseline week these are just logged so an operator can
 // grep the container output and build an accurate allowlist.
@@ -29,15 +30,6 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000)
 
-function getClientIP(event: any): string {
-  const headers = ['cf-connecting-ip', 'x-real-ip', 'x-forwarded-for', 'x-client-ip']
-  for (const header of headers) {
-    const value = getHeader(event, header)
-    if (value) return value.split(',')[0].trim()
-  }
-  return event.node.req.socket.remoteAddress || 'unknown'
-}
-
 function shouldLog(ip: string): boolean {
   const now = Date.now()
   let entry = sampleStore.get(ip)
@@ -52,7 +44,7 @@ function shouldLog(ip: string): boolean {
 
 export default defineEventHandler(async (event) => {
   try {
-    const ip = getClientIP(event)
+    const ip = getClientIp(event)
     if (shouldLog(ip)) {
       const body = await readBody(event)
       // The classic report-uri payload wraps the violation under "csp-report".
