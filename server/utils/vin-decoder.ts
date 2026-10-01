@@ -3,7 +3,12 @@
 // devolvem null — o relatorio sai sem o bloco "Origem do chassi" em vez de
 // quebrar a entrega. Nunca deixa o decode ser o motivo de um pedido falhar.
 export interface ChassiOrigem {
-  checksumOk: boolean
+  /**
+   * Digito verificador (posicao 9). So existe de fato na America do Norte:
+   * fora disso vem null ("nao se aplica"), nunca false. O card NAO mostra
+   * este campo; ele nao pode virar alerta de "chassi invalido".
+   */
+  checksumOk: boolean | null
   fabricante: string | null
   pais: string | null
   regiao: string | null
@@ -52,7 +57,7 @@ export async function decodificarChassi(
     })
     if (!res?.valido) return null
     return {
-      checksumOk: !!res.checksumOk,
+      checksumOk: typeof res.checksumOk === 'boolean' ? res.checksumOk : null,
       fabricante: res.fabricante ?? null,
       pais: res.pais ?? null,
       regiao: res.regiao ?? null,
