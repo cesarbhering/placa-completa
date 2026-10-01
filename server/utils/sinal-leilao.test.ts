@@ -94,8 +94,19 @@ describe('teto por IP', () => {
     expect(dentroDoTetoDeSinal('2.2.2.2')).toBe(true)
   })
 
-  it('sem IP identificado, nao bloqueia ninguem', () => {
+  it('sem IP identificado (vazio ou unknown do getClientIp), nao bloqueia ninguem', () => {
     for (let i = 0; i < 100; i++) expect(dentroDoTetoDeSinal('')).toBe(true)
+    for (let i = 0; i < 100; i++) expect(dentroDoTetoDeSinal('unknown')).toBe(true)
+  })
+
+  it('leilao e recall tem contadores SEPARADOS: uma consulta nao gasta 2', () => {
+    const t0 = Date.now()
+    for (let i = 0; i < 60; i++) {
+      expect(dentroDoTetoDeSinal('5.5.5.5', t0, 'leilao')).toBe(true)
+      expect(dentroDoTetoDeSinal('5.5.5.5', t0, 'recall')).toBe(true)
+    }
+    expect(dentroDoTetoDeSinal('5.5.5.5', t0, 'leilao')).toBe(false)
+    expect(dentroDoTetoDeSinal('5.5.5.5', t0, 'recall')).toBe(false)
   })
 })
 
