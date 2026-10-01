@@ -1,3 +1,4 @@
+import { analyticsAtivo } from '~/shared/analytics-tags'
 /**
  * Pixel da Meta, para remarketing.
  *
@@ -16,6 +17,8 @@
 export default defineNuxtPlugin(() => {
   const id = String(useRuntimeConfig().public.metaPixelId || '').trim()
   if (!id || !/^\d{10,20}$/.test(id)) return
+  // Homolog/staging ou host fora da producao: nenhum pixel (shared/analytics-tags.ts).
+  if (!analyticsAtivo(useRuntimeConfig().public.gated, window.location.hostname)) return
 
   const w = window as any
   if (w.fbq) return
