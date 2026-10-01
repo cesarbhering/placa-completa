@@ -1,4 +1,4 @@
-import { sinalDoHistorico, SINAL_INDISPONIVEL, dentroDoTetoDeSinal, logarIpDoTeto } from '../utils/sinal-leilao'
+import { sinalDoHistorico, SINAL_INDISPONIVEL, dentroDoTetoDeSinal } from '../utils/sinal-leilao'
 import { getClientIp } from '../utils/client-ip'
 
 // Sinal de leilao para a CONSULTA GRATIS. Endpoint proprio, e nao um campo a
@@ -30,10 +30,6 @@ export default defineEventHandler(async (event) => {
   // IP REAL do visitante (cf-connecting-ip), nao o interno do proxy: com o
   // interno o teto virava global. Contador proprio do leilao.
   const ip = getClientIp(event)
-  // DIAGNOSTICO TEMPORARIO (01/out, remover depois de confirmado em prod): uma
-  // linha por hora dizendo se o IP que o teto usava (getRequestIP com XFF) era
-  // interno e se o novo e publico. Nao loga o IP, so a classe e o prefixo.
-  logarIpDoTeto(event, ip)
   if (!dentroDoTetoDeSinal(ip, Date.now(), 'leilao')) return SINAL_INDISPONIVEL
 
   const agora = Date.now()

@@ -1,3 +1,4 @@
+import { getClientIp } from '../utils/client-ip'
 /**
  * Rate Limiting Middleware
  * Protects against DoS attacks and API abuse
@@ -42,27 +43,6 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   'default': { windowMs: 60 * 1000, maxRequests: 30 }, // Default: 30 per minute
 }
 
-function getClientIP(event: any): string {
-  // Try various headers (CloudFlare, Netlify, etc.)
-  const headers = [
-    'cf-connecting-ip',
-    'x-real-ip',
-    'x-forwarded-for',
-    'x-client-ip',
-  ]
-
-  for (const header of headers) {
-    const value = getHeader(event, header)
-    if (value) {
-      // x-forwarded-for can be a comma-separated list
-      return value.split(',')[0].trim()
-    }
-  }
-
-  // Fallback to request IP
-  return event.node.req.socket.remoteAddress || 'unknown'
-}
-
 function getRateLimitConfig(path: string): RateLimitConfig {
   for (const [pattern, config] of Object.entries(rateLimitConfigs)) {
     if (path.startsWith(pattern)) {
@@ -94,7 +74,9 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  const ip = getClientIP(event)
+  // IP real do visitante (cf-connecting-ip; nunca IP interno do proxy):
+  // mesma fonte dos tetos da consulta e dos sinais (server/utils/client-ip.ts).
+  const ip = getClientIp(event)
   const config = getRateLimitConfig(path)
   const key = `${ip}:${path}`
 
