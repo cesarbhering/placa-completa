@@ -68,9 +68,10 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     // Sem sufixo de marca aqui: o modulo de SEO ja anexa " | PlacaCompleta"
     // sozinho, a partir de site.name no nuxt.config. Escrever a marca no
     // texto fazia o titulo sair duplicado em producao.
-    metaTitle: 'Consulta de Placa Grátis: Roubo, Dívida e Leilão',
-    ogTitle: 'PlacaCompleta · Relatório completo do veículo pela placa',
-    ogDescription: 'O que o anúncio não conta sobre o carro: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão, com base de mais de 1 milhão de veículos. Pagamento único no Pix, sem assinatura.',
+    // 01/out (Cesar): distanciar do "gratis" nas superficies que Google/IA leem.
+    metaTitle: 'PlacaCompleta: Consulta de Placa com Leilão, Roubo e Débitos',
+    ogTitle: 'PlacaCompleta: Consulta de Placa com Leilão, Roubo e Débitos',
+    ogDescription: 'Antes de fechar negócio, veja o que o vendedor não conta: registro de leilão, roubo, gravame, multas e recall pendente. Consulta pela placa e relatório completo na hora.',
   },
   moto: {
     variant: 'moto',
