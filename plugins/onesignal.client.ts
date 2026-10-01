@@ -1,8 +1,8 @@
 import { analyticsAtivo } from '~/shared/analytics-tags'
 export default defineNuxtPlugin(() => {
   if (!import.meta.client) return
-  // Homolog/staging ou host fora da producao: nenhuma tag (shared/analytics-tags.ts).
-  if (!analyticsAtivo(useRuntimeConfig().public.gated, window.location.hostname)) return
+  // Homolog/staging (gated): nenhuma tag (shared/analytics-tags.ts).
+  if (!analyticsAtivo(useRuntimeConfig().public.gated)) return
 
   const init = () => {
     const script = document.createElement('script')
