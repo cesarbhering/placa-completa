@@ -2,6 +2,18 @@ import { PLANOS, isPlanoPago } from '~/shared/planos'
 import { eventoPermitido, MAX_EVENTOS_POR_LOTE, type EventoFunil } from '~/shared/eventos-funil'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { varianteAtual } from '~/shared/ab-bloco'
+import { analyticsAtivo } from '~/shared/analytics-tags'
+
+/**
+ * Tags ligadas neste navegador? Nunca lanca (o checkout ja caiu um dia inteiro
+ * por ReferenceError no tracking): sem runtime config (teste), vale so o host.
+ */
+export function analyticsAtivoAqui(): boolean {
+  if (typeof window === 'undefined') return false
+  let gated: unknown = false
+  try { gated = useRuntimeConfig().public.gated } catch { /* fora do Nuxt (teste) */ }
+  try { return analyticsAtivo(gated, window.location.hostname) } catch { return false }
+}
 
 // ---------------------------------------------------------------------------
 // Funil medido no NOSSO servidor (/api/evento).
@@ -359,6 +371,10 @@ export const useAnalytics = () => {
    */
   const trackConversionPaga = (token?: string, plano?: string, valorPagoCentavos?: number) => {
     if (!import.meta.client || !token) return
+    // Homolog/staging ou host fora da producao: compra NUNCA vai pras tags
+    // (incidente 01/out: purchase falso do homolog no Bing/GA4). Nem reivindica
+    // o token, pra nao marcar como "ja reportado" algo que nao foi.
+    if (!analyticsAtivoAqui()) return
     if (!reivindicarConversao(token)) return
     const { value: valorTabela, item } = infoPlano(plano)
     const value = valorPagoCentavos != null ? valorPagoCentavos / 100 : valorTabela

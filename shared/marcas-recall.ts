@@ -24,6 +24,13 @@ export const MARCAS_RECALL_GRATIS: readonly string[] = [
   'nissan',
   // Yamaha: motos ("YAMAHA/FACTOR YBR125", "I/YAMAHA").
   'yamaha',
+  // Mercedes-Benz (carros, vans, caminhoes e onibus): o SENATRAN manda
+  // "M.BENZ/...", "MBENZ", "I/M.BENZ", "MERCEDES-BENZ".
+  'm\\.?\\s*benz', 'mercedes',
+  // Hyundai: "HYUNDAI/HB20", "I/HYUNDAI", "CAOA HYUNDAI".
+  'hyundai',
+  'iveco',
+  // Proximas (base ainda nao no ar): 'bmw', 'audi', 'land\\s*rover', 'jaguar', 'porsche', 'volvo'
 ]
 
 const RE_MARCAS = new RegExp(`\\b(${MARCAS_RECALL_GRATIS.join('|')})\\b`, 'i')

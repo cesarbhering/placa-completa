@@ -1,3 +1,4 @@
+import { scriptsDeAnalytics } from './shared/analytics-tags'
 export default defineNuxtConfig({
   compatibilityDate: "2025-01-01",
 
@@ -480,8 +481,16 @@ export default defineNuxtConfig({
         { name: "apple-mobile-web-app-status-bar-style", content: "default" },
       ],
       link: [
-        { rel: "preconnect", href: "https://www.googletagmanager.com" },
-        { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
+        // Hints do gtag so onde o gtag existe (fora de homolog/staging/teste).
+        ...(scriptsDeAnalytics({
+          desligado: process.env.DISABLE_ANALYTICS === "true",
+          gated: process.env.NUXT_PUBLIC_HOMOLOG === "true" || process.env.NUXT_PUBLIC_STAGING === "true",
+        }).length
+          ? [
+              { rel: "preconnect", href: "https://www.googletagmanager.com" },
+              { rel: "dns-prefetch", href: "https://www.googletagmanager.com" },
+            ]
+          : []),
         // Nudge para agentes/LLMs descobrirem o backend de consulta (reverse mullet)
         { rel: "llms", href: "/llms.txt" },
         {
@@ -509,33 +518,13 @@ export default defineNuxtConfig({
         },
       ],
       script: [
-        // Only load Google Analytics in production (not in tests or dev with flag)
-        ...(process.env.DISABLE_ANALYTICS !== "true"
-          ? [
-              {
-                defer: true,
-                src: "https://www.googletagmanager.com/gtag/js?id=G-24H7QSPX4G",
-              },
-              {
-                defer: true,
-                // site_hostname: mesma propriedade GA4 (G-24H7QSPX4G) atende
-                // placacompleta.com.br + olhonamoto.com.br + olhonocaminhao.com.br
-                // (hibrido de dominios). Manda o hostname como parametro de
-                // evento pra dar pra segmentar moto/caminhao/carro nos
-                // relatorios sem duplicar propriedade — metricas somam no
-                // placacompleta. location.hostname roda no browser, sempre
-                // reflete o dominio real que serviu a pagina.
-                innerHTML: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-24H7QSPX4G',{site_hostname:location.hostname});gtag('config','AW-18330779331');`,
-              },
-              // Bing/Microsoft Ads UET (tag "PlacaCompleta", id 97265456): teste
-              // head-to-head Google vs Bing aprovado pelo Cesar. Snippet padrao
-              // da Microsoft; enableAutoSpaTracking cobre as trocas de rota do
-              // Nuxt sem precisar disparar page_view manual a cada navegacao.
-              {
-                innerHTML: `(function(w,d,t,r,u){var f,n,i;w[u]=w[u]||[],f=function(){var o={ti:"97265456",enableAutoSpaTracking:true};o.q=w[u],w[u]=new UET(o),w[u].push("pageLoad")};n=d.createElement(t),n.src=r,n.async=1,n.onload=n.onreadystatechange=function(){var s=this.readyState;s&&s!=="loaded"&&s!=="complete"||(f(),n.onload=n.onreadystatechange=null)},i=d.getElementsByTagName(t)[0],i.parentNode.insertBefore(n,i)})(window,document,"script","https://bat.bing.com/bat.js","uetq");`,
-              },
-            ]
-          : []),
+        // Ads/analytics (GA4/Ads + Bing UET): fora em teste (DISABLE_ANALYTICS)
+        // e em homolog/staging; em producao, so ativos em host de producao.
+        // Ver shared/analytics-tags.ts (incidente 01/out: purchase falso do homolog).
+        ...scriptsDeAnalytics({
+          desligado: process.env.DISABLE_ANALYTICS === "true",
+          gated: process.env.NUXT_PUBLIC_HOMOLOG === "true" || process.env.NUXT_PUBLIC_STAGING === "true",
+        }),
         {
           type: "application/ld+json",
           innerHTML: JSON.stringify({
