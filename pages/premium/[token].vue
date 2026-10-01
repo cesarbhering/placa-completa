@@ -1572,7 +1572,8 @@ onMounted(() => {
   // leitura, nao compra. A transicao ao vivo (poll abaixo) segue reportando
   // sempre, que e o caminho de quem acabou de pagar.
   if (['pago', 'consultando', 'entregue'].includes(data.value.status) && entregaRecente()) {
-    trackConversionPaga(token, data.value.plano)
+    // Valor REAL do pedido (cupom incluido): com 0 (cupom 100%) nada dispara.
+    trackConversionPaga(token, data.value.plano, data.value.valorCentavos ?? undefined)
   }
   if (data.value.status !== 'entregue') {
     // Polla o /status, que e leve e e quem detecta pagamento ate sem webhook.
@@ -1588,7 +1589,7 @@ onMounted(() => {
         if (data.value) histUpdate(token, data.value.status)
         // conversao do Ads/GA4 (veio do outro lado do merge): dispara quando o
         // pagamento se confirma; a funcao e idempotente por token
-        if (data.value && ['pago', 'consultando', 'entregue'].includes(data.value.status)) trackConversionPaga(token, data.value.plano)
+        if (data.value && ['pago', 'consultando', 'entregue'].includes(data.value.status)) trackConversionPaga(token, data.value.plano, data.value.valorCentavos ?? undefined)
         if (data.value?.status === 'entregue') clearInterval(poll)
       } catch { /* rede oscilou; proxima volta tenta de novo */ }
     }, 5000)
