@@ -1961,6 +1961,7 @@ function applyEmailSuggestion() {
             <p>{{ faq.answer }}</p>
           </div>
         </article>
+        <EntendaOsTermos compacto />
       </section>
 
       <!-- ===== CTA FINAL ===== -->
