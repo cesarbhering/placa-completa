@@ -18,15 +18,15 @@ describe('carimbo da variante A/B nos eventos do funil', () => {
   beforeEach(() => { vi.unstubAllGlobals(); _limparFilaFunil() })
 
   it('grava extra.ab_bloco quando a variante ja foi decidida', () => {
-    comVariante('B')
+    comVariante('A2')
     enfileirarEventoFunil('pix_gerado', { placa: 'ABC1D23', plano: 'completa' })
-    expect(_filaFunil()[0]?.extra?.ab_bloco).toBe('B')
+    expect(_filaFunil()[0]?.extra?.ab_bloco).toBe('A2')
   })
 
   it('preserva o extra que o chamador ja mandava', () => {
     comVariante('A')
     enfileirarEventoFunil('cta_completa_click', { extra: { origem_cta: 'bloco_bloqueado' } })
-    expect(_filaFunil()[0]?.extra).toEqual({ origem_cta: 'bloco_bloqueado', ab_bloco: 'A' })
+    expect(_filaFunil()[0]?.extra).toEqual({ origem_cta: 'bloco_bloqueado', ab_bloco: 'A', ab_rodada: '3' })
   })
 
   it('antes da decisao (evento anterior ao bloco) nao inventa variante', () => {
