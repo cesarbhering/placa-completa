@@ -34,11 +34,20 @@ const IMPRENSA = 'Imprensa especializada (AutoData, Automotive Business) e site 
 // (8AJ so Hilux/SW4 = Zarate; 8AG so Corsa/Classic/Agile = Alvear).
 const AR = 'Planta unica da montadora na Argentina (site oficial da marca) + cross-check da base de leiloes'
 const VPIC = 'vPIC/NHTSA DecodeVin (PlantCity do VIN, 3 chassis reais da base concordando)'
+// v6 (importados): tabela de codigos de planta por montadora (Wikibooks "Vehicle
+// Identification Numbers (VIN codes)", pagina de cada marca) + vPIC/NHTSA com
+// 3 chassis reais da base concordando com a mesma cidade. So entra o que as
+// duas fontes dizem igual; BMW/Mini (sem pagina de codigos) so com vPIC 3/3.
+const DOC_VPIC = 'Tabela de codigos de planta da montadora (Wikibooks VIN codes) + vPIC/NHTSA, 3 chassis reais da base concordando'
+// WAU pos11 R: vPIC nao tem PlantCity pra Audi de mercado europeu. Tabela de
+// codigos diz Martorell, e os 38 chassis da base com WAU..R sao TODOS Q3 8U
+// (2013-2018), modelo feito so na SEAT Martorell nessa geracao.
+const DOC_MODELO = 'Tabela de codigos de planta da montadora (Wikibooks VIN codes) + 100% dos chassis da base sao de um modelo feito so nessa fabrica'
 
 // Versao do arquivo curado. O servico compara com o que esta gravado no banco
 // e reimporta sozinho quando sobe (ver server.js). Subir esta versao SEMPRE que
 // mexer na lista, senao a mudanca nao chega no container ja rodando.
-export const PLANTS_VERSAO = 5
+export const PLANTS_VERSAO = 6
 
 // Atalhos pra nao repetir o pais em cada linha.
 const br = (wmi, pos, cidade, uf, de = null, ate = null, fonte = IBGE, conf = 'alta') =>
@@ -261,6 +270,44 @@ const PLANTS = [
   ext('LAT', '1', 'Luoyang', 'China'),
   ext('LP6', '0', 'Guangzhou', 'China'),
   ext('LF3', 'B', 'Jiangmen', 'China'),
+
+  // ---------------- Importados v6 (tabela de codigos + vPIC 3/3) ----------------
+  // Audi
+  ext('WAU', 'R', 'Martorell', 'Espanha', DOC_MODELO),   // Q3 8U
+  ext('TRU', '1', 'Győr', 'Hungria', DOC_VPIC),          // TT
+  // Volkswagen
+  ext('WVG', 'D', 'Bratislava', 'Eslováquia', DOC_VPIC),  // Touareg
+  ext('WVG', 'K', 'Osnabrück', 'Alemanha', DOC_VPIC),
+  ext('WV2', 'H', 'Hannover', 'Alemanha', DOC_VPIC),     // Kombi/Eurovan
+  // Porsche
+  ext('WP1', 'D', 'Bratislava', 'Eslováquia', DOC_VPIC), // Cayenne
+  // Mercedes-Benz
+  ext('WDD', 'N', 'Kecskemét', 'Hungria', DOC_VPIC),
+  ext('WDD', 'R', 'East London', 'África do Sul', DOC_VPIC),
+  ext('WDD', 'G', 'Bremen', 'Alemanha', DOC_VPIC),
+  ext('WDD', 'W', 'Aguascalientes', 'México', DOC_VPIC),
+  ext('W1N', 'W', 'Aguascalientes', 'México', DOC_VPIC), // GLB
+  ext('WDC', 'J', 'Rastatt', 'Alemanha', DOC_VPIC),      // GLA
+  ext('WDC', 'G', 'Bremen', 'Alemanha', DOC_VPIC),
+  // BMW / Mini (sem tabela publica de codigos: vPIC 3/3)
+  ext('WBA', 'P', 'Regensburg', 'Alemanha'),
+  ext('WBA', 'C', 'Dingolfing', 'Alemanha'),
+  ext('WBA', 'W', 'Graz', 'Áustria'),                    // X3 1a geracao (Magna Steyr)
+  ext('WBS', 'E', 'Regensburg', 'Alemanha'),
+  ext('WBS', 'L', 'Greer', 'Estados Unidos'),
+  ext('WMW', 'W', 'Graz', 'Áustria'),                    // Countryman (Magna Steyr)
+  ext('WMW', '2', 'Oxford', 'Reino Unido'),
+  // Volvo
+  ext('YV1', '1', 'Gotemburgo (Torslanda)', 'Suécia', DOC_VPIC),
+  // Kia
+  ext('KNA', '6', 'Gwangmyeong (Sohari)', 'Coreia do Sul', DOC_VPIC),
+  // Honda, Mitsubishi, Toyota (Japao)
+  ext('JHL', 'C', 'Sayama', 'Japão', DOC_VPIC),
+  ext('JA3', 'U', 'Kurashiki (Mizushima)', 'Japão', DOC_VPIC),
+  ext('JA3', 'P', 'Nagoya (Ooe)', 'Japão', DOC_VPIC),
+  ext('JA3', 'Z', 'Okazaki', 'Japão', DOC_VPIC),
+  ext('JTM', 'D', 'Obu', 'Japão', DOC_VPIC),
+  ext('JTM', 'J', 'Toyota (Takaoka)', 'Japão', DOC_VPIC),
 ]
 
 // Regras por MODELO, pra quando a posicao 11 nao separa a fabrica.

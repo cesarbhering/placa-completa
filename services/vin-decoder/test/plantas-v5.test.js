@@ -88,3 +88,25 @@ test('pais de fabricacao = pais da planta quando ela e conhecida', () => {
   assert.equal(r.plantaDetalhe?.cidade, 'Kecskemét')
   assert.equal(r.pais, 'Hungria')
 })
+
+// v6 importados. Caso do Cesar: Audi Q3 2016 (GJI9E35), pos11 'R' = Martorell.
+// Pais de FABRICACAO e o da planta (Espanha); a montadora segue Audi (Alemanha).
+// Chassi real da base de leiloes (Q3 180CV 2016).
+test('Audi Q3 2016 WAU..R: Martorell, Espanha; fabricante Audi (Alemanha)', () => {
+  const r = decodeVin('WAUDFA8U5GR001144')
+  assert.equal(r.valido, true)
+  assert.equal(r.plantaDetalhe?.cidade, 'Martorell')
+  assert.equal(r.plantaDetalhe?.pais, 'Espanha')
+  assert.equal(r.pais, 'Espanha')
+  assert.match(String(r.fabricante), /Audi/)
+})
+
+// Codigos que a validacao NAO confirmou continuam sem cidade.
+for (const [vin, motivo] of [
+  ['JMYXTGA2WFZ000000', 'Mitsubishi JMY..Z: vPIC sem cidade, nao confirmado'],
+  ['WAUZZZ8X0AB000000', 'Audi WAU..B (Bruxelas): vPIC sem cidade'],
+]) {
+  test(`sem cidade: ${motivo}`, () => {
+    assert.equal(decodeVin(vin).plantaDetalhe, null)
+  })
+}
