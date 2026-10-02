@@ -203,6 +203,8 @@ useHead({
             </p>
           </template>
 
+          <EntendaOsTermos />
+
           <h2>Perguntas frequentes</h2>
           <div v-for="faq in data.faqs" :key="faq.question" class="pc-faq__item">
             <h3>{{ faq.question }}</h3>
