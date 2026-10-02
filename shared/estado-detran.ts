@@ -25,7 +25,7 @@ const SERVICOS = (orgao: string, fazenda: string) => [
   'Débitos e infrações: o site oficial mostra multas, IPVA e licenciamento em aberto do veículo.',
 ]
 
-const LEV_LEILAO = 'nas consultas feitas na PlacaCompleta entre 20 de setembro e 2 de outubro de 2026'
+const LEV_LEILAO = 'na PlacaCompleta entre 20 de setembro e 2 de outubro de 2026'
 const LEV_RECALL = 'nos relatórios completos emitidos entre 27 de agosto e 2 de outubro de 2026'
 
 export const ESTADO_DETRAN: Record<string, EstadoDetran> = {
