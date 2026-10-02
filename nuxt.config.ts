@@ -108,6 +108,12 @@ export default defineNuxtConfig({
       "/como-consultar-placa",
       "/tabela-fipe-por-placa",
       "/carro-de-leilao",
+      // Artigos "O que e" (shared/artigos-o-que-e.ts)
+      "/o-que-e",
+      "/o-que-e/renavam",
+      "/o-que-e/gravame",
+      "/o-que-e/renajud",
+      "/o-que-e/multas-renainf",
       // pSEO: modelo de leilao (uma pagina por modelo, ver shared/leilao-modelos.ts)
       "/carro-de-leilao/gol",
       "/carro-de-leilao/uno",
@@ -770,6 +776,8 @@ export default defineNuxtConfig({
     "/consultar-placa/**": { swr: 86400 },
     "/tabela-fipe": { swr: 86400 },
     "/estudos": { swr: 86400 },
+    "/o-que-e": { swr: 86400 },
+    "/o-que-e/**": { swr: 86400 },
     "/seguro/**": { swr: 86400 },
     "/tabela-fipe/**": { swr: 86400 },
     "/ibv": { swr: 86400 },
