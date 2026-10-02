@@ -195,6 +195,10 @@ export function decodeVin(rawVin, opts = {}) {
   const plantaDetalhe = plantaOk
     ? { cidade: plantaOk.cidade || null, uf: plantaOk.uf || null, pais: plantaOk.pais || null }
     : null
+  // Pais de FABRICACAO = pais da planta quando ela e conhecida. A sede da
+  // marca vem no fabricante ("Audi (Alemanha)"), mas o Q3 2016 (WAU, pos 11
+  // 'R') sai de Martorell: o pais de fabricacao e a Espanha, nao a Alemanha.
+  const paisFabricacao = plantaDetalhe?.pais || pais
 
   const vinHash = crypto.createHash('sha256').update(vin).digest('hex').slice(0, 16)
   try {
@@ -210,7 +214,7 @@ export function decodeVin(rawVin, opts = {}) {
     checksumAplicavel: checksumAplicavel(vin),
     wmi: row?.code || wmi3,
     fabricante,
-    pais,
+    pais: paisFabricacao,
     regiao,
     anoModelo,
     planta,
