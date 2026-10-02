@@ -17,7 +17,7 @@ describe('parsearDetranGo', () => {
       'multas_itens', 'multas_total_centavos', 'restricoes_detran', 'status', 'ultimo_licenciamento_ano',
     ])
     expect(Object.keys(b.multas_itens[0]).sort()).toEqual([
-      'dataInfracao', 'dataVencimento', 'descricao', 'horaInfracao', 'local', 'municipio', 'orgao', 'valor',
+      'auto', 'dataInfracao', 'dataVencimento', 'descricao', 'horaInfracao', 'local', 'municipio', 'orgao', 'valor',
     ])
   })
   it('multa vencida vira item em aberto, sem pontos, grupo nem situacao', () => {
