@@ -1,6 +1,6 @@
 import { Resend } from 'resend'
 import { marcaExibicao } from '../../shared/marca-exibicao'
-import { sanearOrigem } from '../../shared/origem-trafego'
+import { sanearOrigem, sanearEntrada } from '../../shared/origem-trafego'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { checkEmailDeliverability } from '../utils/email-deliverability'
 import { getClientIp } from '../utils/client-ip'
@@ -112,6 +112,8 @@ export default defineEventHandler(async (event) => {
   // Origem de trafego (gclid, msclkid e utm) capturada pelo plugin
   // track-origin no client
   const trafego = sanearOrigem(body?.origin)
+  // Referrer e pagina de entrada da sessao (so na tabela consultas).
+  const entrada = sanearEntrada(body?.entrada)
   const channel: Channel =
     body.channel === 'whatsapp' ? 'whatsapp'
     : body.channel === 'tela' ? 'tela'
@@ -462,6 +464,7 @@ export default defineEventHandler(async (event) => {
       geo_country: ipGeo?.country ?? null,
       geo_region_code: regiao?.code ?? null,
       ...trafego,
+      ...entrada,
       user_agent: userAgent,
       device_info: deviceInfo,
       is_pwa: isPWA || false,
@@ -490,6 +493,7 @@ export default defineEventHandler(async (event) => {
       geo_country: ipGeo?.country ?? null,
       geo_region_code: regiao?.code ?? null,
       ...trafego,
+      ...entrada,
       user_agent: userAgent,
       device_info: deviceInfo,
       is_pwa: isPWA || false,
@@ -736,6 +740,7 @@ export default defineEventHandler(async (event) => {
     geo_country: ipGeo?.country ?? null,
     geo_region_code: regiao?.code ?? null,
     ...trafego,
+    ...entrada,
     user_agent: userAgent,
     device_info: deviceInfo,
     is_pwa: isPWA || false,
