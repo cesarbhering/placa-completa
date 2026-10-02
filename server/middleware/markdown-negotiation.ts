@@ -1,37 +1,56 @@
-// Agent-readiness (MVP): GET / com Accept: text/markdown devolve um resumo
-// conciso da home em markdown em vez do HTML completo. So dispara quando o
-// cliente prioriza text/markdown explicitamente (agentes/scanners) - browsers
-// normais mandam text/html primeiro e continuam recebendo a pagina de sempre.
-const HOME_MARKDOWN = `# PlacaCompleta
+import { pathPermiteMarkdown, prefereMarkdown, htmlParaMarkdown, estimarTokens } from '../utils/markdown-agentes'
 
-Consulta veicular completa por placa: dados do veiculo, historico, tabela FIPE
-e indicadores de multa e registro de leilao, em um relatorio unico.
+// "Markdown for Agents" (checklist isitagentready) feito NA ORIGEM.
+//
+// - Paginas da lista de permissao (server/utils/markdown-agentes.ts) com
+//   Accept PREFERINDO text/markdown: busca o HTML renderizado da propria
+//   pagina (fetch interno com Accept text/html, que passa pelo SWR normal) e
+//   devolve markdown. Navegador e Accept normal: nada muda.
+// - CACHE: este middleware roda ANTES do handler/SWR por path, entao a
+//   variante markdown nunca entra no SWR (o SWR so ve e guarda HTML). O
+//   markdown tem cache PROPRIO em memoria (host+path, 10 min) e sai com
+//   Cache-Control private: nenhum cache compartilhado (Cloudflare incluso)
+//   guarda markdown. Vary: Accept nas duas variantes.
+// - /premium, /api, /admin, checkout etc. nao estao na lista: ignoram o Accept.
 
-## Como consultar
-Digite a placa em https://placacompleta.com.br e receba o relatorio completo.
-Existe um resumo gratuito e um relatorio premium mais detalhado.
+const TTL_MS = 10 * 60 * 1000
+const cache = new Map<string, { em: number; md: string }>()
 
-## Para agentes e LLMs
-Endpoint dedicado, sem necessidade de navegar a interface:
-- Texto simples: https://placacompleta.com.br/llms?query=ABC1D23
-- JSON estruturado: https://placacompleta.com.br/llms/json?query=ABC1D23
-- Indice de skills: https://placacompleta.com.br/.well-known/skills/index.json
-`
+export default defineEventHandler(async (event) => {
+  if (getMethod(event) !== 'GET' && getMethod(event) !== 'HEAD') return
+  const path = (event.path || '/').split('?')[0] || '/'
+  if (!pathPermiteMarkdown(path)) return
 
-function prefersMarkdown(accept: string | undefined): boolean {
-  if (!accept) return false
-  const firstType = accept.split(',')[0]?.split(';')[0]?.trim().toLowerCase()
-  return firstType === 'text/markdown'
-}
+  // As duas variantes dizem que dependem do Accept.
+  appendResponseHeader(event, 'Vary', 'Accept')
 
-export default defineEventHandler((event) => {
-  if (event.path !== '/' && event.path !== '') return
-  if (getMethod(event) !== 'GET') return
+  if (getHeader(event, 'x-pc-md-interno')) return
+  if (!prefereMarkdown(getHeader(event, 'accept'))) return
 
-  const accept = getHeader(event, 'accept')
-  if (!prefersMarkdown(accept)) return
+  const host = getRequestHost(event, { xForwardedHost: true }) || 'placacompleta.com.br'
+  const chave = `${host}${path}`
+  const agora = Date.now()
+  let item = cache.get(chave)
+  if (!item || agora - item.em >= TTL_MS) {
+    let res: any
+    try {
+      res = await $fetch.raw(path, {
+        headers: { accept: 'text/html', host, 'x-forwarded-host': host, 'x-pc-md-interno': '1' },
+        responseType: 'text',
+        ignoreResponseError: true,
+      })
+    } catch {
+      return // fica com o comportamento normal
+    }
+    const tipo = String(res.headers.get('content-type') || '')
+    if (res.status !== 200 || !tipo.includes('text/html') || typeof res._data !== 'string') return
+    item = { em: agora, md: htmlParaMarkdown(res._data, `https://${host}${path}`) }
+    cache.set(chave, item)
+    if (cache.size > 1000) cache.clear()
+  }
 
   setResponseHeader(event, 'Content-Type', 'text/markdown; charset=utf-8')
-  setResponseHeader(event, 'Cache-Control', 'public, max-age=3600, s-maxage=86400')
-  return HOME_MARKDOWN
+  setResponseHeader(event, 'Cache-Control', 'private, max-age=300')
+  setResponseHeader(event, 'x-markdown-tokens', String(estimarTokens(item.md)))
+  return item.md
 })
