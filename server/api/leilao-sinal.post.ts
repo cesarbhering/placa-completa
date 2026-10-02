@@ -1,5 +1,6 @@
 import { sinalDoHistorico, SINAL_INDISPONIVEL, dentroDoTetoDeSinal } from '../utils/sinal-leilao'
 import { getClientIp } from '../utils/client-ip'
+import { chassiDoServidor } from '../utils/chassi-servidor'
 
 // Sinal de leilao para a CONSULTA GRATIS. Endpoint proprio, e nao um campo a
 // mais no /api/consulta, por tres motivos: nao atrasa a consulta gratis (ela
@@ -36,11 +37,14 @@ export default defineEventHandler(async (event) => {
   const emCache = cache.get(placa)
   if (emCache && agora - emCache.em < TTL_MS) return emCache.sinal
 
-  // Perfil do que a consulta gratis JA tem. Nenhuma chamada nova a fonte paga
-  // acontece por causa disto: o chassi vem parcial e e so isso mesmo.
+  // Chassi do SERVIDOR (placa_cache da consulta gratis): completo quando a
+  // WDAPI mandou extra.chassi, senao o sufixo mascarado. O body?.chassi do
+  // cliente e IGNORADO (era o prefixo "LJ11K*****", so a montadora). So le o
+  // cache: nenhuma chamada nova a fonte paga. O chassi nao sai daqui.
+  const { chassi } = await chassiDoServidor(placa)
   const historico = await consultarHistoricoLeilao({
     placa,
-    chassi: String(body?.chassi || '').trim() || null,
+    chassi,
     marca: String(body?.marca || '').trim() || null,
     modelo: String(body?.modelo || '').trim() || null,
     ano: body?.ano ?? null,

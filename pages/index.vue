@@ -318,7 +318,6 @@ async function buscarSinalLeilao() {
       method: 'POST',
       body: {
         placa: b.placa,
-        chassi: b.chassiParcial || null,
         marca: b.marca || null,
         modelo: b.modelo || null,
         ano: b.ano || null,
@@ -368,9 +367,7 @@ async function buscarRecallSinal() {
       method: 'POST',
       body: {
         placa: b.placa,
-        // Chassi CHEIO quando a consulta tiver (extra.chassi) -> pega o firme;
-        // senao vai so com marca/modelo/ano -> suave. Mesmo padrao do leilao.
-        chassi: b.chassi || b.extra?.chassi || null,
+        // Sem chassi: o servidor usa o que ja tem da consulta (placa_cache).
         marca: b.marca || null,
         modelo: b.modelo || null,
         ano: b.ano || null,
