@@ -1803,7 +1803,7 @@ onUnmounted(() => {
           <section class="rel__card">
             <h2 class="rel__h2">{{ numSecao.veh }}. Identificação do veículo</h2>
             <div class="rel__veh">
-              <MarcaLogo :marca="g('descricaoMarcaModelo')" />
+              <MarcaLogo :marca="g('descricaoMarcaModelo')" :logo-url="data?.logoMarca" />
               <span class="rel__veh-txt">
                 <strong>{{ g('descricaoMarcaModelo') || 'Veículo consultado' }}</strong>
                 <span>
