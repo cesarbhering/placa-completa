@@ -149,6 +149,8 @@ useHead({
             <NuxtLink to="/">relatório completo</NuxtLink>.
           </p>
 
+          <EntendaOsTermos />
+
           <h2>Perguntas frequentes sobre placas em {{ capital.name }}</h2>
           <div v-for="faq in capital.faqs" :key="faq.question" class="pc-faq__item">
             <h3>{{ faq.question }}</h3>
