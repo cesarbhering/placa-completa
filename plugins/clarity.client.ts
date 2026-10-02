@@ -1,4 +1,5 @@
 import { analyticsAtivo } from '~/shared/analytics-tags'
+import { aposCarregar } from '~/shared/apos-carregar'
 export default defineNuxtPlugin(() => {
   if (!import.meta.client) return
   // Homolog/staging (gated): nenhuma tag (shared/analytics-tags.ts).
@@ -12,12 +13,7 @@ export default defineNuxtPlugin(() => {
     })(window, document, 'clarity', 'script', 'wrhtezvm37')
   }
 
-  // Defer past the critical render path so Clarity's script load doesn't
-  // contend with vite-pwa's SW registration / OneSignal during initial mount.
-  const ric: any = (window as any).requestIdleCallback
-  if (typeof ric === 'function') {
-    ric(init, { timeout: 4000 })
-  } else {
-    setTimeout(init, 2500)
-  }
+  // Logo depois do load (sem esperar requestIdleCallback, que o Safari do iOS
+  // nao tem). Ver shared/apos-carregar.ts.
+  aposCarregar(init)
 })
