@@ -127,7 +127,7 @@ function comprar() {
 .fpp__oferta { margin-top: 18px; padding: 16px; border: 2px solid var(--pc-blue); border-radius: 14px; }
 .fpp__oferta-t { margin: 0 0 4px; font-weight: 700; color: var(--pc-ink); }
 .fpp__oferta-s { margin: 0 0 10px; color: var(--pc-charcoal); font-size: 0.9375rem; }
-.fpp__inclui { list-style: none; padding: 0; margin: 0 0 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px 12px; font-size: 0.875rem; font-weight: 600; color: var(--pc-ink); }
+.fpp__inclui { list-style: none; padding: 0; margin: 0 0 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; font-size: 0.875rem; font-weight: 600; color: var(--pc-ink); }
 .fpp__inclui li::before { content: '✓ '; color: var(--pc-green); }
 .fpp__cta { width: 100%; }
 </style>
