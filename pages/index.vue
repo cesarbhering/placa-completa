@@ -6,7 +6,7 @@ import { sinalRecallDaResposta, fraseRecallNaTela } from '~/shared/sinal-recall-
 import { marcaTemRecallGratis, marcaParaMedicao } from '~/shared/marcas-recall'
 
 import { homepageFaqs } from '~/data/homepage-faqs'
-import { origemDaSessao } from '~/shared/origem-trafego'
+import { origemDaSessao, entradaDaSessao } from '~/shared/origem-trafego'
 import { espelharEventoNoFunil, enfileirarEventoFunil, definirRecallSinal } from '~/composables/useAnalytics'
 import { decidirVariante, fipeSemCentavos, tituloVarianteB, subVarianteB, garantiaVarianteB, type VarianteAbBloco } from '~/shared/ab-bloco'
 
@@ -1194,6 +1194,7 @@ async function handleSubmit() {
         includeIcv5: includeIcv5.value,
         icv5Uf: icv5Uf.value,
         origin: origemDaSessao(),
+        entrada: entradaDaSessao(),
       },
     })
 
