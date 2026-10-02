@@ -426,6 +426,22 @@ export default defineNuxtConfig({
       "/ibv/vencedores-perdedores-agosto-2026",
       "/ibv/eletricos-agosto-2026",
     ],
+    // Paginas noindex NUNCA no sitemap (conferencia SEO 02/out: /admin, /dash,
+    // /cotacao, /termos-de-uso e /politica-de-privacidade estavam la, e /admin
+    // e /dash ainda ficavam expostos). O modulo descobre as paginas sozinho;
+    // esta lista corta. /premium e /placa ja sao noindex e ficam fora tambem.
+    exclude: [
+      "/admin",
+      "/dash",
+      "/cotacao",
+      "/termos-de-uso",
+      "/politica-de-privacidade",
+      "/woovi-teste",
+      "/premium",
+      "/premium/**",
+      "/placa/**",
+      "/feedback/**",
+    ],
   },
 
   app: {
