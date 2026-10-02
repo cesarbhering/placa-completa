@@ -11,13 +11,19 @@
 // que o problema existe (so "pode ter", "indicador", "indicio").
 // ---------------------------------------------------------------------------
 
-export type VarianteAbBloco = 'A' | 'B'
+// RODADA 3 (02/out/2026, decisao do Cesar): A venceu a rodada 2 (A x B).
+// Agora A x A2: A2 = layout A com o card de oferta logo abaixo do card de
+// dados, ANTES da ancora FIPE. Quem tinha 'B' guardado na sessao e
+// re-sorteado entre A e A2 (B deixou de ser valido). Todo evento sai com
+// extra.ab_rodada = AB_RODADA, que a funil_diario usa pra fase 'rodada3'.
+export type VarianteAbBloco = 'A' | 'A2'
+export const AB_RODADA = '3'
 
 /** Chave em sessionStorage: a variante vale pra UMA visita, nao e cookie. */
 export const AB_BLOCO_KEY = 'pc_ab_bloco'
 
 export function varianteValida(v: unknown): v is VarianteAbBloco {
-  return v === 'A' || v === 'B'
+  return v === 'A' || v === 'A2'
 }
 
 type Storage = { getItem(k: string): string | null; setItem(k: string, v: string): void }
@@ -55,7 +61,7 @@ export function decidirVariante(opts: { desligado?: boolean; rnd?: () => number 
   if (opts.desligado) return 'A'
   const guardada = varianteAtual()
   if (guardada) return guardada
-  const escolhida: VarianteAbBloco = (opts.rnd ?? Math.random)() < 0.5 ? 'A' : 'B'
+  const escolhida: VarianteAbBloco = (opts.rnd ?? Math.random)() < 0.5 ? 'A' : 'A2'
   try { storage()?.setItem(AB_BLOCO_KEY, escolhida) } catch { /* modo privado */ }
   return escolhida
 }

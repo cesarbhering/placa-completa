@@ -29,7 +29,7 @@ const props = withDefaults(defineProps<{
    * corpo do checkout pra carimbar a atribuicao de venda por variante no pedido
    * (coluna ab_bloco), em vez do join fragil por placa.
    */
-  abBloco?: 'A' | 'B' | null
+  abBloco?: 'A' | 'A2' | null
   /** Hook de recall que a pessoa viu na consulta gratis (firme/suave/negativo/fora_escopo/sem_sinal) e a marca. Vai pro pedido. */
   recallSinal?: string | null
   recallMarca?: string | null
