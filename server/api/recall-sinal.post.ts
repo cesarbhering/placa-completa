@@ -3,6 +3,7 @@ import { consultarRecallToyota } from '../utils/recall-toyota'
 import { sinalDoRecall, marcaTemRecall, RECALL_INDISPONIVEL, type SinalRecall } from '../utils/sinal-recall'
 import { dentroDoTetoDeSinal } from '../utils/sinal-leilao'
 import { getClientIp } from '../utils/client-ip'
+import { chassiDoServidor } from '../utils/chassi-servidor'
 
 // Sinal de RECALL pra CONSULTA GRATIS. Endpoint proprio (como o leilao-sinal):
 // nao atrasa a consulta gratis, cacheia por placa, e mantem a muralha num
@@ -43,12 +44,14 @@ export default defineEventHandler(async (event) => {
   const emCache = cache.get(chaveCache)
   if (emCache && agora - emCache.em < TTL_MS) return emCache.sinal
 
-  // Chassi CHEIO quando a consulta tiver (extra.chassi) -> pega o firme; senao
-  // vai so com marca/modelo/ano -> suave. Mesmo padrao de disponibilidade do
-  // sinal-leilao: nenhuma chamada nova a fonte paga acontece por causa disto.
+  // Chassi CHEIO do SERVIDOR (placa_cache, extra.chassi) -> firme; senao so
+  // marca/modelo/ano -> suave. O body?.chassi do cliente e IGNORADO (a tela
+  // nunca tinha o cheio, entao o recall gratis era sempre suave). Sufixo
+  // mascarado nao serve pro recall (casa por VIN cheio). So le o cache.
+  const doServidor = await chassiDoServidor(placa)
   const resposta = await consultarRecallToyota({
     placa,
-    chassi: String(body?.chassi || '').trim() || null,
+    chassi: doServidor.tipo === 'completo' ? doServidor.chassi : null,
     marca,
     modelo: normalizarMarcaRecall(String(body?.modelo || '').trim()) || null,
     ano: body?.ano ?? null,
