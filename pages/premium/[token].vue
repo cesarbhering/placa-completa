@@ -17,6 +17,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { explicaRestricao } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
+import { detalhesLegiveis, semValorEmReais } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
@@ -681,13 +682,12 @@ const passagensLeilao = computed(() => {
       p.ref ? `Edital ${p.ref}` : null,
       p.lote ? `Lote ${p.lote}` : null,
       // Com termometro, a situacao crua ("SUCATA") viraria eco do rotulo.
-      p.gravidade || !p.situacao ? null : humanizar(p.situacao),
-      typeof p.valor === 'number' ? p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null,
+      p.gravidade || !p.situacao ? null : semValorEmReais(humanizar(p.situacao)),
+      // Sem valor em R$ (decisao do Cesar, 01/out).
     ].filter(Boolean).join(' · '),
     ref: p.ref,
     lote: p.lote,
-    situacao: p.situacao ? humanizar(p.situacao) : null,
-    valor: typeof p.valor === 'number' ? p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : null,
+    situacao: p.situacao ? semValorEmReais(humanizar(p.situacao)) : null,
     // Leiloeiro nao entra na tela: em casa privada ele identifica a leiloeira.
     // Comitente fica, porque banco ou seguradora e justamente o sinal de que a
     // passagem foi retomada de financiamento, nao sinistro.
@@ -707,39 +707,7 @@ const passagensLeilao = computed(() => {
   }))
 })
 
-// O que a fonte expoe sobre o ESTADO DO VEICULO, e so isso. A lista e curada
-// de proposito: com dado real, cada passagem vinha tambem com "status:
-// encerrado" (situacao do lote no site da leiloeira) e "subcategoria: Hatches"
-// (tipo de carroceria), que nao dizem nada sobre o carro e empurravam a
-// informacao util pra baixo. Chave fora da lista e ignorada; a ordem aqui e a
-// ordem da tela, do que pesa mais pro que pesa menos na decisao de compra.
-const ROTULO_DETALHE: Record<string, string> = {
-  sucata: 'Sucata',
-  monta: 'Monta',
-  sinistro: 'Sinistro',
-  dano: 'Dano',
-  condicao: 'Condição',
-  km: 'Quilometragem',
-  patio: 'Pátio',
-  desfecho: 'Desfecho',
-  valor_final: 'Valor final',
-  observacao: 'Observação',
-}
-const ORDEM_DETALHE = Object.keys(ROTULO_DETALHE)
-
-function detalhesLegiveis(bruto: unknown): { rotulo: string; valor: string }[] {
-  if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) return []
-  const dados = bruto as Record<string, unknown>
-  return ORDEM_DETALHE
-    .filter((k) => dados[k] !== null && dados[k] !== undefined && dados[k] !== '')
-    .map((k) => {
-      const v = dados[k]
-      return {
-        rotulo: ROTULO_DETALHE[k],
-        valor: typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : String(v),
-      }
-    })
-}
+// ROTULO_DETALHE / detalhesLegiveis: shared/leilao-exibicao.ts (sem R$ no card).
 
 // Sigla de UF vira caixa alta ("sp" -> "SP"); o resto ganha inicial maiuscula.
 function nomeDaFonte(bruto: unknown): string {
