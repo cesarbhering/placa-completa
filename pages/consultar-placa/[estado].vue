@@ -157,7 +157,8 @@ useHead({
             <p>{{ blocoLeilao.texto }}</p>
             <p>
               Veja também o <NuxtLink to="/carro-de-leilao">guia de carro de leilão</NuxtLink>,
-              com os tipos de leilão que existem e o que cada um significa na hora de negociar.
+              com os tipos de leilão que existem e o que cada um significa na hora de negociar, e o
+              passo a passo de <NuxtLink to="/carro-de-leilao/como-saber">como saber se o carro é de leilão</NuxtLink>.
             </p>
             <div v-for="q in blocoLeilao.faq" :key="q.pergunta" class="pc-faq__item">
               <h3>{{ q.pergunta }}</h3>
