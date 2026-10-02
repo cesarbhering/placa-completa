@@ -108,6 +108,11 @@ export default defineNuxtConfig({
       "/como-consultar-placa",
       "/tabela-fipe-por-placa",
       "/carro-de-leilao",
+      // Cluster de compra (shared/cluster-compra.ts)
+      "/laudo-cautelar",
+      "/historico-veicular",
+      "/consulta-veicular-completa",
+      "/consulta-leilao-veiculo",
       // Artigos "O que e" (shared/artigos-o-que-e.ts)
       "/o-que-e",
       "/o-que-e/renavam",
@@ -777,6 +782,10 @@ export default defineNuxtConfig({
     "/tabela-fipe": { swr: 86400 },
     "/estudos": { swr: 86400 },
     "/o-que-e": { swr: 86400 },
+    "/laudo-cautelar": { swr: 86400 },
+    "/historico-veicular": { swr: 86400 },
+    "/consulta-veicular-completa": { swr: 86400 },
+    "/consulta-leilao-veiculo": { swr: 86400 },
     "/o-que-e/**": { swr: 86400 },
     "/seguro/**": { swr: 86400 },
     "/tabela-fipe/**": { swr: 86400 },
