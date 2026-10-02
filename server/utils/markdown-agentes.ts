@@ -75,12 +75,15 @@ export function htmlParaMarkdown(html: string, url: string): string {
   const corpo = html.match(/<main[\s\S]*<\/main>/i)?.[0]
     || html.match(/<body[^>]*>([\s\S]*)<\/body>/i)?.[1]
     || html
-  const md = nhm.translate(corpo).replace(/\n{3,}/g, '\n\n').trim()
-  const cab = [
-    titulo && !md.startsWith('# ') ? `# ${decodificar(titulo)}` : '',
-    descricao ? `> ${decodificar(descricao)}` : '',
-    `Fonte: ${url}`,
-  ].filter(Boolean).join('\n\n')
+  let md = nhm.translate(corpo).replace(/\n{3,}/g, '\n\n').replace(/^[ \t]+/gm, '').trim()
+  // H1 primeiro (o da pagina, senao o <title>), depois descricao e fonte.
+  let h1 = titulo ? `# ${decodificar(titulo)}` : ''
+  if (md.startsWith('# ')) {
+    const fim = md.indexOf('\n')
+    h1 = fim === -1 ? md : md.slice(0, fim)
+    md = fim === -1 ? '' : md.slice(fim + 1).trim()
+  }
+  const cab = [h1, descricao ? `> ${decodificar(descricao)}` : '', `Fonte: ${url}`].filter(Boolean).join('\n\n')
   return `${cab}\n\n${md}\n`
 }
 
