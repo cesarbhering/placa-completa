@@ -24,6 +24,7 @@ const PERMITIDOS: RegExp[] = [
   /^\/ibv(?:\/[a-z0-9-]+)?$/,
   /^\/estudos$/,
   /^\/o-que-e(?:\/[a-z0-9-]+)?$/,
+  /^\/(?:laudo-cautelar|historico-veicular|consulta-veicular-completa|consulta-leilao-veiculo)$/,
   /^\/sobre$/,
   /^\/politica-de-privacidade$/,
   /^\/termos-de-uso$/,
