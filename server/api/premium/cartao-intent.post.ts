@@ -32,7 +32,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const plano = isPlanoPago(body.plano) ? body.plano : 'completa'
-  const abBloco = body.ab_bloco === 'A' || body.ab_bloco === 'B' ? body.ab_bloco : null
+  const abBloco = body.ab_bloco === 'A' || body.ab_bloco === 'A2' ? body.ab_bloco : null
 
   const supabase = usePremiumSupabase()
   const token = crypto.randomBytes(18).toString('base64url')

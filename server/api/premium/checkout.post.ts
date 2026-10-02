@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
   // Variante do teste A/B (layout da consulta gratis) que a pessoa viu na hora
   // da compra. So aceita 'A'/'B'; qualquer outra coisa vira null. Carimba a
   // atribuicao de venda por variante direto no pedido (sem join por placa).
-  const abBloco = body.ab_bloco === 'A' || body.ab_bloco === 'B' ? body.ab_bloco : null
+  const abBloco = body.ab_bloco === 'A' || body.ab_bloco === 'A2' ? body.ab_bloco : null
 
   const supabase = usePremiumSupabase()
   const token = crypto.randomBytes(18).toString('base64url')
