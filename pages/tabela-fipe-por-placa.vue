@@ -181,16 +181,12 @@ useHead({
 
       <div class="pc-prose">
         <p class="pc-lead">
-              Você digita a placa, recebe no e-mail o <strong>valor FIPE atualizado</strong> do
-              veículo em {{ currentMonth }} de {{ currentYear }}, junto com marca, modelo, ano,
-              versão e código FIPE da versão exata. Grátis, sem cadastro, em segundos.
+              Você digita a placa e vê aqui mesmo o <strong>valor FIPE atualizado</strong> do
+              veículo em {{ currentMonth }} de {{ currentYear }}, junto com marca, modelo e ano.
+              Sem cadastro, em segundos.
             </p>
 
-            <div class="pc-cta">
-              <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
-                Consultar FIPE pela Placa Agora
-              </NuxtLink>
-            </div>
+            <FipePorPlaca />
 
             <h2>O que é a Tabela FIPE e por que ela importa</h2>
             <p>
