@@ -3,7 +3,7 @@
 import type { H3Event } from 'h3'
 import type { LlmsAnswer } from './llms-answer'
 
-export function logAgentQuery(event: H3Event, answer: LlmsAnswer, format: 'text' | 'json') {
+export function logAgentQuery(event: H3Event, answer: LlmsAnswer, format: 'text' | 'json' | 'mcp') {
   try {
     const ua = getRequestHeaders(event)['user-agent'] || null
     const country = getRequestHeaders(event)['cf-ipcountry'] || null
