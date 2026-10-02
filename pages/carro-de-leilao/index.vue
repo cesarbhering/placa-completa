@@ -188,6 +188,8 @@ const SINAIS = [
         <p>
           Nenhum desses sinais prova nada sozinho, mas somados a uma consulta de histórico, formam uma
           decisão bem mais segura do que confiar só no que o vendedor conta.
+          Veja o passo a passo completo em
+          <NuxtLink to="/carro-de-leilao/como-saber">como saber se o carro é de leilão</NuxtLink>.
         </p>
 
         <h2>Perguntas frequentes</h2>

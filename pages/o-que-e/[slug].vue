@@ -91,7 +91,8 @@ useHead({
 
         <p v-if="linkLeilao">
           Veículos retomados por financiamento ou envolvidos em processo judicial também podem acabar em leilão.
-          Veja o guia <NuxtLink to="/carro-de-leilao">carro de leilão: como descobrir antes de comprar</NuxtLink>.
+          Veja o guia <NuxtLink to="/carro-de-leilao">carro de leilão: como descobrir antes de comprar</NuxtLink>
+          e o passo a passo de <NuxtLink to="/carro-de-leilao/como-saber">como saber se o carro é de leilão</NuxtLink>.
         </p>
 
         <div class="pc-cta">

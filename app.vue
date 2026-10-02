@@ -94,6 +94,8 @@ function onStoreClick() {
           <span class="footer__sep">|</span>
           <NuxtLink to="/como-consultar-placa">Como Consultar</NuxtLink>
           <span class="footer__sep">|</span>
+          <NuxtLink to="/carro-de-leilao/como-saber">Carro de Leilão</NuxtLink>
+          <span class="footer__sep">|</span>
           <NuxtLink to="/ibv">IBV Auto</NuxtLink>
           <span class="footer__sep">|</span>
           <NuxtLink to="/estudos">Estudos</NuxtLink>
