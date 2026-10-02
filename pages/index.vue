@@ -507,7 +507,9 @@ const abBlocoDesligado = computed(() => useRuntimeConfig().public.abBloco === 'o
 // no titulo/sub/CTA abaixo (a frase do registro achado segue aparecendo, e
 // aditiva). Com o teste desligado, abBloco fica 'A' -> blocoVarianteB false ->
 // a pagina cai na copy de controle.
-const blocoVarianteB = computed(() => abBloco.value === 'B')
+// Rodada 3 (A x A2): o B saiu do sorteio. A pagina de hoje so aparece com o
+// kill switch, e ai com a copy de controle.
+const blocoVarianteB = computed(() => false)
 
 const fipeSemCentavosAtual = computed(() => fipeSemCentavos(resultadoBasico.value?.fipe))
 const tituloBlocoB = computed(() => tituloVarianteB(
@@ -523,7 +525,12 @@ const garantiaBlocoB = computed(() => garantiaVarianteB(precoBRL(PLANOS.completa
 // ligado. Com o kill switch (NUXT_PUBLIC_AB_BLOCO=off) decidirVariante devolve
 // 'A' mas nao sorteia -- ai cai no `!abBlocoDesligado` e todo mundo ve a pagina
 // de hoje (controle seguro).
-const layoutA = computed(() => abBloco.value === 'A' && !abBlocoDesligado.value)
+const layoutA = computed(() => (abBloco.value === 'A' || abBloco.value === 'A2') && !abBlocoDesligado.value)
+// Rodada 3: A2 = o card de oferta logo abaixo dos dados, antes da ancora FIPE.
+const ofertaNoTopo = computed(() => abBloco.value === 'A2')
+// O botao do card de oferta do layout A esta na tela? Enquanto estiver, a barra
+// fixa do rodape some (ela cobria o topo do botao no A2 em 360/390 px).
+const ctaLayoutANaTela = ref(false)
 // Estado do bloco de leilao no layout A: "encontrado" so com registro positivo
 // na base propria; qualquer outra coisa (sem registro, indisponivel) e "oculto"
 // e NUNCA revela ausencia.
@@ -1478,6 +1485,8 @@ function applyEmailSuggestion() {
           :frase-leilao="fraseSinalLeilao"
           @comprar="(origem) => cliqueCtaCompleta(origem || 'layout_a')"
           @cta-visto="onCtaVistoLayoutA"
+          :oferta-no-topo="ofertaNoTopo"
+          @cta-na-tela="(v) => { ctaLayoutANaTela = v }"
         />
 
         <div v-else class="cb-result">
@@ -1652,7 +1661,7 @@ function applyEmailSuggestion() {
              resultado sem depender de o card de campos livres caber antes —
              em telas pequenas ele empilha em 1 coluna e fica alto demais pra
              o bloco bloqueado entrar na dobra. -->
-        <div v-if="success && !showPremiumCheckout" class="cb-sticky-upsell">
+        <div v-if="success && !showPremiumCheckout && !(layoutA && ctaLayoutANaTela)" class="cb-sticky-upsell">
           <!-- A barra fixa e o que sobra na tela enquanto a pessoa rola. Com
                registro encontrado, ela repete o achado em vez do argumento
                generico: e o unico texto que continua a vista. -->

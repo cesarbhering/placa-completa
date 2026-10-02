@@ -1,7 +1,7 @@
 import { PLANOS, isPlanoPago } from '~/shared/planos'
 import { eventoPermitido, MAX_EVENTOS_POR_LOTE, type EventoFunil } from '~/shared/eventos-funil'
 import { origemDaSessao } from '~/shared/origem-trafego'
-import { varianteAtual } from '~/shared/ab-bloco'
+import { varianteAtual, AB_RODADA } from '~/shared/ab-bloco'
 import { analyticsAtivo } from '~/shared/analytics-tags'
 
 /**
@@ -131,7 +131,7 @@ export function enfileirarEventoFunil(evento: string, dados?: Omit<EventoNaFila,
   // variante existe (ela e sorteada quando o resultado da consulta chega);
   // evento anterior a isso fica sem o campo, de proposito.
   const ab = varianteAtual()
-  const extra = ab ? { ...(dados?.extra || {}), ab_bloco: ab } : (dados?.extra ?? null)
+  const extra = ab ? { ...(dados?.extra || {}), ab_bloco: ab, ab_rodada: AB_RODADA } : (dados?.extra ?? null)
   fila.push({
     ...(recallAtual ? { recall_sinal: recallAtual.sinal, recall_marca: recallAtual.marca } : {}),
     ...dados,

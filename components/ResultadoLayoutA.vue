@@ -34,14 +34,18 @@ const props = defineProps<{
   fraseRecall?: string
   /** Frase de leilao (vaga, aponta pro completo) ja resolvida pelo pai; '' = nao mostra. */
   fraseLeilao?: string
+  /** Rodada 3, variante A2: card de oferta logo abaixo dos dados, antes da ancora. */
+  ofertaNoTopo?: boolean
 }>()
 
 // 'comprar' aceita uma origem opcional pra instrumentacao (o botao da TAG manda
 // 'tag'; o CTA principal manda vazio -> o pai usa 'layout_a').
-const CAMPOS_LEILAO = ['Data do leilão', 'Leiloeira', 'Motivo', 'Valor de venda']
+// Sem o campo de valor de venda (02/out): o relatorio pago nao mostra valor de leilao
+// desde o #425, entao a isca nao promete esse campo.
+const CAMPOS_LEILAO = ['Data do leilão', 'Leiloeira', 'Motivo', 'Condição do veículo']
 const CAMPOS_NOTIFICACAO = ['Órgão', 'Publicação do edital', 'Data prevista do leilão', 'Detalhes do edital']
 
-const emit = defineEmits<{ (e: 'comprar', origem?: string): void; (e: 'cta-visto'): void }>()
+const emit = defineEmits<{ (e: 'comprar', origem?: string): void; (e: 'cta-visto'): void; (e: 'cta-na-tela', visivel: boolean): void }>()
 
 const marcaModelo = () => [props.dados?.marca, props.dados?.modelo].filter(Boolean).join(' ')
 const anoLabel = () => {
@@ -55,8 +59,16 @@ const anoLabel = () => {
 // de hoje faz com o bloco bloqueado. O pai carimba o evento (com ab_bloco).
 const ctaRef = ref<HTMLElement | null>(null)
 let obs: IntersectionObserver | null = null
+// Segundo observer, so de visibilidade (threshold 0): enquanto o botao esta na
+// tela o pai esconde a barra fixa. O de cima (0.4, uma vez) segue sendo a
+// metrica cta_completa_visto, sem mudar o criterio.
+let obsTela: IntersectionObserver | null = null
 onMounted(() => {
   if (!ctaRef.value || typeof IntersectionObserver === 'undefined') return
+  obsTela = new IntersectionObserver((entradas) => {
+    for (const en of entradas) emit('cta-na-tela', en.isIntersecting)
+  }, { threshold: 0 })
+  obsTela.observe(ctaRef.value)
   obs = new IntersectionObserver((entradas) => {
     for (const en of entradas) {
       if (en.isIntersecting) { emit('cta-visto'); obs?.disconnect(); obs = null; break }
@@ -64,7 +76,7 @@ onMounted(() => {
   }, { threshold: 0.4 })
   obs.observe(ctaRef.value)
 })
-onBeforeUnmount(() => { obs?.disconnect(); obs = null })
+onBeforeUnmount(() => { obs?.disconnect(); obs = null; obsTela?.disconnect(); obsTela = null; emit('cta-na-tela', false) })
 
 const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Bloqueado"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>`
 </script>
@@ -113,7 +125,7 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 
       <!-- ANCORA DE PRECO (some inteira sem FIPE parseavel). Fica ENTRE os
            dados e o bloco de leilao/pendentes (ordem pedida pelo Cesar). -->
-      <section v-if="fipeValido" class="la-card la-ancora">
+      <section v-if="fipeValido && !ofertaNoTopo" class="la-card la-ancora">
         <div class="la-barra">
           <div class="la-barra-rot"><span>Tabela FIPE {{ marcaModelo() }}</span><strong>{{ valorFipeCurto }}</strong></div>
           <div class="la-trilho la-trilho--cheio" />
@@ -155,6 +167,21 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         </div>
       </section>
 
+      <!-- A2 (rodada 3): a mesma ancora, DEPOIS do card de oferta. ANCORA DE PRECO (some inteira sem FIPE parseavel). Fica ENTRE os
+           dados e o bloco de leilao/pendentes (ordem pedida pelo Cesar). -->
+      <section v-if="fipeValido && ofertaNoTopo" class="la-card la-ancora">
+        <div class="la-barra">
+          <div class="la-barra-rot"><span>Tabela FIPE {{ marcaModelo() }}</span><strong>{{ valorFipeCurto }}</strong></div>
+          <div class="la-trilho la-trilho--cheio" />
+        </div>
+        <h2>{{ precoCompleta }} agora, ou um carro que não transfere depois.</h2>
+        <div class="la-barra">
+          <div class="la-barra-rot"><span>Relatório completo</span><strong>{{ precoCompleta }}</strong></div>
+          <div class="la-trilho"><b :style="barraRelatorioStyle" /></div>
+        </div>
+        <small><span>{{ pctFipe }}</span> do valor do carro para saber se ele carrega indício de roubo, leilão, financiamento ou bloqueio.</small>
+      </section>
+
       <!-- BLOCO LEILAO (isca de venda, restaurado a pedido do Cesar 28/set): os
            campos travados Data/Leiloeira/Motivo/Valor borrados convertem. O
            SINAL vago fica na TAG vermelha la em cima; aqui e a isca do que se
@@ -166,7 +193,7 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
           <span>Placa e chassi cruzados com mais de 1 milhão de veículos leiloados</span>
         </div>
         <!-- So notificacao: os campos travados sao os do edital de notificacao.
-             Prometer "Leiloeira" e "Valor de venda" aqui seria vender o que o
+             Prometer "Leiloeira" e "Condição do veículo" aqui seria vender o que o
              relatorio nao tem. -->
         <div class="la-leilao-grid">
           <div v-for="rot in (soNotificacao ? CAMPOS_NOTIFICACAO : CAMPOS_LEILAO)" :key="rot" class="la-leilao-item">
