@@ -1129,6 +1129,10 @@ const prazoDetran = computed<number | null>(() => {
   if (visto - ent < 10 * 60 * 1000) prazo = Math.max(prazo, Math.min(visto + MIN_ESPERA_DETRAN_MS, ent + 10 * 60 * 1000))
   return prazo
 })
+// Relatorio entregue na tela (o ramo final do template): so ai a escala de
+// fonte do laudo sobe ~10% (--rel-fs). Pix pendente, cartao, carregando e
+// erro ficam no tamanho de sempre.
+const mostrandoLaudo = computed(() => !!data.value && !error.value && entregue.value && !aguardandoDetran.value)
 const aguardandoDetran = computed(() =>
   prazoDetran.value != null && !multasDetalhe.value && !multasIndisponivel.value && agoraMs.value < prazoDetran.value,
 )
@@ -1380,28 +1384,9 @@ function humanizarPaisFabricante(bruto: any, ehPais: boolean): string | null {
   if (!gritando) return s
   return s.toLowerCase().split(' ').map((w, i) => (CONECTIVOS_PT.has(w) && i > 0 ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ')
 }
-// Frase da fabrica: o dado que mais encanta neste bloco nao e o codigo, e
-// saber que aquele carro nasceu numa cidade com nome. Fica em cima da tabela,
-// em uma linha, e so aparece quando a planta foi CONFIRMADA (ver
-// services/vin-decoder/scripts/plants-br.mjs). Sem confirmacao, nao ha frase:
-// montadora e pais continuam nas linhas da tabela, sem inventar cidade.
-const frasePlanta = computed<string | null>(() => {
-  const co: any = data.value?.chassiOrigem
-  const p = co?.plantaDetalhe
-  if (!p?.cidade) return null
-  const fabricante = humanizarPaisFabricante(co.fabricante, false)
-  // Fabrica fora do Brasil: "em Martorell, Espanha" (o pais da planta pode
-  // nao ser o da sede da marca: Audi Q3 2016 e feito na Espanha).
-  const paisPlanta = humanizarPaisFabricante(p.pais, true)
-  const local = p.uf
-    ? `${p.cidade} (${p.uf})`
-    : (paisPlanta && paisPlanta !== 'Brasil' ? `${p.cidade}, ${paisPlanta}` : p.cidade)
-  const feminino = segmento.value === 'moto'
-  const verbo = feminino ? 'Fabricada' : 'Fabricado'
-  return fabricante
-    ? `${verbo} pela ${fabricante} em ${local}.`
-    : `${verbo} em ${local}.`
-})
+// Sem frase-resumo "Fabricado pela X em Y." (pedido do Cesar, 02/out): a
+// ficha logo abaixo (Fabricante, Pais de fabricacao, Ano-modelo, Planta) ja
+// diz tudo.
 
 const fichaChassiOrigem = computed(() => {
   const co = data.value?.chassiOrigem
@@ -1443,7 +1428,7 @@ const fichaColunas = computed(() => {
     { key: 'cadastral', titulo: 'Cadastral', linhas: fichaCadastral.value },
     { key: 'tecnica', titulo: 'Técnica', linhas: fichaTecnica.value },
     { key: 'importacao', titulo: 'Importação', linhas: fichaImportacao.value },
-    { key: 'chassiOrigem', titulo: 'Origem do chassi', linhas: fichaChassiOrigem.value, nota: frasePlanta.value },
+    { key: 'chassiOrigem', titulo: 'Origem do chassi', linhas: fichaChassiOrigem.value, nota: null },
   ]
   const blocos = candidatos.filter((b) => b.linhas.length > 0)
   const pesos = blocos.map((b) => b.linhas.length + 1.5)
@@ -1632,7 +1617,7 @@ onUnmounted(() => {
     </div>
 
 
-    <div class="rel__wrap">
+    <div class="rel__wrap" :class="{ 'rel__wrap--laudo': mostrandoLaudo }">
       <span v-if="!entregue" class="rel__tipo-fora">{{ isBasica ? PLANOS.basica.nome : PLANOS.completa.nome }}</span>
 
       <!-- pending && !data: o "Carregando" e so da PRIMEIRA carga. Em refresh
@@ -2504,6 +2489,13 @@ $c-steel: #c2c2c2;
 $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
 .rel {
+  // Escala de fonte do LAUDO (pedido do Cesar, 02/out: +10%). Um ponto so:
+  // todo font-size deste arquivo e calc(Npx * var(--rel-fs)). Vale so com o
+  // relatorio entregue na tela (rel__wrap--laudo); impressao volta a 1.
+  --rel-fs: 1;
+  .rel__wrap--laudo { --rel-fs: 1.1; }
+  @media print { .rel__wrap--laudo { --rel-fs: 1; } }
+
   min-height: 100vh;
   background: $c-cloud;
   font-family: $fonte;
@@ -2527,7 +2519,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__tipo-fora {
     display: block;
-    font-size: 12px;
+    font-size: calc(12px * var(--rel-fs, 1));
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -2536,7 +2528,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__tipo {
-    font-size: 12px;
+    font-size: calc(12px * var(--rel-fs, 1));
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -2565,7 +2557,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__kick {
-    font-size: 12px;
+    font-size: calc(12px * var(--rel-fs, 1));
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -2573,7 +2565,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__h {
-    font-size: clamp(22px, 3vw, 28px);
+    font-size: calc(clamp(22px, 3vw, 28px) * var(--rel-fs, 1));
     font-weight: 500;
     letter-spacing: 0;
     line-height: 1.1;
@@ -2581,7 +2573,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__h2 {
-    font-size: 11px;
+    font-size: calc(11px * var(--rel-fs, 1));
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -2590,7 +2582,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__hint {
-    font-size: 15px; line-height: 1.45; color: $c-charcoal; margin: 0;
+    font-size: calc(15px * var(--rel-fs, 1)); line-height: 1.45; color: $c-charcoal; margin: 0;
     strong { color: $c-ink; }
     &--erro { color: $c-red; margin-top: 12px; }
   }
@@ -2617,7 +2609,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__doc-titulo {
-    font-size: 15px;
+    font-size: calc(15px * var(--rel-fs, 1));
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -2625,7 +2617,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__doc-linha {
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--rel-fs, 1));
     color: $c-graphite;
   }
 
@@ -2648,7 +2640,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     display: flex;
     flex-direction: column;
     min-width: 0;
-    font-size: 13.5px;
+    font-size: calc(13.5px * var(--rel-fs, 1));
     line-height: 1.4;
 
     strong { color: $c-ink; font-weight: 600; }
@@ -2669,7 +2661,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border: 1px solid $c-steel;
     border-radius: 4px;
     font-family: inherit;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     color: $c-ink;
     background: $c-canvas;
 
@@ -2692,14 +2684,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__email-ok {
     margin: 0;
-    font-size: 13.5px;
+    font-size: calc(13.5px * var(--rel-fs, 1));
     line-height: 1.4;
     color: $c-ink;
   }
 
   &__doc-validade {
     margin: 8px 2px 0;
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--rel-fs, 1));
     color: $c-graphite;
   }
 
@@ -2711,7 +2703,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__parecer-rotulo {
     display: block;
     margin: 16px 0 6px;
-    font-size: 11px;
+    font-size: calc(11px * var(--rel-fs, 1));
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -2720,7 +2712,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__nada {
     margin: 0;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     color: $c-charcoal;
   }
 
@@ -2748,12 +2740,12 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     display: flex;
     flex-direction: column;
     gap: 3px;
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--rel-fs, 1));
     line-height: 1.45;
     color: $c-graphite;
 
     strong {
-      font-size: 11px;
+      font-size: calc(11px * var(--rel-fs, 1));
       font-weight: 700;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -2792,7 +2784,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__restr-explica {
     margin: 6px 0 0;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     line-height: 1.5;
     color: $c-graphite;
   }
@@ -2838,7 +2830,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       border-radius: 4px;
       background: $c-slab;
       color: #fff;
-      font-size: 11.5px;
+      font-size: calc(11.5px * var(--rel-fs, 1));
       font-weight: 400;
       font-style: normal;
       line-height: 1.45;
@@ -2886,7 +2878,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__ocorr-data {
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     font-weight: 700;
     color: #8c2323;
     white-space: nowrap;
@@ -2894,7 +2886,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__ocorr-det {
     margin: 8px 0 0;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     line-height: 1.45;
     color: $c-charcoal;
   }
@@ -2920,11 +2912,11 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     justify-content: space-between;
     gap: 10px;
 
-    strong { font-size: 15px; }
+    strong { font-size: calc(15px * var(--rel-fs, 1)); }
 
     small {
       display: block;
-      font-size: 12px;
+      font-size: calc(12px * var(--rel-fs, 1));
       font-weight: 600;
       color: $c-charcoal;
       margin-top: 2px;
@@ -2937,7 +2929,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__caso-tab {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13.5px;
+    font-size: calc(13.5px * var(--rel-fs, 1));
 
     td {
       padding: 9px 14px;
@@ -2964,14 +2956,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__caso-det {
     display: block;
     margin-top: 2px;
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--rel-fs, 1));
     font-weight: 600;
     color: $c-graphite;
   }
 
   &__ocorr-nota {
     margin: 12px 0 0;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     line-height: 1.5;
     color: $c-graphite;
   }
@@ -2984,7 +2976,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
-    font-size: 11px;
+    font-size: calc(11px * var(--rel-fs, 1));
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -3001,7 +2993,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     align-items: center;
     gap: 10px;
     margin: 0 0 14px;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     color: $c-charcoal;
   }
 
@@ -3022,12 +3014,12 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     margin-bottom: 8px;
   }
 
-  &__leilao-fonte { font-size: 15px; font-weight: 600; color: $c-ink; }
-  &__leilao-tipo { font-size: 12px; color: $c-graphite; }
+  &__leilao-fonte { font-size: calc(15px * var(--rel-fs, 1)); font-weight: 600; color: $c-ink; }
+  &__leilao-tipo { font-size: calc(12px * var(--rel-fs, 1)); color: $c-graphite; }
 
   &__leilao-det {
     margin: 0 0 4px;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     line-height: 1.5;
     color: $c-charcoal;
   }
@@ -3036,7 +3028,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // em tom menor que a passagem em si.
   &__leilao-ctx {
     margin: 6px 0 4px;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     line-height: 1.45;
     color: $c-graphite;
   }
@@ -3051,7 +3043,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__edital-aviso {
     margin: 8px 0 0;
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--rel-fs, 1));
     line-height: 1.45;
     color: $c-graphite;
   }
@@ -3062,7 +3054,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     background: none;
     border: 0;
     font: inherit;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     color: $c-blue;
     text-decoration: underline;
     cursor: pointer;
@@ -3080,7 +3072,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     align-items: center;
     gap: 8px;
     margin: 0 0 8px;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     font-weight: 600;
   }
 
@@ -3114,7 +3106,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       align-items: baseline;
       justify-content: space-between;
       gap: 12px;
-      font-size: 13px;
+      font-size: calc(13px * var(--rel-fs, 1));
       color: $c-graphite;
       border-bottom: 1px dashed $c-hair;
       padding: 4px 0;
@@ -3137,7 +3129,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border: 1px solid $c-hair;
     border-radius: 6px;
     font: inherit;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     font-weight: 600;
     color: $c-charcoal;
     cursor: pointer;
@@ -3154,14 +3146,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__leilao-explica {
     margin: 0 0 10px;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     line-height: 1.5;
     color: $c-graphite;
   }
 
   &__leilao-sub {
     margin: 0 0 4px;
-    font-size: 11px;
+    font-size: calc(11px * var(--rel-fs, 1));
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -3179,7 +3171,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     li {
       position: relative;
       padding-left: 16px;
-      font-size: 13px;
+      font-size: calc(13px * var(--rel-fs, 1));
       line-height: 1.45;
       color: $c-charcoal;
 
@@ -3202,14 +3194,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__leilao-base {
     margin: 0 0 12px;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     line-height: 1.5;
     color: $c-graphite;
   }
 
   &__leilao-limpo {
     margin: 0;
-    font-size: 15px;
+    font-size: calc(15px * var(--rel-fs, 1));
     line-height: 1.5;
     color: $c-charcoal;
   }
@@ -3223,7 +3215,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__leilao-fotos-txt {
     margin: 0 0 12px;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     line-height: 1.5;
     color: $c-charcoal;
   }
@@ -3253,7 +3245,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__lote-det {
     margin: 8px 0 0;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     line-height: 1.45;
     color: $c-graphite;
   }
@@ -3261,7 +3253,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__leilao-aviso {
     margin: 12px 0 0;
-    font-size: 12px;
+    font-size: calc(12px * var(--rel-fs, 1));
     line-height: 1.5;
     color: $c-graphite;
   }
@@ -3276,7 +3268,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border: 1px solid;
     border-radius: 4px;
     margin-bottom: 16px;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     line-height: 1.45;
 
     strong { font-weight: 700; }
@@ -3287,7 +3279,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__lic-pill {
-    font-size: 11px;
+    font-size: calc(11px * var(--rel-fs, 1));
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -3310,8 +3302,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       min-width: 200px;
     }
 
-    strong { font-size: 18px; font-weight: 500; }
-    span { font-size: 13.5px; color: $c-graphite; }
+    strong { font-size: calc(18px * var(--rel-fs, 1)); font-weight: 500; }
+    span { font-size: calc(13.5px * var(--rel-fs, 1)); color: $c-graphite; }
   }
 
   // A mesma placa simulada do hero, em miniatura: o cliente reconhece o objeto
@@ -3360,7 +3352,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__valor-k {
-    font-size: 11px;
+    font-size: calc(11px * var(--rel-fs, 1));
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -3368,14 +3360,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__valor-v {
-    font-size: 22px;
+    font-size: calc(22px * var(--rel-fs, 1));
     font-weight: 500;
     line-height: 1;
     color: $c-ink;
   }
 
   &__valor-nota {
-    font-size: 12px;
+    font-size: calc(12px * var(--rel-fs, 1));
     color: $c-graphite;
   }
 
@@ -3385,7 +3377,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__dep-txt {
     margin-top: 10px;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     color: $c-charcoal;
   }
 
@@ -3399,14 +3391,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__fipe-incerta-tit {
     margin: 0 0 6px;
-    font-size: 15px;
+    font-size: calc(15px * var(--rel-fs, 1));
     font-weight: 700;
     color: #8a5200;
   }
 
   &__fipe-incerta-txt {
     margin: 0;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     line-height: 1.5;
     color: $c-charcoal;
   }
@@ -3417,7 +3409,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__fipe-ambiguo-txt {
     margin: 6px 0 10px;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     color: $c-charcoal;
   }
 
@@ -3429,7 +3421,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     padding: 12px 14px;
     border-radius: 8px;
     border: 1px solid;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     line-height: 1.4;
 
     svg { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; }
@@ -3459,13 +3451,13 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     gap: 3px;
   }
 
-  &__ind-lab { font-size: 11.5px; color: $c-graphite; }
+  &__ind-lab { font-size: calc(11.5px * var(--rel-fs, 1)); color: $c-graphite; }
 
   &__ind-val {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: 12px;
+    font-size: calc(12px * var(--rel-fs, 1));
     font-weight: 700;
     letter-spacing: 0.03em;
 
@@ -3500,12 +3492,12 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     .rel__recall-sub { color: #2f6b45; }
   }
 
-  &__multas-k3fonte { display: block; font-size: 11px; color: #777; }
+  &__multas-k3fonte { display: block; font-size: calc(11px * var(--rel-fs, 1)); color: #777; }
 
   &__recall-lista { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
   &__recall-item { background: rgba(255, 255, 255, 0.7); border-radius: 8px; padding: 8px 10px; }
-  &__recall-item-top { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: #1a1a1a; }
-  &__recall-item-meta { margin: 3px 0 0; font-size: 12px; color: #555; }
+  &__recall-item-top { display: flex; justify-content: space-between; gap: 10px; font-size: calc(13.5px * var(--rel-fs, 1)); color: #1a1a1a; }
+  &__recall-item-meta { margin: 3px 0 0; font-size: calc(12px * var(--rel-fs, 1)); color: #555; }
   &__recall-st--pend { color: #a32020; white-space: nowrap; }
   &__recall-st--ok { color: #14622f; white-space: nowrap; }
 
@@ -3524,20 +3516,20 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     display: grid;
     place-items: center;
     font-weight: 800;
-    font-size: 18px;
+    font-size: calc(18px * var(--rel-fs, 1));
     flex: 0 0 auto;
   }
 
   &__recall-tit {
     margin: 0;
-    font-size: 15px;
+    font-size: calc(15px * var(--rel-fs, 1));
     font-weight: 800;
     color: #a32020;
   }
 
   &__recall-sub {
     margin: 1px 0 0;
-    font-size: 12px;
+    font-size: calc(12px * var(--rel-fs, 1));
     color: #8a3030;
 
     &--item {
@@ -3548,7 +3540,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__recall-body {
     margin: 11px 0 0;
-    font-size: 13.5px;
+    font-size: calc(13.5px * var(--rel-fs, 1));
     line-height: 1.5;
     color: #3d3d3d;
 
@@ -3557,7 +3549,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__recall-foot {
     margin: 11px 0 0;
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--rel-fs, 1));
     color: #14622f;
     background: #eaf7ee;
     border-radius: 8px;
@@ -3575,7 +3567,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__multas-tit {
     margin: 0 0 10px;
-    font-size: 11px;
+    font-size: calc(11px * var(--rel-fs, 1));
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -3592,14 +3584,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
     span {
       display: block;
-      font-size: 11px;
+      font-size: calc(11px * var(--rel-fs, 1));
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: #8a3030;
       font-weight: 700;
     }
     b {
-      font-size: 28px;
+      font-size: calc(28px * var(--rel-fs, 1));
       font-weight: 800;
       color: #a32020;
       font-variant-numeric: tabular-nums;
@@ -3612,7 +3604,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     display: flex;
     justify-content: space-between;
     gap: 12px;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
 
     span { color: #3d3d3d; }
     b { font-variant-numeric: tabular-nums; color: #1a1a1a; }
@@ -3630,7 +3622,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__multas-sub {
     margin: 16px 0 8px;
-    font-size: 11px;
+    font-size: calc(11px * var(--rel-fs, 1));
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -3649,18 +3641,18 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     display: flex;
     justify-content: space-between;
     gap: 10px;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     line-height: 1.35;
 
     span { color: #1a1a1a; font-weight: 600; }
     b { color: #a32020; white-space: nowrap; }
   }
-  &__multas-item-meta { margin: 4px 0 0; font-size: 12px; line-height: 1.4; color: #6b7280; }
+  &__multas-item-meta { margin: 4px 0 0; font-size: calc(12px * var(--rel-fs, 1)); line-height: 1.4; color: #6b7280; }
 
   // restricoes do DETRAN
   &__multas-restr {
     list-style: none; margin: 0; padding: 0; display: grid; gap: 6px;
-    font-size: 13px; line-height: 1.4; color: #1a1a1a;
+    font-size: calc(13px * var(--rel-fs, 1)); line-height: 1.4; color: #1a1a1a;
 
     b { color: #6b7280; }
   }
@@ -3669,14 +3661,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__multas-k3 {
     width: 100%;
     border-collapse: collapse;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
 
     td { padding: 8px 4px; border-top: 1px solid #f0f1f3; }
     tr:first-child td { border-top: 0; }
   }
 
   &__multas-k3head td {
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--rel-fs, 1));
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #9098a3;
@@ -3695,7 +3687,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     text-align: right;
     color: #14622f;
     font-weight: 700;
-    font-size: 12px;
+    font-size: calc(12px * var(--rel-fs, 1));
     font-variant-numeric: tabular-nums;
     width: 74px;
   }
@@ -3708,7 +3700,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__multas-kmok {
     margin: 10px 0 0;
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--rel-fs, 1));
     color: #3d3d3d;
 
     b { color: #1a1a1a; }
@@ -3717,7 +3709,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__multas-kmalerta {
     margin: 10px 0 0;
     padding: 8px 10px;
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--rel-fs, 1));
     line-height: 1.5;
     font-weight: 600;
     color: #a32020;
@@ -3727,13 +3719,13 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__multas-nota {
     margin: 6px 0 0;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     line-height: 1.5;
     color: $c-graphite;
   }
 
   &__ind-nota {
-    font-size: 12px;
+    font-size: calc(12px * var(--rel-fs, 1));
     line-height: 1.5;
     color: #636363;
     margin: 12px 0 0;
@@ -3764,7 +3756,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__restr {
     padding: 10px 0;
     border-bottom: 1px solid $c-hair;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     line-height: 1.4;
     color: $c-charcoal;
 
@@ -3772,7 +3764,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__tag {
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--rel-fs, 1));
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -3812,7 +3804,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__sub {
     display: block;
-    font-size: 10.5px;
+    font-size: calc(10.5px * var(--rel-fs, 1));
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -3826,7 +3818,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // texto normal: e informacao boa de ler, nao alerta.
   &__ficha-nota {
     margin: 0 0 4px;
-    font-size: 13px;
+    font-size: calc(13px * var(--rel-fs, 1));
     line-height: 1.45;
     color: $c-ink;
   }
@@ -3835,7 +3827,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     width: 100%;
     border-collapse: collapse;
 
-    td { padding: 8px 0; border-bottom: 1px solid $c-hair; font-size: 13.5px; }
+    td { padding: 8px 0; border-bottom: 1px solid $c-hair; font-size: calc(13.5px * var(--rel-fs, 1)); }
     td:first-child { color: $c-graphite; width: 48%; }
     td:last-child { font-weight: 500; text-align: right; word-break: break-word; }
     tr:last-child td { border-bottom: 0; }
@@ -3859,13 +3851,13 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     gap: 12px;
     padding: 10px 14px;
     border-bottom: 1px solid $c-hair;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     color: $c-graphite;
 
     &:last-child { border-bottom: 0; }
-    strong { font-size: 15px; font-weight: 500; color: $c-ink; }
+    strong { font-size: calc(15px * var(--rel-fs, 1)); font-weight: 500; color: $c-ink; }
 
-    &--total { background: $c-cloud; strong { font-size: 20px; } }
+    &--total { background: $c-cloud; strong { font-size: calc(20px * var(--rel-fs, 1)); } }
   }
 
   &__placa-box {
@@ -3877,8 +3869,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border: 2px solid $c-ink;
     border-radius: 8px;
 
-    span { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: $c-graphite; }
-    strong { font-size: 28px; font-weight: 800; letter-spacing: 0.12em; }
+    span { font-size: calc(12px * var(--rel-fs, 1)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: $c-graphite; }
+    strong { font-size: calc(28px * var(--rel-fs, 1)); font-weight: 800; letter-spacing: 0.12em; }
   }
 
   &__qr {
@@ -3892,7 +3884,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__brcode {
     width: 100%;
     max-width: 420px;
-    font-size: 11px;
+    font-size: calc(11px * var(--rel-fs, 1));
     line-height: 1.4;
     color: $c-graphite;
     word-break: break-all;
@@ -3904,7 +3896,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     text-align: left;
   }
 
-  &__espera { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; text-align: left; font-size: 14px; }
+  &__espera { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; text-align: left; font-size: calc(14px * var(--rel-fs, 1)); }
   &__espera-ok { color: #14622f; }
   &__espera-ativa { font-weight: 700; }
 
@@ -3929,7 +3921,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     min-height: 44px;
     padding: 12px 24px;
     font-family: $fonte;
-    font-size: 14px;
+    font-size: calc(14px * var(--rel-fs, 1));
     font-weight: 600;
     letter-spacing: 0.7px;
     text-transform: uppercase;
@@ -3950,10 +3942,10 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       &:hover { background: $c-blue-deep; border-color: $c-blue-deep; }
     }
 
-    &--mini { min-height: 40px; padding: 8px 16px; font-size: 13px; }
+    &--mini { min-height: 40px; padding: 8px 16px; font-size: calc(13px * var(--rel-fs, 1)); }
   }
 
-  &__rodape { font-size: 12px; color: $c-graphite; text-align: center; margin: 20px 0 0; }
+  &__rodape { font-size: calc(12px * var(--rel-fs, 1)); color: $c-graphite; text-align: center; margin: 20px 0 0; }
 }
 
 // Impressao: o relatorio e um documento, entao tem que sair limpo no papel.
@@ -3986,7 +3978,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     padding: 4px 0 2px;
     border-top: 1px solid #ccc;
     background: #fff;
-    font-size: 9px;
+    font-size: calc(9px * var(--rel-fs, 1));
     text-align: center;
     color: #636363;
   }
