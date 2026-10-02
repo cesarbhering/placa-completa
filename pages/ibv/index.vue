@@ -32,165 +32,131 @@ function formatDate(iso: string) {
 </script>
 
 <template>
-  <div class="desktop content-page">
-    <main>
-      <div class="win-window">
-        <div class="win-window__titlebar">
-          <span>IBV Auto</span>
-          <div class="win-window__titlebar-buttons">
-            <span class="win-window__titlebar-btn">_</span>
-            <span class="win-window__titlebar-btn">&square;</span>
-            <span class="win-window__titlebar-btn">&times;</span>
-          </div>
+  <div class="pc-page">
+    <main class="pc-container">
+      <h1 class="pc-h1">IBV Auto: Índice de Preços de Carros Usados</h1>
+
+      <div class="pc-prose">
+        <p class="pc-lead">
+          O <strong>Índice BV Auto (IBV)</strong> é a referência mensal de inflação de automóveis
+          usados no Brasil, publicado pelo banco BV. Acompanhe aqui os relatórios mensais com
+          variação de preços por modelo, estado e tipo de combustível.
+        </p>
+
+        <h2>Relatórios mensais</h2>
+
+        <div class="post-list">
+          <NuxtLink
+            v-for="post in ibvPosts"
+            :key="post.slug"
+            :to="`/ibv/${post.slug}`"
+            class="post-card"
+          >
+            <div class="post-card__meta">
+              <span class="post-card__month">{{ post.referenceMonth }}</span>
+              <span class="post-card__date">Publicado em {{ formatDate(post.publishedAt) }}</span>
+            </div>
+            <h3 class="post-card__title">{{ post.title }}</h3>
+            <p class="post-card__desc">{{ post.metaDescription }}</p>
+            <span class="post-card__read">Ler relatório →</span>
+          </NuxtLink>
         </div>
-        <div class="win-window__body">
-          <h1 class="seo-title">IBV Auto: Índice de Preços de Carros Usados</h1>
 
-          <div class="seo-content">
-            <p>
-              O <strong>Índice BV Auto (IBV)</strong> é a referência mensal de inflação de automóveis
-              usados no Brasil, publicado pelo banco BV. Acompanhe aqui os relatórios mensais com
-              variação de preços por modelo, estado e tipo de combustível.
-            </p>
-
-            <h2>Relatórios mensais</h2>
-
-            <div class="post-list">
-              <NuxtLink
-                v-for="post in ibvPosts"
-                :key="post.slug"
-                :to="`/ibv/${post.slug}`"
-                class="post-card"
-              >
-                <div class="post-card__meta">
-                  <span class="post-card__month">{{ post.referenceMonth }}</span>
-                  <span class="post-card__date">Publicado em {{ formatDate(post.publishedAt) }}</span>
-                </div>
-                <h3 class="post-card__title">{{ post.title }}</h3>
-                <p class="post-card__desc">{{ post.metaDescription }}</p>
-                <span class="post-card__read">Ler relatório →</span>
-              </NuxtLink>
-            </div>
-
-            <div class="info-box">
-              <p>
-                <strong>Sobre o IBV Auto:</strong> O Índice BV Auto é calculado mensalmente pelo banco BV
-                com base em milhões de anúncios e transações de veículos usados em todo o Brasil.
-                É a principal referência do mercado para acompanhar a valorização ou desvalorização
-                do seu veículo.
-              </p>
-            </div>
-
-            <div class="text-center mt-md mb-md">
-              <NuxtLink to="/" class="win-btn win-btn--primary">
-                Consultar Valor do Meu Carro
-              </NuxtLink>
-            </div>
-
-            <nav class="breadcrumb">
-              <NuxtLink to="/">PlacaCompleta</NuxtLink>
-              <span> &rsaquo; </span>
-              <strong>IBV Auto</strong>
-            </nav>
-          </div>
+        <div class="pc-callout">
+          <p>
+            <strong>Sobre o IBV Auto:</strong> O Índice BV Auto é calculado mensalmente pelo banco BV
+            com base em milhões de anúncios e transações de veículos usados em todo o Brasil.
+            É a principal referência do mercado para acompanhar a valorização ou desvalorização
+            do seu veículo.
+          </p>
         </div>
+
+        <div class="pc-cta">
+          <NuxtLink to="/" class="pc-btn pc-btn--primary">
+            Consultar Valor do Meu Carro
+          </NuxtLink>
+        </div>
+
+        <nav class="pc-breadcrumb">
+          <NuxtLink to="/">PlacaCompleta</NuxtLink>
+          <span> &rsaquo; </span>
+          <strong>IBV Auto</strong>
+        </nav>
       </div>
     </main>
   </div>
 </template>
 
 <style lang="scss" scoped>
+// Design novo (tokens --pc-*, classes .pc-* de _content-v2.scss). So o visual
+// mudou: texto, links, schema e head sao os mesmos do layout antigo.
 .post-list {
   display: flex;
   flex-direction: column;
-  gap: $space-sm;
-  margin-bottom: $space-lg;
+  gap: 12px;
+  margin: 12px 0 24px;
+}
+
+// .pc-prose a pinta link de azul com sublinhado; o card inteiro e um link,
+// entao zera isso aqui.
+.pc-prose a.post-card {
+  display: block;
+  padding: 16px 18px;
+  border: 1px solid var(--pc-hairline);
+  border-radius: 16px;
+  background: var(--pc-canvas);
+  color: var(--pc-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--pc-hairline);
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:hover { border-color: var(--pc-blue); background: var(--pc-cloud); }
 }
 
 .post-card {
-  @include win-border-raised;
-  display: block;
-  background: $win-white;
-  padding: $space-md;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background 0.15s;
-
-  &:hover {
-    background: $powder-blue;
-  }
-
-  &:active {
-    border-color: $win-darker $win-white $win-white $win-darker;
-  }
-
   &__meta {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: $space-sm;
-    margin-bottom: $space-xs;
+    gap: 8px;
+    margin-bottom: 8px;
   }
 
   &__month {
-    font-family: $font-display;
-    font-size: 1rem;
-    background: $navy-electric;
-    color: $win-white;
-    padding: 2px $space-sm;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--pc-canvas);
+    background: var(--pc-slab);
+    border-radius: 9999px;
+    padding: 3px 10px;
   }
 
   &__date {
-    font-size: 0.75rem;
-    color: $win-dark;
-    font-family: $font-mono;
+    font-size: 0.8125rem;
+    color: var(--pc-graphite);
   }
 
   &__title {
-    font-family: $font-display;
-    font-size: 1.25rem;
-    color: $navy-electric;
-    margin-bottom: $space-xs;
+    font-size: 1.125rem;
+    font-weight: 600;
     line-height: 1.3;
+    color: var(--pc-ink);
+    margin: 0 0 6px;
   }
 
   &__desc {
-    font-family: $font-body;
-    font-size: 0.875rem;
-    color: $graphite;
-    margin-bottom: $space-xs;
-    line-height: 1.5;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: var(--pc-charcoal);
+    margin: 0 0 8px;
   }
 
   &__read {
-    font-family: $font-display;
-    font-size: 1rem;
-    color: $smart-blue;
-  }
-}
-
-.info-box {
-  @include win-border-sunken;
-  background: $powder-blue;
-  padding: $space-sm $space-md;
-  margin: $space-md 0;
-
-  p { margin-bottom: 0; }
-}
-
-.breadcrumb {
-  font-size: 0.75rem;
-  margin-top: $space-lg;
-  padding-top: $space-sm;
-  border-top: 1px solid $win-dark;
-
-  a {
-    color: $smart-blue;
-    text-decoration: underline;
-  }
-
-  span {
-    color: $win-dark;
-    margin: 0 2px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--pc-blue);
   }
 }
 </style>
