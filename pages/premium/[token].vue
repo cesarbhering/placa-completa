@@ -1390,7 +1390,12 @@ const frasePlanta = computed<string | null>(() => {
   const p = co?.plantaDetalhe
   if (!p?.cidade) return null
   const fabricante = humanizarPaisFabricante(co.fabricante, false)
-  const local = p.uf ? `${p.cidade} (${p.uf})` : p.cidade
+  // Fabrica fora do Brasil: "em Martorell, Espanha" (o pais da planta pode
+  // nao ser o da sede da marca: Audi Q3 2016 e feito na Espanha).
+  const paisPlanta = humanizarPaisFabricante(p.pais, true)
+  const local = p.uf
+    ? `${p.cidade} (${p.uf})`
+    : (paisPlanta && paisPlanta !== 'Brasil' ? `${p.cidade}, ${paisPlanta}` : p.cidade)
   const feminino = segmento.value === 'moto'
   const verbo = feminino ? 'Fabricada' : 'Fabricado'
   return fabricante
@@ -1406,7 +1411,11 @@ const fichaChassiOrigem = computed(() => {
     linha('País de fabricação', humanizarPaisFabricante(co.pais, true)),
     linha('Ano-modelo (pelo chassi)', co.anoModelo),
     linha('Planta', co.plantaDetalhe?.cidade
-      ? (co.plantaDetalhe.uf ? `${co.plantaDetalhe.cidade} (${co.plantaDetalhe.uf})` : co.plantaDetalhe.cidade)
+      ? (co.plantaDetalhe.uf
+          ? `${co.plantaDetalhe.cidade} (${co.plantaDetalhe.uf})`
+          : ((humanizarPaisFabricante(co.plantaDetalhe.pais, true) || 'Brasil') !== 'Brasil'
+              ? `${co.plantaDetalhe.cidade}, ${humanizarPaisFabricante(co.plantaDetalhe.pais, true)}`
+              : co.plantaDetalhe.cidade))
       : co.planta),
   ].filter(Boolean) as [string, string][]
 })
