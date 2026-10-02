@@ -23,6 +23,7 @@ const PERMITIDOS: RegExp[] = [
   /^\/seguro\/[a-z0-9-]+(?:\/[a-z0-9-]+)?$/,
   /^\/ibv(?:\/[a-z0-9-]+)?$/,
   /^\/estudos$/,
+  /^\/o-que-e(?:\/[a-z0-9-]+)?$/,
   /^\/sobre$/,
   /^\/politica-de-privacidade$/,
   /^\/termos-de-uso$/,
