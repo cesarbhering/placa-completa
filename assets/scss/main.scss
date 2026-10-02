@@ -373,6 +373,13 @@ body {
     }
   }
 
+  // CNPJ (pedido do Cesar, 02/out): discreto, colado no copyright; nowrap pra
+  // o numero nunca quebrar no meio (cabe folgado em 360px).
+  &__cnpj {
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
   &__email {
     margin-top: $space-xs;
   }
