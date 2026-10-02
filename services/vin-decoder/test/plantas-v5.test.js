@@ -80,3 +80,11 @@ test('linha que sai do arquivo sai do banco (tabela e substituida, nao so upsert
   aplicarPlantas()
   assert.equal(db.prepare("SELECT count(*) c FROM plants WHERE wmi_code = 'ZZZ'").get().c, 0)
 })
+
+// Pais de FABRICACAO e o da planta, nao o da sede da marca (01/out): a marca
+// fica no fabricante. Regra pedida no caso do Audi Q3 2016 feito em Martorell.
+test('pais de fabricacao = pais da planta quando ela e conhecida', () => {
+  const r = decodeVin('W1KXXXXXXXN000000')
+  assert.equal(r.plantaDetalhe?.cidade, 'Kecskemét')
+  assert.equal(r.pais, 'Hungria')
+})
