@@ -4,6 +4,7 @@ import { capitalSlugByStateSlug } from '~/data/capitals'
 import { getStateSeoIntro } from '~/data/state-seo-intros'
 import seguroEstadosData from '~/data/seguro-estados.json'
 import { REGIONAL } from '~/shared/enriquecimento-regional'
+import { ESTADO_DETRAN } from '~/shared/estado-detran'
 import seguroEletricosData from '~/data/seguro-eletricos.json'
 
 // Seguro medio do estado (cesta de populares; compilado da base SUSEP)
@@ -15,6 +16,7 @@ const data = states[slug]
 
 const seguroUf = (seguroEstadosData as any).estados?.[data?.uf] || null
 const blocoLeilao = computed(() => (data?.uf ? REGIONAL[data.uf] : undefined))
+const detranUf = computed(() => (data?.uf ? ESTADO_DETRAN[data.uf] : undefined))
 const temEletrico = Boolean(data && (seguroEletricosData as Record<string, any>)[data.uf]?.mediaPremio)
 function brlSeguro(v: number): string {
   return 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
@@ -162,13 +164,33 @@ useHead({
             </div>
           </template>
 
-          <h2>DETRAN-{{ data.uf }}</h2>
-          <p>
-            O DETRAN de {{ data.name }} fica na capital, {{ data.capital }}.
-            Para serviços online como transferência, licenciamento e consulta de multas,
-            acesse o site oficial:
-            <a :href="data.detranSite" target="_blank" rel="noopener noreferrer">{{ data.detranSite }}</a>.
-          </p>
+          <template v-if="detranUf">
+            <h2>O que você resolve no {{ detranUf.orgao }}</h2>
+            <ul>
+              <li v-for="sv in detranUf.servicos" :key="sv">{{ sv }}</li>
+            </ul>
+            <p>
+              Site oficial:
+              <a :href="data.detranSite" target="_blank" rel="noopener noreferrer">{{ data.detranSite }}</a>.
+              O PlacaCompleta não é o {{ detranUf.orgao }} nem órgão público: os serviços acima
+              são feitos no site oficial. Aqui você consulta a placa e vê o histórico do veículo
+              antes de comprar.
+            </p>
+
+            <h2>O que a nossa base mostra em {{ data.name }}</h2>
+            <div class="pc-callout">
+              <p v-for="d in detranUf.dados" :key="d.texto">{{ d.texto }}</p>
+            </div>
+          </template>
+          <template v-else>
+            <h2>DETRAN-{{ data.uf }}</h2>
+            <p>
+              O DETRAN de {{ data.name }} fica na capital, {{ data.capital }}.
+              Para serviços online como transferência, licenciamento e consulta de multas,
+              acesse o site oficial:
+              <a :href="data.detranSite" target="_blank" rel="noopener noreferrer">{{ data.detranSite }}</a>.
+            </p>
+          </template>
           <p v-if="seoIntro">{{ seoIntro.detranInfo }}</p>
 
           <template v-if="seoIntro">
