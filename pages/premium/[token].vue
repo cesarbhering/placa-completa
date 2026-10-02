@@ -1952,7 +1952,6 @@ onUnmounted(() => {
                         <span v-if="mt.dataInfracao">{{ mt.dataInfracao }}<span v-if="mt.horaInfracao && !String(mt.horaInfracao).startsWith('00:00')"> às {{ String(mt.horaInfracao).slice(0, 5) }}</span></span>
                         <span v-if="mt.local"> · {{ mt.local }}<span v-if="mt.municipio">, {{ mt.municipio }}</span></span>
                         <span v-if="mt.orgao"> · {{ mt.orgao }}</span>
-                        <span v-if="mt.pontos"> · {{ mt.pontos }} {{ mt.pontos === 1 ? 'ponto' : 'pontos' }}<span v-if="mt.grupo"> ({{ String(mt.grupo).toLowerCase() }})</span></span>
                         <span v-if="mt.dataVencimento"> · vencimento {{ mt.dataVencimento }}</span>
                       </p>
                     </li>
@@ -2008,14 +2007,6 @@ onUnmounted(() => {
                   no DETRAN (ainda sem multa).
                 </p>
 
-                <!-- Historico de infracoes (SC, RS): secundario, so contagem. -->
-                <p v-if="multasDetalhe.historico_infracoes && multasDetalhe.historico_infracoes.total" class="rel__multas-nota">
-                  Histórico: {{ multasDetalhe.historico_infracoes.total }}
-                  {{ multasDetalhe.historico_infracoes.total === 1 ? 'infração notificada' : 'infrações notificadas' }}
-                  no DETRAN, {{ multasDetalhe.historico_infracoes.pagas }}
-                  {{ multasDetalhe.historico_infracoes.pagas === 1 ? 'paga' : 'pagas' }}<template v-if="multasDetalhe.historico_infracoes.recursos">,
-                  {{ multasDetalhe.historico_infracoes.recursos }} {{ multasDetalhe.historico_infracoes.recursos === 1 ? 'recurso' : 'recursos' }}</template>.
-                </p>
 
                 <!-- Licenciamento atrasado (mesmo com débito zerado: pode ter ido
                      pra dívida ativa). Copy factual. -->

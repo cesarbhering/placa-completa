@@ -19,7 +19,7 @@ describe('parsearDetranSc: LGPD', () => {
 
   it('o bloco gravado tem so as chaves da whitelist', () => {
     expect(Object.keys(parsearDetranSc(SC, HOJE)).sort()).toEqual([
-      'fonte', 'historico_infracoes', 'hodometro', 'hodometro_suspeito', 'ipva_itens', 'ipva_total_centavos',
+      'fonte', 'hodometro', 'hodometro_suspeito', 'ipva_itens', 'ipva_total_centavos',
       'licenciamento_atrasado_ano', 'licenciamento_centavos', 'licenciamento_venc', 'multas_itens',
       'multas_total_centavos', 'restricoes_detran', 'status', 'ultimo_licenciamento_ano',
     ])
@@ -45,7 +45,7 @@ describe('parsearDetranSc: mapeamento (MJL2938 real)', () => {
   it('multas em aberto com data/hora, local e vencimento do debito do mesmo auto', () => {
     expect(b.multas_itens).toHaveLength(1)
     expect(b.multas_itens[0]).toMatchObject({
-      auto: 'JV00226652', dataInfracao: '13/11/2025', horaInfracao: '11:31',
+      dataInfracao: '13/11/2025', horaInfracao: '11:31',
       dataVencimento: '13/04/2026', valor: 293.47, local: 'MONSENHOR GERCINO, 2105 - JOINVILLE/SC',
     })
   })
@@ -58,8 +58,8 @@ describe('parsearDetranSc: mapeamento (MJL2938 real)', () => {
   it('restricoes: SNG limpo; "Sem gravame" e "Em circulação" nao entram', () => {
     expect(b.restricoes_detran).toEqual([{ tipo: 'sng', texto: 'Registro de Alienação Fiduciária informado em 29/09/2026' }])
   })
-  it('historico de infracoes: contagem, pagas e recursos; sem km', () => {
-    expect(b.historico_infracoes).toEqual({ total: 14, pagas: 14, recursos: 1 })
+  it('historico de infracoes (pagas) nao e gravado; sem km', () => {
+    expect(b.historico_infracoes).toBeUndefined()
     expect(b.hodometro).toEqual([])
   })
 })

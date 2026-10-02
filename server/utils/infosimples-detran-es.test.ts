@@ -39,7 +39,7 @@ describe('parsearDetranEs', () => {
       indicativo_clonagem: 'Sim',
       ano_ultimo_licenciamento: '2025',
     }, HOJE, log)
-    expect(b.multas_itens.map((x) => x.auto)).toEqual(['ES1'])
+    expect(b.multas_itens.map((x) => x.descricao)).toEqual(['AVANCAR SINAL'])
     expect(b.multas_total_centavos).toBe(29347)
     expect(b.ipva_total_centavos).toBe(150000)
     expect(b.ipva_itens).toEqual([{ ano: 2026, vencimento: '10/04/2026', valor_centavos: 150000 }])

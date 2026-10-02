@@ -19,7 +19,7 @@ describe('parsearDetranCe', () => {
     expect(b.fonte).toBe('detran_ce')
     expect(b.multas_itens).toHaveLength(4)
     expect(b.multas_itens[0]).toMatchObject({
-      auto: 'SG00069363', descricao: 'ESTACIONAR EM LOCAL/HORARIO PROIBIDO ESPECIFICAMEN',
+      descricao: 'ESTACIONAR EM LOCAL/HORARIO PROIBIDO ESPECIFICAMEN',
       dataInfracao: '07/05/2021', dataVencimento: '03/01/2022', valor: 204.51,
     })
     expect(b.multas_total_centavos).toBe(20451 + 235612 + 22895 + 23447)
@@ -38,7 +38,7 @@ describe('parsearDetranPa', () => {
       infracoes_a_vencer: [{ numero_auto: 'PA2', infracao: 'VELOCIDADE', data: '05/09/2026', vencimento: '10/11/2026', normalizado_valor: 130.16 }],
       infracoes_efeito_suspensivo: [{ ait: 'PA3', valor: 'R$ 88,38' }],
     })
-    expect(b.multas_itens.map((x) => x.auto)).toEqual(['PA1', 'PA2'])
+    expect(b.multas_itens.map((x) => x.descricao)).toEqual(['AVANCAR SINAL', 'VELOCIDADE'])
     expect(b.multas_itens[0]).toMatchObject({ dataInfracao: '01/02/2026', horaInfracao: '10:30', valor: 293.47, orgao: 'DETRAN-PA' })
     expect(b.multas_itens[1]).toMatchObject({ descricao: 'VELOCIDADE', dataVencimento: '10/11/2026', valor: 130.16 })
     expect(b.multas_total_centavos).toBe(29347 + 13016)
