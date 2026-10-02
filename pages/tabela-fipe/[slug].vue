@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tituloModelo, descricaoModelo, tituloMarca, descricaoMarca } from '~/shared/fipe-seo'
 import { fipeBrands, findBrandModel } from '~/data/fipe-brands'
 import { enriquecimentoDe } from '~/shared/fipe-enriquecimento'
 import { MODELOS_LEILAO } from '~/shared/leilao-modelos'
@@ -33,9 +34,7 @@ const slugLeilaoDedicado = computed(() => {
 const pageData = isBrandPage ? brand : brandModel!.brand
 const model = brandModel?.model
 
-const ptMonths = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
 const _now = new Date()
-const currentMonth = ptMonths[_now.getMonth()]
 const currentYear = _now.getFullYear()
 
 // Load FIPE prices from pre-fetched static JSON
@@ -94,11 +93,11 @@ function onCtaClick() {
 if (isBrandPage) {
   // Brand hub page
   useHead({
-    title: `Tabela FIPE ${pageData.name} ${currentMonth} ${currentYear} - Todos os Modelos`,
+    title: tituloMarca(pageData.name, currentYear),
     meta: [
-      { name: 'description', content: `Tabela FIPE ${pageData.name} atualizada em ${currentMonth} ${currentYear}. Veja preços de todos os modelos: ${pageData.models.slice(0, 5).map(m => m.name).join(', ')} e mais. Grátis.` },
+      { name: 'description', content: descricaoMarca(pageData.name, pageData.models.map(m => m.name), currentYear) },
       { name: 'keywords', content: `tabela fipe ${pageData.name.toLowerCase()}, valor fipe ${pageData.name.toLowerCase()}, preço ${pageData.name.toLowerCase()}, fipe ${pageData.name.toLowerCase()} ${currentYear}` },
-      { property: 'og:title', content: `Tabela FIPE ${pageData.name} - Preços Atualizados` },
+      { property: 'og:title', content: tituloMarca(pageData.name, currentYear) },
       { property: 'og:description', content: `Veja os valores FIPE atualizados de todos os modelos ${pageData.name}.` },
     ],
     script: [
@@ -261,14 +260,11 @@ if (isBrandPage) {
   }
 
   useHead({
-    title: `Tabela FIPE ${pageData.name} ${model!.name} ${currentMonth} ${currentYear} - Valor Atualizado`,
+    title: tituloModelo(pageData.name, model!.name, priceTable.value, currentYear),
     meta: [
-      { name: 'description', content: priceTable.value.length > 0
-        ? `${pageData.name} ${model!.name} na Tabela FIPE ${currentMonth} ${currentYear}: a partir de ${priceTable.value[priceTable.value.length - 1]?.priceFormatted}. Veja preços por ano e histórico. Grátis.`
-        : `Tabela FIPE ${pageData.name} ${model!.name} atualizada em ${currentMonth} ${currentYear}. Preços para todos os anos e versões. Consulte pela placa e veja o valor exato.`
-      },
+      { name: 'description', content: descricaoModelo(pageData.name, model!.name, priceTable.value) },
       { name: 'keywords', content: `tabela fipe ${pageData.name.toLowerCase()} ${model!.name.toLowerCase()}, valor fipe ${model!.name.toLowerCase()}, preço ${pageData.name.toLowerCase()} ${model!.name.toLowerCase()}, fipe ${model!.name.toLowerCase()} ${currentYear}` },
-      { property: 'og:title', content: `Tabela FIPE ${pageData.name} ${model!.name} - Preço Atualizado` },
+      { property: 'og:title', content: tituloModelo(pageData.name, model!.name, priceTable.value, currentYear) },
       { property: 'og:description', content: `Veja o valor FIPE atualizado do ${pageData.name} ${model!.name} para todos os anos.` },
     ],
     script: schemaScripts,
