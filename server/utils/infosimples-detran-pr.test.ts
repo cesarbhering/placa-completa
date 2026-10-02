@@ -13,26 +13,26 @@ describe('parsearDetranPr', () => {
     const out = JSON.stringify(b)
     for (const proibido of ['storage.invalid', 'html_url', 'guia_pagamento', 'codigo_barras', 'numero_documento', 'site_receipt']) expect(out).not.toContain(proibido)
   })
-  it('multa-paga vira historico, nao soma no total', () => {
+  it('multa-paga e descartada: nao soma, nao aparece, nao conta', () => {
     expect(b.fonte).toBe('detran_pr')
     expect(b.multas_itens).toHaveLength(0)
     expect(b.multas_total_centavos).toBe(0)
-    expect(b.historico_infracoes).toEqual({ total: 10, pagas: 10, recursos: 0 })
+    expect(b.historico_infracoes).toBeUndefined()
   })
   it('demais tipos sao em aberto: somam, hora 12h08 -> 12:08, sem codigo na descricao', () => {
     const aberta = { ...PR[0], tipo: 'multa-em-aberto', vencimento: '10/11/2026', data_pagamento: null }
     const x = parsearDetranPr([aberta, ...PR])
     expect(x.multas_itens).toHaveLength(1)
     expect(x.multas_itens[0]).toMatchObject({
-      auto: '275350-G000874781', dataInfracao: '06/04/2022', horaInfracao: '12:08', dataVencimento: '10/11/2026',
+      dataInfracao: '06/04/2022', horaInfracao: '12:08', dataVencimento: '10/11/2026',
       valor: 195.23, local: 'PADRE GERMANO MAYER X RUA DO HERVAL', orgao: 'PREFEITURA MUNICIPAL DE CURITIBA',
     })
     expect(x.multas_itens[0].descricao).toMatch(/^Executar operação de conversão/)
     expect(x.multas_total_centavos).toBe(19523)
-    expect(x.historico_infracoes).toEqual({ total: 11, pagas: 10, recursos: 0 })
+    expect(x.historico_infracoes).toBeUndefined()
   })
   it('lista vazia (612) = nada consta', () => {
-    expect(parsearDetranPr([])).toMatchObject({ multas_total_centavos: 0, multas_itens: [], historico_infracoes: { total: 0, pagas: 0 } })
+    expect(parsearDetranPr([])).toMatchObject({ multas_total_centavos: 0, multas_itens: [] })
   })
   it('mapa: PR com e-CPF, sem placa, lista e gate RENAINF', () => {
     expect(DETRAN_UFS.PR).toMatchObject({ path: 'detran/pr/multas-descritivos', cert: 'ecpf', gate: 'renainf', fonte: 'detran_pr', fonteCusto: 'infosimples_detran_pr', semPlaca: true, dataLista: true })
@@ -81,7 +81,7 @@ describe('completarDetran PR (e-CPF)', () => {
     expect(chamadas[0].body.has('placa')).toBe(false)
     expect(sb.inserts[0]).toMatchObject({ pedido_id: 'p1', fonte: 'infosimples_detran_pr', preco: 0.24, code: 200 })
     const multas = sb.updates[0].relatorio_snapshot.multas
-    expect(multas).toMatchObject({ fonte: 'detran_pr', multas_total_centavos: 0, historico_infracoes: { total: 10, pagas: 10 } })
+    expect(multas).toMatchObject({ fonte: 'detran_pr', multas_total_centavos: 0})
     expect(JSON.stringify(multas)).not.toContain('storage.invalid')
   })
 

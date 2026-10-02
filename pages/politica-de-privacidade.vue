@@ -12,7 +12,7 @@ useHead({
   <div class="pc-page">
     <main class="pc-container">
       <h1 class="legal-title">Política de Privacidade</h1>
-        <p class="legal-updated">Última atualização: 14 de maio de 2026</p>
+        <p class="legal-updated">Última atualização: 1 de outubro de 2026</p>
 
         <div class="legal-content">
           <p>
@@ -82,26 +82,28 @@ useHead({
             proprietário), distribuídas nos seguintes Casos de Uso aprovados:
           </p>
           <ul>
-            <li><strong>CU-01, Dados cadastrais (RENAVAM):</strong> identificação e ficha técnica do veículo;</li>
-            <li><strong>CU-02, Restrições e gravames (RENAVAM):</strong> verificação de restrições e risco de comercialização;</li>
-            <li><strong>CU-03, Roubo e furto (RENAVAM / Infoseg):</strong> verificação da situação de ocorrência;</li>
-            <li><strong>CU-04, Débitos, multas e situação fiscal (RENAINF);</strong></li>
-            <li><strong>CU-05, Campanhas de recall (base de recall SENATRAN);</strong></li>
-            <li><strong>CU-06, Restrições judiciais (RENAJUD).</strong></li>
+            <li><strong>Consulta de Informações Veiculares para Prevenção de Fraude e Proteção do Crédito:</strong> dados técnicos do veículo e indicadores de recall, gravame, roubo/furto, RENAJUD e débitos agregados.</li>
+            <li><strong>Consulta de Infrações Vinculadas ao Veículo para Prevenção de Fraude e Proteção do Crédito:</strong> infrações em aberto do veículo, com número do auto, data, local, município/UF, órgão autuador, descrição e valor.</li>
           </ul>
+          <p>
+            Não são tratados dados do condutor infrator nem do proprietário. Infrações já
+            pagas são descartadas e não são exibidas nem armazenadas.
+          </p>
 
           <h3>3.4 Dados que NÃO são tratados</h3>
           <p>
             O Placa Completa <strong>não trata dados pessoais sensíveis</strong>
             (art. 5º, II, da LGPD), tais como dados biométricos, fotografia do titular,
             informações de saúde, exame toxicológico, dados de origem racial ou étnica,
-            convicção religiosa ou orientação sexual.
+            convicção religiosa ou orientação sexual. Também não são tratados dados do
+            condutor infrator, pontuação de CNH e medições de equipamentos de fiscalização
+            (velocidade, etilômetro).
           </p>
 
           <h2>4. Finalidades do Tratamento</h2>
           <ul>
             <li><strong>Execução do serviço:</strong> realizar a consulta veicular e enviar o resultado ao e-mail informado;</li>
-            <li><strong>Prevenção à fraude e proteção patrimonial:</strong> permitir ao consulente verificar restrições, gravames, roubo/furto, débitos e ônus antes de transações envolvendo o veículo;</li>
+            <li><strong>Prevenção à fraude e proteção patrimonial:</strong> permitir ao consulente verificar restrições, gravames, roubo/furto, débitos e ônus, infrações em aberto vinculadas ao veículo e indícios de clonagem de placa antes de transações envolvendo o veículo;</li>
             <li><strong>Proteção ao crédito:</strong> subsidiar análises de risco em negociações que envolvam o veículo como garantia ou objeto da operação;</li>
             <li><strong>Registro de operações:</strong> manter logs de consultas para controle interno, auditabilidade pela SENATRAN/Serpro e prevenção de abusos;</li>
             <li><strong>Melhoria do serviço:</strong> análise agregada e anônima de uso para aprimoramento da plataforma.</li>

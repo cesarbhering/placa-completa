@@ -12,7 +12,7 @@ useHead({
   <div class="pc-page">
     <main class="pc-container">
       <h1 class="legal-title">Termos de Uso</h1>
-        <p class="legal-updated">Última atualização: 14 de maio de 2026</p>
+        <p class="legal-updated">Última atualização: 1 de outubro de 2026</p>
 
         <div class="legal-content">
           <h2>1. Identificação do Prestador</h2>
@@ -57,12 +57,8 @@ useHead({
             incluindo:
           </p>
           <ul>
-            <li>Dados cadastrais (CU-01);</li>
-            <li>Restrições e gravames (CU-02);</li>
-            <li>Histórico de roubo e furto (CU-03);</li>
-            <li>Débitos, multas e situação fiscal (RENAINF, CU-04);</li>
-            <li>Campanhas de recall (CU-05);</li>
-            <li>Restrições judiciais (RENAJUD, CU-06).</li>
+            <li><strong>Consulta de Informações Veiculares para Prevenção de Fraude e Proteção do Crédito:</strong> dados técnicos do veículo e indicadores de recall, gravame, roubo/furto, RENAJUD e débitos agregados;</li>
+            <li><strong>Consulta de Infrações Vinculadas ao Veículo para Prevenção de Fraude e Proteção do Crédito:</strong> infrações em aberto do veículo, com número do auto, data, local, município/UF, órgão autuador, descrição e valor.</li>
           </ul>
           <p>
             Informações complementares (ex.: tabela FIPE) podem ser obtidas de fontes
@@ -76,6 +72,7 @@ useHead({
             <li>Consulta de valor de mercado para referência;</li>
             <li>Conferência de restrições, gravames, débitos, recall e situação judicial do veículo antes de uma transação;</li>
             <li>Verificação de campanhas de recall e de segurança veicular;</li>
+            <li>Conferência de infrações de trânsito em aberto vinculadas ao veículo, que impedem licenciamento e transferência (CTB arts. 128 e 131);</li>
             <li>Avaliação de risco em operações de crédito, financiamento, leasing, locação e seguros que envolvam o veículo;</li>
             <li>Conferência de informações para fins pessoais ou comerciais legítimos.</li>
           </ul>

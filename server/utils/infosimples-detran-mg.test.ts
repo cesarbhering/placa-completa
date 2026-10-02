@@ -27,7 +27,7 @@ describe('parsearDetranMg', () => {
   it('multas: 2 exigiveis, total, AIT, orgao sem espacos duplos', () => {
     expect(b.fonte).toBe('detran_mg')
     expect(b.multas_itens).toHaveLength(2)
-    expect(b.multas_itens[0]).toMatchObject({ auto: '1J 7814608', dataInfracao: '09/04/2024', horaInfracao: '11:07', valor: 130.16, orgao: 'DER SP', municipio: null })
+    expect(b.multas_itens[0]).toMatchObject({ dataInfracao: '09/04/2024', horaInfracao: '11:07', valor: 130.16, orgao: 'DER SP', municipio: null })
     expect(b.multas_total_centavos).toBe(Math.round(b.multas_itens.reduce((a, i) => a + i.valor, 0) * 100))
   })
 

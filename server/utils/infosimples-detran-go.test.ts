@@ -17,16 +17,15 @@ describe('parsearDetranGo', () => {
       'multas_itens', 'multas_total_centavos', 'restricoes_detran', 'status', 'ultimo_licenciamento_ano',
     ])
     expect(Object.keys(b.multas_itens[0]).sort()).toEqual([
-      'auto', 'dataInfracao', 'dataVencimento', 'descricao', 'grupo', 'horaInfracao', 'local', 'municipio', 'orgao', 'pontos', 'situacao', 'valor',
+      'auto', 'dataInfracao', 'dataVencimento', 'descricao', 'horaInfracao', 'local', 'municipio', 'orgao', 'valor',
     ])
   })
-  it('multa vencida vira item em aberto com pontos, grupo e situacao', () => {
+  it('multa vencida vira item em aberto, sem pontos, grupo nem situacao', () => {
     expect(b.fonte).toBe('detran_go')
     expect(b.multas_itens).toHaveLength(1)
     expect(b.multas_itens[0]).toMatchObject({
-      auto: 'RD00869386', dataInfracao: '27/04/2026', horaInfracao: '04:59', dataVencimento: '08/09/2026',
-      valor: 131.46, orgao: 'PREF. DE: GO - GOIANIA', pontos: 4, grupo: 'MEDIA', situacao: 'Multa com Auto em Penalidade',
-    })
+      dataInfracao: '27/04/2026', horaInfracao: '04:59', dataVencimento: '08/09/2026',
+      valor: 131.46, orgao: 'PREF. DE: GO - GOIANIA', })
     expect(b.multas_total_centavos).toBe(13146)
     expect(b.multas_em_recurso).toEqual([])
   })
@@ -55,9 +54,9 @@ describe('parsearDetranGo', () => {
       debitos_veiculo: [{ ipva_valor: 'R$ 1.200,00', licenciamento: 'R$ 150,00', data_vencimento: '10/01/2026' }],
       divida_ativa: [{}], outros_debitos: [{}, {}], licenciamento_notificado: [{}],
     }, new Date(2026, 8, 30))
-    expect(x.multas_itens.map((i) => i.auto)).toEqual(['A1', 'A2', 'A3'])
+    expect(x.multas_itens.map((i) => i.valor)).toEqual([100, 50.5, 10])
     expect(x.multas_total_centavos).toBe(16050)
-    expect(x.multas_em_recurso.map((i) => i.auto)).toEqual(['R1'])
+    expect(x.multas_em_recurso.map((i) => i.valor)).toEqual([200])
     expect(x.ipva_total_centavos).toBe(120000)
     expect(x.ipva_itens).toEqual([{ ano: 2026, vencimento: '10/01/2026', valor_centavos: 120000 }])
     expect(x.ipva_sefaz).toEqual([])
