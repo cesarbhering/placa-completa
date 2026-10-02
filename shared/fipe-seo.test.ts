@@ -17,7 +17,7 @@ describe('SEO /tabela-fipe/*', () => {
       expect(titulo).toMatch(/^Tabela FIPE .+ \d{4}: Valor Atualizado$/)
       expect(titulo).not.toMatch(/gr[aá]tis|—/i)
       const desc = descricaoModelo(marca, modelo, t)
-      expect(desc).toMatch(/Valor FIPE atualizado/)
+      expect(desc).toMatch(/na Tabela FIPE com valor atualizado/)
       expect(desc.length).toBeLessThanOrEqual(160)
       expect(desc).not.toMatch(/gr[aá]tis|—/i)
     }
@@ -27,6 +27,16 @@ describe('SEO /tabela-fipe/*', () => {
       const t = tituloModelo(v.brandName || 'Marca', v.modelName?.split(' ')[0] || slug, v.priceTable || [], 2026)
       expect(t.length, slug).toBeLessThanOrEqual(70)
     }
+  })
+  it('todas as rotas de modelo reais: description <= 160', async () => {
+    const { fipeBrands } = await import('../data/fipe-brands')
+    for (const b of Object.values(fipeBrands as Record<string, any>)) for (const m of b.models) {
+      const t = d[`${b.slug}-${m.slug}`]?.priceTable || d[m.slug]?.priceTable || []
+      expect(descricaoModelo(b.name, m.name, t).length, `${b.slug} ${m.name}`).toBeLessThanOrEqual(160)
+    }
+  })
+  it('Honda Motos vira Honda no modelo', () => {
+    expect(tituloModelo('Honda Motos', 'NXR 160 Bros', [], 2026)).toBe('Tabela FIPE Honda NXR 160 Bros: Valor Atualizado por Ano')
   })
   it('marca', () => {
     expect(tituloMarca('Yamaha', 2026)).toBe('Tabela FIPE Yamaha 2026: Valor Atualizado dos Modelos')
