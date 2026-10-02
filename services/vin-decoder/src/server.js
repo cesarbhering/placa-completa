@@ -6,6 +6,7 @@ import Fastify from 'fastify'
 import { decodeVin } from './decode.js'
 import { db } from './db.js'
 import { PLANTS_VERSAO, aplicarPlantas } from '../scripts/plants-br.mjs'
+import { WMI_MUNDO_VERSAO, aplicarWmiMundo } from '../scripts/wmi-mundo.mjs'
 
 const PORT = Number(process.env.PORT || 3000)
 const app = Fastify({ logger: true })
@@ -28,6 +29,21 @@ function sincronizarPlantas() {
   }
 }
 sincronizarPlantas()
+
+// Mesma ideia pra tabela de WMIs fora dos EUA (scripts/wmi-mundo.mjs).
+function sincronizarWmiMundo() {
+  try {
+    const gravada = Number(db.prepare("SELECT valor FROM meta WHERE chave = 'wmi_mundo_versao'").get()?.valor || 0)
+    const vazia = db.prepare('SELECT count(*) c FROM wmi_mundo').get().c === 0
+    if (!vazia && gravada >= WMI_MUNDO_VERSAO) return
+    const n = aplicarWmiMundo()
+    app.log.info(`wmi_mundo sincronizada: ${n} linhas, versao ${gravada || 'nenhuma'} -> ${WMI_MUNDO_VERSAO}`)
+  } catch (err) {
+    // Sem a tabela o decode segue: pais pela faixa ISO 3780, so sem montadora.
+    app.log.error({ err }, 'nao foi possivel sincronizar a tabela wmi_mundo')
+  }
+}
+sincronizarWmiMundo()
 
 app.get('/health', async () => ({ ok: true }))
 

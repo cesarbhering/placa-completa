@@ -11,7 +11,7 @@
 // VIN nao usa I, O, Q (confundem com 1/0) — validado aqui.
 
 import { db } from './db.js'
-import { paisPorFaixaWmi } from './paises.js'
+import { paisPorFaixaWmi, checksumAplicavel } from './paises.js'
 import crypto from 'node:crypto'
 
 const VALID_CHARS = /^[A-HJ-NPR-Z0-9]{17}$/
@@ -47,6 +47,7 @@ function checkDigitOk(vin) {
 
 const getWmiExact = db.prepare('SELECT * FROM wmi WHERE code = ?')
 const getWmiOverride = db.prepare('SELECT * FROM wmi_overrides WHERE code = ?')
+const getWmiMundo = db.prepare('SELECT * FROM wmi_mundo WHERE code = ?')
 // Duas buscas: o codigo exato da posicao 11 e, se nao houver, o curinga '*'
 // (WMI de fabrica unica, como o 9BD da Fiat, que so foi Betim).
 const getPlant = db.prepare('SELECT * FROM plants WHERE wmi_code = ? AND position_11 IN (?, \'*\')  ORDER BY position_11 = ? DESC LIMIT 1')
@@ -140,11 +141,15 @@ export function decodeVin(rawVin, opts = {}) {
   // resolver mesmo com a tabela `wmi` vazia.
   const override = getWmiOverride.get(wmi3) || (row ? getWmiOverride.get(row.code) : null) || getWmiOverride.get(wmi2)
 
-  const achouWmi = !!row || !!override
-  const fabricante = override?.display_name || row?.display_name || row?.manufacturer_raw || null
+  // WMI fora dos EUA (JMY, MMB, LVV, 988...) que o vPIC nao tem: tabela
+  // curada com fonte (scripts/wmi-mundo.mjs). Vem antes do vPIC porque o
+  // nome e curado (o vPIC devolve razao social crua, "Byd Auto Co.,").
+  const mundo = getWmiMundo.get(wmi3)
+  const achouWmi = !!row || !!override || !!mundo
+  const fabricante = override?.display_name || mundo?.display_name || row?.display_name || row?.manufacturer_raw || null
   // Sem WMI na base, o pais ainda sai da faixa ISO 3780 (ver paises.js):
-  // melhor "Argentina" que um campo vazio num relatorio pago.
-  const pais = override?.country || row?.country || paisPorFaixaWmi(wmi3) || null
+  // melhor "Japão" que um campo vazio num relatorio pago.
+  const pais = override?.country || mundo?.country || row?.country || paisPorFaixaWmi(wmi3) || null
   const regiao = override?.region || row?.region || regiaoPorPrimeiroChar(vin[0])
 
   const yearRow = getYear.get(vin[9])
@@ -198,7 +203,11 @@ export function decodeVin(rawVin, opts = {}) {
 
   return {
     valido: true,
-    checksumOk: checkDigitOk(vin),
+    // O digito verificador so e obrigatorio na America do Norte. Fora disso
+    // vem null ("nao se aplica"), nunca false: false sugeria chassi invalido
+    // pra um chassi japones ou brasileiro perfeitamente correto.
+    checksumOk: checksumAplicavel(vin) ? checkDigitOk(vin) : null,
+    checksumAplicavel: checksumAplicavel(vin),
     wmi: row?.code || wmi3,
     fabricante,
     pais,
