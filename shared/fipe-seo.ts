@@ -28,18 +28,23 @@ export function faixaFipe(tabela: LinhaFipe[]) {
   return { min: brl(min.price), minAno: rotulo(min), max: brl(max.price), maxAno: rotulo(max) }
 }
 
-export function tituloModelo(marca: string, modelo: string, tabela: LinhaFipe[], anoAtual: number): string {
+/** "Honda Motos" vira "Honda" no title/description do MODELO (a busca e "fipe bros 160"). */
+export const marcaCurta = (marca: string) => marca.replace(/\s+Motos$/i, '')
+
+export function tituloModelo(marcaBruta: string, modelo: string, tabela: LinhaFipe[], anoAtual: number): string {
+  const marca = marcaCurta(marcaBruta)
   const ano = anoMaisRecente(tabela, anoAtual)
   return ano
     ? `Tabela FIPE ${marca} ${modelo} ${ano}: Valor Atualizado`
     : `Tabela FIPE ${marca} ${modelo}: Valor Atualizado por Ano`
 }
 
-export function descricaoModelo(marca: string, modelo: string, tabela: LinhaFipe[]): string {
+export function descricaoModelo(marcaBruta: string, modelo: string, tabela: LinhaFipe[]): string {
+  const marca = marcaCurta(marcaBruta)
   const f = faixaFipe(tabela)
-  if (!f) return `Valor FIPE atualizado do ${marca} ${modelo} por ano-modelo e versão. Veja o histórico de preços e consulte o valor exato pela placa.`
+  if (!f) return `${marca} ${modelo} na Tabela FIPE com valor atualizado por ano-modelo e versão. Veja o histórico de preços e consulte o valor exato pela placa.`
   const faixa = f.min === f.max ? `${f.max} (${f.maxAno})` : `de ${f.min} (${f.minAno}) a ${f.max} (${f.maxAno})`
-  return `Valor FIPE atualizado do ${marca} ${modelo}: ${faixa}. Preço por ano-modelo, histórico e consulta do valor exato pela placa.`
+  return `${marca} ${modelo} na Tabela FIPE com valor atualizado: ${faixa}. Preço por ano-modelo e consulta do valor exato pela placa.`
 }
 
 export function tituloMarca(marca: string, anoAtual: number): string {
