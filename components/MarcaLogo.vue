@@ -13,6 +13,13 @@ import {
 
 const props = defineProps<{ marca?: string | null }>()
 
+// Marca que a simple-icons nao tem, com logo OFICIAL servido do nosso public/
+// (nunca link externo). Wordmark largo: ocupa a largura, nao o quadrado.
+// JAC: arquivo mandado pelo Cesar (01/out), limpo pra so os paths, tinta ink.
+const ARQUIVOS: Record<string, string> = {
+  JAC: '/marcas/jac.svg',
+}
+
 // A consulta entrega "MARCA/MODELO" ("GM/PRISMA JOY"; importado vem com
 // prefixo, "I/FORD FOCUS"). O token da marca e o que sobra antes da barra.
 const ICONES: Record<string, { path: string }> = {
@@ -44,14 +51,16 @@ const tokenMarca = computed(() => {
   return token
 })
 
-const icone = computed(() => ICONES[tokenMarca.value] || null)
+const arquivo = computed(() => ARQUIVOS[tokenMarca.value] || null)
+const icone = computed(() => (arquivo.value ? null : ICONES[tokenMarca.value] || null))
 const inicial = computed(() => tokenMarca.value.charAt(0) || '?')
 </script>
 
 <template>
   <!-- Decorativo: o nome da marca ja esta escrito ao lado. -->
-  <span v-if="tokenMarca" class="ml" aria-hidden="true">
-    <svg v-if="icone" viewBox="0 0 24 24" class="ml__svg">
+  <span v-if="tokenMarca" class="ml" :class="{ 'ml--larga': arquivo }" aria-hidden="true">
+    <img v-if="arquivo" :src="arquivo" alt="" class="ml__img">
+    <svg v-else-if="icone" viewBox="0 0 24 24" class="ml__svg">
       <path :d="icone.path" />
     </svg>
     <span v-else class="ml__mono">{{ inicial }}</span>
@@ -80,6 +89,14 @@ $c-graphite: #636363;
   // Tinta, nao a cor da marca: logos coloridos disputariam com o acento da
   // pagina, e o guia so admite um.
   fill: $c-ink;
+  display: block;
+}
+
+.ml--larga { width: 96px; }
+
+.ml__img {
+  width: 100%;
+  height: auto;
   display: block;
 }
 
