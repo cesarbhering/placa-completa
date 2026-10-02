@@ -1,6 +1,8 @@
 import { filtrarPorPlano, camposRestantes, PLANOS } from '../../../shared/planos'
 import { getValorCusto } from '../../utils/valor-custo'
 import { sanearBlocoMultas } from '../../utils/infosimples-detran'
+import { logoProxyDe } from '../../utils/logo-marca'
+import { lerPlacaCacheFresca } from '../../utils/placa-lookup'
 
 // Dados do relatorio premium pelo token (superficie PAGA, token e a credencial).
 // O corte por plano acontece AQUI, no servidor: o que a basica nao comprou nunca
@@ -267,6 +269,13 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Logo da montadora (fallback do MarcaLogo): o "logo" da apiplacas, do
+  // snapshot quando tiver, senao do placa_cache (so leitura, sem chamada paga).
+  // Sai so o caminho do NOSSO proxy, nunca a URL deles.
+  const respConsulta = Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response
+  let logoMarca = logoProxyDe(respConsulta?.logo) || logoProxyDe((pedido.preview as any)?.logo)
+  if (!logoMarca && consulta) logoMarca = logoProxyDe((await lerPlacaCacheFresca(pedido.placa).catch(() => null))?.logo)
+
   return {
     status: pedido.status,
     placa: pedido.placa,
@@ -277,6 +286,7 @@ export default defineEventHandler(async (event) => {
     camposRestantes: restantes,
     valorCusto,
     chassiOrigem,
+    logoMarca,
     historicoLeilao,
     recall,
     recallAutoritativo,
