@@ -920,7 +920,7 @@ onMounted(() => {
   try {
     Promise.resolve(mc.registerTool({
       name: 'consultar_placa',
-      description: 'Consulta gratis de um veiculo pela placa brasileira, igual ao formulario da pagina: mostra marca, modelo, ano e cor na tela.',
+      description: 'Consulta um veiculo pela placa brasileira, igual ao formulario da pagina: mostra marca, modelo, ano e cor na tela.',
       inputSchema: {
         type: 'object',
         properties: { placa: { type: 'string', description: 'Placa do veiculo, formato ABC1D23 ou ABC1234' } },
@@ -1321,7 +1321,7 @@ function applyEmailSuggestion() {
               role="search"
               aria-label="Consulta veicular por placa"
               toolname="consultar_placa"
-              tooldescription="Consulta gratis de um veiculo pela placa brasileira: mostra marca, modelo, ano e cor."
+              tooldescription="Consulta um veiculo pela placa brasileira: mostra marca, modelo, ano e cor."
               @submit.prevent="handleSubmit"
             >
               <label class="cb-plate-label" for="placa">Digite a placa do veículo</label>

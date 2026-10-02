@@ -12,14 +12,14 @@ export const AI_CATALOG = {
       identifier: `${NS}:api:llms`,
       displayName: 'PlacaCompleta /llms (resposta em texto)',
       type: 'text/plain',
-      url: `${BASE}/llms?query={pergunta}`,
+      url: `${BASE}/llms`,
       representativeQueries: ['valor fipe do gol 2018', 'seguro medio no rio de janeiro', 'carros usados valorizaram no ultimo mes'],
     },
     {
       identifier: `${NS}:api:llms-json`,
       displayName: 'PlacaCompleta /llms/json (resposta estruturada)',
       type: 'application/json',
-      url: `${BASE}/llms/json?query={pergunta}`,
+      url: `${BASE}/llms/json`,
       representativeQueries: ['valor fipe do onix 2020 em json', 'seguro do jeep compass', 'ranking do seguro mais caro por estado'],
     },
     {
