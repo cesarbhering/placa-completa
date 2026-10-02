@@ -602,8 +602,11 @@ export default defineEventHandler(async (event) => {
         const resend = new Resend(config.resendApiKey)
         const htmlEmail = buildEmailHtml(apiResponse, placaClean, chartUrl, icv5Result, rodizio, seguroEstimado, cotacaoUrl)
         await resend.emails.send({
-          from: 'PlacaCompleta <consulta@placacompleta.com.br>',
+          // E-mail a cliente sai de contato@ (regra do Cesar, 01/out), com a
+          // resposta caindo no mesmo endereco.
+          from: 'PlacaCompleta <contato@placacompleta.com.br>',
           to: sanitizedEmail as string,
+          reply_to: 'contato@placacompleta.com.br',
           subject: `PlacaCompleta - Consulta Veicular ${placaClean}`,
           html: htmlEmail,
         })
