@@ -94,3 +94,18 @@ function decodificar(s: string): string {
 export function estimarTokens(md: string): number {
   return Math.ceil(md.length / 4)
 }
+
+/** So na HOME: o que o resumo antigo dizia aos agentes (mesmo conteudo do /llms.txt). */
+export const SECAO_AGENTES_HOME = `## Para agentes de IA
+
+Consulta direta, sem navegar a interface:
+
+- Texto: https://placacompleta.com.br/llms?query=SUA_PERGUNTA
+- JSON: https://placacompleta.com.br/llms/json?query=SUA_PERGUNTA
+- Guia completo: https://placacompleta.com.br/llms.txt
+
+Exemplos:
+
+- https://placacompleta.com.br/llms?query=valor%20fipe%20do%20gol%202018
+- https://placacompleta.com.br/llms?query=seguro%20medio%20no%20rio%20de%20janeiro
+`

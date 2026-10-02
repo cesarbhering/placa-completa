@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pathPermiteMarkdown, prefereMarkdown, htmlParaMarkdown, estimarTokens } from './markdown-agentes'
+import { pathPermiteMarkdown, prefereMarkdown, htmlParaMarkdown, estimarTokens, SECAO_AGENTES_HOME } from './markdown-agentes'
 
 describe('prefereMarkdown', () => {
   it('agente pedindo markdown', () => {
@@ -47,4 +47,16 @@ describe('htmlParaMarkdown', () => {
     expect(md).not.toMatch(/alert|\.a\{|Menu|Rodape/)
   })
   it('tokens ~ chars/4', () => expect(estimarTokens('abcdefgh')).toBe(2))
+})
+
+describe('secao de agentes da home', () => {
+  it('links do /llms e 2 exemplos, sem "gratis"', () => {
+    expect(SECAO_AGENTES_HOME).toContain('## Para agentes de IA')
+    expect(SECAO_AGENTES_HOME).toContain('/llms?query=')
+    expect(SECAO_AGENTES_HOME).toContain('/llms/json?query=')
+    expect(SECAO_AGENTES_HOME).toContain('/llms.txt')
+    expect(SECAO_AGENTES_HOME.match(/llms\?query=[a-z]/g)).toHaveLength(2)
+    expect(SECAO_AGENTES_HOME).not.toMatch(/gr[aá]tis/i)
+    expect(SECAO_AGENTES_HOME).not.toContain('—')
+  })
 })

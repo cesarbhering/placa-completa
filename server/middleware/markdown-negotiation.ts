@@ -1,4 +1,4 @@
-import { pathPermiteMarkdown, prefereMarkdown, htmlParaMarkdown, estimarTokens } from '../utils/markdown-agentes'
+import { pathPermiteMarkdown, prefereMarkdown, htmlParaMarkdown, estimarTokens, SECAO_AGENTES_HOME } from '../utils/markdown-agentes'
 
 // "Markdown for Agents" (checklist isitagentready) feito NA ORIGEM.
 //
@@ -44,7 +44,10 @@ export default defineEventHandler(async (event) => {
     }
     const tipo = String(res.headers.get('content-type') || '')
     if (res.status !== 200 || !tipo.includes('text/html') || typeof res._data !== 'string') return
-    item = { em: agora, md: htmlParaMarkdown(res._data, `https://${host}${path}`) }
+    let md = htmlParaMarkdown(res._data, `https://${host}${path}`)
+    // So na home: links do /llms (o que o resumo antigo da home trazia).
+    if (path === '/') md = `${md}\n${SECAO_AGENTES_HOME}`
+    item = { em: agora, md }
     cache.set(chave, item)
     if (cache.size > 1000) cache.clear()
   }
