@@ -40,7 +40,9 @@ const props = defineProps<{
 
 // 'comprar' aceita uma origem opcional pra instrumentacao (o botao da TAG manda
 // 'tag'; o CTA principal manda vazio -> o pai usa 'layout_a').
-const CAMPOS_LEILAO = ['Data do leilão', 'Leiloeira', 'Motivo', 'Valor de venda']
+// Sem o campo de valor de venda (02/out): o relatorio pago nao mostra valor de leilao
+// desde o #425, entao a isca nao promete esse campo.
+const CAMPOS_LEILAO = ['Data do leilão', 'Leiloeira', 'Motivo', 'Condição do veículo']
 const CAMPOS_NOTIFICACAO = ['Órgão', 'Publicação do edital', 'Data prevista do leilão', 'Detalhes do edital']
 
 const emit = defineEmits<{ (e: 'comprar', origem?: string): void; (e: 'cta-visto'): void; (e: 'cta-na-tela', visivel: boolean): void }>()
@@ -191,7 +193,7 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
           <span>Placa e chassi cruzados com mais de 1 milhão de veículos leiloados</span>
         </div>
         <!-- So notificacao: os campos travados sao os do edital de notificacao.
-             Prometer "Leiloeira" e "Valor de venda" aqui seria vender o que o
+             Prometer "Leiloeira" e "Condição do veículo" aqui seria vender o que o
              relatorio nao tem. -->
         <div class="la-leilao-grid">
           <div v-for="rot in (soNotificacao ? CAMPOS_NOTIFICACAO : CAMPOS_LEILAO)" :key="rot" class="la-leilao-item">

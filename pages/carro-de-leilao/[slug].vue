@@ -8,7 +8,7 @@
 // valor) precisam valer em todas as paginas ao mesmo tempo. Se o texto fosse
 // escrito modelo a modelo, mudar a regra significaria revisar dezenove textos e
 // esquecer um.
-import { modeloPorSlug, MINIMO_DESFECHO, MINIMO_LOTES_VALOR, MODELOS_POR_VOLUME } from '~/shared/leilao-modelos'
+import { modeloPorSlug, MINIMO_DESFECHO, MODELOS_POR_VOLUME } from '~/shared/leilao-modelos'
 
 const route = useRoute()
 const modelo = modeloPorSlug(String(route.params.slug || ''))
@@ -25,7 +25,6 @@ const nf = new Intl.NumberFormat('pt-BR')
 
 /** Percentual so quando a amostra sustenta. Ver comentario em leilao-modelos.ts. */
 const mostraPercentual = m.desfechoAmostra >= MINIMO_DESFECHO && m.pctSucata != null
-const mostraValor = m.lotesComValor >= MINIMO_LOTES_VALOR && m.valorMedioReais != null
 
 const paragrafoBase = mostraPercentual
   ? `Nossa base já registra ${nf.format(m.registros)} passagens de ${m.nomeCompleto} em leilão, entre os anos ${m.anoDe} e ${m.anoAte}. `
@@ -36,12 +35,8 @@ const paragrafoBase = mostraPercentual
     + `Como é um modelo mais recente, a quantidade de registros com desfecho detalhado (sucata, recuperável, conservado) ainda é pequena pra tirar uma `
     + `conclusão estatística confiável sobre o padrão predominante, por isso preferimos não destacar percentual aqui até a amostra crescer.`
 
-const paragrafoValor = mostraValor
-  ? `Quando há valor de arremate registrado (${nf.format(m.lotesComValor)} lotes), a média histórica de arremate na base é de `
-    + `R$ ${nf.format(m.valorMedioReais!)}. Esse é o valor histórico de arremate na base, não é preço de mercado atual, e não deve ser usado como `
-    + `estimativa de compra hoje.`
-  : `A amostra de lotes com valor de arremate registrado pra esse modelo ainda é pequena (${nf.format(m.lotesComValor)}), então não exibimos um valor `
-    + `médio até a base ter mais dados.`
+// Valor de arremate SAIU (decisao do Cesar, 02/out): nenhum valor de leilao
+// em R$ em lugar nenhum do site, nem media historica.
 
 // Os outros modelos, pra pessoa que caiu no Gol e na verdade quer o Uno.
 const outros = MODELOS_POR_VOLUME.filter((o) => o.slug !== m.slug).slice(0, 8)
@@ -99,7 +94,6 @@ useHead({
 
         <h2>O que a nossa base mostra sobre o {{ m.nome }}</h2>
         <p>{{ paragrafoBase }}</p>
-        <p>{{ paragrafoValor }}</p>
 
         <h2>Como descobrir se o seu {{ m.nome }} já foi de leilão</h2>
         <p>
