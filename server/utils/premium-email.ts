@@ -279,7 +279,7 @@ export async function enviarEstornoEmail(estorno: Estorno): Promise<boolean> {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' },
       body: {
-        from: 'PlacaCompleta <noreply@placacompleta.com.br>',
+        from: 'PlacaCompleta <contato@placacompleta.com.br>',
         to: [email],
         reply_to: 'contato@placacompleta.com.br',
         subject: `Seu pagamento da consulta ${placa} foi reembolsado`,
@@ -313,10 +313,10 @@ export async function enviarRelatorioEmail(entrega: Entrega): Promise<boolean> {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' },
       body: {
-        from: 'PlacaCompleta <noreply@placacompleta.com.br>',
+        from: 'PlacaCompleta <contato@placacompleta.com.br>',
         to: [email],
-        // Remetente e noreply, mas resposta acidental nao pode cair no vazio:
-        // quem apertar "responder" chega no contato do mesmo jeito.
+        // Regra do Cesar (01/out): e-mail a cliente sai de contato@, nunca de
+        // noreply@; a resposta tambem cai em contato@.
         reply_to: 'contato@placacompleta.com.br',
         subject: assunto,
         html: montarHtml(link, plano, placa),
