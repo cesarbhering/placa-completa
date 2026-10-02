@@ -756,8 +756,11 @@ export default defineNuxtConfig({
     // "ganhou" a corrida de que dominio pediu primeiro) pra todo mundo,
     // mesmo bug do prerender so que preenchido em runtime em vez de build.
     // Custo aceito: TTFB da home sobe (sem cache de borda no HTML).
-    "/termos-de-uso": { prerender: true },
-    "/politica-de-privacidade": { prerender: true },
+    // Termos e Politica: swr em vez de prerender. Rota prerenderizada vira
+    // asset estatico servido ANTES de qualquer server/middleware, e ai o
+    // Markdown for Agents (middleware/markdown-negotiation.ts) nunca rodava.
+    "/termos-de-uso": { swr: 86400 },
+    "/politica-de-privacidade": { swr: 86400 },
     "/consulta-placa": { swr: 86400 },
     "/consulta-gratis": { swr: 86400 },
     "/como-consultar-placa": { swr: 86400 },
