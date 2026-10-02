@@ -101,167 +101,98 @@ useHead({
 </script>
 
 <template>
-  <div class="desktop content-page">
-    <main>
-      <div class="win-window">
-      <div class="win-window__titlebar">
-        <span>Tabela FIPE</span>
-        <div class="win-window__titlebar-buttons">
-          <span class="win-window__titlebar-btn">_</span>
-          <span class="win-window__titlebar-btn">&square;</span>
-          <span class="win-window__titlebar-btn">&times;</span>
+  <div class="pc-page">
+    <main class="pc-container">
+      <h1 class="pc-h1">Tabela FIPE - Valor de Veículos</h1>
+
+      <div class="pc-prose">
+        <p class="pc-lead">
+          Consulte o valor na <strong>Tabela FIPE</strong> de qualquer carro ou moto.
+          Selecione a marca abaixo para ver os modelos e preços atualizados. Você também pode
+          <NuxtLink to="/">consultar pela placa</NuxtLink> e receber o valor FIPE exato do
+          veículo no seu e-mail.
+        </p>
+
+        <h2>Carros</h2>
+        <div class="brand-grid">
+          <NuxtLink
+            v-for="brand in carBrands"
+            :key="brand.slug"
+            :to="`/tabela-fipe/${brand.slug}`"
+            class="brand-card"
+          >
+            {{ brand.name }}
+          </NuxtLink>
+        </div>
+
+        <h2>Motos</h2>
+        <div class="brand-grid">
+          <NuxtLink
+            v-for="brand in motoBrands"
+            :key="brand.slug"
+            :to="`/tabela-fipe/${brand.slug}`"
+            class="brand-card"
+          >
+            {{ brand.name }}
+          </NuxtLink>
+        </div>
+
+        <div class="pc-cta">
+          <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
+            Consultar Placa Grátis
+          </NuxtLink>
+        </div>
+
+        <h2>O que é a Tabela FIPE?</h2>
+        <p>
+          A <strong>Tabela FIPE</strong> (Fundação Instituto de Pesquisas Econômicas) é a referência
+          mais utilizada no Brasil para determinar o valor médio de veículos. Atualizada mensalmente,
+          ela serve como base para negociações de compra e venda, cálculo de seguros, financiamentos
+          e até para definir o valor do IPVA. Os preços refletem a média praticada no mercado
+          nacional para cada marca, modelo e ano de fabricação.
+        </p>
+
+        <h2>Como consultar o valor FIPE pela placa?</h2>
+        <ol>
+          <li>Acesse a <NuxtLink to="/">página principal do Placa Completa</NuxtLink></li>
+          <li>Digite seu e-mail</li>
+          <li>Informe a placa do veículo (formato antigo ou Mercosul)</li>
+          <li>Clique em "Consultar Placa"</li>
+          <li>Receba no seu e-mail o valor FIPE atualizado, junto com marca, modelo, ano e outros dados</li>
+        </ol>
+
+        <h2>Perguntas Frequentes</h2>
+        <div v-for="faq in faqs" :key="faq.question" class="pc-faq__item">
+          <h3>{{ faq.question }}</h3>
+          <p>{{ faq.answer }}</p>
         </div>
       </div>
-      <div class="win-window__body">
-        <h1 class="seo-title">Tabela FIPE - Valor de Veículos</h1>
-
-        <div class="seo-content">
-          <p>
-            Consulte o valor na <strong>Tabela FIPE</strong> de qualquer carro ou moto.
-            Selecione a marca abaixo para ver os modelos e preços atualizados. Você também pode
-            <NuxtLink to="/">consultar pela placa</NuxtLink> e receber o valor FIPE exato do
-            veículo no seu e-mail.
-          </p>
-
-          <h2>Carros</h2>
-          <div class="brand-grid">
-            <NuxtLink
-              v-for="brand in carBrands"
-              :key="brand.slug"
-              :to="`/tabela-fipe/${brand.slug}`"
-              class="brand-card"
-            >
-              {{ brand.name }}
-            </NuxtLink>
-          </div>
-
-          <h2>Motos</h2>
-          <div class="brand-grid">
-            <NuxtLink
-              v-for="brand in motoBrands"
-              :key="brand.slug"
-              :to="`/tabela-fipe/${brand.slug}`"
-              class="brand-card"
-            >
-              {{ brand.name }}
-            </NuxtLink>
-          </div>
-
-          <div class="text-center mt-md">
-            <NuxtLink to="/" class="win-btn win-btn--primary" @click="onCtaClick">
-              Consultar Placa Grátis
-            </NuxtLink>
-          </div>
-
-          <h2>O que é a Tabela FIPE?</h2>
-          <p>
-            A <strong>Tabela FIPE</strong> (Fundação Instituto de Pesquisas Econômicas) é a referência
-            mais utilizada no Brasil para determinar o valor médio de veículos. Atualizada mensalmente,
-            ela serve como base para negociações de compra e venda, cálculo de seguros, financiamentos
-            e até para definir o valor do IPVA. Os preços refletem a média praticada no mercado
-            nacional para cada marca, modelo e ano de fabricação.
-          </p>
-
-          <h2>Como consultar o valor FIPE pela placa?</h2>
-          <ol>
-            <li>Acesse a <NuxtLink to="/">página principal do Placa Completa</NuxtLink></li>
-            <li>Digite seu e-mail</li>
-            <li>Informe a placa do veículo (formato antigo ou Mercosul)</li>
-            <li>Clique em "Consultar Placa"</li>
-            <li>Receba no seu e-mail o valor FIPE atualizado, junto com marca, modelo, ano e outros dados</li>
-          </ol>
-
-          <h2>Perguntas Frequentes</h2>
-          <div v-for="faq in faqs" :key="faq.question" class="faq-item">
-            <h3>{{ faq.question }}</h3>
-            <p>{{ faq.answer }}</p>
-          </div>
-        </div>
-      </div>
-    </div>
     </main>
   </div>
 </template>
 
 <style lang="scss" scoped>
-.seo-title {
-  font-family: $font-display;
-  font-size: 1.75rem;
-  color: $navy-electric;
-  text-align: center;
-  margin-bottom: $space-md;
-}
-
-.seo-content {
-  font-size: 0.8125rem;
-  line-height: 1.6;
-  color: $graphite;
-
-  p { margin-bottom: $space-md; }
-
-  h2 {
-    font-family: $font-display;
-    font-size: 1.25rem;
-    color: $navy-electric;
-    margin: $space-md 0 $space-sm;
-  }
-
-  ol {
-    padding-left: $space-lg;
-    margin-bottom: $space-md;
-  }
-
-  li { margin-bottom: $space-xs; }
-
-  a {
-    color: $smart-blue;
-    text-decoration: underline;
-  }
-}
-
+// Design novo (tokens --pc-*, classes .pc-* de _content-v2.scss). So o visual
+// mudou: texto, links, schema e head sao os mesmos do layout antigo.
 .brand-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: $space-xs;
-  margin-bottom: $space-md;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 12px 0 20px;
 }
 
 .brand-card {
-  @include win-border-raised;
-  background: $win-bg;
-  padding: $space-xs $space-sm;
-  text-align: center;
-  font-family: $font-display;
+  display: block;
+  padding: 12px 14px;
+  border: 1px solid var(--pc-hairline);
+  border-radius: 12px;
+  background: var(--pc-canvas);
+  color: var(--pc-ink);
+  font-weight: 600;
   font-size: 0.9375rem;
-  color: $graphite;
   text-decoration: none;
-  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 
-  &:active {
-    border-color: $win-darker $win-white $win-white $win-darker;
-  }
-
-  &:hover {
-    background: $powder-blue;
-  }
-}
-
-.faq-item {
-  margin-bottom: $space-md;
-  padding: $space-sm;
-  @include win-border-sunken;
-  background: $win-white;
-
-  h3 {
-    font-family: $font-display;
-    font-size: 1rem;
-    color: $navy-electric;
-    margin-bottom: $space-xs;
-  }
-
-  p {
-    margin-bottom: 0;
-    font-size: 0.8125rem;
-  }
+  &:hover { border-color: var(--pc-blue); background: var(--pc-cloud); }
 }
 </style>
