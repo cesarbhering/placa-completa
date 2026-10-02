@@ -12,13 +12,12 @@ describe('parsearDetranDf', () => {
     const out = JSON.stringify(b)
     for (const proibido of ['storage.invalid', 'site_receipt', 'CONDUTOR', 'responsavel', '11460504119', '9XXXXXXXXXXXXXXXX', 'renavam', 'chassi']) expect(out).not.toContain(proibido)
   })
-  it('infracao em aberto com valor corrigido, hora, pontos e grupo', () => {
+  it('infracao em aberto com valor corrigido e hora, sem pontos nem grupo', () => {
     expect(b.fonte).toBe('detran_df')
     expect(b.multas_itens).toHaveLength(1)
     expect(b.multas_itens[0]).toMatchObject({
-      auto: 'KK02569188', orgao: 'DETRAN - DF', dataInfracao: '12/06/2026', horaInfracao: '16:01', dataVencimento: '21/09/2026',
-      valor: 131.46, descricao: 'TRANSITAR VELOCIDADE SUPERIOR MAX PERMIT ATE 20%', pontos: 4, grupo: 'MEDIA',
-    })
+      orgao: 'DETRAN - DF', dataInfracao: '12/06/2026', horaInfracao: '16:01', dataVencimento: '21/09/2026',
+      valor: 131.46, descricao: 'TRANSITAR VELOCIDADE SUPERIOR MAX PERMIT ATE 20%', })
     expect(b.multas_total_centavos).toBe(13146)
     expect(b.licenciamento_centavos).toBe(0)
     expect(b.ipva_total_centavos).toBe(0)

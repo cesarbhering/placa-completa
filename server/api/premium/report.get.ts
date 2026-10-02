@@ -1,5 +1,6 @@
 import { filtrarPorPlano, camposRestantes, PLANOS } from '../../../shared/planos'
 import { getValorCusto } from '../../utils/valor-custo'
+import { sanearBlocoMultas } from '../../utils/infosimples-detran'
 
 // Dados do relatorio premium pelo token (superficie PAGA, token e a credencial).
 // O corte por plano acontece AQUI, no servidor: o que a basica nao comprou nunca
@@ -147,7 +148,7 @@ export default defineEventHandler(async (event) => {
       recall = snap.recall ?? null
       recallAutoritativo = snap.recallAutoritativo ?? null
       recallMontadora = snap.recallMontadora ?? null
-      multas = snap.multas ?? null
+      multas = snap.multas ? sanearBlocoMultas(snap.multas) : null
       // Self-heal: a entrega busca recall/multas UMA vez e, se a raspagem deu
       // timeout, o campo ficou null "pra sempre". Ao SERVIR um pedido entregue,
       // se o INDICADOR diz que ha recall/multa mas o bloco esta null, redispara
@@ -238,7 +239,7 @@ export default defineEventHandler(async (event) => {
         recall = snap.recall ?? null
         recallAutoritativo = snap.recallAutoritativo ?? null
         recallMontadora = snap.recallMontadora ?? null
-        multas = snap.multas ?? null
+        multas = snap.multas ? sanearBlocoMultas(snap.multas) : null
         segmento = snap.segmento ?? 'outro'
       } else {
         const snapshot = await montarRelatorioSnapshot(supabase, {
@@ -251,7 +252,7 @@ export default defineEventHandler(async (event) => {
         historicoLeilao = snapshot.historicoLeilao
         recall = snapshot.recall ?? null
         recallAutoritativo = snapshot.recallAutoritativo ?? null
-        multas = snapshot.multas ?? null
+        multas = snapshot.multas ? sanearBlocoMultas(snapshot.multas) : null
         segmento = snapshot.segmento
         // Backfill lazy: grava pra proxima visita ja vir do snapshot. Fail-open
         // — se der erro (corrida com outra leitura, rede etc), so tenta de novo
