@@ -83,7 +83,7 @@ useHead({
           </p>
           <ul>
             <li><strong>Consulta de Informações Veiculares para Prevenção de Fraude e Proteção do Crédito:</strong> dados técnicos do veículo e indicadores de recall, gravame, roubo/furto, RENAJUD e débitos agregados.</li>
-            <li><strong>Consulta de Infrações Vinculadas ao Veículo para Prevenção de Fraude e Proteção do Crédito:</strong> infrações em aberto do veículo, com data, local, município/UF, órgão autuador, descrição e valor.</li>
+            <li><strong>Consulta de Infrações Vinculadas ao Veículo para Prevenção de Fraude e Proteção do Crédito:</strong> infrações em aberto do veículo, com número do auto, data, local, município/UF, órgão autuador, descrição e valor.</li>
           </ul>
           <p>
             Não são tratados dados do condutor infrator nem do proprietário. Infrações já

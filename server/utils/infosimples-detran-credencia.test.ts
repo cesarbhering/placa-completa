@@ -19,7 +19,7 @@ import ES from './__fixtures__/infosimples-detran-es.json'
 // do proprietario, nada de pontuacao nem de medicao (velocidade, etilometro), e
 // infracao paga descartada (nem contagem). Este teste injeta tudo isso nos
 // dados brutos de cada UF e prova que nada atravessa pro bloco gravado.
-const PROIBIDO = /velocidade|pontos|pontuacao|grupo_infracao|condutor|responsavel|proprietario|cpf|cnh|etilometro|historico_infracoes|pagas|numero_auto|codigo_renainf|\bauto\b|situacao_infracao/i
+const PROIBIDO = /velocidade|pontos|pontuacao|grupo_infracao|condutor|responsavel|proprietario|cpf|cnh|etilometro|historico_infracoes|pagas|numero_auto|codigo_renainf|situacao_infracao/i
 
 // Uma infracao "suja" com todo campo proibido que as UFs costumam mandar.
 const sujo = {
@@ -61,7 +61,10 @@ describe('credenciamento: nenhum campo proibido sai do bloco DETRAN (13 UFs)', (
         }
       }
       const json = JSON.stringify({ itens: b.multas_itens, recursos: b.multas_em_recurso, hist: b.historico_infracoes })
-      expect(json).not.toMatch(PROIBIDO)
+      // Chave do JSON ("auto":) e permitida (decisao do Cesar, 01/out); as
+      // chaves brutas do Infosimples (numero_auto, ait...) nao.
+      expect(json.replace(/"auto":/g, '')).not.toMatch(PROIBIDO)
+      if (b.multas_itens?.length) expect(b.multas_itens[0].auto).toBe('X1')
       expect(json).not.toContain('FULANO')
       expect(json).not.toContain('CICRANO')
       expect(json).not.toContain('123.456.789')
@@ -79,7 +82,7 @@ describe('credenciamento: nenhum campo proibido sai do bloco DETRAN (13 UFs)', (
       historico_infracoes: { total: 10, pagas: 10, recursos: 0 },
     }
     const b: any = sanearBlocoMultas(antigo)
-    expect(b.multas_itens).toEqual([{ descricao: 'X', valor: 1 }])
+    expect(b.multas_itens).toEqual([{ auto: 'A1', descricao: 'X', valor: 1 }])
     expect(b.historico_infracoes).toBeUndefined()
   })
 })

@@ -286,6 +286,7 @@ function ordenarIpva<T extends { ano: number | null }>(l: T[]): T[] {
 }
 
 export interface DetranMulta {
+  auto: string | null
   descricao: string | null
   dataInfracao: string | null
   horaInfracao: string | null
@@ -327,6 +328,7 @@ export function parsearDetranSp(data: any, hoje: Date | number = new Date()): De
 
   // Multas em aberto.
   const itens: DetranMulta[] = (Array.isArray(d.debitos_multas) ? d.debitos_multas : []).map((m: any) => ({
+    auto: m?.auto_infracao ?? null,
     descricao: m?.descricao ?? null,
     dataInfracao: m?.data_infracao ?? null,
     horaInfracao: m?.hora_infracao ?? null,
@@ -482,6 +484,7 @@ export function parsearDetranSc(data: any, hoje: Date = new Date()) {
     const auto = m?.num_auto ? String(m.num_auto) : null
     const deb = auto ? porClasse.multa.find((x) => String(x?.classe || '').includes(auto)) : null
     return {
+      auto,
       descricao: m?.descricao ?? null,
       dataInfracao,
       horaInfracao: hora,
@@ -561,6 +564,7 @@ export function parsearDetranMg(data: any, hoje: Date = new Date()) {
 
   const multasArr: any[] = Array.isArray(d.multas) ? d.multas : []
   const itens: DetranMulta[] = multasArr.map((m: any) => ({
+    auto: texto(m?.ait),
     descricao: texto(m?.descricao),
     dataInfracao: texto(m?.data),
     horaInfracao: texto(m?.hora),
@@ -626,6 +630,7 @@ export function parsearDetranBa(data: any) {
   const itens: DetranMulta[] = infracoes.map((m: any) => {
     const det: any = porControle.get(String(m?.numero_controle ?? '')) || {}
     return {
+      auto: texto(det.ait),
       descricao: texto(m?.descricao) || texto(det.descricao),
       dataInfracao: texto(m?.data) || texto(det.data_hora_infracao),
       horaInfracao: null,
@@ -675,6 +680,7 @@ export function parsearDetranRs(data: any) {
   const abertas = todas.filter((x) => !paga(x) && !semNada(x))
 
   const itens: DetranMulta[] = abertas.map((m: any) => ({
+    auto: texto(m?.serie),
     descricao: texto(m?.descricao),
     dataInfracao: texto(m?.data),
     horaInfracao: texto(m?.hora),
@@ -723,6 +729,7 @@ export function parsearDetranGo(data: any, hoje: Date = new Date()) {
   const lista = (k: string): any[] => (Array.isArray(inf[k]) ? inf[k] : [])
   const valorDe = (m: any) => (typeof m?.valor === 'number' ? m.valor : moeda(m?.valor))
   const item = (m: any) => ({
+    auto: texto(m?.ait),
     descricao: texto(m?.infracao_descricao),
     dataInfracao: texto(m?.data_infracao),
     horaInfracao: texto(m?.hora_infracao),
@@ -817,6 +824,7 @@ export function parsearDetranPr(lista: any) {
   const abertas = todas.filter((x) => !paga(x))
 
   const itens: DetranMulta[] = abertas.map((m: any) => ({
+    auto: texto(m?.ait) || texto(m?.auto),
     // "60412 - Executar ..." -> sem o codigo do enquadramento na frente.
     descricao: texto(String(m?.descricao ?? '').replace(/^\s*\d+\s*-\s*/, '')),
     dataInfracao: texto(m?.data),
@@ -863,6 +871,7 @@ export function parsearDetranDf(data: any, hoje: Date = new Date()) {
   const itens = infr.map((m: any) => {
     const corrigido = num(m?.valor_corrigido)
     return {
+      auto: texto(m?.numero_auto),
       descricao: texto(m?.desc_infracao),
       dataInfracao: texto(m?.data_infracao),
       horaInfracao: horaHhMm(m?.hora_infracao),
@@ -932,6 +941,7 @@ export function multaGenerica(m: any) {
   const vencBruto = String(primeiro(m, ['data_vencimento', 'vencimento']) ?? '')
   const valorBruto = primeiro(m, ['normalizado_valor', 'valor_normalizado', 'normalizado_valor_atual', 'valor_corrigido', 'valor_atual', 'valor', 'normalizado_valor_original', 'valor_original'])
   return {
+    auto: texto(primeiro(m, ['ait', 'auto', 'auto_infracao', 'numero_auto', 'numero_ait', 'serie'])),
     descricao: texto(primeiro(m, ['descricao', 'dados_infracao', 'infracao_descricao', 'desc_infracao', 'descricao_infracao', 'infracao', 'enquadramento'])),
     dataInfracao,
     horaInfracao: horaHhMm(primeiro(m, ['hora_infracao', 'hora'])) || hora,
@@ -1220,12 +1230,12 @@ export type ResultadoCompletarDetran =
 // ---------- Saneador final (credenciamento SERPRO/Credencia, 01/out) ----------
 //
 // O que a Politica de Privacidade promete: da infracao em aberto do veiculo so
-// saem data, hora, local, municipio/UF, orgao autuador, descricao, valor e
+// saem numero do auto, data, hora, local, municipio/UF, orgao autuador, descricao, valor e
 // vencimento. Nada do condutor infrator nem do proprietario, nada de pontuacao
 // nem de medicao de equipamento (velocidade, etilometro), e infracao ja paga e
 // descartada (nem contagem). Os parsers ja montam assim; este filtro e a
 // garantia final, por LISTA DE PERMISSAO, no que vai pro snapshot.
-export const CAMPOS_MULTA_PERMITIDOS = ['descricao', 'dataInfracao', 'horaInfracao', 'local', 'municipio', 'uf', 'orgao', 'valor', 'dataVencimento'] as const
+export const CAMPOS_MULTA_PERMITIDOS = ['auto', 'descricao', 'dataInfracao', 'horaInfracao', 'local', 'municipio', 'uf', 'orgao', 'valor', 'dataVencimento'] as const
 
 export function sanearMultaItem(m: any): Record<string, any> | null {
   if (!m || typeof m !== 'object') return null

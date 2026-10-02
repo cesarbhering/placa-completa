@@ -1952,6 +1952,7 @@ onUnmounted(() => {
                         <span v-if="mt.dataInfracao">{{ mt.dataInfracao }}<span v-if="mt.horaInfracao && !String(mt.horaInfracao).startsWith('00:00')"> às {{ String(mt.horaInfracao).slice(0, 5) }}</span></span>
                         <span v-if="mt.local"> · {{ mt.local }}<span v-if="mt.municipio">, {{ mt.municipio }}</span></span>
                         <span v-if="mt.orgao"> · {{ mt.orgao }}</span>
+                        <span v-if="mt.auto"> · auto {{ mt.auto }}</span>
                         <span v-if="mt.dataVencimento"> · vencimento {{ mt.dataVencimento }}</span>
                       </p>
                     </li>
@@ -1994,6 +1995,7 @@ onUnmounted(() => {
                         <span v-if="mt.dataInfracao">{{ mt.dataInfracao }}</span>
                         <span v-if="mt.local"> · {{ mt.local }}</span>
                         <span v-if="mt.orgao"> · {{ mt.orgao }}</span>
+                        <span v-if="mt.auto"> · auto {{ mt.auto }}</span>
                         <span> · em recurso</span>
                       </p>
                     </li>
