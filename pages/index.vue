@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { cederAoNavegador } from '~/shared/ceder'
 import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL } from '~/shared/planos'
 import { sinalDaResposta, fraseSinalNaTela, type SinalNaTela } from '~/shared/sinal-leilao-resposta'
 import { sinalRecallDaResposta, fraseRecallNaTela } from '~/shared/sinal-recall-resposta'
@@ -424,7 +425,9 @@ function openPremiumCheckout(plano?: unknown) {
 // `premium_checkout_open` porque o checkout tambem abre por outros caminhos
 // (link com ?plano=, hero apos CTA sem placa): sem este evento nao da pra
 // saber quantos cliques no CTA principal viram checkout aberto.
-function cliqueCtaCompleta(origem: string) {
+async function cliqueCtaCompleta(origem: string) {
+  // INP: abrir o checkout monta o modal inteiro; cede antes (shared/ceder.ts).
+  await cederAoNavegador()
   enfileirarEventoFunil('cta_completa_click', {
     placa: placa.value || null,
     plano: 'completa',
@@ -1114,6 +1117,9 @@ function changePwaEmail() {
 }
 
 async function handleSubmit() {
+  // INP: o toque em "Consultar" so termina depois do re-render da home
+  // inteira (formulario -> carregando). Cede antes; ver shared/ceder.ts.
+  await cederAoNavegador()
   emailError.value = ''
   placaError.value = ''
   message.value = ''
