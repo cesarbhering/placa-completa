@@ -176,12 +176,13 @@ useHead({
 // mudou: texto, links, schema e head sao os mesmos do layout antigo.
 .brand-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
   gap: 10px;
   margin: 12px 0 20px;
 }
 
-.brand-card {
+// .pc-prose a pinta link de azul com sublinhado; o card inteiro e um link.
+.pc-prose a.brand-card {
   display: block;
   padding: 12px 14px;
   border: 1px solid var(--pc-hairline);
@@ -191,6 +192,7 @@ useHead({
   font-weight: 600;
   font-size: 0.9375rem;
   text-decoration: none;
+  border-bottom: 1px solid var(--pc-hairline);
   transition: border-color 0.15s ease, background 0.15s ease;
 
   &:hover { border-color: var(--pc-blue); background: var(--pc-cloud); }
