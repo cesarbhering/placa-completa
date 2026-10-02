@@ -12,21 +12,21 @@ describe('parsearDetranRs', () => {
   })
   it('bloco so com as chaves da whitelist', () => {
     expect(Object.keys(b).sort()).toEqual([
-      'fonte', 'historico_infracoes', 'hodometro', 'hodometro_suspeito', 'ipva_total_centavos',
+      'fonte', 'hodometro', 'hodometro_suspeito', 'ipva_total_centavos',
       'licenciamento_atrasado_ano', 'licenciamento_centavos', 'multas_itens', 'multas_total_centavos',
       'restricoes_detran', 'status',
     ])
   })
-  it('em aberto = situacao diferente de Paga; pagas so no historico', () => {
+  it('em aberto = situacao diferente de Paga; pagas descartadas', () => {
     expect(b.fonte).toBe('detran_rs')
     // 'Vencida em 10/10/2025' entra; 'Paga' e a linha sem situacao/valor ficam so no historico.
     expect(b.multas_itens).toHaveLength(1)
-    expect(b.multas_itens[0]).toMatchObject({ auto: 'E030472171', dataInfracao: '20/05/2025', horaInfracao: '01:53', dataVencimento: '10/10/2025', valor: 195.23 })
-    expect(b.historico_infracoes).toEqual({ total: 3, pagas: 1, recursos: 0 })
+    expect(b.multas_itens[0]).toMatchObject({ dataInfracao: '20/05/2025', horaInfracao: '01:53', dataVencimento: '10/10/2025', valor: 195.23 })
+    expect(b.historico_infracoes).toBeUndefined()
     expect(b.multas_total_centavos).toBe(Math.round(b.multas_itens.reduce((a, i) => a + i.valor, 0) * 100))
   })
   it('situacao vazia COM valor conta como em aberto', () => {
-    const x = parsearDetranRs({ infracoes: [{ situacao: '', valor_normalizado: 130.16, serie: 'X1' }] })
+    const x = parsearDetranRs({ infracoes: [{ valor_normalizado: 130.16, serie: 'X1' }] })
     expect(x.multas_itens).toHaveLength(1)
   })
   it('mapa: RS e-CNPJ, gate RENAINF, custo proprio', () => {

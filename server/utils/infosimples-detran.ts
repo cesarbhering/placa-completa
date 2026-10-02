@@ -519,8 +519,8 @@ export function parsearDetranSc(data: any, hoje: Date = new Date()) {
   const divida: any[] = Array.isArray(d.divida_ativa) ? d.divida_ativa : []
   if (divida.length) restricoes.push({ tipo: 'divida_ativa', texto: `Consta dívida ativa (${divida.length} ${divida.length === 1 ? 'registro' : 'registros'})` })
 
-  const hist: any[] = Array.isArray(d.historico_infracoes_notificadas) ? d.historico_infracoes_notificadas : []
-  const recursos: any[] = Array.isArray(d.recursos_infracoes) ? d.recursos_infracoes : []
+  // Infracoes JA notificadas/pagas (historico_infracoes_notificadas) e recursos
+  // NAO entram (credenciamento SERPRO, 01/out): so infracao em aberto.
 
   return {
     status: 'ok' as const,
@@ -537,12 +537,6 @@ export function parsearDetranSc(data: any, hoje: Date = new Date()) {
     licenciamento_atrasado_ano: licAtrasadoAno,
     ultimo_licenciamento_ano: licenciadoAno,
     restricoes_detran: restricoes,
-    // Historico (secundario): infracoes ja notificadas (a maioria paga) e recursos.
-    historico_infracoes: {
-      total: hist.length,
-      pagas: hist.filter((h) => /paga/i.test(String(h?.status || ''))).length,
-      recursos: recursos.length,
-    },
   }
 }
 
@@ -671,7 +665,7 @@ export function parsearDetranBa(data: any) {
 
 /**
  * Em aberto = situacao diferente de "Paga" (vencida, a vencer, em notificacao),
- * exceto a linha sem situacao e sem valor. As pagas so entram na contagem do historico. O vencimento sai do
+ * exceto a linha sem situacao e sem valor. As pagas sao DESCARTADAS (nem contagem). O vencimento sai do
  * texto "Vencida em DD/MM/AAAA" / "Vence em DD/MM/AAAA".
  */
 export function parsearDetranRs(data: any) {
@@ -680,7 +674,7 @@ export function parsearDetranRs(data: any) {
   const todas: any[] = Array.isArray(d.infracoes) ? d.infracoes : []
   const paga = (x: any) => /^paga$/i.test(String(x?.situacao ?? '').trim())
   // Sem situacao E com valor zero (visto no IWC7G10 real) nao e debito: seria
-  // uma "multa em aberto" de R$ 0,00. Fica so na contagem do historico.
+  // uma "multa em aberto" de R$ 0,00. E descartada.
   const valorDe = (x: any) => (typeof x?.valor_normalizado === 'number' ? x.valor_normalizado : moeda(x?.valor))
   const semNada = (x: any) => !String(x?.situacao ?? '').trim() && !(valorDe(x) > 0)
   const abertas = todas.filter((x) => !paga(x) && !semNada(x))
@@ -708,8 +702,6 @@ export function parsearDetranRs(data: any) {
     multas_itens: itens,
     licenciamento_atrasado_ano: null as number | null,
     restricoes_detran: [] as { tipo: string; texto: string }[],
-    // Historico (secundario): total notificado e quantas ja pagas.
-    historico_infracoes: { total: todas.length, pagas: todas.filter(paga).length, recursos: 0 },
   }
 }
 
@@ -746,9 +738,6 @@ export function parsearDetranGo(data: any, hoje: Date = new Date()) {
     local: texto(m?.local_infracao),
     municipio: null,
     orgao: texto(m?.orgao_atuador),
-    pontos: m?.pontos != null && Number.isFinite(Number(m.pontos)) ? Number(m.pontos) : null,
-    grupo: texto(m?.grupo_infracao),
-    situacao: texto(m?.situacao),
   })
   const itens = GO_ABERTAS.flatMap((k) => lista(k)).map(item)
   const emRecurso = lista('sob_juice').map(item)
@@ -825,8 +814,8 @@ function horaHhMm(s: any): string | null {
 }
 
 /**
- * Em aberto = tipo diferente de "multa-paga" (soma no total). As pagas so
- * entram no historico (contagem), nao no total devido.
+ * Em aberto = tipo diferente de "multa-paga" (soma no total). As pagas sao
+ * DESCARTADAS: nao sao exibidas, guardadas nem contadas (credenciamento SERPRO).
  */
 export function parsearDetranPr(lista: any) {
   const todas: any[] = Array.isArray(lista) ? lista.filter((x) => x && typeof x === 'object') : []
@@ -858,8 +847,6 @@ export function parsearDetranPr(lista: any) {
     multas_itens: itens,
     licenciamento_atrasado_ano: null as number | null,
     restricoes_detran: [] as { tipo: string; texto: string }[],
-    // Historico (secundario): total notificado e quantas ja pagas.
-    historico_infracoes: { total: todas.length, pagas: todas.filter(paga).length, recursos: 0 },
   }
 }
 
@@ -893,8 +880,6 @@ export function parsearDetranDf(data: any, hoje: Date = new Date()) {
       local: texto(m?.local_multa),
       municipio: null,
       orgao: texto(m?.orgao_autuador),
-      pontos: m?.pontos_infracao != null && Number.isFinite(Number(m.pontos_infracao)) ? Number(m.pontos_infracao) : null,
-      grupo: texto(m?.grupo_infracao),
     }
   })
 
@@ -954,7 +939,6 @@ export function multaGenerica(m: any) {
   const dataBruta = String(primeiro(m, ['data_infracao', 'data', 'data_hora_infracao', 'data_hora']) ?? '')
   const { data: dataInfracao, hora } = dataHoraBr(dataBruta)
   const vencBruto = String(primeiro(m, ['data_vencimento', 'vencimento']) ?? '')
-  const pontos = primeiro(m, ['pontos', 'pontos_infracao', 'pontuacao'])
   const valorBruto = primeiro(m, ['normalizado_valor', 'valor_normalizado', 'normalizado_valor_atual', 'valor_corrigido', 'valor_atual', 'valor', 'normalizado_valor_original', 'valor_original'])
   return {
     auto: texto(primeiro(m, ['ait', 'auto', 'auto_infracao', 'numero_auto', 'numero_ait', 'serie'])),
@@ -966,7 +950,6 @@ export function multaGenerica(m: any) {
     local: texto(primeiro(m, ['local', 'local_infracao', 'local_multa'])),
     municipio: texto(primeiro(m, ['municipio', 'municipio_infracao'])),
     orgao: texto(primeiro(m, ['orgao', 'orgao_autuador', 'orgao_atuador'])),
-    pontos: pontos != null && Number.isFinite(Number(pontos)) ? Number(pontos) : null,
   }
 }
 
@@ -1244,8 +1227,39 @@ export type ResultadoCompletarDetran =
   | { ok: true; code: number; preco: number; multasCentavos: number; temAlgo: boolean }
   | { ok: false; pulado?: string; code?: number; preco?: number; motivo?: string }
 
+// ---------- Saneador final (credenciamento SERPRO/Credencia, 01/out) ----------
+//
+// O que a Politica de Privacidade promete: da infracao em aberto do veiculo so
+// saem numero do auto, data, hora, local, municipio/UF, orgao autuador, descricao, valor e
+// vencimento. Nada do condutor infrator nem do proprietario, nada de pontuacao
+// nem de medicao de equipamento (velocidade, etilometro), e infracao ja paga e
+// descartada (nem contagem). Os parsers ja montam assim; este filtro e a
+// garantia final, por LISTA DE PERMISSAO, no que vai pro snapshot.
+export const CAMPOS_MULTA_PERMITIDOS = ['auto', 'descricao', 'dataInfracao', 'horaInfracao', 'local', 'municipio', 'uf', 'orgao', 'valor', 'dataVencimento'] as const
+
+export function sanearMultaItem(m: any): Record<string, any> | null {
+  if (!m || typeof m !== 'object') return null
+  const out: Record<string, any> = {}
+  for (const k of CAMPOS_MULTA_PERMITIDOS) if (m[k] !== undefined) out[k] = m[k]
+  return out
+}
+
+/** Bloco DETRAN pronto pro snapshot: itens e recursos so com os campos permitidos, sem historico de pagas. */
+export function sanearBlocoMultas<T extends Record<string, any>>(bloco: T): T {
+  if (!bloco || typeof bloco !== 'object') return bloco
+  const b: any = { ...bloco }
+  if (Array.isArray(b.multas_itens)) b.multas_itens = b.multas_itens.map(sanearMultaItem).filter(Boolean)
+  if (Array.isArray(b.multas_em_recurso)) b.multas_em_recurso = b.multas_em_recurso.map(sanearMultaItem).filter(Boolean)
+  delete b.historico_infracoes
+  return b
+}
+
 /** data[0] do Infosimples -> bloco normalizado da UF (o que vai pro snapshot). */
 export function blocoDetranDaUf(uf: UfDetran, data: any) {
+  return sanearBlocoMultas(blocoDetranDaUfBruto(uf, data))
+}
+
+function blocoDetranDaUfBruto(uf: UfDetran, data: any) {
   if (uf === 'SC') return parsearDetranSc(data)
   if (uf === 'MG') return parsearDetranMg(data)
   if (uf === 'BA') return parsearDetranBa(data)

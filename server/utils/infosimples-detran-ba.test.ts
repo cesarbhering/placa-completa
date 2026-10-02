@@ -22,7 +22,7 @@ describe('parsearDetranBa', () => {
     expect(b.fonte).toBe('detran_ba')
     expect(b.multas_itens).toHaveLength(1)
     expect(b.multas_itens[0]).toMatchObject({
-      auto: 'N005097437', dataInfracao: '02/05/2026', dataVencimento: '26/06/2026', valor: 195.23,
+      dataInfracao: '02/05/2026', dataVencimento: '26/06/2026', valor: 195.23,
       municipio: 'FEIRA DE SANTANA', orgao: 'DEPTO. POLICIA RODOVIARIA FEDERAL', local: 'BA - BR 324 - KM 514.00 - D',
     })
     expect(b.multas_total_centavos).toBe(19523)
