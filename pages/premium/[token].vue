@@ -1384,28 +1384,9 @@ function humanizarPaisFabricante(bruto: any, ehPais: boolean): string | null {
   if (!gritando) return s
   return s.toLowerCase().split(' ').map((w, i) => (CONECTIVOS_PT.has(w) && i > 0 ? w : w.charAt(0).toUpperCase() + w.slice(1))).join(' ')
 }
-// Frase da fabrica: o dado que mais encanta neste bloco nao e o codigo, e
-// saber que aquele carro nasceu numa cidade com nome. Fica em cima da tabela,
-// em uma linha, e so aparece quando a planta foi CONFIRMADA (ver
-// services/vin-decoder/scripts/plants-br.mjs). Sem confirmacao, nao ha frase:
-// montadora e pais continuam nas linhas da tabela, sem inventar cidade.
-const frasePlanta = computed<string | null>(() => {
-  const co: any = data.value?.chassiOrigem
-  const p = co?.plantaDetalhe
-  if (!p?.cidade) return null
-  const fabricante = humanizarPaisFabricante(co.fabricante, false)
-  // Fabrica fora do Brasil: "em Martorell, Espanha" (o pais da planta pode
-  // nao ser o da sede da marca: Audi Q3 2016 e feito na Espanha).
-  const paisPlanta = humanizarPaisFabricante(p.pais, true)
-  const local = p.uf
-    ? `${p.cidade} (${p.uf})`
-    : (paisPlanta && paisPlanta !== 'Brasil' ? `${p.cidade}, ${paisPlanta}` : p.cidade)
-  const feminino = segmento.value === 'moto'
-  const verbo = feminino ? 'Fabricada' : 'Fabricado'
-  return fabricante
-    ? `${verbo} pela ${fabricante} em ${local}.`
-    : `${verbo} em ${local}.`
-})
+// Sem frase-resumo "Fabricado pela X em Y." (pedido do Cesar, 02/out): a
+// ficha logo abaixo (Fabricante, Pais de fabricacao, Ano-modelo, Planta) ja
+// diz tudo.
 
 const fichaChassiOrigem = computed(() => {
   const co = data.value?.chassiOrigem
@@ -1447,7 +1428,7 @@ const fichaColunas = computed(() => {
     { key: 'cadastral', titulo: 'Cadastral', linhas: fichaCadastral.value },
     { key: 'tecnica', titulo: 'Técnica', linhas: fichaTecnica.value },
     { key: 'importacao', titulo: 'Importação', linhas: fichaImportacao.value },
-    { key: 'chassiOrigem', titulo: 'Origem do chassi', linhas: fichaChassiOrigem.value, nota: frasePlanta.value },
+    { key: 'chassiOrigem', titulo: 'Origem do chassi', linhas: fichaChassiOrigem.value, nota: null },
   ]
   const blocos = candidatos.filter((b) => b.linhas.length > 0)
   const pesos = blocos.map((b) => b.linhas.length + 1.5)
