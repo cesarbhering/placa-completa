@@ -907,6 +907,41 @@ function formatPlaca(value: string): string {
   return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 7)
 }
 
+// ---------- WebMCP (ferramenta pro agente do navegador) ----------
+// Faz EXATAMENTE o que a pessoa faz no formulario: preenche a placa e dispara
+// a mesma consulta gratis (handleSubmit -> /api/consulta), sujeita aos mesmos
+// limites. Devolve o que a tela mostra. So registra se o navegador expoe a
+// API (document.modelContext; Chrome antigo: navigator.modelContext).
+let webMcpAbort: AbortController | null = null
+onMounted(() => {
+  const mc: any = (document as any).modelContext || (navigator as any).modelContext
+  if (!mc || typeof mc.registerTool !== 'function') return
+  webMcpAbort = new AbortController()
+  try {
+    Promise.resolve(mc.registerTool({
+      name: 'consultar_placa',
+      description: 'Consulta um veiculo pela placa brasileira, igual ao formulario da pagina: mostra marca, modelo, ano e cor na tela.',
+      inputSchema: {
+        type: 'object',
+        properties: { placa: { type: 'string', description: 'Placa do veiculo, formato ABC1D23 ou ABC1234' } },
+        required: ['placa'],
+      },
+      async execute(args: { placa?: string }) {
+        placa.value = formatPlaca(String(args?.placa || ''))
+        placaError.value = ''
+        await handleSubmit()
+        const b = resultadoBasico.value
+        const texto = placaError.value
+          || (b ? [b.marca, b.modelo, b.ano && `ano ${b.ano}`, b.cor && `cor ${b.cor}`, b.uf].filter(Boolean).join(', ') : '')
+          || message.value
+          || 'Consulta enviada. Veja o resultado na pagina.'
+        return { content: [{ type: 'text', text: texto }] }
+      },
+    }, { signal: webMcpAbort.signal })).catch(() => {})
+  } catch { /* API experimental: falhou, a pagina segue igual */ }
+})
+onUnmounted(() => webMcpAbort?.abort())
+
 function onPlacaInput(e: Event) {
   const target = e.target as HTMLInputElement
   placa.value = formatPlaca(target.value)
@@ -1280,12 +1315,22 @@ function applyEmailSuggestion() {
               Restrição, roubo, gravame, registro de leilão, dívida. <b>O que o vendedor não conta, a placa revela.</b>
             </p>
 
-            <form class="cb-plate-panel" @submit.prevent="handleSubmit" novalidate role="search" aria-label="Consulta veicular por placa">
+            <form
+              class="cb-plate-panel"
+              novalidate
+              role="search"
+              aria-label="Consulta veicular por placa"
+              toolname="consultar_placa"
+              tooldescription="Consulta um veiculo pela placa brasileira: mostra marca, modelo, ano e cor."
+              @submit.prevent="handleSubmit"
+            >
               <label class="cb-plate-label" for="placa">Digite a placa do veículo</label>
               <PlacaMercosul :erro="!!placaError">
                 <input
                   id="placa"
                   ref="placaRef"
+                  name="placa"
+                  toolparamdescription="Placa do veiculo, formato ABC1D23 ou ABC1234"
                   :value="placa"
                   type="text"
                   class="cb-plate__input"

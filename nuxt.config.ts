@@ -494,6 +494,7 @@ export default defineNuxtConfig({
           : []),
         // Nudge para agentes/LLMs descobrirem o backend de consulta (reverse mullet)
         { rel: "llms", href: "/llms.txt" },
+        { rel: "ai-catalog", href: "/.well-known/ai-catalog.json" },
         {
           rel: "icon",
           type: "image/svg+xml",
@@ -780,6 +781,8 @@ export default defineNuxtConfig({
     handlers: [
       { route: "/.well-known/api-catalog", handler: "~/server/handlers/well-known-api-catalog.get.ts" },
       { route: "/.well-known/skills/index.json", handler: "~/server/handlers/agent-skills-index.get.ts" },
+      { route: "/.well-known/ai-catalog.json", handler: "~/server/handlers/well-known-ai-catalog.get.ts" },
+      { route: "/.well-known/mcp/server-card.json", handler: "~/server/handlers/well-known-mcp-server-card.get.ts" },
       { route: "/agent-skills/index.json", handler: "~/server/handlers/agent-skills-index.get.ts" },
     ],
   },
