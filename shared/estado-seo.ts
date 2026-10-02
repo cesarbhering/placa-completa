@@ -10,5 +10,14 @@ export function tituloEstado(uf: string, nome: string): string {
 }
 
 export function descricaoEstado(uf: string, nome: string): string {
-  return `Consulta de placa de veículo de ${nome} (${uf}): marca, modelo, ano e FIPE na hora, e relatório completo com dados do DETRAN, leilão, gravame e roubo.`
+  return `Consulta de placa de veículo ${deEstado(uf, nome)} (${uf}): marca, modelo, ano e FIPE na hora, e relatório completo com dados do DETRAN, leilão, gravame e roubo.`
+}
+
+// "do Rio de Janeiro", "da Bahia", "de Alagoas": artigo de cada UF.
+const DA = new Set(['BA', 'PB'])
+const DO = new Set(['AC', 'AP', 'AM', 'CE', 'DF', 'ES', 'MA', 'MT', 'MS', 'PA', 'PI', 'PR', 'RJ', 'RN', 'RS', 'TO'])
+export function deEstado(uf: string, nome: string): string {
+  if (DA.has(uf)) return `da ${nome}`
+  if (DO.has(uf)) return `do ${nome}`
+  return `de ${nome}`
 }
