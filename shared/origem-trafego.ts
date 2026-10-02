@@ -48,3 +48,44 @@ export function origemDaSessao(): Record<string, string> | undefined {
     return undefined
   }
 }
+
+// ---------- Pagina de entrada e referrer (plano SEO 02/out, item #13) ----------
+// Sem isto nao da pra separar organico de direto nas vendas. Capturado no
+// PRIMEIRO acesso da sessao (plugin track-origin) e enviado junto da consulta
+// gratis; vai pra consultas.referrer e consultas.landing_path. Do referrer so
+// o host (sem path nem query, que podem trazer termo de busca ou id de
+// terceiro); da entrada so o path.
+
+export interface EntradaSessao { referrer: string | null; landing_path: string | null }
+
+const NOSSOS_HOSTS = /(^|\.)placacompleta\.com\.br$|(^|\.)olhona(moto|caminhao)\.com\.br$/i
+
+export function referrerLimpo(ref: unknown): string | null {
+  if (typeof ref !== 'string' || !ref) return null
+  let u: URL
+  try { u = new URL(ref) } catch { return null }
+  if (!/^https?:$/.test(u.protocol)) return null
+  if (NOSSOS_HOSTS.test(u.hostname)) return null
+  // So o host: o path de alguns referrers carrega id de conversa/sessao.
+  return `${u.protocol}//${u.hostname}`.slice(0, 300)
+}
+
+export function pathLimpo(p: unknown): string | null {
+  if (typeof p !== 'string' || !p.startsWith('/')) return null
+  return p.split('?')[0].split('#')[0].slice(0, 200) || null
+}
+
+export function sanearEntrada(bruto: unknown): EntradaSessao {
+  const o = (bruto && typeof bruto === 'object' ? bruto : {}) as Record<string, unknown>
+  return { referrer: referrerLimpo(o.referrer), landing_path: pathLimpo(o.landing_path) }
+}
+
+/** Le a entrada guardada pelo plugin track-origin. Client-side. */
+export function entradaDaSessao(): EntradaSessao | undefined {
+  try {
+    const raw = sessionStorage.getItem('pc_entrada')
+    return raw ? JSON.parse(raw) : undefined
+  } catch {
+    return undefined
+  }
+}

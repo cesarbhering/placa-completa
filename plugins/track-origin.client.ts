@@ -5,7 +5,7 @@
  * pode aterrissar em /tabela-fipe-por-placa e so consultar depois na home.
  * O POST /api/consulta le daqui e grava na linha da consulta.
  */
-import { CAMPOS_ORIGEM } from '~/shared/origem-trafego'
+import { CAMPOS_ORIGEM, referrerLimpo, pathLimpo } from '~/shared/origem-trafego'
 
 export default defineNuxtPlugin(() => {
   try {
@@ -20,5 +20,17 @@ export default defineNuxtPlugin(() => {
     }
   } catch {
     // sessionStorage indisponivel (modo privado antigo etc) - segue sem origem
+  }
+  // Pagina de entrada e referrer: SO no primeiro acesso da sessao (navegar
+  // dentro do site nao sobrescreve). Ver shared/origem-trafego.ts.
+  try {
+    if (!sessionStorage.getItem('pc_entrada')) {
+      sessionStorage.setItem('pc_entrada', JSON.stringify({
+        referrer: referrerLimpo(document.referrer),
+        landing_path: pathLimpo(window.location.pathname),
+      }))
+    }
+  } catch {
+    // idem
   }
 })
