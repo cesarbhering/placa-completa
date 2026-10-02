@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tituloEstado, descricaoEstado } from '~/shared/estado-seo'
 import { states } from '~/data/states'
 import { capitalSlugByStateSlug } from '~/data/capitals'
 import { getStateSeoIntro } from '~/data/state-seo-intros'
@@ -34,11 +35,11 @@ function onCtaClick() {
 }
 
 useHead({
-  title: `Consultar Placa ${data.uf}: Leilão, Roubo, Débitos e FIPE`,
+  title: tituloEstado(data.uf, data.name),
   meta: [
-    { name: 'description', content: `Consulte qualquer placa registrada em ${data.name} (${data.uf}). Veja marca, modelo, ano, situação e valor FIPE, e o relatório completo com leilão, gravame, roubo e débitos.` },
-    { name: 'keywords', content: `consultar placa ${data.uf}, consulta placa ${data.name.toLowerCase()}, consultar veículo ${data.name.toLowerCase()}, consulta placa ${data.uf} leilão` },
-    { property: 'og:title', content: `Consultar Placa ${data.uf}: Dados do Veículo` },
+    { name: 'description', content: descricaoEstado(data.uf, data.name) },
+    { name: 'keywords', content: `consulta placa detran ${data.uf.toLowerCase()}, consultar placa ${data.uf}, consulta placa ${data.name.toLowerCase()}, consultar veículo ${data.name.toLowerCase()}, consulta placa ${data.uf} leilão` },
+    { property: 'og:title', content: tituloEstado(data.uf, data.name) },
     { property: 'og:description', content: `Consulte qualquer placa registrada em ${data.name} e veja marca, modelo, ano, situação e valor FIPE na hora.` },
   ],
   link: [
