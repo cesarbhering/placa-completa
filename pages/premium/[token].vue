@@ -1112,7 +1112,8 @@ const multasIndisponivel = computed(() => (data.value?.multas as any)?.status ==
 // sempre) o loading ESPERA a consulta ao DETRAN antes de abrir o relatorio. O
 // servidor grava o bloco (ok) ou 'indisponivel' (erro, sem credencial); a tela
 // solta assim que um dos dois chega. Limite: 150s desde a entrega (a chamada
-// ao Infosimples corta em 120s) e, pra quem acabou de pagar, nunca menos de
+// ao Infosimples pode levar minutos; depois disso o relatorio abre e o bloco de
+// multas segue acompanhando, ver multasSemResposta) e, pra quem acabou de pagar, nunca menos de
 // 60s desde que a tela viu a entrega (protege de relogio adiantado). Passou
 // disso, abre o relatorio com "indisponivel" no bloco de multas.
 const LIMITE_DETRAN_MS = 150 * 1000
@@ -1136,8 +1137,21 @@ const mostrandoLaudo = computed(() => !!data.value && !error.value && entregue.v
 const aguardandoDetran = computed(() =>
   prazoDetran.value != null && !multasDetalhe.value && !multasIndisponivel.value && agoraMs.value < prazoDetran.value,
 )
-// Passou do limite sem bloco: a nota do bloco vira "indisponivel", nao "Consultando...".
-const multasSemResposta = computed(() => prazoDetran.value != null && !multasDetalhe.value && !aguardandoDetran.value)
+// Passou do limite da tela de espera sem bloco: o relatorio abre, mas o bloco
+// de multas segue "Consultando o DETRAN-XX" e a tela continua acompanhando
+// (pollMultas) ate o servidor gravar o status final. "Indisponivel" SO quando o
+// backend gravar (incidente 01-03/out: a consulta da Infosimples pode levar
+// minutos, com 1 retry, e a tela dizia indisponivel antes da resposta).
+const multasSemResposta = computed(() => prazoDetran.value != null && !multasDetalhe.value && !multasIndisponivel.value && !aguardandoDetran.value)
+// Acompanhamento ate 12 min da entrega (300 s + retry + 330 s no pior caso).
+const LIMITE_ACOMPANHAR_MS = 12 * 60 * 1000
+const acompanhamentoEsgotado = ref(false)
+// Relatorio antigo (entregue ha mais de 30 min) sem bloco nem status: a consulta
+// nao vai mais chegar; vale o texto de indisponivel de sempre.
+const multasSemRespostaAntigo = computed(() => {
+  const ent = new Date(data.value?.entregue_em || '').getTime()
+  return multasSemResposta.value && Number.isFinite(ent) && Date.now() - ent > 30 * 60 * 1000
+})
 let tickDetran: any = null
 let pollDetran: any = null
 function pararEsperaDetran() {
@@ -1582,17 +1596,26 @@ onMounted(() => {
   }, 15000)
 })
 
-// Multas (SP) sem detalhe ainda: a entrega deixou a busca rodando; a tela
-// acompanha por ate 6 minutos (a consulta ao portal e mais lenta que a de
-// recall) e para assim que o bloco chega.
+// Multas sem detalhe ainda (relatorio ja aberto): a entrega deixou a busca do
+// DETRAN rodando; a tela acompanha ate 12 min da entrega e o bloco entra sozinho
+// quando o servidor grava ok/sem_debito/indisponivel. Tambem comeca quando a
+// tela de espera (aguardandoDetran) termina sem o bloco.
 let pollMultas: any = null
-onMounted(() => {
+function acompanharMultas() {
+  if (pollMultas || acompanhamentoEsgotado.value) return
   if ((!multaIndicadorSP.value && !ehVeiculoSpTela.value) || multasDetalhe.value || multasIndisponivel.value || aguardandoDetran.value) return
-  const ate = Date.now() + 6 * 60 * 1000
+  const ent = new Date(data.value?.entregue_em || '').getTime()
+  const ate = Number.isFinite(ent) ? ent + LIMITE_ACOMPANHAR_MS : Date.now() + LIMITE_ACOMPANHAR_MS
+  if (Date.now() > ate) { acompanhamentoEsgotado.value = true; return }
   pollMultas = setInterval(async () => {
-    if (Date.now() > ate || multasDetalhe.value || multasIndisponivel.value) { clearInterval(pollMultas); return }
+    if (multasDetalhe.value || multasIndisponivel.value) { clearInterval(pollMultas); pollMultas = null; return }
+    if (Date.now() > ate) { clearInterval(pollMultas); pollMultas = null; acompanhamentoEsgotado.value = true; return }
     try { await refresh() } catch { /* rede oscilou; a proxima volta tenta */ }
-  }, 15000)
+  }, 10000)
+}
+onMounted(() => {
+  acompanharMultas()
+  watch(aguardandoDetran, (esperando) => { if (!esperando) acompanharMultas() })
 })
 
 onUnmounted(() => {
@@ -1684,7 +1707,7 @@ onUnmounted(() => {
               <li class="rel__espera-ok">Consulta da placa concluída ✓</li>
               <li class="rel__espera-ativa">Consultando multas no DETRAN-{{ ufDetranTela }}…</li>
             </ul>
-            <p class="rel__hint">O SENATRAN indicou multa neste veículo. Estamos buscando o detalhe no DETRAN, o que pode levar até 2 minutos.</p>
+            <p class="rel__hint">O SENATRAN indicou multa neste veículo. Estamos buscando o detalhe no DETRAN, o que pode levar alguns minutos. Se demorar, o relatório abre e as multas entram sozinhas quando chegarem.</p>
           </template>
           <template v-else-if="['pago', 'consultando'].includes(data.status)">
             <h1 class="rel__h">Pagamento confirmado ✓</h1>
@@ -1990,7 +2013,9 @@ onUnmounted(() => {
 
 
               </template>
-              <p v-else-if="multasIndisponivel || multasSemResposta" class="rel__multas-nota">A consulta de débitos e multas no DETRAN do estado não está disponível no momento. Confira direto no site do DETRAN.</p>
+              <p v-else-if="multasIndisponivel || multasSemRespostaAntigo" class="rel__multas-nota">A consulta de débitos e multas no DETRAN do estado não está disponível no momento. Confira direto no site do DETRAN.</p>
+              <p v-else-if="multasSemResposta && acompanhamentoEsgotado" class="rel__multas-nota">O DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }} ainda não respondeu. Recarregue esta página em alguns minutos para ver o resultado.</p>
+              <p v-else-if="multasSemResposta" class="rel__multas-nota rel__multas-nota--consultando">Consultando o DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }}, pode levar alguns minutos. O resultado aparece aqui sozinho.</p>
               <p v-else class="rel__multas-nota">Consultando débitos, multas e histórico no DETRAN. Aparece aqui em instantes.</p>
             </div>
 
