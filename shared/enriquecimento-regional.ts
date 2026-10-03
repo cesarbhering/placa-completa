@@ -30,7 +30,10 @@ export const REGIONAL: Record<string, BlocoRegional> = {
   },
   CE: {
     titulo: 'Leilões de veículos no Ceará',
-    texto: 'Nossa base registra cerca de 9,7 mil veículos leiloados no Ceará. É um volume bem menor que estados como Paraná ou Minas Gerais, o que reflete tanto o tamanho da frota quanto a cobertura de coleta de dados disponível até agora. Entre os carros mais frequentes estão o Volkswagen Gol e o Fiat Uno, mesmo padrão observado em outros estados. Se você está comprando um usado no Ceará, vale consultar a placa do veículo específico antes de fechar negócio.',
+    // Contagem de 03/out/2026 (leilao_index, uf_fonte CE, sem notificacoes): 7.436
+    // veiculos distintos em 7.627 registros de leilao de edital do DETRAN-CE,
+    // 2016 a 2022; mais 82.545 notificacoes de leilao, que nao entram aqui.
+    texto: 'Nossa base registra cerca de 7,4 mil veículos leiloados no Ceará entre 2016 e 2022, em editais do DETRAN-CE. É um volume bem menor que estados como Paraná ou Minas Gerais, o que reflete tanto o tamanho da frota quanto a cobertura de coleta de dados disponível até agora. No Ceará, os mais frequentes são motos: Honda CG, Yamaha Factor e Yamaha YBR lideram a lista. Se você está comprando um usado no Ceará, vale consultar a placa do veículo específico antes de fechar negócio.',
     faq: [
       { pergunta: 'Como saber se um carro do Ceará já foi de leilão?', resposta: 'Pela consulta de placa, que cruza com a base nacional de registros de leilão, incluindo os do Ceará.' },
       { pergunta: 'A base de leilões do Ceará é menor que a de outros estados?', resposta: 'Sim, atualmente. Isso não significa que existem menos leilões no estado, pode refletir cobertura de coleta ainda em expansão.' },
