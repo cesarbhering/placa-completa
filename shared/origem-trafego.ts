@@ -11,10 +11,14 @@ export interface OrigemTrafego {
   utm_source: string | null
   utm_medium: string | null
   utm_campaign: string | null
+  /** OpenAI Ads (ChatGPT): id de atribuicao do clique, vem na URL (?oppref=). */
+  oppref: string | null
+  /** OpenAI Ads: cookie __obref do pixel (referencia do navegador). */
+  obref: string | null
 }
 
 /** Campos lidos da URL, na ordem em que aparecem na tabela. */
-export const CAMPOS_ORIGEM = ['gclid', 'msclkid', 'utm_source', 'utm_medium', 'utm_campaign'] as const
+export const CAMPOS_ORIGEM = ['gclid', 'msclkid', 'utm_source', 'utm_medium', 'utm_campaign', 'oppref'] as const
 
 const LIMITES: Record<(typeof CAMPOS_ORIGEM)[number], number> = {
   gclid: 200,
@@ -22,6 +26,17 @@ const LIMITES: Record<(typeof CAMPOS_ORIGEM)[number], number> = {
   utm_source: 100,
   utm_medium: 100,
   utm_campaign: 150,
+  oppref: 1000,
+}
+
+/**
+ * oppref e obref vao pra OpenAI SEM alteracao (regra da API): nunca truncar.
+ * Grande demais ou com caractere estranho vira null.
+ */
+function opaco(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const s = v.trim()
+  return s && s.length <= 1000 && /^[\x21-\x7e]+$/.test(s) ? s : null
 }
 
 /**
@@ -33,20 +48,38 @@ export function sanearOrigem(bruto: unknown): OrigemTrafego {
   const o = (bruto && typeof bruto === 'object' ? bruto : {}) as Record<string, unknown>
   const saida = {} as OrigemTrafego
   for (const campo of CAMPOS_ORIGEM) {
+    if (campo === 'oppref') continue
     const v = o[campo]
     saida[campo] = typeof v === 'string' && v.trim() ? v.slice(0, LIMITES[campo]) : null
   }
+  saida.oppref = opaco(o.oppref)
+  saida.obref = opaco(o.obref)
   return saida
+}
+
+/** Cookie __obref do pixel da OpenAI, se existir. Client-side. */
+export function obrefDoCookie(): string | null {
+  try {
+    const m = document.cookie.match(/(?:^|;\s*)__obref=([^;]+)/)
+    return m ? decodeURIComponent(m[1]) : null
+  } catch {
+    return null
+  }
 }
 
 /** Le a origem guardada pelo plugin track-origin. Client-side. */
 export function origemDaSessao(): Record<string, string> | undefined {
+  let origem: Record<string, string> | undefined
   try {
     const raw = sessionStorage.getItem('pc_origin')
-    return raw ? JSON.parse(raw) : undefined
+    origem = raw ? JSON.parse(raw) : undefined
   } catch {
-    return undefined
+    origem = undefined
   }
+  // obref e lido na HORA (o pixel cria o cookie depois que carrega, e ele dura
+  // 365 dias): vai junto da consulta e do checkout pelo mesmo caminho do gclid.
+  const obref = typeof document !== 'undefined' ? obrefDoCookie() : null
+  return obref ? { ...(origem || {}), obref } : origem
 }
 
 // ---------- Pagina de entrada e referrer (plano SEO 02/out, item #13) ----------
