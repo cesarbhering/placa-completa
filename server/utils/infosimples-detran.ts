@@ -145,6 +145,13 @@ export interface ResultadoDetran {
  * quem chama so ve o data[0], que vai direto pro parser de whitelist. Nao lanca:
  * erro de rede vira code=0/data=null (o chamador e fail-open).
  */
+/** Infosimples tem ate 300 s; nos esperamos 330 s (roda depois da entrega). */
+export const INFOSIMPLES_TIMEOUT_S = 300
+export const ABORT_MS = 330_000
+/** Codigos que valem 1 nova tentativa: 0 = abort/rede nosso, 605/609 = erro na origem. */
+export const CODIGOS_RETRY = new Set([0, 605, 609])
+export const ESPERA_RETRY_MS = 20_000
+
 export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null }): Promise<ResultadoDetran> {
   const cfgUf: any = DETRAN_UFS[opts.uf]
   const certUf: CertInfosimples = cfgUf.cert
@@ -153,7 +160,10 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
   try {
     const body = new URLSearchParams({
       token: cfg.token,
-      timeout: '600',
+      // Tempo que a Infosimples tem pra responder. TEM que ser menor que o
+      // nosso abort (ABORT_MS): antes era 600 s aqui e 120 s la, e toda UF que
+      // passava de 2 min virava 'indisponivel' (incidente 01-03/out).
+      timeout: String(INFOSIMPLES_TIMEOUT_S),
       ignore_site_receipt: '0',
       // Renavam com 11 digitos (o SENATRAN as vezes manda sem os zeros a esquerda).
       renavam: String(opts.renavam).padStart(11, '0'),
@@ -185,7 +195,7 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
     const res = await fetch(`${BASE}/${DETRAN_UFS[opts.uf].path}`, {
       method: 'POST',
       body,
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(ABORT_MS),
     })
     const json: any = await res.json().catch(() => ({}))
     const code = Number(json?.code || res.status || 0)
@@ -1286,7 +1296,7 @@ function blocoDetranDaUfBruto(uf: UfDetran, data: any) {
 export async function completarDetran(
   supabase: any,
   pedido: { id: string; placa: string },
-  ctx: { response: any; ignorarGate?: boolean },
+  ctx: { response: any; ignorarGate?: boolean; semRetry?: boolean; esperaRetryMs?: number },
 ): Promise<ResultadoCompletarDetran> {
   const ufBruta = ufDaResposta(ctx.response)
   const uf = ufDetranSuportada(ufBruta)
@@ -1309,6 +1319,7 @@ export async function completarDetran(
 
   if (indisponivel) {
     // NAO chama (nao custa).
+    logIndisponivel(pedido.id, uf, null, indisponivel, 0)
     await marcarIndisponivel(supabase, pedido.id, uf)
     return { ok: false, pulado: indisponivel }
   }
@@ -1321,12 +1332,22 @@ export async function completarDetran(
   const multasAtual = (snap as any).multas
   if (multasAtual?.fonte === cfgUf.fonte && !multasAtual?.preenchido_manual_em) return { ok: false, pulado: `ja tem ${cfgUf.fonte}` }
 
-  const res = await consultarDetranInfosimples({ uf, placa: pedido.placa, renavam: renavam!, chassi: (cfgUf as any).exigeChassi ? chassi : null })
+  const params = { uf, placa: pedido.placa, renavam: renavam!, chassi: (cfgUf as any).exigeChassi ? chassi : null }
+  const t0 = Date.now()
+  let res = await consultarDetranInfosimples(params)
   // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
   await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code })
   if (usaLoginGovbr(cfgUf.cert) && res.code === 608) await travarLoginBa(res.codeMessage)
+  // 1 nova tentativa pra timeout/rede (0) e erro na origem (605/609).
+  if (CODIGOS_RETRY.has(res.code) && !ctx.semRetry) {
+    console.warn(`[detran] retry uf=${uf} code=${res.code} ms=${Date.now() - t0} pedido=${String(pedido.id).slice(0, 8)}`)
+    await esperarMs(ctx.esperaRetryMs ?? ESPERA_RETRY_MS)
+    res = await consultarDetranInfosimples(params)
+    await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code })
+  }
 
   if (res.code !== 200 || !res.data) {
+    logIndisponivel(pedido.id, uf, res.code, res.codeMessage || 'sem data', Date.now() - t0)
     await marcarIndisponivel(supabase, pedido.id, uf)
     return { ok: false, code: res.code, preco: res.preco, motivo: res.codeMessage || 'sem data' }
   }
@@ -1338,12 +1359,26 @@ export async function completarDetran(
   // Rele o snapshot ANTES de gravar: a chamada pode levar ate 2 min e o recall
   // pode ter gravado no meio; espalhar o snapshot velho apagaria o recall.
   const atual = (await lerSnapshot(supabase, pedido.id)) || snap
+  // Bloco preenchido a mao com MAIS multas que o oficial: fica o manual (so
+  // troca se o oficial vier igual ou mais completo).
+  const manual = (atual as any).multas
+  if (manual?.preenchido_manual_em && (manual.multas_itens?.length || 0) > multas.multas_itens.length) {
+    return { ok: false, code: res.code, preco: res.preco, motivo: 'manual mais completo, mantido' }
+  }
   const { error } = await supabase
     .from('pedidos_premium')
     .update({ relatorio_snapshot: { ...atual, multas } })
     .eq('id', pedido.id)
   if (error) return { ok: false, code: res.code, preco: res.preco, motivo: 'update: ' + error.message }
   return { ok: true, code: res.code, preco: res.preco, multasCentavos: multas.multas_total_centavos, temAlgo }
+}
+
+const esperarMs = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/** Log sem PII de UF indisponivel: so UF, codigo, motivo, tempo e o comeco do id. */
+export function logIndisponivel(pedidoId: string, uf: string, code: number | null, motivo: string, ms: number): void {
+  const m = String(motivo || '').replace(/[A-Z]{3}\d[A-Z0-9]\d{2}/g, '<placa>').replace(/\d{9,}/g, '<num>').slice(0, 160)
+  console.warn(`[detran] indisponivel uf=${uf} code=${code ?? '-'} ms=${ms} motivo=${m} pedido=${String(pedidoId).slice(0, 8)}`)
 }
 
 async function lerSnapshot(supabase: any, pedidoId: string): Promise<Record<string, any> | null> {
