@@ -13,7 +13,8 @@ export default defineNuxtPlugin(() => {
     const origin: Record<string, string> = {}
     for (const key of CAMPOS_ORIGEM) {
       const v = params.get(key)
-      if (v) origin[key] = v.slice(0, 200)
+      // oppref (OpenAI Ads) vai sem alteracao: nunca truncar.
+      if (v) origin[key] = key === 'oppref' ? v : v.slice(0, 200)
     }
     if (Object.keys(origin).length) {
       sessionStorage.setItem('pc_origin', JSON.stringify(origin))
