@@ -12,6 +12,16 @@ const INTERVALO_MS = 2 * 60 * 1000
 const LOTE = 50
 
 let rodando = false
+// Piso de data: so vendas pagas a partir de quando o envio comeca (sem
+// backfill de quem nao veio de anuncio). NUXT_OPENAI_ADS_DESDE (ISO) fixa o
+// piso e sobrevive a restart; sem ele, vale a 1a vez que key e Pixel ID
+// apareceram neste processo.
+let pisoDoProcesso: string | null = null
+
+export function pisoDeEnvio(env: string | undefined, pisoProcesso: string): string {
+  const t = Date.parse(String(env || ''))
+  return Number.isFinite(t) ? new Date(t).toISOString() : pisoProcesso
+}
 
 async function rodar() {
   if (rodando) return
@@ -23,7 +33,10 @@ async function rodar() {
     if (!key || !pid) return
     const protegido = !!cfg.public.gated
     const supabase = usePremiumSupabase()
-    const desde = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    if (!pisoDoProcesso) pisoDoProcesso = new Date().toISOString()
+    const piso = pisoDeEnvio(process.env.NUXT_OPENAI_ADS_DESDE, pisoDoProcesso)
+    const seteDias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const desde = piso > seteDias ? piso : seteDias
     const { data, error } = await supabase
       .from('pedidos_premium')
       .select('token_entrega,status,valor_centavos,plano,email,pago_em,ambiente,ip_address,google_play_order_id,oppref,obref')

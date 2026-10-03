@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { emailSha256, motivoParaNaoEnviar, montarEvento, montarLote, type PedidoCapi } from './openai-capi'
 
 const agora = Date.parse('2026-10-03T12:00:00Z')
@@ -46,5 +46,15 @@ describe('OpenAI Ads Conversions API', () => {
   })
   it('homolog/staging: pedido de teste vai, mas como validate_only (o worker decide)', () => {
     expect(motivoParaNaoEnviar({ ...base, ambiente: 'homolog' }, { agora, protegido: true })).toBeNull()
+  })
+})
+
+describe('piso de data do envio', async () => {
+  vi.stubGlobal('defineNitroPlugin', (f: any) => f)
+  const { pisoDeEnvio } = await import('../plugins/openai-capi')
+  it('NUXT_OPENAI_ADS_DESDE fixa o piso; sem ele, a 1a vez com key e pid', () => {
+    expect(pisoDeEnvio('2026-10-03T12:00:00-03:00', '2026-10-05T00:00:00.000Z')).toBe('2026-10-03T15:00:00.000Z')
+    expect(pisoDeEnvio(undefined, '2026-10-05T00:00:00.000Z')).toBe('2026-10-05T00:00:00.000Z')
+    expect(pisoDeEnvio('lixo', '2026-10-05T00:00:00.000Z')).toBe('2026-10-05T00:00:00.000Z')
   })
 })
