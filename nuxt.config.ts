@@ -612,6 +612,10 @@ export default defineNuxtConfig({
     supabaseUrl:
       process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",
     supabaseKey: process.env.SUPABASE_SERVICE_KEY || "",
+    // OpenAI Ads (ChatGPT): Conversions API, so no servidor. Sem key ou sem
+    // Pixel ID o envio fica desligado (no-op). Nunca no repo nem em log.
+    openaiAdsCapiKey: process.env.NUXT_OPENAI_ADS_CAPI_KEY || "",
+    openaiAdsPixelId: process.env.NUXT_OPENAI_ADS_PIXEL_ID || "",
     resendApiKey: process.env.RESEND_API_KEY || "",
     placaApiToken: process.env.PLACA_API_TOKEN || "",
     fipeApiToken: process.env.FIPE_API_TOKEN || "",
@@ -736,6 +740,9 @@ export default defineNuxtConfig({
       // requisicao sai do navegador. Preenchido no Coolify quando a conta
       // existir, sem precisar de deploy de codigo.
       metaPixelId: process.env.NUXT_PUBLIC_META_PIXEL_ID || "",
+      // Pixel da OpenAI Ads (ChatGPT). Vazio = nada carrega. Em runtime vale
+      // NUXT_PUBLIC_OPENAI_ADS_PIXEL_ID; no build, NUXT_OPENAI_ADS_PIXEL_ID.
+      openaiAdsPixelId: process.env.NUXT_PUBLIC_OPENAI_ADS_PIXEL_ID || process.env.NUXT_OPENAI_ADS_PIXEL_ID || "",
       supabaseUrl:
         process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY || "",
