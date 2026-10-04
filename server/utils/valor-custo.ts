@@ -17,6 +17,8 @@ import { escolherMelhorFipe, type FipeMelhorCandidatoResultado } from './fipe-ca
 export type ValorCusto = {
   fipe: string | null
   fipeModelo: string | null
+  /** Codigo FIPE da versao que deu o valor exibido (ex.: 004473-3). */
+  fipeCodigo?: string | null
   historico: { label: string; price: number }[] | null
   quedaAno: number | null      // % de variacao nos ultimos 12 meses
   seguroAnual: number | null
@@ -214,6 +216,7 @@ export async function getValorCusto(
   return {
     fipe,
     fipeModelo: melhor?.texto_modelo || null,
+    fipeCodigo: melhor?.codigo_fipe ? String(melhor.codigo_fipe) : null,
     historico,
     quedaAno,
     seguroAnual,
