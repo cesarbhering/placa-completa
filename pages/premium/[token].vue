@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { textoCupomRecompra } from '~/shared/cupom-recompra-texto'
 import { codigoFipeDoRelatorio } from '~/shared/codigo-fipe'
 import { linhaRecallGrade } from '~/shared/recall-grade'
@@ -916,6 +917,9 @@ const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', curren
 // O grafico do historico vive em components/GraficoValor.vue (ECharts, SVG).
 // So resta decidir aqui SE ha o que mostrar.
 const temGrafico = computed(() => (vc.value?.historico?.length ?? 0) > 1)
+// Serie que comeca muito depois do lancamento do ano-modelo: avisa em vez de
+// parecer completa (shared/historico-fipe.ts).
+const historicoDesde = computed(() => inicioTardioDoHistorico(vc.value?.historico, g('anoModelo')))
 
 // ---------- ficha ----------
 const linha = (rot: string, val: any) => (val === null || val === undefined || val === '' ? null : [rot, String(val)])
@@ -2439,6 +2443,7 @@ onUnmounted(() => {
             <div v-if="temGrafico && !fipeIncerta" class="rel__dep">
               <span class="rel__sub">Evolução do valor de mercado</span>
               <GraficoValor :historico="vc.historico" />
+              <p v-if="historicoDesde" class="rel__dep-nota">Histórico disponível a partir de {{ historicoDesde }}.</p>
               <!-- As barras sao escaladas pela faixa da serie, nao pelo zero:
                    sem isso, oito barras iguais. Em troca, a legenda diz os
                    valores das pontas, senao a variacao parece maior do que e. -->
@@ -3418,6 +3423,13 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__dep {
     margin-top: 20px;
+  }
+
+  &__dep-nota {
+    margin: 6px 0 0;
+    font-size: calc(13px * var(--rel-fs, 1));
+    color: $c-charcoal;
+    font-style: italic;
   }
 
   &__dep-txt {

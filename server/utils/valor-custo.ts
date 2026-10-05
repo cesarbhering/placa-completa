@@ -64,7 +64,9 @@ function pontos(historyData: any, anoModelo: string | number) {
   if (!historyData?.price_history?.length) return null
   const anoStr = String(anoModelo)
   let entries = historyData.price_history.find((h: any) => String(h.year) === anoStr)
-  if (!entries) entries = historyData.price_history[0]
+  // Sem o ano-modelo EXATO, sem grafico: cair no price_history[0] mostrava a
+  // serie de OUTRO ano (em geral o 0 km) como se fosse a deste carro.
+  if (!entries) return null
   if (!entries?.prices?.length) return null
 
   const ordenado = [...entries.prices].sort((a: any, b: any) =>
