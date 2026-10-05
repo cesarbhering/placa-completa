@@ -1,4 +1,4 @@
-// Reserva de hash GCC ("2 hashes de frente"). Este arquivo comeca pelo pedaco
+// Reserva de hash GCC (1 hash de frente; so compra quando a reserva zera). Este arquivo comeca pelo pedaco
 // puro e testavel: ler o exp do JWT do hash pra saber ate quando ele vale. O
 // repositor e o consumo entram depois (dependem do fluxo GCC do senatran-consulta).
 
@@ -48,8 +48,13 @@ export function validadeDaReserva(hash: string | null | undefined, agora: Date =
   return expDoHashJwt(hash) ?? new Date(agora.getTime() + 24 * 60 * 60 * 1000)
 }
 
-/** Teto DURO da reserva: nunca mais que 2 hashes de frente (cada um custa ~R$7). */
-export const RESERVA_ALVO = 2
+/**
+ * Reserva alvo: 1 hash de frente (regra do Cesar, 05/out). So compra quando a
+ * reserva ZERA de hash utilizavel. Com 2 de frente e 3 a 5 vendas por dia,
+ * sobravam hashes que venciam sem uso (~R$7 cada). O 1 que fica pronto evita
+ * depender do GCC (lento/fora) na hora da venda.
+ */
+export const RESERVA_ALVO = 1
 
 /** Margem de vida minima pra consumir/contar um hash de reserva (1h). */
 const MARGEM_MS = 60 * 60 * 1000
@@ -89,7 +94,7 @@ export function ambienteDaConsultaPaga(
 
 /**
  * Repor a reserva deste ambiente neste build? Nunca a de 'producao' no
- * homolog: o repositor compraria 2 hashes reais pro banco staging que ficariam
+ * homolog: o repositor compraria hash real pro banco staging que ficariam
  * parados ate vencer (~R$14), so porque alguem testou uma consulta de prod.
  */
 export function podeReporReserva(ambiente: Ambiente, config: { public?: { homolog?: unknown } }): boolean {
@@ -142,18 +147,22 @@ async function gerarHashConsentimento(
 }
 
 /**
- * Quantos hashes de reserva NAO-VENCIDOS existem pro ambiente. Conta os que
- * ainda valem (expira_em > agora), inclusive os que estao pra vencer: o
- * repositor NAO substitui um hash que so esta vencendo antes de ele vencer de
- * fato (evita pagar 2x). A margem de 1h e so pro CONSUMO (o claim), nao aqui.
+ * Quantos hashes de reserva UTILIZAVEIS existem pro ambiente: o mesmo criterio
+ * do claim da venda (expira_em > agora + 1h). Regra do Cesar: nunca comprar
+ * hash novo enquanto existir um valido nao usado. Um hash com menos de 1h de
+ * vida nao serve mais pra venda (o claim pula), entao nao segura a reposicao.
  */
+export function limiteUtilizavel(agora: Date = new Date()): string {
+  return new Date(agora.getTime() + MARGEM_MS).toISOString()
+}
+
 async function contarReserva(supabase: any, ambiente: Ambiente): Promise<number> {
   const { count } = await supabase
     .from('gcc_consentimentos')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'reserva')
     .eq('ambiente', ambiente)
-    .gt('expira_em', new Date().toISOString())
+    .gt('expira_em', limiteUtilizavel())
   return count || 0
 }
 
@@ -175,7 +184,7 @@ export async function limparReservaVencida(supabase: any, ambiente: Ambiente): P
 }
 
 /**
- * Repoe a reserva ate o teto (2), gerando hashes no GCC. Teto DURO: no maximo
+ * Repoe a reserva so quando ela ZERA, ate o alvo (1), gerando hash no GCC. Teto DURO: no maximo
  * RESERVA_ALVO POSTs por run. Para no primeiro erro do GCC (nao insiste, pra nao
  * empilhar chamadas quando o GCC esta fora). Atualiza a saude + dispara o alerta.
  * Fail-open pelo chamador: nunca lanca (a venda nao depende disto).

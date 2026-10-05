@@ -1,7 +1,7 @@
 import crypto from 'node:crypto'
 import { ambienteDoCorpo } from '../../utils/gcc-reserva'
 
-// Mantem a RESERVA de hash GCC ("2 de frente"). Batido pelo timer systemd
+// Mantem a RESERVA de hash GCC (1 de frente, so repoe quando zera). Batido pelo timer systemd
 // (pc-gcc-reserva, a cada 10 min) e disparavel na mao. Roda: limpa reservas
 // vencidas (desperdicio, loga) -> repoe ate o teto (2) -> atualiza a saude do
 // GCC e dispara o alerta se estiver fora. A reposicao tambem acontece sozinha
