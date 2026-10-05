@@ -614,6 +614,8 @@ export default defineNuxtConfig({
     supabaseKey: process.env.SUPABASE_SERVICE_KEY || "",
     // Linha do cupom de recompra no e-mail de entrega: so com "on" (ok do Cesar).
     cupomRecompraEmail: process.env.NUXT_CUPOM_RECOMPRA_EMAIL || "",
+    // HMAC do CPF/CNPJ do pagador do Pix (recorrencia sem e-mail). Sem ele, nao grava.
+    pagadorHashSecret: process.env.NUXT_PAGADOR_HASH_SECRET || "",
     // OpenAI Ads (ChatGPT): Conversions API, so no servidor. Sem key ou sem
     // Pixel ID o envio fica desligado (no-op). Nunca no repo nem em log.
     openaiAdsCapiKey: process.env.NUXT_OPENAI_ADS_CAPI_KEY || "",
