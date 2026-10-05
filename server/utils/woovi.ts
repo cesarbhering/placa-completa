@@ -104,6 +104,22 @@ export async function checarPix(
   }
 }
 
+/**
+ * CPF/CNPJ de quem PAGOU a cobranca (payer.taxID), so pra virar hash em
+ * server/utils/pagador-hash.ts. Nao loga, nao guarda; null em qualquer erro.
+ */
+export async function documentoDoPagadorWoovi(id: string): Promise<string | null> {
+  const { base } = cfg()
+  try {
+    const res = await $fetch<any>(`${base}/api/v1/charge/${encodeURIComponent(id)}`, { method: 'GET', headers: headers() })
+    const charge = res?.charge || res
+    const doc = charge?.payer?.taxID?.taxID
+    return typeof doc === 'string' ? doc : null
+  } catch {
+    return null
+  }
+}
+
 export async function reembolsarPix(
   id: string,
   motivo = 'Consulta nao pode ser concluida apos pagamento.',

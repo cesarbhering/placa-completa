@@ -12,7 +12,7 @@ useHead({
   <div class="pc-page">
     <main class="pc-container">
       <h1 class="legal-title">Política de Privacidade</h1>
-        <p class="legal-updated">Última atualização: 1 de outubro de 2026</p>
+        <p class="legal-updated">Última atualização: 5 de outubro de 2026</p>
 
         <div class="legal-content">
           <p>
@@ -74,6 +74,7 @@ useHead({
             <li><strong>User-Agent</strong> (tipo de navegador e sistema operacional);</li>
             <li><strong>Tipo de dispositivo</strong> (mobile/desktop);</li>
             <li><strong>Data e hora</strong> da consulta, para fins de registro de operações.</li>
+            <li><strong>Identificador pseudonimizado do pagador</strong>: no pagamento por Pix, o CPF ou CNPJ de quem paga, informado pela instituição de pagamento, é convertido em um código irreversível (hash com chave secreta) e descartado em seguida; o número e o nome não são armazenados. No cartão, é usado o identificador do cartão gerado pela processadora, sem o número do cartão. Finalidade: prevenção de fraude e relacionamento com o cliente (reconhecer compras repetidas do mesmo pagador).</li>
           </ul>
 
           <h3>3.3 Dados veiculares obtidos da SENATRAN (via Serpro)</h3>

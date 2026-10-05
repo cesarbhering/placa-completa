@@ -175,6 +175,22 @@ export async function consultarPaymentIntent(piId: string): Promise<{ id: string
   }
 }
 
+/** Fingerprint do cartao (id opaco da Stripe, sem numero) do PaymentIntent pago. */
+export async function fingerprintDoCartao(piId: string): Promise<string | null> {
+  const { secret } = stripeConfig()
+  if (!secret || !piId) return null
+  try {
+    const resp = await fetch(`${STRIPE_API}/payment_intents/${encodeURIComponent(piId)}?expand[]=latest_charge`, {
+      headers: { Authorization: `Bearer ${secret}` },
+    })
+    const data: any = await resp.json().catch(() => ({}))
+    const fp = data?.latest_charge?.payment_method_details?.card?.fingerprint
+    return resp.ok && typeof fp === 'string' ? fp : null
+  } catch {
+    return null
+  }
+}
+
 /** Pagamento do cartao confirmado? PaymentIntent 'succeeded'. */
 export function paymentIntentPago(pi: { status?: string } | null | undefined): boolean {
   return !!pi && pi.status === 'succeeded'

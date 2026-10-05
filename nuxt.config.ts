@@ -612,6 +612,8 @@ export default defineNuxtConfig({
     supabaseUrl:
       process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",
     supabaseKey: process.env.SUPABASE_SERVICE_KEY || "",
+    // HMAC do CPF/CNPJ do pagador do Pix (recorrencia sem e-mail). Sem ele, nao grava.
+    pagadorHashSecret: process.env.NUXT_PAGADOR_HASH_SECRET || "",
     // OpenAI Ads (ChatGPT): Conversions API, so no servidor. Sem key ou sem
     // Pixel ID o envio fica desligado (no-op). Nunca no repo nem em log.
     openaiAdsCapiKey: process.env.NUXT_OPENAI_ADS_CAPI_KEY || "",
