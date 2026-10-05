@@ -16,5 +16,8 @@ export default defineEventHandler(async (event) => {
 
   const supabase = usePremiumSupabase()
   const resultado = await validarCupom(supabase, codigo, plano, email || undefined)
-  return resultado
+  // Origem e pedido que gerou o cupom de recompra sao internos: quem recebeu o
+  // codigo compartilhado nao precisa (nem deve) ver o id do pedido de outra pessoa.
+  const { origem: _o, pedidoOrigemId: _p, ...publico } = resultado
+  return publico
 })
