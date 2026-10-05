@@ -138,15 +138,27 @@ export async function comFallbackDePlaca<T extends { trace: any[] }>(
   }
 }
 
+/** Campos gravados no consentimento GCC quando a consulta SERPRO responde. */
+export function dadosDoGasto(a: { ok: boolean; placa: string; ambiente: Ambiente; pedidoId?: string | null; agora?: Date }) {
+  return {
+    status: a.ok ? 'spent' : 'error',
+    spent_at: (a.agora ?? new Date()).toISOString(),
+    placa: a.placa,
+    ambiente: a.ambiente,
+    pedido_id: a.pedidoId ?? null,
+  }
+}
+
 export async function consultarSenatran(
   placa: string,
   ambiente: Ambiente = 'homolog',
   // Placa equivalente vista na consulta gratis. Dado observado vale mais do
   // que conversao, entao ela tem preferencia na segunda tentativa.
-  opts: { placaAlternativa?: string | null } = {},
+  // pedidoId: gravado no consentimento GCC gasto, pra ligar hash (pago) a venda.
+  opts: { placaAlternativa?: string | null; pedidoId?: string | null } = {},
 ): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[]; placaConsultada: string }> {
   return comReposicaoDaReserva(
-    () => comFallbackDePlaca(placa, opts.placaAlternativa, (p) => umaConsultaComRetryDeRede(p, ambiente)),
+    () => comFallbackDePlaca(placa, opts.placaAlternativa, (p) => umaConsultaComRetryDeRede(p, ambiente, opts.pedidoId ?? null)),
     () => reporReservaDepois(usePremiumSupabase(), ambiente),
   )
 }
@@ -167,18 +179,18 @@ export async function comReposicaoDaReserva<T>(venda: () => Promise<T>, repor: (
   }
 }
 
-async function umaConsultaComRetryDeRede(placa: string, ambiente: Ambiente): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[] }> {
+async function umaConsultaComRetryDeRede(placa: string, ambiente: Ambiente, pedidoId: string | null): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[] }> {
   try {
-    return await tentativaDeConsulta(placa, ambiente)
+    return await tentativaDeConsulta(placa, ambiente, pedidoId)
   } catch (e: any) {
     if (!ehErroDeRede(e)) throw e
     console.warn('[senatran] tentativa caiu por rede; refazendo com consentimento novo:', e?.message || e)
     await esperar(5000)
-    return await tentativaDeConsulta(placa, ambiente)
+    return await tentativaDeConsulta(placa, ambiente, pedidoId)
   }
 }
 
-async function tentativaDeConsulta(placa: string, ambiente: Ambiente): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[] }> {
+async function tentativaDeConsulta(placa: string, ambiente: Ambiente, pedidoId: string | null = null): Promise<{ consultaId: string; ok: boolean; response: any; trace: any[] }> {
   // trace de homologacao: cada chamada externa (GCC + SERPRO) com URL, status e
   // corpo. Anexado ao erro em toda falha e devolvido no sucesso. Pode expor
   // detalhe (ferramenta de teste), mas NUNCA a api-key inteira (so prefixo).
@@ -274,7 +286,7 @@ async function tentativaDeConsulta(placa: string, ambiente: Ambiente): Promise<{
   if (!consentId) {
     const { data: consent } = await supabase
       .from('gcc_consentimentos')
-      .insert({ numero_hash_consulta: hash, status: 'created', api_key_id: chave!.id, placa, raw_response: consentResp })
+      .insert({ numero_hash_consulta: hash, status: 'created', api_key_id: chave!.id, placa, ambiente, pedido_id: pedidoId, raw_response: consentResp })
       .select()
       .single()
     consentId = consent?.id ?? null
@@ -308,7 +320,9 @@ async function tentativaDeConsulta(placa: string, ambiente: Ambiente): Promise<{
     .insert({ placa, consentimento_id: consentId, numero_hash_consulta: hash, http_status: out.status, ok, response: parsed })
     .select()
     .single()
-  await supabase.from('gcc_consentimentos').update({ status: ok ? 'spent' : 'error', spent_at: new Date().toISOString() }).eq('id', consentId)
+  // placa/pedido/ambiente no gasto: o hash da reserva nasce sem placa e sem
+  // pedido, e sem isto nao dava pra ligar um hash pago (~R$7) a venda.
+  await supabase.from('gcc_consentimentos').update(dadosDoGasto({ ok, placa, ambiente, pedidoId })).eq('id', consentId)
 
   if (!ok) {
     // O statusCode importa: 502 e lido como falha de TRANSPORTE la fora, e o

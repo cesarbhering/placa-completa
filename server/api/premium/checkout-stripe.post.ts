@@ -1,3 +1,4 @@
+import { ambienteDaConsultaPaga } from '../../utils/gcc-reserva'
 import { origemDoCupom, cupomDispensaEmail } from '../../utils/cupom-recompra'
 import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-funil'
 import crypto from 'node:crypto'
@@ -23,9 +24,9 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   // Mesma regra do Pix: so o build de homolog deixa escolher o ambiente das
   // consultas; em prod/staging forca 'producao'.
-  const ambiente = config.public.homolog
-    ? (body.ambiente === 'producao' ? 'producao' : 'homolog')
-    : 'producao'
+  // Fora do homolog sempre 'producao'; no homolog, 'producao' so com a env
+  // NUXT_HOMOLOG_GCC_PRODUCAO=on (ver ambienteDaConsultaPaga).
+  const ambiente = ambienteDaConsultaPaga(body.ambiente, config)
 
   if (placa.length < 7) throw createError({ statusCode: 400, message: 'Placa invalida' })
   if (email && !email.includes('@')) throw createError({ statusCode: 400, message: 'E-mail invalido' })

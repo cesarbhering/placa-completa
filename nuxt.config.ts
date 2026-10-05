@@ -714,6 +714,9 @@ export default defineNuxtConfig({
     // Juiz Haiku pro melhor-candidato FIPE (so fluxo pago, ver
     // server/utils/fipe-candidato.ts). Fail-open: sem chave ou erro/timeout
     // = cai no comportamento antigo (melhor score da wdapi).
+    // Homolog: 'producao' no dropdown so compra hash GCC real com
+    // NUXT_HOMOLOG_GCC_PRODUCAO=on (runtime). Desligada por padrao.
+    homologGccProducao: "",
     anthropicApiKey: process.env.NUXT_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || "",
     public: {
       // homolog: ambiente de teste com ferramentas (dropdown de ambiente das
