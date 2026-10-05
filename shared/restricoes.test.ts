@@ -45,3 +45,17 @@ describe('explicaRestricao', () => {
     expect(explicaRestricao('restricao-judicial')).toBe(explicaRestricao('RESTRICAO_JUDICIAL'))
   })
 })
+
+describe('estoque RENAVE', async () => {
+  const { ehEstoqueRenave, RENAVE_EXPLICACAO, PARECER_SO_RENAVE } = await import('./restricoes')
+  it('reconhece variacoes, sem diferenciar caixa', () => {
+    for (const s of ['ESTOQUE RENAVE', 'RENAVE', 'Estoque Renave', 'estoque_renave']) expect(ehEstoqueRenave(s)).toBe(true)
+    for (const s of ['RENAVAM', 'RENAJUD', 'ALIENACAO_FIDUCIARIA', '', null]) expect(ehEstoqueRenave(s)).toBe(false)
+  })
+  it('texto aprovado, sem travessao', () => {
+    const tudo = JSON.stringify([RENAVE_EXPLICACAO, PARECER_SO_RENAVE])
+    expect(tudo).not.toContain('—')
+    expect(RENAVE_EXPLICACAO.destaque).toBe('Não é multa, débito, roubo nem bloqueio judicial.')
+    expect(`${PARECER_SO_RENAVE.titulo} ${PARECER_SO_RENAVE.texto}`).toBe('Atenção: o veículo consta no estoque de uma revenda (RENAVE). Veja na seção de Restrições o que conferir antes de fechar negócio.')
+  })
+})
