@@ -1,4 +1,5 @@
 import { textoCupomRecompra } from './cupom-recompra'
+import { comTagAmbiente } from './ambiente-alerta'
 import { PLANOS, isPlanoPago } from '../../shared/planos'
 
 // E-mail de entrega do relatorio premium. E a unica copia DURAVEL do link: a
@@ -289,7 +290,7 @@ export async function enviarEstornoEmail(estorno: Estorno): Promise<boolean> {
         from: 'PlacaCompleta <contato@placacompleta.com.br>',
         to: [email],
         reply_to: 'contato@placacompleta.com.br',
-        subject: `Seu pagamento da consulta ${placa} foi reembolsado`,
+        subject: comTagAmbiente(`Seu pagamento da consulta ${placa} foi reembolsado`, config),
         html: montarHtmlEstorno(placa, valor, estorno.formaPagamento),
         text: montarTextoEstorno(placa, valor, estorno.formaPagamento),
       },
@@ -328,7 +329,7 @@ export async function enviarRelatorioEmail(entrega: Entrega): Promise<boolean> {
         // Regra do Cesar (01/out): e-mail a cliente sai de contato@, nunca de
         // noreply@; a resposta tambem cai em contato@.
         reply_to: 'contato@placacompleta.com.br',
-        subject: assunto,
+        subject: comTagAmbiente(assunto, config),
         html: montarHtml(link, plano, placa, cupomTexto),
         // Alternativa em texto: filtro de spam desconfia de e-mail so-HTML, e
         // cliente em modo texto ficaria sem o link.
