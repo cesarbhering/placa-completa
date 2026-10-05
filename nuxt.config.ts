@@ -612,6 +612,8 @@ export default defineNuxtConfig({
     supabaseUrl:
       process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",
     supabaseKey: process.env.SUPABASE_SERVICE_KEY || "",
+    // Linha do cupom de recompra no e-mail de entrega: so com "on" (ok do Cesar).
+    cupomRecompraEmail: process.env.NUXT_CUPOM_RECOMPRA_EMAIL || "",
     // OpenAI Ads (ChatGPT): Conversions API, so no servidor. Sem key ou sem
     // Pixel ID o envio fica desligado (no-op). Nunca no repo nem em log.
     openaiAdsCapiKey: process.env.NUXT_OPENAI_ADS_CAPI_KEY || "",
