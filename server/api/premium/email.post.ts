@@ -1,3 +1,4 @@
+import { cupomRecompraDoPedido } from '../../utils/cupom-recompra'
 import { entregaTardiaPendente } from '../../utils/email-entrega-tardia'
 
 // Grava o e-mail de entrega de um pedido que ja existe. Nasceu porque o e-mail
@@ -71,11 +72,13 @@ async function enviarEntregaTardia(
     .select('id')
   if (!reivindicado?.length) return false
 
+  const cupom = await cupomRecompraDoPedido(supabase, pedido.id)
   const ok = await enviarRelatorioEmail({
     email,
     token,
     plano: pedido.plano || 'completa',
     placa: pedido.placa || '',
+    cupom,
   }).catch(() => false)
 
   if (!ok) {

@@ -1,3 +1,4 @@
+import { cupomRecompraDoPedido } from '../../utils/cupom-recompra'
 import { filtrarPorPlano, camposRestantes, PLANOS } from '../../../shared/planos'
 import { getValorCusto } from '../../utils/valor-custo'
 import { sanearBlocoMultas } from '../../utils/infosimples-detran'
@@ -276,6 +277,9 @@ export default defineEventHandler(async (event) => {
   let logoMarca = logoProxyDe(respConsulta?.logo) || logoProxyDe((pedido.preview as any)?.logo)
   if (!logoMarca && consulta) logoMarca = logoProxyDe((await lerPlacaCacheFresca(pedido.placa).catch(() => null))?.logo)
 
+  // Cupom de recompra do pedido (faixa no relatorio) enquanto valido.
+  const cupomRecompra = pedido.status === 'entregue' ? await cupomRecompraDoPedido(supabase, pedido.id) : null
+
   return {
     status: pedido.status,
     placa: pedido.placa,
@@ -286,6 +290,7 @@ export default defineEventHandler(async (event) => {
     camposRestantes: restantes,
     valorCusto,
     chassiOrigem,
+    cupomRecompra,
     logoMarca,
     historicoLeilao,
     recall,

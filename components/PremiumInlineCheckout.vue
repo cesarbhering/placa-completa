@@ -94,6 +94,8 @@ function mensagemCupom(motivo?: string): string {
 // Valida o cupom. Sem e-mail (a pessoa digitou o cupom primeiro) o servidor
 // pula so o limite por pessoa e ja aplica o desconto na tela; o check por
 // e-mail acontece de novo no clique final, quando o e-mail existe.
+// Cupom de recompra vale sem e-mail (o servidor diz e o checkout revalida).
+const cupomDispensaEmail = ref(false)
 async function validarCupom(): Promise<boolean> {
   const codigo = cupomCodigo.value.trim()
   cupomMsg.value = ''
@@ -106,6 +108,7 @@ async function validarCupom(): Promise<boolean> {
       body: { codigo, plano: props.plano, email: temEmail ? email.value : undefined },
     })
     if (r?.ok) {
+      cupomDispensaEmail.value = !!r.dispensaEmail
       cupomDescontoCentavos.value = r.descontoCentavos || 0
       cupomMsg.value = cupomDescontoCentavos.value > 0
         // Cupom pessoal aberto pelo link antes de a pessoa digitar o e-mail:
@@ -115,10 +118,12 @@ async function validarCupom(): Promise<boolean> {
         : ''
       return true
     }
+    cupomDispensaEmail.value = false
     cupomDescontoCentavos.value = 0
     cupomMsg.value = mensagemCupom(r?.motivo)
     return false
   } catch (e: any) {
+    cupomDispensaEmail.value = false
     cupomDescontoCentavos.value = 0
     cupomMsg.value = 'Não conseguimos validar o cupom agora.'
     if (import.meta.dev) console.warn('[checkout] cupom falhou:', e?.data?.message || e)
@@ -350,7 +355,7 @@ async function validarCheckout(): Promise<boolean> {
     if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
     return false
   }
-  if (!preencheu && cupomCodigo.value.trim()) {
+  if (!preencheu && cupomCodigo.value.trim() && !((await validarCupom()) && cupomDispensaEmail.value)) {
     emailErro.value = 'Para usar um cupom, informe o e-mail que o recebeu.'
     msg.value = ''
     if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()

@@ -24,6 +24,10 @@ export interface CupomValidado {
   /** true = este cupom pode zerar o preco (bypass do Pix), se o desconto cobrir tudo. */
   permiteGratis?: boolean
   limiteUsoPorCliente?: number | null
+  /** 'recompra' = cupom gerado por uma compra (vai pro pedido como cupom_recompra). */
+  origem?: string | null
+  /** Pedido que gerou o cupom de recompra (mede compartilhamento). */
+  pedidoOrigemId?: string | null
 }
 
 /**
@@ -135,6 +139,8 @@ export async function validarCupom(
 
   return {
     ok: true,
+    origem: cupom.origem ?? null,
+    pedidoOrigemId: cupom.pedido_origem_id ?? null,
     cupomId: cupom.id,
     precoBrutoCentavos: bruto,
     descontoCentavos,
@@ -191,7 +197,8 @@ export async function registrarUsoCupom(
   opts: {
     cupomId: string
     pedidoId: string
-    email: string
+    /** null = cupom de recompra usado sem e-mail. */
+    email: string | null
     precoBrutoCentavos: number
     descontoCentavos: number
     precoLiquidoCentavos: number
@@ -207,7 +214,7 @@ export async function registrarUsoCupom(
     await supabase.from('cupons_premium_usos').insert({
       cupom_id: opts.cupomId,
       pedido_id: opts.pedidoId,
-      email: opts.email,
+      email: opts.email || null,
       preco_bruto: opts.precoBrutoCentavos,
       valor_desconto: opts.descontoCentavos,
       preco_liquido: opts.precoLiquidoCentavos,
