@@ -55,3 +55,18 @@ describe('cupom de recompra', () => {
     expect(t).not.toContain('—')
   })
 })
+
+describe('cupom sem e-mail', () => {
+  const sbCom = (origem: string | null) => ({ from: () => ({ select: () => ({ eq: (_c: string, cod: string) => ({ maybeSingle: async () => ({ data: cod === 'CARROABCDE' ? { origem } : null }) }) }) }) })
+  it('cupom de recompra: dispensa e-mail (decidido no servidor pela origem)', async () => {
+    const { cupomDispensaEmail } = await import('./cupom-recompra')
+    expect(await cupomDispensaEmail(sbCom('recompra'), ' carroabcde ')).toBe(true)
+  })
+  it('outros cupons (VOLTA15, recuperacao de Pix): continuam exigindo e-mail', async () => {
+    const { cupomDispensaEmail } = await import('./cupom-recompra')
+    expect(await cupomDispensaEmail(sbCom('volta'), 'CARROABCDE')).toBe(false)
+    expect(await cupomDispensaEmail(sbCom(null), 'CARROABCDE')).toBe(false)
+    expect(await cupomDispensaEmail(sbCom('recompra'), 'NAOEXISTE')).toBe(false)
+    expect(await cupomDispensaEmail(sbCom('recompra'), '')).toBe(false)
+  })
+})

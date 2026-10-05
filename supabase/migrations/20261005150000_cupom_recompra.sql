@@ -14,4 +14,7 @@ alter table public.pedidos_premium
   add column if not exists cupom_origem text,
   add column if not exists cupom_pedido_origem_id uuid;
 
+-- Cupom de recompra vale sem e-mail: o registro de uso aceita e-mail nulo.
+alter table public.cupons_premium_usos alter column email drop not null;
+
 notify pgrst, 'reload schema';

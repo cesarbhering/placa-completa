@@ -197,7 +197,8 @@ export async function registrarUsoCupom(
   opts: {
     cupomId: string
     pedidoId: string
-    email: string
+    /** null = cupom de recompra usado sem e-mail. */
+    email: string | null
     precoBrutoCentavos: number
     descontoCentavos: number
     precoLiquidoCentavos: number
@@ -213,7 +214,7 @@ export async function registrarUsoCupom(
     await supabase.from('cupons_premium_usos').insert({
       cupom_id: opts.cupomId,
       pedido_id: opts.pedidoId,
-      email: opts.email,
+      email: opts.email || null,
       preco_bruto: opts.precoBrutoCentavos,
       valor_desconto: opts.descontoCentavos,
       preco_liquido: opts.precoLiquidoCentavos,
