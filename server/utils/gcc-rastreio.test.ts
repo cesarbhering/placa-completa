@@ -69,3 +69,15 @@ describe('migration do claim', () => {
     expect(sql).toMatch(/revoke execute on function public\.reivindicar_hash_reserva/)
   })
 })
+
+describe('margem de consumo de 10 min', () => {
+  it('SQL do claim e contagem do repositor usam o mesmo criterio', async () => {
+    const { MARGEM_CONSUMO_MS, limiteUtilizavel } = await import('./gcc-reserva')
+    expect(MARGEM_CONSUMO_MS).toBe(10 * 60 * 1000)
+    expect(limiteUtilizavel(new Date('2026-10-05T12:00:00Z'))).toBe('2026-10-05T12:10:00.000Z')
+    const sql = readFileSync('supabase/migrations/20261005230000_gcc_claim_margem_10min.sql', 'utf8')
+    expect(sql).toMatch(/expira_em > now\(\) \+ interval '10 minutes'/)
+    expect(sql).toMatch(/order by c\.expira_em asc/)
+    expect(sql).toMatch(/revoke execute on function public\.reivindicar_hash_reserva/)
+  })
+})
