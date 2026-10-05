@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { ambienteForaDeProd, TAG_HOMOLOG } from './ambiente-alerta'
 
 interface ErrorEmailData {
   endpoint: string
@@ -41,6 +42,9 @@ export async function sendErrorEmail(data: ErrorEmailData) {
 
   try {
     const resend = new Resend(config.resendApiKey)
+    // Homolog/staging: [HOMOLOG] no assunto e na 1a linha do corpo.
+    const foraDeProd = ambienteForaDeProd(config)
+    const tag = foraDeProd ? `${TAG_HOMOLOG} ` : ''
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -61,7 +65,7 @@ export async function sendErrorEmail(data: ErrorEmailData) {
 </head>
 <body>
   <div class="container">
-    <div class="header">🚨 Erro na API - PlacaCompleta</div>
+    <div class="header">${tag}🚨 Erro na API - PlacaCompleta${foraDeProd ? ' (teste, não é cliente real)' : ''}</div>
     <div class="content">
       <div class="field">
         <div class="label">⏰ Horário (Brasília):</div>
@@ -114,7 +118,7 @@ export async function sendErrorEmail(data: ErrorEmailData) {
     await resend.emails.send({
       from: 'PlacaCompleta Errors <erros@placacompleta.com.br>',
       to: ['erros@placacompleta.com.br', ...(data.paraTambem || [])],
-      subject: `[Erro API] ${data.endpoint} - ${horaBrasilia(new Date())}`,
+      subject: `${tag}[Erro API] ${data.endpoint} - ${horaBrasilia(new Date())}`,
       html: htmlContent,
     })
   } catch (emailError) {
