@@ -68,3 +68,19 @@ export function origemDoCupom(c: { ok?: boolean; origem?: string | null; pedidoO
   if (!c?.ok || c.origem !== 'recompra') return {}
   return { cupom_origem: 'cupom_recompra', ...(c.pedidoOrigemId ? { cupom_pedido_origem_id: c.pedidoOrigemId } : {}) }
 }
+
+/**
+ * O cupom de recompra vale sem e-mail (decisao do Cesar, 05/out): ele nao e
+ * preso a ninguem. Os outros cupons continuam exigindo e-mail (limite por
+ * pessoa / cupom pessoal). Decide no SERVIDOR, pela origem gravada no cupom.
+ */
+export async function cupomDispensaEmail(supabase: any, codigoBruto: string): Promise<boolean> {
+  const codigo = String(codigoBruto || '').trim().toUpperCase().replace(/\s+/g, '')
+  if (!codigo) return false
+  try {
+    const { data } = await supabase.from('cupons_premium').select('origem').eq('codigo', codigo).maybeSingle()
+    return data?.origem === 'recompra'
+  } catch {
+    return false
+  }
+}
