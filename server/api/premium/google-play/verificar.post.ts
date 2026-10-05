@@ -1,3 +1,4 @@
+import { ambienteDaConsultaPaga } from '../../../utils/gcc-reserva'
 import crypto from 'node:crypto'
 import { sanearOrigem } from '../../../../shared/origem-trafego'
 import { PLANOS } from '../../../../shared/planos'
@@ -47,9 +48,9 @@ export default defineEventHandler(async (event) => {
   // O ambiente das consultas segue a mesma regra do checkout Pix: so o build
   // de homolog deixa escolher, todo o resto e producao.
   const config = useRuntimeConfig()
-  const ambiente = config.public.homolog
-    ? (body.ambiente === 'producao' ? 'producao' : 'homolog')
-    : 'producao'
+  // Fora do homolog sempre 'producao'; no homolog, 'producao' so com a env
+  // NUXT_HOMOLOG_GCC_PRODUCAO=on (ver ambienteDaConsultaPaga).
+  const ambiente = ambienteDaConsultaPaga(body.ambiente, config)
 
   // Mesmo formato de token do checkout Pix: 18 bytes em base64url.
   const tokenEntrega = crypto.randomBytes(18).toString('base64url')
