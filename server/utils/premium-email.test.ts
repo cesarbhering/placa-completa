@@ -102,6 +102,26 @@ describe('enviarRelatorioEmail: linha do cupom de recompra', () => {
     const b = await enviar('on')
     const linha = 'Vai ver outro carro? Use CARROABCDE e ganhe 20% na próxima consulta. Pode compartilhar com quem também está comprando carro. Válido até 12/10.'
     expect(b.text).toContain(linha)
-    expect(b.html.replace(/\s+/g, ' ')).toContain(linha)
+    // No HTML o codigo vem num span de destaque: compara o texto sem as tags.
+    expect(b.html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ')).toContain(linha)
+  })
+  it('ligado: codigo em destaque (mono, maior) e botao do WhatsApp com a mensagem do card', async () => {
+    const { mensagemWhatsappRecompra, linkWhatsappRecompra } = await import('../../shared/cupom-recompra-texto')
+    const b = await enviar('on')
+    expect(b.html).toMatch(/<span style="font-family:[^"]*monospace;font-size:18px;font-weight:700;[^"]*">CARROABCDE<\/span>/)
+    expect(b.html).toContain('>Enviar no WhatsApp</a>')
+    const href = b.html.match(/<a href="(https:\/\/wa\.me\/\?text=[^"]+)"/)?.[1]
+    expect(href).toBe(linkWhatsappRecompra(cupom))
+    expect(decodeURIComponent(href!.split('text=')[1])).toBe(mensagemWhatsappRecompra(cupom))
+    // texto puro: link do WhatsApp em linha propria
+    expect(b.text).toContain(`Enviar no WhatsApp: ${linkWhatsappRecompra(cupom)}`)
+    // sem token nem placa no link do WhatsApp
+    expect(href).not.toMatch(/tok|ABC1D23|premium/)
+    expect(b.html + b.text).not.toContain('—')
+  })
+  it('desligado: sem botao do WhatsApp', async () => {
+    const b = await enviar('')
+    expect(b.html).not.toContain('wa.me')
+    expect(b.text).not.toContain('wa.me')
   })
 })
