@@ -58,6 +58,12 @@ export const RESERVA_ALVO = 1
 
 /** Margem de vida minima pra consumir/contar um hash de reserva (1h). */
 const MARGEM_MS = 60 * 60 * 1000
+/**
+ * Vida minima pra um hash da reserva servir a uma venda: 10 min (era 1h). A
+ * consulta leva segundos; com 1h, um hash com 21 min de vida foi pulado e
+ * venceu sem uso (GCC id 41502, 03/out). Mesmo valor no SQL do claim.
+ */
+export const MARGEM_CONSUMO_MS = 10 * 60 * 1000
 
 /** Destino do alerta de GCC fora (mesma caixa do estorno automatico). */
 const AVISO_GCC = 'cesarcbhering@gmail.com'
@@ -148,12 +154,12 @@ async function gerarHashConsentimento(
 
 /**
  * Quantos hashes de reserva UTILIZAVEIS existem pro ambiente: o mesmo criterio
- * do claim da venda (expira_em > agora + 1h). Regra do Cesar: nunca comprar
- * hash novo enquanto existir um valido nao usado. Um hash com menos de 1h de
+ * do claim da venda (expira_em > agora + 10 min). Regra do Cesar: nunca comprar
+ * hash novo enquanto existir um valido nao usado. Um hash com menos de 10 min de
  * vida nao serve mais pra venda (o claim pula), entao nao segura a reposicao.
  */
 export function limiteUtilizavel(agora: Date = new Date()): string {
-  return new Date(agora.getTime() + MARGEM_MS).toISOString()
+  return new Date(agora.getTime() + MARGEM_CONSUMO_MS).toISOString()
 }
 
 async function contarReserva(supabase: any, ambiente: Ambiente): Promise<number> {
