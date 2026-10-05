@@ -51,3 +51,28 @@ export function explicaRestricao(bruto: string, aoNaoEncontrar?: (chave: string)
   aoNaoEncontrar?.(chave)
   return EXPLICA_RESTRICAO_GENERICA
 }
+
+// Estoque RENAVE (texto aprovado pelo Cesar em 05/out): nao e restricao no
+// sentido de bloqueio, e o carro registrado no estoque de uma revenda. A copy
+// generica ("condiciona ou impede a transferencia") assustava sem motivo, entao
+// esse tipo ganha explicacao propria, mais longa, com o que conferir.
+export function ehEstoqueRenave(bruto: unknown): boolean {
+  return /RENAVE/.test(String(bruto ?? '').toUpperCase())
+}
+
+export const RENAVE_EXPLICACAO = {
+  titulo: 'Estoque RENAVE: o veículo está no estoque de uma loja',
+  texto: 'O RENAVE (Registro Nacional de Veículos em Estoque) é o sistema da SENATRAN em que lojas de veículos usados e concessionárias registram os carros que compram para revender. Essa anotação indica que o veículo foi comprado por uma revenda e está registrado no estoque dela.',
+  destaque: 'Não é multa, débito, roubo nem bloqueio judicial.',
+  conferirTitulo: 'O que conferir:',
+  conferir: [
+    'Se você está comprando de uma loja: é o esperado. A própria loja faz a transferência para o seu nome pelo RENAVE, no momento da venda. Peça o comprovante da transferência.',
+    'Se quem está vendendo é uma pessoa física: atenção. Um veículo no estoque de uma revenda só sai dele pela própria loja. Confirme com a loja que ela vendeu o carro para essa pessoa antes de pagar qualquer valor.',
+  ],
+} as const
+
+/** Parecer do topo quando a UNICA restricao e o estoque RENAVE. */
+export const PARECER_SO_RENAVE = {
+  titulo: 'Atenção: o veículo consta no estoque de uma revenda (RENAVE).',
+  texto: 'Veja na seção de Restrições o que conferir antes de fechar negócio.',
+} as const

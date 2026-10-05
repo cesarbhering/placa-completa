@@ -18,7 +18,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // O corte por plano acontece no servidor: o que a basica nao comprou nem chega
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
-import { explicaRestricao } from '~/shared/restricoes'
+import { explicaRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, PARECER_SO_RENAVE } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
 import { detalhesLegiveis, semValorEmReais } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
@@ -432,12 +432,22 @@ function registraTipoDesconhecido(chave: string) {
   try { trackRestricaoDesconhecida(chave) } catch { /* telemetria e best-effort */ }
 }
 
-const restricoes = computed<{ rotulo: string; explica: string }[]>(() => {
+const restricoes = computed<{ rotulo: string; explica: string; renave: boolean }[]>(() => {
   const arr = v.value?.restricoesItens
   if (!Array.isArray(arr)) return []
   return arr
     .filter(Boolean)
-    .map((r: any) => ({ rotulo: humanizar(r), explica: explicaRestricao(String(r), registraTipoDesconhecido) }))
+    .map((r: any) => ehEstoqueRenave(r)
+      // Estoque RENAVE tem explicacao propria (RENAVE_EXPLICACAO) no lugar da
+      // copy generica, e nao conta como tipo desconhecido.
+      ? { rotulo: humanizar(r), explica: '', renave: true }
+      : { rotulo: humanizar(r), explica: explicaRestricao(String(r), registraTipoDesconhecido), renave: false })
+})
+// So o estoque RENAVE consta: nenhum outro item, nenhum outro cartao aceso
+// alem do generico "Outras restrições" que ele mesmo acende.
+const soEstoqueRenave = computed(() => {
+  const itens = (Array.isArray(v.value?.restricoesItens) ? v.value.restricoesItens : []).filter(Boolean)
+  return itens.length > 0 && itens.every(ehEstoqueRenave)
 })
 
 // `ultimoLicenciamento` vem como objeto e ate agora era pago e descartado.
@@ -532,6 +542,11 @@ const veredito = computed(() => {
   // vezes: "consta Outras restrições e Restrição de benefício tributário".
   // Rotulo proprio no veredito quando o cartao acendeu por outra fonte (ex.:
   // "roubo/furto informado pelo DETRAN-MG", nunca so "Roubo / furto").
+  // Unica restricao e o estoque RENAVE: parecer proprio (texto aprovado), em
+  // vez de "Atenção: consta Estoque Renave", que soava como bloqueio.
+  if (soEstoqueRenave.value && !licAtrasado && alertas.value.every((l) => l === 'Outras restrições')) {
+    return { tom: 'alerta' as const, titulo: PARECER_SO_RENAVE.titulo, texto: PARECER_SO_RENAVE.texto }
+  }
   const rotuloVer = new Map(indicadores.value.filter((i: any) => i.alerta && i.rotuloVeredito).map((i: any) => [i.label, i.rotuloVeredito]))
   const nomes = [
     ...alertas.value.filter((l) => l !== 'Outras restrições').map((l) => rotuloVer.get(l) || l),
@@ -1898,7 +1913,15 @@ onUnmounted(() => {
                   <span class="rel__tag">Restrição</span>
                   <strong>{{ r.rotulo }}</strong>
                 </div>
-                <p class="rel__restr-explica">{{ r.explica }}</p>
+                <div v-if="r.renave" class="rel__renave">
+                  <strong class="rel__renave-tit">{{ RENAVE_EXPLICACAO.titulo }}</strong>
+                  <p>{{ RENAVE_EXPLICACAO.texto }} <strong>{{ RENAVE_EXPLICACAO.destaque }}</strong></p>
+                  <p class="rel__renave-conf">{{ RENAVE_EXPLICACAO.conferirTitulo }}</p>
+                  <ul>
+                    <li v-for="(c, ci) in RENAVE_EXPLICACAO.conferir" :key="ci">{{ c }}</li>
+                  </ul>
+                </div>
+                <p v-else class="rel__restr-explica">{{ r.explica }}</p>
               </div>
             </template>
             <p v-else class="rel__nada">Nada consta na data de emissão.</p>
@@ -3819,6 +3842,18 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
     &:last-child { border-bottom: 0; }
   }
+
+  &__renave {
+    margin-top: 6px;
+    font-size: calc(13px * var(--rel-fs, 1));
+    line-height: 1.5;
+    color: $c-graphite;
+    p { margin: 4px 0 0; }
+    ul { margin: 4px 0 0; padding-left: 18px; }
+    li { margin-top: 4px; }
+  }
+  &__renave-tit { display: block; color: $c-charcoal; }
+  &__renave-conf { font-weight: 600; }
 
   &__tag {
     font-size: calc(10.5px * var(--rel-fs, 1));
