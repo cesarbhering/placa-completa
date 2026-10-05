@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
-import { textoCupomRecompra } from '~/shared/cupom-recompra-texto'
+import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
 import { codigoFipeDoRelatorio } from '~/shared/codigo-fipe'
 import { linhaRecallGrade } from '~/shared/recall-grade'
 // Relatorio veicular (superficie PAGA — o token da URL e a credencial).
@@ -32,7 +32,54 @@ useHead({ title: 'Relatório Veicular', meta: [{ name: 'robots', content: 'noind
 const { data, pending, error, refresh } = await useFetch<any>('/api/premium/report', { query: { token } })
 
 const { itens, sync: histSync, add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
-const { trackConversionPaga } = useAnalytics()
+const { trackConversionPaga, track } = useAnalytics()
+
+// ---------- cupom de recompra (card do fim) ----------
+// O cupom nasce ~6 s depois da entrega. Se a pagina abriu antes, busca leve a
+// cada 5 s por ate 1 min (endpoint so do cupom, sem recarregar o relatorio).
+const cupomBuscado = ref<{ codigo: string; validoAte: string } | null>(null)
+const cupomCard = computed(() => data.value?.cupomRecompra || cupomBuscado.value || null)
+const cupomCopiado = ref(false)
+const codigoCupomEl = ref<HTMLElement | null>(null)
+let pollCupom: ReturnType<typeof setInterval> | null = null
+function pararPollCupom() { if (pollCupom) { clearInterval(pollCupom); pollCupom = null } }
+onMounted(() => {
+  watch(() => data.value?.status === 'entregue' && !cupomCard.value, (esperar) => {
+    if (!esperar) { pararPollCupom(); return }
+    if (pollCupom) return
+    let voltas = 0
+    pollCupom = setInterval(async () => {
+      voltas++
+      try {
+        const r: any = await $fetch('/api/premium/cupom-recompra', { query: { token } })
+        if (r?.cupomRecompra?.codigo) { cupomBuscado.value = r.cupomRecompra; pararPollCupom(); return }
+      } catch { /* rede oscilou: a proxima volta tenta */ }
+      if (voltas >= 12) pararPollCupom()
+    }, 5000)
+  }, { immediate: true })
+})
+onBeforeUnmount(pararPollCupom)
+function selecionarCodigoCupom() {
+  const el = codigoCupomEl.value
+  if (!el || typeof window === 'undefined') return
+  const r = document.createRange(); r.selectNodeContents(el)
+  const sel = window.getSelection(); sel?.removeAllRanges(); sel?.addRange(r)
+}
+async function copiarCupom() {
+  try { track('cupom_recompra_copiar', { origem: 'cupom_recompra' }) } catch { /* telemetria e best-effort */ }
+  const codigo = cupomCard.value?.codigo
+  if (!codigo) return
+  try {
+    await navigator.clipboard.writeText(codigo)
+    cupomCopiado.value = true
+    setTimeout(() => { cupomCopiado.value = false }, 1500)
+  } catch {
+    selecionarCodigoCupom()
+  }
+}
+function cliqueWhatsappCupom() {
+  try { track('cupom_recompra_whatsapp', { origem: 'cupom_recompra', method: 'whatsapp' }) } catch { /* best-effort */ }
+}
 
 const plano = computed<string>(() => data.value?.plano || 'completa')
 const isBasica = computed(() => plano.value === 'basica')
@@ -2499,16 +2546,25 @@ onUnmounted(() => {
                pronto. So tela (mesmo tratamento do upsell da basica acima,
                .rel__card--up some na impressao: e conversa de produto, nao
                parte do laudo). -->
-          <section class="rel__card rel__card--up">
-            <h2 class="rel__h2">Precisa consultar outro veículo?</h2>
-            <p class="rel__hint">Faça uma nova consulta grátis pela placa.</p>
-            <!-- Cupom de recompra (20%, 7 dias, pode compartilhar). Some quando vence. -->
-            <p v-if="data.cupomRecompra" class="rel__cupom">
-              Vai ver outro carro? {{ textoCupomRecompra(data.cupomRecompra) }}
-            </p>
-            <NuxtLink class="rel__btn rel__btn--primario" to="/">
-              Realizar nova consulta
-            </NuxtLink>
+          <!-- Cupom de recompra (20%, 7 dias, qualquer placa, pode compartilhar).
+               Opcao 1 do Cesar + botao de WhatsApp. Sem cupom (vencido ou
+               relatorio antigo): card simples. -->
+          <section v-if="cupomCard" class="rel__card rel__card--up rel__recompra">
+            <p class="rel__recompra-eyebrow">Vai ver outro carro?</p>
+            <h2 class="rel__recompra-tit">Sua próxima consulta sai com 20% de desconto</h2>
+            <div class="rel__recompra-chip">
+              <span ref="codigoCupomEl" class="rel__recompra-codigo">{{ cupomCard.codigo }}</span>
+              <button type="button" class="rel__recompra-copiar" @click="copiarCupom">{{ cupomCopiado ? 'Copiado' : 'Copiar' }}</button>
+            </div>
+            <p class="rel__recompra-meta">{{ metaCupomRecompra(cupomCard) }}</p>
+            <div class="rel__recompra-botoes">
+              <NuxtLink class="rel__btn rel__btn--primario" to="/">Consultar outra placa</NuxtLink>
+              <a class="rel__btn rel__btn--wa" :href="linkWhatsappRecompra(cupomCard)" target="_blank" rel="noopener" @click="cliqueWhatsappCupom">Enviar no WhatsApp</a>
+            </div>
+          </section>
+          <section v-else class="rel__card rel__card--up rel__recompra">
+            <h2 class="rel__recompra-tit">Precisa consultar outro veículo?</h2>
+            <NuxtLink class="rel__btn rel__btn--primario" to="/">Consultar outra placa</NuxtLink>
           </section>
 
           <footer class="rel__aut">
@@ -2779,16 +2835,62 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   // ---- verificacao de autenticidade ----
-  &__cupom {
-    margin: 4px 0 14px;
-    padding: 10px 12px;
-    border: 1px dashed var(--pc-steel, #c2c2c2);
-    border-radius: 10px;
-    font-size: calc(14px * var(--rel-fs, 1));
-    line-height: 1.45;
-    color: var(--pc-charcoal, #3d3d3d);
+  &__recompra { display: flex; flex-direction: column; gap: 12px; }
+  &__recompra-eyebrow {
+    margin: 0;
+    font-size: calc(11.5px * var(--rel-fs, 1));
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $c-graphite;
   }
-  @media print { &__cupom { display: none; } }
+  &__recompra-tit {
+    margin: 0;
+    font-size: calc(19px * var(--rel-fs, 1));
+    font-weight: 700;
+    line-height: 1.3;
+    color: $c-ink;
+  }
+  &__recompra-chip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #eaf1ff;
+    border: 1.5px dashed $c-blue;
+    border-radius: 10px;
+  }
+  &__recompra-codigo {
+    font-family: $font-mono;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    font-size: calc(18px * var(--rel-fs, 1));
+    color: $c-blue-deep;
+    overflow-wrap: anywhere;
+    user-select: all;
+  }
+  &__recompra-copiar {
+    flex-shrink: 0;
+    font-family: $fonte;
+    font-size: calc(13px * var(--rel-fs, 1));
+    font-weight: 600;
+    background: $c-canvas;
+    color: $c-blue-deep;
+    border: 1px solid $c-blue;
+    border-radius: 6px;
+    padding: 6px 12px;
+    min-height: 36px;
+    cursor: pointer;
+    &:focus-visible { outline: 2px solid $c-blue; outline-offset: 2px; }
+  }
+  &__recompra-meta { margin: 0; font-size: calc(13px * var(--rel-fs, 1)); color: $c-graphite; }
+  &__recompra-botoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    .rel__btn { flex: 1 1 200px; }
+  }
 
   &__aut {
     display: flex;
@@ -4032,6 +4134,13 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       border-color: $c-blue;
       color: #fff;
       &:hover { background: $c-blue-deep; border-color: $c-blue-deep; }
+    }
+
+    &--wa {
+      background: #1f9d55;
+      border-color: #1f9d55;
+      color: #fff;
+      &:hover { background: #17824a; border-color: #17824a; }
     }
 
     &--mini { min-height: 40px; padding: 8px 16px; font-size: calc(13px * var(--rel-fs, 1)); }
