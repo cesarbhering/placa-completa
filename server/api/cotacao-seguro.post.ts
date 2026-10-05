@@ -1,3 +1,4 @@
+import { comTagAmbiente } from '../utils/ambiente-alerta'
 import { Resend } from 'resend'
 import { normalizePhoneForWhatsApp, sendWhatsAppText } from '../utils/evolutionApi'
 import { REGIOES } from '../utils/regiao-susep'
@@ -121,8 +122,8 @@ async function notifyLead(row: {
     await resend.emails.send({
       from: 'PlacaCompleta Leads <leads@placacompleta.com.br>',
       to: 'cesar.bhering@placacompleta.com.br',
-      subject: `${isPremium ? '⭐🔥 Lead PREMIUM' : '🔥 Lead'} de seguro: ${veiculo || row.placa} · ${fone}`,
-      text: `Novo pedido de cotação real de seguro:\n\n${resumo}\n\nStatus no Supabase: cotacoes_seguro (marcar como contatado depois).`,
+      subject: comTagAmbiente(`${isPremium ? '⭐🔥 Lead PREMIUM' : '🔥 Lead'} de seguro: ${veiculo || row.placa} · ${fone}`),
+      text: comTagAmbiente(`Novo pedido de cotação real de seguro:\n\n${resumo}\n\nStatus no Supabase: cotacoes_seguro (marcar como contatado depois).`),
     })
   } catch (e: any) {
     console.warn('[cotacao-seguro] email de notificacao falhou:', e?.message)
@@ -131,7 +132,7 @@ async function notifyLead(row: {
   // WhatsApp pro corretor (env SEGURO_LEAD_NOTIFY_PHONE; ausente = pula)
   const notifyPhone = process.env.SEGURO_LEAD_NOTIFY_PHONE
   if (notifyPhone) {
-    const r = await sendWhatsAppText(notifyPhone, `${isPremium ? '⭐ Lead PREMIUM de seguro!' : '🔥 Lead de seguro!'}\n\n${resumo}`)
+    const r = await sendWhatsAppText(notifyPhone, comTagAmbiente(`${isPremium ? '⭐ Lead PREMIUM de seguro!' : '🔥 Lead de seguro!'}\n\n${resumo}`))
     if (!r.ok) console.warn('[cotacao-seguro] whatsapp de notificacao falhou:', r.error)
   }
 }
