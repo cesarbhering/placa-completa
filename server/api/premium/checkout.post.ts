@@ -1,3 +1,4 @@
+import { origemDoCupom } from '../../utils/cupom-recompra'
 import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-funil'
 import crypto from 'node:crypto'
 import { sanearOrigem } from '../../../shared/origem-trafego'
@@ -108,6 +109,8 @@ export default defineEventHandler(async (event) => {
       // toda venda. Gravando aqui, a atribuicao para de depender de casar
       // placa com janela de tempo.
       ...sanearOrigem(body.origin),
+      // Cupom de recompra: marca a venda e qual pedido gerou o codigo.
+      ...origemDoCupom(cupomValidado),
     })
     .select()
     .single()

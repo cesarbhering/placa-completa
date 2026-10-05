@@ -24,6 +24,10 @@ export interface CupomValidado {
   /** true = este cupom pode zerar o preco (bypass do Pix), se o desconto cobrir tudo. */
   permiteGratis?: boolean
   limiteUsoPorCliente?: number | null
+  /** 'recompra' = cupom gerado por uma compra (vai pro pedido como cupom_recompra). */
+  origem?: string | null
+  /** Pedido que gerou o cupom de recompra (mede compartilhamento). */
+  pedidoOrigemId?: string | null
 }
 
 /**
@@ -135,6 +139,8 @@ export async function validarCupom(
 
   return {
     ok: true,
+    origem: cupom.origem ?? null,
+    pedidoOrigemId: cupom.pedido_origem_id ?? null,
     cupomId: cupom.id,
     precoBrutoCentavos: bruto,
     descontoCentavos,

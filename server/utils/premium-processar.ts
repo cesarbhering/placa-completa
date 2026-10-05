@@ -1,3 +1,4 @@
+import { gerarCupomRecompra } from './cupom-recompra'
 import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas-recall'
 // Processa um pedido PAGO: dispara a consulta SENATRAN uma vez, entrega ou
 // reembolsa. Usado pelo WEBHOOK e pelo POLLING de status (o que chegar primeiro).
@@ -287,11 +288,15 @@ export async function processarPedidoPago(
     // Placa e plano entram no assunto e no corpo: "seu relatorio completo da
     // placa ABC1D23 esta pronto" e reconhecivel na caixa de entrada, "sua
     // consulta esta pronta" nao.
+    // Cupom de recompra (20%, 7 dias, uso livre): gerado aqui, na entrega, pra
+    // ir no e-mail e na faixa do relatorio. Fail-open: sem cupom, segue igual.
+    const cupom = await gerarCupomRecompra(supabase, pedido).catch(() => null)
     const emailOk = await enviarRelatorioEmail({
       email: pedido.email,
       token: pedido.token_entrega,
       plano: pedido.plano,
       placa: pedido.placa,
+      cupom,
     })
     // A consulta e a entrega DERAM CERTO mesmo se o e-mail falhar (o pedido
     // fica 'entregue' de verdade, a pessoa acessa pelo link/historico) — nao

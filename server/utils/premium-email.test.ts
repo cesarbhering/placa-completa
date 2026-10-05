@@ -81,3 +81,27 @@ describe('enviarRelatorioEmail: remetente', () => {
     expect(JSON.stringify(chamadas[0].body)).not.toContain('noreply@')
   })
 })
+
+describe('enviarRelatorioEmail: linha do cupom de recompra', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const cupom = { codigo: 'CARROABCDE', validoAte: '2026-10-12T14:00:00Z' }
+  async function enviar(flag: string) {
+    const chamadas: any[] = []
+    vi.stubGlobal('useRuntimeConfig', () => ({ resendApiKey: 're_x', premiumBaseUrl: 'https://placacompleta.com.br', cupomRecompraEmail: flag }))
+    vi.stubGlobal('$fetch', vi.fn(async (_url: string, opts: any) => { chamadas.push(opts); return {} }))
+    const { enviarRelatorioEmail } = await import('./premium-email')
+    await enviarRelatorioEmail({ email: 'ana@ex.com', token: 'tok', plano: 'completa', placa: 'ABC1D23', cupom } as any)
+    return chamadas[0].body
+  }
+  it('desligado (padrao): e-mail igual ao de hoje', async () => {
+    const b = await enviar('')
+    expect(b.html).not.toContain('CARROABCDE')
+    expect(b.text).not.toContain('CARROABCDE')
+  })
+  it('ligado: linha no HTML e no texto', async () => {
+    const b = await enviar('on')
+    const linha = 'Vai ver outro carro? Use CARROABCDE e ganhe 20% na próxima consulta. Pode compartilhar com quem também está comprando carro. Válido até 12/10.'
+    expect(b.text).toContain(linha)
+    expect(b.html.replace(/\s+/g, ' ')).toContain(linha)
+  })
+})
