@@ -1,4 +1,5 @@
 import { chavesPublicas, verificarAssinatura } from '../../utils/woovi'
+import { gravarPagadorHash, sanearPayloadWebhook } from '../../utils/pagador-hash'
 
 // Webhook da Woovi, handler unico pra TODOS os metodos. Endpoint separado do da
 // AbacatePay de proposito: o formato do payload e, principalmente, o jeito de
@@ -52,7 +53,8 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   // Mesma tabela de sempre, pra auditoria e idempotencia ficarem num lugar so.
   await supabase.from('webhook_events').insert({
-    provider: 'woovi', event: evt, abacatepay_id: chargeId || pedidoId, payload,
+    // Sem dados do pagador (CPF/nome) no log de auditoria.
+    provider: 'woovi', event: evt, abacatepay_id: chargeId || pedidoId, payload: sanearPayloadWebhook(payload),
   })
 
   // So pagamento confirmado interessa. A Woovi manda OPENPIX:CHARGE_COMPLETED
@@ -65,6 +67,7 @@ export default defineEventHandler(async (event) => {
   if (!pedido && chargeId) ({ data: pedido } = await supabase.from('pedidos_premium').select('*').eq('abacatepay_id', chargeId).maybeSingle())
   if (!pedido) return { ok: true, semPedido: true }
 
+  void gravarPagadorHash(supabase, pedido)
   await processarPedidoPago(supabase, pedido)
   if (chargeId) await supabase.from('webhook_events').update({ processado: true }).eq('abacatepay_id', chargeId)
   return { ok: true }
