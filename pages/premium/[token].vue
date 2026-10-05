@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { codigoFipeDoRelatorio } from '~/shared/codigo-fipe'
 import { linhaRecallGrade } from '~/shared/recall-grade'
 // Relatorio veicular (superficie PAGA — o token da URL e a credencial).
 //
@@ -906,6 +907,8 @@ const fipeIncerta = computed(() => {
   if (!c) return false
   return c.decididoPor === 'ambiguo' || c.confianca === 'baixa'
 })
+// Codigo FIPE da versao que deu o valor (shared/codigo-fipe.ts).
+const codigoFipe = computed(() => codigoFipeDoRelatorio(vc.value))
 const temValor = computed(() => Boolean(vc.value?.fipe || vc.value?.seguroAnual || vc.value?.custo5anos))
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
@@ -2402,6 +2405,7 @@ onUnmounted(() => {
                 <span class="rel__valor-k">Valor FIPE</span>
                 <span class="rel__valor-v">{{ vc.fipe }}</span>
                 <span v-if="vc.fipeModelo" class="rel__valor-nota">{{ vc.fipeModelo }}</span>
+                <span v-if="codigoFipe" class="rel__valor-nota">Código FIPE: {{ codigoFipe }}</span>
               </div>
               <div v-if="vc?.seguroAnual" class="rel__valor">
                 <span class="rel__valor-k">Seguro estimado</span>
