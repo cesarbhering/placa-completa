@@ -71,6 +71,32 @@ export function ambienteDoCorpo(body: any): Ambiente | null {
 }
 
 /**
+ * Ambiente GCC/SERPRO de uma consulta paga, decidido pelo BUILD e nunca so
+ * pelo cliente. Fora do homolog e sempre 'producao' (o valor pedido e
+ * ignorado). No homolog e 'homolog', e so vira 'producao' (hash REAL, ~R$7)
+ * quando o pedido escolheu isso E a env NUXT_HOMOLOG_GCC_PRODUCAO=on estiver
+ * ligada no container. Desligada por padrao: o staging tem a chave GCC de prod
+ * ativa, e um clique no dropdown comprava hash real.
+ */
+export function ambienteDaConsultaPaga(
+  pedido: unknown,
+  config: { homologGccProducao?: unknown; public?: { homolog?: unknown } },
+): Ambiente {
+  if (!config?.public?.homolog) return 'producao'
+  const liberado = String(config?.homologGccProducao ?? '').trim().toLowerCase() === 'on'
+  return pedido === 'producao' && liberado ? 'producao' : 'homolog'
+}
+
+/**
+ * Repor a reserva deste ambiente neste build? Nunca a de 'producao' no
+ * homolog: o repositor compraria 2 hashes reais pro banco staging que ficariam
+ * parados ate vencer (~R$14), so porque alguem testou uma consulta de prod.
+ */
+export function podeReporReserva(ambiente: Ambiente, config: { public?: { homolog?: unknown } }): boolean {
+  return !(config?.public?.homolog && ambiente === 'producao')
+}
+
+/**
  * Reivindica ATOMICAMENTE 1 hash da reserva pra uma venda (RPC com
  * `for update skip locked`: dois pedidos concorrentes nunca pegam o mesmo).
  * Devolve { id, numero_hash_consulta, api_key_id } ou null se a reserva estiver
@@ -158,6 +184,10 @@ export async function reporReservaGcc(
   supabase: any,
   ambiente: Ambiente,
 ): Promise<{ criados: number; reservaAtual: number; gccOk: boolean }> {
+  if (!podeReporReserva(ambiente, useRuntimeConfig())) {
+    console.warn('[gcc-reserva] homolog nao repoe reserva de producao (hash real)')
+    return { criados: 0, reservaAtual: 0, gccOk: true }
+  }
   const agora = new Date()
   let count = await contarReserva(supabase, ambiente)
   let criados = 0

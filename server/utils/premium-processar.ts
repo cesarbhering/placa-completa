@@ -1,3 +1,4 @@
+import { ambienteDaConsultaPaga } from './gcc-reserva'
 import { gerarCupomRecompra } from './cupom-recompra'
 import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas-recall'
 // Processa um pedido PAGO: dispara a consulta SENATRAN uma vez, entrega ou
@@ -204,7 +205,10 @@ export async function processarPedidoPago(
     preview?: any
   },
 ): Promise<void> {
-  const ambiente = pedido.ambiente === 'producao' ? 'producao' : 'homolog'
+  // Defesa em profundidade: o checkout ja decidiu o ambiente, mas um pedido
+  // antigo (ou gravado antes da trava) com 'producao' no homolog nao compra
+  // hash real sem a env ligada. Em prod o pedido sempre vem 'producao'.
+  const ambiente = ambienteDaConsultaPaga(pedido.ambiente === 'producao' ? 'producao' : 'homolog', useRuntimeConfig())
   const { data: claimed } = await supabase
     .from('pedidos_premium')
     .update({ status: 'consultando', pago_em: new Date().toISOString() })
@@ -221,7 +225,7 @@ export async function processarPedidoPago(
       || pedido.preview?.raw?.placaAlternativa
       || null
     try {
-      r = await consultarSenatran(pedido.placa, ambiente, { placaAlternativa })
+      r = await consultarSenatran(pedido.placa, ambiente, { placaAlternativa, pedidoId: pedido.id })
     } catch (e: any) {
       // Ultima chance antes do estorno, e so pra falha de REDE. A pessoa esta
       // na tela esperando: um minuto a mais e melhor que um estorno, e a
@@ -230,7 +234,7 @@ export async function processarPedidoPago(
       if (!ehErroDeRede(e)) throw e
       console.warn('[premium] consulta caiu por rede; ultima tentativa em 60s. pedido=', pedido.id)
       await esperar(60000)
-      r = await consultarSenatran(pedido.placa, ambiente, { placaAlternativa })
+      r = await consultarSenatran(pedido.placa, ambiente, { placaAlternativa, pedidoId: pedido.id })
     }
     await supabase
       .from('pedidos_premium')
