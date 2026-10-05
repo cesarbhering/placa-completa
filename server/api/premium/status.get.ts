@@ -1,3 +1,4 @@
+import { gravarPagadorHash } from '../../utils/pagador-hash'
 // Status do pedido pelo token (polling da tela pendente). O token e a
 // credencial, entao nao exige gate. Quando detecta o pagamento (via AbacatePay),
 // DISPARA a consulta (fire-and-forget) - assim o fluxo completa mesmo sem webhook.
@@ -36,6 +37,9 @@ export default defineEventHandler(async (event) => {
       // pagamento confirmado -> dispara a consulta (fire-and-forget; o container
       // segue processando apos a resposta). Claim atomico evita duplicar.
       processarPedidoPago(supabase, pedido).catch(() => {})
+      // Identificador pseudonimizado do pagador (recorrencia sem e-mail).
+      // Fire-and-forget e a parte: nunca segura nem quebra a confirmacao.
+      void gravarPagadorHash(supabase, pedido)
       status = 'consultando'
     } else if (!ehCartao && pedido.expira_em && new Date(pedido.expira_em).getTime() < Date.now()) {
       // So o Pix expira pela janela do QR (15 min). Pedido de cartao NUNCA vira
