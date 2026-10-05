@@ -1,3 +1,4 @@
+import { origemDoCupom, cupomDispensaEmail } from '../../utils/cupom-recompra'
 import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-funil'
 import crypto from 'node:crypto'
 import { sanearOrigem } from '../../../shared/origem-trafego'
@@ -35,7 +36,9 @@ export default defineEventHandler(async (event) => {
   if (email && !email.includes('@')) {
     throw createError({ statusCode: 400, message: 'E-mail invalido' })
   }
-  if (!email && String(body.cupom || '').trim()) {
+  // Cupom exige e-mail (limite por pessoa / cupom pessoal), menos o de
+  // recompra, que vale pra qualquer um (server/utils/cupom-recompra.ts).
+  if (!email && String(body.cupom || '').trim() && !(await cupomDispensaEmail(usePremiumSupabase(), String(body.cupom)))) {
     throw createError({ statusCode: 400, message: 'Informe o e-mail para usar um cupom.' })
   }
 
@@ -108,6 +111,8 @@ export default defineEventHandler(async (event) => {
       // toda venda. Gravando aqui, a atribuicao para de depender de casar
       // placa com janela de tempo.
       ...sanearOrigem(body.origin),
+      // Cupom de recompra: marca a venda e qual pedido gerou o codigo.
+      ...origemDoCupom(cupomValidado),
     })
     .select()
     .single()

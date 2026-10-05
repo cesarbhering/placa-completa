@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { textoCupomRecompra } from '~/shared/cupom-recompra-texto'
 import { codigoFipeDoRelatorio } from '~/shared/codigo-fipe'
 import { linhaRecallGrade } from '~/shared/recall-grade'
 // Relatorio veicular (superficie PAGA — o token da URL e a credencial).
@@ -2473,6 +2474,10 @@ onUnmounted(() => {
           <section class="rel__card rel__card--up">
             <h2 class="rel__h2">Precisa consultar outro veículo?</h2>
             <p class="rel__hint">Faça uma nova consulta grátis pela placa.</p>
+            <!-- Cupom de recompra (20%, 7 dias, pode compartilhar). Some quando vence. -->
+            <p v-if="data.cupomRecompra" class="rel__cupom">
+              Vai ver outro carro? {{ textoCupomRecompra(data.cupomRecompra) }}
+            </p>
             <NuxtLink class="rel__btn rel__btn--primario" to="/">
               Realizar nova consulta
             </NuxtLink>
@@ -2746,6 +2751,17 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   // ---- verificacao de autenticidade ----
+  &__cupom {
+    margin: 4px 0 14px;
+    padding: 10px 12px;
+    border: 1px dashed var(--pc-steel, #c2c2c2);
+    border-radius: 10px;
+    font-size: calc(14px * var(--rel-fs, 1));
+    line-height: 1.45;
+    color: var(--pc-charcoal, #3d3d3d);
+  }
+  @media print { &__cupom { display: none; } }
+
   &__aut {
     display: flex;
     align-items: center;

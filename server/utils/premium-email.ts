@@ -1,3 +1,4 @@
+import { textoCupomRecompra } from './cupom-recompra'
 import { comTagAmbiente } from './ambiente-alerta'
 import { PLANOS, isPlanoPago } from '../../shared/planos'
 
@@ -14,6 +15,8 @@ type Entrega = {
   token: string
   plano?: string | null
   placa?: string | null
+  /** Cupom de recompra (so entra no e-mail com NUXT_CUPOM_RECOMPRA_EMAIL=on). */
+  cupom?: { codigo: string; validoAte: string } | null
 }
 
 const NAVY = '#0B1F3A'
@@ -38,7 +41,7 @@ function nomeDoPlano(plano?: string | null): string {
   return PLANOS[planoDe(plano)].nome
 }
 
-function montarHtml(link: string, plano?: string | null, placa?: string | null): string {
+function montarHtml(link: string, plano?: string | null, placa?: string | null, cupomTexto?: string | null): string {
   const nome = nomeDoPlano(plano)
   const g = GENERO[planoDe(plano)]
   // O historico de leilao e exclusivo da completa: prometer isso no e-mail da
@@ -109,6 +112,9 @@ function montarHtml(link: string, plano?: string | null, placa?: string | null):
               <p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">
                 Guarde este e-mail. O link é o seu acesso ao relatório, e ele não expira.
               </p>
+              ${cupomTexto ? `<p style="margin:0 0 16px;padding:12px 14px;font-size:14px;line-height:1.5;color:${TINTA};text-align:center;background:#f7f7f7;border-radius:8px;">
+                Vai ver outro carro? ${cupomTexto}
+              </p>` : ''}
               <p style="margin:0;font-size:12px;line-height:1.5;color:${GRAFITE};text-align:center;word-break:break-all;">
                 Se o botão não funcionar, copie e cole no navegador:<br>
                 <a href="${link}" style="color:${AZUL};text-decoration:underline;">${link}</a>
@@ -141,7 +147,7 @@ function montarHtml(link: string, plano?: string | null, placa?: string | null):
 </html>`
 }
 
-function montarTexto(link: string, plano?: string | null, placa?: string | null): string {
+function montarTexto(link: string, plano?: string | null, placa?: string | null, cupomTexto?: string | null): string {
   const nome = nomeDoPlano(plano)
   const g = GENERO[planoDe(plano)]
   return [
@@ -153,6 +159,7 @@ function montarTexto(link: string, plano?: string | null, placa?: string | null)
     '',
     'Guarde este e-mail. O link é o seu acesso ao relatório, e ele não expira.',
     '',
+    ...(cupomTexto ? [`Vai ver outro carro? ${cupomTexto}`, ''] : []),
     'Precisa de ajuda? Escreva para contato@placacompleta.com.br',
     '',
     'PlacaCompleta · consulta veicular por placa',
@@ -300,6 +307,9 @@ export async function enviarEstornoEmail(estorno: Estorno): Promise<boolean> {
 export async function enviarRelatorioEmail(entrega: Entrega): Promise<boolean> {
   const config = useRuntimeConfig()
   const { email, token, plano, placa } = entrega
+  // Linha do cupom de recompra: so com NUXT_CUPOM_RECOMPRA_EMAIL=on (o texto
+  // muda um e-mail que vai pro cliente e precisa do ok antes de ligar).
+  const cupomTexto = entrega.cupom && String(config.cupomRecompraEmail || '') === 'on' ? textoCupomRecompra(entrega.cupom) : null
   if (!config.resendApiKey || !email) return false
 
   const link = `${config.premiumBaseUrl}/premium/${token}`
@@ -320,10 +330,10 @@ export async function enviarRelatorioEmail(entrega: Entrega): Promise<boolean> {
         // noreply@; a resposta tambem cai em contato@.
         reply_to: 'contato@placacompleta.com.br',
         subject: comTagAmbiente(assunto, config),
-        html: montarHtml(link, plano, placa),
+        html: montarHtml(link, plano, placa, cupomTexto),
         // Alternativa em texto: filtro de spam desconfia de e-mail so-HTML, e
         // cliente em modo texto ficaria sem o link.
-        text: montarTexto(link, plano, placa),
+        text: montarTexto(link, plano, placa, cupomTexto),
       },
     })
     return true
