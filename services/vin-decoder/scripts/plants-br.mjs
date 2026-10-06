@@ -47,7 +47,7 @@ const DOC_MODELO = 'Tabela de codigos de planta da montadora (Wikibooks VIN code
 // Versao do arquivo curado. O servico compara com o que esta gravado no banco
 // e reimporta sozinho quando sobe (ver server.js). Subir esta versao SEMPRE que
 // mexer na lista, senao a mudanca nao chega no container ja rodando.
-export const PLANTS_VERSAO = 6
+export const PLANTS_VERSAO = 7
 
 // Atalhos pra nao repetir o pais em cada linha.
 const br = (wmi, pos, cidade, uf, de = null, ate = null, fonte = IBGE, conf = 'alta') =>
@@ -274,6 +274,10 @@ const PLANTS = [
   // ---------------- Importados v6 (tabela de codigos + vPIC 3/3) ----------------
   // Audi
   ext('WAU', 'R', 'Martorell', 'Espanha', DOC_MODELO),   // Q3 8U
+  // v7: Lamborghini (ZHW) tem uma fabrica de automoveis so, em Sant'Agata
+  // Bolognese (Huracan, Aventador, Urus, Revuelto). Caso FUG0A96 (Huracan
+  // Spyder 2018). vPIC nao tem PlantCity pra Lamborghini europeia.
+  ext('ZHW', '*', "Sant'Agata Bolognese", 'Itália', 'Fábrica única de automóveis da marca (site oficial da Lamborghini)', 'marca_unica_fabrica'),
   ext('TRU', '1', 'Győr', 'Hungria', DOC_VPIC),          // TT
   // Volkswagen
   ext('WVG', 'D', 'Bratislava', 'Eslováquia', DOC_VPIC),  // Touareg

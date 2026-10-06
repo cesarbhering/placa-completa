@@ -11,7 +11,7 @@
 // VIN nao usa I, O, Q (confundem com 1/0) — validado aqui.
 
 import { db } from './db.js'
-import { paisPorFaixaWmi, checksumAplicavel } from './paises.js'
+import { paisPorFaixaWmi, checksumAplicavel, paisVpicPt } from './paises.js'
 import crypto from 'node:crypto'
 
 const VALID_CHARS = /^[A-HJ-NPR-Z0-9]{17}$/
@@ -149,7 +149,9 @@ export function decodeVin(rawVin, opts = {}) {
   const fabricante = override?.display_name || mundo?.display_name || row?.display_name || row?.manufacturer_raw || null
   // Sem WMI na base, o pais ainda sai da faixa ISO 3780 (ver paises.js):
   // melhor "Japão" que um campo vazio num relatorio pago.
-  const pais = override?.country || mundo?.country || row?.country || paisPorFaixaWmi(wmi3) || null
+  // vPIC vem em ingles e caixa alta ("ITALY"): traduz; nome desconhecido cai
+  // na faixa ISO 3780 (ja em PT) e, so em ultimo caso, no texto cru.
+  const pais = override?.country || mundo?.country || paisVpicPt(row?.country) || paisPorFaixaWmi(wmi3) || row?.country || null
   const regiao = override?.region || row?.region || regiaoPorPrimeiroChar(vin[0])
 
   const yearRow = getYear.get(vin[9])
