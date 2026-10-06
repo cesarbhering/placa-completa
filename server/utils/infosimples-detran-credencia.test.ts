@@ -12,6 +12,8 @@ import PA from './__fixtures__/infosimples-detran-pa.json'
 import AM from './__fixtures__/infosimples-detran-am.json'
 import PE from './__fixtures__/infosimples-detran-pe.json'
 import ES from './__fixtures__/infosimples-detran-es.json'
+import MA from './__fixtures__/infosimples-detran-ma.json'
+import AC from './__fixtures__/infosimples-detran-ac.json'
 
 // Credenciamento SERPRO/Credencia 10959/2026 (01/out): a Politica promete que
 // da infracao so saem data, hora, local, municipio/UF, orgao autuador,
@@ -45,9 +47,14 @@ const BRUTOS: Record<string, any> = {
   AM: { ...AM, multas: [{ ...sujo }] },
   PE: { ...PE, debitos: { ...PE.debitos, multas: [{ ...sujo }] } },
   ES: { ...ES, multas: [{ ...sujo }], recursos: [{ ...sujo }] },
+  MA: { ...MA, penalidades: { listagem: [{ ...sujo }] } },
+  AC: { ...AC, infracoes: { vencidas: [{ ...sujo }], sub_judice: [{ ...sujo }] } },
+  AL: { infracoes: [{ ...sujo }], normalizado_total: 293.47 },
+  PI: { multas: [{ ...sujo, status: 'Em aberto' }] },
+  RR: { infracoes: { detalhes_infracoes: [{ ...sujo }], valor_normalizado: 293.47 } },
 }
 
-describe('credenciamento: nenhum campo proibido sai do bloco DETRAN (13 UFs)', () => {
+describe('credenciamento: nenhum campo proibido sai do bloco DETRAN (18 UFs)', () => {
   it('cobre todas as UFs do mapa', () => {
     expect(Object.keys(BRUTOS).sort()).toEqual(Object.keys(DETRAN_UFS).sort())
   })
