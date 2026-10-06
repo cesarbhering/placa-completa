@@ -431,6 +431,9 @@ export default defineNuxtConfig({
       "/ibv/agosto-2026",
       "/ibv/vencedores-perdedores-agosto-2026",
       "/ibv/eletricos-agosto-2026",
+      "/ibv/setembro-2026",
+      "/ibv/vencedores-perdedores-setembro-2026",
+      "/ibv/eletricos-setembro-2026",
     ],
     // Paginas noindex NUNCA no sitemap (conferencia SEO 02/out: /admin, /dash,
     // /cotacao, /termos-de-uso e /politica-de-privacidade estavam la, e /admin
