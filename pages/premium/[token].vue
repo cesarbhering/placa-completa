@@ -982,7 +982,13 @@ const fipeIncerta = computed(() => {
 })
 // Codigo FIPE da versao que deu o valor (shared/codigo-fipe.ts).
 const codigoFipe = computed(() => codigoFipeDoRelatorio(vc.value))
-const temValor = computed(() => Boolean(vc.value?.fipe || vc.value?.seguroAnual || vc.value?.custo5anos))
+// FIPE nao localizada: a fonte veio sem FIPE e nenhuma versao bateu com
+// confianca (vc.fipeNaoLocalizado), ou relatorio entregue sem valorCusto
+// nenhum (antigos, antes do fallback). A secao aparece com a linha dizendo
+// isso, em vez de sumir.
+const fipeNaoLocalizada = computed(() => entregue.value && !String(token).startsWith('_amostra') && !fipeIncerta.value && !vc.value?.fipe
+  && (!vc.value || !!vc.value.fipeNaoLocalizado))
+const temValor = computed(() => Boolean(vc.value?.fipe || vc.value?.seguroAnual || vc.value?.custo5anos || fipeIncerta.value || fipeNaoLocalizada.value))
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
 // O grafico do historico vive em components/GraficoValor.vue (ECharts, SVG).
@@ -1468,6 +1474,14 @@ const PAISES_PT: Record<string, string> = {
   POLAND: 'Polônia', BELGIUM: 'Bélgica', THAILAND: 'Tailândia', AUSTRIA: 'Áustria',
   SLOVAKIA: 'Eslováquia', TURKEY: 'Turquia', PORTUGAL: 'Portugal', RUSSIA: 'Rússia',
   'SOUTH AFRICA': 'África do Sul',
+  // Nomes do vPIC que ficavam em ingles (lista da tabela wmi do vin-decoder).
+  'UNITED STATES (USA)': 'Estados Unidos', 'UNITED KINGDOM (UK)': 'Reino Unido', ENGLAND: 'Inglaterra',
+  'HONG KONG': 'Hong Kong', TAIWAN: 'Taiwan', VIETNAM: 'Vietnã', AUSTRALIA: 'Austrália', DENMARK: 'Dinamarca',
+  URUGUAY: 'Uruguai', NORWAY: 'Noruega', SWITZERLAND: 'Suíça', 'SAUDI ARABIA': 'Arábia Saudita',
+  'PUERTO RICO': 'Porto Rico', 'NEW ZEALAND': 'Nova Zelândia', NETHERLANDS: 'Países Baixos', FINLAND: 'Finlândia',
+  ESTONIA: 'Estônia', SLOVENIA: 'Eslovênia', SINGAPORE: 'Singapura', SERBIA: 'Sérvia', ROMANIA: 'Romênia',
+  PHILIPPINES: 'Filipinas', 'NORTH MACEDONIA': 'Macedônia do Norte', LUXEMBOURG: 'Luxemburgo', ISRAEL: 'Israel',
+  IRELAND: 'Irlanda', INDONESIA: 'Indonésia', HUNGARY: 'Hungria', COLOMBIA: 'Colômbia',
 }
 const CONECTIVOS_PT = new Set(['de', 'da', 'do', 'das', 'dos', 'e'])
 function humanizarPaisFabricante(bruto: any, ehPais: boolean): string | null {
@@ -2490,6 +2504,10 @@ onUnmounted(() => {
             </div>
 
             <div v-else class="rel__valores">
+              <div v-if="fipeNaoLocalizada" class="rel__valor">
+                <span class="rel__valor-k">Valor FIPE</span>
+                <span class="rel__valor-v rel__valor-v--nl">não localizado para esta versão</span>
+              </div>
               <div v-if="vc?.fipe" class="rel__valor">
                 <span class="rel__valor-k">Valor FIPE</span>
                 <span class="rel__valor-v">{{ vc.fipe }}</span>
@@ -3553,6 +3571,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     font-weight: 500;
     line-height: 1;
     color: $c-ink;
+
+    &--nl { font-size: calc(15px * var(--rel-fs, 1)); line-height: 1.3; color: $c-graphite; }
   }
 
   &__valor-nota {
