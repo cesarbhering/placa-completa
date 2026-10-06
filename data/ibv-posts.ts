@@ -26,6 +26,195 @@ export interface IbvPostSection {
 
 export const ibvPosts: IbvPost[] = [
   {
+    slug: 'setembro-2026',
+    title: 'IBV Auto Setembro 2026: usados voltam a subir (+0,30%) depois da queda de agosto',
+    metaDescription: 'O IBV Auto de setembro subiu 0,30% após -0,01% em agosto. Em 12 meses, +5,12%. Sandero, Gol e Creta lideram as altas; Hilux SW4, HR-V e Polo caem. Sul sobe +0,75%, Centro-Oeste cai -0,53%.',
+    publishedAt: '2026-10-06',
+    source: 'Banco BV (IBV Auto) + análise PlacaCompleta',
+    referenceMonth: 'Setembro 2026',
+    ogTitle: 'IBV de setembro volta a subir: +0,30%, depois do -0,01% de agosto.',
+    ogHighlight: '+0,30%',
+    content: [
+      {
+        type: 'intro',
+        text: 'O Índice BV Auto (IBV) de setembro de 2026 subiu **+0,30%**, depois da leve queda de agosto (-0,01%). É uma volta ao positivo, mas sem retomar o ritmo do ano passado: no terceiro trimestre, o índice acumulou **+0,36%**, contra **+2,04%** no mesmo período de 2025. Em 12 meses, a alta segue em **+5,12%**, o mesmo número de agosto. No ano, os usados acumulam **+3,86%**, um pouco abaixo dos +4,05% de 2025.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/setembro-2026/variacao-mensal.png',
+        alt: 'Gráfico de barras com a variação mensal do IBV Auto de jan/2025 a set/2026, com setembro voltando a +0,30% depois do -0,01% de agosto',
+        caption: 'Setembro volta ao positivo depois do único mês negativo da série recente. Fonte dos dados: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Uma recuperação, não uma retomada',
+        text: 'O +0,30% de setembro é igual ao de setembro de 2025, mas o contexto é outro: em 2025, o índice vinha de três meses acima de +0,6% (junho a agosto). Agora ele vem de julho (+0,07%) e agosto (-0,01%). O ano de 2026 segue com a valorização do usado existindo, só que mais contida, e o acumulado de 12 meses parou de cair, estacionado em +5,12%.',
+      },
+      {
+        type: 'heading',
+        heading: 'Quais modelos mais subiram e mais caíram?',
+        text: 'Segundo o Banco BV, as maiores contribuições de alta vieram de **Renault Sandero (+1,88%)**, **VW Gol (+1,51%)** e **Hyundai Creta (+1,39%)**. Do outro lado, pesaram para baixo **Toyota Hilux SW4 (-1,60%)**, **Honda HR-V (-1,19%)** e **VW Polo (-0,97%)**.\n\nDe novo, os populares com preço de entrada (Sandero e Gol) puxam a alta. Entre as quedas, dois SUVs (SW4 e HR-V) e o Polo, um hatch relativamente recente.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/setembro-2026/modelos-alta-baixa.png',
+        alt: 'Infográfico com os modelos de maior alta e maior queda no IBV Auto de setembro de 2026: Renault Sandero, VW Gol e Hyundai Creta em alta; Toyota Hilux SW4, Honda HR-V e VW Polo em queda',
+        caption: 'Modelos de destaque no IBV Auto de setembro de 2026. Fonte: Banco BV.',
+      },
+      {
+        type: 'heading',
+        heading: 'Por região: o Sul vira o jogo, o Centro-Oeste devolve',
+        text: 'O **Sul teve a maior alta do mês (+0,75%)**, depois de ter caído -0,44% em agosto. O **Centro-Oeste teve a menor variação (-0,53%)**, devolvendo a alta de +0,81% do mês anterior. Três das cinco regiões subiram.\n\nPor estado, **16 subiram e 11 caíram**. O **Maranhão liderou (+1,17%)**, no segundo mês seguido de alta forte (+0,76% em agosto). O **Mato Grosso teve a maior queda (-1,05%)**, uma inversão completa depois de subir +1,06% em agosto.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/setembro-2026/variacao-por-uf.png',
+        alt: 'Gráfico de barras com a variação mensal por estado em setembro de 2026, do Maranhão no topo ao Mato Grosso no fundo',
+        caption: 'Variação mensal por estado em setembro de 2026. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/setembro-2026/mapa-brasil-acumulado.png',
+        alt: 'Mapa do Brasil com a variação acumulada em 12 meses por estado até setembro de 2026, Rio de Janeiro com a maior alta e Mato Grosso com a menor',
+        caption: 'Variação acumulada em 12 meses por estado. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: '12 meses: Rio de Janeiro segue na frente',
+        text: 'No acumulado de 12 meses, as maiores altas são do **Rio de Janeiro (+6,71%)**, **Maranhão (+6,21%)** e **Alagoas (+6,13%)**. As menores ficaram com **Mato Grosso (+2,86%)**, **São Paulo (+3,13%)** e **Pará (+3,57%)**. São Paulo, o maior mercado de usados do país, segue entre os que menos valorizaram.',
+      },
+      {
+        type: 'heading',
+        heading: 'O que a nossa base mostra',
+        text: 'Levantamento PlacaCompleta com cerca de 9 mil placas consultadas em setembro de 2026 (cada placa contada uma vez):\n\n- **Os carros que as pessoas checam antes de comprar têm, em média, 12,5 anos.** O IBV mede transações financiadas; quem consulta a placa está olhando, em boa parte, carros mais velhos.\n- **No Sul, região que mais subiu no IBV, os carros consultados são os mais antigos do país: 14,5 anos em média** (15,8 no Rio Grande do Sul).\n- **São Paulo concentra 24% das consultas**, num mês em que o IBV paulista ficou estável (-0,03%).\n- **Desde 20 de setembro, 6,0% das placas consultadas tinham registro de leilão na nossa base** (59 de 988). Entre os estados com amostra suficiente, Bahia (9,8%) e São Paulo (8,9%) ficaram acima da média.',
+      },
+      {
+        type: 'heading',
+        heading: 'Elétricos: veja a análise dedicada',
+        text: 'Setembro também trouxe o corte por tipo de propulsão: os elétricos 2023 já acumulam -46,90% de desvalorização. Detalhamos no [post de elétricos de setembro](/ibv/eletricos-setembro-2026).',
+      },
+      {
+        type: 'highlight',
+        heading: 'O que isso significa para você?',
+        text: 'Para quem vende, setembro mostra que agosto não foi o começo de uma queda generalizada: o mercado voltou a subir, mas devagar. Para quem compra, o cenário segue favorável em São Paulo, Mato Grosso e Pará, os estados que menos valorizaram em 12 meses. E, como mostra a nossa base, quem compra usado está olhando carros com mais de 12 anos em média: idade em que histórico de leilão, gravame e restrição pesam mais na decisão. Detalhamos estado a estado em [Vencedores e Perdedores de setembro](/ibv/vencedores-perdedores-setembro-2026).',
+      },
+      {
+        type: 'cta',
+        text: 'Quer saber quanto vale o carro pela placa, com FIPE atualizada e histórico de leilão (base de mais de 1 milhão de veículos)?',
+        ctaLabel: 'Consultar placa',
+        ctaTo: '/',
+      },
+    ],
+  },
+  {
+    slug: 'vencedores-perdedores-setembro-2026',
+    title: 'Vencedores e Perdedores de Setembro 2026: Maranhão lidera, Mato Grosso devolve a alta de agosto',
+    metaDescription: 'Maranhão +1,17%, Roraima +0,96%, Paraná +0,90% e Santa Catarina +0,65% lideram setembro; Mato Grosso -1,05%, Bahia -0,74%, Pará e Mato Grosso do Sul -0,55% caem. Veja a tendência de 6 meses e o que a nossa base mostra.',
+    publishedAt: '2026-10-06',
+    source: 'Banco BV (IBV Auto) + análise PlacaCompleta',
+    referenceMonth: 'Setembro 2026',
+    ogTitle: 'Setembro: Maranhão sobe, Mato Grosso devolve tudo.',
+    ogHighlight: 'Setembro',
+    content: [
+      {
+        type: 'intro',
+        text: 'Setembro foi o mês das inversões. Dos quatro estados que mais subiram, três tinham caído em agosto. Dos quatro que mais caíram, todos tinham subido em agosto. Com o índice nacional em **+0,30%**, a diferença entre o primeiro (**Maranhão, +1,17%**) e o último (**Mato Grosso, -1,05%**) passou de 2 pontos percentuais.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/setembro-2026/variacao-por-uf.png',
+        alt: 'Gráfico de barras da variação mensal por estado em setembro de 2026, com Maranhão no topo e Mato Grosso no fundo',
+        caption: 'Setembro: Maranhão lidera com +1,17%, Mato Grosso cai -1,05%. Fonte dos dados: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Os 4 estados que mais subiram',
+        text: '- **Maranhão: +1,17%** (12 meses: +6,21%). É o único do topo que já vinha subindo: +0,76% em agosto. Nos últimos seis meses, só caiu em julho.\n- **Roraima: +0,96%** (12 meses: +4,80%). Recuperação depois de -0,88% em agosto. Mercado pequeno, que oscila muito de um mês para o outro.\n- **Paraná: +0,90%** (12 meses: +5,67%). Sai de dois meses levemente negativos (-0,25% e -0,04%).\n- **Santa Catarina: +0,65%** (12 meses: +4,20%). Devolve a queda de agosto (-0,57%) e volta ao ritmo do primeiro semestre.',
+      },
+      {
+        type: 'heading',
+        heading: 'Os 4 estados que mais caíram',
+        text: '- **Mato Grosso: -1,05%** (12 meses: +2,86%, o menor do país). Devolve quase exatamente a alta de agosto (+1,06%).\n- **Bahia: -0,74%** (12 meses: +4,79%). Depois de +0,73% em agosto. Na série de seis meses, alterna alta e queda.\n- **Pará: -0,55%** (12 meses: +3,57%, terceiro menor do país).\n- **Mato Grosso do Sul: -0,55%** (12 meses: +5,23%). Depois de +0,81% em agosto.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/setembro-2026/variacao-por-uf-acumulado.png',
+        alt: 'Gráfico de barras com a variação acumulada em 12 meses por estado até setembro de 2026, Rio de Janeiro na liderança e Mato Grosso na lanterna',
+        caption: 'Variação acumulada em 12 meses por estado até setembro de 2026. Fonte: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'O que a nossa base mostra nesses estados',
+        text: 'Levantamento PlacaCompleta com as placas consultadas em setembro de 2026, pelo estado de registro do veículo:\n\n- **Paraná:** 745 placas consultadas, carros com 14,2 anos em média e valor FIPE mediano de R$ 39,9 mil. Só 3,2% das placas com resposta tinham registro de leilão, metade da média nacional (6,0%).\n- **Santa Catarina:** 364 placas, 13,6 anos em média, FIPE mediana de R$ 44,0 mil. 8,1% com registro de leilão.\n- **Bahia:** 532 placas, carros mais novos (10,7 anos) e FIPE mediana de R$ 32,7 mil. **9,8% com registro de leilão, a maior taxa entre os estados com amostra suficiente.**\n- **Maranhão:** 89 placas, 10,2 anos em média e FIPE mediana de R$ 22,5 mil, uma das mais baixas do país. O estado que mais valoriza é também um dos que consulta carros mais baratos.\n\n(Percentuais de leilão só para estados com pelo menos 30 placas com resposta, medidos desde 20/09.)',
+      },
+      {
+        type: 'highlight',
+        heading: 'Como usar essa informação',
+        text: 'Inversão de um mês não é tendência. Mato Grosso e Bahia caíram depois de subir; Paraná e Santa Catarina subiram depois de cair. Para quem compra, o dado que mais pesa é o de 12 meses: Mato Grosso (+2,86%), São Paulo (+3,13%) e Pará (+3,57%) seguem com o usado valorizando menos. Para quem compra na Bahia, onde quase 1 em cada 10 placas consultadas tinha registro de leilão, vale consultar o histórico antes de fechar.',
+      },
+      {
+        type: 'cta',
+        text: 'Quer saber o valor atualizado do carro pela placa, com histórico de leilão incluído?',
+        ctaLabel: 'Consultar placa',
+        ctaTo: '/',
+      },
+    ],
+  },
+  {
+    slug: 'eletricos-setembro-2026',
+    title: 'Elétricos Usados Setembro 2026: desvalorização volta a aumentar nos três tipos',
+    metaDescription: 'IBV Auto (Banco BV): elétricos 2023 acumulam -46,90%, híbridos -27,89% e combustão -22,20%. Elétricos 2022 chegam a -50,24%. Em setembro, a desvalorização aumentou nos três grupos.',
+    publishedAt: '2026-10-06',
+    source: 'Banco BV (IBV Auto) + análise PlacaCompleta',
+    referenceMonth: 'Setembro 2026',
+    ogTitle: 'Elétrico 2023 já perdeu 46,9% do valor. O combustão, 22,2%.',
+    ogHighlight: '-46,9%',
+    content: [
+      {
+        type: 'intro',
+        text: 'O relatório de setembro do Banco BV mostra a desvalorização aumentando de novo nos três tipos de motorização. Os elétricos lançados em 2023 acumulam **-46,90%**, os híbridos **-27,89%** e os modelos a combustão comparáveis **-22,20%**. Em agosto, os mesmos grupos estavam em -46,15%, -26,36% e -21,72%.',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/setembro-2026/desvalorizacao-2023.png',
+        alt: 'Gráfico de linhas com a desvalorização acumulada de elétricos, híbridos e combustão para modelos 2023 até setembro de 2026',
+        caption: 'Modelos 2023: elétricos -46,9%, híbridos -27,9%, combustão -22,2%. Fonte dos dados: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Por ano-modelo',
+        text: 'Desvalorização acumulada até setembro de 2026, segundo o Banco BV:\n\n- **Modelos 2023:** Elétricos -46,90% | Híbridos -27,89% | Combustão -22,20%\n- **Modelos 2022:** Elétricos -50,24% | Híbridos -22,72% | Combustão -14,78%\n- **Modelos 2021:** Híbridos -17,04% | Combustão -6,91%\n\nNos modelos 2023, os híbridos tiveram o maior aumento recente da desvalorização. Nos modelos 2022, elétricos e híbridos ficaram quase estáveis no mês, enquanto o combustão piorou mais (de -14,07% para -14,78%). Nos 2021, os híbridos até melhoraram um pouco (de -17,47% para -17,04%).',
+      },
+      {
+        type: 'image',
+        src: '/images/ibv/setembro-2026/desvalorizacao-2022.png',
+        alt: 'Gráfico com a desvalorização acumulada de elétricos, híbridos e combustão para modelos 2022 até setembro de 2026',
+        caption: 'Modelos 2022: elétricos passam de metade do valor perdido. Fonte dos dados: Banco BV (IBV Auto).',
+      },
+      {
+        type: 'heading',
+        heading: 'Por que o elétrico segue perdendo mais',
+        text: 'A explicação do Banco BV continua a mesma: a pressão vem do preço do zero-km. Mais concorrência e políticas comerciais agressivas das montadoras líderes no segmento derrubam o preço do novo, e o usado acompanha. Parte dessa pressão já passa para os híbridos; os modelos a combustão seguem os mais resistentes.',
+      },
+      {
+        type: 'heading',
+        heading: 'O que a nossa base mostra',
+        text: 'Levantamento PlacaCompleta com cerca de 9 mil placas consultadas em setembro de 2026: **as marcas chinesas somaram só 1,0% das placas consultadas** (92), e a BYD, 0,3% (30). BYD e GWM de 2022 em diante, onde está a maior parte dos elétricos e híbridos à venda, foram 45 placas, 0,5% do total.\n\nOu seja: o usado eletrificado ainda é um nicho entre quem consulta placa antes de comprar. A desvalorização forte afeta quem já tem o carro, mas a maior parte dos compradores de usado ainda está olhando modelos a combustão.',
+      },
+      {
+        type: 'highlight',
+        heading: 'O que isso significa para quem tem, ou quer comprar',
+        text: 'Quem tem elétrico 2022 ou 2023 já absorveu quase metade da perda, e setembro não mostrou recuperação. Quem quer comprar um elétrico usado encontra preço muito abaixo da tabela original, mas precisa olhar com cuidado a bateria, a garantia e o histórico do carro. Em um mercado de nicho, cada unidade conta.',
+      },
+      {
+        type: 'cta',
+        text: 'Comprando um usado, elétrico ou não? Consulte a placa antes: histórico de leilão, restrição e indicador de sinistro, numa base com mais de 1 milhão de veículos leiloados.',
+        ctaLabel: 'Consultar placa',
+        ctaTo: '/',
+      },
+    ],
+  },
+  {
     slug: 'agosto-2026',
     title: 'IBV Auto Agosto 2026: primeira queda do ano (-0,01%) e o ciclo de alta perde força',
     metaDescription: 'O IBV Auto de agosto fechou negativo pela primeira vez em meses (-0,01%), com o acumulado de 12 meses desacelerando para +5,12%. Fiat Uno lidera as altas, Ford Ka as quedas. Veja por modelo, região e estado.',
