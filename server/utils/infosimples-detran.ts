@@ -23,11 +23,11 @@ export async function encriptarInfosimples(valor: string, encKey: string): Promi
  * login gov.br do Cesar (BA e DF usam a MESMA conta: NUXT_INFOSIMPLES_BA_*),
  * ou 'nenhum' (CE, PA, AM: so placa + renavam).
  */
-export type CertInfosimples = 'ecnpj' | 'ecpf' | 'govbr_ba' | 'govbr_df' | 'nenhum'
+export type CertInfosimples = 'ecnpj' | 'ecpf' | 'govbr_ba' | 'govbr_df' | 'govbr_ac' | 'nenhum'
 
 /** UF que entra com o login gov.br (CPF+senha), nao com certificado. */
 export function usaLoginGovbr(cert: string | null | undefined): boolean {
-  return cert === 'govbr_ba' || cert === 'govbr_df'
+  return cert === 'govbr_ba' || cert === 'govbr_df' || cert === 'govbr_ac'
 }
 
 function infosimplesConfig(cert: CertInfosimples = 'ecnpj') {
@@ -109,6 +109,15 @@ export const DETRAN_UFS = {
   // ES: e-CNPJ, placa+renavam. R$0,28, LENTO (~46s).
   ES: { path: 'detran/es/veiculo', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_es', fonteCusto: 'infosimples_detran_es' },
   PE: { path: 'detran/pe/extrato-geral', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_pe', fonteCusto: 'infosimples_detran_pe', exigeChassi: true },
+  // 06/out (spike): MA (R$0,24, ~2 min) e AC (login gov.br da mesma conta do
+  // BA/DF, R$0,28, ~30 s) testados com veiculo real. AL, PI e RR so pela doc
+  // da Infosimples (sem renavam pra testar): formato nao reconhecido vira
+  // 'indisponivel' e loga so as CHAVES da resposta.
+  MA: { path: 'detran/ma/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_ma', fonteCusto: 'infosimples_detran_ma' },
+  AC: { path: 'detran/ac/veiculo', cert: 'govbr_ac', gate: 'renainf', fonte: 'detran_ac', fonteCusto: 'infosimples_detran_ac' },
+  AL: { path: 'detran/al/infracoes', cert: 'nenhum', gate: 'renainf', fonte: 'detran_al', fonteCusto: 'infosimples_detran_al' },
+  PI: { path: 'detran/pi/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_pi', fonteCusto: 'infosimples_detran_pi' },
+  RR: { path: 'detran/rr/debitos', cert: 'nenhum', gate: 'renainf', fonte: 'detran_rr', fonteCusto: 'infosimples_detran_rr' },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 
@@ -190,8 +199,8 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       body.set('chassi', '')
       body.set('login_cpf', l.cpf)
       body.set('login_senha', l.senha)
-    } else if (certUf === 'govbr_df') {
-      // DF: placa + renavam + login gov.br, senha em texto puro.
+    } else if (certUf === 'govbr_df' || certUf === 'govbr_ac') {
+      // DF e AC: placa + renavam + login gov.br (mesma conta do BA), senha em texto puro.
       const l = loginBa()
       body.set('placa', opts.placa)
       body.set('login_cpf', l.cpf)
@@ -963,12 +972,12 @@ const primeiro = (m: any, ks: string[]) => ks.map((k) => m?.[k]).find((v) => v !
 
 export function multaGenerica(m: any) {
   const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t && t !== '--' ? t : null }
-  const dataBruta = String(primeiro(m, ['data_infracao', 'data', 'data_hora_infracao', 'data_hora']) ?? '')
+  const dataBruta = String(primeiro(m, ['data_infracao', 'data', 'data_hora_infracao', 'data_hora', 'datahora']) ?? '')
   const { data: dataInfracao, hora } = dataHoraBr(dataBruta)
-  const vencBruto = String(primeiro(m, ['data_vencimento', 'vencimento']) ?? '')
+  const vencBruto = String(primeiro(m, ['data_vencimento', 'vencimento', 'vencimento_penalidade', 'vencimento_boleto']) ?? '')
   const valorBruto = primeiro(m, ['normalizado_valor', 'valor_normalizado', 'normalizado_valor_atual', 'valor_corrigido', 'valor_atual', 'valor', 'normalizado_valor_original', 'valor_original'])
   return {
-    auto: texto(primeiro(m, ['ait', 'auto', 'auto_infracao', 'numero_auto', 'numero_ait', 'serie'])),
+    auto: texto(primeiro(m, ['ait', 'auto', 'auto_infracao', 'numero_auto', 'numero_ait', 'serie', 'infracao_numero', 'numero_autuacao'])),
     descricao: texto(primeiro(m, ['descricao', 'dados_infracao', 'infracao_descricao', 'desc_infracao', 'descricao_infracao', 'infracao', 'enquadramento'])),
     dataInfracao,
     horaInfracao: horaHhMm(primeiro(m, ['hora_infracao', 'hora'])) || hora,
@@ -976,7 +985,7 @@ export function multaGenerica(m: any) {
     valor: typeof valorBruto === 'number' ? valorBruto : moeda(valorBruto),
     local: texto(primeiro(m, ['local', 'local_infracao', 'local_multa'])),
     municipio: texto(primeiro(m, ['municipio', 'municipio_infracao'])),
-    orgao: texto(primeiro(m, ['orgao', 'orgao_autuador', 'orgao_atuador'])),
+    orgao: texto(primeiro(m, ['orgao', 'orgao_autuador', 'orgao_atuador', 'autuador'])),
   }
 }
 
@@ -1040,6 +1049,122 @@ export function parsearDetranAm(data: any) {
     ipva_total_centavos: Math.round(ipva * 100),
     restricoes_detran: restricoes,
   }
+}
+
+// ---------- MA, AC, AL, PI, RR (06/out) ----------
+//
+// MA e AC testados com veiculo real (os dois sem multa); AL, PI e RR so pela
+// doc. Formato que o parser nao reconhece devolve null: vira 'indisponivel' e
+// so as chaves da resposta vao pro log (completarDetran), nunca valor nem nome.
+
+/** Item "Nenhuma multa em aberto..." (so descricao): nao e multa. */
+const ehLinhaDeNadaConsta = (x: any) => {
+  if (!x || typeof x !== 'object') return true
+  const ks = Object.keys(x).filter((k) => x[k] != null && String(x[k]).trim() !== '')
+  return ks.every((k) => k === 'descricao') && /^\s*nenhum/i.test(String(x.descricao || ''))
+}
+const listagemDe = (v: any): any[] => listaDe(Array.isArray(v) ? v : v?.listagem).filter((x) => !ehLinhaDeNadaConsta(x))
+const brlTexto = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+/**
+ * DETRAN-MA (/detran/ma/multas): penalidades = multas em aberto; infracoes_atuacao
+ * = autuacoes em andamento; ipva por exercicio; debitos (licenciamento, taxas)
+ * como outros debitos. NUNCA le dados_veiculo: informacao_financeira_sng e
+ * impedimentos trazem nome de pessoa em texto livre (LGPD).
+ */
+export function parsearDetranMa(data: any) {
+  const d = data || {}
+  if (!('penalidades' in d) && !('debitos' in d)) return null
+  const itens = listagemDe(d.penalidades).map(multaGenerica)
+  const autuacoes = listagemDe(d.infracoes_atuacao).length
+  const ipvaItens = ordenarIpva(listagemDe(d.ipva).map(ipvaItemGenerico).filter(Boolean) as IpvaItem[])
+  const restricoes: { tipo: string; texto: string }[] = []
+  const outros = listagemDe(d.debitos).map((x) => ({ desc: String(x.descricao || 'Débito no DETRAN-MA').replace(/\s+/g, ' ').trim(), v: ipvaItemGenerico(x)?.valor_centavos || 0 })).filter((x) => x.v > 0)
+  for (const o of outros) restricoes.push({ tipo: 'outros_debitos', texto: `${o.desc.slice(0, 80)}: ${brlTexto(o.v / 100)}` })
+  return {
+    ...blocoSoMultas('detran_ma', itens),
+    ipva_total_centavos: ipvaItens.reduce((a, x) => a + x.valor_centavos, 0),
+    ipva_itens: ipvaItens,
+    autuacoes_em_andamento: autuacoes,
+    restricoes_detran: restricoes,
+  }
+}
+
+/**
+ * DETRAN-AC (/detran/ac/veiculo, login gov.br): infracoes {vencidas, a_vencer}
+ * = multas em aberto; sub_judice = em recurso; notificacao_autuacao = autuacoes
+ * em andamento. IPVA e licenciamento por exercicio; restricoes e roubo/furto do
+ * cadastro. Sem proprietario no retorno.
+ */
+export function parsearDetranAc(data: any, hoje: Date = new Date()) {
+  const d = data || {}
+  if (!('infracoes' in d) && !('ipva' in d) && !('licenciamento' in d)) return null
+  const inf = d.infracoes && typeof d.infracoes === 'object' && !Array.isArray(d.infracoes) ? d.infracoes : {}
+  const itens = [...listagemDe(inf.vencidas), ...listagemDe(inf.a_vencer), ...listagemDe(inf.parceladas)].map(multaGenerica)
+  const recurso = listagemDe(inf.sub_judice).map(multaGenerica)
+  const ipvaItens = ordenarIpva(listagemDe(d.ipva).map(ipvaItemGenerico).filter(Boolean) as IpvaItem[])
+  const licItens = listagemDe(d.licenciamento).map(ipvaItemGenerico).filter(Boolean) as IpvaItem[]
+  const ultimoLicAno = anoDe(d.ano_ultimo_licenciamento)
+  const restricoes: { tipo: string; texto: string }[] = []
+  for (const r of (Array.isArray(d.restricoes) ? d.restricoes : [])) {
+    const t = String(r ?? '').replace(/\s+/g, ' ').trim()
+    if (t && !/^nada\s+consta$/i.test(t)) restricoes.push({ tipo: 'restricao', texto: t.slice(0, 120) })
+  }
+  const roubo = String(d.roubo_furto ?? '').trim()
+  return {
+    ...blocoSoMultas('detran_ac', itens, { multas_em_recurso: recurso }),
+    licenciamento_centavos: licItens.reduce((a, x) => a + x.valor_centavos, 0),
+    ipva_total_centavos: ipvaItens.reduce((a, x) => a + x.valor_centavos, 0),
+    ipva_itens: ipvaItens,
+    ultimo_licenciamento_ano: ultimoLicAno,
+    licenciamento_atrasado_ano: ultimoLicAno != null && ultimoLicAno <= hoje.getFullYear() - 2 ? ultimoLicAno : null,
+    autuacoes_em_andamento: listagemDe(inf.notificacao_autuacao).length,
+    alerta_roubo_furto: roubo && !/nada\s+consta/i.test(roubo) ? 'Restrição informada pelo DETRAN-AC: roubo/furto' : null,
+    restricoes_detran: restricoes,
+  }
+}
+
+/** DETRAN-AL (/detran/al/infracoes): infracoes[] + normalizado_total. So pela doc. */
+export function parsearDetranAl(data: any) {
+  const d = data || {}
+  if (!('infracoes' in d) && !('normalizado_total' in d) && !('total' in d)) return null
+  const itens = listagemDe(d.infracoes).map(multaGenerica)
+  const soma = itens.reduce((a, i) => a + i.valor, 0)
+  const total = typeof d.normalizado_total === 'number' ? d.normalizado_total : moeda(d.total)
+  return { ...blocoSoMultas('detran_al', itens), multas_total_centavos: Math.round(Math.max(soma, total || 0) * 100) }
+}
+
+/** DETRAN-PI (/detran/pi/multas): multas[] (status, valor_normalizado, vencimento). So pela doc. */
+export function parsearDetranPi(data: any) {
+  const d = data || {}
+  if (!('multas' in d)) return null
+  const emAberto = listagemDe(d.multas).filter((m) => !/\bpag[ao]\b|quitad/i.test(String(m.status || '')))
+  return blocoSoMultas('detran_pi', emAberto.map(multaGenerica))
+}
+
+/** DETRAN-RR (/detran/rr/debitos): infracoes {detalhes_infracoes[], valor_normalizado}. So pela doc. */
+export function parsearDetranRr(data: any) {
+  const d = data || {}
+  if (!('infracoes' in d) && !('debitos' in d)) return null
+  const inf = d.infracoes && typeof d.infracoes === 'object' && !Array.isArray(d.infracoes) ? d.infracoes : {}
+  const itens = listagemDe(Array.isArray(d.infracoes) ? d.infracoes : inf.detalhes_infracoes).map(multaGenerica)
+  const soma = itens.reduce((a, i) => a + i.valor, 0)
+  const total = typeof inf.valor_normalizado === 'number' ? inf.valor_normalizado : moeda(inf.valor)
+  const roubo = String(d.roubo_furto ?? '').trim()
+  return {
+    ...blocoSoMultas('detran_rr', itens),
+    multas_total_centavos: Math.round(Math.max(soma, total || 0) * 100),
+    ultimo_licenciamento_ano: anoDe(d.ano_ultimo_licenciamento),
+    alerta_roubo_furto: roubo && !/nada\s+consta/i.test(roubo) ? 'Restrição informada pelo DETRAN-RR: roubo/furto' : null,
+  }
+}
+
+/** So as CHAVES de uma resposta (sem valores): pro log de formato desconhecido. */
+export function estruturaChaves(o: any, prof = 0): any {
+  if (prof > 3) return '…'
+  if (Array.isArray(o)) return o.length ? [estruturaChaves(o[0], prof + 1)] : []
+  if (o && typeof o === 'object') return Object.fromEntries(Object.keys(o).map((k) => [k, estruturaChaves(o[k], prof + 1)]))
+  return typeof o
 }
 
 // ---------- DETRAN-PE (/detran/pe/extrato-geral) ----------
@@ -1299,6 +1424,11 @@ function blocoDetranDaUfBruto(uf: UfDetran, data: any) {
   if (uf === 'AM') return parsearDetranAm(data)
   if (uf === 'PE') return parsearDetranPe(data)
   if (uf === 'ES') return parsearDetranEs(data)
+  if (uf === 'MA') return parsearDetranMa(data)
+  if (uf === 'AC') return parsearDetranAc(data)
+  if (uf === 'AL') return parsearDetranAl(data)
+  if (uf === 'PI') return parsearDetranPi(data)
+  if (uf === 'RR') return parsearDetranRr(data)
   return detranParaMultas(parsearDetranSp(data))
 }
 
@@ -1376,6 +1506,13 @@ export async function completarDetran(
     return { ok: false, code: res.code, preco: res.preco, motivo: res.codeMessage || 'sem data' }
   }
   const multas: any = blocoDetranDaUf(uf, res.data)
+  if (!multas) {
+    // Formato que o parser nao reconhece (UF integrada so pela doc): nada de
+    // valor inventado. Loga so a estrutura (chaves), sem valores nem nomes.
+    console.warn(`[detran] formato-desconhecido uf=${uf} pedido=${String(pedido.id).slice(0, 8)} chaves=${JSON.stringify(estruturaChaves(res.data)).slice(0, 1500)}`)
+    await marcarIndisponivel(supabase, pedido.id, uf)
+    return { ok: false, code: res.code, preco: res.preco, motivo: 'formato desconhecido' }
+  }
   const temAlgo = multas.multas_itens.length > 0 || multas.hodometro.length > 0 || multas.restricoes_detran.length > 0
     || !!multas.alerta_roubo_furto
     || (multas.ipva_total_centavos ?? 0) > 0 || (multas.licenciamento_centavos ?? 0) > 0 || multas.licenciamento_atrasado_ano != null
