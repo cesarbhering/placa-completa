@@ -136,6 +136,22 @@ export interface ResultadoDetran {
   codeMessage: string
   preco: number
   data: any | null
+  /** json.errors da Infosimples (ex.: 620 "O veículo consultado está protegido..."). */
+  erros?: string[]
+}
+
+/**
+ * O PROPRIETARIO bloqueou a consulta publica do veiculo no DETRAN (achado
+ * MES3261, DETRAN-SC: code 620 "O veículo consultado está protegido. Entre em
+ * contato com o proprietário do veículo."). Nao e falha do sistema: a resposta
+ * nao muda tentando de novo, e cada tentativa e cobrada (R$ 0,28). Vira status
+ * final 'protegido', sem retry. Reconhece pelo texto, entao vale pra qualquer
+ * UF que responder o mesmo.
+ */
+export function ehVeiculoProtegido(res: Pick<ResultadoDetran, 'code' | 'codeMessage' | 'erros'>): boolean {
+  if (res.code !== 620) return false
+  const texto = [res.codeMessage, ...(res.erros || [])].join(' ')
+  return /protegid/i.test(texto)
 }
 
 /**
@@ -212,6 +228,7 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       codeMessage: String(json?.code_message || ''),
       preco: Number(json?.header?.price || 0),
       data: dados,
+      erros: Array.isArray(json?.errors) ? json.errors.map((e: any) => String(e)) : [],
     }
   } catch (e: any) {
     return { code: 0, codeMessage: String(e?.message || e), preco: 0, data: null }
@@ -1338,6 +1355,13 @@ export async function completarDetran(
   // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
   await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code })
   if (usaLoginGovbr(cfgUf.cert) && res.code === 608) await travarLoginBa(res.codeMessage)
+  // Proprietario bloqueou a consulta: status final, sem retry (cobra a cada vez).
+  // Grava com `fonte`, entao backfill e reprocesso pulam este pedido depois.
+  if (ehVeiculoProtegido(res)) {
+    console.warn(`[detran] protegido uf=${uf} code=620 ms=${Date.now() - t0} pedido=${String(pedido.id).slice(0, 8)}`)
+    await marcarProtegido(supabase, pedido.id, uf, cfgUf.fonte)
+    return { ok: false, code: res.code, preco: res.preco, motivo: 'protegido pelo proprietario' }
+  }
   // 1 nova tentativa pra timeout/rede (0) e erro na origem (605/609).
   if (CODIGOS_RETRY.has(res.code) && !ctx.semRetry) {
     console.warn(`[detran] retry uf=${uf} code=${res.code} ms=${Date.now() - t0} pedido=${String(pedido.id).slice(0, 8)}`)
@@ -1404,6 +1428,25 @@ export async function marcarIndisponivel(supabase: any, pedidoId: string, uf: st
       .eq('id', pedidoId)
   } catch (e: any) {
     console.warn('[infosimples] marcar indisponivel falhou:', e?.message || e)
+  }
+}
+
+/** Bloco final multas = {status:'protegido'}: proprietario bloqueou a consulta. Nunca pisa num bloco pronto. */
+export function blocoProtegido(uf: string, fonte: string) {
+  return { status: 'protegido', uf, fonte }
+}
+export async function marcarProtegido(supabase: any, pedidoId: string, uf: string, fonte: string): Promise<void> {
+  try {
+    const snap = await lerSnapshot(supabase, pedidoId)
+    if (!snap) return
+    const atual = (snap as any).multas
+    if (atual && (atual.status === 'ok' || atual.status === 'sem_debito')) return
+    await supabase
+      .from('pedidos_premium')
+      .update({ relatorio_snapshot: { ...snap, multas: blocoProtegido(uf, fonte) } })
+      .eq('id', pedidoId)
+  } catch (e: any) {
+    console.warn('[infosimples] marcar protegido falhou:', e?.message || e)
   }
 }
 
