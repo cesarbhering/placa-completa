@@ -1004,6 +1004,13 @@ onUnmounted(() => {
                 Pagamento processado com segurança pelo Stripe. Não armazenamos os dados do seu cartão.
               </p>
             </div>
+            <!-- Logos de pagamento (opcao 1 do Cesar, 06/out): logo abaixo do
+                 botao de pagar, nas duas abas. No app (Play) nao aparece. -->
+            <div v-if="!isCapacitor" class="pic-logos">
+              <LogosPagamento :cartao="cartaoHabilitado" />
+              <!-- Na aba Cartao so os logos: a frase do Stripe ja esta logo acima. -->
+              <p v-if="metodo !== 'cartao'" class="pic-logos__txt">Pagamento seguro.</p>
+            </div>
             <!-- Sem "Cancelar" no rodape: o X do cabecalho (pic-x, sempre visivel)
                  ja fecha o modal. Um botao a mais so competia com a CTA. -->
           </div>
@@ -1190,6 +1197,21 @@ onUnmounted(() => {
 </template>
 
 <style lang="scss" scoped>
+.pic-logos {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+.pic-logos__txt {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  opacity: 0.75;
+}
+
 // ============================================================
 // Checkout inline, na linguagem visual do .agents/DESIGN-hp.md (a mesma da
 // home v2): superficie branca, tinta near-black, um acento azul so, raio 4px
