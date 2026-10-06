@@ -1,0 +1,28 @@
+{
+ "ano_fabricacao": "2022",
+ "ano_modelo": "2022",
+ "ano_ultimo_licenciamento": "2026",
+ "capacidade": "005",
+ "categoria": "PARTICULAR",
+ "chassi": "<redigido>",
+ "combustivel": "ALCOOL/GASOLINA",
+ "cor": "",
+ "dpvat": [],
+ "especie": "PASSAGEIRO",
+ "infracoes": null,
+ "ipva": [],
+ "licenciamento": [],
+ "marca_modelo": "HYUNDAI/CRETA1TA PLTINUM",
+ "municipio": "RIO BRANCO - AC",
+ "nacionalidade": "NACIONAL",
+ "placa": "ABC1D23",
+ "potencia_cilindradas": "120/0998",
+ "renavam": "<redigido>",
+ "restricoes": [
+  "ALIENACAO FIDUCIARIA"
+ ],
+ "roubo_furto": "NADA CONSTA",
+ "situacao": "EM CIRCULACAO",
+ "tipo": "AUTOMOVEL",
+ "site_receipt": null
+}

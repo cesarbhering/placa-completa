@@ -1,0 +1,45 @@
+{
+ "dados_veiculo": {
+  "placa": "ABC1D23",
+  "renavam": "<redigido>",
+  "nome_proprietario": "FULANO DONO",
+  "informacao_financeira_sng": "Registro de Alienacao Fiduciaria ... para FULANO DONO",
+  "impedimentos": "... para FULANO DONO",
+  "marca_modelo": "I/TOYOTA HILUX SWSRXA4FD"
+ },
+ "debitos": {
+  "listagem": [
+   {
+    "descricao": "Nenhum débito em aberto cadastrado para este veículo."
+   }
+  ],
+  "boleto_pagamento_url": null
+ },
+ "debitos_atuacao": {
+  "listagem": [
+   {
+    "descricao": "Nenhum débito em autuação cadastrado para este veículo."
+   }
+  ],
+  "boleto_pagamento_url": null
+ },
+ "infracoes_atuacao": {
+  "listagem": [
+   {
+    "descricao": "Nenhuma Notificação de Autuação realizada para este veículo até o momento."
+   }
+  ]
+ },
+ "ipva": {
+  "listagem": []
+ },
+ "penalidades": {
+  "listagem": [
+   {
+    "descricao": "Nenhuma multa em aberto cadastrada para este veículo até o momento."
+   }
+  ]
+ },
+ "recursos": [],
+ "site_receipt": null
+}
