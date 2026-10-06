@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
 import { codigoFipeDoRelatorio } from '~/shared/codigo-fipe'
@@ -488,8 +489,16 @@ const restricoes = computed<{ rotulo: string; explica: string; renave: boolean }
       // Estoque RENAVE tem explicacao propria (RENAVE_EXPLICACAO) no lugar da
       // copy generica, e nao conta como tipo desconhecido.
       ? { rotulo: humanizar(r), explica: '', renave: true }
-      : { rotulo: humanizar(r), explica: explicaRestricao(String(r), registraTipoDesconhecido), renave: false })
+      : { rotulo: humanizar(r), explica: explicaRenainfOuPadrao(String(r)), renave: false })
 })
+// RENAINF aceso e o DETRAN da UF respondeu sem multa: a multa e de orgao de
+// fora ou federal. Explicacao propria pra nao contradizer o "nada consta" do
+// DETRAN logo abaixo (shared/renainf-detran.ts).
+const ufRenainfFora = computed(() => ufRenainfForaDoDetran(g('indicadorMultaRenainf'), data.value?.multas as any, g('ufJurisdicao')))
+function explicaRenainfOuPadrao(r: string): string {
+  if (ufRenainfFora.value && /^RENAINF/.test(normalizaChave(r))) return EXPLICA_RENAINF_FORA_DO_DETRAN
+  return explicaRestricao(r, registraTipoDesconhecido)
+}
 // So o estoque RENAVE consta: nenhum outro item, nenhum outro cartao aceso
 // alem do generico "Outras restrições" que ele mesmo acende.
 const soEstoqueRenave = computed(() => {
@@ -1261,8 +1270,12 @@ const multasTotalCentavos = computed(() => {
 const multasBreakdown = computed(() => {
   const m = multasDetalhe.value
   if (!m) return []
-  const rows: { rotulo: string; valor: string; emDia: boolean }[] = []
-  if (m.multas_total_centavos != null)
+  const rows: { rotulo: string; valor: string; emDia: boolean; texto?: string }[] = []
+  if (ufRenainfFora.value)
+    // RENAINF aceso + DETRAN zerado: no lugar do "Nada consta" seco, o texto
+    // aprovado que explica a multa de fora do estado (nao e "em dia").
+    rows.push({ rotulo: 'Multas em aberto', valor: '', emDia: false, texto: textoMultasRenainfForaDoDetran(ufRenainfFora.value) })
+  else if (m.multas_total_centavos != null)
     rows.push({
       // gov.br so listava multa pagavel por Pix; o Infosimples traz TODAS em aberto.
       rotulo: String(m.fonte || '').startsWith('detran_') ? 'Multas em aberto' : 'Multas (Pix)',
@@ -1995,9 +2008,10 @@ onUnmounted(() => {
                     <b>{{ reais(multasTotalCentavos) }}</b>
                   </div>
                   <div class="rel__multas-bd">
-                    <div v-for="(r, idx) in multasBreakdown" :key="'b' + idx" class="rel__multas-r">
+                    <div v-for="(r, idx) in multasBreakdown" :key="'b' + idx" class="rel__multas-r" :class="{ 'rel__multas-r--texto': r.texto }">
                       <span>{{ r.rotulo }}</span>
-                      <b :class="{ 'rel__multas-ok': r.emDia }">{{ r.valor }}</b>
+                      <p v-if="r.texto" class="rel__multas-rtexto">{{ r.texto }}</p>
+                      <b v-else :class="{ 'rel__multas-ok': r.emDia }">{{ r.valor }}</b>
                     </div>
                   </div>
                 </div>
@@ -3790,6 +3804,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
     span { color: #3d3d3d; }
     b { font-variant-numeric: tabular-nums; color: #1a1a1a; }
+  }
+
+  &__multas-r--texto { flex-direction: column; gap: 4px; }
+  &__multas-rtexto {
+    margin: 0;
+    font-size: calc(13px * var(--rel-fs, 1));
+    line-height: 1.5;
+    color: #1a1a1a;
   }
 
   &__multas-ok { color: #14622f !important; font-weight: 700; }
