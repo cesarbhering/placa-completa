@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { textoDetranProtegido } from '~/shared/detran-protegido'
 import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
@@ -1191,7 +1192,11 @@ const multasDetalhe = computed(() => {
 })
 // Consulta do DETRAN nao rodou (credencial ausente/travada no servidor): sem
 // isso o bloco ficava em "Consultando..." pra sempre.
-const multasIndisponivel = computed(() => (data.value?.multas as any)?.status === 'indisponivel')
+// 'protegido' (proprietario bloqueou a consulta no DETRAN, code 620) tambem e
+// final: entra junto em todo lugar que encerra a espera.
+const multasProtegido = computed(() => (data.value?.multas as any)?.status === 'protegido')
+const multasIndisponivel = computed(() => (data.value?.multas as any)?.status === 'indisponivel' || multasProtegido.value)
+const ufMultasProtegido = computed(() => String((data.value?.multas as any)?.uf || ufDetranTela.value || '').toUpperCase())
 
 // Ordem do Cesar (30/set): com multa no SENATRAN (RENAINF, ou SP que consulta
 // sempre) o loading ESPERA a consulta ao DETRAN antes de abrir o relatorio. O
@@ -2119,6 +2124,7 @@ onUnmounted(() => {
 
 
               </template>
+              <p v-else-if="multasProtegido" class="rel__multas-nota">{{ textoDetranProtegido(ufMultasProtegido) }}</p>
               <p v-else-if="multasIndisponivel || multasSemRespostaAntigo" class="rel__multas-nota">A consulta de débitos e multas no DETRAN do estado não está disponível no momento. Confira direto no site do DETRAN.</p>
               <p v-else-if="multasSemResposta && acompanhamentoEsgotado" class="rel__multas-nota">O DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }} ainda não respondeu. Recarregue esta página em alguns minutos para ver o resultado.</p>
               <p v-else-if="multasSemResposta" class="rel__multas-nota rel__multas-nota--consultando">Consultando o DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }}, pode levar alguns minutos. O resultado aparece aqui sozinho.</p>
