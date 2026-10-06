@@ -605,6 +605,35 @@ async function julgarComHaiku(
 // Orquestracao
 // ---------------------------------------------------------------------------
 
+// Nome da marca no "idioma" da fipe-api quando nao veio o texto_marca da
+// FIPE. CHEVROLET cru casa com a marca de CAMINHOES na fipe-api; os carros
+// estao em "GM - Chevrolet". Mesmo cuidado com VW e Mercedes.
+const ALIAS_MARCA_FIPE: Record<string, string> = {
+  GM: 'GM - Chevrolet', CHEV: 'GM - Chevrolet', CHEVROLET: 'GM - Chevrolet',
+  VW: 'VW - VolksWagen', VOLKSWAGEN: 'VW - VolksWagen', VOLKS: 'VW - VolksWagen',
+  'M.BENZ': 'Mercedes-Benz', MBENZ: 'Mercedes-Benz', MB: 'Mercedes-Benz', MERCEDES: 'Mercedes-Benz', 'MERCEDES-BENZ': 'Mercedes-Benz',
+  KIA: 'Kia Motors', CITROEN: 'Citroën',
+}
+export function marcaParaFipeApi(marca: string | null | undefined): string {
+  const m = String(marca || '').trim()
+  return ALIAS_MARCA_FIPE[m.toUpperCase()] || m
+}
+
+/**
+ * Marca do registro SENATRAN: "CHEVROLET/CELTA 1.0L LT" -> CHEVROLET,
+ * "I/LAMBORGHINI HURAC SPYD" -> LAMBORGHINI (I/ = importado). Codigo de uma
+ * letra ou REB (reboque) nao e marca: devolve ''.
+ */
+export function marcaDoRegistro(descricao: string | null | undefined): string {
+  let d = String(descricao || '').trim().toUpperCase()
+  if (!d) return ''
+  d = d.replace(/^I\s*\//, '')
+  const antesDaBarra = d.includes('/') ? d.split('/')[0] : d.split(/\s+/)[0]
+  const marca = antesDaBarra.trim().split(/\s+/)[0] || ''
+  if (marca.length < 2 || marca === 'REB' || marca === 'SREB') return ''
+  return marca
+}
+
 export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promise<FipeMelhorCandidatoResultado> {
   const fallback = (): FipeMelhorCandidatoResultado => ({
     escolhido: melhorScoreWdapi(input.wdapi),
@@ -621,7 +650,11 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     // errada). Cai pro wdapi so se fipe.dados vier vazio — e ai usa a marca de
     // EXIBICAO, nao o campo cru: em importado o cru e um codigo ("I"), que
     // buscaria o universo FIPE de uma marca inexistente.
-    const marca = input.wdapi?.fipe?.dados?.[0]?.texto_marca || marcaExibicao(input.wdapi)
+    // Sem fipe.dados (caso FUG0A96, Lamborghini, e os zero-km que a fonte
+    // devolve vazios), a marca sai da wdapi ou do proprio registro SENATRAN
+    // ("I/LAMBORGHINI HURAC SPYD"), traduzida pro nome da fipe-api.
+    const marca = input.wdapi?.fipe?.dados?.[0]?.texto_marca
+      || marcaParaFipeApi(marcaExibicao(input.wdapi) || marcaDoRegistro(input.senatran?.descricaoMarcaModelo))
     const ano = input.wdapi?.anoModelo || input.senatran?.anoModelo
     if (!marca || !ano) return fallback()
 
