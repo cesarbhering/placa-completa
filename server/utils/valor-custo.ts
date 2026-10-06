@@ -2,7 +2,7 @@ import { getRegiaoSusep } from './regiao-susep'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { getSeguroEstimado } from './seguro-estimate'
 import { calcularICV5, inferirCategoria } from './icv5'
-import { escolherMelhorFipe, type FipeMelhorCandidatoResultado } from './fipe-candidato'
+import { escolherMelhorFipe, marcaDoRegistro, type FipeMelhorCandidatoResultado } from './fipe-candidato'
 
 // Valor FIPE, historico de depreciacao, seguro estimado e custo em 5 anos.
 //
@@ -32,6 +32,11 @@ export type ValorCusto = {
     confianca?: FipeMelhorCandidatoResultado['confianca']
     candidatos: { codigo_fipe: string; modelo: string; valor: number | null }[]
   } | null
+  /**
+   * A fonte veio sem FIPE e o funil nao achou versao com confianca alta: a
+   * ficha diz "Valor FIPE: nao localizado para esta versao" em vez de sumir.
+   */
+  fipeNaoLocalizado?: boolean
 }
 
 // Fatos do SENATRAN usados pelo funil do melhor-candidato. So disponiveis no
@@ -81,6 +86,20 @@ function pontos(historyData: any, anoModelo: string | number) {
   return pts.length > 1 ? pts : null
 }
 
+/**
+ * Quando o candidato do funil vira o valor exibido. Com FIPE na fonte: tudo
+ * que nao e ambiguo nem fallback (regra de sempre). SEM FIPE na fonte: so
+ * confianca ALTA, porque nao ha o candidato da fonte pra conferir.
+ */
+export function aceitaCandidatoFipe(
+  r: Pick<FipeMelhorCandidatoResultado, 'decididoPor' | 'confianca' | 'escolhido'>,
+  semFipeNaFonte: boolean,
+): boolean {
+  const ambiguo = r.decididoPor === 'ambiguo' || r.confianca === 'baixa'
+  if (ambiguo || r.decididoPor === 'fallback' || !r.escolhido) return false
+  return semFipeNaFonte ? r.confianca === 'alta' : true
+}
+
 export async function getValorCusto(
   placa: string,
   uf?: string | null,
@@ -92,12 +111,16 @@ export async function getValorCusto(
 
   // Via cache (placa_cache): reaproveita a resposta da wdapi ja obtida na
   // consulta/preview da mesma placa. Ver server/utils/placa-lookup.ts.
-  const dados = await consultarPlacaWdapi(placa)
-  if (!dados) return null
-  const lista = dados?.fipe?.dados
-  if (!lista?.length) return null
+  const dadosWdapi = await consultarPlacaWdapi(placa)
+  const lista = dadosWdapi?.fipe?.dados
+  // Fonte sem FIPE (fipe.dados vazio, caso FUG0A96) ou sem resposta: so o
+  // fluxo pago tenta resolver pela tabela FIPE (marca + modelo + ano do
+  // registro, mesmo funil de candidatos), e so aceita confianca alta.
+  const semFipeNaFonte = !lista?.length
+  if (semFipeNaFonte && !fipeCandidatoOpts?.ativo) return null
+  const dados: any = dadosWdapi || {}
 
-  let melhor: any = lista.reduce((b: any, i: any) => ((i.score || 0) > (b.score || 0) ? i : b), lista[0])
+  let melhor: any = semFipeNaFonte ? null : lista.reduce((b: any, i: any) => ((i.score || 0) > (b.score || 0) ? i : b), lista[0])
   let fipeCandidato: ValorCusto['fipeCandidato'] = null
 
   // Melhor candidato via funil + Haiku: SO no fluxo pago (opts.ativo), com
@@ -118,8 +141,7 @@ export async function getValorCusto(
       // 150 apareceu valendo R$58 mil, com o custo de cinco anos calculado em
       // cima disso. Sem certeza, o relatorio mantem o candidato de sempre e a
       // tela avisa que a versao nao foi identificada.
-      const ambiguo = resultado.decididoPor === 'ambiguo' || resultado.confianca === 'baixa'
-      if (!ambiguo && resultado.decididoPor !== 'fallback' && resultado.escolhido) {
+      if (aceitaCandidatoFipe(resultado, semFipeNaFonte) && resultado.escolhido) {
         // codigoModelo ja vem resolvido do fipe-candidato.ts (direto da wdapi
         // quando o candidato e dela, ou buscado sob demanda na fipe-api
         // quando nao e) - e o que price-history/seguro usam abaixo. Sem ele
@@ -151,9 +173,17 @@ export async function getValorCusto(
     }
   }
 
+  if (semFipeNaFonte && !melhor) {
+    return {
+      fipe: null, fipeModelo: null, fipeCodigo: null, historico: null, quedaAno: null,
+      seguroAnual: null, percentualFipe: null, custo5anos: null,
+      fipeCandidato, fipeNaoLocalizado: true,
+    }
+  }
+
   const fipe = melhor?.texto_valor || null
   const valorFipe = fipe ? parseFloat(String(fipe).replace(/[^\d,]/g, '').replace(',', '.')) : NaN
-  const anoModelo = dados.anoModelo || dados.ano || null
+  const anoModelo = dados.anoModelo || dados.ano || fipeCandidatoOpts?.senatran?.anoModelo || null
 
   // historico + id do modelo (o id so existe nessa chamada, e o seguro precisa dele)
   let historico: ValorCusto['historico'] = null
@@ -184,8 +214,8 @@ export async function getValorCusto(
       fipeModelId,
       ano: anoNum,
       regiaoCode: regiao?.code ?? null,
-      marca: marcaExibicao(dados),
-      modelo: dados.MODELO || dados.modelo || '',
+      marca: marcaExibicao(dados) || marcaDoRegistro(fipeCandidatoOpts?.senatran?.descricaoMarcaModelo),
+      modelo: dados.MODELO || dados.modelo || String(fipeCandidatoOpts?.senatran?.descricaoMarcaModelo || '').split('/').slice(1).join('/'),
     })
     if (est) {
       seguroAnual = est.premioAnual
@@ -208,7 +238,7 @@ export async function getValorCusto(
       const extra = dados.extra || {}
       custo5anos = calcularICV5({
         valorFipe,
-        anoFabricacao: parseInt(String(dados.ano), 10) || new Date().getFullYear(),
+        anoFabricacao: parseInt(String(dados.ano || anoModelo), 10) || new Date().getFullYear(),
         uf,
         categoria: inferirCategoria(extra.sub_segmento || '', extra.combustivel || ''),
       })?.custoTotal5anos ?? null
