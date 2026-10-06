@@ -1008,7 +1008,8 @@ onUnmounted(() => {
                  botao de pagar, nas duas abas. No app (Play) nao aparece. -->
             <div v-if="!isCapacitor" class="pic-logos">
               <LogosPagamento :cartao="cartaoHabilitado" />
-              <p class="pic-logos__txt">{{ cartaoHabilitado ? 'Pagamento seguro. Cartão processado pela Stripe.' : 'Pagamento seguro.' }}</p>
+              <!-- Na aba Cartao so os logos: a frase do Stripe ja esta logo acima. -->
+              <p v-if="metodo !== 'cartao'" class="pic-logos__txt">Pagamento seguro.</p>
             </div>
             <!-- Sem "Cancelar" no rodape: o X do cabecalho (pic-x, sempre visivel)
                  ja fecha o modal. Um botao a mais so competia com a CTA. -->
