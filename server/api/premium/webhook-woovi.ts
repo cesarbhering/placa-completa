@@ -1,5 +1,6 @@
 import { chavesPublicas, verificarAssinatura } from '../../utils/woovi'
 import { gravarPagadorHash, sanearPayloadWebhook } from '../../utils/pagador-hash'
+import { lerPayloadWoovi, ehPingWoovi } from '../../utils/woovi-webhook-payload'
 
 // Webhook da Woovi, handler unico pra TODOS os metodos. Endpoint separado do da
 // AbacatePay de proposito: o formato do payload e, principalmente, o jeito de
@@ -23,15 +24,14 @@ export default defineEventHandler(async (event) => {
   const raw = String((await readRawBody(event)) || '')
   const assinatura = getRequestHeader(event, 'x-webhook-signature') || ''
 
-  let payload: any = {}
-  try { payload = JSON.parse(raw) } catch { /* corpo nao-JSON cai como vazio */ }
-  const evtBruto = String(payload?.event || payload?.evento || '')
+  // Corpo pode vir como JSON string duplamente codificado (teste de registro).
+  const payload: any = lerPayloadWoovi(raw)
 
   // Ping de validacao via POST: sem assinatura, ou evento de teste. Responder
   // 200 aqui e seguro porque confirmar pagamento continua exigindo assinatura
   // valida logo abaixo; um request sem assinatura nao passa do 401 nem toca em
   // pedido nenhum.
-  if (!assinatura || /test|teste|ping|validation|validacao/i.test(evtBruto)) {
+  if (!assinatura || ehPingWoovi(payload)) {
     return { ok: true, ping: true }
   }
 
