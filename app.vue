@@ -121,6 +121,10 @@ function onStoreClick() {
 
         <p>&copy; {{ new Date().getFullYear() }} PlacaCompleta. Consulta veicular grátis e segura.</p>
         <p class="footer__cnpj">CNPJ 62.569.152/0001-67</p>
+        <div class="footer__pagamento">
+          <span class="footer__pagamento-rot">Formas de pagamento</span>
+          <LogosPagamento />
+        </div>
         <p class="footer__email">
           Contato: <a href="mailto:contato@placacompleta.com.br">contato@placacompleta.com.br</a>
         </p>
