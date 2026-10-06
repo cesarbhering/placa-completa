@@ -176,3 +176,33 @@ export function checksumAplicavel(vin) {
   if (s[0] === '7') return ORDEM.indexOf(s[1]) >= ORDEM.indexOf('F')
   return false
 }
+
+// Nomes de pais do vPIC/NHTSA (tabela `wmi`, coluna country) em portugues.
+// Lista fechada com os 53 valores distintos da base em 06/out/2026. Sem isso o
+// relatorio recebia "ITALY", "UNITED STATES (USA)", "UNITED KINGDOM (UK)".
+export const PAISES_VPIC_PT = {
+  'UNITED STATES (USA)': 'Estados Unidos', 'UNITED STATES': 'Estados Unidos', USA: 'Estados Unidos',
+  CHINA: 'China', CANADA: 'Canadá', MEXICO: 'México', JAPAN: 'Japão', GERMANY: 'Alemanha',
+  'UNITED KINGDOM (UK)': 'Reino Unido', 'UNITED KINGDOM': 'Reino Unido', ENGLAND: 'Inglaterra',
+  ITALY: 'Itália', 'HONG KONG': 'Hong Kong', TAIWAN: 'Taiwan', 'SOUTH KOREA': 'Coreia do Sul',
+  THAILAND: 'Tailândia', FRANCE: 'França', BRAZIL: 'Brasil', VIETNAM: 'Vietnã', SWEDEN: 'Suécia',
+  AUSTRALIA: 'Austrália', SPAIN: 'Espanha', 'SOUTH AFRICA': 'África do Sul', INDIA: 'Índia',
+  TURKEY: 'Turquia', DENMARK: 'Dinamarca', BELGIUM: 'Bélgica', ARGENTINA: 'Argentina',
+  URUGUAY: 'Uruguai', RUSSIA: 'Rússia', POLAND: 'Polônia', NORWAY: 'Noruega',
+  SWITZERLAND: 'Suíça', 'SAUDI ARABIA': 'Arábia Saudita', 'PUERTO RICO': 'Porto Rico',
+  'NEW ZEALAND': 'Nova Zelândia', NETHERLANDS: 'Países Baixos', FINLAND: 'Finlândia',
+  ESTONIA: 'Estônia', 'CZECH REPUBLIC': 'República Tcheca', SLOVENIA: 'Eslovênia',
+  SINGAPORE: 'Singapura', SERBIA: 'Sérvia', ROMANIA: 'Romênia', PORTUGAL: 'Portugal',
+  PHILIPPINES: 'Filipinas', 'NORTH MACEDONIA': 'Macedônia do Norte', LUXEMBOURG: 'Luxemburgo',
+  ISRAEL: 'Israel', IRELAND: 'Irlanda', INDONESIA: 'Indonésia', HUNGARY: 'Hungria',
+  COLOMBIA: 'Colômbia', AUSTRIA: 'Áustria', SLOVAKIA: 'Eslováquia',
+}
+
+/**
+ * Pais do vPIC em portugues. Nome fora do mapa: devolve null pro chamador cair
+ * na faixa ISO 3780 (ja em PT) em vez de mostrar ingles cru.
+ */
+export function paisVpicPt(bruto) {
+  const s = String(bruto || '').trim().toUpperCase()
+  return s ? PAISES_VPIC_PT[s] || null : null
+}
