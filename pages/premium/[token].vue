@@ -22,7 +22,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { explicaRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, PARECER_SO_RENAVE } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
-import { detalhesLegiveis, semValorEmReais } from '~/shared/leilao-exibicao'
+import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
@@ -734,19 +734,15 @@ const passagensLeilao = computed(() => {
     camposNotificacao: ehNotificacao(p) ? camposNotificacao(p, { semPrevista: true }) : [],
     rotuloNivel: ROTULO_NIVEL[p.nivel] || humanizar(p.nivel),
     explicaNivel: EXPLICA_NIVEL[p.nivel] || '',
-    // Nome PUBLICO, resolvido pela API: "Detran SP" pra orgao, "Leiloeira
-    // particular" pra casa privada. Nome de leiloeira particular nunca vai pra
-    // tela (regra do Cesar), entao aqui NAO se usa o campo `fonte` cru.
-    //
-    // O fallback existe pros snapshots gravados ANTES deste campo: eles sao
-    // imutaveis, entao continuam sem `fonte_exibicao` pra sempre, e sem isto o
-    // cartao aparecia sem nome de fonte nenhum. Orgao vira "Detran SP" a partir
-    // do codigo da fonte; privada vira o rotulo generico, nunca o nome da casa.
-    fonte: p.fonte_exibicao || (p.fonte_tipo === 'detran' ? nomeDaFonte(p.fonte) : 'Leiloeira particular'),
+    // Nome PUBLICO da fonte (shared/leilao-exibicao.ts). Decisao do Cesar,
+    // 06/out: casa privada mostra o NOME da casa ("Copart", "Superbid"), nao
+    // mais o generico "Leiloeira particular". Vale pros snapshots antigos, que
+    // gravaram "Leiloeira particular" no fonte_exibicao: o nome sai da chave
+    // `fonte`. Orgao segue "Detran SP".
+    fonte: fonteExibicaoLeilao(p),
     gravidade: ehNotificacao(p) ? GRAVIDADE_NOTIFICADO : p.gravidade,
-    // Em fonte privada o proprio nome de exibicao ja diz o que e ("Leiloeira
-    // particular"), entao o rotulo de tipo so aparece pro orgao oficial, que e
-    // a informacao que muda a leitura da passagem.
+    // O rotulo de tipo so aparece pro orgao oficial, que e a informacao que
+    // muda a leitura da passagem.
     tipoFonte: p.fonte_tipo === 'detran' ? 'Edital de órgão oficial' : '',
     data: p.data_leilao ? formatarDataLeilao(p.data_leilao) : null,
     // Linha montada como lista pra nunca comecar com separador solto: no teste
@@ -763,10 +759,13 @@ const passagensLeilao = computed(() => {
     ref: p.ref,
     lote: p.lote,
     situacao: p.situacao ? semValorEmReais(humanizar(p.situacao)) : null,
-    // Leiloeiro nao entra na tela: em casa privada ele identifica a leiloeira.
-    // Comitente fica, porque banco ou seguradora e justamente o sinal de que a
-    // passagem foi retomada de financiamento, nao sinistro.
-    comitente: p.comitente,
+    // Leiloeiro (a pessoa) so de orgao oficial: em casa privada aparece so o
+    // nome da CASA, nunca o leiloeiro (Cesar, 06/out). Comitente logo abaixo do termometro, com
+    // uma frase pelo tipo (banco, seguradora, Justica...): e o sinal de que a
+    // passagem foi retomada de financiamento, sinistro ou leilao judicial.
+    leiloeiro: p.fonte_tipo === 'detran' && p.leiloeiro ? String(p.leiloeiro) : null,
+    comitente: comitenteExibicao(p.comitente)?.texto ?? null,
+    fraseComitente: fraseComitente(p.comitente),
     detalhes: detalhesLegiveis(p.detalhes),
     evidencias: Array.isArray(p.evidencias) ? p.evidencias : [],
     // Fotos do lote, servidas do nosso armazenamento (nunca link direto da
@@ -783,15 +782,6 @@ const passagensLeilao = computed(() => {
 })
 
 // ROTULO_DETALHE / detalhesLegiveis: shared/leilao-exibicao.ts (sem R$ no card).
-
-// Sigla de UF vira caixa alta ("sp" -> "SP"); o resto ganha inicial maiuscula.
-function nomeDaFonte(bruto: unknown): string {
-  return String(bruto || '')
-    .split(/[_\s]+/)
-    .filter(Boolean)
-    .map((parte) => (parte.length === 2 ? parte.toUpperCase() : parte.charAt(0).toUpperCase() + parte.slice(1).toLowerCase()))
-    .join(' ')
-}
 
 function formatarDataLeilao(iso: string): string {
   const d = new Date(iso)
@@ -2322,6 +2312,13 @@ onUnmounted(() => {
                   <span class="rel__grav-barra" aria-hidden="true" />
                   <span class="rel__grav-rotulo">{{ p.gravidade.rotulo }}</span>
                 </p>
+                <!-- Comitente em destaque, logo abaixo do termometro: quem
+                     mandou o carro a leilao explica o porque. -->
+                <div v-if="p.comitente || p.leiloeiro" class="rel__leilao-quem">
+                  <p v-if="p.comitente" class="rel__leilao-comit"><span>Comitente:</span> {{ p.comitente }}</p>
+                  <p v-if="p.fraseComitente" class="rel__leilao-comit-frase">{{ p.fraseComitente }}</p>
+                  <p v-if="p.leiloeiro" class="rel__leilao-comit-frase">Leiloeiro: {{ p.leiloeiro }}</p>
+                </div>
                 <p v-if="p.detalhe" class="rel__leilao-det">{{ p.detalhe }}</p>
                 <!-- O que a pessoa pensa ao ver isto e "mas o documento nao
                      diz nada de leilao". Leilao de seguradora e de leiloeira
@@ -2334,11 +2331,6 @@ onUnmounted(() => {
                     <span>{{ d.rotulo }}</span><strong>{{ d.valor }}</strong>
                   </li>
                 </ul>
-                <p v-if="p.leiloeiro || p.comitente" class="rel__leilao-det">
-                  <template v-if="p.leiloeiro">Leiloeiro: {{ p.leiloeiro }}</template>
-                  <template v-if="p.leiloeiro && p.comitente"> · </template>
-                  <template v-if="p.comitente">Comitente: {{ p.comitente }}</template>
-                </p>
 
                 <!-- Edital do orgao de transito: o documento que originou o
                      registro. E a resposta pra pergunta que toda passagem
@@ -3297,6 +3289,19 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     background: $c-steel;
   }
 
+  &__leilao-quem { margin: 6px 0 2px; }
+  &__leilao-comit {
+    margin: 0;
+    font-size: calc(14px * var(--rel-fs, 1));
+    font-weight: 600;
+    color: $c-ink;
+    span { font-weight: 500; color: $c-graphite; }
+  }
+  &__leilao-comit-frase {
+    margin: 2px 0 0;
+    font-size: calc(13px * var(--rel-fs, 1));
+    color: $c-charcoal;
+  }
   &__grav--verde { color: #14622f; .rel__grav-barra { background: $c-green; } }
   &__grav--amarelo { color: #8a6100; .rel__grav-barra { background: #e0a800; } }
   &__grav--laranja { color: #8a4b00; .rel__grav-barra { background: #e07a00; } }

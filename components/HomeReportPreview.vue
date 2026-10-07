@@ -76,8 +76,10 @@ const licenciamento = { rotulo: 'Em dia', texto: 'Último licenciamento 2026 · 
 
 // Passagem por leilao do exemplo. Dado FICTICIO, como todo o resto desta
 // previa, mas plausivel e coerente com o Gol 2018 de São Paulo: leilao de
-// retomada de financiamento em 2023, comitente instituicao financeira, sem
-// nome de leiloeira particular (regra do produto: nunca expor a casa).
+// retomada de financiamento em 2023, comitente instituicao financeira. O
+// relatorio de verdade mostra o nome da casa (decisao do Cesar, 06/out); aqui
+// fica o generico de proposito, porque o exemplo e ficticio e nao deve
+// atribuir um leilao inventado a uma leiloeira real.
 //
 // Renderiza igual ao relatorio de verdade porque a previa e vitrine: se o
 // exemplo mostra um bloco que o documento entregue nao tem, a venda promete o
