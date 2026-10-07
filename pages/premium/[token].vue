@@ -653,6 +653,13 @@ async function renovarPix() {
     await refresh()
     await buscarQr()   // o codigo mudou; o QR desenhado precisa acompanhar
   } catch (e: any) {
+    // Pix ja pago (inclusive a cobranca Woovi original, RBF5A06): o status
+    // detecta e dispara a entrega; a pagina recarrega com o novo estado.
+    if (e?.data?.message === 'Este pagamento ja foi confirmado.') {
+      try { await $fetch('/api/premium/status', { query: { token } }) } catch { /* o polling tenta de novo */ }
+      await refresh()
+      return
+    }
     erroRenovar.value = e?.data?.message === 'O pagamento atual ainda esta valido.'
       ? 'O código anterior voltou a valer. Atualize a página.'
       : 'Não conseguimos gerar o código agora. Tente de novo em instantes.'

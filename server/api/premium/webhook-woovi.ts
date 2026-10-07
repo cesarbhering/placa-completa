@@ -1,4 +1,4 @@
-import { chavesPublicas, verificarAssinatura } from '../../utils/woovi'
+import { chavesPublicas, verificarAssinatura, pedidoDaCorrelacao } from '../../utils/woovi'
 import { gravarPagadorHash, sanearPayloadWebhook } from '../../utils/pagador-hash'
 import { lerPayloadWoovi, ehPingWoovi } from '../../utils/woovi-webhook-payload'
 
@@ -47,7 +47,8 @@ export default defineEventHandler(async (event) => {
   const charge = payload?.charge || {}
   const evt = String(payload?.event || '')
   // correlationID e o id do nosso pedido: foi o que mandamos na criacao.
-  const pedidoId = String(charge?.correlationID || '')
+  // Renovacao usa `<pedido>-r<sufixo>`: tira o sufixo pra achar o pedido.
+  const pedidoId = pedidoDaCorrelacao(charge?.correlationID)
   const chargeId = String(charge?.identifier || '')
 
   const supabase = usePremiumSupabase()

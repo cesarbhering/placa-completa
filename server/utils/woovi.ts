@@ -51,7 +51,7 @@ export async function criarPixTransparente(opts: CriarPixOpts): Promise<PixCharg
       // correlationID e a nossa chave de idempotencia: o id do pedido. Repetir
       // a chamada com o mesmo pedido devolve a mesma cobranca, em vez de criar
       // outra e cobrar duas vezes.
-      correlationID: opts.pedidoId,
+      correlationID: opts.correlacao || opts.pedidoId,
       value: opts.amountCentavos,
       comment: (opts.descricao || 'Consulta Premium PlacaCompleta').slice(0, 140),
       expiresIn: opts.expiresIn ?? 900,
@@ -102,6 +102,44 @@ export async function checarPix(
   } catch {
     return null
   }
+}
+
+/**
+ * Cobranca da Woovi pelo correlationID (o GET aceita o correlationID no lugar
+ * do id). Rede de seguranca do status: a cobranca ORIGINAL de todo pedido Pix
+ * nasce com correlationID = pedido.id, entao da pra achar um pagamento mesmo
+ * quando o pedido ficou apontando pra outra cobranca (renovacao que caiu no
+ * salva-vidas, caso RBF5A06). Null em erro, 404 ou Woovi nao configurada.
+ */
+export async function cobrancaPorCorrelacao(correlationID: string): Promise<{ status: string; identifier: string } | null> {
+  try {
+    const { base } = cfg()
+    const res = await $fetch<any>(`${base}/api/v1/charge/${encodeURIComponent(correlationID)}`, { method: 'GET', headers: headers() })
+    const charge = res?.charge || null
+    if (!charge?.identifier) return null
+    return { status: statusNormalizado(charge.status), identifier: String(charge.identifier) }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * correlationID -> id do pedido. Renovacao usa `<pedido>-r<sufixo>`; o id do
+ * pedido e um UUID (hex), que nunca contem "-r".
+ */
+export function pedidoDaCorrelacao(correlationID: unknown): string {
+  return String(correlationID || '').replace(/-r[0-9a-z]+$/, '')
+}
+
+/** Chaves do GET /webhook/public-keys: hoje `public_keys[].key` (snake_case). */
+export function extrairChavesPublicas(res: any): string[] {
+  const brutas = Array.isArray(res?.public_keys) ? res.public_keys
+    : Array.isArray(res?.publicKeys) ? res.publicKeys
+      : Array.isArray(res) ? res : []
+  return brutas
+    .map((k: any) => String(k?.key || k?.publicKey || (typeof k === 'string' ? k : '') || ''))
+    .map((k: string) => (k.includes('BEGIN PUBLIC KEY') ? k : Buffer.from(k, 'base64').toString('ascii')))
+    .filter((k: string) => k.includes('BEGIN PUBLIC KEY'))
 }
 
 /**
@@ -180,11 +218,11 @@ export async function chavesPublicas(): Promise<string[]> {
   const { base } = cfg()
   try {
     const res = await $fetch<any>(`${base}/api/v1/webhook/public-keys`, { headers: headers() })
-    const brutas = Array.isArray(res?.publicKeys) ? res.publicKeys : Array.isArray(res) ? res : []
-    const chaves = brutas
-      .map((k: any) => String(k?.publicKey || k?.key || k || ''))
-      .map((k: string) => (k.includes('BEGIN PUBLIC KEY') ? k : Buffer.from(k, 'base64').toString('ascii')))
-      .filter((k: string) => k.includes('BEGIN PUBLIC KEY'))
+    // A API responde `public_keys` (snake_case). Lendo so `publicKeys`, a lista
+    // vinha vazia e TODO webhook real dava 401 (zero linhas woovi em
+    // webhook_events ate 07/out; entregas so por polling).
+    const chaves = extrairChavesPublicas(res)
+    if (!chaves.length) console.warn('[woovi] resposta de public-keys sem chave reconhecivel')
     if (chaves.length) chavesCache = { em: agora, chaves }
     return chaves
   } catch (e: any) {

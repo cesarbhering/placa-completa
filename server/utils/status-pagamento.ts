@@ -40,3 +40,20 @@ export async function detectarPagamento(pedido: PedidoPagamento, deps: Cheadores
 
   return false
 }
+
+/**
+ * Rede de seguranca do Pix (RBF5A06, 07/out): a cobranca Woovi ORIGINAL de um
+ * pedido (correlationID = pedido.id) pode ter sido paga enquanto o pedido ja
+ * apontava pra outra cobranca (renovacao que caiu na AbacatePay). Vale olhar a
+ * Woovi pelo id do pedido quando o pedido nao aponta pra Woovi, ou quando o Pix
+ * atual ja venceu (pedido parado, polling raro, entao a chamada extra e barata).
+ * Cartao fica fora.
+ */
+export function deveChecarWooviOriginal(
+  pedido: PedidoPagamento & { expira_em?: string | null },
+  agora: number = Date.now(),
+): boolean {
+  if (pedido.forma_pagamento === 'cartao') return false
+  if (String(pedido.pix_provider || '').toLowerCase() !== 'woovi') return true
+  return !!pedido.expira_em && new Date(pedido.expira_em).getTime() < agora
+}
