@@ -11,3 +11,12 @@ describe('sem valor de leilao nas telas', () => {
     })
   }
 })
+
+describe('previa do relatorio na home', () => {
+  it('exemplo de leilao sem valor em R$', () => {
+    const s = readFileSync('components/HomeReportPreview.vue', 'utf8')
+    const bloco = s.slice(s.indexOf('const leilaoExemplo'), s.indexOf('}', s.indexOf('evidencia:', s.indexOf('const leilaoExemplo'))))
+    expect(bloco).toContain('Retomada de financiamento')
+    expect(bloco).not.toMatch(/R\$|\bValor\b/)
+  })
+})

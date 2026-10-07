@@ -92,7 +92,6 @@ const leilaoExemplo = {
     ['Data do leilão', '14/03/2023'],
     ['Lote', '1042'],
     ['Situação', 'Vendido'],
-    ['Valor', 'R$ 21.400'],
     ['Comitente', 'Instituição financeira'],
   ] as [string, string][],
   registro: 'VW Gol 1.0 Flex 2018/2018, branco, SP · placa ABC****3',
