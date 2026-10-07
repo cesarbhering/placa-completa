@@ -26,6 +26,13 @@ export interface PixCharge {
 export interface CriarPixOpts {
   amountCentavos: number
   pedidoId: string
+  /**
+   * correlationID da Woovi quando NAO pode ser o id do pedido. Renovacao de Pix
+   * precisa de um novo: a Woovi recusa repetir o correlationID de uma cobranca
+   * que ja existe, e essa recusa jogava a renovacao no salva-vidas AbacatePay
+   * (RBF5A06, 07/out). Sem isto, correlationID = pedidoId.
+   */
+  correlacao?: string
   descricao?: string
   expiresIn?: number
   customer?: { email: string; cellphone?: string; name?: string }
