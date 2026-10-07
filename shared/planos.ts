@@ -1,4 +1,5 @@
 import { BASE_LEILAO_TEXTO } from './base-leilao'
+import { ehItemDeRestricao } from './restricoes'
 // ============================================================
 // Escada de planos da consulta veicular.
 //
@@ -247,7 +248,7 @@ export function normalizarResposta(response: any): Record<string, any> {
   const itens = Array.isArray((bloco as any).items)
     ? (bloco as any).items
         .map((i: any) => i?.tipoRestricao)
-        .filter((t: any) => t && !ehNadaConsta(String(t)))
+        .filter((t: any) => t && !ehNadaConsta(String(t)) && ehItemDeRestricao(t))
     : []
 
   return { ...resto, ...indicadores, restricoesItens: itens }
