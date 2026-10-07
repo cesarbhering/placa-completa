@@ -721,6 +721,9 @@ export default defineNuxtConfig({
     // Homolog: 'producao' no dropdown so compra hash GCC real com
     // NUXT_HOMOLOG_GCC_PRODUCAO=on (runtime). Desligada por padrao.
     homologGccProducao: "",
+    // Worker gov.br do DETRAN-SP (browser-use) como reserva: "on" liga o
+    // self-heal antigo. Desligado: a Infosimples e a fonte, com retentativa.
+    detranWorkerSp: "",
     anthropicApiKey: process.env.NUXT_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || "",
     public: {
       // homolog: ambiente de teste com ferramentas (dropdown de ambiente das
