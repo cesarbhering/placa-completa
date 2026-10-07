@@ -8,6 +8,7 @@
 // entra no bundle. Sem `leiloesApiUrl` configurada a funcao nem tenta, que e
 // como a feature fica restrita ao homolog por enquanto.
 
+import { fonteExibicaoLeilao } from '../../shared/leilao-exibicao'
 import { ehNotificacao, GRAVIDADE_NOTIFICADO } from '../../shared/leilao-notificacao'
 
 export type NivelLeilao = 'confirmado' | 'provavel' | 'possivel'
@@ -27,10 +28,9 @@ export interface PassagemLeilao {
   fonte_tipo: 'detran' | 'privado' | string
   fonte_uf: string | null
   /**
-   * Nome PUBLICO da fonte, ja resolvido pela API: "Detran SP" pra orgao,
-   * "Leiloeira particular" pra casa privada. E este que vai pra tela; o `fonte`
-   * cru fica so pra log, porque nome de leiloeira particular nao pode aparecer
-   * pro cliente (regra do Cesar).
+   * Nome PUBLICO da fonte: "Detran SP" pra orgao e o nome da casa pra
+   * leiloeira privada ("Copart", "Superbid"). Decisao do Cesar (06/out):
+   * reverte a regra antiga de mascarar a casa como "Leiloeira particular".
    */
   fonte_exibicao: string
   gravidade: GravidadeLeilao | null
@@ -189,11 +189,12 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
       fonte: String(p.fonte || ''),
       fonte_tipo: String(p.fonte_tipo || ''),
       fonte_uf: texto(p.fonte_uf),
-      // Sem fonte_exibicao (resposta de uma versao anterior da API), monta o
-      // nome aqui: orgao pode ser nomeado ("detran_sp" vira "Detran SP"),
-      // casa privada nunca, entao cai no rotulo generico.
-      fonte_exibicao: texto(p.fonte_exibicao)
-        || (p.fonte_tipo === 'detran' ? nomeDeOrgao(p.fonte) : 'Leiloeira particular'),
+      // Nome publico da fonte. Decisao do Cesar (06/out): casa privada mostra
+      // o NOME da casa (shared/leilao-exibicao.ts), nao mais "Leiloeira
+      // particular", mesmo quando a API ainda manda o generico.
+      fonte_exibicao: p.fonte_tipo === 'detran'
+        ? (texto(p.fonte_exibicao) || nomeDeOrgao(p.fonte))
+        : fonteExibicaoLeilao(p),
       // Edital de NOTIFICACAO nao e leilao realizado. A API anterior ao nivel
       // 'notificado' pintava essas linhas de "Leilao de patio" amarelo; aqui a
       // gravidade e fixada no cinza, qualquer que seja a versao da API.
@@ -204,10 +205,11 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
       lote: texto(p.lote),
       valor: typeof p.valor === 'number' ? p.valor : null,
       situacao: texto(p.situacao),
-      // Leiloeiro de casa PRIVADA nunca sai daqui, nem no JSON: o relatorio e
-      // publico por token, entao filtrar so na tela deixaria o nome exposto pra
-      // quem abrisse a resposta. A API ja zera, isto e a nossa garantia.
-      leiloeiro: p.fonte_tipo === 'detran' ? texto(p.leiloeiro) : null,
+      // Leiloeiro passa a sair tambem em casa privada (decisao do Cesar, 06/out,
+      // reverte a regra antiga de esconder): e nome publico do leiloeiro
+      // oficial, nao dado pessoal de cliente. Hoje a leiloes-api ainda zera o
+      // campo de casa privada; quando parar, ele aparece sem mudar nada aqui.
+      leiloeiro: texto(p.leiloeiro),
       comitente: texto(p.comitente),
       // Mesma regra do leiloeiro: so orgao. Se a API mandar edital de casa
       // privada um dia, ele morre aqui, nao na tela.
