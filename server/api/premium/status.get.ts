@@ -1,4 +1,6 @@
 import { gravarPagadorHash } from '../../utils/pagador-hash'
+import { deveChecarWooviOriginal } from '../../utils/status-pagamento'
+import { cobrancaPorCorrelacao } from '../../utils/woovi'
 // Status do pedido pelo token (polling da tela pendente). O token e a
 // credencial, entao nao exige gate. Quando detecta o pagamento (via AbacatePay),
 // DISPARA a consulta (fire-and-forget) - assim o fluxo completa mesmo sem webhook.
@@ -19,7 +21,7 @@ export default defineEventHandler(async (event) => {
     // Cartao PRIMEIRO (Stripe), depois Pix — detecta pagamento em qualquer
     // trilha. Ver status-pagamento.ts pra a regressao "abriu Pix, trocou pra
     // cartao" que isto conserta.
-    const pago = await detectarPagamento(pedido, {
+    let pago = await detectarPagamento(pedido, {
       // v2 (Elements) guarda o pi_ do PaymentIntent; v1 (Checkout hospedado) o
       // cs_ da sessao. Detecta os dois.
       checarStripe: async (id) => id.startsWith('pi_')
@@ -32,6 +34,21 @@ export default defineEventHandler(async (event) => {
         return !!(chk && /paid|completed|pago/i.test(chk.status))
       },
     })
+
+    // Rede de seguranca: cobranca Woovi ORIGINAL (correlationID = pedido.id)
+    // paga enquanto o pedido apontava pra outra (ver deveChecarWooviOriginal).
+    // Achou paga: repointa o pedido pra ela (status, estorno e hash do pagador
+    // passam a bater na cobranca certa) e segue como pago.
+    if (!pago && deveChecarWooviOriginal(pedido)) {
+      const orig = await cobrancaPorCorrelacao(pedido.id)
+      if (orig?.status === 'PAID') {
+        console.warn(`[pix] pagamento achado na cobranca Woovi original; repointando pedido=${pedido.id}`)
+        await supabase.from('pedidos_premium').update({ pix_provider: 'woovi', abacatepay_id: orig.identifier }).eq('id', pedido.id)
+        pedido.pix_provider = 'woovi'
+        pedido.abacatepay_id = orig.identifier
+        pago = true
+      }
+    }
 
     if (pago) {
       // pagamento confirmado -> dispara a consulta (fire-and-forget; o container

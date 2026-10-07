@@ -1,4 +1,5 @@
 import { PLANOS } from '../../../shared/planos'
+import { cobrancaPorCorrelacao } from '../../utils/woovi'
 
 // Gera um Pix novo para um pedido que ainda nao foi pago e cujo QR venceu.
 //
@@ -41,17 +42,30 @@ export default defineEventHandler(async (event) => {
   // check): cobranca cancelada ou expirada la fora com expira_em ainda no
   // futuro deixaria o cliente pagando um QR morto.
   const vencidoLocal = !pedido.expira_em || new Date(pedido.expira_em).getTime() < Date.now()
+  // Pergunta SEMPRE se a cobranca atual foi paga, vencida ou nao: um Pix pago
+  // sem webhook e com o expira_em ja no passado era renovado por cima e o
+  // pedido perdia o pagamento (RBF5A06, 07/out).
+  const chk = pedido.abacatepay_id
+    ? await provedorDoPedido((pedido as any).pix_provider).checarPix(pedido.abacatepay_id)
+    : null
+  // Pago: nao renova. Quem entrega e o status.get (a tela consulta logo em
+  // seguida), que ja detecta esta cobranca.
+  if (chk && /paid|completed|pago/i.test(chk.status || '')) {
+    throw createError({ statusCode: 409, message: 'Este pagamento ja foi confirmado.' })
+  }
+  // Mesma rede de seguranca do status: a cobranca Woovi ORIGINAL do pedido
+  // (correlationID = pedido.id) pode ter sido paga.
+  const orig = await cobrancaPorCorrelacao(pedido.id)
+  if (orig?.status === 'PAID') {
+    // Repointa pra cobranca paga: o status.get passa a detectar e entrega.
+    await supabase.from('pedidos_premium').update({ pix_provider: 'woovi', abacatepay_id: orig.identifier }).eq('id', pedido.id)
+    throw createError({ statusCode: 409, message: 'Este pagamento ja foi confirmado.' })
+  }
   if (!vencidoLocal) {
-    const chk = pedido.abacatepay_id
-      ? await provedorDoPedido((pedido as any).pix_provider).checarPix(pedido.abacatepay_id)
-      : null
     // sem resposta do provedor, prevalece o relogio local (fail-safe: nao
     // gerar cobranca nova por causa de instabilidade de rede)
     if (!chk || /pending|created|aguard/i.test(chk.status || '')) {
       throw createError({ statusCode: 409, message: 'O pagamento atual ainda esta valido.' })
-    }
-    if (/paid|completed|pago/i.test(chk.status || '')) {
-      throw createError({ statusCode: 409, message: 'Este pagamento ja foi confirmado.' })
     }
     // qualquer outro estado (expired/cancelled): segue pra renovacao
   }
@@ -64,6 +78,9 @@ export default defineEventHandler(async (event) => {
   const { charge: pix, provedor } = await criarPixComFallback({
     amountCentavos: pedido.valor_centavos,
     pedidoId: pedido.id,
+    // correlationID NOVO na Woovi: repetir o do pedido e recusado (a cobranca
+    // original existe) e a renovacao caia no salva-vidas AbacatePay.
+    correlacao: `${pedido.id}-r${Date.now().toString(36)}`,
     expiresIn: 900,
     descricao: PLANOS[planoPedido].nome,
     metadata: { plano: planoPedido, externalId: `plano-${planoPedido}` },
