@@ -59,8 +59,8 @@ export function detalhesLegiveis(bruto: unknown): { rotulo: string; valor: strin
 // ---------- Fonte, comitente e leiloeiro (decisao do Cesar, 06/out) ----------
 //
 // REVERTE a regra antiga de mascarar a casa privada como "Leiloeira
-// particular" e de esconder o leiloeiro: o card mostra o nome da casa e, se
-// houver, o leiloeiro. Continua SEM valor em R$. DETRAN segue "Detran UF".
+// particular": o card mostra o nome da CASA. O leiloeiro (a pessoa) de casa
+// privada continua fora. Continua SEM valor em R$. DETRAN segue "Detran UF".
 
 /** Nome de exibicao das casas privadas, pela chave `fonte` do indice. */
 export const NOME_CASA_LEILAO: Record<string, string> = {
