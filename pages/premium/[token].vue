@@ -21,7 +21,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // O corte por plano acontece no servidor: o que a basica nao comprou nem chega
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
-import { explicaRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, PARECER_SO_RENAVE } from '~/shared/restricoes'
+import { explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, PARECER_SO_RENAVE } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
@@ -134,7 +134,14 @@ async function enviarPorEmail() {
 // O servidor ja devolve a resposta achatada (ver normalizarResposta): array de
 // um elemento, com os indicadores que vinham aninhados em `restricoes` subidos
 // pro topo e as restricoes detalhadas em `restricoesItens`.
-const v = computed(() => data.value?.consulta?.response || {})
+// restricoesItens filtrado NA LEITURA: o snapshot entregue guarda a lista ja
+// achatada, e um item que nao e restricao ("CNPJ_DA INSTITUICAO_FINANCEIRA",
+// rotulo do CNPJ do credor do gravame) aparecia cru e acendia "Outras
+// restricoes". Filtrar aqui cobre todos os relatorios ja entregues.
+const v = computed(() => {
+  const r: any = data.value?.consulta?.response || {}
+  return Array.isArray(r.restricoesItens) ? { ...r, restricoesItens: filtrarItensRestricao(r.restricoesItens) } : r
+})
 
 // A API manda ENUM em caixa alta, com underscore e SEM acento
 // ("EM_CIRCULACAO", "PENDENCIA_DE_EMISSAO_CRV"). Jogar isso na tela e entregar
@@ -146,7 +153,7 @@ const ROTULOS: Record<string, string> = {
   BAIXADO: 'Baixado',
   ROUBO_FURTO: 'Roubo ou furto',
   // O sufixo _FILE_VEICULOS e ruido do sistema de origem, nao informacao.
-  ALIENACAO_FIDUCIARIA_FILE_VEICULOS: 'Alienação fiduciária',
+  ALIENACAO_FIDUCIARIA_FILE_VEICULOS: 'Alienação fiduciária (veículo financiado)',
   RENAINF: 'Multas em aberto (RENAINF)',
   FURTO: 'Furto',
   ROUBO: 'Roubo',
@@ -155,7 +162,7 @@ const ROTULOS: Record<string, string> = {
   ESTELIONATO: 'Estelionato',
   PENDENCIA_DE_EMISSAO_CRV: 'Pendência de emissão do CRV',
   PENDENCIA_EMISSAO_CRV: 'Pendência de emissão do CRV',
-  ALIENACAO_FIDUCIARIA: 'Alienação fiduciária',
+  ALIENACAO_FIDUCIARIA: 'Alienação fiduciária (veículo financiado)',
   ARRENDAMENTO_MERCANTIL: 'Arrendamento mercantil',
   RESERVA_DE_DOMINIO: 'Reserva de domínio',
   PENHOR: 'Penhor',
