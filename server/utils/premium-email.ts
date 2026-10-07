@@ -2,6 +2,7 @@ import { textoCupomRecompra } from './cupom-recompra'
 import { linkWhatsappRecompra } from '../../shared/cupom-recompra-texto'
 import { comTagAmbiente } from './ambiente-alerta'
 import { PLANOS, isPlanoPago } from '../../shared/planos'
+import { BASE_LEILAO_TEXTO } from '../../shared/base-leilao'
 
 // E-mail de entrega do relatorio premium. E a unica copia DURAVEL do link: a
 // aba pode fechar, o historico local vive so naquele navegador, e o token e a
@@ -138,7 +139,7 @@ function montarHtml(link: string, plano?: string | null, placa?: string | null, 
           <tr>
             <td style="padding:20px 32px 32px;font-family:${FONTE};">
               ${ehCompleta ? `<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">
-                Inclui o histórico de leilão: a placa e o chassi deste veículo foram cruzados com uma base de mais de 1 milhão de veículos leiloados.
+                Inclui o histórico de leilão: a placa e o chassi deste veículo foram cruzados com uma base de ${BASE_LEILAO_TEXTO}.
               </p>` : ''}
               <p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">
                 Guarde este e-mail. O link é o seu acesso ao relatório, e ele não expira.

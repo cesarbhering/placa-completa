@@ -1,3 +1,4 @@
+import { BASE_LEILAO_TEXTO } from './base-leilao'
 // ============================================================
 // Escada de planos da consulta veicular.
 //
@@ -142,10 +143,11 @@ export const RECURSOS: Recurso[] = [
   // Base propria de leiloes, cruzada por chassi e placa. A frase fala do
   // TAMANHO DA BASE, nao de quantos a gente consegue casar: parte do indice so
   // pode ser casada por numero de motor, que nenhuma fonte nossa expoe, entao
-  // prometer "1 milhao consultaveis" seria promessa maior que a entrega.
+  // prometer "2 milhoes consultaveis" seria promessa maior que a entrega.
+  // Numero em shared/base-leilao.ts (registros, nao veiculos).
   {
     label: 'Histórico de leilão',
-    detalhe: 'cruzado com mais de 1 milhão de veículos leiloados',
+    detalhe: `cruzado com ${BASE_LEILAO_TEXTO}`,
     planos: ['completa'],
   },
   { label: 'Gravame e alienação',                   planos: ['completa'] },

@@ -1,3 +1,4 @@
+import { BASE_LEILAO_TEXTO } from './base-leilao'
 // Blocos regionais e de paginas genericas, mesma razao de existir do
 // shared/fipe-enriquecimento.ts: dar a cada pagina algo que so ela tem.
 //
@@ -52,7 +53,7 @@ export interface BlocoPagina {
 export const GENERICAS: Record<string, BlocoPagina> = {
   '/consulta-placa': {
     titulo: 'O que você recebe na consulta de placa',
-    texto: 'A consulta de placa gratuita mostra marca, modelo, ano de fabricação e do modelo, cor e o início do número do chassi, direto na tela, sem cadastro. Pra quem precisa de mais detalhe antes de negociar um veículo, o relatório completo cruza a mesma placa com indicadores de restrição, indicador de roubo e furto, gravame e indício de passagem por leilão, reunidos numa base com mais de 1 milhão de registros de leilão.',
+    texto: `A consulta de placa gratuita mostra marca, modelo, ano de fabricação e do modelo, cor e o início do número do chassi, direto na tela, sem cadastro. Pra quem precisa de mais detalhe antes de negociar um veículo, o relatório completo cruza a mesma placa com indicadores de restrição, indicador de roubo e furto, gravame e indício de passagem por leilão, reunidos numa base com ${BASE_LEILAO_TEXTO}.`,
     faq: [
       { pergunta: 'A consulta de placa é realmente gratuita?', resposta: 'A consulta básica sim, mostra marca, modelo, ano e cor sem custo. Informações de restrição, roubo e furto, gravame e leilão fazem parte do relatório completo, pago.' },
       { pergunta: 'A consulta de placa funciona pra qualquer veículo?', resposta: 'Funciona pra carros, motos e a maioria dos veículos com placa registrada no Brasil.' },
@@ -65,7 +66,7 @@ export const GENERICAS: Record<string, BlocoPagina> = {
     faq: [
       { pergunta: 'Como saber a categoria de uma van pela placa?', resposta: 'A consulta pela placa traz o tipo de veículo registrado (passageiro ou carga), que ajuda a confirmar se bate com o uso que você pretende dar.' },
       { pergunta: 'Van de uso comercial tem mais risco de restrição?', resposta: 'Pode ter, pelo uso mais intenso. Por isso vale sempre consultar o histórico antes de comprar uma van usada de origem comercial.' },
-      { pergunta: 'A consulta de van mostra se ela já foi de leilão?', resposta: 'O relatório completo cruza a placa com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem, quando existir registro compatível.' },
+      { pergunta: 'A consulta de van mostra se ela já foi de leilão?', resposta: `O relatório completo cruza a placa com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem, quando existir registro compatível.` },
     ],
   },
 }
