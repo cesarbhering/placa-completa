@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 // Guia "Como saber se o carro e de leilao" (plano SEO 02/out, item #7). Rota
 // estatica: tem prioridade sobre /carro-de-leilao/[slug]. Conteudo e regras em
 // shared/guia-como-saber-leilao.ts.
@@ -63,7 +64,7 @@ useHead({
         <h2>O que a nossa base mostra</h2>
         <div class="pc-callout">
           <p>
-            Nossa base reúne <strong>mais de 1 milhão de veículos leiloados</strong>, montada a partir de
+            Nossa base reúne <strong>{{ BASE_LEILAO_TEXTO }}</strong>, montada a partir de
             editais de DETRANs e catálogos de leiloeiras. Nas consultas feitas na PlacaCompleta
             {{ LEVANTAMENTO_SINAL.periodo }}, {{ LEVANTAMENTO_SINAL.pct }} das placas com o sinal de leilão
             respondido ({{ LEVANTAMENTO_SINAL.positivos }} de {{ LEVANTAMENTO_SINAL.n.toLocaleString('pt-BR') }})

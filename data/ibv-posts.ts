@@ -1,3 +1,4 @@
+import { BASE_LEILAO_TEXTO } from '../shared/base-leilao'
 export interface IbvPost {
   slug: string
   title: string
@@ -100,7 +101,7 @@ export const ibvPosts: IbvPost[] = [
       },
       {
         type: 'cta',
-        text: 'Quer saber quanto vale o carro pela placa, com FIPE atualizada e histórico de leilão (base de mais de 1 milhão de veículos)?',
+        text: `Quer saber quanto vale o carro pela placa, com FIPE atualizada e histórico de leilão (base com ${BASE_LEILAO_TEXTO})?`,
         ctaLabel: 'Consultar placa',
         ctaTo: '/',
       },
@@ -208,7 +209,7 @@ export const ibvPosts: IbvPost[] = [
       },
       {
         type: 'cta',
-        text: 'Comprando um usado, elétrico ou não? Consulte a placa antes: histórico de leilão, restrição e indicador de sinistro, numa base com mais de 1 milhão de veículos leiloados.',
+        text: `Comprando um usado, elétrico ou não? Consulte a placa antes: histórico de leilão, restrição e indicador de sinistro, numa base com ${BASE_LEILAO_TEXTO}.`,
         ctaLabel: 'Consultar placa',
         ctaTo: '/',
       },
@@ -284,7 +285,7 @@ export const ibvPosts: IbvPost[] = [
       },
       {
         type: 'cta',
-        text: 'Quer saber quanto vale o seu carro pela placa, com FIPE atualizada e histórico de leilão (base de mais de 1 milhão de veículos)?',
+        text: `Quer saber quanto vale o seu carro pela placa, com FIPE atualizada e histórico de leilão (base com ${BASE_LEILAO_TEXTO})?`,
         ctaLabel: 'Consultar Placa Grátis',
         ctaTo: '/',
       },
@@ -418,7 +419,7 @@ export const ibvPosts: IbvPost[] = [
       },
       {
         type: 'cta',
-        text: 'Comprando um usado, elétrico ou não? Consulte a placa antes: histórico de leilão, restrição e indicador de sinistro, numa base com mais de 1 milhão de veículos leiloados.',
+        text: `Comprando um usado, elétrico ou não? Consulte a placa antes: histórico de leilão, restrição e indicador de sinistro, numa base com ${BASE_LEILAO_TEXTO}.`,
         ctaLabel: 'Consultar Placa Grátis',
         ctaTo: '/',
       },

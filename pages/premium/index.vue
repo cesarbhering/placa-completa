@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { PLANOS } from '~/shared/planos'
 import { origemDaSessao } from '~/shared/origem-trafego'
 // v2.0 Consulta Premium. Nos ambientes protegidos (homolog/staging) a pagina e
@@ -181,7 +182,7 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
   <div class="premium">
     <div class="card">
       <h1>Consulta Veicular Completa</h1>
-      <p class="mote">Com histórico de leilão, cruzado por placa e chassi com uma base de mais de 1 milhão de veículos leiloados.</p>
+      <p class="mote">Com histórico de leilão, cruzado por placa e chassi com uma base de {{ BASE_LEILAO_TEXTO }}.</p>
       <p v-if="cfg.public.gated" class="tag">Homologação · acesso restrito</p>
 
       <!-- Atalho pro historico: quem esta aqui pra comprar de novo costuma
@@ -210,7 +211,7 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
           <span>{{ preview.ano }} · {{ preview.cor }} · placa {{ preview.placa }}</span>
         </div>
         <div v-else class="veiculo">Não achamos os dados básicos, mas você pode seguir com a placa {{ preview?.placa }}.</div>
-        <p class="inclui">A consulta completa inclui: restrições, roubo/furto, recall, RENAJUD, registro de leilão, débitos, a ficha cadastral completa e o histórico de leilão, cruzado com uma base de mais de 1 milhão de veículos leiloados.</p>
+        <p class="inclui">A consulta completa inclui: restrições, roubo/furto, recall, RENAJUD, registro de leilão, débitos, a ficha cadastral completa e o histórico de leilão, cruzado com uma base de {{ BASE_LEILAO_TEXTO }}.</p>
         <input v-model="email" type="email" placeholder="Seu email (para receber o relatório)" />
         <!-- WhatsApp oculto ate a feature existir (ref telefone segue vivo). -->
         <input v-if="mostraWhatsapp" v-model="telefone" placeholder="WhatsApp (opcional)" />

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 // Pagina guia de "carro de leilao". Copy final do seo, aprovada pelo Cesar
 // (placa-completa-marketing/seo/planos-conteudo/carro-de-leilao-copy-final.md).
 //
@@ -144,7 +145,7 @@ const SINAIS = [
         </p>
         <div class="pc-callout">
           <p>
-            Nossa base reúne <strong>mais de 1 milhão de registros de leilões de veículos</strong>,
+            Nossa base reúne <strong>{{ BASE_LEILAO_TEXTO }}</strong>,
             coletados de fontes públicas em todo o Brasil, cobrindo carros de diversas décadas até
             modelos bem recentes.
           </p>
@@ -226,7 +227,7 @@ const SINAIS = [
           <p>
             <strong>Antes de fechar negócio, consulte a placa do carro que você está de olho.</strong>
             A consulta básica é gratuita e mostra marca, modelo, ano e cor. O relatório completo cruza
-            com nossa base de mais de 1 milhão de registros de leilão e traz o indicador de passagem,
+            com nossa base de {{ BASE_LEILAO_TEXTO }} e traz o indicador de passagem,
             junto com restrição, indicador de roubo e furto e gravame.
           </p>
         </div>
