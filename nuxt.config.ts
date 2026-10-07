@@ -1,5 +1,6 @@
 import { scriptsDeAnalytics } from './shared/analytics-tags'
 import { PLANOS } from './shared/planos'
+import { BASE_LEILAO_TEXTO } from './shared/base-leilao'
 export default defineNuxtConfig({
   compatibilityDate: "2025-01-01",
 
@@ -477,7 +478,7 @@ export default defineNuxtConfig({
         {
           property: "og:description",
           content:
-            "Digite a placa e veja o que o anúncio não conta: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão, com base de mais de 1 milhão de veículos.",
+            `Digite a placa e veja o que o anúncio não conta: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão, com base em ${BASE_LEILAO_TEXTO}.`,
         },
         { property: "og:type", content: "website" },
         {
@@ -500,7 +501,7 @@ export default defineNuxtConfig({
         {
           name: "twitter:description",
           content:
-            "Digite a placa e veja o que o anúncio não conta: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão, com base de mais de 1 milhão de veículos.",
+            `Digite a placa e veja o que o anúncio não conta: restrição, roubo e furto, gravame, recall, valor FIPE e o histórico de leilão, com base em ${BASE_LEILAO_TEXTO}.`,
         },
         {
           name: "twitter:image",

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 // Variante A do teste A/B: novo layout de pagina inteira do resultado da
 // consulta gratis. B = a pagina de hoje (fica no index.vue). Aqui so o A.
 //
@@ -190,7 +191,7 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
       <section v-if="leilaoEncontrado" class="la-leilao">
         <div class="la-bloco-topo">
           <h2>{{ soNotificacao ? 'Notificação de leilão encontrada' : 'Registro de leilão encontrado' }}</h2>
-          <span>Placa e chassi cruzados com mais de 1 milhão de veículos leiloados</span>
+          <span>Placa e chassi cruzados com {{ BASE_LEILAO_TEXTO }}</span>
         </div>
         <!-- So notificacao: os campos travados sao os do edital de notificacao.
              Prometer "Leiloeira" e "Condição do veículo" aqui seria vender o que o
@@ -216,7 +217,7 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
             <span class="la-bloqueado"><i /><span class="la-lock" v-html="LockIcon" /></span>
           </div>
         </div>
-        <p>O histórico de leilão cruza placa e chassi com mais de 1 milhão de veículos leiloados, inclusive leilões que não constam no documento.</p>
+        <p>O histórico de leilão cruza placa e chassi com {{ BASE_LEILAO_TEXTO }}, inclusive leilões que não constam no documento.</p>
       </section>
 
       <!-- FAQ -->

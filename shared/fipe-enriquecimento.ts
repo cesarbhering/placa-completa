@@ -1,3 +1,4 @@
+import { BASE_LEILAO_TEXTO } from './base-leilao'
 // Enriquecimento das paginas /tabela-fipe/<modelo>.
 //
 // Contexto: 27 URLs estavam "rastreada, atualmente nao indexada" no Search
@@ -52,7 +53,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 90 passagens de Audi Q3, entre os anos 2012 e 2024. A quantidade de registros com desfecho detalhado ainda é pequena pra esse modelo, então não destacamos percentual até a amostra crescer.",
       "categoria": "Um SUV premium como este costuma ter ticket alto e público mais atento à procedência, o que reduz a proporção de unidades em leilão vindas de sucata, mas não elimina o risco de gravame ou restrição em unidades financiadas.",
-      "cta": "Antes de comprar um Q3 usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um Q3 usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -75,7 +76,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 613 passagens de Volkswagen Jetta, entre os anos 2001 e 2023. A quantidade de registros com desfecho detalhado ainda é pequena pra esse modelo, então não destacamos percentual até a amostra crescer.",
       "categoria": "Sedãs médios como este circulam bastante como carro de uso pessoal e empresarial, o que os torna comuns tanto em leilões de recuperação de crédito quanto em remoção.",
-      "cta": "Antes de comprar um Jetta usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um Jetta usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -98,7 +99,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 10.196 passagens de Volkswagen Voyage, entre os anos 1980 e 2022. Entre os 3.561 registros com desfecho informado, 73% foram classificados como sucata ou inservível e 9% como recuperável. Esse percentual é sobre quem já passou por leilão, não sobre a frota total do modelo.",
       "categoria": "Modelos populares como este estão entre os mais vendidos historicamente no Brasil, e por isso aparecem com frequência em leilões de todos os tipos, simplesmente porque a frota circulante é grande.",
-      "cta": "Antes de comprar um Voyage usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um Voyage usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -121,7 +122,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 4.015 passagens de Chevrolet S10, entre os anos 1981 e 2026. Entre os 441 registros com desfecho informado, 65% foram classificados como sucata ou inservível e 17% como recuperável. Esse percentual é sobre quem já passou por leilão, não sobre a frota total do modelo.",
       "categoria": "Picapes médias como esta têm uso profissional intenso (frota, transporte de carga), o que aumenta tanto o desgaste quanto a frequência de leilões de recuperação de crédito e sucata.",
-      "cta": "Antes de comprar um S10 usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao) e a [análise dedicada do S10](/carro-de-leilao/s10)."
+      "cta": `Antes de comprar um S10 usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao) e a [análise dedicada do S10](/carro-de-leilao/s10).`
     },
     "faq": [
       {
@@ -144,7 +145,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 2.899 passagens de Peugeot 207, entre os anos 1996 e 2017. Entre os 795 registros com desfecho informado, 44% foram classificados como sucata ou inservível e 23% como recuperável. Esse percentual é sobre quem já passou por leilão, não sobre a frota total do modelo.",
       "categoria": "Hatches compactos como este são um dos segmentos mais populares do país, com grande volume de unidades circulando e, por consequência, presença relevante em leilões de diferentes origens.",
-      "cta": "Antes de comprar um 207 usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um 207 usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -167,7 +168,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 1.085 passagens de Renault Duster, entre os anos 2000 e 2025. A quantidade de registros com desfecho detalhado ainda é pequena pra esse modelo, então não destacamos percentual até a amostra crescer.",
       "categoria": "SUVs compactos como este tiveram forte crescimento de vendas nos últimos anos, e a base de leilões ainda reflete uma frota mais nova e menor volume de sucata proporcional.",
-      "cta": "Antes de comprar um Duster usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um Duster usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -190,7 +191,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 269 passagens de Hyundai ix35, entre os anos 2010 e 2020. A quantidade de registros com desfecho detalhado ainda é pequena pra esse modelo, então não destacamos percentual até a amostra crescer.",
       "categoria": "SUVs médios como este têm ticket mais alto e uso familiar predominante, o que costuma reduzir a proporção de sucata na base de leilões em relação a modelos populares.",
-      "cta": "Antes de comprar um ix35 usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um ix35 usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -213,7 +214,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 1.771 passagens de Jeep Compass, entre os anos 2008 e 2026. A quantidade de registros com desfecho detalhado ainda é pequena pra esse modelo, então não destacamos percentual até a amostra crescer.",
       "categoria": "SUVs médios como este têm ticket mais alto e uso familiar predominante, o que costuma reduzir a proporção de sucata na base de leilões em relação a modelos populares.",
-      "cta": "Antes de comprar um Compass usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um Compass usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -236,7 +237,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 205 passagens de Renault Oroch, entre os anos 2015 e 2025. A quantidade de registros com desfecho detalhado ainda é pequena pra esse modelo, então não destacamos percentual até a amostra crescer.",
       "categoria": "Picapes compactas como esta têm uso misto (pessoal e comercial leve), o que gera um volume relevante de passagens por leilão ao longo dos anos.",
-      "cta": "Antes de comprar um Oroch usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um Oroch usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -259,7 +260,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 154 passagens de Mitsubishi ASX, entre os anos 1995 e 2020. A quantidade de registros com desfecho detalhado ainda é pequena pra esse modelo, então não destacamos percentual até a amostra crescer.",
       "categoria": "SUVs compactos como este tiveram forte crescimento de vendas nos últimos anos, e a base de leilões ainda reflete uma frota mais nova e menor volume de sucata proporcional.",
-      "cta": "Antes de comprar um ASX usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um ASX usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -300,7 +301,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 7.473 passagens de Fiat Strada, entre os anos 1992 e 2026. Entre os 1.570 registros com desfecho informado, 65% foram classificados como sucata ou inservível e 23% como recuperável. Esse percentual é sobre quem já passou por leilão, não sobre a frota total do modelo.",
       "categoria": "Picapes compactas como esta têm uso misto (pessoal e comercial leve), o que gera um volume relevante de passagens por leilão ao longo dos anos.",
-      "cta": "Antes de comprar um Strada usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao) e a [análise dedicada do Strada](/carro-de-leilao/strada)."
+      "cta": `Antes de comprar um Strada usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao) e a [análise dedicada do Strada](/carro-de-leilao/strada).`
     },
     "faq": [
       {
@@ -323,7 +324,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 5.674 passagens de Volkswagen Golf, entre os anos 1987 e 2018. Entre os 1.998 registros com desfecho informado, 57% foram classificados como sucata ou inservível e 17% como recuperável. Esse percentual é sobre quem já passou por leilão, não sobre a frota total do modelo.",
       "categoria": "Hatches premium como este tiveram gerações com grande volume de vendas no Brasil, o que explica a presença relevante na base de leilões mesmo sendo um segmento de ticket mais alto.",
-      "cta": "Antes de comprar um Golf usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um Golf usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -364,7 +365,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 851 passagens de Renault Master, entre os anos 2001 e 2026. A quantidade de registros com desfecho detalhado ainda é pequena pra esse modelo, então não destacamos percentual até a amostra crescer.",
       "categoria": "Vans e utilitários como este têm uso comercial intenso, o que aumenta o desgaste e a frequência de passagem por recuperação de crédito ao longo da vida útil.",
-      "cta": "Antes de comprar um Master usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um Master usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -387,7 +388,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 7.028 passagens de Volkswagen Saveiro, entre os anos 1980 e 2026. Entre os 2.368 registros com desfecho informado, 71% foram classificados como sucata ou inservível e 18% como recuperável. Esse percentual é sobre quem já passou por leilão, não sobre a frota total do modelo.",
       "categoria": "Picapes compactas como esta têm uso misto (pessoal e comercial leve), o que gera um volume relevante de passagens por leilão ao longo dos anos.",
-      "cta": "Antes de comprar um Saveiro usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao) e a [análise dedicada do Saveiro](/carro-de-leilao/saveiro)."
+      "cta": `Antes de comprar um Saveiro usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao) e a [análise dedicada do Saveiro](/carro-de-leilao/saveiro).`
     },
     "faq": [
       {
@@ -410,7 +411,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 2.817 passagens de Chevrolet Montana, entre os anos 1984 e 2026. Entre os 323 registros com desfecho informado, 76% foram classificados como sucata ou inservível e 24% como recuperável. Esse percentual é sobre quem já passou por leilão, não sobre a frota total do modelo.",
       "categoria": "Picapes compactas como esta têm uso misto (pessoal e comercial leve), o que gera um volume relevante de passagens por leilão ao longo dos anos.",
-      "cta": "Antes de comprar um Montana usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao) e a [análise dedicada do Montana](/carro-de-leilao/montana)."
+      "cta": `Antes de comprar um Montana usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao) e a [análise dedicada do Montana](/carro-de-leilao/montana).`
     },
     "faq": [
       {
@@ -451,7 +452,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 49 passagens de BYD Dolphin Mini, entre os anos 2023 e 2026. A quantidade de registros com desfecho detalhado ainda é pequena pra esse modelo, então não destacamos percentual até a amostra crescer.",
       "categoria": "Como é um modelo elétrico ainda recente no mercado brasileiro, a base de leilões pra esse tipo de veículo é pequena e deve crescer nos próximos anos conforme a frota envelhece.",
-      "cta": "Antes de comprar um Dolphin Mini usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um Dolphin Mini usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -474,7 +475,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 1.328 passagens de Fiat Argo, entre os anos 2010 e 2026. A quantidade de registros com desfecho detalhado ainda é pequena pra esse modelo, então não destacamos percentual até a amostra crescer.",
       "categoria": "Hatches compactos como este são um dos segmentos mais populares do país, com grande volume de unidades circulando e, por consequência, presença relevante em leilões de diferentes origens.",
-      "cta": "Antes de comprar um Argo usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um Argo usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -497,7 +498,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 758 passagens de Honda City, entre os anos 1988 e 2026. A quantidade de registros com desfecho detalhado ainda é pequena pra esse modelo, então não destacamos percentual até a amostra crescer.",
       "categoria": "Sedãs compactos como este têm uso misto entre pessoal e aplicativo de transporte, o que impacta tanto o desgaste quanto a frequência de passagem por leilão.",
-      "cta": "Antes de comprar um City usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um City usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {
@@ -538,7 +539,7 @@ export const ENRIQUECIMENTO_FIPE: Record<string, EnriquecimentoModelo> = {
     "leilao": {
       "dado": "Nossa base de leilões já registra 3.559 passagens de Renault Logan, entre os anos 1996 e 2024. Entre os 683 registros com desfecho informado, 43% foram classificados como sucata ou inservível e 24% como recuperável. Esse percentual é sobre quem já passou por leilão, não sobre a frota total do modelo.",
       "categoria": "Modelos populares como este estão entre os mais vendidos historicamente no Brasil, e por isso aparecem com frequência em leilões de todos os tipos, simplesmente porque a frota circulante é grande.",
-      "cta": "Antes de comprar um Logan usado, consulte a placa do carro específico: a consulta cruza com nossa base de mais de 1 milhão de registros de leilão e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao)."
+      "cta": `Antes de comprar um Logan usado, consulte a placa do carro específico: a consulta cruza com nossa base de ${BASE_LEILAO_TEXTO} e retorna um indício de passagem quando existe registro compatível. Veja também o [guia de carro de leilão](/carro-de-leilao).`
     },
     "faq": [
       {

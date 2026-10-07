@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BASE_LEILAO_QTD, BASE_LEILAO_TEXTO, BASE_LEILAO_TEXTO_INICIO } from '~/shared/base-leilao'
 import { cederAoNavegador } from '~/shared/ceder'
 import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL } from '~/shared/planos'
 import { sinalDaResposta, fraseSinalNaTela, type SinalNaTela } from '~/shared/sinal-leilao-resposta'
@@ -1403,7 +1404,7 @@ function applyEmailSuggestion() {
               <span class="cb-trust__leilao">
                 <i class="cb-dot" />
                 <span>
-                  Histórico de leilão: mais de 1 milhão de veículos
+                  Histórico de leilão: {{ BASE_LEILAO_QTD }} de registros
                   <small>inclusive os que não constam no documento</small>
                 </span>
               </span>
@@ -1551,7 +1552,7 @@ function applyEmailSuggestion() {
                  borda e sem bolinha vermelha de proposito: nao e alerta, e
                  informacao. Nunca cita a fonte dos dados. -->
             <p v-if="blocoVarianteB && !fraseSinalLeilao" class="cb-sinal cb-sinal--neutro">
-              <span>Nenhum registro de leilão para esta placa na nossa base de mais de 1 milhão de veículos leiloados. O relatório completo confere se há indício de leilão no documento e checa roubo, gravame e dívida.</span>
+              <span>Nenhum registro de leilão para esta placa na nossa base com {{ BASE_LEILAO_TEXTO }}. O relatório completo confere se há indício de leilão no documento e checa roubo, gravame e dívida.</span>
             </p>
 
             <p class="cb-locked__kick">Risco oculto nesta placa</p>
@@ -1601,7 +1602,7 @@ function applyEmailSuggestion() {
             </p>
             <p class="cb-locked__leilao">
               O relatório completo ainda cruza a placa e o chassi com uma
-              <strong>base de mais de 1 milhão de veículos leiloados</strong>, montada a partir de editais de DETRANs e catálogos de leiloeiras.
+              <strong>base com {{ BASE_LEILAO_TEXTO }}</strong>, montada a partir de editais de DETRANs e catálogos de leiloeiras.
             </p>
 
             <div class="cb-locked__box">
@@ -1669,7 +1670,7 @@ function applyEmailSuggestion() {
             <strong>{{ soNotificacao ? 'Notificação de leilão encontrada' : sinalLeilao?.positivo ? 'Registro de leilão encontrado' : 'Risco oculto nesta placa' }}</strong>
             <span v-if="soNotificacao">Edital, órgão e data prevista do leilão no relatório completo</span>
             <span v-else-if="sinalLeilao?.positivo">Data, leiloeira e condição do veículo no relatório completo</span>
-            <span v-else>Mais {{ camposBloqueados.length }} verificações e o histórico de leilão, com base de mais de 1 milhão de veículos</span>
+            <span v-else>Mais {{ camposBloqueados.length }} verificações e o histórico de leilão, com base em {{ BASE_LEILAO_TEXTO }}</span>
           </div>
           <button type="button" class="cb-btn cb-btn--blue cb-sticky-upsell__cta" @click="cliqueCtaCompleta('barra_fixa')">
             {{ soNotificacao ? 'Ver a notificação' : sinalLeilao?.positivo ? 'Ver o leilão' : 'Ver agora' }} · {{ precoBRL(PLANOS.completa.valorCentavos) }}
@@ -1740,9 +1741,9 @@ function applyEmailSuggestion() {
               </div>
 
               <!-- O unico card que fala de algo que so nos temos. Numero
-                   honesto: 921 mil veiculos unicos com identificacao completa
-                   mais 346 mil lotes com identificacao parcial, entao "mais de
-                   1 milhao" e o piso, nao o teto. Quantos orgaos de transito
+                   honesto (contagem de 07/10/2026): 2.336.917 REGISTROS de
+                   leilao, 1.876.811 veiculos distintos, entao a copy fala em
+                   registros, nunca em veiculos, que sao menos (shared/base-leilao.ts). Quantos orgaos de transito
                    alimentam a base NAO entra na copy: o numero muda a cada
                    raspagem nova e vira promessa que a gente teria que manter. -->
               <div class="cb-ganho cb-ganho--base">
@@ -1754,7 +1755,7 @@ function applyEmailSuggestion() {
                   <path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" fill="none" stroke="currentColor"
                         stroke-width="1.7" stroke-linejoin="round" />
                 </svg>
-                <h3>Mais de 1 milhão de veículos leiloados na nossa base</h3>
+                <h3>{{ BASE_LEILAO_TEXTO_INICIO }} na nossa base</h3>
                 <p>
                   Cruzamos a placa e o chassi com editais de DETRANs e catálogos de leiloeiras,
                   inclusive leilões que não aparecem no documento do veículo. Carro batido que
@@ -1913,7 +1914,7 @@ function applyEmailSuggestion() {
             <span class="cb-doc-tag"><i class="cb-d2" />Restrições nacionais e estaduais</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Roubo e furto</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Registro de leilão</span>
-            <span class="cb-doc-tag"><i class="cb-d2" />Histórico de leilão (base de 1 milhão de veículos)</span>
+            <span class="cb-doc-tag"><i class="cb-d2" />Histórico de leilão (base com {{ BASE_LEILAO_QTD }} de registros)</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Gravame</span>
             <span class="cb-doc-tag"><i class="cb-d2" />RENAJUD</span>
             <span class="cb-doc-tag"><i class="cb-d2" />Recall</span>
