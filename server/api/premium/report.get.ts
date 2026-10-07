@@ -2,6 +2,7 @@ import { cupomRecompraDoPedido } from '../../utils/cupom-recompra'
 import { filtrarPorPlano, camposRestantes, PLANOS } from '../../../shared/planos'
 import { getValorCusto } from '../../utils/valor-custo'
 import { sanearBlocoMultas } from '../../utils/infosimples-detran'
+import { retentarDetranSeValer } from '../../utils/detran-retentativa'
 import { logoProxyDe } from '../../utils/logo-marca'
 import { lerPlacaCacheFresca } from '../../utils/placa-lookup'
 
@@ -168,7 +169,19 @@ export default defineEventHandler(async (event) => {
           pedido.consulta_id,
         )
       }
-      if (multas == null && temMultaSP(respostaSnap) && podeReprocessar(`multas:${pedido.placa}`)) {
+      // Multas/DETRAN: retentativa na Infosimples (fonte primaria de todas as
+      // UFs, SP inclusive) quando o bloco ficou indisponivel ou nunca chegou.
+      // Freios em server/utils/detran-retentativa.ts (espera a chamada da
+      // entrega, 20 min entre tentativas, teto de chamadas por pedido).
+      if (multas?.status !== 'ok' && multas?.status !== 'sem_debito' && multas?.status !== 'protegido'
+        && podeReprocessar(`detran:${pedido.placa}`, 5 * 60 * 1000)) {
+        void retentarDetranSeValer(supabase, pedido, snap.multas ?? null, respostaSnap)
+      }
+      // Worker gov.br (browser-use) so como RESERVA e so com a flag ligada:
+      // nao loga no gov.br desde 06/out e cada tentativa custa. Desligado por
+      // padrao (NUXT_DETRAN_WORKER_SP=on liga de volta).
+      if (String(useRuntimeConfig().detranWorkerSp || '') === 'on'
+        && multas == null && temMultaSP(respostaSnap) && podeReprocessar(`multas:${pedido.placa}`)) {
         completarMultasDepois(
           supabase,
           { id: pedido.id, placa: pedido.placa },
