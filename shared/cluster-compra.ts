@@ -1,3 +1,4 @@
+import { BASE_LEILAO_TEXTO } from './base-leilao'
 // Cluster de compra (plano SEO 02/out, item #11): paginas pra quem esta perto
 // de comprar um usado e busca "laudo cautelar" (14.800/mes), "historico
 // veicular" (2.400), "consulta veicular completa" (1.900) e "consulta de
@@ -28,7 +29,7 @@ export const COMPLETA_TRAZ = [
   'RENAJUD e restrições judiciais, administrativas e de RFB',
   'Indicador de infrações no RENAINF e, em 15 UFs, as infrações em aberto direto do DETRAN',
   'Recall pendente',
-  'Registro de leilão no documento e histórico de leilão cruzado com nossa base de mais de 1 milhão de veículos leiloados',
+  `Registro de leilão no documento e histórico de leilão cruzado com nossa base de ${BASE_LEILAO_TEXTO}`,
   'Comunicação de venda',
   'Valor FIPE com histórico, seguro estimado e custo em 5 anos',
   'Origem de fabricação pelo chassi',

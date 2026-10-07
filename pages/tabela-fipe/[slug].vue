@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { tituloModelo, descricaoModelo, tituloMarca, descricaoMarca } from '~/shared/fipe-seo'
 import { fipeBrands, findBrandModel } from '~/data/fipe-brands'
 import { enriquecimentoDe } from '~/shared/fipe-enriquecimento'
@@ -527,8 +528,7 @@ if (isBrandPage) {
               <p v-if="enriq.leilao.categoria">{{ enriq.leilao.categoria }}</p>
               <p>
                 Antes de comprar um {{ enriq.nomeCurto }} usado, consulte a placa do carro
-                específico: a consulta cruza com nossa base de mais de 1 milhão de registros de
-                leilão e retorna um indício de passagem quando existe registro compatível. Veja
+                específico: a consulta cruza com nossa base de {{ BASE_LEILAO_TEXTO }} e retorna um indício de passagem quando existe registro compatível. Veja
                 também o <NuxtLink to="/carro-de-leilao">guia de carro de leilão</NuxtLink><template v-if="slugLeilaoDedicado"> e a
                 <NuxtLink :to="`/carro-de-leilao/${slugLeilaoDedicado}`">análise dedicada do {{ enriq.nomeCurto }}</NuxtLink></template>.
               </p>

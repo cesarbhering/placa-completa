@@ -1,3 +1,4 @@
+import { BASE_LEILAO_TEXTO } from './base-leilao'
 // Frases da secao de leilao que fazem uma afirmacao delicada: que o documento
 // do veiculo pode nao registrar uma passagem por leilao. Isso e verdade (leilao
 // de seguradora e de leiloeira muitas vezes nao vira anotacao no documento) e e
@@ -11,7 +12,7 @@ export const LEILAO_FORA_DO_DOCUMENTO =
   'Este registro vem de edital ou catálogo de leilão e pode não constar no documento do veículo.'
 
 export function leilaoSemOcorrencia(esteVeiculo: string): string {
-  return `Na nossa base com mais de 1 milhão de veículos leiloados, nenhuma ocorrência de leilão `
+  return `Na nossa base com ${BASE_LEILAO_TEXTO}, nenhuma ocorrência de leilão `
     + `foi encontrada para ${esteVeiculo}, incluindo leilões que normalmente não constam no documento.`
 }
 

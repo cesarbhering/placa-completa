@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 // Previa do relatorio completo, na section "Exemplo de relatorio" da home.
 //
 // Espelha a anatomia do relatorio de verdade (mockup v2.0): resumo do veiculo
@@ -180,7 +181,7 @@ onMounted(async () => {
       <!-- 4. historico de leilao -->
       <h4 class="hrp__h">4. Histórico de leilão</h4>
       <p class="hrp__leilao-base">
-        Placa e chassi cruzados com uma base de mais de 1 milhão de veículos leiloados,
+        Placa e chassi cruzados com uma base de {{ BASE_LEILAO_TEXTO }},
         montada a partir de editais de DETRANs e catálogos de leiloeiras.
       </p>
       <div class="hrp__leilao">
