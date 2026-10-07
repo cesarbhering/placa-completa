@@ -76,3 +76,20 @@ export const PARECER_SO_RENAVE = {
   titulo: 'Atenção: o veículo consta no estoque de uma revenda (RENAVE).',
   texto: 'Veja na seção de Restrições o que conferir antes de fechar negócio.',
 } as const
+
+// Itens de restricao que NAO sao restricao (06/out): "CNPJ_DA
+// INSTITUICAO_FINANCEIRA" chega em restricoesItens junto da alienacao
+// fiduciaria, mas e o ROTULO do campo do CNPJ do credor do gravame, vindo sem
+// valor (QUC6E49, SIE3J28, SVB9F43). Cru na tela parecia uma restricao a mais.
+const ITENS_NAO_RESTRICAO = [/^CNPJ_DA_INSTITUICAO_FINANCEIRA$/, /^CNPJ_INSTITUICAO_FINANCEIRA$/]
+
+export function ehItemDeRestricao(bruto: unknown): boolean {
+  const chave = String(bruto ?? '').trim().toUpperCase().replace(/[\s-]+/g, '_').replace(/_+/g, '_')
+  if (!chave) return false
+  return !ITENS_NAO_RESTRICAO.some((re) => re.test(chave))
+}
+
+/** restricoesItens sem os itens que nao sao restricao. Nao-array passa direto. */
+export function filtrarItensRestricao<T>(itens: T): T {
+  return (Array.isArray(itens) ? itens.filter(ehItemDeRestricao) : itens) as T
+}

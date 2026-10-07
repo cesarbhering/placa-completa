@@ -101,7 +101,7 @@ const leilaoExemplo = {
 
 // Restricoes com a explicacao de consequencia, como no laudo real.
 const restricoes = [
-  { rotulo: 'Alienação fiduciária', explica: 'O veículo está financiado e é a garantia do contrato. A transferência depende da quitação e da baixa do gravame.' },
+  { rotulo: 'Alienação fiduciária (veículo financiado)', explica: 'O veículo está financiado e é a garantia do contrato. A transferência depende da quitação e da baixa do gravame.' },
   { rotulo: 'Restrição judicial (RENAJUD)', explica: 'Uma decisão da Justiça impede a transferência do veículo até a liberação.' },
 ]
 
