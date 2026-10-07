@@ -81,3 +81,23 @@ describe('edital de leilao judicial de casa privada (07/out)', () => {
     expect(h.passagens[1]).toMatchObject({ edital_disponivel: false, edital_ref: null })
   })
 })
+
+describe('pagina publica do lote (judicial sem edital entregavel, 07/out)', () => {
+  const base = { nivel: 'confirmado', fonte: 'superbid', fonte_tipo: 'privado' }
+  it('passa https da Superbid quando nao ha edital', () => {
+    const h = sanearHistorico({ resumo: {}, passagens: [{ ...base, pagina_publica_url: 'https://www.superbid.net/oferta/4611943' }] })!
+    expect(h.passagens[0].pagina_publica_url).toBe('https://www.superbid.net/oferta/4611943')
+  })
+  it('cai: http, host estranho, junto com edital, notificacao', () => {
+    const casos = [
+      { ...base, pagina_publica_url: 'http://www.superbid.net/oferta/1' },
+      { ...base, pagina_publica_url: 'https://superbid.net.evil.com/oferta/1' },
+      { ...base, pagina_publica_url: 'https://evil.com/?u=superbid.net' },
+      { ...base, pagina_publica_url: 'javascript:alert(1)' },
+      { ...base, edital_disponivel: true, edital_ref: 'x.y', pagina_publica_url: 'https://www.superbid.net/oferta/1' },
+      { ...base, situacao: 'notificado', detalhes: { tipo_registro: 'notificacao_leilao' }, pagina_publica_url: 'https://www.superbid.net/oferta/1' },
+    ]
+    const h = sanearHistorico({ resumo: {}, passagens: casos })!
+    for (const p of h.passagens) expect(p.pagina_publica_url).toBeNull()
+  })
+})

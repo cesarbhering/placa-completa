@@ -38,3 +38,14 @@ describe('comitente', () => {
     for (const c of ['FINANCEIRA', 'Mapfre Seguros', 'DETRAN', 'Tribunal', 'Movida']) expect(fraseComitente(c)).not.toContain('—')
   })
 })
+
+import { paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from './leilao-exibicao'
+describe('pagina publica', () => {
+  it('so https de leiloeira conhecida', () => {
+    expect(paginaPublicaLeilao('https://www.superbid.net/oferta/1')).toBe('https://www.superbid.net/oferta/1')
+    expect(paginaPublicaLeilao('https://superbid.net/oferta/1')).toBe('https://superbid.net/oferta/1')
+    expect(paginaPublicaLeilao('https://user:pw@www.superbid.net/x')).toBeNull()
+    expect(paginaPublicaLeilao(null)).toBeNull()
+    expect(AVISO_PAGINA_PUBLICA).not.toContain('—')
+  })
+})
