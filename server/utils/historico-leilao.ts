@@ -205,11 +205,10 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
       lote: texto(p.lote),
       valor: typeof p.valor === 'number' ? p.valor : null,
       situacao: texto(p.situacao),
-      // Leiloeiro passa a sair tambem em casa privada (decisao do Cesar, 06/out,
-      // reverte a regra antiga de esconder): e nome publico do leiloeiro
-      // oficial, nao dado pessoal de cliente. Hoje a leiloes-api ainda zera o
-      // campo de casa privada; quando parar, ele aparece sem mudar nada aqui.
-      leiloeiro: texto(p.leiloeiro),
+      // Leiloeiro (a PESSOA) de casa privada nunca sai daqui, nem no JSON: o
+      // relatorio e publico por token. So o nome da CASA aparece (decisao do
+      // Cesar, 06/out). A API ja zera, isto e a nossa garantia.
+      leiloeiro: p.fonte_tipo === 'detran' ? texto(p.leiloeiro) : null,
       comitente: texto(p.comitente),
       // Mesma regra do leiloeiro: so orgao. Se a API mandar edital de casa
       // privada um dia, ele morre aqui, nao na tela.

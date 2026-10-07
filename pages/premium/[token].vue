@@ -759,11 +759,11 @@ const passagensLeilao = computed(() => {
     ref: p.ref,
     lote: p.lote,
     situacao: p.situacao ? semValorEmReais(humanizar(p.situacao)) : null,
-    // Leiloeiro aparece quando vier preenchido (decisao do Cesar, 06/out,
-    // reverte a regra de esconder). Comitente logo abaixo do termometro, com
+    // Leiloeiro (a pessoa) so de orgao oficial: em casa privada aparece so o
+    // nome da CASA, nunca o leiloeiro (Cesar, 06/out). Comitente logo abaixo do termometro, com
     // uma frase pelo tipo (banco, seguradora, Justica...): e o sinal de que a
     // passagem foi retomada de financiamento, sinistro ou leilao judicial.
-    leiloeiro: p.leiloeiro ? String(p.leiloeiro) : null,
+    leiloeiro: p.fonte_tipo === 'detran' && p.leiloeiro ? String(p.leiloeiro) : null,
     comitente: comitenteExibicao(p.comitente)?.texto ?? null,
     fraseComitente: fraseComitente(p.comitente),
     detalhes: detalhesLegiveis(p.detalhes),
