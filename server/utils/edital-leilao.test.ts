@@ -84,3 +84,11 @@ describe('edital de notificacao', () => {
     expect(refPertenceAoRelatorio(s, 'r1')).toBe(false)
   })
 })
+
+describe('edital judicial de casa privada', () => {
+  it('ref de passagem privada marcada como disponivel pertence ao relatorio', () => {
+    const s = { historicoLeilao: { passagens: [{ fonte: 'superbid', fonte_tipo: 'privado', edital_disponivel: true, edital_ref: 'j1.abc' }] } }
+    expect(refPertenceAoRelatorio(s, 'j1.abc')).toBe(true)
+    expect(refPertenceAoRelatorio(s, 'outro')).toBe(false)
+  })
+})

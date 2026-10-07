@@ -65,3 +65,19 @@ describe('sanearHistorico com notificacao', () => {
     expect(h.passagens[0].edital_ref).toBeNull()
   })
 })
+
+describe('edital de leilao judicial de casa privada (07/out)', () => {
+  it('passa quando a API marca disponivel; casa privada sem marca continua sem', () => {
+    const h = sanearHistorico({
+      resumo: { n_confirmado: 2 },
+      passagens: [{
+        nivel: 'confirmado', fonte: 'superbid', fonte_tipo: 'privado', comitente: 'Tribunal de Justiça do Estado de São Paulo',
+        edital_disponivel: true, edital_ref: '77.abcdef012345',
+      }, {
+        nivel: 'confirmado', fonte: 'copart', fonte_tipo: 'privado', edital_disponivel: false, edital_ref: null,
+      }],
+    })!
+    expect(h.passagens[0]).toMatchObject({ edital_disponivel: true, edital_ref: '77.abcdef012345' })
+    expect(h.passagens[1]).toMatchObject({ edital_disponivel: false, edital_ref: null })
+  })
+})
