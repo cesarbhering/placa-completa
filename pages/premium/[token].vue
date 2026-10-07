@@ -783,8 +783,11 @@ const passagensLeilao = computed(() => {
     // Edital do orgao: so DETRAN. O snapshot de relatorio antigo nao tem estes
     // campos, e ai o botao simplesmente nao aparece, que e o comportamento
     // certo: o snapshot e o que a pessoa comprou.
-    edital_disponivel: p.fonte_tipo === 'detran' && !ehNotificacao(p) && !!p.edital_disponivel,
-    edital_ref: p.fonte_tipo === 'detran' && !ehNotificacao(p) && p.edital_ref ? String(p.edital_ref) : null,
+    // Edital: DETRAN ou leilao judicial de casa privada, quando a leiloes-api
+    // marca como disponivel (a regra LGPD fica la). Notificacao, nunca.
+    edital_disponivel: !ehNotificacao(p) && !!p.edital_disponivel,
+    edital_ref: !ehNotificacao(p) && p.edital_ref ? String(p.edital_ref) : null,
+    editalDetran: p.fonte_tipo === 'detran',
   }))
 })
 
@@ -2342,8 +2345,8 @@ onUnmounted(() => {
                 <!-- Edital do orgao de transito: o documento que originou o
                      registro. E a resposta pra pergunta que toda passagem
                      levanta ("como voces sabem disso?"), na forma mais forte
-                     possivel, que e o papel oficial. So aparece quando a fonte
-                     e orgao publico e o arquivo existe. -->
+                     possivel, que e o papel oficial. Aparece pra DETRAN e pra
+                     leilao judicial de casa privada, quando o arquivo existe. -->
                 <div v-if="p.edital_disponivel && p.edital_ref" class="rel__edital">
                   <button
                     type="button"
@@ -2351,10 +2354,10 @@ onUnmounted(() => {
                     :disabled="editalCarregando === p.edital_ref"
                     @click="baixarEdital(p.edital_ref)"
                   >
-                    {{ editalCarregando === p.edital_ref ? 'Gerando o link...' : 'Baixar o edital do DETRAN (PDF)' }}
+                    {{ editalCarregando === p.edital_ref ? 'Gerando o link...' : (p.editalDetran ? 'Baixar o edital do DETRAN (PDF)' : 'Baixar o edital do leilão judicial (PDF)') }}
                   </button>
                   <p class="rel__edital-aviso">
-                    Documento oficial publicado pelo DETRAN. O link vale por 24 horas; depois disso,
+                    {{ p.editalDetran ? 'Documento oficial publicado pelo DETRAN.' : 'Edital do leilão judicial, publicado pela leiloeira.' }} O link vale por 24 horas; depois disso,
                     abra o relatório de novo para gerar um novo link.
                   </p>
                   <p v-if="editalErro && editalCarregando === null" class="rel__hint rel__hint--erro">{{ editalErro }}</p>

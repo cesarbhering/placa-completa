@@ -44,8 +44,9 @@ export interface PassagemLeilao {
   leiloeiro: string | null
   comitente: string | null
   /**
-   * Edital publicado pelo orgao de transito, quando existe. So DETRAN: edital
-   * de casa privada nao e documento publico e nao sai daqui.
+   * Edital do leilao, quando a leiloes-api marca como disponivel: DETRAN ou
+   * edital judicial de casa privada (decisao do Cesar, 07/out). Notificacao,
+   * nunca.
    *
    * `edital_ref` e um token opaco da leiloes-api ("<id>.<hmac12>"), nao a URL.
    * A URL assinada dura 24h e e gerada a cada clique; guardar uma no snapshot
@@ -210,13 +211,15 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
       // Cesar, 06/out). A API ja zera, isto e a nossa garantia.
       leiloeiro: p.fonte_tipo === 'detran' ? texto(p.leiloeiro) : null,
       comitente: texto(p.comitente),
-      // Mesma regra do leiloeiro: so orgao. Se a API mandar edital de casa
-      // privada um dia, ele morre aqui, nao na tela.
+      // Edital de qualquer fonte que a leiloes-api marcar como disponivel
+      // (decisao do Cesar, 07/out): DETRAN ou edital JUDICIAL de casa privada
+      // que passou no portao de LGPD de la. A regra de quais editais podem ser
+      // baixados fica no backend; aqui so cai a notificacao.
       // Edital de NOTIFICACAO nunca e baixavel (decisao do Cesar, 30/set): o
       // documento traz a relacao de proprietarios. Todos os DADOS dele vao pra
       // tela; o arquivo, nao.
-      edital_disponivel: p.fonte_tipo === 'detran' && !ehNotificacao(p) && !!p.edital_disponivel,
-      edital_ref: p.fonte_tipo === 'detran' && !ehNotificacao(p) ? texto(p.edital_ref) : null,
+      edital_disponivel: !ehNotificacao(p) && !!p.edital_disponivel,
+      edital_ref: !ehNotificacao(p) ? texto(p.edital_ref) : null,
       veiculo_na_fonte: p.veiculo_na_fonte && typeof p.veiculo_na_fonte === 'object' ? p.veiculo_na_fonte : null,
       evidencias: Array.isArray(p.evidencias) ? p.evidencias.map(String) : [],
       fotos: sanearFotos(p.fotos, config),
