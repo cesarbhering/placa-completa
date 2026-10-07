@@ -8,7 +8,7 @@
 // entra no bundle. Sem `leiloesApiUrl` configurada a funcao nem tenta, que e
 // como a feature fica restrita ao homolog por enquanto.
 
-import { fonteExibicaoLeilao } from '../../shared/leilao-exibicao'
+import { fonteExibicaoLeilao, paginaPublicaLeilao } from '../../shared/leilao-exibicao'
 import { ehNotificacao, GRAVIDADE_NOTIFICADO } from '../../shared/leilao-notificacao'
 
 export type NivelLeilao = 'confirmado' | 'provavel' | 'possivel'
@@ -55,6 +55,12 @@ export interface PassagemLeilao {
    */
   edital_disponivel?: boolean
   edital_ref?: string | null
+  /**
+   * Pagina publica do lote na leiloeira (leiloes-api #65): so em leilao
+   * judicial de casa privada cujo edital NAO pode ser entregue (dados das
+   * partes). Nunca junto com edital_disponivel. https + host conhecido.
+   */
+  pagina_publica_url?: string | null
   veiculo_na_fonte: Record<string, any> | null
   evidencias: string[]
   conflitos: string[]
@@ -220,6 +226,9 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
       // tela; o arquivo, nao.
       edital_disponivel: !ehNotificacao(p) && !!p.edital_disponivel,
       edital_ref: !ehNotificacao(p) ? texto(p.edital_ref) : null,
+      // So quando NAO ha edital pra baixar; notificacao, nunca; e so https de
+      // leiloeira conhecida (shared/leilao-exibicao.ts).
+      pagina_publica_url: !ehNotificacao(p) && !p.edital_disponivel ? paginaPublicaLeilao(p.pagina_publica_url) : null,
       veiculo_na_fonte: p.veiculo_na_fonte && typeof p.veiculo_na_fonte === 'object' ? p.veiculo_na_fonte : null,
       evidencias: Array.isArray(p.evidencias) ? p.evidencias.map(String) : [],
       fotos: sanearFotos(p.fotos, config),

@@ -22,7 +22,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { explicaRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, PARECER_SO_RENAVE } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
-import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente } from '~/shared/leilao-exibicao'
+import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
@@ -788,6 +788,9 @@ const passagensLeilao = computed(() => {
     edital_disponivel: !ehNotificacao(p) && !!p.edital_disponivel,
     edital_ref: !ehNotificacao(p) && p.edital_ref ? String(p.edital_ref) : null,
     editalDetran: p.fonte_tipo === 'detran',
+    // Sem edital pra baixar (judicial que reprovou no LGPD): link pra pagina
+    // publica do lote na leiloeira. Revalidado aqui (https + host conhecido).
+    paginaPublica: !ehNotificacao(p) && !(p.edital_disponivel && p.edital_ref) ? paginaPublicaLeilao(p.pagina_publica_url) : null,
   }))
 })
 
@@ -2361,6 +2364,12 @@ onUnmounted(() => {
                     abra o relatório de novo para gerar um novo link.
                   </p>
                   <p v-if="editalErro && editalCarregando === null" class="rel__hint rel__hint--erro">{{ editalErro }}</p>
+                </div>
+                <div v-else-if="p.paginaPublica" class="rel__edital">
+                  <a class="rel__btn rel__btn--mini" :href="p.paginaPublica" target="_blank" rel="noopener noreferrer nofollow">
+                    Ver o edital no site da {{ p.fonte }}
+                  </a>
+                  <p class="rel__edital-aviso">{{ AVISO_PAGINA_PUBLICA }}</p>
                 </div>
 
                 <button

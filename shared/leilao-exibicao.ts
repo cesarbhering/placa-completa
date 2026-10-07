@@ -148,3 +148,23 @@ export function fraseComitente(bruto: unknown): string | null {
   if (/detran|prefeitura|policia|\bprf\b|municipio|secretaria|departamento|governo|receita federal|\bder\b/.test(n)) return 'Órgão público: costuma ser veículo apreendido ou removido ao pátio.'
   return null
 }
+
+// ---------- Pagina publica do lote (edital judicial que nao pode ser entregue) ----------
+//
+// Decisao do Cesar (07/out): edital judicial que reprovou no portao de LGPD
+// (traz dados pessoais das partes) vira LINK pra pagina publica do lote na
+// leiloeira. So https e so host de leiloeira conhecida: o link sai do nosso
+// relatorio pago, entao nunca pode apontar pra qualquer lugar.
+export const HOSTS_PAGINA_LEILOEIRA = ['superbid.net']
+
+export function paginaPublicaLeilao(bruto: unknown, hosts: string[] = HOSTS_PAGINA_LEILOEIRA): string | null {
+  if (typeof bruto !== 'string' || !bruto.trim()) return null
+  let url: URL
+  try { url = new URL(bruto.trim()) } catch { return null }
+  if (url.protocol !== 'https:' || url.username || url.password) return null
+  const h = url.hostname.toLowerCase()
+  if (!hosts.some((base) => h === base || h.endsWith('.' + base))) return null
+  return url.toString()
+}
+
+export const AVISO_PAGINA_PUBLICA = 'O edital deste leilão judicial traz dados pessoais das partes, por isso fica disponível só no site da leiloeira.'
