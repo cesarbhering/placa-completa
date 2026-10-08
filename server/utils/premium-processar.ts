@@ -1,3 +1,4 @@
+import { avisarVenda } from './aviso-venda'
 import { ambienteDaConsultaPaga } from './gcc-reserva'
 import { gerarCupomRecompra } from './cupom-recompra'
 import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas-recall'
@@ -246,6 +247,10 @@ export async function processarPedidoPago(
         placa_consultada: r.placaConsultada,
       })
       .eq('id', pedido.id)
+
+    // Aviso da venda ao Cesar na hora (server/utils/aviso-venda.ts). Sem
+    // await: nunca atrasa nem quebra a entrega; dedup no banco com o timer.
+    void avisarVenda(supabase, pedido.id).catch(() => {})
 
     // Snapshot imutavel: monta o payload agregado (consulta filtrada por
     // plano + valorCusto + chassiOrigem + camposRestantes) UMA VEZ, aqui na

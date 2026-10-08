@@ -1,0 +1,316 @@
+#!/usr/bin/env python3
+# pc-venda-origem - avisa o Cesar por e-mail a ORIGEM de cada nova venda paga,
+# pelas proximas N vendas (cap no state). Fonte da verdade = nosso banco
+# (consultas.gclid/utm_source), nunca painel de plataforma. Auto-desliga o timer
+# quando bate o cap.
+#
+# Desde 08/out o servidor manda o aviso NA HORA da entrega
+# (server/utils/aviso-venda.ts) e marca pedidos_premium.aviso_venda_em. Este
+# script virou rede de seguranca: pula pedido ja avisado e, quando envia,
+# marca a coluna do mesmo jeito (so quem trocar null por now() envia).
+#
+# Uso:
+#   pc-venda-origem --seed           # marca todas as vendas atuais como ja vistas (backlog nao dispara)
+#   pc-venda-origem --kickoff <id>   # manda 1 e-mail da venda <id> sem contar no cap
+#   pc-venda-origem                  # roda pelo timer: novas vendas -> e-mail, ate o cap
+import sys, os, json, subprocess
+
+REF = "fivalpkfneadngxiflea"
+API = f"https://api.supabase.com/v1/projects/{REF}/database/query"
+SB = open(os.path.expanduser("~/.supabase/access-token")).read().strip()
+STATE_FILE = "/root/.pc-venda-origem.state"
+DEST = "cesarcbhering@gmail.com"
+CAP = 1000
+
+
+def q(sql):
+    body = json.dumps({"query": sql})
+    p = subprocess.run(["curl", "-s", "-X", "POST", API,
+        "-H", f"Authorization: Bearer {SB}", "-H", "Content-Type: application/json",
+        "-d", body], capture_output=True, text=True, timeout=30)
+    data = json.loads((p.stdout or "[]").strip() or "[]")
+    if isinstance(data, dict) and (data.get("error") or data.get("message")):
+        sys.exit(f"erro supabase: {data.get('error') or data.get('message')}")
+    return data
+
+
+def load_state():
+    if os.path.exists(STATE_FILE):
+        return json.load(open(STATE_FILE))
+    return {"cap": CAP, "count": 0, "notified": []}
+
+
+def save_state(s):
+    json.dump(s, open(STATE_FILE, "w"))
+
+
+def vendas_pagas():
+    return q("select id, placa, plano, valor_centavos, pago_em, email, consulta_id, "
+             "token_entrega, status, entregue_em, erro, dispositivo, sistema, pix_provider, forma_pagamento, recall_sinal, recall_marca, cupom_origem, aviso_venda_em "
+             "from pedidos_premium where pago_em is not null order by pago_em asc;")
+
+
+def recente(ts, minutos):
+    from datetime import datetime, timezone, timedelta
+    try:
+        t = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        return datetime.now(timezone.utc) - t < timedelta(minutes=minutos)
+    except Exception:
+        return False
+
+
+def marcar_aviso(pid):
+    """Marca aviso_venda_em se ainda estiver vazio. True = este processo envia."""
+    pid = str(pid).replace("'", "")
+    r = q(f"update pedidos_premium set aviso_venda_em = now() where id = '{pid}' "
+          "and aviso_venda_em is null returning id;")
+    return bool(r)
+
+
+def desmarcar_aviso(pid):
+    pid = str(pid).replace("'", "")
+    q(f"update pedidos_premium set aviso_venda_em = null where id = '{pid}';")
+
+
+def brl(centavos):
+    return f"R$ {int(centavos)/100:.2f}".replace(".", ",")
+
+
+_HAS_MSCLKID = None
+def _cols():
+    # msclkid pode ainda nao existir (migration do web pendente) — checa via
+    # information_schema (nao dispara erro) e inclui a coluna so quando existir.
+    global _HAS_MSCLKID
+    if _HAS_MSCLKID is None:
+        r = q("select 1 from information_schema.columns where table_name='consultas' "
+              "and column_name='msclkid' limit 1;")
+        _HAS_MSCLKID = bool(r)
+    return "gclid,utm_source,utm_medium,utm_campaign,oppref" + (",msclkid" if _HAS_MSCLKID else "")
+
+
+def origem(pedido):
+    base = _origem(pedido)
+    if pedido.get("cupom_origem") == "cupom_recompra":
+        base += " + cupom de recompra 20%"
+    return base
+
+
+def _origem(pedido):
+    # 1) tenta pelo consulta_id do pedido; 2) fallback: consulta mais recente da
+    # mesma placa ate o momento do pagamento.
+    cols = _cols()
+    cid = pedido.get("consulta_id")
+    row = None
+    if cid:
+        r = q(f"select {cols} from consultas where id = '{cid}';")
+        row = r[0] if r else None
+    if not row:
+        placa = str(pedido.get("placa", "")).replace("'", "")
+        pago = str(pedido.get("pago_em", "")).replace("'", "")
+        r = q(f"select {cols} from consultas "
+              f"where upper(placa) = upper('{placa}') and created_at <= '{pago}' "
+              "order by created_at desc limit 1;")
+        row = r[0] if r else None
+    if not row:
+        return "Indeterminada (sem consulta associada)"
+    gclid = row.get("gclid")
+    msclkid = row.get("msclkid")
+    src = (row.get("utm_source") or "").lower()
+    med = (row.get("utm_medium") or "").lower()
+    camp = row.get("utm_campaign") or ""
+    if row.get("oppref") or src == "chatgpt_ads":
+        return f"ChatGPT Ads (OpenAI){(' / ' + camp) if camp else ''}"
+    if gclid:
+        return f"Google Ads{(' / ' + camp) if camp else ''}"
+    if msclkid or src in ("bing", "microsoft") or "msclk" in med:
+        return f"Bing Ads{(' / ' + camp) if camp else ''}"
+    if src == "email":
+        return f"E-mail marketing ({camp or 'sem campanha'})"
+    if src:
+        return f"{src}{(' / ' + camp) if camp else ''}"
+    return "Organico (direto/SEO, sem marca de anuncio)"
+
+
+def variante_ab(pedido):
+    """A ou B do bloco bloqueado: vem do extra.ab_bloco dos eventos do funil da
+    mesma placa antes do pagamento. Pedido pago sem evento = 'sem_ab'."""
+    placa = str(pedido.get("placa", "")).replace("'", "")
+    pago = str(pedido.get("pago_em", "")).replace("'", "")
+    r = q("select extra->>'ab_bloco' v from eventos_funil "
+          f"where upper(placa) = upper('{placa}') and criado_em <= '{pago}' "
+          "and extra->>'ab_bloco' is not null order by criado_em desc limit 1;")
+    return (r[0].get("v") if r else None) or "sem_ab (evento sem variante)"
+
+
+ROT_LEILAO = {"positivo": "SIM, viu o sinal de leilao", "negativo": "nao (consulta sem leilao)", "sem_sinal": "sem sinal (consulta nao respondeu)"}
+ROT_RECALL = {"firme": "SIM, viu (chassi na faixa da campanha)", "suave": "SIM, viu (modelo/ano com campanha)",
+              "negativo": "nao (marca com base, sem campanha)", "fora_escopo": "nao (marca sem base de recall)",
+              "sem_sinal": "sem sinal (consulta nao respondeu)"}
+
+
+def sinais(pedido):
+    """O que o cliente viu na consulta gratis antes de pagar: sinal de leilao (eventos_funil)
+    e sinal de recall (pedido, com fallback nos eventos da mesma placa)."""
+    placa = str(pedido.get("placa", "")).replace("'", "")
+    pago = str(pedido.get("pago_em", "")).replace("'", "")
+    r = q("select leilao_sinal from eventos_funil "
+          f"where upper(placa) = upper('{placa}') and criado_em <= '{pago}' "
+          "and leilao_sinal is not null order by (leilao_sinal = 'sem_sinal'), criado_em desc limit 1;")
+    le = (r[0].get("leilao_sinal") if r else None)
+    rs, rm = pedido.get("recall_sinal"), pedido.get("recall_marca")
+    if not rs:
+        r = q("select recall_sinal, recall_marca from eventos_funil "
+              f"where upper(placa) = upper('{placa}') and criado_em <= '{pago}' "
+              "and recall_sinal is not null order by (recall_sinal = 'sem_sinal'), criado_em desc limit 1;")
+        if r:
+            rs, rm = r[0].get("recall_sinal"), r[0].get("recall_marca")
+    leilao = ROT_LEILAO.get(le, le) if le else "sem registro (venda sem evento do funil)"
+    recall = (ROT_RECALL.get(rs, rs) + (f" [{rm}]" if rm else "")) if rs else "sem registro (antes da medicao de 01/out ou sem evento)"
+    return leilao, recall
+
+
+CARTAO_DESDE = "2026-10-01 00:20:00+00"  # cartao Stripe no ar em prod (30/set 21h20 BRT)
+
+
+def forma(pedido):
+    if pedido.get("forma_pagamento") == "cartao":
+        return "Cartao (Stripe)"
+    if pedido.get("pix_provider") == "google_play":
+        return "Google Play"
+    return f"Pix ({pedido.get('pix_provider') or '?'})"
+
+
+def comparativo_cartao():
+    """Vendas pagas (sem estorno) por forma de pagamento desde o cartao no ar,
+    contra o mesmo numero de dias antes, pra medir se o cartao vende mais."""
+    r = q("with d as (select greatest(1, ceil(extract(epoch from now() - timestamptz '" + CARTAO_DESDE + "')/86400))::int dias) "
+          "select (select dias from d) dias, "
+          "count(*) filter (where pago_em >= timestamptz '" + CARTAO_DESDE + "' and forma_pagamento='cartao') cartao, "
+          "count(*) filter (where pago_em >= timestamptz '" + CARTAO_DESDE + "' and coalesce(forma_pagamento,'pix')<>'cartao') pix, "
+          "count(*) filter (where pago_em < timestamptz '" + CARTAO_DESDE + "' and pago_em >= timestamptz '" + CARTAO_DESDE + "' - make_interval(days => (select dias from d))) antes "
+          "from pedidos_premium where pago_em is not null and status not in ('reembolsado') and coalesce(ambiente,'producao')='producao';")
+    if not r:
+        return ""
+    x = r[0]
+    dias, cartao, pix, antes = int(x["dias"]), int(x["cartao"]), int(x["pix"]), int(x["antes"])
+    depois = cartao + pix
+    pct = f"{100*cartao/depois:.0f}%" if depois else "0%"
+    return (f"Comparativo cartao (desde 30/set 21h20, {dias} dia(s)): {depois} vendas "
+            f"({cartao} cartao = {pct}, {pix} Pix) contra {antes} nos {dias} dia(s) anteriores.")
+
+
+def canal(pedido):
+    """app (Google Play) ou web (Pix). Quando a coluna canal existir no banco,
+    ela passa a mandar; ate la, pix_provider='google_play' e a marca do app."""
+    if pedido.get("canal"):
+        return pedido["canal"]
+    return "APP Android (Google Play)" if pedido.get("pix_provider") == "google_play" else "web (Pix)"
+
+
+def relatorio(pedido):
+    """Link do relatorio (mesmo que o cliente recebeu) e o estado da entrega."""
+    tok = pedido.get("token_entrega")
+    link = f"https://placacompleta.com.br/premium/{tok}" if tok else "(sem token)"
+    st = pedido.get("status") or "?"
+    if st == "entregue":
+        estado = f"entregue em {pedido.get('entregue_em')} UTC"
+    elif pedido.get("erro"):
+        estado = f"ERRO: {str(pedido.get('erro'))[:200]}"
+    else:
+        estado = f"status={st} (ainda nao entregue)"
+    return link, estado
+
+
+def manda(pedido, rotulo):
+    org = origem(pedido)
+    link, estado = relatorio(pedido)
+    ab = variante_ab(pedido)
+    s_leilao, s_recall = sinais(pedido)
+    assunto = f"Venda {rotulo}: {org.split(' (')[0].split(' /')[0]} - {pedido['placa']}" + (" [APP]" if pedido.get("pix_provider") == "google_play" else "") + (" [CARTAO]" if pedido.get("forma_pagamento") == "cartao" else "")
+    corpo = (
+        f"Venda confirmada.\n\n"
+        f"Origem: {org}\n\n"
+        f"Placa: {pedido['placa']}\n"
+        f"Plano: {pedido['plano']}\n"
+        f"Valor: {brl(pedido['valor_centavos'])}\n"
+        f"Pago em: {pedido['pago_em']} UTC\n"
+        f"E-mail do comprador: {pedido.get('email','')}\n"
+        f"Pagamento: {forma(pedido)}\n"
+        f"Canal: {canal(pedido)}\n"
+        f"Dispositivo: {pedido.get('dispositivo') or '?'} / {pedido.get('sistema') or '?'}\n\n"
+        f"Relatorio: {link}\n"
+        f"Entrega: {estado}\n"
+        f"Teste A/B do bloco: {ab}\n"
+        f"Viu sinal de leilao na consulta gratis: {s_leilao}\n"
+        f"Viu sinal de recall na consulta gratis: {s_recall}\n\n"
+        f"{comparativo_cartao()}\n\n"
+        f"(Atribuicao pelo nosso banco: consultas.gclid/msclkid/utm_source. "
+        f"Google = gclid; Bing = msclkid ou utm_source=bing; e-mail marketing = "
+        f"utm_source=email; senao, organico.)"
+    )
+    subprocess.run(["pc-mail", "--to", DEST, "--subject", assunto, "--body", corpo],
+                   check=True, capture_output=True, text=True)
+    return org
+
+
+def main():
+    st = load_state()
+    args = sys.argv[1:]
+
+    if "--seed" in args:
+        ids = [v["id"] for v in vendas_pagas()]
+        st["notified"] = ids
+        save_state(st)
+        print(f"seed: {len(ids)} vendas atuais marcadas como ja vistas. cap={st['cap']} count={st['count']}")
+        return
+
+    if "--kickoff" in args:
+        pid = args[args.index("--kickoff") + 1]
+        ped = next((v for v in vendas_pagas() if v["id"] == pid), None)
+        if not ped:
+            sys.exit(f"venda {pid} nao encontrada")
+        org = manda(ped, "(amostra)")
+        if pid not in st["notified"]:
+            st["notified"].append(pid)  # nao conta no cap
+        save_state(st)
+        print(f"kickoff enviado: {ped['placa']} -> {org}")
+        return
+
+    # modo timer
+    if st["count"] >= st["cap"]:
+        subprocess.run(["systemctl", "disable", "--now", "pc-venda-origem.timer"],
+                       capture_output=True, text=True)
+        print("cap atingido; timer desligado.")
+        return
+    novas = [v for v in vendas_pagas() if v["id"] not in st["notified"]]
+    for ped in novas:
+        if st["count"] >= st["cap"]:
+            break
+        # Entrega em andamento ha pouco: deixa o servidor avisar na entrega
+        # (proxima rodada confere de novo).
+        if ped.get("status") in ("pago", "consultando") and recente(ped.get("pago_em"), 15):
+            print(f"venda {ped['placa']}: entrega em andamento, fica pra proxima rodada")
+            continue
+        # Ja avisado pelo servidor na entrega: so registra como visto.
+        if ped.get("aviso_venda_em") or not marcar_aviso(ped["id"]):
+            st["notified"].append(ped["id"])
+            save_state(st)
+            print(f"venda {ped['placa']}: ja avisada pelo servidor, pulando")
+            continue
+        try:
+            org = manda(ped, f"{st['count'] + 1}/{st['cap']}")
+        except Exception:
+            desmarcar_aviso(ped["id"])
+            raise
+        st["count"] += 1
+        st["notified"].append(ped["id"])
+        save_state(st)
+        print(f"venda {st['count']}/{st['cap']}: {ped['placa']} -> {org}")
+    if st["count"] >= st["cap"]:
+        subprocess.run(["systemctl", "disable", "--now", "pc-venda-origem.timer"],
+                       capture_output=True, text=True)
+        print("cap atingido apos este lote; timer desligado.")
+
+
+if __name__ == "__main__":
+    main()
