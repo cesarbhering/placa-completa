@@ -13,6 +13,9 @@
 // loga. Isto nunca pode quebrar a montagem do relatorio.
 
 import { marcaExibicao } from '../../shared/marca-exibicao'
+import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
+
+export { codigoDaTabela, type TabelaFipe }
 
 export interface FipeCandidato {
   codigo_fipe: string
@@ -59,6 +62,8 @@ export interface FipeMelhorCandidatoInput {
   } | null
   // payload cru da wdapi (fipe.dados[], VERSAO, marca, anoModelo, extra.combustivel)
   wdapi: any
+  /** Segmento ja decidido (server/utils/segmento.ts). Escolhe a tabela FIPE. */
+  segmento?: string | null
   fipeApiUrl: string
   fipeApiToken: string
   anthropicApiKey?: string
@@ -115,6 +120,81 @@ async function buscarUniversoFipeApi(
   } finally {
     clearTimeout(timeout)
   }
+}
+
+// ---------------------------------------------------------------------------
+// Tabela FIPE (carros, motos, caminhoes).
+//
+// A FIPE tem tres tabelas e o codigo FIPE diz de qual e: carros comecam com 0,
+// motos com 8, caminhoes e onibus com 5. A busca por marca na fipe-api mistura
+// as tabelas quando o nome coincide (HONDA traz moto e carro), e o apelido de
+// marca leva pra tabela de carros ("VW" vira "VW - VolksWagen"). Foi assim que
+// um caminhao VW 24.280 (PUF7J27) saiu com o valor de um Touareg. Por isso o
+// universo inteiro, inclusive os candidatos da fonte livre, passa pelo filtro
+// da tabela certa.
+// ---------------------------------------------------------------------------
+
+const RE_TIPO_MOTO = /MOTOCICLETA|MOTONETA|CICLOMOTOR|TRICICLO|QUADRICICLO|SCOOTER|\bMOTO\b/i
+const RE_TIPO_CAMINHAO = /CAMINH[AÃ]O|[OÔ]NIBUS|MICRO-?[OÔ]NIBUS|CAVALO MEC|TRATOR/i
+
+/**
+ * Tabela FIPE do veiculo. O tipo do registro manda (CAMINHAO, CAMINHAO TRATOR,
+ * ONIBUS -> caminhoes; MOTOCICLETA, MOTONETA, CICLOMOTOR -> motos); depois o
+ * segmento ja decidido; o resto e carro (inclusive CAMINHONETE, que na FIPE e
+ * tabela de carros).
+ */
+export function tabelaFipe(
+  senatran: FipeMelhorCandidatoInput['senatran'],
+  wdapi?: any,
+  segmento?: string | null,
+): TabelaFipe {
+  const tipo = `${senatran?.descricaoTipoVeiculo ?? ''} ${senatran?.descricaoEspecie ?? ''}`
+  if (RE_TIPO_CAMINHAO.test(tipo)) return 'caminhoes'
+  if (RE_TIPO_MOTO.test(tipo)) return 'motos'
+  if (segmento === 'caminhao') return 'caminhoes'
+  if (segmento === 'moto') return 'motos'
+  const fonte = `${wdapi?.segmento ?? ''} ${wdapi?.sub_segmento ?? ''} ${wdapi?.extra?.tipo_veiculo ?? ''} ${wdapi?.extra?.segmento ?? ''}`
+  if (RE_TIPO_CAMINHAO.test(fonte)) return 'caminhoes'
+  if (ehMoto(senatran, wdapi)) return 'motos'
+  return 'carros'
+}
+
+const soAlnum = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+/** Algum pedaco do nome FIPE casa com o nome do modelo ("24.280" ~ "24-280"). */
+function nomeCasa(modelo: string, nome: string): boolean {
+  const n = soAlnum(nome)
+  if (!n) return false
+  return String(modelo || '').split(/\s+/).some((t) => {
+    const a = soAlnum(t)
+    return a === n || (a.startsWith(n) && /\d$/.test(n))
+  })
+}
+
+/**
+ * Candidato serve pra este veiculo? Da tabela certa, sempre. Da tabela de
+ * carros num caminhao, so se o nome bater: van e caminhao leve (Master, HR,
+ * Bongo) sao registrados como CAMINHAO mas estao na tabela de carros da FIPE.
+ * Moto nunca aceita outra tabela.
+ */
+export function candidatoDaTabela(
+  codigo: string | null | undefined,
+  modelo: string | null | undefined,
+  tabela: TabelaFipe,
+  nomeModelo: string | null | undefined,
+): boolean {
+  if (codigoDaTabela(codigo, tabela)) return true
+  if (tabela !== 'caminhoes' || !nomeModelo) return false
+  return codigoDaTabela(codigo, 'carros') && nomeCasa(String(modelo || ''), nomeModelo)
+}
+
+/** Nome do modelo no registro: "VW/24.280 CRM 6X2" -> "24.280". */
+export function nomeDoModelo(senatran: FipeMelhorCandidatoInput['senatran'], wdapi?: any): string | null {
+  return tokensDoModelo(senatran?.descricaoMarcaModelo || wdapi?.MODELO)[0] || null
+}
+
+function soDaTabela<T extends { codigo_fipe: string; modelo: string }>(lista: T[], tabela: TabelaFipe, nome: string | null): T[] {
+  return lista.filter((c) => candidatoDaTabela(c.codigo_fipe, c.modelo, tabela, nome))
 }
 
 function candidatosDaWdapi(wdapi: any): FipeCandidato[] {
@@ -204,8 +284,10 @@ function unirUniverso(a: FipeCandidato[], b: FipeCandidato[]): FipeCandidato[] {
   return [...porCodigo.values()]
 }
 
-function melhorScoreWdapi(wdapi: any): FipeCandidato | null {
-  const dados = wdapi?.fipe?.dados
+function melhorScoreWdapi(wdapi: any, tabela: TabelaFipe = 'carros', nome: string | null = null): FipeCandidato | null {
+  const dados = Array.isArray(wdapi?.fipe?.dados)
+    ? wdapi.fipe.dados.filter((d: any) => candidatoDaTabela(d?.codigo_fipe, d?.texto_modelo, tabela, nome))
+    : null
   if (!Array.isArray(dados) || !dados.length) return null
   const melhor = dados.reduce((best: any, item: any) => ((item?.score || 0) > (best?.score || 0) ? item : best), dados[0])
   if (!melhor?.codigo_fipe) return null
@@ -227,9 +309,9 @@ function melhorScoreWdapi(wdapi: any): FipeCandidato | null {
  */
 const SCORE_CONFIAVEL = 85
 
-function candidatoWdapiConfiavel(wdapi: any, tokensModelo: string[]): FipeCandidato | null {
+function candidatoWdapiConfiavel(wdapi: any, tokensModelo: string[], tabela: TabelaFipe): FipeCandidato | null {
   if (!tokensModelo.length) return null
-  const melhor = melhorScoreWdapi(wdapi)
+  const melhor = melhorScoreWdapi(wdapi, tabela, tokensModelo[0])
   if (!melhor) return null
   const dados = wdapi?.fipe?.dados
   const score = Array.isArray(dados)
@@ -388,6 +470,39 @@ interface Fatos {
   tokensModelo: string[]
   /** Cabine da picape: simples e dupla sao veiculos de preco bem diferente. */
   cabine: 'simples' | 'dupla' | null
+  /** Caminhao/onibus: funil proprio (modelo numerico e tracao). */
+  caminhao: boolean
+  /** Tracao do caminhao na descricao ("6X2"), quando houver. */
+  tracao: string | null
+}
+
+function tracaoDaDescricao(descricao: unknown): string | null {
+  const m = String(descricao ?? '').toUpperCase().match(/\b(\d{1,2})X(\d)\b/)
+  return m ? `${m[1]}X${m[2]}` : null
+}
+
+/**
+ * Caminhao: o modelo e um numero ("24.280" no registro, "24-280" na FIPE) e a
+ * tracao (6x2, 8x2) separa versoes de preco bem diferente. O funil de carro
+ * (litragem, carroceria, cambio) nao serve aqui.
+ */
+function filtrarCaminhao(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] {
+  let restantes = universo
+  const nome = fatos.tokensModelo[0] ? soAlnum(fatos.tokensModelo[0]) : ''
+  if (nome) {
+    const porModelo = restantes.filter((c) => nomeCasa(c.modelo, nome))
+    if (porModelo.length) restantes = porModelo
+  }
+  if (fatos.tracao) {
+    const re = new RegExp(`\\b${fatos.tracao}\\b`, 'i')
+    const porTracao = restantes.filter((c) => re.test(c.modelo))
+    if (porTracao.length) restantes = porTracao
+  }
+  if (fatos.combustivel === 'diesel') {
+    const porDiesel = restantes.filter(candidatoEDiesel)
+    if (porDiesel.length) restantes = porDiesel
+  }
+  return restantes
 }
 
 function cabineDaDescricao(descricao: unknown): 'simples' | 'dupla' | null {
@@ -434,7 +549,7 @@ function ehMoto(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any): boo
   return sinais.some((v) => /MOTO|SCOOTER|CICLOMOTOR|TRICICLO/i.test(String(v ?? '')))
 }
 
-function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any): Fatos {
+function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any, tabela: TabelaFipe = 'carros'): Fatos {
   const litragem = litragensDaCilindrada(senatran?.cilindrada)
   const carroceria = carroceriaDaDescricao(senatran?.descricaoMarcaModelo)
   // Cambio: primeiro o do registro (MT/AT na descricao); se nao houver, o hint
@@ -446,9 +561,11 @@ function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any
   return {
     litragem, carroceria, versao, transmissao,
     combustivel: combustivelDoCodigo(senatran?.codigoCombustivel),
-    moto: ehMoto(senatran, wdapi),
+    moto: tabela === 'motos',
     tokensModelo: tokensDoModelo(senatran?.descricaoMarcaModelo || wdapi?.MODELO),
     cabine: cabineDaDescricao(senatran?.descricaoMarcaModelo),
+    caminhao: tabela === 'caminhoes',
+    tracao: tracaoDaDescricao(senatran?.descricaoMarcaModelo),
   }
 }
 
@@ -463,6 +580,8 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
     const porModelo = filtrarPorTokensDoModelo(restantes, fatos.tokensModelo)
     return porModelo.length ? porModelo : restantes
   }
+
+  if (fatos.caminhao) return filtrarCaminhao(restantes, fatos)
 
   if (fatos.litragem.length) {
     const porLitragem = restantes.filter((c) => candidatoTemLitragem(c.modelo, fatos.litragem))
@@ -614,8 +733,20 @@ const ALIAS_MARCA_FIPE: Record<string, string> = {
   'M.BENZ': 'Mercedes-Benz', MBENZ: 'Mercedes-Benz', MB: 'Mercedes-Benz', MERCEDES: 'Mercedes-Benz', 'MERCEDES-BENZ': 'Mercedes-Benz',
   KIA: 'Kia Motors', CITROEN: 'Citroën',
 }
-export function marcaParaFipeApi(marca: string | null | undefined): string {
+// Na tabela de caminhoes os nomes sao outros: VOLKSWAGEN (nao "VW -
+// VolksWagen"), CHEVROLET, MERCEDES-BENZ.
+const ALIAS_MARCA_CAMINHAO: Record<string, string> = {
+  VW: 'VOLKSWAGEN', VOLKS: 'VOLKSWAGEN', VOLKSWAGEN: 'VOLKSWAGEN', 'VW - VOLKSWAGEN': 'VOLKSWAGEN',
+  GM: 'CHEVROLET', CHEV: 'CHEVROLET', CHEVROLET: 'CHEVROLET', 'GM - CHEVROLET': 'CHEVROLET',
+  'M.BENZ': 'MERCEDES-BENZ', MBENZ: 'MERCEDES-BENZ', MB: 'MERCEDES-BENZ', MERCEDES: 'MERCEDES-BENZ', 'MERCEDES-BENZ': 'MERCEDES-BENZ',
+  IVECOFIAT: 'IVECO', 'IVECO-FIAT': 'IVECO',
+}
+export function marcaParaFipeApi(marca: string | null | undefined, tabela: TabelaFipe = 'carros'): string {
   const m = String(marca || '').trim()
+  if (tabela === 'caminhoes') return ALIAS_MARCA_CAMINHAO[m.toUpperCase()] || m.toUpperCase()
+  // A busca por marca na fipe-api ignora caixa: HONDA serve pra moto. So nao
+  // pode virar o nome da tabela de carros.
+  if (tabela === 'motos') return m
   return ALIAS_MARCA_FIPE[m.toUpperCase()] || m
 }
 
@@ -635,8 +766,10 @@ export function marcaDoRegistro(descricao: string | null | undefined): string {
 }
 
 export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promise<FipeMelhorCandidatoResultado> {
+  const tabela = tabelaFipe(input.senatran, input.wdapi, input.segmento)
+  const nome = nomeDoModelo(input.senatran, input.wdapi)
   const fallback = (): FipeMelhorCandidatoResultado => ({
-    escolhido: melhorScoreWdapi(input.wdapi),
+    escolhido: melhorScoreWdapi(input.wdapi, tabela, nome),
     decididoPor: 'fallback',
     candidatos: [],
   })
@@ -653,29 +786,46 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     // Sem fipe.dados (caso FUG0A96, Lamborghini, e os zero-km que a fonte
     // devolve vazios), a marca sai da wdapi ou do proprio registro SENATRAN
     // ("I/LAMBORGHINI HURAC SPYD"), traduzida pro nome da fipe-api.
-    const marca = input.wdapi?.fipe?.dados?.[0]?.texto_marca
-      || marcaParaFipeApi(marcaExibicao(input.wdapi) || marcaDoRegistro(input.senatran?.descricaoMarcaModelo))
+    // Fora da tabela de carros o texto_marca da fonte nao serve: no caminhao
+    // VW ela devolveu "VW - VolksWagen", que e a marca de CARROS. Ai vale a
+    // marca do registro traduzida pra tabela certa.
+    const marca = tabela === 'carros'
+      ? (input.wdapi?.fipe?.dados?.[0]?.texto_marca
+        || marcaParaFipeApi(marcaExibicao(input.wdapi) || marcaDoRegistro(input.senatran?.descricaoMarcaModelo)))
+      : marcaParaFipeApi(
+        marcaDoRegistro(input.senatran?.descricaoMarcaModelo) || marcaExibicao(input.wdapi) || input.wdapi?.fipe?.dados?.[0]?.texto_marca,
+        tabela,
+      )
     const ano = input.wdapi?.anoModelo || input.senatran?.anoModelo
     if (!marca || !ano) return fallback()
 
-    const universoFipeApi = await buscarUniversoFipeApi(marca, ano, input.fipeApiUrl, input.fipeApiToken)
+    let universoFipeApi = await buscarUniversoFipeApi(marca, ano, input.fipeApiUrl, input.fipeApiToken)
+    // Caminhao sem o modelo na tabela de caminhoes: pode ser van ou caminhao
+    // leve que a FIPE lista entre os carros (Master, HR, Bongo). Busca tambem
+    // la; o filtro abaixo so deixa entrar o que tiver o nome do modelo.
+    if (tabela === 'caminhoes' && universoFipeApi !== null && nome
+      && !universoFipeApi.some((c) => codigoDaTabela(c.codigo_fipe, 'caminhoes') && nomeCasa(c.modelo, nome))) {
+      const marcaCarro = marcaParaFipeApi(marcaDoRegistro(input.senatran?.descricaoMarcaModelo) || marcaExibicao(input.wdapi))
+      const deCarro = marcaCarro ? await buscarUniversoFipeApi(marcaCarro, ano, input.fipeApiUrl, input.fipeApiToken) : null
+      if (deCarro) universoFipeApi = [...universoFipeApi, ...deCarro]
+    }
     if (universoFipeApi === null) {
       // fipe-api fora do ar: sem universo confiavel, nao vale a pena rodar o
       // funil so com os (poucos) candidatos da wdapi.
       return fallback()
     }
-    const universoWdapi = candidatosDaWdapi(input.wdapi)
-    const universo = unirUniverso(universoWdapi, universoFipeApi)
+    const universoWdapi = soDaTabela(candidatosDaWdapi(input.wdapi), tabela, nome)
+    const universo = unirUniverso(universoWdapi, soDaTabela(universoFipeApi, tabela, nome))
     if (!universo.length) return fallback()
 
-    const fatos = extrairFatos(input.senatran, input.wdapi)
+    const fatos = extrairFatos(input.senatran, input.wdapi, tabela)
 
     // Atalho de confianca: quando a fonte livre ja tem um candidato com score
     // alto E o nome dele bate com o modelo do registro, ele E a resposta. Nao
     // ha por que passar isso por funil e por LLM: no caso da PCX 150 o
     // candidato certo vinha com score 92 e foi descartado no meio do caminho,
     // trocado por uma moto de 1000cc.
-    const forte = candidatoWdapiConfiavel(input.wdapi, fatos.tokensModelo)
+    const forte = candidatoWdapiConfiavel(input.wdapi, fatos.tokensModelo, tabela)
     if (forte) {
       const escolhido = await comCodigoModelo(forte, marca, input.fipeApiUrl, input.fipeApiToken)
       return { escolhido, decididoPor: 'wdapi', candidatos: [forte], confianca: 'alta' }

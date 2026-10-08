@@ -2,7 +2,7 @@ import { getRegiaoSusep } from './regiao-susep'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { getSeguroEstimado } from './seguro-estimate'
 import { calcularICV5, inferirCategoria } from './icv5'
-import { escolherMelhorFipe, marcaDoRegistro, type FipeMelhorCandidatoResultado } from './fipe-candidato'
+import { escolherMelhorFipe, marcaDoRegistro, tabelaFipe, candidatoDaTabela, nomeDoModelo, type FipeMelhorCandidatoResultado } from './fipe-candidato'
 
 // Valor FIPE, historico de depreciacao, seguro estimado e custo em 5 anos.
 //
@@ -112,7 +112,14 @@ export async function getValorCusto(
   // Via cache (placa_cache): reaproveita a resposta da wdapi ja obtida na
   // consulta/preview da mesma placa. Ver server/utils/placa-lookup.ts.
   const dadosWdapi = await consultarPlacaWdapi(placa)
-  const lista = dadosWdapi?.fipe?.dados
+  // So os candidatos da tabela FIPE do veiculo (carros, motos ou caminhoes):
+  // a fonte livre ja mandou Touareg e Amarok pra um caminhao VW (PUF7J27).
+  // Van registrada como caminhao (Master) segue valendo pelo nome do modelo.
+  const tabela = tabelaFipe(fipeCandidatoOpts?.senatran ?? null, dadosWdapi, fipeCandidatoOpts?.segmento)
+  const nome = nomeDoModelo(fipeCandidatoOpts?.senatran ?? null, dadosWdapi)
+  const lista = Array.isArray(dadosWdapi?.fipe?.dados)
+    ? dadosWdapi.fipe.dados.filter((d: any) => candidatoDaTabela(d?.codigo_fipe, d?.texto_modelo, tabela, nome))
+    : null
   // Fonte sem FIPE (fipe.dados vazio, caso FUG0A96) ou sem resposta: so o
   // fluxo pago tenta resolver pela tabela FIPE (marca + modelo + ano do
   // registro, mesmo funil de candidatos), e so aceita confianca alta.
@@ -120,7 +127,7 @@ export async function getValorCusto(
   if (semFipeNaFonte && !fipeCandidatoOpts?.ativo) return null
   const dados: any = dadosWdapi || {}
 
-  let melhor: any = semFipeNaFonte ? null : lista.reduce((b: any, i: any) => ((i.score || 0) > (b.score || 0) ? i : b), lista[0])
+  let melhor: any = semFipeNaFonte ? null : lista!.reduce((b: any, i: any) => ((i.score || 0) > (b.score || 0) ? i : b), lista![0])
   let fipeCandidato: ValorCusto['fipeCandidato'] = null
 
   // Melhor candidato via funil + Haiku: SO no fluxo pago (opts.ativo), com
@@ -134,6 +141,7 @@ export async function getValorCusto(
         fipeApiUrl: config.fipeApiUrl,
         fipeApiToken: config.fipeApiToken,
         anthropicApiKey: config.anthropicApiKey,
+        segmento: fipeCandidatoOpts.segmento ?? null,
       })
       // AMBIGUO NAO VIRA VALOR. Antes, quando o juiz respondia com confianca
       // baixa, o candidato dele substituia o melhor score da fonte livre e ia
@@ -161,6 +169,10 @@ export async function getValorCusto(
       // regra-com-1-sobrevivente, pra metrica de quanto o funil resolve sem
       // Haiku. candidatos fica com so o escolhido nesse caso (nao e shortlist
       // de ambiguidade, e log de auditoria).
+      // Ambiguo ou confianca baixa: nem o candidato da fonte vale. O valor,
+      // o modelo e o historico ficam vazios e o relatorio diz que a versao
+      // FIPE nao foi identificada. Valor errado e pior que valor nenhum.
+      if (resultado.decididoPor === 'ambiguo' || resultado.confianca === 'baixa') melhor = null
       if (resultado.decididoPor !== 'fallback') {
         fipeCandidato = {
           decididoPor: resultado.decididoPor,
@@ -173,7 +185,7 @@ export async function getValorCusto(
     }
   }
 
-  if (semFipeNaFonte && !melhor) {
+  if (!melhor) {
     return {
       fipe: null, fipeModelo: null, fipeCodigo: null, historico: null, quedaAno: null,
       seguroAnual: null, percentualFipe: null, custo5anos: null,
