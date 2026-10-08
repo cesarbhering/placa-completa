@@ -15,6 +15,12 @@ export interface OrigemTrafego {
   oppref: string | null
   /** OpenAI Ads: cookie __obref do pixel (referencia do navegador). */
   obref: string | null
+  /**
+   * true quando a marca de anuncio NAO veio na URL desta visita: foi lembrada
+   * de um clique em anuncio nos ultimos 30 dias (localStorage). Separa "clicou
+   * no anuncio agora" de "voltou depois por conta propria".
+   */
+  origem_retorno: boolean
 }
 
 /** Campos lidos da URL, na ordem em que aparecem na tabela. */
@@ -54,7 +60,57 @@ export function sanearOrigem(bruto: unknown): OrigemTrafego {
   }
   saida.oppref = opaco(o.oppref)
   saida.obref = opaco(o.obref)
+  // So vale com marca de anuncio junto: sozinho nao diz nada.
+  const temMarca = CAMPOS_ORIGEM.some((c) => saida[c] !== null)
+  saida.origem_retorno = temMarca && (o.origem_retorno === true || o.origem_retorno === '1' || o.origem_retorno === 'true')
   return saida
+}
+
+// ---------- Origem de anuncio lembrada por 30 dias ----------
+// sessionStorage morre com a aba: quem clicou no anuncio e voltou dias depois
+// (digitando o endereco, pelo Google organico etc.) comprava sem origem e a
+// venda nao era atribuida ao anuncio. Agora o clique em anuncio tambem vai pro
+// localStorage com a data; numa sessao nova SEM marca na URL, a origem lembrada
+// volta com origem_retorno = '1'. Vale 30 dias contados do clique (nao renova
+// por visita). Um clique novo em anuncio substitui o anterior (ultimo clique).
+
+export const CHAVE_ORIGEM_30D = 'pc_origin_30d'
+export const ORIGEM_LEMBRADA_MS = 30 * 24 * 60 * 60 * 1000
+
+type Armazenamento = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+
+/** E clique de anuncio (id de clique ou utm de midia paga)? utm de e-mail/social nao conta. */
+export function ehOrigemDeAnuncio(o: Record<string, string> | undefined | null): boolean {
+  if (!o) return false
+  if (o.gclid || o.msclkid || o.oppref) return true
+  return /^(cpc|ppc|paid|paidsearch|paid_search)$/i.test(o.utm_medium || '')
+}
+
+/** Guarda a origem de um clique em anuncio por 30 dias. Outra origem e ignorada. */
+export function lembrarOrigem(ls: Armazenamento, origem: Record<string, string>, agora = Date.now()): void {
+  if (!ehOrigemDeAnuncio(origem)) return
+  ls.setItem(CHAVE_ORIGEM_30D, JSON.stringify({ origem, em: agora }))
+}
+
+/**
+ * Origem lembrada (sem marcar retorno), ou undefined se nao houver, estiver
+ * corrompida ou passou de 30 dias (nesses casos apaga).
+ */
+export function origemLembrada(ls: Armazenamento, agora = Date.now()): Record<string, string> | undefined {
+  const raw = ls.getItem(CHAVE_ORIGEM_30D)
+  if (!raw) return undefined
+  try {
+    const { origem, em } = JSON.parse(raw)
+    if (typeof em === 'number' && agora - em >= 0 && agora - em <= ORIGEM_LEMBRADA_MS && ehOrigemDeAnuncio(origem)) {
+      const limpa: Record<string, string> = {}
+      for (const c of CAMPOS_ORIGEM) if (typeof origem[c] === 'string' && origem[c]) limpa[c] = origem[c]
+      return limpa
+    }
+  } catch {
+    // corrompido: cai no apagar
+  }
+  ls.removeItem(CHAVE_ORIGEM_30D)
+  return undefined
 }
 
 /** Cookie __obref do pixel da OpenAI, se existir. Client-side. */
