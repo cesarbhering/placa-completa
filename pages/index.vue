@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { SAME_AS } from '~/shared/redes-sociais'
 import { BASE_LEILAO_QTD, BASE_LEILAO_TEXTO, BASE_LEILAO_TEXTO_INICIO } from '~/shared/base-leilao'
 import { cederAoNavegador } from '~/shared/ceder'
 import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL } from '~/shared/planos'
@@ -851,6 +852,7 @@ useHead({
         url: 'https://placacompleta.com.br',
         logo: 'https://placacompleta.com.br/logo-horizontal-600.png',
         areaServed: 'BR',
+        sameAs: SAME_AS,
       }),
     },
   ],

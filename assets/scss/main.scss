@@ -382,6 +382,31 @@ body {
 
   // Formas de pagamento (opcao 3 do Cesar, 06/out): rotulo + logos em selos
   // brancos (components/LogosPagamento.vue), junto do CNPJ. Quebra em 360px.
+  // Redes sociais (LinkedIn, X): icones na cor do texto do rodape, area de
+  // toque de 40px.
+  &__redes {
+    margin-top: $space-xs;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  & &__rede,
+  &__rede {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 9999px;
+    color: var(--pc-on-slab);
+    border-bottom: 0;
+    opacity: 0.85;
+    transition: opacity 0.15s ease, background 0.15s ease;
+
+    &:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); border-bottom: 0; }
+  }
+
   &__pagamento {
     margin-top: $space-xs;
     display: flex;
