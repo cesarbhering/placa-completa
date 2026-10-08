@@ -359,8 +359,7 @@ body {
   line-height: 1.5;
   color: var(--pc-on-slab-soft);
   background: var(--pc-slab);
-  text-align: center;
-  padding: 40px $space-md;
+  padding: 44px $space-md 28px;
 
   a {
     color: var(--pc-on-slab);
@@ -368,29 +367,41 @@ body {
     border-bottom: 1px solid transparent;
     transition: border-color 0.15s ease;
 
-    &:hover {
-      border-bottom-color: var(--pc-on-slab);
-    }
+    &:hover { border-bottom-color: var(--pc-on-slab); }
   }
 
-  // CNPJ (pedido do Cesar, 02/out): discreto, colado no copyright; nowrap pra
-  // o numero nunca quebrar no meio (cabe folgado em 360px).
-  &__cnpj {
-    font-size: 0.75rem;
-    white-space: nowrap;
+  // Rodape em colunas (opcao 1 do Cesar, 08/out): marca a esquerda (coluna
+  // mais larga) + 4 colunas de links. No celular empilha e as colunas viram
+  // sanfona (<details>).
+  &__grade {
+    max-width: 1120px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(240px, 1.4fr) 4fr;
+    gap: 40px;
+
+    @media (max-width: 760px) { grid-template-columns: 1fr; gap: 24px; }
   }
 
-  // Formas de pagamento (opcao 3 do Cesar, 06/out): rotulo + logos em selos
-  // brancos (components/LogosPagamento.vue), junto do CNPJ. Quebra em 360px.
+  &__marca { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+  // Logo no selo branco (igual a arte da marca): a versao invertida some os
+  // pontos da placa sobre o azul.
+  & &__logo, &__logo {
+    display: block;
+    width: 176px;
+    padding: 10px 14px;
+    background: #fff;
+    border-radius: 12px;
+    border-bottom: 0;
+    &:hover { border-bottom: 0; }
+    svg { display: block; width: 100%; height: auto; }
+  }
+  &__frase { margin: 0; max-width: 34ch; line-height: 1.55; }
+  & &__store-badge, &__store-badge { border-bottom: 0; }
+
   // Redes sociais (LinkedIn, X): icones na cor do texto do rodape, area de
   // toque de 40px.
-  &__redes {
-    margin-top: $space-xs;
-    display: flex;
-    justify-content: center;
-    gap: 6px;
-  }
-
+  &__redes { display: flex; gap: 6px; margin-left: -8px; }
   & &__rede,
   &__rede {
     display: inline-flex;
@@ -403,56 +414,74 @@ body {
     border-bottom: 0;
     opacity: 0.85;
     transition: opacity 0.15s ease, background 0.15s ease;
-
     &:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); border-bottom: 0; }
   }
 
-  &__pagamento {
-    margin-top: $space-xs;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 6px 10px;
+  &__colunas {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 24px;
+    @media (max-width: 1000px) and (min-width: 761px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    @media (max-width: 760px) { display: block; border-top: 1px solid rgba(255, 255, 255, 0.12); }
   }
 
-  &__pagamento-rot {
-    font-size: 0.75rem;
-  }
-
-  &__email {
-    margin-top: $space-xs;
-  }
-
-  // Flex+wrap: o Vue condensa o whitespace entre os links no build, e com
-  // nowrap nos <a> a linha inteira virava um bloco inquebravel que vazava
-  // o viewport no mobile (bug dos iPhones, 25/jul). Flex quebra entre
-  // itens sem depender de espacos no HTML.
-  &__links {
-    margin-top: $space-xs;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    column-gap: 6px;
-  }
-
-  &__nav {
-    margin-bottom: $space-sm;
-    line-height: 1.9;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    column-gap: 6px;
-
-    a {
-      white-space: nowrap;
+  &__col {
+    ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+    @media (max-width: 760px) {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      ul { padding: 0 0 14px; }
     }
   }
 
-  &__sep {
-    margin: 0 $space-xs;
-    opacity: 0.5;
+  &__col-tit {
+    list-style: none;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--pc-on-slab);
+    margin-bottom: 12px;
+    cursor: default;
+    &::-webkit-details-marker { display: none; }
+
+    @media (max-width: 760px) {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 48px;
+      margin: 0;
+      &::after { content: '+'; font-size: 1.125rem; font-weight: 400; }
+    }
   }
+  @media (max-width: 760px) { &__col[open] &__col-tit::after { content: '\2212'; } }
+
+  &__base {
+    max-width: 1120px;
+    margin: 36px auto 0;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 24px;
+    @media (max-width: 760px) { flex-direction: column; align-items: flex-start; }
+  }
+
+  // CNPJ (pedido do Cesar, 02/out): discreto, colado no copyright.
+  &__cnpj { margin: 0; font-size: 0.75rem; }
+  &__legal { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.75rem; }
+
+  // Formas de pagamento (opcao 3 do Cesar, 06/out): rotulo + logos em selos
+  // brancos (components/LogosPagamento.vue).
+  &__pagamento { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  &__pagamento-rot { font-size: 0.75rem; }
+
+  // Usados pelo rodape do /dash (links em linha com "|").
+  &__links { margin-top: $space-xs; display: flex; flex-wrap: wrap; justify-content: center; column-gap: 6px; }
+  &__nav { margin-bottom: $space-sm; line-height: 1.9; display: flex; flex-wrap: wrap; justify-content: center; column-gap: 6px; a { white-space: nowrap; } }
+  &__sep { margin: 0 $space-xs; opacity: 0.5; }
 }
 
 // Result card
