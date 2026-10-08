@@ -4,7 +4,7 @@ import { sanearOrigem } from './origem-trafego'
 describe('sanearOrigem', () => {
   it('mantem os campos conhecidos', () => {
     expect(sanearOrigem({ msclkid: 'abc123', utm_source: 'bing', utm_medium: 'cpc', utm_campaign: 'teste', oppref: null, obref: null }))
-      .toEqual({ gclid: null, msclkid: 'abc123', utm_source: 'bing', utm_medium: 'cpc', utm_campaign: 'teste', oppref: null, obref: null })
+      .toEqual({ gclid: null, msclkid: 'abc123', utm_source: 'bing', utm_medium: 'cpc', utm_campaign: 'teste', oppref: null, obref: null, origem_retorno: false })
   })
 
   it('descarta campo desconhecido', () => {
@@ -23,11 +23,11 @@ describe('sanearOrigem', () => {
 
   it('valor que nao e string vira null', () => {
     expect(sanearOrigem({ gclid: 42, msclkid: null, utm_source: {} }))
-      .toEqual({ gclid: null, msclkid: null, utm_source: null, utm_medium: null, utm_campaign: null, oppref: null, obref: null })
+      .toEqual({ gclid: null, msclkid: null, utm_source: null, utm_medium: null, utm_campaign: null, oppref: null, obref: null, origem_retorno: false })
   })
 
   it('sem origem nenhuma devolve tudo null, sem quebrar', () => {
-    const vazio = { gclid: null, msclkid: null, utm_source: null, utm_medium: null, utm_campaign: null, oppref: null, obref: null }
+    const vazio = { gclid: null, msclkid: null, utm_source: null, utm_medium: null, utm_campaign: null, oppref: null, obref: null, origem_retorno: false }
     expect(sanearOrigem(undefined)).toEqual(vazio)
     expect(sanearOrigem(null)).toEqual(vazio)
     expect(sanearOrigem('bing')).toEqual(vazio)
