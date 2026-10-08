@@ -5,6 +5,7 @@
 // distribui por licenca. So o relatorio importa este componente, entao os
 // paths entram apenas no chunk dele.
 import { computed, ref, watch, onMounted } from 'vue'
+import { logoProxyDaMarca } from '~/shared/logo-marca-arquivo'
 import {
   siVolkswagen, siChevrolet, siFiat, siFord, siHonda, siToyota, siHyundai,
   siRenault, siNissan, siPeugeot, siCitroen, siJeep, siMitsubishi, siBmw,
@@ -66,12 +67,24 @@ const largo = computed(() => !!icone.value && icone.value.viewBox !== '0 0 24 24
 // hidratacao e a imagem quebrada ficaria na tela.
 const montado = ref(false)
 onMounted(() => { montado.value = true })
-const imgFalhou = ref(false)
-watch(() => props.logoUrl, () => { imgFalhou.value = false })
-const imagem = computed(() => {
+// Ordem: o logo que a fonte mandou; sem ele (ou se falhar), o arquivo deduzido
+// do nome da marca (BYD -> byd.png). Cada falha passa pro proximo; acabou a
+// lista, monograma.
+const tentativa = ref(0)
+const fontes = computed(() => {
+  const lista: string[] = []
   const u = String(props.logoUrl || '')
-  return montado.value && !icone.value && !imgFalhou.value && u.startsWith('/api/logo-marca/') ? u : null
+  if (u.startsWith('/api/logo-marca/')) lista.push(u)
+  const deduzido = logoProxyDaMarca(tokenMarca.value)
+  if (deduzido && !lista.includes(deduzido)) lista.push(deduzido)
+  return lista
 })
+watch(() => [props.logoUrl, props.marca], () => { tentativa.value = 0 })
+const imagem = computed(() => {
+  if (!montado.value || icone.value) return null
+  return fontes.value[tentativa.value] ?? null
+})
+function falhou() { tentativa.value++ }
 const inicial = computed(() => tokenMarca.value.charAt(0) || '?')
 </script>
 
@@ -81,7 +94,7 @@ const inicial = computed(() => tokenMarca.value.charAt(0) || '?')
     <svg v-if="icone" :viewBox="icone.viewBox" class="ml__svg">
       <path :d="icone.path" />
     </svg>
-    <img v-else-if="imagem" :src="imagem" alt="" class="ml__img" @error="imgFalhou = true">
+    <img v-else-if="imagem" :src="imagem" alt="" class="ml__img" @error="falhou">
     <span v-else class="ml__mono">{{ inicial }}</span>
   </span>
 </template>
