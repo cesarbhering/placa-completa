@@ -22,6 +22,7 @@ const PERMITIDOS: RegExp[] = [
   /^\/carro-de-leilao(?:\/[a-z0-9-]+)?$/,
   /^\/seguro\/[a-z0-9-]+(?:\/[a-z0-9-]+)?$/,
   /^\/ibv(?:\/[a-z0-9-]+)?$/,
+  /^\/blog(?:\/[a-z0-9-]+)?$/,
   /^\/estudos$/,
   /^\/o-que-e(?:\/[a-z0-9-]+)?$/,
   /^\/(?:laudo-cautelar|historico-veicular|consulta-veicular-completa|consulta-leilao-veiculo)$/,

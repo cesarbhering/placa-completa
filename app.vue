@@ -99,6 +99,8 @@ function onStoreClick() {
           <NuxtLink to="/ibv">IBV Auto</NuxtLink>
           <span class="footer__sep">|</span>
           <NuxtLink to="/estudos">Estudos</NuxtLink>
+          <span class="footer__sep">|</span>
+          <NuxtLink to="/blog">Blog</NuxtLink>
         </nav>
 
         <a
