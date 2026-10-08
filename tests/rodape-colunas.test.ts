@@ -25,3 +25,17 @@ describe('rodape em colunas', () => {
     expect(app).toMatch(/<details[^>]*class="footer__col"[\s\S]*<summary/)
   })
 })
+
+describe('Termos e Politica sempre visiveis (exigencia do Cesar)', () => {
+  it('ficam na barra inferior, fora de qualquer <details>', () => {
+    const footer = app.slice(app.indexOf('<footer class="footer">'), app.indexOf('</footer>'))
+    const semDetails = footer.replace(/<details[\s\S]*?<\/details>/g, '')
+    expect(semDetails).toContain('to="/termos-de-uso"')
+    expect(semDetails).toContain('to="/politica-de-privacidade"')
+    const base = footer.slice(footer.indexOf('class="footer__base"'))
+    expect(base).toContain('to="/termos-de-uso"')
+    expect(base).toContain('to="/politica-de-privacidade"')
+    expect(base).toContain('CNPJ 62.569.152/0001-67')
+    expect(base).not.toContain('<details')
+  })
+})
