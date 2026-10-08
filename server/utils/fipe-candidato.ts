@@ -14,6 +14,7 @@
 
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
+import { filtrarPelaVersaoDoNome, versaoDoNome, candidatoTemVersaoDoNome } from '../../shared/versao-fipe'
 
 export { codigoDaTabela, type TabelaFipe }
 
@@ -474,6 +475,8 @@ interface Fatos {
   caminhao: boolean
   /** Tracao do caminhao na descricao ("6X2"), quando houver. */
   tracao: string | null
+  /** Nome do registro, pra versao/motorizacao que ja vem nele (XEI18VVT). */
+  descricao: string
 }
 
 function tracaoDaDescricao(descricao: unknown): string | null {
@@ -566,6 +569,7 @@ function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any
     cabine: cabineDaDescricao(senatran?.descricaoMarcaModelo),
     caminhao: tabela === 'caminhoes',
     tracao: tracaoDaDescricao(senatran?.descricaoMarcaModelo),
+    descricao: String(senatran?.descricaoMarcaModelo || ''),
   }
 }
 
@@ -587,6 +591,10 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
     const porLitragem = restantes.filter((c) => candidatoTemLitragem(c.modelo, fatos.litragem))
     if (porLitragem.length) restantes = porLitragem
   }
+
+  // Versao e motorizacao do NOME do registro (shared/versao-fipe.ts): "COROLLA
+  // XEI18VVT" nao pode sobrar com um SE-G na lista. Fail-safe por filtro.
+  restantes = filtrarPelaVersaoDoNome(restantes, fatos.descricao)
 
   // Combustivel: so diesel e eletrico (valor FIPE bem diferente do a gasolina).
   // Fail-safe: se nenhum candidato bate, mantem todos (nao inventa exclusao).
@@ -825,7 +833,11 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     // ha por que passar isso por funil e por LLM: no caso da PCX 150 o
     // candidato certo vinha com score 92 e foi descartado no meio do caminho,
     // trocado por uma moto de 1000cc.
-    const forte = candidatoWdapiConfiavel(input.wdapi, fatos.tokensModelo, tabela)
+    // O atalho tambem respeita a versao do nome: score alto num SE-G nao
+    // vale pra um Corolla XEi.
+    const versoesNome = versaoDoNome(input.senatran?.descricaoMarcaModelo).versoes
+    const forteBruto = candidatoWdapiConfiavel(input.wdapi, fatos.tokensModelo, tabela)
+    const forte = forteBruto && candidatoTemVersaoDoNome(forteBruto.modelo, versoesNome) ? forteBruto : null
     if (forte) {
       const escolhido = await comCodigoModelo(forte, marca, input.fipeApiUrl, input.fipeApiToken)
       return { escolhido, decididoPor: 'wdapi', candidatos: [forte], confianca: 'alta' }
