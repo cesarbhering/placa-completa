@@ -6,6 +6,7 @@ import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
 import { codigoFipeDoRelatorio } from '~/shared/codigo-fipe'
 import { codigoDaTabela, tabelaDoSegmento } from '~/shared/tabela-fipe'
+import { filtrarPelaVersaoDoNome } from '~/shared/versao-fipe'
 import { linhaRecallGrade } from '~/shared/recall-grade'
 // Relatorio veicular (superficie PAGA — o token da URL e a credencial).
 //
@@ -1006,7 +1007,10 @@ const fipeIncerta = computed(() => {
 const versoesCompativeis = computed(() => {
   const lista = vc.value?.fipeCandidato?.candidatos || []
   const tabela = tabelaDoSegmento(segmento.value)
-  return lista.filter((c: any) => codigoDaTabela(c?.codigo_fipe, tabela)).slice(0, 3)
+  // Versao do nome (XEI18VVT = XEi): SE-G nao entra na lista de um XEi,
+  // inclusive em relatorio ja entregue (shared/versao-fipe.ts).
+  const daTabela = lista.filter((c: any) => codigoDaTabela(c?.codigo_fipe, tabela))
+  return filtrarPelaVersaoDoNome(daTabela, g('descricaoMarcaModelo')).slice(0, 3)
 })
 // Codigo FIPE da versao que deu o valor (shared/codigo-fipe.ts).
 const codigoFipe = computed(() => codigoFipeDoRelatorio(vc.value))
@@ -2574,14 +2578,7 @@ onUnmounted(() => {
                  decisao final com quem esta lendo. -->
             <div v-if="fipeIncerta && versoesCompativeis.length > 1" class="rel__fipe-ambiguo">
               <span class="rel__sub">Versões compatíveis</span>
-              <table class="rel__tab">
-                <tbody>
-                  <tr v-for="c in versoesCompativeis" :key="c.codigo_fipe">
-                    <td>{{ c.modelo }}</td>
-                    <td>{{ c.valor ? brl(c.valor) : '-' }}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <VersoesCompativeis :versoes="versoesCompativeis" :token="token" />
             </div>
 
             <div v-if="temGrafico && !fipeIncerta" class="rel__dep">
