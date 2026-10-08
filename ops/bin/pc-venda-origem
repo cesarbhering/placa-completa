@@ -13,7 +13,7 @@
 #   pc-venda-origem --seed           # marca todas as vendas atuais como ja vistas (backlog nao dispara)
 #   pc-venda-origem --kickoff <id>   # manda 1 e-mail da venda <id> sem contar no cap
 #   pc-venda-origem                  # roda pelo timer: novas vendas -> e-mail, ate o cap
-import sys, os, json, subprocess
+import sys, os, re, json, subprocess
 
 REF = "fivalpkfneadngxiflea"
 API = f"https://api.supabase.com/v1/projects/{REF}/database/query"
@@ -46,7 +46,7 @@ def save_state(s):
 
 def vendas_pagas():
     return q("select id, placa, plano, valor_centavos, pago_em, email, consulta_id, "
-             "token_entrega, status, entregue_em, erro, dispositivo, sistema, pix_provider, forma_pagamento, recall_sinal, recall_marca, cupom_origem, aviso_venda_em "
+             "token_entrega, status, entregue_em, erro, dispositivo, sistema, pix_provider, forma_pagamento, recall_sinal, recall_marca, cupom_origem, aviso_venda_em, ambiente, pagador_hash, pagador_hash_cartao "
              "from pedidos_premium where pago_em is not null order by pago_em asc;")
 
 
@@ -88,6 +88,42 @@ def _cols():
     return "gclid,utm_source,utm_medium,utm_campaign,oppref" + (",msclkid" if _HAS_MSCLKID else "")
 
 
+_HASH_OK = re.compile(r"^[A-Za-z0-9]{8,128}$")
+_ORIGEM_PEDIDO = ("gclid", "msclkid", "utm_source", "utm_medium", "utm_campaign", "oppref")
+
+
+def recompra(pedido):
+    """Compras pagas anteriores do mesmo pagador (Pix: pagador_hash; cartao:
+    fingerprint), em prod. Devolve (linha_do_email, eh_recompra). O hash so
+    filtra; nunca vai pro e-mail. Mesma regra do server/utils/aviso-venda.ts."""
+    filtros = []
+    for col in ("pagador_hash", "pagador_hash_cartao"):
+        v = pedido.get(col) or ""
+        if _HASH_OK.match(v):
+            filtros.append(f"{col} = '{v}'")
+    if not filtros:
+        return "Recompra: sem identificador do pagador (nao da pra saber)", False
+    pid = str(pedido.get("id", "")).replace("'", "")
+    pago = str(pedido.get("pago_em", "")).replace("'", "")
+    try:
+        r = q("select id, placa, pago_em, consulta_id, " + ", ".join(_ORIGEM_PEDIDO) + " from pedidos_premium "
+              f"where ({' or '.join(filtros)}) and coalesce(ambiente,'producao') = 'producao' "
+              f"and id <> '{pid}' and status is distinct from 'reembolsado' and pago_em is not null "
+              f"and pago_em < timestamptz '{pago}' order by pago_em asc limit 50;")
+    except SystemExit:
+        return "Recompra: nao consegui consultar agora", False
+    if not r:
+        return "Recompra: nao, 1a compra deste pagador", False
+    prim = r[0]
+    org = _origem_da_linha(prim) if any(prim.get(c) for c in _ORIGEM_PEDIDO) else _origem(prim)
+    from datetime import datetime, timezone, timedelta
+    try:
+        dt = datetime.fromisoformat(str(prim["pago_em"]).replace("Z", "+00:00")).astimezone(timezone(timedelta(hours=-3))).strftime("%d/%m/%Y")
+    except Exception:
+        dt = "?"
+    return f"Recompra: SIM, {len(r) + 1}a compra do mesmo pagador. 1a compra em {dt}, origem: {org}", True
+
+
 def origem(pedido):
     base = _origem(pedido)
     if pedido.get("cupom_origem") == "cupom_recompra":
@@ -113,6 +149,12 @@ def _origem(pedido):
         row = r[0] if r else None
     if not row:
         return "Indeterminada (sem consulta associada)"
+    return _origem_da_linha(row)
+
+
+def _origem_da_linha(row):
+    """ChatGPT > Google (gclid) > Bing > e-mail > utm > organico, de uma linha
+    com gclid/msclkid/utm_*/oppref (consulta gratis ou o proprio pedido)."""
     gclid = row.get("gclid")
     msclkid = row.get("msclkid")
     src = (row.get("utm_source") or "").lower()
@@ -223,13 +265,15 @@ def relatorio(pedido):
 
 def manda(pedido, rotulo):
     org = origem(pedido)
+    linha_rec, eh_rec = recompra(pedido)
     link, estado = relatorio(pedido)
     ab = variante_ab(pedido)
     s_leilao, s_recall = sinais(pedido)
-    assunto = f"Venda {rotulo}: {org.split(' (')[0].split(' /')[0]} - {pedido['placa']}" + (" [APP]" if pedido.get("pix_provider") == "google_play" else "") + (" [CARTAO]" if pedido.get("forma_pagamento") == "cartao" else "")
+    assunto = f"Venda {rotulo}: {org.split(' (')[0].split(' /')[0]} - {pedido['placa']}" + (" [RECOMPRA]" if eh_rec else "") + (" [APP]" if pedido.get("pix_provider") == "google_play" else "") + (" [CARTAO]" if pedido.get("forma_pagamento") == "cartao" else "")
     corpo = (
         f"Venda confirmada.\n\n"
-        f"Origem: {org}\n\n"
+        f"Origem: {org}\n"
+        f"{linha_rec}\n\n"
         f"Placa: {pedido['placa']}\n"
         f"Plano: {pedido['plano']}\n"
         f"Valor: {brl(pedido['valor_centavos'])}\n"

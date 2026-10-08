@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   origemDaConsulta, origemDoPedido, montarAvisoVenda, avisarVenda,
   rotuloLeilao, rotuloRecall, formaPagamento, canalDoPedido, brlCentavos,
-  DESTINO_AVISO_VENDA,
+  DESTINO_AVISO_VENDA, linhaRecompra, recompraDoPedido,
 } from './aviso-venda'
 
 const PEDIDO = {
@@ -141,5 +141,79 @@ describe('avisarVenda', () => {
     expect(await avisarVenda(cliente, 'p1', { config, supabaseConsultas: cliente, enviar })).toBe(false)
     expect(estado.aviso_venda_em).toBeNull()
     expect(enviar).not.toHaveBeenCalled()
+  })
+})
+
+describe('recompra pelo pagador', () => {
+  const HASH = 'a'.repeat(64)
+  function sbAnteriores(linhas: any[], erro = false) {
+    const chamadas: any[] = []
+    const b: any = {
+      select(c: string) { chamadas.push(['select', c]); return b },
+      or(v: string) { chamadas.push(['or', v]); return b },
+      eq(c: string, v: any) { chamadas.push(['eq', c, v]); return b },
+      neq(c: string, v: any) { chamadas.push(['neq', c, v]); return b },
+      not() { return b }, lt(c: string, v: any) { chamadas.push(['lt', c, v]); return b }, order() { return b },
+      ilike() { return b }, lte() { return b },
+      limit() { return Promise.resolve(erro ? { data: null, error: { message: 'x' } } : { data: linhas, error: null }) },
+      maybeSingle() { return Promise.resolve({ data: { utm_source: 'bing' }, error: null }) },
+    }
+    return { cliente: { from: () => b }, chamadas }
+  }
+
+  it('sem hash nem fingerprint: nao identificado, sem consultar o banco', async () => {
+    const { cliente, chamadas } = sbAnteriores([])
+    expect(await recompraDoPedido(cliente, cliente, { id: 'p1', pago_em: 'x' })).toEqual({ identificado: false, anteriores: 0, primeira: null })
+    expect(chamadas).toHaveLength(0)
+  })
+
+  it('hash invalido (com caractere estranho) nao entra no filtro', async () => {
+    const { cliente, chamadas } = sbAnteriores([])
+    await recompraDoPedido(cliente, cliente, { id: 'p1', pago_em: 'x', pagador_hash: 'a,b.eq.c' })
+    expect(chamadas).toHaveLength(0)
+  })
+
+  it('1a compra: identificado, zero anteriores; filtra prod, sem o proprio pedido, pago antes', async () => {
+    const { cliente, chamadas } = sbAnteriores([])
+    const r = await recompraDoPedido(cliente, cliente, { id: 'p9', pago_em: '2026-10-08T18:00:00Z', pagador_hash: HASH, pagador_hash_cartao: 'Xt5EWLLDS7FJjR1c' })
+    expect(r).toEqual({ identificado: true, anteriores: 0, primeira: null })
+    expect(chamadas).toContainEqual(['or', `pagador_hash.eq.${HASH},pagador_hash_cartao.eq.Xt5EWLLDS7FJjR1c`])
+    expect(chamadas).toContainEqual(['eq', 'ambiente', 'producao'])
+    expect(chamadas).toContainEqual(['neq', 'id', 'p9'])
+    expect(chamadas).toContainEqual(['lt', 'pago_em', '2026-10-08T18:00:00Z'])
+  })
+
+  it('recompra: conta as anteriores e usa a origem gravada no 1o pedido', async () => {
+    const { cliente } = sbAnteriores([
+      { id: 'a', pago_em: '2026-09-20T15:00:00Z', msclkid: 'm1' },
+      { id: 'b', pago_em: '2026-10-01T15:00:00Z', gclid: 'g' },
+    ])
+    expect(await recompraDoPedido(cliente, cliente, { id: 'p9', pago_em: '2026-10-08T18:00:00Z', pagador_hash: HASH }))
+      .toEqual({ identificado: true, anteriores: 2, primeira: { pago_em: '2026-09-20T15:00:00Z', origem: 'Bing Ads' } })
+  })
+
+  it('1o pedido sem origem propria: cai na consulta gratis dele', async () => {
+    const { cliente } = sbAnteriores([{ id: 'a', pago_em: '2026-08-20T15:00:00Z', consulta_id: 'c0' }])
+    const r = await recompraDoPedido(cliente, cliente, { id: 'p9', pago_em: '2026-10-08T18:00:00Z', pagador_hash: HASH })
+    expect(r?.primeira?.origem).toBe('Bing Ads')
+  })
+
+  it('erro no banco: null (e-mail sai sem a linha quebrar nada)', async () => {
+    const { cliente } = sbAnteriores([], true)
+    expect(await recompraDoPedido(cliente, cliente, { id: 'p9', pago_em: '2026-10-08T18:00:00Z', pagador_hash: HASH })).toBeNull()
+  })
+
+  it('linha e assunto no e-mail, sem hash', () => {
+    expect(linhaRecompra(null)).toBe('Recompra: sem identificador do pagador (nao da pra saber)')
+    expect(linhaRecompra({ identificado: true, anteriores: 0, primeira: null })).toBe('Recompra: nao, 1a compra deste pagador')
+    const rec = { identificado: true, anteriores: 2, primeira: { pago_em: '2026-09-20T15:00:00Z', origem: 'Bing Ads' } }
+    expect(linhaRecompra(rec)).toBe('Recompra: SIM, 3a compra do mesmo pagador. 1a compra em 20/09/2026, origem: Bing Ads')
+    const { subject, text } = montarAvisoVenda({ ...PEDIDO, pagador_hash: HASH }, {
+      consulta: {}, ab: null, leilaoSinal: null, recallSinal: null, recallMarca: null, recompra: rec,
+    })
+    expect(subject).toBe('Venda: Organico - ABC1D23 [RECOMPRA]')
+    expect(text).toContain('Recompra: SIM, 3a compra')
+    expect(text).not.toContain(HASH)
+    expect(text).not.toContain('—')
   })
 })
