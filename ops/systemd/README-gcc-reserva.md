@@ -1,17 +1,16 @@
 # Timer da reserva de hash GCC (pc-gcc-reserva)
 
-Mantem 2 hashes de consentimento GCC "de frente" pra a venda consumir na hora,
+Mantem 1 hash de consentimento GCC "de frente" pra a venda consumir na hora,
 imune a uma queda do GCC (que enfileira sem devolver hash). Ver
 `server/utils/gcc-reserva.ts` e `server/api/premium/gcc-reserva.post.ts`.
 
 ## Instalar (na VPS, como root)
 
-1. Segredo (mesmo ADMIN_SECRET do Coolify de prod), arquivo 600:
-
-   ```
-   printf 'ADMIN_SECRET=%s\n' 'SEGREDO_DE_PROD' > /etc/pc-gcc-reserva.env
-   chmod 600 /etc/pc-gcc-reserva.env
-   ```
+1. Segredo: o unit le direto do cofre, `/root/.secrets/admin-secret.env`
+   (600, root, linha `NUXT_ADMIN_SECRET=...`, o mesmo do Coolify de prod).
+   Nao existe mais copia em `/etc/pc-gcc-reserva.env`: quando o segredo gira,
+   basta atualizar o cofre. Depois de instalar, o arquivo antigo pode ser
+   apagado.
 
 2. Copiar os units e habilitar o timer:
 
@@ -38,7 +37,7 @@ imune a uma queda do GCC (que enfileira sem devolver hash). Ver
 ## O que o endpoint faz por rodada
 
 - Limpa reservas vencidas (marca `vencido`, loga desperdicio).
-- Repoe ate 2 hashes nao-vencidos (teto DURO 2; nunca gera se o GCC nao devolver).
+- Repoe ate 1 hash nao-vencido, so quando a reserva zera (teto DURO 1; nunca gera se o GCC nao devolver).
 - Atualiza `gcc_reserva_estado` e, se o GCC estiver fora, manda e-mail pro Cesar
   ("GCC sem gerar hash desde HH:MM, reserva atual: N", cooldown 1h) + um "voltou"
   quando recupera.
