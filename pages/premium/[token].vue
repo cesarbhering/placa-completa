@@ -5,6 +5,7 @@ import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
 import { codigoFipeDoRelatorio } from '~/shared/codigo-fipe'
+import { codigoDaTabela, tabelaDoSegmento } from '~/shared/tabela-fipe'
 import { linhaRecallGrade } from '~/shared/recall-grade'
 // Relatorio veicular (superficie PAGA — o token da URL e a credencial).
 //
@@ -998,6 +999,14 @@ const fipeIncerta = computed(() => {
   const c = vc.value?.fipeCandidato
   if (!c) return false
   return c.decididoPor === 'ambiguo' || c.confianca === 'baixa'
+})
+// Versoes compativeis so da tabela FIPE do veiculo: relatorio entregue antes
+// da correcao pode trazer versao de carro num caminhao (PUF7J27 listava
+// Touareg e Amarok). Sem nenhuma da tabela certa, a lista nao aparece.
+const versoesCompativeis = computed(() => {
+  const lista = vc.value?.fipeCandidato?.candidatos || []
+  const tabela = tabelaDoSegmento(segmento.value)
+  return lista.filter((c: any) => codigoDaTabela(c?.codigo_fipe, tabela)).slice(0, 3)
 })
 // Codigo FIPE da versao que deu o valor (shared/codigo-fipe.ts).
 const codigoFipe = computed(() => codigoFipeDoRelatorio(vc.value))
@@ -2531,7 +2540,8 @@ onUnmounted(() => {
             <div v-if="fipeIncerta" class="rel__fipe-incerta">
               <p class="rel__fipe-incerta-tit">Não foi possível identificar a versão FIPE com segurança</p>
               <p class="rel__fipe-incerta-txt">
-                A tabela FIPE tem mais de uma versão compatível com a configuração deste veículo, e nenhuma bate o suficiente para afirmarmos qual é a certa. Confira no documento qual versão é a sua e use o valor correspondente na lista abaixo.
+                <template v-if="versoesCompativeis.length > 1">A tabela FIPE tem mais de uma versão compatível com a configuração deste veículo, e nenhuma bate o suficiente para afirmarmos qual é a certa. Confira no documento qual versão é a sua e use o valor correspondente na lista abaixo.</template>
+                <template v-else>Nenhuma versão da tabela FIPE bate o suficiente com a configuração deste veículo para afirmarmos o valor. Preferimos não mostrar um valor que pode estar errado.</template>
               </p>
             </div>
 
@@ -2562,11 +2572,11 @@ onUnmounted(() => {
                  com risco de erro, mostra as versoes compativeis com a
                  configuracao do veiculo (cilindrada/carroceria) e deixa a
                  decisao final com quem esta lendo. -->
-            <div v-if="fipeIncerta && (vc?.fipeCandidato?.candidatos?.length || 0) > 1" class="rel__fipe-ambiguo">
+            <div v-if="fipeIncerta && versoesCompativeis.length > 1" class="rel__fipe-ambiguo">
               <span class="rel__sub">Versões compatíveis</span>
               <table class="rel__tab">
                 <tbody>
-                  <tr v-for="c in vc.fipeCandidato.candidatos.slice(0, 3)" :key="c.codigo_fipe">
+                  <tr v-for="c in versoesCompativeis" :key="c.codigo_fipe">
                     <td>{{ c.modelo }}</td>
                     <td>{{ c.valor ? brl(c.valor) : '-' }}</td>
                   </tr>
