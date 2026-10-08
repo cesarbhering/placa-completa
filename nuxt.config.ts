@@ -416,6 +416,8 @@ export default defineNuxtConfig({
     "/seguro/carro-eletrico/sergipe",
     "/seguro/carro-eletrico/tocantins",
     "/ibv/seguro-mais-caro-brasil-2026",
+    "/blog",
+    "/blog/claude-for-startups",
     "/ibv",
       "/ibv/marco-2026",
       "/ibv/vencedores-perdedores-marco-2026",
