@@ -7,6 +7,9 @@ import { ambienteForaDeProd } from './ambiente-alerta'
 // consulta gratis (sinal de leilao e de recall).
 //
 // Sem CPF e sem hash de pagador no e-mail. O e-mail do comprador vai, como ia.
+// Recompra: o hash do pagador (Pix) ou o fingerprint do cartao so e usado pra
+// achar compras anteriores da mesma pessoa; no e-mail vai so a contagem, a data
+// e a origem da 1a compra (o anuncio que trouxe o cliente).
 //
 // Dedup: pedidos_premium.aviso_venda_em. Quem marca primeiro (este codigo ou o
 // timer do host, que virou rede de seguranca) envia; o outro pula. Envio que
@@ -37,6 +40,9 @@ export interface PedidoAviso {
   recall_sinal?: string | null
   recall_marca?: string | null
   cupom_origem?: string | null
+  /** So pra achar compras anteriores; nunca vai pro e-mail. */
+  pagador_hash?: string | null
+  pagador_hash_cartao?: string | null
 }
 
 export interface ConsultaOrigem {
@@ -122,6 +128,29 @@ export interface ExtrasAviso {
   leilaoSinal: string | null
   recallSinal: string | null
   recallMarca: string | null
+  recompra?: Recompra | null
+}
+
+/** Compras anteriores do mesmo pagador (Pix: pagador_hash; cartao: fingerprint). */
+export interface Recompra {
+  /** false = pedido sem identificador do pagador (ainda nao gravado ou meio sem documento). */
+  identificado: boolean
+  anteriores: number
+  primeira: { pago_em: string | null; origem: string } | null
+}
+
+function dataBR(iso: string | null | undefined): string {
+  const t = iso ? new Date(iso) : null
+  if (!t || Number.isNaN(t.getTime())) return '?'
+  return t.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+}
+
+export function linhaRecompra(r: Recompra | null | undefined): string {
+  if (!r || !r.identificado) return 'Recompra: sem identificador do pagador (nao da pra saber)'
+  if (!r.anteriores) return 'Recompra: nao, 1a compra deste pagador'
+  const ord = `${r.anteriores + 1}a compra do mesmo pagador`
+  const p = r.primeira
+  return p ? `Recompra: SIM, ${ord}. 1a compra em ${dataBR(p.pago_em)}, origem: ${p.origem}` : `Recompra: SIM, ${ord}`
 }
 
 export function montarAvisoVenda(p: PedidoAviso, x: ExtrasAviso): { subject: string; text: string } {
@@ -129,12 +158,14 @@ export function montarAvisoVenda(p: PedidoAviso, x: ExtrasAviso): { subject: str
   const { link, estado } = entregaDoPedido(p)
   const curta = org.split(' (')[0].split(' /')[0]
   const subject = `Venda: ${curta} - ${p.placa}`
+    + (x.recompra?.anteriores ? ' [RECOMPRA]' : '')
     + (p.pix_provider === 'google_play' ? ' [APP]' : '')
     + (p.forma_pagamento === 'cartao' ? ' [CARTAO]' : '')
   const text = [
     'Venda confirmada.',
     '',
     `Origem: ${org}`,
+    linhaRecompra(x.recompra),
     '',
     `Placa: ${p.placa}`,
     `Plano: ${p.plano || '?'}`,
@@ -159,7 +190,43 @@ export function montarAvisoVenda(p: PedidoAviso, x: ExtrasAviso): { subject: str
 }
 
 const COLS_PEDIDO = 'id,placa,plano,valor_centavos,pago_em,email,consulta_id,token_entrega,status,entregue_em,erro,'
-  + 'dispositivo,sistema,pix_provider,forma_pagamento,canal,recall_sinal,recall_marca,cupom_origem,ambiente'
+  + 'dispositivo,sistema,pix_provider,forma_pagamento,canal,recall_sinal,recall_marca,cupom_origem,ambiente,'
+  + 'pagador_hash,pagador_hash_cartao'
+
+const HASH_OK = /^[A-Za-z0-9]{8,128}$/
+const ORIGEM_PEDIDO = 'gclid,msclkid,utm_source,utm_medium,utm_campaign,oppref'
+
+/**
+ * Compras pagas ANTERIORES do mesmo pagador em prod. Origem da 1a compra: a
+ * gravada no proprio pedido (desde 02/set); sem ela, a da consulta gratis.
+ */
+export async function recompraDoPedido(supabase: any, supabaseConsultas: any, p: any): Promise<Recompra | null> {
+  try {
+    const filtros = [
+      HASH_OK.test(p.pagador_hash || '') ? `pagador_hash.eq.${p.pagador_hash}` : null,
+      HASH_OK.test(p.pagador_hash_cartao || '') ? `pagador_hash_cartao.eq.${p.pagador_hash_cartao}` : null,
+    ].filter(Boolean)
+    if (!filtros.length) return { identificado: false, anteriores: 0, primeira: null }
+    if (!p.pago_em) return null
+    const { data, error } = await supabase.from('pedidos_premium')
+      .select(`id,placa,pago_em,consulta_id,${ORIGEM_PEDIDO}`)
+      .or(filtros.join(','))
+      .eq('ambiente', 'producao')
+      .neq('id', p.id)
+      .neq('status', 'reembolsado')
+      .not('pago_em', 'is', null)
+      .lt('pago_em', p.pago_em)
+      .order('pago_em', { ascending: true })
+      .limit(50)
+    if (error) return null
+    const lista = Array.isArray(data) ? data : []
+    if (!lista.length) return { identificado: true, anteriores: 0, primeira: null }
+    const prim = lista[0]
+    const temMarca = ORIGEM_PEDIDO.split(',').some((c) => prim[c])
+    const origem = origemDaConsulta(temMarca ? prim : await consultaDoPedido(supabaseConsultas, prim))
+    return { identificado: true, anteriores: lista.length, primeira: { pago_em: prim.pago_em ?? null, origem } }
+  } catch { return null }
+}
 
 async function consultaDoPedido(supabaseConsultas: any, p: any): Promise<ConsultaOrigem | null> {
   // msclkid pode nao existir em algum ambiente: tenta com, cai pra sem.
@@ -194,11 +261,12 @@ async function ultimoEvento(supabase: any, p: any, coluna: string, cols: string)
 }
 
 async function extrasDoPedido(supabase: any, supabaseConsultas: any, p: any): Promise<ExtrasAviso> {
-  const [consulta, abEv, leilaoEv, recallEv] = await Promise.all([
+  const [consulta, abEv, leilaoEv, recallEv, recompra] = await Promise.all([
     consultaDoPedido(supabaseConsultas, p),
     p.pago_em ? ultimoEvento(supabase, p, 'extra->>ab_bloco', 'extra') : null,
     p.pago_em ? ultimoEvento(supabase, p, 'leilao_sinal', 'leilao_sinal') : null,
     !p.recall_sinal && p.pago_em ? ultimoEvento(supabase, p, 'recall_sinal', 'recall_sinal,recall_marca') : null,
+    recompraDoPedido(supabase, supabaseConsultas, p),
   ])
   return {
     consulta,
@@ -206,6 +274,7 @@ async function extrasDoPedido(supabase: any, supabaseConsultas: any, p: any): Pr
     leilaoSinal: leilaoEv?.leilao_sinal ?? null,
     recallSinal: p.recall_sinal || recallEv?.recall_sinal || null,
     recallMarca: p.recall_sinal ? (p.recall_marca ?? null) : (recallEv?.recall_marca ?? null),
+    recompra,
   }
 }
 
