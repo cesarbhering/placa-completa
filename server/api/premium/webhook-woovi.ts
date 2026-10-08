@@ -1,6 +1,7 @@
 import { chavesPublicas, verificarAssinatura, pedidoDaCorrelacao } from '../../utils/woovi'
 import { gravarPagadorHash, sanearPayloadWebhook } from '../../utils/pagador-hash'
 import { lerPayloadWoovi, ehPingWoovi } from '../../utils/woovi-webhook-payload'
+import { encaminharWebhookFinanceiro } from '../../utils/woovi-financeiro'
 
 // Webhook da Woovi, handler unico pra TODOS os metodos. Endpoint separado do da
 // AbacatePay de proposito: o formato do payload e, principalmente, o jeito de
@@ -52,6 +53,9 @@ export default defineEventHandler(async (event) => {
   const chargeId = String(charge?.identifier || '')
 
   const supabase = usePremiumSupabase()
+  // Copia COMPLETA pro financeiro@ (conciliacao/nota), sem await: nunca atrasa
+  // a resposta nem o pedido. Dedup por evento (a Woovi entrega 2x).
+  void encaminharWebhookFinanceiro(supabase, payload, raw, pedidoId, chargeId)
   // Mesma tabela de sempre, pra auditoria e idempotencia ficarem num lugar so.
   await supabase.from('webhook_events').insert({
     // Sem dados do pagador (CPF/nome) no log de auditoria.
