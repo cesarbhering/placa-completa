@@ -30,10 +30,52 @@ describe('MarcaLogo', () => {
     expect(w.find('img').exists()).toBe(false)
     expect(w.find('.ml__mono').text()).toBe('M')
   })
-  it('URL externa nunca vira <img>', async () => {
+  it('URL externa nunca vira <img>: cai no proxy deduzido da marca', async () => {
     const w = mount(MarcaLogo, { props: { marca: 'M.BENZ/C180', logoUrl: 'https://apiplacas.com.br/logos/logosMarcas/m.benz.png' } })
     await flushPromises()
+    expect(w.find('img').attributes('src')).toBe('/api/logo-marca/m.benz.png')
+    await w.find('img').trigger('error')
     expect(w.find('img').exists()).toBe(false)
     expect(w.find('.ml__mono').text()).toBe('M')
+  })
+
+  // Caso RMB6B90: a fonte nao mandou logo e a BYD nao tem path.
+  it('sem logoUrl: BYD usa o proxy pelo nome da marca', async () => {
+    const w = mount(MarcaLogo, { props: { marca: 'I/BYD SONG PLUS PREM DM', logoUrl: null } })
+    await flushPromises()
+    expect(w.find('img').attributes('src')).toBe('/api/logo-marca/byd.png')
+  })
+
+  for (const [marca, arquivo] of [
+    ['GWM/HAVAL H6 PHEV', 'greatwall.png'],
+    ['CAOA CHERY/TIGGO 5X', 'caoachery.png'],
+    ['I/CHERY TIGGO 7', 'chery.png'],
+    ['HAVAL/H6', 'haval.png'],
+    ['I/ZEEKR 001', 'zeekr.png'],
+    ['I/GAC AION Y', 'gac.png'],
+    ['OMODA/5', 'omoda.png'],
+    ['JAECOO/7', 'jaecoo.png'],
+  ]) {
+    it(`${marca}: tenta /api/logo-marca/${arquivo}`, async () => {
+      const w = mount(MarcaLogo, { props: { marca } })
+      await flushPromises()
+      expect(w.find('img').attributes('src')).toBe(`/api/logo-marca/${arquivo}`)
+    })
+  }
+
+  it('logo da fonte falhou: tenta o deduzido antes do monograma', async () => {
+    const w = mount(MarcaLogo, { props: { marca: 'I/BYD DOLPHIN', logoUrl: '/api/logo-marca/byd2.png' } })
+    await flushPromises()
+    expect(w.find('img').attributes('src')).toBe('/api/logo-marca/byd2.png')
+    await w.find('img').trigger('error')
+    expect(w.find('img').attributes('src')).toBe('/api/logo-marca/byd.png')
+    await w.find('img').trigger('error')
+    expect(w.find('.ml__mono').text()).toBe('B')
+  })
+
+  it('so mostra imagem depois de montar (nada de <img> no SSR)', () => {
+    // mount() ja roda onMounted; aqui so garante que marca com path nunca vira img.
+    const w = mount(MarcaLogo, { props: { marca: 'VW/GOL' } })
+    expect(w.find('img').exists()).toBe(false)
   })
 })
