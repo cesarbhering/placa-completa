@@ -1,16 +1,18 @@
 [Unit]
-Description=PlacaCompleta - mantem a reserva de hash GCC (2 de frente)
+Description=PlacaCompleta - mantem a reserva de hash GCC (1 de frente)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
-# Arquivo 600 so-root com: ADMIN_SECRET=<segredo de prod, o mesmo do Coolify>
-EnvironmentFile=/etc/pc-gcc-reserva.env
+# Le direto do cofre (600, root): NUXT_ADMIN_SECRET=<segredo de prod>. Uma
+# copia separada em /etc ficava velha quando o segredo girava e o timer passava
+# a tomar 401 sem ninguem ver.
+EnvironmentFile=/root/.secrets/admin-secret.env
 # Bate no endpoint publico (atraves do Cloudflare, igual a sonda de checkout).
-# O endpoint repoe a reserva ate 2, limpa vencidas e dispara o alerta de GCC fora.
+# O endpoint repoe a reserva ate 1, limpa vencidas e dispara o alerta de GCC fora.
 ExecStart=/usr/bin/curl -fsS -m 90 -X POST \
   https://placacompleta.com.br/api/premium/gcc-reserva \
-  -H "x-admin-secret: ${ADMIN_SECRET}" \
+  -H "x-admin-secret: ${NUXT_ADMIN_SECRET}" \
   -H "Content-Type: application/json" \
   -d '{"ambiente":"producao"}'
