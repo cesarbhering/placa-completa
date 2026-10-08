@@ -93,3 +93,31 @@ export function ehItemDeRestricao(bruto: unknown): boolean {
 export function filtrarItensRestricao<T>(itens: T): T {
   return (Array.isArray(itens) ? itens.filter(ehItemDeRestricao) : itens) as T
 }
+
+// Itens INFORMATIVOS (08/out): aparecem na secao de Restricoes com titulo e
+// texto proprios, mas NAO sao restricao que impede a venda. Nao acendem
+// "Outras restrições", nao entram no veredito nem no "so RENAVE". Primeiro
+// caso: PRINCIPAL_CONDUTOR, que caia no texto generico ("condiciona ou impede
+// a transferencia"), errado para esse cadastro. Texto aprovado pelo Cesar.
+const ITENS_INFORMATIVOS: [RegExp, { titulo: string; texto: string }][] = [
+  [/^PRINCIPAL_CONDUTOR/, {
+    titulo: 'Principal condutor',
+    texto: 'O veículo tem um condutor principal cadastrado no DETRAN. Esse cadastro indica quem recebe automaticamente os pontos das multas do veículo e é comum em carros de empresas e locadoras. Não impede a transferência. Ao comprar, confirme com o vendedor se o cadastro será retirado, para as multas futuras não ficarem associadas a outra pessoa.',
+  }],
+]
+
+function chaveItem(bruto: unknown): string {
+  return String(bruto ?? '').trim().toUpperCase().replace(/[\s-]+/g, '_').replace(/_+/g, '_')
+}
+
+/** Copy do item informativo (titulo + texto), ou null se for restricao de verdade. */
+export function itemInformativo(bruto: unknown): { titulo: string; texto: string } | null {
+  const chave = chaveItem(bruto)
+  const achou = ITENS_INFORMATIVOS.find(([re]) => re.test(chave))
+  return achou ? achou[1] : null
+}
+
+/** Itens que de fato restringem (sem os informativos). Nao-array passa direto. */
+export function itensQueRestringem<T>(itens: T): T {
+  return (Array.isArray(itens) ? itens.filter((i) => !itemInformativo(i)) : itens) as T
+}

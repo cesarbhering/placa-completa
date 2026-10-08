@@ -21,7 +21,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // O corte por plano acontece no servidor: o que a basica nao comprou nem chega
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
-import { explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, PARECER_SO_RENAVE } from '~/shared/restricoes'
+import { explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
@@ -377,7 +377,9 @@ const indicadores = computed(() => {
     return { ...i, ligado, alerta: ligado && i.risco }
   })
 
-  const itens = v.value?.restricoesItens
+  // Sem os itens informativos (principal condutor): aparecem na secao, mas nao
+  // acendem cartao nenhum.
+  const itens = itensQueRestringem(v.value?.restricoesItens)
   if (Array.isArray(itens)) {
     const tem = itens.some((r: any) => TIPOS_GRAVAME.some((t) => normalizaChave(r).startsWith(t)))
     base.splice(Math.min(2, base.length), 0, {
@@ -489,16 +491,21 @@ function registraTipoDesconhecido(chave: string) {
   try { trackRestricaoDesconhecida(chave) } catch { /* telemetria e best-effort */ }
 }
 
-const restricoes = computed<{ rotulo: string; explica: string; renave: boolean }[]>(() => {
+const restricoes = computed<{ rotulo: string; explica: string; renave: boolean; info: boolean }[]>(() => {
   const arr = v.value?.restricoesItens
   if (!Array.isArray(arr)) return []
   return arr
     .filter(Boolean)
-    .map((r: any) => ehEstoqueRenave(r)
+    .map((r: any) => {
       // Estoque RENAVE tem explicacao propria (RENAVE_EXPLICACAO) no lugar da
       // copy generica, e nao conta como tipo desconhecido.
-      ? { rotulo: humanizar(r), explica: '', renave: true }
-      : { rotulo: humanizar(r), explica: explicaRenainfOuPadrao(String(r)), renave: false })
+      if (ehEstoqueRenave(r)) return { rotulo: humanizar(r), explica: '', renave: true, info: false }
+      // Informativo (principal condutor): titulo e texto proprios, etiqueta
+      // "Informação" em vez de "Restrição".
+      const inf = itemInformativo(r)
+      if (inf) return { rotulo: inf.titulo, explica: inf.texto, renave: false, info: true }
+      return { rotulo: humanizar(r), explica: explicaRenainfOuPadrao(String(r)), renave: false, info: false }
+    })
 })
 // RENAINF aceso e o DETRAN da UF respondeu sem multa: a multa e de orgao de
 // fora ou federal. Explicacao propria pra nao contradizer o "nada consta" do
@@ -511,7 +518,7 @@ function explicaRenainfOuPadrao(r: string): string {
 // So o estoque RENAVE consta: nenhum outro item, nenhum outro cartao aceso
 // alem do generico "Outras restrições" que ele mesmo acende.
 const soEstoqueRenave = computed(() => {
-  const itens = (Array.isArray(v.value?.restricoesItens) ? v.value.restricoesItens : []).filter(Boolean)
+  const itens = (Array.isArray(v.value?.restricoesItens) ? itensQueRestringem(v.value.restricoesItens) : []).filter(Boolean)
   return itens.length > 0 && itens.every(ehEstoqueRenave)
 })
 
@@ -563,7 +570,7 @@ const alertas = computed(() => indicadores.value.filter((i) => i.alerta).map((i)
 const temIndicadorLeilao = computed(() => indicadores.value.some((i: any) => i.k === 'indicadorLeilao'))
 
 const restricoesForaDosIndicadores = computed<string[]>(() => {
-  const itens = v.value?.restricoesItens
+  const itens = itensQueRestringem(v.value?.restricoesItens)
   if (!Array.isArray(itens)) return []
   const acesos = new Set(alertas.value)
   const fora: string[] = []
@@ -2000,7 +2007,7 @@ onUnmounted(() => {
             <template v-if="restricoes.length">
               <div v-for="(r, idx) in restricoes" :key="idx" class="rel__restr">
                 <div class="rel__restr-topo">
-                  <span class="rel__tag">Restrição</span>
+                  <span class="rel__tag" :class="{ 'rel__tag--info': r.info }">{{ r.info ? 'Informação' : 'Restrição' }}</span>
                   <strong>{{ r.rotulo }}</strong>
                 </div>
                 <div v-if="r.renave" class="rel__renave">
@@ -4053,6 +4060,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     // cor do cabecalho em vez do vermelho padrao de restricao.
     &--ok { background: #d7efdf; color: #14622f; }
     &--bad { background: #fdeeec; color: #a32020; }
+    // Item informativo (principal condutor): neutro, nao e alerta nem "ok".
+    &--info { background: #e8eef7; color: #2b4a75; }
   }
 
   // ---- ficha ----
