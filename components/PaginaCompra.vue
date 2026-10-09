@@ -52,7 +52,7 @@ useHead({
 
         <div class="pc-callout">
           <p>
-            <strong>Relatório completo:</strong> <PrecoPromo v-if="temPromo" /><strong v-else>{{ preco }}</strong>. Pagamento único, sem assinatura.
+            <strong>Relatório completo:</strong> <PrecoPromo v-if="temPromo" inline /><strong v-else>{{ preco }}</strong>. Pagamento único, sem assinatura.
             Se o veículo não for encontrado no registro nacional, o Pix volta sozinho.
           </p>
         </div>
