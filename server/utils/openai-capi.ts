@@ -22,6 +22,7 @@ export interface PedidoCapi {
   google_play_order_id: string | null
   oppref: string | null
   obref: string | null
+  utm_source?: string | null
 }
 
 /** sha256 do e-mail normalizado (trim + minusculas), hex minusculo. */
@@ -44,10 +45,20 @@ export function motivoParaNaoEnviar(p: PedidoCapi, opts: { agora: number; proteg
   if (!p.pago_em) return 'sem_pago_em'
   if (!(Number(p.valor_centavos) > 0)) return 'valor_zero'
   if (p.google_play_order_id) return 'app'
+  // So venda que VEIO do ChatGPT Ads (bug de 03 a 09/out: o worker mandava
+  // toda venda, 42 eventos, nenhum com oppref, e o painel da OpenAI creditou
+  // conversoes que nao vieram de la). Origem = oppref do clique no anuncio ou
+  // utm_source=chatgpt_ads.
+  if (!origemChatgpt(p)) return 'sem_origem_chatgpt'
   if (!opts.protegido && p.ambiente !== 'producao') return 'teste'
   const t = Date.parse(p.pago_em)
   if (!Number.isFinite(t) || opts.agora - t > SETE_DIAS_MS - 60 * 60 * 1000) return 'velho'
   return null
+}
+
+/** A venda veio do ChatGPT Ads? (oppref do clique ou utm_source=chatgpt_ads) */
+export function origemChatgpt(p: Pick<PedidoCapi, 'oppref' | 'utm_source'>): boolean {
+  return !!String(p.oppref || '').trim() || String(p.utm_source || '').trim().toLowerCase() === 'chatgpt_ads'
 }
 
 export function montarEvento(p: PedidoCapi) {
