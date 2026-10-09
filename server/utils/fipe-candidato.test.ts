@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { escolherMelhorFipe } from './fipe-candidato'
 
 // Payload real (senatran_consultas + placa_cache, staging) da placa OXK7426:
@@ -648,5 +648,34 @@ describe('fallback respeita o nome (caso GMF8I88, Saveiro CS)', () => {
     })
     expect(r.decididoPor).toBe('fallback')
     expect(r.escolhido?.codigo_fipe).toBe('005538-7')
+  })
+})
+
+describe('timeout proprio da fipe-api', () => {
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
+  it('fipe-api respondendo em 4 s (a frio) nao cai no fallback', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn((url: string, opts: any) => new Promise((resolve, reject) => {
+      opts?.signal?.addEventListener('abort', () => reject(new Error('aborted')))
+      setTimeout(() => resolve({ ok: true, json: async () => ({ data: FIPE_API_ETIOS_2014 }) }), 4000)
+    })))
+    const p = escolherMelhorFipe({ senatran: SENATRAN_OXK7426, wdapi: WDAPI_OXK7426, fipeApiUrl: 'http://fipe', fipeApiToken: 't' })
+    // /modelos em 4 s; depois /brands e /brands/:id/models (resolucao do codigo do modelo) tambem demoram 4 s cada.
+    await vi.advanceTimersByTimeAsync(4100)
+    await vi.advanceTimersByTimeAsync(4100)
+    await vi.advanceTimersByTimeAsync(4100)
+    const r = await p
+    expect(r.decididoPor).toBe('regra')
+    expect(r.escolhido?.codigo_fipe).toBe('002122-9')
+  })
+  it('acima de 8 s: fallback', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn((url: string, opts: any) => new Promise((resolve, reject) => {
+      opts?.signal?.addEventListener('abort', () => reject(new Error('aborted')))
+      setTimeout(() => resolve({ ok: true, json: async () => ({ data: FIPE_API_ETIOS_2014 }) }), 9000)
+    })))
+    const p = escolherMelhorFipe({ senatran: SENATRAN_OXK7426, wdapi: WDAPI_OXK7426, fipeApiUrl: 'http://fipe', fipeApiToken: 't' })
+    await vi.advanceTimersByTimeAsync(9100)
+    expect((await p).decididoPor).toBe('fallback')
   })
 })
