@@ -66,7 +66,7 @@ describe('completarDetran RS', () => {
     vi.stubGlobal('useRuntimeConfig', () => ({ infosimplesToken: 't', infosimplesEncKey: 'k'.repeat(32), infosimplesPkcs12B64: 'PFX', infosimplesPkcs12Pass: 'p' }))
     const f = vi.fn(); vi.stubGlobal('fetch', f)
     const r = await completarDetran(fakeSb(), { id: 'p1', placa: 'IWC7G10' }, { response: [{ ufJurisdicao: 'RS', renavam: '1' }] })
-    expect(r).toMatchObject({ ok: false, pulado: 'RS so com RENAINF' })
+    expect(r).toMatchObject({ ok: false, pulado: 'RS so com RENAINF ou restricao' })
     expect(f).not.toHaveBeenCalled()
   })
 })

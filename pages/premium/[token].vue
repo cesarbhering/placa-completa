@@ -25,7 +25,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // O corte por plano acontece no servidor: o que a basica nao comprou nem chega
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
-import { explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
+import { explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem, temRestricaoNacional } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
@@ -303,6 +303,9 @@ const COBERTURA_RESTRICAO: [RegExp, string][] = [
   // dado real), e a dica do indicadorRestricaoRenajud descreve exatamente
   // isso ("Bloqueios determinados pela Justiça diretamente no cadastro").
   [/^RESTRICAO_JUDICIAL/, 'RENAJUD'],
+  // "RENAJUD" puro (RDW7C71): sem isto o item e o indicador entravam os dois
+  // no veredito ("Atenção: consta RENAJUD e RENAJUD.").
+  [/^(RESTRICAO_)?RENAJUD/, 'RENAJUD'],
 ]
 
 const normalizaChave = (r: any) => String(r).toUpperCase().replace(/[\s-]+/g, '_')
@@ -637,6 +640,9 @@ const veredito = computed(() => {
     ...restricoesForaDosIndicadores.value,
     ...(licAtrasado ? ['licenciamento atrasado'] : []),
   ]
+  // Sem repeticao: dois caminhos (indicador e item da lista) podem nomear a
+  // mesma coisa.
+  nomes.splice(0, nomes.length, ...[...new Set(nomes)])
   const lista = nomes.length === 1
     ? nomes[0]
     : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`
@@ -1246,7 +1252,8 @@ const multaIndicadorSP = computed(
 const ehVeiculoSpTela = computed(() => {
   const uf = String(g('ufJurisdicao') || '').toUpperCase()
   if (uf === 'SP') return true
-  return ['SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM', 'PE', 'ES', 'MA', 'AC', 'AL', 'PI', 'RR'].includes(uf) && g('indicadorMultaRenainf') === true
+  return ['SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM', 'PE', 'ES', 'MA', 'AC', 'AL', 'PI', 'RR'].includes(uf)
+    && (g('indicadorMultaRenainf') === true || temRestricaoNacional(v.value))
 })
 const ufDetranTela = computed(() => String(g('ufJurisdicao') || '').toUpperCase())
 const multasDetalhe = computed(() => {

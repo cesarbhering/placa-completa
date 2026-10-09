@@ -119,7 +119,7 @@ describe('completarDetran PR (e-CPF)', () => {
     cfg()
     const f = vi.fn(); vi.stubGlobal('fetch', f)
     const r = await completarDetran(fakeSb(), { id: 'p1', placa: 'ARX3D99' }, { response: [{ ufJurisdicao: 'PR', renavam: '1' }] })
-    expect(r).toMatchObject({ ok: false, pulado: 'PR so com RENAINF' })
+    expect(r).toMatchObject({ ok: false, pulado: 'PR so com RENAINF ou restricao' })
     expect(f).not.toHaveBeenCalled()
   })
 })

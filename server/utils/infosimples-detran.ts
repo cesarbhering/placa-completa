@@ -1,3 +1,5 @@
+import { temRestricaoNacional } from '../../shared/restricoes'
+import { normalizarResposta } from '../../shared/planos'
 import { encrypt } from 'aes-bridge'
 import { renavamDaResposta, ufDaResposta } from './detran-multas'
 
@@ -134,6 +136,16 @@ export function ufDetranSuportada(uf: string | null | undefined): UfDetran | nul
 }
 
 /** O SENATRAN acusou multa RENAINF? (indicador na raiz ou em `restricoes`) */
+/**
+ * Gate do DETRAN estadual: SP sempre; as demais com multa RENAINF OU qualquer
+ * restricao no registro nacional (RDW7C71, 09/out: so RENAJUD e o DETRAN-SC
+ * nao era chamado). O backfill por token ignora o gate.
+ */
+export function passaNoGateDetran(gate: string, response: any): boolean {
+  if (gate === 'sempre') return true
+  return temMultaRenainf(response) || temRestricaoNacional(normalizarResposta(response))
+}
+
 export function temMultaRenainf(response: any): boolean {
   const bruto = Array.isArray(response) ? response[0] : response
   return bruto?.indicadorMultaRenainf === true || bruto?.restricoes?.indicadorMultaRenainf === true
@@ -1578,8 +1590,8 @@ export async function completarDetran(
   const uf = ufDetranSuportada(ufBruta)
   if (!uf) return { ok: false, pulado: `uf ${ufBruta || '?'} (so ${Object.keys(DETRAN_UFS).join('/')})` }
   const cfgUf = DETRAN_UFS[uf]
-  if (cfgUf.gate === 'renainf' && !ctx.ignorarGate && !temMultaRenainf(ctx.response)) {
-    return { ok: false, pulado: `${uf} so com RENAINF` }
+  if (!ctx.ignorarGate && !passaNoGateDetran(cfgUf.gate, ctx.response)) {
+    return { ok: false, pulado: `${uf} so com RENAINF ou restricao` }
   }
   const renavam = renavamDaResposta(ctx.response)
   const chassi = chassiDaResposta(ctx.response)
