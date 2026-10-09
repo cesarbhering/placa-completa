@@ -34,23 +34,33 @@ export function alvoDoSnapshot(snapshot: any, codigo: string): AlvoHistorico | n
   return { modelo: String(c.modelo), marca: marcaParaFipeApi(marcaReg, tabela), anoModelo }
 }
 
-const cache = new Map<string, { em: number; pts: { label: string; price: number }[] | null }>()
 const TTL = 12 * 60 * 60 * 1000
+// So sucesso entra em cache: uma falha passageira da fipe-api (timeout no
+// primeiro acesso) nao pode deixar a versao sem grafico por horas.
+const cacheSerie = new Map<string, { em: number; pts: { label: string; price: number }[] }>()
+const cacheJson = new Map<string, { em: number; v: any }>()
 
-async function json(url: string, token: string): Promise<any> {
+async function json(url: string, token: string, guardar = false): Promise<any> {
+  const hit = guardar ? cacheJson.get(url) : null
+  if (hit && Date.now() - hit.em < TTL) return hit.v
   const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) })
   if (!r.ok) return null
   const b = await r.json()
-  return b?.data ?? b
+  const v = b?.data ?? b
+  if (guardar && v) {
+    cacheJson.set(url, { em: Date.now(), v })
+    if (cacheJson.size > 300) cacheJson.clear()
+  }
+  return v
 }
 
 /** Codigo interno do modelo pelo nome, em toda marca com esse nome (carro e caminhao podem ter o mesmo). */
 async function codigoModelo(alvo: AlvoHistorico, url: string, token: string): Promise<string | null> {
-  const marcas = await json(`${url}/brands`, token)
+  const marcas = await json(`${url}/brands`, token, true)
   if (!Array.isArray(marcas)) return null
   const chave = alvo.marca.trim().toLowerCase()
   for (const b of marcas.filter((m: any) => String(m?.name || '').trim().toLowerCase() === chave)) {
-    const modelos = await json(`${url}/brands/${b.id}/models`, token)
+    const modelos = await json(`${url}/brands/${b.id}/models`, token, true)
     const m = Array.isArray(modelos) ? modelos.find((x: any) => String(x?.name || '').trim() === alvo.modelo.trim()) : null
     if (m?.fipe_code) return String(m.fipe_code)
   }
@@ -59,14 +69,17 @@ async function codigoModelo(alvo: AlvoHistorico, url: string, token: string): Pr
 
 export async function historicoDaVersao(alvo: AlvoHistorico, codigo: string, url: string, token: string) {
   const k = `${codigo}|${alvo.anoModelo}`
-  const hit = cache.get(k)
+  const hit = cacheSerie.get(k)
   if (hit && Date.now() - hit.em < TTL) return hit.pts
-  let pts: { label: string; price: number }[] | null = null
   try {
     const cm = await codigoModelo(alvo, url, token)
-    if (cm) pts = pontos(await json(`${url}/models/fipe/${cm}/price-history`, token), alvo.anoModelo)
-  } catch { pts = null }
-  cache.set(k, { em: Date.now(), pts })
-  if (cache.size > 500) cache.clear()
-  return pts
+    const pts = cm ? pontos(await json(`${url}/models/fipe/${cm}/price-history`, token), alvo.anoModelo) : null
+    if (pts?.length) {
+      cacheSerie.set(k, { em: Date.now(), pts })
+      if (cacheSerie.size > 500) cacheSerie.clear()
+    }
+    return pts
+  } catch {
+    return null
+  }
 }
