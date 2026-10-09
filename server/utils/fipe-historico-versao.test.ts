@@ -49,3 +49,22 @@ describe('historicoDaVersao', () => {
     expect(chamadas).not.toContain('http://fipe/brands/1/models')
   })
 })
+
+describe('historicoDaVersao: falha nao fica em cache', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it('primeira chamada falha, segunda funciona', async () => {
+    let falhar = true
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (falhar) throw new Error('timeout')
+      const ok = (data: any) => ({ ok: true, json: async () => ({ data }) })
+      if (url.endsWith('/brands')) return ok([{ id: 7, name: 'Fiat' }])
+      if (url.endsWith('/brands/7/models')) return ok([{ name: '500 Cult 1.4 Flex 8V EVO Dualogic', fipe_code: '5613' }])
+      if (url.endsWith('/models/fipe/5613/price-history')) return ok({ price_history: [{ year: 2012, prices: [{ year: 2025, month: 1, price: 1 }, { year: 2025, month: 2, price: 2 }] }] })
+      return { ok: false, json: async () => ({}) }
+    }))
+    const alvo = { modelo: '500 Cult 1.4 Flex 8V EVO Dualogic', marca: 'FIAT', anoModelo: 2012 }
+    expect(await historicoDaVersao(alvo, '001362-5', 'http://f2', 't')).toBeNull()
+    falhar = false
+    expect(await historicoDaVersao(alvo, '001362-5', 'http://f2', 't')).toHaveLength(2)
+  })
+})
