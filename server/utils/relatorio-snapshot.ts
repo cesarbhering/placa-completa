@@ -65,7 +65,7 @@ function modeloDoRegistro(bruto: any): string | null {
 // Local do VEICULO (nao de quem abre o link): mora dentro do preview salvo no
 // pedido desde o checkout. Duplicado aqui (era local a report.get.ts) porque
 // agora tanto a gravacao quanto o servico lazy precisam disto.
-function localDoVeiculo(preview: any): { uf: string | null; municipio: string | null } {
+export function localDoVeiculo(preview: any): { uf: string | null; municipio: string | null } {
   if (!preview || typeof preview !== 'object') return { uf: null, municipio: null }
   return {
     uf: typeof preview.uf === 'string' ? preview.uf : null,

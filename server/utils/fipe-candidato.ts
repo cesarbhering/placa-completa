@@ -300,7 +300,7 @@ async function resolverCodigoModelo(
 // universo da fipe-api, nao da wdapi) - sem isso, price-history e seguro
 // ficam sem series pra ele. Fail-open: erro/nao-achado deixa null, quem
 // consome (valor-custo.ts) ja trata price-history/seguro ausentes.
-async function comCodigoModelo(
+export async function comCodigoModelo(
   candidato: FipeCandidato,
   marca: string,
   fipeApiUrl: string,
