@@ -8,6 +8,9 @@
 export function fipeEIncerta(vc: any): boolean {
   const c = vc?.fipeCandidato
   if (!c) return false
+  // O cliente indicou a versao do carro dele (manual x automatico): deixa de
+  // ser duvida, o relatorio mostra o valor dessa versao.
+  if (vc?.fipeEscolhaCliente && vc?.fipe) return false
   if (c.decididoPor === 'ambiguo' || c.confianca === 'baixa') return true
   return !!vc?.fipeNaoLocalizado && !vc?.fipe && Array.isArray(c.candidatos) && c.candidatos.length > 1
 }
