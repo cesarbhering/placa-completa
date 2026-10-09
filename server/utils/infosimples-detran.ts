@@ -1609,7 +1609,8 @@ export async function completarDetran(
   if (multasAtual?.fonte === cfgUf.fonte && !multasAtual?.preenchido_manual_em) {
     // Bloco de multas ja existe, mas sem o complemento (pedido de antes dele):
     // roda SO o complemento e junta. Multas nao sao consultadas de novo.
-    if ((cfgUf as any).complemento && multasAtual.status === 'ok' && !multasAtual.complemento_ok) {
+    // Bloco corrigido a mao (backfill_manual, ex.: JPQ6371) nunca e mexido.
+    if ((cfgUf as any).complemento && multasAtual.status === 'ok' && !multasAtual.complemento_ok && !multasAtual.backfill_manual) {
       const comp = await buscarComplemento(supabase, pedido.id, uf, { placa: pedido.placa, renavam: renavam! })
       if (!comp) return { ok: false, pulado: 'complemento indisponivel' }
       const atual = (await lerSnapshot(supabase, pedido.id)) || snap

@@ -124,3 +124,26 @@ describe('BA: valor atualizado das multas e total do DETRAN', () => {
     expect(juntarComplemento({ multas_total_centavos: 58694 }, c).total_detran_centavos).toBe(243208)
   })
 })
+
+describe('bloco corrigido a mao', () => {
+  beforeEach(() => {
+    vi.stubGlobal('useRuntimeConfig', () => ({ infosimplesToken: 't', infosimplesEncKey: 'k'.repeat(32) }))
+    process.env.NUXT_INFOSIMPLES_BA_CPF = '12345678900'; process.env.NUXT_INFOSIMPLES_BA_SENHA = 'x'
+  })
+  afterEach(() => { vi.unstubAllGlobals(); delete process.env.NUXT_INFOSIMPLES_BA_CPF; delete process.env.NUXT_INFOSIMPLES_BA_SENHA })
+  it('backfill_manual (JPQ6371): o complemento nao roda', async () => {
+    const f = vi.fn()
+    vi.stubGlobal('fetch', f)
+    const snap = { consulta: {}, multas: { status: 'ok', fonte: 'detran_ba', backfill_manual: '2026-10-09', multas_total_centavos: 94836 } }
+    const sb = {
+      from: () => ({
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { relatorio_snapshot: snap } }) }) }),
+        insert: async () => ({ error: null }),
+        update: () => ({ eq: async () => ({ error: null }) }),
+      }),
+    }
+    const r = await completarDetran(sb, { id: 'p1', placa: 'JPQ6371' }, { response: [{ ufJurisdicao: 'BA', renavam: '834913631', indicadorMultaRenainf: true }], ignorarGate: true })
+    expect(r.ok).toBe(false)
+    expect(f).not.toHaveBeenCalled()
+  })
+})
