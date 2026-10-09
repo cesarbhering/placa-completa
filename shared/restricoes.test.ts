@@ -69,7 +69,7 @@ describe('RENAJUD', () => {
     for (const t of ['RENAJUD', 'RESTRICAO_RENAJUD', 'RESTRICAO_JUDICIAL', 'restricao-judicial']) {
       expect(ehRenajud(t), t).toBe(true)
       expect(explicaRestricao(t), t).not.toBe(GENERICA)
-      expect(explicaRestricao(t), t).toBe(RENAJUD_EXPLICACAO.texto)
+      expect(explicaRestricao(t), t).toBe(`${RENAJUD_EXPLICACAO.texto} ${RENAJUD_EXPLICACAO.semDetalhe}`)
     }
     expect(ehRenajud('GRAVAME')).toBe(false)
     expect(ehRenajud('RENAINF')).toBe(false)
@@ -83,6 +83,6 @@ describe('RENAJUD', () => {
     const tudo = JSON.stringify(RENAJUD_EXPLICACAO)
     expect(tudo).not.toContain('—')
     expect(tudo).not.toMatch(/senatran/i)
-    expect(RENAJUD_EXPLICACAO.texto).toMatch(/não informa qual tipo/)
+    expect(RENAJUD_EXPLICACAO.semDetalhe).toMatch(/não informa qual tipo/)
   })
 })

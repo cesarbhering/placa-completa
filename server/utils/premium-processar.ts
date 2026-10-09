@@ -1,3 +1,4 @@
+import { completarRenajudDepois } from './renajud-detalhe'
 import { avisarVenda } from './aviso-venda'
 import { ambienteDaConsultaPaga } from './gcc-reserva'
 import { gerarCupomRecompra } from './cupom-recompra'
@@ -293,6 +294,10 @@ export async function processarPedidoPago(
     // chega. Fail-open: timeout/erro so omite o bloco. completarDetranDepois se
     // auto-restringe a SP; pra outras UFs nao ha chamada ate os endpoints delas.
     completarDetranDepois(supabase, pedido, { consultaId: r.consultaId, response: r.response })
+
+    // Detalhe do RENAJUD (tribunal, processo, tipo, data) onde ha fonte (AL e
+    // GO), so com o indicador aceso. Solto e fail-open (server/utils/renajud-detalhe.ts).
+    completarRenajudDepois(supabase, pedido, { response: r.response })
 
     // Placa e plano entram no assunto e no corpo: "seu relatorio completo da
     // placa ABC1D23 esta pronto" e reconhecivel na caixa de entrada, "sua
