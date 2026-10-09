@@ -72,6 +72,9 @@ export interface FipeMelhorCandidatoInput {
 
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
 const HAIKU_TIMEOUT_MS = 3000
+// fipe-api tem timeout proprio: a frio ela passou de 3 s, o funil caia no
+// fallback e o valor virava o melhor score da fonte livre.
+export const FIPE_API_TIMEOUT_MS = 8000
 
 // ---------------------------------------------------------------------------
 // Universo: fipe-api (marca/ano) UNIAO com os candidatos da wdapi.
@@ -97,7 +100,7 @@ async function buscarUniversoFipeApi(
   if (!marca || !ano || !fipeApiUrl) return null
   const url = `${fipeApiUrl}/modelos?marca=${encodeURIComponent(marca)}&ano=${encodeURIComponent(String(ano))}`
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), HAIKU_TIMEOUT_MS)
+  const timeout = setTimeout(() => controller.abort(), FIPE_API_TIMEOUT_MS)
   try {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${fipeApiToken}` },
