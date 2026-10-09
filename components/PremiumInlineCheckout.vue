@@ -834,7 +834,7 @@ onUnmounted(() => {
                   </svg>
                 </button>
               </span>
-              <span class="pic-faixa__plano">{{ planoInfo.nome }}</span>
+              <span class="pic-faixa__plano"><b v-if="!cupomValido && precoDePromocao(plano)" class="pic-faixa__promo">Promoção</b> {{ planoInfo.nome }}</span>
             </div>
             <div v-if="editandoPlaca" class="pic-campo">
               <label class="pic-label" for="pic-placa-edit">Digite a placa correta</label>
@@ -1368,14 +1368,15 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 .pic-faixa__preco {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 0 6px;
   text-align: right;
 
-  b { font-size: 18px; font-weight: 800; color: $c-ink; font-variant-numeric: tabular-nums; }
+  b { font-size: 18px; font-weight: 800; color: $c-ink; font-variant-numeric: tabular-nums; white-space: nowrap; }
 }
-.pic-faixa__de { font-size: 12px; color: $c-steel; text-decoration: line-through; }
+.pic-faixa__de { font-size: 12px; color: $c-steel; text-decoration: line-through; white-space: nowrap; }
 .pic-faixa__sub {
   display: inline-flex;
   align-items: center;
@@ -1385,6 +1386,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 .pic-faixa__placa { font-weight: 600; letter-spacing: 0.04em; color: $c-ink; }
 .pic-faixa__plano { text-align: right; font-size: 12px; color: $c-graphite; }
+.pic-faixa__promo { color: #14622f; font-weight: 700; }
 // Seletor duplo de proposito: o .pic-lapis base vem DEPOIS no arquivo e, com a
 // mesma especificidade, ganhava (40px/18px). O alvo de toque continua ~40px
 // pelo ::after invisivel, sem inflar a linha.
