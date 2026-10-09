@@ -3889,7 +3889,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     font-size: calc(13px * var(--rel-fs, 1));
 
     span { color: #3d3d3d; }
-    b { font-variant-numeric: tabular-nums; color: #1a1a1a; }
+    b { font-variant-numeric: tabular-nums; color: #1a1a1a; text-align: right; }
   }
 
   &__multas-r--texto { flex-direction: column; gap: 4px; }
