@@ -3,7 +3,7 @@ import { filtrarPeloNomeDoVeiculo } from '../../shared/versao-fipe'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { getSeguroEstimado } from './seguro-estimate'
 import { calcularICV5, inferirCategoria } from './icv5'
-import { escolherMelhorFipe, marcaDoRegistro, tabelaFipe, candidatoDaTabela, nomeDoModelo, type FipeMelhorCandidatoResultado } from './fipe-candidato'
+import { escolherMelhorFipe, marcaDoRegistro, marcaParaFipeApi, comCodigoModelo, tabelaFipe, candidatoDaTabela, nomeDoModelo, type FipeMelhorCandidatoResultado } from './fipe-candidato'
 
 // Valor FIPE, historico de depreciacao, seguro estimado e custo em 5 anos.
 //
@@ -38,6 +38,8 @@ export type ValorCusto = {
    * ficha diz "Valor FIPE: nao localizado para esta versao" em vez de sumir.
    */
   fipeNaoLocalizado?: boolean
+  /** Versao indicada pelo cliente na tela (camada 3, server/utils/fipe-escolha.ts). */
+  fipeEscolhaCliente?: { codigo_fipe: string; modelo: string; cambio: 'manual' | 'automatico' | null; em: string; trocas: number } | null
 }
 
 // Fatos do SENATRAN usados pelo funil do melhor-candidato. So disponiveis no
@@ -105,7 +107,11 @@ export async function getValorCusto(
   placa: string,
   uf?: string | null,
   municipio?: string | null,
-  fipeCandidatoOpts?: { senatran: FatosSenatranFipe; ativo: boolean; segmento?: Segmento },
+  fipeCandidatoOpts?: {
+    senatran: FatosSenatranFipe; ativo: boolean; segmento?: Segmento
+    /** Versao escolhida pelo cliente na tela (camada 3): pula o funil e usa esta. */
+    forcar?: { codigo_fipe: string; modelo: string; valor: number | null } | null
+  },
 ): Promise<ValorCusto | null> {
   const config = useRuntimeConfig()
   if (!config.placaApiToken) return null
@@ -138,7 +144,21 @@ export async function getValorCusto(
   // Melhor candidato via funil + Haiku: SO no fluxo pago (opts.ativo), com
   // fail-open total - qualquer problema aqui e `melhor` continua sendo o
   // score da wdapi de sempre.
-  if (fipeCandidatoOpts?.ativo) {
+  if (fipeCandidatoOpts?.forcar) {
+    // Escolha do cliente (manual x automatico): valor, historico, queda e
+    // seguro passam a ser os DESTA versao. codigo_modelo: o da fonte livre se
+    // ela trouxe essa versao; senao, resolvido pelo nome na fipe-api.
+    const f = fipeCandidatoOpts.forcar
+    const daFonte = (Array.isArray(dadosWdapi?.fipe?.dados) ? dadosWdapi.fipe.dados : []).find((d: any) => d?.codigo_fipe === f.codigo_fipe)
+    let codigoModelo: string | null = daFonte?.codigo_modelo ? String(daFonte.codigo_modelo) : null
+    if (!codigoModelo) {
+      const marca = marcaParaFipeApi(marcaDoRegistro(fipeCandidatoOpts.senatran?.descricaoMarcaModelo) || marcaExibicao(dados), tabela)
+      try {
+        codigoModelo = (await comCodigoModelo({ codigo_fipe: f.codigo_fipe, modelo: f.modelo, valor: f.valor, texto_valor: null, combustivel: null, mes_referencia: null }, marca, config.fipeApiUrl, config.fipeApiToken)).codigoModelo || null
+      } catch { codigoModelo = null }
+    }
+    melhor = { codigo_fipe: f.codigo_fipe, codigo_modelo: codigoModelo, texto_modelo: f.modelo, texto_valor: daFonte?.texto_valor || formatarReais(f.valor) }
+  } else if (fipeCandidatoOpts?.ativo) {
     try {
       const resultado = await escolherMelhorFipe({
         senatran: fipeCandidatoOpts.senatran,
