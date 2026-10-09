@@ -1401,7 +1401,7 @@ function applyEmailSuggestion() {
                  celular: em tela estreita a linha quebra e ele empilha
                  inteiro, em vez de ser cortado. -->
             <div class="cb-trust">
-              <span><i class="cb-dot" />Pagamento por Pix</span>
+              <span><i class="cb-dot" />{{ isCapacitor ? 'Pagamento pelo Google Play' : 'Pix ou cartão de crédito' }}</span>
               <span><i class="cb-dot" />Sem cadastro</span>
               <span class="cb-trust__leilao">
                 <i class="cb-dot" />
@@ -1640,7 +1640,7 @@ function applyEmailSuggestion() {
                         : `Ver o que essa placa revela · ${precoBRL(PLANOS.completa.valorCentavos)}` }}
                   </button>
                   <p v-if="blocoVarianteB" class="cb-locked__pix">{{ garantiaBlocoB }}</p>
-                  <p v-else class="cb-locked__pix">{{ isCapacitor ? 'Na hora, sem assinatura.' : 'Pix, na hora, sem assinatura.' }}</p>
+                  <p v-else class="cb-locked__pix">{{ isCapacitor ? 'Na hora, sem assinatura.' : 'Pix ou cartão, na hora, sem assinatura.' }}</p>
                   <!-- Oferta da basica desativada aqui: duas opcoes no mesmo
                        ponto dividiam a decisao. A basica segue viva no
                        comparativo de precos. Pra voltar, e so descomentar.
@@ -1808,8 +1808,8 @@ function applyEmailSuggestion() {
             <div class="cb-cmp-price">
               <template v-if="p.valorCentavos === 0">Grátis <small>na tela</small></template>
               <!-- Promocao (preco antigo riscado, shared/planos.ts): so na completa hoje. -->
-              <template v-else-if="precoDePromocao(p.id)"><PrecoPromo :plano="p.id" class="cb-cmp-promo" /> <small>{{ isCapacitor ? 'pagamento único' : 'Pix, uma vez' }}</small></template>
-              <template v-else>{{ precoBRL(p.valorCentavos) }} <small>{{ isCapacitor ? 'pagamento único' : 'Pix, uma vez' }}</small></template>
+              <template v-else-if="precoDePromocao(p.id)"><PrecoPromo :plano="p.id" class="cb-cmp-promo" /> <small>{{ isCapacitor ? 'pagamento único' : 'Pix ou cartão, uma vez' }}</small></template>
+              <template v-else>{{ precoBRL(p.valorCentavos) }} <small>{{ isCapacitor ? 'pagamento único' : 'Pix ou cartão, uma vez' }}</small></template>
             </div>
             <div class="cb-cmp-note">{{ p.chamada }}</div>
 
@@ -1896,7 +1896,7 @@ function applyEmailSuggestion() {
           </div>
           <div class="cb-step">
             <div class="cb-num">02</div>
-            <h3>Pague no Pix</h3>
+            <h3>{{ isCapacitor ? 'Pague pelo app' : 'Pague no Pix ou no cartão' }}</h3>
             <p>Uma vez. Sem assinatura, sem pegadinhas.</p>
           </div>
           <div class="cb-step">
@@ -1956,9 +1956,9 @@ function applyEmailSuggestion() {
           </div>
           <div class="cb-guar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-            Não achou o veículo? Estorno automático no Pix.
+            Não achou o veículo? O valor volta automático, no Pix ou no cartão.
           </div>
-          <div class="cb-cta-sub">Pix · na hora · sem cadastro</div>
+          <div class="cb-cta-sub">Pix ou cartão · na hora · sem cadastro</div>
         </div>
       </section>
 
@@ -1991,7 +1991,7 @@ function applyEmailSuggestion() {
       <!-- ===== CTA FINAL ===== -->
       <section class="cb-final">
         <h2>Antes de fechar negócio, olhe a placa.</h2>
-        <p>O que o vendedor não conta, o relatório revela. Na hora, no Pix.</p>
+        <p>O que o vendedor não conta, o relatório revela. Na hora, no Pix ou no cartão.</p>
         <button type="button" class="cb-btn cb-btn--on-slab cb-btn--lg" @click="consultFromGrid('completa')">
           Ver relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
         </button>

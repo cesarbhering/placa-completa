@@ -34,8 +34,8 @@ const precoCompleta = precoBRL(PLANOS.completa.valorCentavos)
       <div class="win-window__body hvg__price-body">
         <p class="hvg__price"><span class="hvg__price-val">{{ precoCompleta }}</span> <small>/ consulta</small></p>
         <p class="hvg__price-txt">
-          Pagamento único no Pix. Sem assinatura, sem pegadinha.
-          Sem o relatório, o valor volta automático no Pix.
+          Pagamento único, no Pix ou no cartão. Sem assinatura, sem pegadinha.
+          Sem o relatório, o valor volta automático, no Pix ou no cartão.
         </p>
         <button type="button" class="win-btn win-btn--primary win-btn--block" @click="$emit('consult')">
           Consultar agora
@@ -49,8 +49,8 @@ const precoCompleta = precoBRL(PLANOS.completa.valorCentavos)
       <div class="win-window__body">
         <ul class="hvg__trust">
           <li><i class="hvg__dot" aria-hidden="true">◆</i> Informação confiável e sempre atualizada.</li>
-          <li><i class="hvg__dot" aria-hidden="true">◆</i> Não achou o veículo? Estorno automático no Pix.</li>
-          <li><i class="hvg__dot" aria-hidden="true">◆</i> Pagamento via Pix, sem guardar dados de cartão.</li>
+          <li><i class="hvg__dot" aria-hidden="true">◆</i> Não achou o veículo? Estorno automático, no Pix ou no cartão.</li>
+          <li><i class="hvg__dot" aria-hidden="true">◆</i> Pix ou cartão de crédito. No cartão, quem processa é a Stripe: não guardamos os dados do cartão.</li>
           <li><i class="hvg__dot" aria-hidden="true">◆</i> Relatório com link privado, só seu.</li>
         </ul>
       </div>
