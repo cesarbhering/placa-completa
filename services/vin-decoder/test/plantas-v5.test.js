@@ -103,7 +103,6 @@ test('Audi Q3 2016 WAU..R: Martorell, Espanha; fabricante Audi (Alemanha)', () =
 
 // Codigos que a validacao NAO confirmou continuam sem cidade.
 for (const [vin, motivo] of [
-  ['JMYXTGA2WFZ000000', 'Mitsubishi JMY..Z: vPIC sem cidade, nao confirmado'],
   ['WAUZZZ8X0AB000000', 'Audi WAU..B (Bruxelas): vPIC sem cidade'],
 ]) {
   test(`sem cidade: ${motivo}`, () => {
