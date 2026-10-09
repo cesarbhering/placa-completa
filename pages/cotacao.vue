@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 const route = useRoute()
 const token = computed(() => String(route.query.c || ''))
 
@@ -72,7 +73,8 @@ async function submit() {
 }
 
 useHead({
-  title: 'Cotação de Seguro',
+  title: escolherTitulo(['Cotação de Seguro de Carro pela Placa']),
+  titleTemplate: '%s',
   meta: [{ name: 'robots', content: 'noindex, nofollow' }],
 })
 </script>

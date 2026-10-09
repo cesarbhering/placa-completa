@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { DESCRICOES } from '~/shared/seo-meta'
 useHead({
-  title: 'Sobre o PlacaCompleta: Quem Somos, Fontes de Dados e Metodologia',
+  title: escolherTitulo(['Sobre o PlacaCompleta: Quem Somos, Fontes de Dados e Metodologia', 'Sobre o PlacaCompleta: Quem Somos, Fontes e Metodologia']),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: DESCRICOES.sobre },
     { property: 'og:title', content: 'Sobre o PlacaCompleta: Metodologia e Privacidade' },

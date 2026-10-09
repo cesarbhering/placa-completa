@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { DESCRICOES } from '~/shared/seo-meta'
 function onCtaClick() {
   if (import.meta.client && window.gtag) {
@@ -7,7 +8,8 @@ function onCtaClick() {
 }
 
 useHead({
-  title: 'Como Consultar Placa de Veículo: Passo a Passo',
+  title: escolherTitulo(['Como Consultar Placa de Veículo: Passo a Passo', 'Como Consultar Placa: Passo a Passo']),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: DESCRICOES.comoConsultarPlaca },
     { name: 'keywords', content: 'como consultar placa, como pesquisar placa de carro, como verificar placa, consulta de placa com leilão e gravame, passo a passo consulta placa' },

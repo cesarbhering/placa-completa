@@ -1,3 +1,4 @@
+import { escolherTitulo } from './seo-titulo'
 // Title e description das paginas /tabela-fipe/* (plano SEO 02/out, item #2).
 // MT-03 e Lander tinham 7 mil e 5 mil impressoes com CTR de 0,04%: a busca e
 // "tabela fipe <modelo> <ano>", e o title falava do mes, nao do ano-modelo.
@@ -31,12 +32,17 @@ export function faixaFipe(tabela: LinhaFipe[]) {
 /** "Honda Motos" vira "Honda" no title/description do MODELO (a busca e "fipe bros 160"). */
 export const marcaCurta = (marca: string) => marca.replace(/\s+Motos$/i, '')
 
+/**
+ * Title FINAL (com ou sem " | PlacaCompleta", 50 a 60 caracteres: ver
+ * shared/seo-titulo.ts). A pagina usa titleTemplate '%s'.
+ */
 export function tituloModelo(marcaBruta: string, modelo: string, tabela: LinhaFipe[], anoAtual: number): string {
   const marca = marcaCurta(marcaBruta)
   const ano = anoMaisRecente(tabela, anoAtual)
-  return ano
-    ? `Tabela FIPE ${marca} ${modelo} ${ano}: Valor Atualizado`
-    : `Tabela FIPE ${marca} ${modelo}: Valor Atualizado por Ano`
+  const base = `Tabela FIPE ${marca} ${modelo}`
+  return escolherTitulo(ano
+    ? [`${base} ${ano}: Valor Atualizado`, `${base} ${ano}: Valor por Ano`, `${base} ${ano}`, `Tabela FIPE ${modelo} ${ano}: Valor Atualizado`, `Tabela FIPE ${modelo} ${ano}`, `FIPE ${modelo} ${ano}`]
+    : [`${base}: Valor Atualizado por Ano`, `${base}: Valor Atualizado`, base, `Tabela FIPE ${modelo}: Valor Atualizado`, `Tabela FIPE ${modelo}`])
 }
 
 export function descricaoModelo(marcaBruta: string, modelo: string, tabela: LinhaFipe[]): string {
@@ -48,7 +54,12 @@ export function descricaoModelo(marcaBruta: string, modelo: string, tabela: Linh
 }
 
 export function tituloMarca(marca: string, anoAtual: number): string {
-  return `Tabela FIPE ${marca} ${anoAtual}: Valor Atualizado dos Modelos`
+  return escolherTitulo([
+    `Tabela FIPE ${marca} ${anoAtual}: Valor Atualizado dos Modelos`,
+    `Tabela FIPE ${marca} ${anoAtual}: Valor dos Modelos`,
+    `Tabela FIPE ${marca} ${anoAtual}: Valor Atualizado`,
+    `Tabela FIPE ${marca} ${anoAtual}`,
+  ])
 }
 
 /**

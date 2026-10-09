@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tituloTipoVeiculo } from '~/shared/seo-meta'
 import { GENERICAS } from '~/shared/enriquecimento-regional'
 import { vehicleTypes } from '~/data/vehicle-types'
 
@@ -20,7 +21,8 @@ function onCtaClick() {
 }
 
 useHead({
-  title: data.metaTitle,
+  title: tituloTipoVeiculo(data.metaTitle, data.name),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: data.metaDescription },
     { name: 'keywords', content: `consultar placa de ${data.name.toLowerCase()}, consulta placa ${data.name.toLowerCase()}, placa de ${data.name.toLowerCase()} grátis` },

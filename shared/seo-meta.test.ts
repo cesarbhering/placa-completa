@@ -5,8 +5,11 @@ import {
   DESCRICOES, descricaoNaFaixa, problemaNoTitulo, descricaoTabelaFipePorPlaca, descricaoCapital,
   descricaoLeilaoModelo, descricaoSeguroEletrico, descricaoSeguroEletricoEstado, DESCRICAO_MAX,
 } from './seo-meta'
-import { descricaoMarca, descricaoModelo } from './fipe-seo'
-import { descricaoEstado } from './estado-seo'
+import { descricaoMarca, descricaoModelo, tituloMarca, tituloModelo } from './fipe-seo'
+import { descricaoEstado, tituloEstado } from './estado-seo'
+import { escolherTitulo, TITULO_MIN, TITULO_MAX } from './seo-titulo'
+import { tituloCapital, tituloSeguroEletricoEstado, tituloLeilaoModelo, tituloTipoVeiculo } from './seo-meta'
+import fipePrices from '../data/fipe-prices.json'
 import { MODELOS_LEILAO } from './leilao-modelos'
 import { PAGINAS_COMPRA } from './cluster-compra'
 import { ARTIGOS } from './artigos-o-que-e'
@@ -111,5 +114,77 @@ describe('titulos', () => {
       }
     }
     expect(ruins).toEqual([])
+  })
+})
+
+// Titles: 50 a 60 caracteres NO TOTAL (com a marca quando couber). Cada rota
+// programatica e calculada aqui como a pagina calcula.
+function todosOsTitulos(): [string, string][] {
+  const out: [string, string][] = []
+  const precos = fipePrices as Record<string, any>
+  for (const b of Object.values(fipeBrands)) {
+    out.push([`/tabela-fipe/${b.slug}`, tituloMarca(b.name, 2026)])
+    for (const m of b.models) {
+      const tabela = precos[`${b.slug}-${m.slug}`]?.priceTable || precos[m.slug]?.priceTable || []
+      out.push([`/tabela-fipe/${b.slug}-${m.slug}`, tituloModelo(b.name, m.name, tabela, 2026)])
+    }
+  }
+  for (const s of Object.values(states)) {
+    out.push([`/consultar-placa/${s.slug}`, tituloEstado(s.uf, s.name)])
+    out.push([`/seguro/carro-eletrico/${s.slug}`, tituloSeguroEletricoEstado(s.uf, s.name, 2022)])
+  }
+  for (const c of Object.values(capitals)) out.push([`/consultar-placa/capital/${c.slug}`, tituloCapital(c.name, states[c.stateSlug]?.uf || '??')])
+  for (const m of MODELOS_LEILAO) out.push([`/carro-de-leilao/${m.slug}`, tituloLeilaoModelo(m.title, m.nome)])
+  for (const p of ibvPosts) out.push([`/ibv/${p.slug}`, escolherTitulo([p.seoTitle, p.title])])
+  for (const p of blogPosts) out.push([`/blog/${p.slug}`, escolherTitulo([p.title])])
+  for (const a of ARTIGOS) out.push([`/o-que-e/${a.slug}`, escolherTitulo([a.title])])
+  for (const p of PAGINAS_COMPRA) out.push([p.rota, escolherTitulo([p.title])])
+  for (const [slug, v] of Object.entries(vehicleTypes)) out.push([`/consultar-placa-de-${slug}`, tituloTipoVeiculo((v as any).metaTitle, (v as any).name)])
+  return out
+}
+
+describe('titles das paginas programaticas', () => {
+  const todos = todosOsTitulos()
+  it(`entre ${TITULO_MIN} e ${TITULO_MAX} caracteres no total`, () => {
+    const fora = todos.filter(([, t]) => t.length < TITULO_MIN || t.length > TITULO_MAX).map(([r, t]) => `${r} (${t.length}): ${t}`)
+    expect(fora).toEqual([])
+  })
+  it('sem marca duplicada e sem travessao', () => {
+    const ruins = todos.filter(([, t]) => /PlacaCompleta\s*\|\s*PlacaCompleta/.test(t) || t.includes('—')).map(([r, t]) => `${r}: ${t}`)
+    expect(ruins).toEqual([])
+  })
+  it('escolherTitulo: sufixo so quando cabe', () => {
+    expect(escolherTitulo(['Tabela FIPE Audi A3 2026: Valor Atualizado'])).toBe('Tabela FIPE Audi A3 2026: Valor Atualizado | PlacaCompleta')
+    expect(escolherTitulo(['Sobre o PlacaCompleta: Quem Somos, Fontes e Metodologia'])).toBe('Sobre o PlacaCompleta: Quem Somos, Fontes e Metodologia')
+    expect(escolherTitulo(['x'.repeat(80)]).length).toBeLessThanOrEqual(TITULO_MAX)
+  })
+})
+
+// Pagina indexavel: o title passa pela funcao (escolherTitulo ou titulo*), com
+// o template desligado. Literal solto volta a depender do sufixo automatico.
+describe('paginas usam o title final', () => {
+  it('todo title: de pagina indexavel passa por escolherTitulo/titulo*', () => {
+    const NOINDEX = /admin|dash|premium|woovi-teste|termos-de-uso|politica-de-privacidade|index\.vue$/
+    const arquivos: string[] = []
+    const varrer = (dir: string) => {
+      for (const f of readdirSync(dir)) {
+        const p = join(dir, f)
+        if (statSync(p).isDirectory()) varrer(p)
+        else if (p.endsWith('.vue')) arquivos.push(p)
+      }
+    }
+    varrer(join(__dirname, '..', 'pages'))
+    arquivos.push(join(__dirname, '..', 'components', 'PaginaCompra.vue'))
+    const soltos: string[] = []
+    for (const a of arquivos) {
+      if (NOINDEX.test(a.replace(/\\/g, '/')) && !/(ibv|o-que-e|consultar-placa|blog|tabela-fipe|carro-de-leilao|carro-eletrico)\/index\.vue$/.test(a)) continue
+      const src = readFileSync(a, 'utf8')
+      for (const linha of src.split('\n')) {
+        if (!/^\s{2}title:\s/.test(linha)) continue
+        if (/escolherTitulo\(|titulo[A-Z]\w*\(|isPWA/.test(linha)) continue
+        soltos.push(`${a}: ${linha.trim()}`)
+      }
+    }
+    expect(soltos).toEqual([])
   })
 })

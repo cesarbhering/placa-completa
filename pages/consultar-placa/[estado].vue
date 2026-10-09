@@ -38,6 +38,7 @@ function onCtaClick() {
 
 useHead({
   title: tituloEstado(data.uf, data.name),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: descricaoEstado(data.uf, data.name) },
     { name: 'keywords', content: `consulta placa detran ${data.uf.toLowerCase()}, consultar placa ${data.uf}, consulta placa ${data.name.toLowerCase()}, consultar veículo ${data.name.toLowerCase()}, consulta placa ${data.uf} leilão` },

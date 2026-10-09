@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { DESCRICOES } from '~/shared/seo-meta'
 import { ibvPosts } from '~/data/ibv-posts'
 
@@ -8,7 +9,8 @@ const ultimoIbv = [...ibvPosts]
   .sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1))[0]
 
 useHead({
-  title: 'Estudos e Dados do Mercado Automotivo',
+  title: escolherTitulo(['Estudos e Dados do Mercado Automotivo']),
+  titleTemplate: '%s',
   meta: [
     {
       name: 'description',

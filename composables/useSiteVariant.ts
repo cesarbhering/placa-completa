@@ -71,7 +71,8 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     // sozinho, a partir de site.name no nuxt.config. Escrever a marca no
     // texto fazia o titulo sair duplicado em producao.
     // 01/out (Cesar): distanciar do "gratis" nas superficies que Google/IA leem.
-    metaTitle: 'PlacaCompleta: Consulta de Placa, Leilão, Gravame, Roubo e Débitos',
+    // Title final (o index desliga o template): 50 a 60 caracteres com a marca.
+    metaTitle: 'Consulta de Placa: Leilão, Roubo e Débitos | PlacaCompleta',
     ogTitle: 'PlacaCompleta: Consulta de Placa, Leilão, Gravame, Roubo e Débitos',
     ogDescription: DESCRICOES.home,
   },

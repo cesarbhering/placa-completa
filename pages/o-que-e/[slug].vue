@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 // Artigos "O que e" (RENAVAM, gravame, RENAJUD, multas RENAINF). Conteudo e
 // regras de copy em shared/artigos-o-que-e.ts.
 import { ARTIGOS, artigoPorSlug, LEVANTAMENTO } from '~/shared/artigos-o-que-e'
@@ -21,7 +22,8 @@ function onCtaClick(origem: string) {
 }
 
 useHead({
-  title: artigo.title,
+  title: escolherTitulo([artigo.title]),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: artigo.description },
     { property: 'og:title', content: artigo.h1 },

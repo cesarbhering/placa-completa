@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { descricaoTabelaFipePorPlaca } from '~/shared/seo-meta'
 import { fipeBrands } from '~/data/fipe-brands'
 import { states } from '~/data/states'
@@ -95,7 +96,8 @@ const faqs = [
 ]
 
 useHead({
-  title: `Tabela FIPE pela Placa ${currentYear}: Valor FIPE Atualizado em Segundos`,
+  title: escolherTitulo([`Tabela FIPE pela Placa ${currentYear}: Valor FIPE Atualizado em Segundos`, `Tabela FIPE pela Placa ${currentYear}: Valor Atualizado`]),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: descricaoTabelaFipePorPlaca(currentMonth, currentYear) },
     { name: 'keywords', content: 'tabela FIPE por placa, valor FIPE pela placa, consultar FIPE pela placa, preço veículo por placa, fipe pela placa, tabela fipe pela placa, codigo fipe placa' },

@@ -108,7 +108,7 @@ export const PAGINAS_COMPRA: PaginaCompra[] = [
     rota: '/consulta-leilao-veiculo',
     termo: 'Consulta de leilão',
     h1: 'Consulta de leilão de veículo pela placa',
-    title: 'Consulta de Leilão de Veículo pela Placa e Chassi',
+    title: 'Consulta de Leilão pela Placa e Chassi',
     description: 'Como consultar se um veículo passou por leilão: registro no documento, editais de DETRAN e catálogos de leiloeiras. Veja o que a consulta pela placa encontra.',
     lead: 'A consulta de leilão cruza a placa e o chassi do veículo com registros de leilão: o indicador que consta no registro nacional e uma base própria montada a partir de editais de DETRANs e catálogos de leiloeiras. Ela diz se existe registro compatível e de que tipo, para você negociar sabendo.',
     secoes: [
