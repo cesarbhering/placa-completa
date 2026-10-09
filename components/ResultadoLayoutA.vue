@@ -145,6 +145,8 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
       <section class="la-acao" aria-label="Liberar o relatório completo">
         <!-- Botao NO TOPO do card (Cesar 28/set): em notebook ele ficava abaixo
              da dobra e exigia scroll. Agora aparece antes do titulo, sem rolar. -->
+        <!-- Preco antigo riscado (shared/planos.ts): igual em todas as variantes. -->
+        <div class="la-cta-promo"><PrecoPromo so-de /></div>
         <button ref="ctaRef" class="la-cta" type="button" @click="emit('comprar')">
           <span v-if="leilaoEncontrado && soNotificacao">Ver a notificação e o relatório · {{ precoCompleta }}</span>
           <span v-else-if="leilaoEncontrado">Ver o leilão e o relatório · {{ precoCompleta }}</span>
@@ -315,6 +317,7 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 .la-cta { width:100%; min-height:60px; border:0; border-radius:12px; background:var(--la-blue); color:#fff; font:inherit; font-size:18px; font-weight:800; cursor:pointer; box-shadow:0 6px 16px rgba(31,91,216,.28); }
 .la-cta:hover { background:var(--la-blue-dark); }
 .la-cta-nota { text-align:center; font-size:13px; color:var(--la-muted); }
+.la-cta-promo { display:flex; justify-content:center; font-size:15px; margin-bottom:8px; }
 .la-acao-basica { margin:0; font-size:13px; color:var(--la-muted); }
 .la-garantia { display:flex; gap:12px; align-items:flex-start; padding:14px; border-radius:12px; background:var(--la-green-bg); border:1px solid var(--la-green-line); font-size:14px; line-height:1.45; color:var(--la-green-ink); }
 
