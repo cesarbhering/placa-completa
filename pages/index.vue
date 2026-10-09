@@ -2,7 +2,7 @@
 import { SAME_AS } from '~/shared/redes-sociais'
 import { BASE_LEILAO_QTD, BASE_LEILAO_TEXTO, BASE_LEILAO_TEXTO_INICIO } from '~/shared/base-leilao'
 import { cederAoNavegador } from '~/shared/ceder'
-import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL } from '~/shared/planos'
+import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL, precoDePromocao } from '~/shared/planos'
 import { sinalDaResposta, fraseSinalNaTela, type SinalNaTela } from '~/shared/sinal-leilao-resposta'
 import { sinalRecallDaResposta, fraseRecallNaTela } from '~/shared/sinal-recall-resposta'
 import { marcaTemRecallGratis, marcaParaMedicao } from '~/shared/marcas-recall'
@@ -1628,6 +1628,8 @@ function applyEmailSuggestion() {
                   <!-- Variante B: preco sai do botao e desce pra linha de
                        baixo, junto do prazo e do estorno. O botao passa a
                        prometer a RESPOSTA ("da pra confiar?"), nao o produto. -->
+                  <!-- Preco antigo riscado: igual nas duas variantes do A/B. -->
+                  <p class="cb-locked__promo"><PrecoPromo /></p>
                   <button type="button" class="cb-btn cb-btn--blue" @click="cliqueCtaCompleta('bloco_bloqueado')">
                     {{ blocoVarianteB
                       ? 'Saber se posso confiar neste carro'
@@ -1805,6 +1807,8 @@ function applyEmailSuggestion() {
             <div class="cb-cmp-kick">{{ p.nome }}</div>
             <div class="cb-cmp-price">
               <template v-if="p.valorCentavos === 0">Grátis <small>na tela</small></template>
+              <!-- Promocao (preco antigo riscado, shared/planos.ts): so na completa hoje. -->
+              <template v-else-if="precoDePromocao(p.id)"><PrecoPromo :plano="p.id" class="cb-cmp-promo" /> <small>{{ isCapacitor ? 'pagamento único' : 'Pix, uma vez' }}</small></template>
               <template v-else>{{ precoBRL(p.valorCentavos) }} <small>{{ isCapacitor ? 'pagamento único' : 'Pix, uma vez' }}</small></template>
             </div>
             <div class="cb-cmp-note">{{ p.chamada }}</div>
@@ -1940,6 +1944,7 @@ function applyEmailSuggestion() {
         <!-- Ordem: manchete -> botao -> garantia. Os dois eram inline-flex e
              caiam lado a lado na mesma linha. -->
         <div class="cb-price-card">
+          <p class="cb-price-promo"><PrecoPromo /></p>
           <p class="cb-price-big">
             {{ precoBRL(PLANOS.completa.valorCentavos) }}
             <span class="cb-mut">para não perder</span> R$ 45 mil.
@@ -3517,6 +3522,22 @@ function applyEmailSuggestion() {
   }
 
   .cb-cmp-note { font-size: 14px; line-height: 1.5; color: $c-charcoal; margin-bottom: $s-md; }
+
+  // Promocao (preco antigo riscado) no card da escada: o "de" fica menor.
+  .cb-cmp-promo {
+    :deep(.pp__de) { font-size: 18px; }
+    :deep(.pp__tag) { font-size: 11px; }
+  }
+
+  .cb-price-promo {
+    margin: 0 0 $s-xs;
+    font-size: 16px;
+  }
+
+  .cb-locked__promo {
+    margin: 0 0 8px;
+    font-size: 15px;
+  }
 
   // Pill "Tudo da consulta X, e mais:" — cards em heranca (Opcao C): so
   // aparece nos planos pagos, que herdam do anterior na escada.
