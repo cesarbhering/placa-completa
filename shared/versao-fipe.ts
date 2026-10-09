@@ -76,6 +76,12 @@ export function versaoDoNome(descricao: string | null | undefined): VersaoDoNome
           versoes = SINONIMOS[colada[1]] || [colada[1]]
           if (!motor) motor = `${colada[2]}.${colada[3]}`
         }
+        // Motorizacao antes da versao: "MARCH 16SV" -> 1.6 + SV.
+        const antes = n.match(/^(\d)(\d)([A-Z]{2,})$/)
+        if (!versoes.length && antes && VERSOES.has(antes[3])) {
+          versoes = SINONIMOS[antes[3]] || [antes[3]]
+          if (!motor) motor = `${antes[1]}.${antes[2]}`
+        }
       }
     }
   }

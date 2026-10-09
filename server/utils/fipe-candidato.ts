@@ -14,6 +14,7 @@
 
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
+import { cambioDoNome, versaoFipeManual, versaoFipeAutomatica } from '../../shared/cambio-nome'
 import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome } from '../../shared/versao-fipe'
 
 export { codigoDaTabela, type TabelaFipe }
@@ -415,21 +416,19 @@ function carroceriaDaDescricao(descricaoMarcaModelo: unknown): Carroceria {
 
 type Transmissao = 'manual' | 'automatico' | null
 
-// SENATRAN as vezes gruda o cambio na cilindrada ("1.4MT", sem espaco) -
-// por isso o (^|[^A-Z]) no lugar de \b antes de MT/AT/CVT.
+// Cambio do nome do cadastro (camada 1): dicionario por marca em
+// shared/cambio-nome.ts ("1.4MT", "10TAT", Hyundai "1.6M", AT6, CVT, DCT...).
 function transmissaoDaDescricao(descricaoMarcaModelo: unknown): Transmissao {
-  const texto = String(descricaoMarcaModelo || '').toUpperCase()
-  if (/(?:^|[^A-Z])MT\b/.test(texto)) return 'manual'
-  if (/(?:^|[^A-Z])(AT|CVT)\b/.test(texto)) return 'automatico'
-  return null
+  return cambioDoNome(String(descricaoMarcaModelo || ''))
 }
 
 export function candidatoEManual(modelo: string): boolean {
-  return /\bMec\b|\bMec\./i.test(modelo)
+  return versaoFipeManual(modelo)
 }
 
+/** Aut. e os automatizados que a FIPE nomeia pelo sistema (Dualogic, I-Motion...). */
 export function candidatoEAutomatico(modelo: string): boolean {
-  return /\bAut\b|\bAut\./i.test(modelo)
+  return versaoFipeAutomatica(modelo)
 }
 
 // SENATRAN codigo de combustivel (RENAVAM) -> so os casos CLAROS e de valor
