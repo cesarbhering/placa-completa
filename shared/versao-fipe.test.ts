@@ -60,3 +60,58 @@ describe('filtrarPelaVersaoDoNome', () => {
     expect(candidatoTemVersaoDoNome('qualquer', [])).toBe(true)
   })
 })
+
+import { modeloDoNome, candidatoEDoModelo, filtrarPeloModeloDoNome, versoesParaExibir } from './versao-fipe'
+
+describe('modelo do nome', () => {
+  it('extrai o modelo, pulando NOVO/NOVA', () => {
+    expect(modeloDoNome('CHEV/TRACKER T A')).toBe('TRACKER')
+    expect(modeloDoNome('VW/NOVO GOL 1.0')).toBe('GOL')
+    expect(modeloDoNome('I/BMW 320I')).toBe('320I')
+    expect(modeloDoNome('HONDA/PCX 150 DLX ABS')).toBe('PCX')
+    expect(modeloDoNome(null)).toBeNull()
+  })
+  it('casa abreviacao e hifen, nao casa outro modelo', () => {
+    expect(candidatoEDoModelo('Tracker Premier 1.2 Turbo Aut.', 'TRACKER')).toBe(true)
+    expect(candidatoEDoModelo('ONIX HATCH LT 1.0 12V Flex 5p Mec.', 'TRACKER')).toBe(false)
+    expect(candidatoEDoModelo('C-180 Kompressor', 'C180')).toBe(true)
+    expect(candidatoEDoModelo('320iA 2.0 Turbo', '320I')).toBe(true)
+    expect(candidatoEDoModelo('Gol (novo) 1.0 Mi Total Flex 8V 4p', 'GOL')).toBe(true)
+  })
+  it('funil: zerou, volta a lista', () => {
+    const onix = [{ modelo: 'ONIX HATCH LT 1.0' }, { modelo: 'ONIX HATCH 1.0 TB' }]
+    expect(filtrarPeloModeloDoNome(onix, 'CHEV/TRACKER T A')).toEqual(onix)
+    expect(filtrarPeloModeloDoNome([...onix, { modelo: 'Tracker LT 1.0 Turbo' }], 'CHEV/TRACKER T A')).toEqual([{ modelo: 'Tracker LT 1.0 Turbo' }])
+  })
+})
+
+describe('versoesParaExibir (relatorio)', () => {
+  it('TTR6F65: TRACKER com shortlist so de ONIX nao mostra nada', () => {
+    expect(versoesParaExibir([{ modelo: 'ONIX HATCH LT 1.0 12V Flex 5p Mec.' }, { modelo: 'ONIX HATCH 1.0 12V TB 5p Mec.' }], 'CHEV/TRACKER T A')).toEqual([])
+  })
+  it('FZK5F28: PCX nao lista CB/NC/XRE', () => {
+    expect(versoesParaExibir([{ modelo: 'CB 1000R/ABS' }, { modelo: 'NC 750X/NC 750X ABS/DCT' }, { modelo: 'XRE 300/ 300 ABS/ FLEX' }], 'HONDA/PCX 150 DLX ABS')).toEqual([])
+    expect(versoesParaExibir([{ modelo: 'CB 1000R/ABS' }, { modelo: 'PCX 150/DLX' }], 'HONDA/PCX 150 DLX ABS')).toEqual([{ modelo: 'PCX 150/DLX' }])
+  })
+  it('GMF8I88: SAVEIRO CS nao lista CD', () => {
+    const lista = [
+      { modelo: 'Saveiro Extreme 1.6 Flex 16V CD' }, { modelo: 'Saveiro Robust 1.6 Total Flex 16V' },
+      { modelo: 'Saveiro Robust 1.6 Total Flex 16V CD' }, { modelo: 'Saveiro Trendline 1.6 Total Flex 16V' },
+    ]
+    expect(versoesParaExibir(lista, 'VW/SAVEIRO CS RB MF').map((c) => c.modelo)).toEqual(['Saveiro Robust 1.6 Total Flex 16V'])
+  })
+  it('Corolla XEi continua sem o SE-G', () => {
+    const l = [{ modelo: 'Corolla XEi 1.8/1.8 Flex 16V Aut.' }, { modelo: 'Corolla SE-G 1.8/1.8 Flex 16V Aut.' }]
+    expect(versoesParaExibir(l, 'TOYOTA/COROLLA XEI18VVT')).toEqual([l[0]])
+  })
+})
+
+describe('Saveiro RB = Robust (GMF8I88)', () => {
+  it('RB no nome fica so com Robust, e CS tira a CD', () => {
+    const lista = [
+      { modelo: 'Saveiro Extreme 1.6 Flex 16V CD' }, { modelo: 'Saveiro Robust 1.6 Total Flex 16V' },
+      { modelo: 'Saveiro Robust 1.6 Total Flex 16V CD' }, { modelo: 'Saveiro Trendline 1.6 Total Flex 16V' },
+    ]
+    expect(versoesParaExibir(lista, 'VW/SAVEIRO CS RB MF').map((c) => c.modelo)).toEqual(['Saveiro Robust 1.6 Total Flex 16V'])
+  })
+})

@@ -14,7 +14,7 @@
 
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
-import { filtrarPelaVersaoDoNome, versaoDoNome, candidatoTemVersaoDoNome } from '../../shared/versao-fipe'
+import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome } from '../../shared/versao-fipe'
 
 export { codigoDaTabela, type TabelaFipe }
 
@@ -72,6 +72,9 @@ export interface FipeMelhorCandidatoInput {
 
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
 const HAIKU_TIMEOUT_MS = 3000
+// fipe-api tem timeout proprio: a frio ela passou de 3 s, o funil caia no
+// fallback e o valor virava o melhor score da fonte livre.
+export const FIPE_API_TIMEOUT_MS = 8000
 
 // ---------------------------------------------------------------------------
 // Universo: fipe-api (marca/ano) UNIAO com os candidatos da wdapi.
@@ -97,7 +100,7 @@ async function buscarUniversoFipeApi(
   if (!marca || !ano || !fipeApiUrl) return null
   const url = `${fipeApiUrl}/modelos?marca=${encodeURIComponent(marca)}&ano=${encodeURIComponent(String(ano))}`
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), HAIKU_TIMEOUT_MS)
+  const timeout = setTimeout(() => controller.abort(), FIPE_API_TIMEOUT_MS)
   try {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${fipeApiToken}` },
@@ -285,10 +288,11 @@ function unirUniverso(a: FipeCandidato[], b: FipeCandidato[]): FipeCandidato[] {
   return [...porCodigo.values()]
 }
 
-function melhorScoreWdapi(wdapi: any, tabela: TabelaFipe = 'carros', nome: string | null = null): FipeCandidato | null {
-  const dados = Array.isArray(wdapi?.fipe?.dados)
+function melhorScoreWdapi(wdapi: any, tabela: TabelaFipe = 'carros', nome: string | null = null, descricao: string | null = null): FipeCandidato | null {
+  const daTabela = Array.isArray(wdapi?.fipe?.dados)
     ? wdapi.fipe.dados.filter((d: any) => candidatoDaTabela(d?.codigo_fipe, d?.texto_modelo, tabela, nome))
     : null
+  const dados = daTabela && descricao ? filtrarPeloNomeDoVeiculo(daTabela, descricao, (d: any) => String(d?.texto_modelo || '')) : daTabela
   if (!Array.isArray(dados) || !dados.length) return null
   const melhor = dados.reduce((best: any, item: any) => ((item?.score || 0) > (best?.score || 0) ? item : best), dados[0])
   if (!melhor?.codigo_fipe) return null
@@ -587,6 +591,9 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
 
   if (fatos.caminhao) return filtrarCaminhao(restantes, fatos)
 
+  // Modelo do nome primeiro: TRACKER nao pode terminar com ONIX (TTR6F65).
+  restantes = filtrarPeloModeloDoNome(restantes, fatos.descricao)
+
   if (fatos.litragem.length) {
     const porLitragem = restantes.filter((c) => candidatoTemLitragem(c.modelo, fatos.litragem))
     if (porLitragem.length) restantes = porLitragem
@@ -777,7 +784,7 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
   const tabela = tabelaFipe(input.senatran, input.wdapi, input.segmento)
   const nome = nomeDoModelo(input.senatran, input.wdapi)
   const fallback = (): FipeMelhorCandidatoResultado => ({
-    escolhido: melhorScoreWdapi(input.wdapi, tabela, nome),
+    escolhido: melhorScoreWdapi(input.wdapi, tabela, nome, input.senatran?.descricaoMarcaModelo ?? null),
     decididoPor: 'fallback',
     candidatos: [],
   })
