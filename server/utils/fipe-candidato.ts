@@ -14,7 +14,7 @@
 
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
-import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, versaoDoNome, candidatoTemVersaoDoNome } from '../../shared/versao-fipe'
+import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome } from '../../shared/versao-fipe'
 
 export { codigoDaTabela, type TabelaFipe }
 
@@ -285,10 +285,11 @@ function unirUniverso(a: FipeCandidato[], b: FipeCandidato[]): FipeCandidato[] {
   return [...porCodigo.values()]
 }
 
-function melhorScoreWdapi(wdapi: any, tabela: TabelaFipe = 'carros', nome: string | null = null): FipeCandidato | null {
-  const dados = Array.isArray(wdapi?.fipe?.dados)
+function melhorScoreWdapi(wdapi: any, tabela: TabelaFipe = 'carros', nome: string | null = null, descricao: string | null = null): FipeCandidato | null {
+  const daTabela = Array.isArray(wdapi?.fipe?.dados)
     ? wdapi.fipe.dados.filter((d: any) => candidatoDaTabela(d?.codigo_fipe, d?.texto_modelo, tabela, nome))
     : null
+  const dados = daTabela && descricao ? filtrarPeloNomeDoVeiculo(daTabela, descricao, (d: any) => String(d?.texto_modelo || '')) : daTabela
   if (!Array.isArray(dados) || !dados.length) return null
   const melhor = dados.reduce((best: any, item: any) => ((item?.score || 0) > (best?.score || 0) ? item : best), dados[0])
   if (!melhor?.codigo_fipe) return null
@@ -780,7 +781,7 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
   const tabela = tabelaFipe(input.senatran, input.wdapi, input.segmento)
   const nome = nomeDoModelo(input.senatran, input.wdapi)
   const fallback = (): FipeMelhorCandidatoResultado => ({
-    escolhido: melhorScoreWdapi(input.wdapi, tabela, nome),
+    escolhido: melhorScoreWdapi(input.wdapi, tabela, nome, input.senatran?.descricaoMarcaModelo ?? null),
     decididoPor: 'fallback',
     candidatos: [],
   })

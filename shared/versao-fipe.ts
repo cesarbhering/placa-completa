@@ -175,3 +175,20 @@ export function versoesParaExibir<T extends { modelo: string }>(lista: T[], desc
   }
   return filtrarPelaVersaoDoNome(restantes, descricao)
 }
+
+/**
+ * Funil pelo nome inteiro (modelo, cabine, versao, motorizacao), cada passo
+ * voltando a lista de antes quando zera. Usado onde nao ha funil completo: o
+ * melhor score da fonte livre no fallback (fipe-api fora/lenta). Sem isso o
+ * fallback de uma "SAVEIRO CS" era a Saveiro Extreme CD.
+ */
+export function filtrarPeloNomeDoVeiculo<T>(lista: T[], descricao: string | null | undefined, nomeDe: (x: T) => string): T[] {
+  const comModelo = lista.map((x) => ({ x, modelo: nomeDe(x) }))
+  let r = filtrarPeloModeloDoNome(comModelo, descricao)
+  const cabine = cabineDoNome(descricao)
+  if (cabine) {
+    const porCabine = r.filter((c) => candidatoTemCabine(c.modelo, cabine))
+    if (porCabine.length) r = porCabine
+  }
+  return filtrarPelaVersaoDoNome(r, descricao).map((c) => c.x)
+}

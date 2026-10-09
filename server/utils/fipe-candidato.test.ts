@@ -632,3 +632,21 @@ describe('modelo do nome no funil (caso TTR6F65, Tracker)', () => {
     expect(r.candidatos.map((c) => c.codigo_fipe)).toEqual(['004540-3'])
   })
 })
+
+describe('fallback respeita o nome (caso GMF8I88, Saveiro CS)', () => {
+  beforeEach(() => { vi.unstubAllGlobals() })
+  it('fipe-api fora: o melhor score da fonte nao pode ser a cabine dupla', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('timeout') }))
+    const r = await escolherMelhorFipe({
+      senatran: { descricaoMarcaModelo: 'VW/SAVEIRO CS RB MF', anoModelo: 2024, cilindrada: 1598, descricaoTipoVeiculo: 'CAMINHONETE' },
+      wdapi: { marca: 'VW', anoModelo: '2024', fipe: { dados: [
+        { score: 61, codigo_fipe: '005546-8', texto_marca: 'VW - VolksWagen', texto_modelo: 'Saveiro Extreme 1.6 Flex 16V CD', texto_valor: 'R$ 99.871,00' },
+        { score: 61, codigo_fipe: '005538-7', texto_marca: 'VW - VolksWagen', texto_modelo: 'Saveiro Robust 1.6 Total Flex 16V ', texto_valor: 'R$ 74.795,00' },
+        { score: 61, codigo_fipe: '005537-9', texto_marca: 'VW - VolksWagen', texto_modelo: 'Saveiro Robust 1.6 Total Flex 16V CD', texto_valor: 'R$ 85.210,00' },
+      ] } },
+      fipeApiUrl: 'http://fipe', fipeApiToken: 't',
+    })
+    expect(r.decididoPor).toBe('fallback')
+    expect(r.escolhido?.codigo_fipe).toBe('005538-7')
+  })
+})

@@ -1,4 +1,5 @@
 import { getRegiaoSusep } from './regiao-susep'
+import { filtrarPeloNomeDoVeiculo } from '../../shared/versao-fipe'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { getSeguroEstimado } from './seguro-estimate'
 import { calcularICV5, inferirCategoria } from './icv5'
@@ -127,7 +128,11 @@ export async function getValorCusto(
   if (semFipeNaFonte && !fipeCandidatoOpts?.ativo) return null
   const dados: any = dadosWdapi || {}
 
-  let melhor: any = semFipeNaFonte ? null : lista!.reduce((b: any, i: any) => ((i.score || 0) > (b.score || 0) ? i : b), lista![0])
+  // Melhor score da fonte entre os que batem com o nome do registro (modelo,
+  // cabine, versao): e o valor que fica quando o funil nao roda ou cai no
+  // fallback. Cada filtro volta a lista de antes quando zera.
+  const candidatosDoNome = semFipeNaFonte ? [] : filtrarPeloNomeDoVeiculo(lista!, fipeCandidatoOpts?.senatran?.descricaoMarcaModelo, (d: any) => String(d?.texto_modelo || ''))
+  let melhor: any = semFipeNaFonte ? null : candidatosDoNome.reduce((b: any, i: any) => ((i.score || 0) > (b.score || 0) ? i : b), candidatosDoNome[0])
   let fipeCandidato: ValorCusto['fipeCandidato'] = null
 
   // Melhor candidato via funil + Haiku: SO no fluxo pago (opts.ativo), com
