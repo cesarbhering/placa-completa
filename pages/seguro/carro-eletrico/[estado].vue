@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { tituloSeguroEletricoEstado } from '~/shared/seo-meta'
+import { emEstado } from '~/shared/seo-titulo'
 import { descricaoSeguroEletricoEstado } from '~/shared/seo-meta'
 import { states } from '~/data/states'
 import seguroEletricos from '~/data/seguro-eletricos.json'
@@ -12,6 +13,9 @@ const state = states[slug]
 if (!state) {
   throw createError({ statusCode: 404, message: 'Página não encontrada' })
 }
+// Preposicao certa por UF: "no Rio Grande do Norte", "na Bahia", "em Alagoas".
+const emUf = emEstado(state.uf, state.name)
+const EmUf = emUf.charAt(0).toUpperCase() + emUf.slice(1)
 
 const dados = (seguroEletricos as Record<string, any>)[state.uf] || null
 const estadoInfo = (seguroEstados as any).estados?.[state.uf] || null
@@ -30,13 +34,13 @@ function brl(v: number): string {
 
 const faqs = [
   {
-    question: `Quanto custa o seguro de um carro elétrico em ${state.name}?`,
-    answer: `Com base em dados oficiais da SUSEP corrigidos pelo IPCA, o seguro de carros elétricos em ${state.name} (região ${dados.regiao.nome}) custa em média ${brl(mediaEletrico)} por ano, variando conforme o modelo, o perfil do condutor e a cobertura contratada.`,
+    question: `Quanto custa o seguro de um carro elétrico ${emUf}?`,
+    answer: `Com base em dados oficiais da SUSEP corrigidos pelo IPCA, o seguro de carros elétricos ${emUf} (região ${dados.regiao.nome}) custa em média ${brl(mediaEletrico)} por ano, variando conforme o modelo, o perfil do condutor e a cobertura contratada.`,
   },
   {
     question: 'Seguro de carro elétrico é mais caro que o de carro comum?',
     answer: mediaPopular
-      ? `Em ${state.name}, a média dos elétricos da nossa cesta é ${brl(mediaEletrico)}/ano, contra ${brl(mediaPopular)}/ano da cesta de populares a combustão (Onix, HB20, Gol, Strada e Corolla). A diferença vem principalmente do valor segurado mais alto e do custo de reposição da bateria.`
+      ? `${EmUf}, a média dos elétricos da nossa cesta é ${brl(mediaEletrico)}/ano, contra ${brl(mediaPopular)}/ano da cesta de populares a combustão (Onix, HB20, Gol, Strada e Corolla). A diferença vem principalmente do valor segurado mais alto e do custo de reposição da bateria.`
       : 'Em geral o prêmio absoluto é maior porque o valor segurado é maior, mas em percentual do valor do carro o seguro de elétrico costuma ser competitivo, já que o perfil do condutor tende a ter menor sinistralidade.',
   },
   {
@@ -96,18 +100,18 @@ useHead({
           </div>
         </div>
         <div class="win-window__body">
-          <h1 class="seo-title">Seguro de Carro Elétrico em {{ state.name }}</h1>
+          <h1 class="seo-title">Seguro de Carro Elétrico {{ emUf }}</h1>
 
           <div class="seo-content">
             <p class="lead">
-              O seguro de um carro elétrico em {{ state.name }} custa em média
+              O seguro de um carro elétrico {{ emUf }} custa em média
               <strong>{{ brl(mediaEletrico) }} por ano</strong>, considerando os elétricos e
               híbridos com histórico de apólices na região {{ dados.regiao.nome }}. Os valores abaixo vêm de
               <strong>dados oficiais da SUSEP</strong> (base de apólices reais), corrigidos pela
               inflação do seguro de veículos medida pelo IBGE.
             </p>
 
-            <h2>Preço do seguro por modelo (elétricos e híbridos) em {{ state.name }}</h2>
+            <h2>Preço do seguro por modelo (elétricos e híbridos) {{ emUf }}</h2>
             <div class="table-scroll">
               <table class="seguro-table">
                 <thead>
@@ -135,10 +139,10 @@ useHead({
               </NuxtLink>
             </div>
 
-            <h2 v-if="mediaPopular">Elétrico vs. carro popular em {{ state.name }}</h2>
+            <h2 v-if="mediaPopular">Elétrico vs. carro popular {{ emUf }}</h2>
             <p v-if="mediaPopular">
               Pra comparar: a média de seguro dos populares a combustão mais vendidos (Onix, HB20,
-              Gol, Strada e Corolla) em {{ state.name }} é de <strong>{{ brl(mediaPopular) }}/ano</strong>,
+              Gol, Strada e Corolla) {{ emUf }} é de <strong>{{ brl(mediaPopular) }}/ano</strong>,
               contra {{ brl(mediaEletrico) }}/ano dos elétricos. A diferença reflete principalmente o
               valor segurado mais alto dos elétricos e o custo de reposição de componentes como a
               bateria, não necessariamente um risco maior de sinistro.
@@ -178,7 +182,7 @@ useHead({
             <p class="outros-estados">
               <strong>Outros estados:</strong>
               <NuxtLink to="/seguro/carro-eletrico">ver todos</NuxtLink> ·
-              <NuxtLink :to="`/consultar-placa/${slug}`">Consultar placa em {{ state.name }}</NuxtLink>
+              <NuxtLink :to="`/consultar-placa/${slug}`">Consultar placa {{ emUf }}</NuxtLink>
             </p>
           </div>
         </div>

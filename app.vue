@@ -135,8 +135,7 @@ function onStoreClick() {
               <summary class="footer__col-tit" @click="cliqueColuna">{{ col.titulo }}</summary>
               <ul>
                 <li v-for="l in col.links" :key="l.to">
-                  <a v-if="l.to.startsWith('mailto:')" :href="l.to">{{ l.rotulo }}</a>
-                  <NuxtLink v-else :to="l.to">{{ l.rotulo }}</NuxtLink>
+                  <NuxtLink :to="l.to">{{ l.rotulo }}</NuxtLink>
                 </li>
               </ul>
             </details>
