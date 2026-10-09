@@ -28,6 +28,12 @@ export interface Plano {
    * muda de card aqui.
    */
   destaque?: string
+  /**
+   * Preco antigo, mostrado riscado ("de R$ 44,90 por R$ 39,90"), alinhado aos
+   * anuncios "Promo" do Google. So vale se for MAIOR que o valorCentavos; o
+   * cobrado e sempre o valorCentavos. Pra encerrar a promocao, apague o campo.
+   */
+  precoDeCentavos?: number
 }
 
 export const PLANOS: Record<PlanoId, Plano> = {
@@ -48,6 +54,8 @@ export const PLANOS: Record<PlanoId, Plano> = {
     nome: 'Relatório completo',
     chamada: 'Tudo da básica, mais o que decide a compra.',
     valorCentavos: 3990,
+    // Era R$ 44,90 ate 30/08/2026 (decisao do Cesar, 09/out: mostrar riscado).
+    precoDeCentavos: 4490,
     destaque: 'Mais escolhido',
   },
 }
@@ -310,4 +318,10 @@ export function camposRestantes(
     if (typeof val === 'object') return false
     return true
   }).length
+}
+
+/** Preco "de" da promocao, ou null quando nao ha promocao valida (de > por). */
+export function precoDePromocao(plano: PlanoId): number | null {
+  const p = PLANOS[plano]
+  return p?.precoDeCentavos && p.precoDeCentavos > p.valorCentavos ? p.precoDeCentavos : null
 }

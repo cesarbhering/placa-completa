@@ -5,13 +5,14 @@ import { escolherTitulo } from '~/shared/seo-titulo'
 // do que ele traz e do que nao traz.
 import { paginaCompra, PAGINAS_COMPRA } from '~/shared/cluster-compra'
 import { ARTIGOS } from '~/shared/artigos-o-que-e'
-import { PLANOS } from '~/shared/planos'
+import { PLANOS, precoDePromocao } from '~/shared/planos'
 
 const props = defineProps<{ rota: string }>()
 const p = paginaCompra(props.rota)!
 const BASE = 'https://placacompleta.com.br'
 const CANONICO = `${BASE}${p.rota}`
 const preco = `R$ ${(PLANOS.completa.valorCentavos / 100).toFixed(2).replace('.', ',')}`
+const temPromo = !!precoDePromocao('completa')
 const outras = PAGINAS_COMPRA.filter((x) => x.rota !== p.rota)
 
 function onCtaClick(origem: string) {
@@ -51,7 +52,7 @@ useHead({
 
         <div class="pc-callout">
           <p>
-            <strong>Relatório completo por {{ preco }}.</strong> Pagamento único, sem assinatura.
+            <strong>Relatório completo:</strong> <PrecoPromo v-if="temPromo" inline /><strong v-else>{{ preco }}</strong>. Pagamento único, sem assinatura.
             Se o veículo não for encontrado no registro nacional, o Pix volta sozinho.
           </p>
         </div>
