@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { tituloCapital } from '~/shared/seo-meta'
+import { deEstado } from '~/shared/estado-seo'
 import { descricaoCapital } from '~/shared/seo-meta'
 import { capitals } from '~/data/capitals'
 import { states } from '~/data/states'
@@ -134,7 +135,7 @@ useHead({
 
           <h2>DETRAN-{{ state.uf }} em {{ capital.name }}</h2>
           <p>
-            O DETRAN de {{ state.name }} tem sede em {{ state.capital }}.
+            O DETRAN {{ deEstado(state.uf, state.name) }} tem sede em {{ state.capital }}.
             Para serviços online, como transferência, licenciamento e consulta de multas,
             acesse:
             <a :href="state.detranSite" target="_blank" rel="noopener noreferrer">{{ state.detranSite }}</a>.

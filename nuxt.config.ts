@@ -104,6 +104,7 @@ export default defineNuxtConfig({
     urls: [
       "/",
       "/sobre",
+      "/contato",
       "/consulta-placa",
       "/consulta-gratis",
       "/como-consultar-placa",
