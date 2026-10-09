@@ -98,10 +98,20 @@ describe('versoesParaExibir (relatorio)', () => {
       { modelo: 'Saveiro Extreme 1.6 Flex 16V CD' }, { modelo: 'Saveiro Robust 1.6 Total Flex 16V' },
       { modelo: 'Saveiro Robust 1.6 Total Flex 16V CD' }, { modelo: 'Saveiro Trendline 1.6 Total Flex 16V' },
     ]
-    expect(versoesParaExibir(lista, 'VW/SAVEIRO CS RB MF').map((c) => c.modelo)).toEqual(['Saveiro Robust 1.6 Total Flex 16V', 'Saveiro Trendline 1.6 Total Flex 16V'])
+    expect(versoesParaExibir(lista, 'VW/SAVEIRO CS RB MF').map((c) => c.modelo)).toEqual(['Saveiro Robust 1.6 Total Flex 16V'])
   })
   it('Corolla XEi continua sem o SE-G', () => {
     const l = [{ modelo: 'Corolla XEi 1.8/1.8 Flex 16V Aut.' }, { modelo: 'Corolla SE-G 1.8/1.8 Flex 16V Aut.' }]
     expect(versoesParaExibir(l, 'TOYOTA/COROLLA XEI18VVT')).toEqual([l[0]])
+  })
+})
+
+describe('Saveiro RB = Robust (GMF8I88)', () => {
+  it('RB no nome fica so com Robust, e CS tira a CD', () => {
+    const lista = [
+      { modelo: 'Saveiro Extreme 1.6 Flex 16V CD' }, { modelo: 'Saveiro Robust 1.6 Total Flex 16V' },
+      { modelo: 'Saveiro Robust 1.6 Total Flex 16V CD' }, { modelo: 'Saveiro Trendline 1.6 Total Flex 16V' },
+    ]
+    expect(versoesParaExibir(lista, 'VW/SAVEIRO CS RB MF').map((c) => c.modelo)).toEqual(['Saveiro Robust 1.6 Total Flex 16V'])
   })
 })
