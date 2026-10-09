@@ -8,6 +8,7 @@ import { codigoFipeDoRelatorio } from '~/shared/codigo-fipe'
 import { codigoDaTabela, tabelaDoSegmento } from '~/shared/tabela-fipe'
 import { versoesParaExibir } from '~/shared/versao-fipe'
 import { fipeEIncerta } from '~/shared/fipe-incerta'
+import { opcoesDeCambio } from '~/shared/cambio-nome'
 import { linhaRecallGrade } from '~/shared/recall-grade'
 // Relatorio veicular (superficie PAGA — o token da URL e a credencial).
 //
@@ -1018,6 +1019,31 @@ const versoesCompativeis = computed(() => {
   const daTabela = lista.filter((c: any) => codigoDaTabela(c?.codigo_fipe, tabela))
   return versoesParaExibir(daTabela, g('descricaoMarcaModelo')).slice(0, 3)
 })
+// Camada 3: duvida SO de cambio (uma versao manual e uma automatica). A tela
+// pergunta e o cliente toca na do carro dele; valor, historico, queda e
+// seguro passam a ser os dessa versao (server/api/premium/fipe-escolha.post.ts).
+const opcaoCambio = computed(() => opcoesDeCambio(versoesCompativeis.value))
+const escolhaCambio = computed<any>(() => vc.value?.fipeEscolhaCliente ?? null)
+const outraOpcaoCambio = computed(() => {
+  const o = opcaoCambio.value, e = escolhaCambio.value
+  if (!o || !e) return null
+  return e.codigo_fipe === o.manual.codigo_fipe ? { rotulo: 'automático', c: o.automatico } : e.codigo_fipe === o.automatico.codigo_fipe ? { rotulo: 'manual', c: o.manual } : null
+})
+const escolhendoCambio = ref<string | null>(null)
+const erroEscolhaCambio = ref('')
+async function escolherCambio(codigo: string) {
+  if (escolhendoCambio.value) return
+  escolhendoCambio.value = codigo
+  erroEscolhaCambio.value = ''
+  try {
+    await $fetch('/api/premium/fipe-escolha', { method: 'POST', body: { token, codigo } })
+    await refresh()
+  } catch {
+    erroEscolhaCambio.value = 'Não foi possível atualizar agora. Tente de novo em instantes.'
+  } finally {
+    escolhendoCambio.value = null
+  }
+}
 // Codigo FIPE da versao que deu o valor (shared/codigo-fipe.ts).
 const codigoFipe = computed(() => codigoFipeDoRelatorio(vc.value))
 // FIPE nao localizada: a fonte veio sem FIPE e nenhuma versao bateu com
@@ -2583,7 +2609,24 @@ onUnmounted(() => {
                  seguro e custo em cinco anos saem todos do mesmo valor FIPE, e
                  um valor errado contamina os tres. Prefiro dizer que nao sei a
                  dizer que uma scooter vale R$58 mil. -->
-            <div v-if="fipeIncerta" class="rel__fipe-incerta">
+            <!-- Camada 3: so o cambio separa as versoes. O cliente toca no do
+                 carro dele. -->
+            <div v-if="fipeIncerta && opcaoCambio" class="rel__cambio">
+              <p class="rel__cambio-tit">Seu carro é manual ou automático?</p>
+              <p class="rel__cambio-txt">A tabela FIPE tem as duas versões deste modelo e o cadastro não informa o câmbio. Toque no do seu carro: o valor, o histórico e o seguro passam a ser os dessa versão.</p>
+              <div class="rel__cambio-ops">
+                <button type="button" class="rel__cambio-op" :disabled="!!escolhendoCambio" @click="escolherCambio(opcaoCambio.manual.codigo_fipe)">
+                  <span>Manual</span><strong>{{ opcaoCambio.manual.valor ? brl(opcaoCambio.manual.valor) : '-' }}</strong>
+                  <small v-if="escolhendoCambio === opcaoCambio.manual.codigo_fipe">Atualizando…</small>
+                </button>
+                <button type="button" class="rel__cambio-op" :disabled="!!escolhendoCambio" @click="escolherCambio(opcaoCambio.automatico.codigo_fipe)">
+                  <span>Automático</span><strong>{{ opcaoCambio.automatico.valor ? brl(opcaoCambio.automatico.valor) : '-' }}</strong>
+                  <small v-if="escolhendoCambio === opcaoCambio.automatico.codigo_fipe">Atualizando…</small>
+                </button>
+              </div>
+              <p v-if="erroEscolhaCambio" class="rel__cambio-erro">{{ erroEscolhaCambio }}</p>
+            </div>
+            <div v-else-if="fipeIncerta" class="rel__fipe-incerta">
               <p class="rel__fipe-incerta-tit">Não foi possível identificar a versão FIPE com segurança</p>
               <p class="rel__fipe-incerta-txt">
                 <template v-if="versoesCompativeis.length > 1">A tabela FIPE tem mais de uma versão compatível com a configuração deste veículo, e nenhuma bate o suficiente para afirmarmos qual é a certa. Confira no documento qual versão é a sua e use o valor correspondente na lista abaixo.</template>
@@ -2601,6 +2644,13 @@ onUnmounted(() => {
                 <span class="rel__valor-v">{{ vc.fipe }}</span>
                 <span v-if="vc.fipeModelo" class="rel__valor-nota">{{ vc.fipeModelo }}</span>
                 <span v-if="codigoFipe" class="rel__valor-nota">Código FIPE: {{ codigoFipe }}</span>
+                <span v-if="escolhaCambio?.cambio" class="rel__valor-nota">
+                  Câmbio indicado por você: {{ escolhaCambio.cambio === 'manual' ? 'manual' : 'automático' }}.
+                  <button v-if="outraOpcaoCambio" type="button" class="rel__cambio-trocar" :disabled="!!escolhendoCambio" @click="escolherCambio(outraOpcaoCambio.c.codigo_fipe)">
+                    {{ escolhendoCambio ? 'Atualizando…' : `Trocar para ${outraOpcaoCambio.rotulo}` }}
+                  </button>
+                </span>
+                <span v-if="erroEscolhaCambio && !fipeIncerta" class="rel__cambio-erro">{{ erroEscolhaCambio }}</span>
               </div>
               <div v-if="vc?.seguroAnual" class="rel__valor">
                 <span class="rel__valor-k">Seguro estimado</span>
@@ -3711,6 +3761,45 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     font-size: calc(14px * var(--rel-fs, 1));
     line-height: 1.5;
     color: $c-charcoal;
+  }
+
+  &__cambio {
+    margin: 4px 0 18px;
+    padding: 16px;
+    border: 1px solid $c-hair;
+    border-radius: 12px;
+    background: #f7f9fc;
+  }
+  &__cambio-tit { margin: 0 0 4px; font-weight: 700; font-size: calc(16px * var(--rel-fs, 1)); color: $c-ink; }
+  &__cambio-txt { margin: 0 0 12px; font-size: calc(13.5px * var(--rel-fs, 1)); color: $c-graphite; line-height: 1.5; }
+  &__cambio-ops { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+  &__cambio-op {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-height: 64px;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    border: 1.5px solid #1f6feb;
+    border-radius: 10px;
+    background: #fff;
+    color: $c-ink;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    span { font-size: calc(13px * var(--rel-fs, 1)); color: $c-graphite; }
+    strong { font-size: calc(18px * var(--rel-fs, 1)); font-variant-numeric: tabular-nums; }
+    small { font-size: 12px; color: #1f6feb; }
+    &:disabled { opacity: .6; cursor: wait; }
+    &:focus-visible { outline: 2px solid #1f6feb; outline-offset: 2px; }
+  }
+  &__cambio-erro { margin: 10px 0 0; font-size: 13px; color: #b42318; }
+  &__cambio-trocar {
+    background: none; border: 0; padding: 0; margin-left: 4px;
+    color: #1f6feb; font: inherit; text-decoration: underline; cursor: pointer;
   }
 
   &__fipe-ambiguo {
