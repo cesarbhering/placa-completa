@@ -29,7 +29,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'setembro-2026',
     title: 'IBV Auto Setembro 2026: usados voltam a subir (+0,30%) depois da queda de agosto',
-    metaDescription: 'O IBV Auto de setembro subiu 0,30% após -0,01% em agosto. Em 12 meses, +5,12%. Sandero, Gol e Creta lideram as altas; Hilux SW4, HR-V e Polo caem. Sul sobe +0,75%, Centro-Oeste cai -0,53%.',
+    metaDescription: 'IBV Auto de setembro sobe 0,30% após -0,01% em agosto; 12 meses em +5,12%. Sandero, Gol e Creta lideram altas; Sul +0,75%, Centro-Oeste -0,53%.',
     publishedAt: '2026-10-06',
     source: 'Banco BV (IBV Auto) + análise PlacaCompleta',
     referenceMonth: 'Setembro 2026',
@@ -110,7 +110,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'vencedores-perdedores-setembro-2026',
     title: 'Vencedores e Perdedores de Setembro 2026: Maranhão lidera, Mato Grosso devolve a alta de agosto',
-    metaDescription: 'Maranhão +1,17%, Roraima +0,96%, Paraná +0,90% e Santa Catarina +0,65% lideram setembro; Mato Grosso -1,05%, Bahia -0,74%, Pará e Mato Grosso do Sul -0,55% caem. Veja a tendência de 6 meses e o que a nossa base mostra.',
+    metaDescription: 'Vencedores e perdedores de setembro no IBV Auto: Maranhão +1,17%, Roraima +0,96% e Paraná +0,90% lideram; Mato Grosso -1,05% e Bahia -0,74% caem.',
     publishedAt: '2026-10-06',
     source: 'Banco BV (IBV Auto) + análise PlacaCompleta',
     referenceMonth: 'Setembro 2026',
@@ -164,7 +164,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'eletricos-setembro-2026',
     title: 'Elétricos Usados Setembro 2026: desvalorização volta a aumentar nos três tipos',
-    metaDescription: 'IBV Auto (Banco BV): elétricos 2023 acumulam -46,90%, híbridos -27,89% e combustão -22,20%. Elétricos 2022 chegam a -50,24%. Em setembro, a desvalorização aumentou nos três grupos.',
+    metaDescription: 'Elétricos usados em setembro, pelo IBV Auto (Banco BV): 2023 acumulam -46,90%, híbridos -27,89% e combustão -22,20%. Os de 2022 chegam a -50,24%.',
     publishedAt: '2026-10-06',
     source: 'Banco BV (IBV Auto) + análise PlacaCompleta',
     referenceMonth: 'Setembro 2026',
@@ -218,7 +218,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'agosto-2026',
     title: 'IBV Auto Agosto 2026: primeira queda do ano (-0,01%) e o ciclo de alta perde força',
-    metaDescription: 'O IBV Auto de agosto fechou negativo pela primeira vez em meses (-0,01%), com o acumulado de 12 meses desacelerando para +5,12%. Fiat Uno lidera as altas, Ford Ka as quedas. Veja por modelo, região e estado.',
+    metaDescription: 'IBV Auto de agosto fecha em -0,01%, a primeira queda do ano, e o acumulado de 12 meses desacelera para +5,12%. Uno lidera as altas e Ka, as quedas.',
     publishedAt: '2026-09-04',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Agosto 2026',
@@ -294,7 +294,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'vencedores-perdedores-agosto-2026',
     title: 'Vencedores e Perdedores de Agosto 2026: Uno lidera as altas, Ford Ka despenca, Piauí lidera entre estados',
-    metaDescription: 'Fiat Uno +1,68%, VW Fox +1,39% e Toyota Corolla +0,51% lideram as altas de agosto; Ford Ka -2,27%, Fiat Mobi -2,06% e VW T-Cross -1,66% caem. Piauí lidera os estados (+1,27%), Roraima despenca (-0,88%).',
+    metaDescription: 'Vencedores e perdedores de agosto no IBV Auto: Uno +1,68%, Fox +1,39% e Corolla +0,51% sobem; Ka -2,27% e Mobi -2,06% caem. Piauí lidera (+1,27%).',
     publishedAt: '2026-09-04',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Agosto 2026',
@@ -364,7 +364,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'eletricos-agosto-2026',
     title: 'Elétricos Usados Agosto 2026: o tombo de 50% já aconteceu, agora a queda estabilizou',
-    metaDescription: 'IBV Auto (Banco BV): elétricos 0km de 2022 acumulam -50,1% de desvalorização, contra -14,1% do combustão. Mas nosso levantamento na FIPE mostra que, nos últimos 12 meses, elétrico e combustão desvalorizaram igual: -2,3%.',
+    metaDescription: 'Elétricos usados em agosto: pelo IBV Auto, os de 2022 acumulam -50,1% contra -14,1% da combustão. Na FIPE, em 12 meses, os dois caíram igual: -2,3%.',
     publishedAt: '2026-09-04',
     source: 'Banco BV (IBV Auto) + análise PlacaCompleta',
     referenceMonth: 'Agosto 2026',
@@ -428,7 +428,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'julho-2026',
     title: 'IBV Auto Julho 2026: Preços de usados quase param (+0,07%) e 16 dos 27 estados caem',
-    metaDescription: 'O IBV Auto de julho desacelerou para +0,07%, o menor avanço de 2026 e um freio brusco ante os +0,57% de junho. Pela primeira vez no ano a maioria dos estados (16 de 27) fechou em queda. Cruzamos os dados de valorização com nossa análise de seguro por estado.',
+    metaDescription: 'IBV Auto de julho desacelera para +0,07%, o menor avanço de 2026, ante +0,57% em junho. Pela primeira vez no ano, 16 dos 27 estados fecham em queda.',
     publishedAt: '2026-08-06',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Julho 2026',
@@ -493,7 +493,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'vencedores-perdedores-julho-2026',
     title: 'Vencedores e Perdedores de Julho 2026: Celta reaparece no topo, Fox despenca e 16 estados caem',
-    metaDescription: 'GM Celta +2,62%, Fiat Palio +2,20% e Nissan Kicks +1,92% lideram as altas de julho; VW Fox -2,01%, Jeep Compass -1,74% e GM Onix -1,11% caem. Amapá lidera os estados (+0,71%) e Piauí despenca (-1,08%). Cruzamos valorização com custo de seguro por estado.',
+    metaDescription: 'Vencedores e perdedores de julho no IBV Auto: Celta +2,62%, Palio +2,20% e Kicks +1,92% sobem; Fox -2,01% e Compass -1,74% caem. Amapá lidera (+0,71%).',
     publishedAt: '2026-08-06',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Julho 2026',
@@ -557,7 +557,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'eletricos-julho-2026',
     title: 'Elétricos Usados Julho 2026: pela primeira vez o elétrico para de piorar (e é a combustão que acelera a perda)',
-    metaDescription: 'Virada no IBV de julho: os elétricos usados estabilizaram a desvalorização (2023 em -46,1%, 2022 em -50,1%) enquanto os carros a combustão passaram a acelerar as perdas. A distância entre as duas propulsões começou a encolher pela primeira vez.',
+    metaDescription: 'Elétricos usados em julho: o IBV Auto mostra a desvalorização estável (2023 em -46,1%, 2022 em -50,1%) enquanto a combustão acelera as perdas.',
     publishedAt: '2026-08-06',
     source: 'Banco BV (IBV Auto) + análise PlacaCompleta',
     referenceMonth: 'Julho 2026',
@@ -610,7 +610,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'seguro-mais-caro-brasil-2026',
     title: 'As 5 regiões com seguro de carro mais caro do Brasil (e as 5 mais baratas)',
-    metaDescription: 'Ranking inédito: comparamos o seguro médio de Onix, HB20, Gol, Strada e Corolla nas 41 regiões de tarifação do país, com dados oficiais SUSEP corrigidos pelo IPCA. O spread chega a 87%.',
+    metaDescription: 'Seguro de carro mais caro do Brasil: comparamos Onix, HB20, Gol, Strada e Corolla nas 41 regiões, com dados SUSEP corrigidos pelo IPCA. Spread de 87%.',
     publishedAt: '2026-07-24',
     source: 'SUSEP (base R_AUTO) + IPCA/IBGE',
     referenceMonth: 'Julho 2026',
@@ -657,8 +657,8 @@ export const ibvPosts: IbvPost[] = [
   },
   {
     slug: 'abril-2026',
-    title: 'IBV Auto Abril 2026: Preços de Usados Sobem 0,27% — Desaceleração Marca o Fim do Trimestre',
-    metaDescription: 'IBV Auto de abril desacelerou para +0,27% (ante +0,71% em março). Celta +2,66%, Palio +1,47% e Onix +0,57% puxaram as altas; Fox -1,29%, Nivus -1,00%, Gol -0,50% caíram. Tocantins lidera regiões com +1,97%.',
+    title: 'IBV Auto Abril 2026: Preços de Usados Sobem 0,27%, Desaceleração Marca o Fim do Trimestre',
+    metaDescription: 'IBV Auto de abril desacelera para +0,27% (ante +0,71% em março). Celta +2,66% e Palio +1,47% puxam as altas; Fox -1,29% cai. Tocantins lidera com +1,97%.',
     publishedAt: '2026-05-12',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Abril 2026',
@@ -728,7 +728,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'vencedores-perdedores-abril-2026',
     title: 'Vencedores e Perdedores de Abril 2026: Celta dispara +2,66% e Fox cai -1,29% no IBV Auto',
-    metaDescription: 'GM Celta +2,66%, Fiat Palio +1,47% e GM Onix +0,57% lideram altas em abril. VW Fox -1,29%, VW Nivus -1,00% e VW Gol -0,50% caem. Volkswagen sob pressão competitiva.',
+    metaDescription: 'Vencedores e perdedores de abril no IBV Auto: Celta +2,66%, Palio +1,47% e Onix +0,57% sobem; Fox -1,29%, Nivus -1,00% e Gol -0,50% caem.',
     publishedAt: '2026-05-12',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Abril 2026',
@@ -791,7 +791,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'vencedores-perdedores-marco-2026',
     title: 'Vencedores e Perdedores de Março 2026: Hilux SW4 dispara +5,17% enquanto Fiesta cai -3,56%',
-    metaDescription: 'Hilux SW4 +5,17%, Corolla +1,03%, Onix +0,94% lideraram as altas em março. Fiesta -3,56%, HR-V -0,76% e Gol -0,66% puxaram para baixo. Análise completa com contexto de mercado.',
+    metaDescription: 'Vencedores e perdedores de março no IBV Auto: Hilux SW4 +5,17%, Corolla +1,03% e Onix +0,94% sobem; Fiesta -3,56%, HR-V -0,76% e Gol -0,66% caem.',
     publishedAt: '2026-04-07',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Março 2026',
@@ -848,8 +848,8 @@ export const ibvPosts: IbvPost[] = [
   },
   {
     slug: 'marco-2026',
-    title: 'IBV Auto Março 2026: Preços de Carros Usados Sobem 0,71% — Veja os Modelos e Estados que Mais Subiram',
-    metaDescription: 'Inflação de automóveis usados acelerou em março de 2026, com alta de 0,71%. Descubra quais modelos e estados puxaram o aumento e como isso afeta o valor do seu carro.',
+    title: 'IBV Auto Março 2026: Preços de Carros Usados Sobem 0,71%, Veja os Modelos e Estados que Mais Subiram',
+    metaDescription: 'IBV Auto de março: preços de carros usados aceleram e sobem 0,71%. Veja os modelos e estados que puxaram a alta e o efeito no valor do seu carro.',
     publishedAt: '2026-04-07',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Março 2026',
@@ -912,8 +912,8 @@ export const ibvPosts: IbvPost[] = [
   },
   {
     slug: 'maio-2026',
-    title: 'IBV Auto Maio 2026: Usados sobem 0,43% — Kwid lidera altas, Onix Plus puxa quedas',
-    metaDescription: 'IBV Auto de maio acelerou para +0,43% (ante +0,27% em abril). Renault Kwid +4,58%, Honda HR-V +1,85% e VW Gol +1,60% lideram altas; Onix Plus -1,39%, Mobi -1,14% e Uno -1,12% caem. Centro-Oeste lidera regiões com +0,99%; Norte vira para -0,23%.',
+    title: 'IBV Auto Maio 2026: Usados sobem 0,43%, Kwid lidera altas e Onix Plus puxa quedas',
+    metaDescription: 'IBV Auto de maio acelera para +0,43% (ante +0,27% em abril). Kwid +4,58% e HR-V +1,85% lideram; Onix Plus -1,39% cai. Centro-Oeste sobe +0,99%.',
     publishedAt: '2026-06-08',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Maio 2026',
@@ -985,7 +985,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'vencedores-perdedores-maio-2026',
     title: 'Vencedores e Perdedores de Maio 2026: Kwid dispara +4,58% e Onix Plus cai -1,39% no IBV Auto',
-    metaDescription: 'Renault Kwid +4,58%, Honda HR-V +1,85% e VW Gol +1,60% lideram altas em maio. Onix Plus -1,39%, Mobi -1,14% e Uno -1,12% caem. Onix vira após 3 meses no topo. MS lidera estados com +1,19%.',
+    metaDescription: 'Vencedores e perdedores de maio no IBV Auto: Kwid +4,58%, HR-V +1,85% e Gol +1,60% sobem; Onix Plus -1,39%, Mobi -1,14% e Uno -1,12% caem.',
     publishedAt: '2026-06-08',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Maio 2026',
@@ -1050,7 +1050,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'junho-2026',
     title: 'IBV Auto Junho 2026: Usados sobem 0,57% e todos os 27 estados fecham no positivo',
-    metaDescription: 'IBV Auto de junho acelerou para +0,57% (ante +0,43% em maio). Renault Kwid +3,52%, VW Fox +2,53% e GM Onix +0,94% lideram altas; HR-V -1,21%, T-Cross -1,12% e HB20 -0,44% caem. MG lidera estados com +1,64%; 1º semestre acumula +3,49%.',
+    metaDescription: 'IBV Auto de junho acelera para +0,57% e os 27 estados fecham no positivo. Kwid +3,52% e Fox +2,53% lideram as altas; o 1º semestre acumula +3,49%.',
     publishedAt: '2026-07-16',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Junho 2026',
@@ -1122,7 +1122,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'vencedores-perdedores-junho-2026',
     title: 'Vencedores e Perdedores de Junho 2026: Kwid emplaca 2º mês seguido e HR-V vira pra queda',
-    metaDescription: 'Renault Kwid +3,52%, VW Fox +2,53% e Chevrolet Onix +0,94% lideram altas em junho. Honda HR-V -1,21%, VW T-Cross -1,12% e Hyundai HB20 -0,44% caem. MG lidera estados com +1,64%; primeira vez em 2026 que todos os 27 estados sobem.',
+    metaDescription: 'Vencedores e perdedores de junho no IBV Auto: Kwid +3,52%, Fox +2,53% e Onix +0,94% sobem; HR-V -1,21% e T-Cross -1,12% caem. MG lidera (+1,64%).',
     publishedAt: '2026-07-16',
     source: 'Banco BV (IBV Auto)',
     referenceMonth: 'Junho 2026',
@@ -1187,7 +1187,7 @@ export const ibvPosts: IbvPost[] = [
   {
     slug: 'eletricos-junho-2026',
     title: 'Elétricos Usados Junho 2026: BYD, GWM e o Colapso Estrutural do Valor de Revenda',
-    metaDescription: 'Elétricos usados 2023 acumulam -46,1% até junho, 2,5x mais que combustão equivalente. Análise da desvalorização por marca, comparativo entre chinesas (BYD, GWM, JAC, Chery) e europeias, e por que o cenário deve piorar antes de melhorar.',
+    metaDescription: 'Elétricos usados 2023 acumulam -46,1% até junho, 2,5 vezes a combustão. Desvalorização por marca: chinesas (BYD, GWM, JAC, Chery) contra europeias.',
     publishedAt: '2026-07-16',
     source: 'Banco BV (IBV Auto) + análise PlacaCompleta',
     referenceMonth: 'Junho 2026',

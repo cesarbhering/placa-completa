@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { DESCRICOES } from '~/shared/seo-meta'
 import { ibvPosts } from '~/data/ibv-posts'
 
 // Post mais recente do IBV (pra destacar no hub de estudos)
@@ -7,11 +8,11 @@ const ultimoIbv = [...ibvPosts]
   .sort((a, b) => (a.publishedAt < b.publishedAt ? 1 : -1))[0]
 
 useHead({
-  title: 'Estudos e Dados do Mercado Automotivo | PlacaCompleta',
+  title: 'Estudos e Dados do Mercado Automotivo',
   meta: [
     {
       name: 'description',
-      content: 'Estudos do PlacaCompleta sobre o mercado de veículos no Brasil: seguro por região (dados SUSEP), análise do IBV Auto do Banco BV e preços da Tabela FIPE. Fontes oficiais, metodologia aberta.',
+      content: DESCRICOES.estudos,
     },
   ],
   script: [

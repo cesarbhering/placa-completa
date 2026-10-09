@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { DESCRICOES } from '~/shared/seo-meta'
 import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 // Pagina guia de "carro de leilao". Copy final do seo, aprovada pelo Cesar
 // (placa-completa-marketing/seo/planos-conteudo/carro-de-leilao-copy-final.md).
@@ -23,7 +24,7 @@ useHead({
   meta: [
     {
       name: 'description',
-      content: 'Carro de leilão nem sempre aparece no documento. Veja o que significa, os tipos de leilão que existem e como descobrir se o carro que você vai comprar já passou por um.',
+      content: DESCRICOES.carroDeLeilao,
     },
     { property: 'og:title', content: 'Carro de leilão: como descobrir antes de comprar' },
     {

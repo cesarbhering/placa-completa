@@ -72,7 +72,7 @@ async function submit() {
 }
 
 useHead({
-  title: 'Cotação de Seguro | PlacaCompleta',
+  title: 'Cotação de Seguro',
   meta: [{ name: 'robots', content: 'noindex, nofollow' }],
 })
 </script>

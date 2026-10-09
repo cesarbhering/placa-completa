@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { descricaoSeguroEletricoEstado } from '~/shared/seo-meta'
 import { states } from '~/data/states'
 import seguroEletricos from '~/data/seguro-eletricos.json'
 import seguroEstados from '~/data/seguro-estados.json'
@@ -44,11 +45,11 @@ const faqs = [
 ]
 
 useHead({
-  title: `Seguro de Carro Elétrico em ${state.name}: preço médio ${anoRef + 2} | PlacaCompleta`,
+  title: `Seguro de Carro Elétrico em ${state.name}: preço médio ${anoRef + 2}`,
   meta: [
     {
       name: 'description',
-      content: `Quanto custa o seguro de um carro elétrico em ${state.name}? Média de ${brl(mediaEletrico)}/ano com dados oficiais SUSEP corrigidos pelo IPCA. Veja valores por modelo (Leaf, Bolt, Zoe, Prius) e peça cotação.`,
+      content: descricaoSeguroEletricoEstado(state.name, mediaEletrico),
     },
   ],
   script: [
