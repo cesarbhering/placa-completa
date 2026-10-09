@@ -1306,25 +1306,34 @@ const multasTotalCentavos = computed(() => {
   // IPVA em aberto tambem e divida do carro (o comentario sempre disse "NAO
   // inclui IPVA quando em dia", mas o codigo nunca somava, nem em aberto).
   const ipva = m.ipva_total_centavos && m.ipva_total_centavos > 0 ? m.ipva_total_centavos : 0
-  const total = mm + lic + ipva
+  // O DETRAN informou o total que ele cobra (BA): esse e o numero. Somar o
+  // valor ORIGINAL das multas daria menos do que o DETRAN cobra (JPQ6371).
+  if (m.total_detran_centavos && m.total_detran_centavos > 0) return m.total_detran_centavos
+  const multasHoje = m.multas_atualizado_centavos && m.multas_atualizado_centavos > mm ? m.multas_atualizado_centavos : mm
+  const total = multasHoje + lic + ipva
   return total > 0 ? total : null
 })
 // Breakdown do cartao: Multas (Pix), Licenciamento (com vencimento), IPVA.
 const multasBreakdown = computed(() => {
   const m = multasDetalhe.value
   if (!m) return []
-  const rows: { rotulo: string; valor: string; emDia: boolean; texto?: string }[] = []
+  const rows: { rotulo: string; valor: string; emDia: boolean; texto?: string; nota?: string }[] = []
   if (ufRenainfFora.value)
     // RENAINF aceso + DETRAN zerado: no lugar do "Nada consta" seco, o texto
     // aprovado que explica a multa de fora do estado (nao e "em dia").
     rows.push({ rotulo: 'Multas em aberto', valor: '', emDia: false, texto: textoMultasRenainfForaDoDetran(ufRenainfFora.value) })
-  else if (m.multas_total_centavos != null)
+  else if (m.multas_total_centavos != null) {
+    // Valor atualizado pelo DETRAN (com juros), quando a fonte traz; o
+    // original vai como nota.
+    const atualizado = m.multas_atualizado_centavos && m.multas_atualizado_centavos > m.multas_total_centavos ? m.multas_atualizado_centavos : null
     rows.push({
       // gov.br so listava multa pagavel por Pix; o Infosimples traz TODAS em aberto.
       rotulo: String(m.fonte || '').startsWith('detran_') ? 'Multas em aberto' : 'Multas (Pix)',
-      valor: m.multas_total_centavos > 0 ? (reais(m.multas_total_centavos) as string) : 'Nada consta',
+      valor: atualizado ? (reais(atualizado) as string) : m.multas_total_centavos > 0 ? (reais(m.multas_total_centavos) as string) : 'Nada consta',
       emDia: !(m.multas_total_centavos > 0),
+      nota: atualizado ? `valor original ${reais(m.multas_total_centavos)}` : undefined,
     })
+  }
   // MG nao traz valor de licenciamento, so o ano: a linha aparece com o ano.
   if (m.licenciamento_centavos != null || m.ultimo_licenciamento_ano != null || m.licenciamento_atrasado_ano != null) {
     const venc = m.licenciamento_venc ? ` (vence ${formatarDataBR(m.licenciamento_venc)})` : ''
@@ -1349,6 +1358,7 @@ const multasBreakdown = computed(() => {
       rotulo: 'IPVA',
       valor: m.ipva_total_centavos > 0 ? (reais(m.ipva_total_centavos) as string) : 'Em dia',
       emDia: !(m.ipva_total_centavos > 0),
+      nota: m.ipva_original_centavos && m.ipva_total_centavos > m.ipva_original_centavos ? `valor original ${reais(m.ipva_original_centavos)}` : undefined,
     })
   else if (m.ipva_pago_ano != null)
     // MG: so o ultimo exercicio de IPVA pago, sem valor. Neutro.
@@ -2062,7 +2072,7 @@ onUnmounted(() => {
                     <div v-for="(r, idx) in multasBreakdown" :key="'b' + idx" class="rel__multas-r" :class="{ 'rel__multas-r--texto': r.texto }">
                       <span>{{ r.rotulo }}</span>
                       <p v-if="r.texto" class="rel__multas-rtexto">{{ r.texto }}</p>
-                      <b v-else :class="{ 'rel__multas-ok': r.emDia }">{{ r.valor }}</b>
+                      <b v-else :class="{ 'rel__multas-ok': r.emDia }">{{ r.valor }}<small v-if="r.nota" class="rel__multas-rnota">{{ r.nota }}</small></b>
                     </div>
                   </div>
                 </div>
@@ -2070,6 +2080,9 @@ onUnmounted(() => {
                 <!-- Multas em aberto, uma a uma (o que, quando, onde, órgão). -->
                 <template v-if="multasDetalhe.multas_itens && multasDetalhe.multas_itens.length">
                   <p class="rel__multas-sub">Multas em aberto</p>
+                  <p v-if="multasDetalhe.multas_atualizado_centavos" class="rel__multas-item-meta">
+                    Valores originais de cada multa. Com juros e correção, o DETRAN cobra {{ reais(multasDetalhe.multas_atualizado_centavos) }} no total.
+                  </p>
                   <ul class="rel__multas-itens">
                     <li v-for="(mt, idx) in multasDetalhe.multas_itens" :key="'mi' + idx" class="rel__multas-item">
                       <div class="rel__multas-item-top">
@@ -3888,6 +3901,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__multas-ok { color: #14622f !important; font-weight: 700; }
+  // "valor original R$ X" embaixo do valor atualizado pelo DETRAN.
+  &__multas-rnota {
+    display: block;
+    font-size: calc(11.5px * var(--rel-fs, 1));
+    font-weight: 400;
+    color: #636363;
+    text-align: right;
+  }
 
   // total embaixo da lista de IPVA por exercicio
   &__multas-ipvatotal {
