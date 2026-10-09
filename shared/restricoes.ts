@@ -15,8 +15,11 @@ export const EXPLICA_RESTRICAO: Record<string, string> = {
   BAIXADO: 'O registro deste veículo foi baixado de forma definitiva: ele deixa de ter existência legal, não pode ser licenciado, transferido ou circular em vias públicas. A baixa é irreversível.',
   RECUPERADO_SINISTRO: 'Este veículo sofreu um sinistro de grande monta (como colisão grave, enchente ou incêndio) e foi recuperado. A informação fica registrada de forma permanente, reduz o valor de mercado e pode dificultar seguro e revenda.',
   SINISTRO: 'Consta registro de sinistro no histórico do veículo. Isso costuma reduzir o valor de mercado e pesa na avaliação de seguro e revenda. Vale exigir laudo de vistoria antes de fechar negócio.',
-  RESTRICAO_JUDICIAL: 'Há um bloqueio determinado pela Justiça sobre o veículo. Enquanto ele estiver ativo, a transferência fica impedida, e a liberação depende do processo que originou a ordem.',
-  RESTRICAO_RENAJUD: 'Há um bloqueio determinado pela Justiça e registrado eletronicamente no cadastro do veículo. Enquanto ele estiver ativo, a transferência fica impedida.',
+  // RENAJUD (e as variantes): o card usa RENAJUD_EXPLICACAO, em blocos; este
+  // texto e o resumo pra quem so consome a string.
+  RENAJUD: 'Consta uma restrição judicial registrada pelo RENAJUD, o sistema que liga os tribunais ao cadastro nacional de veículos. Ela costuma vir de um processo contra o dono, como uma cobrança ou execução de dívida. O dado da consulta não informa qual tipo de restrição foi registrado nem o processo de origem.',
+  RESTRICAO_JUDICIAL: 'Consta uma restrição judicial registrada pelo RENAJUD, o sistema que liga os tribunais ao cadastro nacional de veículos. Ela costuma vir de um processo contra o dono, como uma cobrança ou execução de dívida. O dado da consulta não informa qual tipo de restrição foi registrado nem o processo de origem.',
+  RESTRICAO_RENAJUD: 'Consta uma restrição judicial registrada pelo RENAJUD, o sistema que liga os tribunais ao cadastro nacional de veículos. Ela costuma vir de um processo contra o dono, como uma cobrança ou execução de dívida. O dado da consulta não informa qual tipo de restrição foi registrado nem o processo de origem.',
   RESTRICAO_ADMINISTRATIVA: 'Há um bloqueio administrativo registrado por órgão competente. Enquanto ativo, pode impedir licenciamento e transferência. Recomendamos verificar a origem da restrição antes de qualquer negociação.',
   GRAVAME: 'O veículo está financiado e a instituição financeira consta como credora até a quitação. A transferência depende de quitar o contrato e baixar o gravame.',
   LEILAO: 'Consta registro de passagem por leilão no documento do veículo. Isso costuma indicar recuperação de sinistro ou apreensão, reduz o valor de mercado e pede uma vistoria cuidadosa.',
@@ -51,6 +54,34 @@ export function explicaRestricao(bruto: string, aoNaoEncontrar?: (chave: string)
   aoNaoEncontrar?.(chave)
   return EXPLICA_RESTRICAO_GENERICA
 }
+
+// RENAJUD (texto aprovado pelo Cesar em 09/out). A consulta devolve "RENAJUD"
+// puro em restricoesItens, que nao casava com nenhuma chave e caia no texto
+// generico. O card explica o que e, os tipos possiveis (sem afirmar qual), quem
+// retira e o que o comprador confere.
+export function ehRenajud(bruto: unknown): boolean {
+  const c = String(bruto ?? '').toUpperCase().replace(/[\s-]+/g, '_')
+  return /^(RESTRICAO_)?RENAJUD|^RESTRICAO_JUDICIAL/.test(c)
+}
+
+export const RENAJUD_EXPLICACAO = {
+  titulo: 'Restrição RENAJUD: ordem de um juiz no cadastro do veículo',
+  texto: EXPLICA_RESTRICAO.RENAJUD,
+  tiposTitulo: 'Tipos possíveis:',
+  tipos: [
+    { nome: 'Transferência', efeito: 'o veículo não pode passar para outro nome.' },
+    { nome: 'Licenciamento', efeito: 'além da transferência, impede o licenciamento anual.' },
+    { nome: 'Circulação', efeito: 'além das duas anteriores, o veículo não pode rodar e pode ser recolhido.' },
+    { nome: 'Penhora', efeito: 'o veículo é garantia de uma dívida no processo e pode ir a leilão judicial; quem compra assume esse risco.' },
+  ],
+  destaque: 'Só o juiz que determinou a restrição pode retirá-la. Nem o vendedor nem o DETRAN conseguem baixá-la.',
+  conferirTitulo: 'O que conferir:',
+  conferir: [
+    'Peça ao vendedor o número do processo e uma certidão atualizada do processo.',
+    'Consulte o processo no site do tribunal indicado e veja se já há ordem de retirada.',
+    'Só feche negócio depois que a restrição sair do cadastro. Uma nova consulta pela placa confirma.',
+  ],
+} as const
 
 // Estoque RENAVE (texto aprovado pelo Cesar em 05/out): nao e restricao no
 // sentido de bloqueio, e o carro registrado no estoque de uma revenda. A copy
