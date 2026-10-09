@@ -24,7 +24,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // O corte por plano acontece no servidor: o que a basica nao comprou nem chega
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
-import { explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
+import { explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
@@ -494,7 +494,7 @@ function registraTipoDesconhecido(chave: string) {
   try { trackRestricaoDesconhecida(chave) } catch { /* telemetria e best-effort */ }
 }
 
-const restricoes = computed<{ rotulo: string; explica: string; renave: boolean; info: boolean }[]>(() => {
+const restricoes = computed<{ rotulo: string; explica: string; renave: boolean; info: boolean; renajud?: boolean }[]>(() => {
   const arr = v.value?.restricoesItens
   if (!Array.isArray(arr)) return []
   return arr
@@ -503,6 +503,8 @@ const restricoes = computed<{ rotulo: string; explica: string; renave: boolean; 
       // Estoque RENAVE tem explicacao propria (RENAVE_EXPLICACAO) no lugar da
       // copy generica, e nao conta como tipo desconhecido.
       if (ehEstoqueRenave(r)) return { rotulo: humanizar(r), explica: '', renave: true, info: false }
+      // RENAJUD: card em blocos (o que e, tipos possiveis, o que conferir).
+      if (ehRenajud(r)) return { rotulo: humanizar(r), explica: '', renave: false, info: false, renajud: true }
       // Informativo (principal condutor): titulo e texto proprios, etiqueta
       // "Informação" em vez de "Restrição".
       const inf = itemInformativo(r)
@@ -2037,6 +2039,19 @@ onUnmounted(() => {
                   <p class="rel__renave-conf">{{ RENAVE_EXPLICACAO.conferirTitulo }}</p>
                   <ul>
                     <li v-for="(c, ci) in RENAVE_EXPLICACAO.conferir" :key="ci">{{ c }}</li>
+                  </ul>
+                </div>
+                <div v-else-if="r.renajud" class="rel__renave">
+                  <strong class="rel__renave-tit">{{ RENAJUD_EXPLICACAO.titulo }}</strong>
+                  <p>{{ RENAJUD_EXPLICACAO.texto }}</p>
+                  <p class="rel__renave-conf">{{ RENAJUD_EXPLICACAO.tiposTitulo }}</p>
+                  <ul>
+                    <li v-for="t in RENAJUD_EXPLICACAO.tipos" :key="t.nome"><strong>{{ t.nome }}:</strong> {{ t.efeito }}</li>
+                  </ul>
+                  <p><strong>{{ RENAJUD_EXPLICACAO.destaque }}</strong></p>
+                  <p class="rel__renave-conf">{{ RENAJUD_EXPLICACAO.conferirTitulo }}</p>
+                  <ul>
+                    <li v-for="(c, ci) in RENAJUD_EXPLICACAO.conferir" :key="ci">{{ c }}</li>
                   </ul>
                 </div>
                 <p v-else class="rel__restr-explica">{{ r.explica }}</p>

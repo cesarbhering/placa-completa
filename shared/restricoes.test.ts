@@ -59,3 +59,30 @@ describe('estoque RENAVE', async () => {
     expect(`${PARECER_SO_RENAVE.titulo} ${PARECER_SO_RENAVE.texto}`).toBe('Atenção: o veículo consta no estoque de uma revenda (RENAVE). Veja na seção de Restrições o que conferir antes de fechar negócio.')
   })
 })
+
+import { ehRenajud, RENAJUD_EXPLICACAO, EXPLICA_RESTRICAO_GENERICA as GENERICA } from './restricoes'
+
+// Caso 4ZPCC (FFR1002): a consulta devolve "RENAJUD" puro em restricoesItens, que
+// caia no texto generico.
+describe('RENAJUD', () => {
+  it('"RENAJUD" puro e as variantes ganham o texto proprio, nunca o generico', () => {
+    for (const t of ['RENAJUD', 'RESTRICAO_RENAJUD', 'RESTRICAO_JUDICIAL', 'restricao-judicial']) {
+      expect(ehRenajud(t), t).toBe(true)
+      expect(explicaRestricao(t), t).not.toBe(GENERICA)
+      expect(explicaRestricao(t), t).toBe(RENAJUD_EXPLICACAO.texto)
+    }
+    expect(ehRenajud('GRAVAME')).toBe(false)
+    expect(ehRenajud('RENAINF')).toBe(false)
+  })
+  it('quatro tipos, quem retira e o que conferir', () => {
+    expect(RENAJUD_EXPLICACAO.tipos.map((t) => t.nome)).toEqual(['Transferência', 'Licenciamento', 'Circulação', 'Penhora'])
+    expect(RENAJUD_EXPLICACAO.destaque).toMatch(/Só o juiz/)
+    expect(RENAJUD_EXPLICACAO.conferir.length).toBe(3)
+  })
+  it('sem travessao, sem nomear a fonte oficial e sem afirmar o tipo', () => {
+    const tudo = JSON.stringify(RENAJUD_EXPLICACAO)
+    expect(tudo).not.toContain('—')
+    expect(tudo).not.toMatch(/senatran/i)
+    expect(RENAJUD_EXPLICACAO.texto).toMatch(/não informa qual tipo/)
+  })
+})
