@@ -154,3 +154,21 @@ export function itemInformativo(bruto: unknown): { titulo: string; texto: string
 export function itensQueRestringem<T>(itens: T): T {
   return (Array.isArray(itens) ? itens.filter((i) => !itemInformativo(i)) : itens) as T
 }
+
+// Indicadores de restricao do registro nacional (ja normalizados por
+// normalizarResposta). Recall e multa ficam de fora: nao sao restricao.
+const INDICADORES_RESTRICAO = ['indicadorRestricaoRenajud', 'indicadorRestricaoRfb', 'indicadorRouboFurto', 'indicadorComunicacaoVenda', 'indicadorPendenciaEmissao']
+
+/**
+ * O registro nacional aponta alguma restricao? Itens que restringem (sem os
+ * informativos e sem recall) ou um indicador de restricao aceso. Gate do
+ * DETRAN estadual (caso RDW7C71: so RENAJUD, sem RENAINF, e o DETRAN-SC nao
+ * era chamado). Recebe a resposta JA normalizada.
+ */
+export function temRestricaoNacional(norm: any): boolean {
+  if (!norm || typeof norm !== 'object') return false
+  const itens = itensQueRestringem(Array.isArray(norm.restricoesItens) ? norm.restricoesItens : [])
+    .filter((i: any) => !/RECALL|RENAINF/.test(String(i).toUpperCase()))
+  if (itens.length) return true
+  return INDICADORES_RESTRICAO.some((k) => norm[k] === true || norm[k] === 'true')
+}

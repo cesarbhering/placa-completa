@@ -115,7 +115,7 @@ describe('completarDetran DF (login gov.br do BA)', () => {
   it('sem RENAINF: nao chama (gate)', async () => {
     const f = vi.fn(); vi.stubGlobal('fetch', f)
     const r = await completarDetran(fakeSb(), { id: 'p1', placa: 'PBX2E59' }, { response: [{ ufJurisdicao: 'DF', renavam: '1' }] })
-    expect(r).toMatchObject({ ok: false, pulado: 'DF so com RENAINF' })
+    expect(r).toMatchObject({ ok: false, pulado: 'DF so com RENAINF ou restricao' })
     expect(f).not.toHaveBeenCalled()
   })
 })

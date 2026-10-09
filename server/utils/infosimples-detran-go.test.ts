@@ -103,7 +103,7 @@ describe('completarDetran GO', () => {
     vi.stubGlobal('useRuntimeConfig', cfg)
     const f = vi.fn(); vi.stubGlobal('fetch', f)
     const r = await completarDetran(fakeSb(), { id: 'p1', placa: 'NLR8389' }, { response: [{ ufJurisdicao: 'GO', renavam: '1' }] })
-    expect(r).toMatchObject({ ok: false, pulado: 'GO so com RENAINF' })
+    expect(r).toMatchObject({ ok: false, pulado: 'GO so com RENAINF ou restricao' })
     expect(f).not.toHaveBeenCalled()
   })
   it('bloco oficial ja gravado: nao chama de novo', async () => {

@@ -1,4 +1,4 @@
-import { DETRAN_UFS, ufDetranSuportada, temMultaRenainf, completarDetranDepois } from './infosimples-detran'
+import { DETRAN_UFS, ufDetranSuportada, passaNoGateDetran, completarDetranDepois } from './infosimples-detran'
 import { ufDaResposta } from './detran-multas'
 
 // Retentativa do bloco DETRAN (Infosimples) ao SERVIR um relatorio entregue.
@@ -50,7 +50,7 @@ export async function retentarDetranSeValer(
     const uf = ufDetranSuportada(ufDaResposta(response))
     if (!uf) return false
     const cfgUf = DETRAN_UFS[uf]
-    if (cfgUf.gate === 'renainf' && !temMultaRenainf(response)) return false
+    if (!passaNoGateDetran(cfgUf.gate, response)) return false
     const { data } = await supabase
       .from('premium_custos')
       .select('criado_em')
