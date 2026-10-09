@@ -44,6 +44,10 @@ const por = computed(() => PLANOS[props.plano].valorCentavos)
   padding: 2px 8px;
   align-self: center;
 }
+.pp__de,
+.pp__por {
+  white-space: nowrap;
+}
 .pp__de {
   color: #636363;
   font-weight: 500;
