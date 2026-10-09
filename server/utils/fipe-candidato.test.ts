@@ -515,8 +515,10 @@ describe('escolherMelhorFipe - Camada 1 combustivel', () => {
         { score: 52, codigo_fipe: '017003-8', texto_modelo: 'COMPASS SPORT 2.0 Flex Aut.', texto_valor: 'R$ 130.000,00', combustivel: 'Flex', mes_referencia: 'agosto de 2026' },
       ] },
     }
+    // Nome sem versao: com LIMITED no nome, a versao do nome ja decidiria
+    // (shared/versao-fipe.ts) e o teste deixaria de medir o fail-safe do diesel.
     const r = await escolherMelhorFipe({
-      senatran: SENATRAN_DIESEL, wdapi: soFlex,
+      senatran: { ...SENATRAN_DIESEL, descricaoMarcaModelo: 'JEEP/COMPASS' }, wdapi: soFlex,
       fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't',
     })
     // combustivel nao achou diesel -> nao exclui ninguem -> 2 sobrevivem -> ambiguo
@@ -582,5 +584,29 @@ describe('escolherMelhorFipe - Camada 2 transmissaoHint', () => {
     })
     expect(r.decididoPor).toBe('regra')
     expect(r.escolhido?.modelo || '').toMatch(/Aut/i)
+  })
+})
+
+describe('versao do nome (caso DMV4C01, Corolla XEi)', () => {
+  beforeEach(() => { vi.unstubAllGlobals() })
+  it('SE-G nao entra na shortlist de um XEi; sobra so a duvida do cambio', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) {
+        return { ok: true, json: async () => ({ data: [
+          { codigo_fipe: '002060-5', modelo: 'Corolla SE-G 1.8/1.8 Flex 16V Aut.', valor: 36960 },
+          { codigo_fipe: '002061-3', modelo: 'Corolla XEi 1.8/1.8 Flex 16V Aut.', valor: 34812 },
+          { codigo_fipe: '002028-1', modelo: 'Corolla XEi 1.8/1.8 Flex 16V Mec.', valor: 34067 },
+          { codigo_fipe: '002080-0', modelo: 'Corolla XLi 1.6 16V 110cv Aut.', valor: 30000 },
+        ] }) } as any
+      }
+      throw new Error(`unexpected fetch: ${url}`)
+    }))
+    const r = await escolherMelhorFipe({
+      senatran: { descricaoMarcaModelo: 'TOYOTA/COROLLA XEI18VVT', anoModelo: 2004, cilindrada: 1794 },
+      wdapi: { marca: 'TOYOTA', MODELO: 'COROLLA XEI18VVT', anoModelo: '2004', fipe: { dados: [] } },
+      fipeApiUrl: 'http://fipe', fipeApiToken: 't',
+    })
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual(['002028-1', '002061-3'])
   })
 })
