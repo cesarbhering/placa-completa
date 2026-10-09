@@ -834,7 +834,7 @@ onUnmounted(() => {
                   </svg>
                 </button>
               </span>
-              <span class="pic-faixa__plano"><b v-if="!cupomValido && precoDePromocao(plano)" class="pic-faixa__promo">Promoção</b> {{ planoInfo.nome }}</span>
+              <span class="pic-faixa__plano"><b v-if="!cupomValido && precoDePromocao(plano)" class="pic-faixa__promo">Promoção</b>{{ (!cupomValido && precoDePromocao(plano) ? ' · ' : '') + planoInfo.nome }}</span>
             </div>
             <div v-if="editandoPlaca" class="pic-campo">
               <label class="pic-label" for="pic-placa-edit">Digite a placa correta</label>
