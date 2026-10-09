@@ -39,7 +39,7 @@ async function rodar() {
     const desde = piso > seteDias ? piso : seteDias
     const { data, error } = await supabase
       .from('pedidos_premium')
-      .select('token_entrega,status,valor_centavos,plano,email,pago_em,ambiente,ip_address,google_play_order_id,oppref,obref')
+      .select('token_entrega,status,valor_centavos,plano,email,pago_em,ambiente,ip_address,google_play_order_id,oppref,obref,utm_source')
       .eq('status', 'entregue')
       .is('openai_capi_em', null)
       .gt('valor_centavos', 0)
