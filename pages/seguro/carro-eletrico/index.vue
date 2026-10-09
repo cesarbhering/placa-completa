@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { descricaoSeguroEletrico } from '~/shared/seo-meta'
 import { states } from '~/data/states'
 import seguroEletricos from '~/data/seguro-eletricos.json'
@@ -18,7 +19,8 @@ const mediaNacional = linhas.length
   : 0
 
 useHead({
-  title: 'Seguro de Carro Elétrico: preço médio por estado',
+  title: escolherTitulo(['Seguro de Carro Elétrico: Preço Médio por Estado', 'Seguro de Carro Elétrico: Preço Médio por Estado do Brasil']),
+  titleTemplate: '%s',
   meta: [
     {
       name: 'description',

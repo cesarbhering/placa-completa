@@ -95,6 +95,7 @@ if (isBrandPage) {
   // Brand hub page
   useHead({
     title: tituloMarca(pageData.name, currentYear),
+    titleTemplate: '%s',
     meta: [
       { name: 'description', content: descricaoMarca(pageData.name, pageData.models.map(m => m.name), currentYear) },
       { name: 'keywords', content: `tabela fipe ${pageData.name.toLowerCase()}, valor fipe ${pageData.name.toLowerCase()}, preço ${pageData.name.toLowerCase()}, fipe ${pageData.name.toLowerCase()} ${currentYear}` },
@@ -262,6 +263,7 @@ if (isBrandPage) {
 
   useHead({
     title: tituloModelo(pageData.name, model!.name, priceTable.value, currentYear),
+    titleTemplate: '%s',
     meta: [
       { name: 'description', content: descricaoModelo(pageData.name, model!.name, priceTable.value) },
       { name: 'keywords', content: `tabela fipe ${pageData.name.toLowerCase()} ${model!.name.toLowerCase()}, valor fipe ${model!.name.toLowerCase()}, preço ${pageData.name.toLowerCase()} ${model!.name.toLowerCase()}, fipe ${model!.name.toLowerCase()} ${currentYear}` },

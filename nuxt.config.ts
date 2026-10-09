@@ -215,6 +215,7 @@ export default defineNuxtConfig({
       "/tabela-fipe/volkswagen-nivus",
       "/tabela-fipe/volkswagen-amarok",
       "/tabela-fipe/volkswagen-taos",
+      "/tabela-fipe/volkswagen-tiguan",
       "/tabela-fipe/volkswagen-voyage",
       "/tabela-fipe/volkswagen-fox",
       "/tabela-fipe/volkswagen-up",

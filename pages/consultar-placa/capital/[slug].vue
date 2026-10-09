@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tituloCapital } from '~/shared/seo-meta'
 import { descricaoCapital } from '~/shared/seo-meta'
 import { capitals } from '~/data/capitals'
 import { states } from '~/data/states'
@@ -27,7 +28,8 @@ function onCtaClick() {
 }
 
 useHead({
-  title: `Consultar Placa ${capital.name} (${state.uf}): Leilão, Roubo, Débitos e FIPE`,
+  title: tituloCapital(capital.name, state.uf),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: descricaoCapital(capital.name, state.uf) },
     { name: 'keywords', content: `consultar placa ${capital.name.toLowerCase()}, consulta placa ${capital.name.toLowerCase()}, consultar veículo ${capital.name.toLowerCase()}, consulta placa ${capital.name.toLowerCase()} leilão` },

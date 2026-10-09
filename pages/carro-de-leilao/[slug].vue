@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tituloLeilaoModelo } from '~/shared/seo-meta'
 // Uma pagina por modelo: /carro-de-leilao/gol, /uno, /palio... Dezenove no
 // total, todas deste mesmo template, com os numeros vindo de
 // shared/leilao-modelos.ts.
@@ -48,7 +49,8 @@ function onCtaClick(origem: string) {
 }
 
 useHead({
-  title: m.title.replace(' | PlacaCompleta', ''),
+  title: tituloLeilaoModelo(m.title, m.nome),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: m.description },
     { property: 'og:title', content: m.h1 },

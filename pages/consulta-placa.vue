@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { DESCRICOES } from '~/shared/seo-meta'
 import { GENERICAS } from '~/shared/enriquecimento-regional'
 
@@ -12,7 +13,8 @@ function onCtaClick() {
 }
 
 useHead({
-  title: 'Consulta de Placa Veicular Online: Leilão, Roubo e Débitos',
+  title: escolherTitulo(['Consulta de Placa Veicular Online: Leilão, Roubo e Débitos', 'Consulta de Placa Veicular: Leilão e Roubo']),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: DESCRICOES.consultaPlaca },
     { name: 'keywords', content: 'consulta de placa, consulta placa veicular, consultar placa online, consulta veicular completa, consulta de placa com leilão, pesquisar placa de carro' },

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { findIbvPost } from '~/data/ibv-posts'
 
 const route = useRoute()
@@ -77,7 +78,8 @@ function renderRichText(text: string): string {
 }
 
 useHead({
-  title: post.title,
+  title: escolherTitulo([post.seoTitle, post.title]),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: post.metaDescription },
     { property: 'og:title', content: post.title },

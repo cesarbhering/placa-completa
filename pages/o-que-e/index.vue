@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 // Indice dos artigos "O que e". Conteudo em shared/artigos-o-que-e.ts.
 import { ARTIGOS } from '~/shared/artigos-o-que-e'
 
@@ -6,7 +7,8 @@ const BASE = 'https://placacompleta.com.br'
 const CANONICO = `${BASE}/o-que-e`
 
 useHead({
-  title: 'O que é RENAVAM, Gravame, RENAJUD e RENAINF',
+  title: escolherTitulo(['O que é RENAVAM, Gravame, RENAJUD e RENAINF']),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: 'Guias diretos sobre os termos do documento e do histórico de um veículo: RENAVAM, gravame, RENAJUD e multas RENAINF, com números reais de consultas.' },
     { property: 'og:title', content: 'O que é: termos do histórico do veículo' },

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { findBlogPost } from '~/data/blog-posts'
 import { renderRichText } from '~/shared/rich-text'
 
@@ -17,7 +18,8 @@ function formatDate(iso: string) {
 }
 
 useHead({
-  title: `${post.title} | Blog`,
+  title: escolherTitulo([post.title]),
+  titleTemplate: '%s',
   link: [{ rel: 'canonical', href: url }],
   meta: [
     { name: 'description', content: post.metaDescription },

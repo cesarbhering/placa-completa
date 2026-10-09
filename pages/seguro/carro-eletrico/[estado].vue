@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { tituloSeguroEletricoEstado } from '~/shared/seo-meta'
 import { descricaoSeguroEletricoEstado } from '~/shared/seo-meta'
 import { states } from '~/data/states'
 import seguroEletricos from '~/data/seguro-eletricos.json'
@@ -45,11 +46,12 @@ const faqs = [
 ]
 
 useHead({
-  title: `Seguro de Carro Elétrico em ${state.name}: preço médio ${anoRef + 2}`,
+  title: tituloSeguroEletricoEstado(state.uf, state.name, anoRef + 2),
+  titleTemplate: '%s',
   meta: [
     {
       name: 'description',
-      content: descricaoSeguroEletricoEstado(state.name, mediaEletrico),
+      content: descricaoSeguroEletricoEstado(state.name, mediaEletrico, state.uf),
     },
   ],
   script: [

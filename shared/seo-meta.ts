@@ -1,3 +1,5 @@
+import { escolherTitulo, emEstado } from './seo-titulo'
+
 // Meta descriptions do site, num lugar so (auditoria Ahrefs, 08/out: 93
 // paginas com description acima de 160 caracteres, que o Google corta).
 //
@@ -62,6 +64,44 @@ export function descricaoSeguroEletrico(mediaNacional: number): string {
 }
 
 /** /seguro/carro-eletrico/{estado} */
-export function descricaoSeguroEletricoEstado(estado: string, media: number): string {
-  return `Seguro de carro elétrico em ${estado}: média de ${brlInteiro(media)}/ano, com dados SUSEP corrigidos pelo IPCA. Veja o valor por modelo e peça cotação.`
+export function descricaoSeguroEletricoEstado(estado: string, media: number, uf?: string): string {
+  const onde = uf ? emEstado(uf, estado) : `em ${estado}`
+  return `Seguro de carro elétrico ${onde}: média de ${brlInteiro(media)}/ano, com dados SUSEP corrigidos pelo IPCA. Veja o valor por modelo e peça cotação.`
+}
+
+// --- Titles programaticos (title FINAL, 50 a 60; ver shared/seo-titulo.ts) --
+
+/** /consultar-placa/capital/{slug} */
+export function tituloCapital(cidade: string, uf: string): string {
+  return escolherTitulo([
+    `Consultar Placa ${cidade} (${uf}): Leilão, Roubo e FIPE`,
+    `Consultar Placa ${cidade} (${uf}): Leilão e FIPE`,
+    `Consultar Placa em ${cidade} (${uf}): Leilão, Roubo e FIPE`,
+    `Consultar Placa ${cidade} (${uf})`,
+  ])
+}
+
+/** /seguro/carro-eletrico/{estado} */
+export function tituloSeguroEletricoEstado(uf: string, estado: string, ano: number): string {
+  const onde = emEstado(uf, estado)
+  return escolherTitulo([
+    `Seguro de Carro Elétrico ${onde}: Preço Médio ${ano}`,
+    `Seguro de Carro Elétrico ${onde}: Preço Médio`,
+    `Seguro Carro Elétrico ${uf}: Preço Médio ${ano}`,
+    `Seguro de Carro Elétrico ${onde}`,
+  ])
+}
+
+/** /carro-de-leilao/{modelo}: o title do dado vem com o sufixo antigo. */
+export function tituloLeilaoModelo(titleDoDado: string, nome: string): string {
+  return escolherTitulo([
+    titleDoDado.replace(/\s*\|\s*PlacaCompleta\s*$/, ''),
+    `${nome} de Leilão: Como Saber se Já Passou`,
+    `${nome} de Leilão: Como Saber`,
+  ])
+}
+
+/** /consultar-placa-de-{tipo} */
+export function tituloTipoVeiculo(metaTitle: string, nome: string): string {
+  return escolherTitulo([metaTitle, `Consultar Placa de ${nome}: Leilão e FIPE`])
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { DESCRICOES } from '~/shared/seo-meta'
 import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 // Pagina guia de "carro de leilao". Copy final do seo, aprovada pelo Cesar
@@ -20,7 +21,8 @@ function onCtaClick(origem: string) {
 }
 
 useHead({
-  title: 'Carro de Leilão: Como Descobrir Antes de Comprar',
+  title: escolherTitulo(['Carro de Leilão: Como Descobrir Antes de Comprar', 'Carro de Leilão: Como Saber Antes de Comprar']),
+  titleTemplate: '%s',
   meta: [
     {
       name: 'description',
