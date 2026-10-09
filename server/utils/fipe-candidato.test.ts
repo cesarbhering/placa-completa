@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { escolherMelhorFipe } from './fipe-candidato'
 
 // Payload real (senatran_consultas + placa_cache, staging) da placa OXK7426:
@@ -608,5 +608,74 @@ describe('versao do nome (caso DMV4C01, Corolla XEi)', () => {
     })
     expect(r.decididoPor).toBe('ambiguo')
     expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual(['002028-1', '002061-3'])
+  })
+})
+
+describe('modelo do nome no funil (caso TTR6F65, Tracker)', () => {
+  beforeEach(() => { vi.unstubAllGlobals() })
+  it('TRACKER nao termina com ONIX quando o universo tem Tracker', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) {
+        return { ok: true, json: async () => ({ data: [
+          { codigo_fipe: '004519-5', modelo: 'ONIX HATCH 1.0 12V Flex 5p Mec.', valor: 60000 },
+          { codigo_fipe: '004511-0', modelo: 'ONIX HATCH 1.0 12V TB Flex 5p Aut.', valor: 70000 },
+          { codigo_fipe: '004540-3', modelo: 'TRACKER 1.0 Turbo 12V Flex Aut.', valor: 100000 },
+        ] }) } as any
+      }
+      return { ok: false, json: async () => ({}) } as any
+    }))
+    const r = await escolherMelhorFipe({
+      senatran: { descricaoMarcaModelo: 'CHEV/TRACKER T A', anoModelo: 2021, cilindrada: 999 },
+      wdapi: { marca: 'CHEVROLET', MODELO: 'TRACKER T A', anoModelo: '2021', fipe: { dados: [] } },
+      fipeApiUrl: 'http://fipe', fipeApiToken: 't',
+    })
+    expect(r.candidatos.map((c) => c.codigo_fipe)).toEqual(['004540-3'])
+  })
+})
+
+describe('fallback respeita o nome (caso GMF8I88, Saveiro CS)', () => {
+  beforeEach(() => { vi.unstubAllGlobals() })
+  it('fipe-api fora: o melhor score da fonte nao pode ser a cabine dupla', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('timeout') }))
+    const r = await escolherMelhorFipe({
+      senatran: { descricaoMarcaModelo: 'VW/SAVEIRO CS RB MF', anoModelo: 2024, cilindrada: 1598, descricaoTipoVeiculo: 'CAMINHONETE' },
+      wdapi: { marca: 'VW', anoModelo: '2024', fipe: { dados: [
+        { score: 61, codigo_fipe: '005546-8', texto_marca: 'VW - VolksWagen', texto_modelo: 'Saveiro Extreme 1.6 Flex 16V CD', texto_valor: 'R$ 99.871,00' },
+        { score: 61, codigo_fipe: '005538-7', texto_marca: 'VW - VolksWagen', texto_modelo: 'Saveiro Robust 1.6 Total Flex 16V ', texto_valor: 'R$ 74.795,00' },
+        { score: 61, codigo_fipe: '005537-9', texto_marca: 'VW - VolksWagen', texto_modelo: 'Saveiro Robust 1.6 Total Flex 16V CD', texto_valor: 'R$ 85.210,00' },
+      ] } },
+      fipeApiUrl: 'http://fipe', fipeApiToken: 't',
+    })
+    expect(r.decididoPor).toBe('fallback')
+    expect(r.escolhido?.codigo_fipe).toBe('005538-7')
+  })
+})
+
+describe('timeout proprio da fipe-api', () => {
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals() })
+  it('fipe-api respondendo em 4 s (a frio) nao cai no fallback', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn((url: string, opts: any) => new Promise((resolve, reject) => {
+      opts?.signal?.addEventListener('abort', () => reject(new Error('aborted')))
+      setTimeout(() => resolve({ ok: true, json: async () => ({ data: FIPE_API_ETIOS_2014 }) }), 4000)
+    })))
+    const p = escolherMelhorFipe({ senatran: SENATRAN_OXK7426, wdapi: WDAPI_OXK7426, fipeApiUrl: 'http://fipe', fipeApiToken: 't' })
+    // /modelos em 4 s; depois /brands e /brands/:id/models (resolucao do codigo do modelo) tambem demoram 4 s cada.
+    await vi.advanceTimersByTimeAsync(4100)
+    await vi.advanceTimersByTimeAsync(4100)
+    await vi.advanceTimersByTimeAsync(4100)
+    const r = await p
+    expect(r.decididoPor).toBe('regra')
+    expect(r.escolhido?.codigo_fipe).toBe('002122-9')
+  })
+  it('acima de 8 s: fallback', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn((url: string, opts: any) => new Promise((resolve, reject) => {
+      opts?.signal?.addEventListener('abort', () => reject(new Error('aborted')))
+      setTimeout(() => resolve({ ok: true, json: async () => ({ data: FIPE_API_ETIOS_2014 }) }), 9000)
+    })))
+    const p = escolherMelhorFipe({ senatran: SENATRAN_OXK7426, wdapi: WDAPI_OXK7426, fipeApiUrl: 'http://fipe', fipeApiToken: 't' })
+    await vi.advanceTimersByTimeAsync(9100)
+    expect((await p).decididoPor).toBe('fallback')
   })
 })
