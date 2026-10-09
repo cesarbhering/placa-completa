@@ -42,12 +42,16 @@ const DOC_VPIC = 'Tabela de codigos de planta da montadora (Wikibooks VIN codes)
 // WAU pos11 R: vPIC nao tem PlantCity pra Audi de mercado europeu. Tabela de
 // codigos diz Martorell, e os 38 chassis da base com WAU..R sao TODOS Q3 8U
 // (2013-2018), modelo feito so na SEAT Martorell nessa geracao.
+// JMY (Mitsubishi pra America do Sul): o vPIC nao conhece o WMI. Codigo da
+// planta pela tabela da marca + base de leiloes (modelos do mesmo codigo
+// compativeis com a fabrica, contradicao < 2%) + comunicado da Mitsubishi.
+const MMC_DOC_BASE = 'Tabela de codigos de planta da Mitsubishi (Wikibooks VIN codes) + base de leiloes (modelos compativeis, < 2% de contradicao) + comunicado da Mitsubishi Motors (Okazaki produz Outlander)'
 const DOC_MODELO = 'Tabela de codigos de planta da montadora (Wikibooks VIN codes) + 100% dos chassis da base sao de um modelo feito so nessa fabrica'
 
 // Versao do arquivo curado. O servico compara com o que esta gravado no banco
 // e reimporta sozinho quando sobe (ver server.js). Subir esta versao SEMPRE que
 // mexer na lista, senao a mudanca nao chega no container ja rodando.
-export const PLANTS_VERSAO = 7
+export const PLANTS_VERSAO = 8
 
 // Atalhos pra nao repetir o pais em cada linha.
 const br = (wmi, pos, cidade, uf, de = null, ate = null, fonte = IBGE, conf = 'alta') =>
@@ -310,6 +314,17 @@ const PLANTS = [
   ext('JA3', 'U', 'Kurashiki (Mizushima)', 'Japão', DOC_VPIC),
   ext('JA3', 'P', 'Nagoya (Ooe)', 'Japão', DOC_VPIC),
   ext('JA3', 'Z', 'Okazaki', 'Japão', DOC_VPIC),
+  // JMY = Mitsubishi japonesa de exportacao pra America do Sul (nao existe no
+  // vPIC). Codigos da posicao 11 sao os mesmos da marca (Wikibooks
+  // "Mitsubishi VIN codes"), conferidos na base de leiloes (set-out/2026):
+  // Z = Okazaki (Nagoya Plant): Outlander, ASX (ate 2017), Galant, Grandis,
+  //     base com 156+ chassis compativeis (Mitsubishi confirma Outlander e
+  //     ASX em Okazaki); caso real RDW7C71 (Outlander 2020/2021).
+  // U = Mizushima (Kurashiki): Lancer, Airtrek/Outlander 1a geracao.
+  // J = Pajero Manufacturing (Sakahogi, Gifu, fechada em 2021): Pajero.
+  ext('JMY', 'Z', 'Okazaki', 'Japão', MMC_DOC_BASE),
+  ext('JMY', 'U', 'Kurashiki (Mizushima)', 'Japão', MMC_DOC_BASE),
+  ext('JMY', 'J', 'Sakahogi (Pajero Manufacturing)', 'Japão', MMC_DOC_BASE),
   ext('JTM', 'D', 'Obu', 'Japão', DOC_VPIC),
   ext('JTM', 'J', 'Toyota (Takaoka)', 'Japão', DOC_VPIC),
 ]

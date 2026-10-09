@@ -28,12 +28,11 @@ test('toda linha tem fonte e pais pela faixa ISO 3780', async () => {
   }
 })
 
-test('bug do ASX: JMY decodifica Mitsubishi Motors, Japao, sem cidade e sem "invalido"', () => {
+test('bug do ASX: JMY decodifica Mitsubishi Motors, Japao, sem "invalido"', () => {
   const r = decodeVin('JMYXTGA2WBZ000000')
   assert.equal(r.fabricante, 'Mitsubishi Motors')
   assert.equal(r.pais, 'Japão')
-  assert.equal(r.planta, null)
-  assert.equal(r.plantaDetalhe, null)
+  // A cidade (Okazaki, desde a v8 das plantas) e testada em plantas-mitsubishi.test.js.
   assert.equal(r.checksumOk, null)
   assert.equal(r.checksumAplicavel, false)
 })

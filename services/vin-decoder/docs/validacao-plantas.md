@@ -166,3 +166,20 @@ Bupyeong), Japao (Suzuka, Sayama, Hamamatsu, Kumamoto, Hiroshima), Tailandia
   BMW Motorrad Manaus (pos-2016), Haobao, Iros.
 - Reboques (9A9: varios fabricantes no mesmo WMI); motos chinesas importadas
   sem PlantCity no vPIC (LXY, LAA, LWY etc.).
+
+## v8 (out/2026): Mitsubishi JMY
+
+JMY (Mitsubishi japonesa de exportacao pra America do Sul) nao existe no vPIC.
+Posicao 11 pela tabela da marca (Wikibooks "Mitsubishi VIN codes"), cruzada
+com a base de leiloes (modelos por codigo, consulta leve em 09/out/2026):
+
+| Pos 11 | Planta | Modelos na base |
+|---|---|---|
+| Z | Okazaki (Nagoya Plant), Aichi | Outlander, ASX (ate 2017), Galant, Grandis, Space Wagon |
+| U | Mizushima, Kurashiki | Lancer, Airtrek/Outlander 1a geracao |
+| J | Pajero Manufacturing, Sakahogi (fechada em 2021) | Pajero, Pajero Sport |
+
+A Mitsubishi confirma Outlander e ASX em Okazaki (comunicado de transferencia
+do RVR/ASX de Okazaki pra Mizushima no fim de 2017). P (Ooe, fechada em 2001)
+nao entrou: a base tem Pajero/L200 nesse codigo sem fonte que explique.
+93X (HPE/Souza Ramos) segue Catalao (GO).
