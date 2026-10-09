@@ -91,8 +91,14 @@ export const DETRAN_UFS = {
   SC: { path: 'detran/sc/veiculo', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_sc', fonteCusto: 'infosimples_detran_sc' },
   // MG exige o chassi alem de placa+renavam (vem do SENATRAN).
   // BA: login gov.br (CPF+senha), renavam sem placa. R$0,30 por chamada.
-  BA: { path: 'detran/ba/multas', cert: 'govbr_ba', gate: 'renainf', fonte: 'detran_ba', fonteCusto: 'infosimples_detran_ba' },
-  RS: { path: 'detran/rs/infracoes', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_rs', fonteCusto: 'infosimples_detran_rs' },
+  // complemento: o /multas do BA so traz multas; licenciamento e IPVA vem do
+  // /licenciamento (mesmo login, so renavam, R$0,30; teste JPQ6371, 09/out).
+  BA: { path: 'detran/ba/multas', cert: 'govbr_ba', gate: 'renainf', fonte: 'detran_ba', fonteCusto: 'infosimples_detran_ba',
+    complemento: { path: 'detran/ba/licenciamento', fonteCusto: 'infosimples_detran_ba_licenciamento' } },
+  // complemento: o /infracoes so traz multas; IPVA e licenciamento vem do
+  // /veiculo (e-CNPJ, placa + renavam, R$0,28, ~15 s; teste IWC7G10, 09/out).
+  RS: { path: 'detran/rs/infracoes', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_rs', fonteCusto: 'infosimples_detran_rs',
+    complemento: { path: 'detran/rs/veiculo', fonteCusto: 'infosimples_detran_rs_veiculo' } },
   MG: { path: 'detran/mg/multas-descritivos', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_mg', fonteCusto: 'infosimples_detran_mg', exigeChassi: true },
   // GO: e-CNPJ, placa+renavam. R$0,28 por chamada (teste do Lead, 30/set).
   GO: { path: 'detran/go/debitos', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_go', fonteCusto: 'infosimples_detran_go' },
@@ -177,7 +183,7 @@ export const ABORT_MS = 330_000
 export const CODIGOS_RETRY = new Set([0, 605, 609])
 export const ESPERA_RETRY_MS = 20_000
 
-export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null }): Promise<ResultadoDetran> {
+export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null; path?: string }): Promise<ResultadoDetran> {
   const cfgUf: any = DETRAN_UFS[opts.uf]
   const certUf: CertInfosimples = cfgUf.cert
   const cfg = infosimplesConfig(usaLoginGovbr(certUf) || certUf === 'nenhum' ? 'ecnpj' : certUf)
@@ -217,7 +223,7 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       if (!cfgUf.semPlaca) body.set('placa', opts.placa)
     }
     if (opts.chassi) body.set('chassi', String(opts.chassi).toUpperCase())
-    const res = await fetch(`${BASE}/${DETRAN_UFS[opts.uf].path}`, {
+    const res = await fetch(`${BASE}/${opts.path || DETRAN_UFS[opts.uf].path}`, {
       method: 'POST',
       body,
       signal: AbortSignal.timeout(ABORT_MS),
@@ -692,6 +698,129 @@ export function parsearDetranBa(data: any) {
     restricoes_detran: [] as { tipo: string; texto: string }[],
     autuacoes_em_andamento: tramitacao.length,
   }
+}
+
+/**
+ * Complemento do BA (/detran/ba/licenciamento): taxas de licenciamento e IPVA
+ * em aberto. Fonte: `valores_atualizados` (um item por exercicio, valor ja
+ * atualizado) e, se faltar, o "Licenciamento atual"/"IPVA atual" de
+ * `licenciamento[]`. Multas ficam com o /multas (que traz o auto de cada uma).
+ * Whitelist: nunca grava proprietario, html_url nem site_receipt.
+ */
+export interface ComplementoDetran {
+  licenciamento_centavos: number | null
+  licenciamento_atrasado_ano: number | null
+  licenciamento_exercicios: { ano: number; centavos: number }[]
+  ipva_total_centavos: number | null
+  /** IPVA sem multa/juros, quando a fonte separa (RS). */
+  ipva_original_centavos?: number | null
+  /** Multas com juros/correcao, como o DETRAN cobra hoje (BA). */
+  multas_atualizado_centavos?: number | null
+  /** Total a pagar segundo o proprio DETRAN (BA). Vira o "Para regularizar". */
+  total_detran_centavos?: number | null
+}
+
+export function parsearLicenciamentoBa(data: any, hoje: Date = new Date()): ComplementoDetran | null {
+  const d = data || {}
+  const atualizados: any[] = Array.isArray(d.valores_atualizados) ? d.valores_atualizados : []
+  const resumo: any[] = Array.isArray(d.licenciamento) ? d.licenciamento : []
+  if (!atualizados.length && !resumo.length) return null
+  const valor = (x: any) => (typeof x?.normalizado_valor === 'number' ? x.normalizado_valor : moeda(x?.valor))
+  const centavos = (v: number) => Math.round(v * 100)
+
+  const exercicios = atualizados
+    .filter((x) => /licenciamento/i.test(String(x?.descricao ?? '')) && valor(x) > 0)
+    .map((x) => ({ ano: Number(String(x?.ano_referencia ?? '').trim()) || 0, centavos: centavos(valor(x)) }))
+    .filter((x) => x.ano > 1900)
+    .sort((a, b) => a.ano - b.ano)
+  const ipvaAtualizados = atualizados.filter((x) => /ipva/i.test(String(x?.descricao ?? '')) && valor(x) > 0)
+
+  const doResumo = (re: RegExp) => resumo.find((x) => re.test(String(x?.descricao ?? '')))
+  let licCent = exercicios.reduce((a, x) => a + x.centavos, 0)
+  if (!exercicios.length) {
+    const atual = doResumo(/^licenciamento/i)
+    licCent = atual ? centavos(valor(atual)) : 0
+  }
+  let ipvaCent = ipvaAtualizados.reduce((a, x) => a + centavos(valor(x)), 0)
+  if (!ipvaAtualizados.length) {
+    const ipva = doResumo(/^ipva/i)
+    ipvaCent = ipva ? centavos(valor(ipva)) : 0
+  }
+  // Exercicio anterior ao corrente ainda em aberto = licenciamento atrasado.
+  // O relatorio le licenciamento_atrasado_ano como "ultimo exercicio
+  // licenciado": e o ano ANTES do primeiro em aberto.
+  const atrasados = exercicios.filter((x) => x.ano < hoje.getFullYear())
+  // Multas atualizadas (com juros) e o total do proprio DETRAN: o relatorio
+  // nao pode somar o valor original e dizer um total menor do que o DETRAN cobra.
+  const multasAtualizadas = atualizados.filter((x) => /multa/i.test(String(x?.descricao ?? '')) && valor(x) > 0)
+  const totalDetran = atualizados.find((x) => /valor total/i.test(String(x?.descricao ?? '')))
+  return {
+    licenciamento_centavos: licCent,
+    licenciamento_atrasado_ano: atrasados.length ? atrasados[0].ano - 1 : null,
+    licenciamento_exercicios: exercicios,
+    ipva_total_centavos: ipvaCent,
+    multas_atualizado_centavos: multasAtualizadas.length ? multasAtualizadas.reduce((a, x) => a + centavos(valor(x)), 0) : null,
+    total_detran_centavos: totalDetran && valor(totalDetran) > 0 ? centavos(valor(totalDetran)) : null,
+  }
+}
+
+/**
+ * Complemento do RS (/detran/rs/veiculo, e-CNPJ, placa + renavam, R$0,28;
+ * teste IWC7G10, 09/out): IPVA por exercicio (pendente com multa e juros) e
+ * licenciamento (ultimo exercicio e validade). Multas seguem do /infracoes.
+ * Whitelist: nunca grava proprietario, nome em restricoes nem site_receipt.
+ */
+export function parsearVeiculoRs(data: any, hoje: Date = new Date()): ComplementoDetran | null {
+  const d = data || {}
+  const ipvas: any[] = Array.isArray(d.ipva) ? d.ipva : []
+  if (!ipvas.length && d.exercicio_ultimo_licenciamento == null && !d.licenciamento_valido_ate) return null
+  const centavos = (v: any) => Math.round((typeof v === 'number' ? v : moeda(v)) * 100)
+  const pendentes = ipvas.filter((x) => /pendente|d[ií]vida ativa(?!.*(liquidad|conclu))/i.test(String(x?.situacao ?? '')))
+  const atualizado = (x: any) => {
+    const deb: any[] = Array.isArray(x?.debitos) ? x.debitos : []
+    const comJuros = deb.reduce((a, y) => a + centavos(y?.valor_total_com_desconto ?? y?.valor ?? 0), 0)
+    return comJuros > 0 ? comJuros : centavos(x?.valor)
+  }
+  const ipvaAtual = pendentes.reduce((a, x) => a + atualizado(x), 0)
+  const ipvaOriginal = pendentes.reduce((a, x) => a + centavos(x?.valor), 0)
+
+  const validoAte = tsData(d.licenciamento_valido_ate)
+  const ultimo = Number(d.exercicio_ultimo_licenciamento) || null
+  const vencido = validoAte > 0 && validoAte < hoje.getTime()
+  return {
+    licenciamento_centavos: vencido ? centavos(d.valor_licenciamento) : 0,
+    licenciamento_atrasado_ano: vencido ? ultimo : null,
+    licenciamento_exercicios: [],
+    ipva_total_centavos: ipvaAtual,
+    ipva_original_centavos: ipvaOriginal !== ipvaAtual ? ipvaOriginal : null,
+  }
+}
+
+/** Parser do complemento por UF. */
+function parsearComplemento(uf: UfDetran, data: any): ComplementoDetran | null {
+  if (uf === 'BA') return parsearLicenciamentoBa(data)
+  if (uf === 'RS') return parsearVeiculoRs(data)
+  return null
+}
+
+/** Junta o complemento (licenciamento/IPVA) ao bloco de multas da UF. */
+export function juntarComplemento(bloco: any, comp: ComplementoDetran | null): any {
+  if (!comp) return bloco
+  const out: any = {
+    ...bloco,
+    licenciamento_centavos: comp.licenciamento_centavos,
+    licenciamento_atrasado_ano: comp.licenciamento_atrasado_ano,
+    licenciamento_exercicios: comp.licenciamento_exercicios,
+    ipva_total_centavos: comp.ipva_total_centavos,
+    complemento_ok: true,
+  }
+  if (comp.ipva_original_centavos != null) out.ipva_original_centavos = comp.ipva_original_centavos
+  // Atualizado so vale se for MAIOR que o original das multas (senao e outra coisa).
+  if (comp.multas_atualizado_centavos != null && comp.multas_atualizado_centavos > (bloco?.multas_total_centavos ?? 0)) {
+    out.multas_atualizado_centavos = comp.multas_atualizado_centavos
+  }
+  if (comp.total_detran_centavos != null) out.total_detran_centavos = comp.total_detran_centavos
+  return out
 }
 
 // ---------- DETRAN-RS (/detran/rs/infracoes) ----------
@@ -1477,7 +1606,21 @@ export async function completarDetran(
   // Excecao: bloco preenchido A MANO (preenchido_manual_em) e trocado pelo dado
   // oficial quando a consulta roda.
   const multasAtual = (snap as any).multas
-  if (multasAtual?.fonte === cfgUf.fonte && !multasAtual?.preenchido_manual_em) return { ok: false, pulado: `ja tem ${cfgUf.fonte}` }
+  if (multasAtual?.fonte === cfgUf.fonte && !multasAtual?.preenchido_manual_em) {
+    // Bloco de multas ja existe, mas sem o complemento (pedido de antes dele):
+    // roda SO o complemento e junta. Multas nao sao consultadas de novo.
+    // Bloco corrigido a mao (backfill_manual, ex.: JPQ6371) nunca e mexido.
+    if ((cfgUf as any).complemento && multasAtual.status === 'ok' && !multasAtual.complemento_ok && !multasAtual.backfill_manual) {
+      const comp = await buscarComplemento(supabase, pedido.id, uf, { placa: pedido.placa, renavam: renavam! })
+      if (!comp) return { ok: false, pulado: 'complemento indisponivel' }
+      const atual = (await lerSnapshot(supabase, pedido.id)) || snap
+      const novo = juntarComplemento((atual as any).multas, comp)
+      const { error } = await supabase.from('pedidos_premium').update({ relatorio_snapshot: { ...atual, multas: novo } }).eq('id', pedido.id)
+      if (error) return { ok: false, motivo: 'update: ' + error.message }
+      return { ok: true, code: 200, preco: 0, multasCentavos: novo.multas_total_centavos ?? 0, temAlgo: true }
+    }
+    return { ok: false, pulado: `ja tem ${cfgUf.fonte}` }
+  }
 
   const params = { uf, placa: pedido.placa, renavam: renavam!, chassi: (cfgUf as any).exigeChassi ? chassi : null }
   const t0 = Date.now()
@@ -1505,7 +1648,10 @@ export async function completarDetran(
     await marcarIndisponivel(supabase, pedido.id, uf)
     return { ok: false, code: res.code, preco: res.preco, motivo: res.codeMessage || 'sem data' }
   }
-  const multas: any = blocoDetranDaUf(uf, res.data)
+  let multas: any = blocoDetranDaUf(uf, res.data)
+  if (multas && (cfgUf as any).complemento) {
+    multas = juntarComplemento(multas, await buscarComplemento(supabase, pedido.id, uf, { placa: pedido.placa, renavam: renavam! }))
+  }
   if (!multas) {
     // Formato que o parser nao reconhece (UF integrada so pela doc): nada de
     // valor inventado. Loga so a estrutura (chaves), sem valores nem nomes.
@@ -1535,6 +1681,35 @@ export async function completarDetran(
 }
 
 const esperarMs = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * Chamada do complemento da UF (hoje so BA: licenciamento e IPVA). Grava o
+ * custo sempre. Fail-open: qualquer erro devolve null e o bloco de multas
+ * segue como estava.
+ */
+async function buscarComplemento(
+  supabase: any,
+  pedidoId: string,
+  uf: UfDetran,
+  params: { placa: string; renavam: string },
+): Promise<ComplementoDetran | null> {
+  const comp: any = (DETRAN_UFS[uf] as any).complemento
+  if (!comp) return null
+  if (usaLoginGovbr(DETRAN_UFS[uf].cert) && loginBaTravado()) return null
+  try {
+    const res = await consultarDetranInfosimples({ uf, placa: params.placa, renavam: params.renavam, path: comp.path })
+    await registrarCusto(supabase, { pedidoId, fonte: comp.fonteCusto, preco: res.preco, code: res.code })
+    if (usaLoginGovbr(DETRAN_UFS[uf].cert) && res.code === 608) { await travarLoginBa(res.codeMessage); return null }
+    if (res.code !== 200 || !res.data) {
+      logIndisponivel(pedidoId, `${uf}-complemento`, res.code, res.codeMessage || 'sem data', 0)
+      return null
+    }
+    return parsearComplemento(uf, res.data)
+  } catch (e: any) {
+    console.warn('[infosimples] complemento falhou:', e?.message || e)
+    return null
+  }
+}
 
 /** Log sem PII de UF indisponivel: so UF, codigo, motivo, tempo e o comeco do id. */
 export function logIndisponivel(pedidoId: string, uf: string, code: number | null, motivo: string, ms: number): void {
