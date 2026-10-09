@@ -19,6 +19,9 @@ export const REDIRECTS_FIXOS: Record<string, string> = {
   '/consultar-placacompleta.com.br/consultar-placa-de-onibus': '/consultar-placa-de-onibus',
   '/consultar-pelo-celular': '/',
   '/pt-br': '/',
+  // Slug 'tcross' carregava a pagina do Tiguan (mapeamento errado). O Tiguan
+  // virou /tabela-fipe/volkswagen-tiguan; o endereco antigo, pelo nome, vai pro T-Cross.
+  '/tabela-fipe/volkswagen-tcross': '/tabela-fipe/volkswagen-t-cross',
 }
 
 const existeFipe = (slug: string) => !!findBrandModel(slug) || !!(fipeBrands as Record<string, unknown>)[slug]

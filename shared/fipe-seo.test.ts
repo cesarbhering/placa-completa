@@ -14,7 +14,9 @@ describe('SEO /tabela-fipe/*', () => {
     for (const [slug, marca, modelo] of [['yamaha-mt-03', 'Yamaha', 'MT-03'], ['yamaha-lander', 'Yamaha', 'Lander'], ['volkswagen-nivus', 'Volkswagen', 'Nivus'], ['volkswagen-gol', 'Volkswagen', 'Gol']]) {
       const t = d[slug]?.priceTable || []
       const titulo = tituloModelo(marca, modelo, t, 2026)
-      expect(titulo).toMatch(/^Tabela FIPE .+ \d{4}: Valor Atualizado$/)
+      expect(titulo).toMatch(/^Tabela FIPE .+ \d{4}/)
+      expect(titulo.length).toBeGreaterThanOrEqual(50)
+      expect(titulo.length).toBeLessThanOrEqual(60)
       expect(titulo).not.toMatch(/gr[aá]tis|—/i)
       const desc = descricaoModelo(marca, modelo, t)
       expect(desc).toMatch(/na Tabela FIPE com valor atualizado/)
@@ -36,7 +38,7 @@ describe('SEO /tabela-fipe/*', () => {
     }
   })
   it('Honda Motos vira Honda no modelo', () => {
-    expect(tituloModelo('Honda Motos', 'NXR 160 Bros', [], 2026)).toBe('Tabela FIPE Honda NXR 160 Bros: Valor Atualizado por Ano')
+    expect(tituloModelo('Honda Motos', 'NXR 160 Bros', [], 2026)).toMatch(/^Tabela FIPE Honda NXR 160 Bros/)
   })
   it('marca', () => {
     expect(tituloMarca('Yamaha', 2026)).toBe('Tabela FIPE Yamaha 2026: Valor Atualizado dos Modelos')

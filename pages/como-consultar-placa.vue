@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
+import { DESCRICOES } from '~/shared/seo-meta'
 function onCtaClick() {
   if (import.meta.client && window.gtag) {
     window.gtag('event', 'cta_click', { source_page: 'como-consultar-placa' })
@@ -6,9 +8,10 @@ function onCtaClick() {
 }
 
 useHead({
-  title: 'Como Consultar Placa de Veículo: Passo a Passo',
+  title: escolherTitulo(['Como Consultar Placa de Veículo: Passo a Passo', 'Como Consultar Placa: Passo a Passo']),
+  titleTemplate: '%s',
   meta: [
-    { name: 'description', content: 'Aprenda como consultar a placa de qualquer veículo. Passo a passo simples para ver marca, modelo, FIPE, situação e o relatório completo com leilão, gravame, roubo e débitos.' },
+    { name: 'description', content: DESCRICOES.comoConsultarPlaca },
     { name: 'keywords', content: 'como consultar placa, como pesquisar placa de carro, como verificar placa, consulta de placa com leilão e gravame, passo a passo consulta placa' },
     { property: 'og:title', content: 'Como Consultar a Placa de um Veículo' },
     { property: 'og:description', content: 'Passo a passo para consultar qualquer placa de veículo e ver o resultado na hora, na própria tela.' },

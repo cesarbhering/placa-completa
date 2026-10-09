@@ -103,6 +103,7 @@ Adicione um novo objeto no array `ibvPosts`, **antes** dos posts existentes (ord
 {
   slug: 'abril-2026',
   title: 'IBV Auto Abril 2026: [manchete com o número principal]',
+  seoTitle: 'IBV Auto Abril 2026: [dado principal, 50 a 60 caracteres]',
   metaDescription: '[Resumo de 155 caracteres com o número principal e o que veremos no post]',
   publishedAt: '2026-05-07',   // data real de publicação pelo BV
   source: 'Banco BV (IBV Auto)',
@@ -324,7 +325,8 @@ Na seção `sitemap: { urls: [...] }`, adicione as duas novas URLs **junto às o
 
 | Campo | Regra |
 |---|---|
-| `title` | Deve conter "IBV Auto {Mês} {Ano}" + o dado principal + gancho |
+| `title` | Deve conter "IBV Auto {Mês} {Ano}" + o dado principal + gancho (é o H1) |
+| `seoTitle` | Title da aba/SERP: 50 a 60 caracteres no total, sem travessão (o teste shared/seo-meta.test.ts barra) |
 | `metaDescription` | 140–160 caracteres, incluir variação percentual e CTA implícito |
 | `publishedAt` | Data real de publicação pelo BV (não a data de implementação) |
 | Schema `BlogPosting` | Gerado automaticamente pelo `[slug].vue` — sem ação necessária |

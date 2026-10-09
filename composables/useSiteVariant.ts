@@ -1,4 +1,5 @@
 import { BASE_LEILAO_TEXTO } from '../shared/base-leilao'
+import { DESCRICOES } from '../shared/seo-meta'
 // ============================================================
 // Theming por dominio (hibrido de dominios, ago/2026): olhonamoto.com.br e
 // olhonocaminhao.com.br servem a MESMA aplicacao (mesmo backend, mesmo
@@ -70,9 +71,10 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     // sozinho, a partir de site.name no nuxt.config. Escrever a marca no
     // texto fazia o titulo sair duplicado em producao.
     // 01/out (Cesar): distanciar do "gratis" nas superficies que Google/IA leem.
-    metaTitle: 'PlacaCompleta: Consulta de Placa, Leilão, Gravame, Roubo e Débitos',
+    // Title final (o index desliga o template): 50 a 60 caracteres com a marca.
+    metaTitle: 'Consulta de Placa: Leilão, Roubo e Débitos | PlacaCompleta',
     ogTitle: 'PlacaCompleta: Consulta de Placa, Leilão, Gravame, Roubo e Débitos',
-    ogDescription: 'Antes de fechar negócio, veja o que o vendedor não conta: registro de leilão, roubo, gravame, multas e recall pendente. Consulta pela placa e relatório completo na hora.',
+    ogDescription: DESCRICOES.home,
   },
   moto: {
     variant: 'moto',

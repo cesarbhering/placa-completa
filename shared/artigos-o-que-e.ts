@@ -137,7 +137,7 @@ export const ARTIGOS: Artigo[] = [
     slug: 'renajud',
     termo: 'RENAJUD',
     h1: 'O que é RENAJUD?',
-    title: 'O que é RENAJUD: Restrição Judicial em Veículo',
+    title: 'O que é RENAJUD: Restrição Judicial',
     description: 'RENAJUD é o sistema pelo qual juízes bloqueiam veículos no cadastro nacional. Veja os tipos de restrição, o que cada uma impede e como conferir antes da compra.',
     lead: 'RENAJUD é o sistema que liga o Poder Judiciário ao cadastro nacional de veículos (RENAVAM). Por ele, um juiz registra online restrições sobre um veículo, como bloqueio de transferência, de licenciamento ou de circulação, normalmente para garantir o pagamento de uma dívida discutida em processo.',
     dado: {

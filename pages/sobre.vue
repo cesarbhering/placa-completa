@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
+import { DESCRICOES } from '~/shared/seo-meta'
 useHead({
-  title: 'Sobre o PlacaCompleta: Quem Somos, Fontes de Dados e Metodologia',
+  title: escolherTitulo(['Sobre o PlacaCompleta: Quem Somos, Fontes de Dados e Metodologia', 'Sobre o PlacaCompleta: Quem Somos, Fontes e Metodologia']),
+  titleTemplate: '%s',
   meta: [
-    { name: 'description', content: 'Conheça o PlacaCompleta: como funciona a consulta veicular por placa, de onde vêm os dados (bases oficiais, FIPE, banco BV), metodologia das análises IBV e compromisso com a LGPD.' },
+    { name: 'description', content: DESCRICOES.sobre },
     { property: 'og:title', content: 'Sobre o PlacaCompleta: Metodologia e Privacidade' },
     { property: 'og:description', content: 'Transparência sobre fontes de dados, metodologia e privacidade da consulta veicular por placa do PlacaCompleta.' },
   ],

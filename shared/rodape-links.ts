@@ -41,7 +41,9 @@ export const COLUNAS_RODAPE: ColunaRodape[] = [
       { rotulo: 'Blog', to: '/blog' },
       { rotulo: 'IBV Auto', to: '/ibv' },
       { rotulo: 'Estudos', to: '/estudos' },
-      { rotulo: 'Contato', to: 'mailto:contato@placacompleta.com.br' },
+      // Pagina, nao mailto: a Cloudflare reescreve mailto pra um link que da 404
+      // pra crawler (ver pages/contato.vue).
+      { rotulo: 'Contato', to: '/contato' },
     ],
   },
 ]

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 // Guia "Como saber se o carro e de leilao" (plano SEO 02/out, item #7). Rota
 // estatica: tem prioridade sobre /carro-de-leilao/[slug]. Conteudo e regras em
@@ -15,7 +16,8 @@ function onCtaClick(origem: string) {
 }
 
 useHead({
-  title: 'Como Saber se o Carro é de Leilão: Passo a Passo',
+  title: escolherTitulo(['Como Saber se o Carro é de Leilão: Passo a Passo', 'Como Saber se o Carro é de Leilão pela Placa']),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: DESC },
     { property: 'og:title', content: H1 },

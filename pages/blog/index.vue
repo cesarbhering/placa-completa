@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { blogPosts } from '~/data/blog-posts'
 
 useHead({
-  title: 'Blog do PlacaCompleta: novidades e bastidores',
+  title: escolherTitulo(['Blog do PlacaCompleta: Novidades e Bastidores do Produto']),
+  titleTemplate: '%s',
   link: [{ rel: 'canonical', href: 'https://placacompleta.com.br/blog' }],
   meta: [
     { name: 'description', content: 'Novidades do PlacaCompleta: como checar um carro usado antes de comprar, nossa base de leilões e os bastidores de um produto construído com agentes de IA.' },

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
+import { DESCRICOES } from '~/shared/seo-meta'
 import { GENERICAS } from '~/shared/enriquecimento-regional'
 
 // Bloco proprio desta pagina. Ela e quase a home em intencao, entao sem algo
@@ -11,9 +13,10 @@ function onCtaClick() {
 }
 
 useHead({
-  title: 'Consulta de Placa Veicular Online: Leilão, Roubo e Débitos',
+  title: escolherTitulo(['Consulta de Placa Veicular Online: Leilão, Roubo e Débitos', 'Consulta de Placa Veicular: Leilão e Roubo']),
+  titleTemplate: '%s',
   meta: [
-    { name: 'description', content: 'Faça a consulta de placa veicular online e veja na hora marca, modelo, ano, tabela FIPE e situação do veículo, com relatório completo de leilão, gravame, roubo e débitos. Sem cadastro.' },
+    { name: 'description', content: DESCRICOES.consultaPlaca },
     { name: 'keywords', content: 'consulta de placa, consulta placa veicular, consultar placa online, consulta veicular completa, consulta de placa com leilão, pesquisar placa de carro' },
     { property: 'og:title', content: 'Consulta de Placa Veicular Online' },
     { property: 'og:description', content: 'Consulte qualquer placa e veja os dados do veículo na hora, na própria tela.' },

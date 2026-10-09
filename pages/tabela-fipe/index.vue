@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { fipeBrands } from '~/data/fipe-brands'
 
 function onCtaClick() {
@@ -39,7 +40,8 @@ const faqs = [
 ]
 
 useHead({
-  title: `Tabela FIPE ${currentMonth} ${currentYear}: Valores de Carros e Motos`,
+  title: escolherTitulo([`Tabela FIPE ${currentMonth} ${currentYear}: Valores de Carros e Motos`, `Tabela FIPE ${currentMonth} ${currentYear}: Carros e Motos`]),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: `Tabela FIPE atualizada em ${currentMonth} ${currentYear}. Consulte valores de carros, motos e caminhões por marca ou pela placa. Todas as marcas e modelos. Grátis.` },
     { name: 'keywords', content: 'tabela fipe, valor fipe, preço fipe, tabela fipe carros, tabela fipe motos, consulta fipe por placa, consulta veicular placa, consulta de placa com leilão, valor veículo por placa' },

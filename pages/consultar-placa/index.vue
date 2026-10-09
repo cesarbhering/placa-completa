@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { states } from '~/data/states'
 import { capitals } from '~/data/capitals'
 
@@ -12,7 +13,8 @@ function onCtaClick() {
 }
 
 useHead({
-  title: 'Consultar Placa por Estado: Todos os 27 Estados e Capitais',
+  title: escolherTitulo(['Consultar Placa por Estado: Todos os 27 Estados e Capitais', 'Consultar Placa por Estado e Capital']),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: 'Consulte a placa de qualquer veículo registrado no Brasil. Escolha o estado ou capital e veja marca, modelo, ano, FIPE e situação. Grátis e em segundos.' },
     { name: 'keywords', content: 'consultar placa por estado, consulta placa detran, consultar placa capital, consulta veicular por uf' },
