@@ -113,6 +113,6 @@ export function subVarianteB(fipe: string | null, verificacoes: number): string 
 
 /** Linha abaixo do botao na variante B. No app nao existe Pix. */
 export function garantiaVarianteB(preco: string, semPix = false): string {
-  const meios = semPix ? [preco] : [preco, 'Pix']
+  const meios = semPix ? [preco] : [preco, 'Pix ou cartão']
   return [...meios, 'em até 5 minutos', 'estorno se o veículo não for encontrado'].join(' · ')
 }

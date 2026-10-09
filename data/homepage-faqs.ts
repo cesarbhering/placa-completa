@@ -27,7 +27,7 @@ export const homepageFaqs: HomepageFaq[] = [
   },
   {
     question: 'Quais as formas de pagamento?',
-    answer: 'Só Pix. É pagamento único, na hora, sem assinatura e sem guardar cartão. Assim que o Pix cai, o link do relatório libera sozinho.',
+    answer: 'Pix ou cartão de crédito, nos dois níveis pagos. É pagamento único, na hora e sem assinatura. No cartão, o pagamento é processado pela Stripe e a PlacaCompleta não guarda os dados do cartão. Assim que o pagamento é confirmado, o link do relatório libera sozinho.',
   },
   {
     question: 'Preciso criar conta ou assinar alguma coisa?',
@@ -38,12 +38,12 @@ export const homepageFaqs: HomepageFaq[] = [
     answer: 'Segundos, na maioria das vezes. O sistema funciona 24 horas por dia, todo dia: você não depende de horário comercial nem entra em fila.',
   },
   {
-    question: 'Paguei no Pix e o relatório não abriu. O que faço?',
+    question: 'Paguei e o relatório não abriu. O que faço?',
     answer: 'Aguarde alguns instantes e recarregue a página: o relatório libera sozinho assim que o pagamento é confirmado. Se você fechou a aba, o link fica salvo no histórico do seu navegador, no mesmo aparelho. Se ainda assim não abrir, fale com a gente pelo contato do rodapé.',
   },
   {
     question: 'E se vocês não acharem o veículo?',
-    answer: 'O valor volta pelo Pix automaticamente. Você não paga por uma consulta que não trouxe resultado.',
+    answer: 'O valor volta automaticamente: no Pix, na hora; no cartão, o estorno aparece na fatura em até 10 dias úteis, conforme o banco. Você não paga por uma consulta que não trouxe resultado.',
   },
   {
     question: 'Dá para descobrir o nome ou o endereço do dono pela placa?',

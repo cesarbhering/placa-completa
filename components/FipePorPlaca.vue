@@ -96,7 +96,7 @@ function comprar() {
         <p class="fpp__oferta-s">O relatório completo mostra o que trava a transferência ou derruba o preço, em até 5 minutos.</p>
         <ul class="fpp__inclui"><li v-for="it in INCLUI" :key="it">{{ it }}</li></ul>
         <button type="button" class="pc-btn pc-btn--primary fpp__cta" @click="comprar">Ver o relatório completo · {{ preco }}</button>
-        <p class="fpp__nota">Pagamento único, sem assinatura. Se o veículo não for encontrado, o Pix volta sozinho.</p>
+        <p class="fpp__nota">Pagamento único, no Pix ou no cartão, sem assinatura. Se o veículo não for encontrado, o valor volta sozinho.</p>
       </div>
     </div>
 
