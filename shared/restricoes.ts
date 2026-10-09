@@ -66,7 +66,9 @@ export function ehRenajud(bruto: unknown): boolean {
 
 export const RENAJUD_EXPLICACAO = {
   titulo: 'Restrição RENAJUD: ordem de um juiz no cadastro do veículo',
-  texto: EXPLICA_RESTRICAO.RENAJUD,
+  /** Base; o card acrescenta `semDetalhe` quando nao ha detalhe do DETRAN (AL/GO). */
+  texto: 'Consta uma restrição judicial registrada pelo RENAJUD, o sistema que liga os tribunais ao cadastro nacional de veículos. Ela costuma vir de um processo contra o dono, como uma cobrança ou execução de dívida.',
+  semDetalhe: 'O dado da consulta não informa qual tipo de restrição foi registrado nem o processo de origem.',
   tiposTitulo: 'Tipos possíveis:',
   tipos: [
     { nome: 'Transferência', efeito: 'o veículo não pode passar para outro nome.' },
