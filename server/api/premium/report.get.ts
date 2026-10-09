@@ -1,3 +1,4 @@
+import { sanearRenajud } from '../../utils/renajud-detalhe'
 import { cupomRecompraDoPedido } from '../../utils/cupom-recompra'
 import { filtrarPorPlano, camposRestantes, PLANOS } from '../../../shared/planos'
 import { getValorCusto } from '../../utils/valor-custo'
@@ -137,6 +138,8 @@ export default defineEventHandler(async (event) => {
   // Debitos e restricoes do orgao estadual: vem do snapshot, igual ao recall.
   // Snapshot antigo (ou sem multa) nao tem o campo e a secao some.
   let multas: any = null
+  // Detalhe do RENAJUD (AL/GO): so tribunal, orgao, processo, tipo e data.
+  let renajudDetalhe: any = null
 
   if (!pendente && pedido.status === 'entregue') {
     if (pedido.relatorio_snapshot) {
@@ -153,6 +156,7 @@ export default defineEventHandler(async (event) => {
       recallAutoritativo = snap.recallAutoritativo ?? null
       recallMontadora = snap.recallMontadora ?? null
       multas = snap.multas ? sanearBlocoMultas(snap.multas) : null
+      renajudDetalhe = snap.renajudDetalhe ? sanearRenajud(snap.renajudDetalhe) : null
       // Self-heal: a entrega busca recall/multas UMA vez e, se a raspagem deu
       // timeout, o campo ficou null "pra sempre". Ao SERVIR um pedido entregue,
       // se o INDICADOR diz que ha recall/multa mas o bloco esta null, redispara
@@ -256,6 +260,7 @@ export default defineEventHandler(async (event) => {
         recallAutoritativo = snap.recallAutoritativo ?? null
         recallMontadora = snap.recallMontadora ?? null
         multas = snap.multas ? sanearBlocoMultas(snap.multas) : null
+        renajudDetalhe = snap.renajudDetalhe ? sanearRenajud(snap.renajudDetalhe) : null
         segmento = snap.segmento ?? 'outro'
       } else {
         const snapshot = await montarRelatorioSnapshot(supabase, {
@@ -310,6 +315,7 @@ export default defineEventHandler(async (event) => {
     recallAutoritativo,
     recallMontadora,
     multas,
+    renajudDetalhe,
     segmento: segmento === 'outro' ? detectarSegmento({
       wdapi: pedido.preview,
       senatran: Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response,

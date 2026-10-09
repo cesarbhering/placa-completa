@@ -494,6 +494,12 @@ function registraTipoDesconhecido(chave: string) {
   try { trackRestricaoDesconhecida(chave) } catch { /* telemetria e best-effort */ }
 }
 
+// Detalhe do RENAJUD (AL/GO), so quando o parser reconheceu. Sem isso, o card
+// fica com o texto geral.
+const renajudItens = computed<any[]>(() => {
+  const d: any = data.value?.renajudDetalhe
+  return d?.status === 'ok' && Array.isArray(d.itens) ? d.itens : []
+})
 const restricoes = computed<{ rotulo: string; explica: string; renave: boolean; info: boolean; renajud?: boolean }[]>(() => {
   const arr = v.value?.restricoesItens
   if (!Array.isArray(arr)) return []
@@ -2043,11 +2049,21 @@ onUnmounted(() => {
                 </div>
                 <div v-else-if="r.renajud" class="rel__renave">
                   <strong class="rel__renave-tit">{{ RENAJUD_EXPLICACAO.titulo }}</strong>
-                  <p>{{ RENAJUD_EXPLICACAO.texto }}</p>
+                  <p>{{ RENAJUD_EXPLICACAO.texto }}<template v-if="!renajudItens.length"> {{ RENAJUD_EXPLICACAO.semDetalhe }}</template></p>
                   <p class="rel__renave-conf">{{ RENAJUD_EXPLICACAO.tiposTitulo }}</p>
                   <ul>
                     <li v-for="t in RENAJUD_EXPLICACAO.tipos" :key="t.nome"><strong>{{ t.nome }}:</strong> {{ t.efeito }}</li>
                   </ul>
+                  <template v-if="renajudItens.length">
+                    <p class="rel__renave-conf">Detalhe no DETRAN-{{ data?.renajudDetalhe?.uf }}:</p>
+                    <ul>
+                      <li v-for="(it, ii) in renajudItens" :key="'rj' + ii">
+                        <strong v-if="it.tipo">{{ it.tipo }}</strong><template v-if="it.tipo && (it.processo || it.tribunal || it.orgao)">. </template>
+                        <template v-if="it.processo">Processo {{ it.processo }}</template><template v-if="it.processo && (it.tribunal || it.orgao)">, </template>
+                        <template v-if="it.tribunal">{{ it.tribunal }}</template><template v-if="it.tribunal && it.orgao"> · </template><template v-if="it.orgao">{{ it.orgao }}</template><template v-if="it.data">, registrada em {{ it.data }}</template>.
+                      </li>
+                    </ul>
+                  </template>
                   <p><strong>{{ RENAJUD_EXPLICACAO.destaque }}</strong></p>
                   <p class="rel__renave-conf">{{ RENAJUD_EXPLICACAO.conferirTitulo }}</p>
                   <ul>
