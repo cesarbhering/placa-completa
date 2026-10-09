@@ -15,7 +15,7 @@ const VERSOES = new Set([
   // GM
   'LS', 'LT', 'LTZ', 'PREMIER', 'MIDNIGHT', 'ACTIV', 'JOY', 'MAXX', 'SS', 'RS',
   // VW
-  'TRENDLINE', 'COMFORTLINE', 'HIGHLINE', 'TREND', 'COMFORT', 'HIGHL', 'CROSS',
+  'TRENDLINE', 'COMFORTLINE', 'HIGHLINE', 'TREND', 'COMFORT', 'HIGHL', 'CROSS', 'ROBUST', 'RB', 'EXTREME',
   // Fiat
   'ATTRACTIVE', 'ESSENCE', 'ABSOLUTE', 'FREEDOM', 'VOLCANO', 'RANCH', 'ENDURANCE',
   'DRIVE', 'PRECISION', 'ADVENTURE', 'WAY', 'ELX', 'HLX', 'FIRE', 'TREKKING',
@@ -36,6 +36,8 @@ const SINONIMOS: Record<string, string[]> = {
   TREND: ['TREND', 'TRENDLINE'],
   COMFORT: ['COMFORT', 'COMFORTLINE'],
   HIGHL: ['HIGHLINE'],
+  // VW: "SAVEIRO CS RB MF" = Robust.
+  RB: ['ROBUST'],
 }
 
 const norm = (t: string) => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
