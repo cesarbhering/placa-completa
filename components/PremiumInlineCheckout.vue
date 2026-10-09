@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PLANOS, RECURSOS } from '~/shared/planos'
+import { PLANOS, RECURSOS, precoDePromocao } from '~/shared/planos'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora } from '~/composables/useAnalytics'
 
@@ -820,6 +820,8 @@ onUnmounted(() => {
               </strong>
               <span class="pic-faixa__preco">
                 <s v-if="cupomValido" class="pic-faixa__de">{{ reais(planoInfo.valorCentavos) }}</s>
+                <!-- Promocao: preco antigo riscado (shared/planos.ts). Com cupom, o riscado e o preco cheio de hoje. -->
+                <s v-else-if="precoDePromocao(plano)" class="pic-faixa__de">de {{ reais(precoDePromocao(plano)!) }}</s>
                 <b>{{ reais(precoExibidoCentavos) }}</b>
               </span>
               <span class="pic-faixa__sub">
