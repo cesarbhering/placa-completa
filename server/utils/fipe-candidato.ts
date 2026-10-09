@@ -223,42 +223,73 @@ function candidatosDaWdapi(wdapi: any): FipeCandidato[] {
 // do processo e suficiente, fail-open (null) em qualquer erro.
 // ---------------------------------------------------------------------------
 
-const brandIdCache = new Map<string, number>()
+// Marcas da fipe-api com o tipo de veiculo (1 carros, 2 motos, 3 caminhoes).
+// O NOME sozinho colide entre tabelas ("Honda" carros x "HONDA" motos,
+// "Fiat" x "FIAT"): o cache antigo por nome em minusculas guardava so uma
+// delas, e a PCX 150 (FZK5F28) ficou sem historico e sem seguro.
+type MarcaFipe = { id: number; nome: string; tipo: number | null }
+const marcasCache = new Map<string, { em: number; lista: MarcaFipe[] }>()
+const TTL_MARCAS = 12 * 60 * 60 * 1000
+const TIPO_DA_TABELA: Record<TabelaFipe, number> = { carros: 1, motos: 2, caminhoes: 3 }
 
-async function resolverBrandId(marca: string, fipeApiUrl: string, fipeApiToken: string): Promise<number | null> {
-  const key = marca.trim().toLowerCase()
-  if (brandIdCache.has(key)) return brandIdCache.get(key)!
-  try {
-    const res = await fetch(`${fipeApiUrl}/brands`, { headers: { Authorization: `Bearer ${fipeApiToken}` } })
-    if (!res.ok) return null
-    const body = await res.json()
-    const lista = Array.isArray(body?.data) ? body.data : []
-    for (const b of lista) {
-      if (typeof b?.name === 'string' && typeof b?.id === 'number') {
-        brandIdCache.set(b.name.trim().toLowerCase(), b.id)
-      }
-    }
-    return brandIdCache.get(key) ?? null
-  } catch {
-    return null
+async function marcasFipe(fipeApiUrl: string, fipeApiToken: string): Promise<MarcaFipe[]> {
+  const hit = marcasCache.get(fipeApiUrl)
+  if (hit && Date.now() - hit.em < TTL_MARCAS) return hit.lista
+  const res = await fetch(`${fipeApiUrl}/brands`, { headers: { Authorization: `Bearer ${fipeApiToken}` } })
+  if (!res.ok) return []
+  const body = await res.json()
+  const lista: MarcaFipe[] = (Array.isArray(body?.data) ? body.data : [])
+    .filter((b: any) => typeof b?.name === 'string' && typeof b?.id === 'number')
+    .map((b: any) => ({ id: b.id, nome: b.name.trim().toLowerCase(), tipo: typeof b.vehicle_type === 'number' ? b.vehicle_type : null }))
+  if (lista.length) marcasCache.set(fipeApiUrl, { em: Date.now(), lista })
+  return lista
+}
+
+/** Tabela do candidato pelo codigo FIPE (0 carros, 8 motos, 5 caminhoes). */
+function tabelaDoCodigo(codigo: string): TabelaFipe | null {
+  for (const t of ['carros', 'motos', 'caminhoes'] as TabelaFipe[]) {
+    if (/^\d{6}-\d$/.test(codigo) && codigoDaTabela(codigo, t)) return t
   }
+  return null
+}
+
+/**
+ * Marcas onde procurar o modelo: as do tipo da tabela do candidato primeiro,
+ * com o nome da marca nessa tabela (VOLKSWAGEN x "VW - VolksWagen"); as
+ * outras com o mesmo nome so depois.
+ */
+export async function marcasParaResolver(
+  marca: string,
+  codigoFipe: string,
+  fipeApiUrl: string,
+  fipeApiToken: string,
+): Promise<number[]> {
+  const lista = await marcasFipe(fipeApiUrl, fipeApiToken)
+  const tabela = tabelaDoCodigo(codigoFipe)
+  const nomes = new Set([marca, tabela ? marcaParaFipeApi(marca, tabela) : marca].map((n) => String(n || '').trim().toLowerCase()))
+  const comNome = lista.filter((b) => nomes.has(b.nome))
+  const tipo = tabela ? TIPO_DA_TABELA[tabela] : null
+  const daTabela = tipo ? comNome.filter((b) => b.tipo === tipo) : []
+  return [...daTabela, ...comNome.filter((b) => !daTabela.includes(b))].map((b) => b.id)
 }
 
 async function resolverCodigoModelo(
   marca: string,
   modeloNome: string,
+  codigoFipe: string,
   fipeApiUrl: string,
   fipeApiToken: string,
 ): Promise<string | null> {
   try {
-    const brandId = await resolverBrandId(marca, fipeApiUrl, fipeApiToken)
-    if (!brandId) return null
-    const res = await fetch(`${fipeApiUrl}/brands/${brandId}/models`, { headers: { Authorization: `Bearer ${fipeApiToken}` } })
-    if (!res.ok) return null
-    const body = await res.json()
-    const lista = Array.isArray(body?.data) ? body.data : []
-    const match = lista.find((m: any) => typeof m?.name === 'string' && m.name.trim() === modeloNome.trim())
-    return match?.fipe_code ? String(match.fipe_code) : null
+    for (const brandId of await marcasParaResolver(marca, codigoFipe, fipeApiUrl, fipeApiToken)) {
+      const res = await fetch(`${fipeApiUrl}/brands/${brandId}/models`, { headers: { Authorization: `Bearer ${fipeApiToken}` } })
+      if (!res.ok) continue
+      const body = await res.json()
+      const lista = Array.isArray(body?.data) ? body.data : []
+      const match = lista.find((m: any) => typeof m?.name === 'string' && m.name.trim() === modeloNome.trim())
+      if (match?.fipe_code) return String(match.fipe_code)
+    }
+    return null
   } catch {
     return null
   }
@@ -275,7 +306,7 @@ async function comCodigoModelo(
   fipeApiToken: string,
 ): Promise<FipeCandidato> {
   if (candidato.codigoModelo) return candidato
-  const codigoModelo = await resolverCodigoModelo(marca, candidato.modelo, fipeApiUrl, fipeApiToken)
+  const codigoModelo = await resolverCodigoModelo(marca, candidato.modelo, candidato.codigo_fipe, fipeApiUrl, fipeApiToken)
   return { ...candidato, codigoModelo }
 }
 
@@ -303,6 +334,9 @@ function melhorScoreWdapi(wdapi: any, tabela: TabelaFipe = 'carros', nome: strin
     texto_valor: melhor.texto_valor ?? null,
     combustivel: melhor.combustivel ?? null,
     mes_referencia: melhor.mes_referencia ?? null,
+    // Ja vem da fonte: sem ele, o escolhido pelo atalho (score alto) caia na
+    // resolucao por nome e podia ficar sem historico/seguro.
+    codigoModelo: melhor.codigo_modelo ? String(melhor.codigo_modelo) : null,
   }
 }
 

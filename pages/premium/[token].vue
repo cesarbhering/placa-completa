@@ -7,6 +7,7 @@ import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra
 import { codigoFipeDoRelatorio } from '~/shared/codigo-fipe'
 import { codigoDaTabela, tabelaDoSegmento } from '~/shared/tabela-fipe'
 import { versoesParaExibir } from '~/shared/versao-fipe'
+import { fipeEIncerta } from '~/shared/fipe-incerta'
 import { linhaRecallGrade } from '~/shared/recall-grade'
 // Relatorio veicular (superficie PAGA — o token da URL e a credencial).
 //
@@ -996,11 +997,7 @@ const vc = computed(() => data.value?.valorCusto ?? null)
 // checagem ele seguiria exibindo numero errado como se fosse FIPE. Mesmo
 // caminho ja usado no ano do chassi, no nome da fonte de leilao e nos lotes
 // ambiguos.
-const fipeIncerta = computed(() => {
-  const c = vc.value?.fipeCandidato
-  if (!c) return false
-  return c.decididoPor === 'ambiguo' || c.confianca === 'baixa'
-})
+const fipeIncerta = computed(() => fipeEIncerta(vc.value))
 // Versoes compativeis so da tabela FIPE do veiculo: relatorio entregue antes
 // da correcao pode trazer versao de carro num caminhao (PUF7J27 listava
 // Touareg e Amarok). Sem nenhuma da tabela certa, a lista nao aparece.
