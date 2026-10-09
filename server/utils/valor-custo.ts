@@ -65,7 +65,7 @@ function formatarReais(valor: number | null): string | null {
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
-function pontos(historyData: any, anoModelo: string | number) {
+export function pontos(historyData: any, anoModelo: string | number) {
   if (!historyData?.price_history?.length) return null
   const anoStr = String(anoModelo)
   let entries = historyData.price_history.find((h: any) => String(h.year) === anoStr)
