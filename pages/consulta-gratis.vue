@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 function onCtaClick() {
   if (import.meta.client && window.gtag) {
     window.gtag('event', 'cta_click', { source_page: 'consulta-gratis' })
@@ -29,7 +30,8 @@ const faqs = [
 ]
 
 useHead({
-  title: 'Consultar Placa Grátis: Dados do Veículo',
+  title: escolherTitulo(['Consultar Placa Grátis: Dados do Veículo']),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: 'Consulte qualquer placa de veículo grátis e receba os dados por e-mail: marca, modelo, ano, FIPE, situação e mais. Sem cadastro, resultado em segundos.' },
     { name: 'keywords', content: 'consultar placa grátis, consulta placa grátis, consulta veicular grátis, pesquisa placa grátis, consultar placa de carro grátis' },

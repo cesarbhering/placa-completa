@@ -16,7 +16,8 @@ describe('SEO /consultar-placa/[estado]', () => {
   for (const s of Object.values(states as Record<string, { uf: string; name: string }>)) {
     it(`${s.uf}: tamanho e regras`, () => {
       const t = tituloEstado(s.uf, s.name), d = descricaoEstado(s.uf, s.name)
-      expect((t + ' | PlacaCompleta').length).toBeLessThanOrEqual(75)
+      expect(t.length).toBeGreaterThanOrEqual(50)
+      expect(t.length).toBeLessThanOrEqual(60)
       expect(d.length).toBeLessThanOrEqual(160)
       for (const x of [t, d]) expect(x).not.toMatch(/gr[aá]tis|—|oficial do DETRAN|somos o DETRAN/i)
     })

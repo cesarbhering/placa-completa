@@ -104,6 +104,7 @@ export default defineNuxtConfig({
     urls: [
       "/",
       "/sobre",
+      "/contato",
       "/consulta-placa",
       "/consulta-gratis",
       "/como-consultar-placa",
@@ -215,6 +216,7 @@ export default defineNuxtConfig({
       "/tabela-fipe/volkswagen-nivus",
       "/tabela-fipe/volkswagen-amarok",
       "/tabela-fipe/volkswagen-taos",
+      "/tabela-fipe/volkswagen-tiguan",
       "/tabela-fipe/volkswagen-voyage",
       "/tabela-fipe/volkswagen-fox",
       "/tabela-fipe/volkswagen-up",

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { tituloEstado, descricaoEstado } from '~/shared/estado-seo'
+import { tituloEstado, descricaoEstado, deEstado } from '~/shared/estado-seo'
+import { emEstado } from '~/shared/seo-titulo'
 import { states } from '~/data/states'
 import { capitalSlugByStateSlug } from '~/data/capitals'
 import { getStateSeoIntro } from '~/data/state-seo-intros'
@@ -14,6 +15,9 @@ import seguroEletricosData from '~/data/seguro-eletricos.json'
 const route = useRoute()
 const slug = route.params.estado as string
 const data = states[slug]
+// Preposicao certa por UF: "no Rio Grande do Norte", "na Bahia", "em Alagoas".
+const emUf = data ? emEstado(data.uf, data.name) : ''
+const deUf = data ? deEstado(data.uf, data.name) : ''
 
 const seguroUf = (seguroEstadosData as any).estados?.[data?.uf] || null
 const blocoLeilao = computed(() => (data?.uf ? REGIONAL[data.uf] : undefined))
@@ -38,11 +42,12 @@ function onCtaClick() {
 
 useHead({
   title: tituloEstado(data.uf, data.name),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: descricaoEstado(data.uf, data.name) },
     { name: 'keywords', content: `consulta placa detran ${data.uf.toLowerCase()}, consultar placa ${data.uf}, consulta placa ${data.name.toLowerCase()}, consultar veículo ${data.name.toLowerCase()}, consulta placa ${data.uf} leilão` },
     { property: 'og:title', content: tituloEstado(data.uf, data.name) },
-    { property: 'og:description', content: `Consulte qualquer placa registrada em ${data.name} e veja marca, modelo, ano, situação e valor FIPE na hora.` },
+    { property: 'og:description', content: `Consulte qualquer placa registrada ${emUf} e veja marca, modelo, ano, situação e valor FIPE na hora.` },
   ],
   link: [
     { rel: 'canonical', href: `https://placacompleta.com.br/consultar-placa/${slug}` },
@@ -94,7 +99,7 @@ useHead({
 <template>
   <div class="pc-page">
     <main class="pc-container">
-      <h1 class="pc-h1">Consultar Placa de Veículo em {{ data.name }}</h1>
+      <h1 class="pc-h1">Consultar Placa de Veículo {{ emUf }}</h1>
 
       <div class="pc-prose">
         <p>
@@ -116,7 +121,7 @@ useHead({
             </NuxtLink>
           </div>
 
-          <h2>Como consultar uma placa de {{ data.name }}?</h2>
+          <h2>Como consultar uma placa {{ deUf }}?</h2>
           <ol>
             <li>Acesse a <NuxtLink to="/">página principal do PlacaCompleta</NuxtLink></li>
             <li>Digite a placa do veículo (formato ABC1D23 ou ABC1234)</li>
@@ -140,7 +145,7 @@ useHead({
             indicadores de roubo/furto e registro de leilão, e o histórico completo do veículo.
           </p>
 
-          <h2>Placas de {{ data.name }}</h2>
+          <h2>Placas {{ deUf }}</h2>
           <p>
             {{ data.plateRanges }}. Com a adoção da placa Mercosul, a identificação do estado
             passou a ser feita pelo município de registro do veículo, e não mais pelas letras iniciais.
@@ -179,7 +184,7 @@ useHead({
               antes de comprar.
             </p>
 
-            <h2>O que a nossa base mostra em {{ data.name }}</h2>
+            <h2>O que a nossa base mostra {{ emUf }}</h2>
             <div class="pc-callout">
               <p v-for="d in detranUf.dados" :key="d.texto">{{ d.texto }}</p>
             </div>
@@ -187,7 +192,7 @@ useHead({
           <template v-else>
             <h2>DETRAN-{{ data.uf }}</h2>
             <p>
-              O DETRAN de {{ data.name }} fica na capital, {{ data.capital }}.
+              O DETRAN {{ deUf }} fica na capital, {{ data.capital }}.
               Para serviços online como transferência, licenciamento e consulta de multas,
               acesse o site oficial:
               <a :href="data.detranSite" target="_blank" rel="noopener noreferrer">{{ data.detranSite }}</a>.
@@ -196,14 +201,14 @@ useHead({
           <p v-if="seoIntro">{{ seoIntro.detranInfo }}</p>
 
           <template v-if="seoIntro">
-            <h2>Dicas para comprar veículo em {{ data.name }}</h2>
+            <h2>Dicas para comprar veículo {{ emUf }}</h2>
             <p>{{ seoIntro.tipsBuying }}</p>
           </template>
 
           <template v-if="capitalSlug">
             <h2>Consultar placa em {{ data.capital }}</h2>
             <p>
-              A maior parte da frota de {{ data.name }} está registrada em {{ data.capital }}.
+              A maior parte da frota {{ deUf }} está registrada em {{ data.capital }}.
               Veja a
               <NuxtLink :to="`/consultar-placa/capital/${capitalSlug}`">página dedicada para consulta de placas em {{ data.capital }}</NuxtLink>,
               com informações específicas sobre DETRAN, IPVA e principais bairros da capital.
@@ -211,7 +216,7 @@ useHead({
           </template>
 
           <template v-if="seguroUf?.mediaPopulares">
-            <h2>Seguro de carro em {{ data.name }}</h2>
+            <h2>Seguro de carro {{ emUf }}</h2>
             <p>
               Com base em dados oficiais da SUSEP corrigidos pelo IPCA, o seguro dos carros
               populares mais vendidos (Onix, HB20, Gol, Strada e Corolla) custa em média
@@ -222,7 +227,7 @@ useHead({
             </p>
             <p v-if="temEletrico">
               Tem ou pensa em ter um elétrico? Veja o
-              <NuxtLink :to="`/seguro/carro-eletrico/${slug}`">seguro médio de carro elétrico em {{ data.name }}</NuxtLink>.
+              <NuxtLink :to="`/seguro/carro-eletrico/${slug}`">seguro médio de carro elétrico {{ emUf }}</NuxtLink>.
             </p>
           </template>
 

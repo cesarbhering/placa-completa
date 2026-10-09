@@ -51,7 +51,8 @@ describe('dados das 19 paginas', () => {
   it('title e description cabem no snippet', () => {
     for (const m of MODELOS_LEILAO) {
       expect(m.title.length, `${m.slug}: title longo`).toBeLessThanOrEqual(70)
-      expect(m.description.length, `${m.slug}: description longa`).toBeLessThanOrEqual(170)
+      expect(m.description.length, `${m.slug}: description longa`).toBeLessThanOrEqual(160)
+      expect(m.description.length, `${m.slug}: description curta`).toBeGreaterThanOrEqual(110)
     }
   })
 

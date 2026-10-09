@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 import { ibvPosts } from '~/data/ibv-posts'
 
 useHead({
-  title: 'IBV Auto: Índice de Inflação de Carros Usados | PlacaCompleta',
+  title: escolherTitulo(['IBV Auto: Índice de Inflação de Carros Usados', 'IBV Auto: Inflação de Carros Usados']),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: 'Acompanhe o Índice BV Auto (IBV), referência mensal de inflação de automóveis usados no Brasil. Dados por modelo, estado e tipo de combustível.' },
     { property: 'og:title', content: 'IBV Auto: Índice de Preços de Carros Usados' },

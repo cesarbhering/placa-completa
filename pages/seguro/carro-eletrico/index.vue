@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
+import { descricaoSeguroEletrico } from '~/shared/seo-meta'
 import { states } from '~/data/states'
 import seguroEletricos from '~/data/seguro-eletricos.json'
 
@@ -17,11 +19,12 @@ const mediaNacional = linhas.length
   : 0
 
 useHead({
-  title: 'Seguro de Carro Elétrico: preço médio por estado | PlacaCompleta',
+  title: escolherTitulo(['Seguro de Carro Elétrico: Preço Médio por Estado', 'Seguro de Carro Elétrico: Preço Médio por Estado do Brasil']),
+  titleTemplate: '%s',
   meta: [
     {
       name: 'description',
-      content: `Quanto custa o seguro de carro elétrico no Brasil? Média nacional de ${brl(mediaNacional)}/ano. Compare o preço em todos os estados com dados oficiais SUSEP corrigidos pelo IPCA.`,
+      content: descricaoSeguroEletrico(mediaNacional),
     },
   ],
   script: [

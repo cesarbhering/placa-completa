@@ -25,3 +25,14 @@ describe('301 dos enderecos antigos', () => {
     expect(destinoRedirect('/Audi-Q5/')).toBe('/tabela-fipe/audi-q5')
   })
 })
+
+describe('volkswagen-tcross (slug errado do Tiguan)', () => {
+  it('endereco antigo vai pro T-Cross; Tiguan tem slug proprio', async () => {
+    const { destinoRedirect } = await import('./redirects-antigos')
+    const { findBrandModel } = await import('../data/fipe-brands')
+    expect(destinoRedirect('/tabela-fipe/volkswagen-tcross')).toBe('/tabela-fipe/volkswagen-t-cross')
+    expect(findBrandModel('volkswagen-tiguan')?.model.name).toBe('Tiguan')
+    expect(findBrandModel('volkswagen-t-cross')?.model.name).toBe('T-Cross')
+    expect(findBrandModel('volkswagen-tcross')).toBeNull()
+  })
+})

@@ -32,7 +32,7 @@ export const fipeBrands: Record<string, FipeBrand> = {
       { slug: 'nivus', name: 'Nivus', fipeCode: '9150' },
       { slug: 'amarok', name: 'Amarok' },
       { slug: 'taos', name: 'Taos' },
-      { slug: 'tcross', name: 'Tiguan' },
+      { slug: 'tiguan', name: 'Tiguan' },
       { slug: 'voyage', name: 'Voyage' },
       { slug: 'fox', name: 'Fox' },
       { slug: 'up', name: 'Up!', fipeCode: '8702' },

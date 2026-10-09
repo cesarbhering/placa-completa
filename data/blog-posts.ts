@@ -25,7 +25,7 @@ export const blogPosts: BlogPost[] = [
   {
     slug: 'claude-for-startups',
     title: 'PlacaCompleta é aceito no Claude for Startups, da Anthropic',
-    metaDescription: 'O PlacaCompleta entrou no programa Claude for Startups, da Anthropic. Uma honra que acelera nossa base de leilões, a cobertura de DETRANs e relatórios ainda mais completos.',
+    metaDescription: 'O PlacaCompleta entrou no Claude for Startups, da Anthropic. O programa acelera nossa base de leilões, a cobertura de DETRANs e relatórios mais completos.',
     publishedAt: '2026-10-08',
     categoria: 'Novidades',
     capa: {

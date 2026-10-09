@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { escolherTitulo } from '~/shared/seo-titulo'
 // Pagina do cluster de compra (shared/cluster-compra.ts). Uma por rota, com
 // Article + FAQPage + Breadcrumb, CTA pro relatorio completo e a lista honesta
 // do que ele traz e do que nao traz.
@@ -18,7 +19,8 @@ function onCtaClick(origem: string) {
 }
 
 useHead({
-  title: p.title,
+  title: escolherTitulo([p.title]),
+  titleTemplate: '%s',
   meta: [
     { name: 'description', content: p.description },
     { property: 'og:title', content: p.h1 },
