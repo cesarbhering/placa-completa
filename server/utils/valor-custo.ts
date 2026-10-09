@@ -157,7 +157,9 @@ export async function getValorCusto(
         codigoModelo = (await comCodigoModelo({ codigo_fipe: f.codigo_fipe, modelo: f.modelo, valor: f.valor, texto_valor: null, combustivel: null, mes_referencia: null }, marca, config.fipeApiUrl, config.fipeApiToken)).codigoModelo || null
       } catch { codigoModelo = null }
     }
-    melhor = { codigo_fipe: f.codigo_fipe, codigo_modelo: codigoModelo, texto_modelo: f.modelo, texto_valor: daFonte?.texto_valor || formatarReais(f.valor) }
+    // Valor: o da shortlist (o mesmo que o cliente viu no botao); o da fonte
+    // livre pode ser de um mes anterior.
+    melhor = { codigo_fipe: f.codigo_fipe, codigo_modelo: codigoModelo, texto_modelo: f.modelo, texto_valor: formatarReais(f.valor) || daFonte?.texto_valor || null }
   } else if (fipeCandidatoOpts?.ativo) {
     try {
       const resultado = await escolherMelhorFipe({

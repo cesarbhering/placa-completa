@@ -3772,13 +3772,15 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
   &__cambio-tit { margin: 0 0 4px; font-weight: 700; font-size: calc(16px * var(--rel-fs, 1)); color: $c-ink; }
   &__cambio-txt { margin: 0 0 12px; font-size: calc(13.5px * var(--rel-fs, 1)); color: $c-graphite; line-height: 1.5; }
-  &__cambio-ops { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  &__cambio-ops { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
   &__cambio-op {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 2px;
     min-height: 64px;
+    min-width: 0;
+    box-sizing: border-box;
     padding: 12px 14px;
     border: 1.5px solid #1f6feb;
     border-radius: 10px;
