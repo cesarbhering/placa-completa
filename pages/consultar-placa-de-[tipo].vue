@@ -2,6 +2,7 @@
 import { tituloTipoVeiculo } from '~/shared/seo-meta'
 import { GENERICAS } from '~/shared/enriquecimento-regional'
 import { vehicleTypes } from '~/data/vehicle-types'
+import { PLANOS } from '~/shared/planos'
 
 const route = useRoute()
 const slug = route.params.tipo as string
@@ -13,6 +14,10 @@ const blocoPagina = computed(() => GENERICAS[`/consultar-placa-de-${slug}`])
 if (!data) {
   throw createError({ statusCode: 404, message: 'Tipo de veículo não encontrado' })
 }
+// Preco sempre de shared/planos.ts.
+const precoCompleta = `R$ ${(PLANOS.completa.valorCentavos / 100).toFixed(2).replace('.', ',')}`
+// "da moto", "da van", "do carro", "do caminhão", "do ônibus".
+const doTipo = ['moto', 'van'].includes(slug) ? `da ${data.name.toLowerCase()}` : `do ${data.name.toLowerCase()}`
 
 function onCtaClick() {
   if (import.meta.client && window.gtag) {
@@ -25,7 +30,7 @@ useHead({
   titleTemplate: '%s',
   meta: [
     { name: 'description', content: data.metaDescription },
-    { name: 'keywords', content: `consultar placa de ${data.name.toLowerCase()}, consulta placa ${data.name.toLowerCase()}, placa de ${data.name.toLowerCase()} grátis` },
+    { name: 'keywords', content: `consultar placa de ${data.name.toLowerCase()}, consulta placa ${data.name.toLowerCase()}, placa de ${data.name.toLowerCase()} leilão` },
     { property: 'og:title', content: data.title },
     { property: 'og:description', content: data.metaDescription },
   ],
@@ -57,18 +62,30 @@ useHead({
       <div class="pc-prose">
         <p>{{ data.intro }}</p>
 
-        <h2>Dados que você recebe na consulta de {{ data.name.toLowerCase() }}</h2>
+        <h2>O que aparece na consulta grátis, na tela</h2>
+        <ul>
+          <li>Marca e modelo</li>
+          <li>Ano de fabricação e ano-modelo</li>
+          <li>Valor na Tabela FIPE</li>
+          <li>Sinais de leilão ou recall, quando houver</li>
+        </ul>
+
+        <h2>O que o relatório completo checa</h2>
+        <p>
+          Pago uma vez, {{ precoCompleta }} no Pix ou no cartão, sem assinatura. Abre na
+          tela e chega no seu e-mail.
+        </p>
         <ul>
           <li v-for="field in data.dataFields" :key="field">{{ field }}</li>
         </ul>
 
-        <h2>Como consultar a placa de um {{ data.name.toLowerCase() }}?</h2>
+        <h2>Como consultar a placa {{ doTipo }}?</h2>
         <ol>
           <li>Acesse a <NuxtLink to="/">página principal do PlacaCompleta</NuxtLink></li>
-          <li>Digite a placa do {{ data.name.toLowerCase() }} (formato ABC1D23 ou ABC1234)</li>
-          <li>Informe seu e-mail</li>
-          <li>Clique em "Receber Dados no E-mail"</li>
-          <li>Pronto! Em segundos os dados chegam no seu e-mail.</li>
+          <li>Digite a placa {{ doTipo }} (formato ABC1D23 ou ABC1234)</li>
+          <li>Veja na tela marca, modelo, ano e valor FIPE, sem cadastro</li>
+          <li>Se quiser checar leilão, roubo, gravame, multas e recall, peça o relatório completo</li>
+          <li>Pague no Pix ou no cartão: o relatório abre na tela e uma cópia vai para o seu e-mail</li>
         </ol>
 
         <template v-if="blocoPagina">
@@ -103,7 +120,7 @@ useHead({
 
       <div class="pc-cta">
         <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick">
-          Consultar Placa Grátis
+          Consultar Placa Agora
         </NuxtLink>
       </div>
     </main>
