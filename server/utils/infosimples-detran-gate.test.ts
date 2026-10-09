@@ -24,7 +24,7 @@ describe('gate de chamada por UF', () => {
     return fetchSpy
   }
 
-  it('mapa: SP sempre, SC e MG so com RENAINF', () => {
+  it('mapa: SP sempre, SC e MG so com RENAINF ou restricao', () => {
     expect(DETRAN_UFS.SP.gate).toBe('sempre')
     expect(DETRAN_UFS.SC.gate).toBe('renainf')
     expect(DETRAN_UFS.MG.gate).toBe('renainf')
@@ -40,7 +40,7 @@ describe('gate de chamada por UF', () => {
     it(`${uf} sem RENAINF: nao chama nem cobra`, async () => {
       const f = setup(); const sb = fakeSb()
       const r = await completarDetran(sb, { id: 'p', placa: 'X' }, { response: [{ ufJurisdicao: uf, renavam: '1', indicadorMultaRenainf: false, ...extra }] })
-      expect(r).toMatchObject({ ok: false, pulado: `${uf} so com RENAINF` })
+      expect(r).toMatchObject({ ok: false, pulado: `${uf} so com RENAINF ou restricao` })
       expect(f).not.toHaveBeenCalled()
       expect(sb.inserts).toHaveLength(0)
     })
