@@ -679,3 +679,41 @@ describe('timeout proprio da fipe-api', () => {
     expect((await p).decididoPor).toBe('fallback')
   })
 })
+
+describe('codigo do modelo: sem colisao carro x moto (caso FZK5F28)', () => {
+  beforeEach(() => { vi.unstubAllGlobals() })
+  it('atalho da fonte livre repassa o codigo_modelo da propria fonte', async () => {
+    const chamadas: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      chamadas.push(String(url))
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      return { ok: false, json: async () => ({}) } as any
+    }))
+    const r = await escolherMelhorFipe({
+      senatran: { descricaoMarcaModelo: 'HONDA/PCX 150 DLX ABS', descricaoTipoVeiculo: 'MOTONETA', anoModelo: 2020 },
+      wdapi: { marca: 'HONDA', anoModelo: '2020', fipe: { dados: [{ score: 92, codigo_fipe: '811116-2', codigo_modelo: '7788', texto_marca: 'HONDA', texto_modelo: 'PCX 150/DLX', texto_valor: 'R$ 15.328,00' }] } },
+      segmento: 'moto', fipeApiUrl: 'http://fipe-a', fipeApiToken: 't',
+    })
+    expect(r.decididoPor).toBe('wdapi')
+    expect(r.escolhido?.codigoModelo).toBe('7788')
+    expect(chamadas.some((u) => u.includes('/brands'))).toBe(false)
+  })
+  it('sem codigo da fonte: procura na marca de MOTOS, nao na de carros com o mesmo nome', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const u = String(url)
+      const ok = (data: any) => ({ ok: true, json: async () => ({ data }) }) as any
+      if (u.includes('/modelos')) return ok([{ codigo_fipe: '811116-2', modelo: 'PCX 150/DLX', valor: 15328 }])
+      if (u.endsWith('/brands')) return ok([{ id: 1, name: 'Honda', vehicle_type: 1 }, { id: 2, name: 'HONDA', vehicle_type: 2 }])
+      if (u.endsWith('/brands/1/models')) return ok([{ name: 'Civic', fipe_code: '1' }])
+      if (u.endsWith('/brands/2/models')) return ok([{ name: 'PCX 150/DLX', fipe_code: '7788' }])
+      return { ok: false, json: async () => ({}) } as any
+    }))
+    const r = await escolherMelhorFipe({
+      senatran: { descricaoMarcaModelo: 'HONDA/PCX 150 DLX ABS', descricaoTipoVeiculo: 'MOTONETA', anoModelo: 2020 },
+      wdapi: { marca: 'HONDA', anoModelo: '2020', fipe: { dados: [] } },
+      segmento: 'moto', fipeApiUrl: 'http://fipe-b', fipeApiToken: 't',
+    })
+    expect(r.escolhido?.codigo_fipe).toBe('811116-2')
+    expect(r.escolhido?.codigoModelo).toBe('7788')
+  })
+})
