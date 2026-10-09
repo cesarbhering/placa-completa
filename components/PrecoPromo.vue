@@ -4,17 +4,19 @@
 import { computed } from 'vue'
 import { PLANOS, precoDePromocao, type PlanoId } from '~/shared/planos'
 
-const props = withDefaults(defineProps<{ plano?: PlanoId; semRotulo?: boolean }>(), { plano: 'completa', semRotulo: false })
+// soDe: so rotulo + preco antigo (quando o preco atual ja aparece grande ao lado).
+// inline: dentro de uma frase, sem quebrar a linha.
+const props = withDefaults(defineProps<{ plano?: PlanoId; semRotulo?: boolean; soDe?: boolean; inline?: boolean }>(), { plano: 'completa', semRotulo: false, soDe: false, inline: false })
 const brl = (c: number) => `R$ ${(c / 100).toFixed(2).replace('.', ',')}`
 const de = computed(() => precoDePromocao(props.plano))
 const por = computed(() => PLANOS[props.plano].valorCentavos)
 </script>
 
 <template>
-  <span v-if="de" class="pp">
+  <span v-if="de" class="pp" :class="{ 'pp--inline': inline }">
     <span v-if="!semRotulo" class="pp__tag">Promoção</span>
     <s class="pp__de">de {{ brl(de) }}</s>
-    <strong class="pp__por">por {{ brl(por) }}</strong>
+    <strong v-if="!soDe" class="pp__por">por {{ brl(por) }}</strong>
   </span>
 </template>
 
@@ -24,6 +26,12 @@ const por = computed(() => PLANOS[props.plano].valorCentavos)
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 8px;
+}
+.pp--inline {
+  display: inline;
+}
+.pp--inline > * + * {
+  margin-left: 6px;
 }
 .pp__tag {
   font-size: 0.72em;

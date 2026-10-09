@@ -1944,7 +1944,7 @@ function applyEmailSuggestion() {
         <!-- Ordem: manchete -> botao -> garantia. Os dois eram inline-flex e
              caiam lado a lado na mesma linha. -->
         <div class="cb-price-card">
-          <p class="cb-price-promo"><PrecoPromo /></p>
+          <p class="cb-price-promo"><PrecoPromo so-de /></p>
           <p class="cb-price-big">
             {{ precoBRL(PLANOS.completa.valorCentavos) }}
             <span class="cb-mut">para não perder</span> R$ 45 mil.
