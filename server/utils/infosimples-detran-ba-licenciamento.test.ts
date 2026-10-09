@@ -108,3 +108,19 @@ describe('completarDetran BA com complemento', () => {
     expect(f).not.toHaveBeenCalled()
   })
 })
+
+describe('BA: valor atualizado das multas e total do DETRAN', () => {
+  const c = parsearLicenciamentoBa(LIC, new Date('2026-10-09T12:00:00Z'))!
+  it('multas atualizadas (2x R$474,18) e total a pagar do proprio DETRAN', () => {
+    expect(c.multas_atualizado_centavos).toBe(94836)
+    expect(c.total_detran_centavos).toBe(243208)
+  })
+  it('total do DETRAN = licenciamento + IPVA + multas atualizadas (fecha a conta)', () => {
+    expect((c.licenciamento_centavos || 0) + (c.ipva_total_centavos || 0) + (c.multas_atualizado_centavos || 0)).toBe(c.total_detran_centavos)
+  })
+  it('juntar: atualizado so entra se for maior que o original', () => {
+    expect(juntarComplemento({ multas_total_centavos: 58694 }, c).multas_atualizado_centavos).toBe(94836)
+    expect(juntarComplemento({ multas_total_centavos: 999999 }, c).multas_atualizado_centavos).toBeUndefined()
+    expect(juntarComplemento({ multas_total_centavos: 58694 }, c).total_detran_centavos).toBe(243208)
+  })
+})
