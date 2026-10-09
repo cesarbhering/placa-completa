@@ -37,6 +37,9 @@ const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', curren
 const hud = ref<{ label: string; price: number }>(
   props.historico[props.historico.length - 1],
 )
+// Historico trocou (ex.: o cliente indicou o cambio e a versao mudou): o HUD
+// volta pro ultimo ponto da serie nova.
+watch(() => props.historico, (h) => { if (h?.length) hud.value = h[h.length - 1] })
 function aoMoverPonteiro(params: any) {
   const idx = params?.axesInfo?.[0]?.value
   const ponto = typeof idx === 'number' ? props.historico[Math.round(idx)] : null

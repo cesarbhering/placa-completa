@@ -103,7 +103,7 @@ describe('getValorCusto com versao escolhida pelo cliente (camada 3)', () => {
     vi.stubGlobal('$fetch', async (u: string) => { urls.push(u); return { model: { id: 1 }, price_history: [{ year: 2016, prices: [{ year: 2025, month: 1, price: 50000 }, { year: 2025, month: 2, price: 48000 }] }] } })
     const vc = await getValorCusto('PBX2E59', 'SP', null, { ativo: true, segmento: 'carro' as any, senatran: { descricaoMarcaModelo: 'NISSAN/MARCH 16SV', anoModelo: 2016 } as any, forcar: { codigo_fipe: '025310-3', modelo: 'MARCH SV 1.6 16V FlexStart 5p Mec.', valor: 48000 } })
     expect(escolher).not.toHaveBeenCalled()
-    expect(vc?.fipe).toBe('R$ 48.000,00')
+    expect(String(vc?.fipe).replace(/\s/g, ' ')).toBe('R$ 48.000,00')
     expect(vc?.fipeCodigo).toBe('025310-3')
     expect(urls[0]).toMatch(/\/models\/fipe\/777\/price-history$/)
     expect(vc?.historico).toHaveLength(2)
