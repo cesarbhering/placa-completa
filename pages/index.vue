@@ -1629,7 +1629,7 @@ function applyEmailSuggestion() {
                        baixo, junto do prazo e do estorno. O botao passa a
                        prometer a RESPOSTA ("da pra confiar?"), nao o produto. -->
                   <!-- Preco antigo riscado: igual nas duas variantes do A/B. -->
-                  <p class="cb-locked__promo"><PrecoPromo /></p>
+                  <p class="cb-locked__promo"><PrecoPromo so-de /></p>
                   <button type="button" class="cb-btn cb-btn--blue" @click="cliqueCtaCompleta('bloco_bloqueado')">
                     {{ blocoVarianteB
                       ? 'Saber se posso confiar neste carro'
