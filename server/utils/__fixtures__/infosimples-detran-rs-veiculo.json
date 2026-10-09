@@ -1,0 +1,148 @@
+{
+ "ano_fabricacao": 2014,
+ "ano_modelo": 2015,
+ "chassi": "9C2XXXXXXXXXXXXXX",
+ "cor": "Branca",
+ "data_ultimo_licenciamento": "27/06/2024",
+ "dpvat": [
+  {
+   "exercicio": "2026",
+   "valor": 0.0,
+   "situacao": "Não devido"
+  },
+  {
+   "exercicio": "2025",
+   "valor": 0.0,
+   "situacao": "Não devido"
+  }
+ ],
+ "especie": "Passageiro",
+ "exercicio_ultimo_licenciamento": 2024,
+ "infracoes_multas": {
+  "quantidade_prazo_defesa": 0,
+  "valor_prazo_defesa": 0.0,
+  "quantidade_prazo_julgamento": 0,
+  "valor_prazo_julgamento": 0.0,
+  "quantidade_a_vencer": 0,
+  "valor_a_vencer": 0.0,
+  "quantidade_suspensas": 0,
+  "valor_suspensas": 0.0,
+  "quantidade_vencidas": 1,
+  "valor_vencidas": 221.21
+ },
+ "ipva": [
+  {
+   "exercicio": "2026",
+   "situacao": "Pendente",
+   "vencimento": "30/04/2026",
+   "valor": 320.32,
+   "debitos": [
+    {
+     "descricao": "Cota Única",
+     "valor": 320.32,
+     "valor_desconto_bom_motorista": 0.0,
+     "percentual_desconto_bom_motorista": "0,00",
+     "valor_desconto_bom_cidadao": 0.0,
+     "percentual_desconto_bom_cidadao": "0,00",
+     "valor_desconto_antecipado": 0.0,
+     "percentual_desconto_antecipado": "R$ 0,00",
+     "valor_multa": 64.06,
+     "valor_juros_multa": 21.08,
+     "valor_total_com_desconto": 405.46,
+     "data_pagamento": null
+    }
+   ],
+   "divida_ativa": false
+  },
+  {
+   "exercicio": "2025",
+   "situacao": "Pendente",
+   "vencimento": "30/04/2025",
+   "valor": 303.02,
+   "debitos": [
+    {
+     "descricao": "Cota Única",
+     "valor": 303.02,
+     "valor_desconto_bom_motorista": 0.0,
+     "percentual_desconto_bom_motorista": "0,00",
+     "valor_desconto_bom_cidadao": 0.0,
+     "percentual_desconto_bom_cidadao": "0,00",
+     "valor_desconto_antecipado": 0.0,
+     "percentual_desconto_antecipado": "R$ 0,00",
+     "valor_multa": 60.6,
+     "valor_juros_multa": 62.08,
+     "valor_total_com_desconto": 425.7,
+     "data_pagamento": null
+    }
+   ],
+   "divida_ativa": false
+  },
+  {
+   "exercicio": "2024",
+   "situacao": "Liquidado",
+   "vencimento": "28/06/2024",
+   "valor": 291.12,
+   "debitos": [],
+   "divida_ativa": false
+  },
+  {
+   "exercicio": "2023",
+   "situacao": "Liquidado",
+   "vencimento": "28/04/2023",
+   "valor": 326.16,
+   "debitos": [],
+   "divida_ativa": false
+  },
+  {
+   "exercicio": "2022",
+   "situacao": "Liquidado",
+   "vencimento": "29/04/2022",
+   "valor": 304.98,
+   "debitos": [],
+   "divida_ativa": false
+  },
+  {
+   "exercicio": "2021",
+   "situacao": "Em Divida Ativa Liquidada/Concluida",
+   "vencimento": "26/04/2021",
+   "valor": 238.68,
+   "debitos": [],
+   "divida_ativa": false
+  }
+ ],
+ "licenciamento": {
+  "exercicio": "2024",
+  "postado_correios": "27/06/2024",
+  "numero_sedex": null
+ },
+ "licenciamento_valido_ate": "31/07/2025",
+ "marca_modelo": "HONDA/XRE 300",
+ "mensagens": [
+  "Veículo Alienado - BANCO FICTICIO SA"
+ ],
+ "municipio": "CANOAS",
+ "outras_informacoes": [],
+ "placa": "ABC1D23",
+ "renavam": "00000000000",
+ "restricoes": [
+  {
+   "nome": "FULANO DONO",
+   "data_do_contrato": "",
+   "data_do_inicio": "",
+   "data_do_oficio": "",
+   "data_venda": "",
+   "data_vencimento": "",
+   "agente_financeiro": "BANCO FICTICIO SA",
+   "operacao": "",
+   "motivo": "",
+   "inclusao": "",
+   "tipo_restricao": "",
+   "inicio_posse": "",
+   "credor_prignoraticio": ""
+  }
+ ],
+ "roubo_furto": false,
+ "situacao": "Em circulação",
+ "tipo": "Motocicleta",
+ "valor_licenciamento": 114.09
+}

@@ -1,0 +1,258 @@
+{
+ "licenciamento": [
+  {
+   "descricao": "Licenciamento atual",
+   "debitos": [
+    {
+     "titulo": "Cota 1",
+     "data_cota": "30/03/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 2",
+     "data_cota": "29/04/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 3",
+     "data_cota": "28/05/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 4",
+     "data_cota": "29/06/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 5",
+     "data_cota": "30/07/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    }
+   ],
+   "data_ultima_cota": "30/07/2026",
+   "valor": "R$200,83",
+   "normalizado_valor": 200.83
+  },
+  {
+   "descricao": "Seguro obrigatório",
+   "debitos": [
+    {
+     "titulo": "Cota 1",
+     "data_cota": "30/03/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 2",
+     "data_cota": "29/04/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 3",
+     "data_cota": "28/05/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 4",
+     "data_cota": "29/06/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 5",
+     "data_cota": "30/07/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    }
+   ],
+   "data_ultima_cota": "30/07/2026",
+   "valor": "R$0,00",
+   "normalizado_valor": 0.0
+  },
+  {
+   "descricao": "IPVA atual",
+   "debitos": [
+    {
+     "titulo": "Cota 1",
+     "data_cota": "30/03/2026",
+     "valor": "R$0,00",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 2",
+     "data_cota": "29/04/2026",
+     "valor": "R$0,00",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 3",
+     "data_cota": "28/05/2026",
+     "valor": "R$0,00",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 4",
+     "data_cota": "29/06/2026",
+     "valor": "R$0,00",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 5",
+     "data_cota": "30/07/2026",
+     "valor": "R$0,00",
+     "normalizado_valor": 0.0
+    }
+   ],
+   "data_ultima_cota": "30/07/2026",
+   "valor": "R$0,00",
+   "normalizado_valor": 0.0
+  },
+  {
+   "descricao": "Valor total de multas à pagar",
+   "debitos": [
+    {
+     "titulo": "Cota 1",
+     "data_cota": "30/03/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 2",
+     "data_cota": "29/04/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 3",
+     "data_cota": "28/05/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 4",
+     "data_cota": "29/06/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 5",
+     "data_cota": "30/07/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    }
+   ],
+   "data_ultima_cota": "30/07/2026",
+   "valor": "R$586,94",
+   "normalizado_valor": 586.94
+  },
+  {
+   "descricao": "Valor total dos débitos",
+   "debitos": [
+    {
+     "titulo": "Cota 1",
+     "data_cota": "30/03/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 2",
+     "data_cota": "29/04/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 3",
+     "data_cota": "28/05/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 4",
+     "data_cota": "29/06/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    },
+    {
+     "titulo": "Cota 5",
+     "data_cota": "30/07/2026",
+     "valor": "",
+     "normalizado_valor": 0.0
+    }
+   ],
+   "data_ultima_cota": "30/07/2026",
+   "valor": "R$2.056,75",
+   "normalizado_valor": 2056.75
+  }
+ ],
+ "valores_atualizados": [
+  {
+   "descricao": "Multa RENAINF",
+   "ano_referencia": "2020",
+   "valor": "R$474,18",
+   "normalizado_valor": 474.18
+  },
+  {
+   "descricao": "Multa RENAINF",
+   "ano_referencia": "2020",
+   "valor": "R$474,18",
+   "normalizado_valor": 474.18
+  },
+  {
+   "descricao": "Taxa de Licenciamento",
+   "ano_referencia": "2021",
+   "valor": "R$279,00",
+   "normalizado_valor": 279.0
+  },
+  {
+   "descricao": "Taxa de Licenciamento",
+   "ano_referencia": "2022",
+   "valor": "R$271,76",
+   "normalizado_valor": 271.76
+  },
+  {
+   "descricao": "Taxa de Licenciamento",
+   "ano_referencia": "2023",
+   "valor": "R$257,27",
+   "normalizado_valor": 257.27
+  },
+  {
+   "descricao": "Taxa de Licenciamento",
+   "ano_referencia": "2024",
+   "valor": "R$246,40",
+   "normalizado_valor": 246.4
+  },
+  {
+   "descricao": "Taxa de Licenciamento",
+   "ano_referencia": "2025",
+   "valor": "R$228,28",
+   "normalizado_valor": 228.28
+  },
+  {
+   "descricao": "Taxa de Licenciamento",
+   "ano_referencia": "2026",
+   "valor": "R$201,01",
+   "normalizado_valor": 201.01
+  },
+  {
+   "descricao": "Valor total à pagar",
+   "ano_referencia": "",
+   "valor": "R$2.432,08",
+   "normalizado_valor": 2432.08
+  }
+ ],
+ "veiculo": {
+  "placa": "ABC1D23",
+  "renavam": "00000000000",
+  "marca_modelo": "VW/GOL 1.0",
+  "ano_modelo": "2005",
+  "ano_fabricacao": "2004",
+  "cor": "BRANCA"
+ }
+}
