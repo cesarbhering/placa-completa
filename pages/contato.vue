@@ -11,7 +11,7 @@ import { DESCRICOES } from '~/shared/seo-meta'
 import { EMAIL_CONTATO, emailContatoHtml } from '~/shared/contato'
 
 useHead({
-  title: escolherTitulo(['Contato do PlacaCompleta: E-mail e Prazo de Resposta']),
+  title: escolherTitulo(['Contato do PlacaCompleta: E-mail para Dúvidas e Imprensa']),
   titleTemplate: '%s',
   meta: [
     { name: 'description', content: DESCRICOES.contato },
@@ -63,11 +63,10 @@ async function copiar() {
           </button>
         </div>
 
-        <h2>Prazo de resposta</h2>
+        <h2>Dúvida sobre um relatório</h2>
         <p>
-          Respondemos por e-mail em até 2 dias úteis. Se a dúvida for sobre um
-          relatório, mande a placa e o link do relatório: assim a gente encontra
-          o pedido mais rápido.
+          Mande a placa e o link do relatório: assim a gente encontra o pedido
+          mais rápido.
         </p>
 
         <h2>Termos e privacidade</h2>
