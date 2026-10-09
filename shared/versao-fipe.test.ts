@@ -115,3 +115,9 @@ describe('Saveiro RB = Robust (GMF8I88)', () => {
     expect(versoesParaExibir(lista, 'VW/SAVEIRO CS RB MF').map((c) => c.modelo)).toEqual(['Saveiro Robust 1.6 Total Flex 16V'])
   })
 })
+
+describe('motorizacao antes da versao (PBX2E59)', () => {
+  it('"MARCH 16SV": 1.6 e versao SV', () => {
+    expect(versaoDoNome('NISSAN/MARCH 16SV')).toEqual({ versoes: ['SV'], motor: '1.6' })
+  })
+})
