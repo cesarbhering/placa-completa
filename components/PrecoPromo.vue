@@ -14,9 +14,9 @@ const por = computed(() => PLANOS[props.plano].valorCentavos)
 
 <template>
   <span v-if="de" class="pp" :class="{ 'pp--inline': inline }">
-    <span v-if="!semRotulo" class="pp__tag">Promoção</span>
-    <s class="pp__de">de {{ brl(de) }}</s>
-    <strong v-if="!soDe" class="pp__por">por {{ brl(por) }}</strong>
+    <!-- Os {{ ' ' }} sao espacos de verdade: o Vue tira o espaco entre tags em
+         linhas separadas, e sem ele a frase nao quebra (estourava a 360). -->
+    <span v-if="!semRotulo" class="pp__tag">Promoção</span>{{ ' ' }}<s class="pp__de">de {{ brl(de) }}</s>{{ ' ' }}<strong v-if="!soDe" class="pp__por">por {{ brl(por) }}</strong>
   </span>
 </template>
 
@@ -29,9 +29,6 @@ const por = computed(() => PLANOS[props.plano].valorCentavos)
 }
 .pp--inline {
   display: inline;
-}
-.pp--inline > * + * {
-  margin-left: 6px;
 }
 .pp__tag {
   font-size: 0.72em;
