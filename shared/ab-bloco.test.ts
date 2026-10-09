@@ -107,7 +107,7 @@ describe('copy da variante B sem os dados do veiculo', () => {
   })
 
   it('a linha de baixo tem Pix na web e nao tem no app', () => {
-    expect(garantiaVarianteB('R$ 39,90')).toBe('R$ 39,90 · Pix · em até 5 minutos · estorno se o veículo não for encontrado')
+    expect(garantiaVarianteB('R$ 39,90')).toBe('R$ 39,90 · Pix ou cartão · em até 5 minutos · estorno se o veículo não for encontrado')
     expect(garantiaVarianteB('R$ 39,90', true)).not.toContain('Pix')
   })
 })
