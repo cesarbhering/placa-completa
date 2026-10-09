@@ -43,8 +43,10 @@ const norm = (t: string) => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, 
 /** Palavras do nome sem a marca: "I/TOYOTA COROLLA XEI18VVT" -> COROLLA, XEI18VVT. */
 function palavrasDoNome(descricao: string): string[] {
   let d = String(descricao || '').toUpperCase().replace(/^I\s*\//, '')
-  if (d.includes('/')) d = d.slice(d.indexOf('/') + 1)
-  return d.split(/\s+/).filter(Boolean)
+  // "TOYOTA/COROLLA X": marca antes da barra. Importado sem segunda barra
+  // ("I/BMW 320I"): a marca e a primeira palavra.
+  if (d.includes('/')) return d.slice(d.indexOf('/') + 1).split(/\s+/).filter(Boolean)
+  return d.split(/\s+/).filter(Boolean).slice(1)
 }
 
 export interface VersaoDoNome {
