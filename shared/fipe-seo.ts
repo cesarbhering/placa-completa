@@ -51,6 +51,21 @@ export function tituloMarca(marca: string, anoAtual: number): string {
   return `Tabela FIPE ${marca} ${anoAtual}: Valor Atualizado dos Modelos`
 }
 
+/**
+ * Ate 3 modelos, e so os que couberem: a description fica em no maximo 160
+ * caracteres (shared/seo-meta.ts). Nome de marca/modelo longo derruba modelo
+ * da lista em vez de estourar o limite.
+ */
 export function descricaoMarca(marca: string, modelos: string[], anoAtual: number): string {
-  return `Valor FIPE atualizado de ${anoAtual} para os modelos ${marca}: ${modelos.slice(0, 5).join(', ')} e mais. Preço por ano-modelo e consulta do valor exato pela placa.`
+  const montar = (lista: string[]) => {
+    const nomes = lista.length > 1 ? `${lista.slice(0, -1).join(', ')} e ${lista[lista.length - 1]}` : lista[0]
+    return lista.length
+      ? `Tabela FIPE ${marca} ${anoAtual}: valor atualizado de ${nomes} e outros modelos, com preço por ano-modelo e consulta do valor exato pela placa.`
+      : `Tabela FIPE ${marca} ${anoAtual}: valor atualizado de todos os modelos da marca, com preço por ano-modelo e consulta do valor exato pela placa.`
+  }
+  for (let n = Math.min(3, modelos.length); n > 0; n--) {
+    const texto = montar(modelos.slice(0, n))
+    if (texto.length <= 160) return texto
+  }
+  return montar([])
 }
