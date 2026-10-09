@@ -6,7 +6,7 @@ import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
 import { codigoFipeDoRelatorio } from '~/shared/codigo-fipe'
 import { codigoDaTabela, tabelaDoSegmento } from '~/shared/tabela-fipe'
-import { filtrarPelaVersaoDoNome } from '~/shared/versao-fipe'
+import { versoesParaExibir } from '~/shared/versao-fipe'
 import { linhaRecallGrade } from '~/shared/recall-grade'
 // Relatorio veicular (superficie PAGA — o token da URL e a credencial).
 //
@@ -1007,10 +1007,11 @@ const fipeIncerta = computed(() => {
 const versoesCompativeis = computed(() => {
   const lista = vc.value?.fipeCandidato?.candidatos || []
   const tabela = tabelaDoSegmento(segmento.value)
-  // Versao do nome (XEI18VVT = XEi): SE-G nao entra na lista de um XEi,
-  // inclusive em relatorio ja entregue (shared/versao-fipe.ts).
+  // Modelo, cabine, versao e motorizacao do nome (shared/versao-fipe.ts):
+  // TRACKER nao lista ONIX, XEi nao lista SE-G, CS nao lista CD. Vale pra
+  // relatorio ja entregue.
   const daTabela = lista.filter((c: any) => codigoDaTabela(c?.codigo_fipe, tabela))
-  return filtrarPelaVersaoDoNome(daTabela, g('descricaoMarcaModelo')).slice(0, 3)
+  return versoesParaExibir(daTabela, g('descricaoMarcaModelo')).slice(0, 3)
 })
 // Codigo FIPE da versao que deu o valor (shared/codigo-fipe.ts).
 const codigoFipe = computed(() => codigoFipeDoRelatorio(vc.value))

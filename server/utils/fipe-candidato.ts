@@ -14,7 +14,7 @@
 
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
-import { filtrarPelaVersaoDoNome, versaoDoNome, candidatoTemVersaoDoNome } from '../../shared/versao-fipe'
+import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, versaoDoNome, candidatoTemVersaoDoNome } from '../../shared/versao-fipe'
 
 export { codigoDaTabela, type TabelaFipe }
 
@@ -586,6 +586,9 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
   }
 
   if (fatos.caminhao) return filtrarCaminhao(restantes, fatos)
+
+  // Modelo do nome primeiro: TRACKER nao pode terminar com ONIX (TTR6F65).
+  restantes = filtrarPeloModeloDoNome(restantes, fatos.descricao)
 
   if (fatos.litragem.length) {
     const porLitragem = restantes.filter((c) => candidatoTemLitragem(c.modelo, fatos.litragem))

@@ -107,3 +107,69 @@ export function filtrarPelaVersaoDoNome<T extends { modelo: string }>(lista: T[]
   }
   return restantes
 }
+
+// ---------------------------------------------------------------------------
+// Nome do MODELO e cabine (casos TTR6F65, FZK5F28, GMF8I88): TRACKER nunca
+// lista ONIX, PCX nao lista CB/NC/XRE, SAVEIRO CS nao lista cabine dupla.
+// ---------------------------------------------------------------------------
+
+// Prefixos que nao sao o modelo: "VW/NOVO GOL", "FIAT/NOVA STRADA".
+const PREFIXO_NAO_MODELO = new Set(['NOVO', 'NOVA', 'NEW', 'NOUVEAU'])
+
+/** "CHEV/TRACKER T A" -> TRACKER; "VW/NOVO GOL 1.0" -> GOL. Normalizado. */
+export function modeloDoNome(descricao: string | null | undefined): string | null {
+  const palavras = palavrasDoNome(String(descricao || '')).map(norm).filter(Boolean)
+  const p = palavras[0] && PREFIXO_NAO_MODELO.has(palavras[0]) ? palavras[1] : palavras[0]
+  return p && p.length >= 2 ? p : null
+}
+
+/**
+ * O nome FIPE e do mesmo modelo? Olha as duas primeiras palavras do nome FIPE
+ * (onde o modelo fica: "ONIX HATCH LT", "Gol (novo)", "C-180"). Aceita prefixo
+ * nos dois sentidos pra abreviacao: 320I ~ 320iA, HB20 ~ HB20S.
+ */
+export function candidatoEDoModelo(modelo: string, nome: string | null): boolean {
+  if (!nome) return true
+  const palavras = String(modelo || '').split(/[\s/(]+/).map(norm).filter(Boolean).slice(0, 2)
+  return palavras.some((w) => w.startsWith(nome) || (w.length >= 3 && nome.startsWith(w)))
+}
+
+export function cabineDoNome(descricao: string | null | undefined): 'simples' | 'dupla' | null {
+  const d = String(descricao ?? '').toUpperCase()
+  if (/\bCD\b|CABINE DUPLA/.test(d)) return 'dupla'
+  if (/\bCS\b|CABINE SIMPLES/.test(d)) return 'simples'
+  return null
+}
+
+export function candidatoTemCabine(modelo: string, cabine: 'simples' | 'dupla' | null): boolean {
+  if (!cabine) return true
+  const temCd = /\bCD\b|CABINE DUPLA/i.test(modelo)
+  const temCs = /\bCS\b|CABINE SIMPLES/i.test(modelo)
+  return cabine === 'simples' ? !temCd : !temCs
+}
+
+/** Mantem so os do mesmo modelo do nome. Zerou: volta a lista (fail-safe do funil). */
+export function filtrarPeloModeloDoNome<T extends { modelo: string }>(lista: T[], descricao: string | null | undefined): T[] {
+  const nome = modeloDoNome(descricao)
+  if (!nome) return lista
+  const mesmos = lista.filter((c) => candidatoEDoModelo(c.modelo, nome))
+  return mesmos.length ? mesmos : lista
+}
+
+/**
+ * Lista de versoes compativeis EXIBIDA no relatorio. Diferente do funil, aqui
+ * nenhuma versao do modelo do nome = nada a mostrar: um TRACKER nao pode
+ * listar ONIX nem como "compativel". As outras regras (cabine, versao,
+ * motorizacao) voltam a lista de antes quando zeram.
+ */
+export function versoesParaExibir<T extends { modelo: string }>(lista: T[], descricao: string | null | undefined): T[] {
+  const nome = modeloDoNome(descricao)
+  let restantes = nome ? lista.filter((c) => candidatoEDoModelo(c.modelo, nome)) : lista
+  if (!restantes.length) return []
+  const cabine = cabineDoNome(descricao)
+  if (cabine) {
+    const porCabine = restantes.filter((c) => candidatoTemCabine(c.modelo, cabine))
+    if (porCabine.length) restantes = porCabine
+  }
+  return filtrarPelaVersaoDoNome(restantes, descricao)
+}
