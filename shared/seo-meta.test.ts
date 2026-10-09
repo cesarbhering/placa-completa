@@ -188,3 +188,34 @@ describe('paginas usam o title final', () => {
     expect(soltos).toEqual([])
   })
 })
+
+// Titles das paginas fixas: as variantes escritas na pagina, avaliadas aqui.
+describe('titles das paginas fixas', () => {
+  it('escolherTitulo([...]) com texto fixo cai na faixa', () => {
+    const arquivos: string[] = []
+    const varrer = (dir: string) => {
+      for (const f of readdirSync(dir)) {
+        const p = join(dir, f)
+        if (statSync(p).isDirectory()) varrer(p)
+        else if (p.endsWith('.vue')) arquivos.push(p)
+      }
+    }
+    varrer(join(__dirname, '..', 'pages'))
+    const fora: string[] = []
+    let avaliados = 0
+    for (const a of arquivos) {
+      for (const linha of readFileSync(a, 'utf8').split('\n')) {
+        const m = linha.match(/escolherTitulo\(\[(.*)\]\)/)
+        if (!m) continue
+        const itens = [...m[1].matchAll(/(['`])((?:(?!\1).)*)\1/g)].map((x) => x[2]
+          .replace(/\$\{currentYear\}/g, '2026').replace(/\$\{currentMonth\}/g, 'Setembro'))
+        if (!itens.length || itens.some((i) => i.includes('${'))) continue
+        avaliados++
+        const t = escolherTitulo(itens)
+        if (t.length < TITULO_MIN || t.length > TITULO_MAX) fora.push(`${a} (${t.length}): ${t}`)
+      }
+    }
+    expect(avaliados).toBeGreaterThan(10)
+    expect(fora).toEqual([])
+  })
+})

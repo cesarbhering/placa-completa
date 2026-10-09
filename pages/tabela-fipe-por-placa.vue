@@ -96,7 +96,7 @@ const faqs = [
 ]
 
 useHead({
-  title: escolherTitulo([`Tabela FIPE pela Placa ${currentYear}: Valor FIPE Atualizado em Segundos`, `Tabela FIPE pela Placa ${currentYear}: Valor Atualizado`]),
+  title: escolherTitulo([`Tabela FIPE pela Placa ${currentYear}: Valor FIPE Atualizado em Segundos`, `Tabela FIPE pela Placa ${currentYear}: Valor FIPE Atualizado`]),
   titleTemplate: '%s',
   meta: [
     { name: 'description', content: descricaoTabelaFipePorPlaca(currentMonth, currentYear) },
