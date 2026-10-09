@@ -58,9 +58,8 @@ export function tituloMarca(marca: string, anoAtual: number): string {
  */
 export function descricaoMarca(marca: string, modelos: string[], anoAtual: number): string {
   const montar = (lista: string[]) => {
-    const nomes = lista.length > 1 ? `${lista.slice(0, -1).join(', ')} e ${lista[lista.length - 1]}` : lista[0]
     return lista.length
-      ? `Tabela FIPE ${marca} ${anoAtual}: valor atualizado de ${nomes} e outros modelos, com preço por ano-modelo e consulta do valor exato pela placa.`
+      ? `Tabela FIPE ${marca} ${anoAtual}: valor atualizado de ${lista.join(', ')} e outros modelos, com preço por ano-modelo e consulta do valor exato pela placa.`
       : `Tabela FIPE ${marca} ${anoAtual}: valor atualizado de todos os modelos da marca, com preço por ano-modelo e consulta do valor exato pela placa.`
   }
   for (let n = Math.min(3, modelos.length); n > 0; n--) {
