@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
     for (const p of peds || []) {
       const snap: any = p.relatorio_snapshot
       if (!snap || typeof snap !== 'object') { out.push({ token: p.token_entrega, pulado: 'sem snapshot' }); continue }
-      const alvo = { placa: p.placa, plano: p.plano, consulta_id: p.consulta_id, preview: p.preview }
+      const alvo = { placa: p.placa, plano: p.plano, consulta_id: p.consulta_id, preview: p.preview, token: p.token_entrega }
       const base = await montarRelatorioSnapshot(supabase, alvo, ['valorCusto']).catch(() => null)
       const baseVc: any = base?.valorCusto ?? null
       if (!baseVc?.fipeCandidato) {
@@ -176,7 +176,7 @@ export default defineEventHandler(async (event) => {
       const refeito = await refinarValorCustoPeloRecall(
         supabase,
         snap,
-        { placa: p.placa, plano: p.plano, consulta_id: p.consulta_id, preview: p.preview },
+        { placa: p.placa, plano: p.plano, consulta_id: p.consulta_id, preview: p.preview, token: p.token_entrega },
         snap.recall,
       )
       if (!refeito) { resultados.push({ token: p.token_entrega, pulado: 'ja tem recall (fipe nao ambigua ou sem hint)' }); continue }
@@ -202,7 +202,7 @@ export default defineEventHandler(async (event) => {
     const refinado = await refinarValorCustoPeloRecall(
       supabase,
       snap,
-      { placa: p.placa, plano: p.plano, consulta_id: p.consulta_id, preview: p.preview },
+      { placa: p.placa, plano: p.plano, consulta_id: p.consulta_id, preview: p.preview, token: p.token_entrega },
       detalhe,
     )
     if (refinado) patch.valorCusto = refinado

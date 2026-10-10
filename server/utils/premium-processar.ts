@@ -20,7 +20,7 @@ const AVISO_ESTORNO = 'cesarcbhering@gmail.com'
  */
 export function completarRecallDepois(
   supabase: any,
-  pedido: { id: string; placa: string; plano?: string | null; preview?: any },
+  pedido: { id: string; placa: string; plano?: string | null; preview?: any; token_entrega?: string | null },
   consultaId: string | null,
 ): void {
   void (async () => {
@@ -75,7 +75,7 @@ export function completarRecallDepois(
         const refinado = await refinarValorCustoPeloRecall(
           supabase,
           snap,
-          { placa: pedido.placa, plano: pedido.plano, consulta_id: consultaId, preview: pedido.preview },
+          { placa: pedido.placa, plano: pedido.plano, consulta_id: consultaId, preview: pedido.preview, token: pedido.token_entrega ?? null },
           detalhe,
         )
         if (refinado) patch.valorCusto = refinado
@@ -265,6 +265,7 @@ export async function processarPedidoPago(
         plano: pedido.plano || 'completa',
         consulta_id: r.consultaId,
         preview: pedido.preview,
+        token: pedido.token_entrega,
       })
       await supabase
         .from('pedidos_premium')

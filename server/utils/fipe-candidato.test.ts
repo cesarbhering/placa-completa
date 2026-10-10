@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { escolherMelhorFipe } from './fipe-candidato'
+import { alertarFalhaHaiku } from './alerta-haiku'
+
+vi.mock('./alerta-haiku', () => ({ alertarFalhaHaiku: vi.fn(async () => true) }))
 
 // Payload real (senatran_consultas + placa_cache, staging) da placa OXK7426:
 // Etios HB X, cilindrada 1329 (1.3), a wdapi so devolveu 3 candidatos e
@@ -788,12 +791,16 @@ describe('juiz Haiku 5.5: formato da chamada e da resposta', () => {
   it('400 de parametro: loga o status e cai no comportamento sem juiz', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     global.fetch = comAnthropic(() => ({ ok: false, status: 400, json: async () => ({ type: 'error', error: { type: 'invalid_request_error', message: '`temperature` is deprecated for this model' } }) }))
-    const r = await escolherMelhorFipe(ETIOS)
+    const r = await escolherMelhorFipe({ ...ETIOS, pedidoToken: 'tok-pedido' })
     expect(r.decididoPor).not.toBe('haiku')
     const log = warn.mock.calls.map((c) => String(c[0])).join('\n')
     expect(log).toContain('[fipe-haiku] HTTP 400')
     expect(log).toContain('invalid_request_error')
     expect(log).not.toContain('ETIOS')
+    expect(alertarFalhaHaiku).toHaveBeenCalledWith(expect.objectContaining({
+      motivo: 'HTTP 400 invalid_request_error', modelo: 'claude-haiku-5-5', token: 'tok-pedido',
+    }))
+    expect(JSON.stringify((alertarFalhaHaiku as any).mock.calls)).not.toMatch(/ETIOS|OXK7426/)
   })
 
   it('so thinking, sem bloco text: loga e nao decide', async () => {
@@ -801,6 +808,6 @@ describe('juiz Haiku 5.5: formato da chamada e da resposta', () => {
     global.fetch = comAnthropic(() => ({ ok: true, status: 200, json: async () => ({ stop_reason: 'max_tokens', content: [{ type: 'thinking', thinking: '...' }] }) }))
     const r = await escolherMelhorFipe(ETIOS)
     expect(r.decididoPor).not.toBe('haiku')
-    expect(warn.mock.calls.map((c) => String(c[0])).join('\n')).toContain('sem bloco de texto (stop_reason=max_tokens)')
+    expect(warn.mock.calls.map((c) => String(c[0])).join('\n')).toContain('sem bloco text stop_reason=max_tokens')
   })
 })

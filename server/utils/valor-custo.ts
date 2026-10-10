@@ -113,6 +113,8 @@ export async function getValorCusto(
     senatran: FatosSenatranFipe; ativo: boolean; segmento?: Segmento
     /** Versao escolhida pelo cliente na tela (camada 3): pula o funil e usa esta. */
     forcar?: { codigo_fipe: string; modelo: string; valor: number | null } | null
+    /** Token do pedido, so pra o alerta de falha do juiz FIPE. */
+    pedidoToken?: string | null
   },
 ): Promise<ValorCusto | null> {
   const config = useRuntimeConfig()
@@ -171,6 +173,7 @@ export async function getValorCusto(
         fipeApiToken: config.fipeApiToken,
         anthropicApiKey: config.anthropicApiKey,
         segmento: fipeCandidatoOpts.segmento ?? null,
+        pedidoToken: fipeCandidatoOpts.pedidoToken ?? null,
       })
       // AMBIGUO NAO VIRA VALOR. Antes, quando o juiz respondia com confianca
       // baixa, o candidato dele substituia o melhor score da fonte livre e ia
