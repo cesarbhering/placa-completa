@@ -115,7 +115,41 @@ export function filtrarPelaVersaoDoNome<T extends { modelo: string }>(lista: T[]
     const porMotor = restantes.filter((c) => candidatoTemMotor(c.modelo, motor))
     if (porMotor.length) restantes = porMotor
   }
-  return restantes
+  return filtrarPelasPortasDoNome(restantes, descricao)
+}
+
+// --- Portas -------------------------------------------------------------------
+// O cadastro conta portas sem a tampa traseira ("CELTA 2P SPIRIT"); a FIPE
+// conta com ela ("Celta Spirit ... 3p"). Caso HSX1F20: Spirit 3p e 5p, o nome
+// dizia 2P. Mapa: 2P -> 2p/3p, 4P -> 4p/5p (3P e 5P valem como estao).
+const PORTAS_FIPE: Record<string, number[]> = { '2': [2, 3], '3': [3], '4': [4, 5], '5': [5] }
+// Picape/cabine: ali o numero no nome pode ser outra coisa; nao arrisca.
+const CABINE = new Set(['CS', 'CD', 'CE', 'CABINE', 'CAB', 'PICKUP', 'PICAPE'])
+
+/** Portas que o nome do cadastro diz ("2P" -> [2, 3]), ou null quando nao diz (ou e picape). */
+export function portasDoNome(descricao: string | null | undefined): number[] | null {
+  const palavras = palavrasDoNome(String(descricao || '')).map(norm)
+  if (palavras.some((p) => CABINE.has(p))) return null
+  const achadas = palavras.map((p) => p.match(/^([2-5])P$/)?.[1]).filter(Boolean) as string[]
+  if (new Set(achadas).size !== 1) return null
+  return PORTAS_FIPE[achadas[0]]
+}
+
+/** Portas no nome FIPE ("... 8V 3p" -> 3), ou null. */
+export function portasDaVersaoFipe(modelo: string): number | null {
+  const m = String(modelo || '').match(/(?:^|[\s.])([2-5])p\b/i)
+  return m ? Number(m[1]) : null
+}
+
+/**
+ * Tira as versoes cuja porta a FIPE diz e nao bate com o nome. Versao sem
+ * porta no nome FIPE fica. Zerou, volta a lista de antes.
+ */
+export function filtrarPelasPortasDoNome<T extends { modelo: string }>(lista: T[], descricao: string | null | undefined): T[] {
+  const aceitas = portasDoNome(descricao)
+  if (!aceitas) return lista
+  const ficam = lista.filter((c) => { const n = portasDaVersaoFipe(c.modelo); return n === null || aceitas.includes(n) })
+  return ficam.length ? ficam : lista
 }
 
 // ---------------------------------------------------------------------------
