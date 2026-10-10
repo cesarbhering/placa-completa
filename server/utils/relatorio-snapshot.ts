@@ -77,6 +77,8 @@ export async function montarRelatorioSnapshot(
   supabase: any,
   pedido: {
     placa: string; plano: string; consulta_id: string | null; preview?: any
+    /** Token do pedido: so vai pro alerta de falha do juiz FIPE. */
+    token?: string | null
     /** Camada 2: cambio vindo do recall, pra a FIPE desempatar versao no re-fill. */
     transmissaoHint?: 'manual' | 'automatico' | null
     /** Ja buscado na entrega: o snapshot so guarda o que veio. */
@@ -119,6 +121,7 @@ export async function montarRelatorioSnapshot(
   const valorCusto = !querem('valorCusto') ? null : await getValorCusto(pedido.placa, local.uf, local.municipio, {
     ativo: true,
     segmento,
+    pedidoToken: pedido.token ?? null,
     senatran: {
       cilindrada: senatranBruto?.cilindrada ?? null,
       potencia: senatranBruto?.potencia ?? null,
@@ -202,7 +205,7 @@ export async function montarRelatorioSnapshot(
 export async function refinarValorCustoPeloRecall(
   supabase: any,
   snap: any,
-  pedido: { placa: string; plano?: string | null; consulta_id: string | null; preview?: any },
+  pedido: { placa: string; plano?: string | null; consulta_id: string | null; preview?: any; token?: string | null },
   recall: RecallDetalhe | null | undefined,
 ): Promise<RelatorioSnapshot['valorCusto'] | null> {
   const hint = transmissaoDoRecall(recall)
@@ -217,6 +220,7 @@ export async function refinarValorCustoPeloRecall(
         plano: pedido.plano,
         consulta_id: pedido.consulta_id,
         preview: pedido.preview,
+        token: pedido.token ?? null,
         transmissaoHint: hint,
       },
       ['valorCusto'],

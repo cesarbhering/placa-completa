@@ -1,3 +1,4 @@
+import { alertarFalhaHaiku } from './alerta-haiku'
 // Melhor candidato FIPE pro relatorio PAGO (ver docs/feat-fipe-melhor-candidato.md).
 //
 // O problema real (OXK7426, Etios HB X 1.3): a wdapi devolveu so 3
@@ -72,6 +73,8 @@ export interface FipeMelhorCandidatoInput {
   fipeApiUrl: string
   fipeApiToken: string
   anthropicApiKey?: string
+  /** Token do pedido, so pra o alerta de falha do Haiku (nunca vai pro prompt). */
+  pedidoToken?: string | null
 }
 
 // Haiku 5.5 (pedido do Cesar, 10/out). Nele `temperature` da 400 (deprecated)
@@ -724,12 +727,19 @@ export function textoDaResposta(body: any): string | null {
   return typeof bloco?.text === 'string' ? bloco.text : null
 }
 
+/** Log [fipe-haiku] + e-mail (com anti-spam) ao Cesar. Sem placa/chassi. */
+function falhaHaiku(motivo: string, detalhe: string | null, token: string | null | undefined) {
+  console.warn(`[fipe-haiku] ${motivo}${detalhe ? ` ${detalhe}` : ''}`)
+  void alertarFalhaHaiku({ motivo, detalhe, modelo: HAIKU_MODEL, token: token ?? null }).catch(() => {})
+}
+
 async function julgarComHaiku(
   fatos: Fatos,
   senatran: FipeMelhorCandidatoInput['senatran'],
   wdapi: any,
   candidatos: FipeCandidato[],
   anthropicApiKey: string,
+  pedidoToken?: string | null,
 ): Promise<HaikuVeredito | null> {
   const prompt = [
     'Voce e um perito em identificacao de versao de veiculo pela tabela FIPE.',
@@ -774,22 +784,23 @@ async function julgarComHaiku(
     if (!res.ok) {
       // So status e tipo do erro (sem placa/chassi): o caso HSX1F20 caiu no
       // fallback sem deixar rastro nenhum.
-      let tipo = ''
-      try { const b: any = await res.json(); tipo = [b?.error?.type, b?.error?.message].filter(Boolean).join(': ').slice(0, 200) } catch { /* corpo nao e json */ }
-      console.warn(`[fipe-haiku] HTTP ${res.status}${tipo ? ` ${tipo}` : ''}`)
+      let tipo = '', msg = ''
+      try { const b: any = await res.json(); tipo = String(b?.error?.type || ''); msg = String(b?.error?.message || '').slice(0, 200) } catch { /* corpo nao e json */ }
+      falhaHaiku(`HTTP ${res.status}${tipo ? ` ${tipo}` : ''}`, msg || null, pedidoToken)
       return null
     }
     const body = await res.json()
     const texto = textoDaResposta(body)
     if (typeof texto !== 'string') {
-      console.warn(`[fipe-haiku] resposta sem bloco de texto (stop_reason=${body?.stop_reason ?? '?'})`)
+      falhaHaiku('sem bloco text', `stop_reason=${body?.stop_reason ?? '?'}`, pedidoToken)
       return null
     }
     const veredito = parseVereditoHaiku(texto)
-    if (!veredito) console.warn('[fipe-haiku] resposta fora do formato JSON esperado')
+    if (!veredito) falhaHaiku('JSON invalido', null, pedidoToken)
     return veredito
   } catch (e: any) {
-    console.warn(`[fipe-haiku] falhou: ${e?.name === 'AbortError' ? `timeout ${HAIKU_TIMEOUT_MS} ms` : (e?.message || e)}`)
+    if (e?.name === 'AbortError') falhaHaiku(`timeout ${HAIKU_TIMEOUT_MS} ms`, null, pedidoToken)
+    else falhaHaiku('erro de rede', String(e?.message || e).slice(0, 200), pedidoToken)
     return null
   } finally {
     clearTimeout(timeout)
@@ -939,7 +950,7 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
       return { escolhido: null, decididoPor: 'ambiguo', candidatos: filtrados.slice(0, 5) }
     }
 
-    const veredito = await julgarComHaiku(fatos, input.senatran, input.wdapi, filtrados.slice(0, 8), input.anthropicApiKey)
+    const veredito = await julgarComHaiku(fatos, input.senatran, input.wdapi, filtrados.slice(0, 8), input.anthropicApiKey, input.pedidoToken)
     // Haiku fora do ar/timeout/parse ruim ou codigo fora da lista: com FIPE na
     // fonte, fail-open pro comportamento antigo (melhor score da fonte). SEM
     // FIPE na fonte o fallback nao tem candidato nenhum (HSX1F20: Celta Spirit
