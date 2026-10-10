@@ -121,3 +121,28 @@ describe('motorizacao antes da versao (PBX2E59)', () => {
     expect(versaoDoNome('NISSAN/MARCH 16SV')).toEqual({ versoes: ['SV'], motor: '1.6' })
   })
 })
+
+describe('portas do nome (HSX1F20)', () => {
+  const SPIRIT = [
+    { codigo_fipe: '004265-0', modelo: 'Celta Spirit 1.0 MPFI VHC 8V 3p' },
+    { codigo_fipe: '004267-6', modelo: 'Celta Spirit 1.0 MPFI VHC 8V 5p' },
+  ]
+  it('2P fica com a 3p; 4P com a 5p', async () => {
+    const { filtrarPelasPortasDoNome } = await import('./versao-fipe')
+    expect(filtrarPelasPortasDoNome(SPIRIT, 'GM/CELTA 2P SPIRIT').map((c) => c.codigo_fipe)).toEqual(['004265-0'])
+    expect(filtrarPelasPortasDoNome(SPIRIT, 'GM/CELTA 4P SPIRIT').map((c) => c.codigo_fipe)).toEqual(['004267-6'])
+    expect(filtrarPelaVersaoDoNome(SPIRIT, 'GM/CELTA 2P SPIRIT').map((c) => c.codigo_fipe)).toEqual(['004265-0'])
+  })
+  it('sem portas no nome, picape ou nada sobrando: lista intacta', async () => {
+    const { filtrarPelasPortasDoNome, portasDoNome } = await import('./versao-fipe')
+    expect(filtrarPelasPortasDoNome(SPIRIT, 'GM/CELTA SPIRIT')).toEqual(SPIRIT)
+    expect(portasDoNome('FIAT/STRADA WORKING CS 2P')).toBeNull()
+    expect(portasDoNome('VW/AMAROK CD 4P')).toBeNull()
+    expect(filtrarPelasPortasDoNome([{ modelo: 'Celta 1.0 5p' }], 'GM/CELTA 2P')).toEqual([{ modelo: 'Celta 1.0 5p' }])
+  })
+  it('versao FIPE sem portas no nome nao sai', async () => {
+    const { filtrarPelasPortasDoNome } = await import('./versao-fipe')
+    const l = [{ modelo: 'Celta Spirit 1.0 3p' }, { modelo: 'Celta Spirit 1.0' }, { modelo: 'Celta Spirit 1.0 5p' }]
+    expect(filtrarPelasPortasDoNome(l, 'GM/CELTA 2P SPIRIT').map((c) => c.modelo)).toEqual(['Celta Spirit 1.0 3p', 'Celta Spirit 1.0'])
+  })
+})
