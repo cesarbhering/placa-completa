@@ -169,7 +169,7 @@ export default defineEventHandler(async (event) => {
       if (recall == null && temRecallPendente(respostaSnap) && podeReprocessar(`recall:${pedido.placa}`)) {
         completarRecallDepois(
           supabase,
-          { id: pedido.id, placa: pedido.placa, plano: pedido.plano, preview: pedido.preview },
+          { id: pedido.id, placa: pedido.placa, plano: pedido.plano, preview: pedido.preview, token_entrega: String(token) },
           pedido.consulta_id,
         )
       }
@@ -265,6 +265,7 @@ export default defineEventHandler(async (event) => {
       } else {
         const snapshot = await montarRelatorioSnapshot(supabase, {
           placa: pedido.placa, plano, consulta_id: pedido.consulta_id, preview: pedido.preview,
+          token: String(token),
         })
         consulta = snapshot.consulta
         restantes = snapshot.camposRestantes
