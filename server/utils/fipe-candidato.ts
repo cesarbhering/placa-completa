@@ -74,10 +74,14 @@ export interface FipeMelhorCandidatoInput {
   anthropicApiKey?: string
 }
 
-const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
-// 3 s era pouco: o Haiku as vezes passa disso, o funil caia no fallback e,
-// sem FIPE na fonte, o relatorio saia sem candidato nenhum (HSX1F20, 10/out).
-const HAIKU_TIMEOUT_MS = 8000
+// Haiku 5.5 (pedido do Cesar, 10/out). Nele `temperature` da 400 (deprecated)
+// e o thinking vem ligado por padrao (content[0] vira um bloco 'thinking' e os
+// tokens acabam pensando): por isso sem temperature, thinking desligado e o
+// texto lido do bloco 'text', onde quer que ele esteja.
+export const HAIKU_MODEL = 'claude-haiku-5-5'
+// Com thinking desligado ele responde em ~1,6 s; 5 s da folga sem segurar a
+// entrega (HSX1F20: 3 s estourava no modelo anterior).
+export const HAIKU_TIMEOUT_MS = 5000
 // fipe-api tem timeout proprio: a frio ela passou de 3 s, o funil caia no
 // fallback e o valor virava o melhor score da fonte livre.
 export const FIPE_API_TIMEOUT_MS = 8000
@@ -714,6 +718,12 @@ function parseVereditoHaiku(texto: string): HaikuVeredito | null {
   }
 }
 
+/** Texto do primeiro bloco 'text' (o 5.5 pode mandar 'thinking' antes). */
+export function textoDaResposta(body: any): string | null {
+  const bloco = Array.isArray(body?.content) ? body.content.find((b: any) => b?.type === 'text') : null
+  return typeof bloco?.text === 'string' ? bloco.text : null
+}
+
 async function julgarComHaiku(
   fatos: Fatos,
   senatran: FipeMelhorCandidatoInput['senatran'],
@@ -756,17 +766,30 @@ async function julgarComHaiku(
       body: JSON.stringify({
         model: HAIKU_MODEL,
         max_tokens: 300,
-        temperature: 0,
+        thinking: { type: 'disabled' },
         messages: [{ role: 'user', content: prompt }],
       }),
       signal: controller.signal,
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      // So status e tipo do erro (sem placa/chassi): o caso HSX1F20 caiu no
+      // fallback sem deixar rastro nenhum.
+      let tipo = ''
+      try { const b: any = await res.json(); tipo = [b?.error?.type, b?.error?.message].filter(Boolean).join(': ').slice(0, 200) } catch { /* corpo nao e json */ }
+      console.warn(`[fipe-haiku] HTTP ${res.status}${tipo ? ` ${tipo}` : ''}`)
+      return null
+    }
     const body = await res.json()
-    const texto = body?.content?.[0]?.text
-    if (typeof texto !== 'string') return null
-    return parseVereditoHaiku(texto)
-  } catch {
+    const texto = textoDaResposta(body)
+    if (typeof texto !== 'string') {
+      console.warn(`[fipe-haiku] resposta sem bloco de texto (stop_reason=${body?.stop_reason ?? '?'})`)
+      return null
+    }
+    const veredito = parseVereditoHaiku(texto)
+    if (!veredito) console.warn('[fipe-haiku] resposta fora do formato JSON esperado')
+    return veredito
+  } catch (e: any) {
+    console.warn(`[fipe-haiku] falhou: ${e?.name === 'AbortError' ? `timeout ${HAIKU_TIMEOUT_MS} ms` : (e?.message || e)}`)
     return null
   } finally {
     clearTimeout(timeout)

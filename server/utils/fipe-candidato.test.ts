@@ -163,7 +163,7 @@ describe('escolherMelhorFipe', () => {
         return {
           ok: true,
           json: async () => ({
-            content: [{ text: '{"codigo_fipe":"002124-5","confianca":"alta","justificativa":"bate com XLS hatch 1.5"}' }],
+            content: [{ type: 'text', text: '{"codigo_fipe":"002124-5","confianca":"alta","justificativa":"bate com XLS hatch 1.5"}' }],
           }),
         } as any
       }
@@ -726,12 +726,13 @@ describe('sem FIPE na fonte e Haiku sem resposta (caso HSX1F20, Celta Spirit)', 
     { codigo_fipe: '004264-1', modelo: 'Celta Life 1.0 MPFI VHC 8V 3p', valor: 14800 },
     { codigo_fipe: '004266-8', modelo: 'Celta Life 1.0 MPFI VHC 8V 5p', valor: 15200 },
     { codigo_fipe: '004265-0', modelo: 'Celta Spirit 1.0 MPFI VHC 8V 3p', valor: 15500 },
+    { codigo_fipe: '004267-6', modelo: 'Celta Spirit 1.0 MPFI VHC 8V 5p', valor: 15900 },
   ]
   const mock = (haiku: 'falha' | 'fora') => vi.fn(async (url: string) => {
     if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: CELTA_2005 }) } as any
     if (String(url).includes('anthropic')) {
       if (haiku === 'falha') throw new Error('timeout')
-      return { ok: true, json: async () => ({ content: [{ text: '{"codigo_fipe":"999999-9","confianca":"alta","justificativa":"x"}' }] }) } as any
+      return { ok: true, json: async () => ({ content: [{ type: 'text', text: '{"codigo_fipe":"999999-9","confianca":"alta","justificativa":"x"}' }] }) } as any
     }
     return { ok: false, json: async () => ({}) } as any
   })
@@ -754,5 +755,52 @@ describe('sem FIPE na fonte e Haiku sem resposta (caso HSX1F20, Celta Spirit)', 
     const r = await escolherMelhorFipe({ senatran: { descricaoMarcaModelo: 'GM/CELTA', anoModelo: 2005, cilindrada: 1000 }, wdapi: WD, fipeApiUrl: 'http://f', fipeApiToken: 't', anthropicApiKey: 'k' })
     expect(r.decididoPor).toBe('ambiguo')
     expect(r.candidatos.length).toBeGreaterThan(1)
+  })
+})
+
+describe('juiz Haiku 5.5: formato da chamada e da resposta', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+  const ETIOS = { senatran: { cilindrada: 1496, descricaoMarcaModelo: 'TOYOTA/ETIOS XLS', anoModelo: 2014 }, wdapi: { ...WDAPI_OXK7426, VERSAO: '' }, fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 'token-teste', anthropicApiKey: 'chave-teste' }
+  const comAnthropic = (resp: () => any, chamadas: any[] = []) => vi.fn(async (url: string, init?: any) => {
+    if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: FIPE_API_ETIOS_2014 }) } as any
+    if (String(url).includes('anthropic.com')) { chamadas.push(JSON.parse(init.body)); return resp() }
+    throw new Error(`unexpected fetch: ${url}`)
+  }) as any
+
+  it('manda claude-haiku-5-5, thinking desligado e sem temperature; le o bloco text depois do thinking', async () => {
+    const chamadas: any[] = []
+    global.fetch = comAnthropic(() => ({ ok: true, status: 200, json: async () => ({
+      stop_reason: 'end_turn',
+      content: [
+        { type: 'thinking', thinking: '', signature: 'x' },
+        { type: 'text', text: '{"codigo_fipe":"002124-5","confianca":"alta","justificativa":"XLS hatch 1.5"}' },
+      ],
+    }) }), chamadas)
+    const r = await escolherMelhorFipe(ETIOS)
+    expect(chamadas).toHaveLength(1)
+    expect(chamadas[0].model).toBe('claude-haiku-5-5')
+    expect(chamadas[0].thinking).toEqual({ type: 'disabled' })
+    expect(chamadas[0]).not.toHaveProperty('temperature')
+    expect(r.decididoPor).toBe('haiku')
+    expect(r.escolhido?.codigo_fipe).toBe('002124-5')
+  })
+
+  it('400 de parametro: loga o status e cai no comportamento sem juiz', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    global.fetch = comAnthropic(() => ({ ok: false, status: 400, json: async () => ({ type: 'error', error: { type: 'invalid_request_error', message: '`temperature` is deprecated for this model' } }) }))
+    const r = await escolherMelhorFipe(ETIOS)
+    expect(r.decididoPor).not.toBe('haiku')
+    const log = warn.mock.calls.map((c) => String(c[0])).join('\n')
+    expect(log).toContain('[fipe-haiku] HTTP 400')
+    expect(log).toContain('invalid_request_error')
+    expect(log).not.toContain('ETIOS')
+  })
+
+  it('so thinking, sem bloco text: loga e nao decide', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    global.fetch = comAnthropic(() => ({ ok: true, status: 200, json: async () => ({ stop_reason: 'max_tokens', content: [{ type: 'thinking', thinking: '...' }] }) }))
+    const r = await escolherMelhorFipe(ETIOS)
+    expect(r.decididoPor).not.toBe('haiku')
+    expect(warn.mock.calls.map((c) => String(c[0])).join('\n')).toContain('sem bloco de texto (stop_reason=max_tokens)')
   })
 })
