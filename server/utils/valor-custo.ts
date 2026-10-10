@@ -59,6 +59,8 @@ export interface FatosSenatranFipe {
    * descricao do registro nao tem MT/AT. So desempata o empate de cambio.
    */
   transmissaoHint?: 'manual' | 'automatico' | null
+  /** Camada 2: o prefixo do chassi desempata manual x automatico. */
+  chassi?: string | null
 }
 
 function formatarReais(valor: number | null): string | null {
