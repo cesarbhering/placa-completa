@@ -14,7 +14,8 @@
 
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
-import { cambioDoNome, versaoFipeManual, versaoFipeAutomatica } from '../../shared/cambio-nome'
+import { cambioDoNome, versaoFipeManual, versaoFipeAutomatica, opcoesDeCambio } from '../../shared/cambio-nome'
+import { cambioPeloChassi } from '../../shared/cambio-chassi'
 import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome } from '../../shared/versao-fipe'
 
 export { codigoDaTabela, type TabelaFipe }
@@ -61,6 +62,8 @@ export interface FipeMelhorCandidatoInput {
     // Camada 2: cambio de um sinal externo (recall), usado so quando a descricao
     // do registro nao traz MT/AT.
     transmissaoHint?: 'manual' | 'automatico' | null
+    /** Chassi (camada 2: cambio pelo prefixo, so pra desempate de cambio). */
+    chassi?: string | null
   } | null
   // payload cru da wdapi (fipe.dados[], VERSAO, marca, anoModelo, extra.combustivel)
   wdapi: any
@@ -890,6 +893,19 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     if (filtrados.length === 1) {
       const escolhido = await comCodigoModelo(filtrados[0], marca, input.fipeApiUrl, input.fipeApiToken)
       return { escolhido, decididoPor: 'regra', candidatos: filtrados, confianca: 'alta' }
+    }
+
+    // Camada 2: sobraram exatamente uma versao manual e uma automatica (a
+    // duvida e SO o cambio) e o nome do cadastro nao disse o cambio: o prefixo
+    // do chassi decide quando ha regra unanime (shared/cambio-chassi.ts).
+    if (!fatos.transmissao) {
+      const par = opcoesDeCambio(filtrados)
+      const pelo = par ? cambioPeloChassi(input.senatran?.chassi) : null
+      if (par && pelo) {
+        const achado = pelo === 'manual' ? par.manual : par.automatico
+        const escolhido = await comCodigoModelo(achado, marca, input.fipeApiUrl, input.fipeApiToken)
+        return { escolhido, decididoPor: 'regra', candidatos: [achado], confianca: 'alta', justificativa: 'cambio pelo prefixo do chassi' }
+      }
     }
 
     if (!input.anthropicApiKey) {

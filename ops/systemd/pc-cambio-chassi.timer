@@ -1,0 +1,11 @@
+[Unit]
+Description=Roda pc-cambio-chassi 1x por mes, de madrugada (regra: query pesada no leiloes-poc-db so entre 01h e 06h)
+
+[Timer]
+OnCalendar=*-*-01 01:10:00 America/Sao_Paulo
+# Se a extracao nao terminar ate 05h45, retoma na madrugada seguinte.
+OnCalendar=*-*-02 01:10:00 America/Sao_Paulo
+Persistent=false
+
+[Install]
+WantedBy=timers.target

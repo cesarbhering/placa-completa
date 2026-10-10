@@ -131,6 +131,8 @@ export async function montarRelatorioSnapshot(
       descricaoEspecie: senatranBruto?.descricaoEspecie ?? null,
       // Camada 2: cambio vindo do recall (so no re-fill disparado pelo recall).
       transmissaoHint: pedido.transmissaoHint ?? null,
+      // Camada 2: prefixo do chassi desempata manual x automatico.
+      chassi: senatranBruto?.chassi ?? null,
     },
   }).catch(() => null)
 

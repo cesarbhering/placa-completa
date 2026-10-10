@@ -1,0 +1,15 @@
+[Unit]
+Description=PlacaCompleta - regenera as regras de cambio por chassi (camada 2 da FIPE) e abre PR
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Repo de onde roda o script (worktree limpo da main e criado a parte).
+Environment=REPO=/root/placa-completa
+Environment=CAMBIO_DIR=/var/lib/cambio-chassi
+# Instalado fora do repo (ver ops/cambio-chassi/README.md).
+ExecStart=/usr/local/lib/cambio-chassi/rodar.sh
+# Leve: o banco de leiloes so e lido de madrugada, em faixas, com timeout curto.
+Nice=10
+MemoryMax=1G
