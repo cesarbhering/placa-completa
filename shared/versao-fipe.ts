@@ -13,7 +13,7 @@ const VERSOES = new Set([
   // Honda
   'LX', 'LXS', 'LXL', 'LXR', 'EX', 'EXS', 'EXL', 'EXR', 'DX', 'TOURING',
   // GM
-  'LS', 'LT', 'LTZ', 'PREMIER', 'MIDNIGHT', 'ACTIV', 'JOY', 'MAXX', 'SS', 'RS',
+  'LS', 'LT', 'LTZ', 'PREMIER', 'MIDNIGHT', 'ACTIV', 'JOY', 'MAXX', 'SS', 'RS', 'SPIRIT', 'LIFE',
   // VW
   'TRENDLINE', 'COMFORTLINE', 'HIGHLINE', 'TREND', 'COMFORT', 'HIGHL', 'CROSS', 'ROBUST', 'RB', 'EXTREME',
   // Fiat
