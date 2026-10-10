@@ -13,7 +13,7 @@ describe('rodape em colunas', () => {
     for (const to of ['/consultar-placa', '/tabela-fipe', '/tabela-fipe-por-placa', '/como-consultar-placa', '/carro-de-leilao/como-saber', '/ibv', '/estudos', '/blog', '/sobre', '/contato']) {
       expect(destinos).toContain(to)
     }
-    for (const t of ['/termos-de-uso', '/politica-de-privacidade', 'play.google.com', 'linkedin.com/company/placacompleta', 'x.com/PlacaCompleta', 'CNPJ 62.569.152/0001-67', '<LogosPagamento']) {
+    for (const t of ['/termos-de-uso', '/politica-de-privacidade', 'play.google.com', 'linkedin.com/company/placacompleta', 'x.com/PlacaCompleta', 'tiktok.com/@placacompleta', 'CNPJ 62.569.152/0001-67', '<LogosPagamento']) {
       expect(app).toContain(t)
     }
   })
