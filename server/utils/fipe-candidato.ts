@@ -75,7 +75,9 @@ export interface FipeMelhorCandidatoInput {
 }
 
 const HAIKU_MODEL = 'claude-haiku-4-5-20251001'
-const HAIKU_TIMEOUT_MS = 3000
+// 3 s era pouco: o Haiku as vezes passa disso, o funil caia no fallback e,
+// sem FIPE na fonte, o relatorio saia sem candidato nenhum (HSX1F20, 10/out).
+const HAIKU_TIMEOUT_MS = 8000
 // fipe-api tem timeout proprio: a frio ela passou de 3 s, o funil caia no
 // fallback e o valor virava o melhor score da fonte livre.
 export const FIPE_API_TIMEOUT_MS = 8000
@@ -915,13 +917,18 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     }
 
     const veredito = await julgarComHaiku(fatos, input.senatran, input.wdapi, filtrados.slice(0, 8), input.anthropicApiKey)
-    if (!veredito) {
-      // Haiku fora do ar/timeout/parse ruim: fail-open pro comportamento antigo.
-      return fallback()
-    }
+    // Haiku fora do ar/timeout/parse ruim ou codigo fora da lista: com FIPE na
+    // fonte, fail-open pro comportamento antigo (melhor score da fonte). SEM
+    // FIPE na fonte o fallback nao tem candidato nenhum (HSX1F20: Celta Spirit
+    // saiu sem FIPE e sem lista), entao vira duvida honesta com a shortlist do
+    // funil: o relatorio mostra as versoes (e a pergunta de cambio, se for o caso).
+    const semAjuda = () => (candidatosDaWdapi(input.wdapi).length
+      ? fallback()
+      : { escolhido: null, decididoPor: 'ambiguo' as const, candidatos: filtrados.slice(0, 5), confianca: 'baixa' as const })
+    if (!veredito) return semAjuda()
 
     const achado = filtrados.find((c) => c.codigo_fipe === veredito.codigo_fipe) || null
-    if (!achado) return fallback()
+    if (!achado) return semAjuda()
     const escolhido = await comCodigoModelo(achado, marca, input.fipeApiUrl, input.fipeApiToken)
 
     if (veredito.confianca === 'baixa') {

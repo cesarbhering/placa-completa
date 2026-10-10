@@ -717,3 +717,42 @@ describe('codigo do modelo: sem colisao carro x moto (caso FZK5F28)', () => {
     expect(r.escolhido?.codigoModelo).toBe('7788')
   })
 })
+
+describe('sem FIPE na fonte e Haiku sem resposta (caso HSX1F20, Celta Spirit)', () => {
+  beforeEach(() => { vi.unstubAllGlobals() })
+  const CELTA_2005 = [
+    { codigo_fipe: '004227-7', modelo: 'Celta 1.0/ Super 1.0 MPFI VHC 8v 5p', valor: 15000 },
+    { codigo_fipe: '004202-1', modelo: 'Celta 1.0/Super/N.Piq.1.0 MPFi VHC 8V 3p', valor: 14500 },
+    { codigo_fipe: '004264-1', modelo: 'Celta Life 1.0 MPFI VHC 8V 3p', valor: 14800 },
+    { codigo_fipe: '004266-8', modelo: 'Celta Life 1.0 MPFI VHC 8V 5p', valor: 15200 },
+    { codigo_fipe: '004265-0', modelo: 'Celta Spirit 1.0 MPFI VHC 8V 3p', valor: 15500 },
+  ]
+  const mock = (haiku: 'falha' | 'fora') => vi.fn(async (url: string) => {
+    if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: CELTA_2005 }) } as any
+    if (String(url).includes('anthropic')) {
+      if (haiku === 'falha') throw new Error('timeout')
+      return { ok: true, json: async () => ({ content: [{ text: '{"codigo_fipe":"999999-9","confianca":"alta","justificativa":"x"}' }] }) } as any
+    }
+    return { ok: false, json: async () => ({}) } as any
+  })
+  const WD = { marca: 'GM', MODELO: 'CELTA 2P SPIRIT', anoModelo: '2005', fipe: { dados: [] } }
+
+  it('"SPIRIT" no nome resolve por regra (versao do nome)', async () => {
+    vi.stubGlobal('fetch', mock('falha'))
+    const r = await escolherMelhorFipe({ senatran: { descricaoMarcaModelo: 'GM/CELTA 2P SPIRIT', anoModelo: 2005, cilindrada: 1000 }, wdapi: WD, fipeApiUrl: 'http://f', fipeApiToken: 't', anthropicApiKey: 'k' })
+    expect(r.decididoPor).toBe('regra')
+    expect(r.escolhido?.codigo_fipe).toBe('004265-0')
+  })
+  it('sem versao no nome e Haiku fora: duvida com a lista, nunca sem candidato', async () => {
+    vi.stubGlobal('fetch', mock('falha'))
+    const r = await escolherMelhorFipe({ senatran: { descricaoMarcaModelo: 'GM/CELTA', anoModelo: 2005, cilindrada: 1000 }, wdapi: WD, fipeApiUrl: 'http://f', fipeApiToken: 't', anthropicApiKey: 'k' })
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.candidatos.length).toBeGreaterThan(1)
+  })
+  it('Haiku devolve codigo fora da lista: mesma coisa', async () => {
+    vi.stubGlobal('fetch', mock('fora'))
+    const r = await escolherMelhorFipe({ senatran: { descricaoMarcaModelo: 'GM/CELTA', anoModelo: 2005, cilindrada: 1000 }, wdapi: WD, fipeApiUrl: 'http://f', fipeApiToken: 't', anthropicApiKey: 'k' })
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.candidatos.length).toBeGreaterThan(1)
+  })
+})
