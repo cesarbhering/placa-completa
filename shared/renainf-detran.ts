@@ -28,3 +28,20 @@ export function textoMultasRenainfForaDoDetran(uf: string): string {
 
 export const EXPLICA_RENAINF_FORA_DO_DETRAN =
   'Consta multa em aberto registrada no sistema nacional (RENAINF), aplicada fora do estado de registro ou por órgão federal.'
+
+/**
+ * Falha silenciosa do bloco "Multas e débitos" (pedido do Cesar, 11/out): sem
+ * multa RENAINF na base nacional, uma consulta DETRAN que falhou (indisponivel,
+ * 608, timeout, ou relatorio antigo sem resposta) nao aparece: nem placeholder
+ * nem "indisponivel". Com RENAINF, segue o aviso de sempre. 'protegido' nao e
+ * falha (o proprietario bloqueou a consulta) e continua aparecendo. Regra de
+ * exibicao: vale tambem pra relatorio ja entregue.
+ */
+export function esconderMultasQueFalharam(o: {
+  renainf: unknown
+  status: string | null | undefined
+  semRespostaAntigo?: boolean
+}): boolean {
+  if (o.renainf === true) return false
+  return o.status === 'indisponivel' || (!o.status && !!o.semRespostaAntigo)
+}
