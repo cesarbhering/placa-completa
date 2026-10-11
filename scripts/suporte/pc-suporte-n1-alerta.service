@@ -1,0 +1,6 @@
+[Unit]
+Description=PlacaCompleta: avisa a Helena (tmux team-lead) de tarefa nova na fila N1 do WhatsApp
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-suporte-n1-alerta
