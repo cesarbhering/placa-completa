@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { escolherMelhorFipe } from './fipe-candidato'
+import { escolherMelhorFipe, parseVereditoHaiku, trechoSaneado, schemaVeredito } from './fipe-candidato'
 import { alertarFalhaHaiku } from './alerta-haiku'
 
 vi.mock('./alerta-haiku', () => ({ alertarFalhaHaiku: vi.fn(async () => true) }))
@@ -809,5 +809,73 @@ describe('juiz Haiku 5.5: formato da chamada e da resposta', () => {
     const r = await escolherMelhorFipe(ETIOS)
     expect(r.decididoPor).not.toBe('haiku')
     expect(warn.mock.calls.map((c) => String(c[0])).join('\n')).toContain('sem bloco text stop_reason=max_tokens')
+  })
+})
+
+describe('veredito do Haiku: formato tolerante e "nenhum" (FAG9103)', () => {
+  // Texto real do 5.5 com max_tokens 300: cercado de ```json e cortado no meio.
+  const CORTADO = '```json\n{"codigo_fipe": "068003-6", "confianca": "media", "justificativa": "Os dados oficiais indicam Towner Pick-Up (SENATRAN: \'TOWNER PICKUP US\'), 1.0 de 970 cc. A confianca e media porque a descricao \'US\' e'
+
+  it('le JSON cercado de ```json, cortado no meio e com dois objetos', () => {
+    expect(parseVereditoHaiku(CORTADO)).toMatchObject({ codigo_fipe: '068003-6', confianca: 'media' })
+    expect(parseVereditoHaiku('```json\n{"codigo_fipe":"068003-6","confianca":"alta","justificativa":"x {y}"}\n```')).toMatchObject({ codigo_fipe: '068003-6', confianca: 'alta', justificativa: 'x {y}' })
+    expect(parseVereditoHaiku('{"codigo_fipe":"A","confianca":"alta","justificativa":"1"} e {"codigo_fipe":"B","confianca":"baixa","justificativa":"2"}')).toMatchObject({ codigo_fipe: 'A' })
+  })
+  it('"nenhum", null ou vazio e resposta valida (codigo null, confianca baixa)', () => {
+    for (const c of ['"nenhum"', 'null', '""', '"NENHUM"']) {
+      expect(parseVereditoHaiku(`{"codigo_fipe":${c},"confianca":"alta","justificativa":"nao bate"}`)).toEqual({ codigo_fipe: null, confianca: 'baixa', justificativa: 'nao bate' })
+    }
+  })
+  it('lixo de verdade continua invalido', () => {
+    expect(parseVereditoHaiku('nao sei')).toBeNull()
+    expect(parseVereditoHaiku('{"codigo_fipe":"A","confianca":"talvez"}')).toBeNull()
+  })
+  it('trecho do log sem placa nem chassi', () => {
+    expect(trechoSaneado('placa FAG9103 e FAG-9I03 chassi LKHGF1AH6CAC12345 ok')).toBe('placa <placa> e <placa> chassi <chassi> ok')
+  })
+  it('schema: codigo so dentre os candidatos ou "nenhum"', () => {
+    expect(schemaVeredito(['1', '2']).properties.codigo_fipe.enum).toEqual(['1', '2', 'nenhum'])
+  })
+})
+
+describe('Haiku com structured outputs e resposta "nenhum"', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+  const ETIOS = { senatran: { cilindrada: 1496, descricaoMarcaModelo: 'TOYOTA/ETIOS XLS', anoModelo: 2014 }, wdapi: { ...WDAPI_OXK7426, VERSAO: '' }, fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 'token-teste', anthropicApiKey: 'chave-teste' }
+  const com = (texto: string, chamadas: any[] = []) => vi.fn(async (url: string, init?: any) => {
+    if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: FIPE_API_ETIOS_2014 }) } as any
+    if (String(url).includes('anthropic.com')) { chamadas.push(JSON.parse(init.body)); return { ok: true, status: 200, json: async () => ({ stop_reason: 'end_turn', content: [{ type: 'text', text: texto }] }) } as any }
+    throw new Error(`unexpected fetch: ${url}`)
+  }) as any
+
+  it('pede json_schema com os codigos da lista e max_tokens 600', async () => {
+    const chamadas: any[] = []
+    global.fetch = com('{"codigo_fipe":"002124-5","confianca":"alta","justificativa":"XLS"}', chamadas)
+    const r = await escolherMelhorFipe(ETIOS)
+    expect(r.decididoPor).toBe('haiku')
+    expect(chamadas[0].max_tokens).toBe(600)
+    const sch = chamadas[0].output_config.format
+    expect(sch.type).toBe('json_schema')
+    expect(sch.schema.properties.codigo_fipe.enum).toContain('002124-5')
+    expect(sch.schema.properties.codigo_fipe.enum.at(-1)).toBe('nenhum')
+  })
+
+  it('"nenhum" vira duvida com a lista, sem alerta de falha', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    ;(alertarFalhaHaiku as any).mockClear()
+    global.fetch = com('{"codigo_fipe":"nenhum","confianca":"baixa","justificativa":"nenhum bate"}')
+    const r = await escolherMelhorFipe(ETIOS)
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.escolhido).toBeNull()
+    expect(r.candidatos.length).toBeGreaterThan(1)
+    expect(alertarFalhaHaiku).not.toHaveBeenCalled()
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('JSON invalido loga trecho saneado do texto cru', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    global.fetch = com('desculpe, a placa ETI0S14 nao consigo')
+    await escolherMelhorFipe(ETIOS)
+    const log = warn.mock.calls.map((c) => String(c[0])).join('\n')
+    expect(log).toContain('[fipe-haiku] JSON invalido stop_reason=end_turn texto="desculpe, a placa <placa> nao consigo"')
   })
 })
