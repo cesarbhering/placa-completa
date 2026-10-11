@@ -2,13 +2,20 @@ import type { Repo, Conversa, Tarefa } from './fluxo'
 
 // Repo do atendimento no Supabase do premium (service role; RLS fechada).
 
-const COLS = 'id,numero_hash,jid_cifrado,numero_mascarado,mensagens,nivel,status,motivo,pedido_id,contadores,silenciado_ate,ultima_resposta_em,n2_email_em,bloqueado_em'
+const COLS = 'id,numero_hash,jid_cifrado,numero_mascarado,mensagens,nivel,status,motivo,pedido_id,contadores,silenciado_ate,ultima_resposta_em,n2_email_em,bloqueado_em,nota_pedida_em,nota,nota_em,nivel_final'
 
 export function repoSupabase(sb: any): Repo {
   return {
+    // Uma linha por atendimento: a atual e a mais recente do numero. Bloqueio
+    // vale pro numero (suporte_bloqueios), entao conversa nova nasce bloqueada.
     async obterConversa(h) {
-      const { data } = await sb.from('suporte_conversas').select(COLS).eq('numero_hash', h).maybeSingle()
-      return (data as Conversa) || null
+      const { data } = await sb.from('suporte_conversas').select(COLS).eq('numero_hash', h).order('criado_em', { ascending: false }).limit(1)
+      const atual = (data?.[0] as Conversa) || null
+      if (atual && atual.status === 'encerrada') {
+        const { data: bl } = await sb.from('suporte_bloqueios').select('numero_hash').eq('numero_hash', h).is('desbloqueado_em', null).maybeSingle()
+        if (bl) return { ...atual, status: 'bloqueada' } as Conversa
+      }
+      return atual
     },
     async conversaPorId(id) {
       const { data } = await sb.from('suporte_conversas').select(COLS).eq('id', id).maybeSingle()
@@ -16,12 +23,7 @@ export function repoSupabase(sb: any): Repo {
     },
     async criarConversa(c) {
       const { data, error } = await sb.from('suporte_conversas').insert(c).select(COLS).single()
-      if (error) {
-        // Corrida: duas mensagens do mesmo numero ao mesmo tempo.
-        const { data: ja } = await sb.from('suporte_conversas').select(COLS).eq('numero_hash', c.numero_hash).maybeSingle()
-        if (ja) return ja as Conversa
-        throw new Error(`suporte_conversas insert: ${error.message}`)
-      }
+      if (error) throw new Error(`suporte_conversas insert: ${error.message}`)
       return data as Conversa
     },
     async salvarConversa(c) {

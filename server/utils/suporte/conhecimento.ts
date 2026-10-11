@@ -75,6 +75,7 @@ export function promptDoSistema(): string {
     'O QUE SIGNIFICA CADA ITEM DO RELATÓRIO (use estes textos para explicar):',
     cardsTexto(),
     '',
+    'atendimento_concluido: true SÓ quando a dúvida ou o problema do cliente foi resolvido e a conversa chegou ao fim (o cliente agradeceu, confirmou que deu certo ou disse que era só isso). Nunca em fora de escopo. Não pergunte nota: o sistema pergunta.',
     'FORMATO: responda só o JSON do schema. "resposta" é o texto que vai para o cliente (vazio quando acao é fora_escopo ou empresa).',
     `Textos padrão que o sistema usa (não precisa repetir): fora de escopo "${TXT.foraDeEscopo}"; empresa "${TXT.empresa}".`,
   ].join('\n')

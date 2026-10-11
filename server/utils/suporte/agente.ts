@@ -18,6 +18,8 @@ export interface Veredito {
   consulta: { email: string; placa: string; token: string }
   resumo_n1: string
   motivo_n2: string
+  /** O assunto do cliente foi resolvido e a conversa chegou ao fim. */
+  atendimento_concluido: boolean
 }
 
 export const SCHEMA_VEREDITO = {
@@ -34,8 +36,9 @@ export const SCHEMA_VEREDITO = {
     },
     resumo_n1: { type: 'string' },
     motivo_n2: { type: 'string' },
+    atendimento_concluido: { type: 'boolean' },
   },
-  required: ['categoria', 'acao', 'resposta', 'consulta', 'resumo_n1', 'motivo_n2'],
+  required: ['categoria', 'acao', 'resposta', 'consulta', 'resumo_n1', 'motivo_n2', 'atendimento_concluido'],
   additionalProperties: false,
 } as const
 
@@ -70,6 +73,7 @@ export function parseVeredito(texto: string): Veredito | null {
       consulta: { email: String(o.consulta?.email || ''), placa: String(o.consulta?.placa || ''), token: String(o.consulta?.token || '') },
       resumo_n1: String(o.resumo_n1 || ''),
       motivo_n2: String(o.motivo_n2 || ''),
+      atendimento_concluido: o.atendimento_concluido === true,
     }
   } catch { return null }
 }
