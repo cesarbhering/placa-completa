@@ -57,6 +57,8 @@ export function mensagensParaApi(hist: MsgHistorico[], extra?: string): { role: 
     else if (m.de === 'sistema') push('user', `[SISTEMA] ${m.texto}`)
     else push('assistant', m.texto)
   }
+  // O Messages API com structured outputs nao aceita terminar em assistant.
+  while (!extra && out.length && out[out.length - 1].role === 'assistant') out.pop()
   if (extra) push('user', `[SISTEMA] ${extra}`)
   if (out[0]?.role === 'assistant') out.unshift({ role: 'user', content: '[SISTEMA] início da conversa' })
   return out

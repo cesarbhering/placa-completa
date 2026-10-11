@@ -11,11 +11,12 @@ export function repoSupabase(sb: any): Repo {
     async obterConversa(h) {
       const { data } = await sb.from('suporte_conversas').select(COLS).eq('numero_hash', h).order('criado_em', { ascending: false }).limit(1)
       const atual = (data?.[0] as Conversa) || null
-      if (atual && atual.status === 'encerrada') {
-        const { data: bl } = await sb.from('suporte_bloqueios').select('numero_hash').eq('numero_hash', h).is('desbloqueado_em', null).maybeSingle()
-        if (bl) return { ...atual, status: 'bloqueada' } as Conversa
-      }
+      if (atual && await this.numeroBloqueado(h)) return { ...atual, status: 'bloqueada' } as Conversa
       return atual
+    },
+    async numeroBloqueado(h) {
+      const { data: bl } = await sb.from('suporte_bloqueios').select('numero_hash').eq('numero_hash', h).is('desbloqueado_em', null).maybeSingle()
+      return !!bl
     },
     async conversaPorId(id) {
       const { data } = await sb.from('suporte_conversas').select(COLS).eq('id', id).maybeSingle()
@@ -28,7 +29,11 @@ export function repoSupabase(sb: any): Repo {
     },
     async salvarConversa(c) {
       const { id, ...resto } = c
-      await sb.from('suporte_conversas').update({ ...resto, atualizado_em: new Date().toISOString() }).eq('id', id)
+      // Copia velha da conversa (resposta agendada antes do bloqueio) nunca
+      // desfaz um bloqueio gravado no meio.
+      let q = sb.from('suporte_conversas').update({ ...resto, atualizado_em: new Date().toISOString() }).eq('id', id)
+      if (c.status !== 'bloqueada') q = q.neq('status', 'bloqueada')
+      await q
     },
     async criarTarefa(t) {
       await sb.from('suporte_tarefas').insert({ ...t, status: 'pendente' })
