@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Avisa a Helena (janela team-lead do tmux) quando ha tarefa NOVA na fila N1 do
+# atendimento WhatsApp (suporte_tarefas, status pendente). Roda a cada 2 min
+# (pc-suporte-n1-alerta.timer). Sem PII: so quantidade e ids curtos; o resumo
+# a Helena le na tabela.
+#
+# Estado: ids ja avisados em $ESTADO (nao avisa a mesma tarefa duas vezes).
+set -euo pipefail
+
+PROJETO="${PC_SUPORTE_PROJETO:-fivalpkfneadngxiflea}"
+ALVO="${PC_SUPORTE_TMUX_ALVO:-sessao-termius-permanente:team-lead}"
+ESTADO="${PC_SUPORTE_ESTADO:-/var/lib/pc-suporte/avisadas.txt}"
+TOKEN_ARQ="${PC_SUPORTE_TOKEN:-/root/.supabase/access-token}"
+
+mkdir -p "$(dirname "$ESTADO")"; touch "$ESTADO"
+TOKEN="$(cat "$TOKEN_ARQ")"
+
+Q="select id, extract(epoch from now() - criado_em)::int as idade from public.suporte_tarefas where status = 'pendente' order by criado_em limit 50"
+RESP="$(curl -sf -m 20 -X POST "https://api.supabase.com/v1/projects/$PROJETO/database/query" \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d "$(python3 -c 'import json,sys;print(json.dumps({"query":sys.argv[1]}))' "$Q")")" || { echo "consulta falhou"; exit 0; }
+
+NOVAS="$(python3 - "$ESTADO" "$RESP" <<'PY'
+import json, sys
+estado, resp = sys.argv[1], sys.argv[2]
+ja = set(l.strip() for l in open(estado) if l.strip())
+try:
+    linhas = json.loads(resp)
+except Exception:
+    linhas = []
+if not isinstance(linhas, list):
+    linhas = []
+novas = [l for l in linhas if l.get('id') not in ja]
+with open(estado, 'a') as f:
+    for l in novas:
+        f.write(l['id'] + '\n')
+total = len(linhas)
+if novas:
+    ids = ', '.join(l['id'][:8] for l in novas[:5])
+    mais_velha = max(int(l.get('idade') or 0) for l in linhas) // 60
+    print(f"[fila N1 WhatsApp] {len(novas)} tarefa(s) nova(s), {total} pendente(s) no total (mais antiga: {mais_velha} min). Ids: {ids}. Leia public.suporte_tarefas, grave resposta + status=respondida; o site repassa ao cliente em ate 1 min (ou POST /api/suporte/fila).")
+PY
+)"
+
+[ -z "$NOVAS" ] && exit 0
+if tmux has-session -t "${ALVO%%:*}" 2>/dev/null; then
+  tmux send-keys -t "$ALVO" -l "$NOVAS"
+  tmux send-keys -t "$ALVO" Enter
+  echo "avisado: $NOVAS"
+else
+  echo "tmux sem a sessao ${ALVO%%:*}; nao avisei: $NOVAS"
+fi
