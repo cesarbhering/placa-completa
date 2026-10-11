@@ -1,6 +1,6 @@
 import { TXT } from './textos'
 import {
-  LIMITES, gatilhoN2, pedePessoa, pedeDadoDeTerceiro, temXingamento, temLink, separarDocumento,
+  LIMITES, gatilhoN2, pedePessoa, pedeCupom, confirmaPagamento, pedeDadoDeTerceiro, temXingamento, temLink, separarDocumento,
   hashNumero, cifrarJid, decifrarJid, mascararNumero, horarioComercial, diaBrasilia, guardarResposta, idLog, parseNota,
 } from './regras'
 import { perguntarAoAgente, type MsgHistorico, type Veredito } from './agente'
@@ -14,7 +14,7 @@ import { hmacPagador } from '../pagador-hash'
 export interface MsgConversa { de: 'cliente' | 'bot' | 'n1' | 'sistema'; texto: string; em: string; id?: string }
 export interface Contadores {
   dia?: string; respostas_dia?: number; fora_escopo_seguidas?: number; pedir_pessoa?: number
-  xingamentos?: number; terceiro?: number; links?: number
+  xingamentos?: number; terceiro?: number; links?: number; cupom?: number
 }
 export interface Conversa {
   id: string
@@ -47,6 +47,7 @@ export interface Tarefa {
 
 export interface Repo {
   obterConversa(numeroHash: string): Promise<Conversa | null>
+  numeroBloqueado(numeroHash: string): Promise<boolean>
   conversaPorId(id: string): Promise<Conversa | null>
   criarConversa(c: Omit<Conversa, 'id'>): Promise<Conversa>
   salvarConversa(c: Conversa): Promise<void>
@@ -139,6 +140,9 @@ async function pedirNota(c: Conversa, jid: string, d: Deps): Promise<void> {
 }
 
 async function enviarAoCliente(c: Conversa, jid: string, texto: string, d: Deps): Promise<boolean> {
+  // Bloqueado no meio do caminho (outra mensagem disparou o bloqueio): so a
+  // mensagem de encerramento ainda sai.
+  if (texto !== TXT.encerramento && await d.repo.numeroBloqueado(c.numero_hash)) { c.status = 'bloqueada'; return false }
   const r = await d.enviar(jid, texto)
   const agora = agoraDe(d)
   if (r.ok) {
@@ -253,6 +257,9 @@ export async function receberMensagem(e: Entrada, d: Deps): Promise<{ conversa: 
 /** Passo 2 (respeitando 1 resposta a cada 10 s): decide e responde. */
 export async function responderConversa(c: Conversa, jid: string, docHash: string | null, d: Deps): Promise<void> {
   const agora = agoraDe(d)
+  // Nada novo do cliente desde a ultima resposta (rodada agendada que ja foi
+  // coberta): nao responde de novo.
+  if (c.status === 'bloqueada' || c.mensagens[c.mensagens.length - 1]?.de !== 'cliente') return
   const ultimaCli = [...c.mensagens].reverse().find((m) => m.de === 'cliente')
   const texto = ultimaCli?.texto || ''
   const naoTexto = texto === '[mensagem que não é texto]'
@@ -290,6 +297,17 @@ export async function responderConversa(c: Conversa, jid: string, docHash: strin
   if (pedePessoa(texto)) c.contadores.pedir_pessoa = (c.contadores.pedir_pessoa || 0) + 1
   const gatilho = gatilhoN2(texto)
   const pessoa2x = (c.contadores.pedir_pessoa || 0) >= LIMITES.pedirPessoaParaEscalar
+
+  // Cupom: a 1a vez responde que nao ha e segue; insistiu, N2.
+  let cupomInsistente = false
+  if (pedeCupom(texto) && !gatilho) {
+    c.contadores.cupom = (c.contadores.cupom || 0) + 1
+    if (c.contadores.cupom < LIMITES.cupomParaEscalar) {
+      log(d, c, 'acao=sem_cupom')
+      return finalizar(TXT.semCupom)
+    }
+    cupomInsistente = true
+  }
 
   // CPF/CNPJ informado: confere ja, pela placa ou e-mail que a conversa tem.
   let extra: string | undefined
@@ -338,15 +356,16 @@ export async function responderConversa(c: Conversa, jid: string, docHash: strin
   const comHorarioN2 = (t: string) => (horarioComercial(agora) ? t : `${t}\n\n${TXT.foraDoHorarioN2}`)
 
   // Escalada obrigatoria (regra fixa), independente do que o modelo achou.
-  if (gatilho || pessoa2x || veredito?.acao === 'escalar_n2') {
+  if (gatilho || pessoa2x || cupomInsistente || veredito?.acao === 'escalar_n2') {
     const motivo = gatilho === 'reembolso' ? 'pedido de reembolso'
       : gatilho === 'juridico_imprensa' ? 'menção a Procon/advogado/processo/imprensa'
         : pessoa2x ? 'cliente pediu para falar com uma pessoa (2x)'
+          : cupomInsistente ? 'cliente insiste em cupom/desconto'
           : (veredito?.motivo_n2 || 'escalada pelo assistente')
     await escalarN2(c, motivo, veredito?.motivo_n2 || veredito?.resumo_n1 || '', d)
     await tarefaN1(c, `[N2] ${motivo}${veredito?.resumo_n1 ? `: ${veredito.resumo_n1}` : ''}`, texto, d)
     c.contadores.fora_escopo_seguidas = 0
-    log(d, c, `acao=escalar_n2 forcado=${!!(gatilho || pessoa2x)}`)
+    log(d, c, `acao=escalar_n2 forcado=${!!(gatilho || pessoa2x || cupomInsistente)}`)
     return finalizar(comHorarioN2(TXT.escalada))
   }
 
@@ -374,6 +393,12 @@ export async function responderConversa(c: Conversa, jid: string, docHash: strin
   if (veredito.acao === 'empresa') {
     log(d, c, 'acao=empresa')
     return finalizar(TXT.empresa)
+  }
+
+  // Dono ainda nao comprovado: nada de confirmar pagamento ou entrega.
+  if (!c.pedido_id && confirmaPagamento(veredito.resposta)) {
+    log(d, c, 'acao=responder trocada (confirmou pagamento sem dono comprovado)')
+    return finalizar(TXT.precisaConfirmarDono)
   }
 
   const g = guardarResposta(veredito.resposta)

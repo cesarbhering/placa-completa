@@ -31,6 +31,7 @@ function repoMemoria() {
     async marcarTarefa(id, campos) { Object.assign(tarefas.find((t) => t.id === id)!, campos) },
     async tarefasPendentesDesde(antes) { return tarefas.filter((t) => t.status === 'pendente' && t.criado_em < antes) },
     async registrarBloqueio(h, motivo) { bloqueios.push({ h, motivo }) },
+    async numeroBloqueado(h) { return bloqueios.some((b) => b.h === h) },
   }
   return { repo, conversas, tarefas, bloqueios }
 }
@@ -228,6 +229,29 @@ describe('simulação 4: reembolso + Procon (N2)', () => {
   })
 })
 
+describe('cupom e pagamento antes de comprovar o dono', () => {
+  it('"tem cupom?" responde que não há e segue; insistiu por desconto, N2', async () => {
+    const s = montar([V({ resposta: 'x' })])
+    await s.msg('tem cupom de desconto?')
+    expect(s.enviados).toEqual([TXT.semCupom])
+    expect(s.emails).toHaveLength(0)
+    await s.msg('nem um desconto pequeno?')
+    expect(s.enviados.at(-1)).toBe(TXT.escalada)
+    expect(s.emails[0].texto).toContain('insiste em cupom')
+  })
+  it('sem dono comprovado o agente não vê se foi pago, e resposta que confirma pagamento é trocada', async () => {
+    const pedido = { id: 'p9', placa: 'RBF5A06', plano: 'completa', status: 'pago', pago_em: '2026-10-11T02:10:00Z', entregue_em: null, email: null, token_entrega: 'T9', pagador_hash: 'h' }
+    const s = montar([
+      V({ acao: 'consultar_pedido', consulta: { email: '', placa: 'RBF5A06', token: '' } }),
+      V({ resposta: 'Encontrei o pagamento da placa RBF5A06, confirmado no sistema.' }),
+    ], [pedido])
+    await s.msg('paguei e não chegou, placa RBF5A06')
+    expect(s.histsAgente[1].extra).toContain('"encontrado":true')
+    expect(s.histsAgente[1].extra).not.toMatch(/pago_em|"pago"|entregue/)
+    expect(s.enviados).toEqual([TXT.precisaConfirmarDono])
+  })
+})
+
 describe('simulação 5: fora de escopo', () => {
   it('serviço que não prestamos (despachante) nunca vira "empresa"', async () => {
     const s = montar([V({ acao: 'empresa', categoria: 'empresa' })])
@@ -296,6 +320,30 @@ describe('fila N1', () => {
     expect(s.histsAgente[1].extra).toContain('nao informou placa')
     expect(s.enviados).toEqual(['Me passa a placa e o e-mail da compra?'])
     expect(s.mem.tarefas).toHaveLength(0)
+  })
+})
+
+describe('corridas', () => {
+  it('resposta agendada antes do bloqueio não sai depois dele', async () => {
+    const s = montar(Array.from({ length: 5 }, () => V({ resposta: 'oi' })))
+    const { receberMensagem, responderConversa } = await import('./fluxo')
+    const r = await receberMensagem({ jid: JID, texto: 'spam 0' }, s.deps)
+    const velha = JSON.parse(JSON.stringify(r.conversa))
+    for (let i = 1; i < 11; i++) await receberMensagem({ jid: JID, texto: `spam ${i}` }, s.deps)
+    expect(s.bloquear).toHaveBeenCalled()
+    const antes = s.enviados.length
+    await responderConversa(velha, JID, null, s.deps)
+    expect(s.enviados.length).toBe(antes)
+  })
+  it('rodada sem mensagem nova do cliente não responde', async () => {
+    const s = montar([V({ resposta: 'a' }), V({ resposta: 'b' })])
+    await s.msg('oi')
+    const { responderConversa } = await import('./fluxo')
+    await responderConversa(s.mem.conversas[0], JID, null, s.deps)
+    expect(s.enviados).toEqual(['a'])
+  })
+  it('histórico nunca termina no assistente', () => {
+    expect(mensagensParaApi([{ de: 'cliente', texto: 'a' }, { de: 'bot', texto: 'b' }]).at(-1)!.role).toBe('user')
   })
 })
 

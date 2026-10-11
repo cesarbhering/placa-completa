@@ -14,6 +14,7 @@ export const LIMITES = {
   terceiroParaBloquear: 2,
   linksParaBloquear: 3,
   pedirPessoaParaEscalar: 2,
+  cupomParaEscalar: 2,
   n1SemRespostaMin: 15,
   janelaNotaMs: 24 * 60 * 60 * 1000,
   n2IntervaloMs: 60 * 60 * 1000,
@@ -28,6 +29,16 @@ export function gatilhoN2(texto: string): 'reembolso' | 'juridico_imprensa' | nu
   if (/procon|advogad|processar|processo judicial|vou processar|justica|juizado|reclame aqui|imprensa|jornal|reporter|reportagem/.test(t)) return 'juridico_imprensa'
   if (/reembols|estorn|dinheiro de volta|meu dinheiro|devolv\w* (o )?(meu )?(dinheiro|valor|pagamento)|devolucao|cancelar (a )?compra|chargeback/.test(t)) return 'reembolso'
   return null
+}
+
+/** Pede cupom ou desconto. */
+export function pedeCupom(texto: string): boolean {
+  return /\bcupo(m|ns)\b|\bdesconto\b|codigo promocional|\bpromo(cao)? ?code\b|mais barato|abaixa(r)? o preco|faz por menos/.test(norm(texto))
+}
+
+/** Resposta que confirma pagamento/entrega (so pode depois de comprovar o dono). */
+export function confirmaPagamento(texto: string): boolean {
+  return /pagamento.{0,40}(confirmad|aprovad|recebid|identificad|compensad)|(confirmad|aprovad|recebid)o?.{0,25}pagamento|\b(foi|esta|ja esta|consta como) pag[oa]\b|\bpix.{0,20}(confirmad|aprovad|caiu|recebid)/.test(norm(texto))
 }
 
 /** Cliente pede para falar com uma pessoa. */

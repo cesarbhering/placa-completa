@@ -73,7 +73,9 @@ export async function consultarPedidos(supabase: any, c: ConsultaPedido): Promis
 /** Texto do resultado que volta pro agente (sem id interno). */
 export function resultadoParaAgente(fatos: (FatoPedido & { id: string })[], c: ConsultaPedido): string {
   if (!fatos.length) return 'Consulta de pedido: nenhum pedido encontrado com os dados informados.'
-  const linhas = fatos.map(({ id: _id, ...f }) => JSON.stringify(f))
+  // Sem dono comprovado o agente nao sabe se foi pago nem entregue: so que
+  // existe pedido pra placa e se ele tem e-mail.
+  const linhas = fatos.map(({ id: _id, ...f }) => JSON.stringify(f.dono_comprovado ? f : { placa: f.placa, encontrado: true, tem_email: f.tem_email, dono_comprovado: false }))
   const doc = c.docHash ? (fatos.some((f) => f.dono_comprovado) ? ' O CPF/CNPJ informado CONFERE com o pagador.' : ' O CPF/CNPJ informado NAO confere com o pagador.') : ''
   return `Consulta de pedido (${fatos.length}):${doc}\n${linhas.join('\n')}`
 }
