@@ -638,6 +638,11 @@ export default defineNuxtConfig({
     evolutionApiUrl: process.env.EVOLUTION_API_URL || "",
     evolutionApiKey: process.env.EVOLUTION_API_KEY || "",
     evolutionInstance: process.env.EVOLUTION_INSTANCE || "",
+    // Atendimento WhatsApp (bot N0): liga com NUXT_SUPORTE_WHATSAPP=on. O segredo
+    // assina o webhook interno do Evolution e deriva o hash/cifra do numero.
+    suporteWhatsapp: process.env.NUXT_SUPORTE_WHATSAPP || "",
+    suporteSecret: process.env.NUXT_SUPORTE_SECRET || "",
+    suporteEvolutionInstance: process.env.NUXT_SUPORTE_EVOLUTION_INSTANCE || "placa-completa",
     // Empurrao de atualizacao do app Android antigo (TWA v1). Private + runtime:
     // liga com FORCE_APP_UPDATE=true (ou NUXT_FORCE_APP_UPDATE) sem rebuild.
     // Fica OFF ate o app novo (v2) estar publicado na Play.
