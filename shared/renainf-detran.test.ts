@@ -27,3 +27,24 @@ describe('RENAINF aceso com DETRAN da UF zerado', () => {
     expect(textoMultasRenainfForaDoDetran('SP') + EXPLICA_RENAINF_FORA_DO_DETRAN).not.toContain('—')
   })
 })
+
+describe('esconderMultasQueFalharam (falha silenciosa sem RENAINF)', () => {
+  it('sem RENAINF e DETRAN falhou: esconde', async () => {
+    const { esconderMultasQueFalharam } = await import('./renainf-detran')
+    expect(esconderMultasQueFalharam({ renainf: false, status: 'indisponivel' })).toBe(true)
+    expect(esconderMultasQueFalharam({ renainf: null, status: 'indisponivel' })).toBe(true)
+    expect(esconderMultasQueFalharam({ renainf: false, status: null, semRespostaAntigo: true })).toBe(true)
+  })
+  it('com RENAINF e DETRAN falhou: mantem o aviso', async () => {
+    const { esconderMultasQueFalharam } = await import('./renainf-detran')
+    expect(esconderMultasQueFalharam({ renainf: true, status: 'indisponivel' })).toBe(false)
+    expect(esconderMultasQueFalharam({ renainf: true, status: null, semRespostaAntigo: true })).toBe(false)
+  })
+  it('resultado, protegido ou ainda consultando: nao esconde', async () => {
+    const { esconderMultasQueFalharam } = await import('./renainf-detran')
+    expect(esconderMultasQueFalharam({ renainf: false, status: 'ok' })).toBe(false)
+    expect(esconderMultasQueFalharam({ renainf: false, status: 'sem_debito' })).toBe(false)
+    expect(esconderMultasQueFalharam({ renainf: false, status: 'protegido' })).toBe(false)
+    expect(esconderMultasQueFalharam({ renainf: false, status: null })).toBe(false)
+  })
+})
