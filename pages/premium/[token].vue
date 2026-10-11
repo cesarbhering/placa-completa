@@ -525,9 +525,6 @@ const restricoes = computed<{ rotulo: string; explica: string; renave: boolean; 
 // RENAINF aceso e o DETRAN da UF respondeu sem multa: a multa e de orgao de
 // fora ou federal. Explicacao propria pra nao contradizer o "nada consta" do
 // DETRAN logo abaixo (shared/renainf-detran.ts).
-// Tela de pagamento (Pix ou cartao aguardando): sem WhatsApp flutuante por cima.
-// No relatorio entregue ele aparece (suporte).
-useWhatsappOculto(() => data.value?.status === 'aguardando_pagamento')
 const ufRenainfFora = computed(() => ufRenainfForaDoDetran(g('indicadorMultaRenainf'), data.value?.multas as any, g('ufJurisdicao')))
 function explicaRenainfOuPadrao(r: string): string {
   if (ufRenainfFora.value && /^RENAINF/.test(normalizaChave(r))) return EXPLICA_RENAINF_FORA_DO_DETRAN
