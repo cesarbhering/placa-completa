@@ -3,8 +3,6 @@ const props = defineProps<{
   show: boolean
 }>()
 
-useWhatsappOculto(() => props.show)
-
 const emit = defineEmits<{
   close: []
   save: [email: string]
