@@ -14,8 +14,6 @@ type Step = 'gate' | 'placa' | 'confirm' | 'pending' | 'erro'
 // em prod a area e aberta (server no-op). O passo 'gate' segue como fallback do
 // handler de 401 (sessao expirada), inofensivo em prod.
 const step = ref<Step>('placa')
-// Confirmacao e Pix pendente sao checkout: sem WhatsApp flutuante por cima.
-useWhatsappOculto(() => step.value === 'confirm' || step.value === 'pending')
 
 const { itens, sync: histSync } = useConsultaHistory()
 const modalConsultas = useState('pc-consultas-aberto', () => false)
