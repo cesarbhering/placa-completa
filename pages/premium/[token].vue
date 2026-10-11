@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { textoDetranProtegido } from '~/shared/detran-protegido'
-import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN } from '~/shared/renainf-detran'
+import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN, esconderMultasQueFalharam } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
 import { codigoFipeDoRelatorio } from '~/shared/codigo-fipe'
@@ -1312,6 +1312,12 @@ const multasSemRespostaAntigo = computed(() => {
   const ent = new Date(data.value?.entregue_em || '').getTime()
   return multasSemResposta.value && Number.isFinite(ent) && Date.now() - ent > 30 * 60 * 1000
 })
+// Sem multa RENAINF, DETRAN que falhou some do relatorio (falha silenciosa).
+const multasFalhaSilenciosa = computed(() => esconderMultasQueFalharam({
+  renainf: g('indicadorMultaRenainf'),
+  status: (data.value?.multas as any)?.status ?? null,
+  semRespostaAntigo: multasSemRespostaAntigo.value,
+}))
 let tickDetran: any = null
 let pollDetran: any = null
 function pararEsperaDetran() {
@@ -2114,7 +2120,7 @@ onUnmounted(() => {
 
             <!-- Multas e débitos no órgão de trânsito do estado (SP): o
                  indicador de multa acende, e aqui vem o VALOR e o detalhe. -->
-            <div v-if="multaIndicadorSP || ehVeiculoSpTela || multasDetalhe" class="rel__multas">
+            <div v-if="(multaIndicadorSP || ehVeiculoSpTela || multasDetalhe) && !multasFalhaSilenciosa" class="rel__multas">
               <p class="rel__multas-tit">Multas e débitos</p>
               <template v-if="multasDetalhe">
                 <!-- DETRAN-MG com ROUBO/FURTO nos impedimentos: destaque, com o
