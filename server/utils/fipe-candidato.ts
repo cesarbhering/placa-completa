@@ -699,25 +699,78 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
 // ---------------------------------------------------------------------------
 
 interface HaikuVeredito {
-  codigo_fipe: string
+  /** null = o juiz disse que nenhum candidato serve (resposta valida, vira duvida com lista). */
+  codigo_fipe: string | null
   confianca: 'alta' | 'media' | 'baixa'
   justificativa: string
 }
 
-function parseVereditoHaiku(texto: string): HaikuVeredito | null {
-  try {
-    const match = texto.match(/\{[\s\S]*\}/)
-    if (!match) return null
-    const obj = JSON.parse(match[0])
-    if (!obj?.codigo_fipe || !obj?.confianca) return null
-    if (!['alta', 'media', 'baixa'].includes(obj.confianca)) return null
-    return {
-      codigo_fipe: String(obj.codigo_fipe),
-      confianca: obj.confianca,
-      justificativa: String(obj.justificativa || ''),
+/** Valor do enum que o juiz usa quando nenhum candidato serve. */
+export const HAIKU_NENHUM = 'nenhum'
+// O 5.5 escreve justificativa longa e cerca o JSON de ```json: com 300 tokens a
+// resposta era cortada no meio (FAG9103, 11/out: "JSON invalido" 3x). Com
+// structured outputs o formato e garantido; 600 da folga pra justificativa.
+const HAIKU_MAX_TOKENS = 600
+
+/** Schema do structured output: codigo so dentre os candidatos (ou "nenhum"). */
+export function schemaVeredito(codigos: string[]) {
+  return {
+    type: 'object',
+    properties: {
+      codigo_fipe: { type: 'string', enum: [...codigos, HAIKU_NENHUM] },
+      confianca: { type: 'string', enum: ['alta', 'media', 'baixa'] },
+      justificativa: { type: 'string' },
+    },
+    required: ['codigo_fipe', 'confianca', 'justificativa'],
+    additionalProperties: false,
+  }
+}
+
+/** Trecho saneado do texto cru pro log (sem placa, chassi ou numero longo). */
+export function trechoSaneado(texto: string, max = 200): string {
+  return String(texto || '')
+    .replace(/\b[A-HJ-NPR-Z0-9]{17}\b/gi, (m) => (/\d/.test(m) && /[A-Z]/i.test(m) ? '<chassi>' : m))
+    .replace(/\b[A-Z]{3}-?\d[A-Z0-9]\d{2}\b/gi, '<placa>')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max)
+}
+
+/**
+ * Le o veredito. Tolerante: cerca de ```json, texto em volta, mais de um
+ * objeto (fica o 1o) e JSON cortado no meio (codigo e confianca vem antes da
+ * justificativa, entao sao lidos mesmo sem o fecho). "nenhum"/null/"" no
+ * codigo = nenhum candidato serve: veredito valido com codigo null.
+ */
+export function parseVereditoHaiku(texto: string): HaikuVeredito | null {
+  const t = String(texto || '').replace(/```(?:json)?/gi, '')
+  let obj: any = null
+  const ini = t.indexOf('{')
+  if (ini >= 0) {
+    let prof = 0, emStr = false, esc = false
+    for (let i = ini; i < t.length; i++) {
+      const ch = t[i]
+      if (emStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') emStr = false; continue }
+      if (ch === '"') emStr = true
+      else if (ch === '{') prof++
+      else if (ch === '}' && --prof === 0) { try { obj = JSON.parse(t.slice(ini, i + 1)) } catch { obj = null } break }
     }
-  } catch {
-    return null
+  }
+  if (!obj) {
+    // Cortado (max_tokens): pega os campos que ja vieram.
+    const cod = t.match(/"codigo_fipe"\s*:\s*(null|"([^"]*)")/)
+    const conf = t.match(/"confianca"\s*:\s*"(alta|media|baixa)"/)
+    if (!cod || !conf) return null
+    const just = t.match(/"justificativa"\s*:\s*"((?:[^"\\]|\\.)*)/)
+    obj = { codigo_fipe: cod[1] === 'null' ? null : cod[2], confianca: conf[1], justificativa: just ? just[1] : '' }
+  }
+  if (!obj || !['alta', 'media', 'baixa'].includes(obj.confianca)) return null
+  const cod = obj.codigo_fipe == null ? '' : String(obj.codigo_fipe).trim()
+  const nenhum = !cod || /^(nenhum|none|null)$/i.test(cod)
+  return {
+    codigo_fipe: nenhum ? null : cod,
+    confianca: nenhum ? 'baixa' : obj.confianca,
+    justificativa: String(obj.justificativa || ''),
   }
 }
 
@@ -755,8 +808,9 @@ async function julgarComHaiku(
     ...candidatos.map((c) => `- codigo_fipe=${c.codigo_fipe} | ${c.modelo} | valor=${c.valor ?? 'desconhecido'}`),
     '',
     'Escolha o candidato que melhor corresponde aos dados oficiais. Responda',
-    'APENAS com um JSON no formato exato:',
+    'APENAS com um JSON no formato exato (justificativa em ate 25 palavras):',
     '{"codigo_fipe": "...", "confianca": "alta"|"media"|"baixa", "justificativa": "..."}',
+    `Se NENHUM candidato corresponder ao veiculo, responda "codigo_fipe":"${HAIKU_NENHUM}".`,
     'Use "confianca":"baixa" se nao tiver certeza suficiente pra decidir entre os candidatos.',
     'IMPORTANTE: se os candidatos so se diferenciam pelo cambio (Mec./Aut./',
     'Dualogic/CVT) e NENHUM dado oficial acima indica o cambio do veiculo,',
@@ -775,8 +829,10 @@ async function julgarComHaiku(
       },
       body: JSON.stringify({
         model: HAIKU_MODEL,
-        max_tokens: 300,
+        max_tokens: HAIKU_MAX_TOKENS,
         thinking: { type: 'disabled' },
+        // Structured outputs: o JSON sai no formato do schema, sem cerca nem texto em volta.
+        output_config: { format: { type: 'json_schema', schema: schemaVeredito(candidatos.map((c) => c.codigo_fipe)) } },
         messages: [{ role: 'user', content: prompt }],
       }),
       signal: controller.signal,
@@ -796,7 +852,7 @@ async function julgarComHaiku(
       return null
     }
     const veredito = parseVereditoHaiku(texto)
-    if (!veredito) falhaHaiku('JSON invalido', null, pedidoToken)
+    if (!veredito) falhaHaiku('JSON invalido', `stop_reason=${body?.stop_reason ?? '?'} texto="${trechoSaneado(texto)}"`, pedidoToken)
     return veredito
   } catch (e: any) {
     if (e?.name === 'AbortError') falhaHaiku(`timeout ${HAIKU_TIMEOUT_MS} ms`, null, pedidoToken)
@@ -960,6 +1016,11 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
       ? fallback()
       : { escolhido: null, decididoPor: 'ambiguo' as const, candidatos: filtrados.slice(0, 5), confianca: 'baixa' as const })
     if (!veredito) return semAjuda()
+    // O juiz disse que nenhum candidato serve: resposta valida, nao falha.
+    // Duvida honesta com a lista do funil (nunca o melhor score da fonte).
+    if (veredito.codigo_fipe === null) {
+      return { escolhido: null, decididoPor: 'ambiguo', candidatos: filtrados.slice(0, 5), confianca: 'baixa', justificativa: veredito.justificativa }
+    }
 
     const achado = filtrados.find((c) => c.codigo_fipe === veredito.codigo_fipe) || null
     if (!achado) return semAjuda()
