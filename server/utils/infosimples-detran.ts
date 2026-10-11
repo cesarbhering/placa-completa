@@ -158,6 +158,39 @@ export function chassiDaResposta(response: any): string | null {
   return c.length >= 11 ? c : null
 }
 
+/**
+ * Placa que vai pro DETRAN: a ATUAL do registro (SENATRAN) quando ela diverge
+ * da do pedido. Caso CDR2189 (08/out): o cliente digitou a placa antiga, o
+ * registro ja era Mercosul (CDR2B89) e o DETRAN-SP recusou (608). Placa do
+ * registro fora do formato fica de fora: vale a do pedido, como antes.
+ */
+export function placaParaDetran(placaPedido: string, response: any): string {
+  const bruto = Array.isArray(response) ? response[0] : response
+  const doRegistro = String(bruto?.placa ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const doPedido = String(placaPedido || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  return /^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(doRegistro) ? doRegistro : doPedido
+}
+
+/** Tira placa, numeros longos (renavam, CPF, CNPJ, chassi) e e-mail de um texto da Infosimples. */
+export function semDadoPessoal(t: string): string {
+  return String(t || '')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '<email>')
+    .replace(/\b[A-HJ-NPR-Z0-9]{17}\b/gi, (m) => (/\d/.test(m) && /[A-Z]/i.test(m) ? '<chassi>' : m))
+    .replace(/[A-Z]{3}-?\d[A-Z0-9]\d{2}/gi, '<placa>')
+    .replace(/\d[\d.\/-]{7,}\d/g, '<num>')
+}
+
+/**
+ * Motivo da recusa (code_message + errors), saneado e curto, pra guardar no
+ * custo e no log quando code != 200. null em 200.
+ */
+export function detalheDaRecusa(res: Pick<ResultadoDetran, 'code' | 'codeMessage' | 'erros'>): string | null {
+  if (res.code === 200) return null
+  const partes = [res.codeMessage, ...(res.erros || [])].map((x) => String(x || '').trim()).filter(Boolean)
+  const unicas = [...new Set(partes)]
+  return unicas.length ? semDadoPessoal(unicas.join(' | ')).slice(0, 500) : null
+}
+
 export interface ResultadoDetran {
   code: number
   codeMessage: string
@@ -1503,12 +1536,18 @@ async function travarLoginBa(motivo: string): Promise<void> {
 /** Grava o custo de UMA chamada (sucesso ou erro). Fail-open: nunca derruba nada. */
 export async function registrarCusto(
   supabase: any,
-  opts: { pedidoId: string | null; fonte: string; preco: number; code: number },
+  opts: { pedidoId: string | null; fonte: string; preco: number; code: number; detalhe?: string | null },
 ): Promise<void> {
   try {
-    await supabase.from('premium_custos').insert({
-      pedido_id: opts.pedidoId, fonte: opts.fonte, preco: opts.preco || 0, code: opts.code ?? null,
-    })
+    const linha: any = { pedido_id: opts.pedidoId, fonte: opts.fonte, preco: opts.preco || 0, code: opts.code ?? null }
+    if (opts.detalhe) linha.detalhe = opts.detalhe
+    const r = await supabase.from('premium_custos').insert(linha)
+    // Coluna `detalhe` ainda nao existe no banco (migration pendente): grava sem
+    // ela. O custo nunca pode se perder por causa do diagnostico.
+    if (r?.error && linha.detalhe) {
+      delete linha.detalhe
+      await supabase.from('premium_custos').insert(linha)
+    }
   } catch (e: any) {
     console.warn('[infosimples] registrar custo falhou:', e?.message || e)
   }
@@ -1623,7 +1662,7 @@ export async function completarDetran(
     // roda SO o complemento e junta. Multas nao sao consultadas de novo.
     // Bloco corrigido a mao (backfill_manual, ex.: JPQ6371) nunca e mexido.
     if ((cfgUf as any).complemento && multasAtual.status === 'ok' && !multasAtual.complemento_ok && !multasAtual.backfill_manual) {
-      const comp = await buscarComplemento(supabase, pedido.id, uf, { placa: pedido.placa, renavam: renavam! })
+      const comp = await buscarComplemento(supabase, pedido.id, uf, { placa: placaParaDetran(pedido.placa, ctx.response), renavam: renavam! })
       if (!comp) return { ok: false, pulado: 'complemento indisponivel' }
       const atual = (await lerSnapshot(supabase, pedido.id)) || snap
       const novo = juntarComplemento((atual as any).multas, comp)
@@ -1634,11 +1673,12 @@ export async function completarDetran(
     return { ok: false, pulado: `ja tem ${cfgUf.fonte}` }
   }
 
-  const params = { uf, placa: pedido.placa, renavam: renavam!, chassi: (cfgUf as any).exigeChassi ? chassi : null }
+  const placa = placaParaDetran(pedido.placa, ctx.response)
+  const params = { uf, placa, renavam: renavam!, chassi: (cfgUf as any).exigeChassi ? chassi : null }
   const t0 = Date.now()
   let res = await consultarDetranInfosimples(params)
   // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
-  await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code })
+  await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res) })
   if (usaLoginGovbr(cfgUf.cert) && res.code === 608) await travarLoginBa(res.codeMessage)
   // Proprietario bloqueou a consulta: status final, sem retry (cobra a cada vez).
   // Grava com `fonte`, entao backfill e reprocesso pulam este pedido depois.
@@ -1652,17 +1692,17 @@ export async function completarDetran(
     console.warn(`[detran] retry uf=${uf} code=${res.code} ms=${Date.now() - t0} pedido=${String(pedido.id).slice(0, 8)}`)
     await esperarMs(ctx.esperaRetryMs ?? ESPERA_RETRY_MS)
     res = await consultarDetranInfosimples(params)
-    await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code })
+    await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res) })
   }
 
   if (res.code !== 200 || !res.data) {
-    logIndisponivel(pedido.id, uf, res.code, res.codeMessage || 'sem data', Date.now() - t0)
+    logIndisponivel(pedido.id, uf, res.code, detalheDaRecusa(res) || 'sem data', Date.now() - t0)
     await marcarIndisponivel(supabase, pedido.id, uf)
     return { ok: false, code: res.code, preco: res.preco, motivo: res.codeMessage || 'sem data' }
   }
   let multas: any = blocoDetranDaUf(uf, res.data)
   if (multas && (cfgUf as any).complemento) {
-    multas = juntarComplemento(multas, await buscarComplemento(supabase, pedido.id, uf, { placa: pedido.placa, renavam: renavam! }))
+    multas = juntarComplemento(multas, await buscarComplemento(supabase, pedido.id, uf, { placa: placaParaDetran(pedido.placa, ctx.response), renavam: renavam! }))
   }
   if (!multas) {
     // Formato que o parser nao reconhece (UF integrada so pela doc): nada de
@@ -1710,10 +1750,10 @@ async function buscarComplemento(
   if (usaLoginGovbr(DETRAN_UFS[uf].cert) && loginBaTravado()) return null
   try {
     const res = await consultarDetranInfosimples({ uf, placa: params.placa, renavam: params.renavam, path: comp.path })
-    await registrarCusto(supabase, { pedidoId, fonte: comp.fonteCusto, preco: res.preco, code: res.code })
+    await registrarCusto(supabase, { pedidoId, fonte: comp.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res) })
     if (usaLoginGovbr(DETRAN_UFS[uf].cert) && res.code === 608) { await travarLoginBa(res.codeMessage); return null }
     if (res.code !== 200 || !res.data) {
-      logIndisponivel(pedidoId, `${uf}-complemento`, res.code, res.codeMessage || 'sem data', 0)
+      logIndisponivel(pedidoId, `${uf}-complemento`, res.code, detalheDaRecusa(res) || 'sem data', 0)
       return null
     }
     return parsearComplemento(uf, res.data)
@@ -1725,7 +1765,7 @@ async function buscarComplemento(
 
 /** Log sem PII de UF indisponivel: so UF, codigo, motivo, tempo e o comeco do id. */
 export function logIndisponivel(pedidoId: string, uf: string, code: number | null, motivo: string, ms: number): void {
-  const m = String(motivo || '').replace(/[A-Z]{3}\d[A-Z0-9]\d{2}/g, '<placa>').replace(/\d{9,}/g, '<num>').slice(0, 160)
+  const m = semDadoPessoal(String(motivo || '')).slice(0, 300)
   console.warn(`[detran] indisponivel uf=${uf} code=${code ?? '-'} ms=${ms} motivo=${m} pedido=${String(pedidoId).slice(0, 8)}`)
 }
 
