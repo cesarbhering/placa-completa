@@ -15,6 +15,7 @@ export const LIMITES = {
   linksParaBloquear: 3,
   pedirPessoaParaEscalar: 2,
   n1SemRespostaMin: 15,
+  janelaNotaMs: 24 * 60 * 60 * 1000,
   n2IntervaloMs: 60 * 60 * 1000,
   silencioForaDeEscopoMs: 24 * 60 * 60 * 1000,
 } as const
@@ -97,9 +98,26 @@ export function mascararNumero(jid: string): string {
   return `+${d.slice(0, Math.min(2, d.length - 4))} ****-${d.slice(-4)}`
 }
 
-// --- Horario do N1 ------------------------------------------------------------
+// --- Nota do atendimento -------------------------------------------------------
 
-/** N1 atende das 8h as 22h (Brasilia), todo dia. */
+const NUM_PALAVRA: Record<string, number> = { zero: 0, um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5 }
+
+/**
+ * Nota de 0 a 5 numa resposta curta ("5", "nota 4", "cinco", "4/5", "dou 3").
+ * Qualquer outra coisa: null (a mensagem segue pro agente).
+ */
+export function parseNota(texto: string): number | null {
+  const t = norm(texto).replace(/[!.?,;:)(*]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!t || t.length > 30) return null
+  const m = t.match(/^(?:(?:nota|dou|daria|minha nota e|e)\s+)?(\d{1,2}|zero|um|uma|dois|duas|tres|quatro|cinco)(?:\s*(?:\/\s*5|de 5|estrelas?|pontos?))?$/)
+  if (!m) return null
+  const n = /^\d+$/.test(m[1]) ? Number(m[1]) : NUM_PALAVRA[m[1]]
+  return Number.isInteger(n) && n >= 0 && n <= 5 ? n : null
+}
+
+// --- Horario (so pro N2) ------------------------------------------------------
+
+/** Horario em que o Cesar (N2) responde: 8h as 22h (Brasilia). O N1 e 24 h. */
 export function horarioComercial(agora: Date = new Date()): boolean {
   const h = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hourCycle: 'h23' }).format(agora))
   return h >= 8 && h < 22

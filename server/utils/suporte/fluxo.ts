@@ -1,7 +1,7 @@
 import { TXT } from './textos'
 import {
   LIMITES, gatilhoN2, pedePessoa, pedeDadoDeTerceiro, temXingamento, temLink, separarDocumento,
-  hashNumero, cifrarJid, decifrarJid, mascararNumero, horarioComercial, diaBrasilia, guardarResposta, idLog,
+  hashNumero, cifrarJid, decifrarJid, mascararNumero, horarioComercial, diaBrasilia, guardarResposta, idLog, parseNota,
 } from './regras'
 import { perguntarAoAgente, type MsgHistorico, type Veredito } from './agente'
 import { resultadoParaAgente, type ConsultaPedido, type FatoPedido } from './pedidos'
@@ -23,7 +23,7 @@ export interface Conversa {
   numero_mascarado: string
   mensagens: MsgConversa[]
   nivel: 'N0' | 'N1' | 'N2'
-  status: 'aberta' | 'aguardando_n1' | 'escalada' | 'silenciada' | 'bloqueada'
+  status: 'aberta' | 'aguardando_n1' | 'escalada' | 'silenciada' | 'bloqueada' | 'encerrada'
   motivo: string | null
   pedido_id: string | null
   contadores: Contadores
@@ -31,8 +31,19 @@ export interface Conversa {
   ultima_resposta_em: string | null
   n2_email_em: string | null
   bloqueado_em: string | null
+  /** Nota 0-5 do atendimento: perguntada uma vez, ao concluir. */
+  nota_pedida_em?: string | null
+  nota?: number | null
+  nota_em?: string | null
+  /** Nivel em que o atendimento foi concluido (quando a nota foi pedida). */
+  nivel_final?: 'N0' | 'N1' | 'N2' | null
 }
-export interface Tarefa { id: string; conversa_id: string; resumo: string; pergunta: string; resposta: string | null; status: string; criado_em: string; escalada_em?: string | null }
+export interface Tarefa {
+  id: string; conversa_id: string; resumo: string; pergunta: string; resposta: string | null; status: string; criado_em: string
+  escalada_em?: string | null
+  /** A resposta da equipe encerra o atendimento: depois dela, o agente pede a nota. */
+  encerrar?: boolean | null
+}
 
 export interface Repo {
   obterConversa(numeroHash: string): Promise<Conversa | null>
@@ -99,12 +110,32 @@ function historicoParaEmail(c: Conversa): string {
 export async function conversaDoNumero(jid: string, d: Deps): Promise<Conversa> {
   const h = hashNumero(jid, d.segredo)
   const atual = await d.repo.obterConversa(h)
-  if (atual) return atual
+  const agora = agoraDe(d).getTime()
+  // Nota pedida e 24 h sem resposta: o atendimento acabou (nota fica nula) e a
+  // proxima mensagem abre outro.
+  if (atual && atual.status !== 'encerrada' && atual.nota_pedida_em && atual.nota == null
+    && agora - new Date(atual.nota_pedida_em).getTime() > LIMITES.janelaNotaMs) {
+    atual.status = 'encerrada'
+    await d.repo.salvarConversa(atual)
+  }
+  if (atual && atual.status !== 'encerrada') return atual
+  // Bloqueio vale pro numero, nao so pra conversa.
   return d.repo.criarConversa({
     numero_hash: h, jid_cifrado: cifrarJid(jid, d.segredo), numero_mascarado: mascararNumero(jid),
     mensagens: [], nivel: 'N0', status: 'aberta', motivo: null, pedido_id: null, contadores: {},
     silenciado_ate: null, ultima_resposta_em: null, n2_email_em: null, bloqueado_em: null,
+    nota_pedida_em: null, nota: null, nota_em: null, nivel_final: null,
   })
+}
+
+/** Pede a nota (uma vez por atendimento; nunca em bloqueio). */
+async function pedirNota(c: Conversa, jid: string, d: Deps): Promise<void> {
+  if (c.nota_pedida_em || c.status === 'bloqueada') return
+  if (await enviarAoCliente(c, jid, TXT.pedirNota, d)) {
+    c.nota_pedida_em = agoraDe(d).toISOString()
+    c.nivel_final = c.nivel
+    log(d, c, `nota pedida nivel=${c.nivel}`)
+  }
 }
 
 async function enviarAoCliente(c: Conversa, jid: string, texto: string, d: Deps): Promise<boolean> {
@@ -233,6 +264,18 @@ export async function responderConversa(c: Conversa, jid: string, docHash: strin
 
   if (naoTexto) return finalizar(TXT.soTexto)
 
+  // Resposta a "De 0 a 5, como foi?": vale a primeira que for nota, em 24 h.
+  if (c.nota_pedida_em && c.nota == null && agora.getTime() - new Date(c.nota_pedida_em).getTime() <= LIMITES.janelaNotaMs) {
+    const nota = parseNota(texto)
+    if (nota != null) {
+      c.nota = nota
+      c.nota_em = agora.toISOString()
+      c.status = 'encerrada'
+      log(d, c, `nota=${nota} nivel_final=${c.nivel_final}`)
+      return finalizar(TXT.obrigadoNota)
+    }
+  }
+
   // Dado de terceiro: recusa + N2; insistiu, bloqueia.
   if (pedeDadoDeTerceiro(texto)) {
     c.contadores.terceiro = (c.contadores.terceiro || 0) + 1
@@ -291,8 +334,8 @@ export async function responderConversa(c: Conversa, jid: string, docHash: strin
     }
   }
 
-  const foraHorario = !horarioComercial(agora)
-  const comHorario = (t: string) => (foraHorario ? `${t}\n\n${TXT.foraDoHorario}` : t)
+  // O N1 atende 24 h; so o N2 (Cesar) tem horario: fora das 8h-22h, avisa.
+  const comHorarioN2 = (t: string) => (horarioComercial(agora) ? t : `${t}\n\n${TXT.foraDoHorarioN2}`)
 
   // Escalada obrigatoria (regra fixa), independente do que o modelo achou.
   if (gatilho || pessoa2x || veredito?.acao === 'escalar_n2') {
@@ -304,14 +347,14 @@ export async function responderConversa(c: Conversa, jid: string, docHash: strin
     await tarefaN1(c, `[N2] ${motivo}${veredito?.resumo_n1 ? `: ${veredito.resumo_n1}` : ''}`, texto, d)
     c.contadores.fora_escopo_seguidas = 0
     log(d, c, `acao=escalar_n2 forcado=${!!(gatilho || pessoa2x)}`)
-    return finalizar(comHorario(TXT.escalada))
+    return finalizar(comHorarioN2(TXT.escalada))
   }
 
   if (!veredito) {
     await tarefaN1(c, `assistente sem resposta (${falha || '?'})`, texto, d)
     c.nivel = 'N1'; c.status = 'aguardando_n1'; c.motivo = `falha do agente: ${falha || '?'}`
     log(d, c, `acao=n1 falha="${falha}"`)
-    return finalizar(comHorario(TXT.erro))
+    return finalizar(TXT.erro)
   }
 
   if (veredito.acao === 'empresa' && SERVICO_DE_FORA.test(texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase())) veredito = { ...veredito, acao: 'fora_escopo' }
@@ -340,11 +383,13 @@ export async function responderConversa(c: Conversa, jid: string, docHash: strin
     c.nivel = 'N1'; c.status = 'aguardando_n1'; c.motivo = resumo.slice(0, 200)
     log(d, c, `acao=n1${g.barrada ? ' barrada' : ''}`)
     const resp = g.barrada || !veredito.resposta ? TXT.verificando : g.texto
-    return finalizar(comHorario(resp))
+    return finalizar(resp)
   }
 
-  log(d, c, `acao=responder categoria=${veredito.categoria}`)
-  return finalizar(g.texto)
+  log(d, c, `acao=responder categoria=${veredito.categoria}${veredito.atendimento_concluido ? ' concluido' : ''}`)
+  await enviarAoCliente(c, jid, g.texto, d)
+  if (veredito.atendimento_concluido) await pedirNota(c, jid, d)
+  return finalizar(null)
 }
 
 /** Recebe e responde em sequencia (testes e uso sem agendamento). */
@@ -372,21 +417,22 @@ export async function rodarFilaN1(d: Deps): Promise<{ repassadas: number; escala
     c.mensagens.push({ de: 'n1', texto, em: agora.toISOString() })
     c.ultima_resposta_em = agora.toISOString()
     if (c.status === 'aguardando_n1') { c.status = 'aberta'; c.nivel = 'N1' }
+    // A equipe marcou que a resposta encerra o caso: pede a nota.
+    if (t.encerrar) await pedirNota(c, jid, d)
     await d.repo.salvarConversa(c)
     await d.repo.marcarTarefa(t.id, { status: 'repassada', repassada_em: agora.toISOString() })
     repassadas++
   }
-  if (horarioComercial(agora)) {
-    const limite = new Date(agora.getTime() - LIMITES.n1SemRespostaMin * 60_000).toISOString()
-    for (const t of await d.repo.tarefasPendentesDesde(limite)) {
-      if (t.escalada_em) continue
-      const c = await d.repo.conversaPorId(t.conversa_id)
-      if (!c) continue
-      await escalarN2(c, 'N1 sem resposta em 15 min', t.resumo, d)
-      await d.repo.salvarConversa(c)
-      await d.repo.marcarTarefa(t.id, { escalada_em: agora.toISOString() })
-      escaladas++
-    }
+  // N1 sem resposta em 15 min vai ao N2 a qualquer hora (o N1 e 24 h).
+  const limite = new Date(agora.getTime() - LIMITES.n1SemRespostaMin * 60_000).toISOString()
+  for (const t of await d.repo.tarefasPendentesDesde(limite)) {
+    if (t.escalada_em) continue
+    const c = await d.repo.conversaPorId(t.conversa_id)
+    if (!c) continue
+    await escalarN2(c, 'N1 sem resposta em 15 min', t.resumo, d)
+    await d.repo.salvarConversa(c)
+    await d.repo.marcarTarefa(t.id, { escalada_em: agora.toISOString() })
+    escaladas++
   }
   return { repassadas, escaladas }
 }

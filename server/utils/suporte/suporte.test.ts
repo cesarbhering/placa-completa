@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { processarMensagem, rodarFilaN1, type Conversa, type Deps, type Repo, type Tarefa } from './fluxo'
 import { fatoDoPedido } from './pedidos'
 import { hmacPagador } from '../pagador-hash'
-import { guardarResposta, separarDocumento, gatilhoN2, pedePessoa, pedeDadoDeTerceiro, mascararNumero, cifrarJid, decifrarJid, horarioComercial } from './regras'
+import { guardarResposta, separarDocumento, gatilhoN2, pedePessoa, pedeDadoDeTerceiro, mascararNumero, cifrarJid, decifrarJid, horarioComercial, parseNota } from './regras'
 import { perguntarAoAgente, SCHEMA_VEREDITO, mensagensParaApi, type Veredito } from './agente'
 import { promptDoSistema } from './conhecimento'
 import { TXT } from './textos'
@@ -21,7 +21,7 @@ function repoMemoria() {
   const bloqueios: { h: string; motivo: string }[] = []
   let seq = 0
   const repo: Repo = {
-    async obterConversa(h) { return conversas.find((c) => c.numero_hash === h) || null },
+    async obterConversa(h) { return [...conversas].reverse().find((c) => c.numero_hash === h) || null },
     async conversaPorId(id) { return conversas.find((c) => c.id === id) || null },
     async criarConversa(c) { const n = { ...c, id: `c${++seq}` } as Conversa; conversas.push(n); return n },
     async salvarConversa(c) { const i = conversas.findIndex((x) => x.id === c.id); conversas[i] = c },
@@ -36,7 +36,7 @@ function repoMemoria() {
 }
 
 const V = (p: Partial<Veredito>): Veredito => ({
-  categoria: 'outro', acao: 'responder', resposta: '', consulta: { email: '', placa: '', token: '' }, resumo_n1: '', motivo_n2: '', ...p,
+  categoria: 'outro', acao: 'responder', resposta: '', consulta: { email: '', placa: '', token: '' }, resumo_n1: '', motivo_n2: '', atendimento_concluido: false, ...p,
 })
 
 function montar(roteiro: Veredito[], pedidos: any[] = [], agora = HORARIO) {
@@ -83,6 +83,67 @@ describe('simulação 1: dúvida antes de comprar (N0 sozinho)', () => {
     expect(p).toContain('Nunca ofereça nem crie cupom')
     expect(p).not.toContain('—')
     expect(p.toLowerCase()).not.toContain('senatran')
+  })
+})
+
+describe('nota de 0 a 5 ao fim do atendimento', () => {
+  it('simulação 1 até o fim: concluído pede a nota uma vez; "nota 4" salva, agradece e encerra', async () => {
+    const s = montar([
+      V({ categoria: 'venda', resposta: 'O relatório completo mostra registro de leilão. Consulte em https://placacompleta.com.br.' }),
+      V({ categoria: 'venda', resposta: 'Por nada! Qualquer coisa, é só chamar.', atendimento_concluido: true }),
+      V({ categoria: 'venda', resposta: 'Disponha!', atendimento_concluido: true }),
+    ])
+    await s.msg('Vocês mostram leilão?')
+    await s.msg('obrigado, era só isso')
+    expect(s.enviados.slice(-2)).toEqual(['Por nada! Qualquer coisa, é só chamar.', TXT.pedirNota])
+    await s.msg('legal') // nao e nota: segue pro agente, e nao pergunta de novo
+    expect(s.enviados.filter((t) => t === TXT.pedirNota)).toHaveLength(1)
+    await s.msg('nota 4')
+    expect(s.enviados.at(-1)).toBe(TXT.obrigadoNota)
+    const c = s.mem.conversas[0]
+    expect(c.nota).toBe(4)
+    expect(c.nivel_final).toBe('N0')
+    expect(c.status).toBe('encerrada')
+    // proxima mensagem abre outro atendimento (outra linha)
+    await s.msg('oi de novo')
+    expect(s.mem.conversas).toHaveLength(2)
+    expect(s.mem.conversas[1].nota).toBeNull()
+  })
+  it('N1 respondeu e encerrou: pede a nota com nível final N1; "cinco" vale', async () => {
+    const s = montar([V({ acao: 'chamar_n1', resposta: 'Verificando.', resumo_n1: 'link' })])
+    await s.msg('o link não abre')
+    Object.assign(s.mem.tarefas[0], { resposta: 'Pronto, link reenviado: https://placacompleta.com.br/premium/T', status: 'respondida', encerrar: true })
+    await rodarFilaN1(s.deps)
+    expect(s.enviados.slice(-2)).toEqual(['Pronto, link reenviado: https://placacompleta.com.br/premium/T', TXT.pedirNota])
+    await s.msg('cinco')
+    expect(s.mem.conversas[0]).toMatchObject({ nota: 5, nivel_final: 'N1', status: 'encerrada' })
+  })
+  it('resposta da equipe sem "encerrar" não pede nota', async () => {
+    const s = montar([V({ acao: 'chamar_n1', resposta: 'Verificando.', resumo_n1: 'x' })])
+    await s.msg('o link não abre')
+    Object.assign(s.mem.tarefas[0], { resposta: 'Qual o e-mail da compra?', status: 'respondida' })
+    await rodarFilaN1(s.deps)
+    expect(s.enviados).not.toContain(TXT.pedirNota)
+  })
+  it('fora de escopo e bloqueio nunca pedem nota', async () => {
+    const s = montar([V({ acao: 'fora_escopo', atendimento_concluido: true })])
+    await s.msg('vocês vendem carro?')
+    expect(s.enviados).toEqual([TXT.foraDeEscopo])
+  })
+  it('sem nota em 24 h: fica nula e a próxima mensagem abre outro atendimento', async () => {
+    const s = montar([V({ resposta: 'Disponha!', atendimento_concluido: true }), V({ resposta: 'Oi!' })])
+    let t = HORARIO.getTime()
+    s.deps.agora = () => new Date(t)
+    await s.msg('valeu')
+    t += 25 * 3600_000
+    await s.msg('5')
+    expect(s.mem.conversas[0]).toMatchObject({ nota: null, status: 'encerrada' })
+    expect(s.mem.conversas).toHaveLength(2)
+    expect(s.enviados.at(-1)).toBe('Oi!')
+  })
+  it('parse da nota', () => {
+    for (const [t, n] of [['5', 5], ['nota 4', 4], ['cinco', 5], ['0', 0], ['zero', 0], ['4/5', 4], ['dou 3!', 3], ['Nota: 2', 2], ['3 estrelas', 3]] as const) expect(parseNota(t)).toBe(n)
+    for (const t of ['10', '6', 'foi bom', 'ABC1D23', 'paguei 5 reais', '']) expect(parseNota(t)).toBeNull()
   })
 })
 
@@ -239,13 +300,20 @@ describe('fila N1', () => {
 })
 
 describe('freios e falhas', () => {
-  it('agente fora do ar: N1 + mensagem de erro; fora do horário avisa que a equipe volta às 8h', async () => {
+  it('agente fora do ar de madrugada: N1 (24 h) + mensagem de erro, sem aviso de horário', async () => {
     const madrugada = new Date('2026-10-11T06:00:00Z') // 3h em Brasilia
     const s = montar([], [], madrugada)
     await s.msg('meu relatório não abre')
     expect(s.mem.tarefas[0].resumo).toContain('timeout')
-    expect(s.enviados[0]).toContain(TXT.erro)
-    expect(s.enviados[0]).toContain(TXT.foraDoHorario)
+    expect(s.enviados).toEqual([TXT.erro])
+  })
+  it('N2 de madrugada avisa que uma pessoa responde a partir das 8h; de dia, não', async () => {
+    const noite = montar([V({ resposta: 'x' })], [], new Date('2026-10-11T06:00:00Z'))
+    await noite.msg('vou no procon')
+    expect(noite.enviados[0]).toBe(`${TXT.escalada}\n\n${TXT.foraDoHorarioN2}`)
+    const dia = montar([V({ resposta: 'x' })])
+    await dia.msg('vou no procon')
+    expect(dia.enviados[0]).toBe(TXT.escalada)
   })
   it('resposta que cita a fonte oficial ou afirma problema vira "verificando" + N1', async () => {
     const s = montar([V({ resposta: 'Segundo o SENATRAN o carro está ok.' }), V({ resposta: 'O seu carro tem leilão.' })])
@@ -273,10 +341,11 @@ describe('freios e falhas', () => {
     await s.msg(null)
     expect(s.enviados).toEqual([TXT.soTexto])
   })
-  it('N1 sem resposta em 15 min no horário comercial vai ao N2 (uma vez)', async () => {
-    const s = montar([V({ acao: 'chamar_n1', resposta: 'Verificando.', resumo_n1: 'link não abre' })])
+  it('N1 sem resposta em 15 min vai ao N2 (uma vez), a qualquer hora', async () => {
+    const madrugada = new Date('2026-10-11T06:00:00Z')
+    const s = montar([V({ acao: 'chamar_n1', resposta: 'Verificando.', resumo_n1: 'link não abre' })], [], madrugada)
     await s.msg('o link não abre')
-    s.mem.tarefas[0].criado_em = new Date(HORARIO.getTime() - 20 * 60_000).toISOString()
+    s.mem.tarefas[0].criado_em = new Date(madrugada.getTime() - 20 * 60_000).toISOString()
     expect((await rodarFilaN1(s.deps)).escaladas).toBe(1)
     expect(s.emails[0].texto).toContain('N1 sem resposta')
     expect((await rodarFilaN1(s.deps)).escaladas).toBe(0)

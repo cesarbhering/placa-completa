@@ -6,12 +6,14 @@
 
 create table if not exists public.suporte_conversas (
   id uuid primary key default gen_random_uuid(),
-  numero_hash text not null unique,
+  -- Uma linha por atendimento (a nota e por atendimento): o mesmo numero
+  -- pode ter varias; a atual e a mais recente que nao esta encerrada.
+  numero_hash text not null,
   jid_cifrado text not null,
   numero_mascarado text,
   mensagens jsonb not null default '[]'::jsonb,
   nivel text not null default 'N0' check (nivel in ('N0', 'N1', 'N2')),
-  status text not null default 'aberta' check (status in ('aberta', 'aguardando_n1', 'escalada', 'silenciada', 'bloqueada')),
+  status text not null default 'aberta' check (status in ('aberta', 'aguardando_n1', 'escalada', 'silenciada', 'bloqueada', 'encerrada')),
   motivo text,
   pedido_id uuid,
   contadores jsonb not null default '{}'::jsonb,
@@ -19,10 +21,18 @@ create table if not exists public.suporte_conversas (
   ultima_resposta_em timestamptz,
   n2_email_em timestamptz,
   bloqueado_em timestamptz,
+  -- Nota 0-5 pedida ao concluir ("De 0 a 5, como foi este atendimento?").
+  -- Vale a primeira resposta numerica em 24 h; sem resposta, fica nula.
+  nota_pedida_em timestamptz,
+  nota smallint check (nota between 0 and 5),
+  nota_em timestamptz,
+  nivel_final text check (nivel_final in ('N0', 'N1', 'N2')),
   criado_em timestamptz not null default now(),
   atualizado_em timestamptz not null default now()
 );
+create index if not exists suporte_conversas_numero_idx on public.suporte_conversas (numero_hash, criado_em desc);
 create index if not exists suporte_conversas_status_idx on public.suporte_conversas (status, atualizado_em desc);
+create index if not exists suporte_conversas_nota_idx on public.suporte_conversas (nota_em) where nota is not null;
 
 create table if not exists public.suporte_tarefas (
   id uuid primary key default gen_random_uuid(),
@@ -34,7 +44,9 @@ create table if not exists public.suporte_tarefas (
   criado_em timestamptz not null default now(),
   respondida_em timestamptz,
   repassada_em timestamptz,
-  escalada_em timestamptz
+  escalada_em timestamptz,
+  -- A equipe marca quando a resposta encerra o caso: o agente pede a nota depois.
+  encerrar boolean not null default false
 );
 create index if not exists suporte_tarefas_status_idx on public.suporte_tarefas (status, criado_em);
 
