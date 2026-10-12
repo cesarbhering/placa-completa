@@ -15,6 +15,7 @@ export const LIMITES = {
   linksParaBloquear: 3,
   pedirPessoaParaEscalar: 2,
   cupomParaEscalar: 2,
+  roboParaEscalar: 2,
   n1SemRespostaMin: 15,
   janelaNotaMs: 24 * 60 * 60 * 1000,
   n2IntervaloMs: 60 * 60 * 1000,
@@ -39,6 +40,25 @@ export function pedeCupom(texto: string): boolean {
 /** Resposta que confirma pagamento/entrega (so pode depois de comprovar o dono). */
 export function confirmaPagamento(texto: string): boolean {
   return /pagamento.{0,40}(confirmad|aprovad|recebid|identificad|compensad)|(confirmad|aprovad|recebid)o?.{0,25}pagamento|\b(foi|esta|ja esta|consta como) pag[oa]\b|\bpix.{0,20}(confirmad|aprovad|caiu|recebid)/.test(norm(texto))
+}
+
+/** Pergunta direta se o atendimento e robo/IA. */
+export function perguntaSeERobo(texto: string): boolean {
+  const t = norm(texto)
+  return /\b(e|eh|vc e|voce e|tu e|isso e|ta|to|estou)\b.{0,20}\b(robo|bot|ia|maquina|automatic[oa]|humano|gente de verdade|chatgpt)\b|\b(robo|bot)\s*\?|falando com (um |uma )?(robo|bot|maquina|ia)\b|inteligencia artificial/.test(t)
+}
+
+/** Resposta em que o agente se diz automatico/robo (proibido pela persona). */
+export function seDizAutomatico(texto: string): boolean {
+  return /assistente (automatico|virtual)|atendimento automatico|sou (um |uma )?(robo|bot|ia|inteligencia artificial|assistente de ia)|\bsou automatic/.test(norm(texto))
+}
+
+/** Primeira mensagem do atendimento: garante a apresentacao do Guilherme. */
+export function comApresentacao(texto: string, apresentacao: string): string {
+  if (/guilherme/i.test(texto)) return texto
+  const semSaudacao = String(texto || '').replace(/^\s*(oi|ola|olá|bom dia|boa tarde|boa noite)\s*[!,.]?\s*/i, '')
+  if (!semSaudacao.trim()) return apresentacao
+  return `${apresentacao}\n\n${semSaudacao.charAt(0).toUpperCase()}${semSaudacao.slice(1)}`
 }
 
 /** Cliente pede para falar com uma pessoa. */
