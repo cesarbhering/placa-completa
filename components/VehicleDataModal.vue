@@ -5,6 +5,8 @@ const props = defineProps<{
   vehicleData: any
 }>()
 
+useWhatsappOculto(() => props.show)
+
 const emit = defineEmits<{
   close: []
   newConsulta: []

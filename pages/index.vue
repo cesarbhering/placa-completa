@@ -181,6 +181,10 @@ const vehicleData = ref<any>(null)
 const showSnackbar = ref(false)
 const snackbarMessage = ref('')
 const showPwaEmailPrompt = ref(false)
+// WhatsApp flutuante: some com modal aberto e sobe acima da barra fixa de compra (celular).
+useWhatsappOculto(() => showSeguroModal.value || showDataModal.value || showPwaEmailPrompt.value)
+const barraFixaRef = ref<HTMLElement | null>(null)
+useWhatsappAcimaDe(barraFixaRef)
 const pwaEmail = ref('')
 const pwaEmailError = ref('')
 
@@ -1666,7 +1670,7 @@ function applyEmailSuggestion() {
              resultado sem depender de o card de campos livres caber antes —
              em telas pequenas ele empilha em 1 coluna e fica alto demais pra
              o bloco bloqueado entrar na dobra. -->
-        <div v-if="success && !showPremiumCheckout && !(layoutA && ctaLayoutANaTela)" class="cb-sticky-upsell">
+        <div v-if="success && !showPremiumCheckout && !(layoutA && ctaLayoutANaTela)" ref="barraFixaRef" class="cb-sticky-upsell">
           <!-- A barra fixa e o que sobra na tela enquanto a pessoa rola. Com
                registro encontrado, ela repete o achado em vez do argumento
                generico: e o unico texto que continua a vista. -->

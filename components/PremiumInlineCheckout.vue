@@ -40,6 +40,9 @@ const props = withDefaults(defineProps<{
   recallSinal: null,
   recallMarca: null,
 })
+
+// Checkout aberto (o componente so monta aberto): sem WhatsApp flutuante por cima.
+useWhatsappOculto(true)
 const emit = defineEmits<{ close: [] }>()
 
 const cfg = useRuntimeConfig()
