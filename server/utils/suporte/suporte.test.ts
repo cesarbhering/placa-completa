@@ -187,6 +187,7 @@ describe('simulação 2: pagou e não recebeu (identifica por CPF, N1 resolve)',
     expect(s.enviados.at(-1)).toContain('/premium/TokFicticio000000000001')
     expect(s.mem.tarefas[0].status).toBe('repassada')
     expect(s.mem.conversas[0].status).toBe('aberta')
+    expect(s.mem.conversas[0].contadores.categoria).toBe('pedido')
   })
 
   it('CPF que não confere: o agente é avisado de que NÃO confere', async () => {
