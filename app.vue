@@ -23,6 +23,7 @@ const headerGlobal = computed(() => {
 // Modal de consultas: mora aqui pra existir em qualquer rota. O header abre
 // pelo mesmo estado compartilhado, sem a pagina no meio.
 const modalConsultas = useState('pc-consultas-aberto', () => false)
+useWhatsappOculto(modalConsultas)
 
 // Detect PWA mode synchronously on client
 if (import.meta.client) {
@@ -96,6 +97,8 @@ function onStoreClick() {
       <NuxtPage />
 
       <ConsultasHistory :aberto="modalConsultas" @fechar="modalConsultas = false" />
+      <!-- WhatsApp flutuante (suporte): some em checkout/modal/Pix, sobe acima da barra de compra. -->
+      <ClientOnly><WhatsappFlutuante /></ClientOnly>
       <!-- Rodape em colunas (opcao 1 do Cesar, 08/out): marca a esquerda +
            4 colunas (shared/rodape-links.ts). No celular as colunas viram
            sanfona (<details>, fechadas); marca, redes, pagamento e CNPJ ficam
