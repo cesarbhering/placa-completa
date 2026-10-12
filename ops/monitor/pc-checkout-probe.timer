@@ -1,0 +1,8 @@
+[Unit]
+Description=pc-monitor CHECKOUT a cada 30 min (apos deploy: pc-deploy-watch)
+[Timer]
+OnActiveSec=5min
+OnUnitActiveSec=30min
+AccuracySec=30s
+[Install]
+WantedBy=timers.target
