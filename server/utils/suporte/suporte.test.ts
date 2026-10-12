@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { processarMensagem, rodarFilaN1, type Conversa, type Deps, type Repo, type Tarefa } from './fluxo'
+import { processarMensagem, rodarFilaN1, rodarInatividade, type Conversa, type Deps, type Repo, type Tarefa } from './fluxo'
 import { fatoDoPedido } from './pedidos'
 import { hmacPagador } from '../pagador-hash'
 import { guardarResposta, separarDocumento, gatilhoN2, pedePessoa, pedeDadoDeTerceiro, mascararNumero, cifrarJid, decifrarJid, horarioComercial, parseNota } from './regras'
@@ -32,6 +32,7 @@ function repoMemoria() {
     async tarefasPendentesDesde(antes) { return tarefas.filter((t) => t.status === 'pendente' && t.criado_em < antes) },
     async registrarBloqueio(h, motivo) { bloqueios.push({ h, motivo }) },
     async numeroBloqueado(h) { return bloqueios.some((b) => b.h === h) },
+    async conversasAbertasSemRespostaDesde(antes) { return conversas.filter((c) => c.status === 'aberta' && !!c.ultima_resposta_em && c.ultima_resposta_em < antes) },
   }
   return { repo, conversas, tarefas, bloqueios }
 }
@@ -147,6 +148,75 @@ describe('nota de 0 a 5 ao fim do atendimento', () => {
   it('parse da nota', () => {
     for (const [t, n] of [['5', 5], ['nota 4', 4], ['cinco', 5], ['0', 0], ['zero', 0], ['4/5', 4], ['dou 3!', 3], ['Nota: 2', 2], ['3 estrelas', 3]] as const) expect(parseNota(t)).toBe(n)
     for (const t of ['10', '6', 'foi bom', 'ABC1D23', 'paguei 5 reais', '']) expect(parseNota(t)).toBeNull()
+  })
+})
+
+describe('inatividade (20 min)', () => {
+  const relogio = (s: ReturnType<typeof montar>) => { let t = HORARIO.getTime(); s.deps.agora = () => new Date(t); return (min: number) => { t += min * 60_000 } }
+
+  it('pergunta uma vez, encerra 20 min depois pedindo a nota, e "4" ainda vale', async () => {
+    const s = montar([V({ resposta: 'O relatório completo custa R$ 39,90.' })])
+    const passa = relogio(s)
+    await s.msg('quanto custa?')
+    passa(10); expect((await rodarInatividade(s.deps)).perguntadas).toBe(0)
+    passa(11); expect((await rodarInatividade(s.deps)).perguntadas).toBe(1)
+    expect(s.enviados.at(-1)).toBe(TXT.inatividade)
+    passa(5); expect(await rodarInatividade(s.deps)).toEqual({ perguntadas: 0, encerradas: 0 })
+    passa(16)
+    expect((await rodarInatividade(s.deps)).encerradas).toBe(1)
+    expect(s.enviados.at(-1)).toBe(TXT.pedirNota)
+    expect(s.mem.conversas[0].status).toBe('encerrada')
+    await s.msg('4')
+    expect(s.mem.conversas).toHaveLength(1)
+    expect(s.mem.conversas[0].nota).toBe(4)
+    expect(s.enviados.at(-1)).toBe(TXT.obrigadoNota)
+  })
+  it('cliente respondeu: segue normal; ficou inativo de novo, encerra sem perguntar outra vez', async () => {
+    const s = montar([V({ resposta: 'A' }), V({ resposta: 'B' })])
+    const passa = relogio(s)
+    await s.msg('oi')
+    passa(21); await rodarInatividade(s.deps)
+    passa(2); await s.msg('na verdade, tenho mais uma dúvida')
+    expect(s.enviados.at(-1)).toBe('B')
+    passa(21); await rodarInatividade(s.deps)
+    expect(s.enviados.filter((t) => t === TXT.inatividade)).toHaveLength(1)
+    expect(s.enviados.at(-1)).toBe(TXT.pedirNota)
+    expect(s.mem.conversas[0].status).toBe('encerrada')
+  })
+  it('aguardando N1, mensagem do cliente sem resposta ou nota já pedida: não mexe', async () => {
+    const n1 = montar([V({ acao: 'chamar_n1', resposta: 'Verificando.', resumo_n1: 'x' })])
+    const p1 = relogio(n1)
+    await n1.msg('link não abre')
+    p1(60); await rodarInatividade(n1.deps)
+    expect(n1.enviados).not.toContain(TXT.inatividade)
+    const nota = montar([V({ resposta: 'Disponha!', atendimento_concluido: true })])
+    const p2 = relogio(nota)
+    await nota.msg('valeu')
+    p2(60); await rodarInatividade(nota.deps)
+    expect(nota.enviados).not.toContain(TXT.inatividade)
+  })
+})
+
+describe('links do site', () => {
+  it('home/consulta vira "no site da PlacaCompleta"; páginas próprias e relatório do cliente ficam', async () => {
+    const { semLinksDoSite } = await import('./regras')
+    expect(semLinksDoSite('Para consultar, acesse https://placacompleta.com.br e digite a placa.')).toBe('Para consultar, acesse o site da PlacaCompleta e digite a placa.')
+    expect(semLinksDoSite('Digite a placa em https://placacompleta.com.br agora.')).toBe('Digite a placa no site da PlacaCompleta agora.')
+    for (const ok of ['https://placacompleta.com.br/ibv', 'https://placacompleta.com.br/tabela-fipe-por-placa', 'https://placacompleta.com.br/carro-de-leilao/como-saber', 'https://placacompleta.com.br/premium/TokFicticio000000000001']) {
+      expect(semLinksDoSite(`Veja: ${ok}`)).toBe(`Veja: ${ok}`)
+    }
+  })
+  it('a guarda tira o link da resposta do agente', async () => {
+    const s = montar([V({ resposta: 'O relatório sai por R$ 39,90. Compre em https://placacompleta.com.br.' })])
+    await s.msg('quanto custa?')
+    expect(s.enviados[0]).not.toContain('https://')
+    expect(s.enviados[0]).toContain('no site da PlacaCompleta')
+  })
+  it('prompt: sem URL para consulta; links só das páginas próprias', () => {
+    const p = promptDoSistema()
+    expect(p).toContain('sem URL')
+    expect(p).toContain('https://placacompleta.com.br/ibv')
+    expect(p).not.toContain('mande https://placacompleta.com.br e diga')
   })
 })
 
