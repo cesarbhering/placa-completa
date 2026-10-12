@@ -14,6 +14,11 @@ export const TXT = {
   escalada: 'Entendi. Esse caso precisa da atenção de uma pessoa da equipe. Já encaminhei com prioridade e a resposta vem por aqui.',
   encerramento: `Vou encerrar o atendimento por aqui. Se precisar de algo sobre a PlacaCompleta, escreva para ${EMAIL_CONTATO_SUPORTE}.`,
   dadoDeTerceiro: 'Não passamos dado pessoal de proprietário (nome, CPF, endereço ou telefone). Isso é protegido por lei e não entra em nenhum relatório. Posso ajudar com a situação do veículo?',
+  // Persona (pedido do Cesar, 12/out): Guilherme, do time de suporte. Nunca
+  // "assistente virtual/automatico"; perguntado se e robo, nao nega nem afirma.
+  apresentacao: 'Oi! Aqui é o Guilherme, do time de suporte da PlacaCompleta.',
+  souGuilherme: 'Sou o Guilherme, do atendimento da PlacaCompleta. Se preferir, passo para outra pessoa da equipe.',
+  passoParaEquipe: 'Combinado, vou passar para outra pessoa da equipe. A resposta vem por aqui em alguns minutos.',
   semCupom: 'No momento não temos cupom disponível. O relatório completo já está em promoção no site.',
   precisaConfirmarDono: 'Encontrei um pedido para essa placa. Para liberar, preciso confirmar que é seu: me passa o e-mail usado na compra ou, se não informou e-mail, o CPF ou CNPJ de quem pagou.',
   soTexto: 'Por aqui eu leio só mensagens de texto. Pode escrever a sua dúvida?',
