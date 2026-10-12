@@ -1,0 +1,6 @@
+[Unit]
+Description=pc-monitor SITE: home + /api/app-status pela URL publica; 2 falhas com 60 s = SITE FORA DO AR
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-monitor site
+TimeoutStartSec=120

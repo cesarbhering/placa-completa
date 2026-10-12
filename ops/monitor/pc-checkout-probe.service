@@ -1,0 +1,7 @@
+[Unit]
+Description=pc-monitor CHECKOUT: fluxo real no Chromium; 3 falhas com 60 s = CHECKOUT COM ERRO
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/node /usr/local/bin/pc-checkout-probe.mjs
+Nice=10
+TimeoutStartSec=1500
