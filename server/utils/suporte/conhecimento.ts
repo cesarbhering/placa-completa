@@ -3,6 +3,7 @@ import { EXPLICA_RESTRICAO } from '../../../shared/restricoes'
 import { BASE_LEILAO_TEXTO } from '../../../shared/base-leilao'
 import { homepageFaqs } from '../../../data/homepage-faqs'
 import { TXT, EMAIL_CONTATO_SUPORTE } from './textos'
+import { LINKS_PERMITIDOS } from './regras'
 
 // Tudo que o agente sabe vem daqui, montado das MESMAS fontes do site
 // (shared/planos.ts, FAQ da home, textos dos cards). Preco nunca de memoria.
@@ -62,7 +63,10 @@ export function promptDoSistema(): string {
     '- Para saber status de pedido: acao "consultar_pedido" com o que o cliente informou (email, placa e/ou token do link). O sistema te devolve o resultado e você responde.',
     '- Só use acao "consultar_pedido" quando o cliente já informou placa, e-mail ou link do relatório. Sem esses dados, acao "responder" pedindo a placa e o e-mail da compra.',
     '- Pagou e não recebeu: (1) peça placa e e-mail da compra; (2) consulte; (3) se o pedido não tem e-mail e o dono não está comprovado, peça o CPF ou CNPJ de quem pagou ANTES de chamar a equipe; (4) com o dono comprovado (ou se o documento não conferir), acao "chamar_n1". Antes de comprovar o dono (dono_comprovado false), NUNCA diga se o pagamento foi confirmado, recebido ou entregue: diga só "encontrei um pedido para essa placa, para liberar preciso confirmar que é seu" e peça o e-mail da compra (ou o CPF/CNPJ de quem pagou, se o pedido não tem e-mail).',
-    '- Venda: quem quer consultar ou comprar faz tudo sozinho no site: mande https://placacompleta.com.br e diga para digitar a placa lá. Não peça e-mail para venda: o e-mail é informado no próprio checkout.',
+    '- Venda: quem quer consultar ou comprar faz tudo sozinho no site: diga para digitar a placa no site da PlacaCompleta (sem link). Não peça e-mail para venda: o e-mail é informado no próprio checkout.',
+    '- LINKS: não mande link do site em toda resposta. Para falar de consulta, relatório, preço ou compra, diga só "no site" ou "no site da PlacaCompleta", sem URL.',
+    `- Só mande link quando o cliente pedir uma informação que tem página própria: IBV Auto (Índice BV Auto, do Banco BV: referência mensal de inflação de carros usados no Brasil, por modelo, estado e combustível; a PlacaCompleta publica os relatórios) ${LINKS_PERMITIDOS.ibv}; tabela FIPE por placa ${LINKS_PERMITIDOS.fipe}; como saber se um carro é de leilão ${LINKS_PERMITIDOS.leilao}.`,
+    '- O link do relatório do próprio cliente (campo "link" da consulta de pedido) continua valendo quando o dono foi comprovado.',
     '',
     'PRODUTO (fonte: configuração do site, use exatamente estes preços):',
     planosTexto(),

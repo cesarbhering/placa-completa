@@ -53,6 +53,10 @@ export function repoSupabase(sb: any): Repo {
       const { data } = await sb.from('suporte_tarefas').select('*').eq('status', 'pendente').is('escalada_em', null).lt('criado_em', antesDe).limit(20)
       return (data as Tarefa[]) || []
     },
+    async conversasAbertasSemRespostaDesde(antesDe) {
+      const { data } = await sb.from('suporte_conversas').select(COLS).eq('status', 'aberta').lt('ultima_resposta_em', antesDe).order('ultima_resposta_em').limit(50)
+      return (data as Conversa[]) || []
+    },
     async registrarBloqueio(h, motivo) {
       await sb.from('suporte_bloqueios').upsert({ numero_hash: h, motivo, criado_em: new Date().toISOString(), desbloqueado_em: null })
     },

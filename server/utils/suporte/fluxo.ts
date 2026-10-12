@@ -15,6 +15,8 @@ export interface MsgConversa { de: 'cliente' | 'bot' | 'n1' | 'sistema'; texto: 
 export interface Contadores {
   dia?: string; respostas_dia?: number; fora_escopo_seguidas?: number; pedir_pessoa?: number
   xingamentos?: number; terceiro?: number; links?: number; cupom?: number; robo?: number
+  /** Quando o Guilherme perguntou "posso encerrar?" por inatividade (uma vez por conversa). */
+  inatividade_em?: string
   /** Ultima categoria do agente (so pro painel: motivo resumido sem PII). */
   categoria?: string
 }
@@ -58,6 +60,8 @@ export interface Repo {
   tarefasRespondidas(): Promise<Tarefa[]>
   marcarTarefa(id: string, campos: Partial<Tarefa> & { repassada_em?: string }): Promise<void>
   tarefasPendentesDesde(antesDe: string): Promise<Tarefa[]>
+  /** Conversas 'aberta' cuja ultima resposta nossa e anterior a `antesDe`. */
+  conversasAbertasSemRespostaDesde(antesDe: string): Promise<Conversa[]>
   registrarBloqueio(numeroHash: string, motivo: string): Promise<void>
 }
 
@@ -110,7 +114,7 @@ function historicoParaEmail(c: Conversa): string {
 }
 
 /** Garante a conversa do numero (cria na primeira mensagem). */
-export async function conversaDoNumero(jid: string, d: Deps): Promise<Conversa> {
+export async function conversaDoNumero(jid: string, d: Deps, texto?: string | null): Promise<Conversa> {
   const h = hashNumero(jid, d.segredo)
   const atual = await d.repo.obterConversa(h)
   const agora = agoraDe(d).getTime()
@@ -122,6 +126,9 @@ export async function conversaDoNumero(jid: string, d: Deps): Promise<Conversa> 
     await d.repo.salvarConversa(atual)
   }
   if (atual && atual.status !== 'encerrada') return atual
+  // Encerrada por inatividade com a nota pedida: a resposta "4" ainda vale para ela.
+  if (atual && atual.status === 'encerrada' && atual.nota_pedida_em && atual.nota == null && texto != null && parseNota(texto) != null
+    && agora - new Date(atual.nota_pedida_em).getTime() <= LIMITES.janelaNotaMs) return atual
   // Bloqueio vale pro numero, nao so pra conversa.
   return d.repo.criarConversa({
     numero_hash: h, jid_cifrado: cifrarJid(jid, d.segredo), numero_mascarado: mascararNumero(jid),
@@ -217,7 +224,7 @@ export interface Entrada { jid: string; texto: string | null; msgId?: string }
  * se ainda vale responder.
  */
 export async function receberMensagem(e: Entrada, d: Deps): Promise<{ conversa: Conversa; docHash: string | null; responder: boolean }> {
-  const c = await conversaDoNumero(e.jid, d)
+  const c = await conversaDoNumero(e.jid, d, e.texto)
   const agora = agoraDe(d)
   if (c.status === 'bloqueada') return { conversa: c, docHash: null, responder: false }
   if (e.msgId && c.mensagens.some((m) => m.id === e.msgId)) return { conversa: c, docHash: null, responder: false }
@@ -436,6 +443,42 @@ export async function responderConversa(c: Conversa, jid: string, docHash: strin
   await enviarAoCliente(c, jid, g.texto, d)
   if (veredito.atendimento_concluido) await pedirNota(c, jid, d)
   return finalizar(null)
+}
+
+/**
+ * Inatividade (roda a cada 5 min): conversa aberta em que o cliente nao responde
+ * ha 20 min recebe "Posso encerrar o atendimento por aqui?" (uma vez por
+ * conversa); mais 20 min sem resposta, pede a nota (uma vez) e encerra.
+ * Nunca mexe em conversa aguardando N1/N2, silenciada ou bloqueada.
+ */
+export async function rodarInatividade(d: Deps): Promise<{ perguntadas: number; encerradas: number }> {
+  const agora = agoraDe(d)
+  const limite = new Date(agora.getTime() - LIMITES.inatividadeMs).toISOString()
+  let perguntadas = 0, encerradas = 0
+  for (const c of await d.repo.conversasAbertasSemRespostaDesde(limite)) {
+    if (c.status !== 'aberta') continue
+    const ult = c.mensagens[c.mensagens.length - 1]
+    // Ultima palavra e do cliente: quem deve resposta somos nos, nao e inatividade dele.
+    if (!ult || ult.de === 'cliente') continue
+    if (agora.getTime() - new Date(ult.em).getTime() < LIMITES.inatividadeMs) continue
+    if (c.nota_pedida_em) continue // a nota tem a janela propria de 24 h
+    const jid = decifrarJid(c.jid_cifrado, d.segredo)
+    if (!jid) continue
+    if (!c.contadores.inatividade_em) {
+      if (await enviarAoCliente(c, jid, TXT.inatividade, d)) {
+        c.contadores.inatividade_em = agora.toISOString()
+        perguntadas++
+        log(d, c, 'inatividade: perguntou se pode encerrar')
+      }
+    } else {
+      await pedirNota(c, jid, d)
+      c.status = 'encerrada'
+      encerradas++
+      log(d, c, `inatividade: encerrada nivel=${c.nivel}`)
+    }
+    await d.repo.salvarConversa(c)
+  }
+  return { perguntadas, encerradas }
 }
 
 /** Recebe e responde em sequencia (testes e uso sem agendamento). */
