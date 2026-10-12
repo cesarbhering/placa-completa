@@ -15,6 +15,8 @@ export interface MsgConversa { de: 'cliente' | 'bot' | 'n1' | 'sistema'; texto: 
 export interface Contadores {
   dia?: string; respostas_dia?: number; fora_escopo_seguidas?: number; pedir_pessoa?: number
   xingamentos?: number; terceiro?: number; links?: number; cupom?: number
+  /** Ultima categoria do agente (so pro painel: motivo resumido sem PII). */
+  categoria?: string
 }
 export interface Conversa {
   id: string
@@ -376,6 +378,7 @@ export async function responderConversa(c: Conversa, jid: string, docHash: strin
     return finalizar(TXT.erro)
   }
 
+  c.contadores.categoria = veredito.acao === 'fora_escopo' ? 'fora_escopo' : veredito.categoria
   if (veredito.acao === 'empresa' && SERVICO_DE_FORA.test(texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase())) veredito = { ...veredito, acao: 'fora_escopo' }
   if (veredito.acao === 'fora_escopo') {
     c.contadores.fora_escopo_seguidas = (c.contadores.fora_escopo_seguidas || 0) + 1
@@ -441,7 +444,8 @@ export async function rodarFilaN1(d: Deps): Promise<{ repassadas: number; escala
     if (!r.ok) { log(d, c, `repasse falhou status=${r.status}`); continue }
     c.mensagens.push({ de: 'n1', texto, em: agora.toISOString() })
     c.ultima_resposta_em = agora.toISOString()
-    if (c.status === 'aguardando_n1') { c.status = 'aberta'; c.nivel = 'N1' }
+    // Resposta da equipe entregue: o cliente nao esta mais aguardando (N1 ou N2).
+    if (c.status === 'aguardando_n1') { c.status = 'aberta'; c.nivel = 'N1' } else if (c.status === 'escalada') c.status = 'aberta'
     // A equipe marcou que a resposta encerra o caso: pede a nota.
     if (t.encerrar) await pedirNota(c, jid, d)
     await d.repo.salvarConversa(c)
