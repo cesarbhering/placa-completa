@@ -16,6 +16,7 @@ export const LIMITES = {
   pedirPessoaParaEscalar: 2,
   cupomParaEscalar: 2,
   roboParaEscalar: 2,
+  inatividadeMs: 20 * 60 * 1000,
   n1SemRespostaMin: 15,
   janelaNotaMs: 24 * 60 * 60 * 1000,
   n2IntervaloMs: 60 * 60 * 1000,
@@ -40,6 +41,33 @@ export function pedeCupom(texto: string): boolean {
 /** Resposta que confirma pagamento/entrega (so pode depois de comprovar o dono). */
 export function confirmaPagamento(texto: string): boolean {
   return /pagamento.{0,40}(confirmad|aprovad|recebid|identificad|compensad)|(confirmad|aprovad|recebid)o?.{0,25}pagamento|\b(foi|esta|ja esta|consta como) pag[oa]\b|\bpix.{0,20}(confirmad|aprovad|caiu|recebid)/.test(norm(texto))
+}
+
+// --- Links do site -------------------------------------------------------------
+
+/** Paginas com informacao propria: so elas (e o relatorio do cliente) levam link. */
+export const LINKS_PERMITIDOS = {
+  ibv: 'https://placacompleta.com.br/ibv',
+  fipe: 'https://placacompleta.com.br/tabela-fipe-por-placa',
+  leilao: 'https://placacompleta.com.br/carro-de-leilao/como-saber',
+} as const
+const CAMINHO_PERMITIDO = /^\/(premium\/[A-Za-z0-9_-]{10,}|ibv(\/[a-z0-9-]+)?|tabela-fipe-por-placa|carro-de-leilao\/como-saber)\/?$/
+const URL_SITE = /(?:https?:\/\/)?(?:www\.)?placacompleta\.com\.br(\/[^\s)\]>,!?]*)?/gi
+
+/**
+ * Tira da resposta os links do site que nao sao de pagina propria (home,
+ * /placa, /premium sem token...). "em/no/pelo <url>" vira "no site da
+ * PlacaCompleta"; o resto, "o site da PlacaCompleta".
+ */
+export function semLinksDoSite(texto: string): string {
+  const fica = (url: string, caminho?: string) => {
+    const c = String(caminho || '').replace(/[.:;]+$/, '')
+    return !!c && CAMINHO_PERMITIDO.test(c)
+  }
+  let t = String(texto || '').replace(new RegExp(`\\b(em|no|pelo|via|acessando|acessar o|pelo site)\\s+${URL_SITE.source}`, 'gi'), (m, prep, cam) => (fica(m, cam) ? m : 'no site da PlacaCompleta'))
+  t = t.replace(URL_SITE, (m, cam) => (fica(m, cam) ? m : 'o site da PlacaCompleta'))
+  return t.replace(/\b(acesse|entre em|visite|abra)\s+o site da PlacaCompleta/gi, (_m, v) => `${v} o site da PlacaCompleta`)
+    .replace(/no site da PlacaCompleta(\s+da PlacaCompleta)+/g, 'no site da PlacaCompleta')
 }
 
 /** Pergunta direta se o atendimento e robo/IA. */
@@ -166,7 +194,7 @@ export function diaBrasilia(agora: Date = new Date()): string {
  * fala em reembolso feito vira o texto de "verificando" (e o motivo vai pro N1).
  */
 export function guardarResposta(texto: string): { texto: string; barrada: string | null } {
-  let t = String(texto || '').replace(/\s*[—–]\s*/g, ', ').trim()
+  let t = semLinksDoSite(String(texto || '')).replace(/\s*[—–]\s*/g, ', ').trim()
   const n = norm(t)
   let barrada: string | null = null
   if (/senatran/.test(n)) barrada = 'citou a fonte oficial'
