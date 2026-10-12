@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""pc-monitor: monitoramento de producao com confirmacao antes de alertar (ordem do Cesar, 12/out/2026).
+
+Dois alvos, com nomes e e-mails diferentes:
+  site      SITE FORA DO AR   - home + /api/app-status pela URL publica (Cloudflare -> tunel -> Traefik -> container),
+                                curl barato a cada 5 min (pc-site-check.timer). 2 falhas seguidas com 60 s = incidente.
+  checkout  CHECKOUT COM ERRO - fluxo Playwright (pc-checkout-probe.mjs) a cada 30 min; 3 falhas seguidas = incidente.
+
+Regras:
+  - alerta so com falha CONFIRMADA; repete a cada 1 h enquanto durar; e-mail "VOLTOU" com a duracao.
+  - motivo sempre classificado (timeout, http 5xx, conexao, conteudo, api, fluxo). Nunca "VPS sobrecarregada":
+    se o site demora mais de 20 s para responder, isso E incidente.
+  - destinatarios: Cesar + helena@ (para o Lead reagir).
+
+Uso:
+  pc-monitor site                                  # roda a checagem do site (timer)
+  pc-monitor alerta <site|checkout> ok [detalhe]   # registra sucesso (fecha incidente se aberto)
+  pc-monitor alerta <site|checkout> falha <tipo> <motivo> [detalhe]   # registra falha CONFIRMADA
+  pc-monitor estado                                # JSON dos dois alvos (usado pela TV)
+Estado em /var/lib/pc-monitor/<alvo>.json; historico (1 linha JSON por verificacao) em /var/log/pc-monitor/<alvo>.log.
+"""
+import json, os, sys, time, socket, subprocess, datetime as dt, urllib.request, urllib.error
+
+URL = os.environ.get("PCMON_URL", "https://placacompleta.com.br")
+DEST = ["cesarcbhering@gmail.com", "helena@placacompleta.com.br"]
+ESTADO_DIR, LOG_DIR = "/var/lib/pc-monitor", "/var/log/pc-monitor"
+REPETE_S = 3600
+LENTO_S = 20          # mais que isso para responder = incidente (cliente desiste)
+TIMEOUT_S = 15
+BRT = dt.timezone(dt.timedelta(hours=-3))
+TITULO = {"site": "SITE FORA DO AR", "checkout": "CHECKOUT COM ERRO"}
+VOLTOU = {"site": "SITE VOLTOU", "checkout": "CHECKOUT VOLTOU"}
+DRY = os.environ.get("PCMON_DRY") == "1"   # testes: nao envia e-mail, so imprime
+
+
+def agora():
+    return time.time()
+
+
+def hora(ts):
+    return dt.datetime.fromtimestamp(ts, BRT).strftime("%d/%m %H:%M")
+
+
+def dur(seg):
+    seg = int(seg)
+    h, m = seg // 3600, (seg % 3600) // 60
+    return f"{h}h{m:02d}" if h else f"{m} min"
+
+
+def ler(alvo):
+    try:
+        return json.load(open(f"{ESTADO_DIR}/{alvo}.json"))
+    except (OSError, ValueError):
+        return {"estado": "ok"}
+
+
+def gravar(alvo, s):
+    os.makedirs(ESTADO_DIR, exist_ok=True)
+    tmp = f"{ESTADO_DIR}/{alvo}.json.tmp"
+    json.dump(s, open(tmp, "w"), ensure_ascii=False)
+    os.replace(tmp, f"{ESTADO_DIR}/{alvo}.json")
+
+
+def historico(alvo, linha):
+    os.makedirs(LOG_DIR, exist_ok=True)
+    with open(f"{LOG_DIR}/{alvo}.log", "a") as f:
+        f.write(json.dumps(linha, ensure_ascii=False) + "\n")
+
+
+def email(assunto, corpo):
+    if DRY:
+        print(f"[DRY] e-mail: {assunto}\n{corpo}\n")
+        return
+    for d in DEST:
+        subprocess.run(["/usr/local/bin/pc-mail", "--to", d, "--subject", assunto, "--body", corpo], timeout=60)
+
+
+def registra_ok(alvo, detalhe=""):
+    s, t = ler(alvo), agora()
+    if s.get("estado") == "fora":
+        email(f"{VOLTOU[alvo]} (fora por {dur(t - s['desde'])})",
+              f"{VOLTOU[alvo]} em {hora(t)} BRT.\n\nIndisponivel de {hora(s['desde'])} a {hora(t)}: {dur(t - s['desde'])}.\n"
+              f"Ultimo motivo: {s.get('tipo')}: {s.get('motivo')}\nAlertas enviados: {s.get('alertas', 0)}\n\nHelena (pc-monitor)")
+    gravar(alvo, {"estado": "ok", "ultimo_ok": t, "ultima_verificacao": t, "detalhe": detalhe,
+                  "ultimo_incidente": s.get("ultimo_incidente") if s.get("estado") != "fora" else
+                  {"desde": s["desde"], "ate": t, "tipo": s.get("tipo"), "motivo": s.get("motivo")}})
+    historico(alvo, {"ts": t, "ok": True, "detalhe": detalhe})
+
+
+def registra_falha(alvo, tipo, motivo, detalhe=""):
+    s, t = ler(alvo), agora()
+    abrir = s.get("estado") != "fora"
+    if abrir:
+        s = {"estado": "fora", "desde": t, "alertas": 0, "ultimo_ok": s.get("ultimo_ok"),
+             "ultimo_incidente": s.get("ultimo_incidente")}
+    s.update({"tipo": tipo, "motivo": motivo, "ultima_verificacao": t, "detalhe": detalhe[:2000]})
+    if abrir or t - s.get("ultimo_alerta", 0) >= REPETE_S:
+        pref = "" if abrir else f"[ainda, ha {dur(t - s['desde'])}] "
+        email(f"{pref}{TITULO[alvo]}: {tipo}",
+              f"{TITULO[alvo]} desde {hora(s['desde'])} BRT (confirmado, nao e falha isolada).\n\n"
+              f"Tipo: {tipo}\nMotivo: {motivo}\n\n{detalhe[:1500]}\n\n"
+              f"Proximo aviso em 1 h se continuar; aviso de VOLTOU quando normalizar.\nHelena (pc-monitor)")
+        s["ultimo_alerta"], s["alertas"] = t, s.get("alertas", 0) + 1
+    gravar(alvo, s)
+    historico(alvo, {"ts": t, "ok": False, "tipo": tipo, "motivo": motivo})
+
+
+# ------------------------------------------------------------------ checagem do site
+def get(caminho, esperado):
+    """Uma requisicao. Retorna (ok, tipo, motivo, segundos)."""
+    t0 = time.time()
+    req = urllib.request.Request(URL + caminho, headers={"User-Agent": "pc-monitor/1 (+helena@placacompleta.com.br)",
+                                                         "Cache-Control": "no-cache"})
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
+            corpo = r.read(300000).decode("utf-8", "replace")
+            s = time.time() - t0
+            if esperado not in corpo:
+                return False, "conteudo", f"{caminho}: 200 sem o conteudo esperado", s
+            if s > LENTO_S:
+                return False, "lento", f"{caminho}: respondeu em {s:.0f}s", s
+            return True, None, f"{caminho}: 200 em {s:.1f}s", s
+    except urllib.error.HTTPError as e:
+        s = time.time() - t0
+        tipo = "http_5xx" if e.code >= 500 else "http_4xx"
+        return False, tipo, f"{caminho}: HTTP {e.code}", s
+    except (socket.timeout, TimeoutError):
+        return False, "timeout", f"{caminho}: sem resposta em {TIMEOUT_S}s", time.time() - t0
+    except urllib.error.URLError as e:
+        r = getattr(e, "reason", e)
+        tipo = "timeout" if isinstance(r, (socket.timeout, TimeoutError)) else "conexao"
+        return False, tipo, f"{caminho}: {str(r)[:120]}", time.time() - t0
+
+
+def checa_site():
+    res = [get("/", "PlacaCompleta"), get("/api/app-status", "forceUpdate")]
+    falhas = [r for r in res if not r[0]]
+    return (not falhas), (falhas[0][1] if falhas else None), "; ".join(r[2] for r in res)
+
+
+def cmd_site():
+    ok, tipo, motivo = checa_site()
+    if ok:
+        registra_ok("site", motivo); return 0
+    time.sleep(60)                                    # confirmacao: 2a tentativa 60 s depois
+    ok2, tipo2, motivo2 = checa_site()
+    if ok2:
+        historico("site", {"ts": agora(), "ok": True, "detalhe": f"falha isolada descartada ({motivo})"})
+        registra_ok("site", motivo2); return 0
+    registra_falha("site", tipo2, motivo2, f"1a tentativa: {motivo}\n2a tentativa (60 s depois): {motivo2}")
+    return 1
+
+
+def cmd_estado():
+    out = {}
+    for alvo in ("site", "checkout"):
+        s = ler(alvo)
+        out[alvo] = {"estado": s.get("estado", "ok"), "ultima_verificacao": s.get("ultima_verificacao"),
+                     "ultimo_ok": s.get("ultimo_ok"), "desde": s.get("desde"), "tipo": s.get("tipo"),
+                     "motivo": s.get("motivo"), "detalhe": s.get("detalhe") if s.get("estado") == "ok" else None,
+                     "ultimo_incidente": s.get("ultimo_incidente")}
+    print(json.dumps(out, ensure_ascii=False))
+    return 0
+
+
+def main(a):
+    if a[:1] == ["site"]:
+        return cmd_site()
+    if a[:1] == ["estado"]:
+        return cmd_estado()
+    if len(a) >= 3 and a[0] == "alerta" and a[1] in TITULO and a[2] == "ok":
+        registra_ok(a[1], " ".join(a[3:])); return 0
+    if len(a) >= 5 and a[0] == "alerta" and a[1] in TITULO and a[2] == "falha":
+        registra_falha(a[1], a[3], a[4], " ".join(a[5:])); return 0
+    print(__doc__); return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
