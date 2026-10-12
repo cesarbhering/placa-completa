@@ -43,6 +43,8 @@ const V = (p: Partial<Veredito>): Veredito => ({
 function montar(roteiro: Veredito[], pedidos: any[] = [], agora = HORARIO) {
   const mem = repoMemoria()
   const enviados: string[] = []
+  // Texto exato que saiu (com a apresentacao do Guilherme na 1a mensagem).
+  const brutos: string[] = []
   const emails: { assunto: string; texto: string }[] = []
   const histsAgente: any[] = []
   const bloquear = vi.fn(async () => ({ ok: true, status: 200 }))
@@ -58,14 +60,14 @@ function montar(roteiro: Veredito[], pedidos: any[] = [], agora = HORARIO) {
     consultarPedidos: async (c) => pedidos
       .filter((p) => (c.placa ? p.placa === c.placa.toUpperCase().replace(/[^A-Z0-9]/g, '') : c.email ? p.email === c.email : c.token ? p.token_entrega === c.token : false))
       .map((p) => fatoDoPedido(p, c)),
-    enviar: async (_jid, texto) => { enviados.push(texto); return { ok: true, status: 200 } },
+    enviar: async (_jid, texto) => { brutos.push(texto); enviados.push(texto.replace(`${TXT.apresentacao}\n\n`, '')); return { ok: true, status: 200 } },
     bloquear,
     email: async (assunto, texto) => { emails.push({ assunto, texto }) },
     agora: () => agora,
     log: () => {},
   }
   const msg = (texto: string | null, id?: string) => processarMensagem({ jid: JID, texto, msgId: id }, deps)
-  return { deps, mem, enviados, emails, histsAgente, bloquear, msg }
+  return { deps, mem, enviados, brutos, emails, histsAgente, bloquear, msg }
 }
 
 describe('simulação 1: dúvida antes de comprar (N0 sozinho)', () => {
@@ -140,11 +142,58 @@ describe('nota de 0 a 5 ao fim do atendimento', () => {
     await s.msg('5')
     expect(s.mem.conversas[0]).toMatchObject({ nota: null, status: 'encerrada' })
     expect(s.mem.conversas).toHaveLength(2)
-    expect(s.enviados.at(-1)).toBe('Oi!')
+    expect(s.brutos.at(-1)).toBe(TXT.apresentacao) // novo atendimento: 'Oi!' do agente vira so a apresentacao
   })
   it('parse da nota', () => {
     for (const [t, n] of [['5', 5], ['nota 4', 4], ['cinco', 5], ['0', 0], ['zero', 0], ['4/5', 4], ['dou 3!', 3], ['Nota: 2', 2], ['3 estrelas', 3]] as const) expect(parseNota(t)).toBe(n)
     for (const t of ['10', '6', 'foi bom', 'ABC1D23', 'paguei 5 reais', '']) expect(parseNota(t)).toBeNull()
+  })
+})
+
+describe('persona Guilherme', () => {
+  it('apresenta-se na 1a mensagem de cada atendimento, só uma vez', async () => {
+    const s = montar([V({ resposta: 'Oi! O relatório completo custa R$ 39,90.' }), V({ resposta: 'É só digitar a placa no site.' })])
+    await s.msg('quanto custa?')
+    await s.msg('como compro?')
+    expect(s.brutos[0]).toBe(`${TXT.apresentacao}\n\nO relatório completo custa R$ 39,90.`)
+    expect(s.brutos[1]).toBe('É só digitar a placa no site.')
+  })
+  it('vale também para texto fixo (fora de escopo) e não duplica quando o agente já se apresentou', async () => {
+    const a = montar([V({ acao: 'fora_escopo' })])
+    await a.msg('vocês vendem carro?')
+    expect(a.brutos[0]).toBe(`${TXT.apresentacao}\n\n${TXT.foraDeEscopo}`)
+    const b = montar([V({ resposta: 'Oi! Aqui é o Guilherme, do time de suporte da PlacaCompleta. Como posso ajudar?' })])
+    await b.msg('oi')
+    expect(b.brutos[0].match(/Guilherme/g)).toHaveLength(1)
+  })
+  it('"é robô?": não nega nem afirma; insistiu, passa para a equipe (N1)', async () => {
+    const s = montar([V({ resposta: 'Claro!' })])
+    await s.msg('tô falando com um robô?')
+    expect(s.enviados.at(-1)).toBe(TXT.souGuilherme)
+    expect(s.mem.tarefas).toHaveLength(0)
+    await s.msg('você é um bot sim ou não?')
+    expect(s.enviados.at(-1)).toBe(TXT.passoParaEquipe)
+    expect(s.mem.tarefas[0].resumo).toContain('outra pessoa')
+    expect(s.mem.conversas[0].status).toBe('aguardando_n1')
+  })
+  it('resposta do agente que se diz automático vira a fala do Guilherme', async () => {
+    const s = montar([V({ resposta: 'Oi' }), V({ resposta: 'Sou um assistente virtual da PlacaCompleta.' })])
+    await s.msg('oi')
+    await s.msg('quem fala?')
+    expect(s.enviados.at(-1)).toBe(TXT.souGuilherme)
+  })
+  it('prompt: Guilherme, sem "assistente automático"', () => {
+    const p = promptDoSistema()
+    expect(p).toContain('Você é o Guilherme, do time de suporte da PlacaCompleta')
+    expect(p).toContain(TXT.souGuilherme)
+    expect(p).not.toMatch(/diga que é um assistente automático/)
+  })
+  it('detectores', async () => {
+    const { perguntaSeERobo, seDizAutomatico } = await import('./regras')
+    for (const t of ['você é um robô?', 'é bot?', 'isso é IA?', 'vc é humano?', 'to falando com uma máquina?', 'é inteligência artificial?']) expect(perguntaSeERobo(t)).toBe(true)
+    for (const t of ['quanto custa?', 'quero falar com um atendente', 'o relatório é bom?']) expect(perguntaSeERobo(t)).toBe(false)
+    expect(seDizAutomatico('Sou um assistente automático')).toBe(true)
+    expect(seDizAutomatico('Sou o Guilherme, do suporte')).toBe(false)
   })
 })
 
@@ -221,7 +270,7 @@ describe('simulação 4: reembolso + Procon (N2)', () => {
     expect(s.emails).toHaveLength(1)
   })
   it('pedir pessoa 2 vezes escala', async () => {
-    const s = montar([V({ resposta: 'Sou o assistente automático da PlacaCompleta. Posso ajudar?' }), V({ resposta: 'x' })])
+    const s = montar([V({ resposta: 'Sou o Guilherme, do suporte. Posso ajudar?' }), V({ resposta: 'x' })])
     await s.msg('quero falar com um atendente')
     expect(s.emails).toHaveLength(0)
     await s.msg('quero falar com uma pessoa de verdade')
@@ -337,11 +386,11 @@ describe('corridas', () => {
     expect(s.enviados.length).toBe(antes)
   })
   it('rodada sem mensagem nova do cliente não responde', async () => {
-    const s = montar([V({ resposta: 'a' }), V({ resposta: 'b' })])
+    const s = montar([V({ resposta: 'A' }), V({ resposta: 'B' })])
     await s.msg('oi')
     const { responderConversa } = await import('./fluxo')
     await responderConversa(s.mem.conversas[0], JID, null, s.deps)
-    expect(s.enviados).toEqual(['a'])
+    expect(s.enviados).toEqual(['A'])
   })
   it('histórico nunca termina no assistente', () => {
     expect(mensagensParaApi([{ de: 'cliente', texto: 'a' }, { de: 'bot', texto: 'b' }]).at(-1)!.role).toBe('user')
@@ -380,10 +429,10 @@ describe('freios e falhas', () => {
     expect(s.enviados).toHaveLength(30)
   })
   it('mensagem repetida (mesmo id do WhatsApp) não responde duas vezes', async () => {
-    const s = montar([V({ resposta: 'a' }), V({ resposta: 'b' })])
+    const s = montar([V({ resposta: 'A' }), V({ resposta: 'B' })])
     await s.msg('oi', 'X1')
     await s.msg('oi', 'X1')
-    expect(s.enviados).toEqual(['a'])
+    expect(s.enviados).toEqual(['A'])
   })
   it('áudio/imagem: pede texto', async () => {
     const s = montar([])

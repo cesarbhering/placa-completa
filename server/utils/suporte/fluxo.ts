@@ -1,6 +1,6 @@
 import { TXT } from './textos'
 import {
-  LIMITES, gatilhoN2, pedePessoa, pedeCupom, confirmaPagamento, pedeDadoDeTerceiro, temXingamento, temLink, separarDocumento,
+  LIMITES, gatilhoN2, pedePessoa, pedeCupom, confirmaPagamento, perguntaSeERobo, seDizAutomatico, comApresentacao, pedeDadoDeTerceiro, temXingamento, temLink, separarDocumento,
   hashNumero, cifrarJid, decifrarJid, mascararNumero, horarioComercial, diaBrasilia, guardarResposta, idLog, parseNota,
 } from './regras'
 import { perguntarAoAgente, type MsgHistorico, type Veredito } from './agente'
@@ -14,7 +14,7 @@ import { hmacPagador } from '../pagador-hash'
 export interface MsgConversa { de: 'cliente' | 'bot' | 'n1' | 'sistema'; texto: string; em: string; id?: string }
 export interface Contadores {
   dia?: string; respostas_dia?: number; fora_escopo_seguidas?: number; pedir_pessoa?: number
-  xingamentos?: number; terceiro?: number; links?: number; cupom?: number
+  xingamentos?: number; terceiro?: number; links?: number; cupom?: number; robo?: number
   /** Ultima categoria do agente (so pro painel: motivo resumido sem PII). */
   categoria?: string
 }
@@ -145,6 +145,8 @@ async function enviarAoCliente(c: Conversa, jid: string, texto: string, d: Deps)
   // Bloqueado no meio do caminho (outra mensagem disparou o bloqueio): so a
   // mensagem de encerramento ainda sai.
   if (texto !== TXT.encerramento && await d.repo.numeroBloqueado(c.numero_hash)) { c.status = 'bloqueada'; return false }
+  // Primeira mensagem do atendimento: o Guilherme se apresenta (menos no encerramento por abuso).
+  if (texto !== TXT.encerramento && !c.mensagens.some((m) => m.de === 'bot' || m.de === 'n1')) texto = comApresentacao(texto, TXT.apresentacao)
   const r = await d.enviar(jid, texto)
   const agora = agoraDe(d)
   if (r.ok) {
@@ -173,7 +175,7 @@ async function escalarN2(c: Conversa, motivo: string, sugestao: string, d: Deps)
     '',
     `Número: ${c.numero_mascarado}`,
     `Motivo: ${motivo}`,
-    ...(sugestao ? [`Resumo/sugestão do assistente: ${sugestao}`] : []),
+    ...(sugestao ? [`Resumo/sugestão do Guilherme (agente): ${sugestao}`] : []),
     '',
     'Histórico (últimas mensagens):',
     historicoParaEmail(c),
@@ -194,7 +196,7 @@ async function bloquearConversa(c: Conversa, jid: string, motivo: string, d: Dep
   await d.repo.registrarBloqueio(c.numero_hash, motivo)
   try {
     await d.email(`[Suporte WhatsApp] Número bloqueado: ${motivo} (${c.numero_mascarado})`, [
-      `O assistente bloqueou ${c.numero_mascarado} no WhatsApp.`,
+      `O Guilherme (agente) bloqueou ${c.numero_mascarado} no WhatsApp.`,
       `Motivo: ${motivo}`,
       `Bloqueio na Evolution: ${r.ok ? 'ok' : `falhou (HTTP ${r.status})`}`,
       '',
@@ -300,6 +302,19 @@ export async function responderConversa(c: Conversa, jid: string, docHash: strin
   const gatilho = gatilhoN2(texto)
   const pessoa2x = (c.contadores.pedir_pessoa || 0) >= LIMITES.pedirPessoaParaEscalar
 
+  // "E robo?": nao nega nem afirma; insistiu, passa para a equipe (N1).
+  if (perguntaSeERobo(texto) && !gatilho) {
+    c.contadores.robo = (c.contadores.robo || 0) + 1
+    if (c.contadores.robo < LIMITES.roboParaEscalar) {
+      log(d, c, 'acao=pergunta_robo')
+      return finalizar(TXT.souGuilherme)
+    }
+    await tarefaN1(c, 'cliente insiste em saber se o atendimento é automático; quer outra pessoa da equipe', texto, d)
+    c.nivel = 'N1'; c.status = 'aguardando_n1'; c.motivo = 'cliente pediu outra pessoa (pergunta se é robô)'
+    log(d, c, 'acao=n1 pergunta_robo insistente')
+    return finalizar(TXT.passoParaEquipe)
+  }
+
   // Cupom: a 1a vez responde que nao ha e segue; insistiu, N2.
   let cupomInsistente = false
   if (pedeCupom(texto) && !gatilho) {
@@ -403,6 +418,9 @@ export async function responderConversa(c: Conversa, jid: string, docHash: strin
     log(d, c, 'acao=responder trocada (confirmou pagamento sem dono comprovado)')
     return finalizar(TXT.precisaConfirmarDono)
   }
+
+  // Persona: nunca "assistente automatico/virtual", "sou um robo".
+  if (seDizAutomatico(veredito.resposta)) veredito = { ...veredito, resposta: TXT.souGuilherme }
 
   const g = guardarResposta(veredito.resposta)
   if (veredito.acao === 'chamar_n1' || g.barrada) {
