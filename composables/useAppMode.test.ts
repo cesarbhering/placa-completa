@@ -84,3 +84,21 @@ describe('useAppMode', () => {
     expect(isApp.value).toBe(true)
   })
 })
+
+describe('fluxoLegado (fluxo antigo da home)', () => {
+  beforeEach(() => { try { sessionStorage.clear() } catch {} ; comAmbiente() })
+  it('so o TWA antigo (referrer android-app://) fica no fluxo antigo, mesmo navegando depois', () => {
+    comAmbiente({ referrer: 'android-app://br.com.placacompleta/' })
+    expect(useAppMode().fluxoLegado.value).toBe(true)
+    comAmbiente({ referrer: 'https://placacompleta.com.br/' })
+    expect(useAppMode().fluxoLegado.value).toBe(true)
+  })
+  it('app novo (Capacitor) e PWA instalado pelo navegador usam o bloco do site', () => {
+    comAmbiente({ ua: 'Mozilla/5.0 PlacaCompletaApp/3' })
+    expect(useAppMode().fluxoLegado.value).toBe(false)
+    comAmbiente({ standalone: true })
+    const m = useAppMode()
+    expect(m.isPWA.value).toBe(true)
+    expect(m.fluxoLegado.value).toBe(false)
+  })
+})
