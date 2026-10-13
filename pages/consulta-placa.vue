@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ABERTURA_CONSULTA } from '~/shared/frases-abertura'
 import { escolherTitulo } from '~/shared/seo-titulo'
 import { DESCRICOES } from '~/shared/seo-meta'
 import { GENERICAS } from '~/shared/enriquecimento-regional'
@@ -30,11 +31,8 @@ useHead({
       <h1 class="pc-h1">Consulta de Placa Veicular Grátis</h1>
 
       <div class="pc-prose">
-        <p>
-          Com o <strong>Placa Completa</strong>, você faz a consulta de placa veicular de forma
-          rápida, segura e totalmente grátis. Basta informar a placa do veículo e seu e-mail
-          para receber todas as informações disponíveis.
-        </p>
+        <!-- Frase de abertura citavel (plano GEO 13/out, secao 2.5). -->
+        <p>{{ ABERTURA_CONSULTA }}</p>
 
         <template v-if="blocoPagina">
           <h2>{{ blocoPagina.titulo }}</h2>

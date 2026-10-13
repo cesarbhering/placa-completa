@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { aberturaCapital, h1Capital } from '~/shared/frases-abertura'
 import { tituloCapital } from '~/shared/seo-meta'
 import { deEstado } from '~/shared/estado-seo'
 import { descricaoCapital } from '~/shared/seo-meta'
@@ -72,12 +73,13 @@ useHead({
 <template>
   <div class="pc-page">
     <main class="pc-container">
-      <h1 class="pc-h1">Consultar Placa de Veículo em {{ capital.name }} - {{ state.uf }}</h1>
+      <h1 class="pc-h1">{{ h1Capital(capital.name, state.uf) }}</h1>
 
       <div class="pc-prose">
+        <!-- Frase de abertura citavel (plano GEO 13/out): Placa Completa como sujeito. -->
+        <p>{{ aberturaCapital(capital.name) }}</p>
         <p>
-            Consulte gratuitamente a placa de qualquer veículo registrado em
-            <strong>{{ capital.name }}</strong>, capital de
+            {{ capital.name }} é a capital {{ deEstado(state.uf, state.name).split(' ')[0] }}
             <NuxtLink :to="`/consultar-placa/${state.slug}`">{{ state.name }} ({{ state.uf }})</NuxtLink>.
             {{ capital.context }}
           </p>
