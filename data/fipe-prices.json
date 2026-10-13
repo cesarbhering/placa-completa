@@ -1940,6 +1940,528 @@
       }
     ]
   },
+  "fiat-grand-siena": {
+    "modelName": "Grand Siena ATTRAC. 1.4 EVO F.Flex 8V",
+    "brandName": "Fiat",
+    "fipeCode": "5925",
+    "priceTable": [
+      {
+        "year": 2021,
+        "fuel": "2021 Flex",
+        "price": 51614,
+        "priceFormatted": "R$ 51.614",
+        "variation": 0.9,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2020,
+        "fuel": "2020 Flex",
+        "price": 46801,
+        "priceFormatted": "R$ 46.801",
+        "variation": -0.4,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2019,
+        "fuel": "2019 Flex",
+        "price": 45659,
+        "priceFormatted": "R$ 45.659",
+        "variation": -0.4,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2018,
+        "fuel": "2018 Flex",
+        "price": 44545,
+        "priceFormatted": "R$ 44.545",
+        "variation": -0.4,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2017,
+        "fuel": "2017 Flex",
+        "price": 43458,
+        "priceFormatted": "R$ 43.458",
+        "variation": -0.4,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2016,
+        "fuel": "2016 Flex",
+        "price": 42002,
+        "priceFormatted": "R$ 42.002",
+        "variation": -0.1,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2015,
+        "fuel": "2015 Flex",
+        "price": 40120,
+        "priceFormatted": "R$ 40.120",
+        "variation": -1.6,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2014,
+        "fuel": "2014 Flex",
+        "price": 37823,
+        "priceFormatted": "R$ 37.823",
+        "variation": -2.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2013,
+        "fuel": "2013 Flex",
+        "price": 34121,
+        "priceFormatted": "R$ 34.121",
+        "variation": 1.3,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2012,
+        "fuel": "2012 Flex",
+        "price": 28965,
+        "priceFormatted": "R$ 28.965",
+        "variation": 3.6,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      }
+    ],
+    "historyChart": [
+      {
+        "month": 11,
+        "year": 2025,
+        "price": 49612,
+        "label": "11/2025"
+      },
+      {
+        "month": 12,
+        "year": 2025,
+        "price": 49150,
+        "label": "12/2025"
+      },
+      {
+        "month": 1,
+        "year": 2026,
+        "price": 50870,
+        "label": "01/2026"
+      },
+      {
+        "month": 2,
+        "year": 2026,
+        "price": 48326,
+        "label": "02/2026"
+      },
+      {
+        "month": 3,
+        "year": 2026,
+        "price": 48353,
+        "label": "03/2026"
+      },
+      {
+        "month": 4,
+        "year": 2026,
+        "price": 49117,
+        "label": "04/2026"
+      },
+      {
+        "month": 5,
+        "year": 2026,
+        "price": 50224,
+        "label": "05/2026"
+      },
+      {
+        "month": 6,
+        "year": 2026,
+        "price": 49826,
+        "label": "06/2026"
+      },
+      {
+        "month": 7,
+        "year": 2026,
+        "price": 50339,
+        "label": "07/2026"
+      },
+      {
+        "month": 8,
+        "year": 2026,
+        "price": 50095,
+        "label": "08/2026"
+      },
+      {
+        "month": 9,
+        "year": 2026,
+        "price": 51146,
+        "label": "09/2026"
+      },
+      {
+        "month": 10,
+        "year": 2026,
+        "price": 51614,
+        "label": "10/2026"
+      }
+    ],
+    "referenceLabel": "2021 Flex",
+    "referencia": {
+      "month": 10,
+      "year": 2026
+    },
+    "porAno": [
+      {
+        "ano": 2021,
+        "min": 44821,
+        "max": 51614,
+        "versoes": 4
+      },
+      {
+        "ano": 2020,
+        "min": 45000,
+        "max": 46801,
+        "versoes": 2
+      },
+      {
+        "ano": 2019,
+        "min": 43393,
+        "max": 45659,
+        "versoes": 2
+      },
+      {
+        "ano": 2018,
+        "min": 42194,
+        "max": 44545,
+        "versoes": 6
+      },
+      {
+        "ano": 2017,
+        "min": 40967,
+        "max": 43458,
+        "versoes": 6
+      },
+      {
+        "ano": 2016,
+        "min": 39467,
+        "max": 42002,
+        "versoes": 5
+      },
+      {
+        "ano": 2015,
+        "min": 37278,
+        "max": 40120,
+        "versoes": 5
+      },
+      {
+        "ano": 2014,
+        "min": 35555,
+        "max": 37823,
+        "versoes": 5
+      },
+      {
+        "ano": 2013,
+        "min": 33165,
+        "max": 35156,
+        "versoes": 4
+      },
+      {
+        "ano": 2012,
+        "min": 28965,
+        "max": 31726,
+        "versoes": 3
+      }
+    ],
+    "versoes": [
+      {
+        "fipeCode": "5925",
+        "nome": "Grand Siena ATTRAC. 1.4 EVO F.Flex 8V"
+      },
+      {
+        "fipeCode": "5926",
+        "nome": "Grand Siena ESSENCE 1.6 Flex 16V"
+      },
+      {
+        "fipeCode": "5927",
+        "nome": "Grand Siena ESSENCE Dual. 1.6 Flex 16V"
+      },
+      {
+        "fipeCode": "6488",
+        "nome": "Grand Siena ESSEN.SUBLIME 1.6 Flex"
+      },
+      {
+        "fipeCode": "6489",
+        "nome": "Grand Siena ESSEN.SUBLIME Dual. 1.6 Flex"
+      },
+      {
+        "fipeCode": "7824",
+        "nome": "Grand Siena ATTRACTIVE 1.0 Flex 8V 4p"
+      },
+      {
+        "fipeCode": "9209",
+        "nome": "Grand Siena 1.0 EVO Flex 8V 4p"
+      },
+      {
+        "fipeCode": "9210",
+        "nome": "Grand Siena 1.4 EVO Flex 8V 4p"
+      }
+    ]
+  },
+  "fiat-linea": {
+    "modelName": "LINEA ABSOLUTE 1.9/1.8 Flex Dualogic 4p",
+    "brandName": "Fiat",
+    "fipeCode": "4749",
+    "priceTable": [
+      {
+        "year": 2016,
+        "fuel": "2016 Flex",
+        "price": 41520,
+        "priceFormatted": "R$ 41.520",
+        "variation": -3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2015,
+        "fuel": "2015 Flex",
+        "price": 36913,
+        "priceFormatted": "R$ 36.913",
+        "variation": -2.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2014,
+        "fuel": "2014 Flex",
+        "price": 36012,
+        "priceFormatted": "R$ 36.012",
+        "variation": 2.4,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2013,
+        "fuel": "2013 Flex",
+        "price": 31201,
+        "priceFormatted": "R$ 31.201",
+        "variation": -1.4,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2012,
+        "fuel": "2012 Flex",
+        "price": 27664,
+        "priceFormatted": "R$ 27.664",
+        "variation": -3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2011,
+        "fuel": "2011 Flex",
+        "price": 26558,
+        "priceFormatted": "R$ 26.558",
+        "variation": -3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2010,
+        "fuel": "2010 Flex",
+        "price": 24949,
+        "priceFormatted": "R$ 24.949",
+        "variation": -3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2009,
+        "fuel": "2009 Flex",
+        "price": 23726,
+        "priceFormatted": "R$ 23.726",
+        "variation": -3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      }
+    ],
+    "historyChart": [
+      {
+        "month": 11,
+        "year": 2025,
+        "price": 40008,
+        "label": "11/2025"
+      },
+      {
+        "month": 12,
+        "year": 2025,
+        "price": 38837,
+        "label": "12/2025"
+      },
+      {
+        "month": 1,
+        "year": 2026,
+        "price": 39166,
+        "label": "01/2026"
+      },
+      {
+        "month": 2,
+        "year": 2026,
+        "price": 39194,
+        "label": "02/2026"
+      },
+      {
+        "month": 3,
+        "year": 2026,
+        "price": 41116,
+        "label": "03/2026"
+      },
+      {
+        "month": 4,
+        "year": 2026,
+        "price": 40607,
+        "label": "04/2026"
+      },
+      {
+        "month": 5,
+        "year": 2026,
+        "price": 42028,
+        "label": "05/2026"
+      },
+      {
+        "month": 6,
+        "year": 2026,
+        "price": 43498,
+        "label": "06/2026"
+      },
+      {
+        "month": 7,
+        "year": 2026,
+        "price": 43148,
+        "label": "07/2026"
+      },
+      {
+        "month": 8,
+        "year": 2026,
+        "price": 44587,
+        "label": "08/2026"
+      },
+      {
+        "month": 9,
+        "year": 2026,
+        "price": 43026,
+        "label": "09/2026"
+      },
+      {
+        "month": 10,
+        "year": 2026,
+        "price": 41520,
+        "label": "10/2026"
+      }
+    ],
+    "referenceLabel": "2016 Flex",
+    "referencia": {
+      "month": 10,
+      "year": 2026
+    },
+    "porAno": [
+      {
+        "ano": 2016,
+        "min": 37913,
+        "max": 41520,
+        "versoes": 3
+      },
+      {
+        "ano": 2015,
+        "min": 34486,
+        "max": 36913,
+        "versoes": 3
+      },
+      {
+        "ano": 2014,
+        "min": 29784,
+        "max": 36012,
+        "versoes": 5
+      },
+      {
+        "ano": 2013,
+        "min": 28656,
+        "max": 31201,
+        "versoes": 5
+      },
+      {
+        "ano": 2012,
+        "min": 26649,
+        "max": 37990,
+        "versoes": 4
+      },
+      {
+        "ano": 2011,
+        "min": 23506,
+        "max": 35412,
+        "versoes": 6
+      },
+      {
+        "ano": 2010,
+        "min": 19881,
+        "max": 33832,
+        "versoes": 6
+      },
+      {
+        "ano": 2009,
+        "min": 23546,
+        "max": 30163,
+        "versoes": 4
+      }
+    ],
+    "versoes": [
+      {
+        "fipeCode": "4749",
+        "nome": "LINEA ABSOLUTE 1.9/1.8 Flex Dualogic 4p"
+      },
+      {
+        "fipeCode": "4748",
+        "nome": "LINEA 1.9/ HLX 1.9/ 1.8 Flex 16V 4p"
+      },
+      {
+        "fipeCode": "4750",
+        "nome": "LINEA 1.9/ HLX 1.9/1.8 Flex  Dualogic 4p"
+      },
+      {
+        "fipeCode": "4920",
+        "nome": "LINEA LX 1.9/ 1.8 Flex 16V Dualogic 4p"
+      },
+      {
+        "fipeCode": "4921",
+        "nome": "LINEA LX 1.9/ 1.8 Flex 16V 4p"
+      },
+      {
+        "fipeCode": "4751",
+        "nome": "LINEA T-JET 1.4 16V Turbo 4p"
+      },
+      {
+        "fipeCode": "5577",
+        "nome": "LINEA ESSENCE 1.8 Flex 16V 4p"
+      },
+      {
+        "fipeCode": "5578",
+        "nome": "LINEA ESSENCE Dualogic 1.8 Flex 16V 4p"
+      },
+      {
+        "fipeCode": "6581",
+        "nome": "LINEA ESSEN.SUBLIME 1.8 Flex 16V 4p"
+      },
+      {
+        "fipeCode": "6582",
+        "nome": "LINEA ESSEN.SUBLIME Dual.1.8 Flex 16V 4p"
+      }
+    ]
+  },
   "chevrolet-montana": {
     "modelName": "MONTANA 1.2 Turbo Flex 12V 4p Mec.",
     "brandName": "GM - Chevrolet",
@@ -2486,6 +3008,245 @@
       }
     ]
   },
+  "chevrolet-meriva": {
+    "modelName": "Meriva Premium 1.8 MPFI 8V FlexPower",
+    "brandName": "GM - Chevrolet",
+    "fipeCode": "1095",
+    "priceTable": [
+      {
+        "year": 2009,
+        "fuel": "2009 Flex",
+        "price": 26640,
+        "priceFormatted": "R$ 26.640",
+        "variation": -0.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2008,
+        "fuel": "2008 Flex",
+        "price": 25990,
+        "priceFormatted": "R$ 25.990",
+        "variation": 0.3,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2007,
+        "fuel": "2007 Flex",
+        "price": 25209,
+        "priceFormatted": "R$ 25.209",
+        "variation": 1.2,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2006,
+        "fuel": "2006 Flex",
+        "price": 24594,
+        "priceFormatted": "R$ 24.594",
+        "variation": 1.2,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2005,
+        "fuel": "2005 Flex",
+        "price": 23693,
+        "priceFormatted": "R$ 23.693",
+        "variation": 3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      }
+    ],
+    "historyChart": [
+      {
+        "month": 11,
+        "year": 2025,
+        "price": 26565,
+        "label": "11/2025"
+      },
+      {
+        "month": 12,
+        "year": 2025,
+        "price": 27494,
+        "label": "12/2025"
+      },
+      {
+        "month": 1,
+        "year": 2026,
+        "price": 26744,
+        "label": "01/2026"
+      },
+      {
+        "month": 2,
+        "year": 2026,
+        "price": 25844,
+        "label": "02/2026"
+      },
+      {
+        "month": 3,
+        "year": 2026,
+        "price": 25194,
+        "label": "03/2026"
+      },
+      {
+        "month": 4,
+        "year": 2026,
+        "price": 25848,
+        "label": "04/2026"
+      },
+      {
+        "month": 5,
+        "year": 2026,
+        "price": 26023,
+        "label": "05/2026"
+      },
+      {
+        "month": 6,
+        "year": 2026,
+        "price": 26447,
+        "label": "06/2026"
+      },
+      {
+        "month": 7,
+        "year": 2026,
+        "price": 26434,
+        "label": "07/2026"
+      },
+      {
+        "month": 8,
+        "year": 2026,
+        "price": 25864,
+        "label": "08/2026"
+      },
+      {
+        "month": 9,
+        "year": 2026,
+        "price": 26769,
+        "label": "09/2026"
+      },
+      {
+        "month": 10,
+        "year": 2026,
+        "price": 26640,
+        "label": "10/2026"
+      }
+    ],
+    "referenceLabel": "2009 Flex",
+    "referencia": {
+      "month": 10,
+      "year": 2026
+    },
+    "porAno": [
+      {
+        "ano": 2012,
+        "min": 29822,
+        "max": 30902,
+        "versoes": 4
+      },
+      {
+        "ano": 2011,
+        "min": 29009,
+        "max": 29452,
+        "versoes": 5
+      },
+      {
+        "ano": 2010,
+        "min": 27787,
+        "max": 28520,
+        "versoes": 5
+      },
+      {
+        "ano": 2009,
+        "min": 26640,
+        "max": 32800,
+        "versoes": 7
+      },
+      {
+        "ano": 2008,
+        "min": 25557,
+        "max": 32000,
+        "versoes": 5
+      },
+      {
+        "ano": 2007,
+        "min": 24180,
+        "max": 31219,
+        "versoes": 4
+      },
+      {
+        "ano": 2006,
+        "min": 21804,
+        "max": 26118,
+        "versoes": 4
+      },
+      {
+        "ano": 2005,
+        "min": 21110,
+        "max": 24394,
+        "versoes": 3
+      },
+      {
+        "ano": 2004,
+        "min": 20805,
+        "max": 24371,
+        "versoes": 2
+      },
+      {
+        "ano": 2003,
+        "min": 20190,
+        "max": 20222,
+        "versoes": 2
+      }
+    ],
+    "versoes": [
+      {
+        "fipeCode": "1095",
+        "nome": "Meriva Premium 1.8 MPFI 8V FlexPower"
+      },
+      {
+        "fipeCode": "1090",
+        "nome": "Meriva 1.8/ CD 1.8 MPFI 16V 122cv 5p"
+      },
+      {
+        "fipeCode": "1091",
+        "nome": "Meriva 1.8/ CD 1.8 MPFI 8V 102cv 5p"
+      },
+      {
+        "fipeCode": "1093",
+        "nome": "Meriva Joy 1.8 MPFI 8V FlexPower"
+      },
+      {
+        "fipeCode": "1094",
+        "nome": "Meriva Maxx 1.8 MPFI 8V FlexPower"
+      },
+      {
+        "fipeCode": "3819",
+        "nome": "Meriva SS 1.8 MPFI 8V FlexPower 5p"
+      },
+      {
+        "fipeCode": "4475",
+        "nome": "Meriva Prem.EASYTRONIC 1.8 FlexPower 5p"
+      },
+      {
+        "fipeCode": "4767",
+        "nome": "Meriva Expres.EASYTRONIC 1.8 FlexPower"
+      },
+      {
+        "fipeCode": "4768",
+        "nome": "Meriva Joy 1.4 MPFI 8V ECONOFLEX 5p"
+      },
+      {
+        "fipeCode": "4769",
+        "nome": "Meriva Maxx 1.4 MPFI 8V ECONOFLEX 5p"
+      },
+      {
+        "fipeCode": "4770",
+        "nome": "Meriva SS EASYTRONIC 1.8 FlexPower 5p"
+      }
+    ]
+  },
   "hyundai-ix35": {
     "modelName": "ix35 GLS 2.0 16V 2WD Flex Aut.",
     "brandName": "Hyundai",
@@ -2998,6 +3759,235 @@
       {
         "fipeCode": "4403",
         "nome": "AZERA GLS 3.3 V6 24V 4p Aut."
+      }
+    ]
+  },
+  "hyundai-elantra": {
+    "modelName": "Elantra GLS 2.0 16V Flex Aut.",
+    "brandName": "Hyundai",
+    "fipeCode": "6433",
+    "priceTable": [
+      {
+        "year": 2016,
+        "fuel": "2016 Flex",
+        "price": 68510,
+        "priceFormatted": "R$ 68.510",
+        "variation": -1.3,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2015,
+        "fuel": "2015 Flex",
+        "price": 66839,
+        "priceFormatted": "R$ 66.839",
+        "variation": -0.7,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2014,
+        "fuel": "2014 Flex",
+        "price": 64331,
+        "priceFormatted": "R$ 64.331",
+        "variation": 0,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2013,
+        "fuel": "2013 Flex",
+        "price": 62258,
+        "priceFormatted": "R$ 62.258",
+        "variation": -0.8,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2012,
+        "fuel": "2012 Flex",
+        "price": 60739,
+        "priceFormatted": "R$ 60.739",
+        "variation": -0.8,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      }
+    ],
+    "historyChart": [
+      {
+        "month": 11,
+        "year": 2025,
+        "price": 71115,
+        "label": "11/2025"
+      },
+      {
+        "month": 12,
+        "year": 2025,
+        "price": 72039,
+        "label": "12/2025"
+      },
+      {
+        "month": 1,
+        "year": 2026,
+        "price": 71730,
+        "label": "01/2026"
+      },
+      {
+        "month": 2,
+        "year": 2026,
+        "price": 69325,
+        "label": "02/2026"
+      },
+      {
+        "month": 3,
+        "year": 2026,
+        "price": 70704,
+        "label": "03/2026"
+      },
+      {
+        "month": 4,
+        "year": 2026,
+        "price": 71957,
+        "label": "04/2026"
+      },
+      {
+        "month": 5,
+        "year": 2026,
+        "price": 69438,
+        "label": "05/2026"
+      },
+      {
+        "month": 6,
+        "year": 2026,
+        "price": 71868,
+        "label": "06/2026"
+      },
+      {
+        "month": 7,
+        "year": 2026,
+        "price": 71672,
+        "label": "07/2026"
+      },
+      {
+        "month": 8,
+        "year": 2026,
+        "price": 69852,
+        "label": "08/2026"
+      },
+      {
+        "month": 9,
+        "year": 2026,
+        "price": 69397,
+        "label": "09/2026"
+      },
+      {
+        "month": 10,
+        "year": 2026,
+        "price": 68510,
+        "label": "10/2026"
+      }
+    ],
+    "referenceLabel": "2016 Flex",
+    "referencia": {
+      "month": 10,
+      "year": 2026
+    },
+    "porAno": [
+      {
+        "ano": 2018,
+        "min": 76299,
+        "max": 79605,
+        "versoes": 2
+      },
+      {
+        "ano": 2017,
+        "min": 74438,
+        "max": 76480,
+        "versoes": 2
+      },
+      {
+        "ano": 2016,
+        "min": 68510,
+        "max": 68510,
+        "versoes": 1
+      },
+      {
+        "ano": 2015,
+        "min": 66839,
+        "max": 66839,
+        "versoes": 1
+      },
+      {
+        "ano": 2014,
+        "min": 64331,
+        "max": 64331,
+        "versoes": 1
+      },
+      {
+        "ano": 2013,
+        "min": 60919,
+        "max": 62258,
+        "versoes": 2
+      },
+      {
+        "ano": 2012,
+        "min": 55901,
+        "max": 60739,
+        "versoes": 3
+      },
+      {
+        "ano": 2004,
+        "min": 15114,
+        "max": 20441,
+        "versoes": 2
+      },
+      {
+        "ano": 2003,
+        "min": 14745,
+        "max": 19942,
+        "versoes": 2
+      },
+      {
+        "ano": 2002,
+        "min": 14385,
+        "max": 18988,
+        "versoes": 2
+      },
+      {
+        "ano": 2001,
+        "min": 14034,
+        "max": 18524,
+        "versoes": 2
+      }
+    ],
+    "versoes": [
+      {
+        "fipeCode": "6433",
+        "nome": "Elantra GLS 2.0 16V Flex Aut."
+      },
+      {
+        "fipeCode": "1303",
+        "nome": "Elantra GLS 2.0 16V Aut."
+      },
+      {
+        "fipeCode": "1304",
+        "nome": "Elantra GLS 2.0 16V Mec."
+      },
+      {
+        "fipeCode": "5638",
+        "nome": "Elantra GLS 1.8 16V Aut."
+      },
+      {
+        "fipeCode": "5639",
+        "nome": "Elantra GLS 1.8 16V Mec."
+      },
+      {
+        "fipeCode": "7756",
+        "nome": "Elantra 2.0 16V Flex Aut."
+      },
+      {
+        "fipeCode": "7757",
+        "nome": "Elantra Special Edit. 2.0 16V Flex Aut."
       }
     ]
   },
@@ -6225,6 +7215,281 @@
       }
     ]
   },
+  "honda-motos-cg-150": {
+    "modelName": "CG 150 TITAN-ESD MIX/FLEX",
+    "brandName": "HONDA",
+    "fipeCode": "4915",
+    "priceTable": [
+      {
+        "year": 2015,
+        "fuel": "2015",
+        "price": 11966,
+        "priceFormatted": "R$ 11.966",
+        "variation": -1.1,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2014,
+        "fuel": "2014",
+        "price": 11674,
+        "priceFormatted": "R$ 11.674",
+        "variation": -1.1,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2013,
+        "fuel": "2013",
+        "price": 11013,
+        "priceFormatted": "R$ 11.013",
+        "variation": -0.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2012,
+        "fuel": "2012",
+        "price": 10738,
+        "priceFormatted": "R$ 10.738",
+        "variation": -0.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2011,
+        "fuel": "2011",
+        "price": 10430,
+        "priceFormatted": "R$ 10.430",
+        "variation": -0.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2010,
+        "fuel": "2010",
+        "price": 10059,
+        "priceFormatted": "R$ 10.059",
+        "variation": -0.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2009,
+        "fuel": "2009",
+        "price": 9426,
+        "priceFormatted": "R$ 9.426",
+        "variation": -2.2,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      }
+    ],
+    "historyChart": [
+      {
+        "month": 11,
+        "year": 2025,
+        "price": 13038,
+        "label": "11/2025"
+      },
+      {
+        "month": 12,
+        "year": 2025,
+        "price": 13336,
+        "label": "12/2025"
+      },
+      {
+        "month": 1,
+        "year": 2026,
+        "price": 13538,
+        "label": "01/2026"
+      },
+      {
+        "month": 2,
+        "year": 2026,
+        "price": 13830,
+        "label": "02/2026"
+      },
+      {
+        "month": 3,
+        "year": 2026,
+        "price": 13138,
+        "label": "03/2026"
+      },
+      {
+        "month": 4,
+        "year": 2026,
+        "price": 12678,
+        "label": "04/2026"
+      },
+      {
+        "month": 5,
+        "year": 2026,
+        "price": 12400,
+        "label": "05/2026"
+      },
+      {
+        "month": 6,
+        "year": 2026,
+        "price": 12276,
+        "label": "06/2026"
+      },
+      {
+        "month": 7,
+        "year": 2026,
+        "price": 12349,
+        "label": "07/2026"
+      },
+      {
+        "month": 8,
+        "year": 2026,
+        "price": 12237,
+        "label": "08/2026"
+      },
+      {
+        "month": 9,
+        "year": 2026,
+        "price": 12100,
+        "label": "09/2026"
+      },
+      {
+        "month": 10,
+        "year": 2026,
+        "price": 11966,
+        "label": "10/2026"
+      }
+    ],
+    "referenceLabel": "2015",
+    "referencia": {
+      "month": 10,
+      "year": 2026
+    },
+    "porAno": [
+      {
+        "ano": 2016,
+        "min": 11650,
+        "max": 11650,
+        "versoes": 1
+      },
+      {
+        "ano": 2015,
+        "min": 11074,
+        "max": 13044,
+        "versoes": 4
+      },
+      {
+        "ano": 2014,
+        "min": 11674,
+        "max": 12725,
+        "versoes": 3
+      },
+      {
+        "ano": 2013,
+        "min": 11000,
+        "max": 12006,
+        "versoes": 4
+      },
+      {
+        "ano": 2012,
+        "min": 10666,
+        "max": 11675,
+        "versoes": 4
+      },
+      {
+        "ano": 2011,
+        "min": 9898,
+        "max": 11390,
+        "versoes": 5
+      },
+      {
+        "ano": 2010,
+        "min": 9347,
+        "max": 10059,
+        "versoes": 5
+      },
+      {
+        "ano": 2009,
+        "min": 8930,
+        "max": 10485,
+        "versoes": 6
+      },
+      {
+        "ano": 2008,
+        "min": 8709,
+        "max": 9801,
+        "versoes": 4
+      },
+      {
+        "ano": 2007,
+        "min": 8313,
+        "max": 9561,
+        "versoes": 4
+      },
+      {
+        "ano": 2006,
+        "min": 8110,
+        "max": 9327,
+        "versoes": 4
+      },
+      {
+        "ano": 2005,
+        "min": 7912,
+        "max": 9099,
+        "versoes": 4
+      },
+      {
+        "ano": 2004,
+        "min": 7719,
+        "max": 8840,
+        "versoes": 3
+      }
+    ],
+    "versoes": [
+      {
+        "fipeCode": "4915",
+        "nome": "CG 150 TITAN-ESD MIX/FLEX"
+      },
+      {
+        "fipeCode": "2793",
+        "nome": "CG 150 SPORT"
+      },
+      {
+        "fipeCode": "2794",
+        "nome": "CG 150 TITAN-ES"
+      },
+      {
+        "fipeCode": "2795",
+        "nome": "CG 150 TITAN-ESD/ TITAN SPECIAL EDITION"
+      },
+      {
+        "fipeCode": "2796",
+        "nome": "CG 150 TITAN-KS/ TITAN-JOB"
+      },
+      {
+        "fipeCode": "4914",
+        "nome": "CG 150 TITAN-ES MIX"
+      },
+      {
+        "fipeCode": "4916",
+        "nome": "CG 150 TITAN-KS MIX"
+      },
+      {
+        "fipeCode": "5051",
+        "nome": "CG 150 TITAN-EX MIX/FLEX"
+      },
+      {
+        "fipeCode": "5095",
+        "nome": "CG 150 FAN ESi/ 150 FAN ESi FLEX"
+      },
+      {
+        "fipeCode": "5432",
+        "nome": "CG 150 FAN ESDi/ 150 FAN ESDi FLEX"
+      },
+      {
+        "fipeCode": "7108",
+        "nome": "CG 150 START FLEXONE"
+      }
+    ]
+  },
   "honda-motos-biz": {
     "modelName": "BIZ 110i",
     "brandName": "HONDA",
@@ -7481,6 +8746,1459 @@
       {
         "fipeCode": "5442",
         "nome": "XTZ 250 TENERE/TENERE BLUEFLEX"
+      }
+    ]
+  },
+  "yamaha-xt-660": {
+    "modelName": "XT 660 R",
+    "brandName": "YAMAHA",
+    "fipeCode": "3094",
+    "priceTable": [
+      {
+        "year": 2018,
+        "fuel": "2018",
+        "price": 50055,
+        "priceFormatted": "R$ 50.055",
+        "variation": 0.6,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2017,
+        "fuel": "2017",
+        "price": 44948,
+        "priceFormatted": "R$ 44.948",
+        "variation": 0.9,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2016,
+        "fuel": "2016",
+        "price": 43851,
+        "priceFormatted": "R$ 43.851",
+        "variation": 2,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2015,
+        "fuel": "2015",
+        "price": 42781,
+        "priceFormatted": "R$ 42.781",
+        "variation": 2,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2014,
+        "fuel": "2014",
+        "price": 40416,
+        "priceFormatted": "R$ 40.416",
+        "variation": -1.2,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2013,
+        "fuel": "2013",
+        "price": 39430,
+        "priceFormatted": "R$ 39.430",
+        "variation": 0,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2012,
+        "fuel": "2012",
+        "price": 38468,
+        "priceFormatted": "R$ 38.468",
+        "variation": 0,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2011,
+        "fuel": "2011",
+        "price": 37529,
+        "priceFormatted": "R$ 37.529",
+        "variation": 0,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2010,
+        "fuel": "2010",
+        "price": 35915,
+        "priceFormatted": "R$ 35.915",
+        "variation": -1.9,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2009,
+        "fuel": "2009",
+        "price": 33973,
+        "priceFormatted": "R$ 33.973",
+        "variation": -0.6,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2008,
+        "fuel": "2008",
+        "price": 33144,
+        "priceFormatted": "R$ 33.144",
+        "variation": -0.6,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2007,
+        "fuel": "2007",
+        "price": 32335,
+        "priceFormatted": "R$ 32.335",
+        "variation": -0.6,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2006,
+        "fuel": "2006",
+        "price": 31546,
+        "priceFormatted": "R$ 31.546",
+        "variation": -0.6,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2005,
+        "fuel": "2005",
+        "price": 30776,
+        "priceFormatted": "R$ 30.776",
+        "variation": -0.6,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      }
+    ],
+    "historyChart": [
+      {
+        "month": 11,
+        "year": 2025,
+        "price": 49230,
+        "label": "11/2025"
+      },
+      {
+        "month": 12,
+        "year": 2025,
+        "price": 48083,
+        "label": "12/2025"
+      },
+      {
+        "month": 1,
+        "year": 2026,
+        "price": 48533,
+        "label": "01/2026"
+      },
+      {
+        "month": 2,
+        "year": 2026,
+        "price": 49081,
+        "label": "02/2026"
+      },
+      {
+        "month": 3,
+        "year": 2026,
+        "price": 49135,
+        "label": "03/2026"
+      },
+      {
+        "month": 4,
+        "year": 2026,
+        "price": 48806,
+        "label": "04/2026"
+      },
+      {
+        "month": 5,
+        "year": 2026,
+        "price": 49938,
+        "label": "05/2026"
+      },
+      {
+        "month": 6,
+        "year": 2026,
+        "price": 51072,
+        "label": "06/2026"
+      },
+      {
+        "month": 7,
+        "year": 2026,
+        "price": 50977,
+        "label": "07/2026"
+      },
+      {
+        "month": 8,
+        "year": 2026,
+        "price": 50600,
+        "label": "08/2026"
+      },
+      {
+        "month": 9,
+        "year": 2026,
+        "price": 49743,
+        "label": "09/2026"
+      },
+      {
+        "month": 10,
+        "year": 2026,
+        "price": 50055,
+        "label": "10/2026"
+      }
+    ],
+    "referenceLabel": "2018",
+    "referencia": {
+      "month": 10,
+      "year": 2026
+    },
+    "porAno": [
+      {
+        "ano": 2018,
+        "min": 50055,
+        "max": 50055,
+        "versoes": 1
+      },
+      {
+        "ano": 2017,
+        "min": 39370,
+        "max": 44948,
+        "versoes": 2
+      },
+      {
+        "ano": 2016,
+        "min": 37518,
+        "max": 43851,
+        "versoes": 2
+      },
+      {
+        "ano": 2015,
+        "min": 36602,
+        "max": 42781,
+        "versoes": 2
+      },
+      {
+        "ano": 2014,
+        "min": 34068,
+        "max": 40416,
+        "versoes": 2
+      },
+      {
+        "ano": 2013,
+        "min": 31569,
+        "max": 39430,
+        "versoes": 2
+      },
+      {
+        "ano": 2012,
+        "min": 30799,
+        "max": 38468,
+        "versoes": 2
+      },
+      {
+        "ano": 2011,
+        "min": 26467,
+        "max": 37529,
+        "versoes": 2
+      },
+      {
+        "ano": 2010,
+        "min": 35915,
+        "max": 35915,
+        "versoes": 1
+      },
+      {
+        "ano": 2009,
+        "min": 33973,
+        "max": 33973,
+        "versoes": 1
+      },
+      {
+        "ano": 2008,
+        "min": 33144,
+        "max": 33144,
+        "versoes": 1
+      },
+      {
+        "ano": 2007,
+        "min": 32335,
+        "max": 32335,
+        "versoes": 1
+      },
+      {
+        "ano": 2006,
+        "min": 31546,
+        "max": 31546,
+        "versoes": 1
+      },
+      {
+        "ano": 2005,
+        "min": 30776,
+        "max": 30776,
+        "versoes": 1
+      }
+    ],
+    "versoes": [
+      {
+        "fipeCode": "3094",
+        "nome": "XT 660 R"
+      },
+      {
+        "fipeCode": "5738",
+        "nome": "XT 660Z TÉNÉRÉ"
+      }
+    ]
+  },
+  "yamaha-ybr-125": {
+    "modelName": "YBR 125 E",
+    "brandName": "YAMAHA",
+    "fipeCode": "3101",
+    "priceTable": [
+      {
+        "year": 2008,
+        "fuel": "2008",
+        "price": 6532,
+        "priceFormatted": "R$ 6.532",
+        "variation": 2.6,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2007,
+        "fuel": "2007",
+        "price": 6372,
+        "priceFormatted": "R$ 6.372",
+        "variation": 2.6,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2006,
+        "fuel": "2006",
+        "price": 6216,
+        "priceFormatted": "R$ 6.216",
+        "variation": 2.8,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2005,
+        "fuel": "2005",
+        "price": 6031,
+        "priceFormatted": "R$ 6.031",
+        "variation": 3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2004,
+        "fuel": "2004",
+        "price": 5537,
+        "priceFormatted": "R$ 5.537",
+        "variation": -0.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2003,
+        "fuel": "2003",
+        "price": 5381,
+        "priceFormatted": "R$ 5.381",
+        "variation": 0.7,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2002,
+        "fuel": "2002",
+        "price": 5102,
+        "priceFormatted": "R$ 5.102",
+        "variation": -0.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2001,
+        "fuel": "2001",
+        "price": 4114,
+        "priceFormatted": "R$ 4.114",
+        "variation": 3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2000,
+        "fuel": "2000",
+        "price": 3555,
+        "priceFormatted": "R$ 3.555",
+        "variation": 1,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      }
+    ],
+    "historyChart": [
+      {
+        "month": 11,
+        "year": 2025,
+        "price": 6481,
+        "label": "11/2025"
+      },
+      {
+        "month": 12,
+        "year": 2025,
+        "price": 6335,
+        "label": "12/2025"
+      },
+      {
+        "month": 1,
+        "year": 2026,
+        "price": 6418,
+        "label": "01/2026"
+      },
+      {
+        "month": 2,
+        "year": 2026,
+        "price": 6399,
+        "label": "02/2026"
+      },
+      {
+        "month": 3,
+        "year": 2026,
+        "price": 6505,
+        "label": "03/2026"
+      },
+      {
+        "month": 4,
+        "year": 2026,
+        "price": 6472,
+        "label": "04/2026"
+      },
+      {
+        "month": 5,
+        "year": 2026,
+        "price": 6348,
+        "label": "05/2026"
+      },
+      {
+        "month": 6,
+        "year": 2026,
+        "price": 6490,
+        "label": "06/2026"
+      },
+      {
+        "month": 7,
+        "year": 2026,
+        "price": 6457,
+        "label": "07/2026"
+      },
+      {
+        "month": 8,
+        "year": 2026,
+        "price": 6401,
+        "label": "08/2026"
+      },
+      {
+        "month": 9,
+        "year": 2026,
+        "price": 6368,
+        "label": "09/2026"
+      },
+      {
+        "month": 10,
+        "year": 2026,
+        "price": 6532,
+        "label": "10/2026"
+      }
+    ],
+    "referenceLabel": "2008",
+    "referencia": {
+      "month": 10,
+      "year": 2026
+    },
+    "porAno": [
+      {
+        "ano": 2025,
+        "min": 16245,
+        "max": 16245,
+        "versoes": 1
+      },
+      {
+        "ano": 2024,
+        "min": 14594,
+        "max": 14594,
+        "versoes": 1
+      },
+      {
+        "ano": 2023,
+        "min": 14031,
+        "max": 14031,
+        "versoes": 1
+      },
+      {
+        "ano": 2022,
+        "min": 13357,
+        "max": 13357,
+        "versoes": 1
+      },
+      {
+        "ano": 2021,
+        "min": 12295,
+        "max": 12295,
+        "versoes": 1
+      },
+      {
+        "ano": 2020,
+        "min": 11809,
+        "max": 11809,
+        "versoes": 1
+      },
+      {
+        "ano": 2019,
+        "min": 11469,
+        "max": 11469,
+        "versoes": 1
+      },
+      {
+        "ano": 2018,
+        "min": 11189,
+        "max": 11189,
+        "versoes": 1
+      },
+      {
+        "ano": 2017,
+        "min": 10703,
+        "max": 10703,
+        "versoes": 1
+      },
+      {
+        "ano": 2016,
+        "min": 9175,
+        "max": 9655,
+        "versoes": 3
+      },
+      {
+        "ano": 2015,
+        "min": 8775,
+        "max": 9010,
+        "versoes": 3
+      },
+      {
+        "ano": 2014,
+        "min": 8132,
+        "max": 8507,
+        "versoes": 3
+      },
+      {
+        "ano": 2013,
+        "min": 7733,
+        "max": 7986,
+        "versoes": 3
+      },
+      {
+        "ano": 2012,
+        "min": 7336,
+        "max": 7396,
+        "versoes": 3
+      },
+      {
+        "ano": 2011,
+        "min": 6950,
+        "max": 7064,
+        "versoes": 3
+      },
+      {
+        "ano": 2010,
+        "min": 6700,
+        "max": 6766,
+        "versoes": 3
+      },
+      {
+        "ano": 2009,
+        "min": 6312,
+        "max": 6508,
+        "versoes": 3
+      },
+      {
+        "ano": 2008,
+        "min": 6415,
+        "max": 6650,
+        "versoes": 3
+      },
+      {
+        "ano": 2007,
+        "min": 6258,
+        "max": 6487,
+        "versoes": 3
+      },
+      {
+        "ano": 2006,
+        "min": 6105,
+        "max": 6328,
+        "versoes": 3
+      },
+      {
+        "ano": 2005,
+        "min": 5800,
+        "max": 6173,
+        "versoes": 3
+      },
+      {
+        "ano": 2004,
+        "min": 5489,
+        "max": 6022,
+        "versoes": 3
+      },
+      {
+        "ano": 2003,
+        "min": 5272,
+        "max": 5875,
+        "versoes": 3
+      },
+      {
+        "ano": 2002,
+        "min": 5081,
+        "max": 5731,
+        "versoes": 3
+      },
+      {
+        "ano": 2001,
+        "min": 3825,
+        "max": 4114,
+        "versoes": 2
+      },
+      {
+        "ano": 2000,
+        "min": 3555,
+        "max": 3555,
+        "versoes": 1
+      }
+    ],
+    "versoes": [
+      {
+        "fipeCode": "3101",
+        "nome": "YBR 125 E"
+      },
+      {
+        "fipeCode": "3102",
+        "nome": "YBR 125 ED"
+      },
+      {
+        "fipeCode": "3103",
+        "nome": "YBR 125 K"
+      },
+      {
+        "fipeCode": "4742",
+        "nome": "YBR 125 FACTOR E"
+      },
+      {
+        "fipeCode": "4743",
+        "nome": "YBR 125 FACTOR ED/FACTOR EDITION"
+      },
+      {
+        "fipeCode": "4744",
+        "nome": "YBR 125 FACTOR K/ FACTOR K1"
+      },
+      {
+        "fipeCode": "7648",
+        "nome": "YBR 125i FACTOR ED/FLEX"
+      }
+    ]
+  },
+  "yamaha-neo-125": {
+    "modelName": "NEO AUTOMATIC 125cc",
+    "brandName": "YAMAHA",
+    "fipeCode": "7786",
+    "priceTable": [
+      {
+        "year": 2025,
+        "fuel": "2025",
+        "price": 13456,
+        "priceFormatted": "R$ 13.456",
+        "variation": 1.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2024,
+        "fuel": "2024",
+        "price": 12649,
+        "priceFormatted": "R$ 12.649",
+        "variation": 2,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2023,
+        "fuel": "2023",
+        "price": 12067,
+        "priceFormatted": "R$ 12.067",
+        "variation": 3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2022,
+        "fuel": "2022",
+        "price": 11361,
+        "priceFormatted": "R$ 11.361",
+        "variation": 0.8,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2021,
+        "fuel": "2021",
+        "price": 10935,
+        "priceFormatted": "R$ 10.935",
+        "variation": 0.2,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2020,
+        "fuel": "2020",
+        "price": 10668,
+        "priceFormatted": "R$ 10.668",
+        "variation": 1.3,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2019,
+        "fuel": "2019",
+        "price": 10192,
+        "priceFormatted": "R$ 10.192",
+        "variation": 3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2018,
+        "fuel": "2018",
+        "price": 9527,
+        "priceFormatted": "R$ 9.527",
+        "variation": 1.8,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2017,
+        "fuel": "2017",
+        "price": 9294,
+        "priceFormatted": "R$ 9.294",
+        "variation": 1.8,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      }
+    ],
+    "historyChart": [
+      {
+        "month": 11,
+        "year": 2025,
+        "price": 12846,
+        "label": "11/2025"
+      },
+      {
+        "month": 12,
+        "year": 2025,
+        "price": 12885,
+        "label": "12/2025"
+      },
+      {
+        "month": 1,
+        "year": 2026,
+        "price": 12848,
+        "label": "01/2026"
+      },
+      {
+        "month": 2,
+        "year": 2026,
+        "price": 12949,
+        "label": "02/2026"
+      },
+      {
+        "month": 3,
+        "year": 2026,
+        "price": 13171,
+        "label": "03/2026"
+      },
+      {
+        "month": 4,
+        "year": 2026,
+        "price": 13330,
+        "label": "04/2026"
+      },
+      {
+        "month": 5,
+        "year": 2026,
+        "price": 13346,
+        "label": "05/2026"
+      },
+      {
+        "month": 6,
+        "year": 2026,
+        "price": 13358,
+        "label": "06/2026"
+      },
+      {
+        "month": 7,
+        "year": 2026,
+        "price": 13313,
+        "label": "07/2026"
+      },
+      {
+        "month": 8,
+        "year": 2026,
+        "price": 13195,
+        "label": "08/2026"
+      },
+      {
+        "month": 9,
+        "year": 2026,
+        "price": 13258,
+        "label": "09/2026"
+      },
+      {
+        "month": 10,
+        "year": 2026,
+        "price": 13456,
+        "label": "10/2026"
+      }
+    ],
+    "referenceLabel": "2025",
+    "referencia": {
+      "month": 10,
+      "year": 2026
+    },
+    "porAno": [
+      {
+        "ano": 2025,
+        "min": 13456,
+        "max": 13456,
+        "versoes": 1
+      },
+      {
+        "ano": 2024,
+        "min": 12649,
+        "max": 12649,
+        "versoes": 1
+      },
+      {
+        "ano": 2023,
+        "min": 12067,
+        "max": 12067,
+        "versoes": 1
+      },
+      {
+        "ano": 2022,
+        "min": 11361,
+        "max": 11361,
+        "versoes": 1
+      },
+      {
+        "ano": 2021,
+        "min": 10935,
+        "max": 10935,
+        "versoes": 1
+      },
+      {
+        "ano": 2020,
+        "min": 10668,
+        "max": 10668,
+        "versoes": 1
+      },
+      {
+        "ano": 2019,
+        "min": 10192,
+        "max": 10192,
+        "versoes": 1
+      },
+      {
+        "ano": 2018,
+        "min": 9527,
+        "max": 9527,
+        "versoes": 1
+      },
+      {
+        "ano": 2017,
+        "min": 9294,
+        "max": 9294,
+        "versoes": 1
+      }
+    ],
+    "versoes": [
+      {
+        "fipeCode": "7786",
+        "nome": "NEO AUTOMATIC 125cc"
+      }
+    ]
+  },
+  "suzuki-motos-intruder-125": {
+    "modelName": "INTRUDER 125",
+    "brandName": "SUZUKI",
+    "fipeCode": "3013",
+    "priceTable": [
+      {
+        "year": 2016,
+        "fuel": "2016",
+        "price": 10449,
+        "priceFormatted": "R$ 10.449",
+        "variation": 0,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2015,
+        "fuel": "2015",
+        "price": 10194,
+        "priceFormatted": "R$ 10.194",
+        "variation": 0,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2014,
+        "fuel": "2014",
+        "price": 9945,
+        "priceFormatted": "R$ 9.945",
+        "variation": -0.1,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2013,
+        "fuel": "2013",
+        "price": 9702,
+        "priceFormatted": "R$ 9.702",
+        "variation": -0.1,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2012,
+        "fuel": "2012",
+        "price": 9465,
+        "priceFormatted": "R$ 9.465",
+        "variation": -0.1,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2011,
+        "fuel": "2011",
+        "price": 9234,
+        "priceFormatted": "R$ 9.234",
+        "variation": -0.1,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2010,
+        "fuel": "2010",
+        "price": 9008,
+        "priceFormatted": "R$ 9.008",
+        "variation": -0.1,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2009,
+        "fuel": "2009",
+        "price": 8788,
+        "priceFormatted": "R$ 8.788",
+        "variation": -0.1,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2008,
+        "fuel": "2008",
+        "price": 8573,
+        "priceFormatted": "R$ 8.573",
+        "variation": -0.1,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2007,
+        "fuel": "2007",
+        "price": 7982,
+        "priceFormatted": "R$ 7.982",
+        "variation": 3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2006,
+        "fuel": "2006",
+        "price": 7119,
+        "priceFormatted": "R$ 7.119",
+        "variation": -2.9,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2005,
+        "fuel": "2005",
+        "price": 6945,
+        "priceFormatted": "R$ 6.945",
+        "variation": -2.9,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2004,
+        "fuel": "2004",
+        "price": 6775,
+        "priceFormatted": "R$ 6.775",
+        "variation": -2.9,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2003,
+        "fuel": "2003",
+        "price": 6568,
+        "priceFormatted": "R$ 6.568",
+        "variation": -3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2002,
+        "fuel": "2002",
+        "price": 4919,
+        "priceFormatted": "R$ 4.919",
+        "variation": -1.1,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      }
+    ],
+    "historyChart": [
+      {
+        "month": 11,
+        "year": 2025,
+        "price": 9140,
+        "label": "11/2025"
+      },
+      {
+        "month": 12,
+        "year": 2025,
+        "price": 9136,
+        "label": "12/2025"
+      },
+      {
+        "month": 1,
+        "year": 2026,
+        "price": 9433,
+        "label": "01/2026"
+      },
+      {
+        "month": 2,
+        "year": 2026,
+        "price": 9610,
+        "label": "02/2026"
+      },
+      {
+        "month": 3,
+        "year": 2026,
+        "price": 10090,
+        "label": "03/2026"
+      },
+      {
+        "month": 4,
+        "year": 2026,
+        "price": 10056,
+        "label": "04/2026"
+      },
+      {
+        "month": 5,
+        "year": 2026,
+        "price": 10224,
+        "label": "05/2026"
+      },
+      {
+        "month": 6,
+        "year": 2026,
+        "price": 10454,
+        "label": "06/2026"
+      },
+      {
+        "month": 7,
+        "year": 2026,
+        "price": 10469,
+        "label": "07/2026"
+      },
+      {
+        "month": 8,
+        "year": 2026,
+        "price": 10461,
+        "label": "08/2026"
+      },
+      {
+        "month": 9,
+        "year": 2026,
+        "price": 10454,
+        "label": "09/2026"
+      },
+      {
+        "month": 10,
+        "year": 2026,
+        "price": 10449,
+        "label": "10/2026"
+      }
+    ],
+    "referenceLabel": "2016",
+    "referencia": {
+      "month": 10,
+      "year": 2026
+    },
+    "porAno": [
+      {
+        "ano": 2016,
+        "min": 10449,
+        "max": 10449,
+        "versoes": 1
+      },
+      {
+        "ano": 2015,
+        "min": 10194,
+        "max": 10194,
+        "versoes": 1
+      },
+      {
+        "ano": 2014,
+        "min": 9945,
+        "max": 9945,
+        "versoes": 1
+      },
+      {
+        "ano": 2013,
+        "min": 9702,
+        "max": 9702,
+        "versoes": 1
+      },
+      {
+        "ano": 2012,
+        "min": 9465,
+        "max": 9465,
+        "versoes": 1
+      },
+      {
+        "ano": 2011,
+        "min": 9234,
+        "max": 9234,
+        "versoes": 1
+      },
+      {
+        "ano": 2010,
+        "min": 9008,
+        "max": 9008,
+        "versoes": 1
+      },
+      {
+        "ano": 2009,
+        "min": 8788,
+        "max": 8788,
+        "versoes": 1
+      },
+      {
+        "ano": 2008,
+        "min": 8573,
+        "max": 8573,
+        "versoes": 1
+      },
+      {
+        "ano": 2007,
+        "min": 7982,
+        "max": 7982,
+        "versoes": 1
+      },
+      {
+        "ano": 2006,
+        "min": 7119,
+        "max": 7119,
+        "versoes": 1
+      },
+      {
+        "ano": 2005,
+        "min": 6945,
+        "max": 6945,
+        "versoes": 1
+      },
+      {
+        "ano": 2004,
+        "min": 6775,
+        "max": 6775,
+        "versoes": 1
+      },
+      {
+        "ano": 2003,
+        "min": 6568,
+        "max": 6568,
+        "versoes": 1
+      },
+      {
+        "ano": 2002,
+        "min": 4919,
+        "max": 4919,
+        "versoes": 1
+      }
+    ],
+    "versoes": [
+      {
+        "fipeCode": "3013",
+        "nome": "INTRUDER 125"
+      }
+    ]
+  },
+  "suzuki-motos-en-125-yes": {
+    "modelName": "EN 125 YES",
+    "brandName": "SUZUKI",
+    "fipeCode": "3003",
+    "priceTable": [
+      {
+        "year": 2012,
+        "fuel": "2012",
+        "price": 6425,
+        "priceFormatted": "R$ 6.425",
+        "variation": 0.6,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2011,
+        "fuel": "2011",
+        "price": 6238,
+        "priceFormatted": "R$ 6.238",
+        "variation": 0.6,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2010,
+        "fuel": "2010",
+        "price": 6077,
+        "priceFormatted": "R$ 6.077",
+        "variation": 0.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2009,
+        "fuel": "2009",
+        "price": 5928,
+        "priceFormatted": "R$ 5.928",
+        "variation": 0.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2008,
+        "fuel": "2008",
+        "price": 5756,
+        "priceFormatted": "R$ 5.756",
+        "variation": 2.9,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2007,
+        "fuel": "2007",
+        "price": 5576,
+        "priceFormatted": "R$ 5.576",
+        "variation": 2.2,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2006,
+        "fuel": "2006",
+        "price": 5440,
+        "priceFormatted": "R$ 5.440",
+        "variation": 2.2,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      },
+      {
+        "year": 2005,
+        "fuel": "2005",
+        "price": 5003,
+        "priceFormatted": "R$ 5.003",
+        "variation": -3.5,
+        "referenceMonth": 10,
+        "referenceYear": 2026
+      }
+    ],
+    "historyChart": [
+      {
+        "month": 11,
+        "year": 2025,
+        "price": 6619,
+        "label": "11/2025"
+      },
+      {
+        "month": 12,
+        "year": 2025,
+        "price": 6855,
+        "label": "12/2025"
+      },
+      {
+        "month": 1,
+        "year": 2026,
+        "price": 7099,
+        "label": "01/2026"
+      },
+      {
+        "month": 2,
+        "year": 2026,
+        "price": 7003,
+        "label": "02/2026"
+      },
+      {
+        "month": 3,
+        "year": 2026,
+        "price": 6811,
+        "label": "03/2026"
+      },
+      {
+        "month": 4,
+        "year": 2026,
+        "price": 6719,
+        "label": "04/2026"
+      },
+      {
+        "month": 5,
+        "year": 2026,
+        "price": 6530,
+        "label": "05/2026"
+      },
+      {
+        "month": 6,
+        "year": 2026,
+        "price": 6758,
+        "label": "06/2026"
+      },
+      {
+        "month": 7,
+        "year": 2026,
+        "price": 6724,
+        "label": "07/2026"
+      },
+      {
+        "month": 8,
+        "year": 2026,
+        "price": 6488,
+        "label": "08/2026"
+      },
+      {
+        "month": 9,
+        "year": 2026,
+        "price": 6384,
+        "label": "09/2026"
+      },
+      {
+        "month": 10,
+        "year": 2026,
+        "price": 6425,
+        "label": "10/2026"
+      }
+    ],
+    "referenceLabel": "2012",
+    "referencia": {
+      "month": 10,
+      "year": 2026
+    },
+    "porAno": [
+      {
+        "ano": 2016,
+        "min": 7494,
+        "max": 7494,
+        "versoes": 1
+      },
+      {
+        "ano": 2015,
+        "min": 7045,
+        "max": 7045,
+        "versoes": 1
+      },
+      {
+        "ano": 2014,
+        "min": 6849,
+        "max": 6849,
+        "versoes": 1
+      },
+      {
+        "ano": 2013,
+        "min": 6662,
+        "max": 6662,
+        "versoes": 1
+      },
+      {
+        "ano": 2012,
+        "min": 6425,
+        "max": 6489,
+        "versoes": 2
+      },
+      {
+        "ano": 2011,
+        "min": 6238,
+        "max": 6245,
+        "versoes": 2
+      },
+      {
+        "ano": 2010,
+        "min": 6077,
+        "max": 6077,
+        "versoes": 1
+      },
+      {
+        "ano": 2009,
+        "min": 5928,
+        "max": 5928,
+        "versoes": 1
+      },
+      {
+        "ano": 2008,
+        "min": 5756,
+        "max": 5756,
+        "versoes": 1
+      },
+      {
+        "ano": 2007,
+        "min": 5576,
+        "max": 5576,
+        "versoes": 1
+      },
+      {
+        "ano": 2006,
+        "min": 5440,
+        "max": 5440,
+        "versoes": 1
+      },
+      {
+        "ano": 2005,
+        "min": 5003,
+        "max": 5003,
+        "versoes": 1
+      }
+    ],
+    "versoes": [
+      {
+        "fipeCode": "3003",
+        "nome": "EN 125 YES"
+      },
+      {
+        "fipeCode": "5477",
+        "nome": "EN 125 YES SE"
       }
     ]
   }

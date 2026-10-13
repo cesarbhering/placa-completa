@@ -66,6 +66,8 @@ export const fipeBrands: Record<string, FipeBrand> = {
       { slug: 'fiorino', name: 'Fiorino' },
       { slug: 'ducato', name: 'Ducato' },
       { slug: 'doblo', name: 'Doblò', fipeCode: '5536', fipeCodes: ['452', '451', '446', '3933', '3935', '4097', '5535'] },
+      { slug: 'grand-siena', name: 'Grand Siena', fipeCode: '5925', fipeCodes: ['5926', '5927', '6488', '6489', '7824', '9209', '9210'] },
+      { slug: 'linea', name: 'Linea', fipeCode: '4749', fipeCodes: ['4748', '4750', '4920', '4921', '4751', '5577', '5578', '6581', '6582'] },
       { slug: '500', name: '500' },
     ],
   },
@@ -86,6 +88,7 @@ export const fipeBrands: Record<string, FipeBrand> = {
       { slug: 'celta', name: 'Celta', fipeCode: '991' },
       { slug: 'corsa', name: 'Corsa' },
       { slug: 'trailblazer', name: 'TrailBlazer' },
+      { slug: 'meriva', name: 'Meriva', genero: 'f', fipeCode: '1095', fipeCodes: ['1090', '1091', '1093', '1094', '3819', '4475', '4767', '4768', '4769', '4770'] },
     ],
   },
   hyundai: {
@@ -102,6 +105,7 @@ export const fipeBrands: Record<string, FipeBrand> = {
       { slug: 'azera', name: 'Azera', fipeCode: '5726', fipeCodes: ['4403'] },
       { slug: 'i30', name: 'i30' },
       { slug: 'veloster', name: 'Veloster' },
+      { slug: 'elantra', name: 'Elantra', fipeCode: '6433', fipeCodes: ['1303', '1304', '5638', '5639', '7756', '7757'] },
     ],
   },
   toyota: {
@@ -269,6 +273,7 @@ export const fipeBrands: Record<string, FipeBrand> = {
     description: 'A Honda é a líder absoluta do mercado de motos no Brasil. A CG 160, Biz e CB 300 estão entre as motos mais vendidas e procuradas do país.',
     models: [
       { slug: 'cg-160', name: 'CG 160', fipeCode: '7330' },
+      { slug: 'cg-150', name: 'CG 150', fipeCode: '4915', fipeCodes: ['2793', '2794', '2795', '2796', '4914', '4916', '5051', '5095', '5432', '7108'] },
       { slug: 'biz', name: 'Biz', fipeCode: '7467' },
       { slug: 'cb-300', name: 'CB 300' },
       { slug: 'xre-300', name: 'XRE 300' },
@@ -297,6 +302,17 @@ export const fipeBrands: Record<string, FipeBrand> = {
       { slug: 'tenere', name: 'Ténéré 250', fipeCode: '5442' },
       { slug: 'xtz-150', name: 'XTZ 150' },
       { slug: 'r3', name: 'R3' },
+      { slug: 'xt-660', name: 'XT 660', fipeCode: '3094', fipeCodes: ['5738'] },
+      { slug: 'ybr-125', name: 'YBR 125', fipeCode: '3101', fipeCodes: ['3102', '3103', '4742', '4743', '4744', '7648'] },
+      { slug: 'neo-125', name: 'Neo 125', fipeCode: '7786' },
+    ],
+  },
+  'suzuki-motos': {
+    slug: 'suzuki-motos', name: 'Suzuki Motos', fipeCode: '99', type: 'motos',
+    description: 'A Suzuki tem presença histórica no mercado brasileiro de motos, com modelos como Intruder 125 e EN 125 Yes circulando no mercado de usados.',
+    models: [
+      { slug: 'intruder-125', name: 'Intruder 125', fipeCode: '3013' },
+      { slug: 'en-125-yes', name: 'EN 125 Yes', fipeCode: '3003', fipeCodes: ['5477'] },
     ],
   },
 }
