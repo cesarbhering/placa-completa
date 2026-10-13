@@ -36,6 +36,38 @@ export function bloquearNumero(cfg: CfgEvolution, jid: string, fetchImpl?: typeo
   return post(cfg, `/chat/updateBlockStatus/${encodeURIComponent(cfg.instance)}`, { number: numeroParaEvolution(jid), status: 'block' }, fetchImpl)
 }
 
+export type TipoMidia = 'audio' | 'imagem' | 'video' | 'documento' | 'outro'
+export type Recebida =
+  | { tipo: 'texto'; texto: string }
+  | { tipo: 'reacao'; texto: string }
+  | { tipo: 'figurinha' }
+  | { tipo: 'midia'; midia: TipoMidia }
+  | { tipo: 'ignorar' }
+
+/**
+ * O que chegou do WhatsApp. Reacao (👍 numa mensagem nossa) e figurinha nunca
+ * pedem resposta; reacao REMOVIDA (texto vazio) e ignorada de vez. Audio,
+ * imagem, video e documento pedem que a pessoa escreva.
+ */
+export function classificarMensagem(msg: any): Recebida {
+  const m0 = msg?.message || {}
+  const m = m0.ephemeralMessage?.message || m0.viewOnceMessage?.message || m0
+  const tipo = String(msg?.messageType || '')
+  if (m.reactionMessage || tipo === 'reactionMessage') {
+    const t = String(m.reactionMessage?.text || '').trim()
+    return t ? { tipo: 'reacao', texto: t } : { tipo: 'ignorar' }
+  }
+  if (m.stickerMessage || tipo === 'stickerMessage') return { tipo: 'figurinha' }
+  const t = textoDaMensagem(msg)
+  if (t) return { tipo: 'texto', texto: t }
+  if (m.audioMessage || m.pttMessage || /audio|ptt/i.test(tipo)) return { tipo: 'midia', midia: 'audio' }
+  if (m.imageMessage || /image/i.test(tipo)) return { tipo: 'midia', midia: 'imagem' }
+  if (m.videoMessage || /video/i.test(tipo)) return { tipo: 'midia', midia: 'video' }
+  if (m.documentMessage || m.documentWithCaptionMessage || /document/i.test(tipo)) return { tipo: 'midia', midia: 'documento' }
+  if (m.protocolMessage || m.senderKeyDistributionMessage || /protocol/i.test(tipo)) return { tipo: 'ignorar' }
+  return { tipo: 'midia', midia: 'outro' }
+}
+
 /** Texto de uma mensagem recebida (conversation/extendedText); null se nao for texto. */
 export function textoDaMensagem(msg: any): string | null {
   const m = msg?.message || {}

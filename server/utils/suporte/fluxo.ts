@@ -1,6 +1,6 @@
 import { TXT } from './textos'
 import {
-  LIMITES, gatilhoN2, pedePessoa, pedeCupom, confirmaPagamento, perguntaSeERobo, seDizAutomatico, comApresentacao, pedeDadoDeTerceiro, temXingamento, temLink, separarDocumento,
+  LIMITES, gatilhoN2, pedePessoa, soEmoji, pedeCupom, confirmaPagamento, perguntaSeERobo, seDizAutomatico, comApresentacao, pedeDadoDeTerceiro, temXingamento, temLink, separarDocumento,
   hashNumero, cifrarJid, decifrarJid, mascararNumero, horarioComercial, diaBrasilia, guardarResposta, idLog, parseNota,
 } from './regras'
 import { perguntarAoAgente, type MsgHistorico, type Veredito } from './agente'
@@ -11,7 +11,12 @@ import { hmacPagador } from '../pagador-hash'
 // (banco, Haiku, Evolution, e-mail), entao as simulacoes do plano rodam em
 // teste sem rede.
 
-export interface MsgConversa { de: 'cliente' | 'bot' | 'n1' | 'sistema'; texto: string; em: string; id?: string }
+export interface MsgConversa {
+  de: 'cliente' | 'bot' | 'n1' | 'sistema'; texto: string; em: string; id?: string
+  /** Mensagem do cliente que nao e texto: reacao (👍), figurinha ou midia (audio, imagem...). */
+  tipo?: 'reacao' | 'figurinha' | 'midia'
+  midia?: string
+}
 export interface Contadores {
   dia?: string; respostas_dia?: number; fora_escopo_seguidas?: number; pedir_pessoa?: number
   xingamentos?: number; terceiro?: number; links?: number; cupom?: number; robo?: number
@@ -87,7 +92,10 @@ function agoraDe(d: Deps) { return (d.agora ?? (() => new Date()))() }
 function log(d: Deps, c: Conversa, msg: string) { (d.log ?? ((l) => console.info(l)))(`[suporte] conversa=${idLog(c.numero_hash)} ${msg}`) }
 
 function historico(c: Conversa): MsgHistorico[] {
-  return c.mensagens.slice(-LIMITES.historico).map((m) => ({ de: m.de, texto: m.texto }))
+  return c.mensagens.slice(-LIMITES.historico).map((m) => ({
+    de: m.de,
+    texto: m.tipo === 'reacao' ? `[reagiu com ${m.texto}]` : m.texto,
+  }))
 }
 
 function ultimoDado(c: Conversa, re: RegExp): string | null {
@@ -214,7 +222,14 @@ async function bloquearConversa(c: Conversa, jid: string, motivo: string, d: Dep
   log(d, c, `bloqueada motivo="${motivo}" evolution=${r.status}`)
 }
 
-export interface Entrada { jid: string; texto: string | null; msgId?: string }
+export interface Entrada {
+  jid: string
+  /** null = nao e texto (ver `tipo`). */
+  texto: string | null
+  msgId?: string
+  tipo?: 'texto' | 'reacao' | 'figurinha' | 'midia'
+  midia?: string
+}
 
 /**
  * Passo 1 (na hora): grava a mensagem do cliente (sem CPF/CNPJ) e aplica os
@@ -232,7 +247,14 @@ export async function receberMensagem(e: Entrada, d: Deps): Promise<{ conversa: 
 
   const { texto, digitos } = separarDocumento(e.texto ?? '')
   const docHash = digitos && d.segredoPagador ? hmacPagador(digitos, d.segredoPagador) : null
-  c.mensagens.push({ de: 'cliente', texto: e.texto == null ? '[mensagem que não é texto]' : texto, em: agora.toISOString(), ...(e.msgId ? { id: e.msgId } : {}) })
+  // Reacao e figurinha entram no historico (contam como atividade, zeram a
+  // inatividade), mas nunca pedem resposta nem chamam o agente.
+  const tipo = e.tipo ?? (e.texto == null ? 'midia' : 'texto')
+  const registro: MsgConversa = tipo === 'reacao' ? { de: 'cliente', tipo: 'reacao', texto: String(e.texto || '') , em: agora.toISOString() }
+    : tipo === 'figurinha' ? { de: 'cliente', tipo: 'figurinha', texto: '[figurinha]', em: agora.toISOString() }
+      : tipo === 'midia' ? { de: 'cliente', tipo: 'midia', midia: e.midia || 'outro', texto: `[${e.midia === 'audio' ? 'áudio' : e.midia || 'arquivo'}]`, em: agora.toISOString() }
+        : { de: 'cliente', texto, em: agora.toISOString() }
+  c.mensagens.push({ ...registro, ...(e.msgId ? { id: e.msgId } : {}) })
   if (c.mensagens.length > 60) c.mensagens = c.mensagens.slice(-60)
 
   // Enxurrada: mais de 10 mensagens do cliente no ultimo minuto.
@@ -243,7 +265,11 @@ export async function receberMensagem(e: Entrada, d: Deps): Promise<{ conversa: 
     await d.repo.salvarConversa(c)
     return { conversa: c, docHash: null, responder: false }
   }
-  if (e.texto != null) {
+  if (tipo === 'reacao' || tipo === 'figurinha') {
+    await d.repo.salvarConversa(c)
+    return { conversa: c, docHash: null, responder: false }
+  }
+  if (tipo === 'texto') {
     if (temXingamento(texto)) c.contadores.xingamentos = (c.contadores.xingamentos || 0) + 1
     if (temLink(texto)) c.contadores.links = (c.contadores.links || 0) + 1
     if ((c.contadores.xingamentos || 0) >= LIMITES.xingamentosParaBloquear) {
@@ -271,18 +297,29 @@ export async function responderConversa(c: Conversa, jid: string, docHash: strin
   if (c.status === 'bloqueada' || c.mensagens[c.mensagens.length - 1]?.de !== 'cliente') return
   // Todas as mensagens do cliente desde a nossa ultima resposta viram uma so
   // (debounce de 2 min: ele manda em varias linhas).
-  const seguidas: string[] = []
-  for (let i = c.mensagens.length - 1; i >= 0 && c.mensagens[i].de === 'cliente'; i--) seguidas.unshift(c.mensagens[i].texto)
-  const textos = seguidas.filter((t) => t !== '[mensagem que não é texto]')
-  const texto = textos.length ? textos.join('\n') : (seguidas.length ? '[mensagem que não é texto]' : '')
-  const naoTexto = texto === '[mensagem que não é texto]'
+  const seguidas: MsgConversa[] = []
+  for (let i = c.mensagens.length - 1; i >= 0 && c.mensagens[i].de === 'cliente'; i--) seguidas.unshift(c.mensagens[i])
+  const textos = seguidas.filter((m) => !m.tipo).map((m) => m.texto)
+  const midias = seguidas.filter((m) => m.tipo === 'midia')
+  const texto = textos.join('\n')
+  const ultimoBot = [...c.mensagens].reverse().find((m) => m.de === 'bot' || m.de === 'n1')?.texto || ''
 
   const finalizar = async (resposta: string | null) => {
     if (resposta) await enviarAoCliente(c, jid, resposta, d)
     await d.repo.salvarConversa(c)
   }
 
-  if (naoTexto) return finalizar(TXT.soTexto)
+  // So reacao/figurinha desde a nossa ultima resposta: nada a dizer.
+  if (!textos.length && !midias.length) return finalizar(null)
+  // Audio/arquivo sem texto junto: pede para escrever.
+  if (!textos.length) return finalizar(midias.some((m) => m.midia === 'audio') ? TXT.semAudio : TXT.soTexto)
+  // So emoji (👍, 🙏): confirmacao. Responde curto, ou nada se a nossa ultima
+  // mensagem ja foi uma despedida.
+  if (soEmoji(texto)) {
+    const despedida = [TXT.obrigadoNota, TXT.confirmacao, TXT.encerramento, TXT.pedirNota].includes(ultimoBot as any) || /é só chamar|qualquer coisa,? (é|e) só/i.test(ultimoBot)
+    log(d, c, `acao=emoji ${despedida ? 'sem resposta' : 'confirmacao'}`)
+    return finalizar(despedida ? null : TXT.confirmacao)
+  }
 
   // Resposta a "De 0 a 5, como foi?": vale a primeira que for nota, em 24 h.
   if (c.nota_pedida_em && c.nota == null && agora.getTime() - new Date(c.nota_pedida_em).getTime() <= LIMITES.janelaNotaMs) {

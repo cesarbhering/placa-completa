@@ -192,6 +192,68 @@ describe('inatividade (40 min desde a última mensagem, de qualquer lado)', () =
   })
 })
 
+describe('reação, figurinha, emoji e mídia', () => {
+  it('classifica o que chega da Evolution', async () => {
+    const { classificarMensagem } = await import('./evolution')
+    // caso real 13/out: reacao 👍🏻 a uma mensagem nossa
+    expect(classificarMensagem({ messageType: 'reactionMessage', message: { reactionMessage: { text: '👍🏻', key: { id: 'X' } } } })).toEqual({ tipo: 'reacao', texto: '👍🏻' })
+    expect(classificarMensagem({ messageType: 'reactionMessage', message: { reactionMessage: { text: '' } } })).toEqual({ tipo: 'ignorar' })
+    expect(classificarMensagem({ messageType: 'stickerMessage', message: { stickerMessage: {} } })).toEqual({ tipo: 'figurinha' })
+    expect(classificarMensagem({ messageType: 'audioMessage', message: { audioMessage: { ptt: true } } })).toEqual({ tipo: 'midia', midia: 'audio' })
+    expect(classificarMensagem({ messageType: 'imageMessage', message: { imageMessage: {} } })).toEqual({ tipo: 'midia', midia: 'imagem' })
+    expect(classificarMensagem({ messageType: 'documentMessage', message: { documentMessage: {} } })).toEqual({ tipo: 'midia', midia: 'documento' })
+    expect(classificarMensagem({ messageType: 'conversation', message: { conversation: ' 👍 ' } })).toEqual({ tipo: 'texto', texto: '👍' })
+  })
+  it('reação: registra como atividade, não responde e não chama o agente', async () => {
+    const s = montar([V({ resposta: 'O relatório sai por R$ 39,90.' })])
+    let t = HORARIO.getTime(); s.deps.agora = () => new Date(t)
+    await s.msg('quanto custa?')
+    t += 39 * 60_000
+    const { receberMensagem, responderConversa } = await import('./fluxo')
+    const r = await receberMensagem({ jid: JID, texto: '👍🏻', tipo: 'reacao' }, s.deps)
+    expect(r.responder).toBe(false)
+    await responderConversa(r.conversa, JID, null, s.deps)
+    expect(s.enviados).toEqual(['O relatório sai por R$ 39,90.'])
+    expect(s.histsAgente).toHaveLength(1)
+    expect(s.mem.conversas[0].mensagens.at(-1)).toMatchObject({ de: 'cliente', tipo: 'reacao', texto: '👍🏻' })
+    // zerou a inatividade: 39 min depois da reacao ainda nao encerra
+    t += 39 * 60_000
+    expect((await rodarInatividade(s.deps)).encerradas).toBe(0)
+  })
+  it('figurinha: registra e não responde', async () => {
+    const s = montar([])
+    const { receberMensagem } = await import('./fluxo')
+    const r = await receberMensagem({ jid: JID, texto: null, tipo: 'figurinha' }, s.deps)
+    expect(r.responder).toBe(false)
+    expect(s.mem.conversas[0].mensagens.at(-1)).toMatchObject({ tipo: 'figurinha', texto: '[figurinha]' })
+    expect(s.enviados).toEqual([])
+  })
+  it('texto só com emoji: confirmação curta, sem agente; depois de despedida, nada', async () => {
+    const s = montar([V({ resposta: 'O relatório sai por R$ 39,90.' })])
+    await s.msg('quanto custa?')
+    await s.msg('👍')
+    expect(s.enviados.at(-1)).toBe(TXT.confirmacao)
+    await s.msg('🙏🏻')
+    expect(s.enviados.filter((x) => x === TXT.confirmacao)).toHaveLength(1)
+    expect(s.histsAgente).toHaveLength(1)
+    expect(s.enviados.join(' ')).not.toContain('só mensagens de texto')
+  })
+  it('áudio e arquivo: frase natural pedindo para escrever', async () => {
+    const a = montar([])
+    await processarMensagem({ jid: JID, texto: null, tipo: 'midia', midia: 'audio' }, a.deps)
+    expect(a.enviados).toEqual([TXT.semAudio])
+    const b = montar([])
+    await processarMensagem({ jid: JID, texto: null, tipo: 'midia', midia: 'documento' }, b.deps)
+    expect(b.enviados).toEqual([TXT.soTexto])
+    expect(TXT.semAudio).toBe('Não consigo ouvir áudio por aqui. Pode me escrever?')
+  })
+  it('detector de só emoji', async () => {
+    const { soEmoji } = await import('./regras')
+    for (const t of ['👍', '🙏🏻', '👏👏', ' 👍🏻 ', '❤️']) expect(soEmoji(t)).toBe(true)
+    for (const t of ['ok 👍', '5', 'obrigado', '', ':)']) expect(soEmoji(t)).toBe(false)
+  })
+})
+
 describe('debounce de 2 min', () => {
   it('3 linhas em 90 s: 1 resposta só, 2 min depois da 3a', async () => {
     vi.useFakeTimers()

@@ -21,6 +21,9 @@ export const TXT = {
   passoParaEquipe: 'Combinado, vou passar para outra pessoa da equipe. A resposta vem por aqui em alguns minutos.',
   semCupom: 'No momento não temos cupom disponível. O relatório completo já está em promoção no site.',
   precisaConfirmarDono: 'Encontrei um pedido para essa placa. Para liberar, preciso confirmar que é seu: me passa o e-mail usado na compra ou, se não informou e-mail, o CPF ou CNPJ de quem pagou.',
-  soTexto: 'Por aqui eu leio só mensagens de texto. Pode escrever a sua dúvida?',
+  soTexto: 'Não consigo abrir arquivo por aqui. Pode me escrever?',
+  semAudio: 'Não consigo ouvir áudio por aqui. Pode me escrever?',
+  // Texto so com emoji (👍, 🙏): confirmacao, nao pergunta.
+  confirmacao: 'Combinado! Qualquer coisa é só chamar.',
   erro: 'Tive um problema para responder agora. Já avisei a equipe e volto aqui em alguns minutos.',
 } as const
