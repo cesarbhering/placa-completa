@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { aberturaEstado, h1Estado } from '~/shared/frases-abertura'
 import { tituloEstado, descricaoEstado, deEstado } from '~/shared/estado-seo'
 import { emEstado } from '~/shared/seo-titulo'
 import { states } from '~/data/states'
@@ -99,14 +100,12 @@ useHead({
 <template>
   <div class="pc-page">
     <main class="pc-container">
-      <h1 class="pc-h1">Consultar Placa de Veículo {{ emUf }}</h1>
+      <h1 class="pc-h1">{{ h1Estado(emUf, data.uf) }}</h1>
 
       <div class="pc-prose">
-        <p>
-            Consulte gratuitamente a placa de qualquer veículo registrado em
-            <strong>{{ data.name }} ({{ data.uf }})</strong> e receba os dados completos no
-            seu e-mail em segundos. {{ data.context }}
-          </p>
+        <!-- Frase de abertura citavel (plano GEO 13/out): Placa Completa como sujeito. -->
+        <p>{{ aberturaEstado(emUf) }}</p>
+        <p>{{ data.context }}</p>
 
           <!-- Conteudo SEO extendido por estado (resolve "Rastreada, nao indexada") -->
           <section v-if="seoIntro" class="pc-callout">
