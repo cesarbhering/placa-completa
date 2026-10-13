@@ -139,6 +139,10 @@ ENV PORT=3000
 # Relogio do processo em BRT: e-mails de erro/estorno e logs formatavam a hora
 # em UTC sem dizer o fuso, e o Cesar lia como se fosse horario de Brasilia.
 ENV TZ=America/Sao_Paulo
+# SIGTERM espera as buscas pos-entrega em voo (teto 120 s, server/plugins/
+# aguardar-em-voo.ts). O padrao do Nitro (30 s) mataria antes. O Coolify
+# precisa de stop timeout >= 150 s.
+ENV NITRO_SHUTDOWN_TIMEOUT=130000
 
 COPY --chown=node:node --from=builder /app/.output ./.output
 
