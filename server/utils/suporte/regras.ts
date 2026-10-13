@@ -16,7 +16,8 @@ export const LIMITES = {
   pedirPessoaParaEscalar: 2,
   cupomParaEscalar: 2,
   roboParaEscalar: 2,
-  inatividadeMs: 20 * 60 * 1000,
+  // Encerramento: 40 min desde a ultima mensagem, de qualquer lado.
+  inatividadeMs: 40 * 60 * 1000,
   n1SemRespostaMin: 15,
   janelaNotaMs: 24 * 60 * 60 * 1000,
   n2IntervaloMs: 60 * 60 * 1000,

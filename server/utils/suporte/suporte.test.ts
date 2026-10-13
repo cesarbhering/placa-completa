@@ -32,7 +32,7 @@ function repoMemoria() {
     async tarefasPendentesDesde(antes) { return tarefas.filter((t) => t.status === 'pendente' && t.criado_em < antes) },
     async registrarBloqueio(h, motivo) { bloqueios.push({ h, motivo }) },
     async numeroBloqueado(h) { return bloqueios.some((b) => b.h === h) },
-    async conversasAbertasSemRespostaDesde(antes) { return conversas.filter((c) => c.status === 'aberta' && !!c.ultima_resposta_em && c.ultima_resposta_em < antes) },
+    async conversasAbertasParadasDesde(antes) { return conversas.filter((c) => c.status === 'aberta' && (c.mensagens.at(-1)?.em || '') <= antes) },
   }
   return { repo, conversas, tarefas, bloqueios }
 }
@@ -151,49 +151,75 @@ describe('nota de 0 a 5 ao fim do atendimento', () => {
   })
 })
 
-describe('inatividade (20 min)', () => {
+describe('inatividade (40 min desde a última mensagem, de qualquer lado)', () => {
   const relogio = (s: ReturnType<typeof montar>) => { let t = HORARIO.getTime(); s.deps.agora = () => new Date(t); return (min: number) => { t += min * 60_000 } }
 
-  it('pergunta uma vez, encerra 20 min depois pedindo a nota, e "4" ainda vale', async () => {
+  it('última mensagem há 39 min: nada; há 40 min: encerra uma vez, com a nota', async () => {
     const s = montar([V({ resposta: 'O relatório completo custa R$ 39,90.' })])
     const passa = relogio(s)
     await s.msg('quanto custa?')
-    passa(10); expect((await rodarInatividade(s.deps)).perguntadas).toBe(0)
-    passa(11); expect((await rodarInatividade(s.deps)).perguntadas).toBe(1)
-    expect(s.enviados.at(-1)).toBe(TXT.inatividade)
-    passa(5); expect(await rodarInatividade(s.deps)).toEqual({ perguntadas: 0, encerradas: 0 })
-    passa(16)
-    expect((await rodarInatividade(s.deps)).encerradas).toBe(1)
+    passa(39); expect((await rodarInatividade(s.deps)).encerradas).toBe(0)
+    passa(1); expect((await rodarInatividade(s.deps)).encerradas).toBe(1)
     expect(s.enviados.at(-1)).toBe(TXT.pedirNota)
     expect(s.mem.conversas[0].status).toBe('encerrada')
+    passa(5); expect((await rodarInatividade(s.deps)).encerradas).toBe(0)
+    expect(s.enviados.filter((t) => t === TXT.pedirNota)).toHaveLength(1)
     await s.msg('4')
     expect(s.mem.conversas).toHaveLength(1)
     expect(s.mem.conversas[0].nota).toBe(4)
-    expect(s.enviados.at(-1)).toBe(TXT.obrigadoNota)
   })
-  it('cliente respondeu: segue normal; ficou inativo de novo, encerra sem perguntar outra vez', async () => {
+  it('conta da última mensagem do CLIENTE também (ele escreveu por último)', async () => {
+    const s = montar([V({ resposta: 'A' })])
+    const passa = relogio(s)
+    await s.msg('oi')
+    passa(30)
+    const { receberMensagem } = await import('./fluxo')
+    await receberMensagem({ jid: JID, texto: 'deixa eu ver aqui...' }, s.deps) // ainda sem resposta (debounce)
+    passa(39); expect((await rodarInatividade(s.deps)).encerradas).toBe(0)
+    passa(1); expect((await rodarInatividade(s.deps)).encerradas).toBe(1)
+  })
+  it('qualquer mensagem nova zera; aguardando N1 nunca encerra; sem "posso encerrar?"', async () => {
     const s = montar([V({ resposta: 'A' }), V({ resposta: 'B' })])
     const passa = relogio(s)
     await s.msg('oi')
-    passa(21); await rodarInatividade(s.deps)
-    passa(2); await s.msg('na verdade, tenho mais uma dúvida')
-    expect(s.enviados.at(-1)).toBe('B')
-    passa(21); await rodarInatividade(s.deps)
-    expect(s.enviados.filter((t) => t === TXT.inatividade)).toHaveLength(1)
-    expect(s.enviados.at(-1)).toBe(TXT.pedirNota)
-    expect(s.mem.conversas[0].status).toBe('encerrada')
-  })
-  it('aguardando N1, mensagem do cliente sem resposta ou nota já pedida: não mexe', async () => {
+    passa(35); await s.msg('mais uma dúvida')
+    passa(35); expect((await rodarInatividade(s.deps)).encerradas).toBe(0)
+    expect(s.enviados).toEqual(['A', 'B'])
     const n1 = montar([V({ acao: 'chamar_n1', resposta: 'Verificando.', resumo_n1: 'x' })])
     const p1 = relogio(n1)
     await n1.msg('link não abre')
-    p1(60); await rodarInatividade(n1.deps)
-    expect(n1.enviados).not.toContain(TXT.inatividade)
-    const nota = montar([V({ resposta: 'Disponha!', atendimento_concluido: true })])
-    const p2 = relogio(nota)
-    await nota.msg('valeu')
-    p2(60); await rodarInatividade(nota.deps)
-    expect(nota.enviados).not.toContain(TXT.inatividade)
+    p1(120); expect((await rodarInatividade(n1.deps)).encerradas).toBe(0)
+  })
+})
+
+describe('debounce de 2 min', () => {
+  it('3 linhas em 90 s: 1 resposta só, 2 min depois da 3a', async () => {
+    vi.useFakeTimers()
+    try {
+      const { agendarResposta, DEBOUNCE_MS } = await import('./agenda')
+      expect(DEBOUNCE_MS).toBe(120_000)
+      const chamadas: number[] = []
+      const fn = async () => { chamadas.push(Date.now()) }
+      const t0 = Date.now()
+      agendarResposta('conv-teste', fn)
+      await vi.advanceTimersByTimeAsync(45_000); agendarResposta('conv-teste', fn)
+      await vi.advanceTimersByTimeAsync(45_000); agendarResposta('conv-teste', fn) // 3a linha aos 90 s
+      await vi.advanceTimersByTimeAsync(119_000)
+      expect(chamadas).toHaveLength(0)
+      await vi.advanceTimersByTimeAsync(1_000)
+      expect(chamadas).toEqual([t0 + 90_000 + 120_000])
+    } finally { vi.useRealTimers() }
+  })
+  it('a resposta trata as linhas acumuladas como uma mensagem só', async () => {
+    const s = montar([V({ resposta: 'Entendi.' })])
+    const { receberMensagem, responderConversa } = await import('./fluxo')
+    await receberMensagem({ jid: JID, texto: 'oi' }, s.deps)
+    await receberMensagem({ jid: JID, texto: 'paguei e não chegou' }, s.deps)
+    const r = await receberMensagem({ jid: JID, texto: 'quero meu dinheiro de volta' }, s.deps)
+    await responderConversa(r.conversa, JID, null, s.deps)
+    // o gatilho de reembolso foi visto no conjunto, e saiu UMA resposta
+    expect(s.enviados).toEqual([TXT.escalada])
+    expect(s.mem.tarefas[0].pergunta).toBe('oi\npaguei e não chegou\nquero meu dinheiro de volta')
   })
 })
 
