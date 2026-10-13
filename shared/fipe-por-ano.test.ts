@@ -83,3 +83,25 @@ describe('dados gerados (fipe-prices.json)', () => {
     }
   })
 })
+
+// Regra do plano GEO: modelo novo so entra com intro propria E preco. Pagina
+// fina vira "rastreada, nao indexada" (aconteceu com 27 URLs em junho).
+describe('modelos novos da prioridade A (13/out)', () => {
+  const NOVOS = [
+    'yamaha-xt-660', 'fiat-grand-siena', 'chevrolet-meriva', 'honda-motos-cg-150',
+    'suzuki-motos-intruder-125', 'suzuki-motos-en-125-yes', 'hyundai-elantra', 'yamaha-ybr-125', 'yamaha-neo-125', 'fiat-linea',
+  ]
+  it('cada um tem intro propria, preco e valor por ano', async () => {
+    const { getModelSeoIntro } = await import('../data/fipe-model-intros')
+    for (const slug of NOVOS) {
+      expect(getModelSeoIntro(slug)?.intro?.length || 0, `${slug} sem intro`).toBeGreaterThan(300)
+      expect(d[slug]?.priceTable?.length || 0, `${slug} sem preco`).toBeGreaterThan(0)
+      expect(d[slug]?.porAno?.length || 0, `${slug} sem valor por ano`).toBeGreaterThan(1)
+    }
+  })
+  it('hub Suzuki tem descricao e intro', async () => {
+    const { getModelSeoIntro } = await import('../data/fipe-model-intros')
+    expect(fipeBrands['suzuki-motos'].description).not.toMatch(/PENDENTE/)
+    expect(getModelSeoIntro('suzuki-motos')?.intro?.length || 0).toBeGreaterThan(300)
+  })
+})
