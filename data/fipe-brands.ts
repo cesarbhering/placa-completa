@@ -1,7 +1,15 @@
 export interface FipeModel {
   slug: string
   name: string
+  /** Versao principal na fipe-api (codigo_modelo): tabela da versao e grafico. */
   fipeCode?: string
+  /**
+   * Outras versoes do mesmo modelo, para o valor por ano (shared/fipe-por-ano.ts).
+   * Sem isto, o "por ano" sai so da versao principal.
+   */
+  fipeCodes?: string[]
+  /** Genero do nome ("a Doblò", "a XT 660"); padrao: masculino em carro, feminino em moto. */
+  genero?: 'm' | 'f'
   years?: string
   /** Texto único de 2-3 parágrafos para evitar páginas templated-demais (SEO). */
   seoIntro?: string
@@ -36,8 +44,8 @@ export const fipeBrands: Record<string, FipeBrand> = {
       { slug: 'voyage', name: 'Voyage' },
       { slug: 'fox', name: 'Fox' },
       { slug: 'up', name: 'Up!', fipeCode: '8702' },
-      { slug: 'jetta', name: 'Jetta' },
-      { slug: 'golf', name: 'Golf' },
+      { slug: 'jetta', name: 'Jetta', fipeCode: '5514', fipeCodes: ['4147', '5512', '5513', '7216', '7493', '7494', '8487', '8488', '8717'] },
+      { slug: 'golf', name: 'Golf', fipeCode: '4006', fipeCodes: ['2438', '2440', '2441', '2446', '4312', '4703', '6797', '6601', '6600', '7462', '8371', '8370'] },
       { slug: 'fusca', name: 'Fusca' },
     ],
   },
@@ -57,7 +65,7 @@ export const fipeBrands: Record<string, FipeBrand> = {
       { slug: 'siena', name: 'Siena' },
       { slug: 'fiorino', name: 'Fiorino' },
       { slug: 'ducato', name: 'Ducato' },
-      { slug: 'doblo', name: 'Doblò' },
+      { slug: 'doblo', name: 'Doblò', fipeCode: '5536', fipeCodes: ['452', '451', '446', '3933', '3935', '4097', '5535'] },
       { slug: '500', name: '500' },
     ],
   },
@@ -88,10 +96,10 @@ export const fipeBrands: Record<string, FipeBrand> = {
       { slug: 'hb20s', name: 'HB20S' },
       { slug: 'creta', name: 'Creta' },
       { slug: 'tucson', name: 'Tucson' },
-      { slug: 'ix35', name: 'ix35' },
+      { slug: 'ix35', name: 'ix35', fipeCode: '5931', fipeCodes: ['5280', '5279', '5932', '7858', '7859'] },
       { slug: 'santa-fe', name: 'Santa Fe' },
       { slug: 'hb20x', name: 'HB20X' },
-      { slug: 'azera', name: 'Azera' },
+      { slug: 'azera', name: 'Azera', fipeCode: '5726', fipeCodes: ['4403'] },
       { slug: 'i30', name: 'i30' },
       { slug: 'veloster', name: 'Veloster' },
     ],
@@ -100,10 +108,10 @@ export const fipeBrands: Record<string, FipeBrand> = {
     slug: 'toyota', name: 'Toyota', fipeCode: '56', type: 'carros',
     description: 'A Toyota é sinônimo de durabilidade e valor de revenda no Brasil. O Corolla é o sedã mais vendido do país, e a Hilux domina o segmento de picapes.',
     models: [
-      { slug: 'corolla', name: 'Corolla' },
+      { slug: 'corolla', name: 'Corolla', fipeCode: '5194', fipeCodes: ['2229', '2230', '2231', '2233', '2234', '2225', '5041', '9300', '8839', '9301', '9985'] },
       { slug: 'corolla-cross', name: 'Corolla Cross' },
       { slug: 'hilux', name: 'Hilux' },
-      { slug: 'hilux-sw4', name: 'Hilux SW4' },
+      { slug: 'hilux-sw4', name: 'Hilux SW4', genero: 'f', fipeCode: '4906', fipeCodes: ['2276', '2277', '3830', '6077', '4907', '7491', '8111', '9662', '10927'] },
       { slug: 'yaris', name: 'Yaris' },
       { slug: 'rav4', name: 'RAV4' },
       { slug: 'etios', name: 'Etios' },
@@ -116,10 +124,10 @@ export const fipeBrands: Record<string, FipeBrand> = {
     slug: 'honda', name: 'Honda', fipeCode: '25', type: 'carros',
     description: 'A Honda é reconhecida pela confiabilidade dos seus motores e alto valor de revenda. O Civic e o HR-V estão entre os veículos mais desejados do mercado brasileiro.',
     models: [
-      { slug: 'civic', name: 'Civic' },
+      { slug: 'civic', name: 'Civic', fipeCode: '4010', fipeCodes: ['1258', '1262', '1263', '1260', '1264', '1265', '4009', '4011', '4292', '5149', '6325', '6326', '7692', '7693', '7694', '7696', '8779', '10366'] },
       { slug: 'hr-v', name: 'HR-V', fipeCode: '7150' },
       { slug: 'city', name: 'City', fipeCode: '4975' },
-      { slug: 'fit', name: 'Fit' },
+      { slug: 'fit', name: 'Fit', fipeCode: '10815', fipeCodes: ['1275', '1276', '1277', '1274', '4799', '5469', '6780', '6781', '8050'] },
       { slug: 'wr-v', name: 'WR-V' },
       { slug: 'cr-v', name: 'CR-V' },
       { slug: 'accord', name: 'Accord' },
@@ -156,7 +164,7 @@ export const fipeBrands: Record<string, FipeBrand> = {
     slug: 'ford', name: 'Ford', fipeCode: '22', type: 'carros',
     description: 'A Ford tem presença histórica no Brasil. Apesar de ter encerrado a produção nacional, modelos como Ka, EcoSport, Ranger e Territory continuam muito procurados no mercado de usados.',
     models: [
-      { slug: 'ka', name: 'Ka' },
+      { slug: 'ka', name: 'Ka', fipeCode: '6915', fipeCodes: ['813', '818', '814', '823', '4514', '4515', '4789', '6914', '6916', '6917', '8149', '8401', '8441', '8442'] },
       { slug: 'ecosport', name: 'EcoSport' },
       { slug: 'ranger', name: 'Ranger' },
       { slug: 'territory', name: 'Territory' },
@@ -286,7 +294,7 @@ export const fipeBrands: Record<string, FipeBrand> = {
       { slug: 'lander', name: 'Lander', fipeCode: '4195' },
       { slug: 'mt-07', name: 'MT-07' },
       { slug: 'mt-09', name: 'MT-09' },
-      { slug: 'tenere', name: 'Ténéré' },
+      { slug: 'tenere', name: 'Ténéré 250', fipeCode: '5442' },
       { slug: 'xtz-150', name: 'XTZ 150' },
       { slug: 'r3', name: 'R3' },
     ],
