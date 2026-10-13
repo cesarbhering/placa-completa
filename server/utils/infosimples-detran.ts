@@ -111,7 +111,12 @@ export const DETRAN_UFS = {
   DF: { path: 'detran/df/debitos', cert: 'govbr_df', gate: 'renainf', fonte: 'detran_df', fonteCusto: 'infosimples_detran_df' },
   // Sem credencial (so placa + renavam). CE R$0,20; PA e AM R$0,24.
   CE: { path: 'detran/ce/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_ce', fonteCusto: 'infosimples_detran_ce' },
-  PA: { path: 'detran/pa/infracoes', cert: 'nenhum', gate: 'renainf', fonte: 'detran_pa', fonteCusto: 'infosimples_detran_pa' },
+  // PA: /veiculo (13/out, decisao do Cesar) no lugar do /infracoes. O /infracoes
+  // dava 620 em veiculo com bloqueio administrativo ("REGISTRO DE ESTELIONATO",
+  // pedido OTX9I55) e so trazia multa; o /veiculo traz multas, IPVA,
+  // licenciamento, situacao e restricoes. R$0,24, ~16 s. timeoutS: pedido do
+  // Cesar (600 s na Infosimples; nosso abort fica 30 s acima).
+  PA: { path: 'detran/pa/veiculo', cert: 'nenhum', gate: 'renainf', fonte: 'detran_pa', fonteCusto: 'infosimples_detran_pa', timeoutS: 600 },
   AM: { path: 'detran/am/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_am', fonteCusto: 'infosimples_detran_am' },
   // PE: e-CNPJ, placa+renavam+chassi (os tres obrigatorios). R$0,28, LENTO (~40s).
   // ES: e-CNPJ, placa+renavam. R$0,28, LENTO (~46s).
@@ -239,7 +244,7 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       // Tempo que a Infosimples tem pra responder. TEM que ser menor que o
       // nosso abort (ABORT_MS): antes era 600 s aqui e 120 s la, e toda UF que
       // passava de 2 min virava 'indisponivel' (incidente 01-03/out).
-      timeout: String(INFOSIMPLES_TIMEOUT_S),
+      timeout: String(cfgUf.timeoutS ?? INFOSIMPLES_TIMEOUT_S),
       ignore_site_receipt: '0',
       // Renavam com 11 digitos (o SENATRAN as vezes manda sem os zeros a esquerda).
       renavam: String(opts.renavam).padStart(11, '0'),
@@ -271,7 +276,7 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
     const res = await fetch(`${BASE}/${opts.path || DETRAN_UFS[opts.uf].path}`, {
       method: 'POST',
       body,
-      signal: AbortSignal.timeout(ABORT_MS),
+      signal: AbortSignal.timeout(cfgUf.timeoutS ? (cfgUf.timeoutS + 30) * 1000 : ABORT_MS),
     })
     const json: any = await res.json().catch(() => ({}))
     const code = Number(json?.code || res.status || 0)
@@ -1189,12 +1194,77 @@ export function parsearDetranCe(data: any) {
   return blocoSoMultas('detran_ce', itens, { multas_em_recurso: judice })
 }
 
-/** DETRAN-PA (/detran/pa/infracoes): a vencer + vencidas somam; efeito suspensivo = em recurso. */
+/** Tipo da restricao do DETRAN pelo texto (rotulo no relatorio: rotuloRestricao). */
+function tipoRestricaoTexto(t: string): string {
+  if (/furto|roubo/i.test(t)) return 'furto'
+  if (/judic/i.test(t)) return 'judiciaria'
+  if (/aliena|financ|arrend|reserva\s+de\s+dom/i.test(t)) return 'financeira'
+  if (/tribut/i.test(t)) return 'tributaria'
+  if (/administr/i.test(t)) return 'administrativa'
+  return 'restricao'
+}
+
+/** "01/11/202202:40" (sem espaco, como o DETRAN-PA manda) ou "01/11/2022 02:40". */
+function dataHoraColada(s: any): { data: string | null; hora: string | null } {
+  const m = String(s ?? '').match(/(\d{2}\/\d{2}\/\d{4})\s*(\d{2}:\d{2})?/)
+  return { data: m ? m[1] : null, hora: m && m[2] ? m[2] : null }
+}
+
+/**
+ * DETRAN-PA (/detran/pa/veiculo): infracoes[] (auto, orgao, municipio, local,
+ * data_hora, normalizado_valor; status so filtra as pagas), IPVA em aberto
+ * (normalizado_valor_ipva, sem exercicio), ano e situacao do licenciamento,
+ * situacao do veiculo (ex. "REGISTRO DE ESTELIONATO NA BASE DETRAN") e
+ * restricoes[]. Nunca le nome, numero_motor nem site_receipt. pontos_gravidade
+ * fica de fora (CAMPOS_MULTA_PERMITIDOS, decisao do Cesar de 01/out). Formato nao
+ * reconhecido -> null (vira 'indisponivel' e so as chaves vao pro log).
+ */
 export function parsearDetranPa(data: any) {
   const d = data || {}
-  const itens = [...listaDe(d.infracoes_vencidas), ...listaDe(d.infracoes_a_vencer)].map(multaGenerica)
-  const susp = listaDe(d.infracoes_efeito_suspensivo).map(multaGenerica)
-  return blocoSoMultas('detran_pa', itens, { multas_em_recurso: susp })
+  if (!('infracoes' in d) && !('situacao' in d) && !('valor_ipva' in d) && !('normalizado_valor_ipva' in d)) return null
+  const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t && t !== '--' ? t : null }
+  const emAberto = listaDe(d.infracoes).filter((m) => !/\bpago\b|quitad|cancelad/i.test(String(m.status || '')))
+  const itens = emAberto.map((m) => {
+    const { data: dataInfracao, hora } = dataHoraColada(m.data_hora ?? m.data_infracao)
+    const valor = typeof m.normalizado_valor === 'number' ? m.normalizado_valor : moeda(m.valor)
+    return {
+      auto: texto(m.auto_infracao ?? m.auto),
+      orgao: texto(m.orgao_autuador ?? m.orgao),
+      municipio: texto(m.municipio),
+      descricao: texto(m.descricao),
+      local: texto(m.local),
+      dataInfracao,
+      horaInfracao: hora,
+      dataVencimento: null as string | null,
+      valor,
+    }
+  })
+  const ipva = typeof d.normalizado_valor_ipva === 'number' ? d.normalizado_valor_ipva : moeda(d.valor_ipva)
+  const ipvaCent = Math.round((ipva || 0) * 100)
+  const licAno = anoDe(d.ano_licenciamento)
+  const atrasado = /atrasad|vencid|pendente/i.test(String(d.situacao_licenciamento || ''))
+  const restricoes: { tipo: string; texto: string }[] = []
+  const situacao = texto(d.situacao)
+  if (situacao && !/^(normal|regular|em circula[cç][aã]o|ativo|nada consta)$/i.test(situacao)) {
+    restricoes.push({ tipo: 'situacao', texto: situacao.slice(0, 120) })
+  }
+  for (const r of (Array.isArray(d.restricoes) ? d.restricoes : [])) {
+    const t = texto(r)
+    if (t && !/^(nada consta|nenhuma?|sem restri[cç][aã]o)/i.test(t)) restricoes.push({ tipo: tipoRestricaoTexto(t), texto: t.slice(0, 120) })
+  }
+  const seguro = texto(d.seguro)
+  if (seguro && !/pago|isent|nada consta/i.test(seguro) && moeda(seguro) > 0) {
+    restricoes.push({ tipo: 'outros_debitos', texto: `Seguro obrigatório em aberto: ${brlTexto(moeda(seguro))}` })
+  }
+  return {
+    ...blocoSoMultas('detran_pa', itens),
+    ipva_total_centavos: ipvaCent,
+    ipva_itens: ipvaCent > 0 ? [{ ano: null, vencimento: null, valor_centavos: ipvaCent }] as IpvaItem[] : [] as IpvaItem[],
+    ultimo_licenciamento_ano: licAno,
+    licenciamento_atrasado_ano: atrasado ? licAno : null,
+    alerta_roubo_furto: situacao && /furto|roubo/i.test(situacao) ? 'Restrição informada pelo DETRAN-PA: roubo/furto' : null,
+    restricoes_detran: restricoes,
+  }
 }
 
 /**
