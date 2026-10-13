@@ -1,3 +1,4 @@
+import { emVoo } from './tarefas-em-voo'
 import { consultarDetranInfosimples, registrarCusto, placaParaDetran, detalheDaRecusa, estruturaChaves, logIndisponivel, type UfDetran } from './infosimples-detran'
 import { renavamDaResposta, ufDaResposta } from './detran-multas'
 
@@ -164,5 +165,5 @@ export async function completarRenajud(
 
 /** Pos-entrega: solto, nunca segura nem quebra a entrega. */
 export function completarRenajudDepois(supabase: any, pedido: { id: string; placa: string }, ctx: { response: any }): void {
-  void completarRenajud(supabase, pedido, ctx).catch(() => {})
+  void emVoo('renajud', () => completarRenajud(supabase, pedido, ctx).catch(() => {}))
 }
