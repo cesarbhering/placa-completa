@@ -33,6 +33,9 @@ export const useAppMode = () => {
   const isPWA = ref(false)
   const isMobile = ref(false)
   const isCapacitor = ref(false)
+  // App Android ANTIGO (TWA): abre com referrer android-app://. O referrer some
+  // na navegacao interna, entao a marca fica na sessao.
+  const isTWA = ref(false)
 
   function detectarCapacitor(): boolean {
     if (!noNavegador()) return false
@@ -60,6 +63,12 @@ export const useAppMode = () => {
     // This runs during composable initialization, before onMounted
     isMobile.value = window.matchMedia('(max-width: 768px)').matches
     isCapacitor.value = detectarCapacitor()
+    try {
+      if (document.referrer.includes('android-app://')) sessionStorage.setItem('pc_twa', '1')
+      isTWA.value = !isCapacitor.value && sessionStorage.getItem('pc_twa') === '1'
+    } catch {
+      isTWA.value = !isCapacitor.value && document.referrer.includes('android-app://')
+    }
 
     isPWA.value = isCapacitor.value ||
                   window.matchMedia('(display-mode: standalone)').matches ||
@@ -88,7 +97,7 @@ export const useAppMode = () => {
       // junto, senao a tela ficaria meio no fluxo do app e meio no do site.
       if (!isCapacitor.value) {
         isCapacitor.value = detectarCapacitor()
-        if (isCapacitor.value) isPWA.value = true
+        if (isCapacitor.value) { isPWA.value = true; isTWA.value = false }
       }
 
       mediaQuery.addEventListener('change', updatePWA)
@@ -100,10 +109,19 @@ export const useAppMode = () => {
   // usa isCapacitor, nunca isto — o TWA antigo continua no Pix.
   const isApp = computed(() => isPWA.value || isCapacitor.value)
 
+  /**
+   * Fluxo antigo da home (pede e-mail, resultado numa janela, sem oferta): so
+   * o TWA antigo da Play. O app novo (Capacitor) usa o bloco do site com
+   * Google Play; o PWA instalado pelo navegador e o proprio site, com Pix.
+   */
+  const fluxoLegado = computed(() => isTWA.value && !isCapacitor.value)
+
   return {
     isPWA,
     isMobile,
     isCapacitor,
     isApp,
+    isTWA,
+    fluxoLegado,
   }
 }

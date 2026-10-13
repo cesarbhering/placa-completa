@@ -2,7 +2,7 @@
 import { SAME_AS } from '~/shared/redes-sociais'
 import { BASE_LEILAO_QTD, BASE_LEILAO_TEXTO, BASE_LEILAO_TEXTO_INICIO } from '~/shared/base-leilao'
 import { cederAoNavegador } from '~/shared/ceder'
-import { PLANOS, PLANOS_PAGOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, isPlanoPago, precoBRL, precoDePromocao } from '~/shared/planos'
+import { PLANOS, PLANOS_PAGOS, RECURSOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, inclui, isPlanoPago, precoBRL, precoDePromocao, type PlanoId } from '~/shared/planos'
 import { sinalDaResposta, fraseSinalNaTela, type SinalNaTela } from '~/shared/sinal-leilao-resposta'
 import { sinalRecallDaResposta, fraseRecallNaTela } from '~/shared/sinal-recall-resposta'
 import { marcaTemRecallGratis, marcaParaMedicao } from '~/shared/marcas-recall'
@@ -23,7 +23,7 @@ import { decidirVariante, fipeSemCentavos, tituloVarianteB, subVarianteB, garant
 // reaproveitada, sem remount, sem flicker, sem consulta dupla.
 definePageMeta({ key: () => 'home' })
 
-const { isPWA, isMobile, isCapacitor } = useAppMode()
+const { isPWA, isMobile, isCapacitor, fluxoLegado } = useAppMode()
 // Dentro do app Android so existem dois caminhos: a consulta gratis e o
 // relatorio completo pela loja. A basica nao e vendida la (a loja cobra um
 // produto so) e a palavra Pix nao pode aparecer, porque nao e assim que se
@@ -48,6 +48,25 @@ const placaDaRota = computed(() => {
 const planosComparados = computed(() => (
   isCapacitor.value ? [PLANOS.gratis, PLANOS.completa] : [PLANOS.gratis, PLANOS.basica, PLANOS.completa]
 ))
+// App (Google Play): so a completa e paga. O card dela mostra tudo alem da
+// gratis (nao existe a basica no app pra "herdar"), e a FAQ fala do Play, nao
+// de Pix/cartao; no app o reembolso sai pelo Play Console, nao e automatico.
+function anteriorNaTela(id: PlanoId): PlanoId | undefined {
+  return isCapacitor.value && id === 'completa' ? 'gratis' : PLANO_ANTERIOR[id]
+}
+function recursosNaTela(id: PlanoId) {
+  return isCapacitor.value && id === 'completa'
+    ? RECURSOS.filter((r) => inclui(r, 'completa') && !inclui(r, 'gratis'))
+    : recursosNovosNoPlano(id)
+}
+const FAQ_APP: Record<string, string> = {
+  'Quais as formas de pagamento?': 'No app, o pagamento é pelo Google Play, em pagamento único e sem assinatura. Assim que a compra é confirmada, o relatório libera sozinho.',
+  'E se vocês não acharem o veículo?': 'A gente devolve o valor. Nas compras pelo app, o reembolso é feito pelo Google Play.',
+  'Consigo consultar um veículo antigo?': 'Na maioria dos casos, sim. Veículos muito antigos podem ter registro incompleto, porque o cadastro nacional é mais recente do que eles. Se não acharmos o veículo, a gente devolve o valor.',
+}
+const faqsNaTela = computed(() => isCapacitor.value
+  ? homepageFaqs.map((f) => (FAQ_APP[f.question] ? { ...f, answer: FAQ_APP[f.question] } : f))
+  : homepageFaqs)
 const appIntent = computed(() => route.query.app === '1' && !isPWA.value)
 
 // Volta do relatorio basico querendo o upgrade: /?placa=ABC1D23&plano=completa
@@ -686,7 +705,7 @@ const consultaStage = ref('')
 let stageTimer: ReturnType<typeof setInterval> | null = null
 
 function computeStages(): string[] {
-  if (isPWA.value) {
+  if (fluxoLegado.value) {
     return [
       'Consultando placa no banco de dados...',
       'Buscando preço na tabela FIPE...',
@@ -748,7 +767,7 @@ const allVehicleData = computed(() => {
 
   // PWA: Show full chassis from extra if available, fallback to obfuscated
   // Web: Always show obfuscated chassis
-  const chassiValue = isPWA.value
+  const chassiValue = fluxoLegado.value
     ? (extra.chassi || data.chassi || '-')
     : (data.chassi || '-')
 
@@ -878,7 +897,7 @@ useSchemaOrg([
 ])
 
 onMounted(async () => {
-  if (isPWA.value) {
+  if (fluxoLegado.value) {
     // For PWA, load persistent email
     const savedPwaEmail = localStorage.getItem('pwa_email')
     if (savedPwaEmail) {
@@ -1139,7 +1158,7 @@ async function handleSubmit() {
   message.value = ''
 
   // PWA: Request push notification permission on first submit
-  if (isPWA.value && !permissionRequested.value) {
+  if (fluxoLegado.value && !permissionRequested.value) {
     permissionRequested.value = true
     localStorage.setItem('pwa_permission_requested', 'true')
 
@@ -1161,7 +1180,7 @@ async function handleSubmit() {
   }
   
   // In PWA mode, check if email is stored, if not prompt for it
-  if (isPWA.value && !email.value) {
+  if (fluxoLegado.value && !email.value) {
     showPwaEmailPrompt.value = true
     return
   }
@@ -1171,7 +1190,7 @@ async function handleSubmit() {
   // confirmar destinatario e a validacao de e-mail/telefone. O PWA segue com o
   // fluxo antigo (acima), porque la o e-mail ja e do proprio app.
 
-  if (!isPWA.value) {
+  if (!fluxoLegado.value) {
     if (channel.value === 'whatsapp') {
       localStorage.setItem('pc_phone', phone.value)
       localStorage.setItem('pc_channel', 'whatsapp')
@@ -1182,7 +1201,7 @@ async function handleSubmit() {
   }
   // Chegou aqui por um CTA pago (clicou em comprar sem ter placa): a placa
   // agora existe, entao o destino e o checkout, nao a consulta gratis.
-  if (aguardandoPlacaPaga.value && !isPWA.value) {
+  if (aguardandoPlacaPaga.value && !fluxoLegado.value) {
     aguardandoPlacaPaga.value = false
     premiumPlaca.value = placa.value
     showPremiumCheckout.value = true
@@ -1199,11 +1218,11 @@ async function handleSubmit() {
       method: 'POST',
       body: {
         // Web: canal 'tela', sem destinatario. PWA mantem o e-mail do app.
-        email: isPWA.value ? email.value : null,
+        email: fluxoLegado.value ? email.value : null,
         phone: null,
-        channel: isPWA.value ? 'email' : 'tela',
+        channel: fluxoLegado.value ? 'email' : 'tela',
         placa: placa.value,
-        isPWA: isPWA.value,
+        isPWA: fluxoLegado.value,
         includeFipeChart: includeFipeChart.value,
         includeIcv5: includeIcv5.value,
         icv5Uf: icv5Uf.value,
@@ -1212,7 +1231,7 @@ async function handleSubmit() {
       },
     })
 
-    if (isPWA.value) {
+    if (fluxoLegado.value) {
       // Show modal with data in PWA mode
       pwaFipeHistory.value = result.fipeHistory || null
       vehicleData.value = result.data || {
@@ -1289,7 +1308,7 @@ async function handleSubmit() {
 
 function applyEmailSuggestion() {
   if (!emailSuggestion.value) return
-  if (isPWA.value) {
+  if (fluxoLegado.value) {
     pwaEmail.value = emailSuggestion.value
   }
   email.value = emailSuggestion.value
@@ -1300,13 +1319,13 @@ function applyEmailSuggestion() {
 </script>
 
 <template>
-  <main class="desktop" :class="{ 'desktop--hero-web': !isPWA, 'home-v2': !isPWA }">
+  <main class="desktop" :class="{ 'desktop--hero-web': !fluxoLegado, 'home-v2': !fluxoLegado }">
     <span id="top" class="anchor-top" aria-hidden="true" />
 
     <!-- =======================================================
          WEB (combo 3): herói acolhedor + editorial. PWA intacto abaixo.
          ======================================================= -->
-    <template v-if="!isPWA">
+    <template v-if="!fluxoLegado">
       <!-- nav full-bleed; o header para na coluna do %wrap -->
       <div class="cb-navband" :class="{ 'cb-navband--oculto': headerRecolhido }">
         <HomeHeader
@@ -1488,6 +1507,7 @@ function applyEmailSuggestion() {
           :so-notificacao="soNotificacao"
           :preco-completa="precoBRL(PLANOS.completa.valorCentavos)"
           :preco-basica="precoBRL(PLANOS.basica.valorCentavos)"
+          :app="isCapacitor"
           :frase-recall="fraseRecall"
           :frase-leilao="fraseSinalLeilao"
           @comprar="(origem) => cliqueCtaCompleta(origem || 'layout_a')"
@@ -1796,8 +1816,8 @@ function applyEmailSuggestion() {
            que o servidor usa pra cobrar e filtrar os campos do relatorio. -->
       <section id="o-que-inclui" class="cb-compare">
         <div class="cb-cmp-head">
-          <h2>Três formas de olhar a placa</h2>
-          <p>A grátis diz o que é o carro. A básica prova quem ele é.</p>
+          <h2>{{ isCapacitor ? 'Duas formas de olhar a placa' : 'Três formas de olhar a placa' }}</h2>
+          <p>{{ isCapacitor ? 'A grátis diz o que é o carro.' : 'A grátis diz o que é o carro. A básica prova quem ele é.' }}</p>
           <p style="font-weight: 700;">A completa diz se dá pra confiar.</p>
         </div>
         <div class="cb-cmp-grid">
@@ -1824,12 +1844,12 @@ function applyEmailSuggestion() {
                  o anterior e sempre "Consulta ..." (feminino), entao "da"
                  fixo funciona pros dois casos sem precisar de logica de
                  genero — nunca ha "do relatório" aqui. -->
-            <span v-if="PLANO_ANTERIOR[p.id]" class="cb-cmp-heranca">
-              Tudo da {{ PLANOS[PLANO_ANTERIOR[p.id]].nome.toLowerCase() }}, e mais:
+            <span v-if="anteriorNaTela(p.id)" class="cb-cmp-heranca">
+              Tudo da {{ PLANOS[anteriorNaTela(p.id)!].nome.toLowerCase() }}, e mais:
             </span>
 
             <ul class="cb-cmp-list">
-              <li v-for="r in recursosNovosNoPlano(p.id)" :key="r.label">
+              <li v-for="r in recursosNaTela(p.id)" :key="r.label">
                 <svg class="cb-ico cb-ico--yes" viewBox="0 0 20 20" aria-hidden="true">
                   <circle cx="10" cy="10" r="9" fill="none" stroke="currentColor" stroke-width="1.5" />
                   <path d="M6 10.2l2.6 2.6L14 7.4" fill="none" stroke="currentColor" stroke-width="2"
@@ -1960,9 +1980,9 @@ function applyEmailSuggestion() {
           </div>
           <div class="cb-guar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-            Não achou o veículo? O valor volta automático, no Pix ou no cartão.
+            {{ isCapacitor ? 'Não achou o veículo? A gente devolve o valor.' : 'Não achou o veículo? O valor volta automático, no Pix ou no cartão.' }}
           </div>
-          <div class="cb-cta-sub">Pix ou cartão · na hora · sem cadastro</div>
+          <div class="cb-cta-sub">{{ isCapacitor ? 'Pagamento pelo Google Play · na hora · sem cadastro' : 'Pix ou cartão · na hora · sem cadastro' }}</div>
         </div>
       </section>
 
@@ -1971,7 +1991,7 @@ function applyEmailSuggestion() {
       <section id="duvidas" class="cb-faq" aria-labelledby="faq-heading">
         <h2 id="faq-heading">Perguntas diretas</h2>
         <article
-          v-for="(faq, index) in homepageFaqs"
+          v-for="(faq, index) in faqsNaTela"
           :key="faq.question"
           class="cb-qa"
           :class="{ 'cb-qa--open': openFaq === index }"
@@ -1995,7 +2015,7 @@ function applyEmailSuggestion() {
       <!-- ===== CTA FINAL ===== -->
       <section class="cb-final">
         <h2>Antes de fechar negócio, olhe a placa.</h2>
-        <p>O que o vendedor não conta, o relatório revela. Na hora, no Pix ou no cartão.</p>
+        <p>O que o vendedor não conta, o relatório revela. {{ isCapacitor ? 'Na hora, pelo Google Play.' : 'Na hora, no Pix ou no cartão.' }}</p>
         <button type="button" class="cb-btn cb-btn--on-slab cb-btn--lg" @click="consultFromGrid('completa')">
           Ver relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
         </button>
