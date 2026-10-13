@@ -261,6 +261,121 @@ Na FIPE, a Toro tem depreciação típica de picape brasileira: moderada nos pri
 Na FIPE, o Santa Fe depreciou em ritmo acima da média de SUVs equivalentes — efeito de custo de manutenção alto e peças importadas. A versão 3.3 V6 com sete lugares e tração 4WD vale entre 25% e 30% mais que a 2.4 base equivalente. Consultar pela placa é importante para confirmar configuração de tração (4x2 vs 4WD) e número de lugares (5 ou 7), que impactam fortemente FIPE.`,
     related: [],
   },
+
+  // GEO prioridade A (seo, 13/out/2026): modelos novos e existentes sem texto.
+  'yamaha-xt-660': {
+    intro: `A Yamaha XT 660 é uma trail de médio porte com motor monocilíndrico de 660 cc, injeção eletrônica e refrigeração líquida. No Brasil a versão mais comum é a XT 660R, montada em Manaus a partir de 2005, voltada ao uso misto entre asfalto e terra. A irmã XT 660Z Ténéré, de perfil mais aventureiro, chegou importada e é bem menos frequente no mercado de usados.
+
+No mercado de seminovos a XT 660 mantém procura constante, em geral por quem busca uma moto de viagem com manutenção simples. Pela placa, a consulta confirma ano, versão e cor, e traz o valor da Tabela FIPE do modelo, além de indicadores como histórico de leilão, que podem ajudar na hora de negociar.`,
+    related: ['yamaha-tenere', 'yamaha-xtz-150', 'yamaha-lander'],
+  },
+  'fiat-grand-siena': {
+    intro: `O Fiat Grand Siena é um sedã compacto lançado em 2012 como evolução do Siena, com porta-malas amplo para a categoria e foco em frotas, aplicativos e famílias. Foi produzido em Betim (MG) até 2021 e ofereceu motores flex 1.4 e 1.6, este com câmbio automatizado Dualogic em algumas versões, além de acabamentos como Attractive, Essence e Tetrafuel.
+
+Por ter circulado muito em frota e uso intenso, o mercado de usados do Grand Siena tem muita oferta e preços que variam bastante conforme quilometragem e versão. Consultar a placa ajuda a confirmar ano e versão reais e a ver o valor na Tabela FIPE, além de indicadores como histórico de leilão que o veículo pode ter.`,
+    related: ['fiat-siena', 'fiat-palio', 'fiat-cronos'],
+  },
+  'chevrolet-meriva': {
+    intro: `A Chevrolet Meriva foi uma minivan compacta fabricada no Brasil de 2002 a 2012, conhecida pelo painel alto, bancos flexíveis e porta-malas generoso. Teve motores 1.4 e 1.8 flex da linha Econoflex e FlexPower, com opção de câmbio automatizado Easytronic nas versões mais equipadas, e ganhou facelift em 2008.
+
+Hoje a Meriva é um usado de baixo valor de mercado e muita oferta, procurado por famílias e motoristas de aplicativo. Como são carros com mais de dez anos de uso, vale conferir pela placa o ano real, a cor, o histórico de leilão como indicador e o valor da Tabela FIPE antes de fechar negócio.`,
+    related: ['chevrolet-celta', 'chevrolet-corsa', 'chevrolet-spin'],
+  },
+  'honda-motos-cg-150': {
+    intro: `A Honda CG 150 foi lançada em 2004 e substituiu a CG 125 como a moto de entrada mais vendida do país, nas versões Titan, Fan, Job e Sport. Usa motor monocilíndrico de 149 cc refrigerado a ar, com partida elétrica e, a partir de 2009, versões flex (Mix). Foi vendida até 2016, quando a CG 160 assumiu a linha.
+
+No mercado de usados é uma das motos mais negociadas, com peças baratas e manutenção simples, mas com muita variação de estado entre unidades usadas em trabalho. Consultar a placa ajuda a confirmar ano e versão e a ver o valor na Tabela FIPE, além de indicadores como histórico de leilão.`,
+    related: ['honda-motos-cg-160', 'honda-motos-biz', 'honda-motos-pop-110'],
+  },
+  'suzuki-motos-intruder-125': {
+    intro: `A Suzuki Intruder 125 é uma custom de baixa cilindrada, com motor monocilíndrico de 125 cc refrigerado a ar, posição de pilotagem baixa e visual inspirado nas cruisers maiores. Foi vendida no Brasil de 2002 a 2016 e tornou-se a porta de entrada para quem queria uma moto de estilo custom com custo de manutenção reduzido.
+
+No mercado de usados é um modelo de nicho, mas com procura estável por seu estilo e pelo baixo consumo. Pela placa, o interessado confirma ano, cor e versão, vê o valor na Tabela FIPE e pode checar indicadores como histórico de leilão antes de comprar.`,
+    related: ['yamaha-ybr-125', 'honda-motos-cg-150'],
+  },
+  'hyundai-elantra': {
+    intro: `O Hyundai Elantra é um sedã médio importado da Coreia do Sul, vendido no Brasil desde o início dos anos 2000 e conhecido pelo bom nível de equipamentos. As gerações mais comuns nos usados são a que circulou na virada da década de 2010, com motor 2.0 flex e câmbio automático, e a mais recente, a partir de 2016, com visual renovado.
+
+Por ser importado, o mercado de usados é menor que o dos concorrentes de marca com produção nacional, e a procura costuma vir de quem busca um sedã bem equipado. Consultar a placa confirma ano, versão e cor, e mostra o valor da Tabela FIPE e indicadores como histórico de leilão.`,
+    related: ['hyundai-i30', 'hyundai-tucson', 'hyundai-azera'],
+  },
+  'yamaha-ybr-125': {
+    intro: `A Yamaha YBR 125 é uma street de entrada com motor monocilíndrico de 125 cc, refrigerado a ar, produzida em Manaus a partir dos anos 2000. Ficou conhecida pelas versões E, ED e K, que se diferenciam por freio a tambor ou disco, e rodas de liga ou raios, e mais tarde foi complementada pela Factor 125.
+
+Muito usada para trabalho e deslocamento diário, tem mercado de usados amplo e preços sensíveis ao estado de conservação e à quilometragem. Pela placa, dá para confirmar ano, versão e cor, ver o valor na Tabela FIPE e checar indicadores como histórico de leilão.`,
+    related: ['yamaha-factor', 'yamaha-neo-125', 'honda-motos-cg-150'],
+  },
+  'yamaha-neo-125': {
+    intro: `A Yamaha Neo 125 é uma scooter urbana lançada no Brasil em 2017, com motor de 125 cc, transmissão automática CVT e produção em Manaus. Tem porte compacto, assento baixo e porta-objetos sob o banco, características que a tornaram popular em cidades grandes.
+
+No mercado de usados, a Neo 125 atrai quem busca praticidade e baixo consumo, sem precisar trocar marchas. Consultar a placa ajuda a confirmar ano, versão e cor e a ver o valor na Tabela FIPE, além de indicadores como histórico de leilão.`,
+    related: ['yamaha-nmax', 'yamaha-ybr-125'],
+  },
+  'fiat-linea': {
+    intro: `O Fiat Linea é um sedã médio lançado no Brasil em 2008, com porta-malas grande e boa lista de equipamentos para a época. Teve motor 1.8 E.torQ flex, além da versão 1.9 e, depois, da 1.4 T-Jet turbo, mais esportiva, com câmbio manual ou automatizado Dualogic. Foi vendido até 2016.
+
+Nos usados, o Linea é visto como alternativa mais barata aos sedãs médios dos concorrentes, com forte oferta e preços que variam conforme motor e quilometragem. Pela placa, dá para confirmar ano, versão e cor, ver o valor na Tabela FIPE e checar indicadores como histórico de leilão.`,
+    related: ['fiat-cronos', 'fiat-siena', 'fiat-palio'],
+  },
+  'toyota-corolla': {
+    intro: `O Toyota Corolla é o sedã médio mais vendido do Brasil, produzido em Indaiatuba (SP) desde 1998. As gerações mais negociadas nos usados são a de 2003 a 2008, a de 2009 a 2014 com motores 1.8 e 2.0 flex, a de 2015 a 2019 com a plataforma atual, e a de 2020 em diante, que trouxe a versão híbrida ao país.
+
+A fama de durabilidade e revenda forte faz do Corolla um dos usados mais procurados em todas as faixas de ano. Pela placa, o interessado confirma ano e versão reais, vê o valor da Tabela FIPE e pode checar indicadores como histórico de leilão antes de comprar.`,
+    related: ['toyota-etios', 'toyota-yaris', 'honda-civic'],
+  },
+  'hyundai-ix35': {
+    intro: `O Hyundai ix35 é um SUV médio vendido no Brasil a partir de 2010, com motor 2.0 flex e câmbio automático de seis marchas, tração dianteira ou 4x4 em algumas versões. Substituiu o Tucson da geração anterior e logo ganhou espaço entre as famílias por espaço interno, equipamentos e preço abaixo dos rivais japoneses.
+
+No mercado de usados, é um SUV com boa oferta e valor que cai de forma estável com a idade. Consultar a placa ajuda a confirmar ano, versão e cor e a ver o valor na Tabela FIPE, além de indicadores como histórico de leilão.`,
+    related: ['hyundai-tucson', 'hyundai-creta', 'hyundai-santa-fe'],
+  },
+  'ford-ka': {
+    intro: `O Ford Ka passou por três gerações no Brasil. A primeira, de 1997 a 2008, ficou famosa pelo motor 1.0 Zetec Rocam e pela proposta de carro pequeno com personalidade. A segunda, de 2008 a 2014, foi desenhada de forma mais convencional e usou motores 1.0 e 1.6 flex. A terceira, de 2014 a 2021, trouxe o 1.0 de três cilindros e a versão sedã Ka+.
+
+Por ser um dos hatches pequenos mais vendidos, o Ka tem enorme oferta no mercado de usados, com preços muito diferentes de uma geração para outra. Pela placa, é possível confirmar ano, versão e cor, ver o valor da Tabela FIPE e checar indicadores como histórico de leilão.`,
+    related: ['ford-fiesta', 'ford-ecosport', 'ford-fusion'],
+  },
+  'hyundai-azera': {
+    intro: `O Hyundai Azera é um sedã grande, voltado ao conforto, importado da Coreia do Sul e vendido no Brasil a partir de 2007. A primeira geração usava motor V6 3.3 com câmbio automático, e a segunda, vendida a partir de 2011, passou ao V6 3.0, com visual mais moderno e mais itens de série, como teto solar e bancos com ajustes elétricos.
+
+No mercado de usados, o Azera é um modelo de nicho com poucas unidades e valor que cai de forma acentuada nos primeiros anos. Consultar a placa ajuda a confirmar geração, ano e versão e a ver o valor na Tabela FIPE, além de indicadores como histórico de leilão.`,
+    related: ['hyundai-i30', 'hyundai-elantra', 'hyundai-ix35'],
+  },
+  'honda-fit': {
+    intro: `O Honda Fit é um hatch compacto conhecido pelo espaço interno e pela versatilidade dos bancos. No Brasil foi produzido em Sumaré (SP) em três gerações: a primeira, a partir de 2003, a segunda, de 2009 a 2014, e a terceira, de 2015 a 2021, com motores 1.4 e 1.5 flex e câmbio manual ou automático.
+
+Por sua fama de confiabilidade, o Fit mantém boa revenda e é um dos hatches mais procurados nos usados, inclusive por motoristas de aplicativo. Pela placa, dá para confirmar ano, versão e cor, ver o valor da Tabela FIPE e checar indicadores como histórico de leilão.`,
+    related: ['honda-city', 'honda-civic', 'honda-wr-v'],
+  },
+  'fiat-doblo': {
+    intro: `O Fiat Doblò é uma minivan compacta lançada no Brasil em 2001, com porta-malas grande, versões de cinco ou sete lugares e opção utilitária, a Doblò Cargo. Teve motores 1.3 e 1.4 Fire e 1.8 flex, e a versão Adventure ganhou acabamento aventureiro. Recebeu atualização visual em 2010.
+
+No mercado de usados, o Doblò é muito procurado por famílias numerosas e pequenos negócios, com oferta ampla e preços que variam conforme versão e uso. Pela placa, é possível confirmar ano e versão, ver o valor na Tabela FIPE e checar indicadores como histórico de leilão.`,
+    related: ['fiat-fiorino', 'fiat-strada', 'fiat-palio'],
+  },
+  'toyota-hilux-sw4': {
+    intro: `A Toyota Hilux SW4 é um SUV derivado da picape Hilux, de sete lugares, tração 4x4 e foco em uso misto entre estrada e off-road. É produzida em Sorocaba (SP) e teve duas gerações recentes no Brasil: a de 2005 a 2015, com motores 3.0 a diesel e 2.7 flex, e a de 2016 em diante, com motor 2.8 turbodiesel.
+
+Pela robustez e revenda forte, a SW4 mantém valor alto entre os usados. Consultar a placa ajuda a confirmar ano, versão e cor, ver o valor na Tabela FIPE e checar indicadores como histórico de leilão antes de fechar negócio.`,
+    related: ['toyota-hilux', 'toyota-corolla-cross', 'mitsubishi-pajero-sport'],
+  },
+  'yamaha-tenere': {
+    intro: `A Yamaha XTZ 250 Ténéré é uma trail de entrada produzida em Manaus, com motor monocilíndrico de 250 cc refrigerado a ar, injeção eletrônica e suspensão de longo curso. Foi vendida a partir de 2011 e tem proposta mais aventureira que a Lander, com visual inspirado na linha Ténéré maior.
+
+No mercado de usados, é uma opção de moto para viagem com custo de manutenção moderado e boa procura. Pela placa, o interessado confirma ano e versão, vê o valor na Tabela FIPE e pode checar indicadores como histórico de leilão.`,
+    related: ['yamaha-lander', 'yamaha-xtz-150', 'yamaha-xt-660'],
+  },
+  'suzuki-motos-en-125-yes': {
+    intro: `A Suzuki EN 125 Yes é uma street de entrada com motor monocilíndrico de 125 cc refrigerado a ar, quadro simples e visual clássico. Foi vendida no Brasil a partir de meados dos anos 2000 e depois ganhou a versão Yes SE, com acabamento atualizado, que seguiu à venda até 2016. É um modelo pensado para uso urbano e trabalho, com consumo baixo e manutenção simples.
+
+No mercado de usados, a Yes tem oferta moderada e preços que dependem muito do estado e da quilometragem. Pela placa, o interessado confirma ano, versão e cor, vê o valor na Tabela FIPE e pode checar indicadores como histórico de leilão antes de comprar.`,
+    related: ['suzuki-motos-intruder-125', 'yamaha-ybr-125', 'honda-motos-cg-150'],
+  },
+  'suzuki-motos': {
+    intro: `A Suzuki é uma fabricante japonesa de motos com presença antiga no Brasil. Na linha de baixa cilindrada, modelos como a Intruder 125, de estilo custom, e a EN 125 Yes, uma street de entrada, formaram a base de usados da marca no país, com motores de um cilindro refrigerados a ar e manutenção simples.
+
+A marca tem um mercado de usados menor que o de Honda e Yamaha, o que torna a pesquisa de valor mais importante: com menos anúncios para comparar, a Tabela FIPE serve de referência. Ao consultar a placa de uma moto Suzuki, você vê modelo, ano e valor FIPE e pode checar indicadores como histórico de leilão.`,
+  },
 }
 
 export function getModelSeoIntro(slug: string): ModelSeoData | null {
