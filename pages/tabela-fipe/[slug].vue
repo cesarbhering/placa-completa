@@ -5,7 +5,8 @@ import { fipeBrands, findBrandModel } from '~/data/fipe-brands'
 import { enriquecimentoDe } from '~/shared/fipe-enriquecimento'
 import { MODELOS_LEILAO } from '~/shared/leilao-modelos'
 import { getModelSeoIntro } from '~/data/fipe-model-intros'
-import { brl, faixaGeral, fraseAno, rotuloAno, sujeitoModelo, type ValorAno } from '~/shared/fipe-por-ano'
+import { fraseAno, rotuloAno, sujeitoModelo, type ValorAno } from '~/shared/fipe-por-ano'
+import { aberturaMarca, aberturaModelo, faixaDoModelo, h1Marca, h1Modelo } from '~/shared/frases-abertura'
 import fipePricesData from '~/data/fipe-prices.json'
 import seguroModelosData from '~/data/seguro-modelos.json'
 
@@ -56,14 +57,19 @@ const fipeModelName = computed(() => fipeData?.modelName || '')
 // So mostra quando ha mais de um ano: com um ano so, a tabela da versao ja diz tudo.
 const porAno = computed<ValorAno[]>(() => (fipeData?.porAno?.length > 1 ? fipeData.porAno : []))
 const sujeito = model ? sujeitoModelo(pageData.name, model.name, pageData.type, model.genero) : ''
-// Faixa da frase de abertura: com valor por ano, vai do ano mais barato ao mais
-// caro entre todas as versoes; sem, fica a faixa da versao principal.
-const faixaAbertura = computed(() => {
-  const g = faixaGeral(porAno.value)
-  if (g) return { min: brl(g.min), max: brl(g.max) }
-  const t = priceTable.value
-  return t.length ? { min: t[t.length - 1]?.priceFormatted, max: t[0]?.priceFormatted } : null
-})
+// H1 e primeira frase (plano GEO 13/out): "a Placa Completa" como sujeito,
+// valor so quando ha tabela. Ver shared/frases-abertura.ts.
+const h1 = isBrandPage ? h1Marca(pageData.name) : h1Modelo(pageData.name, model!.name)
+const abertura = isBrandPage
+  ? aberturaMarca(pageData.name, pageData.models.map((m) => m.name), pageData.type)
+  : aberturaModelo({
+      marca: pageData.name,
+      modelo: model!.name,
+      tipo: pageData.type,
+      genero: model!.genero,
+      faixa: faixaDoModelo(porAno.value, priceTable.value),
+      referencia: fipeData?.referencia || null,
+    })
 const frasesPorAno = computed(() => porAno.value.map((v) => ({ ano: v.ano, frase: fraseAno(sujeito, v, fipeData?.referencia || null) })))
 
 // Conteudo unico SEO por modelo (resolve "Rastreada, nao indexada")
@@ -177,7 +183,7 @@ if (isBrandPage) {
             name: `Quanto custa um ${pageData.name} ${model!.name} na Tabela FIPE?`,
             acceptedAnswer: {
               '@type': 'Answer',
-              text: `O valor FIPE do ${pageData.name} ${model!.name} varia conforme o ano e versão. Para saber o valor exato, consulte a placa do veículo no PlacaCompleta e receba o preço FIPE atualizado no seu e-mail.`,
+              text: abertura,
             },
           },
           // Perguntas proprias do modelo (leilao), quando existirem: e o
@@ -294,9 +300,10 @@ if (isBrandPage) {
     <main class="pc-container">
         <!-- BRAND HUB PAGE -->
         <template v-if="isBrandPage">
-          <h1 class="pc-h1">Tabela FIPE {{ pageData.name }}</h1>
+          <h1 class="pc-h1">{{ h1 }}</h1>
 
           <div class="pc-prose">
+            <p>{{ abertura }}</p>
             <p>{{ pageData.description }}</p>
 
             <!-- Per-brand unique SEO copy quando disponivel -->
@@ -359,25 +366,11 @@ if (isBrandPage) {
 
         <!-- BRAND + MODEL PAGE -->
         <template v-else>
-          <h1 class="pc-h1">Tabela FIPE {{ pageData.name }} {{ model!.name }}</h1>
+          <h1 class="pc-h1">{{ h1 }}</h1>
 
           <div class="pc-prose">
-            <!-- Self-contained answer: lead with the actual price range when available -->
-            <p v-if="priceTable.length > 0">
-              O <strong>{{ pageData.name }} {{ model!.name }}</strong> na Tabela FIPE de
-              {{ priceTable[0]?.referenceMonth }}/{{ priceTable[0]?.referenceYear }} vale entre
-              <strong>{{ faixaAbertura?.min }}</strong> e
-              <strong>{{ faixaAbertura?.max }}</strong>, dependendo do ano de fabricação
-              e versão. A Tabela FIPE (Fundação Instituto de Pesquisas Econômicas) é atualizada
-              mensalmente e serve de referência oficial para compra, venda, financiamento e seguro
-              de veículos no Brasil. Para o valor exato do seu {{ model!.name }} específico,
-              consulte pela placa abaixo.
-            </p>
-            <p v-else>
-              Consulte o valor atualizado do <strong>{{ pageData.name }} {{ model!.name }}</strong>
-              na Tabela FIPE. Para saber o preço exato para o ano e versão específica do seu veículo,
-              consulte pela placa no PlacaCompleta e receba todos os dados no e-mail.
-            </p>
+            <!-- Frase de abertura autossuficiente (citavel): valor quando ha tabela. -->
+            <p>{{ abertura }}</p>
 
             <!-- Per-model unique SEO copy (resolve "Rastreada, nao indexada") -->
             <section v-if="modelSeoIntro" class="model-intro">
