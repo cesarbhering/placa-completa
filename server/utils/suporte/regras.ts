@@ -34,6 +34,12 @@ export function gatilhoN2(texto: string): 'reembolso' | 'juridico_imprensa' | nu
   return null
 }
 
+/** Texto feito so de emoji (👍, 🙏🏻, 👏👏): confirmacao. */
+export function soEmoji(texto: string): boolean {
+  const t = String(texto || '').trim()
+  return !!t && /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Emoji_Component}|\u200d|\ufe0f|\s)+$/u.test(t) && /\p{Extended_Pictographic}/u.test(t)
+}
+
 /** Pede cupom ou desconto. */
 export function pedeCupom(texto: string): boolean {
   return /\bcupo(m|ns)\b|\bdesconto\b|codigo promocional|\bpromo(cao)? ?code\b|mais barato|abaixa(r)? o preco|faz por menos/.test(norm(texto))
