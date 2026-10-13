@@ -65,7 +65,7 @@ export const fipeBrands: Record<string, FipeBrand> = {
       { slug: 'siena', name: 'Siena' },
       { slug: 'fiorino', name: 'Fiorino' },
       { slug: 'ducato', name: 'Ducato' },
-      { slug: 'doblo', name: 'Doblò', genero: 'f', fipeCode: '5536', fipeCodes: ['452', '451', '446', '3933', '3935', '4097', '5535'] },
+      { slug: 'doblo', name: 'Doblò', fipeCode: '5536', fipeCodes: ['452', '451', '446', '3933', '3935', '4097', '5535'] },
       { slug: '500', name: '500' },
     ],
   },
