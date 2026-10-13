@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { depsReais, suporteLigado } from '../../utils/suporte/servidor'
 import { receberMensagem, responderConversa } from '../../utils/suporte/fluxo'
-import { textoDaMensagem } from '../../utils/suporte/evolution'
+import { classificarMensagem } from '../../utils/suporte/evolution'
 import { agendarResposta } from '../../utils/suporte/agenda'
 import { hashNumero } from '../../utils/suporte/regras'
 
@@ -38,9 +38,16 @@ export default defineEventHandler(async (event) => {
     const jid = String(m?.key?.remoteJid || '')
     if (!jid || m?.key?.fromMe) continue
     if (jid.endsWith('@g.us') || jid.endsWith('@broadcast') || jid.endsWith('@newsletter')) continue
-    const texto = textoDaMensagem(m)
+    const rec = classificarMensagem(m)
+    if (rec.tipo === 'ignorar') continue
     try {
-      const r = await receberMensagem({ jid, texto, msgId: m?.key?.id }, deps)
+      const r = await receberMensagem({
+        jid,
+        texto: rec.tipo === 'texto' || rec.tipo === 'reacao' ? rec.texto : null,
+        tipo: rec.tipo,
+        midia: rec.tipo === 'midia' ? rec.midia : undefined,
+        msgId: m?.key?.id,
+      }, deps)
       const chave = hashNumero(jid, deps.segredo)
       if (r.docHash) docRecente.set(chave, { hash: r.docHash, em: Date.now() })
       if (!r.responder) continue
