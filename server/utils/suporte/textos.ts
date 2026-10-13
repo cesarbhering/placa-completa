@@ -19,7 +19,6 @@ export const TXT = {
   apresentacao: 'Oi! Aqui é o Guilherme, do time de suporte da PlacaCompleta.',
   souGuilherme: 'Sou o Guilherme, do atendimento da PlacaCompleta. Se preferir, passo para outra pessoa da equipe.',
   passoParaEquipe: 'Combinado, vou passar para outra pessoa da equipe. A resposta vem por aqui em alguns minutos.',
-  inatividade: 'Posso encerrar o atendimento por aqui? Se precisar de algo mais, é só mandar mensagem.',
   semCupom: 'No momento não temos cupom disponível. O relatório completo já está em promoção no site.',
   precisaConfirmarDono: 'Encontrei um pedido para essa placa. Para liberar, preciso confirmar que é seu: me passa o e-mail usado na compra ou, se não informou e-mail, o CPF ou CNPJ de quem pagou.',
   soTexto: 'Por aqui eu leio só mensagens de texto. Pode escrever a sua dúvida?',
