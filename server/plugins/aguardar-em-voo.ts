@@ -1,29 +1,53 @@
-import { pararDeAceitar, aguardarEmVoo, quantasEmVoo, TETO_ESPERA_MS } from '../utils/tarefas-em-voo'
+import { aguardarEmVoo, quantasEmVoo, marcarEncerrando, estaEncerrando, pararDeAceitar, TETO_ESPERA_MS } from '../utils/tarefas-em-voo'
 import { redeSegurancaBoot, ATRASO_MS } from '../utils/rede-seguranca-boot'
 import { ambienteForaDeProd } from '../utils/ambiente-alerta'
 
 // Deploy espera as buscas em andamento (regra do Cesar, 13/out).
 //
-// SIGTERM: o Nitro (node-server) fecha o servidor pra conexoes novas e chama o
-// hook 'close'. Aqui: para de aceitar tarefa pos-entrega nova e espera as em
-// voo terminarem (teto 120 s). O teto geral do Nitro (NITRO_SHUTDOWN_TIMEOUT,
-// padrao 30 s) mataria antes: o Dockerfile poe 130 s e, se faltar, setamos aqui
-// (o Nitro le a variavel depois de criar o app). O Coolify espera 150 s antes
-// do SIGKILL.
+// O shutdown nativo do Nitro (node-server) fecha o listener HTTP logo no
+// SIGTERM. A troca do Coolify e rolling e o Traefik faz round-robin entre o
+// container antigo e o novo enquanto o antigo estiver de pe: fechar o listener
+// derrubaria parte do trafego. Por isso o shutdown do Nitro fica DESLIGADO
+// (NITRO_SHUTDOWN_DISABLED=1, no Dockerfile e aqui) e o SIGTERM e tratado assim:
+//  1. marca "encerrando": /api/app-status responde 503 e o healthcheck tira o
+//     container do balanceamento;
+//  2. continua servindo HTTP e aceitando tarefa pos-entrega normalmente;
+//  3. espera as tarefas em voo zerarem (teto 120 s; o Coolify espera 150 s);
+//  4. chama os hooks 'close' do Nitro e sai.
 //
 // Boot: ATRASO_MS depois de subir, a rede de seguranca reenfileira a busca de
 // multas de pedido entregue na ultima hora que ficou sem bloco. So em prod.
-export default defineNitroPlugin((nitroApp) => {
-  if (!process.env.NITRO_SHUTDOWN_TIMEOUT) process.env.NITRO_SHUTDOWN_TIMEOUT = String(TETO_ESPERA_MS + 10_000)
 
-  nitroApp.hooks.hook('close', async () => {
-    pararDeAceitar()
+export function instalarEncerramento(
+  nitroApp: { hooks: { callHook: (n: string) => Promise<any> } },
+  deps: { processo?: Pick<NodeJS.Process, 'once'>; sair?: (codigo: number) => void; tetoMs?: number; log?: (m: string) => void } = {},
+) {
+  const processo = deps.processo ?? process
+  const sair = deps.sair ?? ((c: number) => process.exit(c))
+  const teto = deps.tetoMs ?? TETO_ESPERA_MS
+  const log = deps.log ?? ((m: string) => console.log(m))
+  const aoSinal = async (sinal: string) => {
+    if (estaEncerrando()) return
+    marcarEncerrando()
     const n = quantasEmVoo()
-    console.log(`[em-voo] SIGTERM: aguardando ${n} busca${n === 1 ? '' : 's'} (teto ${TETO_ESPERA_MS / 1000} s)`)
-    await aguardarEmVoo(TETO_ESPERA_MS)
-  })
+    log(`[em-voo] ${sinal}: app-status 503, servindo ate zerar; aguardando ${n} busca${n === 1 ? '' : 's'} (teto ${Math.round(teto / 1000)} s)`)
+    await aguardarEmVoo(teto, { log })
+    pararDeAceitar()
+    try { await nitroApp.hooks.callHook('close') } catch (e: any) { log(`[em-voo] hooks close falharam: ${e?.message || e}`) }
+    log('[em-voo] saindo')
+    sair(0)
+  }
+  processo.once('SIGTERM', () => { void aoSinal('SIGTERM') })
+  processo.once('SIGINT', () => { void aoSinal('SIGINT') })
+  return aoSinal
+}
 
+export default defineNitroPlugin((nitroApp) => {
   if (import.meta.dev || process.env.VITEST) return
+  // O Nitro le esta variavel DEPOIS de criar o app (plugins rodam antes).
+  process.env.NITRO_SHUTDOWN_DISABLED = '1'
+  instalarEncerramento(nitroApp)
+
   let config: any
   try { config = useRuntimeConfig() } catch { return }
   if (ambienteForaDeProd(config)) return
