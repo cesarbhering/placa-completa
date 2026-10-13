@@ -22,6 +22,8 @@
 // Whitelist: codigo, titulo, status, data, km e concessionaria. Nada de chassi,
 // nome, CPF, OS, texto longo nem codigo de peca.
 
+import { emVoo } from './tarefas-em-voo'
+
 export type FonteMontadora = 'nissan' | 'mitsubishi' | 'mercedes-benz'
 
 export interface CampanhaMontadora {
@@ -239,7 +241,7 @@ export async function completarRecallMontadora(
 }
 
 export function completarRecallMontadoraDepois(supabase: any, pedido: { id: string; placa?: string | null }, response: any): void {
-  void completarRecallMontadora(supabase, pedido, response).catch((e: any) => {
+  void emVoo('recall-montadora', () => completarRecallMontadora(supabase, pedido, response).catch((e: any) => {
     console.warn('[recall-montadora] completar falhou:', e?.message || e)
-  })
+  }))
 }

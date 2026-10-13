@@ -1,3 +1,4 @@
+import { emVoo } from '../../utils/tarefas-em-voo'
 import { gravarPagadorHash } from '../../utils/pagador-hash'
 import { deveChecarWooviOriginal } from '../../utils/status-pagamento'
 import { cobrancaPorCorrelacao } from '../../utils/woovi'
@@ -56,7 +57,7 @@ export default defineEventHandler(async (event) => {
       processarPedidoPago(supabase, pedido).catch(() => {})
       // Identificador pseudonimizado do pagador (recorrencia sem e-mail).
       // Fire-and-forget e a parte: nunca segura nem quebra a confirmacao.
-      void gravarPagadorHash(supabase, pedido)
+      void emVoo('pagador-hash', () => gravarPagadorHash(supabase, pedido))
       status = 'consultando'
     } else if (!ehCartao && pedido.expira_em && new Date(pedido.expira_em).getTime() < Date.now()) {
       // So o Pix expira pela janela do QR (15 min). Pedido de cartao NUNCA vira

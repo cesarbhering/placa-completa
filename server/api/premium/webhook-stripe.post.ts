@@ -1,3 +1,4 @@
+import { emVoo } from '../../utils/tarefas-em-voo'
 import { gravarPagadorHash, sanearPayloadWebhook } from '../../utils/pagador-hash'
 // Webhook do Stripe (cartao). Endpoint separado do Pix (AbacatePay/Woovi) de
 // proposito: o payload e, principalmente, a prova de quem mandou sao diferentes.
@@ -48,7 +49,7 @@ export default defineEventHandler(async (event) => {
 
   // Claim atomico dentro de processarPedidoPago evita duplicar com o polling do
   // status.get.ts (os dois podem detectar o mesmo pagamento).
-  void gravarPagadorHash(supabase, pedido)
+  void emVoo('pagador-hash', () => gravarPagadorHash(supabase, pedido))
   await processarPedidoPago(supabase, pedido)
   await supabase.from('webhook_events').update({ processado: true }).eq('abacatepay_id', eventoId)
   return { ok: true }
