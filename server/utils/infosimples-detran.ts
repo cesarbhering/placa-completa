@@ -2,6 +2,7 @@ import { temRestricaoNacional } from '../../shared/restricoes'
 import { normalizarResposta } from '../../shared/planos'
 import { encrypt } from 'aes-bridge'
 import { renavamDaResposta, ufDaResposta } from './detran-multas'
+import { emVoo } from './tarefas-em-voo'
 
 // DETRAN estadual via Infosimples (comeca por SP: /detran/sp/debitos). Substitui
 // o runner gov.br quebrado no relatorio PAGO. Traz multas, hodometro (vistorias),
@@ -1893,10 +1894,10 @@ export function completarDetranDepois(
   pedido: { id: string; placa: string },
   ctx: { consultaId: string | null; response: any },
 ): void {
-  void completarDetran(supabase, pedido, ctx).catch(async (e: any) => {
+  void emVoo('detran', () => completarDetran(supabase, pedido, ctx).catch(async (e: any) => {
     console.warn('[infosimples] completar detran falhou:', e?.message || e)
     // A tela espera o bloco: solta ela com "indisponivel" em vez do limite.
     const uf = ufDetranSuportada(ufDaResposta(ctx.response))
     if (uf) await marcarIndisponivel(supabase, pedido.id, uf)
-  })
+  }))
 }

@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { emVoo } from '../../../utils/tarefas-em-voo'
 
 // Backfill (e teste) do bloco DETRAN (SP, SC, MG) (multas, hodometro, IPVA,
 // licenciamento, restricoes) via Infosimples nos relatorios ja entregues.
@@ -148,8 +149,9 @@ export default defineEventHandler(async (event) => {
   // background; o resultado de cada um sai no log ([backfill-detran]), em
   // premium_custos e no snapshot do pedido.
   if ((pedidos || []).length <= 1) return await processar()
-  void processar()
-    .then((r) => console.log('[backfill-detran] fim', JSON.stringify({ atualizados: r.atualizados, chamadas: r.chamadas, total: r.total })))
+  // Em voo: um deploy no meio espera o lote terminar (antes, morria: 07/out).
+  void emVoo('backfill-detran', () => processar())
+    .then((r) => { if (!r) return; console.log('[backfill-detran] fim', JSON.stringify({ atualizados: r.atualizados, chamadas: r.chamadas, total: r.total })) })
     .catch((e: any) => console.warn('[backfill-detran] falhou:', e?.message || e))
   setResponseStatus(event, 202)
   return {

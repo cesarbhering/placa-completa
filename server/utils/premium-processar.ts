@@ -3,6 +3,7 @@ import { avisarVenda } from './aviso-venda'
 import { ambienteDaConsultaPaga } from './gcc-reserva'
 import { gerarCupomRecompra } from './cupom-recompra'
 import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas-recall'
+import { emVoo } from './tarefas-em-voo'
 // Processa um pedido PAGO: dispara a consulta SENATRAN uma vez, entrega ou
 // reembolsa. Usado pelo WEBHOOK e pelo POLLING de status (o que chegar primeiro).
 // Trava atomica via update condicional (status aguardando/pago -> consultando):
@@ -23,7 +24,7 @@ export function completarRecallDepois(
   pedido: { id: string; placa: string; plano?: string | null; preview?: any; token_entrega?: string | null },
   consultaId: string | null,
 ): void {
-  void (async () => {
+  void emVoo('recall', async () => {
     try {
       // Le o snapshot PRIMEIRO: o modo autoritativo (GM) precisa de marca+chassi.
       const { data } = await supabase
@@ -97,7 +98,7 @@ export function completarRecallDepois(
         .update({ relatorio_snapshot: final })
         .eq('id', pedido.id)
     } catch { /* entrega ja feita: aqui so se ganha, nunca se perde */ }
-  })()
+  })
 }
 
 /**
@@ -111,7 +112,7 @@ export function completarMultasDepois(
   pedido: { id: string; placa: string },
   ctx: { consultaId: string | null; response: any },
 ): void {
-  void (async () => {
+  void emVoo('multas', async () => {
     try {
       const renavam = renavamDaResposta(ctx.response)
       if (!renavam) return
@@ -134,7 +135,7 @@ export function completarMultasDepois(
         .update({ relatorio_snapshot: { ...snap, multas: detalhe } })
         .eq('id', pedido.id)
     } catch { /* entrega ja feita: aqui so se ganha, nunca se perde */ }
-  })()
+  })
 }
 
 function valorEmReais(centavos?: number | null): string {
@@ -251,7 +252,7 @@ export async function processarPedidoPago(
 
     // Aviso da venda ao Cesar na hora (server/utils/aviso-venda.ts). Sem
     // await: nunca atrasa nem quebra a entrega; dedup no banco com o timer.
-    void avisarVenda(supabase, pedido.id).catch(() => {})
+    void emVoo('aviso-venda', () => avisarVenda(supabase, pedido.id))
 
     // Snapshot imutavel: monta o payload agregado (consulta filtrada por
     // plano + valorCusto + chassiOrigem + camposRestantes) UMA VEZ, aqui na

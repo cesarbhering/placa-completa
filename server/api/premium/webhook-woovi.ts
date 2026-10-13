@@ -1,3 +1,4 @@
+import { emVoo } from '../../utils/tarefas-em-voo'
 import { chavesPublicas, verificarAssinatura, pedidoDaCorrelacao } from '../../utils/woovi'
 import { gravarPagadorHash, sanearPayloadWebhook } from '../../utils/pagador-hash'
 import { lerPayloadWoovi, ehPingWoovi } from '../../utils/woovi-webhook-payload'
@@ -55,7 +56,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   // Copia COMPLETA pro financeiro@ (conciliacao/nota), sem await: nunca atrasa
   // a resposta nem o pedido. Dedup por evento (a Woovi entrega 2x).
-  void encaminharWebhookFinanceiro(supabase, payload, raw, pedidoId, chargeId)
+  void emVoo('webhook-financeiro', () => encaminharWebhookFinanceiro(supabase, payload, raw, pedidoId, chargeId))
   // Mesma tabela de sempre, pra auditoria e idempotencia ficarem num lugar so.
   await supabase.from('webhook_events').insert({
     // Sem dados do pagador (CPF/nome) no log de auditoria.
@@ -72,7 +73,7 @@ export default defineEventHandler(async (event) => {
   if (!pedido && chargeId) ({ data: pedido } = await supabase.from('pedidos_premium').select('*').eq('abacatepay_id', chargeId).maybeSingle())
   if (!pedido) return { ok: true, semPedido: true }
 
-  void gravarPagadorHash(supabase, pedido)
+  void emVoo('pagador-hash', () => gravarPagadorHash(supabase, pedido))
   await processarPedidoPago(supabase, pedido)
   if (chargeId) await supabase.from('webhook_events').update({ processado: true }).eq('abacatepay_id', chargeId)
   return { ok: true }
