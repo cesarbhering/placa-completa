@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import CE from './__fixtures__/infosimples-detran-ce.json'
-import PA from './__fixtures__/infosimples-detran-pa.json'
+import PA from './__fixtures__/infosimples-detran-pa-veiculo.json'
 import AM from './__fixtures__/infosimples-detran-am.json'
 import { parsearDetranCe, parsearDetranPa, parsearDetranAm, multaGenerica, blocoDetranDaUf, completarDetran, DETRAN_UFS } from './infosimples-detran'
 
-// Fixtures = respostas REAIS (30/set) de CE (PMI5902), PA (QET3C05) e AM
-// (JUT9G09) com Pix, boleto, site_receipt e renavam trocados por FALSOS.
+// Fixtures = respostas REAIS de CE (PMI5902, 30/set), PA /veiculo (OTX9I55,
+// 13/out) e AM (JUT9G09, 30/set) com Pix, boleto, site_receipt, renavam, chassi,
+// placa e nome trocados por FALSOS.
 
 const PROIBIDO = ['storage.invalid', 'PIX-FALSO', 'codigo_pix', 'boleto', 'site_receipt', 'FULANO', 'renavam', 'proprietario']
 
@@ -27,22 +28,54 @@ describe('parsearDetranCe', () => {
   })
 })
 
-describe('parsearDetranPa', () => {
-  it('vazio = nada consta', () => {
-    const b = parsearDetranPa(PA)
-    expect(b).toMatchObject({ fonte: 'detran_pa', multas_total_centavos: 0, multas_itens: [], multas_em_recurso: [] })
-  })
-  it('defensivo: vencidas + a vencer somam, efeito suspensivo vai pra recurso', () => {
-    const b = parsearDetranPa({
-      infracoes_vencidas: [{ auto_infracao: 'PA1', descricao: 'AVANCAR SINAL', data_infracao: '01/02/2026 10:30', valor: 'R$ 293,47', orgao_autuador: 'DETRAN-PA' }],
-      infracoes_a_vencer: [{ numero_auto: 'PA2', infracao: 'VELOCIDADE', data: '05/09/2026', vencimento: '10/11/2026', normalizado_valor: 130.16 }],
-      infracoes_efeito_suspensivo: [{ ait: 'PA3', valor: 'R$ 88,38' }],
+describe('parsearDetranPa (/detran/pa/veiculo)', () => {
+  const b: any = parsearDetranPa(PA)
+  it('caso real OTX9I55: 11 multas a pagar, total = soma (R$ 10.834,96)', () => {
+    expect(b.fonte).toBe('detran_pa')
+    expect(b.multas_itens).toHaveLength(11)
+    expect(b.multas_total_centavos).toBe(1083496)
+    expect(b.multas_itens[0]).toEqual({
+      auto: 'T601547659', orgao: 'DPRF', municipio: 'ITAITUBA',
+      descricao: 'USAR QQ VEIC.PARA, DELIB.INTERROMPER CIRC. VIA SEM AUT.ORGAO',
+      local: 'BR-230 KM-1097 UF-PA', dataInfracao: '01/11/2022', horaInfracao: '02:40',
+      dataVencimento: null, valor: 8142.61,
     })
-    expect(b.multas_itens.map((x) => x.descricao)).toEqual(['AVANCAR SINAL', 'VELOCIDADE'])
-    expect(b.multas_itens[0]).toMatchObject({ dataInfracao: '01/02/2026', horaInfracao: '10:30', valor: 293.47, orgao: 'DETRAN-PA' })
-    expect(b.multas_itens[1]).toMatchObject({ descricao: 'VELOCIDADE', dataVencimento: '10/11/2026', valor: 130.16 })
-    expect(b.multas_total_centavos).toBe(29347 + 13016)
-    expect(b.multas_em_recurso).toHaveLength(1)
+  })
+  it('IPVA, licenciamento atrasado, situacao (estelionato) e restricao administrativa', () => {
+    expect(b.ipva_total_centavos).toBe(581910)
+    expect(b.ipva_itens).toEqual([{ ano: null, vencimento: null, valor_centavos: 581910 }])
+    expect(b.ultimo_licenciamento_ano).toBe(2022)
+    expect(b.licenciamento_atrasado_ano).toBe(2022)
+    expect(b.restricoes_detran).toEqual([
+      { tipo: 'situacao', texto: 'REGISTRO DE ESTELIONATO NA BASE DETRAN / ADMINISTRATIVA' },
+      { tipo: 'administrativa', texto: 'REST. ADMINISTRATIVA' },
+    ])
+    expect(b.hodometro).toEqual([])
+    expect(b.alerta_roubo_furto).toBeNull()
+  })
+  it('nunca grava nome, renavam, chassi, motor, site_receipt nem pontos/gravidade', () => {
+    const out = JSON.stringify(b)
+    for (const p of [...PROIBIDO, 'FULANO', '9BGCHASSIFALSO', 'ABC1234', 'GRAVISSIMA', 'pontos']) expect(out).not.toContain(p)
+  })
+  it('em dia, sem situacao, sem multa: nada consta; pagas nao contam', () => {
+    const x: any = parsearDetranPa({
+      situacao: 'NORMAL', situacao_licenciamento: 'EM DIA', ano_licenciamento: '2026', restricoes: ['NADA CONSTA'], valor_ipva: 'R$ 0,00', seguro: '** PAGO **',
+      infracoes: [{ auto_infracao: 'P1', data_hora: '01/01/2026 10:00', normalizado_valor: 100, status: 'PAGO' }],
+    })
+    expect(x).toMatchObject({ multas_total_centavos: 0, multas_itens: [], ipva_total_centavos: 0, ipva_itens: [], ultimo_licenciamento_ano: 2026, licenciamento_atrasado_ano: null, restricoes_detran: [] })
+  })
+  it('furto/roubo na situacao vira alerta; seguro em aberto vira outro debito', () => {
+    const x: any = parsearDetranPa({ situacao: 'ROUBO/FURTO', restricoes: ['ALIENACAO FIDUCIARIA', 'BLOQUEIO JUDICIAL'], seguro: 'R$ 101,63', infracoes: [] })
+    expect(x.alerta_roubo_furto).toBe('Restrição informada pelo DETRAN-PA: roubo/furto')
+    expect(x.restricoes_detran).toEqual([
+      { tipo: 'situacao', texto: 'ROUBO/FURTO' },
+      { tipo: 'financeira', texto: 'ALIENACAO FIDUCIARIA' },
+      { tipo: 'judiciaria', texto: 'BLOQUEIO JUDICIAL' },
+      { tipo: 'outros_debitos', texto: 'Seguro obrigatório em aberto: R$ 101,63' },
+    ])
+  })
+  it('formato desconhecido (ex.: resposta do /infracoes antigo) -> null', () => {
+    expect(parsearDetranPa({ infracoes_vencidas: [] })).toBeNull()
   })
 })
 
@@ -80,7 +113,7 @@ describe('mapa e chamada CE/PA/AM (sem credencial)', () => {
   afterEach(() => vi.unstubAllGlobals())
   it('mapa', () => {
     expect(DETRAN_UFS.CE).toMatchObject({ path: 'detran/ce/multas', cert: 'nenhum', gate: 'renainf', fonteCusto: 'infosimples_detran_ce' })
-    expect(DETRAN_UFS.PA).toMatchObject({ path: 'detran/pa/infracoes', cert: 'nenhum', gate: 'renainf', fonteCusto: 'infosimples_detran_pa' })
+    expect(DETRAN_UFS.PA).toMatchObject({ path: 'detran/pa/veiculo', cert: 'nenhum', gate: 'renainf', fonteCusto: 'infosimples_detran_pa', timeoutS: 600 })
     expect(DETRAN_UFS.AM).toMatchObject({ path: 'detran/am/multas', cert: 'nenhum', gate: 'renainf', fonteCusto: 'infosimples_detran_am' })
     expect(blocoDetranDaUf('CE', CE).fonte).toBe('detran_ce')
     expect(blocoDetranDaUf('PA', PA).fonte).toBe('detran_pa')
@@ -110,5 +143,34 @@ describe('mapa e chamada CE/PA/AM (sem credencial)', () => {
     for (const k of ['pkcs12_cert', 'pkcs12_pass', 'login_cpf', 'login_senha']) expect(body.has(k)).toBe(false)
     expect(inserts[0]).toMatchObject({ fonte: 'infosimples_detran_ce', preco: 0.2, code: 200 })
     expect(updates[0].relatorio_snapshot.multas.fonte).toBe('detran_ce')
+  })
+  it('PA: /detran/pa/veiculo, timeout 600, so placa + renavam; grava multas, IPVA e restricoes', async () => {
+    vi.stubGlobal('useRuntimeConfig', () => ({ infosimplesToken: 't' }))
+    const chamadas: { url: string; body: URLSearchParams }[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => {
+      chamadas.push({ url, body: init.body })
+      return { status: 200, json: async () => ({ code: 200, header: { price: '0.24' }, data: [PA] }) }
+    }))
+    const inserts: any[] = []; const updates: any[] = []
+    const sb = {
+      from: () => ({
+        select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { relatorio_snapshot: { consulta: {} } } }) }) }),
+        insert: async (row: any) => { inserts.push(row); return { error: null } },
+        update: (row: any) => ({ eq: async () => { updates.push(row); return { error: null } } }),
+      }),
+    }
+    const r = await completarDetran(sb, { id: 'p1', placa: 'ABC1D23' }, { response: [{ ufJurisdicao: 'PA', renavam: '1014354940', indicadorMultaRenainf: true }] })
+    expect(r.ok).toBe(true)
+    expect(chamadas[0].url).toMatch(/\/detran\/pa\/veiculo$/)
+    const body = chamadas[0].body
+    expect(body.get('timeout')).toBe('600')
+    expect(body.get('ignore_site_receipt')).toBe('0')
+    expect(body.get('renavam')).toBe('01014354940')
+    for (const k of ['pkcs12_cert', 'pkcs12_pass', 'login_cpf', 'login_senha', 'chassi']) expect(body.has(k)).toBe(false)
+    expect(inserts[0]).toMatchObject({ fonte: 'infosimples_detran_pa', preco: 0.24, code: 200 })
+    const m = updates[0].relatorio_snapshot.multas
+    expect(m).toMatchObject({ fonte: 'detran_pa', multas_total_centavos: 1083496, ipva_total_centavos: 581910, licenciamento_atrasado_ano: 2022 })
+    expect(m.restricoes_detran).toHaveLength(2)
+    expect(JSON.stringify(m)).not.toContain('FULANO')
   })
 })

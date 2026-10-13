@@ -8,7 +8,7 @@ import GO from './__fixtures__/infosimples-detran-go.json'
 import PR from './__fixtures__/infosimples-detran-pr.json'
 import DF from './__fixtures__/infosimples-detran-df.json'
 import CE from './__fixtures__/infosimples-detran-ce.json'
-import PA from './__fixtures__/infosimples-detran-pa.json'
+import PA from './__fixtures__/infosimples-detran-pa-veiculo.json'
 import AM from './__fixtures__/infosimples-detran-am.json'
 import PE from './__fixtures__/infosimples-detran-pe.json'
 import ES from './__fixtures__/infosimples-detran-es.json'
@@ -43,7 +43,7 @@ const BRUTOS: Record<string, any> = {
   PR: [...PR, { ...sujo, tipo: 'multa-em-aberto' }],
   DF: { ...DF, debitos: { ...DF.debitos, infracoes_veiculo: [{ ...sujo }] } },
   CE: { ...CE, multas: [{ ...sujo }], multas_judice: [{ ...sujo }] },
-  PA: { ...PA, infracoes_vencidas: [{ ...sujo }], infracoes_efeito_suspensivo: [{ ...sujo }] },
+  PA: { ...PA, infracoes: [{ ...sujo, data_hora: '01/02/202610:30', pontos_gravidade: '7 - GRAVISSIMA', status: 'A PAGAR' }, { ...sujo, status: 'PAGO' }] },
   AM: { ...AM, multas: [{ ...sujo }] },
   PE: { ...PE, debitos: { ...PE.debitos, multas: [{ ...sujo }] } },
   ES: { ...ES, multas: [{ ...sujo }], recursos: [{ ...sujo }] },
