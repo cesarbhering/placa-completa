@@ -18,7 +18,7 @@ export default defineNitroPlugin(() => {
     } finally { rodando = false }
   }, 60_000)
 
-  // Inatividade do cliente: a cada 5 min.
+  // Inatividade (40 min sem mensagem de nenhum lado): a cada minuto.
   let varrendo = false
   setInterval(async () => {
     if (varrendo) return
@@ -27,10 +27,10 @@ export default defineNitroPlugin(() => {
       const deps = depsReais(config, usePremiumSupabase())
       if (deps) {
         const r = await rodarInatividade(deps)
-        if (r.perguntadas || r.encerradas) console.info(`[suporte] inatividade perguntadas=${r.perguntadas} encerradas=${r.encerradas}`)
+        if (r.encerradas) console.info(`[suporte] inatividade encerradas=${r.encerradas}`)
       }
     } catch (e: any) {
       console.warn('[suporte] inatividade falhou:', e?.message || e)
     } finally { varrendo = false }
-  }, 5 * 60_000)
+  }, 60_000)
 })

@@ -16,7 +16,8 @@ export const LIMITES = {
   pedirPessoaParaEscalar: 2,
   cupomParaEscalar: 2,
   roboParaEscalar: 2,
-  inatividadeMs: 20 * 60 * 1000,
+  // Encerramento: 40 min desde a ultima mensagem, de qualquer lado.
+  inatividadeMs: 40 * 60 * 1000,
   n1SemRespostaMin: 15,
   janelaNotaMs: 24 * 60 * 60 * 1000,
   n2IntervaloMs: 60 * 60 * 1000,
@@ -31,6 +32,12 @@ export function gatilhoN2(texto: string): 'reembolso' | 'juridico_imprensa' | nu
   if (/procon|advogad|processar|processo judicial|vou processar|justica|juizado|reclame aqui|imprensa|jornal|reporter|reportagem/.test(t)) return 'juridico_imprensa'
   if (/reembols|estorn|dinheiro de volta|meu dinheiro|devolv\w* (o )?(meu )?(dinheiro|valor|pagamento)|devolucao|cancelar (a )?compra|chargeback/.test(t)) return 'reembolso'
   return null
+}
+
+/** Texto feito so de emoji (👍, 🙏🏻, 👏👏): confirmacao. */
+export function soEmoji(texto: string): boolean {
+  const t = String(texto || '').trim()
+  return !!t && /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Emoji_Component}|\u200d|\ufe0f|\s)+$/u.test(t) && /\p{Extended_Pictographic}/u.test(t)
 }
 
 /** Pede cupom ou desconto. */
