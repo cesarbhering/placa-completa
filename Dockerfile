@@ -139,10 +139,16 @@ ENV PORT=3000
 # Relogio do processo em BRT: e-mails de erro/estorno e logs formatavam a hora
 # em UTC sem dizer o fuso, e o Cesar lia como se fosse horario de Brasilia.
 ENV TZ=America/Sao_Paulo
-# SIGTERM espera as buscas pos-entrega em voo (teto 120 s, server/plugins/
-# aguardar-em-voo.ts). O padrao do Nitro (30 s) mataria antes. O Coolify
-# precisa de stop timeout >= 150 s.
-ENV NITRO_SHUTDOWN_TIMEOUT=130000
+# SIGTERM: o site segue servindo e espera as buscas pos-entrega em voo (teto
+# 120 s, server/plugins/aguardar-em-voo.ts). O shutdown nativo do Nitro fecha
+# o listener na hora, por isso fica desligado. Coolify: stop grace 150 s.
+ENV NITRO_SHUTDOWN_DISABLED=1
+
+# curl pro healthcheck (Docker e Coolify). /api/app-status da 503 depois do
+# SIGTERM e o Traefik tira o container do balanceamento.
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
+HEALTHCHECK --interval=5s --timeout=3s --start-period=20s --retries=3 \
+  CMD curl -fsS -o /dev/null http://127.0.0.1:3000/api/app-status || exit 1
 
 COPY --chown=node:node --from=builder /app/.output ./.output
 

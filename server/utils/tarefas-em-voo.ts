@@ -6,16 +6,19 @@
 //
 // Toda tarefa solta depois da entrega passa por emVoo(): ela entra no registro
 // ao comecar e sai ao terminar (sucesso ou erro). No SIGTERM, o plugin
-// server/plugins/aguardar-em-voo.ts para de aceitar tarefa nova
-// (pararDeAceitar) e espera as em voo terminarem (aguardarEmVoo, teto 120 s).
-// O que for recusado ou nao terminar a tempo e pego pela rede de seguranca do
-// boot (server/utils/rede-seguranca-boot.ts) no container novo.
+// server/plugins/aguardar-em-voo.ts marca "encerrando" (o /api/app-status
+// passa a dar 503 e o Traefik tira este container do balanceamento), CONTINUA
+// servindo HTTP e aceitando tarefa (a troca do Coolify e rolling: ate sair do
+// balanceamento ainda chega pedido aqui) e so sai quando zerar (teto 120 s).
+// O que nao terminar a tempo (multas) e pego pela rede de seguranca do boot
+// (server/utils/rede-seguranca-boot.ts) no container novo.
 
 type Registro = { nome: string; inicio: number }
 
 const registro = new Map<number, Registro>()
 let seq = 0
 let aceitando = true
+let encerrando = false
 
 export const TETO_ESPERA_MS = 120_000
 
@@ -47,8 +50,18 @@ export function aceitandoTarefas(): boolean {
   return aceitando
 }
 
+/** Recusa tarefa nova (hoje so no ultimo instante, depois de zerar ou do teto). */
 export function pararDeAceitar(): void {
   aceitando = false
+}
+
+/** SIGTERM recebido: health/app-status respondem 503, o resto segue normal. */
+export function marcarEncerrando(): void {
+  encerrando = true
+}
+
+export function estaEncerrando(): boolean {
+  return encerrando
 }
 
 /**
@@ -76,4 +89,5 @@ export async function aguardarEmVoo(tetoMs = TETO_ESPERA_MS, opts: { passoMs?: n
 export function _resetarEmVoo(): void {
   registro.clear()
   aceitando = true
+  encerrando = false
 }
