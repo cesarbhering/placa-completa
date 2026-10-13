@@ -5,6 +5,7 @@ import { fipeBrands, findBrandModel } from '~/data/fipe-brands'
 import { enriquecimentoDe } from '~/shared/fipe-enriquecimento'
 import { MODELOS_LEILAO } from '~/shared/leilao-modelos'
 import { getModelSeoIntro } from '~/data/fipe-model-intros'
+import { brl, faixaGeral, fraseAno, rotuloAno, sujeitoModelo, type ValorAno } from '~/shared/fipe-por-ano'
 import fipePricesData from '~/data/fipe-prices.json'
 import seguroModelosData from '~/data/seguro-modelos.json'
 
@@ -51,6 +52,19 @@ const priceTable = computed(() => fipeData?.priceTable || [])
 const historyChart = computed(() => fipeData?.historyChart || [])
 const referenceLabel = computed(() => fipeData?.referenceLabel || '')
 const fipeModelName = computed(() => fipeData?.modelName || '')
+// Valor por ano-modelo juntando as versoes do modelo (shared/fipe-por-ano.ts).
+// So mostra quando ha mais de um ano: com um ano so, a tabela da versao ja diz tudo.
+const porAno = computed<ValorAno[]>(() => (fipeData?.porAno?.length > 1 ? fipeData.porAno : []))
+const sujeito = model ? sujeitoModelo(pageData.name, model.name, pageData.type, model.genero) : ''
+// Faixa da frase de abertura: com valor por ano, vai do ano mais barato ao mais
+// caro entre todas as versoes; sem, fica a faixa da versao principal.
+const faixaAbertura = computed(() => {
+  const g = faixaGeral(porAno.value)
+  if (g) return { min: brl(g.min), max: brl(g.max) }
+  const t = priceTable.value
+  return t.length ? { min: t[t.length - 1]?.priceFormatted, max: t[0]?.priceFormatted } : null
+})
+const frasesPorAno = computed(() => porAno.value.map((v) => ({ ano: v.ano, frase: fraseAno(sujeito, v, fipeData?.referencia || null) })))
 
 // Conteudo unico SEO por modelo (resolve "Rastreada, nao indexada")
 const modelSeoIntro = !isBrandPage || (isBrandPage && getModelSeoIntro(slug))
@@ -352,8 +366,8 @@ if (isBrandPage) {
             <p v-if="priceTable.length > 0">
               O <strong>{{ pageData.name }} {{ model!.name }}</strong> na Tabela FIPE de
               {{ priceTable[0]?.referenceMonth }}/{{ priceTable[0]?.referenceYear }} vale entre
-              <strong>{{ priceTable[priceTable.length - 1]?.priceFormatted }}</strong> e
-              <strong>{{ priceTable[0]?.priceFormatted }}</strong>, dependendo do ano de fabricação
+              <strong>{{ faixaAbertura?.min }}</strong> e
+              <strong>{{ faixaAbertura?.max }}</strong>, dependendo do ano de fabricação
               e versão. A Tabela FIPE (Fundação Instituto de Pesquisas Econômicas) é atualizada
               mensalmente e serve de referência oficial para compra, venda, financiamento e seguro
               de veículos no Brasil. Para o valor exato do seu {{ model!.name }} específico,
@@ -404,7 +418,7 @@ if (isBrandPage) {
                   </thead>
                   <tbody>
                     <tr v-for="row in priceTable" :key="row.fuel">
-                      <td>{{ row.fuel }}</td>
+                      <td>{{ rotuloAno(row.fuel) }}</td>
                       <td class="price-cell">{{ row.priceFormatted }}</td>
                       <td class="variation-cell">
                         <template v-if="row.variation !== null">
@@ -424,6 +438,21 @@ if (isBrandPage) {
                 Valores atualizados em {{ priceTable[0]?.referenceMonth }}/{{ priceTable[0]?.referenceYear }}.
                 Variação em relação ao mês anterior.
               </p>
+
+              <!-- VALOR POR ANO (todas as versoes do modelo): casa com a busca
+                   "modelo + ano" sem rota nova; cada ano tem ancora propria. -->
+              <template v-if="frasesPorAno.length">
+                <h2 id="valor-por-ano">Valor do {{ pageData.name }} {{ model!.name }} por ano</h2>
+                <p class="fipe-ref">
+                  Menor e maior valor entre as versões de cada ano-modelo.
+                </p>
+                <div class="ano-lista">
+                  <div v-for="item in frasesPorAno" :id="`ano-${item.ano}`" :key="item.ano" class="ano-item">
+                    <h3>{{ model!.name }} {{ item.ano }}: valor na Tabela FIPE</h3>
+                    <p>{{ item.frase }}</p>
+                  </div>
+                </div>
+              </template>
 
               <!-- PRICE HISTORY CHART -->
               <template v-if="historyChart.length > 1">
@@ -713,6 +742,21 @@ if (isBrandPage) {
   font-size: 0.6875rem;
   color: var(--pc-graphite);
   white-space: nowrap;
+}
+
+// valor por ano: lista compacta, um bloco por ano-modelo
+.ano-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  margin: 12px 0 20px;
+}
+.ano-item {
+  border: 1px solid var(--pc-hairline);
+  border-radius: 12px;
+  padding: 12px 14px;
+  h3 { margin: 0 0 4px; font-size: 0.9375rem; color: var(--pc-ink); }
+  p { margin: 0; font-size: 0.875rem; line-height: 1.5; color: var(--pc-charcoal); }
 }
 
 // callout de dica
