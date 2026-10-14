@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+"""Cancela deploys INTERMEDIARIOS do site na fila do Coolify (4.4.6 nao tem "cancelar superados").
+Regra: entre os deploys do app em status 'queued', mantem so o mais novo e cancela os demais.
+NUNCA mexe em 'in_progress' (a troca de container em andamento termina normalmente).
+Uso: pc-coolify-dedup [--dry-run]. Timer: pc-coolify-dedup.timer (1 min)."""
+import json, re, sys, urllib.request
+
+APP = "gvw73er3wq20ydyytrg5ygdt"
+DRY = "--dry-run" in sys.argv
+env = {k: v.strip().strip('"').strip("'") for k, v in
+       re.findall(r"^(?:export\s+)?(\w+)=(.*)$", open("/root/.coolify-api.env").read(), re.M)}
+BASE, H = env["COOLIFY_URL"].rstrip("/"), {"Authorization": "Bearer " + env["COOLIFY_API_TOKEN"]}
+
+
+def api(caminho, metodo="GET"):
+    req = urllib.request.Request(BASE + caminho, method=metodo, headers=H)
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.load(r)
+
+
+ds = api(f"/api/v1/deployments/applications/{APP}?skip=0&take=20").get("deployments") or []
+fila = sorted([d for d in ds if d.get("status") == "queued" and not d.get("pull_request_id")],
+              key=lambda d: d.get("created_at") or "")
+if len(fila) <= 1:
+    sys.exit(0)
+manter = fila[-1]
+for d in fila[:-1]:
+    msg = (d.get("commit_message") or "").splitlines()[0][:70] if d.get("commit_message") else ""
+    print(f"{'[dry] ' if DRY else ''}cancelando deploy {d['deployment_uuid']} commit {str(d.get('commit'))[:7]} ({msg}); "
+          f"fica o {str(manter.get('commit'))[:7]}")
+    if not DRY:
+        api(f"/api/v1/deployments/{d['deployment_uuid']}/cancel", "POST")

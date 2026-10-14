@@ -1,0 +1,6 @@
+[Unit]
+Description=pc-monitor FILA: premium_jobs atrasada/lease vencido = FILA DO RELATORIO PARADA; esgotados novos = e-mail
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-monitor fila
+TimeoutStartSec=90
