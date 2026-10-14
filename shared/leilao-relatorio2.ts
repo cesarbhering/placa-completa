@@ -23,7 +23,8 @@ export const dataBR = (iso: string | null | undefined): string | null => {
 }
 
 // ---------- origem ----------
-export const TIPOS_ORIGEM = new Set(['detran_patio', 'judicial', 'apreensao_penal', 'financeira', 'seguradora'])
+// aduaneira: Receita Federal (SLE), leiloes-api #107, rotulo "Aduaneira (Receita Federal)".
+export const TIPOS_ORIGEM = new Set(['detran_patio', 'judicial', 'apreensao_penal', 'financeira', 'seguradora', 'aduaneira'])
 export interface OrigemLeilao { tipo: string; rotulo: string; uf: string | null }
 export function sanearOrigem(o: any): OrigemLeilao | null {
   if (!o || typeof o !== 'object' || !TIPOS_ORIGEM.has(String(o.tipo))) return null

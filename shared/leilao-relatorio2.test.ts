@@ -7,6 +7,7 @@ import {
 describe('leiloes-api, campos do Relatorio 2.0', () => {
   it('origem: so tipo conhecido; desconhecida some', () => {
     expect(sanearOrigem({ tipo: 'detran_patio', base: 'fonte', uf: 'MG', rotulo: 'Apreendido/removido pelo DETRAN (pátio)' })).toEqual({ tipo: 'detran_patio', rotulo: 'Apreendido/removido pelo DETRAN (pátio)', uf: 'MG' })
+    expect(sanearOrigem({ tipo: 'aduaneira', base: 'fonte', uf: null, rotulo: 'Aduaneira (Receita Federal)' })!.rotulo).toBe('Aduaneira (Receita Federal)')
     expect(sanearOrigem({ tipo: 'desconhecida', rotulo: 'x' })).toBeNull()
     expect(sanearOrigem({ tipo: 'novo_tipo', rotulo: 'x' })).toBeNull()
   })
