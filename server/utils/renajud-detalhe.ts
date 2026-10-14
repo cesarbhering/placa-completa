@@ -142,7 +142,7 @@ export async function completarRenajud(
     if (snap.renajudDetalhe) return { ok: false, pulado: 'ja tem' }
 
     const res = await consultarDetranInfosimples({ uf, placa: placaParaDetran(pedido.placa, ctx.response), renavam, path: cfg.path })
-    await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfg.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res) })
+    await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfg.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: res.data })
     let bloco: any = { status: 'indisponivel', uf }
     if (res.code === 200 && res.data) {
       const itens = parsearRenajud(uf, res.data)

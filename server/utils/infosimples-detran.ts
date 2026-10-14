@@ -1661,16 +1661,55 @@ async function travarLoginBa(motivo: string): Promise<void> {
 // ---------- Custo por pedido (pro fin somar no P&L) ----------
 
 /** Grava o custo de UMA chamada (sucesso ou erro). Fail-open: nunca derruba nada. */
+// ---------- Bruto saneado (premium_custos.bruto, 14/out) ----------
+//
+// Aprovado pelo Lead/Cesar (caso PVT3J49: sem o bruto nao dava pra ver o que o
+// DETRAN devolveu). Grava o data da resposta do Infosimples junto do custo, SEM
+// dado pessoal: chave proibida sai inteira (proprietario, nomes, CPF/CNPJ,
+// condutor/infrator, contrato/credor/SNG, endereco/contato, login) e tambem
+// receipts, URLs, Pix e boleto. Dados do veiculo (placa, renavam, chassi,
+// multas, debitos) ficam. Nunca em multas_consultas (freios do worker gov.br).
+const CHAVE_PROIBIDA_BRUTO = /nome|propriet|cpf|cnpj|documento|condutor|infrator|responsavel|possuidor|arrendat|comprador|vendedor|outorg|credor|agente_financeiro|financeira|contrato|sng|endereco|logradouro|bairro|cep|telefone|celular|email|login|senha|receipt|url|pix|boleto|codigo_barras|linha_digitavel|qr_?code/i
+export const TETO_BRUTO_BYTES = 256 * 1024
+
+export function sanearBruto(o: any, prof = 0): any {
+  if (prof > 10) return '…'
+  if (Array.isArray(o)) return o.map((x) => sanearBruto(x, prof + 1))
+  if (o && typeof o === 'object') {
+    const out: Record<string, any> = {}
+    for (const [k, v] of Object.entries(o)) {
+      if (CHAVE_PROIBIDA_BRUTO.test(k)) continue
+      out[k] = sanearBruto(v, prof + 1)
+    }
+    return out
+  }
+  return o
+}
+
+/** Bruto pronto pra coluna: saneado e no teto de tamanho (senao so as chaves). */
+export function brutoParaGravar(data: any): any {
+  if (data == null) return null
+  const limpo = sanearBruto(data)
+  const tam = JSON.stringify(limpo).length
+  return tam <= TETO_BRUTO_BYTES ? limpo : { truncado: true, bytes: tam, chaves: estruturaChaves(limpo) }
+}
+
 export async function registrarCusto(
   supabase: any,
-  opts: { pedidoId: string | null; fonte: string; preco: number; code: number; detalhe?: string | null },
+  opts: { pedidoId: string | null; fonte: string; preco: number; code: number; detalhe?: string | null; bruto?: any },
 ): Promise<void> {
   try {
     const linha: any = { pedido_id: opts.pedidoId, fonte: opts.fonte, preco: opts.preco || 0, code: opts.code ?? null }
     if (opts.detalhe) linha.detalhe = opts.detalhe
-    const r = await supabase.from('premium_custos').insert(linha)
-    // Coluna `detalhe` ainda nao existe no banco (migration pendente): grava sem
-    // ela. O custo nunca pode se perder por causa do diagnostico.
+    const bruto = brutoParaGravar(opts.bruto)
+    if (bruto != null) linha.bruto = bruto
+    let r = await supabase.from('premium_custos').insert(linha)
+    // Coluna `bruto`/`detalhe` ainda nao existe no banco (migration pendente):
+    // grava sem ela. O custo nunca pode se perder por causa do diagnostico.
+    if (r?.error && 'bruto' in linha) {
+      delete linha.bruto
+      r = await supabase.from('premium_custos').insert(linha)
+    }
     if (r?.error && linha.detalhe) {
       delete linha.detalhe
       await supabase.from('premium_custos').insert(linha)
@@ -1809,7 +1848,7 @@ export async function completarDetran(
   const t0 = Date.now()
   let res = await consultarDetranInfosimples(params)
   // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
-  await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res) })
+  await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: res.data })
   if (usaLoginGovbr(cfgUf.cert) && res.code === 608) await travarLoginBa(res.codeMessage)
   // Proprietario bloqueou a consulta: status final, sem retry (cobra a cada vez).
   // Grava com `fonte`, entao backfill e reprocesso pulam este pedido depois.
@@ -1823,7 +1862,7 @@ export async function completarDetran(
     console.warn(`[detran] retry uf=${uf} code=${res.code} ms=${Date.now() - t0} pedido=${String(pedido.id).slice(0, 8)}`)
     await esperarMs(ctx.esperaRetryMs ?? ESPERA_RETRY_MS)
     res = await consultarDetranInfosimples(params)
-    await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res) })
+    await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: res.data })
   }
 
   if (res.code !== 200 || !res.data) {
@@ -1881,7 +1920,7 @@ async function buscarComplemento(
   if (usaLoginGovbr(DETRAN_UFS[uf].cert) && loginBaTravado()) return null
   try {
     const res = await consultarDetranInfosimples({ uf, placa: params.placa, renavam: params.renavam, path: comp.path })
-    await registrarCusto(supabase, { pedidoId, fonte: comp.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res) })
+    await registrarCusto(supabase, { pedidoId, fonte: comp.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: res.data })
     if (usaLoginGovbr(DETRAN_UFS[uf].cert) && res.code === 608) { await travarLoginBa(res.codeMessage); return null }
     if (res.code !== 200 || !res.data) {
       logIndisponivel(pedidoId, `${uf}-complemento`, res.code, detalheDaRecusa(res) || 'sem data', 0)
