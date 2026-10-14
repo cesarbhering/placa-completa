@@ -1,3 +1,4 @@
+import { sanearOrigemCheckout } from '../../../shared/origem-checkout'
 import { ambienteDaConsultaPaga } from '../../utils/gcc-reserva'
 import { origemDoCupom, cupomDispensaEmail } from '../../utils/cupom-recompra'
 import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-funil'
@@ -62,7 +63,9 @@ export default defineEventHandler(async (event) => {
   const { data: pedido, error } = await supabase
     .from('pedidos_premium')
     .insert({
-      token_entrega: token, placa, placa_confirmada: true, email: email || null, telefone,
+      token_entrega: token, placa, placa_confirmada: true,
+      // Botao que abriu o checkout (shared/origem-checkout.ts); fora do enum = null.
+      origem_checkout: sanearOrigemCheckout(body.origem_checkout), email: email || null, telefone,
       forma_pagamento: 'cartao',
       status: 'aguardando_pagamento', valor_centavos: valor, plano,
       preview: body.preview || null,

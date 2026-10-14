@@ -164,6 +164,8 @@ export function espelharEventoNoFunil(event: string, params?: Record<string, any
   if (!eventoPermitido(event)) return
   const extra: Record<string, string | number | boolean> = {}
   if (typeof params?.origin === 'string') extra.origem_cta = params.origin
+  // Porta de entrada do checkout (enum de shared/origem-checkout.ts).
+  if (typeof params?.origem_checkout === 'string') extra.origem_checkout = params.origem_checkout
   if (typeof params?.positivo === 'boolean') extra.positivo = params.positivo
   if (typeof params?.com_email === 'string') extra.com_email = params.com_email
   if (typeof params?.ja_consultada === 'boolean') extra.ja_consultada = params.ja_consultada

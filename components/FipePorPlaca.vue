@@ -105,6 +105,7 @@ function comprar() {
       :placa="placa"
       plano="completa"
       :ja-consultada="true"
+      origem-checkout="outro"
       @close="abrirCheckout = false"
     />
   </section>

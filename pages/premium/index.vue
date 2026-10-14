@@ -109,6 +109,8 @@ async function pagar() {
         preview: preview.value.raw, ambiente: ambiente.value,
         // Mesma marca de anuncio que o checkout da home manda.
         origin: origemDaSessao(),
+        // Chegou pelo link do e-mail de recuperacao de Pix (/premium?placa=...).
+        origem_checkout: route.query.placa ? 'pix_recovery' : 'outro',
       },
     })
     step.value = 'pending'
