@@ -45,4 +45,9 @@ describe('faixa de licenciamento: DETRAN da UF manda sobre a base nacional', () 
     const f = faixaLicenciamento({ anoNacional: '2025', anoAtual: 2026 })
     expect(JSON.stringify(f)).not.toContain('—')
   })
+
+  it('ORK8004: ultimo licenciado 2020 e atraso marcado em 2021 -> mostra 2020 (o ultimo licenciado)', () => {
+    const f = faixaLicenciamento({ anoNacional: null, estadual: { uf: 'AL', ultimo_licenciamento_ano: 2020, licenciamento_atrasado_ano: 2021 }, anoAtual: 2026 })
+    expect(f).toMatchObject({ ano: '2020', tom: 'alerta', rotulo: 'Atrasado', fonte: ' no DETRAN-AL' })
+  })
 })

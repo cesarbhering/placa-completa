@@ -3,7 +3,7 @@ import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { textoDetranProtegido } from '~/shared/detran-protegido'
 import { faixaLicenciamento } from '~/shared/licenciamento-faixa'
 import { textoHodometro } from '~/shared/hodometro-texto'
-import { resumoQuitar, procedenciaDebitos, procedenciaKm, ufDoBlocoDetran, statusResumoDetran } from '~/shared/detran-quitar'
+import { resumoQuitar, procedenciaDebitos, procedenciaKm, ufDoBlocoDetran, statusBaseNacional } from '~/shared/detran-quitar'
 import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN, esconderMultasQueFalharam } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
@@ -1338,12 +1338,11 @@ function reais(centavos?: number | null): string | null {
   return `R$ ${(centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 // Total "Para regularizar" = multas + licenciamento + IPVA em aberto. null quando nao ha nada a pagar (nao mostra o total).
-// Resumo por item abaixo da caixa: so status (os valores ficam na caixa
-// "Para transferir"). Logica em shared/detran-quitar.ts (statusResumoDetran).
-const multasBreakdown = computed(() => statusResumoDetran(multasDetalhe.value, {
-  // RENAINF aceso + DETRAN zerado: texto aprovado que explica a multa de fora do estado.
-  renainfForaTexto: ufRenainfFora.value ? textoMultasRenainfForaDoDetran(ufRenainfFora.value) : null,
-}))
+// Sem bloco estadual (indisponivel/protegido): status pela base nacional.
+// Com bloco, a caixa "Para transferir" ja diz tudo (feedback do Cesar, 14/out).
+const statusNacional = computed(() => statusBaseNacional({ renainf: g('indicadorMultaRenainf'), licAno: licAno.value }))
+// RENAINF aceso e DETRAN sem multa: texto aprovado (multa de fora do estado).
+const textoRenainfFora = computed(() => ufRenainfFora.value ? textoMultasRenainfForaDoDetran(ufRenainfFora.value) : null)
 // IPVA em aberto discriminado: itens do DETRAN (ipva_itens) + SEFAZ (ipva_sefaz,
 // GO), um por exercicio, mais novo primeiro, com o total.
 const ipvaLista = computed(() => {
@@ -2078,26 +2077,13 @@ onUnmounted(() => {
               <p class="rel__multas-tit">Multas e débitos</p>
               <p v-if="procDebitos" class="rel__multas-proc">{{ procDebitos }}</p>
               <template v-if="multasDetalhe">
-                <!-- Quanto falta quitar pra transferir + o que trava (14/out). -->
+                <!-- Ordem (feedback do Cesar, 14/out): procedencia, caixa,
+                     infracoes, IPVA, restricoes. A caixa ja diz o total, o que
+                     trava (inclusive roubo/furto) e o licenciamento vencido. -->
                 <DetranQuitar v-if="resumoDetran" :resumo="resumoDetran" />
-                <!-- DETRAN-MG com ROUBO/FURTO nos impedimentos: destaque, com o
-                     texto da fonte, sem afirmar que o carro e roubado. -->
-                <p v-if="multasDetalhe.alerta_roubo_furto" class="rel__multas-kmalerta">
-                  <b>{{ multasDetalhe.alerta_roubo_furto }}.</b> Confira a situação no DETRAN antes de negociar.
-                </p>
 
-                <!-- Multas e débitos: total grande + breakdown -->
-                <div class="rel__multas-m3">
-                  <div class="rel__multas-bd">
-                    <div v-for="(r, idx) in multasBreakdown" :key="'b' + idx" class="rel__multas-r" :class="{ 'rel__multas-r--texto': r.texto }">
-                      <span>{{ r.rotulo }}</span>
-                      <p v-if="r.texto" class="rel__multas-rtexto">{{ r.texto }}</p>
-                      <b v-else :class="{ 'rel__multas-ok': r.emDia, 'rel__multas-st-alerta': r.alerta }">{{ r.valor }}</b>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Multas em aberto, uma a uma (o que, quando, onde, órgão). -->
+                <!-- Infracoes: em aberto, em recurso e autuacoes em andamento. -->
+                <p v-if="textoRenainfFora" class="rel__multas-nota">{{ textoRenainfFora }}</p>
                 <template v-if="multasDetalhe.multas_itens && multasDetalhe.multas_itens.length">
                   <p class="rel__multas-sub">Multas em aberto</p>
                   <p v-if="multasDetalhe.multas_atualizado_centavos" class="rel__multas-item-meta">
@@ -2120,31 +2106,7 @@ onUnmounted(() => {
                     </li>
                   </ul>
                 </template>
-
-                <!-- IPVA em aberto, um item por exercicio (ano, vencimento, valor) com
-                     o total embaixo, igual as multas. SEFAZ (GO) = valor original. -->
-                <template v-if="ipvaLista.itens.length">
-                  <p class="rel__multas-sub">IPVA em aberto</p>
-                  <ul class="rel__multas-itens">
-                    <li v-for="(ip, idx) in ipvaLista.itens" :key="'ip' + idx" class="rel__multas-item">
-                      <div class="rel__multas-item-top">
-                        <span>IPVA {{ ip.ano || '' }}</span>
-                        <b>{{ reais(ip.valor_centavos) }}</b>
-                      </div>
-                      <p class="rel__multas-item-meta">
-                        <span v-if="ip.vencimento">vencimento {{ ip.vencimento }}</span>
-                        <span v-if="ip.sefaz">{{ ip.vencimento ? ' · ' : '' }}em aberto na SEFAZ</span>
-                      </p>
-                    </li>
-                  </ul>
-                  <div class="rel__multas-r rel__multas-ipvatotal">
-                    <span>Total do IPVA em aberto</span>
-                    <b>{{ reais(ipvaLista.total) }}</b>
-                  </div>
-                  <p v-if="ipvaLista.temSefaz" class="rel__multas-nota">Valores da SEFAZ são o valor original, sem juros e multa.</p>
-                </template>
-
-                <!-- Multas em recurso (GO): nao somam no total. -->
+                <!-- Em recurso (nao somam no total). -->
                 <template v-if="multasDetalhe.multas_em_recurso && multasDetalhe.multas_em_recurso.length">
                   <p class="rel__multas-sub">Multas em recurso</p>
                   <ul class="rel__multas-itens">
@@ -2163,20 +2125,33 @@ onUnmounted(() => {
                     </li>
                   </ul>
                 </template>
-
-                <!-- Autuacoes em andamento (MG): ainda nao viraram multa. -->
                 <p v-if="multasDetalhe.autuacoes_em_andamento" class="rel__multas-nota">
                   {{ multasDetalhe.autuacoes_em_andamento }}
                   {{ multasDetalhe.autuacoes_em_andamento === 1 ? 'autuação em andamento' : 'autuações em andamento' }}
                   no DETRAN (ainda sem multa).
                 </p>
 
-
-                <!-- Licenciamento atrasado (mesmo com débito zerado: pode ter ido
-                     pra dívida ativa). Copy factual. -->
-                <p v-if="multasDetalhe.licenciamento_atrasado_ano" class="rel__multas-kmalerta">
-                  Licenciamento atrasado: o último exercício licenciado foi {{ multasDetalhe.licenciamento_atrasado_ano }}. O veículo pode estar irregular para circular, confira.
-                </p>
+                <!-- IPVA em aberto, um item por exercicio. Total so com 2+ itens. -->
+                <template v-if="ipvaLista.itens.length">
+                  <p class="rel__multas-sub">IPVA em aberto</p>
+                  <ul class="rel__multas-itens">
+                    <li v-for="(ip, idx) in ipvaLista.itens" :key="'ip' + idx" class="rel__multas-item">
+                      <div class="rel__multas-item-top">
+                        <span>IPVA {{ ip.ano || '' }}</span>
+                        <b>{{ reais(ip.valor_centavos) }}</b>
+                      </div>
+                      <p class="rel__multas-item-meta">
+                        <span v-if="ip.vencimento">vencimento {{ ip.vencimento }}</span>
+                        <span v-if="ip.sefaz">{{ ip.vencimento ? ' · ' : '' }}em aberto na SEFAZ</span>
+                      </p>
+                    </li>
+                  </ul>
+                  <div v-if="ipvaLista.itens.length >= 2" class="rel__multas-r rel__multas-ipvatotal">
+                    <span>Total do IPVA em aberto</span>
+                    <b>{{ reais(ipvaLista.total) }}</b>
+                  </div>
+                  <p v-if="ipvaLista.temSefaz" class="rel__multas-nota">Valores da SEFAZ são o valor original, sem juros e multa.</p>
+                </template>
 
                 <!-- Restrições do DETRAN (só as que constam de fato). -->
                 <template v-if="multasDetalhe.restricoes_detran && multasDetalhe.restricoes_detran.length">
@@ -2187,14 +2162,19 @@ onUnmounted(() => {
                     </li>
                   </ul>
                 </template>
-
-
               </template>
               <p v-else-if="multasProtegido" class="rel__multas-nota">{{ textoDetranProtegido(ufMultasProtegido) }}</p>
               <p v-else-if="multasIndisponivel || multasSemRespostaAntigo" class="rel__multas-nota">A consulta de débitos e multas no DETRAN do estado não está disponível no momento. Confira direto no site do DETRAN.</p>
               <p v-else-if="multasSemResposta && acompanhamentoEsgotado" class="rel__multas-nota">O DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }} ainda não respondeu. Recarregue esta página em alguns minutos para ver o resultado.</p>
               <p v-else-if="multasSemResposta" class="rel__multas-nota rel__multas-nota--consultando">Consultando o DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }}, pode levar alguns minutos. O resultado aparece aqui sozinho.</p>
               <p v-else class="rel__multas-nota">Consultando débitos, multas e histórico no DETRAN. Aparece aqui em instantes.</p>
+              <!-- Sem bloco estadual: status pela base nacional. -->
+              <div v-if="!multasDetalhe && (multasProtegido || multasIndisponivel || multasSemRespostaAntigo) && statusNacional.length" class="rel__multas-bd">
+                <div v-for="(r, idx) in statusNacional" :key="'n' + idx" class="rel__multas-r">
+                  <span>{{ r.rotulo }}</span>
+                  <b :class="{ 'rel__multas-ok': r.emDia, 'rel__multas-st-alerta': r.alerta }">{{ r.valor }}</b>
+                </div>
+              </div>
             </div>
 
             <!-- Quilometragem: extrato Data | Km | Rodou, de todas as fontes
