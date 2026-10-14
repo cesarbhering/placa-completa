@@ -8,7 +8,7 @@
 // quem vai ate la e um agente de navegador na nuvem.
 //
 // Tres freios, porque cada consulta custa dinheiro de verdade:
-//   cache de 30 dias por placa, no maximo 2 tentativas por placa na janela,
+//   cache de 7 dias por placa, no maximo 2 tentativas por placa na janela,
 //   e teto de gasto por dia.
 // Tudo fail-open: sem chave, sem resposta, fora do ar ou JSON estranho, o
 // relatorio sai como sempre saiu, sem o bloco. Nenhum caminho aqui pode
@@ -20,8 +20,8 @@
 
 const API = 'https://api.browser-use.com/api/v4'
 
-/** 30 dias: campanha de recall nao muda de semana em semana. */
-const CACHE_DIAS = 30
+/** 7 dias (Relatorio 2.0, Cesar 14/out): antes 30; recall novo aparece em no maximo uma semana. */
+const CACHE_DIAS = 7
 const MAX_TENTATIVAS_POR_PLACA = 2
 const TETO_DIARIO_USD = 3
 const TETO_POR_RUN_USD = 1

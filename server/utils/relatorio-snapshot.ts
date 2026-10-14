@@ -4,6 +4,7 @@ import { candidatoEManual, candidatoEAutomatico } from './fipe-candidato'
 import type { RecallDetalhe } from './recall-detalhe'
 import type { RecallAutoritativo } from './recall-toyota'
 import type { MultasDetalhe } from './detran-multas'
+import { consultarRecallEua, fabricadoNaAmericaDoNorte, type RecallEua } from './nhtsa-recall'
 
 // Monta o payload agregado do relatorio (consulta filtrada por plano +
 // valorCusto + chassiOrigem + camposRestantes) — o mesmo bloco que report.get
@@ -41,6 +42,11 @@ export interface RelatorioSnapshot {
    * configurado. Nesses casos o relatorio mostra so o indicador de sempre.
    */
   multas?: MultasDetalhe | null
+  /**
+   * Relatorio 2.0 (Cesar 14/out): campanhas de recall NOS EUA para a marca/modelo/ano (NHTSA), so quando o
+   * chassi e da America do Norte (WMI 1-5). Informativo, com rotulo proprio (RecallEua.rotulo); null fora disso.
+   */
+  recallEua?: RecallEua | null
 }
 
 // O registro traz "MARCA/MODELO" numa string so ("I/HONDA CIVIC LX"). A API de
@@ -146,6 +152,11 @@ export async function montarRelatorioSnapshot(
   // Le o chassi de senatranBruto, nao de consulta.response: a resposta pode
   // vir achatada num array de um elemento, e ai `response.chassi` e undefined
   // e o bloco sumia sem nem chamar o decoder.
+  // NHTSA em paralelo (ate ~12 s no pior caso, fail-open), so completa e so chassi norte-americano
+  const recallEuaP: Promise<RecallEua | null> = querem('chassiOrigem') && pedido.plano === 'completa'
+    && fabricadoNaAmericaDoNorte(senatranBruto?.chassi)
+    ? consultarRecallEua(senatranBruto.chassi).catch(() => null)
+    : Promise.resolve(null)
   if (querem('chassiOrigem') && pedido.plano === 'completa' && senatranBruto?.chassi) {
     chassiOrigem = await decodificarChassi(senatranBruto.chassi, {
       modelo: senatranBruto?.descricaoMarcaModelo ?? null,
@@ -189,10 +200,11 @@ export async function montarRelatorioSnapshot(
       ano_mod: senatranBruto?.anoModelo ?? null,
       cor: senatranBruto?.descricaoCor ?? null,
       uf: senatranBruto?.ufJurisdicao ?? local.uf ?? null,
-    }).catch(() => null)
+    }, { cache: true }).catch(() => null)   // Relatorio 2.0: cache 30 d por placa+chassi
   }
 
-  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null, multas: pedido.multas ?? null }
+  const recallEua = await recallEuaP
+  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null, multas: pedido.multas ?? null, ...(recallEua ? { recallEua } : {}) }
 }
 
 /**
