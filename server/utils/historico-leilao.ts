@@ -11,6 +11,12 @@
 import { fonteExibicaoLeilao, paginaPublicaLeilao } from '../../shared/leilao-exibicao'
 import { ehNotificacao, GRAVIDADE_NOTIFICADO } from '../../shared/leilao-notificacao'
 import { historicoLgpd } from '../../shared/leilao-lgpd'
+import {
+  sanearOrigem, sanearAlertas, sanearDesfecho, sanearLotePublico, sanearContextoJudicial,
+  sanearLinhaDoTempoLeilao, sanearRecorrencia,
+  type OrigemLeilao, type AlertaLeilao, type DesfechoLeilao, type LotePublico, type ContextoJudicial,
+  type EventoLeilaoApi, type RecorrenciaLeilao,
+} from '../../shared/leilao-relatorio2'
 import { comFonteCache, chaveDePlaca } from './fonte-cache'
 import { registrarChamada } from './api-chamadas'
 
@@ -69,6 +75,12 @@ export interface PassagemLeilao {
   conflitos: string[]
   /** URLs de foto do lote, servidas pelo nosso armazenamento. */
   fotos: string[]
+  // Relatorio 2.0 (shared/leilao-relatorio2.ts): desconhecido = null/vazio.
+  origem?: OrigemLeilao | null
+  alertas?: AlertaLeilao[]
+  desfecho?: DesfechoLeilao | null
+  lote_publico?: LotePublico | null
+  contexto_judicial?: ContextoJudicial | null
 }
 
 export interface HistoricoLeilao {
@@ -91,6 +103,9 @@ export interface HistoricoLeilao {
   passagens: PassagemLeilao[]
   indice_atualizado_em: string | null
   aviso: string | null
+  /** Eventos ja agrupados pela API (mesma passagem em fontes diferentes = 1). */
+  linha_do_tempo?: EventoLeilaoApi[] | null
+  recorrencia?: RecorrenciaLeilao | null
 }
 
 /** Perfil do veiculo que o relatorio ja tem em maos. */
@@ -238,6 +253,11 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
       evidencias: Array.isArray(p.evidencias) ? p.evidencias.map(String) : [],
       fotos: sanearFotos(p.fotos, config),
       conflitos: Array.isArray(p.conflitos) ? p.conflitos.map(String) : [],
+      origem: sanearOrigem(p.origem),
+      alertas: sanearAlertas(p.alertas),
+      desfecho: ehNotificacao(p) ? null : sanearDesfecho(p.desfecho),
+      lote_publico: ehNotificacao(p) ? null : sanearLotePublico(p.lote_publico),
+      contexto_judicial: ehNotificacao(p) ? null : sanearContextoJudicial(p.contexto_judicial),
     }))
 
   // LGPD (14/out): sem numero de processo e sem comitente pessoa fisica, nem
@@ -257,6 +277,8 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
     passagens,
     indice_atualizado_em: texto(res.indice_atualizado_em),
     aviso: texto(res.aviso),
+    linha_do_tempo: sanearLinhaDoTempoLeilao(res.linha_do_tempo),
+    recorrencia: sanearRecorrencia(res.recorrencia),
   })
 }
 
