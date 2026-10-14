@@ -16,6 +16,9 @@ export interface BlocoDetranQuitar {
   licenciamento_atrasado_ano?: number | null
   alerta_roubo_furto?: string | null
   restricoes_detran?: { tipo: string; texto: string }[] | null
+  /** AL: IPVA apontado pelo DETRAN, valor ainda vindo da SEFAZ (ou nao veio). */
+  ipva_pendente_sefaz?: boolean | null
+  ipva_sefaz_indisponivel?: boolean | null
 }
 
 export interface ResumoQuitar {
@@ -28,6 +31,8 @@ export interface ResumoQuitar {
   consequencia: string | null
   /** "Nada a quitar no DETRAN-XX na data da consulta." quando total = 0. */
   nadaAQuitar: string | null
+  /** IPVA em aberto sem valor ainda: texto da linha (consultando / nao informado). */
+  ipvaSemValor: string | null
 }
 
 const pos = (v: any) => (Number(v) > 0 ? Math.round(Number(v)) : 0)
@@ -74,6 +79,11 @@ export function resumoQuitar(a: {
   const totalDoDetran = pos(b.total_detran_centavos) > 0
   const totalCentavos = totalDoDetran ? pos(b.total_detran_centavos) : soma
 
+  // AL: o DETRAN aponta IPVA em aberto e o valor vem da SEFAZ (consulta lenta).
+  const ipvaSemValor = ipva > 0 ? null
+    : b.ipva_pendente_sefaz ? `consultando a SEFAZ${uf ? '-' + uf : ''}, o valor aparece ao recarregar a página`
+      : b.ipva_sefaz_indisponivel ? `valor não informado pela SEFAZ${uf ? '-' + uf : ''} nesta consulta` : null
+
   const travas: string[] = []
   const add = (t: string) => { if (!travas.includes(t)) travas.push(t) }
   if (b.alerta_roubo_furto) add('Roubo ou furto')
@@ -91,7 +101,8 @@ export function resumoQuitar(a: {
     totalDoDetran,
     travas,
     consequencia: b.licenciamento_atrasado_ano ? CONSEQUENCIA_LICENCIAMENTO : null,
-    nadaAQuitar: totalCentavos > 0 ? null : `Nada a quitar no DETRAN${uf ? '-' + uf : ''} na data da consulta.`,
+    nadaAQuitar: totalCentavos > 0 || ipvaSemValor ? null : `Nada a quitar no DETRAN${uf ? '-' + uf : ''} na data da consulta.`,
+    ipvaSemValor,
   }
 }
 

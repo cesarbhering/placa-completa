@@ -2093,6 +2093,10 @@ onUnmounted(() => {
 
                 <!-- Infracoes: em aberto, em recurso e autuacoes em andamento. -->
                 <p v-if="textoRenainfFora" class="rel__multas-nota">{{ textoRenainfFora }}</p>
+                <!-- AL: o /infracoes falhou e o total veio do /veiculo, sem o detalhe de cada multa. -->
+                <p v-if="multasDetalhe.multas_sem_detalhe && multasDetalhe.multas_total_centavos > 0" class="rel__multas-nota">
+                  O DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }} informou o total das multas em aberto, sem o detalhe de cada infração nesta consulta.
+                </p>
                 <template v-if="multasDetalhe.multas_itens && multasDetalhe.multas_itens.length">
                   <p class="rel__multas-sub">Multas em aberto</p>
                   <p v-if="multasDetalhe.multas_atualizado_centavos" class="rel__multas-item-meta">

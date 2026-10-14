@@ -1,0 +1,92 @@
+{
+  "debitos": {
+    "debitos_anuais": [
+      {
+        "ano": "2021",
+        "licenciamento_vistoria": "R$ 263,34",
+        "seguro": null,
+        "total": null,
+        "normalizado_licenciamento_vistoria": 263.34,
+        "normalizado_seguro": null,
+        "normalizado_total": null
+      },
+      {
+        "ano": "2022",
+        "licenciamento_vistoria": "R$ 263,34",
+        "seguro": null,
+        "total": null,
+        "normalizado_licenciamento_vistoria": 263.34,
+        "normalizado_seguro": null,
+        "normalizado_total": null
+      },
+      {
+        "ano": "2023",
+        "licenciamento_vistoria": "R$ 263,34",
+        "seguro": null,
+        "total": null,
+        "normalizado_licenciamento_vistoria": 263.34,
+        "normalizado_seguro": null,
+        "normalizado_total": null
+      },
+      {
+        "ano": "2024",
+        "licenciamento_vistoria": "R$ 263,34",
+        "seguro": null,
+        "total": null,
+        "normalizado_licenciamento_vistoria": 263.34,
+        "normalizado_seguro": null,
+        "normalizado_total": null
+      },
+      {
+        "ano": "2025",
+        "licenciamento_vistoria": "R$ 263,34",
+        "seguro": null,
+        "total": null,
+        "normalizado_licenciamento_vistoria": 263.34,
+        "normalizado_seguro": null,
+        "normalizado_total": null
+      },
+      {
+        "ano": "2026",
+        "licenciamento_vistoria": "R$ 233,24",
+        "seguro": null,
+        "total": null,
+        "normalizado_licenciamento_vistoria": 233.24,
+        "normalizado_seguro": null,
+        "normalizado_total": null
+      }
+    ],
+    "debitos_eventuais": {
+      "guincho": "R$ 0,00",
+      "quantidade_dias": "0",
+      "diarias": "R$ 0,00",
+      "infracoes": "R$ 257,80",
+      "debitos_ipva": "SIM",
+      "total": null,
+      "normalizado_guincho": 0.0,
+      "normalizado_diarias": 0.0,
+      "normalizado_infracoes": 257.8,
+      "normalizado_total": null
+    },
+    "total_debito": "R$ 1807,74",
+    "normalizado_total_debito": 1807.74
+  },
+  "informacoes_gerais": {
+    "proprietario": "FULANO DE TAL",
+    "veiculo": "I/FORD FUSION FWD GTDI B",
+    "placa": "ABC1D23",
+    "renavam": "00000000000",
+    "ano_fabricacao": "2015",
+    "cor": "PRETA",
+    "combustivel": "GASOLINA",
+    "categoria": "PARTICULAR",
+    "tipo": "AUTOMOVEL",
+    "especie": "PASSAGEIRO",
+    "lacre_uf": "4106393 / AL",
+    "restricao_venda": "SEM RESERVA DE DOMINIO",
+    "roubo_furto": "NAO",
+    "comunicacao_de_venda": "NAO",
+    "numero_ar": null
+  },
+  "site_receipt": "https://storage.invalid/recibo.html"
+}
