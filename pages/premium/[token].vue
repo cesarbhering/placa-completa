@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { cardRecallAssociado } from '~/shared/recall-associado'
 import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { textoDetranProtegido } from '~/shared/detran-protegido'
 import { faixaLicenciamento } from '~/shared/licenciamento-faixa'
@@ -1228,6 +1229,14 @@ function metaCampanhaRealizada(c: any): string {
   const txt = partes.join(' · ')
   return txt ? txt.charAt(0).toUpperCase() + txt.slice(1) : ''
 }
+// Hook de recall positivo na consulta gratis e nada pendente hoje: o relatorio
+// diz QUAL campanha estava associada (shared/recall-associado.ts).
+const cardAssociado = computed(() => cardRecallAssociado({
+  sinal: data.value?.recallSinal,
+  base: data.value?.recallBase,
+  pendente: recallPendente.value || recallAbertoGM.value || campanhasAbertas.value.length > 0,
+  montadoraComCampanhas: !!recallMontadora.value,
+}))
 const marcaComConsultaMontadora = computed(() =>
   /\b(nissan|mmc|mitsubishi|m\.?\s*benz|mercedes)\b/i.test(String(g('descricaoMarcaModelo') || '')) && String(g('chassi') || '').trim().length === 17,
 )
@@ -2261,6 +2270,25 @@ onUnmounted(() => {
                 </ul>
               </template>
               <p v-if="campanhasAbertas.length" class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
+            </div>
+
+            <!-- Hook de recall da consulta gratis + nada pendente hoje: qual campanha era. -->
+            <div v-if="cardAssociado" class="rel__recall rel__recall--assoc">
+              <div class="rel__recall-top">
+                <div class="rel__recall-ic">i</div>
+                <div>
+                  <p class="rel__recall-tit">{{ cardAssociado.titulo }}</p>
+                  <p class="rel__recall-sub">{{ cardAssociado.fonte }}</p>
+                </div>
+              </div>
+              <ul v-if="cardAssociado.itens.length" class="rel__recall-lista">
+                <li v-for="(c, idx) in cardAssociado.itens" :key="'as' + idx" class="rel__recall-item">
+                  <div class="rel__recall-item-top"><span>{{ c.nome }}</span></div>
+                  <p v-if="c.meta" class="rel__recall-item-meta">{{ c.meta }}</p>
+                </li>
+              </ul>
+              <p v-else class="rel__recall-body">A consulta grátis indicou uma campanha de recall para este veículo; os detalhes da campanha não vieram da base agora.</p>
+              <p class="rel__recall-foot">{{ cardAssociado.situacao }}</p>
             </div>
 
             <div v-if="!recallMontadora && (recallPendente || recallAbertoGM)" class="rel__recall">
@@ -3845,6 +3873,18 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     border-radius: 12px;
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  // Recall associado (hook positivo, nada pendente hoje): neutro, nem alerta nem "resolvido".
+  &__recall--assoc {
+    border-color: #cfd9ec;
+    background: #f3f6fb;
+
+    .rel__recall-ic { background: #3a5a99; }
+    .rel__recall-tit { color: #1f3a6b; }
+    .rel__recall-sub { color: #44597f; }
+    // Situacao: "confirme", nao "resolvido" (o verde do foot padrao sugeriria feito).
+    .rel__recall-foot { color: #7a5200; background: #fff4dc; }
   }
 
   &__recall--ok {
