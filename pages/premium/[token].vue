@@ -39,7 +39,7 @@ import { montarChecklist } from '~/shared/checklist-compra'
 import { custo12Meses, combustivelPraConta, licenciamentoDaUf, KM_ANO_PADRAO } from '~/shared/custo-12-meses'
 import { PRECO_COMBUSTIVEL_UF, SEMANA_ANP } from '~/shared/dados/combustivel-uf'
 import { aliquotaIPVA } from '~/shared/ipva-uf'
-import { variacaoFipe } from '~/shared/fipe-variacao'
+import { variacaoFipe, fipeNoMes, mesDoRotulo } from '~/shared/fipe-variacao'
 import { componenteEua, type RecallEuaTela } from '~/shared/recall-eua'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { montarLinhaDoTempo } from '~/shared/linha-do-tempo'
@@ -1136,6 +1136,24 @@ const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', curren
 // O grafico do historico vive em components/GraficoValor.vue (ECharts, SVG).
 // So resta decidir aqui SE ha o que mostrar.
 const temGrafico = computed(() => (vc.value?.historico?.length ?? 0) > 1)
+// 13a: variacao em 12 e 24 meses + grafico recortado em 24 meses por padrao.
+const variacao12 = computed(() => variacaoFipe(vc.value?.historico, 12))
+const variacao24 = computed(() => variacaoFipe(vc.value?.historico, 24))
+const graficoCompleto = ref(false)
+const historicoGrafico = computed(() => {
+  const h = vc.value?.historico || []
+  if (graficoCompleto.value || h.length < 2) return h
+  const fim = mesDoRotulo(h[h.length - 1].label)
+  if (fim == null) return h
+  const recorte = h.filter((p: any) => { const m = mesDoRotulo(p.label); return m != null && m >= fim - 24 })
+  return recorte.length > 1 ? recorte : h
+})
+const graficoTemMais = computed(() => (vc.value?.historico?.length ?? 0) > historicoGrafico.value.length || graficoCompleto.value)
+function fraseVariacao(v: { delta: number; pct: number; meses: number }): string {
+  if (v.delta === 0) return `ficou estável em ${v.meses} meses`
+  const quanto = `${brl(Math.abs(v.delta))} (${Math.abs(v.pct).toLocaleString('pt-BR')}%)`
+  return v.delta < 0 ? `perdeu ${quanto} em ${v.meses} meses` : `valorizou ${quanto} em ${v.meses} meses`
+}
 // Serie que comeca muito depois do lancamento do ano-modelo: avisa em vez de
 // parecer completa (shared/historico-fipe.ts).
 const historicoDesde = computed(() => inicioTardioDoHistorico(vc.value?.historico, g('anoModelo')))
@@ -1497,7 +1515,9 @@ const linhaDoTempo = computed(() => {
   const eps = agruparEpisodios(blocoRoubo && typeof blocoRoubo === 'object' ? blocoRoubo.ocorrencias : null)
   const passagens: any[] = Array.isArray(historicoLeilao.value?.passagens) ? historicoLeilao.value.passagens : []
   const lic: any = g('ultimoLicenciamento')
+  const hist = !fipeIncerta.value ? vc.value?.historico : null
   return montarLinhaDoTempo({
+    fipeNaData: (iso) => fipeNoMes(hist, iso)?.price ?? null,
     anoFabricacao: g('anoFabricacao') as any,
     anoModelo: g('anoModelo') as any,
     leiloes: passagens.map((p: any) => ({
@@ -2820,13 +2840,23 @@ onUnmounted(() => {
 
             <div v-if="temGrafico && !fipeIncerta" class="rel__dep">
               <span class="rel__sub">Evolução do valor de mercado</span>
-              <GraficoValor :historico="vc.historico" />
+              <div v-if="variacao12 || variacao24" class="rel__var">
+                <div v-for="v in [variacao12, variacao24].filter(Boolean)" :key="v!.meses" class="rel__var-item" :class="v!.delta < 0 ? 'rel__var-item--queda' : 'rel__var-item--alta'">
+                  <span class="rel__var-k">Em {{ v!.meses }} meses</span>
+                  <span class="rel__var-v">{{ fraseVariacao(v!) }}</span>
+                  <span class="rel__var-n">de {{ brl(v!.de) }} em {{ v!.deRotulo }} para {{ brl(v!.ate) }} em {{ v!.ateRotulo }}</span>
+                </div>
+              </div>
+              <GraficoValor :historico="historicoGrafico" />
+              <button v-if="graficoTemMais" type="button" class="rel__var-toggle" @click="graficoCompleto = !graficoCompleto">
+                {{ graficoCompleto ? 'Ver só os últimos 24 meses' : `Ver o histórico completo (desde ${vc.historico[0].label})` }}
+              </button>
               <p v-if="historicoDesde" class="rel__dep-nota">Histórico disponível a partir de {{ historicoDesde }}.</p>
               <!-- As barras sao escaladas pela faixa da serie, nao pelo zero:
                    sem isso, oito barras iguais. Em troca, a legenda diz os
                    valores das pontas, senao a variacao parece maior do que e. -->
               <p v-if="vc.quedaAno !== null" class="rel__dep-txt">
-                De {{ brl(vc.historico[0].price) }} em {{ vc.historico[0].label }}
+                No histórico completo, de {{ brl(vc.historico[0].price) }} em {{ vc.historico[0].label }}
                 para {{ brl(vc.historico[vc.historico.length - 1].price) }} em
                 {{ vc.historico[vc.historico.length - 1].label }}:
                 <strong>{{ vc.quedaAno < 0 ? 'queda' : 'alta' }} de {{ Math.abs(vc.quedaAno).toLocaleString('pt-BR') }}%</strong>.
@@ -4105,6 +4135,18 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__c12-k small { display: block; color: #666; font-size: calc(12px * var(--rel-fs, 1)); }
   &__c12-v { white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; }
   &__c12-nota { margin: 8px 0 0; font-size: calc(12px * var(--rel-fs, 1)); color: #666; line-height: 1.45; }
+
+  // ---- variacao da FIPE em 12/24 meses (13a) ----
+  &__var { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 8px 0 10px; }
+  @media (min-width: 640px) { &__var { grid-template-columns: 1fr 1fr; } }
+  &__var-item { border: 1px solid #e3e6ea; border-radius: 10px; padding: 10px 12px; background: #fff; break-inside: avoid; }
+  &__var-k { display: block; font-size: calc(11.5px * var(--rel-fs, 1)); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #666; }
+  &__var-v { display: block; margin-top: 2px; font-size: calc(15px * var(--rel-fs, 1)); font-weight: 700; color: #1a1a1a; }
+  &__var-item--queda .rel__var-v { color: #a01d1d; }
+  &__var-item--alta .rel__var-v { color: #14622f; }
+  &__var-n { display: block; margin-top: 2px; font-size: calc(12px * var(--rel-fs, 1)); color: #666; }
+  &__var-toggle { margin: 6px 0 0; padding: 0; border: 0; background: none; color: #1f5fbf; font: inherit; font-size: calc(13px * var(--rel-fs, 1)); cursor: pointer; text-decoration: underline; }
+  @media print { &__var-toggle { display: none; } }
 
   // ---- recall pendente (Opcao 1 "Alerta classico") ----
   // Cartao vermelho com icone, titulo, subtitulo da campanha, corpo com o

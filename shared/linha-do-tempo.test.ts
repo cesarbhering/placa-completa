@@ -40,4 +40,17 @@ describe('linha do tempo do veiculo', () => {
     expect(t.map((x) => x.tipo)).toEqual(['km', 'recall', 'km'])
     expect(t[2].detalhe).toBe('rodou 11.000 km desde a leitura anterior')
   })
+
+  it('13a: FIPE na data em leilao e roubo (nunca em notificacao)', () => {
+    const t = montarLinhaDoTempo({
+      fipeNaData: (iso) => (iso && iso.startsWith('2019') ? 31234.5 : null),
+      leiloes: [{ data: '2019-08-21', titulo: 'Sodré Santoro', confirmado: true }, { data: '2019-09-01', titulo: 'Detran MG', notificacao: true }],
+      roubo: [{ etapa: 'ROUBO', data: '2019-04-12', tipo: 'ROUBO' }, { etapa: 'ROUBO', data: '2017-01-01', tipo: 'FURTO' }],
+    })
+    const det = Object.fromEntries(t.map((x) => [x.data, x.detalhe]))
+    expect(det['2019-08-21']!.replace(/\s/g, ' ')).toBe('Sodré Santoro · FIPE na data: R$ 31.234,50')
+    expect(det['2019-04-12']!.replace(/\s/g, ' ')).toBe('FIPE na data: R$ 31.234,50')
+    expect(det['2019-09-01']).toBe('Detran MG')
+    expect(det['2017-01-01']).toBeUndefined()
+  })
 })

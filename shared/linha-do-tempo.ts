@@ -44,6 +44,8 @@ const km = (n: number) => `${Math.round(n).toLocaleString('pt-BR')} km`
 const reais = (c: number) => `R$ ${(c / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 export interface EntradaLinhaDoTempo {
+  /** FIPE da versao no mes de uma data ISO (13a). Leilao e roubo ganham "FIPE na data". Nunca valor de arremate. */
+  fipeNaData?: (iso: string | null) => number | null
   anoFabricacao?: number | string | null
   anoModelo?: number | string | null
   leiloes?: { data: string | null; titulo: string; detalhe?: string; notificacao?: boolean; confirmado?: boolean }[]
@@ -68,18 +70,23 @@ export function montarLinhaDoTempo(e: EntradaLinhaDoTempo): EventoTempo[] {
     add({ data: String(e.anoFabricacao), tipo: 'fabricacao', titulo: `Fabricado em ${e.anoFabricacao}${mod}`, tom: 'neutro' })
   }
 
+  const fipeTxt = (iso: string | null) => {
+    const v = e.fipeNaData ? e.fipeNaData(iso) : null
+    return v && v > 0 ? `FIPE na data: ${reais(Math.round(v * 100))}` : null
+  }
   for (const l of e.leiloes || []) {
+    const iso = paraIso(l.data)
     add({
-      data: paraIso(l.data), tipo: l.notificacao ? 'notificacao' : 'leilao', secao: 'leilao',
+      data: iso, tipo: l.notificacao ? 'notificacao' : 'leilao', secao: 'leilao',
       titulo: l.notificacao ? 'Consta em edital de notificação' : l.confirmado ? 'Consta passagem por leilão' : 'Possível passagem por leilão',
-      detalhe: [l.titulo, l.detalhe].filter(Boolean).join(' · ') || undefined,
+      detalhe: [l.titulo, l.detalhe, l.notificacao ? null : fipeTxt(iso)].filter(Boolean).join(' · ') || undefined,
       tom: l.notificacao ? 'neutro' : l.confirmado ? 'alerta' : 'atencao',
     })
   }
 
   for (const r of e.roubo || []) {
     const et = String(r.etapa || '').toUpperCase()
-    if (et === 'ROUBO') add({ data: paraIso(r.data), tipo: 'roubo', secao: 'ocorr', titulo: `Registro de ${String(r.tipo || '').toUpperCase() === 'FURTO' ? 'furto' : 'roubo'}`, tom: 'alerta' })
+    if (et === 'ROUBO') add({ data: paraIso(r.data), tipo: 'roubo', secao: 'ocorr', titulo: `Registro de ${String(r.tipo || '').toUpperCase() === 'FURTO' ? 'furto' : 'roubo'}`, detalhe: fipeTxt(paraIso(r.data)) || undefined, tom: 'alerta' })
     else if (et === 'RECUPERACAO') add({ data: paraIso(r.data), tipo: 'recuperacao', secao: 'ocorr', titulo: 'Registro de recuperação', tom: 'atencao' })
     else if (et === 'DEVOLUCAO') add({ data: paraIso(r.data), tipo: 'devolucao', secao: 'ocorr', titulo: 'Registro de devolução ao proprietário', tom: 'ok' })
   }
