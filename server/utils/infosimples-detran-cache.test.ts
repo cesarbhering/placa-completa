@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { completarDetran } from './infosimples-detran'
+import { completarDetran, completarIpvaSefaz } from './infosimples-detran'
 import SC from './__fixtures__/infosimples-detran-sc.json'
 
 // Cache de 24 h do bloco do DETRAN por placa (fonte_cache, fonte multas_<uf>).
@@ -8,9 +8,8 @@ const resp = [{ ufJurisdicao: 'SC', renavam: '1095390000', indicadorMultaRenainf
 const OK_SC = { code: 200, code_message: 'ok', header: { price: '0.28' }, data: [SC] }
 const PROTEGIDO = { code: 620, code_message: 'Erro', header: { price: '0.28' }, errors: ['O veículo consultado está protegido.'] }
 
-function fakeSb(cache: Record<string, any> = {}) {
+function fakeSb(cache: Record<string, any> = {}, snap: any = { consulta: {} }) {
   const inserts: any[] = []; const updates: any[] = []; const upserts: any[] = []
-  const snap = { consulta: {} }
   return {
     inserts, updates, upserts, cache,
     from: (t: string) => t === 'fonte_cache'
@@ -92,5 +91,27 @@ describe('DETRAN: cache de 24 h por placa', () => {
     await completarDetran(sb2, { id: 'p1', placa: 'MES3261' }, { response: resp, ignorarGate: true, esperaRetryMs: 0 })
     expect(sb2.upserts).toHaveLength(0)
     expect(sb2.updates.at(-1).relatorio_snapshot.multas.status).toBe('indisponivel')
+  })
+
+  it('IPVA na SEFAZ: resultado completo vai pro cache; segundo pedido nao paga de novo', async () => {
+    const snap = { consulta: {}, multas: { status: 'ok', uf: 'DF', fonte: 'detran_df', ipva_pendente_sefaz: true } }
+    const fetchSpy = prep({ code: 200, header: { price: '0.24' }, data: [{ debitos: [{ ano: '2026', cota: 'UNICA', valor_total: '2.100,00' }] }] })
+    const sb = fakeSb({}, snap)
+    expect(await completarIpvaSefaz(sb, 'p1', 'DF', { placa: 'JKL1234', renavam: '123' })).toBe(true)
+    expect(sb.upserts[0]).toMatchObject({ fonte: 'ipva_sefaz_df', chave: 'JKL1234', status: 'ok' })
+    const sb2 = fakeSb(sb.cache, snap)
+    expect(await completarIpvaSefaz(sb2, 'p2', 'DF', { placa: 'JKL1234', renavam: '123' })).toBe(true)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(sb2.inserts).toHaveLength(0)
+    expect(sb2.updates.at(-1).relatorio_snapshot.multas.ipva_total_centavos).toBe(210000)
+  })
+
+  it('IPVA na SEFAZ: falha nao entra no cache', async () => {
+    const snap = { consulta: {}, multas: { status: 'ok', uf: 'DF', fonte: 'detran_df', ipva_pendente_sefaz: true } }
+    prep({ code: 600, code_message: 'erro', header: { price: '0.24' } })
+    const sb = fakeSb({}, snap)
+    expect(await completarIpvaSefaz(sb, 'p1', 'DF', { placa: 'JKL1234', renavam: '123' })).toBe(false)
+    expect(sb.upserts).toHaveLength(0)
+    expect(sb.updates.at(-1).relatorio_snapshot.multas.ipva_sefaz_indisponivel).toBe(true)
   })
 })
