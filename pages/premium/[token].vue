@@ -3,6 +3,7 @@ import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { textoDetranProtegido } from '~/shared/detran-protegido'
 import { faixaLicenciamento } from '~/shared/licenciamento-faixa'
 import { textoHodometro } from '~/shared/hodometro-texto'
+import { resumoQuitar, procedenciaDebitos, procedenciaKm, ufDoBlocoDetran } from '~/shared/detran-quitar'
 import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN, esconderMultasQueFalharam } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
@@ -1337,21 +1338,6 @@ function reais(centavos?: number | null): string | null {
   return `R$ ${(centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 // Total "Para regularizar" = multas + licenciamento + IPVA em aberto. null quando nao ha nada a pagar (nao mostra o total).
-const multasTotalCentavos = computed(() => {
-  const m = multasDetalhe.value
-  if (!m) return null
-  const mm = m.multas_total_centavos && m.multas_total_centavos > 0 ? m.multas_total_centavos : 0
-  const lic = m.licenciamento_centavos && m.licenciamento_centavos > 0 ? m.licenciamento_centavos : 0
-  // IPVA em aberto tambem e divida do carro (o comentario sempre disse "NAO
-  // inclui IPVA quando em dia", mas o codigo nunca somava, nem em aberto).
-  const ipva = m.ipva_total_centavos && m.ipva_total_centavos > 0 ? m.ipva_total_centavos : 0
-  // O DETRAN informou o total que ele cobra (BA): esse e o numero. Somar o
-  // valor ORIGINAL das multas daria menos do que o DETRAN cobra (JPQ6371).
-  if (m.total_detran_centavos && m.total_detran_centavos > 0) return m.total_detran_centavos
-  const multasHoje = m.multas_atualizado_centavos && m.multas_atualizado_centavos > mm ? m.multas_atualizado_centavos : mm
-  const total = multasHoje + lic + ipva
-  return total > 0 ? total : null
-})
 // Breakdown do cartao: Multas (Pix), Licenciamento (com vencimento), IPVA.
 const multasBreakdown = computed(() => {
   const m = multasDetalhe.value
@@ -1437,6 +1423,23 @@ const kmComMontadora = computed(() => kmLeituras.value.some((l: any) => l.fonte 
 const hodometroSuspeito = computed(() => !!multasDetalhe.value?.hodometro_suspeito || hodometroExtrato.value.some((h) => h.caiu))
 // Alerta (km caiu) ou orientacao com a ultima leitura: shared/hodometro-texto.ts.
 const fraseHodometro = computed(() => textoHodometro({ suspeito: hodometroSuspeito.value, extrato: hodometroExtrato.value }))
+// Caixa "Para transferir" e procedencia/data dos subblocos (shared/detran-quitar.ts).
+const resumoDetran = computed(() => multasDetalhe.value ? resumoQuitar({
+  bloco: multasDetalhe.value as any,
+  ufVeiculo: ufDetranTela.value,
+  restricoesNacionais: itensQueRestringem(v.value?.restricoesItens),
+  indicadorRouboFurto: g('indicadorRouboFurto') === true,
+}) : null)
+const procDebitos = computed(() => {
+  const estado = multasDetalhe.value ? 'ok' : multasProtegido.value ? 'protegido' : multasIndisponivel.value ? 'indisponivel' : null
+  if (!estado) return null
+  return procedenciaDebitos({ uf: ufDoBlocoDetran(data.value?.multas as any, ufDetranTela.value), consultadoEm: (data.value as any)?.detranConsultadoEm, estado })
+})
+const procKm = computed(() => {
+  const ext = hodometroExtrato.value
+  if (!ext.length) return null
+  return procedenciaKm({ uf: ufDoBlocoDetran(data.value?.multas as any, ufDetranTela.value), fontes: ext.map((h) => h.fonte), ultimaData: ext[ext.length - 1].data })
+})
 const hodometroExtrato = computed(() => {
   const lista = kmLeituras.value
   return lista.map((h: any, i: number) => {
@@ -2119,7 +2122,10 @@ onUnmounted(() => {
                  indicador de multa acende, e aqui vem o VALOR e o detalhe. -->
             <div v-if="(multaIndicadorSP || ehVeiculoSpTela || multasDetalhe) && !multasFalhaSilenciosa" class="rel__multas">
               <p class="rel__multas-tit">Multas e débitos</p>
+              <p v-if="procDebitos" class="rel__multas-proc">{{ procDebitos }}</p>
               <template v-if="multasDetalhe">
+                <!-- Quanto falta quitar pra transferir + o que trava (14/out). -->
+                <DetranQuitar v-if="resumoDetran" :resumo="resumoDetran" />
                 <!-- DETRAN-MG com ROUBO/FURTO nos impedimentos: destaque, com o
                      texto da fonte, sem afirmar que o carro e roubado. -->
                 <p v-if="multasDetalhe.alerta_roubo_furto" class="rel__multas-kmalerta">
@@ -2128,10 +2134,6 @@ onUnmounted(() => {
 
                 <!-- Multas e débitos: total grande + breakdown -->
                 <div class="rel__multas-m3">
-                  <div v-if="multasTotalCentavos" class="rel__multas-cap">
-                    <span>Para regularizar</span>
-                    <b>{{ reais(multasTotalCentavos) }}</b>
-                  </div>
                   <div class="rel__multas-bd">
                     <div v-for="(r, idx) in multasBreakdown" :key="'b' + idx" class="rel__multas-r" :class="{ 'rel__multas-r--texto': r.texto }">
                       <span>{{ r.rotulo }}</span>
@@ -2245,6 +2247,7 @@ onUnmounted(() => {
                  (DETRAN e atendimentos de recall da montadora). -->
             <div v-if="hodometroExtrato.length" class="rel__multas">
               <p class="rel__multas-tit">Quilometragem registrada</p>
+              <p v-if="procKm" class="rel__multas-proc">{{ procKm }}</p>
               <table class="rel__multas-k3">
                 <tbody>
                   <tr class="rel__multas-k3head">
@@ -4072,6 +4075,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     // Multa sem valor definido (autuacao em andamento): texto, nao R$ 0,00.
     b.rel__multas-sem-valor { color: #6b7280; font-weight: 500; white-space: normal; text-align: right; }
   }
+  &__multas-proc { margin: -2px 0 8px; font-size: calc(11.5px * var(--rel-fs, 1)); color: #6b7280; }
   &__multas-item-meta { margin: 4px 0 0; font-size: calc(12px * var(--rel-fs, 1)); line-height: 1.4; color: #6b7280; }
 
   // restricoes do DETRAN
