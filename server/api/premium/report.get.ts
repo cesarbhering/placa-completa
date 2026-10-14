@@ -1,5 +1,6 @@
 import { sanearRenajud } from '../../utils/renajud-detalhe'
 import { historicoLgpd } from '../../../shared/leilao-lgpd'
+import { sanearRecallEua } from '../../../shared/recall-eua'
 import { garantirRecallBase } from '../../utils/recall-associado'
 import { avisarRestricaoSemCopy } from '../../utils/aviso-restricao'
 import { fontesAplicaveis } from '../../utils/premium-jobs'
@@ -140,6 +141,7 @@ export default defineEventHandler(async (event) => {
   let recallAutoritativo: any = null
   // Recall da montadora por chassi (Nissan/Mitsubishi, status por campanha): vem do snapshot.
   let recallMontadora: any = null
+  let recallEua: any = null
   // Campanhas da base de recalls quando a consulta gratis mostrou o hook (recall_sinal firme/suave).
   let recallBase: any = null
   // Debitos e restricoes do orgao estadual: vem do snapshot, igual ao recall.
@@ -162,6 +164,7 @@ export default defineEventHandler(async (event) => {
       recall = snap.recall ?? null
       recallAutoritativo = snap.recallAutoritativo ?? null
       recallMontadora = snap.recallMontadora ?? null
+      recallEua = snap.recallEua ?? null
       multas = snap.multas ? sanearBlocoMultas(snap.multas) : null
       renajudDetalhe = snap.renajudDetalhe ? sanearRenajud(snap.renajudDetalhe) : null
       // Self-heal: a entrega busca recall/multas UMA vez e, se a raspagem deu
@@ -268,6 +271,7 @@ export default defineEventHandler(async (event) => {
         recall = snap.recall ?? null
         recallAutoritativo = snap.recallAutoritativo ?? null
         recallMontadora = snap.recallMontadora ?? null
+        recallEua = snap.recallEua ?? null
         multas = snap.multas ? sanearBlocoMultas(snap.multas) : null
         renajudDetalhe = snap.renajudDetalhe ? sanearRenajud(snap.renajudDetalhe) : null
         segmento = snap.segmento ?? 'outro'
@@ -283,6 +287,7 @@ export default defineEventHandler(async (event) => {
         historicoLeilao = snapshot.historicoLeilao
         recall = snapshot.recall ?? null
         recallAutoritativo = snapshot.recallAutoritativo ?? null
+        recallEua = (snapshot as any).recallEua ?? null
         multas = snapshot.multas ? sanearBlocoMultas(snapshot.multas) : null
         segmento = snapshot.segmento
         // Backfill lazy: grava pra proxima visita ja vir do snapshot. Fail-open
@@ -368,6 +373,8 @@ export default defineEventHandler(async (event) => {
     recall,
     recallAutoritativo,
     recallMontadora,
+    // Recall NHTSA (EUA), so chassi da America do Norte; informativo (shared/recall-eua.ts).
+    recallEua: sanearRecallEua(recallEua),
     recallBase,
     recallSinal: pedido.recall_sinal ?? null,
     multas,
