@@ -1,0 +1,15 @@
+#!/bin/bash
+# Relatorio 2.0: dispara o worker da fila premium_jobs (a execucao roda DENTRO do site, registrada em voo, #524).
+# Timer pc-premium-jobs.timer a cada 1 min. Vai pelo Traefik local (127.0.0.1:80, Host do site): qualquer container serve.
+# 202 = lote reivindicado (ou zero); 409 = lote ja rodando naquele container; 503 = container encerrando. Os 3 sao normais.
+set -u
+. /root/.secrets/admin-secret.env
+out=$(curl -sS -o /dev/stdout -w '\n%{http_code}' --max-time 20 -X POST \
+  -H 'Host: placacompleta.com.br' -H "x-admin-secret: ${NUXT_ADMIN_SECRET}" -H 'Content-Type: application/json' \
+  -d '{"limite":5}' http://127.0.0.1/api/premium/jobs/run 2>&1)
+code=$(tail -n1 <<<"$out"); corpo=$(head -n -1 <<<"$out" | head -c 300)
+case "$code" in
+  202) grep -q '"reivindicados":0' <<<"$corpo" || echo "lote: $corpo"; exit 0 ;;
+  409|503) echo "ok ($code): $corpo"; exit 0 ;;
+  *) echo "FALHA $code: $corpo"; exit 1 ;;
+esac

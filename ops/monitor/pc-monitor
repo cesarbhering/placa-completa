@@ -14,6 +14,7 @@ Regras:
 
 Uso:
   pc-monitor site                                  # roda a checagem do site (timer)
+  pc-monitor fila                                  # saude da fila premium_jobs (timer, 5 min)
   pc-monitor alerta <site|checkout> ok [detalhe]   # registra sucesso (fecha incidente se aberto)
   pc-monitor alerta <site|checkout> falha <tipo> <motivo> [detalhe]   # registra falha CONFIRMADA
   pc-monitor estado                                # JSON dos dois alvos (usado pela TV)
@@ -28,8 +29,9 @@ REPETE_S = 3600
 LENTO_S = 20          # mais que isso para responder = incidente (cliente desiste)
 TIMEOUT_S = 15
 BRT = dt.timezone(dt.timedelta(hours=-3))
-TITULO = {"site": "SITE FORA DO AR", "checkout": "CHECKOUT COM ERRO"}
-VOLTOU = {"site": "SITE VOLTOU", "checkout": "CHECKOUT VOLTOU"}
+TITULO = {"site": "SITE FORA DO AR", "checkout": "CHECKOUT COM ERRO", "fila": "FILA DO RELATORIO PARADA"}
+VOLTOU = {"site": "SITE VOLTOU", "checkout": "CHECKOUT VOLTOU", "fila": "FILA DO RELATORIO VOLTOU"}
+SB_REF = "fivalpkfneadngxiflea"
 DRY = os.environ.get("PCMON_DRY") == "1"   # testes: nao envia e-mail, so imprime
 
 
@@ -151,14 +153,56 @@ def cmd_site():
     return 1
 
 
+# ------------------------------------------------------------------ fila do relatorio (premium_jobs)
+def sb(sql):
+    tok = open("/root/.supabase/access-token").read().strip()
+    req = urllib.request.Request(f"https://api.supabase.com/v1/projects/{SB_REF}/database/query",
+                                 data=json.dumps({"query": sql}).encode(), method="POST",
+                                 headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        d = json.load(r)
+    if isinstance(d, dict):
+        raise RuntimeError(str(d.get("message") or d)[:200])
+    return d
+
+
+def cmd_fila():
+    """Fila parada = job pendente atrasado > 15 min ou lease vencido (worker morreu). Ja e confirmado por definicao.
+    Jobs 'esgotado' novos: e-mail unico por lote (sem 'voltou'), com fonte e erro curto (sem dado de cliente)."""
+    v = sb("select * from public.premium_jobs_saude")[0]
+    s = ler("fila")
+    resumo = (f"pendentes {v['pendentes']}, rodando {v['rodando']}, atrasados {v['atrasados']}, "
+              f"lease vencido {v['lease_vencido']}, esgotados 24h {v['esgotados_24h']}, concluidos 24h {v['concluidos_24h']}")
+    if v["atrasados"] or v["lease_vencido"]:
+        tipo = "atrasada" if v["atrasados"] else "lease_vencido"
+        registra_falha("fila", tipo, f"{v['atrasados']} job(s) atrasado(s) > 15 min, {v['lease_vencido']} com lease vencido",
+                       resumo + "\nVer: systemctl status pc-premium-jobs.timer; journalctl -u pc-premium-jobs")
+    else:
+        registra_ok("fila", resumo)
+    # esgotados novos desde a ultima checagem
+    desde = s.get("esgotado_visto_ate") or (agora() - 3600)
+    novos = sb(f"""select fonte, count(*)::int n, max(left(coalesce(ultimo_erro,''),120)) erro, max(concluido_em) ate
+                   from public.premium_jobs where status='esgotado' and concluido_em > to_timestamp({desde})
+                   group by 1 order by 2 desc""")
+    if novos:
+        linhas = "\n".join(f"- {r['fonte']}: {r['n']} (ultimo erro: {r['erro'] or '-'})" for r in novos)
+        email(f"RELATORIO COM FONTE ESGOTADA ({sum(r['n'] for r in novos)})",
+              f"Jobs da fila do relatorio que esgotaram as 4 tentativas (1 min, 5 min, 30 min, 6 h):\n\n{linhas}\n\n"
+              "O cliente recebeu o relatorio sem esse bloco. Avaliar reprocesso manual.\nHelena (pc-monitor)")
+    s2 = ler("fila"); s2["esgotado_visto_ate"] = agora(); s2["contagens"] = v; gravar("fila", s2)
+    return 0
+
+
 def cmd_estado():
     out = {}
-    for alvo in ("site", "checkout"):
+    for alvo in ("site", "checkout", "fila"):
         s = ler(alvo)
         out[alvo] = {"estado": s.get("estado", "ok"), "ultima_verificacao": s.get("ultima_verificacao"),
                      "ultimo_ok": s.get("ultimo_ok"), "desde": s.get("desde"), "tipo": s.get("tipo"),
                      "motivo": s.get("motivo"), "detalhe": s.get("detalhe") if s.get("estado") == "ok" else None,
                      "ultimo_incidente": s.get("ultimo_incidente")}
+        if alvo == "fila":
+            out[alvo]["contagens"] = s.get("contagens")
     print(json.dumps(out, ensure_ascii=False))
     return 0
 
@@ -166,6 +210,8 @@ def cmd_estado():
 def main(a):
     if a[:1] == ["site"]:
         return cmd_site()
+    if a[:1] == ["fila"]:
+        return cmd_fila()
     if a[:1] == ["estado"]:
         return cmd_estado()
     if len(a) >= 3 and a[0] == "alerta" and a[1] in TITULO and a[2] == "ok":
