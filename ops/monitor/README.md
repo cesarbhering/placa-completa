@@ -34,3 +34,11 @@ Testes sem enviar e-mail: `PCMON_DRY=1`. Para apontar a sonda para outro motor o
 | 11/10 21:25 a 12/10 09:25 (7 rodadas, de 2 em 2 h) | `waitForSelector` timeout: a home não carregou | **sem resposta em 20 s**, as 7 vezes | **Real**: site fora (504), de ~21h a 10h55. A sonda acertou, mas o e-mail dizia "VPS sobrecarregada, não checkout travado" e saía no máximo a cada 2 h. O monitor novo teria mandado "SITE FORA DO AR" por volta de 21h05, repetido de hora em hora, e "SITE VOLTOU (fora por ~14h)". |
 
 Resultado: 3 falsos positivos (todos isolados, nenhum se repetiria com a confirmação) e 7 falhas reais, todas do mesmo incidente.
+
+## Fila do relatório (premium_jobs), desde 14/out/2026
+
+- `pc-monitor fila` (`pc-fila-check.timer`, a cada 5 min) lê a view `premium_jobs_saude` no prod pela Management API.
+- Se há job pendente atrasado mais de 15 min ou com lease vencido, manda `FILA DO RELATORIO PARADA`, repetido a cada 1 h, e `VOLTOU` quando normaliza.
+- Jobs que esgotaram as 4 tentativas geram um e-mail único por lote, `RELATORIO COM FONTE ESGOTADA (n)`, com fonte e erro curto.
+- A TV mostra isso em `saude.json` → `fila_relatorio`.
+- O disparo da fila e a limpeza do cache ficam em `ops/premium-jobs/`.

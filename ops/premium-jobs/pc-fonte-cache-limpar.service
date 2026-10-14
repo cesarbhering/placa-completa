@@ -1,0 +1,6 @@
+[Unit]
+Description=Relatorio 2.0: limpa fonte_cache vencido (>7 d) e api_chamadas (>90 d) no Supabase prod
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-fonte-cache-limpar
+TimeoutStartSec=120
