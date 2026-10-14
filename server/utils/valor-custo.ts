@@ -22,7 +22,11 @@ export type ValorCusto = {
   /** Codigo FIPE da versao que deu o valor exibido (ex.: 004473-3). */
   fipeCodigo?: string | null
   historico: { label: string; price: number }[] | null
-  quedaAno: number | null      // % de variacao nos ultimos 12 meses
+  /**
+   * % de variacao da serie INTEIRA (1o x ultimo ponto do historico), que pode
+   * ter anos, NAO 12 meses. Pra 12/24 meses: shared/fipe-variacao.ts.
+   */
+  quedaAno: number | null
   seguroAnual: number | null
   percentualFipe: number | null
   custo5anos: number | null
