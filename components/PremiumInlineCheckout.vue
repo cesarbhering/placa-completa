@@ -33,12 +33,15 @@ const props = withDefaults(defineProps<{
   /** Hook de recall que a pessoa viu na consulta gratis (firme/suave/negativo/fora_escopo/sem_sinal) e a marca. Vai pro pedido. */
   recallSinal?: string | null
   recallMarca?: string | null
+  /** Botao que abriu o checkout (shared/origem-checkout.ts). Vai pro pedido. */
+  origemCheckout?: string | null
 }>(), {
   plano: 'completa',
   jaConsultada: false,
   abBloco: null,
   recallSinal: null,
   recallMarca: null,
+  origemCheckout: null,
 })
 
 // Checkout aberto (o componente so monta aberto): sem WhatsApp flutuante por cima.
@@ -417,6 +420,7 @@ async function comprarPeloPlay() {
         productId: compra.productId,
         ambiente: ambiente.value,
         origin: origemDaSessao(),
+        origem_checkout: props.origemCheckout ?? undefined,
       },
     })
     // Daqui pra frente e igual ao Pix pago: o token_entrega e a credencial do
@@ -488,6 +492,8 @@ async function pagar() {
         ab_bloco: props.abBloco ?? undefined,
         recall_sinal: props.recallSinal ?? undefined,
         recall_marca: props.recallMarca ?? undefined,
+        // Botao que abriu o checkout (porta de entrada da venda).
+        origem_checkout: props.origemCheckout ?? undefined,
       },
     })
     step.value = 'pending'
@@ -608,6 +614,7 @@ async function pagarComCartao() {
         ab_bloco: props.abBloco ?? undefined,
         recall_sinal: props.recallSinal ?? undefined,
         recall_marca: props.recallMarca ?? undefined,
+        origem_checkout: props.origemCheckout ?? undefined,
       },
     })
     if (!r?.clientSecret) { erroCartao.value = 'Não conseguimos iniciar o pagamento. Use o Pix.'; return }

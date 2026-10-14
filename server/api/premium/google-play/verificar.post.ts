@@ -1,3 +1,4 @@
+import { sanearOrigemCheckout } from '../../../../shared/origem-checkout'
 import { ambienteDaConsultaPaga } from '../../../utils/gcc-reserva'
 import crypto from 'node:crypto'
 import { sanearOrigem } from '../../../../shared/origem-trafego'
@@ -60,6 +61,8 @@ export default defineEventHandler(async (event) => {
       token_entrega: tokenEntrega,
       placa,
       placa_confirmada: true,
+      // Botao que abriu o checkout (shared/origem-checkout.ts); fora do enum = null.
+      origem_checkout: sanearOrigemCheckout(body.origem_checkout),
       email: email || null,
       // Quem cobrou foi a loja. Guardar isso e o que impede o fluxo de estorno
       // de bater na porta da AbacatePay por uma compra que nunca passou por la.

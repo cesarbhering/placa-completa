@@ -42,6 +42,13 @@ describe('origem (mesma regra do pc-venda-origem)', () => {
 })
 
 describe('montarAvisoVenda', () => {
+  it('Botão: a porta de entrada do checkout; pedido antigo = não medido', () => {
+    const x = { consulta: null, ab: null, leilaoSinal: null, recallSinal: null, recallMarca: null }
+    expect(montarAvisoVenda({ ...PEDIDO, origem_checkout: 'barra_fixa' }, x).text).toContain('Botão: Barra fixa')
+    expect(montarAvisoVenda({ ...PEDIDO, origem_checkout: 'pix_recovery' }, x).text).toContain('Botão: Recuperação de Pix')
+    expect(montarAvisoVenda({ ...PEDIDO, origem_checkout: null }, x).text).toContain('Botão: não medido')
+    expect(montarAvisoVenda({ ...PEDIDO, origem_checkout: 'lixo' }, x).text).toContain('Botão: não medido')
+  })
   it('assunto e corpo com tudo que o e-mail de hoje tem, sem hash', () => {
     const { subject, text } = montarAvisoVenda({ ...PEDIDO, forma_pagamento: 'cartao' }, {
       consulta: { msclkid: 'm', utm_campaign: 'Leilao' }, ab: 'A2', leilaoSinal: 'positivo', recallSinal: 'suave', recallMarca: 'FIAT',
