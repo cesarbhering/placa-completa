@@ -52,9 +52,11 @@ const BRUTOS: Record<string, any> = {
   AL: { infracoes: [{ ...sujo }], normalizado_total: 293.47 },
   PI: { multas: [{ ...sujo, status: 'Em aberto' }] },
   RR: { infracoes: { detalhes_infracoes: [{ ...sujo }], valor_normalizado: 293.47 } },
+  RO: { debitos_veiculo: { multas: [{ ...sujo }], normalizado_total_multas: 293.47 }, restricoes: [], status: 'Em Circulação' },
+  RN: { multas: [{ ...sujo, numero_autuacao: 'X1', usuario: 'FULANO CONDUTOR' }], debitos: [{ classe: 'X1', valor_atual: 293.47 }], situacao: 'Em Circulação' },
 }
 
-describe('credenciamento: nenhum campo proibido sai do bloco DETRAN (18 UFs)', () => {
+describe('credenciamento: nenhum campo proibido sai do bloco DETRAN (todas as UFs do mapa)', () => {
   it('cobre todas as UFs do mapa', () => {
     expect(Object.keys(BRUTOS).sort()).toEqual(Object.keys(DETRAN_UFS).sort())
   })

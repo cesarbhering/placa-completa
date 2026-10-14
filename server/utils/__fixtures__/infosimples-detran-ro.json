@@ -1,0 +1,18 @@
+{
+  "ano_fabricacao": "2023",
+  "chassi": "***********000",
+  "cidade_uf": "VILHENA/RO",
+  "cor": "PRATA",
+  "debitos_veiculo": {
+    "multas": [],
+    "mensagem": "",
+    "total_multas": "",
+    "normalizado_total_multas": 0.0
+  },
+  "marca_modelo": "FIAT/STRADA VOLCANO AT",
+  "placa": "ABC1D23",
+  "restricoes": [],
+  "situacao": "",
+  "status": "Em Circulação",
+  "site_receipt": "https://storage.invalid/recibo.html"
+}

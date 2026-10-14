@@ -26,11 +26,11 @@ export async function encriptarInfosimples(valor: string, encKey: string): Promi
  * login gov.br do Cesar (BA e DF usam a MESMA conta: NUXT_INFOSIMPLES_BA_*),
  * ou 'nenhum' (CE, PA, AM: so placa + renavam).
  */
-export type CertInfosimples = 'ecnpj' | 'ecpf' | 'govbr_ba' | 'govbr_df' | 'govbr_ac' | 'nenhum'
+export type CertInfosimples = 'ecnpj' | 'ecpf' | 'govbr_ba' | 'govbr_df' | 'govbr_ac' | 'govbr_rn' | 'nenhum'
 
 /** UF que entra com o login gov.br (CPF+senha), nao com certificado. */
 export function usaLoginGovbr(cert: string | null | undefined): boolean {
-  return cert === 'govbr_ba' || cert === 'govbr_df' || cert === 'govbr_ac'
+  return cert === 'govbr_ba' || cert === 'govbr_df' || cert === 'govbr_ac' || cert === 'govbr_rn'
 }
 
 function infosimplesConfig(cert: CertInfosimples = 'ecnpj') {
@@ -134,6 +134,15 @@ export const DETRAN_UFS = {
   AL: { path: 'detran/al/infracoes', cert: 'nenhum', gate: 'sempre', fonte: 'detran_al', fonteCusto: 'infosimples_detran_al' },
   PI: { path: 'detran/pi/multas', cert: 'nenhum', gate: 'sempre', fonte: 'detran_pi', fonteCusto: 'infosimples_detran_pi' },
   RR: { path: 'detran/rr/debitos', cert: 'nenhum', gate: 'sempre', fonte: 'detran_rr', fonteCusto: 'infosimples_detran_rr' },
+  // RO (14/out, teste real QTF0A93): so placa + renavam, R$0,26, LENTO (~157 s:
+  // timeout 300 na Infosimples). Traz multas, restricoes e situacao; nao traz
+  // IPVA nem licenciamento. AP e MS ficaram fora: API pausada pela Infosimples (615).
+  // RN (14/out, real RPD2B20): login gov.br do Cesar (mesma conta do BA/DF/AC;
+  // exigiu autorizar o portal do DETRAN-RN uma vez), placa + renavam, R$0,28,
+  // ~55 s. Multas com o valor no debito do mesmo auto, licenciamento (ano e
+  // data), restricao de venda, impedimentos e situacao.
+  RN: { path: 'detran/rn/veiculo', cert: 'govbr_rn', gate: 'sempre', fonte: 'detran_rn', fonteCusto: 'infosimples_detran_rn' },
+  RO: { path: 'detran/ro/veiculo', cert: 'nenhum', gate: 'sempre', fonte: 'detran_ro', fonteCusto: 'infosimples_detran_ro', timeoutS: 300 },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 
@@ -280,7 +289,7 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       body.set('chassi', '')
       body.set('login_cpf', l.cpf)
       body.set('login_senha', l.senha)
-    } else if (certUf === 'govbr_df' || certUf === 'govbr_ac') {
+    } else if (certUf === 'govbr_df' || certUf === 'govbr_ac' || certUf === 'govbr_rn') {
       // DF e AC: placa + renavam + login gov.br (mesma conta do BA), senha em texto puro.
       const l = loginBa()
       body.set('placa', opts.placa)
@@ -1453,6 +1462,108 @@ export function parsearDetranPi(data: any) {
 }
 
 /** DETRAN-RR (/detran/rr/debitos): infracoes {detalhes_infracoes[], valor_normalizado}. So pela doc. */
+/**
+ * DETRAN-RO (/detran/ro/veiculo; real QTF0A93, 14/out, sem multa):
+ * debitos_veiculo {multas[], total_multas, normalizado_total_multas},
+ * restricoes[], status ("Em Circulação"), situacao. Itens de multa pelo shape
+ * generico (sem exemplo com multa ainda); pagas/canceladas fora. Nunca le
+ * chassi nem dados do dono. Formato desconhecido -> null.
+ */
+export function parsearDetranRo(data: any) {
+  const d = data || {}
+  if (!('debitos_veiculo' in d) && !('restricoes' in d) && !('status' in d)) return null
+  const deb = d.debitos_veiculo && typeof d.debitos_veiculo === 'object' ? d.debitos_veiculo : {}
+  const itens = listagemDe(deb.multas).map(multaGenerica)
+  const soma = itens.reduce((a, i) => a + i.valor, 0)
+  const total = typeof deb.normalizado_total_multas === 'number' ? deb.normalizado_total_multas : moeda(deb.total_multas)
+  const restricoes: { tipo: string; texto: string }[] = []
+  for (const r of (Array.isArray(d.restricoes) ? d.restricoes : [])) {
+    const t = String(typeof r === 'string' ? r : (r?.descricao ?? r?.restricao ?? r?.tipo ?? '')).replace(/\s+/g, ' ').trim()
+    if (t && !/^(nada consta|nenhuma?|sem restri)/i.test(t)) restricoes.push({ tipo: tipoRestricaoTexto(t), texto: t.slice(0, 120) })
+  }
+  const st = [d.status, d.situacao].map((x) => String(x ?? '').replace(/\s+/g, ' ').trim()).find((x) => x && !/em\s+circula/i.test(x))
+  if (st) restricoes.push({ tipo: 'situacao', texto: st.slice(0, 120) })
+  const roubo = restricoes.some((r) => r.tipo === 'furto')
+  return {
+    ...blocoSoMultas('detran_ro', itens),
+    multas_total_centavos: Math.round(Math.max(soma, total || 0) * 100),
+    restricoes_detran: restricoes,
+    alerta_roubo_furto: roubo ? 'Restrição informada pelo DETRAN-RO: roubo/furto' : null,
+  }
+}
+
+/**
+ * DETRAN-RN (/detran/rn/veiculo; real RPD2B20, 14/out). multas[] {numero_autuacao,
+ * descricao, local, data, hora, usuario}: o valor vem do debito cuja classe e
+ * o numero do auto (valor_atual, com juros; vencimento). infracoes[] =
+ * autuacoes em andamento. valor_ipva, valor_dpvat, valor_taxas_detran,
+ * vencimento_licenciamento ("2026 em 09/10/2026,..."), restricao, impedimentos[],
+ * situacao. Nunca le proprietario, usuario nem outorgante.
+ */
+export function parsearDetranRn(data: any, hoje: Date = new Date()) {
+  const d = data || {}
+  if (!('multas' in d) && !('debitos' in d) && !('situacao' in d)) return null
+  const t = (v: any) => String(v ?? '').replace(/\s+/g, ' ').trim()
+  const soAlnum = (v: any) => String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const debitos = listaDe(d.debitos)
+  const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : moeda(v))
+  const debDoAuto = new Map<string, any>()
+  for (const x of debitos) debDoAuto.set(soAlnum(x.classe), x)
+  const usados = new Set<string>()
+  const itens = emAberto(listaDe(d.multas)).map((m) => {
+    const it = multaGenerica({ ...m, usuario: undefined })
+    const deb = debDoAuto.get(soAlnum(m.numero_autuacao ?? m.numero_auto))
+    if (deb) {
+      usados.add(soAlnum(deb.classe))
+      const v = num(deb.valor_atual ?? deb.valor_nominal)
+      if (v > 0) it.valor = v
+      if (!it.dataVencimento) it.dataVencimento = String(deb.vencimento || '').match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? null
+    }
+    return it
+  })
+  // Debitos que nao sao multa (IPVA/licenciamento/taxas) pela classe.
+  let ipvaDeb = 0; let licDeb = 0; let outros = 0
+  const ipvaItens: IpvaItem[] = []
+  for (const x of debitos) {
+    if (usados.has(soAlnum(x.classe))) continue
+    const c = classeDoDebito(String(x.classe ?? ''))
+    const v = num(x.valor_atual ?? x.valor_nominal)
+    if (c === 'ipva') { ipvaDeb += v; const it = ipvaItemGenerico({ ...x, descricao: x.classe }); if (it) ipvaItens.push(it) }
+    else if (c === 'licenciamento') licDeb += v
+    else if (c === 'seguro') outros += v
+  }
+  const soma = itens.reduce((a, i) => a + i.valor, 0)
+  const totalMultas = Math.max(soma, num(d.valor_multas))
+  const ipva = Math.max(ipvaDeb, num(d.valor_ipva))
+  outros += num(d.valor_dpvat) + num(d.valor_taxas_detran)
+  const venc = t(d.vencimento_licenciamento)
+  const licAno = anoDe(venc)
+  const restricoes: { tipo: string; texto: string }[] = []
+  if (outros > 0) restricoes.push({ tipo: 'outros_debitos', texto: `Seguro/taxas em aberto no DETRAN-RN: ${brlTexto(outros)}` })
+  const venda = t(d.restricao)
+  if (venda && !/^sem\b|nada consta|^n[aã]o/i.test(venda)) restricoes.push({ tipo: 'financeira', texto: venda.slice(0, 120) })
+  for (const im of listaDe(d.impedimentos)) {
+    if (/baixad|encerrad|cancelad|liberad/i.test(t(im.situacao))) continue
+    const txt = [t(im.impedimento), t(im.motivo)].filter(Boolean).join(': ')
+    if (txt) restricoes.push({ tipo: tipoRestricaoTexto(txt), texto: txt.slice(0, 120) })
+  }
+  const sit = t(d.situacao)
+  if (sit && !/em\s+circula/i.test(sit)) restricoes.push({ tipo: 'situacao', texto: sit.slice(0, 120) })
+  return {
+    ...blocoSoMultas('detran_rn', itens, { multas_em_recurso: emAberto(listaDe(d.recursos)).map(multaGenerica) }),
+    multas_total_centavos: Math.round(totalMultas * 100),
+    ipva_total_centavos: Math.round(ipva * 100),
+    ipva_itens: ordenarIpva(ipvaItens),
+    licenciamento_centavos: Math.round(licDeb * 100),
+    ultimo_licenciamento_ano: licAno,
+    licenciamento_em: dataLicenciamentoIso(venc),
+    licenciamento_atrasado_ano: licAno != null && licAno <= hoje.getFullYear() - 2 ? licAno : null,
+    autuacoes_em_andamento: emAberto(listaDe(d.infracoes)).length,
+    alerta_roubo_furto: restricoes.some((r) => r.tipo === 'furto') ? 'Restrição informada pelo DETRAN-RN: roubo/furto' : null,
+    restricoes_detran: restricoes,
+  }
+}
+
 export function parsearDetranRr(data: any) {
   const d = data || {}
   if (!('infracoes' in d) && !('debitos' in d)) return null
@@ -1800,6 +1911,8 @@ function blocoDetranDaUfBruto(uf: UfDetran, data: any) {
   if (uf === 'AL') return parsearDetranAl(data)
   if (uf === 'PI') return parsearDetranPi(data)
   if (uf === 'RR') return parsearDetranRr(data)
+  if (uf === 'RO') return parsearDetranRo(data)
+  if (uf === 'RN') return parsearDetranRn(data)
   return detranParaMultas(parsearDetranSp(data))
 }
 
