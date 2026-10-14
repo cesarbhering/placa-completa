@@ -4,6 +4,7 @@ import { ambienteDaConsultaPaga } from './gcc-reserva'
 import { gerarCupomRecompra } from './cupom-recompra'
 import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas-recall'
 import { emVoo } from './tarefas-em-voo'
+import { criarJobsDaEntrega } from './premium-jobs'
 // Processa um pedido PAGO: dispara a consulta SENATRAN uma vez, entrega ou
 // reembolsa. Usado pelo WEBHOOK e pelo POLLING de status (o que chegar primeiro).
 // Trava atomica via update condicional (status aguardando/pago -> consultando):
@@ -24,7 +25,15 @@ export function completarRecallDepois(
   pedido: { id: string; placa: string; plano?: string | null; preview?: any; token_entrega?: string | null },
   consultaId: string | null,
 ): void {
-  void emVoo('recall', async () => {
+  void emVoo('recall', () => completarRecall(supabase, pedido, consultaId))
+}
+
+/** Mesmo trabalho do completarRecallDepois, aguardavel (fila premium_jobs). true = gravou o recall. */
+export async function completarRecall(
+  supabase: any,
+  pedido: { id: string; placa: string; plano?: string | null; preview?: any; token_entrega?: string | null },
+  consultaId: string | null,
+): Promise<boolean> {
     try {
       // Le o snapshot PRIMEIRO: o modo autoritativo (GM) precisa de marca+chassi.
       const { data } = await supabase
@@ -33,7 +42,7 @@ export function completarRecallDepois(
         .eq('id', pedido.id)
         .maybeSingle()
       const snap = data?.relatorio_snapshot
-      if (!snap || typeof snap !== 'object') return
+      if (!snap || typeof snap !== 'object') return false
 
       const resp = (snap as any)?.consulta?.response
       const bruto = Array.isArray(resp) ? resp[0] : resp
@@ -63,7 +72,7 @@ export function completarRecallDepois(
       if (!autoritativo?.tem_recall_aberto) {
         detalhe = await buscarRecallDetalhe(supabase, { placa: pedido.placa, consultaId })
       }
-      if (!detalhe && !autoritativo?.consultado) return
+      if (!detalhe && !autoritativo?.consultado) return false
 
       const patch: any = { ...snap }
       if (detalhe) patch.recall = detalhe
@@ -97,8 +106,8 @@ export function completarRecallDepois(
         .from('pedidos_premium')
         .update({ relatorio_snapshot: final })
         .eq('id', pedido.id)
-    } catch { /* entrega ja feita: aqui so se ganha, nunca se perde */ }
-  })
+      return 'recall' in final && final.recall != null
+    } catch { return false /* entrega ja feita: aqui so se ganha, nunca se perde */ }
 }
 
 /**
@@ -296,6 +305,11 @@ export async function processarPedidoPago(
     // chega. Fail-open: timeout/erro so omite o bloco. completarDetranDepois se
     // auto-restringe a SP; pra outras UFs nao ha chamada ate os endpoints delas.
     completarDetranDepois(supabase, pedido, { consultaId: r.consultaId, response: r.response })
+
+    // Fila duravel das fontes lentas (Relatorio 2.0): um job por fonte que se
+    // aplica, a partir de entrega + 5 min. Se a fonte chegar antes pelo caminho
+    // solto acima, o job fecha sem chamar nada (server/utils/premium-jobs.ts).
+    void emVoo('premium-jobs-criar', () => criarJobsDaEntrega(supabase, pedido.id, r.response))
 
     // Detalhe do RENAJUD (tribunal, processo, tipo, data) onde ha fonte (AL e
     // GO), so com o indicador aceso. Solto e fail-open (server/utils/renajud-detalhe.ts).
