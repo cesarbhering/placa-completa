@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { completarDetran, temMultaRenainf, DETRAN_UFS } from './infosimples-detran'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { completarDetran, temMultaRenainf, passaNoGateDetran, DETRAN_UFS } from './infosimples-detran'
 
-// Gate por UF (decisao do Cesar, 30/set): SP sempre; SC e MG so com
-// indicadorMultaRenainf=true no SENATRAN. Backfill por token ignora o gate.
+// Gate por UF: desde 13/out (decisao do Cesar) TODAS as UFs consultam sempre,
+// como SP, com ou sem multa RENAINF (caso KXK6G54, MG sem RENAINF). O gate
+// 'renainf' segue suportado em passaNoGateDetran. Backfill por token ignora o gate.
 function fakeSb() {
   const inserts: any[] = []
   return {
@@ -24,10 +27,23 @@ describe('gate de chamada por UF', () => {
     return fetchSpy
   }
 
-  it('mapa: SP sempre, SC e MG so com RENAINF ou restricao', () => {
-    expect(DETRAN_UFS.SP.gate).toBe('sempre')
-    expect(DETRAN_UFS.SC.gate).toBe('renainf')
-    expect(DETRAN_UFS.MG.gate).toBe('renainf')
+  it('mapa: as 18 UFs com gate sempre; sem RENAINF todas passam no gate', () => {
+    const ufs = Object.keys(DETRAN_UFS)
+    expect(ufs).toHaveLength(18)
+    for (const uf of ufs) {
+      expect((DETRAN_UFS as any)[uf].gate).toBe('sempre')
+      expect(passaNoGateDetran((DETRAN_UFS as any)[uf].gate, [{ ufJurisdicao: uf, renavam: '1', indicadorMultaRenainf: false }])).toBe(true)
+    }
+    // 'renainf' continua suportado (UF futura)
+    expect(passaNoGateDetran('renainf', [{ indicadorMultaRenainf: false }])).toBe(false)
+  })
+
+  it('a tela do relatorio espera o bloco nas mesmas UFs do servidor', () => {
+    const vue = readFileSync(join(process.cwd(), 'pages/premium/[token].vue'), 'utf8')
+    const m = vue.match(/const UFS_COM_DETRAN = \[([^\]]+)\]/)
+    expect(m).not.toBeNull()
+    const ufsTela = m![1].split(',').map((x) => x.trim().replace(/'/g, '')).filter(Boolean).sort()
+    expect(ufsTela).toEqual(Object.keys(DETRAN_UFS).sort())
   })
 
   it('SP sem RENAINF: chama (sempre)', async () => {
@@ -37,12 +53,11 @@ describe('gate de chamada por UF', () => {
   })
 
   for (const [uf, extra] of [['SC', {}], ['MG', { chassi: '9BWAG45UXJT036030' }]] as const) {
-    it(`${uf} sem RENAINF: nao chama nem cobra`, async () => {
+    it(`${uf} sem RENAINF: chama e grava o custo (gate sempre)`, async () => {
       const f = setup(); const sb = fakeSb()
-      const r = await completarDetran(sb, { id: 'p', placa: 'X' }, { response: [{ ufJurisdicao: uf, renavam: '1', indicadorMultaRenainf: false, ...extra }] })
-      expect(r).toMatchObject({ ok: false, pulado: `${uf} so com RENAINF ou restricao` })
-      expect(f).not.toHaveBeenCalled()
-      expect(sb.inserts).toHaveLength(0)
+      await completarDetran(sb, { id: 'p', placa: 'X' }, { response: [{ ufJurisdicao: uf, renavam: '1', indicadorMultaRenainf: false, ...extra }], semRetry: true })
+      expect(f).toHaveBeenCalledTimes(1)
+      expect(sb.inserts.length).toBeGreaterThanOrEqual(1)
     })
     it(`${uf} com RENAINF (em restricoes): chama`, async () => {
       const f = setup()
