@@ -39,6 +39,7 @@ import { montarChecklist } from '~/shared/checklist-compra'
 import { custo12Meses, combustivelPraConta, licenciamentoDaUf, KM_ANO_PADRAO } from '~/shared/custo-12-meses'
 import { PRECO_COMBUSTIVEL_UF, SEMANA_ANP } from '~/shared/dados/combustivel-uf'
 import { aliquotaIPVA } from '~/shared/ipva-uf'
+import { variacaoFipe } from '~/shared/fipe-variacao'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { montarLinhaDoTempo } from '~/shared/linha-do-tempo'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
@@ -1115,7 +1116,8 @@ const custo12 = computed(() => {
     taxaLicenciamento: licenciamentoDaUf(uf)?.valor ?? null,
     licenciamentoOficial: licenciamentoDaUf(uf)?.oficial ?? false,
     seguroAnual: vc.value?.seguroAnual ?? null,
-    quedaAnoPct: vc.value?.quedaAno ?? null,
+    // variacao REAL de 12 meses (quedaAno e da serie inteira)
+    quedaAnoPct: variacaoFipe(vc.value?.historico, 12)?.pct ?? null,
     consumoKmL: comb?.consumoKmL ?? null,
     precoLitro: comb?.precoLitro ?? null,
     motorConsumo: comb?.motor ?? null,
