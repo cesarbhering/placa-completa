@@ -35,7 +35,8 @@ function deUmToken(t: string, marca: string): Cambio | null {
   const colado = limpo.match(/^\d\.\d(AT|MT|CVT|AMT)\d?$/)
   if (colado) return colado[1] === 'MT' ? 'manual' : 'automatico'
   // Chevrolet: "10TAT" / "10TMT" / "12TAT".
-  const chev = limpo.match(/^\d{2}T(AT|MT)$/)
+  // Sem o T (aspirado): "10MT" / "12AT" / "14AT" / "18AT".
+  const chev = limpo.match(/^\d{2}T?(AT|MT)$/)
   if (chev) return chev[1] === 'AT' ? 'automatico' : 'manual'
   // Hyundai: "1.6M" / "1.6A" / "1.0M" (so na Hyundai: em outra marca a letra
   // solta depois da cilindrada pode ser outra coisa).

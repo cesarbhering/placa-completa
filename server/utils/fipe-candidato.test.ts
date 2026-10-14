@@ -977,3 +977,57 @@ describe('caminhao com prefixo de letra no nome (CYU7D91, M.BENZ/L 2638)', () =>
     expect(nomesDoModelo(['ONIX'])).toEqual(['ONIX'])
   })
 })
+
+describe('Chevrolet: sigla PR2 = Premier e codigo de motor/cambio (RPD2B20)', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+  // Onix 2023 na fipe-api (recorte real).
+  const ONIX_2023 = [
+    { codigo_fipe: '004517-9', modelo: 'ONIX HATCH LT 1.0 12V Flex 5p Mec.', valor: 70000 },
+    { codigo_fipe: '004512-8', modelo: 'ONIX HATCH LT 1.0 12V TB Flex 5p Mec.', valor: 76000 },
+    { codigo_fipe: '004514-4', modelo: 'ONIX HATCH LT 1.0 12V TB Flex 5p Aut.', valor: 80000 },
+    { codigo_fipe: '004515-2', modelo: 'ONIX HATCH LTZ 1.0 12V TB Flex 5p Aut.', valor: 85000 },
+    { codigo_fipe: '004516-0', modelo: 'ONIX HATCH PREM. 1.0 12V TB Flex 5p Aut.', valor: 90000 },
+    { codigo_fipe: '004530-6', modelo: 'ONIX HATCH RS 1.0 TB 12V Flex 5p Aut.', valor: 88000 },
+    { codigo_fipe: '004504-7', modelo: 'ONIX SED. Plus PREM. 1.0 12V TB Flex Aut', valor: 92000 },
+    { codigo_fipe: '004518-7', modelo: 'ONIX SEDAN Plus LT 1.0 12V Flex 4p Mec.', valor: 72000 },
+  ]
+  const f = vi.fn(async (url: string) => {
+    if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: ONIX_2023 }) } as any
+    return { ok: false, json: async () => ({}) } as any
+  })
+  const entrada = (desc: string) => ({
+    senatran: { descricaoMarcaModelo: desc, anoModelo: 2023, cilindrada: 999, descricaoTipoVeiculo: 'AUTOMOVEL', codigoCombustivel: '16' },
+    wdapi: { marca: 'CHEVROLET', MODELO: desc.split('/')[1], anoModelo: '2023', fipe: { dados: [] } },
+    fipeApiUrl: 'http://f', fipeApiToken: 't',
+  })
+  it('"CHEV/ONIX 10TAT PR2" 2023 -> 004516-0 (Onix Hatch Prem.) por regra', async () => {
+    vi.stubGlobal('fetch', f)
+    const r = await escolherMelhorFipe(entrada('CHEV/ONIX 10TAT PR2'))
+    expect(r.decididoPor).toBe('regra')
+    expect(r.escolhido?.codigo_fipe).toBe('004516-0')
+  })
+  it('codigo decide turbo e cambio; PLUS no nome vai pro seda', async () => {
+    vi.stubGlobal('fetch', f)
+    expect((await escolherMelhorFipe(entrada('CHEV/ONIX 10MT LT'))).escolhido?.codigo_fipe).toBe('004517-9')
+    expect((await escolherMelhorFipe(entrada('CHEV/ONIX 10TMT LT'))).escolhido?.codigo_fipe).toBe('004512-8')
+    expect((await escolherMelhorFipe(entrada('CHEV/ONIX PLUS 10TAT PR2'))).escolhido?.codigo_fipe).toBe('004504-7')
+  })
+  it('parser do codigo GM so na Chevrolet', async () => {
+    const { codigoMotorGM } = await import('../../shared/versao-fipe')
+    const { cambioDoNome } = await import('../../shared/cambio-nome')
+    expect(codigoMotorGM('CHEV/ONIX 10TAT PR2')).toEqual({ motor: '1.0', turbo: true, cambio: 'automatico' })
+    expect(codigoMotorGM('CHEV/ONIX 10MT LT')).toEqual({ motor: '1.0', turbo: false, cambio: 'manual' })
+    expect(codigoMotorGM('CHEV/TRACKER 12AT PREM')).toEqual({ motor: '1.2', turbo: false, cambio: 'automatico' })
+    expect(codigoMotorGM('FIAT/ARGO 10MT DRIVE')).toBeNull()
+    expect(cambioDoNome('CHEV/ONIX 10MT LT')).toBe('manual')
+    expect(cambioDoNome('CHEV/ONIX 10TAT PR2')).toBe('automatico')
+  })
+  it('hatch x seda: nome puro so decide no par Onix/Onix Plus', async () => {
+    const { filtrarSedaDoNome } = await import('../../shared/versao-fipe')
+    const city = [{ modelo: 'City Sedan EXL 1.5 CVT' }, { modelo: 'City Hatchback EXL 1.5 CVT' }]
+    expect(filtrarSedaDoNome(city, 'HONDA/CITY EXL CVT')).toEqual(city)
+    expect(filtrarSedaDoNome(city, 'HONDA/CITY HATCH EXL')).toEqual([city[1]])
+    const etios = [{ modelo: 'ETIOS X Sedan 1.5' }, { modelo: 'ETIOS XS Sedan1.5 Flex' }]
+    expect(filtrarSedaDoNome(etios, 'TOYOTA/ETIOS HB X')).toEqual(etios) // so seda na lista: nao decide
+  })
+})
