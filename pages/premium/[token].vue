@@ -26,7 +26,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // O corte por plano acontece no servidor: o que a basica nao comprou nem chega
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
-import { explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
+import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
@@ -213,6 +213,7 @@ function humanizar(x: any): string {
   // "_FILE_VEICULOS" e sufixo do sistema de origem, nunca informacao
   const chave = t.toUpperCase().replace(/[\s-]+/g, '_').replace(/_FILE_VEICULOS$/, '')
   if (ROTULOS[chave]) return ROTULOS[chave]
+  if (ROTULO_RESTRICAO[chave]) return ROTULO_RESTRICAO[chave]
   if (SIGLAS.has(chave)) return chave
   if (!/^[A-Z0-9_]+$/.test(t)) return t
   return t.split('_').map((palavra, i) => {
