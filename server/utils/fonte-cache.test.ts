@@ -29,6 +29,7 @@ function fakeSb() {
 describe('fonte-cache: TTL por fonte (regra do Cesar 14/out)', () => {
   it('multas 24 h, leilao e chassi 30 d, recall e fipe 7 d', () => {
     expect(ttlDaFonte('multas_sp')).toBe(24 * H)
+    expect(ttlDaFonte('ipva_sefaz_al')).toBe(24 * H)
     expect(ttlDaFonte('leilao')).toBe(30 * D)
     expect(ttlDaFonte('chassi_origem')).toBe(30 * D)
     expect(ttlDaFonte('recall_montadora')).toBe(7 * D)

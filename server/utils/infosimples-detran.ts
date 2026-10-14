@@ -2199,11 +2199,24 @@ export async function completarIpvaSefaz(supabase: any, pedidoId: string, uf: Uf
   const sef: any = (DETRAN_UFS[uf] as any).ipvaSefaz
   if (!sef) return false
   try {
-    const res = await consultarDetranInfosimples({ uf, placa: params.placa, renavam: params.renavam, path: sef.path, timeoutS: sef.timeoutS, semCredencial: !!sef.semCredencial, soRenavam: !!sef.soRenavam })
-    await registrarCusto(supabase, { pedidoId, fonte: sef.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: brutoDoResultado(res) })
-    // 612 "nenhum registro encontrado" = nada em aberto na SEFAZ (cobrado igual).
-    const parser = uf === 'DF' ? parsearIpvaSefazDf : parsearIpvaSefazAl
-    const itens = res.code === 612 ? [] : res.code === 200 ? parser(res.data) : null
+    // Cache de 24 h por placa (mesma regra do bloco do DETRAN): so resultado
+    // completo (200 com itens parseados, ou 612 = nada em aberto); falha nunca.
+    const fonteCacheIpva = `ipva_sefaz_${uf.toLowerCase()}`
+    const chaveCache = chaveDePlaca(params.placa)
+    const hit = await lerFonteCache<{ itens: any[] }>(supabase, fonteCacheIpva, chaveCache)
+    let itens: any[] | null = null
+    let res: any = { code: 0 }
+    if (hit?.status === 'ok' && Array.isArray(hit.payload?.itens)) {
+      itens = hit.payload.itens
+      console.log(`[detran] cache sefaz-ipva uf=${uf} consultado_em=${hit.consultadoEm} pedido=${String(pedidoId).slice(0, 8)}`)
+    } else {
+      res = await consultarDetranInfosimples({ uf, placa: params.placa, renavam: params.renavam, path: sef.path, timeoutS: sef.timeoutS, semCredencial: !!sef.semCredencial, soRenavam: !!sef.soRenavam })
+      await registrarCusto(supabase, { pedidoId, fonte: sef.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: brutoDoResultado(res) })
+      // 612 "nenhum registro encontrado" = nada em aberto na SEFAZ (cobrado igual).
+      const parser = uf === 'DF' ? parsearIpvaSefazDf : parsearIpvaSefazAl
+      itens = res.code === 612 ? [] : res.code === 200 ? parser(res.data) : null
+      if (itens) await gravarFonteCache(supabase, fonteCacheIpva, chaveCache, { itens }, 'ok')
+    }
     const atual = await lerSnapshot(supabase, pedidoId)
     const m = (atual as any)?.multas
     if (!atual || !m) return false
