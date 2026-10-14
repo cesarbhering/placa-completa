@@ -420,7 +420,7 @@ export default defineEventHandler(async (event) => {
         emailSent: channel === 'email',
         whatsappSent: channel === 'whatsapp',
         channel,
-        message: `Você já consultou essa placa há ${minutesAgo === 1 ? 'menos de 1 minuto' : `${minutesAgo} min`}. O resultado foi ${where} — verifique seu histórico.`,
+        message: `Você já consultou essa placa há ${minutesAgo === 1 ? 'menos de 1 minuto' : `${minutesAgo} min`}. O resultado foi ${where}: verifique seu histórico.`,
       }
     }
   }
@@ -1233,7 +1233,7 @@ function buildWhatsAppText(
   const fipeModelo = fipeData?.texto_modelo || null
 
   const lines: string[] = [
-    `*PlacaCompleta — ${placa}*`,
+    `*PlacaCompleta · ${placa}*`,
     '',
     `*Veículo*`,
     `Marca:        ${marca}`,
@@ -1265,7 +1265,7 @@ function buildWhatsAppText(
   if (icv5) {
     lines.push(
       '',
-      `*ICV5 — Custo 5 anos em ${icv5.uf}*`,
+      `*ICV5: custo 5 anos em ${icv5.uf}*`,
       `Manutenção:    ${formatBRL(icv5.manutencao5anos)}`,
       `IPVA:          ${formatBRL(icv5.ipva5anos)}`,
       `Total:         ${formatBRL(icv5.custoTotal5anos)}`,
