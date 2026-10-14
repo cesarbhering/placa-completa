@@ -5,6 +5,7 @@ import { textoDetranProtegido } from '~/shared/detran-protegido'
 import { faixaLicenciamento } from '~/shared/licenciamento-faixa'
 import { textoHodometro } from '~/shared/hodometro-texto'
 import { efeitoRestricao, textoEfeito } from '~/shared/restricao-efeito'
+import { dadosDe } from '~/shared/dados-de'
 import { resumoQuitar, procedenciaDebitos, procedenciaKm, ufDoBlocoDetran, statusBaseNacional } from '~/shared/detran-quitar'
 import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN, esconderMultasQueFalharam } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
@@ -330,6 +331,10 @@ const esteVeiculo = computed(() => `${segmento.value === 'moto' ? 'esta' : 'este
 
 const historicoLeilao = computed(() => data.value?.historicoLeilao ?? null)
 const temSecaoLeilao = computed(() => !!historicoLeilao.value)
+// "Dados de dd/mm" quando o bloco veio do cache de outro dia (shared/dados-de.ts).
+const dadosDeBloco = (b: any) => dadosDe(b?.consultadoEm, (data.value as any)?.entregue_em)
+const dadosLeilao = computed(() => dadosDeBloco(historicoLeilao.value))
+const dadosRecallMontadora = computed(() => dadosDeBloco(recallMontadora.value))
 
 
 // Roubo/furto so do DETRAN estadual (SENATRAN em nada consta). Ver shared/roubo-detran.
@@ -1418,7 +1423,7 @@ const resumoDetran = computed(() => multasDetalhe.value ? resumoQuitar({
 const procDebitos = computed(() => {
   const estado = multasDetalhe.value ? 'ok' : multasProtegido.value ? 'protegido' : multasIndisponivel.value ? 'indisponivel' : null
   if (!estado) return null
-  return procedenciaDebitos({ uf: ufDoBlocoDetran(data.value?.multas as any, ufDetranTela.value), consultadoEm: (data.value as any)?.detranConsultadoEm, estado })
+  return procedenciaDebitos({ uf: ufDoBlocoDetran(data.value?.multas as any, ufDetranTela.value), consultadoEm: (data.value?.multas as any)?.consultadoEm || (data.value as any)?.detranConsultadoEm, estado })
 })
 const procKm = computed(() => {
   const ext = hodometroExtrato.value
@@ -1641,7 +1646,7 @@ const fichaColunas = computed(() => {
     { key: 'cadastral', titulo: 'Cadastral', linhas: fichaCadastral.value },
     { key: 'tecnica', titulo: 'Técnica', linhas: fichaTecnica.value },
     { key: 'importacao', titulo: 'Importação', linhas: fichaImportacao.value },
-    { key: 'chassiOrigem', titulo: 'Origem do chassi', linhas: fichaChassiOrigem.value, nota: null },
+    { key: 'chassiOrigem', titulo: 'Origem do chassi', linhas: fichaChassiOrigem.value, nota: dadosDeBloco(data.value?.chassiOrigem) },
   ]
   const blocos = candidatos.filter((b) => b.linhas.length > 0)
   const pesos = blocos.map((b) => b.linhas.length + 1.5)
@@ -2285,6 +2290,7 @@ onUnmounted(() => {
                     Consulta oficial da {{ nomeMontadora }} pelo chassi ·
                     <template v-if="campanhasAbertas.length">{{ campanhasAbertas.length === 1 ? '1 campanha em aberto' : `${campanhasAbertas.length} campanhas em aberto` }}</template>
                     <template v-else>{{ campanhasRealizadas.length === 1 ? '1 campanha' : `${campanhasRealizadas.length} campanhas` }}</template>
+                    <template v-if="dadosRecallMontadora"> · {{ dadosRecallMontadora }}</template>
                   </p>
                 </div>
               </div>
@@ -2426,6 +2432,7 @@ onUnmounted(() => {
           <!-- historico de leilao (so completa, so onde o servico existe) -->
           <section v-if="temSecaoLeilao" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.leilao }}. Histórico de leilão</h2>
+            <p v-if="dadosLeilao" class="rel__dados-de">{{ dadosLeilao }}</p>
             <p v-if="temIndicioReal || possiveisComFoto.length || passagensNotificadas.length" class="rel__leilao-base">Placa e chassi cruzados com uma base de {{ BASE_LEILAO_TEXTO }}, montada a partir de editais de DETRANs e catálogos de leiloeiras.</p>
 
             <!-- Sem nada com grau de certeza, a seção diz UMA coisa só. Antes
@@ -3580,6 +3587,13 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__leilao-lista--conflito li::before { background: $c-red; }
+
+  // "Dados de dd/mm": bloco que veio do cache de outro dia.
+  &__dados-de {
+    margin: -4px 0 10px;
+    font-size: calc(12px * var(--rel-fs, 1));
+    color: $c-graphite;
+  }
 
   &__leilao-base {
     margin: 0 0 12px;
