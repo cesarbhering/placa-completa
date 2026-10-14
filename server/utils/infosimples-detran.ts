@@ -206,6 +206,28 @@ export interface ResultadoDetran {
   data: any | null
   /** json.errors da Infosimples (ex.: 620 "O veículo consultado está protegido..."). */
   erros?: string[]
+  /** Resposta de ERRO (sem data): code, code_message, errors e o header sem
+   *  parametros/token. Vai pra premium_custos.bruto (caso ORK8004, 14/out). */
+  erroBruto?: Record<string, any> | null
+}
+
+/** Header da Infosimples so com o que e seguro guardar (nunca parameters/token). */
+const HEADER_SEGURO = ['api_version', 'api_version_full', 'product', 'service', 'client_name', 'price', 'billable', 'requested_at', 'elapsed_time_in_milliseconds', 'remote_ip_count', 'rate_limit']
+export function erroBrutoDe(json: any, httpStatus?: number): Record<string, any> {
+  const h = json?.header && typeof json.header === 'object' ? json.header : {}
+  const header: Record<string, any> = {}
+  for (const k of HEADER_SEGURO) if (h[k] !== undefined) header[k] = h[k]
+  return {
+    code: json?.code ?? httpStatus ?? null,
+    code_message: json?.code_message ?? null,
+    errors: Array.isArray(json?.errors) ? json.errors.map((e: any) => String(e)) : [],
+    header,
+  }
+}
+
+/** O que vai pra premium_custos.bruto: o data no sucesso, o erro saneado na falha. */
+export function brutoDoResultado(res: ResultadoDetran): any {
+  return res.data ?? res.erroBruto ?? null
 }
 
 /**
@@ -297,9 +319,10 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       preco: Number(json?.header?.price || 0),
       data: dados,
       erros: Array.isArray(json?.errors) ? json.errors.map((e: any) => String(e)) : [],
+      erroBruto: dados == null ? erroBrutoDe(json, res.status) : null,
     }
   } catch (e: any) {
-    return { code: 0, codeMessage: String(e?.message || e), preco: 0, data: null }
+    return { code: 0, codeMessage: String(e?.message || e), preco: 0, data: null, erroBruto: { code: 0, code_message: String(e?.message || e), errors: [], header: {} } }
   }
 }
 
@@ -1848,7 +1871,7 @@ export async function completarDetran(
   const t0 = Date.now()
   let res = await consultarDetranInfosimples(params)
   // Custo SEMPRE (ate em erro de parametro o Infosimples cobra).
-  await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: res.data })
+  await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: brutoDoResultado(res) })
   if (usaLoginGovbr(cfgUf.cert) && res.code === 608) await travarLoginBa(res.codeMessage)
   // Proprietario bloqueou a consulta: status final, sem retry (cobra a cada vez).
   // Grava com `fonte`, entao backfill e reprocesso pulam este pedido depois.
@@ -1862,7 +1885,7 @@ export async function completarDetran(
     console.warn(`[detran] retry uf=${uf} code=${res.code} ms=${Date.now() - t0} pedido=${String(pedido.id).slice(0, 8)}`)
     await esperarMs(ctx.esperaRetryMs ?? ESPERA_RETRY_MS)
     res = await consultarDetranInfosimples(params)
-    await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: res.data })
+    await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: brutoDoResultado(res) })
   }
 
   if (res.code !== 200 || !res.data) {
@@ -1920,7 +1943,7 @@ async function buscarComplemento(
   if (usaLoginGovbr(DETRAN_UFS[uf].cert) && loginBaTravado()) return null
   try {
     const res = await consultarDetranInfosimples({ uf, placa: params.placa, renavam: params.renavam, path: comp.path })
-    await registrarCusto(supabase, { pedidoId, fonte: comp.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: res.data })
+    await registrarCusto(supabase, { pedidoId, fonte: comp.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: brutoDoResultado(res) })
     if (usaLoginGovbr(DETRAN_UFS[uf].cert) && res.code === 608) { await travarLoginBa(res.codeMessage); return null }
     if (res.code !== 200 || !res.data) {
       logIndisponivel(pedidoId, `${uf}-complemento`, res.code, detalheDaRecusa(res) || 'sem data', 0)
@@ -1991,7 +2014,7 @@ export async function marcarProtegido(supabase: any, pedidoId: string, uf: strin
 export function completarDetranDepois(
   supabase: any,
   pedido: { id: string; placa: string },
-  ctx: { consultaId: string | null; response: any },
+  ctx: { consultaId: string | null; response: any; semRetry?: boolean },
 ): void {
   void emVoo('detran', () => completarDetran(supabase, pedido, ctx).catch(async (e: any) => {
     console.warn('[infosimples] completar detran falhou:', e?.message || e)

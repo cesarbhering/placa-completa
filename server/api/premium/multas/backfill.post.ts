@@ -25,7 +25,7 @@ import {
   consultarDetranInfosimples,
   DETRAN_UFS,
   infosimplesConfigurado,
-  registrarCusto,
+  registrarCusto, brutoDoResultado,
   ufDetranSuportada,
   loginBaTravado,
   travarLoginBaPublico as travarLoginBaDoTeste,
@@ -86,7 +86,7 @@ export default defineEventHandler(async (event) => {
     }
     const res = await consultarDetranInfosimples({ uf, placa, renavam, chassi })
     if (usaLoginGovbr((DETRAN_UFS[uf] as any).cert) && res.code === 608) travarLoginBaDoTeste(res.codeMessage)
-    await registrarCusto(supabase, { pedidoId: null, fonte: DETRAN_UFS[uf].fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: res.data })
+    await registrarCusto(supabase, { pedidoId: null, fonte: DETRAN_UFS[uf].fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: brutoDoResultado(res) })
     // So o bloco parseado (whitelist) sai daqui: a resposta crua do SC tem nome de pessoa.
     const bloco = res.code === 200 && res.data ? blocoDetranDaUf(uf, res.data) : null
     return {
