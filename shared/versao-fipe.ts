@@ -129,6 +129,29 @@ export function fatosMercedes(descricao: string | null | undefined): FatosMerced
 /** Texto da legenda dos sufixos Mercedes, pro prompt do juiz FIPE. */
 export const LEGENDA_MERCEDES = 'Mercedes-Benz: prefixo "I/" no cadastro = importado; o numero vem colado na classe ("GLA200" = GLA 200 / GLA-200); sufixos colados nao sao versao: FF = Flex Fuel (so versoes Flex), CGI = gasolina com injecao direta, CDI = diesel, 4M/4MATIC = tracao integral, BE = BlueEfficiency.'
 
+/**
+ * Picape GM (S10): sufixo colado de cabine e tracao no nome do cadastro.
+ * Cesar 14/out (caso PQH4374, "CHEVROLET/S10 LS DS4" 2015):
+ *   DS4 = cabine dupla 4x4; DS2 = cabine dupla 4x2; CD4/CD2 idem;
+ *   CS4 = cabine simples 4x4; CS2 = cabine simples 4x2.
+ * Na S10, o "D" de DS(4|2) implica o 2.8 turbo diesel.
+ */
+export interface FatosPicapeGM { cabine: 'dupla' | 'simples'; tracao: '4X4' | '4X2'; diesel: boolean; motor: string | null }
+export function fatosPicapeGM(descricao: string | null | undefined): FatosPicapeGM | null {
+  if (MARCA_SIGLAS[marcaDoNome(descricao)] !== 'GM') return null
+  const palavras = palavrasDoNome(String(descricao || '')).map(norm)
+  for (const p of palavras) {
+    const m = p.match(/^(DS|CD|CS)([24])$/)
+    if (!m) continue
+    const s10DS = m[1] === 'DS' && palavras[0] === 'S10'
+    return { cabine: m[1] === 'CS' ? 'simples' : 'dupla', tracao: m[2] === '4' ? '4X4' : '4X2', diesel: s10DS, motor: s10DS ? '2.8' : null }
+  }
+  return null
+}
+
+/** Texto da legenda dos sufixos de picape GM, pro prompt do juiz FIPE. */
+export const LEGENDA_PICAPE_GM = 'Picape Chevrolet (S10): sufixo colado no nome = cabine + tracao: DS4/CD4 = cabine dupla (CD) 4x4, DS2/CD2 = cabine dupla 4x2, CS4 = cabine simples (CS) 4x4, CS2 = cabine simples 4x2. Na S10, DS4/DS2 = 2.8 turbo diesel (TDI).'
+
 const RE_FLEX_FIPE = /\bflex|flexpower|totalflex/i
 const RE_TURBO_FIPE = /\b(TB|TURBO|TSI|TJET|T-JET|T200|T270|TURBOFLEX)\b/i
 
@@ -239,6 +262,15 @@ export function filtrarPelaVersaoDoNome<T extends { modelo: string }>(lista: T[]
     }
     if (mb.diesel) restantes = so(restantes, (c) => /diesel|\bCDI\b|bluetec|\b\d{3}d\b/i.test(c.modelo))
     if (mb.tracao4m) restantes = so(restantes, (c) => /4MATIC|\b4M\b/i.test(c.modelo))
+  }
+  // Picape GM: cabine, tracao e (S10 DS) o 2.8 diesel, cada um so se sobrar alguem.
+  const pgm = fatosPicapeGM(descricao)
+  if (pgm) {
+    const so = (lista: T[], f: (c: T) => boolean) => { const r = lista.filter(f); return r.length ? r : lista }
+    restantes = so(restantes, (c) => (pgm.cabine === 'dupla' ? !/\bCS\b|CABINE SIMPLES/i.test(c.modelo) : !/\bCD\b|CABINE DUPLA/i.test(c.modelo)))
+    restantes = so(restantes, (c) => (pgm.tracao === '4X4' ? /\b4x4\b/i.test(c.modelo) : !/\b4x4\b/i.test(c.modelo)))
+    if (pgm.diesel) restantes = so(restantes, (c) => /diesel|\bdies\.?|\bTDI\b|\bCTDI\b/i.test(c.modelo))
+    if (pgm.motor) restantes = so(restantes, (c) => candidatoTemMotor(c.modelo, pgm.motor))
   }
   // Turbo do codigo GM ("10TAT" tem T): fica com as versoes TB; sem T ("10MT"),
   // tira as TB. So vale se sobrar alguem.
