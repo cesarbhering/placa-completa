@@ -1,3 +1,4 @@
+import { sanearOrigemCheckout, ROTULO_ORIGEM_CHECKOUT } from '../../shared/origem-checkout'
 import { ambienteForaDeProd } from './ambiente-alerta'
 
 // Aviso de venda ao Cesar, NA HORA da entrega (antes saia so pelo timer
@@ -40,6 +41,8 @@ export interface PedidoAviso {
   recall_sinal?: string | null
   recall_marca?: string | null
   cupom_origem?: string | null
+  /** Botao que abriu o checkout (shared/origem-checkout.ts); nulo = antes da medicao. */
+  origem_checkout?: string | null
   /** So pra achar compras anteriores; nunca vai pro e-mail. */
   pagador_hash?: string | null
   pagador_hash_cartao?: string | null
@@ -78,6 +81,12 @@ export function origemDaConsulta(row: ConsultaOrigem | null | undefined): string
 export function origemDoPedido(pedido: Pick<PedidoAviso, 'cupom_origem'>, consulta: ConsultaOrigem | null | undefined): string {
   const base = origemDaConsulta(consulta)
   return pedido.cupom_origem === 'cupom_recompra' ? `${base} + cupom de recompra 20%` : base
+}
+
+/** "Bloco da oferta", "Barra fixa"... ou "não medido" (pedido de antes de 13/out). */
+export function botaoDoPedido(p: Pick<PedidoAviso, 'origem_checkout'>): string {
+  const o = sanearOrigemCheckout(p.origem_checkout)
+  return ROTULO_ORIGEM_CHECKOUT[o ?? 'nao_medido']
 }
 
 export function formaPagamento(p: PedidoAviso): string {
@@ -174,6 +183,7 @@ export function montarAvisoVenda(p: PedidoAviso, x: ExtrasAviso): { subject: str
     `E-mail do comprador: ${p.email || ''}`,
     `Pagamento: ${formaPagamento(p)}`,
     `Canal: ${canalDoPedido(p)}`,
+    `Botão: ${botaoDoPedido(p)}`,
     `Dispositivo: ${p.dispositivo || '?'} / ${p.sistema || '?'}`,
     '',
     `Relatorio: ${link}`,
@@ -191,7 +201,7 @@ export function montarAvisoVenda(p: PedidoAviso, x: ExtrasAviso): { subject: str
 
 const COLS_PEDIDO = 'id,placa,plano,valor_centavos,pago_em,email,consulta_id,token_entrega,status,entregue_em,erro,'
   + 'dispositivo,sistema,pix_provider,forma_pagamento,canal,recall_sinal,recall_marca,cupom_origem,ambiente,'
-  + 'pagador_hash,pagador_hash_cartao'
+  + 'pagador_hash,pagador_hash_cartao,origem_checkout'
 
 const HASH_OK = /^[A-Za-z0-9]{8,128}$/
 const ORIGEM_PEDIDO = 'gclid,msclkid,utm_source,utm_medium,utm_campaign,oppref'

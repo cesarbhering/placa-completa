@@ -80,6 +80,16 @@ describe('compra pelo Google Play', () => {
     expect(processar).toHaveBeenCalledOnce()
   })
 
+  it('grava a porta de entrada do checkout (so o enum)', async () => {
+    body.origem_checkout = 'barra_fixa'
+    await handler({})
+    expect(inserido[0].origem_checkout).toBe('barra_fixa')
+    inserido.length = 0
+    body = { ...pedidoValido(), purchaseToken: 'tok-2', origem_checkout: 'lixo' }
+    await handler({})
+    expect(inserido[0].origem_checkout).toBeNull()
+  })
+
   it('reenvio do mesmo comprovante devolve o pedido antigo, sem consultar a Google de novo', async () => {
     existente = { token_entrega: 'tok-entrega-1' }
     const r = await handler({})
