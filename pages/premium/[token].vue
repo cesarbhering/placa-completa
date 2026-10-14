@@ -340,6 +340,8 @@ const temSecaoLeilao = computed(() => !!historicoLeilao.value)
 const dadosDeBloco = (b: any) => dadosDe(b?.consultadoEm, (data.value as any)?.entregue_em)
 const dadosLeilao = computed(() => dadosDeBloco(historicoLeilao.value))
 const dadosRecallMontadora = computed(() => dadosDeBloco(recallMontadora.value))
+// FIPE: o valorCusto guarda a hora da consulta em fipeConsultadoEm.
+const dadosFipe = computed(() => dadosDe((data.value as any)?.valorCusto?.fipeConsultadoEm, (data.value as any)?.entregue_em))
 
 
 // Roubo/furto so do DETRAN estadual (SENATRAN em nada consta). Ver shared/roubo-detran.
@@ -2745,6 +2747,7 @@ onUnmounted(() => {
                 <span class="rel__valor-v">{{ vc.fipe }}</span>
                 <span v-if="vc.fipeModelo" class="rel__valor-nota">{{ vc.fipeModelo }}</span>
                 <span v-if="codigoFipe" class="rel__valor-nota">Código FIPE: {{ codigoFipe }}</span>
+                <span v-if="dadosFipe" class="rel__valor-nota rel__dados-de">{{ dadosFipe }}</span>
                 <span v-if="escolhaCambio?.cambio" class="rel__valor-nota">
                   Câmbio indicado por você: {{ escolhaCambio.cambio === 'manual' ? 'manual' : 'automático' }}.
                   <button v-if="outraOpcaoCambio" type="button" class="rel__cambio-trocar" :disabled="!!escolhendoCambio" @click="escolherCambio(outraOpcaoCambio.c.codigo_fipe)">
