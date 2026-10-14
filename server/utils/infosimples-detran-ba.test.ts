@@ -28,8 +28,8 @@ describe('parsearDetranBa', () => {
     expect(b.multas_total_centavos).toBe(19523)
     expect(b.autuacoes_em_andamento).toBe(0)
   })
-  it('mapa: BA com login gov.br e gate RENAINF', () => {
-    expect(DETRAN_UFS.BA).toMatchObject({ path: 'detran/ba/multas', cert: 'govbr_ba', gate: 'renainf', fonteCusto: 'infosimples_detran_ba' })
+  it('mapa: BA com login gov.br e gate sempre', () => {
+    expect(DETRAN_UFS.BA).toMatchObject({ path: 'detran/ba/multas', cert: 'govbr_ba', gate: 'sempre', fonteCusto: 'infosimples_detran_ba' })
     expect(blocoDetranDaUf('BA', BA).fonte).toBe('detran_ba')
   })
 })
@@ -102,10 +102,4 @@ describe('completarDetran BA (login gov.br)', () => {
     expect(f).not.toHaveBeenCalled()
   })
 
-  it('sem RENAINF: nao chama (gate)', async () => {
-    const f = vi.fn(); vi.stubGlobal('fetch', f)
-    const r = await completarDetran(fakeSb(), { id: 'p1', placa: 'SIP4I06' }, { response: [{ ufJurisdicao: 'BA', renavam: '1' }] })
-    expect(r).toMatchObject({ ok: false, pulado: 'BA so com RENAINF ou restricao' })
-    expect(f).not.toHaveBeenCalled()
-  })
 })

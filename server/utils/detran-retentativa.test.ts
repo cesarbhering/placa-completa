@@ -33,8 +33,13 @@ describe('retentarDetranSeValer', () => {
     expect(ok).toBe(true)
     expect(disparos).toHaveLength(1)
   })
-  it('UF com gate renainf sem RENAINF: nao chama', async () => {
+  it('SC sem RENAINF: dispara (gate sempre desde 13/out)', async () => {
     const ok = await retentarDetranSeValer(sb([]), { id: 'p1', placa: 'X', entregue_em: '2026-01-01T00:00:00Z' }, null, [{ ufJurisdicao: 'SC', renavam: '1', indicadorMultaRenainf: false }])
+    expect(ok).toBe(true)
+    expect(disparos).toHaveLength(1)
+  })
+  it('UF sem DETRAN (TO): nao chama', async () => {
+    const ok = await retentarDetranSeValer(sb([]), { id: 'p1', placa: 'X', entregue_em: '2026-01-01T00:00:00Z' }, null, [{ ufJurisdicao: 'TO', renavam: '1', indicadorMultaRenainf: true }])
     expect(ok).toBe(false)
     expect(disparos).toHaveLength(0)
   })

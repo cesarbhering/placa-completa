@@ -46,8 +46,8 @@ describe('parsearDetranDf', () => {
       { tipo: 'situacao', texto: 'BAIXADO' },
     ])
   })
-  it('mapa: DF com login gov.br e gate RENAINF', () => {
-    expect(DETRAN_UFS.DF).toMatchObject({ path: 'detran/df/debitos', cert: 'govbr_df', gate: 'renainf', fonte: 'detran_df', fonteCusto: 'infosimples_detran_df' })
+  it('mapa: DF com login gov.br e gate sempre', () => {
+    expect(DETRAN_UFS.DF).toMatchObject({ path: 'detran/df/debitos', cert: 'govbr_df', gate: 'sempre', fonte: 'detran_df', fonteCusto: 'infosimples_detran_df' })
     expect(blocoDetranDaUf('DF', DF).fonte).toBe('detran_df')
   })
 })
@@ -112,10 +112,4 @@ describe('completarDetran DF (login gov.br do BA)', () => {
     expect(f).toHaveBeenCalledTimes(1)
   })
 
-  it('sem RENAINF: nao chama (gate)', async () => {
-    const f = vi.fn(); vi.stubGlobal('fetch', f)
-    const r = await completarDetran(fakeSb(), { id: 'p1', placa: 'PBX2E59' }, { response: [{ ufJurisdicao: 'DF', renavam: '1' }] })
-    expect(r).toMatchObject({ ok: false, pulado: 'DF so com RENAINF ou restricao' })
-    expect(f).not.toHaveBeenCalled()
-  })
 })

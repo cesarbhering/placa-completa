@@ -25,7 +25,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // O corte por plano acontece no servidor: o que a basica nao comprou nem chega
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
-import { explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem, temRestricaoNacional } from '~/shared/restricoes'
+import { explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
@@ -1249,15 +1249,11 @@ const multaIndicadorSP = computed(
 // Veiculo registrado em SP, SC ou MG: a consulta DETRAN (Infosimples) roda pra TODO pedido
 // dessas UFs (multas, hodometro, IPVA, licenciamento), nao so quando o RENAINF acende.
 // Por isso o bloco e o poll acompanham qualquer veiculo de SP, nao so multa.
-// Mesmo gate do servidor (DETRAN_UFS.gate): SP sempre; as outras 17 UFs so com multa
-// RENAINF. Sem isso o bloco ficava em "Consultando..." pra sempre num SC/MG
-// que nunca vai ser consultado.
-const ehVeiculoSpTela = computed(() => {
-  const uf = String(g('ufJurisdicao') || '').toUpperCase()
-  if (uf === 'SP') return true
-  return ['SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM', 'PE', 'ES', 'MA', 'AC', 'AL', 'PI', 'RR'].includes(uf)
-    && (g('indicadorMultaRenainf') === true || temRestricaoNacional(v.value))
-})
+// Mesmo gate do servidor (DETRAN_UFS.gate): desde 13/out TODAS as 18 UFs sao
+// consultadas sempre, com ou sem multa RENAINF (decisao do Cesar). UF fora da
+// lista nunca e consultada: sem isso o bloco ficava em "Consultando..." pra sempre.
+const UFS_COM_DETRAN = ['SP', 'SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM', 'PE', 'ES', 'MA', 'AC', 'AL', 'PI', 'RR']
+const ehVeiculoSpTela = computed(() => UFS_COM_DETRAN.includes(String(g('ufJurisdicao') || '').toUpperCase()))
 const ufDetranTela = computed(() => String(g('ufJurisdicao') || '').toUpperCase())
 const multasDetalhe = computed(() => {
   const m: any = data.value?.multas
