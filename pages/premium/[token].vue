@@ -3,6 +3,7 @@ import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { textoDetranProtegido } from '~/shared/detran-protegido'
 import { faixaLicenciamento } from '~/shared/licenciamento-faixa'
 import { textoHodometro } from '~/shared/hodometro-texto'
+import { resumoQuitar, procedenciaDebitos, procedenciaKm, ufDoBlocoDetran, statusResumoDetran } from '~/shared/detran-quitar'
 import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN, esconderMultasQueFalharam } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
@@ -1337,73 +1338,12 @@ function reais(centavos?: number | null): string | null {
   return `R$ ${(centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 // Total "Para regularizar" = multas + licenciamento + IPVA em aberto. null quando nao ha nada a pagar (nao mostra o total).
-const multasTotalCentavos = computed(() => {
-  const m = multasDetalhe.value
-  if (!m) return null
-  const mm = m.multas_total_centavos && m.multas_total_centavos > 0 ? m.multas_total_centavos : 0
-  const lic = m.licenciamento_centavos && m.licenciamento_centavos > 0 ? m.licenciamento_centavos : 0
-  // IPVA em aberto tambem e divida do carro (o comentario sempre disse "NAO
-  // inclui IPVA quando em dia", mas o codigo nunca somava, nem em aberto).
-  const ipva = m.ipva_total_centavos && m.ipva_total_centavos > 0 ? m.ipva_total_centavos : 0
-  // O DETRAN informou o total que ele cobra (BA): esse e o numero. Somar o
-  // valor ORIGINAL das multas daria menos do que o DETRAN cobra (JPQ6371).
-  if (m.total_detran_centavos && m.total_detran_centavos > 0) return m.total_detran_centavos
-  const multasHoje = m.multas_atualizado_centavos && m.multas_atualizado_centavos > mm ? m.multas_atualizado_centavos : mm
-  const total = multasHoje + lic + ipva
-  return total > 0 ? total : null
-})
-// Breakdown do cartao: Multas (Pix), Licenciamento (com vencimento), IPVA.
-const multasBreakdown = computed(() => {
-  const m = multasDetalhe.value
-  if (!m) return []
-  const rows: { rotulo: string; valor: string; emDia: boolean; texto?: string; nota?: string }[] = []
-  if (ufRenainfFora.value)
-    // RENAINF aceso + DETRAN zerado: no lugar do "Nada consta" seco, o texto
-    // aprovado que explica a multa de fora do estado (nao e "em dia").
-    rows.push({ rotulo: 'Multas em aberto', valor: '', emDia: false, texto: textoMultasRenainfForaDoDetran(ufRenainfFora.value) })
-  else if (m.multas_total_centavos != null) {
-    // Valor atualizado pelo DETRAN (com juros), quando a fonte traz; o
-    // original vai como nota.
-    const atualizado = m.multas_atualizado_centavos && m.multas_atualizado_centavos > m.multas_total_centavos ? m.multas_atualizado_centavos : null
-    rows.push({
-      // gov.br so listava multa pagavel por Pix; o Infosimples traz TODAS em aberto.
-      rotulo: String(m.fonte || '').startsWith('detran_') ? 'Multas em aberto' : 'Multas (Pix)',
-      valor: atualizado ? (reais(atualizado) as string) : m.multas_total_centavos > 0 ? (reais(m.multas_total_centavos) as string) : 'Nada consta',
-      emDia: !(m.multas_total_centavos > 0),
-      nota: atualizado ? `valor original ${reais(m.multas_total_centavos)}` : undefined,
-    })
-  }
-  // MG nao traz valor de licenciamento, so o ano: a linha aparece com o ano.
-  if (m.licenciamento_centavos != null || m.ultimo_licenciamento_ano != null || m.licenciamento_atrasado_ano != null) {
-    const venc = m.licenciamento_venc ? ` (vence ${formatarDataBR(m.licenciamento_venc)})` : ''
-    // Debito zerado NAO e "em dia" se o ultimo exercicio licenciado ficou pra
-    // tras (pode ter ido pra divida ativa): senao a linha contradiz o alerta
-    // de licenciamento atrasado logo abaixo.
-    const atrasado = m.licenciamento_atrasado_ano
-    // Exercicio anterior sem atraso comprovado (calendario por placa): mostra o
-    // ultimo licenciamento, neutro, sem selo de atrasado e sem "Em dia".
-    const ultimo = m.ultimo_licenciamento_ano
-    const anterior = !atrasado && ultimo != null && ultimo < new Date().getFullYear()
-    rows.push({
-      rotulo: `Licenciamento${venc}`,
-      valor: m.licenciamento_centavos > 0
-        ? (reais(m.licenciamento_centavos) as string)
-        : atrasado ? `Atrasado (${atrasado})` : anterior ? `Último: ${ultimo}` : 'Em dia',
-      emDia: !(m.licenciamento_centavos > 0) && !atrasado && !anterior,
-    })
-  }
-  if (m.ipva_total_centavos != null)
-    rows.push({
-      rotulo: 'IPVA',
-      valor: m.ipva_total_centavos > 0 ? (reais(m.ipva_total_centavos) as string) : 'Em dia',
-      emDia: !(m.ipva_total_centavos > 0),
-      nota: m.ipva_original_centavos && m.ipva_total_centavos > m.ipva_original_centavos ? `valor original ${reais(m.ipva_original_centavos)}` : undefined,
-    })
-  else if (m.ipva_pago_ano != null)
-    // MG: so o ultimo exercicio de IPVA pago, sem valor. Neutro.
-    rows.push({ rotulo: 'IPVA', valor: `Último pago: ${m.ipva_pago_ano}`, emDia: false })
-  return rows
-})
+// Resumo por item abaixo da caixa: so status (os valores ficam na caixa
+// "Para transferir"). Logica em shared/detran-quitar.ts (statusResumoDetran).
+const multasBreakdown = computed(() => statusResumoDetran(multasDetalhe.value, {
+  // RENAINF aceso + DETRAN zerado: texto aprovado que explica a multa de fora do estado.
+  renainfForaTexto: ufRenainfFora.value ? textoMultasRenainfForaDoDetran(ufRenainfFora.value) : null,
+}))
 // IPVA em aberto discriminado: itens do DETRAN (ipva_itens) + SEFAZ (ipva_sefaz,
 // GO), um por exercicio, mais novo primeiro, com o total.
 const ipvaLista = computed(() => {
@@ -1437,6 +1377,23 @@ const kmComMontadora = computed(() => kmLeituras.value.some((l: any) => l.fonte 
 const hodometroSuspeito = computed(() => !!multasDetalhe.value?.hodometro_suspeito || hodometroExtrato.value.some((h) => h.caiu))
 // Alerta (km caiu) ou orientacao com a ultima leitura: shared/hodometro-texto.ts.
 const fraseHodometro = computed(() => textoHodometro({ suspeito: hodometroSuspeito.value, extrato: hodometroExtrato.value }))
+// Caixa "Para transferir" e procedencia/data dos subblocos (shared/detran-quitar.ts).
+const resumoDetran = computed(() => multasDetalhe.value ? resumoQuitar({
+  bloco: multasDetalhe.value as any,
+  ufVeiculo: ufDetranTela.value,
+  restricoesNacionais: itensQueRestringem(v.value?.restricoesItens),
+  indicadorRouboFurto: g('indicadorRouboFurto') === true,
+}) : null)
+const procDebitos = computed(() => {
+  const estado = multasDetalhe.value ? 'ok' : multasProtegido.value ? 'protegido' : multasIndisponivel.value ? 'indisponivel' : null
+  if (!estado) return null
+  return procedenciaDebitos({ uf: ufDoBlocoDetran(data.value?.multas as any, ufDetranTela.value), consultadoEm: (data.value as any)?.detranConsultadoEm, estado })
+})
+const procKm = computed(() => {
+  const ext = hodometroExtrato.value
+  if (!ext.length) return null
+  return procedenciaKm({ uf: ufDoBlocoDetran(data.value?.multas as any, ufDetranTela.value), fontes: ext.map((h) => h.fonte), ultimaData: ext[ext.length - 1].data })
+})
 const hodometroExtrato = computed(() => {
   const lista = kmLeituras.value
   return lista.map((h: any, i: number) => {
@@ -2119,7 +2076,10 @@ onUnmounted(() => {
                  indicador de multa acende, e aqui vem o VALOR e o detalhe. -->
             <div v-if="(multaIndicadorSP || ehVeiculoSpTela || multasDetalhe) && !multasFalhaSilenciosa" class="rel__multas">
               <p class="rel__multas-tit">Multas e débitos</p>
+              <p v-if="procDebitos" class="rel__multas-proc">{{ procDebitos }}</p>
               <template v-if="multasDetalhe">
+                <!-- Quanto falta quitar pra transferir + o que trava (14/out). -->
+                <DetranQuitar v-if="resumoDetran" :resumo="resumoDetran" />
                 <!-- DETRAN-MG com ROUBO/FURTO nos impedimentos: destaque, com o
                      texto da fonte, sem afirmar que o carro e roubado. -->
                 <p v-if="multasDetalhe.alerta_roubo_furto" class="rel__multas-kmalerta">
@@ -2128,15 +2088,11 @@ onUnmounted(() => {
 
                 <!-- Multas e débitos: total grande + breakdown -->
                 <div class="rel__multas-m3">
-                  <div v-if="multasTotalCentavos" class="rel__multas-cap">
-                    <span>Para regularizar</span>
-                    <b>{{ reais(multasTotalCentavos) }}</b>
-                  </div>
                   <div class="rel__multas-bd">
                     <div v-for="(r, idx) in multasBreakdown" :key="'b' + idx" class="rel__multas-r" :class="{ 'rel__multas-r--texto': r.texto }">
                       <span>{{ r.rotulo }}</span>
                       <p v-if="r.texto" class="rel__multas-rtexto">{{ r.texto }}</p>
-                      <b v-else :class="{ 'rel__multas-ok': r.emDia }">{{ r.valor }}<small v-if="r.nota" class="rel__multas-rnota">{{ r.nota }}</small></b>
+                      <b v-else :class="{ 'rel__multas-ok': r.emDia, 'rel__multas-st-alerta': r.alerta }">{{ r.valor }}</b>
                     </div>
                   </div>
                 </div>
@@ -2245,6 +2201,7 @@ onUnmounted(() => {
                  (DETRAN e atendimentos de recall da montadora). -->
             <div v-if="hodometroExtrato.length" class="rel__multas">
               <p class="rel__multas-tit">Quilometragem registrada</p>
+              <p v-if="procKm" class="rel__multas-proc">{{ procKm }}</p>
               <table class="rel__multas-k3">
                 <tbody>
                   <tr class="rel__multas-k3head">
@@ -4072,6 +4029,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     // Multa sem valor definido (autuacao em andamento): texto, nao R$ 0,00.
     b.rel__multas-sem-valor { color: #6b7280; font-weight: 500; white-space: normal; text-align: right; }
   }
+  &__multas-st-alerta { color: #a32020 !important; font-weight: 700; }
+  &__multas-proc { margin: -2px 0 8px; font-size: calc(11.5px * var(--rel-fs, 1)); color: #6b7280; }
   &__multas-item-meta { margin: 4px 0 0; font-size: calc(12px * var(--rel-fs, 1)); line-height: 1.4; color: #6b7280; }
 
   // restricoes do DETRAN
