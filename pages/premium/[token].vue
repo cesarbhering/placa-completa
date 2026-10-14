@@ -43,6 +43,7 @@ import { variacaoFipe, fipeNoMes, mesDoRotulo } from '~/shared/fipe-variacao'
 import { componenteEua, type RecallEuaTela } from '~/shared/recall-eua'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { montarLinhaDoTempo } from '~/shared/linha-do-tempo'
+import { textoAlerta, textoJudicial, textoIntervalo, dataBR as dataBRIso } from '~/shared/leilao-relatorio2'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
 
 const route = useRoute()
@@ -844,6 +845,17 @@ const passagensLeilao = computed(() => {
     // Sem edital pra baixar (judicial que reprovou no LGPD): link pra pagina
     // publica do lote na leiloeira. Revalidado aqui (https + host conhecido).
     paginaPublica: !ehNotificacao(p) && !(p.edital_disponivel && p.edital_ref) ? paginaPublicaLeilao(p.pagina_publica_url) : null,
+    // Relatorio 2.0 (leiloes-api): ja saneado no servidor; desconhecido nao vem.
+    origem: p.origem?.rotulo ? String(p.origem.rotulo) : null,
+    alertas: Array.isArray(p.alertas) ? p.alertas.map((a: any) => textoAlerta(a)) : [],
+    desfecho: p.desfecho?.rotulo ? `${p.desfecho.rotulo}${p.desfecho.data ? `, ${dataBRIso(p.desfecho.data)}` : ''}` : null,
+    judicial: p.contexto_judicial ? textoJudicial(p.contexto_judicial) : null,
+    // Link do contexto judicial so quando o card ainda nao tem o da pagina publica.
+    judicialUrl: p.contexto_judicial?.paginaPublicaUrl && !paginaPublicaLeilao(p.pagina_publica_url) && !(p.edital_disponivel && p.edital_ref) ? paginaPublicaLeilao(p.contexto_judicial.paginaPublicaUrl) : null,
+    // Lote publico: sem repetir o link que o card ja mostra (pagina publica/judicial).
+    lote: p.lote_publico?.status && !(p.lote_publico.url && [paginaPublicaLeilao(p.pagina_publica_url), paginaPublicaLeilao(p.contexto_judicial?.paginaPublicaUrl)].includes(p.lote_publico.url))
+      ? { url: p.lote_publico.url || null, encerrado: p.lote_publico.status === 'encerrado_na_casa' }
+      : null,
   }))
 })
 
@@ -1510,6 +1522,47 @@ const procKm = computed(() => {
 })
 // Linha do tempo unica (shared/linha-do-tempo.ts): fabricacao, leiloes,
 // roubo/recuperacao, recalls com km, hodometro, licenciamento e multas por ano.
+// Leiloes na linha do tempo: com a linha_do_tempo da leiloes-api (Relatorio
+// 2.0), um evento por leilao (fontes e praças juntas) e o intervalo da
+// recorrencia; os "possiveis" seguem vindo das passagens (a API so agrupa
+// confirmado/provavel). Snapshot antigo: uma linha por passagem, como antes.
+function leiloesDaLinhaDoTempo(passagens: any[]) {
+  const api = historicoLeilao.value?.linha_do_tempo
+  if (!Array.isArray(api) || !api.length) {
+    return passagens.map((p: any) => ({
+      data: p.data_leilao || null,
+      titulo: fonteExibicaoLeilao(p),
+      detalhe: [p.ref ? `Edital ${p.ref}` : null, p.lote ? `Lote ${p.lote}` : null].filter(Boolean).join(' · '),
+      notificacao: ehNotificacao(p),
+      confirmado: p.nivel === 'confirmado',
+    }))
+  }
+  const intervalos: number[] = historicoLeilao.value?.recorrencia?.intervalosMeses || []
+  let nLeilao = 0
+  const eventos = api.map((e: any) => {
+    const ehLeilao = e.tipo !== 'notificado'
+    const intervalo = ehLeilao && nLeilao > 0 && intervalos[nLeilao - 1] != null ? textoIntervalo(intervalos[nLeilao - 1]) : null
+    if (ehLeilao) nLeilao++
+    const fim = e.dataFim && e.dataFim !== e.data ? `até ${dataBRIso(e.dataFim)}` : null
+    return {
+      data: e.data,
+      titulo: (e.fontes || []).join(', '),
+      detalhe: [fim, e.nPassagens > 1 ? `${e.nPassagens} registros` : null].filter(Boolean).join(' · '),
+      notificacao: e.tipo === 'notificado',
+      judicial: e.tipo === 'leilao_judicial',
+      confirmado: true,
+      intervalo,
+    }
+  })
+  const possiveis = passagens.filter((p: any) => p.nivel === 'possivel' && !ehNotificacao(p)).map((p: any) => ({
+    data: p.data_leilao || null,
+    titulo: fonteExibicaoLeilao(p),
+    detalhe: p.lote ? `Lote ${p.lote}` : '',
+    confirmado: false,
+  }))
+  return [...eventos, ...possiveis]
+}
+
 const linhaDoTempo = computed(() => {
   const blocoRoubo: any = g('ocorrenciasRouboFurto')
   const eps = agruparEpisodios(blocoRoubo && typeof blocoRoubo === 'object' ? blocoRoubo.ocorrencias : null)
@@ -1520,13 +1573,7 @@ const linhaDoTempo = computed(() => {
     fipeNaData: (iso) => fipeNoMes(hist, iso)?.price ?? null,
     anoFabricacao: g('anoFabricacao') as any,
     anoModelo: g('anoModelo') as any,
-    leiloes: passagens.map((p: any) => ({
-      data: p.data_leilao || null,
-      titulo: fonteExibicaoLeilao(p),
-      detalhe: [p.ref ? `Edital ${p.ref}` : null, p.lote ? `Lote ${p.lote}` : null].filter(Boolean).join(' · '),
-      notificacao: ehNotificacao(p),
-      confirmado: p.nivel === 'confirmado',
-    })),
+    leiloes: leiloesDaLinhaDoTempo(passagens),
     roubo: eps.flatMap((ep) => ep.registros.map((r) => ({ etapa: r.etapa, data: r.data, tipo: ep.tipoInicial }))),
     recallsAtendidos: campanhasRealizadas.value.filter((c: any) => c.atendimento?.data).map((c: any) => ({ data: c.atendimento.data, titulo: c.titulo, km: c.atendimento.km })),
     recallsAbertos: recallCampanhas.value.filter((c: any) => c.data_inicio).map((c: any) => ({ data: c.data_inicio, titulo: c.componente || c.campanha })),
@@ -2553,6 +2600,7 @@ onUnmounted(() => {
                 </span>
                 <span v-if="resumoLeilao">{{ resumoLeilao }}</span>
               </p>
+              <p v-if="historicoLeilao?.recorrencia?.texto" class="rel__leilao-recorr">{{ historicoLeilao.recorrencia.texto }}<template v-if="numSecao.tempo">: veja a sequência na seção {{ numSecao.tempo }}</template>.</p>
 
               <div v-for="p in passagensFortes" :key="p.idx" class="rel__leilao">
                 <div class="rel__leilao-topo">
@@ -2566,6 +2614,20 @@ onUnmounted(() => {
                 <p v-if="p.gravidade" class="rel__grav" :class="`rel__grav--${p.gravidade.cor}`">
                   <span class="rel__grav-barra" aria-hidden="true" />
                   <span class="rel__grav-rotulo">{{ p.gravidade.rotulo }}</span>
+                </p>
+                <!-- Relatorio 2.0: origem, alertas do edital, desfecho, contexto judicial e lote. -->
+                <p v-if="p.origem" class="rel__leilao-origem"><span>Origem:</span> {{ p.origem }}</p>
+                <ul v-if="p.alertas.length" class="rel__leilao-alertas">
+                  <li v-for="a in p.alertas" :key="a">{{ a }}</li>
+                </ul>
+                <p v-if="p.judicial" class="rel__leilao-jud">
+                  {{ p.judicial }}<template v-if="p.judicialUrl">. <a :href="p.judicialUrl" target="_blank" rel="noopener noreferrer nofollow">Ver no site do leiloeiro</a></template>
+                </p>
+                <p v-if="p.desfecho" class="rel__leilao-desf"><span>Desfecho:</span> {{ p.desfecho }}</p>
+                <p v-if="p.lote" class="rel__leilao-lote">
+                  <template v-if="p.lote.url"><a :href="p.lote.url" target="_blank" rel="noopener noreferrer nofollow">Ver o anúncio do lote na leiloeira</a></template>
+                  <template v-else-if="p.lote.encerrado">Anúncio do lote já encerrado na leiloeira.</template>
+                  <template v-else>Anúncio do lote no ar na leiloeira.</template>
                 </p>
                 <!-- Comitente em destaque, logo abaixo do termometro: quem
                      mandou o carro a leilao explica o porque. -->
@@ -4147,6 +4209,14 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__var-n { display: block; margin-top: 2px; font-size: calc(12px * var(--rel-fs, 1)); color: #666; }
   &__var-toggle { margin: 6px 0 0; padding: 0; border: 0; background: none; color: #1f5fbf; font: inherit; font-size: calc(13px * var(--rel-fs, 1)); cursor: pointer; text-decoration: underline; }
   @media print { &__var-toggle { display: none; } }
+
+  // ---- leilao: campos do Relatorio 2.0 ----
+  &__leilao-recorr { margin: 6px 0 10px; padding: 8px 12px; border-left: 3px solid #c62828; background: #fdf1f1; color: #8a1c1c; font-weight: 600; font-size: calc(13.5px * var(--rel-fs, 1)); border-radius: 4px; }
+  &__leilao-origem, &__leilao-desf, &__leilao-jud, &__leilao-lote { margin: 6px 0 0; font-size: calc(13px * var(--rel-fs, 1)); color: #333; }
+  &__leilao-origem span, &__leilao-desf span { color: #666; }
+  &__leilao-jud a, &__leilao-lote a { color: #1f5fbf; }
+  &__leilao-alertas { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+  &__leilao-alertas li { padding: 3px 9px; border-radius: 999px; background: #fff3cd; color: #6b4e00; font-size: calc(12px * var(--rel-fs, 1)); font-weight: 600; }
 
   // ---- recall pendente (Opcao 1 "Alerta classico") ----
   // Cartao vermelho com icone, titulo, subtitulo da campanha, corpo com o
