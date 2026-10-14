@@ -1,0 +1,52 @@
+{
+  "ano_fabricacao": "2022",
+  "ano_modelo": "2023",
+  "capacidade_passageiros": "5",
+  "carroceria": "999-NAO APLICAVEL",
+  "categoria": "1-Particular",
+  "combustivel": "16-Alcool-Gasol",
+  "cor": "5-CINZA",
+  "data_aquisicao": "29/09/2026",
+  "debitos": [
+    {
+      "classe": "UF:SE-127100-V 00782213-5550",
+      "numero_guia": "52026000028425204",
+      "vencimento": "08/06/2026",
+      "valor_nominal": 130.16,
+      "valor_atual": 137.23
+    }
+  ],
+  "especie": "1-Passageiro",
+  "impedimentos": [],
+  "infracoes": [],
+  "marca_modelo": "104747-CHEV/ONIX 10TAT PR2 (Nacional)",
+  "multas": [
+    {
+      "numero_autuacao": "UF:SE-127100-V 00782213-5550",
+      "descricao": "ESTACIONAR EM LOCAIS/HORARIO PROIBIDOS C/PLACA SINALIZANDO",
+      "local": "RUA SAGRADO CORACAO DE JESUS A",
+      "usuario": "CICRANO AGENTE",
+      "data": "13/01/2026",
+      "hora": "07:00"
+    }
+  ],
+  "municipio_emplacamento": "PARNAMIRIM",
+  "placa": "ABC1D23",
+  "placa_anterior": "ABC1234",
+  "potencia": "116",
+  "proprietario": "FULANO DE TAL",
+  "proprietario_anterior": "FULANO DE TAL",
+  "recursos": [],
+  "renavam": "00000000000",
+  "restricao": "Sem gravame",
+  "sequencia": "2200828",
+  "situacao": "Em Circulação",
+  "situacao_lacre": "Emplacamento Normalizado",
+  "tipo": "6-AUTOMOVEL",
+  "valor_dpvat": 0.0,
+  "valor_ipva": 0.0,
+  "valor_multas": 137.23,
+  "valor_taxas_detran": 0.0,
+  "vencimento_licenciamento": "2026 em 09/10/2026,Licenciamento Anual (CRLV Eletrônico)(Via 1)",
+  "site_receipt": "https://storage.invalid/recibo.html"
+}

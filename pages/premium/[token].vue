@@ -1249,7 +1249,7 @@ const multaIndicadorSP = computed(
 // Mesmo gate do servidor (DETRAN_UFS.gate): desde 13/out TODAS as UFs do mapa sao
 // consultadas sempre, com ou sem multa RENAINF (decisao do Cesar). UF fora da
 // lista nunca e consultada: sem isso o bloco ficava em "Consultando..." pra sempre.
-const UFS_COM_DETRAN = ['SP', 'SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM', 'PE', 'ES', 'MA', 'AC', 'AL', 'PI', 'RR', 'RO']
+const UFS_COM_DETRAN = ['SP', 'SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM', 'PE', 'ES', 'MA', 'AC', 'AL', 'PI', 'RR', 'RO', 'RN']
 const ehVeiculoSpTela = computed(() => UFS_COM_DETRAN.includes(String(g('ufJurisdicao') || '').toUpperCase()))
 const ufDetranTela = computed(() => String(g('ufJurisdicao') || '').toUpperCase())
 const multasDetalhe = computed(() => {
