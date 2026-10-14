@@ -193,7 +193,7 @@ export const ARTIGOS: Artigo[] = [
     lead: 'Multas RENAINF são infrações de trânsito registradas no RENAINF, o Registro Nacional de Infrações de Trânsito. Esse sistema nacional junta as autuações de todos os órgãos, e é por ele que uma multa aplicada em um estado chega ao cadastro de um veículo registrado em outro.',
     dado: {
       titulo: 'O que a nossa base mostra',
-      texto: `No ${L}, 23,0% dos veículos (32 de 139) tinham indicador de infração no RENAINF. Nos carros com até 10 anos, foram 25,4% (15 de 59). No relatório completo, as infrações em aberto são detalhadas pelo DETRAN em 15 UFs.`,
+      texto: `No ${L}, 23,0% dos veículos (32 de 139) tinham indicador de infração no RENAINF. Nos carros com até 10 anos, foram 25,4% (15 de 59). No relatório completo, as infrações em aberto são detalhadas pelo DETRAN em 20 UFs.`,
     },
     blocos: [
       {
@@ -213,7 +213,7 @@ export const ARTIGOS: Artigo[] = [
       {
         h2: 'Como consultar',
         paragrafos: [
-          'O relatório completo da PlacaCompleta traz o indicador de infração RENAINF do registro nacional e, para veículos registrados em 15 UFs (SP, SC, MG, BA, RS, GO, PR, DF, CE, PA, AM, PE, ES, MA e AC), detalha as infrações em aberto direto do DETRAN, com data, local, órgão autuador e valor. A consulta básica, pela placa, mostra marca, modelo, ano e cor.',
+          'O relatório completo da PlacaCompleta traz o indicador de infração RENAINF do registro nacional e, para veículos registrados em 20 UFs (SP, SC, MG, BA, RS, GO, PR, DF, CE, PA, AM, PE, ES, MA, AC, AL, PI, RR, RO e RN), detalha as infrações em aberto direto do DETRAN, com data, local, órgão autuador e valor. A consulta básica, pela placa, mostra marca, modelo, ano e cor.',
         ],
       },
     ],
@@ -221,7 +221,7 @@ export const ARTIGOS: Artigo[] = [
       { pergunta: 'Multa RENAINF é diferente de multa comum?', resposta: 'É a mesma infração de trânsito. O nome indica que ela está registrada no sistema nacional, o que permite a cobrança mesmo quando o órgão autuador é de outro estado.' },
       { pergunta: 'Multa em aberto impede a transferência do carro?', resposta: 'Sim. Enquanto houver multa vencida vinculada ao veículo, o licenciamento e a transferência ficam bloqueados (CTB, artigos 128 e 131).' },
       { pergunta: 'A multa passa para o novo dono?', resposta: 'A multa fica vinculada ao veículo. Para licenciar ou transferir, o débito precisa ser pago, por isso vale combinar com o vendedor antes da compra quem paga.' },
-      { pergunta: 'Onde ver as infrações em aberto de um carro?', resposta: 'No DETRAN do estado de registro e no relatório completo da PlacaCompleta, que detalha as infrações em aberto pelo DETRAN em 15 UFs e traz o indicador RENAINF para todo o país.' },
+      { pergunta: 'Onde ver as infrações em aberto de um carro?', resposta: 'No DETRAN do estado de registro e no relatório completo da PlacaCompleta, que detalha as infrações em aberto pelo DETRAN em 20 UFs e traz o indicador RENAINF para todo o país.' },
     ],
     relacionados: ['renavam', 'gravame', 'renajud'],
     datePublished: '2026-10-02',

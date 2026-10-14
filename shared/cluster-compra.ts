@@ -27,7 +27,7 @@ export const COMPLETA_TRAZ = [
   'Indicador de roubo e furto',
   'Gravame e alienação fiduciária',
   'RENAJUD e restrições judiciais, administrativas e de RFB',
-  'Indicador de infrações no RENAINF e, em 15 UFs, as infrações em aberto direto do DETRAN',
+  'Indicador de infrações no RENAINF e, em 20 UFs, as infrações em aberto direto do DETRAN',
   'Recall pendente',
   `Registro de leilão no documento e histórico de leilão cruzado com nossa base de ${BASE_LEILAO_TEXTO}`,
   'Comunicação de venda',
