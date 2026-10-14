@@ -2,6 +2,7 @@
 import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { textoDetranProtegido } from '~/shared/detran-protegido'
 import { faixaLicenciamento } from '~/shared/licenciamento-faixa'
+import { textoHodometro } from '~/shared/hodometro-texto'
 import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN, esconderMultasQueFalharam } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
@@ -1434,6 +1435,8 @@ const kmLeituras = computed(() => {
 })
 const kmComMontadora = computed(() => kmLeituras.value.some((l: any) => l.fonte !== 'DETRAN'))
 const hodometroSuspeito = computed(() => !!multasDetalhe.value?.hodometro_suspeito || hodometroExtrato.value.some((h) => h.caiu))
+// Alerta (km caiu) ou orientacao com a ultima leitura: shared/hodometro-texto.ts.
+const fraseHodometro = computed(() => textoHodometro({ suspeito: hodometroSuspeito.value, extrato: hodometroExtrato.value }))
 const hodometroExtrato = computed(() => {
   const lista = kmLeituras.value
   return lista.map((h: any, i: number) => {
@@ -2256,10 +2259,7 @@ onUnmounted(() => {
                   </tr>
                 </tbody>
               </table>
-              <p v-if="hodometroSuspeito" class="rel__multas-kmalerta">
-                Há registro de quilometragem menor que uma leitura anterior, possível adulteração.
-              </p>
-              <p v-else class="rel__multas-kmok"><b>Sem regressão de km.</b> Sem indício de hodômetro adulterado.</p>
+              <p v-if="fraseHodometro" :class="fraseHodometro.tipo === 'alerta' ? 'rel__multas-kmalerta' : 'rel__multas-kmok'">{{ fraseHodometro.texto }}</p>
             </div>
 
             <!-- Recall pendente: a primeira pergunta de quem ve o cartao
