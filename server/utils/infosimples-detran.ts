@@ -134,6 +134,10 @@ export const DETRAN_UFS = {
   AL: { path: 'detran/al/infracoes', cert: 'nenhum', gate: 'sempre', fonte: 'detran_al', fonteCusto: 'infosimples_detran_al' },
   PI: { path: 'detran/pi/multas', cert: 'nenhum', gate: 'sempre', fonte: 'detran_pi', fonteCusto: 'infosimples_detran_pi' },
   RR: { path: 'detran/rr/debitos', cert: 'nenhum', gate: 'sempre', fonte: 'detran_rr', fonteCusto: 'infosimples_detran_rr' },
+  // RO (14/out, teste real QTF0A93): so placa + renavam, R$0,26, LENTO (~157 s:
+  // timeout 300 na Infosimples). Traz multas, restricoes e situacao; nao traz
+  // IPVA nem licenciamento. AP e MS ficaram fora: API pausada pela Infosimples (615).
+  RO: { path: 'detran/ro/veiculo', cert: 'nenhum', gate: 'sempre', fonte: 'detran_ro', fonteCusto: 'infosimples_detran_ro', timeoutS: 300 },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 
@@ -1430,6 +1434,36 @@ export function parsearDetranPi(data: any) {
 }
 
 /** DETRAN-RR (/detran/rr/debitos): infracoes {detalhes_infracoes[], valor_normalizado}. So pela doc. */
+/**
+ * DETRAN-RO (/detran/ro/veiculo; real QTF0A93, 14/out, sem multa):
+ * debitos_veiculo {multas[], total_multas, normalizado_total_multas},
+ * restricoes[], status ("Em Circulação"), situacao. Itens de multa pelo shape
+ * generico (sem exemplo com multa ainda); pagas/canceladas fora. Nunca le
+ * chassi nem dados do dono. Formato desconhecido -> null.
+ */
+export function parsearDetranRo(data: any) {
+  const d = data || {}
+  if (!('debitos_veiculo' in d) && !('restricoes' in d) && !('status' in d)) return null
+  const deb = d.debitos_veiculo && typeof d.debitos_veiculo === 'object' ? d.debitos_veiculo : {}
+  const itens = listagemDe(deb.multas).map(multaGenerica)
+  const soma = itens.reduce((a, i) => a + i.valor, 0)
+  const total = typeof deb.normalizado_total_multas === 'number' ? deb.normalizado_total_multas : moeda(deb.total_multas)
+  const restricoes: { tipo: string; texto: string }[] = []
+  for (const r of (Array.isArray(d.restricoes) ? d.restricoes : [])) {
+    const t = String(typeof r === 'string' ? r : (r?.descricao ?? r?.restricao ?? r?.tipo ?? '')).replace(/\s+/g, ' ').trim()
+    if (t && !/^(nada consta|nenhuma?|sem restri)/i.test(t)) restricoes.push({ tipo: tipoRestricaoTexto(t), texto: t.slice(0, 120) })
+  }
+  const st = [d.status, d.situacao].map((x) => String(x ?? '').replace(/\s+/g, ' ').trim()).find((x) => x && !/em\s+circula/i.test(x))
+  if (st) restricoes.push({ tipo: 'situacao', texto: st.slice(0, 120) })
+  const roubo = restricoes.some((r) => r.tipo === 'furto')
+  return {
+    ...blocoSoMultas('detran_ro', itens),
+    multas_total_centavos: Math.round(Math.max(soma, total || 0) * 100),
+    restricoes_detran: restricoes,
+    alerta_roubo_furto: roubo ? 'Restrição informada pelo DETRAN-RO: roubo/furto' : null,
+  }
+}
+
 export function parsearDetranRr(data: any) {
   const d = data || {}
   if (!('infracoes' in d) && !('debitos' in d)) return null
@@ -1777,6 +1811,7 @@ function blocoDetranDaUfBruto(uf: UfDetran, data: any) {
   if (uf === 'AL') return parsearDetranAl(data)
   if (uf === 'PI') return parsearDetranPi(data)
   if (uf === 'RR') return parsearDetranRr(data)
+  if (uf === 'RO') return parsearDetranRo(data)
   return detranParaMultas(parsearDetranSp(data))
 }
 
