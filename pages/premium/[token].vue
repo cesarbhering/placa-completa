@@ -4,6 +4,7 @@ import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { textoDetranProtegido } from '~/shared/detran-protegido'
 import { faixaLicenciamento } from '~/shared/licenciamento-faixa'
 import { textoHodometro } from '~/shared/hodometro-texto'
+import { efeitoRestricao, textoEfeito } from '~/shared/restricao-efeito'
 import { resumoQuitar, procedenciaDebitos, procedenciaKm, ufDoBlocoDetran, statusBaseNacional } from '~/shared/detran-quitar'
 import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN, esconderMultasQueFalharam } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
@@ -506,6 +507,10 @@ function registraTipoDesconhecido(chave: string) {
 
 // Detalhe do RENAJUD (AL/GO), so quando o parser reconheceu. Sem isso, o card
 // fica com o texto geral.
+// Item 12: o que cada restricao bloqueia (shared/restricao-efeito.ts).
+function efeitoTexto(r: { tipo?: string | null; texto?: string | null }): string | null {
+  return textoEfeito(efeitoRestricao(r))
+}
 const renajudItens = computed<any[]>(() => {
   const d: any = data.value?.renajudDetalhe
   return d?.status === 'ok' && Array.isArray(d.itens) ? d.itens : []
@@ -2113,6 +2118,7 @@ onUnmounted(() => {
                   <span class="rel__tag" :class="{ 'rel__tag--info': r.info }">{{ r.info ? 'Informação' : 'Restrição' }}</span>
                   <strong>{{ r.rotulo }}</strong>
                 </div>
+                <span v-if="!r.info && !r.renave && !r.renajud && efeitoTexto({ texto: r.rotulo })" class="rel__efeito">{{ efeitoTexto({ texto: r.rotulo }) }}</span>
                 <div v-if="r.renave" class="rel__renave">
                   <strong class="rel__renave-tit">{{ RENAVE_EXPLICACAO.titulo }}</strong>
                   <p>{{ RENAVE_EXPLICACAO.texto }} <strong>{{ RENAVE_EXPLICACAO.destaque }}</strong></p>
@@ -2132,9 +2138,9 @@ onUnmounted(() => {
                     <p class="rel__renave-conf">Detalhe no DETRAN-{{ data?.renajudDetalhe?.uf }}:</p>
                     <ul>
                       <li v-for="(it, ii) in renajudItens" :key="'rj' + ii">
-                        <strong v-if="it.tipo">{{ it.tipo }}</strong><template v-if="it.tipo && (it.processo || it.tribunal || it.orgao)">. </template>
-                        <template v-if="it.processo">Processo {{ it.processo }}</template><template v-if="it.processo && (it.tribunal || it.orgao)">, </template>
+                        <strong v-if="it.tipo">{{ it.tipo }}</strong><template v-if="it.tipo && (it.tribunal || it.orgao)">. </template>
                         <template v-if="it.tribunal">{{ it.tribunal }}</template><template v-if="it.tribunal && it.orgao"> · </template><template v-if="it.orgao">{{ it.orgao }}</template><template v-if="it.data">, registrada em {{ it.data }}</template>.
+                        <span v-if="efeitoTexto({ tipo: it.tipo, texto: 'RENAJUD' })" class="rel__efeito">{{ efeitoTexto({ tipo: it.tipo, texto: 'RENAJUD' }) }}</span>
                       </li>
                     </ul>
                   </template>
@@ -2245,6 +2251,7 @@ onUnmounted(() => {
                   <ul class="rel__multas-restr">
                     <li v-for="(rs, idx) in multasDetalhe.restricoes_detran" :key="'rs' + idx">
                       <b>{{ rotuloRestricao(rs.tipo) }}:</b> {{ rs.texto }}
+                      <span v-if="efeitoTexto(rs)" class="rel__efeito">{{ efeitoTexto(rs) }}</span>
                     </li>
                   </ul>
                 </template>
@@ -4140,6 +4147,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     b.rel__multas-sem-valor { color: #6b7280; font-weight: 500; white-space: normal; text-align: right; }
   }
   &__multas-st-alerta { color: #a32020 !important; font-weight: 700; }
+  &__efeito { display: block; margin-top: 2px; font-size: calc(12px * var(--rel-fs, 1)); color: #6b4e00; font-weight: 600; }
   &__multas-proc { margin: -2px 0 8px; font-size: calc(11.5px * var(--rel-fs, 1)); color: #6b7280; }
   &__multas-item-meta { margin: 4px 0 0; font-size: calc(12px * var(--rel-fs, 1)); line-height: 1.4; color: #6b7280; }
 

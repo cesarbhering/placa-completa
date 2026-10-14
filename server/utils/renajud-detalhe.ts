@@ -2,7 +2,7 @@ import { emVoo } from './tarefas-em-voo'
 import { consultarDetranInfosimples, registrarCusto, brutoDoResultado, placaParaDetran, detalheDaRecusa, estruturaChaves, logIndisponivel, type UfDetran } from './infosimples-detran'
 import { renavamDaResposta, ufDaResposta } from './detran-multas'
 
-// Detalhe da restricao RENAJUD (tribunal/orgao, numero do processo, tipo e
+// Detalhe da restricao RENAJUD (tribunal/orgao, tipo e
 // data), so onde a Infosimples tem fonte: AL (/detran/al/renajud, sem
 // credencial) e GO (/detran/go/veiculo, e-CNPJ, bloqueios_judiciais). Decisao
 // do Cesar, 09/out. Integrado pela DOC (nao havia pedido real AL/GO com
@@ -20,12 +20,14 @@ export const RENAJUD_UFS: Partial<Record<UfDetran, { path: string; fonteCusto: s
 export interface ItemRenajud {
   tribunal: string | null
   orgao: string | null
-  processo: string | null
   tipo: string | null
   data: string | null
 }
 
-export const CAMPOS_RENAJUD = ['tribunal', 'orgao', 'processo', 'tipo', 'data'] as const
+// Item 12 (Cesar, 14/out): nunca nome de parte NEM numero de processo; so o que a
+// restricao bloqueia (tipo), tribunal/orgao e data. Snapshots antigos com
+// `processo` sao limpos na leitura (sanearRenajud).
+export const CAMPOS_RENAJUD = ['tribunal', 'orgao', 'tipo', 'data'] as const
 
 const texto = (v: unknown): string | null => {
   if (v == null || typeof v === 'object') return null
@@ -33,13 +35,6 @@ const texto = (v: unknown): string | null => {
   return t || null
 }
 
-/** Numero de processo: so digitos, ponto, hifen e barra (formato CNJ ou antigo). */
-const processo = (v: unknown): string | null => {
-  const t = texto(v)
-  if (!t) return null
-  const so = t.replace(/[^0-9.\-/]/g, '')
-  return /\d{5,}/.test(so.replace(/\D/g, '')) ? so : null
-}
 
 const data = (v: unknown): string | null => {
   const t = texto(v)
@@ -59,7 +54,7 @@ const tipo = (v: unknown): string | null => {
 }
 
 function itemValido(i: ItemRenajud): boolean {
-  return !!(i.processo || i.tribunal || i.orgao)
+  return !!(i.tribunal || i.orgao)
 }
 
 /** AL: data.processos[] { numero_processo, orgao, tribunal, restricoes }. */
@@ -72,7 +67,6 @@ export function parsearRenajudAl(d: any): ItemRenajud[] | null {
     return {
       tribunal: texto(p?.tribunal),
       orgao: texto(p?.orgao),
-      processo: processo(p?.numero_processo),
       tipo: tipo(rs),
       data: data(p?.data ?? p?.data_inclusao) ?? primeiraData,
     }
@@ -87,7 +81,6 @@ export function parsearRenajudGo(d: any): ItemRenajud[] | null {
   const itens = lista.map((b: any): ItemRenajud => ({
     tribunal: texto(b?.tribunal),
     orgao: texto(b?.comarca),
-    processo: processo(b?.numero_processo),
     tipo: tipo(b?.tipo),
     data: data(b?.inclusao_data),
   })).filter(itemValido)
@@ -104,7 +97,7 @@ export function parsearRenajud(uf: UfDetran, d: any): ItemRenajud[] | null {
 export function sanearRenajud(bloco: any): any {
   if (!bloco || typeof bloco !== 'object') return null
   const itens = Array.isArray(bloco.itens)
-    ? bloco.itens.map((i: any) => Object.fromEntries(CAMPOS_RENAJUD.map((k) => [k, texto(i?.[k])]))).filter((i: any) => i.processo || i.tribunal || i.orgao)
+    ? bloco.itens.map((i: any) => Object.fromEntries(CAMPOS_RENAJUD.map((k) => [k, texto(i?.[k])]))).filter((i: any) => i.tribunal || i.orgao)
     : []
   return { status: bloco.status === 'ok' && itens.length ? 'ok' : 'indisponivel', uf: texto(bloco.uf), itens }
 }
