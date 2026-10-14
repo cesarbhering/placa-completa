@@ -11,6 +11,8 @@
 import { fonteExibicaoLeilao, paginaPublicaLeilao } from '../../shared/leilao-exibicao'
 import { ehNotificacao, GRAVIDADE_NOTIFICADO } from '../../shared/leilao-notificacao'
 import { historicoLgpd } from '../../shared/leilao-lgpd'
+import { comFonteCache, chaveDePlaca } from './fonte-cache'
+import { registrarChamada } from './api-chamadas'
 
 export type NivelLeilao = 'confirmado' | 'provavel' | 'possivel'
 
@@ -70,6 +72,8 @@ export interface PassagemLeilao {
 }
 
 export interface HistoricoLeilao {
+  /** Quando a base de leiloes foi consultada (cache de 30 d no relatorio pago; Relatorio 2.0). */
+  consultadoEm?: string | null
   resumo: {
     tem_indicio: boolean
     nivel_max: NivelLeilao | null
@@ -265,6 +269,11 @@ export async function consultarHistoricoLeilao(
      * ela passa um teto curto e desiste calada.
      */
     timeoutMs?: number
+    /**
+     * Relatorio 2.0 (Cesar 14/out): cache de 30 d por placa+chassi no fonte_cache. So o relatorio PAGO liga;
+     * o sinal da consulta gratis continua sempre ao vivo (um leilao novo aparece na hora no gratis).
+     */
+    cache?: boolean
   },
 ): Promise<HistoricoLeilao | null> {
   const config = useRuntimeConfig()
@@ -276,7 +285,19 @@ export async function consultarHistoricoLeilao(
   // A API exige ao menos um identificador; sem nenhum, nem vale a chamada.
   if (!body.placa && !body.chassi && !body.renavam && !body.motor) return null
 
-  try {
+  const sb = (() => { try { return useSupabaseServer() } catch { return null } })()
+  const chamar = async (): Promise<HistoricoLeilao> => {
+    const t0 = Date.now()
+    try {
+      const r = await chamarApi()
+      registrarChamada(sb, { fonte: 'leiloes_api', caminho: '/v1/historico', code: 200, ms: Date.now() - t0 })
+      return r
+    } catch (e: any) {
+      registrarChamada(sb, { fonte: 'leiloes_api', caminho: '/v1/historico', code: e?.statusCode ?? e?.response?.status ?? null, ms: Date.now() - t0 })
+      throw e
+    }
+  }
+  const chamarApi = async () => {
     const res = await $fetch<any>(`${base}/v1/historico`, {
       method: 'POST',
       // Identifica a origem no log da API. Sem isto, consulta de PRODUCAO
@@ -295,6 +316,18 @@ export async function consultarHistoricoLeilao(
       timeout: opts?.timeoutMs || Number(config.leiloesApiTimeoutMs) || 15000,
     })
     return sanearHistorico(res, { leiloesFotosHosts: String(config.leiloesFotosHosts || '') })
+  }
+
+  try {
+    const chave = [chaveDePlaca(body.placa || ''), String(body.chassi || '').toUpperCase()].join('|')
+    if (opts?.cache && sb && chave !== '|') {
+      const r = await comFonteCache(sb, 'leilao', chave, async () => {
+        const h = await chamar()
+        return { status: h.resumo.tem_indicio ? 'ok' : 'sem_dado', payload: h }
+      })
+      return { ...r.payload, consultadoEm: r.consultadoEm }
+    }
+    return { ...(await chamar()), consultadoEm: new Date().toISOString() }
   } catch (e: any) {
     // Fora do ar, timeout, key errada, 5xx: tudo cai aqui. So um log.
     console.warn('[leiloes-api] historico falhou (fail-open):', e?.message)
