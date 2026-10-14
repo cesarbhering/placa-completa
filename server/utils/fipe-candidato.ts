@@ -470,10 +470,27 @@ export function candidatoEAutomatico(modelo: string): boolean {
 // FIPE bem diferente: diesel e eletrico. Flex/gasolina/alcool ficam null (a FIPE
 // nao separa flex de forma consistente; filtrar por eles estreitaria errado).
 function combustivelDoCodigo(codigo: unknown): 'diesel' | 'eletrico' | null {
-  const c = String(codigo ?? '').trim()
+  // O registro manda com zero a esquerda ("03"); compara o numero.
+  const c = String(parseInt(String(codigo ?? '').trim(), 10))
   if (c === '3' || c === '11') return 'diesel' // Diesel / Diesel+GNV
   if (c === '6' || c === '7') return 'eletrico' // Eletrico (fonte interna/externa)
   return null
+}
+
+/**
+ * Flex x so gasolina (caso QGH1J91, "I/M.BENZ GLA200FF" flex: a lista trouxe
+ * tambem o GLA 200 Vis. Black Ed., so gasolina). 16/17 = alcool/gasolina(/GNV);
+ * 2 = so gasolina. "FF" no nome da Mercedes e Flex Fuel, nao versao.
+ */
+function baseDoCodigo(codigo: unknown): 'flex' | 'gasolina' | null {
+  const n = parseInt(String(codigo ?? '').trim(), 10)
+  if (n === 16 || n === 17) return 'flex'
+  if (n === 2) return 'gasolina'
+  return null
+}
+
+export function candidatoEFlex(c: Pick<FipeCandidato, 'modelo' | 'combustivel'>): boolean {
+  return /\bflex|flexpower|totalflex|t\.\s?flex|\bFF\b/i.test(String(c.modelo || '')) || /flex|[aá]lcool/i.test(String(c.combustivel || ''))
 }
 
 function candidatoEDiesel(c: FipeCandidato): boolean {
@@ -537,6 +554,8 @@ interface Fatos {
   transmissao: Transmissao
   /** Diesel/eletrico do registro: desempata versoes de combustivel bem diferente. */
   combustivel: 'diesel' | 'eletrico' | null
+  /** Flex ou so gasolina no registro: separa versoes flex das so gasolina. */
+  base: 'flex' | 'gasolina' | null
   /** Duas rodas: o funil de carro nao vale, e cilindrada nao vira litragem. */
   moto: boolean
   /** Nome e cilindrada do modelo, pra casar moto por texto ("PCX", "150"). */
@@ -637,6 +656,7 @@ function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any
   return {
     litragem, carroceria, versao, transmissao,
     combustivel: combustivelDoCodigo(senatran?.codigoCombustivel),
+    base: baseDoCodigo(senatran?.codigoCombustivel),
     moto: tabela === 'motos',
     tokensModelo: tokensDoModelo(senatran?.descricaoMarcaModelo || wdapi?.MODELO),
     cabine: cabineDaDescricao(senatran?.descricaoMarcaModelo),
@@ -679,6 +699,14 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
       fatos.combustivel === 'diesel' ? candidatoEDiesel(c) : candidatoEEletrico(c),
     )
     if (porCombustivel.length) restantes = porCombustivel
+  }
+  // Flex no registro: fora as versoes so gasolina (e vice-versa), se sobrar alguem.
+  if (fatos.base) {
+    // Gasolina: so versao que nao e flex NEM diesel/eletrico (gasolina nunca vira diesel).
+    const porBase = restantes.filter((c) => (fatos.base === 'flex'
+      ? candidatoEFlex(c)
+      : !candidatoEFlex(c) && !candidatoEDiesel(c) && !candidatoEEletrico(c)))
+    if (porBase.length) restantes = porBase
   }
 
   if (fatos.carroceria) {

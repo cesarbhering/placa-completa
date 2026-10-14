@@ -1031,3 +1031,37 @@ describe('Chevrolet: sigla PR2 = Premier e codigo de motor/cambio (RPD2B20)', ()
     expect(filtrarSedaDoNome(etios, 'TOYOTA/ETIOS HB X')).toEqual(etios) // so seda na lista: nao decide
   })
 })
+
+describe('flex x so gasolina (QGH1J91, I/M.BENZ GLA200FF)', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+  // fipe-api real: o campo combustivel vem "Gasolina" ate nas Flex; o nome decide.
+  const GLA_2015 = [
+    { codigo_fipe: '021313-6', modelo: 'GLA-200 Advance 1.6/1.6 TB 16V Flex Aut.', valor: 90000, combustivel: 'Gasolina' },
+    { codigo_fipe: '021322-5', modelo: 'GLA-200 Style 1.6 TB 16V/Flex Aut.', valor: 85000, combustivel: 'Gasolina' },
+    { codigo_fipe: '021314-4', modelo: 'GLA-200 Vision 1.6/1.6 TB 16V Flex Aut.', valor: 95000, combustivel: 'Gasolina' },
+    { codigo_fipe: '021320-9', modelo: 'GLA-200 Vis. Black Ed. 1.6 TB 16V Aut.', valor: 99000, combustivel: 'Gasolina' },
+  ]
+  const f = vi.fn(async (url: string) => (String(url).includes('/modelos') ? { ok: true, json: async () => ({ data: GLA_2015 }) } : { ok: false, json: async () => ({}) }) as any)
+  const entrada = (cod: string) => ({
+    senatran: { descricaoMarcaModelo: 'I/M.BENZ GLA200FF', anoModelo: 2015, potencia: 156, cilindrada: 1595, descricaoTipoVeiculo: 'AUTOMOVEL', codigoCombustivel: cod },
+    wdapi: { marca: 'M.BENZ', MODELO: 'GLA200FF', anoModelo: '2015', fipe: { dados: [] } },
+    fipeApiUrl: 'http://f', fipeApiToken: 't',
+  })
+  it('flex (16): sai a Vis. Black Ed. so gasolina; Advance/Style/Vision seguem (ambiguo real)', async () => {
+    vi.stubGlobal('fetch', f)
+    const r = await escolherMelhorFipe(entrada('16'))
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual(['021313-6', '021314-4', '021322-5'])
+  })
+  it('so gasolina (02): fica a versao sem Flex', async () => {
+    vi.stubGlobal('fetch', f)
+    const r = await escolherMelhorFipe(entrada('02'))
+    expect(r.escolhido?.codigo_fipe).toBe('021320-9')
+  })
+  it('candidatoEFlex', async () => {
+    const { candidatoEFlex } = await import('./fipe-candidato')
+    expect(candidatoEFlex({ modelo: 'GLA-200 Style 1.6 TB 16V/Flex Aut.', combustivel: 'Gasolina' })).toBe(true)
+    expect(candidatoEFlex({ modelo: 'Gol 1.0 Mi Total Flex 8V 4p', combustivel: null })).toBe(true)
+    expect(candidatoEFlex({ modelo: 'GLA-200 Vis. Black Ed. 1.6 TB 16V Aut.', combustivel: 'Gasolina' })).toBe(false)
+  })
+})
