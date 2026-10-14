@@ -34,6 +34,7 @@ import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-c
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
+import { montarLinhaDoTempo } from '~/shared/linha-do-tempo'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
 
 const route = useRoute()
@@ -991,6 +992,7 @@ const temIndicadores = computed(() => (
 const numSecao = computed(() => {
   const ordem: string[] = ['veh']
   if (temIndicadores.value) ordem.push('ind')
+  if (linhaDoTempo.value.length > 1) ordem.push('tempo')
   if (!isBasica.value && temIndicadores.value) ordem.push('restr')
   if (ocorrencias.value.length) ordem.push('ocorr')
   if (temSecaoLeilao.value) ordem.push('leilao')
@@ -1402,6 +1404,32 @@ const procKm = computed(() => {
   if (!ext.length) return null
   return procedenciaKm({ uf: ufDoBlocoDetran(data.value?.multas as any, ufDetranTela.value), fontes: ext.map((h) => h.fonte), ultimaData: ext[ext.length - 1].data })
 })
+// Linha do tempo unica (shared/linha-do-tempo.ts): fabricacao, leiloes,
+// roubo/recuperacao, recalls com km, hodometro, licenciamento e multas por ano.
+const linhaDoTempo = computed(() => {
+  const blocoRoubo: any = g('ocorrenciasRouboFurto')
+  const eps = agruparEpisodios(blocoRoubo && typeof blocoRoubo === 'object' ? blocoRoubo.ocorrencias : null)
+  const passagens: any[] = Array.isArray(historicoLeilao.value?.passagens) ? historicoLeilao.value.passagens : []
+  const lic: any = g('ultimoLicenciamento')
+  return montarLinhaDoTempo({
+    anoFabricacao: g('anoFabricacao') as any,
+    anoModelo: g('anoModelo') as any,
+    leiloes: passagens.map((p: any) => ({
+      data: p.data_leilao || null,
+      titulo: fonteExibicaoLeilao(p),
+      detalhe: [p.ref ? `Edital ${p.ref}` : null, p.lote ? `Lote ${p.lote}` : null].filter(Boolean).join(' · '),
+      notificacao: ehNotificacao(p),
+      confirmado: p.nivel === 'confirmado',
+    })),
+    roubo: eps.flatMap((ep) => ep.registros.map((r) => ({ etapa: r.etapa, data: r.data, tipo: ep.tipoInicial }))),
+    recallsAtendidos: campanhasRealizadas.value.filter((c: any) => c.atendimento?.data).map((c: any) => ({ data: c.atendimento.data, titulo: c.titulo, km: c.atendimento.km })),
+    recallsAbertos: recallCampanhas.value.filter((c: any) => c.data_inicio).map((c: any) => ({ data: c.data_inicio, titulo: c.componente || c.campanha })),
+    hodometro: kmLeituras.value.map((h: any) => ({ data: h?.data ?? null, km: Number(h?.km) })),
+    licenciamento: lic && typeof lic === 'object' && lic.anoLicenciamento ? { ano: lic.anoLicenciamento, emissao: lic.dataHoraEmissao || null } : null,
+    multas: (multasDetalhe.value?.multas_itens || []).map((m: any) => ({ data: m.dataInfracao, valorCentavos: Math.round((Number(m.valor) || 0) * 100) })),
+  })
+})
+
 const hodometroExtrato = computed(() => {
   const lista = kmLeituras.value
   return lista.map((h: any, i: number) => {
@@ -2032,6 +2060,24 @@ onUnmounted(() => {
 
           <!-- restricoes: na completa a secao existe sempre. Laudo lista a
                secao e diz "nada consta"; omitir deixaria duvida se foi checado. -->
+          <!-- Linha do tempo unica do veiculo (Relatorio 2.0, item 2). -->
+          <section v-if="numSecao.tempo" class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.tempo }}. Linha do tempo do veículo</h2>
+            <p class="rel__tempo-sub">O que consta sobre este veículo, do mais antigo ao mais recente.</p>
+            <ol class="rel__tempo">
+              <li v-for="(e, idx) in linhaDoTempo" :key="'t' + idx" class="rel__tempo-item" :class="'rel__tempo-item--' + e.tom">
+                <span class="rel__tempo-quando">{{ e.quando }}</span>
+                <span class="rel__tempo-ponto" aria-hidden="true" />
+                <div class="rel__tempo-txt">
+                  <b>{{ e.titulo }}</b>
+                  <small v-if="e.detalhe">{{ e.detalhe }}</small>
+                  <small v-if="e.secao && numSecao[e.secao]" class="rel__tempo-ver">ver seção {{ numSecao[e.secao] }}</small>
+                </div>
+              </li>
+            </ol>
+            <p v-if="fraseHodometro" :class="fraseHodometro.tipo === 'alerta' ? 'rel__multas-kmalerta' : 'rel__multas-kmok'">{{ fraseHodometro.texto }}</p>
+          </section>
+
           <section v-if="numSecao.restr" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.restr }}. Restrições</h2>
             <template v-if="restricoes.length">
@@ -2190,27 +2236,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- Quilometragem: extrato Data | Km | Rodou, de todas as fontes
-                 (DETRAN e atendimentos de recall da montadora). -->
-            <div v-if="hodometroExtrato.length" class="rel__multas">
-              <p class="rel__multas-tit">Quilometragem registrada</p>
-              <p v-if="procKm" class="rel__multas-proc">{{ procKm }}</p>
-              <table class="rel__multas-k3">
-                <tbody>
-                  <tr class="rel__multas-k3head">
-                    <td>Data</td>
-                    <td class="rel__multas-k3km">Km</td>
-                    <td class="rel__multas-k3dl">Rodou</td>
-                  </tr>
-                  <tr v-for="(h, idx) in hodometroExtrato" :key="'k' + idx" :class="{ 'rel__multas-k3caiu': h.caiu }">
-                    <td>{{ h.data }}<small v-if="kmComMontadora" class="rel__multas-k3fonte">{{ h.fonte }}</small></td>
-                    <td class="rel__multas-k3km">{{ h.km }}</td>
-                    <td class="rel__multas-k3dl">{{ h.rodou }}</td>
-                  </tr>
-                </tbody>
-              </table>
-              <p v-if="fraseHodometro" :class="fraseHodometro.tipo === 'alerta' ? 'rel__multas-kmalerta' : 'rel__multas-kmok'">{{ fraseHodometro.texto }}</p>
-            </div>
+            <!-- Quilometragem: virou parte da linha do tempo (secao propria). -->
 
             <!-- Recall pendente: a primeira pergunta de quem ve o cartao
                  vermelho e "recall de que?". -->
@@ -3845,6 +3871,38 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       flex-shrink: 0;
     }
   }
+
+  // ---- linha do tempo do veiculo ----
+  &__tempo-sub { margin: 0 0 10px; font-size: calc(13px * var(--rel-fs, 1)); color: #555; }
+  &__tempo { list-style: none; margin: 0; padding: 0; }
+  &__tempo-item {
+    display: grid;
+    grid-template-columns: 86px 18px 1fr;
+    gap: 8px;
+    align-items: start;
+    position: relative;
+    padding: 0 0 12px;
+    break-inside: avoid;
+  }
+  &__tempo-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: calc(86px + 8px + 8px);
+    top: 14px;
+    bottom: -2px;
+    width: 2px;
+    background: #e3e6ea;
+  }
+  &__tempo-quando { font-size: calc(12.5px * var(--rel-fs, 1)); color: #555; text-align: right; padding-top: 1px; font-variant-numeric: tabular-nums; }
+  &__tempo-ponto { width: 12px; height: 12px; margin: 3px 0 0 3px; border-radius: 50%; background: #9aa4b2; position: relative; z-index: 1; }
+  &__tempo-txt { min-width: 0; font-size: calc(13.5px * var(--rel-fs, 1)); line-height: 1.35; }
+  &__tempo-txt b { display: block; font-weight: 600; color: #1a1a1a; }
+  &__tempo-txt small { display: block; color: #555; font-size: calc(12.5px * var(--rel-fs, 1)); }
+  &__tempo-ver { color: #1f5fbf !important; }
+  &__tempo-item--alerta .rel__tempo-ponto { background: #c62828; }
+  &__tempo-item--alerta b { color: #a01d1d; }
+  &__tempo-item--atencao .rel__tempo-ponto { background: #d98a00; }
+  &__tempo-item--ok .rel__tempo-ponto { background: #1f8a4c; }
 
   // ---- recall pendente (Opcao 1 "Alerta classico") ----
   // Cartao vermelho com icone, titulo, subtitulo da campanha, corpo com o
