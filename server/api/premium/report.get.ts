@@ -1,4 +1,5 @@
 import { sanearRenajud } from '../../utils/renajud-detalhe'
+import { avisarRestricaoSemCopy } from '../../utils/aviso-restricao'
 import { cupomRecompraDoPedido } from '../../utils/cupom-recompra'
 import { filtrarPorPlano, camposRestantes, PLANOS } from '../../../shared/planos'
 import { getValorCusto } from '../../utils/valor-custo'
@@ -166,6 +167,8 @@ export default defineEventHandler(async (event) => {
       // (podeGastar/TETO/MAX_TENTATIVAS dentro de buscar*) valem por cima,
       // checados ANTES do run caro -- placa esgotada/acima do teto nao gasta.
       const respostaSnap = (consulta as any)?.response
+      // Restricao que cairia no texto generico: e-mail pra helena@ (1 por codigo por dia).
+      void avisarRestricaoSemCopy(respostaSnap, { placa: pedido.placa, token_entrega: String(token) })
       if (recall == null && temRecallPendente(respostaSnap) && podeReprocessar(`recall:${pedido.placa}`)) {
         completarRecallDepois(
           supabase,
