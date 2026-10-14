@@ -30,6 +30,25 @@ export const EXPLICA_RESTRICAO: Record<string, string> = {
   PENDENCIA_EMISSAO_CRV: 'O documento de transferência (CRV) ainda não foi emitido. Sem ele a venda não se conclui.',
   RENAINF: 'Constam multas em aberto registradas contra o veículo, dentro e fora do estado. Elas acompanham o carro, não o motorista.',
   RFB: 'Restrição da Receita Federal, comum em veículo com pendência de importação ou de regime fiscal.',
+  // 14/out (levantamento dos codigos ja vistos em relatorios entregues sem copy propria).
+  ALTERACAO_DOC: 'Consta no cadastro uma anotação de alteração de documento: o registro do veículo passou por mudança de dados, como troca de característica, placa, categoria ou correção cadastral. Em geral não impede a transferência, mas vale pedir ao vendedor o documento atual e conferir se os dados (cor, combustível, categoria, placa) batem com o veículo.',
+  CHASSI_REMARCADO: 'Consta no cadastro que o chassi deste veículo foi remarcado, ou seja, gravado de novo com autorização, normalmente após dano, corrosão ou recuperação. É legal, mas pesa na revenda e no seguro. Peça o laudo de remarcação e confira a gravação na vistoria.',
+  INTENCAO_VENDA: 'O dono registrou a intenção de venda (ATPV-e) para um comprador. Se você não é esse comprador, o veículo pode estar comprometido com outra pessoa. Confirme com o vendedor antes de pagar.',
+  TRANSFERENCIA_DE_PROPRIEDADE_ESPECIAL: 'Consta uma transferência de propriedade em regime especial, por exemplo por decisão judicial, herança ou leilão oficial. Peça ao vendedor o documento que originou a transferência.',
+  SINISTRO_MEDIA_MONTA: 'Consta registro de sinistro de média monta: dano relevante, mas recuperável, com o veículo de volta à circulação depois do reparo. A informação fica no histórico, reduz o valor de mercado e pede laudo de vistoria antes de fechar negócio.',
+  'CONV_64/2006': 'O veículo foi comprado com benefício fiscal (convênio de ICMS). A transferência antes do prazo de carência pode exigir recolher o imposto que deixou de ser pago.',
+  VEICULO_NACIONAL_BENEFICIO_TRIB_ZFM: 'O veículo foi comprado com benefício fiscal da Zona Franca de Manaus. A transferência antes do prazo de carência, ou para fora da região, pode exigir recolher o imposto que deixou de ser pago.',
+}
+
+/** Rotulo de quem nao se explica sozinho pelo codigo (o resto a pagina humaniza). */
+export const ROTULO_RESTRICAO: Record<string, string> = {
+  ALTERACAO_DOC: 'Alteração de documento',
+  CHASSI_REMARCADO: 'Chassi remarcado',
+  INTENCAO_VENDA: 'Intenção de venda registrada',
+  TRANSFERENCIA_DE_PROPRIEDADE_ESPECIAL: 'Transferência de propriedade especial',
+  SINISTRO_MEDIA_MONTA: 'Sinistro de média monta',
+  'CONV_64/2006': 'Benefício fiscal (convênio 64/2006)',
+  VEICULO_NACIONAL_BENEFICIO_TRIB_ZFM: 'Benefício fiscal (Zona Franca de Manaus)',
 }
 
 export const EXPLICA_RESTRICAO_GENERICA =
@@ -132,7 +151,17 @@ export function filtrarItensRestricao<T>(itens: T): T {
 // "Outras restrições", nao entram no veredito nem no "so RENAVE". Primeiro
 // caso: PRINCIPAL_CONDUTOR, que caia no texto generico ("condiciona ou impede
 // a transferencia"), errado para esse cadastro. Texto aprovado pelo Cesar.
+// 14/out: alteracoes de caracteristica (GNV, tanque extra, chassi alongado) e
+// placa de seguranca tambem sao informativas: anotacao do cadastro, nao bloqueio.
+const TEXTO_CARACTERISTICA = 'Consta no cadastro uma alteração de característica do veículo. Não restringe a transferência. Confira se ela aparece no documento e peça ao vendedor o certificado de segurança veicular (CSV) da modificação.'
 const ITENS_INFORMATIVOS: [RegExp, { titulo: string; texto: string }][] = [
+  [/^SISTEMA_GNV/, { titulo: 'Sistema de GNV instalado', texto: TEXTO_CARACTERISTICA }],
+  [/^TANQUE_SUPLEMENTAR/, { titulo: 'Tanque suplementar', texto: TEXTO_CARACTERISTICA }],
+  [/^CHASSI_ALONGADO/, { titulo: 'Chassi alongado', texto: TEXTO_CARACTERISTICA }],
+  [/^PLACA_SEGURANCA/, {
+    titulo: 'Placa de segurança',
+    texto: 'Consta no cadastro uma anotação sobre a placa de segurança do veículo. Não restringe a transferência. Confira se a placa instalada é a mesma do documento.',
+  }],
   [/^PRINCIPAL_CONDUTOR/, {
     titulo: 'Principal condutor',
     texto: 'O veículo tem um condutor principal cadastrado no DETRAN. Esse cadastro indica quem recebe automaticamente os pontos das multas do veículo e é comum em carros de empresas e locadoras. Não impede a transferência. Ao comprar, confirme com o vendedor se o cadastro será retirado, para as multas futuras não ficarem associadas a outra pessoa.',
@@ -171,4 +200,20 @@ export function temRestricaoNacional(norm: any): boolean {
     .filter((i: any) => !/RECALL|RENAINF/.test(String(i).toUpperCase()))
   if (itens.length) return true
   return INDICADORES_RESTRICAO.some((k) => norm[k] === true || norm[k] === 'true')
+}
+
+/**
+ * Chaves de restricao que cairiam no texto generico (sem copy propria), com a
+ * mesma classificacao da pagina: tira o que nao e restricao (CNPJ do credor),
+ * informativos, estoque RENAVE e RENAJUD. Usada pelo aviso por e-mail no
+ * servidor (server/utils/aviso-restricao.ts).
+ */
+export function chavesSemCopy(itens: unknown): string[] {
+  const lista = Array.isArray(itens) ? filtrarItensRestricao(itens).filter(Boolean) : []
+  const fora = new Set<string>()
+  for (const r of lista) {
+    if (ehEstoqueRenave(r) || ehRenajud(r) || itemInformativo(r)) continue
+    explicaRestricao(String(r), (c) => fora.add(c))
+  }
+  return [...fora]
 }
