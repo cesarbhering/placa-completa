@@ -17,7 +17,7 @@ import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
 import { cambioDoNome, versaoFipeManual, versaoFipeAutomatica, opcoesDeCambio } from '../../shared/cambio-nome'
 import { cambioPeloChassi } from '../../shared/cambio-chassi'
-import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome } from '../../shared/versao-fipe'
+import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt } from '../../shared/versao-fipe'
 
 export { codigoDaTabela, type TabelaFipe }
 
@@ -178,14 +178,32 @@ export function tabelaFipe(
 
 const soAlnum = (t: string) => t.toUpperCase().replace(/[^A-Z0-9]/g, '')
 
-/** Algum pedaco do nome FIPE casa com o nome do modelo ("24.280" ~ "24-280"). */
+/**
+ * Algum pedaco do nome FIPE casa com o nome do modelo ("24.280" ~ "24-280",
+ * "L 2638" ~ "L-2638"). Nome so com numero ("2638") tambem casa como sufixo de
+ * prefixo curto ("L-2638", "LK-2638", "LS-2638"): ai quem desempata e o nome
+ * composto com a letra (ver nomesDoModelo).
+ */
 function nomeCasa(modelo: string, nome: string): boolean {
   const n = soAlnum(nome)
   if (!n) return false
   return String(modelo || '').split(/\s+/).some((t) => {
     const a = soAlnum(t)
-    return a === n || (a.startsWith(n) && /\d$/.test(n))
+    if (a === n || (a.startsWith(n) && /\d$/.test(n))) return true
+    return /^\d{3,}$/.test(n) && /^[A-Z]{1,3}\d+$/.test(a) && a.endsWith(n)
   })
+}
+
+/**
+ * Nomes do modelo pra casar com a FIPE, do mais especifico ao mais geral.
+ * Caminhao: "M.BENZ/L 2638" -> ["L2638", "2638"]; "M.BENZ/LS 2638" ->
+ * ["LS2638", "2638"] (prefixo de ate 3 letras + numero). Caso CYU7D91: o "L"
+ * sumia e o nome virava "2638", que nao casava com "L-2638".
+ */
+export function nomesDoModelo(tokens: string[]): string[] {
+  const [a, b] = tokens
+  if (a && b && /^[A-Z]{1,3}$/.test(a) && /^\d{3,5}$/.test(b)) return [a + b, b]
+  return a ? [a] : []
 }
 
 /**
@@ -207,7 +225,10 @@ export function candidatoDaTabela(
 
 /** Nome do modelo no registro: "VW/24.280 CRM 6X2" -> "24.280". */
 export function nomeDoModelo(senatran: FipeMelhorCandidatoInput['senatran'], wdapi?: any): string | null {
-  return tokensDoModelo(senatran?.descricaoMarcaModelo || wdapi?.MODELO)[0] || null
+  const t = tokensDoModelo(senatran?.descricaoMarcaModelo || wdapi?.MODELO)
+  // Prefixo de 1 letra + numero ("L 2638", "F 4000"): o nome e o composto.
+  if (t[0]?.length === 1 && /^\d{3,5}$/.test(t[1] || '')) return t[0] + t[1]
+  return t[0] || null
 }
 
 function soDaTabela<T extends { codigo_fipe: string; modelo: string }>(lista: T[], tabela: TabelaFipe, nome: string | null): T[] {
@@ -363,15 +384,17 @@ const SCORE_CONFIAVEL = 85
 
 function candidatoWdapiConfiavel(wdapi: any, tokensModelo: string[], tabela: TabelaFipe): FipeCandidato | null {
   if (!tokensModelo.length) return null
-  const melhor = melhorScoreWdapi(wdapi, tabela, tokensModelo[0])
+  // Caminhao: nome composto ("L2638"); carro/moto: o 1o token, como sempre
+  // (PCX 150 nao pode virar "PCX150").
+  const nome = tabela === 'caminhoes' ? nomesDoModelo(tokensModelo)[0] : tokensModelo[0]
+  const melhor = melhorScoreWdapi(wdapi, tabela, nome)
   if (!melhor) return null
   const dados = wdapi?.fipe?.dados
   const score = Array.isArray(dados)
     ? Math.max(...dados.filter((d: any) => d?.codigo_fipe === melhor.codigo_fipe).map((d: any) => Number(d?.score) || 0))
     : 0
   if (score < SCORE_CONFIAVEL) return null
-  const nome = tokensModelo[0]
-  return new RegExp(`\\b${escapeRegex(nome)}`, 'i').test(melhor.modelo) ? melhor : null
+  return new RegExp(`\\b${escapeRegex(nome)}`, 'i').test(melhor.modelo) || nomeCasa(melhor.modelo, nome) ? melhor : null
 }
 
 // ---------------------------------------------------------------------------
@@ -540,10 +563,11 @@ function tracaoDaDescricao(descricao: unknown): string | null {
  */
 function filtrarCaminhao(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] {
   let restantes = universo
-  const nome = fatos.tokensModelo[0] ? soAlnum(fatos.tokensModelo[0]) : ''
-  if (nome) {
+  // Nome do modelo antes de tudo: o composto ("L2638") primeiro, o numero
+  // ("2638") se o composto nao casar com ninguem.
+  for (const nome of nomesDoModelo(fatos.tokensModelo.map(soAlnum))) {
     const porModelo = restantes.filter((c) => nomeCasa(c.modelo, nome))
-    if (porModelo.length) restantes = porModelo
+    if (porModelo.length) { restantes = porModelo; break }
   }
   if (fatos.tracao) {
     const re = new RegExp(`\\b${fatos.tracao}\\b`, 'i')
@@ -570,10 +594,10 @@ function cabineDaDescricao(descricao: unknown): 'simples' | 'dupla' | null {
 function tokensDoModelo(descricao: unknown): string[] {
   const bruto = String(descricao ?? '').toUpperCase()
   const semMarca = bruto.includes('/') ? bruto.slice(bruto.indexOf('/') + 1) : bruto
-  return semMarca
-    .split(/[^A-Z0-9.]+/)
-    .filter(Boolean)
-    .filter((t) => t.length >= 2 && !VERSAO_GENERICA.has(t))
+  const partes = semMarca.split(/[^A-Z0-9.]+/).filter(Boolean)
+  return partes
+    // Letra solta so fica quando vem antes de numero ("L 2638", "F 4000"): e prefixo do nome.
+    .filter((t, i) => (t.length >= 2 || (/^[A-Z]$/.test(t) && /^\d{3,5}$/.test(partes[i + 1] || ''))) && !VERSAO_GENERICA.has(t))
     .slice(0, 4)
 }
 
@@ -581,7 +605,7 @@ function tokensDoModelo(descricao: unknown): string[] {
 function filtrarPorTokensDoModelo(universo: FipeCandidato[], tokens: string[]): FipeCandidato[] {
   if (!tokens.length) return universo
   const nome = tokens[0]
-  const comNome = universo.filter((c) => new RegExp(`\\b${escapeRegex(nome)}`, 'i').test(c.modelo))
+  const comNome = universo.filter((c) => new RegExp(`\\b${escapeRegex(nome)}`, 'i').test(c.modelo) || nomeCasa(c.modelo, nome))
   if (!comNome.length) return []
   if (tokens.length < 2) return comNome
   // Com o segundo token (normalmente a cilindrada, "150") da pra separar
@@ -812,6 +836,9 @@ async function julgarComHaiku(
     '{"codigo_fipe": "...", "confianca": "alta"|"media"|"baixa", "justificativa": "..."}',
     `Se NENHUM candidato corresponder ao veiculo, responda "codigo_fipe":"${HAIKU_NENHUM}".`,
     'Use "confianca":"baixa" se nao tiver certeza suficiente pra decidir entre os candidatos.',
+    'A sigla de versao no nome do cadastro identifica a versao FIPE escrita por extenso.',
+    `Siglas conhecidas: ${siglasParaPrompt()}. Ex.: "VW/NIVUS HL TSI" e o Nivus Highline.`,
+    'Se a sigla do cadastro corresponde a um unico candidato, escolha esse candidato com confianca alta.',
     'IMPORTANTE: se os candidatos so se diferenciam pelo cambio (Mec./Aut./',
     'Dualogic/CVT) e NENHUM dado oficial acima indica o cambio do veiculo,',
     'isso e ambiguidade real, nao adivinhe - responda "confianca":"baixa".',

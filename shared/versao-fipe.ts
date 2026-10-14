@@ -16,15 +16,19 @@ const VERSOES = new Set([
   'LS', 'LT', 'LTZ', 'PREMIER', 'MIDNIGHT', 'ACTIV', 'JOY', 'MAXX', 'SS', 'RS', 'SPIRIT', 'LIFE',
   // VW
   'TRENDLINE', 'COMFORTLINE', 'HIGHLINE', 'TREND', 'COMFORT', 'HIGHL', 'CROSS', 'ROBUST', 'RB', 'EXTREME',
+  'LAUNCHING', 'GTS', 'GTI', 'SENSE',
   // Fiat
   'ATTRACTIVE', 'ESSENCE', 'ABSOLUTE', 'FREEDOM', 'VOLCANO', 'RANCH', 'ENDURANCE',
   'DRIVE', 'PRECISION', 'ADVENTURE', 'WAY', 'ELX', 'HLX', 'FIRE', 'TREKKING',
+  'IMPETUS', 'AUDACE', 'ATTRACTION', 'ABARTH',
   // Ford
   'SE', 'SEL', 'TITANIUM', 'FREESTYLE', 'XLT', 'STORM',
   // Renault
   'EXPRESSION', 'DYNAMIQUE', 'PRIVILEGE', 'AUTHENTIQUE', 'INTENSE', 'ZEN', 'ICONIC',
   // Hyundai / Kia
-  'GLS', 'PLATINUM', 'ULTIMATE',
+  'GLS', 'PLATINUM', 'ULTIMATE', 'EVOLUTION', 'VISION',
+  // Toyota (mais)
+  'XRE', 'GR',
   // Nissan
   'SV', 'SL', 'EXCLUSIVE', 'ADVANCE',
   // Jeep / Peugeot / Citroen
@@ -38,6 +42,40 @@ const SINONIMOS: Record<string, string[]> = {
   HIGHL: ['HIGHLINE'],
   // VW: "SAVEIRO CS RB MF" = Robust.
   RB: ['ROBUST'],
+}
+
+/**
+ * Siglas de versao que o cadastro usa e o nome FIPE escreve por extenso, por
+ * marca (pedido do Cesar, 14/out). Caso FPL1A52: "VW/NIVUS HL TSI AD" 2021
+ * ficou ambiguo entre Comfortline, Highline e Launching Ed.; HL = Highline.
+ * So vale na marca certa: "LE" ou "CL" soltos em outra marca nao sao isto.
+ */
+export const SIGLAS_POR_MARCA: Record<string, { rotulo: string; siglas: Record<string, string[]> }> = {
+  VW: {
+    rotulo: 'VW',
+    siglas: {
+      HL: ['HIGHLINE'], CL: ['COMFORTLINE'], TL: ['TRENDLINE'],
+      LE: ['LAUNCHING'], LAUNCH: ['LAUNCHING'], LAUNCHING: ['LAUNCHING'],
+      GTS: ['GTS'], GTI: ['GTI'],
+    },
+  },
+}
+// Como a marca aparece no cadastro.
+const MARCA_SIGLAS: Record<string, string> = { VW: 'VW', VOLKSWAGEN: 'VW', VOLKS: 'VW', VOLKSWAGE: 'VW' }
+
+/** Marca do nome do cadastro: "VW/NIVUS ..." -> VW; "I/BMW 320I" -> BMW. */
+export function marcaDoNome(descricao: string | null | undefined): string {
+  const d = String(descricao || '').toUpperCase().replace(/^I\s*\//, '')
+  return norm(d.includes('/') ? d.slice(0, d.indexOf('/')) : (d.split(/\s+/)[0] || ''))
+}
+
+/** Tabela de siglas em texto, pro prompt do juiz FIPE. */
+export function siglasParaPrompt(): string {
+  const ext = (v: string) => v.charAt(0) + v.slice(1).toLowerCase()
+  return Object.values(SIGLAS_POR_MARCA).map(({ rotulo, siglas }) => {
+    const pares = Object.entries(siglas).filter(([s, v]) => !(v.length === 1 && v[0] === s)).map(([s, v]) => `${s} = ${v.map(ext).join('/')}`)
+    return `${rotulo}: ${pares.join(', ')}`
+  }).join('; ')
 }
 
 const norm = (t: string) => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
@@ -60,6 +98,7 @@ export interface VersaoDoNome {
 
 export function versaoDoNome(descricao: string | null | undefined): VersaoDoNome {
   const palavras = palavrasDoNome(String(descricao || ''))
+  const siglas = SIGLAS_POR_MARCA[MARCA_SIGLAS[marcaDoNome(descricao)] || '']?.siglas || {}
   let versoes: string[] = []
   let motor: string | null = null
   // A 1a palavra e o modelo (COROLLA, GOL); versao vem depois.
@@ -68,7 +107,8 @@ export function versaoDoNome(descricao: string | null | undefined): VersaoDoNome
     if (m && !motor) { motor = `${m[1]}.${m[2]}`; continue }
     const n = norm(bruta)
     if (!versoes.length) {
-      if (VERSOES.has(n)) versoes = SINONIMOS[n] || [n]
+      if (siglas[n]) versoes = siglas[n]
+      else if (VERSOES.has(n)) versoes = SINONIMOS[n] || [n]
       else {
         // Colada na motorizacao: "XEI18VVT" -> XEI + 1.8.
         const colada = n.match(/^([A-Z]{2,})(\d)(\d)(?:[A-Z]*)$/)
