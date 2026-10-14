@@ -13,6 +13,8 @@ export interface SinalNaTela {
    * Resposta sem tipo (cache ou versao anterior) vale como 'leilao'.
    */
   tipo: 'leilao' | 'notificacao'
+  /** Consta anuncio de revenda de frota (nao e leilao). So vem quando true. */
+  frota?: boolean
 }
 
 export function sinalDaResposta(resposta: any): SinalNaTela | null {
@@ -21,6 +23,7 @@ export function sinalDaResposta(resposta: any): SinalNaTela | null {
     positivo: resposta.positivo,
     quantidade: Number(resposta.quantidade) || 0,
     tipo: resposta.tipo === 'notificacao' ? 'notificacao' : 'leilao',
+    ...(resposta.frota === true ? { frota: true } : {}),
   }
 }
 

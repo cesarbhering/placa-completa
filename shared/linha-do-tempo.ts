@@ -7,7 +7,7 @@
 // proposito (a fonte devolve ora o 1o, ora o atual; ver ficha cadastral).
 // Copy: "consta", nunca afirma defeito; sem travessao.
 
-export type TipoEvento = 'fabricacao' | 'leilao' | 'notificacao' | 'roubo' | 'recuperacao' | 'devolucao' | 'recall' | 'km' | 'licenciamento' | 'multas'
+export type TipoEvento = 'fabricacao' | 'leilao' | 'notificacao' | 'roubo' | 'recuperacao' | 'devolucao' | 'recall' | 'km' | 'licenciamento' | 'multas' | 'revenda_frota'
 export type TomEvento = 'alerta' | 'atencao' | 'neutro' | 'ok'
 
 export interface EventoTempo {
@@ -20,7 +20,7 @@ export interface EventoTempo {
   detalhe?: string
   tom: TomEvento
   /** Chave da secao do relatorio que detalha (numSecao), quando houver. */
-  secao?: 'ocorr' | 'leilao' | 'restr'
+  secao?: 'ocorr' | 'leilao' | 'restr' | 'frota'
 }
 
 /** 'aaaa-mm-dd...', 'dd/mm/aaaa', 'aaaa' -> ISO aaaa-mm-dd (ou aaaa). null se nao der. */
@@ -60,6 +60,8 @@ export interface EntradaLinhaDoTempo {
   hodometro?: { data: string | null; km: number }[]
   licenciamento?: { ano: number | string | null; emissao?: string | null } | null
   multas?: { data: string | null; valorCentavos?: number | null }[]
+  /** Revenda de frota (nao e leilao): entrada no estoque e saida (provavel venda). */
+  revendasFrota?: { data: string | null; saiuEm?: string | null; km?: number | null; condicao?: string | null; precoVsFipe?: string | null }[]
 }
 
 export function montarLinhaDoTempo(e: EntradaLinhaDoTempo): EventoTempo[] {
@@ -120,6 +122,15 @@ export function montarLinhaDoTempo(e: EntradaLinhaDoTempo): EventoTempo[] {
       tom: caiu ? 'alerta' : 'neutro',
     })
   })
+
+  for (const r of e.revendasFrota || []) {
+    add({
+      data: paraIso(r.data), tipo: 'revenda_frota', secao: 'frota', titulo: 'Anunciado em revenda de frota',
+      detalhe: [r.km ? `${km(r.km)} no anúncio` : null, r.precoVsFipe, r.condicao].filter(Boolean).join(' · ') || undefined,
+      tom: 'neutro',
+    })
+    if (r.saiuEm) add({ data: paraIso(r.saiuEm), tipo: 'revenda_frota', secao: 'frota', titulo: 'Saiu do estoque da revenda (provável venda)', tom: 'neutro' })
+  }
 
   if (e.licenciamento?.ano) {
     add({

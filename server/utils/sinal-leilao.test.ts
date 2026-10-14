@@ -139,3 +139,17 @@ describe('sinal com notificacao para leilao', () => {
     )
   })
 })
+
+describe('revenda de frota no sinal da consulta gratis', () => {
+  it('frota sozinha nao acende leilao; vem como frota', async () => {
+    const { sanearHistorico } = await import('./historico-leilao')
+    const { sinalDoHistorico } = await import('./sinal-leilao')
+    const h = sanearHistorico({
+      resumo: { tem_indicio: false, nivel_max: null, n_confirmado: 0, n_provavel: 0, n_possivel: 0 },
+      passagens: [{ nivel: 'confirmado', fonte: 'frota_lpl', fonte_tipo: 'revenda_frota', data_leilao: '2026-07-22', detalhes: { tipo_evento: 'revenda_frota', status: 'disponivel' } }],
+    })!
+    expect(h.passagens).toHaveLength(0)
+    expect(h.revendas_frota).toHaveLength(1)
+    expect(sinalDoHistorico(h)).toEqual({ positivo: false, quantidade: 0, frota: true })
+  })
+})
