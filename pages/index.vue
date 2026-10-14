@@ -8,6 +8,7 @@ import { sinalRecallDaResposta, fraseRecallNaTela } from '~/shared/sinal-recall-
 import { marcaTemRecallGratis, marcaParaMedicao } from '~/shared/marcas-recall'
 
 import { homepageFaqs } from '~/data/homepage-faqs'
+import { origemDoCta, type OrigemCheckout } from '~/shared/origem-checkout'
 import { origemDaSessao, entradaDaSessao } from '~/shared/origem-trafego'
 import { espelharEventoNoFunil, enfileirarEventoFunil, definirRecallSinal } from '~/composables/useAnalytics'
 import { decidirVariante, fipeSemCentavos, tituloVarianteB, subVarianteB, garantiaVarianteB, type VarianteAbBloco } from '~/shared/ab-bloco'
@@ -76,7 +77,7 @@ onMounted(() => {
   if (!qPlaca) return
   placa.value = qPlaca
   if (isPlanoPago(route.query.plano)) {
-    nextTick(() => openPremiumCheckout(route.query.plano))
+    nextTick(() => openPremiumCheckout(route.query.plano, 'link_direto'))
     return
   }
   // Chegou por /placa/ABC1D23 (link compartilhado, recarga, favorito): a
@@ -221,6 +222,8 @@ const formStarted = ref(false)
 // v2.0 herói web (não-PWA): CTA primário abre o checkout premium inline (overlay).
 // Reusa a mesma placa do input. O fluxo grátis (handleSubmit) vira link secundário.
 const showPremiumCheckout = ref(false)
+// Porta de entrada do checkout aberto (shared/origem-checkout.ts).
+const premiumOrigem = ref<OrigemCheckout>('outro')
 
 // Scroll cue do herói: rola suave pro primeiro bloco de conteúdo (cb-ganhos).
 function rolarParaConteudo() {
@@ -415,7 +418,7 @@ async function buscarRecallSinal() {
 
 // `plano` chega tanto de um clique direto (`@click="abrir('basica')"`) quanto
 // de um handler sem argumento, que passaria o MouseEvent. isPlanoPago filtra.
-function openPremiumCheckout(plano?: unknown) {
+function openPremiumCheckout(plano?: unknown, origem: OrigemCheckout = 'outro') {
   placaError.value = ''
   if (!validatePlaca(placa.value)) {
     // Sem placa nao da pra cobrar. Em vez de erro seco, leva pro campo com a
@@ -432,10 +435,12 @@ function openPremiumCheckout(plano?: unknown) {
   }
   premiumPlano.value = isPlanoPago(plano) ? plano : 'completa'
   premiumPlaca.value = placa.value
+  premiumOrigem.value = origem
   aguardandoPlacaPaga.value = false
   showPremiumCheckout.value = true
   track('premium_checkout_open', {
     origin: 'home_hero',
+    origem_checkout: origem,
     plano: premiumPlano.value,
     ja_consultada: placaJaConsultada.value,
     // Mede se quem viu registro de leilao converte mais: e a hipotese
@@ -459,7 +464,7 @@ async function cliqueCtaCompleta(origem: string) {
     leilao_sinal: sinalLeilao.value ? (sinalLeilao.value.positivo ? 'positivo' : 'negativo') : 'sem_sinal',
     extra: { origem_cta: origem },
   })
-  openPremiumCheckout('completa')
+  openPremiumCheckout('completa', origemDoCta(origem))
 }
 
 // O bloco bloqueado entrou na tela de verdade.
@@ -680,9 +685,9 @@ const camposLivres = computed(() => {
 
 // CTA "Consultar agora" do grid de Preço: leva o foco ao input do herói e
 // abre o checkout premium (openPremiumCheckout valida/foca se a placa faltar).
-function consultFromGrid(plano?: unknown) {
+function consultFromGrid(plano?: unknown, origem: OrigemCheckout = 'outro') {
   placaRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  openPremiumCheckout(plano)
+  openPremiumCheckout(plano, origem)
 }
 
 // CTA "Fazer consulta grátis" (card básico do compare): leva o foco ao input do
@@ -1204,8 +1209,9 @@ async function handleSubmit() {
   if (aguardandoPlacaPaga.value && !fluxoLegado.value) {
     aguardandoPlacaPaga.value = false
     premiumPlaca.value = placa.value
+    premiumOrigem.value = 'hero_apos_cta'
     showPremiumCheckout.value = true
-    track('premium_checkout_open', { origin: 'hero_apos_cta', plano: premiumPlano.value, ja_consultada: false })
+    track('premium_checkout_open', { origin: 'hero_apos_cta', origem_checkout: 'hero_apos_cta', plano: premiumPlano.value, ja_consultada: false })
     return
   }
 
@@ -1333,7 +1339,7 @@ function applyEmailSuggestion() {
           :placa="placa"
           :consultada="success"
           :mostrar-busca="mostrarBuscaHeader"
-          @consult="consultFromGrid"
+          @consult="(p) => consultFromGrid(p, 'hero_home')"
           @update:placa="(v) => { placa = formatPlaca(v); placaError = '' }"
           @submit="handleSubmit"
         />
@@ -1878,7 +1884,7 @@ function applyEmailSuggestion() {
               type="button"
               class="cb-btn cb-btn--block cb-cmp-cta"
               :class="p.id === 'completa' ? 'cb-btn--blue' : 'cb-btn--ghost'"
-              @click="consultFromGrid(p.id)"
+              @click="consultFromGrid(p.id, 'escada_planos')"
             >
               {{ p.nome }} · {{ precoBRL(p.valorCentavos) }}
             </button>
@@ -1974,7 +1980,7 @@ function applyEmailSuggestion() {
             <span class="cb-mut">para não perder</span> R$ 45 mil.
           </p>
           <div class="cb-price-card__cta">
-            <button type="button" class="cb-btn cb-btn--blue cb-btn--lg" @click="consultFromGrid('completa')">
+            <button type="button" class="cb-btn cb-btn--blue cb-btn--lg" @click="consultFromGrid('completa', 'escada_planos')">
               Consultar agora · {{ precoBRL(PLANOS.completa.valorCentavos) }}
             </button>
           </div>
@@ -2016,7 +2022,7 @@ function applyEmailSuggestion() {
       <section class="cb-final">
         <h2>Antes de fechar negócio, olhe a placa.</h2>
         <p>O que o vendedor não conta, o relatório revela. {{ isCapacitor ? 'Na hora, pelo Google Play.' : 'Na hora, no Pix ou no cartão.' }}</p>
-        <button type="button" class="cb-btn cb-btn--on-slab cb-btn--lg" @click="consultFromGrid('completa')">
+        <button type="button" class="cb-btn cb-btn--on-slab cb-btn--lg" @click="consultFromGrid('completa', 'outro')">
           Ver relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
         </button>
         <div class="cb-cta-sub">ou faça a consulta grátis, sem cadastro</div>
@@ -2354,6 +2360,7 @@ function applyEmailSuggestion() {
       :plano="premiumPlano"
       :ja-consultada="placaJaConsultada"
       :ab-bloco="abBloco"
+      :origem-checkout="premiumOrigem"
       :recall-sinal="recallMedido?.sinal ?? null"
       :recall-marca="recallMedido?.marca ?? null"
       @close="showPremiumCheckout = false"
