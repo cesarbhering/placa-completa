@@ -40,6 +40,7 @@ import { custo12Meses, combustivelPraConta, licenciamentoDaUf, KM_ANO_PADRAO } f
 import { PRECO_COMBUSTIVEL_UF, SEMANA_ANP } from '~/shared/dados/combustivel-uf'
 import { aliquotaIPVA } from '~/shared/ipva-uf'
 import { variacaoFipe } from '~/shared/fipe-variacao'
+import { componenteEua, type RecallEuaTela } from '~/shared/recall-eua'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { montarLinhaDoTempo } from '~/shared/linha-do-tempo'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
@@ -1256,6 +1257,7 @@ const recallAutoritativo = computed(() => {
   return a && a.consultado === true ? a : null
 })
 const recallAbertoGM = computed(() => recallAutoritativo.value?.tem_recall_aberto === true)
+const recallEua = computed<RecallEuaTela | null>(() => (data.value as any)?.recallEua ?? null)
 const recallCampanhasGM = computed(() => (recallAutoritativo.value?.campanhas || []).filter((c: any) => c?.titulo || c?.descricao))
 
 // Recall da MONTADORA por chassi (Nissan, Mitsubishi): todo veiculo da marca
@@ -2441,6 +2443,27 @@ onUnmounted(() => {
                 <p v-else class="rel__recall-body">Recall pendente: buscando os detalhes da campanha.</p>
               </template>
             </div>
+
+            <!-- Recall nos EUA (NHTSA): so chassi da America do Norte; informativo, colapsado. -->
+            <details v-if="recallEua" class="rel__recall rel__recall--eua">
+              <summary class="rel__recall-top">
+                <div class="rel__recall-ic">i</div>
+                <div>
+                  <p class="rel__recall-tit">{{ recallEua.rotulo }}</p>
+                  <p class="rel__recall-sub">{{ recallEua.campanhas.length === 1 ? '1 campanha' : `${recallEua.campanhas.length} campanhas` }}<template v-if="recallEua.modelo"> · {{ recallEua.marca }} {{ recallEua.modelo }} {{ recallEua.ano || '' }}</template></p>
+                </div>
+              </summary>
+              <ul class="rel__recall-lista">
+                <li v-for="c in recallEua.campanhas" :key="c.numero" class="rel__recall-item">
+                  <div class="rel__recall-item-top"><span>{{ componenteEua(c.componente) }}</span></div>
+                  <p class="rel__recall-item-meta">Campanha {{ c.numero }}<template v-if="c.data"> · {{ c.data }}</template></p>
+                  <details v-if="c.resumo" class="rel__recall-eua-det">
+                    <summary>ver detalhes</summary>
+                    <p lang="en">{{ c.resumo }}</p>
+                  </details>
+                </li>
+              </ul>
+            </details>
           </section>
 
           <!-- Roubo e furto: um cartao por EPISODIO, nao por registro. Roubo,
@@ -4104,6 +4127,26 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     // Situacao: "confirme", nao "resolvido" (o verde do foot padrao sugeriria feito).
     .rel__recall-foot { color: #7a5200; background: #fff4dc; }
   }
+
+  // ---- recall nos EUA (informativo, colapsado; neutro, nao e alerta) ----
+  &__recall--eua {
+    border-color: #dfe5ee;
+    background: #f6f8fb;
+
+    .rel__recall-ic { background: #5b6b82; }
+    .rel__recall-tit { color: #2b3a50; font-size: calc(14px * var(--rel-fs, 1)); }
+    .rel__recall-sub { color: #55657d; }
+    > summary { list-style: none; cursor: pointer; flex-wrap: wrap; }
+    > summary::-webkit-details-marker { display: none; }
+    > summary > div:nth-child(2) { flex: 1 1 0; min-width: 0; }
+    > summary::after { content: 'ver campanhas'; flex-basis: 100%; padding-left: 44px; font-size: calc(12.5px * var(--rel-fs, 1)); color: #1f5fbf; }
+    &[open] > summary::after { content: 'ocultar'; }
+  }
+  @media (min-width: 700px) { &__recall--eua > summary::after { flex-basis: auto; padding-left: 0; margin-left: auto; white-space: nowrap; } }
+  &__recall-eua-det { margin-top: 4px; font-size: calc(12.5px * var(--rel-fs, 1)); }
+  &__recall-eua-det summary { cursor: pointer; color: #1f5fbf; }
+  &__recall-eua-det p { margin: 4px 0 0; color: #444; }
+  @media print { &__recall--eua > summary::after { content: none; } }
 
   &__recall--ok {
     border-color: #cfe8d6;
