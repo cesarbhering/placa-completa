@@ -374,3 +374,60 @@ export async function enviarRelatorioEmail(entrega: Entrega): Promise<boolean> {
     return false
   }
 }
+
+// ----------------------------------------------------------------------------
+// E-mail de ATUALIZACAO do relatorio (o "remendo"): um bloco que estava
+// indisponivel na entrega chegou depois. Texto aprovado pelo Cesar em 07/out:
+// "Seu relatório foi atualizado." + "Os dados do <fonte> da placa <PLACA>
+// estavam indisponíveis na entrega e já entraram no relatório." + itens de
+// resumo + "Pedimos desculpas pela demora." Mesmo layout do e-mail de entrega
+// (regra de 13/out), de contato@, sem cupom. Fail-open.
+
+export function montarAtualizacaoRelatorio(a: { link: string; placa: string; fonte: string; itens: string[] }): { assunto: string; html: string; texto: string } {
+  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const titulo = 'Seu relatório foi atualizado.'
+  const par1 = `Os dados do ${a.fonte} da placa ${a.placa} estavam indisponíveis na entrega e já entraram no relatório.`
+  const par2 = 'Pedimos desculpas pela demora.'
+  const p = (t: string, mb = 12) => `<p style="margin:0 0 ${mb}px;font-size:16px;line-height:1.5;color:${GRAFITE};text-align:center;">${esc(t)}</p>`
+  const itensHtml = a.itens.length
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:4px auto 14px;">${a.itens.map((i) => `<tr><td style="padding:3px 0;font-family:${FONTE};font-size:15px;line-height:1.5;color:${TINTA};text-align:center;">${esc(i)}</td></tr>`).join('')}</table>`
+    : ''
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${titulo}</title></head>
+<body style="margin:0;padding:0;background:#f7f7f7;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(par1)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f7f7f7;"><tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid ${FIO};border-radius:16px;overflow:hidden;">
+<tr><td align="center" style="padding:28px 24px 20px;border-bottom:1px solid ${FIO};"><img src="https://placacompleta.com.br/logo-horizontal-600.png" width="180" height="72" alt="PlacaCompleta" style="display:block;border:0;width:180px;height:auto;"></td></tr>
+<tr><td align="center" style="padding:32px 32px 8px;font-family:${FONTE};text-align:center;">
+<h1 style="margin:0 0 16px;font-size:24px;line-height:1.2;font-weight:600;color:${TINTA};text-align:center;">${titulo}</h1>${p(par1)}${itensHtml}${p(par2, 0)}</td></tr>
+<tr><td align="center" style="padding:20px 32px 8px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="${AZUL}" style="border-radius:4px;">
+<a href="${a.link}" style="display:inline-block;padding:16px 32px;font-family:${FONTE};font-size:14px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;color:#ffffff;text-decoration:none;border-radius:4px;">Ver meu relatório</a></td></tr></table></td></tr>
+<tr><td style="padding:20px 32px 32px;font-family:${FONTE};">
+<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">O link é o mesmo de antes e não expira.</p>
+<p style="margin:0;font-size:12px;line-height:1.5;color:${GRAFITE};text-align:center;word-break:break-all;">Se o botão não funcionar, copie e cole no navegador:<br><a href="${a.link}" style="color:${AZUL};text-decoration:underline;">${a.link}</a></p></td></tr>
+<tr><td align="center" style="padding:24px 32px;background:${NAVY};font-family:${FONTE};">
+<p style="margin:0 0 6px;font-size:13px;line-height:1.5;color:#ffffff;font-weight:600;">Precisa de ajuda?</p>
+<p style="margin:0;font-size:13px;line-height:1.5;color:rgba(255,255,255,0.75);">É só responder este e-mail ou escrever para <a href="mailto:contato@placacompleta.com.br" style="color:#ffffff;text-decoration:underline;">contato@placacompleta.com.br</a></p></td></tr>
+</table><p style="margin:16px 0 0;font-family:${FONTE};font-size:12px;line-height:1.5;color:${GRAFITE};">PlacaCompleta · consulta veicular por placa</p></td></tr></table></body></html>`
+  const texto = [titulo, '', par1, '', ...a.itens, ...(a.itens.length ? [''] : []), par2, '', a.link, '', 'O link é o mesmo de antes e não expira.', '', 'Precisa de ajuda? Responda este e-mail ou escreva para contato@placacompleta.com.br', '', 'PlacaCompleta · consulta veicular por placa'].join('\n')
+  return { assunto: `Atualizamos o seu relatório da placa ${a.placa}`, html, texto }
+}
+
+export async function enviarAtualizacaoRelatorio(
+  a: { email: string | null | undefined; token: string; placa: string; fonte: string; itens: string[] },
+  deps: { config?: any; enviar?: (msg: any) => Promise<void> } = {},
+): Promise<boolean> {
+  const config = deps.config ?? useRuntimeConfig()
+  if (!a.email || (!deps.enviar && !config.resendApiKey)) return false
+  const link = `${config.premiumBaseUrl || 'https://placacompleta.com.br'}/premium/${a.token}`
+  const { assunto, html, texto } = montarAtualizacaoRelatorio({ link, placa: a.placa, fonte: a.fonte, itens: a.itens })
+  const msg = { from: 'PlacaCompleta <contato@placacompleta.com.br>', reply_to: 'contato@placacompleta.com.br', to: [a.email], subject: comTagAmbiente(assunto, config), html, text: texto }
+  try {
+    if (deps.enviar) await deps.enviar(msg)
+    else await $fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' }, body: msg })
+    return true
+  } catch (e: any) {
+    console.error('[premium-email] atualizacao: envio falhou:', String(e?.data?.message || e?.message || e))
+    return false
+  }
+}
