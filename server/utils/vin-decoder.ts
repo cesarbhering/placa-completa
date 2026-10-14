@@ -1,3 +1,5 @@
+import { comFonteCache } from './fonte-cache'
+import { registrarChamada } from './api-chamadas'
 // Chama o servico interno vin-decoder (services/vin-decoder), rede docker,
 // sem porta publica. FAIL-OPEN de proposito: timeout curto e qualquer erro
 // devolvem null — o relatorio sai sem o bloco "Origem do chassi" em vez de
@@ -21,6 +23,8 @@ export interface ChassiOrigem {
    * mostra montadora e pais, que continuam verdadeiros, e nao inventa cidade.
    */
   plantaDetalhe: { cidade: string | null; uf: string | null; pais: string | null } | null
+  /** Quando o decode foi feito (cache de 30 d; Relatorio 2.0). */
+  consultadoEm?: string | null
 }
 
 /**
@@ -44,17 +48,26 @@ export async function decodificarChassi(
   if (Number.isInteger(ano) && ano > 1900 && ano < 2100) query.ano = String(ano)
 
   const config = useRuntimeConfig()
-  try {
-    const res = await $fetch<any>(`${config.vinDecoderUrl}/decode/${vin}`, {
-      method: 'GET',
-      query,
-      // 3s, nao 500ms: a chamada e interna na rede docker e responde em menos
-      // de 10ms com a maquina calma, mas sob load alto ja levou 4,5s e o
-      // relatorio saiu sem a secao, congelado assim no snapshot. O custo de
-      // esperar e zero (nao ha cobranca por chamada) e o relatorio ja tolera
-      // 15s do servico de leilao.
-      timeout: 3000,
-    })
+  const sb = (() => { try { return useSupabaseServer() } catch { return null } })()
+  const decodificar = async (): Promise<ChassiOrigem | null> => {
+    const t0 = Date.now()
+    let res: any
+    try {
+      res = await $fetch<any>(`${config.vinDecoderUrl}/decode/${vin}`, {
+        method: 'GET',
+        query,
+        // 3s, nao 500ms: a chamada e interna na rede docker e responde em menos
+        // de 10ms com a maquina calma, mas sob load alto ja levou 4,5s e o
+        // relatorio saiu sem a secao, congelado assim no snapshot. O custo de
+        // esperar e zero (nao ha cobranca por chamada) e o relatorio ja tolera
+        // 15s do servico de leilao.
+        timeout: 3000,
+      })
+      registrarChamada(sb, { fonte: 'vin_decoder', caminho: '/decode/' + vin, code: 200, ms: Date.now() - t0 })
+    } catch (e: any) {
+      registrarChamada(sb, { fonte: 'vin_decoder', caminho: '/decode/' + vin, code: e?.statusCode ?? null, ms: Date.now() - t0 })
+      throw e
+    }
     if (!res?.valido) return null
     return {
       checksumOk: typeof res.checksumOk === 'boolean' ? res.checksumOk : null,
@@ -65,6 +78,17 @@ export async function decodificarChassi(
       planta: res.planta ?? null,
       plantaDetalhe: res.plantaDetalhe ?? null,
     }
+  }
+  try {
+    // Relatorio 2.0: cache 30 d (o decode depende do VIN e do modelo/ano do registro, nao muda)
+    if (sb) {
+      const r = await comFonteCache(sb, 'chassi', [vin, query.modelo || '', query.ano || ''].join('|'), async () => {
+        const o = await decodificar()
+        return { status: o ? 'ok' : 'sem_dado', payload: o }
+      })
+      return r.status === 'ok' && r.payload ? { ...r.payload, consultadoEm: r.consultadoEm } : null
+    }
+    return await decodificar()
   } catch (e: any) {
     // Fora do ar, timeout, chassi 422: tudo cai aqui. So um log, sem propagar.
     console.warn('[vin-decoder] decode falhou (fail-open):', e?.message)

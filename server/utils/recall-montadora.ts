@@ -23,6 +23,7 @@
 // nome, CPF, OS, texto longo nem codigo de peca.
 
 import { emVoo } from './tarefas-em-voo'
+import { lerFonteCache, gravarFonteCache } from './fonte-cache'
 
 export type FonteMontadora = 'nissan' | 'mitsubishi' | 'mercedes-benz'
 
@@ -50,6 +51,8 @@ export interface RecallMontadora {
   n_campanhas: number
   campanhas: CampanhaMontadora[]
   atendimentos: AtendimentoMontadora[]
+  /** Quando a montadora foi consultada (cache de 7 d no fonte_cache; Relatorio 2.0). */
+  consultadoEm?: string | null
 }
 
 const TTL_MS = 24 * 60 * 60 * 1000
@@ -182,6 +185,16 @@ export async function consultarRecallMontadora(
   const agora = Date.now()
   const c = cache.get(chave)
   if (c && agora - c.em < TTL_MS) return c.bloco
+  // Relatorio 2.0: cache persistente de 7 d (sobrevive a deploy e vale entre containers)
+  const sb = (() => { try { return useSupabaseServer() } catch { return null } })()
+  if (sb) {
+    const hit = await lerFonteCache<RecallMontadora>(sb, 'recall_montadora', chave)
+    if (hit?.payload) {
+      const b = { ...hit.payload, consultadoEm: hit.consultadoEm }
+      cache.set(chave, { em: agora, bloco: b })
+      return b
+    }
+  }
   const t = opts?.timeoutMs || TIMEOUT_MS
   const tentar = async () => {
     try { return await consultarLeiloesApi(fonte, vin, perfil, t) } catch (e: any) {
@@ -197,6 +210,8 @@ export async function consultarRecallMontadora(
     let bloco = await tentar()
     if (!bloco && relogio() - t0 < RETRY_SE_ANTES_DE_MS) { await esperar(opts?.retryMs ?? RETRY_MS); bloco = await tentar() }
     if (bloco) {
+      bloco = { ...bloco, consultadoEm: new Date().toISOString() }
+      if (sb) await gravarFonteCache(sb, 'recall_montadora', chave, bloco, 'ok')
       cache.set(chave, { em: agora, bloco })
       if (cache.size > 5000) for (const [k, v] of cache) if (agora - v.em >= TTL_MS) cache.delete(k)
     }
