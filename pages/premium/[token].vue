@@ -3,7 +3,7 @@ import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { textoDetranProtegido } from '~/shared/detran-protegido'
 import { faixaLicenciamento } from '~/shared/licenciamento-faixa'
 import { textoHodometro } from '~/shared/hodometro-texto'
-import { resumoQuitar, procedenciaDebitos, procedenciaKm, ufDoBlocoDetran } from '~/shared/detran-quitar'
+import { resumoQuitar, procedenciaDebitos, procedenciaKm, ufDoBlocoDetran, statusResumoDetran } from '~/shared/detran-quitar'
 import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN, esconderMultasQueFalharam } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
@@ -1338,58 +1338,12 @@ function reais(centavos?: number | null): string | null {
   return `R$ ${(centavos / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 // Total "Para regularizar" = multas + licenciamento + IPVA em aberto. null quando nao ha nada a pagar (nao mostra o total).
-// Breakdown do cartao: Multas (Pix), Licenciamento (com vencimento), IPVA.
-const multasBreakdown = computed(() => {
-  const m = multasDetalhe.value
-  if (!m) return []
-  const rows: { rotulo: string; valor: string; emDia: boolean; texto?: string; nota?: string }[] = []
-  if (ufRenainfFora.value)
-    // RENAINF aceso + DETRAN zerado: no lugar do "Nada consta" seco, o texto
-    // aprovado que explica a multa de fora do estado (nao e "em dia").
-    rows.push({ rotulo: 'Multas em aberto', valor: '', emDia: false, texto: textoMultasRenainfForaDoDetran(ufRenainfFora.value) })
-  else if (m.multas_total_centavos != null) {
-    // Valor atualizado pelo DETRAN (com juros), quando a fonte traz; o
-    // original vai como nota.
-    const atualizado = m.multas_atualizado_centavos && m.multas_atualizado_centavos > m.multas_total_centavos ? m.multas_atualizado_centavos : null
-    rows.push({
-      // gov.br so listava multa pagavel por Pix; o Infosimples traz TODAS em aberto.
-      rotulo: String(m.fonte || '').startsWith('detran_') ? 'Multas em aberto' : 'Multas (Pix)',
-      valor: atualizado ? (reais(atualizado) as string) : m.multas_total_centavos > 0 ? (reais(m.multas_total_centavos) as string) : 'Nada consta',
-      emDia: !(m.multas_total_centavos > 0),
-      nota: atualizado ? `valor original ${reais(m.multas_total_centavos)}` : undefined,
-    })
-  }
-  // MG nao traz valor de licenciamento, so o ano: a linha aparece com o ano.
-  if (m.licenciamento_centavos != null || m.ultimo_licenciamento_ano != null || m.licenciamento_atrasado_ano != null) {
-    const venc = m.licenciamento_venc ? ` (vence ${formatarDataBR(m.licenciamento_venc)})` : ''
-    // Debito zerado NAO e "em dia" se o ultimo exercicio licenciado ficou pra
-    // tras (pode ter ido pra divida ativa): senao a linha contradiz o alerta
-    // de licenciamento atrasado logo abaixo.
-    const atrasado = m.licenciamento_atrasado_ano
-    // Exercicio anterior sem atraso comprovado (calendario por placa): mostra o
-    // ultimo licenciamento, neutro, sem selo de atrasado e sem "Em dia".
-    const ultimo = m.ultimo_licenciamento_ano
-    const anterior = !atrasado && ultimo != null && ultimo < new Date().getFullYear()
-    rows.push({
-      rotulo: `Licenciamento${venc}`,
-      valor: m.licenciamento_centavos > 0
-        ? (reais(m.licenciamento_centavos) as string)
-        : atrasado ? `Atrasado (${atrasado})` : anterior ? `Último: ${ultimo}` : 'Em dia',
-      emDia: !(m.licenciamento_centavos > 0) && !atrasado && !anterior,
-    })
-  }
-  if (m.ipva_total_centavos != null)
-    rows.push({
-      rotulo: 'IPVA',
-      valor: m.ipva_total_centavos > 0 ? (reais(m.ipva_total_centavos) as string) : 'Em dia',
-      emDia: !(m.ipva_total_centavos > 0),
-      nota: m.ipva_original_centavos && m.ipva_total_centavos > m.ipva_original_centavos ? `valor original ${reais(m.ipva_original_centavos)}` : undefined,
-    })
-  else if (m.ipva_pago_ano != null)
-    // MG: so o ultimo exercicio de IPVA pago, sem valor. Neutro.
-    rows.push({ rotulo: 'IPVA', valor: `Último pago: ${m.ipva_pago_ano}`, emDia: false })
-  return rows
-})
+// Resumo por item abaixo da caixa: so status (os valores ficam na caixa
+// "Para transferir"). Logica em shared/detran-quitar.ts (statusResumoDetran).
+const multasBreakdown = computed(() => statusResumoDetran(multasDetalhe.value, {
+  // RENAINF aceso + DETRAN zerado: texto aprovado que explica a multa de fora do estado.
+  renainfForaTexto: ufRenainfFora.value ? textoMultasRenainfForaDoDetran(ufRenainfFora.value) : null,
+}))
 // IPVA em aberto discriminado: itens do DETRAN (ipva_itens) + SEFAZ (ipva_sefaz,
 // GO), um por exercicio, mais novo primeiro, com o total.
 const ipvaLista = computed(() => {
@@ -2138,7 +2092,7 @@ onUnmounted(() => {
                     <div v-for="(r, idx) in multasBreakdown" :key="'b' + idx" class="rel__multas-r" :class="{ 'rel__multas-r--texto': r.texto }">
                       <span>{{ r.rotulo }}</span>
                       <p v-if="r.texto" class="rel__multas-rtexto">{{ r.texto }}</p>
-                      <b v-else :class="{ 'rel__multas-ok': r.emDia }">{{ r.valor }}<small v-if="r.nota" class="rel__multas-rnota">{{ r.nota }}</small></b>
+                      <b v-else :class="{ 'rel__multas-ok': r.emDia, 'rel__multas-st-alerta': r.alerta }">{{ r.valor }}</b>
                     </div>
                   </div>
                 </div>
@@ -4075,6 +4029,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     // Multa sem valor definido (autuacao em andamento): texto, nao R$ 0,00.
     b.rel__multas-sem-valor { color: #6b7280; font-weight: 500; white-space: normal; text-align: right; }
   }
+  &__multas-st-alerta { color: #a32020 !important; font-weight: 700; }
   &__multas-proc { margin: -2px 0 8px; font-size: calc(11.5px * var(--rel-fs, 1)); color: #6b7280; }
   &__multas-item-meta { margin: 4px 0 0; font-size: calc(12px * var(--rel-fs, 1)); line-height: 1.4; color: #6b7280; }
 

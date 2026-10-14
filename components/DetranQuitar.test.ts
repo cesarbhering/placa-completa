@@ -57,3 +57,29 @@ describe('procedencia e data dos subblocos', () => {
     expect(procedenciaKm({ uf: 'SP', fontes: ['DETRAN', 'DETRAN', 'Honda (recall)'], ultimaData: '02/05/2026' })).toBe('Quilometragem · DETRAN-SP + Honda (recall) · última leitura 02/05/2026')
   })
 })
+
+describe('resumo por item abaixo da caixa: so status, sem repetir valores', () => {
+  it('com debitos: "Em aberto" / "Atrasado (2020)", nenhum R$', async () => {
+    const { statusResumoDetran } = await import('../shared/detran-quitar')
+    const rows = statusResumoDetran({ fonte: 'detran_sp', multas_total_centavos: 297056, licenciamento_centavos: 0, licenciamento_atrasado_ano: 2020, ipva_total_centavos: 0 }, { anoAtual: 2026 })
+    expect(rows.map((r) => `${r.rotulo}: ${r.valor}`)).toEqual(['Multas: Em aberto', 'Licenciamento: Atrasado (2020)', 'IPVA: Em dia'])
+    expect(JSON.stringify(rows)).not.toContain('R$')
+  })
+  it('licenciamento em aberto com vencimento e sem atraso: "Em aberto, vence dd/mm/aaaa"', async () => {
+    const { statusResumoDetran } = await import('../shared/detran-quitar')
+    const rows = statusResumoDetran({ fonte: 'detran_sc', multas_total_centavos: 30961, licenciamento_centavos: 14937, licenciamento_venc: '2026-10-31', ipva_total_centavos: 66932, ultimo_licenciamento_ano: 2026 }, { anoAtual: 2026 })
+    expect(rows.map((r) => r.valor)).toEqual(['Em aberto', 'Em aberto, vence 31/10/2026', 'Em aberto'])
+    expect(rows.every((r) => r.alerta)).toBe(true)
+  })
+  it('sem debitos: tudo em dia / nada consta (verde)', async () => {
+    const { statusResumoDetran } = await import('../shared/detran-quitar')
+    const rows = statusResumoDetran({ fonte: 'detran_es', multas_total_centavos: 0, licenciamento_centavos: 0, ipva_total_centavos: 0, ultimo_licenciamento_ano: 2026 }, { anoAtual: 2026 })
+    expect(rows.map((r) => r.valor)).toEqual(['Nada consta', 'Em dia', 'Em dia'])
+    expect(rows.every((r) => r.emDia)).toBe(true)
+  })
+  it('RENAINF de fora do estado: mantem o texto aprovado', async () => {
+    const { statusResumoDetran } = await import('../shared/detran-quitar')
+    const rows = statusResumoDetran({ fonte: 'detran_es', multas_total_centavos: 0 }, { renainfForaTexto: 'No DETRAN-ES: nada consta. ...' })
+    expect(rows[0]).toMatchObject({ rotulo: 'Multas em aberto', texto: 'No DETRAN-ES: nada consta. ...' })
+  })
+})
