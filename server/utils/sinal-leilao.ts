@@ -32,6 +32,11 @@ export interface SinalLeilao {
    * notificacao junto); 'notificacao' = so edital de notificacao do DETRAN.
    */
   tipo?: 'leilao' | 'notificacao'
+  /**
+   * Revenda de frota (NAO e leilao): consta anuncio do carro na revenda. So o
+   * booleano atravessa (copy vaga na tela); nada de data, preco ou fonte.
+   */
+  frota?: boolean
 }
 
 /** A base respondeu e nao ha registro. */
@@ -60,6 +65,12 @@ export function sinalDoHistorico(
   // Sem historico, a consulta nao aconteceu: isso e "nao sabemos", nunca
   // "nao tem".
   if (!historico?.resumo) return SINAL_INDISPONIVEL
+  const frota = Array.isArray(historico.revendas_frota) && historico.revendas_frota.length > 0
+  const s = sinalSoLeilao(historico, acendeComNotificacao)
+  return frota ? { ...s, frota: true } : s
+}
+
+function sinalSoLeilao(historico: HistoricoLeilao, acendeComNotificacao: boolean): SinalLeilao {
   const total = (Number(historico.resumo.n_confirmado) || 0) + (Number(historico.resumo.n_provavel) || 0)
   // A API soma notificacao em n_confirmado/n_provavel.
   const notificacoes = Math.min(total, contarPassagens(historico.passagens).notificado)

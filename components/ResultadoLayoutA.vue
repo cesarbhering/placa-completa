@@ -35,6 +35,8 @@ const props = defineProps<{
   fraseRecall?: string
   /** Frase de leilao (vaga, aponta pro completo) ja resolvida pelo pai; '' = nao mostra. */
   fraseLeilao?: string
+  /** Frase de revenda de frota (nao e leilao); '' = nao mostra. */
+  fraseFrota?: string
   /** Rodada 3, variante A2: card de oferta logo abaixo dos dados, antes da ancora. */
   ofertaNoTopo?: boolean
   /** Dentro do app (Google Play): sem Pix/cartao, sem basica, reembolso pelo Play. */
@@ -99,10 +101,14 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
       <!-- TAGS de sinal (vagas, apontam pro completo): leilao VERMELHA e recall
            AMBAR, paralelas e consistentes. So aparecem quando ha sinal. Copy
            indicativa (Cesar): nunca afirma status/contagem no gratis. -->
-      <div v-if="fraseLeilao || fraseRecall" class="la-tags">
+      <div v-if="fraseLeilao || fraseRecall || fraseFrota" class="la-tags">
         <p v-if="fraseLeilao" class="la-tag la-tag--leilao">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
           <span>{{ fraseLeilao }}</span>
+        </p>
+        <p v-if="fraseFrota" class="la-tag la-tag--recall la-tag--frota">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/></svg>
+          <span>{{ fraseFrota }}</span>
         </p>
         <p v-if="fraseRecall" class="la-tag la-tag--recall">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>

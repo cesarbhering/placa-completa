@@ -11,6 +11,7 @@
 import { fonteExibicaoLeilao, paginaPublicaLeilao } from '../../shared/leilao-exibicao'
 import { ehNotificacao, GRAVIDADE_NOTIFICADO } from '../../shared/leilao-notificacao'
 import { historicoLgpd } from '../../shared/leilao-lgpd'
+import { ehRevendaFrota, sanearRevendaFrota, type RevendaFrota } from '../../shared/revenda-frota'
 import {
   sanearOrigem, sanearAlertas, sanearDesfecho, sanearLotePublico, sanearContextoJudicial,
   sanearLinhaDoTempoLeilao, sanearRecorrencia,
@@ -106,6 +107,8 @@ export interface HistoricoLeilao {
   /** Eventos ja agrupados pela API (mesma passagem em fontes diferentes = 1). */
   linha_do_tempo?: EventoLeilaoApi[] | null
   recorrencia?: RecorrenciaLeilao | null
+  /** Revenda de frota (leiloes-api #106): NAO e leilao, fica fora de passagens. */
+  revendas_frota?: RevendaFrota[]
 }
 
 /** Perfil do veiculo que o relatorio ja tem em maos. */
@@ -207,7 +210,11 @@ function sanearGravidade(g: any): GravidadeLeilao | null {
 /** Confia so no formato, nunca no conteudo: resposta torta vira null. */
 export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string }): HistoricoLeilao | null {
   if (!res || typeof res !== 'object' || !res.resumo) return null
-  const brutas = Array.isArray(res.passagens) ? res.passagens : []
+  const todas = Array.isArray(res.passagens) ? res.passagens : []
+  // Revenda de frota sai das passagens ANTES de tudo: nada de leilao (contagem,
+  // nivel, sinal da consulta gratis, linha do tempo de leilao) pode ve-la.
+  const revendas = todas.filter(ehRevendaFrota).map((p: any) => sanearRevendaFrota(p)).filter(Boolean) as RevendaFrota[]
+  const brutas = todas.filter((p: any) => !ehRevendaFrota(p))
   const passagens: PassagemLeilao[] = brutas
     .filter((p: any) => p && NIVEIS.includes(p.nivel))
     .map((p: any) => ({
@@ -278,6 +285,7 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
     indice_atualizado_em: texto(res.indice_atualizado_em),
     aviso: texto(res.aviso),
     linha_do_tempo: sanearLinhaDoTempoLeilao(res.linha_do_tempo),
+    revendas_frota: revendas,
     recorrencia: sanearRecorrencia(res.recorrencia),
   })
 }

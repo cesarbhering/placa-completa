@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { FRASE_SINAL_FROTA } from '~/shared/revenda-frota'
 import { SAME_AS } from '~/shared/redes-sociais'
 import { BASE_LEILAO_QTD, BASE_LEILAO_TEXTO, BASE_LEILAO_TEXTO_INICIO } from '~/shared/base-leilao'
 import { cederAoNavegador } from '~/shared/ceder'
@@ -338,6 +339,8 @@ const esteVeiculoGratis = computed(() => {
 })
 
 const fraseSinalLeilao = computed(() => fraseSinalNaTela(sinalLeilao.value, esteVeiculoGratis.value))
+// Revenda de frota (nao e leilao): copy vaga propria, sem data, preco nem fonte.
+const fraseSinalFrota = computed(() => (sinalLeilao.value?.frota ? FRASE_SINAL_FROTA : ''))
 
 async function buscarSinalLeilao() {
   const b = resultadoBasico.value
@@ -361,7 +364,7 @@ async function buscarSinalLeilao() {
     // shared/sinal-leilao-resposta.ts.
     const lido = sinalDaResposta(r)
     sinalLeilao.value = lido
-    if (lido) track('leilao_sinal_visto', { positivo: lido.positivo, tipo: lido.positivo ? lido.tipo : null })
+    if (lido) track('leilao_sinal_visto', { positivo: lido.positivo, tipo: lido.positivo ? lido.tipo : null, frota: lido.frota })
   } catch {
     // Servico fora do ar ou lento: a consulta gratis segue sem o sinal. Nunca
     // mostrar "nao encontramos" por falha nossa, que seria mentir.
@@ -1516,6 +1519,7 @@ function applyEmailSuggestion() {
           :app="isCapacitor"
           :frase-recall="fraseRecall"
           :frase-leilao="fraseSinalLeilao"
+          :frase-frota="fraseSinalFrota"
           @comprar="(origem) => cliqueCtaCompleta(origem || 'layout_a')"
           @cta-visto="onCtaVistoLayoutA"
           :oferta-no-topo="ofertaNoTopo"
@@ -1564,6 +1568,13 @@ function applyEmailSuggestion() {
               <span>{{ fraseSinalLeilao }}</span>
             </p>
 
+            <!-- Revenda de frota: anuncio do carro numa revenda de frota. Nao e
+                 leilao; mesma cor neutra-ambar do recall (aviso, nao acusacao). -->
+            <p v-if="fraseSinalFrota" class="cb-sinal cb-sinal--recall cb-sinal--frota">
+              <span class="cb-sinal__ponto" aria-hidden="true" />
+              <span>{{ fraseSinalFrota }}</span>
+            </p>
+
             <!-- Flag de RECALL (Toyota/Lexus). So aparece quando CONSTA. Copy
                  VAGA do Cesar: nunca afirma pendente/atrasado. Neutro-ambar (nao
                  vermelho): e aviso pra conferir, nao acusacao. -->
@@ -1575,7 +1586,7 @@ function applyEmailSuggestion() {
             <!-- Botao junto das tags (Cesar 29/set): quem ve o indicio ja pode
                  agir sem rolar. Um so serve leilao e recall. Origem 'tag' pra
                  medir clique da tag vs card vs barra fixa. -->
-            <button v-if="fraseSinalLeilao || fraseRecall" type="button" class="cb-btn cb-btn--blue cb-sinal-cta" @click="cliqueCtaCompleta('tag')">
+            <button v-if="fraseSinalLeilao || fraseRecall || fraseSinalFrota" type="button" class="cb-btn cb-btn--blue cb-sinal-cta" @click="cliqueCtaCompleta('tag')">
               Ver o relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
             </button>
 

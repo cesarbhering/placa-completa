@@ -43,6 +43,7 @@ import { variacaoFipe, fipeNoMes, mesDoRotulo } from '~/shared/fipe-variacao'
 import { componenteEua, type RecallEuaTela } from '~/shared/recall-eua'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { montarLinhaDoTempo } from '~/shared/linha-do-tempo'
+import { textoPrecoVsFipe, textoStatusRevenda, type RevendaFrota } from '~/shared/revenda-frota'
 import { textoAlerta, textoJudicial, textoIntervalo, dataBR as dataBRIso } from '~/shared/leilao-relatorio2'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
 
@@ -338,6 +339,9 @@ const esteVeiculo = computed(() => `${segmento.value === 'moto' ? 'esta' : 'este
 
 const historicoLeilao = computed(() => data.value?.historicoLeilao ?? null)
 const temSecaoLeilao = computed(() => !!historicoLeilao.value)
+// Revenda de frota (leiloes-api #106): card proprio, separado do leilao.
+const revendasFrota = computed<RevendaFrota[]>(() => (Array.isArray(historicoLeilao.value?.revendas_frota) ? historicoLeilao.value.revendas_frota : []))
+const dataBRFrota = (i: string | null) => (i ? `${i.slice(8, 10)}/${i.slice(5, 7)}/${i.slice(0, 4)}` : null)
 // "Dados de dd/mm" quando o bloco veio do cache de outro dia (shared/dados-de.ts).
 const dadosDeBloco = (b: any) => dadosDe(b?.consultadoEm, (data.value as any)?.entregue_em)
 const dadosLeilao = computed(() => dadosDeBloco(historicoLeilao.value))
@@ -1026,6 +1030,7 @@ const numSecao = computed(() => {
   if (!isBasica.value && temIndicadores.value) ordem.push('restr')
   if (ocorrencias.value.length) ordem.push('ocorr')
   if (temSecaoLeilao.value) ordem.push('leilao')
+  if (revendasFrota.value.length) ordem.push('frota')
   // Importacao e chassiOrigem NAO entram na numeracao: viraram subsecoes
   // dentro da ficha (rel__sub), igual Cadastral/Tecnica — nao sao mais card
   // proprio numerado.
@@ -1579,6 +1584,7 @@ const linhaDoTempo = computed(() => {
     recallsAbertos: recallCampanhas.value.filter((c: any) => c.data_inicio).map((c: any) => ({ data: c.data_inicio, titulo: c.componente || c.campanha })),
     hodometro: kmLeituras.value.map((h: any) => ({ data: h?.data ?? null, km: Number(h?.km) })),
     licenciamento: lic && typeof lic === 'object' && lic.anoLicenciamento ? { ano: lic.anoLicenciamento, emissao: lic.dataHoraEmissao || null } : null,
+    revendasFrota: revendasFrota.value.map((r) => ({ data: r.data, saiuEm: r.saiuEm, km: r.km, condicao: r.condicao, precoVsFipe: textoPrecoVsFipe(r) })),
     multas: (multasDetalhe.value?.multas_itens || []).map((m: any) => ({ data: m.dataInfracao, valorCentavos: Math.round((Number(m.valor) || 0) * 100) })),
   })
 })
@@ -2758,6 +2764,27 @@ onUnmounted(() => {
             <p v-if="temIndicioReal || possiveisComFoto.length || passagensNotificadas.length" class="rel__leilao-aviso">
               Fonte: editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer placa ou chassi completos iguais; provável quer dizer identificador parcial mais atributos do veículo. Não substitui consulta oficial.
             </p>
+          </section>
+
+          <!-- Revenda de frota: NAO e leilao. Carro anunciado numa revenda de
+               frota, com km, condicao declarada e preco vs FIPE (so %, nunca R$). -->
+          <section v-if="numSecao.frota" class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.frota }}. Revenda de frota</h2>
+            <p class="rel__frota-sub">Este veículo apareceu à venda numa revenda de carros de frota (empresa ou locadora). Isso não é leilão.</p>
+            <div v-for="(r, i) in revendasFrota" :key="'fr' + i" class="rel__frota">
+              <div class="rel__frota-topo">
+                <span class="rel__frota-fonte">{{ r.fonte }}</span>
+                <span v-if="r.data" class="rel__frota-data">anunciado em {{ dataBRFrota(r.data) }}</span>
+              </div>
+              <ul class="rel__frota-dados">
+                <li v-if="textoStatusRevenda(r)"><span>Situação</span><strong>{{ textoStatusRevenda(r) }}</strong></li>
+                <li v-if="r.km"><span>Km no anúncio</span><strong>{{ r.km.toLocaleString('pt-BR') }} km</strong></li>
+                <li v-if="r.condicao"><span>Condição declarada</span><strong>{{ r.condicao }}</strong></li>
+                <li v-if="textoPrecoVsFipe(r)"><span>Preço x FIPE</span><strong>{{ textoPrecoVsFipe(r) }}</strong></li>
+              </ul>
+              <p v-if="r.videoUrl" class="rel__frota-link"><a :href="r.videoUrl" target="_blank" rel="noopener noreferrer nofollow">Ver o vídeo do anúncio</a></p>
+              <p class="rel__frota-nota">Condição e km são os declarados no anúncio. Compare o km com o painel e confira a pintura na vistoria.</p>
+            </div>
           </section>
 
           <!-- ficha -->
@@ -4217,6 +4244,20 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__leilao-jud a, &__leilao-lote a { color: #1f5fbf; }
   &__leilao-alertas { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
   &__leilao-alertas li { padding: 3px 9px; border-radius: 999px; background: #fff3cd; color: #6b4e00; font-size: calc(12px * var(--rel-fs, 1)); font-weight: 600; }
+
+  // ---- revenda de frota ----
+  &__frota-sub { margin: 0 0 10px; font-size: calc(13px * var(--rel-fs, 1)); color: #555; }
+  &__frota { border: 1px solid #e3e6ea; border-radius: 12px; padding: 12px 14px; margin: 0 0 10px; background: #fafbfc; break-inside: avoid; }
+  &__frota-topo { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+  &__frota-fonte { font-weight: 700; font-size: calc(14px * var(--rel-fs, 1)); color: #1a1a1a; }
+  &__frota-data { font-size: calc(12.5px * var(--rel-fs, 1)); color: #666; }
+  &__frota-dados { list-style: none; margin: 8px 0 0; padding: 0; }
+  &__frota-dados li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid #eceef1; font-size: calc(13.5px * var(--rel-fs, 1)); }
+  &__frota-dados li span { color: #666; }
+  &__frota-dados li strong { font-weight: 600; text-align: right; }
+  &__frota-link { margin: 8px 0 0; font-size: calc(13px * var(--rel-fs, 1)); }
+  &__frota-link a { color: #1f5fbf; }
+  &__frota-nota { margin: 8px 0 0; font-size: calc(12px * var(--rel-fs, 1)); color: #666; }
 
   // ---- recall pendente (Opcao 1 "Alerta classico") ----
   // Cartao vermelho com icone, titulo, subtitulo da campanha, corpo com o
