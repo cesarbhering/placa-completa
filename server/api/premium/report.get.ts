@@ -2,6 +2,8 @@ import { sanearRenajud } from '../../utils/renajud-detalhe'
 import { historicoLgpd } from '../../../shared/leilao-lgpd'
 import { garantirRecallBase } from '../../utils/recall-associado'
 import { avisarRestricaoSemCopy } from '../../utils/aviso-restricao'
+import { fontesAplicaveis } from '../../utils/premium-jobs'
+import { situacaoDasFontes } from '../../../shared/fontes-relatorio'
 import { cupomRecompraDoPedido } from '../../utils/cupom-recompra'
 import { filtrarPorPlano, camposRestantes, PLANOS } from '../../../shared/planos'
 import { getValorCusto } from '../../utils/valor-custo'
@@ -305,6 +307,24 @@ export default defineEventHandler(async (event) => {
 
   // Quando o DETRAN foi consultado (ultima chamada paga deste pedido, ok ou
   // nao): procedencia e data no bloco do relatorio (14/out). Fail-open.
+  // Relatorio 2.0: estado de cada fonte lenta (a tela espera ate 5 min e
+  // mostra o progresso; depois marca o que ainda esta "chegando" pela fila).
+  let fontes: any[] | null = null
+  let aguardarAte: string | null = null
+  if (pedido.status === 'entregue' && consulta) {
+    try {
+      const aplicaveis = fontesAplicaveis((consulta as any)?.response)
+      if (aplicaveis.length) {
+        const { data: jobs } = await supabase.from('premium_jobs').select('fonte,status').eq('pedido_id', pedido.id)
+        const sit = situacaoDasFontes({
+          entregueEm: pedido.entregue_em, aplicaveis, jobs: Array.isArray(jobs) ? jobs : [],
+          snapshot: { multas, recall, recallMontadora, renajudDetalhe },
+        })
+        fontes = sit.fontes
+        aguardarAte = sit.aguardarAte ? new Date(sit.aguardarAte).toISOString() : null
+      }
+    } catch { /* sem fontes: a tela usa a espera antiga */ }
+  }
   let detranConsultadoEm: string | null = null
   if (pedido.status === 'entregue') {
     try {
@@ -352,6 +372,8 @@ export default defineEventHandler(async (event) => {
     recallSinal: pedido.recall_sinal ?? null,
     multas,
     detranConsultadoEm,
+    fontes,
+    aguardarAte,
     renajudDetalhe,
     segmento: segmento === 'outro' ? detectarSegmento({
       wdapi: pedido.preview,
