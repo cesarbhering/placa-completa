@@ -476,6 +476,37 @@ describe('simulação 5: fora de escopo', () => {
   })
 })
 
+describe('silêncio do número e conversa descartada', () => {
+  it('encerrada com silêncio até 2099: não abre conversa, não grava, não responde', async () => {
+    const s = montar([V({ resposta: 'nao deveria' })])
+    await s.msg('Oi')
+    const c = s.mem.conversas[0]
+    Object.assign(c, { status: 'encerrada', silenciado_ate: '2099-01-01T00:00:00Z' })
+    const nEnv = s.enviados.length, nMsg = c.mensagens.length
+    await s.msg('mensagem particular nova')
+    expect(s.mem.conversas).toHaveLength(1)
+    expect(s.enviados).toHaveLength(nEnv)
+    expect(s.mem.conversas[0].mensagens).toHaveLength(nMsg)
+  })
+  it('descartada: mesmo sem silêncio, nada acontece', async () => {
+    const s = montar([V({ resposta: 'oi' }), V({ resposta: 'nao deveria' })])
+    await s.msg('Oi')
+    Object.assign(s.mem.conversas[0], { status: 'encerrada', contadores: { ...s.mem.conversas[0].contadores, descartada: true } })
+    const nEnv = s.enviados.length
+    await s.msg('de novo')
+    expect(s.mem.conversas).toHaveLength(1)
+    expect(s.enviados).toHaveLength(nEnv)
+  })
+  it('silêncio já vencido numa encerrada: abre conversa nova normalmente', async () => {
+    const s = montar([V({ resposta: 'oi' }), V({ resposta: 'de novo por aqui' })])
+    await s.msg('Oi')
+    Object.assign(s.mem.conversas[0], { status: 'encerrada', silenciado_ate: '2026-10-01T00:00:00Z' })
+    await s.msg('voltei')
+    expect(s.mem.conversas).toHaveLength(2)
+    expect(s.enviados.at(-1)).toBe('De novo por aqui')
+  })
+})
+
 describe('simulação 6: abuso', () => {
   it('mais de 10 mensagens em 1 minuto: encerra, bloqueia na Evolution e avisa o Cesar', async () => {
     const s = montar(Array.from({ length: 20 }, () => V({ resposta: 'oi' })))
