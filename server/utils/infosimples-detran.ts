@@ -3,6 +3,7 @@ import { normalizarResposta } from '../../shared/planos'
 import { encrypt } from 'aes-bridge'
 import { renavamDaResposta, ufDaResposta } from './detran-multas'
 import { emVoo } from './tarefas-em-voo'
+import { chaveDePlaca, gravarFonteCache, lerFonteCache } from './fonte-cache'
 
 // DETRAN estadual via Infosimples (comeca por SP: /detran/sp/debitos). Substitui
 // o runner gov.br quebrado no relatorio PAGO. Traz multas, hodometro (vistorias),
@@ -2082,6 +2083,17 @@ export async function completarDetran(
   }
 
   const placa = placaParaDetran(pedido.placa, ctx.response)
+  // Cache de 24 h por placa (Relatorio 2.0): a mesma placa consultada de novo
+  // no dia reusa o bloco ja montado, sem nova chamada paga. So entra no cache
+  // bloco completo (status ok, com o detalhe das multas); indisponivel,
+  // protegido e a reserva sem detalhe nunca. refazer (backfill) ignora o cache.
+  const fonteCacheMultas = `multas_${uf.toLowerCase()}`
+  const chaveCache = chaveDePlaca(placa)
+  const hit = ctx.refazer ? null : await lerFonteCache<any>(supabase, fonteCacheMultas, chaveCache)
+  if (hit?.status === 'ok' && hit.payload?.status === 'ok') {
+    console.log(`[detran] cache uf=${uf} consultado_em=${hit.consultadoEm} pedido=${String(pedido.id).slice(0, 8)}`)
+    return await gravarBlocoDetran(supabase, pedido, uf, cfgUf, snap, { ...hit.payload, consultadoEm: hit.consultadoEm }, { code: 200, preco: 0, placa, renavam: renavam!, cacheHit: true })
+  }
   const params = { uf, placa, renavam: renavam!, chassi: (cfgUf as any).exigeChassi ? chassi : null }
   const t0 = Date.now()
   let res = await consultarDetranInfosimples(params)
@@ -2104,6 +2116,7 @@ export async function completarDetran(
   }
 
   let multas: any = null
+  let cacheavel = false
   if (res.code !== 200 || !res.data) {
     logIndisponivel(pedido.id, uf, res.code, detalheDaRecusa(res) || 'sem data', Date.now() - t0)
     // Reserva (AL): o /infracoes falhou (609 frequente), mas o /veiculo traz o
@@ -2120,6 +2133,7 @@ export async function completarDetran(
     console.warn(`[detran] reserva pelo complemento uf=${uf} code=${res.code} pedido=${String(pedido.id).slice(0, 8)}`)
   } else {
     multas = blocoDetranDaUf(uf, res.data)
+    cacheavel = !!multas
     if (multas && (cfgUf as any).complemento) {
       multas = juntarComplemento(multas, await buscarComplemento(supabase, pedido.id, uf, { placa: placaParaDetran(pedido.placa, ctx.response), renavam: renavam! }))
     }
@@ -2131,6 +2145,21 @@ export async function completarDetran(
     await marcarIndisponivel(supabase, pedido.id, uf)
     return { ok: false, code: res.code, preco: res.preco, motivo: 'formato desconhecido' }
   }
+  multas = { ...multas, consultadoEm: new Date().toISOString() }
+  // Complemento que falhou (complemento_ok falso) deixa o bloco incompleto: nao cacheia.
+  if (cacheavel && multas.status === 'ok' && !multas.multas_sem_detalhe && (!(cfgUf as any).complemento || multas.complemento_ok)) {
+    const { consultadoEm: _c, ...payload } = multas
+    await gravarFonteCache(supabase, fonteCacheMultas, chaveCache, payload, 'ok')
+  }
+  return await gravarBlocoDetran(supabase, pedido, uf, cfgUf, snap, multas, { code: res.code, preco: res.preco, placa, renavam: renavam! })
+}
+
+/** Grava o bloco do DETRAN no snapshot (consulta nova ou cache) e solta o IPVA na SEFAZ quando falta. */
+async function gravarBlocoDetran(supabase: any, pedido: any, uf: UfDetran, cfgUf: any, snap: any, multas: any,
+  o: { code: number; preco: number; placa: string; renavam: string; cacheHit?: boolean }) {
+  const res = { code: o.code, preco: o.preco }
+  const { placa } = o
+  const renavam = o.renavam
   const temAlgo = multas.multas_itens.length > 0 || multas.hodometro.length > 0 || multas.restricoes_detran.length > 0
     || !!multas.alerta_roubo_furto
     || (multas.ipva_total_centavos ?? 0) > 0 || (multas.licenciamento_centavos ?? 0) > 0 || multas.licenciamento_atrasado_ano != null
@@ -2156,7 +2185,7 @@ export async function completarDetran(
   if (multas.ipva_pendente_sefaz && (cfgUf as any).ipvaSefaz) {
     void emVoo('sefaz-ipva', () => completarIpvaSefaz(supabase, pedido.id, uf, { placa, renavam: renavam! }))
   }
-  return { ok: true, code: res.code, preco: res.preco, multasCentavos: multas.multas_total_centavos, temAlgo }
+  return { ok: true, code: res.code, preco: res.preco, multasCentavos: multas.multas_total_centavos, temAlgo, ...(o.cacheHit ? { cacheHit: true } : {}) }
 }
 
 const esperarMs = (ms: number) => new Promise((r) => setTimeout(r, ms))
