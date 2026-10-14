@@ -17,7 +17,7 @@ import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
 import { cambioDoNome, versaoFipeManual, versaoFipeAutomatica, opcoesDeCambio } from '../../shared/cambio-nome'
 import { cambioPeloChassi } from '../../shared/cambio-chassi'
-import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES } from '../../shared/versao-fipe'
+import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES, fatosPicapeGM, LEGENDA_PICAPE_GM } from '../../shared/versao-fipe'
 
 export { codigoDaTabela, type TabelaFipe }
 
@@ -656,13 +656,14 @@ function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any
   return {
     litragem, carroceria, versao, transmissao,
     // Sem codigo de combustivel, o sufixo Mercedes diz: CDI = diesel, FF = flex.
-    combustivel: combustivelDoCodigo(senatran?.codigoCombustivel) ?? (fatosMercedes(senatran?.descricaoMarcaModelo)?.diesel ? 'diesel' : null),
+    combustivel: combustivelDoCodigo(senatran?.codigoCombustivel)
+      ?? (fatosMercedes(senatran?.descricaoMarcaModelo)?.diesel || fatosPicapeGM(senatran?.descricaoMarcaModelo)?.diesel ? 'diesel' : null),
     base: baseDoCodigo(senatran?.codigoCombustivel) ?? (fatosMercedes(senatran?.descricaoMarcaModelo)?.flex ? 'flex' : null),
     moto: tabela === 'motos',
     tokensModelo: tokensDoModelo(senatran?.descricaoMarcaModelo || wdapi?.MODELO),
-    cabine: cabineDaDescricao(senatran?.descricaoMarcaModelo),
+    cabine: cabineDaDescricao(senatran?.descricaoMarcaModelo) ?? fatosPicapeGM(senatran?.descricaoMarcaModelo)?.cabine ?? null,
     caminhao: tabela === 'caminhoes',
-    tracao: tracaoDaDescricao(senatran?.descricaoMarcaModelo),
+    tracao: tracaoDaDescricao(senatran?.descricaoMarcaModelo) ?? fatosPicapeGM(senatran?.descricaoMarcaModelo)?.tracao ?? null,
     descricao: String(senatran?.descricaoMarcaModelo || ''),
   }
 }
@@ -867,6 +868,7 @@ async function julgarComHaiku(
     'Use "confianca":"baixa" se nao tiver certeza suficiente pra decidir entre os candidatos.',
     'A sigla de versao no nome do cadastro identifica a versao FIPE escrita por extenso.',
     LEGENDA_MERCEDES,
+    LEGENDA_PICAPE_GM,
     `Siglas conhecidas: ${siglasParaPrompt()}. Ex.: "VW/NIVUS HL TSI" e o Nivus Highline.`,
     'Se a sigla do cadastro corresponde a um unico candidato, escolha esse candidato com confianca alta.',
     'IMPORTANTE: se os candidatos so se diferenciam pelo cambio (Mec./Aut./',
