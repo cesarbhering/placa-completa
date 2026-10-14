@@ -1,0 +1,6 @@
+[Unit]
+Description=Coolify: cancela deploys intermediarios do site na fila (mantem so o mais novo; nunca mexe em in_progress)
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-coolify-dedup
+TimeoutStartSec=60
