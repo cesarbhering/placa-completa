@@ -34,6 +34,7 @@ import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRen
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
+import { montarChecklist } from '~/shared/checklist-compra'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { montarLinhaDoTempo } from '~/shared/linha-do-tempo'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
@@ -1006,9 +1007,29 @@ const numSecao = computed(() => {
   // proprio numerado.
   ordem.push('ficha')
   if (temValor.value) ordem.push('valor')
+  ordem.push('check')
   const m: Record<string, number> = {}
   ordem.forEach((k, i) => { m[k] = i + 1 })
   return m
+})
+
+// Checklist de vistoria e transferencia (Relatorio 2.0, item 5): itens gerais
+// + os que este relatorio acendeu (shared/checklist-compra.ts).
+const checklist = computed(() => {
+  const ind = (k: string) => !!indicadores.value.find((i: any) => i.k === k)?.ligado
+  const leilaoForte = passagensFortes.value.length > 0 || g('indicadorLeilao') === true
+  const leilaoPossivel = passagensLeilao.value.some((p: any) => p.nivel === 'possivel' && !p.notificacao)
+  return montarChecklist({
+    leilao: leilaoForte ? 'confirmado' : leilaoPossivel ? 'possivel' : null,
+    roubo: ocorrencias.value.length > 0 || g('indicadorRouboFurto') === true || !!rouboDetran.value,
+    recallPendente: recallPendente.value,
+    kmCaiu: hodometroSuspeito.value,
+    gravame: ind('gravame'),
+    restricaoJudicial: restricoes.value.some((r) => r.renajud || /judic/i.test(r.rotulo)),
+    debitosCentavos: resumoDetran.value?.totalCentavos ?? null,
+    licenciamentoAtrasado: (licenciamento.value as any)?.tom === 'alerta',
+    baixado: ind('circulacao'),
+  })
 })
 
 // ---------- valor e custo ----------
@@ -2727,6 +2748,26 @@ onUnmounted(() => {
             </div>
           </section>
 
+          <!-- Checklist de vistoria e transferencia (Relatorio 2.0, item 5). -->
+          <section class="rel__card rel__check">
+            <h2 class="rel__h2">{{ numSecao.check }}. O que conferir antes de fechar negócio</h2>
+            <p class="rel__check-sub">Leve esta lista na hora de ver o carro. Os itens marcados vêm do que consta neste relatório.</p>
+            <div class="rel__check-cols">
+              <div v-for="bloco in [{ t: 'Na vistoria do carro', itens: checklist.vistoria }, { t: 'Na transferência', itens: checklist.transferencia }]" :key="bloco.t" class="rel__check-col">
+                <h3 class="rel__check-h3">{{ bloco.t }}</h3>
+                <ul class="rel__check-lista">
+                  <li v-for="(it, i) in bloco.itens" :key="i" :class="{ 'rel__check-item--rel': it.doRelatorio }">
+                    <span class="rel__check-box" aria-hidden="true" />
+                    <span>
+                      <small v-if="it.doRelatorio" class="rel__check-tag">Deste relatório</small>
+                      {{ it.texto }}
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
           <!-- upsell da basica -->
           <section v-if="isBasica" class="rel__card rel__card--up">
             <h2 class="rel__h2">Faltam os dados de risco</h2>
@@ -3938,6 +3979,25 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__tempo-item--alerta b { color: #a01d1d; }
   &__tempo-item--atencao .rel__tempo-ponto { background: #d98a00; }
   &__tempo-item--ok .rel__tempo-ponto { background: #1f8a4c; }
+
+  // ---- checklist de vistoria e transferencia ----
+  &__check-sub { margin: 0 0 12px; font-size: calc(13px * var(--rel-fs, 1)); color: #555; }
+  &__check-cols { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 900px) { &__check-cols { grid-template-columns: 1fr 1fr; gap: 24px; } }
+  &__check-h3 { margin: 0 0 8px; font-size: calc(14px * var(--rel-fs, 1)); font-weight: 700; color: #1a1a1a; }
+  &__check-lista { list-style: none; margin: 0; padding: 0; }
+  &__check-lista li {
+    display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start;
+    padding: 7px 0; border-bottom: 1px solid #eef0f3;
+    font-size: calc(13.5px * var(--rel-fs, 1)); line-height: 1.4; color: #222;
+    break-inside: avoid;
+  }
+  &__check-lista li:last-child { border-bottom: 0; }
+  &__check-box { width: 16px; height: 16px; margin-top: 2px; border: 1.5px solid #8a94a3; border-radius: 3px; background: #fff; }
+  &__check-item--rel { background: #fff8e6; margin: 0 -8px; padding-left: 8px !important; padding-right: 8px !important; border-radius: 6px; }
+  &__check-item--rel .rel__check-box { border-color: #d98a00; }
+  &__check-tag { display: block; font-size: calc(11px * var(--rel-fs, 1)); font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #a86a00; margin-bottom: 1px; }
+  @media print { &__check-cols { grid-template-columns: 1fr 1fr; gap: 18px; } }
 
   // ---- recall pendente (Opcao 1 "Alerta classico") ----
   // Cartao vermelho com icone, titulo, subtitulo da campanha, corpo com o
