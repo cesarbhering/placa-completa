@@ -10,6 +10,7 @@
 
 import { fonteExibicaoLeilao, paginaPublicaLeilao } from '../../shared/leilao-exibicao'
 import { ehNotificacao, GRAVIDADE_NOTIFICADO } from '../../shared/leilao-notificacao'
+import { historicoLgpd } from '../../shared/leilao-lgpd'
 
 export type NivelLeilao = 'confirmado' | 'provavel' | 'possivel'
 
@@ -235,7 +236,9 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
       conflitos: Array.isArray(p.conflitos) ? p.conflitos.map(String) : [],
     }))
 
-  return {
+  // LGPD (14/out): sem numero de processo e sem comitente pessoa fisica, nem
+  // no snapshot (shared/leilao-lgpd.ts).
+  return historicoLgpd({
     resumo: {
       tem_indicio: !!res.resumo.tem_indicio,
       nivel_max: NIVEIS.includes(res.resumo.nivel_max) ? res.resumo.nivel_max : null,
@@ -250,7 +253,7 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
     passagens,
     indice_atualizado_em: texto(res.indice_atualizado_em),
     aviso: texto(res.aviso),
-  }
+  })
 }
 
 export async function consultarHistoricoLeilao(
