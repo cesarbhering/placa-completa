@@ -120,6 +120,8 @@ export default defineEventHandler(async (event) => {
 
   // Por token = decisao nossa: ignora o gate de RENAINF. Por limite (lote) respeita.
   const ignorarGate = tokens.length > 0
+  // refazer: so por token. Reconsulta (e cobra) mesmo quem ja tem o bloco da UF.
+  const refazer = tokens.length > 0 && body?.refazer === true
 
   // Em serie de proposito: em paralelo isto so furaria o teto de gasto mais
   // rapido. `limite` conta CHAMADAS pagas, nao so sucessos.
@@ -131,7 +133,7 @@ export default defineEventHandler(async (event) => {
       if (limite && chamadas >= limite) break
       const snap: any = p.relatorio_snapshot
       const t0 = Date.now()
-      const r = await completarDetran(supabase, { id: p.id, placa: p.placa }, { response: snap?.consulta?.response, ignorarGate })
+      const r = await completarDetran(supabase, { id: p.id, placa: p.placa }, { response: snap?.consulta?.response, ignorarGate, refazer })
         .catch((e: any) => ({ ok: false as const, motivo: e?.message || 'erro' }))
       const segundos = Math.round((Date.now() - t0) / 1000)
       const linha: any = (!r.ok && 'pulado' in r && r.pulado)
