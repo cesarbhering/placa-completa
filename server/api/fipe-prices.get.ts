@@ -1,8 +1,14 @@
+import { fipePriceHistory } from '../utils/fipe-api'
+
 export default defineEventHandler(async (event) => {
   const { fipeCode } = getQuery(event)
 
   if (!fipeCode) {
     throw createError({ statusCode: 400, message: 'fipeCode is required' })
+  }
+  // formato FIPE (001234-5): evita chave arbitraria no cache e chamada inutil a fipe-api
+  if (!/^\d{6}-\d$/.test(String(fipeCode))) {
+    throw createError({ statusCode: 400, message: 'fipeCode invalido' })
   }
 
   const { fipeApiToken, fipeApiUrl } = useRuntimeConfig()
@@ -13,7 +19,8 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const response = await $fetch<{
+    // cache 7 d por codigo FIPE + log em api_chamadas + timeout 8 s (server/utils/fipe-api.ts)
+    const response = (await fipePriceHistory(String(fipeCode))).bruto as {
       success: boolean
       data: {
         model: { id: number; name: string; brand: string; fipe_code: string }
@@ -23,11 +30,7 @@ export default defineEventHandler(async (event) => {
           prices: Array<{ month: number; year: number; price: number; reference_code: number }>
         }>
       }
-    }>(`${fipeApiUrl}/models/fipe/${fipeCode}/price-history`, {
-      headers: {
-        Authorization: `Bearer ${fipeApiToken}`,
-      },
-    })
+    }
 
     if (!response.success || !response.data) {
       return { success: false, data: null }

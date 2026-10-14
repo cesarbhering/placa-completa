@@ -1,4 +1,5 @@
 import { getRegiaoSusep } from './regiao-susep'
+import { fipePriceHistory } from './fipe-api'
 import { filtrarPeloNomeDoVeiculo } from '../../shared/versao-fipe'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { getSeguroEstimado } from './seguro-estimate'
@@ -40,6 +41,8 @@ export type ValorCusto = {
   fipeNaoLocalizado?: boolean
   /** Versao indicada pelo cliente na tela (camada 3, server/utils/fipe-escolha.ts). */
   fipeEscolhaCliente?: { codigo_fipe: string; modelo: string; cambio: 'manual' | 'automatico' | null; em: string; trocas: number } | null
+  /** Quando a serie FIPE foi consultada na fipe-api (cache de 7 dias; Relatorio 2.0 "consultado em"). */
+  fipeConsultadoEm?: string | null
 }
 
 // Fatos do SENATRAN usados pelo funil do melhor-candidato. So disponiveis no
@@ -232,12 +235,13 @@ export async function getValorCusto(
   // historico + id do modelo (o id so existe nessa chamada, e o seguro precisa dele)
   let historico: ValorCusto['historico'] = null
   let fipeModelId: number | null = null
+  let fipeConsultadoEm: string | null = null
   if (melhor?.codigo_modelo) {
     try {
-      const bruto = await $fetch<any>(
-        `${config.fipeApiUrl}/models/fipe/${melhor.codigo_modelo}/price-history`,
-        { headers: { Authorization: `Bearer ${config.fipeApiToken}` } },
-      )
+      // cache 7 d por codigo FIPE + log (fipe-api.ts); timeout 8 s (antes: sem timeout)
+      const ph = await fipePriceHistory(String(melhor.codigo_modelo))
+      fipeConsultadoEm = ph.consultadoEm
+      const bruto = ph.bruto
       const norm = bruto?.data || bruto
       fipeModelId = norm?.model?.id ?? null
       historico = pontos(norm, anoModelo)
@@ -299,5 +303,6 @@ export async function getValorCusto(
     percentualFipe,
     custo5anos,
     fipeCandidato,
+    fipeConsultadoEm,
   }
 }
