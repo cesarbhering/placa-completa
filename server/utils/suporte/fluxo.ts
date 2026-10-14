@@ -22,6 +22,8 @@ export interface Contadores {
   xingamentos?: number; terceiro?: number; links?: number; cupom?: number; robo?: number
   /** Ultima categoria do agente (so pro painel: motivo resumido sem PII). */
   categoria?: string
+  /** Conversa que nao e atendimento (ex.: mensagem particular): fora de toda contagem e o bot nunca fala. */
+  descartada?: boolean
 }
 export interface Conversa {
   id: string
@@ -119,6 +121,12 @@ function historicoParaEmail(c: Conversa): string {
   return c.mensagens.slice(-LIMITES.historico).map((m) => `${rot[m.de]}: ${m.texto}`).join('\n')
 }
 
+/** Numero que o bot nao pode atender: conversa descartada ou silencio ainda valendo numa conversa encerrada. */
+export function numeroCalado(c: Conversa, agoraMs: number): boolean {
+  if (c.contadores?.descartada) return true
+  return c.status === 'encerrada' && !!c.silenciado_ate && new Date(c.silenciado_ate).getTime() > agoraMs
+}
+
 /** Garante a conversa do numero (cria na primeira mensagem). */
 export async function conversaDoNumero(jid: string, d: Deps, texto?: string | null): Promise<Conversa> {
   const h = hashNumero(jid, d.segredo)
@@ -132,6 +140,9 @@ export async function conversaDoNumero(jid: string, d: Deps, texto?: string | nu
     await d.repo.salvarConversa(atual)
   }
   if (atual && atual.status !== 'encerrada') return atual
+  // Silencio do NUMERO (ex.: 2099 numa conversa particular) ou conversa
+  // descartada: vale mesmo encerrada. Nada de conversa nova, nada de resposta.
+  if (atual && numeroCalado(atual, agora)) return atual
   // Encerrada por inatividade com a nota pedida: a resposta "4" ainda vale para ela.
   if (atual && atual.status === 'encerrada' && atual.nota_pedida_em && atual.nota == null && texto != null && parseNota(texto) != null
     && agora - new Date(atual.nota_pedida_em).getTime() <= LIMITES.janelaNotaMs) return atual
@@ -240,6 +251,8 @@ export async function receberMensagem(e: Entrada, d: Deps): Promise<{ conversa: 
   const c = await conversaDoNumero(e.jid, d, e.texto)
   const agora = agoraDe(d)
   if (c.status === 'bloqueada') return { conversa: c, docHash: null, responder: false }
+  // Calado: nem grava a mensagem (pode ser conversa particular).
+  if (numeroCalado(c, agora.getTime())) { log(d, c, 'numero calado: ignorada'); return { conversa: c, docHash: null, responder: false } }
   if (e.msgId && c.mensagens.some((m) => m.id === e.msgId)) return { conversa: c, docHash: null, responder: false }
 
   const dia = diaBrasilia(agora)
