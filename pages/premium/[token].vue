@@ -36,6 +36,10 @@ import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-c
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
+import { custo12Meses, combustivelPraConta, licenciamentoDaUf, KM_ANO_PADRAO } from '~/shared/custo-12-meses'
+import { PRECO_COMBUSTIVEL_UF, SEMANA_ANP } from '~/shared/dados/combustivel-uf'
+import { aliquotaIPVA } from '~/shared/ipva-uf'
+import { variacaoFipe } from '~/shared/fipe-variacao'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { montarLinhaDoTempo } from '~/shared/linha-do-tempo'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
@@ -1093,6 +1097,37 @@ const codigoFipe = computed(() => codigoFipeDoRelatorio(vc.value))
 const fipeNaoLocalizada = computed(() => entregue.value && !String(token).startsWith('_amostra') && !fipeIncerta.value && !vc.value?.fipe
   && (!vc.value || !!vc.value.fipeNaoLocalizado))
 const temValor = computed(() => Boolean(vc.value?.fipe || vc.value?.seguroAnual || vc.value?.custo5anos || fipeIncerta.value || fipeNaoLocalizada.value))
+// Custo de ter este carro em 12 meses (Relatorio 2.0, item 9): estimativa,
+// um numero por mes (shared/custo-12-meses.ts). So carro, so com FIPE segura.
+const custo12 = computed(() => {
+  if (segmento.value !== 'carro' || fipeIncerta.value) return null
+  const fipeNum = Number(String(vc.value?.fipe || '').replace(/[^\d,]/g, '').replace(',', '.'))
+  const uf = String(g('ufJurisdicao') || '').toUpperCase()
+  if (!/^[A-Z]{2}$/.test(uf)) return null
+  const comb = combustivelPraConta({
+    codigo: g('codigoCombustivel'), cilindradaCc: g('cilindrada'),
+    utilitario: /CAMIONETA|CAMINHONETE|UTILITARIO/i.test(String(g('descricaoTipoVeiculo') || '')),
+    precos: PRECO_COMBUSTIVEL_UF[uf],
+  })
+  return custo12Meses({
+    valorFipe: Number.isFinite(fipeNum) ? fipeNum : null,
+    uf,
+    aliquotaIpva: aliquotaIPVA(uf),
+    taxaLicenciamento: licenciamentoDaUf(uf)?.valor ?? null,
+    licenciamentoOficial: licenciamentoDaUf(uf)?.oficial ?? false,
+    seguroAnual: vc.value?.seguroAnual ?? null,
+    // variacao REAL de 12 meses (quedaAno e da serie inteira)
+    quedaAnoPct: variacaoFipe(vc.value?.historico, 12)?.pct ?? null,
+    consumoKmL: comb?.consumoKmL ?? null,
+    precoLitro: comb?.precoLitro ?? null,
+    motorConsumo: comb?.motor ?? null,
+    combustivel: comb?.combustivel ?? null,
+    flex: comb?.flex ?? false,
+    kmAno: KM_ANO_PADRAO,
+  })
+})
+const fonteCusto12 = `Consumo: média de mercado para a cilindrada, não do modelo exato. Combustível: preço médio da ANP na UF (semana ${SEMANA_ANP}). Licenciamento: taxa 2026 da UF quando conferida no DETRAN ou na Fazenda; nas demais, valor de referência.`
+
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
 // O grafico do historico vive em components/GraficoValor.vue (ECharts, SVG).
@@ -2730,6 +2765,24 @@ onUnmounted(() => {
               </div>
             </div>
 
+            <!-- Custo de ter este carro em 12 meses (Relatorio 2.0, item 9). -->
+            <div v-if="custo12" class="rel__c12">
+              <div class="rel__c12-top">
+                <span class="rel__sub">Custo de ter este carro em 12 meses</span>
+                <span class="rel__c12-tag">Estimativa</span>
+              </div>
+              <p class="rel__c12-num"><strong>{{ brl(custo12.mensal) }}</strong> por mês <span>({{ brl(custo12.anual) }} em 12 meses)</span></p>
+              <ul class="rel__c12-lista">
+                <li v-for="l in custo12.linhas" :key="l.chave">
+                  <span class="rel__c12-k">{{ l.rotulo }}<small v-if="l.nota">{{ l.nota }}</small></span>
+                  <span class="rel__c12-v">{{ brl(l.mensal) }}/mês</span>
+                </li>
+              </ul>
+              <p v-for="o in custo12.observacoes" :key="o" class="rel__c12-nota">{{ o }}</p>
+              <p v-if="custo12.foraDaConta.length" class="rel__c12-nota">Fora da conta por falta de dado: {{ custo12.foraDaConta.join('; ') }}.</p>
+              <p class="rel__c12-nota">{{ custo12.premissas.join(' ') }} {{ fonteCusto12 }}</p>
+            </div>
+
             <!-- Versao FIPE ambigua: em vez de afirmar uma versao especifica
                  com risco de erro, mostra as versoes compativeis com a
                  configuracao do veiculo (cilindrada/carroceria) e deixa a
@@ -4012,6 +4065,20 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__check-item--rel .rel__check-box { border-color: #d98a00; }
   &__check-tag { display: block; font-size: calc(11px * var(--rel-fs, 1)); font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #a86a00; margin-bottom: 1px; }
   @media print { &__check-cols { grid-template-columns: 1fr 1fr; gap: 18px; } }
+
+  // ---- custo de 12 meses ----
+  &__c12 { margin: 16px 0 0; padding: 14px; border: 1px solid #e3e6ea; border-radius: 12px; background: #fafbfc; break-inside: avoid; }
+  &__c12-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  &__c12-tag { font-size: calc(11px * var(--rel-fs, 1)); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #6b5200; background: #fff3cd; border-radius: 999px; padding: 2px 8px; white-space: nowrap; }
+  &__c12-num { margin: 8px 0 10px; font-size: calc(14px * var(--rel-fs, 1)); color: #333; }
+  &__c12-num strong { font-size: calc(24px * var(--rel-fs, 1)); color: #111; }
+  &__c12-num span { color: #666; white-space: nowrap; }
+  &__c12-lista { list-style: none; margin: 0; padding: 0; }
+  &__c12-lista li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 7px 0; border-top: 1px solid #eceef1; font-size: calc(13.5px * var(--rel-fs, 1)); }
+  &__c12-k { min-width: 0; color: #222; }
+  &__c12-k small { display: block; color: #666; font-size: calc(12px * var(--rel-fs, 1)); }
+  &__c12-v { white-space: nowrap; font-weight: 600; font-variant-numeric: tabular-nums; }
+  &__c12-nota { margin: 8px 0 0; font-size: calc(12px * var(--rel-fs, 1)); color: #666; line-height: 1.45; }
 
   // ---- recall pendente (Opcao 1 "Alerta classico") ----
   // Cartao vermelho com icone, titulo, subtitulo da campanha, corpo com o
