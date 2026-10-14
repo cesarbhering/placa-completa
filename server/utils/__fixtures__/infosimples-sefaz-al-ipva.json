@@ -1,0 +1,34 @@
+[
+  {
+    "ano_fabricacao": "2015",
+    "bonus_nfc": "0,00",
+    "exercicio": "2026",
+    "ipva_total": "2.427,78",
+    "marca_modelo": "I/FORD FUSION FWD GTDI B",
+    "normalizado_bonus_nfc": 0.0,
+    "normalizado_ipva_total": 2427.78,
+    "pagamento": [],
+    "parcelamento": [
+      {
+        "parcela": "Única",
+        "valor": "2.427,78",
+        "desconto": "121,38",
+        "bonus": "0,00",
+        "multa": "364,17",
+        "juros": "242,06",
+        "valor_total": "2.912,63",
+        "vencimento": "14/10/2026",
+        "normalizado_valor": 2427.78,
+        "normalizado_desconto": 121.38,
+        "normalizado_bonus": 0.0,
+        "normalizado_multa": 364.17,
+        "normalizado_juros": 242.06,
+        "normalizado_valor_total": 2912.63
+      }
+    ],
+    "placa": "ABC1D23",
+    "proprietario": "FULANO DE TAL",
+    "renavam": "00000000000",
+    "site_receipt": "https://storage.invalid/recibo.html"
+  }
+]
