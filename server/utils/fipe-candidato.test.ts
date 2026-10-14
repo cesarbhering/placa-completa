@@ -927,3 +927,53 @@ describe('sigla de versao no nome do cadastro (FPL1A52, VW Nivus HL)', () => {
     expect(versaoDoNome('FIAT/PULSE IMPETUS T200').versoes).toEqual(['IMPETUS'])
   })
 })
+
+describe('caminhao com prefixo de letra no nome (CYU7D91, M.BENZ/L 2638)', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+  // Mercedes-Benz 2002 na fipe-api: L, LK e LS do 2638 no meio de outros caminhoes.
+  const MB_2002 = [
+    { codigo_fipe: '509011-3', modelo: '1215 C 2p (diesel)', valor: 60000 },
+    { codigo_fipe: '509014-8', modelo: '1420 2p (diesel)', valor: 70000 },
+    { codigo_fipe: '509030-0', modelo: '1718-M 2p (diesel)', valor: 80000 },
+    { codigo_fipe: '509106-3', modelo: 'L-2638 6x4 3-Eixos 2p (diesel)', valor: 180000 },
+    { codigo_fipe: '509107-1', modelo: 'LK-2638 6x4 3-Eixos 2p (diesel)', valor: 175000 },
+    { codigo_fipe: '509108-0', modelo: 'LS-2638 6x4 3-Eixos 2p (diesel)', valor: 185000 },
+  ]
+  const chamadasHaiku: any[] = []
+  const f = vi.fn(async (url: string, init?: any) => {
+    if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: MB_2002 }) } as any
+    if (String(url).includes('anthropic')) { chamadasHaiku.push(init); return { ok: false, status: 500, json: async () => ({}) } as any }
+    return { ok: false, json: async () => ({}) } as any
+  })
+  const entrada = (desc: string) => ({
+    senatran: { descricaoMarcaModelo: desc, anoModelo: 2002, potencia: 380, descricaoTipoVeiculo: 'CAMINHAO', codigoCombustivel: '03' },
+    wdapi: { marca: 'M.BENZ', MODELO: desc.split('/')[1], anoModelo: '2002', segmento: 'Caminhao', fipe: { dados: [] } },
+    segmento: 'caminhao', fipeApiUrl: 'http://f', fipeApiToken: 't', anthropicApiKey: 'k',
+  })
+
+  it('"M.BENZ/L 2638" 2002: L-2638 509106-3 por regra', async () => {
+    vi.stubGlobal('fetch', f)
+    const r = await escolherMelhorFipe(entrada('M.BENZ/L 2638'))
+    expect(r.decididoPor).toBe('regra')
+    expect(r.escolhido?.codigo_fipe).toBe('509106-3')
+  })
+  it('"M.BENZ/LS 2638": LS-2638', async () => {
+    vi.stubGlobal('fetch', f)
+    const r = await escolherMelhorFipe(entrada('M.BENZ/LS 2638'))
+    expect(r.escolhido?.codigo_fipe).toBe('509108-0')
+    expect(r.decididoPor).toBe('regra')
+  })
+  it('so o numero ("M.BENZ/2638"): fica entre L, LK e LS, nunca 1215/1420/1718', async () => {
+    vi.stubGlobal('fetch', f)
+    const r = await escolherMelhorFipe(entrada('M.BENZ/2638'))
+    const codigos = r.candidatos.map((c) => c.codigo_fipe).sort()
+    expect(codigos).toEqual(['509106-3', '509107-1', '509108-0'])
+  })
+  it('nomes do modelo e tokens', async () => {
+    const { nomesDoModelo } = await import('./fipe-candidato')
+    expect(nomesDoModelo(['L', '2638'])).toEqual(['L2638', '2638'])
+    expect(nomesDoModelo(['LS', '2638'])).toEqual(['LS2638', '2638'])
+    expect(nomesDoModelo(['PCX', '150.1'])).toEqual(['PCX'])
+    expect(nomesDoModelo(['ONIX'])).toEqual(['ONIX'])
+  })
+})
