@@ -8,7 +8,8 @@ describe('card Origem do chassi', () => {
   it('sem frase "Fabricado(a) pela/em"', () => {
     expect(src).not.toMatch(/`\$\{verbo\}|Fabricad[oa] (pela|em) \$\{/)
     expect(src).not.toMatch(/frasePlanta/)
-    expect(src).toContain("titulo: 'Origem do chassi', linhas: fichaChassiOrigem.value, nota: null")
+    // A nota do card e so o "Dados de dd/mm" (cache de outro dia), nunca a frase-resumo.
+    expect(src).toContain("titulo: 'Origem do chassi', linhas: fichaChassiOrigem.value, nota: dadosDeBloco(data.value?.chassiOrigem)")
   })
   it('ficha continua com Fabricante e Pais de fabricacao', () => {
     expect(src).toContain("linha('Fabricante'")
