@@ -58,28 +58,24 @@ describe('procedencia e data dos subblocos', () => {
   })
 })
 
-describe('resumo por item abaixo da caixa: so status, sem repetir valores', () => {
-  it('com debitos: "Em aberto" / "Atrasado (2020)", nenhum R$', async () => {
-    const { statusResumoDetran } = await import('../shared/detran-quitar')
-    const rows = statusResumoDetran({ fonte: 'detran_sp', multas_total_centavos: 297056, licenciamento_centavos: 0, licenciamento_atrasado_ano: 2020, ipva_total_centavos: 0 }, { anoAtual: 2026 })
-    expect(rows.map((r) => `${r.rotulo}: ${r.valor}`)).toEqual(['Multas: Em aberto', 'Licenciamento: Atrasado (2020)', 'IPVA: Em dia'])
-    expect(JSON.stringify(rows)).not.toContain('R$')
+describe('sem resumo duplicado (feedback do Cesar, 14/out)', () => {
+  it('sem bloco estadual: status so pela base nacional', async () => {
+    const { statusBaseNacional } = await import('../shared/detran-quitar')
+    expect(statusBaseNacional({ renainf: true, licAno: '2020' }).map((r) => `${r.rotulo}: ${r.valor}`))
+      .toEqual(['Multas (base nacional): Consta multa em aberto', 'Último licenciamento (base nacional): 2020'])
+    expect(statusBaseNacional({ renainf: false, licAno: null }).map((r) => r.valor)).toEqual(['Nada consta'])
+    expect(statusBaseNacional({ renainf: undefined, licAno: undefined })).toEqual([])
   })
-  it('licenciamento em aberto com vencimento e sem atraso: "Em aberto, vence dd/mm/aaaa"', async () => {
-    const { statusResumoDetran } = await import('../shared/detran-quitar')
-    const rows = statusResumoDetran({ fonte: 'detran_sc', multas_total_centavos: 30961, licenciamento_centavos: 14937, licenciamento_venc: '2026-10-31', ipva_total_centavos: 66932, ultimo_licenciamento_ano: 2026 }, { anoAtual: 2026 })
-    expect(rows.map((r) => r.valor)).toEqual(['Em aberto', 'Em aberto, vence 31/10/2026', 'Em aberto'])
-    expect(rows.every((r) => r.alerta)).toBe(true)
-  })
-  it('sem debitos: tudo em dia / nada consta (verde)', async () => {
-    const { statusResumoDetran } = await import('../shared/detran-quitar')
-    const rows = statusResumoDetran({ fonte: 'detran_es', multas_total_centavos: 0, licenciamento_centavos: 0, ipva_total_centavos: 0, ultimo_licenciamento_ano: 2026 }, { anoAtual: 2026 })
-    expect(rows.map((r) => r.valor)).toEqual(['Nada consta', 'Em dia', 'Em dia'])
-    expect(rows.every((r) => r.emDia)).toBe(true)
-  })
-  it('RENAINF de fora do estado: mantem o texto aprovado', async () => {
-    const { statusResumoDetran } = await import('../shared/detran-quitar')
-    const rows = statusResumoDetran({ fonte: 'detran_es', multas_total_centavos: 0 }, { renainfForaTexto: 'No DETRAN-ES: nada consta. ...' })
-    expect(rows[0]).toMatchObject({ rotulo: 'Multas em aberto', texto: 'No DETRAN-ES: nada consta. ...' })
+
+  it('template: ordem procedencia, caixa, infracoes, IPVA, restricoes, quilometragem; sem as repeticoes', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const vue = readFileSync(join(process.cwd(), 'pages/premium/[token].vue'), 'utf8')
+    const ordem = ['{{ procDebitos }}', '<DetranQuitar', '>Multas em aberto</p>', '>IPVA em aberto</p>', '>Restrições no DETRAN</p>', '>Quilometragem registrada</p>']
+    const pos = ordem.map((m) => vue.indexOf(m))
+    expect(pos.every((p) => p > 0)).toBe(true)
+    expect([...pos].sort((a, b) => a - b)).toEqual(pos)
+    for (const fora of ['multasBreakdown', 'Licenciamento atrasado: o último exercício', 'Multas (Pix)', 'multasDetalhe.alerta_roubo_furto']) expect(vue).not.toContain(fora)
+    expect(vue).toContain('v-if="ipvaLista.itens.length >= 2"')
   })
 })
