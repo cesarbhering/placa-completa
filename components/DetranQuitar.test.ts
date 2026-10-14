@@ -67,16 +67,18 @@ describe('sem resumo duplicado (feedback do Cesar, 14/out)', () => {
     expect(statusBaseNacional({ renainf: undefined, licAno: undefined })).toEqual([])
   })
 
-  it('template: ordem procedencia, caixa, infracoes, IPVA, restricoes, quilometragem; sem as repeticoes', async () => {
+  it('template: ordem procedencia, caixa, infracoes, IPVA, restricoes; quilometragem na linha do tempo; sem as repeticoes', async () => {
     const { readFileSync } = await import('node:fs')
     const { join } = await import('node:path')
     const vue = readFileSync(join(process.cwd(), 'pages/premium/[token].vue'), 'utf8')
-    const ordem = ['{{ procDebitos }}', '<DetranQuitar', '>Multas em aberto</p>', '>IPVA em aberto</p>', '>Restrições no DETRAN</p>', '>Quilometragem registrada</p>']
+    const ordem = ['{{ procDebitos }}', '<DetranQuitar', '>Multas em aberto</p>', '>IPVA em aberto</p>', '>Restrições no DETRAN</p>']
     const pos = ordem.map((m) => vue.indexOf(m))
     expect(pos.every((p) => p > 0)).toBe(true)
     expect([...pos].sort((a, b) => a - b)).toEqual(pos)
     for (const fora of ['multasBreakdown', 'Licenciamento atrasado: o último exercício', 'Multas (Pix)', 'multasDetalhe.alerta_roubo_furto']) expect(vue).not.toContain(fora)
     expect(vue).toContain('v-if="ipvaLista.itens.length >= 2"')
+    expect(vue).not.toContain('>Quilometragem registrada</p>')
+    expect(vue).toContain('hodometro: kmLeituras.value')
   })
 })
 
