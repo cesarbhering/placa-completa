@@ -90,6 +90,46 @@ export function codigoMotorGM(descricao: string | null | undefined): { motor: st
   return null
 }
 
+/**
+ * Mercedes-Benz carros: o cadastro cola classe, numero e sufixo no nome do
+ * modelo ("I/M.BENZ GLA200FF", "C200CGI", "E250CDI", "GLC300 4M"). O prefixo
+ * "I/" e Importado (sai em marcaDoNome/marcaDoRegistro). Os sufixos NAO sao
+ * versao, sao fatos:
+ *   FF = Flex Fuel (so versoes Flex), CGI = gasolina com injecao direta,
+ *   CDI/BLUETEC/D = diesel, 4M/4MATIC = tracao integral, BE = BlueEfficiency.
+ * Caso QGH1J91 (14/out): GLA200FF flex trouxe tambem o GLA 200 so gasolina.
+ */
+export interface FatosMercedes {
+  classe: string
+  numero: string
+  flex: boolean
+  diesel: boolean
+  cgi: boolean
+  tracao4m: boolean
+  be: boolean
+}
+const MARCAS_MB = new Set(['MBENZ', 'MERCEDES', 'MERCEDESBENZ', 'MB'])
+export function fatosMercedes(descricao: string | null | undefined): FatosMercedes | null {
+  if (!MARCAS_MB.has(marcaDoNome(descricao))) return null
+  const palavras = palavrasDoNome(String(descricao || '')).map(norm)
+  const m = (palavras[0] || '').match(/^([A-Z]{1,4})(\d{2,3})([A-Z0-9]*)$/)
+  if (!m) return null
+  const suf = [m[3], ...palavras.slice(1)].join(' ')
+  const tem = (re: RegExp) => re.test(suf)
+  return {
+    classe: m[1], numero: m[2],
+    flex: tem(/(^|\s|\d)FF(\s|$)|^FF/),
+    diesel: tem(/CDI|BLUETEC|(^|\s)D(\s|$)/),
+    cgi: tem(/CGI/),
+    tracao4m: tem(/4M(ATIC)?/),
+    be: tem(/(^|\s|I)BE(\s|$)|BLUEEFFICIENCY/),
+  }
+}
+
+/** Texto da legenda dos sufixos Mercedes, pro prompt do juiz FIPE. */
+export const LEGENDA_MERCEDES = 'Mercedes-Benz: prefixo "I/" no cadastro = importado; o numero vem colado na classe ("GLA200" = GLA 200 / GLA-200); sufixos colados nao sao versao: FF = Flex Fuel (so versoes Flex), CGI = gasolina com injecao direta, CDI = diesel, 4M/4MATIC = tracao integral, BE = BlueEfficiency.'
+
+const RE_FLEX_FIPE = /\bflex|flexpower|totalflex/i
 const RE_TURBO_FIPE = /\b(TB|TURBO|TSI|TJET|T-JET|T200|T270|TURBOFLEX)\b/i
 
 /** Marca do nome do cadastro: "VW/NIVUS ..." -> VW; "I/BMW 320I" -> BMW. */
@@ -186,6 +226,19 @@ export function filtrarPelaVersaoDoNome<T extends { modelo: string }>(lista: T[]
   if (motor) {
     const porMotor = restantes.filter((c) => candidatoTemMotor(c.modelo, motor))
     if (porMotor.length) restantes = porMotor
+  }
+  // Mercedes: classe+numero ("GLA200" casa "GLA-200"), e os sufixos como fatos.
+  const mb = fatosMercedes(descricao)
+  if (mb) {
+    const so = (lista: T[], f: (c: T) => boolean) => { const r = lista.filter(f); return r.length ? r : lista }
+    restantes = so(restantes, (c) => norm(c.modelo).includes(mb.classe + mb.numero))
+    if (mb.flex) restantes = so(restantes, (c) => RE_FLEX_FIPE.test(c.modelo))
+    if (mb.cgi) {
+      restantes = so(restantes, (c) => /\bCGI\b/i.test(c.modelo))
+      restantes = so(restantes, (c) => !RE_FLEX_FIPE.test(c.modelo) && !/diesel|cdi|bluetec/i.test(c.modelo))
+    }
+    if (mb.diesel) restantes = so(restantes, (c) => /diesel|\bCDI\b|bluetec|\b\d{3}d\b/i.test(c.modelo))
+    if (mb.tracao4m) restantes = so(restantes, (c) => /4MATIC|\b4M\b/i.test(c.modelo))
   }
   // Turbo do codigo GM ("10TAT" tem T): fica com as versoes TB; sem T ("10MT"),
   // tira as TB. So vale se sobrar alguem.

@@ -17,7 +17,7 @@ import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
 import { cambioDoNome, versaoFipeManual, versaoFipeAutomatica, opcoesDeCambio } from '../../shared/cambio-nome'
 import { cambioPeloChassi } from '../../shared/cambio-chassi'
-import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt } from '../../shared/versao-fipe'
+import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES } from '../../shared/versao-fipe'
 
 export { codigoDaTabela, type TabelaFipe }
 
@@ -655,8 +655,9 @@ function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any
   const versao = versaoDiscriminante(wdapi?.VERSAO)
   return {
     litragem, carroceria, versao, transmissao,
-    combustivel: combustivelDoCodigo(senatran?.codigoCombustivel),
-    base: baseDoCodigo(senatran?.codigoCombustivel),
+    // Sem codigo de combustivel, o sufixo Mercedes diz: CDI = diesel, FF = flex.
+    combustivel: combustivelDoCodigo(senatran?.codigoCombustivel) ?? (fatosMercedes(senatran?.descricaoMarcaModelo)?.diesel ? 'diesel' : null),
+    base: baseDoCodigo(senatran?.codigoCombustivel) ?? (fatosMercedes(senatran?.descricaoMarcaModelo)?.flex ? 'flex' : null),
     moto: tabela === 'motos',
     tokensModelo: tokensDoModelo(senatran?.descricaoMarcaModelo || wdapi?.MODELO),
     cabine: cabineDaDescricao(senatran?.descricaoMarcaModelo),
@@ -865,6 +866,7 @@ async function julgarComHaiku(
     `Se NENHUM candidato corresponder ao veiculo, responda "codigo_fipe":"${HAIKU_NENHUM}".`,
     'Use "confianca":"baixa" se nao tiver certeza suficiente pra decidir entre os candidatos.',
     'A sigla de versao no nome do cadastro identifica a versao FIPE escrita por extenso.',
+    LEGENDA_MERCEDES,
     `Siglas conhecidas: ${siglasParaPrompt()}. Ex.: "VW/NIVUS HL TSI" e o Nivus Highline.`,
     'Se a sigla do cadastro corresponde a um unico candidato, escolha esse candidato com confianca alta.',
     'IMPORTANTE: se os candidatos so se diferenciam pelo cambio (Mec./Aut./',
@@ -956,6 +958,7 @@ export function marcaParaFipeApi(marca: string | null | undefined, tabela: Tabel
 export function marcaDoRegistro(descricao: string | null | undefined): string {
   let d = String(descricao || '').trim().toUpperCase()
   if (!d) return ''
+  // "I/" no comeco = veiculo IMPORTADO ("I/M.BENZ GLA200FF"): nao e marca.
   d = d.replace(/^I\s*\//, '')
   const antesDaBarra = d.includes('/') ? d.split('/')[0] : d.split(/\s+/)[0]
   const marca = antesDaBarra.trim().split(/\s+/)[0] || ''
