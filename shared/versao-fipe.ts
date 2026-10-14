@@ -59,9 +59,78 @@ export const SIGLAS_POR_MARCA: Record<string, { rotulo: string; siglas: Record<s
       GTS: ['GTS'], GTI: ['GTI'],
     },
   },
+  // Chevrolet (caso RPD2B20, 14/out): "CHEV/ONIX 10TAT PR2" = Onix Premier (a FIPE
+  // escreve "PREM."). PR/PR1/PR2 = Premier e Premier II.
+  GM: {
+    rotulo: 'Chevrolet',
+    siglas: {
+      PR: ['PREM', 'PREMIER'], PR1: ['PREM', 'PREMIER'], PR2: ['PREM', 'PREMIER'],
+      PREM: ['PREM', 'PREMIER'], PREMIER: ['PREM', 'PREMIER'],
+      LT: ['LT'], LTZ: ['LTZ'], LS: ['LS'], RS: ['RS'], ACTIV: ['ACTIV'], MIDNIGHT: ['MIDNIGHT'],
+    },
+  },
 }
 // Como a marca aparece no cadastro.
-const MARCA_SIGLAS: Record<string, string> = { VW: 'VW', VOLKSWAGEN: 'VW', VOLKS: 'VW', VOLKSWAGE: 'VW' }
+const MARCA_SIGLAS: Record<string, string> = {
+  VW: 'VW', VOLKSWAGEN: 'VW', VOLKS: 'VW', VOLKSWAGE: 'VW',
+  GM: 'GM', CHEV: 'GM', CHEVROLET: 'GM', GMCHEVROLET: 'GM',
+}
+
+/**
+ * Codigo GM de motor/cambio no nome do cadastro: "10TAT" = 1.0 turbo automatico,
+ * "10TMT" = 1.0 turbo manual, "10MT" = 1.0 manual, "12AT"/"14AT"/"18AT".
+ * So na Chevrolet (em outra marca "10AT" poderia ser outra coisa).
+ */
+export function codigoMotorGM(descricao: string | null | undefined): { motor: string; turbo: boolean; cambio: 'manual' | 'automatico' } | null {
+  if (MARCA_SIGLAS[marcaDoNome(descricao)] !== 'GM') return null
+  for (const p of palavrasDoNome(String(descricao || '')).map(norm)) {
+    const m = p.match(/^(\d)(\d)(T?)(AT|MT)$/)
+    if (m) return { motor: `${m[1]}.${m[2]}`, turbo: m[3] === 'T', cambio: m[4] === 'AT' ? 'automatico' : 'manual' }
+  }
+  return null
+}
+
+/**
+ * Mercedes-Benz carros: o cadastro cola classe, numero e sufixo no nome do
+ * modelo ("I/M.BENZ GLA200FF", "C200CGI", "E250CDI", "GLC300 4M"). O prefixo
+ * "I/" e Importado (sai em marcaDoNome/marcaDoRegistro). Os sufixos NAO sao
+ * versao, sao fatos:
+ *   FF = Flex Fuel (so versoes Flex), CGI = gasolina com injecao direta,
+ *   CDI/BLUETEC/D = diesel, 4M/4MATIC = tracao integral, BE = BlueEfficiency.
+ * Caso QGH1J91 (14/out): GLA200FF flex trouxe tambem o GLA 200 so gasolina.
+ */
+export interface FatosMercedes {
+  classe: string
+  numero: string
+  flex: boolean
+  diesel: boolean
+  cgi: boolean
+  tracao4m: boolean
+  be: boolean
+}
+const MARCAS_MB = new Set(['MBENZ', 'MERCEDES', 'MERCEDESBENZ', 'MB'])
+export function fatosMercedes(descricao: string | null | undefined): FatosMercedes | null {
+  if (!MARCAS_MB.has(marcaDoNome(descricao))) return null
+  const palavras = palavrasDoNome(String(descricao || '')).map(norm)
+  const m = (palavras[0] || '').match(/^([A-Z]{1,4})(\d{2,3})([A-Z0-9]*)$/)
+  if (!m) return null
+  const suf = [m[3], ...palavras.slice(1)].join(' ')
+  const tem = (re: RegExp) => re.test(suf)
+  return {
+    classe: m[1], numero: m[2],
+    flex: tem(/(^|\s|\d)FF(\s|$)|^FF/),
+    diesel: tem(/CDI|BLUETEC|(^|\s)D(\s|$)/),
+    cgi: tem(/CGI/),
+    tracao4m: tem(/4M(ATIC)?/),
+    be: tem(/(^|\s|I)BE(\s|$)|BLUEEFFICIENCY/),
+  }
+}
+
+/** Texto da legenda dos sufixos Mercedes, pro prompt do juiz FIPE. */
+export const LEGENDA_MERCEDES = 'Mercedes-Benz: prefixo "I/" no cadastro = importado; o numero vem colado na classe ("GLA200" = GLA 200 / GLA-200); sufixos colados nao sao versao: FF = Flex Fuel (so versoes Flex), CGI = gasolina com injecao direta, CDI = diesel, 4M/4MATIC = tracao integral, BE = BlueEfficiency.'
+
+const RE_FLEX_FIPE = /\bflex|flexpower|totalflex/i
+const RE_TURBO_FIPE = /\b(TB|TURBO|TSI|TJET|T-JET|T200|T270|TURBOFLEX)\b/i
 
 /** Marca do nome do cadastro: "VW/NIVUS ..." -> VW; "I/BMW 320I" -> BMW. */
 export function marcaDoNome(descricao: string | null | undefined): string {
@@ -107,6 +176,9 @@ export function versaoDoNome(descricao: string | null | undefined): VersaoDoNome
     if (m && !motor) { motor = `${m[1]}.${m[2]}`; continue }
     const n = norm(bruta)
     if (!versoes.length) {
+      // Codigo GM de motor/cambio ("10TAT") nao e versao: so o motor sai dele.
+      const gm = n.match(/^(\d)(\d)T?(AT|MT)$/)
+      if (gm && MARCA_SIGLAS[marcaDoNome(descricao)] === 'GM') { if (!motor) motor = `${gm[1]}.${gm[2]}`; continue }
       if (siglas[n]) versoes = siglas[n]
       else if (VERSOES.has(n)) versoes = SINONIMOS[n] || [n]
       else {
@@ -155,7 +227,46 @@ export function filtrarPelaVersaoDoNome<T extends { modelo: string }>(lista: T[]
     const porMotor = restantes.filter((c) => candidatoTemMotor(c.modelo, motor))
     if (porMotor.length) restantes = porMotor
   }
-  return filtrarPelasPortasDoNome(restantes, descricao)
+  // Mercedes: classe+numero ("GLA200" casa "GLA-200"), e os sufixos como fatos.
+  const mb = fatosMercedes(descricao)
+  if (mb) {
+    const so = (lista: T[], f: (c: T) => boolean) => { const r = lista.filter(f); return r.length ? r : lista }
+    restantes = so(restantes, (c) => norm(c.modelo).includes(mb.classe + mb.numero))
+    if (mb.flex) restantes = so(restantes, (c) => RE_FLEX_FIPE.test(c.modelo))
+    if (mb.cgi) {
+      restantes = so(restantes, (c) => /\bCGI\b/i.test(c.modelo))
+      restantes = so(restantes, (c) => !RE_FLEX_FIPE.test(c.modelo) && !/diesel|cdi|bluetec/i.test(c.modelo))
+    }
+    if (mb.diesel) restantes = so(restantes, (c) => /diesel|\bCDI\b|bluetec|\b\d{3}d\b/i.test(c.modelo))
+    if (mb.tracao4m) restantes = so(restantes, (c) => /4MATIC|\b4M\b/i.test(c.modelo))
+  }
+  // Turbo do codigo GM ("10TAT" tem T): fica com as versoes TB; sem T ("10MT"),
+  // tira as TB. So vale se sobrar alguem.
+  const gm = codigoMotorGM(descricao)
+  if (gm) {
+    const porTurbo = restantes.filter((c) => RE_TURBO_FIPE.test(c.modelo) === gm.turbo)
+    if (porTurbo.length) restantes = porTurbo
+  }
+  return filtrarPelasPortasDoNome(filtrarSedaDoNome(restantes, descricao), descricao)
+}
+
+// Hatch x seda do mesmo modelo (RPD2B20: "CHEV/ONIX 10TAT PR2" ficou entre ONIX
+// HATCH PREM. e ONIX SEDAN Plus PREM.). O cadastro escreve o seda no nome
+// ("ONIX PLUS", "PRISMA", "SEDAN"); sem isso, e o hatch. So decide quando a
+// lista tem os dois tipos.
+// "Sedan1.5" (colado no motor) tambem e seda.
+const RE_SEDA_FIPE = /\b(SEDAN|SED\.?|PLUS)(?![A-Z])/i
+export function filtrarSedaDoNome<T extends { modelo: string }>(lista: T[], descricao: string | null | undefined): T[] {
+  const sedas = lista.filter((c) => RE_SEDA_FIPE.test(c.modelo))
+  if (!sedas.length || sedas.length === lista.length) return lista
+  const palavras = palavrasDoNome(String(descricao || '')).map(norm)
+  if (palavras.some((p) => ['PLUS', 'SEDAN', 'SED'].includes(p))) return sedas
+  if (palavras.some((p) => ['HATCH', 'HATCHBACK', 'HB'].includes(p))) return lista.filter((c) => !RE_SEDA_FIPE.test(c.modelo))
+  // Nome sem nada: hatch so quando o seda e o "Plus" (Onix/Onix Plus). Em outra
+  // familia (City Sedan x City Hatchback) o nome puro nao decide.
+  if (!sedas.every((c) => /\bPLUS\b/i.test(c.modelo))) return lista
+  const ficam = lista.filter((c) => !RE_SEDA_FIPE.test(c.modelo))
+  return ficam.length ? ficam : lista
 }
 
 // --- Portas -------------------------------------------------------------------
