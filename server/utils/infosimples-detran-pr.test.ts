@@ -34,8 +34,8 @@ describe('parsearDetranPr', () => {
   it('lista vazia (612) = nada consta', () => {
     expect(parsearDetranPr([])).toMatchObject({ multas_total_centavos: 0, multas_itens: [] })
   })
-  it('mapa: PR com e-CPF, sem placa, lista e gate RENAINF', () => {
-    expect(DETRAN_UFS.PR).toMatchObject({ path: 'detran/pr/multas-descritivos', cert: 'ecpf', gate: 'renainf', fonte: 'detran_pr', fonteCusto: 'infosimples_detran_pr', semPlaca: true, dataLista: true })
+  it('mapa: PR com e-CPF, sem placa, lista e gate sempre', () => {
+    expect(DETRAN_UFS.PR).toMatchObject({ path: 'detran/pr/multas-descritivos', cert: 'ecpf', gate: 'sempre', fonte: 'detran_pr', fonteCusto: 'infosimples_detran_pr', semPlaca: true, dataLista: true })
     expect(blocoDetranDaUf('PR', PR).fonte).toBe('detran_pr')
   })
 })
@@ -115,11 +115,4 @@ describe('completarDetran PR (e-CPF)', () => {
     expect(sb.updates).toHaveLength(0)
   })
 
-  it('sem RENAINF: nao chama (gate)', async () => {
-    cfg()
-    const f = vi.fn(); vi.stubGlobal('fetch', f)
-    const r = await completarDetran(fakeSb(), { id: 'p1', placa: 'ARX3D99' }, { response: [{ ufJurisdicao: 'PR', renavam: '1' }] })
-    expect(r).toMatchObject({ ok: false, pulado: 'PR so com RENAINF ou restricao' })
-    expect(f).not.toHaveBeenCalled()
-  })
 })

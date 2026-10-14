@@ -9,8 +9,8 @@ import { MAX_CHAMADAS } from './detran-retentativa'
 //
 // - Idempotente: so quem esta com snapshot.multas vazio (null/ausente). Quem
 //   ja tem bloco (ok, sem_debito, protegido, indisponivel...) nao e tocado.
-// - Gate e freios: so UF com DETRAN, so se o gate da UF passa (RENAINF ou
-//   'sempre'), com renavam, e abaixo do teto de chamadas por pedido
+// - Gate e freios: so UF com DETRAN, so se o gate da UF passa (hoje todas
+//   'sempre': nao depende do RENAINF), com renavam, e abaixo do teto de chamadas por pedido
 //   (MAX_CHAMADAS em premium_custos). completarDetran repete os proprios freios.
 // - Roda ATRASO_MS depois do boot: o container antigo tem ate 150 s pra
 //   terminar e gravar o que estava em voo; antes disso a busca dele ainda

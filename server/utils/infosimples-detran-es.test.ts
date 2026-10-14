@@ -62,7 +62,7 @@ describe('parsearDetranEs', () => {
 describe('completarDetran ES (e-CNPJ)', () => {
   afterEach(() => vi.unstubAllGlobals())
   it('mapa', () => {
-    expect(DETRAN_UFS.ES).toMatchObject({ path: 'detran/es/veiculo', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_es', fonteCusto: 'infosimples_detran_es' })
+    expect(DETRAN_UFS.ES).toMatchObject({ path: 'detran/es/veiculo', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_es', fonteCusto: 'infosimples_detran_es' })
     expect(blocoDetranDaUf('ES', ES).fonte).toBe('detran_es')
   })
   it('placa + renavam + e-CNPJ, grava custo e snapshot sem PII', async () => {

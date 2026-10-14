@@ -7,9 +7,9 @@ import { blocoDetranDaUf, completarDetran, DETRAN_UFS, estruturaChaves } from '.
 const multa = (extra: any = {}) => ({ descricao: 'AVANCAR SINAL', data_infracao: '01/02/2026', local: 'AV TESTE', orgao_autuador: 'DETRAN', valor: 'R$ 293,47', normalizado_valor: 293.47, ...extra })
 
 describe('novas UFs: mapa', () => {
-  it('MA/AL/PI/RR sem credencial; AC com o login gov.br; todas com gate renainf', () => {
-    expect(DETRAN_UFS.MA).toMatchObject({ path: 'detran/ma/multas', cert: 'nenhum', gate: 'renainf' })
-    expect(DETRAN_UFS.AC).toMatchObject({ path: 'detran/ac/veiculo', cert: 'govbr_ac', gate: 'renainf' })
+  it('MA/AL/PI/RR sem credencial; AC com o login gov.br; todas com gate sempre', () => {
+    expect(DETRAN_UFS.MA).toMatchObject({ path: 'detran/ma/multas', cert: 'nenhum', gate: 'sempre' })
+    expect(DETRAN_UFS.AC).toMatchObject({ path: 'detran/ac/veiculo', cert: 'govbr_ac', gate: 'sempre' })
     expect(DETRAN_UFS.AL.path).toBe('detran/al/infracoes')
     expect(DETRAN_UFS.PI.path).toBe('detran/pi/multas')
     expect(DETRAN_UFS.RR.path).toBe('detran/rr/debitos')

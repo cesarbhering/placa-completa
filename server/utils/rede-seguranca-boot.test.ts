@@ -40,14 +40,14 @@ function sbFalso() {
 }
 
 describe('rede de seguranca do boot', () => {
-  it('reenfileira so quem esta sem bloco de multas, com renavam, UF com DETRAN, gate ok e abaixo do teto', async () => {
+  it('reenfileira so quem esta sem bloco de multas, com renavam, UF com DETRAN (com ou sem RENAINF) e abaixo do teto', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { cliente, filtros } = sbFalso()
     const disparar = vi.fn()
     const agora = Date.UTC(2026, 9, 13, 18, 22)
     const ids = await redeSegurancaBoot(cliente, { agora, disparar })
-    expect(ids).toEqual(['sem-bloco-go', 'sp-sempre'])
-    expect(disparar).toHaveBeenCalledTimes(2)
+    expect(ids).toEqual(['sem-bloco-go', 'sem-renainf', 'sp-sempre'])
+    expect(disparar).toHaveBeenCalledTimes(3)
     expect(disparar.mock.calls[0][1]).toEqual({ id: 'sem-bloco-go', placa: 'SFC8G01' })
     expect(filtros).toContainEqual(['eq', 'status', 'entregue'])
     expect(filtros).toContainEqual(['eq', 'ambiente', 'producao'])
