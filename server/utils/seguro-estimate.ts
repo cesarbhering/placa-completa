@@ -1,3 +1,4 @@
+import { fipePriceHistory, fipeGet } from './fipe-api'
 import { getRegiaoCatchAll } from './regiao-susep'
 
 /**
@@ -33,10 +34,7 @@ export async function getSeguroEstimado(opts: {
   let fipeModelId: number | null = opts.fipeModelId ?? null
   if (!fipeModelId && codigoModelo) {
     try {
-      const historyData = await $fetch<any>(
-        `${config.fipeApiUrl}/models/fipe/${codigoModelo}/price-history`,
-        { headers: { Authorization: `Bearer ${config.fipeApiToken}` }, timeout: 4000 }
-      )
+      const historyData = (await fipePriceHistory(String(codigoModelo), { timeoutMs: 4000 })).bruto   // cache 7 d + log
       const normalized = historyData?.data || historyData
       fipeModelId = normalized?.model?.id ?? null
     } catch {
@@ -56,14 +54,8 @@ export async function getSeguroEstimado(opts: {
 
   for (const tentativa of tentativas) {
     try {
-      const est = await $fetch<any>(
-        `${config.fipeApiUrl}/models/${fipeModelId}/insurance-estimate`,
-        {
-          params: { ano, regiao: tentativa.codigo },
-          headers: { Authorization: `Bearer ${config.fipeApiToken}` },
-          timeout: 3000,
-        }
-      )
+      const est = await fipeGet<any>(`/models/${fipeModelId}/insurance-estimate`,
+        { params: { ano, regiao: tentativa.codigo }, timeoutMs: 3000 })   // log em api_chamadas
       const d = est?.data
       if (d?.seguro?.premioMedioEstimado) {
         return {

@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { fipePriceHistory } from '../utils/fipe-api'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { sanearOrigem, sanearEntrada } from '../../shared/origem-trafego'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
@@ -521,10 +522,7 @@ export default defineEventHandler(async (event) => {
         const fipeCode = bestFipe.codigo_modelo
 
         if (fipeCode) {
-          const historyData = await $fetch<any>(
-            `${config.fipeApiUrl}/models/fipe/${fipeCode}/price-history`,
-            { headers: { Authorization: `Bearer ${config.fipeApiToken}` } }
-          )
+          const historyData = (await fipePriceHistory(String(fipeCode))).bruto   // cache 7 d + log
           const normalized = historyData?.data || historyData
           fipeModelId = normalized?.model?.id ?? null
           if (isPWA) {
