@@ -13,6 +13,8 @@ describe('custo de 12 meses', () => {
     expect(c.mensal).toBe(1180)
     expect(c.foraDaConta).toEqual([])
     expect(c.linhas[0].nota).toBe('4% do valor FIPE (SP)')
+    expect(c.linhas[1].nota).toBe('taxa 2026 SP')
+    expect(custo12Meses({ valorFipe: 50000, uf: 'AC', taxaLicenciamento: 194, licenciamentoOficial: false })!.linhas[0].nota).toBe('valor de referência AC, confira no DETRAN')
   })
   it('sem dado: fica de fora, nunca inventa', () => {
     const c = custo12Meses({ valorFipe: 50000, aliquotaIpva: 0.04 })!
@@ -33,11 +35,15 @@ describe('custo de 12 meses', () => {
 })
 
 describe('fase 1: consumo, combustivel e licenciamento', async () => {
-  const { consumoMedio, combustivelPraConta, LICENCIAMENTO_UF_2026 } = await import('./custo-12-meses')
+  const { consumoMedio, combustivelPraConta, licenciamentoDaUf } = await import('./custo-12-meses')
   const { PRECO_COMBUSTIVEL_UF } = await import('./dados/combustivel-uf')
   it('tabelas completas', () => {
     expect(Object.keys(PRECO_COMBUSTIVEL_UF)).toHaveLength(27)
-    expect(Object.keys(LICENCIAMENTO_UF_2026)).toHaveLength(26) // RR fora (cobra por peso)
+    expect(licenciamentoDaUf('sp')).toEqual({ valor: 174.08, oficial: true })
+    expect(licenciamentoDaUf('MG')).toEqual({ valor: 35.62, oficial: true })
+    expect(licenciamentoDaUf('AC')!.oficial).toBe(false)
+    // sem valor oficial 2026: fora da conta; RR cobra por peso
+    for (const uf of ['RJ', 'SC', 'BA', 'DF', 'PE', 'ES', 'RR']) expect(licenciamentoDaUf(uf)).toBeNull()
   })
   it('consumo por cilindrada', () => {
     expect(consumoMedio(999, false, false)).toBe(12.5)

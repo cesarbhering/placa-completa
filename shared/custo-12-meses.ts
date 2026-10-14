@@ -16,6 +16,8 @@ export interface EntradaCusto12 {
   aliquotaIpva?: number | null
   /** Taxa anual de licenciamento da UF, em reais. */
   taxaLicenciamento?: number | null
+  /** false = valor de referencia (nao conferido no DETRAN). */
+  licenciamentoOficial?: boolean
   seguroAnual?: number | null
   /** Variacao % da FIPE nos ultimos 12 meses (negativa = queda). */
   quedaAnoPct?: number | null
@@ -61,7 +63,8 @@ export function custo12Meses(e: EntradaCusto12): Custo12 | null {
 
   add('ipva', 'IPVA', ok(e.aliquotaIpva) ? fipe * e.aliquotaIpva : null,
     ok(e.aliquotaIpva) ? `${(e.aliquotaIpva * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}% do valor FIPE${e.uf ? ` (${e.uf.toUpperCase()})` : ''}` : undefined)
-  add('licenciamento', 'Licenciamento', ok(e.taxaLicenciamento) ? e.taxaLicenciamento : null, e.uf ? `taxa anual ${e.uf.toUpperCase()}` : undefined)
+  add('licenciamento', 'Licenciamento', ok(e.taxaLicenciamento) ? e.taxaLicenciamento : null,
+    e.uf ? (e.licenciamentoOficial === false ? `valor de referência ${e.uf.toUpperCase()}, confira no DETRAN` : `taxa 2026 ${e.uf.toUpperCase()}`) : undefined)
   add('seguro', 'Seguro', ok(e.seguroAnual) ? e.seguroAnual : null, 'estimativa do relatório')
   const queda = typeof e.quedaAnoPct === 'number' && Number.isFinite(e.quedaAnoPct) ? e.quedaAnoPct : null
   if (queda != null && queda >= 0) {
@@ -102,15 +105,35 @@ export function custo12Meses(e: EntradaCusto12): Custo12 | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Taxa anual de licenciamento 2026 (carro de passeio), em reais. Referencia
- * compilada de tabelas publicas por UF (out/2026); varia por DETRAN e pode
- * mudar no ano. RR cobra por peso/categoria: fica de fora (sem valor unico).
+ * Taxa anual de licenciamento 2026 (carro de passeio), em reais.
+ *
+ * Conferida em fonte oficial em 14/10/2026 (UFs com mais vendas): o valor so
+ * entra se a fonte oficial confirmou. Sem confirmacao oficial a UF fica FORA
+ * da conta (valor errado no relatorio pago e pior que valor ausente).
+ *   SP 174,08  Agencia SP (calendario oficial do licenciamento 2026)
+ *   MG  35,62  SEF/MG, TRLAV 2026
+ *   PR  94,61  AEN/PR (licenciamento exercicio 2026, valor unico)
+ *   RS 114,09  Portaria DetranRS 036/2026 (DOE 02/03/2026)
+ *   GO 274,61  Vapt Vupt/Detran-GO, "Taxas 2026" (pagamento em dia)
+ *   CE 220,46  ce.gov.br, 2026 ("demais veiculos")
+ *   Fora (sem valor oficial 2026 encontrado): RJ, SC, BA, DF, PE, ES.
+ *
+ * Demais UFs: valor de REFERENCIA (tabelas publicas, out/2026), nao conferido
+ * no DETRAN; a tela rotula como "valor de referência". RR cobra por peso: fora.
  */
-export const LICENCIAMENTO_UF_2026: Record<string, number> = {
-  AC: 194.14, AL: 155.41, AP: 128.54, AM: 110.0, BA: 181.13, CE: 220.46, DF: 106.26,
-  ES: 237.04, GO: 273.16, MA: 95.87, MT: 197.79, MS: 240.5, MG: 39.36, PA: 214.51,
-  PB: 206.55, PR: 94.65, PE: 158.0, PI: 168.5, RJ: 293.71, RN: 90.0, RS: 114.09,
-  RO: 220.41, SC: 142.69, SP: 167.74, SE: 250.14, TO: 79.63,
+export const LICENCIAMENTO_UF_2026_OFICIAL: Record<string, number> = {
+  SP: 174.08, MG: 35.62, PR: 94.61, RS: 114.09, GO: 274.61, CE: 220.46,
+}
+export const LICENCIAMENTO_UF_2026_REFERENCIA: Record<string, number> = {
+  AC: 194.14, AL: 155.41, AP: 128.54, AM: 110.0, MA: 95.87, MT: 197.79, MS: 240.5,
+  PA: 214.51, PB: 206.55, PI: 168.5, RN: 90.0, RO: 220.41, SE: 250.14, TO: 79.63,
+}
+/** Taxa e se e oficial; null = fora da conta. */
+export function licenciamentoDaUf(uf: string): { valor: number; oficial: boolean } | null {
+  const u = String(uf || '').toUpperCase()
+  if (LICENCIAMENTO_UF_2026_OFICIAL[u]) return { valor: LICENCIAMENTO_UF_2026_OFICIAL[u], oficial: true }
+  if (LICENCIAMENTO_UF_2026_REFERENCIA[u]) return { valor: LICENCIAMENTO_UF_2026_REFERENCIA[u], oficial: false }
+  return null
 }
 
 export type Combustivel = 'gasolina' | 'etanol' | 'diesel'
