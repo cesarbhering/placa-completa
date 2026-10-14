@@ -64,8 +64,8 @@ describe('parsearDetranGo', () => {
     expect(x.licenciamento_venc).toBe('2026-01-10')
     expect(x.restricoes_detran.map((r) => r.tipo)).toEqual(['divida_ativa', 'outros_debitos', 'licenciamento_notificado'])
   })
-  it('mapa: GO e-CNPJ, gate RENAINF, custo proprio', () => {
-    expect(DETRAN_UFS.GO).toMatchObject({ path: 'detran/go/debitos', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_go', fonteCusto: 'infosimples_detran_go' })
+  it('mapa: GO e-CNPJ, gate sempre, custo proprio', () => {
+    expect(DETRAN_UFS.GO).toMatchObject({ path: 'detran/go/debitos', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_go', fonteCusto: 'infosimples_detran_go' })
     expect(blocoDetranDaUf('GO', GO).fonte).toBe('detran_go')
   })
 })
@@ -98,13 +98,6 @@ describe('completarDetran GO', () => {
     expect(chamadas[0].body.has('pkcs12_cert')).toBe(true)
     expect(sb.inserts[0]).toMatchObject({ fonte: 'infosimples_detran_go', preco: 0.28, code: 200 })
     expect(JSON.stringify(sb.updates[0])).not.toContain('storage.invalid')
-  })
-  it('sem RENAINF nao chama', async () => {
-    vi.stubGlobal('useRuntimeConfig', cfg)
-    const f = vi.fn(); vi.stubGlobal('fetch', f)
-    const r = await completarDetran(fakeSb(), { id: 'p1', placa: 'NLR8389' }, { response: [{ ufJurisdicao: 'GO', renavam: '1' }] })
-    expect(r).toMatchObject({ ok: false, pulado: 'GO so com RENAINF ou restricao' })
-    expect(f).not.toHaveBeenCalled()
   })
   it('bloco oficial ja gravado: nao chama de novo', async () => {
     vi.stubGlobal('useRuntimeConfig', cfg)

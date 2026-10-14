@@ -86,52 +86,54 @@ export function ehVeiculoSp(uf: string | null | undefined): boolean {
 /** UFs com DETRAN via Infosimples: endpoint, marca no snapshot e fonte de custo. */
 export const DETRAN_UFS = {
   // gate: 'sempre' = todo pedido da UF; 'renainf' = so quando o SENATRAN traz
-  // indicadorMultaRenainf=true (decisao do Cesar, 30/set: reduz chamadas). O
-  // backfill manual por token ignora o gate.
+  // indicadorMultaRenainf=true ou restricao nacional. Desde 13/out (decisao do
+  // Cesar) TODAS as UFs sao 'sempre', como SP: caso KXK6G54 (MG, RENAINF false)
+  // ficou sem bloco e o DETRAN-MG respondia "nada consta". 'renainf' segue
+  // suportado em passaNoGateDetran. O backfill manual por token ignora o gate.
   SP: { path: 'detran/sp/debitos', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_sp', fonteCusto: 'infosimples_detran_sp' },
   // SC aceitou o e-CNPJ (teste do Lead, 29/set): decisao final do Cesar. O
   // 'ecpf' segue suportado pra UF futura, mas nenhuma usa hoje.
-  SC: { path: 'detran/sc/veiculo', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_sc', fonteCusto: 'infosimples_detran_sc' },
+  SC: { path: 'detran/sc/veiculo', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_sc', fonteCusto: 'infosimples_detran_sc' },
   // MG exige o chassi alem de placa+renavam (vem do SENATRAN).
   // BA: login gov.br (CPF+senha), renavam sem placa. R$0,30 por chamada.
   // complemento: o /multas do BA so traz multas; licenciamento e IPVA vem do
   // /licenciamento (mesmo login, so renavam, R$0,30; teste JPQ6371, 09/out).
-  BA: { path: 'detran/ba/multas', cert: 'govbr_ba', gate: 'renainf', fonte: 'detran_ba', fonteCusto: 'infosimples_detran_ba',
+  BA: { path: 'detran/ba/multas', cert: 'govbr_ba', gate: 'sempre', fonte: 'detran_ba', fonteCusto: 'infosimples_detran_ba',
     complemento: { path: 'detran/ba/licenciamento', fonteCusto: 'infosimples_detran_ba_licenciamento' } },
   // complemento: o /infracoes so traz multas; IPVA e licenciamento vem do
   // /veiculo (e-CNPJ, placa + renavam, R$0,28, ~15 s; teste IWC7G10, 09/out).
-  RS: { path: 'detran/rs/infracoes', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_rs', fonteCusto: 'infosimples_detran_rs',
+  RS: { path: 'detran/rs/infracoes', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_rs', fonteCusto: 'infosimples_detran_rs',
     complemento: { path: 'detran/rs/veiculo', fonteCusto: 'infosimples_detran_rs_veiculo' } },
-  MG: { path: 'detran/mg/multas-descritivos', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_mg', fonteCusto: 'infosimples_detran_mg', exigeChassi: true },
+  MG: { path: 'detran/mg/multas-descritivos', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_mg', fonteCusto: 'infosimples_detran_mg', exigeChassi: true },
   // GO: e-CNPJ, placa+renavam. R$0,28 por chamada (teste do Lead, 30/set).
-  GO: { path: 'detran/go/debitos', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_go', fonteCusto: 'infosimples_detran_go' },
+  GO: { path: 'detran/go/debitos', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_go', fonteCusto: 'infosimples_detran_go' },
   // PR: e-CPF (NAO o e-CNPJ), so renavam (sem placa). R$0,24. A resposta e uma
   // LISTA (data[] = uma multa por item, pagas e em aberto), nao data[0].
-  PR: { path: 'detran/pr/multas-descritivos', cert: 'ecpf', gate: 'renainf', fonte: 'detran_pr', fonteCusto: 'infosimples_detran_pr', semPlaca: true, dataLista: true },
+  PR: { path: 'detran/pr/multas-descritivos', cert: 'ecpf', gate: 'sempre', fonte: 'detran_pr', fonteCusto: 'infosimples_detran_pr', semPlaca: true, dataLista: true },
   // DF: login gov.br (mesma conta do BA), placa+renavam. R$0,28.
-  DF: { path: 'detran/df/debitos', cert: 'govbr_df', gate: 'renainf', fonte: 'detran_df', fonteCusto: 'infosimples_detran_df' },
+  DF: { path: 'detran/df/debitos', cert: 'govbr_df', gate: 'sempre', fonte: 'detran_df', fonteCusto: 'infosimples_detran_df' },
   // Sem credencial (so placa + renavam). CE R$0,20; PA e AM R$0,24.
-  CE: { path: 'detran/ce/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_ce', fonteCusto: 'infosimples_detran_ce' },
+  CE: { path: 'detran/ce/multas', cert: 'nenhum', gate: 'sempre', fonte: 'detran_ce', fonteCusto: 'infosimples_detran_ce' },
   // PA: /veiculo (13/out, decisao do Cesar) no lugar do /infracoes. O /infracoes
   // dava 620 em veiculo com bloqueio administrativo ("REGISTRO DE ESTELIONATO",
   // pedido OTX9I55) e so trazia multa; o /veiculo traz multas, IPVA,
   // licenciamento, situacao e restricoes. R$0,24, ~16 s. timeoutS: pedido do
   // Cesar (600 s na Infosimples; nosso abort fica 30 s acima).
-  PA: { path: 'detran/pa/veiculo', cert: 'nenhum', gate: 'renainf', fonte: 'detran_pa', fonteCusto: 'infosimples_detran_pa', timeoutS: 600 },
-  AM: { path: 'detran/am/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_am', fonteCusto: 'infosimples_detran_am' },
+  PA: { path: 'detran/pa/veiculo', cert: 'nenhum', gate: 'sempre', fonte: 'detran_pa', fonteCusto: 'infosimples_detran_pa', timeoutS: 600 },
+  AM: { path: 'detran/am/multas', cert: 'nenhum', gate: 'sempre', fonte: 'detran_am', fonteCusto: 'infosimples_detran_am' },
   // PE: e-CNPJ, placa+renavam+chassi (os tres obrigatorios). R$0,28, LENTO (~40s).
   // ES: e-CNPJ, placa+renavam. R$0,28, LENTO (~46s).
-  ES: { path: 'detran/es/veiculo', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_es', fonteCusto: 'infosimples_detran_es' },
-  PE: { path: 'detran/pe/extrato-geral', cert: 'ecnpj', gate: 'renainf', fonte: 'detran_pe', fonteCusto: 'infosimples_detran_pe', exigeChassi: true },
+  ES: { path: 'detran/es/veiculo', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_es', fonteCusto: 'infosimples_detran_es' },
+  PE: { path: 'detran/pe/extrato-geral', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_pe', fonteCusto: 'infosimples_detran_pe', exigeChassi: true },
   // 06/out (spike): MA (R$0,24, ~2 min) e AC (login gov.br da mesma conta do
   // BA/DF, R$0,28, ~30 s) testados com veiculo real. AL, PI e RR so pela doc
   // da Infosimples (sem renavam pra testar): formato nao reconhecido vira
   // 'indisponivel' e loga so as CHAVES da resposta.
-  MA: { path: 'detran/ma/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_ma', fonteCusto: 'infosimples_detran_ma' },
-  AC: { path: 'detran/ac/veiculo', cert: 'govbr_ac', gate: 'renainf', fonte: 'detran_ac', fonteCusto: 'infosimples_detran_ac' },
-  AL: { path: 'detran/al/infracoes', cert: 'nenhum', gate: 'renainf', fonte: 'detran_al', fonteCusto: 'infosimples_detran_al' },
-  PI: { path: 'detran/pi/multas', cert: 'nenhum', gate: 'renainf', fonte: 'detran_pi', fonteCusto: 'infosimples_detran_pi' },
-  RR: { path: 'detran/rr/debitos', cert: 'nenhum', gate: 'renainf', fonte: 'detran_rr', fonteCusto: 'infosimples_detran_rr' },
+  MA: { path: 'detran/ma/multas', cert: 'nenhum', gate: 'sempre', fonte: 'detran_ma', fonteCusto: 'infosimples_detran_ma' },
+  AC: { path: 'detran/ac/veiculo', cert: 'govbr_ac', gate: 'sempre', fonte: 'detran_ac', fonteCusto: 'infosimples_detran_ac' },
+  AL: { path: 'detran/al/infracoes', cert: 'nenhum', gate: 'sempre', fonte: 'detran_al', fonteCusto: 'infosimples_detran_al' },
+  PI: { path: 'detran/pi/multas', cert: 'nenhum', gate: 'sempre', fonte: 'detran_pi', fonteCusto: 'infosimples_detran_pi' },
+  RR: { path: 'detran/rr/debitos', cert: 'nenhum', gate: 'sempre', fonte: 'detran_rr', fonteCusto: 'infosimples_detran_rr' },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 

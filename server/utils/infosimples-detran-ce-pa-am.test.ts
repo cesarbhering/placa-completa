@@ -112,9 +112,9 @@ describe('multaGenerica', () => {
 describe('mapa e chamada CE/PA/AM (sem credencial)', () => {
   afterEach(() => vi.unstubAllGlobals())
   it('mapa', () => {
-    expect(DETRAN_UFS.CE).toMatchObject({ path: 'detran/ce/multas', cert: 'nenhum', gate: 'renainf', fonteCusto: 'infosimples_detran_ce' })
-    expect(DETRAN_UFS.PA).toMatchObject({ path: 'detran/pa/veiculo', cert: 'nenhum', gate: 'renainf', fonteCusto: 'infosimples_detran_pa', timeoutS: 600 })
-    expect(DETRAN_UFS.AM).toMatchObject({ path: 'detran/am/multas', cert: 'nenhum', gate: 'renainf', fonteCusto: 'infosimples_detran_am' })
+    expect(DETRAN_UFS.CE).toMatchObject({ path: 'detran/ce/multas', cert: 'nenhum', gate: 'sempre', fonteCusto: 'infosimples_detran_ce' })
+    expect(DETRAN_UFS.PA).toMatchObject({ path: 'detran/pa/veiculo', cert: 'nenhum', gate: 'sempre', fonteCusto: 'infosimples_detran_pa', timeoutS: 600 })
+    expect(DETRAN_UFS.AM).toMatchObject({ path: 'detran/am/multas', cert: 'nenhum', gate: 'sempre', fonteCusto: 'infosimples_detran_am' })
     expect(blocoDetranDaUf('CE', CE).fonte).toBe('detran_ce')
     expect(blocoDetranDaUf('PA', PA).fonte).toBe('detran_pa')
     expect(blocoDetranDaUf('AM', AM).fonte).toBe('detran_am')

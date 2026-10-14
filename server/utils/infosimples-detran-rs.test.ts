@@ -29,8 +29,8 @@ describe('parsearDetranRs', () => {
     const x = parsearDetranRs({ infracoes: [{ valor_normalizado: 130.16, serie: 'X1' }] })
     expect(x.multas_itens).toHaveLength(1)
   })
-  it('mapa: RS e-CNPJ, gate RENAINF, custo proprio', () => {
-    expect(DETRAN_UFS.RS).toMatchObject({ path: 'detran/rs/infracoes', cert: 'ecnpj', gate: 'renainf', fonteCusto: 'infosimples_detran_rs' })
+  it('mapa: RS e-CNPJ, gate sempre, custo proprio', () => {
+    expect(DETRAN_UFS.RS).toMatchObject({ path: 'detran/rs/infracoes', cert: 'ecnpj', gate: 'sempre', fonteCusto: 'infosimples_detran_rs' })
     expect(blocoDetranDaUf('RS', RS).fonte).toBe('detran_rs')
   })
 })
@@ -61,12 +61,5 @@ describe('completarDetran RS', () => {
     expect(chamadas[0].body.has('pkcs12_cert')).toBe(true)
     expect(sb.inserts[0]).toMatchObject({ fonte: 'infosimples_detran_rs', preco: 0.28, code: 200 })
     expect(JSON.stringify(sb.updates[0])).not.toContain('storage.invalid')
-  })
-  it('sem RENAINF nao chama', async () => {
-    vi.stubGlobal('useRuntimeConfig', () => ({ infosimplesToken: 't', infosimplesEncKey: 'k'.repeat(32), infosimplesPkcs12B64: 'PFX', infosimplesPkcs12Pass: 'p' }))
-    const f = vi.fn(); vi.stubGlobal('fetch', f)
-    const r = await completarDetran(fakeSb(), { id: 'p1', placa: 'IWC7G10' }, { response: [{ ufJurisdicao: 'RS', renavam: '1' }] })
-    expect(r).toMatchObject({ ok: false, pulado: 'RS so com RENAINF ou restricao' })
-    expect(f).not.toHaveBeenCalled()
   })
 })
