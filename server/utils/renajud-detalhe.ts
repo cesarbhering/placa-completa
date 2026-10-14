@@ -139,7 +139,8 @@ export async function completarRenajud(
     if (!renavam) return { ok: false, pulado: 'sem renavam' }
     const snap = await lerSnapshot(supabase, pedido.id)
     if (!snap) return { ok: false, pulado: 'sem snapshot' }
-    if (snap.renajudDetalhe) return { ok: false, pulado: 'ja tem' }
+    // Bloco indisponivel pode ser refeito (fila premium_jobs); com resultado, nao.
+    if (snap.renajudDetalhe && snap.renajudDetalhe.status !== 'indisponivel') return { ok: false, pulado: 'ja tem' }
 
     const res = await consultarDetranInfosimples({ uf, placa: placaParaDetran(pedido.placa, ctx.response), renavam, path: cfg.path })
     await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfg.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: brutoDoResultado(res) })

@@ -1285,7 +1285,21 @@ const LIMITE_DETRAN_MS = 150 * 1000
 const MIN_ESPERA_DETRAN_MS = 60 * 1000
 const agoraMs = ref(Date.now())
 const vistoEntregueEm = ref<number | null>(null)
+// Relatorio 2.0: o servidor manda o estado de cada fonte lenta e ate quando
+// a tela espera (entrega + 5 min). Com isso a espera vale pra TODAS as fontes
+// (DETRAN, SEFAZ, recall, montadora, RENAJUD), com o progresso por fonte.
+const fontesRel = computed<{ fonte: string; rotulo: string; estado: string }[] | null>(() => Array.isArray((data.value as any)?.fontes) ? (data.value as any).fontes : null)
+const fonteDetran = computed(() => fontesRel.value?.find((f) => f.fonte === 'detran') || null)
 const prazoDetran = computed<number | null>(() => {
+  if (fontesRel.value) {
+    if (!entregue.value || !fontesRel.value.length) return null
+    const ate = new Date((data.value as any)?.aguardarAte || '').getTime()
+    if (!Number.isFinite(ate)) return null
+    const visto = vistoEntregueEm.value ?? agoraMs.value
+    const ent = new Date(data.value?.entregue_em || '').getTime()
+    // Entrega recente (10 min): garante o minimo de 60s de espera na tela.
+    return Number.isFinite(ent) && visto - ent < 10 * 60 * 1000 ? Math.max(ate, Math.min(visto + MIN_ESPERA_DETRAN_MS, ent + 10 * 60 * 1000)) : ate
+  }
   if (!entregue.value || !ehVeiculoSpTela.value) return null
   const visto = vistoEntregueEm.value ?? agoraMs.value
   const ent = new Date(data.value?.entregue_em || '').getTime()
@@ -1299,9 +1313,11 @@ const prazoDetran = computed<number | null>(() => {
 // fonte do laudo sobe ~10% (--rel-fs). Pix pendente, cartao, carregando e
 // erro ficam no tamanho de sempre.
 const mostrandoLaudo = computed(() => !!data.value && !error.value && entregue.value && !aguardandoDetran.value)
-const aguardandoDetran = computed(() =>
-  prazoDetran.value != null && !multasDetalhe.value && !multasIndisponivel.value && agoraMs.value < prazoDetran.value,
-)
+const aguardandoDetran = computed(() => {
+  if (prazoDetran.value == null || agoraMs.value >= prazoDetran.value) return false
+  if (fontesRel.value) return fontesRel.value.some((f) => f.estado === 'consultando')
+  return !multasDetalhe.value && !multasIndisponivel.value
+})
 // Passou do limite da tela de espera sem bloco: o relatorio abre, mas o bloco
 // de multas segue "Consultando o DETRAN-XX" e a tela continua acompanhando
 // (pollMultas) ate o servidor gravar o status final. "Indisponivel" SO quando o
@@ -1318,7 +1334,7 @@ const multasSemRespostaAntigo = computed(() => {
   return multasSemResposta.value && Number.isFinite(ent) && Date.now() - ent > 30 * 60 * 1000
 })
 // Sem multa RENAINF, DETRAN que falhou some do relatorio (falha silenciosa).
-const multasFalhaSilenciosa = computed(() => esconderMultasQueFalharam({
+const multasFalhaSilenciosa = computed(() => fonteDetran.value?.estado !== 'chegando' && esconderMultasQueFalharam({
   renainf: g('indicadorMultaRenainf'),
   status: (data.value?.multas as any)?.status ?? null,
   semRespostaAntigo: multasSemRespostaAntigo.value,
@@ -1850,7 +1866,18 @@ onUnmounted(() => {
         <!-- ============ 2. ESTADOS DE TRANSICAO E FALHA ============ -->
         <div v-else-if="!entregue || aguardandoDetran" class="rel__card rel__card--centro">
           <!-- Relatorio pronto, esperando o DETRAN (veiculo com multa). -->
-          <template v-if="entregue && aguardandoDetran">
+          <template v-if="entregue && aguardandoDetran && fontesRel">
+            <h1 class="rel__h">Pagamento confirmado ✓</h1>
+            <div class="rel__barra"><div class="rel__barra-fill" /></div>
+            <ul class="rel__espera">
+              <li class="rel__espera-ok">Consulta da placa concluída ✓</li>
+              <li v-for="f in fontesRel" :key="f.fonte" :class="f.estado === 'consultando' ? 'rel__espera-ativa' : 'rel__espera-ok'">
+                {{ f.estado === 'consultando' ? `Consultando ${f.rotulo}…` : `${f.rotulo} ✓` }}
+              </li>
+            </ul>
+            <p class="rel__hint">Estamos juntando tudo para entregar o relatório completo de uma vez, o que pode levar alguns minutos. Se alguma fonte demorar mais, o relatório abre com o que já chegou e o restante entra sozinho; avisamos por e-mail.</p>
+          </template>
+          <template v-else-if="entregue && aguardandoDetran">
             <h1 class="rel__h">Pagamento confirmado ✓</h1>
             <div class="rel__barra"><div class="rel__barra-fill" /></div>
             <ul class="rel__espera">
@@ -2177,6 +2204,7 @@ onUnmounted(() => {
                 </template>
               </template>
               <p v-else-if="multasProtegido" class="rel__multas-nota">{{ textoDetranProtegido(ufMultasProtegido) }}</p>
+              <p v-else-if="fonteDetran && fonteDetran.estado === 'chegando'" class="rel__multas-nota rel__multas-nota--consultando">Ainda chegando do DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }}. O resultado entra aqui sozinho e avisamos por e-mail.</p>
               <p v-else-if="multasIndisponivel || multasSemRespostaAntigo" class="rel__multas-nota">A consulta de débitos e multas no DETRAN do estado não está disponível no momento. Confira direto no site do DETRAN.</p>
               <p v-else-if="multasSemResposta && acompanhamentoEsgotado" class="rel__multas-nota">O DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }} ainda não respondeu. Recarregue esta página em alguns minutos para ver o resultado.</p>
               <p v-else-if="multasSemResposta" class="rel__multas-nota rel__multas-nota--consultando">Consultando o DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }}, pode levar alguns minutos. O resultado aparece aqui sozinho.</p>
