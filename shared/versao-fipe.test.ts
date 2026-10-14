@@ -146,3 +146,34 @@ describe('portas do nome (HSX1F20)', () => {
     expect(filtrarPelasPortasDoNome(l, 'GM/CELTA 2P SPIRIT').map((c) => c.modelo)).toEqual(['Celta Spirit 1.0 3p', 'Celta Spirit 1.0'])
   })
 })
+
+describe('picape GM: sufixo de cabine e tracao (PQH4374, 14/out)', () => {
+  const S10_2015 = [
+    { modelo: 'S10 Pick-Up LS 2.4 F.Power 4x2 CD' },
+    { modelo: 'S10 Pick-Up LS 2.4 F.Power 4x2 CS' },
+    { modelo: 'S10 Pick-Up LS 2.8 TDI 4x4 CD Dies. Mec.' },
+    { modelo: 'S10 Pick-Up LS 2.8 TDI 4x4 CS Diesel' },
+  ]
+  it('fatos do sufixo', async () => {
+    const { fatosPicapeGM } = await import('./versao-fipe')
+    expect(fatosPicapeGM('CHEVROLET/S10 LS DS4')).toEqual({ cabine: 'dupla', tracao: '4X4', diesel: true, motor: '2.8' })
+    expect(fatosPicapeGM('GM/S10 LT DS2')).toEqual({ cabine: 'dupla', tracao: '4X2', diesel: true, motor: '2.8' })
+    expect(fatosPicapeGM('CHEV/S10 LS CS4')).toEqual({ cabine: 'simples', tracao: '4X4', diesel: false, motor: null })
+    expect(fatosPicapeGM('CHEV/S10 LS CD2')).toEqual({ cabine: 'dupla', tracao: '4X2', diesel: false, motor: null })
+    expect(fatosPicapeGM('FORD/RANGER XLS DS4')).toBeNull()
+    expect(fatosPicapeGM('CHEVROLET/S10 LS')).toBeNull()
+  })
+  it('caso real: S10 LS DS4 2015 fica so com o 2.8 TDI 4x4 CD (004413-0)', async () => {
+    const { filtrarPelaVersaoDoNome } = await import('./versao-fipe')
+    expect(filtrarPelaVersaoDoNome(S10_2015, 'CHEVROLET/S10 LS DS4').map((c) => c.modelo)).toEqual(['S10 Pick-Up LS 2.8 TDI 4x4 CD Dies. Mec.'])
+  })
+  it('CS2: cabine simples 4x2', async () => {
+    const { filtrarPelaVersaoDoNome } = await import('./versao-fipe')
+    expect(filtrarPelaVersaoDoNome(S10_2015, 'CHEVROLET/S10 LS CS2').map((c) => c.modelo)).toEqual(['S10 Pick-Up LS 2.4 F.Power 4x2 CS'])
+  })
+  it('DS4 com versao Aut. e Mec.: sobram as duas (cambio decide depois)', async () => {
+    const { filtrarPelaVersaoDoNome } = await import('./versao-fipe')
+    const l = [...S10_2015, { modelo: 'S10 Pick-Up LS 2.8 TDI 4x4 CD Dies. Aut.' }]
+    expect(filtrarPelaVersaoDoNome(l, 'CHEVROLET/S10 LS DS4').map((c) => c.modelo)).toEqual(['S10 Pick-Up LS 2.8 TDI 4x4 CD Dies. Mec.', 'S10 Pick-Up LS 2.8 TDI 4x4 CD Dies. Aut.'])
+  })
+})
