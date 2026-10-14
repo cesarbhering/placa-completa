@@ -2148,7 +2148,8 @@ onUnmounted(() => {
                     <li v-for="(mt, idx) in multasDetalhe.multas_itens" :key="'mi' + idx" class="rel__multas-item">
                       <div class="rel__multas-item-top">
                         <span>{{ mt.descricao || 'Infração de trânsito' }}</span>
-                        <b>{{ reais(Math.round((mt.valor || 0) * 100)) }}</b>
+                        <b v-if="Number(mt.valor) > 0">{{ reais(Math.round(Number(mt.valor) * 100)) }}</b>
+                        <b v-else class="rel__multas-sem-valor">autuação em andamento, valor a definir</b>
                       </div>
                       <p class="rel__multas-item-meta">
                         <span v-if="mt.dataInfracao">{{ mt.dataInfracao }}<span v-if="mt.horaInfracao && !String(mt.horaInfracao).startsWith('00:00')"> às {{ String(mt.horaInfracao).slice(0, 5) }}</span></span>
@@ -4068,6 +4069,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
     span { color: #1a1a1a; font-weight: 600; }
     b { color: #a32020; white-space: nowrap; }
+    // Multa sem valor definido (autuacao em andamento): texto, nao R$ 0,00.
+    b.rel__multas-sem-valor { color: #6b7280; font-weight: 500; white-space: normal; text-align: right; }
   }
   &__multas-item-meta { margin: 4px 0 0; font-size: calc(12px * var(--rel-fs, 1)); line-height: 1.4; color: #6b7280; }
 
