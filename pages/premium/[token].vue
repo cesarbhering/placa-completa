@@ -36,7 +36,7 @@ import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-c
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
-import { custo12Meses, combustivelPraConta, LICENCIAMENTO_UF_2026, KM_ANO_PADRAO } from '~/shared/custo-12-meses'
+import { custo12Meses, combustivelPraConta, licenciamentoDaUf, KM_ANO_PADRAO } from '~/shared/custo-12-meses'
 import { PRECO_COMBUSTIVEL_UF, SEMANA_ANP } from '~/shared/dados/combustivel-uf'
 import { aliquotaIPVA } from '~/shared/ipva-uf'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
@@ -1112,7 +1112,8 @@ const custo12 = computed(() => {
     valorFipe: Number.isFinite(fipeNum) ? fipeNum : null,
     uf,
     aliquotaIpva: aliquotaIPVA(uf),
-    taxaLicenciamento: LICENCIAMENTO_UF_2026[uf] ?? null,
+    taxaLicenciamento: licenciamentoDaUf(uf)?.valor ?? null,
+    licenciamentoOficial: licenciamentoDaUf(uf)?.oficial ?? false,
     seguroAnual: vc.value?.seguroAnual ?? null,
     quedaAnoPct: vc.value?.quedaAno ?? null,
     consumoKmL: comb?.consumoKmL ?? null,
@@ -1123,7 +1124,7 @@ const custo12 = computed(() => {
     kmAno: KM_ANO_PADRAO,
   })
 })
-const fonteCusto12 = `Consumo: média de mercado para a cilindrada, não do modelo exato. Combustível: preço médio da ANP na UF (semana ${SEMANA_ANP}). Licenciamento: taxa 2026 da UF.`
+const fonteCusto12 = `Consumo: média de mercado para a cilindrada, não do modelo exato. Combustível: preço médio da ANP na UF (semana ${SEMANA_ANP}). Licenciamento: taxa 2026 da UF quando conferida no DETRAN ou na Fazenda; nas demais, valor de referência.`
 
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
