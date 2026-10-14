@@ -1042,8 +1042,8 @@ describe('flex x so gasolina (QGH1J91, I/M.BENZ GLA200FF)', () => {
     { codigo_fipe: '021320-9', modelo: 'GLA-200 Vis. Black Ed. 1.6 TB 16V Aut.', valor: 99000, combustivel: 'Gasolina' },
   ]
   const f = vi.fn(async (url: string) => (String(url).includes('/modelos') ? { ok: true, json: async () => ({ data: GLA_2015 }) } : { ok: false, json: async () => ({}) }) as any)
-  const entrada = (cod: string) => ({
-    senatran: { descricaoMarcaModelo: 'I/M.BENZ GLA200FF', anoModelo: 2015, potencia: 156, cilindrada: 1595, descricaoTipoVeiculo: 'AUTOMOVEL', codigoCombustivel: cod },
+  const entrada = (cod: string, desc = 'I/M.BENZ GLA200FF') => ({
+    senatran: { descricaoMarcaModelo: desc, anoModelo: 2015, potencia: 156, cilindrada: 1595, descricaoTipoVeiculo: 'AUTOMOVEL', codigoCombustivel: cod },
     wdapi: { marca: 'M.BENZ', MODELO: 'GLA200FF', anoModelo: '2015', fipe: { dados: [] } },
     fipeApiUrl: 'http://f', fipeApiToken: 't',
   })
@@ -1053,9 +1053,9 @@ describe('flex x so gasolina (QGH1J91, I/M.BENZ GLA200FF)', () => {
     expect(r.decididoPor).toBe('ambiguo')
     expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual(['021313-6', '021314-4', '021322-5'])
   })
-  it('so gasolina (02): fica a versao sem Flex', async () => {
+  it('so gasolina (02) e nome sem FF: fica a versao sem Flex', async () => {
     vi.stubGlobal('fetch', f)
-    const r = await escolherMelhorFipe(entrada('02'))
+    const r = await escolherMelhorFipe(entrada('02', 'I/M.BENZ GLA200'))
     expect(r.escolhido?.codigo_fipe).toBe('021320-9')
   })
   it('candidatoEFlex', async () => {
@@ -1063,5 +1063,44 @@ describe('flex x so gasolina (QGH1J91, I/M.BENZ GLA200FF)', () => {
     expect(candidatoEFlex({ modelo: 'GLA-200 Style 1.6 TB 16V/Flex Aut.', combustivel: 'Gasolina' })).toBe(true)
     expect(candidatoEFlex({ modelo: 'Gol 1.0 Mi Total Flex 8V 4p', combustivel: null })).toBe(true)
     expect(candidatoEFlex({ modelo: 'GLA-200 Vis. Black Ed. 1.6 TB 16V Aut.', combustivel: 'Gasolina' })).toBe(false)
+  })
+})
+
+describe('Mercedes: I/ importado, numero colado e sufixos (FF, CGI, CDI, 4M) como fatos', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+  const MB = [
+    { codigo_fipe: '021313-6', modelo: 'GLA-200 Advance 1.6/1.6 TB 16V Flex Aut.', valor: 90000, combustivel: 'Gasolina' },
+    { codigo_fipe: '021322-5', modelo: 'GLA-200 Style 1.6 TB 16V/Flex Aut.', valor: 85000, combustivel: 'Gasolina' },
+    { codigo_fipe: '021314-4', modelo: 'GLA-200 Vision 1.6/1.6 TB 16V Flex Aut.', valor: 95000, combustivel: 'Gasolina' },
+    { codigo_fipe: '021320-9', modelo: 'GLA-200 Vis. Black Ed. 1.6 TB 16V Aut.', valor: 99000, combustivel: 'Gasolina' },
+    { codigo_fipe: '021233-4', modelo: 'C-200 CGI Avantgarde 1.8 16V 184cv Aut.', valor: 60000, combustivel: 'Gasolina' },
+    { codigo_fipe: '021237-7', modelo: 'C-200 CGI Touring Avantgarde 1.8 16V Aut', valor: 62000, combustivel: 'Gasolina' },
+    { codigo_fipe: '021240-7', modelo: 'C-200 Kompressor Classic 1.8 Aut.', valor: 50000, combustivel: 'Gasolina' },
+  ]
+  const f = vi.fn(async (url: string) => (String(url).includes('/modelos') ? { ok: true, json: async () => ({ data: MB }) } : { ok: false, json: async () => ({}) }) as any)
+  const entrada = (desc: string, ano: number, cod = '') => ({
+    senatran: { descricaoMarcaModelo: desc, anoModelo: ano, descricaoTipoVeiculo: 'AUTOMOVEL', codigoCombustivel: cod },
+    wdapi: { marca: 'M.BENZ', MODELO: desc.split('/').pop(), anoModelo: String(ano), fipe: { dados: [] } },
+    fipeApiUrl: 'http://f', fipeApiToken: 't',
+  })
+  it('"I/M.BENZ GLA200FF" 2015 sem codigo de combustivel: so Advance/Style/Vision Flex', async () => {
+    vi.stubGlobal('fetch', f)
+    const r = await escolherMelhorFipe(entrada('I/M.BENZ GLA200FF', 2015))
+    expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual(['021313-6', '021314-4', '021322-5'])
+  })
+  it('"I/M.BENZ C200CGI": so as versoes CGI (gasolina)', async () => {
+    vi.stubGlobal('fetch', f)
+    const r = await escolherMelhorFipe(entrada('I/M.BENZ C200CGI', 2012))
+    expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual(['021233-4', '021237-7'])
+  })
+  it('fatosMercedes e legenda no prompt', async () => {
+    const { fatosMercedes, versaoDoNome, LEGENDA_MERCEDES } = await import('../../shared/versao-fipe')
+    expect(fatosMercedes('I/M.BENZ GLA200FF')).toMatchObject({ classe: 'GLA', numero: '200', flex: true, diesel: false })
+    expect(fatosMercedes('I/M.BENZ E250CDI')).toMatchObject({ classe: 'E', numero: '250', diesel: true })
+    expect(fatosMercedes('M.BENZ/GLC300 4M')).toMatchObject({ classe: 'GLC', numero: '300', tracao4m: true })
+    expect(fatosMercedes('I/M.BENZ C180BE')).toMatchObject({ classe: 'C', numero: '180', be: true })
+    expect(fatosMercedes('FIAT/UNO FF')).toBeNull()
+    expect(versaoDoNome('I/M.BENZ GLA200FF').versoes).toEqual([]) // FF nao e versao
+    expect(LEGENDA_MERCEDES).toContain('FF = Flex Fuel')
   })
 })
