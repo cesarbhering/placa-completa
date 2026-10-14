@@ -17,7 +17,7 @@ import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
 import { cambioDoNome, versaoFipeManual, versaoFipeAutomatica, opcoesDeCambio } from '../../shared/cambio-nome'
 import { cambioPeloChassi } from '../../shared/cambio-chassi'
-import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome } from '../../shared/versao-fipe'
+import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt } from '../../shared/versao-fipe'
 
 export { codigoDaTabela, type TabelaFipe }
 
@@ -812,6 +812,9 @@ async function julgarComHaiku(
     '{"codigo_fipe": "...", "confianca": "alta"|"media"|"baixa", "justificativa": "..."}',
     `Se NENHUM candidato corresponder ao veiculo, responda "codigo_fipe":"${HAIKU_NENHUM}".`,
     'Use "confianca":"baixa" se nao tiver certeza suficiente pra decidir entre os candidatos.',
+    'A sigla de versao no nome do cadastro identifica a versao FIPE escrita por extenso.',
+    `Siglas conhecidas: ${siglasParaPrompt()}. Ex.: "VW/NIVUS HL TSI" e o Nivus Highline.`,
+    'Se a sigla do cadastro corresponde a um unico candidato, escolha esse candidato com confianca alta.',
     'IMPORTANTE: se os candidatos so se diferenciam pelo cambio (Mec./Aut./',
     'Dualogic/CVT) e NENHUM dado oficial acima indica o cambio do veiculo,',
     'isso e ambiguidade real, nao adivinhe - responda "confianca":"baixa".',

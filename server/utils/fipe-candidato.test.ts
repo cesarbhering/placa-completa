@@ -879,3 +879,51 @@ describe('Haiku com structured outputs e resposta "nenhum"', () => {
     expect(log).toContain('[fipe-haiku] JSON invalido stop_reason=end_turn texto="desculpe, a placa <placa> nao consigo"')
   })
 })
+
+describe('sigla de versao no nome do cadastro (FPL1A52, VW Nivus HL)', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+  const NIVUS_2021 = [
+    { codigo_fipe: '005525-5', modelo: 'NIVUS Comfortline 200 TSI 1.0 Flex Aut.', valor: 98000 },
+    { codigo_fipe: '005526-3', modelo: 'NIVUS Highline 200 TSI 1.0 Flex Aut.', valor: 108000 },
+    { codigo_fipe: '005527-1', modelo: 'NIVUS Launching Ed. 200 TSI 1.0 Flex Aut.', valor: 110000 },
+  ]
+  const WD = { marca: 'VW', MODELO: 'NIVUS HL TSI AD', anoModelo: '2021', fipe: { dados: [] } }
+  const montarFetch = (chamadas: any[], texto = '{"codigo_fipe":"005526-3","confianca":"alta","justificativa":"x"}') => vi.fn(async (url: string, init?: any) => {
+    if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: NIVUS_2021 }) } as any
+    if (String(url).includes('anthropic')) { chamadas.push(JSON.parse(init.body)); return { ok: true, status: 200, json: async () => ({ stop_reason: 'end_turn', content: [{ type: 'text', text: texto }] }) } as any }
+    return { ok: false, json: async () => ({}) } as any
+  })
+  const entrada = (desc: string) => ({ senatran: { descricaoMarcaModelo: desc, anoModelo: 2021, cilindrada: 999 }, wdapi: { ...WD, MODELO: desc.split('/')[1] }, fipeApiUrl: 'http://f', fipeApiToken: 't', anthropicApiKey: 'k' })
+
+  it('"VW/NIVUS HL TSI AD" 2021: Highline 005526-3 por regra, sem Haiku', async () => {
+    const chamadas: any[] = []
+    vi.stubGlobal('fetch', montarFetch(chamadas))
+    const r = await escolherMelhorFipe(entrada('VW/NIVUS HL TSI AD'))
+    expect(r.decididoPor).toBe('regra')
+    expect(r.confianca).toBe('alta')
+    expect(r.escolhido?.codigo_fipe).toBe('005526-3')
+    expect(chamadas).toHaveLength(0)
+  })
+  it('CL e LE/LAUNCH tambem: Comfortline e Launching Ed.', async () => {
+    vi.stubGlobal('fetch', montarFetch([]))
+    expect((await escolherMelhorFipe(entrada('VW/NIVUS CL TSI AD'))).escolhido?.codigo_fipe).toBe('005525-5')
+    expect((await escolherMelhorFipe(entrada('VW/NIVUS LE TSI AD'))).escolhido?.codigo_fipe).toBe('005527-1')
+  })
+  it('sigla desconhecida segue pro Haiku, que recebe a tabela de siglas', async () => {
+    const chamadas: any[] = []
+    vi.stubGlobal('fetch', montarFetch(chamadas))
+    const r = await escolherMelhorFipe(entrada('VW/NIVUS XZ TSI AD'))
+    expect(chamadas).toHaveLength(1)
+    expect(r.decididoPor).toBe('haiku')
+    const prompt = chamadas[0].messages[0].content
+    expect(prompt).toContain('HL = Highline')
+    expect(prompt).toContain('A sigla de versao no nome do cadastro identifica a versao FIPE')
+  })
+  it('sigla de VW nao vale em outra marca', async () => {
+    const { versaoDoNome } = await import('../../shared/versao-fipe')
+    expect(versaoDoNome('VW/NIVUS HL TSI AD').versoes).toEqual(['HIGHLINE'])
+    expect(versaoDoNome('VOLKSWAGEN/POLO TL MA').versoes).toEqual(['TRENDLINE'])
+    expect(versaoDoNome('FIAT/UNO LE 1.0').versoes).toEqual([])
+    expect(versaoDoNome('FIAT/PULSE IMPETUS T200').versoes).toEqual(['IMPETUS'])
+  })
+})
