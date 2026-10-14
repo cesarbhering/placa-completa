@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { textoDetranProtegido } from '~/shared/detran-protegido'
+import { faixaLicenciamento } from '~/shared/licenciamento-faixa'
 import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN, esconderMultasQueFalharam } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
@@ -565,20 +566,13 @@ const licEmissao = computed(() => {
 // exercicio atual (ou adiante) em dia; ano anterior pode so nao ter vencido
 // ainda, porque o calendario corre pelo final da placa e varia por UF; dois
 // anos ou mais e atraso sem desculpa.
-const licenciamento = computed(() => {
-  if (!licAno.value) return null
-  const ano = parseInt(licAno.value, 10)
-  if (!Number.isFinite(ano)) return null
-  const atual = new Date().getFullYear()
-  if (ano >= atual) return { ano: licAno.value, emissao: licEmissao.value, tom: 'ok', rotulo: 'Em dia', nota: null }
-  if (ano === atual - 1) {
-    return {
-      ano: licAno.value, emissao: licEmissao.value, tom: 'atencao', rotulo: 'Confira',
-      nota: `O licenciamento ${atual} pode ainda estar no prazo do calendário da UF.`,
-    }
-  }
-  return { ano: licAno.value, emissao: licEmissao.value, tom: 'alerta', rotulo: 'Atrasado', nota: null }
-})
+// Regra em shared/licenciamento-faixa.ts: o DETRAN da UF (quando respondeu)
+// manda sobre a base nacional, que pode estar defasada (caso DEI0D43, 14/out).
+const licenciamento = computed(() => faixaLicenciamento({
+  anoNacional: licAno.value,
+  emissaoNacional: licEmissao.value,
+  estadual: multasDetalhe.value as any,
+}))
 
 // ---------- veredito ----------
 // O resumo que a pessoa procura antes de ler o resto: o que pesa contra, em
@@ -2571,7 +2565,7 @@ onUnmounted(() => {
             <div v-if="licenciamento" class="rel__lic" :class="`rel__lic--${licenciamento.tom}`">
               <span class="rel__lic-pill">{{ licenciamento.rotulo }}</span>
               <span class="rel__lic-txt">
-                Último licenciamento <strong>{{ licenciamento.ano }}</strong><template v-if="licenciamento.emissao"> · documento emitido em {{ licenciamento.emissao }}</template><template v-if="licenciamento.nota"> · {{ licenciamento.nota }}</template>
+                Último licenciamento <strong>{{ licenciamento.ano }}</strong><template v-if="licenciamento.fonte">{{ licenciamento.fonte }}</template><template v-if="licenciamento.licenciadoEm"> · licenciado em {{ licenciamento.licenciadoEm }}</template><template v-if="licenciamento.emissao"> · documento emitido em {{ licenciamento.emissao }}</template><template v-if="licenciamento.nota"> · {{ licenciamento.nota }}</template>
               </span>
             </div>
 

@@ -496,6 +496,21 @@ function brParaIso(br: string | null | undefined): string | null {
 }
 
 /**
+ * Data do licenciamento no DETRAN -> ISO (licenciamento_em). Aceita "3/4/2024"
+ * (MG) e texto com a data no meio ("2026 em 08/07/2026 através do CRV", ES).
+ * E a data em que o veiculo foi LICENCIADO na UF (a relatorio mostra
+ * "licenciado em"); nenhum endpoint traz a data do pagamento em si. SP, SC,
+ * BA, GO e as demais nao informam data.
+ */
+export function dataLicenciamentoIso(v: any): string | null {
+  const m = String(v ?? '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  if (!m) return null
+  const [dd, mm] = [Number(m[1]), Number(m[2])]
+  if (dd < 1 || dd > 31 || mm < 1 || mm > 12) return null
+  return `${m[3]}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
+}
+
+/**
  * Mapeia o DETRAN parseado pro MESMO shape que a secao "Multas e débitos" do
  * relatorio ja consome (total + breakdown + hodometro com deteccao de regressao).
  * Assim a UI existente e reusada; os campos extras do Infosimples (itens de multa,
@@ -697,6 +712,7 @@ export function parsearDetranMg(data: any, hoje: Date = new Date()) {
     multas_itens: itens,
     licenciamento_atrasado_ano: licAtrasadoAno,
     ultimo_licenciamento_ano: licAno,
+    licenciamento_em: dataLicenciamentoIso(d.data_licenciamento),
     restricoes_detran: restricoes,
     // Destaque vermelho no bloco. Texto fixo, factual, citando a fonte.
     alerta_roubo_furto: rouboFurto ? 'Restrição informada pelo DETRAN-MG: roubo/furto' : null,
@@ -771,6 +787,9 @@ export interface ComplementoDetran {
   multas_atualizado_centavos?: number | null
   /** Total a pagar segundo o proprio DETRAN (BA). Vira o "Para regularizar". */
   total_detran_centavos?: number | null
+  /** Ultimo exercicio licenciado e a data (RS /veiculo). */
+  ultimo_licenciamento_ano?: number | null
+  licenciamento_em?: string | null
 }
 
 export function parsearLicenciamentoBa(data: any, hoje: Date = new Date()): ComplementoDetran | null {
@@ -844,6 +863,8 @@ export function parsearVeiculoRs(data: any, hoje: Date = new Date()): Complement
     licenciamento_centavos: vencido ? centavos(d.valor_licenciamento) : 0,
     licenciamento_atrasado_ano: vencido ? ultimo : null,
     licenciamento_exercicios: [],
+    ultimo_licenciamento_ano: ultimo,
+    licenciamento_em: dataLicenciamentoIso(d.data_ultimo_licenciamento),
     ipva_total_centavos: ipvaAtual,
     ipva_original_centavos: ipvaOriginal !== ipvaAtual ? ipvaOriginal : null,
   }
@@ -868,6 +889,8 @@ export function juntarComplemento(bloco: any, comp: ComplementoDetran | null): a
     complemento_ok: true,
   }
   if (comp.ipva_original_centavos != null) out.ipva_original_centavos = comp.ipva_original_centavos
+  if (comp.ultimo_licenciamento_ano != null) out.ultimo_licenciamento_ano = comp.ultimo_licenciamento_ano
+  if (comp.licenciamento_em) out.licenciamento_em = comp.licenciamento_em
   // Atualizado so vale se for MAIOR que o original das multas (senao e outra coisa).
   if (comp.multas_atualizado_centavos != null && comp.multas_atualizado_centavos > (bloco?.multas_total_centavos ?? 0)) {
     out.multas_atualizado_centavos = comp.multas_atualizado_centavos
@@ -1265,6 +1288,7 @@ export function parsearDetranPa(data: any) {
     ipva_itens: ipvaCent > 0 ? [{ ano: null, vencimento: null, valor_centavos: ipvaCent }] as IpvaItem[] : [] as IpvaItem[],
     ultimo_licenciamento_ano: licAno,
     licenciamento_atrasado_ano: atrasado ? licAno : null,
+    licenciamento_em: dataLicenciamentoIso(d.data_licenciamento),
     alerta_roubo_furto: situacao && /furto|roubo/i.test(situacao) ? 'Restrição informada pelo DETRAN-PA: roubo/furto' : null,
     restricoes_detran: restricoes,
   }
@@ -1575,6 +1599,8 @@ export function parsearDetranEs(data: any, hoje: Date = new Date(), log: (msg: s
     licenciamento_centavos: Math.round(lic * 100),
     licenciamento_atrasado_ano: licAtrasadoAno,
     ultimo_licenciamento_ano: ultimoLicAno,
+    // "2026 em 08/07/2026 através do Registro de Veículo (CRV)": a data do CRLV.
+    licenciamento_em: dataLicenciamentoIso(d.ultimo_crlv),
     restricoes_detran: restricoes,
     autuacoes_em_andamento: multas.length ? infracoes.length : 0,
   }

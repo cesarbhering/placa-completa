@@ -19,7 +19,7 @@ describe('parsearDetranMg', () => {
   it('bloco so com as chaves da whitelist', () => {
     expect(Object.keys(b).sort()).toEqual([
       'alerta_roubo_furto', 'autuacoes_em_andamento', 'fonte', 'hodometro', 'hodometro_suspeito',
-      'ipva_pago_ano', 'ipva_total_centavos', 'licenciamento_atrasado_ano', 'licenciamento_centavos',
+      'ipva_pago_ano', 'ipva_total_centavos', 'licenciamento_atrasado_ano', 'licenciamento_centavos', 'licenciamento_em',
       'multas_itens', 'multas_total_centavos', 'restricoes_detran', 'status', 'ultimo_licenciamento_ano',
     ])
   })
