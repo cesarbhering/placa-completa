@@ -2787,7 +2787,7 @@ onUnmounted(() => {
               <div v-if="vc?.custo5anos" class="rel__valor">
                 <span class="rel__valor-k">Custo em 5 anos</span>
                 <span class="rel__valor-v">{{ brl(vc.custo5anos) }}</span>
-                <span class="rel__valor-nota">Seguro, IPVA, manutenção e depreciação</span>
+                <span class="rel__valor-nota">IPVA e manutenção (sem seguro e combustível)</span>
               </div>
             </div>
 
