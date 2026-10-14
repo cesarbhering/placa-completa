@@ -1,4 +1,5 @@
 import { sanearRenajud } from '../../utils/renajud-detalhe'
+import { historicoLgpd } from '../../../shared/leilao-lgpd'
 import { garantirRecallBase } from '../../utils/recall-associado'
 import { avisarRestricaoSemCopy } from '../../utils/aviso-restricao'
 import { cupomRecompraDoPedido } from '../../utils/cupom-recompra'
@@ -342,7 +343,8 @@ export default defineEventHandler(async (event) => {
     chassiOrigem,
     cupomRecompra,
     logoMarca,
-    historicoLeilao,
+    // Snapshot antigo pode ter processo/comitente PF: filtra na saida tambem.
+    historicoLeilao: historicoLgpd(historicoLeilao),
     recall,
     recallAutoritativo,
     recallMontadora,
