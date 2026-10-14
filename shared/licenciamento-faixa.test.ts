@@ -8,7 +8,8 @@ describe('faixa de licenciamento: DETRAN da UF manda sobre a base nacional', () 
       estadual: { fonte: 'detran_sp', ultimo_licenciamento_ano: 2026, licenciamento_atrasado_ano: null },
       anoAtual: 2026,
     })
-    expect(f).toEqual({ ano: '2026', tom: 'ok', rotulo: 'Em dia', fonte: ' no DETRAN-SP', licenciadoEm: null, emissao: null, nota: null })
+    expect(f).toEqual({ ano: '2026', tom: 'ok', rotulo: 'Em dia', fonte: ' no DETRAN-SP', licenciadoEm: null, emissao: null,
+      nota: 'A base nacional mostra 2023; vale o DETRAN-SP, que é o registro do estado.' })
   })
 
   it('base nacional 2026 + DETRAN atrasado 2024 -> "Atrasado" pelo estado', () => {
@@ -17,7 +18,10 @@ describe('faixa de licenciamento: DETRAN da UF manda sobre a base nacional', () 
       estadual: { uf: 'MG', ultimo_licenciamento_ano: 2024, licenciamento_atrasado_ano: 2024, licenciamento_em: '2024-04-03' },
       anoAtual: 2026,
     })
-    expect(f).toMatchObject({ ano: '2024', tom: 'alerta', rotulo: 'Atrasado', fonte: ' no DETRAN-MG', licenciadoEm: '03/04/2024', emissao: null })
+    expect(f).toMatchObject({ ano: '2024', tom: 'alerta', rotulo: 'Atrasado', fonte: ' no DETRAN-MG', licenciadoEm: '03/04/2024', emissao: null,
+      nota: 'A base nacional mostra 2026; vale o DETRAN-MG, que é o registro do estado.' })
+    // mesmo ano nas duas fontes: sem nota de divergencia
+    expect(faixaLicenciamento({ anoNacional: '2024', estadual: { uf: 'MG', ultimo_licenciamento_ano: 2024, licenciamento_atrasado_ano: 2024 }, anoAtual: 2026 })!.nota).toBeNull()
   })
 
   it('estado sem atraso marcado e ano anterior: "Confira" (calendario da UF)', () => {

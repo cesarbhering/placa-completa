@@ -299,6 +299,18 @@ export default defineEventHandler(async (event) => {
   let logoMarca = logoProxyDe(respConsulta?.logo) || logoProxyDe((pedido.preview as any)?.logo)
   if (!logoMarca && consulta) logoMarca = logoProxyDe((await lerPlacaCacheFresca(pedido.placa).catch(() => null))?.logo)
 
+  // Quando o DETRAN foi consultado (ultima chamada paga deste pedido, ok ou
+  // nao): procedencia e data no bloco do relatorio (14/out). Fail-open.
+  let detranConsultadoEm: string | null = null
+  if (pedido.status === 'entregue') {
+    try {
+      const { data: cst } = await supabase.from('premium_custos').select('criado_em')
+        .eq('pedido_id', pedido.id).like('fonte', 'infosimples_detran_%')
+        .order('criado_em', { ascending: false }).limit(1)
+      detranConsultadoEm = Array.isArray(cst) && cst[0]?.criado_em ? String(cst[0].criado_em) : null
+    } catch { /* sem data: a linha sai so com a fonte */ }
+  }
+
   // Cupom de recompra do pedido (faixa no relatorio) enquanto valido.
   const cupomRecompra = pedido.status === 'entregue' ? await cupomRecompraDoPedido(supabase, pedido.id) : null
 
@@ -319,6 +331,7 @@ export default defineEventHandler(async (event) => {
     recallAutoritativo,
     recallMontadora,
     multas,
+    detranConsultadoEm,
     renajudDetalhe,
     segmento: segmento === 'outro' ? detectarSegmento({
       wdapi: pedido.preview,

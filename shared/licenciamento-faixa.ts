@@ -68,10 +68,17 @@ export function faixaLicenciamento(a: {
     const uf = ufDoBloco(e)
     const fonte = uf ? ` no DETRAN-${uf}` : ' no DETRAN da UF'
     const licenciadoEm = isoParaBr(e.licenciamento_em)
+    // Base nacional com outro ano: mostra os dois e diz qual vale (14/out).
+    const anoNac = a.anoNacional != null && a.anoNacional !== '' ? parseInt(String(a.anoNacional), 10) : NaN
+    const divergente = Number.isFinite(anoNac) && anoNac !== Number(anoEst)
+      ? `A base nacional mostra ${anoNac}; vale o DETRAN${uf ? '-' + uf : ''}, que é o registro do estado.`
+      : null
+    const juntar = (n: string | null) => [n, divergente].filter(Boolean).join(' ') || null
     if (e.licenciamento_atrasado_ano != null) {
-      return { ano: String(e.licenciamento_atrasado_ano), tom: 'alerta', rotulo: 'Atrasado', fonte, licenciadoEm, emissao: null, nota: null }
+      return { ano: String(e.licenciamento_atrasado_ano), tom: 'alerta', rotulo: 'Atrasado', fonte, licenciadoEm, emissao: null, nota: divergente }
     }
-    return { ano: String(anoEst), ...tomDoAno(Number(anoEst), atual), fonte, licenciadoEm, emissao: null }
+    const t = tomDoAno(Number(anoEst), atual)
+    return { ano: String(anoEst), tom: t.tom, rotulo: t.rotulo, nota: juntar(t.nota), fonte, licenciadoEm, emissao: null }
   }
   if (a.anoNacional == null || a.anoNacional === '') return null
   const ano = parseInt(String(a.anoNacional), 10)
