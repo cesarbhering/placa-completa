@@ -1,0 +1,6 @@
+[Unit]
+Description=Relatorio 2.0: dispara o worker da fila premium_jobs (POST /api/premium/jobs/run)
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-premium-jobs-run
+TimeoutStartSec=60

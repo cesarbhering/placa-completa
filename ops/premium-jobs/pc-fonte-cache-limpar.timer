@@ -1,0 +1,7 @@
+[Unit]
+Description=Relatorio 2.0: limpeza diaria do fonte_cache (04h30)
+[Timer]
+OnCalendar=*-*-* 04:30:00
+Persistent=true
+[Install]
+WantedBy=timers.target

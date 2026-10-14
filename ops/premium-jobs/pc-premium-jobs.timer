@@ -1,0 +1,8 @@
+[Unit]
+Description=Relatorio 2.0: fila premium_jobs a cada 1 min
+[Timer]
+OnActiveSec=1min
+OnUnitActiveSec=1min
+AccuracySec=5s
+[Install]
+WantedBy=timers.target

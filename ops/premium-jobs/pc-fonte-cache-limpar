@@ -1,0 +1,8 @@
+#!/bin/bash
+# Chama public.fonte_cache_limpar() no Supabase prod via Management API (sem senha de banco).
+set -euo pipefail
+tok=$(cat /root/.supabase/access-token)
+curl -fsS --max-time 60 -X POST "https://api.supabase.com/v1/projects/fivalpkfneadngxiflea/database/query" \
+  -H "Authorization: Bearer $tok" -H 'Content-Type: application/json' \
+  -d '{"query":"select public.fonte_cache_limpar() r"}'
+echo
