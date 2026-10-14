@@ -326,8 +326,10 @@ export function moeda(v: any): number {
 // "27/12/2021" -> timestamp pra ordenar. Invalida -> 0.
 function tsData(br: string | null | undefined): number {
   const m = String(br || '').match(/(\d{2})\/(\d{2})\/(\d{4})/)
-  if (!m) return 0
-  return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])).getTime()
+  if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])).getTime()
+  // ISO ("2026-09-15T00:00:00", DETRAN-ES)
+  const i = String(br || '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+  return i ? new Date(Number(i[1]), Number(i[2]) - 1, Number(i[3])).getTime() : 0
 }
 
 function kmNumero(s: any): number | null {
@@ -367,10 +369,11 @@ export interface IpvaItem { ano: number | null; vencimento: string | null; valor
  */
 export function ipvaItemGenerico(x: any): IpvaItem | null {
   if (!x || typeof x !== 'object') return null
-  const venc = [x.normalizado_vencimento, x.data_vencimento, x.vencimento].map((v) => String(v ?? '').match(/\d{2}\/\d{2}\/\d{4}/)?.[0]).find(Boolean) || null
+  const isoBr = (v: any) => { const i = String(v ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/); return i ? `${i[3]}/${i[2]}/${i[1]}` : null }
+  const venc = [x.normalizado_vencimento, x.data_vencimento, x.vencimento].map((v) => String(v ?? '').match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? isoBr(v)).find(Boolean) || null
   const ano = [x.exercicio, x.ano, x.classe, x.descricao].map((v) => { const m = String(v ?? '').match(/(19|20)\d{2}/); return m ? Number(m[0]) : null }).find((v) => v != null)
     ?? (venc ? Number(venc.slice(6)) : null)
-  const brutos = [x.normalizado_valor_atual, x.valor_atual, x.normalizado_valor, x.valor, x.normalizado_valor_nominal, x.valor_nominal]
+  const brutos = [x.normalizado_valor_atual, x.valor_atual, x.normalizado_atual, x.atual, x.normalizado_valor, x.valor, x.normalizado_valor_nominal, x.valor_nominal, x.normalizado_nominal]
   const valor = brutos.map((v) => (typeof v === 'number' ? v : moeda(v))).find((v) => v > 0) || 0
   if (!(valor > 0)) return null
   return { ano, vencimento: venc, valor_centavos: Math.round(valor * 100) }
@@ -1178,12 +1181,15 @@ const primeiro = (m: any, ks: string[]) => ks.map((k) => m?.[k]).find((v) => v !
 export function multaGenerica(m: any) {
   const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t && t !== '--' ? t : null }
   const dataBruta = String(primeiro(m, ['data_infracao', 'data', 'data_hora_infracao', 'data_hora', 'datahora']) ?? '')
-  const { data: dataInfracao, hora } = dataHoraBr(dataBruta)
+  const { data: dataInfracao, hora: horaBr } = dataHoraBr(dataBruta)
+  // "02/11/2025 0913" (DETRAN-ES): hora sem os dois pontos
+  const hhmm = dataBruta.match(/\d{2}\/\d{2}\/\d{4}\s+(\d{2})(\d{2})\b/)
+  const hora = horaBr || (hhmm && Number(hhmm[1]) < 24 && Number(hhmm[2]) < 60 ? `${hhmm[1]}:${hhmm[2]}` : null)
   const vencBruto = String(primeiro(m, ['data_vencimento', 'vencimento', 'vencimento_penalidade', 'vencimento_boleto']) ?? '')
   const valorBruto = primeiro(m, ['normalizado_valor', 'valor_normalizado', 'normalizado_valor_atual', 'valor_corrigido', 'valor_atual', 'valor', 'normalizado_valor_original', 'valor_original'])
   return {
     auto: texto(primeiro(m, ['ait', 'auto', 'auto_infracao', 'numero_auto', 'numero_ait', 'serie', 'infracao_numero', 'numero_autuacao'])),
-    descricao: texto(primeiro(m, ['descricao', 'dados_infracao', 'infracao_descricao', 'desc_infracao', 'descricao_infracao', 'infracao', 'enquadramento'])),
+    descricao: texto(primeiro(m, ['descricao', 'dados_infracao', 'infracao_descricao', 'desc_infracao', 'descricao_infracao', 'infracao', 'enquadramento', 'detalhes'])),
     dataInfracao,
     horaInfracao: horaHhMm(primeiro(m, ['hora_infracao', 'hora'])) || hora,
     dataVencimento: vencBruto.match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? null,
@@ -1212,11 +1218,21 @@ function blocoSoMultas(fonte: string, itens: ReturnType<typeof multaGenerica>[],
 
 const listaDe = (v: any): any[] => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') : [])
 
+/**
+ * Regra do Cesar (14/out): multa ja paga, quitada, cancelada (ou recurso
+ * deferido, que cancela a multa) NAO aparece. Olha o status/situacao do item.
+ * "A PAGAR" e "Pagamento pendente" seguem (nao casam \bpag[ao]\b).
+ */
+export const SITUACAO_ENCERRADA = /\bpag[ao]\b|quitad|cancelad|\bdeferid|baixad|arquivad|prescrit/i
+export function emAberto(lista: any[]): any[] {
+  return lista.filter((m) => !SITUACAO_ENCERRADA.test(String(m?.status ?? m?.situacao ?? m?.situacao_multa ?? '')))
+}
+
 /** DETRAN-CE (/detran/ce/multas): total = soma de normalizado_valor (com juros). Sem codigo_pix, boleto nem site_receipt. */
 export function parsearDetranCe(data: any) {
   const d = data || {}
-  const itens = listaDe(d.multas).map(multaGenerica)
-  const judice = listaDe(d.multas_judice).map(multaGenerica)
+  const itens = emAberto(listaDe(d.multas)).map(multaGenerica)
+  const judice = emAberto(listaDe(d.multas_judice)).map(multaGenerica)
   return blocoSoMultas('detran_ce', itens, { multas_em_recurso: judice })
 }
 
@@ -1304,7 +1320,7 @@ export function parsearDetranAm(data: any) {
   const d = data || {}
   const deb = d.debitos && typeof d.debitos === 'object' ? d.debitos : {}
   const n = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : moeda(v))
-  const itens = listaDe(d.multas).map(multaGenerica)
+  const itens = emAberto(listaDe(d.multas)).map(multaGenerica)
   const somaItens = itens.reduce((acc, i) => acc + i.valor, 0)
   const somaDeb = n(deb.normalizado_multas_detran_am) + n(deb.normalizado_multas_outras_ufs) + n(deb.normalizado_multas_locais)
   const ipva = n(deb.normalizado_ipva)
@@ -1334,7 +1350,7 @@ const ehLinhaDeNadaConsta = (x: any) => {
   const ks = Object.keys(x).filter((k) => x[k] != null && String(x[k]).trim() !== '')
   return ks.every((k) => k === 'descricao') && /^\s*nenhum/i.test(String(x.descricao || ''))
 }
-const listagemDe = (v: any): any[] => listaDe(Array.isArray(v) ? v : v?.listagem).filter((x) => !ehLinhaDeNadaConsta(x))
+const listagemDe = (v: any): any[] => emAberto(listaDe(Array.isArray(v) ? v : v?.listagem).filter((x) => !ehLinhaDeNadaConsta(x)))
 const brlTexto = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 /**
@@ -1543,18 +1559,30 @@ export function parsearDetranEs(data: any, hoje: Date = new Date(), log: (msg: s
   const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t || null }
   const nao = (v: any) => { const t = String(v ?? '').trim(); return !t || /^(n[aã]o|nenhum|nada\s+consta|sem\s+gravame|sem\s+restri)/i.test(t) }
 
-  const multas = listaDe(d.multas)
-  const infracoes = listaDe(d.infracoes)
+  const multas = emAberto(listaDe(d.multas))
+  const infracoes = emAberto(listaDe(d.infracoes))
   const debitos = listaDe(d.debitos)
-  const recursos = listaDe(d.recursos)
-  // multas[] = em aberto. infracoes[] so entra como item se multas[] vier vazio
-  // (sem exemplo: evita somar a mesma multa duas vezes).
-  const itens = (multas.length ? multas : infracoes).map(multaGenerica)
-  const emRecurso = recursos.map(multaGenerica)
+  // Recurso deferido/encerrado (ex.: "Processo Deferido", 2020) nao esta em recurso.
+  const recursos = emAberto(listaDe(d.recursos)).filter((r) => !/indeferid|julgad|encerrad|conclu/i.test(String(r?.situacao ?? '')))
 
   // debitos[]: classifica pelo texto (IPVA, licenciamento, seguro/taxa, resto = multa).
+  // O ES manda o valor em normalizado_atual (com juros) / normalizado_corrigido.
   const rotuloDeb = (x: any) => String(x?.classe ?? x?.descricao ?? x?.tipo ?? x?.debito ?? '')
-  const valorDeb = (x: any) => { const v = primeiro(x, ['normalizado_valor', 'normalizado_valor_atual', 'valor_atual', 'valor_total', 'valor']); return typeof v === 'number' ? v : moeda(v) }
+  const valorDeb = (x: any) => { const v = primeiro(x, ['normalizado_valor', 'normalizado_valor_atual', 'normalizado_atual', 'valor_atual', 'atual', 'normalizado_corrigido', 'valor_total', 'valor']); return typeof v === 'number' ? v : moeda(v) }
+  // O item de multas[] do ES nao traz valor: o valor vem no debito cuja
+  // descricao e o numero do auto (caso PVT3J49: "PRF-000100-J004903355-7463/00").
+  const soAlnum = (t: any) => String(t ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const valorDoAuto = new Map<string, number>()
+  for (const x of debitos) if (classeDoDebito(rotuloDeb(x)) === 'multa') valorDoAuto.set(soAlnum(rotuloDeb(x)), valorDeb(x))
+  const comValor = (m: any) => {
+    const it = multaGenerica(m)
+    if (!(it.valor > 0)) { const v = valorDoAuto.get(soAlnum(it.auto)); if (v && v > 0) it.valor = v }
+    return it
+  }
+  // multas[] = em aberto. infracoes[] so entra como item se multas[] vier vazio
+  // (sem exemplo: evita somar a mesma multa duas vezes).
+  const itens = (multas.length ? multas : infracoes).map(comValor)
+  const emRecurso = recursos.map(comValor)
   let ipva = 0; let lic = 0; let outros = 0; let multaDeb = 0
   const ipvaItens: IpvaItem[] = []
   let licVencido = false
@@ -1680,7 +1708,9 @@ export function sanearBlocoMultas<T extends Record<string, any>>(bloco: T): T {
   if (!bloco || typeof bloco !== 'object') return bloco
   const b: any = { ...bloco }
   if (Array.isArray(b.multas_itens)) b.multas_itens = b.multas_itens.map(sanearMultaItem).filter(Boolean)
-  if (Array.isArray(b.multas_em_recurso)) b.multas_em_recurso = b.multas_em_recurso.map(sanearMultaItem).filter(Boolean)
+  // Recurso so aparece com descricao e valor (14/out: item so com o auto, todo o
+  // resto nulo, nao diz nada pra quem compra).
+  if (Array.isArray(b.multas_em_recurso)) b.multas_em_recurso = b.multas_em_recurso.map(sanearMultaItem).filter((m: any) => m && m.descricao && Number(m.valor) > 0)
   delete b.historico_infracoes
   return b
 }
@@ -1722,7 +1752,7 @@ function blocoDetranDaUfBruto(uf: UfDetran, data: any) {
 export async function completarDetran(
   supabase: any,
   pedido: { id: string; placa: string },
-  ctx: { response: any; ignorarGate?: boolean; semRetry?: boolean; esperaRetryMs?: number },
+  ctx: { response: any; ignorarGate?: boolean; semRetry?: boolean; esperaRetryMs?: number; refazer?: boolean },
 ): Promise<ResultadoCompletarDetran> {
   const ufBruta = ufDaResposta(ctx.response)
   const uf = ufDetranSuportada(ufBruta)
@@ -1756,7 +1786,9 @@ export async function completarDetran(
   // Excecao: bloco preenchido A MANO (preenchido_manual_em) e trocado pelo dado
   // oficial quando a consulta roda.
   const multasAtual = (snap as any).multas
-  if (multasAtual?.fonte === cfgUf.fonte && !multasAtual?.preenchido_manual_em) {
+  // refazer (backfill admin por token): reconsulta mesmo com o bloco da fonte,
+  // pra corrigir bloco gravado por parser antigo (ex.: PVT3J49, ES, 14/out).
+  if (multasAtual?.fonte === cfgUf.fonte && !multasAtual?.preenchido_manual_em && !ctx.refazer) {
     // Bloco de multas ja existe, mas sem o complemento (pedido de antes dele):
     // roda SO o complemento e junta. Multas nao sao consultadas de novo.
     // Bloco corrigido a mao (backfill_manual, ex.: JPQ6371) nunca e mexido.
