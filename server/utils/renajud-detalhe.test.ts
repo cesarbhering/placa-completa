@@ -16,11 +16,11 @@ const GO = {
 }
 
 describe('parsers RENAJUD', () => {
-  it('AL: tribunal, orgao, processo, tipo e data', () => {
-    expect(parsearRenajudAl(AL)).toEqual([{ tribunal: 'TJAL', orgao: '3ª VARA CÍVEL DE MACEIÓ', processo: '0701234-56.2024.8.02.0001', tipo: 'Transferência', data: '15/03/2025' }])
+  it('AL: tribunal, orgao, tipo e data (sem numero de processo)', () => {
+    expect(parsearRenajudAl(AL)).toEqual([{ tribunal: 'TJAL', orgao: '3ª VARA CÍVEL DE MACEIÓ', tipo: 'Transferência', data: '15/03/2025' }])
   })
   it('GO: bloqueios_judiciais com a comarca no lugar do orgao', () => {
-    expect(parsearRenajudGo(GO)).toEqual([{ tribunal: 'TJGO', orgao: 'GOIÂNIA', processo: '5123456-78.2023.8.09.0051', tipo: 'Circulação', data: '02/02/2024' }])
+    expect(parsearRenajudGo(GO)).toEqual([{ tribunal: 'TJGO', orgao: 'GOIÂNIA', tipo: 'Circulação', data: '02/02/2024' }])
   })
   it('formato desconhecido ou lista vazia: null (fica o card geral)', () => {
     expect(parsearRenajudAl({ outra: 1 })).toBeNull()
@@ -71,7 +71,8 @@ describe('completarRenajud', () => {
     expect(r.ok).toBe(true)
     expect(String((f.mock.calls[0] as any)[0])).toMatch(/\/detran\/go\/veiculo$/)
     expect(s.inserts[0]).toMatchObject({ fonte: 'infosimples_renajud_go', preco: 0.28 })
-    expect(s.updates[0].relatorio_snapshot.renajudDetalhe).toMatchObject({ status: 'ok', uf: 'GO', itens: [{ processo: '5123456-78.2023.8.09.0051' }] })
+    expect(s.updates[0].relatorio_snapshot.renajudDetalhe).toMatchObject({ status: 'ok', uf: 'GO', itens: [{ tribunal: 'TJGO', tipo: 'Circulação' }] })
+    expect(JSON.stringify(s.updates[0].relatorio_snapshot.renajudDetalhe)).not.toContain('5123456')
   })
   it('gate: sem indicador, UF sem fonte ou ja gravado nao chama', async () => {
     const f = vi.fn()
