@@ -131,7 +131,14 @@ export const DETRAN_UFS = {
   // 'indisponivel' e loga so as CHAVES da resposta.
   MA: { path: 'detran/ma/multas', cert: 'nenhum', gate: 'sempre', fonte: 'detran_ma', fonteCusto: 'infosimples_detran_ma' },
   AC: { path: 'detran/ac/veiculo', cert: 'govbr_ac', gate: 'sempre', fonte: 'detran_ac', fonteCusto: 'infosimples_detran_ac' },
-  AL: { path: 'detran/al/infracoes', cert: 'nenhum', gate: 'sempre', fonte: 'detran_al', fonteCusto: 'infosimples_detran_al' },
+  // AL (14/out, caso ORK8004): /infracoes (multas com detalhe) + complemento
+  // /veiculo (licenciamento por ano, roubo/furto, restricao de venda e o total
+  // de infracoes, que vira RESERVA quando o /infracoes falha: 609 frequente) +
+  // /sefaz/al/ipva so quando o /veiculo diz debitos_ipva = SIM (R$0,26, ~170 s:
+  // roda solto depois do bloco gravado, nao segura a tela). /veiculo R$0,24.
+  AL: { path: 'detran/al/infracoes', cert: 'nenhum', gate: 'sempre', fonte: 'detran_al', fonteCusto: 'infosimples_detran_al',
+    complemento: { path: 'detran/al/veiculo', fonteCusto: 'infosimples_detran_al_veiculo' }, reservaPeloComplemento: true,
+    ipvaSefaz: { path: 'sefaz/al/ipva', fonteCusto: 'infosimples_sefaz_al_ipva', timeoutS: 300 } },
   PI: { path: 'detran/pi/multas', cert: 'nenhum', gate: 'sempre', fonte: 'detran_pi', fonteCusto: 'infosimples_detran_pi' },
   RR: { path: 'detran/rr/debitos', cert: 'nenhum', gate: 'sempre', fonte: 'detran_rr', fonteCusto: 'infosimples_detran_rr' },
   // RO (14/out, teste real QTF0A93): so placa + renavam, R$0,26, LENTO (~157 s:
@@ -267,8 +274,8 @@ export const ABORT_MS = 330_000
 export const CODIGOS_RETRY = new Set([0, 605, 609])
 export const ESPERA_RETRY_MS = 20_000
 
-export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null; path?: string }): Promise<ResultadoDetran> {
-  const cfgUf: any = DETRAN_UFS[opts.uf]
+export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null; path?: string; timeoutS?: number }): Promise<ResultadoDetran> {
+  const cfgUf: any = { ...DETRAN_UFS[opts.uf], ...(opts.timeoutS ? { timeoutS: opts.timeoutS } : {}) }
   const certUf: CertInfosimples = cfgUf.cert
   const cfg = infosimplesConfig(usaLoginGovbr(certUf) || certUf === 'nenhum' ? 'ecnpj' : certUf)
   if (!infosimplesConfigurado(certUf)) return { code: 0, codeMessage: `infosimples nao configurado (${certUf})`, preco: 0, data: null }
@@ -825,6 +832,70 @@ export interface ComplementoDetran {
   /** Ultimo exercicio licenciado e a data (RS /veiculo). */
   ultimo_licenciamento_ano?: number | null
   licenciamento_em?: string | null
+  /** AL /veiculo: restricoes, alerta de roubo/furto, total de infracoes (reserva) e IPVA pendente (vai pra SEFAZ). */
+  restricoes_detran?: { tipo: string; texto: string }[]
+  alerta_roubo_furto?: string | null
+  multas_reserva_centavos?: number | null
+  ipva_pendente?: boolean
+}
+
+/**
+ * Complemento do AL (/detran/al/veiculo, placa + renavam, R$0,24; real
+ * ORK8004, 14/out): debitos_anuais[] = licenciamento+vistoria por exercicio EM
+ * ABERTO; debitos_eventuais.infracoes = total das infracoes (sem detalhe);
+ * debitos_ipva "SIM" sem valor (o valor vem da SEFAZ). Nunca le proprietario.
+ */
+export function parsearVeiculoAl(data: any, hoje: Date = new Date()): ComplementoDetran | null {
+  const d = data || {}
+  const deb = d.debitos && typeof d.debitos === 'object' ? d.debitos : null
+  const ig = d.informacoes_gerais && typeof d.informacoes_gerais === 'object' ? d.informacoes_gerais : {}
+  if (!deb && !Object.keys(ig).length) return null
+  const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : moeda(v))
+  const anuais = (Array.isArray(deb?.debitos_anuais) ? deb.debitos_anuais : [])
+    .map((x: any) => ({ ano: anoDe(x?.ano), centavos: Math.round((num(x?.normalizado_licenciamento_vistoria ?? x?.licenciamento_vistoria) + num(x?.normalizado_seguro ?? x?.seguro)) * 100) }))
+    .filter((x: any) => x.ano != null && x.centavos > 0)
+    .sort((a: any, b: any) => a.ano - b.ano)
+  const anoAtual = hoje.getFullYear()
+  const primeiroAberto = anuais.length ? anuais[0].ano : null
+  const ultimoLicenciado = primeiroAberto != null ? primeiroAberto - 1 : null
+  const ev = deb?.debitos_eventuais && typeof deb.debitos_eventuais === 'object' ? deb.debitos_eventuais : {}
+  const restricoes: { tipo: string; texto: string }[] = []
+  const t = (v: any) => String(v ?? '').replace(/\s+/g, ' ').trim()
+  const venda = t(ig.restricao_venda)
+  if (venda && !/^sem\b/i.test(venda) && !/^n[aã]o$/i.test(venda)) restricoes.push({ tipo: 'financeira', texto: venda.slice(0, 120) })
+  if (/^sim/i.test(t(ig.comunicacao_de_venda))) restricoes.push({ tipo: 'cadastro', texto: 'Comunicação de venda registrada no DETRAN-AL' })
+  const roubo = t(ig.roubo_furto)
+  return {
+    licenciamento_centavos: anuais.reduce((a: number, x: any) => a + x.centavos, 0),
+    licenciamento_atrasado_ano: primeiroAberto != null && primeiroAberto < anoAtual ? ultimoLicenciado : null,
+    licenciamento_exercicios: anuais.map((x: any) => ({ ano: x.ano, centavos: x.centavos })),
+    ultimo_licenciamento_ano: ultimoLicenciado,
+    ipva_total_centavos: null,
+    restricoes_detran: restricoes,
+    alerta_roubo_furto: roubo && !/^n[aã]o$|nada consta/i.test(roubo) ? 'Restrição informada pelo DETRAN-AL: roubo/furto' : null,
+    multas_reserva_centavos: Math.round(num(ev.normalizado_infracoes ?? ev.infracoes) * 100),
+    ipva_pendente: /^sim/i.test(t(ev.debitos_ipva)),
+  }
+}
+
+/**
+ * SEFAZ-AL (/sefaz/al/ipva, R$0,26, ~170 s; real ORK8004): so o exercicio
+ * atual. parcelamento[] = em aberto (valor_total com multa e juros);
+ * pagamento[] = ja pago. Devolve os itens de IPVA (vazio = nada em aberto).
+ */
+export function parsearIpvaSefazAl(data: any): IpvaItem[] | null {
+  const lista = Array.isArray(data) ? data : data ? [data] : []
+  if (!lista.length) return null
+  const itens: IpvaItem[] = []
+  for (const d of lista) {
+    if (!d || typeof d !== 'object' || !('parcelamento' in d || 'ipva_total' in d)) continue
+    const ano = anoDe(d.exercicio)
+    for (const p of (Array.isArray(d.parcelamento) ? d.parcelamento : [])) {
+      const v = typeof p?.normalizado_valor_total === 'number' ? p.normalizado_valor_total : moeda(p?.valor_total)
+      if (v > 0) itens.push({ ano, vencimento: String(p?.vencimento || '').match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? null, valor_centavos: Math.round(v * 100) })
+    }
+  }
+  return itens
 }
 
 export function parsearLicenciamentoBa(data: any, hoje: Date = new Date()): ComplementoDetran | null {
@@ -909,6 +980,7 @@ export function parsearVeiculoRs(data: any, hoje: Date = new Date()): Complement
 function parsearComplemento(uf: UfDetran, data: any): ComplementoDetran | null {
   if (uf === 'BA') return parsearLicenciamentoBa(data)
   if (uf === 'RS') return parsearVeiculoRs(data)
+  if (uf === 'AL') return parsearVeiculoAl(data)
   return null
 }
 
@@ -931,6 +1003,10 @@ export function juntarComplemento(bloco: any, comp: ComplementoDetran | null): a
     out.multas_atualizado_centavos = comp.multas_atualizado_centavos
   }
   if (comp.total_detran_centavos != null) out.total_detran_centavos = comp.total_detran_centavos
+  // AL: restricoes e roubo/furto do /veiculo somam as do bloco; IPVA vai pra SEFAZ.
+  if (comp.restricoes_detran?.length) out.restricoes_detran = [...(bloco?.restricoes_detran || []), ...comp.restricoes_detran]
+  if (comp.alerta_roubo_furto && !bloco?.alerta_roubo_furto) out.alerta_roubo_furto = comp.alerta_roubo_furto
+  if (comp.ipva_pendente) out.ipva_pendente_sefaz = true
   return out
 }
 
@@ -2001,14 +2077,26 @@ export async function completarDetran(
     await registrarCusto(supabase, { pedidoId: pedido.id, fonte: cfgUf.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: brutoDoResultado(res) })
   }
 
+  let multas: any = null
   if (res.code !== 200 || !res.data) {
     logIndisponivel(pedido.id, uf, res.code, detalheDaRecusa(res) || 'sem data', Date.now() - t0)
-    await marcarIndisponivel(supabase, pedido.id, uf)
-    return { ok: false, code: res.code, preco: res.preco, motivo: res.codeMessage || 'sem data' }
-  }
-  let multas: any = blocoDetranDaUf(uf, res.data)
-  if (multas && (cfgUf as any).complemento) {
-    multas = juntarComplemento(multas, await buscarComplemento(supabase, pedido.id, uf, { placa: placaParaDetran(pedido.placa, ctx.response), renavam: renavam! }))
+    // Reserva (AL): o /infracoes falhou (609 frequente), mas o /veiculo traz o
+    // total das infracoes, o licenciamento e as restricoes. Bloco sem o
+    // detalhe de cada multa (multas_sem_detalhe) em vez de "indisponivel".
+    const comp = (cfgUf as any).reservaPeloComplemento
+      ? await buscarComplemento(supabase, pedido.id, uf, { placa: placaParaDetran(pedido.placa, ctx.response), renavam: renavam! })
+      : null
+    if (!comp || comp.multas_reserva_centavos == null) {
+      await marcarIndisponivel(supabase, pedido.id, uf)
+      return { ok: false, code: res.code, preco: res.preco, motivo: res.codeMessage || 'sem data' }
+    }
+    multas = juntarComplemento({ ...blocoSoMultas(cfgUf.fonte, []), multas_total_centavos: comp.multas_reserva_centavos, multas_sem_detalhe: true }, comp)
+    console.warn(`[detran] reserva pelo complemento uf=${uf} code=${res.code} pedido=${String(pedido.id).slice(0, 8)}`)
+  } else {
+    multas = blocoDetranDaUf(uf, res.data)
+    if (multas && (cfgUf as any).complemento) {
+      multas = juntarComplemento(multas, await buscarComplemento(supabase, pedido.id, uf, { placa: placaParaDetran(pedido.placa, ctx.response), renavam: renavam! }))
+    }
   }
   if (!multas) {
     // Formato que o parser nao reconhece (UF integrada so pela doc): nada de
@@ -2035,10 +2123,49 @@ export async function completarDetran(
     .update({ relatorio_snapshot: { ...atual, multas } })
     .eq('id', pedido.id)
   if (error) return { ok: false, code: res.code, preco: res.preco, motivo: 'update: ' + error.message }
+  // IPVA na SEFAZ (AL): so com debito de IPVA apontado, LENTO (~170 s): roda
+  // solto depois do bloco gravado e atualiza so os campos do IPVA.
+  if (multas.ipva_pendente_sefaz && (cfgUf as any).ipvaSefaz) {
+    void emVoo('sefaz-ipva', () => completarIpvaSefaz(supabase, pedido.id, uf, { placa, renavam: renavam! }))
+  }
   return { ok: true, code: res.code, preco: res.preco, multasCentavos: multas.multas_total_centavos, temAlgo }
 }
 
 const esperarMs = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * IPVA na SEFAZ da UF (hoje so AL), depois do bloco gravado. Grava o custo
+ * sempre; atualiza so ipva_itens/ipva_total_centavos no bloco. Falha: o bloco
+ * fica com ipva_sefaz_indisponivel (a tela diz que o valor nao veio). Nunca lanca.
+ */
+export async function completarIpvaSefaz(supabase: any, pedidoId: string, uf: UfDetran, params: { placa: string; renavam: string }): Promise<boolean> {
+  const sef: any = (DETRAN_UFS[uf] as any).ipvaSefaz
+  if (!sef) return false
+  try {
+    const res = await consultarDetranInfosimples({ uf, placa: params.placa, renavam: params.renavam, path: sef.path, timeoutS: sef.timeoutS })
+    await registrarCusto(supabase, { pedidoId, fonte: sef.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: brutoDoResultado(res) })
+    const itens = res.code === 200 ? parsearIpvaSefazAl(res.data) : null
+    const atual = await lerSnapshot(supabase, pedidoId)
+    const m = (atual as any)?.multas
+    if (!atual || !m) return false
+    const novo: any = { ...m }
+    delete novo.ipva_pendente_sefaz
+    if (itens) {
+      novo.ipva_itens = itens
+      novo.ipva_total_centavos = itens.reduce((a, x) => a + x.valor_centavos, 0)
+      novo.ipva_fonte = `sefaz_${uf.toLowerCase()}`
+      delete novo.ipva_sefaz_indisponivel
+    } else {
+      novo.ipva_sefaz_indisponivel = true
+      logIndisponivel(pedidoId, `${uf}-sefaz-ipva`, res.code, detalheDaRecusa(res) || 'sem data', 0)
+    }
+    const { error } = await supabase.from('pedidos_premium').update({ relatorio_snapshot: { ...atual, multas: novo } }).eq('id', pedidoId)
+    return !error && !!itens
+  } catch (e: any) {
+    console.warn('[infosimples] sefaz ipva falhou:', e?.message || e)
+    return false
+  }
+}
 
 /**
  * Chamada do complemento da UF (hoje so BA: licenciamento e IPVA). Grava o

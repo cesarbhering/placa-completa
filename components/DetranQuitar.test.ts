@@ -79,3 +79,14 @@ describe('sem resumo duplicado (feedback do Cesar, 14/out)', () => {
     expect(vue).toContain('v-if="ipvaLista.itens.length >= 2"')
   })
 })
+
+describe('AL: IPVA apontado, valor vindo da SEFAZ', () => {
+  it('pendente: linha "IPVA em aberto" sem valor, sem "Nada a quitar"', async () => {
+    const { mount } = await import('@vue/test-utils')
+    const { default: C } = await import('./DetranQuitar.vue')
+    const { resumoQuitar } = await import('../shared/detran-quitar')
+    const w = mount(C, { props: { resumo: resumoQuitar({ bloco: { fonte: 'detran_al', multas_total_centavos: 0, ipva_pendente_sefaz: true } }) } })
+    expect(w.text()).not.toContain('Nada a quitar')
+    expect(w.find('.dq__pendente').text()).toContain('consultando a SEFAZ-AL')
+  })
+})
