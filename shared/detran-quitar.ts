@@ -120,3 +120,40 @@ export function procedenciaKm(a: { uf: string | null; fontes: string[]; ultimaDa
   }
   return `Quilometragem · ${nomes.join(' + ')}${a.ultimaData ? ` · última leitura ${a.ultimaData}` : ''}`
 }
+
+/**
+ * Resumo por item abaixo da caixa (14/out): so STATUS, sem os valores que a
+ * caixa "Para transferir" ja mostra. Multas/IPVA/licenciamento com valor em
+ * aberto = "Em aberto" (licenciamento: "Atrasado (ano)" ou "vence dd/mm/aaaa");
+ * zerado = "Em dia" / "Nada consta". MG: ultimo exercicio/IPVA pago, neutro.
+ */
+export function statusResumoDetran(m: any, opts: { renainfForaTexto?: string | null; anoAtual?: number } = {}) {
+  const rows: { rotulo: string; valor: string; emDia: boolean; alerta?: boolean; texto?: string }[] = []
+  if (!m) return rows
+  const atual = opts.anoAtual ?? new Date().getFullYear()
+  const isoBr = (iso: any) => { const x = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return x ? `${x[3]}/${x[2]}/${x[1]}` : null }
+  if (opts.renainfForaTexto) rows.push({ rotulo: 'Multas em aberto', valor: '', emDia: false, texto: opts.renainfForaTexto })
+  else if (m.multas_total_centavos != null) {
+    const aberto = pos(m.multas_total_centavos) > 0
+    rows.push({
+      rotulo: String(m.fonte || '').startsWith('detran_') ? 'Multas' : 'Multas (Pix)',
+      valor: aberto ? 'Em aberto' : 'Nada consta', emDia: !aberto, alerta: aberto,
+    })
+  }
+  if (m.licenciamento_centavos != null || m.ultimo_licenciamento_ano != null || m.licenciamento_atrasado_ano != null) {
+    const atrasado = m.licenciamento_atrasado_ano
+    const ultimo = m.ultimo_licenciamento_ano
+    const venc = isoBr(m.licenciamento_venc)
+    const aberto = pos(m.licenciamento_centavos) > 0
+    const anterior = !atrasado && ultimo != null && ultimo < atual
+    const valor = atrasado ? `Atrasado (${atrasado})`
+      : aberto ? (venc ? `Em aberto, vence ${venc}` : 'Em aberto')
+      : anterior ? `Último: ${ultimo}` : 'Em dia'
+    rows.push({ rotulo: 'Licenciamento', valor, emDia: !atrasado && !aberto && !anterior, alerta: !!atrasado || aberto })
+  }
+  if (m.ipva_total_centavos != null) {
+    const aberto = pos(m.ipva_total_centavos) > 0
+    rows.push({ rotulo: 'IPVA', valor: aberto ? 'Em aberto' : 'Em dia', emDia: !aberto, alerta: aberto })
+  } else if (m.ipva_pago_ano != null) rows.push({ rotulo: 'IPVA', valor: `Último pago: ${m.ipva_pago_ano}`, emDia: false })
+  return rows
+}
