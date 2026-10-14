@@ -1,4 +1,5 @@
 import { sanearRenajud } from '../../utils/renajud-detalhe'
+import { garantirRecallBase } from '../../utils/recall-associado'
 import { avisarRestricaoSemCopy } from '../../utils/aviso-restricao'
 import { cupomRecompraDoPedido } from '../../utils/cupom-recompra'
 import { filtrarPorPlano, camposRestantes, PLANOS } from '../../../shared/planos'
@@ -104,7 +105,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro,forma_pagamento')
+    .select('id,status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro,forma_pagamento,recall_sinal,recall_marca')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Relatorio nao encontrado' })
@@ -136,6 +137,8 @@ export default defineEventHandler(async (event) => {
   let recallAutoritativo: any = null
   // Recall da montadora por chassi (Nissan/Mitsubishi, status por campanha): vem do snapshot.
   let recallMontadora: any = null
+  // Campanhas da base de recalls quando a consulta gratis mostrou o hook (recall_sinal firme/suave).
+  let recallBase: any = null
   // Debitos e restricoes do orgao estadual: vem do snapshot, igual ao recall.
   // Snapshot antigo (ou sem multa) nao tem o campo e a secao some.
   let multas: any = null
@@ -314,6 +317,19 @@ export default defineEventHandler(async (event) => {
   // Cupom de recompra do pedido (faixa no relatorio) enquanto valido.
   const cupomRecompra = pedido.status === 'entregue' ? await cupomRecompraDoPedido(supabase, pedido.id) : null
 
+  // Hook de recall positivo na consulta gratis: diz QUAL campanha, mesmo sem
+  // pendencia hoje. Busca uma vez (ate 6 s) e grava no snapshot; depois vem dele.
+  if (!pendente && pedido.status === 'entregue') {
+    const snapAtual: any = pedido.relatorio_snapshot || { consulta }
+    if (snapAtual.recallBase !== undefined) recallBase = snapAtual.recallBase
+    else if ((pedido.recall_sinal === 'firme' || pedido.recall_sinal === 'suave') && podeReprocessar(`recallbase:${pedido.placa}`, 10 * 60 * 1000)) {
+      // Base fora do ar nao grava nada: o debounce (10 min por placa) segura o poll da tela.
+      try {
+        recallBase = await garantirRecallBase(supabase, { id: pedido.id, placa: pedido.placa, recall_sinal: pedido.recall_sinal, recall_marca: pedido.recall_marca }, snapAtual)
+      } catch { recallBase = null }
+    }
+  }
+
   return {
     status: pedido.status,
     placa: pedido.placa,
@@ -330,6 +346,8 @@ export default defineEventHandler(async (event) => {
     recall,
     recallAutoritativo,
     recallMontadora,
+    recallBase,
+    recallSinal: pedido.recall_sinal ?? null,
     multas,
     detranConsultadoEm,
     renajudDetalhe,
