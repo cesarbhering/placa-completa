@@ -63,7 +63,10 @@ export function faixaLicenciamento(a: {
 }): FaixaLicenciamento | null {
   const atual = a.anoAtual ?? new Date().getFullYear()
   const e = a.estadual
-  const anoEst = e?.licenciamento_atrasado_ano ?? e?.ultimo_licenciamento_ano ?? null
+  // O ano mostrado e o ULTIMO LICENCIADO (ultimo_licenciamento_ano). O
+  // licenciamento_atrasado_ano so marca que ha atraso (no backfill manual do
+  // ORK8004 ele veio como o 1o ano em aberto, 2021, e o ultimo licenciado era 2020).
+  const anoEst = e?.ultimo_licenciamento_ano ?? e?.licenciamento_atrasado_ano ?? null
   if (e && anoEst != null && Number.isFinite(Number(anoEst))) {
     const uf = ufDoBloco(e)
     const fonte = uf ? ` no DETRAN-${uf}` : ' no DETRAN da UF'
@@ -75,7 +78,7 @@ export function faixaLicenciamento(a: {
       : null
     const juntar = (n: string | null) => [n, divergente].filter(Boolean).join(' ') || null
     if (e.licenciamento_atrasado_ano != null) {
-      return { ano: String(e.licenciamento_atrasado_ano), tom: 'alerta', rotulo: 'Atrasado', fonte, licenciadoEm, emissao: null, nota: divergente }
+      return { ano: String(anoEst), tom: 'alerta', rotulo: 'Atrasado', fonte, licenciadoEm, emissao: null, nota: divergente }
     }
     const t = tomDoAno(Number(anoEst), atual)
     return { ano: String(anoEst), tom: t.tom, rotulo: t.rotulo, nota: juntar(t.nota), fonte, licenciadoEm, emissao: null }
