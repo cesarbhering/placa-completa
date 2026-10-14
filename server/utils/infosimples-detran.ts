@@ -111,7 +111,13 @@ export const DETRAN_UFS = {
   // LISTA (data[] = uma multa por item, pagas e em aberto), nao data[0].
   PR: { path: 'detran/pr/multas-descritivos', cert: 'ecpf', gate: 'sempre', fonte: 'detran_pr', fonteCusto: 'infosimples_detran_pr', semPlaca: true, dataLista: true },
   // DF: login gov.br (mesma conta do BA), placa+renavam. R$0,28.
-  DF: { path: 'detran/df/debitos', cert: 'govbr_df', gate: 'sempre', fonte: 'detran_df', fonteCusto: 'infosimples_detran_df' },
+  // DF: o IPVA e da Secretaria de Economia (SEFAZ-DF), nao do DETRAN: o
+  // /debitos volta debitos_ipva vazio (caso PQH4374, 14/out). Complemento solto
+  // /sefaz/df/ipva (so renavam, sem credencial, R$0,24, ~4 s) SEMPRE que o
+  // DETRAN nao trouxer IPVA. 612 "nenhum registro" = nada em aberto no
+  // exercicio. anos_anteriores deu 600 na Infosimples: nao mandamos.
+  DF: { path: 'detran/df/debitos', cert: 'govbr_df', gate: 'sempre', fonte: 'detran_df', fonteCusto: 'infosimples_detran_df',
+    ipvaSefaz: { path: 'sefaz/df/ipva', fonteCusto: 'infosimples_sefaz_df_ipva', timeoutS: 120, semCredencial: true, soRenavam: true, sempre: true } },
   // Sem credencial (so placa + renavam). CE R$0,20; PA e AM R$0,24.
   CE: { path: 'detran/ce/multas', cert: 'nenhum', gate: 'sempre', fonte: 'detran_ce', fonteCusto: 'infosimples_detran_ce' },
   // PA: /veiculo (13/out, decisao do Cesar) no lugar do /infracoes. O /infracoes
@@ -274,9 +280,11 @@ export const ABORT_MS = 330_000
 export const CODIGOS_RETRY = new Set([0, 605, 609])
 export const ESPERA_RETRY_MS = 20_000
 
-export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null; path?: string; timeoutS?: number }): Promise<ResultadoDetran> {
+export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null; path?: string; timeoutS?: number; semCredencial?: boolean; soRenavam?: boolean }): Promise<ResultadoDetran> {
   const cfgUf: any = { ...DETRAN_UFS[opts.uf], ...(opts.timeoutS ? { timeoutS: opts.timeoutS } : {}) }
-  const certUf: CertInfosimples = cfgUf.cert
+  // semCredencial: servico de outro orgao (ex.: SEFAZ-DF) que nao pede login
+  // nem certificado; nunca mandamos a credencial do DETRAN pra ele.
+  const certUf: CertInfosimples = opts.semCredencial ? 'nenhum' : cfgUf.cert
   const cfg = infosimplesConfig(usaLoginGovbr(certUf) || certUf === 'nenhum' ? 'ecnpj' : certUf)
   if (!infosimplesConfigurado(certUf)) return { code: 0, codeMessage: `infosimples nao configurado (${certUf})`, preco: 0, data: null }
   try {
@@ -303,7 +311,7 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       body.set('login_cpf', l.cpf)
       body.set('login_senha', l.senha)
     } else if (certUf === 'nenhum') {
-      body.set('placa', opts.placa)
+      if (!opts.soRenavam) body.set('placa', opts.placa)
     } else {
       const [cert, pass] = await Promise.all([
         encriptarInfosimples(cfg.pkcs12B64, cfg.encKey),
@@ -883,6 +891,24 @@ export function parsearVeiculoAl(data: any, hoje: Date = new Date()): Complement
  * atual. parcelamento[] = em aberto (valor_total com multa e juros);
  * pagamento[] = ja pago. Devolve os itens de IPVA (vazio = nada em aberto).
  */
+/**
+ * SEFAZ-DF (/sefaz/df/ipva, so renavam): debitos[] {ano, cota, valor_principal,
+ * valor_juros, valor_multa, valor_outros, valor_total, boleto_pdf_url}. Nunca
+ * le razao_social nem boleto. Sem debitos[] = nada em aberto.
+ */
+export function parsearIpvaSefazDf(data: any): IpvaItem[] | null {
+  const lista = Array.isArray(data) ? data : data ? [data] : []
+  if (!lista.length) return []
+  const itens: IpvaItem[] = []
+  for (const d of lista) {
+    for (const x of (Array.isArray(d?.debitos) ? d.debitos : [])) {
+      const v = typeof x?.normalizado_valor_total === 'number' ? x.normalizado_valor_total : moeda(x?.valor_total)
+      if (v > 0) itens.push({ ano: anoDe(x?.ano), vencimento: String(x?.vencimento || x?.data_vencimento || '').match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? null, valor_centavos: Math.round(v * 100) })
+    }
+  }
+  return ordenarIpva(itens)
+}
+
 export function parsearIpvaSefazAl(data: any): IpvaItem[] | null {
   const lista = Array.isArray(data) ? data : data ? [data] : []
   if (!lista.length) return null
@@ -2118,12 +2144,14 @@ export async function completarDetran(
   if (manual?.preenchido_manual_em && (manual.multas_itens?.length || 0) > multas.multas_itens.length) {
     return { ok: false, code: res.code, preco: res.preco, motivo: 'manual mais completo, mantido' }
   }
+  if ((cfgUf as any).ipvaSefaz?.sempre && !((multas.ipva_total_centavos ?? 0) > 0)) multas.ipva_pendente_sefaz = true
   const { error } = await supabase
     .from('pedidos_premium')
     .update({ relatorio_snapshot: { ...atual, multas } })
     .eq('id', pedido.id)
   if (error) return { ok: false, code: res.code, preco: res.preco, motivo: 'update: ' + error.message }
-  // IPVA na SEFAZ (AL): so com debito de IPVA apontado, LENTO (~170 s): roda
+  // IPVA na SEFAZ (AL): so com debito de IPVA apontado; (DF): sempre que o
+  // DETRAN nao trouxe IPVA. LENTO no AL (~170 s): roda
   // solto depois do bloco gravado e atualiza so os campos do IPVA.
   if (multas.ipva_pendente_sefaz && (cfgUf as any).ipvaSefaz) {
     void emVoo('sefaz-ipva', () => completarIpvaSefaz(supabase, pedido.id, uf, { placa, renavam: renavam! }))
@@ -2142,9 +2170,11 @@ export async function completarIpvaSefaz(supabase: any, pedidoId: string, uf: Uf
   const sef: any = (DETRAN_UFS[uf] as any).ipvaSefaz
   if (!sef) return false
   try {
-    const res = await consultarDetranInfosimples({ uf, placa: params.placa, renavam: params.renavam, path: sef.path, timeoutS: sef.timeoutS })
+    const res = await consultarDetranInfosimples({ uf, placa: params.placa, renavam: params.renavam, path: sef.path, timeoutS: sef.timeoutS, semCredencial: !!sef.semCredencial, soRenavam: !!sef.soRenavam })
     await registrarCusto(supabase, { pedidoId, fonte: sef.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: brutoDoResultado(res) })
-    const itens = res.code === 200 ? parsearIpvaSefazAl(res.data) : null
+    // 612 "nenhum registro encontrado" = nada em aberto na SEFAZ (cobrado igual).
+    const parser = uf === 'DF' ? parsearIpvaSefazDf : parsearIpvaSefazAl
+    const itens = res.code === 612 ? [] : res.code === 200 ? parser(res.data) : null
     const atual = await lerSnapshot(supabase, pedidoId)
     const m = (atual as any)?.multas
     if (!atual || !m) return false
