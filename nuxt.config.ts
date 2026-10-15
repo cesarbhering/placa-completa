@@ -431,6 +431,7 @@ export default defineNuxtConfig({
     "/ibv/seguro-mais-caro-brasil-2026",
     "/blog",
     "/blog/claude-for-startups",
+    "/blog/carros-usados-mais-economicos",
     "/ibv",
       "/ibv/marco-2026",
       "/ibv/vencedores-perdedores-marco-2026",
