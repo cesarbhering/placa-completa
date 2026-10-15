@@ -51,7 +51,7 @@ const DOC_MODELO = 'Tabela de codigos de planta da montadora (Wikibooks VIN code
 // Versao do arquivo curado. O servico compara com o que esta gravado no banco
 // e reimporta sozinho quando sobe (ver server.js). Subir esta versao SEMPRE que
 // mexer na lista, senao a mudanca nao chega no container ja rodando.
-export const PLANTS_VERSAO = 8
+export const PLANTS_VERSAO = 9
 
 // Atalhos pra nao repetir o pais em cada linha.
 const br = (wmi, pos, cidade, uf, de = null, ate = null, fonte = IBGE, conf = 'alta') =>
@@ -353,7 +353,35 @@ const MODELOS = [
   mod('9BM', '*', ' C ?1[0-9]0 | C ?2[0-9]0 | CLASSE C | GLA ', null, 'Iracemápolis', 'SP', 2016, 2020, IMPRENSA),
   // Amarok: WV1 com codigo A e da fabrica de General Pacheco (o mesmo A do 8AW).
   ['WV1', 'A', ' AMAROK ', null, 'General Pacheco, Argentina', 'General Pacheco', null, 'Argentina', null, null, AR, 'alta'],
+  // v9: BMW X5, X6, X7 e XM importados (WMI WBA = BMW AG, mas a fabrica e a
+  // Plant Spartanburg, nos EUA). Caso: X5 xDrive45e 2023, WBA com pos 11 '9',
+  // card saia sem planta e com pais "Alemanha". O vPIC nao decodifica o
+  // modelo do VIN de exportacao, mas a planta sim: a submissao Part 565 da
+  // BMW na NHTSA mapeia a pos 11 'L', '0' e '9' do WBA para Greer (SC), o
+  // endereco da Plant Spartanburg (chassis reais da base conferidos no vPIC:
+  // X5 2002 'L', X5/X6 2014-2017 '0', X3 2023 e X7 2020 '9'). O curinga
+  // (WBA, '9') NAO entra: 4 chassis so na base (3 X3, 1 X7), abaixo do
+  // minimo de 30, e X3 tambem sai de Rosslyn e Shenyang. Por isso a regra e
+  // por MODELO + codigo: X5 desde 1999, X6 desde 2008, X7 desde 2019 e XM
+  // desde 2023 sao feitos em Spartanburg (BMW Group Press: "XM built
+  // alongside X5, X6 and X7 on the same assembly line", dez/2022). X5 de
+  // montagem CKD (Rayong, Chennai, Kaliningrad, Shenyang) usa outro WMI ou
+  // outro codigo e nao casa aqui.
+  ...bmwSpartanburg(),
 ]
+
+function bmwSpartanburg() {
+  const fonte = 'BMW Group Press (Plant Spartanburg produz X5, X6, X7 e XM) + vPIC/NHTSA (submissao da BMW: pos 11 L/0/9 do WBA = Greer, SC), chassis reais da base conferidos'
+  const modelos = [[' X5 ?M? ', 1999], [' X6 ?M? ', 2008], [' X7 ', 2019], [' XM ', 2023]]
+  const linhas = []
+  for (const pos of ['L', '0', '9']) {
+    for (const [padrao, de] of modelos) {
+      linhas.push(['WBA', pos, padrao, null, 'Spartanburg (Carolina do Sul), Estados Unidos',
+        'Spartanburg (Carolina do Sul)', null, 'Estados Unidos', de, null, fonte, 'alta'])
+    }
+  }
+  return linhas
+}
 
 const inserePlanta = db.prepare(`
   INSERT INTO plants (wmi_code, position_11, plant_name, cidade, uf, pais, ano_de, ano_ate, fonte, confianca)
