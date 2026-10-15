@@ -6,7 +6,12 @@
 //   - colado na cilindrada: "1.4MT", "1.0AT"
 //   - Chevrolet: "10TAT" / "10TMT" (1.0 turbo automatico / manual)
 //   - Hyundai: "1.6M" / "1.6A" / "1.0M" (M = manual, A = automatico)
+//   - Renault: colado no fim, "16A" / "20A" / "DYN20A" / "PR1616VA" / "4X2A"
+//     (A = automatico) e "16M" / "DYN20M" (M = manual)
 // Cuidado: "AUTH" (Logan Authentique) NAO e automatico; so token exato conta.
+// Na Renault nem "AUT" e: "CLIO AUT 10", "LOGAN AUT 1016V" = Authentique (caso
+// OUQ8G18, 15/out; em prod toda Renault com AUT era 1.0 ou Clio 1.6, e a
+// Authentique nunca teve versao Aut. na FIPE).
 
 export type Cambio = 'manual' | 'automatico'
 
@@ -29,6 +34,11 @@ function partes(descricao: string): { marca: string; tokens: string[] } {
 function deUmToken(t: string, marca: string): Cambio | null {
   const limpo = t.replace(/[^A-Z0-9.]/g, '')
   const semPonto = limpo.replace(/\./g, '')
+  if (/^REN(AULT?)?$/.test(marca)) {
+    if (semPonto === 'AUT' || semPonto === 'AUTH') return null
+    const ren = semPonto.match(/^(?:[A-Z]+)?\d{2}(?:\d{2}V?)?([AM])$|^4X[24]([AM])$/)
+    if (ren) return (ren[1] || ren[2]) === 'A' ? 'automatico' : 'manual'
+  }
   if (AUTO.has(semPonto)) return 'automatico'
   if (MANUAL.has(semPonto)) return 'manual'
   // Colado na cilindrada: "1.4MT", "1.0AT", "1.6AT6".
