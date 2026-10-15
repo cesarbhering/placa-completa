@@ -1,51 +1,86 @@
-# pc-monitor: site e checkout
+# pc-monitor: monitoramento de produção
 
-Monitoramento de produção na VPS (ordem do Cesar, 12/out/2026). Substitui a sonda única de 2 h, que gerava alarme falso e não avisou direito na queda de 11-12/out.
+Monitoramento de produção que roda na VPS, e não dentro do site. Nasceu de uma ordem do Cesar em 12/out/2026, depois da queda de 11-12/out: a sonda única de 2 h gerava alarme falso e não avisou direito.
 
-## Duas checagens, dois alertas
+Regra central: **só alerta com falha CONFIRMADA**. Cada tipo de problema tem um e-mail com assunto próprio e um aviso de "VOLTOU" com a duração. Nunca usa "VPS sobrecarregada" como diagnóstico: se o site leva mais de 20 s para o cliente, é incidente.
 
-| Alvo | O que testa | Frequência | Confirmação | E-mail |
-|---|---|---|---|---|
-| **site** (`pc-site-check.timer`) | `GET /` (precisa ter "PlacaCompleta") e `GET /api/app-status` (precisa ter "forceUpdate") pela URL pública, ou seja, Cloudflare, túnel, Traefik e container. Timeout de 15 s; resposta acima de 20 s conta como falha. | 5 min | 2 falhas seguidas, 60 s entre elas | `SITE FORA DO AR: <tipo>` |
-| **checkout** (`pc-checkout-probe.timer` e pós-deploy) | Fluxo real no Chromium: consulta grátis, botão da Completa, botão de pagar. Não gera Pix. | 30 min | 3 falhas seguidas, 60 s entre elas | `CHECKOUT COM ERRO: <tipo>` |
+## Alvos
 
-- Os e-mails vão para cesarcbhering@gmail.com e helena@placacompleta.com.br. Enquanto o problema durar, o alerta se repete a cada 1 h (`[ainda, ha 2h00] ...`). Na volta sai `... VOLTOU (fora por Xh)`.
-- **Tipos**. Site: `timeout`, `conexao`, `http_5xx`, `http_4xx`, `conteudo`, `lento`. Checkout: `api` (4xx/5xx em `/api/premium` ou `/api/consulta`), `fluxo_timeout`, `fluxo_travado`, `tela_erro`.
-- Se a home não abre, a sonda do checkout **não** manda "checkout com erro". O alerta é do site.
-- **Carga da VPS**: o Chromium roda com nice 10. Com load acima de 2x o número de núcleos, a sonda espera 2 min, até 3 vezes, e então pula a rodada sem dar veredito. Nunca usa "VPS sobrecarregada" como diagnóstico: se o site leva mais de 20 s para o cliente, é incidente.
-- `pc-deploy-watch` continua chamando `node /usr/local/bin/pc-checkout-probe.mjs` após cada deploy (sem mudança). Um lock evita duas sondas ao mesmo tempo.
+| Alvo | Timer | O que testa | Confirmação | E-mail | Repete | Destino |
+|---|---|---|---|---|---|---|
+| **site** | `pc-site-check` (5 min) | `GET /` (precisa ter "PlacaCompleta") e `GET /api/app-status` (precisa ter "forceUpdate") pela URL pública, ou seja, Cloudflare, túnel, Traefik e container. Timeout de 15 s; acima de 20 s conta como falha. | 2 falhas, 60 s entre elas | `SITE FORA DO AR: <tipo>` | a cada 1 h | Cesar e helena@ |
+| **checkout** | `pc-checkout-probe` (30 min) e pós-deploy | Fluxo real no Chromium: consulta grátis, botão da Completa, botão de pagar. Não gera Pix nem pedido. | 3 falhas, 60 s entre elas | `CHECKOUT COM ERRO: <tipo>` | a cada 1 h | Cesar e helena@ |
+| **fila** | `pc-fila-check` (5 min) | View `premium_jobs_saude` no prod (Management API): job pendente atrasado mais de 15 min ou lease vencido | já confirmado por definição | `FILA DO RELATORIO PARADA` | a cada 1 h | Cesar e helena@ |
+| **fila (esgotados)** | o mesmo | Jobs que esgotaram as 4 tentativas (1 min, 5 min, 30 min, 6 h) | não se aplica | `RELATORIO COM FONTE ESGOTADA (n)`, um por lote | não | Cesar e helena@ |
+| **tunel** | `pc-tunel-check` (5 min) | `curl -x socks5h://127.0.0.1:1080 https://ifconfig.me` (15 s): o túnel residencial do Mac | 2 falhas, 60 s entre elas | `TÚNEL DO MAC CAIU`, com o comando de subida | **não** (1 por queda) | só o Cesar |
+
+Todo alvo que abre incidente manda `... VOLTOU (fora por Xh)` quando normaliza.
+
+**Tipos de motivo:**
+- **site:** `timeout`, `conexao`, `http_5xx`, `http_4xx`, `conteudo`, `lento`.
+- **checkout:** `api` (4xx ou 5xx em `/api/premium` ou `/api/consulta`), `fluxo_timeout`, `fluxo_travado`, `tela_erro`.
+- **tunel:** `conexao`, `timeout`, `erro`.
+
+**Detalhes do checkout:**
+- Se a home não abre, a sonda **não** manda "checkout com erro". O alerta fica com o site.
+- **Carga da VPS:** o Chromium roda com nice 10. Com load acima de 2x o número de núcleos, a sonda espera 2 min, até 3 vezes, e então pula a rodada sem veredito.
+- **Pós-deploy:** o `pc-deploy-watch` chama `node /usr/local/bin/pc-checkout-probe.mjs` após cada deploy. Um lock (`/run/pc-checkout-probe.lock`) evita duas sondas ao mesmo tempo.
+- **Regra da casa:** todo deploy termina com a sonda do checkout verde.
+
+**Privacidade:** o IP de saída do túnel (a casa do Cesar) nunca é gravado. As mensagens de erro vão sem placa, e-mail, IP ou token.
 
 ## Arquivos
 
-- `pc-monitor`: motor de estado e alerta (Python, stdlib), mais a checagem do site. Subcomandos: `site`, `alerta <site|checkout> ok|falha ...`, `estado`. O subcomando `estado` gera o JSON que o coletor da TV lê.
-- `pc-checkout-probe.mjs`: o fluxo Playwright, com classificação e tentativas.
-- Estado em `/var/lib/pc-monitor/<alvo>.json`. Histórico em `/var/log/pc-monitor/<alvo>.log`, com uma linha JSON por verificação.
-- `instalar.sh`: instala e faz backup do que existia. `./instalar.sh --voltar <backup>` desfaz.
+| Arquivo | O que é |
+|---|---|
+| `pc-monitor` | Motor de estado e alerta (Python, só stdlib), com as checagens de site, fila e túnel. Subcomandos: `site`, `fila`, `tunel`, `alerta <alvo> ok\|falha <tipo> <motivo> [detalhe]`, `estado` |
+| `pc-checkout-probe.mjs` | Fluxo Playwright, com classificação e tentativas; registra o resultado via `pc-monitor alerta checkout ...` |
+| `pc-*-check.service/.timer`, `pc-checkout-probe.service/.timer` | Units systemd, todas com `OnActiveSec` + `OnUnitActiveSec` |
+| `instalar.sh` | Instala tudo e faz backup do que existia. `./instalar.sh --voltar <dir-do-backup>` desfaz |
 
-Testes sem enviar e-mail: `PCMON_DRY=1`. Para apontar a sonda para outro motor ou outro lock: `PCMON_BIN` e `PROBE_LOCK`.
+**Na VPS:**
+- Estado em `/var/lib/pc-monitor/<alvo>.json`.
+- Histórico em `/var/log/pc-monitor/<alvo>.log`, com uma linha JSON por verificação.
+- `pc-monitor estado` imprime o estado dos 4 alvos em JSON. É o que os coletores da TV leem: `saude.json` mostra `sonda_site`, `sonda_checkout` e `fila_relatorio`; `tecnologia.json` mostra `tunel_mac`.
+
+**Credenciais lidas (só o caminho, nunca o valor):**
+- token da Management API do Supabase em `~/.supabase/access-token` (alvo fila);
+- `pc-mail` (ForwardEmail) para os e-mails.
+
+## Como testar sem mandar e-mail
+
+- `PCMON_DRY=1 pc-monitor site`: imprime o e-mail que sairia em vez de enviar.
+- `PCMON_URL` troca a URL do site. `PCMON_BIN` e `PROBE_LOCK` apontam a sonda para outro motor e outro lock.
+- `PCMON_TUNEL_CMD` troca o comando de subida do túnel que vai no e-mail.
+- Para não sujar o estado real, use uma cópia do script com `ESTADO_DIR` e `LOG_DIR` apontando para uma pasta temporária.
+
+## Instalar ou atualizar
+
+```bash
+cd ops/monitor && sudo ./instalar.sh           # instala os 4 alvos e reinicia os timers
+systemctl list-timers 'pc-*-check.timer' pc-checkout-probe.timer   # NEXT tem que estar preenchido
+```
+
+Pastas irmãs:
+- `ops/premium-jobs/`: disparo da fila do relatório e limpeza do cache por fonte.
+- `ops/coolify/`: `pc-coolify-dedup`, que cancela deploys intermediários na fila do Coolify.
+
+A visão geral da VPS fica no repo `placa-completa-infra` (README).
 
 ## Calibração: as 10 falhas da sonda antiga (28/set a 12/out: 173 OK, 10 FALHA)
 
 | Quando | Erro | Home no momento | Veredito |
 |---|---|---|---|
-| 29/09 15:08 | resultado da consulta grátis não apareceu em 90 s | 200 em 0,2 s, load 1,8 | **Falso positivo** da sonda: falha isolada (a rodada seguinte passou), site rápido e VPS folgada. Lentidão pontual da consulta ou um marcador do A/B. A confirmação 3x elimina. |
+| 29/09 15:08 | resultado da consulta grátis não apareceu em 90 s | 200 em 0,2 s, load 1,8 | **Falso positivo**: falha isolada (a rodada seguinte passou), site rápido e VPS folgada. A confirmação 3x elimina. |
 | 30/09 18:06 | idem | 200 em 0,2 s, load 2,5 | **Falso positivo**, mesmo caso. |
-| 08/10 13:55 | `ERR_CONNECTION_RESET` no goto | 200 em 1,1 s logo depois | **Falso positivo**: reset de conexão único, transitório. A confirmação 2x/3x elimina. |
-| 11/10 21:25 a 12/10 09:25 (7 rodadas, de 2 em 2 h) | `waitForSelector` timeout: a home não carregou | **sem resposta em 20 s**, as 7 vezes | **Real**: site fora (504), de ~21h a 10h55. A sonda acertou, mas o e-mail dizia "VPS sobrecarregada, não checkout travado" e saía no máximo a cada 2 h. O monitor novo teria mandado "SITE FORA DO AR" por volta de 21h05, repetido de hora em hora, e "SITE VOLTOU (fora por ~14h)". |
+| 08/10 13:55 | `ERR_CONNECTION_RESET` no goto | 200 em 1,1 s logo depois | **Falso positivo**: reset único e transitório. |
+| 11/10 21:25 a 12/10 09:25 (7 rodadas) | a home não carregou | sem resposta em 20 s, as 7 vezes | **Real**: site fora (504) de ~21h a 10h55. O e-mail antigo culpava a VPS e saía no máximo a cada 2 h. O monitor novo teria mandado "SITE FORA DO AR" por volta de 21h05, repetido de hora em hora, e "SITE VOLTOU (fora por ~14h)". |
 
-Resultado: 3 falsos positivos (todos isolados, nenhum se repetiria com a confirmação) e 7 falhas reais, todas do mesmo incidente.
+Resultado: 3 falsos positivos, todos isolados, e 7 falhas reais, todas do mesmo incidente.
 
-## Fila do relatório (premium_jobs), desde 14/out/2026
+## Regras que vieram dos incidentes
 
-- `pc-monitor fila` (`pc-fila-check.timer`, a cada 5 min) lê a view `premium_jobs_saude` no prod pela Management API.
-- Se há job pendente atrasado mais de 15 min ou com lease vencido, manda `FILA DO RELATORIO PARADA`, repetido a cada 1 h, e `VOLTOU` quando normaliza.
-- Jobs que esgotaram as 4 tentativas geram um e-mail único por lote, `RELATORIO COM FONTE ESGOTADA (n)`, com fonte e erro curto.
-- A TV mostra isso em `saude.json` → `fila_relatorio`.
-- O disparo da fila e a limpeza do cache ficam em `ops/premium-jobs/`.
-
-## Túnel residencial do Mac (desde 14/out/2026)
-
-- `pc-monitor tunel` (`pc-tunel-check.timer`, a cada 5 min) faz `curl -x socks5h://127.0.0.1:1080 https://ifconfig.me` com timeout de 15 s.
-- 2 falhas seguidas, com 60 s entre elas, mandam UM e-mail `TÚNEL DO MAC CAIU` só ao Cesar, com o comando de subida. Esse alerta não se repete. Quando o túnel volta, sai `TÚNEL DO MAC VOLTOU (fora por X)`.
-- O IP de saída (a casa do Cesar) nunca é gravado.
-- Na TV: `tecnologia.json` → `tunel_mac`.
+- **Nunca** conectar o container do site a outra rede docker. Isso causou a queda de 11-12/out: o Traefik passou a rotear para a rede errada.
+- Deploy espera as consultas em andamento (`em_voo`): stop grace de 150 s e HEALTHCHECK no Dockerfile. Todo deploy termina com a sonda do checkout.
+- Timer systemd sempre com `OnActiveSec`. Depois de mexer, conferir NEXT no `list-timers`.
+- Alerta novo tem que dizer o que fazer (o túnel manda o comando de subida) e não pode virar ruído (no máximo 1 e-mail por queda quando o Cesar pedir).
