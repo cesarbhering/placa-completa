@@ -1,20 +1,28 @@
 import { BASE_LEILAO_TEXTO } from '../shared/base-leilao'
+import { postEconomicos } from './blog-post-economicos'
 
 // Posts do /blog. Mais recente primeiro. Regras de copy: sem travessao, sem
 // citar a fonte de dados do registro, sem numeros de venda/receita.
 
 export interface BlogSection {
-  type: 'intro' | 'heading' | 'cta'
+  type: 'intro' | 'heading' | 'cta' | 'table' | 'faq'
   heading?: string
   text?: string
   ctaLabel?: string
   ctaTo?: string
+  // type 'table': cabecalho, linhas e legenda (nota abaixo da tabela)
+  columns?: string[]
+  rows?: string[][]
+  caption?: string
+  // type 'faq': perguntas e respostas (viram FAQPage no schema)
+  faq?: { q: string; a: string }[]
 }
 
 export interface BlogPost {
   slug: string
   title: string
   metaDescription: string
+  seoTitles?: string[] // variantes de <title> (50 a 60 caracteres), da preferida pra curta
   publishedAt: string // ISO
   categoria: string
   capa: { src: string; og: string; alt: string; largura: number; altura: number }
@@ -22,6 +30,7 @@ export interface BlogPost {
 }
 
 export const blogPosts: BlogPost[] = [
+  postEconomicos,
   {
     slug: 'claude-for-startups',
     title: 'PlacaCompleta é aceito no Claude for Startups, da Anthropic',
