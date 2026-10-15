@@ -61,4 +61,20 @@ describe('disparo de purchase', () => {
     useAnalytics().trackConversionPaga('tok_tabela_1', 'completa')
     expect(w.uetq.push).toHaveBeenCalledTimes(1)
   })
+  it('cupom GOOGLE (valor 0): so a conversao do Google Ads, valor R$ 0,01, uma vez', () => {
+    const w = ambiente()
+    const a = useAnalytics()
+    a.trackConversionPaga('tok_google_1', 'completa', 0, ' google ')
+    a.trackConversionPaga('tok_google_1', 'completa', 0, 'GOOGLE')
+    expect(w.gtag).toHaveBeenCalledTimes(1)
+    expect(w.gtag).toHaveBeenCalledWith('event', 'conversion', expect.objectContaining({ value: 0.01, transaction_id: 'tok_google_1' }))
+    expect(w.uetq.push).not.toHaveBeenCalled()
+    expect(w.fbq).not.toHaveBeenCalled()
+  })
+
+  it('outro cupom 100% continua sem disparar nada', () => {
+    const w = ambiente()
+    useAnalytics().trackConversionPaga('tok_outro_1', 'completa', 0, 'DESCULPAXYZ')
+    expect(w.gtag).not.toHaveBeenCalled()
+  })
 })
