@@ -17,12 +17,26 @@ describe('cambioDoNome (camada 1)', () => {
     ['I/VW JETTA 2.0 TSI DCT', 'automatico'],
     ['RENAULT/SANDERO EXP 16 MT', 'manual'],
     ['TOYOTA/COROLLA XEI AUT', 'automatico'],
+    // Renault: cambio colado no fim (A = automatico, M = manual)
+    ['RENAULT/DUSTER 20 D 4X2A', 'automatico'],
+    ['RENAULT/SANDERO PR1616VA', 'automatico'],
+    ['I/RENAULT FLUENCE DYN20A', 'automatico'],
+    ['RENAULT/CAPTUR INTEN 16A', 'automatico'],
+    ['RENAULT/CAPTUR ZEN 16M', 'manual'],
+    ['RENAULT/OROCH INTENSE16M', 'manual'],
   ])('%s -> %s', (desc, esperado) => {
     expect(cambioDoNome(desc)).toBe(esperado)
   })
   it.each([
     'RENAULT/LOGAN AUTH 1.0',       // Authentique nao e automatico
     'RENAULT/SANDERO AUTHENTIQUE',
+    // Renault: AUT e Authentique, nao automatico (OUQ8G18, 15/out)
+    'RENAULT/CLIO AUT 10 16VS',
+    'RENAULT/LOGAN AUT 1016V',
+    'I/RENAULT CLIO AUT 10H3P',
+    'RENAULT/DUSTER 16 D 4X2',
+    'RENAULT/MASTER REVES A',       // A solto nao e cambio
+    'FIAT/STRADA 16A',              // colado so vale na Renault
     'TOYOTA/COROLLA XEI18VVT',      // sem pista
     'NISSAN/MARCH 16SV',
     'FIAT/UNO MILLE 1.0A',          // "A" depois da cilindrada so vale na Hyundai

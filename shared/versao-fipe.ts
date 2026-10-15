@@ -50,7 +50,7 @@ const SINONIMOS: Record<string, string[]> = {
  * ficou ambiguo entre Comfortline, Highline e Launching Ed.; HL = Highline.
  * So vale na marca certa: "LE" ou "CL" soltos em outra marca nao sao isto.
  */
-export const SIGLAS_POR_MARCA: Record<string, { rotulo: string; siglas: Record<string, string[]> }> = {
+export const SIGLAS_POR_MARCA: Record<string, { rotulo: string; siglas: Record<string, string[]>; grafiasFipe?: Record<string, string[]> }> = {
   VW: {
     rotulo: 'VW',
     siglas: {
@@ -69,12 +69,53 @@ export const SIGLAS_POR_MARCA: Record<string, { rotulo: string; siglas: Record<s
       LT: ['LT'], LTZ: ['LTZ'], LS: ['LS'], RS: ['RS'], ACTIV: ['ACTIV'], MIDNIGHT: ['MIDNIGHT'],
     },
   },
+  // Renault (caso OUQ8G18, 15/out): "RENAULT/DUSTER 16 D 4X2" = Duster Dynamique.
+  // Conferido nos nomes Renault de prod x lista FIPE de cada placa: toda placa
+  // com a sigla tinha a versao na lista e nenhuma contradizia. Letra solta (D,
+  // E) so vale como palavra inteira e so na Renault. AUT/AUTH = Authentique, NAO
+  // cambio: sempre 1.0 (ou Clio 1.6) e a Authentique nunca teve Aut. na FIPE;
+  // o cambio Renault vem colado no fim ("16A", "4X2A"), ver cambio-nome.ts.
+  RENAULT: {
+    rotulo: 'Renault',
+    siglas: {
+      D: ['DYNAMIQUE'], DYN: ['DYNAMIQUE'], DYNA: ['DYNAMIQUE'], DYNAMIQUE: ['DYNAMIQUE'],
+      E: ['EXPRESSION'], EXP: ['EXPRESSION'], EXPR: ['EXPRESSION'], EXPRESSION: ['EXPRESSION'],
+      AUT: ['AUTHENTIQUE'], AUTH: ['AUTHENTIQUE'], AUTHENTIQUE: ['AUTHENTIQUE'],
+      PR: ['PRIVILEGE'], PRI: ['PRIVILEGE'], PRIV: ['PRIVILEGE'], PRIVILEGE: ['PRIVILEGE'],
+      INT: ['INTENSE'], INTEN: ['INTENSE'], INTENS: ['INTENSE'], INTP: ['INTENSE'], INTENSE: ['INTENSE'],
+      ICO: ['ICONIC'], ICOP: ['ICONIC'], ICONIC: ['ICONIC'],
+      ST: ['STEPWAY'], STW: ['STEPWAY'], STEP: ['STEPWAY'], STEPWAY: ['STEPWAY'],
+      OUTSID: ['OUTSIDER'], OUTSIDE: ['OUTSIDER'], OUTSIDER: ['OUTSIDER'],
+      CAM: ['CAMPUS'], CAMPUS: ['CAMPUS'],
+      ZEN: ['ZEN'], LIFE: ['LIFE'], TECHROAD: ['TECHROAD'], PRO: ['PRO'], BOSE: ['BOSE'],
+    },
+    // A FIPE abrevia a versao Renault de varios jeitos ("Dyna.", "Dynamiq.",
+    // "Expres.", "Authent.", "Privil."). NAO entra "Express": Kangoo/Oroch
+    // Express e outra versao, nao Expression.
+    grafiasFipe: {
+      DYNAMIQUE: ['DYNAMIQUE', 'DYNAMIQ', 'DYNAM', 'DYNA', 'DYN'],
+      EXPRESSION: ['EXPRESSION', 'EXPRES', 'EXPR', 'EXP'],
+      AUTHENTIQUE: ['AUTHENTIQUE', 'AUTHENT', 'AUTH'],
+      PRIVILEGE: ['PRIVILEGE', 'PRIVILLEGE', 'PRIVIL'],
+      STEPWAY: ['STEPWAY', 'STEP'],
+    },
+  },
 }
 // Como a marca aparece no cadastro.
 const MARCA_SIGLAS: Record<string, string> = {
   VW: 'VW', VOLKSWAGEN: 'VW', VOLKS: 'VW', VOLKSWAGE: 'VW',
   GM: 'GM', CHEV: 'GM', CHEVROLET: 'GM', GMCHEVROLET: 'GM',
+  RENAULT: 'RENAULT', REN: 'RENAULT', RENAUL: 'RENAULT',
 }
+
+/** Legenda Renault pro prompt do juiz FIPE (siglas a parte, em siglasParaPrompt). */
+export const LEGENDA_RENAULT = 'Renault: letra solta no nome e versao (D = Dynamique, E = Expression; "DUSTER 16 D 4X2" e o Duster Dynamique 1.6 4x2). AUT/AUTH = Authentique, NAO cambio automatico. O cambio vem colado no fim: "16A", "20A", "4X2A", "PR1616VA" = automatico; "16M", "20M" = manual. Stepway e linha propria: nome sem STEPWAY/STEP/STW/ST nao e Stepway.'
+
+/** Nome Renault diz Stepway? (STEPWAY, STEP, STW, ST, solto ou colado no motor: "ST16RSCE"). */
+function nomeEStepway(descricao: string | null | undefined): boolean {
+  return palavrasDoNome(String(descricao || '')).map(norm).some((p) => /^(STEPWAY|STEP|STW|ST)(\d|$)/.test(p))
+}
+const RE_STEPWAY_FIPE = /\bSTEP(WAY)?\b/i
 
 /**
  * Codigo GM de motor/cambio no nome do cadastro: "10TAT" = 1.0 turbo automatico,
@@ -170,7 +211,8 @@ export function siglasParaPrompt(): string {
   }).join('; ')
 }
 
-const norm = (t: string) => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+// Sem acento antes de limpar: "Privilège" vira PRIVILEGE, nao PRIVILGE.
+const norm = (t: string) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 
 /** Palavras do nome sem a marca: "I/TOYOTA COROLLA XEI18VVT" -> COROLLA, XEI18VVT. */
 function palavrasDoNome(descricao: string): string[] {
@@ -190,7 +232,10 @@ export interface VersaoDoNome {
 
 export function versaoDoNome(descricao: string | null | undefined): VersaoDoNome {
   const palavras = palavrasDoNome(String(descricao || ''))
-  const siglas = SIGLAS_POR_MARCA[MARCA_SIGLAS[marcaDoNome(descricao)] || '']?.siglas || {}
+  const tabela = SIGLAS_POR_MARCA[MARCA_SIGLAS[marcaDoNome(descricao)] || '']
+  const siglas = tabela?.siglas || {}
+  // Sigla -> versoes aceitas, com as abreviacoes que a FIPE usa pra cada uma.
+  const daSigla = (s: string) => [...new Set(siglas[s].flatMap((v) => tabela?.grafiasFipe?.[v] || [v]))]
   let versoes: string[] = []
   let motor: string | null = null
   // A 1a palavra e o modelo (COROLLA, GOL); versao vem depois.
@@ -202,14 +247,16 @@ export function versaoDoNome(descricao: string | null | undefined): VersaoDoNome
       // Codigo GM de motor/cambio ("10TAT") nao e versao: so o motor sai dele.
       const gm = n.match(/^(\d)(\d)T?(AT|MT)$/)
       if (gm && MARCA_SIGLAS[marcaDoNome(descricao)] === 'GM') { if (!motor) motor = `${gm[1]}.${gm[2]}`; continue }
-      if (siglas[n]) versoes = siglas[n]
+      if (siglas[n]) versoes = daSigla(n)
       else if (VERSOES.has(n)) versoes = SINONIMOS[n] || [n]
       else {
-        // Colada na motorizacao: "XEI18VVT" -> XEI + 1.8.
-        const colada = n.match(/^([A-Z]{2,})(\d)(\d)(?:[A-Z]*)$/)
-        if (colada && VERSOES.has(colada[1])) {
-          versoes = SINONIMOS[colada[1]] || [colada[1]]
-          if (!motor) motor = `${colada[2]}.${colada[3]}`
+        // Colada na motorizacao: "XEI18VVT" -> XEI + 1.8; Renault "EXP1016V"
+        // -> EXP + 1.0 (o 16 e de valvulas), "PR1616VA" -> PR + 1.6.
+        const colada = n.match(/^([A-Z]{2,})(\d)(\d)(?:\d{2}V?)?(?:[A-Z]*)$/)
+        if (colada && (siglas[colada[1]] || VERSOES.has(colada[1]))) {
+          versoes = siglas[colada[1]] ? daSigla(colada[1]) : (SINONIMOS[colada[1]] || [colada[1]])
+          // "DYN42AT" (Oroch): 42/44 e tracao 4x2/4x4, nao motor.
+          if (!motor && !/^4[24]$/.test(colada[2] + colada[3])) motor = `${colada[2]}.${colada[3]}`
         }
         // Motorizacao antes da versao: "MARCH 16SV" -> 1.6 + SV.
         const antes = n.match(/^(\d)(\d)([A-Z]{2,})$/)
@@ -226,7 +273,8 @@ export function versaoDoNome(descricao: string | null | undefined): VersaoDoNome
 /** O nome FIPE tem a versao? Compara palavra inteira normalizada: LT nao casa com LTZ; SE-G casa com SEG. */
 export function candidatoTemVersaoDoNome(modelo: string, versoes: string[]): boolean {
   if (!versoes.length) return true
-  const palavras = String(modelo || '').split(/[\s/]+/).map(norm)
+  // Tambem quebra no ponto: a FIPE cola abreviacao ("Exp.Hi-Flex", "Expres.SPORTWAY").
+  const palavras = [...String(modelo || '').split(/[\s/]+/), ...String(modelo || '').split(/[\s/.]+/)].map(norm)
   return palavras.some((p) => versoes.includes(p))
 }
 
@@ -271,6 +319,12 @@ export function filtrarPelaVersaoDoNome<T extends { modelo: string }>(lista: T[]
     restantes = so(restantes, (c) => (pgm.tracao === '4X4' ? /\b4x4\b/i.test(c.modelo) : !/\b4x4\b/i.test(c.modelo)))
     if (pgm.diesel) restantes = so(restantes, (c) => /diesel|\bdies\.?|\bTDI\b|\bCTDI\b/i.test(c.modelo))
     if (pgm.motor) restantes = so(restantes, (c) => candidatoTemMotor(c.modelo, pgm.motor))
+  }
+  // Renault: Stepway e linha propria. Nome sem STEP nao fica com Stepway (a
+  // FIPE tem "SANDERO STEPWAY EXP.", que casaria com o EXP do nome).
+  if (MARCA_SIGLAS[marcaDoNome(descricao)] === 'RENAULT' && !nomeEStepway(descricao)) {
+    const semStep = restantes.filter((c) => !RE_STEPWAY_FIPE.test(c.modelo))
+    if (semStep.length) restantes = semStep
   }
   // Turbo do codigo GM ("10TAT" tem T): fica com as versoes TB; sem T ("10MT"),
   // tira as TB. So vale se sobrar alguem.

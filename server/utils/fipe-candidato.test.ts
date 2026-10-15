@@ -1104,3 +1104,47 @@ describe('Mercedes: I/ importado, numero colado e sufixos (FF, CGI, CDI, 4M) com
     expect(LEGENDA_MERCEDES).toContain('FF = Flex Fuel')
   })
 })
+
+describe('Renault: D = Dynamique e cambio colado (OUQ8G18 e FHB6G05, 15/out)', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+  // Duster 2014 na fipe-api (recorte dos relatorios reais).
+  const DUSTER_2014 = [
+    { codigo_fipe: '025181-0', modelo: 'DUSTER 1.6 Hi-Flex 16V Mec.', valor: 49173 },
+    { codigo_fipe: '025183-6', modelo: 'DUSTER Dynamique 1.6 Flex 16V Mec.', valor: 50664 },
+    { codigo_fipe: '025182-8', modelo: 'DUSTER Expression 1.6 Hi-Flex 16V Mec.', valor: 50378 },
+    { codigo_fipe: '025191-7', modelo: 'DUSTER TECHROAD 1.6 Hi-Flex 16V Mec.', valor: 48278 },
+    { codigo_fipe: '025185-2', modelo: 'DUSTER Dynamique 2.0 Flex 16V Aut.', valor: 50347 },
+    { codigo_fipe: '025184-4', modelo: 'DUSTER Dynamique 2.0 Hi-Flex 16V Mec.', valor: 50255 },
+    { codigo_fipe: '025186-0', modelo: 'DUSTER Dynamique 4x4 2.0 Hi-Flex 16V Mec', valor: 52478 },
+    { codigo_fipe: '025209-3', modelo: 'DUSTER TECHROAD 4X4 2.0 16V Mec.', valor: 53296 },
+    { codigo_fipe: '025193-3', modelo: 'DUSTER TECHROAD 2.0 Hi-Flex 16V Aut.', valor: 50116 },
+  ]
+  const montarFetch = (chamadas: any[]) => vi.fn(async (url: string, init?: any) => {
+    if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: DUSTER_2014 }) } as any
+    if (String(url).includes('anthropic')) { chamadas.push(JSON.parse(init.body)); return { ok: true, status: 200, json: async () => ({ stop_reason: 'end_turn', content: [{ type: 'text', text: '{"codigo_fipe":"025183-6","confianca":"baixa","justificativa":"x"}' }] }) } as any }
+    return { ok: false, json: async () => ({}) } as any
+  })
+  const entrada = (desc: string, cilindrada: number) => ({
+    senatran: { descricaoMarcaModelo: desc, anoModelo: 2014, cilindrada, potencia: 115, descricaoTipoVeiculo: 'CAMIONETA', codigoCombustivel: '16' },
+    wdapi: { marca: 'RENAULT', MODELO: desc.split('/')[1], anoModelo: '2014', fipe: { dados: [] } },
+    fipeApiUrl: 'http://f', fipeApiToken: 't', anthropicApiKey: 'k',
+  })
+  it('"RENAULT/DUSTER 16 D 4X2" 2014 -> Dynamique 1.6 (025183-6) por regra, sem Haiku', async () => {
+    const chamadas: any[] = []
+    vi.stubGlobal('fetch', montarFetch(chamadas))
+    const r = await escolherMelhorFipe(entrada('RENAULT/DUSTER 16 D 4X2', 1598))
+    expect(r.escolhido?.codigo_fipe).toBe('025183-6')
+    expect(r.decididoPor).toBe('regra')
+    expect(chamadas).toHaveLength(0)
+  })
+  it('"RENAULT/DUSTER 20 D 4X2A": Dynamique 2.0 Aut. (025185-2)', async () => {
+    vi.stubGlobal('fetch', montarFetch([]))
+    const r = await escolherMelhorFipe(entrada('RENAULT/DUSTER 20 D 4X2A', 1998))
+    expect(r.escolhido?.codigo_fipe).toBe('025185-2')
+  })
+  it('o prompt do juiz leva a legenda Renault e a versao do nome', async () => {
+    const { versaoPeloNomeParaPrompt } = await import('./fipe-candidato')
+    expect(versaoPeloNomeParaPrompt('RENAULT/DUSTER 16 D 4X2')[0]).toContain('Dynamique')
+    expect(versaoPeloNomeParaPrompt('RENAULT/DUSTER 16 4X2')).toEqual([])
+  })
+})
