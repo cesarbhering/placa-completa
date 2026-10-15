@@ -45,6 +45,33 @@ function anoDe(iso: string | null): string | null {
 }
 
 /**
+ * A base devolve a MESMA campanha uma vez por variante de modelo (ex.: "Polo" e
+ * "Novo Polo"), o que aparecia como item duplicado no relatorio (SHW1H43,
+ * 15/out). Agrupa por codigo (ou nome) e junta os modelos: os de mesmo ano
+ * viram "Polo e Novo Polo 2023".
+ */
+function agruparCampanhas(camps: CampanhaBase[]): { c: CampanhaBase; modelos: string }[] {
+  const grupos = new Map<string, { c: CampanhaBase; porAno: Map<string, string[]> }>()
+  for (const c of camps) {
+    const chave = (c.codigo ? `c:${c.codigo}` : `n:${c.nome || ''}`).trim().toLowerCase()
+    let g = grupos.get(chave)
+    if (!g) { g = { c, porAno: new Map() }; grupos.set(chave, g) }
+    if (!c.modelo) continue
+    const ano = c.ano_modelo != null ? String(c.ano_modelo) : ''
+    const lista = g.porAno.get(ano) || []
+    if (!lista.includes(c.modelo)) lista.push(c.modelo)
+    g.porAno.set(ano, lista)
+  }
+  return [...grupos.values()].map((g) => ({
+    c: g.c,
+    modelos: [...g.porAno.entries()].map(([ano, ms]) => {
+      const nomes = ms.length > 1 ? `${ms.slice(0, -1).join(', ')} e ${ms[ms.length - 1]}` : ms[0]
+      return ano ? `${nomes} ${ano}` : nomes
+    }).join('; '),
+  }))
+}
+
+/**
  * Card novo, ou null quando nao se aplica:
  * - sem hook positivo na consulta gratis: null;
  * - ha recall pendente (base nacional, GM ou montadora): o card de pendente ja responde;
@@ -62,12 +89,12 @@ export function cardRecallAssociado(e: {
   const firme = e.sinal === 'firme' || camps.some((c) => c.nivel === 'firme')
   return {
     titulo: firme ? 'Recall associado a este veículo' : 'Recall associado a este modelo e ano',
-    itens: camps.map((c) => ({
-      nome: c.nome || 'Campanha de recall',
+    itens: agruparCampanhas(camps).map((g) => ({
+      nome: g.c.nome || 'Campanha de recall',
       meta: [
-        c.codigo ? `Campanha ${c.codigo}` : null,
-        anoDe(c.inicio) ? `iniciada em ${anoDe(c.inicio)}` : null,
-        c.modelo ? `${c.modelo}${c.ano_modelo ? ` ${c.ano_modelo}` : ''}` : null,
+        g.c.codigo ? `Campanha ${g.c.codigo}` : null,
+        anoDe(g.c.inicio) ? `iniciada em ${anoDe(g.c.inicio)}` : null,
+        g.modelos || null,
       ].filter(Boolean).join(' · '),
     })),
     situacao: SITUACAO_RECALL_ASSOCIADO,
