@@ -17,7 +17,7 @@ import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
 import { cambioDoNome, versaoFipeManual, versaoFipeAutomatica, opcoesDeCambio } from '../../shared/cambio-nome'
 import { cambioPeloChassi } from '../../shared/cambio-chassi'
-import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES, fatosPicapeGM, LEGENDA_PICAPE_GM } from '../../shared/versao-fipe'
+import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES, fatosPicapeGM, LEGENDA_PICAPE_GM, LEGENDA_RENAULT } from '../../shared/versao-fipe'
 
 export { codigoDaTabela, type TabelaFipe }
 
@@ -840,6 +840,17 @@ function falhaHaiku(motivo: string, detalhe: string | null, token: string | null
   void alertarFalhaHaiku({ motivo, detalhe, modelo: HAIKU_MODEL, token: token ?? null }).catch(() => {})
 }
 
+/**
+ * Fato pro juiz: a versao que a sigla do nome ja diz ("DUSTER 16 D 4X2" ->
+ * Dynamique; "COROLLA XEI18VVT" -> XEi). Vazio quando o nome nao traz versao.
+ */
+export function versaoPeloNomeParaPrompt(descricao: string | null | undefined): string[] {
+  const versoes = versaoDoNome(descricao).versoes
+  if (!versoes.length) return []
+  const ext = (v: string) => v.charAt(0) + v.slice(1).toLowerCase()
+  return [`- versao pela sigla do nome do cadastro: ${ext(versoes[0])} (na FIPE pode vir abreviada: ${versoes.join(', ')})`]
+}
+
 async function julgarComHaiku(
   fatos: Fatos,
   senatran: FipeMelhorCandidatoInput['senatran'],
@@ -857,6 +868,7 @@ async function julgarComHaiku(
     `- marca/modelo/submodelo/versao (wdapi): ${marcaExibicao(wdapi)} / ${wdapi?.MODELO || ''} / ${wdapi?.SUBMODELO || ''} / ${wdapi?.VERSAO || ''}`,
     `- ano modelo: ${wdapi?.anoModelo ?? senatran?.anoModelo ?? 'desconhecido'}`,
     `- combustivel (wdapi): ${wdapi?.extra?.combustivel || 'desconhecido'}`,
+    ...versaoPeloNomeParaPrompt(senatran?.descricaoMarcaModelo),
     '',
     'Candidatos da tabela FIPE (ja pre-filtrados por cilindrada/carroceria/versao/cambio):',
     ...candidatos.map((c) => `- codigo_fipe=${c.codigo_fipe} | ${c.modelo} | valor=${c.valor ?? 'desconhecido'}`),
@@ -869,6 +881,7 @@ async function julgarComHaiku(
     'A sigla de versao no nome do cadastro identifica a versao FIPE escrita por extenso.',
     LEGENDA_MERCEDES,
     LEGENDA_PICAPE_GM,
+    LEGENDA_RENAULT,
     `Siglas conhecidas: ${siglasParaPrompt()}. Ex.: "VW/NIVUS HL TSI" e o Nivus Highline.`,
     'Se a sigla do cadastro corresponde a um unico candidato, escolha esse candidato com confianca alta.',
     'IMPORTANTE: se os candidatos so se diferenciam pelo cambio (Mec./Aut./',
