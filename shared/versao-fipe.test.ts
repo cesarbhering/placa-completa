@@ -177,3 +177,81 @@ describe('picape GM: sufixo de cabine e tracao (PQH4374, 14/out)', () => {
     expect(filtrarPelaVersaoDoNome(l, 'CHEVROLET/S10 LS DS4').map((c) => c.modelo)).toEqual(['S10 Pick-Up LS 2.8 TDI 4x4 CD Dies. Mec.', 'S10 Pick-Up LS 2.8 TDI 4x4 CD Dies. Aut.'])
   })
 })
+
+describe('Renault: siglas do cadastro (OUQ8G18, 15/out)', () => {
+  // Shortlist real do relatorio OUQ8G18 (Duster 2014).
+  const DUSTER_2014 = [
+    { codigo_fipe: '025181-0', modelo: 'DUSTER 1.6 Hi-Flex 16V Mec.' },
+    { codigo_fipe: '025183-6', modelo: 'DUSTER Dynamique 1.6 Flex 16V Mec.' },
+    { codigo_fipe: '025182-8', modelo: 'DUSTER Expression 1.6 Hi-Flex 16V Mec.' },
+    { codigo_fipe: '025191-7', modelo: 'DUSTER TECHROAD 1.6 Hi-Flex 16V Mec.' },
+  ]
+  it('"DUSTER 16 D 4X2" = Dynamique; "16 E 4X2" = Expression', () => {
+    expect(versaoDoNome('RENAULT/DUSTER 16 D 4X2').versoes).toContain('DYNAMIQUE')
+    expect(filtrarPelaVersaoDoNome(DUSTER_2014, 'RENAULT/DUSTER 16 D 4X2').map((c) => c.codigo_fipe)).toEqual(['025183-6'])
+    expect(filtrarPelaVersaoDoNome(DUSTER_2014, 'RENAULT/DUSTER 16 E 4X2').map((c) => c.codigo_fipe)).toEqual(['025182-8'])
+  })
+  it('letra solta so vale como palavra inteira e so na Renault', () => {
+    expect(versaoDoNome('RENAULT/MEGANE E-TECH').versoes).toEqual([])
+    expect(versaoDoNome('RENAULT/MASTER REVES A').versoes).toEqual([])
+    expect(versaoDoNome('FIAT/STRADA D 1.3').versoes).toEqual([])
+    expect(versaoDoNome('VW/GOL E 1.0').versoes).toEqual([])
+    expect(versaoDoNome('M.BENZ/C 200 D').versoes).toEqual([])
+  })
+  it('AUT/AUTH = Authentique, inclusive colado no motor', () => {
+    expect(versaoDoNome('RENAULT/CLIO AUT 10 16VS')).toEqual({ versoes: ['AUTHENTIQUE', 'AUTHENT', 'AUTH'], motor: null })
+    expect(versaoDoNome('RENAULT/SANDERO AUT1016V')).toEqual({ versoes: ['AUTHENTIQUE', 'AUTHENT', 'AUTH'], motor: '1.0' })
+    expect(versaoDoNome('RENAULT/LOGAN AUTH 10').versoes).toContain('AUTHENTIQUE')
+    const logan = [
+      { modelo: 'LOGAN Authentique Hi-Flex 1.0 16V 4p' },
+      { modelo: 'LOGAN Expression Hi-Flex 1.0 16V 4p' },
+      { modelo: 'LOGAN Expression Hi-Flex 1.6 16V 4p Aut' },
+    ]
+    expect(filtrarPelaVersaoDoNome(logan, 'RENAULT/LOGAN AUT 1016V').map((c) => c.modelo)).toEqual(['LOGAN Authentique Hi-Flex 1.0 16V 4p'])
+    // "Authent." abreviado na FIPE tambem casa.
+    expect(filtrarPelaVersaoDoNome([{ modelo: 'DUSTER Authent. 1.6 Flex 16V Aut.(PCD)' }, { modelo: 'DUSTER Expression 1.6 Flex 16V Aut.' }], 'RENAULT/DUSTER AUTH 16').map((c) => c.modelo))
+      .toEqual(['DUSTER Authent. 1.6 Flex 16V Aut.(PCD)'])
+  })
+  it('demais siglas e abreviacoes da FIPE (Dyna., Dynamiq., Expres., Privilege com acento)', () => {
+    const casos: Array<[string, string]> = [
+      ['RENAULT/LOGAN DYNA 16 M', 'DYNAMIQUE'], ['RENAULT/MEGANESD DYN 16', 'DYNAMIQUE'],
+      ['RENAULT/SANDERO EXPR 10', 'EXPRESSION'], ['RENAULT/LOGAN EXP 16', 'EXPRESSION'],
+      ['RENAULT/CLIO PRI 16 16VS', 'PRIVILEGE'], ['RENAULT/SANDERO PR1616VA', 'PRIVILEGE'],
+      ['RENAULT/KWID INTENS 10MT', 'INTENSE'], ['RENAULT/DUSTER INT16 CVT', 'INTENSE'], ['RENAULT/CAPTUR INTEN 16A', 'INTENSE'],
+      ['RENAULT/DUSTER ICO16 CVT', 'ICONIC'], ['RENAULT/KWID ZEN 2', 'ZEN'], ['RENAULT/KWID OUTSID 10MT', 'OUTSIDER'],
+      ['RENAULT/SANDERO STEP 16', 'STEPWAY'], ['RENAULT/SANDERO STW 16HP', 'STEPWAY'], ['I/RENAULT CLIO CAM1016VH', 'CAMPUS'],
+    ]
+    for (const [nome, versao] of casos) expect(versaoDoNome(nome).versoes, nome).toContain(versao)
+    expect(versaoDoNome('RENAULT/SANDERO PR1616VA').motor).toBe('1.6')
+    expect(versaoDoNome('RENAULT/SANDERO EXP1016V').motor).toBe('1.0')
+    expect(versaoDoNome('RENAULT/OROCH 20 DYN42AT').motor).toBeNull() // 42 = 4x2
+    expect(filtrarPelaVersaoDoNome([{ modelo: 'SANDERO Privilège Hi-Flex 1.6 16V 5p Aut' }, { modelo: 'SANDERO Expression Hi-Flex 1.6 16V 5p' }], 'RENAULT/SANDERO PR1616VA').map((c) => c.modelo))
+      .toEqual(['SANDERO Privilège Hi-Flex 1.6 16V 5p Aut'])
+    expect(filtrarPelaVersaoDoNome([{ modelo: 'LOGAN Dyna. Hi-Flex 1.6 8V 4p' }, { modelo: 'LOGAN Expres. Hi-Flex 1.6 8V 4p' }], 'RENAULT/LOGAN DYNA 16 M').map((c) => c.modelo))
+      .toEqual(['LOGAN Dyna. Hi-Flex 1.6 8V 4p'])
+  })
+  it('EXP nao casa com Express (Kangoo/Oroch Express e outra versao)', () => {
+    const oroch = [{ modelo: 'DUSTER OROCH Express 1.6 Flex 16V Mec.' }, { modelo: 'DUSTER OROCH Expression 1.6 Flex 16V Mec' }]
+    expect(filtrarPelaVersaoDoNome(oroch, 'RENAULT/OROCH EXP 16 SCE').map((c) => c.modelo)).toEqual(['DUSTER OROCH Expression 1.6 Flex 16V Mec'])
+  })
+  it('Stepway: nome sem STEP nao fica com Stepway; com STEP fica (FRT4D71)', () => {
+    const sandero = [
+      { modelo: 'SANDERO Expression Flex 1.6 16V 5p' },
+      { modelo: 'SANDERO STEPWAY EXP. Flex 1.6 16V 5p' },
+      { modelo: 'SANDERO Dynamique Flex 1.6 16V 5p' },
+    ]
+    expect(filtrarPelaVersaoDoNome(sandero, 'RENAULT/SANDERO EXP16SCE').map((c) => c.modelo)).toEqual(['SANDERO Expression Flex 1.6 16V 5p'])
+    expect(filtrarPelaVersaoDoNome(sandero, 'RENAULT/SANDERO STEP 16').map((c) => c.modelo)).toEqual(['SANDERO STEPWAY EXP. Flex 1.6 16V 5p'])
+  })
+  it('siglas Renault vao pro prompt do juiz', async () => {
+    const { siglasParaPrompt, LEGENDA_RENAULT } = await import('./versao-fipe')
+    const t = siglasParaPrompt()
+    expect(t).toContain('Renault: ')
+    expect(t).toContain('D = Dynamique')
+    expect(t).toContain('E = Expression')
+    expect(t).toContain('AUT = Authentique')
+    expect(t).toContain('HL = Highline') // VW segue igual
+    expect(LEGENDA_RENAULT).toContain('NAO cambio automatico')
+    expect(LEGENDA_RENAULT).not.toMatch(/\u2014/)
+  })
+})
