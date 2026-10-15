@@ -1343,6 +1343,7 @@ const cardAssociado = computed(() => cardRecallAssociado({
   base: data.value?.recallBase,
   pendente: recallPendente.value || recallAbertoGM.value || campanhasAbertas.value.length > 0,
   montadoraComCampanhas: !!recallMontadora.value,
+  anoFabricacao: g('anoFabricacao') as any,
 }))
 const marcaComConsultaMontadora = computed(() =>
   /\b(nissan|mmc|mitsubishi|m\.?\s*benz|mercedes)\b/i.test(String(g('descricaoMarcaModelo') || '')) && String(g('chassi') || '').trim().length === 17,
@@ -2469,6 +2470,10 @@ onUnmounted(() => {
                 <li v-for="(c, idx) in cardAssociado.itens" :key="'as' + idx" class="rel__recall-item">
                   <div class="rel__recall-item-top"><span>{{ c.nome }}</span></div>
                   <p v-if="c.meta" class="rel__recall-item-meta">{{ c.meta }}</p>
+                  <!-- Detalhe da campanha (leiloes-api, 15/out), so quando vier. -->
+                  <p v-if="c.fabricacao" class="rel__recall-item-meta">{{ c.fabricacao }}.</p>
+                  <p v-if="c.risco" class="rel__recall-item-det"><span>Risco:</span> {{ c.risco }}</p>
+                  <p v-if="c.oQueFazer" class="rel__recall-item-det"><span>O que fazer:</span> {{ c.oQueFazer }}</p>
                 </li>
               </ul>
               <p v-else class="rel__recall-body">A consulta grátis indicou uma campanha de recall para este veículo; os detalhes da campanha não vieram da base agora.</p>
@@ -4318,6 +4323,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__recall-lista { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
   &__recall-item { background: rgba(255, 255, 255, 0.7); border-radius: 8px; padding: 8px 10px; }
   &__recall-item-top { display: flex; justify-content: space-between; gap: 10px; font-size: calc(13.5px * var(--rel-fs, 1)); color: #1a1a1a; }
+  &__recall-item-det { margin: 6px 0 0; font-size: calc(13px * var(--rel-fs, 1)); line-height: 1.45; color: #2a2a2a; }
+  &__recall-item-det span { font-weight: 700; }
   &__recall-item-meta { margin: 3px 0 0; font-size: calc(12px * var(--rel-fs, 1)); color: #555; }
   &__recall-st--pend { color: #a32020; white-space: nowrap; }
   &__recall-st--ok { color: #14622f; white-space: nowrap; }

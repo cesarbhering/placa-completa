@@ -18,6 +18,11 @@ export interface RecallMatch {
   /** sempre 'consta_em_campanha' (a base nao sabe se ja foi atendido). */
   situacao: string
   pdf_r2: string | null
+  // Detalhe da campanha (leiloes-api, 15/out): todos opcionais.
+  risco?: string | null
+  o_que_fazer?: string | null
+  fabricacao_de?: string | null
+  fabricacao_ate?: string | null
 }
 
 export interface RecallResposta {
@@ -33,6 +38,13 @@ export interface PerfilRecall {
   ano?: number | null
   ano_fab?: number | null
   ano_mod?: number | null
+}
+
+/** Texto livre da campanha: so string, sem espaco sobrando, com teto. */
+function textoCampo(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const s = v.replace(/\s+/g, ' ').trim().slice(0, 600)
+  return s || null
 }
 
 function sanearMatches(bruto: unknown): RecallMatch[] {
@@ -51,6 +63,10 @@ function sanearMatches(bruto: unknown): RecallMatch[] {
       nivel,
       situacao: String((m as any).situacao || 'consta_em_campanha'),
       pdf_r2: (m as any).pdf_r2 ?? null,
+      ...(textoCampo((m as any).risco) ? { risco: textoCampo((m as any).risco) } : {}),
+      ...(textoCampo((m as any).o_que_fazer) ? { o_que_fazer: textoCampo((m as any).o_que_fazer) } : {}),
+      ...((m as any).fabricacao_de ? { fabricacao_de: String((m as any).fabricacao_de) } : {}),
+      ...((m as any).fabricacao_ate ? { fabricacao_ate: String((m as any).fabricacao_ate) } : {}),
     })
   }
   return out
