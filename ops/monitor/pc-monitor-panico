@@ -1,0 +1,20 @@
+#!/bin/bash
+# Ultimo recurso: o `pc-monitor meta` falhou (o proprio monitor quebrou). Nao depende do pc-monitor.
+# No maximo 1 e-mail por hora (carimbo em /var/lib/pc-monitor/panico.ts).
+set -u
+CARIMBO=/var/lib/pc-monitor/panico.ts
+agora=$(date +%s); ult=$(cat "$CARIMBO" 2>/dev/null || echo 0)
+[ $((agora - ult)) -lt 3600 ] && exit 0
+mkdir -p /var/lib/pc-monitor && echo "$agora" > "$CARIMBO"
+log=$(journalctl -u pc-monitor-meta.service -n 15 --no-pager -o cat 2>&1 | tail -15)
+corpo="O proprio monitoramento (pc-monitor meta) quebrou em $(date '+%d/%m %H:%M') BRT.
+Enquanto isso, NENHUM alerta de site, checkout, fila ou tunel e confiavel.
+
+Ultimas linhas do log:
+$log
+
+Ver: systemctl status pc-monitor-meta; journalctl -u pc-monitor-meta -n 50
+Helena (pc-monitor-panico)"
+for d in cesarcbhering@gmail.com helena@placacompleta.com.br; do
+  /usr/local/bin/pc-mail --to "$d" --subject "MONITOR QUEBRADO: o pc-monitor nao roda" --body "$corpo" || true
+done

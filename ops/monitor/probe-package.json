@@ -1,0 +1,6 @@
+{
+  "name": "pc-checkout-probe",
+  "private": true,
+  "description": "Dependencias proprias da sonda do checkout (nao usar o node_modules do checkout de trabalho do site)",
+  "dependencies": { "playwright": "1.58.2" }
+}
