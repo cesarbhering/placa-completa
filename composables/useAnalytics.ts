@@ -300,8 +300,6 @@ export const useAnalytics = () => {
 
   // Google Ads: acao de conversao "Consulta paga (Pix)", BRL.
   const AW_SEND_TO = 'AW-18330779331/KeCcCOXO7OMcEMP95aRE'
-  /** Cupom 100% que, por excecao, dispara a conversao do Google Ads (teste da tag). */
-  const CUPOM_TESTE_GOOGLE_ADS = 'GOOGLE'
 
   /**
    * Resolve valor/item do plano a partir da fonte unica (shared/planos.ts).
@@ -388,21 +386,11 @@ export const useAnalytics = () => {
     // falso do homolog no Bing/GA4). Nem reivindica
     // o token, pra nao marcar como "ja reportado" algo que nao foi.
     if (!analyticsAtivoAqui()) return
-    // Cupom 100% (pagou R$ 0): NAO e venda pros anuncios. Nenhum purchase nem
-    // conversion vai pro Bing, Google Ads, GA4 ou Meta (inflaria conversao e
-    // ROAS com receita que nao existiu). Nem reivindica o token.
-    if (valorPagoCentavos != null && Number(valorPagoCentavos) <= 0) {
-      // Excecao (Cesar 15/out): o cupom GOOGLE existe pra testar a tag de
-      // conversao do Google Ads. So ele dispara, so pro Google Ads, com valor
-      // simbolico de R$ 0,01. GA4, Bing e Meta continuam sem nada.
-      if (String(cupom || '').trim().toUpperCase() !== CUPOM_TESTE_GOOGLE_ADS) return
-      if (!reivindicarConversao(token)) return
-      if (window.gtag) window.gtag('event', 'conversion', { send_to: AW_SEND_TO, value: 0.01, currency: 'BRL', transaction_id: token })
-      return
-    }
+    // Cupom 100% (pagou R$ 0) CONTA como conversao (Cesar 15/out): a plataforma
+    // trouxe o cliente, o desconto e decisao nossa. Vai com o preco cheio do plano.
     if (!reivindicarConversao(token)) return
     const { value: valorTabela, item } = infoPlano(plano)
-    const value = valorPagoCentavos != null ? valorPagoCentavos / 100 : valorTabela
+    const value = valorPagoCentavos != null && Number(valorPagoCentavos) > 0 ? valorPagoCentavos / 100 : valorTabela
     if (window.gtag) {
       window.gtag('event', 'conversion', { send_to: AW_SEND_TO, value, currency: 'BRL', transaction_id: token })
       window.gtag('event', 'purchase', { transaction_id: token, value, currency: 'BRL', items: [{ ...item, price: value }] })
