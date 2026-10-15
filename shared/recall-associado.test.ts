@@ -44,4 +44,20 @@ describe('card "Recall associado a este veículo"', () => {
     expect(c.itens).toEqual([])
     expect(c.situacao).toBe(SITUACAO_RECALL_ASSOCIADO)
   })
+  it('mesma campanha em variantes de modelo vira um item so (SHW1H43)', () => {
+    const mk = (nome: string, modelo: string, ano: string) => ({ codigo: null, nome, modelo, ano_modelo: ano, inicio: null, nivel: 'suave' as const })
+    const card = cardRecallAssociado({
+      sinal: 'suave', pendente: false, montadoraComCampanhas: false,
+      base: { consultado: true, sinal: 'suave', fonte: 'base_recalls', campanhas: [
+        mk('Apoio para cabeça central do banco traseiro', 'Polo', '2023'),
+        mk('Apoio para cabeça central do banco traseiro', 'Novo Polo', '2023'),
+        mk('Elementos de fixação', 'Polo', '2022 a 2023'),
+        mk('Elementos de fixação', 'Novo Polo', '2022 a 2023'),
+      ] },
+    })
+    expect(card?.itens).toEqual([
+      { nome: 'Apoio para cabeça central do banco traseiro', meta: 'Polo e Novo Polo 2023' },
+      { nome: 'Elementos de fixação', meta: 'Polo e Novo Polo 2022 a 2023' },
+    ])
+  })
 })
