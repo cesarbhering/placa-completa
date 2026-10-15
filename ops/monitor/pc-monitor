@@ -15,12 +15,13 @@ Regras:
 Uso:
   pc-monitor site                                  # roda a checagem do site (timer)
   pc-monitor fila                                  # saude da fila premium_jobs (timer, 5 min)
+  pc-monitor tunel                                 # tunel residencial do Mac pelo SOCKS 127.0.0.1:1080 (timer, 5 min)
   pc-monitor alerta <site|checkout> ok [detalhe]   # registra sucesso (fecha incidente se aberto)
   pc-monitor alerta <site|checkout> falha <tipo> <motivo> [detalhe]   # registra falha CONFIRMADA
   pc-monitor estado                                # JSON dos dois alvos (usado pela TV)
 Estado em /var/lib/pc-monitor/<alvo>.json; historico (1 linha JSON por verificacao) em /var/log/pc-monitor/<alvo>.log.
 """
-import json, os, sys, time, socket, subprocess, datetime as dt, urllib.request, urllib.error
+import json, os, re, sys, time, socket, subprocess, datetime as dt, urllib.request, urllib.error
 
 URL = os.environ.get("PCMON_URL", "https://placacompleta.com.br")
 DEST = ["cesarcbhering@gmail.com", "helena@placacompleta.com.br"]
@@ -29,8 +30,19 @@ REPETE_S = 3600
 LENTO_S = 20          # mais que isso para responder = incidente (cliente desiste)
 TIMEOUT_S = 15
 BRT = dt.timezone(dt.timedelta(hours=-3))
-TITULO = {"site": "SITE FORA DO AR", "checkout": "CHECKOUT COM ERRO", "fila": "FILA DO RELATORIO PARADA"}
-VOLTOU = {"site": "SITE VOLTOU", "checkout": "CHECKOUT VOLTOU", "fila": "FILA DO RELATORIO VOLTOU"}
+TITULO = {"site": "SITE FORA DO AR", "checkout": "CHECKOUT COM ERRO", "fila": "FILA DO RELATORIO PARADA",
+          "tunel": "TÚNEL DO MAC CAIU"}
+VOLTOU = {"site": "SITE VOLTOU", "checkout": "CHECKOUT VOLTOU", "fila": "FILA DO RELATORIO VOLTOU",
+          "tunel": "TÚNEL DO MAC VOLTOU"}
+# por alvo: destinatarios e repeticao (tunel: so o Cesar, 1 e-mail por queda, sem repetir)
+DEST_ALVO = {"tunel": ["cesarcbhering@gmail.com"]}
+REPETE_ALVO = {"tunel": None}
+TUNEL_SOCKS = "socks5h://127.0.0.1:1080"
+TUNEL_CMD = os.environ.get("PCMON_TUNEL_CMD", (
+    "caffeinate -ims bash -c 'while true; do ssh -N -o ServerAliveInterval=30 -o ServerAliveCountMax=3 "
+    "-o ExitOnForwardFailure=yes -R 127.0.0.1:1080 gw@100.81.236.56; "
+    "echo \"túnel caiu, reconectando em 10s\"; sleep 10; done'"))
+# Obs.: o ssh -R entra pelo Tailscale SSH (IP Tailscale da VPS); o proprio tailscaled abre a 127.0.0.1:1080.
 SB_REF = "fivalpkfneadngxiflea"
 DRY = os.environ.get("PCMON_DRY") == "1"   # testes: nao envia e-mail, so imprime
 
@@ -69,11 +81,11 @@ def historico(alvo, linha):
         f.write(json.dumps(linha, ensure_ascii=False) + "\n")
 
 
-def email(assunto, corpo):
+def email(assunto, corpo, dest=None):
     if DRY:
         print(f"[DRY] e-mail: {assunto}\n{corpo}\n")
         return
-    for d in DEST:
+    for d in (dest or DEST):
         subprocess.run(["/usr/local/bin/pc-mail", "--to", d, "--subject", assunto, "--body", corpo], timeout=60)
 
 
@@ -82,7 +94,8 @@ def registra_ok(alvo, detalhe=""):
     if s.get("estado") == "fora":
         email(f"{VOLTOU[alvo]} (fora por {dur(t - s['desde'])})",
               f"{VOLTOU[alvo]} em {hora(t)} BRT.\n\nIndisponivel de {hora(s['desde'])} a {hora(t)}: {dur(t - s['desde'])}.\n"
-              f"Ultimo motivo: {s.get('tipo')}: {s.get('motivo')}\nAlertas enviados: {s.get('alertas', 0)}\n\nHelena (pc-monitor)")
+              f"Ultimo motivo: {s.get('tipo')}: {s.get('motivo')}\nAlertas enviados: {s.get('alertas', 0)}\n\nHelena (pc-monitor)",
+              DEST_ALVO.get(alvo))
     gravar(alvo, {"estado": "ok", "ultimo_ok": t, "ultima_verificacao": t, "detalhe": detalhe,
                   "ultimo_incidente": s.get("ultimo_incidente") if s.get("estado") != "fora" else
                   {"desde": s["desde"], "ate": t, "tipo": s.get("tipo"), "motivo": s.get("motivo")}})
@@ -96,12 +109,15 @@ def registra_falha(alvo, tipo, motivo, detalhe=""):
         s = {"estado": "fora", "desde": t, "alertas": 0, "ultimo_ok": s.get("ultimo_ok"),
              "ultimo_incidente": s.get("ultimo_incidente")}
     s.update({"tipo": tipo, "motivo": motivo, "ultima_verificacao": t, "detalhe": detalhe[:2000]})
-    if abrir or t - s.get("ultimo_alerta", 0) >= REPETE_S:
+    repete = REPETE_ALVO.get(alvo, REPETE_S)
+    if abrir or (repete is not None and t - s.get("ultimo_alerta", 0) >= repete):
         pref = "" if abrir else f"[ainda, ha {dur(t - s['desde'])}] "
         email(f"{pref}{TITULO[alvo]}: {tipo}",
               f"{TITULO[alvo]} desde {hora(s['desde'])} BRT (confirmado, nao e falha isolada).\n\n"
               f"Tipo: {tipo}\nMotivo: {motivo}\n\n{detalhe[:1500]}\n\n"
-              f"Proximo aviso em 1 h se continuar; aviso de VOLTOU quando normalizar.\nHelena (pc-monitor)")
+              + ("Aviso de VOLTOU quando normalizar (sem repeticao).\nHelena (pc-monitor)" if repete is None else
+                 "Proximo aviso em 1 h se continuar; aviso de VOLTOU quando normalizar.\nHelena (pc-monitor)"),
+              DEST_ALVO.get(alvo))
         s["ultimo_alerta"], s["alertas"] = t, s.get("alertas", 0) + 1
     gravar(alvo, s)
     historico(alvo, {"ts": t, "ok": False, "tipo": tipo, "motivo": motivo})
@@ -193,9 +209,43 @@ def cmd_fila():
     return 0
 
 
+# ------------------------------------------------------------------ tunel residencial do Mac (SOCKS 127.0.0.1:1080)
+def checa_tunel():
+    """Uma tentativa: curl pelo SOCKS ate ifconfig.me (15 s). O IP de saida NAO e gravado (e o IP da casa do Cesar)."""
+    try:
+        p = subprocess.run(["curl", "-s", "-x", TUNEL_SOCKS, "--max-time", "15", "https://ifconfig.me"],
+                           capture_output=True, text=True, timeout=25)
+    except subprocess.TimeoutExpired:
+        return False, "timeout", "sem resposta em 15 s pelo SOCKS"
+    ip = p.stdout.strip()
+    if p.returncode == 0 and (re.fullmatch(r"[0-9a-fA-F:.]{7,45}", ip) is not None):
+        return True, None, "respondeu pelo tunel"
+    if p.returncode in (7, 97):
+        return False, "conexao", f"SOCKS recusou (curl {p.returncode}): tunel nao esta escutando"
+    if p.returncode == 28:
+        return False, "timeout", "sem resposta em 15 s pelo SOCKS"
+    return False, "erro", f"curl {p.returncode}"
+
+
+def cmd_tunel():
+    ok, tipo, motivo = checa_tunel()
+    if ok:
+        registra_ok("tunel", motivo); return 0
+    time.sleep(60)
+    ok2, tipo2, motivo2 = checa_tunel()
+    if ok2:
+        historico("tunel", {"ts": agora(), "ok": True, "detalhe": f"falha isolada descartada ({motivo})"})
+        registra_ok("tunel", motivo2); return 0
+    registra_falha("tunel", tipo2, motivo2,
+                   f"O tunel residencial do Mac (SOCKS {TUNEL_SOCKS} na VPS) nao responde em 2 tentativas com 60 s.\n"
+                   f"Raspagens que dependem de IP residencial (recall, gov.br, leiloes) ficam sem saida.\n\n"
+                   f"Para subir de novo, no Mac (com o Tailscale conectado):\n  {TUNEL_CMD}\n")
+    return 1
+
+
 def cmd_estado():
     out = {}
-    for alvo in ("site", "checkout", "fila"):
+    for alvo in ("site", "checkout", "fila", "tunel"):
         s = ler(alvo)
         out[alvo] = {"estado": s.get("estado", "ok"), "ultima_verificacao": s.get("ultima_verificacao"),
                      "ultimo_ok": s.get("ultimo_ok"), "desde": s.get("desde"), "tipo": s.get("tipo"),
@@ -210,6 +260,8 @@ def cmd_estado():
 def main(a):
     if a[:1] == ["site"]:
         return cmd_site()
+    if a[:1] == ["tunel"]:
+        return cmd_tunel()
     if a[:1] == ["fila"]:
         return cmd_fila()
     if a[:1] == ["estado"]:
