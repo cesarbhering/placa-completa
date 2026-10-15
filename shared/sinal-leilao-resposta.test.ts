@@ -6,6 +6,10 @@ describe('leitura da resposta do sinal de leilao', () => {
     expect(sinalDaResposta({ positivo: true, quantidade: 2 })).toEqual({ positivo: true, quantidade: 2, tipo: 'leilao' })
   })
 
+  it('revenda de frota atravessa so como booleano', () => {
+    expect(sinalDaResposta({ positivo: false, quantidade: 0, frota: true })).toEqual({ positivo: false, quantidade: 0, tipo: 'leilao', frota: true })
+  })
+
   it('base respondeu sem registro: vira sinal negativo, que PODE ir pra tela', () => {
     expect(sinalDaResposta({ positivo: false, quantidade: 0 })).toEqual({ positivo: false, quantidade: 0, tipo: 'leilao' })
   })
