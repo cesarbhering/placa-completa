@@ -139,3 +139,55 @@ describe('sinal com notificacao para leilao', () => {
     )
   })
 })
+
+describe('revenda de frota no sinal da consulta gratis', () => {
+  it('frota sozinha nao acende leilao; vem como frota', async () => {
+    const { sanearHistorico } = await import('./historico-leilao')
+    const { sinalDoHistorico } = await import('./sinal-leilao')
+    const h = sanearHistorico({
+      resumo: { tem_indicio: false, nivel_max: null, n_confirmado: 0, n_provavel: 0, n_possivel: 0 },
+      passagens: [{ nivel: 'confirmado', fonte: 'frota_lpl', fonte_tipo: 'revenda_frota', data_leilao: '2026-07-22', detalhes: { tipo_evento: 'revenda_frota', status: 'disponivel' } }],
+    })!
+    expect(h.passagens).toHaveLength(0)
+    expect(h.revendas_frota).toHaveLength(1)
+    expect(sinalDoHistorico(h)).toEqual({ positivo: false, quantidade: 0, frota: true })
+  })
+})
+
+describe('revenda de frota: API antiga (antes do leiloes-api #112) somava no resumo', () => {
+  const frota = { nivel: 'confirmado', fonte: 'frota_lpl', fonte_tipo: 'revenda_frota', data_leilao: '2026-07-22', detalhes: { tipo_evento: 'revenda_frota', status: 'disponivel' } }
+  const leilao = { nivel: 'confirmado', fonte: 'detran_mg', fonte_tipo: 'detran', data_leilao: '2023-08-09', detalhes: {} }
+  it('so frota: desconta e nao acende leilao', async () => {
+    const { sanearHistorico } = await import('./historico-leilao')
+    const { sinalDoHistorico } = await import('./sinal-leilao')
+    const h = sanearHistorico({
+      resumo: { tem_indicio: true, nivel_max: 'confirmado', n_confirmado: 1, n_provavel: 0, n_possivel: 0, fontes_com_passagem: ['frota_lpl'] },
+      passagens: [frota],
+      linha_do_tempo: [{ data: '2026-07-22', tipo: 'leilao', n_passagens: 1, fontes: ['Louco por Leilões'] }],
+      recorrencia: { voltou_a_leilao: false, n_leiloes: 1 },
+    })!
+    expect(h.resumo).toMatchObject({ tem_indicio: false, nivel_max: null, n_confirmado: 0, fontes_com_passagem: [] })
+    expect(h.linha_do_tempo).toBeNull()
+    expect(sinalDoHistorico(h)).toEqual({ positivo: false, quantidade: 0, frota: true })
+  })
+  it('frota + leilao na API antiga: so o leilao conta', async () => {
+    const { sanearHistorico } = await import('./historico-leilao')
+    const { sinalDoHistorico } = await import('./sinal-leilao')
+    const h = sanearHistorico({
+      resumo: { tem_indicio: true, nivel_max: 'confirmado', n_confirmado: 2, n_provavel: 0, n_possivel: 0, fontes_com_passagem: ['frota_lpl', 'detran_mg'] },
+      passagens: [frota, leilao],
+    })!
+    expect(h.resumo).toMatchObject({ tem_indicio: true, nivel_max: 'confirmado', n_confirmado: 1, fontes_com_passagem: ['detran_mg'] })
+    expect(sinalDoHistorico(h)).toMatchObject({ positivo: true, quantidade: 1, tipo: 'leilao', frota: true })
+  })
+  it('API nova (com n_revenda_frota): resumo e linha do tempo como vieram', async () => {
+    const { sanearHistorico } = await import('./historico-leilao')
+    const h = sanearHistorico({
+      resumo: { tem_indicio: false, nivel_max: null, n_confirmado: 0, n_provavel: 0, n_possivel: 0, n_revenda_frota: 1, fontes_com_passagem: [] },
+      passagens: [frota],
+      linha_do_tempo: [{ data: '2026-07-22', tipo: 'revenda_frota', n_passagens: 1, fontes: ['Louco por Leilões'] }],
+    })!
+    expect(h.resumo.n_confirmado).toBe(0)
+    expect(h.linha_do_tempo).toEqual([]) // evento revenda_frota nao e de leilao: a linha vem das revendas_frota
+  })
+})

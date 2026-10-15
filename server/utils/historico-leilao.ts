@@ -11,6 +11,7 @@
 import { fonteExibicaoLeilao, paginaPublicaLeilao } from '../../shared/leilao-exibicao'
 import { ehNotificacao, GRAVIDADE_NOTIFICADO } from '../../shared/leilao-notificacao'
 import { historicoLgpd } from '../../shared/leilao-lgpd'
+import { ehRevendaFrota, sanearRevendaFrota, type RevendaFrota } from '../../shared/revenda-frota'
 import {
   sanearOrigem, sanearAlertas, sanearDesfecho, sanearLotePublico, sanearContextoJudicial,
   sanearLinhaDoTempoLeilao, sanearRecorrencia,
@@ -106,6 +107,8 @@ export interface HistoricoLeilao {
   /** Eventos ja agrupados pela API (mesma passagem em fontes diferentes = 1). */
   linha_do_tempo?: EventoLeilaoApi[] | null
   recorrencia?: RecorrenciaLeilao | null
+  /** Revenda de frota (leiloes-api #106): NAO e leilao, fica fora de passagens. */
+  revendas_frota?: RevendaFrota[]
 }
 
 /** Perfil do veiculo que o relatorio ja tem em maos. */
@@ -207,7 +210,11 @@ function sanearGravidade(g: any): GravidadeLeilao | null {
 /** Confia so no formato, nunca no conteudo: resposta torta vira null. */
 export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string }): HistoricoLeilao | null {
   if (!res || typeof res !== 'object' || !res.resumo) return null
-  const brutas = Array.isArray(res.passagens) ? res.passagens : []
+  const todas = Array.isArray(res.passagens) ? res.passagens : []
+  // Revenda de frota sai das passagens ANTES de tudo: nada de leilao (contagem,
+  // nivel, sinal da consulta gratis, linha do tempo de leilao) pode ve-la.
+  const revendas = todas.filter(ehRevendaFrota).map((p: any) => sanearRevendaFrota(p)).filter(Boolean) as RevendaFrota[]
+  const brutas = todas.filter((p: any) => !ehRevendaFrota(p))
   const passagens: PassagemLeilao[] = brutas
     .filter((p: any) => p && NIVEIS.includes(p.nivel))
     .map((p: any) => ({
@@ -262,23 +269,36 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
 
   // LGPD (14/out): sem numero de processo e sem comitente pessoa fisica, nem
   // no snapshot (shared/leilao-lgpd.ts).
+  // Revenda no resumo: a API ate o PR #112 (leiloes-api) somava a frota em
+  // n_confirmado/n_provavel/n_possivel, tem_indicio, nivel_max e
+  // fontes_com_passagem, e tratava o evento como leilao na linha_do_tempo e na
+  // recorrencia. Sem o campo novo resumo.n_revenda_frota, a resposta e da API
+  // antiga: desconta aqui, e com revenda presente a linha_do_tempo/recorrencia
+  // da API sao ignoradas (o site volta ao modo por passagem, ja sem a frota).
+  const apiAntiga = revendas.length > 0 && res.resumo.n_revenda_frota === undefined
+  const menos = (nivel: string) => (apiAntiga ? todas.filter((p: any) => ehRevendaFrota(p) && p.nivel === nivel).length : 0)
+  const n_confirmado = Math.max(0, (Number(res.resumo.n_confirmado) || 0) - menos('confirmado'))
+  const n_provavel = Math.max(0, (Number(res.resumo.n_provavel) || 0) - menos('provavel'))
+  const n_possivel = Math.max(0, (Number(res.resumo.n_possivel) || 0) - menos('possivel'))
+  const fontesFrota = new Set(todas.filter(ehRevendaFrota).map((p: any) => String(p.fonte || '')))
+  const fontes: string[] = Array.isArray(res.resumo.fontes_com_passagem) ? res.resumo.fontes_com_passagem.map(String) : []
+  const nivelMax = NIVEIS.includes(res.resumo.nivel_max) ? res.resumo.nivel_max : null
   return historicoLgpd({
     resumo: {
-      tem_indicio: !!res.resumo.tem_indicio,
-      nivel_max: NIVEIS.includes(res.resumo.nivel_max) ? res.resumo.nivel_max : null,
-      n_confirmado: Number(res.resumo.n_confirmado) || 0,
-      n_provavel: Number(res.resumo.n_provavel) || 0,
-      n_possivel: Number(res.resumo.n_possivel) || 0,
+      tem_indicio: apiAntiga ? passagens.some((p) => p.nivel !== 'possivel') || (!!res.resumo.tem_indicio && n_confirmado + n_provavel + n_possivel > 0) : !!res.resumo.tem_indicio,
+      nivel_max: apiAntiga ? (NIVEIS.find((n) => passagens.some((p) => p.nivel === n)) ?? null) : nivelMax,
+      n_confirmado,
+      n_provavel,
+      n_possivel,
       possiveis_ambiguos: Number(res.resumo.possiveis_ambiguos) || 0,
-      fontes_com_passagem: Array.isArray(res.resumo.fontes_com_passagem)
-        ? res.resumo.fontes_com_passagem.map(String)
-        : [],
+      fontes_com_passagem: apiAntiga ? fontes.filter((f) => !fontesFrota.has(f)) : fontes,
     },
     passagens,
     indice_atualizado_em: texto(res.indice_atualizado_em),
     aviso: texto(res.aviso),
-    linha_do_tempo: sanearLinhaDoTempoLeilao(res.linha_do_tempo),
-    recorrencia: sanearRecorrencia(res.recorrencia),
+    linha_do_tempo: apiAntiga ? null : sanearLinhaDoTempoLeilao(res.linha_do_tempo),
+    revendas_frota: revendas,
+    recorrencia: apiAntiga ? null : sanearRecorrencia(res.recorrencia),
   })
 }
 

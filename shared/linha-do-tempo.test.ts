@@ -63,4 +63,10 @@ describe('linha do tempo do veiculo', () => {
     expect(t.map((x) => x.titulo)).toEqual(['Consta passagem por leilão', 'Consta passagem por leilão', 'Levado a leilão judicial'])
     expect(t[1].detalhe).toBe('Voltou a leilão 7 meses depois · Detran MG')
   })
+
+  it('revenda de frota: evento proprio, nao leilao', () => {
+    const t = montarLinhaDoTempo({ revendasFrota: [{ data: '2026-07-22', saiuEm: '2026-09-03', km: 41700, condicao: 'Sem retoque', precoVsFipe: 'anunciado 12% abaixo da FIPE' }] })
+    expect(t.map((x) => [x.tipo, x.titulo])).toEqual([['revenda_frota', 'Anunciado em revenda de frota'], ['revenda_frota', 'Saiu do estoque da revenda (provável venda)']])
+    expect(t[0].detalhe!.replace(/\s/g, ' ')).toBe('41.700 km no anúncio · anunciado 12% abaixo da FIPE · Sem retoque')
+  })
 })
