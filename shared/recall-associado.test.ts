@@ -61,3 +61,25 @@ describe('card "Recall associado a este veículo"', () => {
     ])
   })
 })
+
+describe('detalhe da campanha (risco, o que fazer, periodo de fabricacao)', () => {
+  it('periodo e comparacao so quando o ano permite', async () => {
+    const { textoFabricacao } = await import('./recall-associado')
+    expect(textoFabricacao('2014-06-01', '2016-03-31', 2015)).toBe('Campanha para veículos fabricados entre 01/06/2014 e 31/03/2016; fabricado em 2015, dentro do período da campanha')
+    // ano de borda com mes: nao da pra afirmar
+    expect(textoFabricacao('2015-06-01', '2016-03-31', 2015)).toBe('Campanha para veículos fabricados entre 01/06/2015 e 31/03/2016')
+    expect(textoFabricacao('2015', '2016', 2016)).toBe('Campanha para veículos fabricados entre 2015 e 2016; fabricado em 2016, dentro do período da campanha')
+    // fora: nao afirma nada alem do periodo
+    expect(textoFabricacao('2015', '2016', 2018)).toBe('Campanha para veículos fabricados entre 2015 e 2016')
+    expect(textoFabricacao('2015-01', null, null)).toBe('Campanha para veículos fabricados a partir de 01/2015')
+    expect(textoFabricacao(null, null, 2015)).toBeNull()
+  })
+  it('card leva risco e o que fazer quando vierem; sem eles, igual a antes', async () => {
+    const { cardRecallAssociado } = await import('./recall-associado')
+    const base = (extra: any) => ({ consultado: true, sinal: 'firme' as const, fonte: 'base_recalls' as const, campanhas: [{ codigo: 'X1', nome: 'Sistema do motor', modelo: 'X5', ano_modelo: 2019, inicio: '2020-02-01', nivel: 'firme' as const, ...extra }] })
+    const com = cardRecallAssociado({ sinal: 'firme', pendente: false, montadoraComCampanhas: false, anoFabricacao: 2019, base: base({ risco: 'Pode haver perda de potência.', oQueFazer: 'Agende o reparo na concessionária.', fabricacaoDe: '2018-01-01', fabricacaoAte: '2019-12-31' }) })!
+    expect(com.itens[0]).toMatchObject({ risco: 'Pode haver perda de potência.', oQueFazer: 'Agende o reparo na concessionária.', fabricacao: 'Campanha para veículos fabricados entre 01/01/2018 e 31/12/2019; fabricado em 2019, dentro do período da campanha' })
+    const sem = cardRecallAssociado({ sinal: 'firme', pendente: false, montadoraComCampanhas: false, base: base({}) })!
+    expect(Object.keys(sem.itens[0])).toEqual(['nome', 'meta'])
+  })
+})
