@@ -183,3 +183,30 @@ A Mitsubishi confirma Outlander e ASX em Okazaki (comunicado de transferencia
 do RVR/ASX de Okazaki pra Mizushima no fim de 2017). P (Ooe, fechada em 2001)
 nao entrou: a base tem Pajero/L200 nesse codigo sem fonte que explique.
 93X (HPE/Souza Ramos) segue Catalao (GO).
+
+# v9 (15/out/2026): BMW X5, X6, X7 e XM em Spartanburg
+
+Caso: relatorio pago de um X5 xDrive45e 2023 importado (WBA, posicao 11 '9')
+saia sem planta e com pais "Alemanha" (pais do WMI da BMW AG).
+
+Fontes:
+- BMW Group Press (USA, 01/dez/2022, inicio de producao do XM): "The BMW XM
+  will be built alongside the BMW X5, BMW X6, and BMW X7 on the same assembly
+  line" em Spartanburg. X5 la desde 1999, X6 desde 2008, X7 desde 2018 (MY2019).
+- vPIC/NHTSA (submissao Part 565 da propria BMW): pos 11 'L', '0' e '9' do WBA
+  dao PlantCity GREER, SOUTH CAROLINA (endereco da Plant Spartanburg). Chassis
+  reais da base conferidos: WBAFA51072LM32103 (X5 2002, L), WBAKR6108E0G94864 e
+  WBAKS4100H0R88849 (X5/X6 2014-2017, 0), WBA71DP01P9N89474 (X3 2023, 9),
+  WBACX6102L9C39172 (X7 2020, 9). O vPIC nao devolve o modelo nesses VINs de
+  exportacao, so a planta.
+
+Base de leiloes (busca por faixa no indice de chassi17, consulta leve):
+- WBA pos 11 '9': 4 chassis (3 X3 2021-2023, 1 X7 2020). Nenhum modelo de fora
+  de Spartanburg, mas amostra abaixo do minimo de 30 e o X3 tambem sai de
+  Rosslyn e Shenyang. Curinga (WBA, '9') REPROVADO.
+- X5/X6 com chassi WB*: so codigos L (36, 2001-2013) e 0 (12, 2014-2018), todos
+  Spartanburg no vPIC. Nenhuma contradicao.
+
+Regra aplicada: plant_modelos WBA x pos 11 {L, 0, 9} x {X5 desde 1999, X6 desde
+2008, X7 desde 2019, XM desde 2023} -> Spartanburg (Carolina do Sul), Estados
+Unidos. Pais do card vira Estados Unidos (pais da planta, regra v6).
