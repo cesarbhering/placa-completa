@@ -10,7 +10,13 @@
 //  - roda com prioridade baixa (nice 10); se a VPS estiver com load > nproc*2, espera 2 min e tenta de novo
 //    (ate 3x) em vez de alertar. Nunca diagnostica "VPS sobrecarregada" como desculpa: home > 20 s = incidente.
 // Compat: segue gravando ultimoOk em /root/.checkout-probe.json e imprimindo "OK ..." / "FALHA ..." no journal.
-import { chromium } from '/root/placa-completa/node_modules/playwright/index.mjs'
+// Codigo de saida: 0 sempre que a rodada terminou (ok, falha ja registrada no pc-monitor, adiada). Saida != 0 =
+// a SONDA quebrou (crash), e o `pc-monitor meta` transforma isso em "MONITOR QUEBRADO".
+// Dependencias PROPRIAS em /opt/pc-checkout-probe (playwright + Chromium), nunca o node_modules do checkout de
+// trabalho do site: em 15/out um agente esvaziou /root/placa-completa/node_modules e a sonda quebrou calada.
+const PROBE_HOME = process.env.PROBE_HOME || '/opt/pc-checkout-probe'
+process.env.PLAYWRIGHT_BROWSERS_PATH ||= `${PROBE_HOME}/browsers`
+const { chromium } = await import(`${PROBE_HOME}/node_modules/playwright/index.mjs`)
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -117,13 +123,12 @@ try {
       break
     }
     console.log(`tentativa ${i}/${TENTATIVAS} falhou: [${ultima.tipo}] ${ultima.motivo}`)
-    if (ultima.tipo === 'site') { console.log('FALHA site fora do ar: alerta fica com o pc-site-check'); process.exitCode = 1; break }
+    if (ultima.tipo === 'site') { console.log('FALHA site fora do ar: alerta fica com o pc-site-check'); break }
     if (i < TENTATIVAS) await sleep(ESPERA_MS)
   }
   if (ultima && !ultima.ok && ultima.tipo !== 'site') {
     console.log(`FALHA [${ultima.tipo}] ${ultima.motivo} (confirmada em ${TENTATIVAS} tentativas)`)
     monitor('falha', ultima.tipo, ultima.motivo, ultima.det || '')
-    process.exitCode = 1
   }
 } finally {
   soltar()

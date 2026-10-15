@@ -11,13 +11,18 @@ fi
 B=/root/pc-monitor-backup-$(date +%Y%m%d-%H%M); mkdir -p "$B"
 cp /usr/local/bin/pc-checkout-probe.mjs "$B/" 2>/dev/null || true
 cp /etc/systemd/system/pc-checkout-probe.{service,timer} "$B/" 2>/dev/null || true
-install -m 755 pc-monitor /usr/local/bin/pc-monitor
+# dependencias proprias da sonda (nunca o node_modules do checkout de trabalho do site)
+mkdir -p /opt/pc-checkout-probe && cp probe-package.json /opt/pc-checkout-probe/package.json
+(cd /opt/pc-checkout-probe && npm install --no-audit --no-fund >/dev/null && \
+  PLAYWRIGHT_BROWSERS_PATH=/opt/pc-checkout-probe/browsers npx playwright install chromium >/dev/null)
+install -m 755 pc-monitor pc-monitor-panico /usr/local/bin/
 install -m 755 pc-checkout-probe.mjs /usr/local/bin/pc-checkout-probe.mjs
 install -m 644 pc-site-check.service pc-site-check.timer pc-checkout-probe.service pc-checkout-probe.timer \
-  pc-fila-check.service pc-fila-check.timer pc-tunel-check.service pc-tunel-check.timer /etc/systemd/system/
+  pc-fila-check.service pc-fila-check.timer pc-tunel-check.service pc-tunel-check.timer \
+  pc-monitor-meta.service pc-monitor-meta.timer pc-monitor-panico.service /etc/systemd/system/
 mkdir -p /var/lib/pc-monitor /var/log/pc-monitor
 systemctl daemon-reload
-systemctl enable pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer
-systemctl restart pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer
-systemctl list-timers pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer --no-pager
+systemctl enable pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-monitor-meta.timer
+systemctl restart pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-monitor-meta.timer
+systemctl list-timers pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-monitor-meta.timer --no-pager
 echo "backup em $B"

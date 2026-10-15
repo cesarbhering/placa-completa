@@ -1,0 +1,5 @@
+[Unit]
+Description=pc-monitor: o proprio pc-monitor meta quebrou; e-mail direto (no maximo 1 por hora)
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-monitor-panico
