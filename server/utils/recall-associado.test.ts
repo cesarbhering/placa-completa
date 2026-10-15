@@ -53,4 +53,20 @@ describe('recallBase no snapshot', () => {
     expect(await garantirRecallBase(sb, { id: 'p1', placa: 'ABC1D23', recall_sinal: 'suave' }, { consulta: { response: RESP } })).toBeNull()
     expect(sb.updates).toHaveLength(0)
   })
+  it('chassi cheio sem match por VIN: repete sem chassi (modelo/ano), como a gratis', async () => {
+    const SUAVE = { ...MATCH, code: null, name: 'Apoio de cabeca', model: 'Polo', model_year: '2023', nivel: 'suave' }
+    consultar.mockResolvedValueOnce({ matches: [] }).mockResolvedValueOnce({ matches: [SUAVE] })
+    const b = await buscarRecallBase({ placa: 'SHW1H43', recall_sinal: 'suave', recall_marca: 'VW' }, [RESP])
+    expect(consultar).toHaveBeenCalledTimes(2)
+    expect(consultar.mock.calls[0][0].chassi).toBe('9BRBL3HE5G0123456')
+    expect(consultar.mock.calls[1][0].chassi).toBeNull()
+    expect(b?.campanhas).toHaveLength(1)
+    expect(b?.campanhas[0].nivel).toBe('suave')
+  })
+
+  it('com match por VIN: nao repete', async () => {
+    consultar.mockResolvedValue({ matches: [MATCH] })
+    await buscarRecallBase({ placa: 'ABC1D23', recall_sinal: 'firme', recall_marca: 'TOYOTA' }, [RESP])
+    expect(consultar).toHaveBeenCalledTimes(1)
+  })
 })

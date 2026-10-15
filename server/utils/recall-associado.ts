@@ -19,14 +19,22 @@ export async function buscarRecallBase(
   const marca = normalizarMarcaRecall(String(pedido.recall_marca || desc.split('/')[0] || '').replace(/^I\//, '').trim())
   const modelo = normalizarMarcaRecall(desc.includes('/') ? desc.slice(desc.indexOf('/') + 1) : '') || null
   const chassi = String(r?.chassi || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
-  const resp = await consultarRecallToyota({
+  const perfil = {
     placa: pedido.placa,
     chassi: chassi.length === 17 ? chassi : null,
     marca,
     modelo,
     ano_fab: r?.anoFabricacao ?? null,
     ano_mod: r?.anoModelo ?? null,
-  }, { timeoutMs: TIMEOUT_MS }).catch(() => null)
+  }
+  let resp = await consultarRecallToyota(perfil, { timeoutMs: TIMEOUT_MS }).catch(() => null)
+  // Com chassi cheio a base so casa por VIN (firme) e NAO cai pra modelo/ano.
+  // Se a gratis mostrou o hook por modelo/ano (suave, sem chassi no cache) o
+  // pago voltava vazio e o relatorio dizia "detalhes nao vieram" (SHW1H43,
+  // 15/out). Vazio com chassi -> repete sem chassi, igual a consulta gratis.
+  if (resp && resp.matches.length === 0 && perfil.chassi) {
+    resp = await consultarRecallToyota({ ...perfil, chassi: null }, { timeoutMs: TIMEOUT_MS }).catch(() => null)
+  }
   if (!resp) return null
   return {
     consultado: true,
