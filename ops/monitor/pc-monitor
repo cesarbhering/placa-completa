@@ -16,6 +16,7 @@ Uso:
   pc-monitor site                                  # roda a checagem do site (timer)
   pc-monitor fila                                  # saude da fila premium_jobs (timer, 5 min)
   pc-monitor tunel                                 # tunel residencial do Mac pelo SOCKS 127.0.0.1:1080 (timer, 5 min)
+  pc-monitor meta                                  # as checagens acima estao rodando? crash/parada = MONITOR QUEBRADO
   pc-monitor alerta <site|checkout> ok [detalhe]   # registra sucesso (fecha incidente se aberto)
   pc-monitor alerta <site|checkout> falha <tipo> <motivo> [detalhe]   # registra falha CONFIRMADA
   pc-monitor estado                                # JSON dos dois alvos (usado pela TV)
@@ -31,9 +32,9 @@ LENTO_S = 20          # mais que isso para responder = incidente (cliente desist
 TIMEOUT_S = 15
 BRT = dt.timezone(dt.timedelta(hours=-3))
 TITULO = {"site": "SITE FORA DO AR", "checkout": "CHECKOUT COM ERRO", "fila": "FILA DO RELATORIO PARADA",
-          "tunel": "TÚNEL DO MAC CAIU"}
+          "tunel": "TÚNEL DO MAC CAIU", "monitor": "MONITOR QUEBRADO"}
 VOLTOU = {"site": "SITE VOLTOU", "checkout": "CHECKOUT VOLTOU", "fila": "FILA DO RELATORIO VOLTOU",
-          "tunel": "TÚNEL DO MAC VOLTOU"}
+          "tunel": "TÚNEL DO MAC VOLTOU", "monitor": "MONITOR VOLTOU"}
 # por alvo: destinatarios e repeticao (tunel: so o Cesar, 1 e-mail por queda, sem repetir)
 DEST_ALVO = {"tunel": ["cesarcbhering@gmail.com"]}
 REPETE_ALVO = {"tunel": None}
@@ -166,7 +167,7 @@ def cmd_site():
         historico("site", {"ts": agora(), "ok": True, "detalhe": f"falha isolada descartada ({motivo})"})
         registra_ok("site", motivo2); return 0
     registra_falha("site", tipo2, motivo2, f"1a tentativa: {motivo}\n2a tentativa (60 s depois): {motivo2}")
-    return 1
+    return 0   # falha registrada; exit != 0 fica para crash (pc-monitor meta)
 
 
 # ------------------------------------------------------------------ fila do relatorio (premium_jobs)
@@ -240,12 +241,57 @@ def cmd_tunel():
                    f"O tunel residencial do Mac (SOCKS {TUNEL_SOCKS} na VPS) nao responde em 2 tentativas com 60 s.\n"
                    f"Raspagens que dependem de IP residencial (recall, gov.br, leiloes) ficam sem saida.\n\n"
                    f"Para subir de novo, no Mac (com o Tailscale conectado):\n  {TUNEL_CMD}\n")
-    return 1
+    return 0
+
+
+# ------------------------------------------------------------------ meta: o proprio monitoramento esta rodando?
+# (unit, alvo do estado, idade maxima da ultima verificacao em s). Incidente 15/out: o node_modules usado pela
+# sonda foi esvaziado, ela passou a quebrar com ERR_MODULE_NOT_FOUND e ninguem foi avisado.
+CHECAGENS = [
+    ("pc-site-check", "site", 15 * 60),
+    ("pc-checkout-probe", "checkout", 2 * 3600),     # 30 min + rodadas adiadas por load alto
+    ("pc-fila-check", "fila", 15 * 60),
+    ("pc-tunel-check", "tunel", 15 * 60),
+]
+
+
+def problemas_do_monitor():
+    out = []
+    for unit, alvo, idade_max in CHECAGENS:
+        if subprocess.run(["systemctl", "is-enabled", "--quiet", f"{unit}.timer"]).returncode != 0:
+            continue                                   # desligado de proposito: nao e quebra
+        res = subprocess.run(["systemctl", "show", f"{unit}.service", "-p", "Result", "-p", "ExecMainStatus", "--value"],
+                             capture_output=True, text=True).stdout.split()
+        if res and res[0] not in ("success", ""):
+            log = subprocess.run(["journalctl", "-u", f"{unit}.service", "-n", "4", "--no-pager", "-o", "cat"],
+                                 capture_output=True, text=True).stdout.strip().splitlines()
+            ult = next((l for l in reversed(log) if not re.match(r"^(pc-|Failed|Finished|Started|Starting)", l)), "")
+            out.append(f"{unit}: saiu com erro ({res[0]}, status {res[1] if len(res) > 1 else '?'}) {ult[:160]}")
+        ult_v = ler(alvo).get("ultima_verificacao")
+        if not ult_v or agora() - ult_v > idade_max:
+            idade = f"ha {dur(agora() - ult_v)}" if ult_v else "nunca"
+            out.append(f"{unit}: sem verificacao registrada {idade} (limite {dur(idade_max)})")
+    return out
+
+
+def cmd_meta():
+    p1 = problemas_do_monitor()
+    if not p1:
+        registra_ok("monitor", "todas as checagens rodando"); return 0
+    time.sleep(60)                                     # confirmacao 2x, como as outras checagens
+    p2 = problemas_do_monitor()
+    if not p2:
+        historico("monitor", {"ts": agora(), "ok": True, "detalhe": "problema isolado descartado: " + "; ".join(p1)[:300]})
+        registra_ok("monitor", "todas as checagens rodando"); return 0
+    registra_falha("monitor", "checagem_quebrada", f"{len(p2)} checagem(ns) com problema",
+                   "\n".join(p2) + "\n\nEnquanto isso, o alerta correspondente (site/checkout/fila/tunel) NAO dispara.\n"
+                   "Ver: systemctl status <unit>; journalctl -u <unit> -n 50")
+    return 0
 
 
 def cmd_estado():
     out = {}
-    for alvo in ("site", "checkout", "fila", "tunel"):
+    for alvo in ("site", "checkout", "fila", "tunel", "monitor"):
         s = ler(alvo)
         out[alvo] = {"estado": s.get("estado", "ok"), "ultima_verificacao": s.get("ultima_verificacao"),
                      "ultimo_ok": s.get("ultimo_ok"), "desde": s.get("desde"), "tipo": s.get("tipo"),
@@ -260,6 +306,8 @@ def cmd_estado():
 def main(a):
     if a[:1] == ["site"]:
         return cmd_site()
+    if a[:1] == ["meta"]:
+        return cmd_meta()
     if a[:1] == ["tunel"]:
         return cmd_tunel()
     if a[:1] == ["fila"]:
