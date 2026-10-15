@@ -28,20 +28,16 @@ describe('disparo de purchase', () => {
     expect(cartaoConverteAgora(undefined)).toBe(false)
   })
 
-  it('cupom 100% (valor 0): nada vai pro Bing, Google Ads, GA4 nem Meta', () => {
-    const w = ambiente()
-    useAnalytics().trackConversionPaga('tok_gratis_1', 'completa', 0)
-    expect(w.gtag).not.toHaveBeenCalled()
-    expect(w.uetq.push).not.toHaveBeenCalled()
-    expect(w.fbq).not.toHaveBeenCalled()
-  })
-
-  it('valor 0 nao reivindica o token (nada fica marcado como reportado)', () => {
+  it('cupom 100% (valor 0): conta como conversao em todas as tags, com o preco cheio do plano, uma vez', () => {
     const w = ambiente()
     const a = useAnalytics()
-    a.trackConversionPaga('tok_gratis_2', 'completa', 0)
-    a.trackConversionPaga('tok_gratis_2', 'completa', 0)
-    expect(w.gtag).not.toHaveBeenCalled()
+    a.trackConversionPaga('tok_gratis_1', 'completa', 0, 'QUALQUER')
+    a.trackConversionPaga('tok_gratis_1', 'completa', 0, 'QUALQUER')
+    expect(w.gtag).toHaveBeenCalledWith('event', 'conversion', expect.objectContaining({ value: 39.9, transaction_id: 'tok_gratis_1' }))
+    expect(w.gtag).toHaveBeenCalledWith('event', 'purchase', expect.objectContaining({ value: 39.9 }))
+    expect(w.gtag).toHaveBeenCalledTimes(2)
+    expect(w.uetq.push).toHaveBeenCalledTimes(1)
+    expect(w.uetq.push).toHaveBeenCalledWith('event', 'purchase', expect.objectContaining({ revenue_value: 39.9 }))
   })
 
   it('venda paga: Bing UET com transaction_id = token; GA4/Ads com o mesmo token; uma vez so', () => {
@@ -60,21 +56,5 @@ describe('disparo de purchase', () => {
     const w = ambiente()
     useAnalytics().trackConversionPaga('tok_tabela_1', 'completa')
     expect(w.uetq.push).toHaveBeenCalledTimes(1)
-  })
-  it('cupom GOOGLE (valor 0): so a conversao do Google Ads, valor R$ 0,01, uma vez', () => {
-    const w = ambiente()
-    const a = useAnalytics()
-    a.trackConversionPaga('tok_google_1', 'completa', 0, ' google ')
-    a.trackConversionPaga('tok_google_1', 'completa', 0, 'GOOGLE')
-    expect(w.gtag).toHaveBeenCalledTimes(1)
-    expect(w.gtag).toHaveBeenCalledWith('event', 'conversion', expect.objectContaining({ value: 0.01, transaction_id: 'tok_google_1' }))
-    expect(w.uetq.push).not.toHaveBeenCalled()
-    expect(w.fbq).not.toHaveBeenCalled()
-  })
-
-  it('outro cupom 100% continua sem disparar nada', () => {
-    const w = ambiente()
-    useAnalytics().trackConversionPaga('tok_outro_1', 'completa', 0, 'DESCULPAXYZ')
-    expect(w.gtag).not.toHaveBeenCalled()
   })
 })

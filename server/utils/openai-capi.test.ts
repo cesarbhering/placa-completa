@@ -34,10 +34,16 @@ describe('OpenAI Ads Conversions API', () => {
     expect(ev.oppref).toBeUndefined()
     expect(ev.user).toEqual({ countries: ['BR'], ip_address: '200.1.2.3' })
   })
-  it('nao dispara: valor 0, teste, nao entregue, app, velho', () => {
+  it('cupom 100%: o evento vai com o preco cheio do plano', () => {
+    const ev: any = montarEvento({ ...base, valor_centavos: 0 })
+    expect(JSON.stringify(ev)).toContain('3990')
+  })
+
+  it('nao dispara: teste, nao entregue, app, velho', () => {
     const o = { agora, protegido: false }
     expect(motivoParaNaoEnviar(base, o)).toBeNull()
-    expect(motivoParaNaoEnviar({ ...base, valor_centavos: 0 }, o)).toBe('valor_zero')
+    // cupom 100% conta (Cesar 15/out): valor 0 nao bloqueia mais
+    expect(motivoParaNaoEnviar({ ...base, valor_centavos: 0 }, o)).toBeNull()
     expect(motivoParaNaoEnviar({ ...base, ambiente: 'homolog' }, o)).toBe('teste')
     expect(motivoParaNaoEnviar({ ...base, status: 'consultando' }, o)).toBe('nao_entregue')
     expect(motivoParaNaoEnviar({ ...base, status: 'reembolsado' }, o)).toBe('nao_entregue')
