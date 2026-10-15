@@ -42,3 +42,10 @@ Resultado: 3 falsos positivos (todos isolados, nenhum se repetiria com a confirm
 - Jobs que esgotaram as 4 tentativas geram um e-mail único por lote, `RELATORIO COM FONTE ESGOTADA (n)`, com fonte e erro curto.
 - A TV mostra isso em `saude.json` → `fila_relatorio`.
 - O disparo da fila e a limpeza do cache ficam em `ops/premium-jobs/`.
+
+## Túnel residencial do Mac (desde 14/out/2026)
+
+- `pc-monitor tunel` (`pc-tunel-check.timer`, a cada 5 min) faz `curl -x socks5h://127.0.0.1:1080 https://ifconfig.me` com timeout de 15 s.
+- 2 falhas seguidas, com 60 s entre elas, mandam UM e-mail `TÚNEL DO MAC CAIU` só ao Cesar, com o comando de subida. Esse alerta não se repete. Quando o túnel volta, sai `TÚNEL DO MAC VOLTOU (fora por X)`.
+- O IP de saída (a casa do Cesar) nunca é gravado.
+- Na TV: `tecnologia.json` → `tunel_mac`.
