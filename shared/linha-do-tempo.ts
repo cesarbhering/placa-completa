@@ -48,7 +48,8 @@ export interface EntradaLinhaDoTempo {
   fipeNaData?: (iso: string | null) => number | null
   anoFabricacao?: number | string | null
   anoModelo?: number | string | null
-  leiloes?: { data: string | null; titulo: string; detalhe?: string; notificacao?: boolean; confirmado?: boolean }[]
+  /** judicial: "Levado a leilão judicial"; intervalo: "voltou a leilão 7 meses depois" (recorrencia da API). */
+  leiloes?: { data: string | null; titulo: string; detalhe?: string; notificacao?: boolean; confirmado?: boolean; judicial?: boolean; intervalo?: string | null }[]
   /** Registros de roubo/furto por etapa (ROUBO, RECUPERACAO, DEVOLUCAO). */
   roubo?: { etapa: string; data: string | null; tipo?: string | null }[]
   /** Atendimentos de recall da montadora (realizados), com km quando houver. */
@@ -78,8 +79,8 @@ export function montarLinhaDoTempo(e: EntradaLinhaDoTempo): EventoTempo[] {
     const iso = paraIso(l.data)
     add({
       data: iso, tipo: l.notificacao ? 'notificacao' : 'leilao', secao: 'leilao',
-      titulo: l.notificacao ? 'Consta em edital de notificação' : l.confirmado ? 'Consta passagem por leilão' : 'Possível passagem por leilão',
-      detalhe: [l.titulo, l.detalhe, l.notificacao ? null : fipeTxt(iso)].filter(Boolean).join(' · ') || undefined,
+      titulo: l.notificacao ? 'Consta em edital de notificação' : l.judicial ? 'Levado a leilão judicial' : l.confirmado ? 'Consta passagem por leilão' : 'Possível passagem por leilão',
+      detalhe: [l.notificacao ? null : l.intervalo ? l.intervalo.charAt(0).toUpperCase() + l.intervalo.slice(1) : null, l.titulo, l.detalhe, l.notificacao ? null : fipeTxt(iso)].filter(Boolean).join(' · ') || undefined,
       tom: l.notificacao ? 'neutro' : l.confirmado ? 'alerta' : 'atencao',
     })
   }

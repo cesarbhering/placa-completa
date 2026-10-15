@@ -53,4 +53,14 @@ describe('linha do tempo do veiculo', () => {
     expect(det['2019-09-01']).toBe('Detran MG')
     expect(det['2017-01-01']).toBeUndefined()
   })
+
+  it('leilao judicial e intervalo da recorrencia', () => {
+    const t = montarLinhaDoTempo({ leiloes: [
+      { data: '2023-01-01', titulo: 'Detran MG', confirmado: true },
+      { data: '2023-08-09', titulo: 'Detran MG', confirmado: true, intervalo: 'voltou a leilão 7 meses depois' },
+      { data: '2026-04-15', titulo: 'Superbid', confirmado: true, judicial: true },
+    ] })
+    expect(t.map((x) => x.titulo)).toEqual(['Consta passagem por leilão', 'Consta passagem por leilão', 'Levado a leilão judicial'])
+    expect(t[1].detalhe).toBe('Voltou a leilão 7 meses depois · Detran MG')
+  })
 })
