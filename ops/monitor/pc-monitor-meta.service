@@ -1,0 +1,8 @@
+[Unit]
+Description=pc-monitor META: as checagens (site, checkout, fila, tunel) estao rodando? crash ou parada confirmada 2x = MONITOR QUEBRADO
+# se o proprio pc-monitor quebrar, o e-mail sai direto, sem depender dele
+OnFailure=pc-monitor-panico.service
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-monitor meta
+TimeoutStartSec=150

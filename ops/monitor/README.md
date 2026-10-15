@@ -12,6 +12,7 @@ Regra central: **só alerta com falha CONFIRMADA**. Cada tipo de problema tem um
 | **checkout** | `pc-checkout-probe` (30 min) e pós-deploy | Fluxo real no Chromium: consulta grátis, botão da Completa, botão de pagar. Não gera Pix nem pedido. | 3 falhas, 60 s entre elas | `CHECKOUT COM ERRO: <tipo>` | a cada 1 h | Cesar e helena@ |
 | **fila** | `pc-fila-check` (5 min) | View `premium_jobs_saude` no prod (Management API): job pendente atrasado mais de 15 min ou lease vencido | já confirmado por definição | `FILA DO RELATORIO PARADA` | a cada 1 h | Cesar e helena@ |
 | **fila (esgotados)** | o mesmo | Jobs que esgotaram as 4 tentativas (1 min, 5 min, 30 min, 6 h) | não se aplica | `RELATORIO COM FONTE ESGOTADA (n)`, um por lote | não | Cesar e helena@ |
+| **monitor** | `pc-monitor-meta` (5 min) | As outras 4 checagens (site, checkout, fila, túnel) estão rodando? Unit que saiu com erro (crash) ou estado sem verificação há mais de 15 min (checkout: 2 h) | 2 falhas, 60 s entre elas | `MONITOR QUEBRADO`, com a unit e a última linha do erro | a cada 1 h | Cesar e helena@ |
 | **tunel** | `pc-tunel-check` (5 min) | `curl -x socks5h://127.0.0.1:1080 https://ifconfig.me` (15 s): o túnel residencial do Mac | 2 falhas, 60 s entre elas | `TÚNEL DO MAC CAIU`, com o comando de subida | **não** (1 por queda) | só o Cesar |
 
 Todo alvo que abre incidente manda `... VOLTOU (fora por Xh)` quando normaliza.
@@ -27,13 +28,26 @@ Todo alvo que abre incidente manda `... VOLTOU (fora por Xh)` quando normaliza.
 - **Pós-deploy:** o `pc-deploy-watch` chama `node /usr/local/bin/pc-checkout-probe.mjs` após cada deploy. Um lock (`/run/pc-checkout-probe.lock`) evita duas sondas ao mesmo tempo.
 - **Regra da casa:** todo deploy termina com a sonda do checkout verde.
 
+**Monitor quebrado (desde 15/out/2026):**
+- Em 15/out o `node_modules` usado pela sonda foi esvaziado e ela passou a quebrar com `ERR_MODULE_NOT_FOUND`, sem alerta nenhum.
+- Hoje toda checagem sai com código 0 quando a rodada termina, inclusive com falha confirmada (o alerta já foi registrado). Saída diferente de 0 significa que a CHECAGEM quebrou, e o `pc-monitor meta` transforma isso em `MONITOR QUEBRADO`.
+- Se o próprio `pc-monitor meta` quebrar, o `OnFailure` chama o `pc-monitor-panico`, que manda e-mail direto, sem depender do pc-monitor, no máximo 1 por hora.
+- Checagem com o timer desligado de propósito não conta como quebra.
+
+**Dependências da sonda:**
+- A sonda usa um diretório próprio, `/opt/pc-checkout-probe`, com o playwright pinado em `probe-package.json` e o Chromium em `/opt/pc-checkout-probe/browsers`.
+- **Nunca** usa o `node_modules` de um checkout de trabalho do site. Agentes e worktrees mexem nele.
+- O `instalar.sh` monta o diretório. `PROBE_HOME` aponta para outro lugar em testes.
+
 **Privacidade:** o IP de saída do túnel (a casa do Cesar) nunca é gravado. As mensagens de erro vão sem placa, e-mail, IP ou token.
 
 ## Arquivos
 
 | Arquivo | O que é |
 |---|---|
-| `pc-monitor` | Motor de estado e alerta (Python, só stdlib), com as checagens de site, fila e túnel. Subcomandos: `site`, `fila`, `tunel`, `alerta <alvo> ok\|falha <tipo> <motivo> [detalhe]`, `estado` |
+| `pc-monitor` | Motor de estado e alerta (Python, só stdlib), com as checagens de site, fila, túnel e o meta. Subcomandos: `site`, `fila`, `tunel`, `meta`, `alerta <alvo> ok\|falha <tipo> <motivo> [detalhe]`, `estado` |
+| `pc-monitor-panico` | E-mail direto quando o próprio `pc-monitor meta` falha (via `OnFailure`) |
+| `probe-package.json` | Dependências da sonda, instaladas em `/opt/pc-checkout-probe` |
 | `pc-checkout-probe.mjs` | Fluxo Playwright, com classificação e tentativas; registra o resultado via `pc-monitor alerta checkout ...` |
 | `pc-*-check.service/.timer`, `pc-checkout-probe.service/.timer` | Units systemd, todas com `OnActiveSec` + `OnUnitActiveSec` |
 | `instalar.sh` | Instala tudo e faz backup do que existia. `./instalar.sh --voltar <dir-do-backup>` desfaz |
@@ -41,7 +55,7 @@ Todo alvo que abre incidente manda `... VOLTOU (fora por Xh)` quando normaliza.
 **Na VPS:**
 - Estado em `/var/lib/pc-monitor/<alvo>.json`.
 - Histórico em `/var/log/pc-monitor/<alvo>.log`, com uma linha JSON por verificação.
-- `pc-monitor estado` imprime o estado dos 4 alvos em JSON. É o que os coletores da TV leem: `saude.json` mostra `sonda_site`, `sonda_checkout` e `fila_relatorio`; `tecnologia.json` mostra `tunel_mac`.
+- `pc-monitor estado` imprime o estado dos 5 alvos em JSON. É o que os coletores da TV leem: `saude.json` mostra `sonda_site`, `sonda_checkout` e `fila_relatorio`; `tecnologia.json` mostra `tunel_mac`.
 
 **Credenciais lidas (só o caminho, nunca o valor):**
 - token da Management API do Supabase em `~/.supabase/access-token` (alvo fila);
@@ -57,8 +71,8 @@ Todo alvo que abre incidente manda `... VOLTOU (fora por Xh)` quando normaliza.
 ## Instalar ou atualizar
 
 ```bash
-cd ops/monitor && sudo ./instalar.sh           # instala os 4 alvos e reinicia os timers
-systemctl list-timers 'pc-*-check.timer' pc-checkout-probe.timer   # NEXT tem que estar preenchido
+cd ops/monitor && sudo ./instalar.sh           # deps da sonda em /opt, os 5 alvos e os timers
+systemctl list-timers 'pc-*-check.timer' pc-checkout-probe.timer pc-monitor-meta.timer   # NEXT preenchido
 ```
 
 Pastas irmãs:
@@ -83,4 +97,5 @@ Resultado: 3 falsos positivos, todos isolados, e 7 falhas reais, todas do mesmo 
 - **Nunca** conectar o container do site a outra rede docker. Isso causou a queda de 11-12/out: o Traefik passou a rotear para a rede errada.
 - Deploy espera as consultas em andamento (`em_voo`): stop grace de 150 s e HEALTHCHECK no Dockerfile. Todo deploy termina com a sonda do checkout.
 - Timer systemd sempre com `OnActiveSec`. Depois de mexer, conferir NEXT no `list-timers`.
+- Monitoramento não pode depender de arquivo que agente mexe: a sonda tem as próprias dependências, e checagem quebrada vira alerta.
 - Alerta novo tem que dizer o que fazer (o túnel manda o comando de subida) e não pode virar ruído (no máximo 1 e-mail por queda quando o Cesar pedir).
