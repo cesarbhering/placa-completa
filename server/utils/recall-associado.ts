@@ -47,6 +47,10 @@ export async function buscarRecallBase(
       ano_modelo: m.model_year ?? null,
       inicio: m.start_date ?? null,
       nivel: m.nivel,
+      ...(m.risco ? { risco: m.risco } : {}),
+      ...(m.o_que_fazer ? { oQueFazer: m.o_que_fazer } : {}),
+      ...(m.fabricacao_de ? { fabricacaoDe: m.fabricacao_de } : {}),
+      ...(m.fabricacao_ate ? { fabricacaoAte: m.fabricacao_ate } : {}),
     })),
   }
 }

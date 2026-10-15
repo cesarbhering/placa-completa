@@ -15,6 +15,12 @@ export interface CampanhaBase {
   ano_modelo: string | number | null
   inicio: string | null
   nivel: 'firme' | 'suave'
+  // Detalhe da campanha (leiloes-api, 15/out), quando vier. Snapshot antigo: ausente.
+  risco?: string | null
+  oQueFazer?: string | null
+  /** Inicio e fim do periodo de fabricacao afetado: 'AAAA-MM-DD', 'AAAA-MM' ou 'AAAA'. */
+  fabricacaoDe?: string | null
+  fabricacaoAte?: string | null
 }
 
 export interface RecallBase {
@@ -27,7 +33,7 @@ export interface RecallBase {
 
 export interface CardRecallAssociado {
   titulo: string
-  itens: { nome: string; meta: string }[]
+  itens: { nome: string; meta: string; risco?: string | null; oQueFazer?: string | null; fabricacao?: string | null }[]
   situacao: string
   fonte: string
   semDetalhe: boolean
@@ -71,6 +77,40 @@ function agruparCampanhas(camps: CampanhaBase[]): { c: CampanhaBase; modelos: st
   }))
 }
 
+// ---------- periodo de fabricacao da campanha ----------
+
+/** 'AAAA-MM-DD' | 'AAAA-MM' | 'AAAA' -> { ano, mes?, dia? }. */
+function partesData(v: string | null | undefined): { ano: number; mes: number | null; dia: number | null } | null {
+  const m = String(v ?? '').trim().match(/^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?/)
+  if (!m) return null
+  return { ano: Number(m[1]), mes: m[2] ? Number(m[2]) : null, dia: m[3] ? Number(m[3]) : null }
+}
+function dataLegivel(p: { ano: number; mes: number | null; dia: number | null }): string {
+  if (p.dia && p.mes) return `${String(p.dia).padStart(2, '0')}/${String(p.mes).padStart(2, '0')}/${p.ano}`
+  if (p.mes) return `${String(p.mes).padStart(2, '0')}/${p.ano}`
+  return String(p.ano)
+}
+
+/**
+ * "Veículos fabricados entre X e Y", e so quando o ANO de fabricacao do carro
+ * permite concluir, ", fabricado em 2015, dentro do período da campanha".
+ * O cadastro so tem o ano: num ano de borda com mes/dia (ex.: campanha a partir
+ * de 06/2015, carro de 2015) nao da pra saber, e ai nao afirma nada.
+ */
+export function textoFabricacao(de: string | null | undefined, ate: string | null | undefined, anoFab: unknown): string | null {
+  const a = partesData(de), b = partesData(ate)
+  if (!a && !b) return null
+  const faixa = a && b ? `Campanha para veículos fabricados entre ${dataLegivel(a)} e ${dataLegivel(b)}`
+    : a ? `Campanha para veículos fabricados a partir de ${dataLegivel(a)}`
+      : `Campanha para veículos fabricados até ${dataLegivel(b!)}`
+  const ano = Number(anoFab)
+  if (!Number.isInteger(ano) || ano < 1950) return faixa
+  // Dentro com certeza: o ano inteiro do carro cabe no periodo.
+  const iniOk = !a || ano > a.ano || (ano === a.ano && (a.mes == null || (a.mes === 1 && (a.dia == null || a.dia === 1))))
+  const fimOk = !b || ano < b.ano || (ano === b.ano && (b.mes == null || (b.mes === 12 && (b.dia == null || b.dia === 31))))
+  return iniOk && fimOk ? `${faixa}; fabricado em ${ano}, dentro do período da campanha` : faixa
+}
+
 /**
  * Card novo, ou null quando nao se aplica:
  * - sem hook positivo na consulta gratis: null;
@@ -82,6 +122,8 @@ export function cardRecallAssociado(e: {
   base: RecallBase | null | undefined
   pendente: boolean
   montadoraComCampanhas: boolean
+  /** Ano de fabricacao do veiculo (cadastro), pra comparar com o periodo da campanha. */
+  anoFabricacao?: string | number | null
 }): CardRecallAssociado | null {
   if (!sinalPositivo(e.sinal) || e.pendente || e.montadoraComCampanhas) return null
   const camps = (e.base?.campanhas || []).filter((c) => c && (c.nome || c.codigo))
@@ -96,6 +138,10 @@ export function cardRecallAssociado(e: {
         anoDe(g.c.inicio) ? `iniciada em ${anoDe(g.c.inicio)}` : null,
         g.modelos || null,
       ].filter(Boolean).join(' · '),
+      // So quando vierem: sem eles o item fica igual ao de antes.
+      ...(g.c.risco ? { risco: g.c.risco } : {}),
+      ...(g.c.oQueFazer ? { oQueFazer: g.c.oQueFazer } : {}),
+      ...(textoFabricacao(g.c.fabricacaoDe, g.c.fabricacaoAte, e.anoFabricacao) ? { fabricacao: textoFabricacao(g.c.fabricacaoDe, g.c.fabricacaoAte, e.anoFabricacao) } : {}),
     })),
     situacao: SITUACAO_RECALL_ASSOCIADO,
     fonte: 'Fonte: base de recalls das montadoras.',

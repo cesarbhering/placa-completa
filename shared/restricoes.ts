@@ -24,6 +24,8 @@ export const EXPLICA_RESTRICAO: Record<string, string> = {
   GRAVAME: 'O veículo está financiado e a instituição financeira consta como credora até a quitação. A transferência depende de quitar o contrato e baixar o gravame.',
   LEILAO: 'Consta registro de passagem por leilão no documento do veículo. Isso costuma indicar recuperação de sinistro ou apreensão, reduz o valor de mercado e pede uma vistoria cuidadosa.',
   RESTRICAO_TRIBUTARIA: 'O veículo tem pendência ou benefício fiscal que limita a transferência, como isenção de impostos com prazo de carência.',
+  // Sem o prefixo RESTRICAO_ (2 relatorios ate 15/out): mesmo texto.
+  BENEFICIO_TRIBUTARIO: 'O veículo foi comprado com isenção ou redução de imposto e tem prazo de carência. Transferir antes do prazo exige quitar o imposto ou obter autorização fiscal.',
   RESTRICAO_BENEFICIO_TRIBUTARIO: 'O veículo foi comprado com isenção ou redução de imposto e tem prazo de carência. Transferir antes do prazo exige quitar o imposto ou obter autorização fiscal.',
   COMUNICACAO_DE_VENDA: 'O dono anterior informou a venda ao órgão de trânsito. Falta o novo dono concluir a transferência.',
   PENDENCIA_DE_EMISSAO_CRV: 'O documento de transferência (CRV) ainda não foi emitido. Sem ele a venda não se conclui.',
@@ -161,6 +163,20 @@ const ITENS_INFORMATIVOS: [RegExp, { titulo: string; texto: string }][] = [
   [/^PLACA_SEGURANCA/, {
     titulo: 'Placa de segurança',
     texto: 'Consta no cadastro uma anotação sobre a placa de segurança do veículo. Não restringe a transferência. Confira se a placa instalada é a mesma do documento.',
+  }],
+  // 15/out (BMW X5 blindado): caia no texto generico. Regra do Exercito mudou
+  // em 2026 (Portaria 94-COLOG/2019 revogada); a de transferencia nao foi
+  // confirmada em fonte oficial, entao o texto nao afirma o que ela exige.
+  [/^BLINDADO|^BLINDAGEM/, {
+    titulo: 'Veículo blindado',
+    texto: 'Consta no cadastro que este veículo é blindado. É uma anotação de característica: não é bloqueio por dívida nem por ordem da Justiça. Antes de fechar negócio, peça ao vendedor a Declaração de Blindagem emitida pelo Exército, o certificado da blindadora com o nível de proteção e a nota fiscal do serviço, e confira se o documento do veículo já traz a blindagem. As regras do Exército para veículos blindados foram atualizadas em 2026: confirme com a blindadora ou com um despachante o que a transferência exige hoje.',
+  }],
+  // Recall no campo de restricoes (8 relatorios ate 15/out): nao e bloqueio de
+  // transferencia; o que a regra trava e o LICENCIAMENTO (Res. Contran
+  // 1.027/2026, art. 12, par. 1, IV). O detalhe da campanha fica no card de recall.
+  [/^RECALL/, {
+    titulo: 'Recall registrado',
+    texto: 'Consta no cadastro uma campanha de recall registrada para este veículo. Não é bloqueio por dívida nem por ordem da Justiça, mas o licenciamento anual depende do atendimento às campanhas de recall registradas no documento. O reparo é gratuito na concessionária: peça ao vendedor o comprovante do atendimento ou agende antes de fechar negócio.',
   }],
   [/^PRINCIPAL_CONDUTOR/, {
     titulo: 'Principal condutor',
