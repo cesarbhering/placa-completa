@@ -13,10 +13,11 @@ cp /usr/local/bin/pc-checkout-probe.mjs "$B/" 2>/dev/null || true
 cp /etc/systemd/system/pc-checkout-probe.{service,timer} "$B/" 2>/dev/null || true
 install -m 755 pc-monitor /usr/local/bin/pc-monitor
 install -m 755 pc-checkout-probe.mjs /usr/local/bin/pc-checkout-probe.mjs
-install -m 644 pc-site-check.service pc-site-check.timer pc-checkout-probe.service pc-checkout-probe.timer /etc/systemd/system/
+install -m 644 pc-site-check.service pc-site-check.timer pc-checkout-probe.service pc-checkout-probe.timer \
+  pc-fila-check.service pc-fila-check.timer pc-tunel-check.service pc-tunel-check.timer /etc/systemd/system/
 mkdir -p /var/lib/pc-monitor /var/log/pc-monitor
 systemctl daemon-reload
-systemctl enable pc-site-check.timer pc-checkout-probe.timer
-systemctl restart pc-site-check.timer pc-checkout-probe.timer
-systemctl list-timers pc-site-check.timer pc-checkout-probe.timer --no-pager
+systemctl enable pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer
+systemctl restart pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer
+systemctl list-timers pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer --no-pager
 echo "backup em $B"
