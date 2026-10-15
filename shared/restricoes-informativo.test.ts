@@ -36,3 +36,20 @@ describe('relatorio usa os itens que restringem nas contas', () => {
     expect(src).toContain("r.info ? 'Informação' : 'Restrição'")
   })
 })
+
+describe('15/out: blindado, recall e beneficio tributario fora do texto generico', () => {
+  it('textos proprios, sem travessao e sem afirmar bloqueio', async () => {
+    const { itemInformativo, explicaRestricao, EXPLICA_RESTRICAO_GENERICA, itensQueRestringem } = await import('./restricoes')
+    const b = itemInformativo('BLINDADO')!
+    expect(b.titulo).toBe('Veículo blindado')
+    expect(b.texto).toMatch(/não é bloqueio por dívida nem por ordem da Justiça/)
+    expect(b.texto).toMatch(/Declaração de Blindagem/)
+    expect(itemInformativo('RECALL')!.texto).toMatch(/licenciamento anual depende/)
+    expect(explicaRestricao('BENEFICIO_TRIBUTARIO')).not.toBe(EXPLICA_RESTRICAO_GENERICA)
+    expect(itensQueRestringem(['BLINDADO', 'RECALL', 'RENAJUD'])).toEqual(['RENAJUD'])
+    for (const t of [b.texto, itemInformativo('RECALL')!.texto]) {
+      expect(t).not.toContain('—')
+      expect(t.toUpperCase()).not.toContain('SENATRAN')
+    }
+  })
+})
