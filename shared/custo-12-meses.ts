@@ -114,15 +114,17 @@ export function custo12Meses(e: EntradaCusto12): Custo12 | null {
  *   MG  35,62  SEF/MG, TRLAV 2026
  *   PR  94,61  AEN/PR (licenciamento exercicio 2026, valor unico)
  *   RS 114,09  Portaria DetranRS 036/2026 (DOE 02/03/2026)
- *   GO 274,61  Vapt Vupt/Detran-GO, "Taxas 2026" (pagamento em dia)
- *   CE 220,46  ce.gov.br, 2026 ("demais veiculos")
+ *   GO 274,61  vaptvupt.go.gov.br (orgao Detran-GO), secao "TAXAS 2026",
+ *              "Licenciamento Anual" (em dia; em atraso 347,12). Pagina aberta em 14/10.
  *   Fora (sem valor oficial 2026 encontrado): RJ, SC, BA, DF, PE, ES.
+ *   Fora (pagina oficial nao abre, 403/timeout em 14/10; valor so em sites
+ *   secundarios): CE.
  *
  * Demais UFs: valor de REFERENCIA (tabelas publicas, out/2026), nao conferido
  * no DETRAN; a tela rotula como "valor de referência". RR cobra por peso: fora.
  */
 export const LICENCIAMENTO_UF_2026_OFICIAL: Record<string, number> = {
-  SP: 174.08, MG: 35.62, PR: 94.61, RS: 114.09, GO: 274.61, CE: 220.46,
+  SP: 174.08, MG: 35.62, PR: 94.61, RS: 114.09, GO: 274.61,
 }
 export const LICENCIAMENTO_UF_2026_REFERENCIA: Record<string, number> = {
   AC: 194.14, AL: 155.41, AP: 128.54, AM: 110.0, MA: 95.87, MT: 197.79, MS: 240.5,

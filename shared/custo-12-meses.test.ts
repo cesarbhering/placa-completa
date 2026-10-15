@@ -43,7 +43,7 @@ describe('fase 1: consumo, combustivel e licenciamento', async () => {
     expect(licenciamentoDaUf('MG')).toEqual({ valor: 35.62, oficial: true })
     expect(licenciamentoDaUf('AC')!.oficial).toBe(false)
     // sem valor oficial 2026: fora da conta; RR cobra por peso
-    for (const uf of ['RJ', 'SC', 'BA', 'DF', 'PE', 'ES', 'RR']) expect(licenciamentoDaUf(uf)).toBeNull()
+    for (const uf of ['RJ', 'SC', 'BA', 'DF', 'PE', 'ES', 'CE', 'RR']) expect(licenciamentoDaUf(uf)).toBeNull()
   })
   it('consumo por cilindrada', () => {
     expect(consumoMedio(999, false, false)).toBe(12.5)
