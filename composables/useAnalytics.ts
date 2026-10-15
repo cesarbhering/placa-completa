@@ -300,6 +300,8 @@ export const useAnalytics = () => {
 
   // Google Ads: acao de conversao "Consulta paga (Pix)", BRL.
   const AW_SEND_TO = 'AW-18330779331/KeCcCOXO7OMcEMP95aRE'
+  /** Cupom 100% que, por excecao, dispara a conversao do Google Ads (teste da tag). */
+  const CUPOM_TESTE_GOOGLE_ADS = 'GOOGLE'
 
   /**
    * Resolve valor/item do plano a partir da fonte unica (shared/planos.ts).
@@ -378,7 +380,7 @@ export const useAnalytics = () => {
    * reportaria o preco cheio do plano pro Ads/GA4, inflando ROAS com receita
    * que nunca existiu.
    */
-  const trackConversionPaga = (token?: string, plano?: string, valorPagoCentavos?: number) => {
+  const trackConversionPaga = (token?: string, plano?: string, valorPagoCentavos?: number, cupom?: string) => {
     // `typeof window` (nao import.meta.client): mesma semantica no Nuxt e vale
     // fora do build (teste unitario), igual ao enfileirador do funil.
     if (typeof window === 'undefined' || !token) return
@@ -389,7 +391,15 @@ export const useAnalytics = () => {
     // Cupom 100% (pagou R$ 0): NAO e venda pros anuncios. Nenhum purchase nem
     // conversion vai pro Bing, Google Ads, GA4 ou Meta (inflaria conversao e
     // ROAS com receita que nao existiu). Nem reivindica o token.
-    if (valorPagoCentavos != null && Number(valorPagoCentavos) <= 0) return
+    if (valorPagoCentavos != null && Number(valorPagoCentavos) <= 0) {
+      // Excecao (Cesar 15/out): o cupom GOOGLE existe pra testar a tag de
+      // conversao do Google Ads. So ele dispara, so pro Google Ads, com valor
+      // simbolico de R$ 0,01. GA4, Bing e Meta continuam sem nada.
+      if (String(cupom || '').trim().toUpperCase() !== CUPOM_TESTE_GOOGLE_ADS) return
+      if (!reivindicarConversao(token)) return
+      if (window.gtag) window.gtag('event', 'conversion', { send_to: AW_SEND_TO, value: 0.01, currency: 'BRL', transaction_id: token })
+      return
+    }
     if (!reivindicarConversao(token)) return
     const { value: valorTabela, item } = infoPlano(plano)
     const value = valorPagoCentavos != null ? valorPagoCentavos / 100 : valorTabela
