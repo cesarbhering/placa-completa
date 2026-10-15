@@ -43,7 +43,8 @@ export function motivoParaNaoEnviar(p: PedidoCapi, opts: { agora: number; proteg
   // (se a consulta falhar, o Pix e estornado e nao pode virar conversao).
   if (p.status !== 'entregue') return 'nao_entregue'
   if (!p.pago_em) return 'sem_pago_em'
-  if (!(Number(p.valor_centavos) > 0)) return 'valor_zero'
+  // Cupom 100% CONTA (Cesar 15/out): a plataforma trouxe o cliente; o desconto
+  // e decisao nossa. O valor vai cheio (preco do plano), ver valorDoEvento.
   if (p.google_play_order_id) return 'app'
   // So venda que VEIO do ChatGPT Ads (bug de 03 a 09/out: o worker mandava
   // toda venda, 42 eventos, nenhum com oppref, e o painel da OpenAI creditou
@@ -61,9 +62,15 @@ export function origemChatgpt(p: Pick<PedidoCapi, 'oppref' | 'utm_source'>): boo
   return !!String(p.oppref || '').trim() || String(p.utm_source || '').trim().toLowerCase() === 'chatgpt_ads'
 }
 
+/** Valor da conversao: o que foi pago; cupom 100% (R$ 0) vai com o preco cheio do plano. */
+export function valorDoEvento(valorCentavos: number | null | undefined, plano: keyof typeof PLANOS): number {
+  const v = Math.round(Number(valorCentavos))
+  return v > 0 ? v : PLANOS[plano].valorCentavos
+}
+
 export function montarEvento(p: PedidoCapi) {
   const plano = isPlanoPago(p.plano) ? p.plano : 'completa'
-  const valor = Math.round(Number(p.valor_centavos))
+  const valor = valorDoEvento(p.valor_centavos, plano)
   const hash = emailSha256(p.email)
   const user: Record<string, unknown> = { countries: ['BR'] }
   if (hash) user.emails_sha256 = [hash]
