@@ -693,7 +693,7 @@ async function checarStatus() {
     const r: any = await $fetch('/api/premium/status', { query: { token: pix.value.token } })
     pendingStatus.value = r.status
     histUpdate(pix.value.token, r.status)
-    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token, props.plano, pix.value.valor)
+    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token, props.plano, pix.value.valor, cupomCodigo.value)
     if (r.status === 'entregue') {
       if (poll) clearInterval(poll)
       // Piso so vale pra quem ACABOU de receber (entregue ha < 40s); revisita de
