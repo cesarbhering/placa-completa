@@ -1,6 +1,8 @@
 import { scriptsDeAnalytics } from './shared/analytics-tags'
 import { PLANOS } from './shared/planos'
 import { BASE_LEILAO_TEXTO } from './shared/base-leilao'
+import { urlsDoBlog } from './data/blog-indice'
+import { IBV_SLUG_ANTIGO } from './data/ibv-posts'
 export default defineNuxtConfig({
   compatibilityDate: "2025-01-01",
 
@@ -398,7 +400,6 @@ export default defineNuxtConfig({
       "/tabela-fipe/suzuki-motos",
       "/tabela-fipe/suzuki-motos-intruder-125",
       "/tabela-fipe/suzuki-motos-en-125-yes",
-      // IBV Auto blog
       "/estudos",
     "/seguro/carro-eletrico",
     "/seguro/carro-eletrico/acre",
@@ -428,29 +429,9 @@ export default defineNuxtConfig({
     "/seguro/carro-eletrico/sao-paulo",
     "/seguro/carro-eletrico/sergipe",
     "/seguro/carro-eletrico/tocantins",
-    "/ibv/seguro-mais-caro-brasil-2026",
-    "/blog",
-    "/blog/claude-for-startups",
-    "/blog/carros-usados-mais-economicos",
-    "/ibv",
-      "/ibv/marco-2026",
-      "/ibv/vencedores-perdedores-marco-2026",
-      "/ibv/abril-2026",
-      "/ibv/vencedores-perdedores-abril-2026",
-      "/ibv/maio-2026",
-      "/ibv/vencedores-perdedores-maio-2026",
-      "/ibv/junho-2026",
-      "/ibv/vencedores-perdedores-junho-2026",
-      "/ibv/eletricos-junho-2026",
-      "/ibv/julho-2026",
-      "/ibv/vencedores-perdedores-julho-2026",
-      "/ibv/eletricos-julho-2026",
-      "/ibv/agosto-2026",
-      "/ibv/vencedores-perdedores-agosto-2026",
-      "/ibv/eletricos-agosto-2026",
-      "/ibv/setembro-2026",
-      "/ibv/vencedores-perdedores-setembro-2026",
-      "/ibv/eletricos-setembro-2026",
+    // Blog: indice, tags e posts (inclui o IBV Auto, que saiu de /ibv em
+    // 16/out/2026). Gerado de data/blog-indice.ts: post novo entra sozinho.
+    ...urlsDoBlog(),
     ],
     // Paginas noindex NUNCA no sitemap (conferencia SEO 02/out: /admin, /dash,
     // /cotacao, /termos-de-uso e /politica-de-privacidade estavam la, e /admin
@@ -849,8 +830,16 @@ export default defineNuxtConfig({
     "/o-que-e/**": { swr: 86400 },
     "/seguro/**": { swr: 86400 },
     "/tabela-fipe/**": { swr: 86400 },
-    "/ibv": { swr: 86400 },
-    "/ibv/**": { swr: 86400 },
+    "/blog": { swr: 86400 },
+    "/blog/**": { swr: 86400 },
+    // IBV Auto entrou no blog (16/out/2026): 301 de TODA URL antiga, num salto
+    // so. /ibv vai pra tag; cada post vai pro slug novo (os do mes ganharam
+    // "ibv-auto-"); qualquer outro /ibv/* cai na tag.
+    "/ibv": { redirect: { to: "/blog/tag/ibv-auto", statusCode: 301 } },
+    "/ibv/**": { redirect: { to: "/blog/tag/ibv-auto", statusCode: 301 } },
+    ...Object.fromEntries(
+      Object.entries(IBV_SLUG_ANTIGO).map(([antigo, novo]) => [`/ibv/${antigo}`, { redirect: { to: `/blog/${novo}`, statusCode: 301 } }]),
+    ),
   },
 
   nitro: {

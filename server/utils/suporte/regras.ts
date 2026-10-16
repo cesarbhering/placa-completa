@@ -54,11 +54,11 @@ export function confirmaPagamento(texto: string): boolean {
 
 /** Paginas com informacao propria: so elas (e o relatorio do cliente) levam link. */
 export const LINKS_PERMITIDOS = {
-  ibv: 'https://placacompleta.com.br/ibv',
+  ibv: 'https://placacompleta.com.br/blog/tag/ibv-auto',
   fipe: 'https://placacompleta.com.br/tabela-fipe-por-placa',
   leilao: 'https://placacompleta.com.br/carro-de-leilao/como-saber',
 } as const
-const CAMINHO_PERMITIDO = /^\/(premium\/[A-Za-z0-9_-]{10,}|ibv(\/[a-z0-9-]+)?|tabela-fipe-por-placa|carro-de-leilao\/como-saber)\/?$/
+const CAMINHO_PERMITIDO = /^\/(premium\/[A-Za-z0-9_-]{10,}|blog(\/tag)?(\/[a-z0-9-]+)?|tabela-fipe-por-placa|carro-de-leilao\/como-saber)\/?$/
 const URL_SITE = /(?:https?:\/\/)?(?:www\.)?placacompleta\.com\.br(\/[^\s)\]>,!?]*)?/gi
 
 /**

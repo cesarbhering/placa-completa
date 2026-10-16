@@ -83,7 +83,7 @@ useHead({
             <h2>Metodologia das análises IBV</h2>
             <p>
               Todo mês, após a divulgação do relatório IBV Auto pelo banco BV, publicamos uma
-              análise editorial em <NuxtLink to="/ibv">nosso blog</NuxtLink>: o que os números
+              análise editorial em <NuxtLink to="/blog/tag/ibv-auto">nosso blog</NuxtLink>: o que os números
               significam para quem está comprando ou vendendo um carro usado. Os percentuais são
               transcritos diretamente do relatório oficial; a interpretação (contexto de mercado,
               recomendações práticas) é nossa. Quando opinamos, deixamos claro que é análise,
