@@ -77,7 +77,14 @@ export function faixaLicenciamento(a: {
       ? `A base nacional mostra ${anoNac}; vale o DETRAN${uf ? '-' + uf : ''}, que é o registro do estado.`
       : null
     const juntar = (n: string | null) => [n, divergente].filter(Boolean).join(' ') || null
-    if (e.licenciamento_atrasado_ano != null) {
+    // Licenciado no exercicio atual (ou adiante) nao e atraso, mesmo com o
+    // parser marcando atraso. Caso EMZ4D53 (16/out): DETRAN-SP com ultimo
+    // licenciamento 2026 e "atrasado" 2026 (taxa do exercicio na lista de
+    // debitos); o carro esta licenciado em 2026, entao a faixa diz Em dia.
+    const ultimo = e.ultimo_licenciamento_ano != null ? Number(e.ultimo_licenciamento_ano) : null
+    const licenciadoNoExercicio = ultimo != null && Number.isFinite(ultimo) && ultimo >= atual
+    const atrasoReal = e.licenciamento_atrasado_ano != null && !licenciadoNoExercicio
+    if (atrasoReal) {
       return { ano: String(anoEst), tom: 'alerta', rotulo: 'Atrasado', fonte, licenciadoEm, emissao: null, nota: divergente }
     }
     const t = tomDoAno(Number(anoEst), atual)
