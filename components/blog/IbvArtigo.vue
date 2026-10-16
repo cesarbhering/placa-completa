@@ -1,14 +1,15 @@
 <script setup lang="ts">
+// Post do IBV Auto dentro do blog (16/out/2026: /ibv/<slug> virou
+// /blog/<slug>, tag "IBV Auto"). Era pages/ibv/[slug].vue: conteudo, title,
+// meta e imagens preservados; canonical, og:url, schema e breadcrumb no /blog.
 import { escolherTitulo } from '~/shared/seo-titulo'
-import { findIbvPost } from '~/data/ibv-posts'
+import type { IbvPost } from '~/data/ibv-posts'
 
-const route = useRoute()
-const slug = route.params.slug as string
-const post = findIbvPost(slug)
-
-if (!post) {
-  throw createError({ statusCode: 404, message: 'Relatório não encontrado' })
-}
+const props = defineProps<{ post: IbvPost }>()
+const post = props.post
+const URL_BASE = 'https://placacompleta.com.br'
+const url = `${URL_BASE}/blog/${post.slug}`
+const URL_TAG = '/blog/tag/ibv-auto'
 
 function formatDate(iso: string) {
   const [year, month, day] = iso.split('-').map(Number)
@@ -80,8 +81,10 @@ function renderRichText(text: string): string {
 useHead({
   title: escolherTitulo([post.seoTitle, post.title]),
   titleTemplate: '%s',
+  link: [{ rel: 'canonical', href: url }],
   meta: [
     { name: 'description', content: post.metaDescription },
+    { property: 'og:url', content: url },
     { property: 'og:title', content: post.title },
     { property: 'og:description', content: post.metaDescription },
     { property: 'og:type', content: 'article' },
@@ -106,6 +109,7 @@ useHead({
           name: 'PlacaCompleta',
           url: 'https://placacompleta.com.br',
         },
+        keywords: 'IBV Auto',
         publisher: {
           '@type': 'Organization',
           name: 'PlacaCompleta',
@@ -117,7 +121,7 @@ useHead({
         },
         mainEntityOfPage: {
           '@type': 'WebPage',
-          '@id': `https://placacompleta.com.br/ibv/${post.slug}`,
+          '@id': url,
         },
         about: {
           '@type': 'Thing',
@@ -133,8 +137,9 @@ useHead({
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'PlacaCompleta', item: 'https://placacompleta.com.br' },
-          { '@type': 'ListItem', position: 2, name: 'IBV Auto', item: 'https://placacompleta.com.br/ibv' },
-          { '@type': 'ListItem', position: 3, name: post.referenceMonth },
+          { '@type': 'ListItem', position: 2, name: 'Blog', item: `${URL_BASE}/blog` },
+          { '@type': 'ListItem', position: 3, name: 'IBV Auto', item: `${URL_BASE}${URL_TAG}` },
+          { '@type': 'ListItem', position: 4, name: post.title },
         ],
       }),
     },
@@ -146,7 +151,7 @@ useHead({
   <div class="pc-page">
     <main class="pc-container">
       <div class="post-header">
-        <div class="post-header__badge">IBV Auto · {{ post.referenceMonth }}</div>
+        <NuxtLink :to="URL_TAG" class="post-header__badge">IBV Auto · {{ post.referenceMonth }}</NuxtLink>
         <h1 class="pc-h1 post-header__title">{{ post.title }}</h1>
         <div class="post-header__meta">
           <span>Publicado em {{ formatDate(post.publishedAt) }}</span>
@@ -214,7 +219,9 @@ useHead({
             <nav class="pc-breadcrumb">
               <NuxtLink to="/">PlacaCompleta</NuxtLink>
               <span> &rsaquo; </span>
-              <NuxtLink to="/ibv">IBV Auto</NuxtLink>
+              <NuxtLink to="/blog">Blog</NuxtLink>
+              <span> &rsaquo; </span>
+              <NuxtLink :to="URL_TAG">IBV Auto</NuxtLink>
               <span> &rsaquo; </span>
               <strong>{{ post.referenceMonth }}</strong>
         </nav>
@@ -242,6 +249,8 @@ useHead({
     padding: 6px 12px;
     border-radius: 8px;
     margin-bottom: 14px;
+    text-decoration: none;
+    &:hover { background: var(--pc-blue); }
   }
 
   &__title { margin-bottom: 12px; }

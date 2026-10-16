@@ -61,7 +61,7 @@ useHead({
             </p>
             <ul>
               <li>
-                <NuxtLink to="/ibv/seguro-mais-caro-brasil-2026">
+                <NuxtLink to="/blog/seguro-mais-caro-brasil-2026">
                   As 5 regiões com seguro de carro mais caro do Brasil (e as 5 mais baratas)
                 </NuxtLink>
                 : ranking das 41 regiões de tarifação. Fonte: SUSEP + IPCA/IBGE.
@@ -85,11 +85,11 @@ useHead({
             </p>
             <ul>
               <li v-if="ultimoIbv">
-                <NuxtLink :to="`/ibv/${ultimoIbv.slug}`">{{ ultimoIbv.title }}</NuxtLink>
+                <NuxtLink :to="`/blog/${ultimoIbv.slug}`">{{ ultimoIbv.title }}</NuxtLink>
                 : análise mais recente.
               </li>
               <li>
-                <NuxtLink to="/ibv">Todas as análises do IBV Auto</NuxtLink>
+                <NuxtLink to="/blog/tag/ibv-auto">Todas as análises do IBV Auto</NuxtLink>
                 : histórico mensal. Fonte dos dados: Banco BV (IBV Auto).
               </li>
             </ul>

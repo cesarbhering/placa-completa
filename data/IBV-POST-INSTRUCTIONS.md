@@ -2,12 +2,14 @@
 
 > Cesar revisa o conteúdo antes de qualquer implementação de código. Nunca publique um post sem revisão do Cesar.
 
+> **Desde 16/out/2026 o IBV Auto vive no blog.** Cada post sai em `/blog/<slug>` com a tag "IBV Auto" (listagem em `/blog/tag/ibv-auto`). Não existe mais `/ibv`: todas as URLs antigas têm 301 (`nuxt.config.ts`, a partir de `IBV_SLUG_ANTIGO`). O post continua sendo escrito em `data/ibv-posts.ts`; blog, tag, sitemap e schema saem dele sozinhos.
+
 ## Tipos de post mensais
 
 Cada mês gera **dois posts**:
 
-1. **IBV do mês** (`ibv-{mes}-{ano}`) — visão geral: variação nacional, modelos, regiões, elétricos
-2. **Vencedores e Perdedores** (`vencedores-perdedores-{mes}-{ano}`) — análise por estado usando dados do Excel, top 4 altas + top 4 baixas com contexto de tendência
+1. **IBV do mês** (slug `ibv-auto-{mes}-{ano}`, ex.: `ibv-auto-outubro-2026`) — visão geral: variação nacional, modelos, regiões, elétricos
+2. **Vencedores e Perdedores** (slug `vencedores-perdedores-{mes}-{ano}`) — análise por estado usando dados do Excel, top 4 altas + top 4 baixas com contexto de tendência
 
 ## Onde encontrar o relatório
 
@@ -101,7 +103,7 @@ Adicione um novo objeto no array `ibvPosts`, **antes** dos posts existentes (ord
 
 ```typescript
 {
-  slug: 'abril-2026',
+  slug: 'ibv-auto-abril-2026',   // post do mes: SEMPRE com o prefixo ibv-auto-
   title: 'IBV Auto Abril 2026: [manchete com o número principal]',
   seoTitle: 'IBV Auto Abril 2026: [dado principal, 50 a 60 caracteres]',
   metaDescription: '[Resumo de 155 caracteres com o número principal e o que veremos no post]',
@@ -281,16 +283,9 @@ for r in ranked[:4] + ranked[-4:]:
 
 ---
 
-## 4. Atualizar o sitemap em `nuxt.config.ts`
+## 4. Sitemap: não precisa mexer
 
-Na seção `sitemap: { urls: [...] }`, adicione as duas novas URLs **junto às outras URLs do IBV**:
-
-```typescript
-// IBV Auto blog
-"/ibv",
-"/ibv/marco-2026",
-"/ibv/abril-2026",   // ← adicionar
-```
+O sitemap (`nuxt.config.ts`) monta as URLs do blog com `urlsDoBlog()` (`data/blog-indice.ts`): o post novo entra sozinho em `/blog/<slug>`, junto com `/blog/tag/ibv-auto`. Links entre posts, no texto, usam `/blog/<slug>` (nunca `/ibv/...`).
 
 ---
 
@@ -329,8 +324,8 @@ Na seção `sitemap: { urls: [...] }`, adicione as duas novas URLs **junto às o
 | `seoTitle` | Title da aba/SERP: 50 a 60 caracteres no total, sem travessão (o teste shared/seo-meta.test.ts barra) |
 | `metaDescription` | 140–160 caracteres, incluir variação percentual e CTA implícito |
 | `publishedAt` | Data real de publicação pelo BV (não a data de implementação) |
-| Schema `BlogPosting` | Gerado automaticamente pelo `[slug].vue` — sem ação necessária |
-| Schema `BreadcrumbList` | Gerado automaticamente — sem ação necessária |
+| Schema `BlogPosting` | Gerado automaticamente por `components/blog/IbvArtigo.vue` (canonical e og:url em `/blog/<slug>`), sem ação necessária |
+| Schema `BreadcrumbList` | Gerado automaticamente (PlacaCompleta > Blog > IBV Auto > post), sem ação necessária |
 | `og:type` | `article` — gerado automaticamente |
 | `article:published_time` | Preenchido com `publishedAt` — automático |
 | Alt text das imagens | Descritivo e específico: mencionar o tipo de gráfico e dado principal |
@@ -342,10 +337,11 @@ Na seção `sitemap: { urls: [...] }`, adicione as duas novas URLs **junto às o
 | Arquivo | Função |
 |---|---|
 | `data/ibv-posts.ts` | Todos os posts e seu conteúdo estruturado |
-| `pages/ibv/index.vue` | Página de listagem `/ibv` — **não precisa alterar por post** |
-| `pages/ibv/[slug].vue` | Página de post — **não precisa alterar por post** |
+| `data/blog-indice.ts` | Índice do blog (tags, listagem e URLs do sitemap): **não precisa alterar por post** |
+| `pages/blog/index.vue` e `pages/blog/tag/[tag].vue` | Listagem `/blog` e `/blog/tag/ibv-auto`: **não precisa alterar por post** |
+| `pages/blog/[slug].vue` + `components/blog/IbvArtigo.vue` | Página do post: **não precisa alterar por post** |
 | `public/images/ibv/{mes}-{ano}/` | Imagens do post (gráficos do BV) |
-| `nuxt.config.ts` | Sitemap — adicionar as novas URLs |
+| `nuxt.config.ts` | Redirects 301 de `/ibv` (automáticos) e sitemap (automático): **não precisa alterar por post** |
 
 ---
 
@@ -359,5 +355,5 @@ Na seção `sitemap: { urls: [...] }`, adicione as duas novas URLs **junto às o
   - `image_005.png` → `modelos-alta-baixa.png`
   - `image_006.png` → `variacao-por-uf.png`
   - `image_008.png` → `mapa-brasil-acumulado.png`
-- **Slug:** `marco-2026`
-- **URL final:** `/ibv/marco-2026`
+- **Slug:** `ibv-auto-marco-2026` (era `marco-2026`)
+- **URL final:** `/blog/ibv-auto-marco-2026` (a antiga `/ibv/marco-2026` tem 301)
