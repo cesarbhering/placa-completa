@@ -44,6 +44,7 @@ import { variacaoFipe, fipeNoMes, mesDoRotulo } from '~/shared/fipe-variacao'
 import { componenteEua, type RecallEuaTela } from '~/shared/recall-eua'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { montarLinhaDoTempo } from '~/shared/linha-do-tempo'
+import { restricoesDetranParaTela } from '~/shared/restricao-detran-classe'
 import { textoPrecoVsFipe, textoStatusRevenda, type RevendaFrota } from '~/shared/revenda-frota'
 import { textoAlerta, textoJudicial, textoIntervalo, dataBR as dataBRIso } from '~/shared/leilao-relatorio2'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
@@ -1546,8 +1547,16 @@ const hodometroSuspeito = computed(() => !!multasDetalhe.value?.hodometro_suspei
 // Alerta (km caiu) ou orientacao com a ultima leitura: shared/hodometro-texto.ts.
 const fraseHodometro = computed(() => textoHodometro({ suspeito: hodometroSuspeito.value, extrato: hodometroExtrato.value }))
 // Caixa "Para transferir" e procedencia/data dos subblocos (shared/detran-quitar.ts).
+// Restricoes do DETRAN classificadas (shared/restricao-detran-classe.ts, Cesar
+// 16/out): o que so nega ("nao possui impedimentos") sai da lista e das travas;
+// duvida sem veredito do revisor vira informacao neutra. Lista, "Para
+// transferir" e a linha de "sem restricoes" leem DAQUI, pra contar a mesma coisa.
+const restrDetran = computed(() => restricoesDetranParaTela(
+  (multasDetalhe.value as any)?.restricoes_detran,
+  (data.value as any)?.restricoesDetranRevisor || {},
+))
 const resumoDetran = computed(() => multasDetalhe.value ? resumoQuitar({
-  bloco: multasDetalhe.value as any,
+  bloco: { ...(multasDetalhe.value as any), restricoes_detran: restrDetran.value.reais.map((r) => ({ tipo: r.tipo, texto: r.texto })) },
   ufVeiculo: ufDetranTela.value,
   restricoesNacionais: itensQueRestringem(v.value?.restricoesItens),
   indicadorRouboFurto: g('indicadorRouboFurto') === true,
@@ -2426,15 +2435,24 @@ onUnmounted(() => {
                   <p v-if="ipvaLista.temSefaz" class="rel__multas-nota">Valores da SEFAZ são o valor original, sem juros e multa.</p>
                 </template>
 
-                <!-- Restrições do DETRAN (só as que constam de fato). -->
-                <template v-if="multasDetalhe.restricoes_detran && multasDetalhe.restricoes_detran.length">
+                <!-- Restrições do DETRAN: só as reais (classificadas); o que só
+                     nega vira uma linha; dúvida sem veredito é informação neutra. -->
+                <template v-if="restrDetran.reais.length">
                   <p class="rel__multas-sub">Restrições no DETRAN</p>
                   <ul class="rel__multas-restr">
-                    <li v-for="(rs, idx) in multasDetalhe.restricoes_detran" :key="'rs' + idx">
+                    <li v-for="(rs, idx) in restrDetran.reais" :key="'rs' + idx">
                       <b>{{ rotuloRestricao(rs.tipo) }}:</b> {{ rs.texto }}
                       <span v-if="efeitoTexto(rs)" class="rel__efeito">{{ efeitoTexto(rs) }}</span>
                     </li>
                   </ul>
+                </template>
+                <p v-else-if="restrDetran.semRestricao" class="rel__multas-kmok">DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }}: sem impedimentos ou restrições.</p>
+                <template v-if="restrDetran.informativas.length">
+                  <p class="rel__multas-sub">Informação do DETRAN</p>
+                  <ul class="rel__multas-restr rel__multas-restr--info">
+                    <li v-for="(rs, idx) in restrDetran.informativas" :key="'ri' + idx">{{ rs.texto || rotuloRestricao(rs.tipo) }}</li>
+                  </ul>
+                  <p class="rel__multas-nota">Texto como veio do DETRAN, sem indicação clara de restrição. Se tiver dúvida, confira no site do DETRAN.</p>
                 </template>
               </template>
               <p v-else-if="multasProtegido" class="rel__multas-nota">{{ textoDetranProtegido(ufMultasProtegido) }}</p>

@@ -1,4 +1,6 @@
 import { sanearRenajud } from '../../utils/renajud-detalhe'
+import { restricoesDetranParaTela, type VereditosRevisor } from '../../../shared/restricao-detran-classe'
+import { revisarRestricoesDetran } from '../../utils/revisor-restricao-detran'
 import { historicoLgpd } from '../../../shared/leilao-lgpd'
 import { sanearRecallEua } from '../../../shared/recall-eua'
 import { garantirRecallBase } from '../../utils/recall-associado'
@@ -340,6 +342,16 @@ export default defineEventHandler(async (event) => {
     } catch { /* sem data: a linha sai so com a fonte */ }
   }
 
+  // Restricoes do DETRAN que o classificador nao decide: revisor final (Haiku),
+  // cacheado por texto normalizado (fonte_cache, 365 d). So exibicao: o
+  // snapshot nao muda. Falha = sem veredito = "informacao do DETRAN" neutra.
+  let restricoesDetranRevisor: VereditosRevisor = {}
+  const pendRevisor = restricoesDetranParaTela((multas as any)?.restricoes_detran).pendentesRevisor
+  if (pendRevisor.length && pedido.status === 'entregue') {
+    restricoesDetranRevisor = await revisarRestricoesDetran(pendRevisor, { sb: supabase, chaveApi: String(useRuntimeConfig().anthropicApiKey || '') || null })
+      .catch(() => ({}))
+  }
+
   // Cupom de recompra do pedido (faixa no relatorio) enquanto valido.
   const cupomRecompra = pedido.status === 'entregue' ? await cupomRecompraDoPedido(supabase, pedido.id) : null
 
@@ -378,6 +390,7 @@ export default defineEventHandler(async (event) => {
     recallBase,
     recallSinal: pedido.recall_sinal ?? null,
     multas,
+    restricoesDetranRevisor,
     detranConsultadoEm,
     fontes,
     aguardarAte,
