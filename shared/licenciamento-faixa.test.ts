@@ -12,6 +12,13 @@ describe('faixa de licenciamento: DETRAN da UF manda sobre a base nacional', () 
       nota: 'A base nacional mostra 2023; vale o DETRAN-SP, que é o registro do estado.' })
   })
 
+  it('EMZ4D53: DETRAN-SP licenciado 2026 e "atrasado" 2026 -> "Em dia" (atraso so se depois do ultimo licenciado)', () => {
+    const f = faixaLicenciamento({ anoNacional: '2025', estadual: { fonte: 'detran_sp', ultimo_licenciamento_ano: 2026, licenciamento_atrasado_ano: 2026 }, anoAtual: 2026 })
+    expect(f?.rotulo).toBe('Em dia')
+    expect(f?.tom).toBe('ok')
+    expect(f?.ano).toBe('2026')
+  })
+
   it('base nacional 2026 + DETRAN atrasado 2024 -> "Atrasado" pelo estado', () => {
     const f = faixaLicenciamento({
       anoNacional: '2026',
