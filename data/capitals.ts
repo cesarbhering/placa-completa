@@ -13,14 +13,14 @@ export const capitals: Record<string, CapitalData> = {
     context: 'A capital paulista é a maior cidade do Brasil e da América Latina, com mais de 12 milhões de habitantes e uma frota que ultrapassa 8 milhões de veículos. O rodízio municipal de placas, as zonas de máxima restrição (ZMRC) e o intenso trânsito tornam a consulta veicular ainda mais útil na cidade.',
     neighborhoods: 'Centro, Pinheiros, Vila Mariana, Moema, Santana, Tatuapé, Itaquera, Morumbi, Butantã e Santo Amaro',
     faqs: [
-      { question: 'Como consultar uma placa de São Paulo capital?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo paulistano e seu e-mail. Em segundos você recebe marca, modelo, ano, valor FIPE e situação do veículo — grátis, sem cadastro.' },
+      { question: 'Como consultar uma placa de São Paulo capital?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo paulistano e seu e-mail. Em segundos você recebe marca, modelo, ano, valor FIPE e situação do veículo, grátis, sem cadastro.' },
       { question: 'O rodízio de placas de SP vale para quais veículos?', answer: 'O rodízio municipal em São Paulo atinge carros particulares, caminhões e veículos de carga dentro do centro expandido. Motos, ônibus, táxis e veículos elétricos estão isentos.' },
       { question: 'Como saber se um carro de São Paulo tem débitos?', answer: 'Na consulta do PlacaCompleta você recebe a situação do veículo, incluindo indicações de restrições ou débitos. Para consulta completa de IPVA e multas, acesse também o site do DETRAN-SP.' },
     ],
   },
   'rio-de-janeiro': {
     slug: 'rio-de-janeiro', name: 'Rio de Janeiro', stateSlug: 'rio-de-janeiro',
-    context: 'A capital fluminense é a segunda maior cidade do Brasil, com cerca de 6,8 milhões de habitantes. A frota carioca supera 3 milhões de veículos, distribuídos entre as zonas Norte, Sul, Oeste e Centro — com intenso fluxo diário entre municípios da Baixada e da região metropolitana.',
+    context: 'A capital fluminense é a segunda maior cidade do Brasil, com cerca de 6,8 milhões de habitantes. A frota carioca supera 3 milhões de veículos, distribuídos entre as zonas Norte, Sul, Oeste e Centro, com intenso fluxo diário entre municípios da Baixada e da região metropolitana.',
     neighborhoods: 'Copacabana, Ipanema, Leblon, Tijuca, Barra da Tijuca, Recreio, Jacarepaguá, Centro, Méier e Campo Grande',
     faqs: [
       { question: 'Como consultar uma placa do Rio de Janeiro?', answer: 'No PlacaCompleta, digite a placa do veículo carioca e informe seu e-mail. Receba marca, modelo, ano, cor, FIPE e situação em segundos, gratuitamente.' },
@@ -45,7 +45,7 @@ export const capitals: Record<string, CapitalData> = {
     faqs: [
       { question: 'Como consultar uma placa de Fortaleza?', answer: 'No PlacaCompleta, digite a placa do veículo cearense e informe seu e-mail. Em segundos você recebe marca, modelo, ano, FIPE e situação gratuitamente.' },
       { question: 'Onde fica o DETRAN de Fortaleza?', answer: 'O DETRAN-CE tem a sede principal em Fortaleza, com postos descentralizados nos shoppings e Vapt Vupt da cidade. Serviços online em detran.ce.gov.br.' },
-      { question: 'O IPVA de Fortaleza pode ser parcelado?', answer: 'Sim. O IPVA no Ceará (alíquota de 3%) pode ser pago em cotas ou à vista com desconto — as regras valem para toda a capital.' },
+      { question: 'O IPVA de Fortaleza pode ser parcelado?', answer: 'Sim. O IPVA no Ceará (alíquota de 3%) pode ser pago em cotas ou à vista com desconto. As regras valem para toda a capital.' },
     ],
   },
   'salvador': {
@@ -60,12 +60,12 @@ export const capitals: Record<string, CapitalData> = {
   },
   'belo-horizonte': {
     slug: 'belo-horizonte', name: 'Belo Horizonte', stateSlug: 'minas-gerais',
-    context: 'Belo Horizonte é a capital de Minas Gerais e a sexta cidade mais populosa do Brasil, com cerca de 2,3 milhões de habitantes. A frota de BH passa de 1,8 milhão de veículos e se distribui por toda a Região Metropolitana — Contagem, Betim, Nova Lima e outras cidades vizinhas.',
+    context: 'Belo Horizonte é a capital de Minas Gerais e a sexta cidade mais populosa do Brasil, com cerca de 2,3 milhões de habitantes. A frota de BH passa de 1,8 milhão de veículos e se distribui por toda a Região Metropolitana: Contagem, Betim, Nova Lima e outras cidades vizinhas.',
     neighborhoods: 'Savassi, Funcionários, Centro, Lourdes, Buritis, Pampulha, Barreiro, Venda Nova, Sion e Belvedere',
     faqs: [
       { question: 'Como consultar uma placa de Belo Horizonte?', answer: 'No PlacaCompleta, digite a placa do veículo belo-horizontino e seu e-mail. Em segundos você recebe dados completos como marca, modelo, FIPE e situação.' },
       { question: 'Qual o site do DETRAN-MG em BH?', answer: 'O DETRAN-MG tem sede em Belo Horizonte e oferece serviços online em detran.mg.gov.br, incluindo transferência, licenciamento e consulta de pontos na CNH.' },
-      { question: 'Como saber o valor FIPE de um carro de BH?', answer: 'Basta consultar a placa no PlacaCompleta. Junto com os dados do veículo, você recebe o valor FIPE atualizado no e-mail — útil para compra, venda ou seguro.' },
+      { question: 'Como saber o valor FIPE de um carro de BH?', answer: 'Basta consultar a placa no PlacaCompleta. Junto com os dados do veículo, você recebe o valor FIPE atualizado no e-mail, útil para compra, venda ou seguro.' },
     ],
   },
   'manaus': {
@@ -74,7 +74,7 @@ export const capitals: Record<string, CapitalData> = {
     neighborhoods: 'Centro, Adrianópolis, Chapada, Ponta Negra, Flores, Cidade Nova, Cachoeirinha, Alvorada, Compensa e São José',
     faqs: [
       { question: 'Como consultar uma placa de Manaus?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo amazonense e seu e-mail. Receba marca, modelo, ano, FIPE e situação em segundos, grátis.' },
-      { question: 'Veículos fabricados na Zona Franca têm placa de Manaus?', answer: 'Não. Motocicletas e veículos fabricados na Zona Franca recebem placas conforme o município onde forem registrados — que pode ser Manaus ou qualquer outra cidade do país.' },
+      { question: 'Veículos fabricados na Zona Franca têm placa de Manaus?', answer: 'Não. Motocicletas e veículos fabricados na Zona Franca recebem placas conforme o município onde forem registrados, que pode ser Manaus ou qualquer outra cidade do país.' },
       { question: 'Qual o DETRAN da capital do Amazonas?', answer: 'O DETRAN-AM tem a sede em Manaus, com serviços online em detran.am.gov.br para transferência, licenciamento e consulta veicular.' },
     ],
   },
@@ -90,12 +90,12 @@ export const capitals: Record<string, CapitalData> = {
   },
   'recife': {
     slug: 'recife', name: 'Recife', stateSlug: 'pernambuco',
-    context: 'Recife é a capital de Pernambuco e um dos principais centros urbanos do Nordeste, com cerca de 1,6 milhão de habitantes. A capital pernambucana concentra a maior frota do estado, distribuída pela Região Metropolitana do Recife — incluindo Olinda, Jaboatão, Paulista e Camaragibe.',
+    context: 'Recife é a capital de Pernambuco e um dos principais centros urbanos do Nordeste, com cerca de 1,6 milhão de habitantes. A capital pernambucana concentra a maior frota do estado, distribuída pela Região Metropolitana do Recife, incluindo Olinda, Jaboatão, Paulista e Camaragibe.',
     neighborhoods: 'Boa Viagem, Pina, Casa Forte, Parnamirim, Boa Vista, Santo Antônio, Ibura, Cordeiro, Torre e Espinheiro',
     faqs: [
-      { question: 'Como consultar uma placa do Recife?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo pernambucano e seu e-mail. Em segundos você recebe todos os dados — marca, modelo, FIPE, situação. Grátis.' },
+      { question: 'Como consultar uma placa do Recife?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo pernambucano e seu e-mail. Em segundos você recebe todos os dados: marca, modelo, FIPE, situação. Grátis.' },
       { question: 'Qual o DETRAN de Recife?', answer: 'O DETRAN-PE tem sede em Recife, com serviços online em detran.pe.gov.br, incluindo licenciamento, transferência e consulta veicular.' },
-      { question: 'Como saber o valor FIPE de um carro do Recife?', answer: 'Basta consultar a placa no PlacaCompleta — o valor FIPE vem no e-mail junto com os outros dados do veículo. Totalmente grátis.' },
+      { question: 'Como saber o valor FIPE de um carro do Recife?', answer: 'Basta consultar a placa no PlacaCompleta: o valor FIPE vem no e-mail junto com os outros dados do veículo. Totalmente grátis.' },
     ],
   },
   'porto-alegre': {
@@ -125,7 +125,7 @@ export const capitals: Record<string, CapitalData> = {
     faqs: [
       { question: 'Como consultar uma placa de Belém?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo paraense e seu e-mail. Em segundos você recebe marca, modelo, ano, FIPE e situação gratuitamente.' },
       { question: 'Qual o DETRAN do Pará em Belém?', answer: 'O DETRAN-PA tem sede em Belém, com serviços online em detran.pa.gov.br para transferência, licenciamento, multas e consulta veicular.' },
-      { question: 'Como ver o valor FIPE de um carro em Belém?', answer: 'Basta consultar a placa no PlacaCompleta — o valor FIPE atualizado vem no e-mail junto com os demais dados do veículo, totalmente grátis.' },
+      { question: 'Como ver o valor FIPE de um carro em Belém?', answer: 'Basta consultar a placa no PlacaCompleta: o valor FIPE atualizado vem no e-mail junto com os demais dados do veículo, totalmente grátis.' },
     ],
   },
   'sao-luis': {
@@ -143,7 +143,7 @@ export const capitals: Record<string, CapitalData> = {
     context: 'Maceió é a capital de Alagoas, com cerca de 1 milhão de habitantes. Conhecida pelas praias urbanas e pelo turismo, a capital alagoana concentra a maior frota do estado.',
     neighborhoods: 'Pajuçara, Ponta Verde, Jatiúca, Mangabeiras, Cruz das Almas, Farol, Tabuleiro do Martins, Antares, Benedito Bentes e Cidade Universitária',
     faqs: [
-      { question: 'Como consultar uma placa de Maceió?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo alagoano e informe seu e-mail. Em segundos recebe dados completos — grátis e sem cadastro.' },
+      { question: 'Como consultar uma placa de Maceió?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo alagoano e informe seu e-mail. Em segundos recebe dados completos, grátis e sem cadastro.' },
       { question: 'Qual o site do DETRAN-AL?', answer: 'O DETRAN-AL tem sede em Maceió e atende em detran.al.gov.br, com serviços online para licenciamento, transferência e consulta veicular.' },
       { question: 'Como saber se um carro de Maceió tem restrição?', answer: 'A consulta no PlacaCompleta mostra a situação básica. Para detalhes de débito de IPVA e multas, consulte também o DETRAN-AL.' },
     ],
@@ -165,7 +165,7 @@ export const capitals: Record<string, CapitalData> = {
     faqs: [
       { question: 'Como consultar uma placa de Campo Grande?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo sul-mato-grossense e informe seu e-mail. Receba os dados em segundos, gratuitamente.' },
       { question: 'Qual o DETRAN-MS?', answer: 'O DETRAN-MS tem sede em Campo Grande, com serviços online em detran.ms.gov.br para transferência, licenciamento e consulta veicular.' },
-      { question: 'Como ver o valor FIPE de um carro em Campo Grande?', answer: 'Consultando a placa no PlacaCompleta — o valor FIPE vem direto no e-mail com os outros dados do veículo.' },
+      { question: 'Como ver o valor FIPE de um carro em Campo Grande?', answer: 'Consultando a placa no PlacaCompleta: o valor FIPE vem direto no e-mail com os outros dados do veículo.' },
     ],
   },
   'teresina': {
@@ -173,7 +173,7 @@ export const capitals: Record<string, CapitalData> = {
     context: 'Teresina é a capital do Piauí, com cerca de 880 mil habitantes. A única capital nordestina fora do litoral, Teresina é polo médico e logístico do Meio-Norte, concentrando a maior frota do estado.',
     neighborhoods: 'Centro, Jóquei, Fátima, São Cristóvão, Horto, Ininga, Piçarra, Saci, Dirceu Arcoverde e Memorare',
     faqs: [
-      { question: 'Como consultar uma placa de Teresina?', answer: 'No PlacaCompleta, digite a placa do veículo piauiense e seu e-mail. Receba marca, modelo, FIPE e situação em segundos — totalmente grátis.' },
+      { question: 'Como consultar uma placa de Teresina?', answer: 'No PlacaCompleta, digite a placa do veículo piauiense e seu e-mail. Receba marca, modelo, FIPE e situação em segundos, totalmente grátis.' },
       { question: 'Qual o DETRAN-PI em Teresina?', answer: 'O DETRAN-PI tem sede em Teresina. Serviços online em detran.pi.gov.br para licenciamento, transferência e multas.' },
       { question: 'A consulta de placa do PI inclui valor FIPE?', answer: 'Sim. O PlacaCompleta retorna o valor FIPE atualizado de qualquer veículo registrado no Piauí, junto com os demais dados.' },
     ],
@@ -203,7 +203,7 @@ export const capitals: Record<string, CapitalData> = {
     context: 'Aracaju é a capital de Sergipe, com cerca de 660 mil habitantes. A capital sergipana concentra a maior frota do menor estado brasileiro e é polo administrativo e de serviços do Nordeste oriental.',
     neighborhoods: 'Atalaia, Treze de Julho, Coroa do Meio, Jardins, Grageru, Pereira Lobo, Suíssa, Centro, Aruana e Salgado Filho',
     faqs: [
-      { question: 'Como consultar uma placa de Aracaju?', answer: 'No PlacaCompleta, digite a placa do veículo sergipano e seu e-mail. Em segundos você recebe marca, modelo, FIPE e situação — grátis e sem cadastro.' },
+      { question: 'Como consultar uma placa de Aracaju?', answer: 'No PlacaCompleta, digite a placa do veículo sergipano e seu e-mail. Em segundos você recebe marca, modelo, FIPE e situação, grátis e sem cadastro.' },
       { question: 'Qual o DETRAN-SE em Aracaju?', answer: 'O DETRAN-SE tem sede em Aracaju. Serviços online em detran.se.gov.br para licenciamento, transferência e consulta veicular.' },
       { question: 'A consulta de placa de SE inclui FIPE?', answer: 'Sim. O PlacaCompleta retorna o valor FIPE atualizado junto com os demais dados do veículo, totalmente grátis.' },
     ],
@@ -215,7 +215,7 @@ export const capitals: Record<string, CapitalData> = {
     faqs: [
       { question: 'Como consultar uma placa de Cuiabá?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo mato-grossense e informe seu e-mail. Receba os dados em segundos, gratuitamente.' },
       { question: 'Qual o DETRAN-MT?', answer: 'O DETRAN-MT tem sede em Cuiabá, com serviços online em detran.mt.gov.br para transferência, licenciamento e consulta de multas.' },
-      { question: 'Como ver o valor FIPE de um carro em Cuiabá?', answer: 'Consultando a placa no PlacaCompleta — o valor FIPE atualizado vem no e-mail com os outros dados do veículo.' },
+      { question: 'Como ver o valor FIPE de um carro em Cuiabá?', answer: 'Consultando a placa no PlacaCompleta: o valor FIPE atualizado vem no e-mail com os outros dados do veículo.' },
     ],
   },
   'porto-velho': {
@@ -223,7 +223,7 @@ export const capitals: Record<string, CapitalData> = {
     context: 'Porto Velho é a capital de Rondônia, com cerca de 470 mil habitantes. Às margens do rio Madeira, a capital rondoniense concentra a maior frota do estado e é polo logístico do Norte.',
     neighborhoods: 'Centro, Nova Porto Velho, Olaria, Costa e Silva, Embratel, Conceição, Aponiã, Areal, Liberdade e Calama',
     faqs: [
-      { question: 'Como consultar uma placa de Porto Velho?', answer: 'No PlacaCompleta, digite a placa do veículo rondoniense e seu e-mail. Em segundos recebe dados completos do veículo — totalmente grátis.' },
+      { question: 'Como consultar uma placa de Porto Velho?', answer: 'No PlacaCompleta, digite a placa do veículo rondoniense e seu e-mail. Em segundos recebe dados completos do veículo, totalmente grátis.' },
       { question: 'Qual o DETRAN-RO em Porto Velho?', answer: 'O DETRAN-RO tem sede em Porto Velho. Serviços online em detran.ro.gov.br para licenciamento, transferência e multas.' },
       { question: 'A consulta veicular de RO é gratuita?', answer: 'Sim. O PlacaCompleta oferece consulta gratuita de qualquer placa registrada em Rondônia, com dados completos enviados no e-mail.' },
     ],
@@ -233,7 +233,7 @@ export const capitals: Record<string, CapitalData> = {
     context: 'Macapá é a capital do Amapá, com cerca de 530 mil habitantes. Cortada pela Linha do Equador, a capital amapaense concentra a maior frota do estado e é o portão de entrada para a Amazônia setentrional.',
     neighborhoods: 'Centro, Beirol, Trem, Pacoval, Buritizal, Santa Rita, Marco Zero, Universidade, Jardim Marco Zero e Novo Buritizal',
     faqs: [
-      { question: 'Como consultar uma placa de Macapá?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo amapaense e informe seu e-mail. Em segundos recebe marca, modelo, FIPE e situação — grátis.' },
+      { question: 'Como consultar uma placa de Macapá?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo amapaense e informe seu e-mail. Em segundos recebe marca, modelo, FIPE e situação, grátis.' },
       { question: 'Qual o DETRAN-AP?', answer: 'O DETRAN-AP tem sede em Macapá. Serviços online em detran.ap.gov.br para licenciamento, transferência e consulta veicular.' },
       { question: 'O PlacaCompleta funciona para placas do AP?', answer: 'Sim. O PlacaCompleta consulta qualquer placa registrada no Brasil, incluindo todas as registradas no Amapá.' },
     ],
@@ -243,9 +243,9 @@ export const capitals: Record<string, CapitalData> = {
     context: 'Rio Branco é a capital do Acre, com cerca de 410 mil habitantes. Cortada pelo rio Acre, a capital acreana concentra a maior frota do estado e é o principal centro urbano da Amazônia Ocidental.',
     neighborhoods: 'Centro, Bosque, Cadeia Velha, Conjunto Castelo Branco, Sobral, Tucumã, Jardim Tropical, Conjunto Manoel Julião, Floresta Sul e Vila Acre',
     faqs: [
-      { question: 'Como consultar uma placa de Rio Branco?', answer: 'No PlacaCompleta, digite a placa do veículo acreano e seu e-mail. Em segundos você recebe marca, modelo, FIPE e situação — totalmente grátis.' },
+      { question: 'Como consultar uma placa de Rio Branco?', answer: 'No PlacaCompleta, digite a placa do veículo acreano e seu e-mail. Em segundos você recebe marca, modelo, FIPE e situação, totalmente grátis.' },
       { question: 'Qual o DETRAN-AC?', answer: 'O DETRAN-AC tem sede em Rio Branco. Serviços online em detran.ac.gov.br para licenciamento, transferência e consulta veicular.' },
-      { question: 'A consulta no Acre tem custo?', answer: 'Não. A consulta no PlacaCompleta é 100% gratuita, sem cadastro, para qualquer placa registrada no Brasil — incluindo todas as do Acre.' },
+      { question: 'A consulta no Acre tem custo?', answer: 'Não. A consulta no PlacaCompleta é 100% gratuita, sem cadastro, para qualquer placa registrada no Brasil, incluindo todas as do Acre.' },
     ],
   },
   'boa-vista': {
@@ -263,19 +263,19 @@ export const capitals: Record<string, CapitalData> = {
     context: 'Palmas é a capital do Tocantins, com cerca de 320 mil habitantes. Última capital planejada do Brasil (1989), Palmas concentra a maior frota do estado mais jovem da federação.',
     neighborhoods: 'Plano Diretor Sul, Plano Diretor Norte, Aureny I, II e III, Taquaralto, Jardim Aureny IV, Setor Bertaville, Setor Sul, Lago Norte e Lago Sul',
     faqs: [
-      { question: 'Como consultar uma placa de Palmas?', answer: 'No PlacaCompleta, digite a placa do veículo tocantinense e seu e-mail. Em segundos recebe os dados — totalmente grátis e sem cadastro.' },
+      { question: 'Como consultar uma placa de Palmas?', answer: 'No PlacaCompleta, digite a placa do veículo tocantinense e seu e-mail. Em segundos recebe os dados, totalmente grátis e sem cadastro.' },
       { question: 'Qual o DETRAN-TO em Palmas?', answer: 'O DETRAN-TO tem sede em Palmas. Serviços online em detran.to.gov.br para licenciamento, transferência e multas.' },
       { question: 'A consulta de placa em Palmas inclui FIPE?', answer: 'Sim. O PlacaCompleta retorna o valor FIPE atualizado junto com os demais dados do veículo, sem custo.' },
     ],
   },
   'vitoria': {
     slug: 'vitoria', name: 'Vitória', stateSlug: 'espirito-santo',
-    context: 'Vitória é a capital do Espírito Santo, com cerca de 365 mil habitantes. Localizada em uma ilha, a capital capixaba é o coração da Região Metropolitana da Grande Vitória — que inclui Vila Velha, Serra e Cariacica e ultrapassa 2 milhões de habitantes.',
+    context: 'Vitória é a capital do Espírito Santo, com cerca de 365 mil habitantes. Localizada em uma ilha, a capital capixaba é o coração da Região Metropolitana da Grande Vitória, que inclui Vila Velha, Serra e Cariacica e ultrapassa 2 milhões de habitantes.',
     neighborhoods: 'Centro, Praia do Canto, Jardim da Penha, Mata da Praia, Bento Ferreira, Jardim Camburi, Enseada do Suá, Santa Lúcia, Ilha do Frade e Goiabeiras',
     faqs: [
-      { question: 'Como consultar uma placa de Vitória?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo capixaba e informe seu e-mail. Em segundos recebe marca, modelo, FIPE e situação — grátis.' },
+      { question: 'Como consultar uma placa de Vitória?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo capixaba e informe seu e-mail. Em segundos recebe marca, modelo, FIPE e situação, grátis.' },
       { question: 'Qual o DETRAN-ES?', answer: 'O DETRAN-ES tem sede em Vitória. Serviços online em detran.es.gov.br para licenciamento, transferência e consulta veicular.' },
-      { question: 'Como saber o valor FIPE de um carro de Vitória?', answer: 'Consultando a placa no PlacaCompleta — o valor FIPE atualizado vem no e-mail com os demais dados do veículo.' },
+      { question: 'Como saber o valor FIPE de um carro de Vitória?', answer: 'Consultando a placa no PlacaCompleta: o valor FIPE atualizado vem no e-mail com os demais dados do veículo.' },
     ],
   },
 }

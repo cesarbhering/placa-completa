@@ -41,14 +41,14 @@ Na FIPE, um Q7 com cinco anos de uso já perdeu próximo de 50% do valor de zero
   'yamaha-lander': {
     intro: `A Yamaha Lander XTZ 250 é uma das motos trail mais respeitadas do Brasil. Produzida em diferentes versões entre 2007 e 2018 (Lander, Lander BlueFlex), continua presente em volumes relevantes no mercado de usados, especialmente nas regiões Norte e Nordeste onde o uso em estradas mistas valoriza o conjunto.
 
-Na FIPE, a Lander tem depreciação lenta comparada a motos urbanas equivalentes — efeito do nicho off-road brasileiro que mantém demanda firme. Modelos pós-2014 com partida elétrica e injeção valem entre 25% e 40% mais que os antigos a carburador. Consultar pela placa é especialmente útil para a Lander porque a Yamaha repetiu nomenclatura entre anos modelo diferentes.`,
+Na FIPE, a Lander tem depreciação lenta comparada a motos urbanas equivalentes, efeito do nicho off-road brasileiro que mantém demanda firme. Modelos pós-2014 com partida elétrica e injeção valem entre 25% e 40% mais que os antigos a carburador. Consultar pela placa é especialmente útil para a Lander porque a Yamaha repetiu nomenclatura entre anos modelo diferentes.`,
     related: ['yamaha-mt-07', 'yamaha-xtz-150'],
   },
 
   'ford-f-250': {
     intro: `A Ford F-250 é uma picape pesada vendida no Brasil entre 1999 e 2011. Mesmo descontinuada há mais de uma década, mantém um mercado de usados ativo entre fazendeiros, transportadores e colecionadores das versões XL e XLT. Versões a diesel (motor MWM Sprint 4.2) seguem sendo as mais valorizadas.
 
-A FIPE da F-250 estabilizou desde 2018 — efeito típico de modelos descontinuados que viram referência. Versões com cabine dupla e tração 4x4 chegam a custar até R$ 90.000 hoje na FIPE, dependendo da conservação. A consulta pela placa é importante para diferenciar entre os anos modelo, já que a Ford alterou pequenos detalhes (caçamba, painel, suspensão) ao longo da produção.`,
+A FIPE da F-250 estabilizou desde 2018, efeito típico de modelos descontinuados que viram referência. Versões com cabine dupla e tração 4x4 chegam a custar até R$ 90.000 hoje na FIPE, dependendo da conservação. A consulta pela placa é importante para diferenciar entre os anos modelo, já que a Ford alterou pequenos detalhes (caçamba, painel, suspensão) ao longo da produção.`,
     related: [],
   },
 
@@ -118,12 +118,12 @@ Versões a diesel (2.8 turbodiesel Duramax) são as mais valorizadas no mercado 
   'honda-civic': {
     intro: `O Honda Civic é um dos sedãs médios mais consolidados do Brasil. Produzido localmente até 2020 (geração 10) e atualmente importado do Japão (geração 11, híbrida). A 10ª geração (2017-2021) ainda é a mais comum no mercado de usados, com versões EXL e Touring sendo as mais procuradas.
 
-Na FIPE, o Civic deprecia em curva estável e tem uma das menores taxas de perda anual entre sedãs médios — entre 7% e 10% ao ano após o 3º ano. Versões Touring (turbo 1.5) valem entre 15% e 20% mais que EXL equivalente. Para comprar Civic usado, consultar pela placa garante saber a versão exata (LX, EX, EXL, Touring, Sport) que mudam motor, transmissão e equipamento.`,
+Na FIPE, o Civic deprecia em curva estável e tem uma das menores taxas de perda anual entre sedãs médios: entre 7% e 10% ao ano após o 3º ano. Versões Touring (turbo 1.5) valem entre 15% e 20% mais que EXL equivalente. Para comprar Civic usado, consultar pela placa garante saber a versão exata (LX, EX, EXL, Touring, Sport) que mudam motor, transmissão e equipamento.`,
     related: ['honda-city', 'honda-cr-v'],
   },
 
   'honda-motos-nxr-160-bros': {
-    intro: `A Honda NXR 160 Bros é a sucessora da NXR 150, lançada em 2015. Manteve a vocação dual-purpose (trail urbano) que tornou a Bros uma das motos preferidas para uso misto no Brasil — entrega, cidade e estradas de terra. Sua dinâmica de mercado é única: alta demanda em todas as regiões e baixa oferta proporcional.
+    intro: `A Honda NXR 160 Bros é a sucessora da NXR 150, lançada em 2015. Manteve a vocação dual-purpose (trail urbano) que tornou a Bros uma das motos preferidas para uso misto no Brasil: entrega, cidade e estradas de terra. Sua dinâmica de mercado é única: alta demanda em todas as regiões e baixa oferta proporcional.
 
 A FIPE da NXR 160 Bros mantém depreciação muito controlada. Versões ESDD (com partida elétrica, freio a disco dianteiro e injeção) valem entre 15% e 20% mais que a versão ES básica. Para consulta de placa, é importante para diferenciar entre os anos modelo, que tiveram pequenas atualizações de bicos, painel e revestimentos.`,
     related: ['honda-motos', 'honda-motos-pop-110'],
@@ -132,14 +132,14 @@ A FIPE da NXR 160 Bros mantém depreciação muito controlada. Versões ESDD (co
   'nissan-livina': {
     intro: `O Nissan Livina foi um minivan compacto vendido no Brasil entre 2009 e 2014. Importado da China, ofereceu sete lugares em um pacote acessível na época, atributo raro no mercado brasileiro. Foi descontinuado quando a Nissan focou em SUVs.
 
-Na FIPE, a Livina chegou ao patamar de estabilidade típico de modelos descontinuados após o 4º ano. Versão SL (top de linha) com sete lugares e câmbio CVT vale entre 20% e 25% mais que S equivalente. Para consultar pela placa, vale conferir se é Grand Livina (3 fileiras) ou Livina hatch (5 lugares) — nomes parecidos mas mercados diferentes.`,
+Na FIPE, a Livina chegou ao patamar de estabilidade típico de modelos descontinuados após o 4º ano. Versão SL (top de linha) com sete lugares e câmbio CVT vale entre 20% e 25% mais que S equivalente. Para consultar pela placa, vale conferir se é Grand Livina (3 fileiras) ou Livina hatch (5 lugares): nomes parecidos mas mercados diferentes.`,
     related: ['nissan-sentra'],
   },
 
   'volkswagen-gol': {
     intro: `O Volkswagen Gol foi o carro mais vendido do Brasil por mais de 25 anos consecutivos. Produzido entre 1980 e 2023 em diversas gerações (G1 a G8), tornou-se ícone do mercado nacional. Foi descontinuado em 2023 quando a VW decidiu focar em SUVs e elétricos para o segmento de entrada.
 
-Mesmo descontinuado, o Gol segue como o usado mais transacionado do país. Na FIPE, o Gol G5 e G6 (2008-2014) representam o maior volume de oferta. Versões Power, Highline e Comfortline têm preço FIPE significativamente diferente. Para a consulta de placa, é particularmente útil para identificar versão exata e ano modelo — o Gol teve restylings sutis ao longo de décadas que mudam pouco a aparência mas afetam FIPE.`,
+Mesmo descontinuado, o Gol segue como o usado mais transacionado do país. Na FIPE, o Gol G5 e G6 (2008-2014) representam o maior volume de oferta. Versões Power, Highline e Comfortline têm preço FIPE significativamente diferente. Para a consulta de placa, é particularmente útil para identificar versão exata e ano modelo: o Gol teve restylings sutis ao longo de décadas que mudam pouco a aparência mas afetam FIPE.`,
     related: ['volkswagen-amarok', 'volkswagen-jetta', 'volkswagen-golf'],
   },
 
@@ -153,14 +153,14 @@ Na FIPE, o Q3 segue a curva típica de premium importado: queda forte nos primei
   'honda': {
     intro: `A Honda é uma das principais montadoras com presença consolidada no Brasil. Atua nos segmentos de carros (Civic, City, HR-V, CR-V, WR-V) e motos (CG, Biz, PCX, NXR, CB). É reconhecida por engenharia japonesa confiável, baixa depreciação e rede ampla de assistência.
 
-A FIPE Honda costuma ter depreciação inferior à média do mercado brasileiro. Modelos como Civic e CR-V chegam a perder apenas 8% ao ano após o 3º ano. Esta página agrupa todos os modelos Honda disponíveis na Tabela FIPE — selecione o modelo específico abaixo ou consulte pela placa para o valor exato.`,
+A FIPE Honda costuma ter depreciação inferior à média do mercado brasileiro. Modelos como Civic e CR-V chegam a perder apenas 8% ao ano após o 3º ano. Esta página agrupa todos os modelos Honda disponíveis na Tabela FIPE. Selecione o modelo específico abaixo ou consulte pela placa para o valor exato.`,
     related: ['honda-civic', 'honda-city', 'honda-cr-v', 'honda-motos'],
   },
 
   'honda-cr-v': {
     intro: `O Honda CR-V foi um dos SUVs médios mais respeitados do Brasil até a descontinuação em 2020. Vendido entre 2007 e 2020 em três gerações, o CR-V foi referência em confiabilidade e baixa depreciação no segmento.
 
-Na FIPE, o CR-V depreciava em ritmo muito controlado. Versões EXL com tração 4WD valem entre 20% e 25% mais que LX 2WD equivalente. Para comprar CR-V usado, consultar pela placa é especialmente importante para confirmar configuração (FWD vs AWD) e versão (LX, EX, EXL) — informações que muitas vezes não aparecem claras no anúncio.`,
+Na FIPE, o CR-V depreciava em ritmo muito controlado. Versões EXL com tração 4WD valem entre 20% e 25% mais que LX 2WD equivalente. Para comprar CR-V usado, consultar pela placa é especialmente importante para confirmar configuração (FWD vs AWD) e versão (LX, EX, EXL), informações que muitas vezes não aparecem claras no anúncio.`,
     related: ['honda-civic', 'honda-city'],
   },
 
@@ -174,7 +174,7 @@ Na FIPE, o Tracker tem comportamento típico de SUV nacional: queda moderada nos
   'honda-city': {
     intro: `O Honda City é um sedan compacto presente no Brasil desde 2009. Atualmente em sua geração 5 (lançada em 2022), disputa com Toyota Yaris Sedan, Chevrolet Onix Plus e Hyundai HB20S no segmento de sedans compactos.
 
-A FIPE City tem depreciação muito estável. Versão Touring (top com motor 1.5 turbo) vale entre 15% e 20% mais que Sport equivalente. A geração atual com motor turbo está consolidando posicionamento premium dentro do segmento. Para consultar pela placa, vale lembrar que o nome City foi reaproveitado entre gerações com formatos diferentes (hatch e sedan) — placa identifica precisamente.`,
+A FIPE City tem depreciação muito estável. Versão Touring (top com motor 1.5 turbo) vale entre 15% e 20% mais que Sport equivalente. A geração atual com motor turbo está consolidando posicionamento premium dentro do segmento. Para consultar pela placa, vale lembrar que o nome City foi reaproveitado entre gerações com formatos diferentes (hatch e sedan): placa identifica precisamente.`,
     related: ['honda-civic', 'honda-cr-v'],
   },
 
@@ -195,35 +195,35 @@ Por ser modelo recente e elétrico, a FIPE do Song Plus ainda está em formaçã
   'citroen-c4-lounge': {
     intro: `O Citroën C4 Lounge foi um sedan médio da Citroën vendido no Brasil entre 2013 e 2018. Produzido na Argentina, posicionou-se como alternativa premium acessível dentro do segmento médio. Foi descontinuado quando a Citroën reorganizou sua linha brasileira.
 
-Na FIPE, o C4 Lounge tem depreciação acelerada típica de modelos descontinuados com baixa oferta de peças. Versão Exclusive THP (motor turbo) vale entre 25% e 30% mais que a Origine 1.6 equivalente. Para comprar usado, vale consultar pela placa para confirmar versão e principalmente histórico de manutenção — ponto fraco conhecido de Citroëns do período.`,
+Na FIPE, o C4 Lounge tem depreciação acelerada típica de modelos descontinuados com baixa oferta de peças. Versão Exclusive THP (motor turbo) vale entre 25% e 30% mais que a Origine 1.6 equivalente. Para comprar usado, vale consultar pela placa para confirmar versão e principalmente histórico de manutenção, ponto fraco conhecido de Citroëns do período.`,
     related: [],
   },
 
   'fiat-500': {
     intro: `O Fiat 500 é um citadino italiano vendido no Brasil em quantidades limitadas entre 2009 e 2018. Posicionou-se como urbano premium estiloso, com versões Cult, Lounge, Sport e a icônica 500 Abarth (esportiva). Foi descontinuado quando a Fiat focou em modelos populares.
 
-Na FIPE, o 500 tem comportamento atípico: oscila pouco por ser nicho colecionável. Modelos Abarth bem conservados podem valer hoje próximo do valor zero quilômetro original — fenômeno raro no mercado brasileiro. Versões Cult e Lounge têm comportamento mais convencional de depreciação. Consulta pela placa é importante para confirmar se é uma versão regular ou Abarth, que diferem 50%+ no preço FIPE.`,
+Na FIPE, o 500 tem comportamento atípico: oscila pouco por ser nicho colecionável. Modelos Abarth bem conservados podem valer hoje próximo do valor zero quilômetro original, fenômeno raro no mercado brasileiro. Versões Cult e Lounge têm comportamento mais convencional de depreciação. Consulta pela placa é importante para confirmar se é uma versão regular ou Abarth, que diferem 50%+ no preço FIPE.`,
     related: ['fiat-toro'],
   },
 
   'peugeot-2008': {
     intro: `O Peugeot 2008 é o SUV compacto da Peugeot. Está em sua segunda geração no Brasil desde 2020. Concorre com Hyundai Creta, Volkswagen T-Cross e Chevrolet Tracker. Reposicionou a Peugeot no segmento SUV após anos de baixa relevância no Brasil.
 
-Na FIPE, o 2008 tem depreciação acima da média do segmento, efeito típico de marcas francesas no Brasil. Versão GT Pack vale entre 20% e 25% mais que a Allure equivalente. Para comprar 2008 usado, consultar pela placa é importante para diferenciar entre 2008 (geração atual) e 2008 antigo (2015-2019 com plataforma anterior) — nome igual, carro completamente diferente.`,
+Na FIPE, o 2008 tem depreciação acima da média do segmento, efeito típico de marcas francesas no Brasil. Versão GT Pack vale entre 20% e 25% mais que a Allure equivalente. Para comprar 2008 usado, consultar pela placa é importante para diferenciar entre 2008 (geração atual) e 2008 antigo (2015-2019 com plataforma anterior): nome igual, carro completamente diferente.`,
     related: [],
   },
 
   'yamaha-xtz-150': {
     intro: `A Yamaha XTZ 150 Crosser é uma das motos trail mais vendidas do Brasil. Substituta da XTZ 125 desde 2014, é referência em uso misto urbano-estradas de terra, especialmente em médias e pequenas cidades. Tem mercado de usados extremamente ativo.
 
-A FIPE da XTZ 150 mantém depreciação muito controlada, próxima à da XRE 300 da Honda. Versão Sed (com partida elétrica e injeção) vale entre 10% e 15% mais que a versão básica equivalente. Para consultar pela placa, vale verificar se é Crosser (mais comum) ou versão de exportação — a Yamaha exportou variantes que retornaram ao Brasil como seminovos.`,
+A FIPE da XTZ 150 mantém depreciação muito controlada, próxima à da XRE 300 da Honda. Versão Sed (com partida elétrica e injeção) vale entre 10% e 15% mais que a versão básica equivalente. Para consultar pela placa, vale verificar se é Crosser (mais comum) ou versão de exportação: a Yamaha exportou variantes que retornaram ao Brasil como seminovos.`,
     related: ['yamaha-lander', 'yamaha-mt-07'],
   },
 
   'toyota-prius': {
     intro: `O Toyota Prius foi o híbrido pioneiro no Brasil. Importado entre 2013 e 2019, tornou-se a primeira opção popular para quem queria um híbrido japonês confiável, ainda que com preço elevado pela carga tributária dos importados na época.
 
-Na FIPE, o Prius depreciou em ritmo muito controlado por causa da escassez de oferta. Versões com pacote completo (couro, GPS, sensores) chegam a manter 65% do valor original após 5 anos — taxa de retenção excelente para o mercado brasileiro. Para comprar usado, consultar pela placa é fundamental para verificar saúde da bateria híbrida, que tem garantia limitada e custo de troca alto.`,
+Na FIPE, o Prius depreciou em ritmo muito controlado por causa da escassez de oferta. Versões com pacote completo (couro, GPS, sensores) chegam a manter 65% do valor original após 5 anos, taxa de retenção excelente para o mercado brasileiro. Para comprar usado, consultar pela placa é fundamental para verificar saúde da bateria híbrida, que tem garantia limitada e custo de troca alto.`,
     related: [],
   },
 
@@ -244,21 +244,21 @@ Na FIPE, o Logan tem depreciação alinhada à média de sedans de entrada brasi
   'nissan-sentra': {
     intro: `O Nissan Sentra é um sedan médio importado do México vendido no Brasil em diversas gerações. A última (2014-2020) foi a mais relevante no mercado nacional, posicionando-se entre Honda Civic e Toyota Corolla. Foi descontinuado em 2020 quando a Nissan reorganizou a linha.
 
-Na FIPE, o Sentra depreciou em ritmo acelerado nos primeiros anos pós-descontinuação. Versão SL (top com bancos em couro e pacote tecnológico) vale entre 15% e 20% mais que a Advance equivalente. Para comprar usado, consultar pela placa é importante para identificar geração e versão, e principalmente para verificar histórico de transmissão CVT — ponto de atenção em modelos Nissan da época.`,
+Na FIPE, o Sentra depreciou em ritmo acelerado nos primeiros anos pós-descontinuação. Versão SL (top com bancos em couro e pacote tecnológico) vale entre 15% e 20% mais que a Advance equivalente. Para comprar usado, consultar pela placa é importante para identificar geração e versão, e principalmente para verificar histórico de transmissão CVT, ponto de atenção em modelos Nissan da época.`,
     related: ['nissan-livina'],
   },
 
   'fiat-toro': {
     intro: `A Fiat Toro é a picape média compacta da Fiat. Lançada em 2016 e produzida em Pernambuco, foi pioneira no segmento entre Strada e picapes médias tradicionais. Concorre com Renault Oroch, Volkswagen Saveiro e Chevrolet Montana.
 
-Na FIPE, a Toro tem depreciação típica de picape brasileira: moderada nos primeiros 3 anos e estável depois. Versões Ranch e Volcano (4x4 diesel) valem entre 30% e 40% mais que Endurance 4x2 flex equivalente. Para comprar Toro usada, consulta pela placa é especialmente útil para confirmar versão exata — a Fiat teve seis versões em paralelo durante alguns anos.`,
+Na FIPE, a Toro tem depreciação típica de picape brasileira: moderada nos primeiros 3 anos e estável depois. Versões Ranch e Volcano (4x4 diesel) valem entre 30% e 40% mais que Endurance 4x2 flex equivalente. Para comprar Toro usada, consulta pela placa é especialmente útil para confirmar versão exata: a Fiat teve seis versões em paralelo durante alguns anos.`,
     related: ['fiat-500'],
   },
 
   'hyundai-santa-fe': {
     intro: `O Hyundai Santa Fe é o SUV grande de sete lugares da Hyundai. Importado da Coreia, foi vendido no Brasil em três gerações até 2020. Posicionou-se como SUV premium acessível, com configurações que iam de motor 2.4 flex até 3.5 V6.
 
-Na FIPE, o Santa Fe depreciou em ritmo acima da média de SUVs equivalentes — efeito de custo de manutenção alto e peças importadas. A versão 3.3 V6 com sete lugares e tração 4WD vale entre 25% e 30% mais que a 2.4 base equivalente. Consultar pela placa é importante para confirmar configuração de tração (4x2 vs 4WD) e número de lugares (5 ou 7), que impactam fortemente FIPE.`,
+Na FIPE, o Santa Fe depreciou em ritmo acima da média de SUVs equivalentes, efeito de custo de manutenção alto e peças importadas. A versão 3.3 V6 com sete lugares e tração 4WD vale entre 25% e 30% mais que a 2.4 base equivalente. Consultar pela placa é importante para confirmar configuração de tração (4x2 vs 4WD) e número de lugares (5 ou 7), que impactam fortemente FIPE.`,
     related: [],
   },
 
