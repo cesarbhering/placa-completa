@@ -51,7 +51,7 @@ const DOC_MODELO = 'Tabela de codigos de planta da montadora (Wikibooks VIN code
 // Versao do arquivo curado. O servico compara com o que esta gravado no banco
 // e reimporta sozinho quando sobe (ver server.js). Subir esta versao SEMPRE que
 // mexer na lista, senao a mudanca nao chega no container ja rodando.
-export const PLANTS_VERSAO = 9
+export const PLANTS_VERSAO = 10
 
 // Atalhos pra nao repetir o pais em cada linha.
 const br = (wmi, pos, cidade, uf, de = null, ate = null, fonte = IBGE, conf = 'alta') =>
@@ -143,6 +143,11 @@ const PLANTS = [
   br('93H', 'Z', 'Sumaré', 'SP'),
   br('93H', 'K', 'Itirapina', 'SP', 2019),
 
+  // ---------------- DAF ----------------
+  // 16/out (caso BYY8H37, DAF XF FTS 480): DAF Caminhoes Brasil so tem a
+  // fabrica de Ponta Grossa (PR), desde 2013 (dafcaminhoes.com.br, locais de
+  // producao; Automotive Business). Base de leiloes: todos os chassis 98P sao DAF XF/CF.
+  unica('98P', 'Ponta Grossa', 'PR', IMPRENSA),
   // ---------------- Renault / Nissan ----------------
   br('93Y', 'J', 'São José dos Pinhais', 'PR'),
   unica('93Y', 'São José dos Pinhais', 'PR'),
