@@ -47,7 +47,7 @@ Para quem vai comprar veículo em Roraima, é importante saber que parte da frot
 
 O mercado de usados em Rondônia é ativo, principalmente em Porto Velho e na divisa com Mato Grosso. A consulta pela placa é especialmente útil para verificar se um veículo a venda no estado tem origem local ou foi transferido de outros estados produtores agrícolas.`,
     detranInfo: `O DETRAN de Rondônia tem sede em Porto Velho e CIRETRANs em Ji-Paraná, Vilhena, Ariquemes, Cacoal e Rolim de Moura. O atendimento online cobre licenciamento, IPVA, multas e segunda via. Para placa Mercosul e transferência, agendamento obrigatório.`,
-    tipsBuying: `Pra comprar em Rondônia, atenção a três pontos: 1) verificar histórico de uso em estradas e fazendas (afeta veículos pesados), 2) confirmar regularização de IPVA e licenciamento, especialmente em picapes de trabalho, 3) usar o PlacaCompleta para checar valor FIPE e comparar com preço pedido — a diferença pode justificar negociação.`,
+    tipsBuying: `Pra comprar em Rondônia, atenção a três pontos: 1) verificar histórico de uso em estradas e fazendas (afeta veículos pesados), 2) confirmar regularização de IPVA e licenciamento, especialmente em picapes de trabalho, 3) usar o PlacaCompleta para checar valor FIPE e comparar com preço pedido: a diferença pode justificar negociação.`,
   },
 
   'mato-grosso-do-sul': {
@@ -55,7 +55,7 @@ O mercado de usados em Rondônia é ativo, principalmente em Porto Velho e na di
 
 Para o mercado de usados em MS, a consulta pela placa é especialmente útil. Picapes seminovas são produto de alta demanda e a verificação de placa permite confirmar ano, modelo, situação e valor FIPE antes de fechar negócio. O estado também tem volume relevante de transferências para outros estados via Campo Grande.`,
     detranInfo: `O DETRAN do Mato Grosso do Sul tem sede em Campo Grande e unidades em todos os municípios médios e grandes. Os serviços online incluem licenciamento, IPVA, multas, CRLV digital e leilão. Para transferência interestadual e emplacamento Mercosul, agendamento via site oficial.`,
-    tipsBuying: `Pra comprar em MS, principalmente picapes: 1) confirmar se o veículo era usado em fazenda (verificar suspensão, tração, embreagem), 2) checar histórico de manutenção e licenciamento, 3) consultar a placa pelo PlacaCompleta antes da negociação — picapes seminovas no MS tem preço alto por demanda, e saber o FIPE exato dá poder de negociação.`,
+    tipsBuying: `Pra comprar em MS, principalmente picapes: 1) confirmar se o veículo era usado em fazenda (verificar suspensão, tração, embreagem), 2) checar histórico de manutenção e licenciamento, 3) consultar a placa pelo PlacaCompleta antes da negociação: picapes seminovas no MS tem preço alto por demanda, e saber o FIPE exato dá poder de negociação.`,
   },
 
   'rio-grande-do-sul': {
@@ -63,15 +63,15 @@ Para o mercado de usados em MS, a consulta pela placa é especialmente útil. Pi
 
 O mercado de usados gaúcho é um dos mais ativos do país, com Porto Alegre e Caxias do Sul concentrando volume relevante de transações. A consulta pela placa é ferramenta essencial pra qualquer compra, principalmente em veículos com mais de 5 anos onde a verificação de procedência e situação cadastral evita problemas comuns como débitos acumulados e restrições de transferência.`,
     detranInfo: `O DETRAN do Rio Grande do Sul tem sede em Porto Alegre e CRVAs (Centros de Registro de Veículos Automotores) em mais de 200 municípios. O atendimento online é dos mais completos do país: licenciamento, IPVA, multas, CRLV digital, transferência simplificada via SNG-D. Emplacamento Mercosul disponível em todas as unidades.`,
-    tipsBuying: `Pra comprar veículo no RS, três pontos: 1) confirmar se foi usado em região litorânea (oxidação por maresia), 2) checar histórico de inverno rigoroso (afeta bateria, motor, suspensão), 3) consultar a placa pelo PlacaCompleta — RS tem mercado maduro e a diferença entre o anunciado e o real é fonte comum de disputa. Ter dados FIPE em mãos vale ouro.`,
+    tipsBuying: `Pra comprar veículo no RS, três pontos: 1) confirmar se foi usado em região litorânea (oxidação por maresia), 2) checar histórico de inverno rigoroso (afeta bateria, motor, suspensão), 3) consultar a placa pelo PlacaCompleta: RS tem mercado maduro e a diferença entre o anunciado e o real é fonte comum de disputa. Ter dados FIPE em mãos vale ouro.`,
   },
 
   'mato-grosso': {
     extendedIntro: `Mato Grosso tem frota concentrada em Cuiabá, Várzea Grande, Rondonópolis e Sinop. O perfil veicular é fortemente marcado pelo agronegócio: picapes Toyota Hilux, Volkswagen Amarok e Chevrolet S10 dominam o segmento de trabalho, enquanto Fiat Strada e Renault Oroch atendem o uso urbano. A frota cresce em ritmo acima da média nacional puxada pela renda agrícola.
 
-Pra comprar usado em Mato Grosso, a consulta pela placa traz informações fundamentais. Picapes seminovas frequentemente foram usadas em fazendas, o que impacta valor de revenda. A verificação pela placa confirma ano, modelo, situação e valor FIPE — base sólida pra negociar com segurança.`,
+Pra comprar usado em Mato Grosso, a consulta pela placa traz informações fundamentais. Picapes seminovas frequentemente foram usadas em fazendas, o que impacta valor de revenda. A verificação pela placa confirma ano, modelo, situação e valor FIPE: base sólida pra negociar com segurança.`,
     detranInfo: `O DETRAN do Mato Grosso tem sede em Cuiabá e unidades em todos os municípios maiores. O atendimento online cobre licenciamento, IPVA, multas, CRLV digital e regularização. Para transferência interestadual (comum em MT por causa do agronegócio), agendamento obrigatório.`,
-    tipsBuying: `Comprar em MT exige cuidados específicos: 1) verificar se a picape foi usada em fazenda (suspensão, embreagem, motor), 2) confirmar regularização documental, principalmente IPVA, 3) consultar placa pelo PlacaCompleta — Mato Grosso tem preços de seminovo acima da média por demanda agrícola, então saber o FIPE exato é diferença entre fechar bem ou pagar caro.`,
+    tipsBuying: `Comprar em MT exige cuidados específicos: 1) verificar se a picape foi usada em fazenda (suspensão, embreagem, motor), 2) confirmar regularização documental, principalmente IPVA, 3) consultar placa pelo PlacaCompleta: Mato Grosso tem preços de seminovo acima da média por demanda agrícola, então saber o FIPE exato é diferença entre fechar bem ou pagar caro.`,
   },
 
   para: {
@@ -79,7 +79,7 @@ Pra comprar usado em Mato Grosso, a consulta pela placa traz informações funda
 
 Para quem está comprando veículo no Pará, a consulta pela placa é ferramenta essencial. O estado tem alto volume de transferências dentro e fora da região Norte, o que torna a verificação de procedência via placa especialmente importante. Valor FIPE e situação cadastral ajudam a negociar com base em dados reais.`,
     detranInfo: `O DETRAN do Pará tem sede em Belém e CIRETRANs em 30+ municípios incluindo Santarém, Marabá, Castanhal e Altamira. Os serviços online incluem licenciamento, IPVA, multas e CRLV digital. Emplacamento Mercosul disponível com agendamento.`,
-    tipsBuying: `Três pontos pra comprar no Pará: 1) considerar o clima úmido amazônico (afeta carroceria, parte elétrica e estofamento), 2) verificar se o veículo veio de outro estado recentemente (comum em Belém), 3) consultar placa pelo PlacaCompleta — saber marca, modelo, ano, situação e valor FIPE antes de negociar evita surpresas.`,
+    tipsBuying: `Três pontos pra comprar no Pará: 1) considerar o clima úmido amazônico (afeta carroceria, parte elétrica e estofamento), 2) verificar se o veículo veio de outro estado recentemente (comum em Belém), 3) consultar placa pelo PlacaCompleta: saber marca, modelo, ano, situação e valor FIPE antes de negociar evita surpresas.`,
   },
 
   maranhao: {
@@ -87,7 +87,7 @@ Para quem está comprando veículo no Pará, a consulta pela placa é ferramenta
 
 Pra quem vai comprar veículo no MA, a consulta pela placa é ferramenta indispensável. Permite confirmar marca, modelo, ano, cor, valor FIPE e situação cadastral em segundos, antes de qualquer pagamento. Essencial para evitar negócios com pendências, especialmente em veículos seminovos.`,
     detranInfo: `O DETRAN do Maranhão tem sede em São Luís e CIRETRANs em Imperatriz, Caxias, Bacabal e outros municípios maiores. O atendimento online cobre licenciamento, IPVA, multas, CRLV digital e segunda via. Para placa Mercosul e transferência, agendamento via site oficial.`,
-    tipsBuying: `Comprar veículo no MA, três cuidados: 1) clima litorâneo em São Luís (atenção a oxidação por maresia), 2) verificar histórico de uso em estradas (afeta suspensão e pneus), 3) consultar placa pelo PlacaCompleta — saber valor FIPE atualizado é base para negociar com segurança, especialmente em hatches populares de alta liquidez no estado.`,
+    tipsBuying: `Comprar veículo no MA, três cuidados: 1) clima litorâneo em São Luís (atenção a oxidação por maresia), 2) verificar histórico de uso em estradas (afeta suspensão e pneus), 3) consultar placa pelo PlacaCompleta: saber valor FIPE atualizado é base para negociar com segurança, especialmente em hatches populares de alta liquidez no estado.`,
   },
 }
 
