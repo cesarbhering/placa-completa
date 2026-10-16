@@ -399,7 +399,12 @@ const PREFIXO_NAO_MODELO = new Set(['NOVO', 'NOVA', 'NEW', 'NOUVEAU'])
 
 /** "CHEV/TRACKER T A" -> TRACKER; "VW/NOVO GOL 1.0" -> GOL. Normalizado. */
 export function modeloDoNome(descricao: string | null | undefined): string | null {
-  const palavras = palavrasDoNome(String(descricao || '')).map(norm).filter(Boolean)
+  // "G." no cadastro = "Grand" na FIPE (caso NZA3648, 16/out: "I/SUZUKI G.VITARA
+  // 2WD 5P" ficava ambiguo com o SX4). O modelo passa a ser a palavra depois do
+  // "G.", que casa com a 2a palavra do nome FIPE ("Grand Vitara").
+  const palavras = palavrasDoNome(String(descricao || ''))
+    .map((w) => w.replace(/^G\.(?=[A-Za-z])/i, ''))
+    .map(norm).filter(Boolean)
   const p = palavras[0] && PREFIXO_NAO_MODELO.has(palavras[0]) ? palavras[1] : palavras[0]
   return p && p.length >= 2 ? p : null
 }
