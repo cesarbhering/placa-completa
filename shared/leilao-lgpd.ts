@@ -89,7 +89,7 @@ export function passagemLgpd<T extends Record<string, any>>(p: T): T {
   const judicial = CASAS_JUDICIAIS.has(fonte) || p?.detalhes?.judicial === true
   const out: any = limparFundo(p)
   // Campos de controle voltam como vieram (token opaco, url de pagina publica e fotos ja saneados).
-  for (const k of ['edital_ref', 'pagina_publica_url', 'fotos', 'data_leilao', 'fonte', 'fonte_tipo', 'nivel', 'score', 'valor', 'edital_disponivel']) {
+  for (const k of ['edital_ref', 'pagina_publica_url', 'fotos', 'foto_refs', 'data_leilao', 'fonte', 'fonte_tipo', 'nivel', 'score', 'valor', 'edital_disponivel']) {
     if (k in p) out[k] = p[k]
   }
   out.ref = p.ref == null || refEhProcesso(p.ref) || (judicial && /\d{6,}/.test(String(p.ref).replace(/\D/g, ''))) ? null : semProcesso(String(p.ref)) || null
