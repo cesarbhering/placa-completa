@@ -290,7 +290,7 @@ describe('links do site', () => {
     const { semLinksDoSite } = await import('./regras')
     expect(semLinksDoSite('Para consultar, acesse https://placacompleta.com.br e digite a placa.')).toBe('Para consultar, acesse o site da PlacaCompleta e digite a placa.')
     expect(semLinksDoSite('Digite a placa em https://placacompleta.com.br agora.')).toBe('Digite a placa no site da PlacaCompleta agora.')
-    for (const ok of ['https://placacompleta.com.br/ibv', 'https://placacompleta.com.br/tabela-fipe-por-placa', 'https://placacompleta.com.br/carro-de-leilao/como-saber', 'https://placacompleta.com.br/premium/TokFicticio000000000001']) {
+    for (const ok of ['https://placacompleta.com.br/blog/tag/ibv-auto', 'https://placacompleta.com.br/tabela-fipe-por-placa', 'https://placacompleta.com.br/carro-de-leilao/como-saber', 'https://placacompleta.com.br/premium/TokFicticio000000000001']) {
       expect(semLinksDoSite(`Veja: ${ok}`)).toBe(`Veja: ${ok}`)
     }
   })
@@ -303,7 +303,7 @@ describe('links do site', () => {
   it('prompt: sem URL para consulta; links só das páginas próprias', () => {
     const p = promptDoSistema()
     expect(p).toContain('sem URL')
-    expect(p).toContain('https://placacompleta.com.br/ibv')
+    expect(p).toContain('https://placacompleta.com.br/blog/tag/ibv-auto')
     expect(p).not.toContain('mande https://placacompleta.com.br e diga')
   })
 })

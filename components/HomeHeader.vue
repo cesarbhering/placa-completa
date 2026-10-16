@@ -46,7 +46,7 @@ onMounted(() => syncHistorico())
 // ancora fica em <a> normal, senao o NuxtLink tentaria resolver "#x" como rota.
 const links = [
   { href: '#o-que-inclui', label: 'O que inclui' },
-  { href: '/ibv', label: 'IBV Auto' },
+  { href: '/blog', label: 'Blog' },
   { href: '/tabela-fipe', label: 'Tabela FIPE' },
   { href: '/estudos', label: 'Estudos' },
   { href: '#duvidas', label: 'Dúvidas' },
