@@ -28,6 +28,25 @@ export function dentroDoTetoDeEdital(token: string, agora = Date.now()): boolean
 /** So pra teste. */
 export function _limparTetoDeEdital() {
   usos.clear()
+  usosFoto.clear()
+}
+
+// Fotos do lote (/api/premium/foto): mesmo mecanismo do edital (teto por
+// relatorio por hora), contando so as chamadas a leiloes-api (cache nao conta).
+// Uma pagina tem ate 4 fotos por passagem e o cache dura 10 min: 40/h cobre
+// abrir o relatorio varias vezes e corta varredura.
+export const TETO_FOTO_POR_TOKEN = 40
+const usosFoto = new Map<string, { desde: number; n: number }>()
+
+export function dentroDoTetoDeFoto(token: string, agora = Date.now()): boolean {
+  if (!token) return false
+  const atual = usosFoto.get(token)
+  if (!atual || agora - atual.desde >= JANELA_MS) {
+    usosFoto.set(token, { desde: agora, n: 1 })
+    return true
+  }
+  atual.n += 1
+  return atual.n <= TETO_FOTO_POR_TOKEN
 }
 
 /**

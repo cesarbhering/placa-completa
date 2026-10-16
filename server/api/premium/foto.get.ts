@@ -1,4 +1,4 @@
-import { relatorioPodeBaixarEdital } from '../../utils/edital-leilao'
+import { relatorioPodeBaixarEdital, dentroDoTetoDeFoto } from '../../utils/edital-leilao'
 import { fotoRefDoRelatorio } from '../../../shared/foto-lote'
 
 // GET /api/premium/foto?token=<relatorio>&ref=<foto_ref>  ->  302 pra URL
@@ -34,6 +34,9 @@ export default defineEventHandler(async (event) => {
     .eq('token_entrega', tok)
     .maybeSingle()
   if (!relatorioPodeBaixarEdital(pedido) || !fotoRefDoRelatorio(pedido!.relatorio_snapshot, r)) throw createError({ statusCode: 404 })
+
+  // Teto por relatorio (igual ao edital), so pra chamada nova a API.
+  if (!dentroDoTetoDeFoto(tok)) throw createError({ statusCode: 429, message: 'Muitas fotos pedidas para este relatório. Tente daqui a pouco.' })
 
   const config = useRuntimeConfig()
   const base = String(config.leiloesApiUrl || '').replace(/\/+$/, '')
