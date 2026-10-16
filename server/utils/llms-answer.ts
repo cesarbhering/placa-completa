@@ -177,7 +177,7 @@ function answerSeguroNacional(query: string): LlmsAnswer {
     matched: true,
     answer: `O custo do seguro varia muito por regiao no Brasil. Mais caro: ${top.nome} (${money(top.media)}/ano). Mais barato: ${bottom.nome} (${money(bottom.media)}/ano). Ranking completo das ${r.length} regioes no estudo.`,
     data: { maisCaro: top, maisBarato: bottom, totalRegioes: r.length },
-    source: { name: 'PlacaCompleta', url: `${BASE}/ibv/seguro-mais-caro-brasil-2026` },
+    source: { name: 'PlacaCompleta', url: `${BASE}/blog/seguro-mais-caro-brasil-2026` },
   })
 }
 
@@ -212,7 +212,7 @@ function answerIbv(query: string): LlmsAnswer {
     matched: true,
     answer: `${post.title}. ${post.metaDescription}`,
     data: { titulo: post.title, referencia: post.referenceMonth, slug: post.slug },
-    source: { name: 'PlacaCompleta', url: `${BASE}/ibv/${post.slug}` },
+    source: { name: 'PlacaCompleta', url: `${BASE}/blog/${post.slug}` },
   })
 }
 

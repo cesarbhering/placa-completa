@@ -51,7 +51,7 @@ function todasAsDescricoes(): [string, string][] {
     const d = seg[s.uf]
     if (d?.mediaPremio) out.push([`/seguro/carro-eletrico/${s.slug}`, descricaoSeguroEletricoEstado(s.name, d.mediaPremio)])
   }
-  for (const p of ibvPosts) out.push([`/ibv/${p.slug}`, p.metaDescription])
+  for (const p of ibvPosts) out.push([`/blog/${p.slug}`, p.metaDescription])
   for (const p of blogPosts) out.push([`/blog/${p.slug}`, p.metaDescription])
   for (const p of PAGINAS_COMPRA) out.push([p.rota, p.description])
   for (const a of ARTIGOS) out.push([`/o-que-e/${a.slug}`, a.description])
@@ -85,7 +85,7 @@ describe('meta descriptions', () => {
 describe('titulos', () => {
   it('titulos dos posts e modelos sem marca duplicada nem travessao', () => {
     const titulos: [string, string][] = [
-      ...ibvPosts.map((p) => [`/ibv/${p.slug}`, p.title] as [string, string]),
+      ...ibvPosts.map((p) => [`/blog/${p.slug}`, p.title] as [string, string]),
       ...blogPosts.map((p) => [`/blog/${p.slug}`, p.title] as [string, string]),
       ...MODELOS_LEILAO.map((m) => [`/carro-de-leilao/${m.slug}`, m.title.replace(' | PlacaCompleta', '')] as [string, string]),
     ]
@@ -135,7 +135,7 @@ function todosOsTitulos(): [string, string][] {
   }
   for (const c of Object.values(capitals)) out.push([`/consultar-placa/capital/${c.slug}`, tituloCapital(c.name, states[c.stateSlug]?.uf || '??')])
   for (const m of MODELOS_LEILAO) out.push([`/carro-de-leilao/${m.slug}`, tituloLeilaoModelo(m.title, m.nome)])
-  for (const p of ibvPosts) out.push([`/ibv/${p.slug}`, escolherTitulo([p.seoTitle, p.title])])
+  for (const p of ibvPosts) out.push([`/blog/${p.slug}`, escolherTitulo([p.seoTitle, p.title])])
   for (const p of blogPosts) out.push([`/blog/${p.slug}`, escolherTitulo([p.title])])
   for (const a of ARTIGOS) out.push([`/o-que-e/${a.slug}`, escolherTitulo([a.title])])
   for (const p of PAGINAS_COMPRA) out.push([p.rota, escolherTitulo([p.title])])

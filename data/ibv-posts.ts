@@ -29,7 +29,7 @@ export interface IbvPostSection {
 
 export const ibvPosts: IbvPost[] = [
   {
-    slug: 'setembro-2026',
+    slug: 'ibv-auto-setembro-2026',
     title: 'IBV Auto Setembro 2026: usados voltam a subir (+0,30%) depois da queda de agosto',
     seoTitle: 'IBV Auto Setembro 2026: Usados Voltam a Subir 0,30%',
     metaDescription: 'IBV Auto de setembro sobe 0,30% após -0,01% em agosto; 12 meses em +5,12%. Sandero, Gol e Creta lideram altas; Sul +0,75%, Centro-Oeste -0,53%.',
@@ -95,12 +95,12 @@ export const ibvPosts: IbvPost[] = [
       {
         type: 'heading',
         heading: 'Elétricos: veja a análise dedicada',
-        text: 'Setembro também trouxe o corte por tipo de propulsão: os elétricos 2023 já acumulam -46,90% de desvalorização. Detalhamos no [post de elétricos de setembro](/ibv/eletricos-setembro-2026).',
+        text: 'Setembro também trouxe o corte por tipo de propulsão: os elétricos 2023 já acumulam -46,90% de desvalorização. Detalhamos no [post de elétricos de setembro](/blog/eletricos-setembro-2026).',
       },
       {
         type: 'highlight',
         heading: 'O que isso significa para você?',
-        text: 'Para quem vende, setembro mostra que agosto não foi o começo de uma queda generalizada: o mercado voltou a subir, mas devagar. Para quem compra, o cenário segue favorável em São Paulo, Mato Grosso e Pará, os estados que menos valorizaram em 12 meses. E, como mostra a nossa base, quem compra usado está olhando carros com mais de 12 anos em média: idade em que histórico de leilão, gravame e restrição pesam mais na decisão. Detalhamos estado a estado em [Vencedores e Perdedores de setembro](/ibv/vencedores-perdedores-setembro-2026).',
+        text: 'Para quem vende, setembro mostra que agosto não foi o começo de uma queda generalizada: o mercado voltou a subir, mas devagar. Para quem compra, o cenário segue favorável em São Paulo, Mato Grosso e Pará, os estados que menos valorizaram em 12 meses. E, como mostra a nossa base, quem compra usado está olhando carros com mais de 12 anos em média: idade em que histórico de leilão, gravame e restrição pesam mais na decisão. Detalhamos estado a estado em [Vencedores e Perdedores de setembro](/blog/vencedores-perdedores-setembro-2026).',
       },
       {
         type: 'cta',
@@ -221,7 +221,7 @@ export const ibvPosts: IbvPost[] = [
     ],
   },
   {
-    slug: 'agosto-2026',
+    slug: 'ibv-auto-agosto-2026',
     title: 'IBV Auto Agosto 2026: primeira queda do ano (-0,01%) e o ciclo de alta perde força',
     seoTitle: 'IBV Auto Agosto 2026: Primeira Queda do Ano (-0,01%)',
     metaDescription: 'IBV Auto de agosto fecha em -0,01%, a primeira queda do ano, e o acumulado de 12 meses desacelera para +5,12%. Uno lidera as altas e Ka, as quedas.',
@@ -282,12 +282,12 @@ export const ibvPosts: IbvPost[] = [
       {
         type: 'heading',
         heading: 'Elétricos: veja a análise dedicada',
-        text: 'O relatório de agosto também trouxe o corte por tipo de propulsão (elétrico, híbrido, combustão), com um dado que já está virando polêmica: quem comprou elétrico chinês 0km em 2022 já perdeu metade do valor de tabela. Analisamos em detalhe no [post dedicado de agosto](/ibv/eletricos-agosto-2026).',
+        text: 'O relatório de agosto também trouxe o corte por tipo de propulsão (elétrico, híbrido, combustão), com um dado que já está virando polêmica: quem comprou elétrico chinês 0km em 2022 já perdeu metade do valor de tabela. Analisamos em detalhe no [post dedicado de agosto](/blog/eletricos-agosto-2026).',
       },
       {
         type: 'highlight',
         heading: 'O que isso significa para você?',
-        text: 'Se você está pensando em vender, agosto reforça o recado de julho: o ciclo de alta perdeu força e a primeira leitura negativa em meses é um sinal de que esperar mais não deve compensar. Se você está comprando, o momento favorece: 8 estados já caíram no mês, e a tendência de 12 meses desacelera mês a mês (+6,10% em julho, +5,12% em agosto). Quem é de Roraima, Amapá ou Rio Grande do Sul pega o mercado local em queda no mês; quem é do Rio, Sergipe ou Mato Grosso ainda segura o acumulado de 12 meses mais forte do país. Detalhamos modelo a modelo e estado a estado no post [Vencedores e Perdedores de agosto](/ibv/vencedores-perdedores-agosto-2026).',
+        text: 'Se você está pensando em vender, agosto reforça o recado de julho: o ciclo de alta perdeu força e a primeira leitura negativa em meses é um sinal de que esperar mais não deve compensar. Se você está comprando, o momento favorece: 8 estados já caíram no mês, e a tendência de 12 meses desacelera mês a mês (+6,10% em julho, +5,12% em agosto). Quem é de Roraima, Amapá ou Rio Grande do Sul pega o mercado local em queda no mês; quem é do Rio, Sergipe ou Mato Grosso ainda segura o acumulado de 12 meses mais forte do país. Detalhamos modelo a modelo e estado a estado no post [Vencedores e Perdedores de agosto](/blog/vencedores-perdedores-agosto-2026).',
       },
       {
         type: 'cta',
@@ -423,7 +423,7 @@ export const ibvPosts: IbvPost[] = [
       {
         type: 'highlight',
         heading: 'O que esperar dos próximos meses',
-        text: 'A leitura mais honesta dos dois levantamentos juntos: o estrago grande já foi feito entre 2023 e 2025, e nos últimos 12 meses o ritmo de queda do elétrico chinês se igualou ao do combustão. Isso não é recuperação, é estabilização num patamar já bem mais baixo. Enquanto a guerra de preço no 0km chinês continuar, modelos específicos ainda podem sofrer puxadas fortes (como o Ora 03, -8,0% em 12 meses) mesmo com a média do grupo estabilizada. Pra quem decide comprar ou vender, o modelo importa mais do que a categoria. Para uma leitura do mercado de usados como um todo, veja a [análise completa do IBV Auto de agosto](/ibv/agosto-2026).',
+        text: 'A leitura mais honesta dos dois levantamentos juntos: o estrago grande já foi feito entre 2023 e 2025, e nos últimos 12 meses o ritmo de queda do elétrico chinês se igualou ao do combustão. Isso não é recuperação, é estabilização num patamar já bem mais baixo. Enquanto a guerra de preço no 0km chinês continuar, modelos específicos ainda podem sofrer puxadas fortes (como o Ora 03, -8,0% em 12 meses) mesmo com a média do grupo estabilizada. Pra quem decide comprar ou vender, o modelo importa mais do que a categoria. Para uma leitura do mercado de usados como um todo, veja a [análise completa do IBV Auto de agosto](/blog/ibv-auto-agosto-2026).',
       },
       {
         type: 'cta',
@@ -434,7 +434,7 @@ export const ibvPosts: IbvPost[] = [
     ],
   },
   {
-    slug: 'julho-2026',
+    slug: 'ibv-auto-julho-2026',
     title: 'IBV Auto Julho 2026: Preços de usados quase param (+0,07%) e 16 dos 27 estados caem',
     seoTitle: 'IBV Auto Julho 2026: Usados Quase Param e 16 Estados Caem',
     metaDescription: 'IBV Auto de julho desacelera para +0,07%, o menor avanço de 2026, ante +0,57% em junho. Pela primeira vez no ano, 16 dos 27 estados fecham em queda.',
@@ -484,12 +484,12 @@ export const ibvPosts: IbvPost[] = [
       {
         type: 'heading',
         heading: '12 meses e acumulado do ano: o quadro ainda é de alta',
-        text: 'O freio de julho é um dado de curto prazo. Na janela mais longa, o mercado de usados segue valorizado. No **acumulado de 12 meses o IBV está em +6,10%**, com **Minas Gerais (+7,66%) e Rio de Janeiro (+7,65%) empatados na liderança**, seguidos pelo Rio Grande do Sul (+6,51%). Na outra ponta, Pará (+4,14%), Mato Grosso (+4,37%) e São Paulo (+4,46%) valorizaram menos.\n\nNo **acumulado de 2026 (janeiro a julho), o índice sobe +3,56%** — ritmo ainda saudável, mas que agora depende do segundo semestre para não perder força. Julho foi o primeiro sinal amarelo do ano.\n\nO detalhe por modelo confirma o clima de indecisão: segundo o resumo divulgado pelo próprio Banco BV, GM Celta (+2,62%), Fiat Palio (+2,20%) e Nissan Kicks (+1,92%) puxaram as altas, enquanto VW Fox (-2,01%), Jeep Compass (-1,74%) e GM Onix (-1,11%) lideraram as quedas. Analisamos modelo por modelo, estado por estado, no post [Vencedores e Perdedores de julho](/ibv/vencedores-perdedores-julho-2026).',
+        text: 'O freio de julho é um dado de curto prazo. Na janela mais longa, o mercado de usados segue valorizado. No **acumulado de 12 meses o IBV está em +6,10%**, com **Minas Gerais (+7,66%) e Rio de Janeiro (+7,65%) empatados na liderança**, seguidos pelo Rio Grande do Sul (+6,51%). Na outra ponta, Pará (+4,14%), Mato Grosso (+4,37%) e São Paulo (+4,46%) valorizaram menos.\n\nNo **acumulado de 2026 (janeiro a julho), o índice sobe +3,56%** — ritmo ainda saudável, mas que agora depende do segundo semestre para não perder força. Julho foi o primeiro sinal amarelo do ano.\n\nO detalhe por modelo confirma o clima de indecisão: segundo o resumo divulgado pelo próprio Banco BV, GM Celta (+2,62%), Fiat Palio (+2,20%) e Nissan Kicks (+1,92%) puxaram as altas, enquanto VW Fox (-2,01%), Jeep Compass (-1,74%) e GM Onix (-1,11%) lideraram as quedas. Analisamos modelo por modelo, estado por estado, no post [Vencedores e Perdedores de julho](/blog/vencedores-perdedores-julho-2026).',
       },
       {
         type: 'highlight',
         heading: 'O que isso significa para você?',
-        text: 'Se você está pensando em vender, o recado é de urgência moderada: a onda de valorização do primeiro semestre perdeu força em julho, e esperar mais pode não render o ganho que rendia até junho. Se você está comprando, o freio joga a seu favor: a pressão de alta afrouxou e, em 16 estados, os preços até recuaram no mês. Se você é do Piauí, Nordeste ou Norte, o momento local é claramente de queda; se é de MG, RJ ou RS, seu carro ainda vale bem no acumulado do ano. E se você tem elétrico, vale ver nossa [análise dedicada de julho](/ibv/eletricos-julho-2026): o quadro mudou de forma interessante.',
+        text: 'Se você está pensando em vender, o recado é de urgência moderada: a onda de valorização do primeiro semestre perdeu força em julho, e esperar mais pode não render o ganho que rendia até junho. Se você está comprando, o freio joga a seu favor: a pressão de alta afrouxou e, em 16 estados, os preços até recuaram no mês. Se você é do Piauí, Nordeste ou Norte, o momento local é claramente de queda; se é de MG, RJ ou RS, seu carro ainda vale bem no acumulado do ano. E se você tem elétrico, vale ver nossa [análise dedicada de julho](/blog/eletricos-julho-2026): o quadro mudou de forma interessante.',
       },
       {
         type: 'cta',
@@ -554,7 +554,7 @@ export const ibvPosts: IbvPost[] = [
       {
         type: 'highlight',
         heading: 'Como usar essa informação',
-        text: 'Se você tem Celta, Palio ou Kicks, julho foi um bom mês e o momento de venda segue favorável. Se tem VW Fox, a janela boa foi junho: ele já virou pra queda. Se tem Jeep Compass ou Onix, a pressão é real e tende a continuar; adiar a venda tem custo. No mapa, quem vende no Piauí, Nordeste ou Norte pega o mercado local em correção; quem vende em MG, RJ ou RS ainda surfa o acumulado de 12 meses. E se você compra e segura o carro, lembre do combo: SP pesa menos no total, o Rio pesa mais. Para elétricos, veja o [post dedicado de julho](/ibv/eletricos-julho-2026).',
+        text: 'Se você tem Celta, Palio ou Kicks, julho foi um bom mês e o momento de venda segue favorável. Se tem VW Fox, a janela boa foi junho: ele já virou pra queda. Se tem Jeep Compass ou Onix, a pressão é real e tende a continuar; adiar a venda tem custo. No mapa, quem vende no Piauí, Nordeste ou Norte pega o mercado local em correção; quem vende em MG, RJ ou RS ainda surfa o acumulado de 12 meses. E se você compra e segura o carro, lembre do combo: SP pesa menos no total, o Rio pesa mais. Para elétricos, veja o [post dedicado de julho](/blog/eletricos-julho-2026).',
       },
       {
         type: 'cta',
@@ -608,7 +608,7 @@ export const ibvPosts: IbvPost[] = [
       {
         type: 'highlight',
         heading: 'O que esperar dos próximos meses',
-        text: 'Nossa leitura para os próximos 90 dias: o elétrico deve seguir estável ou cair muito de leve, e o combustão deve continuar corrigindo enquanto o mercado geral desacelera. Se esse movimento se mantiver, a distância entre as duas propulsões vai continuar encolhendo — não porque o elétrico virou bom negócio de revenda, mas porque a combustão perdeu o prêmio de escassez que a segurava. Para o comprador de elétrico, é a confirmação de que dá para agir com mais calma. Para uma leitura do mercado inteiro, veja a [análise completa do IBV Auto de julho](/ibv/julho-2026).',
+        text: 'Nossa leitura para os próximos 90 dias: o elétrico deve seguir estável ou cair muito de leve, e o combustão deve continuar corrigindo enquanto o mercado geral desacelera. Se esse movimento se mantiver, a distância entre as duas propulsões vai continuar encolhendo — não porque o elétrico virou bom negócio de revenda, mas porque a combustão perdeu o prêmio de escassez que a segurava. Para o comprador de elétrico, é a confirmação de que dá para agir com mais calma. Para uma leitura do mercado inteiro, veja a [análise completa do IBV Auto de julho](/blog/ibv-auto-julho-2026).',
       },
       {
         type: 'cta',
@@ -668,7 +668,7 @@ export const ibvPosts: IbvPost[] = [
     ],
   },
   {
-    slug: 'abril-2026',
+    slug: 'ibv-auto-abril-2026',
     title: 'IBV Auto Abril 2026: Preços de Usados Sobem 0,27%, Desaceleração Marca o Fim do Trimestre',
     seoTitle: 'IBV Auto Abril 2026: Usados Sobem 0,27% e Desaceleram',
     metaDescription: 'IBV Auto de abril desacelera para +0,27% (ante +0,71% em março). Celta +2,66% e Palio +1,47% puxam as altas; Fox -1,29% cai. Tocantins lidera com +1,97%.',
@@ -862,7 +862,7 @@ export const ibvPosts: IbvPost[] = [
     ],
   },
   {
-    slug: 'marco-2026',
+    slug: 'ibv-auto-marco-2026',
     title: 'IBV Auto Março 2026: Preços de Carros Usados Sobem 0,71%, Veja os Modelos e Estados que Mais Subiram',
     seoTitle: 'IBV Auto Março 2026: Preços de Carros Usados Sobem 0,71%',
     metaDescription: 'IBV Auto de março: preços de carros usados aceleram e sobem 0,71%. Veja os modelos e estados que puxaram a alta e o efeito no valor do seu carro.',
@@ -927,7 +927,7 @@ export const ibvPosts: IbvPost[] = [
     ],
   },
   {
-    slug: 'maio-2026',
+    slug: 'ibv-auto-maio-2026',
     title: 'IBV Auto Maio 2026: Usados sobem 0,43%, Kwid lidera altas e Onix Plus puxa quedas',
     seoTitle: 'IBV Auto Maio 2026: Usados Sobem 0,43% e Kwid Lidera',
     metaDescription: 'IBV Auto de maio acelera para +0,43% (ante +0,27% em abril). Kwid +4,58% e HR-V +1,85% lideram; Onix Plus -1,39% cai. Centro-Oeste sobe +0,99%.',
@@ -1066,7 +1066,7 @@ export const ibvPosts: IbvPost[] = [
     ],
   },
   {
-    slug: 'junho-2026',
+    slug: 'ibv-auto-junho-2026',
     title: 'IBV Auto Junho 2026: Usados sobem 0,57% e todos os 27 estados fecham no positivo',
     seoTitle: 'IBV Auto Junho 2026: Usados Sobem 0,57% em Todo o País',
     metaDescription: 'IBV Auto de junho acelera para +0,57% e os 27 estados fecham no positivo. Kwid +3,52% e Fox +2,53% lideram as altas; o 1º semestre acumula +3,49%.',
@@ -1117,7 +1117,7 @@ export const ibvPosts: IbvPost[] = [
       {
         type: 'heading',
         heading: 'Elétricos seguem em desvalorização estrutural',
-        text: 'A foto por tipo de propulsão mudou pouco em relação a maio, mas piorou marginalmente para elétricos: modelos elétricos lançados em 2023 acumulam agora -46,1% de desvalorização até junho de 2026 (era -45,6% em maio). Modelos elétricos de 2022 acumulam -50,5% (era -49,3%).\n\nComparativo por ano modelo até junho/2026:\n- 2023: Elétricos -46,1% | Híbridos -26,1% | Combustão -19,6%\n- 2022: Elétricos -50,5% | Híbridos -19,3% | Combustão -13,2%\n- 2021: Híbridos -18,2% | Combustão -6,3%\n\nO recado estrutural continua: elétrico usado perde valor em ritmo aproximadamente 2,5x maior que combustão equivalente. Para uma análise dedicada com comparativo entre marcas chinesas e europeias, veja nosso post [Elétricos usados junho 2026](/ibv/eletricos-junho-2026).',
+        text: 'A foto por tipo de propulsão mudou pouco em relação a maio, mas piorou marginalmente para elétricos: modelos elétricos lançados em 2023 acumulam agora -46,1% de desvalorização até junho de 2026 (era -45,6% em maio). Modelos elétricos de 2022 acumulam -50,5% (era -49,3%).\n\nComparativo por ano modelo até junho/2026:\n- 2023: Elétricos -46,1% | Híbridos -26,1% | Combustão -19,6%\n- 2022: Elétricos -50,5% | Híbridos -19,3% | Combustão -13,2%\n- 2021: Híbridos -18,2% | Combustão -6,3%\n\nO recado estrutural continua: elétrico usado perde valor em ritmo aproximadamente 2,5x maior que combustão equivalente. Para uma análise dedicada com comparativo entre marcas chinesas e europeias, veja nosso post [Elétricos usados junho 2026](/blog/eletricos-junho-2026).',
       },
       {
         type: 'image',
@@ -1194,7 +1194,7 @@ export const ibvPosts: IbvPost[] = [
       {
         type: 'highlight',
         heading: 'Como usar essa informação',
-        text: 'Se você tem Kwid ou Fox, o momento de venda continua excepcional. Se tem Onix, a queda de maio foi ponto fora da curva e o padrão de valorização voltou. Se você tem Honda HR-V ou VW T-Cross, o cenário mudou: ambos entraram em queda depois de meses no positivo. Vale acelerar decisão. Se está em MG, BA ou PI vendendo, o ciclo local está no auge. Se está em MS, RJ, AM ou PE comprando, o momento é o mais favorável dos últimos meses. Para elétricos, veja nosso [post dedicado](/ibv/eletricos-junho-2026) com análise por marca.',
+        text: 'Se você tem Kwid ou Fox, o momento de venda continua excepcional. Se tem Onix, a queda de maio foi ponto fora da curva e o padrão de valorização voltou. Se você tem Honda HR-V ou VW T-Cross, o cenário mudou: ambos entraram em queda depois de meses no positivo. Vale acelerar decisão. Se está em MG, BA ou PI vendendo, o ciclo local está no auge. Se está em MS, RJ, AM ou PE comprando, o momento é o mais favorável dos últimos meses. Para elétricos, veja nosso [post dedicado](/blog/eletricos-junho-2026) com análise por marca.',
       },
       {
         type: 'cta',
@@ -1264,7 +1264,7 @@ export const ibvPosts: IbvPost[] = [
       {
         type: 'highlight',
         heading: 'O que esperar dos próximos meses',
-        text: 'Nossa previsão pros próximos 90 dias: o patamar de -46% da safra 2023 deve estabilizar ou piorar marginalmente (chegar próximo a -48% até setembro). Motivo: continuidade dos lançamentos BYD (Han restyling, Dolphin Mini com preço abaixo de R$ 100k) e das promoções agressivas de fim de trimestre. Compradores devem esperar mais 60-90 dias antes de fechar negócio. Vendedores devem acelerar a decisão. Para uma leitura do mercado inteiro (não só elétricos), veja a [análise completa do IBV Auto de junho](/ibv/junho-2026).',
+        text: 'Nossa previsão pros próximos 90 dias: o patamar de -46% da safra 2023 deve estabilizar ou piorar marginalmente (chegar próximo a -48% até setembro). Motivo: continuidade dos lançamentos BYD (Han restyling, Dolphin Mini com preço abaixo de R$ 100k) e das promoções agressivas de fim de trimestre. Compradores devem esperar mais 60-90 dias antes de fechar negócio. Vendedores devem acelerar a decisão. Para uma leitura do mercado inteiro (não só elétricos), veja a [análise completa do IBV Auto de junho](/blog/ibv-auto-junho-2026).',
       },
       {
         type: 'cta',
@@ -1275,6 +1275,15 @@ export const ibvPosts: IbvPost[] = [
     ],
   },
 ]
+
+/**
+ * Slugs antigos (/ibv/<slug>, ate 16/out/2026) -> slug novo no blog. Os posts
+ * do mes ganharam o prefixo "ibv-auto-" (decisao do Cesar, 16/out); os outros
+ * mantem o nome. Usado nos redirects 301 (nuxt.config.ts).
+ */
+export const IBV_SLUG_ANTIGO: Record<string, string> = Object.fromEntries(
+  ibvPosts.map((p) => [p.slug.replace(/^ibv-auto-/, ''), p.slug]),
+)
 
 export function findIbvPost(slug: string): IbvPost | undefined {
   return ibvPosts.find(p => p.slug === slug)

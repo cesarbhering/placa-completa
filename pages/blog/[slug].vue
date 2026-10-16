@@ -1,16 +1,25 @@
 <script setup lang="ts">
 import { escolherTitulo } from '~/shared/seo-titulo'
-import { findBlogPost } from '~/data/blog-posts'
+import { findBlogPost, type BlogPost } from '~/data/blog-posts'
+import { findIbvPost } from '~/data/ibv-posts'
+import { tagPorSlug, TAGS_BLOG } from '~/data/blog-indice'
 import { renderRichText } from '~/shared/rich-text'
 
+// /blog/<slug>: post do blog ou, desde 16/out/2026, post do IBV Auto (que
+// vivia em /ibv/<slug>; os antigos tem 301 no nuxt.config.ts).
 const route = useRoute()
-const post = findBlogPost(route.params.slug as string)
-if (!post) throw createError({ statusCode: 404, message: 'Post não encontrado' })
+const slug = route.params.slug as string
+const postBlog = findBlogPost(slug)
+const ibv = postBlog ? undefined : findIbvPost(slug)
+if (!postBlog && !ibv) throw createError({ statusCode: 404, message: 'Post não encontrado' })
+// No ramo do blog, `post` existe; no do IBV o componente cuida de tudo.
+const post = (postBlog || {}) as BlogPost
+const tag = postBlog ? TAGS_BLOG.find((t) => t.nome.toLowerCase() === postBlog.categoria.toLowerCase()) : tagPorSlug('ibv-auto')
 
 const URL_BASE = 'https://placacompleta.com.br'
-const faqItens = post.content.filter((s) => s.type === 'faq').flatMap((s) => s.faq || [])
+const faqItens = (post.content || []).filter((s) => s.type === 'faq').flatMap((s) => s.faq || [])
 const url = `${URL_BASE}/blog/${post.slug}`
-const og = `${URL_BASE}${post.capa.og}`
+const og = postBlog ? `${URL_BASE}${post.capa.og}` : ''
 
 function formatDate(iso: string) {
   const [y, m, d] = iso.split('-').map(Number)
@@ -18,7 +27,7 @@ function formatDate(iso: string) {
   return `${d} de ${meses[m - 1]} de ${y}`
 }
 
-useHead({
+if (postBlog) useHead({
   title: escolherTitulo(post.seoTitles?.length ? post.seoTitles : [post.title]),
   titleTemplate: '%s',
   link: [{ rel: 'canonical', href: url }],
@@ -77,7 +86,8 @@ useHead({
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'PlacaCompleta', item: URL_BASE },
           { '@type': 'ListItem', position: 2, name: 'Blog', item: `${URL_BASE}/blog` },
-          { '@type': 'ListItem', position: 3, name: post.title },
+          ...(tag ? [{ '@type': 'ListItem', position: 3, name: tag.nome, item: `${URL_BASE}/blog/tag/${tag.slug}` }] : []),
+          { '@type': 'ListItem', position: tag ? 4 : 3, name: post.title },
         ],
       }),
     },
@@ -86,11 +96,13 @@ useHead({
 </script>
 
 <template>
-  <div class="pc-page">
+  <BlogIbvArtigo v-if="ibv" :post="ibv" />
+  <div v-else class="pc-page">
     <main class="pc-container">
       <article class="blog-post">
         <header class="post-header">
-          <div class="post-header__badge">{{ post.categoria }}</div>
+          <NuxtLink v-if="tag" :to="`/blog/tag/${tag.slug}`" class="post-header__badge">{{ post.categoria }}</NuxtLink>
+          <div v-else class="post-header__badge">{{ post.categoria }}</div>
           <h1 class="pc-h1 post-header__title">{{ post.title }}</h1>
           <div class="post-header__meta">Publicado em {{ formatDate(post.publishedAt) }}</div>
         </header>
@@ -131,6 +143,10 @@ useHead({
           <NuxtLink to="/">PlacaCompleta</NuxtLink>
           <span> &rsaquo; </span>
           <NuxtLink to="/blog">Blog</NuxtLink>
+          <template v-if="tag">
+            <span> &rsaquo; </span>
+            <NuxtLink :to="`/blog/tag/${tag.slug}`">{{ tag.nome }}</NuxtLink>
+          </template>
         </nav>
       </article>
     </main>
@@ -153,7 +169,9 @@ useHead({
     padding: 6px 12px;
     border-radius: 8px;
     margin-bottom: 14px;
+    text-decoration: none;
   }
+  a#{&}__badge:hover { background: var(--pc-blue); }
   &__title { margin-bottom: 10px; }
   &__meta { font-family: var(--pc-font); font-size: 0.8125rem; color: var(--pc-graphite); }
 }

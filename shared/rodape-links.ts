@@ -39,7 +39,6 @@ export const COLUNAS_RODAPE: ColunaRodape[] = [
     links: [
       { rotulo: 'Sobre', to: '/sobre' },
       { rotulo: 'Blog', to: '/blog' },
-      { rotulo: 'IBV Auto', to: '/ibv' },
       { rotulo: 'Estudos', to: '/estudos' },
       // Pagina, nao mailto: a Cloudflare reescreve mailto pra um link que da 404
       // pra crawler (ver pages/contato.vue).
