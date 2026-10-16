@@ -254,4 +254,8 @@ describe('Renault: siglas do cadastro (OUQ8G18, 15/out)', () => {
     expect(LEGENDA_RENAULT).toContain('NAO cambio automatico')
     expect(LEGENDA_RENAULT).not.toMatch(/\u2014/)
   })
+  it('G. = Grand: SUZUKI G.VITARA nao casa com SX4 (NZA3648)', () => {
+    const lista = [{ modelo: 'Grand Vitara 2.0 16V 4x2/4x4 5p Aut.' }, { modelo: 'Grand Vitara 2.0 16V 4x2/4x4 5p Mec.' }, { modelo: 'SX4 2.0 16V 145cv 4WD 5p Aut.' }, { modelo: 'SX4 2.0 16V 145cv 4WD 5p Mec.' }]
+    expect(filtrarPeloModeloDoNome(lista, 'I/SUZUKI G.VITARA 2WD 5P').map((c) => c.modelo)).toEqual(['Grand Vitara 2.0 16V 4x2/4x4 5p Aut.', 'Grand Vitara 2.0 16V 4x2/4x4 5p Mec.'])
+  })
 })
