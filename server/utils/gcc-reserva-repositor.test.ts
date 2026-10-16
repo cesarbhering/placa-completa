@@ -58,24 +58,24 @@ const HASH_OK = 'h.eyJleHAiOjk5OTk5OTk5OTl9.s' // exp la no futuro (2286)
 afterEach(() => vi.unstubAllGlobals())
 
 describe('reporReservaGcc', () => {
-  it('reserva vazia: compra 1 so (alvo 1)', async () => {
+  it('reserva vazia: compra 2 (alvo 2)', async () => {
     const send = vi.fn(async () => {})
     const fetchImpl = vi.fn(async () => ({ status: 201, text: async () => JSON.stringify({ numero_hash_consulta: HASH_OK }) }))
     stubGlobais(fetchImpl, send)
     const supabase = makeSupabase({ count: 0, estado: { gcc_ok: true } })
     const r = await reporReservaGcc(supabase as any, 'producao')
-    expect(r.criados).toBe(1)
-    expect(r.reservaAtual).toBe(1)
+    expect(r.criados).toBe(2)
+    expect(r.reservaAtual).toBe(2)
     expect(r.gccOk).toBe(true)
-    expect(fetchImpl).toHaveBeenCalledTimes(1) // teto duro: 1 POST
+    expect(fetchImpl).toHaveBeenCalledTimes(2) // teto duro: 2 POSTs
     expect(send).not.toHaveBeenCalled()        // GCC ok: sem alerta
   })
 
-  it('com 1 valido na reserva nao gera nada (nao chama o GCC)', async () => {
+  it('com 2 validos na reserva nao gera nada (nao chama o GCC)', async () => {
     const send = vi.fn(async () => {})
     const fetchImpl = vi.fn()
     stubGlobais(fetchImpl, send)
-    const supabase = makeSupabase({ count: 1, estado: { gcc_ok: true } })
+    const supabase = makeSupabase({ count: 2, estado: { gcc_ok: true } })
     const r = await reporReservaGcc(supabase as any, 'producao')
     expect(r.criados).toBe(0)
     expect(fetchImpl).not.toHaveBeenCalled()
@@ -130,7 +130,7 @@ describe('limparReservaVencida', () => {
 
 // Regra do Cesar (05/out): consumir os hashes abertos em ordem (o que vence
 // primeiro) antes de comprar outro; so compra quando a reserva zera.
-describe('reserva com 2 validos: venda consome o mais antigo e NAO compra', () => {
+describe('reserva com 3 validos: venda consome o mais antigo e NAO compra (sobram 2)', () => {
   // Banco em memoria com o mesmo criterio do SQL: claim = status reserva,
   // expira_em > agora+10min, ordem expira_em asc; contagem = mesmo filtro.
   function bancoEmMemoria(linhas: any[]) {
@@ -175,6 +175,7 @@ describe('reserva com 2 validos: venda consome o mais antigo e NAO compra', () =
     stubGlobais(fetchImpl, vi.fn(async () => {}))
     const db = bancoEmMemoria([
       { id: 'novo', status: 'reserva', ambiente: 'producao', expira_em: em(20), numero_hash_consulta: 'h-novo' },
+      { id: 'meio', status: 'reserva', ambiente: 'producao', expira_em: em(12), numero_hash_consulta: 'h-meio' },
       { id: 'velho', status: 'reserva', ambiente: 'producao', expira_em: em(5), numero_hash_consulta: 'h-velho' },
     ])
     const usado = await reivindicarReserva(db as any, 'producao')
@@ -185,7 +186,7 @@ describe('reserva com 2 validos: venda consome o mais antigo e NAO compra', () =
     expect(db.linhas.find((l) => l.id === 'novo')?.status).toBe('reserva')
   })
 
-  it('1 valido (com 21 min de vida, caso do 41502): a venda consome e a reposicao compra 1 porque zerou', async () => {
+  it('1 valido (com 21 min de vida, caso do 41502): a venda consome e a reposicao compra 2 porque zerou', async () => {
     const fetchImpl = vi.fn(async () => ({ status: 201, text: async () => JSON.stringify({ numero_hash_consulta: HASH_OK }) }))
     stubGlobais(fetchImpl, vi.fn(async () => {}))
     const db: any = bancoEmMemoria([
@@ -198,11 +199,11 @@ describe('reserva com 2 validos: venda consome o mais antigo e NAO compra', () =
     })(db.from)
     expect((await reivindicarReserva(db, 'producao'))?.id).toBe('unico')
     const r = await reporReservaGcc(db, 'producao')
-    expect(r.criados).toBe(1)
-    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(r.criados).toBe(2)
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 
-  it('hash com menos de 10 min nao conta: a venda nao usa e a reposicao compra 1', async () => {
+  it('hash com menos de 10 min nao conta: a venda nao usa e a reposicao compra 2', async () => {
     const fetchImpl = vi.fn(async () => ({ status: 201, text: async () => JSON.stringify({ numero_hash_consulta: HASH_OK }) }))
     stubGlobais(fetchImpl, vi.fn(async () => {}))
     const db: any = bancoEmMemoria([
@@ -215,7 +216,7 @@ describe('reserva com 2 validos: venda consome o mais antigo e NAO compra', () =
     })(db.from)
     expect(await reivindicarReserva(db, 'producao')).toBeNull()
     const r = await reporReservaGcc(db, 'producao')
-    expect(r.criados).toBe(1)
-    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(r.criados).toBe(2)
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
   })
 })
