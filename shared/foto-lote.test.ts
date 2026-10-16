@@ -53,3 +53,15 @@ describe('rota /api/premium/foto', () => {
     expect(src.indexOf('fotoRefDoRelatorio(')).toBeGreaterThan(0)
   })
 })
+
+describe('teto de fotos por relatorio', () => {
+  it('40 chamadas novas por hora por token; janela nova libera', async () => {
+    const { dentroDoTetoDeFoto, _limparTetoDeEdital, TETO_FOTO_POR_TOKEN } = await import('../server/utils/edital-leilao')
+    _limparTetoDeEdital()
+    const t0 = 1_000_000
+    for (let i = 0; i < TETO_FOTO_POR_TOKEN; i++) expect(dentroDoTetoDeFoto('tokA', t0)).toBe(true)
+    expect(dentroDoTetoDeFoto('tokA', t0)).toBe(false)
+    expect(dentroDoTetoDeFoto('tokB', t0)).toBe(true)
+    expect(dentroDoTetoDeFoto('tokA', t0 + 60 * 60 * 1000)).toBe(true)
+  })
+})
