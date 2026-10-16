@@ -186,7 +186,8 @@ export function sanearFotos(bruto: unknown, config?: { leiloesFotosHosts?: strin
     if (url.protocol !== 'https:') continue
     if (!permitidos.includes(url.hostname.toLowerCase())) continue
     saida.push(url.toString())
-    if (saida.length === 3) break
+    // Ate 4 (16/out/2026: card do possivel mostra ate 4 fotos do lote).
+    if (saida.length === 4) break
   }
   return saida
 }
