@@ -32,7 +32,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
-import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia } from '~/shared/leilao-copy'
+import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia, resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, LEILAO_NIVEIS_RODAPE } from '~/shared/leilao-copy'
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
@@ -479,6 +479,13 @@ const indicadores = computed(() => {
       alerta = false
       aceso = true
       neutro = true
+    } else if (possiveisSemFoto.value.length > 0) {
+      // So possivel (16/out/2026): aceso e cinza, nem alerta nem "sem
+      // ocorrencia". A secao mostra o que bate e o que nao bate.
+      valor = cartaoSoPossivel(nPossiveisExibidos.value)
+      alerta = false
+      aceso = true
+      neutro = true
     } else if (possiveisComFoto.value.length > 0) {
       // Nem alerta nem verde: existe um lote parecido COM FOTO, e a decisao de
       // dizer se e o mesmo veiculo e de quem esta olhando.
@@ -641,10 +648,15 @@ const veredito = computed(() => {
       // Notificacao para leilao nao e registro de leilao (nao acende alerta),
       // mas o parecer nao pode dizer "nada" e a secao logo abaixo mostrar o
       // aviso do DETRAN sem explicar a diferenca.
-      texto: 'Na data de emissão, nenhum dos indicadores verificados aponta restrição, roubo, furto, registro de leilão ou pendência.'
+      // Com possivel, "nenhum registro de leilao" contradiria a frase seguinte:
+      // o que nao consta e leilao CONFIRMADO.
+      texto: (nPossiveisExibidos.value
+        ? 'Na data de emissão, nenhum dos indicadores verificados aponta restrição, roubo, furto, leilão confirmado ou pendência.'
+        : 'Na data de emissão, nenhum dos indicadores verificados aponta restrição, roubo, furto, registro de leilão ou pendência.')
         + (passagensNotificadas.value.length
           ? ' Consta notificação para leilão do DETRAN, que não comprova que o leilão aconteceu (veja o Histórico de leilão).'
-          : ''),
+          : '')
+        + (nPossiveisExibidos.value && !passagensFortes.value.length ? parecerComPossivel(nPossiveisExibidos.value) : ''),
     }
   }
   // Os rotulos sao siglas e nomes proprios (RENAJUD, RFB): baixar tudo pra
@@ -674,7 +686,10 @@ const veredito = computed(() => {
   return {
     tom: 'alerta' as const,
     titulo: `Atenção: consta ${lista}.`,
-    texto: 'Verifique os detalhes nas seções seguintes antes de concluir a negociação. As pendências apontadas podem impedir a transferência do veículo.',
+    texto: 'Verifique os detalhes nas seções seguintes antes de concluir a negociação. As pendências apontadas podem impedir a transferência do veículo.'
+      // So possivel de leilao: nao e alerta, mas o parecer tem que citar (a
+      // grade, a secao 5 e a linha do tempo mostram).
+      + (nPossiveisExibidos.value && !passagensFortes.value.length ? parecerComPossivel(nPossiveisExibidos.value) : ''),
   }
 })
 
@@ -951,6 +966,9 @@ const possiveisAgrupados = computed(() => {
 })
 
 const passagensPossiveis = computed(() => possiveisAgrupados.value.distintas)
+// Possiveis que a secao mostra em texto (distintos, sem foto; os com foto tem
+// bloco proprio). Decisao do Cesar (16/out/2026): o possivel distinto APARECE.
+const possiveisSemFoto = computed(() => passagensPossiveis.value.filter((p) => !p.fotos.length))
 
 // Contagem de lotes ambiguos: fica no snapshot e no log, NAO vai pra tela.
 // Dizer ao cliente "existem 4 lotes parecidos que nao dao pra identificar" nao
@@ -984,6 +1002,13 @@ const temIndicioReal = computed(() => passagensFortes.value.length > 0)
 const possiveisComFoto = computed(() =>
   passagensLeilao.value.filter((p) => p.nivel === 'possivel' && !p.notificacao && p.fotos.length > 0).slice(0, 3),
 )
+
+// TODO possivel que aparece no relatorio (texto + foto), pela posicao na
+// lista. Linha do tempo, checklist, grade e parecer usam ESTE conjunto: o que
+// aparece num aparece nos outros, no mesmo nivel. Ambiguo sem foto fica fora
+// de todos.
+const idxPossiveisExibidos = computed(() => new Set([...possiveisSemFoto.value, ...possiveisComFoto.value].map((p) => p.idx)))
+const nPossiveisExibidos = computed(() => idxPossiveisExibidos.value.size)
 
 // Nivel que a tela mostra. Sai das passagens que sobraram, nao do nivel_max da
 // resposta: quando os "possiveis" eram todos ambiguos e sairam, o nivel_max
@@ -1047,7 +1072,7 @@ const numSecao = computed(() => {
 const checklist = computed(() => {
   const ind = (k: string) => !!indicadores.value.find((i: any) => i.k === k)?.ligado
   const leilaoForte = passagensFortes.value.length > 0 || g('indicadorLeilao') === true
-  const leilaoPossivel = passagensLeilao.value.some((p: any) => p.nivel === 'possivel' && !p.notificacao)
+  const leilaoPossivel = nPossiveisExibidos.value > 0
   return montarChecklist({
     leilao: leilaoForte ? 'confirmado' : leilaoPossivel ? 'possivel' : null,
     roubo: ocorrencias.value.length > 0 || g('indicadorRouboFurto') === true || !!rouboDetran.value,
@@ -1535,13 +1560,19 @@ const procKm = computed(() => {
 function leiloesDaLinhaDoTempo(passagens: any[]) {
   const api = historicoLeilao.value?.linha_do_tempo
   if (!Array.isArray(api) || !api.length) {
-    return passagens.map((p: any) => ({
-      data: p.data_leilao || null,
-      titulo: fonteExibicaoLeilao(p),
-      detalhe: [p.ref ? `Edital ${p.ref}` : null, p.lote ? `Lote ${p.lote}` : null].filter(Boolean).join(' · '),
-      notificacao: ehNotificacao(p),
-      confirmado: p.nivel === 'confirmado',
-    }))
+    // Mesmo conjunto da secao de leilao: possivel so se exibido (distinto ou
+    // com foto); notificacao "possivel" nao aparece na secao, entao aqui tambem nao.
+    return passagens
+      .map((p: any, i: number) => ({ p, i }))
+      .filter(({ p, i }) => (p.nivel === 'possivel' ? !ehNotificacao(p) && idxPossiveisExibidos.value.has(i) : true))
+      .map(({ p }) => ({
+        data: p.data_leilao || null,
+        titulo: fonteExibicaoLeilao(p),
+        detalhe: [p.ref ? `Edital ${p.ref}` : null, p.lote ? `Lote ${p.lote}` : null].filter(Boolean).join(' · '),
+        notificacao: ehNotificacao(p),
+        // Provavel conta como passagem (mesmo nivel "forte" da secao 5).
+        confirmado: p.nivel !== 'possivel',
+      }))
   }
   const intervalos: number[] = historicoLeilao.value?.recorrencia?.intervalosMeses || []
   let nLeilao = 0
@@ -1560,7 +1591,7 @@ function leiloesDaLinhaDoTempo(passagens: any[]) {
       intervalo,
     }
   })
-  const possiveis = passagens.filter((p: any) => p.nivel === 'possivel' && !ehNotificacao(p)).map((p: any) => ({
+  const possiveis = passagens.filter((p: any, i: number) => p.nivel === 'possivel' && !ehNotificacao(p) && idxPossiveisExibidos.value.has(i)).map((p: any) => ({
     data: p.data_leilao || null,
     titulo: fonteExibicaoLeilao(p),
     detalhe: p.lote ? `Lote ${p.lote}` : '',
@@ -2592,13 +2623,13 @@ onUnmounted(() => {
           <section v-if="temSecaoLeilao" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.leilao }}. Histórico de leilão</h2>
             <p v-if="dadosLeilao" class="rel__dados-de">{{ dadosLeilao }}</p>
-            <p v-if="temIndicioReal || possiveisComFoto.length || passagensNotificadas.length" class="rel__leilao-base">Placa e chassi cruzados com uma base de {{ BASE_LEILAO_TEXTO }}, montada a partir de editais de DETRANs e catálogos de leiloeiras.</p>
+            <p v-if="temIndicioReal || possiveisComFoto.length || possiveisSemFoto.length || passagensNotificadas.length" class="rel__leilao-base">Placa e chassi cruzados com uma base de {{ BASE_LEILAO_TEXTO }}, montada a partir de editais de DETRANs e catálogos de leiloeiras.</p>
 
             <!-- Sem nada com grau de certeza, a seção diz UMA coisa só. Antes
                  empilhava "nenhum indício", mais a contagem de lotes parecidos,
                  mais o rodapé explicando níveis, e o resultado era um bloco
                  confuso pra dizer que não há nada. -->
-            <template v-if="!temIndicioReal && !possiveisComFoto.length && !passagensNotificadas.length">
+            <template v-if="!temIndicioReal && !possiveisComFoto.length && !possiveisSemFoto.length && !passagensNotificadas.length">
               <p class="rel__leilao-limpo">
                 {{ leilaoSemOcorrencia(esteVeiculo) }}
               </p>
@@ -2740,6 +2771,49 @@ onUnmounted(() => {
                  decide se é o veículo é a pessoa, comparando com o que ela tem
                  na garagem. Sem foto, esse bloco não existe: seria contagem
                  sem nada que a pessoa possa conferir. -->
+            <!-- Possivel distinto (16/out/2026, decisao do Cesar): aparece, em
+                 cinza, com o que bate e o que nao bate. Ambiguo continua fora. -->
+            <template v-if="possiveisSemFoto.length">
+              <p v-if="!temIndicioReal" class="rel__leilao-resumo">
+                <span class="rel__nivel rel__nivel--possivel">{{ ROTULO_NIVEL.possivel }}</span>
+                <span>{{ resumoSoPossivel(possiveisSemFoto.length, esteVeiculo) }}</span>
+              </p>
+              <p v-else class="rel__leilao-possiveis-tit">Também {{ possiveisSemFoto.length === 1 ? 'há 1 registro possível, que pode ser outro veículo do mesmo modelo e ano' : `há ${possiveisSemFoto.length} registros possíveis, que podem ser outros veículos do mesmo modelo e ano` }}:</p>
+              <div v-for="p in possiveisSemFoto" :key="`p${p.idx}`" class="rel__leilao rel__leilao--possivel">
+                <div class="rel__leilao-topo">
+                  <span class="rel__nivel rel__nivel--possivel">{{ p.rotuloNivel }}</span>
+                  <span class="rel__leilao-fonte">{{ p.fonte }}</span>
+                  <span v-if="p.tipoFonte" class="rel__leilao-tipo">{{ p.tipoFonte }}</span>
+                </div>
+                <p v-if="p.gravidade" class="rel__grav" :class="`rel__grav--${p.gravidade.cor}`">
+                  <span class="rel__grav-barra" aria-hidden="true" />
+                  <span class="rel__grav-rotulo">{{ p.gravidade.rotulo }}</span>
+                </p>
+                <p v-if="p.origem" class="rel__leilao-origem"><span>Origem:</span> {{ p.origem }}</p>
+                <div v-if="p.comitente" class="rel__leilao-quem">
+                  <p class="rel__leilao-comit"><span>Comitente:</span> {{ p.comitente }}</p>
+                  <p v-if="p.fraseComitente" class="rel__leilao-comit-frase">{{ p.fraseComitente }}</p>
+                </div>
+                <p v-if="p.desfecho" class="rel__leilao-desf"><span>Desfecho:</span> {{ p.desfecho }}</p>
+                <p v-if="p.detalhe" class="rel__leilao-det">{{ p.detalhe }}</p>
+                <p class="rel__leilao-explica">{{ p.explicaNivel }}</p>
+                <div class="rel__leilao-evid rel__leilao-evid--aberto">
+                  <template v-if="p.evidencias.length">
+                    <p class="rel__leilao-sub">Bate com {{ esteVeiculo }}</p>
+                    <ul class="rel__leilao-lista">
+                      <li v-for="(e, i) in p.evidencias" :key="`pe${i}`">{{ e }}</li>
+                    </ul>
+                  </template>
+                  <template v-if="p.conflitos.length">
+                    <p class="rel__leilao-sub">Não bate</p>
+                    <ul class="rel__leilao-lista rel__leilao-lista--conflito">
+                      <li v-for="(c, i) in p.conflitos" :key="`pc${i}`">{{ c }}</li>
+                    </ul>
+                  </template>
+                </div>
+              </div>
+            </template>
+
             <div v-if="possiveisComFoto.length" class="rel__leilao-fotos">
               <p class="rel__leilao-fotos-txt">
                 Encontramos {{ possiveisComFoto.length }}
@@ -2766,8 +2840,8 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <p v-if="temIndicioReal || possiveisComFoto.length || passagensNotificadas.length" class="rel__leilao-aviso">
-              Fonte: editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer placa ou chassi completos iguais; provável quer dizer identificador parcial mais atributos do veículo. Não substitui consulta oficial.
+            <p v-if="temIndicioReal || possiveisComFoto.length || possiveisSemFoto.length || passagensNotificadas.length" class="rel__leilao-aviso">
+              {{ LEILAO_NIVEIS_RODAPE }}
             </p>
           </section>
 
@@ -3614,6 +3688,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__nivel--confirmado { color: #a32020; border-color: rgba(211, 58, 58, 0.4); background: rgba(211, 58, 58, 0.08); }
   &__nivel--provavel { color: #8a5200; border-color: rgba(180, 83, 9, 0.4); background: rgba(180, 83, 9, 0.08); }
   &__nivel--possivel { color: $c-graphite; border-color: $c-hair; background: $c-cloud; }
+  &__leilao.rel__leilao--possivel { background: $c-cloud; border-color: $c-hair; }
+  &__leilao-possiveis-tit { margin: 14px 0 6px; font-size: calc(13.5px * var(--rel-fs, 1)); color: $c-graphite; }
+  &__leilao-evid--aberto { margin-top: 8px; }
 
   &__leilao-resumo {
     display: flex;
