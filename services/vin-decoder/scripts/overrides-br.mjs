@@ -52,6 +52,7 @@ const OVERRIDES = [
   ['9C6', 'Yamaha Motor da Amazônia', 'Brasil', 'América do Sul'], // vPIC: YAMAHA MOTOR CORPORATION, planta Amazonas (corrigido — nao e Peugeot)
   ['93U', 'Audi Brasil', 'Brasil', 'América do Sul'], // fonte wiki (corrigido — nao e Renault)
   ['93Y', 'Renault do Brasil', 'Brasil', 'América do Sul'], // fonte wiki (corrigido — nao e Hyundai)
+  ['98P', 'DAF Caminhões Brasil', 'Brasil', 'América do Sul'], // fabrica unica em Ponta Grossa (PR); base de leiloes: 98P = DAF XF/CF
   // ---- Mercosul: Argentina (fonte: tabela wiki, csv/wmi-from-wiki.csv) ----
   // Achado num relatorio real (I/VW SPACEFOX, chassi 8AW...): o vPIC nao
   // tem nenhum WMI 8A* (Count 0 no decodewmi), entao esses vinham sem
