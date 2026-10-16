@@ -11,6 +11,7 @@
 import { fonteExibicaoLeilao, paginaPublicaLeilao } from '../../shared/leilao-exibicao'
 import { ehNotificacao, GRAVIDADE_NOTIFICADO } from '../../shared/leilao-notificacao'
 import { historicoLgpd } from '../../shared/leilao-lgpd'
+import { fotoRefsDaPassagem, type FotoRef } from '../../shared/foto-lote'
 import { ehRevendaFrota, sanearRevendaFrota, type RevendaFrota } from '../../shared/revenda-frota'
 import {
   sanearOrigem, sanearAlertas, sanearDesfecho, sanearLotePublico, sanearContextoJudicial,
@@ -76,6 +77,8 @@ export interface PassagemLeilao {
   conflitos: string[]
   /** URLs de foto do lote, servidas pelo nosso armazenamento. */
   fotos: string[]
+  /** Fotos do lote no nosso R2, por referencia (leiloes-api #141): a pagina usa /api/premium/foto. */
+  foto_refs?: FotoRef[]
   // Relatorio 2.0 (shared/leilao-relatorio2.ts): desconhecido = null/vazio.
   origem?: OrigemLeilao | null
   alertas?: AlertaLeilao[]
@@ -260,6 +263,7 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
       veiculo_na_fonte: p.veiculo_na_fonte && typeof p.veiculo_na_fonte === 'object' ? p.veiculo_na_fonte : null,
       evidencias: Array.isArray(p.evidencias) ? p.evidencias.map(String) : [],
       fotos: sanearFotos(p.fotos, config),
+      foto_refs: fotoRefsDaPassagem(p),
       conflitos: Array.isArray(p.conflitos) ? p.conflitos.map(String) : [],
       origem: sanearOrigem(p.origem),
       alertas: sanearAlertas(p.alertas),

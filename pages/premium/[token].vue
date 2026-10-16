@@ -32,6 +32,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
+import { fotoRefsDaPassagem, urlFotoLote, altFotoLote } from '~/shared/foto-lote'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia, resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, LEILAO_NIVEIS_RODAPE } from '~/shared/leilao-copy'
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
@@ -851,7 +852,13 @@ const passagensLeilao = computed(() => {
     // Fotos do lote, servidas do nosso armazenamento (nunca link direto da
     // leiloeira). Sao o unico caminho honesto de mostrar um "possivel": quem
     // decide se e o veiculo dele e a pessoa, olhando.
-    fotos: Array.isArray(p.fotos) ? p.fotos.filter((f: any) => typeof f === 'string').slice(0, 4) : [],
+    // Fotos: as do R2 por referencia (rota /api/premium/foto, 302 pra URL
+    // assinada) e, em snapshot antigo, as URLs ja saneadas. Ate 4.
+    fotos: [
+      ...(Array.isArray(p.foto_refs) ? p.foto_refs : fotoRefsDaPassagem(p)).map((f: any) => urlFotoLote(String(token), f.ref)),
+      ...(Array.isArray(p.fotos) ? p.fotos.filter((f: any) => typeof f === 'string') : []),
+    ].slice(0, 4),
+    fotosAlt: (Array.isArray(p.foto_refs) ? p.foto_refs : fotoRefsDaPassagem(p)).map((f: any, i: number) => altFotoLote(f.vista, i)),
     conflitos: Array.isArray(p.conflitos) ? p.conflitos : [],
     // Edital do orgao: so DETRAN. O snapshot de relatorio antigo nao tem estes
     // campos, e ai o botao simplesmente nao aparece, que e o comportamento
@@ -2804,7 +2811,7 @@ onUnmounted(() => {
                      jeito de a pessoa conferir se e o veiculo dela. -->
                 <div v-if="p.fotos.length" class="rel__lote-fotos rel__lote-fotos--possivel">
                   <a v-for="(foto, i) in p.fotos.slice(0, 4)" :key="`pf${i}`" :href="foto" target="_blank" rel="noopener noreferrer">
-                    <img :src="foto" :alt="`Foto ${i + 1} do lote de leilão com perfil parecido`" loading="lazy" class="rel__lote-foto">
+                    <img :src="foto" :alt="p.fotosAlt[i] || `Foto ${i + 1} do lote de leilão com perfil parecido`" loading="lazy" class="rel__lote-foto">
                   </a>
                 </div>
                 <p v-if="p.fotos.length" class="rel__leilao-det">Compare as fotos com o veículo: cor, rodas, adesivos, avarias e acessórios ajudam a dizer se é o mesmo.</p>
