@@ -851,7 +851,7 @@ const passagensLeilao = computed(() => {
     // Fotos do lote, servidas do nosso armazenamento (nunca link direto da
     // leiloeira). Sao o unico caminho honesto de mostrar um "possivel": quem
     // decide se e o veiculo dele e a pessoa, olhando.
-    fotos: Array.isArray(p.fotos) ? p.fotos.filter((f: any) => typeof f === 'string').slice(0, 3) : [],
+    fotos: Array.isArray(p.fotos) ? p.fotos.filter((f: any) => typeof f === 'string').slice(0, 4) : [],
     conflitos: Array.isArray(p.conflitos) ? p.conflitos : [],
     // Edital do orgao: so DETRAN. O snapshot de relatorio antigo nao tem estes
     // campos, e ai o botao simplesmente nao aparece, que e o comportamento
@@ -968,7 +968,10 @@ const possiveisAgrupados = computed(() => {
 const passagensPossiveis = computed(() => possiveisAgrupados.value.distintas)
 // Possiveis que a secao mostra em texto (distintos, sem foto; os com foto tem
 // bloco proprio). Decisao do Cesar (16/out/2026): o possivel distinto APARECE.
-const possiveisSemFoto = computed(() => passagensPossiveis.value.filter((p) => !p.fotos.length))
+// Nome historico: hoje sao TODOS os possiveis distintos (com ou sem foto). O
+// card mostra ate 4 fotos do lote quando vierem (16/out/2026); o bloco de
+// fotos abaixo fica so com os possiveis AMBIGUOS que tem foto.
+const possiveisSemFoto = computed(() => passagensPossiveis.value)
 
 // Contagem de lotes ambiguos: fica no snapshot e no log, NAO vai pra tela.
 // Dizer ao cliente "existem 4 lotes parecidos que nao dao pra identificar" nao
@@ -999,9 +1002,10 @@ const temIndicioReal = computed(() => passagensFortes.value.length > 0)
 // comum e a gente nao consegue provar que e este veiculo; com foto, quem prova
 // e o dono, olhando. Por isso este bloco olha TODOS os possiveis, inclusive os
 // que a regra de ambiguidade tirou da lista textual.
-const possiveisComFoto = computed(() =>
-  passagensLeilao.value.filter((p) => p.nivel === 'possivel' && !p.notificacao && p.fotos.length > 0).slice(0, 3),
-)
+const possiveisComFoto = computed(() => {
+  const distintos = new Set(passagensPossiveis.value.map((p) => p.idx))
+  return passagensLeilao.value.filter((p) => p.nivel === 'possivel' && !p.notificacao && p.fotos.length > 0 && !distintos.has(p.idx)).slice(0, 3)
+})
 
 // TODO possivel que aparece no relatorio (texto + foto), pela posicao na
 // lista. Linha do tempo, checklist, grade e parecer usam ESTE conjunto: o que
@@ -2796,6 +2800,14 @@ onUnmounted(() => {
                 </div>
                 <p v-if="p.desfecho" class="rel__leilao-desf"><span>Desfecho:</span> {{ p.desfecho }}</p>
                 <p v-if="p.detalhe" class="rel__leilao-det">{{ p.detalhe }}</p>
+                <!-- Fotos do lote (ate 4), servidas do nosso armazenamento: e o
+                     jeito de a pessoa conferir se e o veiculo dela. -->
+                <div v-if="p.fotos.length" class="rel__lote-fotos rel__lote-fotos--possivel">
+                  <a v-for="(foto, i) in p.fotos.slice(0, 4)" :key="`pf${i}`" :href="foto" target="_blank" rel="noopener noreferrer">
+                    <img :src="foto" :alt="`Foto ${i + 1} do lote de leilão com perfil parecido`" loading="lazy" class="rel__lote-foto">
+                  </a>
+                </div>
+                <p v-if="p.fotos.length" class="rel__leilao-det">Compare as fotos com o veículo: cor, rodas, adesivos, avarias e acessórios ajudam a dizer se é o mesmo.</p>
                 <p class="rel__leilao-explica">{{ p.explicaNivel }}</p>
                 <div class="rel__leilao-evid rel__leilao-evid--aberto">
                   <template v-if="p.evidencias.length">
@@ -3957,6 +3969,15 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     gap: 8px;
     overflow-x: auto;
   }
+  // Card do possivel: ate 4 fotos em grade (2 no celular, 4 no desktop).
+  &__lote-fotos--possivel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 10px 0 4px;
+    overflow: visible;
+    .rel__lote-foto { width: 100%; height: auto; aspect-ratio: 4 / 3; }
+  }
+  @media (min-width: 720px) { &__lote-fotos--possivel { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
   &__lote-foto {
     width: 132px;
