@@ -1,4 +1,4 @@
-// Reserva de hash GCC (1 hash de frente; so compra quando a reserva zera). Este arquivo comeca pelo pedaco
+// Reserva de hash GCC (2 hashes de frente; repoe ate ter 2 utilizaveis). Este arquivo comeca pelo pedaco
 // puro e testavel: ler o exp do JWT do hash pra saber ate quando ele vale. O
 // repositor e o consumo entram depois (dependem do fluxo GCC do senatran-consulta).
 
@@ -49,12 +49,12 @@ export function validadeDaReserva(hash: string | null | undefined, agora: Date =
 }
 
 /**
- * Reserva alvo: 1 hash de frente (regra do Cesar, 05/out). So compra quando a
- * reserva ZERA de hash utilizavel. Com 2 de frente e 3 a 5 vendas por dia,
- * sobravam hashes que venciam sem uso (~R$7 cada). O 1 que fica pronto evita
- * depender do GCC (lento/fora) na hora da venda.
+ * Reserva alvo: 2 hashes de frente (Cesar, 16/out: o GCC anda instavel, e com
+ * ~13 vendas por dia os 2 giram bem antes das 24h de validade). Historico: em
+ * 05/out era 1 de frente, porque com 3 a 5 vendas por dia sobravam hashes que
+ * venciam sem uso (~R$7 cada). Repoe ate ter 2 utilizaveis.
  */
-export const RESERVA_ALVO = 1
+export const RESERVA_ALVO = 2
 
 /** Margem de vida minima pra consumir/contar um hash de reserva (1h). */
 const MARGEM_MS = 60 * 60 * 1000
