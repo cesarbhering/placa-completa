@@ -384,15 +384,36 @@ async function validarCheckout(): Promise<boolean> {
   return true
 }
 
+// Trava de clique: validarCheckout e assincrono e roda ANTES do loading da
+// cobranca; sem isto, dois cliques rapidos (botao ou aba Pix) passavam os dois
+// pela validacao e geravam dois Pix.
+let pagando = false
+
 async function confirmarEPagar() {
-  // O e-mail NAO trava mais a geracao do Pix. Quase metade de quem abria o
-  // checkout sumia antes da cobranca existir. Ele e pedido na tela do Pix,
-  // enquanto a pessoa paga, e continua obrigatorio pra entrega durar.
-  if (!(await validarCheckout())) return
-  // Passo do meio do funil: registra a intencao ANTES da chamada do checkout,
-  // pra falha de rede na geracao do Pix nao virar "ninguem clicou".
-  trackAddPaymentInfo(props.plano, placaClean.value, precoExibidoCentavos.value)
-  await pagar()
+  if (pagando || loading.value) return
+  pagando = true
+  try {
+    // O e-mail NAO trava mais a geracao do Pix. Quase metade de quem abria o
+    // checkout sumia antes da cobranca existir. Ele e pedido na tela do Pix,
+    // enquanto a pessoa paga, e continua obrigatorio pra entrega durar.
+    if (!(await validarCheckout())) return
+    // Passo do meio do funil: registra a intencao ANTES da chamada do checkout,
+    // pra falha de rede na geracao do Pix nao virar "ninguem clicou".
+    trackAddPaymentInfo(props.plano, placaClean.value, precoExibidoCentavos.value)
+    await pagar()
+  } finally {
+    pagando = false
+  }
+}
+
+// Clique na opcao Pix (Cesar, 16/out/2026): vai direto pra tela do QR Code,
+// pelo MESMO caminho do botao "Pagar e liberar" (validacoes, cupom, cupom 100%
+// pelo caminho gratis, eventos de funil), mesmo quando o Pix ja estava
+// selecionado. Placa em edicao: so seleciona (o botao tambem fica travado).
+function escolherPix() {
+  metodo.value = 'pix'
+  if (editandoPlaca.value || loading.value) return
+  confirmarEPagar()
 }
 
 // E-mail que o pedido ja levou (preenchido na primeira tela do modal).
@@ -938,7 +959,7 @@ onUnmounted(() => {
                  habilitado (chaves do Stripe no ambiente); senao o Pix segue sem
                  abas, exatamente como antes. Pix vem selecionado. -->
             <div v-if="cartaoHabilitado" class="pic-tabs" role="tablist" aria-label="Forma de pagamento">
-              <button type="button" role="tab" :aria-selected="metodo === 'pix'" class="pic-tab" :class="{ 'pic-tab--on': metodo === 'pix' }" @click="metodo = 'pix'">
+              <button type="button" role="tab" :aria-selected="metodo === 'pix'" class="pic-tab" :class="{ 'pic-tab--on': metodo === 'pix' }" :disabled="loading" @click="escolherPix">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 8 6l4 4 4-4-4-4Zm-6 6-4 4 4 4 4-4-4-4Zm12 0-4 4 4 4 4-4-4-4Zm-6 6-4 4 4 4 4-4-4-4Z" /></svg>
                 Pix
               </button>
@@ -1417,7 +1438,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 // que merece peso visual.
 .pic-conf {
   list-style: none;
-  margin: 0;
+  // Respiro padrao do componente (o mesmo gap de 14px do .pic-stack) entre o
+  // card de garantias e o botao "Pagar e liberar", que ficavam colados.
+  margin: 0 0 14px;
   padding: 12px 14px;
   border: 1px solid $c-hair;
   border-radius: 8px;
