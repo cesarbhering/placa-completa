@@ -29,3 +29,21 @@ describe('checklist de vistoria e transferencia', () => {
     expect(tudo).not.toMatch(/está (batido|adulterado|com defeito)|foi adulterad|tem defeito/i)
   })
 })
+
+describe('ids estaveis (checklist reativo)', () => {
+  it('todo item tem id unico, valido e independente do texto', async () => {
+    const { montarChecklist, idChecklistValido, IDS_CHECKLIST } = await import('./checklist-compra')
+    const c = montarChecklist({ leilao: 'confirmado', roubo: true, recallPendente: true, kmCaiu: true, gravame: true, restricaoJudicial: true, debitosCentavos: 100, baixado: true })
+    const ids = [...c.vistoria, ...c.transferencia].map((i) => i.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const id of ids) expect(idChecklistValido(id), id).toBe(true)
+    expect(new Set(IDS_CHECKLIST).size).toBe(IDS_CHECKLIST.length)
+    // texto muda com o valor, id nao
+    const a = montarChecklist({ debitosCentavos: 100 }).transferencia[0]
+    const b = montarChecklist({ debitosCentavos: 999 }).transferencia[0]
+    expect(a.texto).not.toBe(b.texto)
+    expect(a.id).toBe(b.id)
+    expect(idChecklistValido('x-inventado')).toBe(false)
+    expect(idChecklistValido(1)).toBe(false)
+  })
+})

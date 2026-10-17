@@ -1098,6 +1098,47 @@ const checklist = computed(() => {
   })
 })
 
+// ---------- checklist reativo (16/out/2026) ----------
+// Estado marcado em premium_checklist (o snapshot e imutavel), por id estavel
+// do item. Otimista: marca na hora e desfaz se o servidor recusar. Sincroniza
+// ao abrir e quando a aba volta ao foco (outro aparelho pode ter marcado).
+const marcadosChecklist = ref<Record<string, boolean>>({})
+const erroChecklist = ref('')
+const idsChecklist = computed(() => [...checklist.value.vistoria, ...checklist.value.transferencia].map((i) => i.id))
+const checklistTotal = computed(() => idsChecklist.value.length)
+const checklistMarcados = computed(() => idsChecklist.value.filter((id) => marcadosChecklist.value[id]).length)
+async function sincronizarChecklist() {
+  if (!entregue.value) return
+  try {
+    const r: any = await $fetch('/api/premium/checklist', { query: { token } })
+    if (r?.marcados && typeof r.marcados === 'object') marcadosChecklist.value = { ...r.marcados }
+  } catch { /* sem rede: fica o que esta na tela */ }
+}
+async function marcarChecklist(id: string, marcado: boolean) {
+  const antes = !!marcadosChecklist.value[id]
+  marcadosChecklist.value = { ...marcadosChecklist.value, [id]: marcado }
+  erroChecklist.value = ''
+  try { track('checklist_marcado', { item_id: id, marcado }) } catch { /* telemetria e best-effort */ }
+  try {
+    await $fetch('/api/premium/checklist', { method: 'POST', body: { token, item_id: id, marcado } })
+  } catch {
+    marcadosChecklist.value = { ...marcadosChecklist.value, [id]: antes }
+    erroChecklist.value = 'Não conseguimos salvar agora. Tente marcar de novo.'
+  }
+}
+function aoVoltarFocoChecklist() { if (document.visibilityState === 'visible') sincronizarChecklist() }
+onMounted(() => {
+  sincronizarChecklist()
+  document.addEventListener('visibilitychange', aoVoltarFocoChecklist)
+  window.addEventListener('focus', sincronizarChecklist)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', aoVoltarFocoChecklist)
+  window.removeEventListener('focus', sincronizarChecklist)
+})
+// Relatorio carregado depois (poll de entrega): sincroniza quando virar entregue.
+watch(entregue, (v) => { if (v) sincronizarChecklist() })
+
 // ---------- valor e custo ----------
 const vc = computed(() => data.value?.valorCusto ?? null)
 
@@ -3072,21 +3113,32 @@ onUnmounted(() => {
           <!-- Checklist de vistoria e transferencia (Relatorio 2.0, item 5). -->
           <section class="rel__card rel__check">
             <h2 class="rel__h2">{{ numSecao.check }}. O que conferir antes de fechar negócio</h2>
-            <p class="rel__check-sub">Leve esta lista na hora de ver o carro. Os itens marcados vêm do que consta neste relatório.</p>
+            <p class="rel__check-sub">Leve esta lista na hora de ver o carro. Os itens em destaque vêm do que consta neste relatório. Marque o que já conferiu: fica salvo neste relatório, em qualquer aparelho.</p>
+            <p class="rel__check-cont" role="status" aria-live="polite">{{ checklistMarcados }} de {{ checklistTotal }} conferidos</p>
             <div class="rel__check-cols">
               <div v-for="bloco in [{ t: 'Na vistoria do carro', itens: checklist.vistoria }, { t: 'Na transferência', itens: checklist.transferencia }]" :key="bloco.t" class="rel__check-col">
                 <h3 class="rel__check-h3">{{ bloco.t }}</h3>
                 <ul class="rel__check-lista">
-                  <li v-for="(it, i) in bloco.itens" :key="i" :class="{ 'rel__check-item--rel': it.doRelatorio }">
-                    <span class="rel__check-box" aria-hidden="true" />
-                    <span>
-                      <small v-if="it.doRelatorio" class="rel__check-tag">Deste relatório</small>
-                      {{ it.texto }}
-                    </span>
+                  <li v-for="it in bloco.itens" :key="it.id" :class="{ 'rel__check-item--rel': it.doRelatorio, 'rel__check-item--ok': !!marcadosChecklist[it.id] }">
+                    <label class="rel__check-label" :for="`chk-${it.id}`">
+                      <input
+                        :id="`chk-${it.id}`"
+                        type="checkbox"
+                        class="rel__check-input"
+                        :checked="!!marcadosChecklist[it.id]"
+                        :disabled="!entregue"
+                        @change="marcarChecklist(it.id, ($event.target as HTMLInputElement).checked)"
+                      >
+                      <span>
+                        <small v-if="it.doRelatorio" class="rel__check-tag">Deste relatório</small>
+                        {{ it.texto }}
+                      </span>
+                    </label>
                   </li>
                 </ul>
               </div>
             </div>
+            <p v-if="erroChecklist" class="rel__check-erro" role="alert">{{ erroChecklist }}</p>
           </section>
 
           <!-- upsell da basica -->
@@ -4327,17 +4379,27 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__check-h3 { margin: 0 0 8px; font-size: calc(14px * var(--rel-fs, 1)); font-weight: 700; color: #1a1a1a; }
   &__check-lista { list-style: none; margin: 0; padding: 0; }
   &__check-lista li {
-    display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start;
-    padding: 7px 0; border-bottom: 1px solid #eef0f3;
+    border-bottom: 1px solid #eef0f3;
     font-size: calc(13.5px * var(--rel-fs, 1)); line-height: 1.4; color: #222;
     break-inside: avoid;
   }
+  // Label inteira clicavel e area de toque grande (min. 44 px) no celular.
+  &__check-label { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; padding: 10px 0; min-height: 44px; cursor: pointer; }
+  &__check-input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: #1f8a4c; cursor: pointer; }
+  &__check-input:focus-visible { outline: 2px solid #1f5fbf; outline-offset: 2px; }
+  &__check-item--ok span { color: #555; }
+  &__check-cont { margin: -4px 0 12px; font-size: calc(13px * var(--rel-fs, 1)); font-weight: 700; color: #1f8a4c; }
+  &__check-erro { margin: 10px 0 0; font-size: calc(12.5px * var(--rel-fs, 1)); color: #a01d1d; }
   &__check-lista li:last-child { border-bottom: 0; }
-  &__check-box { width: 16px; height: 16px; margin-top: 2px; border: 1.5px solid #8a94a3; border-radius: 3px; background: #fff; }
   &__check-item--rel { background: #fff8e6; margin: 0 -8px; padding-left: 8px !important; padding-right: 8px !important; border-radius: 6px; }
-  &__check-item--rel .rel__check-box { border-color: #d98a00; }
+  &__check-item--rel .rel__check-input { accent-color: #b26b00; }
   &__check-tag { display: block; font-size: calc(11px * var(--rel-fs, 1)); font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #a86a00; margin-bottom: 1px; }
-  @media print { &__check-cols { grid-template-columns: 1fr 1fr; gap: 18px; } }
+  @media print {
+    &__check-cols { grid-template-columns: 1fr 1fr; gap: 18px; }
+    // A caixa sai na impressao como esta na tela (marcada ou nao).
+    &__check-input { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    &__check-label { min-height: 0; padding: 6px 0; }
+  }
 
   // ---- custo de 12 meses ----
   &__c12 { margin: 16px 0 0; padding: 14px; border: 1px solid #e3e6ea; border-radius: 12px; background: #fafbfc; break-inside: avoid; }
