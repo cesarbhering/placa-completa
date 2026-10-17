@@ -21,48 +21,25 @@ function comSessionStorage(inicial?: string, quebrado = false) {
 describe('sorteio e persistencia da variante', () => {
   beforeEach(() => { vi.unstubAllGlobals() })
 
-  it('sorteia 50/50: metade baixa vira A, metade alta vira A2', () => {
-    comSessionStorage()
-    expect(decidirVariante({ rnd: () => 0.1 })).toBe('A')
-    vi.unstubAllGlobals()
-    comSessionStorage()
-    expect(decidirVariante({ rnd: () => 0.9 })).toBe('A2')
-  })
-
-  it('decide UMA vez por visita: a segunda chamada reusa o que foi guardado', () => {
+  it('teste encerrado: todo mundo ve A2, qualquer sorteio', () => {
     const store = comSessionStorage()
-    expect(decidirVariante({ rnd: () => 0.9 })).toBe('A2')
-    expect(store.get(AB_BLOCO_KEY)).toBe('A2')
-    // Sorteio que diria A na segunda chamada nao pode trocar a tela no meio
-    // da visita: seria contar a mesma pessoa nas duas variantes.
     expect(decidirVariante({ rnd: () => 0.1 })).toBe('A2')
-  })
-
-  it('kill switch joga todo mundo em A e nao carimba nada', () => {
-    const store = comSessionStorage()
-    expect(decidirVariante({ desligado: true, rnd: () => 0.9 })).toBe('A')
-    expect(store.has(AB_BLOCO_KEY)).toBe(false)
-  })
-
-  it('rodada 3: quem tinha B guardado e re-sorteado entre A e A2', () => {
-    const store = comSessionStorage('B')
-    expect(varianteAtual()).toBeNull()
-    expect(decidirVariante({ rnd: () => 0.9 })).toBe('A2')
     expect(store.get(AB_BLOCO_KEY)).toBe('A2')
+    expect(decidirVariante({ rnd: () => 0.9 })).toBe('A2')
+  })
+
+  it('quem tinha A ou B guardado na sessao passa a ver A2', () => {
+    const a = comSessionStorage('A')
+    expect(decidirVariante()).toBe('A2')
+    expect(a.get(AB_BLOCO_KEY)).toBe('A2')
     vi.unstubAllGlobals()
     comSessionStorage('B')
-    expect(decidirVariante({ rnd: () => 0.1 })).toBe('A')
+    expect(decidirVariante()).toBe('A2')
   })
 
-  it('valor estranho no storage e ignorado e vira sorteio novo', () => {
-    comSessionStorage('Z')
-    expect(decidirVariante({ rnd: () => 0.9 })).toBe('A2')
-  })
-
-  it('storage bloqueado (modo privado) nao quebra: decide e segue', () => {
+  it('storage bloqueado (modo privado) nao quebra: A2 e segue', () => {
     comSessionStorage(undefined, true)
-    expect(decidirVariante({ rnd: () => 0.9 })).toBe('A2')
-    expect(varianteAtual()).toBeNull()
+    expect(decidirVariante()).toBe('A2')
   })
 
   it('varianteAtual nao sorteia nada: antes da decisao devolve null', () => {
