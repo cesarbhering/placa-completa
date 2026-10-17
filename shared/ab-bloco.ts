@@ -57,13 +57,16 @@ export function varianteAtual(): VarianteAbBloco | null {
  *
  * `rnd` injetavel pro teste: sorteio 50/50 nao se testa com Math.random solto.
  */
-export function decidirVariante(opts: { desligado?: boolean; rnd?: () => number } = {}): VarianteAbBloco {
-  if (opts.desligado) return 'A'
-  const guardada = varianteAtual()
-  if (guardada) return guardada
-  const escolhida: VarianteAbBloco = (opts.rnd ?? Math.random)() < 0.5 ? 'A' : 'A2'
-  try { storage()?.setItem(AB_BLOCO_KEY, escolhida) } catch { /* modo privado */ }
-  return escolhida
+// TESTE ENCERRADO (17/out/2026, decisao do Cesar): A2 (oferta no topo) venceu
+// a rodada 3 e virou a versao unica. Todo mundo ve A2, inclusive quem tinha 'A'
+// guardado na sessao. A variante segue carimbada ('A2') nos eventos e no pedido,
+// pra serie historica continuar comparavel. Post mortem: artefato "Teste A/B
+// do resultado".
+export const VARIANTE_UNICA: VarianteAbBloco = 'A2'
+
+export function decidirVariante(_opts: { desligado?: boolean; rnd?: () => number } = {}): VarianteAbBloco {
+  try { storage()?.setItem(AB_BLOCO_KEY, VARIANTE_UNICA) } catch { /* modo privado */ }
+  return VARIANTE_UNICA
 }
 
 /** So pra teste. */
