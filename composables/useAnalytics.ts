@@ -169,6 +169,9 @@ export function espelharEventoNoFunil(event: string, params?: Record<string, any
   if (typeof params?.positivo === 'boolean') extra.positivo = params.positivo
   if (typeof params?.com_email === 'string') extra.com_email = params.com_email
   if (typeof params?.ja_consultada === 'boolean') extra.ja_consultada = params.ja_consultada
+  // Checklist do relatorio: so o id estavel do item e o estado (sem PII).
+  if (typeof params?.item_id === 'string') extra.item_id = params.item_id
+  if (typeof params?.marcado === 'boolean') extra.marcado = params.marcado
   enfileirarEventoFunil(event, {
     placa: typeof params?.placa === 'string' ? params.placa : null,
     leilao_sinal: typeof params?.leilao_sinal === 'string' ? params.leilao_sinal : undefined,
