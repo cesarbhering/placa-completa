@@ -31,6 +31,8 @@ export const EVENTOS_FUNIL = [
   'checkout_fechado_sem_pagar',
   /** Informou e-mail no checkout ou na tela do Pix. */
   'email_informado',
+  /** Relatorio pago: marcou ou desmarcou um item do checklist (extra: item_id, marcado; sem PII). */
+  'checklist_marcado',
 ] as const
 
 export type EventoFunil = (typeof EVENTOS_FUNIL)[number]
