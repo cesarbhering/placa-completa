@@ -32,7 +32,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
-import { fotoRefsDaPassagem, urlFotoLote, altFotoLote } from '~/shared/foto-lote'
+import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes } from '~/shared/foto-lote'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia, resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, LEILAO_NIVEIS_RODAPE } from '~/shared/leilao-copy'
 import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
@@ -860,6 +860,9 @@ const passagensLeilao = computed(() => {
       ...(Array.isArray(p.fotos) ? p.fotos.filter((f: any) => typeof f === 'string') : []),
     ].slice(0, 4),
     fotosAlt: (Array.isArray(p.foto_refs) ? p.foto_refs : fotoRefsDaPassagem(p)).map((f: any, i: number) => altFotoLote(f.vista, i)),
+    // Fotos ainda chegando (detalhes.fotos_pendente): o card diz que esta
+    // buscando; o job do servidor grava os foto_refs (Cesar, 18/out/2026).
+    fotosPendente: fotosPendentes(p),
     conflitos: Array.isArray(p.conflitos) ? p.conflitos : [],
     // Edital do orgao: so DETRAN. O snapshot de relatorio antigo nao tem estes
     // campos, e ai o botao simplesmente nao aparece, que e o comportamento
@@ -2874,6 +2877,7 @@ onUnmounted(() => {
                   </a>
                 </div>
                 <p v-if="p.fotos.length" class="rel__leilao-det">Compare as fotos com o veículo: cor, rodas, adesivos, avarias e acessórios ajudam a dizer se é o mesmo.</p>
+                <p v-else-if="p.fotosPendente" class="rel__lote-fotos-busca" role="status">Buscando fotos do anúncio…</p>
                 <p class="rel__leilao-explica">{{ p.explicaNivel }}</p>
                 <div class="rel__leilao-evid rel__leilao-evid--aberto">
                   <template v-if="p.evidencias.length">
@@ -4041,6 +4045,13 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     &:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
   }
 
+  &__lote-fotos-busca {
+    margin: 10px 0 4px;
+    font-size: calc(14px * var(--rel-fs, 1));
+    line-height: 1.5;
+    color: $c-graphite;
+    font-style: italic;
+  }
   &__lote-fotos {
     display: flex;
     gap: 8px;

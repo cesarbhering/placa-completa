@@ -79,6 +79,12 @@ export interface PassagemLeilao {
   fotos: string[]
   /** Fotos do lote no nosso R2, por referencia (leiloes-api #141): a pagina usa /api/premium/foto. */
   foto_refs?: FotoRef[]
+  /**
+   * A leiloes-api ainda esta buscando as fotos do lote (detalhes.fotos_pendente).
+   * A pagina mostra "Buscando fotos do anúncio…"; o job fotos-depois grava os
+   * foto_refs quando chegam (Cesar, 18/out/2026).
+   */
+  fotos_pendente?: boolean
   // Relatorio 2.0 (shared/leilao-relatorio2.ts): desconhecido = null/vazio.
   origem?: OrigemLeilao | null
   alertas?: AlertaLeilao[]
@@ -264,6 +270,7 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
       evidencias: Array.isArray(p.evidencias) ? p.evidencias.map(String) : [],
       fotos: sanearFotos(p.fotos, config),
       foto_refs: fotoRefsDaPassagem(p),
+      fotos_pendente: p.detalhes?.fotos_pendente === true && fotoRefsDaPassagem(p).length === 0,
       conflitos: Array.isArray(p.conflitos) ? p.conflitos.map(String) : [],
       origem: sanearOrigem(p.origem),
       alertas: sanearAlertas(p.alertas),

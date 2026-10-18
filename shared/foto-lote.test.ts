@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fotoRefsDaPassagem, urlFotoLote, fotoRefDoRelatorio, altFotoLote } from './foto-lote'
+import { fotoRefsDaPassagem, urlFotoLote, fotoRefDoRelatorio, altFotoLote, fotosPendentes, passagemPrecisaDeFoto } from './foto-lote'
 
 const REF = (n: number) => `ref${n}.abcdefABCDEF0123456789`
 const passagem = { nivel: 'possivel', detalhes: { fotos: [
@@ -63,5 +63,32 @@ describe('teto de fotos por relatorio', () => {
     expect(dentroDoTetoDeFoto('tokA', t0)).toBe(false)
     expect(dentroDoTetoDeFoto('tokB', t0)).toBe(true)
     expect(dentroDoTetoDeFoto('tokA', t0 + 60 * 60 * 1000)).toBe(true)
+  })
+})
+
+describe('fotos que chegam depois da venda', () => {
+  const base = { nivel: 'possivel', fonte: 'copart', fonte_tipo: 'privado', lote: '1', detalhes: { fotos_pendente: true }, foto_refs: [], fotos: [] }
+
+  it('aviso "Buscando fotos" so enquanto pendente e sem foto', () => {
+    expect(fotosPendentes(base)).toBe(true)
+    expect(fotosPendentes({ ...base, fotos_pendente: true })).toBe(true)
+    expect(fotosPendentes({ ...base, detalhes: {} })).toBe(false)
+    expect(fotosPendentes({ ...base, foto_refs: [{ ref: REF(1), ordem: 1, vista: null }] })).toBe(false)
+    expect(fotosPendentes({ ...base, fotos_busca: { status: 'sem_foto', em: 'x' } })).toBe(false)
+    expect(fotosPendentes({ ...base, fotos_pendente: false })).toBe(false)
+    expect(fotosPendentes(null)).toBe(false)
+  })
+
+  it('job pergunta por casa privada ou passagem pendente; nunca por notificacao', () => {
+    expect(passagemPrecisaDeFoto(base)).toBe(true)
+    expect(passagemPrecisaDeFoto({ ...base, detalhes: {} })).toBe(true)
+    expect(passagemPrecisaDeFoto({ ...base, fonte: 'detran_mg', fonte_tipo: 'detran', detalhes: {} })).toBe(false)
+    expect(passagemPrecisaDeFoto({ ...base, fonte: 'detran_mg', fonte_tipo: 'detran' })).toBe(true)
+    expect(passagemPrecisaDeFoto({ ...base, situacao: 'notificado' })).toBe(false)
+    expect(passagemPrecisaDeFoto({ ...base, lote: '' })).toBe(false)
+    expect(passagemPrecisaDeFoto({ ...base, fotos_busca: { status: 'fonte_sem_foto' } })).toBe(false)
+    expect(passagemPrecisaDeFoto({ ...base, fotos_busca: { status: 'expirou' } })).toBe(true)
+    expect(passagemPrecisaDeFoto(base, new Set(['copart']))).toBe(false)
+    expect(passagemPrecisaDeFoto({ ...base, fotos: ['https://fotos.placacompleta.com.br/a.jpg'] })).toBe(false)
   })
 })
