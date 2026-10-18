@@ -2,6 +2,7 @@ import { hostname } from 'node:os'
 import { randomBytes } from 'node:crypto'
 import { rodarFotosDepois, FOTOS_INTERVALO_MS } from '../utils/fotos-depois'
 import { emVoo } from '../utils/tarefas-em-voo'
+import { avisarFotosNoRelatorio } from '../utils/aviso-fotos'
 
 // Fotos do lote que chegam depois da venda (Cesar, 18/out/2026): a cada 30 min
 // grava os foto_refs nas passagens do relatorio que ainda nao tinham foto.
@@ -37,6 +38,11 @@ export default defineNitroPlugin(() => {
           body,
           timeout: 8000,
         }),
+        // E-mail ao cliente quando chegam fotos: so com FOTOS_AVISO_EMAIL=1
+        // (desligado ate o Cesar aprovar o texto, 18/out/2026).
+        ...(process.env.FOTOS_AVISO_EMAIL === '1'
+          ? { avisar: (pedidoId: string, niveis: string[]) => avisarFotosNoRelatorio(usePremiumSupabase(), pedidoId, niveis).then((r) => console.info(`[fotos-depois] aviso ${pedidoId}: ${r}`)) }
+          : {}),
       }).then((r) => {
         if (r.rodou && !r.apiAusente) console.info(`[fotos-depois] rodada: pedidos=${r.pedidos} chamadas=${r.chamadas} gravados=${r.gravados}`)
       }))
