@@ -88,14 +88,24 @@ export async function accessToken(): Promise<string> {
 /** So pra teste: derruba o access token guardado entre um caso e outro. */
 export function _limparCacheToken() { cacheToken = null }
 
+export type EstadoGoogle = 'pago' | 'pendente' | 'cancelada' | 'nao_encontrada' | 'indisponivel' | 'sem_estado'
+
 export interface CompraGoogle {
   ok: boolean
   motivo: string | null
+  /** Resumo do que a Google disse (vai pra google_play_compras.estado_google). */
+  estado: EstadoGoogle
   orderId: string | null
   purchaseState: number | null
   consumptionState: number | null
   acknowledgementState: number | null
   productId: string | null
+  /** Ja consumida (o app consome no celular em algumas versoes). */
+  consumida: boolean
+  /** purchaseType 0: compra de teste (conta de teste da Play), nao e venda. */
+  teste: boolean
+  /** obfuscatedExternalAccountId que o app mandou na compra (a placa, quando mandada). */
+  contaExterna: string | null
 }
 
 /**
@@ -103,42 +113,97 @@ export interface CompraGoogle {
  *
  * Funcao pura de proposito: e ela que decide se o relatorio sai, e um teste
  * dela vale mais que qualquer mock de rede. purchaseState 0 e "purchased"
- * (1 e cancelado, 2 e pendente) e consumptionState 0 e "ainda nao consumido".
- * Uma compra ja consumida significa que aquele token ja virou relatorio.
+ * (1 e cancelado, 2 e pendente).
+ *
+ * Compra consumida (consumptionState 1) AGORA e paga (18/out/2026, caso
+ * BAN0G13): a versao do app na Play consome no celular antes de chamar o
+ * servidor, e recusar ali era recusar uma venda paga. Nao ha reuso: quem
+ * impede a mesma compra de virar dois pedidos e o purchaseToken unique em
+ * pedidos_premium, nao o estado de consumo.
  */
 export function interpretarCompra(raw: any, productId?: string): CompraGoogle {
   const base: CompraGoogle = {
     ok: false,
     motivo: null,
+    estado: 'sem_estado',
     orderId: raw?.orderId ?? null,
     purchaseState: typeof raw?.purchaseState === 'number' ? raw.purchaseState : null,
     consumptionState: typeof raw?.consumptionState === 'number' ? raw.consumptionState : null,
     acknowledgementState: typeof raw?.acknowledgementState === 'number' ? raw.acknowledgementState : null,
     productId: raw?.productId ?? productId ?? null,
+    consumida: raw?.consumptionState === 1,
+    teste: raw?.purchaseType === 0,
+    contaExterna: typeof raw?.obfuscatedExternalAccountId === 'string' && raw.obfuscatedExternalAccountId ? raw.obfuscatedExternalAccountId : null,
   }
   if (!raw || typeof raw !== 'object') return { ...base, motivo: 'resposta vazia da Google' }
   if (base.purchaseState === null) return { ...base, motivo: 'compra sem estado' }
-  if (base.purchaseState === 2) return { ...base, motivo: 'pagamento pendente' }
-  if (base.purchaseState !== 0) return { ...base, motivo: 'compra cancelada' }
-  if (base.consumptionState === 1) return { ...base, motivo: 'compra ja utilizada' }
-  return { ...base, ok: true }
+  if (base.purchaseState === 2) return { ...base, estado: 'pendente', motivo: 'pagamento pendente' }
+  if (base.purchaseState !== 0) return { ...base, estado: 'cancelada', motivo: 'compra cancelada' }
+  return { ...base, estado: 'pago', ok: true }
 }
+
+const ANDROIDPUBLISHER = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE_NAME}`
 
 /** purchases.products.get: pergunta pra Google o que aconteceu com o token. */
 export async function consultarCompra(productId: string, purchaseToken: string): Promise<CompraGoogle> {
-  const token = await accessToken()
-  const url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE_NAME}/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}`
   try {
+    const token = await accessToken()
+    const url = `${ANDROIDPUBLISHER}/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}`
     const raw = await $fetch(url, { headers: { authorization: `Bearer ${token}` } })
     return interpretarCompra(raw, productId)
   } catch (e: any) {
-    // 404 da Google = token que nunca existiu. Tudo mais e indisponibilidade
-    // dela, e nos dois casos a resposta pra quem chamou e a mesma: nao entrega.
+    // 404 da Google = token que nunca existiu (ou que ainda nao propagou, logo
+    // depois da compra). Tudo mais e indisponibilidade dela.
+    const naoAchou = e?.response?.status === 404
     return {
       ok: false,
-      motivo: e?.response?.status === 404 ? 'compra nao encontrada' : 'nao conseguimos confirmar a compra agora',
+      motivo: naoAchou ? 'compra nao encontrada' : 'nao conseguimos confirmar a compra agora',
+      estado: naoAchou ? 'nao_encontrada' : 'indisponivel',
       orderId: null, purchaseState: null, consumptionState: null, acknowledgementState: null, productId,
+      consumida: false, teste: false, contaExterna: null,
     }
+  }
+}
+
+export interface PedidoGoogle {
+  /** O que o cliente pagou (total do pedido na Play, com imposto), em centavos de BRL. */
+  valorCentavos: number | null
+  /** O que fica pra nos depois da taxa da Google (developerRevenueInBuyerCurrency). */
+  liquidoCentavos: number | null
+  /** PROCESSED, PENDING, CANCELED, REFUNDED... */
+  estado: string | null
+}
+
+/** Money do Google ({currencyCode, units, nanos}) em centavos; so BRL. */
+export function moneyParaCentavos(m: any): number | null {
+  if (!m || m.currencyCode !== 'BRL') return null
+  const units = Number(m.units ?? 0)
+  const nanos = Number(m.nanos ?? 0)
+  if (!Number.isFinite(units) || !Number.isFinite(nanos)) return null
+  if (m.units === undefined && m.nanos === undefined) return null
+  return Math.round(units * 100 + nanos / 1e7)
+}
+
+export function interpretarPedidoGoogle(raw: any): PedidoGoogle {
+  return {
+    valorCentavos: moneyParaCentavos(raw?.total),
+    liquidoCentavos: moneyParaCentavos(raw?.developerRevenueInBuyerCurrency),
+    estado: typeof raw?.state === 'string' ? raw.state : null,
+  }
+}
+
+/**
+ * orders.get: o preco que a Play cobrou de verdade (R$ 39,99 hoje, nao os
+ * R$ 39,90 do site) e o liquido. Fail-open: sem resposta, null, e quem chama
+ * usa o preco padrao da Play.
+ */
+export async function consultarPedidoGoogle(orderId: string): Promise<PedidoGoogle | null> {
+  try {
+    const token = await accessToken()
+    const raw = await $fetch(`${ANDROIDPUBLISHER}/orders/${encodeURIComponent(orderId)}`, { headers: { authorization: `Bearer ${token}` } })
+    return interpretarPedidoGoogle(raw)
+  } catch {
+    return null
   }
 }
 
@@ -150,7 +215,7 @@ export async function consultarCompra(productId: string, purchaseToken: string):
 export async function consumirCompra(productId: string, purchaseToken: string): Promise<{ ok: boolean; error: string | null }> {
   try {
     const token = await accessToken()
-    await $fetch(`https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE_NAME}/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}:consume`, {
+    await $fetch(`${ANDROIDPUBLISHER}/purchases/products/${encodeURIComponent(productId)}/tokens/${encodeURIComponent(purchaseToken)}:consume`, {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
     })
