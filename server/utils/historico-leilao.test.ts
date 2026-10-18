@@ -101,3 +101,17 @@ describe('pagina publica do lote (judicial sem edital entregavel, 07/out)', () =
     for (const p of h.passagens) expect(p.pagina_publica_url).toBeNull()
   })
 })
+
+describe('fotos_pendente (fotos que chegam depois da venda)', () => {
+  const res = (det: any, extra: any = {}) => ({ resumo: { fontes_com_passagem: ['copart'] }, passagens: [{ nivel: 'possivel', fonte: 'copart', fonte_tipo: 'privado', lote: '1', detalhes: det, ...extra }] })
+
+  it('detalhes.fotos_pendente=true sem foto vira fotos_pendente na passagem do snapshot', () => {
+    expect(sanearHistorico(res({ fotos_pendente: true }))!.passagens[0].fotos_pendente).toBe(true)
+  })
+
+  it('sem a marca, ou com foto ja no R2, nao fica pendente', () => {
+    expect(sanearHistorico(res({}))!.passagens[0].fotos_pendente).toBe(false)
+    const comFoto = res({ fotos_pendente: true, fotos: [{ ordem: 1, vista: 'frente', foto_ref: 'ref1.abcdefABCDEF0123' }] })
+    expect(sanearHistorico(comFoto)!.passagens[0].fotos_pendente).toBe(false)
+  })
+})
