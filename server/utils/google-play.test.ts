@@ -8,7 +8,7 @@ const config: any = { googlePlayServiceAccount: '' }
 vi.stubGlobal('useRuntimeConfig', () => config)
 vi.stubGlobal('createError', (o: any) => Object.assign(new Error(o.message), o))
 
-const { interpretarCompra, contaDeServico, montarAssertion, PRODUTO_COMPLETA } = await import('./google-play')
+const { interpretarCompra, interpretarPedidoGoogle, moneyParaCentavos, contaDeServico, montarAssertion, PRODUTO_COMPLETA } = await import('./google-play')
 
 describe('interpretar a resposta da Google', () => {
   it('compra paga e nao consumida entrega', () => {
@@ -29,10 +29,27 @@ describe('interpretar a resposta da Google', () => {
     expect(r.motivo).toBe('compra cancelada')
   })
 
-  it('compra ja consumida nao entrega de novo: o token ja virou relatorio', () => {
+  it('compra paga e ja consumida no celular entrega (caso BAN0G13): o unique do token impede reuso', () => {
     const r = interpretarCompra({ purchaseState: 0, consumptionState: 1 })
-    expect(r.ok).toBe(false)
-    expect(r.motivo).toBe('compra ja utilizada')
+    expect(r.ok).toBe(true)
+    expect(r.estado).toBe('pago')
+    expect(r.consumida).toBe(true)
+  })
+
+  it('pendente e cancelada viram estado proprio', () => {
+    expect(interpretarCompra({ purchaseState: 2 }).estado).toBe('pendente')
+    expect(interpretarCompra({ purchaseState: 1 }).estado).toBe('cancelada')
+  })
+
+  it('purchaseType 0 e compra de teste; ausente e compra real', () => {
+    expect(interpretarCompra({ purchaseState: 0, purchaseType: 0 }).teste).toBe(true)
+    expect(interpretarCompra({ purchaseState: 0 }).teste).toBe(false)
+    expect(interpretarCompra({ purchaseState: 0, purchaseType: 1 }).teste).toBe(false)
+  })
+
+  it('le a placa do obfuscatedExternalAccountId', () => {
+    expect(interpretarCompra({ purchaseState: 0, obfuscatedExternalAccountId: 'ABC1D23' }).contaExterna).toBe('ABC1D23')
+    expect(interpretarCompra({ purchaseState: 0 }).contaExterna).toBe(null)
   })
 
   it('resposta vazia ou sem estado falha fechada', () => {
@@ -44,6 +61,26 @@ describe('interpretar a resposta da Google', () => {
   it('productId vem da resposta, e cai no consultado quando ela nao traz', () => {
     expect(interpretarCompra({ purchaseState: 0, consumptionState: 0 }, 'consulta_completa').productId).toBe('consulta_completa')
     expect(interpretarCompra({ purchaseState: 0, consumptionState: 0, productId: 'outro' }, 'consulta_completa').productId).toBe('outro')
+  })
+})
+
+describe('preco do pedido na Play (orders.get)', () => {
+  it('Money em centavos', () => {
+    expect(moneyParaCentavos({ currencyCode: 'BRL', units: '39', nanos: 990000000 })).toBe(3999)
+    expect(moneyParaCentavos({ currencyCode: 'BRL', units: '33', nanos: 990000000 })).toBe(3399)
+    expect(moneyParaCentavos({ currencyCode: 'BRL', units: '40' })).toBe(4000)
+    expect(moneyParaCentavos({ currencyCode: 'BRL' })).toBe(null)
+    expect(moneyParaCentavos({ currencyCode: 'USD', units: '8' })).toBe(null)
+    expect(moneyParaCentavos(null)).toBe(null)
+  })
+
+  it('total e liquido do pedido real (formato da resposta de 18/out)', () => {
+    const r = interpretarPedidoGoogle({
+      state: 'PROCESSED',
+      total: { currencyCode: 'BRL', units: '39', nanos: 990000000 },
+      developerRevenueInBuyerCurrency: { currencyCode: 'BRL', units: '33', nanos: 990000000 },
+    })
+    expect(r).toEqual({ valorCentavos: 3999, liquidoCentavos: 3399, estado: 'PROCESSED' })
   })
 })
 

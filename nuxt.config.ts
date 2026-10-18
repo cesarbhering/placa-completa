@@ -673,6 +673,11 @@ export default defineNuxtConfig({
     // pro bundle do browser. Sem ela, o endpoint do app responde 503 e a web
     // (Pix) segue intacta.
     googlePlayServiceAccount: process.env.NUXT_GOOGLE_PLAY_SERVICE_ACCOUNT || "",
+    // RTDN (notificacoes da Play via push do Pub/Sub, 18/out/2026): audiencia
+    // do token OIDC da assinatura push e o e-mail da conta de servico dela.
+    // Sem audiencia, /api/premium/google-play/rtdn responde 503.
+    googlePlayRtdnAudiencia: process.env.NUXT_GOOGLE_PLAY_RTDN_AUDIENCIA || "",
+    googlePlayRtdnEmail: process.env.NUXT_GOOGLE_PLAY_RTDN_EMAIL || "",
     // Servico interno de decode de VIN/chassi (services/vin-decoder), rede
     // docker interna, sem porta publica. Fail-open: se estiver fora, o bloco
     // "Origem do chassi" so nao aparece no relatorio, nunca quebra a entrega.

@@ -52,8 +52,12 @@ describe('caminhos que abrem o checkout na home passam a origem', () => {
 
 describe('o pedido grava a porta de entrada (Pix, cartao, Play)', () => {
   it('cada endpoint que cria pedido saneia e grava origem_checkout', () => {
-    for (const f of ['server/api/premium/checkout.post.ts', 'server/api/premium/cartao-intent.post.ts', 'server/api/premium/google-play/verificar.post.ts', 'server/api/premium/checkout-stripe.post.ts']) {
+    for (const f of ['server/api/premium/checkout.post.ts', 'server/api/premium/cartao-intent.post.ts', 'server/api/premium/checkout-stripe.post.ts']) {
       expect(arq(f), f).toContain('origem_checkout: sanearOrigemCheckout(body.origem_checkout)')
     }
+    // Play: o /verificar guarda o que o app mandou e o pedido nasce em
+    // concluirCompraPlay (pode ser no job, minutos depois).
+    expect(arq('server/api/premium/google-play/verificar.post.ts')).toContain('origem_checkout: body.origem_checkout')
+    expect(arq('server/utils/google-play-compras.ts')).toContain('origem_checkout: sanearOrigemCheckout(dados.origem_checkout)')
   })
 })
