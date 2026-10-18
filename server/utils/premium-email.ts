@@ -431,3 +431,74 @@ export async function enviarAtualizacaoRelatorio(
     return false
   }
 }
+
+// ---------- Aviso: chegaram as fotos do leilao (18/out/2026) ----------
+// O job fotos-depois gravou foto numa passagem de leilao de um relatorio ja
+// entregue. UM e-mail por pedido (pedidos_premium.aviso_fotos_em), de
+// contato@, no mesmo layout do e-mail de atualizacao, sem cupom. Texto
+// honesto pelo nivel: possivel = pode ser outro veiculo, compare as fotos;
+// confirmado/provavel = fotos do anuncio desse leilao. Sempre lembra que a
+// vistoria cautelar e que confirma o estado do carro.
+
+export function textosAvisoFotos(placa: string, niveis: string[]): { titulo: string; paragrafos: string[]; assunto: string } {
+  const forte = niveis.some((n) => n === 'confirmado' || n === 'provavel')
+  const possivel = niveis.includes('possivel')
+  const paragrafos: string[] = []
+  if (forte) paragrafos.push(`As fotos do anúncio do leilão em que o veículo de placa ${placa} aparece no seu relatório já estão disponíveis.`)
+  if (possivel) {
+    paragrafos.push(forte
+      ? 'Também chegaram fotos de um lote com perfil parecido. Ele pode ser outro veículo do mesmo modelo e ano: compare as fotos com o carro.'
+      : `Chegaram as fotos de um lote de leilão com perfil parecido com o veículo de placa ${placa}. Ele pode ser outro veículo do mesmo modelo e ano: compare as fotos com o carro.`)
+  }
+  paragrafos.push('As fotos ajudam a avaliar o estado do carro, mas só uma vistoria cautelar confirma. Leve o relatório quando for ver o veículo.')
+  return {
+    titulo: 'Chegaram as fotos do leilão',
+    paragrafos,
+    assunto: `Fotos do leilão no seu relatório da placa ${placa}`,
+  }
+}
+
+export function montarAvisoFotos(a: { link: string; placa: string; niveis: string[] }): { assunto: string; html: string; texto: string } {
+  const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const { titulo, paragrafos, assunto } = textosAvisoFotos(a.placa, a.niveis)
+  const p = (t: string, mb = 12) => `<p style="margin:0 0 ${mb}px;font-size:16px;line-height:1.5;color:${GRAFITE};text-align:center;">${esc(t)}</p>`
+  const corpo = paragrafos.map((t, i) => p(t, i === paragrafos.length - 1 ? 0 : 12)).join('')
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${titulo}</title></head>
+<body style="margin:0;padding:0;background:#f7f7f7;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(paragrafos[0])}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f7f7f7;"><tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid ${FIO};border-radius:16px;overflow:hidden;">
+<tr><td align="center" style="padding:28px 24px 20px;border-bottom:1px solid ${FIO};"><img src="https://placacompleta.com.br/logo-horizontal-600.png" width="180" height="72" alt="PlacaCompleta" style="display:block;border:0;width:180px;height:auto;"></td></tr>
+<tr><td align="center" style="padding:32px 32px 8px;font-family:${FONTE};text-align:center;">
+<h1 style="margin:0 0 16px;font-size:24px;line-height:1.2;font-weight:600;color:${TINTA};text-align:center;">${titulo}</h1>${corpo}</td></tr>
+<tr><td align="center" style="padding:20px 32px 8px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="${AZUL}" style="border-radius:4px;">
+<a href="${a.link}" style="display:inline-block;padding:16px 32px;font-family:${FONTE};font-size:14px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;color:#ffffff;text-decoration:none;border-radius:4px;">Ver as fotos no relatório</a></td></tr></table></td></tr>
+<tr><td style="padding:20px 32px 32px;font-family:${FONTE};">
+<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">O link é o mesmo de antes e não expira.</p>
+<p style="margin:0;font-size:12px;line-height:1.5;color:${GRAFITE};text-align:center;word-break:break-all;">Se o botão não funcionar, copie e cole no navegador:<br><a href="${a.link}" style="color:${AZUL};text-decoration:underline;">${a.link}</a></p></td></tr>
+<tr><td align="center" style="padding:24px 32px;background:${NAVY};font-family:${FONTE};">
+<p style="margin:0 0 6px;font-size:13px;line-height:1.5;color:#ffffff;font-weight:600;">Precisa de ajuda?</p>
+<p style="margin:0;font-size:13px;line-height:1.5;color:rgba(255,255,255,0.75);">É só responder este e-mail ou escrever para <a href="mailto:contato@placacompleta.com.br" style="color:#ffffff;text-decoration:underline;">contato@placacompleta.com.br</a></p></td></tr>
+</table><p style="margin:16px 0 0;font-family:${FONTE};font-size:12px;line-height:1.5;color:${GRAFITE};">PlacaCompleta · consulta veicular por placa</p></td></tr></table></body></html>`
+  const texto = [titulo, '', ...paragrafos.flatMap((t) => [t, '']), a.link, '', 'O link é o mesmo de antes e não expira.', '', 'Precisa de ajuda? Responda este e-mail ou escreva para contato@placacompleta.com.br', '', 'PlacaCompleta · consulta veicular por placa'].join('\n')
+  return { assunto, html, texto }
+}
+
+export async function enviarAvisoFotos(
+  a: { email: string | null | undefined; token: string; placa: string; niveis: string[] },
+  deps: { config?: any; enviar?: (msg: any) => Promise<void> } = {},
+): Promise<boolean> {
+  const config = deps.config ?? useRuntimeConfig()
+  if (!a.email || (!deps.enviar && !config.resendApiKey)) return false
+  const link = `${config.premiumBaseUrl || 'https://placacompleta.com.br'}/premium/${a.token}`
+  const { assunto, html, texto } = montarAvisoFotos({ link, placa: a.placa, niveis: a.niveis })
+  const msg = { from: 'PlacaCompleta <contato@placacompleta.com.br>', reply_to: 'contato@placacompleta.com.br', to: [a.email], subject: comTagAmbiente(assunto, config), html, text: texto }
+  try {
+    if (deps.enviar) await deps.enviar(msg)
+    else await $fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' }, body: msg })
+    return true
+  } catch (e: any) {
+    console.error('[premium-email] aviso de fotos: envio falhou:', String(e?.data?.message || e?.message || e))
+    return false
+  }
+}

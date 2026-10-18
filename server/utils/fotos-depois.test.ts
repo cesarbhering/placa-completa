@@ -354,3 +354,24 @@ describe('gravacao, 404 e resposta', () => {
     expect(r!.fotos.map((f) => f.ordem)).toEqual([1, 2, 3, 4])
   })
 })
+
+describe('aviso ao cliente quando chegam fotos (flag FOTOS_AVISO_EMAIL)', () => {
+  it('varias passagens com foto na mesma rodada: UM aviso por pedido, com os niveis', async () => {
+    const pedidos = [pedido('a', [passagem({ nivel: 'confirmado', lote: '1' }), passagem({ nivel: 'possivel', lote: '2' })]), pedido('b', [passagem({ lote: '3' })])]
+    const sb = fakeSupabase(pedidos)
+    const avisos: [string, string[]][] = []
+    const buscar = async (b: any) => (b.lote === '3' ? { status: 'buscando', fotos: [] } : { status: 'ok', fotos: [{ ordem: 1, vista: 'frente', foto_ref: REF(Number(b.lote)) }] })
+    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {}, avisar: async (id, n) => { avisos.push([id, n]) } })
+    expect(avisos).toEqual([['a', ['confirmado', 'possivel']]])
+  })
+  it('sem a dependencia avisar (flag desligada): nada e avisado', async () => {
+    const sb = fakeSupabase([pedido('a', [passagem()])])
+    const r = await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'ok', fotos: [{ ordem: 1, vista: null, foto_ref: REF(1) }] }), dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {} })
+    expect(r.gravados).toBe(1)
+  })
+  it('aviso que lanca nao derruba o job', async () => {
+    const sb = fakeSupabase([pedido('a', [passagem()]), pedido('b', [passagem({ lote: '9' })])])
+    const r = await rodarFotosDepois({ supabase: sb, buscar: async (b: any) => ({ status: 'ok', fotos: [{ ordem: 1, vista: null, foto_ref: REF(Number(b.lote) % 9 + 1) }] }), dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {}, avisar: async () => { throw new Error('x') } })
+    expect(r.gravados).toBe(2)
+  })
+})

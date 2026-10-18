@@ -57,6 +57,13 @@ export interface DepsFotos {
   tentadoEm?: Map<string, number>
   /** Pausa entre chamadas (teste injeta uma que nao espera). */
   esperar?: (ms: number) => Promise<void>
+  /**
+   * Aviso ao cliente quando a rodada gravou foto em passagem(ns) do pedido
+   * (server/utils/aviso-fotos.ts). Chamado UMA vez por pedido por rodada, com
+   * os niveis das passagens que ganharam foto. Ausente = sem aviso (a flag
+   * FOTOS_AVISO_EMAIL do plugin decide). Nunca deve lancar.
+   */
+  avisar?: (pedidoId: string, niveis: string[]) => Promise<unknown>
 }
 
 export interface ResumoRodada {
@@ -174,6 +181,12 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
       resumo.pedidos++
       const tok = String(pedido.token_entrega || '').slice(0, 6)
       const linhaLog: string[] = []
+      // Niveis das passagens que ganharam foto nesta rodada (um aviso so por pedido).
+      const niveisComFoto: string[] = []
+      const avisar = async () => {
+        if (!deps.avisar || !niveisComFoto.length) return
+        try { await deps.avisar(pedido.id, [...new Set(niveisComFoto)]) } catch { /* aviso nunca derruba o job */ }
+      }
       for (const p of pedido.alvo) {
         if (resumo.chamadas >= FOTOS_MAX_CHAMADAS) break
         const fonte = String(p.fonte)
@@ -198,6 +211,7 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
             linhaLog.push(`${fonte}:${lote}=429`)
             log(`[fotos-depois] pedido ${pedido.id} (${tok}…): ${linhaLog.join(', ')}`)
             log('[fotos-depois] 429 da leiloes-api: rodada parada')
+            await avisar()
             return resumo
           }
           if (ehLoteNaoEncontrado(e)) {
@@ -213,7 +227,7 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
 
         if (r.status === 'ok' && r.fotos.length) {
           const g = await gravar(deps.supabase, pedido.id, alvo, { foto_refs: r.fotos })
-          if (g === 'gravado') resumo.gravados++
+          if (g === 'gravado') { resumo.gravados++; niveisComFoto.push(String(p.nivel || '')) }
           linhaLog.push(`${fonte}:${lote}=ok ${r.fotos.length} foto${r.fotos.length === 1 ? '' : 's'}${g === 'gravado' ? '' : ` (nao gravou: ${g})`}`)
         } else if (r.status === 'buscando') {
           // Segue tentando nas proximas rodadas (o aviso da pagina expira sozinho em 7 dias).
@@ -227,6 +241,7 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
         }
       }
       log(`[fotos-depois] pedido ${pedido.id} (${tok}…): ${linhaLog.join(', ') || 'nada'}`)
+      await avisar()
     }
     return resumo
   } catch (e: any) {
