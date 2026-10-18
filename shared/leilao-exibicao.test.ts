@@ -59,3 +59,12 @@ describe('card de passagem: gravidade e detalhes (18/out/2026, caso GDL8A24)', (
     expect(['modelo compativel', 'ano de fabricacao igual', 'UF diferente'].map(comAcentos)).toEqual(['modelo compatível', 'ano de fabricação igual', 'UF diferente'])
   })
 })
+
+describe('aviso de fotos chegando nos cards de todos os niveis (18/out/2026)', () => {
+  it('confirmado/provavel e possivel tem o aviso "Buscando fotos do anúncio…"', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const vue = readFileSync(join(process.cwd(), 'pages/premium/[token].vue'), 'utf8')
+    expect((vue.match(/v-else-if="p\.fotosPendente"[^>]*>Buscando fotos do anúncio…/g) || []).length).toBe(2)
+  })
+})
