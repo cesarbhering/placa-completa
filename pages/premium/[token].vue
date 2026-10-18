@@ -34,7 +34,7 @@ import { PLANOS, precoBRL } from '~/shared/planos'
 import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
 import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes } from '~/shared/foto-lote'
 import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia, resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, LEILAO_NIVEIS_RODAPE } from '~/shared/leilao-copy'
-import { detalhesLegiveis, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
+import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
 import { custo12Meses, combustivelPraConta, licenciamentoDaUf, KM_ANO_PADRAO } from '~/shared/custo-12-meses'
@@ -848,8 +848,15 @@ const passagensLeilao = computed(() => {
     leiloeiro: p.fonte_tipo === 'detran' && p.leiloeiro ? String(p.leiloeiro) : null,
     comitente: comitenteExibicao(p.comitente)?.texto ?? null,
     fraseComitente: fraseComitente(p.comitente),
-    detalhes: detalhesLegiveis(p.detalhes),
-    evidencias: Array.isArray(p.evidencias) ? p.evidencias : [],
+    // Detalhes do estado do veiculo (18/out): km comparado com o hodometro mais
+    // recente, sem o desfecho cru quando o desfecho saneado ja aparece.
+    detalhes: detalhesLegiveis(p.detalhes, {
+      kmAtual: kmMaisRecente.value,
+      dataLeilao: p.data_leilao || null,
+      semDesfecho: !!p.desfecho?.rotulo,
+    }),
+    gravidadeExplica: ehNotificacao(p) ? null : explicaGravidade(p.gravidade?.nivel),
+    evidencias: Array.isArray(p.evidencias) ? p.evidencias.map((e: any) => comAcentos(String(e))) : [],
     // Fotos do lote, servidas do nosso armazenamento (nunca link direto da
     // leiloeira). Sao o unico caminho honesto de mostrar um "possivel": quem
     // decide se e o veiculo dele e a pessoa, olhando.
@@ -864,7 +871,7 @@ const passagensLeilao = computed(() => {
     // buscando; o job do servidor grava os foto_refs (Cesar, 18/out/2026).
     // Some sozinho 7 dias depois da entrega.
     fotosPendente: fotosPendentes(p, { entregueEm: (data.value as any)?.entregue_em }),
-    conflitos: Array.isArray(p.conflitos) ? p.conflitos : [],
+    conflitos: Array.isArray(p.conflitos) ? p.conflitos.map((c: any) => comAcentos(String(c))) : [],
     // Edital do orgao: so DETRAN. O snapshot de relatorio antigo nao tem estes
     // campos, e ai o botao simplesmente nao aparece, que e o comportamento
     // certo: o snapshot e o que a pessoa comprou.
@@ -1577,6 +1584,13 @@ const ipvaLista = computed(() => {
 // (primeira linha "-"). `caiu` marca uma leitura menor que a anterior.
 // Leituras de km de todas as fontes: DETRAN (vistorias) + atendimentos de
 // recall da montadora que trazem km (Mitsubishi), em ordem de data.
+// Leitura de hodometro mais recente (com data), pra comparar com o km do leilao.
+const kmMaisRecente = computed(() => {
+  const l = (kmLeituras.value as any[]).filter((h) => h?.data && Number.isFinite(Number(h.km)))
+  if (!l.length) return null
+  const u = [...l].sort((a, b) => String(a.data).localeCompare(String(b.data)))[l.length - 1]
+  return { km: Number(u.km), data: String(u.data) }
+})
 const kmLeituras = computed(() => {
   const det = (Array.isArray(multasDetalhe.value?.hodometro) ? multasDetalhe.value!.hodometro : [])
     .map((h: any) => ({ data: h?.data ?? null, km: Number(h?.km), fonte: 'DETRAN' }))
@@ -2727,10 +2741,13 @@ onUnmounted(() => {
                 <!-- Termometro: e a primeira coisa que a pessoa precisa ver.
                      "Retomada de financiamento" em verde diz, sem rodeio, que
                      o carro passou por leilao mas NAO foi sinistro. -->
+                <!-- Gravidade em destaque (18/out): chip na cor da gravidade + o que significa. -->
                 <p v-if="p.gravidade" class="rel__grav" :class="`rel__grav--${p.gravidade.cor}`">
                   <span class="rel__grav-barra" aria-hidden="true" />
+                  <span class="rel__grav-k">Gravidade</span>
                   <span class="rel__grav-rotulo">{{ p.gravidade.rotulo }}</span>
                 </p>
+                <p v-if="p.gravidadeExplica" class="rel__grav-explica" :class="`rel__grav-explica--${p.gravidade?.cor}`">{{ p.gravidadeExplica }}</p>
                 <!-- Relatorio 2.0: origem, alertas do edital, desfecho, contexto judicial e lote. -->
                 <p v-if="p.origem" class="rel__leilao-origem"><span>Origem:</span> {{ p.origem }}</p>
                 <ul v-if="p.alertas.length" class="rel__leilao-alertas">
@@ -2764,6 +2781,13 @@ onUnmounted(() => {
                     <span>{{ d.rotulo }}</span><strong>{{ d.valor }}</strong>
                   </li>
                 </ul>
+                <!-- Fotos do lote tambem em confirmado e provavel (18/out). -->
+                <div v-if="p.fotos.length" class="rel__lote-fotos rel__lote-fotos--possivel">
+                  <a v-for="(foto, i) in p.fotos.slice(0, 4)" :key="`ff${i}`" :href="foto" target="_blank" rel="noopener noreferrer">
+                    <img :src="foto" :alt="p.fotosAlt[i] || `Foto ${i + 1} do lote de leilão`" loading="lazy" class="rel__lote-foto">
+                  </a>
+                </div>
+                <p v-else-if="p.fotosPendente" class="rel__lote-fotos-busca" role="status">Buscando fotos do anúncio…</p>
 
                 <!-- Edital do orgao de transito: o documento que originou o
                      registro. E a resposta pra pergunta que toda passagem
@@ -2859,10 +2883,13 @@ onUnmounted(() => {
                   <span class="rel__leilao-fonte">{{ p.fonte }}</span>
                   <span v-if="p.tipoFonte" class="rel__leilao-tipo">{{ p.tipoFonte }}</span>
                 </div>
+                <!-- Gravidade em destaque (18/out): chip na cor da gravidade + o que significa. -->
                 <p v-if="p.gravidade" class="rel__grav" :class="`rel__grav--${p.gravidade.cor}`">
                   <span class="rel__grav-barra" aria-hidden="true" />
+                  <span class="rel__grav-k">Gravidade</span>
                   <span class="rel__grav-rotulo">{{ p.gravidade.rotulo }}</span>
                 </p>
+                <p v-if="p.gravidadeExplica" class="rel__grav-explica" :class="`rel__grav-explica--${p.gravidade?.cor}`">{{ p.gravidadeExplica }}</p>
                 <p v-if="p.origem" class="rel__leilao-origem"><span>Origem:</span> {{ p.origem }}</p>
                 <div v-if="p.comitente" class="rel__leilao-quem">
                   <p class="rel__leilao-comit"><span>Comitente:</span> {{ p.comitente }}</p>
@@ -2870,6 +2897,11 @@ onUnmounted(() => {
                 </div>
                 <p v-if="p.desfecho" class="rel__leilao-desf"><span>Desfecho:</span> {{ p.desfecho }}</p>
                 <p v-if="p.detalhe" class="rel__leilao-det">{{ p.detalhe }}</p>
+                <ul v-if="p.detalhes.length" class="rel__leilao-detalhes">
+                  <li v-for="d in p.detalhes" :key="d.rotulo">
+                    <span>{{ d.rotulo }}</span><strong>{{ d.valor }}</strong>
+                  </li>
+                </ul>
                 <!-- Fotos do lote (ate 4), servidas do nosso armazenamento: e o
                      jeito de a pessoa conferir se e o veiculo dela. -->
                 <div v-if="p.fotos.length" class="rel__lote-fotos rel__lote-fotos--possivel">
@@ -3865,18 +3897,38 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // mais rapido da secao: diz se a passagem foi sinistro feio, sinistro leve ou
   // so retomada de financiamento. Barra curta a esquerda + rotulo, pra ler de
   // relance sem depender so de cor (o texto diz a mesma coisa).
+  // 18/out: chip com fundo na cor da gravidade (o rotulo pequeno passava batido).
   &__grav {
-    display: flex;
+    display: inline-flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
-    margin: 0 0 8px;
-    font-size: calc(14px * var(--rel-fs, 1));
-    font-weight: 600;
+    margin: 2px 0 8px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    font-size: calc(15px * var(--rel-fs, 1));
+    font-weight: 700;
   }
+  &__grav-k { font-size: calc(11px * var(--rel-fs, 1)); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; opacity: .8; }
+  &__grav-explica {
+    margin: 0 0 10px;
+    padding: 8px 12px;
+    border-left: 3px solid $c-steel;
+    border-radius: 4px;
+    background: #f6f7f9;
+    font-size: calc(13px * var(--rel-fs, 1));
+    line-height: 1.5;
+    color: $c-charcoal;
+  }
+  &__grav-explica--amarelo { border-left-color: #e0a800; background: #fff8e1; }
+  &__grav-explica--laranja { border-left-color: #e07a00; background: #fff1e3; }
+  &__grav-explica--vermelho { border-left-color: $c-red; background: #fdecec; }
+  &__grav-explica--verde { border-left-color: $c-green; background: #edf7ef; }
 
   &__grav-barra {
-    width: 26px;
-    height: 6px;
+    width: 10px;
+    height: 10px;
     border-radius: 999px;
     flex-shrink: 0;
     background: $c-steel;
@@ -3895,11 +3947,11 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     font-size: calc(13px * var(--rel-fs, 1));
     color: $c-charcoal;
   }
-  &__grav--verde { color: #14622f; .rel__grav-barra { background: $c-green; } }
-  &__grav--amarelo { color: #8a6100; .rel__grav-barra { background: #e0a800; } }
-  &__grav--laranja { color: #8a4b00; .rel__grav-barra { background: #e07a00; } }
-  &__grav--vermelho { color: #a32020; .rel__grav-barra { background: $c-red; } }
-  &__grav--cinza { color: $c-graphite; .rel__grav-barra { background: $c-steel; } }
+  &__grav--verde { color: #14622f; background: #edf7ef; .rel__grav-barra { background: $c-green; } }
+  &__grav--amarelo { color: #8a6100; background: #fff8e1; .rel__grav-barra { background: #e0a800; } }
+  &__grav--laranja { color: #8a4b00; background: #fff1e3; .rel__grav-barra { background: #e07a00; } }
+  &__grav--vermelho { color: #a32020; background: #fdecec; .rel__grav-barra { background: $c-red; } }
+  &__grav--cinza { color: $c-graphite; background: #f3f4f6; .rel__grav-barra { background: $c-steel; } }
   // Notificacao para leilao: mesmo cartao da passagem, sem peso de alerta.
   &__notif-lista { margin-top: 12px; }
   &__leilao--notif { background: #f6f7f9; .rel__leilao-detalhes { margin-bottom: 10px; } }
@@ -3919,6 +3971,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       gap: 12px;
       font-size: calc(13px * var(--rel-fs, 1));
       color: $c-graphite;
+      // Rotulo numa linha so; o valor longo (km comparado) quebra a direita.
+      > span:first-child { white-space: nowrap; flex-shrink: 0; }
       border-bottom: 1px dashed $c-hair;
       padding: 4px 0;
 

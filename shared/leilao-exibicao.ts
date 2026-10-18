@@ -4,18 +4,23 @@
 // avaliacao). E filtro de EXIBICAO: vale tambem pra snapshot antigo, que ainda
 // traz valor/valor_final gravados.
 
-// O que a fonte expoe sobre o ESTADO DO VEICULO, e so isso. A lista e curada
-// de proposito: com dado real, cada passagem vinha tambem com "status:
-// encerrado" e "subcategoria: Hatches", que nao dizem nada sobre o carro.
-// Chave fora da lista e ignorada; a ordem aqui e a ordem da tela. valor_final
-// SAIU (sem R$ no card).
+// O que a fonte expoe sobre o ESTADO DO VEICULO. Ordem aqui = ordem da tela.
+// 18/out/2026 (Cesar, caso GDL8A24): o card mostra tambem chave, categoria,
+// combustivel e judicial, e o km no leilao comparado com o km atual. Chave
+// fora da lista e ignorada (status, tipo, valor_*). Campo vazio nao aparece.
 export const ROTULO_DETALHE: Record<string, string> = {
-  sucata: 'Sucata',
+  condicao: 'Condição',
   monta: 'Monta',
   sinistro: 'Sinistro',
   dano: 'Dano',
-  condicao: 'Condição',
-  km: 'Quilometragem',
+  km: 'Km no leilão',
+  possui_chave: 'Chave',
+  funcionando: 'Funcionando',
+  subcategoria: 'Categoria',
+  categoria: 'Categoria',
+  combustivel: 'Combustível',
+  sucata: 'Sucata',
+  judicial: 'Leilão judicial',
   patio: 'Pátio',
   desfecho: 'Desfecho',
   observacao: 'Observação',
@@ -43,17 +48,96 @@ export function semValorEmReais(texto: unknown): string | null {
   return resto || null
 }
 
-export function detalhesLegiveis(bruto: unknown): { rotulo: string; valor: string }[] {
+// Palavras que as fontes mandam sem acento (evidencias e condicao).
+const ACENTOS: Record<string, string> = {
+  compativel: 'compatível', incompativel: 'incompatível', fabricacao: 'fabricação', versao: 'versão',
+  cambio: 'câmbio', motorizacao: 'motorização', combustivel: 'combustível', numero: 'número',
+  media: 'média', mecanica: 'mecânica', eletrica: 'elétrica', alcool: 'álcool', hidraulica: 'hidráulica',
+  veiculo: 'veículo', veiculos: 'veículos', mecanico: 'mecânico', patio: 'pátio', informacao: 'informação',
+  identificacao: 'identificação', avaria: 'avaria', avarias: 'avarias', recuperavel: 'recuperável', irrecuperavel: 'irrecuperável',
+}
+/** Poe acento nas palavras conhecidas, preservando o resto do texto. */
+export function comAcentos(texto: string): string {
+  return String(texto ?? '').replace(/[A-Za-zÀ-ú]+/g, (w) => {
+    const a = ACENTOS[w.toLowerCase()]
+    if (!a) return w
+    if (w === w.toUpperCase()) return a.toUpperCase()
+    if (w[0] === w[0].toUpperCase()) return a[0].toUpperCase() + a.slice(1)
+    return a
+  })
+}
+
+/** "SINISTRADO MEDIA MONTA" -> "Sinistrado média monta"; texto ja em caixa mista fica como veio. */
+export function humanizarValorFonte(v: string): string {
+  const s = String(v ?? '').replace(/\s+/g, ' ').trim()
+  if (!s) return s
+  const base = s === s.toUpperCase() && /[A-Z]/.test(s) ? s.toLowerCase() : s
+  const c = comAcentos(base)
+  return c[0].toUpperCase() + c.slice(1)
+}
+
+const km = (n: number) => `${Math.round(n).toLocaleString('pt-BR')} km`
+
+/**
+ * Detalhes do veiculo na passagem, rotulo e valor. `kmAtual` (hodometro mais
+ * recente do relatorio, com data) acrescenta a comparacao com o km do leilao,
+ * so quando a leitura e posterior ao leilao. `semDesfecho` tira o desfecho
+ * cru quando o card ja mostra o desfecho saneado.
+ */
+export function detalhesLegiveis(bruto: unknown, op: { kmAtual?: { km: number; data: string | null } | null; dataLeilao?: string | null; semDesfecho?: boolean } = {}): { rotulo: string; valor: string }[] {
   if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) return []
   const dados = bruto as Record<string, unknown>
   const out: { rotulo: string; valor: string }[] = []
+  const vistos = new Set<string>()
   for (const k of ORDEM_DETALHE) {
+    if (op.semDesfecho && k === 'desfecho') continue
     const v = dados[k]
     if (v === null || v === undefined || v === '') continue
-    const valor = typeof v === 'boolean' ? (v ? 'Sim' : 'Não') : semValorEmReais(v)
-    if (valor) out.push({ rotulo: ROTULO_DETALHE[k], valor })
+    const rotulo = ROTULO_DETALHE[k]
+    if (vistos.has(rotulo)) continue // categoria x subcategoria: so a primeira
+    let valor: string | null
+    if (typeof v === 'boolean') valor = v ? 'Sim' : 'Não'
+    else if (k === 'km') {
+      const n = Number(String(v).replace(/\D/g, ''))
+      if (!Number.isFinite(n) || n <= 0) continue
+      valor = km(n)
+      const atual = op.kmAtual
+      const dl = String(op.dataLeilao || '').slice(0, 10)
+      const da = String(atual?.data || '').slice(0, 10)
+      if (atual && Number.isFinite(atual.km) && atual.km > 0 && dl && da && da > dl) {
+        const dif = atual.km - n
+        const quando = `${da.slice(8, 10)}/${da.slice(5, 7)}/${da.slice(0, 4)}`
+        valor += dif >= 0
+          ? `; hoje ${km(atual.km)} (leitura de ${quando}), ${km(dif)} rodados desde o leilão`
+          : `; leitura de ${quando} com ${km(atual.km)}, MENOR que a do leilão: confira o painel`
+      }
+    } else {
+      const t = semValorEmReais(v)
+      valor = t ? humanizarValorFonte(t) : null
+    }
+    if (valor) { out.push({ rotulo, valor }); vistos.add(rotulo) }
   }
   return out
+}
+
+// ---------- Gravidade do sinistro (18/out/2026) ----------
+//
+// O nivel vem da leiloes-api (o que a LEILOEIRA declarou), nao da
+// classificacao do DETRAN: a copy diz "declarada" e o que a regra do Contran
+// (Res. 810/2020) preve, sem afirmar que ja consta no documento deste carro.
+// Nivel sem explicacao (desconhecido, notificado): so o chip.
+export const EXPLICA_GRAVIDADE: Record<string, string> = {
+  pequena_monta: 'Pequena monta declarada pela leiloeira: dano leve, com no máximo uma peça estrutural ou de segurança afetada. Pela regra do Contran, só média e grande monta bloqueiam o cadastro. Confira o reparo na vistoria.',
+  media_monta: 'Média monta declarada pela leiloeira: dano em 2 a 6 peças estruturais ou de segurança, recuperável. Pela regra do Contran, quando o DETRAN registra a média monta, o carro só volta a circular depois do reparo, com Certificado de Segurança Veicular (CSV) e vistoria, e o documento passa a trazer "Sinistrado" ou "DMM" de forma permanente. Peça ao vendedor o CSV e as notas do reparo, e confira o documento.',
+  sucata: 'Sucata ou irrecuperável declarada pela leiloeira. Pela regra do Contran, a grande monta (mais de 6 peças estruturais ou de segurança danificadas) torna o veículo irrecuperável, sem volta à circulação. Se este carro está rodando, confira o documento com muita atenção.',
+  sinistro: 'Sinistro sem a monta informada pela leiloeira: o dano pode ir de leve a grave. Peça uma vistoria cautelar e confira se o documento traz "Sinistrado" ou "DMM".',
+  patio: 'Leilão de pátio: veículo removido ou apreendido e não retirado pelo dono. Isso, por si só, não indica dano.',
+  financiamento: 'Retomada de financiamento: o banco recuperou o veículo por falta de pagamento. Isso, por si só, não indica dano.',
+  conservado: 'A leiloeira declarou o veículo em condição de circular.',
+}
+
+export function explicaGravidade(nivel: unknown): string | null {
+  return EXPLICA_GRAVIDADE[String(nivel || '')] || null
 }
 
 // ---------- Fonte, comitente e leiloeiro (decisao do Cesar, 06/out) ----------
