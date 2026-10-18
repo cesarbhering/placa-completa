@@ -17,7 +17,9 @@ import { fotoRefsDaPassagem, passagemPrecisaDeFoto, type FotoRef, type FotosBusc
 //
 // Enquanto /v1/fotos-do-lote nao existir (404 de rota, {"detail":"Not Found"}),
 // a rodada para na primeira chamada, loga uma linha e tenta de novo daqui a
-// 30 min. Nada e gravado. 404 com outro corpo pula so aquela passagem.
+// 30 min. Nada e gravado. 404 "lote nao encontrado" grava sem_foto na
+// passagem; 404 com outro corpo pula so ela. ~2,1 s entre chamadas (30/min por
+// chave); 429 para a rodada.
 // Gravacao: RPC fotos_passagem_gravar (jsonb_set so na passagem).
 
 export const FOTOS_NOME_LOCK = 'fotos-depois'
@@ -35,6 +37,8 @@ export const FOTOS_JANELA_DIAS = 90
 export const FOTOS_MAX_PEDIDOS = 15
 /** Teto de chamadas a API por rodada (a chave e compartilhada com /v1/foto-link, 600/h). */
 export const FOTOS_MAX_CHAMADAS = 40
+/** A API aceita 30 pedidos/min por chave: ~2,1 s entre chamadas. */
+export const FOTOS_PAUSA_MS = 2100
 
 const DIA_MS = 24 * 60 * 60 * 1000
 
@@ -51,6 +55,8 @@ export interface DepsFotos {
   fontesSemFoto?: Set<string>
   /** pedido_id -> ultima tentativa (ms), pra revezar quem fica "buscando". */
   tentadoEm?: Map<string, number>
+  /** Pausa entre chamadas (teste injeta uma que nao espera). */
+  esperar?: (ms: number) => Promise<void>
 }
 
 export interface ResumoRodada {
@@ -60,6 +66,8 @@ export interface ResumoRodada {
   chamadas: number
   gravados: number
   apiAusente?: boolean
+  /** A API respondeu 429: rodada parada ali. */
+  limitada?: boolean
 }
 
 /** Resposta da API -> formato interno. Torto vira null (tratado como falha). */
@@ -97,14 +105,27 @@ async function gravar(supabase: any, pedidoId: string, alvo: { fonte: string; lo
   }
 }
 
+function corpoDoErro(e: any): any {
+  const corpo = e?.data ?? e?.response?._data
+  if (typeof corpo === 'string') { try { return JSON.parse(corpo) } catch { return corpo } }
+  return corpo
+}
+
+/** 404 do lote ("lote nao encontrado"): a API nao conhece este lote. */
+export function ehLoteNaoEncontrado(e: any): boolean {
+  if (codigo(e) !== 404) return false
+  const corpo = corpoDoErro(e)
+  const txt = typeof corpo === 'string' ? corpo : [corpo?.detail, corpo?.message, corpo?.erro, corpo?.error].filter((x) => typeof x === 'string').join(' ')
+  return /lote\s+n[aã]o\s+encontrado/i.test(txt)
+}
+
 /**
  * 404 de ROTA (endpoint ainda nao existe na leiloes-api): o FastAPI responde
  * {"detail":"Not Found"}. Qualquer outro 404 e da passagem (pula so ela).
  */
 export function ehRotaAusente(e: any): boolean {
   if (codigo(e) !== 404) return false
-  let corpo = e?.data ?? e?.response?._data
-  if (typeof corpo === 'string') { try { corpo = JSON.parse(corpo) } catch { /* texto */ } }
+  const corpo = corpoDoErro(e)
   return !!corpo && typeof corpo === 'object' && corpo.detail === 'Not Found'
 }
 
@@ -114,6 +135,7 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
   const log = deps.log ?? ((m: string) => console.info(m))
   const fontesSemFoto = deps.fontesSemFoto ?? new Set<string>()
   const tentadoEm = deps.tentadoEm ?? new Map<string, number>()
+  const esperar = deps.esperar ?? ((ms: number) => new Promise<void>((ok) => setTimeout(ok, ms)))
   const resumo: ResumoRodada = { rodou: false, pedidos: 0, chamadas: 0, gravados: 0 }
 
   let pegou = false
@@ -159,6 +181,7 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
         const lote = String(p.lote)
         const alvo = { fonte, lote, ref: p.ref ?? null }
         let r: RespostaFotos | null = null
+        if (resumo.chamadas > 0) await esperar(FOTOS_PAUSA_MS)
         resumo.chamadas++
         try {
           r = sanearRespostaFotos(await deps.buscar({ fonte, lote, ...(p.ref ? { ref: String(p.ref) } : {}) }))
@@ -168,6 +191,20 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
             resumo.apiAusente = true
             log('[fotos-depois] /v1/fotos-do-lote ainda nao disponivel (404): nada a fazer nesta rodada')
             return resumo
+          }
+          if (codigo(e) === 429) {
+            // Limite da chave (30/min): para a rodada; o resto fica pra proxima.
+            resumo.limitada = true
+            linhaLog.push(`${fonte}:${lote}=429`)
+            log(`[fotos-depois] pedido ${pedido.id} (${tok}…): ${linhaLog.join(', ')}`)
+            log('[fotos-depois] 429 da leiloes-api: rodada parada')
+            return resumo
+          }
+          if (ehLoteNaoEncontrado(e)) {
+            // A API nao conhece o lote: vira sem_foto, pra nao perguntar toda rodada.
+            const g = await gravar(deps.supabase, pedido.id, alvo, { fotos_busca: { status: 'sem_foto', em: new Date(agora).toISOString() } })
+            linhaLog.push(`${fonte}:${lote}=404 lote nao encontrado${g === 'gravado' || g === 'igual' ? '' : ` (nao gravou: ${g})`}`)
+            continue
           }
           linhaLog.push(`${fonte}:${lote}=erro ${codigo(e) ?? (e?.message || '').slice(0, 40)}`)
           continue
