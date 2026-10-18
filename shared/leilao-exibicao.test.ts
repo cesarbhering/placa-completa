@@ -8,7 +8,7 @@ describe('card de leilao sem valor em R$ (decisao 01/out)', () => {
   })
   it('snapshot antigo com valor_final/valor: nao aparece', () => {
     const d = detalhesLegiveis({ sinistro: true, valor_final: 'R$ 18.500,00', valor: 18500, monta: 'Media' })
-    expect(d).toEqual([{ rotulo: 'Monta', valor: 'Media' }, { rotulo: 'Sinistro', valor: 'Sim' }])
+    expect(d).toEqual([{ rotulo: 'Monta', valor: 'Média' }, { rotulo: 'Sinistro', valor: 'Sim' }])
     expect(JSON.stringify(d)).not.toMatch(/R\$|18\.?500/)
   })
   it('observacao com lance em R$: o trecho sai, o resto fica', () => {
@@ -21,5 +21,50 @@ describe('card de leilao sem valor em R$ (decisao 01/out)', () => {
   })
   it('texto sem R$ passa igual', () => {
     expect(semValorEmReais('Sem chave; pneus carecas')).toBe('Sem chave; pneus carecas')
+  })
+})
+
+describe('card de passagem: gravidade e detalhes (18/out/2026, caso GDL8A24)', () => {
+  const det = { km: 6978, status: 'encerrado', sucata: false, condicao: 'SINISTRADO MEDIA MONTA', desfecho: 'vendido', judicial: false, combustivel: 'FLEX', possui_chave: true, subcategoria: 'Veículos Sinistrados' }
+  it('lista rotulo e valor na ordem, sem status, com acento e km comparado', async () => {
+    const { detalhesLegiveis } = await import('./leilao-exibicao')
+    const d = detalhesLegiveis(det, { kmAtual: { km: 29418, data: '2026-07-27' }, dataLeilao: '2024-04-05', semDesfecho: true })
+    expect(d.map((x) => `${x.rotulo}: ${x.valor}`.replace(/\s/g, ' '))).toEqual([
+      'Condição: Sinistrado média monta',
+      'Km no leilão: 6.978 km; hoje 29.418 km (leitura de 27/07/2026), 22.440 km rodados desde o leilão',
+      'Chave: Sim',
+      'Categoria: Veículos Sinistrados',
+      'Combustível: Flex',
+      'Sucata: Não',
+      'Leilão judicial: Não',
+    ])
+  })
+  it('km atual MENOR que o do leilao vira alerta; leitura anterior ao leilao nao compara', async () => {
+    const { detalhesLegiveis } = await import('./leilao-exibicao')
+    expect(detalhesLegiveis({ km: 50000 }, { kmAtual: { km: 30000, data: '2026-01-01' }, dataLeilao: '2024-01-01' })[0].valor).toMatch(/MENOR que a do leilão/)
+    expect(detalhesLegiveis({ km: 50000 }, { kmAtual: { km: 30000, data: '2023-01-01' }, dataLeilao: '2024-01-01' })[0].valor.replace(/\s/g, ' ')).toBe('50.000 km')
+  })
+  it('campo vazio nao aparece; categoria e subcategoria nao repetem', async () => {
+    const { detalhesLegiveis } = await import('./leilao-exibicao')
+    expect(detalhesLegiveis({ km: '', possui_chave: null, subcategoria: 'Hatches', categoria: 'Carros' }).map((x) => x.rotulo)).toEqual(['Categoria'])
+  })
+  it('explicacao por gravidade, sem travessao; desconhecida sem texto', async () => {
+    const { explicaGravidade, EXPLICA_GRAVIDADE } = await import('./leilao-exibicao')
+    expect(explicaGravidade('media_monta')).toMatch(/declarada pela leiloeira: dano em 2 a 6 peças.*CSV.*"Sinistrado" ou "DMM"/)
+    expect(explicaGravidade('desconhecido')).toBeNull()
+    for (const t of Object.values(EXPLICA_GRAVIDADE)) expect(t).not.toContain('—')
+  })
+  it('evidencias com acento', async () => {
+    const { comAcentos } = await import('./leilao-exibicao')
+    expect(['modelo compativel', 'ano de fabricacao igual', 'UF diferente'].map(comAcentos)).toEqual(['modelo compatível', 'ano de fabricação igual', 'UF diferente'])
+  })
+})
+
+describe('aviso de fotos chegando nos cards de todos os niveis (18/out/2026)', () => {
+  it('confirmado/provavel e possivel tem o aviso "Buscando fotos do anúncio…"', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const vue = readFileSync(join(process.cwd(), 'pages/premium/[token].vue'), 'utf8')
+    expect((vue.match(/v-else-if="p\.fotosPendente"[^>]*>Buscando fotos do anúncio…/g) || []).length).toBe(2)
   })
 })
