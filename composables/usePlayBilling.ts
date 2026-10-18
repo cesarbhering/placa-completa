@@ -70,5 +70,14 @@ export const usePlayBilling = () => {
     return !!e?.cancelado || /cancel/i.test(String(e?.code || e?.message || ''))
   }
 
-  return { disponivel, comprar, foiCancelado }
+  /**
+   * Pagamento pendente na Play (Pix/boleto que ainda nao compensou). O plugin
+   * nativo rejeita com "Purchase is pending" e, ate o app novo, o app marca
+   * isso como cancelado: por isso a mensagem e olhada antes do `cancelado`.
+   */
+  function ficouPendente(e: any): boolean {
+    return !!e?.pendente || /pending|pendente/i.test(String(e?.code || e?.message || ''))
+  }
+
+  return { disponivel, comprar, foiCancelado, ficouPendente }
 }
