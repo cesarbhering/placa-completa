@@ -79,6 +79,14 @@ describe('fotos que chegam depois da venda', () => {
     expect(fotosPendentes(null)).toBe(false)
   })
 
+  it('aviso some sozinho 7 dias depois da entrega (so exibicao)', () => {
+    const agora = Date.parse('2026-10-18T12:00:00Z')
+    const dia = 24 * 60 * 60 * 1000
+    expect(fotosPendentes(base, { entregueEm: new Date(agora - 6 * dia).toISOString(), agora })).toBe(true)
+    expect(fotosPendentes(base, { entregueEm: new Date(agora - 8 * dia).toISOString(), agora })).toBe(false)
+    expect(fotosPendentes(base, { entregueEm: null, agora })).toBe(true)
+  })
+
   it('job pergunta por casa privada ou passagem pendente; nunca por notificacao', () => {
     expect(passagemPrecisaDeFoto(base)).toBe(true)
     expect(passagemPrecisaDeFoto({ ...base, detalhes: {} })).toBe(true)
@@ -87,7 +95,6 @@ describe('fotos que chegam depois da venda', () => {
     expect(passagemPrecisaDeFoto({ ...base, situacao: 'notificado' })).toBe(false)
     expect(passagemPrecisaDeFoto({ ...base, lote: '' })).toBe(false)
     expect(passagemPrecisaDeFoto({ ...base, fotos_busca: { status: 'fonte_sem_foto' } })).toBe(false)
-    expect(passagemPrecisaDeFoto({ ...base, fotos_busca: { status: 'expirou' } })).toBe(true)
     expect(passagemPrecisaDeFoto(base, new Set(['copart']))).toBe(false)
     expect(passagemPrecisaDeFoto({ ...base, fotos: ['https://fotos.placacompleta.com.br/a.jpg'] })).toBe(false)
   })

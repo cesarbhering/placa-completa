@@ -862,7 +862,8 @@ const passagensLeilao = computed(() => {
     fotosAlt: (Array.isArray(p.foto_refs) ? p.foto_refs : fotoRefsDaPassagem(p)).map((f: any, i: number) => altFotoLote(f.vista, i)),
     // Fotos ainda chegando (detalhes.fotos_pendente): o card diz que esta
     // buscando; o job do servidor grava os foto_refs (Cesar, 18/out/2026).
-    fotosPendente: fotosPendentes(p),
+    // Some sozinho 7 dias depois da entrega.
+    fotosPendente: fotosPendentes(p, { entregueEm: (data.value as any)?.entregue_em }),
     conflitos: Array.isArray(p.conflitos) ? p.conflitos : [],
     // Edital do orgao: so DETRAN. O snapshot de relatorio antigo nao tem estes
     // campos, e ai o botao simplesmente nao aparece, que e o comportamento
