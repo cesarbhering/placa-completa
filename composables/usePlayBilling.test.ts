@@ -30,4 +30,11 @@ describe('ponte do Google Play Billing', () => {
     pontede({ orderId: 'ord-2', productId: PRODUTO_COMPLETA })
     await expect(usePlayBilling().comprar('ABC1D23')).rejects.toThrow('compra sem comprovante')
   })
+
+  it('pagamento pendente da Play nao e cancelamento, mesmo marcado como cancelado pelo app atual', () => {
+    const { ficouPendente } = usePlayBilling()
+    expect(ficouPendente(Object.assign(new Error('Purchase is pending'), { cancelado: true }))).toBe(true)
+    expect(ficouPendente({ pendente: true })).toBe(true)
+    expect(ficouPendente(Object.assign(new Error('Compra cancelada'), { cancelado: true }))).toBe(false)
+  })
 })

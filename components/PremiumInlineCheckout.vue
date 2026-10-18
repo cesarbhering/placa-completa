@@ -430,7 +430,7 @@ async function comprarPeloPlay() {
   emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
   try {
     const compra = await playBilling.comprar(preview.value.placa)
-    const r: any = await $fetch('/api/premium/google-play/verificar', {
+    const enviar = (): Promise<any> => $fetch('/api/premium/google-play/verificar', {
       method: 'POST',
       body: {
         placa: preview.value.placa,
@@ -444,12 +444,25 @@ async function comprarPeloPlay() {
         origem_checkout: props.origemCheckout ?? undefined,
       },
     })
+    let r: any = await enviar()
+    // Pagamento pendente na Play (Pix, boleto): o servidor ja guardou a compra
+    // e conclui sozinho quando a Google confirmar. Enquanto a tela esta
+    // aberta, pergunta de novo algumas vezes (o rate limit e 10/h).
+    for (const espera of [30_000, 60_000, 90_000]) {
+      if (!r?.pendente) break
+      msg.value = r.message || 'Seu pagamento está em processamento no Google. Assim que ele for confirmado, o relatório fica pronto e aparece aqui no app.'
+      await new Promise((ok) => setTimeout(ok, espera))
+      r = await enviar().catch(() => r)
+    }
+    if (r?.pendente) return
+    msg.value = ''
+    const valorPago = Number(r.valor_centavos) || PLANOS.completa.valorCentavos
     // Daqui pra frente e igual ao Pix pago: o token_entrega e a credencial do
     // relatorio e a tela acompanha pelo mesmo polling.
-    pix.value = { token: r.token_entrega, valor: PLANOS.completa.valorCentavos }
+    pix.value = { token: r.token_entrega, valor: valorPago }
     step.value = 'pending'
     pendingStatus.value = 'pago'
-    trackConversionPaga(r.token_entrega, 'completa', PLANOS.completa.valorCentavos)
+    trackConversionPaga(r.token_entrega, 'completa', valorPago)
     histAdd({
       token: r.token_entrega,
       placa: preview.value.placa,
@@ -463,7 +476,11 @@ async function comprarPeloPlay() {
   } catch (e: any) {
     // Fechar a tela da loja e desistir, nao falhar: sem esta distincao a
     // pessoa que so olhou o preco veria uma mensagem de erro.
-    if (playBilling.foiCancelado(e)) {
+    if (playBilling.ficouPendente(e)) {
+      // Pix/boleto da Play ainda nao compensou: o plugin rejeita sem token. O
+      // servidor fica sabendo pela notificacao da Play (RTDN) e conclui sozinho.
+      msg.value = 'Seu pagamento está em processamento no Google. Assim que ele for confirmado, o relatório fica pronto e aparece aqui no app.'
+    } else if (playBilling.foiCancelado(e)) {
       msg.value = ''
     } else if (e?.statusCode === 402 || e?.response?.status === 402) {
       msg.value = e?.data?.message || 'Não conseguimos confirmar sua compra agora.'
