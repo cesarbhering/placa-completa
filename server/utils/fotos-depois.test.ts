@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { rodarFotosDepois, sanearRespostaFotos, ehRotaAusente, FOTOS_MAX_PEDIDOS, FOTOS_NOME_LOCK, FOTOS_LEASE_S, FOTOS_INTERVALO_MS } from './fotos-depois'
+import { rodarFotosDepois, sanearRespostaFotos, ehRotaAusente, ehLoteNaoEncontrado, FOTOS_PAUSA_MS, FOTOS_MAX_PEDIDOS, FOTOS_NOME_LOCK, FOTOS_LEASE_S, FOTOS_INTERVALO_MS } from './fotos-depois'
 import { fotosPendentes } from '../../shared/foto-lote'
 
 const REF = (n: number) => `ref${n}.abcdefABCDEF0123456789`
+const semPausa = async () => {}
 const AGORA = Date.parse('2026-10-18T12:00:00Z')
 const DIA = 24 * 60 * 60 * 1000
 
@@ -96,8 +97,8 @@ describe('lock entre containers', () => {
     const sb = fakeSupabase(pedidos)
     const chamadas: string[] = []
     const buscar = async (b: any) => { chamadas.push(b.lote); return { status: 'buscando', fotos: [] } }
-    const r1 = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA, log: () => {} })
-    const r2 = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c2', agora: AGORA, log: () => {} })
+    const r1 = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {} })
+    const r2 = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c2', esperar: semPausa, agora: AGORA, log: () => {} })
     expect(r1.rodou).toBe(true)
     expect(r2).toMatchObject({ rodou: false, motivo: 'lock com outro container' })
     expect(chamadas).toEqual(['123'])
@@ -106,16 +107,16 @@ describe('lock entre containers', () => {
   it('lease vencido (container morreu): outro container assume', async () => {
     const sb = fakeSupabase([pedido('a', [passagem()])])
     const buscar = async () => ({ status: 'buscando', fotos: [] })
-    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA, log: () => {} })
+    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {} })
     sb.setAgora(AGORA + FOTOS_LEASE_S * 1000 + 1)
-    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c2', agora: AGORA + FOTOS_LEASE_S * 1000 + 1, log: () => {} })
+    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c2', esperar: semPausa, agora: AGORA + FOTOS_LEASE_S * 1000 + 1, log: () => {} })
     expect(r.rodou).toBe(true)
   })
 
   it('sem a funcao de lock (migration nao aplicada): nao roda nada', async () => {
     const sb = fakeSupabase([pedido('a', [passagem()])], { lockErro: true })
     let chamou = false
-    const r = await rodarFotosDepois({ supabase: sb, buscar: async () => { chamou = true; return {} }, dono: 'c1', agora: AGORA, log: () => {} })
+    const r = await rodarFotosDepois({ supabase: sb, buscar: async () => { chamou = true; return {} }, dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {} })
     expect(r).toMatchObject({ rodou: false, motivo: 'lock indisponivel' })
     expect(chamou).toBe(false)
   })
@@ -130,7 +131,7 @@ describe('rodarFotosDepois', () => {
       ? { status: 'ok', fotos: [{ ordem: 2, vista: 'traseira', foto_ref: REF(2) }, { ordem: 1, vista: 'frente', foto_ref: REF(1) }] }
       : { status: 'buscando', fotos: [] }
     const logs: string[] = []
-    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA, log: (m) => logs.push(m) })
+    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log: (m) => logs.push(m) })
     expect(r).toMatchObject({ rodou: true, pedidos: 1, chamadas: 2, gravados: 1 })
     const snap = pedidos[0].relatorio_snapshot
     expect(snap.recallBase).toEqual({ x: 1 })
@@ -151,7 +152,7 @@ describe('rodarFotosDepois', () => {
       pedidos[0].relatorio_snapshot = { ...pedidos[0].relatorio_snapshot, multas: { status: 'ok' } }
       return { status: 'ok', fotos: [{ ordem: 1, vista: 'frente', foto_ref: REF(1) }] }
     }
-    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA, log: () => {} })
+    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {} })
     expect(pedidos[0].relatorio_snapshot.multas).toEqual({ status: 'ok' })
     expect(pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0].foto_refs).toHaveLength(1)
   })
@@ -161,7 +162,7 @@ describe('rodarFotosDepois', () => {
     const sb = fakeSupabase(pedidos)
     let n = 0
     const logs: string[] = []
-    const r = await rodarFotosDepois({ supabase: sb, buscar: async () => { n++; throw erro404Rota() }, dono: 'c1', agora: AGORA, log: (m) => logs.push(m) })
+    const r = await rodarFotosDepois({ supabase: sb, buscar: async () => { n++; throw erro404Rota() }, dono: 'c1', esperar: semPausa, agora: AGORA, log: (m) => logs.push(m) })
     expect(r).toMatchObject({ rodou: true, apiAusente: true, gravados: 0 })
     expect(n).toBe(1)
     expect(sb.updates).toEqual([])
@@ -175,9 +176,54 @@ describe('rodarFotosDepois', () => {
       if (b.lote === '123') throw erro404Outro()
       return { status: 'ok', fotos: [{ ordem: 1, vista: null, foto_ref: REF(7) }] }
     }
-    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA, log: () => {} })
+    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {} })
     expect(r.apiAusente).toBeUndefined()
     expect(r).toMatchObject({ chamadas: 2, gravados: 1 })
+  })
+
+  it('404 "lote nao encontrado": grava sem_foto na passagem e nao pergunta de novo', async () => {
+    const pedidos = [pedido('a', [passagem()])]
+    const sb = fakeSupabase(pedidos)
+    let n = 0
+    const buscar = async () => { n++; throw Object.assign(new Error('Not Found'), { statusCode: 404, data: { detail: 'lote nao encontrado' } }) }
+    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {} })
+    expect(r.apiAusente).toBeUndefined()
+    const p = pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0]
+    expect(p.fotos_busca.status).toBe('sem_foto')
+    expect(fotosPendentes(p)).toBe(false)
+    sb.setAgora(AGORA + FOTOS_INTERVALO_MS)
+    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA + FOTOS_INTERVALO_MS, log: () => {} })
+    expect(n).toBe(1)
+  })
+
+  it('429: para a rodada na hora, sem gravar nada', async () => {
+    const pedidos = [pedido('a', [passagem(), passagem({ lote: '5' })]), pedido('b', [passagem({ lote: '7' })])]
+    const sb = fakeSupabase(pedidos)
+    let n = 0
+    const logs: string[] = []
+    const r = await rodarFotosDepois({ supabase: sb, buscar: async () => { n++; throw Object.assign(new Error('Too Many'), { statusCode: 429 }) }, dono: 'c1', esperar: semPausa, agora: AGORA, log: (m) => logs.push(m) })
+    expect(r.limitada).toBe(true)
+    expect(n).toBe(1)
+    expect(sb.updates).toEqual([])
+    expect(logs.join('\n')).toContain('429')
+  })
+
+  it('~2,1 s entre chamadas (30/min por chave), nenhuma pausa antes da primeira', async () => {
+    const pedidos = [pedido('a', [passagem(), passagem({ lote: '5' })]), pedido('b', [passagem({ lote: '7' })])]
+    const sb = fakeSupabase(pedidos)
+    const pausas: number[] = []
+    const ordem: string[] = []
+    const r = await rodarFotosDepois({
+      supabase: sb,
+      buscar: async () => { ordem.push('chamada'); return { status: 'buscando', fotos: [] } },
+      esperar: async (ms) => { ordem.push('pausa'); pausas.push(ms) },
+      dono: 'c1', agora: AGORA, log: () => {},
+    })
+    expect(r.chamadas).toBe(3)
+    expect(ordem).toEqual(['chamada', 'pausa', 'chamada', 'pausa', 'chamada'])
+    expect(pausas.every((ms) => ms === FOTOS_PAUSA_MS)).toBe(true)
+    expect(FOTOS_PAUSA_MS).toBeGreaterThanOrEqual(2000)
+    expect(60_000 / FOTOS_PAUSA_MS).toBeLessThanOrEqual(30)
   })
 
   it('erro 5xx/timeout: fail-open, segue pros outros pedidos', async () => {
@@ -187,7 +233,7 @@ describe('rodarFotosDepois', () => {
       if (b.lote === '123') throw Object.assign(new Error('boom'), { statusCode: 502 })
       return { status: 'ok', fotos: [{ ordem: 1, vista: null, foto_ref: REF(7) }] }
     }
-    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA, log: () => {} })
+    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {} })
     expect(r.gravados).toBe(1)
     expect(pedidos[1].relatorio_snapshot.historicoLeilao.passagens[0].foto_refs).toHaveLength(1)
   })
@@ -198,7 +244,7 @@ describe('rodarFotosDepois', () => {
     const chamadas: string[] = []
     const buscar = async (b: any) => { chamadas.push(`${b.fonte}:${b.lote}`); return { status: b.fonte === 'vip' ? 'sem_foto' : 'fonte_sem_foto', fotos: [] } }
     const fontesSemFoto = new Set<string>()
-    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA, log: () => {}, fontesSemFoto })
+    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {}, fontesSemFoto })
     // sodre:3 nem e perguntado: a fonte ja respondeu que nao publica foto.
     expect(chamadas).toEqual(['vip:1', 'sodre:2'])
     const ps = pedidos[0].relatorio_snapshot.historicoLeilao.passagens
@@ -208,17 +254,17 @@ describe('rodarFotosDepois', () => {
     // Rodada seguinte (lease vencido): nada a perguntar pra vip:1 e sodre:2.
     sb.setAgora(AGORA + FOTOS_INTERVALO_MS)
     chamadas.length = 0
-    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA + FOTOS_INTERVALO_MS, log: () => {}, fontesSemFoto: new Set() })
+    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA + FOTOS_INTERVALO_MS, log: () => {}, fontesSemFoto: new Set() })
     expect(chamadas).toEqual(['sodre:3'])
   })
 
   it('buscando: nao grava nada; fotos que chegam depois entram na rodada seguinte', async () => {
     const pedidos = [pedido('a', [passagem()], { entregue_em: new Date(AGORA - 10 * DIA).toISOString() })]
     const sb = fakeSupabase(pedidos)
-    await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'buscando', fotos: [] }), dono: 'c1', agora: AGORA, log: () => {} })
+    await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'buscando', fotos: [] }), dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {} })
     expect(sb.updates).toEqual([])
     sb.setAgora(AGORA + FOTOS_INTERVALO_MS)
-    await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'ok', fotos: [{ ordem: 1, vista: 'frente', foto_ref: REF(1) }] }), dono: 'c1', agora: AGORA + FOTOS_INTERVALO_MS, log: () => {} })
+    await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'ok', fotos: [{ ordem: 1, vista: 'frente', foto_ref: REF(1) }] }), dono: 'c1', esperar: semPausa, agora: AGORA + FOTOS_INTERVALO_MS, log: () => {} })
     expect(pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0].foto_refs).toHaveLength(1)
   })
 
@@ -236,7 +282,7 @@ describe('rodarFotosDepois', () => {
     const sb = fakeSupabase(pedidos)
     const vistos: string[] = []
     const logs: string[] = []
-    await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'buscando', fotos: [] }), dono: 'c1', agora: AGORA, log: (m) => logs.push(m) })
+    await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'buscando', fotos: [] }), dono: 'c1', esperar: semPausa, agora: AGORA, log: (m) => logs.push(m) })
     for (const l of logs) { const m = l.match(/pedido (\S+)/); if (m) vistos.push(m[1]) }
     expect(vistos).toEqual(['ok'])
   })
@@ -246,11 +292,11 @@ describe('rodarFotosDepois', () => {
     const sb = fakeSupabase(pedidos)
     const tentadoEm = new Map<string, number>()
     const buscar = async () => ({ status: 'buscando', fotos: [] })
-    const r1 = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA, log: () => {}, tentadoEm })
+    const r1 = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {}, tentadoEm })
     expect(r1.pedidos).toBe(FOTOS_MAX_PEDIDOS)
     sb.setAgora(AGORA + FOTOS_INTERVALO_MS)
     const logs: string[] = []
-    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA + FOTOS_INTERVALO_MS, log: (m) => logs.push(m), tentadoEm })
+    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA + FOTOS_INTERVALO_MS, log: (m) => logs.push(m), tentadoEm })
     // Os 5 que ficaram de fora entram primeiro na rodada seguinte.
     const primeiros = logs.slice(0, 5).map((l) => l.match(/pedido (\S+)/)?.[1])
     expect(primeiros.every((id) => !tentadoEm.has(id!) || tentadoEm.get(id!) === AGORA + FOTOS_INTERVALO_MS)).toBe(true)
@@ -260,7 +306,7 @@ describe('rodarFotosDepois', () => {
   it('nunca manda e-mail: a unica escrita e o update do snapshot', async () => {
     const pedidos = [pedido('a', [passagem()])]
     const sb = fakeSupabase(pedidos)
-    await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'ok', fotos: [{ ordem: 1, vista: 'frente', foto_ref: REF(1) }] }), dono: 'c1', agora: AGORA, log: () => {} })
+    await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'ok', fotos: [{ ordem: 1, vista: 'frente', foto_ref: REF(1) }] }), dono: 'c1', esperar: semPausa, agora: AGORA, log: () => {} })
     expect(sb.updates).toHaveLength(1)
     expect(Object.keys(sb.updates[0].snap)).toEqual(['recallBase', 'historicoLeilao'])
     expect(sb.updates[0].snap.recallBase).toEqual({ x: 1 })
@@ -277,10 +323,17 @@ describe('gravacao, 404 e resposta', () => {
       return { status: 'ok', fotos: [{ ordem: 1, vista: 'frente', foto_ref: REF(1) }] }
     }
     const logs: string[] = []
-    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA, log: (m) => logs.push(m) })
+    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log: (m) => logs.push(m) })
     expect(r.gravados).toBe(0)
     expect(pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0].foto_refs).toEqual(ja)
     expect(logs.join('\n')).toContain('nao gravou: ja_tem_foto')
+  })
+
+  it('ehLoteNaoEncontrado: so 404 com "lote nao encontrado" no corpo', () => {
+    expect(ehLoteNaoEncontrado({ statusCode: 404, data: { detail: 'lote nao encontrado' } })).toBe(true)
+    expect(ehLoteNaoEncontrado({ statusCode: 404, data: '{"detail":"Lote não encontrado"}' })).toBe(true)
+    expect(ehLoteNaoEncontrado({ statusCode: 404, data: { detail: 'Not Found' } })).toBe(false)
+    expect(ehLoteNaoEncontrado({ statusCode: 500, data: { detail: 'lote nao encontrado' } })).toBe(false)
   })
 
   it('ehRotaAusente: so o 404 do FastAPI pra rota inexistente', () => {
