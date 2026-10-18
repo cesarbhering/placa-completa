@@ -2170,13 +2170,13 @@ onUnmounted(() => {
           </template>
           <template v-else-if="data.status === 'reembolsado'">
             <h1 class="rel__h">Não foi possível concluir</h1>
-            <!-- Veiculo que o registro nacional nao conhece: dizer isso e mais
-                 util (e mais honesto) do que a frase generica, que deixava a
-                 pessoa achando que o site quebrou e tentando de novo. -->
+            <!-- Veiculo que o registro nacional nao devolveu: "nao encontramos
+                 este veiculo" assustava o cliente (Cesar, 17/out, caso GGF4G18).
+                 A tela fala de erro nosso ao gerar o relatorio e do estorno. -->
             <p v-if="data.motivoFalha === 'veiculo_nao_encontrado'" class="rel__hint">
-              Não encontramos este veículo na base nacional com a placa {{ data.placa }}.
-              O valor foi devolvido {{ ehCartao ? 'no seu cartão (aparece na fatura em até 10 dias úteis)' : 'no seu Pix' }} e nada ficou cobrado. Confira a placa no
-              documento e, se ela estiver certa, escreva para contato@placacompleta.com.br.
+              Houve um erro nos nossos servidores e não conseguimos gerar o relatório da placa {{ data.placa }}.
+              O valor foi devolvido {{ ehCartao ? 'no seu cartão (aparece na fatura em até 10 dias úteis)' : 'no seu Pix' }} e nada ficou cobrado. Pedimos desculpas.
+              Se precisar de ajuda, escreva para contato@placacompleta.com.br.
             </p>
             <p v-else class="rel__hint">
               Este pedido foi encerrado e o valor devolvido {{ ehCartao ? 'no seu cartão' : 'no seu Pix' }}. Nada ficou
