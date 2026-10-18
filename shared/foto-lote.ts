@@ -47,10 +47,10 @@ export function altFotoLote(vista: string | null, i: number): string {
 // mostra "Buscando fotos do anúncio…" no card e o job do servidor
 // (server/utils/fotos-depois.ts) grava os foto_refs quando elas chegam.
 // Quando a busca termina sem foto, o job grava `fotos_busca` na passagem e o
-// aviso some.
+// aviso some. Sem resposta final, o aviso some sozinho 7 dias depois da entrega.
 
 /** Status que o job grava em passagem.fotos_busca (desligam o aviso na pagina). */
-export type FotosBuscaStatus = 'sem_foto' | 'fonte_sem_foto' | 'expirou'
+export type FotosBuscaStatus = 'sem_foto' | 'fonte_sem_foto'
 
 function temFoto(p: any): boolean {
   if (Array.isArray(p?.foto_refs) && p.foto_refs.length) return true
@@ -58,9 +58,18 @@ function temFoto(p: any): boolean {
   return Array.isArray(p?.fotos) && p.fotos.some((f: any) => typeof f === 'string' && f)
 }
 
-/** A pagina deve mostrar "Buscando fotos do anúncio…" nesta passagem? */
-export function fotosPendentes(p: any): boolean {
+/** Depois disso (da entrega), a pagina para de dizer "Buscando fotos" sozinha. */
+export const AVISO_FOTOS_MAX_MS = 7 * 24 * 60 * 60 * 1000
+
+/**
+ * A pagina deve mostrar "Buscando fotos do anúncio…" nesta passagem?
+ * Com `entregueEm`, o aviso some sozinho 7 dias depois da entrega (so
+ * exibicao: nao depende do job).
+ */
+export function fotosPendentes(p: any, ctx?: { entregueEm?: string | null; agora?: number }): boolean {
   if (!p || typeof p !== 'object') return false
+  const ent = new Date(String(ctx?.entregueEm || '')).getTime()
+  if (Number.isFinite(ent) && (ctx?.agora ?? Date.now()) - ent > AVISO_FOTOS_MAX_MS) return false
   if (p.fotos_busca) return false
   if (temFoto(p)) return false
   if (typeof p.fotos_pendente === 'boolean') return p.fotos_pendente

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { rodarFotosDepois, aplicarNaPassagem, sanearRespostaFotos, FOTOS_MAX_PEDIDOS, FOTOS_NOME_LOCK, FOTOS_LEASE_S, FOTOS_INTERVALO_MS } from './fotos-depois'
+import { rodarFotosDepois, sanearRespostaFotos, ehRotaAusente, FOTOS_MAX_PEDIDOS, FOTOS_NOME_LOCK, FOTOS_LEASE_S, FOTOS_INTERVALO_MS } from './fotos-depois'
 import { fotosPendentes } from '../../shared/foto-lote'
 
 const REF = (n: number) => `ref${n}.abcdefABCDEF0123456789`
@@ -15,11 +15,31 @@ function fakeSupabase(pedidos: any[], opts: { lockErro?: boolean } = {}) {
   const lock: { dono?: string; ate?: number } = {}
   const updates: { id: string; snap: any }[] = []
   let agora = AGORA
+  // Espelho da RPC fotos_passagem_gravar (migration 20261018120000): mexe SO
+  // na passagem, no snapshot ATUAL da linha (jsonb_set), nunca no resto.
+  const gravarPassagem = (a: any): string => {
+    const ped = pedidos.find((x) => x.id === a.p_pedido)
+    const lista = ped?.relatorio_snapshot?.historicoLeilao?.passagens
+    if (!Array.isArray(lista)) return 'sem_snapshot'
+    const k = (e: any) => [e?.fonte, e?.lote, e?.ref].map((v) => (v == null ? '' : String(v))).join('|')
+    const i = lista.findIndex((e: any) => k(e) === [a.p_fonte, a.p_lote, a.p_ref].map((v) => (v == null ? '' : String(v))).join('|'))
+    if (i < 0) return 'sem_passagem'
+    const p = lista[i]
+    if ((Array.isArray(p.foto_refs) && p.foto_refs.length) || (p.detalhes?.fotos || []).some((x: any) => typeof x?.foto_ref === 'string')) return 'ja_tem_foto'
+    let novo: any
+    if (a.p_foto_refs) { novo = { ...p, foto_refs: a.p_foto_refs, fotos_pendente: false }; delete novo.fotos_busca }
+    else if (a.p_fotos_busca) { if (p.fotos_busca?.status === a.p_fotos_busca.status) return 'igual'; novo = { ...p, fotos_busca: a.p_fotos_busca } }
+    else return 'invalido'
+    lista[i] = novo
+    updates.push({ id: ped.id, snap: ped.relatorio_snapshot })
+    return 'gravado'
+  }
   const sb: any = {
     updates,
     lock,
     setAgora: (t: number) => { agora = t },
     async rpc(nome: string, a: any) {
+      if (nome === 'fotos_passagem_gravar') return { data: gravarPassagem(a), error: null }
       if (opts.lockErro) return { data: null, error: { message: 'Could not find the function public.job_lock_pegar' } }
       if (nome !== 'job_lock_pegar' || a.p_nome !== FOTOS_NOME_LOCK) return { data: null, error: { message: 'rpc?' } }
       if (!lock.dono || (lock.ate ?? 0) < agora || lock.dono === a.p_dono) {
@@ -43,18 +63,9 @@ function fakeSupabase(pedidos: any[], opts: { lockErro?: boolean } = {}) {
             .map((p) => ({ id: p.id, token_entrega: p.token_entrega, entregue_em: p.entregue_em, passagens: p.relatorio_snapshot?.historicoLeilao?.passagens ?? null }))
           return Promise.resolve({ data, error: null })
         },
-        async maybeSingle() {
-          const p = pedidos.find((x) => x.id === filtros.id)
-          return { data: p ? { relatorio_snapshot: structuredClone(p.relatorio_snapshot) } : null, error: null }
-        },
-        update(obj: any) {
-          return { eq: async (_c: string, id: string) => {
-            const p = pedidos.find((x) => x.id === id)
-            p.relatorio_snapshot = obj.relatorio_snapshot
-            updates.push({ id, snap: obj.relatorio_snapshot })
-            return { error: null }
-          } }
-        },
+        // O job nunca le-e-regrava o snapshot inteiro: so a RPC.
+        maybeSingle() { throw new Error('nao deveria ler o snapshot inteiro') },
+        update() { throw new Error('nao deveria regravar o snapshot inteiro') },
       }
       return q
     },
@@ -71,7 +82,9 @@ function pedido(id: string, passagens: any[], extra: any = {}) {
   }
 }
 
-const erro404 = () => Object.assign(new Error('Not Found'), { statusCode: 404 })
+// $fetch (ofetch) poe o corpo parseado em e.data.
+const erro404Rota = () => Object.assign(new Error('Not Found'), { statusCode: 404, data: { detail: 'Not Found' } })
+const erro404Outro = () => Object.assign(new Error('Not Found'), { statusCode: 404, data: { detail: 'lote desconhecido' } })
 
 describe('lock entre containers', () => {
   it('lease menor que o intervalo: a proxima rodada pode pegar de novo', () => {
@@ -130,7 +143,7 @@ describe('rodarFotosDepois', () => {
     expect(logs.some((l) => l.includes('pedido a') && l.includes('copart:123=ok 2 fotos') && l.includes('superbid:9=buscando'))).toBe(true)
   })
 
-  it('rele o snapshot antes de gravar: nao pisa no bloco que outro processo gravou no meio', async () => {
+  it('grava so na passagem: nao pisa no bloco que outro processo gravou no meio', async () => {
     const pedidos = [pedido('a', [passagem()])]
     const sb = fakeSupabase(pedidos)
     const buscar = async () => {
@@ -143,16 +156,28 @@ describe('rodarFotosDepois', () => {
     expect(pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0].foto_refs).toHaveLength(1)
   })
 
-  it('404 (endpoint ainda nao no ar): para a rodada, sem erro e sem gravar', async () => {
+  it('404 de ROTA (endpoint ainda nao no ar): para a rodada, sem erro e sem gravar', async () => {
     const pedidos = [pedido('a', [passagem()]), pedido('b', [passagem({ lote: '7' })])]
     const sb = fakeSupabase(pedidos)
     let n = 0
     const logs: string[] = []
-    const r = await rodarFotosDepois({ supabase: sb, buscar: async () => { n++; throw erro404() }, dono: 'c1', agora: AGORA, log: (m) => logs.push(m) })
+    const r = await rodarFotosDepois({ supabase: sb, buscar: async () => { n++; throw erro404Rota() }, dono: 'c1', agora: AGORA, log: (m) => logs.push(m) })
     expect(r).toMatchObject({ rodou: true, apiAusente: true, gravados: 0 })
     expect(n).toBe(1)
     expect(sb.updates).toEqual([])
     expect(logs.join('\n')).toContain('ainda nao disponivel')
+  })
+
+  it('404 com outro corpo (lote que a API nao conhece): pula so aquela passagem', async () => {
+    const pedidos = [pedido('a', [passagem()]), pedido('b', [passagem({ lote: '7' })])]
+    const sb = fakeSupabase(pedidos)
+    const buscar = async (b: any) => {
+      if (b.lote === '123') throw erro404Outro()
+      return { status: 'ok', fotos: [{ ordem: 1, vista: null, foto_ref: REF(7) }] }
+    }
+    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA, log: () => {} })
+    expect(r.apiAusente).toBeUndefined()
+    expect(r).toMatchObject({ chamadas: 2, gravados: 1 })
   })
 
   it('erro 5xx/timeout: fail-open, segue pros outros pedidos', async () => {
@@ -187,21 +212,14 @@ describe('rodarFotosDepois', () => {
     expect(chamadas).toEqual(['sodre:3'])
   })
 
-  it('buscando: nao grava; depois de 7 dias da entrega o aviso expira, mas o job segue tentando', async () => {
+  it('buscando: nao grava nada; fotos que chegam depois entram na rodada seguinte', async () => {
     const pedidos = [pedido('a', [passagem()], { entregue_em: new Date(AGORA - 10 * DIA).toISOString() })]
     const sb = fakeSupabase(pedidos)
-    const buscar = async () => ({ status: 'buscando', fotos: [] })
-    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA, log: () => {} })
-    const p = pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0]
-    expect(p.fotos_busca.status).toBe('expirou')
-    expect(fotosPendentes(p)).toBe(false)
-    expect(p.foto_refs).toEqual([])
-    // Fotos chegam depois: entram e o fotos_busca sai.
+    await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'buscando', fotos: [] }), dono: 'c1', agora: AGORA, log: () => {} })
+    expect(sb.updates).toEqual([])
     sb.setAgora(AGORA + FOTOS_INTERVALO_MS)
     await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'ok', fotos: [{ ordem: 1, vista: 'frente', foto_ref: REF(1) }] }), dono: 'c1', agora: AGORA + FOTOS_INTERVALO_MS, log: () => {} })
-    const p2 = pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0]
-    expect(p2.foto_refs).toHaveLength(1)
-    expect(p2.fotos_busca).toBeUndefined()
+    expect(pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0].foto_refs).toHaveLength(1)
   })
 
   it('so pedidos entregues, do plano completa, dos ultimos 90 dias, e passagem que precisa de foto', async () => {
@@ -245,18 +263,32 @@ describe('rodarFotosDepois', () => {
     await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'ok', fotos: [{ ordem: 1, vista: 'frente', foto_ref: REF(1) }] }), dono: 'c1', agora: AGORA, log: () => {} })
     expect(sb.updates).toHaveLength(1)
     expect(Object.keys(sb.updates[0].snap)).toEqual(['recallBase', 'historicoLeilao'])
+    expect(sb.updates[0].snap.recallBase).toEqual({ x: 1 })
   })
 })
 
-describe('aplicarNaPassagem / sanearRespostaFotos', () => {
-  it('passagem que ja ganhou foto no meio do caminho: nao sobrescreve', () => {
-    const snap = { historicoLeilao: { passagens: [passagem({ foto_refs: [{ ref: REF(9), ordem: 1, vista: null }] })] } }
-    expect(aplicarNaPassagem(snap, { fonte: 'copart', lote: '123', ref: 'L1' }, { foto_refs: [{ ref: REF(1), ordem: 1, vista: null }] })).toBeNull()
+describe('gravacao, 404 e resposta', () => {
+  it('passagem que ja ganhou foto no meio do caminho: nao sobrescreve', async () => {
+    const ja = [{ ref: REF(9), ordem: 1, vista: null }]
+    const pedidos = [pedido('a', [passagem()])]
+    const sb = fakeSupabase(pedidos)
+    const buscar = async () => {
+      pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0].foto_refs = ja
+      return { status: 'ok', fotos: [{ ordem: 1, vista: 'frente', foto_ref: REF(1) }] }
+    }
+    const logs: string[] = []
+    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', agora: AGORA, log: (m) => logs.push(m) })
+    expect(r.gravados).toBe(0)
+    expect(pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0].foto_refs).toEqual(ja)
+    expect(logs.join('\n')).toContain('nao gravou: ja_tem_foto')
   })
 
-  it('passagem que sumiu do snapshot: nada a gravar', () => {
-    const snap = { historicoLeilao: { passagens: [passagem()] } }
-    expect(aplicarNaPassagem(snap, { fonte: 'copart', lote: '999', ref: 'L1' }, { foto_refs: [{ ref: REF(1), ordem: 1, vista: null }] })).toBeNull()
+  it('ehRotaAusente: so o 404 do FastAPI pra rota inexistente', () => {
+    expect(ehRotaAusente(erro404Rota())).toBe(true)
+    expect(ehRotaAusente({ statusCode: 404, data: '{"detail":"Not Found"}' })).toBe(true)
+    expect(ehRotaAusente(erro404Outro())).toBe(false)
+    expect(ehRotaAusente({ statusCode: 404 })).toBe(false)
+    expect(ehRotaAusente({ statusCode: 500, data: { detail: 'Not Found' } })).toBe(false)
   })
 
   it('resposta torta vira null; foto_ref invalido cai; ate 4', () => {

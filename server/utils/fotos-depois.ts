@@ -7,16 +7,18 @@ import { fotoRefsDaPassagem, passagemPrecisaDeFoto, type FotoRef, type FotosBusc
 // demanda na leiloes-api), o relatorio nao as mostrava. Este job, a cada
 // 30 min (server/plugins/fotos-depois.ts), pergunta a leiloes-api
 // (POST /v1/fotos-do-lote) pelas passagens sem foto e grava os foto_refs SO
-// naquela passagem, relendo o snapshot antes de gravar (outros blocos tambem
-// escrevem nele). Sem e-mail ao cliente. Fail-open: erro aqui nunca quebra
+// naquela passagem, por jsonb_set no banco (outros blocos tambem escrevem no
+// snapshot). Sem e-mail ao cliente. Fail-open: erro aqui nunca quebra
 // nada; o que nao deu volta na proxima rodada.
 //
 // Lock entre containers: job_lock_pegar (lease no banco, migration
-// 20261018120000_job_lock.sql). Sem lock (migration ainda nao aplicada, banco
+// 20261018120000_fotos_depois.sql). Sem lock (migration ainda nao aplicada, banco
 // fora) a rodada NAO roda.
 //
-// Enquanto /v1/fotos-do-lote nao existir (404), a rodada para na primeira
-// chamada, loga uma linha e tenta de novo daqui a 30 min. Nada e gravado.
+// Enquanto /v1/fotos-do-lote nao existir (404 de rota, {"detail":"Not Found"}),
+// a rodada para na primeira chamada, loga uma linha e tenta de novo daqui a
+// 30 min. Nada e gravado. 404 com outro corpo pula so aquela passagem.
+// Gravacao: RPC fotos_passagem_gravar (jsonb_set so na passagem).
 
 export const FOTOS_NOME_LOCK = 'fotos-depois'
 export const FOTOS_INTERVALO_MS = 30 * 60 * 1000
@@ -33,8 +35,6 @@ export const FOTOS_JANELA_DIAS = 90
 export const FOTOS_MAX_PEDIDOS = 15
 /** Teto de chamadas a API por rodada (a chave e compartilhada com /v1/foto-link, 600/h). */
 export const FOTOS_MAX_CHAMADAS = 40
-/** Depois disso, "buscando" deixa de mostrar o aviso na pagina (o job segue tentando ate FOTOS_JANELA_DIAS). */
-export const FOTOS_AVISO_MAX_DIAS = 7
 
 const DIA_MS = 24 * 60 * 60 * 1000
 
@@ -71,58 +71,42 @@ export function sanearRespostaFotos(res: any): RespostaFotos | null {
   return { status: status as RespostaFotos['status'], fotos }
 }
 
-const chavePassagem = (p: any) => `${String(p?.fonte || '')}|${String(p?.lote || '')}|${String(p?.ref || '')}`
+const codigo = (e: any) => Number(e?.statusCode ?? e?.status ?? e?.response?.status) || null
+
+type Mudanca = { foto_refs: FotoRef[] } | { fotos_busca: { status: FotosBuscaStatus; em: string } }
 
 /**
- * Aplica o resultado numa copia do snapshot ATUAL, so na passagem certa.
- * Devolve null quando nao ha nada a gravar (passagem sumiu, ja tem foto, etc.).
+ * Grava SO na passagem (fonte, lote, ref), via RPC fotos_passagem_gravar:
+ * jsonb_set dentro da linha travada, entao nunca pisa no que outro escritor
+ * (DETRAN tardio, recallBase...) gravou no resto do snapshot. Nunca lanca.
  */
-export function aplicarNaPassagem(
-  snap: any,
-  alvo: { fonte: string; lote: string; ref?: string | null },
-  mudanca: { foto_refs: FotoRef[] } | { fotos_busca: { status: FotosBuscaStatus; em: string } },
-): any | null {
-  const passagens = snap?.historicoLeilao?.passagens
-  if (!Array.isArray(passagens)) return null
-  const k = chavePassagem(alvo)
-  const i = passagens.findIndex((p: any) => chavePassagem(p) === k)
-  if (i < 0) return null
-  const p = passagens[i]
-  if ((Array.isArray(p.foto_refs) && p.foto_refs.length) || fotoRefsDaPassagem(p).length) return null
-  let nova: any
-  if ('foto_refs' in mudanca) {
-    if (!mudanca.foto_refs.length) return null
-    nova = { ...p, foto_refs: mudanca.foto_refs, fotos_pendente: false }
-    delete nova.fotos_busca
-  } else {
-    if (p.fotos_busca?.status === mudanca.fotos_busca.status) return null
-    nova = { ...p, fotos_busca: mudanca.fotos_busca }
-  }
-  const lista = passagens.slice()
-  lista[i] = nova
-  return { ...snap, historicoLeilao: { ...snap.historicoLeilao, passagens: lista } }
-}
-
-/** Rele o snapshot, aplica e grava. Nunca lanca. */
-async function gravar(
-  supabase: any,
-  pedidoId: string,
-  alvo: { fonte: string; lote: string; ref?: string | null },
-  mudanca: Parameters<typeof aplicarNaPassagem>[2],
-): Promise<boolean> {
+async function gravar(supabase: any, pedidoId: string, alvo: { fonte: string; lote: string; ref?: string | null }, mudanca: Mudanca): Promise<string> {
   try {
-    const { data, error } = await supabase.from('pedidos_premium').select('relatorio_snapshot').eq('id', pedidoId).maybeSingle()
-    if (error || !data?.relatorio_snapshot) return false
-    const novo = aplicarNaPassagem(data.relatorio_snapshot, alvo, mudanca)
-    if (!novo) return false
-    const { error: e2 } = await supabase.from('pedidos_premium').update({ relatorio_snapshot: novo }).eq('id', pedidoId)
-    return !e2
-  } catch {
-    return false
+    const { data, error } = await supabase.rpc('fotos_passagem_gravar', {
+      p_pedido: pedidoId,
+      p_fonte: alvo.fonte,
+      p_lote: alvo.lote,
+      p_ref: alvo.ref ?? null,
+      p_foto_refs: 'foto_refs' in mudanca ? mudanca.foto_refs : null,
+      p_fotos_busca: 'fotos_busca' in mudanca ? mudanca.fotos_busca : null,
+    })
+    if (error) return `erro: ${String(error.message || '').slice(0, 80)}`
+    return String(data || '')
+  } catch (e: any) {
+    return `erro: ${String(e?.message || e).slice(0, 80)}`
   }
 }
 
-const codigo = (e: any) => Number(e?.statusCode ?? e?.status ?? e?.response?.status) || null
+/**
+ * 404 de ROTA (endpoint ainda nao existe na leiloes-api): o FastAPI responde
+ * {"detail":"Not Found"}. Qualquer outro 404 e da passagem (pula so ela).
+ */
+export function ehRotaAusente(e: any): boolean {
+  if (codigo(e) !== 404) return false
+  let corpo = e?.data ?? e?.response?._data
+  if (typeof corpo === 'string') { try { corpo = JSON.parse(corpo) } catch { /* texto */ } }
+  return !!corpo && typeof corpo === 'object' && corpo.detail === 'Not Found'
+}
 
 /** Uma rodada do job. Nunca lanca. */
 export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
@@ -179,7 +163,7 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
         try {
           r = sanearRespostaFotos(await deps.buscar({ fonte, lote, ...(p.ref ? { ref: String(p.ref) } : {}) }))
         } catch (e: any) {
-          if (codigo(e) === 404) {
+          if (ehRotaAusente(e)) {
             // Endpoint ainda nao esta no ar: para a rodada, sem erro.
             resumo.apiAusente = true
             log('[fotos-depois] /v1/fotos-do-lote ainda nao disponivel (404): nada a fazer nesta rodada')
@@ -191,25 +175,18 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
         if (!r) { linhaLog.push(`${fonte}:${lote}=resposta invalida`); continue }
 
         if (r.status === 'ok' && r.fotos.length) {
-          const ok = await gravar(deps.supabase, pedido.id, alvo, { foto_refs: r.fotos })
-          if (ok) resumo.gravados++
-          linhaLog.push(`${fonte}:${lote}=ok ${r.fotos.length} foto${r.fotos.length === 1 ? '' : 's'}${ok ? '' : ' (nao gravou)'}`)
+          const g = await gravar(deps.supabase, pedido.id, alvo, { foto_refs: r.fotos })
+          if (g === 'gravado') resumo.gravados++
+          linhaLog.push(`${fonte}:${lote}=ok ${r.fotos.length} foto${r.fotos.length === 1 ? '' : 's'}${g === 'gravado' ? '' : ` (nao gravou: ${g})`}`)
         } else if (r.status === 'buscando') {
-          // Segue tentando nas proximas rodadas. Passado o prazo do aviso, a
-          // pagina para de dizer "Buscando fotos" (o job continua).
-          const entregue = new Date(String(pedido.entregue_em || '')).getTime()
-          if (p?.detalhes?.fotos_pendente === true && !p.fotos_busca && entregue && agora - entregue > FOTOS_AVISO_MAX_DIAS * DIA_MS) {
-            await gravar(deps.supabase, pedido.id, alvo, { fotos_busca: { status: 'expirou', em: new Date(agora).toISOString() } })
-            linhaLog.push(`${fonte}:${lote}=buscando (aviso expirou)`)
-          } else {
-            linhaLog.push(`${fonte}:${lote}=buscando`)
-          }
+          // Segue tentando nas proximas rodadas (o aviso da pagina expira sozinho em 7 dias).
+          linhaLog.push(`${fonte}:${lote}=buscando`)
         } else {
           // sem_foto, fonte_sem_foto ou ok sem foto: busca terminou sem foto.
           const status: FotosBuscaStatus = r.status === 'fonte_sem_foto' ? 'fonte_sem_foto' : 'sem_foto'
           if (status === 'fonte_sem_foto') fontesSemFoto.add(fonte)
-          await gravar(deps.supabase, pedido.id, alvo, { fotos_busca: { status, em: new Date(agora).toISOString() } })
-          linhaLog.push(`${fonte}:${lote}=${status}`)
+          const g = await gravar(deps.supabase, pedido.id, alvo, { fotos_busca: { status, em: new Date(agora).toISOString() } })
+          linhaLog.push(`${fonte}:${lote}=${status}${g === 'gravado' || g === 'igual' ? '' : ` (nao gravou: ${g})`}`)
         }
       }
       log(`[fotos-depois] pedido ${pedido.id} (${tok}…): ${linhaLog.join(', ') || 'nada'}`)
