@@ -2487,7 +2487,7 @@ onUnmounted(() => {
                     <li v-for="(au, idx) in autuacoesItens" :key="'au' + idx" class="rel__multas-item">
                       <div class="rel__multas-item-top">
                         <span>{{ au.descricao || 'Infração de trânsito' }}</span>
-                        <b class="rel__multas-sem-valor">em andamento, sem multa</b>
+                        <b class="rel__multas-sem-valor rel__autuacao-tag">em andamento</b>
                       </div>
                       <p class="rel__multas-item-meta">
                         <span v-if="au.data">{{ au.data }}<span v-if="au.hora && !String(au.hora).startsWith('00:00')"> às {{ String(au.hora).slice(0, 5) }}</span></span>
@@ -4780,6 +4780,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     b { color: #a32020; white-space: nowrap; }
     // Multa sem valor definido (autuacao em andamento): texto, nao R$ 0,00.
     b.rel__multas-sem-valor { color: #6b7280; font-weight: 500; white-space: normal; text-align: right; }
+    b.rel__autuacao-tag { white-space: nowrap; flex-shrink: 0; }
   }
   &__multas-st-alerta { color: #a32020 !important; font-weight: 700; }
   &__efeito { display: block; margin-top: 2px; font-size: calc(12px * var(--rel-fs, 1)); color: #6b4e00; font-weight: 600; }
