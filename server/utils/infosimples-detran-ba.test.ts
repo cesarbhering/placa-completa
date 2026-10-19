@@ -13,7 +13,7 @@ describe('parsearDetranBa', () => {
   })
   it('bloco so com as chaves da whitelist', () => {
     expect(Object.keys(b).sort()).toEqual([
-      'autuacoes_em_andamento', 'fonte', 'hodometro', 'hodometro_suspeito', 'ipva_total_centavos',
+      'autuacoes_em_andamento', 'autuacoes_itens', 'fonte', 'hodometro', 'hodometro_suspeito', 'ipva_total_centavos',
       'licenciamento_atrasado_ano', 'licenciamento_centavos', 'multas_itens', 'multas_total_centavos',
       'restricoes_detran', 'status',
     ])

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import MG from './__fixtures__/infosimples-detran-mg.json'
+import MG_AUTUACAO from './__fixtures__/infosimples-detran-mg-autuacao.json'
 import { parsearDetranMg, blocoDetranDaUf, ufDetranSuportada, chassiDaResposta, completarDetran } from './infosimples-detran'
 
 // Fixture = resposta REAL do /detran/mg/multas-descritivos (QNA3903, code 200),
@@ -18,7 +19,7 @@ describe('parsearDetranMg', () => {
 
   it('bloco so com as chaves da whitelist', () => {
     expect(Object.keys(b).sort()).toEqual([
-      'alerta_roubo_furto', 'autuacoes_em_andamento', 'fonte', 'hodometro', 'hodometro_suspeito',
+      'alerta_roubo_furto', 'autuacoes_em_andamento', 'autuacoes_itens', 'fonte', 'hodometro', 'hodometro_suspeito',
       'ipva_pago_ano', 'ipva_total_centavos', 'licenciamento_atrasado_ano', 'licenciamento_centavos', 'licenciamento_em',
       'multas_itens', 'multas_total_centavos', 'restricoes_detran', 'status', 'ultimo_licenciamento_ano',
     ])
@@ -100,5 +101,42 @@ describe('completarDetran MG', () => {
     expect(sb.inserts[0]).toMatchObject({ pedido_id: 'p1', fonte: 'infosimples_detran_mg', preco: 0.28, code: 200 })
     expect(JSON.stringify(sb.updates[0])).not.toContain('storage.invalid')
     expect(sb.updates[0].relatorio_snapshot.multas.alerta_roubo_furto).toBeTruthy()
+  })
+})
+
+// Caso RME7F12 (19/out/2026): o relatorio so dizia "1 autuacao em andamento".
+// Fixture = a de cima + 1 autuacao no formato real do DETRAN-MG (dados trocados por ficticios).
+describe('DETRAN-MG: autuacoes em andamento com detalhe', () => {
+  const b = parsearDetranMg(MG_AUTUACAO, HOJE)
+
+  it('guarda a autuacao com o que foi, quando, onde, orgao, situacao e prazo de defesa', () => {
+    expect(b.autuacoes_em_andamento).toBe(1)
+    expect(b.autuacoes_itens).toEqual([{
+      ait: 'R000000001',
+      codigo: '74550',
+      descricao: 'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20',
+      data: '24/10/2021',
+      hora: '09:28',
+      local: 'CONTAGEM BR 040 KM 529 UF MG',
+      municipio: null,
+      orgao: 'POLICIA RODOVIARIA FEDERAL',
+      // processamento ("11019992") e numero interno, nao situacao
+      situacao: 'NAO EXIGIVEL NOTIFICACAO DA AUTUACAO EMITIDA',
+      prazo_defesa: '14/01/2022',
+      prazo_recurso: null,
+      valor_previsto: 130.16,
+    }])
+  })
+
+  it('nunca grava html_url, placa, marca/cor nem campo fora da whitelist', () => {
+    const out = JSON.stringify(b.autuacoes_itens)
+    expect(out).not.toContain('storage.invalid')
+    expect(out).not.toContain('ABC1D23')
+    expect(out).not.toContain('PRATA')
+    expect(out).not.toContain('data_incluida')
+  })
+
+  it('sem autuacoes: lista vazia', () => {
+    expect(parsearDetranMg({ ...MG_AUTUACAO, autuacoes: [] }, HOJE).autuacoes_itens).toEqual([])
   })
 })
