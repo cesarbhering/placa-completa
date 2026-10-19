@@ -27,6 +27,9 @@ describe('MA', () => {
     expect(b.multas_itens).toHaveLength(1)
     expect(b.multas_total_centavos).toBe(29347)
     expect(b.autuacoes_em_andamento).toBe(2)
+    // Detalhe de cada autuacao (whitelist), alem da contagem.
+    expect(b.autuacoes_itens).toHaveLength(2)
+    expect(Object.keys(b.autuacoes_itens[0]).sort()).toEqual(['ait', 'codigo', 'data', 'descricao', 'hora', 'local', 'municipio', 'orgao', 'prazo_defesa', 'prazo_recurso', 'situacao', 'valor_previsto'])
   })
 })
 
