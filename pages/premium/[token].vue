@@ -1462,6 +1462,17 @@ const multasDetalhe = computed(() => {
   const m: any = data.value?.multas
   return m && (m.status === 'ok' || m.status === 'sem_debito') ? m : null
 })
+// "dd/mm/aaaa" ja passou? (prazo de defesa de autuacao antiga, ex.: 2022)
+function prazoPassou(br: string): boolean {
+  const m = String(br || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (!m) return false
+  return new Date(`${m[3]}-${m[2]}-${m[1]}T23:59:59-03:00`).getTime() < Date.now()
+}
+// Autuacoes em andamento com detalhe (DETRAN-MG e outras UFs que mandam a lista).
+const autuacoesItens = computed<any[]>(() => {
+  const l = (multasDetalhe.value as any)?.autuacoes_itens
+  return Array.isArray(l) ? l.filter((a: any) => a && typeof a === 'object') : []
+})
 // Consulta do DETRAN nao rodou (credencial ausente/travada no servidor): sem
 // isso o bloco ficava em "Consultando..." pra sempre.
 // 'protegido' (proprietario bloqueou a consulta no DETRAN, code 620) tambem e
@@ -2466,7 +2477,33 @@ onUnmounted(() => {
                     </li>
                   </ul>
                 </template>
-                <p v-if="multasDetalhe.autuacoes_em_andamento" class="rel__multas-nota">
+                <!-- Autuacoes em andamento: com o detalhe de cada uma quando o DETRAN manda (19/out/2026). -->
+                <template v-if="autuacoesItens.length">
+                  <p class="rel__multas-sub">{{ autuacoesItens.length === 1 ? 'Autuação em andamento' : 'Autuações em andamento' }}</p>
+                  <p class="rel__multas-item-meta">
+                    Ainda não {{ autuacoesItens.length === 1 ? 'é multa' : 'são multas' }}: o DETRAN registrou a infração, mas a cobrança só acontece se a penalidade for aplicada.
+                  </p>
+                  <ul class="rel__multas-itens">
+                    <li v-for="(au, idx) in autuacoesItens" :key="'au' + idx" class="rel__multas-item">
+                      <div class="rel__multas-item-top">
+                        <span>{{ au.descricao || 'Infração de trânsito' }}</span>
+                        <b class="rel__multas-sem-valor rel__autuacao-tag">em andamento</b>
+                      </div>
+                      <p class="rel__multas-item-meta">
+                        <span v-if="au.data">{{ au.data }}<span v-if="au.hora && !String(au.hora).startsWith('00:00')"> às {{ String(au.hora).slice(0, 5) }}</span></span>
+                        <span v-if="au.local || au.municipio">{{ au.data ? ' · ' : '' }}{{ [au.local, au.municipio].filter(Boolean).join(', ') }}</span>
+                        <span v-if="au.orgao"> · {{ au.orgao }}</span>
+                        <span v-if="au.ait"> · auto {{ au.ait }}</span>
+                        <span v-if="au.situacao"> · {{ au.situacao.toLowerCase() }}</span>
+                        <span v-if="au.prazo_defesa"> · {{ prazoPassou(au.prazo_defesa) ? 'prazo de defesa encerrado em' : 'prazo de defesa até' }} {{ au.prazo_defesa }}</span>
+                      </p>
+                    </li>
+                  </ul>
+                  <p v-if="multasDetalhe.autuacoes_em_andamento > autuacoesItens.length" class="rel__multas-nota">
+                    E mais {{ multasDetalhe.autuacoes_em_andamento - autuacoesItens.length }} sem detalhe nesta consulta.
+                  </p>
+                </template>
+                <p v-else-if="multasDetalhe.autuacoes_em_andamento" class="rel__multas-nota">
                   {{ multasDetalhe.autuacoes_em_andamento }}
                   {{ multasDetalhe.autuacoes_em_andamento === 1 ? 'autuação em andamento' : 'autuações em andamento' }}
                   no DETRAN (ainda sem multa).
@@ -4743,6 +4780,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     b { color: #a32020; white-space: nowrap; }
     // Multa sem valor definido (autuacao em andamento): texto, nao R$ 0,00.
     b.rel__multas-sem-valor { color: #6b7280; font-weight: 500; white-space: normal; text-align: right; }
+    b.rel__autuacao-tag { white-space: nowrap; flex-shrink: 0; }
   }
   &__multas-st-alerta { color: #a32020 !important; font-weight: 700; }
   &__efeito { display: block; margin-top: 2px; font-size: calc(12px * var(--rel-fs, 1)); color: #6b4e00; font-weight: 600; }
