@@ -768,6 +768,7 @@ export function parsearDetranMg(data: any, hoje: Date = new Date()) {
     // Destaque vermelho no bloco. Texto fixo, factual, citando a fonte.
     alerta_roubo_furto: rouboFurto ? 'Restrição informada pelo DETRAN-MG: roubo/furto' : null,
     autuacoes_em_andamento: autuacoes.length,
+    autuacoes_itens: autuacoesItens(autuacoes),
   }
 }
 
@@ -817,6 +818,7 @@ export function parsearDetranBa(data: any) {
     licenciamento_atrasado_ano: null as number | null,
     restricoes_detran: [] as { tipo: string; texto: string }[],
     autuacoes_em_andamento: tramitacao.length,
+    autuacoes_itens: autuacoesItens(tramitacao),
   }
 }
 
@@ -1335,6 +1337,67 @@ export function multaGenerica(m: any) {
   }
 }
 
+/** Autuacao em andamento (ainda sem multa/valor), so os campos da whitelist. */
+export interface DetranAutuacao {
+  ait: string | null
+  codigo: string | null
+  descricao: string | null
+  data: string | null
+  hora: string | null
+  local: string | null
+  municipio: string | null
+  orgao: string | null
+  situacao: string | null
+  /** Prazo para apresentar defesa previa (data_defesa no DETRAN-MG). */
+  prazo_defesa: string | null
+  /** Prazo de recurso, quando a fonte manda uma data. */
+  prazo_recurso: string | null
+  /**
+   * Valor previsto da infracao, se a fonte manda (o DETRAN-MG manda, ex.:
+   * 130,16). Guardado, nao exibido: autuacao ainda nao e multa cobrada.
+   */
+  valor_previsto: number | null
+}
+
+/**
+ * Autuacoes em andamento (Cesar, 19/out/2026): antes so a contagem ia pro
+ * relatorio ("1 autuacao em andamento"). Whitelist: o que e, quando, onde,
+ * orgao, situacao e prazo de defesa. NUNCA html_url, placa, marca/cor nem dado
+ * de pessoa (o item e montado campo a campo, nada do objeto cru passa).
+ */
+export function autuacaoGenerica(m: any): DetranAutuacao {
+  const texto = (v: any) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t && t !== '--' ? t.slice(0, 200) : null }
+  const dataBruta = String(primeiro(m, ['data_infracao', 'data', 'data_hora_infracao', 'data_hora', 'datahora']) ?? '')
+  const { data, hora } = dataHoraBr(dataBruta)
+  const prazo = String(primeiro(m, ['data_defesa', 'data_limite_defesa', 'prazo_defesa', 'prazo_defesa_previa']) ?? '')
+  const recurso = String(primeiro(m, ['data_limite_recurso', 'prazo_recurso']) ?? '')
+  const valorBruto = primeiro(m, ['normalizado_valor', 'valor_normalizado', 'valor'])
+  const valor = typeof valorBruto === 'number' ? valorBruto : moeda(valorBruto)
+  return {
+    ait: texto(primeiro(m, ['ait', 'auto', 'auto_infracao', 'numero_auto', 'numero_ait', 'numero_autuacao', 'infracao_numero'])),
+    codigo: texto(primeiro(m, ['codigo', 'codigo_infracao', 'cod_infracao', 'enquadramento'])),
+    descricao: texto(primeiro(m, ['descricao', 'descricao_infracao', 'infracao_descricao', 'desc_infracao', 'dados_infracao', 'infracao'])),
+    data: data || texto(dataBruta.match(/\d{2}\/\d{2}\/\d{4}/)?.[0]),
+    hora: horaHhMm(primeiro(m, ['hora_infracao', 'hora'])) || hora,
+    local: texto(primeiro(m, ['local', 'local_infracao'])),
+    municipio: texto(primeiro(m, ['municipio', 'municipio_infracao'])),
+    orgao: texto(primeiro(m, ['orgao', 'orgao_autuador', 'orgao_atuador', 'autuador'])),
+    // processamento NAO: no MG e um numero interno ("11019992"), nao situacao.
+    situacao: texto(primeiro(m, ['situacao', 'status'])),
+    prazo_defesa: prazo.match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? null,
+    prazo_recurso: recurso.match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? null,
+    valor_previsto: valor > 0 ? valor : null,
+  }
+}
+
+/** Lista de autuacoes com algum detalhe util (linha vazia ou "nada consta" sai). */
+export function autuacoesItens(lista: any[]): DetranAutuacao[] {
+  return (Array.isArray(lista) ? lista : [])
+    .filter((x) => x && typeof x === 'object')
+    .map(autuacaoGenerica)
+    .filter((a) => (a.descricao && !/^\s*nenhum|nada\s+consta/i.test(a.descricao)) || a.ait || a.codigo || a.data)
+}
+
 function blocoSoMultas(fonte: string, itens: ReturnType<typeof multaGenerica>[], extra: Record<string, any> = {}) {
   return {
     status: 'ok' as const,
@@ -1498,7 +1561,8 @@ export function parsearDetranMa(data: any) {
   const d = data || {}
   if (!('penalidades' in d) && !('debitos' in d)) return null
   const itens = listagemDe(d.penalidades).map(multaGenerica)
-  const autuacoes = listagemDe(d.infracoes_atuacao).length
+  const autuacoesLista = listagemDe(d.infracoes_atuacao)
+  const autuacoes = autuacoesLista.length
   const ipvaItens = ordenarIpva(listagemDe(d.ipva).map(ipvaItemGenerico).filter(Boolean) as IpvaItem[])
   const restricoes: { tipo: string; texto: string }[] = []
   const outros = listagemDe(d.debitos).map((x) => ({ desc: String(x.descricao || 'Débito no DETRAN-MA').replace(/\s+/g, ' ').trim(), v: ipvaItemGenerico(x)?.valor_centavos || 0 })).filter((x) => x.v > 0)
@@ -1508,6 +1572,7 @@ export function parsearDetranMa(data: any) {
     ipva_total_centavos: ipvaItens.reduce((a, x) => a + x.valor_centavos, 0),
     ipva_itens: ipvaItens,
     autuacoes_em_andamento: autuacoes,
+    autuacoes_itens: autuacoesItens(autuacoesLista),
     restricoes_detran: restricoes,
   }
 }
@@ -1541,6 +1606,7 @@ export function parsearDetranAc(data: any, hoje: Date = new Date()) {
     ultimo_licenciamento_ano: ultimoLicAno,
     licenciamento_atrasado_ano: ultimoLicAno != null && ultimoLicAno <= hoje.getFullYear() - 2 ? ultimoLicAno : null,
     autuacoes_em_andamento: listagemDe(inf.notificacao_autuacao).length,
+    autuacoes_itens: autuacoesItens(listagemDe(inf.notificacao_autuacao)),
     alerta_roubo_furto: roubo && !/nada\s+consta/i.test(roubo) ? 'Restrição informada pelo DETRAN-AC: roubo/furto' : null,
     restricoes_detran: restricoes,
   }
@@ -1662,6 +1728,7 @@ export function parsearDetranRn(data: any, hoje: Date = new Date()) {
     licenciamento_em: dataLicenciamentoIso(venc),
     licenciamento_atrasado_ano: licAno != null && licAno <= hoje.getFullYear() - 2 ? licAno : null,
     autuacoes_em_andamento: emAberto(listaDe(d.infracoes)).length,
+    autuacoes_itens: autuacoesItens(emAberto(listaDe(d.infracoes))),
     alerta_roubo_furto: restricoes.some((r) => r.tipo === 'furto') ? 'Restrição informada pelo DETRAN-RN: roubo/furto' : null,
     restricoes_detran: restricoes,
   }
@@ -1781,6 +1848,7 @@ export function parsearDetranPe(data: any, log: (msg: string) => void = (m) => c
     licenciamento_centavos: Math.round(lic * 100),
     restricoes_detran: restricoes,
     autuacoes_em_andamento: autuacoes,
+    autuacoes_itens: Array.isArray(autu) ? autuacoesItens(autu) : [],
   }
 }
 
@@ -1868,6 +1936,7 @@ export function parsearDetranEs(data: any, hoje: Date = new Date(), log: (msg: s
     licenciamento_em: dataLicenciamentoIso(d.ultimo_crlv),
     restricoes_detran: restricoes,
     autuacoes_em_andamento: multas.length ? infracoes.length : 0,
+    autuacoes_itens: multas.length ? autuacoesItens(infracoes) : [],
   }
 }
 
