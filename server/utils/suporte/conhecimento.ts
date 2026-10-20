@@ -84,7 +84,7 @@ export function promptDoSistema(): string {
     '',
     'PRODUTO (fonte: configuração do site, use exatamente estes preços):',
     planosTexto(),
-    `Histórico de leilão: cruzado com ${BASE_LEILAO_TEXTO}.`,
+    `Histórico de leilão (só no relatório completo): cruzado com a nossa base, de ${BASE_LEILAO_TEXTO}; quando ela não encontra nada, consultamos também uma base parceira premium de leilões e sinistros, que traz ainda o indício de sinistro. Nunca cite o nome dessa base parceira.`,
     'Pagamento: Pix ou cartão de crédito, pagamento único, sem assinatura. O relatório libera sozinho quando o pagamento é confirmado, em segundos na maioria das vezes.',
     'Se não acharmos o veículo, o valor volta automaticamente (Pix na hora; cartão em até 10 dias úteis, conforme o banco).',
     `Nota fiscal: pedir por e-mail em ${EMAIL_CONTATO_SUPORTE}.`,

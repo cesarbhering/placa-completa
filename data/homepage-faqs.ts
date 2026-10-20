@@ -23,7 +23,7 @@ export const homepageFaqs: HomepageFaq[] = [
   },
   {
     question: 'A consulta é grátis?',
-    answer: `A primeira olhada é. A consulta grátis aparece na própria tela, sem cadastro e sem pedir e-mail, e mostra marca, modelo, ano de fabricação e do modelo, cor, combustível, origem e o começo do chassi. Quem precisa de mais tem dois níveis pagos: a consulta básica, por ${precoBasica}, traz valor FIPE com histórico de depreciação, seguro estimado, custo em 5 anos e a ficha técnica completa; o relatório completo, por ${precoCompleta}, traz também chassi e Renavam completos, restrição, roubo e furto, registro de leilão, gravame, bloqueio judicial e indicador de multas.`,
+    answer: `A primeira olhada é. A consulta grátis aparece na própria tela, sem cadastro e sem pedir e-mail, e mostra marca, modelo, ano de fabricação e do modelo, cor, combustível, origem e o começo do chassi. Quem precisa de mais tem dois níveis pagos: a consulta básica, por ${precoBasica}, traz valor FIPE com histórico de depreciação, seguro estimado, custo em 5 anos e a ficha técnica completa; o relatório completo, por ${precoCompleta}, traz também chassi e Renavam completos, restrição, roubo e furto, registro de leilão, indício de sinistro, gravame, bloqueio judicial e indicador de multas.`,
   },
   {
     question: 'Quais as formas de pagamento?',
