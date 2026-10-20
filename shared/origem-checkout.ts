@@ -11,6 +11,7 @@ export const ORIGENS_CHECKOUT = [
   'hero_home', //       botao do topo da home (header)
   'hero_apos_cta', //   clicou num CTA pago sem placa, digitou a placa no topo e seguiu
   'link_direto', //     /?placa=...&plano=... (upgrade da basica, links)
+  'link_plano', //      /?plano=... sem placa: digita a placa e vai direto ao pagamento
   'pix_recovery', //    /premium?placa=... (e-mail de recuperacao de Pix)
   'app', //             reservado: abertura propria do app (hoje o app usa os mesmos botoes do site)
   'outro', //           demais botoes (secao final, FIPE por placa...)
@@ -36,6 +37,7 @@ export const ROTULO_ORIGEM_CHECKOUT: Record<OrigemCheckout | 'nao_medido', strin
   hero_home: 'Topo da home',
   hero_apos_cta: 'Topo depois do CTA',
   link_direto: 'Link direto',
+  link_plano: 'Link com plano',
   pix_recovery: 'Recuperação de Pix',
   app: 'App',
   outro: 'Outro botão',
