@@ -228,6 +228,7 @@ export default defineEventHandler(async (event) => {
           consulta_id: pedido.consulta_id,
           preview: pedido.preview,
           campos: pendentes,
+          pedidoId: pedido.id,
         })
         if (preenchido.chassiOrigem !== undefined) chassiOrigem = preenchido.chassiOrigem
         if (preenchido.valorCusto !== undefined) valorCusto = preenchido.valorCusto
@@ -280,7 +281,7 @@ export default defineEventHandler(async (event) => {
       } else {
         const snapshot = await montarRelatorioSnapshot(supabase, {
           placa: pedido.placa, plano, consulta_id: pedido.consulta_id, preview: pedido.preview,
-          token: String(token),
+          token: String(token), id: pedido.id,
         })
         consulta = snapshot.consulta
         restantes = snapshot.camposRestantes

@@ -276,6 +276,7 @@ export async function processarPedidoPago(
         consulta_id: r.consultaId,
         preview: pedido.preview,
         token: pedido.token_entrega,
+        id: pedido.id,
       })
       await supabase
         .from('pedidos_premium')
