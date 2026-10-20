@@ -136,3 +136,69 @@ export const postRecallVolvoEx30: BlogPost = {
     },
   ],
 }
+
+export const postRecallExterior: BlogPost = {
+  slug: 'recall-china-malasia-vale-para-o-brasil',
+  title: 'Recall na China e na Malásia: vale para o Brasil? Omoda 5 e BYD',
+  seoTitles: [
+    'Recall Omoda 5 e BYD: vale para o Brasil?',
+    'Recall no exterior: Omoda 5 e BYD valem no Brasil?',
+    'Recall Omoda 5 e BYD na China e Malásia: e no Brasil?',
+  ],
+  metaDescription: 'Recalls do Omoda 5 na Malásia e da BYD na China chegaram ao noticiário. Veja o que dizem as marcas, que não há chamado no Brasil e o que o dono pode conferir.',
+  publishedAt: '2026-10-20',
+  categoria: 'Recall',
+  capa: {
+    src: '/images/blog/recall-china-malasia-vale-para-o-brasil.png',
+    og: '/images/blog/recall-china-malasia-vale-para-o-brasil-1200.png',
+    alt: 'Recall no exterior: Omoda 5 e BYD. Não há chamado no Brasil. O que conferir.',
+    largura: 1600,
+    altura: 836,
+  },
+  content: [
+    {
+      type: 'intro',
+      text: 'Nas últimas semanas, notícias de recall do **Omoda 5 na Malásia** e da **BYD na China** ganharam força nas buscas. A dúvida de quem tem ou pensa em comprar um desses carros é direta: isso vale para o Brasil? **Até a data deste post, não encontramos chamado de recall dessas marcas no Brasil para esses casos.** Veja o que cada caso diz e como conferir.',
+    },
+    {
+      type: 'heading',
+      heading: 'Omoda 5: o caso da Malásia',
+      text: 'Em outubro de 2026, o órgão de trânsito da Malásia (JPJ) emitiu um comunicado sobre unidades do Omoda 5 montadas no país, por possível desprendimento de peça da suspensão traseira (solda dos braços da suspensão), e a Chery suspendeu as vendas por lá.\n\nA Omoda & Jaecoo Brasil afirma que o carro vendido aqui, o **Omoda 5 HEV**, tem configuração diferente: suspensão traseira independente multilink e conjunto híbrido distinto. A marca também diz que não há confirmação da causa do caso malaio nem relação com o mercado brasileiro.\n\nEm fevereiro de 2026 houve ainda um chamado no Reino Unido, por possível afrouxamento da porca do cubo de roda em Omoda 5 e E5. Também é outro mercado e outro chamado.',
+    },
+    {
+      type: 'heading',
+      heading: 'BYD: o caso da China',
+      text: 'Em 25 de setembro de 2026, a BYD anunciou recall de cerca de 183 mil carros na China (modelos Qin e Tang, fabricados entre 2014 e 2022), por um lote de batentes do pedal de freio que pode rachar ou se soltar e fazer as luzes de freio acenderem sozinhas.\n\nSegundo a BYD, o recall não impacta veículos vendidos fora do mercado chinês, e a BYD Brasil informou que os carros vendidos no país não estão incluídos nos recalls anunciados na China.\n\nAtenção a sites que prometem recall da BYD no Brasil sem citar a Senacon ou a própria marca: confirme sempre em fonte oficial.',
+    },
+    {
+      type: 'heading',
+      heading: 'Por que um recall lá fora pode virar um recall aqui',
+      text: 'Recall depende do modelo, da fábrica, do lote e da versão. Quando um defeito aparece em outro país, a montadora avalia se o mesmo componente existe nos carros vendidos no Brasil. Se existir, ela é obrigada a comunicar o chamado às autoridades brasileiras. Se não existir, não há campanha aqui. Por isso o noticiário de fora não é, sozinho, um aviso para o dono brasileiro.',
+    },
+    {
+      type: 'heading',
+      heading: 'O que o dono pode conferir',
+      text: '1. **Placa ou chassi:** veja se o carro consta em campanha de recall. É grátis no PlacaCompleta.\n2. **Site e central da marca:** peça confirmação do chassi à Omoda & Jaecoo Brasil ou à BYD Brasil.\n3. **Senacon:** a Secretaria Nacional do Consumidor recebe todos os chamados de recall no país e mantém a lista oficial.\n4. **Carta e contato da concessionária:** se houver campanha, a marca avisa o dono por carta, e-mail ou telefone.\n\nSe aparecer um chamado no Brasil, a consulta de placa passa a indicar que o carro consta na campanha. Aí vale verificar com a marca se o atendimento já foi feito.',
+    },
+    {
+      type: 'cta',
+      text: 'Veja se consta recall para a sua placa. A consulta é grátis.',
+      ctaLabel: 'Consultar placa grátis',
+      ctaTo: '/',
+    },
+    {
+      type: 'faq',
+      heading: 'Perguntas frequentes',
+      faq: [
+        { q: 'O Omoda 5 vendido no Brasil tem recall por causa da Malásia?', a: 'Não encontramos chamado de recall do Omoda 5 no Brasil por esse caso. A Omoda & Jaecoo Brasil diz que o modelo vendido aqui tem suspensão traseira multilink e conjunto híbrido diferentes. Confirme o seu chassi com a marca.' },
+        { q: 'Os carros da BYD vendidos no Brasil estão no recall chinês?', a: 'Segundo a BYD, o recall anunciado na China não impacta veículos vendidos fora daquele mercado, e a BYD Brasil informou que os carros do país não estão incluídos.' },
+        { q: 'Como saber se um recall novo chegou ao Brasil?', a: 'Consulte a placa no PlacaCompleta, a central da marca ou a lista da Senacon. Quando houver chamado, o carro passa a constar como em campanha.' },
+      ],
+    },
+    {
+      type: 'heading',
+      heading: 'Fontes',
+      text: '- [Autoindústria: Omoda 5 tem novo recall na Malásia](https://www.autoindustria.com.br/2026/10/13/omoda-5-tem-novo-recall-na-malasia-por-desprendimento-da-suspensao-traseira/) (inclui a posição da Omoda & Jaecoo Brasil)\n- [Auto+ TV: Omoda 5 e as vendas suspensas na Malásia](https://www.automaistv.com.br/novidades/omoda-5-eixo-traseiro-vendas-suspensas-malasia/)\n- [Vrum: BYD faz recall de 183 mil carros na China](https://www.vrum.com.br/aceleradas/2026/09/7508411-byd-faz-recall-de-183-mil-carros-por-falha-inusitada-nos-freios.html)\n- [Tribuna PR: BYD diz que recall é só na China](https://www.tribunapr.com.br/noticias/automoveis/byd-fala-que-recall-dos-veiculos-dolphin-e-yuan-plus-e-so-na-china/)\n- Canais oficiais: Omoda & Jaecoo Brasil, BYD Brasil e Senacon (Ministério da Justiça).',
+    },
+  ],
+}
