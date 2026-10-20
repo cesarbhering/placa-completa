@@ -9,7 +9,7 @@ import { dadosDe } from '~/shared/dados-de'
 import { resumoQuitar, procedenciaDebitos, procedenciaKm, ufDoBlocoDetran, statusBaseNacional } from '~/shared/detran-quitar'
 import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN, esconderMultasQueFalharam } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
-import { metaCupomRecompra, linkWhatsappRecompra } from '~/shared/cupom-recompra-texto'
+import { metaCupomRecompra, linkWhatsappRecompra, pctDoCupom } from '~/shared/cupom-recompra-texto'
 import { codigoFipeDoRelatorio } from '~/shared/codigo-fipe'
 import { codigoDaTabela, tabelaDoSegmento } from '~/shared/tabela-fipe'
 import { versoesParaExibir } from '~/shared/versao-fipe'
@@ -61,7 +61,7 @@ const { trackConversionPaga, track } = useAnalytics()
 // ---------- cupom de recompra (card do fim) ----------
 // O cupom nasce ~6 s depois da entrega. Se a pagina abriu antes, busca leve a
 // cada 5 s por ate 1 min (endpoint so do cupom, sem recarregar o relatorio).
-const cupomBuscado = ref<{ codigo: string; validoAte: string } | null>(null)
+const cupomBuscado = ref<{ codigo: string; validoAte: string; pct?: number | null } | null>(null)
 const cupomCard = computed(() => data.value?.cupomRecompra || cupomBuscado.value || null)
 const cupomCopiado = ref(false)
 const codigoCupomEl = ref<HTMLElement | null>(null)
@@ -3278,12 +3278,12 @@ onUnmounted(() => {
                pronto. So tela (mesmo tratamento do upsell da basica acima,
                .rel__card--up some na impressao: e conversa de produto, nao
                parte do laudo). -->
-          <!-- Cupom de recompra (20%, 7 dias, qualquer placa, pode compartilhar).
+          <!-- Cupom de recompra (10% desde 20/out/2026, 7 dias, qualquer placa, pode compartilhar).
                Opcao 1 do Cesar + botao de WhatsApp. Sem cupom (vencido ou
                relatorio antigo): card simples. -->
           <section v-if="cupomCard" class="rel__card rel__card--up rel__recompra">
             <p class="rel__recompra-eyebrow">Vai ver outro carro?</p>
-            <h2 class="rel__recompra-tit">Sua próxima consulta sai com 20% de desconto</h2>
+            <h2 class="rel__recompra-tit">Sua próxima consulta sai com {{ pctDoCupom(cupomCard) }}% de desconto</h2>
             <div class="rel__recompra-chip">
               <span ref="codigoCupomEl" class="rel__recompra-codigo">{{ cupomCard.codigo }}</span>
               <button type="button" class="rel__recompra-copiar" @click="copiarCupom">{{ cupomCopiado ? 'Copiado' : 'Copiar' }}</button>
