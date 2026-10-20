@@ -28,8 +28,8 @@ describe('FAQ de carro de leilao', () => {
     }
   })
 
-  it('tem as seis perguntas aprovadas, e cada uma responde de verdade', () => {
-    expect(PERGUNTAS_LEILAO).toHaveLength(6)
+  it('tem as nove perguntas, e cada uma responde de verdade', () => {
+    expect(PERGUNTAS_LEILAO).toHaveLength(9)
     for (const q of PERGUNTAS_LEILAO) {
       expect(q.pergunta.endsWith('?')).toBe(true)
       // Resposta curta demais vira snippet ruim e nao responde ninguem.
