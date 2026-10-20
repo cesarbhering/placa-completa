@@ -754,6 +754,35 @@ const numeroDoc = computed(() => {
   return `PC-${ano}-${h.toString(36).toUpperCase().padStart(6, '0').slice(0, 6)}`
 })
 
+// Impressao: rodape de cada folha (endereco do relatorio e "Pagina N de M")
+// pelas margin boxes do @page, que o Chromium suporta. O endereco e dinamico,
+// por isso o @page sai daqui e nao do CSS do componente. Texto sem aspas nem
+// barra invertida (vai dentro de content: "...").
+const rodapeImpressao = computed(() => {
+  const limpa = (t: string) => t.replace(/["\\]/g, '')
+  const doc = numeroDoc.value ? `Documento ${numeroDoc.value} · ` : ''
+  const placa = data.value?.placa ? `placa ${data.value.placa} · ` : ''
+  return limpa(`${doc}${placa}placacompleta.com.br/premium/${token}`)
+})
+useHead(() => ({
+  style: [{
+    key: 'rel-print-page',
+    innerHTML: `@page { @bottom-left { content: "${rodapeImpressao.value}"; font: 7.5pt Manrope, system-ui, sans-serif; color: #666; } `
+      + '@bottom-right { content: "Página " counter(page) " de " counter(pages); font: 7.5pt Manrope, system-ui, sans-serif; color: #666; } }',
+  }],
+}))
+// Secoes expansiveis (<details>) saem abertas no papel e voltam como estavam.
+if (import.meta.client) {
+  const abertosAntes = new Set<HTMLDetailsElement>()
+  const antes = () => {
+    abertosAntes.clear()
+    document.querySelectorAll<HTMLDetailsElement>('.rel details').forEach((d) => { if (!d.open) { abertosAntes.add(d); d.open = true } })
+  }
+  const depois = () => { abertosAntes.forEach((d) => { d.open = false }); abertosAntes.clear() }
+  onMounted(() => { window.addEventListener('beforeprint', antes); window.addEventListener('afterprint', depois) })
+  onBeforeUnmount(() => { window.removeEventListener('beforeprint', antes); window.removeEventListener('afterprint', depois) })
+}
+
 // Fuso fixo: sem ele, servidor e navegador formatam horas diferentes e o Vue
 // acusa hydration mismatch.
 const emissaoFmt = computed(() => {
@@ -2273,6 +2302,7 @@ onUnmounted(() => {
               <span class="rel__doc-titulo">Relatório de Consulta Veicular</span>
               <span class="rel__doc-linha">{{ isBasica ? PLANOS.basica.nome : PLANOS.completa.nome }} · Documento {{ numeroDoc }}</span>
               <span v-if="emissaoFmt" class="rel__doc-linha">Emitido em {{ emissaoFmt }}</span>
+              <span class="rel__doc-linha rel__doc-placa">Placa {{ data.placa }}</span>
             </div>
           </header>
           <p class="rel__doc-validade">
@@ -3198,7 +3228,9 @@ onUnmounted(() => {
           <!-- Checklist de vistoria e transferencia (Relatorio 2.0, item 5). -->
           <section class="rel__card rel__check">
             <h2 class="rel__h2">{{ numSecao.check }}. O que conferir antes de fechar negócio</h2>
-            <p class="rel__check-sub">Leve esta lista na hora de ver o carro. Os itens em destaque vêm do que consta neste relatório. Marque o que já conferiu: fica salvo neste relatório, em qualquer aparelho.</p>
+            <p class="rel__check-sub rel__check-tela">Leve esta lista na hora de ver o carro. Os itens em destaque vêm do que consta neste relatório. Marque o que já conferiu: fica salvo neste relatório, em qualquer aparelho.</p>
+            <!-- No papel: lista simples com caixa vazia pra riscar a caneta (Cesar, 20/out). -->
+            <p class="rel__check-sub rel__check-papel">Leve esta lista na hora de ver o carro e marque à caneta o que já conferiu. Os itens em destaque vêm do que consta neste relatório.</p>
             <p class="rel__check-cont" role="status" aria-live="polite">{{ checklistMarcados }} de {{ checklistTotal }} conferidos</p>
             <div class="rel__check-cols">
               <div v-for="bloco in [{ t: 'Na vistoria do carro', itens: checklist.vistoria }, { t: 'Na transferência', itens: checklist.transferencia }]" :key="bloco.t" class="rel__check-col">
@@ -3322,6 +3354,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   padding: 24px 16px 64px;
 
   &__wrap { max-width: 860px; margin: 0 auto; }
+  &__doc-placa { display: none; }
 
   &__navband {
     background: $c-canvas;
@@ -4488,6 +4521,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   // ---- checklist de vistoria e transferencia ----
   &__check-sub { margin: 0 0 12px; font-size: calc(13px * var(--rel-fs, 1)); color: #555; }
+  &__check-papel { display: none; }
   &__check-cols { display: grid; grid-template-columns: 1fr; gap: 16px; }
   @media (min-width: 900px) { &__check-cols { grid-template-columns: 1fr 1fr; gap: 24px; } }
   &__check-h3 { margin: 0 0 8px; font-size: calc(14px * var(--rel-fs, 1)); font-weight: 700; color: #1a1a1a; }
@@ -5123,58 +5157,110 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__rodape { font-size: calc(12px * var(--rel-fs, 1)); color: $c-graphite; text-align: center; margin: 20px 0 0; }
 }
 
-// Impressao: o relatorio e um documento, entao tem que sair limpo no papel.
+// Impressao (Cesar, 20/out/2026): o relatorio e um documento. A4 com margem
+// pequena, largura total (sem a coluna estreita da tela), so o laudo: nada de
+// botao, faixa de e-mail, venda, checklist interativo ou menu. Cards podem
+// quebrar entre folhas (antes, card inteiro "evitando quebra" deixava meia
+// folha em branco); quem nao quebra sao os itens de dentro, e o titulo de cada
+// secao fica preso ao conteudo. Fundo colorido so onde e sinal (vermelho e
+// amarelo), com print-color-adjust: exact; o resto sai sem fundo.
+// Numero de pagina e endereco do relatorio: margin boxes do @page, montadas
+// por useHead (o endereco e dinamico).
+@page { size: A4; margin: 11mm 10mm 13mm; }
 @media print {
-  .rel { background: #fff; padding: 0; }
-  .rel__acoes, .rel__navband, .rel__info { display: none !important; }
+  .rel { background: #fff; padding: 0; min-height: 0; --rel-fs: 0.94; }
+  .rel__wrap { max-width: none; width: auto; margin: 0; padding: 0; }
 
-  // Marca d'agua e rodape corrido: position fixed em impressao repete em TODA
-  // folha no Chromium — e o unico jeito confiavel de rodape por pagina, ja que
-  // margin boxes de @page nao tem suporte la.
+  // Fora do papel: acoes, navegacao, dicas, faixa de e-mail, venda (upsell e
+  // recompra), checklist interativo, alternancias de grafico, o QR de
+  // autenticidade fica (e o que confere o documento).
+  .rel__acoes, .rel__navband, .rel__info, .rel__email, .rel__card--up,
+  .rel__var-toggle, .rel__btn, .rel__print-pe, .rel__doc-validade { display: none !important; }
+
+  // Checklist: no papel e lista simples, com caixa vazia (☐) pra riscar a
+  // caneta. Sem as caixinhas interativas, contador nem texto de "fica salvo".
+  .rel__check-input, .rel__check-cont, .rel__check-erro, .rel__check-tela { display: none !important; }
+  .rel__check-papel { display: block !important; }
+  .rel__check-label { min-height: 0; padding: 4px 0; grid-template-columns: 16px 1fr; gap: 6px; cursor: auto; }
+  .rel__check-label::before { content: '☐'; font-size: 13px; line-height: 1.2; color: #333; }
+  .rel__check-item--ok span { color: inherit; }
+  .rel__check-item--rel { background: none !important; }
+  button { display: none !important; }
+
+  // Marca d'agua: position fixed repete em toda folha no Chromium.
   .rel__print-marca {
     display: block !important;
     position: fixed;
     top: 50%;
     left: 50%;
-    width: 420px;
+    width: 380px;
     height: auto;
     transform: translate(-50%, -50%);
-    opacity: 0.05;
+    opacity: 0.04;
     z-index: 0;
     pointer-events: none;
   }
 
-  .rel__print-pe {
-    display: block !important;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 4px 0 2px;
-    border-top: 1px solid #ccc;
-    background: #fff;
-    font-size: calc(9px * var(--rel-fs, 1));
-    text-align: center;
-    color: #636363;
+  // Cabecalho da 1a folha: logo, titulo, numero, emissao e a placa.
+  .rel__doc { margin: 0 0 6px; padding: 0 0 6px; }
+  .rel__doc-placa { display: block !important; }
+
+  // Cards: borda fina, sem sombra, e podem quebrar entre folhas.
+  .rel__card {
+    border: 1px solid #cfd3d8; box-shadow: none; border-radius: 6px;
+    padding: 10px 12px; margin: 0 0 8px;
+    break-inside: auto;
+  }
+  .rel__h2 { break-after: avoid; page-break-after: avoid; margin-bottom: 6px; }
+  .rel__h2 + * { break-before: avoid; page-break-before: avoid; }
+  h3, .rel__multas-sub, .rel__leilao-sub, .rel__parecer-rotulo { break-after: avoid; page-break-after: avoid; }
+
+  // O que nao pode partir no meio.
+  .rel__veh, .rel__veredito, .rel__inds, .rel__ind, .rel__tempo-item, .rel__restr, .rel__resumo-linha,
+  .rel__multas-item, .rel__multas-r, .rel__recall, .rel__recall-item, .rel__recall-top,
+  .rel__leilao, .rel__lote, .rel__var-item, .rel__c12, .rel__valor, .rel__renave, .rel__espera,
+  .rel__aut, .rel__dep, .rel__fipe-ambiguo, svg, table, tr, figure, li {
+    break-inside: avoid; page-break-inside: avoid;
+  }
+  // Card de leilao muito grande (muitas fotos) pode quebrar; as fotos nao.
+  .rel__leilao { break-inside: auto; }
+  .rel__lote-fotos { break-inside: avoid; }
+
+  // Fotos: ate 2 por linha, tamanho controlado.
+  .rel__lote-fotos, .rel__lote-fotos--possivel {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px;
+    overflow: visible;
+  }
+  .rel__lote-foto { width: 100% !important; height: 52mm !important; object-fit: cover; aspect-ratio: auto; }
+
+  // Fundo: so sinal sai colorido. O resto vira papel branco.
+  .rel__card, .rel__leilao, .rel__recall, .rel__var-item, .rel__c12 { background: #fff !important; }
+  .rel__ind--bad, .rel__ind--atencao, .rel__veredito--alerta, .rel__veredito--risco, .rel__tag,
+  .rel__leilao-recorr, .rel__recall:not(.rel__recall--assoc):not(.rel__recall--eua),
+  .rel__ind-val::before, .rel__grav, .rel__multas-restr {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
 
-  // folga pro rodape fixo nao cobrir a ultima linha de conteudo
-  .rel__wrap { padding-bottom: 34px; }
-  .rel__card { border-color: #ccc; box-shadow: none; break-inside: avoid; }
+  // Secoes expansiveis saem abertas (o JS tambem abre os <details> no beforeprint).
+  details > summary { list-style: none; }
+  details > summary::after, details > summary::marker { content: none; }
+  details::details-content { content-visibility: visible; display: block; }
 
-  // O upsell e conversa de tela: no papel vira panfleto grampeado no laudo.
-  .rel__card--up { display: none !important; }
+  // Graficos e tabelas: largura do papel.
+  svg, canvas, img { max-width: 100%; }
 
   // O rodape e os overlays vivem no app.vue e no body (Teleport): CSS escopado
-  // nao os alcanca, e era por isso que o PDF saia com rodape, selo do Google
-  // Play e afins. O :global cria a regra sem escopo; o body:has(...) prende o
-  // efeito a paginas onde o relatorio esta montado, senao a folha de estilo
-  // desta pagina (que sobrevive a navegacao no SPA) apagaria o rodape da
-  // impressao de qualquer outra tela.
+  // nao os alcanca. O body:has(...) prende o efeito a paginas com o relatorio.
   :global(body:has(.rel__wrap) .footer) { display: none !important; }
   :global(body:has(.rel__wrap) .pch-overlay) { display: none !important; }
   :global(body:has(.rel__wrap) .pch-card) { display: none !important; }
+  :global(body:has(.rel__wrap) .home-header) { display: none !important; }
   :global(body:has(.rel__wrap) .home-header__gaveta) { display: none !important; }
   :global(body:has(.rel__wrap) .home-header__scrim) { display: none !important; }
+  :global(body:has(.rel__wrap) .wa-flutuante) { display: none !important; }
+  :global(body:has(.rel__wrap) header:not(.rel__doc)) { display: none !important; }
+  :global(body:has(.rel__wrap) nav) { display: none !important; }
 }
 </style>
