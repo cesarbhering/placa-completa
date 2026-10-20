@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""pc-recall-publicar: recall NOVO na base -> post no blog (PR) -> tweet depois do merge.
+
+Roda dia 2, 09h BRT, depois do pc-recall-refresh (04h). Nunca publica sozinho:
+  detectar : acha ids de recall_montadora que nunca entraram em recall_publicacao
+             (e com start_date recente), grava como 'detectado', gera o post em
+             data/blog-posts-recall-auto.ts num PR e marca 'pr_aberto'.
+  tweet    : para cada 'pr_aberto' cujo PR ja foi mergeado, posta 1 tweet
+             (pc-x-post) e marca 'publicado' com tweet_id.
+  --baseline : marca tudo que ja existe como 'baseline' (rodar 1x).
+  --dry-run  : so imprime. --desde AAAA-MM-DD : janela de start_date (padrao 120d).
+Copy do post: so "consta"/"verifique se ja foi atendido"; sem travessao; sem SENATRAN.
+"""
+import argparse, json, os, re, subprocess, sys, datetime as dt, unicodedata
+
+SITE_WT = os.environ.get('SITE_WT', '/root/pc-recall-publicar-wt')
+SITE_REPO = os.environ.get('SITE_REPO', '/root/placa-completa')
+BASE_URL = 'https://placacompleta.com.br'
+
+def psql(sql, tuples=True):
+    cmd = ['docker', 'exec', '-i', 'leiloes-poc-db', 'psql', '-U', os.environ.get('DB_USER', 'leiloes'),
+           '-d', os.environ.get('DB_NAME', 'leiloes'), '-At', '-v', 'ON_ERROR_STOP=1', '-c', sql]
+    return subprocess.run(cmd, capture_output=True, text=True, check=True).stdout
+
+def q(v):
+    return 'NULL' if v is None else "'" + str(v).replace("'", "''") + "'"
+
+def slugify(s):
+    s = unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode().lower()
+    return re.sub(r'[^a-z0-9]+', '-', s).strip('-')[:70]
+
+def novos(desde):
+    sql = f"""select coalesce(json_agg(row_to_json(t)), '[]') from (
+      select m.id, m.marca, m.code, m.name, m.model, m.model_year, m.start_date, m.defeito,
+             m.o_que_fazer, m.risco, m.reparo, m.unidades, m.tipo_veiculo
+      from recall_montadora m left join recall_publicacao p on p.recall_id = m.id
+      where p.recall_id is null and m.start_date >= '{desde}' order by m.start_date) t"""
+    return json.loads(psql(sql).strip() or '[]')
+
+def baseline():
+    psql("""insert into recall_publicacao (recall_id, marca, titulo, start_date, status)
+            select id, marca, name, start_date, 'baseline' from recall_montadora on conflict do nothing""")
+    print('baseline ok')
+
+def frase(v, padrao):
+    v = (v or '').strip()
+    return v if v else padrao
+
+def gerar_post(r):
+    marca = r['marca'].title()
+    titulo_curto = f"{marca} {r['model']}"
+    slug = 'recall-' + slugify(f"{r['marca']} {r['model']} {r['name'] or ''}")
+    titulo = f"Recall {marca}: {r['name'] or r['model']} ({r['model']}, {r['model_year']})"
+    data = r['start_date']
+    sec = [
+      {'type': 'intro', 'text': f"A {marca} iniciou um chamado de recall em {data} para o **{r['model']}** ({r['model_year']}). "
+        f"Motivo: {frase(r['name'], 'REVISAR: assunto da campanha')}."},
+      {'type': 'heading', 'heading': 'O defeito em linguagem simples', 'text': frase(r['defeito'], 'REVISAR: explicar o defeito em linguagem leiga')
+        + ('\n\n' + r['risco'] if r.get('risco') else '')},
+      {'type': 'heading', 'heading': 'O que o dono deve fazer', 'text': frase(r['o_que_fazer'], 'REVISAR: orientacao ao dono')
+        + '\n\nO reparo e gratuito na rede autorizada. Confirme pelo chassi se o seu carro consta na campanha.'},
+      {'type': 'heading', 'heading': 'Vai comprar um desses carros usados?', 'text': 'Antes de fechar negocio, **veja se consta recall para a placa** e pergunte ao vendedor se o atendimento ja foi feito. O aviso indica que o carro consta em campanha, nao que o reparo esteja pendente.'},
+      {'type': 'cta', 'text': 'Veja se consta recall para a sua placa. A consulta e gratis.', 'ctaLabel': 'Consultar placa gratis', 'ctaTo': '/'},
+      {'type': 'heading', 'heading': 'Fonte', 'text': 'REVISAR: link da pagina oficial da montadora.'},
+    ]
+    return slug, titulo, sec
+
+def sh(cmd, cwd=None, check=True):
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=check).stdout.strip()
+
+def preparar_wt():
+    sh(['git', '-C', SITE_REPO, 'fetch', '-q', 'origin'])
+    if not os.path.isdir(SITE_WT):
+        sh(['git', '-C', SITE_REPO, 'worktree', 'add', '-q', '--detach', SITE_WT, 'origin/main'])
+    sh(['git', 'checkout', '-q', '--detach', 'origin/main'], cwd=SITE_WT)
+    sh(['git', 'reset', '-q', '--hard', 'origin/main'], cwd=SITE_WT)
+
+def detectar(desde, dry):
+    lista = novos(desde)
+    print(f'{len(lista)} recall(s) novo(s) desde {desde}')
+    if not lista or dry:
+        for r in lista: print(' -', r['marca'], r['model'], r['start_date'], r['name'])
+        return
+    for r in lista:
+        psql(f"insert into recall_publicacao (recall_id, marca, titulo, start_date, status) values ({q(r['id'])},{q(r['marca'])},{q(r['name'])},{q(r['start_date'])},'detectado') on conflict do nothing")
+    preparar_wt()
+    mes = dt.date.today().strftime('%Y-%m')
+    branch = f'seo/recall-auto-{mes}'
+    sh(['git', 'checkout', '-q', '-B', branch, 'origin/main'], cwd=SITE_WT)
+    posts, tweets = [], []
+    for r in lista:
+        slug, titulo, sec = gerar_post(r)
+        posts.append((r, slug, titulo, sec))
+    ts = ["import type { BlogPost } from './blog-posts'", '', '// GERADO por ops/recall-publicar/pc-recall-publicar. Revisar todo "REVISAR" antes do merge.', '',
+          'export const postsRecallAuto: BlogPost[] = [']
+    for r, slug, titulo, sec in posts:
+        ts.append('  ' + json.dumps({'slug': slug, 'title': titulo, 'metaDescription': f"Recall {r['marca'].title()} {r['model']} ({r['model_year']}): defeito, risco e o que o dono deve fazer. Veja se consta para a sua placa.",
+          'publishedAt': dt.date.today().isoformat(), 'categoria': 'Recall',
+          'capa': {'src': '/images/blog/recall-padrao.png', 'og': '/images/blog/recall-padrao-1200.png', 'alt': f"Recall {r['marca'].title()} {r['model']}", 'largura': 1600, 'altura': 836},
+          'content': sec}, ensure_ascii=False, indent=2).replace('\n', '\n  ') + ',')
+        tweets.append(f"Recall {r['marca'].title()} {r['model']} ({r['model_year']}): {r['name'] or 'novo chamado'}. Veja o que fazer e se consta para a sua placa: {BASE_URL}/blog/{slug}")
+    ts.append(']')
+    open(os.path.join(SITE_WT, 'data/blog-posts-recall-auto.ts'), 'w').write('\n'.join(ts) + '\n')
+    # cabecalho do data/blog-posts.ts precisa importar postsRecallAuto; o PR traz a mudanca manual minima.
+    sh(['git', 'add', 'data/blog-posts-recall-auto.ts'], cwd=SITE_WT)
+    sh(['git', 'commit', '-q', '-m', f'feat(blog): rascunho de posts de recall novos ({mes})'], cwd=SITE_WT)
+    sh(['git', 'push', '-q', '-f', '-u', 'origin', branch], cwd=SITE_WT)
+    corpo = 'Rascunho automatico de posts de recall novos. Revisar os trechos REVISAR, ligar em data/blog-posts.ts e mergear. O tweet sai so apos o merge.\n\nTweets:\n\n' + '\n\n'.join(tweets)
+    url = sh(['gh', 'pr', 'create', '-B', 'main', '-H', branch, '-t', f'feat(blog): recalls novos {mes}', '-b', corpo], cwd=SITE_WT)
+    for r, slug, _, _ in posts:
+        psql(f"update recall_publicacao set status='pr_aberto', slug={q(slug)}, pr_url={q(url)} where recall_id={q(r['id'])}")
+    print('PR:', url)
+
+def tweet(dry):
+    rows = json.loads(psql("select coalesce(json_agg(row_to_json(t)),'[]') from (select recall_id, marca, titulo, slug, pr_url from recall_publicacao where status='pr_aberto') t") or '[]')
+    for r in rows:
+        estado = sh(['gh', 'pr', 'view', r['pr_url'], '--json', 'state', '-q', '.state'], check=False)
+        if estado != 'MERGED':
+            print('aguardando merge:', r['pr_url']); continue
+        url_post = f"{BASE_URL}/blog/{r['slug']}"
+        texto = f"Recall {r['marca'].title()}: {r['titulo']}. Veja o que fazer e se consta para a sua placa: {url_post}"
+        if dry: print('TWEET:', texto); continue
+        out = sh(['pc-x-post', texto])
+        tid = re.search(r'status/(\d+)', out)
+        psql(f"update recall_publicacao set status='publicado', publicado_em=now(), url_post={q(url_post)}, tweet_id={q(tid.group(1) if tid else None)} where recall_id={q(r['recall_id'])}")
+        print('tweet ok', out)
+
+if __name__ == '__main__':
+    ap = argparse.ArgumentParser()
+    ap.add_argument('modo', nargs='?', default='detectar', choices=['detectar', 'tweet'])
+    ap.add_argument('--baseline', action='store_true'); ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--desde', default=(dt.date.today() - dt.timedelta(days=120)).isoformat())
+    a = ap.parse_args()
+    if a.baseline: baseline()
+    elif a.modo == 'tweet': tweet(a.dry_run)
+    else: detectar(a.desde, a.dry_run)

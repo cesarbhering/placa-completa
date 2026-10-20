@@ -1,0 +1,7 @@
+[Unit]
+Description=pc-recall-publicar (dia 2, 09h BRT, depois do pc-recall-refresh das 04h)
+[Timer]
+OnCalendar=*-*-02 12:00:00 UTC
+Persistent=true
+[Install]
+WantedBy=timers.target
