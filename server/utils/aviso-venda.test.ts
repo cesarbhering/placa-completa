@@ -27,7 +27,7 @@ describe('origem (mesma regra do pc-venda-origem)', () => {
     expect(origemDaConsulta(null)).toBe('Indeterminada (sem consulta associada)')
   })
   it('cupom de recompra entra junto', () => {
-    expect(origemDoPedido({ cupom_origem: 'cupom_recompra' }, { msclkid: 'm' })).toBe('Bing Ads + cupom de recompra 20%')
+    expect(origemDoPedido({ cupom_origem: 'cupom_recompra' }, { msclkid: 'm' })).toBe('Bing Ads + cupom de recompra 10%')
   })
   it('rotulos, pagamento, canal, valor', () => {
     expect(rotuloLeilao('positivo')).toBe('SIM, viu o sinal de leilao')

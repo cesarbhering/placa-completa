@@ -100,7 +100,7 @@ describe('enviarRelatorioEmail: linha do cupom de recompra', () => {
   })
   it('ligado: linha no HTML e no texto', async () => {
     const b = await enviar('on')
-    const linha = 'Vai ver outro carro? Use CARROABCDE e ganhe 20% na próxima consulta. Pode compartilhar com quem também está comprando carro. Válido até 12/10.'
+    const linha = 'Vai ver outro carro? Use CARROABCDE e ganhe 10% na próxima consulta. Pode compartilhar com quem também está comprando carro. Válido até 12/10.'
     expect(b.text).toContain(linha)
     // No HTML o codigo vem num span de destaque: compara o texto sem as tags.
     expect(b.html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ')).toContain(linha)

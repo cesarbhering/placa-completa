@@ -127,7 +127,7 @@ def recompra(pedido):
 def origem(pedido):
     base = _origem(pedido)
     if pedido.get("cupom_origem") == "cupom_recompra":
-        base += " + cupom de recompra 20%"
+        base += " + cupom de recompra 10%"
     return base
 
 

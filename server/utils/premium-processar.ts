@@ -318,7 +318,7 @@ export async function processarPedidoPago(
     // Placa e plano entram no assunto e no corpo: "seu relatorio completo da
     // placa ABC1D23 esta pronto" e reconhecivel na caixa de entrada, "sua
     // consulta esta pronta" nao.
-    // Cupom de recompra (20%, 7 dias, uso livre): gerado aqui, na entrega, pra
+    // Cupom de recompra (DESCONTO_RECOMPRA_PCT, hoje 10%; 7 dias, uso livre): gerado aqui, na entrega, pra
     // ir no e-mail e na faixa do relatorio. Fail-open: sem cupom, segue igual.
     const cupom = await gerarCupomRecompra(supabase, pedido).catch(() => null)
     const emailOk = await enviarRelatorioEmail({
