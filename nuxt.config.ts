@@ -122,6 +122,7 @@ export default defineNuxtConfig({
       "/o-que-e",
       "/o-que-e/renavam",
       "/o-que-e/gravame",
+      "/o-que-e/intencao-de-gravame",
       "/o-que-e/renajud",
       "/o-que-e/multas-renainf",
       // pSEO: modelo de leilao (uma pagina por modelo, ver shared/leilao-modelos.ts)
