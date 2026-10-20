@@ -1,4 +1,4 @@
-import { BASE_LEILAO_TEXTO } from './base-leilao'
+import { BASE_LEILAO_TEXTO, BASE_LEILAO_DUAS_BASES } from './base-leilao'
 import { ehItemDeRestricao } from './restricoes'
 // ============================================================
 // Escada de planos da consulta veicular.
@@ -154,11 +154,14 @@ export const RECURSOS: Recurso[] = [
   // pode ser casada por numero de motor, que nenhuma fonte nossa expoe, entao
   // prometer "2 milhoes consultaveis" seria promessa maior que a entrega.
   // Numero em shared/base-leilao.ts (registros, nao veiculos).
+  // Desde 20/out/2026: a nossa base e a base parceira premium (que tambem da o
+  // indicio de sinistro). Nunca o nome da fonte parceira.
   {
     label: 'Histórico de leilão',
-    detalhe: `cruzado com ${BASE_LEILAO_TEXTO}`,
+    detalhe: BASE_LEILAO_DUAS_BASES,
     planos: ['completa'],
   },
+  { label: 'Indício de sinistro', detalhe: 'consulta em base parceira premium', planos: ['completa'] },
   { label: 'Gravame e alienação',                   planos: ['completa'] },
   { label: 'RENAJUD e restrições judiciais',        planos: ['completa'] },
   { label: 'Indicador de multas (RENAINF)',         planos: ['completa'] },
