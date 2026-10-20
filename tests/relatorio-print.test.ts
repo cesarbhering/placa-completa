@@ -10,9 +10,15 @@ describe('impressao do relatorio', () => {
   it('A4 com margem pequena', () => {
     expect(bloco).toMatch(/@page \{ size: A4; margin: 11mm 10mm 13mm; \}/)
   })
-  it('esconde acoes, e-mail, venda, checklist e botoes', () => {
-    for (const c of ['.rel__acoes', '.rel__email', '.rel__card--up', '.rel__check', '.rel__btn']) expect(bloco).toContain(c)
+  it('esconde acoes, e-mail, venda e botoes', () => {
+    for (const c of ['.rel__acoes', '.rel__email', '.rel__card--up', '.rel__btn']) expect(bloco).toContain(c)
     expect(bloco).toMatch(/button \{ display: none !important; \}/)
+  })
+  it('checklist sai no papel como lista simples com caixa vazia, sem as caixinhas interativas', () => {
+    expect(bloco).not.toMatch(/\.rel__card--up, \.rel__check,/)
+    expect(bloco).toMatch(/\.rel__check-input, \.rel__check-cont, \.rel__check-erro, \.rel__check-tela \{ display: none !important; \}/)
+    expect(bloco).toContain("content: '☐'")
+    expect(vue).toContain('class="rel__check-sub rel__check-papel"')
   })
   it('cards quebram; titulos presos ao conteudo; itens nao partem', () => {
     expect(bloco).toMatch(/\.rel__card \{[^}]*break-inside: auto/)
