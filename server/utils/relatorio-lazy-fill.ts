@@ -97,13 +97,15 @@ export async function preencherCamposLazy(
     consulta_id: string | null
     preview?: any
     campos: CampoLazy[]
+    /** Id do pedido (base parceira de leilao). */
+    pedidoId?: string | null
   },
 ): Promise<Partial<Record<CampoLazy, any>>> {
   const resultado: Partial<Record<CampoLazy, any>> = {}
   let novo: any
   try {
     novo = await montarRelatorioSnapshot(supabase, {
-      placa: opts.placa, plano: opts.plano, consulta_id: opts.consulta_id, preview: opts.preview,
+      placa: opts.placa, plano: opts.plano, consulta_id: opts.consulta_id, preview: opts.preview, id: opts.pedidoId ?? null,
     }, opts.campos)
   } catch (e: any) {
     console.warn('[lazy-fill] remontagem falhou (fail-open):', e?.message)

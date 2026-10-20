@@ -9,13 +9,21 @@ export function supabaseMemoria(opts: { unicos?: Record<string, string[]>; rpc?:
   const tab = (n: string) => (tabelas[n] ||= [])
 
   function builder(nome: string) {
-    let op: 'select' | 'insert' | 'update' = 'select'
+    let op: 'select' | 'insert' | 'update' | 'upsert' = 'select'
+    let contar = false
+    let conflito: string[] = []
     let payload: any = null
     const filtros: ((l: Linha) => boolean)[] = []
     let ordem: { col: string; asc: boolean } | null = null
     let lim = Infinity
     const run = (): { data: any; error: any } => {
       const t = tab(nome)
+      if (op === 'upsert') {
+        const i = t.findIndex((l) => conflito.every((c) => l[c] === payload[c]))
+        if (i >= 0) t[i] = { ...t[i], ...payload }
+        else t.push({ id: `id-${++seq}`, ...payload })
+        return { data: [payload], error: null }
+      }
       if (op === 'insert') {
         const linha = { id: `id-${++seq}`, ...payload }
         for (const col of opts.unicos?.[nome] || []) {
@@ -27,10 +35,14 @@ export function supabaseMemoria(opts: { unicos?: Record<string, string[]>; rpc?:
       let sel = t.filter((l) => filtros.every((f) => f(l)))
       if (op === 'update') { sel.forEach((l) => Object.assign(l, payload)); return { data: sel, error: null } }
       if (ordem) { const o = ordem; sel = [...sel].sort((a, b) => (a[o.col] < b[o.col] ? -1 : a[o.col] > b[o.col] ? 1 : 0) * (o.asc ? 1 : -1)) }
+      if (contar) return { data: null, count: sel.length, error: null } as any
       return { data: sel.slice(0, lim).map((l) => ({ ...l })), error: null }
     }
     const b: any = {
-      select: () => b,
+      select: (_c?: string, o?: { count?: string; head?: boolean }) => { if (o?.head) contar = true; return b },
+      upsert: (p: any, o?: { onConflict?: string }) => { op = 'upsert'; payload = p; conflito = String(o?.onConflict || 'id').split(','); return b },
+      gte: (c: string, v: any) => { filtros.push((l) => l[c] >= v); return b },
+      in: (c: string, vs: any[]) => { filtros.push((l) => vs.includes(l[c])); return b },
       insert: (p: any) => { op = 'insert'; payload = p; return b },
       update: (p: any) => { op = 'update'; payload = p; return b },
       eq: (c: string, v: any) => { filtros.push((l) => l[c] === v); return b },
