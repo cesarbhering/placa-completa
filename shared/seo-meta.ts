@@ -34,7 +34,7 @@ export const DESCRICOES = {
   comoConsultarPlaca: 'Como consultar placa de veículo: passo a passo para ver marca, modelo, FIPE e situação, e o relatório completo com leilão, gravame, roubo e débitos.',
   estudos: 'Estudos do mercado de veículos no Brasil: seguro por região (dados SUSEP), IBV Auto do Banco BV e preços da Tabela FIPE, com metodologia aberta.',
   consultaPlaca: 'Consulta de placa veicular online: veja marca, modelo, ano, FIPE e situação na hora, e o relatório completo de leilão, gravame, roubo e débitos.',
-  carroDeLeilao: 'Carro de leilão nem sempre aparece no documento. Veja o que significa, os tipos de leilão e como descobrir se o carro que você vai comprar já passou por um.',
+  carroDeLeilao: 'Carro de leilão vale a pena? Veja como comprar, o que conferir antes do lance e como saber pela placa se o carro já passou por leilão.',
   contato: 'Contato do PlacaCompleta: e-mail para dúvidas sobre consulta de placa, relatório, correção de dados, imprensa e parcerias. Escreva para a nossa equipe.',
 } as const
 

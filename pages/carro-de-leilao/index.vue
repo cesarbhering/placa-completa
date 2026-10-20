@@ -21,17 +21,17 @@ function onCtaClick(origem: string) {
 }
 
 useHead({
-  title: escolherTitulo(['Carro de Leilão: Como Descobrir Antes de Comprar', 'Carro de Leilão: Como Saber Antes de Comprar']),
+  title: escolherTitulo(['Carro de Leilão Vale a Pena? O Que Conferir Antes de Comprar', 'Carro de Leilão Vale a Pena? O Que Conferir Antes']),
   titleTemplate: '%s',
   meta: [
     {
       name: 'description',
       content: DESCRICOES.carroDeLeilao,
     },
-    { property: 'og:title', content: 'Carro de leilão: como descobrir antes de comprar' },
+    { property: 'og:title', content: 'Carro de leilão vale a pena? O que conferir antes de comprar' },
     {
       property: 'og:description',
-      content: 'O que significa passagem por leilão, os quatro tipos que existem e como descobrir pela placa.',
+      content: 'Vale a pena comprar carro de leilão? Como comprar, o que conferir antes do lance e como saber pela placa.',
     },
   ],
   link: [{ rel: 'canonical', href: CANONICO }],
@@ -81,6 +81,24 @@ const TIPOS = [
   },
 ]
 
+const PASSOS_COMPRA = [
+  'Escolha um leiloeiro de confiança e leia o edital e as condições do lote.',
+  'Pegue a placa do lote e consulte antes de dar o lance.',
+  'Inspecione o carro quando o leilão permitir, de preferência com alguém de confiança.',
+  'Some comissão, taxas, regularização e transferência ao valor do lance.',
+  'Defina um teto de lance e não passe dele.',
+  'Pague e retire o carro dentro do prazo do edital, e faça a transferência em seguida.',
+]
+
+const CONFERIR = [
+  'O tipo de leilão e a classificação do veículo (recuperação de crédito, judicial, remoção, sucata ou recuperável).',
+  'Se consta restrição, gravame ou bloqueio judicial no cadastro do veículo.',
+  'Se consta indicador de roubo e furto, e a situação de débitos e multas.',
+  'O que o edital diz sobre documentação, prazos e quem paga cada custo.',
+  'O estado real do carro: carroceria, estrutura, interior e mecânica.',
+  'Quanto o carro vale no mercado, para comparar com o custo final.',
+]
+
 const SINAIS = [
   'Documentação com muitas transferências de proprietário num intervalo curto de tempo',
   'Diferença de tonalidade de pintura entre peças, principalmente no capô, para-lamas ou porta-malas',
@@ -93,16 +111,44 @@ const SINAIS = [
 <template>
   <div class="pc-page">
     <main class="pc-container">
-      <h1 class="pc-h1">Carro de leilão: o que significa e como descobrir antes de comprar</h1>
+      <h1 class="pc-h1">Carro de leilão vale a pena? O que conferir antes de comprar</h1>
 
       <div class="pc-prose">
         <p class="pc-lead">
-          Carro de leilão é qualquer veículo que, em algum momento da vida, foi vendido em leilão
-          público, seja por recuperação de financiamento, decisão judicial, remoção de trânsito não
-          retirada pelo dono ou classificação de sucata depois de um sinistro grave. Isso não aparece
-          de forma automática no documento que o vendedor mostra pra você, e é exatamente por isso que
-          descobrir essa informação antes de fechar negócio muda o preço que você deveria pagar.
+          Carro de leilão pode custar menos que um igual no mercado, mas só vale a pena para quem
+          compra sabendo o que está levando. O desconto existe porque o risco existe: o carro pode
+          ter vindo de recuperação de financiamento, de decisão judicial, de remoção de trânsito ou
+          de um sinistro grave, e isso muda o que ele vale de verdade. Aqui você vê como comprar, o
+          que conferir antes de dar o lance e como saber pela placa se um carro já passou por leilão.
         </p>
+
+        <h2>Vale a pena comprar carro de leilão?</h2>
+        <p>
+          Depende de quanto o desconto cobre de risco e de custo. O preço do lance é só parte da
+          conta: entram comissão do leiloeiro, taxas, regularização, transferência e, muitas vezes,
+          reparos. Para quem consegue inspecionar o carro e conhece a origem do leilão, a compra pode
+          fazer sentido. Para quem compra só pelo preço, o desconto pode desaparecer.
+        </p>
+        <ul>
+          <li><strong>Tende a valer mais</strong> quando a origem é conhecida, o edital é claro, o carro pode ser visto antes e a conta final continua abaixo do preço de mercado.</li>
+          <li><strong>Tende a valer menos</strong> quando o veículo é de sucata ou recuperável, quando não há como inspecionar, ou quando a documentação traz pendências que você não sabe resolver.</li>
+        </ul>
+
+        <h2>Como comprar carro de leilão</h2>
+        <div v-for="(p, i) in PASSOS_COMPRA" :key="p" class="pc-step">
+          <div class="pc-step__number">{{ i + 1 }}</div>
+          <div class="pc-step__text">{{ p }}</div>
+        </div>
+
+        <h2>O que conferir antes de comprar carro de leilão</h2>
+        <ul>
+          <li v-for="c in CONFERIR" :key="c">{{ c }}</li>
+        </ul>
+        <div class="pc-cta">
+          <NuxtLink to="/" class="pc-btn pc-btn--primary" @click="onCtaClick('conferir')">
+            Consultar placa antes do lance
+          </NuxtLink>
+        </div>
 
         <h2>O que significa um carro ter passagem por leilão</h2>
         <p>
@@ -167,7 +213,7 @@ const SINAIS = [
           </div>
         </div>
 
-        <h2>Como descobrir se um carro específico já foi de leilão</h2>
+        <h2>Como saber se o carro passou por leilão (pela placa)</h2>
         <p>
           O jeito prático de descobrir é consultar a placa (ou o chassi) do carro específico que você
           está de olho. A consulta cruza os dados do veículo com registros de leilão e retorna um
