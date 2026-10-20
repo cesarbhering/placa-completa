@@ -24,6 +24,8 @@ export interface Contadores {
   categoria?: string
   /** Conversa que nao e atendimento (ex.: mensagem particular): fora de toda contagem e o bot nunca fala. */
   descartada?: boolean
+  /** A equipe respondeu pelo celular pareado (ultima vez): o bot fica calado 24 h. */
+  n1_assumiu_em?: string
 }
 export interface Conversa {
   id: string
@@ -77,7 +79,8 @@ export interface Deps {
   segredoPagador: string
   agente: (hist: MsgHistorico[], extra?: string) => Promise<{ veredito: Veredito | null; falha: string | null }>
   consultarPedidos: (c: ConsultaPedido) => Promise<(FatoPedido & { id: string })[]>
-  enviar: (jid: string, texto: string) => Promise<{ ok: boolean; status: number }>
+  /** id = key.id da mensagem criada (Evolution), quando vem. */
+  enviar: (jid: string, texto: string) => Promise<{ ok: boolean; status: number; id?: string | null }>
   bloquear: (jid: string) => Promise<{ ok: boolean; status: number }>
   email: (assunto: string, texto: string) => Promise<void>
   agora?: () => Date
@@ -155,6 +158,80 @@ export async function conversaDoNumero(jid: string, d: Deps, texto?: string | nu
   })
 }
 
+// ---- Mensagem da equipe pelo celular pareado (fromMe) ----
+//
+// O webhook recebe tambem o eco do que o PROPRIO bot mandou (fromMe). O que
+// separa um do outro: o key.id que o sendText devolve (gravado na mensagem do
+// bot) e, enquanto o envio ainda nao voltou (o eco pode chegar antes da
+// resposta HTTP), o texto enviado ao numero nos ultimos 2 min, em memoria.
+const JANELA_ECO_MS = 2 * 60_000
+const enviosDoBot = new Map<string, number>() // `${numero_hash}|${texto}` ou `id:${key.id}` -> ms
+function limparEnvios(agora: number) {
+  for (const [k, t] of enviosDoBot) if (agora - t > JANELA_ECO_MS) enviosDoBot.delete(k)
+}
+/** So pra teste. */
+export function _limparEnviosDoBot() { enviosDoBot.clear() }
+
+async function enviarComoBot(numeroHash: string, jid: string, texto: string, d: Deps) {
+  const agora = agoraDe(d).getTime()
+  limparEnvios(agora)
+  enviosDoBot.set(`${numeroHash}|${texto}`, agora)
+  const r = await d.enviar(jid, texto)
+  if (r.id) enviosDoBot.set(`id:${r.id}`, agora)
+  return r
+}
+
+/** O eco e de algo que o bot mandou? (id conhecido, ou mesmo texto ao mesmo numero ha menos de 2 min) */
+export function ecoDoBot(c: Conversa | null, numeroHash: string, texto: string | null, msgId: string | undefined, agoraMs: number): boolean {
+  limparEnvios(agoraMs)
+  if (msgId && (enviosDoBot.has(`id:${msgId}`) || c?.mensagens.some((m) => m.id === msgId))) return true
+  if (texto == null) return false
+  if (enviosDoBot.has(`${numeroHash}|${texto}`)) return true
+  return !!c?.mensagens.some((m) => (m.de === 'bot' || m.de === 'n1') && !m.id && m.texto === texto
+    && agoraMs - new Date(m.em).getTime() <= JANELA_ECO_MS)
+}
+
+export const SILENCIO_N1_MS = 24 * 60 * 60_000
+
+/**
+ * Mensagem que a equipe (Cesar) digitou no celular pareado: entra no
+ * historico como 'n1' e cala o bot desta conversa por 24 h (status
+ * 'encerrada' + silenciado_ate), como ja se fazia a mao. Nova mensagem da
+ * equipe renova as 24 h. So vale pra conversa que ja existe: numero sem
+ * atendimento (conversa particular) nao vira registro. Midia vira so
+ * "[imagem]" etc.; nenhum dado novo do cliente entra aqui.
+ */
+export async function registrarMensagemDaEquipe(e: Entrada, d: Deps): Promise<'gravada' | 'eco' | 'sem_conversa' | 'ignorada'> {
+  const h = hashNumero(e.jid, d.segredo)
+  const c = await d.repo.obterConversa(h)
+  const agora = agoraDe(d)
+  if (ecoDoBot(c, h, e.texto, e.msgId, agora.getTime())) return 'eco'
+  if (!c) return 'sem_conversa'
+  if (c.contadores?.descartada || c.status === 'bloqueada') return 'ignorada'
+  const tipo = e.tipo ?? (e.texto == null ? 'midia' : 'texto')
+  if (tipo !== 'texto' && tipo !== 'midia') return 'ignorada'
+  const registro: MsgConversa = tipo === 'midia'
+    ? { de: 'n1', tipo: 'midia', midia: e.midia || 'outro', texto: `[${e.midia === 'audio' ? 'áudio' : e.midia || 'arquivo'}]`, em: agora.toISOString() }
+    : { de: 'n1', texto: String(e.texto), em: agora.toISOString() }
+  c.mensagens.push({ ...registro, ...(e.msgId ? { id: e.msgId } : {}) })
+  if (c.mensagens.length > 60) c.mensagens = c.mensagens.slice(-60)
+  const ate = agora.getTime() + SILENCIO_N1_MS
+  const atual = c.silenciado_ate ? new Date(c.silenciado_ate).getTime() : 0
+  c.silenciado_ate = new Date(Math.max(ate, atual)).toISOString()
+  if (c.status !== 'encerrada') c.motivo = 'equipe assumiu pelo WhatsApp'
+  c.status = 'encerrada'
+  c.contadores = { ...c.contadores, n1_assumiu_em: agora.toISOString() }
+  c.ultima_resposta_em = agora.toISOString()
+  await d.repo.salvarConversa(c)
+  log(d, c, `equipe respondeu pelo celular: bot calado ate ${c.silenciado_ate}`)
+  return 'gravada'
+}
+
+/** Conversa que a equipe assumiu e cujo silencio ainda vale. */
+function assumidaPelaEquipe(c: Conversa, agoraMs: number): boolean {
+  return !!c.contadores?.n1_assumiu_em && !c.contadores?.descartada && numeroCalado(c, agoraMs)
+}
+
 /** Pede a nota (uma vez por atendimento; nunca em bloqueio). */
 async function pedirNota(c: Conversa, jid: string, d: Deps): Promise<void> {
   if (c.nota_pedida_em || c.status === 'bloqueada') return
@@ -171,10 +248,10 @@ async function enviarAoCliente(c: Conversa, jid: string, texto: string, d: Deps)
   if (texto !== TXT.encerramento && await d.repo.numeroBloqueado(c.numero_hash)) { c.status = 'bloqueada'; return false }
   // Primeira mensagem do atendimento: o Guilherme se apresenta (menos no encerramento por abuso).
   if (texto !== TXT.encerramento && !c.mensagens.some((m) => m.de === 'bot' || m.de === 'n1')) texto = comApresentacao(texto, TXT.apresentacao)
-  const r = await d.enviar(jid, texto)
+  const r = await enviarComoBot(c.numero_hash, jid, texto, d)
   const agora = agoraDe(d)
   if (r.ok) {
-    c.mensagens.push({ de: 'bot', texto, em: agora.toISOString() })
+    c.mensagens.push({ de: 'bot', texto, em: agora.toISOString(), ...(r.id ? { id: r.id } : {}) })
     c.contadores.respostas_dia = (c.contadores.respostas_dia || 0) + 1
     c.ultima_resposta_em = agora.toISOString()
   } else {
@@ -251,9 +328,23 @@ export async function receberMensagem(e: Entrada, d: Deps): Promise<{ conversa: 
   const c = await conversaDoNumero(e.jid, d, e.texto)
   const agora = agoraDe(d)
   if (c.status === 'bloqueada') return { conversa: c, docHash: null, responder: false }
+  if (e.msgId && c.mensagens.some((m) => m.id === e.msgId)) return { conversa: c, docHash: null, responder: false }
+  // A equipe assumiu pelo celular: a conversa segue no historico (o que o
+  // cliente responde a ela), mas o bot nao fala e nao aplica freio nenhum.
+  if (assumidaPelaEquipe(c, agora.getTime())) {
+    const { texto } = separarDocumento(e.texto ?? '')
+    const tipo = e.tipo ?? (e.texto == null ? 'midia' : 'texto')
+    const registro: MsgConversa = tipo === 'reacao' ? { de: 'cliente', tipo: 'reacao', texto: String(e.texto || ''), em: agora.toISOString() }
+      : tipo === 'figurinha' ? { de: 'cliente', tipo: 'figurinha', texto: '[figurinha]', em: agora.toISOString() }
+        : tipo === 'midia' ? { de: 'cliente', tipo: 'midia', midia: e.midia || 'outro', texto: `[${e.midia === 'audio' ? 'áudio' : e.midia || 'arquivo'}]`, em: agora.toISOString() }
+          : { de: 'cliente', texto, em: agora.toISOString() }
+    c.mensagens.push({ ...registro, ...(e.msgId ? { id: e.msgId } : {}) })
+    if (c.mensagens.length > 60) c.mensagens = c.mensagens.slice(-60)
+    await d.repo.salvarConversa(c)
+    return { conversa: c, docHash: null, responder: false }
+  }
   // Calado: nem grava a mensagem (pode ser conversa particular).
   if (numeroCalado(c, agora.getTime())) { log(d, c, 'numero calado: ignorada'); return { conversa: c, docHash: null, responder: false } }
-  if (e.msgId && c.mensagens.some((m) => m.id === e.msgId)) return { conversa: c, docHash: null, responder: false }
 
   const dia = diaBrasilia(agora)
   if (c.contadores.dia !== dia) c.contadores = { ...c.contadores, dia, respostas_dia: 0 }
@@ -544,9 +635,9 @@ export async function rodarFilaN1(d: Deps): Promise<{ repassadas: number; escala
     const jid = c ? decifrarJid(c.jid_cifrado, d.segredo) : null
     if (!c || !jid || !t.resposta) { await d.repo.marcarTarefa(t.id, { status: 'erro_repasse' }); continue }
     const texto = String(t.resposta).replace(/\s*[—–]\s*/g, ', ').trim()
-    const r = await d.enviar(jid, texto)
+    const r = await enviarComoBot(c.numero_hash, jid, texto, d)
     if (!r.ok) { log(d, c, `repasse falhou status=${r.status}`); continue }
-    c.mensagens.push({ de: 'n1', texto, em: agora.toISOString() })
+    c.mensagens.push({ de: 'n1', texto, em: agora.toISOString(), ...(r.id ? { id: r.id } : {}) })
     c.ultima_resposta_em = agora.toISOString()
     // Resposta da equipe entregue: o cliente nao esta mais aguardando (N1 ou N2).
     if (c.status === 'aguardando_n1') { c.status = 'aberta'; c.nivel = 'N1' } else if (c.status === 'escalada') c.status = 'aberta'

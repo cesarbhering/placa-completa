@@ -16,7 +16,7 @@ export function numeroParaEvolution(jid: string): string {
   return j.endsWith('@s.whatsapp.net') ? j.split('@')[0] : j
 }
 
-async function post(cfg: CfgEvolution, path: string, body: any, fetchImpl: typeof fetch = fetch): Promise<{ ok: boolean; status: number }> {
+async function post(cfg: CfgEvolution, path: string, body: any, fetchImpl: typeof fetch = fetch): Promise<{ ok: boolean; status: number; id?: string | null }> {
   try {
     const r = await fetchImpl(`${cfg.baseUrl}${path}`, {
       method: 'POST',
@@ -24,7 +24,11 @@ async function post(cfg: CfgEvolution, path: string, body: any, fetchImpl: typeo
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(15000),
     })
-    return { ok: r.ok, status: r.status }
+    // sendText devolve a mensagem criada: key.id e o que volta no webhook
+    // (fromMe) e separa o envio do bot da mensagem que a equipe digitou.
+    const j: any = await r.json().catch(() => null)
+    const id = typeof j?.key?.id === 'string' ? j.key.id : null
+    return { ok: r.ok, status: r.status, id }
   } catch { return { ok: false, status: 0 } }
 }
 
