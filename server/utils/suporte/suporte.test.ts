@@ -85,6 +85,8 @@ describe('simulação 1: dúvida antes de comprar (N0 sozinho)', () => {
     expect(p).toContain(precoBRL(PLANOS.completa.valorCentavos))
     expect(p).toContain(`de ${precoBRL(PLANOS.completa.precoDeCentavos!)}`)
     expect(p).toContain('Nunca ofereça nem crie cupom')
+    expect(p).toContain('APRENDIZADOS DE ATENDIMENTOS REAIS')
+    expect(p).toContain('comprovante do Google Play')
     expect(p).not.toContain('—')
     expect(p.toLowerCase()).not.toContain('senatran')
   })
