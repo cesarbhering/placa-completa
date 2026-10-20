@@ -40,7 +40,7 @@ export const DESCRICOES = {
 
 /** /tabela-fipe-por-placa. Sem "grátis": decisão de 01/out de se distanciar do grátis nas superfícies de busca. */
 export function descricaoTabelaFipePorPlaca(mes: string, ano: number): string {
-  return `Tabela FIPE pela placa: consulte o valor FIPE de qualquer veículo em ${mes} de ${ano}, com marca, modelo, ano, código FIPE e preço atualizado do mês.`
+  return `Fipe pela placa: consulta placa FIPE de qualquer veículo em ${mes} de ${ano}, com marca, modelo, ano, código FIPE e valor atualizado do mês.`
 }
 
 // --- Paginas programaticas --------------------------------------------------
