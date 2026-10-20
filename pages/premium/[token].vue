@@ -37,7 +37,7 @@ import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia, resumoSoPossivel, parece
 import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
-import { FONTE_PARCEIRA, SINISTRO_TITULO, SINISTRO_EXPLICA, SINISTRO_CONFERIR, DUAS_BASES_SEM_REGISTRO, DUAS_BASES_SEM_LEILAO, PASSAGEM_PARCEIRA, DICA_SINISTRO } from '~/shared/fonte-parceira'
+import { FONTE_PARCEIRA, rotuloIndicadorLeilao, SINISTRO_TITULO, SINISTRO_EXPLICA, SINISTRO_CONFERIR, DUAS_BASES_SEM_REGISTRO, DUAS_BASES_SEM_LEILAO, PASSAGEM_PARCEIRA, DICA_SINISTRO } from '~/shared/fonte-parceira'
 import { custo12Meses, combustivelPraConta, licenciamentoDaUf, KM_ANO_PADRAO } from '~/shared/custo-12-meses'
 import { PRECO_COMBUSTIVEL_UF, SEMANA_ANP } from '~/shared/dados/combustivel-uf'
 import { aliquotaIPVA } from '~/shared/ipva-uf'
@@ -502,7 +502,7 @@ const indicadores = computed(() => {
     }
     const cartaoLeilao = {
       k: 'historicoLeilao',
-      label: 'Histórico de leilão (fontes públicas)',
+      label: rotuloIndicadorLeilao(historicoLeilao.value.passagens),
       sim: valor,
       nao: 'SEM OCORRÊNCIA',
       risco: true,
