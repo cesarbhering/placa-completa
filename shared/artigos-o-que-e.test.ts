@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { ARTIGOS, LEVANTAMENTO } from './artigos-o-que-e'
 
 describe('artigos O que e', () => {
-  it('4 artigos com rota esperada', () => {
-    expect(ARTIGOS.map((a) => a.slug)).toEqual(['renavam', 'gravame', 'renajud', 'multas-renainf'])
+  it('5 artigos com rota esperada', () => {
+    expect(ARTIGOS.map((a) => a.slug)).toEqual(['renavam', 'gravame', 'intencao-de-gravame', 'renajud', 'multas-renainf'])
   })
   for (const a of ARTIGOS) {
     const tudo = JSON.stringify(a)
