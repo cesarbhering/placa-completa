@@ -9,6 +9,7 @@ withDefaults(defineProps<{ compacto?: boolean }>(), { compacto: false })
 const RESUMO: Record<string, string> = {
   renavam: 'o cadastro e o código do veículo',
   gravame: 'quando o carro garante um financiamento',
+  'intencao-de-gravame': 'o registro da financeira antes do gravame',
   renajud: 'bloqueio judicial no cadastro',
   'multas-renainf': 'infrações registradas no sistema nacional',
 }
