@@ -38,6 +38,37 @@ describe('cupom de recompra', () => {
     expect(await gerarCupomRecompra(fakeSb(), { id: 'p', valor_centavos: 0 })).toBeNull()
     expect(await gerarCupomRecompra(fakeSb(), { id: 'p', valor_centavos: 3990, google_play_order_id: 'GPA.1' })).toBeNull()
   })
+  it('pedido pago com cupom nao gera cupom de recompra (Cesar, 20/out/2026)', async () => {
+    // Por tabela: cupons_premium (recompra ja emitido?) e cupons_premium_usos (o pedido usou cupom?).
+    const sbTab = (usos: any, erroUso: any = null) => {
+      const inserts: any[] = []
+      return {
+        inserts,
+        from: (t: string) => ({
+          select: () => ({ eq: () => ({ maybeSingle: async () => (t === 'cupons_premium_usos' ? { data: usos, error: erroUso } : { data: null, error: null }) }) }),
+          insert: async (row: any) => { inserts.push(row); return { error: null } },
+        }),
+      }
+    }
+    // cupom de recompra aplicado (cupom_origem)
+    const a = sbTab(null)
+    expect(await gerarCupomRecompra(a, { id: 'p', valor_centavos: 4041, cupom_origem: 'cupom_recompra' })).toBeNull()
+    expect(a.inserts).toHaveLength(0)
+    // qualquer outro cupom (recuperacao de Pix, cortesia): linha de uso do pedido
+    const b = sbTab({ id: 'uso1' })
+    expect(await gerarCupomRecompra(b, { id: 'p', valor_centavos: 4041 })).toBeNull()
+    expect(b.inserts).toHaveLength(0)
+    // sem conseguir conferir o uso: nao gera
+    expect(await gerarCupomRecompra(sbTab(null, { message: 'fora' }), { id: 'p', valor_centavos: 4490 })).toBeNull()
+    // sem cupom: gera
+    const c = sbTab(null)
+    expect(await gerarCupomRecompra(c, { id: 'p', valor_centavos: 4490 })).not.toBeNull()
+    expect(c.inserts).toHaveLength(1)
+  })
+  it('cupom de recompra ja emitido nao muda, mesmo que o pedido tenha usado cupom', async () => {
+    const sb = fakeSb({ codigo: 'CARROABCDE', valido_ate: '2026-10-12T12:00:00Z', valor: 20 })
+    expect(await gerarCupomRecompra(sb, { id: 'ped1', valor_centavos: 3192, cupom_origem: 'cupom_recompra' })).toEqual({ codigo: 'CARROABCDE', validoAte: '2026-10-12T12:00:00Z', pct: 20 })
+  })
   it('20% respeita o piso: nunca zera o preco', () => {
     const r = aplicarCupom('completa', { tipo: 'percentual', valor: 20, planos: ['basica', 'completa'], permiteGratis: false })
     expect(r.precoLiquidoCentavos).toBeGreaterThan(0)
