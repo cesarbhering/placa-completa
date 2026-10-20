@@ -37,6 +37,7 @@ import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia, resumoSoPossivel, parece
 import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
+import { FONTE_PARCEIRA, SINISTRO_TITULO, SINISTRO_EXPLICA, SINISTRO_CONFERIR, DUAS_BASES_SEM_REGISTRO, DUAS_BASES_SEM_LEILAO, PASSAGEM_PARCEIRA, DICA_SINISTRO } from '~/shared/fonte-parceira'
 import { custo12Meses, combustivelPraConta, licenciamentoDaUf, KM_ANO_PADRAO } from '~/shared/custo-12-meses'
 import { PRECO_COMBUSTIVEL_UF, SEMANA_ANP } from '~/shared/dados/combustivel-uf'
 import { aliquotaIPVA } from '~/shared/ipva-uf'
@@ -341,6 +342,10 @@ const esteVeiculo = computed(() => `${segmento.value === 'moto' ? 'esta' : 'este
 
 const historicoLeilao = computed(() => data.value?.historicoLeilao ?? null)
 const temSecaoLeilao = computed(() => !!historicoLeilao.value)
+// Base parceira de leiloes e sinistros (shared/fonte-parceira.ts): consultada
+// so quando a nossa base veio vazia. O nome do fornecedor nunca vem pro cliente.
+const consultouParceira = computed(() => historicoLeilao.value?.parceiro?.status === 'ok')
+const sinistroParceiro = computed(() => consultouParceira.value && historicoLeilao.value?.sinistro_parceiro?.indicio === true)
 // Revenda de frota (leiloes-api #106): card proprio, separado do leilao.
 const revendasFrota = computed<RevendaFrota[]>(() => (Array.isArray(historicoLeilao.value?.revendas_frota) ? historicoLeilao.value.revendas_frota : []))
 const dataBRFrota = (i: string | null) => (i ? `${i.slice(8, 10)}/${i.slice(5, 7)}/${i.slice(0, 4)}` : null)
@@ -516,6 +521,16 @@ const indicadores = computed(() => {
     const posDoc = base.findIndex((i) => i.k === 'indicadorLeilao')
     if (posDoc >= 0) base.splice(posDoc + 1, 0, cartaoLeilao)
     else base.push(cartaoLeilao)
+    // Base parceira de leiloes e sinistros (20/out/2026): so quando foi
+    // consultada. Ligado = consta indicio; nunca "o carro foi batido".
+    if (consultouParceira.value) {
+      const posLeilao = base.findIndex((i) => i.k === 'historicoLeilao')
+      base.splice(posLeilao + 1, 0, {
+        k: 'sinistroParceiro', label: 'Indício de sinistro', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
+        dica: DICA_SINISTRO, ligado: sinistroParceiro.value, alerta: sinistroParceiro.value,
+        rotuloVeredito: 'indício de sinistro em base parceira',
+      } as any)
+    }
   }
 
   return base
@@ -854,7 +869,7 @@ const passagensLeilao = computed(() => {
     gravidade: ehNotificacao(p) ? GRAVIDADE_NOTIFICADO : p.gravidade,
     // O rotulo de tipo so aparece pro orgao oficial, que e a informacao que
     // muda a leitura da passagem.
-    tipoFonte: p.fonte_tipo === 'detran' ? 'Edital de órgão oficial' : '',
+    tipoFonte: p.fonte_tipo === 'detran' ? 'Edital de órgão oficial' : p.fonte_tipo === FONTE_PARCEIRA ? PASSAGEM_PARCEIRA : '',
     data: p.data_leilao ? formatarDataLeilao(p.data_leilao) : null,
     // Linha montada como lista pra nunca comecar com separador solto: no teste
     // real do homolog, uma passagem do DETRAN-SP sem data saiu como
@@ -1127,6 +1142,7 @@ const checklist = computed(() => {
   const leilaoPossivel = nPossiveisExibidos.value > 0
   return montarChecklist({
     leilao: leilaoForte ? 'confirmado' : leilaoPossivel ? 'possivel' : null,
+    sinistro: sinistroParceiro.value,
     roubo: ocorrencias.value.length > 0 || g('indicadorRouboFurto') === true || !!rouboDetran.value,
     recallPendente: recallPendente.value,
     kmCaiu: hodometroSuspeito.value,
@@ -2789,7 +2805,7 @@ onUnmounted(() => {
           <section v-if="temSecaoLeilao" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.leilao }}. Histórico de leilão</h2>
             <p v-if="dadosLeilao" class="rel__dados-de">{{ dadosLeilao }}</p>
-            <p v-if="temIndicioReal || possiveisComFoto.length || possiveisSemFoto.length || passagensNotificadas.length" class="rel__leilao-base">Placa e chassi cruzados com uma base de {{ BASE_LEILAO_TEXTO }}, montada a partir de editais de DETRANs e catálogos de leiloeiras.</p>
+            <p v-if="temIndicioReal || possiveisComFoto.length || possiveisSemFoto.length || passagensNotificadas.length" class="rel__leilao-base">Placa e chassi cruzados com uma base de {{ BASE_LEILAO_TEXTO }}, montada a partir de editais de DETRANs e catálogos de leiloeiras.<template v-if="consultouParceira"> Também consultamos uma base parceira de leilões e sinistros.</template></p>
 
             <!-- Sem nada com grau de certeza, a seção diz UMA coisa só. Antes
                  empilhava "nenhum indício", mais a contagem de lotes parecidos,
@@ -2797,9 +2813,15 @@ onUnmounted(() => {
                  confuso pra dizer que não há nada. -->
             <template v-if="!temIndicioReal && !possiveisComFoto.length && !possiveisSemFoto.length && !passagensNotificadas.length">
               <p class="rel__leilao-limpo">
-                {{ leilaoSemOcorrencia(esteVeiculo) }}
+                {{ consultouParceira ? (sinistroParceiro ? DUAS_BASES_SEM_LEILAO : DUAS_BASES_SEM_REGISTRO) : leilaoSemOcorrencia(esteVeiculo) }}
               </p>
             </template>
+            <!-- Indicio de sinistro na base parceira (20/out/2026): so "consta", nunca afirma. -->
+            <div v-if="sinistroParceiro" class="rel__sinistro" role="note">
+              <p class="rel__sinistro-tit">{{ SINISTRO_TITULO }}</p>
+              <p class="rel__sinistro-txt">{{ SINISTRO_EXPLICA }}</p>
+              <p class="rel__sinistro-txt">{{ SINISTRO_CONFERIR }}</p>
+            </div>
 
             <template v-if="temIndicioReal">
               <p class="rel__leilao-resumo">
@@ -3034,7 +3056,7 @@ onUnmounted(() => {
             </div>
 
             <p v-if="temIndicioReal || possiveisComFoto.length || possiveisSemFoto.length || passagensNotificadas.length" class="rel__leilao-aviso">
-              {{ LEILAO_NIVEIS_RODAPE }}
+              {{ consultouParceira ? LEILAO_NIVEIS_RODAPE.replace('catálogos de leiloeiras.', 'catálogos de leiloeiras, mais uma base parceira de leilões e sinistros.') : LEILAO_NIVEIS_RODAPE }}
             </p>
           </section>
 
@@ -4576,6 +4598,10 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   @media print { &__var-toggle { display: none; } }
 
   // ---- leilao: campos do Relatorio 2.0 ----
+  &__sinistro { margin: 10px 0 12px; padding: 12px 14px; border: 1px solid #f2c9c9; border-left: 4px solid #c62828; background: #fdf1f1; border-radius: 8px; break-inside: avoid; }
+  &__sinistro-tit { margin: 0 0 4px; font-weight: 700; color: #8a1c1c; font-size: calc(14.5px * var(--rel-fs, 1)); }
+  &__sinistro-txt { margin: 4px 0 0; font-size: calc(13.5px * var(--rel-fs, 1)); line-height: 1.5; color: #2a2a2a; }
+  @media print { &__sinistro { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   &__leilao-recorr { margin: 6px 0 10px; padding: 8px 12px; border-left: 3px solid #c62828; background: #fdf1f1; color: #8a1c1c; font-weight: 600; font-size: calc(13.5px * var(--rel-fs, 1)); border-radius: 4px; }
   &__leilao-origem, &__leilao-desf, &__leilao-jud, &__leilao-lote { margin: 6px 0 0; font-size: calc(13px * var(--rel-fs, 1)); color: #333; }
   &__leilao-origem span, &__leilao-desf span { color: #666; }
@@ -5218,7 +5244,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // O que nao pode partir no meio.
   .rel__veh, .rel__veredito, .rel__inds, .rel__ind, .rel__tempo-item, .rel__restr, .rel__resumo-linha,
   .rel__multas-item, .rel__multas-r, .rel__recall, .rel__recall-item, .rel__recall-top,
-  .rel__leilao, .rel__lote, .rel__var-item, .rel__c12, .rel__valor, .rel__renave, .rel__espera,
+  .rel__leilao, .rel__lote, .rel__sinistro, .rel__var-item, .rel__c12, .rel__valor, .rel__renave, .rel__espera,
   .rel__aut, .rel__dep, .rel__fipe-ambiguo, svg, table, tr, figure, li {
     break-inside: avoid; page-break-inside: avoid;
   }
@@ -5238,7 +5264,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // Fundo: so sinal sai colorido. O resto vira papel branco.
   .rel__card, .rel__leilao, .rel__recall, .rel__var-item, .rel__c12 { background: #fff !important; }
   .rel__ind--bad, .rel__ind--atencao, .rel__veredito--alerta, .rel__veredito--risco, .rel__tag,
-  .rel__leilao-recorr, .rel__recall:not(.rel__recall--assoc):not(.rel__recall--eua),
+  .rel__leilao-recorr, .rel__sinistro, .rel__recall:not(.rel__recall--assoc):not(.rel__recall--eua),
   .rel__ind-val::before, .rel__grav, .rel__multas-restr {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }

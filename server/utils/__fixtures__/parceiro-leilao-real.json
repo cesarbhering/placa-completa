@@ -1,0 +1,47 @@
+{
+  "consulta": {
+    "idConsulta": "00000000-0000-4000-8000-000000000001",
+    "dataConsulta": "20/10/2026 16:00:58",
+    "parametro": "ABC1D23",
+    "tipoConsulta": "LeilaoSinistro",
+    "usuario": "u0000",
+    "tempoTotalMs": 706
+  },
+  "resultados": {
+    "leilao": {
+      "placa": "ABC1D23",
+      "temRegistro": true,
+      "leiloes": [
+        {
+          "nsuVeiculo": "0",
+          "idLeilao": "0",
+          "lote": "0",
+          "marca": "HONDA",
+          "modelo": "CIVIC SI",
+          "anoModelo": "2008",
+          "anoFabricacao": "2008",
+          "chassi": "9XXAA00000X000001",
+          "renavam": "NAO DIVULGADO",
+          "cor": "VERMELHA",
+          "combustivel": "GASOLINA",
+          "categoriaVeiculo": null,
+          "condicaoVeiculo": "N/C",
+          "situacaoChassi": "NAO DIVULGADO",
+          "nrMotor": null,
+          "nrCambio": null,
+          "nrCarroceria": null,
+          "nrEixoTraseiro": null,
+          "quantidadeEixos": "0",
+          "patio": "NC",
+          "leiloeiro": "N/C",
+          "dataLeilao": "2019-08-27T00:00:00",
+          "comitente": "MAPFRE SEGUROS GERAIS S/A"
+        }
+      ]
+    },
+    "sinistro": {
+      "indicioDeSinistro": 1,
+      "mensagemSinistro": "EXISTE REGISTRO DE INDICIO DE SINISTRO"
+    }
+  }
+}
