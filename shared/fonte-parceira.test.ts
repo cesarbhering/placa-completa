@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import REAL from '../server/utils/__fixtures__/parceiro-leilao-real.json'
 import {
-  parsearRespostaParceiro, passagensDoParceiro, historicoComParceiro, nossaBaseVazia, naoInformado,
+  parsearRespostaParceiro, passagensDoParceiro, historicoComParceiro, nossaBaseVazia, naoInformado, rotuloIndicadorLeilao,
   FONTE_PARCEIRA, ROTULO_PARCEIRA,
 } from './fonte-parceira'
 import { fonteExibicaoLeilao } from './leilao-exibicao'
@@ -72,5 +72,20 @@ describe('passagens e historico', () => {
     const c = montarChecklist({ sinistro: true })
     expect(c.vistoria[0]).toMatchObject({ id: 'r-sinistro', doRelatorio: true })
     expect(c.vistoria[0].texto).toMatch(/^Consta indício de sinistro em base parceira/)
+  })
+})
+
+describe('rotulo do indicador de leilao', () => {
+  const nossa = { nivel: 'confirmado', fonte: 'superbid', fonte_tipo: 'privado' }
+  const parceira = passagensDoParceiro(parsearRespostaParceiro(REAL)!, { chassi: CHASSI, tipo: 'placa' })[0]
+  it('so nossas fontes: fontes publicas', () => {
+    expect(rotuloIndicadorLeilao([nossa])).toBe('Histórico de leilão (fontes públicas)')
+    expect(rotuloIndicadorLeilao([])).toBe('Histórico de leilão (fontes públicas)')
+    expect(rotuloIndicadorLeilao(null)).toBe('Histórico de leilão (fontes públicas)')
+  })
+  it('com passagem da base parceira (sozinha ou misturada): bases consultadas, nunca fontes publicas', () => {
+    expect(rotuloIndicadorLeilao([parceira])).toBe('Histórico de leilão (bases consultadas)')
+    expect(rotuloIndicadorLeilao([nossa, parceira])).toBe('Histórico de leilão (bases consultadas)')
+    expect(rotuloIndicadorLeilao([nossa, parceira])).not.toMatch(/públicas/)
   })
 })

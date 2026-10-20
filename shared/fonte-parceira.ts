@@ -222,3 +222,14 @@ export const DUAS_BASES_SEM_REGISTRO = 'Consultamos duas bases de leilão e sini
 export const DUAS_BASES_SEM_LEILAO = 'Consultamos duas bases de leilão e não encontramos registro de leilão para esta placa na data da consulta.'
 export const PASSAGEM_PARCEIRA = 'Registro em base parceira de leilões e sinistros'
 export const DICA_SINISTRO = 'Consulta a uma base parceira de leilões e sinistros, feita quando a nossa base de leilões não encontra nada. Indício de sinistro quer dizer que o veículo aparece em registro ligado a sinistro; não diz a gravidade nem se houve reparo.'
+
+/**
+ * Rotulo do indicador de leilao na grade (e no parecer). Com qualquer passagem
+ * da base parceira, a fonte nao e so publica: "bases consultadas". So com as
+ * nossas fontes, fica o texto de sempre.
+ */
+export function rotuloIndicadorLeilao(passagens: unknown): string {
+  const lista = Array.isArray(passagens) ? passagens : []
+  const temParceira = lista.some((p: any) => p?.fonte_tipo === FONTE_PARCEIRA || p?.fonte === FONTE_PARCEIRA)
+  return temParceira ? 'Histórico de leilão (bases consultadas)' : 'Histórico de leilão (fontes públicas)'
+}
