@@ -18,13 +18,13 @@ describe('cupom de recompra', () => {
     const c = gerarCodigoRecompra()
     expect(c).toMatch(/^CARRO[A-HJ-NP-Z2-9]{5}$/)
   })
-  it('gera 20%, 7 dias da entrega, uso livre, nunca gratis, ligado ao pedido', async () => {
+  it('gera 10%, 7 dias da entrega, uso livre, nunca gratis, ligado ao pedido', async () => {
     const sb = fakeSb()
     const ent = new Date('2026-10-05T12:00:00Z')
     const c = await gerarCupomRecompra(sb, { id: 'ped1', valor_centavos: 3990 }, ent)
     expect(c?.validoAte).toBe(new Date(ent.getTime() + VALIDADE_RECOMPRA_MS).toISOString())
     expect(sb.inserts[0]).toMatchObject({
-      tipo: 'percentual', valor: 20, planos: ['basica', 'completa'], ativo: true,
+      tipo: 'percentual', valor: 10, planos: ['basica', 'completa'], ativo: true,
       limite_uso_global: null, limite_uso_por_cliente: null, permite_gratis: false,
       origem: 'recompra', pedido_origem_id: 'ped1', valido_de: ent.toISOString(),
     })
@@ -51,7 +51,7 @@ describe('cupom de recompra', () => {
   })
   it('texto da faixa e do e-mail', () => {
     const t = textoCupomRecompra({ codigo: 'CARROABCDE', validoAte: '2026-10-12T14:00:00Z' })
-    expect(t).toBe('Use CARROABCDE e ganhe 20% na próxima consulta. Pode compartilhar com quem também está comprando carro. Válido até 12/10.')
+    expect(t).toBe('Use CARROABCDE e ganhe 10% na próxima consulta. Pode compartilhar com quem também está comprando carro. Válido até 12/10.')
     expect(t).not.toContain('—')
   })
 })

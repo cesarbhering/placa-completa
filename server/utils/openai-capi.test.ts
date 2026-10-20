@@ -1,3 +1,4 @@
+import { PLANOS } from '../../shared/planos'
 import { describe, it, expect, vi } from 'vitest'
 import { emailSha256, motivoParaNaoEnviar, montarEvento, montarLote, origemChatgpt, type PedidoCapi } from './openai-capi'
 
@@ -36,7 +37,7 @@ describe('OpenAI Ads Conversions API', () => {
   })
   it('cupom 100%: o evento vai com o preco cheio do plano', () => {
     const ev: any = montarEvento({ ...base, valor_centavos: 0 })
-    expect(JSON.stringify(ev)).toContain('3990')
+    expect(JSON.stringify(ev)).toContain(String(PLANOS.completa.valorCentavos))
   })
 
   it('nao dispara: teste, nao entregue, app, velho', () => {

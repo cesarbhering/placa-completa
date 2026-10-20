@@ -33,11 +33,11 @@ describe('disparo de purchase', () => {
     const a = useAnalytics()
     a.trackConversionPaga('tok_gratis_1', 'completa', 0, 'QUALQUER')
     a.trackConversionPaga('tok_gratis_1', 'completa', 0, 'QUALQUER')
-    expect(w.gtag).toHaveBeenCalledWith('event', 'conversion', expect.objectContaining({ value: 39.9, transaction_id: 'tok_gratis_1' }))
-    expect(w.gtag).toHaveBeenCalledWith('event', 'purchase', expect.objectContaining({ value: 39.9 }))
+    expect(w.gtag).toHaveBeenCalledWith('event', 'conversion', expect.objectContaining({ value: 44.9, transaction_id: 'tok_gratis_1' }))
+    expect(w.gtag).toHaveBeenCalledWith('event', 'purchase', expect.objectContaining({ value: 44.9 }))
     expect(w.gtag).toHaveBeenCalledTimes(2)
     expect(w.uetq.push).toHaveBeenCalledTimes(1)
-    expect(w.uetq.push).toHaveBeenCalledWith('event', 'purchase', expect.objectContaining({ revenue_value: 39.9 }))
+    expect(w.uetq.push).toHaveBeenCalledWith('event', 'purchase', expect.objectContaining({ revenue_value: 44.9 }))
   })
 
   it('venda paga: Bing UET com transaction_id = token; GA4/Ads com o mesmo token; uma vez so', () => {
