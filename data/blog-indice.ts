@@ -32,6 +32,13 @@ export const TAGS_BLOG: TagBlog[] = [
     lead: 'Levantamentos com dados abertos sobre carros usados: consumo, preço e mercado.',
   },
   {
+    slug: 'recall',
+    nome: 'Recall',
+    titulos: ['Recall de Carros: Campanhas e o que o Dono Deve Fazer', 'Recall de Carros: Campanhas e Orientação ao Dono'],
+    description: 'Recalls de carros e motos no Brasil explicados em linguagem simples: modelos, defeito, risco e o que o dono deve fazer. Veja se consta recall para a sua placa.',
+    lead: 'Chamados de recall explicados em linguagem simples: quais modelos, qual o defeito e o que fazer. Consulte a placa para ver se o carro consta em campanha.',
+  },
+  {
     slug: 'novidades',
     nome: 'Novidades',
     titulos: ['Novidades do PlacaCompleta: Produto e Bastidores no Blog', 'Novidades do PlacaCompleta no Blog'],
