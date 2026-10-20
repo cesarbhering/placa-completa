@@ -1,6 +1,7 @@
 import { consultarRecallToyota } from './recall-toyota'
 import { normalizarMarcaRecall } from '../../shared/marcas-recall'
 import { sinalPositivo, type RecallBase } from '../../shared/recall-associado'
+import { agruparCampanhasRecall } from './recall-agrupar'
 
 // Campanhas da base de recalls (a mesma do hook da consulta gratis) gravadas no
 // snapshot do pedido como `recallBase`, pra o relatorio dizer QUAL recall estava
@@ -63,11 +64,17 @@ export async function garantirRecallBase(
   supabase: any,
   pedido: { id: string; placa: string; recall_sinal?: string | null; recall_marca?: string | null },
   snap: any,
+  op: { chaveApi?: string | null; fetcher?: typeof fetch } = {},
 ): Promise<RecallBase | null> {
   if (snap?.recallBase !== undefined) return snap.recallBase ?? null
   if (!sinalPositivo(pedido.recall_sinal)) return null
   const base = await buscarRecallBase(pedido, snap?.consulta?.response)
   if (!base) return null
+  // Mais de uma campanha: o agente agrupa as parecidas (uma vez, gravado junto).
+  // Falha = sem `agrupado` e a tela mostra a lista original.
+  if (base.campanhas.length > 1) {
+    base.agrupado = await agruparCampanhasRecall(base.campanhas, { sb: supabase, chaveApi: op.chaveApi, fetcher: op.fetcher, pedidoId: pedido.id })
+  }
   try {
     // Rele antes de gravar: outro bloco (recall, multas) pode ter gravado no meio.
     const { data } = await supabase.from('pedidos_premium').select('relatorio_snapshot').eq('id', pedido.id).maybeSingle()

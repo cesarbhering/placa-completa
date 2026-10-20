@@ -2630,6 +2630,17 @@ onUnmounted(() => {
                   <p v-if="c.fabricacao" class="rel__recall-item-meta">{{ c.fabricacao }}.</p>
                   <p v-if="c.risco" class="rel__recall-item-det"><span>Risco:</span> {{ c.risco }}</p>
                   <p v-if="c.oQueFazer" class="rel__recall-item-det"><span>O que fazer:</span> {{ c.oQueFazer }}</p>
+                  <!-- Grupo de campanhas parecidas (agente, 20/out): frase leiga e a lista original. -->
+                  <p v-if="c.resumo" class="rel__recall-item-det">{{ c.resumo }}</p>
+                  <details v-if="c.campanhas && c.campanhas.length" class="rel__recall-grupo">
+                    <summary>Ver as {{ c.campanhas.length }} campanhas</summary>
+                    <ul>
+                      <li v-for="(cc, j) in c.campanhas" :key="'asg' + idx + '-' + j">
+                        <span>{{ cc.nome }}</span>
+                        <small v-if="cc.meta"> · {{ cc.meta }}</small>
+                      </li>
+                    </ul>
+                  </details>
                 </li>
               </ul>
               <p v-else class="rel__recall-body">A consulta grátis indicou uma campanha de recall para este veículo; os detalhes da campanha não vieram da base agora.</p>
@@ -4613,6 +4624,11 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__recall-item-top { display: flex; justify-content: space-between; gap: 10px; font-size: calc(13.5px * var(--rel-fs, 1)); color: #1a1a1a; }
   &__recall-item-det { margin: 6px 0 0; font-size: calc(13px * var(--rel-fs, 1)); line-height: 1.45; color: #2a2a2a; }
   &__recall-item-det span { font-weight: 700; }
+  &__recall-grupo { margin-top: 6px; font-size: calc(13px * var(--rel-fs, 1)); }
+  &__recall-grupo summary { cursor: pointer; color: #1d4ed8; font-weight: 600; }
+  &__recall-grupo ul { margin: 6px 0 0; padding-left: 18px; }
+  &__recall-grupo li { margin: 2px 0; }
+  &__recall-grupo small { color: #6b7280; }
   &__recall-item-meta { margin: 3px 0 0; font-size: calc(12px * var(--rel-fs, 1)); color: #555; }
   &__recall-st--pend { color: #a32020; white-space: nowrap; }
   &__recall-st--ok { color: #14622f; white-space: nowrap; }
