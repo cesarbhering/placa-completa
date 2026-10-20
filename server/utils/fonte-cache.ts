@@ -15,6 +15,7 @@ export const TTL_POR_FONTE: Array<[RegExp, number]> = [
   [/^fipe/, 7 * D],
   [/^nhtsa/, 30 * D],          // Lead 14/out: recall EUA cache 30 d
   [/^revisor_restricao_detran/, 365 * D], // veredito do Haiku por texto normalizado (16/out)
+  [/^agrupamento_recall/, 365 * D], // grupos do Haiku por conjunto de campanhas (20/out)
 ]
 
 export function ttlDaFonte(fonte: string): number {
