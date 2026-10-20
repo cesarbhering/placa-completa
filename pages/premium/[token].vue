@@ -3217,7 +3217,9 @@ onUnmounted(() => {
           <!-- Checklist de vistoria e transferencia (Relatorio 2.0, item 5). -->
           <section class="rel__card rel__check">
             <h2 class="rel__h2">{{ numSecao.check }}. O que conferir antes de fechar negócio</h2>
-            <p class="rel__check-sub">Leve esta lista na hora de ver o carro. Os itens em destaque vêm do que consta neste relatório. Marque o que já conferiu: fica salvo neste relatório, em qualquer aparelho.</p>
+            <p class="rel__check-sub rel__check-tela">Leve esta lista na hora de ver o carro. Os itens em destaque vêm do que consta neste relatório. Marque o que já conferiu: fica salvo neste relatório, em qualquer aparelho.</p>
+            <!-- No papel: lista simples com caixa vazia pra riscar a caneta (Cesar, 20/out). -->
+            <p class="rel__check-sub rel__check-papel">Leve esta lista na hora de ver o carro e marque à caneta o que já conferiu. Os itens em destaque vêm do que consta neste relatório.</p>
             <p class="rel__check-cont" role="status" aria-live="polite">{{ checklistMarcados }} de {{ checklistTotal }} conferidos</p>
             <div class="rel__check-cols">
               <div v-for="bloco in [{ t: 'Na vistoria do carro', itens: checklist.vistoria }, { t: 'Na transferência', itens: checklist.transferencia }]" :key="bloco.t" class="rel__check-col">
@@ -4508,6 +4510,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   // ---- checklist de vistoria e transferencia ----
   &__check-sub { margin: 0 0 12px; font-size: calc(13px * var(--rel-fs, 1)); color: #555; }
+  &__check-papel { display: none; }
   &__check-cols { display: grid; grid-template-columns: 1fr; gap: 16px; }
   @media (min-width: 900px) { &__check-cols { grid-template-columns: 1fr 1fr; gap: 24px; } }
   &__check-h3 { margin: 0 0 8px; font-size: calc(14px * var(--rel-fs, 1)); font-weight: 700; color: #1a1a1a; }
@@ -5155,8 +5158,17 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // Fora do papel: acoes, navegacao, dicas, faixa de e-mail, venda (upsell e
   // recompra), checklist interativo, alternancias de grafico, o QR de
   // autenticidade fica (e o que confere o documento).
-  .rel__acoes, .rel__navband, .rel__info, .rel__email, .rel__card--up, .rel__check,
+  .rel__acoes, .rel__navband, .rel__info, .rel__email, .rel__card--up,
   .rel__var-toggle, .rel__btn, .rel__print-pe, .rel__doc-validade { display: none !important; }
+
+  // Checklist: no papel e lista simples, com caixa vazia (☐) pra riscar a
+  // caneta. Sem as caixinhas interativas, contador nem texto de "fica salvo".
+  .rel__check-input, .rel__check-cont, .rel__check-erro, .rel__check-tela { display: none !important; }
+  .rel__check-papel { display: block !important; }
+  .rel__check-label { min-height: 0; padding: 4px 0; grid-template-columns: 16px 1fr; gap: 6px; cursor: auto; }
+  .rel__check-label::before { content: '☐'; font-size: 13px; line-height: 1.2; color: #333; }
+  .rel__check-item--ok span { color: inherit; }
+  .rel__check-item--rel { background: none !important; }
   button { display: none !important; }
 
   // Marca d'agua: position fixed repete em toda folha no Chromium.
