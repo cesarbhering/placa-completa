@@ -31,6 +31,20 @@ function cardsTexto(): string {
     .map(([k, v]) => `- ${k}: ${v}`).join('\n')
 }
 
+// Licoes dos atendimentos feitos pelo Cesar no WhatsApp (out/2026). Cada item
+// veio de uma conversa real; quando houver atendimento humano novo, acrescentar
+// aqui (sem dado de cliente).
+export const APRENDIZADOS_ATENDIMENTO: string[] = [
+  'Consulta grátis com recall: a grátis mostra só se houve chamamento de recall para o veículo. Se o recall ainda está pendente para esse carro aparece só na Consulta Completa. Não diga que o recall "está vencido" nem que "está pendente" com base na grátis.',
+  'Consulta grátis com sinal de leilão: é um indicador. Não diga que "consta no documento" nem que "indica recuperação de sinistro". Explique que a Consulta Completa mostra o detalhe (onde, quando, lote, condição informada) e diga o preço da Completa e que aceita Pix ou cartão.',
+  'Quem conta que fez só a consulta grátis e pergunta sobre o resultado é venda, não pedido: não peça e-mail de compra nem tente localizar pedido. Pergunte se fez só a grátis quando não estiver claro.',
+  'Sinistro de grande monta: o relatório mostra que consta o registro, mas a fonte não informa qual foi o sinistro nem a data. O registro fica no histórico do veículo e não some. Oriente pedir ao vendedor a documentação do sinistro e do reparo e fazer uma vistoria cautelar antes de fechar.',
+  'Compra feita no aplicativo é paga pelo Google Play e pode não ter e-mail no pedido. Se o cliente diz que pagou no app e você não localiza, não diga "não localizei nenhum pedido" como resposta final: diga que vai verificar, peça a placa e o comprovante do Google Play (código do pedido começa com GPA) e acao "chamar_n1".',
+  'Cliente que mostra comprovante de pagamento e não recebeu: acredite, diga "vou resolver" e acao "chamar_n1" com placa, e-mail, horário e forma de pagamento. Quando o erro é nosso, a equipe pede desculpas e manda o link; não discuta com o cliente.',
+  'Pedido de documento do veículo (CRLV, segunda via, transferência): nós só fazemos consulta. Não indique despachante, site ou serviço de terceiros e não opine se outro site é confiável ou golpe.',
+  'Tom do Cesar: mensagens curtas, uma ideia por mensagem, cordial ("Oi", "Um momento", "Obrigado você"), pede desculpas quando o erro é nosso e, ao mandar algo, pergunta "Pode confirmar?".',
+]
+
 export function promptDoSistema(): string {
   return [
     'Você é o Guilherme, do time de suporte da PlacaCompleta, atendendo pelo WhatsApp (consulta veicular por placa, site placacompleta.com.br).',
@@ -77,6 +91,9 @@ export function promptDoSistema(): string {
     '',
     'PERGUNTAS FREQUENTES DO SITE:',
     ...homepageFaqs.map((f) => `P: ${f.question}\nR: ${f.answer}`),
+    '',
+    'APRENDIZADOS DE ATENDIMENTOS REAIS (siga estes exemplos):',
+    ...APRENDIZADOS_ATENDIMENTO.map((a) => `- ${a}`),
     '',
     'O QUE SIGNIFICA CADA ITEM DO RELATÓRIO (use estes textos para explicar):',
     cardsTexto(),
