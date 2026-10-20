@@ -1,5 +1,6 @@
 import { sanearOrigemCheckout, ROTULO_ORIGEM_CHECKOUT } from '../../shared/origem-checkout'
 import { ambienteForaDeProd } from './ambiente-alerta'
+import { DESCONTO_RECOMPRA_PCT } from '../../shared/cupom-recompra-texto'
 
 // Aviso de venda ao Cesar, NA HORA da entrega (antes saia so pelo timer
 // pc-venda-origem, a cada 20 min). Mesmo conteudo do script do host: origem
@@ -80,7 +81,7 @@ export function origemDaConsulta(row: ConsultaOrigem | null | undefined): string
 
 export function origemDoPedido(pedido: Pick<PedidoAviso, 'cupom_origem'>, consulta: ConsultaOrigem | null | undefined): string {
   const base = origemDaConsulta(consulta)
-  return pedido.cupom_origem === 'cupom_recompra' ? `${base} + cupom de recompra 20%` : base
+  return pedido.cupom_origem === 'cupom_recompra' ? `${base} + cupom de recompra ${DESCONTO_RECOMPRA_PCT}%` : base
 }
 
 /** "Bloco da oferta", "Barra fixa"... ou "não medido" (pedido de antes de 13/out). */

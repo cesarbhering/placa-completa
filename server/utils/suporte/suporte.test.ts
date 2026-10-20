@@ -80,10 +80,10 @@ describe('simulação 1: dúvida antes de comprar (N0 sozinho)', () => {
     expect(s.mem.tarefas).toHaveLength(0)
     expect(s.emails).toHaveLength(0)
   })
-  it('o prompt traz o preço do site (promoção) e as regras', () => {
+  it('o prompt traz o preço do site (sem promoção) e as regras', () => {
     const p = promptDoSistema()
     expect(p).toContain(precoBRL(PLANOS.completa.valorCentavos))
-    expect(p).toContain(`de ${precoBRL(PLANOS.completa.precoDeCentavos!)}`)
+    expect(p).not.toContain('promoção')
     expect(p).toContain('Nunca ofereça nem crie cupom')
     expect(p).toContain('APRENDIZADOS DE ATENDIMENTOS REAIS')
     expect(p).toContain('comprovante do Google Play')

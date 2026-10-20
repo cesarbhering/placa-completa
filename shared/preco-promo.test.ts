@@ -2,13 +2,15 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { PLANOS, precoDePromocao } from './planos'
 
-// "Promo: de R$ 44,90 por R$ 39,90" (anuncios do Google, 09/out). O "de" vem
-// de planos.ts (precoDeCentavos) e e sempre maior que o cobrado.
-describe('preco riscado da completa', () => {
-  it('de R$ 44,90 por R$ 39,90, os dois de planos.ts', () => {
-    expect(PLANOS.completa.precoDeCentavos).toBe(4490)
-    expect(PLANOS.completa.valorCentavos).toBe(3990)
-    expect(precoDePromocao('completa')).toBe(4490)
+// Precos de 20/out/2026 (Cesar): basica R$ 29,90, completa R$ 44,90, e a
+// promocao "de 44,90 por 39,90" acabou (sem novo "de"). Se voltar a haver
+// promocao, o "de" vem de planos.ts (precoDeCentavos) e e maior que o cobrado.
+describe('precos e promocao', () => {
+  it('basica 29,90 e completa 44,90, sem promocao', () => {
+    expect(PLANOS.basica.valorCentavos).toBe(2990)
+    expect(PLANOS.completa.valorCentavos).toBe(4490)
+    expect(PLANOS.completa.precoDeCentavos).toBeUndefined()
+    expect(precoDePromocao('completa')).toBeNull()
   })
   it('o "de" sempre maior que o "por"; sem isso, nao ha promocao', () => {
     for (const p of Object.values(PLANOS)) {
@@ -18,9 +20,11 @@ describe('preco riscado da completa', () => {
     expect(precoDePromocao('gratis')).toBeNull()
     expect(precoDePromocao('basica')).toBeNull()
   })
-  it('nenhum lugar escreve 44,90 a mao', () => {
+  it('nenhum preco escrito a mao nas telas de venda (tudo sai de planos.ts)', () => {
     for (const f of ['pages/index.vue', 'components/PaginaCompra.vue', 'components/PremiumInlineCheckout.vue', 'components/PrecoPromo.vue']) {
-      expect(readFileSync(f, 'utf8'), f).not.toMatch(/44[,.]90|4490/)
+      // Comentario pode citar valor de exemplo; o que importa e o que vai pra tela.
+      const codigo = readFileSync(f, 'utf8').replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\/\/.*$/gm, '')
+      expect(codigo, f).not.toMatch(/R\$\s?\d+,\d{2}|\b(2990|3990|4490)\b/)
     }
   })
 })

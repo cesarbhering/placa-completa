@@ -193,8 +193,8 @@ export function interpretarPedidoGoogle(raw: any): PedidoGoogle {
 }
 
 /**
- * orders.get: o preco que a Play cobrou de verdade (R$ 39,99 hoje, nao os
- * R$ 39,90 do site) e o liquido. Fail-open: sem resposta, null, e quem chama
+ * orders.get: o preco que a Play cobrou de verdade (pode diferir do site:
+ * era R$ 39,99 contra R$ 39,90 ate 20/out/2026) e o liquido. Fail-open: sem resposta, null, e quem chama
  * usa o preco padrao da Play.
  */
 export async function consultarPedidoGoogle(orderId: string): Promise<PedidoGoogle | null> {
