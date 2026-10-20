@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto'
 import { depsReais, suporteLigado } from '../../utils/suporte/servidor'
-import { receberMensagem, responderConversa } from '../../utils/suporte/fluxo'
+import { receberMensagem, registrarMensagemDaEquipe, responderConversa } from '../../utils/suporte/fluxo'
 import { classificarMensagem } from '../../utils/suporte/evolution'
 import { agendarResposta } from '../../utils/suporte/agenda'
 import { hashNumero } from '../../utils/suporte/regras'
@@ -8,7 +8,8 @@ import { hashNumero } from '../../utils/suporte/regras'
 // POST /api/suporte/whatsapp: webhook INTERNO do Evolution (rede Docker).
 // - Header secreto x-suporte-secret (NUXT_SUPORTE_SECRET).
 // - Nada que venha pela Cloudflare (cf-connecting-ip): a rota nao e publica.
-// - So messages.upsert de conversa individual, de fora (fromMe = false).
+// - So messages.upsert de conversa individual. fromMe = mensagem da equipe no
+//   celular pareado (ou eco do proprio bot): registrarMensagemDaEquipe.
 // Responde 200 na hora; o atendimento roda depois, 1 resposta a cada 10 s.
 
 const docRecente = new Map<string, { hash: string; em: number }>()
@@ -36,10 +37,25 @@ export default defineEventHandler(async (event) => {
 
   for (const m of msgs) {
     const jid = String(m?.key?.remoteJid || '')
-    if (!jid || m?.key?.fromMe) continue
+    if (!jid) continue
     if (jid.endsWith('@g.us') || jid.endsWith('@broadcast') || jid.endsWith('@newsletter')) continue
     const rec = classificarMensagem(m)
     if (rec.tipo === 'ignorar') continue
+    if (m?.key?.fromMe) {
+      // Equipe respondendo pelo celular (o eco do bot e descartado la dentro).
+      try {
+        await registrarMensagemDaEquipe({
+          jid,
+          texto: rec.tipo === 'texto' ? rec.texto : null,
+          tipo: rec.tipo,
+          midia: rec.tipo === 'midia' ? rec.midia : undefined,
+          msgId: m?.key?.id,
+        }, deps)
+      } catch (e: any) {
+        console.warn('[suporte] mensagem da equipe falhou:', e?.message || e)
+      }
+      continue
+    }
     try {
       const r = await receberMensagem({
         jid,
