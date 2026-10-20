@@ -363,7 +363,7 @@ export default defineEventHandler(async (event) => {
     else if ((pedido.recall_sinal === 'firme' || pedido.recall_sinal === 'suave') && podeReprocessar(`recallbase:${pedido.placa}`, 10 * 60 * 1000)) {
       // Base fora do ar nao grava nada: o debounce (10 min por placa) segura o poll da tela.
       try {
-        recallBase = await garantirRecallBase(supabase, { id: pedido.id, placa: pedido.placa, recall_sinal: pedido.recall_sinal, recall_marca: pedido.recall_marca }, snapAtual)
+        recallBase = await garantirRecallBase(supabase, { id: pedido.id, placa: pedido.placa, recall_sinal: pedido.recall_sinal, recall_marca: pedido.recall_marca }, snapAtual, { chaveApi: String(useRuntimeConfig().anthropicApiKey || '') || null })
       } catch { recallBase = null }
     }
   }
