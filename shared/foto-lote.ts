@@ -87,6 +87,8 @@ export function passagemPrecisaDeFoto(p: any, fontesSemFoto?: Set<string>): bool
   if (!p || typeof p !== 'object') return false
   const fonte = String(p.fonte || '')
   if (!fonte || !String(p.lote || '').trim()) return false
+  // Base parceira de leilao nao tem catalogo de fotos na nossa base.
+  if (p.fonte_tipo === 'parceiro' || fonte === 'parceiro') return false
   if (temFoto(p)) return false
   const busca = p.fotos_busca?.status
   if (busca === 'sem_foto' || busca === 'fonte_sem_foto') return false

@@ -8,6 +8,8 @@
 
 export interface SinaisChecklist {
   leilao?: 'confirmado' | 'possivel' | null
+  /** Consta indicio de sinistro na base parceira de leiloes e sinistros. */
+  sinistro?: boolean
   roubo?: boolean
   recallPendente?: boolean
   kmCaiu?: boolean
@@ -60,7 +62,7 @@ const TRANSFERENCIA_GERAL: [string, string][] = [
 
 /** Ids dos itens puxados pelo relatorio (o texto pode variar, o id nao). */
 export const IDS_DO_RELATORIO = [
-  'r-leilao', 'r-roubo', 'r-recall', 'r-km', 'r-baixado', 'r-gravame', 'r-judicial', 'r-debitos', 'r-licenciamento',
+  'r-leilao', 'r-roubo', 'r-recall', 'r-km', 'r-baixado', 'r-gravame', 'r-judicial', 'r-debitos', 'r-licenciamento', 'r-sinistro',
 ] as const
 
 /** Todo id que pode existir: o servidor so aceita marcar um destes. */
@@ -76,6 +78,7 @@ export function montarChecklist(s: SinaisChecklist): Checklist {
 
   if (s.leilao === 'confirmado') vist.push(['r-leilao', 'Consta passagem por leilão: peça uma vistoria cautelar com análise da estrutura (longarinas, colunas e assoalho).'])
   else if (s.leilao === 'possivel') vist.push(['r-leilao', 'Consta possível passagem por leilão: confira a estrutura com atenção e peça uma vistoria cautelar.'])
+  if (s.sinistro) vist.push(['r-sinistro', 'Consta indício de sinistro em base parceira: peça uma vistoria cautelar com análise da estrutura e pergunte ao vendedor sobre sinistros e reparos, com notas e laudos.'])
   if (s.roubo) vist.push(['r-roubo', 'Há registro de roubo ou furto no histórico: confira a gravação do chassi e do motor com mais cuidado e peça ao vendedor o boletim de ocorrência e a baixa.'])
   if (s.recallPendente) vist.push(['r-recall', 'Consta recall pendente: peça o comprovante do atendimento ou agende o reparo, que é gratuito na concessionária.'])
   if (s.kmCaiu) vist.push(['r-km', 'Há leitura de hodômetro menor que uma anterior: compare o painel com o histórico de revisões e notas de serviço.'])

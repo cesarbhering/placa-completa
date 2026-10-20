@@ -1,3 +1,4 @@
+import { FONTE_PARCEIRA, ROTULO_PARCEIRA } from './fonte-parceira'
 // O que o card de leilao do relatorio pago MOSTRA de cada passagem.
 //
 // Decisao do Cesar (01/out): por enquanto NENHUM valor em R$ (venda, lance,
@@ -181,6 +182,8 @@ const titulo = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase
  */
 export function fonteExibicaoLeilao(p: { fonte?: string | null; fonte_tipo?: string | null; fonte_exibicao?: string | null }): string {
   const chave = String(p.fonte || '').trim().toLowerCase().replace(/[\s-]+/g, '_')
+  // Base parceira: rotulo unico, nunca o nome do fornecedor (shared/fonte-parceira.ts).
+  if (chave === FONTE_PARCEIRA || p.fonte_tipo === FONTE_PARCEIRA) return ROTULO_PARCEIRA
   if (p.fonte_tipo === 'detran') {
     if (p.fonte_exibicao) return String(p.fonte_exibicao)
     return chave.split('_').filter(Boolean).map((x) => (x.length === 2 ? x.toUpperCase() : titulo(x))).join(' ')
