@@ -13,7 +13,7 @@ const CANONICO = `${BASE}/o-que-e/${artigo.slug}`
 const relacionados = artigo.relacionados.map((s) => ARTIGOS.find((a) => a.slug === s)!).filter(Boolean)
 // Leilao de recuperacao de credito (gravame) e leilao judicial (RENAJUD) sao
 // os casos em que o guia de carro de leilao ajuda.
-const linkLeilao = artigo.slug === 'gravame' || artigo.slug === 'renajud'
+const linkLeilao = artigo.slug === 'gravame' || artigo.slug === 'intencao-de-gravame' || artigo.slug === 'renajud'
 
 function onCtaClick(origem: string) {
   if (import.meta.client && (window as any).gtag) {
@@ -120,7 +120,6 @@ useHead({
 
         <p class="pc-fonte">
           Fonte dos números: {{ LEVANTAMENTO.rotulo }}, um registro por veículo, só dados agregados.
-          Os dados do registro nacional vêm da consulta oficial à SENATRAN e aos DETRANs.
         </p>
 
         <nav class="pc-breadcrumb">
