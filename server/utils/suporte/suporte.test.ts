@@ -1,12 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
-import { processarMensagem, rodarFilaN1, rodarInatividade, type Conversa, type Deps, type Repo, type Tarefa } from './fluxo'
+import { processarMensagem, rodarFilaN1, rodarInatividade, registrarMensagemDaEquipe, _limparEnviosDoBot, type Conversa, type Deps, type Repo, type Tarefa } from './fluxo'
 import { fatoDoPedido } from './pedidos'
 import { hmacPagador } from '../pagador-hash'
 import { guardarResposta, separarDocumento, gatilhoN2, pedePessoa, pedeDadoDeTerceiro, mascararNumero, cifrarJid, decifrarJid, horarioComercial, parseNota } from './regras'
 import { perguntarAoAgente, SCHEMA_VEREDITO, mensagensParaApi, type Veredito } from './agente'
 import { promptDoSistema } from './conhecimento'
 import { TXT } from './textos'
-import { textoDaMensagem, numeroParaEvolution } from './evolution'
+import { textoDaMensagem, numeroParaEvolution, enviarTexto } from './evolution'
 import { PLANOS, precoBRL } from '../../../shared/planos'
 
 const SEG = 'segredo-teste-suporte'
@@ -61,7 +61,7 @@ function montar(roteiro: Veredito[], pedidos: any[] = [], agora = HORARIO) {
     consultarPedidos: async (c) => pedidos
       .filter((p) => (c.placa ? p.placa === c.placa.toUpperCase().replace(/[^A-Z0-9]/g, '') : c.email ? p.email === c.email : c.token ? p.token_entrega === c.token : false))
       .map((p) => fatoDoPedido(p, c)),
-    enviar: async (_jid, texto) => { brutos.push(texto); enviados.push(texto.replace(`${TXT.apresentacao}\n\n`, '')); return { ok: true, status: 200 } },
+    enviar: async (_jid, texto) => { brutos.push(texto); enviados.push(texto.replace(`${TXT.apresentacao}\n\n`, '')); return { ok: true, status: 200, id: `BOT${brutos.length}` } },
     bloquear,
     email: async (assunto, texto) => { emails.push({ assunto, texto }) },
     agora: () => agora,
@@ -708,5 +708,106 @@ describe('chamada ao Haiku', () => {
     const m = mensagensParaApi([{ de: 'bot', texto: 'a' }, { de: 'cliente', texto: 'b' }, { de: 'cliente', texto: 'c' }], 'resultado')
     expect(m.map((x) => x.role)).toEqual(['user', 'assistant', 'user'])
     expect(m[2].content).toBe('b\nc\n[SISTEMA] resultado')
+  })
+})
+
+describe('mensagem da equipe pelo celular pareado (fromMe)', () => {
+  const equipe = (s: ReturnType<typeof montar>, texto: string | null, id: string, extra: any = {}) =>
+    registrarMensagemDaEquipe({ jid: JID, texto, msgId: id, ...extra }, s.deps)
+
+  it('o eco do que o bot mandou (mesmo key.id) nao entra nem cala o bot', async () => {
+    _limparEnviosDoBot()
+    const s = montar([V({ categoria: 'venda', resposta: 'Mostramos sim.' })])
+    await s.msg('Vocês mostram leilão?', 'C1')
+    const c = s.mem.conversas[0]
+    const idBot = c.mensagens.find((m) => m.de === 'bot')!.id!
+    expect(idBot).toBe('BOT1')
+    expect(await equipe(s, s.brutos[0], idBot)).toBe('eco')
+    expect(c.status).toBe('aberta')
+    expect(c.mensagens.filter((m) => m.de === 'n1')).toHaveLength(0)
+  })
+
+  it('eco que chega antes da resposta do envio (sem id ainda): reconhecido pelo texto enviado ao numero', async () => {
+    _limparEnviosDoBot()
+    const s = montar([V({ categoria: 'venda', resposta: 'Mostramos sim.' })])
+    await s.msg('Vocês mostram leilão?', 'C1')
+    expect(await equipe(s, s.brutos[0], 'ID-QUE-NAO-CONHECEMOS')).toBe('eco')
+  })
+
+  it('texto do Cesar entra como n1 e cala o bot por 24 h (encerrada + silenciado_ate)', async () => {
+    _limparEnviosDoBot()
+    const s = montar([V({ categoria: 'venda', resposta: 'Mostramos sim.' })])
+    await s.msg('Vocês mostram leilão?', 'C1')
+    expect(await equipe(s, 'Oi, aqui é o Cesar. Te ajudo por aqui.', 'H1')).toBe('gravada')
+    const c = s.mem.conversas[0]
+    expect(c.mensagens.at(-1)).toMatchObject({ de: 'n1', texto: 'Oi, aqui é o Cesar. Te ajudo por aqui.', id: 'H1' })
+    expect(c.status).toBe('encerrada')
+    expect(new Date(c.silenciado_ate!).getTime()).toBe(HORARIO.getTime() + 24 * 3600_000)
+    expect(c.motivo).toBe('equipe assumiu pelo WhatsApp')
+    // o mesmo upsert de novo nao duplica
+    expect(await equipe(s, 'Oi, aqui é o Cesar. Te ajudo por aqui.', 'H1')).toBe('eco')
+    expect(c.mensagens.filter((m) => m.de === 'n1')).toHaveLength(1)
+  })
+
+  it('o cliente responde durante o silencio: entra no historico, o bot nao fala e nao abre conversa nova', async () => {
+    _limparEnviosDoBot()
+    const s = montar([V({ categoria: 'venda', resposta: 'Mostramos sim.' }), V({ categoria: 'venda', resposta: 'NAO DEVIA SAIR' })])
+    await s.msg('Vocês mostram leilão?', 'C1')
+    await equipe(s, 'Pode me mandar a placa?', 'H1')
+    const antes = s.enviados.length
+    await s.msg('ABC1D23, meu CPF 123.456.789-09', 'C2')
+    expect(s.enviados.length).toBe(antes)
+    expect(s.mem.conversas).toHaveLength(1)
+    const c = s.mem.conversas[0]
+    expect(c.mensagens.at(-1)!.de).toBe('cliente')
+    expect(c.mensagens.at(-1)!.texto).toContain('ABC1D23')
+    expect(c.mensagens.at(-1)!.texto).not.toContain('123.456.789-09')
+    expect(c.status).toBe('encerrada')
+  })
+
+  it('depois das 24 h, a proxima mensagem do cliente abre outro atendimento', async () => {
+    _limparEnviosDoBot()
+    const s = montar([V({ categoria: 'venda', resposta: 'Mostramos sim.' }), V({ categoria: 'venda', resposta: 'Oi de novo!' })])
+    await s.msg('Vocês mostram leilão?', 'C1')
+    await equipe(s, 'Resolvido por aqui.', 'H1')
+    s.deps.agora = () => new Date(HORARIO.getTime() + 25 * 3600_000)
+    await s.msg('oi', 'C3')
+    expect(s.mem.conversas).toHaveLength(2)
+    expect(s.enviados.at(-1)).toMatch(/de novo!/i)
+  })
+
+  it('midia do Cesar vira so o rotulo; numero sem conversa (particular) nao vira registro', async () => {
+    _limparEnviosDoBot()
+    const s = montar([V({ categoria: 'venda', resposta: 'Mostramos sim.' })])
+    expect(await equipe(s, 'oi amigo', 'P1')).toBe('sem_conversa')
+    expect(s.mem.conversas).toHaveLength(0)
+    await s.msg('Vocês mostram leilão?', 'C1')
+    expect(await equipe(s, null, 'H2', { tipo: 'midia', midia: 'imagem' })).toBe('gravada')
+    expect(s.mem.conversas[0].mensagens.at(-1)).toMatchObject({ de: 'n1', tipo: 'midia', texto: '[imagem]' })
+  })
+
+  it('resposta da fila N1 (repasse pelo bot) nao vira "equipe assumiu" pelo eco', async () => {
+    _limparEnviosDoBot()
+    const s = montar([V({ acao: 'chamar_n1', resposta: 'Verificando.', resumo_n1: 'link' })])
+    await s.msg('o link não abre', 'C1')
+    const t = s.mem.tarefas[0]
+    Object.assign(t, { status: 'respondida', resposta: 'Já liberei o link.' })
+    await rodarFilaN1(s.deps)
+    const c = s.mem.conversas[0]
+    const n1 = c.mensagens.filter((m) => m.de === 'n1')
+    expect(await equipe(s, 'Já liberei o link.', n1[0].id!)).toBe('eco')
+    expect(c.status).not.toBe('encerrada')
+  })
+})
+
+describe('envio pela Evolution devolve o key.id', () => {
+  const cfg = { baseUrl: 'http://evo', apiKey: 'k', instance: 'placa-completa' }
+  it('sendText com key.id', async () => {
+    const f: any = async () => new Response(JSON.stringify({ key: { id: '3EB0ABC', fromMe: true } }), { status: 201 })
+    expect(await enviarTexto(cfg, JID, 'oi', f)).toEqual({ ok: true, status: 201, id: '3EB0ABC' })
+  })
+  it('resposta sem corpo JSON: ok sem id', async () => {
+    const f: any = async () => new Response('x', { status: 200 })
+    expect(await enviarTexto(cfg, JID, 'oi', f)).toEqual({ ok: true, status: 200, id: null })
   })
 })
