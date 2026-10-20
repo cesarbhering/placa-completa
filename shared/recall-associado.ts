@@ -8,6 +8,8 @@
 // Regra de copy: a base sabe que o carro CONSTA numa campanha, nunca se ja foi
 // atendido. Nao afirmar que foi feito; sem travessao.
 
+import { agrupamentoValido, type AgrupamentoRecall } from './recall-agrupamento'
+
 export interface CampanhaBase {
   codigo: string | null
   nome: string | null
@@ -25,15 +27,28 @@ export interface CampanhaBase {
 
 export interface RecallBase {
   consultado: boolean
+  /** Campanhas parecidas agrupadas pelo agente (shared/recall-agrupamento.ts). Ausente/null = lista original. */
+  agrupado?: AgrupamentoRecall | null
   /** Sinal da consulta gratis que a pessoa viu: firme (chassi) ou suave (modelo/ano). */
   sinal: 'firme' | 'suave' | null
   fonte: 'base_recalls'
   campanhas: CampanhaBase[]
 }
 
+export interface ItemRecallAssociado {
+  nome: string
+  meta: string
+  risco?: string | null
+  oQueFazer?: string | null
+  fabricacao?: string | null
+  /** Grupo do agente: frase leiga e as campanhas originais (o "ver as N campanhas"). */
+  resumo?: string | null
+  campanhas?: { nome: string; meta: string }[]
+}
+
 export interface CardRecallAssociado {
   titulo: string
-  itens: { nome: string; meta: string; risco?: string | null; oQueFazer?: string | null; fabricacao?: string | null }[]
+  itens: ItemRecallAssociado[]
   situacao: string
   fonte: string
   semDetalhe: boolean
@@ -129,6 +144,40 @@ export function cardRecallAssociado(e: {
   const camps = (e.base?.campanhas || []).filter((c) => c && (c.nome || c.codigo))
   // Chassi bate (firme) = "este veiculo"; so modelo/ano (suave) = "este modelo e ano".
   const firme = e.sinal === 'firme' || camps.some((c) => c.nivel === 'firme')
+  const itemDe = (c: CampanhaBase, modelos: string): ItemRecallAssociado => ({
+    nome: c.nome || 'Campanha de recall',
+    meta: [
+      c.codigo ? `Campanha ${c.codigo}` : null,
+      anoDe(c.inicio) ? `iniciada em ${anoDe(c.inicio)}` : null,
+      modelos || null,
+    ].filter(Boolean).join(' · '),
+    ...(c.risco ? { risco: c.risco } : {}),
+    ...(c.oQueFazer ? { oQueFazer: c.oQueFazer } : {}),
+    ...(textoFabricacao(c.fabricacaoDe, c.fabricacaoAte, e.anoFabricacao) ? { fabricacao: textoFabricacao(c.fabricacaoDe, c.fabricacaoAte, e.anoFabricacao) } : {}),
+  })
+  // Agrupamento do agente (so se cobre a lista inteira, um indice por grupo).
+  const grupos = camps.length === (e.base?.campanhas || []).length ? agrupamentoValido(e.base?.agrupado, camps.length) : null
+  if (grupos) {
+    return {
+      titulo: firme ? 'Recall associado a este veículo' : 'Recall associado a este modelo e ano',
+      itens: grupos.map((g) => {
+        const membros = g.indices.map((i) => camps[i])
+        if (membros.length === 1) {
+          const c = membros[0]
+          return itemDe(c, [c.modelo, c.ano_modelo].filter((v) => v != null && v !== '').join(' '))
+        }
+        return {
+          nome: g.titulo,
+          meta: [`${membros.length} campanhas`, [g.modelo, g.anos ? `modelos ${g.anos}` : null].filter(Boolean).join(', ')].filter(Boolean).join(' · '),
+          ...(g.resumo ? { resumo: g.resumo } : {}),
+          campanhas: membros.map((c) => itemDe(c, [c.modelo, c.ano_modelo].filter((v) => v != null && v !== '').join(' '))).map((x) => ({ nome: x.nome, meta: x.meta })),
+        }
+      }),
+      situacao: SITUACAO_RECALL_ASSOCIADO,
+      fonte: 'Fonte: base de recalls das montadoras.',
+      semDetalhe: false,
+    }
+  }
   return {
     titulo: firme ? 'Recall associado a este veículo' : 'Recall associado a este modelo e ano',
     itens: agruparCampanhas(camps).map((g) => ({
