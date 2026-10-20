@@ -22,12 +22,14 @@ export function gerarCodigoRecompra(rnd: (n: number) => number = randomInt): str
 export interface CupomRecompra { codigo: string; validoAte: string; /** Percentual gravado no cupom (20 nos antigos, 10 nos novos). */ pct?: number | null }
 
 /**
- * Gera (ou devolve o ja gerado) o cupom do pedido. Pedido de valor zero ou do
- * app (Google Play) nao gera. Nunca lanca: falha so deixa o pedido sem cupom.
+ * Gera (ou devolve o ja gerado) o cupom do pedido. Nao gera para pedido de
+ * valor zero, do app (Google Play) nem pago COM cupom (qualquer cupom:
+ * recompra, recuperacao de Pix, cortesia; regra do Cesar, 20/out/2026). Cupom
+ * ja emitido nao muda. Nunca lanca: falha so deixa o pedido sem cupom.
  */
 export async function gerarCupomRecompra(
   supabase: any,
-  pedido: { id: string; valor_centavos?: number | null; google_play_order_id?: string | null; pix_provider?: string | null },
+  pedido: { id: string; valor_centavos?: number | null; google_play_order_id?: string | null; pix_provider?: string | null; cupom_origem?: string | null },
   entregueEm: Date = new Date(),
 ): Promise<CupomRecompra | null> {
   try {
@@ -35,6 +37,12 @@ export async function gerarCupomRecompra(
     if (pedido.google_play_order_id || pedido.pix_provider === 'google_play') return null
     const { data: existente } = await supabase.from('cupons_premium').select('codigo, valido_ate, valor').eq('pedido_origem_id', pedido.id).maybeSingle()
     if (existente?.codigo) return { codigo: existente.codigo, validoAte: existente.valido_ate, ...(Number(existente.valor) > 0 ? { pct: Number(existente.valor) } : {}) }
+    // Pago com cupom: o de recompra marca o pedido (cupom_origem); todo cupom
+    // aplicado deixa a linha de uso em cupons_premium_usos (pedido_id unique).
+    if (pedido.cupom_origem) return null
+    const { data: uso, error: erroUso } = await supabase.from('cupons_premium_usos').select('id').eq('pedido_id', pedido.id).maybeSingle()
+    // Sem conseguir conferir, nao gera (melhor um cupom a menos que um indevido).
+    if (erroUso || uso) return null
     const validoAte = new Date(entregueEm.getTime() + VALIDADE_RECOMPRA_MS).toISOString()
     for (let tentativa = 0; tentativa < 3; tentativa++) {
       const codigo = gerarCodigoRecompra()
