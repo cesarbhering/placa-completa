@@ -10,6 +10,7 @@ import { marcaTemRecallGratis, marcaParaMedicao } from '~/shared/marcas-recall'
 
 import { homepageFaqs } from '~/data/homepage-faqs'
 import { origemDoCta, type OrigemCheckout } from '~/shared/origem-checkout'
+import { planoDoLinkSemPlaca } from '~/shared/link-plano'
 import { origemDaSessao, entradaDaSessao } from '~/shared/origem-trafego'
 import { espelharEventoNoFunil, enfileirarEventoFunil, definirRecallSinal } from '~/composables/useAnalytics'
 import { decidirVariante, fipeSemCentavos, tituloVarianteB, subVarianteB, garantiaVarianteB, type VarianteAbBloco } from '~/shared/ab-bloco'
@@ -75,7 +76,19 @@ const appIntent = computed(() => route.query.app === '1' && !isPWA.value)
 // pre-preenche a placa e ja abre o checkout no plano pedido.
 onMounted(() => {
   const qPlaca = placaDaRota.value
-  if (!qPlaca) return
+  if (!qPlaca) {
+    // Link generico com o plano ja escolhido (/?plano=completa|basica, Cesar
+    // 20/out/2026): a pessoa digita a placa e vai DIRETO ao pagamento, sem o
+    // resultado gratis. So na web: o app (Capacitor) e o PWA nao mudam.
+    const planoLink = planoDoLinkSemPlaca(route.query, { app: isCapacitor.value, pwa: fluxoLegado.value })
+    if (planoLink) {
+      premiumPlano.value = planoLink
+      aguardandoPlacaPaga.value = true
+      viaLinkPlano.value = true
+      track('link_plano_visto', { plano: planoLink })
+    }
+    return
+  }
   placa.value = qPlaca
   if (isPlanoPago(route.query.plano)) {
     nextTick(() => openPremiumCheckout(route.query.plano, 'link_direto'))
@@ -246,6 +259,9 @@ const placaJaConsultada = ref(false)
 // Clicou num CTA pago sem ter placa: o proximo envio do formulario vai pro
 // fluxo PAGO, nao pro gratuito.
 const aguardandoPlacaPaga = ref(false)
+// Chegou por /?plano=... sem placa: o aviso do plano fica junto do campo e o
+// checkout abre com origem 'link_plano'.
+const viaLinkPlano = ref(false)
 
 // ---------------------------------------------------------------
 // Header reativo ao scroll.
@@ -1019,6 +1035,7 @@ function limparResultado() {
   medirRecall(null)
   placaJaConsultada.value = false
   aguardandoPlacaPaga.value = false
+  viaLinkPlano.value = false
 }
 
 function resetForm() {
@@ -1210,11 +1227,13 @@ async function handleSubmit() {
   // Chegou aqui por um CTA pago (clicou em comprar sem ter placa): a placa
   // agora existe, entao o destino e o checkout, nao a consulta gratis.
   if (aguardandoPlacaPaga.value && !fluxoLegado.value) {
+    // Link com plano (/?plano=...) ou clique num CTA pago sem placa.
+    const origem: OrigemCheckout = viaLinkPlano.value ? 'link_plano' : 'hero_apos_cta'
     aguardandoPlacaPaga.value = false
     premiumPlaca.value = placa.value
-    premiumOrigem.value = 'hero_apos_cta'
+    premiumOrigem.value = origem
     showPremiumCheckout.value = true
-    track('premium_checkout_open', { origin: 'hero_apos_cta', origem_checkout: 'hero_apos_cta', plano: premiumPlano.value, ja_consultada: false })
+    track('premium_checkout_open', { origin: origem, origem_checkout: origem, plano: premiumPlano.value, ja_consultada: false })
     return
   }
 
@@ -1394,7 +1413,12 @@ function applyEmailSuggestion() {
                   @input="onPlacaInput"
                 />
               </PlacaMercosul>
-              <small v-if="aguardandoPlacaPaga" class="cb-plate-help cb-plate-help--cta">
+              <p v-if="aguardandoPlacaPaga && viaLinkPlano" class="cb-plano-link" data-testid="plano-link">
+                <span class="cb-plano-link__nome">{{ PLANOS[premiumPlano].nome }}</span>
+                <span class="cb-plano-link__preco">{{ precoBRL(PLANOS[premiumPlano].valorCentavos) }}</span>
+                <span class="cb-plano-link__dica">Digite a placa e siga direto para o pagamento.</span>
+              </p>
+              <small v-else-if="aguardandoPlacaPaga" class="cb-plate-help cb-plate-help--cta">
                 Consulte a placa primeiro. Digite acima para seguir com o
                 {{ PLANOS[premiumPlano].nome.toLowerCase() }}.
               </small>
@@ -1405,7 +1429,7 @@ function applyEmailSuggestion() {
                    na tela. O pago aparece depois, em cima do que ficou bloqueado. -->
               <template v-if="!loading">
                 <button type="submit" class="cb-btn cb-btn--blue cb-btn--lg cb-btn--block">
-                  Consultar placa
+                  {{ aguardandoPlacaPaga && viaLinkPlano ? 'Ir para o pagamento' : 'Consultar placa' }}
                 </button>
               </template>
 
@@ -2997,6 +3021,15 @@ function applyEmailSuggestion() {
   // igual em qualquer tamanho. Cada regra tem um valor em px antes, que vale
   // como fallback onde container query nao existe.
   // .cb-plate vive em components/PlacaMercosul.vue
+  .cb-plano-link {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px;
+    margin: 10px 0 0; padding: 8px 12px; border-radius: 10px;
+    background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.25);
+    font-size: 14px; line-height: 1.35;
+  }
+  .cb-plano-link__nome { font-weight: 700; }
+  .cb-plano-link__preco { font-weight: 700; color: #1d4ed8; }
+  .cb-plano-link__dica { flex-basis: 100%; font-size: 13px; opacity: 0.85; }
   .cb-plate-help {
     display: block;
     font-size: 12px;
