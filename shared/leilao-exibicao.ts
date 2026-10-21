@@ -276,3 +276,20 @@ export const NOTA_NIVEL: Record<string, string> = {
   provavel: 'identificador parcial',
   possivel: 'pode ser outro veículo',
 }
+
+/**
+ * A fonte classificou o estado do veiculo? (Cesar, 21/out/2026: a linha
+ * "Gravidade" da ficha so aparece com monta ou condicao de fato; "Sinistro
+ * (monta não informada)" e "Condição não informada" ficam fora, o sinistro sem
+ * monta ja aparece no indicador e no parecer.)
+ */
+export function gravidadeInformada(g: { nivel?: string | null; rotulo?: string | null } | null | undefined): boolean {
+  if (!g || !g.rotulo) return false
+  if (String(g.nivel || '').toLowerCase() === 'desconhecido') return false
+  return !/n[aã]o informad/i.test(String(g.rotulo))
+}
+
+/** Rotulo cabe numa pilula (ate ~14 caracteres)? Acima disso vira texto colorido (Cesar, 21/out/2026). */
+export function cabeEmPilula(texto: unknown, max = 14): boolean {
+  return String(texto ?? '').trim().length <= max
+}
