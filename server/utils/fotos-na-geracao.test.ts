@@ -141,3 +141,34 @@ describe('completarFotosNaGeracao', () => {
     expect(await completarFotosNaGeracao({}, { id: 'p1', plano: 'completa' }, { historicoLeilao: { passagens: [] } })).toBeNull()
   })
 })
+
+describe('atraso maximo da entrega: 60 s', () => {
+  it('API que nunca responde: buscarFotosNaGeracao resolve aos 60 s, nem antes nem depois', async () => {
+    vi.useFakeTimers()
+    const { FOTOS_GERACAO_PRAZO_MS } = await import('./fotos-na-geracao')
+    expect(FOTOS_GERACAO_PRAZO_MS).toBe(60_000)
+    const sb = fakeSb()
+    let fim: any = null
+    const p = buscarFotosNaGeracao({ supabase: sb, pedidoId: 'p1', passagens: [passagem(), passagem({ lote: '2' }), passagem({ lote: '3' })], buscar: () => new Promise(() => {}), log: () => {} })
+      .then((r) => { fim = r })
+    await vi.advanceTimersByTimeAsync(59_999)
+    expect(fim).toBeNull()
+    await vi.advanceTimersByTimeAsync(1)
+    await p
+    expect(fim).toMatchObject({ pendentes: 3, prazo_estourado: true, gravadas: 0 })
+    expect(fim.ms).toBe(60_000)
+  })
+
+  it('API sempre "buscando": para no prazo, sem passar de 60 s', async () => {
+    vi.useFakeTimers()
+    const sb = fakeSb()
+    let fim: any = null
+    const buscar = vi.fn(async () => ({ status: 'buscando', fotos: [] }))
+    const p = buscarFotosNaGeracao({ supabase: sb, pedidoId: 'p1', passagens: [passagem()], buscar, log: () => {} }).then((r) => { fim = r })
+    await vi.advanceTimersByTimeAsync(60_000)
+    await p
+    expect(fim).not.toBeNull()
+    expect(fim.ms).toBeLessThanOrEqual(60_000)
+    expect(buscar.mock.calls.length).toBeLessThanOrEqual(8)
+  })
+})
