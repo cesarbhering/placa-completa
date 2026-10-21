@@ -96,3 +96,22 @@ describe('secao de leilao enxuta (Cesar, 21/out/2026)', () => {
     expect(readFileSync('components/LeilaoFicha.vue', 'utf8')).toContain('{{ p.rotuloNivel }}')
   })
 })
+
+describe('ficha: gravidade so com classificacao e pilula so para rotulo curto (21/out/2026)', () => {
+  it('gravidadeInformada', async () => {
+    const { gravidadeInformada } = await import('./leilao-exibicao')
+    expect(gravidadeInformada({ nivel: 'media_monta', rotulo: 'Média monta' })).toBe(true)
+    expect(gravidadeInformada({ nivel: 'sucata', rotulo: 'Sucata' })).toBe(true)
+    expect(gravidadeInformada({ nivel: 'sinistro', rotulo: 'Sinistro (monta não informada)' })).toBe(false)
+    expect(gravidadeInformada({ nivel: 'desconhecido', rotulo: 'Condição não informada' })).toBe(false)
+    expect(gravidadeInformada({ nivel: 'desconhecido', rotulo: 'Qualquer' })).toBe(false)
+    expect(gravidadeInformada(null)).toBe(false)
+  })
+  it('cabeEmPilula: ate 14 caracteres', async () => {
+    const { cabeEmPilula } = await import('./leilao-exibicao')
+    expect(cabeEmPilula('Confirmado')).toBe(true)
+    expect(cabeEmPilula('Base parceira')).toBe(true)
+    expect(cabeEmPilula('Bancos e Financeiras')).toBe(false)
+    expect(cabeEmPilula('Sinistro (monta não informada)')).toBe(false)
+  })
+})
