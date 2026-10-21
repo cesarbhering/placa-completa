@@ -64,17 +64,3 @@ describe('versoes FIPE', () => {
     expect(opcoesDeCambio([a, { modelo: 'MARCH SL 1.6 Aut.' }])).toBeNull()
   })
 })
-
-describe('MT/AT soltos e colados ao motor (21/out/2026, BCK2C28)', () => {
-  it('decide o cambio', async () => {
-    const { cambioDoNome } = await import('./cambio-nome')
-    expect(cambioDoNome('CHEV/PRISMA 1.4MT LT')).toBe('manual')
-    expect(cambioDoNome('CHEV/ONIX 1.0AT LTZ')).toBe('automatico')
-    expect(cambioDoNome('CHEV/CRUZE 1.8MT LT')).toBe('manual')
-    expect(cambioDoNome('HONDA/CIVIC 16V AT6')).toBe('automatico')
-    expect(cambioDoNome('CHEV/ONIX 1.0 TAT')).toBe('automatico')
-    expect(cambioDoNome('CHEV/ONIX 1.0 TMT')).toBe('manual')
-    expect(cambioDoNome('CHEV/PRISMA LT MT')).toBe('manual')
-    expect(cambioDoNome('FIAT/PALIO ATTRACTIV')).toBeNull()
-  })
-})

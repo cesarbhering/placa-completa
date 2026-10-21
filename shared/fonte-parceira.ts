@@ -212,11 +212,14 @@ export function historicoComParceiro(base: any, r: RespostaParceiro, ctx: { chas
   }
 }
 
-import { BASE_LEILAO_TEXTO } from './base-leilao'
-
 // ---------------------------------------------------------------- copy (publica)
 // Nunca afirmar: so "consta". Sem travessao, sem citar orgao federal.
 
+export const SINISTRO_TITULO = 'Consta indício de sinistro em base parceira'
+export const SINISTRO_EXPLICA = 'Uma base parceira de leilões e sinistros tem registro de indício de sinistro para esta placa. Indício quer dizer que o veículo aparece em registro ligado a sinistro, como batida, alagamento, incêndio ou roubo com acionamento de seguro. O registro não diz a gravidade nem se houve reparo.'
+export const SINISTRO_CONFERIR = 'O que conferir: peça uma vistoria cautelar com análise da estrutura (longarinas, colunas e assoalho) e pergunte ao vendedor sobre sinistros e reparos, com notas e laudos.'
+export const DUAS_BASES_SEM_REGISTRO = 'Consultamos duas bases de leilão e sinistro e não encontramos registro para esta placa na data da consulta.'
+export const DUAS_BASES_SEM_LEILAO = 'Consultamos duas bases de leilão e não encontramos registro de leilão para esta placa na data da consulta.'
 export const PASSAGEM_PARCEIRA = 'Registro em base parceira de leilões e sinistros'
 export const DICA_SINISTRO = 'Consulta a uma base parceira de leilões e sinistros, feita quando a nossa base de leilões não encontra nada. Indício de sinistro quer dizer que o veículo aparece em registro ligado a sinistro; não diz a gravidade nem se houve reparo.'
 
@@ -229,27 +232,4 @@ export function rotuloIndicadorLeilao(passagens: unknown): string {
   const lista = Array.isArray(passagens) ? passagens : []
   const temParceira = lista.some((p: any) => p?.fonte_tipo === FONTE_PARCEIRA || p?.fonte === FONTE_PARCEIRA)
   return temParceira ? 'Histórico de leilão (bases consultadas)' : 'Histórico de leilão (fontes públicas)'
-}
-
-export interface LinhaBase { tag: 'Base própria' | 'Base parceira'; texto: string; tom: 'ok' | 'cinza' | 'alerta' }
-
-/**
- * Secao de leilao sem registro (Cesar, 21/out/2026): uma linha com tag por
- * base consultada, no lugar da frase unica.
- *  - nossa base: sempre (so aparece quando ela nao achou nada);
- *  - base parceira: consultada e nada -> verde; consultada e so sinistro ->
- *    "consta indicio de sinistro"; falhou ou teto -> cinza (o job completa);
- *    nao consultada (desligada) -> sem a linha.
- */
-export function linhasBasesSemRegistro(h: any): LinhaBase[] {
-  const linhas: LinhaBase[] = [{ tag: 'Base própria', texto: `Nada encontrado na nossa base, com ${BASE_LEILAO_TEXTO}.`, tom: 'ok' }]
-  const st = h?.parceiro?.status
-  if (st === 'ok') {
-    linhas.push(h?.sinistro_parceiro?.indicio === true
-      ? { tag: 'Base parceira', texto: 'Nenhum registro de leilão. Consta indício de sinistro.', tom: 'alerta' }
-      : { tag: 'Base parceira', texto: 'Nada encontrado na base do nosso parceiro premium.', tom: 'ok' })
-  } else if (st === 'falhou' || st === 'teto') {
-    linhas.push({ tag: 'Base parceira', texto: 'Não foi possível consultar agora.', tom: 'cinza' })
-  }
-  return linhas
 }

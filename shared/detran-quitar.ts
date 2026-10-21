@@ -19,6 +19,9 @@ export interface BlocoDetranQuitar {
   /** AL: IPVA apontado pelo DETRAN, valor ainda vindo da SEFAZ (ou nao veio). */
   ipva_pendente_sefaz?: boolean | null
   ipva_sefaz_indisponivel?: boolean | null
+  /** UF sem consulta de debitos (RJ: exige o documento do dono). Nao e "nada a quitar". */
+  debitos_indisponiveis?: boolean | null
+  aviso_debitos?: string | null
 }
 
 export interface ResumoQuitar {
@@ -33,6 +36,8 @@ export interface ResumoQuitar {
   nadaAQuitar: string | null
   /** IPVA em aberto sem valor ainda: texto da linha (consultando / nao informado). */
   ipvaSemValor: string | null
+  /** Aviso de debitos nao consultaveis na UF (RJ). */
+  avisoDebitos: string | null
 }
 
 const pos = (v: any) => (Number(v) > 0 ? Math.round(Number(v)) : 0)
@@ -101,8 +106,11 @@ export function resumoQuitar(a: {
     totalDoDetran,
     travas,
     consequencia: b.licenciamento_atrasado_ano ? CONSEQUENCIA_LICENCIAMENTO : null,
-    nadaAQuitar: totalCentavos > 0 || ipvaSemValor ? null : `Nada a quitar no DETRAN${uf ? '-' + uf : ''} na data da consulta.`,
+    // RJ: os debitos nao foram consultados (o estado exige o documento do dono),
+    // entao nunca "nada a quitar".
+    nadaAQuitar: totalCentavos > 0 || ipvaSemValor || b.debitos_indisponiveis ? null : `Nada a quitar no DETRAN${uf ? '-' + uf : ''} na data da consulta.`,
     ipvaSemValor,
+    avisoDebitos: b.debitos_indisponiveis ? (b.aviso_debitos || 'Débitos deste estado não estão disponíveis nesta consulta.') : null,
   }
 }
 

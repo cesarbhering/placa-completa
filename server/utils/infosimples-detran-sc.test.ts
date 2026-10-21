@@ -68,7 +68,7 @@ describe('gate por UF', () => {
   it('SP e SC suportadas; UF sem DETRAN nao', () => {
     expect(ufDetranSuportada('sc')).toBe('SC')
     expect(ufDetranSuportada('SP')).toBe('SP')
-    expect(ufDetranSuportada('RJ')).toBeNull()
+    expect(ufDetranSuportada('MS')).toBeNull()
     expect(ufDetranSuportada(null)).toBeNull()
   })
   it('blocoDetranDaUf usa o parser da UF', () => {

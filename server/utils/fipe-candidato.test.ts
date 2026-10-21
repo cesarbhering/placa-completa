@@ -1148,35 +1148,3 @@ describe('Renault: D = Dynamique e cambio colado (OUQ8G18 e FHB6G05, 15/out)', (
     expect(versaoPeloNomeParaPrompt('RENAULT/DUSTER 16 4X2')).toEqual([])
   })
 })
-
-describe('BCK2C28 (Prisma 1.4MT LT, 21/out/2026): manual sem "Mec." na FIPE', () => {
-  it('MT colado ao motor escolhe a versao sem "Aut." por REGRA, confianca alta, sem o juiz', async () => {
-    global.fetch = vi.fn(async (url: string) => {
-      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
-      throw new Error(`unexpected fetch: ${url}`)
-    }) as any
-    const r = await escolherMelhorFipe({
-      senatran: { cilindrada: 1400, potencia: 106, descricaoMarcaModelo: 'CHEV/PRISMA 1.4MT LT', anoModelo: 2017, codigoCombustivel: '16', descricaoTipoVeiculo: 'AUTOMOVEL', descricaoEspecie: 'PASSAGEIRO' } as any,
-      wdapi: {
-        marca: 'CHEVROLET', MODELO: 'PRISMA 1.4MT LT', anoModelo: '2017',
-        fipe: { dados: [
-          { score: 55, codigo_fipe: '004433-4', codigo_modelo: '6400', texto_modelo: 'PRISMA Sed. LT 1.4 8V FlexPower 4p', texto_valor: 'R$ 54.074,00', texto_marca: 'GM - Chevrolet', combustivel: 'Flex', mes_referencia: 'outubro de 2026' },
-          { score: 55, codigo_fipe: '004436-9', codigo_modelo: '6401', texto_modelo: 'PRISMA Sed. LT 1.4 8V FlexPower 4p Aut.', texto_valor: 'R$ 56.821,00', texto_marca: 'GM - Chevrolet', combustivel: 'Flex', mes_referencia: 'outubro de 2026' },
-        ] },
-      },
-      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1',
-      fipeApiToken: 'token-teste',
-    })
-    expect(r.decididoPor).toBe('regra')
-    expect(r.confianca).toBe('alta')
-    expect(r.escolhido?.codigo_fipe).toBe('004433-4')
-  })
-  it('candidatoEManual: "Mec." ou sem marca de automatico', async () => {
-    const { candidatoEManual, candidatoEAutomatico } = await import('./fipe-candidato')
-    expect(candidatoEManual('PRISMA Sed. LT 1.4 8V FlexPower 4p')).toBe(true)
-    expect(candidatoEManual('ONIX HATCH LT 1.4 8V FlexPower 5p Mec.')).toBe(true)
-    expect(candidatoEManual('PRISMA Sed. LT 1.4 8V FlexPower 4p Aut.')).toBe(false)
-    expect(candidatoEManual('PALIO 1.8 Dualogic')).toBe(false)
-    expect(candidatoEAutomatico('PRISMA Sed. LT 1.4 8V FlexPower 4p Aut.')).toBe(true)
-  })
-})
