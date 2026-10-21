@@ -1255,3 +1255,41 @@ describe('Toyota: token colado e sigla de versao eliminatoria (PRX0B70, 21/out/2
     expect(r.escolhido?.codigo_fipe).toBe('004433-4')
   })
 })
+
+describe('duvida so de cambio com o juiz fora: ambiguo, nunca o score da fonte (NJD2I54, 21/out/2026)', () => {
+  const DADOS = [{"score":58,"codigo_fipe":"002087-7","codigo_modelo":"2242","texto_modelo":"Hilux CD D4-D 4x2 2.5 16V 102cv TB Dies.","texto_valor":"R$ 83.208,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":59,"codigo_fipe":"002088-5","codigo_modelo":"2243","texto_modelo":"Hilux CD D4-D 4x4 2.5 16V 102cv TB Dies.","texto_valor":"R$ 84.166,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":52,"codigo_fipe":"002089-3","codigo_modelo":"2251","texto_modelo":"Hilux CD SR D4-D 4x2 3.0 163cv TDI Dies.","texto_valor":"R$ 90.140,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":59,"codigo_fipe":"002090-7","codigo_modelo":"2252","texto_modelo":"Hilux CD SR D4-D 4x4 3.0  TDI Dies.","texto_valor":"R$ 93.010,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":58,"codigo_fipe":"002091-5","codigo_modelo":"2257","texto_modelo":"Hilux CD SRV D4-D 4x2 3.0 163cv TDI Dies","texto_valor":"R$ 91.430,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":55,"codigo_fipe":"002092-3","codigo_modelo":"2258","texto_modelo":"Hilux CD SRV D4-D 4x4 3.0  TDI Dies","texto_valor":"R$ 96.918,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":59,"codigo_fipe":"002093-1","codigo_modelo":"2259","texto_modelo":"Hilux CD SRV D4-D 4x4 3.0 TDI Diesel Aut","texto_valor":"R$ 97.883,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":54,"codigo_fipe":"002094-0","codigo_modelo":"2260","texto_modelo":"Hilux Chassi D4-D 4x4 2.5 102cv TB Dies.","texto_valor":"R$ 45.844,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":57,"codigo_fipe":"002085-0","codigo_modelo":"2262","texto_modelo":"Hilux CS D4-D 4x2 2.5 16V 102cv TB Dies.","texto_valor":"R$ 82.549,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":59,"codigo_fipe":"002086-9","codigo_modelo":"2263","texto_modelo":"Hilux CS D4-D 4x4 2.5 16V 102cv TB Dies.","texto_valor":"R$ 96.879,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":53,"codigo_fipe":"002096-6","codigo_modelo":"3830","texto_modelo":"Hilux SW4 SRV D4-D 4x4 3.0 TDI Dies. Aut","texto_valor":"R$ 102.184,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":49,"codigo_fipe":"002095-8","codigo_modelo":"3831","texto_modelo":"Hilux SW4 SRV D4-D 4x4 3.0 TDI Dies. Mec","texto_valor":"R$ 99.335,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"}]
+  it('"HILUX CD4X4 SRV" 2008: SRV Mec. x SRV Aut. e juiz com HTTP 500 vira duvida com os dois', async () => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      if (String(url).includes('anthropic')) return { ok: false, status: 500, json: async () => ({ error: { type: 'api_error', message: 'x' } }) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+    const r = await escolherMelhorFipe({
+      senatran: { cilindrada: 2982, potencia: 163, descricaoMarcaModelo: 'I/TOYOTA HILUX CD4X4 SRV', anoModelo: 2008, codigoCombustivel: '03', descricaoTipoVeiculo: 'CAMINHONETE', descricaoEspecie: 'ESPECIAL' } as any,
+      wdapi: { marca: 'TOYOTA', MARCA: 'TOYOTA', MODELO: 'HILUX CD4X4 SRV', anoModelo: '2008', fipe: { dados: DADOS } },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1',
+      fipeApiToken: 'token-teste',
+      anthropicApiKey: 'chave-teste',
+    })
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.escolhido).toBeNull()
+    expect(r.candidatos.map((c: any) => c.codigo_fipe).sort()).toEqual(['002092-3', '002093-1'])
+  })
+})
+
+describe('fora da duvida so de cambio, juiz fora segue no fallback de sempre', () => {
+  it('SR x SRV (versao diferente) com juiz 500: fallback (comportamento antigo)', async () => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      if (String(url).includes('anthropic')) return { ok: false, status: 500, json: async () => ({}) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+    const d = (codigo: string, modelo: string) => ({ score: 50, codigo_fipe: codigo, codigo_modelo: '1', texto_modelo: modelo, texto_valor: 'R$ 90.000,00', texto_marca: 'Toyota', combustivel: 'Diesel', mes_referencia: 'agosto de 2026' })
+    const r = await escolherMelhorFipe({
+      senatran: { cilindrada: 2982, potencia: 163, descricaoMarcaModelo: 'I/TOYOTA HILUX CD4X4', anoModelo: 2008, codigoCombustivel: '03', descricaoTipoVeiculo: 'CAMINHONETE', descricaoEspecie: 'ESPECIAL' } as any,
+      wdapi: { marca: 'TOYOTA', MODELO: 'HILUX CD4X4', anoModelo: '2008', fipe: { dados: [d('002090-7', 'Hilux CD SR D4-D 4x4 3.0  TDI Dies.'), d('002092-3', 'Hilux CD SRV D4-D 4x4 3.0  TDI Dies')] } },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't', anthropicApiKey: 'k',
+    })
+    expect(r.decididoPor).toBe('fallback')
+  })
+})
