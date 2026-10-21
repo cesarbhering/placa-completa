@@ -13,6 +13,8 @@
 // OUQ8G18, 15/out; em prod toda Renault com AUT era 1.0 ou Clio 1.6, e a
 // Authentique nunca teve versao Aut. na FIPE).
 
+import { cambioToyota } from './toyota-nome'
+
 export type Cambio = 'manual' | 'automatico'
 
 const AUTO = new Set([
@@ -68,6 +70,9 @@ function deUmToken(t: string, marca: string): Cambio | null {
 export function cambioDoNome(descricao: string | null | undefined): Cambio | null {
   const { marca, tokens } = partes(String(descricao || ''))
   const achados = new Set(tokens.map((t) => deUmToken(t, marca)).filter(Boolean) as Cambio[])
+  // Toyota: cambio colado no token ("HILUX CDSRXA4FD" = A = automatico).
+  const toyota = cambioToyota(descricao)
+  if (toyota) achados.add(toyota)
   return achados.size === 1 ? [...achados][0] : null
 }
 

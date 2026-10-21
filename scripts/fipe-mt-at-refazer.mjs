@@ -9,6 +9,7 @@
 // Uso (na VPS, depois do deploy):
 //   SUPABASE_ACCESS_TOKEN=$(cat ~/.supabase/access-token) node scripts/fipe-mt-at-refazer.mjs <project_ref>                (dry-run: lista)
 //   ... ADMIN_SECRET=... node scripts/fipe-mt-at-refazer.mjs <project_ref> --aplicar [--tokens=a,b]   (backup 0600 antes)
+// Com --tokens o filtro de MT/AT no nome nao se aplica (regra Toyota, PRX0B70).
 import { writeFileSync } from 'node:fs'
 
 const [ref, ...args] = process.argv.slice(2)
@@ -37,8 +38,9 @@ const linhas = await sql(`select p.id, p.placa, p.token_entrega, p.entregue_em::
     and (p.relatorio_snapshot->'valorCusto'->>'fipeNaoLocalizado' = 'true' or p.relatorio_snapshot->'valorCusto'->'fipeCandidato'->>'decididoPor' = 'ambiguo')
   order by p.entregue_em`)
 const RE = /\bMT\b|\bAT\b|\d\.\dMT|\d\.\dAT|\bAT\d\b|\bT[AM]T\b/i
-const alvos = linhas.filter((l) => RE.test(String(l.descricao || '')))
-console.log(`${linhas.length} pedido(s) ambiguos ou sem FIPE em 60 dias; ${alvos.length} com MT/AT no nome:`)
+// Com --tokens, vale o pedido pedido (ex.: PRX0B70, Toyota "CDSRXA4FD", sem MT/AT solto).
+const alvos = so.length ? linhas : linhas.filter((l) => RE.test(String(l.descricao || '')))
+console.log(`${linhas.length} pedido(s) ambiguos ou sem FIPE em 60 dias; ${alvos.length} alvo(s)${so.length ? ' (--tokens)' : ' com MT/AT no nome'}:`)
 for (const l of alvos) console.log(`  ${l.dia} ${l.placa} ${l.token_entrega.slice(0, 8)}... "${l.descricao}" decidido=${l.decidido || '-'} naoLocalizado=${l.nao_localizado || '-'} modelo=${l.modelo || '-'}`)
 if (!aplicar) { console.log('\n(dry-run: nada gravado)'); process.exit(0) }
 if (!process.env.ADMIN_SECRET) { console.error('falta ADMIN_SECRET'); process.exit(1) }
