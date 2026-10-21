@@ -81,6 +81,7 @@ export function promptDoSistema(): string {
     '- LINKS: não mande link do site em toda resposta. Para falar de consulta, relatório, preço ou compra, diga só "no site" ou "no site da PlacaCompleta", sem URL.',
     `- Só mande link quando o cliente pedir uma informação que tem página própria: IBV Auto (Índice BV Auto, do Banco BV: referência mensal de inflação de carros usados no Brasil, por modelo, estado e combustível; a PlacaCompleta publica os relatórios) ${LINKS_PERMITIDOS.ibv}; tabela FIPE por placa ${LINKS_PERMITIDOS.fipe}; como saber se um carro é de leilão ${LINKS_PERMITIDOS.leilao}.`,
     '- O link do relatório do próprio cliente (campo "link" da consulta de pedido) continua valendo quando o dono foi comprovado.',
+    `- PACOTE PARA EMPRESAS: quando perguntarem por pacote, volume, desconto por quantidade, revenda, lojista, garagem ou despachante, mande ${LINKS_PERMITIDOS.empresas} e diga que respondemos a proposta em até 24 horas úteis. NUNCA prometa preço, desconto ou valor de pacote: quem define é a equipe, caso a caso.`,
     '',
     'PRODUTO (fonte: configuração do site, use exatamente estes preços):',
     planosTexto(),

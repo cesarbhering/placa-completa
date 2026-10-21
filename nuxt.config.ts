@@ -107,6 +107,7 @@ export default defineNuxtConfig({
       "/",
       "/sobre",
       "/contato",
+      "/para-empresas",
       "/consulta-placa",
       "/consulta-gratis",
       "/como-consultar-placa",
