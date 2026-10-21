@@ -17,7 +17,8 @@ import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
 import { cambioDoNome, versaoFipeManual, versaoFipeAutomatica, opcoesDeCambio } from '../../shared/cambio-nome'
 import { cambioPeloChassi } from '../../shared/cambio-chassi'
-import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES, fatosPicapeGM, LEGENDA_PICAPE_GM, LEGENDA_RENAULT } from '../../shared/versao-fipe'
+import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES, fatosPicapeGM, LEGENDA_PICAPE_GM, LEGENDA_RENAULT, faltaVersaoDoNome } from '../../shared/versao-fipe'
+import { fatosToyota, LEGENDA_TOYOTA } from '../../shared/toyota-nome'
 
 export { codigoDaTabela, type TabelaFipe }
 
@@ -664,13 +665,16 @@ function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any
     litragem, carroceria, versao, transmissao,
     // Sem codigo de combustivel, o sufixo Mercedes diz: CDI = diesel, FF = flex.
     combustivel: combustivelDoCodigo(senatran?.codigoCombustivel)
-      ?? (fatosMercedes(senatran?.descricaoMarcaModelo)?.diesel || fatosPicapeGM(senatran?.descricaoMarcaModelo)?.diesel ? 'diesel' : null),
+      ?? (fatosMercedes(senatran?.descricaoMarcaModelo)?.diesel || fatosPicapeGM(senatran?.descricaoMarcaModelo)?.diesel
+        || fatosToyota(senatran?.descricaoMarcaModelo)?.combustivel === 'diesel' ? 'diesel' : null),
     base: baseDoCodigo(senatran?.codigoCombustivel) ?? (fatosMercedes(senatran?.descricaoMarcaModelo)?.flex ? 'flex' : null),
     moto: tabela === 'motos',
     tokensModelo: tokensDoModelo(senatran?.descricaoMarcaModelo || wdapi?.MODELO),
-    cabine: cabineDaDescricao(senatran?.descricaoMarcaModelo) ?? fatosPicapeGM(senatran?.descricaoMarcaModelo)?.cabine ?? null,
+    cabine: cabineDaDescricao(senatran?.descricaoMarcaModelo) ?? fatosPicapeGM(senatran?.descricaoMarcaModelo)?.cabine
+      ?? fatosToyota(senatran?.descricaoMarcaModelo)?.cabine ?? null,
     caminhao: tabela === 'caminhoes',
-    tracao: tracaoDaDescricao(senatran?.descricaoMarcaModelo) ?? fatosPicapeGM(senatran?.descricaoMarcaModelo)?.tracao ?? null,
+    tracao: tracaoDaDescricao(senatran?.descricaoMarcaModelo) ?? fatosPicapeGM(senatran?.descricaoMarcaModelo)?.tracao
+      ?? fatosToyota(senatran?.descricaoMarcaModelo)?.tracao ?? null,
     descricao: String(senatran?.descricaoMarcaModelo || ''),
   }
 }
@@ -745,7 +749,9 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
     if (porVersao.length) restantes = porVersao
   }
 
-  if (fatos.transmissao) {
+  // Sigla de versao do nome que nenhum candidato tem (SRX com so SR/SRV na
+  // lista): o cambio nao decide, senao escolheria a versao errada.
+  if (fatos.transmissao && !faltaVersaoDoNome(restantes, fatos.descricao)) {
     // Manual: primeiro quem diz "Mec."; sem nenhum, quem nao e automatico
     // (a FIPE omite o cambio na manual). Automatico: "Aut." e os automatizados.
     const explicitoMec = fatos.transmissao === 'manual' ? restantes.filter((c) => versaoFipeManual(c.modelo)) : []
@@ -892,6 +898,7 @@ async function julgarComHaiku(
     LEGENDA_MERCEDES,
     LEGENDA_PICAPE_GM,
     LEGENDA_RENAULT,
+    LEGENDA_TOYOTA,
     `Siglas conhecidas: ${siglasParaPrompt()}. Ex.: "VW/NIVUS HL TSI" e o Nivus Highline.`,
     'Se a sigla do cadastro corresponde a um unico candidato, escolha esse candidato com confianca alta.',
     'IMPORTANTE: se os candidatos so se diferenciam pelo cambio (Mec./Aut./',
@@ -1073,7 +1080,7 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     // Camada 2: sobraram exatamente uma versao manual e uma automatica (a
     // duvida e SO o cambio) e o nome do cadastro nao disse o cambio: o prefixo
     // do chassi decide quando ha regra unanime (shared/cambio-chassi.ts).
-    if (!fatos.transmissao) {
+    if (!fatos.transmissao && !faltaVersaoDoNome(filtrados, fatos.descricao)) {
       const par = opcoesDeCambio(filtrados)
       const pelo = par ? cambioPeloChassi(input.senatran?.chassi) : null
       if (par && pelo) {
