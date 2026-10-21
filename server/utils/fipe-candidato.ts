@@ -457,15 +457,8 @@ function transmissaoDaDescricao(descricaoMarcaModelo: unknown): Transmissao {
   return cambioDoNome(String(descricaoMarcaModelo || ''))
 }
 
-/**
- * Versao manual da FIPE. A FIPE escreve "Mec." em parte das versoes manuais e,
- * em muitas, so OMITE o cambio: "PRISMA Sed. LT 1.4 8V FlexPower 4p" e a manual
- * e "... 4p Aut." a automatica (caso BCK2C28, 21/out/2026). Entao manual = tem
- * "Mec." OU nao tem marca de automatico. No cadastro: MT = manual, AT = automatico
- * (soltos ou colados ao motor: "1.4MT", "1.0AT", "16V AT6", "10TAT"; shared/cambio-nome.ts).
- */
 export function candidatoEManual(modelo: string): boolean {
-  return versaoFipeManual(modelo) || !versaoFipeAutomatica(modelo)
+  return versaoFipeManual(modelo)
 }
 
 /** Aut. e os automatizados que a FIPE nomeia pelo sistema (Dualogic, I-Motion...). */
@@ -746,10 +739,7 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
   }
 
   if (fatos.transmissao) {
-    // Manual: primeiro quem diz "Mec."; sem nenhum, quem nao e automatico
-    // (a FIPE omite o cambio na manual). Automatico: "Aut." e os automatizados.
-    const explicitoMec = fatos.transmissao === 'manual' ? restantes.filter((c) => versaoFipeManual(c.modelo)) : []
-    const porTransmissao = explicitoMec.length ? explicitoMec : restantes.filter((c) =>
+    const porTransmissao = restantes.filter((c) =>
       fatos.transmissao === 'manual' ? candidatoEManual(c.modelo) : candidatoEAutomatico(c.modelo),
     )
     if (porTransmissao.length) restantes = porTransmissao
