@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
-"""Cancela deploys INTERMEDIARIOS do site na fila do Coolify (4.4.6 nao tem "cancelar superados").
-Regra: entre os deploys do app em status 'queued', mantem so o mais novo e cancela os demais.
-NUNCA mexe em 'in_progress' (a troca de container em andamento termina normalmente).
-Uso: pc-coolify-dedup [--dry-run]. Timer: pc-coolify-dedup.timer (1 min)."""
-import json, re, sys, urllib.request
+"""Higiene da fila de deploys do site no Coolify (4.4.6 nao tem "cancelar superados"). Timer: 1 min.
+
+Regra 1 (14/out): entre os deploys 'queued' do app, mantem so o mais novo e cancela os demais.
+Regra 2 (21/out, webhook atrasado do GitHub): cancela QUALQUER deploy 'queued' ou 'in_progress' cujo commit e
+  ANCESTRAL ESTRITO do commit que ja esta em producao (tag da imagem do container do site). Assim um push
+  atrasado (ex.: da2c819 chegando depois do 3b1005d) nao rebuilda codigo velho por cima do atual.
+  O mesmo commit da producao (redeploy) e commits nao relacionados ficam. Cada cancelamento da regra 2 manda e-mail.
+Ancestralidade pela API do GitHub (compare X...PROD: status 'ahead' = PROD esta a frente de X = X ancestral).
+Fail-safe: se nao der para saber o commit de producao ou a ancestralidade, NAO cancela.
+Uso: pc-coolify-dedup [--dry-run]."""
+import json, os, re, subprocess, sys, urllib.request
 
 APP = "gvw73er3wq20ydyytrg5ygdt"
+REPO = "cesarbhering/placa-completa"
 DRY = "--dry-run" in sys.argv
+DEST = ["cesarcbhering@gmail.com", "helena@placacompleta.com.br"]
 env = {k: v.strip().strip('"').strip("'") for k, v in
        re.findall(r"^(?:export\s+)?(\w+)=(.*)$", open("/root/.coolify-api.env").read(), re.M)}
 BASE, H = env["COOLIFY_URL"].rstrip("/"), {"Authorization": "Bearer " + env["COOLIFY_API_TOKEN"]}
+GH_ENV = {**os.environ, "HOME": os.environ.get("HOME", "/root"), "GH_CONFIG_DIR": os.environ.get("GH_CONFIG_DIR", "/root/.config/gh")}
 
 
 def api(caminho, metodo="GET"):
@@ -18,15 +27,72 @@ def api(caminho, metodo="GET"):
         return json.load(r)
 
 
-ds = api(f"/api/v1/deployments/applications/{APP}?skip=0&take=20").get("deployments") or []
-fila = sorted([d for d in ds if d.get("status") == "queued" and not d.get("pull_request_id")],
-              key=lambda d: d.get("created_at") or "")
-if len(fila) <= 1:
-    sys.exit(0)
-manter = fila[-1]
-for d in fila[:-1]:
-    msg = (d.get("commit_message") or "").splitlines()[0][:70] if d.get("commit_message") else ""
-    print(f"{'[dry] ' if DRY else ''}cancelando deploy {d['deployment_uuid']} commit {str(d.get('commit'))[:7]} ({msg}); "
-          f"fica o {str(manter.get('commit'))[:7]}")
+def commit_em_producao():
+    """sha da imagem do container do site em execucao (tag = commit). None se nao der para saber."""
+    try:
+        nomes = subprocess.run(["docker", "ps", "--filter", f"name=^{APP}-", "--filter", "status=running",
+                                "--format", "{{.Names}}"], capture_output=True, text=True, timeout=20).stdout.split()
+        if not nomes:
+            return None
+        img = subprocess.run(["docker", "inspect", sorted(nomes)[-1], "--format", "{{.Config.Image}}"],
+                             capture_output=True, text=True, timeout=20).stdout.strip()
+        sha = img.rsplit(":", 1)[-1]
+        return sha if re.fullmatch(r"[0-9a-f]{40}", sha) else None
+    except Exception:
+        return None
+
+
+def ancestral_estrito(x, prod):
+    """True so quando X != PROD e PROD esta a frente de X (X ja esta contido em producao)."""
+    if not x or not prod or x.startswith(prod) or prod.startswith(x):
+        return False
+    try:
+        p = subprocess.run(["gh", "api", f"repos/{REPO}/compare/{x}...{prod}", "-q", ".status"],
+                           capture_output=True, text=True, timeout=30, env=GH_ENV)
+        return p.returncode == 0 and p.stdout.strip() == "ahead"
+    except Exception:
+        return False
+
+
+def email(assunto, corpo):
+    if DRY:
+        print(f"[dry] e-mail: {assunto}\n{corpo}"); return
+    for d in DEST:
+        subprocess.run(["/usr/local/bin/pc-mail", "--to", d, "--subject", assunto, "--body", corpo], timeout=60)
+
+
+def titulo(d):
+    return (d.get("commit_message") or "").splitlines()[0][:80] if d.get("commit_message") else ""
+
+
+def cancelar(d, motivo):
+    print(f"{'[dry] ' if DRY else ''}cancelando {d['status']} {d['deployment_uuid']} commit "
+          f"{str(d.get('commit'))[:7]} ({titulo(d)[:70]}): {motivo}")
     if not DRY:
         api(f"/api/v1/deployments/{d['deployment_uuid']}/cancel", "POST")
+
+
+ds = [d for d in (api(f"/api/v1/deployments/applications/{APP}?skip=0&take=20").get("deployments") or [])
+      if not d.get("pull_request_id")]
+cancelados = set()
+
+# Regra 2: commit ancestral do que ja esta em producao (inclui in_progress)
+prod = commit_em_producao()
+velhos = []
+for d in ds:
+    c = str(d.get("commit") or "")
+    if d.get("status") in ("queued", "in_progress") and re.fullmatch(r"[0-9a-f]{7,40}", c) and ancestral_estrito(c, prod):
+        cancelar(d, f"commit ancestral do que esta em producao ({prod[:7]})")
+        cancelados.add(d["deployment_uuid"]); velhos.append(d)
+if velhos:
+    linhas = "\n".join(f"- {str(d.get('commit'))[:7]} ({d['status']}): {titulo(d)}" for d in velhos)
+    email(f"DEPLOY ANTIGO CANCELADO ({len(velhos)})",
+          f"O Coolify ia publicar commit(s) mais velho(s) do que o que esta no ar ({prod[:7]}). Provavel webhook\n"
+          f"atrasado do GitHub. Cancelado(s) para nao voltar codigo antigo:\n\n{linhas}\n\n"
+          "Nada a fazer se o site estiver com o commit mais novo da main.\nHelena (pc-coolify-dedup)")
+
+# Regra 1: so o queued mais novo
+fila = sorted([d for d in ds if d.get("status") == "queued" and d["deployment_uuid"] not in cancelados],
+              key=lambda d: d.get("created_at") or "")
+for d in fila[:-1]:
+    cancelar(d, f"intermediario; fica o {str(fila[-1].get('commit'))[:7]}")
