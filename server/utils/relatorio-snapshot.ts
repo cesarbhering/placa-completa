@@ -284,5 +284,6 @@ export function refinoConfiavelEConsistente(
     && (fc.candidatos?.length || 0) > 0
   if (!confiante) return false
   const modelo = String(novo?.fipeModelo || '')
+  if (!modelo) return false
   return hint === 'manual' ? candidatoEManual(modelo) : candidatoEAutomatico(modelo)
 }
