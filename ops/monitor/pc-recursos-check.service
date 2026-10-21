@@ -1,0 +1,6 @@
+[Unit]
+Description=pc-monitor RECURSOS: disco > 85% = DISCO DA VPS ACIMA DE 85%; load15/nucleos > 3 = VPS SOBRECARREGADA (cita os 3 containers que mais consomem)
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-monitor recursos
+TimeoutStartSec=200
