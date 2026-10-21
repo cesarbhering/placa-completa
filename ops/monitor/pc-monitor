@@ -16,6 +16,7 @@ Uso:
   pc-monitor site                                  # roda a checagem do site (timer)
   pc-monitor fila                                  # saude da fila premium_jobs (timer, 5 min)
   pc-monitor tunel                                 # tunel residencial do Mac pelo SOCKS 127.0.0.1:1080 (timer, 5 min)
+  pc-monitor recursos                              # disco > 85% e load15/nucleos > 3 (timer, 5 min)
   pc-monitor meta                                  # as checagens acima estao rodando? crash/parada = MONITOR QUEBRADO
   pc-monitor alerta <site|checkout> ok [detalhe]   # registra sucesso (fecha incidente se aberto)
   pc-monitor alerta <site|checkout> falha <tipo> <motivo> [detalhe]   # registra falha CONFIRMADA
@@ -32,9 +33,11 @@ LENTO_S = 20          # mais que isso para responder = incidente (cliente desist
 TIMEOUT_S = 15
 BRT = dt.timezone(dt.timedelta(hours=-3))
 TITULO = {"site": "SITE FORA DO AR", "checkout": "CHECKOUT COM ERRO", "fila": "FILA DO RELATORIO PARADA",
-          "tunel": "TÚNEL DO MAC CAIU", "monitor": "MONITOR QUEBRADO"}
+          "tunel": "TÚNEL DO MAC CAIU", "monitor": "MONITOR QUEBRADO",
+          "disco": "DISCO DA VPS ACIMA DE 85%", "carga": "VPS SOBRECARREGADA"}
 VOLTOU = {"site": "SITE VOLTOU", "checkout": "CHECKOUT VOLTOU", "fila": "FILA DO RELATORIO VOLTOU",
-          "tunel": "TÚNEL DO MAC VOLTOU", "monitor": "MONITOR VOLTOU"}
+          "tunel": "TÚNEL DO MAC VOLTOU", "monitor": "MONITOR VOLTOU",
+          "disco": "DISCO DA VPS VOLTOU ABAIXO DE 85%", "carga": "CARGA DA VPS NORMALIZOU"}
 # por alvo: destinatarios e repeticao (tunel: so o Cesar, 1 e-mail por queda, sem repetir)
 DEST_ALVO = {"tunel": ["cesarcbhering@gmail.com"]}
 REPETE_ALVO = {"tunel": None}
@@ -252,6 +255,7 @@ CHECAGENS = [
     ("pc-checkout-probe", "checkout", 2 * 3600),     # 30 min + rodadas adiadas por load alto
     ("pc-fila-check", "fila", 15 * 60),
     ("pc-tunel-check", "tunel", 15 * 60),
+    ("pc-recursos-check", "carga", 15 * 60),
 ]
 
 
@@ -289,9 +293,65 @@ def cmd_meta():
     return 0
 
 
+# ------------------------------------------------------------------ recursos da VPS (21/out: load 25 em 6 nucleos, disco 82%)
+DISCO_LIMITE = int(os.environ.get("PCMON_DISCO_PCT", "85"))
+CARGA_LIMITE = float(os.environ.get("PCMON_CARGA_POR_NUCLEO", "3"))   # load de 15 min / nucleos
+
+
+def top_containers(n=3):
+    """Os n containers que mais consomem CPU agora (docker stats), com memoria. Nunca lanca."""
+    try:
+        out = subprocess.run(["docker", "stats", "--no-stream", "--format", "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"],
+                             capture_output=True, text=True, timeout=40).stdout.splitlines()
+        linhas = [l.split("\t") for l in out if l.count("\t") == 2]
+        linhas.sort(key=lambda c: float(c[1].rstrip("%") or 0), reverse=True)
+        return [f"{c[0]} ({c[1]} CPU, {c[2].split(' / ')[0]})" for c in linhas[:n]]
+    except Exception as e:
+        return [f"docker stats indisponivel: {e}"]
+
+
+def checa_disco():
+    st = os.statvfs("/")
+    pct = round(100 * (1 - st.f_bavail / st.f_blocks))
+    livre = st.f_bavail * st.f_frsize / 1024 ** 3
+    return pct, f"disco / em {pct}% ({livre:.0f} GB livres)"
+
+
+def checa_carga():
+    l1, l5, l15 = os.getloadavg()
+    n = os.cpu_count() or 1
+    return l15 / n, f"load 15 min {l15:.1f} em {n} nucleos ({l15 / n:.1f} por nucleo; 1 min {l1:.1f})"
+
+
+def cmd_recursos():
+    """Disco > 85% e carga (load de 15 min / nucleos) > 3. O load de 15 min ja e a janela de 15 min pedida;
+    a 2a leitura 60 s depois confirma (mesma regra das outras checagens)."""
+    pct, m = checa_disco()
+    if pct > DISCO_LIMITE:
+        time.sleep(60)
+        pct, m = checa_disco()
+    if pct > DISCO_LIMITE:
+        registra_falha("disco", "disco", m, "Maiores consumidores provaveis: imagens Docker antigas, cache do npm, worktrees em /root, "
+                       "journal.\nVer: docker system df; du -xsh /root/* | sort -rh | head")
+    else:
+        registra_ok("disco", m)
+    r, m = checa_carga()
+    if r > CARGA_LIMITE:
+        time.sleep(60)
+        r, m = checa_carga()
+    if r > CARGA_LIMITE:
+        top = top_containers()
+        registra_falha("carga", "load", m, "Containers que mais consomem agora:\n- " + "\n- ".join(top) +
+                       "\n\nOs leiloes tem teto de CPU (flaresolverr 1,5; leiloes-daily 1,5; render 0,75; superbid 0,25) "
+                       "e o site tem prioridade (cpu-shares 4096).\nVer: docker stats; vmstat 2 5 (coluna wa = I/O, si/so = swap)")
+    else:
+        registra_ok("carga", m)
+    return 0
+
+
 def cmd_estado():
     out = {}
-    for alvo in ("site", "checkout", "fila", "tunel", "monitor"):
+    for alvo in ("site", "checkout", "fila", "tunel", "monitor", "disco", "carga"):
         s = ler(alvo)
         out[alvo] = {"estado": s.get("estado", "ok"), "ultima_verificacao": s.get("ultima_verificacao"),
                      "ultimo_ok": s.get("ultimo_ok"), "desde": s.get("desde"), "tipo": s.get("tipo"),
@@ -306,6 +366,8 @@ def cmd_estado():
 def main(a):
     if a[:1] == ["site"]:
         return cmd_site()
+    if a[:1] == ["recursos"]:
+        return cmd_recursos()
     if a[:1] == ["meta"]:
         return cmd_meta()
     if a[:1] == ["tunel"]:

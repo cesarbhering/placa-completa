@@ -19,10 +19,11 @@ install -m 755 pc-monitor pc-monitor-panico /usr/local/bin/
 install -m 755 pc-checkout-probe.mjs /usr/local/bin/pc-checkout-probe.mjs
 install -m 644 pc-site-check.service pc-site-check.timer pc-checkout-probe.service pc-checkout-probe.timer \
   pc-fila-check.service pc-fila-check.timer pc-tunel-check.service pc-tunel-check.timer \
-  pc-monitor-meta.service pc-monitor-meta.timer pc-monitor-panico.service /etc/systemd/system/
+  pc-monitor-meta.service pc-monitor-meta.timer pc-monitor-panico.service \
+  pc-recursos-check.service pc-recursos-check.timer /etc/systemd/system/
 mkdir -p /var/lib/pc-monitor /var/log/pc-monitor
 systemctl daemon-reload
-systemctl enable pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-monitor-meta.timer
-systemctl restart pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-monitor-meta.timer
-systemctl list-timers pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-monitor-meta.timer --no-pager
+systemctl enable pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-recursos-check.timer pc-monitor-meta.timer
+systemctl restart pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-recursos-check.timer pc-monitor-meta.timer
+systemctl list-timers pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-recursos-check.timer pc-monitor-meta.timer --no-pager
 echo "backup em $B"
