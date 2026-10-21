@@ -16,6 +16,7 @@ Uso:
   pc-monitor site                                  # roda a checagem do site (timer)
   pc-monitor fila                                  # saude da fila premium_jobs (timer, 5 min)
   pc-monitor tunel                                 # tunel residencial do Mac pelo SOCKS 127.0.0.1:1080 (timer, 5 min)
+  pc-monitor deploy                                # HEAD da main x commit no ar; > 15 min = SITE DESATUALIZADO
   pc-monitor recursos                              # disco > 85% e load15/nucleos > 3 (timer, 5 min)
   pc-monitor meta                                  # as checagens acima estao rodando? crash/parada = MONITOR QUEBRADO
   pc-monitor alerta <site|checkout> ok [detalhe]   # registra sucesso (fecha incidente se aberto)
@@ -34,10 +35,12 @@ TIMEOUT_S = 15
 BRT = dt.timezone(dt.timedelta(hours=-3))
 TITULO = {"site": "SITE FORA DO AR", "checkout": "CHECKOUT COM ERRO", "fila": "FILA DO RELATORIO PARADA",
           "tunel": "TÚNEL DO MAC CAIU", "monitor": "MONITOR QUEBRADO",
-          "disco": "DISCO DA VPS ACIMA DE 85%", "carga": "VPS SOBRECARREGADA"}
+          "disco": "DISCO DA VPS ACIMA DE 85%", "carga": "VPS SOBRECARREGADA",
+          "deploy": "SITE DESATUALIZADO (a main nao chegou ao ar)"}
 VOLTOU = {"site": "SITE VOLTOU", "checkout": "CHECKOUT VOLTOU", "fila": "FILA DO RELATORIO VOLTOU",
           "tunel": "TÚNEL DO MAC VOLTOU", "monitor": "MONITOR VOLTOU",
-          "disco": "DISCO DA VPS VOLTOU ABAIXO DE 85%", "carga": "CARGA DA VPS NORMALIZOU"}
+          "disco": "DISCO DA VPS VOLTOU ABAIXO DE 85%", "carga": "CARGA DA VPS NORMALIZOU",
+          "deploy": "SITE ATUALIZADO COM A MAIN"}
 # por alvo: destinatarios e repeticao (tunel: so o Cesar, 1 e-mail por queda, sem repetir)
 DEST_ALVO = {"tunel": ["cesarcbhering@gmail.com"]}
 REPETE_ALVO = {"tunel": None}
@@ -256,6 +259,7 @@ CHECAGENS = [
     ("pc-fila-check", "fila", 15 * 60),
     ("pc-tunel-check", "tunel", 15 * 60),
     ("pc-recursos-check", "carga", 15 * 60),
+    ("pc-deploy-check", "deploy", 15 * 60),
 ]
 
 
@@ -349,9 +353,71 @@ def cmd_recursos():
     return 0
 
 
+# ------------------------------------------------------------------ main x producao (21/out: webhook do GitHub perdido)
+SITE_APP = "gvw73er3wq20ydyytrg5ygdt"
+DEPLOY_TOLERANCIA_S = 15 * 60       # um build normal leva ~5 min; acima de 15 min divergindo = incidente
+
+
+def gh_api(caminho):
+    envgh = {**os.environ, "HOME": os.environ.get("HOME", "/root"), "GH_CONFIG_DIR": "/root/.config/gh"}
+    p = subprocess.run(["gh", "api", caminho], capture_output=True, text=True, timeout=30, env=envgh)
+    if p.returncode != 0:
+        raise RuntimeError(p.stderr.strip()[:200])
+    return json.loads(p.stdout)
+
+
+def commit_producao():
+    nomes = subprocess.run(["docker", "ps", "--filter", f"name=^{SITE_APP}-", "--filter", "status=running", "--format",
+                            "{{.Names}}"], capture_output=True, text=True, timeout=20).stdout.split()
+    if not nomes:
+        return None
+    img = subprocess.run(["docker", "inspect", sorted(nomes)[-1], "--format", "{{.Config.Image}}"],
+                         capture_output=True, text=True, timeout=20).stdout.strip()
+    sha = img.rsplit(":", 1)[-1]
+    return sha if re.fullmatch(r"[0-9a-f]{40}", sha) else None
+
+
+def cmd_deploy():
+    """HEAD da main no GitHub x commit da imagem rodando. Divergente por mais de 15 min = SITE DESATUALIZADO.
+    Se o GitHub ou o docker nao responderem, nao alerta (so registra a verificacao)."""
+    s, t = ler("deploy"), agora()
+    try:
+        main = gh_api("repos/cesarbhering/placa-completa/commits/main")
+        head, titulo_c = main["sha"], main["commit"]["message"].splitlines()[0][:80]
+        prod = commit_producao()
+    except Exception as e:
+        s["ultima_verificacao"] = t; s["detalhe"] = f"sem leitura: {str(e)[:120]}"; gravar("deploy", s); return 0
+    if not prod:
+        s["ultima_verificacao"] = t; s["detalhe"] = "container do site nao encontrado (o alerta do site cobre)"
+        gravar("deploy", s); return 0
+    if prod == head:
+        registra_ok("deploy", f"producao = main ({head[:7]})"); return 0
+    desde = s.get("divergente_desde") if s.get("divergente_head") == head else None
+    desde = desde or t
+    if t - desde < DEPLOY_TOLERANCIA_S and s.get("estado") != "fora":
+        s.update({"ultima_verificacao": t, "divergente_desde": desde, "divergente_head": head,
+                  "detalhe": f"main {head[:7]} ainda nao no ar (producao {prod[:7]}) ha {dur(t - desde)}"})
+        gravar("deploy", s); return 0
+    try:
+        envc = {k: v.strip().strip('"').strip("'") for k, v in
+                re.findall(r"^(?:export\s+)?(\w+)=(.*)$", open("/root/.coolify-api.env").read(), re.M)}
+        req = urllib.request.Request(envc["COOLIFY_URL"].rstrip("/") + f"/api/v1/deployments/applications/{SITE_APP}?skip=0&take=5",
+                                     headers={"Authorization": "Bearer " + envc["COOLIFY_API_TOKEN"]})
+        fila = json.load(urllib.request.urlopen(req, timeout=20)).get("deployments") or []
+        fila_txt = "\n".join(f"- {d.get('status')} {str(d.get('commit'))[:7]} criado {str(d.get('created_at'))[:16]}" for d in fila)
+    except Exception as e:
+        fila_txt = f"(fila do Coolify indisponivel: {str(e)[:100]})"
+    registra_falha("deploy", "divergente", f"main {head[:7]} x producao {prod[:7]} ha mais de {dur(t - desde)}",
+                   f"Ultimo commit da main: {head[:7]} {titulo_c}\nNo ar: {prod[:7]}\n\nUltimos deploys no Coolify:\n{fila_txt}\n\n"
+                   "Causas comuns: webhook do GitHub perdido ou atrasado (ver githubstatus.com), build falhou ou travou.\n"
+                   "Ver: gh api repos/cesarbhering/placa-completa/hooks/631359810/deliveries; log do deploy no Coolify.")
+    s2 = ler("deploy"); s2.update({"divergente_desde": desde, "divergente_head": head}); gravar("deploy", s2)
+    return 0
+
+
 def cmd_estado():
     out = {}
-    for alvo in ("site", "checkout", "fila", "tunel", "monitor", "disco", "carga"):
+    for alvo in ("site", "checkout", "fila", "tunel", "monitor", "disco", "carga", "deploy"):
         s = ler(alvo)
         out[alvo] = {"estado": s.get("estado", "ok"), "ultima_verificacao": s.get("ultima_verificacao"),
                      "ultimo_ok": s.get("ultimo_ok"), "desde": s.get("desde"), "tipo": s.get("tipo"),
@@ -366,6 +432,8 @@ def cmd_estado():
 def main(a):
     if a[:1] == ["site"]:
         return cmd_site()
+    if a[:1] == ["deploy"]:
+        return cmd_deploy()
     if a[:1] == ["recursos"]:
         return cmd_recursos()
     if a[:1] == ["meta"]:
