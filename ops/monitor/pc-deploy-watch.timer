@@ -1,0 +1,7 @@
+[Unit]
+Description=A cada 5 min: detecta deploy novo de prod e roda a sonda do checkout
+[Timer]
+OnActiveSec=1min
+OnUnitActiveSec=5min
+[Install]
+WantedBy=timers.target

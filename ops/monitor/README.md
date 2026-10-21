@@ -26,7 +26,8 @@ Todo alvo que abre incidente manda `... VOLTOU (fora por Xh)` quando normaliza.
 
 **Detalhes do checkout:**
 - Se a home não abre, a sonda **não** manda "checkout com erro". O alerta fica com o site.
-- **Carga da VPS:** o Chromium roda com nice 10. Com load acima de 2x o número de núcleos, a sonda espera 2 min, até 3 vezes, e então pula a rodada sem veredito.
+- **CPU da VPS:** o Chromium roda com nice 10. Se a CPU estiver com menos de 10% ociosa (amostra de 2 s em `/proc/stat`), a sonda espera 2 min, até 3 vezes, e então pula a rodada sem veredito. Não usa mais o load: com teto de CPU nos containers, threads presas na quota contam no load (21/out: load 20 com 47% ociosa).
+- **Pós-deploy (`--pos-deploy`, usado pelo `pc-deploy-watch`):** espera o deployment do site sair de in_progress no Coolify (até 20 min) e roda sem adiar, para todo deploy ter veredito. O `pc-deploy-watch` agora é versionado aqui.
 - **Pós-deploy:** o `pc-deploy-watch` chama `node /usr/local/bin/pc-checkout-probe.mjs` após cada deploy. Um lock (`/run/pc-checkout-probe.lock`) evita duas sondas ao mesmo tempo.
 - **Regra da casa:** todo deploy termina com a sonda do checkout verde.
 
