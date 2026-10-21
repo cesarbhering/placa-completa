@@ -458,9 +458,10 @@ export function textosAvisoFotos(placa: string, niveis: string[]): { titulo: str
   }
 }
 
-export function montarAvisoFotos(a: { link: string; placa: string; niveis: string[] }): { assunto: string; html: string; texto: string } {
+/** Template dos avisos de relatorio atualizado (fotos, leilao tardio): mesmo layout. */
+export function montarEmailAviso(a: { link: string; titulo: string; paragrafos: string[]; assunto: string; botao: string }): { assunto: string; html: string; texto: string } {
   const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const { titulo, paragrafos, assunto } = textosAvisoFotos(a.placa, a.niveis)
+  const { titulo, paragrafos, assunto } = a
   const p = (t: string, mb = 12) => `<p style="margin:0 0 ${mb}px;font-size:16px;line-height:1.5;color:${GRAFITE};text-align:center;">${esc(t)}</p>`
   const corpo = paragrafos.map((t, i) => p(t, i === paragrafos.length - 1 ? 0 : 12)).join('')
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${titulo}</title></head>
@@ -472,7 +473,7 @@ export function montarAvisoFotos(a: { link: string; placa: string; niveis: strin
 <tr><td align="center" style="padding:32px 32px 8px;font-family:${FONTE};text-align:center;">
 <h1 style="margin:0 0 16px;font-size:24px;line-height:1.2;font-weight:600;color:${TINTA};text-align:center;">${titulo}</h1>${corpo}</td></tr>
 <tr><td align="center" style="padding:20px 32px 8px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="${AZUL}" style="border-radius:4px;">
-<a href="${a.link}" style="display:inline-block;padding:16px 32px;font-family:${FONTE};font-size:14px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;color:#ffffff;text-decoration:none;border-radius:4px;">Ver as fotos no relatório</a></td></tr></table></td></tr>
+<a href="${a.link}" style="display:inline-block;padding:16px 32px;font-family:${FONTE};font-size:14px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;color:#ffffff;text-decoration:none;border-radius:4px;">${esc(a.botao)}</a></td></tr></table></td></tr>
 <tr><td style="padding:20px 32px 32px;font-family:${FONTE};">
 <p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">O link é o mesmo de antes e não expira.</p>
 <p style="margin:0;font-size:12px;line-height:1.5;color:${GRAFITE};text-align:center;word-break:break-all;">Se o botão não funcionar, copie e cole no navegador:<br><a href="${a.link}" style="color:${AZUL};text-decoration:underline;">${a.link}</a></p></td></tr>
@@ -482,6 +483,10 @@ export function montarAvisoFotos(a: { link: string; placa: string; niveis: strin
 </table><p style="margin:16px 0 0;font-family:${FONTE};font-size:12px;line-height:1.5;color:${GRAFITE};">PlacaCompleta · consulta veicular por placa</p></td></tr></table></body></html>`
   const texto = [titulo, '', ...paragrafos.flatMap((t) => [t, '']), a.link, '', 'O link é o mesmo de antes e não expira.', '', 'Precisa de ajuda? Responda este e-mail ou escreva para contato@placacompleta.com.br', '', 'PlacaCompleta · consulta veicular por placa'].join('\n')
   return { assunto, html, texto }
+}
+
+export function montarAvisoFotos(a: { link: string; placa: string; niveis: string[] }): { assunto: string; html: string; texto: string } {
+  return montarEmailAviso({ link: a.link, ...textosAvisoFotos(a.placa, a.niveis), botao: 'Ver as fotos no relatório' })
 }
 
 export async function enviarAvisoFotos(
@@ -499,6 +504,62 @@ export async function enviarAvisoFotos(
     return true
   } catch (e: any) {
     console.error('[premium-email] aviso de fotos: envio falhou:', String(e?.data?.message || e?.message || e))
+    return false
+  }
+}
+
+// ---------- Aviso de leilao ou sinistro que apareceu depois da entrega (Cesar, 21/out/2026) ----------
+
+export interface InfoAvisoLeilao {
+  passagens: { nivel: string; data_leilao?: string | null; comitente?: string | null }[]
+  sinistro: boolean
+}
+
+const dataBrIso = (iso?: string | null) => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : null }
+
+/** Texto do aviso: so "consta", nunca afirma. Sem travessao e sem o nome do fornecedor. */
+export function textosAvisoLeilao(placa: string, info: InfoAvisoLeilao): { titulo: string; paragrafos: string[]; assunto: string } {
+  const ordem = ['confirmado', 'provavel', 'possivel']
+  const ps = [...info.passagens].sort((x, y) => ordem.indexOf(x.nivel) - ordem.indexOf(y.nivel))
+  const paragrafos: string[] = []
+  if (ps.length) {
+    const p = ps[0]
+    const quando = dataBrIso(p.data_leilao) ? ` em ${dataBrIso(p.data_leilao)}` : ''
+    const quem = p.comitente ? `, com comitente ${p.comitente}` : ''
+    const mais = ps.length > 1 ? ` Há mais ${ps.length - 1} ${ps.length - 1 === 1 ? 'registro' : 'registros'} no relatório.` : ''
+    if (p.nivel === 'possivel') {
+      paragrafos.push(`Entrou no seu relatório da placa ${placa} um registro possível de leilão${quando}${quem}. Ele pode ser outro veículo do mesmo modelo e ano: confira os detalhes no relatório.${mais}`)
+    } else {
+      const nivel = p.nivel === 'confirmado'
+        ? 'Nível confirmado: a placa ou o chassi são iguais aos deste veículo.'
+        : 'Nível provável: parte do identificador e os dados do veículo batem.'
+      paragrafos.push(`Consta no seu relatório da placa ${placa} um registro de leilão${quando}${quem}. ${nivel}${mais}`)
+    }
+  }
+  if (info.sinistro) {
+    paragrafos.push(ps.length
+      ? 'Também consta indício de sinistro em base parceira de leilões e sinistros.'
+      : `Consta no seu relatório da placa ${placa} indício de sinistro em base parceira de leilões e sinistros.`)
+  }
+  paragrafos.push('Esses registros mostram o que consta nas bases consultadas, sem dizer o estado atual do carro. Antes de fechar negócio, faça uma vistoria cautelar.')
+  return { titulo: 'Seu relatório foi atualizado', paragrafos, assunto: `Seu relatório da placa ${placa} foi atualizado` }
+}
+
+export async function enviarAvisoLeilao(
+  a: { email: string | null | undefined; token: string; placa: string; info: InfoAvisoLeilao },
+  deps: { config?: any; enviar?: (msg: any) => Promise<void> } = {},
+): Promise<boolean> {
+  const config = deps.config ?? useRuntimeConfig()
+  if (!a.email || (!deps.enviar && !config.resendApiKey)) return false
+  const link = `${config.premiumBaseUrl || 'https://placacompleta.com.br'}/premium/${a.token}`
+  const { assunto, html, texto } = montarEmailAviso({ link, ...textosAvisoLeilao(a.placa, a.info), botao: 'Ver relatório atualizado' })
+  const msg = { from: 'PlacaCompleta <contato@placacompleta.com.br>', reply_to: 'contato@placacompleta.com.br', to: [a.email], subject: comTagAmbiente(assunto, config), html, text: texto }
+  try {
+    if (deps.enviar) await deps.enviar(msg)
+    else await $fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' }, body: msg })
+    return true
+  } catch (e: any) {
+    console.error('[premium-email] aviso de leilao: envio falhou:', String(e?.data?.message || e?.message || e))
     return false
   }
 }

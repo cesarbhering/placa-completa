@@ -1,3 +1,4 @@
+import { avisarLeilaoTardio } from './aviso-leilao'
 import { lerFonteCache, gravarFonteCache, chaveDePlaca } from './fonte-cache'
 import {
   parsearRespostaParceiro, historicoComParceiro, nossaBaseVazia,
@@ -202,6 +203,8 @@ export interface DepsParceiro {
   esperar?: (ms: number) => Promise<void>
   /** Identidade desta tentativa no lock por pedido (teste injeta). */
   dono?: string
+  /** Aviso ao cliente de leilao/sinistro tardio (teste injeta). */
+  avisarLeilao?: (sb: any, pedidoId: string, antes: any, depois: any) => Promise<unknown>
   http?: Http
   alertar?: (assunto: string, texto: string) => Promise<unknown>
   agora?: number
@@ -378,6 +381,8 @@ export async function rodarJobParceiro(deps: DepsParceiro & { dono: string }): P
       const { data: atual } = await deps.sb.from('pedidos_premium').select('relatorio_snapshot').eq('id', p.id).maybeSingle()
       if (!atual?.relatorio_snapshot) continue
       await deps.sb.from('pedidos_premium').update({ relatorio_snapshot: { ...atual.relatorio_snapshot, historicoLeilao: gravar } }).eq('id', p.id)
+      // Leilao ou sinistro que apareceu depois da entrega: avisa o cliente (uma vez).
+      if (status === 'ok') await (deps.avisarLeilao ?? avisarLeilaoTardio)(deps.sb, p.id, atual.relatorio_snapshot?.historicoLeilao ?? p.historicoLeilao, gravar)
       if (status === 'ok') out.completados++
       log(`[parceiro-leilao] job pedido=${p.id}: ${status === 'ok' ? 'completado' : 'falhou de novo (nao tenta mais)'}`)
     }
