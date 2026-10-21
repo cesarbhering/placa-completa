@@ -5,6 +5,7 @@ import { gerarCupomRecompra } from './cupom-recompra'
 import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas-recall'
 import { emVoo } from './tarefas-em-voo'
 import { criarJobsDaEntrega } from './premium-jobs'
+import { completarFotosNaGeracao } from './fotos-na-geracao'
 // Processa um pedido PAGO: dispara a consulta SENATRAN uma vez, entrega ou
 // reembolsa. Usado pelo WEBHOOK e pelo POLLING de status (o que chegar primeiro).
 // Trava atomica via update condicional (status aguardando/pago -> consultando):
@@ -282,6 +283,11 @@ export async function processarPedidoPago(
         .from('pedidos_premium')
         .update({ relatorio_snapshot: snapshot, snapshot_em: new Date().toISOString() })
         .eq('id', pedido.id)
+      // Fotos do lote na hora (Cesar, 21/out/2026): passagem da nossa base com
+      // foto na origem e sem foto no R2 pede o download a leiloes-api e espera
+      // ate 60 s, solto (nao atrasa o e-mail). O que chegar e gravado so na
+      // passagem; o resto fica pro fotos-depois. Tempo vai pro debug_trace.
+      void emVoo('fotos-na-geracao', () => completarFotosNaGeracao(supabase, { id: pedido.id, plano: pedido.plano }, snapshot))
     } catch (snapErr: any) {
       if (import.meta.dev) console.warn('[premium] snapshot falhou na entrega, fallback lazy cobre depois:', snapErr?.message || snapErr)
     }
