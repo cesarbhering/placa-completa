@@ -49,6 +49,9 @@ const links = [
   { href: '/blog', label: 'Blog' },
   { href: '/tabela-fipe', label: 'Tabela FIPE' },
   { href: '/estudos', label: 'Estudos' },
+  // So na gaveta (menu do celular): na barra do desktop, fora da home, a busca
+  // divide o espaco e o sexto item quebrava a linha. O rodape tambem tem o link.
+  { href: '/para-empresas', label: 'Para empresas', soGaveta: true },
   { href: '#duvidas', label: 'Dúvidas' },
 ]
 // Fora da home nenhuma dessas ancoras existe na pagina: '#duvidas' vira clique
@@ -175,7 +178,7 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
     </div>
 
     <nav class="home-header__nav" aria-label="Navegação principal">
-      <template v-for="link in links" :key="link.href">
+      <template v-for="link in links.filter((l) => !l.soGaveta)" :key="link.href">
         <a v-if="ehAncora(alvo(link.href))" :href="link.href" class="home-header__link">{{ link.label }}</a>
         <NuxtLink v-else :to="alvo(link.href)" class="home-header__link">{{ link.label }}</NuxtLink>
       </template>

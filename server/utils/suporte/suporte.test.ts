@@ -811,3 +811,17 @@ describe('envio pela Evolution devolve o key.id', () => {
     expect(await enviarTexto(cfg, JID, 'oi', f)).toEqual({ ok: true, status: 200, id: null })
   })
 })
+
+describe('pacote para empresas no agente', () => {
+  it('o prompt manda o link /para-empresas, promete 24 h e proibe prometer preco', () => {
+    const p = promptDoSistema()
+    expect(p).toContain('https://placacompleta.com.br/para-empresas')
+    expect(p).toMatch(/pacote, volume.*revenda, lojista, garagem ou despachante/)
+    expect(p).toContain('24 horas úteis')
+    expect(p).toContain('NUNCA prometa preço')
+  })
+  it('o link /para-empresas sobrevive ao filtro de links', async () => {
+    const { semLinksDoSite } = await import('./regras')
+    expect(semLinksDoSite('Veja https://placacompleta.com.br/para-empresas e peça a proposta.')).toContain('https://placacompleta.com.br/para-empresas')
+  })
+})
