@@ -15,6 +15,7 @@ Regra central: **só alerta com falha CONFIRMADA**. Cada tipo de problema tem um
 | **monitor** | `pc-monitor-meta` (5 min) | As outras 4 checagens (site, checkout, fila, túnel) estão rodando? Unit que saiu com erro (crash) ou estado sem verificação há mais de 15 min (checkout: 2 h) | 2 falhas, 60 s entre elas | `MONITOR QUEBRADO`, com a unit e a última linha do erro | a cada 1 h | Cesar e helena@ |
 | **disco** | `pc-recursos-check` (5 min) | Uso de `/` acima de 85% | 2 leituras, 60 s entre elas | `DISCO DA VPS ACIMA DE 85%` | a cada 1 h | Cesar e helena@ |
 | **carga** | o mesmo | Load de 15 min dividido pelos núcleos acima de 3 (= 15 min sobrecarregada) | 2 leituras, 60 s entre elas | `VPS SOBRECARREGADA`, com os 3 containers que mais consomem | a cada 1 h | Cesar e helena@ |
+| **deploy** | `pc-deploy-check` (5 min) | HEAD da `main` no GitHub x commit da imagem do site no ar | divergente por mais de 15 min | `SITE DESATUALIZADO (a main nao chegou ao ar)`, com os últimos deploys do Coolify | a cada 1 h | Cesar e helena@ |
 | **tunel** | `pc-tunel-check` (5 min) | `curl -x socks5h://127.0.0.1:1080 https://ifconfig.me` (15 s): o túnel residencial do Mac | 2 falhas, 60 s entre elas | `TÚNEL DO MAC CAIU`, com o comando de subida | **não** (1 por queda) | só o Cesar |
 
 Todo alvo que abre incidente manda `... VOLTOU (fora por Xh)` quando normaliza.
@@ -45,6 +46,8 @@ Todo alvo que abre incidente manda `... VOLTOU (fora por Xh)` quando normaliza.
 **Privacidade:** o IP de saída do túnel (a casa do Cesar) nunca é gravado. As mensagens de erro vão sem placa, e-mail, IP ou token.
 
 **Recursos da VPS (desde 21/out/2026):** a VPS chegou a load 25 em 6 núcleos com o flaresolverr em swap, e o disco a 82%. Agora os leilões têm teto de CPU, o site tem prioridade (cpu-shares 4096) e o flaresolverr roda sem swap. O alerta de carga cita os containers que mais consomem.
+
+**Deploy perdido ou velho (desde 21/out/2026):** um incidente do GitHub engoliu o push da `main` e o merge não foi ao ar. Agora o `pc-deploy-check` avisa quando a `main` não chega ao ar em 15 min. O `pc-coolify-dedup` (em `ops/coolify/`) cancela qualquer deploy, na fila ou em andamento, de commit ANCESTRAL do que já está no ar (webhook atrasado) e manda o e-mail `DEPLOY ANTIGO CANCELADO`.
 
 ## Arquivos
 
