@@ -1102,7 +1102,13 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     // FIPE na fonte o fallback nao tem candidato nenhum (HSX1F20: Celta Spirit
     // saiu sem FIPE e sem lista), entao vira duvida honesta com a shortlist do
     // funil: o relatorio mostra as versoes (e a pergunta de cambio, se for o caso).
-    const semAjuda = () => (candidatosDaWdapi(input.wdapi).length
+    // Duvida que e SO de cambio (uma Mec. e uma Aut. da mesma versao) e o juiz
+    // nao respondeu: o melhor score da fonte seria um chute de cambio. Vira
+    // duvida honesta (a tela pergunta "manual ou automatico?"). Caso NJD2I54
+    // (21/out/2026, "HILUX CD4X4 SRV" 2008): SRV Mec. x SRV Aut. caia sempre no
+    // fallback e o refazer recusava como "fipe-api instavel".
+    const soCambio = !fatos.transmissao && !!opcoesDeCambio(filtrados)
+    const semAjuda = () => (candidatosDaWdapi(input.wdapi).length && !soCambio
       ? fallback()
       : { escolhido: null, decididoPor: 'ambiguo' as const, candidatos: filtrados.slice(0, 5), confianca: 'baixa' as const })
     if (!veredito) return semAjuda()

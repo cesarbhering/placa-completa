@@ -101,7 +101,26 @@ export function cambioDaVersaoFipe(modelo: string): Cambio | null {
  */
 export function opcoesDeCambio<T extends { modelo: string }>(versoes: T[]): { manual: T; automatico: T } | null {
   if (versoes.length !== 2) return null
-  const man = versoes.filter((v) => cambioDaVersaoFipe(v.modelo) === 'manual')
+  // A FIPE muitas vezes OMITE o cambio na manual ("Hilux CD SRV D4-D 4x4 3.0
+  // TDI Dies" x "... Diesel Aut", caso NJD2I54; "PRISMA ... 4p" x "... 4p Aut.",
+  // BCK2C28): sem marca de automatico conta como manual.
+  // So vale quando o resto do nome e o mesmo (senao a duvida nao e so de cambio).
   const aut = versoes.filter((v) => cambioDaVersaoFipe(v.modelo) === 'automatico')
-  return man.length === 1 && aut.length === 1 ? { manual: man[0], automatico: aut[0] } : null
+  const explicita = versoes.filter((v) => cambioDaVersaoFipe(v.modelo) === 'manual')
+  if (aut.length === 1 && explicita.length === 1) return { manual: explicita[0], automatico: aut[0] }
+  const implicita = versoes.filter((v) => !versaoFipeManual(v.modelo) && !versaoFipeAutomatica(v.modelo))
+  if (aut.length === 1 && implicita.length === 1 && mesmaVersaoSemCambio(implicita[0].modelo, aut[0].modelo)) {
+    return { manual: implicita[0], automatico: aut[0] }
+  }
+  return null
+}
+
+const PALAVRAS_CAMBIO = new Set(['AUT', 'AUTO', 'AUTOM', 'AUTOMATICO', 'MEC', 'MANUAL'])
+/** Mesmo nome FIPE tirando o cambio; abreviacao conta ("Dies" = "Diesel"). */
+export function mesmaVersaoSemCambio(a: string, b: string): boolean {
+  const tokens = (t: string) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()
+    .split(/[^A-Z0-9.]+/).map((x) => x.replace(/\.+$/, '')).filter((x) => x && !PALAVRAS_CAMBIO.has(x))
+  const x = tokens(a), y = tokens(b)
+  if (x.length !== y.length) return false
+  return x.every((t, i) => t === y[i] || (Math.min(t.length, y[i].length) >= 3 && (t.startsWith(y[i]) || y[i].startsWith(t))))
 }
