@@ -255,3 +255,24 @@ export function paginaPublicaLeilao(bruto: unknown, hosts: string[] = HOSTS_PAGI
 }
 
 export const AVISO_PAGINA_PUBLICA = 'O edital deste leilão judicial traz dados pessoais das partes, por isso fica disponível só no site da leiloeira.'
+
+/**
+ * Tipo curto do comitente e a leitura em poucas palavras, para o chip do card
+ * de passagem (ficha em linhas, Cesar 21/out/2026). Sai da mesma regra de
+ * fraseComitente. null quando nao da pra dizer.
+ */
+export function tipoComitente(bruto: unknown): { tipo: string; leitura: string } | null {
+  const f = fraseComitente(bruto)
+  if (!f) return null
+  const [antes, depois = ''] = f.split(': ')
+  const tipo = antes === 'Banco ou financeira' ? 'Banco' : antes === 'Órgão público' ? 'Órgão' : antes
+  const leitura = depois.replace(/\.$/, '').replace(/^costuma ser (carro )?/, '').replace(/^leilão judicial, /, '')
+  return { tipo, leitura }
+}
+
+/** Nota curta do nivel na linha "Nivel" do card. */
+export const NOTA_NIVEL: Record<string, string> = {
+  confirmado: 'placa ou chassi iguais',
+  provavel: 'identificador parcial',
+  possivel: 'pode ser outro veículo',
+}
