@@ -1,0 +1,6 @@
+[Unit]
+Description=pc-monitor DEPLOY: HEAD da main x commit no ar; divergente > 15 min = SITE DESATUALIZADO
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-monitor deploy
+TimeoutStartSec=120
