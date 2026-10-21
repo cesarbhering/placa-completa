@@ -157,6 +157,11 @@ export const DETRAN_UFS = {
   // data), restricao de venda, impedimentos e situacao.
   RN: { path: 'detran/rn/veiculo', cert: 'govbr_rn', gate: 'sempre', fonte: 'detran_rn', fonteCusto: 'infosimples_detran_rn' },
   RO: { path: 'detran/ro/veiculo', cert: 'nenhum', gate: 'sempre', fonte: 'detran_ro', fonteCusto: 'infosimples_detran_ro', timeoutS: 300 },
+  // RJ (21/out/2026, Cesar): so RESTRICOES, pela "DETRAN / Restricoes (Unificada)"
+  // (uf=RJ + placa + renavam + chassi, sem credencial). Multas e IPVA do RJ
+  // exigem o CPF/CNPJ do proprietario: fora (LGPD). Teste real LMI1G50:
+  // R$0,24, LENTO (~260 s): timeout 300 na Infosimples.
+  RJ: { path: 'detran/restricoes', cert: 'nenhum', gate: 'sempre', fonte: 'detran_rj', fonteCusto: 'infosimples_detran_rj_restricoes', exigeChassi: true, timeoutS: 300, paramsExtra: { uf: 'RJ' }, soRestricoes: true },
 } as const
 export type UfDetran = keyof typeof DETRAN_UFS
 
@@ -279,39 +284,6 @@ export const INFOSIMPLES_TIMEOUT_S = 300
 export const ABORT_MS = 330_000
 /** Codigos que valem 1 nova tentativa: 0 = abort/rede nosso, 605/609 = erro na origem. */
 export const CODIGOS_RETRY = new Set([0, 605, 609])
-
-/**
- * 612 da Infosimples = "a consulta nao retornou dados": a fonte respondeu e
- * NAO HA nada (sem multas, debitos ou registro). Regra do Cesar (21/out/2026):
- * nao e falha, vira bloco 'ok' com listas vazias e totais zero, com a frase da
- * fonte guardada ("Fonte informou: ..."). Cobrado igual (custo registrado).
- */
-export const CODIGO_SEM_DADOS = 612
-
-/** Frase da fonte num 612 ("Seu veículo não possui multas"), sem dado pessoal. */
-export function mensagemDaFonte(res: Pick<ResultadoDetran, 'codeMessage' | 'erros'>): string | null {
-  // So o texto da FONTE (errors). O code_message e o da Infosimples ("A
-  // consulta nao retornou dados no site ou aplicativo de origem no qual a
-  // automacao..."), que nao serve pra tela.
-  const partes = (res.erros || []).map((x) => String(x || '').replace(/\s+/g, ' ').trim()).filter(Boolean)
-  return partes.length ? semDadoPessoal(partes[0]).slice(0, 200) : null
-}
-
-/** Bloco de multas de um 612: tudo vazio e zero, com a frase da fonte. */
-export function blocoSemDados(fonte: string, mensagem: string | null) {
-  return {
-    ...blocoSoMultas(fonte, []),
-    multas_total_centavos: 0,
-    licenciamento_centavos: 0,
-    ipva_total_centavos: 0,
-    ipva_itens: [] as IpvaItem[],
-    multas_em_recurso: [] as any[],
-    autuacoes_em_andamento: 0,
-    autuacoes_itens: [] as any[],
-    sem_dados_fonte: true,
-    ...(mensagem ? { mensagem_fonte: mensagem } : {}),
-  }
-}
 export const ESPERA_RETRY_MS = 20_000
 
 export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null; path?: string; timeoutS?: number; semCredencial?: boolean; soRenavam?: boolean }): Promise<ResultadoDetran> {
@@ -356,6 +328,8 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       if (!cfgUf.semPlaca) body.set('placa', opts.placa)
     }
     if (opts.chassi) body.set('chassi', String(opts.chassi).toUpperCase())
+    // Parametros fixos da UF (RJ: a consulta unificada pede uf=RJ).
+    for (const [k, v] of Object.entries((cfgUf as any).paramsExtra || {})) body.set(k, String(v))
     const res = await fetch(`${BASE}/${opts.path || DETRAN_UFS[opts.uf].path}`, {
       method: 'POST',
       body,
@@ -1671,6 +1645,43 @@ export function parsearDetranPi(data: any) {
  * generico (sem exemplo com multa ainda); pagas/canceladas fora. Nunca le
  * chassi nem dados do dono. Formato desconhecido -> null.
  */
+/** Aviso do bloco do RJ (texto da pagina e do resumo). */
+export const AVISO_DEBITOS_RJ = 'Multas e IPVA do RJ não estão disponíveis: o estado exige o documento do proprietário para essa consulta.'
+
+/**
+ * DETRAN-RJ pela consulta unificada de restricoes (real LMI1G50, 21/out/2026):
+ * data[0] = {existe_restricao, placa, renavam, chassi, restricoes: string[],
+ * normalizado_*, site_receipt}. So as restricoes entram (whitelist: nunca
+ * site_receipt nem dado de proprietario, que esta resposta nem traz). Multas,
+ * IPVA e licenciamento NAO vem: ficam null com debitos_indisponiveis (nao zero:
+ * zero diria "nada a quitar", o que nao sabemos).
+ */
+export function parsearDetranRj(data: any) {
+  const d = data || {}
+  if (!('restricoes' in d) && !('existe_restricao' in d)) return null
+  const restricoes: { tipo: string; texto: string }[] = []
+  for (const r of (Array.isArray(d.restricoes) ? d.restricoes : [])) {
+    const t = String(typeof r === 'string' ? r : (r?.descricao ?? r?.restricao ?? '')).replace(/\s+/g, ' ').trim()
+    if (t && !/^(nada consta|nenhuma?|sem restri|n[aã]o (possui|h[aá]))/i.test(t)) restricoes.push({ tipo: tipoRestricaoTexto(t), texto: t.slice(0, 120) })
+  }
+  const roubo = restricoes.some((r) => r.tipo === 'furto')
+  return {
+    status: 'ok' as const,
+    fonte: 'detran_rj',
+    multas_total_centavos: null as number | null,
+    licenciamento_centavos: null as number | null,
+    ipva_total_centavos: null as number | null,
+    hodometro: [] as { data: string | null; km: number }[],
+    hodometro_suspeito: false,
+    multas_itens: [] as DetranMulta[],
+    licenciamento_atrasado_ano: null as number | null,
+    restricoes_detran: restricoes,
+    alerta_roubo_furto: roubo ? 'Restrição informada pelo DETRAN-RJ: roubo/furto' : null,
+    debitos_indisponiveis: true,
+    aviso_debitos: AVISO_DEBITOS_RJ,
+  }
+}
+
 export function parsearDetranRo(data: any) {
   const d = data || {}
   if (!('debitos_veiculo' in d) && !('restricoes' in d) && !('status' in d)) return null
@@ -2118,6 +2129,7 @@ function blocoDetranDaUfBruto(uf: UfDetran, data: any) {
   if (uf === 'RR') return parsearDetranRr(data)
   if (uf === 'RO') return parsearDetranRo(data)
   if (uf === 'RN') return parsearDetranRn(data)
+  if (uf === 'RJ') return parsearDetranRj(data)
   return detranParaMultas(parsearDetranSp(data))
 }
 
@@ -2219,14 +2231,7 @@ export async function completarDetran(
 
   let multas: any = null
   let cacheavel = false
-  if (res.code === CODIGO_SEM_DADOS) {
-    // 612: nada consta na fonte (nao e falha). Bloco ok vazio + complemento.
-    multas = blocoSemDados(cfgUf.fonte, mensagemDaFonte(res))
-    cacheavel = true
-    if ((cfgUf as any).complemento) {
-      multas = juntarComplemento(multas, await buscarComplemento(supabase, pedido.id, uf, { placa: placaParaDetran(pedido.placa, ctx.response), renavam: renavam! }))
-    }
-  } else if (res.code !== 200 || !res.data) {
+  if (res.code !== 200 || !res.data) {
     logIndisponivel(pedido.id, uf, res.code, detalheDaRecusa(res) || 'sem data', Date.now() - t0)
     // Reserva (AL): o /infracoes falhou (609 frequente), mas o /veiculo traz o
     // total das infracoes, o licenciamento e as restricoes. Bloco sem o
@@ -2323,7 +2328,7 @@ export async function completarIpvaSefaz(supabase: any, pedidoId: string, uf: Uf
       await registrarCusto(supabase, { pedidoId, fonte: sef.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: brutoDoResultado(res) })
       // 612 "nenhum registro encontrado" = nada em aberto na SEFAZ (cobrado igual).
       const parser = uf === 'DF' ? parsearIpvaSefazDf : parsearIpvaSefazAl
-      itens = res.code === CODIGO_SEM_DADOS ? [] : res.code === 200 ? parser(res.data) : null
+      itens = res.code === 612 ? [] : res.code === 200 ? parser(res.data) : null
       if (itens) await gravarFonteCache(supabase, fonteCacheIpva, chaveCache, { itens }, 'ok')
     }
     const atual = await lerSnapshot(supabase, pedidoId)
@@ -2366,10 +2371,6 @@ async function buscarComplemento(
     const res = await consultarDetranInfosimples({ uf, placa: params.placa, renavam: params.renavam, path: comp.path })
     await registrarCusto(supabase, { pedidoId, fonte: comp.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto: brutoDoResultado(res) })
     if (usaLoginGovbr(DETRAN_UFS[uf].cert) && res.code === 608) { await travarLoginBa(res.codeMessage); return null }
-    // 612 no complemento: nada em aberto (licenciamento e IPVA zerados).
-    if (res.code === CODIGO_SEM_DADOS) {
-      return { licenciamento_centavos: 0, licenciamento_atrasado_ano: null, licenciamento_exercicios: [], ipva_total_centavos: 0, restricoes_detran: [] }
-    }
     if (res.code !== 200 || !res.data) {
       logIndisponivel(pedidoId, `${uf}-complemento`, res.code, detalheDaRecusa(res) || 'sem data', 0)
       return null

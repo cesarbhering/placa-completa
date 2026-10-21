@@ -33,11 +33,11 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
 import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes } from '~/shared/foto-lote'
-import { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, estadoCartaoLeilao, PARECER_SO_POSSIVEL_TITULO } from '~/shared/leilao-copy'
-import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
+import { LEILAO_FORA_DO_DOCUMENTO, leilaoSemOcorrencia, resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, LEILAO_NIVEIS_RODAPE } from '~/shared/leilao-copy'
+import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
-import { FONTE_PARCEIRA, rotuloIndicadorLeilao, linhasBasesSemRegistro, PASSAGEM_PARCEIRA, DICA_SINISTRO } from '~/shared/fonte-parceira'
+import { FONTE_PARCEIRA, rotuloIndicadorLeilao, SINISTRO_TITULO, SINISTRO_EXPLICA, SINISTRO_CONFERIR, DUAS_BASES_SEM_REGISTRO, DUAS_BASES_SEM_LEILAO, PASSAGEM_PARCEIRA, DICA_SINISTRO } from '~/shared/fonte-parceira'
 import { custo12Meses, combustivelPraConta, licenciamentoDaUf, KM_ANO_PADRAO } from '~/shared/custo-12-meses'
 import { PRECO_COMBUSTIVEL_UF, SEMANA_ANP } from '~/shared/dados/combustivel-uf'
 import { aliquotaIPVA } from '~/shared/ipva-uf'
@@ -461,25 +461,45 @@ const indicadores = computed(() => {
     // Ambiguo nao entra na conta: ele diz "existem varios carros com este
     // perfil", nao "este carro passou por leilao". Contar aqui pintaria de
     // amarelo um veiculo sem nenhum indicio real.
+    const plural = (n: number) => (n > 1 ? 's' : '')
     // "Sem ocorrencia" e mais claro que "nada consta" pra uma base nossa, e o
     // estado do meio existe so quando ha foto pra pessoa comparar.
     // Contagem refeita a partir das passagens: a API soma edital de
     // NOTIFICACAO em n_confirmado, e notificacao nao e leilao realizado.
     const cont = contarPassagens(historicoLeilao.value.passagens)
-    // Regra em shared/leilao-copy.ts (estadoCartaoLeilao): so possivel fica
-    // ambar (atencao, 21/out/2026); confirmado/provavel vermelhos; so
-    // notificacao cinza.
-    const est = estadoCartaoLeilao({
-      confirmado: cont.confirmado,
-      provavel: cont.provavel,
-      notificado: cont.notificado,
-      nPossiveis: possiveisSemFoto.value.length > 0 ? nPossiveisExibidos.value : 0,
-      possiveisComFoto: possiveisComFoto.value.length,
-    })
-    const valor = est.valor
-    const alerta = est.alerta
-    const aceso = est.aceso
-    const neutro = est.neutro
+    let valor = 'SEM OCORRÊNCIA'
+    let alerta = false
+    let aceso = false
+    let neutro = false
+    if (cont.confirmado > 0) {
+      valor = `CONSTA (${cont.confirmado} confirmado${plural(cont.confirmado)})`
+      alerta = true
+      aceso = true
+    } else if (cont.provavel > 0) {
+      valor = `PROVÁVEL (${cont.provavel})`
+      alerta = true
+      aceso = true
+    } else if (cont.notificado > 0) {
+      // So notificacao: aceso, mas neutro. O DETRAN avisou o dono; o leilao
+      // pode nao ter acontecido.
+      valor = 'NOTIFICADO PARA LEILÃO'
+      alerta = false
+      aceso = true
+      neutro = true
+    } else if (possiveisSemFoto.value.length > 0) {
+      // So possivel (16/out/2026): aceso e cinza, nem alerta nem "sem
+      // ocorrencia". A secao mostra o que bate e o que nao bate.
+      valor = cartaoSoPossivel(nPossiveisExibidos.value)
+      alerta = false
+      aceso = true
+      neutro = true
+    } else if (possiveisComFoto.value.length > 0) {
+      // Nem alerta nem verde: existe um lote parecido COM FOTO, e a decisao de
+      // dizer se e o mesmo veiculo e de quem esta olhando.
+      valor = 'CONFIRA AS FOTOS'
+      alerta = false
+      aceso = true
+    }
     const cartaoLeilao = {
       k: 'historicoLeilao',
       label: rotuloIndicadorLeilao(historicoLeilao.value.passagens),
@@ -639,12 +659,9 @@ const veredito = computed(() => {
   // manda conferir.
   const licAtrasado = licenciamento.value?.tom === 'alerta'
   if (!alertas.value.length && !restricoesForaDosIndicadores.value.length && !licAtrasado) {
-    // So leilao possivel: nada pesa contra, mas o parecer fica no tom de
-    // atencao (ambar), igual ao cartao da grade (Cesar, 21/out/2026).
-    const soPossivel = nPossiveisExibidos.value > 0 && !passagensFortes.value.length
     return {
-      tom: soPossivel ? 'alerta' as const : 'ok' as const,
-      titulo: soPossivel ? PARECER_SO_POSSIVEL_TITULO : 'Nada consta contra este veículo.',
+      tom: 'ok' as const,
+      titulo: 'Nada consta contra este veículo.',
       // Notificacao para leilao nao e registro de leilao (nao acende alerta),
       // mas o parecer nao pode dizer "nada" e a secao logo abaixo mostrar o
       // aviso do DETRAN sem explicar a diferenca.
@@ -866,9 +883,6 @@ const passagensLeilao = computed(() => {
       // Sem valor em R$ (decisao do Cesar, 01/out).
     ].filter(Boolean).join(' · '),
     ref: p.ref,
-    loteNumero: p.lote,
-    fonteTipo: p.fonte_tipo,
-    comitenteTipo: tipoComitente(p.comitente),
     lote: p.lote,
     situacao: p.situacao ? semValorEmReais(humanizar(p.situacao)) : null,
     // Leiloeiro (a pessoa) so de orgao oficial: em casa privada aparece so o
@@ -1062,6 +1076,29 @@ const possiveisComFoto = computed(() => {
 // de todos.
 const idxPossiveisExibidos = computed(() => new Set([...possiveisSemFoto.value, ...possiveisComFoto.value].map((p) => p.idx)))
 const nPossiveisExibidos = computed(() => idxPossiveisExibidos.value.size)
+
+// Nivel que a tela mostra. Sai das passagens que sobraram, nao do nivel_max da
+// resposta: quando os "possiveis" eram todos ambiguos e sairam, o nivel_max
+// antigo continuaria dizendo "possivel" num relatorio que nao mostra passagem
+// nenhuma.
+const nivelExibido = computed<string>(() => {
+  if (passagensFortes.value.some((p) => p.nivel === 'confirmado')) return 'confirmado'
+  if (passagensFortes.value.some((p) => p.nivel === 'provavel')) return 'provavel'
+  return 'possivel'
+})
+
+const resumoLeilao = computed(() => {
+  const r = historicoLeilao.value?.resumo
+  if (!r) return null
+  const partes: string[] = []
+  const plural = (n: number, um: string, muitos: string) => `${n} ${n > 1 ? muitos : um}`
+  // Sem as notificacoes: elas tem bloco proprio e nao sao leilao confirmado.
+  const cont = contarPassagens(historicoLeilao.value?.passagens)
+  if (cont.confirmado) partes.push(plural(cont.confirmado, 'confirmada', 'confirmadas'))
+  if (cont.provavel) partes.push(plural(cont.provavel, 'provável', 'prováveis'))
+  if (passagensPossiveis.value.length) partes.push(plural(passagensPossiveis.value.length, 'possível', 'possíveis'))
+  return partes.join(' · ')
+})
 
 // ---------- numeracao das secoes ----------
 // Dinamica porque nem toda secao existe em todo laudo (a basica nao tem
@@ -1463,7 +1500,7 @@ const multaIndicadorSP = computed(
 // Mesmo gate do servidor (DETRAN_UFS.gate): desde 13/out TODAS as UFs do mapa sao
 // consultadas sempre, com ou sem multa RENAINF (decisao do Cesar). UF fora da
 // lista nunca e consultada: sem isso o bloco ficava em "Consultando..." pra sempre.
-const UFS_COM_DETRAN = ['SP', 'SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM', 'PE', 'ES', 'MA', 'AC', 'AL', 'PI', 'RR', 'RO', 'RN']
+const UFS_COM_DETRAN = ['SP', 'SC', 'MG', 'BA', 'RS', 'GO', 'PR', 'DF', 'CE', 'PA', 'AM', 'PE', 'ES', 'MA', 'AC', 'AL', 'PI', 'RR', 'RO', 'RN', 'RJ']
 const ehVeiculoSpTela = computed(() => UFS_COM_DETRAN.includes(String(g('ufJurisdicao') || '').toUpperCase()))
 const ufDetranTela = computed(() => String(g('ufJurisdicao') || '').toUpperCase())
 const multasDetalhe = computed(() => {
@@ -2438,8 +2475,6 @@ onUnmounted(() => {
                      infracoes, IPVA, restricoes. A caixa ja diz o total, o que
                      trava (inclusive roubo/furto) e o licenciamento vencido. -->
                 <DetranQuitar v-if="resumoDetran" :resumo="resumoDetran" />
-                <!-- 612 da fonte = nada consta (nao e falha): mostra a frase dela (21/out/2026). -->
-                <p v-if="multasDetalhe.mensagem_fonte" class="rel__multas-nota">Fonte informou: {{ multasDetalhe.mensagem_fonte }}</p>
 
                 <!-- Infracoes: em aberto, em recurso e autuacoes em andamento. -->
                 <p v-if="textoRenainfFora" class="rel__multas-nota">{{ textoRenainfFora }}</p>
@@ -2777,37 +2812,75 @@ onUnmounted(() => {
                  mais o rodapé explicando níveis, e o resultado era um bloco
                  confuso pra dizer que não há nada. -->
             <template v-if="!temIndicioReal && !possiveisComFoto.length && !possiveisSemFoto.length && !passagensNotificadas.length">
-              <!-- Uma linha com tag por base consultada (Cesar, 21/out/2026). -->
-              <ul class="rel__bases">
-                <li v-for="l in linhasBasesSemRegistro(historicoLeilao)" :key="l.tag" class="rel__base" :class="`rel__base--${l.tom}`">
-                  <span class="rel__base-tag">{{ l.tag }}</span>
-                  <span class="rel__base-txt">{{ l.texto }}</span>
-                </li>
-              </ul>
-              <p class="rel__bases-nota">Resultado na data da consulta.</p>
+              <p class="rel__leilao-limpo">
+                {{ consultouParceira ? (sinistroParceiro ? DUAS_BASES_SEM_LEILAO : DUAS_BASES_SEM_REGISTRO) : leilaoSemOcorrencia(esteVeiculo) }}
+              </p>
             </template>
-            <!-- Indicio de sinistro da base parceira: so o indicador da grade e o
-                 parecer (o card com a explicacao saiu, Cesar 21/out/2026). -->
+            <!-- Indicio de sinistro na base parceira (20/out/2026): so "consta", nunca afirma. -->
+            <div v-if="sinistroParceiro" class="rel__sinistro" role="note">
+              <p class="rel__sinistro-tit">{{ SINISTRO_TITULO }}</p>
+              <p class="rel__sinistro-txt">{{ SINISTRO_EXPLICA }}</p>
+              <p class="rel__sinistro-txt">{{ SINISTRO_CONFERIR }}</p>
+            </div>
 
             <template v-if="temIndicioReal">
-              <!-- Sem o resumo em chips no topo (Cesar, 21/out/2026): o nivel fica
-                   no selo de cada passagem e no indicador da grade. -->
+              <p class="rel__leilao-resumo">
+                <span class="rel__nivel" :class="`rel__nivel--${nivelExibido}`">
+                  {{ ROTULO_NIVEL[nivelExibido] }}
+                </span>
+                <span v-if="resumoLeilao">{{ resumoLeilao }}</span>
+              </p>
               <p v-if="historicoLeilao?.recorrencia?.texto" class="rel__leilao-recorr">{{ historicoLeilao.recorrencia.texto }}<template v-if="numSecao.tempo">: veja a sequência na seção {{ numSecao.tempo }}</template>.</p>
 
               <div v-for="p in passagensFortes" :key="p.idx" class="rel__leilao">
-                <!-- Ficha em linhas rotuladas (Cesar, 21/out/2026): components/LeilaoFicha.vue. -->
-                <LeilaoFicha :p="p" />
+                <div class="rel__leilao-topo">
+                  <span class="rel__nivel" :class="`rel__nivel--${p.nivel}`">{{ p.rotuloNivel }}</span>
+                  <span class="rel__leilao-fonte">{{ p.fonte }}</span>
+                  <span v-if="p.tipoFonte" class="rel__leilao-tipo">{{ p.tipoFonte }}</span>
+                </div>
+                <!-- Termometro: e a primeira coisa que a pessoa precisa ver.
+                     "Retomada de financiamento" em verde diz, sem rodeio, que
+                     o carro passou por leilao mas NAO foi sinistro. -->
+                <!-- Gravidade em destaque (18/out): chip na cor da gravidade + o que significa. -->
+                <p v-if="p.gravidade" class="rel__grav" :class="`rel__grav--${p.gravidade.cor}`">
+                  <span class="rel__grav-barra" aria-hidden="true" />
+                  <span class="rel__grav-k">Gravidade</span>
+                  <span class="rel__grav-rotulo">{{ p.gravidade.rotulo }}</span>
+                </p>
+                <p v-if="p.gravidadeExplica" class="rel__grav-explica" :class="`rel__grav-explica--${p.gravidade?.cor}`">{{ p.gravidadeExplica }}</p>
+                <!-- Relatorio 2.0: origem, alertas do edital, desfecho, contexto judicial e lote. -->
+                <p v-if="p.origem" class="rel__leilao-origem"><span>Origem:</span> {{ p.origem }}</p>
                 <ul v-if="p.alertas.length" class="rel__leilao-alertas">
                   <li v-for="a in p.alertas" :key="a">{{ a }}</li>
                 </ul>
                 <p v-if="p.judicial" class="rel__leilao-jud">
                   {{ p.judicial }}<template v-if="p.judicialUrl">. <a :href="p.judicialUrl" target="_blank" rel="noopener noreferrer nofollow">Ver no site do leiloeiro</a></template>
                 </p>
+                <p v-if="p.desfecho" class="rel__leilao-desf"><span>Desfecho:</span> {{ p.desfecho }}</p>
                 <p v-if="p.lote" class="rel__leilao-lote">
                   <template v-if="p.lote.url"><a :href="p.lote.url" target="_blank" rel="noopener noreferrer nofollow">Ver o anúncio do lote na leiloeira</a></template>
                   <template v-else-if="p.lote.encerrado">Anúncio do lote já encerrado na leiloeira.</template>
                   <template v-else>Anúncio do lote no ar na leiloeira.</template>
                 </p>
+                <!-- Comitente em destaque, logo abaixo do termometro: quem
+                     mandou o carro a leilao explica o porque. -->
+                <div v-if="p.comitente || p.leiloeiro" class="rel__leilao-quem">
+                  <p v-if="p.comitente" class="rel__leilao-comit"><span>Comitente:</span> {{ p.comitente }}</p>
+                  <p v-if="p.fraseComitente" class="rel__leilao-comit-frase">{{ p.fraseComitente }}</p>
+                  <p v-if="p.leiloeiro" class="rel__leilao-comit-frase">Leiloeiro: {{ p.leiloeiro }}</p>
+                </div>
+                <p v-if="p.detalhe" class="rel__leilao-det">{{ p.detalhe }}</p>
+                <!-- O que a pessoa pensa ao ver isto e "mas o documento nao
+                     diz nada de leilao". Leilao de seguradora e de leiloeira
+                     muitas vezes nao vira anotacao no documento, entao a
+                     ausencia la nao desmente o registro daqui. Frase sobre o
+                     documento, nunca sobre quem o emite. -->
+                <p class="rel__leilao-ctx">{{ LEILAO_FORA_DO_DOCUMENTO }}</p>
+                <ul v-if="p.detalhes.length" class="rel__leilao-detalhes">
+                  <li v-for="d in p.detalhes" :key="d.rotulo">
+                    <span>{{ d.rotulo }}</span><strong>{{ d.valor }}</strong>
+                  </li>
+                </ul>
                 <!-- Fotos do lote tambem em confirmado e provavel (18/out). -->
                 <div v-if="p.fotos.length" class="rel__lote-fotos rel__lote-fotos--possivel">
                   <a v-for="(foto, i) in p.fotos.slice(0, 4)" :key="`ff${i}`" :href="foto" target="_blank" rel="noopener noreferrer">
@@ -2899,10 +2972,36 @@ onUnmounted(() => {
             <!-- Possivel distinto (16/out/2026, decisao do Cesar): aparece, em
                  cinza, com o que bate e o que nao bate. Ambiguo continua fora. -->
             <template v-if="possiveisSemFoto.length">
-              <p v-if="!temIndicioReal" class="rel__leilao-resumo">{{ resumoSoPossivel(possiveisSemFoto.length, esteVeiculo) }}</p>
+              <p v-if="!temIndicioReal" class="rel__leilao-resumo">
+                <span class="rel__nivel rel__nivel--possivel">{{ ROTULO_NIVEL.possivel }}</span>
+                <span>{{ resumoSoPossivel(possiveisSemFoto.length, esteVeiculo) }}</span>
+              </p>
               <p v-else class="rel__leilao-possiveis-tit">Também {{ possiveisSemFoto.length === 1 ? 'há 1 registro possível, que pode ser outro veículo do mesmo modelo e ano' : `há ${possiveisSemFoto.length} registros possíveis, que podem ser outros veículos do mesmo modelo e ano` }}:</p>
               <div v-for="p in possiveisSemFoto" :key="`p${p.idx}`" class="rel__leilao rel__leilao--possivel">
-                <LeilaoFicha :p="p" />
+                <div class="rel__leilao-topo">
+                  <span class="rel__nivel rel__nivel--possivel">{{ p.rotuloNivel }}</span>
+                  <span class="rel__leilao-fonte">{{ p.fonte }}</span>
+                  <span v-if="p.tipoFonte" class="rel__leilao-tipo">{{ p.tipoFonte }}</span>
+                </div>
+                <!-- Gravidade em destaque (18/out): chip na cor da gravidade + o que significa. -->
+                <p v-if="p.gravidade" class="rel__grav" :class="`rel__grav--${p.gravidade.cor}`">
+                  <span class="rel__grav-barra" aria-hidden="true" />
+                  <span class="rel__grav-k">Gravidade</span>
+                  <span class="rel__grav-rotulo">{{ p.gravidade.rotulo }}</span>
+                </p>
+                <p v-if="p.gravidadeExplica" class="rel__grav-explica" :class="`rel__grav-explica--${p.gravidade?.cor}`">{{ p.gravidadeExplica }}</p>
+                <p v-if="p.origem" class="rel__leilao-origem"><span>Origem:</span> {{ p.origem }}</p>
+                <div v-if="p.comitente" class="rel__leilao-quem">
+                  <p class="rel__leilao-comit"><span>Comitente:</span> {{ p.comitente }}</p>
+                  <p v-if="p.fraseComitente" class="rel__leilao-comit-frase">{{ p.fraseComitente }}</p>
+                </div>
+                <p v-if="p.desfecho" class="rel__leilao-desf"><span>Desfecho:</span> {{ p.desfecho }}</p>
+                <p v-if="p.detalhe" class="rel__leilao-det">{{ p.detalhe }}</p>
+                <ul v-if="p.detalhes.length" class="rel__leilao-detalhes">
+                  <li v-for="d in p.detalhes" :key="d.rotulo">
+                    <span>{{ d.rotulo }}</span><strong>{{ d.valor }}</strong>
+                  </li>
+                </ul>
                 <!-- Fotos do lote (ate 4), servidas do nosso armazenamento: e o
                      jeito de a pessoa conferir se e o veiculo dela. -->
                 <div v-if="p.fotos.length" class="rel__lote-fotos rel__lote-fotos--possivel">
@@ -2956,6 +3055,9 @@ onUnmounted(() => {
               </div>
             </div>
 
+            <p v-if="temIndicioReal || possiveisComFoto.length || possiveisSemFoto.length || passagensNotificadas.length" class="rel__leilao-aviso">
+              {{ consultouParceira ? LEILAO_NIVEIS_RODAPE.replace('catálogos de leiloeiras.', 'catálogos de leiloeiras, mais uma base parceira de leilões e sinistros.') : LEILAO_NIVEIS_RODAPE }}
+            </p>
           </section>
 
           <!-- Revenda de frota: NAO e leilao. Carro anunciado numa revenda de
@@ -4072,16 +4174,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     color: $c-graphite;
   }
 
-  &__bases { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-  &__base { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; font-size: calc(14.5px * var(--rel-fs, 1)); line-height: 1.45; }
-  &__base-tag { flex-shrink: 0; font-size: calc(11.5px * var(--rel-fs, 1)); font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; border: 1px solid; }
-  &__base--ok .rel__base-tag { color: #14622f; border-color: #b7dcc4; background: #edf7f1; }
-  &__base--ok .rel__base-txt { color: #14622f; }
-  &__base--cinza .rel__base-tag { color: $c-graphite; border-color: $c-hair; background: $c-cloud; }
-  &__base--cinza .rel__base-txt { color: $c-graphite; }
-  &__base--alerta .rel__base-tag { color: #8a1c1c; border-color: #f2c9c9; background: #fdf1f1; }
-  &__base--alerta .rel__base-txt { color: #8a1c1c; font-weight: 600; }
-  &__bases-nota { margin: 8px 0 0; font-size: calc(12px * var(--rel-fs, 1)); color: $c-graphite; }
   &__leilao-limpo {
     margin: 0;
     font-size: calc(15px * var(--rel-fs, 1));
@@ -4506,6 +4598,10 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   @media print { &__var-toggle { display: none; } }
 
   // ---- leilao: campos do Relatorio 2.0 ----
+  &__sinistro { margin: 10px 0 12px; padding: 12px 14px; border: 1px solid #f2c9c9; border-left: 4px solid #c62828; background: #fdf1f1; border-radius: 8px; break-inside: avoid; }
+  &__sinistro-tit { margin: 0 0 4px; font-weight: 700; color: #8a1c1c; font-size: calc(14.5px * var(--rel-fs, 1)); }
+  &__sinistro-txt { margin: 4px 0 0; font-size: calc(13.5px * var(--rel-fs, 1)); line-height: 1.5; color: #2a2a2a; }
+  @media print { &__sinistro { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   &__leilao-recorr { margin: 6px 0 10px; padding: 8px 12px; border-left: 3px solid #c62828; background: #fdf1f1; color: #8a1c1c; font-weight: 600; font-size: calc(13.5px * var(--rel-fs, 1)); border-radius: 4px; }
   &__leilao-origem, &__leilao-desf, &__leilao-jud, &__leilao-lote { margin: 6px 0 0; font-size: calc(13px * var(--rel-fs, 1)); color: #333; }
   &__leilao-origem span, &__leilao-desf span { color: #666; }
@@ -4855,8 +4951,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // semelhanca.
   &__ind--atencao {
     border-color: rgba(180, 83, 9, 0.35);
-    // Mesmo bege de atencao do parecer e do aviso "pode ja ter sido atendido".
-    background: #fdf5e6;
     .rel__ind-val { color: #8a5200; &::before { background: #e0a800; } }
   }
 
@@ -5150,7 +5244,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // O que nao pode partir no meio.
   .rel__veh, .rel__veredito, .rel__inds, .rel__ind, .rel__tempo-item, .rel__restr, .rel__resumo-linha,
   .rel__multas-item, .rel__multas-r, .rel__recall, .rel__recall-item, .rel__recall-top,
-  .rel__leilao, .rel__lote, .rel__var-item, .rel__c12, .rel__valor, .rel__renave, .rel__espera,
+  .rel__leilao, .rel__lote, .rel__sinistro, .rel__var-item, .rel__c12, .rel__valor, .rel__renave, .rel__espera,
   .rel__aut, .rel__dep, .rel__fipe-ambiguo, svg, table, tr, figure, li {
     break-inside: avoid; page-break-inside: avoid;
   }
@@ -5170,7 +5264,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // Fundo: so sinal sai colorido. O resto vira papel branco.
   .rel__card, .rel__leilao, .rel__recall, .rel__var-item, .rel__c12 { background: #fff !important; }
   .rel__ind--bad, .rel__ind--atencao, .rel__veredito--alerta, .rel__veredito--risco, .rel__tag,
-  .rel__leilao-recorr, .rel__recall:not(.rel__recall--assoc):not(.rel__recall--eua),
+  .rel__leilao-recorr, .rel__sinistro, .rel__recall:not(.rel__recall--assoc):not(.rel__recall--eua),
   .rel__ind-val::before, .rel__grav, .rel__multas-restr {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }

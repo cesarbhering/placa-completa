@@ -1,0 +1,25 @@
+{
+  "code": 200,
+  "code_message": "A requisição foi processada com sucesso.",
+  "header": {
+    "price": "0.24",
+    "service": "detran/restricoes",
+    "billable": true
+  },
+  "errors": [],
+  "data": [
+    {
+      "chassi": "9XXAA00000X000001",
+      "existe_restricao": true,
+      "normalizado_chassi": "9XXAA00000X000001",
+      "normalizado_placa": "ABC1D23",
+      "normalizado_renavam": "00000000000",
+      "placa": "ABC1D23",
+      "renavam": "",
+      "restricoes": [
+        "EXISTE INTENCAO/COMUNICACAO DE VENDA"
+      ],
+      "site_receipt": "https://storage.invalid/receipt.html"
+    }
+  ]
+}

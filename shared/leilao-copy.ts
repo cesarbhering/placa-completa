@@ -50,21 +50,6 @@ export function cartaoSoPossivel(n: number): string {
   return `POSSÍVEL (${n})`
 }
 
-
-/**
- * Estado do cartao "Historico de leilao" na grade (Cesar, 21/out/2026: so
- * possivel fica AMARELO, o tom de atencao; confirmado e provavel seguem
- * vermelhos). `atencao` = ambar; `neutro` = cinza (so notificacao).
- */
-export function estadoCartaoLeilao(e: { confirmado: number; provavel: number; notificado: number; nPossiveis: number; possiveisComFoto: number }) {
-  const plural = (n: number) => (n > 1 ? 's' : '')
-  if (e.confirmado > 0) return { valor: `CONSTA (${e.confirmado} confirmado${plural(e.confirmado)})`, alerta: true, aceso: true, neutro: false }
-  if (e.provavel > 0) return { valor: `PROVÁVEL (${e.provavel})`, alerta: true, aceso: true, neutro: false }
-  if (e.notificado > 0) return { valor: 'NOTIFICADO PARA LEILÃO', alerta: false, aceso: true, neutro: true }
-  if (e.nPossiveis > 0) return { valor: cartaoSoPossivel(e.nPossiveis), alerta: false, aceso: true, neutro: false }
-  if (e.possiveisComFoto > 0) return { valor: 'CONFIRA AS FOTOS', alerta: false, aceso: true, neutro: false }
-  return { valor: 'SEM OCORRÊNCIA', alerta: false, aceso: false, neutro: false }
-}
-
-/** Parecer quando o unico achado e leilao possivel: tom de atencao (ambar), sem afirmar. */
-export const PARECER_SO_POSSIVEL_TITULO = 'Confira o histórico de leilão.'
+/** Rodape da secao: o que cada nivel quer dizer. */
+export const LEILAO_NIVEIS_RODAPE =
+  'Fonte: editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer placa ou chassi completos iguais; provável quer dizer identificador parcial mais atributos do veículo; possível quer dizer que só parte do identificador e o perfil batem, e pode ser outro veículo. Não substitui consulta oficial.'
