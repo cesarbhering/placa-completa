@@ -1706,6 +1706,7 @@ function applyEmailSuggestion() {
                   </button>
                   <p v-if="blocoVarianteB" class="cb-locked__pix">{{ garantiaBlocoB }}</p>
                   <p v-else class="cb-locked__pix">{{ isCapacitor ? 'Na hora, sem assinatura.' : 'Pix ou cartão, na hora, sem assinatura.' }}</p>
+                  <p v-if="!isCapacitor" class="cb-locked__volume"><NuxtLink to="/para-empresas">Compra em volume? Veja os pacotes para empresas</NuxtLink></p>
                   <!-- Oferta da basica desativada aqui: duas opcoes no mesmo
                        ponto dividiam a decisao. A basica segue viva no
                        comparativo de precos. Pra voltar, e so descomentar.
@@ -1923,6 +1924,10 @@ function applyEmailSuggestion() {
             >
               {{ p.nome }} · {{ precoBRL(p.valorCentavos) }}
             </button>
+            <!-- Pacote para empresas (20/out/2026): linha discreta so no card da Completa, so na web. -->
+            <p v-if="p.id === 'completa' && !isCapacitor" class="cb-cmp-volume">
+              <NuxtLink to="/para-empresas">Compra em volume? Veja os pacotes para empresas</NuxtLink>
+            </p>
           </div>
         </div>
       </section>
@@ -4872,4 +4877,6 @@ function applyEmailSuggestion() {
 
   &:hover { background: #1faa52; }
 }
+.cb-locked__volume, .cb-cmp-volume { margin: 8px 0 0; font-size: 13px; text-align: center; }
+.cb-locked__volume a, .cb-cmp-volume a { color: #636363; text-decoration: underline; }
 </style>

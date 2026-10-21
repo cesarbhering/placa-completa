@@ -38,6 +38,7 @@ export const COLUNAS_RODAPE: ColunaRodape[] = [
     titulo: 'Empresa',
     links: [
       { rotulo: 'Sobre', to: '/sobre' },
+      { rotulo: 'Para empresas', to: '/para-empresas' },
       { rotulo: 'Blog', to: '/blog' },
       { rotulo: 'Estudos', to: '/estudos' },
       // Pagina, nao mailto: a Cloudflare reescreve mailto pra um link que da 404

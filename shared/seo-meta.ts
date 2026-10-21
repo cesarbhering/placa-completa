@@ -29,6 +29,7 @@ export function problemaNoTitulo(titulo: string): string | null {
 // --- Paginas fixas ----------------------------------------------------------
 
 export const DESCRICOES = {
+  paraEmpresas: 'Consulta veicular em pacote para lojista, garagem e despachante: preço especial por volume, suporte prioritário e resposta em até 24 horas úteis.',
   home: 'Consulta de placa com relatório completo: leilão, roubo, gravame, multas e recall pendente. Veja o que o vendedor não conta antes de fechar negócio.',
   sobre: 'Sobre o PlacaCompleta: como funciona a consulta veicular por placa, de onde vêm os dados (bases oficiais, FIPE, banco BV), a metodologia do IBV e a LGPD.',
   comoConsultarPlaca: 'Como consultar placa de veículo: passo a passo para ver marca, modelo, FIPE e situação, e o relatório completo com leilão, gravame, roubo e débitos.',
