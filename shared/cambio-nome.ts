@@ -19,8 +19,12 @@ const AUTO = new Set([
   'AT', 'AT4', 'AT5', 'AT6', 'AT7', 'AT8', 'AT9', 'AT10', 'CVT', 'DCT', 'DSG', 'AMT',
   'AUT', 'AUTO', 'AUTOM', 'AUTOMATICO', 'AUTOMATIC', 'TIPTRONIC', 'TIPTR', 'STEPTRONIC',
   'MULTIDRIVE', 'POWERSHIFT', 'DUALOGIC', 'IMOTION', 'EASYTRONIC', 'XTRONIC', 'ECVT',
+  // Chevrolet solto: TAT = turbo automatico ("ONIX 1.0 TAT").
+  'TAT',
 ])
-const MANUAL = new Set(['MT', 'MT5', 'MT6', 'MEC', 'MECANICO', 'MANUAL'])
+// MT = manual transmission; TMT = turbo manual (Chevrolet). Na FIPE: "Mec." = manual, "Aut." = automatico
+// (e a manual muitas vezes vem sem nada: ver candidatoEManual em server/utils/fipe-candidato.ts).
+const MANUAL = new Set(['MT', 'MT5', 'MT6', 'TMT', 'MEC', 'MECANICO', 'MANUAL'])
 
 /** Palavras do nome sem a marca ("HYUNDAI/HB20S 1.6M COMF" -> HB20S, 1.6M, COMF). */
 function partes(descricao: string): { marca: string; tokens: string[] } {
