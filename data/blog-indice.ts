@@ -45,6 +45,13 @@ export const TAGS_BLOG: TagBlog[] = [
     description: 'Novidades do PlacaCompleta: o que mudou no produto, a base de leilões, os relatórios e os bastidores de uma empresa construída com agentes de IA.',
     lead: 'O que mudou no PlacaCompleta e os bastidores do produto.',
   },
+  {
+    slug: 'para-empresas',
+    nome: 'Para empresas',
+    titulos: ['Consulta Veicular para Empresas: Lojistas e Despachantes', 'Consulta Veicular para Empresas no Blog'],
+    description: 'Consulta veicular para lojistas, garagens, despachantes e financeiras: como consultar toda placa antes de fechar negócio e o pacote com desconto por volume.',
+    lead: 'Conteúdo para quem compra, vende e transfere carros todos os dias: lojistas, garagens, despachantes e pequenas financeiras.',
+  },
 ]
 
 export interface EntradaBlog {
