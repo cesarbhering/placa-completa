@@ -7,7 +7,7 @@
 //  - so alerta apos 3 falhas seguidas com 60 s entre elas (pc-monitor alerta checkout falha ...).
 //  - motivo classificado: "api" (4xx/5xx em /api/premium ou /api/consulta), "fluxo_timeout", "fluxo_travado",
 //    "tela_erro". Se o problema e o SITE (home nao abre), nao manda "checkout com erro": isso e do pc-site-check.
-//  - roda com prioridade baixa (nice 10); se a VPS estiver com load > nproc*2, espera 2 min e tenta de novo
+//  - roda com prioridade baixa (nice 10); se a CPU estiver com menos de 10% ociosa, espera 2 min e tenta de novo
 //    (ate 3x) em vez de alertar. Nunca diagnostica "VPS sobrecarregada" como desculpa: home > 20 s = incidente.
 // Compat: segue gravando ultimoOk em /root/.checkout-probe.json e imprimindo "OK ..." / "FALHA ..." no journal.
 // Codigo de saida: 0 sempre que a rodada terminou (ok, falha ja registrada no pc-monitor, adiada). Saida != 0 =
@@ -43,7 +43,36 @@ function monitor(...args) {
   try { execFileSync(process.env.PCMON_BIN || '/usr/local/bin/pc-monitor', ['alerta', 'checkout', ...args], { stdio: 'inherit', timeout: 120_000 }) }
   catch (e) { console.log('pc-monitor falhou:', e.message) }
 }
-const loadAlto = () => os.loadavg()[0] > os.cpus().length * 2
+// CPU saturada = menos de 10% ociosa numa amostra de 2 s (/proc/stat). NAO usa load: com teto de CPU nos
+// containers (21/out), threads presas na quota contam no load (load 20 com 47% ociosa) e a sonda adiava a toa.
+const POS_DEPLOY = process.argv.includes('--pos-deploy')
+function amostraCpu() {
+  const v = fs.readFileSync('/proc/stat', 'utf8').split('\n')[0].trim().split(/\s+/).slice(1).map(Number)
+  return { total: v.reduce((a, b) => a + b, 0), ocioso: v[3] + (v[4] || 0) }
+}
+async function cpuOciosaPct() {
+  const a = amostraCpu(); await sleep(2000); const b = amostraCpu()
+  return 100 * (b.ocioso - a.ocioso) / Math.max(1, b.total - a.total)
+}
+const cpuSaturada = async () => (await cpuOciosaPct()) < 10
+
+// Pos-deploy (chamada pelo pc-deploy-watch com --pos-deploy): espera o deployment do site sair de
+// in_progress no Coolify (ate 20 min) e depois roda SEM adiar, para todo deploy ter veredito.
+async function esperarDeployTerminar() {
+  try {
+    const env = Object.fromEntries(fs.readFileSync('/root/.coolify-api.env', 'utf8').split('\n')
+      .map(l => l.match(/^(?:export\s+)?(\w+)=(.*)$/)).filter(Boolean).map(m => [m[1], m[2].trim().replace(/^["']|["']$/g, '')]))
+    const url = `${env.COOLIFY_URL.replace(/\/+$/, '')}/api/v1/deployments/applications/gvw73er3wq20ydyytrg5ygdt?skip=0&take=5`
+    for (let i = 0; i < 40; i++) {
+      const r = await fetch(url, { headers: { Authorization: `Bearer ${env.COOLIFY_API_TOKEN}` }, signal: AbortSignal.timeout(15_000) })
+      const ds = (await r.json())?.deployments || []
+      if (!ds.some(d => d.status === 'in_progress' || d.status === 'queued')) return
+      if (i === 0) console.log('pos-deploy: esperando o deploy do Coolify terminar')
+      await sleep(30_000)
+    }
+    console.log('pos-deploy: deploy ainda em andamento apos 20 min; rodando assim mesmo')
+  } catch (e) { console.log('pos-deploy: sem leitura do Coolify (' + e.message + '); rodando assim mesmo') }
+}
 
 async function homeResponde() {
   const t0 = Date.now()
@@ -109,11 +138,14 @@ async function rodada() {
 }
 
 let ultima = null
+if (POS_DEPLOY) await esperarDeployTerminar()
 try {
   for (let i = 1; i <= TENTATIVAS; i++) {
-    let adiada = 0
-    while (loadAlto() && adiada < 3) { console.log(`load ${os.loadavg()[0].toFixed(1)} > ${os.cpus().length * 2}: adiando 2 min`); adiada++; await sleep(120_000) }
-    if (loadAlto()) { console.log('ADIADA VPS com load alto por 6 min; sem veredito nesta rodada'); process.exit(0) }
+    if (!POS_DEPLOY) {
+      let adiada = 0
+      while ((await cpuSaturada()) && adiada < 3) { console.log('CPU com menos de 10% ociosa: adiando 2 min'); adiada++; await sleep(120_000) }
+      if (await cpuSaturada()) { console.log('ADIADA CPU saturada (< 10% ociosa) por 6 min; sem veredito nesta rodada'); process.exit(0) }
+    }
     ultima = await rodada()
     if (ultima.ok) {
       try { const s = JSON.parse(fs.readFileSync(COMPAT, 'utf8')); fs.writeFileSync(COMPAT, JSON.stringify({ ...s, ultimoOk: Date.now() })) } catch { fs.writeFileSync(COMPAT, JSON.stringify({ ultimoOk: Date.now() })) }
