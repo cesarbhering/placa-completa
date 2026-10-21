@@ -1180,3 +1180,78 @@ describe('BCK2C28 (Prisma 1.4MT LT, 21/out/2026): manual sem "Mec." na FIPE', ()
     expect(candidatoEAutomatico('PRISMA Sed. LT 1.4 8V FlexPower 4p Aut.')).toBe(true)
   })
 })
+
+describe('Toyota: token colado e sigla de versao eliminatoria (PRX0B70, 21/out/2026)', () => {
+  const hilux = (codigo: string, modelo: string) => ({ score: 50, codigo_fipe: codigo, codigo_modelo: codigo.slice(0, 6), texto_modelo: modelo, texto_valor: 'R$ 150.000,00', texto_marca: 'Toyota', combustivel: 'Diesel', mes_referencia: 'outubro de 2026' })
+  const LISTA_PRX = [
+    hilux('002015-0', 'Hilux CD 4x4 2.8 Diesel Mec.'),
+    hilux('002142-3', 'Hilux CD SR 4x4 2.8 TDI Diesel Aut.'),
+    hilux('002143-1', 'Hilux CD SRV 4x4 2.8 TDI Diesel Aut.'),
+    hilux('002141-5', 'Hilux CD SRX 4x4 2.8 TDI 16V Diesel Aut.'),
+    hilux('002145-8', 'Hilux Chassi 4x4 2.8 TDI Diesel Mec.'),
+  ]
+  const rodar = (descricao: string, dados: any[]) => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+    return escolherMelhorFipe({
+      senatran: { cilindrada: 2755, potencia: 177, descricaoMarcaModelo: descricao, anoModelo: 2017, codigoCombustivel: '03', descricaoTipoVeiculo: 'CAMINHONETE', descricaoEspecie: 'ESPECIAL' } as any,
+      wdapi: { marca: 'TOYOTA', MODELO: descricao.replace(/^I\/TOYOTA /, ''), anoModelo: '2017', fipe: { dados } },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1',
+      fipeApiToken: 'token-teste',
+    })
+  }
+
+  it('"HILUX CDSRXA4FD" escolhe a CD SRX 4x4 Aut. (002141-5) por regra, sem o juiz', async () => {
+    const r = await rodar('I/TOYOTA HILUX CDSRXA4FD', LISTA_PRX)
+    expect(r.decididoPor).toBe('regra')
+    expect(r.confianca).toBe('alta')
+    expect(r.escolhido?.codigo_fipe).toBe('002141-5')
+  })
+
+  it('SRX nunca vira SR nem SRV: sem SRX na lista, o cambio nao decide (fica ambiguo)', async () => {
+    const semSrx = LISTA_PRX.filter((c) => c.codigo_fipe !== '002141-5')
+    const r = await rodar('I/TOYOTA HILUX CDSRXA4FD', semSrx)
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.escolhido).toBeNull()
+    expect(r.candidatos.map((c: any) => c.codigo_fipe)).not.toContain('002145-8')
+  })
+
+  it('"HILUX CD4X4 SRV" escolhe a CD SRV (nao a SRX nem a SR)', async () => {
+    const r = await rodar('I/TOYOTA HILUX CD4X4 SRV', LISTA_PRX)
+    expect(r.escolhido?.codigo_fipe).toBe('002143-1')
+    expect(r.decididoPor).toBe('regra')
+  })
+
+  it('"HILUX SWSRXA4FD" fica com a SW4 SRX Aut. (nao a picape CD)', async () => {
+    const r = await rodar('I/TOYOTA HILUX SWSRXA4FD', [
+      ...LISTA_PRX,
+      hilux('002150-4', 'Hilux SW4 SRV 4x4 2.8 TDI 16V Dies. Aut.'),
+      hilux('002151-2', 'Hilux SW4 SRX 4x4 2.8 TDI 16V Dies. Aut.'),
+    ])
+    expect(r.escolhido?.codigo_fipe).toBe('002151-2')
+  })
+
+  it('Prisma 1.4MT LT (BCK2C28) segue decidido pela manual', async () => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+    const r = await escolherMelhorFipe({
+      senatran: { cilindrada: 1400, potencia: 106, descricaoMarcaModelo: 'CHEV/PRISMA 1.4MT LT', anoModelo: 2017, codigoCombustivel: '16', descricaoTipoVeiculo: 'AUTOMOVEL', descricaoEspecie: 'PASSAGEIRO' } as any,
+      wdapi: {
+        marca: 'CHEVROLET', MODELO: 'PRISMA 1.4MT LT', anoModelo: '2017',
+        fipe: { dados: [
+          { score: 55, codigo_fipe: '004433-4', codigo_modelo: '6400', texto_modelo: 'PRISMA Sed. LT 1.4 8V FlexPower 4p', texto_valor: 'R$ 54.074,00', texto_marca: 'GM - Chevrolet', combustivel: 'Flex', mes_referencia: 'outubro de 2026' },
+          { score: 55, codigo_fipe: '004436-9', codigo_modelo: '6401', texto_modelo: 'PRISMA Sed. LT 1.4 8V FlexPower 4p Aut.', texto_valor: 'R$ 56.821,00', texto_marca: 'GM - Chevrolet', combustivel: 'Flex', mes_referencia: 'outubro de 2026' },
+          { score: 55, codigo_fipe: '004440-7', codigo_modelo: '6402', texto_modelo: 'PRISMA Sed. LTZ 1.4 8V FlexPower 4p', texto_valor: 'R$ 58.000,00', texto_marca: 'GM - Chevrolet', combustivel: 'Flex', mes_referencia: 'outubro de 2026' },
+        ] },
+      },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1',
+      fipeApiToken: 'token-teste',
+    })
+    expect(r.decididoPor).toBe('regra')
+    expect(r.escolhido?.codigo_fipe).toBe('004433-4')
+  })
+})
