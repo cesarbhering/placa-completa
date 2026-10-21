@@ -9,6 +9,9 @@
 // Uso (na VPS, depois do deploy):
 //   SUPABASE_ACCESS_TOKEN=$(cat ~/.supabase/access-token) node scripts/fipe-mt-at-refazer.mjs <project_ref>                (dry-run: lista)
 //   ... ADMIN_SECRET=... node scripts/fipe-mt-at-refazer.mjs <project_ref> --aplicar [--tokens=a,b]   (backup 0600 antes)
+//   --forcar (so com --tokens): refaz os tokens informados mesmo com a FIPE ja
+//   decidida (regra/juiz/fluxo antigo) e fora da janela de 60 dias. Caso
+//   BYZ2J29/NJD2I54 (Toyota, 21/out/2026). Backup 0600 igual.
 // Com --tokens o filtro de MT/AT no nome nao se aplica (regra Toyota, PRX0B70).
 import { writeFileSync } from 'node:fs'
 
@@ -17,6 +20,8 @@ const pat = process.env.SUPABASE_ACCESS_TOKEN
 if (!ref || !pat) { console.error('uso: SUPABASE_ACCESS_TOKEN=... node scripts/fipe-mt-at-refazer.mjs <project_ref> [--aplicar] [--tokens=a,b]'); process.exit(1) }
 const aplicar = args.includes('--aplicar')
 const so = (args.find((a) => a.startsWith('--tokens=')) || '').slice(9).split(',').filter(Boolean)
+const forcar = args.includes('--forcar')
+if (forcar && !so.length) { console.error('--forcar exige --tokens=a,b (nunca em massa)'); process.exit(1) }
 const BASE = process.env.SITE_URL || 'https://placacompleta.com.br'
 const lit = (s) => `'${String(s).replace(/'/g, "''")}'`
 async function sql(query) {
@@ -33,14 +38,16 @@ const linhas = await sql(`select p.id, p.placa, p.token_entrega, p.entregue_em::
     p.relatorio_snapshot->'valorCusto'->>'fipeModelo' modelo,
     p.relatorio_snapshot->'valorCusto' vc
   from pedidos_premium p
-  where p.status = 'entregue' and p.entregue_em > now() - interval '60 days'
+  where p.status = 'entregue'
+    ${forcar ? '' : `and p.entregue_em > now() - interval '60 days'`}
     ${so.length ? `and p.token_entrega in (${so.map(lit).join(',')})` : ''}
-    and (p.relatorio_snapshot->'valorCusto'->>'fipeNaoLocalizado' = 'true' or p.relatorio_snapshot->'valorCusto'->'fipeCandidato'->>'decididoPor' = 'ambiguo')
+    ${forcar ? 'and p.relatorio_snapshot is not null' : `and (p.relatorio_snapshot->'valorCusto'->>'fipeNaoLocalizado' = 'true' or p.relatorio_snapshot->'valorCusto'->'fipeCandidato'->>'decididoPor' = 'ambiguo')`}
   order by p.entregue_em`)
 const RE = /\bMT\b|\bAT\b|\d\.\dMT|\d\.\dAT|\bAT\d\b|\bT[AM]T\b/i
 // Com --tokens, vale o pedido pedido (ex.: PRX0B70, Toyota "CDSRXA4FD", sem MT/AT solto).
 const alvos = so.length ? linhas : linhas.filter((l) => RE.test(String(l.descricao || '')))
-console.log(`${linhas.length} pedido(s) ambiguos ou sem FIPE em 60 dias; ${alvos.length} alvo(s)${so.length ? ' (--tokens)' : ' com MT/AT no nome'}:`)
+if (forcar) for (const t of so) if (!linhas.some((l) => l.token_entrega === t)) console.log(`  aviso: token ${t.slice(0, 8)}... nao achado (nao entregue ou sem snapshot)`)
+console.log(`${linhas.length} pedido(s) ${forcar ? 'informados (--forcar)' : 'ambiguos ou sem FIPE em 60 dias'}; ${alvos.length} alvo(s)${so.length ? ' (--tokens)' : ' com MT/AT no nome'}:`)
 for (const l of alvos) console.log(`  ${l.dia} ${l.placa} ${l.token_entrega.slice(0, 8)}... "${l.descricao}" decidido=${l.decidido || '-'} naoLocalizado=${l.nao_localizado || '-'} modelo=${l.modelo || '-'}`)
 if (!aplicar) { console.log('\n(dry-run: nada gravado)'); process.exit(0) }
 if (!process.env.ADMIN_SECRET) { console.error('falta ADMIN_SECRET'); process.exit(1) }
