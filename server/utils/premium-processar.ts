@@ -284,10 +284,12 @@ export async function processarPedidoPago(
         .update({ relatorio_snapshot: snapshot, snapshot_em: new Date().toISOString() })
         .eq('id', pedido.id)
       // Fotos do lote na hora (Cesar, 21/out/2026): passagem da nossa base com
-      // foto na origem e sem foto no R2 pede o download a leiloes-api e espera
-      // ate 60 s, solto (nao atrasa o e-mail). O que chegar e gravado so na
-      // passagem; o resto fica pro fotos-depois. Tempo vai pro debug_trace.
-      void emVoo('fotos-na-geracao', () => completarFotosNaGeracao(supabase, { id: pedido.id, plano: pedido.plano }, snapshot))
+      // foto na origem e sem foto no R2 pede o download a leiloes-api. A
+      // entrega (e-mail) ESPERA ate 60 s (FOTOS_GERACAO_PRAZO_MS), dentro da
+      // janela de 5 min: o relatorio ja sai com as fotos. O que nao chegar
+      // fica pro fotos-depois. Grava so na passagem; tempo vai pro debug_trace.
+      // Fail-open: nunca lanca.
+      await emVoo('fotos-na-geracao', () => completarFotosNaGeracao(supabase, { id: pedido.id, plano: pedido.plano }, snapshot))
     } catch (snapErr: any) {
       if (import.meta.dev) console.warn('[premium] snapshot falhou na entrega, fallback lazy cobre depois:', snapErr?.message || snapErr)
     }
