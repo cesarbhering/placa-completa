@@ -2438,6 +2438,8 @@ onUnmounted(() => {
                      infracoes, IPVA, restricoes. A caixa ja diz o total, o que
                      trava (inclusive roubo/furto) e o licenciamento vencido. -->
                 <DetranQuitar v-if="resumoDetran" :resumo="resumoDetran" />
+                <!-- 612 da fonte = nada consta (nao e falha): mostra a frase dela (21/out/2026). -->
+                <p v-if="multasDetalhe.mensagem_fonte" class="rel__multas-nota">Fonte informou: {{ multasDetalhe.mensagem_fonte }}</p>
 
                 <!-- Infracoes: em aberto, em recurso e autuacoes em andamento. -->
                 <p v-if="textoRenainfFora" class="rel__multas-nota">{{ textoRenainfFora }}</p>
