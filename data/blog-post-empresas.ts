@@ -44,7 +44,7 @@ export const postPacoteEmpresas: BlogPost = {
     {
       type: 'heading',
       heading: 'O que muda no pacote para empresas',
-      text: 'O pacote foi pensado para quem consulta com frequência e não quer repetir o checkout a cada placa:\n\n- **Desconto por volume:** quanto mais consultas no pacote, menor o custo de cada uma.\n- **Suporte prioritário:** seu atendimento passa na frente quando surgir dúvida sobre um relatório.\n- **Resposta comercial em até 24 horas úteis:** você envia a proposta e recebe retorno da nossa equipe.\n- **Pagamento no Pix:** sem burocracia de cartão corporativo.\n- **Consultas liberadas na hora:** depois de fechado, o saldo fica disponível para usar.\n\nO valor do pacote depende do volume que você precisa, por isso ele é combinado direto com a nossa equipe.',
+      text: 'O pacote foi pensado para quem consulta com frequência e não quer repetir o checkout a cada placa:\n\n- **Desconto por volume:** quanto mais consultas no pacote, menor o custo de cada uma.\n- **Suporte prioritário:** seu atendimento passa na frente quando surgir dúvida sobre um relatório.\n- **Resposta comercial em até 24 horas úteis:** você envia a proposta e recebe retorno da nossa equipe.\n- **Pagamento por Pix:** sem burocracia de cartão corporativo.\n- **Consultas liberadas na hora:** depois de fechado, o saldo fica disponível para usar.\n\nO valor do pacote depende do volume que você precisa, por isso ele é combinado direto com a nossa equipe.',
     },
     {
       type: 'heading',

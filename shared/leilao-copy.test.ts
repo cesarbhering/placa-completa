@@ -31,12 +31,12 @@ describe('copy da secao de leilao', () => {
 
 describe('so possivel (16/out/2026)', () => {
   it('resumo, parecer e cartao honestos, sem travessao nem acusacao', async () => {
-    const { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, LEILAO_NIVEIS_RODAPE, PALAVRAS_DE_ACUSACAO } = await import('./leilao-copy')
+    const { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, PALAVRAS_DE_ACUSACAO } = await import('./leilao-copy')
     expect(resumoSoPossivel(1, 'este carro')).toBe('1 registro possível de leilão com perfil parecido com este carro. Pode ser outro veículo do mesmo modelo e ano: confira abaixo o que bate e o que não bate.')
     expect(resumoSoPossivel(2, 'este carro')).toMatch(/^2 registros possíveis .* Podem ser outro veículo/)
     expect(parecerComPossivel(1)).toBe(' Consta 1 registro possível de leilão, que pode ser outro veículo do mesmo modelo e ano (veja o Histórico de leilão).')
     expect(cartaoSoPossivel(1)).toBe('POSSÍVEL (1)')
-    for (const t of [resumoSoPossivel(1, 'x'), parecerComPossivel(2), LEILAO_NIVEIS_RODAPE]) {
+    for (const t of [resumoSoPossivel(1, 'x'), parecerComPossivel(2)]) {
       expect(t).not.toContain('—')
       expect(t).not.toMatch(/nenhuma ocorrência/i)
       for (const w of PALAVRAS_DE_ACUSACAO) expect(t.toLowerCase()).not.toContain(w)
@@ -49,7 +49,7 @@ describe('so possivel (16/out/2026)', () => {
     expect(vue).toContain('<template v-if="!temIndicioReal && !possiveisComFoto.length && !possiveisSemFoto.length && !passagensNotificadas.length">')
     expect(vue).toContain('const leilaoPossivel = nPossiveisExibidos.value > 0')
     expect(vue).toContain('parecerComPossivel(nPossiveisExibidos.value)')
-    expect(vue).toContain('valor = cartaoSoPossivel(nPossiveisExibidos.value)')
+    expect(vue).toContain('nPossiveis: possiveisSemFoto.value.length > 0 ? nPossiveisExibidos.value : 0')
     expect((vue.match(/idxPossiveisExibidos\.value\.has\(i\)/g) || []).length).toBe(2)
   })
 })
@@ -62,5 +62,37 @@ describe('possivel com foto (16/out/2026)', () => {
     expect(vue).toContain('v-for="(foto, i) in p.fotos.slice(0, 4)"')
     expect(vue).toContain('const possiveisSemFoto = computed(() => passagensPossiveis.value)')
     expect(vue).toContain('!distintos.has(p.idx)')
+  })
+})
+
+describe('cartao de leilao: so possivel em amarelo (21/out/2026)', () => {
+  it('so possivel: aceso, sem alerta e sem neutro (ambar), "POSSÍVEL (n)"', async () => {
+    const { estadoCartaoLeilao } = await import('./leilao-copy')
+    expect(estadoCartaoLeilao({ confirmado: 0, provavel: 0, notificado: 0, nPossiveis: 2, possiveisComFoto: 0 })).toEqual({ valor: 'POSSÍVEL (2)', alerta: false, aceso: true, neutro: false })
+  })
+  it('confirmado e provavel continuam vermelhos (alerta), mesmo com possivel junto', async () => {
+    const { estadoCartaoLeilao } = await import('./leilao-copy')
+    expect(estadoCartaoLeilao({ confirmado: 1, provavel: 0, notificado: 0, nPossiveis: 3, possiveisComFoto: 0 })).toMatchObject({ valor: 'CONSTA (1 confirmado)', alerta: true })
+    expect(estadoCartaoLeilao({ confirmado: 0, provavel: 2, notificado: 0, nPossiveis: 1, possiveisComFoto: 0 })).toMatchObject({ valor: 'PROVÁVEL (2)', alerta: true })
+  })
+  it('so notificacao: cinza; nada: sem ocorrencia', async () => {
+    const { estadoCartaoLeilao } = await import('./leilao-copy')
+    expect(estadoCartaoLeilao({ confirmado: 0, provavel: 0, notificado: 1, nPossiveis: 0, possiveisComFoto: 0 })).toMatchObject({ neutro: true, alerta: false })
+    expect(estadoCartaoLeilao({ confirmado: 0, provavel: 0, notificado: 0, nPossiveis: 0, possiveisComFoto: 0 })).toMatchObject({ valor: 'SEM OCORRÊNCIA', aceso: false })
+  })
+})
+
+describe('secao de leilao enxuta (Cesar, 21/out/2026)', () => {
+  it('sem card de sinistro, sem chips de nivel no topo e sem o rodape explicativo', async () => {
+    const { readFileSync } = await import('node:fs')
+    const vue = readFileSync('pages/premium/[token].vue', 'utf8')
+    expect(vue).not.toContain('class="rel__sinistro"')
+    expect(vue).not.toContain('ROTULO_NIVEL[nivelExibido]')
+    expect(vue).not.toContain('Não substitui consulta oficial')
+    expect(vue).not.toContain('Confirmado quer dizer placa ou chassi completos iguais')
+    // o indicador de sinistro na grade e o selo de nivel por passagem continuam
+    expect(vue).toContain("k: 'sinistroParceiro', label: 'Indício de sinistro'")
+    expect(vue.match(/<LeilaoFicha :p="p" \/>/g) || []).toHaveLength(2)
+    expect(readFileSync('components/LeilaoFicha.vue', 'utf8')).toContain('{{ p.rotuloNivel }}')
   })
 })

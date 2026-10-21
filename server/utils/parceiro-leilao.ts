@@ -27,10 +27,6 @@ export const FONTE_CACHE_PARCEIRO = 'avaliservice'
 export const FONTE_CUSTO_PARCEIRO = 'avaliservice_leilao_sinistro'
 export const PRECO_PARCEIRO_CENTAVOS = 600
 export const TIMEOUT_PARCEIRO_MS = 15_000
-/** Lease do lock por pedido: maior que placa + chassi com timeout (2 x 15 s). */
-export const LOCK_PEDIDO_S = 60
-/** Quanto quem ficou sem o lock espera a outra geracao (segundos). */
-export const ESPERA_LOCK_VOLTAS = 20
 const BASE_PADRAO = 'https://api.avaliservice.com.br'
 const AVISO = 'cesarcbhering@gmail.com'
 
@@ -140,21 +136,11 @@ export interface LinhaChamada {
   resposta_bruta?: any
 }
 
-/** Devolve 'duplicada' quando o banco barrou uma segunda linha cobrada do mesmo pedido. */
-async function gravarLinha(sb: any, l: LinhaChamada): Promise<'ok' | 'duplicada' | 'erro'> {
+async function gravarLinha(sb: any, l: LinhaChamada): Promise<void> {
   try {
     const { error } = await sb.from('parceiro_leilao_chamadas').insert(l)
-    if (!error) return 'ok'
-    // Unique parcial (pedido_id) where cobrada: o codigo deixou passar uma
-    // segunda chamada paga. A cobranca aconteceu (o fornecedor cobra), entao a
-    // linha entra mesmo assim, marcada, sem violar o indice.
-    if (error.code === '23505' && l.cobrada) {
-      await sb.from('parceiro_leilao_chamadas').insert({ ...l, cobrada: false, motivo_erro: 'COBRANCA DUPLICADA: o banco barrou a 2a linha cobrada deste pedido (o fornecedor cobrou)' })
-      return 'duplicada'
-    }
-    console.warn('[parceiro-leilao] linha de auditoria falhou:', error.message)
-    return 'erro'
-  } catch (e: any) { console.warn('[parceiro-leilao] linha de auditoria falhou:', e?.message || e); return 'erro' }
+    if (error) console.warn('[parceiro-leilao] linha de auditoria falhou:', error.message)
+  } catch (e: any) { console.warn('[parceiro-leilao] linha de auditoria falhou:', e?.message || e) }
 }
 
 async function gravarCusto(sb: any, pedidoId: string | null, t: Tentativa, cobrada: boolean): Promise<void> {
@@ -198,10 +184,6 @@ const linhaDe = (t: Tentativa, ctx: { pedidoId: string | null; placa: string | n
 export interface DepsParceiro {
   sb: any
   cfg: CfgParceiro
-  /** Pausa entre as olhadas enquanto outra geracao do mesmo pedido consulta (teste injeta). */
-  esperar?: (ms: number) => Promise<void>
-  /** Identidade desta tentativa no lock por pedido (teste injeta). */
-  dono?: string
   http?: Http
   alertar?: (assunto: string, texto: string) => Promise<unknown>
   agora?: number
@@ -237,59 +219,24 @@ export async function complementarLeilaoParceiro(
     const ctxLinha = { pedidoId: pedido.id, placa }
     const juntar = (r: RespostaParceiro, tipo: 'placa' | 'chassi', quando: string) => historicoComParceiro(historico, r, { chassi, tipo, consultadoEm: quando })
 
-    // Ja existe resposta para este pedido ou esta placa/chassi? (cache valido
-    // ou linha cobrada do pedido): reaproveita, nao chama nem cobra.
-    const jaTem = async (): Promise<any | null> => {
-      for (const [tipo, chave] of [['placa', placa], ['chassi', chassi]] as const) {
-        if (!chave) continue
-        const hit = await lerFonteCache<any>(deps.sb, FONTE_CACHE_PARCEIRO, `${tipo}:${chave}`, agora)
-        const r = hit ? parsearRespostaParceiro(hit.payload?.bruto ?? hit.payload) : null
-        if (r) {
-          await gravarLinha(deps.sb, { ...linhaDe({ parametro: chave, tipo, http: null, ms: 0, bruto: hit!.payload?.bruto ?? hit!.payload, resposta: r, erro: null }, ctxLinha), cobrada: false, preco_centavos: 0, cache_hit: true })
-          log(`[parceiro-leilao] cache ${tipo} pedido=${pedido.id || '-'}`)
-          return juntar(r, tipo, hit!.consultadoEm)
-        }
+    // 1. Cache (placa, depois chassi): nao chama nem cobra.
+    for (const [tipo, chave] of [['placa', placa], ['chassi', chassi]] as const) {
+      if (!chave) continue
+      const hit = await lerFonteCache<any>(deps.sb, FONTE_CACHE_PARCEIRO, `${tipo}:${chave}`, agora)
+      const r = hit ? parsearRespostaParceiro(hit.payload?.bruto ?? hit.payload) : null
+      if (r) {
+        await gravarLinha(deps.sb, { ...linhaDe({ parametro: chave, tipo, http: null, ms: 0, bruto: hit!.payload?.bruto ?? hit!.payload, resposta: r, erro: null }, ctxLinha), cobrada: false, preco_centavos: 0, cache_hit: true })
+        log(`[parceiro-leilao] cache ${tipo} pedido=${pedido.id || '-'}`)
+        return juntar(r, tipo, hit!.consultadoEm)
       }
-      if (pedido.id) {
-        const { data: paga } = await deps.sb.from('parceiro_leilao_chamadas').select('resposta_bruta,tipo_parametro,criado_em')
-          .eq('pedido_id', pedido.id).eq('cobrada', true).order('criado_em', { ascending: false }).limit(1).maybeSingle()
-        const r = paga ? parsearRespostaParceiro(paga.resposta_bruta) : null
-        if (r) return juntar(r, paga.tipo_parametro === 'chassi' ? 'chassi' : 'placa', paga.criado_em)
-      }
-      return null
     }
-    const pronto = await jaTem()
-    if (pronto) return pronto
 
-    // Lock por pedido (21/out/2026, caso BCK2C28 cobrado 2x): a geracao do
-    // relatorio, o lazy-fill da pagina (varias abas/polls) e o job nao podem
-    // chamar juntos. Quem nao pega o lock espera a outra terminar e reaproveita.
+    // 2. Pedido que ja pagou uma consulta (job, reabertura): reaproveita.
     if (pedido.id) {
-      const dono = deps.dono ?? `${process.pid}:${Math.random().toString(36).slice(2, 10)}`
-      let pegou = false
-      try {
-        const { data, error } = await deps.sb.rpc('job_lock_pegar', { p_nome: `parceiro:${pedido.id}`, p_dono: dono, p_segundos: LOCK_PEDIDO_S })
-        if (error) throw new Error(error.message)
-        pegou = data === true
-      } catch (e: any) {
-        log(`[parceiro-leilao] sem lock do pedido (${String(e?.message || e).slice(0, 80)}): nao chama`)
-        return { ...historico, parceiro: { status: 'falhou', consultado_em: new Date(agora).toISOString() } as EstadoParceiro }
-      }
-      if (!pegou) {
-        const esperar = deps.esperar ?? ((ms: number) => new Promise<void>((ok) => setTimeout(ok, ms)))
-        for (let i = 0; i < ESPERA_LOCK_VOLTAS; i++) {
-          await esperar(1000)
-          const r = await jaTem()
-          if (r) return r
-        }
-        // A outra geracao ainda nao terminou (ou falhou): esta segue sem a
-        // fonte e sem marcar estado; quem tem o lock grava o resultado.
-        log(`[parceiro-leilao] pedido=${pedido.id} com consulta em andamento em outra geracao: segue sem chamar`)
-        return historico
-      }
-      // Pegou o lock: a outra pode ter terminado entre a olhada e o lock.
-      const depois = await jaTem()
-      if (depois) return depois
+      const { data: paga } = await deps.sb.from('parceiro_leilao_chamadas').select('resposta_bruta,tipo_parametro,criado_em')
+        .eq('pedido_id', pedido.id).eq('cobrada', true).order('criado_em', { ascending: false }).limit(1).maybeSingle()
+      const r = paga ? parsearRespostaParceiro(paga.resposta_bruta) : null
+      if (r) return juntar(r, paga.tipo_parametro === 'chassi' ? 'chassi' : 'placa', paga.criado_em)
     }
 
     // 3. Teto diario.
@@ -314,8 +261,7 @@ export async function complementarLeilaoParceiro(
       const t = await chamarParceiro(deps.cfg, parametro, tipo, http, agora)
       tentativas.push(t)
       const cobrada = t.http === 200 && !!t.resposta
-      const gravou = await gravarLinha(deps.sb, linhaDe(t, ctxLinha))
-      if (gravou === 'duplicada') await Promise.resolve(alertar('BASE PARCEIRA DE LEILAO: COBRANCA DUPLICADA', `Pedido ${pedido.id || '-'} foi cobrado de novo (idConsulta ${t.resposta?.idConsulta || '?'}). O lock deveria ter barrado: investigar.`)).catch(() => {})
+      await gravarLinha(deps.sb, linhaDe(t, ctxLinha))
       await gravarCusto(deps.sb, pedido.id, t, cobrada)
       if (ehSaldoOuLimite(t)) await Promise.resolve(alertar('BASE PARCEIRA DE LEILAO: SALDO OU LIMITE', `HTTP 400 ao consultar ${tipo} do pedido ${pedido.id || '-'}: ${String(t.erro || '').slice(0, 200)}`)).catch(() => {})
       log(`[parceiro-leilao] ${tipo} pedido=${pedido.id || '-'} http=${t.http ?? '-'} ${cobrada ? `ok id=${t.resposta!.idConsulta}` : `erro=${t.erro}`} ${t.ms}ms`)

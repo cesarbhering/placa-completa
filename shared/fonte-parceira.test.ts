@@ -89,3 +89,18 @@ describe('rotulo do indicador de leilao', () => {
     expect(rotuloIndicadorLeilao([nossa, parceira])).not.toMatch(/públicas/)
   })
 })
+
+describe('secao sem registro: uma linha por base (21/out/2026)', () => {
+  it('nossa base sempre, com a quantidade da fonte unica', async () => {
+    const { linhasBasesSemRegistro } = await import('./fonte-parceira')
+    const { BASE_LEILAO_TEXTO } = await import('./base-leilao')
+    expect(linhasBasesSemRegistro({ resumo: {} })).toEqual([{ tag: 'Base própria', texto: `Nada encontrado na nossa base, com ${BASE_LEILAO_TEXTO}.`, tom: 'ok' }])
+  })
+  it('parceira: nada (verde), so sinistro (alerta), falhou/teto (cinza)', async () => {
+    const { linhasBasesSemRegistro } = await import('./fonte-parceira')
+    expect(linhasBasesSemRegistro({ parceiro: { status: 'ok' }, sinistro_parceiro: { indicio: false } })[1]).toEqual({ tag: 'Base parceira', texto: 'Nada encontrado na base do nosso parceiro premium.', tom: 'ok' })
+    expect(linhasBasesSemRegistro({ parceiro: { status: 'ok' }, sinistro_parceiro: { indicio: true } })[1]).toMatchObject({ tom: 'alerta', texto: 'Nenhum registro de leilão. Consta indício de sinistro.' })
+    for (const st of ['falhou', 'teto']) expect(linhasBasesSemRegistro({ parceiro: { status: st } })[1]).toMatchObject({ tom: 'cinza', texto: 'Não foi possível consultar agora.' })
+    for (const l of linhasBasesSemRegistro({ parceiro: { status: 'ok' } })) expect(l.texto).not.toMatch(new RegExp('—|' + 'avali' + 'service', 'i'))
+  })
+})
