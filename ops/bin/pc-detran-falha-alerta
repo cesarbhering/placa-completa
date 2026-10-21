@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Cesar (14/out/2026): e-mail a cada consulta a DETRAN (Infosimples) que falhar. Roda a cada 10 min; nao repete a mesma linha.
+# 612 ("a consulta nao retornou dados") NAO e falha: e "nada consta" (Cesar, 21/out/2026), fica fora do alerta.
+set -u
+SB=$(cat /root/.supabase/access-token); ST=/var/lib/pc-detran-falha; mkdir -p $ST; touch $ST/vistos
+q(){ curl -s -X POST https://api.supabase.com/v1/projects/fivalpkfneadngxiflea/database/query -H "Authorization: Bearer $SB" -H "Content-Type: application/json" -d "$(jq -n --arg q "$1" '{query:$q}')"; }
+R=$(q "select c.id, c.fonte, c.code, left(coalesce(c.detalhe,''),300) det, c.preco, p.placa, p.token_entrega tok, p.relatorio_snapshot->'multas'->>'status' st, to_char(c.criado_em at time zone 'America/Sao_Paulo','DD/MM HH24:MI') h from premium_custos c join pedidos_premium p on p.id=c.pedido_id where c.fonte like 'infosimples%' and c.code not in (200, 612) and c.criado_em > now() - interval '2 hours' order by c.criado_em")
+echo "$R" | jq -c '.[]?' | while read -r l; do
+  id=$(echo "$l" | jq -r .id); grep -q "$id" $ST/vistos && continue
+  P=$(echo "$l" | jq -r .placa); F=$(echo "$l" | jq -r .fonte); C=$(echo "$l" | jq -r .code); D=$(echo "$l" | jq -r .det); H=$(echo "$l" | jq -r .h); T=$(echo "$l" | jq -r .tok); S=$(echo "$l" | jq -r '.st // "sem bloco"'); PR=$(echo "$l" | jq -r .preco)
+  UF=$(echo "$F" | sed -E 's/infosimples_detran_//; s/_.*//' | tr a-z A-Z)
+  pc-mail --to cesar.bhering@placacompleta.com.br --subject "[DETRAN-$UF] falhou: $P (codigo $C)" --body "Cesar,
+
+Consulta ao DETRAN-$UF falhou para a placa $P as $H.
+Fonte: $F | codigo Infosimples: $C | cobrado: R\$ $PR
+Motivo: $D
+Bloco de multas no relatorio agora: $S
+Relatorio: https://placacompleta.com.br/premium/$T
+
+Codigos: 603 sem saldo/autorizacao; 605/609 site do DETRAN fora ou lento (retry automatico); 606 parametro; 608 recusado pelo site; 612 nada encontrado; 620 bloqueio na origem (ex. veiculo protegido, aviso de estelionato).
+
+Helena"
+  echo "$id" >> $ST/vistos
+done
