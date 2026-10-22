@@ -2,6 +2,11 @@
 import { PLANOS, RECURSOS, precoDePromocao } from '~/shared/planos'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora } from '~/composables/useAnalytics'
+import type { CompraPlay } from '~/composables/usePlayBilling'
+import {
+  EVENTO_PENDENTE, EVENTO_PRONTO, EVENTO_RESUME, PREFIXO_PROVISORIO, STATUS_PROCESSANDO_PLAY, compraDaPlaca, consultarPedidoPlay, emailValido,
+  esquecerCompra, placaLimpa, provisorioDaCompra, proximoIntervalo, type DetalhePendente, type DetalhePronto,
+} from '~/composables/useRecuperacaoPlay'
 
 // Checkout premium inline: roda o fluxo pago SEM sair da home, num overlay.
 // Espelha a logica de pages/premium/index.vue (gate -> preview -> checkout ->
@@ -188,7 +193,7 @@ const pendingStatus = ref('aguardando_pagamento')
 let poll: ReturnType<typeof setInterval> | null = null
 
 // historico local: religar/retomar consultas sem login
-const { add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
+const { add: histAdd, updateStatus: histUpdate, remove: histRemove, sync: histSync, itens: histItens } = useConsultaHistory()
 const { trackBeginCheckout, trackAddPaymentInfo, trackPixGerado, trackConversionPaga } = useAnalytics()
 
 // Contexto que acompanha toda etapa do funil medida aqui.
@@ -419,22 +424,186 @@ function escolherPix() {
 // E-mail que o pedido ja levou (preenchido na primeira tela do modal).
 const emailNoPedido = ref('')
 
+// E-mail no app e OBRIGATORIO (Cesar, 22/out/2026): compra que fica pendente
+// na loja pode terminar com o app fechado, e ai o e-mail e o unico caminho
+// garantido ate o relatorio. No site continua opcional.
+const emailAppOk = computed(() => emailValido(email.value))
+function conferirEmailApp(): boolean {
+  if (!isCapacitor.value || emailAppOk.value) return true
+  emailErro.value = email.value.trim()
+    ? 'Este e-mail parece incompleto. Confira antes de comprar.'
+    : 'Informe seu e-mail para receber o relatório.'
+  if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
+  return false
+}
+
+// Com o checkout aberto no app, e ele que acompanha a compra; o aviso global
+// de "relatorio pronto" (useRecuperacaoPlay) fica quieto pra nao aparecer por cima.
+const recuperacao = useRecuperacaoPlay()
+onMounted(() => {
+  if (!isCapacitor.value) return
+  recuperacao.checkoutAberto.value = true
+  window.addEventListener(EVENTO_PENDENTE, aoEventoPendente)
+  window.addEventListener(EVENTO_PRONTO, aoEventoPronto)
+  window.addEventListener(EVENTO_RESUME, aoVoltarProApp)
+})
+onUnmounted(() => {
+  pararEsperaPlay()
+  if (!isCapacitor.value) return
+  window.removeEventListener(EVENTO_PENDENTE, aoEventoPendente)
+  window.removeEventListener(EVENTO_PRONTO, aoEventoPronto)
+  window.removeEventListener(EVENTO_RESUME, aoVoltarProApp)
+  recuperacao.checkoutAberto.value = false
+  // Saiu com compra pendente: a recuperacao global assume a espera.
+  recuperacao.verificar()
+})
+
+/**
+ * Pedido do app pago: daqui pra frente e igual ao Pix pago. O token_entrega e
+ * a credencial do relatorio e a tela acompanha pelo mesmo polling. Vale pra
+ * compra confirmada na hora e pra pendente que a Play confirmou depois.
+ */
+async function seguirCompraPlayPaga(r: { token_entrega: string; valor_centavos?: number }, purchaseToken?: string | null) {
+  const provisorio = esperaPlay.value?.provisorio
+  pararEsperaPlay()
+  recuperacao.ultimoPendente.value = null
+  msg.value = ''
+  if (purchaseToken) esquecerCompra(purchaseToken)
+  const valorPago = Number(r.valor_centavos) || PLANOS.completa.valorCentavos
+  pix.value = { token: r.token_entrega, valor: valorPago }
+  step.value = 'pending'
+  pendingStatus.value = 'pago'
+  trackConversionPaga(r.token_entrega, 'completa', valorPago)
+  histAdd({
+    token: r.token_entrega,
+    placa: preview.value.placa,
+    veiculo: preview.value?.encontrado
+      ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ')
+      : null,
+    status: 'pago',
+  })
+  if (provisorio && provisorio !== r.token_entrega) histRemove(provisorio)
+  poll = setInterval(checarStatus, 4000)
+  await checarStatus()
+}
+
+// Pagamento pendente no Google (Pix/boleto da Play). O servidor conclui
+// sozinho pela notificacao da loja; aqui a tela fica esperando e pergunta pelo
+// pedido com o comprovante que o app guardou. Fechar o app nao perde nada: o
+// item "Processando" fica em Suas consultas e a recuperacao global termina.
+const esperaPlay = ref<{ provisorio: string; purchaseToken: string | null; desde: number } | null>(null)
+let esperaPlayTimer: ReturnType<typeof setTimeout> | null = null
+
+function pararEsperaPlay() {
+  if (esperaPlayTimer) clearTimeout(esperaPlayTimer)
+  esperaPlayTimer = null
+  esperaPlay.value = null
+}
+
+// Eventos do app (atalhos; o polling chega no mesmo lugar sem eles).
+// Pendente da placa deste checkout: ja entra na espera com o comprovante.
+function aoEventoPendente(ev: Event) {
+  const d = ((ev as CustomEvent).detail || {}) as DetalhePendente
+  if (placaLimpa(d.placa) !== placaClean.value || pix.value) return
+  entrarEsperaPlay({ purchaseToken: d.purchaseToken, orderId: d.orderId })
+}
+// Relatorio pronto desta espera: conclui sem esperar o proximo tick.
+function aoEventoPronto(ev: Event) {
+  const d = ((ev as CustomEvent).detail || {}) as DetalhePronto
+  const e = esperaPlay.value
+  if (!e || !d.token_entrega) return
+  const minha = (d.purchaseToken && d.purchaseToken === e.purchaseToken) || placaLimpa(d.placa) === placaClean.value
+  if (minha) seguirCompraPlayPaga({ token_entrega: d.token_entrega }, d.purchaseToken || e.purchaseToken)
+}
+
+// Voltou pro app (onResume) no meio da espera: pergunta ja, sem esperar o tick.
+function aoVoltarProApp() {
+  if (!esperaPlay.value || !esperaPlayTimer) return
+  clearTimeout(esperaPlayTimer)
+  esperaPlayTimer = null
+  tickEsperaPlay()
+}
+
+function entrarEsperaPlay(ids: { purchaseToken?: string | null; orderId?: string | null }) {
+  // Pendente sem comprovante no reject: usa o que o app anunciou pelo evento.
+  const ult = recuperacao.ultimoPendente.value
+  if (!ids.purchaseToken && ult?.placa === placaClean.value) ids = { purchaseToken: ult.purchaseToken, orderId: ids.orderId || ult.orderId }
+  // Evento e reject chegam os dois: a segunda chamada so completa o comprovante.
+  if (esperaPlay.value) {
+    if (!esperaPlay.value.purchaseToken && ids.purchaseToken) esperaPlay.value.purchaseToken = ids.purchaseToken
+    return
+  }
+  histSync()
+  const existente = provisorioDaCompra(histItens.value, { purchaseToken: String(ids.purchaseToken || ''), orderId: ids.orderId, placa: placaClean.value })
+  const id = ids.orderId || ids.purchaseToken || `${placaClean.value}-${Date.now()}`
+  const provisorio = existente?.token || PREFIXO_PROVISORIO + id
+  if (!existente) histAdd({
+    token: provisorio,
+    placa: placaClean.value,
+    veiculo: preview.value?.encontrado
+      ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ')
+      : null,
+    status: STATUS_PROCESSANDO_PLAY,
+  })
+  msg.value = ''
+  esperaPlay.value = { provisorio, purchaseToken: ids.purchaseToken || null, desde: Date.now() }
+  step.value = 'pending'
+  pendingStatus.value = STATUS_PROCESSANDO_PLAY
+  agendarEsperaPlay()
+}
+
+function agendarEsperaPlay() {
+  const e = esperaPlay.value
+  if (!e) return
+  esperaPlayTimer = setTimeout(tickEsperaPlay, proximoIntervalo(5_000, Date.now() - e.desde))
+}
+
+async function tickEsperaPlay() {
+  esperaPlayTimer = null
+  const e = esperaPlay.value
+  if (!e) return
+  // Sem comprovante (o plugin rejeitou o pending sem token): o app guarda a
+  // compra nativamente e a gente acha pela placa.
+  const token = e.purchaseToken || compraDaPlaca(placaClean.value)?.purchaseToken || null
+  if (token) {
+    e.purchaseToken = token
+    const r = await consultarPedidoPlay(token, emailNoPedido.value || null)
+    if (esperaPlay.value !== e) return
+    if (r.tipo === 'pronto') { await seguirCompraPlayPaga({ token_entrega: r.token }, token); return }
+    if (r.tipo === 'cancelada') {
+      histRemove(e.provisorio)
+      esquecerCompra(token)
+      pararEsperaPlay()
+      step.value = 'confirm'
+      msg.value = 'O Google não confirmou este pagamento. Nada foi cobrado por nós. Tente de novo.'
+      return
+    }
+  }
+  agendarEsperaPlay()
+}
+
 /**
  * Compra dentro do app: a loja cobra, o servidor confere o comprovante com a
  * Google e o resto do fluxo (status, entrega, relatorio) e exatamente o mesmo
  * do Pix. Nenhum preco sai daqui: quem define e a tabela no servidor.
  */
 async function comprarPeloPlay() {
+  if (!conferirEmailApp()) return
   loading.value = true
   msg.value = ''
-  emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
+  emailNoPedido.value = email.value.trim()
+  // Guarda o e-mail no aparelho: a recuperacao global (app fechado no meio da
+  // espera) manda ele pro servidor junto com o comprovante.
+  try { localStorage.setItem('pc_email', emailNoPedido.value) } catch { /* modo privado */ }
+  marcarEmailInformado('checkout')
+  let compra: CompraPlay | null = null
   try {
-    const compra = await playBilling.comprar(preview.value.placa)
-    const enviar = (): Promise<any> => $fetch('/api/premium/google-play/verificar', {
+    compra = await playBilling.comprar(preview.value.placa)
+    const r: any = await $fetch('/api/premium/google-play/verificar', {
       method: 'POST',
       body: {
         placa: preview.value.placa,
-        email: email.value.trim() || undefined,
+        email: emailNoPedido.value,
         preview: preview.value.raw,
         purchaseToken: compra.purchaseToken,
         orderId: compra.orderId,
@@ -444,42 +613,17 @@ async function comprarPeloPlay() {
         origem_checkout: props.origemCheckout ?? undefined,
       },
     })
-    let r: any = await enviar()
-    // Pagamento pendente na Play (Pix, boleto): o servidor ja guardou a compra
-    // e conclui sozinho quando a Google confirmar. Enquanto a tela esta
-    // aberta, pergunta de novo algumas vezes (o rate limit e 10/h).
-    for (const espera of [30_000, 60_000, 90_000]) {
-      if (!r?.pendente) break
-      msg.value = r.message || 'Seu pagamento está em processamento no Google. Assim que ele for confirmado, o relatório fica pronto e aparece aqui no app.'
-      await new Promise((ok) => setTimeout(ok, espera))
-      r = await enviar().catch(() => r)
-    }
-    if (r?.pendente) return
-    msg.value = ''
-    const valorPago = Number(r.valor_centavos) || PLANOS.completa.valorCentavos
-    // Daqui pra frente e igual ao Pix pago: o token_entrega e a credencial do
-    // relatorio e a tela acompanha pelo mesmo polling.
-    pix.value = { token: r.token_entrega, valor: valorPago }
-    step.value = 'pending'
-    pendingStatus.value = 'pago'
-    trackConversionPaga(r.token_entrega, 'completa', valorPago)
-    histAdd({
-      token: r.token_entrega,
-      placa: preview.value.placa,
-      veiculo: preview.value?.encontrado
-        ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ')
-        : null,
-      status: 'pago',
-    })
-    poll = setInterval(checarStatus, 4000)
-    await checarStatus()
+    // Pagamento pendente na Play: o servidor ja guardou a compra (com o
+    // e-mail) e conclui sozinho quando a Google confirmar.
+    if (r?.pendente) { entrarEsperaPlay(compra); return }
+    await seguirCompraPlayPaga(r, compra.purchaseToken)
   } catch (e: any) {
     // Fechar a tela da loja e desistir, nao falhar: sem esta distincao a
     // pessoa que so olhou o preco veria uma mensagem de erro.
     if (playBilling.ficouPendente(e)) {
-      // Pix/boleto da Play ainda nao compensou: o plugin rejeita sem token. O
-      // servidor fica sabendo pela notificacao da Play (RTDN) e conclui sozinho.
-      msg.value = 'Seu pagamento está em processamento no Google. Assim que ele for confirmado, o relatório fica pronto e aparece aqui no app.'
+      // Pix/boleto da Play ainda nao compensou: o plugin rejeita, as vezes
+      // sem token. O servidor fica sabendo pela notificacao da Play (RTDN).
+      entrarEsperaPlay({ purchaseToken: e?.purchaseToken, orderId: e?.orderId })
     } else if (playBilling.foiCancelado(e)) {
       msg.value = ''
     } else if (e?.statusCode === 402 || e?.response?.status === 402) {
@@ -786,7 +930,7 @@ function fechar() {
   // Saiu antes de existir cobranca: e a desistencia que queremos medir. Com
   // Pix ja gerado o abandono e outro problema (pagou depois, ou nao pagou), e
   // esse ja tem dado proprio no pedido.
-  if (!pix.value) {
+  if (!pix.value && !esperaPlay.value) {
     enfileirarEventoFunil('checkout_fechado_sem_pagar', { ...ctxFunil(), extra: { step: step.value } })
     enviarFunil()
   }
@@ -944,7 +1088,7 @@ onUnmounted(() => {
                  quem ja tinha e-mail salvo no navegador -> muita gente nao via
                  em lugar nenhum. -->
             <div class="pic-campo">
-              <label class="pic-label" for="pic-email">Seu e-mail (opcional, para receber o relatório)</label>
+              <label class="pic-label" for="pic-email">{{ isCapacitor ? 'Seu e-mail (para receber o relatório)' : 'Seu e-mail (opcional, para receber o relatório)' }}</label>
               <input
                 id="pic-email"
                 v-model="email"
@@ -954,7 +1098,9 @@ onUnmounted(() => {
                 autocomplete="email"
                 inputmode="email"
                 :aria-invalid="emailErro ? 'true' : undefined"
+                :required="isCapacitor || undefined"
                 @input="emailErro = ''"
+                @blur="isCapacitor && email.trim() && conferirEmailApp()"
               >
               <p v-if="emailErro" class="pic-cupom__erro">{{ emailErro }}</p>
             </div>
@@ -1009,11 +1155,12 @@ onUnmounted(() => {
               <button
                 type="button"
                 class="pic-btn pic-btn--primary"
-                :disabled="loading || editandoPlaca"
+                :disabled="loading || editandoPlaca || (isCapacitor && !emailAppOk)"
                 @click="isCapacitor ? comprarPeloPlay() : confirmarEPagar()"
               >
                 {{ rotuloPagar }}
               </button>
+              <p v-if="isCapacitor && !emailAppOk && !emailErro" class="pic-hint pic-hint--cta">Informe seu e-mail acima para liberar a compra.</p>
               <p v-if="!isCapacitor" class="pic-hint pic-hint--cta">Pagamento por Pix · estorno se não acharmos o veículo · entrega em até 5 min</p>
             </div>
 
@@ -1075,6 +1222,16 @@ onUnmounted(() => {
               <h3 class="pic-h">Liberando seu relatório grátis</h3>
               <div class="loading-bar"><div class="loading-bar__fill" /></div>
               <p class="pic-hint">Só um instante...</p>
+            </template>
+            <!-- App, pagamento pendente no Google (Pix/boleto da Play): pede pra
+                 aguardar aqui. Nunca dizer que pode fechar o app (Cesar,
+                 22/out/2026); a recuperacao global e so rede de seguranca. -->
+            <template v-else-if="isCapacitor && pendingStatus === STATUS_PROCESSANDO_PLAY">
+              <h3 class="pic-h">Pagamento em processamento</h3>
+              <div class="loading-bar"><div class="loading-bar__fill" /></div>
+              <p class="pic-hint pic-hint--forte">Pagamento em processamento no Google. Aguarde nesta tela: assim que confirmar, o relatório abre aqui. Ele também fica em Suas consultas e chega no seu e-mail.</p>
+              <p class="pic-hint">Costuma levar menos de 2 minutos.</p>
+              <p v-if="emailNoPedido" class="pic-hint">E-mail: {{ emailNoPedido }}</p>
             </template>
             <!-- No app nao ha Pix pra mostrar: quando a loja confirma, a
                  compra ja esta paga e a tela so espera o relatorio. -->
