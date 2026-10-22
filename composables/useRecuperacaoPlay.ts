@@ -22,8 +22,11 @@
  * Eventos que o app dispara em window (CustomEvent), atalhos do polling:
  *   'pc-play-compra-pendente'  detail { placa, purchaseToken, orderId }
  *     -> cria/liga o item "Processando" e comeca a perguntar ja.
+ *   'pc-app-resume' (Event, onResume nativo)
+ *     -> rodada imediata, igual a volta pelo visibilitychange.
  *   'pc-play-relatorio-pronto' detail { token_entrega, placa, purchaseToken }
- *     -> conclui na hora (Suas consultas + removePurchase + aviso).
+ *     -> conclui na hora. O app atual NAO emite mais (nao faz fetch); fica
+ *        ouvido so por compatibilidade, sem custo.
  * Nada depende deles: sem evento, o polling chega no mesmo lugar.
  */
 import type { ConsultaLocal } from './useConsultaHistory'
@@ -166,6 +169,7 @@ export function registrarPronto(h: HistoricoDeps, c: CompraGuardada, r: { token:
 
 export const EVENTO_PENDENTE = 'pc-play-compra-pendente'
 export const EVENTO_PRONTO = 'pc-play-relatorio-pronto'
+export const EVENTO_RESUME = 'pc-app-resume'
 
 export interface DetalhePendente { placa?: string | null; purchaseToken?: string | null; orderId?: string | null }
 export interface DetalhePronto { token_entrega?: string | null; placa?: string | null; purchaseToken?: string | null }
@@ -329,6 +333,9 @@ export function useRecuperacaoPlay() {
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && !checkoutAberto.value) verificar()
       })
+      // Volta do app pelo onResume nativo: a WebView nem sempre dispara o
+      // visibilitychange. Rodar duas vezes nao custa (verificar nao reentra).
+      window.addEventListener(EVENTO_RESUME, () => { if (!checkoutAberto.value) verificar() })
     }
     if (!ponteBilling()) return
     if (!checkoutAberto.value) verificar()

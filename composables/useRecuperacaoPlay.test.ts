@@ -174,3 +174,32 @@ describe('eventos do app', () => {
     expect(h.itens).toEqual([])
   })
 })
+
+describe('useRecuperacaoPlay: gatilhos do app', () => {
+  it('pc-app-resume roda uma rodada na hora; pc-play-compra-pendente liga o provisorio', async () => {
+    const { ref } = await import('vue')
+    const estados: Record<string, any> = {}
+    vi.stubGlobal('useState', (k: string, init: () => any) => (estados[k] ||= ref(init())))
+    const hist = historico()
+    vi.stubGlobal('useConsultaHistory', () => ({
+      itens: { get value() { return hist.itens } },
+      sync: () => {}, add: hist.add, updateStatus: hist.updateStatus, remove: hist.remove,
+    }))
+    const p = ponte([])
+    ;(window as any).AndroidBillingBridge = p
+    ;(globalThis as any).$fetch = vi.fn()
+    const { useRecuperacaoPlay } = await import('./useRecuperacaoPlay')
+    useRecuperacaoPlay().iniciar()
+    await new Promise((r) => setTimeout(r, 0))
+    const antes = p.listPurchases.mock.calls.length
+    window.dispatchEvent(new Event('pc-app-resume'))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(p.listPurchases.mock.calls.length).toBeGreaterThan(antes)
+
+    window.dispatchEvent(new CustomEvent('pc-play-compra-pendente', { detail: { placa: 'ABC1D23', purchaseToken: 'tok-x', orderId: 'GPA.9' } }))
+    expect(hist.itens).toEqual([expect.objectContaining({ token: 'play:GPA.9', status: STATUS_PROCESSANDO_PLAY })])
+    expect(estados['pc-play-ultimo-pendente'].value).toMatchObject({ purchaseToken: 'tok-x' })
+    delete (window as any).AndroidBillingBridge
+    vi.unstubAllGlobals()
+  })
+})
