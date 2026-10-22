@@ -19,6 +19,8 @@ export interface SinaisChecklist {
   debitosCentavos?: number | null
   licenciamentoAtrasado?: boolean
   baixado?: boolean
+  /** Titulos das anotacoes no cadastro (alteracao de caracteristica). */
+  anotacoes?: string[]
 }
 
 export interface ItemChecklist {
@@ -62,7 +64,7 @@ const TRANSFERENCIA_GERAL: [string, string][] = [
 
 /** Ids dos itens puxados pelo relatorio (o texto pode variar, o id nao). */
 export const IDS_DO_RELATORIO = [
-  'r-leilao', 'r-roubo', 'r-recall', 'r-km', 'r-baixado', 'r-gravame', 'r-judicial', 'r-debitos', 'r-licenciamento', 'r-sinistro',
+  'r-leilao', 'r-roubo', 'r-recall', 'r-km', 'r-baixado', 'r-gravame', 'r-judicial', 'r-debitos', 'r-licenciamento', 'r-sinistro', 'r-anotacao',
 ] as const
 
 /** Todo id que pode existir: o servidor so aceita marcar um destes. */
@@ -81,6 +83,10 @@ export function montarChecklist(s: SinaisChecklist): Checklist {
   if (s.sinistro) vist.push(['r-sinistro', 'Consta indício de sinistro em base parceira: peça uma vistoria cautelar com análise da estrutura e pergunte ao vendedor sobre sinistros e reparos, com notas e laudos.'])
   if (s.roubo) vist.push(['r-roubo', 'Há registro de roubo ou furto no histórico: confira a gravação do chassi e do motor com mais cuidado e peça ao vendedor o boletim de ocorrência e a baixa.'])
   if (s.recallPendente) vist.push(['r-recall', 'Consta recall pendente: peça o comprovante do atendimento ou agende o reparo, que é gratuito na concessionária.'])
+  if (s.anotacoes?.length) {
+    const nomes = s.anotacoes.map((t) => t.charAt(0).toLowerCase() + t.slice(1)).join(', ')
+    vist.push(['r-anotacao', `Consta anotação no cadastro (${nomes}): confira a anotação no documento e se o veículo está como registrado.`])
+  }
   if (s.kmCaiu) vist.push(['r-km', 'Há leitura de hodômetro menor que uma anterior: compare o painel com o histórico de revisões e notas de serviço.'])
 
   if (s.baixado) transf.push(['r-baixado', 'Consta como baixado: um veículo baixado não volta a circular, confira a situação antes de qualquer negócio.'])

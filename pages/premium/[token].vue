@@ -31,7 +31,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // O corte por plano acontece no servidor: o que a basica nao comprou nem chega
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
-import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem } from '~/shared/restricoes'
+import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem, itemAnotacao, anotacoesDoCadastro, TITULO_ANOTACOES, fraseParecerAnotacoes } from '~/shared/restricoes'
 import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes } from '~/shared/foto-lote'
 import { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, estadoCartaoLeilao, PARECER_SO_POSSIVEL_TITULO } from '~/shared/leilao-copy'
 import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
@@ -542,6 +542,9 @@ const restricoes = computed<{ rotulo: string; explica: string; renave: boolean; 
   if (!Array.isArray(arr)) return []
   return arr
     .filter(Boolean)
+    // Anotacao no cadastro (suspensao modificada, GNV...) nao e restricao: vai
+    // pro bloco neutro "Anotações no cadastro" (21/out/2026, MES7B45).
+    .filter((r: any) => !itemAnotacao(r))
     .map((r: any) => {
       // Estoque RENAVE tem explicacao propria (RENAVE_EXPLICACAO) no lugar da
       // copy generica, e nao conta como tipo desconhecido.
@@ -555,6 +558,9 @@ const restricoes = computed<{ rotulo: string; explica: string; renave: boolean; 
       return { rotulo: humanizar(r), explica: explicaRenainfOuPadrao(String(r)), renave: false, info: false }
     })
 })
+// Anotacoes de alteracao de caracteristica: bloco cinza proprio, parecer e checklist.
+const anotacoes = computed(() => anotacoesDoCadastro(v.value?.restricoesItens))
+const fraseAnotacoes = computed(() => fraseParecerAnotacoes(anotacoes.value.map((a) => a.titulo)))
 // RENAINF aceso e o DETRAN da UF respondeu sem multa: a multa e de orgao de
 // fora ou federal. Explicacao propria pra nao contradizer o "nada consta" do
 // DETRAN logo abaixo (shared/renainf-detran.ts).
@@ -656,7 +662,8 @@ const veredito = computed(() => {
         + (passagensNotificadas.value.length
           ? ' Consta notificação para leilão do DETRAN, que não comprova que o leilão aconteceu (veja o Histórico de leilão).'
           : '')
-        + (nPossiveisExibidos.value && !passagensFortes.value.length ? parecerComPossivel(nPossiveisExibidos.value) : ''),
+        + (nPossiveisExibidos.value && !passagensFortes.value.length ? parecerComPossivel(nPossiveisExibidos.value) : '')
+        + fraseAnotacoes.value,
     }
   }
   // Os rotulos sao siglas e nomes proprios (RENAJUD, RFB): baixar tudo pra
@@ -669,7 +676,7 @@ const veredito = computed(() => {
   // Unica restricao e o estoque RENAVE: parecer proprio (texto aprovado), em
   // vez de "Atenção: consta Estoque Renave", que soava como bloqueio.
   if (soEstoqueRenave.value && !licAtrasado && alertas.value.every((l) => l === 'Outras restrições')) {
-    return { tom: 'alerta' as const, titulo: PARECER_SO_RENAVE.titulo, texto: PARECER_SO_RENAVE.texto }
+    return { tom: 'alerta' as const, titulo: PARECER_SO_RENAVE.titulo, texto: PARECER_SO_RENAVE.texto + fraseAnotacoes.value }
   }
   const rotuloVer = new Map(indicadores.value.filter((i: any) => i.alerta && i.rotuloVeredito).map((i: any) => [i.label, i.rotuloVeredito]))
   const nomes = [
@@ -689,7 +696,8 @@ const veredito = computed(() => {
     texto: 'Verifique os detalhes nas seções seguintes antes de concluir a negociação. As pendências apontadas podem impedir a transferência do veículo.'
       // So possivel de leilao: nao e alerta, mas o parecer tem que citar (a
       // grade, a secao 5 e a linha do tempo mostram).
-      + (nPossiveisExibidos.value && !passagensFortes.value.length ? parecerComPossivel(nPossiveisExibidos.value) : ''),
+      + (nPossiveisExibidos.value && !passagensFortes.value.length ? parecerComPossivel(nPossiveisExibidos.value) : '')
+      + fraseAnotacoes.value,
   }
 })
 
@@ -1114,6 +1122,7 @@ const checklist = computed(() => {
     debitosCentavos: resumoDetran.value?.totalCentavos ?? null,
     licenciamentoAtrasado: (licenciamento.value as any)?.tom === 'alerta',
     baixado: ind('circulacao'),
+    anotacoes: anotacoes.value.map((a) => a.titulo),
   })
 })
 
@@ -2423,6 +2432,19 @@ onUnmounted(() => {
               </div>
             </template>
             <p v-else class="rel__nada">Nada consta na data de emissão.</p>
+
+            <!-- Anotacoes no cadastro (21/out/2026): alteracao de caracteristica
+                 registrada e regularizada. Bloco neutro, nao e restricao. -->
+            <div v-if="anotacoes.length" class="rel__anot">
+              <p class="rel__anot-tit">{{ TITULO_ANOTACOES }}</p>
+              <div v-for="(a, ai) in anotacoes" :key="'an' + ai" class="rel__restr rel__restr--anot">
+                <div class="rel__restr-topo">
+                  <span class="rel__tag rel__tag--anot">Anotação</span>
+                  <strong>{{ a.titulo }}</strong>
+                </div>
+                <p class="rel__restr-explica">{{ a.texto }}</p>
+              </div>
+            </div>
 
             <!-- Débitos/multas e recall vivem AQUI, no contexto de Restrições
                  (sao pendencias do veiculo), em vez de soltos apos a
@@ -4913,6 +4935,25 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     &--bad { background: #fdeeec; color: #a32020; }
     // Item informativo (principal condutor): neutro, nao e alerta nem "ok".
     &--info { background: #e8eef7; color: #2b4a75; }
+    // Anotacao no cadastro: cinza, sem alarme.
+    &--anot { background: #eceef1; color: #4a5260; }
+  }
+
+  // Anotacoes no cadastro: bloco neutro (cinza), separado das restricoes.
+  &__anot {
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #f5f6f8;
+    border: 1px solid #e1e4e9;
+    border-radius: 8px;
+  }
+  &__anot-tit {
+    margin: 0 0 2px;
+    font-size: calc(12px * var(--rel-fs, 1));
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #4a5260;
   }
 
   // ---- ficha ----
@@ -5171,7 +5212,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   .rel__card, .rel__leilao, .rel__recall, .rel__var-item, .rel__c12 { background: #fff !important; }
   .rel__ind--bad, .rel__ind--atencao, .rel__veredito--alerta, .rel__veredito--risco, .rel__tag,
   .rel__leilao-recorr, .rel__recall:not(.rel__recall--assoc):not(.rel__recall--eua),
-  .rel__ind-val::before, .rel__grav, .rel__multas-restr {
+  .rel__ind-val::before, .rel__grav, .rel__multas-restr, .rel__anot {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
 
