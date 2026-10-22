@@ -4,7 +4,8 @@ import { origemDaSessao } from '~/shared/origem-trafego'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora } from '~/composables/useAnalytics'
 import type { CompraPlay } from '~/composables/usePlayBilling'
 import {
-  PREFIXO_PROVISORIO, STATUS_PROCESSANDO_PLAY, compraDaPlaca, consultarPedidoPlay, emailValido, esquecerCompra, proximoIntervalo,
+  EVENTO_PENDENTE, EVENTO_PRONTO, PREFIXO_PROVISORIO, STATUS_PROCESSANDO_PLAY, compraDaPlaca, consultarPedidoPlay, emailValido,
+  esquecerCompra, placaLimpa, provisorioDaCompra, proximoIntervalo, type DetalhePendente, type DetalhePronto,
 } from '~/composables/useRecuperacaoPlay'
 
 // Checkout premium inline: roda o fluxo pago SEM sair da home, num overlay.
@@ -192,7 +193,7 @@ const pendingStatus = ref('aguardando_pagamento')
 let poll: ReturnType<typeof setInterval> | null = null
 
 // historico local: religar/retomar consultas sem login
-const { add: histAdd, updateStatus: histUpdate, remove: histRemove } = useConsultaHistory()
+const { add: histAdd, updateStatus: histUpdate, remove: histRemove, sync: histSync, itens: histItens } = useConsultaHistory()
 const { trackBeginCheckout, trackAddPaymentInfo, trackPixGerado, trackConversionPaga } = useAnalytics()
 
 // Contexto que acompanha toda etapa do funil medida aqui.
@@ -439,10 +440,17 @@ function conferirEmailApp(): boolean {
 // Com o checkout aberto no app, e ele que acompanha a compra; o aviso global
 // de "relatorio pronto" (useRecuperacaoPlay) fica quieto pra nao aparecer por cima.
 const recuperacao = useRecuperacaoPlay()
-onMounted(() => { if (isCapacitor.value) recuperacao.checkoutAberto.value = true })
+onMounted(() => {
+  if (!isCapacitor.value) return
+  recuperacao.checkoutAberto.value = true
+  window.addEventListener(EVENTO_PENDENTE, aoEventoPendente)
+  window.addEventListener(EVENTO_PRONTO, aoEventoPronto)
+})
 onUnmounted(() => {
   pararEsperaPlay()
   if (!isCapacitor.value) return
+  window.removeEventListener(EVENTO_PENDENTE, aoEventoPendente)
+  window.removeEventListener(EVENTO_PRONTO, aoEventoPronto)
   recuperacao.checkoutAberto.value = false
   // Saiu com compra pendente: a recuperacao global assume a espera.
   recuperacao.verificar()
@@ -456,6 +464,7 @@ onUnmounted(() => {
 async function seguirCompraPlayPaga(r: { token_entrega: string; valor_centavos?: number }, purchaseToken?: string | null) {
   const provisorio = esperaPlay.value?.provisorio
   pararEsperaPlay()
+  recuperacao.ultimoPendente.value = null
   msg.value = ''
   if (purchaseToken) esquecerCompra(purchaseToken)
   const valorPago = Number(r.valor_centavos) || PLANOS.completa.valorCentavos
@@ -489,10 +498,36 @@ function pararEsperaPlay() {
   esperaPlay.value = null
 }
 
+// Eventos do app (atalhos; o polling chega no mesmo lugar sem eles).
+// Pendente da placa deste checkout: ja entra na espera com o comprovante.
+function aoEventoPendente(ev: Event) {
+  const d = ((ev as CustomEvent).detail || {}) as DetalhePendente
+  if (placaLimpa(d.placa) !== placaClean.value || pix.value) return
+  entrarEsperaPlay({ purchaseToken: d.purchaseToken, orderId: d.orderId })
+}
+// Relatorio pronto desta espera: conclui sem esperar o proximo tick.
+function aoEventoPronto(ev: Event) {
+  const d = ((ev as CustomEvent).detail || {}) as DetalhePronto
+  const e = esperaPlay.value
+  if (!e || !d.token_entrega) return
+  const minha = (d.purchaseToken && d.purchaseToken === e.purchaseToken) || placaLimpa(d.placa) === placaClean.value
+  if (minha) seguirCompraPlayPaga({ token_entrega: d.token_entrega }, d.purchaseToken || e.purchaseToken)
+}
+
 function entrarEsperaPlay(ids: { purchaseToken?: string | null; orderId?: string | null }) {
+  // Pendente sem comprovante no reject: usa o que o app anunciou pelo evento.
+  const ult = recuperacao.ultimoPendente.value
+  if (!ids.purchaseToken && ult?.placa === placaClean.value) ids = { purchaseToken: ult.purchaseToken, orderId: ids.orderId || ult.orderId }
+  // Evento e reject chegam os dois: a segunda chamada so completa o comprovante.
+  if (esperaPlay.value) {
+    if (!esperaPlay.value.purchaseToken && ids.purchaseToken) esperaPlay.value.purchaseToken = ids.purchaseToken
+    return
+  }
+  histSync()
+  const existente = provisorioDaCompra(histItens.value, { purchaseToken: String(ids.purchaseToken || ''), orderId: ids.orderId, placa: placaClean.value })
   const id = ids.orderId || ids.purchaseToken || `${placaClean.value}-${Date.now()}`
-  const provisorio = PREFIXO_PROVISORIO + id
-  histAdd({
+  const provisorio = existente?.token || PREFIXO_PROVISORIO + id
+  if (!existente) histAdd({
     token: provisorio,
     placa: placaClean.value,
     veiculo: preview.value?.encontrado

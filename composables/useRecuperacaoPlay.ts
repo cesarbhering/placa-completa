@@ -18,6 +18,13 @@
  *   window.AndroidBillingBridge.removePurchase(purchaseToken: string): void
  *     idempotente; token desconhecido nao e erro.
  * Versao antiga do app sem a ponte: tudo aqui vira no-op, em silencio.
+ *
+ * Eventos que o app dispara em window (CustomEvent), atalhos do polling:
+ *   'pc-play-compra-pendente'  detail { placa, purchaseToken, orderId }
+ *     -> cria/liga o item "Processando" e comeca a perguntar ja.
+ *   'pc-play-relatorio-pronto' detail { token_entrega, placa, purchaseToken }
+ *     -> conclui na hora (Suas consultas + removePurchase + aviso).
+ * Nada depende deles: sem evento, o polling chega no mesmo lugar.
  */
 import type { ConsultaLocal } from './useConsultaHistory'
 
@@ -155,6 +162,40 @@ export function registrarPronto(h: HistoricoDeps, c: CompraGuardada, r: { token:
   if (prov && prov.token !== r.token) h.remove(prov.token)
 }
 
+// ---------------------------------------------------------------- eventos do app
+
+export const EVENTO_PENDENTE = 'pc-play-compra-pendente'
+export const EVENTO_PRONTO = 'pc-play-relatorio-pronto'
+
+export interface DetalhePendente { placa?: string | null; purchaseToken?: string | null; orderId?: string | null }
+export interface DetalhePronto { token_entrega?: string | null; placa?: string | null; purchaseToken?: string | null }
+
+/**
+ * Compra pendente avisada pelo app: garante o item "Processando" em Suas
+ * consultas (sem duplicar o que o checkout ja criou pra mesma placa).
+ */
+export function aoCompraPendente(h: HistoricoDeps, d: DetalhePendente): string | null {
+  const placa = placaLimpa(d?.placa)
+  if (!d?.purchaseToken && !d?.orderId && placa.length < 7) return null
+  const c: CompraGuardada = { purchaseToken: String(d.purchaseToken || ''), orderId: d.orderId ?? null, placa }
+  const ja = provisorioDaCompra(h.ler(), c)
+  if (ja) return ja.token
+  const token = PREFIXO_PROVISORIO + (d.orderId || d.purchaseToken || `${placa}-${Date.now()}`)
+  h.add({ token, placa, status: STATUS_PROCESSANDO_PLAY })
+  return token
+}
+
+/** Relatorio pronto avisado pelo app: mesmo efeito de um 200 do /pedido. */
+export function aoRelatorioPronto(h: HistoricoDeps, d: DetalhePronto, ponte: PonteBillingAndroid | null): { token: string; placa: string } | null {
+  const token = String(d?.token_entrega || '')
+  if (!token) return null
+  const c: CompraGuardada = { purchaseToken: String(d.purchaseToken || ''), placa: d.placa ?? null }
+  const ja = h.ler().find((it) => it.token === token)
+  registrarPronto(h, c, { token, status: ja?.status && ja.status !== STATUS_PROCESSANDO_PLAY ? ja.status : 'pago', placa: d.placa ?? null })
+  if (d.purchaseToken) esquecerCompra(d.purchaseToken, ponte)
+  return { token, placa: placaLimpa(d.placa) }
+}
+
 // ---------------------------------------------------------------- rodada
 
 export interface DepsRecuperacao {
@@ -223,20 +264,34 @@ export function useRecuperacaoPlay() {
   const aviso = useState<{ token: string; placa: string } | null>('pc-play-aviso', () => null)
   /** Checkout aberto no app: ele cuida da propria compra, sem aviso por cima. */
   const checkoutAberto = useState<boolean>('pc-play-checkout-aberto', () => false)
+  /** Ultima compra pendente que o app anunciou (o checkout usa o comprovante). */
+  const ultimoPendente = useState<DetalhePendente | null>('pc-play-ultimo-pendente', () => null)
   const historico = useConsultaHistory()
+  const hist: HistoricoDeps = {
+    ler: () => { historico.sync(); return historico.itens.value },
+    add: historico.add,
+    updateStatus: historico.updateStatus,
+    remove: historico.remove,
+  }
 
   function deps(): DepsRecuperacao {
-    return {
-      ponte: ponteBilling(),
-      consultar: consultarPedidoPlay,
-      historico: {
-        ler: () => { historico.sync(); return historico.itens.value },
-        add: historico.add,
-        updateStatus: historico.updateStatus,
-        remove: historico.remove,
-      },
-      email: emailGuardado(),
-    }
+    return { ponte: ponteBilling(), consultar: consultarPedidoPlay, historico: hist, email: emailGuardado() }
+  }
+
+  function onPendente(ev: Event) {
+    const d = ((ev as CustomEvent).detail || {}) as DetalhePendente
+    ultimoPendente.value = { placa: placaLimpa(d.placa), purchaseToken: d.purchaseToken || null, orderId: d.orderId || null }
+    // Com o checkout aberto, quem cria o item e espera e ele.
+    if (checkoutAberto.value) return
+    aoCompraPendente(hist, d)
+    agendar(true)
+  }
+
+  function onPronto(ev: Event) {
+    const d = ((ev as CustomEvent).detail || {}) as DetalhePronto
+    const r = aoRelatorioPronto(hist, d, ponteBilling())
+    if (r && ultimoPendente.value && (ultimoPendente.value.purchaseToken === d.purchaseToken || ultimoPendente.value.placa === r.placa)) ultimoPendente.value = null
+    if (r && !checkoutAberto.value) aviso.value = r
   }
 
   async function verificar(): Promise<ResultadoRodada | null> {
@@ -266,17 +321,20 @@ export function useRecuperacaoPlay() {
 
   /** Liga a recuperacao: chamar no onMounted de quem vive em toda rota. */
   function iniciar() {
-    if (typeof window === 'undefined' || !ponteBilling()) return
+    if (typeof window === 'undefined') return
     if (!ouvindo) {
       ouvindo = true
+      window.addEventListener(EVENTO_PENDENTE, onPendente)
+      window.addEventListener(EVENTO_PRONTO, onPronto)
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && !checkoutAberto.value) verificar()
       })
     }
+    if (!ponteBilling()) return
     if (!checkoutAberto.value) verificar()
   }
 
-  return { aviso, checkoutAberto, verificar, iniciar, disponivel: () => !!ponteBilling() }
+  return { aviso, checkoutAberto, ultimoPendente, verificar, iniciar, disponivel: () => !!ponteBilling() }
 }
 
 /** E-mail que a pessoa ja digitou neste aparelho (checkout do app ou consulta gratis). */
