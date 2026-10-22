@@ -1,4 +1,5 @@
 import { temRestricaoNacional } from '../../shared/restricoes'
+import { ehBaixaDeGravame } from '../../shared/restricao-detran-classe'
 import { normalizarResposta } from '../../shared/planos'
 import { encrypt } from 'aes-bridge'
 import { renavamDaResposta, ufDaResposta } from './detran-multas'
@@ -713,7 +714,7 @@ export function parsearDetranSc(data: any, hoje: Date = new Date()) {
   const venda = String(veic.restricao_venda ?? '').trim()
   if (venda && !/^sem\s+(gravame|restri)/i.test(venda) && restricaoConsta(venda)) restricoes.push({ tipo: 'financeira', texto: venda })
   for (const t of (Array.isArray(veic.pendencias_financeiras_sng) ? veic.pendencias_financeiras_sng : [])) {
-    const v = limparTextoSng(t); if (v) restricoes.push({ tipo: 'sng', texto: v })
+    const v = limparTextoSng(t); if (v) restricoes.push({ tipo: ehBaixaDeGravame({ tipo: 'sng', texto: v }) ? 'baixa' : 'sng', texto: v })
   }
   const situacao = String(veic.situacao ?? '').trim()
   if (situacao && !/em\s+circula/i.test(situacao)) restricoes.push({ tipo: 'situacao', texto: situacao })
@@ -1475,7 +1476,10 @@ export function parsearDetranCe(data: any) {
 }
 
 /** Tipo da restricao do DETRAN pelo texto (rotulo no relatorio: rotuloRestricao). */
-function tipoRestricaoTexto(t: string): string {
+export function tipoRestricaoTexto(t: string): string {
+  // Baixa (quitacao) do gravame antes de /aliena|financ/: "Baixa de Alienação"
+  // nao e restricao financeira (MES7B45, 21/out/2026).
+  if (ehBaixaDeGravame({ texto: t })) return 'baixa'
   if (/furto|roubo/i.test(t)) return 'furto'
   if (/judic/i.test(t)) return 'judiciaria'
   if (/aliena|financ|arrend|reserva\s+de\s+dom/i.test(t)) return 'financeira'
