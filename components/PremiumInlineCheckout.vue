@@ -4,7 +4,7 @@ import { origemDaSessao } from '~/shared/origem-trafego'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora } from '~/composables/useAnalytics'
 import type { CompraPlay } from '~/composables/usePlayBilling'
 import {
-  EVENTO_PENDENTE, EVENTO_PRONTO, PREFIXO_PROVISORIO, STATUS_PROCESSANDO_PLAY, compraDaPlaca, consultarPedidoPlay, emailValido,
+  EVENTO_PENDENTE, EVENTO_PRONTO, EVENTO_RESUME, PREFIXO_PROVISORIO, STATUS_PROCESSANDO_PLAY, compraDaPlaca, consultarPedidoPlay, emailValido,
   esquecerCompra, placaLimpa, provisorioDaCompra, proximoIntervalo, type DetalhePendente, type DetalhePronto,
 } from '~/composables/useRecuperacaoPlay'
 
@@ -445,12 +445,14 @@ onMounted(() => {
   recuperacao.checkoutAberto.value = true
   window.addEventListener(EVENTO_PENDENTE, aoEventoPendente)
   window.addEventListener(EVENTO_PRONTO, aoEventoPronto)
+  window.addEventListener(EVENTO_RESUME, aoVoltarProApp)
 })
 onUnmounted(() => {
   pararEsperaPlay()
   if (!isCapacitor.value) return
   window.removeEventListener(EVENTO_PENDENTE, aoEventoPendente)
   window.removeEventListener(EVENTO_PRONTO, aoEventoPronto)
+  window.removeEventListener(EVENTO_RESUME, aoVoltarProApp)
   recuperacao.checkoutAberto.value = false
   // Saiu com compra pendente: a recuperacao global assume a espera.
   recuperacao.verificar()
@@ -514,6 +516,14 @@ function aoEventoPronto(ev: Event) {
   if (minha) seguirCompraPlayPaga({ token_entrega: d.token_entrega }, d.purchaseToken || e.purchaseToken)
 }
 
+// Voltou pro app (onResume) no meio da espera: pergunta ja, sem esperar o tick.
+function aoVoltarProApp() {
+  if (!esperaPlay.value || !esperaPlayTimer) return
+  clearTimeout(esperaPlayTimer)
+  esperaPlayTimer = null
+  tickEsperaPlay()
+}
+
 function entrarEsperaPlay(ids: { purchaseToken?: string | null; orderId?: string | null }) {
   // Pendente sem comprovante no reject: usa o que o app anunciou pelo evento.
   const ult = recuperacao.ultimoPendente.value
@@ -549,6 +559,7 @@ function agendarEsperaPlay() {
 }
 
 async function tickEsperaPlay() {
+  esperaPlayTimer = null
   const e = esperaPlay.value
   if (!e) return
   // Sem comprovante (o plugin rejeitou o pending sem token): o app guarda a
