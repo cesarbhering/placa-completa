@@ -1177,12 +1177,14 @@ onUnmounted(() => {
               <div class="loading-bar"><div class="loading-bar__fill" /></div>
               <p class="pic-hint">Só um instante...</p>
             </template>
-            <!-- App, pagamento pendente no Google (Pix/boleto da Play): espera
-                 aqui; fechar o app nao perde nada (Suas consultas + e-mail). -->
+            <!-- App, pagamento pendente no Google (Pix/boleto da Play): pede pra
+                 aguardar aqui. Nunca dizer que pode fechar o app (Cesar,
+                 22/out/2026); a recuperacao global e so rede de seguranca. -->
             <template v-else-if="isCapacitor && pendingStatus === STATUS_PROCESSANDO_PLAY">
               <h3 class="pic-h">Pagamento em processamento</h3>
               <div class="loading-bar"><div class="loading-bar__fill" /></div>
-              <p class="pic-hint pic-hint--forte">Pagamento em processamento no Google. Pode deixar esta tela aberta ou fechar o app: quando confirmar, o relatório abre aqui, fica em Suas consultas e chega no seu e-mail.</p>
+              <p class="pic-hint pic-hint--forte">Pagamento em processamento no Google. Aguarde nesta tela: assim que confirmar, o relatório abre aqui. Ele também fica em Suas consultas e chega no seu e-mail.</p>
+              <p class="pic-hint">Costuma levar menos de 2 minutos.</p>
               <p v-if="emailNoPedido" class="pic-hint">E-mail: {{ emailNoPedido }}</p>
             </template>
             <!-- No app nao ha Pix pra mostrar: quando a loja confirma, a
