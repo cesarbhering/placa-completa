@@ -138,3 +138,39 @@ describe('proximoIntervalo', () => {
     expect(proximoIntervalo(10_000, 30 * 60_000)).toBe(60_000)
   })
 })
+
+describe('eventos do app', () => {
+  it('pc-play-compra-pendente cria o item Processando uma vez so', async () => {
+    const { aoCompraPendente } = await import('./useRecuperacaoPlay')
+    const h = historico()
+    const t1 = aoCompraPendente(h, { placa: 'abc-1d23', purchaseToken: 'tok-abc', orderId: 'GPA.1' })
+    const t2 = aoCompraPendente(h, { placa: 'ABC1D23', purchaseToken: 'tok-abc', orderId: 'GPA.1' })
+    expect(t1).toBe('play:GPA.1')
+    expect(t2).toBe(t1)
+    expect(h.itens).toEqual([expect.objectContaining({ token: 'play:GPA.1', placa: 'ABC1D23', status: STATUS_PROCESSANDO_PLAY })])
+  })
+
+  it('pendente liga no provisorio que o checkout ja criou pela placa', async () => {
+    const { aoCompraPendente } = await import('./useRecuperacaoPlay')
+    const h = historico([{ token: 'play:ABC1D23-1', placa: 'ABC1D23', status: STATUS_PROCESSANDO_PLAY }])
+    expect(aoCompraPendente(h, { placa: 'ABC1D23', purchaseToken: 'tok-abc' })).toBe('play:ABC1D23-1')
+    expect(h.itens).toHaveLength(1)
+  })
+
+  it('pc-play-relatorio-pronto conclui na hora: troca o provisorio e o app esquece', async () => {
+    const { aoRelatorioPronto } = await import('./useRecuperacaoPlay')
+    const p = ponte([compra])
+    const h = historico([{ token: 'play:GPA.1', placa: 'ABC1D23', status: STATUS_PROCESSANDO_PLAY, veiculo: 'Fiat Uno' }])
+    const r = aoRelatorioPronto(h, { token_entrega: 'entrega-1', placa: 'ABC1D23', purchaseToken: 'tok-abc' }, p)
+    expect(r).toEqual({ token: 'entrega-1', placa: 'ABC1D23' })
+    expect(h.itens).toEqual([expect.objectContaining({ token: 'entrega-1', status: 'pago', veiculo: 'Fiat Uno' })])
+    expect(p.removePurchase).toHaveBeenCalledWith('tok-abc')
+  })
+
+  it('pronto sem token_entrega e ignorado', async () => {
+    const { aoRelatorioPronto } = await import('./useRecuperacaoPlay')
+    const h = historico()
+    expect(aoRelatorioPronto(h, { placa: 'ABC1D23' }, null)).toBeNull()
+    expect(h.itens).toEqual([])
+  })
+})
