@@ -45,7 +45,7 @@ import { variacaoFipe, fipeNoMes, mesDoRotulo } from '~/shared/fipe-variacao'
 import { componenteEua, type RecallEuaTela } from '~/shared/recall-eua'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
 import { montarLinhaDoTempo } from '~/shared/linha-do-tempo'
-import { restricoesDetranParaTela } from '~/shared/restricao-detran-classe'
+import { restricoesDetranParaTela, ROTULO_GRAVAME_BAIXADO, textoBaixaGravame, textoDivergenciaBaixa, fraseParecerBaixa } from '~/shared/restricao-detran-classe'
 import { textoPrecoVsFipe, textoStatusRevenda, type RevendaFrota } from '~/shared/revenda-frota'
 import { textoAlerta, textoJudicial, textoIntervalo, dataBR as dataBRIso } from '~/shared/leilao-relatorio2'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
@@ -663,7 +663,8 @@ const veredito = computed(() => {
           ? ' Consta notificação para leilão do DETRAN, que não comprova que o leilão aconteceu (veja o Histórico de leilão).'
           : '')
         + (nPossiveisExibidos.value && !passagensFortes.value.length ? parecerComPossivel(nPossiveisExibidos.value) : '')
-        + fraseAnotacoes.value,
+        + fraseAnotacoes.value
+        + fraseBaixa.value,
     }
   }
   // Os rotulos sao siglas e nomes proprios (RENAJUD, RFB): baixar tudo pra
@@ -676,7 +677,7 @@ const veredito = computed(() => {
   // Unica restricao e o estoque RENAVE: parecer proprio (texto aprovado), em
   // vez de "Atenção: consta Estoque Renave", que soava como bloqueio.
   if (soEstoqueRenave.value && !licAtrasado && alertas.value.every((l) => l === 'Outras restrições')) {
-    return { tom: 'alerta' as const, titulo: PARECER_SO_RENAVE.titulo, texto: PARECER_SO_RENAVE.texto + fraseAnotacoes.value }
+    return { tom: 'alerta' as const, titulo: PARECER_SO_RENAVE.titulo, texto: PARECER_SO_RENAVE.texto + fraseAnotacoes.value + fraseBaixa.value }
   }
   const rotuloVer = new Map(indicadores.value.filter((i: any) => i.alerta && i.rotuloVeredito).map((i: any) => [i.label, i.rotuloVeredito]))
   const nomes = [
@@ -697,7 +698,8 @@ const veredito = computed(() => {
       // So possivel de leilao: nao e alerta, mas o parecer tem que citar (a
       // grade, a secao 5 e a linha do tempo mostram).
       + (nPossiveisExibidos.value && !passagensFortes.value.length ? parecerComPossivel(nPossiveisExibidos.value) : '')
-      + fraseAnotacoes.value,
+      + fraseAnotacoes.value
+      + fraseBaixa.value,
   }
 })
 
@@ -1123,6 +1125,7 @@ const checklist = computed(() => {
     licenciamentoAtrasado: (licenciamento.value as any)?.tom === 'alerta',
     baixado: ind('circulacao'),
     anotacoes: anotacoes.value.map((a) => a.titulo),
+    gravameBaixado: !!baixaGravame.value,
   })
 })
 
@@ -1642,6 +1645,16 @@ const restrDetran = computed(() => restricoesDetranParaTela(
   (multasDetalhe.value as any)?.restricoes_detran,
   (data.value as any)?.restricoesDetranRevisor || {},
 ))
+// Baixa (quitacao) do gravame informada pelo DETRAN (MES7B45, 21/out/2026): nao
+// e restricao. Divergencia quando o mesmo relatorio ainda lista alienacao ativa.
+const baixaGravame = computed(() => restrDetran.value.baixas[0] || null)
+const alienacaoAtiva = computed(() => {
+  const nac = itensQueRestringem(v.value?.restricoesItens)
+  const naNacional = Array.isArray(nac) && nac.some((r: any) => /ALIENACAO|GRAVAME|ARRENDAMENTO|RESERVA_DE_DOMINIO/.test(normalizaChave(r)))
+  const noDetran = restrDetran.value.reais.some((r) => r.tipo === 'financeira' || r.tipo === 'sng' || /ALIENA|GRAVAME|FIDUC/i.test(r.texto))
+  return naNacional || noDetran
+})
+const fraseBaixa = computed(() => (baixaGravame.value ? fraseParecerBaixa(baixaGravame.value.data, alienacaoAtiva.value) : ''))
 const resumoDetran = computed(() => multasDetalhe.value ? resumoQuitar({
   bloco: { ...(multasDetalhe.value as any), restricoes_detran: restrDetran.value.reais.map((r) => ({ tipo: r.tipo, texto: r.texto })) },
   ufVeiculo: ufDetranTela.value,
@@ -1748,7 +1761,7 @@ function rotuloRestricao(tipo?: string | null): string {
   const map: Record<string, string> = {
     financeira: 'Financeira', judiciaria: 'Judiciária',
     administrativa: 'Administrativa', tributaria: 'Tributária', furto: 'Furto/roubo',
-    sng: 'Gravame (SNG)', situacao: 'Situação', divida_ativa: 'Dívida ativa', recuperado: 'Veículo recuperado',
+    sng: 'Gravame (SNG)', baixa: ROTULO_GRAVAME_BAIXADO, situacao: 'Situação', divida_ativa: 'Dívida ativa', recuperado: 'Veículo recuperado',
     outros_debitos: 'Outros débitos', licenciamento_notificado: 'Licenciamento notificado', cadastro: 'Cadastro', clonagem: 'Clonagem',
   }
   return map[String(tipo || '')] || 'Restrição'
@@ -2576,6 +2589,14 @@ onUnmounted(() => {
                   </ul>
                 </template>
                 <p v-else-if="restrDetran.semRestricao" class="rel__multas-kmok">DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }}: sem impedimentos ou restrições.</p>
+                <!-- Baixa (quitacao) do gravame: nao e restricao; verde/neutro (21/out/2026). -->
+                <ul v-if="baixaGravame" class="rel__multas-restr rel__multas-restr--baixa">
+                  <li v-for="(bx, bi) in restrDetran.baixas" :key="'bx' + bi">
+                    <b>{{ ROTULO_GRAVAME_BAIXADO }}:</b> {{ bx.texto }}
+                    <span class="rel__baixa-txt">{{ textoBaixaGravame(bx.data) }}</span>
+                    <span v-if="alienacaoAtiva" class="rel__baixa-diverg">{{ textoDivergenciaBaixa(bx.data) }}</span>
+                  </li>
+                </ul>
                 <template v-if="restrDetran.informativas.length">
                   <p class="rel__multas-sub">Informação do DETRAN</p>
                   <ul class="rel__multas-restr rel__multas-restr--info">
@@ -4795,7 +4816,19 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     font-size: calc(13px * var(--rel-fs, 1)); line-height: 1.4; color: #1a1a1a;
 
     b { color: #6b7280; }
+
+    // Baixa do gravame: verde neutro, nao e restricao.
+    &--baixa {
+      margin-top: 8px;
+      padding: 8px 10px;
+      background: #eef7f1;
+      border: 1px solid #cfe7d8;
+      border-radius: 8px;
+      b { color: #14622f; }
+    }
   }
+  &__baixa-txt { display: block; margin-top: 3px; color: #2f4a3a; }
+  &__baixa-diverg { display: block; margin-top: 3px; color: #8a5a00; font-weight: 600; }
 
   // extrato de quilometragem
   &__multas-k3 {
