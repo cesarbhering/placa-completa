@@ -205,6 +205,34 @@ $h-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__burger { display: none; }
+
+  // Pilula "Seus relatorios": so no celular/tablet (ver media abaixo). Tinta
+  // azul-escura sobre branco (7:1) e badge branco sobre azul (4.6:1): AA.
+  &__pill {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 12px;
+    margin-left: auto;
+    flex-shrink: 0;
+    background: $h-canvas;
+    border: 1px solid $h-blue;
+    border-radius: 999px;
+    color: $h-blue-deep;
+    font-family: $h-font;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+
+    svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .home-header__badge { margin-left: 0; }
+
+    &:hover { background: $h-cloud; }
+    &:focus-visible { outline: 2px solid $h-blue; outline-offset: 2px; }
+  }
+  &__pill-curto { display: none; }
 }
 
 // ---------- gaveta do mobile ----------
@@ -310,6 +338,9 @@ $h-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
     &__brand { width: auto; justify-content: flex-start; }
     &__nav { display: none; }
+    &__pill { display: inline-flex; }
+    // Com a pilula, o hamburguer cola nela em vez de ficar a 16px.
+    &__pill + &__burger { margin-left: -8px; }
 
     &__burger {
       display: inline-flex;
@@ -370,6 +401,30 @@ $h-font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   @include logo-altura(40px);
+}
+
+// Logo do header (~160px com o texto) + pilula + hamburguer. "Seus relatorios N"
+// so cabe a partir de ~430px (medido: 390px estourava o hamburguer pra fora
+// da tela). Abaixo disso o rotulo vira "Relatorios N" e o espaco aperta;
+// assim cabe inteiro em 360px.
+@media (max-width: 429px) {
+  .home-header {
+    gap: 8px;
+
+    // Centro vazio no celular (campo e selo somem): sem ele, um gap a menos.
+    &__center:empty { display: none; }
+    &__pill { padding: 0 9px; gap: 4px; font-size: 13px; }
+    &__pill svg { width: 16px; height: 16px; }
+    &__pill-longo { display: none; }
+    &__pill-curto { display: inline; }
+    &__pill + &__burger { margin-left: -4px; width: 40px; }
+  }
+}
+
+// Abaixo de 350px (aparelho antigo, 320px) nem "Relatorios" cabe: fica so o
+// icone + numero, com o rotulo completo no aria-label.
+@media (max-width: 349px) {
+  .home-header__pill-curto { display: none; }
 }
 
 // Faixa clara atras do header nas paginas de conteudo. Provisoria: existe
