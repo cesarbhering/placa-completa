@@ -103,3 +103,33 @@ describe('respostaCompraRepetida', () => {
     expect(await respostaCompraRepetida({}, sb, atual(), 'producao', undefined)).toBeNull()
   })
 })
+
+describe('pedidoQueFicou (link do duplicado reembolsado)', () => {
+  const reemb = (extra: Record<string, any> = {}) => antigo({ id: 'r1', token_entrega: 'wt87', status: 'reembolsado', criado_em: '2026-10-23T12:59:00Z', ...extra })
+  const ficou = (extra: Record<string, any> = {}) => antigo({ id: 'f1', token_entrega: 'jFQk', status: 'entregue', criado_em: '2026-10-23T12:43:00Z', ...extra })
+  beforeEach(() => { sb = supabaseMemoria() })
+
+  it('caso KZH9386: reembolsado aponta pro entregue do mesmo IP + aparelho', async () => {
+    const { pedidoQueFicou } = await import('./compra-repetida')
+    sb.tab('pedidos_premium').push(ficou(), reemb())
+    expect(await pedidoQueFicou(sb, reemb())).toEqual({ token_entrega: 'jFQk' })
+  })
+
+  it('o que ficou pode ser o mais novo (janela pros dois lados)', async () => {
+    const { pedidoQueFicou } = await import('./compra-repetida')
+    sb.tab('pedidos_premium').push(ficou({ criado_em: '2026-10-23T20:00:00Z' }))
+    expect(await pedidoQueFicou(sb, reemb())).toEqual({ token_entrega: 'jFQk' })
+  })
+
+  it('nao redireciona: aparelho diferente, mais de 24 h, outra placa, nao reembolsado', async () => {
+    const { pedidoQueFicou } = await import('./compra-repetida')
+    sb.tab('pedidos_premium').push(
+      ficou({ id: 'a', dispositivo: 'computador', sistema: 'Windows', obref: null }),
+      ficou({ id: 'b', criado_em: '2026-10-21T12:00:00Z' }),
+      ficou({ id: 'c', placa: 'ABC1D23' }),
+      ficou({ id: 'd', status: 'reembolsado' }),
+    )
+    expect(await pedidoQueFicou(sb, reemb())).toBeNull()
+    expect(await pedidoQueFicou(sb, reemb({ status: 'entregue' }))).toBeNull()
+  })
+})

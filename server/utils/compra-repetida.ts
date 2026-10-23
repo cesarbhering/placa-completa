@@ -67,6 +67,42 @@ export async function compraRepetida(
 }
 
 /**
+ * Link de um pedido duplicado que foi reembolsado: acha a compra que ficou
+ * (entregue, mesma placa, plano igual ou superior, mesmo IP + aparelho ou
+ * obref, ate 24 h de distancia pra qualquer lado). Caso KZH9386: o link do
+ * reembolsado tem que abrir o relatorio do que ficou.
+ */
+export async function pedidoQueFicou(
+  supabase: any,
+  reembolsado: Record<string, any>,
+): Promise<{ token_entrega: string } | null> {
+  if (reembolsado?.status !== 'reembolsado' || reembolsado.ambiente !== 'producao' || vazio(reembolsado.ip_address)) return null
+  const t = Date.parse(String(reembolsado.criado_em || ''))
+  if (!Number.isFinite(t)) return null
+  const atual: CompradorAtual = {
+    placa: reembolsado.placa, plano: reembolsado.plano || 'completa', ip: reembolsado.ip_address,
+    dispositivo: reembolsado.dispositivo, sistema: reembolsado.sistema, canal: reembolsado.canal, obref: reembolsado.obref,
+  }
+  try {
+    const { data } = await supabase.from('pedidos_premium')
+      .select('id,token_entrega,ip_address,dispositivo,sistema,canal,obref,criado_em')
+      .eq('placa', atual.placa)
+      .eq('ip_address', atual.ip)
+      .eq('ambiente', 'producao')
+      .eq('status', 'entregue')
+      .in('plano', planosQueCobrem(atual.plano))
+      .gte('criado_em', new Date(t - JANELA_COMPRA_REPETIDA_MS).toISOString())
+      .lt('criado_em', new Date(t + JANELA_COMPRA_REPETIDA_MS).toISOString())
+      .order('criado_em', { ascending: false })
+      .limit(10)
+    const achado = (data || []).find((l: any) => l.token_entrega && l.id !== reembolsado.id && mesmoComprador(l, atual))
+    return achado ? { token_entrega: achado.token_entrega } : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Resposta 409 { ja_comprado, token_entrega } se for compra repetida, ou null
  * pra seguir. forcar_nova_compra === true (a pessoa confirmou que quer comprar
  * de novo, ex.: pra outra pessoa) pula a checagem.
