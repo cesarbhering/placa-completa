@@ -637,6 +637,48 @@ async function comprarPeloPlay() {
   }
 }
 
+// Mesma placa ja paga ha pouco por este aparelho (servidor responde 409
+// ja_comprado, server/utils/compra-repetida.ts; caso KZH9386, pagou duas vezes
+// em 16 min). Em vez de cobrar de novo, mostra o relatorio que ja existe.
+const jaComprado = ref<{ token: string; meio: 'pix' | 'cartao' } | null>(null)
+let forcarNovaCompra = false
+
+async function tratarJaComprado(e: any, meio: 'pix' | 'cartao'): Promise<boolean> {
+  const st = e?.statusCode ?? e?.response?.status
+  const token = e?.data?.token_entrega
+  if (st !== 409 || !e?.data?.ja_comprado || !token) return false
+  jaComprado.value = { token, meio }
+  // O aviso fica no topo da etapa; o clique foi no botao la embaixo.
+  if (import.meta.client) nextTick(() => document.querySelector('.pic-ja')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
+  histAdd({
+    token,
+    placa: preview.value.placa,
+    veiculo: preview.value?.encontrado
+      ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ')
+      : null,
+    status: 'pago',
+  })
+  // Status real no historico (entregue, quase sempre).
+  $fetch('/api/premium/status', { query: { token } })
+    .then((r: any) => { if (r?.status) histUpdate(token, r.status) })
+    .catch(() => {})
+  // Primeira compra sem e-mail e agora a pessoa informou: grava e envia o
+  // relatorio por e-mail (so preenche se o pedido antigo estava sem).
+  if (emailNoPedido.value) {
+    $fetch('/api/premium/email', { method: 'POST', body: { token, email: emailNoPedido.value } }).catch(() => {})
+  }
+  return true
+}
+
+// Escape: comprar de novo mesmo assim (ex.: pra outra pessoa).
+function comprarDeNovo() {
+  const meio = jaComprado.value?.meio
+  jaComprado.value = null
+  forcarNovaCompra = true
+  if (meio === 'cartao') pagarComCartao()
+  else confirmarEPagar()
+}
+
 async function pagar() {
   loading.value = true
   msg.value = ''
@@ -676,6 +718,7 @@ async function pagar() {
         recall_marca: props.recallMarca ?? undefined,
         // Botao que abriu o checkout (porta de entrada da venda).
         origem_checkout: props.origemCheckout ?? undefined,
+        forcar_nova_compra: forcarNovaCompra || undefined,
       },
     })
     step.value = 'pending'
@@ -700,6 +743,7 @@ async function pagar() {
     // pra tela de "aguardando pagamento" ate o proximo tick do poll (4s).
     if (pix.value?.gratis) await checarStatus()
   } catch (e: any) {
+    if (await tratarJaComprado(e, 'pix')) return
     if (import.meta.dev) console.warn('[checkout] pagar falhou:', e?.data?.message || e)
     msg.value = 'Não conseguimos gerar o Pix agora. Tente de novo em instantes.'
   } finally {
@@ -797,6 +841,7 @@ async function pagarComCartao() {
         recall_sinal: props.recallSinal ?? undefined,
         recall_marca: props.recallMarca ?? undefined,
         origem_checkout: props.origemCheckout ?? undefined,
+        forcar_nova_compra: forcarNovaCompra || undefined,
       },
     })
     if (!r?.clientSecret) { erroCartao.value = 'Não conseguimos iniciar o pagamento. Use o Pix.'; return }
@@ -825,6 +870,7 @@ async function pagarComCartao() {
     }
     erroCartao.value = 'Pagamento não confirmado. Tente novamente ou use o Pix.'
   } catch (e: any) {
+    if (await tratarJaComprado(e, 'cartao')) return
     if (import.meta.dev) console.warn('[checkout] cartao v2 falhou:', e?.data?.message || e)
     erroCartao.value = 'Não conseguimos processar o cartão agora. Use o Pix.'
   } finally {
@@ -1002,6 +1048,16 @@ onUnmounted(() => {
 
           <!-- Confirmar veiculo + coletar contato -->
           <div v-else-if="step === 'confirm'" class="pic-stack">
+            <!-- Compra repetida da mesma placa pelo mesmo aparelho: mostra o
+                 relatorio que ja existe em vez de cobrar de novo. Fica DENTRO
+                 desta etapa (e nao numa etapa propria) pra nao desmontar os
+                 campos do cartao, que o escape reaproveita. -->
+            <div v-if="jaComprado" class="pic-ja" role="status">
+              <strong class="pic-ja__tit">Você já comprou este relatório há pouco.</strong>
+              <p class="pic-hint">O relatório da placa {{ placaClean }} já está pronto e fica em Suas consultas.</p>
+              <NuxtLink class="pic-btn pic-btn--primary pic-ja__ver" :to="`/premium/${jaComprado.token}`" @click="emit('close')">Ver relatório</NuxtLink>
+              <button type="button" class="pic-link pic-ja__escape" :disabled="loading || processandoCartao" @click="comprarDeNovo">Quero comprar de novo mesmo assim</button>
+            </div>
             <!-- Faixa de resumo (opcao 04): sem titulo. Uma faixa cinza de duas
                  colunas — carro a esquerda (marca/modelo + ano·placa com lapis),
                  preco + "Relatorio completo" a direita. Le tudo de uma olhada. -->
@@ -1858,6 +1914,19 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   svg { flex-shrink: 0; color: $c-steel; }
 }
+
+.pic-ja {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid $c-blue;
+  border-radius: 12px;
+  background: #f3f8ff;
+}
+.pic-ja__tit { font-size: 16px; color: $c-ink; }
+.pic-ja__ver { display: flex; align-items: center; justify-content: center; text-decoration: none; }
+.pic-ja__escape { align-self: center; font-size: 13px; padding: 4px 8px; min-height: auto; }
 
 .pic-link {
   background: transparent;
