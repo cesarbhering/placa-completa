@@ -1148,3 +1148,148 @@ describe('Renault: D = Dynamique e cambio colado (OUQ8G18 e FHB6G05, 15/out)', (
     expect(versaoPeloNomeParaPrompt('RENAULT/DUSTER 16 4X2')).toEqual([])
   })
 })
+
+describe('BCK2C28 (Prisma 1.4MT LT, 21/out/2026): manual sem "Mec." na FIPE', () => {
+  it('MT colado ao motor escolhe a versao sem "Aut." por REGRA, confianca alta, sem o juiz', async () => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+    const r = await escolherMelhorFipe({
+      senatran: { cilindrada: 1400, potencia: 106, descricaoMarcaModelo: 'CHEV/PRISMA 1.4MT LT', anoModelo: 2017, codigoCombustivel: '16', descricaoTipoVeiculo: 'AUTOMOVEL', descricaoEspecie: 'PASSAGEIRO' } as any,
+      wdapi: {
+        marca: 'CHEVROLET', MODELO: 'PRISMA 1.4MT LT', anoModelo: '2017',
+        fipe: { dados: [
+          { score: 55, codigo_fipe: '004433-4', codigo_modelo: '6400', texto_modelo: 'PRISMA Sed. LT 1.4 8V FlexPower 4p', texto_valor: 'R$ 54.074,00', texto_marca: 'GM - Chevrolet', combustivel: 'Flex', mes_referencia: 'outubro de 2026' },
+          { score: 55, codigo_fipe: '004436-9', codigo_modelo: '6401', texto_modelo: 'PRISMA Sed. LT 1.4 8V FlexPower 4p Aut.', texto_valor: 'R$ 56.821,00', texto_marca: 'GM - Chevrolet', combustivel: 'Flex', mes_referencia: 'outubro de 2026' },
+        ] },
+      },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1',
+      fipeApiToken: 'token-teste',
+    })
+    expect(r.decididoPor).toBe('regra')
+    expect(r.confianca).toBe('alta')
+    expect(r.escolhido?.codigo_fipe).toBe('004433-4')
+  })
+  it('candidatoEManual: "Mec." ou sem marca de automatico', async () => {
+    const { candidatoEManual, candidatoEAutomatico } = await import('./fipe-candidato')
+    expect(candidatoEManual('PRISMA Sed. LT 1.4 8V FlexPower 4p')).toBe(true)
+    expect(candidatoEManual('ONIX HATCH LT 1.4 8V FlexPower 5p Mec.')).toBe(true)
+    expect(candidatoEManual('PRISMA Sed. LT 1.4 8V FlexPower 4p Aut.')).toBe(false)
+    expect(candidatoEManual('PALIO 1.8 Dualogic')).toBe(false)
+    expect(candidatoEAutomatico('PRISMA Sed. LT 1.4 8V FlexPower 4p Aut.')).toBe(true)
+  })
+})
+
+describe('Toyota: token colado e sigla de versao eliminatoria (PRX0B70, 21/out/2026)', () => {
+  const hilux = (codigo: string, modelo: string) => ({ score: 50, codigo_fipe: codigo, codigo_modelo: codigo.slice(0, 6), texto_modelo: modelo, texto_valor: 'R$ 150.000,00', texto_marca: 'Toyota', combustivel: 'Diesel', mes_referencia: 'outubro de 2026' })
+  const LISTA_PRX = [
+    hilux('002015-0', 'Hilux CD 4x4 2.8 Diesel Mec.'),
+    hilux('002142-3', 'Hilux CD SR 4x4 2.8 TDI Diesel Aut.'),
+    hilux('002143-1', 'Hilux CD SRV 4x4 2.8 TDI Diesel Aut.'),
+    hilux('002141-5', 'Hilux CD SRX 4x4 2.8 TDI 16V Diesel Aut.'),
+    hilux('002145-8', 'Hilux Chassi 4x4 2.8 TDI Diesel Mec.'),
+  ]
+  const rodar = (descricao: string, dados: any[]) => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+    return escolherMelhorFipe({
+      senatran: { cilindrada: 2755, potencia: 177, descricaoMarcaModelo: descricao, anoModelo: 2017, codigoCombustivel: '03', descricaoTipoVeiculo: 'CAMINHONETE', descricaoEspecie: 'ESPECIAL' } as any,
+      wdapi: { marca: 'TOYOTA', MODELO: descricao.replace(/^I\/TOYOTA /, ''), anoModelo: '2017', fipe: { dados } },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1',
+      fipeApiToken: 'token-teste',
+    })
+  }
+
+  it('"HILUX CDSRXA4FD" escolhe a CD SRX 4x4 Aut. (002141-5) por regra, sem o juiz', async () => {
+    const r = await rodar('I/TOYOTA HILUX CDSRXA4FD', LISTA_PRX)
+    expect(r.decididoPor).toBe('regra')
+    expect(r.confianca).toBe('alta')
+    expect(r.escolhido?.codigo_fipe).toBe('002141-5')
+  })
+
+  it('SRX nunca vira SR nem SRV: sem SRX na lista, o cambio nao decide (fica ambiguo)', async () => {
+    const semSrx = LISTA_PRX.filter((c) => c.codigo_fipe !== '002141-5')
+    const r = await rodar('I/TOYOTA HILUX CDSRXA4FD', semSrx)
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.escolhido).toBeNull()
+    expect(r.candidatos.map((c: any) => c.codigo_fipe)).not.toContain('002145-8')
+  })
+
+  it('"HILUX CD4X4 SRV" escolhe a CD SRV (nao a SRX nem a SR)', async () => {
+    const r = await rodar('I/TOYOTA HILUX CD4X4 SRV', LISTA_PRX)
+    expect(r.escolhido?.codigo_fipe).toBe('002143-1')
+    expect(r.decididoPor).toBe('regra')
+  })
+
+  it('"HILUX SWSRXA4FD" fica com a SW4 SRX Aut. (nao a picape CD)', async () => {
+    const r = await rodar('I/TOYOTA HILUX SWSRXA4FD', [
+      ...LISTA_PRX,
+      hilux('002150-4', 'Hilux SW4 SRV 4x4 2.8 TDI 16V Dies. Aut.'),
+      hilux('002151-2', 'Hilux SW4 SRX 4x4 2.8 TDI 16V Dies. Aut.'),
+    ])
+    expect(r.escolhido?.codigo_fipe).toBe('002151-2')
+  })
+
+  it('Prisma 1.4MT LT (BCK2C28) segue decidido pela manual', async () => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+    const r = await escolherMelhorFipe({
+      senatran: { cilindrada: 1400, potencia: 106, descricaoMarcaModelo: 'CHEV/PRISMA 1.4MT LT', anoModelo: 2017, codigoCombustivel: '16', descricaoTipoVeiculo: 'AUTOMOVEL', descricaoEspecie: 'PASSAGEIRO' } as any,
+      wdapi: {
+        marca: 'CHEVROLET', MODELO: 'PRISMA 1.4MT LT', anoModelo: '2017',
+        fipe: { dados: [
+          { score: 55, codigo_fipe: '004433-4', codigo_modelo: '6400', texto_modelo: 'PRISMA Sed. LT 1.4 8V FlexPower 4p', texto_valor: 'R$ 54.074,00', texto_marca: 'GM - Chevrolet', combustivel: 'Flex', mes_referencia: 'outubro de 2026' },
+          { score: 55, codigo_fipe: '004436-9', codigo_modelo: '6401', texto_modelo: 'PRISMA Sed. LT 1.4 8V FlexPower 4p Aut.', texto_valor: 'R$ 56.821,00', texto_marca: 'GM - Chevrolet', combustivel: 'Flex', mes_referencia: 'outubro de 2026' },
+          { score: 55, codigo_fipe: '004440-7', codigo_modelo: '6402', texto_modelo: 'PRISMA Sed. LTZ 1.4 8V FlexPower 4p', texto_valor: 'R$ 58.000,00', texto_marca: 'GM - Chevrolet', combustivel: 'Flex', mes_referencia: 'outubro de 2026' },
+        ] },
+      },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1',
+      fipeApiToken: 'token-teste',
+    })
+    expect(r.decididoPor).toBe('regra')
+    expect(r.escolhido?.codigo_fipe).toBe('004433-4')
+  })
+})
+
+describe('duvida so de cambio com o juiz fora: ambiguo, nunca o score da fonte (NJD2I54, 21/out/2026)', () => {
+  const DADOS = [{"score":58,"codigo_fipe":"002087-7","codigo_modelo":"2242","texto_modelo":"Hilux CD D4-D 4x2 2.5 16V 102cv TB Dies.","texto_valor":"R$ 83.208,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":59,"codigo_fipe":"002088-5","codigo_modelo":"2243","texto_modelo":"Hilux CD D4-D 4x4 2.5 16V 102cv TB Dies.","texto_valor":"R$ 84.166,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":52,"codigo_fipe":"002089-3","codigo_modelo":"2251","texto_modelo":"Hilux CD SR D4-D 4x2 3.0 163cv TDI Dies.","texto_valor":"R$ 90.140,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":59,"codigo_fipe":"002090-7","codigo_modelo":"2252","texto_modelo":"Hilux CD SR D4-D 4x4 3.0  TDI Dies.","texto_valor":"R$ 93.010,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":58,"codigo_fipe":"002091-5","codigo_modelo":"2257","texto_modelo":"Hilux CD SRV D4-D 4x2 3.0 163cv TDI Dies","texto_valor":"R$ 91.430,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":55,"codigo_fipe":"002092-3","codigo_modelo":"2258","texto_modelo":"Hilux CD SRV D4-D 4x4 3.0  TDI Dies","texto_valor":"R$ 96.918,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":59,"codigo_fipe":"002093-1","codigo_modelo":"2259","texto_modelo":"Hilux CD SRV D4-D 4x4 3.0 TDI Diesel Aut","texto_valor":"R$ 97.883,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":54,"codigo_fipe":"002094-0","codigo_modelo":"2260","texto_modelo":"Hilux Chassi D4-D 4x4 2.5 102cv TB Dies.","texto_valor":"R$ 45.844,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":57,"codigo_fipe":"002085-0","codigo_modelo":"2262","texto_modelo":"Hilux CS D4-D 4x2 2.5 16V 102cv TB Dies.","texto_valor":"R$ 82.549,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":59,"codigo_fipe":"002086-9","codigo_modelo":"2263","texto_modelo":"Hilux CS D4-D 4x4 2.5 16V 102cv TB Dies.","texto_valor":"R$ 96.879,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":53,"codigo_fipe":"002096-6","codigo_modelo":"3830","texto_modelo":"Hilux SW4 SRV D4-D 4x4 3.0 TDI Dies. Aut","texto_valor":"R$ 102.184,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"},{"score":49,"codigo_fipe":"002095-8","codigo_modelo":"3831","texto_modelo":"Hilux SW4 SRV D4-D 4x4 3.0 TDI Dies. Mec","texto_valor":"R$ 99.335,00","texto_marca":"Toyota","combustivel":"Diesel","mes_referencia":"agosto de 2026"}]
+  it('"HILUX CD4X4 SRV" 2008: SRV Mec. x SRV Aut. e juiz com HTTP 500 vira duvida com os dois', async () => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      if (String(url).includes('anthropic')) return { ok: false, status: 500, json: async () => ({ error: { type: 'api_error', message: 'x' } }) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+    const r = await escolherMelhorFipe({
+      senatran: { cilindrada: 2982, potencia: 163, descricaoMarcaModelo: 'I/TOYOTA HILUX CD4X4 SRV', anoModelo: 2008, codigoCombustivel: '03', descricaoTipoVeiculo: 'CAMINHONETE', descricaoEspecie: 'ESPECIAL' } as any,
+      wdapi: { marca: 'TOYOTA', MARCA: 'TOYOTA', MODELO: 'HILUX CD4X4 SRV', anoModelo: '2008', fipe: { dados: DADOS } },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1',
+      fipeApiToken: 'token-teste',
+      anthropicApiKey: 'chave-teste',
+    })
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.escolhido).toBeNull()
+    expect(r.candidatos.map((c: any) => c.codigo_fipe).sort()).toEqual(['002092-3', '002093-1'])
+  })
+})
+
+describe('fora da duvida so de cambio, juiz fora segue no fallback de sempre', () => {
+  it('SR x SRV (versao diferente) com juiz 500: fallback (comportamento antigo)', async () => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      if (String(url).includes('anthropic')) return { ok: false, status: 500, json: async () => ({}) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+    const d = (codigo: string, modelo: string) => ({ score: 50, codigo_fipe: codigo, codigo_modelo: '1', texto_modelo: modelo, texto_valor: 'R$ 90.000,00', texto_marca: 'Toyota', combustivel: 'Diesel', mes_referencia: 'agosto de 2026' })
+    const r = await escolherMelhorFipe({
+      senatran: { cilindrada: 2982, potencia: 163, descricaoMarcaModelo: 'I/TOYOTA HILUX CD4X4', anoModelo: 2008, codigoCombustivel: '03', descricaoTipoVeiculo: 'CAMINHONETE', descricaoEspecie: 'ESPECIAL' } as any,
+      wdapi: { marca: 'TOYOTA', MODELO: 'HILUX CD4X4', anoModelo: '2008', fipe: { dados: [d('002090-7', 'Hilux CD SR D4-D 4x4 3.0  TDI Dies.'), d('002092-3', 'Hilux CD SRV D4-D 4x4 3.0  TDI Dies')] } },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't', anthropicApiKey: 'k',
+    })
+    expect(r.decididoPor).toBe('fallback')
+  })
+})

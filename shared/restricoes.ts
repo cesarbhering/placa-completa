@@ -153,23 +153,13 @@ export function filtrarItensRestricao<T>(itens: T): T {
 // "Outras restrições", nao entram no veredito nem no "so RENAVE". Primeiro
 // caso: PRINCIPAL_CONDUTOR, que caia no texto generico ("condiciona ou impede
 // a transferencia"), errado para esse cadastro. Texto aprovado pelo Cesar.
-// 14/out: alteracoes de caracteristica (GNV, tanque extra, chassi alongado) e
-// placa de seguranca tambem sao informativas: anotacao do cadastro, nao bloqueio.
-const TEXTO_CARACTERISTICA = 'Consta no cadastro uma alteração de característica do veículo. Não restringe a transferência. Confira se ela aparece no documento e peça ao vendedor o certificado de segurança veicular (CSV) da modificação.'
+// 14/out: placa de seguranca tambem e informativa. As alteracoes de
+// caracteristica (GNV, tanque extra, chassi alongado, blindagem) viraram
+// ANOTACOES no cadastro em 21/out (ver ANOTACOES abaixo).
 const ITENS_INFORMATIVOS: [RegExp, { titulo: string; texto: string }][] = [
-  [/^SISTEMA_GNV/, { titulo: 'Sistema de GNV instalado', texto: TEXTO_CARACTERISTICA }],
-  [/^TANQUE_SUPLEMENTAR/, { titulo: 'Tanque suplementar', texto: TEXTO_CARACTERISTICA }],
-  [/^CHASSI_ALONGADO/, { titulo: 'Chassi alongado', texto: TEXTO_CARACTERISTICA }],
   [/^PLACA_SEGURANCA/, {
     titulo: 'Placa de segurança',
     texto: 'Consta no cadastro uma anotação sobre a placa de segurança do veículo. Não restringe a transferência. Confira se a placa instalada é a mesma do documento.',
-  }],
-  // 15/out (BMW X5 blindado): caia no texto generico. Regra do Exercito mudou
-  // em 2026 (Portaria 94-COLOG/2019 revogada); a de transferencia nao foi
-  // confirmada em fonte oficial, entao o texto nao afirma o que ela exige.
-  [/^BLINDADO|^BLINDAGEM/, {
-    titulo: 'Veículo blindado',
-    texto: 'Consta no cadastro que este veículo é blindado. É uma anotação de característica: não é bloqueio por dívida nem por ordem da Justiça. Antes de fechar negócio, peça ao vendedor a Declaração de Blindagem emitida pelo Exército, o certificado da blindadora com o nível de proteção e a nota fiscal do serviço, e confira se o documento do veículo já traz a blindagem. As regras do Exército para veículos blindados foram atualizadas em 2026: confirme com a blindadora ou com um despachante o que a transferência exige hoje.',
   }],
   // Recall no campo de restricoes (8 relatorios ate 15/out): nao e bloqueio de
   // transferencia; o que a regra trava e o LICENCIAMENTO (Res. Contran
@@ -184,20 +174,89 @@ const ITENS_INFORMATIVOS: [RegExp, { titulo: string; texto: string }][] = [
   }],
 ]
 
+// ANOTACOES NO CADASTRO (Cesar, 21/out/2026; caso MES7B45): alteracao de
+// caracteristica registrada e regularizada (suspensao modificada, GNV, blindagem,
+// tanque extra...). NAO e restricao: sai do bloco vermelho de Restricoes, nao
+// acende indicador nem entra no veredito como pendencia. A pagina e o papel
+// mostram num bloco neutro (cinza) "Anotações no cadastro"; o parecer cita e o
+// checklist manda conferir a anotacao no documento. Codigos vistos em prod nos
+// 60 dias ate 21/out: SUSPENSAO_MODIFICADA, SISTEMA_GNV, TANQUE_SUPLEMENTAR,
+// CHASSI_ALONGADO, BLINDADO; os demais sao variantes previstas.
+export const ROTULO_ANOTACAO = 'Anotação no cadastro'
+export const TITULO_ANOTACOES = 'Anotações no cadastro'
+
+/** "Consta no cadastro uma alteracao de caracteristica: X registrada e regularizada. ..." */
+export function textoAnotacao(descricao: string): string {
+  return `Consta no cadastro uma alteração de característica: ${descricao} registrada e regularizada. Não impede a transferência. Confira se o documento traz a anotação e se o veículo está como registrado.`
+}
+
+const ANOTACOES: [RegExp, { titulo: string; texto: string }][] = [
+  [/^SUSPENSAO_(MODIFICADA|ALTERADA|REBAIXADA|ELEVADA)|^REBAIXADO|^SUSPENSAO_REBAIXADA/, {
+    titulo: 'Suspensão modificada',
+    texto: textoAnotacao('suspensão modificada (rebaixada ou elevada)'),
+  }],
+  [/^(SISTEMA_)?GNV|^KIT_(GAS|GNV)|^GAS_NATURAL/, {
+    titulo: 'Sistema de GNV instalado',
+    texto: `${textoAnotacao('sistema de GNV instalado')} Peça ao vendedor o certificado de segurança veicular (CSV) e a inspeção do GNV em dia.`,
+  }],
+  [/^TANQUE_SUPLEMENTAR/, { titulo: 'Tanque suplementar', texto: textoAnotacao('tanque suplementar') }],
+  [/^CHASSI_ALONGADO/, { titulo: 'Chassi alongado', texto: textoAnotacao('chassi alongado') }],
+  [/^TETO_SOLAR/, { titulo: 'Teto solar instalado', texto: textoAnotacao('teto solar instalado') }],
+  [/^CAMBIO_ALTERADO|^ALTERACAO_(DE_)?CAMBIO/, { titulo: 'Câmbio alterado', texto: textoAnotacao('câmbio alterado') }],
+  [/^COR_ALTERADA|^ALTERACAO_(DE_)?COR/, { titulo: 'Cor alterada', texto: textoAnotacao('cor alterada') }],
+  [/^MOTOR_ALTERADO|^ALTERACAO_(DE_)?MOTOR|^TROCA_(DE_)?MOTOR/, { titulo: 'Motor alterado', texto: textoAnotacao('motor alterado') }],
+  [/^ALTERACAO_(DE_)?CARACTERISTICAS?/, {
+    titulo: 'Alteração de característica',
+    texto: 'Consta no cadastro uma alteração de característica do veículo, registrada e regularizada. Não impede a transferência. Confira se o documento traz a anotação e se o veículo está como registrado.',
+  }],
+  // 15/out (BMW X5 blindado): caia no texto generico. Regra do Exercito mudou
+  // em 2026 (Portaria 94-COLOG/2019 revogada); a de transferencia nao foi
+  // confirmada em fonte oficial, entao o texto nao afirma o que ela exige.
+  [/^BLINDADO|^BLINDAGEM/, {
+    titulo: 'Veículo blindado',
+    texto: 'Consta no cadastro que este veículo é blindado. É uma anotação de característica: não é bloqueio por dívida nem por ordem da Justiça. Antes de fechar negócio, peça ao vendedor a Declaração de Blindagem emitida pelo Exército, o certificado da blindadora com o nível de proteção e a nota fiscal do serviço, e confira se o documento do veículo já traz a blindagem. As regras do Exército para veículos blindados foram atualizadas em 2026: confirme com a blindadora ou com um despachante o que a transferência exige hoje.',
+  }],
+]
+
+/** Copy da anotacao de cadastro (titulo + texto), ou null se nao for anotacao. */
+export function itemAnotacao(bruto: unknown): { titulo: string; texto: string } | null {
+  const chave = chaveItem(bruto)
+  const achou = ANOTACOES.find(([re]) => re.test(chave))
+  return achou ? achou[1] : null
+}
+
+/** Anotacoes do cadastro (sem repetir titulo), na ordem em que vieram. */
+export function anotacoesDoCadastro(itens: unknown): { titulo: string; texto: string }[] {
+  const out: { titulo: string; texto: string }[] = []
+  for (const i of Array.isArray(itens) ? itens : []) {
+    const a = itemAnotacao(i)
+    if (a && !out.some((o) => o.titulo === a.titulo)) out.push(a)
+  }
+  return out
+}
+
+/** Frase do parecer sobre as anotacoes ("" sem anotacao). Tom neutro. */
+export function fraseParecerAnotacoes(titulos: string[]): string {
+  if (!titulos.length) return ''
+  const nomes = titulos.map((t) => t.charAt(0).toLowerCase() + t.slice(1))
+  const lista = nomes.length === 1 ? nomes[0] : `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}`
+  return ` Consta ${titulos.length === 1 ? 'anotação' : 'anotações'} no cadastro (${lista}), que não ${titulos.length === 1 ? 'impede' : 'impedem'} a transferência: confira no documento.`
+}
+
 function chaveItem(bruto: unknown): string {
   return String(bruto ?? '').trim().toUpperCase().replace(/[\s-]+/g, '_').replace(/_+/g, '_')
 }
 
-/** Copy do item informativo (titulo + texto), ou null se for restricao de verdade. */
+/** Copy do item informativo (titulo + texto), ou null se for restricao de verdade ou anotacao. */
 export function itemInformativo(bruto: unknown): { titulo: string; texto: string } | null {
   const chave = chaveItem(bruto)
   const achou = ITENS_INFORMATIVOS.find(([re]) => re.test(chave))
   return achou ? achou[1] : null
 }
 
-/** Itens que de fato restringem (sem os informativos). Nao-array passa direto. */
+/** Itens que de fato restringem (sem os informativos nem as anotacoes). Nao-array passa direto. */
 export function itensQueRestringem<T>(itens: T): T {
-  return (Array.isArray(itens) ? itens.filter((i) => !itemInformativo(i)) : itens) as T
+  return (Array.isArray(itens) ? itens.filter((i) => !itemInformativo(i) && !itemAnotacao(i)) : itens) as T
 }
 
 // Indicadores de restricao do registro nacional (ja normalizados por
@@ -228,7 +287,7 @@ export function chavesSemCopy(itens: unknown): string[] {
   const lista = Array.isArray(itens) ? filtrarItensRestricao(itens).filter(Boolean) : []
   const fora = new Set<string>()
   for (const r of lista) {
-    if (ehEstoqueRenave(r) || ehRenajud(r) || itemInformativo(r)) continue
+    if (ehEstoqueRenave(r) || ehRenajud(r) || itemInformativo(r) || itemAnotacao(r)) continue
     explicaRestricao(String(r), (c) => fora.add(c))
   }
   return [...fora]

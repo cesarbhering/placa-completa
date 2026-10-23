@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { COLUNAS_RODAPE } from '~/shared/rodape-links'
+import { jsonLdProdutos, semProdutoNaPagina } from '~/shared/jsonld-produto'
 const isReady = ref(false)
 const isPWA = ref(false)
 
@@ -13,6 +14,13 @@ useDomainCanonical()
 // dentro de uma faixa branca), entao aqui ele cobre so o resto do site, que
 // antes nao tinha cabecalho nenhum.
 const route = useRoute()
+
+// JSON-LD do produto (a consulta), template unico do site: toda oferta sai
+// dentro de um Product (shared/jsonld-produto.ts). Fora da area paga e das telas internas.
+// URL sempre no dominio canonico (pagina pre-renderizada saia com "localhost").
+useHead(() => (semProdutoNaPagina(route.path) ? {} : {
+  script: [{ key: 'ld-produto', type: 'application/ld+json', innerHTML: JSON.stringify(jsonLdProdutos(route.path)) }],
+}))
 const headerGlobal = computed(() => {
   const p = route.path
   if (p === '/' || p.startsWith('/placa/') || p.startsWith('/premium')) return false
@@ -97,6 +105,8 @@ function onStoreClick() {
       <NuxtPage />
 
       <ConsultasHistory :aberto="modalConsultas" @fechar="modalConsultas = false" />
+      <!-- App: compra do Google Play concluida fora da tela de compra (pendente na loja). -->
+      <ClientOnly><AvisoRelatorioPlay /></ClientOnly>
       <!-- WhatsApp flutuante (suporte): some em checkout/modal/Pix, sobe acima da barra de compra. -->
       <ClientOnly><WhatsappFlutuante /></ClientOnly>
       <!-- Rodape em colunas (opcao 1 do Cesar, 08/out): marca a esquerda +

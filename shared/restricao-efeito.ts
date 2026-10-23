@@ -1,3 +1,4 @@
+import { ehBaixaDeGravame } from './restricao-detran-classe'
 // Item 12 do Relatorio 2.0 (Cesar, 14/out): cada restricao diz O QUE ela
 // bloqueia (transferencia, licenciamento, circulacao). "Bloqueia" so quando o
 // dado informa o tipo (RENAJUD com tipo, roubo/furto, gravame...); quando o
@@ -21,6 +22,8 @@ const norm = (s: unknown) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g
 
 /** Efeito pelo tipo/texto da restricao (DETRAN, RENAJUD ou base nacional). null = nao e restricao que bloqueia. */
 export function efeitoRestricao(e: { tipo?: string | null; texto?: string | null }): EfeitoRestricao | null {
+  // Registro da BAIXA (quitacao) do gravame nao bloqueia nada (MES7B45, 21/out/2026).
+  if (ehBaixaDeGravame(e)) return null
   const t = `${norm(e.tipo)} ${norm(e.texto)}`
   if (/ROUBO|FURTO/.test(t)) return { bloqueia: TLC, certeza: 'informado', nota: 'O veículo pode ser apreendido em fiscalização.' }
   if (/BUSCA E APREENS/.test(t)) return { bloqueia: TLC, certeza: 'informado', nota: 'Há ordem para recolher o veículo.' }

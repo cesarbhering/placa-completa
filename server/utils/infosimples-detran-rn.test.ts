@@ -66,7 +66,9 @@ describe('copy de SEO acompanha o mapa', () => {
   it('"N UFs" e a lista batem com DETRAN_UFS', async () => {
     const { readFileSync } = await import('node:fs')
     const { join } = await import('node:path')
-    const n = Object.keys(DETRAN_UFS).length
+    // So as UFs que trazem infracoes (o RJ so traz restricoes: soRestricoes).
+    const comMultas = Object.entries(DETRAN_UFS).filter(([, c]) => !(c as any).soRestricoes).map(([uf]) => uf)
+    const n = comMultas.length
     const art = readFileSync(join(process.cwd(), 'shared/artigos-o-que-e.ts'), 'utf8')
     const clu = readFileSync(join(process.cwd(), 'shared/cluster-compra.ts'), 'utf8')
     // so as frases de cobertura do DETRAN ("22 UFs diferentes" e a origem dos carros consultados, outro dado)
@@ -75,6 +77,6 @@ describe('copy de SEO acompanha o mapa', () => {
     expect(cobertura.every((x) => x.endsWith(`${n} UFs`))).toBe(true)
     expect(clu).toContain(`${n} UFs`)
     const lista = art.match(/em \d+ UFs \(([^)]+)\)/)![1].replace(' e ', ', ').split(', ').sort()
-    expect(lista).toEqual(Object.keys(DETRAN_UFS).sort())
+    expect(lista).toEqual(comMultas.sort())
   })
 })
