@@ -12,6 +12,26 @@ const emit = defineEmits<{ fechar: [] }>()
 const { itens, sync } = useConsultaHistory()
 onMounted(sync)
 
+// Compra do app pendente no Google: ainda nao ha relatorio pra abrir, so o
+// item provisorio. "Verificar" pergunta ao servidor na hora
+// (composables/useRecuperacaoPlay.ts) e, se ficou pronto, troca pelo pedido real.
+const { verificar } = useRecuperacaoPlay()
+const verificando = ref(false)
+const naoPronto = ref('')
+async function verificarPlay(token: string) {
+  if (verificando.value) return
+  verificando.value = true
+  naoPronto.value = ''
+  try {
+    await verificar()
+    sync()
+    if (itens.value.some((i) => i.token === token)) naoPronto.value = token
+  } finally {
+    verificando.value = false
+  }
+}
+const processandoPlay = (s: string) => s === STATUS_PROCESSANDO_PLAY
+
 // Reler ao abrir: outra aba pode ter concluido um pagamento nesse meio tempo.
 watch(() => props.aberto, (v) => {
   if (v) sync()
@@ -31,7 +51,7 @@ function rotuloAcao(s: string): string {
 
 function rotuloStatus(s: string) {
   if (s === 'entregue') return 'Pronto'
-  if (s === 'pago' || s === 'consultando') return 'Processando'
+  if (s === 'pago' || s === 'consultando' || processandoPlay(s)) return 'Processando'
   if (s === 'expirado') return 'Pix expirou'
   if (s === 'reembolsado') return 'Reembolsado'
   return 'Pagamento pendente'
@@ -82,7 +102,17 @@ function fmtData(iso: string) {
                 <!-- Todos vao pra pagina do pedido: pendente cai direto no QR
                      (com renovacao automatica se venceu), estornado cai na tela
                      que explica a devolucao e oferece refazer com o plano certo. -->
+                <button
+                  v-if="processandoPlay(it.status)"
+                  type="button"
+                  class="pch-acao pch-acao--primaria"
+                  :disabled="verificando"
+                  @click="verificarPlay(it.token)"
+                >
+                  {{ verificando ? 'Verificando...' : 'Verificar' }}
+                </button>
                 <NuxtLink
+                  v-else
                   class="pch-acao"
                   :class="{ 'pch-acao--primaria': it.status !== 'entregue' && !terminalSemRelatorio(it.status) }"
                   :to="`/premium/${it.token}`"
@@ -90,6 +120,9 @@ function fmtData(iso: string) {
                 >
                   {{ rotuloAcao(it.status) }}
                 </NuxtLink>
+                <small v-if="naoPronto === it.token" class="pch-aviso">
+                  O Google ainda não confirmou o pagamento. Assim que confirmar, o relatório aparece aqui e chega no seu e-mail.
+                </small>
               </li>
             </ul>
           </div>
@@ -276,6 +309,13 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   small { font-size: 12.5px; color: $c-graphite; }
 }
 
+.pch-aviso {
+  flex-basis: 100%;
+  font-size: 12px;
+  line-height: 1.4;
+  color: $c-graphite;
+}
+
 .pch-st--ok { color: $c-green; font-weight: 700; }
 .pch-st--pend { color: $c-amber; font-weight: 700; }
 
@@ -295,8 +335,11 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   text-decoration: none;
   white-space: nowrap;
   flex-shrink: 0;
+  font-family: inherit;
+  cursor: pointer;
 
   &:hover { background: $c-cloud; }
+  &:disabled { opacity: 0.7; cursor: default; }
 
   &--primaria {
     background: $c-blue;

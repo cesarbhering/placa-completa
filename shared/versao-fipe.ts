@@ -6,6 +6,8 @@
 // "XEI18VVT") e a motorizacao ("1.8"), pra filtrar candidatos FIPE no funil e
 // na lista exibida. Usado no servidor e na tela.
 
+import { fatosToyota } from './toyota-nome'
+
 // Versoes/acabamentos conhecidos, ja normalizados (sem hifen/ponto, caixa alta).
 const VERSOES = new Set([
   // Toyota
@@ -27,8 +29,8 @@ const VERSOES = new Set([
   'EXPRESSION', 'DYNAMIQUE', 'PRIVILEGE', 'AUTHENTIQUE', 'INTENSE', 'ZEN', 'ICONIC',
   // Hyundai / Kia
   'GLS', 'PLATINUM', 'ULTIMATE', 'EVOLUTION', 'VISION',
-  // Toyota (mais)
-  'XRE', 'GR',
+  // Toyota (mais). GR-S vira GRS no norm; STD/Conquest da Hilux (shared/toyota-nome.ts).
+  'XRE', 'GR', 'GRS', 'STD', 'CONQUEST',
   // Nissan
   'SV', 'SL', 'EXCLUSIVE', 'ADVANCE',
   // Jeep / Peugeot / Citroen
@@ -238,6 +240,9 @@ export function versaoDoNome(descricao: string | null | undefined): VersaoDoNome
   const daSigla = (s: string) => [...new Set(siglas[s].flatMap((v) => tabela?.grafiasFipe?.[v] || [v]))]
   let versoes: string[] = []
   let motor: string | null = null
+  // Toyota: versao colada no token ("HILUX CDSRXA4FD" = SRX).
+  const toyota = fatosToyota(descricao)
+  if (toyota?.versao) versoes = [toyota.versao]
   // A 1a palavra e o modelo (COROLLA, GOL); versao vem depois.
   for (const bruta of palavras.slice(1)) {
     const m = bruta.match(/^(\d)\.(\d)/)
@@ -284,6 +289,17 @@ export function candidatoTemMotor(modelo: string, motor: string | null): boolean
 }
 
 /**
+ * O nome tem sigla de versao e NENHUM candidato da lista tem a mesma sigla?
+ * Ai a versao certa nao esta na lista: o cambio (nem o prefixo do chassi) pode
+ * decidir sozinho, senao um "SRX Aut." viraria o "SR Aut." da lista (regra do
+ * Cesar, 21/out: sigla de versao e eliminatoria antes do cambio).
+ */
+export function faltaVersaoDoNome<T extends { modelo: string }>(lista: T[], descricao: string | null | undefined): boolean {
+  const { versoes } = versaoDoNome(descricao)
+  return versoes.length > 0 && lista.length > 0 && !lista.some((c) => candidatoTemVersaoDoNome(c.modelo, versoes))
+}
+
+/**
  * Filtra pela versao e motorizacao do nome. Cada filtro so vale se deixar
  * alguem: zerou, volta a lista de antes (comportamento de sempre).
  */
@@ -319,6 +335,23 @@ export function filtrarPelaVersaoDoNome<T extends { modelo: string }>(lista: T[]
     restantes = so(restantes, (c) => (pgm.tracao === '4X4' ? /\b4x4\b/i.test(c.modelo) : !/\b4x4\b/i.test(c.modelo)))
     if (pgm.diesel) restantes = so(restantes, (c) => /diesel|\bdies\.?|\bTDI\b|\bCTDI\b/i.test(c.modelo))
     if (pgm.motor) restantes = so(restantes, (c) => candidatoTemMotor(c.modelo, pgm.motor))
+  }
+  // Toyota (PRX0B70): cabine, SW4, tracao, combustivel e lugares do token
+  // colado ("CDSRXA4FD"). CD nunca fica com "Chassi" nem cabine simples. A
+  // versao (SRX) ja filtrou acima, pela sigla exata.
+  const toy = fatosToyota(descricao)
+  if (toy) {
+    const so = (lista: T[], f: (c: T) => boolean) => { const r = lista.filter(f); return r.length ? r : lista }
+    if (toy.cabine === 'dupla') restantes = so(restantes, (c) => !/\bCS\b|CABINE SIMPLES|\bCHASSI\b|\bCAB\.? ?SIMPLES/i.test(c.modelo))
+    if (toy.cabine === 'simples') restantes = so(restantes, (c) => !/\bCD\b|CABINE DUPLA|\bSW4\b/i.test(c.modelo))
+    if (toy.sw4) restantes = so(restantes, (c) => /\bSW4\b/i.test(c.modelo))
+    else if (toy.cabine) restantes = so(restantes, (c) => !/\bSW4\b/i.test(c.modelo))
+    if (toy.tracao === '4X4') restantes = so(restantes, (c) => /\b4x4\b/i.test(c.modelo))
+    if (toy.tracao === '4X2') restantes = so(restantes, (c) => !/\b4x4\b/i.test(c.modelo))
+    if (toy.combustivel === 'diesel') restantes = so(restantes, (c) => /diesel|\bdies\.?|\bTDI\b|\bD-4D\b/i.test(c.modelo))
+    if (toy.combustivel === 'flex') restantes = so(restantes, (c) => !/diesel|\bdies\.?|\bTDI\b|\bD-4D\b/i.test(c.modelo))
+    if (toy.lugares === 7) restantes = so(restantes, (c) => /\b7\s?(L|Lug)/i.test(c.modelo))
+    if (toy.lugares === 5) restantes = so(restantes, (c) => !/\b7\s?(L|Lug)/i.test(c.modelo))
   }
   // Renault: Stepway e linha propria. Nome sem STEP nao fica com Stepway (a
   // FIPE tem "SANDERO STEPWAY EXP.", que casaria com o EXP do nome).

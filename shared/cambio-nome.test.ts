@@ -64,3 +64,32 @@ describe('versoes FIPE', () => {
     expect(opcoesDeCambio([a, { modelo: 'MARCH SL 1.6 Aut.' }])).toBeNull()
   })
 })
+
+describe('MT/AT soltos e colados ao motor (21/out/2026, BCK2C28)', () => {
+  it('decide o cambio', async () => {
+    const { cambioDoNome } = await import('./cambio-nome')
+    expect(cambioDoNome('CHEV/PRISMA 1.4MT LT')).toBe('manual')
+    expect(cambioDoNome('CHEV/ONIX 1.0AT LTZ')).toBe('automatico')
+    expect(cambioDoNome('CHEV/CRUZE 1.8MT LT')).toBe('manual')
+    expect(cambioDoNome('HONDA/CIVIC 16V AT6')).toBe('automatico')
+    expect(cambioDoNome('CHEV/ONIX 1.0 TAT')).toBe('automatico')
+    expect(cambioDoNome('CHEV/ONIX 1.0 TMT')).toBe('manual')
+    expect(cambioDoNome('CHEV/PRISMA LT MT')).toBe('manual')
+    expect(cambioDoNome('FIAT/PALIO ATTRACTIV')).toBeNull()
+  })
+})
+
+describe('opcoesDeCambio com a manual sem "Mec." (NJD2I54, BCK2C28)', () => {
+  it('par so de cambio, manual sem marca: reconhece', async () => {
+    const { opcoesDeCambio } = await import('./cambio-nome')
+    const par = opcoesDeCambio([{ modelo: 'Hilux CD SRV D4-D 4x4 3.0  TDI Dies' }, { modelo: 'Hilux CD SRV D4-D 4x4 3.0 TDI Diesel Aut' }])
+    expect(par?.manual.modelo).toBe('Hilux CD SRV D4-D 4x4 3.0  TDI Dies')
+    expect(par?.automatico.modelo).toBe('Hilux CD SRV D4-D 4x4 3.0 TDI Diesel Aut')
+    expect(opcoesDeCambio([{ modelo: 'PRISMA Sed. LT 1.4 8V FlexPower 4p' }, { modelo: 'PRISMA Sed. LT 1.4 8V FlexPower 4p Aut.' }])).not.toBeNull()
+  })
+  it('versoes diferentes alem do cambio: nao e duvida so de cambio', async () => {
+    const { opcoesDeCambio } = await import('./cambio-nome')
+    expect(opcoesDeCambio([{ modelo: 'Hilux CD SR D4-D 4x4 3.0 TDI Dies' }, { modelo: 'Hilux CD SRV D4-D 4x4 3.0 TDI Diesel Aut' }])).toBeNull()
+    expect(opcoesDeCambio([{ modelo: 'ONIX HATCH LT 1.0 Flex' }, { modelo: 'ONIX HATCH LTZ 1.4 Flex Aut.' }])).toBeNull()
+  })
+})

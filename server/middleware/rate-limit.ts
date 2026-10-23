@@ -39,11 +39,19 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   // pode virar uma consulta paga no SENATRAN. Ninguem compra dez vezes por hora
   // do mesmo aparelho, entao o teto e baixo de proposito.
   '/api/premium/google-play/verificar': { windowMs: 60 * 60 * 1000, maxRequests: 10 }, // 10 por hora
+  // "Cade meu relatorio" do app: so le o banco (nao bate na Google). O app
+  // pergunta com intervalo crescente enquanto a compra esta pendente; 120/h
+  // cobre a espera com folga e barra varredura. Contado por IP, sem a query
+  // (senao cada purchaseToken ganharia um balde proprio).
+  '/api/premium/google-play/pedido': { windowMs: 60 * 60 * 1000, maxRequests: 120 }, // 120 por hora
   // Coletor do funil: recebe lote de ate 10 eventos por chamada, entao 60/min
   // cobre uma navegacao intensa com folga e ainda barra despejo automatizado.
   '/api/evento': { windowMs: 60 * 1000, maxRequests: 60 }, // 60 por minuto
   'default': { windowMs: 60 * 1000, maxRequests: 30 }, // Default: 30 per minute
 }
+
+// Rotas cuja query carrega a credencial: o balde e da rota, nao de cada valor.
+const SEM_QUERY = ['/api/premium/google-play/pedido']
 
 function getRateLimitConfig(path: string): RateLimitConfig {
   for (const [pattern, config] of Object.entries(rateLimitConfigs)) {
@@ -80,7 +88,7 @@ export default defineEventHandler(async (event) => {
   // mesma fonte dos tetos da consulta e dos sinais (server/utils/client-ip.ts).
   const ip = getClientIp(event)
   const config = getRateLimitConfig(path)
-  const key = `${ip}:${path}`
+  const key = `${ip}:${SEM_QUERY.some((p) => path.startsWith(p)) ? path.split('?')[0] : path}`
 
   const now = Date.now()
   let entry = rateLimitStore.get(key)

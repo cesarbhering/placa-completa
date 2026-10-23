@@ -228,58 +228,10 @@ if (isBrandPage) {
     }),
   })
 
-  // Add Product schema if we have FIPE price data
-  if (priceTable.value.length > 0) {
-    const lowestPrice = Math.min(...priceTable.value.map((p: any) => p.price))
-    const highestPrice = Math.max(...priceTable.value.map((p: any) => p.price))
-    schemaScripts.push({
-      type: 'application/ld+json',
-      innerHTML: JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'Product',
-        name: `${pageData.name} ${model!.name}`,
-        brand: {
-          '@type': 'Brand',
-          name: pageData.name,
-        },
-        description: `Valor na Tabela FIPE do ${pageData.name} ${model!.name}. Preços atualizados para todos os anos.`,
-        offers: {
-          '@type': 'AggregateOffer',
-          priceCurrency: 'BRL',
-          lowPrice: lowestPrice,
-          highPrice: highestPrice,
-          offerCount: priceTable.value.length,
-        },
-      }),
-    })
-  }
-
-  // Schema Vehicle: SO EMITE quando temos priceTable, porque o Google exige
-  // offers | review | aggregateRating para validar Vehicle como rich result.
-  // Sem offers, o schema era detectado como invalido pelo Rich Results Test.
-  if (priceTable.value.length > 0) {
-    schemaScripts.push({
-      type: 'application/ld+json',
-      innerHTML: JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'Vehicle',
-        name: `${pageData.name} ${model!.name}`,
-        brand: { '@type': 'Brand', name: pageData.name },
-        model: model!.name,
-        vehicleConfiguration: pageData.type === 'motos' ? 'Motocicleta' : 'Automóvel',
-        bodyType: pageData.type === 'motos' ? 'Motorcycle' : undefined,
-        manufacturer: { '@type': 'Organization', name: pageData.name },
-        url: `https://placacompleta.com.br/tabela-fipe/${slug}`,
-        offers: {
-          '@type': 'AggregateOffer',
-          priceCurrency: 'BRL',
-          lowPrice: Math.min(...priceTable.value.map((p: any) => p.price)),
-          highPrice: Math.max(...priceTable.value.map((p: any) => p.price)),
-          offerCount: priceTable.value.length,
-        },
-      }),
-    })
-  }
+  // Veiculo da tabela FIPE NAO e Product nem Vehicle com oferta (21/out/2026):
+  // nao vendemos carros, o valor FIPE nao e oferta. O Product/Offer AggregateOffer
+  // daqui fazia o Ahrefs cobrar dados de produto. A unica oferta do site e a
+  // consulta (shared/jsonld-produto.ts, via app.vue).
 
   useHead({
     title: tituloModelo(pageData.name, model!.name, priceTable.value, currentYear),

@@ -1,0 +1,23 @@
+#!/bin/bash
+# Roda a sonda do checkout depois de TODO deploy de prod (= todo PR mergeado na
+# main; Coolify recria o container com sufixo novo). Ordem do Cesar, 21/set/2026.
+# Timer a cada 5 min: so um `docker ps`, sem custo. Estado em /root/.deploy-watch
+set -u
+ESTADO=/root/.deploy-watch
+ATUAL=$(docker ps --filter "name=gvw73er3wq20ydyytrg5ygdt" --filter "status=running" --format '{{.Names}} {{.CreatedAt}}' | sort | head -1)
+[ -z "$ATUAL" ] && exit 0
+ANTERIOR=$(cat "$ESTADO" 2>/dev/null || true)
+[ "$ATUAL" = "$ANTERIOR" ] && exit 0
+# Container novo: espera ele estar servindo (ate 3 min) e roda a sonda.
+for _ in $(seq 1 18); do
+  curl -s -o /dev/null -w '%{http_code}' --max-time 10 https://placacompleta.com.br/ | grep -q '^200$' && break
+  sleep 10
+done
+echo "$ATUAL" > "$ESTADO"
+echo "$(date '+%F %T') deploy novo: $ATUAL; rodando sonda"
+# Suporte WhatsApp (11/out): o container novo precisa do alias fixo pc-site na rede pc-suporte (webhook do Evolution aponta para http://pc-site:3000).
+# NUNCA conectar o container do site a outra rede: o Traefik escolhe o IP errado e o site cai (incidente 11-12/out, 14 h fora).
+# O alias pc-site e um socat na rede coolify que encaminha para o container atual; so o socat e recriado.
+NOVO=$(docker ps --filter "name=gvw73er3wq20ydyytrg5ygdt" --filter "status=running" --format '{{.Names}}' | head -1)
+docker rm -f pc-site >/dev/null 2>&1; docker run -d --name pc-site --network coolify --restart unless-stopped --cpu-shares 2048 alpine/socat TCP-LISTEN:3000,fork,reuseaddr TCP:"$NOVO":3000 >/dev/null 2>&1 || true
+node /usr/local/bin/pc-checkout-probe.mjs --pos-deploy   # espera o deploy do Coolify terminar e nao adia por CPU (21/out)

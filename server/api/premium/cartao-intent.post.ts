@@ -5,6 +5,7 @@ import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-fu
 import crypto from 'node:crypto'
 import { sanearOrigem } from '../../../shared/origem-trafego'
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
+import { respostaCompraRepetida } from '../../utils/compra-repetida'
 
 // Cartao v2 EMBUTIDO (Stripe Elements, sem redirect). Cria o pedido
 // (forma_pagamento='cartao') + um PaymentIntent e devolve o client_secret pro
@@ -40,6 +41,12 @@ export default defineEventHandler(async (event) => {
   const abBloco = body.ab_bloco === 'A' || body.ab_bloco === 'A2' ? body.ab_bloco : null
 
   const supabase = usePremiumSupabase()
+  // Mesma placa ja paga ha pouco pelo mesmo IP + aparelho: devolve o pedido
+  // em vez de cobrar de novo (server/utils/compra-repetida.ts).
+  const repetida = await respostaCompraRepetida(event, supabase, {
+    placa, plano, ip: getClientIp(event), ...getDispositivo(event), obref: sanearOrigem(body.origin).obref ?? null,
+  }, ambiente, body.forcar_nova_compra)
+  if (repetida) return repetida
   const token = crypto.randomBytes(18).toString('base64url')
 
   // Cupom recalculado no servidor. Cartao nao tem caminho gratis: cupom que zera

@@ -13,6 +13,9 @@ Regra central: **só alerta com falha CONFIRMADA**. Cada tipo de problema tem um
 | **fila** | `pc-fila-check` (5 min) | View `premium_jobs_saude` no prod (Management API): job pendente atrasado mais de 15 min ou lease vencido | já confirmado por definição | `FILA DO RELATORIO PARADA` | a cada 1 h | Cesar e helena@ |
 | **fila (esgotados)** | o mesmo | Jobs que esgotaram as 4 tentativas (1 min, 5 min, 30 min, 6 h) | não se aplica | `RELATORIO COM FONTE ESGOTADA (n)`, um por lote | não | Cesar e helena@ |
 | **monitor** | `pc-monitor-meta` (5 min) | As outras 4 checagens (site, checkout, fila, túnel) estão rodando? Unit que saiu com erro (crash) ou estado sem verificação há mais de 15 min (checkout: 2 h) | 2 falhas, 60 s entre elas | `MONITOR QUEBRADO`, com a unit e a última linha do erro | a cada 1 h | Cesar e helena@ |
+| **disco** | `pc-recursos-check` (5 min) | Uso de `/` acima de 85% | 2 leituras, 60 s entre elas | `DISCO DA VPS ACIMA DE 85%` | a cada 1 h | Cesar e helena@ |
+| **carga** | o mesmo | Load de 15 min dividido pelos núcleos acima de 3 (= 15 min sobrecarregada) | 2 leituras, 60 s entre elas | `VPS SOBRECARREGADA`, com os 3 containers que mais consomem | a cada 1 h | Cesar e helena@ |
+| **deploy** | `pc-deploy-check` (5 min) | HEAD da `main` no GitHub x commit da imagem do site no ar | divergente por mais de 15 min | `SITE DESATUALIZADO (a main nao chegou ao ar)`, com os últimos deploys do Coolify | a cada 1 h | Cesar e helena@ |
 | **tunel** | `pc-tunel-check` (5 min) | `curl -x socks5h://127.0.0.1:1080 https://ifconfig.me` (15 s): o túnel residencial do Mac | 2 falhas, 60 s entre elas | `TÚNEL DO MAC CAIU`, com o comando de subida | **não** (1 por queda) | só o Cesar |
 
 Todo alvo que abre incidente manda `... VOLTOU (fora por Xh)` quando normaliza.
@@ -24,7 +27,8 @@ Todo alvo que abre incidente manda `... VOLTOU (fora por Xh)` quando normaliza.
 
 **Detalhes do checkout:**
 - Se a home não abre, a sonda **não** manda "checkout com erro". O alerta fica com o site.
-- **Carga da VPS:** o Chromium roda com nice 10. Com load acima de 2x o número de núcleos, a sonda espera 2 min, até 3 vezes, e então pula a rodada sem veredito.
+- **CPU da VPS:** o Chromium roda com nice 10. Se a CPU estiver com menos de 10% ociosa (amostra de 2 s em `/proc/stat`), a sonda espera 2 min, até 3 vezes, e então pula a rodada sem veredito. Não usa mais o load: com teto de CPU nos containers, threads presas na quota contam no load (21/out: load 20 com 47% ociosa).
+- **Pós-deploy (`--pos-deploy`, usado pelo `pc-deploy-watch`):** espera o deployment do site sair de in_progress no Coolify (até 20 min) e roda sem adiar, para todo deploy ter veredito. O `pc-deploy-watch` agora é versionado aqui.
 - **Pós-deploy:** o `pc-deploy-watch` chama `node /usr/local/bin/pc-checkout-probe.mjs` após cada deploy. Um lock (`/run/pc-checkout-probe.lock`) evita duas sondas ao mesmo tempo.
 - **Regra da casa:** todo deploy termina com a sonda do checkout verde.
 
@@ -40,6 +44,10 @@ Todo alvo que abre incidente manda `... VOLTOU (fora por Xh)` quando normaliza.
 - O `instalar.sh` monta o diretório. `PROBE_HOME` aponta para outro lugar em testes.
 
 **Privacidade:** o IP de saída do túnel (a casa do Cesar) nunca é gravado. As mensagens de erro vão sem placa, e-mail, IP ou token.
+
+**Recursos da VPS (desde 21/out/2026):** a VPS chegou a load 25 em 6 núcleos com o flaresolverr em swap, e o disco a 82%. Agora os leilões têm teto de CPU, o site tem prioridade (cpu-shares 4096) e o flaresolverr roda sem swap. O alerta de carga cita os containers que mais consomem.
+
+**Deploy perdido ou velho (desde 21/out/2026):** um incidente do GitHub engoliu o push da `main` e o merge não foi ao ar. Agora o `pc-deploy-check` avisa quando a `main` não chega ao ar em 15 min. O `pc-coolify-dedup` (em `ops/coolify/`) cancela qualquer deploy, na fila ou em andamento, de commit ANCESTRAL do que já está no ar (webhook atrasado) e manda o e-mail `DEPLOY ANTIGO CANCELADO`.
 
 ## Arquivos
 

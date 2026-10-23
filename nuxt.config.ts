@@ -1,5 +1,4 @@
 import { scriptsDeAnalytics } from './shared/analytics-tags'
-import { PLANOS } from './shared/planos'
 import { BASE_LEILAO_TEXTO } from './shared/base-leilao'
 import { urlsDoBlog } from './data/blog-indice'
 import { IBV_SLUG_ANTIGO } from './data/ibv-posts'
@@ -579,15 +578,9 @@ export default defineNuxtConfig({
             url: "https://placacompleta.com.br",
             applicationCategory: "UtilitiesApplication",
             operatingSystem: "Web",
-            // Oferta real (relatorio completo), nao mais "price 0" (01/out:
-            // distanciar do gratis nas superficies que Google/IA leem).
-            offers: {
-              "@type": "Offer",
-              price: (PLANOS.completa.valorCentavos / 100).toFixed(2),
-              priceCurrency: "BRL",
-              name: "Relatório completo do veículo",
-              url: "https://placacompleta.com.br/#preco",
-            },
+            // Sem offers aqui (21/out/2026): Offer solto, sem Product pai, fazia o
+            // Ahrefs ler a pagina como produto incompleto. A oferta sai dentro do
+            // Product da consulta (shared/jsonld-produto.ts, via app.vue).
           }),
         },
       ],
