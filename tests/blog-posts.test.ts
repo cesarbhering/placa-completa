@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { existsSync } from 'node:fs'
 import { blogPosts, findBlogPost } from '../data/blog-posts'
+import { postsRecallAuto } from '../data/blog-posts-recall-auto'
 import { BASE_LEILAO_TEXTO } from '../shared/base-leilao'
 
 describe('blog', () => {
@@ -19,6 +20,15 @@ describe('blog', () => {
     for (const p of blogPosts) {
       expect(existsSync('public' + p.capa.src)).toBe(true)
       expect(existsSync('public' + p.capa.og)).toBe(true)
+    }
+  })
+  it('posts de recall automaticos (pc-recall-publicar) entram no blog e seguem a copy', () => {
+    for (const p of postsRecallAuto) {
+      expect(findBlogPost(p.slug)).toBe(p)
+      const tudo = JSON.stringify(p)
+      expect(tudo).not.toContain('\u2014')
+      expect(tudo).not.toMatch(/SENATRAN|REVISAR/i)
+      expect(p.categoria).toBe('Recall')
     }
   })
 })
