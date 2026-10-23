@@ -1,3 +1,4 @@
+import { avisarLeilaoTardio } from './aviso-leilao'
 // Um relatorio ja vendido e imutavel: o snapshot guarda exatamente o que a
 // pessoa comprou. Mas quando um servico auxiliar estava fora do ar ou lento na
 // hora da entrega, o snapshot congelou um BURACO, nao um dado. Isso nao e o que
@@ -128,6 +129,10 @@ export async function preencherCamposLazy(
     } catch (e: any) {
       console.warn(`[lazy-fill] gravar ${campo} falhou (fail-open):`, e?.message)
     }
+  }
+  // Leilao ou sinistro que apareceu depois da entrega: avisa o cliente (uma vez).
+  if (opts.campos.includes('historicoLeilao') && opts.pedidoId) {
+    await avisarLeilaoTardio(supabase, opts.pedidoId, opts.snap?.historicoLeilao ?? null, resultado.historicoLeilao ?? null)
   }
   return resultado
 }
