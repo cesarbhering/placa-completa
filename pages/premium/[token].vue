@@ -55,6 +55,11 @@ const token = route.params.token as string
 useHead({ title: 'Relatório Veicular', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
 const { data, pending, error, refresh } = await useFetch<any>('/api/premium/report', { query: { token } })
+// Link de pedido duplicado ja reembolsado: abre o relatorio da compra que
+// ficou (302 no SSR). O servidor so devolve isto quando IP + aparelho batem.
+if (data.value?.redirecionarPara) {
+  await navigateTo(`/premium/${data.value.redirecionarPara}`, { redirectCode: 302, replace: true })
+}
 
 const { itens, sync: histSync, add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
 const { trackConversionPaga, track } = useAnalytics()
