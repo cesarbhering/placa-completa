@@ -14,6 +14,15 @@ for _ in $(seq 1 18); do
   sleep 10
 done
 echo "$ATUAL" > "$ESTADO"
+# Cache de HTML na Cloudflare (Cache Rule de 22/out: blog, tabela-fipe, consultar-placa, o-que-e, seguro,
+# carro-de-leilao, para-empresas; 1 h). Depois de deploy o HTML em cache aponta para chunks /_nuxt antigos, que o
+# container novo nao tem: purge TOTAL da zona (o plano free nao tem purge por prefixo; por URL deixaria paginas quebradas).
+if [ -r /root/.cloudflare-acc-level.env ]; then
+  . /root/.cloudflare-acc-level.env
+  r=$(curl -s --max-time 20 -X POST -H "Authorization: Bearer $CF_API_TOKEN" -H 'Content-Type: application/json' \
+    "https://api.cloudflare.com/client/v4/zones/ca148f58e36d1effeee0243d61f3ec73/purge_cache" -d '{"purge_everything":true}')
+  echo "$(date '+%F %T') purge do cache da Cloudflare apos deploy: $(echo "$r" | grep -o '"success":[a-z]*')"
+fi
 echo "$(date '+%F %T') deploy novo: $ATUAL; rodando sonda"
 # Suporte WhatsApp (11/out): o container novo precisa do alias fixo pc-site na rede pc-suporte (webhook do Evolution aponta para http://pc-site:3000).
 # NUNCA conectar o container do site a outra rede: o Traefik escolhe o IP errado e o site cai (incidente 11-12/out, 14 h fora).
