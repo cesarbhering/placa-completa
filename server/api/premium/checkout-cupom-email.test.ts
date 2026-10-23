@@ -15,6 +15,9 @@ vi.stubGlobal('createError', (o: any) => Object.assign(new Error(o.message), o))
 vi.stubGlobal('assertPremiumGate', () => {})
 vi.stubGlobal('usePremiumSupabase', () => ({}))
 vi.stubGlobal('useRuntimeConfig', () => ({ public: { homolog: false } }))
+vi.stubGlobal('getClientIp', () => '1.2.3.4')
+vi.stubGlobal('getDispositivo', () => ({ dispositivo: 'celular', sistema: 'Android', canal: 'web', app_versao: null }))
+vi.stubGlobal('setResponseStatus', () => {})
 // Depois do portao: para a execucao aqui pra nao precisar mockar o resto.
 vi.stubGlobal('validarCupom', async () => { throw new Error('PASSOU_DO_PORTAO') })
 
