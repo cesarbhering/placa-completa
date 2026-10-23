@@ -2,6 +2,7 @@ import { BASE_LEILAO_TEXTO } from '../shared/base-leilao'
 import { postEconomicos } from './blog-post-economicos'
 import { postPacoteEmpresas } from './blog-post-empresas'
 import { postRecallVwFreio, postRecallVolvoEx30, postRecallExterior } from './blog-posts-recall'
+import { postsRecallAuto } from './blog-posts-recall-auto'
 
 // Posts do /blog. Mais recente primeiro. Regras de copy: sem travessao, sem
 // citar a fonte de dados do registro, sem numeros de venda/receita.
@@ -32,6 +33,8 @@ export interface BlogPost {
 }
 
 export const blogPosts: BlogPost[] = [
+  // Recalls novos (gerados pelo pc-recall-publicar e revisados no PR), mais recentes primeiro.
+  ...postsRecallAuto,
   postPacoteEmpresas,
   postRecallExterior,
   postRecallVwFreio,

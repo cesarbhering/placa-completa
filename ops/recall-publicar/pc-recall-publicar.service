@@ -2,6 +2,8 @@
 Description=Recall novo -> PR de post no blog (tweet so apos merge)
 [Service]
 Type=oneshot
+# gh (~/.config/gh), git e pc-x-post (~/.x-credentials) leem do HOME; sem User=, o systemd nao define HOME.
+Environment=HOME=/root
 ExecStart=/usr/local/bin/pc-recall-publicar detectar
 ExecStart=/usr/local/bin/pc-recall-publicar tweet
 TimeoutStartSec=30min
