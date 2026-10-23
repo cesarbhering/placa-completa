@@ -80,10 +80,10 @@ describe('simulação 1: dúvida antes de comprar (N0 sozinho)', () => {
     expect(s.mem.tarefas).toHaveLength(0)
     expect(s.emails).toHaveLength(0)
   })
-  it('o prompt traz o preço do site (promoção) e as regras', () => {
+  it('o prompt traz o preço do site (sem promoção) e as regras', () => {
     const p = promptDoSistema()
     expect(p).toContain(precoBRL(PLANOS.completa.valorCentavos))
-    expect(p).toContain(`de ${precoBRL(PLANOS.completa.precoDeCentavos!)}`)
+    expect(p).not.toContain('promoção')
     expect(p).toContain('Nunca ofereça nem crie cupom')
     expect(p).toContain('APRENDIZADOS DE ATENDIMENTOS REAIS')
     expect(p).toContain('comprovante do Google Play')
@@ -809,5 +809,19 @@ describe('envio pela Evolution devolve o key.id', () => {
   it('resposta sem corpo JSON: ok sem id', async () => {
     const f: any = async () => new Response('x', { status: 200 })
     expect(await enviarTexto(cfg, JID, 'oi', f)).toEqual({ ok: true, status: 200, id: null })
+  })
+})
+
+describe('pacote para empresas no agente', () => {
+  it('o prompt manda o link /para-empresas, promete 24 h e proibe prometer preco', () => {
+    const p = promptDoSistema()
+    expect(p).toContain('https://placacompleta.com.br/para-empresas')
+    expect(p).toMatch(/pacote, volume.*revenda, lojista, garagem ou despachante/)
+    expect(p).toContain('24 horas úteis')
+    expect(p).toContain('NUNCA prometa preço')
+  })
+  it('o link /para-empresas sobrevive ao filtro de links', async () => {
+    const { semLinksDoSite } = await import('./regras')
+    expect(semLinksDoSite('Veja https://placacompleta.com.br/para-empresas e peça a proposta.')).toContain('https://placacompleta.com.br/para-empresas')
   })
 })

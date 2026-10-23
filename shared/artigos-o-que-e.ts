@@ -130,8 +130,85 @@ export const ARTIGOS: Artigo[] = [
       { pergunta: 'Gravame aparece no documento do carro?', resposta: 'O CRLV pode indicar a alienação fiduciária, mas o retrato atualizado está no cadastro nacional. Uma consulta pela placa mostra a situação no momento da compra.' },
       { pergunta: 'Gravame é a mesma coisa que dívida de IPVA?', resposta: 'Não. Gravame é o vínculo com um financiamento. Débitos de IPVA, licenciamento e multas são pendências diferentes, consultadas à parte.' },
     ],
-    relacionados: ['renavam', 'renajud', 'multas-renainf'],
+    relacionados: ['intencao-de-gravame', 'renavam', 'renajud', 'multas-renainf'],
     datePublished: '2026-10-02',
+  },
+  {
+    slug: 'intencao-de-gravame',
+    termo: 'Intenção de gravame',
+    h1: 'Consta intenção de gravame: o que é e o que fazer',
+    title: 'Consta Intenção de Gravame: Significado e o Que Fazer',
+    description: 'Viu "consta intenção de gravame" ou "restrição financeira consta gravame" numa consulta? Entenda o que significa e o que fazer antes de comprar o carro.',
+    lead: 'Quando uma consulta mostra "consta intenção de gravame" ou "restrição financeira consta gravame", quer dizer que existe, no cadastro do veículo, um registro de uma instituição financeira ligado a um financiamento. Não é multa, não é dívida de imposto e não indica, por si só, roubo ou fraude: é um aviso de que o carro pode estar servindo de garantia para um contrato, e de que a transferência pode ficar travada até esse registro ser resolvido.',
+    dado: {
+      titulo: 'O que a nossa base mostra',
+      texto: `No ${L}, 20,9% dos veículos (29 de 139) tinham alienação fiduciária ativa registrada, a forma mais comum de restrição financeira. Ver essa informação numa consulta é um achado comum entre carros usados, e o que muda tudo é saber antes de pagar.`,
+    },
+    blocos: [
+      {
+        h2: 'O que é intenção de gravame',
+        paragrafos: [
+          'Intenção de gravame é o registro que a instituição financeira faz no sistema de gravames quando um financiamento começa a ser contratado, antes de o gravame definitivo estar formalizado. Na prática, é um pré-registro que sinaliza: este veículo está sendo oferecido como garantia de uma operação de crédito.',
+          'O nome e o detalhe do status mudam conforme o sistema que mostra a informação, mas a ideia é a mesma. Se a operação é concluída, o registro vira o gravame (a alienação fiduciária) do financiamento. Se a operação não segue adiante e o registro não é cancelado, ele pode continuar aparecendo.',
+        ],
+      },
+      {
+        h2: 'O que significa "restrição financeira consta gravame"',
+        paragrafos: [
+          'Restrição financeira é o grupo de registros ligados a crédito que podem limitar o que se faz com o veículo. O gravame é o principal deles: o vínculo entre o carro e a instituição financeira que o aceitou como garantia.',
+          'Quando a consulta traz "consta gravame", o registro está ativo no cadastro naquele momento. Isso não diz se as parcelas estão em dia nem quanto falta pagar. Só a financeira, ou o contrato, responde isso.',
+        ],
+      },
+      {
+        h2: 'Por que isso aparece na consulta',
+        lista: [
+          'O carro está financiado e o contrato ainda está em andamento.',
+          'O financiamento foi quitado, mas a baixa do gravame ainda não foi feita ou não foi concluída.',
+          'Houve um pedido de financiamento (ou uma simulação formalizada) que não foi adiante, e o registro de intenção não foi cancelado.',
+          'O veículo foi refinanciado ou trocou de instituição financeira, e o registro anterior não foi atualizado.',
+          'O contrato é de leasing ou de reserva de domínio, em que a propriedade fica com outra parte até o fim do pagamento.',
+        ],
+      },
+      {
+        h2: 'O que fazer antes de comprar um carro com esse registro',
+        lista: [
+          'Peça ao vendedor o contrato de financiamento e, se ele diz que quitou, o comprovante de quitação e o documento de baixa.',
+          'Confira a placa de novo no dia do pagamento, porque o registro pode mudar de um dia para o outro.',
+          'Se o carro ainda está financiado, combine a quitação direto com a financeira, no ato da venda, e só pague o vendedor depois da baixa.',
+          'Não pague sinal alto nem feche transferência com a promessa de que "depois ele baixa". Sem a baixa, a transferência pode não sair.',
+          'Desconfie de pressa e de preço muito abaixo do mercado junto com um registro de restrição.',
+          'Se ficou em dúvida, não feche. Há muito carro parecido sem essa pendência.',
+        ],
+      },
+      {
+        h2: 'Como pedir a baixa do gravame',
+        paragrafos: [
+          'Quem pede a baixa é a instituição financeira que registrou o gravame, e não o dono do carro nem o comprador. Se você é o dono e o financiamento foi quitado, siga estes passos.',
+        ],
+        lista: [
+          'Peça à financeira a baixa do gravame e anote o número do protocolo.',
+          'Guarde o comprovante de quitação e o contrato.',
+          'Aguarde alguns dias úteis e consulte o cadastro do veículo para ver se o registro saiu.',
+          'Se o registro era só uma intenção de um financiamento que você não fechou, peça à instituição que o cancele e guarde a resposta por escrito.',
+          'Se a financeira não resolver, registre reclamação no canal de ouvidoria dela e, depois, no Procon e no Banco Central.',
+        ],
+      },
+      {
+        h2: 'Como conferir pela placa',
+        paragrafos: [
+          'A consulta básica da PlacaCompleta é grátis e mostra marca, modelo, ano e cor do carro. O relatório completo mostra se consta gravame ou restrição financeira no cadastro do veículo, junto com indicadores de roubo e furto, RENAJUD, leilão e infrações. É um indicador, não uma sentença: serve para você saber o que perguntar ao vendedor antes de pagar.',
+        ],
+      },
+    ],
+    faq: [
+      { pergunta: 'Consta intenção de gravame: posso comprar o carro?', resposta: 'Pode, mas só com a situação esclarecida. Se o registro for de um financiamento ativo, a quitação e a baixa precisam acontecer antes ou junto com a venda. Se for uma intenção que não seguiu adiante, o dono precisa pedir o cancelamento à financeira.' },
+      { pergunta: 'Intenção de gravame é a mesma coisa que gravame?', resposta: 'Não exatamente. A intenção é o pré-registro feito pela financeira quando o financiamento começa. O gravame é o vínculo já formalizado com o contrato. Ambos podem travar a transferência.' },
+      { pergunta: 'Quem dá baixa na restrição financeira?', resposta: 'A instituição financeira que registrou. O dono pede, com comprovante de quitação, e a financeira envia a baixa ao sistema. O comprador não consegue baixar sozinho.' },
+      { pergunta: 'Consta gravame quer dizer que o carro é roubado ou fraudado?', resposta: 'Não. Gravame é registro de financiamento, algo comum e legal. Roubo e furto, leilão e débitos são outros registros, consultados à parte.' },
+      { pergunta: 'O gravame some sozinho depois de pagar o financiamento?', resposta: 'Não. Depois da quitação, a financeira precisa solicitar a baixa. Se isso não for feito, o registro continua aparecendo, e por isso vale cobrar o protocolo.' },
+    ],
+    relacionados: ['gravame', 'renavam', 'renajud'],
+    datePublished: '2026-10-20',
   },
   {
     slug: 'renajud',

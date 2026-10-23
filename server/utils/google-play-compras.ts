@@ -21,8 +21,8 @@ import type { CompraGoogle, EstadoGoogle, PedidoGoogle } from './google-play'
 //   4. a RTDN da Play registra compras cujo app nunca chamou o servidor;
 //   5. compra que nao virou pedido em 10 min gera alerta por e-mail.
 
-/** Preco da Consulta Completa na Play quando o orders.get nao responde (R$ 39,99 em 18/out/2026). */
-export const PRECO_PLAY_PADRAO_CENTAVOS = 3999
+/** Preco da Consulta Completa na Play quando o orders.get nao responde (R$ 44,90 a partir de 20/out/2026). */
+export const PRECO_PLAY_PADRAO_CENTAVOS = 4490
 export const GP_NOME_LOCK = 'google-play-compras'
 export const GP_INTERVALO_MS = 2 * 60 * 1000
 /** Menor que o intervalo: o proximo tick (de qualquer container) pega de novo. */

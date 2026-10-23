@@ -29,18 +29,19 @@ export function problemaNoTitulo(titulo: string): string | null {
 // --- Paginas fixas ----------------------------------------------------------
 
 export const DESCRICOES = {
+  paraEmpresas: 'Consulta veicular em pacote para lojista, garagem e despachante: preço especial por volume, suporte prioritário e resposta em até 24 horas úteis.',
   home: 'Consulta de placa com relatório completo: leilão, roubo, gravame, multas e recall pendente. Veja o que o vendedor não conta antes de fechar negócio.',
   sobre: 'Sobre o PlacaCompleta: como funciona a consulta veicular por placa, de onde vêm os dados (bases oficiais, FIPE, banco BV), a metodologia do IBV e a LGPD.',
   comoConsultarPlaca: 'Como consultar placa de veículo: passo a passo para ver marca, modelo, FIPE e situação, e o relatório completo com leilão, gravame, roubo e débitos.',
   estudos: 'Estudos do mercado de veículos no Brasil: seguro por região (dados SUSEP), IBV Auto do Banco BV e preços da Tabela FIPE, com metodologia aberta.',
   consultaPlaca: 'Consulta de placa veicular online: veja marca, modelo, ano, FIPE e situação na hora, e o relatório completo de leilão, gravame, roubo e débitos.',
-  carroDeLeilao: 'Carro de leilão nem sempre aparece no documento. Veja o que significa, os tipos de leilão e como descobrir se o carro que você vai comprar já passou por um.',
+  carroDeLeilao: 'Carro de leilão vale a pena? Veja como comprar, o que conferir antes do lance e como saber pela placa se o carro já passou por leilão.',
   contato: 'Contato do PlacaCompleta: e-mail para dúvidas sobre consulta de placa, relatório, correção de dados, imprensa e parcerias. Escreva para a nossa equipe.',
 } as const
 
 /** /tabela-fipe-por-placa. Sem "grátis": decisão de 01/out de se distanciar do grátis nas superfícies de busca. */
 export function descricaoTabelaFipePorPlaca(mes: string, ano: number): string {
-  return `Tabela FIPE pela placa: consulte o valor FIPE de qualquer veículo em ${mes} de ${ano}, com marca, modelo, ano, código FIPE e preço atualizado do mês.`
+  return `Fipe pela placa: consulta placa FIPE de qualquer veículo em ${mes} de ${ano}, com marca, modelo, ano, código FIPE e valor atualizado do mês.`
 }
 
 // --- Paginas programaticas --------------------------------------------------

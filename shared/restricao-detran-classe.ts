@@ -85,6 +85,52 @@ export function classificarRestricaoDetran(r: RestricaoDetran): RestricaoClassif
   return { tipo, texto: original, classe: 'duvida', chave }
 }
 
+// ---------- Baixa de gravame (Cesar, 21/out/2026; caso MES7B45) ----------
+// "Registro de Baixa de Alienação Fiduciária informado em 17/03/2026" (SNG do
+// DETRAN-SC) saia como "Gravame (SNG)" com "Bloqueia: transferência". E o
+// CONTRARIO: a financeira informou a quitacao. Texto com baixa/cancelamento/
+// liberacao/quitacao de alienacao ou gravame vira tipo 'baixa' ("Gravame
+// baixado"), fora das restricoes e das travas. "Nao consta baixa", "baixa
+// pendente/solicitada" e a baixa DEFINITIVA do veiculo nao entram.
+const RE_BAIXA = /\b(BAIXA|BAIXADO|BAIXADA|CANCELAMENTO|CANCELADO|CANCELADA|LIBERACAO|LIBERADO|LIBERADA|QUITACAO|QUITADO|QUITADA)\b/
+const RE_CONTEXTO_GRAVAME = /\b(ALIENACAO|AL\.? ?FIDUC\w*|FIDUCIARIA|GRAVAME|FINANCIAMENTO|FINANCEIRA|SNG|ARRENDAMENTO|LEASING|RESERVA DE DOMINIO)\b/
+const RE_BAIXA_NAO = /\b(PENDENTE|PENDENCIA|AGUARDANDO|AGUARDA|SOLICITAD[OA]|SOLICITACAO|EM ANDAMENTO|NAO EFETIVAD[OA]|NAO PROCESSAD[OA]|BAIXA DEFINITIVA)\b/
+
+export const ROTULO_GRAVAME_BAIXADO = 'Gravame baixado'
+
+/** O item do DETRAN e o registro da BAIXA (quitacao) do gravame, nao uma restricao? */
+export function ehBaixaDeGravame(r: RestricaoDetran | null | undefined): boolean {
+  const tipo = String(r?.tipo || '').toLowerCase()
+  if (tipo === 'baixa') return true
+  const n = normalizarTexto(r?.texto)
+  if (!n || !RE_BAIXA.test(n) || RE_BAIXA_NAO.test(n) || RE_NEGA.test(n)) return false
+  return RE_CONTEXTO_GRAVAME.test(n) || tipo === 'financeira' || tipo === 'sng'
+}
+
+/** dd/mm/aaaa do texto da baixa, ou null. */
+export function dataDaBaixa(texto: unknown): string | null {
+  const m = String(texto ?? '').match(/\b(\d{2}\/\d{2}\/\d{4})\b/)
+  return m ? m[1] : null
+}
+
+/** Copy neutra da baixa (com a data quando o DETRAN informa). */
+export function textoBaixaGravame(data: string | null): string {
+  return `A financeira informou a baixa (quitação) do gravame${data ? ` em ${data}` : ''}. Se o cadastro ainda mostrar a alienação, peça ao vendedor o documento de quitação; a atualização costuma levar alguns dias.`
+}
+
+/** Divergencia: ainda ha alienacao ativa no mesmo relatorio. */
+export function textoDivergenciaBaixa(data: string | null): string {
+  return `O cadastro ainda lista alienação fiduciária; a baixa informada${data ? ` em ${data.slice(0, 5)}` : ''} pode não ter sido processada.`
+}
+
+/** Frase do parecer ("" sem baixa). */
+export function fraseParecerBaixa(data: string | null, divergente: boolean): string {
+  const quando = data ? ` em ${data}` : ''
+  return divergente
+    ? ` A financeira informou a baixa do gravame${quando}, mas o cadastro ainda lista alienação fiduciária: peça o documento de quitação.`
+    : ` A financeira informou a baixa do gravame${quando}: peça o documento de quitação.`
+}
+
 /** Veredito do revisor (Haiku) por chave normalizada. */
 export type VereditosRevisor = Record<string, { classe: 'nega' | 'restricao'; motivo?: string }>
 
@@ -97,6 +143,8 @@ export interface RestricoesDetranTela {
   semRestricao: boolean
   /** Itens que ainda precisam do revisor (pro servidor). */
   pendentesRevisor: RestricaoClassificada[]
+  /** Registros de BAIXA do gravame (quitacao informada): nao sao restricao. */
+  baixas: { texto: string; data: string | null }[]
 }
 
 /** Classifica a lista inteira, aplicando os vereditos do revisor ja conhecidos. */
@@ -104,8 +152,11 @@ export function restricoesDetranParaTela(lista: RestricaoDetran[] | null | undef
   const reais: RestricaoClassificada[] = []
   const informativas: RestricaoClassificada[] = []
   const pendentes: RestricaoClassificada[] = []
+  const baixas: { texto: string; data: string | null }[] = []
   let negas = 0
   for (const r of Array.isArray(lista) ? lista : []) {
+    // Baixa do gravame antes de tudo: o texto tem "alienação" e cairia em restricao.
+    if (ehBaixaDeGravame(r)) { baixas.push({ texto: String(r?.texto || '').trim(), data: dataDaBaixa(r?.texto) }); continue }
     const c = classificarRestricaoDetran(r)
     if (c.classe === 'duvida') {
       const v = vereditos[c.chave]
@@ -115,5 +166,5 @@ export function restricoesDetranParaTela(lista: RestricaoDetran[] | null | undef
     } else if (c.classe === 'restricao') reais.push(c)
     else negas++
   }
-  return { reais, informativas, semRestricao: negas > 0 && !reais.length && !informativas.length, pendentesRevisor: pendentes }
+  return { reais, informativas, semRestricao: (negas > 0 || baixas.length > 0) && !reais.length && !informativas.length, pendentesRevisor: pendentes, baixas }
 }

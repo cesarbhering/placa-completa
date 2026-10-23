@@ -1,5 +1,4 @@
 import { scriptsDeAnalytics } from './shared/analytics-tags'
-import { PLANOS } from './shared/planos'
 import { BASE_LEILAO_TEXTO } from './shared/base-leilao'
 import { urlsDoBlog } from './data/blog-indice'
 import { IBV_SLUG_ANTIGO } from './data/ibv-posts'
@@ -107,6 +106,7 @@ export default defineNuxtConfig({
       "/",
       "/sobre",
       "/contato",
+      "/para-empresas",
       "/consulta-placa",
       "/consulta-gratis",
       "/como-consultar-placa",
@@ -122,6 +122,7 @@ export default defineNuxtConfig({
       "/o-que-e",
       "/o-que-e/renavam",
       "/o-que-e/gravame",
+      "/o-que-e/intencao-de-gravame",
       "/o-que-e/renajud",
       "/o-que-e/multas-renainf",
       // pSEO: modelo de leilao (uma pagina por modelo, ver shared/leilao-modelos.ts)
@@ -577,15 +578,9 @@ export default defineNuxtConfig({
             url: "https://placacompleta.com.br",
             applicationCategory: "UtilitiesApplication",
             operatingSystem: "Web",
-            // Oferta real (relatorio completo), nao mais "price 0" (01/out:
-            // distanciar do gratis nas superficies que Google/IA leem).
-            offers: {
-              "@type": "Offer",
-              price: (PLANOS.completa.valorCentavos / 100).toFixed(2),
-              priceCurrency: "BRL",
-              name: "Relatório completo do veículo",
-              url: "https://placacompleta.com.br/#preco",
-            },
+            // Sem offers aqui (21/out/2026): Offer solto, sem Product pai, fazia o
+            // Ahrefs ler a pagina como produto incompleto. A oferta sai dentro do
+            // Product da consulta (shared/jsonld-produto.ts, via app.vue).
           }),
         },
       ],
@@ -673,6 +668,13 @@ export default defineNuxtConfig({
     // pro bundle do browser. Sem ela, o endpoint do app responde 503 e a web
     // (Pix) segue intacta.
     googlePlayServiceAccount: process.env.NUXT_GOOGLE_PLAY_SERVICE_ACCOUNT || "",
+    // Base parceira de leiloes e sinistros (20/out/2026): server/utils/parceiro-leilao.ts.
+    // Desligada por padrao. Private: nunca vai pro bundle do browser.
+    avaliserviceLigado: process.env.NUXT_AVALISERVICE_LIGADO || "",
+    avaliserviceUser: process.env.NUXT_AVALISERVICE_USER || "",
+    avaliservicePass: process.env.NUXT_AVALISERVICE_PASS || "",
+    avaliserviceTetoDia: process.env.NUXT_AVALISERVICE_TETO_DIA || "40",
+    avaliserviceUrl: process.env.NUXT_AVALISERVICE_URL || "",
     // RTDN (notificacoes da Play via push do Pub/Sub, 18/out/2026): audiencia
     // do token OIDC da assinatura push e o e-mail da conta de servico dela.
     // Sem audiencia, /api/premium/google-play/rtdn responde 503.

@@ -1,3 +1,4 @@
+import { pedidoQueFicou } from '../../utils/compra-repetida'
 import { sanearRenajud } from '../../utils/renajud-detalhe'
 import { restricoesDetranParaTela, type VereditosRevisor } from '../../../shared/restricao-detran-classe'
 import { revisarRestricoesDetran } from '../../utils/revisor-restricao-detran'
@@ -111,10 +112,15 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro,forma_pagamento,recall_sinal,recall_marca')
+    .select('id,status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro,forma_pagamento,recall_sinal,recall_marca,ambiente,ip_address,dispositivo,sistema,canal,obref')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Relatorio nao encontrado' })
+
+  // Pedido duplicado reembolsado (mesma pessoa pagou duas vezes): o link dele
+  // abre o relatorio da compra que ficou. A pagina faz o 302 (server/utils/compra-repetida.ts).
+  const queFicou = pedido.status === 'reembolsado' ? await pedidoQueFicou(supabase, pedido) : null
+  if (queFicou) return { status: 'reembolsado', redirecionarPara: queFicou.token_entrega }
 
   // pedido ainda nao pago: devolve o copia-e-cola pra retomar o pagamento
   // (o "Concluir" do historico local cai aqui). Nao roda consulta nenhuma.
@@ -228,6 +234,7 @@ export default defineEventHandler(async (event) => {
           consulta_id: pedido.consulta_id,
           preview: pedido.preview,
           campos: pendentes,
+          pedidoId: pedido.id,
         })
         if (preenchido.chassiOrigem !== undefined) chassiOrigem = preenchido.chassiOrigem
         if (preenchido.valorCusto !== undefined) valorCusto = preenchido.valorCusto
@@ -280,7 +287,7 @@ export default defineEventHandler(async (event) => {
       } else {
         const snapshot = await montarRelatorioSnapshot(supabase, {
           placa: pedido.placa, plano, consulta_id: pedido.consulta_id, preview: pedido.preview,
-          token: String(token),
+          token: String(token), id: pedido.id,
         })
         consulta = snapshot.consulta
         restantes = snapshot.camposRestantes

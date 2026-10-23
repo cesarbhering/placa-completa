@@ -1,5 +1,7 @@
 import { BASE_LEILAO_TEXTO } from '../shared/base-leilao'
 import { postEconomicos } from './blog-post-economicos'
+import { postPacoteEmpresas } from './blog-post-empresas'
+import { postRecallVwFreio, postRecallVolvoEx30, postRecallExterior } from './blog-posts-recall'
 
 // Posts do /blog. Mais recente primeiro. Regras de copy: sem travessao, sem
 // citar a fonte de dados do registro, sem numeros de venda/receita.
@@ -30,6 +32,10 @@ export interface BlogPost {
 }
 
 export const blogPosts: BlogPost[] = [
+  postPacoteEmpresas,
+  postRecallExterior,
+  postRecallVwFreio,
+  postRecallVolvoEx30,
   postEconomicos,
   {
     slug: 'claude-for-startups',

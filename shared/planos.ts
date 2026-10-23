@@ -1,4 +1,4 @@
-import { BASE_LEILAO_TEXTO } from './base-leilao'
+import { BASE_LEILAO_TEXTO, BASE_LEILAO_DUAS_BASES } from './base-leilao'
 import { ehItemDeRestricao } from './restricoes'
 // ============================================================
 // Escada de planos da consulta veicular.
@@ -29,9 +29,9 @@ export interface Plano {
    */
   destaque?: string
   /**
-   * Preco antigo, mostrado riscado ("de R$ 44,90 por R$ 39,90"), alinhado aos
-   * anuncios "Promo" do Google. So vale se for MAIOR que o valorCentavos; o
-   * cobrado e sempre o valorCentavos. Pra encerrar a promocao, apague o campo.
+   * Preco antigo, mostrado riscado ("de X por Y"), quando houver promocao.
+   * So vale se for MAIOR que o valorCentavos; o cobrado e sempre o
+   * valorCentavos. Sem o campo, nao ha promocao (hoje nenhum plano tem).
    */
   precoDeCentavos?: number
 }
@@ -47,15 +47,15 @@ export const PLANOS: Record<PlanoId, Plano> = {
     id: 'basica',
     nome: 'Consulta básica',
     chamada: 'A ficha técnica completa, além do que a grátis mostra.',
-    valorCentavos: 2500,
+    valorCentavos: 2990,
   },
   completa: {
     id: 'completa',
     nome: 'Relatório completo',
     chamada: 'Tudo da básica, mais o que decide a compra.',
-    valorCentavos: 3990,
-    // Era R$ 44,90 ate 30/08/2026 (decisao do Cesar, 09/out: mostrar riscado).
-    precoDeCentavos: 4490,
+    // Precos de 20/out/2026 (decisao do Cesar): basica 29,90 e completa 44,90,
+    // sem promocao (o "de 44,90 por 39,90" acabou).
+    valorCentavos: 4490,
     destaque: 'Mais escolhido',
   },
 }
@@ -154,11 +154,14 @@ export const RECURSOS: Recurso[] = [
   // pode ser casada por numero de motor, que nenhuma fonte nossa expoe, entao
   // prometer "2 milhoes consultaveis" seria promessa maior que a entrega.
   // Numero em shared/base-leilao.ts (registros, nao veiculos).
+  // Desde 20/out/2026: a nossa base e a base parceira premium (que tambem da o
+  // indicio de sinistro). Nunca o nome da fonte parceira.
   {
     label: 'Histórico de leilão',
-    detalhe: `cruzado com ${BASE_LEILAO_TEXTO}`,
+    detalhe: BASE_LEILAO_DUAS_BASES,
     planos: ['completa'],
   },
+  { label: 'Indício de sinistro', detalhe: 'consulta em base parceira premium', planos: ['completa'] },
   { label: 'Gravame e alienação',                   planos: ['completa'] },
   { label: 'RENAJUD e restrições judiciais',        planos: ['completa'] },
   { label: 'Indicador de multas (RENAINF)',         planos: ['completa'] },
@@ -211,7 +214,7 @@ export function isPlanoPago(v: unknown): v is 'basica' | 'completa' {
   return v === 'basica' || v === 'completa'
 }
 
-/** "R$ 25,00" / "R$ 39,90" — sem os centavos quando forem zero. */
+/** "R$ 29,90" / "R$ 44,90"; sem os centavos quando forem zero. */
 export function precoBRL(centavos: number): string {
   const semCentavos = centavos % 100 === 0
   return (centavos / 100).toLocaleString('pt-BR', {

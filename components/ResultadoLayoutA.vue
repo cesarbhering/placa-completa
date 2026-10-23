@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
+import { BASE_LEILAO_TEXTO, BASE_LEILAO_DUAS_BASES } from '~/shared/base-leilao'
 // Variante A do teste A/B: novo layout de pagina inteira do resultado da
 // consulta gratis. B = a pagina de hoje (fica no index.vue). Aqui so o A.
 //
@@ -228,7 +228,7 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
             <span class="la-bloqueado"><i /><span class="la-lock" v-html="LockIcon" /></span>
           </div>
         </div>
-        <p>O histórico de leilão cruza placa e chassi com {{ BASE_LEILAO_TEXTO }}, inclusive leilões que não constam no documento.</p>
+        <p>O histórico de leilão cruza a placa com {{ BASE_LEILAO_DUAS_BASES }}, inclusive leilões que não constam no documento.</p>
       </section>
 
       <!-- FAQ -->

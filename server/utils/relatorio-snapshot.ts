@@ -1,3 +1,4 @@
+import { complementarLeilaoParceiro, cfgParceiro } from './parceiro-leilao'
 import { filtrarPorPlano, camposRestantes } from '../../shared/planos'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { candidatoEManual, candidatoEAutomatico } from './fipe-candidato'
@@ -85,6 +86,8 @@ export async function montarRelatorioSnapshot(
     placa: string; plano: string; consulta_id: string | null; preview?: any
     /** Token do pedido: so vai pro alerta de falha do juiz FIPE. */
     token?: string | null
+    /** Id do pedido: liga a consulta a base parceira de leilao (custo, auditoria, idempotencia). */
+    id?: string | null
     /** Camada 2: cambio vindo do recall, pra a FIPE desempatar versao no re-fill. */
     transmissaoHint?: 'manual' | 'automatico' | null
     /** Ja buscado na entrega: o snapshot so guarda o que veio. */
@@ -201,6 +204,14 @@ export async function montarRelatorioSnapshot(
       cor: senatranBruto?.descricaoCor ?? null,
       uf: senatranBruto?.ufJurisdicao ?? local.uf ?? null,
     }, { cache: true }).catch(() => null)   // Relatorio 2.0: cache 30 d por placa+chassi
+    // Base parceira de leiloes e sinistros (20/out/2026): so quando a nossa
+    // base veio vazia. Fail-open; regra e protecoes em server/utils/parceiro-leilao.ts.
+    historicoLeilao = await complementarLeilaoParceiro(
+      { id: pedido.id ?? null, placa: pedido.placa, plano: pedido.plano },
+      historicoLeilao,
+      { chassi: senatranBruto?.chassi ?? null },
+      { sb: supabase, cfg: cfgParceiro(useRuntimeConfig()) },
+    )
   }
 
   const recallEua = await recallEuaP
@@ -273,5 +284,6 @@ export function refinoConfiavelEConsistente(
     && (fc.candidatos?.length || 0) > 0
   if (!confiante) return false
   const modelo = String(novo?.fipeModelo || '')
+  if (!modelo) return false
   return hint === 'manual' ? candidatoEManual(modelo) : candidatoEAutomatico(modelo)
 }

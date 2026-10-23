@@ -1,3 +1,4 @@
+import { FONTE_PARCEIRA, ROTULO_PARCEIRA } from './fonte-parceira'
 // O que o card de leilao do relatorio pago MOSTRA de cada passagem.
 //
 // Decisao do Cesar (01/out): por enquanto NENHUM valor em R$ (venda, lance,
@@ -181,6 +182,8 @@ const titulo = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase
  */
 export function fonteExibicaoLeilao(p: { fonte?: string | null; fonte_tipo?: string | null; fonte_exibicao?: string | null }): string {
   const chave = String(p.fonte || '').trim().toLowerCase().replace(/[\s-]+/g, '_')
+  // Base parceira: rotulo unico, nunca o nome do fornecedor (shared/fonte-parceira.ts).
+  if (chave === FONTE_PARCEIRA || p.fonte_tipo === FONTE_PARCEIRA) return ROTULO_PARCEIRA
   if (p.fonte_tipo === 'detran') {
     if (p.fonte_exibicao) return String(p.fonte_exibicao)
     return chave.split('_').filter(Boolean).map((x) => (x.length === 2 ? x.toUpperCase() : titulo(x))).join(' ')
@@ -252,3 +255,41 @@ export function paginaPublicaLeilao(bruto: unknown, hosts: string[] = HOSTS_PAGI
 }
 
 export const AVISO_PAGINA_PUBLICA = 'O edital deste leilão judicial traz dados pessoais das partes, por isso fica disponível só no site da leiloeira.'
+
+/**
+ * Tipo curto do comitente e a leitura em poucas palavras, para o chip do card
+ * de passagem (ficha em linhas, Cesar 21/out/2026). Sai da mesma regra de
+ * fraseComitente. null quando nao da pra dizer.
+ */
+export function tipoComitente(bruto: unknown): { tipo: string; leitura: string } | null {
+  const f = fraseComitente(bruto)
+  if (!f) return null
+  const [antes, depois = ''] = f.split(': ')
+  const tipo = antes === 'Banco ou financeira' ? 'Banco' : antes === 'Órgão público' ? 'Órgão' : antes
+  const leitura = depois.replace(/\.$/, '').replace(/^costuma ser (carro )?/, '').replace(/^leilão judicial, /, '')
+  return { tipo, leitura }
+}
+
+/** Nota curta do nivel na linha "Nivel" do card. */
+export const NOTA_NIVEL: Record<string, string> = {
+  confirmado: 'placa ou chassi iguais',
+  provavel: 'identificador parcial',
+  possivel: 'pode ser outro veículo',
+}
+
+/**
+ * A fonte classificou o estado do veiculo? (Cesar, 21/out/2026: a linha
+ * "Gravidade" da ficha so aparece com monta ou condicao de fato; "Sinistro
+ * (monta não informada)" e "Condição não informada" ficam fora, o sinistro sem
+ * monta ja aparece no indicador e no parecer.)
+ */
+export function gravidadeInformada(g: { nivel?: string | null; rotulo?: string | null } | null | undefined): boolean {
+  if (!g || !g.rotulo) return false
+  if (String(g.nivel || '').toLowerCase() === 'desconhecido') return false
+  return !/n[aã]o informad/i.test(String(g.rotulo))
+}
+
+/** Rotulo cabe numa pilula (ate ~14 caracteres)? Acima disso vira texto colorido (Cesar, 21/out/2026). */
+export function cabeEmPilula(texto: unknown, max = 14): boolean {
+  return String(texto ?? '').trim().length <= max
+}

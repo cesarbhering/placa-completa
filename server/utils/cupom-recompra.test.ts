@@ -18,13 +18,13 @@ describe('cupom de recompra', () => {
     const c = gerarCodigoRecompra()
     expect(c).toMatch(/^CARRO[A-HJ-NP-Z2-9]{5}$/)
   })
-  it('gera 20%, 7 dias da entrega, uso livre, nunca gratis, ligado ao pedido', async () => {
+  it('gera 10%, 7 dias da entrega, uso livre, nunca gratis, ligado ao pedido', async () => {
     const sb = fakeSb()
     const ent = new Date('2026-10-05T12:00:00Z')
     const c = await gerarCupomRecompra(sb, { id: 'ped1', valor_centavos: 3990 }, ent)
     expect(c?.validoAte).toBe(new Date(ent.getTime() + VALIDADE_RECOMPRA_MS).toISOString())
     expect(sb.inserts[0]).toMatchObject({
-      tipo: 'percentual', valor: 20, planos: ['basica', 'completa'], ativo: true,
+      tipo: 'percentual', valor: 10, planos: ['basica', 'completa'], ativo: true,
       limite_uso_global: null, limite_uso_por_cliente: null, permite_gratis: false,
       origem: 'recompra', pedido_origem_id: 'ped1', valido_de: ent.toISOString(),
     })
@@ -37,6 +37,37 @@ describe('cupom de recompra', () => {
   it('valor zero e app (Google Play) nao geram', async () => {
     expect(await gerarCupomRecompra(fakeSb(), { id: 'p', valor_centavos: 0 })).toBeNull()
     expect(await gerarCupomRecompra(fakeSb(), { id: 'p', valor_centavos: 3990, google_play_order_id: 'GPA.1' })).toBeNull()
+  })
+  it('pedido pago com cupom nao gera cupom de recompra (Cesar, 20/out/2026)', async () => {
+    // Por tabela: cupons_premium (recompra ja emitido?) e cupons_premium_usos (o pedido usou cupom?).
+    const sbTab = (usos: any, erroUso: any = null) => {
+      const inserts: any[] = []
+      return {
+        inserts,
+        from: (t: string) => ({
+          select: () => ({ eq: () => ({ maybeSingle: async () => (t === 'cupons_premium_usos' ? { data: usos, error: erroUso } : { data: null, error: null }) }) }),
+          insert: async (row: any) => { inserts.push(row); return { error: null } },
+        }),
+      }
+    }
+    // cupom de recompra aplicado (cupom_origem)
+    const a = sbTab(null)
+    expect(await gerarCupomRecompra(a, { id: 'p', valor_centavos: 4041, cupom_origem: 'cupom_recompra' })).toBeNull()
+    expect(a.inserts).toHaveLength(0)
+    // qualquer outro cupom (recuperacao de Pix, cortesia): linha de uso do pedido
+    const b = sbTab({ id: 'uso1' })
+    expect(await gerarCupomRecompra(b, { id: 'p', valor_centavos: 4041 })).toBeNull()
+    expect(b.inserts).toHaveLength(0)
+    // sem conseguir conferir o uso: nao gera
+    expect(await gerarCupomRecompra(sbTab(null, { message: 'fora' }), { id: 'p', valor_centavos: 4490 })).toBeNull()
+    // sem cupom: gera
+    const c = sbTab(null)
+    expect(await gerarCupomRecompra(c, { id: 'p', valor_centavos: 4490 })).not.toBeNull()
+    expect(c.inserts).toHaveLength(1)
+  })
+  it('cupom de recompra ja emitido nao muda, mesmo que o pedido tenha usado cupom', async () => {
+    const sb = fakeSb({ codigo: 'CARROABCDE', valido_ate: '2026-10-12T12:00:00Z', valor: 20 })
+    expect(await gerarCupomRecompra(sb, { id: 'ped1', valor_centavos: 3192, cupom_origem: 'cupom_recompra' })).toEqual({ codigo: 'CARROABCDE', validoAte: '2026-10-12T12:00:00Z', pct: 20 })
   })
   it('20% respeita o piso: nunca zera o preco', () => {
     const r = aplicarCupom('completa', { tipo: 'percentual', valor: 20, planos: ['basica', 'completa'], permiteGratis: false })
@@ -51,7 +82,7 @@ describe('cupom de recompra', () => {
   })
   it('texto da faixa e do e-mail', () => {
     const t = textoCupomRecompra({ codigo: 'CARROABCDE', validoAte: '2026-10-12T14:00:00Z' })
-    expect(t).toBe('Use CARROABCDE e ganhe 20% na próxima consulta. Pode compartilhar com quem também está comprando carro. Válido até 12/10.')
+    expect(t).toBe('Use CARROABCDE e ganhe 10% na próxima consulta. Pode compartilhar com quem também está comprando carro. Válido até 12/10.')
     expect(t).not.toContain('—')
   })
 })
