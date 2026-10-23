@@ -9,6 +9,18 @@ export interface PerguntaLeilao {
 
 export const PERGUNTAS_LEILAO: PerguntaLeilao[] = [
   {
+    pergunta: 'Vale a pena comprar carro de leilão?',
+    resposta: 'Pode valer, quando o desconto compensa o risco e os custos extras. Vale mais para quem sabe a origem do leilão, confere a documentação e consegue inspecionar o carro. Vale menos para quem compra pelo preço sem conferir nada, porque o desconto pode sumir em reparos, taxas e regularização.',
+  },
+  {
+    pergunta: 'Como comprar carro de leilão?',
+    resposta: 'Escolha um leiloeiro de confiança, leia o edital e as condições do lote, confira a placa antes de dar o lance, inspecione o carro quando o leilão permitir, some comissão, taxas e custos de regularização ao valor do lance e só então participe. Depois da arrematação, siga o prazo do edital para pagar e retirar o veículo.',
+  },
+  {
+    pergunta: 'O que conferir antes de comprar carro de leilão?',
+    resposta: 'Confira o tipo de leilão e a classificação do veículo, a situação de documentos e pendências no cadastro, se consta restrição, gravame, indicador de roubo e furto, as condições do edital, os custos extras e o estado real do carro numa inspeção. A consulta pela placa ajuda a ver o que consta antes do lance.',
+  },
+  {
     pergunta: 'Carro de leilão é ruim?',
     resposta: 'Não necessariamente. Depende do tipo de leilão. Um carro recuperado de financiamento ou de disputa judicial pode estar em ótimo estado. Já um carro de sucata ou recuperável exige mais cuidado e inspeção técnica antes de comprar.',
   },

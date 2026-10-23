@@ -9,12 +9,13 @@ const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currenc
 </script>
 
 <template>
-  <div class="dq" :class="{ 'dq--ok': !props.resumo.totalCentavos && !props.resumo.travas.length }">
+  <div class="dq" :class="{ 'dq--ok': !props.resumo.totalCentavos && !props.resumo.travas.length && !props.resumo.avisoDebitos, 'dq--neutro': !props.resumo.totalCentavos && !props.resumo.travas.length && !!props.resumo.avisoDebitos }">
     <p v-if="props.resumo.totalCentavos" class="dq__tit">
       <span>Para transferir este veículo, falta quitar</span>
       <b class="dq__total">{{ reais(props.resumo.totalCentavos) }}</b>
     </p>
     <p v-else-if="props.resumo.nadaAQuitar" class="dq__tit dq__tit--nada">{{ props.resumo.nadaAQuitar }}</p>
+    <p v-else-if="props.resumo.avisoDebitos" class="dq__aviso">{{ props.resumo.avisoDebitos }}</p>
     <p v-else class="dq__tit"><span>Para transferir este veículo, falta quitar</span></p>
 
     <ul v-if="props.resumo.linhas.length || props.resumo.ipvaSemValor" class="dq__linhas">
@@ -38,6 +39,8 @@ const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currenc
 <style scoped>
 .dq { border: 1px solid #f1c4c4; background: #fff7f7; border-radius: 10px; padding: 12px 14px; margin: 6px 0 12px; }
 .dq--ok { border-color: #c9e7d2; background: #f4fbf6; }
+/* RJ: debitos nao consultaveis; sem trava, o bloco fica neutro (nem verde, nem alerta). */
+.dq--neutro { border-color: #e8e8e8; background: #f7f7f7; }
 .dq__tit { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin: 0; font-size: calc(14px * var(--rel-fs, 1)); color: #1a1a1a; font-weight: 600; }
 .dq__tit--nada { color: #1d6b3a; }
 .dq__total { color: #a32020; font-size: calc(20px * var(--rel-fs, 1)); white-space: nowrap; }
@@ -48,4 +51,5 @@ const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currenc
 .dq__nota { margin: 6px 0 0; font-size: calc(12px * var(--rel-fs, 1)); color: #6b7280; }
 .dq__travas { margin: 8px 0 0; font-size: calc(13px * var(--rel-fs, 1)); color: #3d3d3d; }
 .dq__alerta { margin: 8px 0 0; font-size: calc(13px * var(--rel-fs, 1)); color: #a32020; font-weight: 600; }
+.dq__aviso { margin: 0 0 8px; font-size: 14px; line-height: 1.45; color: #636363; }
 </style>

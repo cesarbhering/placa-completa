@@ -40,6 +40,12 @@ const { itens: consultasSalvas, sync: syncHistorico } = useConsultaHistory()
 const modalConsultas = useState('pc-consultas-aberto', () => false)
 // Zero esconde o item: "Suas consultas" vazio so daria uma porta pra lugar nenhum.
 const totalConsultas = computed(() => consultasSalvas.value.length)
+// Pilula "Seus relatorios" do celular (Cesar, 23/out/2026): fora do menu, ao
+// lado do hamburguer, porque dentro da gaveta quase ninguem achava o
+// relatorio pago. Conta so o que tem relatorio (pronto ou processando);
+// Pix pendente nao entra no numero, mas o historico ainda abre por ela.
+const STATUS_COM_RELATORIO = ['entregue', 'pago', 'consultando', 'processando_play']
+const totalRelatorios = computed(() => consultasSalvas.value.filter((i) => STATUS_COM_RELATORIO.includes(i.status)).length)
 onMounted(() => syncHistorico())
 
 // Ancoras da propria home + as paginas de conteudo. Rota usa NuxtLink (SPA);
@@ -49,6 +55,9 @@ const links = [
   { href: '/blog', label: 'Blog' },
   { href: '/tabela-fipe', label: 'Tabela FIPE' },
   { href: '/estudos', label: 'Estudos' },
+  // So na gaveta (menu do celular): na barra do desktop, fora da home, a busca
+  // divide o espaco e o sexto item quebrava a linha. O rodape tambem tem o link.
+  { href: '/para-empresas', label: 'Para empresas', soGaveta: true },
   { href: '#duvidas', label: 'Dúvidas' },
 ]
 // Fora da home nenhuma dessas ancoras existe na pagina: '#duvidas' vira clique
@@ -175,7 +184,7 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
     </div>
 
     <nav class="home-header__nav" aria-label="Navegação principal">
-      <template v-for="link in links" :key="link.href">
+      <template v-for="link in links.filter((l) => !l.soGaveta)" :key="link.href">
         <a v-if="ehAncora(alvo(link.href))" :href="link.href" class="home-header__link">{{ link.label }}</a>
         <NuxtLink v-else :to="alvo(link.href)" class="home-header__link">{{ link.label }}</NuxtLink>
       </template>
@@ -188,6 +197,24 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
         Suas consultas <span class="home-header__badge">{{ totalConsultas }}</span>
       </button>
     </nav>
+
+    <!-- So abaixo de 1024px (no desktop o item "Suas consultas" da barra
+         continua). Abaixo de ~380px o rotulo encurta pra caber com o logo. -->
+    <button
+      v-if="totalConsultas > 0"
+      type="button"
+      class="home-header__pill"
+      :aria-label="`Seus relatórios${totalRelatorios ? `: ${totalRelatorios}` : ''}`"
+      @click="modalConsultas = true"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+        <path d="M14 3v5h5M9 13h6M9 17h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <span class="home-header__pill-longo">Seus relatórios</span>
+      <span class="home-header__pill-curto">Relatórios</span>
+      <span v-if="totalRelatorios" class="home-header__badge">{{ totalRelatorios }}</span>
+    </button>
 
     <button
       type="button"

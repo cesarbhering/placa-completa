@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { explicaRestricao, EXPLICA_RESTRICAO_GENERICA, itemInformativo, itensQueRestringem, filtrarItensRestricao, chavesSemCopy, ROTULO_RESTRICAO, EXPLICA_RESTRICAO } from './restricoes'
+import { explicaRestricao, EXPLICA_RESTRICAO_GENERICA, itemInformativo, itemAnotacao, itensQueRestringem, filtrarItensRestricao, chavesSemCopy, ROTULO_RESTRICAO, EXPLICA_RESTRICAO } from './restricoes'
 
 // Codigos vistos em relatorios entregues sem copy propria (levantamento de 14/out).
 const COM_COPY: Record<string, string> = {
@@ -13,10 +13,13 @@ const COM_COPY: Record<string, string> = {
 }
 const INFORMATIVOS: Record<string, string> = {
   PRINCIPAL_CONDUTOR: 'Principal condutor',
+  PLACA_SEGURANCA: 'Placa de segurança',
+}
+// 21/out: alteracao de caracteristica virou ANOTACAO no cadastro (bloco proprio).
+const ANOTACOES_14OUT: Record<string, string> = {
   SISTEMA_GNV: 'Sistema de GNV instalado',
   TANQUE_SUPLEMENTAR: 'Tanque suplementar',
   CHASSI_ALONGADO: 'Chassi alongado',
-  PLACA_SEGURANCA: 'Placa de segurança',
 }
 const SUFIXO_FILE = ['ALIENACAO_FIDUCIARIA_FILE_VEICULOS', 'RESTRICAO_ADMINISTRATIVA_FILE_VEICULOS', 'RESTRICAO_JUDICIAL_FILE_VEICULOS', 'RESTRICAO_BENEFICIO_TRIBUTARIO_FILE_VEICULOS']
 const chave = (c: string) => c.toUpperCase().replace(/[\s-]+/g, '_')
@@ -41,6 +44,13 @@ describe('restricoes: todos os codigos levantados em 14/out tem copy', () => {
     it(`${cod}: informativo (nao restringe)`, () => {
       expect(itemInformativo(cod)?.titulo).toBe(titulo)
       expect(itemInformativo(cod)!.texto).not.toContain('—')
+      expect(itensQueRestringem([cod])).toEqual([])
+    })
+  }
+  for (const [cod, titulo] of Object.entries(ANOTACOES_14OUT)) {
+    it(`${cod}: anotacao no cadastro (nao restringe)`, () => {
+      expect(itemAnotacao(cod)?.titulo).toBe(titulo)
+      expect(itemInformativo(cod)).toBeNull()
       expect(itensQueRestringem([cod])).toEqual([])
     })
   }

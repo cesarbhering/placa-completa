@@ -39,8 +39,9 @@ describe('relatorio usa os itens que restringem nas contas', () => {
 
 describe('15/out: blindado, recall e beneficio tributario fora do texto generico', () => {
   it('textos proprios, sem travessao e sem afirmar bloqueio', async () => {
-    const { itemInformativo, explicaRestricao, EXPLICA_RESTRICAO_GENERICA, itensQueRestringem } = await import('./restricoes')
-    const b = itemInformativo('BLINDADO')!
+    const { itemInformativo, itemAnotacao, explicaRestricao, EXPLICA_RESTRICAO_GENERICA, itensQueRestringem } = await import('./restricoes')
+    // 21/out: blindado e anotacao no cadastro (bloco proprio), com o mesmo texto.
+    const b = itemAnotacao('BLINDADO')!
     expect(b.titulo).toBe('Veículo blindado')
     expect(b.texto).toMatch(/não é bloqueio por dívida nem por ordem da Justiça/)
     expect(b.texto).toMatch(/Declaração de Blindagem/)

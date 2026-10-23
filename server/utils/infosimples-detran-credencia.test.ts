@@ -35,6 +35,7 @@ const sujo = {
 
 const BRUTOS: Record<string, any> = {
   SP: { debitos_multas: [{ ...sujo }], multas_total: '293.47' },
+  RJ: { existe_restricao: true, restricoes: ['EXISTE INTENCAO/COMUNICACAO DE VENDA'], placa: 'ABC1D23', chassi: 'X', site_receipt: 'https://x' },
   SC: { ...SC, multas: [{ ...sujo, num_auto: 'X1', valor_multa: 'R$ 293,47' }], historico_infracoes_notificadas: [{ status: 'Paga' }] },
   MG: { ...MG, multas: [{ ...sujo }] },
   BA: { ...BA, infracoes: [{ ...sujo, numero_controle: 'C1' }], infracoes_detalhes: [{ ...sujo, codigo_controle: 'C1' }] },

@@ -46,6 +46,10 @@ const chartUrl = `https://quickchart.io/chart?w=640&h=320&bkg=white&c=${encodeUR
 
 const faqs = [
   {
+    q: 'Como fazer a consulta placa FIPE?',
+    a: 'Digite a placa do veículo no campo da página e veja o valor FIPE do mês, com marca, modelo, ano e código FIPE. A consulta FIPE pela placa identifica a versão certa do veículo, o que evita escolher o modelo errado na tabela tradicional.',
+  },
+  {
     q: 'A consulta da Tabela FIPE pela placa é grátis?',
     a: 'Sim. No PlacaCompleta, você consulta o valor FIPE de qualquer veículo pela placa sem pagar nada. Basta informar a placa e um e-mail válido, e o resultado chega em segundos com marca, modelo, ano e o preço FIPE atualizado do mês de referência.',
   },
@@ -96,12 +100,12 @@ const faqs = [
 ]
 
 useHead({
-  title: escolherTitulo([`Tabela FIPE pela Placa ${currentYear}: Valor FIPE Atualizado em Segundos`, `Tabela FIPE pela Placa ${currentYear}: Valor FIPE Atualizado`]),
+  title: escolherTitulo([`Tabela FIPE pela Placa ${currentYear}: Consulta Placa FIPE Hoje`, `Tabela FIPE pela Placa: Consulta Placa FIPE Hoje`, `Fipe pela Placa ${currentYear}: Consulta Placa FIPE Atualizada`]),
   titleTemplate: '%s',
   meta: [
     { name: 'description', content: descricaoTabelaFipePorPlaca(currentMonth, currentYear) },
-    { name: 'keywords', content: 'tabela FIPE por placa, valor FIPE pela placa, consultar FIPE pela placa, preço veículo por placa, fipe pela placa, tabela fipe pela placa, codigo fipe placa' },
-    { property: 'og:title', content: 'Tabela FIPE pela Placa: o valor do veículo' },
+    { name: 'keywords', content: 'fipe pela placa, consulta placa fipe, consulta fipe pela placa, tabela fipe consulta placa, tabela FIPE por placa, valor FIPE pela placa, consultar FIPE pela placa, preço veículo por placa, fipe pela placa, tabela fipe pela placa, codigo fipe placa' },
+    { property: 'og:title', content: 'Fipe pela placa: consulta placa FIPE e valor do veículo' },
     { property: 'og:description', content: 'Descubra o valor FIPE de qualquer veículo pela placa, com marca, modelo, ano e preço na tela.' },
   ],
   link: [
@@ -180,13 +184,14 @@ useHead({
 <template>
   <div class="pc-page">
     <main class="pc-container">
-      <h1 class="pc-h1">Tabela FIPE pela Placa</h1>
+      <h1 class="pc-h1">Tabela FIPE pela Placa: consulta placa FIPE</h1>
 
       <div class="pc-prose">
         <p class="pc-lead">
-              Você digita a placa e vê aqui mesmo o <strong>valor FIPE atualizado</strong> do
-              veículo em {{ currentMonth }} de {{ currentYear }}, junto com marca, modelo e ano.
-              Sem cadastro, em segundos.
+              Na consulta placa FIPE, você digita a placa e vê aqui mesmo o <strong>valor FIPE
+              atualizado</strong> do veículo em {{ currentMonth }} de {{ currentYear }}, junto com
+              marca, modelo e ano. É a forma mais direta de fazer a FIPE pela placa, sem escolher
+              versão na mão.
             </p>
 
             <FipePorPlaca />

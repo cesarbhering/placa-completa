@@ -3,7 +3,7 @@ import { DESCONTO_RECOMPRA_PCT } from '../../shared/cupom-recompra-texto'
 export { textoCupomRecompra, dataCurtaBr, DESCONTO_RECOMPRA_PCT } from '../../shared/cupom-recompra-texto'
 
 // Cupom de recompra (decisao do Cesar, 05/out): toda compra paga a partir do
-// deploy gera um codigo de 20% valido 7 dias desde a entrega, sem limite de
+// deploy gera um codigo de DESCONTO_RECOMPRA_PCT% (10% desde 20/out/2026) valido 7 dias desde a entrega, sem limite de
 // uso, pra qualquer pessoa (compartilhar e bom pra nos). Vive em
 // cupons_premium (origem 'recompra', pedido_origem_id = quem gerou), entao a
 // validacao e o calculo sao os de sempre (server/utils/cupons.ts): valor no
@@ -19,22 +19,30 @@ export function gerarCodigoRecompra(rnd: (n: number) => number = randomInt): str
   return s
 }
 
-export interface CupomRecompra { codigo: string; validoAte: string }
+export interface CupomRecompra { codigo: string; validoAte: string; /** Percentual gravado no cupom (20 nos antigos, 10 nos novos). */ pct?: number | null }
 
 /**
- * Gera (ou devolve o ja gerado) o cupom do pedido. Pedido de valor zero ou do
- * app (Google Play) nao gera. Nunca lanca: falha so deixa o pedido sem cupom.
+ * Gera (ou devolve o ja gerado) o cupom do pedido. Nao gera para pedido de
+ * valor zero, do app (Google Play) nem pago COM cupom (qualquer cupom:
+ * recompra, recuperacao de Pix, cortesia; regra do Cesar, 20/out/2026). Cupom
+ * ja emitido nao muda. Nunca lanca: falha so deixa o pedido sem cupom.
  */
 export async function gerarCupomRecompra(
   supabase: any,
-  pedido: { id: string; valor_centavos?: number | null; google_play_order_id?: string | null; pix_provider?: string | null },
+  pedido: { id: string; valor_centavos?: number | null; google_play_order_id?: string | null; pix_provider?: string | null; cupom_origem?: string | null },
   entregueEm: Date = new Date(),
 ): Promise<CupomRecompra | null> {
   try {
     if (!(Number(pedido.valor_centavos) > 0)) return null
     if (pedido.google_play_order_id || pedido.pix_provider === 'google_play') return null
-    const { data: existente } = await supabase.from('cupons_premium').select('codigo, valido_ate').eq('pedido_origem_id', pedido.id).maybeSingle()
-    if (existente?.codigo) return { codigo: existente.codigo, validoAte: existente.valido_ate }
+    const { data: existente } = await supabase.from('cupons_premium').select('codigo, valido_ate, valor').eq('pedido_origem_id', pedido.id).maybeSingle()
+    if (existente?.codigo) return { codigo: existente.codigo, validoAte: existente.valido_ate, ...(Number(existente.valor) > 0 ? { pct: Number(existente.valor) } : {}) }
+    // Pago com cupom: o de recompra marca o pedido (cupom_origem); todo cupom
+    // aplicado deixa a linha de uso em cupons_premium_usos (pedido_id unique).
+    if (pedido.cupom_origem) return null
+    const { data: uso, error: erroUso } = await supabase.from('cupons_premium_usos').select('id').eq('pedido_id', pedido.id).maybeSingle()
+    // Sem conseguir conferir, nao gera (melhor um cupom a menos que um indevido).
+    if (erroUso || uso) return null
     const validoAte = new Date(entregueEm.getTime() + VALIDADE_RECOMPRA_MS).toISOString()
     for (let tentativa = 0; tentativa < 3; tentativa++) {
       const codigo = gerarCodigoRecompra()
@@ -44,7 +52,7 @@ export async function gerarCupomRecompra(
         limite_uso_global: null, limite_uso_por_cliente: null, permite_gratis: false,
         origem: 'recompra', pedido_origem_id: pedido.id,
       })
-      if (!error) return { codigo, validoAte }
+      if (!error) return { codigo, validoAte, pct: DESCONTO_RECOMPRA_PCT }
     }
     return null
   } catch {
@@ -55,9 +63,9 @@ export async function gerarCupomRecompra(
 /** Cupom ainda valido do pedido (pra faixa no relatorio). So leitura. */
 export async function cupomRecompraDoPedido(supabase: any, pedidoId: string): Promise<CupomRecompra | null> {
   try {
-    const { data } = await supabase.from('cupons_premium').select('codigo, valido_ate, ativo').eq('pedido_origem_id', pedidoId).maybeSingle()
+    const { data } = await supabase.from('cupons_premium').select('codigo, valido_ate, ativo, valor').eq('pedido_origem_id', pedidoId).maybeSingle()
     if (!data?.codigo || !data.ativo || !data.valido_ate || new Date(data.valido_ate).getTime() < Date.now()) return null
-    return { codigo: data.codigo, validoAte: data.valido_ate }
+    return { codigo: data.codigo, validoAte: data.valido_ate, ...(Number(data.valor) > 0 ? { pct: Number(data.valor) } : {}) }
   } catch {
     return null
   }

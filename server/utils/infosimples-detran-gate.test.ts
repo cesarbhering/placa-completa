@@ -27,9 +27,9 @@ describe('gate de chamada por UF', () => {
     return fetchSpy
   }
 
-  it('mapa: todas as UFs (20) com gate sempre; sem RENAINF todas passam no gate', () => {
+  it('mapa: todas as UFs (21, com o RJ so de restricoes) com gate sempre; sem RENAINF todas passam no gate', () => {
     const ufs = Object.keys(DETRAN_UFS)
-    expect(ufs).toHaveLength(20)
+    expect(ufs).toHaveLength(21)
     for (const uf of ufs) {
       expect((DETRAN_UFS as any)[uf].gate).toBe('sempre')
       expect(passaNoGateDetran((DETRAN_UFS as any)[uf].gate, [{ ufJurisdicao: uf, renavam: '1', indicadorMultaRenainf: false }])).toBe(true)

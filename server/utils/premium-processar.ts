@@ -5,6 +5,7 @@ import { gerarCupomRecompra } from './cupom-recompra'
 import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas-recall'
 import { emVoo } from './tarefas-em-voo'
 import { criarJobsDaEntrega } from './premium-jobs'
+import { completarFotosNaGeracao } from './fotos-na-geracao'
 // Processa um pedido PAGO: dispara a consulta SENATRAN uma vez, entrega ou
 // reembolsa. Usado pelo WEBHOOK e pelo POLLING de status (o que chegar primeiro).
 // Trava atomica via update condicional (status aguardando/pago -> consultando):
@@ -276,11 +277,19 @@ export async function processarPedidoPago(
         consulta_id: r.consultaId,
         preview: pedido.preview,
         token: pedido.token_entrega,
+        id: pedido.id,
       })
       await supabase
         .from('pedidos_premium')
         .update({ relatorio_snapshot: snapshot, snapshot_em: new Date().toISOString() })
         .eq('id', pedido.id)
+      // Fotos do lote na hora (Cesar, 21/out/2026): passagem da nossa base com
+      // foto na origem e sem foto no R2 pede o download a leiloes-api. A
+      // entrega (e-mail) ESPERA ate 60 s (FOTOS_GERACAO_PRAZO_MS), dentro da
+      // janela de 5 min: o relatorio ja sai com as fotos. O que nao chegar
+      // fica pro fotos-depois. Grava so na passagem; tempo vai pro debug_trace.
+      // Fail-open: nunca lanca.
+      await emVoo('fotos-na-geracao', () => completarFotosNaGeracao(supabase, { id: pedido.id, plano: pedido.plano }, snapshot))
     } catch (snapErr: any) {
       if (import.meta.dev) console.warn('[premium] snapshot falhou na entrega, fallback lazy cobre depois:', snapErr?.message || snapErr)
     }
@@ -318,7 +327,7 @@ export async function processarPedidoPago(
     // Placa e plano entram no assunto e no corpo: "seu relatorio completo da
     // placa ABC1D23 esta pronto" e reconhecivel na caixa de entrada, "sua
     // consulta esta pronta" nao.
-    // Cupom de recompra (20%, 7 dias, uso livre): gerado aqui, na entrega, pra
+    // Cupom de recompra (DESCONTO_RECOMPRA_PCT, hoje 10%; 7 dias, uso livre): gerado aqui, na entrega, pra
     // ir no e-mail e na faixa do relatorio. Fail-open: sem cupom, segue igual.
     const cupom = await gerarCupomRecompra(supabase, pedido).catch(() => null)
     const emailOk = await enviarRelatorioEmail({

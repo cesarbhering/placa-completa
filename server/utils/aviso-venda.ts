@@ -80,7 +80,7 @@ export function origemDaConsulta(row: ConsultaOrigem | null | undefined): string
 
 export function origemDoPedido(pedido: Pick<PedidoAviso, 'cupom_origem'>, consulta: ConsultaOrigem | null | undefined): string {
   const base = origemDaConsulta(consulta)
-  return pedido.cupom_origem === 'cupom_recompra' ? `${base} + cupom de recompra 20%` : base
+  return pedido.cupom_origem === 'cupom_recompra' ? `${base} + cupom de recompra` : base
 }
 
 /** "Bloco da oferta", "Barra fixa"... ou "não medido" (pedido de antes de 13/out). */

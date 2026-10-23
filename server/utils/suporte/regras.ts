@@ -57,8 +57,9 @@ export const LINKS_PERMITIDOS = {
   ibv: 'https://placacompleta.com.br/blog/tag/ibv-auto',
   fipe: 'https://placacompleta.com.br/tabela-fipe-por-placa',
   leilao: 'https://placacompleta.com.br/carro-de-leilao/como-saber',
+  empresas: 'https://placacompleta.com.br/para-empresas',
 } as const
-const CAMINHO_PERMITIDO = /^\/(premium\/[A-Za-z0-9_-]{10,}|blog(\/tag)?(\/[a-z0-9-]+)?|tabela-fipe-por-placa|carro-de-leilao\/como-saber)\/?$/
+const CAMINHO_PERMITIDO = /^\/(premium\/[A-Za-z0-9_-]{10,}|blog(\/tag)?(\/[a-z0-9-]+)?|tabela-fipe-por-placa|carro-de-leilao\/como-saber|para-empresas)\/?$/
 const URL_SITE = /(?:https?:\/\/)?(?:www\.)?placacompleta\.com\.br(\/[^\s)\]>,!?]*)?/gi
 
 /**

@@ -43,7 +43,7 @@ useHead({
   title: escolherTitulo([`Tabela FIPE ${currentMonth} ${currentYear}: Valores de Carros e Motos`, `Tabela FIPE ${currentMonth} ${currentYear}: Carros e Motos`]),
   titleTemplate: '%s',
   meta: [
-    { name: 'description', content: `Tabela FIPE atualizada em ${currentMonth} ${currentYear}. Consulte valores de carros, motos e caminhões por marca ou pela placa. Todas as marcas e modelos. Grátis.` },
+    { name: 'description', content: `Tabela FIPE atualizada em ${currentMonth} ${currentYear}. Consulte valores de carros, motos e caminhões por marca ou pela placa (fipe pela placa). Todas as marcas e modelos.` },
     { name: 'keywords', content: 'tabela fipe, valor fipe, preço fipe, tabela fipe carros, tabela fipe motos, consulta fipe por placa, consulta veicular placa, consulta de placa com leilão, valor veículo por placa' },
     { property: 'og:title', content: `Tabela FIPE ${currentMonth} ${currentYear}: Valores Atualizados` },
     { property: 'og:description', content: `Tabela FIPE atualizada em ${currentMonth} ${currentYear}. Valores de carros e motos por marca ou pela placa.` },
@@ -111,7 +111,7 @@ useHead({
         <p class="pc-lead">
           Consulte o valor na <strong>Tabela FIPE</strong> de qualquer carro ou moto.
           Selecione a marca abaixo para ver os modelos e preços atualizados. Você também pode
-          <NuxtLink to="/">consultar pela placa</NuxtLink> e receber o valor FIPE exato do
+          <NuxtLink to="/tabela-fipe-por-placa">consultar a FIPE pela placa</NuxtLink> e receber o valor FIPE exato do
           veículo no seu e-mail.
         </p>
 

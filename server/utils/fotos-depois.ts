@@ -95,7 +95,7 @@ type Mudanca = { foto_refs: FotoRef[] } | { fotos_busca: { status: FotosBuscaSta
  * jsonb_set dentro da linha travada, entao nunca pisa no que outro escritor
  * (DETRAN tardio, recallBase...) gravou no resto do snapshot. Nunca lanca.
  */
-async function gravar(supabase: any, pedidoId: string, alvo: { fonte: string; lote: string; ref?: string | null }, mudanca: Mudanca): Promise<string> {
+export async function gravarFotosPassagem(supabase: any, pedidoId: string, alvo: { fonte: string; lote: string; ref?: string | null }, mudanca: Mudanca): Promise<string> {
   try {
     const { data, error } = await supabase.rpc('fotos_passagem_gravar', {
       p_pedido: pedidoId,
@@ -216,7 +216,7 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
           }
           if (ehLoteNaoEncontrado(e)) {
             // A API nao conhece o lote: vira sem_foto, pra nao perguntar toda rodada.
-            const g = await gravar(deps.supabase, pedido.id, alvo, { fotos_busca: { status: 'sem_foto', em: new Date(agora).toISOString() } })
+            const g = await gravarFotosPassagem(deps.supabase, pedido.id, alvo, { fotos_busca: { status: 'sem_foto', em: new Date(agora).toISOString() } })
             linhaLog.push(`${fonte}:${lote}=404 lote nao encontrado${g === 'gravado' || g === 'igual' ? '' : ` (nao gravou: ${g})`}`)
             continue
           }
@@ -226,7 +226,7 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
         if (!r) { linhaLog.push(`${fonte}:${lote}=resposta invalida`); continue }
 
         if (r.status === 'ok' && r.fotos.length) {
-          const g = await gravar(deps.supabase, pedido.id, alvo, { foto_refs: r.fotos })
+          const g = await gravarFotosPassagem(deps.supabase, pedido.id, alvo, { foto_refs: r.fotos })
           if (g === 'gravado') { resumo.gravados++; niveisComFoto.push(String(p.nivel || '')) }
           linhaLog.push(`${fonte}:${lote}=ok ${r.fotos.length} foto${r.fotos.length === 1 ? '' : 's'}${g === 'gravado' ? '' : ` (nao gravou: ${g})`}`)
         } else if (r.status === 'buscando') {
@@ -236,7 +236,7 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
           // sem_foto, fonte_sem_foto ou ok sem foto: busca terminou sem foto.
           const status: FotosBuscaStatus = r.status === 'fonte_sem_foto' ? 'fonte_sem_foto' : 'sem_foto'
           if (status === 'fonte_sem_foto') fontesSemFoto.add(fonte)
-          const g = await gravar(deps.supabase, pedido.id, alvo, { fotos_busca: { status, em: new Date(agora).toISOString() } })
+          const g = await gravarFotosPassagem(deps.supabase, pedido.id, alvo, { fotos_busca: { status, em: new Date(agora).toISOString() } })
           linhaLog.push(`${fonte}:${lote}=${status}${g === 'gravado' || g === 'igual' ? '' : ` (nao gravou: ${g})`}`)
         }
       }
