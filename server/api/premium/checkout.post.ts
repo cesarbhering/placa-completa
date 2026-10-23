@@ -5,6 +5,7 @@ import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-fu
 import crypto from 'node:crypto'
 import { sanearOrigem } from '../../../shared/origem-trafego'
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
+import { respostaCompraRepetida } from '../../utils/compra-repetida'
 
 // Cria o pedido (pending) + o Pix transparente. Retorna o QR/copia-e-cola.
 // Minimo de dados: email (entrega) + telefone opcional. Gated.
@@ -55,6 +56,12 @@ export default defineEventHandler(async (event) => {
 
   const supabase = usePremiumSupabase()
   const token = crypto.randomBytes(18).toString('base64url')
+  // Mesma placa ja paga ha pouco pelo mesmo IP + aparelho: devolve o pedido
+  // em vez de cobrar de novo (server/utils/compra-repetida.ts).
+  const repetida = await respostaCompraRepetida(event, supabase, {
+    placa, plano, ip: getClientIp(event), ...getDispositivo(event), obref: sanearOrigem(body.origin).obref ?? null,
+  }, ambiente, body.forcar_nova_compra)
+  if (repetida) return repetida
   // Preco sai SO da tabela. Antes a completa vinha de PREMIUM_VALOR_CENTAVOS,
   // o que abria a porta pra cobrar um valor e mostrar outro na tela (a tela le
   // a tabela). Fonte unica evita a divergencia.
