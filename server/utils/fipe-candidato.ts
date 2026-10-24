@@ -15,9 +15,9 @@ import { alertarFalhaHaiku } from './alerta-haiku'
 
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
-import { cambioDoNome, versaoFipeManual, versaoFipeAutomatica, opcoesDeCambio } from '../../shared/cambio-nome'
+import { cambioDoNome, cambioPorSufixo, versaoFipeManual, versaoFipeAutomatica, opcoesDeCambio } from '../../shared/cambio-nome'
 import { cambioPeloChassi } from '../../shared/cambio-chassi'
-import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES, fatosPicapeGM, LEGENDA_PICAPE_GM, LEGENDA_RENAULT, faltaVersaoDoNome } from '../../shared/versao-fipe'
+import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPelaVariante, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES, fatosPicapeGM, LEGENDA_PICAPE_GM, LEGENDA_RENAULT, faltaVersaoDoNome } from '../../shared/versao-fipe'
 import { fatosToyota, LEGENDA_TOYOTA } from '../../shared/toyota-nome'
 
 export { codigoDaTabela, type TabelaFipe }
@@ -38,7 +38,9 @@ export interface FipeCandidato {
   codigoModelo?: string | null
 }
 
-export type FipeDecididoPor = 'regra' | 'haiku' | 'ambiguo' | 'fallback' | 'wdapi'
+// regra_cambio_sufixo: o funil chegou a 1 candidato porque o "A"/"M" no fim do
+// nome do cadastro disse o cambio (shared/cambio-nome.ts, cambioPorSufixo).
+export type FipeDecididoPor = 'regra' | 'regra_cambio_sufixo' | 'haiku' | 'ambiguo' | 'fallback' | 'wdapi'
 
 export interface FipeMelhorCandidatoResultado {
   escolhido: FipeCandidato | null
@@ -695,6 +697,8 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
 
   // Modelo do nome primeiro: TRACKER nao pode terminar com ONIX (TTR6F65).
   restantes = filtrarPeloModeloDoNome(restantes, fatos.descricao)
+  // Variante que e outro carro (C3 x C3 Picasso, EZJ9243).
+  restantes = filtrarPelaVariante(restantes, fatos.descricao)
 
   if (fatos.litragem.length) {
     const porLitragem = restantes.filter((c) => candidatoTemLitragem(c.modelo, fatos.litragem))
@@ -1074,7 +1078,14 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
 
     if (filtrados.length === 1) {
       const escolhido = await comCodigoModelo(filtrados[0], marca, input.fipeApiUrl, input.fipeApiToken)
-      return { escolhido, decididoPor: 'regra', candidatos: filtrados, confianca: 'alta' }
+      // Foi o "A"/"M" final que deu o cambio (o resto do nome nao dizia)? Marca
+      // a decisao pra dar pra auditar a regra nova.
+      const desc = input.senatran?.descricaoMarcaModelo
+      const peloSufixo = !!cambioPorSufixo(desc) && !cambioDoNome(desc, { semSufixo: true }) && !input.senatran?.transmissaoHint
+      return {
+        escolhido, decididoPor: peloSufixo ? 'regra_cambio_sufixo' : 'regra', candidatos: filtrados, confianca: 'alta',
+        ...(peloSufixo ? { justificativa: 'cambio pelo sufixo A/M do nome do cadastro' } : {}),
+      }
     }
 
     // Camada 2: sobraram exatamente uma versao manual e uma automatica (a

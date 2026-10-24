@@ -8,6 +8,8 @@
 //   - Hyundai: "1.6M" / "1.6A" / "1.0M" (M = manual, A = automatico)
 //   - Renault: colado no fim, "16A" / "20A" / "DYN20A" / "PR1616VA" / "4X2A"
 //     (A = automatico) e "16M" / "DYN20M" (M = manual)
+//   - letra solta no FIM, depois da versao: "C3 PICASSO EXC A", "TRACKER T A",
+//     "HB20 1.0M 1.0 M" (ver cambioPorSufixo; "CLASSE A" nao conta)
 // Cuidado: "AUTH" (Logan Authentique) NAO e automatico; so token exato conta.
 // Na Renault nem "AUT" e: "CLIO AUT 10", "LOGAN AUT 1016V" = Authentique (caso
 // OUQ8G18, 15/out; em prod toda Renault com AUT era 1.0 ou Clio 1.6, e a
@@ -63,13 +65,38 @@ function deUmToken(t: string, marca: string): Cambio | null {
   return null
 }
 
+// Antes do sufixo, palavras que fazem a letra ser NOME do modelo, nao cambio:
+// "MERCEDES/CLASSE A", "BMW/SERIE 1 M".
+const ANTES_DE_LETRA_MODELO = new Set(['CLASSE', 'CLASS', 'SERIE', 'SERIES'])
+
+/**
+ * Sufixo do cadastro: "A" ou "M" como ULTIMO token, isolado, depois de um token
+ * de versao = automatico / manual (Cesar, 23/out/2026). Casos: "CITROEN/C3
+ * PICASSO EXC A" (EZJ9243, FIPE "Excl. 1.6 Flex 16V 5p Aut."), "CHEV/TRACKER T A"
+ * (Tracker turbo automatica), "HYUNDAI/HB20 1.0M 1.0 M" (manual).
+ * Exige modelo + versao antes da letra (3 tokens ou mais), entao "CLASSE A" e
+ * "X5 M" nao entram; BMW nunca (M e a linha esportiva) e Renault tambem nao.
+ */
+export function cambioPorSufixo(descricao: string | null | undefined): Cambio | null {
+  const { marca, tokens } = partes(String(descricao || ''))
+  // Renault cola a letra no token ("16A"); a solta e outra coisa ("MASTER REVES A").
+  if (tokens.length < 3 || /^BMW$/.test(marca) || /^REN(AULT?)?$/.test(marca)) return null
+  const ultimo = tokens[tokens.length - 1]
+  if (ultimo !== 'A' && ultimo !== 'M') return null
+  if (ANTES_DE_LETRA_MODELO.has(tokens[tokens.length - 2])) return null
+  return ultimo === 'A' ? 'automatico' : 'manual'
+}
+
 /**
  * Cambio do nome do cadastro, ou null quando o nome nao diz (ou diz as duas
  * coisas, o que nao deveria acontecer e entao nao decide nada).
+ * semSufixo: ignora a regra do "A"/"M" final (pra saber se foi ela que decidiu).
  */
-export function cambioDoNome(descricao: string | null | undefined): Cambio | null {
+export function cambioDoNome(descricao: string | null | undefined, opts: { semSufixo?: boolean } = {}): Cambio | null {
   const { marca, tokens } = partes(String(descricao || ''))
   const achados = new Set(tokens.map((t) => deUmToken(t, marca)).filter(Boolean) as Cambio[])
+  const sufixo = opts.semSufixo ? null : cambioPorSufixo(descricao)
+  if (sufixo) achados.add(sufixo)
   // Toyota: cambio colado no token ("HILUX CDSRXA4FD" = A = automatico).
   const toyota = cambioToyota(descricao)
   if (toyota) achados.add(toyota)

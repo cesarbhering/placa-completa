@@ -280,7 +280,7 @@ export function refinoConfiavelEConsistente(
 ): boolean {
   const fc = novo?.fipeCandidato
   const confiante = !!fc
-    && (fc.decididoPor === 'regra' || fc.decididoPor === 'haiku' || fc.decididoPor === 'wdapi')
+    && (fc.decididoPor === 'regra' || fc.decididoPor === 'regra_cambio_sufixo' || fc.decididoPor === 'haiku' || fc.decididoPor === 'wdapi')
     && (fc.candidatos?.length || 0) > 0
   if (!confiante) return false
   const modelo = String(novo?.fipeModelo || '')

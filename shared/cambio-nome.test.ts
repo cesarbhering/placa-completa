@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cambioDoNome, cambioDaVersaoFipe, opcoesDeCambio, versaoFipeAutomatica } from './cambio-nome'
+import { cambioPorSufixo, cambioDoNome, cambioDaVersaoFipe, opcoesDeCambio, versaoFipeAutomatica } from './cambio-nome'
 
 describe('cambioDoNome (camada 1)', () => {
   it.each([
@@ -91,5 +91,34 @@ describe('opcoesDeCambio com a manual sem "Mec." (NJD2I54, BCK2C28)', () => {
     const { opcoesDeCambio } = await import('./cambio-nome')
     expect(opcoesDeCambio([{ modelo: 'Hilux CD SR D4-D 4x4 3.0 TDI Dies' }, { modelo: 'Hilux CD SRV D4-D 4x4 3.0 TDI Diesel Aut' }])).toBeNull()
     expect(opcoesDeCambio([{ modelo: 'ONIX HATCH LT 1.0 Flex' }, { modelo: 'ONIX HATCH LTZ 1.4 Flex Aut.' }])).toBeNull()
+  })
+})
+
+describe('sufixo "A"/"M" no fim do nome (Cesar, 23/out/2026)', () => {
+  it('EZJ9243: "C3 PICASSO EXC A" e automatico', () => {
+    expect(cambioPorSufixo('CITROEN/C3 PICASSO EXC A')).toBe('automatico')
+    expect(cambioDoNome('CITROEN/C3 PICASSO EXC A')).toBe('automatico')
+  })
+  it('"TRACKER T A" e automatico; "HB20 1.0M 1.0 M" e manual', () => {
+    expect(cambioDoNome('CHEV/TRACKER T A')).toBe('automatico')
+    expect(cambioPorSufixo('HYUNDAI/HB20 1.0M 1.0 M')).toBe('manual')
+    expect(cambioDoNome('HYUNDAI/HB20 1.0M 1.0 M')).toBe('manual')
+    expect(cambioDoNome('PEUGEOT/208 GRIFFE A')).toBe('automatico')
+  })
+  it('"CLASSE A" da Mercedes NAO e automatico', () => {
+    expect(cambioDoNome('M.BENZ/CLASSE A')).toBeNull()
+    expect(cambioDoNome('MERCEDES-BENZ/CLASSE A')).toBeNull()
+    expect(cambioDoNome('I/M.BENZ A 200 CLASSE A')).toBeNull()
+    expect(cambioDoNome('MERCEDES-BENZ/CLASSE A 160')).toBeNull()
+  })
+  it('letra que nao e o ultimo token, nome curto ou BMW M nao contam', () => {
+    expect(cambioPorSufixo('CITROEN/C3 A EXC')).toBeNull()
+    expect(cambioPorSufixo('FIAT/UNO A')).toBeNull()
+    expect(cambioPorSufixo('BMW/X5 XDRIVE M')).toBeNull()
+    expect(cambioPorSufixo('I/BMW X5 M')).toBeNull()
+  })
+  it('semSufixo ignora a regra (pra saber se foi ela que decidiu)', () => {
+    expect(cambioDoNome('CITROEN/C3 PICASSO EXC A', { semSufixo: true })).toBeNull()
+    expect(cambioDoNome('HYUNDAI/HB20 1.0M 1.0 M', { semSufixo: true })).toBe('manual')
   })
 })
