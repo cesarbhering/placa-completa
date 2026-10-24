@@ -35,6 +35,9 @@ const VERSOES = new Set([
   'SV', 'SL', 'EXCLUSIVE', 'ADVANCE',
   // Jeep / Peugeot / Citroen
   'LONGITUDE', 'LIMITED', 'SPORT', 'TRAILHAWK', 'ALLURE', 'GRIFFE', 'ACTIVE', 'TENDANCE', 'FEEL', 'SHINE',
+  // Citroen/Peugeot (EZJ9243, 23/out: "C3 PICASSO EXC A" = Exclusive; a FIPE
+  // escreve "Excl." e "Exclusive") e GL/GLX (Citroen, Peugeot, VW antigos).
+  'EXC', 'EXCL', 'GL', 'GLX',
 ])
 
 // Abreviacao do registro -> nomes possiveis na FIPE.
@@ -44,6 +47,27 @@ const SINONIMOS: Record<string, string[]> = {
   HIGHL: ['HIGHLINE'],
   // VW: "SAVEIRO CS RB MF" = Robust.
   RB: ['ROBUST'],
+  // Citroen/Peugeot/Nissan: Exclusive (FIPE "Excl." ou "Exclusive").
+  EXC: ['EXC', 'EXCL', 'EXCLUSIVE'],
+  EXCL: ['EXC', 'EXCL', 'EXCLUSIVE'],
+  EXCLUSIVE: ['EXCLUSIVE', 'EXCL'],
+}
+
+// Palavras da FIPE que COMECAM com uma versao mas sao outra coisa: o prefixo
+// nao pode casar ("SPORT" no cadastro nao e "Sportway"/"Sportline").
+const PREFIXO_NAO_E_VERSAO = new Set(['SPORTWAY', 'SPORTLINE', 'SPORTBACK', 'CROSSFOX', 'CROSSOVER', 'CROSSLAND'])
+
+/**
+ * A palavra da FIPE e a versao do cadastro? Igual, ou (so com prefixo=true) a
+ * palavra da FIPE e a versao do cadastro por extenso: o cadastro abrevia com
+ * 3+ letras e a FIPE escreve mais ("EXC" x "Exclusive"). Nunca o contrario
+ * ("Aut" da FIPE e cambio, nao Authentique) e nunca quando a palavra maior esta
+ * na lista de excecoes. Com 2 letras nao ha prefixo (SE x SEL, LT x LTZ, GL x GLX).
+ */
+function palavraCasaVersao(p: string, v: string, prefixo: boolean): boolean {
+  if (p === v) return true
+  if (!prefixo || v.length < 3 || p.length <= v.length || !p.startsWith(v)) return false
+  return !PREFIXO_NAO_E_VERSAO.has(p)
 }
 
 /**
@@ -230,9 +254,20 @@ export interface VersaoDoNome {
   versoes: string[]
   /** Motorizacao do nome ("1.8"), quando houver. */
   motor: string | null
+  /**
+   * A versao veio da lista geral (VERSOES) e pode casar por prefixo na FIPE.
+   * Sigla de marca (Renault, VW, GM) casa so exato: "EXP" nao e "Express".
+   */
+  prefixo?: boolean
 }
 
 export function versaoDoNome(descricao: string | null | undefined): VersaoDoNome {
+  const { versoes, motor } = lerVersaoDoNome(descricao)
+  return { versoes, motor }
+}
+
+/** versaoDoNome + se a versao pode casar por prefixo (ver VersaoDoNome.prefixo). */
+export function lerVersaoDoNome(descricao: string | null | undefined): VersaoDoNome {
   const palavras = palavrasDoNome(String(descricao || ''))
   const tabela = SIGLAS_POR_MARCA[MARCA_SIGLAS[marcaDoNome(descricao)] || '']
   const siglas = tabela?.siglas || {}
@@ -240,6 +275,7 @@ export function versaoDoNome(descricao: string | null | undefined): VersaoDoNome
   const daSigla = (s: string) => [...new Set(siglas[s].flatMap((v) => tabela?.grafiasFipe?.[v] || [v]))]
   let versoes: string[] = []
   let motor: string | null = null
+  let prefixo = false
   // Toyota: versao colada no token ("HILUX CDSRXA4FD" = SRX).
   const toyota = fatosToyota(descricao)
   if (toyota?.versao) versoes = [toyota.versao]
@@ -253,7 +289,7 @@ export function versaoDoNome(descricao: string | null | undefined): VersaoDoNome
       const gm = n.match(/^(\d)(\d)T?(AT|MT)$/)
       if (gm && MARCA_SIGLAS[marcaDoNome(descricao)] === 'GM') { if (!motor) motor = `${gm[1]}.${gm[2]}`; continue }
       if (siglas[n]) versoes = daSigla(n)
-      else if (VERSOES.has(n)) versoes = SINONIMOS[n] || [n]
+      else if (VERSOES.has(n)) { versoes = SINONIMOS[n] || [n]; prefixo = true }
       else {
         // Colada na motorizacao: "XEI18VVT" -> XEI + 1.8; Renault "EXP1016V"
         // -> EXP + 1.0 (o 16 e de valvulas), "PR1616VA" -> PR + 1.6.
@@ -272,15 +308,15 @@ export function versaoDoNome(descricao: string | null | undefined): VersaoDoNome
       }
     }
   }
-  return { versoes, motor }
+  return { versoes, motor, prefixo }
 }
 
 /** O nome FIPE tem a versao? Compara palavra inteira normalizada: LT nao casa com LTZ; SE-G casa com SEG. */
-export function candidatoTemVersaoDoNome(modelo: string, versoes: string[]): boolean {
+export function candidatoTemVersaoDoNome(modelo: string, versoes: string[], prefixo = false): boolean {
   if (!versoes.length) return true
   // Tambem quebra no ponto: a FIPE cola abreviacao ("Exp.Hi-Flex", "Expres.SPORTWAY").
   const palavras = [...String(modelo || '').split(/[\s/]+/), ...String(modelo || '').split(/[\s/.]+/)].map(norm)
-  return palavras.some((p) => versoes.includes(p))
+  return palavras.some((p) => p && versoes.some((v) => palavraCasaVersao(p, v, prefixo)))
 }
 
 export function candidatoTemMotor(modelo: string, motor: string | null): boolean {
@@ -295,19 +331,20 @@ export function candidatoTemMotor(modelo: string, motor: string | null): boolean
  * Cesar, 21/out: sigla de versao e eliminatoria antes do cambio).
  */
 export function faltaVersaoDoNome<T extends { modelo: string }>(lista: T[], descricao: string | null | undefined): boolean {
-  const { versoes } = versaoDoNome(descricao)
-  return versoes.length > 0 && lista.length > 0 && !lista.some((c) => candidatoTemVersaoDoNome(c.modelo, versoes))
+  const { versoes, prefixo } = lerVersaoDoNome(descricao)
+  return versoes.length > 0 && lista.length > 0 && !lista.some((c) => candidatoTemVersaoDoNome(c.modelo, versoes, prefixo))
 }
 
 /**
  * Filtra pela versao e motorizacao do nome. Cada filtro so vale se deixar
  * alguem: zerou, volta a lista de antes (comportamento de sempre).
  */
-export function filtrarPelaVersaoDoNome<T extends { modelo: string }>(lista: T[], descricao: string | null | undefined): T[] {
-  const { versoes, motor } = versaoDoNome(descricao)
+export function filtrarPelaVersaoDoNome<T extends { modelo: string }>(lista: T[], descricao: string | null | undefined, opts: { semSigla?: boolean } = {}): T[] {
+  const { versoes, motor, prefixo } = lerVersaoDoNome(descricao)
   let restantes = lista
-  if (versoes.length) {
-    const porVersao = restantes.filter((c) => candidatoTemVersaoDoNome(c.modelo, versoes))
+  // semSigla: o funil sem a sigla de versao (so pra saber se foi ela que decidiu).
+  if (versoes.length && !opts.semSigla) {
+    const porVersao = restantes.filter((c) => candidatoTemVersaoDoNome(c.modelo, versoes, prefixo))
     if (porVersao.length) restantes = porVersao
   }
   if (motor) {

@@ -744,7 +744,7 @@ describe('sem FIPE na fonte e Haiku sem resposta (caso HSX1F20, Celta Spirit)', 
   it('"SPIRIT" no nome resolve por regra (versao do nome)', async () => {
     vi.stubGlobal('fetch', mock('falha'))
     const r = await escolherMelhorFipe({ senatran: { descricaoMarcaModelo: 'GM/CELTA 2P SPIRIT', anoModelo: 2005, cilindrada: 1000 }, wdapi: WD, fipeApiUrl: 'http://f', fipeApiToken: 't', anthropicApiKey: 'k' })
-    expect(r.decididoPor).toBe('regra')
+    expect(r.decididoPor).toBe('regra_versao')
     expect(r.escolhido?.codigo_fipe).toBe('004265-0')
   })
   it('sem versao no nome e Haiku fora: duvida com a lista, nunca sem candidato', async () => {
@@ -899,7 +899,7 @@ describe('sigla de versao no nome do cadastro (FPL1A52, VW Nivus HL)', () => {
     const chamadas: any[] = []
     vi.stubGlobal('fetch', montarFetch(chamadas))
     const r = await escolherMelhorFipe(entrada('VW/NIVUS HL TSI AD'))
-    expect(r.decididoPor).toBe('regra')
+    expect(r.decididoPor).toBe('regra_versao')
     expect(r.confianca).toBe('alta')
     expect(r.escolhido?.codigo_fipe).toBe('005526-3')
     expect(chamadas).toHaveLength(0)
@@ -1003,7 +1003,7 @@ describe('Chevrolet: sigla PR2 = Premier e codigo de motor/cambio (RPD2B20)', ()
   it('"CHEV/ONIX 10TAT PR2" 2023 -> 004516-0 (Onix Hatch Prem.) por regra', async () => {
     vi.stubGlobal('fetch', f)
     const r = await escolherMelhorFipe(entrada('CHEV/ONIX 10TAT PR2'))
-    expect(r.decididoPor).toBe('regra')
+    expect(r.decididoPor).toBe('regra_versao')
     expect(r.escolhido?.codigo_fipe).toBe('004516-0')
   })
   it('codigo decide turbo e cambio; PLUS no nome vai pro seda', async () => {
@@ -1134,7 +1134,7 @@ describe('Renault: D = Dynamique e cambio colado (OUQ8G18 e FHB6G05, 15/out)', (
     vi.stubGlobal('fetch', montarFetch(chamadas))
     const r = await escolherMelhorFipe(entrada('RENAULT/DUSTER 16 D 4X2', 1598))
     expect(r.escolhido?.codigo_fipe).toBe('025183-6')
-    expect(r.decididoPor).toBe('regra')
+    expect(r.decididoPor).toBe('regra_versao')
     expect(chamadas).toHaveLength(0)
   })
   it('"RENAULT/DUSTER 20 D 4X2A": Dynamique 2.0 Aut. (025185-2)', async () => {
@@ -1205,7 +1205,7 @@ describe('Toyota: token colado e sigla de versao eliminatoria (PRX0B70, 21/out/2
 
   it('"HILUX CDSRXA4FD" escolhe a CD SRX 4x4 Aut. (002141-5) por regra, sem o juiz', async () => {
     const r = await rodar('I/TOYOTA HILUX CDSRXA4FD', LISTA_PRX)
-    expect(r.decididoPor).toBe('regra')
+    expect(r.decididoPor).toBe('regra_versao')
     expect(r.confianca).toBe('alta')
     expect(r.escolhido?.codigo_fipe).toBe('002141-5')
   })
@@ -1221,7 +1221,7 @@ describe('Toyota: token colado e sigla de versao eliminatoria (PRX0B70, 21/out/2
   it('"HILUX CD4X4 SRV" escolhe a CD SRV (nao a SRX nem a SR)', async () => {
     const r = await rodar('I/TOYOTA HILUX CD4X4 SRV', LISTA_PRX)
     expect(r.escolhido?.codigo_fipe).toBe('002143-1')
-    expect(r.decididoPor).toBe('regra')
+    expect(r.decididoPor).toBe('regra_versao')
   })
 
   it('"HILUX SWSRXA4FD" fica com a SW4 SRX Aut. (nao a picape CD)', async () => {
@@ -1251,7 +1251,7 @@ describe('Toyota: token colado e sigla de versao eliminatoria (PRX0B70, 21/out/2
       fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1',
       fipeApiToken: 'token-teste',
     })
-    expect(r.decididoPor).toBe('regra')
+    expect(r.decididoPor).toBe('regra_versao')
     expect(r.escolhido?.codigo_fipe).toBe('004433-4')
   })
 })
@@ -1340,5 +1340,50 @@ describe('EZJ9243 (C3 PICASSO EXC A, 23/out/2026): sufixo A = automatico e Picas
     const r = await rodar('CITROEN/C3 PICASSO EXC 1.6AT')
     expect(r.escolhido?.codigo_fipe).toBe('011111-2')
     expect(r.decididoPor).toBe('regra')
+  })
+})
+
+describe('EZJ9243 com a lista real de prod: EXC casa com Excl. e decide por regra_versao (24/out/2026)', () => {
+  // Lista que o rebuild de prod trouxe depois do #631: variante tirou o C3
+  // nao Picasso, o "A" tirou as Mec., sobravam Excl. Aut. e GLX Aut. e o juiz
+  // decidia (haiku, confianca media). Com EXC = Excl./Exclusive a regra decide.
+  const c3 = (codigo: string, modelo: string) => ({ score: 50, codigo_fipe: codigo, codigo_modelo: codigo.slice(0, 6), texto_modelo: modelo, texto_valor: 'R$ 30.807,00', texto_marca: 'Citroën', combustivel: 'Flex', mes_referencia: 'outubro de 2026' })
+  const LISTA_PROD = [
+    c3('011091-4', 'C3 Excl./Excl.Solar./Sonora 1.6 Flex Aut'),
+    c3('011111-2', 'C3 Picasso Excl. 1.6 Flex 16V 5p Aut.'),
+    c3('011107-4', 'C3 Picasso Exclusive 1.6 Flex 16V 5p Mec'),
+    c3('011105-8', 'C3 Picasso GL 1.6 Flex 16V 5p Mec.'),
+    c3('011110-4', 'C3 Picasso GLX 1.6 Flex 16V 5p Aut.'),
+  ]
+  const rodar = (descricao: string) => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+    return escolherMelhorFipe({
+      senatran: { cilindrada: 1587, potencia: 113, descricaoMarcaModelo: descricao, anoModelo: 2012, codigoCombustivel: '16', descricaoTipoVeiculo: 'AUTOMOVEL', descricaoEspecie: 'PASSAGEIRO' } as any,
+      wdapi: { marca: 'CITROEN', MODELO: descricao.replace(/^CITROEN\//, ''), anoModelo: '2012', fipe: { dados: LISTA_PROD } },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1',
+      fipeApiToken: 'token-teste',
+      anthropicApiKey: 'nao-deve-ser-chamado',
+    })
+  }
+
+  it('"C3 PICASSO EXC A" -> 011111-2 por regra_versao, sem o juiz', async () => {
+    const r = await rodar('CITROEN/C3 PICASSO EXC A')
+    expect(r.escolhido?.codigo_fipe).toBe('011111-2')
+    expect(r.decididoPor).toBe('regra_versao')
+    expect(r.confianca).toBe('alta')
+    expect((global.fetch as any).mock.calls.some((c: any[]) => String(c[0]).includes('anthropic'))).toBe(false)
+  })
+
+  it('"C3 PICASSO GLX A" fica com a GLX Aut. (GL nao casa com GLX)', async () => {
+    const r = await rodar('CITROEN/C3 PICASSO GLX A')
+    expect(r.escolhido?.codigo_fipe).toBe('011110-4')
+  })
+
+  it('"C3 PICASSO EXC M" fica com a Exclusive Mec (Excl. e Exclusive sao a mesma versao)', async () => {
+    const r = await rodar('CITROEN/C3 PICASSO EXC M')
+    expect(r.escolhido?.codigo_fipe).toBe('011107-4')
   })
 })

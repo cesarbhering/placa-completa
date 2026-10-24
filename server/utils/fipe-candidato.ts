@@ -17,7 +17,7 @@ import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
 import { cambioDoNome, cambioPorSufixo, versaoFipeManual, versaoFipeAutomatica, opcoesDeCambio } from '../../shared/cambio-nome'
 import { cambioPeloChassi } from '../../shared/cambio-chassi'
-import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPelaVariante, filtrarPeloNomeDoVeiculo, versaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES, fatosPicapeGM, LEGENDA_PICAPE_GM, LEGENDA_RENAULT, faltaVersaoDoNome } from '../../shared/versao-fipe'
+import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPelaVariante, filtrarPeloNomeDoVeiculo, versaoDoNome, lerVersaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES, fatosPicapeGM, LEGENDA_PICAPE_GM, LEGENDA_RENAULT, faltaVersaoDoNome } from '../../shared/versao-fipe'
 import { fatosToyota, LEGENDA_TOYOTA } from '../../shared/toyota-nome'
 
 export { codigoDaTabela, type TabelaFipe }
@@ -40,7 +40,9 @@ export interface FipeCandidato {
 
 // regra_cambio_sufixo: o funil chegou a 1 candidato porque o "A"/"M" no fim do
 // nome do cadastro disse o cambio (shared/cambio-nome.ts, cambioPorSufixo).
-export type FipeDecididoPor = 'regra' | 'regra_cambio_sufixo' | 'haiku' | 'ambiguo' | 'fallback' | 'wdapi'
+// regra_versao: chegou a 1 porque a sigla de versao do nome (EXC, HL, PR2, D...)
+// casou com a versao da FIPE; sem ela sobrava mais de um.
+export type FipeDecididoPor = 'regra' | 'regra_versao' | 'regra_cambio_sufixo' | 'haiku' | 'ambiguo' | 'fallback' | 'wdapi'
 
 export interface FipeMelhorCandidatoResultado {
   escolhido: FipeCandidato | null
@@ -681,7 +683,7 @@ function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any
   }
 }
 
-function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] {
+function aplicarFunil(universo: FipeCandidato[], fatos: Fatos, opts: { semSigla?: boolean } = {}): FipeCandidato[] {
   let restantes = universo
 
   // Moto nao passa pelo funil de carro. Cilindrada de moto nao vira "litragem"
@@ -707,7 +709,7 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
 
   // Versao e motorizacao do NOME do registro (shared/versao-fipe.ts): "COROLLA
   // XEI18VVT" nao pode sobrar com um SE-G na lista. Fail-safe por filtro.
-  restantes = filtrarPelaVersaoDoNome(restantes, fatos.descricao)
+  restantes = filtrarPelaVersaoDoNome(restantes, fatos.descricao, opts)
 
   // Combustivel: so diesel e eletrico (valor FIPE bem diferente do a gasolina).
   // Fail-safe: se nenhum candidato bate, mantem todos (nao inventa exclusao).
@@ -755,7 +757,7 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos): FipeCandidato[] 
 
   // Sigla de versao do nome que nenhum candidato tem (SRX com so SR/SRV na
   // lista): o cambio nao decide, senao escolheria a versao errada.
-  if (fatos.transmissao && !faltaVersaoDoNome(restantes, fatos.descricao)) {
+  if (fatos.transmissao && (opts.semSigla || !faltaVersaoDoNome(restantes, fatos.descricao))) {
     // Manual: primeiro quem diz "Mec."; sem nenhum, quem nao e automatico
     // (a FIPE omite o cambio na manual). Automatico: "Aut." e os automatizados.
     const explicitoMec = fatos.transmissao === 'manual' ? restantes.filter((c) => versaoFipeManual(c.modelo)) : []
@@ -1064,9 +1066,9 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     // trocado por uma moto de 1000cc.
     // O atalho tambem respeita a versao do nome: score alto num SE-G nao
     // vale pra um Corolla XEi.
-    const versoesNome = versaoDoNome(input.senatran?.descricaoMarcaModelo).versoes
+    const { versoes: versoesNome, prefixo: prefixoNome } = lerVersaoDoNome(input.senatran?.descricaoMarcaModelo)
     const forteBruto = candidatoWdapiConfiavel(input.wdapi, fatos.tokensModelo, tabela)
-    const forte = forteBruto && candidatoTemVersaoDoNome(forteBruto.modelo, versoesNome) ? forteBruto : null
+    const forte = forteBruto && candidatoTemVersaoDoNome(forteBruto.modelo, versoesNome, prefixoNome) ? forteBruto : null
     if (forte) {
       const escolhido = await comCodigoModelo(forte, marca, input.fipeApiUrl, input.fipeApiToken)
       return { escolhido, decididoPor: 'wdapi', candidatos: [forte], confianca: 'alta' }
@@ -1081,9 +1083,13 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
       // Foi o "A"/"M" final que deu o cambio (o resto do nome nao dizia)? Marca
       // a decisao pra dar pra auditar a regra nova.
       const desc = input.senatran?.descricaoMarcaModelo
-      const peloSufixo = !!cambioPorSufixo(desc) && !cambioDoNome(desc, { semSufixo: true }) && !input.senatran?.transmissaoHint
+      // Foi a sigla de versao? (sem ela o funil deixaria mais de um)
+      const pelaVersao = versaoDoNome(desc).versoes.length > 0 && aplicarFunil(universo, fatos, { semSigla: true }).length > 1
+      const peloSufixo = !pelaVersao && !!cambioPorSufixo(desc) && !cambioDoNome(desc, { semSufixo: true }) && !input.senatran?.transmissaoHint
+      const decididoPor = pelaVersao ? 'regra_versao' : peloSufixo ? 'regra_cambio_sufixo' : 'regra'
       return {
-        escolhido, decididoPor: peloSufixo ? 'regra_cambio_sufixo' : 'regra', candidatos: filtrados, confianca: 'alta',
+        escolhido, decididoPor, candidatos: filtrados, confianca: 'alta',
+        ...(pelaVersao ? { justificativa: 'versao do nome do cadastro casou com a FIPE' } : {}),
         ...(peloSufixo ? { justificativa: 'cambio pelo sufixo A/M do nome do cadastro' } : {}),
       }
     }
