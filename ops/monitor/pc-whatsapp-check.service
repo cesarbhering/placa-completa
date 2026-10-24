@@ -1,0 +1,6 @@
+[Unit]
+Description=pc-monitor WHATSAPP: Evolution connectionState da instancia placa-completa; != open 2x = WHATSAPP DESCONECTADO + QR (pc-wa-pair, cooldown 25 min)
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-monitor whatsapp
+TimeoutStartSec=300

@@ -16,6 +16,7 @@ Uso:
   pc-monitor site                                  # roda a checagem do site (timer)
   pc-monitor fila                                  # saude da fila premium_jobs (timer, 5 min)
   pc-monitor tunel                                 # tunel residencial do Mac pelo SOCKS 127.0.0.1:1080 (timer, 5 min)
+  pc-monitor whatsapp                              # Evolution connectionState != open 2x = WHATSAPP DESCONECTADO + QR
   pc-monitor deploy                                # HEAD da main x commit no ar; > 15 min = SITE DESATUALIZADO
   pc-monitor recursos                              # disco > 85% e load15/nucleos > 3 (timer, 5 min)
   pc-monitor meta                                  # as checagens acima estao rodando? crash/parada = MONITOR QUEBRADO
@@ -36,11 +37,13 @@ BRT = dt.timezone(dt.timedelta(hours=-3))
 TITULO = {"site": "SITE FORA DO AR", "checkout": "CHECKOUT COM ERRO", "fila": "FILA DO RELATORIO PARADA",
           "tunel": "TÚNEL DO MAC CAIU", "monitor": "MONITOR QUEBRADO",
           "disco": "DISCO DA VPS ACIMA DE 85%", "carga": "VPS SOBRECARREGADA",
-          "deploy": "SITE DESATUALIZADO (a main nao chegou ao ar)"}
+          "deploy": "SITE DESATUALIZADO (a main nao chegou ao ar)",
+          "whatsapp": "WHATSAPP DESCONECTADO"}
 VOLTOU = {"site": "SITE VOLTOU", "checkout": "CHECKOUT VOLTOU", "fila": "FILA DO RELATORIO VOLTOU",
           "tunel": "TÚNEL DO MAC VOLTOU", "monitor": "MONITOR VOLTOU",
           "disco": "DISCO DA VPS VOLTOU ABAIXO DE 85%", "carga": "CARGA DA VPS NORMALIZOU",
-          "deploy": "SITE ATUALIZADO COM A MAIN"}
+          "deploy": "SITE ATUALIZADO COM A MAIN",
+          "whatsapp": "WHATSAPP VOLTOU"}
 # por alvo: destinatarios e repeticao (tunel: so o Cesar, 1 e-mail por queda, sem repetir)
 DEST_ALVO = {"tunel": ["cesarcbhering@gmail.com"]}
 REPETE_ALVO = {"tunel": None}
@@ -260,6 +263,7 @@ CHECAGENS = [
     ("pc-tunel-check", "tunel", 15 * 60),
     ("pc-recursos-check", "carga", 15 * 60),
     ("pc-deploy-check", "deploy", 15 * 60),
+    ("pc-whatsapp-check", "whatsapp", 30 * 60),
 ]
 
 
@@ -415,9 +419,75 @@ def cmd_deploy():
     return 0
 
 
+# ------------------------------------------------------------------ WhatsApp (Evolution), desde 23/out/2026
+# Incidente 22-23/out: a instancia placa-completa ficou "close" 32 h (stream:error 401, device_removed) e o bot de
+# suporte nao respondeu ninguem. Consulta direta do host ao IP do container na rede coolify (o host e o gateway);
+# nao depende do container do site estar no ar.
+WA_INSTANCIA = "placa-completa"
+WA_QR_COOLDOWN_S = 25 * 60
+
+
+def wa_estado():
+    ip = subprocess.run(["docker", "inspect", "pc-prod-evolution", "--format",
+                         "{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}"],
+                        capture_output=True, text=True, timeout=20).stdout.split()
+    if not ip:
+        return None, "container pc-prod-evolution nao encontrado ou sem IP"
+    chave = re.search(r"^API_KEY=(.*)$", open("/root/.config/evolution/credentials").read(), re.M).group(1).strip()
+    req = urllib.request.Request(f"http://{ip[0]}:8080/instance/connectionState/{WA_INSTANCIA}", headers={"apikey": chave})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            d = json.load(r)
+    except Exception as e:
+        return None, f"Evolution nao respondeu: {str(e)[:120]}"
+    st = (d.get("instance") or {}).get("state") or d.get("state")
+    return st, f"state={st}"
+
+
+def wa_ultimo_erro():
+    p = subprocess.run(["docker", "logs", "--since", "72h", "pc-prod-evolution"], capture_output=True, text=True, timeout=60)
+    linhas = [l for l in (p.stdout + p.stderr).splitlines() if "stream:error" in l or "device_removed" in l or "conflict" in l]
+    if not linhas:
+        return "nenhum stream:error nas ultimas 72 h"
+    l = linhas[-1]
+    cod = re.search(r'"code":"?(\d+)', l)
+    tipo = re.search(r'"type":"([a-z_]+)"', l)
+    quando = re.search(r'"time":(\d{13})', l)
+    q = hora(int(quando.group(1)) / 1000) if quando else "?"
+    return f"ultimo stream:error {cod.group(1) if cod else '?'} {tipo.group(1) if tipo else ''} em {q} BRT".strip()
+
+
+def cmd_whatsapp():
+    st, m = wa_estado()
+    if st == "open":
+        registra_ok("whatsapp", m); return 0
+    time.sleep(60)                                     # 2 leituras seguidas, como as outras checagens
+    st, m = wa_estado()
+    if st == "open":
+        historico("whatsapp", {"ts": agora(), "ok": True, "detalhe": "estado nao-open isolado descartado"})
+        registra_ok("whatsapp", m); return 0
+    erro = wa_ultimo_erro()
+    s, t = ler("whatsapp"), agora()
+    qr = ""
+    if st is not None and t - s.get("ultimo_qr", 0) >= WA_QR_COOLDOWN_S and not DRY:
+        p = subprocess.run(["/usr/local/bin/pc-wa-pair"], capture_output=True, text=True, timeout=120)
+        qr = "QR novo enviado por e-mail (pc-wa-pair)." if p.returncode == 0 else f"pc-wa-pair falhou: {p.stderr.strip()[:150]}"
+        s["ultimo_qr"] = t; gravar("whatsapp", s)
+    elif st is not None:
+        qr = "QR enviado ha menos de 25 min; o proximo sai depois do cooldown."
+    registra_falha("whatsapp", st or "sem_resposta", m,
+                   f"{erro}\n{qr}\n\nO bot de suporte (Guilherme) NAO responde cliente enquanto isso.\n"
+                   "Para reconectar: abrir o e-mail com o QR e escanear no WhatsApp do numero de suporte\n"
+                   "(Aparelhos conectados > Conectar aparelho). QR manual: /usr/local/bin/pc-wa-pair")
+    s2 = ler("whatsapp")
+    if "ultimo_qr" in s and "ultimo_qr" not in s2:
+        s2["ultimo_qr"] = s["ultimo_qr"]; gravar("whatsapp", s2)
+    return 0
+
+
 def cmd_estado():
     out = {}
-    for alvo in ("site", "checkout", "fila", "tunel", "monitor", "disco", "carga", "deploy"):
+    for alvo in ("site", "checkout", "fila", "tunel", "monitor", "disco", "carga", "deploy", "whatsapp"):
         s = ler(alvo)
         out[alvo] = {"estado": s.get("estado", "ok"), "ultima_verificacao": s.get("ultima_verificacao"),
                      "ultimo_ok": s.get("ultimo_ok"), "desde": s.get("desde"), "tipo": s.get("tipo"),
@@ -432,6 +502,8 @@ def cmd_estado():
 def main(a):
     if a[:1] == ["site"]:
         return cmd_site()
+    if a[:1] == ["whatsapp"]:
+        return cmd_whatsapp()
     if a[:1] == ["deploy"]:
         return cmd_deploy()
     if a[:1] == ["recursos"]:
