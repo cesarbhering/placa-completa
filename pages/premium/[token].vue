@@ -55,7 +55,10 @@ const route = useRoute()
 const token = route.params.token as string
 useHead({ title: 'Relatório Veicular', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
-const { data, pending, error, refresh } = await useFetch<any>('/api/premium/report', { query: { token } })
+// ?o=email (link do e-mail de entrega) vai junto so pra marcar a origem da
+// abertura no servidor (relatorio_aberturas).
+const origemAbertura = String(route.query.o || '') === 'email' ? 'email' : undefined
+const { data, pending, error, refresh } = await useFetch<any>('/api/premium/report', { query: { token, o: origemAbertura } })
 // Link de pedido duplicado ja reembolsado: abre o relatorio da compra que
 // ficou (302 no SSR). O servidor so devolve isto quando IP + aparelho batem.
 if (data.value?.redirecionarPara) {
@@ -2007,6 +2010,8 @@ function copiar() {
 }
 
 function imprimir() {
+  // Registra a abertura como PDF (fail-open, sem esperar).
+  if (import.meta.client) $fetch('/api/premium/abertura', { method: 'POST', body: { token, o: 'pdf' } }).catch(() => {})
   if (import.meta.client) window.print()
 }
 

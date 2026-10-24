@@ -1,3 +1,5 @@
+import { emVoo } from '../../utils/tarefas-em-voo'
+import { registrarAbertura } from '../../utils/relatorio-aberturas'
 import { pedidoQueFicou } from '../../utils/compra-repetida'
 import { sanearRenajud } from '../../utils/renajud-detalhe'
 import { restricoesDetranParaTela, type VereditosRevisor } from '../../../shared/restricao-detran-classe'
@@ -116,6 +118,10 @@ export default defineEventHandler(async (event) => {
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Relatorio nao encontrado' })
+
+  // Abertura do relatorio pago (quem abriu e de onde): solta, nunca atrasa a
+  // resposta. ?o=email (link do e-mail) / o=pdf vira a origem; dedupe de 30 min.
+  void emVoo('relatorio-abertura', () => registrarAbertura(supabase, event, pedido as any, String(token), getQuery(event).o))
 
   // Pedido duplicado reembolsado (mesma pessoa pagou duas vezes): o link dele
   // abre o relatorio da compra que ficou. A pagina faz o 302 (server/utils/compra-repetida.ts).
