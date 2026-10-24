@@ -342,7 +342,7 @@ export async function enviarRelatorioEmail(entrega: Entrega): Promise<boolean> {
   const cupom = entrega.cupom && String(config.cupomRecompraEmail || '') === 'on' ? entrega.cupom : null
   if (!config.resendApiKey || !email) return false
 
-  const link = `${config.premiumBaseUrl}/premium/${token}`
+  const link = `${config.premiumBaseUrl}/premium/${token}?o=email`
   const nome = nomeDoPlano(plano)
   const g = GENERO[planoDe(plano)]
   const assunto = placa
@@ -419,7 +419,7 @@ export async function enviarAtualizacaoRelatorio(
 ): Promise<boolean> {
   const config = deps.config ?? useRuntimeConfig()
   if (!a.email || (!deps.enviar && !config.resendApiKey)) return false
-  const link = `${config.premiumBaseUrl || 'https://placacompleta.com.br'}/premium/${a.token}`
+  const link = `${config.premiumBaseUrl || 'https://placacompleta.com.br'}/premium/${a.token}?o=email`
   const { assunto, html, texto } = montarAtualizacaoRelatorio({ link, placa: a.placa, fonte: a.fonte, itens: a.itens })
   const msg = { from: 'PlacaCompleta <contato@placacompleta.com.br>', reply_to: 'contato@placacompleta.com.br', to: [a.email], subject: comTagAmbiente(assunto, config), html, text: texto }
   try {
@@ -495,7 +495,7 @@ export async function enviarAvisoFotos(
 ): Promise<boolean> {
   const config = deps.config ?? useRuntimeConfig()
   if (!a.email || (!deps.enviar && !config.resendApiKey)) return false
-  const link = `${config.premiumBaseUrl || 'https://placacompleta.com.br'}/premium/${a.token}`
+  const link = `${config.premiumBaseUrl || 'https://placacompleta.com.br'}/premium/${a.token}?o=email`
   const { assunto, html, texto } = montarAvisoFotos({ link, placa: a.placa, niveis: a.niveis })
   const msg = { from: 'PlacaCompleta <contato@placacompleta.com.br>', reply_to: 'contato@placacompleta.com.br', to: [a.email], subject: comTagAmbiente(assunto, config), html, text: texto }
   try {
@@ -551,7 +551,7 @@ export async function enviarAvisoLeilao(
 ): Promise<boolean> {
   const config = deps.config ?? useRuntimeConfig()
   if (!a.email || (!deps.enviar && !config.resendApiKey)) return false
-  const link = `${config.premiumBaseUrl || 'https://placacompleta.com.br'}/premium/${a.token}`
+  const link = `${config.premiumBaseUrl || 'https://placacompleta.com.br'}/premium/${a.token}?o=email`
   const { assunto, html, texto } = montarEmailAviso({ link, ...textosAvisoLeilao(a.placa, a.info), botao: 'Ver relatório atualizado' })
   const msg = { from: 'PlacaCompleta <contato@placacompleta.com.br>', reply_to: 'contato@placacompleta.com.br', to: [a.email], subject: comTagAmbiente(assunto, config), html, text: texto }
   try {
