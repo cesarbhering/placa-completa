@@ -1,0 +1,8 @@
+[Unit]
+Description=pc-monitor WHATSAPP a cada 10 min
+[Timer]
+OnActiveSec=2min
+OnUnitActiveSec=10min
+AccuracySec=10s
+[Install]
+WantedBy=timers.target
