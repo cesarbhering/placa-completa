@@ -12,7 +12,7 @@ describe('SEFAZ-DF /ipva', () => {
       { ano: '2025', cota: 'UNICA', valor_principal: '1.000,00', valor_total: '1.180,50', boleto_pdf_url: 'https://x' },
       { ano: '2026', cota: '1', valor_total: 'R$ 350,00' },
     ] }])
-    expect(itens).toEqual([{ ano: 2026, vencimento: null, valor_centavos: 35000 }, { ano: 2025, vencimento: null, valor_centavos: 118050 }])
+    expect(itens).toEqual([{ ano: 2026, vencimento: null, valor_centavos: 35000, cota: '1' }, { ano: 2025, vencimento: null, valor_centavos: 118050, cota: 'UNICA' }])
     expect(JSON.stringify(itens)).not.toMatch(/FULANO|https/)
   })
   it('vazio = nada em aberto', () => {
