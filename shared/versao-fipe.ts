@@ -475,6 +475,24 @@ export function filtrarPeloModeloDoNome<T extends { modelo: string }>(lista: T[]
   return mesmos.length ? mesmos : lista
 }
 
+// Variante/carroceria que no nome da FIPE e praticamente outro carro: "C3
+// PICASSO" no cadastro nao pode ficar com "C3 Excl. 1.6 Flex Aut" (caso EZJ9243,
+// 23/out/2026), e um C3 sem PICASSO nao pode virar Picasso. Sedan, SW, hatch e
+// cabine ja tem filtro proprio. Fail-safe: se zera, volta a lista de antes.
+const VARIANTES = ['PICASSO', 'AIRCROSS']
+
+export function filtrarPelaVariante<T extends { modelo: string }>(lista: T[], descricao: string | null | undefined): T[] {
+  const nome = String(descricao || '').toUpperCase()
+  let restantes = lista
+  for (const v of VARIANTES) {
+    const re = new RegExp(`\\b${v}\\b`, 'i')
+    const temNoNome = re.test(nome)
+    const filtrados = restantes.filter((c) => re.test(c.modelo) === temNoNome)
+    if (filtrados.length) restantes = filtrados
+  }
+  return restantes
+}
+
 /**
  * Lista de versoes compativeis EXIBIDA no relatorio. Diferente do funil, aqui
  * nenhuma versao do modelo do nome = nada a mostrar: um TRACKER nao pode
@@ -485,6 +503,7 @@ export function versoesParaExibir<T extends { modelo: string }>(lista: T[], desc
   const nome = modeloDoNome(descricao)
   let restantes = nome ? lista.filter((c) => candidatoEDoModelo(c.modelo, nome)) : lista
   if (!restantes.length) return []
+  restantes = filtrarPelaVariante(restantes, descricao)
   const cabine = cabineDoNome(descricao)
   if (cabine) {
     const porCabine = restantes.filter((c) => candidatoTemCabine(c.modelo, cabine))
