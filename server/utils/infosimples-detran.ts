@@ -476,16 +476,16 @@ export function ipvaItemGenerico(x: any): IpvaItem | null {
 }
 
 /**
- * Lista de IPVA sem repeticao, pra exibir e somar.
- * 1. Mesmo exercicio, mesmo vencimento e mesmo valor = o mesmo debito, mesmo com
- *    cota diferente (SP, FGP0J33 23/out/2026: debitos_ipva com cota "8" e "2",
- *    iguais em tudo; a fonte diz ipva 2610.04 e a pagina somava R$ 5.220,08).
- *    Sem vencimento nao junta: parcelas do DF vem sem data e com o mesmo valor.
- * 2. Cota unica + parcelas do mesmo ano (DF, ORB7328: cotas 01 a 06 de 493,04 e
- *    a cota 89 de 2.958,24, que e a soma delas): sao duas formas de pagar o MESMO
- *    IPVA. Fica so a cota unica (marcada como "89", ou a que soma as outras).
+ * Lista de IPVA sem repeticao. So mexe quando a soma da lista PASSA do total
+ * da fonte (normalizado_ipva) e os repetidos sao identicos em exercicio,
+ * vencimento e valor: FGP0J33/FPL1A52 (SP, 23/out/2026), mesmo IPVA com cota
+ * "8" e "2", a pagina somava o dobro. Sem total da fonte, ou com a soma
+ * batendo (ORB7328, DF: 9 itens que somam exatamente o total), nao mexe.
  */
-export function normalizarIpvaItens<T extends IpvaItem>(itens: T[]): T[] {
+export function normalizarIpvaItens<T extends IpvaItem>(itens: T[], totalFonteCentavos: number | null | undefined): T[] {
+  const total = Number(totalFonteCentavos)
+  const soma = itens.reduce((a, x) => a + x.valor_centavos, 0)
+  if (!(total > 0) || soma <= total) return itens
   const vistos = new Set<string>()
   const semRepetir = itens.filter((x) => {
     if (!x.vencimento) return true
@@ -494,22 +494,7 @@ export function normalizarIpvaItens<T extends IpvaItem>(itens: T[]): T[] {
     vistos.add(k)
     return true
   })
-  const porAno = new Map<string, T[]>()
-  for (const x of semRepetir) porAno.set(String(x.ano ?? ''), [...(porAno.get(String(x.ano ?? '')) || []), x])
-  const fora = new Set<T>()
-  for (const [ano, doAno] of porAno) {
-    if (!ano || doAno.length < 3) continue
-    // Cota unica marcada pela fonte (DF: "89"): as outras cotas do ano saem,
-    // mesmo quando a soma nao bate (na SEFAZ o valor vem com juros por cota).
-    const marcada = doAno.find((x) => /^(89|[uú]nica)$/i.test(String(x.cota ?? '')))
-    if (marcada) { doAno.filter((y) => y !== marcada && y.cota).forEach((y) => fora.add(y)); continue }
-    for (const unica of doAno) {
-      const resto = doAno.filter((y) => y !== unica)
-      const soma = resto.reduce((a, y) => a + y.valor_centavos, 0)
-      if (Math.abs(soma - unica.valor_centavos) <= resto.length) { resto.forEach((y) => fora.add(y)); break }
-    }
-  }
-  return semRepetir.filter((x) => !fora.has(x))
+  return semRepetir
 }
 
 /** Total do IPVA pela fonte; se a soma da lista diverge, vale a fonte e o fato vai pro log. */
@@ -621,7 +606,7 @@ export function parsearDetranSp(data: any, hoje: Date | number = new Date()): De
   return {
     multas: { total: multasTotal, mensagem: d.multas_mensagem ?? null, itens },
     hodometro: { leituras, suspeitaAdulteracao },
-    ipva: { valor: ipvaValor, mensagem: d.ipva_mensagem ?? null, temDebito: ipvaTemDebito, itens: ordenarIpva(normalizarIpvaItens((Array.isArray(d.debitos_ipva) ? d.debitos_ipva : []).map(ipvaItemGenerico).filter(Boolean) as IpvaItem[])) },
+    ipva: { valor: ipvaValor, mensagem: d.ipva_mensagem ?? null, temDebito: ipvaTemDebito, itens: ordenarIpva(normalizarIpvaItens((Array.isArray(d.debitos_ipva) ? d.debitos_ipva : []).map(ipvaItemGenerico).filter(Boolean) as IpvaItem[], Math.round(ipvaValor * 100))) },
     licenciamento: {
       valor: moeda(d.licenciamento_valor),
       mensagem: d.licenciamento_mensagem ?? null,
@@ -1005,7 +990,7 @@ export function parsearIpvaSefazDf(data: any): IpvaItem[] | null {
       if (v > 0) itens.push({ ano: anoDe(x?.ano), vencimento: String(x?.vencimento || x?.data_vencimento || '').match(/\d{2}\/\d{2}\/\d{4}/)?.[0] ?? null, valor_centavos: Math.round(v * 100), ...(cota ? { cota } : {}) })
     }
   }
-  return ordenarIpva(normalizarIpvaItens(itens))
+  return ordenarIpva(itens)
 }
 
 export function parsearIpvaSefazAl(data: any): IpvaItem[] | null {
@@ -1360,9 +1345,8 @@ export function parsearDetranDf(data: any, hoje: Date = new Date()) {
     }
   })
 
-  // IPVA por exercicio. Cota unica + parcelas do mesmo ano viram so a cota
-  // unica (ORB7328: a soma das duas formas dobrava o IPVA 2026).
-  const ipvaItens = ordenarIpva(normalizarIpvaItens((Array.isArray(deb.ipva) ? deb.ipva : []).map(ipvaItemGenerico).filter(Boolean) as IpvaItem[]))
+  // IPVA por exercicio (shape defensivo: sem exemplo real com IPVA ainda).
+  const ipvaItens = ordenarIpva((Array.isArray(deb.ipva) ? deb.ipva : []).map(ipvaItemGenerico).filter(Boolean) as IpvaItem[])
 
   // Licenciamento: total_licenciamento (ou soma dos itens). Atrasado com
   // debito ja vencido, ou com o ultimo licenciado 2+ anos pra tras.

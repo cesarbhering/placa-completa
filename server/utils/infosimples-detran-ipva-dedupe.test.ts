@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { parsearDetranSp, detranParaMultas, parsearDetranDf, parsearIpvaSefazDf, normalizarIpvaItens } from './infosimples-detran'
+import { parsearDetranSp, detranParaMultas, parsearDetranDf, normalizarIpvaItens } from './infosimples-detran'
 
 // FGP0J33 (23/out/2026): trecho de IPVA do bruto real do DETRAN-SP
 // (premium_custos, infosimples_detran_sp, code 200). Mesmo IPVA duas vezes, so
@@ -14,8 +14,8 @@ const SP_FGP0J33 = {
   ],
 }
 
-// ORB7328 (DF): trecho de debitos.ipva do bruto real do DETRAN-DF. Cotas 01 a 06
-// de 493,04 + cota 89 (cota unica) de 2.958,24 = soma delas.
+// ORB7328 (DF): trecho de debitos.ipva do bruto real do DETRAN-DF. 9 itens cuja
+// soma e o total da fonte (R$ 11.868,75): NAO e duplicata, nao pode mudar.
 const cotaDf = (cota: string, valor: number, ano = '2026') => ({ ano, cota, mora: 0, multa: 0, total: valor, valor, outros: 0, vencimento: null })
 const DF_ORB7328 = {
   debitos: {
@@ -44,23 +44,25 @@ describe('IPVA sem repeticao (FGP0J33 e ORB7328)', () => {
     warn.mockRestore()
   })
 
-  it('DF: cota unica + parcelas do mesmo ano vira so a cota unica; total sem dobrar', () => {
+  it('ORB7328 (DF): nao mexe, 9 itens e o total de sempre', () => {
     const b = parsearDetranDf(DF_ORB7328, new Date('2026-10-23T12:00:00Z'))
-    expect(b.ipva_itens.map((x) => [x.ano, x.valor_centavos])).toEqual([[2026, 295824], [2025, 301455], [2024, 293772]])
-    expect(b.ipva_total_centavos).toBe(295824 + 301455 + 293772)
+    expect(b.ipva_itens).toHaveLength(9)
+    expect(b.ipva_total_centavos).toBe(1186875)
   })
 
-  it('SEFAZ-DF: cota 89 tira as outras cotas do ano mesmo com juros diferentes por cota', () => {
-    const itens = parsearIpvaSefazDf({ debitos: [
-      { ano: '2026', cota: '01', valor_total: '590,50' }, { ano: '2026', cota: '02', valor_total: '583,94' },
-      { ano: '2026', cota: '89', valor_total: '3.450,37' }, { ano: '2025', cota: '', valor_total: '4.468,67' },
-    ] })
-    expect(itens!.map((x) => x.valor_centavos)).toEqual([345037, 446867])
+  it('so deduplica com a soma acima do total da fonte', () => {
+    const dup = [
+      { ano: 2026, vencimento: '19/02/2026', valor_centavos: 261004 },
+      { ano: 2026, vencimento: '19/02/2026', valor_centavos: 261004 },
+    ]
+    expect(normalizarIpvaItens(dup, 261004)).toHaveLength(1)
+    expect(normalizarIpvaItens(dup, 522008)).toHaveLength(2) // a fonte diz que sao dois
+    expect(normalizarIpvaItens(dup, null)).toHaveLength(2) // sem total da fonte, nao mexe
   })
 
-  it('parcelas sem vencimento e sem cota unica continuam todas (nao junta)', () => {
+  it('itens sem vencimento nunca sao juntados', () => {
     const itens = [1, 2, 3].map((c) => ({ ano: 2026, vencimento: null, valor_centavos: 49304, cota: `0${c}` }))
-    expect(normalizarIpvaItens(itens)).toHaveLength(3)
+    expect(normalizarIpvaItens(itens, 49304)).toHaveLength(3)
   })
 
   it('exercicios diferentes com o mesmo valor e vencimento continuam separados', () => {
@@ -68,6 +70,6 @@ describe('IPVA sem repeticao (FGP0J33 e ORB7328)', () => {
       { ano: 2025, vencimento: '19/02/2026', valor_centavos: 1000 },
       { ano: 2026, vencimento: '19/02/2026', valor_centavos: 1000 },
     ]
-    expect(normalizarIpvaItens(itens)).toHaveLength(2)
+    expect(normalizarIpvaItens(itens, 1000)).toHaveLength(2)
   })
 })
