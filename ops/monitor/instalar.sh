@@ -21,10 +21,10 @@ install -m 644 pc-site-check.service pc-site-check.timer pc-checkout-probe.servi
   pc-fila-check.service pc-fila-check.timer pc-tunel-check.service pc-tunel-check.timer \
   pc-monitor-meta.service pc-monitor-meta.timer pc-monitor-panico.service \
   pc-recursos-check.service pc-recursos-check.timer pc-deploy-watch.service pc-deploy-watch.timer \
-  pc-deploy-check.service pc-deploy-check.timer /etc/systemd/system/
+  pc-deploy-check.service pc-deploy-check.timer pc-whatsapp-check.service pc-whatsapp-check.timer /etc/systemd/system/
 mkdir -p /var/lib/pc-monitor /var/log/pc-monitor
 systemctl daemon-reload
-systemctl enable pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-recursos-check.timer pc-deploy-check.timer pc-monitor-meta.timer
-systemctl restart pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-recursos-check.timer pc-deploy-check.timer pc-monitor-meta.timer
-systemctl list-timers pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-recursos-check.timer pc-deploy-check.timer pc-monitor-meta.timer --no-pager
+systemctl enable pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-recursos-check.timer pc-deploy-check.timer pc-whatsapp-check.timer pc-monitor-meta.timer
+systemctl restart pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-recursos-check.timer pc-deploy-check.timer pc-whatsapp-check.timer pc-monitor-meta.timer
+systemctl list-timers pc-site-check.timer pc-checkout-probe.timer pc-fila-check.timer pc-tunel-check.timer pc-recursos-check.timer pc-deploy-check.timer pc-whatsapp-check.timer pc-monitor-meta.timer --no-pager
 echo "backup em $B"
