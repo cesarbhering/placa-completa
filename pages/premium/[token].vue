@@ -1611,9 +1611,13 @@ const ipvaLista = computed(() => {
   const itens = [...det, ...sef]
     .filter((x: any) => Number(x?.valor_centavos) > 0)
     .sort((a: any, b: any) => (Number(b.ano) || 0) - (Number(a.ano) || 0))
+  // Total pela FONTE (ipva_total_centavos), nunca a soma da lista: no FGP0J33
+  // o DETRAN-SP listou o mesmo IPVA duas vezes e a soma dobrava (23/out/2026).
+  // Sem total da fonte (snapshot antigo), cai na soma.
+  const daFonte = Number(m?.ipva_total_centavos)
   return {
     itens,
-    total: itens.reduce((acc: number, x: any) => acc + Number(x.valor_centavos), 0),
+    total: daFonte > 0 ? daFonte : itens.reduce((acc: number, x: any) => acc + Number(x.valor_centavos), 0),
     temSefaz: itens.some((x: any) => x.sefaz),
   }
 })
