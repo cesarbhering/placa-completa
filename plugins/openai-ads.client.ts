@@ -4,8 +4,11 @@ import { aposCarregar } from '~/shared/apos-carregar'
 // Pixel da OpenAI Ads (ChatGPT). So mede: captura o oppref da URL de entrada
 // (cookie __oppref) e cria o cookie __obref, que a consulta e o checkout levam
 // pro servidor (shared/origem-trafego.ts). A conversao de compra (order_created)
-// sai SO pelo servidor, com pagamento confirmado (server/plugins/openai-capi.ts);
-// o pixel nao manda order_created. Sem Pixel ID ou em homolog/staging: nada.
+// sai pelos DOIS lados com o mesmo event_id (o token do pedido), e a OpenAI
+// deduplica: servidor (server/plugins/openai-capi.ts) e navegador, na pagina do
+// relatorio entregue (trackOrderCreatedOpenAI em composables/useAnalytics.ts).
+// O painel so contou conversao depois do evento do navegador (24/out/2026).
+// Sem Pixel ID ou em homolog/staging: nada.
 export default defineNuxtPlugin(() => {
   if (!import.meta.client) return
   const cfg = useRuntimeConfig().public

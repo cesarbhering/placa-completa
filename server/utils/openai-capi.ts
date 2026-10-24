@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto'
-import { PLANOS, isPlanoPago } from '../../shared/planos'
+import { dadosOrderCreated, valorDoEvento } from '../../shared/openai-evento'
+
+export { valorDoEvento }
 
 // OpenAI Ads (ChatGPT): Conversions API. Fonte da verdade da compra: o
 // order_created so sai de pedido com pagamento CONFIRMADO, valor > 0 e de
@@ -112,15 +114,7 @@ export function toqueChatgptDaConsulta(consultas: ConsultaOrigem[], placa: strin
   return escolhida ? { oppref: String(escolhida.oppref || '').trim() || null, obref: escolhida.obref || null, created_at: escolhida.created_at } : null
 }
 
-/** Valor da conversao: o que foi pago; cupom 100% (R$ 0) vai com o preco cheio do plano. */
-export function valorDoEvento(valorCentavos: number | null | undefined, plano: keyof typeof PLANOS): number {
-  const v = Math.round(Number(valorCentavos))
-  return v > 0 ? v : PLANOS[plano].valorCentavos
-}
-
 export function montarEvento(p: PedidoCapi) {
-  const plano = isPlanoPago(p.plano) ? p.plano : 'completa'
-  const valor = valorDoEvento(p.valor_centavos, plano)
   const hash = emailSha256(p.email)
   const user: Record<string, unknown> = { countries: ['BR'] }
   if (hash) user.emails_sha256 = [hash]
@@ -136,12 +130,8 @@ export function montarEvento(p: PedidoCapi) {
     action_source: 'web',
     source_url: `https://placacompleta.com.br/premium/${p.token_entrega}`,
     user,
-    data: {
-      type: 'contents',
-      amount: valor,
-      currency: 'BRL',
-      contents: [{ id: `plano-${plano}`, name: PLANOS[plano].nome, content_type: 'product', quantity: 1, amount: valor, currency: 'BRL' }],
-    },
+    // Mesmo bloco do pixel do navegador (shared/openai-evento.ts): dedupe pelo id.
+    data: dadosOrderCreated(p.valor_centavos, p.plano),
   }
   if (oppref) ev.oppref = oppref
   return ev

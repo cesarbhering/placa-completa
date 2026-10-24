@@ -427,5 +427,7 @@ export default defineEventHandler(async (event) => {
     // cartao (mostra "confirmando o cartao" ate o status virar) e pra nao tentar
     // renovar Pix nele.
     formaPagamento: (pedido as any).forma_pagamento || 'pix',
+    // Pixel da OpenAI no navegador pula pedido de teste, como a CAPI (useAnalytics.trackOrderCreatedOpenAI).
+    ambiente: (pedido as any).ambiente ?? null,
   }
 })
