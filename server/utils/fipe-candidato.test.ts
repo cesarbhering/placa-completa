@@ -1293,3 +1293,52 @@ describe('fora da duvida so de cambio, juiz fora segue no fallback de sempre', (
     expect(r.decididoPor).toBe('fallback')
   })
 })
+
+describe('EZJ9243 (C3 PICASSO EXC A, 23/out/2026): sufixo A = automatico e Picasso nao vira C3', () => {
+  // Nomes do caso real; so a versao certa (011111-2) teve o codigo conferido,
+  // os outros codigos sao ilustrativos.
+  const c3 = (codigo: string, modelo: string, score = 50) => ({ score, codigo_fipe: codigo, codigo_modelo: codigo.slice(0, 6), texto_modelo: modelo, texto_valor: 'R$ 30.000,00', texto_marca: 'Citroën', combustivel: 'Flex', mes_referencia: 'outubro de 2026' })
+  const LISTA = [
+    c3('011111-2', 'C3 Picasso Excl. 1.6 Flex 16V 5p Aut.'),
+    c3('011110-4', 'C3 Picasso Excl. 1.6 Flex 16V 5p Mec.'),
+    c3('011109-0', 'C3 Picasso GLX 1.6 Flex 16V 5p Mec.'),
+    c3('011108-2', 'C3 Picasso GLX 1.5 Flex 8V 5p Mec.'),
+    c3('011093-0', 'C3 Excl./Excl.Solar./Sonora 1.6 Flex Aut'),
+  ]
+  const rodar = (descricao: string, dados = LISTA) => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+    return escolherMelhorFipe({
+      senatran: { cilindrada: 1587, potencia: 113, descricaoMarcaModelo: descricao, anoModelo: 2012, codigoCombustivel: '16', descricaoTipoVeiculo: 'AUTOMOVEL', descricaoEspecie: 'PASSAGEIRO' } as any,
+      wdapi: { marca: 'CITROEN', MODELO: descricao.replace(/^CITROEN\//, ''), anoModelo: '2012', fipe: { dados } },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1',
+      fipeApiToken: 'token-teste',
+    })
+  }
+
+  it('decide a Picasso Excl. Aut. por regra_cambio_sufixo, confianca alta, sem juiz', async () => {
+    const r = await rodar('CITROEN/C3 PICASSO EXC A')
+    expect(r.escolhido?.codigo_fipe).toBe('011111-2')
+    expect(r.decididoPor).toBe('regra_cambio_sufixo')
+    expect(r.confianca).toBe('alta')
+  })
+
+  it('o C3 que nao e Picasso sai da lista mesmo sem o cambio', async () => {
+    const r = await rodar('CITROEN/C3 PICASSO EXC')
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.candidatos.map((c) => c.modelo).some((m) => !/Picasso/i.test(m))).toBe(false)
+  })
+
+  it('C3 sem PICASSO no cadastro nao fica com versao Picasso', async () => {
+    const r = await rodar('CITROEN/C3 EXC A')
+    expect(r.escolhido?.codigo_fipe).toBe('011093-0')
+  })
+
+  it('cambio do proprio nome (1.6AT) continua decidido como "regra"', async () => {
+    const r = await rodar('CITROEN/C3 PICASSO EXC 1.6AT')
+    expect(r.escolhido?.codigo_fipe).toBe('011111-2')
+    expect(r.decididoPor).toBe('regra')
+  })
+})
