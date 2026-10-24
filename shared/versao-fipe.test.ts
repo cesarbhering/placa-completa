@@ -259,3 +259,23 @@ describe('Renault: siglas do cadastro (OUQ8G18, 15/out)', () => {
     expect(filtrarPeloModeloDoNome(lista, 'I/SUZUKI G.VITARA 2WD 5P').map((c) => c.modelo)).toEqual(['Grand Vitara 2.0 16V 4x2/4x4 5p Aut.', 'Grand Vitara 2.0 16V 4x2/4x4 5p Mec.'])
   })
 })
+
+describe('sinonimos e prefixo de versao (EZJ9243, 24/out/2026)', async () => {
+  const { candidatoTemVersaoDoNome, lerVersaoDoNome } = await import('./versao-fipe')
+  it('EXC/EXCL casam com "Excl." e "Exclusive"', () => {
+    const { versoes, prefixo } = lerVersaoDoNome('CITROEN/C3 PICASSO EXC A')
+    expect(candidatoTemVersaoDoNome('C3 Picasso Excl. 1.6 Flex 16V 5p Aut.', versoes, prefixo)).toBe(true)
+    expect(candidatoTemVersaoDoNome('C3 Picasso Exclusive 1.6 Flex 16V 5p Mec', versoes, prefixo)).toBe(true)
+    expect(candidatoTemVersaoDoNome('C3 Picasso GLX 1.6 Flex 16V 5p Aut.', versoes, prefixo)).toBe(false)
+  })
+  it('prefixo so no sentido cadastro -> FIPE por extenso, 3+ letras, nunca outra versao conhecida', () => {
+    // LIMIT no cadastro casa "Limited"; SPORT nao casa "Sportway"; GL nao casa GLX (2 letras).
+    expect(candidatoTemVersaoDoNome('Compass Limited 2.0', ['LIMIT'], true)).toBe(true)
+    expect(candidatoTemVersaoDoNome('Sandero Sportway 1.6', ['SPORT'], true)).toBe(false)
+    expect(candidatoTemVersaoDoNome('C3 Picasso GLX 1.6', ['GL'], true)).toBe(false)
+    // LX nao casa LXS (2 letras).
+    expect(candidatoTemVersaoDoNome('Civic LXS 1.8', ['LX'], true)).toBe(false)
+    // Sem prefixo (sigla de marca): so exato.
+    expect(candidatoTemVersaoDoNome('Compass Limited 2.0', ['LIMIT'], false)).toBe(false)
+  })
+})
