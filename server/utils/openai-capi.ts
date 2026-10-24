@@ -23,7 +23,28 @@ export interface PedidoCapi {
   oppref: string | null
   obref: string | null
   utm_source?: string | null
+  placa?: string | null
+  /**
+   * Clique no anuncio que veio ANTES, na consulta gratis da mesma placa (ver
+   * toqueChatgptDaConsulta). Caso EZJ9243 (23/out): consulta com oppref as
+   * 21:27, a pessoa voltou por chatgpt.com e por link de WhatsApp, e o pedido
+   * nasceu sem oppref.
+   */
+  toque_chatgpt?: ToqueChatgpt | null
 }
+
+export interface ToqueChatgpt { oppref: string | null; obref: string | null; created_at: string }
+
+export interface ConsultaOrigem {
+  placa: string | null
+  created_at: string
+  oppref: string | null
+  obref?: string | null
+  utm_source: string | null
+}
+
+/** Motivos de nao enviar que nunca viram conversao: os relatorios mostram "não se aplica". */
+export const MOTIVOS_NAO_SE_APLICA = new Set(['app', 'teste'])
 
 /** sha256 do e-mail normalizado (trim + minusculas), hex minusculo. */
 export function emailSha256(email: string | null | undefined): string | null {
@@ -57,9 +78,38 @@ export function motivoParaNaoEnviar(p: PedidoCapi, opts: { agora: number; proteg
   return null
 }
 
-/** A venda veio do ChatGPT Ads? (oppref do clique ou utm_source=chatgpt_ads) */
-export function origemChatgpt(p: Pick<PedidoCapi, 'oppref' | 'utm_source'>): boolean {
-  return !!String(p.oppref || '').trim() || String(p.utm_source || '').trim().toLowerCase() === 'chatgpt_ads'
+const ehChatgptAds = (src: unknown) => String(src || '').trim().toLowerCase() === 'chatgpt_ads'
+
+/**
+ * A venda veio do ChatGPT Ads? oppref do clique ou utm_source=chatgpt_ads no
+ * pedido OU na consulta gratis da mesma placa antes do pagamento (toque_chatgpt).
+ */
+export function origemChatgpt(p: Pick<PedidoCapi, 'oppref' | 'utm_source' | 'toque_chatgpt'>): boolean {
+  return !!String(p.oppref || '').trim() || ehChatgptAds(p.utm_source) || !!p.toque_chatgpt
+}
+
+/** O pedido sozinho ja diz que veio do ChatGPT (sem precisar da consulta)? */
+export function origemChatgptNoPedido(p: Pick<PedidoCapi, 'oppref' | 'utm_source'>): boolean {
+  return !!String(p.oppref || '').trim() || ehChatgptAds(p.utm_source)
+}
+
+/**
+ * Clique no ChatGPT Ads numa consulta gratis da MESMA placa, ate 7 dias antes
+ * do pagamento (mesma regra do e-mail pc-chatgpt-primeira-venda). Entre varias,
+ * vale a mais recente com oppref (e o id que a OpenAI usa pra atribuir); sem
+ * oppref, a mais recente com utm_source=chatgpt_ads.
+ */
+export function toqueChatgptDaConsulta(consultas: ConsultaOrigem[], placa: string | null | undefined, pagoEm: string | null | undefined): ToqueChatgpt | null {
+  const pl = String(placa || '').toUpperCase().trim()
+  const fim = Date.parse(String(pagoEm || ''))
+  if (!pl || !Number.isFinite(fim)) return null
+  const doClique = consultas
+    .filter((c) => String(c.placa || '').toUpperCase().trim() === pl)
+    .filter((c) => { const t = Date.parse(c.created_at); return Number.isFinite(t) && t <= fim && fim - t <= SETE_DIAS_MS })
+    .filter((c) => !!String(c.oppref || '').trim() || ehChatgptAds(c.utm_source))
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+  const escolhida = doClique.find((c) => String(c.oppref || '').trim()) || doClique[0]
+  return escolhida ? { oppref: String(escolhida.oppref || '').trim() || null, obref: escolhida.obref || null, created_at: escolhida.created_at } : null
 }
 
 /** Valor da conversao: o que foi pago; cupom 100% (R$ 0) vai com o preco cheio do plano. */
@@ -74,7 +124,10 @@ export function montarEvento(p: PedidoCapi) {
   const hash = emailSha256(p.email)
   const user: Record<string, unknown> = { countries: ['BR'] }
   if (hash) user.emails_sha256 = [hash]
-  if (p.obref) user.obref = p.obref
+  // Sem oppref/obref no pedido, vai o do clique na consulta gratis (toque_chatgpt).
+  const obref = p.obref || p.toque_chatgpt?.obref
+  const oppref = String(p.oppref || '').trim() || p.toque_chatgpt?.oppref || null
+  if (obref) user.obref = obref
   if (p.ip_address) user.ip_address = p.ip_address
   const ev: Record<string, unknown> = {
     id: p.token_entrega,
@@ -90,7 +143,7 @@ export function montarEvento(p: PedidoCapi) {
       contents: [{ id: `plano-${plano}`, name: PLANOS[plano].nome, content_type: 'product', quantity: 1, amount: valor, currency: 'BRL' }],
     },
   }
-  if (p.oppref) ev.oppref = p.oppref
+  if (oppref) ev.oppref = oppref
   return ev
 }
 
