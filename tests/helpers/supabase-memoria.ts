@@ -1,6 +1,6 @@
 // Supabase em memoria pros testes: so o subconjunto do query builder que o
 // codigo de compras do app usa (select/insert/update, eq/is/lt, order, limit,
-// maybeSingle/single, rpc). Unique opcional por tabela.
+// maybeSingle/single, rpc, or simples). Unique opcional por tabela.
 type Linha = Record<string, any>
 
 export function supabaseMemoria(opts: { unicos?: Record<string, string[]>; rpc?: (nome: string, args: any) => any } = {}) {
@@ -42,11 +42,30 @@ export function supabaseMemoria(opts: { unicos?: Record<string, string[]>; rpc?:
       select: (_c?: string, o?: { count?: string; head?: boolean }) => { if (o?.head) contar = true; return b },
       upsert: (p: any, o?: { onConflict?: string }) => { op = 'upsert'; payload = p; conflito = String(o?.onConflict || 'id').split(','); return b },
       gte: (c: string, v: any) => { filtros.push((l) => l[c] >= v); return b },
+      gt: (c: string, v: any) => { filtros.push((l) => l[c] > v); return b },
       in: (c: string, vs: any[]) => { filtros.push((l) => vs.includes(l[c])); return b },
       insert: (p: any) => { op = 'insert'; payload = p; return b },
       update: (p: any) => { op = 'update'; payload = p; return b },
       eq: (c: string, v: any) => { filtros.push((l) => l[c] === v); return b },
       is: (c: string, v: any) => { filtros.push((l) => (l[c] ?? null) === v); return b },
+      // or('a.is.null,b.eq.x,c.not.is.null,d.ilike.y'): so os operadores que o codigo usa.
+      or: (expr: string) => {
+        const conds = expr.split(',').map((t) => {
+          const [c, ...resto] = t.split('.')
+          const op = resto[0] === 'not' ? `not.${resto[1]}` : resto[0]
+          const v = resto.slice(op.startsWith('not.') ? 2 : 1).join('.')
+          return (l: Linha) => {
+            const x = l[c] ?? null
+            if (op === 'is') return v === 'null' ? x === null : String(x) === v
+            if (op === 'not.is') return v === 'null' ? x !== null : String(x) !== v
+            if (op === 'eq') return String(x) === v
+            if (op === 'ilike') return String(x ?? '').toLowerCase() === v.toLowerCase()
+            return false
+          }
+        })
+        filtros.push((l) => conds.some((f) => f(l)))
+        return b
+      },
       lt: (c: string, v: any) => { filtros.push((l) => l[c] < v); return b },
       order: (col: string, o?: { ascending?: boolean }) => { ordem = { col, asc: o?.ascending !== false }; return b },
       limit: (n: number) => { lim = n; return b },

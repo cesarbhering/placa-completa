@@ -44,10 +44,39 @@ def save_state(s):
     json.dump(s, open(STATE_FILE, "w"))
 
 
+# Porta de entrada do checkout (#origem-checkout, 13/out). Enum do site em
+# shared/origem-checkout.ts; nulo = venda de antes da medicao ("nao medido").
+ROTULO_BOTAO = {"bloco_bloqueado": "Bloco da oferta", "barra_fixa": "Barra fixa", "escada_planos": "Escada de planos",
+                "hero_home": "Topo da home", "hero_apos_cta": "Topo depois do CTA", "link_direto": "Link direto",
+                "pix_recovery": "Recuperação de Pix", "app": "App", "outro": "Outro botão"}
+_TEM_ORIGEM_CHECKOUT = None
+
+
+def tem_origem_checkout():
+    """A coluna so existe depois da migration; antes disso a query segue sem ela."""
+    global _TEM_ORIGEM_CHECKOUT
+    if _TEM_ORIGEM_CHECKOUT is None:
+        try:
+            _TEM_ORIGEM_CHECKOUT = bool(q("select 1 from information_schema.columns where table_name='pedidos_premium' "
+                                          "and column_name='origem_checkout';"))
+        except Exception:
+            _TEM_ORIGEM_CHECKOUT = False
+    return _TEM_ORIGEM_CHECKOUT
+
+
+def col_origem_checkout():
+    return "origem_checkout" if tem_origem_checkout() else "null::text origem_checkout"
+
+
+def botao(pedido):
+    return ROTULO_BOTAO.get(pedido.get("origem_checkout") or "", "não medido")
+
+
 def vendas_pagas():
     return q("select id, placa, plano, valor_centavos, pago_em, email, consulta_id, "
-             "token_entrega, status, entregue_em, erro, dispositivo, sistema, pix_provider, forma_pagamento, recall_sinal, recall_marca, cupom_origem, aviso_venda_em, ambiente, pagador_hash, pagador_hash_cartao "
-             "from pedidos_premium where pago_em is not null order by pago_em asc;")
+             "token_entrega, status, entregue_em, erro, dispositivo, sistema, pix_provider, forma_pagamento, recall_sinal, recall_marca, cupom_origem, aviso_venda_em, ambiente, pagador_hash, pagador_hash_cartao, openai_capi_em, openai_capi_erro, "
+             + col_origem_checkout() + " "
+             "from pedidos_premium where pago_em is not null and coalesce(ambiente,'producao') = 'producao' order by pago_em asc;")
 
 
 def recente(ts, minutos):
@@ -147,9 +176,45 @@ def _origem(pedido):
               f"where upper(placa) = upper('{placa}') and created_at <= '{pago}' "
               "order by created_at desc limit 1;")
         row = r[0] if r else None
-    if not row:
-        return "Indeterminada (sem consulta associada)"
-    return _origem_da_linha(row)
+    org = _origem_da_linha(row) if row else None
+    # Primeiro clique no ChatGPT Ads (consulta da mesma placa com oppref ou
+    # utm_source=chatgpt_ads, ate 7 dias antes do pagamento) vale mesmo se a
+    # pessoa voltou depois por outro caminho. Mesma regra do envio de conversao
+    # (server/utils/openai-capi.ts). Caso EZJ9243, 23/out.
+    if not (org or "").startswith("ChatGPT") and toque_chatgpt(pedido):
+        return "ChatGPT Ads (OpenAI, clique na consulta grátis)"
+    return org or "Indeterminada (sem consulta associada)"
+
+
+def toque_chatgpt(pedido):
+    placa = str(pedido.get("placa", "")).replace("'", "")
+    pago = str(pedido.get("pago_em", "")).replace("'", "")
+    if not placa or not pago:
+        return False
+    r = q(f"select 1 from consultas where upper(placa) = upper('{placa}') and created_at <= '{pago}' "
+          f"and created_at >= '{pago}'::timestamptz - interval '7 days' "
+          "and (oppref is not null or lower(coalesce(utm_source,'')) = 'chatgpt_ads') limit 1;")
+    return bool(r)
+
+
+# Motivos que o worker grava em openai_capi_erro quando nao envia (server/plugins/openai-capi.ts).
+NAO_SE_APLICA = {"app": "compra no app", "teste": "pedido de teste"}
+
+
+def linha_capi(pedido, org):
+    """Conversao pra OpenAI (CAPI). app/teste e venda que nao veio do ChatGPT: nao se aplica."""
+    erro = pedido.get("openai_capi_erro") or ""
+    if erro in NAO_SE_APLICA:
+        return f"não se aplica ({NAO_SE_APLICA[erro]})"
+    if pedido.get("pix_provider") == "google_play":
+        return "não se aplica (compra no app)"
+    if not org.startswith("ChatGPT"):
+        return "não se aplica (não veio do ChatGPT Ads)"
+    if pedido.get("openai_capi_em") and not erro:
+        return "enviada à OpenAI"
+    if not erro:
+        return "pendente (o envio roda a cada 2 min depois da entrega)"
+    return f"não enviada ({erro})"
 
 
 def _origem_da_linha(row):
@@ -281,6 +346,8 @@ def manda(pedido, rotulo):
         f"E-mail do comprador: {pedido.get('email','')}\n"
         f"Pagamento: {forma(pedido)}\n"
         f"Canal: {canal(pedido)}\n"
+        f"Botão: {botao(pedido)}\n"
+        f"Conversão OpenAI: {linha_capi(pedido, org)}\n"
         f"Dispositivo: {pedido.get('dispositivo') or '?'} / {pedido.get('sistema') or '?'}\n\n"
         f"Relatorio: {link}\n"
         f"Entrega: {estado}\n"
