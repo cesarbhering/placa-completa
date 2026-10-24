@@ -1,4 +1,5 @@
 import { PLANOS, isPlanoPago } from '~/shared/planos'
+import { dadosOrderCreated } from '~/shared/openai-evento'
 import { eventoPermitido, MAX_EVENTOS_POR_LOTE, type EventoFunil } from '~/shared/eventos-funil'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { varianteAtual, AB_RODADA } from '~/shared/ab-bloco'
@@ -210,6 +211,48 @@ const conversoesReportadas = new Set<string>()
  * Exportada pra ser testavel sem gtag: e a regra que impede a mesma compra de
  * virar duas conversoes no Ads.
  */
+/**
+ * order_created da OpenAI Ads pelo pixel do navegador (SDK oaiq ja carregado
+ * por plugins/openai-ads.client.ts). API do SDK: oaiq('measure', nome, props,
+ * opcoes); props do tipo contents (amount inteiro em centavos, currency,
+ * contents) e opcoes.event_id. event_id = token do pedido, o MESMO id da CAPI
+ * (server/utils/openai-capi.ts): a OpenAI deduplica e conta uma venda so.
+ * oppref/obref o proprio SDK le dos cookies (__oppref/__obref).
+ *
+ * Toda venda paga entra (quem atribui e a OpenAI, pelo clique). Fora, como na
+ * CAPI: app (Google Play), homolog/staging e pedido de teste. So com o pedido
+ * ENTREGUE, igual a CAPI: pago que vira estorno nao pode virar conversao.
+ * Uma vez por token (marca propria em localStorage; a do Ads/GA4 e outra).
+ */
+export function trackOrderCreatedOpenAI(p: {
+  token: string
+  status?: string | null
+  plano?: string | null
+  valorCentavos?: number | null
+  ambiente?: string | null
+  formaPagamento?: string | null
+}): boolean {
+  if (typeof window === 'undefined' || !p?.token) return false
+  if (p.status !== 'entregue') return false
+  if (p.ambiente && p.ambiente !== 'producao') return false
+  if (p.formaPagamento === 'google_play' || emAppNativo()) return false
+  if (!analyticsAtivoAqui()) return false
+  const w = window as any
+  if (typeof w.oaiq !== 'function') return false
+  const chave = 'pc_oai_conv_' + p.token
+  try { if (globalThis.localStorage?.getItem(chave)) return false } catch { /* storage indisponivel */ }
+  try { w.oaiq('measure', 'order_created', dadosOrderCreated(p.valorCentavos, p.plano), { event_id: p.token }) } catch { return false }
+  try { globalThis.localStorage?.setItem(chave, '1') } catch { /* modo privado */ }
+  return true
+}
+
+/** Dentro do app (WebView do Capacitor): compra la e Google Play, nunca conversao web. */
+function emAppNativo(): boolean {
+  const w = window as any
+  if (typeof w.Capacitor?.isNativePlatform === 'function' && w.Capacitor.isNativePlatform()) return true
+  return String(w.navigator?.userAgent || '').includes('PlacaCompletaApp')
+}
+
 export function reivindicarConversao(token: string): boolean {
   if (!token) return false
   if (conversoesReportadas.has(token)) return false

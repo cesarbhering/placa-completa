@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { trackOrderCreatedOpenAI } from '~/composables/useAnalytics'
 import { cardRecallAssociado } from '~/shared/recall-associado'
 import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { textoDetranProtegido } from '~/shared/detran-protegido'
@@ -2017,6 +2018,14 @@ let poll: any = null
 // de acontecer. Pedido sem data de entrega (ainda pagando) conta como recente:
 // e exatamente o fluxo de quem esta na tela esperando o Pix cair.
 const JANELA_CONVERSAO_MS = 6 * 60 * 60 * 1000
+// order_created no pixel da OpenAI (dedupe com a CAPI pelo token). So com o
+// pedido entregue; a funcao ignora app, teste e homolog e marca o token.
+function conversaoOpenAI() {
+  const d = data.value
+  if (!d) return
+  trackOrderCreatedOpenAI({ token, status: d.status, plano: d.plano, valorCentavos: d.valorCentavos, ambiente: d.ambiente, formaPagamento: d.formaPagamento })
+}
+
 function entregaRecente(): boolean {
   const entregue = data.value?.entregue_em
   if (!entregue) return true
@@ -2045,6 +2054,7 @@ onMounted(() => {
     // Valor REAL do pedido (cupom incluido): com 0 (cupom 100%) nada dispara.
     trackConversionPaga(token, data.value.plano, data.value.valorCentavos ?? undefined)
   }
+  if (entregaRecente()) conversaoOpenAI()
   if (data.value.status !== 'entregue') {
     // Polla o /status, que e leve e e quem detecta pagamento ate sem webhook.
     // A versao anterior chamava refresh() do relatorio INTEIRO a cada 4s: alem
@@ -2060,6 +2070,7 @@ onMounted(() => {
         // conversao do Ads/GA4 (veio do outro lado do merge): dispara quando o
         // pagamento se confirma; a funcao e idempotente por token
         if (data.value && ['pago', 'consultando', 'entregue'].includes(data.value.status)) trackConversionPaga(token, data.value.plano, data.value.valorCentavos ?? undefined)
+        conversaoOpenAI()
         if (data.value?.status === 'entregue') clearInterval(poll)
       } catch { /* rede oscilou; proxima volta tenta de novo */ }
     }, 5000)
