@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Avisa o Cesar por e-mail a PRIMEIRA venda paga vinda do ChatGPT Ads (oppref ou utm_source=chatgpt_ads),
+com o status do envio pra Conversions API. Dispara uma vez e desliga o proprio timer. Pedido do Cesar 03/out/2026."""
+import json, os, subprocess
+REF = "fivalpkfneadngxiflea"; SB = open(os.path.expanduser("~/.supabase/access-token")).read().strip()
+def q(sql):
+    p = subprocess.run(["curl", "-s", "-X", "POST", f"https://api.supabase.com/v1/projects/{REF}/database/query", "-H", f"Authorization: Bearer {SB}",
+                        "-H", "Content-Type: application/json", "-d", json.dumps({"query": sql})], capture_output=True, text=True, timeout=60)
+    return json.loads(p.stdout or "[]")
+r = q("""select pp.placa, pp.pago_em, pp.valor_centavos, pp.token_entrega, pp.status, pp.openai_capi_em, pp.openai_capi_erro, pp.dispositivo, pp.sistema
+from pedidos_premium pp
+where pp.pago_em >= '2026-10-03 15:20:44+00' and pp.valor_centavos > 0
+  and (pp.oppref is not null or exists (select 1 from consultas c where upper(c.placa)=upper(pp.placa) and c.created_at <= pp.pago_em and c.created_at >= pp.pago_em - interval '7 days'
+       and (c.oppref is not null or lower(coalesce(c.utm_source,''))='chatgpt_ads')))
+order by pp.pago_em limit 1""")
+if not isinstance(r, list) or not r: raise SystemExit(0)
+v = r[0]
+# app/teste nunca viram conversao: "nao se aplica" (motivo gravado pelo worker,
+# server/plugins/openai-capi.ts). Outros motivos de nao envio aparecem como estao.
+NAO_SE_APLICA = {"app": "compra no app", "teste": "pedido de teste"}
+erro = v.get("openai_capi_erro") or ""
+if erro in NAO_SE_APLICA:
+    capi = f"não se aplica ({NAO_SE_APLICA[erro]})"
+elif v.get("openai_capi_em") and not erro:
+    capi = "enviada à OpenAI em " + v["openai_capi_em"]
+elif not erro:
+    capi = "ainda não enviada (o envio roda a cada 2 min depois da entrega)"
+else:
+    capi = "não enviada: " + erro
+corpo = f"""Cesar,
+
+Entrou a primeira venda vinda do ChatGPT Ads.
+
+Placa: {v['placa']}
+Pago em: {v['pago_em']} (UTC)
+Valor: R$ {v['valor_centavos']/100:.2f}
+Aparelho: {v.get('dispositivo') or '?'} / {v.get('sistema') or '?'}
+Status do pedido: {v['status']}
+Conversão: {capi}
+
+Helena"""
+subprocess.run(["pc-mail", "--to", "cesarcbhering@gmail.com", "--subject", f"Primeira venda do ChatGPT Ads: {v['placa']}", "--body", corpo], check=True)
+subprocess.run(["systemctl", "disable", "--now", "pc-chatgpt-primeira-venda.timer"])
