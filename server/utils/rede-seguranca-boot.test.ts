@@ -57,6 +57,7 @@ describe('rede de seguranca do boot', () => {
   it('idempotente: rodar de novo depois do bloco gravado nao repete', () => {
     const p = PEDIDOS[0]
     expect(precisaReenfileirar(p)).toBe(true)
+    expect(precisaReenfileirar({ ...p, plano: 'basica' })).toBe(false)
     expect(precisaReenfileirar({ relatorio_snapshot: { ...p.relatorio_snapshot, multas: { status: 'ok', fonte: 'detran_go' } } })).toBe(false)
   })
 

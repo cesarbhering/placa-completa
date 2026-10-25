@@ -1,4 +1,5 @@
 import { DETRAN_UFS, ufDetranSuportada, passaNoGateDetran, completarDetranDepois } from './infosimples-detran'
+import { fonteNoPlano } from '../../shared/planos'
 import { ufDaResposta, renavamDaResposta } from './detran-multas'
 import { MAX_CHAMADAS } from './detran-retentativa'
 
@@ -22,7 +23,8 @@ export const ATRASO_MS = 160 * 1000
 export interface CandidatoBoot { id: string; placa: string; consulta_id?: string | null; response: any }
 
 /** Filtro puro: pedido entregue sem bloco de multas, com renavam, UF com DETRAN e gate ok. */
-export function precisaReenfileirar(p: { relatorio_snapshot: any }): boolean {
+export function precisaReenfileirar(p: { relatorio_snapshot: any; plano?: string | null }): boolean {
+  if (!fonteNoPlano('detran', p.plano)) return false
   const snap = p.relatorio_snapshot
   if (!snap || typeof snap !== 'object') return false
   if (snap.multas != null) return false
@@ -48,7 +50,7 @@ export async function redeSegurancaBoot(
     const desde = new Date(agora - JANELA_MS).toISOString()
     const { data, error } = await supabase
       .from('pedidos_premium')
-      .select('id,placa,consulta_id,entregue_em,relatorio_snapshot')
+      .select('id,placa,plano,consulta_id,entregue_em,relatorio_snapshot')
       .eq('status', 'entregue')
       .eq('ambiente', 'producao')
       .gte('entregue_em', desde)

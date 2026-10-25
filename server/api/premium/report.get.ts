@@ -11,7 +11,7 @@ import { avisarRestricaoSemCopy } from '../../utils/aviso-restricao'
 import { fontesAplicaveis } from '../../utils/premium-jobs'
 import { situacaoDasFontes } from '../../../shared/fontes-relatorio'
 import { cupomRecompraDoPedido } from '../../utils/cupom-recompra'
-import { filtrarPorPlano, camposRestantes, PLANOS } from '../../../shared/planos'
+import { filtrarPorPlano, camposRestantes, PLANOS, fonteNoPlano } from '../../../shared/planos'
 import { getValorCusto } from '../../utils/valor-custo'
 import { sanearBlocoMultas } from '../../utils/infosimples-detran'
 import { retentarDetranSeValer } from '../../utils/detran-retentativa'
@@ -203,14 +203,16 @@ export default defineEventHandler(async (event) => {
       // UFs, SP inclusive) quando o bloco ficou indisponivel ou nunca chegou.
       // Freios em server/utils/detran-retentativa.ts (espera a chamada da
       // entrega, 20 min entre tentativas, teto de chamadas por pedido).
-      if (multas?.status !== 'ok' && multas?.status !== 'sem_debito' && multas?.status !== 'protegido'
+      // Basica: sem DETRAN (shared/planos.ts, fonteNoPlano).
+      const comDetran = fonteNoPlano('detran', pedido.plano)
+      if (comDetran && multas?.status !== 'ok' && multas?.status !== 'sem_debito' && multas?.status !== 'protegido'
         && podeReprocessar(`detran:${pedido.placa}`, 5 * 60 * 1000)) {
         void retentarDetranSeValer(supabase, pedido, snap.multas ?? null, respostaSnap)
       }
       // Worker gov.br (browser-use) so como RESERVA e so com a flag ligada:
       // nao loga no gov.br desde 06/out e cada tentativa custa. Desligado por
       // padrao (NUXT_DETRAN_WORKER_SP=on liga de volta).
-      if (String(useRuntimeConfig().detranWorkerSp || '') === 'on'
+      if (comDetran && String(useRuntimeConfig().detranWorkerSp || '') === 'on'
         && multas == null && temMultaSP(respostaSnap) && podeReprocessar(`multas:${pedido.placa}`)) {
         completarMultasDepois(
           supabase,
@@ -333,7 +335,7 @@ export default defineEventHandler(async (event) => {
   let aguardarAte: string | null = null
   if (pedido.status === 'entregue' && consulta) {
     try {
-      const aplicaveis = fontesAplicaveis((consulta as any)?.response)
+      const aplicaveis = fontesAplicaveis((consulta as any)?.response).filter((f) => fonteNoPlano(f.fonte, pedido.plano))
       if (aplicaveis.length) {
         const { data: jobs } = await supabase.from('premium_jobs').select('fonte,status').eq('pedido_id', pedido.id)
         const sit = situacaoDasFontes({
