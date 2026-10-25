@@ -55,3 +55,12 @@ describe('normalizarResposta / restricoesItens', () => {
     expect(normalizarResposta([{ placa: 'ABC1D23' }]).restricoesItens).toEqual([])
   })
 })
+
+describe('fonteNoPlano (Cesar, 25/out/2026)', () => {
+  it('Basica: so recall; completo e pedido sem plano: tudo', async () => {
+    const { fonteNoPlano } = await import('./planos')
+    expect(['detran', 'recall', 'recall_montadora', 'renajud'].filter((f: any) => fonteNoPlano(f, 'basica'))).toEqual(['recall', 'recall_montadora'])
+    expect(fonteNoPlano('detran', 'completa')).toBe(true)
+    expect(fonteNoPlano('renajud', null)).toBe(true)
+  })
+})

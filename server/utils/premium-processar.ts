@@ -1,4 +1,5 @@
 import { completarRenajudDepois } from './renajud-detalhe'
+import { fonteNoPlano } from '../../shared/planos'
 import { avisarVenda } from './aviso-venda'
 import { ambienteDaConsultaPaga } from './gcc-reserva'
 import { gerarCupomRecompra } from './cupom-recompra'
@@ -313,16 +314,17 @@ export async function processarPedidoPago(
     // gravado ate em erro), entra no snapshot e a pagina mostra o bloco quando
     // chega. Fail-open: timeout/erro so omite o bloco. completarDetranDepois se
     // auto-restringe a SP; pra outras UFs nao ha chamada ate os endpoints delas.
-    completarDetranDepois(supabase, pedido, { consultaId: r.consultaId, response: r.response })
+    // Basica: sem DETRAN nem RENAJUD (shared/planos.ts, fonteNoPlano).
+    if (fonteNoPlano('detran', pedido.plano)) completarDetranDepois(supabase, pedido, { consultaId: r.consultaId, response: r.response })
 
     // Fila duravel das fontes lentas (Relatorio 2.0): um job por fonte que se
     // aplica, a partir de entrega + 5 min. Se a fonte chegar antes pelo caminho
     // solto acima, o job fecha sem chamar nada (server/utils/premium-jobs.ts).
-    void emVoo('premium-jobs-criar', () => criarJobsDaEntrega(supabase, pedido.id, r.response))
+    void emVoo('premium-jobs-criar', () => criarJobsDaEntrega(supabase, pedido.id, r.response, Date.now(), pedido.plano))
 
     // Detalhe do RENAJUD (tribunal, processo, tipo, data) onde ha fonte (AL e
     // GO), so com o indicador aceso. Solto e fail-open (server/utils/renajud-detalhe.ts).
-    completarRenajudDepois(supabase, pedido, { response: r.response })
+    if (fonteNoPlano('renajud', pedido.plano)) completarRenajudDepois(supabase, pedido, { response: r.response })
 
     // Placa e plano entram no assunto e no corpo: "seu relatorio completo da
     // placa ABC1D23 esta pronto" e reconhecivel na caixa de entrada, "sua

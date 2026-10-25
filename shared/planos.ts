@@ -1,4 +1,5 @@
 import { BASE_LEILAO_TEXTO, BASE_LEILAO_DUAS_BASES } from './base-leilao'
+import type { FonteRelatorio } from './fontes-relatorio'
 import { ehItemDeRestricao } from './restricoes'
 // ============================================================
 // Escada de planos da consulta veicular.
@@ -167,6 +168,16 @@ export const RECURSOS: Recurso[] = [
   { label: 'Indicador de multas (RENAINF)',         planos: ['completa'] },
   { label: 'Comunicação de venda',                  planos: ['completa'] },
 ]
+
+/**
+ * Fontes chamadas depois da consulta paga, por plano (Cesar, 25/out/2026): a
+ * Basica e GCC + SENATRAN + FIPE interna + recall; DETRAN, RENAJUD e leilao
+ * so no completo. Sem plano gravado vale 'completa', como no resto do fluxo.
+ */
+export function fonteNoPlano(fonte: FonteRelatorio, plano: string | null | undefined): boolean {
+  if ((plano || 'completa') === 'completa') return true
+  return fonte === 'recall' || fonte === 'recall_montadora'
+}
 
 export function inclui(recurso: Recurso, plano: PlanoId): boolean {
   return recurso.planos.includes(plano)

@@ -58,6 +58,13 @@ describe('fila premium_jobs', () => {
     expect(ops[0].opts).toEqual({ onConflict: 'pedido_id,fonte', ignoreDuplicates: true })
   })
 
+  it('Basica: so o recall vira job, DETRAN fica de fora (Cesar, 25/out)', async () => {
+    const { cliente, ops } = sbFalso()
+    const n = await criarJobsDaEntrega(cliente, 'p', RESP, Date.UTC(2026, 9, 14, 18), 'basica')
+    expect(n).toBe(1)
+    expect(ops[0].upsert).toEqual([{ pedido_id: 'p', fonte: 'recall', proxima_em: '2026-10-14T18:05:00.000Z' }])
+  })
+
   it('executor idempotente: fonte ja chegou = ok code 0, sem chamar', async () => {
     const { cliente } = sbFalso({ snap: { consulta: { response: RESP }, multas: { status: 'ok', fonte: 'detran_al' } } })
     const detran = vi.fn()
