@@ -48,8 +48,8 @@ const notaDocumento = computed(() => (p.value.fonteTipo === 'detran'
       <div v-if="p.comitente" class="lf-linha">
         <dt>Comitente</dt>
         <dd>
-          <template v-if="p.comitenteTipo"><span class="lf-chip lf-chip--comit" :class="forma(p.comitenteTipo.tipo)">{{ p.comitenteTipo.tipo }}</span><small>{{ p.comitenteTipo.leitura }}</small></template>
-          <span v-else>{{ p.comitente }}</span>
+          <span>{{ p.comitente }}</span>
+          <small v-if="p.comitenteTipo">{{ p.comitenteTipo.tipo }}: {{ p.comitenteTipo.leitura }}</small>
         </dd>
       </div>
       <div v-for="f in linhasFatos" :key="f.k" class="lf-linha">
@@ -77,7 +77,6 @@ const notaDocumento = computed(() => (p.value.fonteTipo === 'detran'
 .lf-chip--provavel { background: #fdecea; color: #b3261e; }
 .lf-chip--possivel { background: #fff4dc; color: #8a5a00; }
 .lf-chip--fonte { background: #e3f6f4; color: #137a73; }
-.lf-chip--comit { background: #fff4dc; color: #8a5a00; }
 .lf-chip--g-vermelho { background: #fdecea; color: #b3261e; }
 .lf-chip--g-laranja { background: #fff0e0; color: #a14a00; }
 .lf-chip--g-amarelo { background: #fff4dc; color: #8a5a00; }
