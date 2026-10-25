@@ -1,4 +1,5 @@
 import { DETRAN_UFS, ufDetranSuportada, completarDetran } from './infosimples-detran'
+import { fonteNoPlano } from '../../shared/planos'
 import { ufDaResposta } from './detran-multas'
 import { emVoo } from './tarefas-em-voo'
 import { enviarAtualizacaoRelatorio } from './premium-email'
@@ -67,13 +68,13 @@ export async function varrerRetentativasTardias(
   const disparados: string[] = []
   try {
     const { data, error } = await supabase.from('pedidos_premium')
-      .select('id,placa,token_entrega,email,relatorio_snapshot')
+      .select('id,placa,plano,token_entrega,email,relatorio_snapshot')
       .eq('status', 'entregue').eq('ambiente', 'producao')
       .gte('entregue_em', new Date(agora - JANELA_VARREDURA_MS).toISOString())
       .eq('relatorio_snapshot->multas->>status', 'indisponivel')
     if (error) { console.warn('[detran-tardia] leitura falhou:', error.message); return disparados }
     for (const p of (Array.isArray(data) ? data : [])) {
-      if (emCurso.has(p.id)) continue
+      if (emCurso.has(p.id) || !fonteNoPlano('detran', p.plano)) continue
       const response = p.relatorio_snapshot?.consulta?.response
       const uf = ufDetranSuportada(ufDaResposta(response))
       if (!uf) continue

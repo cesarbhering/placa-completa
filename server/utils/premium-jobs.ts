@@ -1,4 +1,5 @@
 import { DETRAN_UFS, ufDetranSuportada, completarDetran } from './infosimples-detran'
+import { fonteNoPlano } from '../../shared/planos'
 import { ufDaResposta } from './detran-multas'
 import { temRecallPendente } from './recall-detalhe'
 import { marcaMontadora, completarRecallMontadora } from './recall-montadora'
@@ -38,9 +39,9 @@ export function fontesAplicaveis(response: any): FonteAplicavel[] {
 }
 
 /** Na entrega: um job por fonte aplicavel, a partir de entrega + 5 min. Nunca lanca. */
-export async function criarJobsDaEntrega(supabase: any, pedidoId: string, response: any, agora = Date.now()): Promise<number> {
+export async function criarJobsDaEntrega(supabase: any, pedidoId: string, response: any, agora = Date.now(), plano?: string | null): Promise<number> {
   try {
-    const fontes = fontesAplicaveis(response)
+    const fontes = fontesAplicaveis(response).filter((f) => fonteNoPlano(f.fonte, plano))
     if (!fontes.length) return 0
     const proxima = new Date(agora + ESPERA_FONTES_MS).toISOString()
     const { error } = await supabase.from('premium_jobs')
@@ -74,6 +75,7 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
     if (!p?.relatorio_snapshot) return { status: 'falha', code: null, erro: 'pedido sem snapshot' }
     const fonte = job.fonte as FonteRelatorio
     if (!['detran', 'recall', 'recall_montadora', 'renajud'].includes(fonte)) return { status: 'falha', code: null, erro: 'fonte sem executor' }
+    if (!fonteNoPlano(fonte, p.plano)) return { status: 'sem_dado', code: null, erro: 'fonte fora do plano' }
     if (fonteConcluida(fonte, p.relatorio_snapshot)) return { status: 'ok', code: 0 }
     const response = p.relatorio_snapshot?.consulta?.response
     const pedido = { id: p.id, placa: p.placa }
