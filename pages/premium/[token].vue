@@ -2,7 +2,7 @@
 import { trackOrderCreatedOpenAI } from '~/composables/useAnalytics'
 import { cardRecallAssociado } from '~/shared/recall-associado'
 import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
-import { textoDetranProtegido } from '~/shared/detran-protegido'
+import { PROTEGIDO_STATUS, PROTEGIDO_EXPLICA, PROTEGIDO_ORIENTA } from '~/shared/detran-protegido'
 import { faixaLicenciamento } from '~/shared/licenciamento-faixa'
 import { textoHodometro } from '~/shared/hodometro-texto'
 import { efeitoRestricao, textoEfeito } from '~/shared/restricao-efeito'
@@ -2491,8 +2491,18 @@ onUnmounted(() => {
             <!-- Multas e débitos no órgão de trânsito do estado (SP): o
                  indicador de multa acende, e aqui vem o VALOR e o detalhe. -->
             <div v-if="(multaIndicadorSP || ehVeiculoSpTela || multasDetalhe) && !multasFalhaSilenciosa" class="rel__multas">
-              <p class="rel__multas-tit">Multas e débitos</p>
-              <p v-if="procDebitos" class="rel__multas-proc">{{ procDebitos }}</p>
+              <!-- Card no molde do recall (opcao 3 do Cesar, 26/out/2026):
+                   cabecalho com icone, corpo branco por fonte, rodape de orientacao. -->
+              <div class="rel__multas-top">
+                <div class="rel__multas-ic" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8" /><path d="M8 12h8" /><path d="M8 16h5" /></svg>
+                </div>
+                <div>
+                  <p class="rel__multas-tit">Multas e débitos</p>
+                  <p v-if="procDebitos" class="rel__multas-proc">{{ procDebitos }}</p>
+                </div>
+              </div>
+              <div class="rel__multas-corpo">
               <template v-if="multasDetalhe">
                 <!-- Ordem (feedback do Cesar, 14/out): procedencia, caixa,
                      infracoes, IPVA, restricoes. A caixa ja diz o total, o que
@@ -2630,7 +2640,13 @@ onUnmounted(() => {
                   <p class="rel__multas-nota">Texto como veio do DETRAN, sem indicação clara de restrição. Se tiver dúvida, confira no site do DETRAN.</p>
                 </template>
               </template>
-              <p v-else-if="multasProtegido" class="rel__multas-nota">{{ textoDetranProtegido(ufMultasProtegido) }}</p>
+              <div v-else-if="multasProtegido" class="rel__multas-fonte">
+                <div class="rel__multas-r">
+                  <strong>DETRAN{{ ufMultasProtegido ? '-' + ufMultasProtegido : '' }}</strong>
+                  <b class="rel__multas-st-bloq">{{ PROTEGIDO_STATUS }}</b>
+                </div>
+                <p class="rel__multas-nota">{{ PROTEGIDO_EXPLICA }}</p>
+              </div>
               <p v-else-if="fonteDetran && fonteDetran.estado === 'chegando'" class="rel__multas-nota rel__multas-nota--consultando">Ainda chegando do DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }}. O resultado entra aqui sozinho e avisamos por e-mail.</p>
               <p v-else-if="multasIndisponivel || multasSemRespostaAntigo" class="rel__multas-nota">A consulta de débitos e multas no DETRAN do estado não está disponível no momento. Confira direto no site do DETRAN.</p>
               <p v-else-if="multasSemResposta && acompanhamentoEsgotado" class="rel__multas-nota">O DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }} ainda não respondeu. Recarregue esta página em alguns minutos para ver o resultado.</p>
@@ -2643,6 +2659,8 @@ onUnmounted(() => {
                   <b :class="{ 'rel__multas-ok': r.emDia, 'rel__multas-st-alerta': r.alerta }">{{ r.valor }}</b>
                 </div>
               </div>
+              </div>
+              <p v-if="multasProtegido && !multasDetalhe" class="rel__multas-foot">{{ PROTEGIDO_ORIENTA }}</p>
             </div>
 
             <!-- Quilometragem: virou parte da linha do tempo (secao propria). -->
@@ -4725,17 +4743,46 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   // ---- multas e débitos (Total grande) + quilometragem (Extrato) ----
   &__multas {
     margin: 14px 0 0;
+    padding: 14px;
+    border: 1px solid #dfe3ea;
+    background: #f7f8fa;
+    border-radius: 12px;
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
+  &__multas-top { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+  &__multas-ic {
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #2b3a50;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
   &__multas-tit {
-    margin: 0 0 10px;
-    font-size: calc(11px * var(--rel-fs, 1));
+    margin: 0;
+    font-size: calc(16.5px * var(--rel-fs, 1));
     font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #6b7280;
+    color: #2b3a50;
+  }
+  &__multas-top &__multas-proc { margin: 2px 0 0; font-size: calc(13px * var(--rel-fs, 1)); color: #55657d; }
+  &__multas-corpo { background: #fff; border-radius: 10px; padding: 12px 14px; }
+  &__multas-fonte { padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #eef0f3; }
+  &__multas-fonte .rel__multas-nota { margin: 4px 0 0; }
+  &__multas-st-bloq { color: #8a5a00; font-weight: 800; }
+  &__multas-foot {
+    margin: 12px 0 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #fff4dc;
+    color: #7a5200;
+    font-size: calc(14px * var(--rel-fs, 1));
+    font-weight: 600;
+    line-height: 1.45;
   }
 
   // cartao "Para regularizar" + breakdown
