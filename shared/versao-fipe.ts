@@ -475,7 +475,12 @@ export function modeloDoNome(descricao: string | null | undefined): string | nul
   const palavras = palavrasDoNome(String(descricao || ''))
     .map((w) => w.replace(/^G\.(?=[A-Za-z])/i, ''))
     .map(norm).filter(Boolean)
-  const p = palavras[0] && PREFIXO_NAO_MODELO.has(palavras[0]) ? palavras[1] : palavras[0]
+  const i = palavras[0] && PREFIXO_NAO_MODELO.has(palavras[0]) ? 1 : 0
+  let p = palavras[i]
+  // Letra solta + palavra = modelo com hifen na FIPE: "VW/T CROSS TSI" e o
+  // "T-Cross" (caso TEL9A21, 26/out: sem isto o modelo virava null e a lista
+  // trazia Nivus, Polo e Virtus).
+  if (p && p.length === 1 && palavras[i + 1]) p = p + palavras[i + 1]
   return p && p.length >= 2 ? p : null
 }
 
