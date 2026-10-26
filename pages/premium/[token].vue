@@ -4773,7 +4773,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__multas-corpo { background: #fff; border-radius: 10px; padding: 12px 14px; }
   &__multas-fonte { padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid #eef0f3; }
   &__multas-fonte .rel__multas-nota { margin: 4px 0 0; }
-  &__multas-st-bloq { color: #8a5a00; font-weight: 800; }
+  &__multas-st-bloq { color: #8a5a00 !important; font-weight: 800; }
   &__multas-foot {
     margin: 12px 0 0;
     padding: 12px 14px;
