@@ -69,6 +69,8 @@ describe('modelo do nome', () => {
     expect(modeloDoNome('VW/NOVO GOL 1.0')).toBe('GOL')
     expect(modeloDoNome('I/BMW 320I')).toBe('320I')
     expect(modeloDoNome('HONDA/PCX 150 DLX ABS')).toBe('PCX')
+    expect(modeloDoNome('VW/T CROSS TSI')).toBe('TCROSS')
+    expect(modeloDoNome('VW/T-CROSS 200 TSI')).toBe('TCROSS')
     expect(modeloDoNome(null)).toBeNull()
   })
   it('casa abreviacao e hifen, nao casa outro modelo', () => {
@@ -86,6 +88,10 @@ describe('modelo do nome', () => {
 })
 
 describe('versoesParaExibir (relatorio)', () => {
+  it('T CROSS no cadastro so lista T-Cross (TEL9A21)', () => {
+    const lista = [{ modelo: 'Nivus Comfortline 1.0 200 TSI Flex Aut.' }, { modelo: 'T-Cross Sense 200 TSI 1.0 Flex 5p Aut.' }, { modelo: 'Polo 1.0 TSI Flex 12V 5p' }]
+    expect(versoesParaExibir(lista, 'VW/T CROSS TSI')).toEqual([{ modelo: 'T-Cross Sense 200 TSI 1.0 Flex 5p Aut.' }])
+  })
   it('TTR6F65: TRACKER com shortlist so de ONIX nao mostra nada', () => {
     expect(versoesParaExibir([{ modelo: 'ONIX HATCH LT 1.0 12V Flex 5p Mec.' }, { modelo: 'ONIX HATCH 1.0 12V TB 5p Mec.' }], 'CHEV/TRACKER T A')).toEqual([])
   })
