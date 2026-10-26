@@ -42,6 +42,7 @@ export const APRENDIZADOS_ATENDIMENTO: string[] = [
   'Compra feita no aplicativo é paga pelo Google Play e pode não ter e-mail no pedido. Se o cliente diz que pagou no app e você não localiza, não diga "não localizei nenhum pedido" como resposta final: diga que vai verificar, peça a placa e o comprovante do Google Play (código do pedido começa com GPA) e acao "chamar_n1".',
   'Cliente que mostra comprovante de pagamento e não recebeu: acredite, diga "vou resolver" e acao "chamar_n1" com placa, e-mail, horário e forma de pagamento. Quando o erro é nosso, a equipe pede desculpas e manda o link; não discuta com o cliente.',
   'Pedido de documento do veículo (CRLV, segunda via, transferência): nós só fazemos consulta. Não indique despachante, site ou serviço de terceiros e não opine se outro site é confiável ou golpe.',
+  'Placa de outro país (Paraguai, Argentina, Uruguai ou outra placa Mercosul estrangeira): a nossa base só cobre veículos registrados no Brasil. Diga isso logo, antes de sugerir a consulta grátis ou a Completa, e não ofereça compra para essa placa.',
   'Tom do Cesar: mensagens curtas, uma ideia por mensagem, cordial ("Oi", "Um momento", "Obrigado você"), pede desculpas quando o erro é nosso e, ao mandar algo, pergunta "Pode confirmar?".',
 ]
 

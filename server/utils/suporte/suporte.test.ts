@@ -87,6 +87,7 @@ describe('simulação 1: dúvida antes de comprar (N0 sozinho)', () => {
     expect(p).toContain('Nunca ofereça nem crie cupom')
     expect(p).toContain('APRENDIZADOS DE ATENDIMENTOS REAIS')
     expect(p).toContain('comprovante do Google Play')
+    expect(p).toContain('só cobre veículos registrados no Brasil')
     expect(p).not.toContain('—')
     expect(p.toLowerCase()).not.toContain('senatran')
   })
