@@ -16,6 +16,15 @@ describe('blog', () => {
     expect(tudo).not.toMatch(/SENATRAN|fundador|uma pessoa s[oó]|sozinho|receita|faturamento|vendas/i)
     expect(p.content.at(-1)).toMatchObject({ type: 'cta', ctaTo: '/' })
   })
+  it('post da eleicao 2026: neutro, com fontes e sem travessao', () => {
+    const p = findBlogPost('eleicao-2026-o-que-muda-no-preco-do-carro-usado')!
+    expect(p).toBe(blogPosts[0])
+    const tudo = JSON.stringify(p)
+    expect(tudo).not.toContain('\u2014')
+    expect(tudo).not.toMatch(/SENATRAN|DETRAN/i)
+    expect(p.content.find((s) => s.heading === 'Fontes')?.text).toContain('g1.globo.com')
+    expect(p.content.some((s) => s.type === 'cta' && s.ctaTo === '/')).toBe(true)
+  })
   it('capas existem em public/', () => {
     for (const p of blogPosts) {
       expect(existsSync('public' + p.capa.src)).toBe(true)
