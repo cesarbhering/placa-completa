@@ -5,6 +5,7 @@ import { descricaoSeguroEletricoEstado } from '~/shared/seo-meta'
 import { states } from '~/data/states'
 import seguroEletricos from '~/data/seguro-eletricos.json'
 import seguroEstados from '~/data/seguro-estados.json'
+import { tipoDoModeloCesta, nomeSemTipo, fraseComposicao } from '~/shared/seguro-eletrico-cesta'
 
 const route = useRoute()
 const slug = route.params.estado as string
@@ -110,16 +111,18 @@ useHead({
               <strong>dados oficiais da SUSEP</strong> (base de apólices reais), corrigidos pela
               inflação do seguro de veículos medida pelo IBGE.
             </p>
+            <p>{{ fraseComposicao(dados.modelos) }} Híbrido não é carro elétrico: só os 100% elétricos rodam sem combustível.</p>
 
             <h2>Preço do seguro por modelo (elétricos e híbridos) {{ emUf }}</h2>
             <div class="table-scroll">
               <table class="seguro-table">
                 <thead>
-                  <tr><th>Modelo</th><th>Ano ref.</th><th>Seguro médio/ano</th><th>% do valor FIPE</th><th>Franquia média</th></tr>
+                  <tr><th>Modelo</th><th>Tipo</th><th>Ano ref.</th><th>Seguro médio/ano</th><th>% do valor FIPE</th><th>Franquia média</th></tr>
                 </thead>
                 <tbody>
                   <tr v-for="m in dados.modelos" :key="m.slug">
-                    <td>{{ m.nome }}</td>
+                    <td>{{ nomeSemTipo(m.nome) }}</td>
+                    <td>{{ tipoDoModeloCesta(m.nome) }}</td>
                     <td>{{ m.ano }}</td>
                     <td><strong>{{ brl(m.premio) }}</strong></td>
                     <td>{{ m.pctFipe ? m.pctFipe + '%' : '-' }}</td>
