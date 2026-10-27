@@ -25,6 +25,9 @@ export function logoProxyDe(url: unknown): string | null {
   if (u.protocol !== 'https:' || u.hostname !== HOST || u.port || u.search || u.hash) return null
   if (!u.pathname.startsWith(PASTA)) return null
   const arquivo = u.pathname.slice(PASTA.length).toLowerCase()
+  // "i.png"/"imp.png": a fonte leu o prefixo de importado ("I/GWM ...") como
+  // marca (THX8888, 22/out/2026). Nao e logo de montadora.
+  if (/^(i|imp|import)\.png$/.test(arquivo)) return null
   return arquivoLogoValido(arquivo) ? `/api/logo-marca/${arquivo}` : null
 }
 

@@ -47,10 +47,8 @@ describe('MarcaLogo', () => {
   })
 
   for (const [marca, arquivo] of [
-    ['GWM/HAVAL H6 PHEV', 'greatwall.png'],
     ['CAOA CHERY/TIGGO 5X', 'caoachery.png'],
     ['I/CHERY TIGGO 7', 'chery.png'],
-    ['HAVAL/H6', 'haval.png'],
     ['I/ZEEKR 001', 'zeekr.png'],
     ['I/GAC AION Y', 'gac.png'],
     ['OMODA/5', 'omoda.png'],
@@ -77,5 +75,29 @@ describe('MarcaLogo', () => {
     // mount() ja roda onMounted; aqui so garante que marca com path nunca vira img.
     const w = mount(MarcaLogo, { props: { marca: 'VW/GOL' } })
     expect(w.find('img').exists()).toBe(false)
+  })
+
+  // Logo oficial local (22/out/2026): GWM e HAVAL usam /logos-marcas/gwm.png,
+  // antes do logo da fonte e do proxy. "I/" nunca vira a marca "I".
+  for (const marca of ['I/GWM HAVAL H6 HEV2', 'GWM/HAVAL H6 PHEV', 'HAVAL/H6']) {
+    it(`${marca}: asset local da GWM, ignora i.png da fonte`, async () => {
+      const w = mount(MarcaLogo, { props: { marca, logoUrl: '/api/logo-marca/i.png' } })
+      await flushPromises()
+      expect(w.find('img').attributes('src')).toBe('/logos-marcas/gwm.png')
+      expect(w.find('img').classes()).toContain('ml__img--local')
+      expect(w.find('.ml__mono').exists()).toBe(false)
+    })
+  }
+  it('logoUrl "i.png" (prefixo de importado) e descartado; marca segue pelo nome', async () => {
+    const w = mount(MarcaLogo, { props: { marca: 'I/BYD DOLPHIN', logoUrl: '/api/logo-marca/i.png' } })
+    await flushPromises()
+    expect(w.find('img').attributes('src')).toBe('/api/logo-marca/byd.png')
+  })
+  it('I/TOYOTA e CHEV/PRISMA seguem na simple-icons', async () => {
+    for (const marca of ['I/TOYOTA HILUX CDSRXA4FD', 'CHEV/PRISMA 1.4MT LT']) {
+      const w = mount(MarcaLogo, { props: { marca, logoUrl: '/api/logo-marca/i.png' } })
+      await flushPromises()
+      expect(w.find('svg').exists(), marca).toBe(true)
+    }
   })
 })

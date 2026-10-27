@@ -54,6 +54,16 @@ const tokenMarca = computed(() => {
   return token
 })
 
+// Logo oficial em asset local (Cesar, 22/out/2026): tem prioridade sobre o
+// logo da fonte e o proxy da apiplacas. GWM: arquivo oficial da GWM Brasil
+// (media center, logos-2025/Preto_Vertical.png), recortado e reduzido.
+// HAVAL e submarca da GWM ("I/GWM HAVAL H6").
+const LOCAIS: Record<string, string> = {
+  GWM: '/logos-marcas/gwm.png', HAVAL: '/logos-marcas/gwm.png',
+  GREATWALL: '/logos-marcas/gwm.png', GREAT: '/logos-marcas/gwm.png',
+}
+const local = computed(() => LOCAIS[tokenMarca.value] || null)
+
 const icone = computed<{ path: string; viewBox: string } | null>(() => {
   const nosso = NOSSOS[tokenMarca.value]
   if (nosso) return nosso
@@ -74,13 +84,16 @@ const tentativa = ref(0)
 const fontes = computed(() => {
   const lista: string[] = []
   const u = String(props.logoUrl || '')
-  if (u.startsWith('/api/logo-marca/')) lista.push(u)
+  // "i.png"/"imp.png": a fonte trata o prefixo de importado como marca
+  // (THX8888, "I/GWM HAVAL H6 HEV2"). Nao e logo de ninguem.
+  if (u.startsWith('/api/logo-marca/') && !/\/(i|imp|import)\.png$/i.test(u)) lista.push(u)
   const deduzido = logoProxyDaMarca(tokenMarca.value)
   if (deduzido && !lista.includes(deduzido)) lista.push(deduzido)
   return lista
 })
 watch(() => [props.logoUrl, props.marca], () => { tentativa.value = 0 })
 const imagem = computed(() => {
+  if (local.value) return null
   if (!montado.value || icone.value) return null
   return fontes.value[tentativa.value] ?? null
 })
@@ -91,7 +104,8 @@ const inicial = computed(() => tokenMarca.value.charAt(0) || '?')
 <template>
   <!-- Decorativo: o nome da marca ja esta escrito ao lado. -->
   <span v-if="tokenMarca" class="ml" :class="{ 'ml--larga': largo }" aria-hidden="true">
-    <svg v-if="icone" :viewBox="icone.viewBox" class="ml__svg">
+    <img v-if="local" :src="local" alt="" class="ml__img ml__img--local">
+    <svg v-else-if="icone" :viewBox="icone.viewBox" class="ml__svg">
       <path :d="icone.path" />
     </svg>
     <img v-else-if="imagem" :src="imagem" alt="" class="ml__img" @error="falhou">
@@ -136,6 +150,9 @@ $c-graphite: #636363;
   display: block;
   filter: grayscale(1) brightness(0.35) contrast(1.4);
 }
+// Asset oficial ja vem em tinta (preto): sem filtro. O relatorio nao tem tema
+// escuro; se ganhar, o asset branco da GWM existe na mesma pasta da fonte.
+.ml__img--local { filter: none; }
 
 .ml__mono {
   font-size: 32px;
