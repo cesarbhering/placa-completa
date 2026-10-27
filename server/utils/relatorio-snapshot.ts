@@ -158,7 +158,7 @@ export async function montarRelatorioSnapshot(
   // NHTSA em paralelo (ate ~12 s no pior caso, fail-open), so completa e so chassi norte-americano
   const recallEuaP: Promise<RecallEua | null> = querem('chassiOrigem') && pedido.plano === 'completa'
     && fabricadoNaAmericaDoNorte(senatranBruto?.chassi)
-    ? consultarRecallEua(senatranBruto.chassi).catch(() => null)
+    ? consultarRecallEua(senatranBruto.chassi, { anoModelo: senatranBruto?.anoModelo ?? null }).catch(() => null)
     : Promise.resolve(null)
   if (querem('chassiOrigem') && pedido.plano === 'completa' && senatranBruto?.chassi) {
     chassiOrigem = await decodificarChassi(senatranBruto.chassi, {
