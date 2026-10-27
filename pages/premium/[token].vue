@@ -1412,7 +1412,11 @@ const recallAutoritativo = computed(() => {
   return a && a.consultado === true ? a : null
 })
 const recallAbertoGM = computed(() => recallAutoritativo.value?.tem_recall_aberto === true)
-const recallEua = computed<RecallEuaTela | null>(() => (data.value as any)?.recallEua ?? null)
+// Recall dos EUA e informativo: com campanha nacional (SENATRAN, GM ou montadora)
+// ele sai da tela (Cesar, 27/out/2026). O snapshot continua guardando.
+const temRecallNacional = computed(() => recallPendente.value || recallCampanhas.value.length > 0
+  || recallAbertoGM.value || recallCampanhasGM.value.length > 0 || (recallMontadora.value?.campanhas?.length ?? 0) > 0)
+const recallEua = computed<RecallEuaTela | null>(() => temRecallNacional.value ? null : ((data.value as any)?.recallEua ?? null))
 const recallCampanhasGM = computed(() => (recallAutoritativo.value?.campanhas || []).filter((c: any) => c?.titulo || c?.descricao))
 
 // Recall da MONTADORA por chassi (Nissan, Mitsubishi): todo veiculo da marca

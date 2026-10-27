@@ -30,19 +30,31 @@ export function fabricadoNaAmericaDoNorte(vin: string | null | undefined): boole
 }
 
 type Sb = { from: (t: string) => any }
-type Opcoes = { sb?: Sb | null; fetcher?: (url: string, o?: any) => Promise<any>; timeoutMs?: number }
+type Opcoes = { sb?: Sb | null; fetcher?: (url: string, o?: any) => Promise<any>; timeoutMs?: number; anoModelo?: number | string | null }
+
+// A letra do ano (10a posicao do VIN) repete a cada 30 anos e o vPIC desempata pela
+// 7a posicao (digito = 1980-2009), regra que carro feito pro Brasil nao segue: o
+// Jetta mexicano 2012 (3VWLN6162CM...) decodificava como 1982 e o relatorio
+// mostrava recall de 1983 (caso FAN1I16, 27/out/2026). Com o ano modelo do
+// SENATRAN o vPIC decodifica no ciclo certo; se ainda divergir, nao mostra nada.
+function anoBrasil(v: unknown): number | null {
+  const n = parseInt(String(v ?? ''), 10)
+  return n >= 1950 && n <= 2100 ? n : null
+}
 
 async function buscar(vin: string, op: Opcoes): Promise<RecallEua | null> {
   const f = op.fetcher || ((url: string, o?: any) => $fetch<any>(url, o))
   const timeout = op.timeoutMs ?? 6000
   const t0 = Date.now()
-  const dec = await f(`${VPIC}/${vin}`, { query: { format: 'json' }, timeout })
+  const anoBr = anoBrasil(op.anoModelo)
+  const dec = await f(`${VPIC}/${vin}`, { query: anoBr ? { format: 'json', modelyear: anoBr } : { format: 'json' }, timeout })
   registrarChamada(op.sb ?? null, { fonte: 'nhtsa', caminho: '/vpic/DecodeVinValues/' + vin, code: 200, ms: Date.now() - t0 })
   const r = dec?.Results?.[0] || {}
   const marca = String(r.Make || '').trim()
   const modelo = String(r.Model || '').trim()
   const ano = parseInt(String(r.ModelYear || ''), 10)
   if (!marca || !modelo || !ano) return null
+  if (anoBr && Math.abs(ano - anoBr) > 1) return null
   const t1 = Date.now()
   const rec = await f(RECALLS, { query: { make: marca, model: modelo, modelYear: ano }, timeout })
   registrarChamada(op.sb ?? null, { fonte: 'nhtsa', caminho: '/recalls/recallsByVehicle', code: 200, ms: Date.now() - t1 })
@@ -65,7 +77,9 @@ export async function consultarRecallEua(chassi: string | null | undefined, op: 
   const sb = op.sb === undefined ? (() => { try { return useSupabaseServer() } catch { return null } })() : op.sb
   try {
     if (sb) {
-      const r = await comFonteCache(sb, 'nhtsa', vin, async () => {
+      // chave com o ano: o cache antigo (so VIN) guardou ano errado do ciclo de 30 anos
+      const anoBr = anoBrasil(op.anoModelo)
+      const r = await comFonteCache(sb, 'nhtsa', anoBr ? `${vin}:${anoBr}` : vin, async () => {
         const b = await buscar(vin, { ...op, sb })
         return { status: b ? 'ok' : 'sem_dado', payload: b }
       })

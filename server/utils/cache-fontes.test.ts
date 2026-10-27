@@ -52,6 +52,22 @@ describe('NHTSA (recall EUA): so America do Norte, rotulo fixo, cache 30 d', () 
     expect(sb.tabelas.api_chamadas.every(r => !r.endpoint.includes('1HGCM'))).toBe(true)   // log sem VIN
   })
 
+  it('ano modelo do SENATRAN vai pro vPIC (ciclo de 30 anos) e divergencia = null', async () => {
+    // FAN1I16, 27/out: Jetta mexicano 2012 decodificava como 1982 e trazia recall de 1983
+    const anos: any[] = []
+    const fetcher = vi.fn(async (url: string, o: any) => {
+      if (url.includes('DecodeVinValues')) { anos.push(o.query.modelyear); return { Results: [{ Make: 'VOLKSWAGEN', Model: 'Jetta', ModelYear: String(o.query.modelyear ?? 1982) }] } }
+      expect(o.query.modelYear).toBe(2012)
+      return { results: [] }
+    })
+    const a = await consultarRecallEua('3VWLN6162CM069405', { sb: null, fetcher, anoModelo: '2012' })
+    expect(a).toMatchObject({ marca: 'VOLKSWAGEN', ano: 2012 })
+    expect(anos).toEqual([2012])
+    const errado = vi.fn(async () => ({ Results: [{ Make: 'VOLKSWAGEN', Model: 'Jetta', ModelYear: '1982' }] }))
+    expect(await consultarRecallEua('3VWLN6162CM069405', { sb: null, fetcher: errado, anoModelo: 2012 })).toBeNull()
+    expect(errado).toHaveBeenCalledTimes(1)
+  })
+
   it('falha = null e nao cacheia', async () => {
     const sb = fakeSb()
     expect(await consultarRecallEua('1HGCM82633A004352', { sb, fetcher: async () => { throw new Error('503') } })).toBeNull()
