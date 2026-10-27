@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { textoUrf } from '~/shared/urf-receita'
 import { trackOrderCreatedOpenAI } from '~/composables/useAnalytics'
 import { cardRecallAssociado } from '~/shared/recall-associado'
 import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
@@ -1857,7 +1858,8 @@ const fichaImportacao = computed(() => {
   return [
     linhaImportacao('Data da declaração', dataBR(imp.dataDeclaracaoImportacao)),
     linhaImportacao('Nº da declaração de importação', imp.numeroDeclaracaoImportacao),
-    linhaImportacao('Órgão de despacho (Receita/SRF)', imp.codigoOrgaoSrf),
+    // Codigo da URF da Receita -> nome da unidade (shared/urf-receita.ts, 22/out/2026).
+    linhaImportacao('Órgão de despacho', textoUrf(imp.codigoOrgaoSrf)),
     linhaImportacao('Nº do processo de importação', imp.numeroProcessoImportacao),
     linhaImportacao('Nº do registro de despacho aduaneiro', imp.numeroRegistroDespachoAduaneira),
   ].filter(Boolean) as [string, string][]
