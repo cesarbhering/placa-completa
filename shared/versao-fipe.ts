@@ -7,6 +7,7 @@
 // na lista exibida. Usado no servidor e na tela.
 
 import { fatosToyota } from './toyota-nome'
+import { versoesGwm, filtrarGwm } from './gwm-nome'
 
 // Versoes/acabamentos conhecidos, ja normalizados (sem hifen/ponto, caixa alta).
 const VERSOES = new Set([
@@ -279,6 +280,9 @@ export function lerVersaoDoNome(descricao: string | null | undefined): VersaoDoN
   // Toyota: versao colada no token ("HILUX CDSRXA4FD" = SRX).
   const toyota = fatosToyota(descricao)
   if (toyota?.versao) versoes = [toyota.versao]
+  // GWM/Haval: numero da versao do token HEV/PHEV ("HEV2" = "H6 2") e GT.
+  const gwm = versoesGwm(descricao)
+  if (gwm.length) versoes = gwm
   // A 1a palavra e o modelo (COROLLA, GOL); versao vem depois.
   for (const bruta of palavras.slice(1)) {
     const m = bruta.match(/^(\d)\.(\d)/)
@@ -316,7 +320,11 @@ export function candidatoTemVersaoDoNome(modelo: string, versoes: string[], pref
   if (!versoes.length) return true
   // Tambem quebra no ponto: a FIPE cola abreviacao ("Exp.Hi-Flex", "Expres.SPORTWAY").
   const palavras = [...String(modelo || '').split(/[\s/]+/), ...String(modelo || '').split(/[\s/.]+/)].map(norm)
-  return palavras.some((p) => p && versoes.some((v) => palavraCasaVersao(p, v, prefixo)))
+  // Versao so de numero (GWM "H6 2"): nunca casa com pedaco de motorizacao ("1.5").
+  const inteiras = String(modelo || '').split(/[\s/]+/)
+  return versoes.some((v) => (/^\d+$/.test(v)
+    ? inteiras.includes(v)
+    : palavras.some((p) => p && palavraCasaVersao(p, v, prefixo))))
 }
 
 export function candidatoTemMotor(modelo: string, motor: string | null): boolean {
@@ -390,6 +398,8 @@ export function filtrarPelaVersaoDoNome<T extends { modelo: string }>(lista: T[]
     if (toy.lugares === 7) restantes = so(restantes, (c) => /\b7\s?(L|Lug)/i.test(c.modelo))
     if (toy.lugares === 5) restantes = so(restantes, (c) => !/\b7\s?(L|Lug)/i.test(c.modelo))
   }
+  // GWM/Haval (THX8888): numero exato da versao, GT so com GT.
+  restantes = filtrarGwm(restantes, descricao)
   // Renault: Stepway e linha propria. Nome sem STEP nao fica com Stepway (a
   // FIPE tem "SANDERO STEPWAY EXP.", que casaria com o EXP do nome).
   if (MARCA_SIGLAS[marcaDoNome(descricao)] === 'RENAULT' && !nomeEStepway(descricao)) {

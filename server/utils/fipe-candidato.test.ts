@@ -1387,3 +1387,31 @@ describe('EZJ9243 com a lista real de prod: EXC casa com Excl. e decide por regr
     expect(r.escolhido?.codigo_fipe).toBe('011107-4')
   })
 })
+
+describe('GWM/Haval: HEV2 = "H6 2" (THX8888, 22/out/2026)', () => {
+  const d = (codigo: string, modelo: string, valor: string) => ({ score: 50, codigo_fipe: codigo, codigo_modelo: codigo.slice(0, 6), texto_modelo: modelo, texto_valor: valor, texto_marca: 'GWM', combustivel: 'Híbrido', mes_referencia: 'outubro de 2026' })
+  const LISTA = [
+    d('096008-0', 'Haval H6 19 1.5 (Hibrido)', 'R$ 226.519,00'),
+    d('096001-2', 'Haval H6 2 1.5 (Hibrido)', 'R$ 201.200,00'),
+    d('096016-0', 'Haval H6 35 1.5 AWD', 'R$ 255.810,00'),
+    d('096003-9', 'Haval H6 GT 1.5 AWD (Hibrido)', 'R$ 284.355,00'),
+  ]
+  const rodar = (descricao: string) => {
+    global.fetch = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as any
+    return escolherMelhorFipe({
+      senatran: { cilindrada: 1499, potencia: 243, descricaoMarcaModelo: descricao, anoModelo: 2026, codigoCombustivel: '22', descricaoTipoVeiculo: 'CAMIONETA', descricaoEspecie: 'MISTO' } as any,
+      wdapi: { marca: 'GWM', MODELO: descricao.replace(/^I\/GWM /, ''), anoModelo: '2026', fipe: { dados: LISTA } },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't',
+    })
+  }
+  for (const [nome, codigo] of [['I/GWM HAVAL H6 HEV2', '096001-2'], ['I/GWM HAVAL H6 PHEV19', '096008-0'], ['I/GWM HAVAL H6 GT', '096003-9']]) {
+    it(`${nome} -> ${codigo} por regra`, async () => {
+      const r = await rodar(nome)
+      expect(r.decididoPor).toBe('regra')
+      expect(r.escolhido?.codigo_fipe).toBe(codigo)
+    })
+  }
+})
