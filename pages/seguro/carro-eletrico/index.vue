@@ -63,8 +63,10 @@ useHead({
               O seguro de um carro elétrico no Brasil custa em média
               <strong>{{ brl(mediaNacional) }} por ano</strong>, mas o valor muda bastante de estado
               pra estado. A tabela abaixo usa <strong>dados oficiais da SUSEP</strong> (apólices
-              reais de elétricos e híbridos como Nissan Leaf, Chevrolet Bolt, Renault Zoe e Toyota Prius), corrigidos pela
-              inflação do seguro medida pelo IBGE. Clique no seu estado pra ver o detalhe por modelo.
+              reais de modelos 100% elétricos, como Nissan Leaf, Chevrolet Bolt e Renault Zoe, e de
+              híbridos, como Toyota Prius e Toyota Corolla Hybrid), corrigidos pela inflação do seguro
+              medida pelo IBGE. Híbrido não é carro elétrico: tem motor a combustão junto com o elétrico.
+              Clique no seu estado pra ver o detalhe por modelo, com o tipo de cada um.
             </p>
 
             <div class="table-scroll">
