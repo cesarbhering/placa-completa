@@ -172,6 +172,34 @@ export const NOME_CASA_LEILAO: Record<string, string> = {
   sold: 'Sold Leilões',
 }
 
+// Passagem achada pelo canhao de PDFs chega com fonte "canhao:<dominio>" e
+// fonte_tipo "privado" (Cesar, 27/out, HIY1244: aparecia "Canhao:leilao.detran
+// .mg.gov.br"). Edital de DETRAN vira a passagem do orgao ("Detran MG"); outro
+// dominio mostra so o dominio. O nome "canhao" nunca vai pra tela.
+const RE_CANHAO = /^canhao:(.+)$/i
+const RE_DETRAN_GOV = /(?:^|\.)detran\.([a-z]{2})\.gov\.br$/
+
+export function passagemSemCanhao<T extends { fonte?: string | null; fonte_tipo?: string | null; fonte_exibicao?: string | null }>(p: T): T & { via_canhao?: boolean } {
+  const m = RE_CANHAO.exec(String(p?.fonte || '').trim())
+  if (!m) return p
+  const dominio = m[1].trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '')
+  const uf = RE_DETRAN_GOV.exec(dominio)?.[1]
+  if (uf) return { ...p, fonte: `detran_${uf}`, fonte_tipo: 'detran', fonte_exibicao: `Detran ${uf.toUpperCase()}`, via_canhao: true }
+  return { ...p, fonte_exibicao: dominio, via_canhao: true }
+}
+
+/**
+ * Normaliza as passagens do canhao e tira a que repete um lote que a coleta
+ * do proprio orgao ja trouxe (mesma fonte e mesmo lote): e o mesmo leilao
+ * achado pelo PDF. Filtro de exibicao; o snapshot continua com tudo.
+ */
+export function passagensSemCanhao(lista: unknown): any[] {
+  if (!Array.isArray(lista)) return []
+  const norm = lista.map((p: any) => passagemSemCanhao(p))
+  const diretas = new Set(norm.filter((p: any) => !p.via_canhao && p.lote).map((p: any) => `${p.fonte}|${String(p.lote).replace(/^0+/, '')}`))
+  return norm.filter((p: any) => !(p.via_canhao && p.fonte_tipo === 'detran' && p.lote && diretas.has(`${p.fonte}|${String(p.lote).replace(/^0+/, '')}`)))
+}
+
 const titulo = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
 
 /**
