@@ -773,6 +773,8 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    // Logos de marca foram para /logos-marcas/ (22/out/2026); a URL antiga segue valendo.
+    "/brand-vw.svg": { redirect: { to: "/logos-marcas/brand-vw.svg", statusCode: 301 } },
     "/**": {
       headers: {
         "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",

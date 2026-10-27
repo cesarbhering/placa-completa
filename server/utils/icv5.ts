@@ -1,3 +1,4 @@
+import { propulsao } from '../../shared/propulsao'
 /**
  * ICV5 - Índice de Custo Veicular 5 Anos
  * Estima o custo total de manutenção + IPVA de um veículo nos próximos 5 anos.
@@ -51,9 +52,11 @@ export function inferirCategoria(subSegmento: string, combustivel?: string): str
   const sub = (subSegmento || '').toUpperCase()
   const comb = (combustivel || '').toUpperCase()
 
-  // Checar combustível primeiro (elétrico/híbrido tem prioridade)
-  if (comb.includes('ELETRICO') || comb.includes('ELÉTRICO')) return 'eletrico'
-  if (comb.includes('HIBRIDO') || comb.includes('HÍBRIDO')) return 'hibrido'
+  // Checar combustível primeiro (elétrico/híbrido tem prioridade). Híbrido
+  // ANTES de elétrico: "HÍBRIDO (GASOLINA/ELÉTRICO)", HEV e PHEV são híbridos,
+  // não elétricos (THX8888, 22/out/2026). Só BEV é elétrico.
+  const p = propulsao(comb, subSegmento)
+  if (p) return p
 
   if (sub.includes('HATCH')) return 'hatch'
   if (sub.includes('SEDAN')) return 'sedan'

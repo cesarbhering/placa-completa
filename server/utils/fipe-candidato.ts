@@ -19,6 +19,8 @@ import { cambioDoNome, cambioPorSufixo, versaoFipeManual, versaoFipeAutomatica, 
 import { cambioPeloChassi } from '../../shared/cambio-chassi'
 import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPelaVariante, filtrarPeloNomeDoVeiculo, versaoDoNome, lerVersaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES, fatosPicapeGM, LEGENDA_PICAPE_GM, LEGENDA_RENAULT, faltaVersaoDoNome } from '../../shared/versao-fipe'
 import { fatosToyota, LEGENDA_TOYOTA } from '../../shared/toyota-nome'
+import { LEGENDA_GWM } from '../../shared/gwm-nome'
+import { ehEletricoPuro } from '../../shared/propulsao'
 
 export { codigoDaTabela, type TabelaFipe }
 
@@ -509,8 +511,9 @@ function candidatoEDiesel(c: FipeCandidato): boolean {
   return /diesel/i.test(`${c.combustivel ?? ''} ${c.modelo ?? ''}`)
 }
 
+// Hibrido (HEV/PHEV/"(Hibrido)") nao e eletrico (THX8888, 22/out/2026).
 function candidatoEEletrico(c: FipeCandidato): boolean {
-  return /el[eé]tric|electric|\bEV\b/i.test(`${c.combustivel ?? ''} ${c.modelo ?? ''}`)
+  return ehEletricoPuro(c.combustivel, c.modelo)
 }
 
 function candidatoESedan(modelo: string): boolean {
@@ -905,6 +908,7 @@ async function julgarComHaiku(
     LEGENDA_PICAPE_GM,
     LEGENDA_RENAULT,
     LEGENDA_TOYOTA,
+    LEGENDA_GWM,
     `Siglas conhecidas: ${siglasParaPrompt()}. Ex.: "VW/NIVUS HL TSI" e o Nivus Highline.`,
     'Se a sigla do cadastro corresponde a um unico candidato, escolha esse candidato com confianca alta.',
     'IMPORTANTE: se os candidatos so se diferenciam pelo cambio (Mec./Aut./',

@@ -27,3 +27,10 @@ describe('logoProxyDe', () => {
     expect(arquivoLogoValido('caoachery.png')).toBe(true)
   })
 })
+
+describe('logoProxyDe: prefixo de importado nao e marca (THX8888)', () => {
+  it('i.png, imp.png e import.png viram null', () => {
+    for (const a of ['i', 'imp', 'import']) expect(logoProxyDe(`https://apiplacas.com.br/logos/logosMarcas/${a}.png`)).toBeNull()
+    expect(logoProxyDe('https://apiplacas.com.br/logos/logosMarcas/greatwall.png')).toBe('/api/logo-marca/greatwall.png')
+  })
+})
