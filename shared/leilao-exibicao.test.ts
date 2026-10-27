@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detalhesLegiveis, semValorEmReais, ROTULO_DETALHE } from './leilao-exibicao'
+import { detalhesLegiveis, semValorEmReais, ROTULO_DETALHE, fonteExibicaoLeilao, passagensSemCanhao } from './leilao-exibicao'
 
 describe('card de leilao sem valor em R$ (decisao 01/out)', () => {
   it('valor_final nao e rotulo exibido', () => {
@@ -66,5 +66,26 @@ describe('aviso de fotos chegando nos cards de todos os niveis (18/out/2026)', (
     const { join } = await import('node:path')
     const vue = readFileSync(join(process.cwd(), 'pages/premium/[token].vue'), 'utf8')
     expect((vue.match(/v-else-if="p\.fotosPendente"[^>]*>Buscando fotos do anúncio…/g) || []).length).toBe(2)
+  })
+})
+
+describe('passagensSemCanhao', () => {
+  const detran = { fonte: 'detran_mg', fonte_tipo: 'detran', fonte_exibicao: 'Detran MG', lote: '11', nivel: 'confirmado' }
+  const canhao = { fonte: 'canhao:leilao.detran.mg.gov.br', fonte_tipo: 'privado', fonte_exibicao: 'Canhao:leilao.detran.mg.gov.br', lote: '11', nivel: 'confirmado' }
+
+  it('tira o lote do canhao que repete a coleta do orgao (HIY1244)', () => {
+    const r = passagensSemCanhao([detran, canhao, { fonte: 'sodre', fonte_tipo: 'privado', lote: '0238' }])
+    expect(r.map((p) => p.fonte)).toEqual(['detran_mg', 'sodre'])
+  })
+
+  it('edital de DETRAN so do canhao vira Detran UF, orgao oficial', () => {
+    const [p] = passagensSemCanhao([{ ...canhao, lote: '12' }])
+    expect(p).toMatchObject({ fonte: 'detran_mg', fonte_tipo: 'detran' })
+    expect(fonteExibicaoLeilao(p)).toBe('Detran MG')
+  })
+
+  it('outro dominio mostra o dominio, nunca "canhao"', () => {
+    const [p] = passagensSemCanhao([{ fonte: 'canhao:www.exemplo.com.br', fonte_tipo: 'privado', fonte_exibicao: 'Canhao:www.exemplo.com.br' }])
+    expect(fonteExibicaoLeilao(p)).toBe('exemplo.com.br')
   })
 })
