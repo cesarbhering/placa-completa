@@ -3,7 +3,7 @@ import { ambienteDaConsultaPaga } from '../../utils/gcc-reserva'
 import { origemDoCupom, cupomDispensaEmail } from '../../utils/cupom-recompra'
 import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-funil'
 import crypto from 'node:crypto'
-import { sanearOrigem } from '../../../shared/origem-trafego'
+import { sanearOrigem, opprefDoPedido, COOKIE_OPPREF } from '../../../shared/origem-trafego'
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
 import { respostaCompraRepetida } from '../../utils/compra-repetida'
 
@@ -80,6 +80,8 @@ export default defineEventHandler(async (event) => {
       ip_address: getClientIp(event),
       ...getDispositivo(event),
       ...sanearOrigem(body.origin),
+      // Sem oppref na sessao, vale o do cookie __oppref do SDK oaiq (30 dias).
+      ...opprefDoPedido(sanearOrigem(body.origin), getCookie(event, COOKIE_OPPREF)),
       // Cupom de recompra: marca a venda e qual pedido gerou o codigo.
       ...origemDoCupom(cupomValidado),
     })

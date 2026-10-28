@@ -66,6 +66,61 @@ export function sanearOrigem(bruto: unknown): OrigemTrafego {
   return saida
 }
 
+// ---------- oppref do cookie __oppref (SDK oaiq, 30 dias) ----------
+// Quem clicou no anuncio do ChatGPT num dia e voltou depois por outro caminho
+// (ChatGPT organico, direto) chegava no checkout sem oppref na sessao: a
+// OpenAI contava a venda e nos nao. O SDK oaiq grava o clique no cookie
+// __oppref (Max-Age 30 dias, sem HttpOnly, Path=/, dominio do site), que vai
+// no request do checkout. Prioridade: oppref da sessao (link) > cookie, e o
+// do cookie so vale com clique de ate 30 dias (hora dentro do token).
+// O oppref e id de clique, nao dado pessoal; nenhum outro cookie e gravado.
+
+export const COOKIE_OPPREF = '__oppref'
+
+export type OpprefOrigem = 'link' | 'cookie'
+
+/**
+ * oppref final do pedido e de onde veio. 'link' = veio na origem da sessao
+ * (URL desta visita ou clique lembrado, ver origem_retorno); 'cookie' = so o
+ * cookie __oppref tinha. Sem nenhum dos dois: null/null.
+ */
+export function opprefDoPedido(
+  origem: Pick<OrigemTrafego, 'oppref'>,
+  cookie: unknown,
+  agora = Date.now(),
+): { oppref: string | null; oppref_origem: OpprefOrigem | null } {
+  if (origem.oppref) return { oppref: origem.oppref, oppref_origem: 'link' }
+  const doCookie = opaco(cookie)
+  // Janela de atribuicao da OpenAI: clique ate 30 dias (regra do Cesar 27/out).
+  // O oppref e um token Fernet com a hora do clique; mais velho que 30 dias nao
+  // vale. Sem hora legivel, vale a validade do proprio cookie (30 dias no SDK).
+  const clique = doCookie ? horaDoOppref(doCookie) : null
+  if (!doCookie || (clique !== null && agora - clique > OPPREF_JANELA_MS)) return { oppref: null, oppref_origem: null }
+  return { oppref: doCookie, oppref_origem: 'cookie' }
+}
+
+export const OPPREF_JANELA_MS = 30 * 24 * 60 * 60 * 1000
+
+/**
+ * Hora do clique (ms) gravada no oppref. O oppref da OpenAI e um token Fernet
+ * (base64url, comeca com "gAAAAA"): byte 0x80 + 8 bytes big-endian com os
+ * segundos da emissao. Formato desconhecido: null.
+ */
+export function horaDoOppref(oppref: string): number | null {
+  if (!/^gAAAAA[A-Za-z0-9_-]{6}/.test(oppref)) return null
+  const alfabeto = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+  // 12 caracteres base64 = 9 bytes (versao + timestamp).
+  const bytes: number[] = []
+  for (let i = 0; i < 12; i += 4) {
+    const n = oppref.slice(i, i + 4).split('').reduce((acc, c) => acc * 64 + alfabeto.indexOf(c), 0)
+    bytes.push((n >> 16) & 255, (n >> 8) & 255, n & 255)
+  }
+  if (bytes[0] !== 0x80) return null
+  let seg = 0
+  for (let i = 1; i <= 8; i++) seg = seg * 256 + bytes[i]
+  return Number.isFinite(seg) && seg > 0 ? seg * 1000 : null
+}
+
 // ---------- Origem de anuncio lembrada por 30 dias ----------
 // sessionStorage morre com a aba: quem clicou no anuncio e voltou dias depois
 // (digitando o endereco, pelo Google organico etc.) comprava sem origem e a
