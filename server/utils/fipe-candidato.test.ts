@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { escolherMelhorFipe, parseVereditoHaiku, trechoSaneado, schemaVeredito } from './fipe-candidato'
+import { escolherMelhorFipe, parseVereditoHaiku, trechoSaneado, schemaVeredito, litragensDoNome } from './fipe-candidato'
 import { alertarFalhaHaiku } from './alerta-haiku'
 
 vi.mock('./alerta-haiku', () => ({ alertarFalhaHaiku: vi.fn(async () => true) }))
@@ -1414,4 +1414,72 @@ describe('GWM/Haval: HEV2 = "H6 2" (THX8888, 22/out/2026)', () => {
       expect(r.escolhido?.codigo_fipe).toBe(codigo)
     })
   }
+})
+
+// Caso ELF2808 (27/out/2026): Tucson 2008, cilindrada veio 0, potencia 143.
+// O "20L" do nome diz 2.0: o 2.7 175cv sai e sobra so a duvida Mec. x Aut.
+const TUCSON_2008 = [
+  { codigo_fipe: '015063-0', modelo: 'Tucson 2.0 16V Aut.', valor: 30000, combustivel: 'Gasolina', mes_referencia: 'outubro de 2026' },
+  { codigo_fipe: '015062-2', modelo: 'Tucson 2.0 16V Mec.', valor: 28000, combustivel: 'Gasolina', mes_referencia: 'outubro de 2026' },
+  { codigo_fipe: '015064-9', modelo: 'Tucson 2.7 MPFI 24V 175cv Aut.', valor: 33000, combustivel: 'Gasolina', mes_referencia: 'outubro de 2026' },
+]
+const WDAPI_TUCSON = { marca: 'HYUNDAI', MODELO: 'TUCSON GL 20L', VERSAO: '', anoModelo: '2008', fipe: { dados: [] } }
+function mockTucson() {
+  return vi.fn(async (url: string) => {
+    if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: TUCSON_2008 }) } as any
+    throw new Error(`unexpected fetch: ${url}`)
+  })
+}
+const TUCSON_INPUT = { wdapi: WDAPI_TUCSON, fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't' }
+
+describe('litragem pelo nome (caso ELF2808, Tucson 20L)', () => {
+  beforeEach(() => { vi.restoreAllMocks() })
+
+  it('le "20L" e "2.0"; ignora 16V e V6; so 1.0 a 6.0', () => {
+    expect(litragensDoNome('I/HYUNDAI TUCSON GL 20L')).toEqual(['2.0'])
+    expect(litragensDoNome('FORD/FOCUS 1.6 16V')).toEqual(['1.6'])
+    expect(litragensDoNome('VW/GOL 16V')).toEqual([])
+    expect(litragensDoNome('I/AUDI A6 V6')).toEqual([])
+    expect(litragensDoNome('I/X 90L')).toEqual([])
+    expect(litragensDoNome('M.BENZ/24.280 6X2')).toEqual([])
+  })
+
+  it('cilindrada 0: o nome decide 2.0, o 2.7 cai e fica ambiguo entre Mec. e Aut.', async () => {
+    global.fetch = mockTucson() as any
+    const r = await escolherMelhorFipe({
+      ...TUCSON_INPUT,
+      senatran: { cilindrada: 0, potencia: 143, descricaoMarcaModelo: 'I/HYUNDAI TUCSON GL 20L', anoModelo: 2008 },
+    })
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.escolhido).toBeNull()
+    expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual(['015062-2', '015063-0'])
+  })
+
+  it('cilindrada valida discorda do nome: a cilindrada manda', async () => {
+    global.fetch = mockTucson() as any
+    const r = await escolherMelhorFipe({
+      ...TUCSON_INPUT,
+      // cilindrada diz 2.0, o nome (errado) diz 2.7: fica o 2.0
+      senatran: { cilindrada: 1975, descricaoMarcaModelo: 'I/HYUNDAI TUCSON GL 27L', anoModelo: 2008 },
+    })
+    expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual(['015062-2', '015063-0'])
+  })
+
+  it('sem litragem nenhuma, a potencia tira o 175cv de um carro de 143cv', async () => {
+    global.fetch = mockTucson() as any
+    const r = await escolherMelhorFipe({
+      ...TUCSON_INPUT,
+      senatran: { cilindrada: 0, potencia: 143, descricaoMarcaModelo: 'I/HYUNDAI TUCSON GL', anoModelo: 2008 },
+    })
+    expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual(['015062-2', '015063-0'])
+  })
+
+  it('potencia perto do 175cv mantem o 2.7', async () => {
+    global.fetch = mockTucson() as any
+    const r = await escolherMelhorFipe({
+      ...TUCSON_INPUT,
+      senatran: { cilindrada: 0, potencia: 170, descricaoMarcaModelo: 'I/HYUNDAI TUCSON GL', anoModelo: 2008 },
+    })
+    expect(r.candidatos.map((c) => c.codigo_fipe)).toContain('015064-9')
+  })
 })

@@ -446,6 +446,60 @@ function litragensDaCilindrada(cilindrada: unknown): string[] {
   return [...labels]
 }
 
+/**
+ * Litragem pelo NOME do cadastro ("I/HYUNDAI TUCSON GL 20L" -> 2.0): "20L"
+ * (2 digitos + L) vira "2.0" e "2.0" solto vale como esta. "16V" (valvulas) e
+ * "V6" nao sao litragem. So 1.0 a 6.0. Caso ELF2808 (27/out/2026): cilindrada
+ * veio 0 e o 2.7 sobrou na lista de um Tucson 20L.
+ */
+export function litragensDoNome(descricao: unknown): string[] {
+  const texto = String(descricao ?? '').toUpperCase()
+  const labels = new Set<string>()
+  for (const m of texto.matchAll(/(?<![A-Z0-9.])(\d)(\d)L(?![A-Z0-9])/g)) labels.add(`${m[1]}.${m[2]}`)
+  for (const m of texto.matchAll(/(?<![\d.])(\d)\.(\d)(?![\d.])/g)) labels.add(`${m[1]}.${m[2]}`)
+  return [...labels].filter((l) => Number(l) >= 1 && Number(l) <= 6)
+}
+
+/**
+ * Cilindrada valida manda; o nome entra como fallback (cilindrada 0/vazia) ou
+ * como confirmacao (perto da fronteira a cilindrada da 2 rotulos e o nome diz qual).
+ */
+function litragemDosFatos(cilindrada: unknown, descricao: unknown): string[] {
+  const pelaCc = litragensDaCilindrada(cilindrada)
+  const peloNome = litragensDoNome(descricao)
+  if (!pelaCc.length) return peloNome.length === 1 ? peloNome : []
+  const concordam = pelaCc.filter((l) => peloNome.includes(l))
+  return concordam.length ? concordam : pelaCc
+}
+
+function litragemDoCandidato(modelo: string): string | null {
+  const m = String(modelo).match(/(?<![\d.])(\d\.\d)(?![\d.])/)
+  return m ? m[1] : null
+}
+
+function cvDoCandidato(modelo: string): number | null {
+  const m = String(modelo).match(/\b(\d{2,4})\s?cv\b/i)
+  return m ? Number(m[1]) : null
+}
+
+const TOLERANCIA_POTENCIA = 0.15
+
+/**
+ * Criterio fraco: com potencia conhecida e candidatos de litragens diferentes
+ * ainda na lista, sai quem tem "NNNcv" no nome mais de 15% longe dela. Quem
+ * nao traz cv fica. Fail-safe: se ninguem sobrar, mantem a lista.
+ */
+function filtrarPelaPotencia(restantes: FipeCandidato[], potencia: number | null): FipeCandidato[] {
+  if (!potencia || restantes.length < 2) return restantes
+  const litragens = new Set(restantes.map((c) => litragemDoCandidato(c.modelo)).filter(Boolean))
+  if (litragens.size < 2) return restantes
+  const porPotencia = restantes.filter((c) => {
+    const cv = cvDoCandidato(c.modelo)
+    return cv == null || Math.abs(cv - potencia) / potencia <= TOLERANCIA_POTENCIA
+  })
+  return porPotencia.length ? porPotencia : restantes
+}
+
 type Carroceria = 'hatch' | 'sedan' | 'sw' | null
 
 function carroceriaDaDescricao(descricaoMarcaModelo: unknown): Carroceria {
@@ -564,6 +618,8 @@ function candidatoTemVersao(modelo: string, versao: string): boolean {
 
 interface Fatos {
   litragem: string[]
+  /** Potencia do registro (cv), criterio fraco entre litragens diferentes. */
+  potencia: number | null
   carroceria: Carroceria
   versao: string | null
   transmissao: Transmissao
@@ -660,7 +716,9 @@ function ehMoto(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any): boo
 }
 
 function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any, tabela: TabelaFipe = 'carros'): Fatos {
-  const litragem = litragensDaCilindrada(senatran?.cilindrada)
+  const litragem = litragemDosFatos(senatran?.cilindrada, senatran?.descricaoMarcaModelo)
+  const potenciaBruta = Number(senatran?.potencia)
+  const potencia = Number.isFinite(potenciaBruta) && potenciaBruta > 0 ? potenciaBruta : null
   const carroceria = carroceriaDaDescricao(senatran?.descricaoMarcaModelo)
   // Cambio: primeiro o do registro (MT/AT na descricao); se nao houver, o hint
   // externo (Camada 2, texto do recall). O registro sempre tem prioridade.
@@ -669,7 +727,7 @@ function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any
   // Versao generica (ABS, FLEX, DLX...) nao filtra: ver VERSAO_GENERICA.
   const versao = versaoDiscriminante(wdapi?.VERSAO)
   return {
-    litragem, carroceria, versao, transmissao,
+    litragem, potencia, carroceria, versao, transmissao,
     // Sem codigo de combustivel, o sufixo Mercedes diz: CDI = diesel, FF = flex.
     combustivel: combustivelDoCodigo(senatran?.codigoCombustivel)
       ?? (fatosMercedes(senatran?.descricaoMarcaModelo)?.diesel || fatosPicapeGM(senatran?.descricaoMarcaModelo)?.diesel
@@ -709,6 +767,7 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos, opts: { semSigla?
     const porLitragem = restantes.filter((c) => candidatoTemLitragem(c.modelo, fatos.litragem))
     if (porLitragem.length) restantes = porLitragem
   }
+  restantes = filtrarPelaPotencia(restantes, fatos.potencia)
 
   // Versao e motorizacao do NOME do registro (shared/versao-fipe.ts): "COROLLA
   // XEI18VVT" nao pode sobrar com um SE-G na lista. Fail-safe por filtro.
