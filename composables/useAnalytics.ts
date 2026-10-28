@@ -3,6 +3,7 @@ import { dadosOrderCreated } from '~/shared/openai-evento'
 import { eventoPermitido, MAX_EVENTOS_POR_LOTE, type EventoFunil } from '~/shared/eventos-funil'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { varianteAtual, AB_RODADA } from '~/shared/ab-bloco'
+import { decidirVarianteCheckout, varianteCheckoutAtual } from '~/shared/ab-checkout'
 import { analyticsAtivo } from '~/shared/analytics-tags'
 
 /**
@@ -132,7 +133,15 @@ export function enfileirarEventoFunil(evento: string, dados?: Omit<EventoNaFila,
   // variante existe (ela e sorteada quando o resultado da consulta chega);
   // evento anterior a isso fica sem o campo, de proposito.
   const ab = varianteAtual()
-  const extra = ab ? { ...(dados?.extra || {}), ab_bloco: ab, ab_rodada: AB_RODADA } : (dados?.extra ?? null)
+  let extra: Record<string, any> | null = ab ? { ...(dados?.extra || {}), ab_bloco: ab, ab_rodada: AB_RODADA } : (dados?.extra ?? null)
+  // Teste A/B da confirmacao do checkout (shared/ab-checkout.ts): o sorteio
+  // acontece na abertura do checkout, entao `premium_checkout_open` ja sai
+  // carimbado. Daqui pra frente todo evento da visita leva `ab_checkout`
+  // (pix_gerado, email_informado, checklist_marcado no relatorio...). No app
+  // nada e sorteado nem carimbado.
+  if (evento === 'premium_checkout_open') decidirVarianteCheckout()
+  const abCheckout = varianteCheckoutAtual()
+  if (abCheckout) extra = { ...(extra || {}), ab_checkout: abCheckout }
   fila.push({
     ...(recallAtual ? { recall_sinal: recallAtual.sinal, recall_marca: recallAtual.marca } : {}),
     ...dados,

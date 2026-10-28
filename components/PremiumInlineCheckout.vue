@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { PLANOS, RECURSOS, precoDePromocao } from '~/shared/planos'
 import { origemDaSessao } from '~/shared/origem-trafego'
+import { decidirVarianteCheckout, DESBLOQUEIA_B, RISCO_B, GARANTIA_B, type VarianteAbCheckout } from '~/shared/ab-checkout'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora } from '~/composables/useAnalytics'
 import type { CompraPlay } from '~/composables/usePlayBilling'
 import {
@@ -64,6 +65,15 @@ const { isCapacitor } = useAppMode()
 // Stripe (NUXT_PUBLIC_CARTAO_HABILITADO). No app quem cobra e o Google Play.
 const cartaoHabilitado = computed(() => !isCapacitor.value && !!cfg.public.cartaoHabilitado)
 const playBilling = usePlayBilling()
+
+// Teste A/B da confirmacao (shared/ab-checkout.ts). O sorteio normalmente ja
+// aconteceu no evento premium_checkout_open; aqui so le (ou sorteia, quando o
+// checkout abriu por um caminho sem esse evento). No app e sempre A. B so vale
+// pra Completa: a previa promete itens que a Basica nao tem.
+const abCheckout = ref<VarianteAbCheckout>('A')
+const varianteB = computed(() => !isCapacitor.value && props.plano === 'completa' && abCheckout.value === 'B')
+// O que vai pro pedido: so quando a pessoa estava de fato no teste.
+const abCheckoutPedido = computed(() => (!isCapacitor.value && props.plano === 'completa' ? abCheckout.value : undefined))
 
 type Step = 'loading' | 'gate' | 'confirm' | 'pending' | 'erro'
 const step = ref<Step>('loading')
@@ -232,6 +242,7 @@ const rotuloPagar = computed(() => {
   }
   if (loading.value) return cupomGratis.value ? 'Liberando...' : 'Gerando Pix...'
   if (cupomGratis.value) return 'Liberar relatório grátis'
+  if (varianteB.value) return `Gerar Pix de ${reais(precoExibidoCentavos.value)}`
   return props.plano === 'completa' ? 'Pagar e liberar o relatório' : 'Liberar minha consulta'
 })
 const precoExibidoCentavos = computed(() =>
@@ -272,6 +283,7 @@ async function salvarPlaca() {
 
 // Pre-preenche email salvo do fluxo grativo (mesmo navegador)
 onMounted(() => {
+  abCheckout.value = decidirVarianteCheckout({ app: isCapacitor.value })
   if (import.meta.client) {
     // pc_email vem da consulta gratis; pwa_email vem do fluxo do app. Os dois
     // sao a mesma pessoa no mesmo aparelho, e quem ja digitou o e-mail uma vez
@@ -423,6 +435,28 @@ function escolherPix() {
 
 // E-mail que o pedido ja levou (preenchido na primeira tela do modal).
 const emailNoPedido = ref('')
+
+// Variante B: o e-mail sai da confirmacao e e pedido na tela do QR, enquanto a
+// pessoa paga. Grava no pedido pelo mesmo /api/premium/email de sempre.
+const emailPixSalvando = ref(false)
+const emailPixErro = ref('')
+async function salvarEmailNoPix() {
+  const e = email.value.trim()
+  emailPixErro.value = ''
+  if (!emailValido(e)) { emailPixErro.value = 'Este e-mail parece incompleto. Confira.'; return }
+  if (!pix.value?.token) return
+  emailPixSalvando.value = true
+  try {
+    await $fetch('/api/premium/email', { method: 'POST', body: { token: pix.value.token, email: e } })
+    emailNoPedido.value = e
+    try { localStorage.setItem('pc_email', e) } catch { /* modo privado */ }
+    marcarEmailInformado('pix')
+  } catch {
+    emailPixErro.value = 'Não conseguimos salvar o e-mail agora. Tente de novo.'
+  } finally {
+    emailPixSalvando.value = false
+  }
+}
 
 // E-mail no app e OBRIGATORIO (Cesar, 22/out/2026): compra que fica pendente
 // na loja pode terminar com o app fechado, e ai o e-mail e o unico caminho
@@ -714,6 +748,7 @@ async function pagar() {
         origin: origemDaSessao(),
         // Variante do A/B que a pessoa viu (carimba a atribuicao de venda).
         ab_bloco: props.abBloco ?? undefined,
+        ab_checkout: abCheckoutPedido.value,
         recall_sinal: props.recallSinal ?? undefined,
         recall_marca: props.recallMarca ?? undefined,
         // Botao que abriu o checkout (porta de entrada da venda).
@@ -838,6 +873,7 @@ async function pagarComCartao() {
         cupom: cupomCodigo.value.trim() || undefined,
         origin: origemDaSessao(),
         ab_bloco: props.abBloco ?? undefined,
+        ab_checkout: abCheckoutPedido.value,
         recall_sinal: props.recallSinal ?? undefined,
         recall_marca: props.recallMarca ?? undefined,
         origem_checkout: props.origemCheckout ?? undefined,
@@ -1061,7 +1097,32 @@ onUnmounted(() => {
             <!-- Faixa de resumo (opcao 04): sem titulo. Uma faixa cinza de duas
                  colunas — carro a esquerda (marca/modelo + ano·placa com lapis),
                  preco + "Relatorio completo" a direita. Le tudo de uma olhada. -->
-            <div class="pic-faixa">
+            <!-- Variante B do teste A/B da confirmacao (shared/ab-checkout.ts):
+                 previa do relatorio no lugar da faixa de resumo. -->
+            <div v-if="varianteB" class="pic-prev">
+              <strong class="pic-prev__veic">
+                <template v-if="preview?.encontrado">{{ preview.marca }} {{ preview.modelo }}</template>
+                <template v-else>Placa {{ placaClean }}</template>
+              </strong>
+              <span class="pic-faixa__sub">
+                <template v-if="preview?.encontrado">{{ preview.ano }} · </template>
+                <span class="pic-faixa__placa">{{ placaClean }}</span>
+                <button type="button" class="pic-lapis pic-lapis--faixa" aria-label="Corrigir a placa" @click="abrirEdicao">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                  </svg>
+                </button>
+              </span>
+              <p class="pic-prev__tit">O que você desbloqueia:</p>
+              <ul class="pic-prev__lista">
+                <li v-for="item in DESBLOQUEIA_B" :key="item">
+                  <svg class="pic-prev__cadeado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+                  <span>{{ item }}</span>
+                </li>
+              </ul>
+            </div>
+            <div v-else class="pic-faixa">
               <strong class="pic-faixa__veic">
                 <template v-if="preview?.encontrado">{{ preview.marca }} {{ preview.modelo }}</template>
                 <template v-else>Placa {{ placaClean }}</template>
@@ -1103,7 +1164,7 @@ onUnmounted(() => {
                  checkout de quem nao tem cupom. No app ele nem existe: a loja
                  cobra o preco dela, e um desconto que nao pode ser aplicado so
                  frustraria quem digitasse. -->
-            <div v-if="!isCapacitor" class="pic-cupom">
+            <div v-if="!varianteB && !isCapacitor" class="pic-cupom">
               <button
                 v-if="!cupomAberto"
                 type="button"
@@ -1143,7 +1204,7 @@ onUnmounted(() => {
                  e-mail). Antes ficava so na tela do Pix, mas la ele sumia pra
                  quem ja tinha e-mail salvo no navegador -> muita gente nao via
                  em lugar nenhum. -->
-            <div class="pic-campo">
+            <div v-if="!varianteB" class="pic-campo">
               <label class="pic-label" for="pic-email">{{ isCapacitor ? 'Seu e-mail (para receber o relatório)' : 'Seu e-mail (opcional, para receber o relatório)' }}</label>
               <input
                 id="pic-email"
@@ -1177,6 +1238,12 @@ onUnmounted(() => {
             <!-- Abas de pagamento: Pix | Cartao. So aparecem quando o cartao esta
                  habilitado (chaves do Stripe no ambiente); senao o Pix segue sem
                  abas, exatamente como antes. Pix vem selecionado. -->
+            <p v-if="varianteB" class="pic-risco">
+              {{ RISCO_B }}
+              <s v-if="cupomValido" class="pic-faixa__de">{{ reais(planoInfo.valorCentavos) }}</s>
+              <s v-else-if="precoDePromocao(plano)" class="pic-faixa__de">{{ reais(precoDePromocao(plano)!) }}</s>
+              <b>{{ reais(precoExibidoCentavos) }}</b>.
+            </p>
             <div v-if="cartaoHabilitado" class="pic-tabs" role="tablist" aria-label="Forma de pagamento">
               <button type="button" role="tab" :aria-selected="metodo === 'pix'" class="pic-tab" :class="{ 'pic-tab--on': metodo === 'pix' }" :disabled="loading" @click="escolherPix">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 8 6l4 4 4-4-4-4Zm-6 6-4 4 4 4 4-4-4-4Zm12 0-4 4 4 4 4-4-4-4Zm-6 6-4 4 4 4 4-4-4-4Z" /></svg>
@@ -1192,7 +1259,7 @@ onUnmounted(() => {
             <div v-show="metodo === 'pix'">
               <!-- Faixa de confianca enxuta: so as duas duvidas que de fato travam
                    o clique (e se o carro nao aparecer? vai virar assinatura?). -->
-              <ul class="pic-conf">
+              <ul v-if="!varianteB" class="pic-conf">
                 <li v-if="!isCapacitor" class="pic-conf__item pic-conf__item--forte">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M12 3 20 6v6c0 4.5-3.3 7.9-8 9-4.7-1.1-8-4.5-8-9V6Z" />
@@ -1217,7 +1284,10 @@ onUnmounted(() => {
                 {{ rotuloPagar }}
               </button>
               <p v-if="isCapacitor && !emailAppOk && !emailErro" class="pic-hint pic-hint--cta">Informe seu e-mail acima para liberar a compra.</p>
-              <p v-if="!isCapacitor" class="pic-hint pic-hint--cta">Pagamento por Pix · estorno se não acharmos o veículo · entrega em até 5 min</p>
+              <p v-if="varianteB" class="pic-hint pic-hint--cta pic-garantia-b">
+                <span v-for="(parte, i) in GARANTIA_B.split(' · ')" :key="parte">{{ i ? ' · ' : '' }}<span class="pic-nowrap">{{ parte }}</span></span>
+              </p>
+              <p v-else-if="!isCapacitor" class="pic-hint pic-hint--cta">Pagamento por Pix · estorno se não acharmos o veículo · entrega em até 5 min</p>
             </div>
 
             <!-- Painel CARTAO: Stripe Elements montado nos divs abaixo. v-show (nao
@@ -1241,6 +1311,13 @@ onUnmounted(() => {
                 <label class="pic-label" for="pic-card-nome">Nome no cartão</label>
                 <input id="pic-card-nome" v-model="nomeCartao" type="text" class="pic-input" placeholder="Como aparece no cartão" autocomplete="cc-name">
               </div>
+              <!-- B: o e-mail saiu da confirmacao; no cartao ele e pedido aqui,
+                   junto dos dados do cartao, e continua opcional. -->
+              <div v-if="varianteB && !cupomAberto" class="pic-campo">
+                <label class="pic-label" for="pic-card-email">Seu e-mail (opcional, para receber o relatório)</label>
+                <input id="pic-card-email" v-model="email" type="email" class="pic-input" placeholder="seu@email.com" autocomplete="email" inputmode="email" @input="emailErro = ''">
+                <p v-if="emailErro" class="pic-cupom__erro">{{ emailErro }}</p>
+              </div>
               <p v-if="erroCartao" class="pic-cupom__erro">{{ erroCartao }}</p>
               <button
                 type="button"
@@ -1256,6 +1333,52 @@ onUnmounted(() => {
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
                 Pagamento processado com segurança pelo Stripe. Não armazenamos os dados do seu cartão.
               </p>
+            </div>
+            <!-- B: link discreto no lugar do convite; o campo e o mesmo. Cupom
+                 de URL ja chega com cupomAberto = true e a mensagem de ok. Cupom
+                 pessoal precisa do e-mail que o recebeu, entao no B o e-mail
+                 aparece junto do cupom. Fica abaixo do botao, como pede o teste (fora dele, so na tela do QR). -->
+            <div v-if="varianteB" class="pic-cupom pic-cupom--b">
+              <button
+                v-if="!cupomAberto"
+                type="button"
+                class="pic-link pic-link--cupom pic-link--discreto"
+                @click="cupomAberto = true"
+              >
+                Tenho um cupom
+              </button>
+              <div v-else class="pic-stack pic-stack--cupom">
+                <div class="pic-campo">
+                  <label class="pic-label" for="pic-cupom">Cupom de desconto</label>
+                  <input
+                    id="pic-cupom"
+                    v-model="cupomCodigo"
+                    type="text"
+                    class="pic-input"
+                    placeholder="CODIGO"
+                    autocapitalize="characters"
+                    autocomplete="off"
+                    @blur="validarCupom"
+                  >
+                  <p v-if="cupomValidando" class="pic-hint">Validando cupom...</p>
+                  <p v-else-if="cupomMsg" :class="cupomValido ? 'pic-cupom__ok' : 'pic-cupom__erro'">{{ cupomMsg }}</p>
+                </div>
+                <div class="pic-campo">
+                  <label class="pic-label" for="pic-email">E-mail que recebeu o cupom</label>
+                  <input
+                    id="pic-email"
+                    v-model="email"
+                    type="email"
+                    class="pic-input"
+                    placeholder="seu@email.com"
+                    autocomplete="email"
+                    inputmode="email"
+                    :aria-invalid="emailErro ? 'true' : undefined"
+                    @input="emailErro = ''"
+                  >
+                  <p v-if="emailErro" class="pic-cupom__erro">{{ emailErro }}</p>
+                </div>
+              </div>
             </div>
             <!-- Logos de pagamento (opcao 1 do Cesar, 06/out): logo abaixo do
                  botao de pagar, nas duas abas. No app (Play) nao aparece. -->
@@ -1320,6 +1443,32 @@ onUnmounted(() => {
                 </div>
                 <div class="pic-pix__info">
                   <p class="pic-hint pic-hint--forte">Deixe esta tela aberta: quando o pagamento cair, o relatório abre aqui.</p>
+
+                  <!-- Variante B: o e-mail saiu da confirmacao e e pedido aqui,
+                       enquanto a pessoa paga. Opcional, nao trava nada. -->
+                  <div v-if="varianteB && !pix?.gratis" class="pic-email-pix">
+                    <template v-if="!emailNoPedido">
+                      <label class="pic-label" for="pic-email-pix">Receba o relatório por e-mail (opcional)</label>
+                      <div class="pic-email-pix__linha">
+                        <input
+                          id="pic-email-pix"
+                          v-model="email"
+                          type="email"
+                          class="pic-input"
+                          placeholder="seu@email.com"
+                          autocomplete="email"
+                          inputmode="email"
+                          @input="emailPixErro = ''"
+                          @keyup.enter="salvarEmailNoPix"
+                        >
+                        <button type="button" class="pic-btn" :disabled="emailPixSalvando" @click="salvarEmailNoPix">
+                          {{ emailPixSalvando ? 'Salvando...' : 'Salvar' }}
+                        </button>
+                      </div>
+                      <p v-if="emailPixErro" class="pic-cupom__erro">{{ emailPixErro }}</p>
+                    </template>
+                    <p v-else class="pic-hint">O relatório também vai para {{ emailNoPedido }}.</p>
+                  </div>
 
                   <!-- O campo "Receber por e-mail (opcional)" saiu daqui: o e-mail
                        opcional ja e pedido na primeira tela, antes de pagar. Menos
@@ -1659,6 +1808,52 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   svg { width: 12px; height: 12px; }
   &::after { content: ''; position: absolute; inset: -10px; }
+}
+
+// ---- variante B do teste A/B da confirmacao (shared/ab-checkout.ts) ----
+.pic-prev {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: $c-cloud;
+  border: 1px solid $c-hair;
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.pic-prev__veic { font-size: 15px; font-weight: 600; color: $c-ink; line-height: 1.3; overflow-wrap: anywhere; }
+.pic-prev__tit { margin: 10px 0 4px; font-size: 13px; font-weight: 600; color: $c-ink; }
+.pic-prev__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+
+  li { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.35; color: $c-ink; }
+}
+.pic-prev__cadeado { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 1px; color: $c-graphite; }
+.pic-risco {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: $c-ink;
+
+  b { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  s { margin-right: 4px; }
+}
+.pic-link.pic-link--discreto { font-size: 13px; font-weight: 400; color: $c-graphite; text-decoration: underline; letter-spacing: 0; text-transform: none; }
+.pic-cupom--b { margin-top: 2px; .pic-link--cupom { align-self: center; } }
+.pic-hint--cta.pic-garantia-b { margin-top: 6px; font-size: 12.5px; }
+.pic-nowrap { white-space: nowrap; }
+.pic-stack--cupom { gap: 10px; }
+.pic-email-pix { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.pic-email-pix__linha {
+  display: flex;
+  gap: 8px;
+
+  .pic-input { flex: 1 1 auto; min-width: 0; }
+  .pic-btn { flex: 0 0 auto; width: auto; padding-left: 16px; padding-right: 16px; }
 }
 
 // resumo do pedido: o que, pra qual placa, por quanto
