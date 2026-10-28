@@ -1684,6 +1684,11 @@ const resumoDetran = computed(() => multasDetalhe.value ? resumoQuitar({
   restricoesNacionais: itensQueRestringem(v.value?.restricoesItens),
   indicadorRouboFurto: g('indicadorRouboFurto') === true,
 }) : null)
+// Ha multa, IPVA ou licenciamento em aberto no DETRAN (valor > 0 ou IPVA ainda sem valor)?
+const temDebitosAbertos = computed(() => {
+  const r = resumoDetran.value
+  return !!r && ((r.totalCentavos || 0) > 0 || !!r.ipvaSemValor)
+})
 const procDebitos = computed(() => {
   const estado = multasDetalhe.value ? 'ok' : multasProtegido.value ? 'protegido' : multasIndisponivel.value ? 'indisponivel' : null
   if (!estado) return null
@@ -2480,6 +2485,9 @@ onUnmounted(() => {
                 <p v-else class="rel__restr-explica">{{ r.explica }}</p>
               </div>
             </template>
+            <!-- Cesar 28/out/2026: com multa ou debito em aberto, a secao nao diz
+                 "Nada consta"; aponta para o card de multas e debitos logo abaixo. -->
+            <p v-else-if="temDebitosAbertos" class="rel__nada">Sem restrições registradas. As multas e os débitos em aberto estão logo abaixo.</p>
             <p v-else class="rel__nada">Nada consta na data de emissão.</p>
 
             <!-- Anotacoes no cadastro (21/out/2026): alteracao de caracteristica
