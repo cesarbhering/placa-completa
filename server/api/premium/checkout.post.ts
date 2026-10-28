@@ -53,6 +53,8 @@ export default defineEventHandler(async (event) => {
   // da compra. So aceita 'A'/'B'; qualquer outra coisa vira null. Carimba a
   // atribuicao de venda por variante direto no pedido (sem join por placa).
   const abBloco = body.ab_bloco === 'A' || body.ab_bloco === 'A2' ? body.ab_bloco : null
+  // Teste A/B da confirmacao do checkout (shared/ab-checkout.ts). So 'A' ou 'B'.
+  const abCheckout = body.ab_checkout === 'A' || body.ab_checkout === 'B' ? body.ab_checkout : null
 
   const supabase = usePremiumSupabase()
   const token = crypto.randomBytes(18).toString('base64url')
@@ -107,6 +109,7 @@ export default defineEventHandler(async (event) => {
       ambiente,
       // Variante do A/B que gerou a compra (null pra pedidos fora do teste).
       ab_bloco: abBloco,
+      ab_checkout: abCheckout,
       // Hook de recall que a pessoa viu na consulta gratis (allowlist) + marca.
       recall_sinal: sanearSinalRecall(body.recall_sinal),
       recall_marca: sanearMarcaRecall(body.recall_marca),
