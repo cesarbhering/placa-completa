@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PLANOS, RECURSOS, precoDePromocao } from '~/shared/planos'
 import { origemDaSessao } from '~/shared/origem-trafego'
-import { decidirVarianteCheckout, DESBLOQUEIA_B, RISCO_B, GARANTIA_B, type VarianteAbCheckout } from '~/shared/ab-checkout'
+import { decidirVarianteCheckout, DESBLOQUEIA_B, RISCO_B, RISCO_B_PARTES, GARANTIA_B, type VarianteAbCheckout } from '~/shared/ab-checkout'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora } from '~/composables/useAnalytics'
 import type { CompraPlay } from '~/composables/usePlayBilling'
 import {
@@ -440,6 +440,7 @@ const emailNoPedido = ref('')
 // pessoa paga. Grava no pedido pelo mesmo /api/premium/email de sempre.
 const emailPixSalvando = ref(false)
 const emailPixErro = ref('')
+const emailPixTrocando = ref(false)
 async function salvarEmailNoPix() {
   const e = email.value.trim()
   emailPixErro.value = ''
@@ -449,6 +450,7 @@ async function salvarEmailNoPix() {
   try {
     await $fetch('/api/premium/email', { method: 'POST', body: { token: pix.value.token, email: e } })
     emailNoPedido.value = e
+    emailPixTrocando.value = false
     try { localStorage.setItem('pc_email', e) } catch { /* modo privado */ }
     marcarEmailInformado('pix')
   } catch {
@@ -1239,10 +1241,11 @@ onUnmounted(() => {
                  habilitado (chaves do Stripe no ambiente); senao o Pix segue sem
                  abas, exatamente como antes. Pix vem selecionado. -->
             <p v-if="varianteB" class="pic-risco">
-              {{ RISCO_B }}
+              <svg class="pic-risco__ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2.5 20h19L12 3Z" /><path d="M12 10v4" /><path d="M12 17.5h.01" /></svg>
+              <span>{{ RISCO_B_PARTES[0] }}<strong>{{ RISCO_B_PARTES[1] }}</strong>{{ RISCO_B_PARTES[2] }}
               <s v-if="cupomValido" class="pic-faixa__de">{{ reais(planoInfo.valorCentavos) }}</s>
               <s v-else-if="precoDePromocao(plano)" class="pic-faixa__de">{{ reais(precoDePromocao(plano)!) }}</s>
-              <b>{{ reais(precoExibidoCentavos) }}</b>.
+              <b>{{ reais(precoExibidoCentavos) }}</b>.</span>
             </p>
             <div v-if="cartaoHabilitado" class="pic-tabs" role="tablist" aria-label="Forma de pagamento">
               <button type="button" role="tab" :aria-selected="metodo === 'pix'" class="pic-tab" :class="{ 'pic-tab--on': metodo === 'pix' }" :disabled="loading" @click="escolherPix">
@@ -1442,13 +1445,13 @@ onUnmounted(() => {
                   <p v-if="tempoRestante" class="pic-prazo">Vale por <strong>{{ tempoRestante }}</strong></p>
                 </div>
                 <div class="pic-pix__info">
-                  <p class="pic-hint pic-hint--forte">Deixe esta tela aberta: quando o pagamento cair, o relatório abre aqui.</p>
-
-                  <!-- Variante B: o e-mail saiu da confirmacao e e pedido aqui,
-                       enquanto a pessoa paga. Opcional, nao trava nada. -->
+                  <!-- Variante B: o e-mail saiu da confirmacao e e pedido AQUI,
+                       no alto, enquanto a pessoa paga. Opcional, nao trava nada.
+                       Cesar 28/out: a pessoa tem de ter esta chance, senao vem
+                       no suporte perguntar cade o relatorio. -->
                   <div v-if="varianteB && !pix?.gratis" class="pic-email-pix">
-                    <template v-if="!emailNoPedido">
-                      <label class="pic-label" for="pic-email-pix">Receba o relatório por e-mail (opcional)</label>
+                    <template v-if="!emailNoPedido || emailPixTrocando">
+                      <label class="pic-label pic-email-pix__tit" for="pic-email-pix">Quer receber o relatório por e-mail também? <span>Assim o link não se perde. Opcional.</span></label>
                       <div class="pic-email-pix__linha">
                         <input
                           id="pic-email-pix"
@@ -1467,8 +1470,10 @@ onUnmounted(() => {
                       </div>
                       <p v-if="emailPixErro" class="pic-cupom__erro">{{ emailPixErro }}</p>
                     </template>
-                    <p v-else class="pic-hint">O relatório também vai para {{ emailNoPedido }}.</p>
+                    <p v-else class="pic-hint">O relatório também vai para <strong>{{ emailNoPedido }}</strong>. <button type="button" class="pic-link pic-link--discreto" @click="emailPixTrocando = true">Trocar</button></p>
                   </div>
+                  <p class="pic-hint pic-hint--forte">Deixe esta tela aberta: quando o pagamento cair, o relatório abre aqui.</p>
+
 
                   <!-- O campo "Receber por e-mail (opcional)" saiu daqui: o e-mail
                        opcional ja e pedido na primeira tela, antes de pagar. Menos
@@ -1821,6 +1826,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   padding: 12px 14px;
 }
 .pic-prev__veic { font-size: 15px; font-weight: 600; color: $c-ink; line-height: 1.3; overflow-wrap: anywhere; }
+// Na B a placa e o que a pessoa confere antes de pagar: maior e em destaque.
+.pic-prev .pic-faixa__sub { font-size: 13px; align-items: center; }
+.pic-prev .pic-faixa__placa { font-size: 19px; font-weight: 800; letter-spacing: 0.1em; font-variant-numeric: tabular-nums; color: $c-ink; }
 .pic-prev__tit { margin: 10px 0 4px; font-size: 13px; font-weight: 600; color: $c-ink; }
 .pic-prev__lista {
   list-style: none;
@@ -1834,20 +1842,32 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 .pic-prev__cadeado { flex: 0 0 auto; width: 16px; height: 16px; margin-top: 1px; color: $c-graphite; }
 .pic-risco {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   margin: 0;
-  font-size: 14px;
+  padding: 11px 12px;
+  border-left: 4px solid $c-red;
+  border-radius: 0 10px 10px 0;
+  background: rgba($c-red, 0.07);
+  font-size: 15px;
   line-height: 1.45;
   color: $c-ink;
+  text-align: left;
 
+  strong { font-weight: 800; color: $c-red; white-space: nowrap; }
   b { font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
   s { margin-right: 4px; }
 }
+.pic-risco__ic { flex: 0 0 auto; margin-top: 2px; color: $c-red; }
 .pic-link.pic-link--discreto { font-size: 13px; font-weight: 400; color: $c-graphite; text-decoration: underline; letter-spacing: 0; text-transform: none; }
 .pic-cupom--b { margin-top: 2px; .pic-link--cupom { align-self: center; } }
 .pic-hint--cta.pic-garantia-b { margin-top: 6px; font-size: 12.5px; }
 .pic-nowrap { white-space: nowrap; }
 .pic-stack--cupom { gap: 10px; }
-.pic-email-pix { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.pic-email-pix { display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 10px 12px; border: 1px solid $c-hair; border-radius: 10px; background: $c-cloud; }
+.pic-email-pix__tit { font-size: 14px; font-weight: 700; color: $c-ink; span { display: block; font-size: 12.5px; font-weight: 400; color: $c-graphite; } }
+.pic-email-pix .pic-hint { margin: 0; .pic-link--discreto { margin-left: 4px; } }
 .pic-email-pix__linha {
   display: flex;
   gap: 8px;

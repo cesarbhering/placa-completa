@@ -99,7 +99,8 @@ export const DESBLOQUEIA_B: readonly string[] = [
 ]
 
 /** Linha de risco acima do botao na variante B (copy do Cesar, 27/out). */
-export const RISCO_B = 'Um carro que passou por leilão vale até 30% menos na revenda. Saber antes custa'
+export const RISCO_B_PARTES = ['Um carro que passou por leilão vale ', 'até 30% menos', ' na revenda. Saber antes custa'] as const
+export const RISCO_B = RISCO_B_PARTES.join('')
 
 export function linhaRiscoB(preco: string): string {
   return `${RISCO_B} ${preco}.`
