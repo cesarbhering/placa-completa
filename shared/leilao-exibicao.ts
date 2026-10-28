@@ -321,3 +321,97 @@ export function gravidadeInformada(g: { nivel?: string | null; rotulo?: string |
 export function cabeEmPilula(texto: unknown, max = 14): boolean {
   return String(texto ?? '').trim().length <= max
 }
+
+// ---------- Trava de modelo divergente (28/out/2026, caso PCU1D83) ----------
+//
+// Relatorio de uma SPIN mostrou passagem "possivel" da Superbid cujo modelo na
+// fonte era "ONIX 1.4 AT LTZ", com fotos de um Onix. A leiloes-api vai corrigir
+// o matching; aqui e a trava de EXIBICAO: passagem possivel/provavel com
+// familia de modelo diferente da do veiculo nao vai pra tela. Confirmado
+// (placa ou chassi iguais) nunca sai. Em duvida, MANTEM.
+
+const MARCAS_MODELO = new Set([
+  'I', 'IMP', 'CHEV', 'CHEVROLET', 'GM', 'VW', 'VOLKSWAGEN', 'FIAT', 'FORD', 'HYUNDAI', 'TOYOTA', 'HONDA',
+  'RENAULT', 'NISSAN', 'JEEP', 'PEUGEOT', 'CITROEN', 'MMC', 'MITSUBISHI', 'MBENZ', 'MERCEDES', 'BENZ',
+  'MERCEDESBENZ', 'KIA', 'BMW', 'AUDI', 'VOLVO', 'SUZUKI', 'YAMAHA', 'CAOA', 'CHERY', 'JAC', 'LIFAN',
+  'BYD', 'GWM', 'RAM', 'DODGE', 'CHRYSLER', 'LAND', 'ROVER', 'LANDROVER', 'PORSCHE', 'SUBARU', 'TROLLER',
+  'IVECO', 'SCANIA', 'DAFRA', 'SHINERAY', 'KAWASAKI', 'HARLEY', 'DAVIDSON', 'TRIUMPH', 'DUCATI', 'MINI',
+  'SMART', 'JAGUAR', 'LEXUS', 'EFFA', 'HAFEI', 'AGRALE', 'MARCOPOLO', 'VWCAMINHOES',
+])
+// Palavras que vem antes do nome e nao dizem a familia ("NOVO UNO", "NEW FIESTA").
+const PREFIXOS_MODELO = new Set(['NOVO', 'NOVA', 'NEW', 'NUEVO'])
+// Motor/versao: 1.8L, 1.4, 2.0T, 16V, 8V.
+const RE_MOTOR = /^\d+[.,]\d+[A-Z]*$|^\d+V$/
+
+function tokensModelo(modelo: unknown, marca?: unknown): string[] {
+  const norm = (s: unknown) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
+  const extra = new Set(norm(marca).split(/[\s/.-]+/).map((t) => t.replace(/[^A-Z0-9]/g, '')).filter(Boolean))
+  // "CHEV/SPIN 1.8L", "I/HYUNDAI HB20S": o que vem antes da ultima barra e marca.
+  const s = norm(modelo)
+  const corpo = s.includes('/') ? s.slice(s.lastIndexOf('/') + 1) : s
+  return corpo
+    .split(/\s+/)
+    .filter((t) => !RE_MOTOR.test(t))
+    .map((t) => t.replace(/[^A-Z0-9]/g, ''))
+    .filter((t) => t && !MARCAS_MODELO.has(t) && !extra.has(t))
+}
+
+/** Familia do modelo: primeira palavra significativa ("SPIN 1.8 LTZ" -> "SPIN"). null se nao der pra dizer. */
+export function familiaModelo(modelo: unknown, marca?: unknown): string | null {
+  const t = tokensModelo(modelo, marca).filter((x) => !PREFIXOS_MODELO.has(x))
+  return t[0] || null
+}
+
+/**
+ * A passagem pode ser deste veiculo, pelo modelo? false so quando o nivel e
+ * possivel/provavel, os dois modelos existem e as familias divergem (nem
+ * iguais, nem uma prefixo da outra como HB20S/HB20, nem a familia de um
+ * aparecendo no nome do outro como GRAND SIENA/SIENA).
+ */
+export function passagemCompativelComVeiculo(
+  passagem: { nivel?: string | null; veiculo_na_fonte?: Record<string, any> | null } | null | undefined,
+  veiculo: { modelo?: string | null; marca?: string | null } | null | undefined,
+): boolean {
+  if (!passagem) return true
+  if (passagem.nivel !== 'possivel' && passagem.nivel !== 'provavel') return true
+  const vf = passagem.veiculo_na_fonte
+  const famFonte = familiaModelo(vf?.modelo, vf?.marca)
+  const famVeic = familiaModelo(veiculo?.modelo, veiculo?.marca)
+  if (!famFonte || !famVeic) return true
+  if (famFonte.startsWith(famVeic) || famVeic.startsWith(famFonte)) return true
+  if (tokensModelo(vf?.modelo, vf?.marca).includes(famVeic)) return true
+  if (tokensModelo(veiculo?.modelo, veiculo?.marca).includes(famFonte)) return true
+  return false
+}
+
+const NIVEIS_ORDEM = ['confirmado', 'provavel', 'possivel'] as const
+
+/**
+ * Aplica a trava de modelo no historico inteiro. Se alguma passagem saiu,
+ * refaz o resumo a partir do que sobrou (sem passagem, sem "indicio") e
+ * descarta linha_do_tempo/recorrencia da API, que poderiam citar o lote
+ * removido (a pagina volta a montar a linha por passagem).
+ */
+export function historicoCompativelComVeiculo<H extends { passagens?: any[]; resumo?: any; linha_do_tempo?: any; recorrencia?: any }>(
+  h: H | null | undefined,
+  veiculo: { modelo?: string | null; marca?: string | null } | null | undefined,
+): H | null | undefined {
+  if (!h || !Array.isArray(h.passagens)) return h
+  const passagens = h.passagens.filter((p) => passagemCompativelComVeiculo(p, veiculo))
+  if (passagens.length === h.passagens.length) return h
+  const conta = (n: string) => passagens.filter((p) => p?.nivel === n).length
+  const r = h.resumo || {}
+  const resumo = r && typeof r === 'object'
+    ? {
+        ...r,
+        n_confirmado: conta('confirmado'),
+        n_provavel: conta('provavel'),
+        n_possivel: conta('possivel'),
+        nivel_max: NIVEIS_ORDEM.find((n) => conta(n) > 0) ?? null,
+        tem_indicio: passagens.length > 0 && !!r.tem_indicio,
+        possiveis_ambiguos: passagens.length > 0 ? r.possiveis_ambiguos || 0 : 0,
+        fontes_com_passagem: [...new Set(passagens.map((p) => String(p?.fonte || '')).filter(Boolean))],
+      }
+    : r
+  return { ...h, passagens, resumo, linha_do_tempo: null, recorrencia: null }
+}
