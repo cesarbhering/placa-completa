@@ -36,7 +36,7 @@ import { PLANOS, precoBRL } from '~/shared/planos'
 import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem, itemAnotacao, anotacoesDoCadastro, TITULO_ANOTACOES, fraseParecerAnotacoes } from '~/shared/restricoes'
 import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes } from '~/shared/foto-lote'
 import { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, estadoCartaoLeilao, PARECER_SO_POSSIVEL_TITULO } from '~/shared/leilao-copy'
-import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, passagensSemCanhao, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
+import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, passagensSemCanhao, historicoCompativelComVeiculo, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
 import { FONTE_PARCEIRA, rotuloIndicadorLeilao, linhasBasesSemRegistro, PASSAGEM_PARCEIRA, DICA_SINISTRO } from '~/shared/fonte-parceira'
@@ -352,9 +352,13 @@ const esteVeiculo = computed(() => `${segmento.value === 'moto' ? 'esta' : 'este
 
 // Passagem do canhao de PDFs sai com o nome da fonte real e sem repetir o
 // lote do orgao (shared/leilao-exibicao.ts).
+// Trava de modelo (28/out/2026, PCU1D83): possivel/provavel de outra familia
+// de modelo (SPIN x ONIX) nao vai pra tela, e o resumo e refeito sem ela.
+// Modelo = o mesmo do cabecalho (descricaoMarcaModelo, "CHEV/SPIN 1.8L AT LTZ").
 const historicoLeilao = computed(() => {
   const h = data.value?.historicoLeilao ?? null
-  return h && Array.isArray(h.passagens) ? { ...h, passagens: passagensSemCanhao(h.passagens) } : h
+  if (!h || !Array.isArray(h.passagens)) return h
+  return historicoCompativelComVeiculo({ ...h, passagens: passagensSemCanhao(h.passagens) }, { modelo: g('descricaoMarcaModelo') as any })
 })
 const temSecaoLeilao = computed(() => !!historicoLeilao.value)
 // Base parceira de leiloes e sinistros (shared/fonte-parceira.ts): consultada
