@@ -39,7 +39,7 @@ const notaDocumento = computed(() => (p.value.fonteTipo === 'detran'
       </div>
       <div class="lf-linha">
         <dt>Fonte</dt>
-        <dd><span class="lf-chip lf-chip--fonte" :class="forma(p.fonte)">{{ p.fonte }}</span><small v-if="p.tipoFonte && p.fonteTipo === 'detran'">{{ p.tipoFonte }}</small></dd>
+        <dd><span class="lf-chip lf-chip--fonte" :class="forma(p.fonte)">{{ p.fonte }}</span><small v-if="p.tipoFonte && p.fonteTipo === 'detran'">{{ p.tipoFonte }}</small><small v-if="p.casaLeilao" class="lf-bloco">{{ p.casaLeilao }}</small></dd>
       </div>
       <div v-if="mostraGravidade" class="lf-linha">
         <dt>Gravidade</dt>
