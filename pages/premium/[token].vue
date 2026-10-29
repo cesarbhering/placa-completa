@@ -36,7 +36,7 @@ import { PLANOS, precoBRL } from '~/shared/planos'
 import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem, itemAnotacao, anotacoesDoCadastro, TITULO_ANOTACOES, fraseParecerAnotacoes } from '~/shared/restricoes'
 import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes } from '~/shared/foto-lote'
 import { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, estadoCartaoLeilao, PARECER_SO_POSSIVEL_TITULO } from '~/shared/leilao-copy'
-import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, passagensSemCanhao, historicoCompativelComVeiculo, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA } from '~/shared/leilao-exibicao'
+import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, passagensSemCanhao, historicoCompativelComVeiculo, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA, passagemCertezaPorIdentificador, leiloeiroValido, textoCasaLeilao } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
 import { FONTE_PARCEIRA, rotuloIndicadorLeilao, linhasBasesSemRegistro, PASSAGEM_PARCEIRA, DICA_SINISTRO } from '~/shared/fonte-parceira'
@@ -904,7 +904,10 @@ const passagensLeilao = computed(() => {
     // nome da CASA, nunca o leiloeiro (Cesar, 06/out). Comitente logo abaixo do termometro, com
     // uma frase pelo tipo (banco, seguradora, Justica...): e o sinal de que a
     // passagem foi retomada de financiamento, sinistro ou leilao judicial.
-    leiloeiro: p.fonte_tipo === 'detran' && p.leiloeiro ? String(p.leiloeiro) : null,
+    leiloeiro: p.fonte_tipo === 'detran' ? leiloeiroValido(p.leiloeiro) : null,
+    // Casa que realizou o leilao do orgao (Cesar, 29/out): "Realizado por RJ
+    // Leilões (rjleiloes.com.br)", sem link. Snapshot antigo nao tem: some.
+    casaLeilao: p.fonte_tipo === 'detran' ? textoCasaLeilao(p.casa_leilao) : null,
     comitente: comitenteExibicao(p.comitente)?.texto ?? null,
     fraseComitente: fraseComitente(p.comitente),
     // Detalhes do estado do veiculo (18/out): km comparado com o hodometro mais
@@ -916,6 +919,8 @@ const passagensLeilao = computed(() => {
     }),
     gravidadeExplica: ehNotificacao(p) ? null : explicaGravidade(p.gravidade?.nivel),
     evidencias: Array.isArray(p.evidencias) ? p.evidencias.map((e: any) => comAcentos(String(e))) : [],
+    // Chassi ou placa completos iguais: certeza, sem "Ver o que foi comparado" (Cesar, 29/out).
+    certeza: passagemCertezaPorIdentificador(p),
     // Fotos do lote, servidas do nosso armazenamento (nunca link direto da
     // leiloeira). Sao o unico caminho honesto de mostrar um "possivel": quem
     // decide se e o veiculo dele e a pessoa, olhando.
@@ -2939,10 +2944,7 @@ onUnmounted(() => {
                   >
                     {{ editalCarregando === p.edital_ref ? 'Gerando o link...' : (p.editalDetran ? 'Baixar o edital do DETRAN (PDF)' : 'Baixar o edital do leilão judicial (PDF)') }}
                   </button>
-                  <p class="rel__edital-aviso">
-                    {{ p.editalDetran ? 'Documento oficial publicado pelo DETRAN.' : 'Edital do leilão judicial, publicado pela leiloeira.' }} O link vale por 24 horas; depois disso,
-                    abra o relatório de novo para gerar um novo link.
-                  </p>
+                  <p class="rel__edital-aviso">{{ p.editalDetran ? 'Documento oficial publicado pelo DETRAN.' : 'Edital publicado pela leiloeira.' }}</p>
                   <p v-if="editalErro && editalCarregando === null" class="rel__hint rel__hint--erro">{{ editalErro }}</p>
                 </div>
                 <div v-else-if="p.paginaPublica" class="rel__edital">
@@ -2953,6 +2955,7 @@ onUnmounted(() => {
                 </div>
 
                 <button
+                  v-if="!p.certeza"
                   type="button"
                   class="rel__leilao-mais"
                   :aria-expanded="passagemAberta === p.idx"
@@ -2961,7 +2964,7 @@ onUnmounted(() => {
                   {{ passagemAberta === p.idx ? 'Ocultar o que foi comparado' : 'Ver o que foi comparado' }}
                 </button>
 
-                <div v-if="passagemAberta === p.idx" class="rel__leilao-evid">
+                <div v-if="!p.certeza && passagemAberta === p.idx" class="rel__leilao-evid">
                   <p v-if="p.gravidade?.motivo" class="rel__leilao-explica">{{ p.gravidade.motivo }}</p>
                   <p class="rel__leilao-explica">{{ p.explicaNivel }}</p>
                   <template v-if="p.evidencias.length">

@@ -8,7 +8,7 @@
 // entra no bundle. Sem `leiloesApiUrl` configurada a funcao nem tenta, que e
 // como a feature fica restrita ao homolog por enquanto.
 
-import { fonteExibicaoLeilao, paginaPublicaLeilao } from '../../shared/leilao-exibicao'
+import { fonteExibicaoLeilao, paginaPublicaLeilao, leiloeiroValido, sanearCasaLeilao } from '../../shared/leilao-exibicao'
 import { ehNotificacao, GRAVIDADE_NOTIFICADO } from '../../shared/leilao-notificacao'
 import { historicoLgpd } from '../../shared/leilao-lgpd'
 import { fotoRefsDaPassagem, type FotoRef } from '../../shared/foto-lote'
@@ -53,6 +53,8 @@ export interface PassagemLeilao {
   valor: number | null
   situacao: string | null
   leiloeiro: string | null
+  /** Casa que realizou o leilao de DETRAN (leiloes-api, 29/out). So orgao; opcional. */
+  casa_leilao?: { site: string; nome: string | null } | null
   comitente: string | null
   /**
    * Edital do leilao, quando a leiloes-api marca como disponivel: DETRAN ou
@@ -252,7 +254,10 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
       // Leiloeiro (a PESSOA) de casa privada nunca sai daqui, nem no JSON: o
       // relatorio e publico por token. So o nome da CASA aparece (decisao do
       // Cesar, 06/out). A API ja zera, isto e a nossa garantia.
-      leiloeiro: p.fonte_tipo === 'detran' ? texto(p.leiloeiro) : null,
+      // "Oficial designado" (placeholder antigo da API) nao e nome: null.
+      leiloeiro: p.fonte_tipo === 'detran' ? leiloeiroValido(p.leiloeiro) : null,
+      // Casa que realizou o leilao do orgao (rjleiloes.com.br etc.), so DETRAN.
+      casa_leilao: p.fonte_tipo === 'detran' ? sanearCasaLeilao(p.casa_leilao) : null,
       comitente: texto(p.comitente),
       // Edital de qualquer fonte que a leiloes-api marcar como disponivel
       // (decisao do Cesar, 07/out): DETRAN ou edital JUDICIAL de casa privada

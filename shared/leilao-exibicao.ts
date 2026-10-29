@@ -415,3 +415,48 @@ export function historicoCompativelComVeiculo<H extends { passagens?: any[]; res
     : r
   return { ...h, passagens, resumo, linha_do_tempo: null, recorrencia: null }
 }
+
+// ---------- Certeza por identificador e casa do leilao (Cesar, 29/out) ----------
+
+const sem = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+/**
+ * Passagem confirmada por chassi completo ou placa completa iguais: e certeza,
+ * entao o card nao mostra "Ver o que foi comparado" (Cesar, 29/out), com ou
+ * sem conflito (caso JRP5326: "marca diferente" nas duas passagens).
+ */
+export function passagemCertezaPorIdentificador(p: { nivel?: unknown; evidencias?: unknown } | null | undefined): boolean {
+  if (!p || p.nivel !== 'confirmado') return false
+  const ev = Array.isArray(p.evidencias) ? p.evidencias.map((e) => sem(String(e ?? ''))) : []
+  return ev.some((e) => e.includes('chassi completo igual') || e.includes('placa completa igual'))
+}
+
+/** Leiloeiro do edital de orgao. "Oficial designado" (placeholder antigo da API) vira null. */
+export function leiloeiroValido(v: unknown): string | null {
+  const s = String(v ?? '').replace(/\s+/g, ' ').trim()
+  if (!s || /^oficial designad[oa]$/i.test(sem(s))) return null
+  return s
+}
+
+const DOMINIO = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/
+
+/**
+ * Casa que realizou o leilao de DETRAN (leiloes-api: casa_leilao.site/nome).
+ * So o dominio, sem protocolo, www ou caminho; sem site valido, null.
+ */
+export function sanearCasaLeilao(v: unknown): { site: string; nome: string | null } | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const o = v as Record<string, unknown>
+  const site = String(o.site ?? '').trim().toLowerCase()
+    .replace(/^[a-z]+:\/\//, '').replace(/^www\./, '').replace(/[/?#].*$/, '').replace(/\.$/, '')
+  if (!DOMINIO.test(site)) return null
+  const nome = String(o.nome ?? '').replace(/\s+/g, ' ').trim()
+  return { site, nome: nome && sem(nome) !== site ? nome : null }
+}
+
+/** "Realizado por RJ Leilões (rjleiloes.com.br)" ou "Realizado por rjleiloes.com.br". */
+export function textoCasaLeilao(v: unknown): string | null {
+  const c = sanearCasaLeilao(v)
+  if (!c) return null
+  return c.nome ? `Realizado por ${c.nome} (${c.site})` : `Realizado por ${c.site}`
+}
