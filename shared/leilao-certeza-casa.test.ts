@@ -13,8 +13,9 @@ describe('passagemCertezaPorIdentificador (Cesar, 29/out)', () => {
     expect(passagemCertezaPorIdentificador({ nivel: 'confirmado' })).toBe(false)
     expect(passagemCertezaPorIdentificador(null)).toBe(false)
   })
-  it('com conflito o comparativo continua', () => {
-    expect(passagemCertezaPorIdentificador({ nivel: 'confirmado', evidencias: ['placa completa igual'], conflitos: ['modelo divergente'] })).toBe(false)
+  it('com conflito continua sendo certeza (caso JRP5326)', () => {
+    expect(passagemCertezaPorIdentificador({ nivel: 'confirmado', evidencias: ['placa completa igual'], conflitos: ['marca diferente (I)'] })).toBe(true)
+    expect(passagemCertezaPorIdentificador({ nivel: 'confirmado', evidencias: ['chassi completo igual'], conflitos: ['modelo divergente'] })).toBe(true)
   })
 })
 

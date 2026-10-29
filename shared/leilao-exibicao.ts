@@ -422,12 +422,11 @@ const sem = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCas
 
 /**
  * Passagem confirmada por chassi completo ou placa completa iguais: e certeza,
- * entao o card nao mostra "Ver o que foi comparado" (Cesar, 29/out). Com
- * conflito (ex. modelo divergente) o bloco continua, porque ha o que mostrar.
+ * entao o card nao mostra "Ver o que foi comparado" (Cesar, 29/out), com ou
+ * sem conflito (caso JRP5326: "marca diferente" nas duas passagens).
  */
-export function passagemCertezaPorIdentificador(p: { nivel?: unknown; evidencias?: unknown; conflitos?: unknown } | null | undefined): boolean {
+export function passagemCertezaPorIdentificador(p: { nivel?: unknown; evidencias?: unknown } | null | undefined): boolean {
   if (!p || p.nivel !== 'confirmado') return false
-  if (Array.isArray(p.conflitos) && p.conflitos.length) return false
   const ev = Array.isArray(p.evidencias) ? p.evidencias.map((e) => sem(String(e ?? ''))) : []
   return ev.some((e) => e.includes('chassi completo igual') || e.includes('placa completa igual'))
 }
