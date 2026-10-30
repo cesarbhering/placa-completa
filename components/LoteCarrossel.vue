@@ -112,7 +112,7 @@ onBeforeUnmount(() => {
 <style lang="scss" scoped>
 .lc {
   position: relative;
-  margin-top: 10px;
+  margin: 10px 0 8px;
   border-radius: 8px;
   overflow: hidden;
   background: #f1f2f4;
@@ -156,8 +156,8 @@ onBeforeUnmount(() => {
   &--esq { left: 8px; }
   &--dir { right: 8px; }
 }
-// Setas so com mouse (desktop); no toque e swipe.
-@media (hover: hover) and (pointer: fine) {
+// Setas so com mouse em tela larga (desktop); no celular e swipe.
+@media (hover: hover) and (pointer: fine) and (min-width: 641px) {
   .lc__seta { display: flex; align-items: center; justify-content: center; }
 }
 .lc__cont {
