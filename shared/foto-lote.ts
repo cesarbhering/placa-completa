@@ -19,12 +19,6 @@ const VISTAS: Record<string, string> = { frente: 'frente', traseira: 'traseira',
  */
 export const MAX_MIDIAS_LOTE = 300
 
-/**
- * Teto de refs que o SERVIDOR grava por passagem (RPC fotos_passagem_gravar,
- * migration 20261018120000, recusa mais de 4). Sobe quando a RPC nova (ate 300,
- * substitui quando a lista e maior) for aplicada; fica com o fotos-depois.
- */
-export const FOTOS_RPC_MAX = 4
 
 /** detalhes.fotos -> refs, por ordem (todas, ate o teto). Ref so com caracteres de token. */
 export function fotoRefsDaPassagem(p: any): FotoRef[] {
