@@ -34,7 +34,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
 import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem, itemAnotacao, anotacoesDoCadastro, TITULO_ANOTACOES, fraseParecerAnotacoes } from '~/shared/restricoes'
-import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes } from '~/shared/foto-lote'
+import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes, midiasDaPassagem } from '~/shared/foto-lote'
 import { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, estadoCartaoLeilao, PARECER_SO_POSSIVEL_TITULO } from '~/shared/leilao-copy'
 import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, passagensSemCanhao, historicoCompativelComVeiculo, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA, passagemCertezaPorIdentificador, leiloeiroValido, textoCasaLeilao } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
@@ -925,11 +925,14 @@ const passagensLeilao = computed(() => {
     // leiloeira). Sao o unico caminho honesto de mostrar um "possivel": quem
     // decide se e o veiculo dele e a pessoa, olhando.
     // Fotos: as do R2 por referencia (rota /api/premium/foto, 302 pra URL
-    // assinada) e, em snapshot antigo, as URLs ja saneadas. Ate 4.
+    // assinada) e, em snapshot antigo, as URLs ja saneadas. Todas (27/out/2026:
+    // carrossel; antes eram ate 4).
     fotos: [
       ...(Array.isArray(p.foto_refs) ? p.foto_refs : fotoRefsDaPassagem(p)).map((f: any) => urlFotoLote(String(token), f.ref)),
       ...(Array.isArray(p.fotos) ? p.fotos.filter((f: any) => typeof f === 'string') : []),
-    ].slice(0, 4),
+    ],
+    // Carrossel: fotos por ordem e depois os videos (R2, YouTube/Vimeo ou link da leiloeira).
+    midias: midiasDaPassagem(p, String(token)),
     fotosAlt: (Array.isArray(p.foto_refs) ? p.foto_refs : fotoRefsDaPassagem(p)).map((f: any, i: number) => altFotoLote(f.vista, i)),
     // Fotos ainda chegando (detalhes.fotos_pendente): o card diz que esta
     // buscando; o job do servidor grava os foto_refs (Cesar, 18/out/2026).
@@ -2923,11 +2926,7 @@ onUnmounted(() => {
                   <template v-else>Anúncio do lote no ar na leiloeira.</template>
                 </p>
                 <!-- Fotos do lote tambem em confirmado e provavel (18/out). -->
-                <div v-if="p.fotos.length" class="rel__lote-fotos rel__lote-fotos--possivel">
-                  <a v-for="(foto, i) in p.fotos.slice(0, 4)" :key="`ff${i}`" :href="foto" target="_blank" rel="noopener noreferrer">
-                    <img :src="foto" :alt="p.fotosAlt[i] || `Foto ${i + 1} do lote de leilão`" loading="lazy" class="rel__lote-foto">
-                  </a>
-                </div>
+                <LoteCarrossel v-if="p.midias.length" :midias="p.midias" />
                 <p v-else-if="p.fotosPendente" class="rel__lote-fotos-busca" role="status">Buscando fotos do anúncio…</p>
 
                 <!-- Edital do orgao de transito: o documento que originou o
@@ -3015,13 +3014,9 @@ onUnmounted(() => {
               <p v-else class="rel__leilao-possiveis-tit">Também {{ possiveisSemFoto.length === 1 ? 'há 1 registro possível, que pode ser outro veículo do mesmo modelo e ano' : `há ${possiveisSemFoto.length} registros possíveis, que podem ser outros veículos do mesmo modelo e ano` }}:</p>
               <div v-for="p in possiveisSemFoto" :key="`p${p.idx}`" class="rel__leilao rel__leilao--possivel">
                 <LeilaoFicha :p="p" />
-                <!-- Fotos do lote (ate 4), servidas do nosso armazenamento: e o
-                     jeito de a pessoa conferir se e o veiculo dela. -->
-                <div v-if="p.fotos.length" class="rel__lote-fotos rel__lote-fotos--possivel">
-                  <a v-for="(foto, i) in p.fotos.slice(0, 4)" :key="`pf${i}`" :href="foto" target="_blank" rel="noopener noreferrer">
-                    <img :src="foto" :alt="p.fotosAlt[i] || `Foto ${i + 1} do lote de leilão com perfil parecido`" loading="lazy" class="rel__lote-foto">
-                  </a>
-                </div>
+                <!-- Fotos e videos do lote em carrossel (27/out/2026), servidos do
+                     nosso armazenamento: e o jeito de a pessoa conferir se e o veiculo dela. -->
+                <LoteCarrossel v-if="p.midias.length" :midias="p.midias" />
                 <p v-if="p.fotos.length" class="rel__leilao-det">Compare as fotos com o veículo: cor, rodas, adesivos, avarias e acessórios ajudam a dizer se é o mesmo.</p>
                 <p v-else-if="p.fotosPendente" class="rel__lote-fotos-busca" role="status">Buscando fotos do anúncio…</p>
                 <p class="rel__leilao-explica">{{ p.explicaNivel }}</p>

@@ -33,9 +33,9 @@ describe('sanearFotos', () => {
       .toEqual([outro, nosso])
   })
 
-  it('leva no maximo tres fotos', () => {
+  it('leva todas as fotos (carrossel, 27/out/2026)', () => {
     const muitas = [1, 2, 3, 4, 5].map((n) => `https://fotos.placacompleta.com.br/lote/${n}.jpg`)
-    expect(sanearFotos(muitas)).toHaveLength(4)
+    expect(sanearFotos(muitas)).toHaveLength(5)
   })
 
   it('entrada que nao e lista nao quebra', () => {
