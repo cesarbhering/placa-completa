@@ -11,7 +11,7 @@
 import { fonteExibicaoLeilao, paginaPublicaLeilao, leiloeiroValido, sanearCasaLeilao } from '../../shared/leilao-exibicao'
 import { ehNotificacao, GRAVIDADE_NOTIFICADO } from '../../shared/leilao-notificacao'
 import { historicoLgpd } from '../../shared/leilao-lgpd'
-import { fotoRefsDaPassagem, type FotoRef } from '../../shared/foto-lote'
+import { fotoRefsDaPassagem, videosDaPassagem, MAX_MIDIAS_LOTE, type FotoRef, type VideoLote } from '../../shared/foto-lote'
 import { ehRevendaFrota, sanearRevendaFrota, type RevendaFrota } from '../../shared/revenda-frota'
 import {
   sanearOrigem, sanearAlertas, sanearDesfecho, sanearLotePublico, sanearContextoJudicial,
@@ -81,6 +81,8 @@ export interface PassagemLeilao {
   fotos: string[]
   /** Fotos do lote no nosso R2, por referencia (leiloes-api #141): a pagina usa /api/premium/foto. */
   foto_refs?: FotoRef[]
+  /** Videos do lote (R2 por ref, embed YouTube/Vimeo ou link da leiloeira), 27/out/2026. */
+  video_refs?: VideoLote[]
   /**
    * A leiloes-api ainda esta buscando as fotos do lote (detalhes.fotos_pendente).
    * A pagina mostra "Buscando fotos do anúncio…"; o job fotos-depois grava os
@@ -197,8 +199,8 @@ export function sanearFotos(bruto: unknown, config?: { leiloesFotosHosts?: strin
     if (url.protocol !== 'https:') continue
     if (!permitidos.includes(url.hostname.toLowerCase())) continue
     saida.push(url.toString())
-    // Ate 4 (16/out/2026: card do possivel mostra ate 4 fotos do lote).
-    if (saida.length === 4) break
+    // Todas, ate o teto de sanidade (27/out/2026: carrossel; antes eram 4).
+    if (saida.length === MAX_MIDIAS_LOTE) break
   }
   return saida
 }
@@ -275,6 +277,7 @@ export function sanearHistorico(res: any, config?: { leiloesFotosHosts?: string 
       evidencias: Array.isArray(p.evidencias) ? p.evidencias.map(String) : [],
       fotos: sanearFotos(p.fotos, config),
       foto_refs: fotoRefsDaPassagem(p),
+      video_refs: videosDaPassagem(p),
       fotos_pendente: p.detalhes?.fotos_pendente === true && fotoRefsDaPassagem(p).length === 0,
       conflitos: Array.isArray(p.conflitos) ? p.conflitos.map(String) : [],
       origem: sanearOrigem(p.origem),

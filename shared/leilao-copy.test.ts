@@ -55,11 +55,11 @@ describe('so possivel (16/out/2026)', () => {
 })
 
 describe('possivel com foto (16/out/2026)', () => {
-  it('o card do possivel distinto mostra ate 4 fotos; o bloco de fotos fica so com os ambiguos', async () => {
+  it('o card do possivel distinto mostra as fotos em carrossel (27/out); o bloco de fotos fica so com os ambiguos', async () => {
     const { readFileSync } = await import('node:fs')
     const { join } = await import('node:path')
     const vue = readFileSync(join(process.cwd(), 'pages/premium/[token].vue'), 'utf8')
-    expect(vue).toContain('v-for="(foto, i) in p.fotos.slice(0, 4)"')
+    expect(vue).toContain('<LoteCarrossel v-if="p.midias.length" :midias="p.midias" />')
     expect(vue).toContain('const possiveisSemFoto = computed(() => passagensPossiveis.value)')
     expect(vue).toContain('!distintos.has(p.idx)')
   })

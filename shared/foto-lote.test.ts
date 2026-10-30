@@ -12,12 +12,13 @@ const passagem = { nivel: 'possivel', detalhes: { fotos: [
 ] } }
 
 describe('fotos do lote por referencia (R2)', () => {
-  it('ate 4, por ordem, ref so com caracteres de token, vista conhecida', () => {
+  it('todas (sem o limite de 4 desde 27/out), por ordem, ref so com caracteres de token, vista conhecida', () => {
     expect(fotoRefsDaPassagem(passagem)).toEqual([
       { ref: REF(1), ordem: 1, vista: 'frente' },
       { ref: REF(2), ordem: 2, vista: null },
       { ref: REF(3), ordem: 3, vista: 'traseira' },
       { ref: REF(4), ordem: 4, vista: 'painel' },
+      { ref: REF(5), ordem: 5, vista: 'lateral' },
     ])
     expect(fotoRefsDaPassagem({})).toEqual([])
   })
@@ -27,7 +28,8 @@ describe('fotos do lote por referencia (R2)', () => {
   it('ref so vale se for deste relatorio', () => {
     const snap = { historicoLeilao: { passagens: [{ foto_refs: fotoRefsDaPassagem(passagem) }] } }
     expect(fotoRefDoRelatorio(snap, REF(2))).toBe(true)
-    expect(fotoRefDoRelatorio(snap, REF(5))).toBe(false)
+    expect(fotoRefDoRelatorio(snap, REF(5))).toBe(true)
+    expect(fotoRefDoRelatorio(snap, REF(9))).toBe(false)
     expect(fotoRefDoRelatorio({ historicoLeilao: { passagens: [passagem] } }, REF(1))).toBe(true) // snapshot sem foto_refs saneado
     expect(fotoRefDoRelatorio(null, REF(1))).toBe(false)
   })
@@ -39,7 +41,7 @@ describe('fotos do lote por referencia (R2)', () => {
   it('sanearHistorico guarda os refs (e o filtro LGPD nao os altera)', async () => {
     const { sanearHistorico } = await import('../server/utils/historico-leilao')
     const h = sanearHistorico({ resumo: {}, passagens: [{ ...passagem, fonte: 'superbid', fonte_tipo: 'privado' }] })!
-    expect(h.passagens[0].foto_refs!.map((f) => f.ref)).toEqual([REF(1), REF(2), REF(3), REF(4)])
+    expect(h.passagens[0].foto_refs!.map((f) => f.ref)).toEqual([REF(1), REF(2), REF(3), REF(4), REF(5)])
   })
 })
 

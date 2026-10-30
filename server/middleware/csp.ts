@@ -23,7 +23,8 @@ const POLICY = [
   "frame-ancestors 'none'",
   // Stripe Elements (cartao) monta iframes de js.stripe.com; o 3DS usa
   // hooks.stripe.com. Sem isto o formulario do cartao nem carrega.
-  "frame-src https://js.stripe.com https://hooks.stripe.com",
+  // Videos do lote de leilao em plataforma (YouTube sem cookie, Vimeo), 27/out/2026.
+  "frame-src https://js.stripe.com https://hooks.stripe.com https://www.youtube-nocookie.com https://player.vimeo.com",
   "form-action 'self'",
   // upgrade-insecure-requests e ignorada quando entregue via Report-Only
   // (so vale em CSP enforced) - so gera warning de graca no Lighthouse.
