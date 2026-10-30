@@ -106,8 +106,13 @@ ENV NUXT_PUBLIC_STAGING=$NUXT_PUBLIC_STAGING
 # "Tried writing to closed dispatcher". Se um dia precisar mirar mais coisa,
 # lembre que matar o compilador de SCSS no meio do build produz exatamente
 # aquele erro, e ele nao diz quem matou.
+#
+# Log do build (30/out/2026): a saida do npm run build vai pro log do Coolify
+# como antes E pra /tmp/nuxt-build.log. Se o artefato nao aparecer, o passo
+# imprime o codigo de saida e as ultimas 200 linhas antes de falhar, pra causa
+# (OOM, pacote faltando, erro do Rollup) nunca mais sumir atras do test -f.
 RUN bash -c 'set -e; \
-    npm run build & BUILD_PID=$!; \
+    npm run build > >(tee /tmp/nuxt-build.log) 2>&1 & BUILD_PID=$!; \
     while kill -0 $BUILD_PID 2>/dev/null; do \
         if [ -f .output/server/index.mjs ]; then \
             sleep 5; \
@@ -119,8 +124,15 @@ RUN bash -c 'set -e; \
         fi; \
         sleep 2; \
     done; \
-    wait $BUILD_PID 2>/dev/null || true; \
-    test -f .output/server/index.mjs'
+    BUILD_RC=0; wait $BUILD_PID 2>/dev/null || BUILD_RC=$?; \
+    if [ ! -f .output/server/index.mjs ]; then \
+        echo "=== nuxt build sem .output/server/index.mjs (npm run build saiu com $BUILD_RC) ==="; \
+        echo "=== ultimas 200 linhas do build ==="; \
+        tail -n 200 /tmp/nuxt-build.log || true; \
+        echo "=== memoria no fim do build ==="; \
+        (free -m || cat /proc/meminfo | head -5) 2>/dev/null || true; \
+        exit 1; \
+    fi'
 
 # Reduce node_modules size (Nitro already bundled what it needs into .output)
 RUN npm prune --omit=dev || true
