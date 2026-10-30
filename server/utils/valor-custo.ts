@@ -68,6 +68,8 @@ export interface FatosSenatranFipe {
   transmissaoHint?: 'manual' | 'automatico' | null
   /** Camada 2: o prefixo do chassi desempata manual x automatico. */
   chassi?: string | null
+  /** Caminhao: quantidade de eixos do registro (desempata versoes por eixos). */
+  quantidadeDeEixos?: number | string | null
 }
 
 function formatarReais(valor: number | null): string | null {

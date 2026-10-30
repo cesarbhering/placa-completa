@@ -145,6 +145,8 @@ export async function montarRelatorioSnapshot(
       transmissaoHint: pedido.transmissaoHint ?? null,
       // Camada 2: prefixo do chassi desempata manual x automatico.
       chassi: senatranBruto?.chassi ?? null,
+      // Caminhao: eixos desempatam "F-13000" x "F-13000 3-Eixos".
+      quantidadeDeEixos: senatranBruto?.quantidadeDeEixos ?? null,
     },
   }).catch(() => null)
 
@@ -280,7 +282,7 @@ export function refinoConfiavelEConsistente(
 ): boolean {
   const fc = novo?.fipeCandidato
   const confiante = !!fc
-    && (fc.decididoPor === 'regra' || fc.decididoPor === 'regra_cambio_sufixo' || fc.decididoPor === 'regra_versao' || fc.decididoPor === 'haiku' || fc.decididoPor === 'wdapi')
+    && (fc.decididoPor === 'regra' || fc.decididoPor === 'regra_cambio_sufixo' || fc.decididoPor === 'regra_versao' || fc.decididoPor === 'eixos' || fc.decididoPor === 'haiku' || fc.decididoPor === 'wdapi')
     && (fc.candidatos?.length || 0) > 0
   if (!confiante) return false
   const modelo = String(novo?.fipeModelo || '')
