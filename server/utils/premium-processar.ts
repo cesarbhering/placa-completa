@@ -7,6 +7,7 @@ import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas
 import { emVoo } from './tarefas-em-voo'
 import { criarJobsDaEntrega } from './premium-jobs'
 import { completarFotosNaGeracao } from './fotos-na-geracao'
+import { agendarFotosRapido } from './fotos-depois'
 // Processa um pedido PAGO: dispara a consulta SENATRAN uma vez, entrega ou
 // reembolsa. Usado pelo WEBHOOK e pelo POLLING de status (o que chegar primeiro).
 // Trava atomica via update condicional (status aguardando/pago -> consultando):
@@ -291,6 +292,9 @@ export async function processarPedidoPago(
       // fica pro fotos-depois. Grava so na passagem; tempo vai pro debug_trace.
       // Fail-open: nunca lanca.
       await emVoo('fotos-na-geracao', () => completarFotosNaGeracao(supabase, { id: pedido.id, plano: pedido.plano }, snapshot))
+      // Passagem ainda sem foto (fotos_pendente): primeira re-tentativa rapida
+      // ~60 s depois da entrega, sem esperar a rodada de 30 min (30/out/2026).
+      if ((pedido.plano || 'completa') === 'completa') agendarFotosRapido(snapshot)
     } catch (snapErr: any) {
       if (import.meta.dev) console.warn('[premium] snapshot falhou na entrega, fallback lazy cobre depois:', snapErr?.message || snapErr)
     }

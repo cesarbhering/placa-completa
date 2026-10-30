@@ -136,6 +136,95 @@ export function ehRotaAusente(e: any): boolean {
   return !!corpo && typeof corpo === 'object' && corpo.detail === 'Not Found'
 }
 
+interface CtxTentativa {
+  deps: DepsFotos
+  agora: number
+  log: (m: string) => void
+  fontesSemFoto: Set<string>
+  esperar: (ms: number) => Promise<void>
+  resumo: ResumoRodada
+  tetoChamadas: number
+  prefixo: string
+}
+
+/**
+ * UMA chamada por passagem de um pedido (rodada de 30 min e rodada rapida).
+ * `parar` = a rodada inteira deve parar (rota ausente ou 429). `pendentes` =
+ * passagens que seguem sem resposta final (buscando, erro, invalida ou nao
+ * perguntadas por causa do teto). Nunca lanca.
+ */
+async function tentarPedido(ctx: CtxTentativa, pedido: any, alvos: any[]): Promise<{ parar: boolean; pendentes: number }> {
+  const { deps, agora, log, fontesSemFoto, esperar, resumo, prefixo } = ctx
+  const tok = String(pedido.token_entrega || '').slice(0, 6)
+  const linhaLog: string[] = []
+  let pendentes = 0
+  // Niveis das passagens que ganharam foto nesta rodada (um aviso so por pedido).
+  const niveisComFoto: string[] = []
+  const avisar = async () => {
+    if (!deps.avisar || !niveisComFoto.length) return
+    try { await deps.avisar(pedido.id, [...new Set(niveisComFoto)]) } catch { /* aviso nunca derruba o job */ }
+  }
+  for (let i = 0; i < alvos.length; i++) {
+    const p = alvos[i]
+    if (resumo.chamadas >= ctx.tetoChamadas) { pendentes += alvos.length - i; break }
+    const fonte = String(p.fonte)
+    if (fontesSemFoto.has(fonte)) continue
+    const lote = String(p.lote)
+    const alvo = { fonte, lote, ref: p.ref ?? null }
+    let r: RespostaFotos | null = null
+    if (resumo.chamadas > 0) await esperar(FOTOS_PAUSA_MS)
+    resumo.chamadas++
+    try {
+      r = sanearRespostaFotos(await deps.buscar({ fonte, lote, ...(p.ref ? { ref: String(p.ref) } : {}) }))
+    } catch (e: any) {
+      if (ehRotaAusente(e)) {
+        // Endpoint ainda nao esta no ar: para a rodada, sem erro.
+        resumo.apiAusente = true
+        log(`${prefixo} /v1/fotos-do-lote ainda nao disponivel (404): nada a fazer nesta rodada`)
+        return { parar: true, pendentes: pendentes + alvos.length - i }
+      }
+      if (codigo(e) === 429) {
+        // Limite da chave (30/min): para a rodada; o resto fica pra proxima.
+        resumo.limitada = true
+        linhaLog.push(`${fonte}:${lote}=429`)
+        log(`${prefixo} pedido ${pedido.id} (${tok}…): ${linhaLog.join(', ')}`)
+        log(`${prefixo} 429 da leiloes-api: rodada parada`)
+        await avisar()
+        return { parar: true, pendentes: pendentes + alvos.length - i }
+      }
+      if (ehLoteNaoEncontrado(e)) {
+        // A API nao conhece o lote: vira sem_foto, pra nao perguntar toda rodada.
+        const g = await gravarFotosPassagem(deps.supabase, pedido.id, alvo, { fotos_busca: { status: 'sem_foto', em: new Date(agora).toISOString() } })
+        linhaLog.push(`${fonte}:${lote}=404 lote nao encontrado${g === 'gravado' || g === 'igual' ? '' : ` (nao gravou: ${g})`}`)
+        continue
+      }
+      pendentes++
+      linhaLog.push(`${fonte}:${lote}=erro ${codigo(e) ?? (e?.message || '').slice(0, 40)}`)
+      continue
+    }
+    if (!r) { pendentes++; linhaLog.push(`${fonte}:${lote}=resposta invalida`); continue }
+
+    if (r.status === 'ok' && r.fotos.length) {
+      const g = await gravarFotosPassagem(deps.supabase, pedido.id, alvo, { foto_refs: r.fotos })
+      if (g === 'gravado') { resumo.gravados++; niveisComFoto.push(String(p.nivel || '')) }
+      linhaLog.push(`${fonte}:${lote}=ok ${r.fotos.length} foto${r.fotos.length === 1 ? '' : 's'}${g === 'gravado' ? '' : ` (nao gravou: ${g})`}`)
+    } else if (r.status === 'buscando') {
+      // Segue tentando nas proximas rodadas (o aviso da pagina expira sozinho em 7 dias).
+      pendentes++
+      linhaLog.push(`${fonte}:${lote}=buscando`)
+    } else {
+      // sem_foto, fonte_sem_foto ou ok sem foto: busca terminou sem foto.
+      const status: FotosBuscaStatus = r.status === 'fonte_sem_foto' ? 'fonte_sem_foto' : 'sem_foto'
+      if (status === 'fonte_sem_foto') fontesSemFoto.add(fonte)
+      const g = await gravarFotosPassagem(deps.supabase, pedido.id, alvo, { fotos_busca: { status, em: new Date(agora).toISOString() } })
+      linhaLog.push(`${fonte}:${lote}=${status}${g === 'gravado' || g === 'igual' ? '' : ` (nao gravou: ${g})`}`)
+    }
+  }
+  log(`${prefixo} pedido ${pedido.id} (${tok}…): ${linhaLog.join(', ') || 'nada'}`)
+  await avisar()
+  return { parar: false, pendentes }
+}
+
 /** Uma rodada do job. Nunca lanca. */
 export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
   const agora = deps.agora ?? Date.now()
@@ -156,6 +245,7 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
   }
   if (!pegou) return { ...resumo, motivo: 'lock com outro container' }
   resumo.rodou = true
+  const ctx: CtxTentativa = { deps, agora, log, fontesSemFoto, esperar, resumo, tetoChamadas: FOTOS_MAX_CHAMADAS, prefixo: '[fotos-depois]' }
 
   try {
     const desde = new Date(agora - FOTOS_JANELA_DIAS * DIA_MS).toISOString()
@@ -179,73 +269,170 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
       if (resumo.chamadas >= FOTOS_MAX_CHAMADAS) break
       tentadoEm.set(pedido.id, agora)
       resumo.pedidos++
-      const tok = String(pedido.token_entrega || '').slice(0, 6)
-      const linhaLog: string[] = []
-      // Niveis das passagens que ganharam foto nesta rodada (um aviso so por pedido).
-      const niveisComFoto: string[] = []
-      const avisar = async () => {
-        if (!deps.avisar || !niveisComFoto.length) return
-        try { await deps.avisar(pedido.id, [...new Set(niveisComFoto)]) } catch { /* aviso nunca derruba o job */ }
-      }
-      for (const p of pedido.alvo) {
-        if (resumo.chamadas >= FOTOS_MAX_CHAMADAS) break
-        const fonte = String(p.fonte)
-        if (fontesSemFoto.has(fonte)) continue
-        const lote = String(p.lote)
-        const alvo = { fonte, lote, ref: p.ref ?? null }
-        let r: RespostaFotos | null = null
-        if (resumo.chamadas > 0) await esperar(FOTOS_PAUSA_MS)
-        resumo.chamadas++
-        try {
-          r = sanearRespostaFotos(await deps.buscar({ fonte, lote, ...(p.ref ? { ref: String(p.ref) } : {}) }))
-        } catch (e: any) {
-          if (ehRotaAusente(e)) {
-            // Endpoint ainda nao esta no ar: para a rodada, sem erro.
-            resumo.apiAusente = true
-            log('[fotos-depois] /v1/fotos-do-lote ainda nao disponivel (404): nada a fazer nesta rodada')
-            return resumo
-          }
-          if (codigo(e) === 429) {
-            // Limite da chave (30/min): para a rodada; o resto fica pra proxima.
-            resumo.limitada = true
-            linhaLog.push(`${fonte}:${lote}=429`)
-            log(`[fotos-depois] pedido ${pedido.id} (${tok}…): ${linhaLog.join(', ')}`)
-            log('[fotos-depois] 429 da leiloes-api: rodada parada')
-            await avisar()
-            return resumo
-          }
-          if (ehLoteNaoEncontrado(e)) {
-            // A API nao conhece o lote: vira sem_foto, pra nao perguntar toda rodada.
-            const g = await gravarFotosPassagem(deps.supabase, pedido.id, alvo, { fotos_busca: { status: 'sem_foto', em: new Date(agora).toISOString() } })
-            linhaLog.push(`${fonte}:${lote}=404 lote nao encontrado${g === 'gravado' || g === 'igual' ? '' : ` (nao gravou: ${g})`}`)
-            continue
-          }
-          linhaLog.push(`${fonte}:${lote}=erro ${codigo(e) ?? (e?.message || '').slice(0, 40)}`)
-          continue
-        }
-        if (!r) { linhaLog.push(`${fonte}:${lote}=resposta invalida`); continue }
-
-        if (r.status === 'ok' && r.fotos.length) {
-          const g = await gravarFotosPassagem(deps.supabase, pedido.id, alvo, { foto_refs: r.fotos })
-          if (g === 'gravado') { resumo.gravados++; niveisComFoto.push(String(p.nivel || '')) }
-          linhaLog.push(`${fonte}:${lote}=ok ${r.fotos.length} foto${r.fotos.length === 1 ? '' : 's'}${g === 'gravado' ? '' : ` (nao gravou: ${g})`}`)
-        } else if (r.status === 'buscando') {
-          // Segue tentando nas proximas rodadas (o aviso da pagina expira sozinho em 7 dias).
-          linhaLog.push(`${fonte}:${lote}=buscando`)
-        } else {
-          // sem_foto, fonte_sem_foto ou ok sem foto: busca terminou sem foto.
-          const status: FotosBuscaStatus = r.status === 'fonte_sem_foto' ? 'fonte_sem_foto' : 'sem_foto'
-          if (status === 'fonte_sem_foto') fontesSemFoto.add(fonte)
-          const g = await gravarFotosPassagem(deps.supabase, pedido.id, alvo, { fotos_busca: { status, em: new Date(agora).toISOString() } })
-          linhaLog.push(`${fonte}:${lote}=${status}${g === 'gravado' || g === 'igual' ? '' : ` (nao gravou: ${g})`}`)
-        }
-      }
-      log(`[fotos-depois] pedido ${pedido.id} (${tok}…): ${linhaLog.join(', ') || 'nada'}`)
-      await avisar()
+      const fim = await tentarPedido(ctx, pedido, pedido.alvo)
+      if (fim.parar) return resumo
     }
     return resumo
   } catch (e: any) {
     log(`[fotos-depois] rodada falhou (fail-open): ${String(e?.message || e).slice(0, 200)}`)
     return resumo
   }
+}
+
+// ---------- Rodada rapida pos-entrega (Cesar, 30/out/2026) ----------
+//
+// Relatorio pago com passagem de leilao sem foto e prioridade maxima: nao
+// espera a rodada de 30 min. Pedido entregue ha ate 30 min com passagem que
+// pede foto (fotos_pendente ou resposta "buscando") e perguntado de novo a
+// cada 60 s nos primeiros 10 min e a cada 90 s depois (backoff leve). Lock
+// proprio entre containers (lease curto), 1 chamada por passagem por
+// tentativa, teto de chamadas por rodada e pausa de 3 min apos 429. Pedidos
+// mais antigos seguem so na rodada de 30 min.
+
+export const FOTOS_RAPIDO_NOME_LOCK = 'fotos-depois-rapido'
+/** Lease curto: outro container so assume depois de ~50 s sem renovacao (minimo da RPC: 30 s). */
+export const FOTOS_RAPIDO_LEASE_S = 50
+/** Janela da cadencia rapida, contada da entrega. */
+export const FOTOS_RAPIDO_JANELA_MS = 30 * 60 * 1000
+/** Batida do relogio do plugin (so decide se ja e hora; nao chama nada sozinha). */
+export const FOTOS_RAPIDO_TICK_MS = 15_000
+/** Primeira tentativa depois da entrega. */
+export const FOTOS_RAPIDO_PRIMEIRA_MS = 60_000
+/** Teto de chamadas por rodada rapida (bem abaixo de FOTOS_MAX_CHAMADAS e dos 30/min da chave). */
+export const FOTOS_RAPIDO_MAX_CHAMADAS = 8
+/** Sem pedido pendente: olha o banco a cada 5 min (entrega feita em outro container). */
+export const FOTOS_RAPIDO_OCIOSO_MS = 5 * 60 * 1000
+/** Depois de 429 (rapida ou de 30 min): espera antes de perguntar de novo. */
+export const FOTOS_RAPIDO_PAUSA_429_MS = 3 * 60 * 1000
+/** Rota ausente: a rapida tambem para ate a proxima rodada de 30 min. */
+export const FOTOS_RAPIDO_PAUSA_ROTA_MS = FOTOS_INTERVALO_MS
+
+/** Intervalo entre tentativas de um pedido, pela idade da entrega: 60 s ate 10 min, 90 s depois. */
+export function intervaloRapidoMs(idadeMs: number): number {
+  return idadeMs < 10 * 60 * 1000 ? 60_000 : 90_000
+}
+
+export interface DepsFotosRapido extends DepsFotos {
+  /** pedido_id -> ultima tentativa rapida (ms). */
+  tentadoRapido?: Map<string, number>
+}
+
+export interface ResumoRodadaRapida extends ResumoRodada {
+  /** Quando a proxima rodada rapida deve rodar (ms). */
+  proximaEm: number
+}
+
+/** Uma rodada rapida. Nunca lanca. */
+export async function rodarFotosRapido(deps: DepsFotosRapido): Promise<ResumoRodadaRapida> {
+  const agora = deps.agora ?? Date.now()
+  const log = deps.log ?? ((m: string) => console.info(m))
+  const fontesSemFoto = deps.fontesSemFoto ?? new Set<string>()
+  const tentadoRapido = deps.tentadoRapido ?? new Map<string, number>()
+  const esperar = deps.esperar ?? ((ms: number) => new Promise<void>((ok) => setTimeout(ok, ms)))
+  const resumo: ResumoRodadaRapida = { rodou: false, pedidos: 0, chamadas: 0, gravados: 0, proximaEm: agora + FOTOS_RAPIDO_OCIOSO_MS }
+
+  let pegou = false
+  try {
+    const { data, error } = await deps.supabase.rpc('job_lock_pegar', { p_nome: FOTOS_RAPIDO_NOME_LOCK, p_dono: deps.dono, p_segundos: FOTOS_RAPIDO_LEASE_S })
+    if (error) throw new Error(error.message)
+    pegou = data === true
+  } catch (e: any) {
+    log(`[fotos-depois rapido] sem lock (${String(e?.message || e).slice(0, 120)}): rodada pulada`)
+    return { ...resumo, motivo: 'lock indisponivel' }
+  }
+  // Outro container cuida da rapida; tenta de novo quando o lease dele puder vencer.
+  if (!pegou) return { ...resumo, motivo: 'lock com outro container', proximaEm: agora + FOTOS_RAPIDO_LEASE_S * 1000 }
+  resumo.rodou = true
+  const ctx: CtxTentativa = { deps, agora, log, fontesSemFoto, esperar, resumo, tetoChamadas: FOTOS_RAPIDO_MAX_CHAMADAS, prefixo: '[fotos-depois rapido]' }
+
+  try {
+    const desde = new Date(agora - FOTOS_RAPIDO_JANELA_MS).toISOString()
+    const { data: linhas, error } = await deps.supabase.from('pedidos_premium')
+      .select('id,token_entrega,entregue_em,passagens:relatorio_snapshot->historicoLeilao->passagens')
+      .eq('status', 'entregue')
+      .eq('plano', 'completa')
+      .gte('entregue_em', desde)
+      .order('entregue_em', { ascending: false })
+      .limit(50)
+    if (error) throw new Error(error.message)
+
+    const pendentes = (linhas || [])
+      .map((l: any) => {
+        const ent = new Date(String(l.entregue_em || '')).getTime()
+        const idade = Number.isFinite(ent) ? Math.max(0, agora - ent) : 0
+        const vez = (tentadoRapido.get(l.id) ?? 0) + intervaloRapidoMs(idade)
+        return { ...l, idade, vez, alvo: (Array.isArray(l.passagens) ? l.passagens : []).filter((p: any) => passagemPrecisaDeFoto(p, fontesSemFoto)) }
+      })
+      .filter((l: any) => l.alvo.length && l.idade <= FOTOS_RAPIDO_JANELA_MS)
+
+    // Proxima vez de cada pedido que segue pendente (dentro da janela).
+    const vezes: number[] = []
+    const devidos = pendentes.filter((l: any) => l.vez <= agora).sort((a: any, b: any) => a.vez - b.vez)
+    for (const l of pendentes) if (l.vez > agora) vezes.push(l.vez)
+
+    for (let i = 0; i < devidos.length; i++) {
+      const pedido = devidos[i]
+      if (resumo.chamadas >= FOTOS_RAPIDO_MAX_CHAMADAS) {
+        // Teto da rodada: o resto volta na proxima batida.
+        vezes.push(agora + FOTOS_RAPIDO_TICK_MS)
+        break
+      }
+      tentadoRapido.set(pedido.id, agora)
+      resumo.pedidos++
+      const fim = await tentarPedido(ctx, pedido, pedido.alvo)
+      if (fim.parar) {
+        resumo.proximaEm = agora + (resumo.apiAusente ? FOTOS_RAPIDO_PAUSA_ROTA_MS : FOTOS_RAPIDO_PAUSA_429_MS)
+        return resumo
+      }
+      const proxima = agora + intervaloRapidoMs(pedido.idade)
+      if (fim.pendentes && proxima - new Date(String(pedido.entregue_em)).getTime() <= FOTOS_RAPIDO_JANELA_MS) vezes.push(proxima)
+    }
+
+    resumo.proximaEm = vezes.length ? Math.max(agora + FOTOS_RAPIDO_TICK_MS, Math.min(...vezes)) : agora + FOTOS_RAPIDO_OCIOSO_MS
+    // Limpa pedidos que sairam da janela (o mapa nao cresce sem fim).
+    for (const [id, em] of tentadoRapido) if (agora - em > FOTOS_RAPIDO_JANELA_MS * 2) tentadoRapido.delete(id)
+    return resumo
+  } catch (e: any) {
+    log(`[fotos-depois rapido] rodada falhou (fail-open): ${String(e?.message || e).slice(0, 200)}`)
+    resumo.proximaEm = agora + FOTOS_RAPIDO_PRIMEIRA_MS
+    return resumo
+  }
+}
+
+/**
+ * Agenda da rodada rapida, por processo. O plugin consulta `devido` a cada
+ * batida; a entrega do relatorio chama `agendarFotosRapido` para a primeira
+ * tentativa sair ~60 s depois, sem esperar a agenda ociosa de 5 min.
+ */
+export function criarAgendaRapida(inicioEm: number) {
+  let proximaEm = inicioEm
+  let acordarEm = Number.POSITIVE_INFINITY
+  return {
+    devido: (agora: number) => agora >= Math.min(proximaEm, acordarEm),
+    /** Chamado antes de rodar: o pedido de acordar ja foi atendido por esta rodada. */
+    comecou: () => { acordarEm = Number.POSITIVE_INFINITY },
+    terminou: (proxima: number) => { proximaEm = proxima },
+    acordar: (em: number) => { acordarEm = Math.min(acordarEm, em) },
+    /** Nao roda antes de `ate` (ex.: 429 na rodada de 30 min). Pedido de acordar tambem espera. */
+    adiar: (ate: number) => { proximaEm = Math.max(proximaEm, ate); if (acordarEm < ate) acordarEm = ate },
+    get proximaEm() { return Math.min(proximaEm, acordarEm) },
+  }
+}
+
+/** Agenda do processo (plugin + entrega no mesmo servidor). */
+export const agendaFotosRapida = criarAgendaRapida(Date.now() + FOTOS_RAPIDO_PRIMEIRA_MS)
+
+/** O snapshot recem gravado tem passagem pedindo foto? */
+export function snapshotPedeFoto(snapshot: any): boolean {
+  const passagens = snapshot?.historicoLeilao?.passagens
+  return Array.isArray(passagens) && passagens.some((p: any) => passagemPrecisaDeFoto(p))
+}
+
+/** Entrega com passagem sem foto: primeira tentativa rapida ~60 s depois. Nunca lanca. */
+export function agendarFotosRapido(snapshot: any, agora = Date.now()): boolean {
+  try {
+    if (!snapshotPedeFoto(snapshot)) return false
+    agendaFotosRapida.acordar(agora + FOTOS_RAPIDO_PRIMEIRA_MS)
+    return true
+  } catch { return false }
 }
