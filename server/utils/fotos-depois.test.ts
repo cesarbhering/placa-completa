@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   rodarFotosDepois, sanearRespostaFotos, ehRotaAusente, ehLoteNaoEncontrado, FOTOS_PAUSA_MS, FOTOS_MAX_PEDIDOS, FOTOS_NOME_LOCK, FOTOS_LEASE_S, FOTOS_INTERVALO_MS,
+  FOTOS_RPC_MAX, contarFotosPassagem, passagemFotosIncompletas,
   rodarFotosRapido, intervaloRapidoMs, criarAgendaRapida, snapshotPedeFoto, FOTOS_RAPIDO_NOME_LOCK, FOTOS_RAPIDO_LEASE_S,
   FOTOS_RAPIDO_MAX_CHAMADAS, FOTOS_RAPIDO_OCIOSO_MS, FOTOS_RAPIDO_PAUSA_429_MS, FOTOS_RAPIDO_TICK_MS, FOTOS_MAX_CHAMADAS,
 } from './fotos-depois'
@@ -20,6 +21,7 @@ function fakeSupabase(pedidos: any[], opts: { lockErro?: boolean } = {}) {
   const lock: { dono?: string; ate?: number } = {}
   const locks: Record<string, { dono?: string; ate?: number }> = {}
   const updates: { id: string; snap: any }[] = []
+  const rpcs: any[] = []
   let agora = AGORA
   // Espelho da RPC fotos_passagem_gravar (migration 20261018120000): mexe SO
   // na passagem, no snapshot ATUAL da linha (jsonb_set), nunca no resto.
@@ -30,18 +32,32 @@ function fakeSupabase(pedidos: any[], opts: { lockErro?: boolean } = {}) {
     const k = (e: any) => [e?.fonte, e?.lote, e?.ref].map((v) => (v == null ? '' : String(v))).join('|')
     const i = lista.findIndex((e: any) => k(e) === [a.p_fonte, a.p_lote, a.p_ref].map((v) => (v == null ? '' : String(v))).join('|'))
     if (i < 0) return 'sem_passagem'
+    // Espelho da versao de 30/out (20261030150000): ate 300 refs, substitui se a lista nova e maior.
     const p = lista[i]
-    if ((Array.isArray(p.foto_refs) && p.foto_refs.length) || (p.detalhes?.fotos || []).some((x: any) => typeof x?.foto_ref === 'string')) return 'ja_tem_foto'
+    const nAtual = Math.max(Array.isArray(p.foto_refs) ? p.foto_refs.length : 0, (p.detalhes?.fotos || []).filter((x: any) => typeof x?.foto_ref === 'string').length)
     let novo: any
-    if (a.p_foto_refs) { novo = { ...p, foto_refs: a.p_foto_refs, fotos_pendente: false }; delete novo.fotos_busca }
-    else if (a.p_fotos_busca) { if (p.fotos_busca?.status === a.p_fotos_busca.status) return 'igual'; novo = { ...p, fotos_busca: a.p_fotos_busca } }
-    else return 'invalido'
+    let res = 'gravado'
+    if (a.p_foto_refs) {
+      const n = Array.isArray(a.p_foto_refs) ? a.p_foto_refs.length : -1
+      if (n < 1 || n > 300 || a.p_foto_refs.some((f: any) => typeof f?.ref !== 'string')) return 'invalido'
+      if (nAtual > 0 && n <= nAtual) {
+        if (p.fotos_lote_completo === true) return 'ja_tem_foto'
+        novo = { ...p, fotos_lote_completo: true }; res = 'completo'
+      } else { novo = { ...p, foto_refs: a.p_foto_refs, fotos_pendente: false, fotos_lote_completo: true }; delete novo.fotos_busca }
+    } else if (a.p_fotos_busca) {
+      if (nAtual > 0) {
+        if (p.fotos_lote_completo === true) return 'ja_tem_foto'
+        novo = { ...p, fotos_lote_completo: true }; res = 'completo'
+      } else { if (p.fotos_busca?.status === a.p_fotos_busca.status) return 'igual'; novo = { ...p, fotos_busca: a.p_fotos_busca } }
+    } else return 'invalido'
     lista[i] = novo
     updates.push({ id: ped.id, snap: ped.relatorio_snapshot })
-    return 'gravado'
+    rpcs.push({ ...a, res })
+    return res
   }
   const sb: any = {
     updates,
+    rpcs,
     lock,
     setAgora: (t: number) => { agora = t },
     async rpc(nome: string, a: any) {
@@ -279,7 +295,7 @@ describe('rodarFotosDepois', () => {
       pedido('velho', [passagem()], { entregue_em: new Date(AGORA - 91 * DIA).toISOString() }),
       pedido('pago', [passagem()], { status: 'pago' }),
       pedido('essencial', [passagem()], { plano: 'essencial' }),
-      pedido('com-foto', [passagem({ foto_refs: [{ ref: REF(1), ordem: 1, vista: null }] })]),
+      pedido('com-foto', [passagem({ foto_refs: [{ ref: REF(1), ordem: 1, vista: null }], fotos_lote_completo: true })]),
       pedido('notificacao', [passagem({ fonte: 'detran_sp', fonte_tipo: 'detran', situacao: 'notificado' })]),
       pedido('detran-sem-pendente', [passagem({ fonte: 'detran_mg', fonte_tipo: 'detran', detalhes: {} })]),
       pedido('sem-lote', [passagem({ lote: null })]),
@@ -320,7 +336,7 @@ describe('rodarFotosDepois', () => {
 })
 
 describe('gravacao, 404 e resposta', () => {
-  it('passagem que ja ganhou foto no meio do caminho: nao sobrescreve', async () => {
+  it('passagem que ja ganhou foto no meio do caminho (mesmo numero): nao sobrescreve', async () => {
     const ja = [{ ref: REF(9), ordem: 1, vista: null }]
     const pedidos = [pedido('a', [passagem()])]
     const sb = fakeSupabase(pedidos)
@@ -332,7 +348,7 @@ describe('gravacao, 404 e resposta', () => {
     const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log: (m) => logs.push(m) })
     expect(r.gravados).toBe(0)
     expect(pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0].foto_refs).toEqual(ja)
-    expect(logs.join('\n')).toContain('nao gravou: ja_tem_foto')
+    expect(pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0].fotos_lote_completo).toBe(true)
   })
 
   it('ehLoteNaoEncontrado: so 404 com "lote nao encontrado" no corpo', () => {
@@ -350,14 +366,14 @@ describe('gravacao, 404 e resposta', () => {
     expect(ehRotaAusente({ statusCode: 500, data: { detail: 'Not Found' } })).toBe(false)
   })
 
-  it('resposta torta vira null; foto_ref invalido cai; ate 4', () => {
+  it('resposta torta vira null; foto_ref invalido cai; todas as validas', () => {
     expect(sanearRespostaFotos(null)).toBeNull()
     expect(sanearRespostaFotos({ status: 'talvez' })).toBeNull()
     const r = sanearRespostaFotos({ status: 'ok', fotos: [
       ...[1, 2, 3, 4, 5].map((n) => ({ ordem: n, vista: 'frente', foto_ref: REF(n) })),
       { ordem: 0, vista: 'frente', foto_ref: 'tem espaco <x>' },
     ] })
-    expect(r!.fotos.map((f) => f.ordem)).toEqual([1, 2, 3, 4])
+    expect(r!.fotos.map((f) => f.ordem)).toEqual([1, 2, 3, 4, 5])
   })
 })
 
@@ -412,7 +428,7 @@ describe('rodada rapida pos-entrega (30/out/2026)', () => {
     expect(chamou).toBe(false)
   })
 
-  it('caso PWZ7I51: buscando na 1a tentativa, fotos na seguinte; grava ate 4 FotoRef {ref, ordem, vista}', async () => {
+  it('caso PWZ7I51: buscando na 1a tentativa, fotos na seguinte; grava as 45 FotoRef {ref, ordem, vista}', async () => {
     const pedidos = [recente('a', 1, [passagem({ fonte: 'superbid', lote: '2705086', ref: '229198' })])]
     const sb = fakeSupabase(pedidos)
     const tentadoRapido = new Map<string, number>()
@@ -430,15 +446,15 @@ describe('rodada rapida pos-entrega (30/out/2026)', () => {
     expect(r2.chamadas).toBe(0)
     expect(r2.proximaEm).toBe(AGORA + 60_000)
 
-    // A leiloes-api terminou: 45 fotos, grava so 4, por ordem.
+    // A leiloes-api terminou: 45 fotos, grava todas, por ordem.
     fotos = Array.from({ length: 45 }, (_, i) => ({ ordem: 45 - i, vista: i === 44 ? 'frente' : null, foto_ref: REF(45 - i) }))
     sb.setAgora(AGORA + 60_000)
     const r3 = await rodarFotosRapido({ supabase: sb, buscar, dono: 'c1', tentadoRapido, esperar: semPausa, agora: AGORA + 60_000, log })
     expect(r3).toMatchObject({ chamadas: 1, gravados: 1 })
     const refs = pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0].foto_refs
-    expect(refs).toHaveLength(4)
+    expect(refs).toHaveLength(45)
     expect(refs[0]).toEqual({ ref: REF(1), ordem: 1, vista: 'frente' })
-    expect(refs.map((f: any) => f.ordem)).toEqual([1, 2, 3, 4])
+    expect(refs.map((f: any) => f.ordem)).toEqual(Array.from({ length: 45 }, (_, i) => i + 1))
     expect(Object.keys(refs[0]).sort()).toEqual(['ordem', 'ref', 'vista'])
     // Resolvido: volta pra agenda ociosa e nao pergunta mais.
     expect(r3.proximaEm).toBe(AGORA + 60_000 + FOTOS_RAPIDO_OCIOSO_MS)
@@ -521,5 +537,105 @@ describe('rodada rapida pos-entrega (30/out/2026)', () => {
     expect(snapshotPedeFoto({ historicoLeilao: { passagens: [passagem({ foto_refs: [{ ref: REF(1), ordem: 1, vista: null }] })] } })).toBe(false)
     expect(snapshotPedeFoto({})).toBe(false)
     expect(snapshotPedeFoto(null)).toBe(false)
+  })
+})
+
+describe('todas as fotos do lote (RPC ate 300, 30/out/2026)', () => {
+  const log = () => {}
+  const fotosApi = (n: number) => Array.from({ length: n }, (_, i) => ({ ordem: n - i, vista: i === n - 1 ? 'frente' : null, foto_ref: REF(n - i) }))
+  const quatro = () => [1, 2, 3, 4].map((n) => ({ ref: REF(n), ordem: n, vista: null }))
+
+  it('sanearRespostaFotos devolve todas (45), por ordem, sem repetir ref, ate FOTOS_RPC_MAX', () => {
+    expect(FOTOS_RPC_MAX).toBe(300)
+    const r = sanearRespostaFotos({ status: 'ok', fotos: [...fotosApi(45), { ordem: 99, vista: null, foto_ref: REF(1) }, { foto_ref: 'x' }] })!
+    expect(r.fotos).toHaveLength(45)
+    expect(r.fotos.map((f) => f.ordem)).toEqual(Array.from({ length: 45 }, (_, i) => i + 1))
+    expect(r.fotos[0]).toEqual({ ref: REF(1), ordem: 1, vista: 'frente' })
+    expect(sanearRespostaFotos({ status: 'ok', fotos: fotosApi(400) })!.fotos).toHaveLength(FOTOS_RPC_MAX)
+  })
+
+  it('passagem sem foto ganha as 45 de uma vez', async () => {
+    const pedidos = [pedido('a', [passagem({ fonte: 'superbid', lote: '2705086', ref: '229198' })])]
+    const sb = fakeSupabase(pedidos)
+    const r = await rodarFotosDepois({ supabase: sb, buscar: async () => ({ status: 'ok', fotos: fotosApi(45) }), dono: 'c1', esperar: semPausa, agora: AGORA, log })
+    expect(r.gravados).toBe(1)
+    expect(sb.rpcs[0].p_foto_refs).toHaveLength(45)
+    expect(pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0].foto_refs).toHaveLength(45)
+  })
+
+  it('passagem gravada com 4 (teto antigo): pergunta de novo, substitui por 45 e para de perguntar', async () => {
+    const pedidos = [pedido('a', [passagem({ foto_refs: quatro() })])]
+    const sb = fakeSupabase(pedidos)
+    let n = 0
+    const buscar = async () => { n++; return { status: 'ok', fotos: fotosApi(45) } }
+    const avisos: string[] = []
+    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log, avisar: async (id) => { avisos.push(id) } })
+    expect(r).toMatchObject({ chamadas: 1, gravados: 1 })
+    const p = pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0]
+    expect(p.foto_refs).toHaveLength(45)
+    expect(p.fotos_lote_completo).toBe(true)
+    // Completar 4 -> 45 nao manda aviso de "fotos chegaram".
+    expect(avisos).toEqual([])
+    sb.setAgora(AGORA + FOTOS_INTERVALO_MS)
+    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA + FOTOS_INTERVALO_MS, log })
+    expect(n).toBe(1)
+  })
+
+  it('passagem com 4 e a API tambem tem 4 (ou diz sem_foto): marca completa, mantem as fotos e nao pergunta mais', async () => {
+    for (const resp of [{ status: 'ok', fotos: fotosApi(4) }, { status: 'sem_foto', fotos: [] }]) {
+      const pedidos = [pedido('a', [passagem({ foto_refs: quatro() })])]
+      const sb = fakeSupabase(pedidos)
+      let n = 0
+      const buscar = async () => { n++; return resp }
+      const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log })
+      expect(r.gravados).toBe(0)
+      const p = pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0]
+      expect(p.foto_refs).toEqual(quatro())
+      expect(p.fotos_lote_completo).toBe(true)
+      expect(p.fotos_busca).toBeUndefined()
+      sb.setAgora(AGORA + FOTOS_INTERVALO_MS)
+      await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA + FOTOS_INTERVALO_MS, log })
+      expect(n).toBe(1)
+    }
+  })
+
+  it('passagem incompleta e "buscando": segue na fila', async () => {
+    const pedidos = [pedido('a', [passagem({ foto_refs: quatro() })])]
+    const sb = fakeSupabase(pedidos)
+    let n = 0
+    const buscar = async () => { n++; return { status: 'buscando', fotos: [] } }
+    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log })
+    sb.setAgora(AGORA + FOTOS_INTERVALO_MS)
+    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA + FOTOS_INTERVALO_MS, log })
+    expect(n).toBe(2)
+  })
+
+  it('pedido com passagem sem foto vem antes do que so esta incompleto', async () => {
+    const pedidos = [
+      ...Array.from({ length: FOTOS_MAX_PEDIDOS }, (_, i) => pedido(`inc${i}`, [passagem({ lote: `i${i}`, foto_refs: quatro() })])),
+      pedido('sem-foto', [passagem({ lote: 'novo' })]),
+    ]
+    const sb = fakeSupabase(pedidos)
+    const lotes: string[] = []
+    await rodarFotosDepois({ supabase: sb, buscar: async (b: any) => { lotes.push(b.lote); return { status: 'buscando', fotos: [] } }, dono: 'c1', esperar: semPausa, agora: AGORA, log })
+    expect(lotes[0]).toBe('novo')
+    expect(lotes).toHaveLength(FOTOS_MAX_PEDIDOS)
+  })
+
+  it('passagemFotosIncompletas: so com foto, sem a marca, abaixo do teto e de fonte com foto', () => {
+    expect(passagemFotosIncompletas(passagem({ foto_refs: quatro() }))).toBe(true)
+    expect(passagemFotosIncompletas(passagem({ detalhes: { fotos: [{ foto_ref: REF(1) }] } }))).toBe(true)
+    expect(passagemFotosIncompletas(passagem())).toBe(false)
+    expect(passagemFotosIncompletas(passagem({ foto_refs: quatro(), fotos_lote_completo: true }))).toBe(false)
+    expect(passagemFotosIncompletas(passagem({ foto_refs: quatro(), fonte_tipo: 'parceiro' }))).toBe(false)
+    expect(passagemFotosIncompletas(passagem({ foto_refs: quatro(), lote: null }))).toBe(false)
+    expect(passagemFotosIncompletas(passagem({ foto_refs: quatro() }), new Set(['copart']))).toBe(false)
+    expect(contarFotosPassagem(passagem({ foto_refs: quatro(), detalhes: { fotos: [{ foto_ref: REF(1) }] } }))).toBe(4)
+  })
+
+  it('rodada rapida so cuida de passagem sem foto (incompleta fica pra rodada de 30 min)', async () => {
+    const sb = fakeSupabase([pedido('a', [passagem({ foto_refs: quatro() })], { entregue_em: new Date(AGORA - 2 * 60 * 1000).toISOString() })])
+    const r = await rodarFotosRapido({ supabase: sb, buscar: async () => { throw new Error('nao deveria chamar') }, dono: 'c1', esperar: semPausa, agora: AGORA, log })
+    expect(r.chamadas).toBe(0)
   })
 })
