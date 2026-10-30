@@ -1483,3 +1483,77 @@ describe('litragem pelo nome (caso ELF2808, Tucson 20L)', () => {
     expect(r.candidatos.map((c) => c.codigo_fipe)).toContain('015064-9')
   })
 })
+
+describe('caminhao: eixos do registro decidem a versao (NEJ2882, FORD/13000 1984)', () => {
+  afterEach(() => { vi.restoreAllMocks() })
+  // Ford caminhoes 1984 na fipe-api (recorte): a FIPE separa a F-13000 base
+  // (2 eixos) da 3-Eixos. Antes o funil parava em "ambiguo" sem FIPE.
+  const FORD_1984 = [
+    { codigo_fipe: '504050-7', modelo: 'F-11000 2p (diesel)', valor: 40000 },
+    { codigo_fipe: '504058-2', modelo: 'F-13000 2p (diesel)', valor: 45000 },
+    { codigo_fipe: '504059-0', modelo: 'F-13000 3-Eixos 2p (diesel)', valor: 52000 },
+    { codigo_fipe: '504070-1', modelo: 'F-14000 2p (diesel)', valor: 48000 },
+  ]
+  const f = vi.fn(async (url: string) => {
+    if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: FORD_1984 }) } as any
+    return { ok: false, json: async () => ({}) } as any
+  })
+  const entrada = (eixos: number | null) => ({
+    senatran: { descricaoMarcaModelo: 'FORD/13000', anoModelo: 1984, descricaoTipoVeiculo: 'CAMINHAO', codigoCombustivel: '03', quantidadeDeEixos: eixos },
+    wdapi: { marca: 'FORD', MODELO: '13000', anoModelo: '1984', segmento: 'Caminhao', fipe: { dados: [] } },
+    segmento: 'caminhao', fipeApiUrl: 'http://f', fipeApiToken: 't',
+  })
+
+  it('2 eixos: F-13000 base 504058-2, decidido por eixos, confianca alta', async () => {
+    vi.stubGlobal('fetch', f)
+    const r = await escolherMelhorFipe(entrada(2))
+    expect(r.decididoPor).toBe('eixos')
+    expect(r.confianca).toBe('alta')
+    expect(r.escolhido?.codigo_fipe).toBe('504058-2')
+  })
+  it('3 eixos: F-13000 3-Eixos 504059-0', async () => {
+    vi.stubGlobal('fetch', f)
+    const r = await escolherMelhorFipe(entrada(3))
+    expect(r.decididoPor).toBe('eixos')
+    expect(r.escolhido?.codigo_fipe).toBe('504059-0')
+  })
+  it('sem eixos no registro: segue ambiguo com as duas versoes', async () => {
+    vi.stubGlobal('fetch', f)
+    const r = await escolherMelhorFipe(entrada(null))
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual(['504058-2', '504059-0'])
+  })
+})
+
+describe('eixos pelo nome da versao FIPE (tracao 4x2/6x2/6x4/8x2)', () => {
+  it('le eixos do nome', async () => {
+    const { eixosDoNome } = await import('./fipe-candidato')
+    expect(eixosDoNome('F-13000 3-Eixos 2p (diesel)')).toBe(3)
+    expect(eixosDoNome('Cargo 2428 3 Eixos 2p (diesel)')).toBe(3)
+    expect(eixosDoNome('Constellation 24.280 6x2 2p (diesel)')).toBe(3)
+    expect(eixosDoNome('Constellation 26.280 6x4 2p (diesel)')).toBe(3)
+    expect(eixosDoNome('Axor 3131 8x2 2p (diesel)')).toBe(4)
+    expect(eixosDoNome('Accelo 1016 4x2 2p (diesel)')).toBe(2)
+    expect(eixosDoNome('F-13000 2p (diesel)')).toBeNull()
+  })
+  it('6x2 x 6x4 x 4x2: fica o que bate com os eixos', async () => {
+    const { filtrarPorEixos } = await import('./fipe-candidato')
+    const c = (codigo_fipe: string, modelo: string) => ({ codigo_fipe, modelo, valor: 1, texto_valor: null, combustivel: null, mes_referencia: null })
+    const lista = [
+      c('1', 'P-360 4x2 2p (diesel)'),
+      c('2', 'P-360 6x2 2p (diesel)'),
+      c('3', 'P-360 8x2 2p (diesel)'),
+    ]
+    expect(filtrarPorEixos(lista, 3).map((x) => x.codigo_fipe)).toEqual(['2'])
+    expect(filtrarPorEixos(lista, 2).map((x) => x.codigo_fipe)).toEqual(['1'])
+    expect(filtrarPorEixos(lista, '4').map((x) => x.codigo_fipe)).toEqual(['3'])
+    // 6x2 e 6x4 tem 3 eixos: os dois ficam, o 4x2 sai.
+    const tracao = [c('a', 'G-420 6x2 2p (diesel)'), c('b', 'G-420 6x4 2p (diesel)'), c('d', 'G-420 4x2 2p (diesel)')]
+    expect(filtrarPorEixos(tracao, 3).map((x) => x.codigo_fipe)).toEqual(['a', 'b'])
+    // sem irmao de 3+ eixos, versao sem mencao nao vira "2 eixos"
+    expect(filtrarPorEixos([c('x', 'Q 4x2'), c('y', 'Q Turbo')], 3).map((x) => x.codigo_fipe)).toEqual(['y'])
+    // sem eixos no registro ou nada compativel: lista intacta
+    expect(filtrarPorEixos(lista, null)).toHaveLength(3)
+    expect(filtrarPorEixos(lista, 5)).toHaveLength(3)
+  })
+})

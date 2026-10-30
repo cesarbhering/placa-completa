@@ -35,6 +35,7 @@ export default defineEventHandler(async (event) => {
       descricaoMarcaModelo: reg?.descricaoMarcaModelo ?? null, anoModelo: reg?.anoModelo ?? null,
       codigoCombustivel: reg?.codigoCombustivel ?? null, descricaoTipoVeiculo: reg?.descricaoTipoVeiculo ?? null,
       descricaoEspecie: reg?.descricaoEspecie ?? null,
+      quantidadeDeEixos: reg?.quantidadeDeEixos ?? null,
     },
     forcar: v.candidato,
   }).catch(() => null)

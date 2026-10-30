@@ -44,7 +44,9 @@ export interface FipeCandidato {
 // nome do cadastro disse o cambio (shared/cambio-nome.ts, cambioPorSufixo).
 // regra_versao: chegou a 1 porque a sigla de versao do nome (EXC, HL, PR2, D...)
 // casou com a versao da FIPE; sem ela sobrava mais de um.
-export type FipeDecididoPor = 'regra' | 'regra_versao' | 'regra_cambio_sufixo' | 'haiku' | 'ambiguo' | 'fallback' | 'wdapi'
+// eixos: caminhao; chegou a 1 porque a quantidade de eixos do registro casou
+// com a versao FIPE que declara eixos no nome ("3-Eixos", "6x2"...).
+export type FipeDecididoPor = 'regra' | 'regra_versao' | 'regra_cambio_sufixo' | 'eixos' | 'haiku' | 'ambiguo' | 'fallback' | 'wdapi'
 
 export interface FipeMelhorCandidatoResultado {
   escolhido: FipeCandidato | null
@@ -72,6 +74,8 @@ export interface FipeMelhorCandidatoInput {
     transmissaoHint?: 'manual' | 'automatico' | null
     /** Chassi (camada 2: cambio pelo prefixo, so pra desempate de cambio). */
     chassi?: string | null
+    /** Caminhao: quantidade de eixos do registro (desempata "3-Eixos", "6x2"...). */
+    quantidadeDeEixos?: number | string | null
   } | null
   // payload cru da wdapi (fipe.dados[], VERSAO, marca, anoModelo, extra.combustivel)
   wdapi: any
@@ -1067,6 +1071,44 @@ export function marcaDoRegistro(descricao: string | null | undefined): string {
   return marca
 }
 
+// ---------------------------------------------------------------------------
+// Eixos (caminhao). A FIPE separa versoes do mesmo caminhao pelos eixos:
+// "F-13000 2p (diesel)" x "F-13000 3-Eixos 2p (diesel)" (NEJ2882, 1984).
+// O registro traz quantidadeDeEixos; aqui ele decide entre essas versoes.
+
+/** Eixos que o nome da versao FIPE declara: "3-Eixos"/"3 Eixos" ou a tracao
+ * (4x2 = 2, 6x2/6x4 = 3, 8x2/8x4 = 4). null quando o nome nao diz. */
+export function eixosDoNome(modelo: unknown): number | null {
+  const m = String(modelo || '').toUpperCase()
+  const porEixo = m.match(/\b(\d)\s*-?\s*EIXOS?\b/)
+  if (porEixo) return Number(porEixo[1])
+  const porTracao = m.match(/\b([468])\s*X\s*[24]\b/)
+  if (porTracao) return Number(porTracao[1]) / 2
+  return null
+}
+
+/** Mantem so as versoes compativeis com a quantidade de eixos do registro.
+ * Versao sem eixos no nome conta como 2 quando algum irmao declara 3 ou mais
+ * (padrao FIPE: a base e a de 2 eixos); sem esse irmao, fica (nao da pra
+ * dizer). Sem eixos no registro, ou se nada sobrar, devolve a lista intacta. */
+export function filtrarPorEixos(candidatos: FipeCandidato[], quantidadeDeEixos: unknown): FipeCandidato[] {
+  const eixos = Number(quantidadeDeEixos)
+  if (!Number.isInteger(eixos) || eixos < 2 || candidatos.length < 2) return candidatos
+  const declarados = candidatos.map((c) => eixosDoNome(c.modelo))
+  if (declarados.every((d) => d === null)) return candidatos
+  const temIrmaoMaior = declarados.some((d) => d !== null && d >= 3)
+  const compativeis = candidatos.filter((_, i) => {
+    const d = declarados[i] ?? (temIrmaoMaior ? 2 : null)
+    return d === null || d === eixos
+  })
+  return compativeis.length ? compativeis : candidatos
+}
+
+function ehCaminhao(input: FipeMelhorCandidatoInput, tabela: TabelaFipe): boolean {
+  return tabela === 'caminhoes' || input.segmento === 'caminhao'
+    || /CAMINH/i.test(String(input.senatran?.descricaoTipoVeiculo || ''))
+}
+
 export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promise<FipeMelhorCandidatoResultado> {
   const tabela = tabelaFipe(input.senatran, input.wdapi, input.segmento)
   const nome = nomeDoModelo(input.senatran, input.wdapi)
@@ -1137,9 +1179,23 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
       return { escolhido, decididoPor: 'wdapi', candidatos: [forte], confianca: 'alta' }
     }
 
-    const filtrados = aplicarFunil(universo, fatos)
+    const doFunil = aplicarFunil(universo, fatos)
 
-    if (filtrados.length === 0) return fallback()
+    if (doFunil.length === 0) return fallback()
+
+    // Caminhao: os eixos do registro escolhem entre "F-13000" e "F-13000
+    // 3-Eixos" antes de qualquer juiz. Deterministico; se sobrar mais de um,
+    // segue o fluxo de sempre com a lista ja enxugada.
+    const filtrados = doFunil.length > 1 && ehCaminhao(input, tabela)
+      ? filtrarPorEixos(doFunil, input.senatran?.quantidadeDeEixos)
+      : doFunil
+    if (filtrados.length === 1 && doFunil.length > 1) {
+      const escolhido = await comCodigoModelo(filtrados[0], marca, input.fipeApiUrl, input.fipeApiToken)
+      return {
+        escolhido, decididoPor: 'eixos', candidatos: filtrados, confianca: 'alta',
+        justificativa: `${input.senatran?.quantidadeDeEixos} eixos no cadastro`,
+      }
+    }
 
     if (filtrados.length === 1) {
       const escolhido = await comCodigoModelo(filtrados[0], marca, input.fipeApiUrl, input.fipeApiToken)
