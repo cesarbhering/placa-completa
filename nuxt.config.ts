@@ -602,6 +602,19 @@ export default defineNuxtConfig({
         },
       },
     },
+    // Build SSR (30/out/2026): o Nuxt externaliza tudo de shared/ no bundle do
+    // servidor Vue. O Rollup fixa o formato do caminho no PRIMEIRO import que
+    // encontra de cada modulo: se for relativo ('../shared/base-leilao'), sai
+    // "./shared/base-leilao.ts" em .nuxt/dist/server/server.mjs e o Nitro nao
+    // resolve (RollupError intermitente, dependia da ordem sob carga). Com
+    // false, externo absoluto fica sempre absoluto, como nos builds que passam.
+    $server: {
+      build: {
+        rollupOptions: {
+          makeAbsoluteExternalsRelative: false,
+        },
+      },
+    },
   },
 
   runtimeConfig: {
