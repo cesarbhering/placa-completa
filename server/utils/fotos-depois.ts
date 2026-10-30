@@ -42,6 +42,13 @@ export const FOTOS_PAUSA_MS = 2100
 
 const DIA_MS = 24 * 60 * 60 * 1000
 
+/**
+ * Teto de refs que a RPC fotos_passagem_gravar aceita (migration
+ * 20261030150000_fotos_passagem_todas.sql). Copia local do teto do servidor;
+ * vira import de shared/foto-lote.ts quando o PR do carrossel estiver na main.
+ */
+export const FOTOS_RPC_MAX = 300
+
 export type RespostaFotos = { status: 'ok' | 'buscando' | 'sem_foto' | 'fonte_sem_foto'; fotos: FotoRef[] }
 
 export interface DepsFotos {
@@ -82,11 +89,39 @@ export function sanearRespostaFotos(res: any): RespostaFotos | null {
   if (!res || typeof res !== 'object') return null
   const status = String(res.status || '')
   if (!['ok', 'buscando', 'sem_foto', 'fonte_sem_foto'].includes(status)) return null
-  const fotos = fotoRefsDaPassagem({ detalhes: { fotos: Array.isArray(res.fotos) ? res.fotos : [] } })
+  // Item a item pelo mesmo saneamento do snapshot (ref valido, vista conhecida),
+  // sem o teto de exibicao: grava todas as fotos do lote, ate FOTOS_RPC_MAX.
+  const vistos = new Set<string>()
+  const fotos = (Array.isArray(res.fotos) ? res.fotos : [])
+    .map((f: any) => fotoRefsDaPassagem({ detalhes: { fotos: [f] } })[0])
+    .filter((f: FotoRef | undefined): f is FotoRef => !!f && !vistos.has(f.ref) && !!vistos.add(f.ref))
+    .sort((a: FotoRef, b: FotoRef) => a.ordem - b.ordem)
+    .slice(0, FOTOS_RPC_MAX)
   return { status: status as RespostaFotos['status'], fotos }
 }
 
 const codigo = (e: any) => Number(e?.statusCode ?? e?.status ?? e?.response?.status) || null
+
+/** Fotos que a passagem ja mostra (foto_refs gravado ou refs no detalhe), como a RPC conta. */
+export function contarFotosPassagem(p: any): number {
+  const gravadas = Array.isArray(p?.foto_refs) ? p.foto_refs.length : 0
+  const noDetalhe = Array.isArray(p?.detalhes?.fotos) ? p.detalhes.fotos.filter((f: any) => typeof f?.foto_ref === 'string').length : 0
+  return Math.max(gravadas, noDetalhe)
+}
+
+/**
+ * Passagem que ja tem foto mas pode ter menos do que o lote (gravada quando o
+ * teto era 4): pergunta a API uma vez. A RPC substitui se a lista nova for
+ * maior e marca fotos_lote_completo em qualquer resposta final, e ai o job para.
+ */
+export function passagemFotosIncompletas(p: any, fontesSemFoto?: Set<string>): boolean {
+  if (!p || typeof p !== 'object') return false
+  if (p.fotos_lote_completo === true) return false
+  const n = contarFotosPassagem(p)
+  if (n === 0 || n >= FOTOS_RPC_MAX) return false
+  // Mesmas regras de fonte do pedido de foto, olhando a passagem como se nao tivesse foto.
+  return passagemPrecisaDeFoto({ ...p, foto_refs: [], fotos: [], detalhes: { ...(p.detalhes || {}), fotos: [] } }, fontesSemFoto)
+}
 
 type Mudanca = { foto_refs: FotoRef[] } | { fotos_busca: { status: FotosBuscaStatus; em: string } }
 
@@ -195,7 +230,7 @@ async function tentarPedido(ctx: CtxTentativa, pedido: any, alvos: any[]): Promi
       if (ehLoteNaoEncontrado(e)) {
         // A API nao conhece o lote: vira sem_foto, pra nao perguntar toda rodada.
         const g = await gravarFotosPassagem(deps.supabase, pedido.id, alvo, { fotos_busca: { status: 'sem_foto', em: new Date(agora).toISOString() } })
-        linhaLog.push(`${fonte}:${lote}=404 lote nao encontrado${g === 'gravado' || g === 'igual' ? '' : ` (nao gravou: ${g})`}`)
+        linhaLog.push(`${fonte}:${lote}=404 lote nao encontrado${['gravado', 'igual', 'completo'].includes(g) ? '' : ` (nao gravou: ${g})`}`)
         continue
       }
       pendentes++
@@ -206,8 +241,14 @@ async function tentarPedido(ctx: CtxTentativa, pedido: any, alvos: any[]): Promi
 
     if (r.status === 'ok' && r.fotos.length) {
       const g = await gravarFotosPassagem(deps.supabase, pedido.id, alvo, { foto_refs: r.fotos })
-      if (g === 'gravado') { resumo.gravados++; niveisComFoto.push(String(p.nivel || '')) }
-      linhaLog.push(`${fonte}:${lote}=ok ${r.fotos.length} foto${r.fotos.length === 1 ? '' : 's'}${g === 'gravado' ? '' : ` (nao gravou: ${g})`}`)
+      const antes = contarFotosPassagem(p)
+      if (g === 'gravado') {
+        resumo.gravados++
+        // Aviso ao cliente so quando a passagem nao tinha foto (completar de 4 para 45 nao avisa).
+        if (!antes) niveisComFoto.push(String(p.nivel || ''))
+      }
+      const ok = g === 'gravado' || g === 'completo'
+      linhaLog.push(`${fonte}:${lote}=ok ${r.fotos.length} foto${r.fotos.length === 1 ? '' : 's'}${antes ? ` (tinha ${antes})` : ''}${ok ? '' : ` (nao gravou: ${g})`}`)
     } else if (r.status === 'buscando') {
       // Segue tentando nas proximas rodadas (o aviso da pagina expira sozinho em 7 dias).
       pendentes++
@@ -217,7 +258,7 @@ async function tentarPedido(ctx: CtxTentativa, pedido: any, alvos: any[]): Promi
       const status: FotosBuscaStatus = r.status === 'fonte_sem_foto' ? 'fonte_sem_foto' : 'sem_foto'
       if (status === 'fonte_sem_foto') fontesSemFoto.add(fonte)
       const g = await gravarFotosPassagem(deps.supabase, pedido.id, alvo, { fotos_busca: { status, em: new Date(agora).toISOString() } })
-      linhaLog.push(`${fonte}:${lote}=${status}${g === 'gravado' || g === 'igual' ? '' : ` (nao gravou: ${g})`}`)
+      linhaLog.push(`${fonte}:${lote}=${status}${['gravado', 'igual', 'completo'].includes(g) ? '' : ` (nao gravou: ${g})`}`)
     }
   }
   log(`${prefixo} pedido ${pedido.id} (${tok}…): ${linhaLog.join(', ') || 'nada'}`)
@@ -259,10 +300,16 @@ export async function rodarFotosDepois(deps: DepsFotos): Promise<ResumoRodada> {
     if (error) throw new Error(error.message)
 
     const candidatos = (linhas || [])
-      .map((l: any) => ({ ...l, alvo: (Array.isArray(l.passagens) ? l.passagens : []).filter((p: any) => passagemPrecisaDeFoto(p, fontesSemFoto)) }))
+      .map((l: any) => {
+        const lista = Array.isArray(l.passagens) ? l.passagens : []
+        const semFoto = lista.filter((p: any) => passagemPrecisaDeFoto(p, fontesSemFoto))
+        // Sem foto primeiro; depois as que tem foto mas podem ter menos que o lote.
+        return { ...l, semFoto: semFoto.length, alvo: [...semFoto, ...lista.filter((p: any) => passagemFotosIncompletas(p, fontesSemFoto))] }
+      })
       .filter((l: any) => l.alvo.length)
-      // Quem nunca foi tentado primeiro; depois o tentado ha mais tempo.
-      .sort((a: any, b: any) => (tentadoEm.get(a.id) ?? 0) - (tentadoEm.get(b.id) ?? 0))
+      // Pedido com passagem sem foto antes do que so esta incompleto; entre iguais,
+      // quem nunca foi tentado primeiro e depois o tentado ha mais tempo.
+      .sort((a: any, b: any) => (Number(b.semFoto > 0) - Number(a.semFoto > 0)) || ((tentadoEm.get(a.id) ?? 0) - (tentadoEm.get(b.id) ?? 0)))
       .slice(0, FOTOS_MAX_PEDIDOS)
 
     for (const pedido of candidatos) {
