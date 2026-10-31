@@ -4,48 +4,52 @@ import {
   parsearRespostaParceiro, historicoComParceiro, nossaBaseVazia,
   type RespostaParceiro, type EstadoParceiro,
 } from '../../shared/fonte-parceira'
+import { configParceiroComLegado, FONTE_CACHE_LEGADA, FONTE_CUSTO_LEGADA, BASE_PADRAO_LEGADA } from './parceiro-leilao-env'
 
-// Cliente INTERNO da base parceira de leiloes e sinistros (Avaliservice).
-// Plano do Cesar (20/out/2026). O nome do fornecedor so existe aqui, em
-// premium_custos, fonte_cache e nos logs do servidor; tudo que sai para o
-// cliente usa o rotulo de shared/fonte-parceira.ts.
+// Cliente INTERNO da base parceira de leiloes e sinistros (parceiro-leilao).
+// Plano do Cesar (20/out/2026). O nome do fornecedor so existe em
+// parceiro-leilao-env.ts (nome legado), em premium_custos, fonte_cache e nos
+// logs do servidor; tudo que sai para o cliente usa o rotulo de
+// shared/fonte-parceira.ts.
 //
 // Regras:
 //  - so Relatorio Completo, so quando a NOSSA base devolveu zero passagens e
 //    sem indicio (historico presente e vazio; historico null = nossa base nao
 //    respondeu, entao nao chama);
-//  - liga/desliga NUXT_AVALISERVICE_LIGADO (default desligado); teto diario
-//    NUXT_AVALISERVICE_TETO_DIA (40): atingido, segue sem a fonte e alerta;
+//  - liga/desliga NUXT_PARCEIRO_LEILAO_LIGADO (default desligado); teto diario
+//    NUXT_PARCEIRO_LEILAO_TETO_DIA (40): atingido, segue sem a fonte e alerta;
 //  - login com usuario/senha -> JWT de 24 h em memoria; 401 refaz o login 1 vez;
 //  - timeout 15 s; chama pela placa e, se der erro e houver chassi, pelo chassi
 //    (erro nao e cobrado, entao continua uma cobranca por pedido);
 //  - HTTP 400 com corpo de saldo/limite: alerta na hora;
 //  - bruto inteiro em fonte_cache (30 d; cache hit nao chama nem cobra) e em
 //    parceiro_leilao_chamadas (uma linha por tentativa, inclusive cache hit);
-//  - custo em premium_custos ('avaliservice_leilao_sinistro', 6,00; erro 0).
+//  - custo em premium_custos (FONTE_CUSTO_PARCEIRO, 6,00; erro 0).
 
-export const FONTE_CACHE_PARCEIRO = 'avaliservice'
-export const FONTE_CUSTO_PARCEIRO = 'avaliservice_leilao_sinistro'
+// Valores ja gravados no banco: nao mudam (ver parceiro-leilao-env.ts).
+export const FONTE_CACHE_PARCEIRO = FONTE_CACHE_LEGADA
+export const FONTE_CUSTO_PARCEIRO = FONTE_CUSTO_LEGADA
 export const PRECO_PARCEIRO_CENTAVOS = 600
 export const TIMEOUT_PARCEIRO_MS = 15_000
 /** Lease do lock por pedido: maior que placa + chassi com timeout (2 x 15 s). */
 export const LOCK_PEDIDO_S = 60
 /** Quanto quem ficou sem o lock espera a outra geracao (segundos). */
 export const ESPERA_LOCK_VOLTAS = 20
-const BASE_PADRAO = 'https://api.avaliservice.com.br'
+const BASE_PADRAO = BASE_PADRAO_LEGADA
 const AVISO = 'cesarcbhering@gmail.com'
 
 export interface CfgParceiro { ligado: boolean; usuario: string; senha: string; tetoDia: number; base: string }
 
-export function cfgParceiro(config: any): CfgParceiro {
-  const lig = String(config?.avaliserviceLigado ?? '').trim().toLowerCase()
-  const teto = Number(config?.avaliserviceTetoDia)
+export function cfgParceiro(config: any, env: Record<string, string | undefined> = process.env): CfgParceiro {
+  const c = configParceiroComLegado(config, env)
+  const lig = c.ligado.toLowerCase()
+  const teto = c.tetoDia === '' ? NaN : Number(c.tetoDia)
   return {
     ligado: ['1', 'on', 'true', 'sim'].includes(lig),
-    usuario: String(config?.avaliserviceUser || ''),
-    senha: String(config?.avaliservicePass || ''),
+    usuario: c.usuario,
+    senha: c.senha,
     tetoDia: Number.isFinite(teto) && teto >= 0 ? teto : 40,
-    base: String(config?.avaliserviceUrl || BASE_PADRAO).replace(/\/+$/, ''),
+    base: (c.url || BASE_PADRAO).replace(/\/+$/, ''),
   }
 }
 

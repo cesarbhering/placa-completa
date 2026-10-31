@@ -764,7 +764,7 @@ function aplicarFunil(universo: FipeCandidato[], fatos: Fatos, opts: { semSigla?
 
   // Modelo do nome primeiro: TRACKER nao pode terminar com ONIX (TTR6F65).
   restantes = filtrarPeloModeloDoNome(restantes, fatos.descricao)
-  // Variante que e outro carro (C3 x C3 Picasso, EZJ9243).
+  // Variante que e outro carro (C3 x C3 Picasso, TST1A23).
   restantes = filtrarPelaVariante(restantes, fatos.descricao)
 
   if (fatos.litragem.length) {

@@ -266,7 +266,7 @@ describe('Renault: siglas do cadastro (OUQ8G18, 15/out)', () => {
   })
 })
 
-describe('sinonimos e prefixo de versao (EZJ9243, 24/out/2026)', async () => {
+describe('sinonimos e prefixo de versao (TST1A23, 24/out/2026)', async () => {
   const { candidatoTemVersaoDoNome, lerVersaoDoNome } = await import('./versao-fipe')
   it('EXC/EXCL casam com "Excl." e "Exclusive"', () => {
     const { versoes, prefixo } = lerVersaoDoNome('CITROEN/C3 PICASSO EXC A')

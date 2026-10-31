@@ -4,11 +4,12 @@ import { join } from 'node:path'
 import REAL from '../server/utils/__fixtures__/parceiro-leilao-real.json'
 import { parsearRespostaParceiro, historicoComParceiro } from '../shared/fonte-parceira'
 import { historicoLgpd } from '../shared/leilao-lgpd'
+import { NOME_FORNECEDOR_RE } from '../server/utils/parceiro-leilao-env'
 
 // Decisao do Cesar (20/out/2026): o nome do fornecedor da base parceira de
 // leiloes e sinistros NUNCA aparece em nada publico. So no codigo interno do
 // servidor, em premium_custos, fonte_cache e logs.
-const NOME = /avaliservice/i
+const NOME = NOME_FORNECEDOR_RE
 
 function arquivos(dir: string, filtro: (f: string) => boolean = () => true): string[] {
   const out: string[] = []

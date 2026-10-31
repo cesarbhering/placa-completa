@@ -91,47 +91,47 @@ describe('so venda do ChatGPT Ads vira conversao', () => {
   })
 })
 
-// EZJ9243 (23/out/2026): clique no anuncio na consulta gratis (21:27, oppref),
+// TST1A23 (23/out/2026): clique no anuncio na consulta gratis (21:27, oppref),
 // volta por chatgpt.com e por WhatsApp, pedido pago 21:35 sem oppref.
-describe('primeiro clique pela consulta gratis (EZJ9243)', async () => {
+describe('primeiro clique pela consulta gratis (TST1A23)', async () => {
   const { toqueChatgptDaConsulta, MOTIVOS_NAO_SE_APLICA } = await import('./openai-capi')
   const pago = '2026-10-24T00:35:00Z'
   const pedido: PedidoCapi = {
-    token_entrega: 'r_FICTICIO000000000000a', status: 'entregue', valor_centavos: 4490, plano: 'completa', email: 'c@d.com',
+    token_entrega: 'TesteTokenFicticio000001', status: 'entregue', valor_centavos: 4490, plano: 'completa', email: 'c@d.com',
     pago_em: pago, ambiente: 'producao', ip_address: '177.1.1.1', google_play_order_id: null,
-    oppref: null, obref: null, utm_source: 'chatgpt.com', placa: 'EZJ9243',
+    oppref: null, obref: null, utm_source: 'chatgpt.com', placa: 'TST1A23',
   }
   const consultas = [
-    { placa: 'EZJ9243', created_at: '2026-10-24T00:27:00Z', oppref: 'opp_EZJ', obref: 'ob-1', utm_source: 'chatgpt_ads' },
-    { placa: 'EZJ9243', created_at: '2026-10-24T00:34:00Z', oppref: null, utm_source: 'chatgpt.com' },
+    { placa: 'TST1A23', created_at: '2026-10-24T00:27:00Z', oppref: 'opp_TST', obref: 'ob-1', utm_source: 'chatgpt_ads' },
+    { placa: 'TST1A23', created_at: '2026-10-24T00:34:00Z', oppref: null, utm_source: 'chatgpt.com' },
   ]
   const o = { agora: Date.parse('2026-10-24T01:00:00Z'), protegido: false }
 
   it('acha o clique da consulta e o pedido passa a ser enviado com o oppref dela', () => {
-    const toque = toqueChatgptDaConsulta(consultas as any, 'ezj9243', pago)
-    expect(toque).toEqual({ oppref: 'opp_EZJ', obref: 'ob-1', created_at: '2026-10-24T00:27:00Z' })
+    const toque = toqueChatgptDaConsulta(consultas as any, 'tst1a23', pago)
+    expect(toque).toEqual({ oppref: 'opp_TST', obref: 'ob-1', created_at: '2026-10-24T00:27:00Z' })
     expect(motivoParaNaoEnviar(pedido, o)).toBe('sem_origem_chatgpt')
     const comToque = { ...pedido, toque_chatgpt: toque }
     expect(motivoParaNaoEnviar(comToque, o)).toBeNull()
     const ev: any = montarEvento(comToque)
-    expect(ev.oppref).toBe('opp_EZJ')
+    expect(ev.oppref).toBe('opp_TST')
     expect(ev.user.obref).toBe('ob-1')
   })
 
   it('oppref do proprio pedido vence o da consulta', () => {
-    const ev: any = montarEvento({ ...pedido, oppref: 'opp_PEDIDO', toque_chatgpt: { oppref: 'opp_EZJ', obref: null, created_at: '' } })
+    const ev: any = montarEvento({ ...pedido, oppref: 'opp_PEDIDO', toque_chatgpt: { oppref: 'opp_TST', obref: null, created_at: '' } })
     expect(ev.oppref).toBe('opp_PEDIDO')
   })
 
   it('nao conta: outra placa, consulta depois do pagamento, mais de 7 dias, sem sinal do ChatGPT', () => {
-    expect(toqueChatgptDaConsulta([{ ...consultas[0], placa: 'ABC1D23' }] as any, 'EZJ9243', pago)).toBeNull()
-    expect(toqueChatgptDaConsulta([{ ...consultas[0], created_at: '2026-10-24T00:40:00Z' }] as any, 'EZJ9243', pago)).toBeNull()
-    expect(toqueChatgptDaConsulta([{ ...consultas[0], created_at: '2026-10-16T00:00:00Z' }] as any, 'EZJ9243', pago)).toBeNull()
-    expect(toqueChatgptDaConsulta([consultas[1]] as any, 'EZJ9243', pago)).toBeNull()
+    expect(toqueChatgptDaConsulta([{ ...consultas[0], placa: 'ABC1D23' }] as any, 'TST1A23', pago)).toBeNull()
+    expect(toqueChatgptDaConsulta([{ ...consultas[0], created_at: '2026-10-24T00:40:00Z' }] as any, 'TST1A23', pago)).toBeNull()
+    expect(toqueChatgptDaConsulta([{ ...consultas[0], created_at: '2026-10-16T00:00:00Z' }] as any, 'TST1A23', pago)).toBeNull()
+    expect(toqueChatgptDaConsulta([consultas[1]] as any, 'TST1A23', pago)).toBeNull()
   })
 
   it('so utm_source=chatgpt_ads (sem oppref) tambem e toque, evento sai sem oppref', () => {
-    const toque = toqueChatgptDaConsulta([{ placa: 'EZJ9243', created_at: '2026-10-24T00:27:00Z', oppref: null, utm_source: 'ChatGPT_Ads' }] as any, 'EZJ9243', pago)
+    const toque = toqueChatgptDaConsulta([{ placa: 'TST1A23', created_at: '2026-10-24T00:27:00Z', oppref: null, utm_source: 'ChatGPT_Ads' }] as any, 'TST1A23', pago)
     expect(toque?.oppref).toBeNull()
     expect(motivoParaNaoEnviar({ ...pedido, toque_chatgpt: toque }, o)).toBeNull()
     expect((montarEvento({ ...pedido, toque_chatgpt: toque }) as any).oppref).toBeUndefined()

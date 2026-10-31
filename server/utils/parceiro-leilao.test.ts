@@ -3,14 +3,14 @@ import REAL from './__fixtures__/parceiro-leilao-real.json'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
 import {
   complementarLeilaoParceiro, rodarJobParceiro, cfgParceiro, inicioDoDiaBrasilia, ehSaldoOuLimite,
-  _limparTokenParceiro, _limparAlertaTeto, FONTE_CUSTO_PARCEIRO, type Http,
+  _limparTokenParceiro, _limparAlertaTeto, FONTE_CUSTO_PARCEIRO, FONTE_CACHE_PARCEIRO, type Http,
 } from './parceiro-leilao'
 
 // Regras do Cesar (20/out/2026): so Completa, so com a nossa base vazia, teto
 // diario, cache que nao cobra, placa e depois chassi, uma linha por tentativa.
 const AGORA = Date.parse('2026-10-20T19:00:00Z')
 const CHASSI = '9XXAA00000X000001'
-const cfg = (x: any = {}) => cfgParceiro({ avaliserviceLigado: 'on', avaliserviceUser: 'u', avaliservicePass: 'p', avaliserviceTetoDia: '40', ...x })
+const cfg = (x: any = {}) => cfgParceiro({ parceiroLeilaoLigado: 'on', parceiroLeilaoUser: 'u', parceiroLeilaoPass: 'p', parceiroLeilaoTetoDia: '40', ...x }, {})
 const vazio = () => ({ resumo: { tem_indicio: false, nivel_max: null, n_confirmado: 0, n_provavel: 0, n_possivel: 0, possiveis_ambiguos: 0, fontes_com_passagem: [] }, passagens: [], indice_atualizado_em: null, aviso: null })
 const resp = (status: number, corpo: any) => ({ status, text: async () => (typeof corpo === 'string' ? corpo : JSON.stringify(corpo)) })
 
@@ -46,7 +46,7 @@ describe('quando NAO chama', () => {
     expect(await complementarLeilaoParceiro(pedido(), { ...vazio(), resumo: { ...vazio().resumo, tem_indicio: true } }, {}, deps(http)).then((h: any) => h.parceiro)).toBeUndefined()
     expect(await complementarLeilaoParceiro(pedido(), null, {}, deps(http))).toBeNull()
     expect(await complementarLeilaoParceiro({ ...pedido(), plano: 'basica' }, vazio(), {}, deps(http)).then((h: any) => h.parceiro)).toBeUndefined()
-    expect(await complementarLeilaoParceiro(pedido(), vazio(), {}, deps(http, { cfg: cfg({ avaliserviceLigado: '' }) })).then((h: any) => h.parceiro)).toBeUndefined()
+    expect(await complementarLeilaoParceiro(pedido(), vazio(), {}, deps(http, { cfg: cfg({ parceiroLeilaoLigado: '' }) })).then((h: any) => h.parceiro)).toBeUndefined()
     expect(chamadas).toHaveLength(0)
     expect(linhas()).toHaveLength(0)
   })
@@ -62,7 +62,7 @@ describe('chamada', () => {
     expect(linhas()[0]).toMatchObject({ pedido_id: 'p1', parametro_enviado: 'ABC1D23', tipo_parametro: 'placa', http_status: 200, cobrada: true, preco_centavos: 600, id_consulta_parceiro: '00000000-0000-4000-8000-000000000001', tem_registro_leilao: true, n_leiloes: 1, indicio_sinistro: true, nossa_base_vazia: true, cache_hit: false })
     expect(linhas()[0].resposta_bruta).toEqual(REAL)
     expect(custos()).toEqual([expect.objectContaining({ pedido_id: 'p1', fonte: FONTE_CUSTO_PARCEIRO, preco: 6, code: 200, detalhe: 'idConsulta 00000000-0000-4000-8000-000000000001' })])
-    expect(sb.tab('fonte_cache')[0]).toMatchObject({ fonte: 'avaliservice', chave: 'placa:ABC1D23' })
+    expect(sb.tab('fonte_cache')[0]).toMatchObject({ fonte: FONTE_CACHE_PARCEIRO, chave: 'placa:ABC1D23' })
   })
 
   it('cache hit: nao chama nem cobra, mas grava a linha (cache_hit)', async () => {

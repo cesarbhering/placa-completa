@@ -43,7 +43,7 @@ export async function rodar() {
       .eq('status', 'entregue')
       // 'nao_enviado' generico e da versao anterior (antes do motivo especifico
       // e do primeiro clique pela consulta): reavalia uma vez dentro dos 7 dias.
-      // Caso EZJ9243. Depois de reavaliado ele ganha o motivo certo e nao volta.
+      // Caso TST1A23. Depois de reavaliado ele ganha o motivo certo e nao volta.
       .or('openai_capi_em.is.null,openai_capi_erro.eq.nao_enviado')
       .gt('valor_centavos', 0)
       .gte('pago_em', desde)

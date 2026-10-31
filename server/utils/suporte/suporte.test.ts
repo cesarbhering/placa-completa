@@ -359,7 +359,7 @@ describe('persona Guilherme', () => {
 })
 
 describe('simulação 2: pagou e não recebeu (identifica por CPF, N1 resolve)', () => {
-  const CPF = '123.456.789-00'
+  const CPF = '11144477735'
   const pedido = { id: 'p1', placa: 'RBF5A06', plano: 'completa', status: 'pago', pago_em: '2026-10-11T02:10:00Z', entregue_em: null, email: null, token_entrega: 'TokFicticio000000000001', pagador_hash: hmacPagador(CPF, SEG_PAG) }
 
   it('pede o documento, confere por hash sem guardar e cria tarefa N1; resposta da equipe chega ao cliente', async () => {
@@ -374,12 +374,12 @@ describe('simulação 2: pagou e não recebeu (identifica por CPF, N1 resolve)',
     // a consulta voltou ao agente sem link (dono nao comprovado ainda)
     expect(s.histsAgente[2].extra).toContain('"tem_email":false')
     expect(s.histsAgente[2].extra).not.toContain('link')
-    await s.msg('123.456.789-00')
+    await s.msg('111.444.777-35')
 
     // CPF: nunca guardado nem mandado ao modelo
     const c = s.mem.conversas[0]
-    expect(JSON.stringify(c.mensagens)).not.toMatch(/089|123.456.789-00/)
-    expect(JSON.stringify(s.histsAgente)).not.toMatch(/089\.740|123.456.789-00/)
+    expect(JSON.stringify(c.mensagens)).not.toMatch(/111\.444|11144477735/)
+    expect(JSON.stringify(s.histsAgente)).not.toMatch(/111\.444|11144477735/)
     expect(s.histsAgente[3].extra).toContain('CONFERE')
     // pago e nao entregue: dono comprovado, mas sem link (nao ha relatorio ainda)
     expect(s.histsAgente[3].extra).toContain('"dono_comprovado":true')
@@ -653,7 +653,7 @@ describe('regras puras', () => {
     expect(guardarResposta('Mostramos se o carro tem registro de leilão.').barrada).toBeNull()
   })
   it('documento sai do texto', () => {
-    expect(separarDocumento('meu cpf 123.456.789-00 ok')).toEqual({ texto: 'meu cpf [documento informado] ok', digitos: '123.456.789-00' })
+    expect(separarDocumento('meu cpf 111.444.777-35 ok')).toEqual({ texto: 'meu cpf [documento informado] ok', digitos: '11144477735' })
     expect(separarDocumento('cnpj 12.345.678/0001-95').digitos).toBe('12345678000195')
     expect(separarDocumento('placa ABC1D23').digitos).toBeNull()
   })

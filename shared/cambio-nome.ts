@@ -72,7 +72,7 @@ const ANTES_DE_LETRA_MODELO = new Set(['CLASSE', 'CLASS', 'SERIE', 'SERIES'])
 /**
  * Sufixo do cadastro: "A" ou "M" como ULTIMO token, isolado, depois de um token
  * de versao = automatico / manual (Cesar, 23/out/2026). Casos: "CITROEN/C3
- * PICASSO EXC A" (EZJ9243, FIPE "Excl. 1.6 Flex 16V 5p Aut."), "CHEV/TRACKER T A"
+ * PICASSO EXC A" (TST1A23, FIPE "Excl. 1.6 Flex 16V 5p Aut."), "CHEV/TRACKER T A"
  * (Tracker turbo automatica), "HYUNDAI/HB20 1.0M 1.0 M" (manual).
  * Exige modelo + versao antes da letra (3 tokens ou mais), entao "CLASSE A" e
  * "X5 M" nao entram; BMW nunca (M e a linha esportiva) e Renault tambem nao.

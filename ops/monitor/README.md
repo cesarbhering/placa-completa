@@ -77,6 +77,7 @@ Todo alvo que abre incidente manda `... VOLTOU (fora por Xh)` quando normaliza.
 - `PCMON_DRY=1 pc-monitor site`: imprime o e-mail que sairia em vez de enviar.
 - `PCMON_URL` troca a URL do site. `PCMON_BIN` e `PROBE_LOCK` apontam a sonda para outro motor e outro lock.
 - `PCMON_TUNEL_CMD` troca o comando de subida do túnel que vai no e-mail.
+- `PC_GW_USER` e `PC_GW_HOST` (sem default): usuário e IP Tailscale da VPS no comando do túnel.
 - Para não sujar o estado real, use uma cópia do script com `ESTADO_DIR` e `LOG_DIR` apontando para uma pasta temporária.
 
 ## Instalar ou atualizar
