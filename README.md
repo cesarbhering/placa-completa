@@ -1,7 +1,7 @@
 # PlacaCompleta
 
 **Vehicle history reports for Brazilian used-car buyers, by license plate.**
-Live at [placacompleta.com.br](https://placacompleta.com.br). Operated by Cesar Cancado Bhering Tecnologia Ltda (Brazil). Licensed under Apache 2.0 (see [LICENSE](LICENSE)).
+Live at [placacompleta.com.br](https://placacompleta.com.br). Licensed under Apache 2.0 (see [LICENSE](LICENSE)).
 
 ## What we do
 
