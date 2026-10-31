@@ -180,7 +180,7 @@ def _origem(pedido):
     # Primeiro clique no ChatGPT Ads (consulta da mesma placa com oppref ou
     # utm_source=chatgpt_ads, ate 7 dias antes do pagamento) vale mesmo se a
     # pessoa voltou depois por outro caminho. Mesma regra do envio de conversao
-    # (server/utils/openai-capi.ts). Caso EZJ9243, 23/out.
+    # (server/utils/openai-capi.ts). Caso TST1A23, 23/out.
     if not (org or "").startswith("ChatGPT") and toque_chatgpt(pedido):
         return "ChatGPT Ads (OpenAI, clique na consulta grátis)"
     return org or "Indeterminada (sem consulta associada)"

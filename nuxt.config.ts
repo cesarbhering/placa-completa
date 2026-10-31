@@ -683,11 +683,12 @@ export default defineNuxtConfig({
     googlePlayServiceAccount: process.env.NUXT_GOOGLE_PLAY_SERVICE_ACCOUNT || "",
     // Base parceira de leiloes e sinistros (20/out/2026): server/utils/parceiro-leilao.ts.
     // Desligada por padrao. Private: nunca vai pro bundle do browser.
-    avaliserviceLigado: process.env.NUXT_AVALISERVICE_LIGADO || "",
-    avaliserviceUser: process.env.NUXT_AVALISERVICE_USER || "",
-    avaliservicePass: process.env.NUXT_AVALISERVICE_PASS || "",
-    avaliserviceTetoDia: process.env.NUXT_AVALISERVICE_TETO_DIA || "40",
-    avaliserviceUrl: process.env.NUXT_AVALISERVICE_URL || "",
+    // Vazio cai na env de nome legado (parceiro-leilao-env.ts); teto default 40.
+    parceiroLeilaoLigado: process.env.NUXT_PARCEIRO_LEILAO_LIGADO || "",
+    parceiroLeilaoUser: process.env.NUXT_PARCEIRO_LEILAO_USER || "",
+    parceiroLeilaoPass: process.env.NUXT_PARCEIRO_LEILAO_PASS || "",
+    parceiroLeilaoTetoDia: process.env.NUXT_PARCEIRO_LEILAO_TETO_DIA || "",
+    parceiroLeilaoUrl: process.env.NUXT_PARCEIRO_LEILAO_URL || "",
     // RTDN (notificacoes da Play via push do Pub/Sub, 18/out/2026): audiencia
     // do token OIDC da assinatura push e o e-mail da conta de servico dela.
     // Sem audiencia, /api/premium/google-play/rtdn responde 503.

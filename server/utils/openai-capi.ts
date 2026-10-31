@@ -28,7 +28,7 @@ export interface PedidoCapi {
   placa?: string | null
   /**
    * Clique no anuncio que veio ANTES, na consulta gratis da mesma placa (ver
-   * toqueChatgptDaConsulta). Caso EZJ9243 (23/out): consulta com oppref as
+   * toqueChatgptDaConsulta). Caso TST1A23 (23/out): consulta com oppref as
    * 21:27, a pessoa voltou por chatgpt.com e por link de WhatsApp, e o pedido
    * nasceu sem oppref.
    */

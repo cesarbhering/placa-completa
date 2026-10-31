@@ -48,9 +48,13 @@ VOLTOU = {"site": "SITE VOLTOU", "checkout": "CHECKOUT VOLTOU", "fila": "FILA DO
 DEST_ALVO = {"tunel": ["cesarcbhering@gmail.com"]}
 REPETE_ALVO = {"tunel": None}
 TUNEL_SOCKS = "socks5h://127.0.0.1:1080"
+# Destino do ssh -R (usuario e IP Tailscale da VPS): so por ambiente, sem
+# default (o repositorio e publico).
+GW_USER = os.environ.get("PC_GW_USER") or "<PC_GW_USER>"
+GW_HOST = os.environ.get("PC_GW_HOST") or "<PC_GW_HOST>"
 TUNEL_CMD = os.environ.get("PCMON_TUNEL_CMD", (
     "caffeinate -ims bash -c 'while true; do ssh -N -o ServerAliveInterval=30 -o ServerAliveCountMax=3 "
-    "-o ExitOnForwardFailure=yes -R 127.0.0.1:1080 gw@GW_HOST; "
+    f"-o ExitOnForwardFailure=yes -R 127.0.0.1:1080 {GW_USER}@{GW_HOST}; "
     "echo \"túnel caiu, reconectando em 10s\"; sleep 10; done'"))
 # Obs.: o ssh -R entra pelo Tailscale SSH (IP Tailscale da VPS); o proprio tailscaled abre a 127.0.0.1:1080.
 SB_REF = "fivalpkfneadngxiflea"

@@ -36,7 +36,7 @@ const VERSOES = new Set([
   'SV', 'SL', 'EXCLUSIVE', 'ADVANCE',
   // Jeep / Peugeot / Citroen
   'LONGITUDE', 'LIMITED', 'SPORT', 'TRAILHAWK', 'ALLURE', 'GRIFFE', 'ACTIVE', 'TENDANCE', 'FEEL', 'SHINE',
-  // Citroen/Peugeot (EZJ9243, 23/out: "C3 PICASSO EXC A" = Exclusive; a FIPE
+  // Citroen/Peugeot (TST1A23, 23/out: "C3 PICASSO EXC A" = Exclusive; a FIPE
   // escreve "Excl." e "Exclusive") e GL/GLX (Citroen, Peugeot, VW antigos).
   'EXC', 'EXCL', 'GL', 'GLX',
 ])
@@ -528,7 +528,7 @@ export function filtrarPeloModeloDoNome<T extends { modelo: string }>(lista: T[]
 }
 
 // Variante/carroceria que no nome da FIPE e praticamente outro carro: "C3
-// PICASSO" no cadastro nao pode ficar com "C3 Excl. 1.6 Flex Aut" (caso EZJ9243,
+// PICASSO" no cadastro nao pode ficar com "C3 Excl. 1.6 Flex Aut" (caso TST1A23,
 // 23/out/2026), e um C3 sem PICASSO nao pode virar Picasso. Sedan, SW, hatch e
 // cabine ja tem filtro proprio. Fail-safe: se zera, volta a lista de antes.
 const VARIANTES = ['PICASSO', 'AIRCROSS']

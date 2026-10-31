@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
 
-// Worker do order_created: primeiro clique pela consulta gratis (EZJ9243),
+// Worker do order_created: primeiro clique pela consulta gratis (TST1A23),
 // motivo especifico gravado e reavaliacao do 'nao_enviado' generico antigo.
 
 let sb: ReturnType<typeof supabaseMemoria>
@@ -16,7 +16,7 @@ const agora = Date.now()
 const iso = (msAtras: number) => new Date(agora - msAtras).toISOString()
 const pedido = (extra: Record<string, any>) => ({
   token_entrega: 'tok', status: 'entregue', valor_centavos: 4490, plano: 'completa', email: 'a@b.com', pago_em: iso(60 * 60_000),
-  ambiente: 'producao', ip_address: null, google_play_order_id: null, oppref: null, obref: null, utm_source: null, placa: 'EZJ9243',
+  ambiente: 'producao', ip_address: null, google_play_order_id: null, oppref: null, obref: null, utm_source: null, placa: 'TST1A23',
   openai_capi_em: null, openai_capi_erro: null, ...extra,
 })
 
@@ -28,13 +28,13 @@ describe('worker openai-capi', () => {
     process.env.NUXT_OPENAI_ADS_DESDE = iso(30 * 24 * 60 * 60_000)
   })
 
-  it('EZJ9243: nao_enviado antigo com clique na consulta e reavaliado e enviado com o oppref da consulta', async () => {
-    sb.tab('pedidos_premium').push(pedido({ token_entrega: 'r_FICTICIO000000000000a', utm_source: 'chatgpt.com', openai_capi_em: iso(50 * 60_000), openai_capi_erro: 'nao_enviado' }))
-    sb.tab('consultas').push({ placa: 'EZJ9243', created_at: iso(68 * 60_000), oppref: 'opp_EZJ', obref: null, utm_source: 'chatgpt_ads' })
+  it('TST1A23: nao_enviado antigo com clique na consulta e reavaliado e enviado com o oppref da consulta', async () => {
+    sb.tab('pedidos_premium').push(pedido({ token_entrega: 'TesteTokenFicticio000001', utm_source: 'chatgpt.com', openai_capi_em: iso(50 * 60_000), openai_capi_erro: 'nao_enviado' }))
+    sb.tab('consultas').push({ placa: 'TST1A23', created_at: iso(68 * 60_000), oppref: 'opp_TST', obref: null, utm_source: 'chatgpt_ads' })
     await rodar()
     expect(fetchMock).toHaveBeenCalledOnce()
     const corpo = JSON.parse((fetchMock.mock.calls[0] as any)[1].body)
-    expect(corpo.events[0]).toMatchObject({ id: 'r_FICTICIO000000000000a', oppref: 'opp_EZJ' })
+    expect(corpo.events[0]).toMatchObject({ id: 'TesteTokenFicticio000001', oppref: 'opp_TST' })
     expect(sb.tab('pedidos_premium')[0].openai_capi_erro).toBeNull()
   })
 

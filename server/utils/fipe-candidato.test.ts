@@ -1294,7 +1294,7 @@ describe('fora da duvida so de cambio, juiz fora segue no fallback de sempre', (
   })
 })
 
-describe('EZJ9243 (C3 PICASSO EXC A, 23/out/2026): sufixo A = automatico e Picasso nao vira C3', () => {
+describe('TST1A23 (C3 PICASSO EXC A, 23/out/2026): sufixo A = automatico e Picasso nao vira C3', () => {
   // Nomes do caso real; so a versao certa (011111-2) teve o codigo conferido,
   // os outros codigos sao ilustrativos.
   const c3 = (codigo: string, modelo: string, score = 50) => ({ score, codigo_fipe: codigo, codigo_modelo: codigo.slice(0, 6), texto_modelo: modelo, texto_valor: 'R$ 30.000,00', texto_marca: 'Citroën', combustivel: 'Flex', mes_referencia: 'outubro de 2026' })
@@ -1343,7 +1343,7 @@ describe('EZJ9243 (C3 PICASSO EXC A, 23/out/2026): sufixo A = automatico e Picas
   })
 })
 
-describe('EZJ9243 com a lista real de prod: EXC casa com Excl. e decide por regra_versao (24/out/2026)', () => {
+describe('TST1A23 com a lista real de prod: EXC casa com Excl. e decide por regra_versao (24/out/2026)', () => {
   // Lista que o rebuild de prod trouxe depois do #631: variante tirou o C3
   // nao Picasso, o "A" tirou as Mec., sobravam Excl. Aut. e GLX Aut. e o juiz
   // decidia (haiku, confianca media). Com EXC = Excl./Exclusive a regra decide.
