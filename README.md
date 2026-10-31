@@ -26,8 +26,9 @@ Everything is in Brazilian Portuguese and built for mobile first (82% of paid tr
 | Repeat buyers | 22 |
 | Gross revenue from reports | R$ 13,438 |
 | Unique visitors per day (last week) | 1,800 to 2,800 |
-| Google organic, 3 months to 2026-10-02 | ~2,100 clicks, ~100,000 impressions |
-| Top ranking queries (Google, pos. 7 to 10) | "placa de carro", "consultar placa", "consulta placa gratis" |
+| Google organic, 3 months to 2026-10-29 | 10,221 clicks, 495,572 impressions, CTR 2.1%, avg. position 8.4 |
+| Google organic, last 28 days | 6,541 clicks, 311,190 impressions |
+| Top ranking queries (Google, pos. 6 to 7) | "consultar placa", "consulta placa", "placa de carro", "consultar placa de carro" |
 
 Numbers come from our production database and Google Search Console. Customer data is never in this repository.
 
