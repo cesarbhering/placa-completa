@@ -95,7 +95,7 @@ describe('opcoesDeCambio com a manual sem "Mec." (NJD2I54, BCK2C28)', () => {
 })
 
 describe('sufixo "A"/"M" no fim do nome (Cesar, 23/out/2026)', () => {
-  it('EZJ9243: "C3 PICASSO EXC A" e automatico', () => {
+  it('TST1A23: "C3 PICASSO EXC A" e automatico', () => {
     expect(cambioPorSufixo('CITROEN/C3 PICASSO EXC A')).toBe('automatico')
     expect(cambioDoNome('CITROEN/C3 PICASSO EXC A')).toBe('automatico')
   })

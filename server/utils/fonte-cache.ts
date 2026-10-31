@@ -3,6 +3,8 @@
 // recall 7 d, FIPE 7 d. So 'ok' e 'sem_dado' sao cacheados; falha nunca (a proxima chamada tenta de novo).
 // "consultadoEm" volta junto para o relatorio mostrar de quando e o dado.
 
+import { FONTE_CACHE_LEGADA } from './parceiro-leilao-env'
+
 const H = 60 * 60 * 1000
 const D = 24 * H
 
@@ -15,7 +17,7 @@ export const TTL_POR_FONTE: Array<[RegExp, number]> = [
   [/^fipe/, 7 * D],
   [/^nhtsa/, 30 * D],          // Lead 14/out: recall EUA cache 30 d
   [/^revisor_restricao_detran/, 365 * D], // veredito do Haiku por texto normalizado (16/out)
-  [/^avaliservice/, 30 * D],   // base parceira de leilao e sinistro (20/out): bruto inteiro
+  [new RegExp(`^${FONTE_CACHE_LEGADA}`), 30 * D], // base parceira de leilao e sinistro (20/out): bruto inteiro
   [/^agrupamento_recall/, 365 * D], // grupos do Haiku por conjunto de campanhas (20/out)
 ]
 

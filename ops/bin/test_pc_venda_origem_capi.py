@@ -1,4 +1,4 @@
-"""Linha "Conversao OpenAI" do pc-venda-origem e primeiro clique do ChatGPT (EZJ9243).
+"""Linha "Conversao OpenAI" do pc-venda-origem e primeiro clique do ChatGPT (TST1A23).
 Rodar: python3 -m unittest discover -s ops/bin -p 'test_*.py'  (nao toca banco nem e-mail)."""
 import importlib.machinery, importlib.util, os, unittest
 from unittest import mock
@@ -27,12 +27,12 @@ class LinhaCapi(unittest.TestCase):
 
 
 class PrimeiroClique(unittest.TestCase):
-    def test_ezj9243_volta_por_chatgpt_com_conta_como_chatgpt_ads(self):
+    def test_tst1a23_volta_por_chatgpt_com_conta_como_chatgpt_ads(self):
         # Consulta mais recente veio de chatgpt.com (sem oppref); a de 21:27 tinha o clique.
         respostas = [[{'gclid': None, 'utm_source': 'chatgpt.com', 'utm_medium': None, 'utm_campaign': None, 'oppref': None}], [{'?column?': 1}]]
         with mock.patch.object(m, '_cols', return_value='gclid,utm_source,utm_medium,utm_campaign,oppref'), \
              mock.patch.object(m, 'q', side_effect=lambda sql: respostas.pop(0)):
-            org = m._origem({'placa': 'EZJ9243', 'pago_em': '2026-10-24T00:35:00Z', 'consulta_id': None})
+            org = m._origem({'placa': 'TST1A23', 'pago_em': '2026-10-24T00:35:00Z', 'consulta_id': None})
         self.assertEqual(org, 'ChatGPT Ads (OpenAI, clique na consulta grátis)')
 
     def test_sem_clique_continua_a_origem_da_consulta(self):

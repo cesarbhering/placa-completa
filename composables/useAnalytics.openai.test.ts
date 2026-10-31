@@ -5,7 +5,7 @@ vi.stubGlobal('useRuntimeConfig', () => ({ public: { gated: false } }))
 const { trackOrderCreatedOpenAI } = await import('./useAnalytics')
 const { montarEvento } = await import('../server/utils/openai-capi')
 
-const pedido = { token: 'r_mJIKTTYZtWOeDaw8nYrAmG', status: 'entregue', plano: 'completa', valorCentavos: 4490, ambiente: 'producao', formaPagamento: 'pix' }
+const pedido = { token: 'TesteTokenFicticio000001', status: 'entregue', plano: 'completa', valorCentavos: 4490, ambiente: 'producao', formaPagamento: 'pix' }
 
 describe('order_created no pixel da OpenAI', () => {
   let oaiq: ReturnType<typeof vi.fn>
