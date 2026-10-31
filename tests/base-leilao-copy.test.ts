@@ -7,6 +7,10 @@ import { leilaoSemOcorrencia } from '../shared/leilao-copy'
 // Decisao do Cesar (07/out): base de leilao = "mais de 2 milhoes de registros
 // de leilao" (2.336.917 registros, 1.876.811 veiculos distintos). Nunca
 // "2 milhoes de veiculos".
+// Excecao aprovada pelo Cesar (31/out): o indicio de leilao do checkout B fala
+// em veiculos leiloados, nao em registros. So esta frase exata passa.
+const FRASES_APROVADAS = ['base de mais de 1 milhão de veículos leiloados']
+
 describe('copy da base de leilao', () => {
   it('constante', () => {
     expect(BASE_LEILAO_TEXTO).toBe('mais de 2 milhões de registros de leilão')
@@ -23,8 +27,16 @@ describe('copy da base de leilao', () => {
     for (const f of arquivos) {
       let s = ''
       try { s = readFileSync(f, 'utf8') } catch { continue }
+      for (const ok of FRASES_APROVADAS) s = s.split(ok).join('')
       if (/1 milh[aã]o de (ve[ií]culos|registros)|base de 1 milh|milh[oõ]es de ve[ií]culos leiloados|2 milh[oõ]es de ve[ií]culos/i.test(s)) ruins.push(f)
     }
     expect(ruins).toEqual([])
+  })
+  it('a excecao aprovada nao abre brecha para variacoes', () => {
+    const ruim = /1 milh[aã]o de (ve[ií]culos|registros)|base de 1 milh|milh[oõ]es de ve[ií]culos leiloados|2 milh[oõ]es de ve[ií]culos/i
+    const limpa = (t: string) => FRASES_APROVADAS.reduce((acc, ok) => acc.split(ok).join(''), t)
+    expect(ruim.test(limpa('Indício de leilão (base de mais de 1 milhão de veículos leiloados)'))).toBe(false)
+    expect(ruim.test(limpa('base de 1 milhão de veículos'))).toBe(true)
+    expect(ruim.test(limpa('mais de 1 milhão de registros de leilão'))).toBe(true)
   })
 })
