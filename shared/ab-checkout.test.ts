@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   AB_CHECKOUT_KEY, decidirVarianteCheckout, varianteCheckoutAtual, linhaRiscoB, DESBLOQUEIA_B, GARANTIA_B,
+  metodoInicialCheckout, ehCelular, gravarMetodoInicial, metodoInicialAtual, METODO_INICIAL_KEY,
 } from './ab-checkout'
 import { enfileirarEventoFunil, _filaFunil, _limparFilaFunil } from '~/composables/useAnalytics'
 
@@ -132,5 +133,51 @@ describe('PremiumInlineCheckout: variante B', () => {
     expect(src).toContain('<ul v-if="!varianteB" class="pic-conf">')
     expect(src).toContain('@click="salvarEmailNoPix"')
     expect(src).toMatch(/salvarEmailNoPix[\s\S]*\/api\/premium\/email[\s\S]*marcarEmailInformado\('pix'\)/)
+  })
+})
+
+describe('metodo inicial do checkout (B no celular abre no cartao, 01/nov/2026)', () => {
+  beforeEach(() => { vi.unstubAllGlobals(); _limparFilaFunil() })
+  const IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'
+  const ANDROID = 'Mozilla/5.0 (Linux; Android 14; SM-S911B) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36'
+  const ANDROID_TABLET = 'Mozilla/5.0 (Linux; Android 13; SM-X700) AppleWebKit/537.36 Chrome/120.0 Safari/537.36'
+  const IPAD = 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148'
+  const DESKTOP = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36'
+
+  it('celular + B + cartao disponivel = cartao; qualquer outro caso = pix', () => {
+    for (const varianteB of [true, false]) for (const celular of [true, false]) for (const cartaoDisponivel of [true, false]) {
+      const esperado = varianteB && celular && cartaoDisponivel ? 'cartao' : 'pix'
+      expect(metodoInicialCheckout({ varianteB, celular, cartaoDisponivel })).toBe(esperado)
+    }
+  })
+
+  it('ehCelular: iPhone e Android celular sim; tablet, iPad e computador nao', () => {
+    expect(ehCelular(IPHONE)).toBe(true)
+    expect(ehCelular(ANDROID)).toBe(true)
+    expect(ehCelular(ANDROID_TABLET)).toBe(false)
+    expect(ehCelular(IPAD)).toBe(false)
+    expect(ehCelular(DESKTOP)).toBe(false)
+    expect(ehCelular(DESKTOP, true)).toBe(true)
+    expect(ehCelular('')).toBe(false)
+  })
+
+  it('metodo_inicial vai em todo evento do funil depois de decidido', () => {
+    sessao('B')
+    enfileirarEventoFunil('premium_checkout_open', {})
+    gravarMetodoInicial('cartao')
+    expect(store.get(METODO_INICIAL_KEY)).toBe('cartao')
+    expect(metodoInicialAtual()).toBe('cartao')
+    enfileirarEventoFunil('checkout_confirm_visto', {})
+    enfileirarEventoFunil('email_informado', { extra: { onde: 'checkout' } })
+    const fila = _filaFunil()
+    expect(fila[0]?.extra?.metodo_inicial).toBeUndefined()
+    expect(fila[1]?.extra).toMatchObject({ ab_checkout: 'B', metodo_inicial: 'cartao' })
+    expect(fila[2]?.extra).toMatchObject({ onde: 'checkout', metodo_inicial: 'cartao' })
+  })
+
+  it('no app nada e carimbado', () => {
+    sessao(undefined, 'Mozilla/5.0 PlacaCompletaApp/3')
+    gravarMetodoInicial('pix')
+    expect(metodoInicialAtual()).toBeNull()
   })
 })
