@@ -150,6 +150,22 @@ async function buscarUniversoFipeApi(
   }
 }
 
+/**
+ * Universo da fipe-api com UMA nova tentativa quando a chamada falha (null).
+ * Uma oscilacao de segundos deixava o relatorio pago sem FIPE e sem lista
+ * (caso Onix 10TAT HB, 01/nov/2026). "[]" (respondeu e nao achou) nao repete.
+ */
+async function buscarUniversoComRetentativa(
+  marca: string,
+  ano: string | number,
+  fipeApiUrl: string,
+  fipeApiToken: string,
+): Promise<FipeCandidato[] | null> {
+  const primeira = await buscarUniversoFipeApi(marca, ano, fipeApiUrl, fipeApiToken)
+  if (primeira !== null || !marca || !ano || !fipeApiUrl) return primeira
+  return buscarUniversoFipeApi(marca, ano, fipeApiUrl, fipeApiToken)
+}
+
 // ---------------------------------------------------------------------------
 // Tabela FIPE (carros, motos, caminhoes).
 //
@@ -1133,7 +1149,7 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     // Fora da tabela de carros o texto_marca da fonte nao serve: no caminhao
     // VW ela devolveu "VW - VolksWagen", que e a marca de CARROS. Ai vale a
     // marca do registro traduzida pra tabela certa.
-    const marca = tabela === 'carros'
+    let marca = tabela === 'carros'
       ? (input.wdapi?.fipe?.dados?.[0]?.texto_marca
         || marcaParaFipeApi(marcaExibicao(input.wdapi) || marcaDoRegistro(input.senatran?.descricaoMarcaModelo)))
       : marcaParaFipeApi(
@@ -1143,14 +1159,29 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     const ano = input.wdapi?.anoModelo || input.senatran?.anoModelo
     if (!marca || !ano) return fallback()
 
-    let universoFipeApi = await buscarUniversoFipeApi(marca, ano, input.fipeApiUrl, input.fipeApiToken)
+    let universoFipeApi = await buscarUniversoComRetentativa(marca, ano, input.fipeApiUrl, input.fipeApiToken)
+    // Carro: o texto_marca da fonte nem sempre e o nome de carros da fipe-api
+    // ("CHEVROLET" e a marca de CAMINHOES; os carros estao em "GM - Chevrolet").
+    // Se o universo nao tem NENHUM carro com o nome do modelo, refaz com a
+    // marca do registro traduzida e fica com ela se ela tiver.
+    if (tabela === 'carros' && nome && universoFipeApi !== null
+      && !soDaTabela(universoFipeApi, tabela, nome).some((c) => nomeCasa(c.modelo, nome))) {
+      const alternativa = marcaParaFipeApi(marcaDoRegistro(input.senatran?.descricaoMarcaModelo) || marcaExibicao(input.wdapi))
+      if (alternativa && alternativa.toUpperCase() !== String(marca).toUpperCase()) {
+        const outro = await buscarUniversoComRetentativa(alternativa, ano, input.fipeApiUrl, input.fipeApiToken)
+        if (outro && soDaTabela(outro, tabela, nome).some((c) => nomeCasa(c.modelo, nome))) {
+          universoFipeApi = outro
+          marca = alternativa
+        }
+      }
+    }
     // Caminhao sem o modelo na tabela de caminhoes: pode ser van ou caminhao
     // leve que a FIPE lista entre os carros (Master, HR, Bongo). Busca tambem
     // la; o filtro abaixo so deixa entrar o que tiver o nome do modelo.
     if (tabela === 'caminhoes' && universoFipeApi !== null && nome
       && !universoFipeApi.some((c) => codigoDaTabela(c.codigo_fipe, 'caminhoes') && nomeCasa(c.modelo, nome))) {
       const marcaCarro = marcaParaFipeApi(marcaDoRegistro(input.senatran?.descricaoMarcaModelo) || marcaExibicao(input.wdapi))
-      const deCarro = marcaCarro ? await buscarUniversoFipeApi(marcaCarro, ano, input.fipeApiUrl, input.fipeApiToken) : null
+      const deCarro = marcaCarro ? await buscarUniversoComRetentativa(marcaCarro, ano, input.fipeApiUrl, input.fipeApiToken) : null
       if (deCarro) universoFipeApi = [...universoFipeApi, ...deCarro]
     }
     if (universoFipeApi === null) {
@@ -1244,9 +1275,17 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     // (21/out/2026, "HILUX CD4X4 SRV" 2008): SRV Mec. x SRV Aut. caia sempre no
     // fallback e o refazer recusava como "fipe-api instavel".
     const soCambio = !fatos.transmissao && !!opcoesDeCambio(filtrados)
-    const semAjuda = () => (candidatosDaWdapi(input.wdapi).length && !soCambio
-      ? fallback()
-      : { escolhido: null, decididoPor: 'ambiguo' as const, candidatos: filtrados.slice(0, 5), confianca: 'baixa' as const })
+    // O melhor score da fonte so vale se o funil tambem o aceitou: fora da
+    // lista ele ja foi descartado por cilindrada, carroceria ou cambio (um
+    // Onix Plus sedan pra um "ONIX 10TAT HB"), e sem ele o relatorio ficava
+    // sem FIPE e sem lista (01/nov/2026). Nesses casos: duvida honesta.
+    const semAjuda = (): FipeMelhorCandidatoResultado => {
+      const fb = fallback()
+      const naLista = !!fb.escolhido && filtrados.some((c) => c.codigo_fipe === fb.escolhido!.codigo_fipe)
+      return naLista && !soCambio
+        ? fb
+        : { escolhido: null, decididoPor: 'ambiguo', candidatos: filtrados.slice(0, 5), confianca: 'baixa' }
+    }
     if (!veredito) return semAjuda()
     // O juiz disse que nenhum candidato serve: resposta valida, nao falha.
     // Duvida honesta com a lista do funil (nunca o melhor score da fonte).
