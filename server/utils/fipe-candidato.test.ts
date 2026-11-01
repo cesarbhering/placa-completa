@@ -1678,3 +1678,95 @@ describe('Onix 1.0 Turbo 2020 (CHEV/ONIX 10TAT HB e irmaos)', () => {
     expect(r.escolhido?.codigo_fipe).toBe('002122-9')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Faixa + versao estimada (Cesar, 01/nov/2026). Universos reais da fipe-api.
+// ---------------------------------------------------------------------------
+import { filtrarAdventure, mesmaFamiliaFipe, versaoEstimadaFipe, FAMILIA_SPREAD_MAX } from './fipe-candidato'
+
+const BMW_MOTOS_2020 = ([
+  ['803067-7', 'F 750 GS Premium', 47443], ['803066-9', 'F 750 GS Sport', 45728],
+  ['803071-5', 'F 850 GS Adventure Premium', 56742], ['803069-3', 'F 850 GS Premium', 53701],
+  ['803062-6', 'G 310 GS', 26872], ['803060-0', 'G 310 R', 25021],
+  ['803075-8', 'R 1250 GS Adventure Premium', 84027], ['803076-6', 'R 1250 GS Adventure Premium Exclusive', 85299],
+  ['803077-4', 'R 1250 GS Adventure Premium HP', 84638], ['803074-0', 'R 1250 GS Premium Exclusive', 77517],
+  ['803073-1', 'R 1250 GS Premium HP', 80099], ['803072-3', 'R 1250 GS Sport', 74053],
+  ['803079-0', 'R 1250 RT Premium', 100821], ['803080-4', 'R 1250 RT Premium Spezial', 106433],
+  ['803056-1', 'S 1000 R', 68151], ['803058-8', 'S 1000 XR', 72946],
+] as const).map(([codigo_fipe, modelo, valor]) => ({ codigo_fipe, modelo, valor, combustivel: 'Gasolina', mes_referencia: 'outubro de 2026' }))
+
+const ONIX_HATCH_AUT = [
+  { codigo_fipe: '004511-0', modelo: 'ONIX HATCH 1.0 12V TB Flex 5p Aut.', valor: 60653 },
+  { codigo_fipe: '004514-4', modelo: 'ONIX HATCH LT 1.0 12V TB Flex 5p Aut.', valor: 63306 },
+  { codigo_fipe: '004515-2', modelo: 'ONIX HATCH LTZ 1.0 12V TB Flex 5p Aut.', valor: 65131 },
+  { codigo_fipe: '004516-0', modelo: 'ONIX HATCH PREM. 1.0 12V TB Flex 5p Aut.', valor: 67005 },
+]
+
+describe('Adventure / GSA so com ADV ou GSA no cadastro', () => {
+  const lista = BMW_MOTOS_2020.filter((c) => c.modelo.startsWith('R 1250 GS'))
+  it('"BMW/R1250GS": as tres Adventure saem', () => {
+    expect(filtrarAdventure(lista, 'BMW/R1250GS').map((c) => c.codigo_fipe)).toEqual(['803074-0', '803073-1', '803072-3'])
+  })
+  it('com ADV, ADVENTURE ou GSA no cadastro: nada sai', () => {
+    for (const d of ['BMW/R1250GS ADV', 'BMW/R1250GS ADVENTURE', 'BMW/R1250GSA']) expect(filtrarAdventure(lista, d)).toHaveLength(6)
+  })
+  it('candidato "GSA" sai de um cadastro so "GS"', () => {
+    const l = [{ modelo: 'R 1200 GS' }, { modelo: 'R 1200 GSA' }]
+    expect(filtrarAdventure(l, 'BMW/R1200GS').map((c) => c.modelo)).toEqual(['R 1200 GS'])
+  })
+  it('se o filtro zerasse a lista, volta a lista de antes', () => {
+    const so = lista.filter((c) => c.modelo.includes('Adventure'))
+    expect(filtrarAdventure(so, 'BMW/R1250GS')).toHaveLength(3)
+  })
+})
+
+describe('mesma familia e versao estimada', () => {
+  it('R1250GS sem as Adventure: 3 GS, faixa 74.053 a 80.099, estimada a do meio (Premium Exclusive)', () => {
+    const gs = filtrarAdventure(BMW_MOTOS_2020.filter((c) => c.modelo.startsWith('R 1250 GS')), 'BMW/R1250GS')
+    const est = versaoEstimadaFipe(gs, 'R1250GS')!
+    expect(est.candidato.codigo_fipe).toBe('803074-0')
+    expect(est).toMatchObject({ min: 74053, max: 80099 })
+  })
+  it('R1250GS com as 5 do caso real (74.053 a 85.299): mesma familia (15%), estimada a mediana (Premium HP)', () => {
+    const cinco = BMW_MOTOS_2020.filter((c) => c.modelo.startsWith('R 1250 GS') && c.codigo_fipe !== '803077-4')
+    const est = versaoEstimadaFipe(cinco, 'R1250GS')!
+    expect(est).toMatchObject({ min: 74053, max: 85299 })
+    expect(est.candidato.codigo_fipe).toBe('803073-1')
+  })
+  it('Onix 10TAT HB: 4 hatch Aut., faixa 60.653 a 67.005, estimada a de baixo das duas do meio (LT)', () => {
+    const est = versaoEstimadaFipe(ONIX_HATCH_AUT, 'ONIX')!
+    expect(est.candidato.codigo_fipe).toBe('004514-4')
+    expect(est).toMatchObject({ min: 60653, max: 67005 })
+  })
+  it('scooter 150 x moto grande: familias diferentes, sem estimativa', () => {
+    const l = [{ modelo: 'PCX 150', valor: 14000 }, { modelo: 'CB 1000R', valor: 58000 }]
+    expect(mesmaFamiliaFipe(l, 'PCX')).toBe(false)
+    expect(versaoEstimadaFipe(l, 'PCX')).toBeNull()
+  })
+  it('mesmo nome mas valores longe demais (> 25%): sem estimativa', () => {
+    expect(FAMILIA_SPREAD_MAX).toBe(0.25)
+    expect(mesmaFamiliaFipe([{ modelo: 'ZETA 1.0 Aut.', valor: 50000 }, { modelo: 'ZETA LTZ 1.0 Aut.', valor: 62500 }], 'ZETA')).toBe(true)
+    expect(mesmaFamiliaFipe([{ modelo: 'ZETA 1.0 Aut.', valor: 50000 }, { modelo: 'ZETA LTZ 1.0 Aut.', valor: 62501 }], 'ZETA')).toBe(false)
+  })
+  it('litragem, carroceria ou cambio diferentes: nao e a mesma familia', () => {
+    expect(mesmaFamiliaFipe([{ modelo: 'ONIX HATCH 1.0 Aut.', valor: 60000 }, { modelo: 'ONIX HATCH 1.4 Aut.', valor: 62000 }], 'ONIX')).toBe(false)
+    expect(mesmaFamiliaFipe([{ modelo: 'ONIX HATCH 1.0 Aut.', valor: 60000 }, { modelo: 'ONIX SEDAN Plus 1.0 Aut.', valor: 62000 }], 'ONIX')).toBe(false)
+    expect(mesmaFamiliaFipe([{ modelo: 'ONIX HATCH 1.0 Aut.', valor: 60000 }, { modelo: 'ONIX HATCH 1.0 Mec.', valor: 56000 }], 'ONIX')).toBe(false)
+  })
+  it('sem valor em algum candidato ou um so candidato: sem estimativa', () => {
+    expect(mesmaFamiliaFipe([{ modelo: 'ZETA 1.0', valor: 50000 }, { modelo: 'ZETA LT 1.0', valor: null }], 'ZETA')).toBe(false)
+    expect(mesmaFamiliaFipe([{ modelo: 'ZETA 1.0', valor: 50000 }], 'ZETA')).toBe(false)
+  })
+})
+
+describe('R1250GS pelo funil (moto)', () => {
+  beforeEach(() => { vi.unstubAllGlobals() })
+  it('"BMW/R1250GS" 2020: sem Adventure e sem RT, ambiguo entre as 3 GS', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).includes('/modelos')
+      ? { ok: true, json: async () => ({ data: BMW_MOTOS_2020 }) }
+      : { ok: false, json: async () => ({}) }) as any))
+    const r = await escolherMelhorFipe({ senatran: { descricaoMarcaModelo: 'BMW/R1250GS', anoModelo: 2020, cilindrada: 1254, descricaoTipoVeiculo: 'MOTOCICLETA' }, wdapi: null, fipeApiUrl: 'http://fipe', fipeApiToken: 't', segmento: 'moto' } as any)
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual(['803072-3', '803073-1', '803074-0'])
+  })
+})

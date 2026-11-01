@@ -715,7 +715,12 @@ function tokensDoModelo(descricao: unknown): string[] {
 function filtrarPorTokensDoModelo(universo: FipeCandidato[], tokens: string[]): FipeCandidato[] {
   if (!tokens.length) return universo
   const nome = tokens[0]
-  const comNome = universo.filter((c) => new RegExp(`\\b${escapeRegex(nome)}`, 'i').test(c.modelo) || nomeCasa(c.modelo, nome))
+  // Nome colado no cadastro ("R1250GS") x separado na FIPE ("R 1250 GS
+  // Sport"): casa pelo comeco do nome so com letras e numeros. So nome misto
+  // (letra + numero) e de 4+ caracteres, pra "R" nao casar com tudo.
+  const colado = /[A-Z]/i.test(nome) && /\d/.test(nome) && soAlnum(nome).length >= 4 ? soAlnum(nome) : null
+  const comNome = universo.filter((c) => new RegExp(`\\b${escapeRegex(nome)}`, 'i').test(c.modelo) || nomeCasa(c.modelo, nome)
+    || (!!colado && soAlnum(c.modelo).startsWith(colado)))
   if (!comNome.length) return []
   if (tokens.length < 2) return comNome
   // Com o segundo token (normalmente a cilindrada, "150") da pra separar
@@ -764,8 +769,69 @@ function extrairFatos(senatran: FipeMelhorCandidatoInput['senatran'], wdapi: any
   }
 }
 
+// ---------------------------------------------------------------------------
+// Adventure / GSA (Cesar, 01/nov/2026). "BMW/R1250GS" sem ADV no cadastro nao
+// e uma GS Adventure: as versoes Adventure (e GSA, a sigla da GS Adventure)
+// saem da lista. Cadastro com ADV, ADVENTURE ou GSA: nada sai. Se o filtro
+// zerar a lista, volta a lista de antes.
+// ---------------------------------------------------------------------------
+const RE_ADVENTURE_CANDIDATO = /\bADVENTURE\b|\bADV\b|\bGSA\b/i
+
+export function filtrarAdventure<T extends { modelo: string }>(candidatos: T[], descricao: unknown): T[] {
+  const d = String(descricao ?? '').toUpperCase()
+  const semMarca = d.includes('/') ? d.slice(d.indexOf('/') + 1) : d
+  if (/ADV|GSA/.test(semMarca.replace(/[^A-Z0-9]/g, ''))) return candidatos
+  const sem = candidatos.filter((c) => !RE_ADVENTURE_CANDIDATO.test(String(c.modelo || '')))
+  return sem.length ? sem : candidatos
+}
+
+// ---------------------------------------------------------------------------
+// Versao estimada (Cesar, 01/nov/2026). Duvida entre versoes da MESMA familia
+// (mesmo modelo e motorizacao, so o acabamento muda) nao deixa o relatorio sem
+// valor: mostra a faixa e usa a versao do meio (mediana por valor) como
+// estimativa. Familias diferentes (scooter 150 x moto grande) seguem sem valor.
+// Conservador: todos com o nome do modelo, mesma litragem, mesma carroceria,
+// mesmo cambio no nome, todos com valor e diferenca de ate 25% entre os
+// extremos.
+// ---------------------------------------------------------------------------
+export const FAMILIA_SPREAD_MAX = 0.25
+
+function cambioDoCandidato(modelo: string): 'a' | 'm' | '?' {
+  return candidatoEAutomatico(modelo) ? 'a' : candidatoEManual(modelo) ? 'm' : '?'
+}
+function carroceriaDoCandidato(modelo: string): string {
+  return candidatoESedan(modelo) ? 'sedan' : candidatoESw(modelo) ? 'sw' : 'outra'
+}
+
+export function mesmaFamiliaFipe(candidatos: Pick<FipeCandidato, 'modelo' | 'valor'>[], nomeModelo: string | null | undefined): boolean {
+  if (candidatos.length < 2) return false
+  const nome = soAlnum(String(nomeModelo || ''))
+  if (nome.length < 2) return false
+  if (!candidatos.every((c) => soAlnum(c.modelo).includes(nome) || nomeCasa(c.modelo, nome))) return false
+  const um = <T>(f: (m: string) => T) => new Set(candidatos.map((c) => f(String(c.modelo)))).size === 1
+  if (!um(litragemDoCandidato) || !um(carroceriaDoCandidato) || !um(cambioDoCandidato)) return false
+  const valores = candidatos.map((c) => Number(c.valor))
+  if (!valores.every((v) => Number.isFinite(v) && v > 0)) return false
+  return Math.max(...valores) / Math.min(...valores) - 1 <= FAMILIA_SPREAD_MAX
+}
+
+/**
+ * Versao do meio (por valor) quando a duvida e so de acabamento. Numero par:
+ * a de baixo das duas do meio (estimativa conservadora). null = familias
+ * diferentes, sem estimativa.
+ */
+export function versaoEstimadaFipe<T extends Pick<FipeCandidato, 'modelo' | 'valor'>>(
+  candidatos: T[],
+  nomeModelo: string | null | undefined,
+): { candidato: T; min: number; max: number } | null {
+  if (!mesmaFamiliaFipe(candidatos, nomeModelo)) return null
+  const ordem = [...candidatos].sort((a, b) => Number(a.valor) - Number(b.valor))
+  return { candidato: ordem[Math.floor((ordem.length - 1) / 2)], min: Number(ordem[0].valor), max: Number(ordem[ordem.length - 1].valor) }
+}
+
 function aplicarFunil(universo: FipeCandidato[], fatos: Fatos, opts: { semSigla?: boolean } = {}): FipeCandidato[] {
-  let restantes = universo
+  // Adventure/GSA so com ADV ou GSA no cadastro (vale pra moto e carro).
+  let restantes = filtrarAdventure(universo, fatos.descricao)
 
   // Moto nao passa pelo funil de carro. Cilindrada de moto nao vira "litragem"
   // (149cc nao e "1.4"), scooter nao tem carroceria sedan/hatch/SW e o cambio

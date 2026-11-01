@@ -9,7 +9,8 @@ const FORMATO = /^\d{6}-\d$/
 export function codigoFipeDoRelatorio(vc: any): string | null {
   if (!vc || !vc.fipe) return null
   const c = vc.fipeCandidato
-  if (c && (c.decididoPor === 'ambiguo' || c.confianca === 'baixa')) return null
+  // Versao estimada (mesma familia): o codigo e o da versao que deu o valor.
+  if (c && (c.decididoPor === 'ambiguo' || c.confianca === 'baixa') && !vc.fipeEstimada) return null
   const direto = String(vc.fipeCodigo || '').trim()
   if (FORMATO.test(direto)) return direto
   const modelo = String(vc.fipeModelo || '').trim().toLowerCase()

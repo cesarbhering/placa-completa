@@ -4,7 +4,7 @@ import { filtrarPeloNomeDoVeiculo } from '../../shared/versao-fipe'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { getSeguroEstimado } from './seguro-estimate'
 import { calcularICV5, inferirCategoria } from './icv5'
-import { escolherMelhorFipe, marcaDoRegistro, marcaParaFipeApi, comCodigoModelo, tabelaFipe, candidatoDaTabela, nomeDoModelo, type FipeMelhorCandidatoResultado } from './fipe-candidato'
+import { escolherMelhorFipe, marcaDoRegistro, marcaParaFipeApi, comCodigoModelo, tabelaFipe, candidatoDaTabela, nomeDoModelo, versaoEstimadaFipe, type FipeMelhorCandidatoResultado } from './fipe-candidato'
 
 // Valor FIPE, historico de depreciacao, seguro estimado e custo em 5 anos.
 //
@@ -47,6 +47,14 @@ export type ValorCusto = {
   fipeEscolhaCliente?: { codigo_fipe: string; modelo: string; cambio: 'manual' | 'automatico' | null; em: string; trocas: number } | null
   /** Quando a serie FIPE foi consultada na fipe-api (cache de 7 dias; Relatorio 2.0 "consultado em"). */
   fipeConsultadoEm?: string | null
+  /**
+   * Duvida so de acabamento (mesma familia, ver versaoEstimadaFipe): o valor,
+   * o historico e o custo sao os da versao do meio (mediana por valor), a tela
+   * mostra a faixa e a lista continua la pro cliente ajustar. Auditoria.
+   */
+  fipeEstimada?: boolean
+  /** Menor e maior valor FIPE entre as versoes da duvida (so com fipeEstimada). */
+  fipeFaixa?: { min: number; max: number } | null
 }
 
 // Fatos do SENATRAN usados pelo funil do melhor-candidato. So disponiveis no
@@ -153,6 +161,8 @@ export async function getValorCusto(
   const candidatosDoNome = semFipeNaFonte ? [] : filtrarPeloNomeDoVeiculo(lista!, fipeCandidatoOpts?.senatran?.descricaoMarcaModelo, (d: any) => String(d?.texto_modelo || ''))
   let melhor: any = semFipeNaFonte ? null : candidatosDoNome.reduce((b: any, i: any) => ((i.score || 0) > (b.score || 0) ? i : b), candidatosDoNome[0])
   let fipeCandidato: ValorCusto['fipeCandidato'] = null
+  let fipeEstimada = false
+  let fipeFaixa: ValorCusto['fipeFaixa'] = null
 
   // Melhor candidato via funil + Haiku: SO no fluxo pago (opts.ativo), com
   // fail-open total - qualquer problema aqui e `melhor` continua sendo o
@@ -213,7 +223,29 @@ export async function getValorCusto(
       // Ambiguo ou confianca baixa: nem o candidato da fonte vale. O valor,
       // o modelo e o historico ficam vazios e o relatorio diz que a versao
       // FIPE nao foi identificada. Valor errado e pior que valor nenhum.
-      if (resultado.decididoPor === 'ambiguo' || resultado.confianca === 'baixa') melhor = null
+      if (resultado.decididoPor === 'ambiguo' || resultado.confianca === 'baixa') {
+        melhor = null
+        // Mesma familia (so o acabamento muda): estima pela versao do meio e
+        // mostra a faixa. Familias diferentes seguem sem valor.
+        const est = versaoEstimadaFipe(resultado.candidatos, nome)
+        if (est) {
+          const marca = marcaParaFipeApi(marcaDoRegistro(fipeCandidatoOpts.senatran?.descricaoMarcaModelo) || marcaExibicao(dados), tabela)
+          let codigoModelo: string | null = est.candidato.codigoModelo || null
+          if (!codigoModelo) {
+            try { codigoModelo = (await comCodigoModelo(est.candidato, marca, config.fipeApiUrl, config.fipeApiToken)).codigoModelo || null } catch { codigoModelo = null }
+          }
+          melhor = {
+            codigo_fipe: est.candidato.codigo_fipe,
+            codigo_modelo: codigoModelo,
+            texto_modelo: est.candidato.modelo,
+            texto_valor: est.candidato.texto_valor || formatarReais(est.candidato.valor),
+            combustivel: est.candidato.combustivel,
+            mes_referencia: est.candidato.mes_referencia,
+          }
+          fipeEstimada = true
+          fipeFaixa = { min: est.min, max: est.max }
+        }
+      }
       if (resultado.decididoPor !== 'fallback') {
         fipeCandidato = {
           decididoPor: resultado.decididoPor,
@@ -310,5 +342,6 @@ export async function getValorCusto(
     custo5anos,
     fipeCandidato,
     fipeConsultadoEm,
+    ...(fipeEstimada ? { fipeEstimada: true, fipeFaixa } : {}),
   }
 }
