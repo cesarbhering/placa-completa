@@ -1,7 +1,7 @@
 import { PLANOS, isPlanoPago } from '~/shared/planos'
 import { dadosOrderCreated } from '~/shared/openai-evento'
 import { eventoPermitido, MAX_EVENTOS_POR_LOTE, type EventoFunil } from '~/shared/eventos-funil'
-import { origemDaSessao } from '~/shared/origem-trafego'
+import { origemDaSessao, sanearUtmContent } from '~/shared/origem-trafego'
 import { varianteAtual, AB_RODADA } from '~/shared/ab-bloco'
 import { decidirVarianteCheckout, varianteCheckoutAtual, metodoInicialAtual } from '~/shared/ab-checkout'
 import { analyticsAtivo } from '~/shared/analytics-tags'
@@ -146,13 +146,18 @@ export function enfileirarEventoFunil(evento: string, dados?: Omit<EventoNaFila,
   // confirmacao: dali em diante todo evento da visita leva o campo.
   const metodoInicial = metodoInicialAtual()
   if (metodoInicial) extra = { ...(extra || {}), metodo_inicial: metodoInicial }
+  // OpenAI Ads (100 variacoes do anuncio): a variacao vai no extra de todo
+  // evento da visita que veio de chatgpt_ads, pra medir funil por anuncio.
+  const origemSessao = dados?.origem ?? origemDaSessao() ?? null
+  const utmContent = utmContentDoChatgpt(origemSessao)
+  if (utmContent) extra = { ...(extra || {}), utm_content: utmContent }
   fila.push({
     ...(recallAtual ? { recall_sinal: recallAtual.sinal, recall_marca: recallAtual.marca } : {}),
     ...dados,
     evento,
     extra,
     sessao: dados?.sessao ?? idDaSessao(),
-    origem: dados?.origem ?? origemDaSessao() ?? null,
+    origem: origemSessao,
   })
   if (!ouvindoSaida && typeof window !== 'undefined') {
     ouvindoSaida = true
@@ -473,4 +478,10 @@ export const useAnalytics = () => {
     trackConversionPaga,
     trackRestricaoDesconhecida,
   }
+}
+
+/** utm_content saneado quando a visita veio do ChatGPT Ads (utm_source=chatgpt_ads); senao null. */
+export function utmContentDoChatgpt(origem: Record<string, any> | null | undefined): string | null {
+  if (!origem || String(origem.utm_source || '').trim().toLowerCase() !== 'chatgpt_ads') return null
+  return sanearUtmContent(origem.utm_content)
 }
