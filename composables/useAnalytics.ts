@@ -3,7 +3,7 @@ import { dadosOrderCreated } from '~/shared/openai-evento'
 import { eventoPermitido, MAX_EVENTOS_POR_LOTE, type EventoFunil } from '~/shared/eventos-funil'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { varianteAtual, AB_RODADA } from '~/shared/ab-bloco'
-import { decidirVarianteCheckout, varianteCheckoutAtual } from '~/shared/ab-checkout'
+import { decidirVarianteCheckout, varianteCheckoutAtual, metodoInicialAtual } from '~/shared/ab-checkout'
 import { analyticsAtivo } from '~/shared/analytics-tags'
 
 /**
@@ -142,6 +142,10 @@ export function enfileirarEventoFunil(evento: string, dados?: Omit<EventoNaFila,
   if (evento === 'premium_checkout_open') decidirVarianteCheckout()
   const abCheckout = varianteCheckoutAtual()
   if (abCheckout) extra = { ...(extra || {}), ab_checkout: abCheckout }
+  // Metodo com que a confirmacao abriu (pix | cartao), decidido na tela de
+  // confirmacao: dali em diante todo evento da visita leva o campo.
+  const metodoInicial = metodoInicialAtual()
+  if (metodoInicial) extra = { ...(extra || {}), metodo_inicial: metodoInicial }
   fila.push({
     ...(recallAtual ? { recall_sinal: recallAtual.sinal, recall_marca: recallAtual.marca } : {}),
     ...dados,

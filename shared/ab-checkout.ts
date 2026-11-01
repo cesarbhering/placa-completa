@@ -108,3 +108,48 @@ export function linhaRiscoB(preco: string): string {
 
 /** Linha abaixo do botao do Pix na variante B. */
 export const GARANTIA_B = 'Estorno automático se não acharmos o veículo · relatório em até 5 min'
+
+// ---------------------------------------------------------------------------
+// Metodo de pagamento inicial (Cesar, 01/nov/2026): na variante B, no celular
+// (web), a confirmacao abre com a aba Cartao ja selecionada e o Stripe
+// montado; o Pix fica a um toque na outra aba. Computador, variante A, app e
+// ambiente sem cartao seguem com Pix. A escolha vai em `metodo_inicial` em
+// todo evento do funil da visita, pra medir.
+// ---------------------------------------------------------------------------
+
+export type MetodoInicial = 'pix' | 'cartao'
+
+/** Chave em sessionStorage, ao lado de pc_ab_checkout. */
+export const METODO_INICIAL_KEY = 'pc_metodo_inicial'
+
+/**
+ * Celular pelo User-Agent, mesma regra de server/utils/dispositivo.ts:
+ * tablet (iPad, Android sem "mobile") NAO e celular. `mobileHint` e o
+ * navigator.userAgentData.mobile quando o navegador expoe.
+ */
+export function ehCelular(ua: string, mobileHint?: boolean): boolean {
+  const u = String(ua || '').toLowerCase()
+  if (/ipad|tablet|kindle|silk/.test(u) || (/android/.test(u) && !/mobile/.test(u))) return false
+  return mobileHint === true || /mobile|iphone|ipod|android/.test(u)
+}
+
+/** Celular + variante B + cartao disponivel (habilitado e com chave) = cartao. O resto = pix. */
+export function metodoInicialCheckout(o: { varianteB: boolean; celular: boolean; cartaoDisponivel: boolean }): MetodoInicial {
+  return o.varianteB && o.celular && o.cartaoDisponivel ? 'cartao' : 'pix'
+}
+
+/** Guarda o metodo inicial da visita (carimbado nos eventos do funil). */
+export function gravarMetodoInicial(m: MetodoInicial) {
+  try { storage()?.setItem(METODO_INICIAL_KEY, m) } catch { /* modo privado */ }
+}
+
+/** Metodo inicial ja decidido NESTA visita, ou null. No app, sempre null. */
+export function metodoInicialAtual(): MetodoInicial | null {
+  if (rodandoNoApp()) return null
+  try {
+    const v = storage()?.getItem(METODO_INICIAL_KEY)
+    return v === 'pix' || v === 'cartao' ? v : null
+  } catch {
+    return null
+  }
+}

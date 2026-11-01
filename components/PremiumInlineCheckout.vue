@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PLANOS, RECURSOS, precoDePromocao } from '~/shared/planos'
 import { origemDaSessao } from '~/shared/origem-trafego'
-import { decidirVarianteCheckout, DESBLOQUEIA_B, RISCO_B, RISCO_B_PARTES, GARANTIA_B, type VarianteAbCheckout } from '~/shared/ab-checkout'
+import { decidirVarianteCheckout, metodoInicialCheckout, ehCelular, gravarMetodoInicial, DESBLOQUEIA_B, RISCO_B, RISCO_B_PARTES, GARANTIA_B, type VarianteAbCheckout } from '~/shared/ab-checkout'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora } from '~/composables/useAnalytics'
 import type { CompraPlay } from '~/composables/usePlayBilling'
 import {
@@ -215,8 +215,39 @@ function ctxFunil() {
 // agora so existia no gtag: sem isto nao da pra separar "nem abriu o checkout"
 // de "abriu e parou na confirmacao".
 watch(step, (novo) => {
-  if (novo === 'confirm') enfileirarEventoFunil('checkout_confirm_visto', ctxFunil())
+  if (novo !== 'confirm') return
+  // Metodo inicial decidido ANTES do evento, pra ele ja sair carimbado.
+  const inicial = decidirMetodoInicial()
+  enfileirarEventoFunil('checkout_confirm_visto', ctxFunil())
+  if (inicial === 'cartao') void abrirNoCartao()
 })
+
+// Variante B no celular (web) abre no Cartao (Cesar, 01/nov/2026). Regra pura
+// em shared/ab-checkout.ts (metodoInicialCheckout); aqui so os sinais.
+function decidirMetodoInicial(): 'pix' | 'cartao' {
+  let celular = false
+  try {
+    const nav = (globalThis as any).navigator
+    celular = ehCelular(String(nav?.userAgent || ''), nav?.userAgentData?.mobile)
+  } catch { /* sem navigator: pix */ }
+  const cartaoDisponivel = cartaoHabilitado.value && !!String(cfg.public.stripePublishableKey || '')
+  const m = metodoInicialCheckout({ varianteB: varianteB.value, celular, cartaoDisponivel })
+  gravarMetodoInicial(m)
+  return m
+}
+
+// Abre a aba Cartao e monta o Stripe (selecionarCartao e idempotente). Se o
+// Stripe nao carregar, volta pro Pix sem mensagem: a pessoa nem escolheu cartao.
+async function abrirNoCartao() {
+  await nextTick()
+  await selecionarCartao()
+  if (!cartaoMontado && metodo.value === 'cartao') {
+    metodo.value = 'pix'
+    erroCartao.value = ''
+    // Daqui pra frente os eventos dizem que a tela ficou no Pix.
+    gravarMetodoInicial('pix')
+  }
+}
 
 // Informou e-mail (no checkout ou na tela do Pix). SO a marca de que informou:
 // o endereco em si nunca sai daqui.
