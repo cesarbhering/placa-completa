@@ -11,6 +11,9 @@ export function fipeEIncerta(vc: any): boolean {
   // O cliente indicou a versao do carro dele (manual x automatico): deixa de
   // ser duvida, o relatorio mostra o valor dessa versao.
   if (vc?.fipeEscolhaCliente && vc?.fipe) return false
+  // Duvida so de acabamento: o relatorio mostra a faixa e o valor da versao
+  // estimada (valorCusto.fipeEstimada), com a lista pra conferir.
+  if (vc?.fipeEstimada && vc?.fipe) return false
   if (c.decididoPor === 'ambiguo' || c.confianca === 'baixa') return true
   return !!vc?.fipeNaoLocalizado && !vc?.fipe && Array.isArray(c.candidatos) && c.candidatos.length > 1
 }

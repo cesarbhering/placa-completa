@@ -9,7 +9,14 @@ import { ref, reactive } from 'vue'
 const props = defineProps<{
   versoes: { codigo_fipe: string; modelo: string; valor: number | null }[]
   token: string
+  /** Codigo da versao estimada (valorCusto.fipeEstimada): ganha o selo. */
+  estimada?: string | null
+  /** Mostra "Usar esta versão" em cada uma (fluxo /api/premium/fipe-escolha). */
+  podeEscolher?: boolean
+  /** Codigo sendo gravado agora (trava os botoes). */
+  escolhendo?: string | null
 }>()
+const emit = defineEmits<{ escolher: [codigo: string] }>()
 
 type Estado = { status: 'carregando' | 'ok' | 'vazio' | 'erro'; pontos: { label: string; price: number }[] }
 const aberto = ref<string | null>(null)
@@ -48,7 +55,7 @@ function alternar(codigo: string) {
         :aria-controls="painelId(c.codigo_fipe)"
         @click="alternar(c.codigo_fipe)"
       >
-        <span class="vc__modelo">{{ c.modelo }}</span>
+        <span class="vc__modelo">{{ c.modelo }}<span v-if="estimada === c.codigo_fipe" class="vc__tag">versão estimada</span></span>
         <span class="vc__valor">{{ c.valor ? brl(c.valor) : '-' }}</span>
         <svg class="vc__seta" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
       </button>
@@ -63,6 +70,15 @@ function alternar(codigo: string) {
           <button type="button" class="vc__tentar" @click="carregar(c.codigo_fipe)">Tentar de novo</button>
         </p>
         <p v-else class="vc__msg">Histórico de preço indisponível para esta versão.</p>
+        <button
+          v-if="podeEscolher && estimada !== c.codigo_fipe"
+          type="button"
+          class="vc__usar"
+          :disabled="!!escolhendo"
+          @click="emit('escolher', c.codigo_fipe)"
+        >
+          {{ escolhendo === c.codigo_fipe ? 'Atualizando…' : 'Esta é a versão do meu veículo' }}
+        </button>
       </div>
     </li>
   </ul>
@@ -75,6 +91,33 @@ $c-hair: #e8e8e8;
 $c-azul: #1f6feb;
 
 .vc { list-style: none; margin: 0; padding: 0; }
+
+.vc__tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fff4d6;
+  color: #7a5600;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: 1px;
+}
+
+.vc__usar {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid $c-azul;
+  border-radius: 8px;
+  background: #fff;
+  color: $c-azul;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:disabled { opacity: .6; cursor: default; }
+}
 
 .vc__item { border-bottom: 1px solid $c-hair; }
 .vc__item:last-child { border-bottom: 0; }

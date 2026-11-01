@@ -48,6 +48,33 @@ const VALOR_CUSTO_FIPE_INCERTA: any = {
   },
 }
 
+// Amostra "_amostra-fipe-estimada" (dev): duvida so de acabamento, a tela
+// mostra a faixa e a versao do meio como estimada (valorCusto.fipeEstimada).
+// Valores sinteticos, so pra revisar a tela.
+const VALOR_CUSTO_FIPE_ESTIMADA: any = {
+  fipe: 'R$ 55.200,00',
+  fipeModelo: 'Gol Track 1.0 Flex 12V 5p',
+  fipeCodigo: '005480-1',
+  historico: [
+    { label: 'Nov/24', price: 58900 }, { label: 'Mai/25', price: 57600 }, { label: 'Nov/25', price: 56500 }, { label: 'Mai/26', price: 55800 }, { label: 'Out/26', price: 55200 },
+  ],
+  quedaAno: -6.3,
+  seguroAnual: 3100,
+  percentualFipe: 5.6,
+  custo5anos: 26000,
+  fipeEstimada: true,
+  fipeFaixa: { min: 52400, max: 57900 },
+  fipeCandidato: {
+    decididoPor: 'ambiguo',
+    confianca: 'baixa',
+    candidatos: [
+      { codigo_fipe: '005479-8', modelo: 'Gol 1.0 Flex 12V 5p', valor: 52400 },
+      { codigo_fipe: '005480-1', modelo: 'Gol Track 1.0 Flex 12V 5p', valor: 55200 },
+      { codigo_fipe: '005481-0', modelo: 'Gol Last Edition 1.0 Flex 12V 5p', valor: 57900 },
+    ],
+  },
+}
+
 // Perfil do veiculo da amostra pra consulta de leilao. O payload as vezes vem
 // como array de um elemento (mesmo formato cru da consulta), entao normaliza
 // antes de ler os campos.
@@ -98,7 +125,9 @@ export default defineEventHandler(async (event) => {
       // com um pedido real nesse estado. Dev-only, como todo este ramo.
       valorCusto: String(token) === '_amostra-fipe-incerta'
         ? VALOR_CUSTO_FIPE_INCERTA
-        : amostraValorCusto[String(token)],
+        : String(token) === '_amostra-fipe-estimada'
+          ? VALOR_CUSTO_FIPE_ESTIMADA
+          : amostraValorCusto[String(token)],
       // A amostra tambem consulta o historico de leilao quando o servico esta
       // configurado: e por aqui que da pra ver a secao renderizada sem gerar
       // pedido pago. Sem env, volta null e a secao nao aparece.

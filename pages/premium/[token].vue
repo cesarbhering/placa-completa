@@ -1217,7 +1217,15 @@ const versoesCompativeis = computed(() => {
   // TRACKER nao lista ONIX, XEi nao lista SE-G, CS nao lista CD. Vale pra
   // relatorio ja entregue.
   const daTabela = lista.filter((c: any) => codigoDaTabela(c?.codigo_fipe, tabela))
-  return versoesParaExibir(daTabela, g('descricaoMarcaModelo')).slice(0, 3)
+  // Versao estimada: a lista inteira da duvida (ate 5) pra conferir e ajustar.
+  return versoesParaExibir(daTabela, g('descricaoMarcaModelo')).slice(0, vc.value?.fipeEstimada ? 5 : 3)
+})
+// Duvida so de acabamento (valorCusto.fipeEstimada): valor da versao do meio,
+// faixa entre a mais barata e a mais cara, e a lista pra o cliente ajustar.
+const fipeEstimada = computed(() => !!vc.value?.fipeEstimada && !!vc.value?.fipe && !vc.value?.fipeEscolhaCliente)
+const faixaFipe = computed(() => {
+  const f = vc.value?.fipeFaixa
+  return fipeEstimada.value && f && Number.isFinite(f.min) && Number.isFinite(f.max) ? f : null
 })
 // Camada 3: duvida SO de cambio (uma versao manual e uma automatica). A tela
 // pergunta e o cliente toca na do carro dele; valor, historico, queda e
@@ -3176,7 +3184,9 @@ onUnmounted(() => {
               <div v-if="vc?.fipe" class="rel__valor">
                 <span class="rel__valor-k">Valor FIPE</span>
                 <span class="rel__valor-v">{{ vc.fipe }}</span>
-                <span v-if="vc.fipeModelo" class="rel__valor-nota">{{ vc.fipeModelo }}</span>
+                <span v-if="vc.fipeModelo" class="rel__valor-nota">{{ vc.fipeModelo }}<span v-if="fipeEstimada" class="rel__estimada-tag">versão estimada</span></span>
+                <span v-if="faixaFipe" class="rel__valor-nota rel__faixa">FIPE entre {{ brl(faixaFipe.min) }} e {{ brl(faixaFipe.max) }}</span>
+                <span v-if="fipeEstimada" class="rel__valor-nota">Valor FIPE estimado pela versão mais provável. Confira a versão abaixo.</span>
                 <span v-if="codigoFipe" class="rel__valor-nota">Código FIPE: {{ codigoFipe }}</span>
                 <span v-if="dadosFipe" class="rel__valor-nota rel__dados-de">{{ dadosFipe }}</span>
                 <span v-if="escolhaCambio?.cambio" class="rel__valor-nota">
@@ -3221,9 +3231,17 @@ onUnmounted(() => {
                  com risco de erro, mostra as versoes compativeis com a
                  configuracao do veiculo (cilindrada/carroceria) e deixa a
                  decisao final com quem esta lendo. -->
-            <div v-if="fipeIncerta && versoesCompativeis.length > 1" class="rel__fipe-ambiguo">
+            <div v-if="(fipeIncerta || fipeEstimada) && versoesCompativeis.length > 1" class="rel__fipe-ambiguo">
               <span class="rel__sub">Versões compatíveis</span>
-              <VersoesCompativeis :versoes="versoesCompativeis" :token="token" />
+              <VersoesCompativeis
+                :versoes="versoesCompativeis"
+                :token="token"
+                :estimada="fipeEstimada ? (vc?.fipeCodigo ?? null) : null"
+                :pode-escolher="fipeEstimada"
+                :escolhendo="escolhendoCambio"
+                @escolher="escolherCambio"
+              />
+              <p v-if="fipeEstimada && erroEscolhaCambio" class="rel__cambio-erro">{{ erroEscolhaCambio }}</p>
             </div>
 
             <div v-if="temGrafico && !fipeIncerta" class="rel__dep">
@@ -4378,6 +4396,21 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     font-size: calc(12px * var(--rel-fs, 1));
     color: $c-graphite;
   }
+
+  // Versao estimada (mesma familia): selo ao lado do modelo e a faixa.
+  &__estimada-tag {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #fff4d6;
+    color: #7a5600;
+    font-size: calc(11px * var(--rel-fs, 1));
+    font-weight: 600;
+    vertical-align: 1px;
+  }
+
+  &__faixa { color: $c-ink; font-weight: 500; }
 
   &__dep {
     margin-top: 20px;

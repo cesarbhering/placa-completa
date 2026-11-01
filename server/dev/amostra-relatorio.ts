@@ -147,5 +147,8 @@ export const AMOSTRAS: Record<string, { placa: string; uf: string; municipio: st
   // Mesmo veiculo da amostra padrao; o que muda e o valorCusto, forcado pra
   // "versao FIPE nao identificada" no report.get. Serve pra revisar essa tela.
   '_amostra-fipe-incerta': { placa: 'QNA3903', uf: 'MG', municipio: 'Belo Horizonte', payload: AMOSTRA_QNA3903 },
+  // Mesmo veiculo da amostra padrao (MG, sem espera do DETRAN), com a FIPE
+  // estimada pela versao do meio (faixa + lista pra ajustar). Revisar a tela.
+  '_amostra-fipe-estimada': { placa: 'QNA3903', uf: 'MG', municipio: 'Belo Horizonte', payload: AMOSTRA_QNA3903 },
   '_amostra-notificado': { placa: 'AIC2103', uf: 'RJ', municipio: 'Rio de Janeiro', payload: AMOSTRA_NOTIFICADO },
 }
