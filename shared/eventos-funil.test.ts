@@ -109,3 +109,11 @@ describe('recall_sinal / recall_marca', () => {
     expect(sanearEvento({ evento: 'recall_sinal_visto' })).not.toBeNull()
   })
 })
+
+describe('extra.utm_content (OpenAI Ads, 01/nov/2026)', () => {
+  it('utm_content no extra vai ate 120; as outras chaves seguem em 80', () => {
+    const e = sanearEvento({ evento: 'resultado_exibido', extra: { utm_content: 'v'.repeat(200), outra: 'o'.repeat(200) } })!
+    expect(String(e.extra?.utm_content)).toHaveLength(120)
+    expect(String(e.extra?.outra)).toHaveLength(80)
+  })
+})

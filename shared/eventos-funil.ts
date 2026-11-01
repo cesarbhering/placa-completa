@@ -122,7 +122,7 @@ export function sanearEvento(bruto: unknown): EventoFunilSaneado | null {
       if (n >= 8) break
       const chave = k.toLowerCase()
       if (PROIBIDOS.has(chave)) continue
-      if (typeof v === 'string') saida[chave] = v.slice(0, 80)
+      if (typeof v === 'string') saida[chave] = v.slice(0, chave === 'utm_content' ? 120 : 80)
       else if (typeof v === 'number' && Number.isFinite(v)) saida[chave] = v
       else if (typeof v === 'boolean') saida[chave] = v
       else continue

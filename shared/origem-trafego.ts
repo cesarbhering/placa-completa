@@ -11,6 +11,8 @@ export interface OrigemTrafego {
   utm_source: string | null
   utm_medium: string | null
   utm_campaign: string | null
+  /** Variacao do anuncio (OpenAI Ads, 100 variacoes): texto saneado, ate 120. */
+  utm_content: string | null
   /** OpenAI Ads (ChatGPT): id de atribuicao do clique, vem na URL (?oppref=). */
   oppref: string | null
   /** OpenAI Ads: cookie __obref do pixel (referencia do navegador). */
@@ -24,7 +26,7 @@ export interface OrigemTrafego {
 }
 
 /** Campos lidos da URL, na ordem em que aparecem na tabela. */
-export const CAMPOS_ORIGEM = ['gclid', 'msclkid', 'utm_source', 'utm_medium', 'utm_campaign', 'oppref'] as const
+export const CAMPOS_ORIGEM = ['gclid', 'msclkid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'oppref'] as const
 
 const LIMITES: Record<(typeof CAMPOS_ORIGEM)[number], number> = {
   gclid: 200,
@@ -32,7 +34,20 @@ const LIMITES: Record<(typeof CAMPOS_ORIGEM)[number], number> = {
   utm_source: 100,
   utm_medium: 100,
   utm_campaign: 150,
+  utm_content: 120,
   oppref: 1000,
+}
+
+export const UTM_CONTENT_MAX = 120
+
+/**
+ * utm_content (variacao do anuncio): texto livre vindo da URL. Tira caractere
+ * de controle, junta espacos, corta em 120. Vazio vira null.
+ */
+export function sanearUtmContent(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const s = v.replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, UTM_CONTENT_MAX).trim()
+  return s || null
 }
 
 /**
@@ -55,6 +70,7 @@ export function sanearOrigem(bruto: unknown): OrigemTrafego {
   const saida = {} as OrigemTrafego
   for (const campo of CAMPOS_ORIGEM) {
     if (campo === 'oppref') continue
+    if (campo === 'utm_content') { saida.utm_content = sanearUtmContent(o.utm_content); continue }
     const v = o[campo]
     saida[campo] = typeof v === 'string' && v.trim() ? v.slice(0, LIMITES[campo]) : null
   }
