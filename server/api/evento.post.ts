@@ -15,10 +15,16 @@ import { getDispositivo } from '../utils/dispositivo'
  *    rota e publica e sem autenticacao.
  * 3) sem PII. O e-mail nunca chega aqui, o User-Agent vira categoria e o IP
  *    vira hash com sal do servidor, so pra dedupe.
+ *
+ * Sonda do checkout (pc-checkout-probe, no host, a cada 30 min): manda
+ * `x-pc-sonda: 1` e nao entra no funil (01/nov/2026). Antes ela contava como
+ * visitante organico que abre o checkout e nao paga (123 aberturas em 7 dias).
  */
 export default defineEventHandler(async (event) => {
   setResponseStatus(event, 204)
   try {
+    // Sonda: responde igual (204) e nao grava nada.
+    if (String(getHeader(event, 'x-pc-sonda') ?? '').trim() === '1') return null
     const eventos = sanearLote(await readBody(event).catch(() => null))
     if (!eventos.length) return null
 
