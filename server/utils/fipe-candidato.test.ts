@@ -671,15 +671,33 @@ describe('timeout proprio da fipe-api', () => {
     expect(r.decididoPor).toBe('regra')
     expect(r.escolhido?.codigo_fipe).toBe('002122-9')
   })
-  it('acima de 8 s: fallback', async () => {
+  it('acima de 8 s nas duas tentativas: fallback', async () => {
     vi.useFakeTimers()
-    vi.stubGlobal('fetch', vi.fn((url: string, opts: any) => new Promise((resolve, reject) => {
+    const f = vi.fn((url: string, opts: any) => new Promise((resolve, reject) => {
       opts?.signal?.addEventListener('abort', () => reject(new Error('aborted')))
       setTimeout(() => resolve({ ok: true, json: async () => ({ data: FIPE_API_ETIOS_2014 }) }), 9000)
-    })))
+    }))
+    vi.stubGlobal('fetch', f)
     const p = escolherMelhorFipe({ senatran: SENATRAN_OXK7426, wdapi: WDAPI_OXK7426, fipeApiUrl: 'http://fipe', fipeApiToken: 't' })
-    await vi.advanceTimersByTimeAsync(9100)
+    await vi.advanceTimersByTimeAsync(8100)
+    await vi.advanceTimersByTimeAsync(8100)
     expect((await p).decididoPor).toBe('fallback')
+    expect(f.mock.calls.filter(([u]) => String(u).includes('/modelos'))).toHaveLength(2)
+  })
+  it('1a tentativa falha e a 2a responde: segue o funil normal', async () => {
+    let n = 0
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) {
+        n++
+        if (n === 1) return { ok: false, json: async () => ({}) } as any
+        return { ok: true, json: async () => ({ data: FIPE_API_ETIOS_2014 }) } as any
+      }
+      return { ok: false, json: async () => ({}) } as any
+    }))
+    const r = await escolherMelhorFipe({ senatran: SENATRAN_OXK7426, wdapi: WDAPI_OXK7426, fipeApiUrl: 'http://fipe', fipeApiToken: 't' })
+    expect(n).toBe(2)
+    expect(r.decididoPor).toBe('regra')
+    expect(r.escolhido?.codigo_fipe).toBe('002122-9')
   })
 })
 
@@ -1555,5 +1573,108 @@ describe('eixos pelo nome da versao FIPE (tracao 4x2/6x2/6x4/8x2)', () => {
     // sem eixos no registro ou nada compativel: lista intacta
     expect(filtrarPorEixos(lista, null)).toHaveLength(3)
     expect(filtrarPorEixos(lista, 5)).toHaveLength(3)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Onix 1.0 Turbo 2020 pelo nome do cadastro (01/nov/2026). Universo real da
+// fipe-api (GET /modelos?marca=GM - Chevrolet&ano=2020), so os Onix. Sem placa.
+// ---------------------------------------------------------------------------
+const FIPE_API_ONIX_2020 = [
+  ['004519-5', 'ONIX HATCH 1.0 12V Flex 5p Mec.'],
+  ['004511-0', 'ONIX HATCH 1.0 12V TB Flex 5p Aut.'],
+  ['004473-3', 'ONIX HATCH Joy 1.0 8V Flex 5p Mec.'],
+  ['004517-9', 'ONIX HATCH LT 1.0 12V Flex 5p Mec.'],
+  ['004514-4', 'ONIX HATCH LT 1.0 12V TB Flex 5p Aut.'],
+  ['004512-8', 'ONIX HATCH LT 1.0 12V TB Flex 5p Mec.'],
+  ['004515-2', 'ONIX HATCH LTZ 1.0 12V TB Flex 5p Aut.'],
+  ['004513-6', 'ONIX HATCH LTZ 1.0 12V TB Flex 5p Mec.'],
+  ['004516-0', 'ONIX HATCH PREM. 1.0 12V TB Flex 5p Aut.'],
+  ['004504-7', 'ONIX SED. Plus PREM. 1.0 12V TB Flex Aut'],
+  ['004499-7', 'ONIX SEDAN Plus 1.0 12V TB Flex Aut.'],
+  ['004518-7', 'ONIX SEDAN Plus LT 1.0 12V Flex 4p Mec.'],
+  ['004501-2', 'ONIX SEDAN Plus LT 1.0 12V TB Flex Aut.'],
+  ['004500-4', 'ONIX SEDAN Plus LT 1.0 12V TB Flex Mec.'],
+  ['004502-0', 'ONIX SEDAN Plus LTZ 1.0 12V TB Flex Aut.'],
+  ['004503-9', 'ONIX SEDAN Plus LTZ 1.0 12V TB Flex Mec.'],
+].map(([codigo_fipe, modelo]) => ({ codigo_fipe, modelo, valor: 70000, combustivel: 'Flex', mes_referencia: 'outubro de 2026' }))
+
+const HATCH_TB_AUT = ['004511-0', '004514-4', '004515-2', '004516-0']
+
+function fetchOnix(opts: { marcasAceitas?: string[]; haiku?: 'falha' | 'fora' } = {}) {
+  const pedidas: string[] = []
+  const f = vi.fn(async (url: string) => {
+    const u = String(url)
+    if (u.includes('/modelos')) {
+      const marca = decodeURIComponent(u.match(/marca=([^&]+)/)?.[1] || '')
+      pedidas.push(marca)
+      const ok = (opts.marcasAceitas ?? ['GM - Chevrolet']).includes(marca)
+      return { ok: true, json: async () => ({ data: ok ? FIPE_API_ONIX_2020 : [] }) } as any
+    }
+    if (u.includes('anthropic')) {
+      if (opts.haiku === 'falha') throw new Error('timeout')
+      return { ok: true, json: async () => ({ content: [{ type: 'text', text: JSON.stringify({ codigo_fipe: '999999-9', confianca: 'alta', justificativa: 'x' }) }] }) } as any
+    }
+    return { ok: false, json: async () => ({}) } as any
+  })
+  vi.stubGlobal('fetch', f)
+  return pedidas
+}
+
+const sen = (descricaoMarcaModelo: string) => ({ descricaoMarcaModelo, anoModelo: 2020, cilindrada: 999 })
+
+describe('Onix 1.0 Turbo 2020 (CHEV/ONIX 10TAT HB e irmaos)', () => {
+  beforeEach(() => { vi.unstubAllGlobals() })
+
+  it('"CHEV/ONIX 10TAT HB": CHEV vira "GM - Chevrolet", 10TAT = 1.0 TB Aut., HB tira os sedans', async () => {
+    const pedidas = fetchOnix()
+    const r = await escolherMelhorFipe({ senatran: sen('CHEV/ONIX 10TAT HB'), wdapi: null, fipeApiUrl: 'http://fipe', fipeApiToken: 't' })
+    expect(pedidas[0]).toBe('GM - Chevrolet')
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual([...HATCH_TB_AUT].sort())
+  })
+
+  it('"CHEV/ONIX 10TMT LT": hatch LT 1.0 TB Mec. direto', async () => {
+    fetchOnix()
+    const r = await escolherMelhorFipe({ senatran: sen('CHEV/ONIX 10TMT LT'), wdapi: null, fipeApiUrl: 'http://fipe', fipeApiToken: 't' })
+    expect(r.escolhido?.codigo_fipe).toBe('004512-8')
+    expect(r.confianca).toBe('alta')
+  })
+
+  it('"CHEV/ONIX PLUS 10TAT PR": sedan Plus Premier Aut. direto', async () => {
+    fetchOnix()
+    const r = await escolherMelhorFipe({ senatran: sen('CHEV/ONIX PLUS 10TAT PR'), wdapi: null, fipeApiUrl: 'http://fipe', fipeApiToken: 't' })
+    expect(r.escolhido?.codigo_fipe).toBe('004504-7')
+  })
+
+  it('juiz fora e a fonte so tem um sedan: nao escolhe o sedan, devolve a lista dos 4 hatch', async () => {
+    fetchOnix({ haiku: 'falha' })
+    const wdapi = { marca: 'CHEVROLET', anoModelo: '2020', fipe: { dados: [{ score: 70, codigo_fipe: '004499-7', texto_modelo: 'ONIX SEDAN Plus 1.0 12V TB Flex Aut.', texto_valor: 'R$ 70.000,00', texto_marca: 'GM - Chevrolet' }] } }
+    const r = await escolherMelhorFipe({ senatran: sen('CHEV/ONIX 10TAT HB'), wdapi, fipeApiUrl: 'http://fipe', fipeApiToken: 't', anthropicApiKey: 'k' })
+    expect(r.escolhido).toBeNull()
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual([...HATCH_TB_AUT].sort())
+  })
+
+  it('juiz devolve codigo fora da lista e a fonte tem um hatch da lista: fica com ele (fallback)', async () => {
+    fetchOnix({ haiku: 'fora' })
+    const wdapi = { marca: 'CHEVROLET', anoModelo: '2020', fipe: { dados: [{ score: 60, codigo_fipe: '004514-4', texto_modelo: 'ONIX HATCH LT 1.0 12V TB Flex 5p Aut.', texto_valor: 'R$ 70.000,00', texto_marca: 'GM - Chevrolet' }] } }
+    const r = await escolherMelhorFipe({ senatran: sen('CHEV/ONIX 10TAT HB'), wdapi, fipeApiUrl: 'http://fipe', fipeApiToken: 't', anthropicApiKey: 'k' })
+    expect(r.decididoPor).toBe('fallback')
+    expect(r.escolhido?.codigo_fipe).toBe('004514-4')
+  })
+
+  it('texto_marca da fonte errado ("CHEVROLET", marca de caminhoes): refaz com a marca do registro', async () => {
+    const pedidas = fetchOnix()
+    const wdapi = { marca: 'CHEVROLET', anoModelo: '2020', fipe: { dados: [{ score: 40, codigo_fipe: '000000-0', texto_modelo: 'OUTRO', texto_valor: 'R$ 1,00', texto_marca: 'CHEVROLET' }] } }
+    const r = await escolherMelhorFipe({ senatran: sen('CHEV/ONIX 10TAT HB'), wdapi, fipeApiUrl: 'http://fipe', fipeApiToken: 't' })
+    expect(pedidas).toEqual(['CHEVROLET', 'GM - Chevrolet'])
+    expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual([...HATCH_TB_AUT].sort())
+  })
+
+  it('caso antigo do Etios HB segue igual', async () => {
+    vi.stubGlobal('fetch', mockFetchFipeApiOk())
+    const r = await escolherMelhorFipe({ senatran: SENATRAN_OXK7426, wdapi: WDAPI_OXK7426, fipeApiUrl: 'http://fipe', fipeApiToken: 't' })
+    expect(r.escolhido?.codigo_fipe).toBe('002122-9')
   })
 })
