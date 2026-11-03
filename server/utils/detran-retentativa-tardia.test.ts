@@ -15,10 +15,17 @@ describe('retentativa tardia (605/609)', () => {
     expect(deveRetentarTardio({ multas: IND, custos: ENTREGA, agora: T0 + 29 * min })).toBe(false)
     expect(deveRetentarTardio({ multas: IND, custos: ENTREGA, agora: T0 + 30 * min })).toBe(true)
   })
-  it('depois da tentativa de 30 min (609 de novo): so em 2 h', () => {
+  it('depois da tentativa de 30 min (609 de novo): teto de 3 chamadas no total, para (Cesar 03/nov)', () => {
     const c = [...ENTREGA, { criado_em: iso(T0 + 31 * min), code: 609 }]
     expect(deveRetentarTardio({ multas: IND, custos: c, agora: T0 + 60 * min })).toBe(false)
-    expect(deveRetentarTardio({ multas: IND, custos: c, agora: T0 + 120 * min })).toBe(true)
+    expect(deveRetentarTardio({ multas: IND, custos: c, agora: T0 + 120 * min })).toBe(false)
+  })
+  it('entrega com 1 chamada so: tardia aos 30 min e depois em 2 h, parando em 3', () => {
+    const uma = [{ criado_em: iso(T0), code: 609 }]
+    expect(deveRetentarTardio({ multas: IND, custos: uma, agora: T0 + 30 * min })).toBe(true)
+    const duas = [...uma, { criado_em: iso(T0 + 31 * min), code: 609 }]
+    expect(deveRetentarTardio({ multas: IND, custos: duas, agora: T0 + 120 * min })).toBe(true)
+    expect(deveRetentarTardio({ multas: IND, custos: [...duas, { criado_em: iso(T0 + 121 * min), code: 609 }], agora: T0 + 600 * min })).toBe(false)
   })
   it('depois das duas tardias: para (teto); bloco ok ou ultima != 605/609: nao tenta', () => {
     const c = [...ENTREGA, { criado_em: iso(T0 + 31 * min), code: 609 }, { criado_em: iso(T0 + 121 * min), code: 609 }]
