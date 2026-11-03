@@ -779,6 +779,10 @@ export default defineNuxtConfig({
       metaPixelId: process.env.NUXT_PUBLIC_META_PIXEL_ID || "",
       // Pixel da OpenAI Ads (ChatGPT). Vazio = nada carrega. Em runtime vale
       // NUXT_PUBLIC_OPENAI_ADS_PIXEL_ID; no build, NUXT_OPENAI_ADS_PIXEL_ID.
+      // Google Ads: send_to da conversao secundaria "Pix gerado"
+      // (AW-xxxx/label). Vazio = nao dispara. Em runtime vale
+      // NUXT_PUBLIC_AW_PIX_GERADO_SEND_TO.
+      awPixGeradoSendTo: process.env.NUXT_PUBLIC_AW_PIX_GERADO_SEND_TO || "",
       openaiAdsPixelId: process.env.NUXT_PUBLIC_OPENAI_ADS_PIXEL_ID || process.env.NUXT_OPENAI_ADS_PIXEL_ID || "",
       supabaseUrl:
         process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",

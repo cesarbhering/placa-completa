@@ -271,11 +271,11 @@ function emAppNativo(): boolean {
   return String(w.navigator?.userAgent || '').includes('PlacaCompletaApp')
 }
 
-export function reivindicarConversao(token: string): boolean {
+export function reivindicarConversao(token: string, prefixo = 'pc_conv_'): boolean {
   if (!token) return false
-  if (conversoesReportadas.has(token)) return false
-  conversoesReportadas.add(token)
-  const key = 'pc_conv_' + token
+  const key = prefixo + token
+  if (conversoesReportadas.has(key)) return false
+  conversoesReportadas.add(key)
   let jaFoi = false
   try { jaFoi = !!globalThis.localStorage?.getItem(key) } catch { /* storage indisponivel */ }
   if (!jaFoi) {
@@ -284,6 +284,66 @@ export function reivindicarConversao(token: string): boolean {
   if (jaFoi) return false
   try { globalThis.localStorage?.setItem(key, '1') } catch { /* modo privado */ }
   try { globalThis.sessionStorage?.setItem(key, '1') } catch { /* idem */ }
+  return true
+}
+
+// ---------------------------------------------------------------------------
+// Enhanced conversions (Google Ads + Microsoft UET).
+//
+// O e-mail do pedido vai SO como sha256 hex do e-mail normalizado (trim +
+// minusculas), nunca em claro. O hash sai do navegador (crypto.subtle) quando
+// o checkout tem o e-mail digitado, ou ja pronto do servidor (/api/premium/report
+// devolve emailSha256, nunca o e-mail). Sem crypto.subtle, sem hash: a
+// conversao sai do mesmo jeito, so que sem user_data. Nunca logar nenhum dos dois.
+// ---------------------------------------------------------------------------
+
+export function normalizarEmail(email: string | null | undefined): string | null {
+  const e = String(email ?? '').trim().toLowerCase()
+  return e && e.includes('@') ? e : null
+}
+
+/** sha256 hex do e-mail normalizado; null sem e-mail ou sem crypto.subtle. */
+export async function hashEmailSha256(email: string | null | undefined): Promise<string | null> {
+  const e = normalizarEmail(email)
+  if (!e) return null
+  try {
+    const subtle = globalThis.crypto?.subtle
+    if (!subtle) return null
+    const buf = await subtle.digest('SHA-256', new TextEncoder().encode(e))
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('')
+  } catch {
+    return null
+  }
+}
+
+const SHA256_HEX = /^[0-9a-f]{64}$/
+
+/** Identificacao opcional da compra pro enhanced conversions. */
+export interface IdentCompra {
+  /** E-mail em claro que o NAVEGADOR ja tem (checkout). Vira hash aqui, nunca sai em claro. */
+  email?: string | null
+  /** Hash ja calculado no servidor (pagina do relatorio). */
+  emailSha256?: string | null
+}
+
+/**
+ * Conversao secundaria "Pix gerado" no Google Ads. Uma vez por pedido (dedupe
+ * igual ao da compra, com chave propria). O label vem do runtimeConfig
+ * (NUXT_PUBLIC_AW_PIX_GERADO_SEND_TO); vazio = nao dispara. Valor 0: quem
+ * otimiza por valor e a compra, isto aqui e sinal de volume.
+ */
+export function trackConversaoPixGerado(token: string | null | undefined): boolean {
+  if (typeof window === 'undefined' || !token) return false
+  if (!analyticsAtivoAqui()) return false
+  let sendTo = ''
+  try { sendTo = String(useRuntimeConfig().public.awPixGeradoSendTo || '').trim() } catch { /* fora do Nuxt */ }
+  if (!sendTo) return false
+  const w = window as any
+  if (typeof w.gtag !== 'function') return false
+  if (!reivindicarConversao(token, 'pc_conv_pix_')) return false
+  try {
+    w.gtag('event', 'conversion', { send_to: sendTo, value: 0, currency: 'BRL', transaction_id: token })
+  } catch { return false }
   return true
 }
 
@@ -442,7 +502,7 @@ export const useAnalytics = () => {
    * reportaria o preco cheio do plano pro Ads/GA4, inflando ROAS com receita
    * que nunca existiu.
    */
-  const trackConversionPaga = (token?: string, plano?: string, valorPagoCentavos?: number, cupom?: string) => {
+  const trackConversionPaga = (token?: string, plano?: string, valorPagoCentavos?: number, cupom?: string, ident?: IdentCompra): void | Promise<void> => {
     // `typeof window` (nao import.meta.client): mesma semantica no Nuxt e vale
     // fora do build (teste unitario), igual ao enfileirador do funil.
     if (typeof window === 'undefined' || !token) return
@@ -455,11 +515,26 @@ export const useAnalytics = () => {
     if (!reivindicarConversao(token)) return
     const { value: valorTabela, item } = infoPlano(plano)
     const value = valorPagoCentavos != null && Number(valorPagoCentavos) > 0 ? valorPagoCentavos / 100 : valorTabela
+    const disparar = (hash: string | null) => dispararCompra(token, value, item, hash)
+    // Hash pronto (servidor) ou sem e-mail: dispara na hora, como sempre foi.
+    const pronto = String(ident?.emailSha256 || '').toLowerCase()
+    if (SHA256_HEX.test(pronto)) return disparar(pronto)
+    if (!normalizarEmail(ident?.email)) return disparar(null)
+    // E-mail em claro so no navegador: hash assincrono e a conversao sai logo
+    // depois, ja com o user_data (o token ja foi reivindicado acima).
+    return hashEmailSha256(ident?.email).then(disparar, () => disparar(null))
+  }
+
+  const dispararCompra = (token: string, value: number, item: Record<string, any>, emailSha256: string | null) => {
+    // user_data ANTES da conversao (doc do Google: o dado tem que estar
+    // disponivel quando a tag dispara). UET: 'set' com pid.em antes do evento.
     if (window.gtag) {
+      if (emailSha256) window.gtag('set', 'user_data', { sha256_email_address: emailSha256 })
       window.gtag('event', 'conversion', { send_to: AW_SEND_TO, value, currency: 'BRL', transaction_id: token })
       window.gtag('event', 'purchase', { transaction_id: token, value, currency: 'BRL', items: [{ ...item, price: value }] })
     }
     if (window.uetq) {
+      if (emailSha256) window.uetq.push('set', { pid: { em: emailSha256 } })
       // transaction_id (nome do parametro na doc do UET): o token do pedido, o
       // mesmo do GA4/Ads, pra o Bing poder casar a mesma compra entre aparelhos.
       window.uetq.push('event', 'purchase', { revenue_value: value, currency: 'BRL', transaction_id: token })

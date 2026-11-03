@@ -2,7 +2,7 @@
 import { PLANOS, RECURSOS, precoDePromocao } from '~/shared/planos'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { decidirVarianteCheckout, metodoInicialCheckout, ehCelular, gravarMetodoInicial, DESBLOQUEIA_B, RISCO_B, RISCO_B_PARTES, GARANTIA_B, type VarianteAbCheckout } from '~/shared/ab-checkout'
-import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora } from '~/composables/useAnalytics'
+import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora, trackConversaoPixGerado } from '~/composables/useAnalytics'
 import type { CompraPlay } from '~/composables/usePlayBilling'
 import {
   EVENTO_PENDENTE, EVENTO_PRONTO, EVENTO_RESUME, PREFIXO_PROVISORIO, STATUS_PROCESSANDO_PLAY, compraDaPlaca, consultarPedidoPlay, emailValido,
@@ -540,7 +540,7 @@ async function seguirCompraPlayPaga(r: { token_entrega: string; valor_centavos?:
   pix.value = { token: r.token_entrega, valor: valorPago }
   step.value = 'pending'
   pendingStatus.value = 'pago'
-  trackConversionPaga(r.token_entrega, 'completa', valorPago)
+  trackConversionPaga(r.token_entrega, 'completa', valorPago, undefined, { email: emailNoPedido.value })
   histAdd({
     token: r.token_entrega,
     placa: preview.value.placa,
@@ -795,6 +795,8 @@ async function pagar() {
     if (pix.value?.brCode || pix.value?.gratis) {
       trackPixGerado(props.plano, placaClean.value, pix.value?.valor, !!emailNoPedido.value)
     }
+    // Conversao secundaria do Ads: so cobranca Pix real (o gratis nao gera Pix).
+    if (pix.value?.brCode) trackConversaoPixGerado(pix.value.token)
     histAdd({
       token: pix.value!.token,
       placa: preview.value.placa,
@@ -931,7 +933,7 @@ async function pagarComCartao() {
       // Conversao SO com o pagamento aprovado ("succeeded"). Em "processing" o
       // cartao ainda pode recusar: quem dispara e a pagina /premium/<token>
       // quando o /status confirmar (o poll dela chama trackConversionPaga).
-      if (cartaoConverteAgora(paymentIntent?.status)) trackConversionPaga(r.token, props.plano, r.valor)
+      if (cartaoConverteAgora(paymentIntent?.status)) trackConversionPaga(r.token, props.plano, r.valor, undefined, { email: emailNoPedido.value })
       // Vai pra pagina do relatorio: ela mostra "Confirmando o pagamento do
       // cartao..." e polla o /status ate a entrega.
       if (import.meta.client) window.location.assign(`/premium/${r.token}`)
@@ -990,7 +992,7 @@ async function checarStatus() {
     const r: any = await $fetch('/api/premium/status', { query: { token: pix.value.token } })
     pendingStatus.value = r.status
     histUpdate(pix.value.token, r.status)
-    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token, props.plano, pix.value.valor, cupomCodigo.value)
+    if (['pago', 'consultando', 'entregue'].includes(r.status)) trackConversionPaga(pix.value.token, props.plano, pix.value.valor, cupomCodigo.value, { email: emailNoPedido.value })
     if (r.status === 'entregue') {
       if (poll) clearInterval(poll)
       // Piso so vale pra quem ACABOU de receber (entregue ha < 40s); revisita de
