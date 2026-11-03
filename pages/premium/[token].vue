@@ -2097,7 +2097,7 @@ onMounted(() => {
   // sempre, que e o caminho de quem acabou de pagar.
   if (['pago', 'consultando', 'entregue'].includes(data.value.status) && entregaRecente()) {
     // Valor REAL do pedido (cupom incluido): com 0 (cupom 100%) nada dispara.
-    trackConversionPaga(token, data.value.plano, data.value.valorCentavos ?? undefined)
+    trackConversionPaga(token, data.value.plano, data.value.valorCentavos ?? undefined, undefined, { emailSha256: data.value.emailSha256 })
   }
   if (entregaRecente()) conversaoOpenAI()
   if (data.value.status !== 'entregue') {
@@ -2114,7 +2114,7 @@ onMounted(() => {
         if (data.value) histUpdate(token, data.value.status)
         // conversao do Ads/GA4 (veio do outro lado do merge): dispara quando o
         // pagamento se confirma; a funcao e idempotente por token
-        if (data.value && ['pago', 'consultando', 'entregue'].includes(data.value.status)) trackConversionPaga(token, data.value.plano, data.value.valorCentavos ?? undefined)
+        if (data.value && ['pago', 'consultando', 'entregue'].includes(data.value.status)) trackConversionPaga(token, data.value.plano, data.value.valorCentavos ?? undefined, undefined, { emailSha256: data.value.emailSha256 })
         conversaoOpenAI()
         if (data.value?.status === 'entregue') clearInterval(poll)
       } catch { /* rede oscilou; proxima volta tenta de novo */ }

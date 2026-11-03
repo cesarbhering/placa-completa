@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { emVoo } from '../../utils/tarefas-em-voo'
 import { registrarAbertura } from '../../utils/relatorio-aberturas'
 import { pedidoQueFicou } from '../../utils/compra-repetida'
@@ -449,6 +450,12 @@ export default defineEventHandler(async (event) => {
     // descobrir o e-mail de quem comprou, e um token que vaze nao pode virar
     // vazamento de contato.
     temEmail: !!pedido.email,
+    // Enhanced conversions (Google Ads/UET): so o sha256 do e-mail normalizado
+    // e so com o pedido pago, que e quando a pagina dispara a conversao. O
+    // e-mail em claro continua sem sair daqui.
+    emailSha256: pedido.email && ['pago', 'consultando', 'entregue'].includes(pedido.status)
+      ? createHash('sha256').update(String(pedido.email).trim().toLowerCase(), 'utf8').digest('hex')
+      : null,
     // Por que o pedido nao foi adiante, em uma palavra. O texto do erro
     // (mensagem interna, trace) NUNCA vai pra tela: aqui sai so o codigo que a
     // pagina sabe transformar em explicacao. Sem isto, quem comprou um veiculo
