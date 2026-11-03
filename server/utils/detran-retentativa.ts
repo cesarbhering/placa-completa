@@ -13,7 +13,9 @@ import { ufDaResposta } from './detran-multas'
 
 export const ESPERA_ENTREGA_MS = 15 * 60 * 1000   // chamada da entrega (ate 2 x 330 s + 20 s)
 export const INTERVALO_MS = 20 * 60 * 1000         // entre retentativas
-export const MAX_CHAMADAS = 6                      // por pedido, contando as da entrega
+// Cesar 03/nov/2026: no maximo 3 chamadas por placa/pedido no total (entrega +
+// retry imediato + 1 retentativa, da pagina ou tardia). Vale pra todo caminho.
+export const MAX_CHAMADAS = 3                      // por pedido, contando as da entrega
 
 export function deveRetentarDetran(a: {
   multas: any

@@ -3,6 +3,7 @@ import { fonteNoPlano } from '../../shared/planos'
 import { ufDaResposta } from './detran-multas'
 import { emVoo } from './tarefas-em-voo'
 import { enviarAtualizacaoRelatorio } from './premium-email'
+import { MAX_CHAMADAS } from './detran-retentativa'
 
 // Retentativa TARDIA do DETRAN (caso ORK8004, AL, 14/out): o Infosimples deu
 // 609 ("tentativas excedidas") na entrega e no retry imediato, 3 min depois.
@@ -10,8 +11,8 @@ import { enviarAtualizacaoRelatorio } from './premium-email'
 // (server/plugins/detran-tardia.ts, a cada 5 min, so prod) tenta de novo:
 // - so pedido com o bloco 'indisponivel' cuja ULTIMA chamada foi 605/609;
 // - 30 min e 2 h depois da primeira falha (sem o retry imediato);
-// - teto de 3 chamadas tardias por pedido (contando as que a pagina dispara
-//   ao ser aberta, detran-retentativa.ts), todas em premium_custos;
+// - teto TOTAL de MAX_CHAMADAS (3, Cesar 03/nov) por pedido somando entrega,
+//   retry imediato, retentativa da pagina (detran-retentativa.ts) e tardia;
 // - quando o bloco entra (ok/sem_debito): e-mail ao cliente com o texto
 //   aprovado do "remendo" (premium-email.ts), uma vez so.
 // Persistente por construcao: le tudo do banco, sobrevive a deploy.
@@ -31,6 +32,7 @@ export function deveRetentarTardio(a: { multas: any; custos: { criado_em: string
   if (!m || m.status !== 'indisponivel' || m.fonte) return false
   const custos = [...a.custos].sort((x, y) => ts(x.criado_em) - ts(y.criado_em))
   if (!custos.length) return false
+  if (custos.length >= MAX_CHAMADAS) return false
   if (!CODIGOS_TARDIOS.has(Number(custos[custos.length - 1].code))) return false
   const primeira = custos.find((c) => CODIGOS_TARDIOS.has(Number(c.code)))
   if (!primeira) return false
