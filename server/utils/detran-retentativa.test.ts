@@ -18,6 +18,10 @@ describe('deveRetentarDetran', () => {
     expect(deveRetentarDetran({ multas: { status: 'indisponivel' }, entregueEm: min(600), chamadas: MAX_CHAMADAS, ultimaChamadaEm: min(300), agora })).toBe(false)
     for (const status of ['ok', 'sem_debito', 'protegido']) expect(deveRetentarDetran({ multas: { status, fonte: 'detran_sp' }, entregueEm: min(600), chamadas: 1, ultimaChamadaEm: min(300), agora })).toBe(false)
   })
+  it('pedido entregue ha mais de 7 dias: nao retenta (Cesar 03/nov)', () => {
+    expect(deveRetentarDetran({ multas: { status: 'indisponivel', uf: 'RJ' }, entregueEm: min(8 * 24 * 60), chamadas: 0, ultimaChamadaEm: null, agora })).toBe(false)
+    expect(deveRetentarDetran({ multas: { status: 'indisponivel', uf: 'RJ' }, entregueEm: min(6 * 24 * 60), chamadas: 0, ultimaChamadaEm: null, agora })).toBe(true)
+  })
   it('sem bloco: espera a chamada da entrega terminar (15 min)', () => {
     expect(deveRetentarDetran({ multas: null, entregueEm: min(3), chamadas: 0, ultimaChamadaEm: null, agora })).toBe(false)
     expect(deveRetentarDetran({ multas: null, entregueEm: min(40), chamadas: 0, ultimaChamadaEm: null, agora })).toBe(true)
@@ -29,17 +33,17 @@ describe('retentarDetranSeValer', () => {
   const sb = (linhas: any[]) => ({ from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ order: async () => ({ data: linhas }) }) }) }) }) })
   const resp = [{ ufJurisdicao: 'SP', renavam: '123', indicadorMultaRenainf: true }]
   it('SP indisponivel ha tempo: dispara a Infosimples', async () => {
-    const ok = await retentarDetranSeValer(sb([{ criado_em: '2026-01-01T00:00:00Z' }, { criado_em: '2026-01-01T00:00:00Z' }]), { id: 'p1', placa: 'EWX4852', entregue_em: '2026-01-01T00:00:00Z' }, { status: 'indisponivel', uf: 'SP' }, resp)
+    const ok = await retentarDetranSeValer(sb([{ criado_em: '2026-01-01T00:00:00Z' }, { criado_em: '2026-01-01T00:00:00Z' }]), { id: 'p1', placa: 'EWX4852', entregue_em: new Date(Date.now() - 3_600_000).toISOString() }, { status: 'indisponivel', uf: 'SP' }, resp)
     expect(ok).toBe(true)
     expect(disparos).toHaveLength(1)
   })
   it('SC sem RENAINF: dispara (gate sempre desde 13/out)', async () => {
-    const ok = await retentarDetranSeValer(sb([]), { id: 'p1', placa: 'X', entregue_em: '2026-01-01T00:00:00Z' }, null, [{ ufJurisdicao: 'SC', renavam: '1', indicadorMultaRenainf: false }])
+    const ok = await retentarDetranSeValer(sb([]), { id: 'p1', placa: 'X', entregue_em: new Date(Date.now() - 3_600_000).toISOString() }, null, [{ ufJurisdicao: 'SC', renavam: '1', indicadorMultaRenainf: false }])
     expect(ok).toBe(true)
     expect(disparos).toHaveLength(1)
   })
   it('UF sem DETRAN (TO): nao chama', async () => {
-    const ok = await retentarDetranSeValer(sb([]), { id: 'p1', placa: 'X', entregue_em: '2026-01-01T00:00:00Z' }, null, [{ ufJurisdicao: 'TO', renavam: '1', indicadorMultaRenainf: true }])
+    const ok = await retentarDetranSeValer(sb([]), { id: 'p1', placa: 'X', entregue_em: new Date(Date.now() - 3_600_000).toISOString() }, null, [{ ufJurisdicao: 'TO', renavam: '1', indicadorMultaRenainf: true }])
     expect(ok).toBe(false)
     expect(disparos).toHaveLength(0)
   })

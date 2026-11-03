@@ -16,6 +16,9 @@ export const INTERVALO_MS = 20 * 60 * 1000         // entre retentativas
 // Cesar 03/nov/2026: no maximo 3 chamadas por placa/pedido no total (entrega +
 // retry imediato + 1 retentativa, da pagina ou tardia). Vale pra todo caminho.
 export const MAX_CHAMADAS = 3                      // por pedido, contando as da entrega
+// Cesar 03/nov: pedido antigo nao e retentado (caso de 14/out reaberto em 03/11 e
+// consultado do zero porque a UF nem tinha endpoint na entrega).
+export const JANELA_RETENTATIVA_MS = 7 * 24 * 60 * 60 * 1000
 
 export function deveRetentarDetran(a: {
   multas: any
@@ -32,6 +35,7 @@ export function deveRetentarDetran(a: {
     if (m.fonte && m.status !== 'indisponivel') return false
   }
   if (a.chamadas >= MAX_CHAMADAS) return false
+  if (a.entregueEm && agora - new Date(a.entregueEm).getTime() > JANELA_RETENTATIVA_MS) return false
   if (a.ultimaChamadaEm && agora - new Date(a.ultimaChamadaEm).getTime() < INTERVALO_MS) return false
   if (!m && a.entregueEm && agora - new Date(a.entregueEm).getTime() < ESPERA_ENTREGA_MS) return false
   return true
