@@ -1,6 +1,7 @@
 import { ambienteDaConsultaPaga } from '../../../utils/gcc-reserva'
 import { PRODUTO_COMPLETA, consultarCompra, consultarPedidoGoogle, consumirCompra } from '../../../utils/google-play'
 import { concluirCompraPlay, ordensBloqueadasDoEnv } from '../../../utils/google-play-compras'
+import { barrarPlacaBloqueada } from '../../../utils/blocklist'
 
 // Compra feita dentro do app Android, cobrada pelo Google Play.
 //
@@ -26,6 +27,7 @@ export default defineEventHandler(async (event) => {
   const productId = String(body.productId || '').trim()
 
   if (placa.length < 7) throw createError({ statusCode: 400, message: 'Placa invalida' })
+  barrarPlacaBloqueada(event, placa, email || null)
   if (!purchaseToken || purchaseToken.length > 1000) throw createError({ statusCode: 400, message: 'Compra sem comprovante.' })
   // Um unico produto existe no app. Aceitar outro id seria aceitar um preco
   // que nao e o nosso.

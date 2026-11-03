@@ -6,6 +6,7 @@ import crypto from 'node:crypto'
 import { sanearOrigem, opprefDoPedido, COOKIE_OPPREF } from '../../../shared/origem-trafego'
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
 import { respostaCompraRepetida } from '../../utils/compra-repetida'
+import { barrarPlacaBloqueada } from '../../utils/blocklist'
 
 // Cria o pedido (pending) + o Pix transparente. Retorna o QR/copia-e-cola.
 // Minimo de dados: email (entrega) + telefone opcional. Gated.
@@ -27,6 +28,7 @@ export default defineEventHandler(async (event) => {
   // NUXT_HOMOLOG_GCC_PRODUCAO=on (ver ambienteDaConsultaPaga).
   const ambiente = ambienteDaConsultaPaga(body.ambiente, config)
   if (placa.length < 7) throw createError({ statusCode: 400, message: 'Placa invalida' })
+  barrarPlacaBloqueada(event, placa, email || null)
   // E-mail deixou de ser porteira do Pix. Quase metade de quem abria o
   // checkout sumia antes de gerar a cobranca, e o ultimo obstaculo antes de
   // pagar era digitacao. Ele continua obrigatorio pra ENTREGA durar (relatorio

@@ -5,6 +5,7 @@ import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-fu
 import crypto from 'node:crypto'
 import { sanearOrigem, opprefDoPedido, COOKIE_OPPREF } from '../../../shared/origem-trafego'
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
+import { barrarPlacaBloqueada } from '../../utils/blocklist'
 
 // Checkout com CARTAO (Stripe). Secundario: o Pix (checkout.post.ts) segue
 // principal. Cria o pedido (forma_pagamento='cartao') + a Checkout Session
@@ -30,6 +31,7 @@ export default defineEventHandler(async (event) => {
   const ambiente = ambienteDaConsultaPaga(body.ambiente, config)
 
   if (placa.length < 7) throw createError({ statusCode: 400, message: 'Placa invalida' })
+  barrarPlacaBloqueada(event, placa, email || null)
   if (email && !email.includes('@')) throw createError({ statusCode: 400, message: 'E-mail invalido' })
   // Cupom exige e-mail (limite por pessoa / cupom pessoal), menos o de
   // recompra, que vale pra qualquer um (server/utils/cupom-recompra.ts).

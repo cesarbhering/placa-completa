@@ -3,6 +3,7 @@
 import { marcaExibicao } from '../../../shared/marca-exibicao'
 import { mensagemLimiteGratis } from '../../utils/ip-wdapi-limit'
 import { lerPlacaCacheFresca } from '../../utils/placa-lookup'
+import { barrarPlacaBloqueada } from '../../utils/blocklist'
 export default defineEventHandler(async (event) => {
   assertPremiumGate(event)
   const { placa } = await readBody(event)
@@ -30,6 +31,8 @@ export default defineEventHandler(async (event) => {
     }).then(({ error }: any) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
     throw createError({ statusCode: 403, message: 'Acesso não autorizado.' })
   }
+
+  barrarPlacaBloqueada(event, placaClean)
 
   // Placa ja no cache (o normal: a pessoa acabou de consultar gratis e abriu o
   // checkout) nao custa wdapi, entao nao conta nem e barrada pelo teto. Sem
