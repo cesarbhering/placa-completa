@@ -14,6 +14,7 @@ import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
 import { classificarUA } from '../utils/dispositivo'
+import { barrarPlacaBloqueada } from '../utils/blocklist'
 
 /**
  * Registra a consulta e RECLAMA se o banco recusar.
@@ -123,6 +124,8 @@ export default defineEventHandler(async (event) => {
   if (!placa) {
     throw createError({ statusCode: 400, message: 'Placa é obrigatória.' })
   }
+  // Placa bloqueada a pedido do proprietario: 403 antes de cache e fonte paga.
+  barrarPlacaBloqueada(event, String(placa), emailInicial || null)
 
   // Channel-specific validation. WhatsApp is web-only — PWA always uses
   // the inline-data path, so isPWA + channel=whatsapp would be ambiguous.

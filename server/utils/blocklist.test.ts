@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { estaBloqueado } from './blocklist'
+import { estaBloqueado, placaBloqueada } from './blocklist'
 
 // A lista existe pra conter abuso ja confirmado; o teste garante que ninguem
 // remove uma entrada sem querer e que a normalizacao nao deixa passar variacao
@@ -43,5 +43,32 @@ describe('estaBloqueado', () => {
   it('sem NUXT_BLOCKLIST_EMAILS nenhum e-mail e bloqueado', () => {
     vi.stubEnv('NUXT_BLOCKLIST_EMAILS', '')
     expect(estaBloqueado(null, 'abuso1@example.com')).toBe(false)
+  })
+})
+
+describe('placaBloqueada', () => {
+  beforeEach(() => { vi.stubEnv('NUXT_BLOCKLIST_PLACAS', ' abc-1d23 , XYZ9876 ,,') })
+  afterEach(() => { vi.unstubAllEnvs() })
+
+  it('bloqueia a placa do ambiente em qualquer caixa e com separador', () => {
+    expect(placaBloqueada('ABC1D23')).toBe(true)
+    expect(placaBloqueada('abc-1d23')).toBe(true)
+    expect(placaBloqueada('XYZ9876')).toBe(true)
+  })
+
+  it('bloqueia tambem o outro formato da mesma placa (antiga x Mercosul)', () => {
+    expect(placaBloqueada('ABC1323')).toBe(true)
+    expect(placaBloqueada('XYZ9I76')).toBe(true)
+  })
+
+  it('deixa passar placa parecida e vazio', () => {
+    expect(placaBloqueada('ABC1D24')).toBe(false)
+    expect(placaBloqueada('')).toBe(false)
+    expect(placaBloqueada(null)).toBe(false)
+  })
+
+  it('sem env, nada e bloqueado', () => {
+    vi.stubEnv('NUXT_BLOCKLIST_PLACAS', '')
+    expect(placaBloqueada('ABC1D23')).toBe(false)
   })
 })
