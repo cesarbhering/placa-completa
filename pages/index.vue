@@ -1652,6 +1652,9 @@ function applyEmailSuggestion() {
             <!-- Sem preco FIPE em veiculo antigo: avisa em vez de so sumir o
                  campo, que parece falha nossa (achado real: Opala 1972). -->
             <p v-if="resultadoBasico?.fipeNota" class="cb-result__nota">{{ resultadoBasico.fipeNota }}</p>
+            <!-- Link interno pra pagina que assume "placa FIPE" / "FIPE pela placa"
+                 (plano de growth nov/2026: a home disputava o termo com CTR 0,3%). -->
+            <p v-if="!isCapacitor" class="cb-result__fipe-link"><NuxtLink to="/tabela-fipe-por-placa">Ver o valor FIPE deste modelo</NuxtLink></p>
           </div>
 
           <div ref="blocoLockedRef" class="cb-locked">
@@ -5007,6 +5010,8 @@ function applyEmailSuggestion() {
 .cb-locked__volume a, .cb-cmp-volume a { color: #636363; text-decoration: underline; }
 .cb-cupom-tela { margin: 0 0 10px; padding: 8px 12px; border-radius: 8px; background: #fff7e0; color: #5a4300; font-size: 14px; line-height: 1.4; text-align: center; }
 .cb-cupom-tela__relogio { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 6px; background: #5a4300; color: #fff; font-variant-numeric: tabular-nums; font-weight: 600; }
+.cb-result__fipe-link { margin: 10px 0 0; font-size: 14px; }
+.cb-result__fipe-link a { color: #1f6feb; font-weight: 600; text-decoration: underline; }
 .cb-locked__prova { margin: 8px 0 0; font-size: 12px; line-height: 1.4; color: #636363; text-align: center; }
 .cb-locked__wa { margin: 0; text-align: center; }
 </style>

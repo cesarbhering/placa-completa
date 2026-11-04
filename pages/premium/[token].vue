@@ -3272,6 +3272,8 @@ onUnmounted(() => {
                 <strong>{{ vc.quedaAno < 0 ? 'queda' : 'alta' }} de {{ Math.abs(vc.quedaAno).toLocaleString('pt-BR') }}%</strong>.
               </p>
             </div>
+            <!-- Link interno pra pagina que assume "placa FIPE" (plano de growth nov/2026). -->
+            <p class="rel__fipe-link"><NuxtLink to="/tabela-fipe-por-placa">Placa FIPE: consulte o valor de outro carro pela placa</NuxtLink></p>
           </section>
 
           <!-- Checklist de vistoria e transferencia (Relatorio 2.0, item 5). -->
@@ -5355,7 +5357,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   .rel__veh, .rel__veredito, .rel__inds, .rel__ind, .rel__tempo-item, .rel__restr, .rel__resumo-linha,
   .rel__multas-item, .rel__multas-r, .rel__recall, .rel__recall-item, .rel__recall-top,
   .rel__leilao, .rel__lote, .rel__var-item, .rel__c12, .rel__valor, .rel__renave, .rel__espera,
-  .rel__aut, .rel__dep, .rel__fipe-ambiguo, svg, table, tr, figure, li {
+  .rel__fipe-link, .rel__aut, .rel__dep, .rel__fipe-ambiguo, svg, table, tr, figure, li {
     break-inside: avoid; page-break-inside: avoid;
   }
   // Card de leilao muito grande (muitas fotos) pode quebrar; as fotos nao.
@@ -5399,4 +5401,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   :global(body:has(.rel__wrap) header:not(.rel__doc)) { display: none !important; }
   :global(body:has(.rel__wrap) nav) { display: none !important; }
 }
+.rel__fipe-link { margin: 14px 0 0; font-size: 14px; }
+.rel__fipe-link a { color: #1f6feb; font-weight: 600; text-decoration: underline; }
 </style>

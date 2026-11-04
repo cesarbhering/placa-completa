@@ -23,7 +23,7 @@ useHead({
         '@context': 'https://schema.org',
         '@type': 'HowTo',
         name: 'Como consultar placa de veículo grátis',
-        description: 'Passo a passo para consultar qualquer placa de veículo no Brasil gratuitamente.',
+        description: 'Passo a passo para consultar qualquer placa de veículo no Brasil, sem cadastro.',
         totalTime: 'PT1M',
         step: [
           {

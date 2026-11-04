@@ -34,7 +34,8 @@ export const DESCRICOES = {
   sobre: 'Sobre o PlacaCompleta: como funciona a consulta veicular por placa, de onde vêm os dados (bases oficiais, FIPE, banco BV), a metodologia do IBV e a LGPD.',
   comoConsultarPlaca: 'Como consultar placa de veículo: passo a passo para ver marca, modelo, FIPE e situação, e o relatório completo com leilão, gravame, roubo e débitos.',
   estudos: 'Estudos do mercado de veículos no Brasil: seguro por região (dados SUSEP), IBV Auto do Banco BV e preços da Tabela FIPE, com metodologia aberta.',
-  consultaPlaca: 'Consulta de placa veicular online: veja marca, modelo, ano, FIPE e situação na hora, e o relatório completo de leilão, gravame, roubo e débitos.',
+  // Gancho de leilao (plano de growth nov/2026), igual ao das metas de estado e capital.
+  consultaPlaca: 'Consulta de placa veicular online. Sem cadastro. Veja marca, modelo, ano, cor e se o modelo aparece em leilões, e o relatório completo na hora.',
   carroDeLeilao: 'Carro de leilão vale a pena? Veja como comprar, o que conferir antes do lance e como saber pela placa se o carro já passou por leilão.',
   contato: 'Contato do PlacaCompleta: e-mail para dúvidas sobre consulta de placa, relatório, correção de dados, imprensa e parcerias. Escreva para a nossa equipe.',
 } as const
@@ -56,6 +57,9 @@ export const DESCRICAO_HOME_BUSCA = 'Consulta de placa com marca, modelo, ano, c
 
 /** Gancho das metas de estado e capital (sem DETRAN, sem fonte, sem "grátis": regra de 01/out). */
 export const GANCHO_CONSULTA = 'Sem cadastro. Veja marca, modelo, ano, cor e se o modelo aparece em leilões.'
+
+/** /consultar-placa (indice de estados e capitais): mesmo gancho, sem "grátis" (regra de 01/out). */
+export const DESCRICAO_CONSULTAR_PLACA = `Consulte a placa por estado ou capital, em todo o Brasil. ${GANCHO_CONSULTA}`
 
 /** Capitais com "buscar placa" no title (plano de growth nov/2026). */
 const CAPITAIS_BUSCAR = new Set(['Fortaleza', 'Brasília'])
