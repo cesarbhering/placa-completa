@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { anteriorATabelaFipe, MENSAGEM_FIPE_ANTERIOR } from '~/shared/fipe-cobertura'
 import { textoUrf } from '~/shared/urf-receita'
 import { trackOrderCreatedOpenAI } from '~/composables/useAnalytics'
 import { cardRecallAssociado } from '~/shared/recall-associado'
@@ -1260,6 +1261,8 @@ const codigoFipe = computed(() => codigoFipeDoRelatorio(vc.value))
 // isso, em vez de sumir.
 const fipeNaoLocalizada = computed(() => entregue.value && !String(token).startsWith('_amostra') && !fipeIncerta.value && !vc.value?.fipe
   && (!vc.value || !!vc.value.fipeNaoLocalizado))
+// Carro anterior a 1985: a tabela FIPE nao cobre, a linha explica em vez de 'nao localizado'.
+const fipeAnteriorATabela = computed(() => fipeNaoLocalizada.value && anteriorATabelaFipe(g('anoModelo')))
 const temValor = computed(() => Boolean(vc.value?.fipe || vc.value?.seguroAnual || vc.value?.custo5anos || fipeIncerta.value || fipeNaoLocalizada.value))
 // Custo de ter este carro em 12 meses (Relatorio 2.0, item 9): estimativa,
 // um numero por mes (shared/custo-12-meses.ts). So carro, so com FIPE segura.
@@ -3179,7 +3182,8 @@ onUnmounted(() => {
             <div v-else class="rel__valores">
               <div v-if="fipeNaoLocalizada" class="rel__valor">
                 <span class="rel__valor-k">Valor FIPE</span>
-                <span class="rel__valor-v rel__valor-v--nl">não localizado para esta versão</span>
+                <span class="rel__valor-v rel__valor-v--nl">{{ fipeAnteriorATabela ? 'não existe para este ano' : 'não localizado para esta versão' }}</span>
+                <span v-if="fipeAnteriorATabela" class="rel__valor-nota">{{ MENSAGEM_FIPE_ANTERIOR }}</span>
               </div>
               <div v-if="vc?.fipe" class="rel__valor">
                 <span class="rel__valor-k">Valor FIPE</span>
