@@ -37,6 +37,20 @@ export function emVoo<T>(nome: string, fn: () => Promise<T>): Promise<T | undefi
     .finally(() => { registro.delete(id) })
 }
 
+/**
+ * Variante pra tarefa que NAO pode ser recusada nem engolir erro: a consulta
+ * paga do pedido (processarPedidoPago). Roda sempre, entra no registro (o
+ * SIGTERM espera por ela ate o teto) e devolve a promise original, com o erro
+ * propagado pra quem chamou (o webhook responde 500 e o provedor repete).
+ */
+export function rastrearEmVoo<T>(nome: string, fn: () => Promise<T>): Promise<T> {
+  const id = ++seq
+  registro.set(id, { nome, inicio: Date.now() })
+  let p: Promise<T>
+  try { p = Promise.resolve(fn()) } catch (e) { p = Promise.reject(e) }
+  return p.finally(() => { registro.delete(id) })
+}
+
 export function quantasEmVoo(): number {
   return registro.size
 }

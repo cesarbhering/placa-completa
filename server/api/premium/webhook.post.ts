@@ -1,3 +1,4 @@
+import { rastrearEmVoo } from '../../utils/tarefas-em-voo'
 // Webhook AbacatePay. Confirma pagamento (HMAC) e dispara a consulta SENATRAN
 // UMA vez (idempotente). Falhou a consulta -> reembolsa. Nunca exige gate.
 export default defineEventHandler(async (event) => {
@@ -30,7 +31,7 @@ export default defineEventHandler(async (event) => {
 
   // idempotencia: so processa se ainda nao entrou em consulta/entrega
   // processador compartilhado (idempotente via claim atomico)
-  await processarPedidoPago(supabase, pedido)
+  await rastrearEmVoo('processar-pedido', () => processarPedidoPago(supabase, pedido))
   if (abacatepayId) await supabase.from('webhook_events').update({ processado: true }).eq('abacatepay_id', abacatepayId)
   return { ok: true }
 })

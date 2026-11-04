@@ -1,4 +1,5 @@
-import { emVoo } from '../../utils/tarefas-em-voo'
+import { promoverSeSnapshotPronto } from '../../utils/entrega-pedido'
+import { emVoo, rastrearEmVoo } from '../../utils/tarefas-em-voo'
 import { gravarPagadorHash } from '../../utils/pagador-hash'
 import { deveChecarWooviOriginal } from '../../utils/status-pagamento'
 import { cobrancaPorCorrelacao } from '../../utils/woovi'
@@ -11,12 +12,20 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,placa,email,token_entrega,abacatepay_id,pix_provider,forma_pagamento,stripe_session_id,google_play_order_id,expira_em,plano,ambiente,debug_trace,erro,preview,valor_centavos,gclid,msclkid,utm_source,utm_campaign,entregue_em,relatorio_snapshot')
+    .select('id,status,placa,email,token_entrega,abacatepay_id,pix_provider,forma_pagamento,stripe_session_id,google_play_order_id,expira_em,plano,ambiente,debug_trace,erro,preview,valor_centavos,gclid,msclkid,utm_source,utm_campaign,entregue_em,relatorio_snapshot,snapshot_em')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
 
   let status = pedido.status
+  // Preso em 'consultando' com o relatorio ja pronto (a gravacao da entrega
+  // falhou): promove aqui, sem chamada paga, e a tela do checkout navega.
+  const promovido = await promoverSeSnapshotPronto(supabase, pedido)
+  if (promovido) {
+    status = 'entregue'
+    pedido.status = 'entregue'
+    if (!pedido.entregue_em) pedido.entregue_em = pedido.snapshot_em
+  }
   if (status === 'aguardando_pagamento') {
     const ehCartao = pedido.forma_pagamento === 'cartao'
     // Cartao PRIMEIRO (Stripe), depois Pix — detecta pagamento em qualquer
@@ -54,7 +63,8 @@ export default defineEventHandler(async (event) => {
     if (pago) {
       // pagamento confirmado -> dispara a consulta (fire-and-forget; o container
       // segue processando apos a resposta). Claim atomico evita duplicar.
-      processarPedidoPago(supabase, pedido).catch(() => {})
+      // Registrada como em voo: o SIGTERM do deploy espera a consulta paga.
+      rastrearEmVoo('processar-pedido', () => processarPedidoPago(supabase, pedido)).catch(() => {})
       // Identificador pseudonimizado do pagador (recorrencia sem e-mail).
       // Fire-and-forget e a parte: nunca segura nem quebra a confirmacao.
       void emVoo('pagador-hash', () => gravarPagadorHash(supabase, pedido))
