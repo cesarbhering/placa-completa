@@ -2268,7 +2268,7 @@ onUnmounted(() => {
               <li class="rel__espera-ok">Consulta da placa concluída ✓</li>
               <li class="rel__espera-ativa">Consultando multas no DETRAN-{{ ufDetranTela }}…</li>
             </ul>
-            <p class="rel__hint">O SENATRAN indicou multa neste veículo. Estamos buscando o detalhe no DETRAN, o que pode levar alguns minutos. Se demorar, o relatório abre e as multas entram sozinhas quando chegarem.</p>
+            <p class="rel__hint">O registro nacional aponta multa neste veículo. Estamos buscando o detalhe no órgão de trânsito do estado, o que pode levar alguns minutos. Se demorar, o relatório abre e as multas entram sozinhas quando chegarem.</p>
           </template>
           <template v-else-if="['pago', 'consultando'].includes(data.status)">
             <h1 class="rel__h">Pagamento confirmado ✓</h1>
