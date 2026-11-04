@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { TEMAS_CONSULTAR, INDICE_CONSULTAR, rotaDoTema, temaConsultar } from '../shared/consultar-temas'
 import { escolherTitulo, TITULO_MAX } from '../shared/seo-titulo'
-import { PLANOS, precoBRL } from '../shared/planos'
 
 const SLUGS = ['gravame', 'leilao', 'recall', 'multas', 'roubo-furto', 'fipe']
 const PROIBIDO_META = /gr[aá]tis|gratuit|senatran|avaliservice/i
@@ -18,7 +17,6 @@ describe('cluster /consultar/{tema}', () => {
       expect(t.description.length, t.slug).toBeGreaterThan(80)
       expect(t.description.length, t.slug).toBeLessThanOrEqual(165)
       expect(t.faq, t.slug).toHaveLength(5)
-      expect(t.planos.length, t.slug).toBeGreaterThan(0)
     }
     expect(temaConsultar('nao-existe')).toBeUndefined()
   })
@@ -41,13 +39,12 @@ describe('cluster /consultar/{tema}', () => {
     expect(JSON.stringify(TEMAS_CONSULTAR)).not.toMatch(/senatran|avaliservice/i)
   })
 
-  it('preco vem de PLANOS, nao hardcoded', () => {
-    const recall = temaConsultar('recall')!
-    const txt = recall.faq.map((q) => q.resposta).join(' ')
-    expect(txt).toContain(precoBRL(PLANOS.basica.valorCentavos))
-    expect(txt).toContain(precoBRL(PLANOS.completa.valorCentavos))
-    const fonte = readFileSync(join(process.cwd(), 'shared/consultar-temas.ts'), 'utf8')
-    expect(fonte).not.toMatch(/R\$\s?\d/)
+  it('copy em aberto: sem preco e sem matriz de planos', () => {
+    const arquivos = ['shared/consultar-temas.ts', 'pages/consultar/index.vue', 'pages/consultar/[tema].vue', 'components/ConsultarPlacaCard.vue']
+    for (const f of arquivos) {
+      const txt = readFileSync(join(process.cwd(), f), 'utf8')
+      expect(txt, f).not.toMatch(/R\$|precoBRL|PLANOS|B[aá]sica|planos pagos/)
+    }
   })
 
   it('as 7 URLs estao no sitemap do nuxt.config', () => {

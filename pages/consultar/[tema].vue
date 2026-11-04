@@ -10,7 +10,6 @@ if (!t) throw createError({ statusCode: 404, statusMessage: 'Página não encont
 const BASE = 'https://placacompleta.com.br'
 const CANONICO = `${BASE}${rotaDoTema(t)}`
 const outros = TEMAS_CONSULTAR.filter((x) => x.slug !== t.slug)
-const nomePlano = t.planos.length > 1 ? 'a Consulta Básica ou a Completa' : 'a Consulta Completa'
 
 useHead({
   title: escolherTitulo(t.titulos),
@@ -50,7 +49,7 @@ useHead({
         </div>
         <div class="pc-step">
           <span class="pc-step__number">2</span>
-          <p class="pc-step__text"><strong>Veja a prévia na tela</strong> e escolha {{ nomePlano }} para ver esta verificação.</p>
+          <p class="pc-step__text"><strong>Veja a prévia na hora</strong> e siga para o relatório completo.</p>
         </div>
         <div class="pc-step">
           <span class="pc-step__number">3</span>
