@@ -419,6 +419,35 @@ async function buscarSinalLeilao() {
   }
 }
 
+// Gancho por modelo (04/nov/2026): sem sinal de leilao NESTA placa, uma linha
+// neutra sobre o MODELO ("Veiculos VW Gol aparecem em leiloes na nossa base").
+// So depois do sinal da placa responder, pra nao piscar uma frase e trocar
+// pela do achado. Tabela vazia = endpoint devolve null = linha nao aparece.
+const ganchoModelo = ref<string | null>(null)
+const fraseGanchoModeloTela = computed(() => (sinalLeilao.value?.positivo ? null : ganchoModelo.value))
+let ganchoReportado = ''
+async function buscarGanchoModelo() {
+  const b = resultadoBasico.value
+  ganchoModelo.value = null
+  if (!b?.marca || !b?.modelo || sinalLeilao.value?.positivo) return
+  try {
+    const r: any = await $fetch('/api/gancho-modelo', { method: 'POST', body: { marca: b.marca, modelo: b.modelo } })
+    // A placa pode ter mudado enquanto a resposta vinha.
+    if (resultadoBasico.value?.placa !== b.placa) return
+    ganchoModelo.value = typeof r?.frase === 'string' && r.frase ? r.frase : null
+    if (ganchoModelo.value && !sinalLeilao.value?.positivo && ganchoReportado !== b.placa) {
+      ganchoReportado = b.placa
+      enfileirarEventoFunil('gancho_modelo', {
+        placa: b.placa,
+        leilao_sinal: sinalLeilao.value ? 'negativo' : 'sem_sinal',
+        extra: { marca: String(b.marca).slice(0, 30), modelo: String(b.modelo).slice(0, 40) },
+      })
+    }
+  } catch {
+    ganchoModelo.value = null
+  }
+}
+
 // Sinal de RECALL (Toyota/Lexus por ora): mesma logica do leilao, chamada
 // propria pra nao atrasar a consulta. Copy VAGA (Cesar): a base so sabe que
 // CONSTA em campanha, nunca se ja foi atendido. Ver shared/sinal-recall-resposta.ts.
@@ -1065,6 +1094,7 @@ function limparResultado() {
   resultadoBasico.value = null
   definirCupomTela(null)
   sinalLeilao.value = null
+  ganchoModelo.value = null
   recallSinal.value = null
   medirRecall(null)
   placaJaConsultada.value = false
@@ -1332,7 +1362,7 @@ async function handleSubmit() {
         definirCupomTela((result as any).cupomTela)
         // Fire and forget: o resultado ja esta na tela, o sinal entra quando
         // chegar.
-        buscarSinalLeilao()
+        buscarSinalLeilao().then(buscarGanchoModelo)
         buscarRecallSinal()
         // A partir daqui o CTA pago pula a pergunta "e este veiculo?".
         placaJaConsultada.value = true
@@ -1655,6 +1685,11 @@ function applyEmailSuggestion() {
                  informacao. Nunca cita a fonte dos dados. -->
             <p v-if="blocoVarianteB && !fraseSinalLeilao" class="cb-sinal cb-sinal--neutro">
               <span>Nenhum registro de leilão para esta placa na nossa base com {{ BASE_LEILAO_TEXTO }}. O relatório completo confere se há indício de leilão no documento e checa roubo, gravame e dívida.</span>
+            </p>
+
+            <!-- Gancho por modelo: fala do MODELO, nunca desta placa, sem numero. -->
+            <p v-if="fraseGanchoModeloTela" class="cb-sinal cb-sinal--neutro cb-gancho-modelo">
+              <span>{{ fraseGanchoModeloTela }}.</span>
             </p>
 
             <p class="cb-locked__kick">Risco oculto nesta placa</p>

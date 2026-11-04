@@ -31,6 +31,8 @@ export const EVENTOS_FUNIL = [
   'checkout_fechado_sem_pagar',
   /** Informou e-mail no checkout ou na tela do Pix. */
   'email_informado',
+  /** A linha do gancho por modelo apareceu no bloco bloqueado (extra: marca, modelo; sem placa no texto). */
+  'gancho_modelo',
   /** Relatorio pago: marcou ou desmarcou um item do checklist (extra: item_id, marcado; sem PII). */
   'checklist_marcado',
 ] as const
