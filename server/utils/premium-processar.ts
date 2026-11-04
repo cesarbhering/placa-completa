@@ -1,4 +1,5 @@
 import { completarRenajudDepois } from './renajud-detalhe'
+import { gravarEntrega } from './entrega-pedido'
 import { fonteNoPlano } from '../../shared/planos'
 import { avisarVenda } from './aviso-venda'
 import { ambienteDaConsultaPaga } from './gcc-reserva'
@@ -251,16 +252,25 @@ export async function processarPedidoPago(
       await esperar(60000)
       r = await consultarSenatran(pedido.placa, ambiente, { placaAlternativa, pedidoId: pedido.id })
     }
-    await supabase
-      .from('pedidos_premium')
-      .update({
-        status: 'entregue', entregue_em: new Date().toISOString(), consulta_id: r.consultaId, debug_trace: r.trace,
-        // Qual placa o registro realmente respondeu. Quando os dois formatos
-        // existem, so isto explica por que o relatorio traz uma placa
-        // diferente da que a pessoa digitou.
-        placa_consultada: r.placaConsultada,
-      })
-      .eq('id', pedido.id)
+    // Entrega gravada CONFERINDO o erro (incidente 04/nov/2026: este update
+    // falhou calado e o pedido ficou em 'consultando' com o relatorio pronto).
+    // Retenta e, em ultimo caso, grava sem o debug_trace. Se nem assim, alerta:
+    // o relatorio segue sendo montado e o status.get/report.get/boot promovem
+    // o pedido assim que o snapshot existir (server/utils/entrega-pedido.ts).
+    const erroEntrega = await gravarEntrega(supabase, pedido.id, {
+      entregue_em: new Date().toISOString(), consulta_id: r.consultaId, debug_trace: r.trace,
+      // Qual placa o registro realmente respondeu. Quando os dois formatos
+      // existem, so isto explica por que o relatorio traz uma placa
+      // diferente da que a pessoa digitou.
+      placa_consultada: r.placaConsultada,
+    })
+    if (erroEntrega) {
+      console.error(`[premium] entrega NAO gravada pedido=${String(pedido.id).slice(0, 8)}: ${erroEntrega}`)
+      void emVoo('alerta-entrega', () => sendErrorEmail({
+        endpoint: '/premium/processar',
+        errorMessage: `Consulta paga OK mas o status de entrega NAO gravou (pedido=${pedido.id}): ${erroEntrega}. O status.get/report.get promovem quando o snapshot existir.`,
+      }))
+    }
 
     // Aviso da venda ao Cesar na hora (server/utils/aviso-venda.ts). Sem
     // await: nunca atrasa nem quebra a entrega; dedup no banco com o timer.

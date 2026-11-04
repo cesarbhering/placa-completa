@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { emVoo } from '../../utils/tarefas-em-voo'
+import { promoverSeSnapshotPronto } from '../../utils/entrega-pedido'
 import { registrarAbertura } from '../../utils/relatorio-aberturas'
 import { pedidoQueFicou } from '../../utils/compra-repetida'
 import { sanearRenajud } from '../../utils/renajud-detalhe'
@@ -148,6 +149,16 @@ export default defineEventHandler(async (event) => {
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Relatorio nao encontrado' })
+
+  // Preso em 'consultando' com o snapshot completo (a gravacao da entrega
+  // falhou, incidente 04/nov/2026): promove a 'entregue' aqui. Nao chama nada
+  // pago; so le a consulta que ja existe pra recuperar o consulta_id.
+  const promovido = await promoverSeSnapshotPronto(supabase, pedido)
+  if (promovido) {
+    pedido.status = 'entregue'
+    pedido.entregue_em = pedido.entregue_em || pedido.snapshot_em
+    if (!pedido.consulta_id && promovido.consultaId) pedido.consulta_id = promovido.consultaId
+  }
 
   // Abertura do relatorio pago (quem abriu e de onde): solta, nunca atrasa a
   // resposta. ?o=email (link do e-mail) / o=pdf vira a origem; dedupe de 30 min.

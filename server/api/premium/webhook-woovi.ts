@@ -1,4 +1,4 @@
-import { emVoo } from '../../utils/tarefas-em-voo'
+import { emVoo, rastrearEmVoo } from '../../utils/tarefas-em-voo'
 import { chavesPublicas, verificarAssinatura, pedidoDaCorrelacao } from '../../utils/woovi'
 import { gravarPagadorHash, sanearPayloadWebhook } from '../../utils/pagador-hash'
 import { lerPayloadWoovi, ehPingWoovi } from '../../utils/woovi-webhook-payload'
@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
   if (!pedido) return { ok: true, semPedido: true }
 
   void emVoo('pagador-hash', () => gravarPagadorHash(supabase, pedido))
-  await processarPedidoPago(supabase, pedido)
+  await rastrearEmVoo('processar-pedido', () => processarPedidoPago(supabase, pedido))
   if (chargeId) await supabase.from('webhook_events').update({ processado: true }).eq('abacatepay_id', chargeId)
   return { ok: true }
 })

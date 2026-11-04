@@ -1,4 +1,5 @@
-import { aguardarEmVoo, quantasEmVoo, marcarEncerrando, estaEncerrando, pararDeAceitar, TETO_ESPERA_MS } from '../utils/tarefas-em-voo'
+import { aguardarEmVoo, quantasEmVoo, marcarEncerrando, estaEncerrando, pararDeAceitar, rastrearEmVoo, TETO_ESPERA_MS } from '../utils/tarefas-em-voo'
+import { recuperarConsultandoPresos } from '../utils/entrega-pedido'
 import { redeSegurancaBoot, ATRASO_MS } from '../utils/rede-seguranca-boot'
 import { ambienteForaDeProd } from '../utils/ambiente-alerta'
 
@@ -16,7 +17,8 @@ import { ambienteForaDeProd } from '../utils/ambiente-alerta'
 //  4. chama os hooks 'close' do Nitro e sai.
 //
 // Boot: ATRASO_MS depois de subir, a rede de seguranca reenfileira a busca de
-// multas de pedido entregue na ultima hora que ficou sem bloco. So em prod.
+// multas de pedido entregue na ultima hora que ficou sem bloco, e recupera
+// pedido preso em 'consultando' (server/utils/entrega-pedido.ts). So em prod.
 
 export function instalarEncerramento(
   nitroApp: { hooks: { callHook: (n: string) => Promise<any> } },
@@ -54,6 +56,12 @@ export default defineNitroPlugin((nitroApp) => {
   const t = setTimeout(() => {
     void redeSegurancaBoot(usePremiumSupabase()).then((ids) => {
       if (ids.length) console.warn(`[boot] rede de seguranca reenfileirou ${ids.length} pedido(s)`)
+    })
+    // Pedido preso em 'consultando' (deploy no meio da consulta ou entrega que
+    // nao gravou): promove ou roda de novo (server/utils/entrega-pedido.ts).
+    void recuperarConsultandoPresos(usePremiumSupabase(), {
+      processar: (sb, p) => rastrearEmVoo('processar-pedido-boot', () => processarPedidoPago(sb, p)).catch(() => {}),
+      alertar: (msg) => sendErrorEmail({ endpoint: '/boot/presos-consultando', errorMessage: msg }),
     })
   }, ATRASO_MS)
   t.unref?.()
