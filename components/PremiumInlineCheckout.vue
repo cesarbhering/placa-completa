@@ -1502,6 +1502,8 @@ onUnmounted(() => {
               <h3 class="pic-h">Compra confirmada ✓</h3>
               <div class="loading-bar"><div class="loading-bar__fill" /></div>
               <p class="pic-hint">Preparando seu relatório...</p>
+              <!-- Pedido acoplado: segunda placa por R$ 29,90 (so web, so com e-mail no pedido). -->
+              <OfertaSegundaPlaca v-if="pix?.token && !isCapacitor && !pix?.gratis" :token="pix.token" onde="checkout" />
             </template>
             <template v-else-if="pendingStatus === 'aguardando_pagamento'">
               <!-- Tela do Pix, enxuta de proposito: ela tinha 1.136px de altura

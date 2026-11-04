@@ -27,7 +27,7 @@ describe('link com o plano ja escolhido (/?plano=)', () => {
   it('a home usa a regra e abre o checkout com origem link_plano', () => {
     const home = readFileSync('pages/index.vue', 'utf8')
     expect(home).toContain('planoDoLinkSemPlaca(route.query')
-    expect(home).toContain("viaLinkPlano.value ? 'link_plano' : 'hero_apos_cta'")
+    expect(home).toContain("viaLinkPlano.value ? (veioDoBump(route.query) ? 'bump' : 'link_plano') : 'hero_apos_cta'")
     // copy do aviso: sem travessao
     const aviso = home.slice(home.indexOf('class="cb-plano-link"'), home.indexOf('class="cb-plano-link"') + 600)
     expect(aviso).not.toMatch(/—/)

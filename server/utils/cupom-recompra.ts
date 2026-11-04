@@ -73,6 +73,8 @@ export async function cupomRecompraDoPedido(supabase: any, pedidoId: string): Pr
 
 /** Colunas do pedido que usou o cupom: so quando e cupom de recompra aplicado. */
 export function origemDoCupom(c: { ok?: boolean; origem?: string | null; pedidoOrigemId?: string | null } | null | undefined): { cupom_origem?: string; cupom_pedido_origem_id?: string } {
+  // Segunda placa do pedido acoplado (server/utils/cupom-bump.ts).
+  if (c?.ok && c.origem === 'bump') return { cupom_origem: 'cupom_bump' }
   if (!c?.ok || c.origem !== 'recompra') return {}
   return { cupom_origem: 'cupom_recompra', ...(c.pedidoOrigemId ? { cupom_pedido_origem_id: c.pedidoOrigemId } : {}) }
 }

@@ -55,6 +55,7 @@ import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
 
 const route = useRoute()
 const token = route.params.token as string
+const { isCapacitor } = useAppMode()
 useHead({ title: 'Relatório Veicular', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
 // ?o=email (link do e-mail de entrega) vai junto so pra marcar a origem da
@@ -2325,6 +2326,9 @@ onUnmounted(() => {
 
         <!-- ============ 3. O RELATORIO ============ -->
         <template v-else>
+          <!-- Pedido acoplado (04/nov/2026): segunda placa por R$ 29,90 no topo do
+               relatorio. O servidor decide se ha oferta (e-mail, 24 h, 1 uso). -->
+          <OfertaSegundaPlaca v-if="token && !isCapacitor" :token="token" onde="relatorio" />
           <!-- Faixa de entrega por e-mail. So aparece pra quem comprou sem
                informar e-mail (o campo do Pix e opcional desde que ele saiu da
                frente da cobranca). Sem isto, quem fechava o modal do Pix nao

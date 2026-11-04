@@ -33,6 +33,10 @@ export const EVENTOS_FUNIL = [
   'email_informado',
   /** A linha do gancho por modelo apareceu no bloco bloqueado (extra: marca, modelo; sem placa no texto). */
   'gancho_modelo',
+  /** Oferta de segunda placa (pedido acoplado) apareceu (extra: onde = checkout|relatorio). */
+  'bump_visto',
+  /** Clique na oferta de segunda placa (extra: onde). */
+  'bump_click',
   /** Relatorio pago: marcou ou desmarcou um item do checklist (extra: item_id, marcado; sem PII). */
   'checklist_marcado',
 ] as const

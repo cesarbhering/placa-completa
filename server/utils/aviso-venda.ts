@@ -82,6 +82,7 @@ export function origemDoPedido(pedido: Pick<PedidoAviso, 'cupom_origem'>, consul
   const base = origemDaConsulta(consulta)
   if (pedido.cupom_origem === 'cupom_recompra') return `${base} + cupom de recompra`
   if (pedido.cupom_origem === 'cupom_tela') return `${base} + cupom de tela (10%)`
+  if (pedido.cupom_origem === 'cupom_bump') return `${base} + segunda placa (pedido acoplado)`
   return base
 }
 

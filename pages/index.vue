@@ -14,6 +14,7 @@ import { marcaTemRecallGratis, marcaParaMedicao } from '~/shared/marcas-recall'
 import { homepageFaqs } from '~/data/homepage-faqs'
 import { origemDoCta, type OrigemCheckout } from '~/shared/origem-checkout'
 import { planoDoLinkSemPlaca } from '~/shared/link-plano'
+import { veioDoBump } from '~/shared/cupom-bump'
 import { origemDaSessao, entradaDaSessao } from '~/shared/origem-trafego'
 import { espelharEventoNoFunil, enfileirarEventoFunil, definirRecallSinal } from '~/composables/useAnalytics'
 import { decidirVariante, fipeSemCentavos, tituloVarianteB, subVarianteB, garantiaVarianteB, type VarianteAbBloco } from '~/shared/ab-bloco'
@@ -89,6 +90,8 @@ onMounted(() => {
       aguardandoPlacaPaga.value = true
       viaLinkPlano.value = true
       track('link_plano_visto', { plano: planoLink })
+      // Pedido acoplado (segunda placa por R$ 29,90): o campo de placa ja vem em foco.
+      if (veioDoBump(route.query)) nextTick(() => placaRef.value?.focus())
     }
     return
   }
@@ -1311,7 +1314,7 @@ async function handleSubmit() {
   // agora existe, entao o destino e o checkout, nao a consulta gratis.
   if (aguardandoPlacaPaga.value && !fluxoLegado.value) {
     // Link com plano (/?plano=...) ou clique num CTA pago sem placa.
-    const origem: OrigemCheckout = viaLinkPlano.value ? 'link_plano' : 'hero_apos_cta'
+    const origem: OrigemCheckout = viaLinkPlano.value ? (veioDoBump(route.query) ? 'bump' : 'link_plano') : 'hero_apos_cta'
     aguardandoPlacaPaga.value = false
     premiumPlaca.value = placa.value
     premiumOrigem.value = origem
