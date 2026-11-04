@@ -291,6 +291,10 @@ if (isBrandPage) {
               <li>Informe seu e-mail</li>
               <li>Receba marca, modelo, ano, valor FIPE e situação no e-mail</li>
             </ol>
+            <p>
+              Quer o valor da versão exata? Veja a
+              <NuxtLink to="/tabela-fipe-por-placa">tabela FIPE pela placa</NuxtLink>.
+            </p>
 
             <h2>Dados retornados na consulta</h2>
             <ul>
@@ -443,7 +447,7 @@ if (isBrandPage) {
                 preço FIPE para o ano e versão exata.
               </p>
               <p>
-                <NuxtLink to="/tabela-fipe-por-placa">Como funciona a consulta FIPE pela placa →</NuxtLink>
+                Como funciona a <NuxtLink to="/tabela-fipe-por-placa">tabela FIPE pela placa</NuxtLink> →
               </p>
             </div>
 

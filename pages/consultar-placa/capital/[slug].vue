@@ -79,6 +79,10 @@ useHead({
         <!-- Frase de abertura citavel (plano GEO 13/out): Placa Completa como sujeito. -->
         <p>{{ aberturaCapital(capital.name) }}</p>
         <p>
+          Para <NuxtLink to="/">consultar placa</NuxtLink> de um veículo de {{ capital.name }}, grátis e sem cadastro,
+          basta digitar a placa na página inicial.
+        </p>
+        <p>
             {{ capital.name }} é a capital {{ deEstado(state.uf, state.name).split(' ')[0] }}
             <NuxtLink :to="`/consultar-placa/${state.slug}`">{{ state.name }} ({{ state.uf }})</NuxtLink>.
             {{ capital.context }}

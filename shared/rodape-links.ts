@@ -18,7 +18,7 @@ export const COLUNAS_RODAPE: ColunaRodape[] = [
     titulo: 'Preços e FIPE',
     links: [
       { rotulo: 'Tabela FIPE', to: '/tabela-fipe' },
-      { rotulo: 'FIPE pela placa', to: '/tabela-fipe-por-placa' },
+      { rotulo: 'Placa FIPE', to: '/tabela-fipe-por-placa' },
       { rotulo: 'Cotação', to: '/cotacao' },
       { rotulo: 'Seguro de carro elétrico', to: '/seguro/carro-eletrico' },
     ],

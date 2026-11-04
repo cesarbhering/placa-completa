@@ -1,4 +1,5 @@
-import { escolherTitulo } from './seo-titulo'
+import { escolherTitulo, emEstado } from './seo-titulo'
+import { GANCHO_CONSULTA } from './seo-meta'
 // Title e description de /consultar-placa/[estado] (plano SEO 02/out, item #3).
 // RJ, AL, SC e BA tinham CTR de 0,76% a 1,96% contra 2,7% das capitais. A busca
 // por UF e "consulta placa detran <uf>": o title passa a falar DETRAN e FIPE e
@@ -8,6 +9,13 @@ import { escolherTitulo } from './seo-titulo'
 
 /** Title FINAL (50 a 60 caracteres, ver shared/seo-titulo.ts); a pagina usa titleTemplate '%s'. */
 export function tituloEstado(uf: string, nome: string): string {
+  // Plano de growth nov/2026: "buscar placa" no title do DF (sem DETRAN em texto novo).
+  if (uf === 'DF') {
+    return escolherTitulo([
+      `Buscar Placa ${emEstado(uf, nome)}: Consulta e Leilão`,
+      `Buscar Placa no DF: Consulta, Leilão e FIPE`,
+    ])
+  }
   return escolherTitulo([
     `Consulta Placa ${uf} pelo DETRAN e FIPE: ${nome}`,
     `Consulta de Placa ${deEstado(uf, nome)}: DETRAN, FIPE e Leilão`,
@@ -17,7 +25,8 @@ export function tituloEstado(uf: string, nome: string): string {
 }
 
 export function descricaoEstado(uf: string, nome: string): string {
-  return `Consulta de placa de veículo ${deEstado(uf, nome)} (${uf}): marca, modelo, ano e FIPE na hora, e relatório completo com dados do DETRAN, leilão, gravame e roubo.`
+  // Plano de growth nov/2026: gancho do gratis no snippet, sem DETRAN.
+  return `Consulta de placa ${deEstado(uf, nome)} (${uf}) online. ${GANCHO_CONSULTA}`
 }
 
 // "do Rio de Janeiro", "da Bahia", "de Alagoas": artigo de cada UF.

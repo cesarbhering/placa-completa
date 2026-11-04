@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { FRASE_SINAL_FROTA } from '~/shared/revenda-frota'
 import { SAME_AS } from '~/shared/redes-sociais'
+import { PROVA_SOCIAL } from '~/shared/prova-social'
+import { DESCRICAO_HOME_BUSCA } from '~/shared/seo-meta'
 import { BASE_LEILAO_QTD, BASE_LEILAO_TEXTO, BASE_LEILAO_TEXTO_INICIO } from '~/shared/base-leilao'
 import { cederAoNavegador } from '~/shared/ceder'
 import { PLANOS, PLANOS_PAGOS, RECURSOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, inclui, isPlanoPago, precoBRL, precoDePromocao, type PlanoId } from '~/shared/planos'
@@ -843,7 +845,9 @@ function onFormStart() {
 // veiculo dentro. Nao entra em indice.
 useSeoMeta({
   robots: () => (route.params.placa ? 'noindex, nofollow' : 'index, follow'),
-  description: siteVariant.ogDescription,
+  // Meta description com "consulta de placa grátis" e "busca placa" (plano de
+  // growth nov/2026); OG segue sem "grátis". Moto/caminhao seguem como estavam.
+  description: siteVariant.variant === 'default' ? DESCRICAO_HOME_BUSCA : siteVariant.ogDescription,
   ogTitle: siteVariant.ogTitle,
   ogDescription: siteVariant.ogDescription,
   // Imagem OG segue a do placacompleta ate ter uma por dominio (mesmo
@@ -1707,6 +1711,10 @@ function applyEmailSuggestion() {
                   <p v-if="blocoVarianteB" class="cb-locked__pix">{{ garantiaBlocoB }}</p>
                   <p v-else class="cb-locked__pix">{{ isCapacitor ? 'Na hora, sem assinatura.' : 'Pix ou cartão, na hora, sem assinatura.' }}</p>
                   <p v-if="!isCapacitor" class="cb-locked__volume"><NuxtLink to="/para-empresas">Compra em volume? Veja os pacotes para empresas</NuxtLink></p>
+                  <!-- Prova social + WhatsApp: iguais nas duas variantes do A/B,
+                       abaixo do CTA, pra nao mexer no que o teste mede. -->
+                  <p class="cb-locked__prova">{{ PROVA_SOCIAL }}</p>
+                  <p class="cb-locked__wa"><WhatsappDuvidas onde="resultado_gratis" /></p>
                   <!-- Oferta da basica desativada aqui: duas opcoes no mesmo
                        ponto dividiam a decisao. A basica segue viva no
                        comparativo de precos. Pra voltar, e so descomentar.
@@ -4879,4 +4887,6 @@ function applyEmailSuggestion() {
 }
 .cb-locked__volume, .cb-cmp-volume { margin: 8px 0 0; font-size: 13px; text-align: center; }
 .cb-locked__volume a, .cb-cmp-volume a { color: #636363; text-decoration: underline; }
+.cb-locked__prova { margin: 8px 0 0; font-size: 12px; line-height: 1.4; color: #636363; text-align: center; }
+.cb-locked__wa { margin: 0; text-align: center; }
 </style>
