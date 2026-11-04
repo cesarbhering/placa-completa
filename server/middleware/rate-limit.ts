@@ -47,6 +47,10 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   // Coletor do funil: recebe lote de ate 10 eventos por chamada, entao 60/min
   // cobre uma navegacao intensa com folga e ainda barra despejo automatizado.
   '/api/evento': { windowMs: 60 * 1000, maxRequests: 60 }, // 60 por minuto
+  // Dados da /tabela-fipe para o app: ele baixa uma vez por dia na abertura e usa
+  // o retrato do bundle como reserva, entao 10/min cobre tentativas e barra
+  // varredura. O startsWith nao pega /api/fipe-prices (hifen no lugar da barra).
+  '/api/fipe/dados': { windowMs: 60 * 1000, maxRequests: 10 }, // 10 por minuto
   'default': { windowMs: 60 * 1000, maxRequests: 30 }, // Default: 30 per minute
 }
 
