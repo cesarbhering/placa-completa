@@ -6,6 +6,7 @@ import crypto from 'node:crypto'
 import { sanearOrigem, opprefDoPedido, COOKIE_OPPREF } from '../../../shared/origem-trafego'
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
 import { barrarPlacaBloqueada } from '../../utils/blocklist'
+import { cupomTelaValido, segredoCupomTela, resolverDescontoTela, colunasCupomTela } from '../../utils/cupom-tela'
 
 // Checkout com CARTAO (Stripe). Secundario: o Pix (checkout.post.ts) segue
 // principal. Cria o pedido (forma_pagamento='cartao') + a Checkout Session
@@ -52,10 +53,15 @@ export default defineEventHandler(async (event) => {
   // ignoramos o desconto de 100% e cobramos cheio no cartao — quem quer o gratis
   // usa o Pix, que sabe entregar sem cobranca.
   const codigoCupom = String(body.cupom || '').trim()
-  const cupomValidado = codigoCupom ? await validarCupom(supabase, codigoCupom, plano, email) : null
-  const zeraPreco = !!(cupomValidado?.ok && cupomValidado.precoLiquidoCentavos === 0)
-  const aplicaCupom = !!(cupomValidado?.ok && !zeraPreco)
-  const valor = aplicaCupom ? cupomValidado!.precoLiquidoCentavos : PLANOS[plano].valorCentavos
+  const cupomDigitado = codigoCupom ? await validarCupom(supabase, codigoCupom, plano, email) : null
+  const zeraPreco = !!(cupomDigitado?.ok && cupomDigitado.precoLiquidoCentavos === 0)
+  // Cupom de tela (10% em 30 min): nao acumula, vale o maior. Cupom que zera
+  // nao vale no cartao, entao ele nem entra na comparacao.
+  const { cupom: cupomValidado, tela: descontoTela } = resolverDescontoTela(
+    plano, zeraPreco ? null : cupomDigitado, cupomTelaValido(segredoCupomTela(config as any), body.cupom_tela, placa),
+  )
+  const aplicaCupom = !!cupomValidado?.ok
+  const valor = aplicaCupom ? cupomValidado!.precoLiquidoCentavos : (descontoTela?.precoLiquidoCentavos ?? PLANOS[plano].valorCentavos)
 
   // Guarda-corpo: Stripe recusa cobranca abaixo do minimo (~R$0,50 em BRL).
   // Nunca deve acontecer com a completa (R$45), mas se um cupom parcial derrubar
@@ -86,6 +92,8 @@ export default defineEventHandler(async (event) => {
       ...opprefDoPedido(sanearOrigem(body.origin), getCookie(event, COOKIE_OPPREF)),
       // Cupom de recompra: marca a venda e qual pedido gerou o codigo.
       ...origemDoCupom(cupomValidado),
+      // Desconto de tela aplicado (o fin mede por esta coluna).
+      ...colunasCupomTela(descontoTela),
     })
     .select()
     .single()
@@ -128,7 +136,9 @@ export default defineEventHandler(async (event) => {
 
   return {
     token, plano, valor, url: sessao.url,
-    cupomAplicado: aplicaCupom ? { descontoCentavos: cupomValidado!.descontoCentavos } : null,
+    cupomAplicado: aplicaCupom
+      ? { descontoCentavos: cupomValidado!.descontoCentavos }
+      : descontoTela ? { descontoCentavos: descontoTela.descontoCentavos, tela: true } : null,
   }
 })
 

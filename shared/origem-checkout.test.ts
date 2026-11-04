@@ -39,7 +39,7 @@ describe('caminhos que abrem o checkout na home passam a origem', () => {
   })
   it('cada porta esperada aparece', () => {
     for (const o of ['link_direto', 'hero_home', 'escada_planos', 'hero_apos_cta']) expect(semComentario).toContain(`'${o}'`)
-    expect(semComentario).toContain("cliqueCtaCompleta('bloco_bloqueado')")
+    expect(semComentario).toContain("cliqueCtaCompleta(cupomTelaAtivo ? 'cupom_tela' : 'bloco_bloqueado')")
     expect(semComentario).toContain("cliqueCtaCompleta('barra_fixa')")
     expect(semComentario).toContain(':origem-checkout="premiumOrigem"')
   })
@@ -59,5 +59,14 @@ describe('o pedido grava a porta de entrada (Pix, cartao, Play)', () => {
     // concluirCompraPlay (pode ser no job, minutos depois).
     expect(arq('server/api/premium/google-play/verificar.post.ts')).toContain('origem_checkout: body.origem_checkout')
     expect(arq('server/utils/google-play-compras.ts')).toContain('origem_checkout: sanearOrigemCheckout(dados.origem_checkout)')
+  })
+})
+
+describe('cupom de tela', () => {
+  it('cupom_tela e origem valida e vem do CTA', async () => {
+    const { sanearOrigemCheckout, origemDoCta, ROTULO_ORIGEM_CHECKOUT } = await import('./origem-checkout')
+    expect(sanearOrigemCheckout('cupom_tela')).toBe('cupom_tela')
+    expect(origemDoCta('cupom_tela')).toBe('cupom_tela')
+    expect(ROTULO_ORIGEM_CHECKOUT.cupom_tela).toBe('Cupom de tela')
   })
 })

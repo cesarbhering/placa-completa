@@ -5,6 +5,7 @@ import { PROVA_SOCIAL } from '~/shared/prova-social'
 import { DESCRICAO_HOME_BUSCA } from '~/shared/seo-meta'
 import { BASE_LEILAO_QTD, BASE_LEILAO_TEXTO, BASE_LEILAO_TEXTO_INICIO } from '~/shared/base-leilao'
 import { cederAoNavegador } from '~/shared/ceder'
+import { CUPOM_TELA_PCT, relogioCupomTela, mostrarCupomTela } from '~/shared/cupom-tela'
 import { PLANOS, PLANOS_PAGOS, RECURSOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, inclui, isPlanoPago, precoBRL, precoDePromocao, type PlanoId } from '~/shared/planos'
 import { sinalDaResposta, fraseSinalNaTela, type SinalNaTela } from '~/shared/sinal-leilao-resposta'
 import { sinalRecallDaResposta, fraseRecallNaTela } from '~/shared/sinal-recall-resposta'
@@ -337,6 +338,34 @@ onUnmounted(() => { obsForm?.disconnect(); obsEyebrow?.disconnect() })
 // Bloco livre mostrado na tela depois da consulta gratis (o "o que e o carro").
 // Vem de /api/consulta; nada aqui e SENATRAN.
 const resultadoBasico = ref<Record<string, any> | null>(null)
+
+// Cupom de tela: 10% se fechar em 30 min. O servidor emite o token com o
+// instante da emissao e e ELE que recusa depois do prazo; o relogio aqui so
+// mostra o que falta. Quem chegou com ?cupom= (e-mail) nao ve: nao acumula, e
+// duas ofertas na mesma tela confundem.
+const cupomTela = ref<{ token: string; expiraEm: string } | null>(null)
+const cupomTelaAgora = ref(Date.now())
+let cupomTelaTick: ReturnType<typeof setInterval> | null = null
+const cupomTelaRestanteMs = computed(() =>
+  cupomTela.value ? new Date(cupomTela.value.expiraEm).getTime() - cupomTelaAgora.value : 0,
+)
+const cupomTelaAtivo = computed(() =>
+  !!cupomTela.value && cupomTelaRestanteMs.value > 0 && mostrarCupomTela(route.query.cupom, isCapacitor.value),
+)
+const cupomTelaRelogio = computed(() => relogioCupomTela(cupomTelaRestanteMs.value))
+/** Token que vai pro checkout (so enquanto vale; o servidor confere de novo). */
+const cupomTelaToken = computed(() => (cupomTelaAtivo.value ? cupomTela.value!.token : null))
+function definirCupomTela(v: any) {
+  cupomTela.value = v && typeof v.token === 'string' && typeof v.expiraEm === 'string' ? v : null
+  if (cupomTelaTick) { clearInterval(cupomTelaTick); cupomTelaTick = null }
+  if (!cupomTela.value || !import.meta.client) return
+  cupomTelaAgora.value = Date.now()
+  cupomTelaTick = setInterval(() => {
+    cupomTelaAgora.value = Date.now()
+    if (cupomTelaRestanteMs.value <= 0 && cupomTelaTick) { clearInterval(cupomTelaTick); cupomTelaTick = null }
+  }, 1000)
+}
+onUnmounted(() => { if (cupomTelaTick) clearInterval(cupomTelaTick) })
 
 // Sinal de leilao da consulta gratis: um numero e um booleano, nada mais (a
 // muralha vive em server/utils/sinal-leilao.ts). Chega DEPOIS do resultado,
@@ -1034,6 +1063,7 @@ function limparResultado() {
   messageType.value = 'info'
   formStarted.value = false
   resultadoBasico.value = null
+  definirCupomTela(null)
   sinalLeilao.value = null
   recallSinal.value = null
   medirRecall(null)
@@ -1299,6 +1329,7 @@ async function handleSubmit() {
         // resultado na tela (padrao dos concorrentes): o que e o carro aparece
         // na hora; o que decide a compra fica atras do pagamento.
         resultadoBasico.value = (result as any).basico || null
+        definirCupomTela((result as any).cupomTela)
         // Fire and forget: o resultado ja esta na tela, o sinal entra quando
         // chegar.
         buscarSinalLeilao()
@@ -1699,7 +1730,12 @@ function applyEmailSuggestion() {
                        prometer a RESPOSTA ("da pra confiar?"), nao o produto. -->
                   <!-- Preco antigo riscado: igual nas duas variantes do A/B. -->
                   <p class="cb-locked__promo"><PrecoPromo so-de /></p>
-                  <button type="button" class="cb-btn cb-btn--blue" @click="cliqueCtaCompleta('bloco_bloqueado')">
+                  <!-- Cupom de tela: prazo real (o servidor recusa depois dos 30 min). -->
+                  <p v-if="cupomTelaAtivo" class="cb-cupom-tela" role="status">
+                    <strong>{{ CUPOM_TELA_PCT }}% de desconto</strong> se fechar nos próximos 30 minutos
+                    <span class="cb-cupom-tela__relogio" aria-label="tempo restante">{{ cupomTelaRelogio }}</span>
+                  </p>
+                  <button type="button" class="cb-btn cb-btn--blue" @click="cliqueCtaCompleta(cupomTelaAtivo ? 'cupom_tela' : 'bloco_bloqueado')">
                     {{ blocoVarianteB
                       ? 'Saber se posso confiar neste carro'
                       : soNotificacao
@@ -2409,6 +2445,8 @@ function applyEmailSuggestion() {
       :ja-consultada="placaJaConsultada"
       :ab-bloco="abBloco"
       :origem-checkout="premiumOrigem"
+      :cupom-tela-token="cupomTelaToken"
+      :cupom-tela-expira-em="cupomTelaAtivo ? cupomTela?.expiraEm ?? null : null"
       :recall-sinal="recallMedido?.sinal ?? null"
       :recall-marca="recallMedido?.marca ?? null"
       @close="showPremiumCheckout = false"
@@ -4887,6 +4925,8 @@ function applyEmailSuggestion() {
 }
 .cb-locked__volume, .cb-cmp-volume { margin: 8px 0 0; font-size: 13px; text-align: center; }
 .cb-locked__volume a, .cb-cmp-volume a { color: #636363; text-decoration: underline; }
+.cb-cupom-tela { margin: 0 0 10px; padding: 8px 12px; border-radius: 8px; background: #fff7e0; color: #5a4300; font-size: 14px; line-height: 1.4; text-align: center; }
+.cb-cupom-tela__relogio { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 6px; background: #5a4300; color: #fff; font-variant-numeric: tabular-nums; font-weight: 600; }
 .cb-locked__prova { margin: 8px 0 0; font-size: 12px; line-height: 1.4; color: #636363; text-align: center; }
 .cb-locked__wa { margin: 0; text-align: center; }
 </style>

@@ -5,6 +5,7 @@ import { sanearOrigem, sanearEntrada } from '../../shared/origem-trafego'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { checkEmailDeliverability } from '../utils/email-deliverability'
 import { getClientIp } from '../utils/client-ip'
+import { emitirCupomTela, segredoCupomTela } from '../utils/cupom-tela'
 import { lookupIpGeo } from '../utils/ip-geo'
 import { getRegiaoSusep } from '../utils/regiao-susep'
 import { getSeguroEstimado, type SeguroEstimado } from '../utils/seguro-estimate'
@@ -832,6 +833,9 @@ export default defineEventHandler(async (event) => {
     // payload minimo pro botao de compartilhar no WhatsApp (web)
     // Sem FIPE: virou conteudo pago, e o texto de compartilhamento e superficie
     // publica.
+    // Cupom de tela: 10% se fechar em 30 min. O prazo e do servidor (token
+    // HMAC com o instante da emissao); a tela so mostra o relogio.
+    cupomTela: !isPWA ? (emitirCupomTela(segredoCupomTela(config as any), placaClean, ip) ?? undefined) : undefined,
     share: !isPWA ? {
       marca: marcaExibicao(apiResponse),
       modelo: apiResponse.MODELO || apiResponse.modelo || '',
