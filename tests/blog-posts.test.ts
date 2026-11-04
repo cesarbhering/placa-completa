@@ -18,12 +18,22 @@ describe('blog', () => {
   })
   it('post da eleicao 2026: neutro, com fontes e sem travessao', () => {
     const p = findBlogPost('eleicao-2026-o-que-muda-no-preco-do-carro-usado')!
-    expect(p).toBe(blogPosts[0])
+    expect(p).toBe(blogPosts[1])
     const tudo = JSON.stringify(p)
     expect(tudo).not.toContain('\u2014')
     expect(tudo).not.toMatch(/SENATRAN|DETRAN/i)
     expect(p.content.find((s) => s.heading === 'Fontes')?.text).toContain('g1.globo.com')
     expect(p.content.some((s) => s.type === 'cta' && s.ctaTo === '/')).toBe(true)
+  })
+  it('post da Black Friday: estilo do Cesar, sem travessao, sem fonte, sem preco', () => {
+    const p = findBlogPost('black-friday-carro-usado-golpe-anuncio')!
+    expect(p).toBe(blogPosts[0])
+    const tudo = JSON.stringify(p)
+    expect(tudo).not.toContain('\u2014')
+    expect(tudo).not.toMatch(/SENATRAN|DETRAN|39,90|44,90|29,90/i)
+    expect(p.title + p.metaDescription).not.toMatch(/gr[aá]tis/i)
+    expect(p.content.some((s) => s.type === 'faq')).toBe(true)
+    expect(p.content.at(-1)).toMatchObject({ type: 'cta', ctaTo: '/' })
   })
   it('capas existem em public/', () => {
     for (const p of blogPosts) {
