@@ -13,6 +13,7 @@ export const ORIGENS_CHECKOUT = [
   'link_direto', //     /?placa=...&plano=... (upgrade da basica, links)
   'link_plano', //      /?plano=... sem placa: digita a placa e vai direto ao pagamento
   'cupom_tela', //     botao do bloco bloqueado com o cupom de tela (10% em 30 min) na tela
+  'bump', //           segunda placa por R$ 29,90 oferecida depois do pagamento (pedido acoplado)
   'pix_recovery', //    /premium?placa=... (e-mail de recuperacao de Pix)
   'app', //             reservado: abertura propria do app (hoje o app usa os mesmos botoes do site)
   'outro', //           demais botoes (secao final, FIPE por placa...)
@@ -40,6 +41,7 @@ export const ROTULO_ORIGEM_CHECKOUT: Record<OrigemCheckout | 'nao_medido', strin
   link_direto: 'Link direto',
   link_plano: 'Link com plano',
   cupom_tela: 'Cupom de tela',
+  bump: 'Segunda placa (pedido acoplado)',
   pix_recovery: 'Recuperação de Pix',
   app: 'App',
   outro: 'Outro botão',
