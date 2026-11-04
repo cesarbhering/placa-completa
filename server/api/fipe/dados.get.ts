@@ -26,7 +26,7 @@ function mesMaisRecente(precos: Record<string, { priceTable: Array<{ referenceMo
 
 const corpo = {
   versao: 1,
-  referencia: mesMaisRecente(fipePrices as any),
+  referencia: mesMaisRecente(fipePrices),
   marcas: fipeBrands,
   precos: fipePrices,
   intros: modelSeoData,
