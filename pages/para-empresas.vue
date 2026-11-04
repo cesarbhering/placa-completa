@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { RECURSOS, inclui } from '~/shared/planos'
+import { RECURSOS, inclui, PLANOS, precoBRL } from '~/shared/planos'
+import { PACOTES_EMPRESAS, precoPorConsulta, economiaPacote, type PacoteEmpresa } from '~/shared/pacotes-empresas'
 import { TIPOS_EMPRESA, VOLUMES_EMPRESA, UFS, MSG_RECEBIDO } from '~/shared/empresas'
 import { DESCRICOES } from '~/shared/seo-meta'
 import { escolherTitulo } from '~/shared/seo-titulo'
 
 // Consultas em pacote para lojistas, garagens e despachantes (Cesar, 20/out/2026).
-// Sem preco na pagina: o Cesar fecha cada proposta. O formulario grava em
-// leads_empresas e avisa o Cesar (server/api/empresas/proposta.post.ts).
+// Desde 04/nov/2026 dois pacotes tem preco fixo (shared/pacotes-empresas.ts);
+// acima disso o Cesar fecha a proposta. O formulario grava em leads_empresas e
+// avisa o Cesar (server/api/empresas/proposta.post.ts).
 
 const URL = 'https://placacompleta.com.br/para-empresas'
 useHead({
@@ -42,8 +44,8 @@ const QUEM_USA = [
   { t: 'Financeira pequena', d: 'Checa a garantia antes de liberar o crédito, com histórico de leilão e indício de sinistro.' },
 ]
 const COMO_FUNCIONA = [
-  'Você pede a proposta no formulário abaixo.',
-  'Respondemos em até 24 horas úteis, com o preço do pacote para o seu volume.',
+  'Você escolhe um pacote ou pede uma proposta para o seu volume no formulário abaixo.',
+  'Respondemos em até 24 horas úteis, com o Pix do pacote.',
   'Você paga por Pix.',
   'As consultas ficam liberadas na hora.',
 ]
@@ -52,6 +54,15 @@ const form = reactive({
   nome: '', empresa: '', tipo: '', cidade: '', uf: '', volume_faixa: '', whatsapp: '', email: '', mensagem: '', aceite: false,
   site: '', // honeypot: fica escondido; gente de verdade nunca preenche
 })
+const AVULSO = PLANOS.completa.valorCentavos
+const pacotes = PACOTES_EMPRESAS.map((p) => ({ ...p, porConsulta: precoPorConsulta(p), economia: economiaPacote(p) }))
+
+// Botao do pacote: leva ao formulario ja com a faixa e o pacote escritos.
+function escolherPacote(p: PacoteEmpresa) {
+  form.volume_faixa = p.volumeFaixa
+  if (!form.mensagem.trim()) form.mensagem = `Quero o pacote de ${p.consultas} consultas (${precoBRL(p.totalCentavos)}).`
+  if (import.meta.client) document.getElementById('proposta')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 const enviando = ref(false)
 const erro = ref('')
 const campoErro = ref('')
@@ -96,7 +107,25 @@ async function enviar() {
           <li>Suporte prioritário</li>
           <li>Resposta em até 24 horas úteis</li>
         </ul>
-        <a href="#proposta" class="pc-btn pc-btn--primary emp-cta">Pedir proposta</a>
+        <a href="#pacotes" class="pc-btn pc-btn--primary emp-cta">Ver os pacotes</a>
+      </section>
+
+      <section id="pacotes" class="emp-bloco">
+        <h2>Pacotes com o relatório completo</h2>
+        <p class="emp-sub">Avulso no site, o relatório completo sai por {{ precoBRL(AVULSO) }}. No pacote, cada consulta sai por menos:</p>
+        <div class="emp-pacotes">
+          <div v-for="p in pacotes" :key="p.id" class="emp-pacote">
+            <p class="emp-pacote__qtd">{{ p.consultas }} consultas</p>
+            <p class="emp-pacote__total">{{ precoBRL(p.totalCentavos) }}</p>
+            <p class="emp-pacote__cada"><strong>{{ precoBRL(p.porConsulta) }}</strong> por consulta</p>
+            <p class="emp-pacote__eco">
+              Avulso seriam <s>{{ precoBRL(p.economia.avulsoCentavos) }}</s>.
+              Você economiza {{ precoBRL(p.economia.centavos) }} ({{ p.economia.pct }}%).
+            </p>
+            <button type="button" class="pc-btn pc-btn--primary emp-pacote__btn" @click="escolherPacote(p)">Quero este pacote</button>
+          </div>
+        </div>
+        <p class="emp-nota emp-pacotes__mais">Precisa de mais de 50 por mês? Montamos o pacote para o seu volume: é só pedir no formulário.</p>
       </section>
 
       <section class="emp-bloco">
@@ -127,7 +156,7 @@ async function enviar() {
       </section>
 
       <section id="proposta" class="emp-bloco emp-form-wrap">
-        <h2>Peça sua proposta</h2>
+        <h2>Peça seu pacote ou uma proposta</h2>
         <div v-if="enviado" class="emp-ok" role="status" data-testid="empresas-ok">
           <strong>{{ MSG_RECEBIDO }}</strong>
         </div>
@@ -237,5 +266,16 @@ async function enviar() {
 .emp-erro { margin: 0; color: #a01d1d; font-weight: 600; }
 .emp-enviar { min-height: 48px; }
 .emp-nota { margin: 0; font-size: 13px; color: #636363; }
+.emp-pacotes { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 720px) { .emp-pacotes { grid-template-columns: 1fr 1fr; } }
+.emp-pacote { border: 1px solid #e8e8e8; border-radius: 14px; padding: 18px; background: #fff; display: grid; gap: 4px; }
+.emp-pacote p { margin: 0; }
+.emp-pacote__qtd { font-weight: 700; color: #17539f; }
+.emp-pacote__total { font-size: 1.8rem; font-weight: 700; line-height: 1.1; }
+.emp-pacote__cada { color: #3d3d3d; }
+.emp-pacote__eco { font-size: 14px; color: #14622f; }
+.emp-pacote__eco s { color: #636363; }
+.emp-pacote__btn { margin-top: 10px; min-height: 44px; }
+.emp-pacotes__mais { margin-top: 12px; }
 .emp-ok { padding: 16px; border-radius: 10px; background: #e8f5ee; color: #14622f; }
 </style>
