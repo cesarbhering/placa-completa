@@ -1971,7 +1971,7 @@ function applyEmailSuggestion() {
             v-for="p in planosComparados"
             :key="p.id"
             class="cb-cmp-card"
-            :class="{ 'cb-cmp-card--hi': p.id === 'completa', 'cb-cmp-card--menor': p.id === 'basica' }"
+            :class="{ 'cb-cmp-card--hi': p.id === 'completa' }"
           >
             <span v-if="p.destaque" class="cb-cmp-flag">{{ p.destaque }}</span>
             <div class="cb-cmp-kick">{{ p.nome }}</div>
@@ -1990,10 +1990,9 @@ function applyEmailSuggestion() {
                  o anterior e sempre "Consulta ..." (feminino), entao "da"
                  fixo funciona pros dois casos sem precisar de logica de
                  genero — nunca ha "do relatório" aqui. -->
-            <!-- Escada invertida (04/nov/2026): a basica virou opcao menor, com
-                 a lista recolhida. A completa e a escolha pronta da escada. -->
-            <component :is="p.id === 'basica' ? 'details' : 'div'" class="cb-cmp-itens">
-            <summary v-if="p.id === 'basica'" class="cb-cmp-itens__abrir">O que entra na básica</summary>
+            <!-- Os tres cards tem o mesmo tamanho e a lista sempre aberta
+                 (Cesar, 04/nov/2026). A completa segue como escolha destacada. -->
+            <div class="cb-cmp-itens">
             <span v-if="anteriorNaTela(p.id)" class="cb-cmp-heranca">
               Tudo da {{ PLANOS[anteriorNaTela(p.id)!].nome.toLowerCase() }}, e mais:
             </span>
@@ -2014,7 +2013,7 @@ function applyEmailSuggestion() {
                 </span>
               </li>
             </ul>
-            </component>
+            </div>
 
             <button
               v-if="p.id === 'gratis'"
@@ -3794,25 +3793,7 @@ function applyEmailSuggestion() {
 
   .cb-cmp-cta { margin-top: auto; }
 
-  // Basica como opcao menor: menos padding, preco menor, lista recolhida.
-  .cb-cmp-card--menor {
-    padding: $s-lg;
-    box-shadow: none;
-    @media (min-width: 1024px) { align-self: start; }
-    .cb-cmp-price { font-size: 24px; }
-    .cb-cmp-note { margin-bottom: $s-sm; }
-  }
   .cb-cmp-itens { margin-bottom: $s-md; }
-  .cb-cmp-itens__abrir {
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    color: $c-charcoal;
-    padding: 6px 0;
-    min-height: 32px;
-    list-style-position: inside;
-  }
-  details.cb-cmp-itens[open] .cb-cmp-itens__abrir { margin-bottom: $s-sm; }
 
   // ---------- STATEMENT (faixa canvas) ----------
   .cb-statement {
