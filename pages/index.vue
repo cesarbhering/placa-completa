@@ -768,8 +768,27 @@ const camposLivres = computed(() => {
 // CTA "Consultar agora" do grid de Preço: leva o foco ao input do herói e
 // abre o checkout premium (openPremiumCheckout valida/foca se a placa faltar).
 function consultFromGrid(plano?: unknown, origem: OrigemCheckout = 'outro') {
-  placaRef.value?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  // Com placa valida o checkout inline abre direto, sem antes rolar a pagina
+  // ate o topo (o pulo fazia a pessoa perder o que tinha clicado). Sem placa,
+  // openPremiumCheckout leva ao campo e guarda o plano.
   openPremiumCheckout(plano, origem)
+}
+
+// Escada de planos (04/nov/2026): 3 de 4 abandonos de 03/nov sairam dela. A
+// completa vem pronta (primeira no celular, botao azul) e a basica e opcao
+// menor. O clique leva direto ao checkout com o plano do botao; o funil grava
+// o clique com a versao da escada (o ab_bloco ja vai carimbado em todo evento).
+const VERSAO_ESCADA = 'completa_primeiro'
+async function cliqueEscada(plano: PlanoId) {
+  if (!isPlanoPago(plano)) return
+  await cederAoNavegador()
+  enfileirarEventoFunil('cta_completa_click', {
+    placa: placa.value || null,
+    plano,
+    leilao_sinal: sinalLeilao.value ? (sinalLeilao.value.positivo ? 'positivo' : 'negativo') : 'sem_sinal',
+    extra: { origem_cta: 'escada_planos', escada: VERSAO_ESCADA },
+  })
+  consultFromGrid(plano, 'escada_planos')
 }
 
 // CTA "Fazer consulta grátis" (card básico do compare): leva o foco ao input do
@@ -1949,7 +1968,7 @@ function applyEmailSuggestion() {
             v-for="p in planosComparados"
             :key="p.id"
             class="cb-cmp-card"
-            :class="{ 'cb-cmp-card--hi': p.id === 'completa' }"
+            :class="{ 'cb-cmp-card--hi': p.id === 'completa', 'cb-cmp-card--menor': p.id === 'basica' }"
           >
             <span v-if="p.destaque" class="cb-cmp-flag">{{ p.destaque }}</span>
             <div class="cb-cmp-kick">{{ p.nome }}</div>
@@ -1968,6 +1987,10 @@ function applyEmailSuggestion() {
                  o anterior e sempre "Consulta ..." (feminino), entao "da"
                  fixo funciona pros dois casos sem precisar de logica de
                  genero — nunca ha "do relatório" aqui. -->
+            <!-- Escada invertida (04/nov/2026): a basica virou opcao menor, com
+                 a lista recolhida. A completa e a escolha pronta da escada. -->
+            <component :is="p.id === 'basica' ? 'details' : 'div'" class="cb-cmp-itens">
+            <summary v-if="p.id === 'basica'" class="cb-cmp-itens__abrir">O que entra na básica</summary>
             <span v-if="anteriorNaTela(p.id)" class="cb-cmp-heranca">
               Tudo da {{ PLANOS[anteriorNaTela(p.id)!].nome.toLowerCase() }}, e mais:
             </span>
@@ -1988,6 +2011,7 @@ function applyEmailSuggestion() {
                 </span>
               </li>
             </ul>
+            </component>
 
             <button
               v-if="p.id === 'gratis'"
@@ -2002,9 +2026,10 @@ function applyEmailSuggestion() {
               type="button"
               class="cb-btn cb-btn--block cb-cmp-cta"
               :class="p.id === 'completa' ? 'cb-btn--blue' : 'cb-btn--ghost'"
-              @click="consultFromGrid(p.id, 'escada_planos')"
+              @click="cliqueEscada(p.id)"
             >
-              {{ p.nome }} · {{ precoBRL(p.valorCentavos) }}
+              <template v-if="p.id === 'basica'">Só o básico? Básica por {{ precoBRL(p.valorCentavos) }}</template>
+              <template v-else>{{ p.nome }} · {{ precoBRL(p.valorCentavos) }}</template>
             </button>
             <!-- Pacote para empresas (20/out/2026): linha discreta so no card da Completa, so na web. -->
             <p v-if="p.id === 'completa' && !isCapacitor" class="cb-cmp-volume">
@@ -2102,7 +2127,7 @@ function applyEmailSuggestion() {
             <span class="cb-mut">para não perder</span> R$ 45 mil.
           </p>
           <div class="cb-price-card__cta">
-            <button type="button" class="cb-btn cb-btn--blue cb-btn--lg" @click="consultFromGrid('completa', 'escada_planos')">
+            <button type="button" class="cb-btn cb-btn--blue cb-btn--lg" @click="cliqueEscada('completa')">
               Consultar agora · {{ precoBRL(PLANOS.completa.valorCentavos) }}
             </button>
           </div>
@@ -3765,6 +3790,26 @@ function applyEmailSuggestion() {
   }
 
   .cb-cmp-cta { margin-top: auto; }
+
+  // Basica como opcao menor: menos padding, preco menor, lista recolhida.
+  .cb-cmp-card--menor {
+    padding: $s-lg;
+    box-shadow: none;
+    @media (min-width: 1024px) { align-self: start; }
+    .cb-cmp-price { font-size: 24px; }
+    .cb-cmp-note { margin-bottom: $s-sm; }
+  }
+  .cb-cmp-itens { margin-bottom: $s-md; }
+  .cb-cmp-itens__abrir {
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: $c-charcoal;
+    padding: 6px 0;
+    min-height: 32px;
+    list-style-position: inside;
+  }
+  details.cb-cmp-itens[open] .cb-cmp-itens__abrir { margin-bottom: $s-sm; }
 
   // ---------- STATEMENT (faixa canvas) ----------
   .cb-statement {
