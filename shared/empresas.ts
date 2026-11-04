@@ -1,6 +1,7 @@
 // Consultas em pacote para lojistas, garagens e despachantes (Cesar, 20/out/2026).
 // Pagina /para-empresas + formulario de proposta (POST /api/empresas/proposta).
-// Sem preco: o Cesar fecha caso a caso. Sem travessao, sem citar orgao federal.
+// Pacotes de 10 e 50 com preco fixo em shared/pacotes-empresas.ts (04/nov/2026);
+// acima disso o Cesar fecha caso a caso. Sem travessao, sem citar orgao federal.
 
 export const TIPOS_EMPRESA = ['Lojista', 'Garagem', 'Despachante', 'Outro'] as const
 export type TipoEmpresa = typeof TIPOS_EMPRESA[number]
