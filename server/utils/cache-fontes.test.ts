@@ -105,4 +105,21 @@ describe('vin-decoder e leiloes-api: cache por fonte', () => {
     await consultarHistoricoLeilao(perfil)
     expect(f).toHaveBeenCalledTimes(3)
   })
+
+  it('leilao com renovar: pula a leitura do cache, consulta ao vivo e regrava (rebuild admin)', async () => {
+    const velho = { resumo: { tem_indicio: true, nivel_max: null, n_confirmado: 1, n_provavel: 0, n_possivel: 0, possiveis_ambiguos: 0, fontes_com_passagem: [] }, passagens: [] }
+    const novo = { ...velho, passagens: [{ fonte: 'Copart', lote: '1', nivel: 'confirmado', foto_refs: Array.from({ length: 8 }, (_, i) => ({ ref: `r${i}` })) }] }
+    const f = vi.fn(async (): Promise<any> => velho)
+    vi.stubGlobal('$fetch', f)
+    const perfil: any = { placa: 'ABC1D24', chassi: '9BWZZZ377VT004252' }
+    await consultarHistoricoLeilao(perfil, { cache: true })
+    f.mockImplementation(async () => novo)
+    const c = await consultarHistoricoLeilao(perfil, { cache: true })
+    expect(c?.passagens).toHaveLength(0)                    // cache ainda vale
+    const r = await consultarHistoricoLeilao(perfil, { cache: true, renovar: true })
+    expect(r?.passagens).toHaveLength(1)
+    const depois = await consultarHistoricoLeilao(perfil, { cache: true })
+    expect(depois?.passagens).toHaveLength(1)               // cache regravado
+    expect(f).toHaveBeenCalledTimes(2)
+  })
 })

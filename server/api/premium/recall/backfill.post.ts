@@ -14,6 +14,7 @@ import crypto from 'node:crypto'
 // porque o snapshot e o que a pessoa comprou.
 
 import { buscarRecallDetalhe, temRecallPendente } from '../../../utils/recall-detalhe'
+import { rebuildLeilao } from '../../../utils/rebuild-leilao'
 
 /** Teto de disparos por hora, contado em memoria do processo. */
 const TETO_POR_HORA = 5
@@ -56,6 +57,15 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody(event).catch(() => ({}))
   const supabase = usePremiumSupabase()
+
+  // ---- modo rebuildLeilao: refaz SO o bloco de leilao (historicoLeilao) de
+  // pedido entregue, reconsultando a base ao vivo pelo caminho da entrega.
+  // Backup do bloco anterior no proprio snapshot; sem e-mail ao cliente.
+  // Ver server/utils/rebuild-leilao.ts.
+  if (Array.isArray(body?.rebuildLeilao) && body.rebuildLeilao.length) {
+    const resultados = await rebuildLeilao(supabase, body.rebuildLeilao)
+    return { rebuildLeilao: resultados.length, resultados }
+  }
 
   // ---- modo restaurar (rebuildFipe): reconstroi o valorCusto do zero (montar)
   // e reaplica o refino guardado por recall. Conserta pedido com valorCusto
@@ -144,7 +154,7 @@ export default defineEventHandler(async (event) => {
   const tokens: string[] = Array.isArray(body?.tokens) ? body.tokens.map((t: any) => String(t)) : []
   const limite = Number(body?.limite) > 0 ? Math.min(Number(body.limite), 50) : null
   if (!tokens.length && !limite) {
-    throw createError({ statusCode: 400, message: 'Informe tokens, limite ou rebuildFipe.' })
+    throw createError({ statusCode: 400, message: 'Informe tokens, limite, rebuildFipe ou rebuildLeilao.' })
   }
   let q = supabase
     .from('pedidos_premium')
