@@ -4,7 +4,7 @@ import { REDES_SOCIAIS, SAME_AS } from '../shared/redes-sociais'
 
 describe('redes sociais', () => {
   it('perfis oficiais', () => {
-    expect(SAME_AS).toEqual(['https://www.linkedin.com/company/placacompleta/', 'https://x.com/PlacaCompleta', 'https://www.tiktok.com/@placacompleta/'])
+    expect(SAME_AS).toEqual(['https://www.linkedin.com/company/placacompleta/', 'https://x.com/PlacaCompleta', 'https://www.tiktok.com/@placacompleta/', 'https://www.instagram.com/placa.completa/'])
   })
   it('rodape: links com aria-label, nova aba e rel seguro, SVG inline', () => {
     const app = readFileSync('app.vue', 'utf8')
