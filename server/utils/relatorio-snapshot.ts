@@ -100,6 +100,8 @@ export async function montarRelatorioSnapshot(
   // origem do chassi refaria tambem o julgamento FIPE, que custa uma chamada
   // de modelo por relatorio. Omitido = monta tudo, como na entrega.
   apenas?: Array<'chassiOrigem' | 'valorCusto' | 'historicoLeilao'>,
+  /** renovarLeilao: consulta a base de leiloes ao vivo e regrava o cache (rebuild admin). */
+  opcoes?: { renovarLeilao?: boolean },
 ): Promise<RelatorioSnapshot> {
   const querem = (campo: 'chassiOrigem' | 'valorCusto' | 'historicoLeilao') => !apenas || apenas.includes(campo)
   let consulta: RelatorioSnapshot['consulta'] = null
@@ -205,7 +207,7 @@ export async function montarRelatorioSnapshot(
       ano_mod: senatranBruto?.anoModelo ?? null,
       cor: senatranBruto?.descricaoCor ?? null,
       uf: senatranBruto?.ufJurisdicao ?? local.uf ?? null,
-    }, { cache: true }).catch(() => null)   // Relatorio 2.0: cache 30 d por placa+chassi
+    }, { cache: true, renovar: !!opcoes?.renovarLeilao }).catch(() => null)   // Relatorio 2.0: cache 30 d por placa+chassi
     // Base parceira de leiloes e sinistros (20/out/2026): so quando a nossa
     // base veio vazia. Fail-open; regra e protecoes em server/utils/parceiro-leilao.ts.
     historicoLeilao = await complementarLeilaoParceiro(

@@ -19,7 +19,7 @@ import {
   type OrigemLeilao, type AlertaLeilao, type DesfechoLeilao, type LotePublico, type ContextoJudicial,
   type EventoLeilaoApi, type RecorrenciaLeilao,
 } from '../../shared/leilao-relatorio2'
-import { comFonteCache, chaveDePlaca } from './fonte-cache'
+import { comFonteCache, gravarFonteCache, chaveDePlaca } from './fonte-cache'
 import { registrarChamada } from './api-chamadas'
 
 export type NivelLeilao = 'confirmado' | 'provavel' | 'possivel'
@@ -336,6 +336,12 @@ export async function consultarHistoricoLeilao(
      * o sinal da consulta gratis continua sempre ao vivo (um leilao novo aparece na hora no gratis).
      */
     cache?: boolean
+    /**
+     * Com cache: pula a leitura, consulta ao vivo e regrava o cache. Usado pelo
+     * rebuild admin do bloco de leilao (fotos novas na base nao apareceriam
+     * enquanto o cache de 30 d valesse).
+     */
+    renovar?: boolean
   },
 ): Promise<HistoricoLeilao | null> {
   const config = useRuntimeConfig()
@@ -382,6 +388,11 @@ export async function consultarHistoricoLeilao(
 
   try {
     const chave = [chaveDePlaca(body.placa || ''), String(body.chassi || '').toUpperCase()].join('|')
+    if (opts?.cache && opts?.renovar && sb && chave !== '|') {
+      const h = await chamar()
+      const consultadoEm = (await gravarFonteCache(sb, 'leilao', chave, h, h.resumo.tem_indicio ? 'ok' : 'sem_dado')) || new Date().toISOString()
+      return { ...h, consultadoEm }
+    }
     if (opts?.cache && sb && chave !== '|') {
       const r = await comFonteCache(sb, 'leilao', chave, async () => {
         const h = await chamar()
