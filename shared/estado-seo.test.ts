@@ -22,11 +22,9 @@ describe('SEO /consultar-placa/[estado]', () => {
       expect(t.length).toBeGreaterThanOrEqual(50)
       expect(t.length).toBeLessThanOrEqual(60)
       expect(d.length).toBeLessThanOrEqual(155)
-      // Plano de growth nov/2026: o gancho do gratis entra na description; o
-      // title segue sem "grátis" e o texto novo nao cita DETRAN.
-      expect(t).not.toMatch(/gr[aá]tis/i)
+      // Texto novo da description (plano de growth nov/2026) nao cita DETRAN.
       expect(d).not.toMatch(/DETRAN/i)
-      for (const x of [t, d]) expect(x).not.toMatch(/—|oficial do DETRAN|somos o DETRAN/i)
+      for (const x of [t, d]) expect(x).not.toMatch(/gr[aá]tis|—|oficial do DETRAN|somos o DETRAN/i)
     })
   }
 })

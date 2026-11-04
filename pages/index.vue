@@ -845,8 +845,8 @@ function onFormStart() {
 // veiculo dentro. Nao entra em indice.
 useSeoMeta({
   robots: () => (route.params.placa ? 'noindex, nofollow' : 'index, follow'),
-  // Meta description com "consulta de placa grátis" e "busca placa" (plano de
-  // growth nov/2026); OG segue sem "grátis". Moto/caminhao seguem como estavam.
+  // Meta description com "busca placa" (plano de growth nov/2026), sem
+  // "grátis" (regra de 01/out). Moto/caminhao seguem como estavam.
   description: siteVariant.variant === 'default' ? DESCRICAO_HOME_BUSCA : siteVariant.ogDescription,
   ogTitle: siteVariant.ogTitle,
   ogDescription: siteVariant.ogDescription,

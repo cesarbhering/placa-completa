@@ -57,7 +57,7 @@ export interface SiteVariantContent {
   ogDescription: string
 }
 
-const CONTENT: Record<SiteVariant, SiteVariantContent> = {
+export const CONTENT: Record<SiteVariant, SiteVariantContent> = {
   default: {
     variant: 'default',
     siteName: 'PlacaCompleta',
@@ -73,9 +73,9 @@ const CONTENT: Record<SiteVariant, SiteVariantContent> = {
     // texto fazia o titulo sair duplicado em producao.
     // 01/out (Cesar): distanciar do "gratis" nas superficies que Google/IA leem.
     // Title final (o index desliga o template): 50 a 60 caracteres com a marca.
-    // Plano de growth nov/2026: "consulta placa grátis" e "busca placa" no
-    // title; "FIPE" fora do foco (quem assume o termo e /tabela-fipe-por-placa).
-    metaTitle: 'Consulta Placa Grátis: Busca Placa e Leilão | PlacaCompleta',
+    // Plano de growth nov/2026: "busca placa" no title, sem "grátis" (regra
+    // de 01/out) e sem FIPE (quem assume o termo e /tabela-fipe-por-placa).
+    metaTitle: 'Consulta Placa: Busca Placa, Leilão e Roubo | PlacaCompleta',
     ogTitle: 'PlacaCompleta: Consulta de Placa, Leilão, Gravame, Roubo e Débitos',
     ogDescription: DESCRICOES.home,
   },

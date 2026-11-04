@@ -25,7 +25,7 @@ export function tituloEstado(uf: string, nome: string): string {
 }
 
 export function descricaoEstado(uf: string, nome: string): string {
-  // Plano de growth nov/2026: gancho do gratis no snippet, sem DETRAN.
+  // Plano de growth nov/2026: gancho de leilao no snippet, sem DETRAN e sem "grátis".
   return `Consulta de placa ${deEstado(uf, nome)} (${uf}) online. ${GANCHO_CONSULTA}`
 }
 
