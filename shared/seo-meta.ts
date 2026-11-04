@@ -39,16 +39,32 @@ export const DESCRICOES = {
   contato: 'Contato do PlacaCompleta: e-mail para dúvidas sobre consulta de placa, relatório, correção de dados, imprensa e parcerias. Escreva para a nossa equipe.',
 } as const
 
-/** /tabela-fipe-por-placa. Sem "grátis": decisão de 01/out de se distanciar do grátis nas superfícies de busca. */
+/**
+ * /tabela-fipe-por-placa. Plano de growth nov/2026: a home ranqueava pra "placa
+ * fipe" / "tabela fipe pela placa" com CTR de 0,3%; esta pagina assume o termo.
+ * Sem "grátis" aqui (decisao de 01/out vale pra esta pagina).
+ */
 export function descricaoTabelaFipePorPlaca(mes: string, ano: number): string {
-  return `Fipe pela placa: consulta placa FIPE de qualquer veículo em ${mes} de ${ano}, com marca, modelo, ano, código FIPE e valor atualizado do mês.`
+  return `Placa FIPE: consulte a tabela FIPE pela placa e veja o valor do carro em ${mes} de ${ano}, com marca, modelo, ano e código FIPE da versão.`
 }
+
+/**
+ * Meta description da home com "busca placa" (plano de growth nov/2026). Regra
+ * do Cesar de 01/out: nada de "grátis" em title, meta, OG ou JSON-LD.
+ */
+export const DESCRICAO_HOME_BUSCA = 'Consulta de placa com marca, modelo, ano, cor e registro de leilão. Busca placa em 5 segundos e relatório completo na hora.'
+
+/** Gancho das metas de estado e capital (sem DETRAN, sem fonte, sem "grátis": regra de 01/out). */
+export const GANCHO_CONSULTA = 'Sem cadastro. Veja marca, modelo, ano, cor e se o modelo aparece em leilões.'
+
+/** Capitais com "buscar placa" no title (plano de growth nov/2026). */
+const CAPITAIS_BUSCAR = new Set(['Fortaleza', 'Brasília'])
 
 // --- Paginas programaticas --------------------------------------------------
 
 /** /consultar-placa/capital/{slug} */
 export function descricaoCapital(cidade: string, uf: string): string {
-  return `Consultar placa em ${cidade} (${uf}): veja marca, modelo, ano, situação e valor FIPE, e o relatório completo com leilão, gravame, roubo e débitos.`
+  return `Consultar placa em ${cidade} (${uf}) online. ${GANCHO_CONSULTA}`
 }
 
 /** /carro-de-leilao/{modelo} */
@@ -75,6 +91,13 @@ export function descricaoSeguroEletricoEstado(estado: string, media: number, uf?
 
 /** /consultar-placa/capital/{slug} */
 export function tituloCapital(cidade: string, uf: string): string {
+  if (CAPITAIS_BUSCAR.has(cidade)) {
+    return escolherTitulo([
+      `Buscar Placa em ${cidade} (${uf}): Consulta, Leilão e FIPE`,
+      `Buscar Placa em ${cidade} (${uf}): Consulta e Leilão`,
+      `Buscar e Consultar Placa em ${cidade} (${uf})`,
+    ])
+  }
   return escolherTitulo([
     `Consultar Placa ${cidade} (${uf}): Leilão, Roubo e FIPE`,
     `Consultar Placa ${cidade} (${uf}): Leilão e FIPE`,

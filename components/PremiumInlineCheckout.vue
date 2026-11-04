@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PLANOS, RECURSOS, precoDePromocao } from '~/shared/planos'
+import { PROVA_SOCIAL } from '~/shared/prova-social'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { decidirVarianteCheckout, metodoInicialCheckout, ehCelular, gravarMetodoInicial, DESBLOQUEIA_B, RISCO_B, RISCO_B_PARTES, GARANTIA_B, type VarianteAbCheckout } from '~/shared/ab-checkout'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora, trackConversaoPixGerado } from '~/composables/useAnalytics'
@@ -1423,6 +1424,10 @@ onUnmounted(() => {
               <!-- Na aba Cartao so os logos: a frase do Stripe ja esta logo acima. -->
               <p v-if="metodo !== 'cartao'" class="pic-logos__txt">Pagamento seguro.</p>
             </div>
+            <!-- Prova social + WhatsApp: iguais nas duas variantes do A/B
+                 (ab_checkout) e nas duas abas, abaixo do botao de pagar. -->
+            <p class="pic-prova">{{ PROVA_SOCIAL }}</p>
+            <p class="pic-wa"><WhatsappDuvidas onde="checkout" /></p>
             <!-- Sem "Cancelar" no rodape: o X do cabecalho (pic-x, sempre visivel)
                  ja fecha o modal. Um botao a mais so competia com a CTA. -->
           </div>
@@ -1661,6 +1666,14 @@ onUnmounted(() => {
   text-align: center;
   opacity: 0.75;
 }
+.pic-prova {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  opacity: 0.75;
+}
+.pic-wa { margin: 0; text-align: center; }
 
 // ============================================================
 // Checkout inline, na linguagem visual do .agents/DESIGN-hp.md (a mesma da

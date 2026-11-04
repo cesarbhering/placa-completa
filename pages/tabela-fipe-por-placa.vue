@@ -99,13 +99,32 @@ const faqs = [
   },
 ]
 
+// FAQ curto do topo: frases exatas "placa FIPE", "tabela FIPE pela placa" e
+// "FIPE pela placa". Entra tambem no FAQPage, antes das demais.
+const faqsPlaca = [
+  {
+    q: 'Como ver a tabela FIPE pela placa?',
+    a: 'Digite a placa no campo acima. Em segundos aparecem marca, modelo, ano e o valor da tabela FIPE pela placa, já na versão certa do veículo, sem escolher modelo na mão.',
+  },
+  {
+    q: 'O que aparece na consulta placa FIPE?',
+    a: `O valor FIPE de ${currentMonth} de ${currentYear}, o código FIPE da versão, marca, modelo, ano de fabricação e ano modelo. Vale para carro, moto e caminhão.`,
+  },
+  {
+    q: 'A FIPE pela placa mostra a versão certa do carro?',
+    a: 'Sim. Pela placa o sistema identifica ano modelo e versão (motor, câmbio, acabamento) e devolve a FIPE dessa versão, evitando o erro de olhar o preço de outra versão do mesmo nome.',
+  },
+]
+
 useHead({
-  title: escolherTitulo([`Tabela FIPE pela Placa ${currentYear}: Consulta Placa FIPE Hoje`, `Tabela FIPE pela Placa: Consulta Placa FIPE Hoje`, `Fipe pela Placa ${currentYear}: Consulta Placa FIPE Atualizada`]),
+  // Plano de growth nov/2026: esta pagina assume "placa fipe" / "tabela fipe
+  // pela placa" (a home ranqueava com CTR de 0,3%).
+  title: escolherTitulo(['Placa FIPE: veja o valor do carro pela placa']),
   titleTemplate: '%s',
   meta: [
     { name: 'description', content: descricaoTabelaFipePorPlaca(currentMonth, currentYear) },
     { name: 'keywords', content: 'fipe pela placa, consulta placa fipe, consulta fipe pela placa, tabela fipe consulta placa, tabela FIPE por placa, valor FIPE pela placa, consultar FIPE pela placa, preço veículo por placa, fipe pela placa, tabela fipe pela placa, codigo fipe placa' },
-    { property: 'og:title', content: 'Fipe pela placa: consulta placa FIPE e valor do veículo' },
+    { property: 'og:title', content: 'Placa FIPE: veja o valor do carro pela placa' },
     { property: 'og:description', content: 'Descubra o valor FIPE de qualquer veículo pela placa, com marca, modelo, ano e preço na tela.' },
   ],
   link: [
@@ -170,7 +189,7 @@ useHead({
       innerHTML: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'FAQPage',
-        mainEntity: faqs.map(f => ({
+        mainEntity: [...faqsPlaca, ...faqs].map(f => ({
           '@type': 'Question',
           name: f.q,
           acceptedAnswer: { '@type': 'Answer', text: f.a },
@@ -184,7 +203,7 @@ useHead({
 <template>
   <div class="pc-page">
     <main class="pc-container">
-      <h1 class="pc-h1">Tabela FIPE pela Placa: consulta placa FIPE</h1>
+      <h1 class="pc-h1">Placa FIPE: consulte a tabela FIPE pela placa</h1>
 
       <div class="pc-prose">
         <p class="pc-lead">
@@ -195,6 +214,14 @@ useHead({
             </p>
 
             <FipePorPlaca />
+
+            <!-- FAQ curto com as frases exatas da busca (plano de growth nov/2026). -->
+            <section class="faq-placa" aria-label="Perguntas sobre a placa FIPE">
+              <div v-for="faq in faqsPlaca" :key="faq.q" class="pc-faq__item">
+                <h2>{{ faq.q }}</h2>
+                <p>{{ faq.a }}</p>
+              </div>
+            </section>
 
             <h2>O que é a Tabela FIPE e por que ela importa</h2>
             <p>

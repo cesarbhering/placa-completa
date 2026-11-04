@@ -105,6 +105,10 @@ useHead({
       <div class="pc-prose">
         <!-- Frase de abertura citavel (plano GEO 13/out): Placa Completa como sujeito. -->
         <p>{{ aberturaEstado(emUf) }}</p>
+        <p>
+          Quer puxar placa de um veículo {{ deUf }}? É só
+          <NuxtLink to="/">consultar placa</NuxtLink> aqui, grátis e sem cadastro.
+        </p>
         <p>{{ data.context }}</p>
 
           <!-- Conteudo SEO extendido por estado (resolve "Rastreada, nao indexada") -->

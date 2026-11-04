@@ -111,7 +111,7 @@ useHead({
         <p class="pc-lead">
           Consulte o valor na <strong>Tabela FIPE</strong> de qualquer carro ou moto.
           Selecione a marca abaixo para ver os modelos e preços atualizados. Você também pode
-          <NuxtLink to="/tabela-fipe-por-placa">consultar a FIPE pela placa</NuxtLink> e receber o valor FIPE exato do
+          usar a <NuxtLink to="/tabela-fipe-por-placa">tabela FIPE pela placa</NuxtLink> e receber o valor FIPE exato do
           veículo no seu e-mail.
         </p>
 
