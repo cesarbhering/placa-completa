@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { PLANOS, RECURSOS, precoDePromocao } from '~/shared/planos'
+import { PLANOS, RECURSOS, precoDePromocao, aplicarCupom } from '~/shared/planos'
+import { CUPOM_TELA_PCT, relogioCupomTela } from '~/shared/cupom-tela'
 import { PROVA_SOCIAL } from '~/shared/prova-social'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { decidirVarianteCheckout, metodoInicialCheckout, ehCelular, gravarMetodoInicial, DESBLOQUEIA_B, RISCO_B, RISCO_B_PARTES, GARANTIA_B, type VarianteAbCheckout } from '~/shared/ab-checkout'
@@ -42,6 +43,12 @@ const props = withDefaults(defineProps<{
   recallMarca?: string | null
   /** Botao que abriu o checkout (shared/origem-checkout.ts). Vai pro pedido. */
   origemCheckout?: string | null
+  /**
+   * Cupom de tela (10% se fechar em 30 min), emitido pelo servidor na consulta
+   * gratis. O servidor revalida assinatura e prazo; aqui e so exibicao.
+   */
+  cupomTelaToken?: string | null
+  cupomTelaExpiraEm?: string | null
 }>(), {
   plano: 'completa',
   jaConsultada: false,
@@ -49,6 +56,8 @@ const props = withDefaults(defineProps<{
   recallSinal: null,
   recallMarca: null,
   origemCheckout: null,
+  cupomTelaToken: null,
+  cupomTelaExpiraEm: null,
 })
 
 // Checkout aberto (o componente so monta aberto): sem WhatsApp flutuante por cima.
@@ -277,8 +286,34 @@ const rotuloPagar = computed(() => {
   if (varianteB.value) return `Gerar Pix de ${reais(precoExibidoCentavos.value)}`
   return props.plano === 'completa' ? 'Pagar e liberar o relatório' : 'Liberar minha consulta'
 })
+// Cupom de tela: vale enquanto o prazo do servidor nao venceu e so pra placa
+// em que ele foi emitido (corrigir a placa no lapis tira o desconto). Nao
+// acumula com cupom digitado: vale o maior, igual ao servidor.
+const agoraTela = ref(Date.now())
+let tickTela: ReturnType<typeof setInterval> | null = null
+const placaDoCupomTela = String(props.placa || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
+const restanteTelaMs = computed(() =>
+  props.cupomTelaToken && props.cupomTelaExpiraEm ? new Date(props.cupomTelaExpiraEm).getTime() - agoraTela.value : 0,
+)
+const telaAtiva = computed(() => restanteTelaMs.value > 0 && placaClean.value === placaDoCupomTela && !isCapacitor.value)
+const descontoTelaCentavos = computed(() => telaAtiva.value
+  ? aplicarCupom(props.plano, { tipo: 'percentual', valor: CUPOM_TELA_PCT, planos: ['basica', 'completa'] }).descontoCentavos
+  : 0)
+/** O de tela so vence com desconto MAIOR (empate fica com o cupom, como no servidor). */
+const telaVence = computed(() => descontoTelaCentavos.value > cupomDescontoCentavos.value)
+const descontoEfetivoCentavos = computed(() => Math.max(cupomDescontoCentavos.value, descontoTelaCentavos.value))
+const temDesconto = computed(() => descontoEfetivoCentavos.value > 0)
+const relogioTela = computed(() => relogioCupomTela(restanteTelaMs.value))
+if (import.meta.client && props.cupomTelaToken) {
+  tickTela = setInterval(() => {
+    agoraTela.value = Date.now()
+    if (restanteTelaMs.value <= 0 && tickTela) { clearInterval(tickTela); tickTela = null }
+  }, 1000)
+}
+onUnmounted(() => { if (tickTela) clearInterval(tickTela) })
+
 const precoExibidoCentavos = computed(() =>
-  Math.max(0, planoInfo.value.valorCentavos - cupomDescontoCentavos.value),
+  Math.max(0, planoInfo.value.valorCentavos - descontoEfetivoCentavos.value),
 )
 // So pra rotular o botao: o preco final real (gratis ou nao) sai sempre do
 // server, isto e so cosmetico. Cupom parcial que so encosta no piso (ex.:
@@ -777,6 +812,8 @@ async function pagar() {
         // a placa, cupomDescontoCentavos ainda positivo de um validarCupom antigo)
         // podia cobrar o preco errado sem o servidor nem saber que havia cupom.
         cupom: cupomCodigo.value.trim() || undefined,
+        // Cupom de tela: o servidor confere assinatura e prazo e aplica o maior.
+        cupom_tela: telaAtiva.value ? props.cupomTelaToken ?? undefined : undefined,
         // Marca de anuncio da sessao (gclid/msclkid/utm), pra origem da venda
         // ficar gravada no proprio pedido.
         origin: origemDaSessao(),
@@ -907,6 +944,8 @@ async function pagarComCartao() {
         plano: props.plano,
         ambiente: ambiente.value,
         cupom: cupomCodigo.value.trim() || undefined,
+        // Cupom de tela: o servidor confere assinatura e prazo e aplica o maior.
+        cupom_tela: telaAtiva.value ? props.cupomTelaToken ?? undefined : undefined,
         origin: origemDaSessao(),
         ab_bloco: props.abBloco ?? undefined,
         ab_checkout: abCheckoutPedido.value,
@@ -1164,7 +1203,7 @@ onUnmounted(() => {
                 <template v-else>Placa {{ placaClean }}</template>
               </strong>
               <span class="pic-faixa__preco">
-                <s v-if="cupomValido" class="pic-faixa__de">{{ reais(planoInfo.valorCentavos) }}</s>
+                <s v-if="temDesconto" class="pic-faixa__de">{{ reais(planoInfo.valorCentavos) }}</s>
                 <!-- Promocao: preco antigo riscado (shared/planos.ts). Com cupom, o riscado e o preco cheio de hoje. -->
                 <s v-else-if="precoDePromocao(plano)" class="pic-faixa__de">de {{ reais(precoDePromocao(plano)!) }}</s>
                 <b>{{ reais(precoExibidoCentavos) }}</b>
@@ -1179,8 +1218,12 @@ onUnmounted(() => {
                   </svg>
                 </button>
               </span>
-              <span class="pic-faixa__plano"><b v-if="!cupomValido && precoDePromocao(plano)" class="pic-faixa__promo">Promoção</b>{{ (!cupomValido && precoDePromocao(plano) ? ' · ' : '') + planoInfo.nome }}</span>
+              <span class="pic-faixa__plano"><b v-if="!temDesconto && precoDePromocao(plano)" class="pic-faixa__promo">Promoção</b>{{ (!temDesconto && precoDePromocao(plano) ? ' · ' : '') + planoInfo.nome }}</span>
             </div>
+            <p v-if="telaVence" class="pic-cupom-tela" role="status">
+              {{ CUPOM_TELA_PCT }}% de desconto aplicado. Vale se fechar em
+              <span class="pic-cupom-tela__relogio">{{ relogioTela }}</span>
+            </p>
             <div v-if="editandoPlaca" class="pic-campo">
               <label class="pic-label" for="pic-placa-edit">Digite a placa correta</label>
               <input
@@ -1222,7 +1265,7 @@ onUnmounted(() => {
                   @blur="validarCupom"
                 >
                 <p v-if="cupomValidando" class="pic-hint">Validando cupom...</p>
-                <p v-else-if="cupomMsg" :class="cupomValido ? 'pic-cupom__ok' : 'pic-cupom__erro'">{{ cupomMsg }}</p>
+                <p v-else-if="cupomMsg" :class="cupomValido ? 'pic-cupom__ok' : 'pic-cupom__erro'">{{ cupomValido && telaVence ? `O desconto de ${CUPOM_TELA_PCT}% desta tela é maior e foi mantido.` : cupomMsg }}</p>
               </div>
             </div>
             <div v-if="cfg.public.homolog" class="pic-campo">
@@ -1277,7 +1320,7 @@ onUnmounted(() => {
             <p v-if="varianteB" class="pic-risco">
               <svg class="pic-risco__ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2.5 20h19L12 3Z" /><path d="M12 10v4" /><path d="M12 17.5h.01" /></svg>
               <span>{{ RISCO_B_PARTES[0] }}<strong>{{ RISCO_B_PARTES[1] }}</strong>{{ RISCO_B_PARTES[2] }}
-              <s v-if="cupomValido" class="pic-faixa__de">{{ reais(planoInfo.valorCentavos) }}</s>
+              <s v-if="temDesconto" class="pic-faixa__de">{{ reais(planoInfo.valorCentavos) }}</s>
               <s v-else-if="precoDePromocao(plano)" class="pic-faixa__de">{{ reais(precoDePromocao(plano)!) }}</s>
               <b>{{ reais(precoExibidoCentavos) }}</b>.</span>
             </p>
@@ -1398,7 +1441,7 @@ onUnmounted(() => {
                     @blur="validarCupom"
                   >
                   <p v-if="cupomValidando" class="pic-hint">Validando cupom...</p>
-                  <p v-else-if="cupomMsg" :class="cupomValido ? 'pic-cupom__ok' : 'pic-cupom__erro'">{{ cupomMsg }}</p>
+                  <p v-else-if="cupomMsg" :class="cupomValido ? 'pic-cupom__ok' : 'pic-cupom__erro'">{{ cupomValido && telaVence ? `O desconto de ${CUPOM_TELA_PCT}% desta tela é maior e foi mantido.` : cupomMsg }}</p>
                 </div>
                 <div class="pic-campo">
                   <label class="pic-label" for="pic-email">E-mail que recebeu o cupom</label>
@@ -2202,6 +2245,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 .pic-cupom { display: flex; flex-direction: column; }
+.pic-cupom-tela { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; background: #fff7e0; color: #5a4300; font-size: 14px; line-height: 1.4; }
+.pic-cupom-tela__relogio { display: inline-block; padding: 1px 8px; border-radius: 6px; background: #5a4300; color: #fff; font-variant-numeric: tabular-nums; font-weight: 600; }
 .pic-link--cupom { align-self: flex-start; padding: 4px 0; min-height: auto; }
 .pic-cupom__ok { font-size: 13px; color: $c-green; margin: 2px 0 0; }
 .pic-cupom__erro { font-size: 13px; color: $c-red; margin: 2px 0 0; }

@@ -7,6 +7,7 @@ import { sanearOrigem, opprefDoPedido, COOKIE_OPPREF } from '../../../shared/ori
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
 import { respostaCompraRepetida } from '../../utils/compra-repetida'
 import { barrarPlacaBloqueada } from '../../utils/blocklist'
+import { cupomTelaValido, segredoCupomTela, resolverDescontoTela, colunasCupomTela } from '../../utils/cupom-tela'
 
 // Cria o pedido (pending) + o Pix transparente. Retorna o QR/copia-e-cola.
 // Minimo de dados: email (entrega) + telefone opcional. Gated.
@@ -75,9 +76,14 @@ export default defineEventHandler(async (event) => {
   // podia ter adulterado). Se o codigo mandado nao validar mais por qualquer
   // motivo, o checkout segue com o preco cheio em vez de falhar a compra.
   const codigoCupom = String(body.cupom || '').trim()
-  const cupomValidado = codigoCupom
+  const cupomDigitado = codigoCupom
     ? await validarCupom(supabase, codigoCupom, plano, email)
     : null
+  // Cupom de tela (10% em 30 min, token assinado na consulta gratis). Nao
+  // acumula: vale o maior. Quando a tela vence, o cupom digitado sai de cena.
+  const { cupom: cupomValidado, tela: descontoTela } = resolverDescontoTela(
+    plano, cupomDigitado, cupomTelaValido(segredoCupomTela(config as any), body.cupom_tela, placa),
+  )
 
   // Cupom gratis (permite_gratis + desconto cobre 100%): reivindica a vaga
   // ATOMICAMENTE (trava a linha do cupom no banco) ANTES de criar o pedido.
@@ -97,7 +103,7 @@ export default defineEventHandler(async (event) => {
     ? 0
     : tentaGratis
       ? PLANOS[plano].valorCentavos
-      : (cupomValidado?.ok ? cupomValidado.precoLiquidoCentavos : PLANOS[plano].valorCentavos)
+      : (cupomValidado?.ok ? cupomValidado.precoLiquidoCentavos : (descontoTela?.precoLiquidoCentavos ?? PLANOS[plano].valorCentavos))
 
   const { data: pedido, error } = await supabase
     .from('pedidos_premium')
@@ -131,6 +137,8 @@ export default defineEventHandler(async (event) => {
       ...opprefDoPedido(sanearOrigem(body.origin), getCookie(event, COOKIE_OPPREF)),
       // Cupom de recompra: marca a venda e qual pedido gerou o codigo.
       ...origemDoCupom(cupomValidado),
+      // Desconto de tela aplicado (o fin mede por esta coluna).
+      ...colunasCupomTela(descontoTela),
     })
     .select()
     .single()
@@ -216,6 +224,8 @@ export default defineEventHandler(async (event) => {
     // tentaGratis-e-falhou cai aqui com preco cheio: nesse caso NAO aplicou
     // desconto nenhum (a vaga gratis nao foi concedida), entao nao anuncia
     // cupom aplicado pro client.
-    cupomAplicado: (cupomValidado?.ok && !tentaGratis) ? { descontoCentavos: cupomValidado.descontoCentavos } : null,
+    cupomAplicado: (cupomValidado?.ok && !tentaGratis)
+      ? { descontoCentavos: cupomValidado.descontoCentavos }
+      : descontoTela ? { descontoCentavos: descontoTela.descontoCentavos, tela: true } : null,
   }
 })
