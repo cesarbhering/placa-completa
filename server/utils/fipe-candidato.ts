@@ -93,9 +93,15 @@ export interface FipeMelhorCandidatoInput {
 // tokens acabam pensando): por isso sem temperature, thinking desligado e o
 // texto lido do bloco 'text', onde quer que ele esteja.
 export const HAIKU_MODEL = 'claude-haiku-5-5'
-// Com thinking desligado ele responde em ~1,6 s; 5 s da folga sem segurar a
-// entrega (HSX1F20: 3 s estourava no modelo anterior).
-export const HAIKU_TIMEOUT_MS = 5000
+// Juiz da FIPE em Fable 5.1 (pedido do Cesar, 04/nov: usar o credito de API).
+// O Fable NAO aceita thinking 'disabled' (400): vai 'adaptive' com effort baixo,
+// e max_tokens maior porque o pensamento conta nele. Medido: ~3 s por decisao.
+// Revisor do DETRAN e agrupador de recall seguem no Haiku (HAIKU_MODEL).
+export const FIPE_JUIZ_MODEL = 'claude-fable-5-1'
+export const FIPE_JUIZ_MAX_TOKENS = 2000
+// Fable responde em ~3 s; 15 s de folga sem segurar a entrega (a fila do
+// relatorio e assincrona, o cliente nao espera este fetch na tela).
+export const HAIKU_TIMEOUT_MS = 15000
 // fipe-api tem timeout proprio: a frio ela passou de 3 s, o funil caia no
 // fallback e o valor virava o melhor score da fonte livre.
 export const FIPE_API_TIMEOUT_MS = 8000
@@ -934,7 +940,6 @@ export const HAIKU_NENHUM = 'nenhum'
 // O 5.5 escreve justificativa longa e cerca o JSON de ```json: com 300 tokens a
 // resposta era cortada no meio (FAG9103, 11/out: "JSON invalido" 3x). Com
 // structured outputs o formato e garantido; 600 da folga pra justificativa.
-const HAIKU_MAX_TOKENS = 600
 
 /** Schema do structured output: codigo so dentre os candidatos (ou "nenhum"). */
 export function schemaVeredito(codigos: string[]) {
@@ -1007,7 +1012,7 @@ export function textoDaResposta(body: any): string | null {
 /** Log [fipe-haiku] + e-mail (com anti-spam) ao Cesar. Sem placa/chassi. */
 function falhaHaiku(motivo: string, detalhe: string | null, token: string | null | undefined) {
   console.warn(`[fipe-haiku] ${motivo}${detalhe ? ` ${detalhe}` : ''}`)
-  void alertarFalhaHaiku({ motivo, detalhe, modelo: HAIKU_MODEL, token: token ?? null }).catch(() => {})
+  void alertarFalhaHaiku({ motivo, detalhe, modelo: FIPE_JUIZ_MODEL, token: token ?? null }).catch(() => {})
 }
 
 /**
@@ -1072,11 +1077,11 @@ async function julgarComHaiku(
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: HAIKU_MODEL,
-        max_tokens: HAIKU_MAX_TOKENS,
-        thinking: { type: 'disabled' },
+        model: FIPE_JUIZ_MODEL,
+        max_tokens: FIPE_JUIZ_MAX_TOKENS,
+        thinking: { type: 'adaptive' },
         // Structured outputs: o JSON sai no formato do schema, sem cerca nem texto em volta.
-        output_config: { format: { type: 'json_schema', schema: schemaVeredito(candidatos.map((c) => c.codigo_fipe)) } },
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: schemaVeredito(candidatos.map((c) => c.codigo_fipe)) } },
         messages: [{ role: 'user', content: prompt }],
       }),
       signal: controller.signal,

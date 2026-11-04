@@ -788,7 +788,7 @@ describe('juiz Haiku 5.5: formato da chamada e da resposta', () => {
     throw new Error(`unexpected fetch: ${url}`)
   }) as any
 
-  it('manda claude-haiku-5-5, thinking desligado e sem temperature; le o bloco text depois do thinking', async () => {
+  it('manda claude-fable-5-1, thinking adaptive com effort low e sem temperature; le o bloco text depois do thinking', async () => {
     const chamadas: any[] = []
     global.fetch = comAnthropic(() => ({ ok: true, status: 200, json: async () => ({
       stop_reason: 'end_turn',
@@ -799,8 +799,9 @@ describe('juiz Haiku 5.5: formato da chamada e da resposta', () => {
     }) }), chamadas)
     const r = await escolherMelhorFipe(ETIOS)
     expect(chamadas).toHaveLength(1)
-    expect(chamadas[0].model).toBe('claude-haiku-5-5')
-    expect(chamadas[0].thinking).toEqual({ type: 'disabled' })
+    expect(chamadas[0].model).toBe('claude-fable-5-1')
+    expect(chamadas[0].thinking).toEqual({ type: 'adaptive' })
+    expect(chamadas[0].output_config.effort).toBe('low')
     expect(chamadas[0]).not.toHaveProperty('temperature')
     expect(r.decididoPor).toBe('haiku')
     expect(r.escolhido?.codigo_fipe).toBe('002124-5')
@@ -816,7 +817,7 @@ describe('juiz Haiku 5.5: formato da chamada e da resposta', () => {
     expect(log).toContain('invalid_request_error')
     expect(log).not.toContain('ETIOS')
     expect(alertarFalhaHaiku).toHaveBeenCalledWith(expect.objectContaining({
-      motivo: 'HTTP 400 invalid_request_error', modelo: 'claude-haiku-5-5', token: 'tok-pedido',
+      motivo: 'HTTP 400 invalid_request_error', modelo: 'claude-fable-5-1', token: 'tok-pedido',
     }))
     expect(JSON.stringify((alertarFalhaHaiku as any).mock.calls)).not.toMatch(/ETIOS|OXK7426/)
   })
@@ -865,12 +866,12 @@ describe('Haiku com structured outputs e resposta "nenhum"', () => {
     throw new Error(`unexpected fetch: ${url}`)
   }) as any
 
-  it('pede json_schema com os codigos da lista e max_tokens 600', async () => {
+  it('pede json_schema com os codigos da lista e max_tokens 2000', async () => {
     const chamadas: any[] = []
     global.fetch = com('{"codigo_fipe":"002124-5","confianca":"alta","justificativa":"XLS"}', chamadas)
     const r = await escolherMelhorFipe(ETIOS)
     expect(r.decididoPor).toBe('haiku')
-    expect(chamadas[0].max_tokens).toBe(600)
+    expect(chamadas[0].max_tokens).toBe(2000)
     const sch = chamadas[0].output_config.format
     expect(sch.type).toBe('json_schema')
     expect(sch.schema.properties.codigo_fipe.enum).toContain('002124-5')
