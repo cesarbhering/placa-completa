@@ -3,6 +3,7 @@ export const REDES_SOCIAIS = [
   { nome: 'LinkedIn', url: 'https://www.linkedin.com/company/placacompleta/', label: 'PlacaCompleta no LinkedIn' },
   { nome: 'X', url: 'https://x.com/PlacaCompleta', label: 'PlacaCompleta no X' },
   { nome: 'TikTok', url: 'https://www.tiktok.com/@placacompleta/', label: 'TikTok do PlacaCompleta' },
+  { nome: 'Instagram', url: 'https://www.instagram.com/placa.completa/', label: 'Instagram do PlacaCompleta' },
 ] as const
 
 export const SAME_AS = REDES_SOCIAIS.map((r) => r.url)
