@@ -39,4 +39,12 @@ describe('cache da leilao_modelos', () => {
     await listaLeilaoModelos(e, 6 * 60 * 1000)
     expect(e.chamadas.n).toBe(2)
   })
+  it('tabela vazia tambem relê em 5 min (acesso antes da 1a carga nao congela 24 h)', async () => {
+    const vazia = sb([])
+    expect(await listaLeilaoModelos(vazia, 0)).toEqual([])
+    await listaLeilaoModelos(vazia, 4 * 60 * 1000)
+    expect(vazia.chamadas.n).toBe(1)
+    await listaLeilaoModelos(vazia, 6 * 60 * 1000)
+    expect(vazia.chamadas.n).toBe(2)
+  })
 })
