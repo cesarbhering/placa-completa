@@ -14,7 +14,7 @@ export const postFipeNovembro2026: BlogPost = {
     'FIPE de novembro de 2026: quem mais caiu e quem subiu',
     'Tabela FIPE novembro 2026: usado caiu 4,7% em um ano',
   ],
-  metaDescription: 'Levantamento com 39 mil linhas da tabela FIPE de novembro de 2026: carro usado caiu 0,9% no mês e 4,7% em 12 meses. Marcas, populares, elétricos, híbridos e motos.',
+  metaDescription: 'Tabela FIPE de novembro de 2026: o carro usado caiu 0,9% no mês e 4,7% em 12 meses. Marcas, populares, elétricos, híbridos e motos.',
   publishedAt: '2026-11-05',
   categoria: 'Estudos',
   capa: {
