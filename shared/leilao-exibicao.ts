@@ -135,6 +135,7 @@ export const EXPLICA_GRAVIDADE: Record<string, string> = {
   patio: 'Leilão de pátio: veículo removido ou apreendido e não retirado pelo dono. Isso, por si só, não indica dano.',
   financiamento: 'Retomada de financiamento: o banco recuperou o veículo por falta de pagamento. Isso, por si só, não indica dano.',
   conservado: 'A leiloeira declarou o veículo em condição de circular.',
+  com_documento: 'A leiloeira declarou que o veículo é vendido com documento, apto a voltar a circular. Confira o documento e faça uma vistoria cautelar.',
 }
 
 export function explicaGravidade(nivel: unknown): string | null {
