@@ -35,6 +35,19 @@ describe('blog', () => {
     expect(p.content.some((s) => s.type === 'faq')).toBe(true)
     expect(p.content.at(-1)).toMatchObject({ type: 'cta', ctaTo: '/' })
   })
+  it('post da FIPE de novembro de 2026: estilo do Cesar, sem travessao, sem fonte, sem preco, sem gratis', () => {
+    const p = findBlogPost('tabela-fipe-novembro-2026-usado-caiu')!
+    expect(p).toBeTruthy()
+    const tudo = JSON.stringify(p)
+    expect(tudo).not.toContain('\u2014')
+    expect(tudo).not.toMatch(/SENATRAN|DETRAN|39,90|44,90|29,90/i)
+    expect(p.title + p.metaDescription + (p.seoTitles || []).join(' ')).not.toMatch(/gr[aá]tis/i)
+    expect(tudo).toMatch(/tabela FIPE/i)
+    expect(p.content.filter((s) => s.type === 'table').length).toBe(3)
+    expect(p.content.some((s) => s.type === 'faq')).toBe(true)
+    expect(p.content.at(-1)).toMatchObject({ type: 'cta', ctaTo: '/' })
+  })
+
   it('capas existem em public/', () => {
     for (const p of blogPosts) {
       expect(existsSync('public' + p.capa.src)).toBe(true)

@@ -3,6 +3,7 @@ import { postEconomicos } from './blog-post-economicos'
 import { postPacoteEmpresas } from './blog-post-empresas'
 import { postEleicao2026Usado } from './blog-post-eleicao-2026'
 import { postBlackFridayUsado } from './blog-post-black-friday'
+import { postFipeNovembro2026 } from './blog-post-fipe-novembro-2026'
 import { postRecallVwFreio, postRecallVolvoEx30, postRecallExterior } from './blog-posts-recall'
 import { postsRecallAuto } from './blog-posts-recall-auto'
 
@@ -38,6 +39,7 @@ export const blogPosts: BlogPost[] = [
   // Recalls novos (gerados pelo pc-recall-publicar e revisados no PR), mais recentes primeiro.
   postBlackFridayUsado,
   postEleicao2026Usado,
+  postFipeNovembro2026,
   ...postsRecallAuto,
   postPacoteEmpresas,
   postRecallExterior,
