@@ -8,7 +8,7 @@ import { resultadoParaAgente, type ConsultaPedido, type FatoPedido } from './ped
 import { hmacPagador } from '../pagador-hash'
 
 // Orquestracao do atendimento (N0). Tudo que fala com o mundo vem por `deps`
-// (banco, Haiku, Evolution, e-mail), entao as simulacoes do plano rodam em
+// (banco, Claude, Evolution, e-mail), entao as simulacoes do plano rodam em
 // teste sem rede.
 
 export interface MsgConversa {

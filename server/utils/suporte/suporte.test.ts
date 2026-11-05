@@ -690,14 +690,15 @@ describe('regras puras', () => {
   })
 })
 
-describe('chamada ao Haiku', () => {
-  it('claude-haiku-5-5, thinking disabled, sem temperature, structured output', async () => {
+describe('chamada ao Fable', () => {
+  it('claude-fable-5-1, thinking adaptive, effort low, sem temperature, structured output', async () => {
     let corpo: any
     const f = vi.fn(async (_u: any, init: any) => { corpo = JSON.parse(init.body); return { ok: true, json: async () => ({ content: [{ type: 'text', text: JSON.stringify(V({ resposta: 'oi' })) }] }) } as any })
     const r = await perguntarAoAgente([{ de: 'cliente', texto: 'oi' }], 'k', { fetchImpl: f as any })
     expect(r.veredito?.resposta).toBe('oi')
-    expect(corpo.model).toBe('claude-haiku-5-5')
-    expect(corpo.thinking).toEqual({ type: 'disabled' })
+    expect(corpo.model).toBe('claude-fable-5-1')
+    expect(corpo.thinking).toEqual({ type: 'adaptive' })
+    expect(corpo.output_config.effort).toBe('low')
     expect(corpo).not.toHaveProperty('temperature')
     expect(corpo.output_config.format).toEqual({ type: 'json_schema', schema: SCHEMA_VEREDITO })
   })
