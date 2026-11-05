@@ -17,7 +17,7 @@ import { marcaExibicao } from '../../shared/marca-exibicao'
 import { codigoDaTabela, type TabelaFipe } from '../../shared/tabela-fipe'
 import { cambioDoNome, cambioPorSufixo, versaoFipeManual, versaoFipeAutomatica, opcoesDeCambio } from '../../shared/cambio-nome'
 import { cambioPeloChassi } from '../../shared/cambio-chassi'
-import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPelaVariante, filtrarPeloNomeDoVeiculo, versaoDoNome, lerVersaoDoNome, candidatoTemVersaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES, fatosPicapeGM, LEGENDA_PICAPE_GM, LEGENDA_RENAULT, faltaVersaoDoNome } from '../../shared/versao-fipe'
+import { filtrarPelaVersaoDoNome, filtrarPeloModeloDoNome, filtrarPelaVariante, filtrarPeloNomeDoVeiculo, versaoDoNome, siglasParaPrompt, fatosMercedes, LEGENDA_MERCEDES, fatosPicapeGM, LEGENDA_PICAPE_GM, LEGENDA_RENAULT, faltaVersaoDoNome } from '../../shared/versao-fipe'
 import { fatosToyota, LEGENDA_TOYOTA } from '../../shared/toyota-nome'
 import { LEGENDA_GWM } from '../../shared/gwm-nome'
 import { ehEletricoPuro } from '../../shared/propulsao'
@@ -415,20 +415,6 @@ function melhorScoreWdapi(wdapi: any, tabela: TabelaFipe = 'carros', nome: strin
  */
 const SCORE_CONFIAVEL = 85
 
-function candidatoWdapiConfiavel(wdapi: any, tokensModelo: string[], tabela: TabelaFipe): FipeCandidato | null {
-  if (!tokensModelo.length) return null
-  // Caminhao: nome composto ("L2638"); carro/moto: o 1o token, como sempre
-  // (PCX 150 nao pode virar "PCX150").
-  const nome = tabela === 'caminhoes' ? nomesDoModelo(tokensModelo)[0] : tokensModelo[0]
-  const melhor = melhorScoreWdapi(wdapi, tabela, nome)
-  if (!melhor) return null
-  const dados = wdapi?.fipe?.dados
-  const score = Array.isArray(dados)
-    ? Math.max(...dados.filter((d: any) => d?.codigo_fipe === melhor.codigo_fipe).map((d: any) => Number(d?.score) || 0))
-    : 0
-  if (score < SCORE_CONFIAVEL) return null
-  return new RegExp(`\\b${escapeRegex(nome)}`, 'i').test(melhor.modelo) || nomeCasa(melhor.modelo, nome) ? melhor : null
-}
 
 // ---------------------------------------------------------------------------
 // Funil deterministico
@@ -707,6 +693,29 @@ function cabineDaDescricao(descricao: unknown): 'simples' | 'dupla' | null {
 // Tokens uteis do nome do modelo, pra casar moto por nome em vez de cilindrada:
 // "HONDA/PCX 150 DLX ABS" vira ["PCX", "150"]. Marca, generico e numero solto
 // de 4 digitos ficam de fora.
+/**
+ * Desempate pelas palavras do cadastro (05/nov/2026, sem o atalho da wdapi).
+ * Entre candidatos que sobraram do funil, olha so as palavras que NAO sao comuns
+ * a todos ("DLX" x "SPORT" em "PCX 150/DLX" x "PCX 150 SPORT"). Fica o candidato
+ * cujas palavras proprias aparecem TODAS no nome do cadastro, com pelo menos
+ * uma; se sobrar exatamente um, ele e a resposta. Nome colado ou sem a palavra
+ * nao decide nada (segue para o juiz).
+ */
+export function desempatePorPalavras(cands: FipeCandidato[], descricao: unknown): FipeCandidato | null {
+  if (cands.length < 2) return null
+  const bruto = String(descricao ?? '').toUpperCase()
+  const doCadastro = new Set((bruto.includes('/') ? bruto.slice(bruto.indexOf('/') + 1) : bruto).split(/[^A-Z0-9]+/).filter(Boolean))
+  if (!doCadastro.size) return null
+  const tok = (m: string) => new Set(String(m || '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean))
+  const sets = cands.map((c) => tok(c.modelo))
+  const comuns = new Set([...sets[0]].filter((t) => sets.every((st) => st.has(t))))
+  const passam = cands.filter((_, i) => {
+    const proprias = [...sets[i]].filter((t) => !comuns.has(t))
+    return proprias.length > 0 && proprias.every((t) => doCadastro.has(t))
+  })
+  return passam.length === 1 ? passam[0] : null
+}
+
 function tokensDoModelo(descricao: unknown): string[] {
   const bruto = String(descricao ?? '').toUpperCase()
   const semMarca = bruto.includes('/') ? bruto.slice(bruto.indexOf('/') + 1) : bruto
@@ -1266,20 +1275,10 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
 
     const fatos = extrairFatos(input.senatran, input.wdapi, tabela)
 
-    // Atalho de confianca: quando a fonte livre ja tem um candidato com score
-    // alto E o nome dele bate com o modelo do registro, ele E a resposta. Nao
-    // ha por que passar isso por funil e por LLM: no caso da PCX 150 o
-    // candidato certo vinha com score 92 e foi descartado no meio do caminho,
-    // trocado por uma moto de 1000cc.
-    // O atalho tambem respeita a versao do nome: score alto num SE-G nao
-    // vale pra um Corolla XEi.
-    const { versoes: versoesNome, prefixo: prefixoNome } = lerVersaoDoNome(input.senatran?.descricaoMarcaModelo)
-    const forteBruto = candidatoWdapiConfiavel(input.wdapi, fatos.tokensModelo, tabela)
-    const forte = forteBruto && candidatoTemVersaoDoNome(forteBruto.modelo, versoesNome, prefixoNome) ? forteBruto : null
-    if (forte) {
-      const escolhido = await comCodigoModelo(forte, marca, input.fipeApiUrl, input.fipeApiToken)
-      return { escolhido, decididoPor: 'wdapi', candidatos: [forte], confianca: 'alta' }
-    }
+    // Sem atalho da fonte livre (Cesar, 05/nov/2026): a versao e decidida pelo
+    // nosso funil (fipe-api + regras + juiz), nunca pelo score da wdapi. O
+    // atalho decidia sozinho em cerca de 3% dos relatorios; agora esses casos
+    // passam pelas mesmas regras e pelo juiz que resolvem o resto.
 
     const doFunil = aplicarFunil(universo, fatos)
 
@@ -1297,6 +1296,12 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
         escolhido, decididoPor: 'eixos', candidatos: filtrados, confianca: 'alta',
         justificativa: `${input.senatran?.quantidadeDeEixos} eixos no cadastro`,
       }
+    }
+
+    const pelaPalavra = desempatePorPalavras(filtrados, input.senatran?.descricaoMarcaModelo)
+    if (pelaPalavra) {
+      const escolhido = await comCodigoModelo(pelaPalavra, marca, input.fipeApiUrl, input.fipeApiToken)
+      return { escolhido, decididoPor: 'regra_versao', candidatos: filtrados, confianca: 'alta', justificativa: 'palavra da versao no nome do cadastro' }
     }
 
     if (filtrados.length === 1) {
