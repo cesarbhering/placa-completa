@@ -37,7 +37,10 @@ export async function listaLeilaoModelos(supabase: any, agora = Date.now()): Pro
     emVoo = carregar(supabase)
       .catch(() => ({ lista: [] as LinhaLeilaoModelo[], ok: false }))
       .then(({ lista, ok }) => {
-        cache = { em: agora, ttl: ok ? TTL_GANCHO_MS : TTL_ERRO_MS, lista }
+        // Lista vazia (tabela ainda sem carga, ou carga zerada) usa o TTL curto:
+        // senao o primeiro acesso antes da carga das 01h40 congelava o gancho
+        // desligado por 24 h (caso real, 05/nov/2026).
+        cache = { em: agora, ttl: ok && lista.length > 0 ? TTL_GANCHO_MS : TTL_ERRO_MS, lista }
         return lista
       })
       .finally(() => { emVoo = null })
