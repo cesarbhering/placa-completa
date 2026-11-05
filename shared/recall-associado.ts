@@ -33,6 +33,8 @@ export interface RecallBase {
   sinal: 'firme' | 'suave' | null
   fonte: 'base_recalls'
   campanhas: CampanhaBase[]
+  /** Revisao manual (05/nov): campanhas que nao se aplicam ao carro sairam de `campanhas` e ficam aqui. */
+  revisaoManual?: { em: string; motivo: string; removidas: CampanhaBase[] } | null
 }
 
 export interface ItemRecallAssociado {
@@ -142,6 +144,8 @@ export function cardRecallAssociado(e: {
 }): CardRecallAssociado | null {
   if (!sinalPositivo(e.sinal) || e.pendente || e.montadoraComCampanhas) return null
   const camps = (e.base?.campanhas || []).filter((c) => c && (c.nome || c.codigo))
+  // Revisao manual tirou todas as campanhas (hook era falso positivo): nao ha o que associar.
+  if (e.base?.revisaoManual && !camps.length) return null
   // Chassi bate (firme) = "este veiculo"; so modelo/ano (suave) = "este modelo e ano".
   const firme = e.sinal === 'firme' || camps.some((c) => c.nivel === 'firme')
   const itemDe = (c: CampanhaBase, modelos: string): ItemRecallAssociado => ({

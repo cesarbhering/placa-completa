@@ -44,6 +44,10 @@ describe('card "Recall associado a este veículo"', () => {
     expect(c.itens).toEqual([])
     expect(c.situacao).toBe(SITUACAO_RECALL_ASSOCIADO)
   })
+  it('revisao manual tirou todas as campanhas: sem card', () => {
+    const base = { ...BASE, campanhas: [], revisaoManual: { em: '2026-11-05', motivo: 'faixa de chassi nao se aplica', removidas: BASE.campanhas } }
+    expect(cardRecallAssociado({ sinal: 'firme', base, pendente: false, montadoraComCampanhas: false })).toBeNull()
+  })
   it('mesma campanha em variantes de modelo vira um item so (SHW1H43)', () => {
     const mk = (nome: string, modelo: string, ano: string) => ({ codigo: null, nome, modelo, ano_modelo: ano, inicio: null, nivel: 'suave' as const })
     const card = cardRecallAssociado({
