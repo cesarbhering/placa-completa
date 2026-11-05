@@ -342,7 +342,7 @@ onUnmounted(() => { obsForm?.disconnect(); obsEyebrow?.disconnect() })
 // Vem de /api/consulta; nada aqui e SENATRAN.
 const resultadoBasico = ref<Record<string, any> | null>(null)
 
-// Cupom de tela: 10% se fechar em 30 min. O servidor emite o token com o
+// Cupom de tela: 5% se fechar em 30 min. O servidor emite o token com o
 // instante da emissao e e ELE que recusa depois do prazo; o relogio aqui so
 // mostra o que falta. Quem chegou com ?cupom= (e-mail) nao ve: nao acumula, e
 // duas ofertas na mesma tela confundem.

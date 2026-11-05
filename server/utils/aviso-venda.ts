@@ -1,3 +1,4 @@
+import { CUPOM_TELA_PCT } from '../../shared/cupom-tela'
 import { sanearOrigemCheckout, ROTULO_ORIGEM_CHECKOUT } from '../../shared/origem-checkout'
 import { ambienteForaDeProd } from './ambiente-alerta'
 
@@ -81,7 +82,7 @@ export function origemDaConsulta(row: ConsultaOrigem | null | undefined): string
 export function origemDoPedido(pedido: Pick<PedidoAviso, 'cupom_origem'>, consulta: ConsultaOrigem | null | undefined): string {
   const base = origemDaConsulta(consulta)
   if (pedido.cupom_origem === 'cupom_recompra') return `${base} + cupom de recompra`
-  if (pedido.cupom_origem === 'cupom_tela') return `${base} + cupom de tela (10%)`
+  if (pedido.cupom_origem === 'cupom_tela') return `${base} + cupom de tela (${CUPOM_TELA_PCT}%)`
   if (pedido.cupom_origem === 'cupom_bump') return `${base} + segunda placa (pedido acoplado)`
   return base
 }

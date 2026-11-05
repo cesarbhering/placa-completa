@@ -44,7 +44,7 @@ const props = withDefaults(defineProps<{
   /** Botao que abriu o checkout (shared/origem-checkout.ts). Vai pro pedido. */
   origemCheckout?: string | null
   /**
-   * Cupom de tela (10% se fechar em 30 min), emitido pelo servidor na consulta
+   * Cupom de tela (5% se fechar em 30 min), emitido pelo servidor na consulta
    * gratis. O servidor revalida assinatura e prazo; aqui e so exibicao.
    */
   cupomTelaToken?: string | null

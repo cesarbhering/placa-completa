@@ -28,7 +28,7 @@ describe('origem (mesma regra do pc-venda-origem)', () => {
   })
   it('cupom de recompra entra junto', () => {
     expect(origemDoPedido({ cupom_origem: 'cupom_recompra' }, { msclkid: 'm' })).toBe('Bing Ads + cupom de recompra')
-    expect(origemDoPedido({ cupom_origem: 'cupom_tela' }, { msclkid: 'm' })).toBe('Bing Ads + cupom de tela (10%)')
+    expect(origemDoPedido({ cupom_origem: 'cupom_tela' }, { msclkid: 'm' })).toBe('Bing Ads + cupom de tela (5%)')
   })
   it('rotulos, pagamento, canal, valor', () => {
     expect(rotuloLeilao('positivo')).toBe('SIM, viu o sinal de leilao')

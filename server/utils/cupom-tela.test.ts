@@ -58,20 +58,20 @@ describe('cupom de tela', () => {
     expect(derivado).not.toContain('k')
   })
 
-  it('10% com o piso do plano', () => {
-    expect(precoComCupomTela('completa')).toEqual({ precoBrutoCentavos: 4490, descontoCentavos: 449, precoLiquidoCentavos: 4041 })
-    expect(precoComCupomTela('basica')).toEqual({ precoBrutoCentavos: 2990, descontoCentavos: 299, precoLiquidoCentavos: 2691 })
+  it('5% com o piso do plano', () => {
+    expect(precoComCupomTela('completa')).toEqual({ precoBrutoCentavos: 4490, descontoCentavos: 225, precoLiquidoCentavos: 4265 })
+    expect(precoComCupomTela('basica')).toEqual({ precoBrutoCentavos: 2990, descontoCentavos: 150, precoLiquidoCentavos: 2840 })
   })
 
   it('nao acumula com cupom de e-mail: vale o maior', () => {
     const carro15 = { ok: true, descontoCentavos: 674 }
     expect(resolverDescontoTela('completa', carro15, true)).toEqual({ cupom: carro15, tela: null })
-    const cinco = { ok: true, descontoCentavos: 225 }
+    const cinco = { ok: true, descontoCentavos: 135 } // 3%, menor que a tela
     const r = resolverDescontoTela('completa', cinco, true)
     expect(r.cupom).toBeNull()
-    expect(r.tela?.precoLiquidoCentavos).toBe(4041)
+    expect(r.tela?.precoLiquidoCentavos).toBe(4265)
     // empate fica com o cupom
-    const dez = { ok: true, descontoCentavos: 449 }
+    const dez = { ok: true, descontoCentavos: 225 }
     expect(resolverDescontoTela('completa', dez, true).cupom).toBe(dez)
     // cupom invalido nao bloqueia o de tela
     expect(resolverDescontoTela('completa', { ok: false, descontoCentavos: 0 }, true).tela).not.toBeNull()
