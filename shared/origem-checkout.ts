@@ -12,7 +12,7 @@ export const ORIGENS_CHECKOUT = [
   'hero_apos_cta', //   clicou num CTA pago sem placa, digitou a placa no topo e seguiu
   'link_direto', //     /?placa=...&plano=... (upgrade da basica, links)
   'link_plano', //      /?plano=... sem placa: digita a placa e vai direto ao pagamento
-  'cupom_tela', //     botao do bloco bloqueado com o cupom de tela (10% em 30 min) na tela
+  'cupom_tela', //     botao do bloco bloqueado com o cupom de tela (5% em 30 min) na tela
   'bump', //           segunda placa por R$ 29,90 oferecida depois do pagamento (pedido acoplado)
   'pix_recovery', //    /premium?placa=... (e-mail de recuperacao de Pix)
   'app', //             reservado: abertura propria do app (hoje o app usa os mesmos botoes do site)

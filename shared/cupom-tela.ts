@@ -1,6 +1,6 @@
 // Cupom de tela (consulta gratis): numeros compartilhados entre a tela e o
 // servidor. Quem decide se vale e o servidor (server/utils/cupom-tela.ts).
-export const CUPOM_TELA_PCT = 10
+export const CUPOM_TELA_PCT = 5
 export const CUPOM_TELA_JANELA_MS = 30 * 60 * 1000
 
 /** "29:41" a partir dos milissegundos restantes (nunca negativo). */

@@ -833,7 +833,7 @@ export default defineEventHandler(async (event) => {
     // payload minimo pro botao de compartilhar no WhatsApp (web)
     // Sem FIPE: virou conteudo pago, e o texto de compartilhamento e superficie
     // publica.
-    // Cupom de tela: 10% se fechar em 30 min. O prazo e do servidor (token
+    // Cupom de tela: 5% se fechar em 30 min. O prazo e do servidor (token
     // HMAC com o instante da emissao); a tela so mostra o relogio.
     cupomTela: !isPWA ? (emitirCupomTela(segredoCupomTela(config as any), placaClean, ip) ?? undefined) : undefined,
     share: !isPWA ? {

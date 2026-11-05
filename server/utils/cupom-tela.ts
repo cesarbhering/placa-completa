@@ -3,7 +3,7 @@ import { aplicarCupom, type PlanoId } from '../../shared/planos'
 import { CUPOM_TELA_PCT, CUPOM_TELA_JANELA_MS } from '../../shared/cupom-tela'
 
 // Cupom de tela (Cesar, 04/nov/2026): quem recebe o resultado da consulta
-// gratis ganha 10% se fechar em 30 minutos. A urgencia e REAL: o servidor
+// gratis ganha 5% se fechar em 30 minutos. A urgencia e REAL: o servidor
 // assina o instante da emissao (HMAC) e o checkout so aplica o desconto dentro
 // da janela. Nao ha linha em cupons_premium: o token e a prova, e o pedido
 // sai marcado com cupom_origem = 'cupom_tela'.
@@ -100,7 +100,7 @@ export function cupomTelaValido(segredo: string, token: unknown, placa: string, 
 
 export interface DescontoTela { precoBrutoCentavos: number; descontoCentavos: number; precoLiquidoCentavos: number }
 
-/** Preco com os 10% de tela (piso do plano respeitado, nunca zera). */
+/** Preco com os 5% de tela (piso do plano respeitado, nunca zera). */
 export function precoComCupomTela(plano: Exclude<PlanoId, 'gratis'>): DescontoTela {
   return aplicarCupom(plano, { tipo: 'percentual', valor: CUPOM_TELA_PCT, planos: ['basica', 'completa'] })
 }
