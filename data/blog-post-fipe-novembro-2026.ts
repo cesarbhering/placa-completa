@@ -59,7 +59,7 @@ export const postFipeNovembro2026: BlogPost = {
     {
       type: 'heading',
       heading: 'Marcas: o luxo paga a conta',
-      text: 'Por marca, a conta em doze meses é uma escadaria onde o luxo está no degrau de baixo. Land Rover -13,2%, Volvo -11,8%, Jaguar -11,2%, Audi -10,5%, Lexus -10,3%, BMW -9,7%. Um Audi e-tron, na mediana das versões, perdeu R$ 69.921 em um ano. Um BMW X7, R$ 89.362. Um Aston Martin DBS 2022 perdeu R$ 856.778, que dá para comprar dezesseis Gols 2022 só com a desvalorização.\n\nNo outro extremo, as marcas de volume: Volkswagen -2,0%, Hyundai -2,5%, Fiat -2,6%, Renault -2,8%, Honda -3,1%, Nissan -3,1%, Ford -3,2%, Toyota -3,5%, Chevrolet -4,5%. As chinesas ficaram no meio da tabela, mas no meio ruim: Caoa Chery -8,7%, GWM -8,3%, BYD -7,0%. No mês, a pior marca foi a Jeep, com -1,21% e 201 de 238 versões em queda.',
+      text: 'Por marca, a conta em doze meses é uma escadaria onde o luxo está no degrau de baixo. Land Rover -13,2%, Volvo -11,8%, Jaguar -11,2%, Audi -10,5%, Lexus -10,3%, BMW -9,7%. Um Audi e-tron, na mediana das versões, perdeu R$ 69.921 em um ano. Um BMW X7, R$ 89.362. Um Aston Martin DBS 2022 perdeu R$ 856.778, que dá para comprar quinze Gols 2022 só com a desvalorização.\n\nNo outro extremo, as marcas de volume: Volkswagen -2,0%, Hyundai -2,5%, Fiat -2,6%, Renault -2,8%, Honda -3,1%, Nissan -3,1%, Ford -3,2%, Toyota -3,5%, Chevrolet -4,5%. As chinesas ficaram no meio da tabela, mas no meio ruim: Caoa Chery -8,7%, GWM -8,3%, BYD -7,0%. No mês, a pior marca foi a Jeep, com -1,21% e 201 de 238 versões em queda.',
     },
     {
       type: 'table',
@@ -126,7 +126,7 @@ export const postFipeNovembro2026: BlogPost = {
     {
       type: 'heading',
       heading: 'Os números que não cabem em gráfico',
-      text: 'O Jeep Grand Cherokee 80 Anos 2021 caiu 12,9% só em novembro: R$ 40 mil num mês, R$ 136.536 em doze meses. O Uno Ciao 2021 caiu 12,5% no mês. O Polo 1.0 2026 subiu 8,1% no mês, provavelmente uma revisão de tabela. O Toyota Corolla GR Core 0 km caiu 10,8%. E o Suzuki Jimny Canvas de 2017 a 2019 subiu 16,1% em doze meses, o único SUV da tabela que vale mais hoje que há um ano.\n\nA tabela FIPE diz quanto o carro vale. Não diz de onde ele veio. Antes de pagar os R$ 112.633 do Compass 2022 pela tabela nova, vale consultar a placa e ver se o carro passou por leilão, se há restrição, se tem recall aberto ou indício de sinistro. No interior se diz que preço bom tem dois donos: o que vende e o que paga. A tabela cuida do primeiro, a consulta cuida do segundo.',
+      text: 'O Jeep Grand Cherokee 80 Anos 2021 caiu 12,9% só em novembro: R$ 40 mil num mês, R$ 136.536 em doze meses. O Uno Ciao 2021 caiu 12,5% no mês. O Polo 1.0 2026 subiu 8,1% no mês, provavelmente uma revisão de tabela. O Toyota Corolla GR Core 0 km caiu 10,8%. E o Suzuki Jimny Canvas de 2017 a 2019 subiu 16,1% em doze meses, um dos raros SUVs da tabela que valem mais hoje que há um ano.\n\nA tabela FIPE diz quanto o carro vale. Não diz de onde ele veio. Antes de pagar os R$ 112.633 do Compass 2022 pela tabela nova, vale consultar a placa e ver se o carro passou por leilão, se há restrição, se tem recall aberto ou indício de sinistro. No interior se diz que preço bom tem dois donos: o que vende e o que paga. A tabela cuida do primeiro, a consulta cuida do segundo.',
     },
     {
       type: 'faq',
