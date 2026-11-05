@@ -118,6 +118,14 @@ export default defineNuxtConfig({
       "/historico-veicular",
       "/consulta-veicular-completa",
       "/consulta-leilao-veiculo",
+      // Cluster /consultar/{tema} (shared/consultar-temas.ts)
+      "/consultar",
+      "/consultar/gravame",
+      "/consultar/leilao",
+      "/consultar/recall",
+      "/consultar/multas",
+      "/consultar/roubo-furto",
+      "/consultar/fipe",
       // Artigos "O que e" (shared/artigos-o-que-e.ts)
       "/o-que-e",
       "/o-que-e/renavam",
@@ -857,6 +865,8 @@ export default defineNuxtConfig({
     "/historico-veicular": { swr: 86400 },
     "/consulta-veicular-completa": { swr: 86400 },
     "/consulta-leilao-veiculo": { swr: 86400 },
+    "/consultar": { swr: 86400 },
+    "/consultar/**": { swr: 86400 },
     "/o-que-e/**": { swr: 86400 },
     "/seguro/**": { swr: 86400 },
     "/tabela-fipe/**": { swr: 86400 },
