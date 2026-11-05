@@ -51,6 +51,7 @@ describe('card de passagem: gravidade e detalhes (18/out/2026, caso GDL8A24)', (
   it('explicacao por gravidade, sem travessao; desconhecida sem texto', async () => {
     const { explicaGravidade, EXPLICA_GRAVIDADE } = await import('./leilao-exibicao')
     expect(explicaGravidade('media_monta')).toMatch(/declarada pela leiloeira: dano em 2 a 6 peças.*CSV.*"Sinistrado" ou "DMM"/)
+    expect(explicaGravidade('com_documento')).toMatch(/vendido com documento/)
     expect(explicaGravidade('desconhecido')).toBeNull()
     for (const t of Object.values(EXPLICA_GRAVIDADE)) expect(t).not.toContain('—')
   })
