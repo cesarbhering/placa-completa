@@ -4,7 +4,7 @@ import { consultarPedidos } from './pedidos'
 import { cfgEvolution, enviarTexto, bloquearNumero } from './evolution'
 import type { Deps } from './fluxo'
 
-// Deps reais do atendimento (Supabase, Haiku, Evolution, Resend). Ligado so
+// Deps reais do atendimento (Supabase, Claude, Evolution, Resend). Ligado so
 // com NUXT_SUPORTE_WHATSAPP=on e o segredo: homolog/staging ficam desligados.
 
 export const DESTINO_N2 = 'cesarcbhering@gmail.com'

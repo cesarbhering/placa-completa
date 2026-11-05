@@ -1,12 +1,15 @@
 import { promptDoSistema } from './conhecimento'
 
-// Cerebro N0: Haiku 5.5 com structured outputs (mesmo jeito do juiz FIPE, #509).
+// Cerebro N0: Fable 5.1 (Cesar, 05/nov/2026; antes Haiku 5.5) com structured
+// outputs, adaptive thinking e effort low (mesmo jeito do juiz FIPE).
 // Ferramenta de leitura de pedido via acao "consultar_pedido": o servidor
 // consulta e chama de novo com o resultado (no maximo 2 rodadas).
 
-export const SUPORTE_MODELO = 'claude-haiku-5-5'
-export const SUPORTE_TIMEOUT_MS = 8000
-const MAX_TOKENS = 700
+export const SUPORTE_MODELO = 'claude-fable-5-1'
+// A resposta roda em segundo plano (agendarResposta), entao o prazo maior nao
+// segura o webhook. 8 s era o do Haiku; o Fable com thinking pede mais folga.
+export const SUPORTE_TIMEOUT_MS = 25000
+const MAX_TOKENS = 2000  // inclui o thinking adaptativo
 
 export type Acao = 'responder' | 'consultar_pedido' | 'chamar_n1' | 'escalar_n2' | 'fora_escopo' | 'empresa'
 export type Categoria = 'venda' | 'pedido' | 'relatorio' | 'reclamacao' | 'fora_escopo' | 'empresa' | 'outro'
@@ -80,7 +83,7 @@ export function parseVeredito(texto: string): Veredito | null {
   } catch { return null }
 }
 
-/** Uma chamada ao Haiku. null em qualquer falha (quem chama trata como N1). */
+/** Uma chamada ao modelo (SUPORTE_MODELO). null em qualquer falha (quem chama trata como N1). */
 export async function perguntarAoAgente(
   hist: MsgHistorico[],
   apiKey: string,
@@ -96,10 +99,10 @@ export async function perguntarAoAgente(
       body: JSON.stringify({
         model: SUPORTE_MODELO,
         max_tokens: MAX_TOKENS,
-        thinking: { type: 'disabled' },
+        thinking: { type: 'adaptive' },
         system: promptDoSistema(),
         messages: mensagensParaApi(hist, opts.extra),
-        output_config: { format: { type: 'json_schema', schema: SCHEMA_VEREDITO } },
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA_VEREDITO } },
       }),
       signal: ctrl.signal,
     })
