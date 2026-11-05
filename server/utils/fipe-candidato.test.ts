@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { escolherMelhorFipe, parseVereditoHaiku, trechoSaneado, schemaVeredito, litragensDoNome } from './fipe-candidato'
+import { desempatePorPalavras, escolherMelhorFipe, parseVereditoHaiku, trechoSaneado, schemaVeredito, litragensDoNome } from './fipe-candidato'
 import { alertarFalhaHaiku } from './alerta-haiku'
 
 vi.mock('./alerta-haiku', () => ({ alertarFalhaHaiku: vi.fn(async () => true) }))
@@ -703,7 +703,7 @@ describe('timeout proprio da fipe-api', () => {
 
 describe('codigo do modelo: sem colisao carro x moto (caso FZK5F28)', () => {
   beforeEach(() => { vi.unstubAllGlobals() })
-  it('atalho da fonte livre repassa o codigo_modelo da propria fonte', async () => {
+  it('candidato da fonte livre (unico no funil) repassa o codigo_modelo da propria fonte', async () => {
     const chamadas: string[] = []
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       chamadas.push(String(url))
@@ -715,7 +715,7 @@ describe('codigo do modelo: sem colisao carro x moto (caso FZK5F28)', () => {
       wdapi: { marca: 'HONDA', anoModelo: '2020', fipe: { dados: [{ score: 92, codigo_fipe: '811116-2', codigo_modelo: '7788', texto_marca: 'HONDA', texto_modelo: 'PCX 150/DLX', texto_valor: 'R$ 15.328,00' }] } },
       segmento: 'moto', fipeApiUrl: 'http://fipe-a', fipeApiToken: 't',
     })
-    expect(r.decididoPor).toBe('wdapi')
+    expect(r.decididoPor).toBe('regra') // sem atalho da wdapi (05/nov): decide o funil
     expect(r.escolhido?.codigoModelo).toBe('7788')
     expect(chamadas.some((u) => u.includes('/brands'))).toBe(false)
   })
@@ -1769,5 +1769,23 @@ describe('R1250GS pelo funil (moto)', () => {
     const r = await escolherMelhorFipe({ senatran: { descricaoMarcaModelo: 'BMW/R1250GS', anoModelo: 2020, cilindrada: 1254, descricaoTipoVeiculo: 'MOTOCICLETA' }, wdapi: null, fipeApiUrl: 'http://fipe', fipeApiToken: 't', segmento: 'moto' } as any)
     expect(r.decididoPor).toBe('ambiguo')
     expect(r.candidatos.map((c) => c.codigo_fipe).sort()).toEqual(['803072-3', '803073-1', '803074-0'])
+  })
+})
+
+describe('sem atalho da wdapi (Cesar 05/nov/2026)', () => {
+  beforeEach(() => { vi.unstubAllGlobals() })
+  it('score alto da fonte livre nao decide sozinho: PCX 150 DLX sai pela palavra do cadastro', async () => {
+    vi.stubGlobal('fetch', mockFetchHonda2020())
+    const r = await escolherMelhorFipe({ senatran: SENATRAN_FZK5F28, wdapi: WDAPI_FZK5F28, fipeApiUrl: 'http://fipe', fipeApiToken: 't' })
+    expect(r.decididoPor).not.toBe('wdapi')
+    expect(r.decididoPor).toBe('regra_versao')
+    expect(r.escolhido?.codigo_fipe).toBe('811116-2')
+  })
+  it('desempatePorPalavras: decide so quando as palavras proprias estao todas no cadastro', () => {
+    const c = (modelo: string) => ({ codigo_fipe: modelo, modelo, valor: 1 } as any)
+    expect(desempatePorPalavras([c('PCX 150/DLX'), c('PCX 150 SPORT')], 'HONDA/PCX 150 DLX ABS')?.modelo).toBe('PCX 150/DLX')
+    expect(desempatePorPalavras([c('COROLLA XEi 2.0'), c('COROLLA SE-G 2.0')], 'TOYOTA/COROLLA XEI20FLEX')).toBeNull()
+    expect(desempatePorPalavras([c('GOL 1.0'), c('GOL 1.0 TREND')], 'VW/GOL 1.0')).toBeNull()
+    expect(desempatePorPalavras([c('ONIX LT'), c('ONIX LTZ')], 'CHEV/ONIX 1.4 LTZ')?.modelo).toBe('ONIX LTZ')
   })
 })
