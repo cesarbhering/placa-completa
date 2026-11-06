@@ -39,6 +39,8 @@ export const EVENTOS_FUNIL = [
   'bump_click',
   /** Relatorio pago: marcou ou desmarcou um item do checklist (extra: item_id, marcado; sem PII). */
   'checklist_marcado',
+  /** Clique no "Compartilhar no WhatsApp" do resultado gratis (extra: onde = layout_a|layout_b; so o link vai no texto). */
+  'compartilhar_whatsapp_click',
 ] as const
 
 export type EventoFunil = (typeof EVENTOS_FUNIL)[number]
