@@ -1,7 +1,8 @@
 import crypto from 'node:crypto'
 import { rodarAvaliacaoGoogle } from '../../../utils/avaliacao-google'
 
-// Acompanhamento de avaliacao no Google, 3 dias apos a entrega (05/nov/2026).
+// Pedido de nota (1 a 5) 3 dias apos a entrega (05/nov/2026); a pagina
+// /feedback leva nota 4-5 ao Google.
 // Chamado pelo timer do host (pc-avaliacao-google.timer) com x-admin-secret.
 // Body: { desde: ISO (obrigatorio, corte do deploy), excluir: string[]
 // (lista de exclusao do host), dry_run?: boolean, limite?: number }.

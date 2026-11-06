@@ -1,10 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   motivoForaAvaliacao, selecionarAvaliacao, montarAvaliacaoEmail, rodarAvaliacaoGoogle, enviarAvaliacaoEmail,
-  LINK_AVALIACAO_GOOGLE, ESPERA_AVALIACAO_MS, type PedidoAvaliacao,
+  ESPERA_AVALIACAO_MS, type PedidoAvaliacao,
 } from './avaliacao-google'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 
 const DIA = 24 * 60 * 60 * 1000
 const AGORA = Date.parse('2026-11-20T13:00:00Z')
@@ -46,13 +44,9 @@ describe('motivoForaAvaliacao', () => {
     expect(motivoForaAvaliacao(ped({ email: null }), filtro())).toBe('sem_email')
     expect(motivoForaAvaliacao(ped({ email: 'invalido' }), filtro())).toBe('sem_email')
   })
-  it('nenhum filtro por nota: campos de satisfacao nao mudam nada', () => {
-    const comNota = { ...ped(), nota: 1, feedback_nota: 1, avaliacao: 'ruim' } as any
+  it('envio nao depende de nota: campos de satisfacao nao mudam nada', () => {
+    const comNota = { ...ped(), nota: 1, feedback_nota: 1 } as any
     expect(motivoForaAvaliacao(comNota, filtro())).toBeNull()
-    const src = readFileSync(resolve(process.cwd(), 'server/utils/avaliacao-google.ts'), 'utf8')
-    // Sem comentarios: o codigo nao le nenhum campo de nota/feedback.
-    const codigo = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
-    expect(codigo).not.toMatch(/\bnota\b|feedback|satisfa[cç]/i)
   })
 })
 
@@ -66,25 +60,28 @@ describe('selecionarAvaliacao', () => {
   })
 })
 
+const BASE = 'https://placacompleta.com.br'
+const TOK = 'fb_TOKENFICTICIO1234567890'
+
 describe('montarAvaliacaoEmail', () => {
-  it('assunto, texto aprovado, link e placa em maiuscula', () => {
-    const m = montarAvaliacaoEmail('aaa1a11')
+  it('assunto, texto aprovado e cinco links de nota', () => {
+    const m = montarAvaliacaoEmail('aaa1a11', BASE, TOK)
     expect(m.assunto).toBe('Como foi a sua consulta no PlacaCompleta?')
     expect(m.texto).toBe([
       'Olá,', '',
       'Há alguns dias você consultou a placa AAA1A11 com a gente. Esperamos que o relatório tenha ajudado na sua decisão.', '',
-      'Pode nos contar como foi? Leva menos de um minuto:', LINK_AVALIACAO_GOOGLE, '',
-      'A sua opinião, boa ou ruim, nos ajuda a melhorar e ajuda outras pessoas que estão comprando carro.', '',
+      'De 1 a 5, como foi a sua experiência? É só clicar:',
+      ...[1, 2, 3, 4, 5].map((n) => `${n}: ${BASE}/feedback/${TOK}?nota=${n}`), '',
       'Obrigado,', 'Equipe PlacaCompleta',
     ].join('\n'))
-    expect(m.html).toContain(`href="${LINK_AVALIACAO_GOOGLE}"`)
+    for (const n of [1, 2, 3, 4, 5]) expect(m.html).toContain(`href="${BASE}/feedback/${TOK}?nota=${n}"`)
     expect(m.html).toContain('AAA1A11')
   })
-  it('sem travessao, sem nome de orgao, sem cupom ou desconto', () => {
-    const m = montarAvaliacaoEmail('AAA1A11')
+  it('sem travessao, sem nome de orgao, sem cupom ou desconto, sem link direto do Google', () => {
+    const m = montarAvaliacaoEmail('AAA1A11', BASE, TOK)
     for (const s of [m.assunto, m.html, m.texto]) {
       expect(s).not.toContain('—')
-      expect(s).not.toMatch(/SENATRAN|DETRAN|cupom|desconto|brinde/i)
+      expect(s).not.toMatch(/SENATRAN|DETRAN|cupom|desconto|brinde|g\.page/i)
     }
   })
 })
@@ -95,7 +92,7 @@ describe('enviarAvaliacaoEmail', () => {
     const c: any[] = []
     vi.stubGlobal('useRuntimeConfig', () => ({ resendApiKey: 're_x' }))
     vi.stubGlobal('$fetch', vi.fn(async (_u: string, o: any) => { c.push(o); return {} }))
-    expect(await enviarAvaliacaoEmail('cliente@exemplo.com', 'AAA1A11')).toBe(true)
+    expect(await enviarAvaliacaoEmail('cliente@exemplo.com', 'AAA1A11', TOK)).toBe(true)
     expect(c[0].body.from).toBe('PlacaCompleta <contato@placacompleta.com.br>')
     expect(c[0].body.reply_to).toBe('contato@placacompleta.com.br')
     expect(c[0].body.subject).toBe('Como foi a sua consulta no PlacaCompleta?')
@@ -108,17 +105,30 @@ function sb(pedidos: PedidoAvaliacao[], envios: string[] = [], conflito = false)
   const filtros: any[] = []
   const inseridos: string[] = []
   const removidos: string[] = []
+  const solicitacoes: any[] = []
   const cliente = {
     from(t: string) {
       const q: any = {
         select: () => q, order: () => q, limit: () => q,
-        eq: (c: string, v: any) => { filtros.push(['eq', c, v]); if (q._del) { removidos.push(v); tabela.delete(v) } return q },
+        eq: (c: string, v: any) => {
+          filtros.push(['eq', c, v])
+          if (t === 'feedback_solicitacoes') {
+            const i = solicitacoes.findIndex((r) => r.token === v)
+            if (q._del && i >= 0) solicitacoes.splice(i, 1)
+            if (q._upd && i >= 0) Object.assign(solicitacoes[i], q._upd)
+            return q
+          }
+          if (q._del) { removidos.push(v); tabela.delete(v) }
+          return q
+        },
         gt: (c: string, v: any) => { filtros.push(['gt', c, v]); return q },
         gte: (c: string, v: any) => { filtros.push(['gte', c, v]); return q },
         lte: (c: string, v: any) => { filtros.push(['lte', c, v]); return q },
         not: (...a: any[]) => { filtros.push(['not', ...a]); return q },
         in: (_c: string, v: string[]) => { q._in = v; return q },
+        update: (row: any) => { q._upd = row; return q },
         insert: async (row: any) => {
+          if (t === 'feedback_solicitacoes') { solicitacoes.push(row); return { error: null } }
           if (conflito || tabela.has(row.email_norm)) return { error: { message: 'duplicate key' } }
           tabela.add(row.email_norm); inseridos.push(row.email_norm); return { error: null }
         },
@@ -130,10 +140,10 @@ function sb(pedidos: PedidoAvaliacao[], envios: string[] = [], conflito = false)
       return q
     },
   }
-  return { cliente, filtros, inseridos, removidos, tabela }
+  return { cliente, filtros, inseridos, removidos, tabela, solicitacoes }
 }
 
-const PROD = { supabaseUrl: 'https://prod.supabase.co', public: {} }
+const PROD = { supabaseUrl: 'https://prod.supabase.co', premiumBaseUrl: BASE, public: {} }
 
 describe('rodarAvaliacaoGoogle', () => {
   it('fora de prod nao envia nada', async () => {
@@ -166,7 +176,12 @@ describe('rodarAvaliacaoGoogle', () => {
     const r = await rodarAvaliacaoGoogle(s.cliente, { agora: AGORA, desde: DESDE, excluir: ['equipe@exemplo.com'], enviar, cfg: PROD })
     expect(r.enviados).toBe(1)
     expect(enviar).toHaveBeenCalledTimes(1)
-    expect(enviar).toHaveBeenCalledWith('ok@exemplo.com', 'aaa1a11')
+    expect(enviar).toHaveBeenCalledWith('ok@exemplo.com', 'aaa1a11', expect.stringMatching(/^fb_/))
+    // Link proprio gravado em feedback_solicitacoes, com o envio carimbado.
+    expect(s.solicitacoes).toHaveLength(1)
+    expect(s.solicitacoes[0]).toMatchObject({ email: 'ok@exemplo.com', pedido_id: 'ok', placa: 'AAA1A11' })
+    expect(s.solicitacoes[0].link).toBe(`${BASE}/feedback/${s.solicitacoes[0].token}`)
+    expect(s.solicitacoes[0].email_enviado_em).toBeTruthy()
     expect(s.inseridos).toEqual(['ok@exemplo.com'])
 
     // Segunda rodada: o mesmo cliente nao recebe de novo.
@@ -188,6 +203,7 @@ describe('rodarAvaliacaoGoogle', () => {
     expect(r.falhas).toBe(1)
     expect(s.removidos).toEqual(['cliente@exemplo.com'])
     expect(s.tabela.size).toBe(0)
+    expect(s.solicitacoes).toHaveLength(0)
   })
 
   it('dry-run nao envia nem grava, e a previa nao traz e-mail', async () => {

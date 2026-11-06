@@ -1,5 +1,5 @@
 [Unit]
-Description=PlacaCompleta - avaliacao no Google, uma rodada por dia as 10h
+Description=PlacaCompleta - e-mail de nota pos-entrega, uma rodada por dia as 10h
 
 [Timer]
 # Uma vez por dia, horario comercial. Sem Persistent: nada de corrida de

@@ -125,24 +125,3 @@ describe('enviarRelatorioEmail: linha do cupom de recompra', () => {
     expect(b.text).not.toContain('wa.me')
   })
 })
-
-describe('enviarRelatorioEmail: linha de avaliacao no Google', () => {
-  afterEach(() => { vi.unstubAllGlobals() })
-  it('aparece no HTML e no texto, depois do link do relatorio', async () => {
-    const c: any[] = []
-    vi.stubGlobal('useRuntimeConfig', () => ({ resendApiKey: 're_x', premiumBaseUrl: 'https://placacompleta.com.br' }))
-    vi.stubGlobal('$fetch', vi.fn(async (_u: string, o: any) => { c.push(o); return {} }))
-    const { enviarRelatorioEmail } = await import('./premium-email')
-    expect(await enviarRelatorioEmail({ email: 'cliente@exemplo.com', token: 'tok-ficticio', plano: 'completa', placa: 'AAA1A11' })).toBe(true)
-    const { html, text } = c[0].body
-    const frase = 'Este relatório te ajudou? Uma avaliação no Google ajuda outras pessoas a comprar carro com mais segurança:'
-    const link = 'https://g.page/r/CWpx3yMC2irbEBM/review'
-    expect(html).toContain(frase)
-    expect(html).toContain(`href="${link}"`)
-    expect(text).toContain(`${frase} ${link}`)
-    const linkRelatorio = 'https://placacompleta.com.br/premium/tok-ficticio?o=email'
-    expect(html.lastIndexOf(linkRelatorio)).toBeLessThan(html.indexOf(frase))
-    expect(text.indexOf(linkRelatorio)).toBeLessThan(text.indexOf(frase))
-    expect(html + text).not.toContain('—')
-  })
-})

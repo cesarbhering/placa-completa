@@ -3,7 +3,6 @@ import { linkWhatsappRecompra } from '../../shared/cupom-recompra-texto'
 import { comTagAmbiente } from './ambiente-alerta'
 import { PLANOS, isPlanoPago } from '../../shared/planos'
 import { BASE_LEILAO_TEXTO } from '../../shared/base-leilao'
-import { LINK_AVALIACAO_GOOGLE, FRASE_AVALIACAO_ENTREGA } from './avaliacao-google'
 
 // E-mail de entrega do relatorio premium. E a unica copia DURAVEL do link: a
 // aba pode fechar, o historico local vive so naquele navegador, e o token e a
@@ -150,11 +149,6 @@ function montarHtml(link: string, plano?: string | null, placa?: string | null, 
                 Se o botão não funcionar, copie e cole no navegador:<br>
                 <a href="${link}" style="color:${AZUL};text-decoration:underline;">${link}</a>
               </p>
-              <!-- Pedido de avaliacao no Google (05/nov): vai pra TODO cliente,
-                   sem filtro por nota e sem brinde, que e a regra do Google. -->
-              <p style="margin:16px 0 0;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">
-                ${FRASE_AVALIACAO_ENTREGA} <a href="${LINK_AVALIACAO_GOOGLE}" style="color:${AZUL};text-decoration:underline;">${LINK_AVALIACAO_GOOGLE}</a>
-              </p>
             </td>
           </tr>
 
@@ -196,8 +190,6 @@ function montarTexto(link: string, plano?: string | null, placa?: string | null,
     'Guarde este e-mail. O link é o seu acesso ao relatório, e ele não expira.',
     '',
     ...(cupom ? linhasCupomTexto(cupom) : []),
-    `${FRASE_AVALIACAO_ENTREGA} ${LINK_AVALIACAO_GOOGLE}`,
-    '',
     'Precisa de ajuda? Escreva para contato@placacompleta.com.br',
     '',
     'PlacaCompleta · consulta veicular por placa',

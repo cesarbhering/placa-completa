@@ -1,19 +1,13 @@
 import { ambienteForaDeProd } from './ambiente-alerta'
+import { gerarTokenFeedback, linkFeedback } from './feedback'
 
-// Pedido de avaliacao no Google aos clientes do premium (aprovado pelo Cesar
-// em 05/nov/2026). Duas pecas: uma linha no e-mail de entrega (premium-email)
-// e UM e-mail de acompanhamento 3 dias depois da entrega.
-//
-// Regra do Google, que e o motivo do desenho: o pedido vai para TODOS os
-// clientes. Nada de filtrar pela nota (nao ha pergunta de nota antes) e nada
-// de brinde, cupom ou desconto em troca. Os filtros abaixo sao so de
-// elegibilidade do pedido (pagou, nao foi reembolsado, nao pediu para sair),
-// nunca de satisfacao.
-
-export const LINK_AVALIACAO_GOOGLE = 'https://g.page/r/CWpx3yMC2irbEBM/review'
-
-export const FRASE_AVALIACAO_ENTREGA =
-  'Este relatório te ajudou? Uma avaliação no Google ajuda outras pessoas a comprar carro com mais segurança:'
+// Pedido de nota aos clientes do premium (05/nov/2026, decisao do Cesar).
+// UM e-mail por cliente na vida, 3 dias depois da entrega, com cinco botoes de
+// nota (1 a 5). Cada botao leva para /feedback/<token>?nota=N, que grava a
+// nota; 4 ou 5 recebem o convite para avaliar no Google, 1 a 3 recebem o
+// campo "O que podemos melhorar?" (ver server/utils/feedback.ts). Sem cupom e
+// sem brinde. Os filtros abaixo sao so de elegibilidade do pedido (pagou, nao
+// foi reembolsado, nao pediu para sair).
 
 export const ASSUNTO_AVALIACAO = 'Como foi a sua consulta no PlacaCompleta?'
 
@@ -105,12 +99,11 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-export function montarAvaliacaoEmail(placaBruta: string): { assunto: string; html: string; texto: string } {
+export function montarAvaliacaoEmail(placaBruta: string, base: string, token: string): { assunto: string; html: string; texto: string } {
   const placa = String(placaBruta || '').trim().toUpperCase()
-  const link = LINK_AVALIACAO_GOOGLE
   const par1 = `Há alguns dias você consultou a placa ${placa} com a gente. Esperamos que o relatório tenha ajudado na sua decisão.`
-  const par2 = 'Pode nos contar como foi? Leva menos de um minuto:'
-  const par3 = 'A sua opinião, boa ou ruim, nos ajuda a melhorar e ajuda outras pessoas que estão comprando carro.'
+  const par2 = 'De 1 a 5, como foi a sua experiência? É só clicar:'
+  const notas = [1, 2, 3, 4, 5]
 
   const texto = [
     'Olá,',
@@ -118,15 +111,18 @@ export function montarAvaliacaoEmail(placaBruta: string): { assunto: string; htm
     par1,
     '',
     par2,
-    link,
-    '',
-    par3,
+    ...notas.map((n) => `${n}: ${linkFeedback(base, token, n)}`),
     '',
     'Obrigado,',
     'Equipe PlacaCompleta',
   ].join('\n')
 
   const p = (t: string, mb = 16) => `<p style="margin:0 0 ${mb}px;font-size:16px;line-height:1.55;color:${GRAFITE};">${t}</p>`
+  // Botoes em tabela (o Outlook ignora padding em <a>), lado a lado, grandes
+  // o bastante para o dedo no celular.
+  const botoes = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:4px auto 8px;"><tr>${notas.map((n) => `<td style="padding:0 4px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#ffffff" style="border:2px solid ${AZUL};border-radius:8px;"><a href="${linkFeedback(base, token, n)}" aria-label="Nota ${n} de 5" style="display:block;width:44px;padding:12px 0;font-family:${FONTE};font-size:20px;font-weight:700;line-height:1;color:${AZUL};text-align:center;text-decoration:none;">${n}</a></td></tr></table></td>`).join('')}</tr></table>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" width="280" style="margin:0 auto 24px;width:280px;"><tr><td style="font-family:${FONTE};font-size:12px;color:${CINZA};text-align:left;">Muito ruim</td><td style="font-family:${FONTE};font-size:12px;color:${CINZA};text-align:right;">Muito bom</td></tr></table>`
+
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -135,16 +131,15 @@ export function montarAvaliacaoEmail(placaBruta: string): { assunto: string; htm
 <title>${esc(ASSUNTO_AVALIACAO)}</title>
 </head>
 <body style="margin:0;padding:0;background:#f7f7f7;">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Pode nos contar como foi a consulta da placa ${esc(placa)}? Leva menos de um minuto.</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">De 1 a 5, como foi a consulta da placa ${esc(placa)}? É só clicar.</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f7f7f7;"><tr><td align="center" style="padding:32px 16px;">
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid ${FIO};border-radius:16px;overflow:hidden;">
 <tr><td align="center" style="padding:28px 24px 20px;border-bottom:1px solid ${FIO};"><img src="https://placacompleta.com.br/logo-horizontal-600.png" width="180" height="72" alt="PlacaCompleta" style="display:block;border:0;width:180px;height:auto;"></td></tr>
 <tr><td style="padding:32px 32px 8px;font-family:${FONTE};">
 ${p('Olá,')}
 ${p(esc(par1).replace(esc(placa), `<strong style="color:#1a1a1a">${esc(placa)}</strong>`))}
-${p(esc(par2), 8)}
-${p(`<a href="${link}" style="color:${AZUL};text-decoration:underline;word-break:break-all;">${link}</a>`)}
-${p(esc(par3))}
+${p(esc(par2), 16)}
+${botoes}
 ${p('Obrigado,<br>Equipe PlacaCompleta', 24)}
 </td></tr>
 <tr><td align="center" style="padding:24px 32px;background:${NAVY};font-family:${FONTE};">
@@ -159,10 +154,10 @@ ${p('Obrigado,<br>Equipe PlacaCompleta', 24)}
   return { assunto: ASSUNTO_AVALIACAO, html, texto }
 }
 
-export async function enviarAvaliacaoEmail(email: string, placa: string): Promise<boolean> {
+export async function enviarAvaliacaoEmail(email: string, placa: string, token: string): Promise<boolean> {
   const config = useRuntimeConfig()
   if (!config.resendApiKey || !email) return false
-  const { assunto, html, texto } = montarAvaliacaoEmail(placa)
+  const { assunto, html, texto } = montarAvaliacaoEmail(placa, String(config.premiumBaseUrl || ''), token)
   try {
     await $fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -193,7 +188,10 @@ export interface OpcoesRodada {
   dryRun?: boolean
   limite?: number
   /** Injetavel no teste. */
-  enviar?: (email: string, placa: string) => Promise<boolean>
+  enviar?: (email: string, placa: string, token: string) => Promise<boolean>
+  /** Injetavel no teste. */
+  novoToken?: () => string
+  base?: string
   cfg?: any
 }
 
@@ -265,10 +263,21 @@ export async function rodarAvaliacaoGoogle(supabase: any, o: OpcoesRodada): Prom
       .from('avaliacao_google_envios')
       .insert({ email_norm: email, pedido_id: p.id })
     if (eIns) continue
-    const ok = await enviar(String(p.email).trim(), String(p.placa || '')).catch(() => false)
-    if (ok) { enviados++; continue }
+    // Link proprio do cliente: a nota so vale se vier de quem comprou.
+    const token = (o.novoToken ?? gerarTokenFeedback)()
+    const { error: eSol } = await supabase.from('feedback_solicitacoes').insert({
+      token, email: String(p.email).trim(), pedido_id: p.id, placa: String(p.placa || '').toUpperCase(),
+      link: linkFeedback(o.base ?? String((o.cfg ?? useRuntimeConfig())?.premiumBaseUrl || ''), token),
+    })
+    const ok = !eSol && await enviar(String(p.email).trim(), String(p.placa || ''), token).catch(() => false)
+    if (ok) {
+      enviados++
+      await supabase.from('feedback_solicitacoes').update({ email_enviado_em: new Date().toISOString() }).eq('token', token)
+      continue
+    }
     falhas++
     // Solta a vaga: a proxima rodada tenta de novo (dentro da janela).
+    if (!eSol) await supabase.from('feedback_solicitacoes').delete().eq('token', token)
     await supabase.from('avaliacao_google_envios').delete().eq('email_norm', email)
   }
   return { candidatos: elegiveis.length, enviados, falhas, dry_run: false }

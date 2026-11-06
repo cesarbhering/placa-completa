@@ -1,5 +1,5 @@
 #!/bin/bash
-# Acompanhamento de avaliacao no Google (3 dias apos a entrega). Chama o site
+# Pedido de nota (1 a 5) 3 dias apos a entrega. Chama o site
 # pelo Traefik local com x-admin-secret. Envia o corte do deploy (DESDE) e a
 # lista de exclusao do host (beta/equipe + descadastrados), os mesmos arquivos
 # que o pc-pix-recover e o pc-gratis-recover respeitam.

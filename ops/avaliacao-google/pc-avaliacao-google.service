@@ -1,5 +1,5 @@
 [Unit]
-Description=PlacaCompleta - e-mail de avaliacao no Google, 3 dias apos a entrega
+Description=PlacaCompleta - e-mail de nota (1 a 5), 3 dias apos a entrega
 After=network-online.target
 Wants=network-online.target
 
