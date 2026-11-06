@@ -1644,10 +1644,6 @@ function applyEmailSuggestion() {
             Grátis e sem cadastro. Isto é o que a placa diz sobre o carro.
             <strong>O que ela diz sobre o negócio está logo abaixo.</strong>
           </p>
-          <!-- Compartilhar no WhatsApp (fora do app): secundario, nao compete com o CTA. -->
-          <div v-if="!isCapacitor" class="cb-result__compartilhar">
-            <CompartilharWhatsapp :placa="resultadoBasico?.placa || placa" :modelo="modeloCurto" :ano="resultadoBasico?.ano" onde="layout_b" />
-          </div>
 
           <div v-if="camposLivres.length" class="cb-result__card">
             <div class="cb-result__grid">
@@ -1827,10 +1823,14 @@ function applyEmailSuggestion() {
             </div>
           </div>
 
+          <!-- Compartilhar no WhatsApp (fora do app): DEPOIS do card do CTA, pra
+               nao empurrar a Completa pra baixo. Substitui o antigo botao do
+               rodape (texto com "gratis" e sem UTM). -->
+          <div v-if="!isCapacitor" class="cb-result__compartilhar">
+            <CompartilharWhatsapp :placa="resultadoBasico?.placa || placa" :modelo="modeloCurto" :ano="resultadoBasico?.ano" onde="layout_b" />
+          </div>
+
           <div class="cb-result__foot">
-            <button v-if="shareInfo" type="button" class="cb-btn cb-btn--ghost" @click="shareWhatsApp">
-              Compartilhar no WhatsApp
-            </button>
             <button type="button" class="cb-free-link" @click="resetForm">consultar outra placa</button>
           </div>
         </div>
@@ -3293,7 +3293,7 @@ function applyEmailSuggestion() {
     }
 
     &__compartilhar {
-      margin: 0 0 $s-lg;
+      margin: $s-lg 0 0;
     }
 
     &__card {

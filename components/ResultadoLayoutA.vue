@@ -97,10 +97,6 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         <div class="la-sobre">CONSULTA GRÁTIS CONCLUÍDA</div>
         <h1>Você viu o que é o carro. Falta ver o que ele carrega.</h1>
         <p>Leilão, indício de roubo e furto, financiamento e bloqueio judicial não aparecem na consulta grátis. É isso que trava a transferência ou derruba o preço.</p>
-        <!-- Compartilhar (fora do app): secundario, nao compete com o CTA. -->
-        <div v-if="!app" class="la-compartilhar">
-          <CompartilharWhatsapp :placa="dados?.placa" :modelo="modeloCurto" :ano="dados?.ano" onde="layout_a" />
-        </div>
       </div>
 
       <!-- TAGS de sinal (vagas, apontam pro completo): leilao VERMELHA e recall
@@ -184,6 +180,12 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         </div>
       </section>
 
+      <!-- Compartilhar (fora do app): DEPOIS do card do CTA, pra nao empurrar a
+           Completa pra baixo. Secundario, nao compete com a compra. -->
+      <div v-if="!app" class="la-compartilhar">
+        <CompartilharWhatsapp :placa="dados?.placa" :modelo="modeloCurto" :ano="dados?.ano" onde="layout_a" />
+      </div>
+
       <!-- A2 (rodada 3): a mesma ancora, DEPOIS do card de oferta. ANCORA DE PRECO (some inteira sem FIPE parseavel). Fica ENTRE os
            dados e o bloco de leilao/pendentes (ordem pedida pelo Cesar). -->
       <section v-if="fipeValido && ofertaNoTopo" class="la-card la-ancora">
@@ -265,7 +267,7 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 .la-sobre--alerta { display:flex; align-items:center; gap:8px; color:var(--la-orange-ink); }
 .la-titulo h1 { margin:0; font-size:36px; line-height:1.14; font-weight:800; letter-spacing:-.5px; }
 .la-titulo h1 span { font-size:inherit; font-weight:inherit; color:inherit; }
-.la-compartilhar { display:flex; }
+.la-compartilhar { display:flex; justify-content:center; }
 .la-titulo p { margin:0; font-size:17px; line-height:1.55; color:var(--la-ink2); }
 
 /* Flag de recall: ambar (nao vermelho). Aviso pra conferir, nao acusacao. */

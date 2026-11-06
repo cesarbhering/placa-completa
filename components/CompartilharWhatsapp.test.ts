@@ -9,11 +9,11 @@ const { default: ResultadoLayoutA } = await import('./ResultadoLayoutA.vue')
 
 const DADOS = { placa: 'AAA1A11', marca: 'FIAT', modelo: 'UNO MILLE', ano: '2015', anoFabricacao: '2014', fipe: 'R$ 20.000,00' }
 
-describe('botao Enviar para o WhatsApp', () => {
+describe('botao Compartilhar no WhatsApp', () => {
   it('link wa.me em nova aba, so com o link do resultado, e registra o clique', async () => {
     const w = mount(CompartilharWhatsapp, { props: { placa: 'AAA1A11', modelo: 'Uno', ano: '2015', onde: 'layout_b' } })
     const a = w.find('a')
-    expect(a.text()).toBe('Enviar para o WhatsApp')
+    expect(a.text()).toBe('Compartilhar no WhatsApp')
     expect(a.attributes('target')).toBe('_blank')
     expect(a.attributes('rel')).toContain('noopener')
     expect(a.find('svg').exists()).toBe(true)
@@ -36,12 +36,16 @@ describe('resultado gratis (layout A)', () => {
     barraRelatorioStyle: { width: '4px' }, pctFipe: null, qtdLeiloes: 0, leilaoEncontrado: false,
     precoCompleta: 'R$ 39,90', precoBasica: 'R$ 19,90',
   }
-  it('mostra o botao no topo, acima do CTA da Completa, sem o valor FIPE no texto', () => {
+  it('mostra o botao DEPOIS do card do CTA da Completa, sem o valor FIPE no texto', () => {
     const w = mount(ResultadoLayoutA, { props: base, global: { stubs: { PrecoPromo: true } } })
     const btn = w.find('.cw')
     expect(btn.exists()).toBe(true)
     const html = w.html()
-    expect(html.indexOf('class="cw"')).toBeLessThan(html.indexOf('class="la-cta"'))
+    // o CTA nao desce: o botao vem depois do card inteiro da acao
+    const fimCardCta = html.indexOf('</section>', html.indexOf('class="la-acao"'))
+    expect(fimCardCta).toBeGreaterThan(0)
+    expect(html.indexOf('class="cw"')).toBeGreaterThan(fimCardCta)
+    expect(w.find('.la-acao .cw').exists()).toBe(false)
     const texto = new URL(btn.attributes('href')!).searchParams.get('text')!
     expect(texto).not.toContain('20.000')
     expect(texto).toContain('deste Uno 2015')
