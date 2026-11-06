@@ -1,0 +1,10 @@
+[Unit]
+Description=PlacaCompleta - avaliacao no Google, uma rodada por dia as 10h
+
+[Timer]
+# Uma vez por dia, horario comercial. Sem Persistent: nada de corrida de
+# catch-up num restart ou boot.
+OnCalendar=*-*-* 10:00:00 America/Sao_Paulo
+
+[Install]
+WantedBy=timers.target
