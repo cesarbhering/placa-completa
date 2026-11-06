@@ -2,10 +2,32 @@ import { scriptsDeAnalytics } from './shared/analytics-tags'
 import { BASE_LEILAO_TEXTO } from './shared/base-leilao'
 import { urlsDoBlog } from './data/blog-indice'
 import { IBV_SLUG_ANTIGO } from './data/ibv-posts'
+import { fileURLToPath } from 'node:url'
+import { paginasSoEmPortugues, comVersaoEn } from './shared/idiomas-rotas'
+import { BASE_URL } from './shared/idiomas'
+
 export default defineNuxtConfig({
   compatibilityDate: "2025-01-01",
 
-  modules: ["@nuxtjs/seo", "@nuxtjs/sitemap", "@nuxt/image", "@vite-pwa/nuxt"],
+  modules: ["@nuxtjs/i18n", "@nuxtjs/seo", "@nuxtjs/sitemap", "@nuxt/image", "@vite-pwa/nuxt"],
+
+  // English under /en (Nov 6, 2026). PT stays the default with no prefix, so
+  // every PT URL is unchanged. The language comes from the IP (server
+  // middleware zz-idioma-por-ip.ts) or the PT | EN switcher, never from
+  // Accept-Language. Only the pages listed in shared/idiomas.ts get /en; the
+  // rest is listed here with en: false (scanned from pages/).
+  i18n: {
+    locales: [
+      { code: "pt-BR", language: "pt-BR", name: "Português", file: "pt-BR.ts" },
+      { code: "en", language: "en", name: "English", file: "en.ts" },
+    ],
+    defaultLocale: "pt-BR",
+    strategy: "prefix_except_default",
+    detectBrowserLanguage: false,
+    customRoutes: "config",
+    pages: paginasSoEmPortugues(fileURLToPath(new URL("./pages", import.meta.url))),
+    baseUrl: BASE_URL,
+  },
 
   // GEO: explicit allow for AI crawlers + standard SEO bots.
   // @nuxtjs/robots generates /robots.txt from this config.
@@ -102,7 +124,11 @@ export default defineNuxtConfig({
   },
 
   sitemap: {
-    urls: [
+    // With @nuxtjs/i18n installed the sitemap module would split into one
+    // sitemap per locale and invent /en for every page. Off: the PT list
+    // below stays exactly as it was, and the /en pages are added by hand.
+    autoI18n: false,
+    urls: comVersaoEn([
       "/",
       "/sobre",
       "/contato",
@@ -440,8 +466,8 @@ export default defineNuxtConfig({
     "/seguro/carro-eletrico/tocantins",
     // Blog: indice, tags e posts (inclui o IBV Auto, que saiu de /ibv em
     // 16/out/2026). Gerado de data/blog-indice.ts: post novo entra sozinho.
-    ...urlsDoBlog(),
-    ],
+      ...urlsDoBlog(),
+    ]),
     // Paginas noindex NUNCA no sitemap (conferencia SEO 02/out: /admin, /dash,
     // /cotacao, /termos-de-uso e /politica-de-privacidade estavam la, e /admin
     // e /dash ainda ficavam expostos). O modulo descobre as paginas sozinho;
@@ -457,6 +483,12 @@ export default defineNuxtConfig({
       "/premium/**",
       "/placa/**",
       "/feedback/**",
+      // English twins of the noindex pages above.
+      "/en/termos-de-uso",
+      "/en/politica-de-privacidade",
+      "/en/premium",
+      "/en/premium/**",
+      "/en/feedback/**",
     ],
   },
 
@@ -758,6 +790,9 @@ export default defineNuxtConfig({
     // Worker gov.br do DETRAN-SP (browser-use) como reserva: "on" liga o
     // self-heal antigo. Desligado: a Infosimples e a fonte, com retentativa.
     detranWorkerSp: "",
+    // Extra hosts where the language-by-IP redirect is active, comma separated
+    // (shared/idioma-por-ip.ts already covers the main domain and staging).
+    idiomaIpHosts: "",
     anthropicApiKey: process.env.NUXT_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || "",
     public: {
       // homolog: ambiente de teste com ferramentas (dropdown de ambiente das

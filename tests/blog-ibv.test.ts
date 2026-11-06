@@ -48,7 +48,8 @@ describe('IBV Auto no blog', () => {
   })
   it('header e rodape: "Blog" e nada de /ibv', () => {
     const header = readFileSync(join(process.cwd(), 'components/HomeHeader.vue'), 'utf8')
-    expect(header).toContain("{ href: '/blog', label: 'Blog' }")
+    // Labels come from i18n since the English version (Nov 6, 2026).
+    expect(header).toContain("{ href: '/blog', label: t('header.blog') }")
     expect(header).not.toContain("'/ibv'")
     const rodape = readFileSync(join(process.cwd(), 'shared/rodape-links.ts'), 'utf8')
     expect(rodape).not.toContain('/ibv')

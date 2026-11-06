@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { COLUNAS_RODAPE } from '~/shared/rodape-links'
+import { COLUNAS_RODAPE, ROTULOS_RODAPE_EN } from '~/shared/rodape-links'
+import { BASE_URL, parDeIdiomas } from '~/shared/idiomas'
 import { jsonLdProdutos, semProdutoNaPagina } from '~/shared/jsonld-produto'
 const isReady = ref(false)
 const isPWA = ref(false)
@@ -21,6 +22,57 @@ const route = useRoute()
 useHead(() => (semProdutoNaPagina(route.path) ? {} : {
   script: [{ key: 'ld-produto', type: 'application/ld+json', innerHTML: JSON.stringify(jsonLdProdutos(route.path)) }],
 }))
+// English version (Nov 6, 2026). On pages that exist in both languages:
+// hreflang pt-BR / en / x-default (x-default = PT), and on /en pages the html
+// lang and og:locale switch to English. PT pages keep their head untouched
+// apart from the three hreflang links. Token pages (noindex) get none.
+const { t, emIngles, rota } = useIdioma()
+useHead(() => {
+  const par = parDeIdiomas(route.path)
+  const head: Record<string, any> = {}
+  if (par && par.pagina.redireciona) {
+    head.link = [
+      { rel: 'alternate', hreflang: 'pt-BR', href: `${BASE_URL}${par.pt}`, key: 'hreflang-pt' },
+      { rel: 'alternate', hreflang: 'en', href: `${BASE_URL}${par.en}`, key: 'hreflang-en' },
+      { rel: 'alternate', hreflang: 'x-default', href: `${BASE_URL}${par.pt}`, key: 'hreflang-x' },
+    ]
+  }
+  if (emIngles.value) {
+    // Site-wide defaults from nuxt.config are PT; on /en they get English
+    // ones. Each page still overrides title, description and og with its own.
+    const OG_TITLE = 'PlacaCompleta: full vehicle history report by license plate'
+    const OG_DESC = 'Enter a Brazilian license plate and see what the listing does not tell you: restrictions, theft, liens, recalls, FIPE value and auction history.'
+    head.htmlAttrs = { lang: 'en' }
+    head.meta = [
+      { property: 'og:locale', content: 'en_US', key: 'og:locale' },
+      { name: 'description', content: OG_DESC, key: 'description' },
+      { property: 'og:title', content: OG_TITLE, key: 'og:title' },
+      { property: 'og:description', content: OG_DESC, key: 'og:description' },
+      { property: 'og:image:alt', content: OG_TITLE, key: 'og:image:alt' },
+      { name: 'twitter:title', content: OG_TITLE, key: 'twitter:title' },
+      { name: 'twitter:description', content: OG_DESC, key: 'twitter:description' },
+      { name: 'keywords', content: 'brazil license plate check, brazilian vehicle history, car history brazil, auction record, lien check, FIPE value, used car brazil', key: 'keywords' },
+    ]
+  }
+  return head
+})
+
+// Footer columns in the current language: on /en, English labels, and links
+// go to the /en twin when there is one (the rest opens in PT).
+const colunasRodape = computed(() => {
+  if (!emIngles.value) return COLUNAS_RODAPE
+  const titulos: Record<string, string> = {
+    Consultas: t('rodape.colunas.consultas'),
+    'Preços e FIPE': t('rodape.colunas.precos'),
+    Aprenda: t('rodape.colunas.aprenda'),
+    Empresa: t('rodape.colunas.empresa'),
+  }
+  return COLUNAS_RODAPE.map((col) => ({
+    titulo: titulos[col.titulo] || col.titulo,
+    links: col.links.map((l) => ({ rotulo: ROTULOS_RODAPE_EN[l.to] || l.rotulo, to: rota(l.to) })),
+  }))
+})
+
 const headerGlobal = computed(() => {
   const p = route.path
   if (p === '/' || p.startsWith('/placa/') || p.startsWith('/premium')) return false
@@ -117,40 +169,40 @@ function onStoreClick() {
       <footer class="footer">
         <div class="footer__grade">
           <div class="footer__marca">
-            <NuxtLink to="/" class="footer__logo" aria-label="PlacaCompleta, página inicial">
+            <NuxtLink :to="rota('/')" class="footer__logo" :aria-label="t('rodape.inicioAria')">
               <PlacaCompletaLogo crop />
             </NuxtLink>
-            <p class="footer__frase">Consulta veicular por placa para quem vai comprar um usado. Leilão, roubo, gravame, multas e recall antes de fechar negócio.</p>
+            <p class="footer__frase">{{ t('rodape.frase') }}</p>
             <a
               v-if="!isPWA"
               href="https://play.google.com/store/apps/details?id=br.com.placacompleta&utm_source=site&utm_medium=footer&utm_campaign=download_badge"
               target="_blank"
               rel="noopener"
               class="footer__store-badge"
-              aria-label="Baixe o PlacaCompleta na Google Play Store"
+              :aria-label="t('rodape.playAria')"
               @click="onStoreClick"
             >
-              <img src="/badges/google-play-pt-br.png" alt="Disponível no Google Play" width="180" height="70" loading="lazy">
+              <img src="/badges/google-play-pt-br.png" :alt="t('rodape.playAlt')" width="180" height="70" loading="lazy">
             </a>
             <!-- Perfis oficiais (shared/redes-sociais.ts). SVG inline, cor do rodape. -->
             <div class="footer__redes">
-              <a href="https://www.linkedin.com/company/placacompleta/" target="_blank" rel="noopener noreferrer" aria-label="PlacaCompleta no LinkedIn" class="footer__rede">
+              <a href="https://www.linkedin.com/company/placacompleta/" target="_blank" rel="noopener noreferrer" :aria-label="t('rodape.linkedin')" class="footer__rede">
                 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.03-3.04-1.85-3.04-1.86 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28ZM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12ZM7.12 20.45H3.56V9h3.56v11.45ZM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0Z"/></svg>
               </a>
-              <a href="https://x.com/PlacaCompleta" target="_blank" rel="noopener noreferrer" aria-label="PlacaCompleta no X" class="footer__rede">
+              <a href="https://x.com/PlacaCompleta" target="_blank" rel="noopener noreferrer" :aria-label="t('rodape.x')" class="footer__rede">
                 <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M18.9 1.15h3.68l-8.04 9.19L24 22.85h-7.4l-5.8-7.58-6.64 7.58H.48l8.6-9.83L0 1.15h7.59l5.24 6.93 6.07-6.93Zm-1.29 19.5h2.04L6.48 3.24H4.3l13.31 17.41Z"/></svg>
               </a>
-              <a href="https://www.tiktok.com/@placacompleta/" target="_blank" rel="noopener noreferrer" aria-label="TikTok do PlacaCompleta" class="footer__rede">
+              <a href="https://www.tiktok.com/@placacompleta/" target="_blank" rel="noopener noreferrer" :aria-label="t('rodape.tiktok')" class="footer__rede">
                 <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="currentColor"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z"/></svg>
               </a>
-              <a href="https://www.instagram.com/placa.completa/" target="_blank" rel="noopener noreferrer" aria-label="Instagram do PlacaCompleta" class="footer__rede">
+              <a href="https://www.instagram.com/placa.completa/" target="_blank" rel="noopener noreferrer" :aria-label="t('rodape.instagram')" class="footer__rede">
                 <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="currentColor"><path d="M12 2.2c3.2 0 3.6 0 4.8.1 1.2.1 1.8.2 2.2.4.6.2 1 .5 1.4.9.4.4.7.8.9 1.4.2.4.4 1 .4 2.2.1 1.3.1 1.6.1 4.8s0 3.6-.1 4.8c-.1 1.2-.2 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1 .4-2.2.4-1.3.1-1.6.1-4.8.1s-3.6 0-4.8-.1c-1.2-.1-1.8-.2-2.2-.4-.6-.2-1-.5-1.4-.9-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1-.4-2.2-.1-1.3-.1-1.6-.1-4.8s0-3.6.1-4.8c.1-1.2.2-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1-.4 2.2-.4 1.3-.1 1.6-.1 4.8-.1M12 0C8.7 0 8.3 0 7.1.1 5.8.1 4.9.3 4.1.6c-.8.3-1.5.7-2.2 1.4C1.3 2.7.9 3.4.6 4.2.3 5 .1 5.8.1 7.1 0 8.3 0 8.7 0 12s0 3.7.1 4.9c.1 1.3.3 2.1.6 2.9.3.8.7 1.5 1.4 2.2.7.7 1.4 1.1 2.2 1.4.8.3 1.6.5 2.9.6 1.2.1 1.6.1 4.9.1s3.7 0 4.9-.1c1.3-.1 2.1-.3 2.9-.6.8-.3 1.5-.7 2.2-1.4.7-.7 1.1-1.4 1.4-2.2.3-.8.5-1.6.6-2.9.1-1.2.1-1.6.1-4.9s0-3.7-.1-4.9c-.1-1.3-.3-2.1-.6-2.9-.3-.8-.7-1.5-1.4-2.2C21.3 1.3 20.6.9 19.8.6 19 .3 18.2.1 16.9.1 15.7 0 15.3 0 12 0zm0 5.8a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.4-11.8a1.4 1.4 0 1 0 0 2.9 1.4 1.4 0 0 0 0-2.9z"/></svg>
               </a>
             </div>
           </div>
 
-          <nav class="footer__colunas" aria-label="Conteúdo do site">
-            <details v-for="col in COLUNAS_RODAPE" :key="col.titulo" class="footer__col" open>
+          <nav class="footer__colunas" :aria-label="t('rodape.conteudoAria')">
+            <details v-for="col in colunasRodape" :key="col.titulo" class="footer__col" open>
               <summary class="footer__col-tit" @click="cliqueColuna">{{ col.titulo }}</summary>
               <ul>
                 <li v-for="l in col.links" :key="l.to">
@@ -163,12 +215,13 @@ function onStoreClick() {
 
         <div class="footer__base">
           <p class="footer__cnpj">&copy; {{ new Date().getFullYear() }} PlacaCompleta · CNPJ 62.569.152/0001-67</p>
-          <nav class="footer__legal" aria-label="Termos">
-            <NuxtLink to="/termos-de-uso">Termos de Uso</NuxtLink>
-            <NuxtLink to="/politica-de-privacidade">Política de Privacidade</NuxtLink>
+          <nav class="footer__legal" :aria-label="t('rodape.termosAria')">
+            <NuxtLink :to="rota('/termos-de-uso')">{{ t('rodape.termos') }}</NuxtLink>
+            <NuxtLink :to="rota('/politica-de-privacidade')">{{ t('rodape.privacidade') }}</NuxtLink>
           </nav>
+          <SeletorIdioma />
           <div class="footer__pagamento">
-            <span class="footer__pagamento-rot">Formas de pagamento</span>
+            <span class="footer__pagamento-rot">{{ t('rodape.pagamento') }}</span>
             <LogosPagamento />
           </div>
         </div>

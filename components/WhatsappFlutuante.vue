@@ -9,6 +9,7 @@ const { ocultos, acimaPx } = useWhatsappEstado()
 const visivel = computed(() => whatsappVisivel(route.path, ocultos.value))
 const href = linkWhatsapp()
 const { track } = useAnalytics()
+const { t } = useI18n()
 
 function clique() {
   track('whatsapp_click', { pagina: tipoDePagina(route.path) })
@@ -22,7 +23,7 @@ function clique() {
     :href="href"
     target="_blank"
     rel="noopener"
-    aria-label="Falar com a PlacaCompleta no WhatsApp"
+    :aria-label="t('whatsapp.aria')"
     :style="{ '--wa-acima': acimaPx + 'px' }"
     @click="clique"
   >

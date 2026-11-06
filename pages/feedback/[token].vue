@@ -6,12 +6,14 @@
 //
 // Depois da nota: 4 ou 5 recebem o convite para avaliar no Google; 1 a 3
 // recebem "O que podemos melhorar?". Sem cupom e sem brinde.
+import { EMAIL_CONTATO } from '~/shared/contato'
 const LINK_GOOGLE = 'https://g.page/r/CWpx3yMC2irbEBM/review'
 
 const route = useRoute()
 const token = String(route.params.token || '')
 
-useHead({ title: 'Sua opinião', meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
+const { t, rota } = useIdioma()
+useHead({ title: t('feedback.title'), meta: [{ name: 'robots', content: 'noindex,nofollow' }] })
 
 const { data, error } = await useFetch<any>(`/api/feedback/${encodeURIComponent(token)}`)
 
@@ -32,7 +34,7 @@ async function gravarNota(n: number) {
     nota.value = r?.nota ?? n
     comentarioEnviado.value = !!r?.comentarioEnviado
   } catch {
-    erro.value = 'Não conseguimos registrar agora. Tente de novo em instantes.'
+    erro.value = t('feedback.erroNota')
   } finally {
     gravando.value = false
   }
@@ -51,7 +53,7 @@ async function enviarComentario() {
     await $fetch('/api/feedback/comentario', { method: 'POST', body: { token, comentario: comentario.value } })
     comentarioEnviado.value = true
   } catch {
-    erro.value = 'Não conseguimos enviar agora. Tente de novo em instantes.'
+    erro.value = t('feedback.erroComentario')
   } finally {
     enviando.value = false
   }
@@ -61,46 +63,46 @@ async function enviarComentario() {
 <template>
   <main class="fb">
     <section v-if="error" class="fb__card fb__card--centro">
-      <h1 class="fb__titulo">Este link não vale mais</h1>
-      <p class="fb__texto">Ele pode ter sido copiado pela metade. Abra de novo pelo e-mail que você recebeu.</p>
-      <NuxtLink to="/" class="fb__link">Voltar para a PlacaCompleta</NuxtLink>
+      <h1 class="fb__titulo">{{ t('feedback.linkInvalidoT') }}</h1>
+      <p class="fb__texto">{{ t('feedback.linkInvalidoP') }}</p>
+      <NuxtLink :to="rota('/')" class="fb__link">{{ t('comum.voltarParaMarca') }}</NuxtLink>
     </section>
 
     <!-- 4 ou 5: convite para o Google -->
     <section v-else-if="nota && nota >= 4" class="fb__card fb__card--centro">
-      <p class="fb__eyebrow">Sua nota: {{ nota }} de 5</p>
-      <h1 class="fb__titulo">Que bom que ajudou!</h1>
-      <p class="fb__texto">Pode contar isso no Google? Leva 30 segundos.</p>
-      <a :href="LINK_GOOGLE" class="fb__botao" target="_blank" rel="noopener">Avaliar no Google</a>
+      <p class="fb__eyebrow">{{ t('feedback.suaNota', { nota }) }}</p>
+      <h1 class="fb__titulo">{{ t('feedback.bomT') }}</h1>
+      <p class="fb__texto">{{ t('feedback.bomP') }}</p>
+      <a :href="LINK_GOOGLE" class="fb__botao" target="_blank" rel="noopener">{{ t('feedback.avaliarGoogle') }}</a>
     </section>
 
     <!-- 1 a 3, comentario ja enviado -->
     <section v-else-if="nota && comentarioEnviado" class="fb__card fb__card--centro">
-      <h1 class="fb__titulo">Recebemos, obrigado</h1>
-      <p class="fb__texto">Vamos ler com atenção. Se quiser falar com a gente, escreva para contato@placacompleta.com.br.</p>
-      <NuxtLink to="/" class="fb__link">Voltar para a PlacaCompleta</NuxtLink>
+      <h1 class="fb__titulo">{{ t('feedback.recebidoT') }}</h1>
+      <p class="fb__texto">{{ t('feedback.recebidoP', { email: EMAIL_CONTATO }) }}</p>
+      <NuxtLink :to="rota('/')" class="fb__link">{{ t('comum.voltarParaMarca') }}</NuxtLink>
     </section>
 
     <!-- 1 a 3: o que melhorar -->
     <section v-else-if="nota" class="fb__card">
-      <p class="fb__eyebrow">Sua nota: {{ nota }} de 5</p>
-      <h1 class="fb__titulo">Obrigado. O que podemos melhorar?</h1>
-      <label class="fb__sr" for="fb-comentario">O que podemos melhorar?</label>
-      <textarea id="fb-comentario" v-model="comentario" class="fb__textarea" rows="5" maxlength="2000" placeholder="Conte o que faltou ou o que deu errado" />
+      <p class="fb__eyebrow">{{ t('feedback.suaNota', { nota }) }}</p>
+      <h1 class="fb__titulo">{{ t('feedback.melhorarT') }}</h1>
+      <label class="fb__sr" for="fb-comentario">{{ t('feedback.melhorarLabel') }}</label>
+      <textarea id="fb-comentario" v-model="comentario" class="fb__textarea" rows="5" maxlength="2000" :placeholder="t('feedback.melhorarPlaceholder')" />
       <button type="button" class="fb__botao fb__botao--largo" :disabled="!comentario.trim() || enviando" @click="enviarComentario">
-        {{ enviando ? 'Enviando...' : 'Enviar' }}
+        {{ enviando ? t('comum.enviando') : t('comum.enviar') }}
       </button>
       <p v-if="erro" class="fb__erro">{{ erro }}</p>
     </section>
 
     <!-- Sem nota ainda (abriu o link sem ?nota, ou a gravacao esta em curso) -->
     <section v-else class="fb__card">
-      <p v-if="data?.placa" class="fb__eyebrow">Consulta {{ data.placa }}</p>
-      <h1 class="fb__titulo">De 1 a 5, como foi a sua experiência?</h1>
-      <div class="fb__notas" role="group" aria-label="Nota de 1 a 5">
-        <button v-for="n in 5" :key="n" type="button" class="fb__nota" :disabled="gravando" :aria-label="`Nota ${n} de 5`" @click="gravarNota(n)">{{ n }}</button>
+      <p v-if="data?.placa" class="fb__eyebrow">{{ t('feedback.consulta', { placa: data.placa }) }}</p>
+      <h1 class="fb__titulo">{{ t('feedback.perguntaT') }}</h1>
+      <div class="fb__notas" role="group" :aria-label="t('feedback.notaAria')">
+        <button v-for="n in 5" :key="n" type="button" class="fb__nota" :disabled="gravando" :aria-label="t('feedback.notaN', { n })" @click="gravarNota(n)">{{ n }}</button>
       </div>
-      <p class="fb__escala"><span>Muito ruim</span><span>Muito bom</span></p>
+      <p class="fb__escala"><span>{{ t('feedback.muitoRuim') }}</span><span>{{ t('feedback.muitoBom') }}</span></p>
       <p v-if="erro" class="fb__erro">{{ erro }}</p>
     </section>
   </main>

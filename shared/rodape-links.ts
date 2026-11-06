@@ -47,3 +47,30 @@ export const COLUNAS_RODAPE: ColunaRodape[] = [
     ],
   },
 ]
+
+// English labels for the footer on /en pages (Nov 6, 2026). Keyed by the link
+// target; shared/rodape-links.test.ts fails if a link above has no label here.
+// Pages without an English version still open in Portuguese.
+export const ROTULOS_RODAPE_EN: Record<string, string> = {
+  '/consulta-gratis': 'Basic plate check (PT)',
+  '/consulta-veicular-completa': 'Full vehicle history check',
+  '/historico-veicular': 'Vehicle history (PT)',
+  '/consulta-leilao-veiculo': 'Auction record check (PT)',
+  '/laudo-cautelar': 'Pre-purchase inspection (PT)',
+  '/consultar-placa': 'Check by state (PT)',
+  '/tabela-fipe': 'FIPE price table (PT)',
+  '/tabela-fipe-por-placa': 'FIPE value by plate (PT)',
+  '/cotacao': 'Quote (PT)',
+  '/seguro/carro-eletrico': 'Electric car insurance (PT)',
+  '/como-consultar-placa': 'How to check a plate (PT)',
+  '/carro-de-leilao/como-saber': 'Auction cars: how to tell (PT)',
+  '/o-que-e/renavam': 'What is RENAVAM (PT)',
+  '/o-que-e/gravame': 'What is a lien (PT)',
+  '/o-que-e/renajud': 'What is RENAJUD (PT)',
+  '/o-que-e/multas-renainf': 'RENAINF fines (PT)',
+  '/sobre': 'About',
+  '/para-empresas': 'For businesses',
+  '/blog': 'Blog (PT)',
+  '/estudos': 'Studies (PT)',
+  '/contato': 'Contact',
+}

@@ -1,52 +1,183 @@
 <script setup lang="ts">
 import { escolherTitulo } from '~/shared/seo-titulo'
 import { DESCRICOES } from '~/shared/seo-meta'
-useHead({
-  title: escolherTitulo(['Sobre o PlacaCompleta: Quem Somos, Fontes de Dados e Metodologia', 'Sobre o PlacaCompleta: Quem Somos, Fontes e Metodologia']),
-  titleTemplate: '%s',
-  meta: [
-    { name: 'description', content: DESCRICOES.sobre },
-    { property: 'og:title', content: 'Sobre o PlacaCompleta: Metodologia e Privacidade' },
-    { property: 'og:description', content: 'Transparência sobre fontes de dados, metodologia e privacidade da consulta veicular por placa do PlacaCompleta.' },
-  ],
-  script: [
-    {
-      type: 'application/ld+json',
-      innerHTML: JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'AboutPage',
-        name: 'Sobre o PlacaCompleta',
-        url: 'https://placacompleta.com.br/sobre',
-        mainEntity: {
-          '@type': 'Organization',
-          name: 'PlacaCompleta',
-          url: 'https://placacompleta.com.br',
-          logo: 'https://placacompleta.com.br/logo-horizontal-600.png',
-          areaServed: 'BR',
-          email: 'contato@placacompleta.com.br',
-          description: 'Serviço de consulta veicular por placa no Brasil, com relatório completo do veículo: registro de leilão, roubo e furto, gravame, multas, recall, débitos e valor FIPE.',
-          knowsAbout: ['Consulta veicular', 'Tabela FIPE', 'Placas Mercosul', 'Documentação veicular', 'Mercado de veículos usados no Brasil'],
-        },
-      }),
-    },
-    {
-      type: 'application/ld+json',
-      innerHTML: JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'BreadcrumbList',
-        itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'PlacaCompleta', item: 'https://placacompleta.com.br' },
-          { '@type': 'ListItem', position: 2, name: 'Sobre' },
-        ],
-      }),
-    },
-  ],
-})
+import { DESCRICOES_EN } from '~/shared/seo-meta-en'
+const { emIngles, rota } = useIdioma()
+
+// English twin (Nov 6, 2026): same page, own head. The PT head below is the
+// original one, untouched.
+if (emIngles.value) {
+  useHead({
+    title: escolherTitulo(['About PlacaCompleta: Who We Are, Data Sources and Method', 'About PlacaCompleta: Who We Are and Our Data Sources']),
+    titleTemplate: '%s',
+    meta: [
+      { name: 'description', content: DESCRICOES_EN.sobre },
+      { property: 'og:title', content: 'About PlacaCompleta: Method and Privacy' },
+      { property: 'og:description', content: 'How PlacaCompleta checks Brazilian vehicles by license plate: data sources, method and privacy.' },
+    ],
+    link: [{ rel: 'canonical', href: 'https://placacompleta.com.br/en/sobre' }],
+    script: [
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'AboutPage',
+          name: 'About PlacaCompleta',
+          url: 'https://placacompleta.com.br/en/sobre',
+          inLanguage: 'en',
+          mainEntity: {
+            '@type': 'Organization',
+            name: 'PlacaCompleta',
+            url: 'https://placacompleta.com.br',
+            logo: 'https://placacompleta.com.br/logo-horizontal-600.png',
+            areaServed: 'BR',
+            email: 'contato@placacompleta.com.br',
+            description: 'Vehicle history check by license plate in Brazil, with a full report on the vehicle: auction records, theft, liens, fines, recalls, outstanding fees and FIPE value.',
+            knowsAbout: ['Vehicle history checks', 'FIPE price table', 'Mercosur license plates', 'Vehicle documentation', 'Used vehicle market in Brazil'],
+          },
+        }),
+      },
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'PlacaCompleta', item: 'https://placacompleta.com.br' },
+            { '@type': 'ListItem', position: 2, name: 'About' },
+          ],
+        }),
+      },
+    ],
+  })
+} else {
+  useHead({
+    title: escolherTitulo(['Sobre o PlacaCompleta: Quem Somos, Fontes de Dados e Metodologia', 'Sobre o PlacaCompleta: Quem Somos, Fontes e Metodologia']),
+    titleTemplate: '%s',
+    meta: [
+      { name: 'description', content: DESCRICOES.sobre },
+      { property: 'og:title', content: 'Sobre o PlacaCompleta: Metodologia e Privacidade' },
+      { property: 'og:description', content: 'Transparência sobre fontes de dados, metodologia e privacidade da consulta veicular por placa do PlacaCompleta.' },
+    ],
+    script: [
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'AboutPage',
+          name: 'Sobre o PlacaCompleta',
+          url: 'https://placacompleta.com.br/sobre',
+          mainEntity: {
+            '@type': 'Organization',
+            name: 'PlacaCompleta',
+            url: 'https://placacompleta.com.br',
+            logo: 'https://placacompleta.com.br/logo-horizontal-600.png',
+            areaServed: 'BR',
+            email: 'contato@placacompleta.com.br',
+            description: 'Serviço de consulta veicular por placa no Brasil, com relatório completo do veículo: registro de leilão, roubo e furto, gravame, multas, recall, débitos e valor FIPE.',
+            knowsAbout: ['Consulta veicular', 'Tabela FIPE', 'Placas Mercosul', 'Documentação veicular', 'Mercado de veículos usados no Brasil'],
+          },
+        }),
+      },
+      {
+        type: 'application/ld+json',
+        innerHTML: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: 'PlacaCompleta', item: 'https://placacompleta.com.br' },
+            { '@type': 'ListItem', position: 2, name: 'Sobre' },
+          ],
+        }),
+      },
+    ],
+  })
+}
 </script>
 
 <template>
   <div class="pc-page">
     <main class="pc-container">
+      <template v-if="emIngles">
+      <h1 class="pc-h1">About PlacaCompleta</h1>
+
+      <div class="pc-prose">
+        <p>
+          <strong>PlacaCompleta</strong> is a Brazilian vehicle check service by license plate.
+          Enter the plate of any vehicle registered in Brazil and you get the make, model,
+          manufacture and model year, color, city of registration, status and the current
+          value in the FIPE table (the reference price table for used vehicles in Brazil),
+          in seconds, with no sign-up.
+        </p>
+
+        <h2>Where does the data come from?</h2>
+        <p>
+          All the data PlacaCompleta shows comes from official or licensed sources:
+        </p>
+        <ul>
+          <li>
+            <strong>Vehicle registration data</strong> (make, model, year, color, city,
+            status): official public records, accessed through a licensed API. It is the
+            same public data any citizen can look up, and Law 9,503/97 (the Brazilian
+            Traffic Code) guarantees access to non-sensitive vehicle data.
+          </li>
+          <li>
+            <strong>Market value</strong>: the FIPE table, the official index of the Fundação
+            Instituto de Pesquisas Econômicas, updated every month. We always show the
+            reference month next to the value.
+          </li>
+          <li>
+            <strong>Market analysis (IBV blog)</strong>: IBV Auto, a used vehicle price index
+            published every month by Banco BV based on real financing transactions. The
+            charts we reproduce credit the original source.
+          </li>
+        </ul>
+
+        <h2>How we write the IBV analysis</h2>
+        <p>
+          Every month, after Banco BV releases the IBV Auto report, we publish an editorial
+          analysis on <NuxtLink to="/blog/tag/ibv-auto">our blog</NuxtLink> (in Portuguese):
+          what the numbers mean for people buying or selling a used car. The percentages are
+          copied directly from the official report; the interpretation (market context,
+          practical advice) is ours. When we give an opinion, we make it clear that it is
+          analysis, not financial advice.
+        </p>
+
+        <h2>What we DO NOT do</h2>
+        <ul>
+          <li>We do not show the owner's personal data (name, tax ID, address): we do not even have access to it.</li>
+          <li>We do not sell or share the emails or phone numbers entered in a check.</li>
+          <li>We do not store a history of fines or fees: they appear as indicators in the full report.</li>
+        </ul>
+
+        <h2>Privacy and the LGPD</h2>
+        <p>
+          We comply with the Brazilian General Data Protection Law (LGPD, Law 13,709/2018).
+          The email you enter is used only to deliver the result of your check.
+          Details in our <NuxtLink to="/en/politica-de-privacidade">Privacy Policy</NuxtLink>
+          and our <NuxtLink to="/en/termos-de-uso">Terms of Use</NuxtLink>.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+          Questions, corrections or press: <strong>contato[at]placacompleta.com.br</strong>.
+          Factual errors in blog analysis are fixed with an update note in the post itself.
+        </p>
+
+        <div class="pc-cta">
+          <NuxtLink :to="rota('/')" class="pc-btn pc-btn--primary">
+            Check a plate
+          </NuxtLink>
+        </div>
+
+        <nav class="pc-breadcrumb">
+          <NuxtLink :to="rota('/')">PlacaCompleta</NuxtLink>
+          <span> &rsaquo; </span>
+          <strong>About</strong>
+        </nav>
+      </div>
+      </template>
+      <template v-else>
       <h1 class="pc-h1">Sobre o PlacaCompleta</h1>
 
       <div class="pc-prose">
@@ -123,6 +254,7 @@ useHead({
           <strong>Sobre</strong>
         </nav>
       </div>
+      </template>
     </main>
   </div>
 </template>

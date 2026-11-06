@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { REDES_SOCIAIS, SAME_AS } from '../shared/redes-sociais'
+import ptMsgs from '../i18n/locales/pt-BR'
 
 describe('redes sociais', () => {
   it('perfis oficiais', () => {
@@ -10,7 +11,11 @@ describe('redes sociais', () => {
     const app = readFileSync('app.vue', 'utf8')
     for (const r of REDES_SOCIAIS) {
       const a = app.match(new RegExp(`<a href="${r.url.replace(/[.?/@]/g, '\\$&')}"[^>]*>`))?.[0] || ''
-      expect(a).toContain(`aria-label="${r.label}"`)
+      // The label comes from i18n since the English version (Nov 6, 2026):
+      // :aria-label="t('rodape.linkedin')", and the PT text is in pt-BR.ts.
+      const chave = a.match(/:aria-label="t\('([\w.]+)'\)"/)?.[1]
+      expect(chave, r.url).toBeTruthy()
+      expect(chave!.split('.').reduce((o: any, k) => o?.[k], ptMsgs)).toBe(r.label)
       expect(a).toContain('target="_blank"')
       expect(a).toContain('rel="noopener noreferrer"')
     }

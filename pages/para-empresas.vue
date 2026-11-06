@@ -4,21 +4,26 @@ import { PACOTES_EMPRESAS, precoPorConsulta, economiaPacote, type PacoteEmpresa 
 import { TIPOS_EMPRESA, VOLUMES_EMPRESA, UFS, MSG_RECEBIDO } from '~/shared/empresas'
 import { DESCRICOES } from '~/shared/seo-meta'
 import { escolherTitulo } from '~/shared/seo-titulo'
+import { DESCRICOES_EN } from '~/shared/seo-meta-en'
+import { RECURSOS_EN, DETALHES_EN } from '~/shared/planos-en'
+
 
 // Consultas em pacote para lojistas, garagens e despachantes (Cesar, 20/out/2026).
 // Desde 04/nov/2026 dois pacotes tem preco fixo (shared/pacotes-empresas.ts);
 // acima disso o Cesar fecha a proposta. O formulario grava em leads_empresas e
 // avisa o Cesar (server/api/empresas/proposta.post.ts).
 
-const URL = 'https://placacompleta.com.br/para-empresas'
+const { t, emIngles, rota } = useIdioma()
+const URL = `https://placacompleta.com.br${rota('/para-empresas')}`
+const descricao = emIngles.value ? DESCRICOES_EN.paraEmpresas : DESCRICOES.paraEmpresas
 useHead({
-  title: escolherTitulo(['Consulta Veicular em Pacote para Lojistas e Despachantes', 'Consultas em Pacote para Lojistas e Despachantes']),
+  title: escolherTitulo([t('empresas.title'), t('empresas.titleCurto')]),
   titleTemplate: '%s',
   link: [{ rel: 'canonical', href: URL }],
   meta: [
-    { name: 'description', content: DESCRICOES.paraEmpresas },
-    { property: 'og:title', content: 'Consultas em pacote para lojistas, garagens e despachantes' },
-    { property: 'og:description', content: DESCRICOES.paraEmpresas },
+    { name: 'description', content: descricao },
+    { property: 'og:title', content: t('empresas.ogTitle') },
+    { property: 'og:description', content: descricao },
     { property: 'og:url', content: URL },
   ],
   script: [{
@@ -28,27 +33,26 @@ useHead({
       '@type': 'BreadcrumbList',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'PlacaCompleta', item: 'https://placacompleta.com.br' },
-        { '@type': 'ListItem', position: 2, name: 'Para empresas' },
+        { '@type': 'ListItem', position: 2, name: t('empresas.breadcrumb') },
       ],
     }),
   }],
 })
 
 // O que vem em cada consulta: a mesma lista do cartao da Completa.
-const itensCompleta = RECURSOS.filter((r) => inclui(r, 'completa'))
+// In English, labels come from shared/planos-en.ts (same order, same items).
+const itensCompleta = RECURSOS.filter((r) => inclui(r, 'completa')).map((r) => (emIngles.value
+  ? { label: RECURSOS_EN[r.label] || r.label, detalhe: r.detalhe ? (DETALHES_EN[r.detalhe] || r.detalhe) : undefined }
+  : r))
 
-const QUEM_USA = [
-  { t: 'Revenda de usados', d: 'Consulta cada carro que entra no estoque antes de pagar, sem surpresa de leilão, gravame ou restrição.' },
-  { t: 'Garagem', d: 'Confere o carro de troca na hora da negociação e mostra o relatório para o comprador.' },
-  { t: 'Despachante', d: 'Vê restrições, débitos e situação do veículo antes de começar uma transferência.' },
-  { t: 'Financeira pequena', d: 'Checa a garantia antes de liberar o crédito, com histórico de leilão e indício de sinistro.' },
-]
-const COMO_FUNCIONA = [
-  'Você escolhe um pacote ou pede uma proposta para o seu volume no formulário abaixo.',
-  'Respondemos em até 24 horas úteis, com o Pix do pacote.',
-  'Você paga por Pix.',
-  'As consultas ficam liberadas na hora.',
-]
+const QUEM_USA = ['revenda', 'garagem', 'despachante', 'financeira'].map((k) => ({
+  t: t(`empresas.quemUsa.${k}T`),
+  d: t(`empresas.quemUsa.${k}D`),
+}))
+const COMO_FUNCIONA = ['p1', 'p2', 'p3', 'p4'].map((k) => t(`empresas.como.${k}`))
+// The form sends the PT values the API validates (shared/empresas.ts); only
+// the visible label changes with the language.
+const ROTULO_VOLUME: Record<string, string> = { 'até 20': 'ate20', '20 a 50': 'de20a50', '50 a 200': 'de50a200', 'mais de 200': 'mais200' }
 
 const form = reactive({
   nome: '', empresa: '', tipo: '', cidade: '', uf: '', volume_faixa: '', whatsapp: '', email: '', mensagem: '', aceite: false,
@@ -60,7 +64,7 @@ const pacotes = PACOTES_EMPRESAS.map((p) => ({ ...p, porConsulta: precoPorConsul
 // Botao do pacote: leva ao formulario ja com a faixa e o pacote escritos.
 function escolherPacote(p: PacoteEmpresa) {
   form.volume_faixa = p.volumeFaixa
-  if (!form.mensagem.trim()) form.mensagem = `Quero o pacote de ${p.consultas} consultas (${precoBRL(p.totalCentavos)}).`
+  if (!form.mensagem.trim()) form.mensagem = t('empresas.msgPacote', { n: p.consultas, total: precoBRL(p.totalCentavos) })
   if (import.meta.client) document.getElementById('proposta')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 const enviando = ref(false)
@@ -86,8 +90,9 @@ async function enviar() {
   } catch (e: any) {
     campoErro.value = e?.data?.data?.campo || ''
     erro.value = e?.statusCode === 429 || e?.response?.status === 429
-      ? 'Muitos envios agora. Tente de novo em alguns minutos.'
-      : (e?.data?.message || 'Não conseguimos enviar agora. Tente de novo em instantes.')
+      ? t('empresas.muitosEnvios')
+      // The API answers in PT; in English the field highlight is enough.
+      : (emIngles.value ? t('comum.erroRede') : (e?.data?.message || t('comum.erroRede')))
   } finally {
     enviando.value = false
   }
@@ -98,38 +103,38 @@ async function enviar() {
   <div class="pc-page">
     <main class="pc-container emp">
       <section class="emp-hero">
-        <p class="emp-kicker">Para empresas</p>
-        <h1 class="pc-h1">Consultas em pacote para lojistas, garagens e despachantes</h1>
-        <p class="emp-lead">Quem consulta muitos carros por mês paga menos por consulta. Montamos o pacote para o seu volume.</p>
+        <p class="emp-kicker">{{ t('empresas.kicker') }}</p>
+        <h1 class="pc-h1">{{ t('empresas.h1') }}</h1>
+        <p class="emp-lead">{{ t('empresas.lead') }}</p>
         <ul class="emp-selos">
-          <li>Preço especial para pacotes</li>
-          <li>Desconto por volume</li>
-          <li>Suporte prioritário</li>
-          <li>Resposta em até 24 horas úteis</li>
+          <li>{{ t('empresas.selos.preco') }}</li>
+          <li>{{ t('empresas.selos.volume') }}</li>
+          <li>{{ t('empresas.selos.suporte') }}</li>
+          <li>{{ t('empresas.selos.resposta') }}</li>
         </ul>
-        <a href="#pacotes" class="pc-btn pc-btn--primary emp-cta">Ver os pacotes</a>
+        <a href="#pacotes" class="pc-btn pc-btn--primary emp-cta">{{ t('empresas.verPacotes') }}</a>
       </section>
 
       <section id="pacotes" class="emp-bloco">
-        <h2>Pacotes com o relatório completo</h2>
-        <p class="emp-sub">Avulso no site, o relatório completo sai por {{ precoBRL(AVULSO) }}. No pacote, cada consulta sai por menos:</p>
+        <h2>{{ t('empresas.pacotesH2') }}</h2>
+        <p class="emp-sub">{{ t('empresas.pacotesSub', { preco: precoBRL(AVULSO) }) }}</p>
         <div class="emp-pacotes">
           <div v-for="p in pacotes" :key="p.id" class="emp-pacote">
-            <p class="emp-pacote__qtd">{{ p.consultas }} consultas</p>
+            <p class="emp-pacote__qtd">{{ t('empresas.nConsultas', { n: p.consultas }) }}</p>
             <p class="emp-pacote__total">{{ precoBRL(p.totalCentavos) }}</p>
-            <p class="emp-pacote__cada"><strong>{{ precoBRL(p.porConsulta) }}</strong> por consulta</p>
+            <p class="emp-pacote__cada"><strong>{{ precoBRL(p.porConsulta) }}</strong> {{ t('empresas.porConsulta') }}</p>
             <p class="emp-pacote__eco">
-              Avulso seriam <s>{{ precoBRL(p.economia.avulsoCentavos) }}</s>.
-              Você economiza {{ precoBRL(p.economia.centavos) }} ({{ p.economia.pct }}%).
+              {{ t('empresas.avulsoSeriam') }} <s>{{ precoBRL(p.economia.avulsoCentavos) }}</s>.
+              {{ t('empresas.economiza', { valor: precoBRL(p.economia.centavos), pct: p.economia.pct }) }}
             </p>
-            <button type="button" class="pc-btn pc-btn--primary emp-pacote__btn" @click="escolherPacote(p)">Quero este pacote</button>
+            <button type="button" class="pc-btn pc-btn--primary emp-pacote__btn" @click="escolherPacote(p)">{{ t('empresas.queroPacote') }}</button>
           </div>
         </div>
-        <p class="emp-nota emp-pacotes__mais">Precisa de mais de 50 por mês? Montamos o pacote para o seu volume: é só pedir no formulário.</p>
+        <p class="emp-nota emp-pacotes__mais">{{ t('empresas.mais50') }}</p>
       </section>
 
       <section class="emp-bloco">
-        <h2>Quem usa</h2>
+        <h2>{{ t('empresas.quemUsaH2') }}</h2>
         <div class="emp-grid">
           <div v-for="q in QUEM_USA" :key="q.t" class="emp-card">
             <h3>{{ q.t }}</h3>
@@ -139,8 +144,8 @@ async function enviar() {
       </section>
 
       <section class="emp-bloco">
-        <h2>O que vem em cada consulta</h2>
-        <p class="emp-sub">Cada consulta do pacote é o relatório completo, o mesmo vendido no site:</p>
+        <h2>{{ t('empresas.incluiH2') }}</h2>
+        <p class="emp-sub">{{ t('empresas.incluiSub') }}</p>
         <ul class="emp-lista">
           <li v-for="r in itensCompleta" :key="r.label">
             <strong>{{ r.label }}</strong><span v-if="r.detalhe"> · {{ r.detalhe }}</span>
@@ -149,63 +154,63 @@ async function enviar() {
       </section>
 
       <section class="emp-bloco">
-        <h2>Como funciona</h2>
+        <h2>{{ t('empresas.comoH2') }}</h2>
         <ol class="emp-passos">
           <li v-for="(p, i) in COMO_FUNCIONA" :key="i">{{ p }}</li>
         </ol>
       </section>
 
       <section id="proposta" class="emp-bloco emp-form-wrap">
-        <h2>Peça seu pacote ou uma proposta</h2>
+        <h2>{{ t('empresas.formH2') }}</h2>
         <div v-if="enviado" class="emp-ok" role="status" data-testid="empresas-ok">
-          <strong>{{ MSG_RECEBIDO }}</strong>
+          <strong>{{ emIngles ? t('empresas.recebido') : MSG_RECEBIDO }}</strong>
         </div>
         <form v-else class="emp-form" novalidate @submit.prevent="enviar">
           <div class="emp-campo">
-            <label for="emp-nome">Seu nome</label>
+            <label for="emp-nome">{{ t('empresas.nome') }}</label>
             <input id="emp-nome" v-model="form.nome" type="text" autocomplete="name" maxlength="120" :aria-invalid="campoErro === 'nome'" required>
           </div>
           <div class="emp-campo">
-            <label for="emp-empresa">Empresa</label>
+            <label for="emp-empresa">{{ t('empresas.empresa') }}</label>
             <input id="emp-empresa" v-model="form.empresa" type="text" autocomplete="organization" maxlength="160" :aria-invalid="campoErro === 'empresa'" required>
           </div>
           <div class="emp-campo">
-            <label for="emp-tipo">Tipo</label>
+            <label for="emp-tipo">{{ t('empresas.tipo') }}</label>
             <select id="emp-tipo" v-model="form.tipo" :aria-invalid="campoErro === 'tipo'" required>
-              <option value="" disabled>Escolha</option>
-              <option v-for="t in TIPOS_EMPRESA" :key="t" :value="t">{{ t }}</option>
+              <option value="" disabled>{{ t('empresas.escolha') }}</option>
+              <option v-for="tp in TIPOS_EMPRESA" :key="tp" :value="tp">{{ t(`empresas.tipos.${tp}`) }}</option>
             </select>
           </div>
           <div class="emp-linha">
             <div class="emp-campo emp-campo--cidade">
-              <label for="emp-cidade">Cidade</label>
+              <label for="emp-cidade">{{ t('empresas.cidade') }}</label>
               <input id="emp-cidade" v-model="form.cidade" type="text" autocomplete="address-level2" maxlength="120" :aria-invalid="campoErro === 'cidade'" required>
             </div>
             <div class="emp-campo emp-campo--uf">
-              <label for="emp-uf">UF</label>
+              <label for="emp-uf">{{ t('empresas.uf') }}</label>
               <select id="emp-uf" v-model="form.uf" :aria-invalid="campoErro === 'uf'" required>
-                <option value="" disabled>UF</option>
+                <option value="" disabled>{{ t('empresas.uf') }}</option>
                 <option v-for="u in UFS" :key="u" :value="u">{{ u }}</option>
               </select>
             </div>
           </div>
           <div class="emp-campo">
-            <label for="emp-volume">Volume estimado por mês</label>
+            <label for="emp-volume">{{ t('empresas.volume') }}</label>
             <select id="emp-volume" v-model="form.volume_faixa" :aria-invalid="campoErro === 'volume_faixa'" required>
-              <option value="" disabled>Escolha</option>
-              <option v-for="v in VOLUMES_EMPRESA" :key="v" :value="v">{{ v }} consultas</option>
+              <option value="" disabled>{{ t('empresas.escolha') }}</option>
+              <option v-for="v in VOLUMES_EMPRESA" :key="v" :value="v">{{ t(`empresas.volumes.${ROTULO_VOLUME[v]}`) }}</option>
             </select>
           </div>
           <div class="emp-campo">
-            <label for="emp-whats">WhatsApp</label>
-            <input id="emp-whats" v-model="form.whatsapp" type="tel" inputmode="tel" autocomplete="tel" placeholder="(11) 99999-9999" maxlength="20" :aria-invalid="campoErro === 'whatsapp'" required>
+            <label for="emp-whats">{{ t('empresas.whatsapp') }}</label>
+            <input id="emp-whats" v-model="form.whatsapp" type="tel" inputmode="tel" autocomplete="tel" :placeholder="t('empresas.whatsappPlaceholder')" maxlength="20" :aria-invalid="campoErro === 'whatsapp'" required>
           </div>
           <div class="emp-campo">
-            <label for="emp-email">E-mail</label>
+            <label for="emp-email">{{ t('empresas.email') }}</label>
             <input id="emp-email" v-model="form.email" type="email" inputmode="email" autocomplete="email" maxlength="160" :aria-invalid="campoErro === 'email'" required>
           </div>
           <div class="emp-campo">
-            <label for="emp-msg">Mensagem (opcional)</label>
+            <label for="emp-msg">{{ t('empresas.mensagem') }}</label>
             <textarea id="emp-msg" v-model="form.mensagem" rows="3" maxlength="2000" />
           </div>
           <!-- honeypot: invisivel para pessoas, bots preenchem -->
@@ -215,20 +220,22 @@ async function enviar() {
           </div>
           <label class="emp-aceite">
             <input v-model="form.aceite" type="checkbox" :aria-invalid="campoErro === 'aceite'">
-            <span>Li e aceito a <NuxtLink to="/politica-de-privacidade" target="_blank">política de privacidade</NuxtLink>.</span>
+            <i18n-t keypath="empresas.aceite" tag="span" scope="global">
+              <template #link><NuxtLink :to="rota('/politica-de-privacidade')" target="_blank">{{ t('empresas.aceiteLink') }}</NuxtLink></template>
+            </i18n-t>
           </label>
           <p v-if="erro" class="emp-erro" role="alert">{{ erro }}</p>
           <button type="submit" class="pc-btn pc-btn--primary emp-enviar" :disabled="enviando">
-            {{ enviando ? 'Enviando...' : 'Pedir proposta' }}
+            {{ enviando ? t('comum.enviando') : t('empresas.pedir') }}
           </button>
-          <p class="emp-nota">Respondemos em até 24 horas úteis, pelo WhatsApp ou e-mail que você informar.</p>
+          <p class="emp-nota">{{ t('empresas.respondemos') }}</p>
         </form>
       </section>
 
       <nav class="pc-breadcrumb">
-        <NuxtLink to="/">PlacaCompleta</NuxtLink>
+        <NuxtLink :to="rota('/')">PlacaCompleta</NuxtLink>
         <span> &rsaquo; </span>
-        <strong>Para empresas</strong>
+        <strong>{{ t('empresas.breadcrumb') }}</strong>
       </nav>
     </main>
   </div>
