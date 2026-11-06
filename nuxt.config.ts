@@ -828,6 +828,9 @@ export default defineNuxtConfig({
     // o noindex nela.
     "/premium": { robots: "noindex, nofollow" },
     "/premium/**": { robots: "noindex, nofollow" },
+    // Pesquisa de satisfacao: o token da URL e a credencial, e a resposta de
+    // um cliente nao pode virar resultado de busca.
+    "/feedback/**": { robots: "noindex, nofollow" },
     // Pagina de teste do Pix da Woovi: so existe no homolog e nunca deve ser
     // rastreada nem em ambiente protegido.
     "/woovi-teste": { robots: "noindex, nofollow" },

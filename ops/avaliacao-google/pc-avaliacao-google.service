@@ -1,0 +1,9 @@
+[Unit]
+Description=PlacaCompleta - e-mail de nota (1 a 5), 3 dias apos a entrega
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-avaliacao-google-run
+TimeoutStartSec=180

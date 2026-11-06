@@ -1,0 +1,31 @@
+#!/bin/bash
+# Pedido de nota (1 a 5) 3 dias apos a entrega. Chama o site
+# pelo Traefik local com x-admin-secret. Envia o corte do deploy (DESDE) e a
+# lista de exclusao do host (beta/equipe + descadastrados), os mesmos arquivos
+# que o pc-pix-recover e o pc-gratis-recover respeitam.
+# Uso: pc-avaliacao-google-run [--dry-run]
+set -u
+. /root/.secrets/admin-secret.env
+CONF=/etc/default/pc-avaliacao-google
+[ -r "$CONF" ] && . "$CONF"
+if [ -z "${AVALIACAO_DESDE:-}" ]; then
+  echo "AVALIACAO_DESDE vazio em $CONF (corte do deploy, ISO). Nada enviado."; exit 1
+fi
+DRY=false; [ "${1:-}" = "--dry-run" ] && DRY=true
+body=$(AVALIACAO_DESDE="$AVALIACAO_DESDE" DRY="$DRY" python3 - <<'PY'
+import json, os
+ex = []
+for f in ("/root/.pix-recover-excluir", "/root/.resend-unsubscribed.txt"):
+    try:
+        ex += [l.strip() for l in open(f) if l.strip() and not l.startswith("#")]
+    except FileNotFoundError:
+        pass
+print(json.dumps({"desde": os.environ["AVALIACAO_DESDE"], "excluir": ex, "dry_run": os.environ["DRY"] == "true", "limite": 20}))
+PY
+)
+out=$(curl -sS -w '\n%{http_code}' --max-time 120 -X POST \
+  -H 'Host: placacompleta.com.br' -H "x-admin-secret: ${NUXT_ADMIN_SECRET}" -H 'Content-Type: application/json' \
+  --data-binary "$body" http://127.0.0.1/api/premium/avaliacao/run 2>&1)
+code=$(tail -n1 <<<"$out"); corpo=$(head -n -1 <<<"$out" | head -c 800)
+[ "$code" = "200" ] && { echo "ok: $corpo"; exit 0; }
+echo "FALHA $code: $corpo"; exit 1
