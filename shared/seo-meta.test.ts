@@ -10,6 +10,11 @@ import { descricaoEstado, tituloEstado } from './estado-seo'
 import { escolherTitulo, TITULO_MIN, TITULO_MAX } from './seo-titulo'
 import { tituloCapital, tituloSeguroEletricoEstado, tituloLeilaoModelo, tituloTipoVeiculo } from './seo-meta'
 import fipePrices from '../data/fipe-prices.json'
+import ptMsgs from '../i18n/locales/pt-BR'
+import enMsgs from '../i18n/locales/en'
+
+// t('chave') inside escolherTitulo: the title lives in i18n/locales.
+const msg = (o: any, chave: string): string | undefined => chave.split('.').reduce((a, k) => a?.[k], o)
 import { MODELOS_LEILAO } from './leilao-modelos'
 import { PAGINAS_COMPRA } from './cluster-compra'
 import { ARTIGOS } from './artigos-o-que-e'
@@ -210,9 +215,15 @@ describe('titles das paginas fixas', () => {
         const itens = [...m[1].matchAll(/(['`])((?:(?!\1).)*)\1/g)].map((x) => x[2]
           .replace(/\$\{currentYear\}/g, '2026').replace(/\$\{currentMonth\}/g, 'Setembro'))
         if (!itens.length || itens.some((i) => i.includes('${'))) continue
-        avaliados++
-        const t = escolherTitulo(itens)
-        if (t.length < TITULO_MIN || t.length > TITULO_MAX) fora.push(`${a} (${t.length}): ${t}`)
+        const porChave = linha.includes("t('")
+        const variantes = porChave
+          ? [ptMsgs, enMsgs].map((o) => itens.map((i) => msg(o, i) ?? i))
+          : [itens]
+        for (const v of variantes) {
+          avaliados++
+          const t = escolherTitulo(v)
+          if (t.length < TITULO_MIN || t.length > TITULO_MAX) fora.push(`${a} (${t.length}): ${t}`)
+        }
       }
     }
     expect(avaliados).toBeGreaterThan(10)

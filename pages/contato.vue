@@ -10,23 +10,27 @@ import { escolherTitulo } from '~/shared/seo-titulo'
 import { DESCRICOES } from '~/shared/seo-meta'
 import { EMAIL_CONTATO, emailContatoHtml } from '~/shared/contato'
 
+import { DESCRICOES_EN } from '~/shared/seo-meta-en'
+const { t, emIngles, rota } = useIdioma()
+const URL_PAGINA = `https://placacompleta.com.br${rota('/contato')}`
+const descricao = emIngles.value ? DESCRICOES_EN.contato : DESCRICOES.contato
 useHead({
-  title: escolherTitulo(['Contato do PlacaCompleta: E-mail para Dúvidas e Imprensa']),
+  title: escolherTitulo([t('contato.title')]),
   titleTemplate: '%s',
   meta: [
-    { name: 'description', content: DESCRICOES.contato },
-    { property: 'og:title', content: 'Contato do PlacaCompleta' },
-    { property: 'og:description', content: DESCRICOES.contato },
+    { name: 'description', content: descricao },
+    { property: 'og:title', content: t('contato.ogTitle') },
+    { property: 'og:description', content: descricao },
   ],
-  link: [{ rel: 'canonical', href: 'https://placacompleta.com.br/contato' }],
+  link: [{ rel: 'canonical', href: URL_PAGINA }],
   script: [
     {
       type: 'application/ld+json',
       innerHTML: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'ContactPage',
-        name: 'Contato do PlacaCompleta',
-        url: 'https://placacompleta.com.br/contato',
+        name: t('contato.ogTitle'),
+        url: URL_PAGINA,
       }),
     },
   ],
@@ -47,41 +51,33 @@ async function copiar() {
 <template>
   <div class="pc-page">
     <main class="pc-container">
-      <h1 class="pc-h1">Contato</h1>
+      <h1 class="pc-h1">{{ t('contato.h1') }}</h1>
 
       <div class="pc-prose">
-        <p>
-          Dúvida sobre uma consulta, problema com um relatório, correção de dado,
-          imprensa ou parceria: escreva para o nosso e-mail.
-        </p>
+        <p>{{ t('contato.intro') }}</p>
 
         <div class="contato-email">
           <!-- eslint-disable-next-line vue/no-v-html -->
           <span class="contato-email__end" v-html="emailContatoHtml" />
           <button v-if="podeCopiar" type="button" class="pc-btn pc-btn--primary contato-email__copiar" @click="copiar">
-            {{ copiado ? 'E-mail copiado' : 'Copiar e-mail' }}
+            {{ copiado ? t('contato.copiado') : t('contato.copiar') }}
           </button>
         </div>
 
-        <h2>Dúvida sobre um relatório</h2>
-        <p>
-          Mande a placa e o link do relatório: assim a gente encontra o pedido
-          mais rápido.
-        </p>
+        <h2>{{ t('contato.relatorioH2') }}</h2>
+        <p>{{ t('contato.relatorioP') }}</p>
 
-        <h2>Termos e privacidade</h2>
-        <p>
-          Antes de escrever, pode ser que a resposta já esteja nos
-          <NuxtLink to="/termos-de-uso">Termos de Uso</NuxtLink> ou na
-          <NuxtLink to="/politica-de-privacidade">Política de Privacidade</NuxtLink>,
-          que também explica como pedir acesso ou exclusão dos seus dados.
-        </p>
+        <h2>{{ t('contato.termosH2') }}</h2>
+        <i18n-t keypath="contato.termosP" tag="p" scope="global">
+          <template #termos><NuxtLink :to="rota('/termos-de-uso')">{{ t('rodape.termos') }}</NuxtLink></template>
+          <template #privacidade><NuxtLink :to="rota('/politica-de-privacidade')">{{ t('rodape.privacidade') }}</NuxtLink></template>
+        </i18n-t>
       </div>
 
       <nav class="pc-breadcrumb">
-        <NuxtLink to="/">PlacaCompleta</NuxtLink>
+        <NuxtLink :to="rota('/')">PlacaCompleta</NuxtLink>
         <span> &rsaquo; </span>
-        <strong>Contato</strong>
+        <strong>{{ t('contato.h1') }}</strong>
       </nav>
     </main>
   </div>

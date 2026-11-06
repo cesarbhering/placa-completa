@@ -1,16 +1,196 @@
 <script setup lang="ts">
-useHead({
-  title: 'Termos de Uso',
-  meta: [
-    { name: 'description', content: 'Termos de Uso do serviço Placa Completa, em conformidade com a Portaria SENATRAN nº 139/2025 e com a LGPD.' },
-    { name: 'robots', content: 'noindex, follow' },
-  ],
-})
+import { DESCRICOES_EN } from '~/shared/seo-meta-en'
+const { emIngles, rota } = useIdioma()
+
+// English twin (Nov 6, 2026): a courtesy translation. The PT text prevails,
+// and the page says so at the top. The PT head below is the original one.
+if (emIngles.value) {
+  useHead({
+    title: 'Terms of Use',
+    meta: [
+      { name: 'description', content: DESCRICOES_EN.termos },
+      { name: 'robots', content: 'noindex, follow' },
+    ],
+  })
+} else {
+  useHead({
+    title: 'Termos de Uso',
+    meta: [
+      { name: 'description', content: 'Termos de Uso do serviço Placa Completa, em conformidade com a Portaria SENATRAN nº 139/2025 e com a LGPD.' },
+      { name: 'robots', content: 'noindex, follow' },
+    ],
+  })
+}
 </script>
 
 <template>
   <div class="pc-page">
     <main class="pc-container">
+      <template v-if="emIngles">
+      <h1 class="legal-title">Terms of Use</h1>
+        <p class="legal-updated">Last updated: October 1, 2026</p>
+        <p class="legal-updated"><strong>This is a courtesy translation. The <NuxtLink to="/termos-de-uso" hreflang="pt-BR">Portuguese version</NuxtLink> is the binding one and prevails in case of any difference.</strong></p>
+
+        <div class="legal-content">
+          <h2>1. Service Provider</h2>
+          <p>
+            The <strong>Placa Completa</strong> service ("Service"), available at
+            placacompleta.com.br, is provided by:
+          </p>
+          <ul>
+            <li><strong>Legal name:</strong> CESAR CANCADO BHERING TECNOLOGIA LTDA</li>
+            <li><strong>CNPJ (Brazilian company ID):</strong> 62.569.152/0001-67</li>
+            <li><strong>Address:</strong> Rua Bom Pastor, Sala 03, Ipiranga, São Paulo/SP, Brazil</li>
+            <li><strong>Contact:</strong> contato@placacompleta.com.br</li>
+          </ul>
+
+          <h2>2. Acceptance of the Terms</h2>
+          <p>
+            By using the Service, you fully agree to these Terms of Use and to the
+            <NuxtLink to="/en/politica-de-privacidade">Privacy Policy</NuxtLink>.
+            If you do not agree, do not use the Service.
+          </p>
+
+          <h2>3. Regulatory Basis</h2>
+          <p>
+            Placa Completa operates as an accredited entity under
+            <strong>Ordinance No. 139 of February 20, 2025, of the Brazilian National Traffic Secretariat</strong>,
+            which governs access by authorized third parties to data from the federal vehicle database.
+            Data is accessed through the federal online vehicle lookup service operated by
+            <strong>Serpro</strong>, the federal data processing company.
+          </p>
+          <p>
+            Under <strong>article 6, item I, of Ordinance 139/2025</strong>, Placa Completa
+            operates in the <strong>DIRECT access mode</strong>, integrating directly with the
+            federal APIs operated by Serpro, with no third-party intermediation and no resale of
+            the data.
+          </p>
+
+          <h2>4. Description of the Service</h2>
+          <p>
+            Placa Completa is a vehicle check service by license plate, aimed at
+            <strong>fraud prevention, asset protection and credit protection</strong>.
+            The user enters the license plate of a vehicle and receives information about the
+            vehicle, including:
+          </p>
+          <ul>
+            <li><strong>Vehicle Information Lookup for Fraud Prevention and Credit Protection:</strong> technical data of the vehicle and indicators of recalls, liens, theft, RENAJUD court restrictions and aggregated outstanding fees;</li>
+            <li><strong>Lookup of Traffic Violations Linked to the Vehicle for Fraud Prevention and Credit Protection:</strong> unpaid violations of the vehicle, with ticket number, date, place, city/state, issuing authority, description and amount.</li>
+          </ul>
+          <p>
+            Additional information (e.g. the FIPE price table) may come from other sources and
+            is identified separately in the result.
+          </p>
+
+          <h2>5. Lawful Purposes of Use</h2>
+          <p>The Service is intended only for lawful purposes, such as:</p>
+          <ul>
+            <li>Checking vehicle data when buying or selling a vehicle;</li>
+            <li>Looking up the market value for reference;</li>
+            <li>Checking restrictions, liens, outstanding fees, recalls and court status of the vehicle before a transaction;</li>
+            <li>Checking recall and vehicle safety campaigns;</li>
+            <li>Checking unpaid traffic violations linked to the vehicle, which prevent annual licensing and title transfer (Brazilian Traffic Code, articles 128 and 131);</li>
+            <li>Assessing risk in credit, financing, leasing, rental and insurance operations involving the vehicle;</li>
+            <li>Checking information for legitimate personal or business purposes.</li>
+          </ul>
+
+          <h2>6. Prohibitions Under Ordinance 139/2025</h2>
+          <p>
+            In compliance with Ordinance No. 139/2025 and the LGPD, the user of the Service is
+            <strong>expressly forbidden</strong> to:
+          </p>
+          <ul>
+            <li><strong>Resell, sublicense, redistribute or transfer</strong> the data obtained, in whole or in part, to any third party, whether paid or free of charge;</li>
+            <li>Use the data for <strong>any purpose other than</strong> those stated in these Terms and in the Use Cases approved by the federal traffic authority;</li>
+            <li>Use the data for <strong>marketing, sales prospecting, telemarketing</strong> or unsolicited communications;</li>
+            <li>Perform <strong>scoring, classification, profiling or ranking</strong> of people based on vehicle data;</li>
+            <li>Use the data for <strong>unlawful discrimination</strong> of any kind;</li>
+            <li>Engage in <strong>illegal, abusive or fraudulent activities</strong>, or activities that violate the rights of third parties;</li>
+            <li><strong>Collect data by automated means</strong> (bots, scrapers, scraping) without prior written authorization from Placa Completa;</li>
+            <li>Attempt to <strong>bypass security, access control or audit mechanisms</strong> of the platform.</li>
+          </ul>
+          <p>
+            Access to the platform is <strong>monitored and auditable</strong> by the federal
+            traffic authority and by Serpro. Misuse may constitute a violation of Brazilian law,
+            subjecting the user to the applicable civil, administrative and criminal penalties,
+            regardless of prior notice.
+          </p>
+
+          <h2>7. Personal Data and the LGPD</h2>
+          <p>
+            Personal data is processed in accordance with
+            <strong>Law No. 13,709/2018 (LGPD, the Brazilian General Data Protection Law)</strong> and
+            <strong>Ordinance No. 139/2025</strong>. The applicable legal bases, the rights of the
+            data subject and how to exercise them are described in detail in the
+            <NuxtLink to="/en/politica-de-privacidade">Privacy Policy</NuxtLink>.
+          </p>
+          <p>
+            In short, Placa Completa bases the processing of vehicle data on
+            <strong>legitimate interest (LGPD article 7, IX)</strong>,
+            <strong>credit protection (article 7, X)</strong> and the
+            <strong>performance of a contract or preliminary procedures (article 7, V)</strong>.
+          </p>
+
+          <h2>8. Limitation of Liability</h2>
+          <p>
+            Vehicle information is obtained from the federal traffic authority, through Serpro,
+            and from licensed complementary sources. Placa Completa <strong>does not guarantee</strong>
+            the accuracy, completeness or timeliness of the data returned, since it depends on
+            updates in the source databases. The Service is provided "as is", without warranties
+            of any kind.
+          </p>
+          <p>
+            Placa Completa is not responsible for decisions made by the user based on the
+            information provided, including but not limited to decisions to buy, sell, finance
+            or contract anything involving vehicles.
+          </p>
+
+          <h2>9. Availability</h2>
+          <p>
+            We do not guarantee that the Service will be available without interruption or free
+            of errors. The Service may be suspended, changed or discontinued at any time, without
+            prior notice, especially in case of maintenance, technical failure or a decision of
+            the federal traffic authority or Serpro.
+          </p>
+
+          <h2>10. Intellectual Property</h2>
+          <p>
+            All content on the site, including the brand, logo, layout, code and organization of
+            the information, is owned by Placa Completa and protected by Brazilian intellectual
+            property law. Reproduction, distribution or use without prior express authorization
+            is prohibited.
+          </p>
+
+          <h2>11. Changes to the Terms</h2>
+          <p>
+            We reserve the right to change these Terms at any time. Changes take effect as soon
+            as they are published on this page. Continued use of the Service after changes
+            means you accept the new Terms.
+          </p>
+
+          <h2>12. Governing Law and Jurisdiction</h2>
+          <p>
+            These Terms are governed by the laws of the Federative Republic of Brazil,
+            especially <strong>Ordinance No. 139/2025</strong>,
+            <strong>Law No. 13,709/2018 (LGPD)</strong> and, where applicable, the
+            <strong>Consumer Protection Code (Law No. 8,078/1990)</strong>. The courts of the
+            user's place of residence are chosen to settle any dispute, under article 101, I,
+            of the Consumer Protection Code.
+          </p>
+
+          <h2>13. Contact</h2>
+          <p>
+            CESAR CANCADO BHERING TECNOLOGIA LTDA, CNPJ 62.569.152/0001-67<br>
+            Rua Bom Pastor, Sala 03, Ipiranga, São Paulo/SP, Brazil<br>
+            <strong>Email:</strong> contato@placacompleta.com.br
+          </p>
+        </div>
+
+        <div class="pc-cta">
+          <NuxtLink :to="rota('/')" class="pc-btn">Back</NuxtLink>
+        </div>
+      </template>
+      <template v-else>
       <h1 class="legal-title">Termos de Uso</h1>
         <p class="legal-updated">Última atualização: 1 de outubro de 2026</p>
 
@@ -172,6 +352,7 @@ useHead({
         <div class="pc-cta">
           <NuxtLink to="/" class="pc-btn">Voltar</NuxtLink>
         </div>
+      </template>
     </main>
   </div>
 </template>

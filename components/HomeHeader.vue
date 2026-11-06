@@ -50,16 +50,17 @@ onMounted(() => syncHistorico())
 
 // Ancoras da propria home + as paginas de conteudo. Rota usa NuxtLink (SPA);
 // ancora fica em <a> normal, senao o NuxtLink tentaria resolver "#x" como rota.
-const links = [
-  { href: '#o-que-inclui', label: 'O que inclui' },
-  { href: '/blog', label: 'Blog' },
-  { href: '/tabela-fipe', label: 'Tabela FIPE' },
-  { href: '/estudos', label: 'Estudos' },
+const { t, rota } = useIdioma()
+const links = computed(() => [
+  { href: '#o-que-inclui', label: t('header.oQueInclui') },
+  { href: '/blog', label: t('header.blog') },
+  { href: '/tabela-fipe', label: t('header.tabelaFipe') },
+  { href: '/estudos', label: t('header.estudos') },
   // So na gaveta (menu do celular): na barra do desktop, fora da home, a busca
   // divide o espaco e o sexto item quebrava a linha. O rodape tambem tem o link.
-  { href: '/para-empresas', label: 'Para empresas', soGaveta: true },
-  { href: '#duvidas', label: 'Dúvidas' },
-]
+  { href: rota('/para-empresas'), label: t('header.paraEmpresas'), soGaveta: true },
+  { href: '#duvidas', label: t('header.duvidas') },
+])
 // Fora da home nenhuma dessas ancoras existe na pagina: '#duvidas' vira clique
 // morto e o logo levava pro topo do proprio relatorio em vez de voltar pra
 // home. Prefixando com '/', o link volta pra home e cai na secao certa.
@@ -78,14 +79,14 @@ const ehAncora = (href: string) => href.startsWith('#')
 // lugar nenhum e fora dela nunca subia.
 const noTopo = ref(true)
 const rotuloLogo = computed(() =>
-  noTopo.value ? 'PlacaCompleta, ir para a home' : 'PlacaCompleta, voltar ao topo da página')
+  noTopo.value ? t('header.logoHome') : t('header.logoTopo'))
 
 function aoClicarLogo(e: MouseEvent) {
   // href="/" continua real (clique do meio, "abrir em nova aba", crawler);
   // o clique normal e que ganha o comportamento.
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
   e.preventDefault()
-  if (noTopo.value) navigateTo('/')
+  if (noTopo.value) navigateTo(rota('/'))
   else window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -145,7 +146,7 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
 
 <template>
   <header class="home-header">
-    <a href="/" class="home-header__brand" :aria-label="rotuloLogo" @click="aoClicarLogo">
+    <a :href="rota('/')" class="home-header__brand" :aria-label="rotuloLogo" @click="aoClicarLogo">
       <PlacaCompletaLogo :variant="logoVariant" crop class="home-header__logo" />
     </a>
     <!-- Centro do header: enquanto nao consultou, um campo de placa sempre a
@@ -153,7 +154,7 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
          principal nunca sai da tela. -->
     <div class="home-header__center">
       <div v-if="consultada" class="home-header__done">
-        <span class="home-header__done-label">Placa consultada</span>
+        <span class="home-header__done-label">{{ t('header.placaConsultada') }}</span>
         <strong>{{ placa }}</strong>
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <circle cx="10" cy="10" r="9" fill="currentColor" />
@@ -162,7 +163,7 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
         </svg>
       </div>
       <form v-else-if="mostrarCampo" class="home-header__search" @submit.prevent="aoBuscar">
-        <label class="home-header__search-label" for="hdr-placa">Insira aqui a placa</label>
+        <label class="home-header__search-label" for="hdr-placa">{{ t('header.insiraPlaca') }}</label>
         <input
           id="hdr-placa"
           class="home-header__search-input"
@@ -174,7 +175,7 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
           autocapitalize="characters"
           @input="aoDigitar"
         />
-        <button type="submit" class="home-header__search-btn" aria-label="Consultar placa">
+        <button type="submit" class="home-header__search-btn" :aria-label="t('header.consultarPlaca')">
           <svg viewBox="0 0 20 20" aria-hidden="true">
             <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="2" />
             <path d="M13.5 13.5L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -183,7 +184,7 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
       </form>
     </div>
 
-    <nav class="home-header__nav" aria-label="Navegação principal">
+    <nav class="home-header__nav" :aria-label="t('header.navPrincipal')">
       <template v-for="link in links.filter((l) => !l.soGaveta)" :key="link.href">
         <a v-if="ehAncora(alvo(link.href))" :href="link.href" class="home-header__link">{{ link.label }}</a>
         <NuxtLink v-else :to="alvo(link.href)" class="home-header__link">{{ link.label }}</NuxtLink>
@@ -194,7 +195,7 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
         class="home-header__link home-header__link--btn"
         @click="modalConsultas = true"
       >
-        Suas consultas <span class="home-header__badge">{{ totalConsultas }}</span>
+        {{ t('header.suasConsultas') }} <span class="home-header__badge">{{ totalConsultas }}</span>
       </button>
     </nav>
 
@@ -204,15 +205,15 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
       v-if="totalConsultas > 0"
       type="button"
       class="home-header__pill"
-      :aria-label="`Seus relatórios${totalRelatorios ? `: ${totalRelatorios}` : ''}`"
+      :aria-label="`${t('header.seusRelatorios')}${totalRelatorios ? `: ${totalRelatorios}` : ''}`"
       @click="modalConsultas = true"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
         <path d="M14 3v5h5M9 13h6M9 17h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
-      <span class="home-header__pill-longo">Seus relatórios</span>
-      <span class="home-header__pill-curto">Relatórios</span>
+      <span class="home-header__pill-longo">{{ t('header.seusRelatorios') }}</span>
+      <span class="home-header__pill-curto">{{ t('header.relatorios') }}</span>
       <span v-if="totalRelatorios" class="home-header__badge">{{ totalRelatorios }}</span>
     </button>
 
@@ -221,7 +222,7 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
       class="home-header__burger"
       :aria-expanded="menuAberto ? 'true' : 'false'"
       aria-controls="menu-mobile"
-      :aria-label="menuAberto ? 'Fechar menu' : 'Abrir menu'"
+      :aria-label="menuAberto ? t('header.fecharMenu') : t('header.abrirMenu')"
       @click="menuAberto = !menuAberto"
     >
       <span :class="{ 'is-x': menuAberto }" aria-hidden="true" />
@@ -241,9 +242,9 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
           id="menu-mobile"
           class="home-header__gaveta"
           :class="{ 'is-open': menuAberto }"
-          aria-label="Navegação principal"
+          :aria-label="t('header.navPrincipal')"
         >
-          <button type="button" class="home-header__gaveta-x" aria-label="Fechar menu" @click="fechaMenu">
+          <button type="button" class="home-header__gaveta-x" :aria-label="t('header.fecharMenu')" @click="fechaMenu">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
             </svg>
@@ -258,7 +259,7 @@ onUnmounted(() => { if (import.meta.client) document.body.style.overflow = '' })
             class="home-header__gaveta-link home-header__gaveta-link--btn"
             @click="fechaMenu(); modalConsultas = true"
           >
-            Suas consultas <span class="home-header__badge">{{ totalConsultas }}</span>
+            {{ t('header.suasConsultas') }} <span class="home-header__badge">{{ totalConsultas }}</span>
           </button>
         </nav>
       </Teleport>
