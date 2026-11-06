@@ -1644,6 +1644,10 @@ function applyEmailSuggestion() {
             Grátis e sem cadastro. Isto é o que a placa diz sobre o carro.
             <strong>O que ela diz sobre o negócio está logo abaixo.</strong>
           </p>
+          <!-- Compartilhar no WhatsApp (fora do app): secundario, nao compete com o CTA. -->
+          <div v-if="!isCapacitor" class="cb-result__compartilhar">
+            <CompartilharWhatsapp :placa="resultadoBasico?.placa || placa" :modelo="modeloCurto" :ano="resultadoBasico?.ano" onde="layout_b" />
+          </div>
 
           <div v-if="camposLivres.length" class="cb-result__card">
             <div class="cb-result__grid">
@@ -3286,6 +3290,10 @@ function applyEmailSuggestion() {
       margin-bottom: $s-lg;
 
       strong { color: $c-ink; font-weight: 500; }
+    }
+
+    &__compartilhar {
+      margin: 0 0 $s-lg;
     }
 
     &__card {

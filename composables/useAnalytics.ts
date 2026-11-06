@@ -191,6 +191,8 @@ export function espelharEventoNoFunil(event: string, params?: Record<string, any
   // Checklist do relatorio: so o id estavel do item e o estado (sem PII).
   if (typeof params?.item_id === 'string') extra.item_id = params.item_id
   if (typeof params?.marcado === 'boolean') extra.marcado = params.marcado
+  // Botao de compartilhar no WhatsApp: em que layout do resultado foi o clique.
+  if (event === 'compartilhar_whatsapp_click' && typeof params?.onde === 'string') extra.onde = params.onde
   enfileirarEventoFunil(event, {
     placa: typeof params?.placa === 'string' ? params.placa : null,
     leilao_sinal: typeof params?.leilao_sinal === 'string' ? params.leilao_sinal : undefined,

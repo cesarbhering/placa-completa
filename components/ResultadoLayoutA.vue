@@ -17,6 +17,7 @@ import { BASE_LEILAO_TEXTO, BASE_LEILAO_DUAS_BASES } from '~/shared/base-leilao'
 // tabela de preco e pegou ZERO clique (todo o gap do A veio dai). Agora e coluna
 // unica, um botao de acao que cai no olhar logo depois da ancora de preco.
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import CompartilharWhatsapp from './CompartilharWhatsapp.vue'
 
 const props = defineProps<{
   dados: Record<string, any> | null
@@ -96,6 +97,10 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         <div class="la-sobre">CONSULTA GRÁTIS CONCLUÍDA</div>
         <h1>Você viu o que é o carro. Falta ver o que ele carrega.</h1>
         <p>Leilão, indício de roubo e furto, financiamento e bloqueio judicial não aparecem na consulta grátis. É isso que trava a transferência ou derruba o preço.</p>
+        <!-- Compartilhar (fora do app): secundario, nao compete com o CTA. -->
+        <div v-if="!app" class="la-compartilhar">
+          <CompartilharWhatsapp :placa="dados?.placa" :modelo="modeloCurto" :ano="dados?.ano" onde="layout_a" />
+        </div>
       </div>
 
       <!-- TAGS de sinal (vagas, apontam pro completo): leilao VERMELHA e recall
@@ -260,6 +265,7 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 .la-sobre--alerta { display:flex; align-items:center; gap:8px; color:var(--la-orange-ink); }
 .la-titulo h1 { margin:0; font-size:36px; line-height:1.14; font-weight:800; letter-spacing:-.5px; }
 .la-titulo h1 span { font-size:inherit; font-weight:inherit; color:inherit; }
+.la-compartilhar { display:flex; }
 .la-titulo p { margin:0; font-size:17px; line-height:1.55; color:var(--la-ink2); }
 
 /* Flag de recall: ambar (nao vermelho). Aviso pra conferir, nao acusacao. */
