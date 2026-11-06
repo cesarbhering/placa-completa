@@ -27,6 +27,18 @@ function emailValido(e: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
 }
 
+/** E-mail normalizado e a grafia original (aparada), sem repeticao. */
+export function emailsParaBusca(emails: (string | null | undefined)[]): string[] {
+  const out = new Set<string>()
+  for (const e of emails) {
+    const cru = String(e || '').trim()
+    if (!cru) continue
+    out.add(normalizarEmail(cru))
+    out.add(cru)
+  }
+  return [...out]
+}
+
 export interface PedidoAvaliacao {
   id: string
   email: string | null
@@ -231,15 +243,18 @@ export async function rodarAvaliacaoGoogle(supabase: any, o: OpcoesRodada): Prom
   if (error) throw new Error(`pedidos: ${error.message}`)
 
   const lista: PedidoAvaliacao[] = pedidos || []
-  const emails = [...new Set(lista.map((p) => normalizarEmail(p.email)).filter(Boolean))]
+  // "Uma vez na vida" mora em feedback_solicitacoes: quem ja tem linha la (de
+  // qualquer epoca) nao recebe de novo. Procura pelo e-mail normalizado e pela
+  // grafia original do pedido, para pegar linha antiga gravada sem normalizar.
+  const variantes = emailsParaBusca(lista.map((p) => p.email))
   const jaEnviados = new Set<string>()
-  if (emails.length) {
+  if (variantes.length) {
     const { data: env, error: e2 } = await supabase
-      .from('avaliacao_google_envios')
-      .select('email_norm')
-      .in('email_norm', emails)
-    if (e2) throw new Error(`envios: ${e2.message}`)
-    for (const r of env || []) jaEnviados.add(r.email_norm)
+      .from('feedback_solicitacoes')
+      .select('email')
+      .in('email', variantes)
+    if (e2) throw new Error(`feedback_solicitacoes: ${e2.message}`)
+    for (const r of env || []) jaEnviados.add(normalizarEmail(r.email))
   }
 
   const excluir = new Set([...(o.excluir || [])].map(normalizarEmail).filter(Boolean))
@@ -257,19 +272,28 @@ export async function rodarAvaliacaoGoogle(supabase: any, o: OpcoesRodada): Prom
   let falhas = 0
   for (const p of elegiveis) {
     const email = normalizarEmail(p.email)
-    // Trava no banco: a chave primaria e o e-mail. Quem consegue inserir e
-    // quem envia; duas rodadas ao mesmo tempo nao geram dois e-mails.
-    const { error: eIns } = await supabase
-      .from('avaliacao_google_envios')
-      .insert({ email_norm: email, pedido_id: p.id })
-    if (eIns) continue
     // Link proprio do cliente: a nota so vale se vier de quem comprou.
     const token = (o.novoToken ?? gerarTokenFeedback)()
     const { error: eSol } = await supabase.from('feedback_solicitacoes').insert({
-      token, email: String(p.email).trim(), pedido_id: p.id, placa: String(p.placa || '').toUpperCase(),
+      token, email, pedido_id: p.id, placa: String(p.placa || '').toUpperCase(),
       link: linkFeedback(o.base ?? String((o.cfg ?? useRuntimeConfig())?.premiumBaseUrl || ''), token),
     })
-    const ok = !eSol && await enviar(String(p.email).trim(), String(p.placa || ''), token).catch(() => false)
+    if (eSol) { falhas++; continue }
+    // Trava sem tabela nova: depois de inserir, so segue quem tem a linha
+    // mais antiga daquele e-mail (desempate pelo token). Duas rodadas ao mesmo
+    // tempo veem a mesma ordem e so uma envia; a outra apaga a propria linha.
+    const { data: linhas } = await supabase
+      .from('feedback_solicitacoes')
+      .select('token,criado_em')
+      .in('email', emailsParaBusca([p.email]))
+      .order('criado_em', { ascending: true })
+      .order('token', { ascending: true })
+      .limit(1)
+    if (linhas?.[0]?.token !== token) {
+      await supabase.from('feedback_solicitacoes').delete().eq('token', token)
+      continue
+    }
+    const ok = await enviar(String(p.email).trim(), String(p.placa || ''), token).catch(() => false)
     if (ok) {
       enviados++
       await supabase.from('feedback_solicitacoes').update({ email_enviado_em: new Date().toISOString() }).eq('token', token)
@@ -277,8 +301,7 @@ export async function rodarAvaliacaoGoogle(supabase: any, o: OpcoesRodada): Prom
     }
     falhas++
     // Solta a vaga: a proxima rodada tenta de novo (dentro da janela).
-    if (!eSol) await supabase.from('feedback_solicitacoes').delete().eq('token', token)
-    await supabase.from('avaliacao_google_envios').delete().eq('email_norm', email)
+    await supabase.from('feedback_solicitacoes').delete().eq('token', token)
   }
   return { candidatos: elegiveis.length, enviados, falhas, dry_run: false }
 }

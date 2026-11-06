@@ -99,48 +99,45 @@ describe('enviarAvaliacaoEmail', () => {
   })
 })
 
-// Supabase de mentira: guarda os filtros da consulta e a tabela de envios.
-function sb(pedidos: PedidoAvaliacao[], envios: string[] = [], conflito = false) {
-  const tabela = new Set(envios)
+// Supabase de mentira: pedidos_premium (lista fixa) e feedback_solicitacoes
+// (array em memoria, com insert/select/update/delete de verdade).
+function sb(pedidos: PedidoAvaliacao[], existentes: string[] = [], intruso?: string) {
+  let relogio = 0
+  const solicitacoes: any[] = existentes.map((email, i) => ({ token: `fb_antigo${i}`, email, criado_em: relogio++ }))
   const filtros: any[] = []
-  const inseridos: string[] = []
-  const removidos: string[] = []
-  const solicitacoes: any[] = []
   const cliente = {
     from(t: string) {
+      const conds: ((r: any) => boolean)[] = []
+      let upd: any = null
+      let del = false
       const q: any = {
         select: () => q, order: () => q, limit: () => q,
-        eq: (c: string, v: any) => {
-          filtros.push(['eq', c, v])
-          if (t === 'feedback_solicitacoes') {
-            const i = solicitacoes.findIndex((r) => r.token === v)
-            if (q._del && i >= 0) solicitacoes.splice(i, 1)
-            if (q._upd && i >= 0) Object.assign(solicitacoes[i], q._upd)
-            return q
-          }
-          if (q._del) { removidos.push(v); tabela.delete(v) }
-          return q
-        },
+        eq: (c: string, v: any) => { filtros.push(['eq', c, v]); conds.push((r) => r[c] === v); return q },
         gt: (c: string, v: any) => { filtros.push(['gt', c, v]); return q },
         gte: (c: string, v: any) => { filtros.push(['gte', c, v]); return q },
         lte: (c: string, v: any) => { filtros.push(['lte', c, v]); return q },
         not: (...a: any[]) => { filtros.push(['not', ...a]); return q },
-        in: (_c: string, v: string[]) => { q._in = v; return q },
-        update: (row: any) => { q._upd = row; return q },
+        in: (c: string, v: string[]) => { conds.push((r) => v.includes(r[c])); return q },
+        update: (u: any) => { upd = u; return q },
+        delete: () => { del = true; return q },
         insert: async (row: any) => {
-          if (t === 'feedback_solicitacoes') { solicitacoes.push(row); return { error: null } }
-          if (conflito || tabela.has(row.email_norm)) return { error: { message: 'duplicate key' } }
-          tabela.add(row.email_norm); inseridos.push(row.email_norm); return { error: null }
+          // "intruso": outra rodada inseriu antes, para o mesmo e-mail.
+          if (intruso && row.email === intruso) solicitacoes.push({ token: 'fb_0outra', email: intruso, criado_em: relogio++ })
+          solicitacoes.push({ ...row, criado_em: relogio++ }); return { error: null }
         },
-        delete: () => { q._del = true; return q },
-        then: (r: any) => r(t === 'pedidos_premium'
-          ? { data: pedidos, error: null }
-          : { data: [...tabela].filter((e) => !q._in || q._in.includes(e)).map((e) => ({ email_norm: e })), error: null }),
+        then: (res: any) => {
+          if (t === 'pedidos_premium') return res({ data: pedidos, error: null })
+          const alvo = solicitacoes.filter((r) => conds.every((f) => f(r)))
+          if (del) { for (const r of alvo) solicitacoes.splice(solicitacoes.indexOf(r), 1); return res({ data: null, error: null }) }
+          if (upd) { for (const r of alvo) Object.assign(r, upd); return res({ data: null, error: null }) }
+          const ord = [...alvo].sort((x, y) => x.criado_em - y.criado_em || String(x.token).localeCompare(String(y.token)))
+          return res({ data: ord, error: null })
+        },
       }
       return q
     },
   }
-  return { cliente, filtros, inseridos, removidos, tabela, solicitacoes }
+  return { cliente, filtros, solicitacoes }
 }
 
 const PROD = { supabaseUrl: 'https://prod.supabase.co', premiumBaseUrl: BASE, public: {} }
@@ -170,7 +167,7 @@ describe('rodarAvaliacaoGoogle', () => {
       ped({ id: 'zero', email: 'zero@exemplo.com', valor_centavos: 0 }),
       ped({ id: 'reemb', email: 'reemb@exemplo.com', status: 'reembolsado' }),
       ped({ id: 'excl', email: 'Equipe@Exemplo.com' }),
-      ped({ id: 'ja', email: 'ja@exemplo.com' }),
+      ped({ id: 'ja', email: 'Ja@Exemplo.com' }),
     ], ['ja@exemplo.com'])
     const enviar = vi.fn(async () => true)
     const r = await rodarAvaliacaoGoogle(s.cliente, { agora: AGORA, desde: DESDE, excluir: ['equipe@exemplo.com'], enviar, cfg: PROD })
@@ -178,11 +175,12 @@ describe('rodarAvaliacaoGoogle', () => {
     expect(enviar).toHaveBeenCalledTimes(1)
     expect(enviar).toHaveBeenCalledWith('ok@exemplo.com', 'aaa1a11', expect.stringMatching(/^fb_/))
     // Link proprio gravado em feedback_solicitacoes, com o envio carimbado.
-    expect(s.solicitacoes).toHaveLength(1)
-    expect(s.solicitacoes[0]).toMatchObject({ email: 'ok@exemplo.com', pedido_id: 'ok', placa: 'AAA1A11' })
-    expect(s.solicitacoes[0].link).toBe(`${BASE}/feedback/${s.solicitacoes[0].token}`)
-    expect(s.solicitacoes[0].email_enviado_em).toBeTruthy()
-    expect(s.inseridos).toEqual(['ok@exemplo.com'])
+    const nova = s.solicitacoes.filter((r) => !r.token.startsWith('fb_antigo'))
+    expect(nova).toHaveLength(1)
+    s.solicitacoes.splice(0, s.solicitacoes.length, ...s.solicitacoes.filter((r) => r.token.startsWith('fb_antigo')), ...nova)
+    expect(nova[0]).toMatchObject({ email: 'ok@exemplo.com', pedido_id: 'ok', placa: 'AAA1A11' })
+    expect(nova[0].link).toBe(`${BASE}/feedback/${nova[0].token}`)
+    expect(nova[0].email_enviado_em).toBeTruthy()
 
     // Segunda rodada: o mesmo cliente nao recebe de novo.
     const r2 = await rodarAvaliacaoGoogle(s.cliente, { agora: AGORA, desde: DESDE, excluir: ['equipe@exemplo.com'], enviar, cfg: PROD })
@@ -190,19 +188,19 @@ describe('rodarAvaliacaoGoogle', () => {
     expect(enviar).toHaveBeenCalledTimes(1)
   })
 
-  it('trava do banco: se outra rodada ja inseriu, nao envia', async () => {
-    const s = sb([ped()], [], true)
+  it('trava sem tabela nova: se outra rodada inseriu antes, nao envia e apaga a propria linha', async () => {
+    const s = sb([ped({ email: 'cliente@exemplo.com' })], [], 'cliente@exemplo.com')
     const enviar = vi.fn(async () => true)
     await rodarAvaliacaoGoogle(s.cliente, { agora: AGORA, desde: DESDE, enviar, cfg: PROD })
     expect(enviar).not.toHaveBeenCalled()
+    expect(s.solicitacoes.map((r) => r.token)).toEqual(['fb_0outra'])
   })
 
   it('falha no envio solta a vaga para tentar de novo', async () => {
     const s = sb([ped()])
     const r = await rodarAvaliacaoGoogle(s.cliente, { agora: AGORA, desde: DESDE, enviar: async () => false, cfg: PROD })
     expect(r.falhas).toBe(1)
-    expect(s.removidos).toEqual(['cliente@exemplo.com'])
-    expect(s.tabela.size).toBe(0)
+    // A linha some: a proxima rodada tenta de novo.
     expect(s.solicitacoes).toHaveLength(0)
   })
 
@@ -212,7 +210,7 @@ describe('rodarAvaliacaoGoogle', () => {
     const r = await rodarAvaliacaoGoogle(s.cliente, { agora: AGORA, desde: DESDE, dryRun: true, enviar, cfg: PROD })
     expect(r.candidatos).toBe(1)
     expect(enviar).not.toHaveBeenCalled()
-    expect(s.inseridos).toEqual([])
+    expect(s.solicitacoes).toHaveLength(0)
     expect(JSON.stringify(r)).not.toContain('@')
   })
 })

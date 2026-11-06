@@ -5,8 +5,8 @@ Cada botão leva para `/feedback/<token>?nota=N`, que grava a nota. Nota 4 ou 5:
 Nota 1 a 3: "O que podemos melhorar?" (nota 1 ou 2 com comentário avisa o Lead em helena@). Sem cupom e sem brinde.
 
 - `pc-avaliacao-google.timer`: todo dia às 10h chama `pc-avaliacao-google-run`, que faz `POST /api/premium/avaliacao/run` com `x-admin-secret` pelo Traefik local.
-- Ficam de fora: valor 0, status diferente de `entregue` (reembolsado inclusive), entregue antes de `AVALIACAO_DESDE`, entregue há menos de 3 ou mais de 10 dias, e-mails em `/root/.pix-recover-excluir` e `/root/.resend-unsubscribed.txt`, quem já recebeu (`avaliacao_google_envios`). Fora de prod o endpoint não envia.
-- Tabelas: `avaliacao_google_envios` (trava de envio, migração deste PR) e `feedback_solicitacoes` (já existe em prod e staging).
+- Ficam de fora: valor 0, status diferente de `entregue` (reembolsado inclusive), entregue antes de `AVALIACAO_DESDE`, entregue há menos de 3 ou mais de 10 dias, e-mails em `/root/.pix-recover-excluir` e `/root/.resend-unsubscribed.txt`, quem já tem linha em `feedback_solicitacoes` (é a trava de "uma vez na vida"). Fora de prod o endpoint não envia.
+- Tabela: só `feedback_solicitacoes` (já existe em prod e staging). Nenhuma migração.
 - Instalação (fica DESLIGADO até o ok do Cesar):
   - `install -m 755 pc-avaliacao-google-run /usr/local/bin/`
   - copiar `.service`/`.timer` para `/etc/systemd/system/` e `systemctl daemon-reload`
