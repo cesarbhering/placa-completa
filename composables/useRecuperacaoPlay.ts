@@ -30,6 +30,7 @@
  * Nada depende deles: sem evento, o polling chega no mesmo lugar.
  */
 import type { ConsultaLocal } from './useConsultaHistory'
+import { emailValido, ehIdIntencao } from '../shared/intencao-play'
 
 export interface CompraGuardada {
   purchaseToken: string
@@ -89,8 +90,55 @@ export function esquecerCompra(purchaseToken: string, ponte: PonteBillingAndroid
   try { ponte?.removePurchase(purchaseToken) } catch { /* app antigo ou ponte instavel: tenta de novo na proxima */ }
 }
 
+// A compra no app leva o id da intencao (shared/intencao-play.ts) no lugar da
+// placa, e o app guarda nativamente esse valor no campo `placa` da compra e
+// dos eventos. Este mapa local (id -> placa) desfaz a troca: placaLimpa
+// devolve a placa de verdade. Sem o mapa (outro aparelho, dados apagados),
+// o servidor ainda devolve a placa do pedido no /pedido.
+const CHAVE_INTENCOES = 'pc-play-intencoes'
+const MAX_INTENCOES = 30
+const intencoesMemoria = new Map<string, string>()
+
+function lerIntencoes(): Record<string, { placa: string; em: number }> {
+  try {
+    const o = JSON.parse(localStorage.getItem(CHAVE_INTENCOES) || '{}')
+    return o && typeof o === 'object' && !Array.isArray(o) ? o : {}
+  } catch {
+    return {}
+  }
+}
+
+/** Guarda a placa do id de intencao que vai pra Play. */
+export function lembrarIntencao(id: string, placa: string, agora = Date.now()) {
+  const p = String(placa ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
+  if (!ehIdIntencao(id) || p.length < 7) return
+  intencoesMemoria.set(id, p)
+  try {
+    const todas = { ...lerIntencoes(), [id]: { placa: p, em: agora } }
+    const recentes = Object.entries(todas).sort((a, b) => (b[1]?.em || 0) - (a[1]?.em || 0)).slice(0, MAX_INTENCOES)
+    localStorage.setItem(CHAVE_INTENCOES, JSON.stringify(Object.fromEntries(recentes)))
+  } catch { /* sem storage: fica so na memoria */ }
+}
+
+export function placaDaIntencao(id: string): string | null {
+  return intencoesMemoria.get(id) || lerIntencoes()[id]?.placa || null
+}
+
+/**
+ * Grava placa + e-mail no servidor antes de abrir a folha da Play e devolve o
+ * id que vai na compra (no lugar da placa). Falhou: lanca, e a compra nao abre.
+ */
+export async function criarIntencaoPlay(placa: string, email: string, buscar: (url: string, o: any) => Promise<any> = (u, o) => $fetch(u, o)): Promise<string> {
+  const r = await buscar('/api/premium/google-play/intencao', { method: 'POST', body: { placa, email } })
+  const id = r?.id
+  if (!ehIdIntencao(id)) throw new Error('intencao sem id')
+  lembrarIntencao(id, placa)
+  return id
+}
+
 export function placaLimpa(v: unknown): string {
-  return String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
+  const bruto = ehIdIntencao(v) ? placaDaIntencao(v) : v
+  return String(bruto ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7)
 }
 
 export function savedAtMs(v: CompraGuardada['savedAt']): number {
@@ -131,9 +179,7 @@ export async function consultarPedidoPlay(purchaseToken: string, email?: string 
   }
 }
 
-export function emailValido(v: unknown): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v ?? '').trim())
-}
+export { emailValido }
 
 // ---------------------------------------------------------------- historico
 

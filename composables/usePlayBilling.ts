@@ -10,10 +10,12 @@
  *   window.PlacaCompletaBilling.purchase('consulta_completa', 'ABC1D23')
  *     -> { purchaseToken, orderId, productId }
  *
- * A placa vai junto porque o app v5 a grava nativamente ANTES de abrir a folha
- * do Play: se a pessoa fechar o app no meio, a compra paga nao fica orfa e o
- * app sabe qual relatorio restaurar. No v4 o argumento extra e ignorado, entao
- * o site pode mandar sempre.
+ * O segundo argumento vira o obfuscatedExternalAccountId da compra e o app v5
+ * o grava nativamente ANTES de abrir a folha do Play. Desde nov/2026 o checkout
+ * manda o id da intencao (shared/intencao-play.ts), nao a placa: o servidor
+ * acha placa e e-mail por ele mesmo se o app morrer depois de pagar, e o site
+ * traduz o id de volta pra placa (placaLimpa em useRecuperacaoPlay). No v4 o
+ * argumento extra e ignorado.
  *
  * Erro e cancelamento viram exception, porque desistir da compra e cancelar,
  * nao falhar: quem chama diferencia pelo campo `cancelado`.
@@ -34,7 +36,7 @@ export interface ErroBilling extends Error {
 declare global {
   interface Window {
     PlacaCompletaBilling?: {
-      purchase: (productId: string, placa?: string) => Promise<CompraPlay>
+      purchase: (productId: string, contaExterna?: string) => Promise<CompraPlay>
     }
   }
 }
@@ -49,12 +51,12 @@ export const usePlayBilling = () => {
    */
   const disponivel = () => typeof window !== 'undefined' && typeof window.PlacaCompletaBilling?.purchase === 'function'
 
-  async function comprar(placa?: string, productId: string = PRODUTO_COMPLETA): Promise<CompraPlay> {
+  async function comprar(contaExterna?: string, productId: string = PRODUTO_COMPLETA): Promise<CompraPlay> {
     if (!disponivel()) {
       const e = new Error('billing indisponivel') as ErroBilling
       throw e
     }
-    const r = await window.PlacaCompletaBilling!.purchase(productId, placa)
+    const r = await window.PlacaCompletaBilling!.purchase(productId, contaExterna)
     if (!r?.purchaseToken) {
       const e = new Error('compra sem comprovante') as ErroBilling
       throw e

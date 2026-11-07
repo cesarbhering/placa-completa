@@ -250,3 +250,51 @@ describe('auxiliares', () => {
     expect(decodificarRtdn(null)).toBe(null)
   })
 })
+
+describe('purchase intent (obfuscatedExternalAccountId)', () => {
+  const ID = 'gpi_AAAAAAAAAAAAAAAAAAAAAAAA'
+  const intencoes = () => sb.tab('google_play_intencoes')
+  const job = (extra: any = {}) => rodarJobGooglePlay({ ...deps(), dono: 'c1', alertar, log: () => {}, ...extra })
+
+  beforeEach(() => {
+    intencoes().push({ id: ID, placa: 'ABC1D23', email: 'buyer@example.com', criado_em: new Date(AGORA - MIN).toISOString(), usado_em: null })
+  })
+
+  it('RTDN-only purchase (app died after paying) becomes an order with plate and e-mail from the intent', async () => {
+    google = compraGoogle({ contaExterna: ID })
+    await registrarCompra(sb, 'tok-rtdn', { product_id: 'consulta_completa' }, 'rtdn', AGORA)
+    const r = await job()
+    expect(r.entregues).toBe(1)
+    expect(pedidos()).toHaveLength(1)
+    expect(pedidos()[0]).toMatchObject({ placa: 'ABC1D23', email: 'buyer@example.com', google_play_purchase_token: 'tok-rtdn' })
+    expect(compras()[0]).toMatchObject({ email: 'buyer@example.com', placa: 'ABC1D23' })
+    expect(intencoes()[0].usado_em).toBe(new Date(AGORA).toISOString())
+  })
+
+  it('intent e-mail only fills an empty e-mail: the one sent by the app wins', async () => {
+    google = compraGoogle({ contaExterna: ID })
+    await concluirCompraPlay(entrada({ email: 'app@example.com' }), deps())
+    expect(pedidos()[0].email).toBe('app@example.com')
+  })
+
+  it('verificar without e-mail still gets it from the intent', async () => {
+    google = compraGoogle({ contaExterna: ID })
+    await concluirCompraPlay(entrada({ email: null }), deps())
+    expect(pedidos()[0]).toMatchObject({ placa: 'ABC1D23', email: 'buyer@example.com' })
+  })
+
+  it('legacy app: contaExterna is the plate itself and the order has no e-mail', async () => {
+    google = compraGoogle({ contaExterna: 'XYZ9A88' })
+    await registrarCompra(sb, 'tok-old', { product_id: 'consulta_completa' }, 'rtdn', AGORA)
+    await job()
+    expect(pedidos()[0]).toMatchObject({ placa: 'XYZ9A88', email: null })
+    expect(intencoes()[0].usado_em).toBeNull()
+  })
+
+  it('unknown intent id with no other plate source is not delivered', async () => {
+    google = compraGoogle({ contaExterna: 'gpi_ZZZZZZZZZZZZZZZZZZZZZZZZ' })
+    const r = await concluirCompraPlay(entrada({ placa: null, origem: 'job' }), deps())
+    expect(r.tipo).toBe('sem_placa')
+    expect(pedidos()).toHaveLength(0)
+  })
+})

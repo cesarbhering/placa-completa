@@ -104,7 +104,7 @@ export interface CompraGoogle {
   consumida: boolean
   /** purchaseType 0: compra de teste (conta de teste da Play), nao e venda. */
   teste: boolean
-  /** obfuscatedExternalAccountId que o app mandou na compra (a placa, quando mandada). */
+  /** obfuscatedExternalAccountId que o app mandou na compra: id da intencao (app novo) ou a placa (app antigo). */
   contaExterna: string | null
 }
 

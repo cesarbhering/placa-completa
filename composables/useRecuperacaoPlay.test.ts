@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
-  rodarRecuperacao, lerComprasGuardadas, compraDaPlaca, proximoIntervalo, consultarPedidoPlay,
+  rodarRecuperacao, lerComprasGuardadas, compraDaPlaca, proximoIntervalo, consultarPedidoPlay, criarIntencaoPlay, placaLimpa,
   STATUS_PROCESSANDO_PLAY, DESCONHECIDA_ESQUECE_MS, type HistoricoDeps, type RespostaPedidoPlay,
 } from './useRecuperacaoPlay'
 import type { ConsultaLocal } from './useConsultaHistory'
@@ -201,5 +201,28 @@ describe('useRecuperacaoPlay: gatilhos do app', () => {
     expect(estados['pc-play-ultimo-pendente'].value).toMatchObject({ purchaseToken: 'tok-x' })
     delete (window as any).AndroidBillingBridge
     vi.unstubAllGlobals()
+  })
+})
+
+describe('purchase intent id in place of the plate', () => {
+  const ID = 'gpi_BBBBBBBBBBBBBBBBBBBBBBBB'
+
+  it('creates the intent, remembers the plate and resolves the id back to it', async () => {
+    const buscar = vi.fn(async () => ({ id: ID }))
+    const id = await criarIntencaoPlay('ABC1D23', 'a@b.com', buscar)
+    expect(id).toBe(ID)
+    expect(buscar).toHaveBeenCalledWith('/api/premium/google-play/intencao', { method: 'POST', body: { placa: 'ABC1D23', email: 'a@b.com' } })
+    expect(placaLimpa(ID)).toBe('ABC1D23')
+    expect(compraDaPlaca('ABC1D23', ponte([{ purchaseToken: 't1', placa: ID, savedAt: 1 }]) as any)?.purchaseToken).toBe('t1')
+  })
+
+  it('throws when the server does not return a valid id (purchase must not open)', async () => {
+    await expect(criarIntencaoPlay('ABC1D23', 'a@b.com', async () => ({}))).rejects.toThrow()
+    await expect(criarIntencaoPlay('ABC1D23', 'a@b.com', async () => { throw new Error('offline') })).rejects.toThrow('offline')
+  })
+
+  it('unknown intent id never turns into a fake plate; legacy plates still work', () => {
+    expect(placaLimpa('gpi_CCCCCCCCCCCCCCCCCCCCCCCC')).toBe('')
+    expect(placaLimpa('abc-1d23')).toBe('ABC1D23')
   })
 })

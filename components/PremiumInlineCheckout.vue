@@ -7,7 +7,7 @@ import { decidirVarianteCheckout, metodoInicialCheckout, ehCelular, gravarMetodo
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora, trackConversaoPixGerado } from '~/composables/useAnalytics'
 import type { CompraPlay } from '~/composables/usePlayBilling'
 import {
-  EVENTO_PENDENTE, EVENTO_PRONTO, EVENTO_RESUME, PREFIXO_PROVISORIO, STATUS_PROCESSANDO_PLAY, compraDaPlaca, consultarPedidoPlay, emailValido,
+  EVENTO_PENDENTE, EVENTO_PRONTO, EVENTO_RESUME, PREFIXO_PROVISORIO, STATUS_PROCESSANDO_PLAY, compraDaPlaca, consultarPedidoPlay, emailValido, criarIntencaoPlay,
   esquecerCompra, placaLimpa, provisorioDaCompra, proximoIntervalo, type DetalhePendente, type DetalhePronto,
 } from '~/composables/useRecuperacaoPlay'
 
@@ -699,9 +699,24 @@ async function comprarPeloPlay() {
   // espera) manda ele pro servidor junto com o comprovante.
   try { localStorage.setItem('pc_email', emailNoPedido.value) } catch { /* modo privado */ }
   marcarEmailInformado('checkout')
+  // Placa e e-mail vao pro servidor ANTES de pagar: se o app morrer depois do
+  // pagamento, o pedido nasce (pela notificacao da Play) ja com o e-mail. O id
+  // devolvido segue na compra no lugar da placa. Sem ele, a folha nao abre.
+  let intencao: string
+  try {
+    intencao = await criarIntencaoPlay(preview.value.placa, emailNoPedido.value)
+  } catch (e: any) {
+    if (import.meta.dev) console.warn('[checkout] intencao no Play falhou:', e?.data?.message || e)
+    const st = e?.statusCode ?? e?.response?.status
+    msg.value = st === 400 && e?.data?.message
+      ? e.data.message
+      : 'Não conseguimos iniciar a compra agora. Confira sua conexão e tente de novo.'
+    loading.value = false
+    return
+  }
   let compra: CompraPlay | null = null
   try {
-    compra = await playBilling.comprar(preview.value.placa)
+    compra = await playBilling.comprar(intencao)
     const r: any = await $fetch('/api/premium/google-play/verificar', {
       method: 'POST',
       body: {
