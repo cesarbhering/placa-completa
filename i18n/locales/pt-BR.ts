@@ -177,7 +177,7 @@ export default {
   relatoriosProntos: {
     tituloUm: 'Seu relatório está pronto',
     tituloVarios: 'Seus relatórios estão prontos',
-    textoUm: 'A consulta que você pagou terminou. Ele fica salvo em Suas consultas.',
+    textoUm: 'O relatório da consulta que você pagou já está pronto e fica salvo em Suas consultas.',
     textoVarios: 'Você tem {n} consultas pagas esperando. Elas ficam salvas em Suas consultas.',
     placa: 'Placa',
     abrir: 'Abrir relatório',
