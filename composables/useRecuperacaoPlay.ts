@@ -195,7 +195,7 @@ export function provisorioDaCompra(itens: ConsultaLocal[], c: CompraGuardada): C
 
 export interface HistoricoDeps {
   ler: () => ConsultaLocal[]
-  add: (e: { token: string; placa: string; veiculo?: string | null; status?: string }) => void
+  add: (e: { token: string; placa: string; veiculo?: string | null; status?: string; aberto?: boolean }) => void
   updateStatus: (token: string, status: string) => void
   remove: (token: string) => void
 }
@@ -207,7 +207,8 @@ export function registrarPronto(h: HistoricoDeps, c: CompraGuardada, r: { token:
   const placa = placaLimpa(r.placa || c.placa || prov?.placa)
   const ja = itens.find((it) => it.token === r.token)
   if (ja) h.updateStatus(r.token, r.status)
-  else h.add({ token: r.token, placa, veiculo: prov?.veiculo ?? null, status: r.status })
+  // aberto: false = entra no aviso "relatorio esperando" (RelatoriosProntos.vue).
+  else h.add({ token: r.token, placa, veiculo: prov?.veiculo ?? null, status: r.status, aberto: false })
   if (prov && prov.token !== r.token) h.remove(prov.token)
 }
 

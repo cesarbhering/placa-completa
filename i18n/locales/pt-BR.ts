@@ -174,4 +174,14 @@ export default {
     erroNota: 'Não conseguimos registrar agora. Tente de novo em instantes.',
     erroComentario: 'Não conseguimos enviar agora. Tente de novo em instantes.',
   },
+  relatoriosProntos: {
+    tituloUm: 'Seu relatório está pronto',
+    tituloVarios: 'Seus relatórios estão prontos',
+    textoUm: 'O relatório da consulta que você pagou já está pronto e fica salvo em Suas consultas.',
+    textoVarios: 'Você tem {n} consultas pagas esperando. Elas ficam salvas em Suas consultas.',
+    placa: 'Placa',
+    abrir: 'Abrir relatório',
+    abrirPlaca: 'Abrir relatório da placa {placa}',
+    fechar: 'Fechar',
+  },
 }
