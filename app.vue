@@ -159,6 +159,8 @@ function onStoreClick() {
       <ConsultasHistory :aberto="modalConsultas" @fechar="modalConsultas = false" />
       <!-- App: compra do Google Play concluida fora da tela de compra (pendente na loja). -->
       <ClientOnly><AvisoRelatorioPlay /></ClientOnly>
+      <!-- Relatorio pago e pronto que a pessoa ainda nao abriu (app e site no celular). -->
+      <ClientOnly><RelatoriosProntos /></ClientOnly>
       <!-- WhatsApp flutuante (suporte): some em checkout/modal/Pix, sobe acima da barra de compra. -->
       <ClientOnly><WhatsappFlutuante /></ClientOnly>
       <!-- Rodape em colunas (opcao 1 do Cesar, 08/out): marca a esquerda +

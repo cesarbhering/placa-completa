@@ -226,3 +226,11 @@ describe('purchase intent id in place of the plate', () => {
     expect(placaLimpa('abc-1d23')).toBe('ABC1D23')
   })
 })
+
+describe('pending report notice: items recovered from Google Play', () => {
+  it('a report recovered by the Play round enters history as not opened yet', async () => {
+    const h = historico([{ token: 'play:GPA.1', placa: 'ABC1D23', status: STATUS_PROCESSANDO_PLAY }])
+    await rodarRecuperacao({ ponte: ponte([compra]), consultar: async () => pronto(), historico: h })
+    expect(h.itens[0]).toMatchObject({ token: 'entrega-1', status: 'entregue', aberto: false })
+  })
+})

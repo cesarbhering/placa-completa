@@ -68,7 +68,7 @@ if (data.value?.redirecionarPara) {
   await navigateTo(`/premium/${data.value.redirecionarPara}`, { redirectCode: 302, replace: true })
 }
 
-const { itens, sync: histSync, add: histAdd, updateStatus: histUpdate } = useConsultaHistory()
+const { itens, sync: histSync, add: histAdd, updateStatus: histUpdate, marcarAberto } = useConsultaHistory()
 const { trackConversionPaga, track } = useAnalytics()
 
 // ---------- cupom de recompra (card do fim) ----------
@@ -2092,6 +2092,8 @@ onMounted(() => {
   const existe = itens.value.some((x) => x.token === token)
   if (existe) histUpdate(token, data.value.status)
   else histAdd({ token, placa: data.value.placa, veiculo: g('descricaoMarcaModelo') || null, status: data.value.status })
+  // Abriu o relatorio neste aparelho: sai do aviso "relatorio esperando".
+  if (data.value.status === 'entregue') marcarAberto(token)
   // Na abertura, so conta conversao de relatorio RECEM entregue. O guard por
   // token vive no navegador, entao ele nao cobre a revisita em OUTRO aparelho
   // (paga no celular, abre o link do e-mail no computador semanas depois), e
@@ -2116,6 +2118,7 @@ onMounted(() => {
         await refresh()          // o estado mudou de verdade: agora sim recarrega
         if (!ehCartao.value) await buscarQr()  // Pix: se veio br_code novo, o QR acompanha (cartao nunca tem QR)
         if (data.value) histUpdate(token, data.value.status)
+        if (data.value?.status === 'entregue') marcarAberto(token)
         // conversao do Ads/GA4 (veio do outro lado do merge): dispara quando o
         // pagamento se confirma; a funcao e idempotente por token
         if (data.value && ['pago', 'consultando', 'entregue'].includes(data.value.status)) trackConversionPaga(token, data.value.plano, data.value.valorCentavos ?? undefined, undefined, { emailSha256: data.value.emailSha256 })
