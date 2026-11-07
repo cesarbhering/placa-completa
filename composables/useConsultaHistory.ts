@@ -10,16 +10,30 @@ export interface ConsultaLocal {
   status: string
   criadoEm: string
   atualizadoEm: string
+  /**
+   * Se a pessoa ja abriu o relatorio NESTE aparelho. Ausente = item salvo antes
+   * deste campo existir: conta como aberto, senao todo historico antigo viraria
+   * "relatorio esperando" de uma vez. Item novo nasce com false e vira true na
+   * pagina do relatorio (/premium/<token>) ou no botao do aviso.
+   */
+  aberto?: boolean
+}
+
+/** Relatorio pronto que a pessoa ainda nao abriu neste aparelho. */
+export function relatorioPendente(it: Pick<ConsultaLocal, 'status' | 'aberto'>): boolean {
+  return it.status === 'entregue' && it.aberto === false
 }
 
 const KEY = 'pc_consultas_v1'
+// Flag do Nuxt (false no SSR); fora do Nuxt, num teste, vale ter window.
+const noNavegador = () => import.meta.client ?? (typeof window !== 'undefined')
 const MAX = 12
 
 export function useConsultaHistory() {
   const itens = useState<ConsultaLocal[]>('pc-consulta-history', () => [])
 
   function ler(): ConsultaLocal[] {
-    if (!import.meta.client) return []
+    if (!noNavegador()) return []
     try {
       const raw = localStorage.getItem(KEY)
       const arr = raw ? JSON.parse(raw) : []
@@ -32,7 +46,7 @@ export function useConsultaHistory() {
   function salvar(arr: ConsultaLocal[]) {
     const cortado = arr.slice(0, MAX)
     itens.value = cortado
-    if (!import.meta.client) return
+    if (!noNavegador()) return
     try {
       localStorage.setItem(KEY, JSON.stringify(cortado))
     } catch {
@@ -45,9 +59,14 @@ export function useConsultaHistory() {
     itens.value = ler()
   }
 
-  function add(e: { token: string; placa: string; veiculo?: string | null; status?: string }) {
+  function add(e: { token: string; placa: string; veiculo?: string | null; status?: string; aberto?: boolean }) {
     const agora = new Date().toISOString()
-    const arr = ler().filter((x) => x.token !== e.token)
+    const antes = ler()
+    const anterior = antes.find((x) => x.token === e.token)
+    const arr = antes.filter((x) => x.token !== e.token)
+    // Re-adicionar um pedido que ja existia nao pode "desabrir" o relatorio:
+    // mantem o que estava (inclusive o campo ausente dos itens antigos).
+    const aberto = anterior ? anterior.aberto : (e.aberto ?? false)
     arr.unshift({
       token: e.token,
       placa: e.placa,
@@ -55,7 +74,16 @@ export function useConsultaHistory() {
       status: e.status ?? 'aguardando_pagamento',
       criadoEm: agora,
       atualizadoEm: agora,
+      ...(aberto === undefined ? {} : { aberto }),
     })
+    salvar(arr)
+  }
+
+  function marcarAberto(token: string) {
+    const arr = ler()
+    const i = arr.findIndex((x) => x.token === token)
+    if (i === -1 || arr[i].aberto !== false) return
+    arr[i] = { ...arr[i], aberto: true }
     salvar(arr)
   }
 
@@ -75,5 +103,5 @@ export function useConsultaHistory() {
     salvar([])
   }
 
-  return { itens, sync, add, updateStatus, remove, clear }
+  return { itens, sync, add, updateStatus, marcarAberto, remove, clear }
 }

@@ -172,4 +172,14 @@ export default {
     erroNota: 'We could not save it right now. Please try again in a moment.',
     erroComentario: 'We could not send it right now. Please try again in a moment.',
   },
+  relatoriosProntos: {
+    tituloUm: 'Your report is ready',
+    tituloVarios: 'Your reports are ready',
+    textoUm: 'The check you paid for is done. It also stays in Your checks.',
+    textoVarios: 'You have {n} paid checks waiting. They also stay in Your checks.',
+    placa: 'Plate',
+    abrir: 'Open report',
+    abrirPlaca: 'Open the report for plate {placa}',
+    fechar: 'Close',
+  },
 }
