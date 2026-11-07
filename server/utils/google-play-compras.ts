@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { sanearOrigemCheckout } from '../../shared/origem-checkout'
 import { sanearOrigem } from '../../shared/origem-trafego'
+import { PREFIXO_INTENCAO, ehIdIntencao } from '../../shared/intencao-play'
 import type { CompraGoogle, EstadoGoogle, PedidoGoogle } from './google-play'
 
 // Compras do app (Google Play) do comeco ao fim (Cesar, 18/out/2026).
@@ -42,6 +43,26 @@ const RE_PLACA = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/
 export function normalizarPlaca(v: unknown): string | null {
   const p = String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
   return RE_PLACA.test(p) ? p : null
+}
+
+/** Id opaco da intencao de compra (vai como obfuscatedExternalAccountId). */
+export function novoIdIntencao(): string {
+  return PREFIXO_INTENCAO + crypto.randomBytes(18).toString('base64url')
+}
+
+/**
+ * Placa e e-mail que o app gravou antes de abrir a Play
+ * (/api/premium/google-play/intencao), achados pelo obfuscatedExternalAccountId.
+ * Valor que nao e id de intencao (app antigo manda a placa) devolve null.
+ */
+export async function buscarIntencao(supabase: any, contaExterna: unknown): Promise<{ id: string; placa: string | null; email: string | null } | null> {
+  if (!ehIdIntencao(contaExterna)) return null
+  try {
+    const { data } = await supabase.from('google_play_intencoes').select('id,placa,email').eq('id', contaExterna).maybeSingle()
+    return data ? { id: data.id, placa: normalizarPlaca(data.placa), email: data.email && String(data.email).includes('@') ? String(data.email) : null } : null
+  } catch {
+    return null
+  }
 }
 
 export interface EntradaCompra {
@@ -163,7 +184,10 @@ export async function concluirCompraPlay(e: EntradaCompra, deps: DepsCompra): Pr
     return { tipo: 'recusada', motivo: compra.motivo || 'compra nao confirmada', estado: compra.estado }
   }
 
-  const placa = normalizarPlaca(e.placa) || normalizarPlaca(linha.placa) || normalizarPlaca(compra.contaExterna)
+  // App novo: contaExterna e o id da intencao (placa + e-mail gravados antes
+  // de pagar). App antigo: contaExterna e a propria placa.
+  const intencao = await buscarIntencao(sb, compra.contaExterna)
+  const placa = normalizarPlaca(e.placa) || normalizarPlaca(linha.placa) || intencao?.placa || normalizarPlaca(compra.contaExterna)
   if (!placa) {
     await atualizarCompra(sb, linha.id, { ...base, motivo: 'paga, sem placa' }, agora)
     return { tipo: 'sem_placa' }
@@ -177,7 +201,8 @@ export async function concluirCompraPlay(e: EntradaCompra, deps: DepsCompra): Pr
   const valor = pg?.valorCentavos ?? PRECO_PLAY_PADRAO_CENTAVOS
 
   const dados = { ...(linha.dados_app || {}), ...semVazios(e.dadosApp || {}) }
-  const email = (e.email && e.email.includes('@') ? e.email : null) || linha.email || null
+  // O e-mail da intencao so preenche o que estiver vazio.
+  const email = (e.email && e.email.includes('@') ? e.email : null) || linha.email || intencao?.email || null
   const tokenEntrega = crypto.randomBytes(18).toString('base64url')
   const { data: pedido, error } = await sb.from('pedidos_premium')
     .insert({
@@ -220,7 +245,13 @@ export async function concluirCompraPlay(e: EntradaCompra, deps: DepsCompra): Pr
 
   await atualizarCompra(sb, linha.id, {
     ...base, motivo: null, pedido_id: pedido.id, placa, valor_centavos: valor, liquido_centavos: pg?.liquidoCentavos ?? null,
+    ...(email && !linha.email ? { email } : {}),
   }, agora)
+  if (intencao) {
+    try {
+      await sb.from('google_play_intencoes').update({ usado_em: new Date(agora).toISOString() }).eq('id', intencao.id).is('usado_em', null)
+    } catch { /* so marcacao */ }
+  }
 
   // Entrega em segundo plano (a tela acompanha por /api/premium/status) e,
   // quando termina, consome a compra pra pessoa poder comprar outra placa.

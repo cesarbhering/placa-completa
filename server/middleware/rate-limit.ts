@@ -44,6 +44,9 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   // cobre a espera com folga e barra varredura. Contado por IP, sem a query
   // (senao cada purchaseToken ganharia um balde proprio).
   '/api/premium/google-play/pedido': { windowMs: 60 * 60 * 1000, maxRequests: 120 }, // 120 por hora
+  // Intencao de compra do app (placa + e-mail antes da folha da Play): uma por
+  // tentativa de compra. Mesmo teto do /verificar.
+  '/api/premium/google-play/intencao': { windowMs: 60 * 60 * 1000, maxRequests: 10 }, // 10 por hora
   // Coletor do funil: recebe lote de ate 10 eventos por chamada, entao 60/min
   // cobre uma navegacao intensa com folga e ainda barra despejo automatizado.
   '/api/evento': { windowMs: 60 * 1000, maxRequests: 60 }, // 60 por minuto
