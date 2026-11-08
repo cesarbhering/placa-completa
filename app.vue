@@ -161,7 +161,7 @@ function onStoreClick() {
       <ClientOnly><AvisoRelatorioPlay /></ClientOnly>
       <!-- Relatorio pago e pronto que a pessoa ainda nao abriu (app e site no celular). -->
       <ClientOnly><RelatoriosProntos /></ClientOnly>
-      <!-- WhatsApp flutuante (suporte): some em checkout/modal/Pix, sobe acima da barra de compra. -->
+      <!-- Floating contact button (form to Cesar while WhatsApp is offline): hides on checkout/modal/Pix, rises above the buy bar. -->
       <ClientOnly><WhatsappFlutuante /></ClientOnly>
       <!-- Rodape em colunas (opcao 1 do Cesar, 08/out): marca a esquerda +
            4 colunas (shared/rodape-links.ts). No celular as colunas viram

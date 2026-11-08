@@ -55,6 +55,21 @@ export default {
   whatsapp: {
     aria: 'Message PlacaCompleta on WhatsApp',
   },
+  contatoForm: {
+    aria: 'Contact PlacaCompleta',
+    titulo: 'Get in touch',
+    sub: 'Leave your e-mail and phone. We reply within 1 business day.',
+    email: 'E-mail',
+    telefone: 'Phone with area code',
+    telefonePlaceholder: '(11) 99999-9999',
+    mensagem: 'How can we help? (optional)',
+    enviar: 'Send',
+    enviando: 'Sending...',
+    fechar: 'Close',
+    okTitulo: 'Message sent',
+    okTexto: 'We got your message. We reply within 1 business day by the e-mail or phone you gave us.',
+    erro: 'We could not send it right now. Please try again in a moment.',
+  },
   contato: {
     title: 'Contact PlacaCompleta: Email for Questions and Press',
     ogTitle: 'Contact PlacaCompleta',
