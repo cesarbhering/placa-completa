@@ -1485,7 +1485,9 @@ onUnmounted(() => {
             <!-- Prova social + WhatsApp: iguais nas duas variantes do A/B
                  (ab_checkout) e nas duas abas, abaixo do botao de pagar. -->
             <p class="pic-prova">{{ PROVA_SOCIAL }}</p>
+            <!-- Hidden 07/11/2026: company WhatsApp number is offline.
             <p class="pic-wa"><WhatsappDuvidas onde="checkout" /></p>
+            -->
             <!-- Sem "Cancelar" no rodape: o X do cabecalho (pic-x, sempre visivel)
                  ja fecha o modal. Um botao a mais so competia com a CTA. -->
           </div>

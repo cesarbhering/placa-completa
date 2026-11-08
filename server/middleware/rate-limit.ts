@@ -32,6 +32,8 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   '/api/consulta': { windowMs: 60 * 1000, maxRequests: 10 }, // 10 per minute
   // Proposta de pacote para empresas (/para-empresas): ninguem pede mais de 5 por hora.
   '/api/empresas/proposta': { windowMs: 60 * 60 * 1000, maxRequests: 5 },
+  // Floating contact button form: nobody writes more than 5 times per hour.
+  '/api/contato/mensagem': { windowMs: 60 * 60 * 1000, maxRequests: 5 },
   '/api/send-notification': { windowMs: 60 * 1000, maxRequests: 5 }, // 5 per minute
   '/api/dash-auth': { windowMs: 60 * 60 * 1000, maxRequests: 5 }, // 5 per hour (auth)
   '/api/fcm-token/save': { windowMs: 60 * 1000, maxRequests: 10 }, // 10 per minute

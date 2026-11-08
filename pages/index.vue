@@ -1810,7 +1810,9 @@ function applyEmailSuggestion() {
                   <!-- Prova social + WhatsApp: iguais nas duas variantes do A/B,
                        abaixo do CTA, pra nao mexer no que o teste mede. -->
                   <p class="cb-locked__prova">{{ PROVA_SOCIAL }}</p>
+                  <!-- Hidden 07/11/2026: company WhatsApp number is offline.
                   <p class="cb-locked__wa"><WhatsappDuvidas onde="resultado_gratis" /></p>
+                  -->
                   <!-- Oferta da basica desativada aqui: duas opcoes no mesmo
                        ponto dividiam a decisao. A basica segue viva no
                        comparativo de precos. Pra voltar, e so descomentar.

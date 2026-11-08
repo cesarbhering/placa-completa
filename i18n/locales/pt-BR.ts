@@ -57,6 +57,21 @@ export default {
   whatsapp: {
     aria: 'Falar com a PlacaCompleta no WhatsApp',
   },
+  contatoForm: {
+    aria: 'Falar com a PlacaCompleta',
+    titulo: 'Fale com a gente',
+    sub: 'Deixe seu e-mail e telefone. Respondemos em até 24 horas úteis.',
+    email: 'E-mail',
+    telefone: 'Telefone com DDD',
+    telefonePlaceholder: '(11) 99999-9999',
+    mensagem: 'Como podemos ajudar? (opcional)',
+    enviar: 'Enviar',
+    enviando: 'Enviando...',
+    fechar: 'Fechar',
+    okTitulo: 'Mensagem enviada',
+    okTexto: 'Recebemos seu contato. Respondemos em até 24 horas úteis pelo e-mail ou telefone que você informou.',
+    erro: 'Não conseguimos enviar agora. Tente de novo em instantes.',
+  },
   contato: {
     title: 'Contato do PlacaCompleta: E-mail para Dúvidas e Imprensa',
     ogTitle: 'Contato do PlacaCompleta',
