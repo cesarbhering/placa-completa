@@ -6,9 +6,9 @@
 //   app (WebView do Capacitor carregando o site) o localStorage e o do app.
 // - tokensPagos: tokens dos relatorios do historico local (useConsultaHistory).
 //   O servidor confere no banco se algum foi pago; o cliente nao decide nada.
-// - Contador local: consultas gratis sem e-mail nas ultimas 24h. Na terceira,
-//   o e-mail ja aparece obrigatorio antes de enviar, pra nao gastar um ida e
-//   volta. Se o contador local errar, o servidor corrige (403 email_obrigatorio).
+// - Contador local: consultas gratis sem e-mail nas ultimas 24h. So antecipa o
+//   modal depois que o servidor ja respondeu 403 email_obrigatorio na ultima
+//   hora (ver deveExigirEmailLocal); a primeira palavra e sempre do servidor.
 import type { ConsultaLocal } from './useConsultaHistory'
 
 const KEY_DEVICE = 'pc_did'
@@ -17,7 +17,6 @@ const KEY_GRATIS = 'pc_gratis_sem_email'
 const KEY_HIST = 'pc_consultas_v1'
 const KEY_LIMITE = 'pc_gate_limite'
 const LIMITE_VALIDADE_MS = 60 * 60 * 1000
-export const GATE_LIMITE_LOCAL = 2
 const JANELA_MS = 24 * 60 * 60 * 1000
 const MAX_TOKENS = 12
 // Status do historico local que ainda nao indicam pagamento.
@@ -115,52 +114,38 @@ export function registrarConsultaSemEmail(agora = Date.now()) {
 
 /**
  * Limite de consultas gratis sem e-mail que o servidor informou no ultimo 403
- * do gate (NUXT_CONSULTA_GRATIS_SEM_EMAIL; 0 = modo emergencia). Sem valor
- * guardado (ou vencido): 2, a regra permanente.
+ * do gate (NUXT_CONSULTA_GRATIS_SEM_EMAIL; 0 = modo emergencia), valido por 1h.
+ * Sem 403 recente: null, e o client nao barra nada sozinho.
  */
-export function limiteGateLocal(agora = Date.now()): number {
+export function limiteGateLocal(agora = Date.now()): number | null {
   try {
-    // Guardado como {limite, em}; vale 1h pra um modo emergencia desligado
-    // nao deixar o modal aparecendo pra sempre neste aparelho.
     const v = JSON.parse(ls()?.getItem(KEY_LIMITE) || 'null')
     const n = v?.limite
-    if (!Number.isInteger(n) || n < 0 || !(agora - Number(v?.em) < LIMITE_VALIDADE_MS)) return GATE_LIMITE_LOCAL
+    if (!Number.isInteger(n) || n < 0 || !(agora - Number(v?.em) < LIMITE_VALIDADE_MS)) return null
     return n
   } catch {
-    return GATE_LIMITE_LOCAL
+    return null
   }
 }
 
-/** Mesmo parser do servidor: inteiro >= 0; qualquer outra coisa vira 2. */
-export function parseLimiteGate(v: unknown): number {
-  if (v === '' || v === null || v === undefined) return GATE_LIMITE_LOCAL
-  const n = typeof v === 'number' ? v : Number(String(v).trim())
-  return Number.isInteger(n) && n >= 0 ? n : GATE_LIMITE_LOCAL
-}
-
 /**
- * Limite vigente (NUXT_CONSULTA_GRATIS_SEM_EMAIL) lido NO SERVIDOR durante o
- * SSR e entregue ao navegador pelo payload (useState). Assim a mesma env do
- * servidor vale pro client em runtime, sem segunda env NUXT_PUBLIC_ nem build.
- * Pagina que nao passou por SSR (cache/SPA): null, e vale o 403 do servidor.
+ * Antecipa o gate (abre o modal sem ir ao servidor) so quando o PROPRIO
+ * servidor ja respondeu email_obrigatorio na ultima hora, a pessoa nao tem
+ * e-mail salvo nem relatorio pago local, e a contagem local bate o limite que
+ * ele informou.
+ *
+ * Nunca barra por conta propria antes disso, de proposito: com
+ * NUXT_CONSULTA_GRATIS_SEM_EMAIL=0 a versao anterior abria o modal antes de
+ * qualquer POST, e quem o servidor isenta (IP na whitelist, como a sonda de
+ * checkout da VPS; quem pagou) nunca chegava a ser isento. Foi o que quebrou
+ * a sonda em producao (#710, revertido no #711). A consulta sempre vai ao
+ * servidor primeiro; o 403 do gate sai antes da wdapi, entao nao custa credito.
  */
-export function useLimiteGateEmail() {
-  return useState<number | null>('pc-gate-limite', () =>
-    import.meta.server ? parseLimiteGate((useRuntimeConfig() as any).consultaGratisSemEmail) : null,
-  )
-}
-
-/**
- * Antecipa o gate: ja fez N gratis sem e-mail em 24h, nao tem e-mail salvo nem
- * pago local. N = o menor entre o limite da pagina (SSR) e o ultimo informado
- * pelo 403 do servidor; com 0 o modal abre ja na primeira consulta.
- */
-export function deveExigirEmailLocal(agora = Date.now(), limitePagina?: number | null): boolean {
+export function deveExigirEmailLocal(agora = Date.now()): boolean {
   if (emailGateSalvo()) return false
   if (temPagoLocal()) return false
-  const limite = typeof limitePagina === 'number' && limitePagina >= 0
-    ? Math.min(limitePagina, limiteGateLocal(agora))
-    : limiteGateLocal(agora)
+  const limite = limiteGateLocal(agora)
+  if (limite === null) return false
   return lerGratis(agora).length >= limite
 }
 

@@ -10,7 +10,7 @@
 // carimbados com a variante da sessao; aqui so vai o evento do gtag.
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { PLANOS } from '~/shared/planos'
-import { camposGateEmail, deveExigirEmailLocal, useLimiteGateEmail, ehErroGateEmail, emailGateSalvo, registrarConsultaSemEmail, salvarEmailGate } from '~/composables/useGateEmail'
+import { camposGateEmail, deveExigirEmailLocal, ehErroGateEmail, emailGateSalvo, registrarConsultaSemEmail, salvarEmailGate } from '~/composables/useGateEmail'
 
 const { validatePlaca } = useFormValidation()
 // Turnstile: mesmo esquema da home (token logo antes do POST, reset depois).
@@ -35,7 +35,6 @@ function onInput(e: Event) {
 
 // Gate de e-mail (terceira consulta gratis em diante): mesmo fluxo da home.
 const showEmailGate = ref(false)
-const limiteGateEmail = useLimiteGateEmail()
 const emailGateTentativa = ref('')
 const emailGateErro = ref('')
 const emailGateSugestao = ref('')
@@ -55,7 +54,7 @@ async function consultar() {
   erro.value = ''
   if (!validatePlaca(placa.value)) { erro.value = 'Placa inválida. Use o formato ABC1D23 ou ABC1234.'; return }
   const emailGate = emailGateTentativa.value || emailGateSalvo()
-  if (!emailGate && deveExigirEmailLocal(Date.now(), limiteGateEmail.value)) { abrirGateEmail('local'); return }
+  if (!emailGate && deveExigirEmailLocal()) { abrirGateEmail('local'); return }
   carregando.value = true
   resultado.value = null
   try {

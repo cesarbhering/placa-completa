@@ -10,7 +10,7 @@ import { lookupIpGeo } from '../utils/ip-geo'
 import { getRegiaoSusep } from '../utils/regiao-susep'
 import { getSeguroEstimado, type SeguroEstimado } from '../utils/seguro-estimate'
 import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
-import { mensagemLimiteGratis } from '../utils/ip-wdapi-limit'
+import { mensagemLimiteGratis, tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT } from '../utils/ip-wdapi-limit'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
@@ -23,7 +23,6 @@ import {
   avaliarGateEmail, depsGateEmailSupabase, sanearDeviceId, sanearTokensPagos, limiteGratisSemEmail,
   GATE_EMAIL_CODE, GATE_EMAIL_MENSAGEM,
 } from '../utils/gate-email'
-import { tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT } from '../utils/ip-wdapi-limit'
 
 /**
  * Registra a consulta e RECLAMA se o banco recusar.
