@@ -15,4 +15,11 @@ create index if not exists idx_consultas_device_created
   on public.consultas (device_id, created_at desc)
   where device_id is not null;
 
+-- Contagem do gate por IP em 24h (e o teto de 5/IP/hora, que ja contava por
+-- IP). Nenhuma migration do repo cria esse indice; se ja existir com outro
+-- nome no banco, este fica redundante e pode ser dropado. Sem CONCURRENTLY
+-- (migration roda em transacao): trava escrita em consultas durante o build.
+create index if not exists idx_consultas_ip_created
+  on public.consultas (ip_address, created_at desc);
+
 notify pgrst, 'reload schema';

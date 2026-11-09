@@ -16,7 +16,7 @@ import { origemDoCta, type OrigemCheckout } from '~/shared/origem-checkout'
 import { planoDoLinkSemPlaca } from '~/shared/link-plano'
 import { veioDoBump } from '~/shared/cupom-bump'
 import { origemDaSessao, entradaDaSessao } from '~/shared/origem-trafego'
-import { camposGateEmail, deveExigirEmailLocal, ehErroGateEmail, emailGateSalvo, registrarConsultaSemEmail, salvarEmailGate } from '~/composables/useGateEmail'
+import { camposGateEmail, deveExigirEmailLocal, useLimiteGateEmail, ehErroGateEmail, emailGateSalvo, registrarConsultaSemEmail, salvarEmailGate } from '~/composables/useGateEmail'
 import { espelharEventoNoFunil, enfileirarEventoFunil, definirRecallSinal } from '~/composables/useAnalytics'
 import { decidirVariante, fipeSemCentavos, tituloVarianteB, subVarianteB, garantiaVarianteB, type VarianteAbBloco } from '~/shared/ab-bloco'
 
@@ -1268,6 +1268,7 @@ function changePwaEmail() {
 // da terceira consulta gratis em 24h, o e-mail e obrigatorio. A placa digitada
 // fica; o modal so pede o e-mail e a mesma consulta e reenviada.
 const showEmailGate = ref(false)
+const limiteGateEmail = useLimiteGateEmail()
 const emailGateTentativa = ref('')
 const emailGateErro = ref('')
 const emailGateSugestao = ref('')
@@ -1349,7 +1350,7 @@ async function handleSubmit() {
   // Web: e-mail do gate (salvo de uma vez anterior ou digitado agora no modal).
   // O PWA/app legado ja manda o e-mail dele e nunca cai no gate.
   const emailGate = fluxoLegado.value ? '' : (emailGateTentativa.value || emailGateSalvo())
-  if (!fluxoLegado.value && !emailGate && deveExigirEmailLocal()) {
+  if (!fluxoLegado.value && !emailGate && deveExigirEmailLocal(Date.now(), limiteGateEmail.value)) {
     abrirGateEmail('local')
     return
   }

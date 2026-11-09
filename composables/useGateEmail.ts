@@ -131,11 +131,37 @@ export function limiteGateLocal(agora = Date.now()): number {
   }
 }
 
-/** Antecipa o gate: ja fez N gratis sem e-mail em 24h, nao tem e-mail salvo nem pago local. */
-export function deveExigirEmailLocal(agora = Date.now()): boolean {
+/** Mesmo parser do servidor: inteiro >= 0; qualquer outra coisa vira 2. */
+export function parseLimiteGate(v: unknown): number {
+  if (v === '' || v === null || v === undefined) return GATE_LIMITE_LOCAL
+  const n = typeof v === 'number' ? v : Number(String(v).trim())
+  return Number.isInteger(n) && n >= 0 ? n : GATE_LIMITE_LOCAL
+}
+
+/**
+ * Limite vigente (NUXT_CONSULTA_GRATIS_SEM_EMAIL) lido NO SERVIDOR durante o
+ * SSR e entregue ao navegador pelo payload (useState). Assim a mesma env do
+ * servidor vale pro client em runtime, sem segunda env NUXT_PUBLIC_ nem build.
+ * Pagina que nao passou por SSR (cache/SPA): null, e vale o 403 do servidor.
+ */
+export function useLimiteGateEmail() {
+  return useState<number | null>('pc-gate-limite', () =>
+    import.meta.server ? parseLimiteGate((useRuntimeConfig() as any).consultaGratisSemEmail) : null,
+  )
+}
+
+/**
+ * Antecipa o gate: ja fez N gratis sem e-mail em 24h, nao tem e-mail salvo nem
+ * pago local. N = o menor entre o limite da pagina (SSR) e o ultimo informado
+ * pelo 403 do servidor; com 0 o modal abre ja na primeira consulta.
+ */
+export function deveExigirEmailLocal(agora = Date.now(), limitePagina?: number | null): boolean {
   if (emailGateSalvo()) return false
   if (temPagoLocal()) return false
-  return lerGratis(agora).length >= limiteGateLocal(agora)
+  const limite = typeof limitePagina === 'number' && limitePagina >= 0
+    ? Math.min(limitePagina, limiteGateLocal(agora))
+    : limiteGateLocal(agora)
+  return lerGratis(agora).length >= limite
 }
 
 /** Erro do $fetch e o 403 do gate? Guarda o limite que o servidor informou. */

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
   deviceIdLocal, deveExigirEmailLocal, registrarConsultaSemEmail, salvarEmailGate,
-  tokensDoHistorico, temPagoLocal, ehErroGateEmail, camposGateEmail,
+  tokensDoHistorico, temPagoLocal, ehErroGateEmail, camposGateEmail, parseLimiteGate,
 } from './useGateEmail'
 
 const T0 = Date.parse('2026-11-09T12:00:00Z')
@@ -79,5 +79,35 @@ describe('client-side allowance from the server answer', () => {
     localStorage.removeItem('pc_consultas_v1')
     salvarEmailGate('pessoa@exemplo.com')
     expect(deveExigirEmailLocal()).toBe(false)
+  })
+})
+
+describe('allowance delivered by the page (SSR state)', () => {
+  it('parses the env value like the server, defaulting to 2', () => {
+    expect(parseLimiteGate(undefined)).toBe(2)
+    expect(parseLimiteGate('x')).toBe(2)
+    expect(parseLimiteGate('0')).toBe(0)
+    expect(parseLimiteGate(0)).toBe(0)
+    expect(parseLimiteGate('2')).toBe(2)
+  })
+
+  it('with allowance 0 the modal opens before the very first lookup', () => {
+    expect(deveExigirEmailLocal(T0, 0)).toBe(true)
+  })
+
+  it('with allowance 2 the first two lookups go through and the third asks', () => {
+    expect(deveExigirEmailLocal(T0, 2)).toBe(false)
+    registrarConsultaSemEmail(T0)
+    expect(deveExigirEmailLocal(T0, 2)).toBe(false)
+    registrarConsultaSemEmail(T0)
+    expect(deveExigirEmailLocal(T0, 2)).toBe(true)
+  })
+
+  it('with allowance 0, a saved e-mail or a paid local report skips the up-front modal', () => {
+    salvarEmailGate('pessoa@exemplo.com')
+    expect(deveExigirEmailLocal(T0, 0)).toBe(false)
+    localStorage.clear()
+    localStorage.setItem('pc_consultas_v1', JSON.stringify([{ token: 'tokenFicticio0001', status: 'pago' }]))
+    expect(deveExigirEmailLocal(T0, 0)).toBe(false)
   })
 })

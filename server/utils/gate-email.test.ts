@@ -166,3 +166,15 @@ describe('configurable allowance (NUXT_CONSULTA_GRATIS_SEM_EMAIL)', () => {
     expect((await avaliarGateEmail(deps(), { temEmail: false, ip: '198.51.100.1', deviceId: null, tokensPagos: [TOKEN_NAO_PAGO], limite: 0 })).exigirEmail).toBe(true)
   })
 })
+
+describe('allowance 2 (permanent rule) passed explicitly', () => {
+  it('lets two through and gates the third', async () => {
+    const o = { temEmail: false, ip: '198.51.100.9', deviceId: DEV_B, tokensPagos: [] as string[], limite: 2 }
+    for (let i = 0; i < 2; i++) {
+      const r = await avaliarGateEmail(deps(), { ...o, agora })
+      expect(r.exigirEmail).toBe(false)
+      linhas.push({ ip: o.ip, deviceId: o.deviceId, em: agora })
+    }
+    expect((await avaliarGateEmail(deps(), { ...o, agora })).exigirEmail).toBe(true)
+  })
+})

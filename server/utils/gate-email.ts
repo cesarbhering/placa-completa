@@ -24,9 +24,9 @@ export const GATE_EMAIL_LIMITE_GRATIS = 2
  * Valor invalido ou ausente = 2.
  */
 export function limiteGratisSemEmail(v: unknown): number {
-  const n = typeof v === 'number' ? v : Number(String(v ?? '').trim())
-  if (v === '' || v === null || v === undefined || !Number.isInteger(n) || n < 0) return GATE_EMAIL_LIMITE_GRATIS
-  return n
+  if (v === '' || v === null || v === undefined) return GATE_EMAIL_LIMITE_GRATIS
+  const n = typeof v === 'number' ? v : Number(String(v).trim())
+  return Number.isInteger(n) && n >= 0 ? n : GATE_EMAIL_LIMITE_GRATIS
 }
 export const GATE_EMAIL_JANELA_MS = 24 * 60 * 60 * 1000
 export const GATE_EMAIL_CODE = 'email_obrigatorio'
