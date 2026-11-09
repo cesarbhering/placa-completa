@@ -16,6 +16,7 @@ import { origemDoCta, type OrigemCheckout } from '~/shared/origem-checkout'
 import { planoDoLinkSemPlaca } from '~/shared/link-plano'
 import { veioDoBump } from '~/shared/cupom-bump'
 import { origemDaSessao, entradaDaSessao } from '~/shared/origem-trafego'
+import { camposGateEmail, deveExigirEmailLocal, ehErroGateEmail, emailGateSalvo, registrarConsultaSemEmail, salvarEmailGate } from '~/composables/useGateEmail'
 import { espelharEventoNoFunil, enfileirarEventoFunil, definirRecallSinal } from '~/composables/useAnalytics'
 import { decidirVariante, fipeSemCentavos, tituloVarianteB, subVarianteB, garantiaVarianteB, type VarianteAbBloco } from '~/shared/ab-bloco'
 
@@ -1263,6 +1264,25 @@ function changePwaEmail() {
   track('pwa_email_change_requested')
 }
 
+// Gate de e-mail da consulta gratis (composables/useGateEmail.ts): a partir
+// da terceira consulta gratis em 24h, o e-mail e obrigatorio. A placa digitada
+// fica; o modal so pede o e-mail e a mesma consulta e reenviada.
+const showEmailGate = ref(false)
+const emailGateTentativa = ref('')
+const emailGateErro = ref('')
+const emailGateSugestao = ref('')
+function abrirGateEmail(origem: 'local' | 'servidor') {
+  showEmailGate.value = true
+  track('email_gate_shown', { origem })
+}
+function enviarEmailGate(v: string) {
+  emailGateTentativa.value = v
+  emailGateErro.value = ''
+  emailGateSugestao.value = ''
+  track('email_gate_submitted')
+  handleSubmit()
+}
+
 async function handleSubmit() {
   // INP: o toque em "Consultar" so termina depois do re-render da home
   // inteira (formulario -> carregando). Cede antes; ver shared/ceder.ts.
@@ -1326,6 +1346,14 @@ async function handleSubmit() {
     return
   }
 
+  // Web: e-mail do gate (salvo de uma vez anterior ou digitado agora no modal).
+  // O PWA/app legado ja manda o e-mail dele e nunca cai no gate.
+  const emailGate = fluxoLegado.value ? '' : (emailGateTentativa.value || emailGateSalvo())
+  if (!fluxoLegado.value && !emailGate && deveExigirEmailLocal()) {
+    abrirGateEmail('local')
+    return
+  }
+
   loading.value = true
   startStageCycle()
   track('form_submit', { form_name: 'plate_consultation', pwa_mode: isPWA.value })
@@ -1335,8 +1363,9 @@ async function handleSubmit() {
     const result = await $fetch<{ success: boolean; emailSent: boolean; whatsappSent?: boolean; channel?: 'email' | 'whatsapp'; message: string; data?: any }>('/api/consulta', {
       method: 'POST',
       body: {
-        // Web: canal 'tela', sem destinatario. PWA mantem o e-mail do app.
-        email: fluxoLegado.value ? email.value : null,
+        // Web: canal 'tela', sem destinatario (so o e-mail do gate, quando
+        // ja pedido). PWA mantem o e-mail do app.
+        email: fluxoLegado.value ? email.value : (emailGate || null),
         phone: null,
         channel: fluxoLegado.value ? 'email' : 'tela',
         placa: placa.value,
@@ -1347,8 +1376,20 @@ async function handleSubmit() {
         origin: origemDaSessao(),
         entrada: entradaDaSessao(),
         ...(turnstileToken ? { turnstileToken } : {}),
+        ...camposGateEmail(),
       },
     })
+
+    if (!fluxoLegado.value) {
+      if (emailGate) {
+        // O servidor aceitou o e-mail: fica salvo e as proximas ja vao com ele.
+        salvarEmailGate(emailGate)
+        showEmailGate.value = false
+      } else {
+        registrarConsultaSemEmail()
+      }
+      emailGateTentativa.value = ''
+    }
 
     if (fluxoLegado.value) {
       // Show modal with data in PWA mode
@@ -1416,6 +1457,15 @@ async function handleSubmit() {
     }
   } catch (err: any) {
     const errMsg = err?.data?.message || err?.message || 'Erro inesperado. Tente novamente.'
+    if (ehErroGateEmail(err) && !fluxoLegado.value) {
+      // Sem e-mail: abre o modal. Com e-mail recusado (invalido, descartavel):
+      // o modal mostra o motivo e a sugestao de correcao, se houver.
+      emailGateErro.value = emailGate ? errMsg : ''
+      emailGateSugestao.value = emailGate ? (err?.data?.data?.suggestion || '') : ''
+      emailGateTentativa.value = ''
+      if (!showEmailGate.value) abrirGateEmail('servidor')
+      return
+    }
     message.value = errMsg
     messageType.value = 'error'
     emailSuggestion.value = err?.data?.data?.suggestion || ''
@@ -2518,6 +2568,14 @@ function applyEmailSuggestion() {
         </div>
       </div>
     </div>
+
+    <EmailGateModal
+      :show="showEmailGate"
+      :erro-servidor="emailGateErro"
+      :sugestao="emailGateSugestao"
+      @close="showEmailGate = false"
+      @enviar="enviarEmailGate"
+    />
 
     <!-- Checkout premium inline (overlay): roda o fluxo pago sem sair da home -->
     <!-- O modal de consultas vive no app.vue, uma vez so pro site inteiro; o
