@@ -10,7 +10,6 @@
 // carimbados com a variante da sessao; aqui so vai o evento do gtag.
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { PLANOS } from '~/shared/planos'
-import { camposGateEmail, deveExigirEmailLocal, useLimiteGateEmail, ehErroGateEmail, emailGateSalvo, registrarConsultaSemEmail, salvarEmailGate } from '~/composables/useGateEmail'
 
 const { validatePlaca } = useFormValidation()
 // Turnstile: mesmo esquema da home (token logo antes do POST, reset depois).
@@ -33,29 +32,9 @@ function onInput(e: Event) {
   erro.value = ''
 }
 
-// Gate de e-mail (terceira consulta gratis em diante): mesmo fluxo da home.
-const showEmailGate = ref(false)
-const limiteGateEmail = useLimiteGateEmail()
-const emailGateTentativa = ref('')
-const emailGateErro = ref('')
-const emailGateSugestao = ref('')
-function abrirGateEmail(origem: 'local' | 'servidor') {
-  showEmailGate.value = true
-  gtag('email_gate_shown', { origem })
-}
-function enviarEmailGate(v: string) {
-  emailGateTentativa.value = v
-  emailGateErro.value = ''
-  emailGateSugestao.value = ''
-  gtag('email_gate_submitted', {})
-  consultar()
-}
-
 async function consultar() {
   erro.value = ''
   if (!validatePlaca(placa.value)) { erro.value = 'Placa inválida. Use o formato ABC1D23 ou ABC1234.'; return }
-  const emailGate = emailGateTentativa.value || emailGateSalvo()
-  if (!emailGate && deveExigirEmailLocal(Date.now(), limiteGateEmail.value)) { abrirGateEmail('local'); return }
   carregando.value = true
   resultado.value = null
   try {
@@ -63,29 +42,14 @@ async function consultar() {
     const r: any = await $fetch('/api/consulta', {
       method: 'POST',
       body: {
-        email: emailGate || null, phone: null, channel: 'tela', placa: placa.value, isPWA: false, origin: origemDaSessao(),
+        email: null, phone: null, channel: 'tela', placa: placa.value, isPWA: false, origin: origemDaSessao(),
         ...(turnstileToken ? { turnstileToken } : {}),
-        ...camposGateEmail(),
       },
     })
-    if (emailGate) {
-      salvarEmailGate(emailGate)
-      showEmailGate.value = false
-    } else {
-      registrarConsultaSemEmail()
-    }
-    emailGateTentativa.value = ''
     resultado.value = r?.basico || null
     if (!resultado.value) erro.value = r?.message || 'Não encontramos dados para esta placa.'
     gtag('fipe_por_placa_resultado', { tem_fipe: !!r?.basico?.fipe })
   } catch (err: any) {
-    if (ehErroGateEmail(err)) {
-      emailGateErro.value = emailGate ? (err?.data?.message || '') : ''
-      emailGateSugestao.value = emailGate ? (err?.data?.data?.suggestion || '') : ''
-      emailGateTentativa.value = ''
-      if (!showEmailGate.value) abrirGateEmail('servidor')
-      return
-    }
     erro.value = err?.data?.message || 'Não foi possível consultar agora. Tente de novo em instantes.'
   } finally {
     resetarTurnstile()
@@ -152,13 +116,6 @@ function comprar() {
       :ja-consultada="true"
       origem-checkout="outro"
       @close="abrirCheckout = false"
-    />
-    <EmailGateModal
-      :show="showEmailGate"
-      :erro-servidor="emailGateErro"
-      :sugestao="emailGateSugestao"
-      @close="showEmailGate = false"
-      @enviar="enviarEmailGate"
     />
   </section>
 </template>
