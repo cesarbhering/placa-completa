@@ -11,6 +11,7 @@ export const RECURSOS_EN: Record<string, string> = {
   'Combustível e origem': 'Fuel and origin',
   'Parte do chassi': 'Part of the VIN',
   'Chassi completo': 'Full VIN (chassis number)',
+  'Número do motor': 'Engine number',
   'Valor FIPE': 'FIPE value (Brazilian market price table)',
   'FIPE com histórico de depreciação': 'FIPE value with depreciation history',
   'Seguro estimado e custo em 5 anos': 'Estimated insurance and 5-year cost of ownership',

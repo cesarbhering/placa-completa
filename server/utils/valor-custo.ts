@@ -135,9 +135,9 @@ export async function getValorCusto(
   },
 ): Promise<ValorCusto | null> {
   const config = useRuntimeConfig()
-  if (!config.placaApiToken) return null
+  if (!config.placaApiToken && !(config as any).placafipeToken) return null
 
-  // Via cache (placa_cache): reaproveita a resposta da wdapi ja obtida na
+  // Via cache (placa_cache): reaproveita a resposta da fonte de placa ja obtida na
   // consulta/preview da mesma placa. Ver server/utils/placa-lookup.ts.
   const dadosWdapi = await consultarPlacaWdapi(placa)
   // So os candidatos da tabela FIPE do veiculo (carros, motos ou caminhoes):

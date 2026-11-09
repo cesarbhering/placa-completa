@@ -17,6 +17,7 @@ import { renderHtmlToPng } from '../utils/htmlToImage'
 import { classificarUA } from '../utils/dispositivo'
 import { barrarPlacaBloqueada } from '../utils/blocklist'
 import { decidirTurnstile, linhaEventoTurnstile, MENSAGEM_TURNSTILE } from '../utils/turnstile'
+import { consultarPlacaWdapiDetalhado, semMotor } from '../utils/placa-lookup'
 
 /**
  * Registra a consulta e RECLAMA se o banco recusar.
@@ -31,7 +32,14 @@ import { decidirTurnstile, linhaEventoTurnstile, MENSAGEM_TURNSTILE } from '../u
  * o que fazer com isso, e a consulta em si deu certo.
  */
 async function registrarConsulta(supabase: any, row: Record<string, any>, origem: string) {
-  const { error } = await supabase.from('consultas').insert(row)
+  let { error } = await supabase.from('consultas').insert(row)
+  // fonte_dados entrou em 09/nov/2026; ate a migration rodar no banco, a coluna
+  // nao existe e o insert inteiro falharia (a linha tambem conta o teto por IP).
+  // Repete sem ela em vez de perder a consulta.
+  if (error && 'fonte_dados' in row && /fonte_dados/.test(String(error.message || ''))) {
+    const { fonte_dados: _f, ...semFonte } = row
+    ;({ error } = await supabase.from('consultas').insert(semFonte))
+  }
   if (error) {
     console.error(
       `[consultas] insert falhou (${origem}): ${error.message}` +
@@ -460,6 +468,8 @@ export default defineEventHandler(async (event) => {
   // real a API paga. Vai pra linha da consulta pro relatorio de uso conseguir
   // separar custo de trafego (hoje isso e estimativa).
   let cacheHit = false
+  // Quem respondeu (cache | placafipe | wdapi), pro calculo de custo por fonte.
+  let fonteDados: string | null = null
   let emailSent = false
   let whatsappSent = false
 
@@ -469,9 +479,13 @@ export default defineEventHandler(async (event) => {
     // indisponivel) — segue pro bloco de validacao abaixo e vira 404, nunca
     // 502 (null aqui tratado como erro fazia toda nao-encontrada cacheada
     // responder 502 + email de erro pro time).
-    const wdapi = await consultarPlacaWdapiDetalhado(placaClean)
-    apiResponse = wdapi.payload
-    cacheHit = wdapi.cacheHit
+    // Ordem: cache -> PlacaFipe -> wdapi (fallback). O numero do motor sai
+    // daqui: a consulta gratis nunca mostra, grava nem envia esse dado (ele
+    // fica so no placa_cache, pro relatorio pago).
+    const lookup = await consultarPlacaWdapiDetalhado(placaClean)
+    apiResponse = semMotor(lookup.payload)
+    cacheHit = lookup.cacheHit
+    fonteDados = lookup.fonte
   } catch (err: any) {
     // Send error email
     await sendErrorEmail({
@@ -777,6 +791,7 @@ export default defineEventHandler(async (event) => {
     email_sent: emailSent,
     whatsapp_sent: whatsappSent,
     cache_hit: cacheHit,
+    fonte_dados: fonteDados,
     api_response: apiResponse,
   }, 'web')
 

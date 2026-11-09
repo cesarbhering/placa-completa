@@ -1,6 +1,7 @@
 import { complementarLeilaoParceiro, cfgParceiro } from './parceiro-leilao'
 import { filtrarPorPlano, camposRestantes } from '../../shared/planos'
 import { marcaExibicao } from '../../shared/marca-exibicao'
+import { consultarPlacaWdapi, motorDoPayload } from './placa-lookup'
 import { candidatoEManual, candidatoEAutomatico } from './fipe-candidato'
 import type { RecallDetalhe } from './recall-detalhe'
 import type { RecallAutoritativo } from './recall-toyota'
@@ -48,6 +49,12 @@ export interface RelatorioSnapshot {
    * chassi e da America do Norte (WMI 1-5). Informativo, com rotulo proprio (RecallEua.rotulo); null fora disso.
    */
   recallEua?: RecallEua | null
+  /**
+   * Numero do motor (09/nov/2026), da fonte livre da placa via placa_cache.
+   * Basica e completa; nunca na consulta gratis. null quando a fonte nao traz
+   * (ou traz mascarado). Ausente em snapshot gravado antes disso.
+   */
+  motor?: string | null
 }
 
 // O registro traz "MARCA/MODELO" numa string so ("I/HONDA CIVIC LX"). A API de
@@ -219,7 +226,20 @@ export async function montarRelatorioSnapshot(
   }
 
   const recallEua = await recallEuaP
-  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null, multas: pedido.multas ?? null, ...(recallEua ? { recallEua } : {}) }
+  // Motor: so na montagem cheia (entrega/lazy), nao nos re-fills parciais.
+  // Mesma ordem da consulta (cache -> PlacaFipe -> wdapi); na pratica e cache,
+  // porque o valorCusto acima ja leu a mesma placa.
+  const motor = apenas ? undefined : await motorDaPlaca(pedido.placa)
+  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null, multas: pedido.multas ?? null, ...(recallEua ? { recallEua } : {}), ...(motor !== undefined ? { motor } : {}) }
+}
+
+/** Numero do motor da placa (cache -> PlacaFipe -> wdapi), fail-open: null. */
+export async function motorDaPlaca(placa: string): Promise<string | null> {
+  try {
+    return motorDoPayload(await consultarPlacaWdapi(placa))
+  } catch {
+    return null
+  }
 }
 
 /**
