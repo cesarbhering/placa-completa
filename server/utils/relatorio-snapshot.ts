@@ -111,6 +111,9 @@ export async function montarRelatorioSnapshot(
   opcoes?: { renovarLeilao?: boolean },
 ): Promise<RelatorioSnapshot> {
   const querem = (campo: 'chassiOrigem' | 'valorCusto' | 'historicoLeilao') => !apenas || apenas.includes(campo)
+  // Numero do motor: lido uma vez (placa_cache) e usado no leilao e no snapshot.
+  let motorP: Promise<string | null> | null = null
+  const motorDoPedido = () => (motorP ??= motorDaPlaca(pedido.placa))
   let consulta: RelatorioSnapshot['consulta'] = null
   let restantes = 0
   if (pedido.consulta_id) {
@@ -196,13 +199,12 @@ export async function montarRelatorioSnapshot(
       placa: pedido.placa,
       chassi: senatranBruto?.chassi ?? null,
       renavam: senatranBruto?.renavam ?? null,
-      // Motor: nenhuma fonte nossa expoe esse numero. O registro do veiculo
-      // devolve 34 campos e nenhum e o motor; a fonte livre tem a chave, mas
-      // vem vazia (0 de 5.555 consultas salvas em producao). O campo fica no
-      // contrato porque pode chegar de outra fonte um dia, e enquanto isso o
-      // ramo motor-only da API de leiloes (cerca de 144 mil veiculos, PR e RS
-      // antigos) permanece invisivel pra gente.
-      motor: null,
+      // Numero do motor da fonte livre da placa (09/nov/2026, Cesar): liga a
+      // passagem pelo ramo de motor da API de leiloes (cerca de 144 mil
+      // veiculos, PR e RS antigos), que antes ficava invisivel pra gente. A
+      // API so confirma com o motor + 2 campos batendo; o card diz que a
+      // ligacao foi pelo motor (shared/leilao-exibicao.ts, ligadoPeloMotor).
+      motor: await motorDoPedido(),
       marca: marcaDoRegistro(senatranBruto),
       modelo: modeloDoRegistro(senatranBruto),
       // Os dois anos separados: a API compara fabricacao com fabricacao e
@@ -229,7 +231,7 @@ export async function montarRelatorioSnapshot(
   // Motor: so na montagem cheia (entrega/lazy), nao nos re-fills parciais.
   // Mesma ordem da consulta (cache -> PlacaFipe -> wdapi); na pratica e cache,
   // porque o valorCusto acima ja leu a mesma placa.
-  const motor = apenas ? undefined : await motorDaPlaca(pedido.placa)
+  const motor = apenas ? undefined : await motorDoPedido()
   return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null, multas: pedido.multas ?? null, ...(recallEua ? { recallEua } : {}), ...(motor !== undefined ? { motor } : {}) }
 }
 

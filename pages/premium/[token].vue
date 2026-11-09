@@ -37,7 +37,7 @@ import { PLANOS, precoBRL } from '~/shared/planos'
 import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem, itemAnotacao, anotacoesDoCadastro, TITULO_ANOTACOES, fraseParecerAnotacoes } from '~/shared/restricoes'
 import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes, midiasDaPassagem } from '~/shared/foto-lote'
 import { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, estadoCartaoLeilao, PARECER_SO_POSSIVEL_TITULO } from '~/shared/leilao-copy'
-import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, passagensSemCanhao, historicoCompativelComVeiculo, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA, passagemCertezaPorIdentificador, leiloeiroValido, textoCasaLeilao } from '~/shared/leilao-exibicao'
+import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, passagensSemCanhao, historicoCompativelComVeiculo, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA, passagemCertezaPorIdentificador, ligadoPeloMotor, leiloeiroValido, textoCasaLeilao } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
 import { FONTE_PARCEIRA, rotuloIndicadorLeilao, linhasBasesSemRegistro, PASSAGEM_PARCEIRA, DICA_SINISTRO } from '~/shared/fonte-parceira'
@@ -923,6 +923,8 @@ const passagensLeilao = computed(() => {
     evidencias: Array.isArray(p.evidencias) ? p.evidencias.map((e: any) => comAcentos(String(e))) : [],
     // Chassi ou placa completos iguais: certeza, sem "Ver o que foi comparado" (Cesar, 29/out).
     certeza: passagemCertezaPorIdentificador(p),
+    // Ligada pelo numero do motor (sem chassi/placa/Renavam completos): nota propria no nivel.
+    ligadoPorMotor: ligadoPeloMotor(p),
     // Fotos do lote, servidas do nosso armazenamento (nunca link direto da
     // leiloeira). Sao o unico caminho honesto de mostrar um "possivel": quem
     // decide se e o veiculo dele e a pessoa, olhando.

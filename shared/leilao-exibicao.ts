@@ -432,6 +432,22 @@ export function passagemCertezaPorIdentificador(p: { nivel?: unknown; evidencias
   return ev.some((e) => e.includes('chassi completo igual') || e.includes('placa completa igual'))
 }
 
+/** Nota do nivel quando o que ligou a passagem ao veiculo foi o numero do motor. */
+export const NOTA_MOTOR = 'ligado pelo número do motor'
+
+/**
+ * A passagem foi ligada ao veiculo pelo NUMERO DO MOTOR, sem chassi, placa ou
+ * Renavam completos iguais (Cesar, 09/nov/2026: o motor vem da fonte livre da
+ * placa e vai pra busca de leiloes da completa). A nota do nivel passa a dizer
+ * isso em vez de "placa ou chassi iguais", que seria falso.
+ */
+export function ligadoPeloMotor(p: { evidencias?: unknown } | null | undefined): boolean {
+  if (!p) return false
+  const ev = Array.isArray(p.evidencias) ? p.evidencias.map((e) => sem(String(e ?? ''))) : []
+  if (!ev.some((e) => e.includes('numero do motor igual'))) return false
+  return !ev.some((e) => e.includes('chassi completo igual') || e.includes('placa completa igual') || e.includes('renavam igual'))
+}
+
 /** Leiloeiro do edital de orgao. "Oficial designado" (placeholder antigo da API) vira null. */
 export function leiloeiroValido(v: unknown): string | null {
   const s = String(v ?? '').replace(/\s+/g, ' ').trim()
