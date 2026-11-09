@@ -16,6 +16,18 @@
 // Nada aqui loga e-mail nem token.
 
 export const GATE_EMAIL_LIMITE_GRATIS = 2
+
+/**
+ * Quantas consultas gratis sem e-mail cada IP/aparelho tem em 24h. Vem de
+ * NUXT_CONSULTA_GRATIS_SEM_EMAIL (runtime). 2 = regra permanente; 0 = modo
+ * emergencia (toda consulta sem e-mail cai no gate, menos quem pagou).
+ * Valor invalido ou ausente = 2.
+ */
+export function limiteGratisSemEmail(v: unknown): number {
+  const n = typeof v === 'number' ? v : Number(String(v ?? '').trim())
+  if (v === '' || v === null || v === undefined || !Number.isInteger(n) || n < 0) return GATE_EMAIL_LIMITE_GRATIS
+  return n
+}
 export const GATE_EMAIL_JANELA_MS = 24 * 60 * 60 * 1000
 export const GATE_EMAIL_CODE = 'email_obrigatorio'
 export const GATE_EMAIL_MENSAGEM = 'Para continuar consultando grátis, informe seu e-mail.'
@@ -55,6 +67,8 @@ export interface GateEmailEntrada {
   deviceId: string | null
   tokensPagos: string[]
   agora?: number
+  /** Consultas gratis sem e-mail permitidas em 24h (default 2; 0 = emergencia). */
+  limite?: number
 }
 
 export type GateEmailMotivo = 'com_email' | 'sem_identificador' | 'abaixo_do_limite' | 'pagou' | 'erro_contagem' | 'gate'
@@ -72,17 +86,22 @@ export interface GateEmailResultado {
  */
 export async function avaliarGateEmail(deps: GateEmailDeps, e: GateEmailEntrada): Promise<GateEmailResultado> {
   if (e.temEmail) return { exigirEmail: false, motivo: 'com_email' }
+  const limite = e.limite ?? GATE_EMAIL_LIMITE_GRATIS
   const ip = e.ip && e.ip !== 'unknown' ? e.ip : null
-  if (!ip && !e.deviceId) return { exigirEmail: false, motivo: 'sem_identificador' }
 
-  const desdeIso = new Date((e.agora ?? Date.now()) - GATE_EMAIL_JANELA_MS).toISOString()
-  let consultas: number
-  try {
-    consultas = await deps.contarConsultas({ ip, deviceId: e.deviceId, desdeIso })
-  } catch {
-    return { exigirEmail: false, motivo: 'erro_contagem' }
+  // Limite 0 (emergencia): nao ha o que contar, toda consulta sem e-mail cai
+  // no gate, inclusive sem IP/aparelho identificavel. So o pagamento livra.
+  let consultas: number | undefined
+  if (limite > 0) {
+    if (!ip && !e.deviceId) return { exigirEmail: false, motivo: 'sem_identificador' }
+    const desdeIso = new Date((e.agora ?? Date.now()) - GATE_EMAIL_JANELA_MS).toISOString()
+    try {
+      consultas = await deps.contarConsultas({ ip, deviceId: e.deviceId, desdeIso })
+    } catch {
+      return { exigirEmail: false, motivo: 'erro_contagem' }
+    }
+    if (consultas < limite) return { exigirEmail: false, motivo: 'abaixo_do_limite', consultas }
   }
-  if (consultas < GATE_EMAIL_LIMITE_GRATIS) return { exigirEmail: false, motivo: 'abaixo_do_limite', consultas }
 
   if (e.tokensPagos.length) {
     try {

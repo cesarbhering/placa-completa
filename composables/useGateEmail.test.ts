@@ -62,3 +62,22 @@ describe('client-side e-mail gate', () => {
     expect(ehErroGateEmail({ data: { statusCode: 429 } })).toBe(false)
   })
 })
+
+describe('client-side allowance from the server answer', () => {
+  it('asks up front from the first lookup after the server reports allowance 0, for one hour', () => {
+    const agora = Date.now()
+    expect(deveExigirEmailLocal(agora)).toBe(false)
+    expect(ehErroGateEmail({ data: { data: { code: 'email_obrigatorio', limite: 0 } } })).toBe(true)
+    expect(deveExigirEmailLocal(agora)).toBe(true)
+    expect(deveExigirEmailLocal(agora + 2 * 3600e3)).toBe(false)
+  })
+
+  it('a saved e-mail or a paid local report skips the up-front modal even at 0', () => {
+    ehErroGateEmail({ data: { data: { code: 'email_obrigatorio', limite: 0 } } })
+    localStorage.setItem('pc_consultas_v1', JSON.stringify([{ token: 'tokenFicticio0001', status: 'entregue' }]))
+    expect(deveExigirEmailLocal()).toBe(false)
+    localStorage.removeItem('pc_consultas_v1')
+    salvarEmailGate('pessoa@exemplo.com')
+    expect(deveExigirEmailLocal()).toBe(false)
+  })
+})

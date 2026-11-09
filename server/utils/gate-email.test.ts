@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
-  avaliarGateEmail, sanearDeviceId, sanearTokensPagos,
+  avaliarGateEmail, sanearDeviceId, sanearTokensPagos, limiteGratisSemEmail,
   GATE_EMAIL_JANELA_MS, type GateEmailDeps,
 } from './gate-email'
 
@@ -135,5 +135,34 @@ describe('gate input sanitising', () => {
     expect(sanearTokensPagos([TOKEN_PAGO, TOKEN_PAGO, 'a,b', 42])).toEqual([TOKEN_PAGO])
     const muitos = Array.from({ length: 30 }, (_, i) => `tokenFicticio${String(i).padStart(4, '0')}`)
     expect(sanearTokensPagos(muitos)).toHaveLength(12)
+  })
+})
+
+describe('configurable allowance (NUXT_CONSULTA_GRATIS_SEM_EMAIL)', () => {
+  it('parses the env value, defaulting to 2', () => {
+    expect(limiteGratisSemEmail(undefined)).toBe(2)
+    expect(limiteGratisSemEmail('')).toBe(2)
+    expect(limiteGratisSemEmail('abc')).toBe(2)
+    expect(limiteGratisSemEmail('-1')).toBe(2)
+    expect(limiteGratisSemEmail('0')).toBe(0)
+    expect(limiteGratisSemEmail(0)).toBe(0)
+    expect(limiteGratisSemEmail('5')).toBe(5)
+  })
+
+  it('emergency mode (0) gates the very first lookup without e-mail', async () => {
+    const r = await avaliarGateEmail(deps(), { temEmail: false, ip: '198.51.100.1', deviceId: DEV_A, tokensPagos: [], limite: 0, agora })
+    expect(r).toMatchObject({ exigirEmail: true, motivo: 'gate' })
+  })
+
+  it('emergency mode (0) gates even without any identifier', async () => {
+    const r = await avaliarGateEmail(deps(), { temEmail: false, ip: 'unknown', deviceId: null, tokensPagos: [], limite: 0, agora })
+    expect(r.exigirEmail).toBe(true)
+  })
+
+  it('emergency mode (0) still lets e-mail and paid tokens through', async () => {
+    expect((await avaliarGateEmail(deps(), { temEmail: true, ip: '198.51.100.1', deviceId: null, tokensPagos: [], limite: 0 })).exigirEmail).toBe(false)
+    expect((await avaliarGateEmail(deps(), { temEmail: false, ip: '198.51.100.1', deviceId: null, tokensPagos: [TOKEN_PAGO], limite: 0 })))
+      .toMatchObject({ exigirEmail: false, motivo: 'pagou' })
+    expect((await avaliarGateEmail(deps(), { temEmail: false, ip: '198.51.100.1', deviceId: null, tokensPagos: [TOKEN_NAO_PAGO], limite: 0 })).exigirEmail).toBe(true)
   })
 })

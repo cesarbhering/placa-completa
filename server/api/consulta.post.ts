@@ -18,7 +18,7 @@ import { classificarUA } from '../utils/dispositivo'
 import { barrarPlacaBloqueada } from '../utils/blocklist'
 import { decidirTurnstile, linhaEventoTurnstile, MENSAGEM_TURNSTILE } from '../utils/turnstile'
 import {
-  avaliarGateEmail, depsGateEmailSupabase, sanearDeviceId, sanearTokensPagos,
+  avaliarGateEmail, depsGateEmailSupabase, sanearDeviceId, sanearTokensPagos, limiteGratisSemEmail,
   GATE_EMAIL_CODE, GATE_EMAIL_MENSAGEM,
 } from '../utils/gate-email'
 import { tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT } from '../utils/ip-wdapi-limit'
@@ -316,12 +316,15 @@ export default defineEventHandler(async (event) => {
   // banco) fica fora. Vale em homolog tambem, pra poder testar; quem esta na
   // whitelist (sonda da VPS, testes de prod) fica fora como no rate limit.
   if (!sanitizedEmail && hourlyLimit !== Infinity && (await tetoIpWdapi(ip)) <= IP_WDAPI_HOURLY_LIMIT) {
+    // NUXT_CONSULTA_GRATIS_SEM_EMAIL: 2 = regra permanente, 0 = emergencia.
+    const limiteGate = limiteGratisSemEmail(config.consultaGratisSemEmail)
     const supabaseGate = useSupabaseServer()
     const gate = await avaliarGateEmail(depsGateEmailSupabase(supabaseGate, usePremiumSupabase), {
       temEmail: false,
       ip,
       deviceId,
       tokensPagos: sanearTokensPagos(body?.tokensPagos),
+      limite: limiteGate,
     })
     if (gate.exigirEmail) {
       supabaseGate.from('blocked_requests').insert({
@@ -331,7 +334,9 @@ export default defineEventHandler(async (event) => {
         placa: placaClean,
         user_agent: userAgent,
       }).then(({ error }: any) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
-      throw createError({ statusCode: 403, message: GATE_EMAIL_MENSAGEM, data: { code: GATE_EMAIL_CODE } })
+      // `limite` vai junto pro cliente ja pedir o e-mail antes nas proximas
+      // (0 = desde a primeira consulta).
+      throw createError({ statusCode: 403, message: GATE_EMAIL_MENSAGEM, data: { code: GATE_EMAIL_CODE, limite: limiteGate } })
     }
   }
 

@@ -15,6 +15,8 @@ const KEY_DEVICE = 'pc_did'
 const KEY_EMAIL = 'pc_email_gate'
 const KEY_GRATIS = 'pc_gratis_sem_email'
 const KEY_HIST = 'pc_consultas_v1'
+const KEY_LIMITE = 'pc_gate_limite'
+const LIMITE_VALIDADE_MS = 60 * 60 * 1000
 export const GATE_LIMITE_LOCAL = 2
 const JANELA_MS = 24 * 60 * 60 * 1000
 const MAX_TOKENS = 12
@@ -111,16 +113,39 @@ export function registrarConsultaSemEmail(agora = Date.now()) {
   } catch { /* modo privado */ }
 }
 
-/** Antecipa o gate: ja fez 2 gratis sem e-mail em 24h, nao tem e-mail salvo nem pago local. */
+/**
+ * Limite de consultas gratis sem e-mail que o servidor informou no ultimo 403
+ * do gate (NUXT_CONSULTA_GRATIS_SEM_EMAIL; 0 = modo emergencia). Sem valor
+ * guardado (ou vencido): 2, a regra permanente.
+ */
+export function limiteGateLocal(agora = Date.now()): number {
+  try {
+    // Guardado como {limite, em}; vale 1h pra um modo emergencia desligado
+    // nao deixar o modal aparecendo pra sempre neste aparelho.
+    const v = JSON.parse(ls()?.getItem(KEY_LIMITE) || 'null')
+    const n = v?.limite
+    if (!Number.isInteger(n) || n < 0 || !(agora - Number(v?.em) < LIMITE_VALIDADE_MS)) return GATE_LIMITE_LOCAL
+    return n
+  } catch {
+    return GATE_LIMITE_LOCAL
+  }
+}
+
+/** Antecipa o gate: ja fez N gratis sem e-mail em 24h, nao tem e-mail salvo nem pago local. */
 export function deveExigirEmailLocal(agora = Date.now()): boolean {
   if (emailGateSalvo()) return false
   if (temPagoLocal()) return false
-  return lerGratis(agora).length >= GATE_LIMITE_LOCAL
+  return lerGratis(agora).length >= limiteGateLocal(agora)
 }
 
-/** Erro do $fetch e o 403 do gate? */
+/** Erro do $fetch e o 403 do gate? Guarda o limite que o servidor informou. */
 export function ehErroGateEmail(err: any): boolean {
-  return err?.data?.data?.code === GATE_EMAIL_CODE || err?.data?.code === GATE_EMAIL_CODE
+  const d = err?.data?.data ?? err?.data
+  if (d?.code !== GATE_EMAIL_CODE) return false
+  if (Number.isInteger(d?.limite) && d.limite >= 0) {
+    try { ls()?.setItem(KEY_LIMITE, JSON.stringify({ limite: d.limite, em: Date.now() })) } catch { /* modo privado */ }
+  }
+  return true
 }
 
 /** Campos extras do corpo do POST /api/consulta. */
