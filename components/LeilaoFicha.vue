@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NOTA_NIVEL, gravidadeInformada, cabeEmPilula } from '~/shared/leilao-exibicao'
+import { NOTA_NIVEL, NOTA_MOTOR, gravidadeInformada, cabeEmPilula } from '~/shared/leilao-exibicao'
 
 // Card de passagem por leilao, "ficha em linhas rotuladas" (opcao 2 escolhida
 // pelo Cesar, 21/out/2026): titulo com a data, comitente de subtitulo e cada
@@ -11,6 +11,8 @@ const p = computed(() => props.p)
 // Pilula so pra rotulo curto; rotulo longo vira texto colorido (no celular a
 // pilula longa quebrava feio).
 const forma = (t: unknown) => (cabeEmPilula(t) ? '' : 'lf-chip--texto')
+// Ligada pelo numero do motor: a nota diz isso, nao "placa ou chassi iguais".
+const notaNivel = computed(() => (p.value.ligadoPorMotor ? NOTA_MOTOR : NOTA_NIVEL[p.value.nivel]))
 const mostraGravidade = computed(() => gravidadeInformada(p.value.gravidade))
 const linhasFatos = computed(() => {
   const l: { k: string; v: string }[] = []
@@ -35,7 +37,7 @@ const notaDocumento = computed(() => (p.value.fonteTipo === 'detran'
     <dl class="lf-linhas">
       <div class="lf-linha">
         <dt>Nível</dt>
-        <dd><span class="lf-chip" :class="[`lf-chip--${p.nivel}`, forma(p.rotuloNivel)]">{{ p.rotuloNivel }}</span><small v-if="NOTA_NIVEL[p.nivel]">{{ NOTA_NIVEL[p.nivel] }}</small></dd>
+        <dd><span class="lf-chip" :class="[`lf-chip--${p.nivel}`, forma(p.rotuloNivel)]">{{ p.rotuloNivel }}</span><small v-if="notaNivel">{{ notaNivel }}</small></dd>
       </div>
       <div class="lf-linha">
         <dt>Fonte</dt>

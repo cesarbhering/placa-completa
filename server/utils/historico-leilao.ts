@@ -148,6 +148,18 @@ function texto(v: unknown): string | null {
 }
 
 /** So o que a API entende, sem campo extra e sem valor vazio. */
+/**
+ * Chave do cache de 30 d do leilao. Com numero do motor no perfil, a chave
+ * ganha o marcador "|m" (so o marcador, nunca o numero): o resultado gravado
+ * antes de o motor ir pra busca nao tem as passagens ligadas pelo motor e nao
+ * pode ser reaproveitado por 30 dias. Sem placa e sem chassi, devolve '|'
+ * (sem cache), como antes.
+ */
+export function chaveCacheLeilao(body: { placa?: string | null; chassi?: string | null; motor?: string | null }): string {
+  const base = [chaveDePlaca(body.placa || ''), String(body.chassi || '').toUpperCase()].join('|')
+  return base !== '|' && body.motor ? `${base}|m` : base
+}
+
 function corpo(perfil: PerfilVeiculo) {
   return {
     placa: texto(perfil.placa),
@@ -387,7 +399,7 @@ export async function consultarHistoricoLeilao(
   }
 
   try {
-    const chave = [chaveDePlaca(body.placa || ''), String(body.chassi || '').toUpperCase()].join('|')
+    const chave = chaveCacheLeilao(body)
     if (opts?.cache && opts?.renovar && sb && chave !== '|') {
       const h = await chamar()
       const consultadoEm = (await gravarFonteCache(sb, 'leilao', chave, h, h.resumo.tem_indicio ? 'ok' : 'sem_dado')) || new Date().toISOString()

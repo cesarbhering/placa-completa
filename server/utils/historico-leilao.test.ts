@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sanearFotos, sanearHistorico } from './historico-leilao'
+import { sanearFotos, sanearHistorico, chaveCacheLeilao } from './historico-leilao'
 
 // A allowlist e o que impede a pagina do cliente de virar hotlink do site da
 // leiloeira: sem ela, bastaria a API mandar a URL de terceiro.
@@ -113,5 +113,22 @@ describe('fotos_pendente (fotos que chegam depois da venda)', () => {
     expect(sanearHistorico(res({}))!.passagens[0].fotos_pendente).toBe(false)
     const comFoto = res({ fotos_pendente: true, fotos: [{ ordem: 1, vista: 'frente', foto_ref: 'ref1.abcdefABCDEF0123' }] })
     expect(sanearHistorico(comFoto)!.passagens[0].fotos_pendente).toBe(false)
+  })
+})
+
+describe('auction cache key with engine number', () => {
+  it('adds only a marker, never the engine number itself', () => {
+    const sem = chaveCacheLeilao({ placa: 'TST1A23', chassi: null })
+    const com = chaveCacheLeilao({ placa: 'TST1A23', chassi: null, motor: 'XYZ0000TEST' })
+    expect(com).toBe(`${sem}|m`)
+    expect(com).not.toContain('XYZ0000TEST')
+  })
+
+  it('keeps the old key without an engine number, so existing cache entries still apply', () => {
+    expect(chaveCacheLeilao({ placa: 'TST1A23', chassi: null, motor: null })).toBe(chaveCacheLeilao({ placa: 'TST1A23' }))
+  })
+
+  it('without plate and VIN there is still no cache key', () => {
+    expect(chaveCacheLeilao({ placa: null, chassi: null, motor: 'XYZ0000TEST' })).toBe('|')
   })
 })
