@@ -23,18 +23,19 @@ const POLICY = [
   "frame-ancestors 'none'",
   // Stripe Elements (cartao) monta iframes de js.stripe.com; o 3DS usa
   // hooks.stripe.com. Sem isto o formulario do cartao nem carrega.
+  // Turnstile (consulta gratis) monta iframe de challenges.cloudflare.com.
   // Videos do lote de leilao em plataforma (YouTube sem cookie, Vimeo), 27/out/2026.
-  "frame-src https://js.stripe.com https://hooks.stripe.com https://www.youtube-nocookie.com https://player.vimeo.com",
+  "frame-src https://js.stripe.com https://hooks.stripe.com https://www.youtube-nocookie.com https://player.vimeo.com https://challenges.cloudflare.com",
   "form-action 'self'",
   // upgrade-insecure-requests e ignorada quando entregue via Report-Only
   // (so vale em CSP enforced) - so gera warning de graca no Lighthouse.
   // Reativar quando o header virar `Content-Security-Policy`.
   // "upgrade-insecure-requests",
-  "script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://cdn.onesignal.com https://api.onesignal.com https://www.clarity.ms https://scripts.clarity.ms https://bzrcdn.openai.com https://bat.bing.com https://static.cloudflareinsights.com https://www.googleadservices.com",
+  "script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://cdn.onesignal.com https://api.onesignal.com https://www.clarity.ms https://scripts.clarity.ms https://bzrcdn.openai.com https://bat.bing.com https://static.cloudflareinsights.com https://www.googleadservices.com https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://bzr.openai.com https://www.google-analytics.com https://www.googletagmanager.com https://bat.bing.com https://c.clarity.ms https://*.clarity.ms https://googleads.g.doubleclick.net https://www.google.com https://www.google.com.br https://www.googleadservices.com",
   "font-src 'self'",
-  "connect-src 'self' https://bzr.openai.com https://bzrcdn.openai.com https://api.stripe.com https://js.stripe.com https://www.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.onesignal.com https://onesignal.com https://*.os.tc https://www.clarity.ms https://*.clarity.ms https://c.clarity.ms https://bat.bing.com https://googleads.g.doubleclick.net https://www.google.com https://www.google.com.br",
+  "connect-src 'self' https://bzr.openai.com https://bzrcdn.openai.com https://api.stripe.com https://js.stripe.com https://www.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.onesignal.com https://onesignal.com https://*.os.tc https://www.clarity.ms https://*.clarity.ms https://c.clarity.ms https://bat.bing.com https://googleads.g.doubleclick.net https://www.google.com https://www.google.com.br https://challenges.cloudflare.com",
   "worker-src 'self'",
   "manifest-src 'self'",
   "media-src 'self'",

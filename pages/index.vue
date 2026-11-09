@@ -31,6 +31,9 @@ import { decidirVariante, fipeSemCentavos, tituloVarianteB, subVarianteB, garant
 definePageMeta({ key: () => 'home' })
 
 const { isPWA, isMobile, isCapacitor, fluxoLegado } = useAppMode()
+// Turnstile na consulta gratis: token pego logo antes do POST /api/consulta.
+const { container: turnstileEl, preparar: prepararTurnstile, obterToken: tokenTurnstile, resetar: resetarTurnstile, ativo: turnstileAtivo } = useTurnstile()
+onMounted(() => prepararTurnstile())
 // Dentro do app Android so existem dois caminhos: a consulta gratis e o
 // relatorio completo pela loja. A basica nao e vendida la (a loja cobra um
 // produto so) e a palavra Pix nao pode aparecer, porque nao e assim que se
@@ -1328,6 +1331,7 @@ async function handleSubmit() {
   track('form_submit', { form_name: 'plate_consultation', pwa_mode: isPWA.value })
 
   try {
+    const turnstileToken = await tokenTurnstile()
     const result = await $fetch<{ success: boolean; emailSent: boolean; whatsappSent?: boolean; channel?: 'email' | 'whatsapp'; message: string; data?: any }>('/api/consulta', {
       method: 'POST',
       body: {
@@ -1342,6 +1346,7 @@ async function handleSubmit() {
         icv5Uf: icv5Uf.value,
         origin: origemDaSessao(),
         entrada: entradaDaSessao(),
+        ...(turnstileToken ? { turnstileToken } : {}),
       },
     })
 
@@ -1416,6 +1421,8 @@ async function handleSubmit() {
     emailSuggestion.value = err?.data?.data?.suggestion || ''
     track('consulta_error', { error_message: errMsg, has_suggestion: Boolean(emailSuggestion.value) })
   } finally {
+    // Token do Turnstile e de uso unico.
+    resetarTurnstile()
     stopStageCycle()
     loading.value = false
   }
@@ -1436,6 +1443,13 @@ function applyEmailSuggestion() {
 <template>
   <main class="desktop" :class="{ 'desktop--hero-web': !fluxoLegado, 'home-v2': !fluxoLegado }">
     <span id="top" class="anchor-top" aria-hidden="true" />
+    <!-- Turnstile (consulta gratis): fora dos v-if pra sobreviver a troca de
+         tela. Vazio quase sempre; so aparece se a Cloudflare pedir interacao. -->
+    <div
+      v-if="turnstileAtivo"
+      ref="turnstileEl"
+      style="position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 9999;"
+    />
 
     <!-- =======================================================
          WEB (combo 3): herói acolhedor + editorial. PWA intacto abaixo.
