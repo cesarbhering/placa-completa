@@ -17,6 +17,11 @@ import { renderHtmlToPng } from '../utils/htmlToImage'
 import { classificarUA } from '../utils/dispositivo'
 import { barrarPlacaBloqueada } from '../utils/blocklist'
 import { decidirTurnstile, linhaEventoTurnstile, MENSAGEM_TURNSTILE } from '../utils/turnstile'
+import {
+  avaliarGateEmail, depsGateEmailSupabase, sanearDeviceId, sanearTokensPagos,
+  GATE_EMAIL_CODE, GATE_EMAIL_MENSAGEM,
+} from '../utils/gate-email'
+import { tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT } from '../utils/ip-wdapi-limit'
 
 /**
  * Registra a consulta e RECLAMA se o banco recusar.
@@ -31,7 +36,13 @@ import { decidirTurnstile, linhaEventoTurnstile, MENSAGEM_TURNSTILE } from '../u
  * o que fazer com isso, e a consulta em si deu certo.
  */
 async function registrarConsulta(supabase: any, row: Record<string, any>, origem: string) {
-  const { error } = await supabase.from('consultas').insert(row)
+  let { error } = await supabase.from('consultas').insert(row)
+  // Deploy antes da migration da coluna device_id: grava sem ela em vez de
+  // perder a linha (sem a linha, o teto por IP deixa de contar).
+  if (error && 'device_id' in row && /device_id/.test(String(error.message))) {
+    const { device_id: _semColuna, ...semDevice } = row
+    ;({ error } = await supabase.from('consultas').insert(semDevice))
+  }
   if (error) {
     console.error(
       `[consultas] insert falhou (${origem}): ${error.message}` +
@@ -158,7 +169,25 @@ export default defineEventHandler(async (event) => {
   // the inline-data path, so isPWA + channel=whatsapp would be ambiguous.
   if (channel === 'tela') {
     // Sem destinatario nao ha o que validar. O freio de abuso aqui e o rate
-    // limit por IP, ja aplicado abaixo.
+    // limit por IP, ja aplicado abaixo. Excecao: o e-mail pedido pelo gate
+    // (terceira consulta gratis em diante) vem neste canal e precisa ser real,
+    // senao qualquer string passava o gate.
+    if (email) {
+      if (!isValidEmail(email)) {
+        throw createError({ statusCode: 400, message: 'E-mail inválido.', data: { code: GATE_EMAIL_CODE } })
+      }
+      const deliv = await checkEmailDeliverability(email)
+      if (!deliv.ok) {
+        throw createError({
+          statusCode: 422,
+          message: deliv.reason === 'disposable'
+            ? 'E-mails temporários não são aceitos. Use seu e-mail real.'
+            : deliv.reason === 'typo' ? 'Verifique o e-mail digitado.'
+            : 'Este e-mail não parece receber mensagens. Confira se digitou certo.',
+          data: { code: GATE_EMAIL_CODE, suggestion: deliv.reason === 'typo' ? deliv.suggestion : undefined },
+        })
+      }
+    }
   } else if (channel === 'whatsapp') {
     // Feature flag — UI hides the toggle when whatsappEnabled is false,
     // but a crafted POST can still reach us. Refuse here too.
@@ -275,6 +304,36 @@ export default defineEventHandler(async (event) => {
   const hourlyLimit = semDestinatario
     ? await getHourlyLimit(`ip:${ip}`)
     : await getHourlyLimit(recipientValue as string)
+
+  // Device id do navegador (UUID no localStorage, mandado no corpo). Gravado
+  // na linha da consulta pro gate de e-mail contar o mesmo aparelho mesmo
+  // quando o IP gira.
+  const deviceId = sanearDeviceId(body?.deviceId)
+
+  // ===== Gate de e-mail (Cesar, 09/nov/2026) =====
+  // A partir da terceira consulta gratis em 24h (mesmo IP OU mesmo device),
+  // sem e-mail nao sai. Quem pagou algum relatorio (token conferido no
+  // banco) fica fora. Vale em homolog tambem, pra poder testar; quem esta na
+  // whitelist (sonda da VPS, testes de prod) fica fora como no rate limit.
+  if (!sanitizedEmail && hourlyLimit !== Infinity && (await tetoIpWdapi(ip)) <= IP_WDAPI_HOURLY_LIMIT) {
+    const supabaseGate = useSupabaseServer()
+    const gate = await avaliarGateEmail(depsGateEmailSupabase(supabaseGate, usePremiumSupabase), {
+      temEmail: false,
+      ip,
+      deviceId,
+      tokensPagos: sanearTokensPagos(body?.tokensPagos),
+    })
+    if (gate.exigirEmail) {
+      supabaseGate.from('blocked_requests').insert({
+        reason: GATE_EMAIL_CODE,
+        ip_address: ip,
+        recipient: null,
+        placa: placaClean,
+        user_agent: userAgent,
+      }).then(({ error }: any) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
+      throw createError({ statusCode: 403, message: GATE_EMAIL_MENSAGEM, data: { code: GATE_EMAIL_CODE } })
+    }
+  }
 
   // Vale pra web E PWA: sem isso, um POST com isPWA:true pulava o rate
   // limit e recebia o apiResponse completo - consultas ilimitadas de graca
@@ -490,6 +549,7 @@ export default defineEventHandler(async (event) => {
       phone: normalizedPhone,
       placa: placaClean,
       ip_address: ip,
+      device_id: deviceId,
       geo_city: ipGeo?.city ?? null,
       geo_uf: ipGeo?.uf ?? null,
       geo_country: ipGeo?.country ?? null,
@@ -519,6 +579,7 @@ export default defineEventHandler(async (event) => {
       phone: normalizedPhone,
       placa: placaClean,
       ip_address: ip,
+      device_id: deviceId,
       geo_city: ipGeo?.city ?? null,
       geo_uf: ipGeo?.uf ?? null,
       geo_country: ipGeo?.country ?? null,
@@ -763,6 +824,7 @@ export default defineEventHandler(async (event) => {
     phone: normalizedPhone,
     placa: placaClean,
     ip_address: ip,
+    device_id: deviceId,
     geo_city: ipGeo?.city ?? null,
     geo_uf: ipGeo?.uf ?? null,
     geo_country: ipGeo?.country ?? null,
