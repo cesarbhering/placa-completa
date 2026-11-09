@@ -18,6 +18,7 @@ import { classificarUA } from '../utils/dispositivo'
 import { barrarPlacaBloqueada } from '../utils/blocklist'
 import { decidirTurnstile, linhaEventoTurnstile, MENSAGEM_TURNSTILE } from '../utils/turnstile'
 import { consultarPlacaWdapiDetalhado, semMotor } from '../utils/placa-lookup'
+import { chassiParaExibicao, comChassiParcial } from '../utils/chassi-livre'
 
 /**
  * Registra a consulta e RECLAMA se o banco recusar.
@@ -54,30 +55,6 @@ async function registrarConsulta(supabase: any, row: Record<string, any>, origem
 // devolve o bloco basico pra pagina mostrar. Nao envia nada, entao nao pede
 // nem valida e-mail/telefone.
 type Channel = 'email' | 'whatsapp' | 'tela'
-
-// Mostra parte do chassi e esconde o resto: o comprador confere contra o
-// documento sem que a superficie gratis entregue o numero inteiro.
-function mascararChassi(chassi: unknown): string | null {
-  const c = String(chassi || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
-  if (c.length < 8) return null
-  const visivel = c.slice(0, 5)
-  return visivel + '*'.repeat(c.length - visivel.length)
-}
-
-// `extra` (com o chassi INTEIRO) nao vem pra toda placa — falta com frequencia
-// em veiculo mais antigo (ex: Opala 1972 na placa GSZ6753). Quando falta, o
-// payload raiz as vezes ja traz `chassi` PRE-MASCARADO PELA PROPRIA WDAPI, so
-// que ao contrario do nosso padrao: esconde o COMECO e mostra o FINAL
-// ("*****55388"). Rodar mascararChassi() em cima disso e o bug que fazia o
-// campo sumir: a regex tira os "*" (nao sao alfanumericos), sobra so "55388"
-// (5 chars), cai no guard de <8 e devolve null. Aqui so usamos o valor como
-// veio quando ja mascarado — sem re-mascarar.
-function chassiParaExibicao(apiResponse: any): string | null {
-  const completo = apiResponse?.extra?.chassi
-  if (completo) return mascararChassi(completo)
-  const bruto = apiResponse?.chassi
-  return typeof bruto === 'string' && bruto.trim() ? bruto.trim() : null
-}
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -837,7 +814,8 @@ export default defineEventHandler(async (event) => {
     emailSent,
     whatsappSent,
     message,
-    data: isPWA ? apiResponse : undefined,
+    // App: mesmo payload, mas com o chassi so em parte (o inteiro e do pago).
+    data: isPWA ? comChassiParcial(apiResponse) : undefined,
     fipeHistory: isPWA ? fipeHistoryPoints : undefined,
     seguroEstimado: !isPWA ? seguroEstimado : undefined,
     // Bloco livre mostrado NA TELA na web (o "o que e o carro"). E o mesmo
@@ -1043,7 +1021,8 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
   const cor = escapeHtml(data.cor || '-')
   const situacao = escapeHtml(data.situacao || '-')
   const origem = escapeHtml(data.origem || '-')
-  const chassi = escapeHtml(data.extra?.chassi || data.chassi || '-')
+  // So a parte do chassi, igual a tela: o numero inteiro e do relatorio pago.
+  const chassi = escapeHtml(chassiParaExibicao(data) || '-')
 
   const extra = data.extra || {}
   const combustivel = escapeHtml(extra.combustivel || '-')
@@ -1268,7 +1247,8 @@ function buildWhatsAppText(
   const anoModelo = data.anoModelo || '-'
   const cor = data.cor || '-'
   const situacao = data.situacao || '-'
-  const chassi = data.extra?.chassi || data.chassi || '-'
+  // So a parte do chassi, igual a tela: o numero inteiro e do relatorio pago.
+  const chassi = chassiParaExibicao(data) || '-'
   const extra = data.extra || {}
   const combustivel = extra.combustivel || '-'
   const tipoVeiculo = extra.tipo_veiculo || '-'
