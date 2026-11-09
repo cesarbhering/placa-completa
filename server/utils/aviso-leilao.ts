@@ -7,7 +7,7 @@
 // Flag LEILAO_AVISO_EMAIL: '1' liga, '0' desliga; sem a env, ligado so fora do
 // staging/homolog.
 import { enviarAvisoLeilao, type InfoAvisoLeilao } from './premium-email'
-import { comitenteExibicao } from '../../shared/leilao-exibicao'
+import { comitenteExibicao, ligadoPeloMotor } from '../../shared/leilao-exibicao'
 
 /** Tem algo no historico: passagem de qualquer nivel ou indicio de sinistro da base parceira. */
 export function temLeilaoOuSinistro(h: any): boolean {
@@ -32,6 +32,8 @@ export function infoDoHistorico(h: any): InfoAvisoLeilao {
     nivel: String(p?.nivel || ''),
     data_leilao: p?.data_leilao ?? null,
     comitente: comitenteExibicao(p?.comitente)?.texto ?? null,
+    // So o fato de a ligacao ter sido pelo motor; o numero nunca entra no aviso.
+    ligadoPorMotor: ligadoPeloMotor(p),
   }))
   return { passagens, sinistro: h?.sinistro_parceiro?.indicio === true }
 }

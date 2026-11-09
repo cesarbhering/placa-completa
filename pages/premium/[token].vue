@@ -507,7 +507,7 @@ const indicadores = computed(() => {
       sim: valor,
       nao: 'SEM OCORRÊNCIA',
       risco: true,
-      dica: `Cruzamos o veículo com uma base de ${BASE_LEILAO_TEXTO}, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer chassi ou placa completos iguais; provável e possível são inferência por identificador parcial, então podem ser outro veículo. O detalhe de cada registro aparece na seção Histórico de leilão.`,
+      dica: `Cruzamos o veículo com uma base de ${BASE_LEILAO_TEXTO}, montada a partir de editais de órgãos de trânsito e catálogos de leiloeiras. Confirmado quer dizer chassi ou placa completos iguais, ou número do motor igual com outros dados do veículo batendo; provável e possível são inferência por identificador parcial, então podem ser outro veículo. O detalhe de cada registro aparece na seção Histórico de leilão.`,
       ligado: aceso,
       alerta,
       // Cinza: aceso, mas nem problema (vermelho) nem "confira" (ambar).
