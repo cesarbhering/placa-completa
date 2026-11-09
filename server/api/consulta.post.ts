@@ -16,6 +16,7 @@ import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '
 import { renderHtmlToPng } from '../utils/htmlToImage'
 import { classificarUA } from '../utils/dispositivo'
 import { barrarPlacaBloqueada } from '../utils/blocklist'
+import { decidirTurnstile, linhaEventoTurnstile, MENSAGEM_TURNSTILE } from '../utils/turnstile'
 
 /**
  * Registra a consulta e RECLAMA se o banco recusar.
@@ -109,6 +110,31 @@ export default defineEventHandler(async (event) => {
       user_agent: (uaCheck || 'vazio').slice(0, 300),
     }).then(({ error }) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
     throw createError({ statusCode: 403, message: 'Acesso não autorizado.' })
+  }
+
+  // Cloudflare Turnstile (contra bot rodando proxies). Modo por env: off (padrao
+  // e forcado sem secret), log (so registra) ou enforce (403 sem token valido).
+  // Siteverify fora do ar = fail open. Sem desafio intersticial: o app Android
+  // carrega este site numa WebView e o fetch la dentro nao resolve desafio.
+  const turnstile = await decidirTurnstile({
+    modo: config.turnstileMode,
+    secret: config.turnstileSecret,
+    token: body?.turnstileToken,
+    ip: ipInicial,
+  })
+  if (turnstile.modo !== 'off') {
+    const linha = linhaEventoTurnstile(turnstile, {
+      isPwa: body?.isPWA === true,
+      isApp: classificarUA(uaCheck).canal === 'app',
+    })
+    useSupabaseServer().from('turnstile_eventos').insert(linha)
+      .then(({ error }: any) => { if (error) console.warn('[turnstile_eventos] insert falhou:', error.message) })
+    if (turnstile.resultado === 'erro_siteverify') {
+      console.warn('[turnstile] siteverify indisponivel, seguindo sem bloquear (fail open)')
+    }
+    if (turnstile.bloquear) {
+      throw createError({ statusCode: 403, message: MENSAGEM_TURNSTILE })
+    }
   }
 
   const { email, phone, placa, isPWA, includeFipeChart, includeIcv5, icv5Uf } = body

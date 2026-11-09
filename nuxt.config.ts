@@ -668,6 +668,10 @@ export default defineNuxtConfig({
     // Cupom de tela (10% em 30 min): HMAC do instante de emissao. Sem a env,
     // server/utils/cupom-tela.ts deriva da service key do banco premium.
     cupomTelaSecret: process.env.NUXT_CUPOM_TELA_SECRET || "",
+    // Cloudflare Turnstile na consulta gratis. Modo: off (padrao), log ou enforce.
+    // Sem secret o modo e forcado pra off (server/utils/turnstile.ts).
+    turnstileSecret: process.env.NUXT_TURNSTILE_SECRET || "",
+    turnstileMode: process.env.NUXT_TURNSTILE_MODE || "off",
     // OpenAI Ads (ChatGPT): Conversions API, so no servidor. Sem key ou sem
     // Pixel ID o envio fica desligado (no-op). Nunca no repo nem em log.
     openaiAdsCapiKey: process.env.NUXT_OPENAI_ADS_CAPI_KEY || "",
@@ -815,6 +819,8 @@ export default defineNuxtConfig({
       // precisa dela pra montar os campos do cartao. Publica por natureza (nao e
       // segredo). Vazia = a aba cartao nao consegue montar e fica indisponivel.
       stripePublishableKey: process.env.NUXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || "",
+      // Site key do Turnstile (publica). Vazia: o client nem carrega o script.
+      turnstileSiteKey: process.env.NUXT_PUBLIC_TURNSTILE_SITE_KEY || "",
       // Kill switch do teste A/B do bloco bloqueado da consulta gratis.
       // "off" joga todo mundo na variante A (a tela de hoje) sem deploy de
       // codigo; qualquer outro valor mantem o sorteio 50/50.

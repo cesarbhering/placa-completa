@@ -12,6 +12,9 @@ import { origemDaSessao } from '~/shared/origem-trafego'
 import { PLANOS } from '~/shared/planos'
 
 const { validatePlaca } = useFormValidation()
+// Turnstile: mesmo esquema da home (token logo antes do POST, reset depois).
+const { container: turnstileEl, preparar: prepararTurnstile, obterToken: tokenTurnstile, resetar: resetarTurnstile, ativo: turnstileAtivo } = useTurnstile()
+onMounted(() => prepararTurnstile())
 const placa = ref('')
 const carregando = ref(false)
 const erro = ref('')
@@ -35,9 +38,13 @@ async function consultar() {
   carregando.value = true
   resultado.value = null
   try {
+    const turnstileToken = await tokenTurnstile()
     const r: any = await $fetch('/api/consulta', {
       method: 'POST',
-      body: { email: null, phone: null, channel: 'tela', placa: placa.value, isPWA: false, origin: origemDaSessao() },
+      body: {
+        email: null, phone: null, channel: 'tela', placa: placa.value, isPWA: false, origin: origemDaSessao(),
+        ...(turnstileToken ? { turnstileToken } : {}),
+      },
     })
     resultado.value = r?.basico || null
     if (!resultado.value) erro.value = r?.message || 'Não encontramos dados para esta placa.'
@@ -45,6 +52,7 @@ async function consultar() {
   } catch (err: any) {
     erro.value = err?.data?.message || 'Não foi possível consultar agora. Tente de novo em instantes.'
   } finally {
+    resetarTurnstile()
     carregando.value = false
   }
 }
@@ -78,6 +86,7 @@ function comprar() {
       </div>
       <p v-if="erro" class="fpp__erro" role="alert">{{ erro }}</p>
     </form>
+    <div v-if="turnstileAtivo" ref="turnstileEl" class="fpp__turnstile" />
 
     <div v-if="resultado" class="fpp__res" aria-live="polite">
       <p class="fpp__veic">
