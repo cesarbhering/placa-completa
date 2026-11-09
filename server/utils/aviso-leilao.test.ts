@@ -75,6 +75,22 @@ describe('texto', () => {
     expect(textosAvisoLeilao('ABC1D23', { passagens: [{ nivel: 'possivel' }], sinistro: false }).paragrafos[0]).toMatch(/registro possível de leilão\. Ele pode ser outro veículo do mesmo modelo e ano/)
     expect(textosAvisoLeilao('ABC1D23', { passagens: [], sinistro: true }).paragrafos[0]).toBe('Consta no seu relatório da placa ABC1D23 indício de sinistro em base parceira de leilões e sinistros.')
   })
+  it('engine-number link: the notice does not claim plate or VIN match and never carries the number', () => {
+    const motorSo = { passagens: [{ nivel: 'confirmado', data_leilao: '2019-05-10', evidencias: ['numero do motor igual', 'marca compativel', 'ano igual'] }] }
+    const info = infoDoHistorico(motorSo)
+    expect(info.passagens[0].ligadoPorMotor).toBe(true)
+    expect(JSON.stringify(info)).not.toMatch(/evidencias|motor igual/)
+    const t = textosAvisoLeilao('ABC1D23', info)
+    expect(t.paragrafos[0]).toContain('Nível confirmado: o número do motor e outros dados batem com os deste veículo.')
+    expect(tudo(t)).not.toContain('a placa ou o chassi são iguais')
+    const prov = textosAvisoLeilao('ABC1D23', { passagens: [{ nivel: 'provavel', ligadoPorMotor: true }], sinistro: false })
+    expect(prov.paragrafos[0]).toContain('Nível provável: o número do motor bate, mas faltam dados para confirmar.')
+    expect(tudo(prov)).not.toContain('—')
+  })
+  it('engine number plus full plate match keeps the plate/VIN wording', () => {
+    const info = infoDoHistorico({ passagens: [{ nivel: 'confirmado', evidencias: ['numero do motor igual', 'placa completa igual'] }] })
+    expect(textosAvisoLeilao('ABC1D23', info).paragrafos[0]).toContain('a placa ou o chassi são iguais')
+  })
   it('nunca afirma, sem travessao, sem o nome do fornecedor nem orgao federal', () => {
     for (const info of [infoDoHistorico(comLeilao), { passagens: [{ nivel: 'possivel' }], sinistro: true }, { passagens: [], sinistro: true }]) {
       const s = tudo(textosAvisoLeilao('ABC1D23', info))

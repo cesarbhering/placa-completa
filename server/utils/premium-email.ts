@@ -511,7 +511,7 @@ export async function enviarAvisoFotos(
 // ---------- Aviso de leilao ou sinistro que apareceu depois da entrega (Cesar, 21/out/2026) ----------
 
 export interface InfoAvisoLeilao {
-  passagens: { nivel: string; data_leilao?: string | null; comitente?: string | null }[]
+  passagens: { nivel: string; data_leilao?: string | null; comitente?: string | null; ligadoPorMotor?: boolean }[]
   sinistro: boolean
 }
 
@@ -530,9 +530,15 @@ export function textosAvisoLeilao(placa: string, info: InfoAvisoLeilao): { titul
     if (p.nivel === 'possivel') {
       paragrafos.push(`Entrou no seu relatório da placa ${placa} um registro possível de leilão${quando}${quem}. Ele pode ser outro veículo do mesmo modelo e ano: confira os detalhes no relatório.${mais}`)
     } else {
-      const nivel = p.nivel === 'confirmado'
-        ? 'Nível confirmado: a placa ou o chassi são iguais aos deste veículo.'
-        : 'Nível provável: parte do identificador e os dados do veículo batem.'
+      // Ligado pelo numero do motor (sem placa/chassi/Renavam iguais): dizer
+      // "placa ou chassi iguais" seria falso (09/nov/2026).
+      const nivel = p.ligadoPorMotor
+        ? (p.nivel === 'confirmado'
+          ? 'Nível confirmado: o número do motor e outros dados batem com os deste veículo.'
+          : 'Nível provável: o número do motor bate, mas faltam dados para confirmar.')
+        : p.nivel === 'confirmado'
+          ? 'Nível confirmado: a placa ou o chassi são iguais aos deste veículo.'
+          : 'Nível provável: parte do identificador e os dados do veículo batem.'
       paragrafos.push(`Consta no seu relatório da placa ${placa} um registro de leilão${quando}${quem}. ${nivel}${mais}`)
     }
   }
