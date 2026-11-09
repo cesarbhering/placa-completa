@@ -678,6 +678,8 @@ export default defineNuxtConfig({
     openaiAdsPixelId: process.env.NUXT_OPENAI_ADS_PIXEL_ID || "",
     resendApiKey: process.env.RESEND_API_KEY || "",
     placaApiToken: process.env.PLACA_API_TOKEN || "",
+    // Fonte primaria da consulta por placa (09/nov/2026); wdapi vira fallback.
+    placafipeToken: process.env.NUXT_PLACAFIPE_TOKEN || "",
     fipeApiToken: process.env.FIPE_API_TOKEN || "",
     fipeApiUrl: process.env.FIPE_API_URL || "",
     oneSignalAppId: process.env.ONESIGNAL_APP_ID || "",

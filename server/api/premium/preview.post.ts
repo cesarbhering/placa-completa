@@ -1,5 +1,5 @@
 // Preview GRATIS pra confirmar o veiculo antes de pagar (marca/modelo/ano).
-// Fonte free atual (wdapi2). NAO expoe nada de SENATRAN. Gated.
+// Fonte livre da placa (PlacaFipe, wdapi no fallback). NAO expoe nada de SENATRAN. Gated.
 import { marcaExibicao } from '../../../shared/marca-exibicao'
 import { mensagemLimiteGratis } from '../../utils/ip-wdapi-limit'
 import { lerPlacaCacheFresca } from '../../utils/placa-lookup'
@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
   }
   registrarChamadaPreviewWdapi(supabase, ip)
 
-  // Fonte free (wdapi2), pagando so aqui: fora do cache.
+  // Fonte da placa (cache -> PlacaFipe -> wdapi), so aqui fora do cache.
   const r = await consultarPlacaWdapi(placaClean)
   if (r) return montarPreview(placaClean, r)
   return { placa: placaClean, encontrado: false }

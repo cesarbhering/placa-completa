@@ -18,7 +18,7 @@ import { getValorCusto } from '../../utils/valor-custo'
 import { sanearBlocoMultas } from '../../utils/infosimples-detran'
 import { retentarDetranSeValer } from '../../utils/detran-retentativa'
 import { logoProxyDe } from '../../utils/logo-marca'
-import { lerPlacaCacheFresca } from '../../utils/placa-lookup'
+import { lerPlacaCacheFresca, motorDoPayload } from '../../utils/placa-lookup'
 
 // Dados do relatorio premium pelo token (superficie PAGA, token e a credencial).
 // O corte por plano acontece AQUI, no servidor: o que a basica nao comprou nunca
@@ -204,6 +204,9 @@ export default defineEventHandler(async (event) => {
   let multas: any = null
   // Detalhe do RENAJUD (AL/GO): so tribunal, orgao, processo, tipo e data.
   let renajudDetalhe: any = null
+  // Numero do motor (basica e completa, 09/nov/2026). undefined = snapshot
+  // gravado antes do campo existir; ai vem do placa_cache, so leitura.
+  let motor: string | null | undefined
 
   if (!pendente && pedido.status === 'entregue') {
     if (pedido.relatorio_snapshot) {
@@ -212,6 +215,7 @@ export default defineEventHandler(async (event) => {
       restantes = snap.camposRestantes ?? 0
       valorCusto = snap.valorCusto ?? null
       chassiOrigem = snap.chassiOrigem ?? null
+      motor = snap.motor
       // Snapshot gravado antes da feature existir simplesmente nao tem o
       // campo: a secao some, e nao ha remontagem por cima do que a pessoa
       // comprou (a regra do snapshot imutavel vale aqui tambem).
@@ -325,6 +329,7 @@ export default defineEventHandler(async (event) => {
         restantes = snap.camposRestantes ?? 0
         valorCusto = snap.valorCusto ?? null
         chassiOrigem = snap.chassiOrigem ?? null
+        motor = snap.motor
         historicoLeilao = snap.historicoLeilao ?? null
         recall = snap.recall ?? null
         recallAutoritativo = snap.recallAutoritativo ?? null
@@ -342,6 +347,7 @@ export default defineEventHandler(async (event) => {
         restantes = snapshot.camposRestantes
         valorCusto = snapshot.valorCusto
         chassiOrigem = snapshot.chassiOrigem
+        motor = snapshot.motor
         historicoLeilao = snapshot.historicoLeilao
         recall = snapshot.recall ?? null
         recallAutoritativo = snapshot.recallAutoritativo ?? null
@@ -359,6 +365,12 @@ export default defineEventHandler(async (event) => {
           .then(() => {}, () => {})
       }
     }
+  }
+
+  // Motor de relatorio vendido antes do campo: le do placa_cache (sem chamada
+  // paga). So pedido entregue com consulta; nunca sai pra pedido pendente.
+  if (motor === undefined && !pendente && pedido.status === 'entregue' && consulta) {
+    motor = motorDoPayload(await lerPlacaCacheFresca(pedido.placa).catch(() => null))
   }
 
   // Logo da montadora (fallback do MarcaLogo): o "logo" da apiplacas, do
@@ -434,6 +446,8 @@ export default defineEventHandler(async (event) => {
     camposRestantes: restantes,
     valorCusto,
     chassiOrigem,
+    // Dado do veiculo, so no relatorio pago (basica e completa).
+    motor: !pendente && pedido.status === 'entregue' ? (motor ?? null) : null,
     cupomRecompra,
     logoMarca,
     // Snapshot antigo pode ter processo/comitente PF: filtra na saida tambem.

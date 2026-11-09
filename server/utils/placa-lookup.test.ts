@@ -51,7 +51,7 @@ describe('consultarPlacaWdapiDetalhado', () => {
 
   it('placa curta nem tenta', async () => {
     const r = await consultarPlacaWdapiDetalhado('ABC')
-    expect(r).toEqual({ payload: null, cacheHit: false })
+    expect(r).toEqual({ payload: null, cacheHit: false, fonte: null })
     expect(apiChamada).toBe(0)
   })
 

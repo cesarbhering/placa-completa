@@ -1838,6 +1838,8 @@ const fichaCadastral = computed(() => [
   linha('Placa', data.value?.placa),
   linha('Renavam', g('renavam')),
   linha('Chassi', g('chassi')),
+  // Vem da fonte livre da placa (server: report.get.ts), so no relatorio pago.
+  linha('Número do motor', data.value?.motor),
   linha('Marca / modelo', g('descricaoMarcaModelo')),
   linha('Ano fab. / modelo', has('anoFabricacao') ? `${g('anoFabricacao')} / ${g('anoModelo')}` : null),
   linha('Cor', humanizar(g('descricaoCor'))),
