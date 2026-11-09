@@ -661,6 +661,10 @@ export default defineNuxtConfig({
     supabaseUrl:
       process.env.SUPABASE_URL || "https://fivalpkfneadngxiflea.supabase.co",
     supabaseKey: process.env.SUPABASE_SERVICE_KEY || "",
+    // Gate de e-mail da consulta gratis: quantas consultas gratis SEM e-mail
+    // por IP/aparelho em 24h. 2 = regra do Cesar; 0 = modo emergencia (todas
+    // pedem e-mail, menos quem pagou). Lido em runtime (server/utils/gate-email.ts).
+    consultaGratisSemEmail: process.env.NUXT_CONSULTA_GRATIS_SEM_EMAIL || "2",
     // Linha do cupom de recompra no e-mail de entrega: so com "on" (ok do Cesar).
     cupomRecompraEmail: process.env.NUXT_CUPOM_RECOMPRA_EMAIL || "",
     // HMAC do CPF/CNPJ do pagador do Pix (recorrencia sem e-mail). Sem ele, nao grava.
