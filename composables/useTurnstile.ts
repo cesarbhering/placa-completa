@@ -12,10 +12,17 @@
  * expira parado na tela, e obterToken() consome o token e reseta o widget na
  * hora, pra a proxima consulta ja ter outro sendo gerado.
  *
- * Nunca trava a consulta pra sempre: sem site key nao faz nada; sem token
- * pronto espera ate TURNSTILE_ESPERA_MS (TURNSTILE_ESPERA_ERRO_MS se o widget
- * ja deu erro; TURNSTILE_ESPERA_INTERACAO_MS quando a Cloudflare mostrou a
- * caixinha e a pessoa precisa clicar) e envia sem
+ * Nunca trava a consulta pra sempre: sem site key nao faz nada. Sem token
+ * pronto, a espera depende do modo do servidor (useState TURNSTILE_MODO_STATE,
+ * preenchido a partir de NUXT_TURNSTILE_MODE por plugins/turnstile-modo.server.ts
+ * e entregue no payload da pagina), ver limitesEspera():
+ *   enforce: ate 8 s (3 s se o widget ja deu erro; 25 s com a caixinha na
+ *            tela, porque sem token a consulta seria barrada);
+ *   log:     ate 2 s, sem espera extra pra interacao (o servidor nao barra,
+ *            segurar a consulta so custa conversao); a caixinha segue na tela
+ *            e quem clicar ja tem token na proxima;
+ *   off:     nao espera (usa o token so se ja estiver pronto).
+ * Depois envia sem
  * token, com o motivo. O modo do servidor (off/log/enforce) decide o resto.
  *
  * Nada de desafio intersticial: o app Android carrega este mesmo site numa
@@ -30,6 +37,22 @@ export const TURNSTILE_ESPERA_MS = 8000
 export const TURNSTILE_ESPERA_ERRO_MS = 3000
 /** Com a caixinha na tela (a Cloudflare pediu interacao): tempo pra pessoa clicar. */
 export const TURNSTILE_ESPERA_INTERACAO_MS = 25000
+/** Chave do useState com o modo efetivo do servidor (plugins/turnstile-modo.server.ts). */
+export const TURNSTILE_MODO_STATE = 'turnstile-modo'
+
+/** Modo log: o servidor nao barra, entao a espera e curta e igual pra tudo. */
+export const TURNSTILE_ESPERA_LOG_MS = 2000
+
+export interface LimitesEspera { base: number; erro: number; interacao: number }
+
+/** Limites de espera no envio pelo modo do servidor (desconhecido = log). */
+export function limitesEspera(modo: unknown): LimitesEspera {
+  const m = String(modo || '').trim().toLowerCase()
+  if (m === 'enforce') return { base: TURNSTILE_ESPERA_MS, erro: TURNSTILE_ESPERA_ERRO_MS, interacao: TURNSTILE_ESPERA_INTERACAO_MS }
+  if (m === 'off') return { base: 0, erro: 0, interacao: 0 }
+  return { base: TURNSTILE_ESPERA_LOG_MS, erro: TURNSTILE_ESPERA_LOG_MS, interacao: TURNSTILE_ESPERA_LOG_MS }
+}
+
 /** Token vale 300 s; acima disso nem tenta usar (o auto-refresh ja deve ter trocado). */
 export const TURNSTILE_TOKEN_MAX_MS = 280_000
 
@@ -104,10 +127,13 @@ export function criarEstadoToken(agora: () => number = Date.now) {
       return t
     },
     /**
-     * Espera ate haver token fresco ou o prazo acabar. O prazo cresce pra
-     * TURNSTILE_ESPERA_INTERACAO_MS se a Cloudflare pedir interacao.
+     * Espera ate haver token fresco ou o prazo acabar (limites do modo; o
+     * prazo muda se o widget der erro ou pedir interacao durante a espera).
      */
-    esperar(dormir: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms))): Promise<void> {
+    esperar(
+      dormir: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+      limites: LimitesEspera = limitesEspera('enforce'),
+    ): Promise<void> {
       const inicio = agora()
       return new Promise<void>((resolve) => {
         let feito = false
@@ -115,7 +141,7 @@ export function criarEstadoToken(agora: () => number = Date.now) {
         const checar = () => {
           if (feito) return
           if (fresco()) return fim()
-          const prazo = interacao ? TURNSTILE_ESPERA_INTERACAO_MS : erro ? TURNSTILE_ESPERA_ERRO_MS : TURNSTILE_ESPERA_MS
+          const prazo = interacao ? limites.interacao : erro ? limites.erro : limites.base
           const resta = prazo - (agora() - inicio)
           if (resta <= 0) return fim()
           espera.push(checar)
@@ -131,6 +157,7 @@ export function criarEstadoToken(agora: () => number = Date.now) {
 export function useTurnstile() {
   const config = useRuntimeConfig()
   const siteKey = String(config.public?.turnstileSiteKey || '')
+  const limites = limitesEspera(useState<string>(TURNSTILE_MODO_STATE, () => 'log').value)
   const container = ref<HTMLElement | null>(null)
   const estado = criarEstadoToken()
   let widgetId: string | null = null
@@ -183,8 +210,8 @@ export function useTurnstile() {
   }
 
   /**
-   * Token pra uma consulta. Usa o que ja esta pronto; senao espera (ate 8 s,
-   * ou 25 s com a caixinha na tela). Consome e ja renova pro proximo envio.
+   * Token pra uma consulta. Usa o que ja esta pronto; senao espera o limite do
+   * modo (limitesEspera). Consome e ja renova pro proximo envio.
    * Nunca lanca.
    */
   async function obterToken(): Promise<ResultadoToken> {
@@ -196,12 +223,12 @@ export function useTurnstile() {
         // Script ainda nao montou (rede lenta, clique logo na abertura): tenta de novo agora.
         const montado = await Promise.race([
           montar().catch(() => false),
-          new Promise<boolean>((r) => setTimeout(() => r(false), TURNSTILE_ESPERA_MS)),
+          new Promise<boolean>((r) => setTimeout(() => r(false), limites.base)),
         ])
         if (!montado || !widgetId) {
           return { token: null, motivo: scriptFalhou ? 'sem_script' : 'sem_widget', esperaMs: Date.now() - inicio }
         }
-        await estado.esperar()
+        await estado.esperar(undefined, limites)
         token = estado.consumir()
       }
       const esperaMs = Date.now() - inicio

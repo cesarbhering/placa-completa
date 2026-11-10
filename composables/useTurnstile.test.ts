@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { criarEstadoToken, camposTurnstile, TURNSTILE_ESPERA_MS, TURNSTILE_ESPERA_ERRO_MS, TURNSTILE_ESPERA_INTERACAO_MS, TURNSTILE_TOKEN_MAX_MS } from './useTurnstile'
+import { readFileSync } from 'node:fs'
+import { criarEstadoToken, camposTurnstile, limitesEspera, TURNSTILE_ESPERA_LOG_MS, TURNSTILE_ESPERA_MS, TURNSTILE_ESPERA_ERRO_MS, TURNSTILE_ESPERA_INTERACAO_MS, TURNSTILE_TOKEN_MAX_MS } from './useTurnstile'
 
 /** Fake clock: dormir() advances time instead of waiting. */
 function relogio() {
@@ -99,5 +100,54 @@ describe('camposTurnstile (POST body)', () => {
   it('Turnstile off (no site key): sends nothing', () => {
     expect(camposTurnstile({ token: null, motivo: null, esperaMs: 0 })).toEqual({})
     expect(camposTurnstile(null)).toEqual({})
+  })
+})
+
+describe('wait limits by server mode', () => {
+  const enforce = limitesEspera('enforce')
+  const log = limitesEspera('log')
+
+  it('enforce keeps 8 s / 3 s after an error / 25 s with the checkbox', () => {
+    expect(enforce).toEqual({ base: 8000, erro: 3000, interacao: 25000 })
+  })
+  it('log never holds the lookup more than 2 s, with no extra wait for interaction', () => {
+    expect(log).toEqual({ base: TURNSTILE_ESPERA_LOG_MS, erro: TURNSTILE_ESPERA_LOG_MS, interacao: TURNSTILE_ESPERA_LOG_MS })
+    expect(TURNSTILE_ESPERA_LOG_MS).toBe(2000)
+  })
+  it('off does not wait; unknown or missing mode falls back to log', () => {
+    expect(limitesEspera('off')).toEqual({ base: 0, erro: 0, interacao: 0 })
+    expect(limitesEspera(undefined)).toEqual(log)
+    expect(limitesEspera('ENFORCE ')).toEqual(enforce)
+  })
+
+  for (const [modo, lim, esperado] of [
+    ['enforce', enforce, { nada: 8000, erro: 3000, interacao: 25000 }],
+    ['log', log, { nada: 2000, erro: 2000, interacao: 2000 }],
+  ] as const) {
+    it(`${modo}: waits ${esperado.nada} / ${esperado.erro} / ${esperado.interacao} ms (no token / widget error / checkbox shown)`, async () => {
+      for (const [caso, preparar] of [['nada', () => {}], ['erro', (e: any) => e.onErro('600010')], ['interacao', (e: any) => e.onInteracao()]] as const) {
+        const r = relogio()
+        const e = criarEstadoToken(r.agora)
+        preparar(e)
+        const antes = r.agora()
+        await e.esperar(r.dormir, lim)
+        expect(r.agora() - antes).toBe(esperado[caso])
+      }
+    })
+  }
+
+  it('log: a token that arrives within 2 s is still used', async () => {
+    const r = relogio()
+    const e = criarEstadoToken(r.agora)
+    let n = 0
+    await e.esperar(async (ms) => { r.avancar(ms); if (++n === 1) e.onToken('tok-1s') }, log)
+    expect(e.consumir()).toBe('tok-1s')
+  })
+
+  it('the server hands the effective mode to the client without a new env and without the secret', () => {
+    const plugin = readFileSync('plugins/turnstile-modo.server.ts', 'utf8')
+    expect(plugin).toContain('useState(TURNSTILE_MODO_STATE, () => resolverModoTurnstile(config.turnstileMode, config.turnstileSecret))')
+    expect(readFileSync('nuxt.config.ts', 'utf8')).not.toContain('NUXT_PUBLIC_TURNSTILE_MODE')
+    expect(readFileSync('composables/useTurnstile.ts', 'utf8')).toContain('limitesEspera(useState<string>(TURNSTILE_MODO_STATE')
   })
 })
