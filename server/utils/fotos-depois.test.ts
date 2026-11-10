@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
 import {
   rodarFotosDepois, sanearRespostaFotos, ehRotaAusente, ehLoteNaoEncontrado, FOTOS_PAUSA_MS, FOTOS_MAX_PEDIDOS, FOTOS_NOME_LOCK, FOTOS_LEASE_S, FOTOS_INTERVALO_MS,
   FOTOS_RPC_MAX, contarFotosPassagem, passagemFotosIncompletas,
   rodarFotosRapido, intervaloRapidoMs, criarAgendaRapida, snapshotPedeFoto, FOTOS_RAPIDO_NOME_LOCK, FOTOS_RAPIDO_LEASE_S,
   FOTOS_RAPIDO_MAX_CHAMADAS, FOTOS_RAPIDO_OCIOSO_MS, FOTOS_RAPIDO_PAUSA_429_MS, FOTOS_RAPIDO_TICK_MS, FOTOS_MAX_CHAMADAS,
 } from './fotos-depois'
-import { fotosPendentes } from '../../shared/foto-lote'
+import { fotosPendentes, copartSoMiniatura, passagemPrecisaDeFoto } from '../../shared/foto-lote'
 
 const REF = (n: number) => `ref${n}.abcdefABCDEF0123456789`
 const semPausa = async () => {}
@@ -37,15 +38,23 @@ function fakeSupabase(pedidos: any[], opts: { lockErro?: boolean } = {}) {
     const nAtual = Math.max(Array.isArray(p.foto_refs) ? p.foto_refs.length : 0, (p.detalhes?.fotos || []).filter((x: any) => typeof x?.foto_ref === 'string').length)
     let novo: any
     let res = 'gravado'
+    // Copart so com a miniatura (20261109150000): resposta que nao acrescenta grava fotos_busca.
+    const soMiniatura = copartSoMiniatura(p)
     if (a.p_foto_refs) {
       const n = Array.isArray(a.p_foto_refs) ? a.p_foto_refs.length : -1
       if (n < 1 || n > 300 || a.p_foto_refs.some((f: any) => typeof f?.ref !== 'string')) return 'invalido'
-      if (nAtual > 0 && n <= nAtual) {
+      if (nAtual > 0 && n <= nAtual && soMiniatura) {
+        if (p.fotos_busca?.status === 'sem_foto') return 'igual'
+        novo = { ...p, fotos_lote_completo: true, fotos_busca: { status: 'sem_foto', em: 'agora' } }; res = 'completo'
+      } else if (nAtual > 0 && n <= nAtual) {
         if (p.fotos_lote_completo === true) return 'ja_tem_foto'
         novo = { ...p, fotos_lote_completo: true }; res = 'completo'
       } else { novo = { ...p, foto_refs: a.p_foto_refs, fotos_pendente: false, fotos_lote_completo: true }; delete novo.fotos_busca }
     } else if (a.p_fotos_busca) {
-      if (nAtual > 0) {
+      if (nAtual > 0 && soMiniatura) {
+        if (p.fotos_busca?.status === a.p_fotos_busca.status) return 'igual'
+        novo = { ...p, fotos_lote_completo: true, fotos_busca: a.p_fotos_busca }; res = 'completo'
+      } else if (nAtual > 0) {
         if (p.fotos_lote_completo === true) return 'ja_tem_foto'
         novo = { ...p, fotos_lote_completo: true }; res = 'completo'
       } else { if (p.fotos_busca?.status === a.p_fotos_busca.status) return 'igual'; novo = { ...p, fotos_busca: a.p_fotos_busca } }
@@ -637,5 +646,102 @@ describe('todas as fotos do lote (RPC ate 300, 30/out/2026)', () => {
     const sb = fakeSupabase([pedido('a', [passagem({ foto_refs: quatro() })], { entregue_em: new Date(AGORA - 2 * 60 * 1000).toISOString() })])
     const r = await rodarFotosRapido({ supabase: sb, buscar: async () => { throw new Error('nao deveria chamar') }, dono: 'c1', esperar: semPausa, agora: AGORA, log })
     expect(r.chamadas).toBe(0)
+  })
+})
+
+describe('Copart lot with only the thumbnail (HD gallery arrives later)', () => {
+  const THUMB = 'https://example.test/lote/img?id=1&imageType=thumbnail'
+  const miniatura = (extra: any = {}) => passagem({
+    detalhes: { fotos: [{ ordem: 0, foto_ref: REF(0), url_origem: THUMB }] },
+    foto_refs: [{ ref: REF(0), ordem: 0, vista: null }],
+    fotos_pendente: false,
+    fotos_lote_completo: true,
+    ...extra,
+  })
+  const galeria = (n: number) => Array.from({ length: n }, (_, i) => ({ foto_ref: REF(i + 1), ordem: i + 1, vista: null }))
+  const log = () => {}
+
+  it('a lone thumbnail does not count as a photo; a gallery or another source does', () => {
+    expect(copartSoMiniatura(miniatura())).toBe(true)
+    expect(passagemPrecisaDeFoto(miniatura())).toBe(true)
+    // top-level fotos_pendente is enough as the signal, with or without the thumbnail URL
+    expect(passagemPrecisaDeFoto(miniatura({ detalhes: { fotos: [{ ordem: 0, foto_ref: REF(0) }] }, fotos_pendente: true }))).toBe(true)
+    // detalhes.fotos_pendente is not (it stays true after the job writes a real single photo)
+    expect(passagemPrecisaDeFoto(miniatura({ detalhes: { fotos: [{ ordem: 0, foto_ref: REF(0) }], fotos_pendente: true } }))).toBe(false)
+    const comGaleria = miniatura({ foto_refs: galeria(12).map((f) => ({ ref: f.foto_ref, ordem: f.ordem, vista: null })) })
+    expect(copartSoMiniatura(comGaleria)).toBe(false)
+    expect(passagemPrecisaDeFoto(comGaleria)).toBe(false)
+    const outraFonte = miniatura({ fonte: 'superbid' })
+    expect(copartSoMiniatura(outraFonte)).toBe(false)
+    expect(passagemPrecisaDeFoto(outraFonte)).toBe(false)
+    // single Copart photo that is not the thumbnail and no pending flag: left alone
+    expect(passagemPrecisaDeFoto(miniatura({ detalhes: { fotos: [{ ordem: 0, foto_ref: REF(0), url_origem: 'https://example.test/x.jpg' }] } }))).toBe(false)
+    // the search ended without a gallery: stop asking
+    expect(passagemPrecisaDeFoto(miniatura({ fotos_busca: { status: 'sem_foto', em: 'x' } }))).toBe(false)
+    expect(passagemFotosIncompletas(miniatura({ fotos_lote_completo: false }))).toBe(false)
+  })
+
+  it('thumbnail -> the HD gallery replaces it, even when an old answer marked the lot complete', async () => {
+    const pedidos = [pedido('a', [miniatura()])]
+    const sb = fakeSupabase(pedidos)
+    const buscar = async () => ({ status: 'ok', fotos: galeria(12) })
+    const r = await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log })
+    expect(r.gravados).toBe(1)
+    const p = pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0]
+    expect(p.foto_refs).toHaveLength(12)
+    expect(passagemPrecisaDeFoto(p)).toBe(false)
+  })
+
+  it('thumbnail -> the fast post-delivery round also asks for it', async () => {
+    const pedidos = [pedido('a', [miniatura()], { entregue_em: new Date(AGORA - 2 * 60 * 1000).toISOString() })]
+    const sb = fakeSupabase(pedidos)
+    const r = await rodarFotosRapido({ supabase: sb, buscar: async () => ({ status: 'ok', fotos: galeria(12) }), dono: 'c1', esperar: semPausa, agora: AGORA, log })
+    expect(r.gravados).toBe(1)
+    expect(pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0].foto_refs).toHaveLength(12)
+  })
+
+  it('still fetching: keeps the thumbnail and asks again next round', async () => {
+    const pedidos = [pedido('a', [miniatura()])]
+    const sb = fakeSupabase(pedidos)
+    const buscar = async () => ({ status: 'buscando', fotos: [{ foto_ref: REF(0), ordem: 0 }] })
+    await rodarFotosDepois({ supabase: sb, buscar, dono: 'c1', esperar: semPausa, agora: AGORA, log })
+    const p = pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0]
+    expect(p.foto_refs).toHaveLength(1)
+    expect(passagemPrecisaDeFoto(p)).toBe(true)
+  })
+
+  it('final answer with no more than the thumbnail: keeps it and stops asking', async () => {
+    for (const resposta of [{ status: 'ok', fotos: [{ foto_ref: REF(0), ordem: 0 }] }, { status: 'sem_foto', fotos: [] }]) {
+      const pedidos = [pedido('a', [miniatura()])]
+      const sb = fakeSupabase(pedidos)
+      await rodarFotosDepois({ supabase: sb, buscar: async () => resposta, dono: 'c1', esperar: semPausa, agora: AGORA, log })
+      const p = pedidos[0].relatorio_snapshot.historicoLeilao.passagens[0]
+      expect(p.foto_refs).toHaveLength(1)
+      expect(p.fotos_busca?.status).toBe('sem_foto')
+      expect(passagemPrecisaDeFoto(p)).toBe(false)
+    }
+  })
+
+  it('a Copart passage that already has its gallery is never asked again', async () => {
+    const pedidos = [pedido('a', [miniatura({ foto_refs: galeria(12).map((f) => ({ ref: f.foto_ref, ordem: f.ordem, vista: null })) })])]
+    const sb = fakeSupabase(pedidos)
+    const r = await rodarFotosDepois({ supabase: sb, buscar: async () => { throw new Error('should not be called') }, dono: 'c1', esperar: semPausa, agora: AGORA, log })
+    expect(r.chamadas).toBe(0)
+  })
+
+  it('another source with a single photo marked complete is not touched', async () => {
+    const pedidos = [pedido('a', [miniatura({ fonte: 'superbid' })])]
+    const sb = fakeSupabase(pedidos)
+    const r = await rodarFotosDepois({ supabase: sb, buscar: async () => { throw new Error('should not be called') }, dono: 'c1', esperar: semPausa, agora: AGORA, log })
+    expect(r.chamadas).toBe(0)
+    expect(sb.rpcs).toHaveLength(0)
+  })
+
+  it('the migration keeps the 300 cap and limits the new branch to Copart thumbnail-only passages', () => {
+    const sql = readFileSync('supabase/migrations/20261109150000_fotos_copart_miniatura.sql', 'utf8')
+    expect(sql).toContain('n_novo > 300')
+    expect(sql).toContain("coalesce(p->>'fonte', '') = 'copart'")
+    expect(sql).toContain("ilike '%imageType=thumbnail%'")
+    expect(sql).toContain('notify pgrst')
   })
 })
