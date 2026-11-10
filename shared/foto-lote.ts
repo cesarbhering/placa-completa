@@ -177,13 +177,34 @@ export function fotosPendentes(p: any, ctx?: { entregueEm?: string | null; agora
  * marcou com fotos_pendente. `fontesSemFoto` = fontes que a API ja respondeu
  * "fonte_sem_foto" nesta execucao do servidor.
  */
+/**
+ * Lote da Copart que so tem a MINIATURA (a galeria HD ainda nao chegou; a
+ * leiloes-api pede a galeria com prioridade quando o relatorio acha um lote
+ * assim). A miniatura nao conta como foto: o job segue perguntando e, quando
+ * a galeria chega com mais fotos, a RPC fotos_passagem_gravar substitui.
+ * Sinal: no maximo 1 foto (gravada ou no detalhe) e ela e a miniatura
+ * (url_origem com imageType=thumbnail), ou a passagem tem fotos_pendente=true
+ * no topo. detalhes.fotos_pendente NAO serve: a RPC zera so o do topo ao gravar,
+ * entao o do detalhe fica true em lote que ja tem a foto unica de verdade.
+ * Mesma regra na RPC (migration 20261109150000_fotos_copart_miniatura.sql).
+ */
+export function copartSoMiniatura(p: any): boolean {
+  if (!p || typeof p !== 'object' || String(p.fonte || '') !== 'copart') return false
+  const noDetalhe = Array.isArray(p.detalhes?.fotos) ? p.detalhes.fotos : []
+  const gravadas = Array.isArray(p.foto_refs) ? p.foto_refs.length : 0
+  if (gravadas > 1 || noDetalhe.length > 1) return false
+  const miniatura = noDetalhe.length === 1 && /imageType=thumbnail/i.test(String(noDetalhe[0]?.url_origem ?? ''))
+  return miniatura || p.fotos_pendente === true
+}
+
 export function passagemPrecisaDeFoto(p: any, fontesSemFoto?: Set<string>): boolean {
   if (!p || typeof p !== 'object') return false
   const fonte = String(p.fonte || '')
   if (!fonte || !String(p.lote || '').trim()) return false
   // Base parceira de leilao nao tem catalogo de fotos na nossa base.
   if (p.fonte_tipo === 'parceiro' || fonte === 'parceiro') return false
-  if (temFoto(p)) return false
+  // Copart so com a miniatura segue pedindo a galeria (ate a busca terminar).
+  if (temFoto(p) && !copartSoMiniatura(p)) return false
   const busca = p.fotos_busca?.status
   if (busca === 'sem_foto' || busca === 'fonte_sem_foto') return false
   if (fontesSemFoto?.has(fonte)) return false

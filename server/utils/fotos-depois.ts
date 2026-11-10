@@ -1,4 +1,4 @@
-import { fotoRefsDaPassagem, passagemPrecisaDeFoto, type FotoRef, type FotosBuscaStatus } from '../../shared/foto-lote'
+import { copartSoMiniatura, fotoRefsDaPassagem, passagemPrecisaDeFoto, type FotoRef, type FotosBuscaStatus } from '../../shared/foto-lote'
 
 // Fotos do lote que chegam DEPOIS da venda (Cesar, 18/out/2026).
 //
@@ -117,6 +117,8 @@ export function contarFotosPassagem(p: any): number {
 export function passagemFotosIncompletas(p: any, fontesSemFoto?: Set<string>): boolean {
   if (!p || typeof p !== 'object') return false
   if (p.fotos_lote_completo === true) return false
+  // Copart so com a miniatura ja entra por passagemPrecisaDeFoto (sem chamada dupla).
+  if (copartSoMiniatura(p)) return false
   const n = contarFotosPassagem(p)
   if (n === 0 || n >= FOTOS_RPC_MAX) return false
   // Mesmas regras de fonte do pedido de foto, olhando a passagem como se nao tivesse foto.
