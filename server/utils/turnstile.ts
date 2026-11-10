@@ -95,13 +95,57 @@ export async function decidirTurnstile(opts: {
 export const MENSAGEM_TURNSTILE =
   'Não conseguimos confirmar a verificação de segurança. Recarregue a página e tente de novo.'
 
-/** Linha sem PII pra contar depois: resultado, modo, canal e o dia (created_at). */
-export function linhaEventoTurnstile(d: DecisaoTurnstile, ctx: { isPwa: boolean; isApp: boolean }) {
+/**
+ * Motivo que o client mandou quando foi sem token (composables/useTurnstile.ts).
+ * So valores conhecidos; erro_ so com digitos (codigo do Turnstile). Resto: null.
+ */
+export function sanearMotivoTurnstile(v: unknown): string | null {
+  const s = typeof v === 'string' ? v.trim() : ''
+  if (['timeout', 'interacao', 'sem_script', 'sem_widget'].includes(s)) return s
+  if (/^erro_(\d{1,6}|x)$/.test(s)) return s
+  return null
+}
+
+/** Espera do client pelo token, em ms (0 a 60 s); fora disso ou torto: null. */
+export function sanearEsperaTurnstile(v: unknown): number | null {
+  const n = typeof v === 'number' ? v : Number.NaN
+  if (!Number.isFinite(n) || n < 0) return null
+  return Math.min(60_000, Math.round(n))
+}
+
+/**
+ * Linha sem PII pra contar depois: resultado, modo, canal e o dia (created_at).
+ * motivo (so quando veio sem token) e espera_ms dizem POR QUE o token faltou e
+ * quanto o envio esperou (10/nov/2026).
+ */
+export function linhaEventoTurnstile(
+  d: DecisaoTurnstile,
+  ctx: { isPwa: boolean; isApp: boolean; motivo?: unknown; esperaMs?: unknown },
+) {
   return {
     resultado: d.resultado,
     modo: d.modo,
     bloqueado: d.bloquear,
     is_pwa: ctx.isPwa,
     is_app: ctx.isApp,
+    motivo: d.resultado === 'ausente' ? sanearMotivoTurnstile(ctx.motivo) : null,
+    espera_ms: sanearEsperaTurnstile(ctx.esperaMs),
+  }
+}
+
+/**
+ * Grava o evento. Antes da migration das colunas motivo/espera_ms o insert
+ * falharia inteiro: repete sem elas em vez de perder a contagem. Nunca lanca.
+ */
+export async function gravarEventoTurnstile(supabase: any, linha: Record<string, any>): Promise<void> {
+  try {
+    let { error } = await supabase.from('turnstile_eventos').insert(linha)
+    if (error && /motivo|espera_ms/.test(String(error.message || ''))) {
+      const { motivo: _m, espera_ms: _e, ...base } = linha
+      ;({ error } = await supabase.from('turnstile_eventos').insert(base))
+    }
+    if (error) console.warn('[turnstile_eventos] insert falhou:', error.message)
+  } catch (e: any) {
+    console.warn('[turnstile_eventos] insert falhou:', String(e?.message || e))
   }
 }

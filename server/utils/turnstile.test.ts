@@ -4,6 +4,9 @@ import {
   verificarTokenTurnstile,
   decidirTurnstile,
   linhaEventoTurnstile,
+  sanearMotivoTurnstile,
+  sanearEsperaTurnstile,
+  gravarEventoTurnstile,
   SITEVERIFY_URL,
 } from './turnstile'
 
@@ -135,6 +138,55 @@ describe('linhaEventoTurnstile', () => {
       { modo: 'log', resultado: 'ausente', bloquear: false },
       { isPwa: true, isApp: false },
     )
-    expect(linha).toEqual({ resultado: 'ausente', modo: 'log', bloqueado: false, is_pwa: true, is_app: false })
+    expect(linha).toEqual({ resultado: 'ausente', modo: 'log', bloqueado: false, is_pwa: true, is_app: false, motivo: null, espera_ms: null })
+  })
+
+  it('records the client reason only when the token is missing, plus the wait time', () => {
+    expect(linhaEventoTurnstile({ modo: 'log', resultado: 'ausente', bloquear: false }, { isPwa: false, isApp: true, motivo: 'interacao', esperaMs: 25010.4 }))
+      .toMatchObject({ motivo: 'interacao', espera_ms: 25010 })
+    expect(linhaEventoTurnstile({ modo: 'log', resultado: 'ok', bloquear: false }, { isPwa: false, isApp: false, motivo: 'timeout', esperaMs: 0 }))
+      .toMatchObject({ motivo: null, espera_ms: 0 })
+  })
+})
+
+describe('client reason and wait sanitizing', () => {
+  it('accepts only known reasons and numeric error codes', () => {
+    for (const ok of ['timeout', 'interacao', 'sem_script', 'sem_widget', 'erro_300030', 'erro_x']) expect(sanearMotivoTurnstile(ok)).toBe(ok)
+    for (const ruim of ['', 'TIMEOUT', 'erro_abc', 'erro_1234567', '<script>', 42, null, 'x'.repeat(30)]) expect(sanearMotivoTurnstile(ruim)).toBeNull()
+  })
+  it('clamps the wait to 0..60 s and drops junk', () => {
+    expect(sanearEsperaTurnstile(1234.6)).toBe(1235)
+    expect(sanearEsperaTurnstile(999_999)).toBe(60_000)
+    expect(sanearEsperaTurnstile(-1)).toBeNull()
+    expect(sanearEsperaTurnstile('100')).toBeNull()
+    expect(sanearEsperaTurnstile(Number.NaN)).toBeNull()
+  })
+})
+
+describe('gravarEventoTurnstile', () => {
+  const sb = (falhaColuna: boolean) => {
+    const inserts: any[] = []
+    return {
+      inserts,
+      from: () => ({
+        insert: async (row: any) => {
+          inserts.push(row)
+          if (falhaColuna && 'motivo' in row) return { error: { message: "Could not find the 'motivo' column of 'turnstile_eventos'" } }
+          return { error: null }
+        },
+      }),
+    }
+  }
+  const linha = { resultado: 'ausente', modo: 'log', bloqueado: false, is_pwa: false, is_app: false, motivo: 'timeout', espera_ms: 8000 }
+  it('inserts the full row when the columns exist', async () => {
+    const s = sb(false)
+    await gravarEventoTurnstile(s, linha)
+    expect(s.inserts).toEqual([linha])
+  })
+  it('retries without the new columns before the migration runs', async () => {
+    const s = sb(true)
+    await gravarEventoTurnstile(s, linha)
+    expect(s.inserts).toHaveLength(2)
+    expect(s.inserts[1]).toEqual({ resultado: 'ausente', modo: 'log', bloqueado: false, is_pwa: false, is_app: false })
   })
 })

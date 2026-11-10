@@ -16,7 +16,7 @@ import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '
 import { renderHtmlToPng } from '../utils/htmlToImage'
 import { classificarUA } from '../utils/dispositivo'
 import { barrarPlacaBloqueada } from '../utils/blocklist'
-import { decidirTurnstile, linhaEventoTurnstile, MENSAGEM_TURNSTILE } from '../utils/turnstile'
+import { decidirTurnstile, linhaEventoTurnstile, gravarEventoTurnstile, MENSAGEM_TURNSTILE } from '../utils/turnstile'
 import { consultarPlacaWdapiDetalhado, semMotor } from '../utils/placa-lookup'
 import { chassiParaExibicao, comChassiParcial } from '../utils/chassi-livre'
 import {
@@ -119,9 +119,11 @@ export default defineEventHandler(async (event) => {
     const linha = linhaEventoTurnstile(turnstile, {
       isPwa: body?.isPWA === true,
       isApp: classificarUA(uaCheck).canal === 'app',
+      motivo: body?.turnstileMotivo,
+      esperaMs: body?.turnstileEsperaMs,
     })
-    useSupabaseServer().from('turnstile_eventos').insert(linha)
-      .then(({ error }: any) => { if (error) console.warn('[turnstile_eventos] insert falhou:', error.message) })
+    // Sem await: o registro nunca atrasa a consulta.
+    gravarEventoTurnstile(useSupabaseServer(), linha)
     if (turnstile.resultado === 'erro_siteverify') {
       console.warn('[turnstile] siteverify indisponivel, seguindo sem bloquear (fail open)')
     }
