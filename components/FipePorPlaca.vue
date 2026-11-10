@@ -13,8 +13,8 @@ import { PLANOS } from '~/shared/planos'
 import { camposGateEmail, deveExigirEmailLocal, ehErroGateEmail, emailGateSalvo, registrarConsultaSemEmail, salvarEmailGate } from '~/composables/useGateEmail'
 
 const { validatePlaca } = useFormValidation()
-// Turnstile: mesmo esquema da home (token logo antes do POST, reset depois).
-const { container: turnstileEl, preparar: prepararTurnstile, obterToken: tokenTurnstile, resetar: resetarTurnstile, ativo: turnstileAtivo } = useTurnstile()
+// Turnstile: mesmo esquema da home (token gerado na montagem, usado no POST e renovado).
+const { container: turnstileEl, preparar: prepararTurnstile, obterToken: tokenTurnstile, ativo: turnstileAtivo } = useTurnstile()
 onMounted(() => prepararTurnstile())
 const placa = ref('')
 const carregando = ref(false)
@@ -58,12 +58,12 @@ async function consultar() {
   carregando.value = true
   resultado.value = null
   try {
-    const turnstileToken = await tokenTurnstile()
+    const turnstile = await tokenTurnstile()
     const r: any = await $fetch('/api/consulta', {
       method: 'POST',
       body: {
         email: emailGate || null, phone: null, channel: 'tela', placa: placa.value, isPWA: false, origin: origemDaSessao(),
-        ...(turnstileToken ? { turnstileToken } : {}),
+        ...camposTurnstile(turnstile),
         ...camposGateEmail(),
       },
     })
@@ -87,7 +87,6 @@ async function consultar() {
     }
     erro.value = err?.data?.message || 'Não foi possível consultar agora. Tente de novo em instantes.'
   } finally {
-    resetarTurnstile()
     carregando.value = false
   }
 }

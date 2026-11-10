@@ -32,8 +32,8 @@ import { decidirVariante, fipeSemCentavos, tituloVarianteB, subVarianteB, garant
 definePageMeta({ key: () => 'home' })
 
 const { isPWA, isMobile, isCapacitor, fluxoLegado } = useAppMode()
-// Turnstile na consulta gratis: token pego logo antes do POST /api/consulta.
-const { container: turnstileEl, preparar: prepararTurnstile, obterToken: tokenTurnstile, resetar: resetarTurnstile, ativo: turnstileAtivo } = useTurnstile()
+// Turnstile na consulta gratis: token gerado na montagem, usado no POST /api/consulta e renovado.
+const { container: turnstileEl, preparar: prepararTurnstile, obterToken: tokenTurnstile, ativo: turnstileAtivo } = useTurnstile()
 onMounted(() => prepararTurnstile())
 // Dentro do app Android so existem dois caminhos: a consulta gratis e o
 // relatorio completo pela loja. A basica nao e vendida la (a loja cobra um
@@ -1359,7 +1359,7 @@ async function handleSubmit() {
   track('form_submit', { form_name: 'plate_consultation', pwa_mode: isPWA.value })
 
   try {
-    const turnstileToken = await tokenTurnstile()
+    const turnstile = await tokenTurnstile()
     const result = await $fetch<{ success: boolean; emailSent: boolean; whatsappSent?: boolean; channel?: 'email' | 'whatsapp'; message: string; data?: any }>('/api/consulta', {
       method: 'POST',
       body: {
@@ -1375,7 +1375,7 @@ async function handleSubmit() {
         icv5Uf: icv5Uf.value,
         origin: origemDaSessao(),
         entrada: entradaDaSessao(),
-        ...(turnstileToken ? { turnstileToken } : {}),
+        ...camposTurnstile(turnstile),
         ...camposGateEmail(),
       },
     })
@@ -1471,8 +1471,6 @@ async function handleSubmit() {
     emailSuggestion.value = err?.data?.data?.suggestion || ''
     track('consulta_error', { error_message: errMsg, has_suggestion: Boolean(emailSuggestion.value) })
   } finally {
-    // Token do Turnstile e de uso unico.
-    resetarTurnstile()
     stopStageCycle()
     loading.value = false
   }
