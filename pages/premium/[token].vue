@@ -9,7 +9,7 @@ import { faixaLicenciamento } from '~/shared/licenciamento-faixa'
 import { textoHodometro } from '~/shared/hodometro-texto'
 import { efeitoRestricao, textoEfeito } from '~/shared/restricao-efeito'
 import { dadosDe } from '~/shared/dados-de'
-import { resumoQuitar, procedenciaDebitos, procedenciaKm, ufDoBlocoDetran, statusBaseNacional } from '~/shared/detran-quitar'
+import { resumoQuitar, procedenciaDebitos, procedenciaKm, ufDoBlocoDetran, statusBaseNacional, ehPlanoBSefazDer, NOTA_PLANO_B_SP } from '~/shared/detran-quitar'
 import { ufRenainfForaDoDetran, textoMultasRenainfForaDoDetran, EXPLICA_RENAINF_FORA_DO_DETRAN, esconderMultasQueFalharam } from '~/shared/renainf-detran'
 import { inicioTardioDoHistorico } from '~/shared/historico-fipe'
 import { metaCupomRecompra, linkWhatsappRecompra, pctDoCupom } from '~/shared/cupom-recompra-texto'
@@ -1734,7 +1734,7 @@ const temDebitosAbertos = computed(() => {
 const procDebitos = computed(() => {
   const estado = multasDetalhe.value ? 'ok' : multasProtegido.value ? 'protegido' : multasIndisponivel.value ? 'indisponivel' : null
   if (!estado) return null
-  return procedenciaDebitos({ uf: ufDoBlocoDetran(data.value?.multas as any, ufDetranTela.value), consultadoEm: (data.value?.multas as any)?.consultadoEm || (data.value as any)?.detranConsultadoEm, estado })
+  return procedenciaDebitos({ uf: ufDoBlocoDetran(data.value?.multas as any, ufDetranTela.value), consultadoEm: (data.value?.multas as any)?.consultadoEm || (data.value as any)?.detranConsultadoEm, estado, origem: (data.value?.multas as any)?.origem })
 })
 const procKm = computed(() => {
   const ext = hodometroExtrato.value
@@ -2577,6 +2577,8 @@ onUnmounted(() => {
                      infracoes, IPVA, restricoes. A caixa ja diz o total, o que
                      trava (inclusive roubo/furto) e o licenciamento vencido. -->
                 <DetranQuitar v-if="resumoDetran" :resumo="resumoDetran" />
+                <!-- Plano B do SP (SEFAZ + DER, 11/nov/2026): de onde veio e o que nao foi consultado. -->
+                <p v-if="ehPlanoBSefazDer(multasDetalhe as any)" class="rel__multas-nota">{{ NOTA_PLANO_B_SP }}</p>
                 <!-- 612 da fonte = nada consta (nao e falha): mostra a frase dela (21/out/2026). -->
                 <p v-if="multasDetalhe.mensagem_fonte" class="rel__multas-nota">Fonte informou: {{ multasDetalhe.mensagem_fonte }}</p>
 
@@ -2631,7 +2633,7 @@ onUnmounted(() => {
                 <template v-if="autuacoesItens.length">
                   <p class="rel__multas-sub">{{ autuacoesItens.length === 1 ? 'Autuação em andamento' : 'Autuações em andamento' }}</p>
                   <p class="rel__multas-item-meta">
-                    Ainda não {{ autuacoesItens.length === 1 ? 'é multa' : 'são multas' }}: o DETRAN registrou a infração, mas a cobrança só acontece se a penalidade for aplicada.
+                    Ainda não {{ autuacoesItens.length === 1 ? 'é multa' : 'são multas' }}: {{ ehPlanoBSefazDer(multasDetalhe as any) ? 'o órgão autuador' : 'o DETRAN' }} registrou a infração, mas a cobrança só acontece se a penalidade for aplicada.
                   </p>
                   <ul class="rel__multas-itens">
                     <li v-for="(au, idx) in autuacoesItens" :key="'au' + idx" class="rel__multas-item">
