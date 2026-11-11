@@ -22,8 +22,31 @@ const RE_AFIRMA = /^(SIM|S|CONSTA|TRUE|1|POSITIVO|ATIVO|ATIVA)$/
 
 export const TEXTO_SINISTRO_DETRAN = 'Indício de sinistro informado pelo órgão de trânsito.'
 const DICA_SINISTRO_DETRAN = `${TEXTO_SINISTRO_DETRAN} A fonte não diz a gravidade nem se houve reparo. Peça uma vistoria cautelar e confira o documento do veículo antes de negociar.`
-const ROTULO_DETRAN = 'indício de sinistro informado pelo órgão de trânsito'
-const ROTULO_PARCEIRA = 'indício de sinistro em base parceira'
+export const TEXTO_SINISTRO_NACIONAL = 'Indício de sinistro registrado em restrição oficial do veículo.'
+const DICA_SINISTRO_NACIONAL = `${TEXTO_SINISTRO_NACIONAL} O detalhe aparece na seção de Restrições. Peça uma vistoria cautelar antes de negociar.`
+const ORIGEM_DETRAN = 'informado pelo órgão de trânsito'
+const ORIGEM_NACIONAL = 'registrado em restrição oficial do veículo'
+const ORIGEM_PARCEIRA = 'em base parceira'
+
+// Restricao nacional (consulta.restricoesItens, Cesar 11/nov/2026): codigos
+// como RECUPERADO_SINISTRO, SINISTRO, SINISTRO_MEDIA_MONTA. Item negado
+// ("SEM_SINISTRO", "NADA_CONSTA_SINISTRO") nao acende.
+const RE_SINISTRO_NACIONAL = /SINISTR|(PEQUENA|MEDIA|GRANDE)_MONTA/
+const RE_NEGA_NACIONAL = /(^|_)(NAO|NADA|SEM|NENHUM\w*|INEXIST\w*|NEGATIV\w*)(_|$)/
+const chaveNacional = (r: unknown) => normalizarTexto(r).replace(/[\s-]+/g, '_')
+
+/** Este item da restricao nacional e de sinistro? */
+export function ehRestricaoNacionalSinistro(item: unknown): boolean {
+  const k = chaveNacional(item)
+  return !!k && RE_SINISTRO_NACIONAL.test(k) && !RE_NEGA_NACIONAL.test(k)
+}
+
+/** Alguma restricao nacional de sinistro na lista? */
+export function sinistroNaRestricaoNacional(itens: unknown): boolean {
+  return Array.isArray(itens) && itens.some(ehRestricaoNacionalSinistro)
+}
+
+const juntar = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`)
 
 /** Este item do DETRAN traz sinal de sinistro? */
 export function ehSinalSinistro(r: RestricaoDetran | null | undefined): boolean {
@@ -67,19 +90,25 @@ export interface CartaoSinistro {
 
 /**
  * Cartao "Indício de sinistro" da grade. Aparece quando a base parceira foi
- * consultada (verde ou vermelho, como antes) ou quando o DETRAN acusa
- * (sempre vermelho). null = nenhuma fonte de sinistro olhada.
+ * consultada (verde ou vermelho, como antes) ou quando o DETRAN ou a restricao
+ * nacional acusam (sempre vermelho). null = nenhuma fonte de sinistro olhada.
  */
-export function cartaoSinistro(o: { consultouParceira: boolean; parceiraIndicio: boolean; detran: boolean }): CartaoSinistro | null {
+export function cartaoSinistro(o: { consultouParceira: boolean; parceiraIndicio: boolean; detran: boolean; nacional?: boolean }): CartaoSinistro | null {
   const parceira = o.consultouParceira && o.parceiraIndicio
-  if (!o.consultouParceira && !o.detran) return null
-  const ligado = parceira || o.detran
-  const rotuloVeredito = o.detran && parceira
-    ? `${ROTULO_DETRAN} e em base parceira`
-    : o.detran ? ROTULO_DETRAN : ROTULO_PARCEIRA
-  const dica = o.detran
-    ? (o.consultouParceira ? `${DICA_SINISTRO_DETRAN} ${DICA_SINISTRO}` : DICA_SINISTRO_DETRAN)
-    : DICA_SINISTRO
+  const nacional = !!o.nacional
+  if (!o.consultouParceira && !o.detran && !nacional) return null
+  const ligado = parceira || o.detran || nacional
+  const origens = [
+    ...(o.detran ? [ORIGEM_DETRAN] : []),
+    ...(nacional ? [ORIGEM_NACIONAL] : []),
+    ...(parceira || !ligado ? [ORIGEM_PARCEIRA] : []),
+  ]
+  const rotuloVeredito = `indício de sinistro ${juntar(origens)}`
+  const dica = [
+    ...(o.detran ? [DICA_SINISTRO_DETRAN] : []),
+    ...(nacional ? [DICA_SINISTRO_NACIONAL] : []),
+    ...(o.consultouParceira ? [DICA_SINISTRO] : []),
+  ].join(' ')
   return {
     k: o.consultouParceira ? 'sinistroParceiro' : 'sinistroDetran',
     label: 'Indício de sinistro', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,

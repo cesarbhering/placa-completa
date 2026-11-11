@@ -41,7 +41,7 @@ import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteE
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
 import { FONTE_PARCEIRA, rotuloIndicadorLeilao, linhasBasesSemRegistro, PASSAGEM_PARCEIRA } from '~/shared/fonte-parceira'
-import { sinistroPeloDetran, cartaoSinistro } from '~/shared/sinistro-detran'
+import { sinistroPeloDetran, sinistroNaRestricaoNacional, cartaoSinistro } from '~/shared/sinistro-detran'
 import { custo12Meses, combustivelPraConta, licenciamentoDaUf, KM_ANO_PADRAO } from '~/shared/custo-12-meses'
 import { PRECO_COMBUSTIVEL_UF, SEMANA_ANP } from '~/shared/dados/combustivel-uf'
 import { aliquotaIPVA } from '~/shared/ipva-uf'
@@ -330,6 +330,9 @@ const COBERTURA_RESTRICAO: [RegExp, string][] = [
   // proprio (indicadorRecall) E "Outras restrições" pro mesmo item —
   // duplicado. Achado num relatorio real (placa OLO2I01).
   [/^RECALL/, 'Recall'],
+  // Sinistro (RECUPERADO_SINISTRO, SINISTRO_MEDIA_MONTA...): acende o cartao
+  // "Indício de sinistro" (shared/sinistro-detran.ts), nao "Outras restrições".
+  [/SINISTR|(PEQUENA|MEDIA|GRANDE)_MONTA/, 'Indício de sinistro'],
   // RESTRICAO_JUDICIAL: mesma familia de bug, achada na auditoria pedida.
   // A chave ja aparece em EXPLICA_RESTRICAO (alguem ja viu essa string em
   // dado real), e a dica do indicadorRestricaoRenajud descreve exatamente
@@ -371,6 +374,8 @@ const sinistroParceiro = computed(() => consultouParceira.value && historicoLeil
 // Indicio de sinistro informado pelo DETRAN (restricoes_detran, todas as UFs):
 // acende o cartao "Indício de sinistro" em vermelho (shared/sinistro-detran.ts).
 const sinistroDetran = computed(() => sinistroPeloDetran(multasDetalhe.value as any, (data.value as any)?.restricoesDetranRevisor || {}))
+// Restricao nacional de sinistro (RECUPERADO_SINISTRO, SINISTRO_MEDIA_MONTA...): mesmo cartao.
+const sinistroNacional = computed(() => sinistroNaRestricaoNacional(itensQueRestringem(v.value?.restricoesItens)))
 // Revenda de frota (leiloes-api #106): card proprio, separado do leilao.
 const revendasFrota = computed<RevendaFrota[]>(() => (Array.isArray(historicoLeilao.value?.revendas_frota) ? historicoLeilao.value.revendas_frota : []))
 const dataBRFrota = (i: string | null) => (i ? `${i.slice(8, 10)}/${i.slice(5, 7)}/${i.slice(0, 4)}` : null)
@@ -537,6 +542,7 @@ const indicadores = computed(() => {
     consultouParceira: consultouParceira.value,
     parceiraIndicio: sinistroParceiro.value,
     detran: sinistroDetran.value,
+    nacional: sinistroNacional.value,
   })
   if (cartaoSin) {
     const ancora = ['historicoLeilao', 'indicadorLeilao'].map((k) => base.findIndex((i) => i.k === k)).find((i) => i >= 0)
@@ -1156,7 +1162,7 @@ const checklist = computed(() => {
   const leilaoPossivel = nPossiveisExibidos.value > 0
   return montarChecklist({
     leilao: leilaoForte ? 'confirmado' : leilaoPossivel ? 'possivel' : null,
-    sinistro: sinistroParceiro.value || sinistroDetran.value,
+    sinistro: sinistroParceiro.value || sinistroDetran.value || sinistroNacional.value,
     roubo: ocorrencias.value.length > 0 || g('indicadorRouboFurto') === true || !!rouboDetran.value,
     recallPendente: recallPendente.value,
     kmCaiu: hodometroSuspeito.value,

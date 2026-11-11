@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sinistroPeloDetran, ehSinalSinistro, cartaoSinistro, TEXTO_SINISTRO_DETRAN } from './sinistro-detran'
+import { sinistroPeloDetran, ehSinalSinistro, cartaoSinistro, TEXTO_SINISTRO_DETRAN, TEXTO_SINISTRO_NACIONAL, sinistroNaRestricaoNacional, ehRestricaoNacionalSinistro } from './sinistro-detran'
 
 const bloco = (...restricoes_detran: { tipo: string; texto: string }[]) => ({ fonte: 'detran_xx', restricoes_detran })
 
@@ -109,8 +109,27 @@ describe('cartao "Indício de sinistro" da grade', () => {
     expect(c.rotuloVeredito).toBe('indício de sinistro informado pelo órgão de trânsito e em base parceira')
   })
 
+  it('so a restricao nacional acusa, sem base parceira: cartao vermelho com texto proprio', () => {
+    const c = cartaoSinistro({ consultouParceira: false, parceiraIndicio: false, detran: false, nacional: true })!
+    expect(c).toMatchObject({ label: 'Indício de sinistro', ligado: true, alerta: true })
+    expect(c.rotuloVeredito).toBe('indício de sinistro registrado em restrição oficial do veículo')
+    expect(c.dica).toContain(TEXTO_SINISTRO_NACIONAL)
+  })
+
+  it('restricao nacional acusa e base parceira em nada consta: vermelho', () => {
+    const c = cartaoSinistro({ consultouParceira: true, parceiraIndicio: false, detran: false, nacional: true })!
+    expect(c).toMatchObject({ k: 'sinistroParceiro', ligado: true, alerta: true, rotuloVeredito: 'indício de sinistro registrado em restrição oficial do veículo' })
+  })
+
+  it('tres fontes acusam: rotulo lista todas', () => {
+    const c = cartaoSinistro({ consultouParceira: true, parceiraIndicio: true, detran: true, nacional: true })!
+    expect(c.rotuloVeredito).toBe('indício de sinistro informado pelo órgão de trânsito, registrado em restrição oficial do veículo e em base parceira')
+  })
+
   it('copy sem travessao e sem nome de fornecedor', () => {
     const todos = [
+      cartaoSinistro({ consultouParceira: false, parceiraIndicio: false, detran: false, nacional: true }),
+      cartaoSinistro({ consultouParceira: true, parceiraIndicio: true, detran: true, nacional: true }),
       cartaoSinistro({ consultouParceira: true, parceiraIndicio: true, detran: true }),
       cartaoSinistro({ consultouParceira: false, parceiraIndicio: false, detran: true }),
     ]
@@ -119,5 +138,22 @@ describe('cartao "Indício de sinistro" da grade', () => {
       expect(s).not.toMatch(/[—–]/)
       expect(s.toLowerCase()).not.toMatch(/infosimples|senatran|serpro/)
     }
+  })
+})
+
+describe('sinistro na restricao nacional (restricoesItens)', () => {
+  it.each(['RECUPERADO_SINISTRO', 'SINISTRO', 'SINISTRO_MEDIA_MONTA', 'SINISTRO_PEQUENA_MONTA', 'SINISTRO_GRANDE_MONTA', 'Recuperado de sinistro', 'DANO_GRANDE_MONTA'])('acende: %s', (item) => {
+    expect(ehRestricaoNacionalSinistro(item)).toBe(true)
+    expect(sinistroNaRestricaoNacional(['ALIENACAO_FIDUCIARIA', item])).toBe(true)
+  })
+
+  it.each(['SEM_SINISTRO', 'NADA_CONSTA_SINISTRO', 'NAO_CONSTA_SINISTRO', 'ALIENACAO_FIDUCIARIA', 'RECUPERADO_FURTO', 'ROUBO', ''])('nao acende: %s', (item) => {
+    expect(ehRestricaoNacionalSinistro(item)).toBe(false)
+  })
+
+  it('lista ausente ou vazia: nao acende', () => {
+    expect(sinistroNaRestricaoNacional(null)).toBe(false)
+    expect(sinistroNaRestricaoNacional(undefined)).toBe(false)
+    expect(sinistroNaRestricaoNacional([])).toBe(false)
   })
 })
