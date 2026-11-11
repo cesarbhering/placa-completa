@@ -11,11 +11,14 @@
  */
 export function ufRenainfForaDoDetran(
   indicadorRenainf: unknown,
-  multas: { status?: string | null; fonte?: string | null; uf?: string | null; multas_total_centavos?: number | null } | null | undefined,
+  multas: { status?: string | null; fonte?: string | null; uf?: string | null; origem?: string | null; multas_total_centavos?: number | null } | null | undefined,
   ufVeiculo?: string | null,
 ): string | null {
   if (indicadorRenainf !== true && indicadorRenainf !== 'true') return null
   if (!multas || (multas.status !== 'ok' && multas.status !== 'sem_debito')) return null
+  // Plano B do SP (SEFAZ + DER): o DETRAN-SP nao respondeu, entao nao da pra
+  // dizer "No DETRAN-SP: nada consta".
+  if (multas.origem === 'sefaz_der') return null
   if (multas.multas_total_centavos == null || Number(multas.multas_total_centavos) !== 0) return null
   const daFonte = /^detran_([a-z]{2})$/i.exec(String(multas.fonte || ''))?.[1]
   const uf = String(multas.uf || daFonte || ufVeiculo || '').trim().toUpperCase()

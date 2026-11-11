@@ -7,6 +7,8 @@
 
 export interface BlocoDetranQuitar {
   fonte?: string | null
+  /** 'sefaz_der': DETRAN-SP falhou e os debitos vieram da SEFAZ-SP + DER-SP. */
+  origem?: string | null
   uf?: string | null
   multas_total_centavos?: number | null
   multas_atualizado_centavos?: number | null
@@ -41,6 +43,18 @@ export interface ResumoQuitar {
 }
 
 const pos = (v: any) => (Number(v) > 0 ? Math.round(Number(v)) : 0)
+
+/** Bloco montado pelo plano B do SP (SEFAZ-SP + DER-SP), sem dado do DETRAN-SP. */
+export function ehPlanoBSefazDer(b: { origem?: string | null } | null | undefined): boolean {
+  return String(b?.origem || '') === 'sefaz_der'
+}
+
+/**
+ * Nota do bloco do plano B (Cesar, 11/nov/2026): diz de onde vieram os
+ * debitos e o que NAO foi consultado, pra lista vazia de restricao ou km nao
+ * parecer "nada consta". Sem fornecedor, sem travessao.
+ */
+export const NOTA_PLANO_B_SP = 'O DETRAN-SP não respondeu para este veículo. IPVA, licenciamento e multas vieram da Secretaria da Fazenda (SEFAZ-SP), e as multas em rodovias estaduais vieram do DER-SP. Restrições e quilometragem do DETRAN-SP não fazem parte desta consulta.'
 
 export function ufDoBlocoDetran(b: { uf?: string | null; fonte?: string | null } | null | undefined, ufVeiculo?: string | null): string | null {
   const u = String(b?.uf || /^detran_([a-z]{2})/i.exec(String(b?.fonte || ''))?.[1] || ufVeiculo || '').trim().toUpperCase()
@@ -108,7 +122,9 @@ export function resumoQuitar(a: {
     consequencia: b.licenciamento_atrasado_ano ? CONSEQUENCIA_LICENCIAMENTO : null,
     // RJ: os debitos nao foram consultados (o estado exige o documento do dono),
     // entao nunca "nada a quitar".
-    nadaAQuitar: totalCentavos > 0 || ipvaSemValor || b.debitos_indisponiveis ? null : `Nada a quitar no DETRAN${uf ? '-' + uf : ''} na data da consulta.`,
+    nadaAQuitar: totalCentavos > 0 || ipvaSemValor || b.debitos_indisponiveis ? null
+      : ehPlanoBSefazDer(b) ? 'Nada a quitar na SEFAZ-SP e no DER-SP na data da consulta.'
+        : `Nada a quitar no DETRAN${uf ? '-' + uf : ''} na data da consulta.`,
     ipvaSemValor,
     avisoDebitos: b.debitos_indisponiveis ? (b.aviso_debitos || 'Débitos deste estado não estão disponíveis nesta consulta.') : null,
   }
@@ -123,8 +139,8 @@ export function dataHoraBrt(iso: string | null | undefined): string | null {
 }
 
 /** Linha de procedencia do subbloco de debitos e multas. */
-export function procedenciaDebitos(a: { uf: string | null; consultadoEm?: string | null; estado: 'ok' | 'protegido' | 'indisponivel' }): string {
-  const fonte = `DETRAN${a.uf ? '-' + a.uf : ''}`
+export function procedenciaDebitos(a: { uf: string | null; consultadoEm?: string | null; estado: 'ok' | 'protegido' | 'indisponivel'; origem?: string | null }): string {
+  const fonte = a.estado === 'ok' && ehPlanoBSefazDer(a) ? 'SEFAZ-SP + DER-SP' : `DETRAN${a.uf ? '-' + a.uf : ''}`
   const quando = dataHoraBrt(a.consultadoEm)
   const rotulo = a.estado === 'ok' ? 'consultado em' : 'tentativa em'
   return `Débitos e multas · ${fonte}${quando ? ` · ${rotulo} ${quando}` : ''}`

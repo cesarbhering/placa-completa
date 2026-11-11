@@ -320,8 +320,10 @@ export function blocoSemDados(fonte: string, mensagem: string | null) {
 }
 export const ESPERA_RETRY_MS = 20_000
 
-export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null; path?: string; timeoutS?: number; semCredencial?: boolean; soRenavam?: boolean }): Promise<ResultadoDetran> {
-  const cfgUf: any = { ...DETRAN_UFS[opts.uf], ...(opts.timeoutS ? { timeoutS: opts.timeoutS } : {}) }
+export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null; path?: string; timeoutS?: number; semCredencial?: boolean; soRenavam?: boolean; semPlaca?: boolean; dataLista?: boolean }): Promise<ResultadoDetran> {
+  // semPlaca/dataLista por chamada: servico de outro orgao com a credencial da
+  // UF (DER-SP: so renavam, resposta em lista).
+  const cfgUf: any = { ...DETRAN_UFS[opts.uf], ...(opts.timeoutS ? { timeoutS: opts.timeoutS } : {}), ...(opts.semPlaca ? { semPlaca: true } : {}), ...(opts.dataLista ? { dataLista: true } : {}) }
   // semCredencial: servico de outro orgao (ex.: SEFAZ-DF) que nao pede login
   // nem certificado; nunca mandamos a credencial do DETRAN pra ele.
   const certUf: CertInfosimples = opts.semCredencial ? 'nenhum' : cfgUf.cert
@@ -2237,7 +2239,7 @@ function blocoDetranDaUfBruto(uf: UfDetran, data: any) {
 export async function completarDetran(
   supabase: any,
   pedido: { id: string; placa: string },
-  ctx: { response: any; ignorarGate?: boolean; semRetry?: boolean; esperaRetryMs?: number; refazer?: boolean },
+  ctx: { response: any; ignorarGate?: boolean; semRetry?: boolean; esperaRetryMs?: number; refazer?: boolean; ultimaTentativa?: boolean },
 ): Promise<ResultadoCompletarDetran> {
   const ufBruta = ufDaResposta(ctx.response)
   const uf = ufDetranSuportada(ufBruta)
@@ -2331,6 +2333,18 @@ export async function completarDetran(
     if ((cfgUf as any).complemento) {
       multas = juntarComplemento(multas, await buscarComplemento(supabase, pedido.id, uf, { placa: placaParaDetran(pedido.placa, ctx.response), renavam: renavam! }))
     }
+  } else if ((res.code !== 200 || !res.data) && uf === 'SP' && dispararPlanoBSp(res.code, ctx.ultimaTentativa)) {
+    logIndisponivel(pedido.id, uf, res.code, detalheDaRecusa(res) || 'sem data', Date.now() - t0)
+    // Plano B do SP (SEFAZ + DER, Cesar 11/nov/2026). Sem as duas partes:
+    // indisponivel como antes, e a fila tenta de novo (so a parte que falhou paga).
+    const pb = await consultarPlanoBSp(supabase, pedido.id, { placa, renavam: renavam! })
+    if (!pb.bloco) {
+      await marcarIndisponivel(supabase, pedido.id, uf)
+      return { ok: false, code: pb.code, preco: res.preco, motivo: `detran ${res.code}; plano B ${pb.motivo}`.slice(0, 300) }
+    }
+    console.warn(`[detran] plano-b sefaz+der uf=SP code=${res.code} pedido=${String(pedido.id).slice(0, 8)}`)
+    // Nao vai pro cache multas_sp: o proximo pedido da placa tenta o DETRAN de novo.
+    multas = pb.bloco
   } else if (res.code !== 200 || !res.data) {
     logIndisponivel(pedido.id, uf, res.code, detalheDaRecusa(res) || 'sem data', Date.now() - t0)
     // Reserva (AL): o /infracoes falhou (609 frequente), mas o /veiculo traz o
@@ -2374,7 +2388,8 @@ async function gravarBlocoDetran(supabase: any, pedido: any, uf: UfDetran, cfgUf
   const res = { code: o.code, preco: o.preco }
   const { placa } = o
   const renavam = o.renavam
-  const temAlgo = multas.multas_itens.length > 0 || multas.hodometro.length > 0 || multas.restricoes_detran.length > 0
+  // hodometro/restricoes podem faltar (plano B do SP nao traz: nao inventa lista vazia).
+  const temAlgo = (multas.multas_itens?.length ?? 0) > 0 || (multas.hodometro?.length ?? 0) > 0 || (multas.restricoes_detran?.length ?? 0) > 0
     || !!multas.alerta_roubo_furto
     || (multas.ipva_total_centavos ?? 0) > 0 || (multas.licenciamento_centavos ?? 0) > 0 || multas.licenciamento_atrasado_ano != null
   // Grava no MESMO campo que a secao "Multas e débitos" consome (reuso da UI).
@@ -2483,6 +2498,209 @@ async function buscarComplemento(
   } catch (e: any) {
     console.warn('[infosimples] complemento falhou:', e?.message || e)
     return null
+  }
+}
+
+// ---------- DETRAN-SP: plano B pela SEFAZ-SP + DER-SP (Cesar, 11/nov/2026) ----------
+//
+// Quando o detran/sp/debitos falha (608 "servico nao disponivel para este
+// veiculo" e os demais 6xx de origem; na ULTIMA tentativa da fila, qualquer
+// erro), o bloco de multas sai de duas consultas com o MESMO e-CNPJ do
+// DETRAN-SP:
+// - sefaz/sp/debitos-veiculo (placa + renavam): IPVA (exercicio atual, nao
+//   inscritos e inscritos em divida ativa), licenciamentos e multas em aberto;
+// - der/sp/multas (so renavam, resposta em lista): multas em rodovias
+//   estaduais. 612 ("Nao existem autuacoes...") = nenhuma, resultado valido.
+// O bloco e o mesmo do DETRAN-SP (fonte detran_sp, status ok) com
+// origem 'sefaz_der'. SEM hodometro e SEM restricoes: esses servicos nao
+// trazem, e lista vazia pareceria "nada consta". Custo de cada chamada em
+// premium_custos (prefixo infosimples_, entra no P&L). Cada parte vai pro cache
+// de 24 h por placa so quando completa: na retentativa da fila so a parte que
+// falhou e paga de novo. 618/609 da SEFAZ = falha, a fila tenta de novo.
+// Teste real 11/nov: SEFAZ 618 na 1a e 200 na 2a; DER 612. Login gov.br deu
+// 609 nos dois: so certificado.
+
+export const PLANO_B_SP = {
+  sefaz: { path: 'sefaz/sp/debitos-veiculo', fonteCusto: 'infosimples_sefaz_sp_debitos', cache: 'plano_b_sefaz_sp' },
+  der: { path: 'der/sp/multas', fonteCusto: 'infosimples_der_sp_multas', cache: 'plano_b_der_sp' },
+} as const
+
+/**
+ * Erros que NAO sao da origem: conta (601 token, 602 servico, 603 saldo) e
+ * validacao do proprio Infosimples antes de ir ao site (604, 606, 607
+ * parametro invalido). A SEFAZ e o DER falhariam igual.
+ */
+const CODIGOS_FORA_DA_ORIGEM = new Set([601, 602, 603, 604, 606, 607])
+
+/** O erro do DETRAN-SP justifica o plano B? 6xx de origem sempre; qualquer erro na ultima tentativa da fila. */
+export function dispararPlanoBSp(code: number, ultimaTentativa = false): boolean {
+  if (code === 200 || code === CODIGO_SEM_DADOS || code === 620) return false
+  if (ultimaTentativa) return true
+  return code >= 600 && code < 700 && !CODIGOS_FORA_DA_ORIGEM.has(code)
+}
+
+const numeroOuMoeda = (v: any): number => (typeof v === 'number' ? (Number.isFinite(v) ? v : 0) : moeda(v))
+
+export interface ParteSefazSp {
+  multas_itens: ReturnType<typeof multaGenerica>[]
+  multas_total_centavos: number
+  ipva_itens: IpvaItem[]
+  ipva_total_centavos: number
+  ipva_divida_ativa: boolean
+  licenciamento_centavos: number
+  licenciamento_exercicios: { ano: number; centavos: number }[]
+}
+
+/**
+ * data[0] do sefaz/sp/debitos-veiculo -> parte do bloco. Whitelist: nada de
+ * comunicacao_venda, boleto, URL nem dado de pessoa. IPVA: nao inscritos +
+ * inscritos em divida ativa (um por exercicio) + o saldo do exercicio atual
+ * (ipva.saldo_devido) quando ele ainda nao esta na lista.
+ */
+export function parsearSefazSp(data: any): ParteSefazSp {
+  const d = data || {}
+  const nao = listaDe(d.ipva_nao_inscritos).map(ipvaItemGenerico).filter(Boolean) as IpvaItem[]
+  const inscritos = listaDe(d.ipva_inscritos).map(ipvaItemGenerico).filter(Boolean) as IpvaItem[]
+  const itens: (IpvaItem & { divida_ativa?: boolean })[] = [...nao, ...inscritos.map((x) => ({ ...x, divida_ativa: true }))]
+  const ip = d.ipva && typeof d.ipva === 'object' ? d.ipva : null
+  const saldo = ip ? numeroOuMoeda(ip.normalizado_saldo_devido ?? ip.saldo_devido) : 0
+  const competencia = ip ? anoDe(ip.competencia) : null
+  if (saldo > 0 && !itens.some((x) => x.ano != null && x.ano === competencia)) {
+    itens.push({ ano: competencia, vencimento: null, valor_centavos: Math.round(saldo * 100) })
+  }
+  const ipvaItens = ordenarIpva(normalizarIpvaItens(itens))
+  const lic = listaDe(d.licenciamentos)
+    .map((x) => ({ ano: anoDe(x.exercicio ?? x.ano), centavos: Math.round(numeroOuMoeda(x.normalizado_valor ?? x.valor) * 100) }))
+    .filter((x) => x.centavos > 0)
+  const m = d.multas && typeof d.multas === 'object' && !Array.isArray(d.multas) ? d.multas : {}
+  const multas = emAberto(listaDe(Array.isArray(d.multas) ? d.multas : m.lista)).map(multaGenerica)
+  const totalFonte = numeroOuMoeda(m.normalizado_valor ?? m.valor)
+  const somaItens = multas.reduce((a, x) => a + (x.valor > 0 ? x.valor : 0), 0)
+  return {
+    multas_itens: multas,
+    // Total da fonte quando ela informa; senao a soma dos itens.
+    multas_total_centavos: Math.round((totalFonte > 0 ? totalFonte : somaItens) * 100),
+    ipva_itens: ipvaItens,
+    ipva_total_centavos: ipvaItens.reduce((a, x) => a + x.valor_centavos, 0),
+    ipva_divida_ativa: d.ipva_divida_ativa === true || inscritos.length > 0,
+    licenciamento_centavos: lic.reduce((a, x) => a + x.centavos, 0),
+    licenciamento_exercicios: lic.filter((x) => x.ano != null) as { ano: number; centavos: number }[],
+  }
+}
+
+export interface ParteDerSp {
+  multas_itens: ReturnType<typeof multaGenerica>[]
+  autuacoes_itens: DetranAutuacao[]
+}
+
+/**
+ * Lista do der/sp/multas -> multas em aberto (com valor) e autuacoes em
+ * andamento (sem valor ainda). Defensivo: pela doc publica cada item e uma
+ * autuacao; se vier um envelope com a lista dentro, abre. Pagas/canceladas
+ * saem (emAberto). Whitelist campo a campo: nada de embarcador, equipamento,
+ * pontuacao, velocidade medida nem URL.
+ */
+export function parsearDerSp(lista: any): ParteDerSp {
+  const base = Array.isArray(lista) ? lista : lista && typeof lista === 'object' ? [lista] : []
+  const brutos = base.flatMap((x: any) => {
+    const dentro = ['multas', 'autuacoes', 'infracoes', 'lista'].map((k) => x?.[k]).find(Array.isArray)
+    return dentro ? listaDe(dentro) : listaDe([x])
+  })
+  const texto = (v: any) => { const t = typeof v === 'object' ? '' : String(v ?? '').replace(/\s+/g, ' ').trim(); return t && t !== '--' ? t.slice(0, 200) : null }
+  const multas: ReturnType<typeof multaGenerica>[] = []
+  const autuacoes: DetranAutuacao[] = []
+  for (const b of emAberto(brutos)) {
+    const m = multaGenerica(b)
+    const rodovia = texto(b.local_rodovia ?? b.rodovia)
+    const km = texto(b.local_km ?? b.km)
+    if (!m.local && rodovia) m.local = `${rodovia}${km ? `, km ${km}` : ''}`
+    if (!m.municipio) m.municipio = texto(b.local_municipio)
+    if (!m.orgao || /^\[object/.test(m.orgao)) m.orgao = texto(b.orgao_autuador?.nome ?? b.agente_autuador) || 'DER-SP'
+    if (m.valor > 0) { multas.push(m); continue }
+    const a = autuacaoGenerica(b)
+    if (!a.local && m.local) a.local = m.local
+    if (!a.orgao || /^\[object/.test(a.orgao)) a.orgao = m.orgao
+    if (a.descricao || a.ait || a.data) autuacoes.push(a)
+  }
+  return { multas_itens: multas, autuacoes_itens: autuacoes }
+}
+
+const autoNormalizado = (a: any) => String(a ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+/**
+ * Bloco de multas do DETRAN-SP montado pela SEFAZ + DER. Multa do DER que a
+ * SEFAZ ja lista (mesmo auto) entra uma vez so. Sem hodometro nem restricoes.
+ */
+export function montarBlocoPlanoBSp(sef: ParteSefazSp, der: ParteDerSp) {
+  const autos = new Set(sef.multas_itens.map((m) => autoNormalizado(m.auto)).filter(Boolean))
+  const derNovas = der.multas_itens.filter((m) => !autos.has(autoNormalizado(m.auto)) || !autoNormalizado(m.auto))
+  const derCentavos = Math.round(derNovas.reduce((a, m) => a + m.valor, 0) * 100)
+  return sanearBlocoMultas({
+    status: 'ok' as const,
+    fonte: DETRAN_UFS.SP.fonte,
+    uf: 'SP',
+    origem: 'sefaz_der' as const,
+    multas_total_centavos: sef.multas_total_centavos + derCentavos,
+    multas_itens: [...sef.multas_itens, ...derNovas],
+    autuacoes_itens: der.autuacoes_itens,
+    autuacoes_em_andamento: der.autuacoes_itens.length,
+    ipva_total_centavos: sef.ipva_total_centavos,
+    ipva_itens: sef.ipva_itens,
+    ...(sef.ipva_divida_ativa ? { ipva_divida_ativa: true } : {}),
+    licenciamento_centavos: sef.licenciamento_centavos,
+    licenciamento_exercicios: sef.licenciamento_exercicios,
+    licenciamento_atrasado_ano: null as number | null,
+  })
+}
+
+type ParteDoPlanoB<T> = { ok: true; parte: T } | { ok: false; code: number; motivo: string }
+
+async function parteDoPlanoB<T>(
+  supabase: any, pedidoId: string, qual: keyof typeof PLANO_B_SP, params: { placa: string; renavam: string },
+  parsear: (res: ResultadoDetran) => T | null,
+): Promise<ParteDoPlanoB<T>> {
+  const cfg = PLANO_B_SP[qual]
+  const chave = chaveDePlaca(params.placa)
+  const hit = await lerFonteCache<T>(supabase, cfg.cache, chave)
+  if (hit?.status === 'ok' && hit.payload) return { ok: true, parte: hit.payload }
+  const res = await consultarDetranInfosimples({
+    uf: 'SP', placa: params.placa, renavam: params.renavam, path: cfg.path,
+    ...(qual === 'der' ? { semPlaca: true, dataLista: true } : {}),
+  })
+  // comunicacao_venda pode trazer comprador: fora do bruto.
+  const bruto = res.code !== 200 && res.code !== CODIGO_SEM_DADOS
+    ? (res.erroBruto ?? { code: res.code, code_message: res.codeMessage, errors: res.erros || [] })
+    : res.data && !Array.isArray(res.data) ? (({ comunicacao_venda: _cv, ...r }) => r)(res.data) : res.data
+  await registrarCusto(supabase, { pedidoId, fonte: cfg.fonteCusto, preco: res.preco, code: res.code, detalhe: detalheDaRecusa(res), bruto })
+  const parte = parsear(res)
+  if (!parte) {
+    logIndisponivel(pedidoId, `SP-${qual}`, res.code, detalheDaRecusa(res) || 'sem data', 0)
+    return { ok: false, code: res.code, motivo: `${qual} ${res.code}: ${detalheDaRecusa(res) || 'sem data'}`.slice(0, 200) }
+  }
+  await gravarFonteCache(supabase, cfg.cache, chave, parte, 'ok')
+  return { ok: true, parte }
+}
+
+/**
+ * Plano B do DETRAN-SP: SEFAZ e DER (em paralelo), bloco so com as DUAS
+ * completas. Nao grava nada: devolve o bloco pro completarDetran. Nunca lanca.
+ */
+export async function consultarPlanoBSp(
+  supabase: any, pedidoId: string, params: { placa: string; renavam: string },
+): Promise<{ bloco: ReturnType<typeof montarBlocoPlanoBSp> } | { bloco: null; code: number; motivo: string }> {
+  try {
+    const [sef, der] = await Promise.all([
+      parteDoPlanoB<ParteSefazSp>(supabase, pedidoId, 'sefaz', params, (r) =>
+        r.code === CODIGO_SEM_DADOS ? parsearSefazSp({}) : r.code === 200 && r.data ? parsearSefazSp(r.data) : null),
+      // dataLista: o 612 ja volta como 200 com lista vazia (nenhuma autuacao).
+      parteDoPlanoB<ParteDerSp>(supabase, pedidoId, 'der', params, (r) =>
+        r.code === 200 && Array.isArray(r.data) ? parsearDerSp(r.data) : null),
+    ])
+    if (!sef.ok) return { bloco: null, code: sef.code, motivo: sef.motivo }
+    if (!der.ok) return { bloco: null, code: der.code, motivo: der.motivo }
+    return { bloco: montarBlocoPlanoBSp(sef.parte, der.parte) }
+  } catch (e: any) {
+    return { bloco: null, code: 0, motivo: String(e?.message || e).slice(0, 200) }
   }
 }
 

@@ -67,7 +67,7 @@ async function lerPedido(supabase: any, id: string) {
  * Executa um job. Idempotente: fonte ja concluida = 'ok' com code 0 (nada
  * novo, sem chamada). code 200 = a fila trouxe dado novo (conta pro e-mail).
  */
-export async function executarJob(supabase: any, job: { id: string; pedido_id: string; fonte: string }, deps: {
+export async function executarJob(supabase: any, job: { id: string; pedido_id: string; fonte: string; tentativas?: number | null; max_tentativas?: number | null }, deps: {
   detran?: typeof completarDetran; recall?: typeof completarRecall; montadora?: typeof completarRecallMontadora; renajud?: typeof completarRenajud
 } = {}): Promise<ResultadoJob> {
   try {
@@ -84,7 +84,10 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
       return fonteConcluida(fonte, depois?.relatorio_snapshot) ? { status: 'ok', code: 200 } : { status: 'falha', code, erro }
     }
     if (fonte === 'detran') {
-      const r: any = await (deps.detran ?? completarDetran)(supabase, pedido, { response, semRetry: true })
+      // Ultima tentativa (a proxima falha esgota o job): o DETRAN-SP vai pro
+      // plano B (SEFAZ + DER) com qualquer erro, nao so com 6xx de origem.
+      const ultimaTentativa = job.max_tentativas != null && Number(job.tentativas ?? 0) + 1 >= Number(job.max_tentativas)
+      const r: any = await (deps.detran ?? completarDetran)(supabase, pedido, { response, semRetry: true, ultimaTentativa })
       if (/protegido/.test(String(r?.motivo || ''))) return { status: 'sem_dado', code: r?.code ?? 620 }
       if (r?.pulado && /^uf |so com RENAINF/.test(String(r.pulado))) return { status: 'sem_dado', code: null, erro: String(r.pulado).slice(0, 300) }
       return aposConferir(r?.code ?? null, String(r?.motivo || r?.pulado || 'sem bloco').slice(0, 300))
