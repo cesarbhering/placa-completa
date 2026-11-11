@@ -58,11 +58,18 @@ const tokenMarca = computed(() => {
 // logo da fonte e o proxy da apiplacas. GWM: arquivo oficial da GWM Brasil
 // (media center, logos-2025/Preto_Vertical.png), recortado e reduzido.
 // HAVAL e submarca da GWM ("I/GWM HAVAL H6").
-const LOCAIS: Record<string, string> = {
-  GWM: '/logos-marcas/gwm.png', HAVAL: '/logos-marcas/gwm.png',
-  GREATWALL: '/logos-marcas/gwm.png', GREAT: '/logos-marcas/gwm.png',
+// KAWASAKI e BAJAJ (11/nov/2026): a simple-icons nao tem nenhuma das duas.
+// Arquivos de dominio publico do Wikimedia Commons (Kawasaki: wordmark
+// "Kawasaki Heavy Industries"; Bajaj: emblema + "BAJAJ" da Bajaj Auto),
+// recortados, passados pra tinta e reduzidos. Wordmark e largo: caixa larga.
+const GWM = { src: '/logos-marcas/gwm.png', largo: false }
+const KAWASAKI = { src: '/logos-marcas/kawasaki.png', largo: true }
+const BAJAJ = { src: '/logos-marcas/bajaj.png', largo: true }
+const LOCAIS: Record<string, { src: string; largo: boolean }> = {
+  GWM, HAVAL: GWM, GREATWALL: GWM, GREAT: GWM,
+  KAWASAKI, BAJAJ,
 }
-const local = computed(() => LOCAIS[tokenMarca.value] || null)
+const local = computed(() => LOCAIS[tokenMarca.value]?.src || null)
 
 const icone = computed<{ path: string; viewBox: string } | null>(() => {
   const nosso = NOSSOS[tokenMarca.value]
@@ -70,7 +77,9 @@ const icone = computed<{ path: string; viewBox: string } | null>(() => {
   const si = ICONES[tokenMarca.value]
   return si ? { path: si.path, viewBox: '0 0 24 24' } : null
 })
-const largo = computed(() => !!icone.value && icone.value.viewBox !== '0 0 24 24')
+const largo = computed(() => (local.value
+  ? !!LOCAIS[tokenMarca.value]?.largo
+  : !!icone.value && icone.value.viewBox !== '0 0 24 24'))
 // Fallback: logo da apiplacas pelo NOSSO proxy (/api/logo-marca/...), so
 // quando nao ha path. Falhou o carregamento: some, e entra o monograma.
 // So depois de montar: no SSR o @error do <img> pode disparar antes da

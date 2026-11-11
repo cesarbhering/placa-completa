@@ -88,6 +88,27 @@ describe('MarcaLogo', () => {
       expect(w.find('.ml__mono').exists()).toBe(false)
     })
   }
+  // KAWASAKI e BAJAJ (11/nov/2026): asset local largo, nada da simple-icons.
+  for (const [marca, arquivo] of [
+    ['KAWASAKI/NINJA 400', 'kawasaki'], ['I/KAWASAKI Z900', 'kawasaki'], ['IMP/KAWASAKI VERSYS', 'kawasaki'],
+    ['kawasaki/z1000', 'kawasaki'], ['KAWASAKI', 'kawasaki'],
+    ['BAJAJ/DOMINAR 400', 'bajaj'], ['I/BAJAJ PULSAR', 'bajaj'], ['BAJAJ', 'bajaj'],
+  ] as const) {
+    it(`${marca}: asset local ${arquivo}.png, caixa larga`, async () => {
+      const w = mount(MarcaLogo, { props: { marca, logoUrl: '/api/logo-marca/i.png' } })
+      await flushPromises()
+      expect(w.find('img').attributes('src')).toBe(`/logos-marcas/${arquivo}.png`)
+      expect(w.find('img').classes()).toContain('ml__img--local')
+      expect(w.find('.ml').classes()).toContain('ml--larga')
+      expect(w.find('svg').exists()).toBe(false)
+      expect(w.find('.ml__mono').exists()).toBe(false)
+    })
+  }
+  it('GWM segue na caixa quadrada', async () => {
+    const w = mount(MarcaLogo, { props: { marca: 'GWM/HAVAL H6' } })
+    await flushPromises()
+    expect(w.find('.ml').classes()).not.toContain('ml--larga')
+  })
   it('logoUrl "i.png" (prefixo de importado) e descartado; marca segue pelo nome', async () => {
     const w = mount(MarcaLogo, { props: { marca: 'I/BYD DOLPHIN', logoUrl: '/api/logo-marca/i.png' } })
     await flushPromises()
