@@ -34,6 +34,8 @@ const IMPRENSA = 'Imprensa especializada (AutoData, Automotive Business) e site 
 // (8AJ so Hilux/SW4 = Zarate; 8AG so Corsa/Classic/Agile = Alvear).
 const AR = 'Planta unica da montadora na Argentina (site oficial da marca) + cross-check da base de leiloes'
 const VPIC = 'vPIC/NHTSA DecodeVin (PlantCity do VIN, 3 chassis reais da base concordando)'
+// v11 (11/nov/2026): Bajaj do Brasil (WMI 92T) so tem a fabrica de Manaus (AM).
+const BAJAJ = 'Informacao do Cesar (11/11/2026) + Bajaj do Brasil (fabrica unica em Manaus); base de leiloes: 92T so BAJAJ'
 // v6 (importados): tabela de codigos de planta por montadora (Wikibooks "Vehicle
 // Identification Numbers (VIN codes)", pagina de cada marca) + vPIC/NHTSA com
 // 3 chassis reais da base concordando com a mesma cidade. So entra o que as
@@ -51,7 +53,7 @@ const DOC_MODELO = 'Tabela de codigos de planta da montadora (Wikibooks VIN code
 // Versao do arquivo curado. O servico compara com o que esta gravado no banco
 // e reimporta sozinho quando sobe (ver server.js). Subir esta versao SEMPRE que
 // mexer na lista, senao a mudanca nao chega no container ja rodando.
-export const PLANTS_VERSAO = 10
+export const PLANTS_VERSAO = 11
 
 // Atalhos pra nao repetir o pais em cada linha.
 const br = (wmi, pos, cidade, uf, de = null, ate = null, fonte = IBGE, conf = 'alta') =>
@@ -201,6 +203,7 @@ const PLANTS = [
   unica('96P', 'Manaus', 'AM', SUFRAMA),         // Kawasaki (fabrica propria desde 2009)
   unica('99K', 'Manaus', 'AM', SUFRAMA),         // JTZ / Haojue
   unica('951', 'Manaus', 'AM', SUFRAMA),         // Traxx
+  unica('92T', 'Manaus', 'AM', BAJAJ),           // Bajaj (Dominar, Pulsar)
 
   // ---------------- Argentina ----------------
   ['8AF', '*', 'General Pacheco, Argentina', 'General Pacheco', null, 'Argentina', null, null, AR, 'marca_unica_fabrica'], // Ford

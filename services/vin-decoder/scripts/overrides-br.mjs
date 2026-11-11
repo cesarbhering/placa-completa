@@ -53,6 +53,7 @@ const OVERRIDES = [
   ['93U', 'Audi Brasil', 'Brasil', 'América do Sul'], // fonte wiki (corrigido — nao e Renault)
   ['93Y', 'Renault do Brasil', 'Brasil', 'América do Sul'], // fonte wiki (corrigido — nao e Hyundai)
   ['98P', 'DAF Caminhões Brasil', 'Brasil', 'América do Sul'], // fabrica unica em Ponta Grossa (PR); base de leiloes: 98P = DAF XF/CF
+  ['92T', 'Bajaj do Brasil', 'Brasil', 'América do Sul'], // informacao do Cesar (11/nov/2026) + Bajaj do Brasil; base de leiloes: 92T = so BAJAJ (Dominar, Pulsar)
   // ---- Mercosul: Argentina (fonte: tabela wiki, csv/wmi-from-wiki.csv) ----
   // Achado num relatorio real (I/VW SPACEFOX, chassi 8AW...): o vPIC nao
   // tem nenhum WMI 8A* (Count 0 no decodewmi), entao esses vinham sem
