@@ -92,6 +92,12 @@ describe('cartao "Indício de sinistro" da grade', () => {
     expect(c.dica).toContain(TEXTO_SINISTRO_DETRAN)
   })
 
+  it('caso real em forma sintetica: DETRAN-SP com dano de media monta e base parceira sem indicio', () => {
+    const detran = sinistroPeloDetran({ fonte: 'detran_sp', restricoes_detran: [{ tipo: 'administrativa', texto: 'VEIC. DANO MEDIA MONTA' }] })
+    expect(detran).toBe(true)
+    expect(cartaoSinistro({ consultouParceira: true, parceiraIndicio: false, detran })).toMatchObject({ ligado: true, alerta: true })
+  })
+
   it('DETRAN acusa e a base parceira disse nada consta: vermelho mesmo assim (caso do pedido)', () => {
     const c = cartaoSinistro({ consultouParceira: true, parceiraIndicio: false, detran: true })!
     expect(c).toMatchObject({ ligado: true, alerta: true, rotuloVeredito: 'indício de sinistro informado pelo órgão de trânsito' })

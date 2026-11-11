@@ -21,6 +21,9 @@ const REAIS: [string, string, 'nega' | 'restricao' | 'duvida', string?][] = [
   ['administrativa', 'VEICULO AUTUADO POR DEBITO DE IPVA. Veiculo possui comunicacao de venda ativa.', 'restricao'],
   ['financeira', 'Alienação Fiduciária em favor de SANTANDER SOCIEDADE DE CREDITO, FINANC. INVESTIMENTO SA', 'restricao'],
   ['administrativa', 'SINISTRADO/RECUPERADO', 'restricao'],
+  // DETRAN-SP manda o dano estrutural assim (11/nov/2026): restricao, nao 'duvida'.
+  ['administrativa', 'VEIC. DANO MEDIA MONTA', 'restricao'],
+  ['administrativa', 'DANO DE GRANDE MONTA', 'restricao'],
   ['administrativa', 'BLOQUEIOS DIVERSOS', 'restricao'],
   ['administrativa', 'VEICULO AUTUADO POR DEBITO DE IPVA. SEM RESTRICAO', 'restricao', 'VEICULO AUTUADO POR DEBITO DE IPVA'],
   ['cadastro', 'Comunicação de venda registrada no DETRAN-AL', 'restricao'],
