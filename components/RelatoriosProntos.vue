@@ -9,7 +9,7 @@
 // de novo quando o app volta do segundo plano, ate a pessoa abrir. Sem "nao
 // mostrar mais". Item que chega depois (rodada da recuperacao do Google Play)
 // reabre o aviso na hora.
-import { ehCelular } from '~/shared/ab-checkout'
+import { ehCelular } from '~/shared/celular'
 import { EVENTO_RESUME } from '~/composables/useRecuperacaoPlay'
 import {
   aConferir, gravarMostrados, lerMostrados, relatoriosPendentes, rotaSemAviso, tokensParaAvisar,

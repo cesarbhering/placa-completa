@@ -42,9 +42,6 @@ export default defineEventHandler(async (event) => {
 
   const plano = isPlanoPago(body.plano) ? body.plano : 'completa'
   const abBloco = body.ab_bloco === 'A' || body.ab_bloco === 'A2' ? body.ab_bloco : null
-  // Teste A/B da confirmacao do checkout (shared/ab-checkout.ts). So 'A' ou 'B'.
-  const abCheckout = body.ab_checkout === 'A' || body.ab_checkout === 'B' ? body.ab_checkout : null
-
   const supabase = usePremiumSupabase()
   // Mesma placa ja paga ha pouco pelo mesmo IP + aparelho: devolve o pedido
   // em vez de cobrar de novo (server/utils/compra-repetida.ts).
@@ -84,7 +81,6 @@ export default defineEventHandler(async (event) => {
       preview: body.preview || null,
       ambiente,
       ab_bloco: abBloco,
-      ab_checkout: abCheckout,
       // Hook de recall que a pessoa viu na consulta gratis (allowlist) + marca.
       recall_sinal: sanearSinalRecall(body.recall_sinal),
       recall_marca: sanearMarcaRecall(body.recall_marca),

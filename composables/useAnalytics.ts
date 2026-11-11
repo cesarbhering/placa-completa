@@ -3,7 +3,6 @@ import { dadosOrderCreated } from '~/shared/openai-evento'
 import { eventoPermitido, MAX_EVENTOS_POR_LOTE, type EventoFunil } from '~/shared/eventos-funil'
 import { origemDaSessao, sanearUtmContent } from '~/shared/origem-trafego'
 import { varianteAtual, AB_RODADA } from '~/shared/ab-bloco'
-import { decidirVarianteCheckout, varianteCheckoutAtual, metodoInicialAtual } from '~/shared/ab-checkout'
 import { analyticsAtivo } from '~/shared/analytics-tags'
 
 /**
@@ -134,18 +133,6 @@ export function enfileirarEventoFunil(evento: string, dados?: Omit<EventoNaFila,
   // evento anterior a isso fica sem o campo, de proposito.
   const ab = varianteAtual()
   let extra: Record<string, any> | null = ab ? { ...(dados?.extra || {}), ab_bloco: ab, ab_rodada: AB_RODADA } : (dados?.extra ?? null)
-  // Teste A/B da confirmacao do checkout (shared/ab-checkout.ts): o sorteio
-  // acontece na abertura do checkout, entao `premium_checkout_open` ja sai
-  // carimbado. Daqui pra frente todo evento da visita leva `ab_checkout`
-  // (pix_gerado, email_informado, checklist_marcado no relatorio...). No app
-  // nada e sorteado nem carimbado.
-  if (evento === 'premium_checkout_open') decidirVarianteCheckout()
-  const abCheckout = varianteCheckoutAtual()
-  if (abCheckout) extra = { ...(extra || {}), ab_checkout: abCheckout }
-  // Metodo com que a confirmacao abriu (pix | cartao), decidido na tela de
-  // confirmacao: dali em diante todo evento da visita leva o campo.
-  const metodoInicial = metodoInicialAtual()
-  if (metodoInicial) extra = { ...(extra || {}), metodo_inicial: metodoInicial }
   // OpenAI Ads (100 variacoes do anuncio): a variacao vai no extra de todo
   // evento da visita que veio de chatgpt_ads, pra medir funil por anuncio.
   const origemSessao = dados?.origem ?? origemDaSessao() ?? null
