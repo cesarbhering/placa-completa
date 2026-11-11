@@ -11,7 +11,7 @@ Buying a used car in Brazil is risky: salvage titles, auction history, unpaid fi
 - **Paid reports** (Pix or card, R$ 29,90 and R$ 44,90): official registry data (chassis, status, theft and lien indicators, recall and auction flags), state fines where available, auction history with photos of the actual lot, FIPE price history and depreciation, insurance estimate, chassis origin decoding, and a pre-purchase checklist.
 - **Auction database**: our own crawler collects catalogs from Brazilian auction houses and public DETRAN auction notices, with photos, so a buyer can see the car as it was sold at auction.
 
-Everything is in Brazilian Portuguese and built for mobile first (82% of paid traffic comes from phones).
+Built for mobile first (82% of paid traffic comes from phones).
 
 ## Real usage (as of 2026-10-31)
 
