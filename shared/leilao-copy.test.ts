@@ -91,7 +91,7 @@ describe('secao de leilao enxuta (Cesar, 21/out/2026)', () => {
     expect(vue).not.toContain('Não substitui consulta oficial')
     expect(vue).not.toContain('Confirmado quer dizer placa ou chassi completos iguais')
     // o indicador de sinistro na grade e o selo de nivel por passagem continuam
-    expect(vue).toContain("k: 'sinistroParceiro', label: 'Indício de sinistro'")
+    expect(vue).toContain('const cartaoSin = cartaoSinistro({')
     expect(vue.match(/<LeilaoFicha :p="p" \/>/g) || []).toHaveLength(2)
     expect(readFileSync('components/LeilaoFicha.vue', 'utf8')).toContain('{{ p.rotuloNivel }}')
   })
