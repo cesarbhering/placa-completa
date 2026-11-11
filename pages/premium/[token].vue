@@ -40,7 +40,8 @@ import { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, estadoCartaoLei
 import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, passagensSemCanhao, historicoCompativelComVeiculo, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA, passagemCertezaPorIdentificador, ligadoPeloMotor, leiloeiroValido, textoCasaLeilao } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
-import { FONTE_PARCEIRA, rotuloIndicadorLeilao, linhasBasesSemRegistro, PASSAGEM_PARCEIRA, DICA_SINISTRO } from '~/shared/fonte-parceira'
+import { FONTE_PARCEIRA, rotuloIndicadorLeilao, linhasBasesSemRegistro, PASSAGEM_PARCEIRA } from '~/shared/fonte-parceira'
+import { sinistroPeloDetran, cartaoSinistro } from '~/shared/sinistro-detran'
 import { custo12Meses, combustivelPraConta, licenciamentoDaUf, KM_ANO_PADRAO } from '~/shared/custo-12-meses'
 import { PRECO_COMBUSTIVEL_UF, SEMANA_ANP } from '~/shared/dados/combustivel-uf'
 import { aliquotaIPVA } from '~/shared/ipva-uf'
@@ -367,6 +368,9 @@ const temSecaoLeilao = computed(() => !!historicoLeilao.value)
 // so quando a nossa base veio vazia. O nome do fornecedor nunca vem pro cliente.
 const consultouParceira = computed(() => historicoLeilao.value?.parceiro?.status === 'ok')
 const sinistroParceiro = computed(() => consultouParceira.value && historicoLeilao.value?.sinistro_parceiro?.indicio === true)
+// Indicio de sinistro informado pelo DETRAN (restricoes_detran, todas as UFs):
+// acende o cartao "Indício de sinistro" em vermelho (shared/sinistro-detran.ts).
+const sinistroDetran = computed(() => sinistroPeloDetran(multasDetalhe.value as any, (data.value as any)?.restricoesDetranRevisor || {}))
 // Revenda de frota (leiloes-api #106): card proprio, separado do leilao.
 const revendasFrota = computed<RevendaFrota[]>(() => (Array.isArray(historicoLeilao.value?.revendas_frota) ? historicoLeilao.value.revendas_frota : []))
 const dataBRFrota = (i: string | null) => (i ? `${i.slice(8, 10)}/${i.slice(5, 7)}/${i.slice(0, 4)}` : null)
@@ -524,14 +528,20 @@ const indicadores = computed(() => {
     else base.push(cartaoLeilao)
     // Base parceira de leiloes e sinistros (20/out/2026): so quando foi
     // consultada. Ligado = consta indicio; nunca "o carro foi batido".
-    if (consultouParceira.value) {
-      const posLeilao = base.findIndex((i) => i.k === 'historicoLeilao')
-      base.splice(posLeilao + 1, 0, {
-        k: 'sinistroParceiro', label: 'Indício de sinistro', sim: 'CONSTA', nao: 'NADA CONSTA', risco: true,
-        dica: DICA_SINISTRO, ligado: sinistroParceiro.value, alerta: sinistroParceiro.value,
-        rotuloVeredito: 'indício de sinistro em base parceira',
-      } as any)
-    }
+  }
+
+  // Indicio de sinistro: base parceira (quando consultada) e DETRAN. Qualquer
+  // sinal do DETRAN deixa o cartao vermelho, mesmo com a base parceira em
+  // "nada consta" ou sem ela (Cesar, 11/nov/2026).
+  const cartaoSin = cartaoSinistro({
+    consultouParceira: consultouParceira.value,
+    parceiraIndicio: sinistroParceiro.value,
+    detran: sinistroDetran.value,
+  })
+  if (cartaoSin) {
+    const ancora = ['historicoLeilao', 'indicadorLeilao'].map((k) => base.findIndex((i) => i.k === k)).find((i) => i >= 0)
+    if (ancora != null) base.splice(ancora + 1, 0, cartaoSin)
+    else base.push(cartaoSin)
   }
 
   return base
@@ -1146,7 +1156,7 @@ const checklist = computed(() => {
   const leilaoPossivel = nPossiveisExibidos.value > 0
   return montarChecklist({
     leilao: leilaoForte ? 'confirmado' : leilaoPossivel ? 'possivel' : null,
-    sinistro: sinistroParceiro.value,
+    sinistro: sinistroParceiro.value || sinistroDetran.value,
     roubo: ocorrencias.value.length > 0 || g('indicadorRouboFurto') === true || !!rouboDetran.value,
     recallPendente: recallPendente.value,
     kmCaiu: hodometroSuspeito.value,
