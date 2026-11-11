@@ -2286,7 +2286,7 @@ onUnmounted(() => {
                 {{ f.estado === 'consultando' ? `Consultando ${f.rotulo}…` : `${f.rotulo} ✓` }}
               </li>
             </ul>
-            <p class="rel__hint">Estamos juntando tudo para entregar o relatório completo de uma vez, o que pode levar alguns minutos. Se alguma fonte demorar mais, o relatório abre com o que já chegou e o restante entra sozinho; avisamos por e-mail.</p>
+            <p class="rel__hint">Estamos juntando tudo para entregar o relatório completo de uma vez, o que pode levar alguns minutos. Se alguma fonte demorar mais, o relatório abre com o que já chegou. Se o restante chegar, ele entra sozinho e avisamos por e-mail.</p>
           </template>
           <template v-else-if="entregue && aguardandoDetran">
             <h1 class="rel__h">Pagamento confirmado ✓</h1>
@@ -2716,7 +2716,7 @@ onUnmounted(() => {
                 </div>
                 <p class="rel__multas-nota">{{ PROTEGIDO_EXPLICA }}</p>
               </div>
-              <p v-else-if="fonteDetran && fonteDetran.estado === 'chegando'" class="rel__multas-nota rel__multas-nota--consultando">Ainda chegando do DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }}. O resultado entra aqui sozinho e avisamos por e-mail.</p>
+              <p v-else-if="fonteDetran && fonteDetran.estado === 'chegando'" class="rel__multas-nota rel__multas-nota--consultando">Ainda chegando do DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }}. Se chegar, o resultado entra aqui sozinho e avisamos por e-mail.</p>
               <p v-else-if="multasIndisponivel || multasSemRespostaAntigo" class="rel__multas-nota">A consulta de débitos e multas no DETRAN do estado não está disponível no momento. Confira direto no site do DETRAN.</p>
               <p v-else-if="multasSemResposta && acompanhamentoEsgotado" class="rel__multas-nota">O DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }} ainda não respondeu. Recarregue esta página em alguns minutos para ver o resultado.</p>
               <p v-else-if="multasSemResposta" class="rel__multas-nota rel__multas-nota--consultando">Consultando o DETRAN{{ ufDetranTela ? '-' + ufDetranTela : '' }}, pode levar alguns minutos. O resultado aparece aqui sozinho.</p>
