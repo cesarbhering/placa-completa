@@ -1,6 +1,7 @@
-import { provedorNfse, descricaoDaNota, ErroNfseIndisponivel, ErroNfseRejeitado, type NfseProvedor } from './nfse-provedor'
+import { provedorNfse, descricaoDaNota, ErroNfseIndisponivel, ErroNfseRejeitado, type NfseProvedor, type NfseNota } from './nfse-provedor'
 import { lerTomador as lerTomadorPadrao } from './tomador'
 import { sendErrorEmail } from './sendErrorEmail'
+import { enviarNfseEmail } from './premium-email'
 
 // Orquestrador da NFS-e depois da entrega. Regra de ouro: nada aqui atrasa nem
 // quebra a venda. Quem chama usa `void emVoo(...)`; esta funcao nunca lanca.
@@ -108,4 +109,59 @@ export async function enfileirarNfse(supabase: any, pedidoId: string, deps: Deps
   } catch (e: any) {
     console.warn(`[nfse] enfileirar falhou pedido=${String(pedidoId).slice(0, 8)}`, e?.name)
   }
+}
+
+// ---------- Webhook: apply the emitter's state to the order ----------
+
+const ESTADOS_NFSE = new Set(['emitida', 'rejeitada', 'falhou', 'cancelada', 'cancelamento_rejeitado', 'nao_emitir', 'sem_tomador'])
+
+interface DepsEstado {
+  provedor?: Pick<NfseProvedor, 'pdf'>
+  enviarEmail?: typeof enviarNfseEmail
+  agora?: () => Date
+  config?: any
+}
+
+/** Applies a webhook note to the order and sends the invoice e-mail once. Idempotent. */
+export async function aplicarEstadoNfse(supabase: any, pedido: any, nota: NfseNota, deps: DepsEstado = {}): Promise<void> {
+  const agora = (deps.agora ?? (() => new Date()))().toISOString()
+  // pendente/cancelando (and anything unknown) keep the order as enfileirada.
+  const status = ESTADOS_NFSE.has(nota.estado) ? nota.estado : 'enfileirada'
+  const patch: Record<string, unknown> = {
+    nfse_status: status,
+    nfse_numero: nota.numero ?? null,
+    nfse_serie: nota.serie ?? null,
+    nfse_chave: nota.chave_acesso ?? null,
+    nfse_emitida_em: nota.emitida_em ?? null,
+    nfse_cancelada_em: nota.cancelada_em ?? null,
+    nfse_erro: nota.erro?.codigo ?? null,
+    nfse_atualizado_em: agora,
+  }
+  if (!pedido.nfse_id && nota.id) patch.nfse_id = nota.id
+  const r = await supabase.from('pedidos_premium').update(patch).eq('id', pedido.id)
+  if (r?.error) throw new Error('nfse: status write failed')
+
+  if (status !== 'emitida' || !pedido.email || pedido.nfse_email_em) return
+
+  let pdf: Buffer
+  try {
+    pdf = await (deps.provedor ?? provedorNfse()).pdf(nota.id)
+  } catch (e: any) {
+    // nfse_email_em stays null so the reconciliation job retries.
+    console.warn(`[nfse] pdf fetch failed order=${String(pedido.id).slice(0, 8)}`, e?.name)
+    return
+  }
+
+  // Lock: only the delivery that flips nfse_email_em from null sends the e-mail.
+  const lock = await supabase.from('pedidos_premium').update({ nfse_email_em: agora }).eq('id', pedido.id).is('nfse_email_em', null).select('id')
+  if (lock?.error || !Array.isArray(lock?.data) || lock.data.length === 0) return
+
+  let ok = false
+  try {
+    ok = await (deps.enviarEmail ?? enviarNfseEmail)(
+      { email: pedido.email, token: pedido.token_entrega, placa: pedido.placa, numero: String(nota.numero ?? ''), pdf },
+      deps.config ? { config: deps.config } : {},
+    )
+  } catch { ok = false }
+  if (!ok) await supabase.from('pedidos_premium').update({ nfse_email_em: null }).eq('id', pedido.id)
 }

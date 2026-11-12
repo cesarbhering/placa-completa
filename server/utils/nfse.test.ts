@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { enfileirarNfse } from './nfse'
+import { enfileirarNfse, aplicarEstadoNfse } from './nfse'
 import { ErroNfseIndisponivel, ErroNfseRejeitado, descricaoDaNota } from './nfse-provedor'
 
 const ID = '11111111-2222-3333-4444-555555555555'
@@ -225,5 +225,73 @@ describe('enfileirarNfse', () => {
   it('nunca lanca, mesmo com o banco quebrado', async () => {
     const sb = { from: () => { throw new Error('boom') } }
     await expect(enfileirarNfse(sb, ID, deps())).resolves.toBeUndefined()
+  })
+})
+
+describe('aplicarEstadoNfse', () => {
+  const NOTA = { id: 'nota-1', referencia: ID, estado: 'emitida', numero: '42', serie: '1', chave_acesso: 'CH', emitida_em: '2026-11-14T02:00:00Z', cancelada_em: null, erro: null }
+  const base = () => ({ id: ID, token_entrega: 'tok-fake', placa: 'ABC1D23', email: 'cliente@example.test', nfse_status: 'enfileirada', nfse_email_em: null as any, nfse_id: null as any })
+
+  function sb(row: any) {
+    const updates: any[] = []
+    return {
+      updates,
+      from: () => ({
+        update: (patch: any) => {
+          let soNulo = false
+          const q: any = {
+            eq: () => q,
+            is: (col: string) => { if (col === 'nfse_email_em') soNulo = true; return q },
+            select: () => q,
+            then: (res: any, rej: any) => (async () => {
+              if (soNulo && row.nfse_email_em != null) return { data: [], error: null }
+              updates.push(patch); Object.assign(row, patch); return { data: [{ id: row.id }], error: null }
+            })().then(res, rej),
+          }
+          return q
+        },
+      }),
+    }
+  }
+  const agora = () => new Date('2026-11-14T03:00:00Z')
+
+  it('emitida: writes fields and sends one e-mail across two deliveries', async () => {
+    const row = base(); const s = sb(row)
+    const enviarEmail = vi.fn(async () => true); const pdf = vi.fn(async () => Buffer.from('pdf'))
+    const deps = { provedor: { pdf }, enviarEmail, agora }
+    await aplicarEstadoNfse(s, row, NOTA, deps)
+    await aplicarEstadoNfse(s, { ...row }, NOTA, deps)
+    expect(row).toMatchObject({ nfse_status: 'emitida', nfse_id: 'nota-1', nfse_numero: '42', nfse_serie: '1', nfse_chave: 'CH', nfse_emitida_em: '2026-11-14T02:00:00Z', nfse_erro: null })
+    expect(enviarEmail).toHaveBeenCalledTimes(1)
+    expect(row.nfse_email_em).toBe('2026-11-14T03:00:00.000Z')
+  })
+  it('rejeitada: stores code and sends no e-mail', async () => {
+    const row = base(); const enviarEmail = vi.fn()
+    await aplicarEstadoNfse(sb(row), row, { ...NOTA, estado: 'rejeitada', erro: { codigo: 'E160', mensagem: 'x' } }, { provedor: { pdf: vi.fn() }, enviarEmail, agora })
+    expect(row).toMatchObject({ nfse_status: 'rejeitada', nfse_erro: 'E160' })
+    expect(enviarEmail).not.toHaveBeenCalled()
+  })
+  it('pendente keeps enfileirada', async () => {
+    const row = base()
+    await aplicarEstadoNfse(sb(row), row, { ...NOTA, estado: 'pendente' }, { enviarEmail: vi.fn(), agora })
+    expect(row.nfse_status).toBe('enfileirada')
+  })
+  it('pdf fetch failure: no e-mail, nfse_email_em stays null', async () => {
+    const row = base(); const enviarEmail = vi.fn()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    await aplicarEstadoNfse(sb(row), row, NOTA, { provedor: { pdf: async () => { throw new Error('down') } }, enviarEmail, agora })
+    expect(enviarEmail).not.toHaveBeenCalled()
+    expect(row.nfse_email_em).toBeNull(); expect(row.nfse_status).toBe('emitida')
+    warn.mockRestore()
+  })
+  it('send failure resets nfse_email_em', async () => {
+    const row = base()
+    await aplicarEstadoNfse(sb(row), row, NOTA, { provedor: { pdf: async () => Buffer.from('p') }, enviarEmail: async () => false, agora })
+    expect(row.nfse_email_em).toBeNull()
+  })
+  it('no e-mail address: no send', async () => {
+    const row = { ...base(), email: null }; const enviarEmail = vi.fn()
+    await aplicarEstadoNfse(sb(row), row, NOTA, { provedor: { pdf: vi.fn() }, enviarEmail, agora })
+    expect(enviarEmail).not.toHaveBeenCalled()
   })
 })
