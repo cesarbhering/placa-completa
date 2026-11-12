@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Staging e homolog sob demanda (auditoria de performance, 12/nov/2026).
+# Os dois containers ficam PARADOS por padrao; sobe quando for testar e o
+# timer pc-ambiente-auto-down desliga sozinho depois de 4 h de pe.
+#
+# Uso: pc-ambiente <staging|homolog> <up|down|status>
+#      pc-ambiente auto-down        (chamado pelo timer; desliga o que passou de 4 h)
+#      pc-ambiente status           (os dois)
+#
+# "up" num ambiente ja de pe renova a janela de 4 h.
+set -euo pipefail
+
+LIMITE_S=${PC_AMBIENTE_LIMITE_S:-14400}
+ESTADO=/var/lib/pc-ambiente
+declare -A CONTAINER=([staging]=pc-premium-staging [homolog]=pc-premium-homolog)
+declare -A PORTA=([staging]=8396 [homolog]=8395)
+mkdir -p "$ESTADO"
+
+rodando() { [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = "true" ]; }
+
+# Inicio da janela: o mais recente entre o start do container e o ultimo "up".
+inicio() {
+  local amb=$1 c=${CONTAINER[$1]} st marca=0
+  st=$(date -d "$(docker inspect -f '{{.State.StartedAt}}' "$c")" +%s)
+  [ -f "$ESTADO/$amb.up" ] && marca=$(cat "$ESTADO/$amb.up")
+  echo $(( st > marca ? st : marca ))
+}
+
+status() {
+  local amb=$1 c=${CONTAINER[$1]}
+  if ! docker inspect "$c" >/dev/null 2>&1; then echo "$amb: container $c nao existe"; return; fi
+  if rodando "$c"; then
+    local de_pe=$(( $(date +%s) - $(inicio "$amb") ))
+    local resta=$(( LIMITE_S - de_pe )); [ $resta -lt 0 ] && resta=0
+    echo "$amb: de pe ha $((de_pe / 60)) min, desliga sozinho em $((resta / 60)) min (127.0.0.1:${PORTA[$amb]})"
+  else
+    echo "$amb: parado"
+  fi
+}
+
+up() {
+  local amb=$1 c=${CONTAINER[$1]}
+  date +%s > "$ESTADO/$amb.up"
+  if ! rodando "$c"; then docker start "$c" >/dev/null; fi
+  for _ in $(seq 1 30); do
+    # Qualquer resposta HTTP serve (o gate devolve 401/302 sem senha).
+    [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://127.0.0.1:${PORTA[$amb]}/" 2>/dev/null)" != "000" ] && break
+    sleep 2
+  done
+  status "$amb"
+}
+
+down() {
+  local amb=$1 c=${CONTAINER[$1]}
+  rodando "$c" && docker stop -t 20 "$c" >/dev/null
+  rm -f "$ESTADO/$amb.up"
+  status "$amb"
+}
+
+auto_down() {
+  local amb
+  for amb in staging homolog; do
+    rodando "${CONTAINER[$amb]}" || continue
+    if [ $(( $(date +%s) - $(inicio "$amb") )) -ge "$LIMITE_S" ]; then
+      echo "$amb: passou de $((LIMITE_S / 3600)) h de pe, desligando"
+      down "$amb"
+    fi
+  done
+}
+
+case "${1:-}" in
+  auto-down) auto_down ;;
+  status) for a in staging homolog; do status "$a"; done ;;
+  staging|homolog)
+    case "${2:-}" in
+      up) up "$1" ;; down) down "$1" ;; status) status "$1" ;;
+      *) echo "uso: pc-ambiente <staging|homolog> <up|down|status>" >&2; exit 2 ;;
+    esac ;;
+  *) echo "uso: pc-ambiente <staging|homolog> <up|down|status> | pc-ambiente status | pc-ambiente auto-down" >&2; exit 2 ;;
+esac

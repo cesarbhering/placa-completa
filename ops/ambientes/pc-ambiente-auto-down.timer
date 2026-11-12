@@ -1,0 +1,10 @@
+[Unit]
+Description=Staging/homolog sob demanda: confere a cada 10 min se algum passou de 4 h de pe
+
+[Timer]
+OnActiveSec=2min
+OnUnitActiveSec=10min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
