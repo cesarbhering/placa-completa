@@ -7,7 +7,7 @@ import { fingerprintDoCartao } from './stripe'
 // PSEUDONIMIZADO do pagador. No Pix, o CPF/CNPJ de quem pagou (vem da cobranca
 // na Woovi) vira HMAC-SHA256(segredo, digitos) e e descartado na hora. Nunca
 // grava CPF, CNPJ nem nome neste hash: nada em coluna, log, snapshot ou evento.
-// (Excecao separada: tomador da NFS-e, SEMPRE cifrado, em pedidos_tomador.) No cartao,
+// (Separate exception: the NFS-e payer, ALWAYS encrypted, in pedidos_tomador.) No cartao,
 // o fingerprint da Stripe (id opaco do cartao, sem numero). Sem segredo: no-op.
 
 /** So digitos; CPF (11) ou CNPJ (14). Qualquer outra coisa: null. */
@@ -72,9 +72,11 @@ export async function gravarPagadorHash(
         : await (deps.pagadorWoovi ?? pagadorDaCobrancaWoovi)(pedido.abacatepay_id)
       const h = hashDoPagador(p.documento, segredo)
       if (h) upd.pagador_hash = h
-      // Tomador da NFS-e (cifrado, so servidor). Nunca lanca.
+      // NFS-e payer (encrypted, server only). Never throws.
       if (p.documento) await (deps.gravarTomador ?? gravarTomador)(supabase, pedido.id, { documento: p.documento, nome: p.nome, origem: 'woovi' })
     }
+    // AbacatePay orders capture no payer yet: their NFS-e falls to sem_tomador until a
+    // payer lookup for that provider is implemented.
     if (pedido.forma_pagamento === 'cartao' && pedido.stripe_session_id?.startsWith('pi_')) {
       const fp = await (deps.fingerprintStripe ?? fingerprintDoCartao)(pedido.stripe_session_id)
       if (fp && /^[A-Za-z0-9]{8,64}$/.test(fp)) upd.pagador_hash_cartao = fp

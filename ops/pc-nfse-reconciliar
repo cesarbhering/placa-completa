@@ -6,7 +6,7 @@
 # that it exists), so a rotated NUXT_ADMIN_SECRET also lands here silently.
 set -u
 . /root/.secrets/admin-secret.env
-out=$(curl -sS -o /dev/stdout -w '\n%{http_code}' --max-time 60 -X POST \
+out=$(curl -sS -o /dev/stdout -w '\n%{http_code}' --max-time 300 -X POST \
   -H 'Host: placacompleta.com.br' -H "x-admin-secret: ${NUXT_ADMIN_SECRET}" -H 'Content-Type: application/json' \
   -d '{}' http://127.0.0.1/api/premium/nfse/reconciliar 2>&1)
 code=$(tail -n1 <<<"$out"); corpo=$(head -n -1 <<<"$out" | head -c 300)

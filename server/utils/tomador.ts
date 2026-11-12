@@ -9,7 +9,7 @@ function chaveBuf(chaveB64: string): Buffer {
   return k
 }
 
-/** v1.<iv b64>.<tag b64>.<dados b64> */
+/** v1.<iv b64>.<tag b64>.<data b64> */
 export function cifrar(texto: string, chaveB64: string): string {
   const key = chaveBuf(chaveB64)
   const iv = randomBytes(12)
@@ -21,10 +21,10 @@ export function cifrar(texto: string, chaveB64: string): string {
 export function decifrar(cifrado: string, chaveB64: string): string {
   const key = chaveBuf(chaveB64)
   const [v, iv, tag, data] = String(cifrado).split('.')
-  if (v !== 'v1' || !iv || !tag || data === undefined) throw new Error('formato invalido')
+  if (v !== 'v1' || !iv || !tag || data === undefined) throw new Error('invalid format')
   const ivB = Buffer.from(iv, 'base64')
   const tagB = Buffer.from(tag, 'base64')
-  if (ivB.length !== 12 || tagB.length !== 16) throw new Error('formato invalido')
+  if (ivB.length !== 12 || tagB.length !== 16) throw new Error('invalid format')
   const d = createDecipheriv('aes-256-gcm', key, ivB, { authTagLength: 16 })
   d.setAuthTag(tagB)
   return Buffer.concat([d.update(Buffer.from(data, 'base64')), d.final()]).toString('utf8')
@@ -75,7 +75,7 @@ export async function gravarTomador(
     }, { onConflict: 'pedido_id' })
     return !error
   } catch (e: any) {
-    console.warn('[tomador] nao gravado:', String(e?.name || 'erro'))
+    console.warn('[tomador] not saved:', String(e?.name || 'error'))
     return false
   }
 }

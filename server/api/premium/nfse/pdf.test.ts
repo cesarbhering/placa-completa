@@ -46,7 +46,7 @@ describe('servirPdf', () => {
     expect(r.headers).toEqual({
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'inline; filename="nfse-42.pdf"',
-      'Cache-Control': 'private, max-age=86400',
+      'Cache-Control': 'private, no-cache',
     })
     expect(r.body.toString()).toBe('%PDF')
   })

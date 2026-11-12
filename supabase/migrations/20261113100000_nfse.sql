@@ -1,4 +1,4 @@
--- NFS-e: dados do tomador (pagador) e estado da nota por pedido.
+-- NFS-e: payer (tomador) data and the note's state per order.
 create table if not exists public.pedidos_tomador (
   pedido_id uuid primary key references public.pedidos_premium(id) on delete cascade,
   documento_cifrado text not null,
@@ -8,7 +8,7 @@ create table if not exists public.pedidos_tomador (
   criado_em timestamptz default now()
 );
 
--- RLS ligado e sem policies: so a service key do servidor acessa.
+-- RLS on and no policies: only the server's service key has access.
 alter table public.pedidos_tomador enable row level security;
 
 comment on table public.pedidos_tomador is 'Dados do pagador para a NFS-e (cifrados). Acesso so pelo servidor.';

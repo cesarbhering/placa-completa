@@ -32,9 +32,9 @@ export interface NfseProvedor {
   pdf(id: string): Promise<Buffer>
 }
 
-/** Rede, timeout, 5xx ou 429: vale tentar de novo depois. */
+/** Network, timeout, 5xx or 429: worth retrying later. */
 export class ErroNfseIndisponivel extends Error {
-  constructor(mensagem = 'emissor de NFS-e indisponivel') {
+  constructor(mensagem = 'NFS-e emitter unavailable') {
     super(mensagem)
     this.name = 'ErroNfseIndisponivel'
   }
@@ -45,7 +45,7 @@ export class ErroNfseRejeitado extends Error {
   status: number
   body: unknown
   constructor(status: number, body: unknown) {
-    super(`emissor de NFS-e rejeitou (${status})`)
+    super(`NFS-e emitter rejected the call (${status})`)
     this.name = 'ErroNfseRejeitado'
     this.status = status
     this.body = body
@@ -62,8 +62,8 @@ type Config = { nfseUrl?: string; nfseApiKey?: string }
 
 function traduzir(e: any): never {
   const status = Number(e?.statusCode ?? e?.status ?? e?.response?.status ?? 0)
-  // 401/403/404/405: configuracao (chave, URL); tentar de novo depois. 409 segue
-  // rejeitado aqui; o orquestrador o trata como final.
+  // 401/403/404/405: configuration (key, URL); retry later. 409 stays a rejection
+  // here; the orchestrator treats it as final.
   if (!status || status >= 500 || status === 429 || [401, 403, 404, 405].includes(status)) throw new ErroNfseIndisponivel()
   throw new ErroNfseRejeitado(status, e?.data ?? e?.response?._data ?? null)
 }

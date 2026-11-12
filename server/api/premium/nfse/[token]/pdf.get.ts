@@ -29,7 +29,8 @@ export async function servirPdf(d: Deps) {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="nfse-${pedido.nfse_numero || pedido.id}.pdf"`,
-      'Cache-Control': 'private, max-age=86400',
+      // A cancellation changes the PDF: always revalidate.
+      'Cache-Control': 'private, no-cache',
     },
     body,
   }

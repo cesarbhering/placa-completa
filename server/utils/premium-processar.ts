@@ -277,7 +277,7 @@ export async function processarPedidoPago(
     // await: nunca atrasa nem quebra a entrega; dedup no banco com o timer.
     void emVoo('aviso-venda', () => avisarVenda(supabase, pedido.id))
 
-    // NFS-e: enfileira sem await; falha do emissor nunca toca a entrega.
+    // NFS-e: enqueued without await; an emitter failure never touches the delivery.
     void emVoo('nfse-enfileirar', () => enfileirarNfse(supabase, pedido.id))
 
     // Snapshot imutavel: monta o payload agregado (consulta filtrada por
