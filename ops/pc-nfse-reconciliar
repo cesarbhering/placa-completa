@@ -1,0 +1,17 @@
+#!/bin/bash
+# NFS-e: triggers the reconciliation job inside the site (POST /api/premium/nfse/reconciliar).
+# Driven by pc-nfse-reconciliar.timer every 10 min. Goes through the local Traefik (127.0.0.1:80, site Host).
+# 202 = ran (counters in the body); 404 = feature flag off, treated as ok.
+# Note: by design the route also answers 404 to a missing or wrong secret (it does not reveal
+# that it exists), so a rotated NUXT_ADMIN_SECRET also lands here silently.
+set -u
+. /root/.secrets/admin-secret.env
+out=$(curl -sS -o /dev/stdout -w '\n%{http_code}' --max-time 300 -X POST \
+  -H 'Host: placacompleta.com.br' -H "x-admin-secret: ${NUXT_ADMIN_SECRET}" -H 'Content-Type: application/json' \
+  -d '{}' http://127.0.0.1/api/premium/nfse/reconciliar 2>&1)
+code=$(tail -n1 <<<"$out"); corpo=$(head -n -1 <<<"$out" | head -c 300)
+case "$code" in
+  202) grep -q '"enfileiradas":0,"atualizadas":0,"emails":0,"cancelamentos":0' <<<"$corpo" || echo "reconciled: $corpo"; exit 0 ;;
+  404) echo "ok (404, NFS-e off)"; exit 0 ;;
+  *) echo "FAILURE $code: $corpo"; exit 1 ;;
+esac

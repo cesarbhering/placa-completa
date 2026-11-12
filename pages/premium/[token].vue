@@ -1886,6 +1886,13 @@ const fichaTecnica = computed(() => [
   linha('Cap. máx. de tração', medida('capacidadeMaximaDeTracao') ? `${g('capacidadeMaximaDeTracao')} t` : null),
 ].filter(Boolean) as [string, string][])
 
+const dataNfse = (iso: any) => {
+  if (!iso) return ''
+  const dt = new Date(String(iso))
+  return Number.isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+}
+const valorNfse = (c: any) =>
+  c == null ? '' : (Number(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).replace(/\s/g, ' ')
 // Importacao: SO pra veiculo estrangeiro (procedencia === 'ESTRANGEIRO').
 // `importacao` vem com campos zerados/vazios pra veiculo nacional (o
 // comentario de camposRestantes() em shared/planos.ts ja nota isso — "quatro
@@ -3391,6 +3398,17 @@ onUnmounted(() => {
             </div>
           </footer>
 
+          <section v-if="data?.nfse" class="rel__nfse">
+            <strong>Nota fiscal de serviço (NFS-e)</strong>
+            <span v-if="data.nfse.status === 'cancelada'">
+              Nota fiscal{{ data.nfse.numero ? ` nº ${data.nfse.numero}` : '' }} cancelada em {{ dataNfse(data.nfse.cancelada_em) }}.
+            </span>
+            <span v-else>
+              Nota fiscal de serviço (NFS-e){{ data.nfse.numero ? ` nº ${data.nfse.numero},` : '' }} emitida em {{ dataNfse(data.nfse.emitida_em) }}, valor {{ valorNfse(data.nfse.valor_centavos) }}.
+            </span>
+            <a :href="data.nfse.pdf" target="_blank" rel="noopener">Baixar nota fiscal (PDF)</a>
+          </section>
+
           <!-- so na impressao: marca d'agua e rodape corrido de cada folha -->
           <img src="/logo-horizontal-600.png" alt="" class="rel__print-marca" aria-hidden="true">
           <div class="rel__print-pe" aria-hidden="true">
@@ -3742,6 +3760,29 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
   &__aut-id { color: $c-charcoal; }
+
+  &__nfse {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 8px;
+    padding: 12px 16px;
+    border: 1px solid $c-hair;
+    border-radius: 4px;
+    background: $c-canvas;
+    font-size: calc(12.5px * var(--rel-fs, 1));
+    line-height: 1.45;
+    color: $c-graphite;
+
+    strong {
+      font-size: calc(11px * var(--rel-fs, 1));
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: $c-ink;
+    }
+    a { color: $c-charcoal; text-decoration: underline; }
+  }
 
   // so existem no papel
   &__print-marca,
@@ -5386,7 +5427,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   .rel__veh, .rel__veredito, .rel__inds, .rel__ind, .rel__tempo-item, .rel__restr, .rel__resumo-linha,
   .rel__multas-item, .rel__multas-r, .rel__recall, .rel__recall-item, .rel__recall-top,
   .rel__leilao, .rel__lote, .rel__var-item, .rel__c12, .rel__valor, .rel__renave, .rel__espera,
-  .rel__fipe-link, .rel__aut, .rel__dep, .rel__fipe-ambiguo, svg, table, tr, figure, li {
+  .rel__fipe-link, .rel__aut, .rel__nfse, .rel__dep, .rel__fipe-ambiguo, svg, table, tr, figure, li {
     break-inside: avoid; page-break-inside: avoid;
   }
   // Card de leilao muito grande (muitas fotos) pode quebrar; as fotos nao.

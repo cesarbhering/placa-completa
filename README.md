@@ -48,6 +48,25 @@ npm run test:all
 
 Copy `.env.example` to `.env` and fill the keys you have. Without paid-source keys the free lookup and the report layout still work with stubbed data.
 
+## Optional: electronic service invoices (NFS-e)
+
+Invoicing is an optional module, off by default. When enabled, each paid report is invoiced automatically after delivery through an external emitter that speaks the Brazilian national NFS-e standard (`nfse-emissor`, a separate service consumed over HTTP with a URL and an API key, so any provider with the same contract can replace it). The site never waits on the emitter: the report, its e-mail and refunds behave exactly the same whether the module is on, off or unreachable.
+
+Turn it on with these variables (all empty by default):
+
+| Variable | Meaning |
+|---|---|
+| `NUXT_NFSE` | `on` enables the module. Anything else disables every call and every UI element. |
+| `NUXT_NFSE_URL` | Base URL of the emitter (for example `http://nfse:3000`). |
+| `NUXT_NFSE_API_KEY` | Bearer key issued by the emitter for this site. |
+| `NUXT_NFSE_WEBHOOK_SECRET` | HMAC secret the emitter signs its webhooks with. |
+| `NUXT_NFSE_DESDE` | ISO timestamp; orders delivered before it are never invoiced. Required when the module is on (missing or invalid means nothing is invoiced). |
+| `NUXT_TOMADOR_KEY` | 32-byte base64 key that encrypts the payer's document and name at rest (`pedidos_tomador`). Without it no payer data is stored and no invoice can be issued. |
+
+Configure the emitter's webhook to `POST /api/premium/nfse/webhook` on the site, signed with `NUXT_NFSE_WEBHOOK_SECRET`. A host timer (`ops/systemd/pc-nfse-reconciliar.timer`, every 10 min, running `ops/pc-nfse-reconciliar`) calls `POST /api/premium/nfse/reconciliar` to enqueue, poll, e-mail and cancel whatever the webhook missed; it needs `NUXT_ADMIN_SECRET`.
+
+Orders paid through Google Play, and orders without an identifiable payer, are skipped and the operator is notified. The privacy policy and terms must mention the payer-data retention before `NUXT_TOMADOR_KEY` is set in production.
+
 ## Repository layout
 
 - `pages/`, `components/`, `composables/`: the site and the report UI.

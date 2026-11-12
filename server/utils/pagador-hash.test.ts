@@ -60,4 +60,16 @@ describe('identificador pseudonimizado do pagador', () => {
     expect(s.charge.value).toBe(3990)
     expect(p.charge.payer.name).toBe('Fulano') // original intacto (o handler ainda usa)
   })
+  it('Woovi com doc e nome: grava tomador uma vez, origem woovi', async () => {
+    const sb = fakeSb()
+    const gravar = vi.fn(async () => true)
+    await gravarPagadorHash(sb, { id: 'p1', pix_provider: 'woovi', abacatepay_id: 'ch1', forma_pagamento: 'pix' }, { segredo: SEG, pagadorWoovi: async () => ({ documento: CPF, nome: 'Fulano de Tal' }), gravarTomador: gravar })
+    expect(gravar).toHaveBeenCalledTimes(1)
+    expect(gravar).toHaveBeenCalledWith(sb, 'p1', { documento: CPF, nome: 'Fulano de Tal', origem: 'woovi' })
+  })
+  it('Woovi sem documento: nao grava tomador', async () => {
+    const gravar = vi.fn(async () => true)
+    await gravarPagadorHash(fakeSb(), { id: 'p1', pix_provider: 'woovi', abacatepay_id: 'ch1' }, { segredo: SEG, pagadorWoovi: async () => ({ documento: null, nome: 'Fulano' }), gravarTomador: gravar })
+    expect(gravar).not.toHaveBeenCalled()
+  })
 })

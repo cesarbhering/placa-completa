@@ -82,8 +82,16 @@ if (emIngles.value) {
           <ul>
             <li><strong>Email address</strong>: to send the result of the check;</li>
             <li><strong>Phone number</strong> (optional), if voluntarily provided;</li>
-            <li><strong>Vehicle license plate</strong>: to identify what is being checked.</li>
+            <li><strong>Vehicle license plate</strong>: to identify what is being checked;</li>
+            <li><strong>Payer's name and CPF or CNPJ</strong>: received from the payment method (Pix or card) when you pay for a report, to issue the electronic service invoice (NFS-e) in your name and to meet the company's tax obligations.</li>
           </ul>
+          <p>
+            When you pay for a report, we receive from the payment method (Pix or card) the name
+            and the CPF or CNPJ of the person who paid. We keep this data to issue the electronic
+            service invoice (NFS-e) in your name and to meet the company's tax obligations. It is
+            stored encrypted for the period required by tax law (5 years) and is not used for any
+            other purpose.
+          </p>
 
           <h3>3.2 Data collected automatically</h3>
           <ul>
@@ -114,7 +122,8 @@ if (emIngles.value) {
             health information, drug test results, data on racial or ethnic origin, religious
             belief or sexual orientation. Nor does it process data about the offending driver,
             driver's license points or readings from enforcement equipment (speed cameras,
-            breathalyzers).
+            breathalyzers). The payer's CPF or CNPJ is processed only to issue the invoice, as
+            described in 3.1.
           </p>
 
           <h2>4. Purposes of Processing</h2>
@@ -204,6 +213,7 @@ if (emIngles.value) {
           <ul>
             <li>Platform user data: kept for as long as needed to provide the service and to comply with legal obligations;</li>
             <li>Check logs: at least 12 months; 24 months for theft and RENAJUD data;</li>
+            <li>Payer's name and CPF or CNPJ, for tax purposes: 5 years, encrypted, as required by tax law;</li>
             <li>After that period, the data is securely deleted or anonymized.</li>
           </ul>
 
@@ -339,8 +349,16 @@ if (emIngles.value) {
           <ul>
             <li><strong>Endereço de e-mail</strong>: para envio do resultado da consulta;</li>
             <li><strong>Número de telefone</strong> (opcional), caso informado voluntariamente;</li>
-            <li><strong>Placa do veículo</strong>: para identificar o objeto da consulta.</li>
+            <li><strong>Placa do veículo</strong>: para identificar o objeto da consulta;</li>
+            <li><strong>Nome e CPF ou CNPJ do pagador</strong>: recebidos do meio de pagamento (Pix ou cartão) quando você paga um relatório, para emitir a nota fiscal de serviço (NFS-e) em seu nome e cumprir as obrigações fiscais da empresa.</li>
           </ul>
+          <p>
+            Ao pagar um relatório, recebemos do meio de pagamento (Pix ou cartão) o nome e o CPF
+            ou CNPJ de quem pagou. Guardamos esses dados para emitir a nota fiscal de serviço
+            (NFS-e) em seu nome e para cumprir as obrigações fiscais da empresa. Eles ficam
+            armazenados de forma cifrada pelo prazo exigido pela legislação tributária (5 anos)
+            e não são usados para nenhuma outra finalidade.
+          </p>
 
           <h3>3.2 Dados coletados automaticamente</h3>
           <ul>
@@ -371,7 +389,8 @@ if (emIngles.value) {
             informações de saúde, exame toxicológico, dados de origem racial ou étnica,
             convicção religiosa ou orientação sexual. Também não são tratados dados do
             condutor infrator, pontuação de CNH e medições de equipamentos de fiscalização
-            (velocidade, etilômetro).
+            (velocidade, etilômetro). O CPF ou CNPJ do pagador é tratado apenas para a emissão
+            da nota fiscal, como descrito em 3.1.
           </p>
 
           <h2>4. Finalidades do Tratamento</h2>
@@ -461,6 +480,7 @@ if (emIngles.value) {
           <ul>
             <li>Dados do usuário da plataforma: retidos pelo período necessário à prestação do serviço e ao cumprimento de obrigações legais;</li>
             <li>Logs de consulta: mínimo 12 meses; 24 meses para dados de roubo/furto e RENAJUD;</li>
+            <li>Nome e CPF ou CNPJ do pagador, para fins fiscais: 5 anos, cifrados, conforme a legislação tributária;</li>
             <li>Após o prazo, os dados são eliminados de forma segura ou anonimizados.</li>
           </ul>
 

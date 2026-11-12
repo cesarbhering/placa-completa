@@ -2,6 +2,7 @@ import { completarRenajudDepois } from './renajud-detalhe'
 import { gravarEntrega } from './entrega-pedido'
 import { fonteNoPlano } from '../../shared/planos'
 import { avisarVenda } from './aviso-venda'
+import { enfileirarNfse, cancelarNfse } from './nfse'
 import { ambienteDaConsultaPaga } from './gcc-reserva'
 import { gerarCupomRecompra } from './cupom-recompra'
 import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas-recall'
@@ -276,6 +277,9 @@ export async function processarPedidoPago(
     // await: nunca atrasa nem quebra a entrega; dedup no banco com o timer.
     void emVoo('aviso-venda', () => avisarVenda(supabase, pedido.id))
 
+    // NFS-e: enqueued without await; an emitter failure never touches the delivery.
+    void emVoo('nfse-enfileirar', () => enfileirarNfse(supabase, pedido.id))
+
     // Snapshot imutavel: monta o payload agregado (consulta filtrada por
     // plano + valorCusto + chassiOrigem + camposRestantes) UMA VEZ, aqui na
     // entrega, pra report.get nunca mais precisar refazer chamadas externas
@@ -429,6 +433,8 @@ export async function processarPedidoPago(
           errorMessage: `ESTORNO FEITO mas o status NAO gravou. pedido=${pedido.id} placa=${pedido.placa} erro_update=${erroUpdate.message}`,
           paraTambem: [AVISO_ESTORNO],
         })
+      } else {
+        void emVoo('nfse-cancelar', () => cancelarNfse(supabase, pedido.id))
       }
       // Ordem do Cesar: avisar SEMPRE que houver estorno automatico, nao so
       // quando o estorno falha. Cada um destes e uma venda que entrou e saiu, e

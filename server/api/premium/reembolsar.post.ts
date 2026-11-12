@@ -1,3 +1,6 @@
+import { cancelarNfse } from '../../utils/nfse'
+import { emVoo } from '../../utils/tarefas-em-voo'
+
 // Retenta o reembolso de um pedido que foi PAGO mas nao pode ser concluido, e
 // cujo estorno automatico falhou (tipicamente INSUFFICIENT_FUNDS, quando o
 // dinheiro pago ainda esta em `pending` e nao ha saldo `available`). Idempotente
@@ -20,6 +23,7 @@ export default defineEventHandler(async (event) => {
   const r = await provedorDoPedido((pedido as any).pix_provider).reembolsarPix(pedido.abacatepay_id)
   if (r.ok) {
     await supabase.from('pedidos_premium').update({ status: 'reembolsado' }).eq('id', pedido.id)
+    void emVoo('nfse-cancelar', () => cancelarNfse(supabase, pedido.id))
   }
   return { ok: r.ok, error: r.error }
 })

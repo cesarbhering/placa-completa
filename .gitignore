@@ -55,3 +55,4 @@ playwright-report/
 # Backups locais de scripts de correcao (dados reais, nunca commitar)
 backup-*.json
 lgpd-backup-*.jsonl
+.superpowers/

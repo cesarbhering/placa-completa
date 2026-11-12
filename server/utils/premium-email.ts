@@ -570,3 +570,45 @@ export async function enviarAvisoLeilao(
     return false
   }
 }
+
+// ---------- NFS-e issued: invoice e-mail with the PDF attached ----------
+
+export function montarEmailNfse(a: { link: string; placa: string; numero?: string | null }): { assunto: string; html: string; texto: string } {
+  return montarEmailAviso({
+    link: a.link,
+    titulo: 'Nota fiscal emitida',
+    paragrafos: ['Emitimos a nota fiscal de serviço do seu relatório. Ela vai em anexo e também fica disponível na página do relatório, abaixo do código de verificação.'],
+    assunto: `Sua nota fiscal do relatório da placa ${a.placa}`,
+    botao: 'Ver meu relatório',
+    // An empty note would render a blank line, so the default text is replaced.
+    nota: 'Guarde este e-mail: a nota também pode ser baixada pela página do relatório.',
+  })
+}
+
+/** Sends the invoice e-mail with the PDF attached. Returns a boolean and never throws. */
+export async function enviarNfseEmail(
+  a: { email: string | null | undefined; token: string; placa: string; numero: string; pdf: Buffer },
+  deps: { config?: any; enviar?: (msg: any) => Promise<void> } = {},
+): Promise<boolean> {
+  try {
+    const config = deps.config ?? useRuntimeConfig()
+    if (!a.email || (!deps.enviar && !config.resendApiKey)) return false
+    const link = `${config.premiumBaseUrl || 'https://placacompleta.com.br'}/premium/${a.token}?o=nfse`
+    const { assunto, html, texto } = montarEmailNfse({ link, placa: a.placa, numero: a.numero })
+    const msg = {
+      from: 'PlacaCompleta <contato@placacompleta.com.br>',
+      reply_to: 'contato@placacompleta.com.br',
+      to: [a.email],
+      subject: comTagAmbiente(assunto, config),
+      html,
+      text: texto,
+      attachments: [{ filename: a.numero ? `nfse-${a.numero}.pdf` : 'nfse.pdf', content: a.pdf.toString('base64') }],
+    }
+    if (deps.enviar) await deps.enviar(msg)
+    else await $fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' }, body: msg })
+    return true
+  } catch (e: any) {
+    console.error('[premium-email] NFS-e e-mail: send failed:', String(e?.data?.message || e?.message || e))
+    return false
+  }
+}
