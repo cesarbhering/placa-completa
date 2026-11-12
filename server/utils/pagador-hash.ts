@@ -1,11 +1,13 @@
 import { createHmac } from 'node:crypto'
-import { documentoDoPagadorWoovi } from './woovi'
+import { pagadorDaCobrancaWoovi } from './woovi'
+import { gravarTomador } from './tomador'
 import { fingerprintDoCartao } from './stripe'
 
 // Cliente recorrente sem e-mail (pedido do Cesar, 05/out): identificador
 // PSEUDONIMIZADO do pagador. No Pix, o CPF/CNPJ de quem pagou (vem da cobranca
 // na Woovi) vira HMAC-SHA256(segredo, digitos) e e descartado na hora. Nunca
-// grava CPF, CNPJ nem nome: nada em coluna, log, snapshot ou evento. No cartao,
+// grava CPF, CNPJ nem nome neste hash: nada em coluna, log, snapshot ou evento.
+// (Excecao separada: tomador da NFS-e, SEMPRE cifrado, em pedidos_tomador.) No cartao,
 // o fingerprint da Stripe (id opaco do cartao, sem numero). Sem segredo: no-op.
 
 /** So digitos; CPF (11) ou CNPJ (14). Qualquer outra coisa: null. */
@@ -56,16 +58,22 @@ export async function gravarPagadorHash(
   deps: {
     segredo?: string | null
     documentoWoovi?: (chargeId: string) => Promise<string | null>
+    pagadorWoovi?: (chargeId: string) => Promise<{ documento: string | null; nome: string | null }>
+    gravarTomador?: typeof gravarTomador
     fingerprintStripe?: (piId: string) => Promise<string | null>
   } = {},
 ): Promise<void> {
   try {
     const segredo = deps.segredo ?? String(useRuntimeConfig().pagadorHashSecret || '')
     const upd: Record<string, string> = {}
-    if (segredo && pedido.pix_provider === 'woovi' && pedido.abacatepay_id && pedido.forma_pagamento !== 'cartao') {
-      const doc = await (deps.documentoWoovi ?? documentoDoPagadorWoovi)(pedido.abacatepay_id)
-      const h = hashDoPagador(doc, segredo)
+    if (pedido.pix_provider === 'woovi' && pedido.abacatepay_id && pedido.forma_pagamento !== 'cartao') {
+      const p = deps.documentoWoovi
+        ? { documento: await deps.documentoWoovi(pedido.abacatepay_id), nome: null as string | null }
+        : await (deps.pagadorWoovi ?? pagadorDaCobrancaWoovi)(pedido.abacatepay_id)
+      const h = hashDoPagador(p.documento, segredo)
       if (h) upd.pagador_hash = h
+      // Tomador da NFS-e (cifrado, so servidor). Nunca lanca.
+      if (p.documento) await (deps.gravarTomador ?? gravarTomador)(supabase, pedido.id, { documento: p.documento, nome: p.nome, origem: 'woovi' })
     }
     if (pedido.forma_pagamento === 'cartao' && pedido.stripe_session_id?.startsWith('pi_')) {
       const fp = await (deps.fingerprintStripe ?? fingerprintDoCartao)(pedido.stripe_session_id)

@@ -146,16 +146,21 @@ export function extrairChavesPublicas(res: any): string[] {
  * CPF/CNPJ de quem PAGOU a cobranca (payer.taxID), so pra virar hash em
  * server/utils/pagador-hash.ts. Nao loga, nao guarda; null em qualquer erro.
  */
-export async function documentoDoPagadorWoovi(id: string): Promise<string | null> {
+export async function pagadorDaCobrancaWoovi(id: string): Promise<{ documento: string | null; nome: string | null }> {
   const { base } = cfg()
   try {
     const res = await $fetch<any>(`${base}/api/v1/charge/${encodeURIComponent(id)}`, { method: 'GET', headers: headers() })
-    const charge = res?.charge || res
-    const doc = charge?.payer?.taxID?.taxID
-    return typeof doc === 'string' ? doc : null
+    const payer = (res?.charge || res)?.payer
+    const doc = payer?.taxID?.taxID
+    const nome = payer?.name
+    return { documento: typeof doc === 'string' ? doc : null, nome: typeof nome === 'string' ? nome : null }
   } catch {
-    return null
+    return { documento: null, nome: null }
   }
+}
+
+export async function documentoDoPagadorWoovi(id: string): Promise<string | null> {
+  return (await pagadorDaCobrancaWoovi(id)).documento
 }
 
 export async function reembolsarPix(
