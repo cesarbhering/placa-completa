@@ -1,0 +1,6 @@
+[Unit]
+Description=Staging/homolog sob demanda: desliga o ambiente que passou de 4 h de pe
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-ambiente auto-down
