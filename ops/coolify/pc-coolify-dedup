@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Higiene da fila de deploys do site no Coolify (4.4.6 nao tem "cancelar superados"). Timer: 1 min.
+"""Higiene da fila de deploys do site no Coolify (4.4.6 nao tem "cancelar superados"). Timer: 5 min.
 
 Regra 1 (14/out): entre os deploys 'queued' do app, mantem so o mais novo e cancela os demais.
 Regra 2 (21/out, webhook atrasado do GitHub): cancela QUALQUER deploy 'queued' ou 'in_progress' cujo commit e

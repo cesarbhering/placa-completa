@@ -16,7 +16,12 @@
 // add 'nonce-${nonce}' generated per request, and flip the header to
 // `Content-Security-Policy`.
 
-const POLICY = [
+// Google domains added 12/nov/2026: GA4 posts to the bare analytics.google.com
+// (the *.analytics.google.com wildcard does not cover the apex), the Ads
+// view-through script loads from googleads.g.doubleclick.net and the
+// conversion linker calls stats/ad.doubleclick.net and googleadservices.
+// Those reports were ~90% of the prod log.
+export const POLICY = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
@@ -31,11 +36,11 @@ const POLICY = [
   // (so vale em CSP enforced) - so gera warning de graca no Lighthouse.
   // Reativar quando o header virar `Content-Security-Policy`.
   // "upgrade-insecure-requests",
-  "script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://cdn.onesignal.com https://api.onesignal.com https://www.clarity.ms https://scripts.clarity.ms https://bzrcdn.openai.com https://bat.bing.com https://static.cloudflareinsights.com https://www.googleadservices.com https://challenges.cloudflare.com",
+  "script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://cdn.onesignal.com https://api.onesignal.com https://www.clarity.ms https://scripts.clarity.ms https://bzrcdn.openai.com https://bat.bing.com https://static.cloudflareinsights.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://bzr.openai.com https://www.google-analytics.com https://www.googletagmanager.com https://bat.bing.com https://c.clarity.ms https://*.clarity.ms https://googleads.g.doubleclick.net https://www.google.com https://www.google.com.br https://www.googleadservices.com",
+  "img-src 'self' data: blob: https://bzr.openai.com https://www.google-analytics.com https://www.googletagmanager.com https://bat.bing.com https://c.clarity.ms https://*.clarity.ms https://googleads.g.doubleclick.net https://www.google.com https://www.google.com.br https://www.googleadservices.com https://quickchart.io",
   "font-src 'self'",
-  "connect-src 'self' https://bzr.openai.com https://bzrcdn.openai.com https://api.stripe.com https://js.stripe.com https://www.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://api.onesignal.com https://onesignal.com https://*.os.tc https://www.clarity.ms https://*.clarity.ms https://c.clarity.ms https://bat.bing.com https://googleads.g.doubleclick.net https://www.google.com https://www.google.com.br https://challenges.cloudflare.com",
+  "connect-src 'self' https://bzr.openai.com https://bzrcdn.openai.com https://api.stripe.com https://js.stripe.com https://www.google-analytics.com https://analytics.google.com https://*.analytics.google.com https://*.googletagmanager.com https://api.onesignal.com https://onesignal.com https://*.os.tc https://www.clarity.ms https://*.clarity.ms https://c.clarity.ms https://bat.bing.com https://googleads.g.doubleclick.net https://stats.g.doubleclick.net https://ad.doubleclick.net https://www.googleadservices.com https://www.google.com https://www.google.com.br https://challenges.cloudflare.com",
   "worker-src 'self'",
   "manifest-src 'self'",
   "media-src 'self'",

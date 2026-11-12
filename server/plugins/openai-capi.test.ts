@@ -10,7 +10,7 @@ vi.stubGlobal('useRuntimeConfig', () => ({ openaiAdsCapiKey: 'k', openaiAdsPixel
 vi.stubGlobal('usePremiumSupabase', () => sb)
 const fetchMock = vi.fn(async () => ({ status: 200, text: async () => 'ok' }))
 vi.stubGlobal('fetch', fetchMock)
-const { rodar } = await import('./openai-capi')
+const { rodar, workerLigado } = await import('./openai-capi')
 
 const agora = Date.now()
 const iso = (msAtras: number) => new Date(agora - msAtras).toISOString()
@@ -49,5 +49,15 @@ describe('worker openai-capi', () => {
     const por = Object.fromEntries(sb.tab('pedidos_premium').map((p) => [p.token_entrega, p.openai_capi_erro]))
     expect(por).toEqual({ semorigem: 'sem_origem_chatgpt', app: 'app', teste: 'teste', jamarcado: 'sem_origem_chatgpt' })
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('workerLigado', () => {
+  it('does not start on staging', () => {
+    expect(workerLigado({ public: { staging: true } })).toBe(false)
+  })
+  it('starts on prod and homolog', () => {
+    expect(workerLigado({ public: { staging: false } })).toBe(true)
+    expect(workerLigado({ public: {} })).toBe(true)
   })
 })
