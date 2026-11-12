@@ -22,15 +22,9 @@ All windows are explicit (dates as dd-mm-yy, Brazil time unless noted). Figures 
 | Free plate lookups | 03-08-26 to 11-11-26 | 53,710 |
 | Free plate lookups | 13-10-26 to 11-11-26 | 33,413 |
 | Distinct plates looked up | 03-08-26 to 11-11-26 | 42,457 |
-| Paid reports (first sale to date, refunds excluded) | 27-08-26 to 11-11-26 | 481 |
-| Paid reports | 13-10-26 to 11-11-26 | 311 |
-| Distinct paying customers | 27-08-26 to 11-11-26 | 338 |
-| Repeat buyers | 27-08-26 to 11-11-26 | 27 |
-| Gross revenue from reports (refunds excluded) | 27-08-26 to 11-11-26 | R$ 19,758 |
 | Unique visitors per day (Cloudflare, UTC days) | 05-11-26 to 11-11-26 | 2,270 to 3,936 |
 | Google organic | 30-07-26 to 29-10-26 | 10,221 clicks, 495,572 impressions, CTR 2.1%, avg. position 8.4 |
 | Google organic | 02-10-26 to 29-10-26 | 6,541 clicks, 311,190 impressions |
-| Top ranking queries (Google, pos. 6 to 7) | 30-07-26 to 29-10-26 | "consultar placa", "consulta placa", "placa de carro", "consultar placa de carro" |
 
 ## Stack
 
