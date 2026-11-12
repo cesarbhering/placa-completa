@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   origemDaConsulta, origemDoPedido, montarAvisoVenda, avisarVenda,
   rotuloLeilao, rotuloRecall, formaPagamento, canalDoPedido, brlCentavos,
-  DESTINO_AVISO_VENDA, linhaRecompra, recompraDoPedido,
+  DESTINO_AVISO_VENDA, linhaRecompra, recompraDoPedido, placaNormalizada,
 } from './aviso-venda'
 
 const PEDIDO = {
@@ -71,15 +71,15 @@ describe('montarAvisoVenda', () => {
 
 // Supabase falso: guarda os filtros de cada chamada e responde por tabela.
 function supabaseFalso(opts: { jaAvisado?: boolean; ambiente?: string } = {}) {
-  const estado = { aviso_venda_em: opts.jaAvisado ? 'x' : null as string | null, updates: [] as any[] }
+  const estado = { aviso_venda_em: opts.jaAvisado ? 'x' : null as string | null, updates: [] as any[], placa: [] as any[] }
   const builder = (tabela: string) => {
     const f: any = { tabela, filtros: [] as any[], update: null as any }
     const b: any = {
       update(v: any) { f.update = v; return b },
       select() { return b },
-      eq(c: string, v: any) { f.filtros.push(['eq', c, v]); return b },
+      eq(c: string, v: any) { f.filtros.push(['eq', c, v]); if (c === 'placa') estado.placa.push([tabela, 'eq', v]); return b },
       is(c: string, v: any) { f.filtros.push(['is', c, v]); return b },
-      ilike() { return b }, lte() { return b }, not() { return b }, order() { return b },
+      ilike(c: string, v: any) { estado.placa.push([tabela, 'ilike', v]); return b }, lte() { return b }, not() { return b }, order() { return b },
       limit() { return Promise.resolve({ data: tabela === 'eventos_funil' ? [{ extra: { ab_bloco: 'A' }, leilao_sinal: 'negativo' }] : [] }) },
       maybeSingle() { return Promise.resolve({ data: { gclid: 'g1' }, error: null }) },
       then(res: any, rej: any) {
@@ -117,6 +117,13 @@ describe('avisarVenda', () => {
     expect(msg.to).toEqual([DESTINO_AVISO_VENDA])
     expect(msg.subject).toBe('Venda: Google Ads - ABC1D23')
     expect(msg.text).toContain('Teste A/B do bloco: A')
+  })
+
+  it('busca a placa por eq na placa normalizada (indice), nunca por ilike', async () => {
+    const { cliente, estado } = supabaseFalso()
+    await avisarVenda(cliente, 'p1', { config, supabaseConsultas: cliente, enviar: vi.fn(async () => {}) })
+    expect(estado.placa.some(([, op]) => op === 'ilike')).toBe(false)
+    expect(estado.placa).toContainEqual(['eventos_funil', 'eq', 'ABC1D23'])
   })
 
   it('ja avisado (pelo timer ou por outra entrega): nao envia de novo', async () => {
@@ -223,5 +230,12 @@ describe('recompra pelo pagador', () => {
     expect(text).toContain('Recompra: SIM, 3a compra')
     expect(text).not.toContain(HASH)
     expect(text).not.toContain('—')
+  })
+})
+
+describe('placaNormalizada', () => {
+  it('upper-cases and strips separators like the writers do', () => {
+    expect(placaNormalizada('abc-1d23')).toBe('ABC1D23')
+    expect(placaNormalizada(null)).toBe('')
   })
 })
