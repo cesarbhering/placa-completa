@@ -109,6 +109,7 @@ describe('provedorNfse', () => {
     expect(Buffer.isBuffer(b)).toBe(true)
     expect(b.toString()).toBe('%PDF')
     expect(f.mock.calls[0][1].responseType).toBe('arrayBuffer')
+    expect(f.mock.calls[0][1].timeout).toBe(15000)
   })
 })
 

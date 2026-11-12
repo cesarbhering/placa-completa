@@ -18,6 +18,7 @@ import { getValorCusto } from '../../utils/valor-custo'
 import { sanearBlocoMultas } from '../../utils/infosimples-detran'
 import { retentarDetranSeValer } from '../../utils/detran-retentativa'
 import { logoProxyDe } from '../../utils/logo-marca'
+import { blocoNfse } from '../../utils/nfse-bloco'
 import { lerPlacaCacheFresca, motorDoPayload } from '../../utils/placa-lookup'
 
 // Dados do relatorio premium pelo token (superficie PAGA, token e a credencial).
@@ -145,7 +146,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro,forma_pagamento,recall_sinal,recall_marca,ambiente,ip_address,dispositivo,sistema,canal,obref')
+    .select('id,status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro,forma_pagamento,recall_sinal,recall_marca,ambiente,ip_address,dispositivo,sistema,canal,obref,nfse_status,nfse_numero,nfse_serie,nfse_emitida_em,nfse_cancelada_em,nfse_id')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Relatorio nao encontrado' })
@@ -449,6 +450,7 @@ export default defineEventHandler(async (event) => {
     status: pedido.status,
     placa: pedido.placa,
     plano,
+    nfse: blocoNfse(pedido, String(token), useRuntimeConfig()),
     // usado na tela de retomada do Pix, pra pessoa reconferir o que esta pagando
     valorCentavos: pedido.valor_centavos,
     // quantos campos a completa ainda entregaria alem deste plano (upsell)

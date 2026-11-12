@@ -73,12 +73,12 @@ export function provedorNfse(
   fetcher: Fetcher = $fetch as unknown as Fetcher,
 ): NfseProvedor {
   const base = String(config.nfseUrl || '').replace(/\/+$/, '')
-  async function chamar(path: string, opts: Record<string, any> = {}) {
+  async function chamar(path: string, opts: Record<string, any> = {}, timeout = 3000) {
     try {
       return await fetcher(`${base}${path}`, {
         ...opts,
         headers: { Authorization: `Bearer ${config.nfseApiKey || ''}` },
-        timeout: 3000,
+        timeout,
         retry: 0,
       })
     } catch (e) {
@@ -104,7 +104,7 @@ export function provedorNfse(
       await chamar(`/v1/notas/${encodeURIComponent(id)}/cancelar`, { method: 'POST', body: { motivo } })
     },
     async pdf(id) {
-      const r = await chamar(`/v1/notas/${encodeURIComponent(id)}/pdf`, { responseType: 'arrayBuffer' })
+      const r = await chamar(`/v1/notas/${encodeURIComponent(id)}/pdf`, { responseType: 'arrayBuffer' }, 15000)
       return Buffer.from(r)
     },
   }
