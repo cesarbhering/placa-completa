@@ -1,11 +1,11 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 
-// Dados do pagador (CPF/CNPJ e nome) para emitir a NFS-e. Ficam so cifrados
-// (AES-256-GCM) em pedidos_tomador. Nunca logar documento nem nome.
+// Payer data (CPF/CNPJ and name) needed to issue the NFS-e. Stored only
+// encrypted (AES-256-GCM) in pedidos_tomador. Never log the document or name.
 
 function chaveBuf(chaveB64: string): Buffer {
   const k = Buffer.from(String(chaveB64 || ''), 'base64')
-  if (k.length !== 32) throw new Error('chave invalida')
+  if (k.length !== 32) throw new Error('invalid key')
   return k
 }
 

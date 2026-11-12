@@ -34,8 +34,13 @@ function fakeSb(rows: any[]) {
         },
         lt: (c: string, v: any) => { fs.push((r) => r[c] != null && r[c] < v); return filtros },
         or: (f: string) => {
-          const ok = f.split(',').map((x) => x.split('.'))
-          fs.push((r) => ok.some(([c, op, v]) => (op === 'is' ? r[c] == null : r[c] === v)))
+          // Split on top-level commas only (not.in.(a,b) keeps its inner commas).
+          const parts = f.split(/,(?![^(]*\))/).map((x) => x.split('.'))
+          const test = (r: any, [c, op, v, w]: string[]) =>
+            op === 'is' ? r[c] == null
+              : op === 'not' && v === 'in' ? !w.slice(1, -1).split(',').includes(r[c])
+              : r[c] === v
+          fs.push((r) => parts.some((p) => test(r, p)))
           return filtros
         },
         order: () => filtros,
@@ -200,6 +205,14 @@ describe('reconciliarNfse', () => {
     expect(d.provedor.cancelar).toHaveBeenCalledTimes(1)
     expect(d.provedor.cancelar).toHaveBeenCalledWith('n1', 'Estorno do pagamento ao cliente')
     expect(d.enviarEmail).not.toHaveBeenCalled()
+    expect(r.cancelamentos).toBe(1)
+  })
+
+  it('(e) is NULL-safe: a refunded order with a note id and NULL nfse_status is still picked up', async () => {
+    const rows = [row('p1', { status: 'reembolsado', nfse_status: null, nfse_id: 'n1' })]
+    const d = deps()
+    const r = await reconciliarNfse(fakeSb(rows), d)
+    expect(d.provedor.cancelar).toHaveBeenCalledWith('n1', 'Estorno do pagamento ao cliente')
     expect(r.cancelamentos).toBe(1)
   })
 

@@ -167,7 +167,8 @@ export async function aplicarEstadoNfse(supabase: any, pedido: any, nota: NfseNo
   if (!pedido.nfse_id && nota.id) patch.nfse_id = nota.id
   let q = supabase.from('pedidos_premium').update(patch).eq('id', pedido.id)
   // Race-safe: a concurrent cancellation or refund wins over a late emitida.
-  if (status === 'emitida') q = q.not('nfse_status', 'in', `(${FINAIS_ANTES_DE_EMITIDA.join(',')})`).select('id')
+  // NULL-safe: a bare NOT IN would also drop rows whose nfse_status is NULL.
+  if (status === 'emitida') q = q.or(`nfse_status.is.null,nfse_status.not.in.(${FINAIS_ANTES_DE_EMITIDA.join(',')})`).select('id')
   const r = await q
   if (r?.error) throw new Error('nfse: status write failed')
   if (status === 'emitida' && (!Array.isArray(r?.data) || r.data.length === 0)) return false
@@ -348,7 +349,7 @@ export async function reconciliarNfse(supabase: any, deps: DepsReconciliar = {})
 
     // (e) safety net: refunded orders whose note was never cancelled (e.g. a refund racing the emission)
     for (const p of await ler(tabela().select(COLUNAS_RECONCILIAR).eq('status', 'reembolsado').not('nfse_id', 'is', null)
-      .not('nfse_status', 'in', '(cancelada,cancelamento_rejeitado,nao_emitir)').is('nfse_erro', null).limit(LOTE))) {
+      .or('nfse_status.is.null,nfse_status.not.in.(cancelada,cancelamento_rejeitado)').is('nfse_erro', null).limit(LOTE))) {
       if (vistos.has(p.id)) continue
       const r = await cancelarNfse(supabase, p.id, undefined, { provedor, config })
       if (r === 'cancelando') out.cancelamentos++

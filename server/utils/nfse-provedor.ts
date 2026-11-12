@@ -1,6 +1,6 @@
-// Adaptador do emissor de NFS-e (servico proprio). Nunca bloqueia a entrega do
-// relatorio: quem chama usa `void emVoo(...)`. Timeout curto, sem retry.
-// Nao loga a chave nem o corpo das chamadas.
+// NFS-e emitter adapter (own service). Never blocks report delivery: callers
+// use `void emVoo(...)`. Short timeout, no retry.
+// Never logs the key or the call bodies.
 export interface NfseEmitirParams {
   referencia: string
   valorCentavos: number
@@ -40,7 +40,7 @@ export class ErroNfseIndisponivel extends Error {
   }
 }
 
-/** Outros 4xx: o emissor recusou, repetir igual nao adianta. */
+/** Other 4xx: the emitter refused; repeating the same call will not help. */
 export class ErroNfseRejeitado extends Error {
   status: number
   body: unknown

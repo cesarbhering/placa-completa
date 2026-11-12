@@ -1886,7 +1886,6 @@ const fichaTecnica = computed(() => [
   linha('Cap. máx. de tração', medida('capacidadeMaximaDeTracao') ? `${g('capacidadeMaximaDeTracao')} t` : null),
 ].filter(Boolean) as [string, string][])
 
-// Importacao: SO pra veiculo estrangeiro (procedencia === 'ESTRANGEIRO').
 const dataNfse = (iso: any) => {
   if (!iso) return ''
   const dt = new Date(String(iso))
@@ -1894,6 +1893,7 @@ const dataNfse = (iso: any) => {
 }
 const valorNfse = (c: any) =>
   c == null ? '' : (Number(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).replace(/\s/g, ' ')
+// Importacao: SO pra veiculo estrangeiro (procedencia === 'ESTRANGEIRO').
 // `importacao` vem com campos zerados/vazios pra veiculo nacional (o
 // comentario de camposRestantes() em shared/planos.ts ja nota isso — "quatro
 // zeros"), entao alem do gate por procedencia cada campo tambem descarta

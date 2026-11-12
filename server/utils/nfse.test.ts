@@ -249,15 +249,20 @@ describe('aplicarEstadoNfse', () => {
       updates,
       from: () => ({
         update: (patch: any) => {
-          let soNulo = false; let excluir: string[] = []; let semReembolso = false
+          let soNulo = false; let excluir: string[] = []; let semReembolso = false; let orNulo = false
           const q: any = {
             eq: () => q,
             neq: (col: string, v: string) => { if (col === 'status' && v === 'reembolsado') semReembolso = true; return q },
             is: (col: string) => { if (col === 'nfse_email_em') soNulo = true; return q },
-            not: (_c: string, _o: string, v: string) => { excluir = v.replace(/[()]/g, '').split(','); return q },
+            or: (f: string) => {
+              const m = /not\.in\.\(([^)]*)\)/.exec(f)
+              excluir = m ? m[1].split(',') : []
+              orNulo = f.includes('nfse_status.is.null')
+              return q
+            },
             select: () => q,
             then: (res: any, rej: any) => (async () => {
-              if (excluir.includes(row.nfse_status)) return { data: [], error: null }
+              if (row.nfse_status != null ? excluir.includes(row.nfse_status) : !orNulo) return { data: [], error: null }
               if (soNulo && row.nfse_email_em != null) return { data: [], error: null }
               if (semReembolso && row.status === 'reembolsado') return { data: [], error: null }
               updates.push(patch); Object.assign(row, patch); return { data: [{ id: row.id }], error: null }
