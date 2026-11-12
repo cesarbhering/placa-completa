@@ -26,6 +26,11 @@ describe('enviarNfseEmail', () => {
     expect(msg.html).toContain('https://x.test/premium/tok?o=nfse')
     expect(msg.from).toBe('PlacaCompleta <contato@placacompleta.com.br>')
   })
+  it('falls back to nfse.pdf when numero is missing', async () => {
+    const enviar = vi.fn(async () => {})
+    await enviarNfseEmail({ email: 'cliente@example.test', token: 'tok', placa: 'ABC1D23', numero: '', pdf: Buffer.from('x') }, { config: cfg, enviar })
+    expect((enviar.mock.calls[0] as any[])[0].attachments[0].filename).toBe('nfse.pdf')
+  })
   it('returns false and does not throw when sending fails', async () => {
     const enviar = vi.fn(async () => { throw new Error('boom') })
     expect(await enviarNfseEmail({ email: 'cliente@example.test', token: 't', placa: 'A', numero: '1', pdf: Buffer.from('x') }, { config: cfg, enviar })).toBe(false)

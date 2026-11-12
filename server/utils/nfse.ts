@@ -127,19 +127,29 @@ export async function aplicarEstadoNfse(supabase: any, pedido: any, nota: NfseNo
   const agora = (deps.agora ?? (() => new Date()))().toISOString()
   // pendente/cancelando (and anything unknown) keep the order as enfileirada.
   const status = ESTADOS_NFSE.has(nota.estado) ? nota.estado : 'enfileirada'
+  const atual = pedido.nfse_status ?? null
+  // Out-of-order or retried deliveries must never roll the state back.
+  if (status === 'enfileirada' && atual !== null && !['a_enfileirar', 'enfileirada'].includes(atual)) return
+  if (status === 'emitida' && ['cancelada', 'cancelamento_rejeitado'].includes(atual)) return
+
   const patch: Record<string, unknown> = {
     nfse_status: status,
-    nfse_numero: nota.numero ?? null,
-    nfse_serie: nota.serie ?? null,
-    nfse_chave: nota.chave_acesso ?? null,
-    nfse_emitida_em: nota.emitida_em ?? null,
-    nfse_cancelada_em: nota.cancelada_em ?? null,
     nfse_erro: nota.erro?.codigo ?? null,
     nfse_atualizado_em: agora,
   }
+  // Only fields that are present are copied; a delivery never nulls an existing value.
+  const campos: Array<[string, unknown]> = [
+    ['nfse_numero', nota.numero], ['nfse_serie', nota.serie], ['nfse_chave', nota.chave_acesso],
+    ['nfse_emitida_em', nota.emitida_em], ['nfse_cancelada_em', nota.cancelada_em],
+  ]
+  for (const [k, v] of campos) if (v !== undefined && v !== null) patch[k] = v
   if (!pedido.nfse_id && nota.id) patch.nfse_id = nota.id
-  const r = await supabase.from('pedidos_premium').update(patch).eq('id', pedido.id)
+  let q = supabase.from('pedidos_premium').update(patch).eq('id', pedido.id)
+  // Race-safe: a concurrent cancellation wins over a late emitida.
+  if (status === 'emitida') q = q.not('nfse_status', 'in', '(cancelada,cancelamento_rejeitado)').select('id')
+  const r = await q
   if (r?.error) throw new Error('nfse: status write failed')
+  if (status === 'emitida' && (!Array.isArray(r?.data) || r.data.length === 0)) return
 
   if (status !== 'emitida' || !pedido.email || pedido.nfse_email_em) return
 
@@ -163,5 +173,8 @@ export async function aplicarEstadoNfse(supabase: any, pedido: any, nota: NfseNo
       deps.config ? { config: deps.config } : {},
     )
   } catch { ok = false }
-  if (!ok) await supabase.from('pedidos_premium').update({ nfse_email_em: null }).eq('id', pedido.id)
+  if (!ok) {
+    const reset = await supabase.from('pedidos_premium').update({ nfse_email_em: null }).eq('id', pedido.id)
+    if (reset?.error) console.warn(`[nfse] lock de e-mail nao foi desfeito pedido=${String(pedido.id).slice(0, 8)}`)
+  }
 }

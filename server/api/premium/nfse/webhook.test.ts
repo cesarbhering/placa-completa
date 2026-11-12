@@ -46,6 +46,12 @@ describe('NFS-e webhook route', () => {
     expect(aplicar).toHaveBeenCalledTimes(1)
     expect((aplicar.mock.calls[0] as any[])[2]).toMatchObject({ id: 'n1', estado: 'emitida' })
   })
+  it('signature is over the raw bytes: non-canonical whitespace and key order pass', async () => {
+    const b = '{ "nota" : {"estado":"emitida",  "referencia":"p1","id":"n1"},\n "evento":"nota.emitida" }'
+    expect(await chamar(b, sign(b))).toEqual({ ok: true })
+    expect(aplicar).toHaveBeenCalledTimes(1)
+    expect(await chamar(JSON.stringify(JSON.parse(b)), sign(b))).toEqual({ erro: 'assinatura_invalida' })
+  })
   it('unknown order: still ok, nothing applied', async () => {
     pedido = null
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})

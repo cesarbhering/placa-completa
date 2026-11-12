@@ -581,7 +581,7 @@ export function montarEmailNfse(a: { link: string; placa: string; numero?: strin
     assunto: `Sua nota fiscal do relatório da placa ${a.placa}`,
     botao: 'Ver meu relatório',
     // An empty note would render a blank line, so the default text is replaced.
-    nota: 'A nota fiscal também fica na página do relatório.',
+    nota: 'Guarde este e-mail: a nota também pode ser baixada pela página do relatório.',
   })
 }
 
@@ -602,7 +602,7 @@ export async function enviarNfseEmail(
       subject: comTagAmbiente(assunto, config),
       html,
       text: texto,
-      attachments: [{ filename: `nfse-${a.numero}.pdf`, content: a.pdf.toString('base64') }],
+      attachments: [{ filename: a.numero ? `nfse-${a.numero}.pdf` : 'nfse.pdf', content: a.pdf.toString('base64') }],
     }
     if (deps.enviar) await deps.enviar(msg)
     else await $fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' }, body: msg })

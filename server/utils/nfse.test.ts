@@ -238,12 +238,14 @@ describe('aplicarEstadoNfse', () => {
       updates,
       from: () => ({
         update: (patch: any) => {
-          let soNulo = false
+          let soNulo = false; let excluir: string[] = []
           const q: any = {
             eq: () => q,
             is: (col: string) => { if (col === 'nfse_email_em') soNulo = true; return q },
+            not: (_c: string, _o: string, v: string) => { excluir = v.replace(/[()]/g, '').split(','); return q },
             select: () => q,
             then: (res: any, rej: any) => (async () => {
+              if (excluir.includes(row.nfse_status)) return { data: [], error: null }
               if (soNulo && row.nfse_email_em != null) return { data: [], error: null }
               updates.push(patch); Object.assign(row, patch); return { data: [{ id: row.id }], error: null }
             })().then(res, rej),
@@ -293,5 +295,35 @@ describe('aplicarEstadoNfse', () => {
     const row = { ...base(), email: null }; const enviarEmail = vi.fn()
     await aplicarEstadoNfse(sb(row), row, NOTA, { provedor: { pdf: vi.fn() }, enviarEmail, agora })
     expect(enviarEmail).not.toHaveBeenCalled()
+  })
+  it('late pendente after emitida keeps everything', async () => {
+    const row = { ...base(), nfse_status: 'emitida', nfse_numero: '42' }; const s = sb(row)
+    await aplicarEstadoNfse(s, row, { ...NOTA, estado: 'pendente', numero: null }, { enviarEmail: vi.fn(), agora })
+    expect(s.updates).toHaveLength(0)
+    expect(row).toMatchObject({ nfse_status: 'emitida', nfse_numero: '42' })
+  })
+  it('old emitida after cancelada keeps cancelada', async () => {
+    const row = { ...base(), nfse_status: 'cancelada' }; const s = sb(row); const enviarEmail = vi.fn()
+    await aplicarEstadoNfse(s, row, NOTA, { provedor: { pdf: vi.fn() }, enviarEmail, agora })
+    expect(s.updates).toHaveLength(0); expect(row.nfse_status).toBe('cancelada'); expect(enviarEmail).not.toHaveBeenCalled()
+  })
+  it('emitida racing a cancellation (stale pedido) writes nothing and sends nothing', async () => {
+    const row = { ...base(), nfse_status: 'cancelada' }; const s = sb(row); const enviarEmail = vi.fn()
+    await aplicarEstadoNfse(s, { ...row, nfse_status: 'enfileirada' }, NOTA, { provedor: { pdf: vi.fn() }, enviarEmail, agora })
+    expect(row.nfse_status).toBe('cancelada'); expect(enviarEmail).not.toHaveBeenCalled()
+  })
+  it('cancelada delivery keeps nfse_numero', async () => {
+    const row = { ...base(), nfse_status: 'emitida', nfse_numero: '42', nfse_chave: 'CH' }
+    await aplicarEstadoNfse(sb(row), row, { ...NOTA, estado: 'cancelada', numero: null, chave_acesso: null, emitida_em: null, cancelada_em: '2026-11-15T00:00:00Z' }, { enviarEmail: vi.fn(), agora })
+    expect(row).toMatchObject({ nfse_status: 'cancelada', nfse_numero: '42', nfse_chave: 'CH', nfse_cancelada_em: '2026-11-15T00:00:00Z' })
+  })
+  it('warns when the lock reset fails after a failed send', async () => {
+    const row = base(); const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const s: any = sb(row); const orig = s.from
+    let n = 0
+    s.from = () => { const f = orig(); return { update: (p: any) => { n++; if (p.nfse_email_em === null) { const q: any = { eq: () => q, then: (r: any) => Promise.resolve({ error: { message: 'x' } }).then(r) }; return q } return f.update(p) } } }
+    await aplicarEstadoNfse(s, row, NOTA, { provedor: { pdf: async () => Buffer.from('p') }, enviarEmail: async () => false, agora })
+    expect(warn.mock.calls.some((c) => String(c[0]).includes('lock de e-mail nao foi desfeito'))).toBe(true)
+    warn.mockRestore()
   })
 })
