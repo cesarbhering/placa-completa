@@ -242,6 +242,13 @@ export async function recompraDoPedido(supabase: any, supabaseConsultas: any, p:
   } catch { return null }
 }
 
+// Consultas e eventos_funil gravam a placa em maiuscula e sem separador
+// (consulta.post.ts e shared/eventos-funil.ts). Filtrar por eq na placa
+// normalizada usa o indice; o ilike de antes varria a tabela (~1,2 s).
+export function placaNormalizada(placa: unknown): string {
+  return String(placa ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+}
+
 async function consultaDoPedido(supabaseConsultas: any, p: any): Promise<ConsultaOrigem | null> {
   // msclkid pode nao existir em algum ambiente: tenta com, cai pra sem.
   for (const cols of ['gclid,msclkid,utm_source,utm_medium,utm_campaign,oppref', 'gclid,utm_source,utm_medium,utm_campaign,oppref']) {
@@ -253,7 +260,7 @@ async function consultaDoPedido(supabaseConsultas: any, p: any): Promise<Consult
       }
       if (!p.pago_em) return null
       const { data, error } = await supabaseConsultas.from('consultas').select(cols)
-        .ilike('placa', p.placa).lte('created_at', p.pago_em)
+        .eq('placa', placaNormalizada(p.placa)).lte('created_at', p.pago_em)
         .order('created_at', { ascending: false }).limit(1)
       if (error) continue
       return data?.[0] || null
@@ -265,7 +272,7 @@ async function consultaDoPedido(supabaseConsultas: any, p: any): Promise<Consult
 async function ultimoEvento(supabase: any, p: any, coluna: string, cols: string): Promise<any | null> {
   try {
     const { data } = await supabase.from('eventos_funil').select(cols)
-      .ilike('placa', p.placa).lte('criado_em', p.pago_em)
+      .eq('placa', placaNormalizada(p.placa)).lte('criado_em', p.pago_em)
       .not(coluna, 'is', null)
       .order('criado_em', { ascending: false }).limit(10)
     const lista = Array.isArray(data) ? data : []
