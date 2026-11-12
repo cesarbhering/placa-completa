@@ -34,6 +34,10 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   '/api/empresas/proposta': { windowMs: 60 * 60 * 1000, maxRequests: 5 },
   // Floating contact button form: nobody writes more than 5 times per hour.
   '/api/contato/mensagem': { windowMs: 60 * 60 * 1000, maxRequests: 5 },
+  // Acesso de parceiro: pedir link e ativar (link ou codigo de 8). Ninguem faz
+  // isso mais de 5 vezes por hora; barra tentativa de adivinhar o codigo.
+  '/api/parceiro/link': { windowMs: 60 * 60 * 1000, maxRequests: 5 },
+  '/api/parceiro/entrar': { windowMs: 60 * 60 * 1000, maxRequests: 10 },
   '/api/send-notification': { windowMs: 60 * 1000, maxRequests: 5 }, // 5 per minute
   '/api/dash-auth': { windowMs: 60 * 60 * 1000, maxRequests: 5 }, // 5 per hour (auth)
   '/api/fcm-token/save': { windowMs: 60 * 1000, maxRequests: 10 }, // 10 per minute

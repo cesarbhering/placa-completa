@@ -483,6 +483,8 @@ export default defineNuxtConfig({
       "/premium/**",
       "/placa/**",
       "/feedback/**",
+      "/parceiro",
+      "/parceiro/**",
       // English twins of the noindex pages above.
       "/en/termos-de-uso",
       "/en/politica-de-privacidade",
@@ -672,6 +674,10 @@ export default defineNuxtConfig({
     // Cupom de tela (10% em 30 min): HMAC do instante de emissao. Sem a env,
     // server/utils/cupom-tela.ts deriva da service key do banco premium.
     cupomTelaSecret: process.env.NUXT_CUPOM_TELA_SECRET || "",
+    // Parceiros com chassi completo na consulta gratis (server/utils/parceiro-chassi.ts).
+    // Desligado por padrao; "on" liga. Segredo do cookie: sem ele, derivado da service key.
+    parceiroChassi: process.env.NUXT_PARCEIRO_CHASSI || "",
+    parceiroChassiSecret: process.env.NUXT_PARCEIRO_CHASSI_SECRET || "",
     // Cloudflare Turnstile na consulta gratis. Modo: off (padrao), log ou enforce.
     // Sem secret o modo e forcado pra off (server/utils/turnstile.ts).
     turnstileSecret: process.env.NUXT_TURNSTILE_SECRET || "",
@@ -878,6 +884,9 @@ export default defineNuxtConfig({
     // Pesquisa de satisfacao: o token da URL e a credencial, e a resposta de
     // um cliente nao pode virar resultado de busca.
     "/feedback/**": { robots: "noindex, nofollow" },
+    // Acesso de parceiro (chassi completo): fora do indice e do sitemap.
+    "/parceiro": { robots: "noindex, nofollow", headers: { "Cache-Control": "private, no-store" } },
+    "/parceiro/**": { robots: "noindex, nofollow", headers: { "Cache-Control": "private, no-store" } },
     // Pagina de teste do Pix da Woovi: so existe no homolog e nunca deve ser
     // rastreada nem em ambiente protegido.
     "/woovi-teste": { robots: "noindex, nofollow" },
