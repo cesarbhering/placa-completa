@@ -2,6 +2,7 @@ import { completarRenajudDepois } from './renajud-detalhe'
 import { gravarEntrega } from './entrega-pedido'
 import { fonteNoPlano } from '../../shared/planos'
 import { avisarVenda } from './aviso-venda'
+import { enfileirarNfse } from './nfse'
 import { ambienteDaConsultaPaga } from './gcc-reserva'
 import { gerarCupomRecompra } from './cupom-recompra'
 import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas-recall'
@@ -275,6 +276,9 @@ export async function processarPedidoPago(
     // Aviso da venda ao Cesar na hora (server/utils/aviso-venda.ts). Sem
     // await: nunca atrasa nem quebra a entrega; dedup no banco com o timer.
     void emVoo('aviso-venda', () => avisarVenda(supabase, pedido.id))
+
+    // NFS-e: enfileira sem await; falha do emissor nunca toca a entrega.
+    void emVoo('nfse-enfileirar', () => enfileirarNfse(supabase, pedido.id))
 
     // Snapshot imutavel: monta o payload agregado (consulta filtrada por
     // plano + valorCusto + chassiOrigem + camposRestantes) UMA VEZ, aqui na

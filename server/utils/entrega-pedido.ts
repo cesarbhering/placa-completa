@@ -10,6 +10,9 @@
 // solto vindo do .slice(0, 1200) de uma resposta crua) passava calado, e o
 // resto do fluxo seguia como se a entrega estivesse gravada.
 
+import { emVoo } from './tarefas-em-voo'
+import { enfileirarNfse } from './nfse'
+
 /** jsonb recusa \u0000 e surrogate UTF-16 solto: troca por U+FFFD. */
 export function sanearParaJsonb<T>(v: T): T {
   try {
@@ -121,6 +124,7 @@ export async function promoverSeSnapshotPronto(
       .select('id')
     if (error || !Array.isArray(data) || !data.length) return false
     console.warn(`[premium] pedido preso em consultando com snapshot pronto promovido a entregue pedido=${String(p.id).slice(0, 8)}`)
+    void emVoo('nfse-enfileirar', () => enfileirarNfse(supabase, p.id))
     return { consultaId }
   } catch {
     return false

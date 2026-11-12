@@ -1,0 +1,155 @@
+import { describe, it, expect, vi } from 'vitest'
+import { enfileirarNfse } from './nfse'
+import { ErroNfseIndisponivel, ErroNfseRejeitado, descricaoDaNota } from './nfse-provedor'
+
+const ID = '11111111-2222-3333-4444-555555555555'
+
+function pedido(over: any = {}) {
+  return {
+    id: ID, token_entrega: 'tok-fake', placa: 'ABC1D23', plano: 'completa', valor_centavos: 1990,
+    pago_em: '2026-11-14T01:30:00Z', entregue_em: '2026-11-14T01:31:00Z', email: 'a@exemplo.test',
+    pix_provider: 'abacatepay', canal: 'site', abacatepay_id: 'abc', stripe_session_id: null,
+    status: 'entregue', nfse_status: null, nfse_erro: null, ...over,
+  }
+}
+
+function fakeSb(row: any) {
+  const updates: any[] = []
+  const calls = { from: 0 }
+  return {
+    updates, calls,
+    from: () => {
+      calls.from++
+      return {
+        select: () => ({ eq: () => ({ single: async () => ({ data: row, error: null }) }) }),
+        update: (patch: any) => ({ eq: async () => { updates.push(patch); Object.assign(row, patch); return { error: null } } }),
+      }
+    },
+  }
+}
+
+const config = { nfse: 'on', nfseDesde: '2026-11-13T00:00:00Z' }
+const AGORA = () => new Date('2026-11-14T02:00:00Z')
+
+function deps(over: any = {}) {
+  return {
+    provedor: { emitir: vi.fn(async () => ({ id: 'nota-1', estado: 'processando' })) } as any,
+    lerTomador: vi.fn(async () => ({ documento: '12345678909', nome: 'Fulano de Tal', tipo: 'CPF' as const })),
+    agora: AGORA, config, avisar: vi.fn(async () => {}), ...over,
+  }
+}
+
+describe('enfileirarNfse', () => {
+  it('emissor fora nao trava entrega', async () => {
+    const sb = fakeSb(pedido())
+    const d = deps({ provedor: { emitir: vi.fn(async () => { throw new ErroNfseIndisponivel() }) } })
+    await expect(enfileirarNfse(sb, ID, d)).resolves.toBeUndefined()
+    expect(sb.updates.at(-1).nfse_status).toBe('a_enfileirar')
+    expect(sb.updates.at(-1).nfse_atualizado_em).toBeTruthy()
+  })
+
+  it('google_play vira fora_escopo', async () => {
+    const sb = fakeSb(pedido({ pix_provider: 'google_play' }))
+    const d = deps()
+    await enfileirarNfse(sb, ID, d)
+    expect(sb.updates.at(-1).nfse_status).toBe('fora_escopo')
+    expect(d.provedor.emitir).not.toHaveBeenCalled()
+  })
+
+  it('app sem id de pagamento vira fora_escopo', async () => {
+    const sb = fakeSb(pedido({ canal: 'app', abacatepay_id: null }))
+    await enfileirarNfse(sb, ID, deps())
+    expect(sb.updates.at(-1).nfse_status).toBe('fora_escopo')
+  })
+
+  it('entregue antes de nfseDesde vira fora_escopo', async () => {
+    const sb = fakeSb(pedido({ entregue_em: '2026-11-12T10:00:00Z' }))
+    const d = deps()
+    await enfileirarNfse(sb, ID, d)
+    expect(sb.updates.at(-1).nfse_status).toBe('fora_escopo')
+    expect(d.provedor.emitir).not.toHaveBeenCalled()
+  })
+
+  it('sem tomador: sem_tomador e avisa uma vez so', async () => {
+    const sb = fakeSb(pedido())
+    const d = deps({ lerTomador: vi.fn(async () => null) })
+    await enfileirarNfse(sb, ID, d)
+    await enfileirarNfse(sb, ID, d)
+    expect(sb.updates[0].nfse_status).toBe('sem_tomador')
+    expect(sb.updates[0].nfse_erro).toBe('sem_tomador_avisado')
+    expect(d.avisar).toHaveBeenCalledTimes(1)
+    expect(d.provedor.emitir).not.toHaveBeenCalled()
+  })
+
+  it('tomador sem nome tambem e sem_tomador', async () => {
+    const sb = fakeSb(pedido())
+    const d = deps({ lerTomador: vi.fn(async () => ({ documento: '12345678909', nome: null, tipo: 'CPF' })) })
+    await enfileirarNfse(sb, ID, d)
+    expect(sb.updates.at(-1).nfse_status).toBe('sem_tomador')
+  })
+
+  it('caminho feliz: enfileirada com nfse_id e parametros exatos', async () => {
+    const sb = fakeSb(pedido())
+    const d = deps()
+    await enfileirarNfse(sb, ID, d)
+    expect(d.provedor.emitir).toHaveBeenCalledWith({
+      referencia: ID,
+      valorCentavos: 1990,
+      competencia: '2026-11-13', // 01:30 UTC = 22:30 em Sao Paulo do dia anterior
+      descricao: descricaoDaNota({ plano: 'completa', placa: 'ABC1D23', pedidoId: ID }),
+      tomador: { documento: '12345678909', nome: 'Fulano de Tal' },
+      email: 'a@exemplo.test',
+      metadados: { token: 'tok-fake', plano: 'completa', placa: 'ABC1D23' },
+    })
+    expect(sb.updates.at(-1)).toMatchObject({ nfse_status: 'enfileirada', nfse_id: 'nota-1' })
+  })
+
+  it('resposta sem id fica a_enfileirar', async () => {
+    const sb = fakeSb(pedido())
+    const d = deps({ provedor: { emitir: vi.fn(async () => ({ estado: 'x' })) } })
+    await enfileirarNfse(sb, ID, d)
+    expect(sb.updates.at(-1).nfse_status).toBe('a_enfileirar')
+  })
+
+  it('rejeicao grava status:code sem o corpo', async () => {
+    const sb = fakeSb(pedido())
+    const e = new ErroNfseRejeitado(422, { error: { code: 'tomador_invalido', message: 'segredo' } })
+    const d = deps({ provedor: { emitir: vi.fn(async () => { throw e }) } })
+    await enfileirarNfse(sb, ID, d)
+    const u = sb.updates.at(-1)
+    expect(u.nfse_status).toBe('rejeitada')
+    expect(u.nfse_erro).toBe('422:tomador_invalido')
+    expect(JSON.stringify(u)).not.toContain('segredo')
+  })
+
+  it('flag desligada nao toca no banco', async () => {
+    const sb = fakeSb(pedido())
+    await enfileirarNfse(sb, ID, deps({ config: { ...config, nfse: '' } }))
+    expect(sb.calls.from).toBe(0)
+  })
+
+  it('reembolsado vira nao_emitir', async () => {
+    const sb = fakeSb(pedido({ status: 'reembolsado' }))
+    const d = deps()
+    await enfileirarNfse(sb, ID, d)
+    expect(sb.updates.at(-1).nfse_status).toBe('nao_emitir')
+    expect(d.provedor.emitir).not.toHaveBeenCalled()
+  })
+
+  it('status ja definido (e nao a_enfileirar) nao mexe', async () => {
+    const sb = fakeSb(pedido({ nfse_status: 'enfileirada' }))
+    await enfileirarNfse(sb, ID, deps())
+    expect(sb.updates).toHaveLength(0)
+  })
+
+  it('sem entregue_em ainda: nao faz nada', async () => {
+    const sb = fakeSb(pedido({ entregue_em: null }))
+    await enfileirarNfse(sb, ID, deps())
+    expect(sb.updates).toHaveLength(0)
+  })
+
+  it('nunca lanca, mesmo com o banco quebrado', async () => {
+    const sb = { from: () => { throw new Error('boom') } }
+    await expect(enfileirarNfse(sb, ID, deps())).resolves.toBeUndefined()
+  })
+})

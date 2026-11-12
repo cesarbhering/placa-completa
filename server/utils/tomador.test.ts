@@ -89,3 +89,12 @@ describe('gravarTomador / lerTomador', () => {
     expect(await lerTomador(fakeSb(null), 'p1', KEY)).toBeNull()
   })
 })
+
+describe('decifrar valida tamanhos', () => {
+  it('rejeita iv e tag com tamanho errado', () => {
+    const [v, iv, tag, data] = cifrar('x', KEY).split('.')
+    const curto = Buffer.alloc(8).toString('base64')
+    expect(() => decifrar([v, curto, tag, data].join('.'), KEY)).toThrow()
+    expect(() => decifrar([v, iv, curto, data].join('.'), KEY)).toThrow()
+  })
+})
