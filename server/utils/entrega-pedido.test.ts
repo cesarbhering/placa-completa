@@ -1,6 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import { sanearParaJsonb, gravarEntrega, presoComSnapshot, promoverSeSnapshotPronto, recuperarConsultandoPresos, FOLGA_SNAPSHOT_MS, PRESO_MS } from './entrega-pedido'
 import { rastrearEmVoo, quantasEmVoo, _resetarEmVoo } from './tarefas-em-voo'
+import { enfileirarNfse } from './nfse'
+
+vi.mock('./nfse', () => ({ enfileirarNfse: vi.fn(async () => 'ignorado') }))
 
 vi.spyOn(console, 'warn').mockImplementation(() => {})
 const T = Date.UTC(2026, 10, 4, 15, 30, 0)
@@ -85,6 +88,7 @@ describe('pedido preso em consultando com snapshot pronto', () => {
 describe('boot: presos em consultando', () => {
   const velho = new Date(T - PRESO_MS - 60_000).toISOString()
   it('os tres caminhos: snapshot, consulta sem snapshot, nada', async () => {
+    vi.mocked(enfileirarNfse).mockClear()
     const pedidos = [
       { id: 'a', status: 'consultando', ambiente: 'producao', pago_em: velho, relatorio_snapshot: { consulta: {} }, snapshot_em: velho },
       { id: 'b', status: 'consultando', ambiente: 'producao', pago_em: velho, relatorio_snapshot: null },
@@ -101,6 +105,9 @@ describe('boot: presos em consultando', () => {
     expect(processados.map((p) => p.id)).toEqual(['c'])
     expect(processados[0].status).toBe('pago')
     expect(alertas).toHaveLength(1)
+    // Both promotions to entregue enqueue the NFS-e; the reprocessed one goes through processarPedidoPago.
+    await new Promise((ok) => setTimeout(ok, 0))
+    expect(vi.mocked(enfileirarNfse).mock.calls.map((c) => c[1]).sort()).toEqual(['a', 'b'])
   })
   it('nada preso: sem alerta', async () => {
     const alertas: string[] = []

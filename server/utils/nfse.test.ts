@@ -94,6 +94,45 @@ describe('enfileirarNfse', () => {
     expect(d.provedor.emitir).not.toHaveBeenCalled()
   })
 
+  it('no payer on a fresh delivery (< 10 min): a_enfileirar, no alert', async () => {
+    const sb = fakeSb(pedido({ entregue_em: '2026-11-14T01:55:00Z' }))
+    const d = deps({ lerTomador: vi.fn(async () => null) })
+    await expect(enfileirarNfse(sb, ID, d)).resolves.toBe('a_enfileirar')
+    expect(sb.updates.at(-1).nfse_status).toBe('a_enfileirar')
+    expect(sb.updates.at(-1).nfse_erro).toBeUndefined()
+    expect(d.avisar).not.toHaveBeenCalled()
+    expect(d.provedor.emitir).not.toHaveBeenCalled()
+  })
+
+  it('payer without a name on a fresh delivery also waits as a_enfileirar', async () => {
+    const sb = fakeSb(pedido({ entregue_em: '2026-11-14T01:59:00Z' }))
+    const d = deps({ lerTomador: vi.fn(async () => ({ documento: '12345678909', nome: null, tipo: 'CPF' })) })
+    await expect(enfileirarNfse(sb, ID, d)).resolves.toBe('a_enfileirar')
+    expect(d.avisar).not.toHaveBeenCalled()
+  })
+
+  it('no payer after the 10 min window: sem_tomador and alert (retry from a_enfileirar)', async () => {
+    const row = pedido({ entregue_em: '2026-11-14T01:55:00Z' })
+    const sb = fakeSb(row)
+    const d = deps({ lerTomador: vi.fn(async () => null) })
+    await expect(enfileirarNfse(sb, ID, d)).resolves.toBe('a_enfileirar')
+    await expect(enfileirarNfse(sb, ID, { ...d, agora: () => new Date('2026-11-14T02:05:00Z') })).resolves.toBe('sem_tomador')
+    expect(row.nfse_status).toBe('sem_tomador')
+    expect(d.avisar).toHaveBeenCalledTimes(1)
+  })
+
+  it('payer captured late but inside the window: issued on the retry', async () => {
+    const row = pedido({ entregue_em: '2026-11-14T01:55:00Z' })
+    const sb = fakeSb(row)
+    const lerTomador = vi.fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ documento: '12345678909', nome: 'Fulano de Tal', tipo: 'CPF' })
+    const d = deps({ lerTomador })
+    await expect(enfileirarNfse(sb, ID, d)).resolves.toBe('a_enfileirar')
+    await expect(enfileirarNfse(sb, ID, d)).resolves.toBe('enfileirada')
+    expect(d.avisar).not.toHaveBeenCalled()
+  })
+
   it('tomador sem nome tambem e sem_tomador', async () => {
     const sb = fakeSb(pedido())
     const d = deps({ lerTomador: vi.fn(async () => ({ documento: '12345678909', nome: null, tipo: 'CPF' })) })

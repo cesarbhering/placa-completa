@@ -177,7 +177,10 @@ export async function recuperarConsultandoPresos(
           const { data: up } = await supabase.from('pedidos_premium')
             .update({ status: 'entregue', entregue_em: new Date(agora).toISOString(), consulta_id: consultaId })
             .eq('id', p.id).eq('status', 'consultando').is('relatorio_snapshot', null).select('id')
-          if (Array.isArray(up) && up.length) desfecho = 'promovido_consulta'
+          if (Array.isArray(up) && up.length) {
+            desfecho = 'promovido_consulta'
+            void emVoo('nfse-enfileirar', () => enfileirarNfse(supabase, p.id))
+          }
         } else {
           const { data: up } = await supabase.from('pedidos_premium')
             .update({ status: 'pago' })

@@ -23,6 +23,12 @@ function fakeSb(rows: any[]) {
     from: () => {
       const fs: Array<(r: any) => boolean> = []
       let max = 1000
+      let ordem: [string, boolean] | null = null
+      const ordenar = (xs: any[]) => !ordem ? xs : [...xs].sort((a, b) => {
+        const [c, asc] = ordem!
+        const x = a[c] ?? '', y = b[c] ?? ''
+        return (x < y ? -1 : x > y ? 1 : 0) * (asc ? 1 : -1)
+      })
       const filtros: any = {
         eq: (c: string, v: any) => { fs.push((r) => r[c] === v); return filtros },
         neq: (c: string, v: any) => { fs.push((r) => r[c] !== v); return filtros },
@@ -33,6 +39,7 @@ function fakeSb(rows: any[]) {
           return filtros
         },
         lt: (c: string, v: any) => { fs.push((r) => r[c] != null && r[c] < v); return filtros },
+        gte: (c: string, v: any) => { fs.push((r) => r[c] != null && r[c] >= v); return filtros },
         or: (f: string) => {
           // Split on top-level commas only (not.in.(a,b) keeps its inner commas).
           const parts = f.split(/,(?![^(]*\))/).map((x) => x.split('.'))
@@ -43,14 +50,14 @@ function fakeSb(rows: any[]) {
           fs.push((r) => parts.some((p) => test(r, p)))
           return filtros
         },
-        order: () => filtros,
+        order: (c: string, o: any = {}) => { ordem = [c, o.ascending !== false]; return filtros },
         limit: (n: number) => { max = n; return filtros },
       }
       return {
         select: (_cols?: string) => {
           const s: any = Object.fromEntries(Object.entries(filtros).map(([k, f]: any) => [k, (...a: any[]) => { f(...a); return s }]))
           s.single = async () => ({ data: rows.filter((r) => match(r, fs))[0] ?? null, error: null })
-          s.then = (res: any) => Promise.resolve({ data: rows.filter((r) => match(r, fs)).slice(0, max), error: null }).then(res)
+          s.then = (res: any) => Promise.resolve({ data: ordenar(rows.filter((r) => match(r, fs))).slice(0, max), error: null }).then(res)
           return s
         },
         update: (patch: any) => {
@@ -225,6 +232,87 @@ describe('reconciliarNfse', () => {
     expect(d.provedor.consultar).toHaveBeenCalledWith('n1')
     expect(rows[0].nfse_status).toBe('cancelada')
     expect(r).toMatchObject({ cancelamentos: 0, atualizadas: 1 })
+  })
+
+  it('(c) sends at most 10 e-mails per run', async () => {
+    const rows = Array.from({ length: 12 }, (_, i) => row(`p${i}`, { nfse_status: 'emitida', nfse_id: `n${i}`, nfse_numero: String(i) }))
+    const d = deps()
+    const r = await reconciliarNfse(fakeSb(rows), d)
+    expect(d.enviarEmail).toHaveBeenCalledTimes(10)
+    expect(r.emails).toBe(10)
+  })
+
+  it('(e) leaves refunded orders whose note was rejected or failed alone', async () => {
+    const rows = [
+      row('p1', { status: 'reembolsado', nfse_status: 'rejeitada', nfse_id: 'n1' }),
+      row('p2', { status: 'reembolsado', nfse_status: 'falhou', nfse_id: 'n2' }),
+    ]
+    const d = deps()
+    const r = await reconciliarNfse(fakeSb(rows), d)
+    expect(d.provedor.cancelar).not.toHaveBeenCalled()
+    expect(r.cancelamentos).toBe(0)
+  })
+
+  it('(e) works the oldest nfse_atualizado_em first', async () => {
+    const rows = [
+      row('novo', { status: 'reembolsado', nfse_status: 'emitida', nfse_id: 'n-novo', nfse_atualizado_em: '2026-11-14T11:00:00.000Z' }),
+      row('velho', { status: 'reembolsado', nfse_status: 'emitida', nfse_id: 'n-velho', nfse_atualizado_em: '2026-11-14T03:00:00.000Z' }),
+    ]
+    const d = deps()
+    d.provedor.cancelar = vi.fn(async () => { throw new ErroNfseIndisponivel() })
+    await reconciliarNfse(fakeSb(rows), d)
+    expect(d.provedor.cancelar).toHaveBeenCalledTimes(1)
+    expect(d.provedor.cancelar).toHaveBeenCalledWith('n-velho', 'Estorno do pagamento ao cliente')
+  })
+
+  it('(f) enqueues delivered orders with NULL nfse_status, only in scope and older than 5 min', async () => {
+    const rows = [
+      row('ok', { entregue_em: '2026-11-14T10:00:00.000Z' }),
+      row('fresco', { entregue_em: '2026-11-14T11:57:00.000Z' }),
+      row('antes', { entregue_em: '2026-11-12T10:00:00.000Z' }),
+      row('pago', { status: 'pago', entregue_em: null }),
+      row('reembolsado', { status: 'reembolsado', entregue_em: '2026-11-14T10:00:00.000Z' }),
+      row('ja', { nfse_status: 'fora_escopo', entregue_em: '2026-11-14T10:00:00.000Z' }),
+    ]
+    const d = deps()
+    const r = await reconciliarNfse(fakeSb(rows), d)
+    expect(d.provedor.emitir).toHaveBeenCalledTimes(1)
+    expect(d.provedor.emitir).toHaveBeenCalledWith(expect.objectContaining({ referencia: 'ok' }))
+    expect(rows.find((x) => x.id === 'ok')!.nfse_status).toBe('enfileirada')
+    expect(rows.filter((x) => x.id !== 'ok').map((x) => x.nfse_status)).toEqual([null, null, null, null, 'fora_escopo'])
+    expect(r.enfileiradas).toBe(1)
+  })
+
+  it('(f) is idempotent: a second run does not issue again', async () => {
+    const rows = [row('p1', { entregue_em: '2026-11-14T10:00:00.000Z' })]
+    const d = deps()
+    const sb = fakeSb(rows)
+    await reconciliarNfse(sb, d)
+    const r2 = await reconciliarNfse(sb, d)
+    expect(d.provedor.emitir).toHaveBeenCalledTimes(1)
+    expect(r2.enfileiradas).toBe(0)
+  })
+
+  it('(f) oldest first and stops when the emitter is down', async () => {
+    const rows = [
+      row('novo', { entregue_em: '2026-11-14T10:00:00.000Z' }),
+      row('velho', { entregue_em: '2026-11-14T01:00:00.000Z' }),
+    ]
+    const d = deps()
+    d.provedor.emitir = vi.fn(async () => { throw new ErroNfseIndisponivel() })
+    const r = await reconciliarNfse(fakeSb(rows), d)
+    expect(d.provedor.emitir).toHaveBeenCalledTimes(1)
+    expect(d.provedor.emitir).toHaveBeenCalledWith(expect.objectContaining({ referencia: 'velho' }))
+    expect(r.enfileiradas).toBe(0)
+    expect(rows.map((x) => x.nfse_status)).toEqual([null, 'a_enfileirar'])
+  })
+
+  it('(f) skipped without a valid nfseDesde', async () => {
+    const rows = [row('p1', { entregue_em: '2026-11-14T10:00:00.000Z' })]
+    const d = deps({ config: { nfse: 'on', nfseDesde: '' } })
+    await reconciliarNfse(fakeSb(rows), d)
+    expect(d.provedor.emitir).not.toHaveBeenCalled()
+    expect(rows[0].nfse_status).toBeNull()
   })
 
   it('feature off: does nothing', async () => {
