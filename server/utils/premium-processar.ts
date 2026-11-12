@@ -2,7 +2,7 @@ import { completarRenajudDepois } from './renajud-detalhe'
 import { gravarEntrega } from './entrega-pedido'
 import { fonteNoPlano } from '../../shared/planos'
 import { avisarVenda } from './aviso-venda'
-import { enfileirarNfse } from './nfse'
+import { enfileirarNfse, cancelarNfse } from './nfse'
 import { ambienteDaConsultaPaga } from './gcc-reserva'
 import { gerarCupomRecompra } from './cupom-recompra'
 import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../shared/marcas-recall'
@@ -433,6 +433,8 @@ export async function processarPedidoPago(
           errorMessage: `ESTORNO FEITO mas o status NAO gravou. pedido=${pedido.id} placa=${pedido.placa} erro_update=${erroUpdate.message}`,
           paraTambem: [AVISO_ESTORNO],
         })
+      } else {
+        void emVoo('nfse-cancelar', () => cancelarNfse(supabase, pedido.id))
       }
       // Ordem do Cesar: avisar SEMPRE que houver estorno automatico, nao so
       // quando o estorno falha. Cada um destes e uma venda que entrou e saiu, e
