@@ -15,6 +15,7 @@ export const TTL_POR_FONTE: Array<[RegExp, number]> = [
   [/^chassi/, 30 * D],
   [/^recall/, 7 * D],
   [/^fipe/, 7 * D],
+  [/^seguro_estimado/, 14 * D], // estimativa SUSEP por modelo+ano+regiao (12/nov/2026)
   [/^nhtsa/, 30 * D],          // Lead 14/out: recall EUA cache 30 d
   [/^revisor_restricao_detran/, 365 * D], // veredito do Haiku por texto normalizado (16/out)
   [new RegExp(`^${FONTE_CACHE_LEGADA}`), 30 * D], // base parceira de leilao e sinistro (20/out): bruto inteiro

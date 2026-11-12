@@ -252,8 +252,10 @@ export default defineEventHandler(async (event) => {
   const canalDaRequisicao = { canal, app_versao }
   // Geo por IP (cacheado; fail-open pra null). Precisao de cidade e
   // aproximada em mobile/CGNAT - tratar como regiao provavel.
-  const ipGeo = await lookupIpGeo(ip)
-  const regiao = ipGeo?.country === 'BR' ? getRegiaoSusep(ipGeo.uf, ipGeo.city) : null
+  // Sai agora e corre junto com os limites e a busca da placa: so e lido
+  // depois da busca, entao nao atrasa mais a consulta (ip-api, ate 2 s).
+  // Mesmo ponto de antes: nao muda quem chega ate aqui nem a ordem dos limites.
+  const ipGeoP = lookupIpGeo(ip).catch(() => null)
   // UUID da consulta gerado ANTES do envio: vira o token do link de cotacao
   // no email (/cotacao?c=<uuid>) e e passado como id explicito no insert final.
   const consultaId = crypto.randomUUID()
@@ -544,6 +546,8 @@ export default defineEventHandler(async (event) => {
     cacheHit = lookup.cacheHit
     fonteDados = lookup.fonte
   } catch (err: any) {
+    const ipGeo = await ipGeoP
+    const regiao = ipGeo?.country === 'BR' ? getRegiaoSusep(ipGeo.uf, ipGeo.city) : null
     // Send error email
     await sendErrorEmail({
       endpoint: '/api/consulta',
@@ -579,6 +583,9 @@ export default defineEventHandler(async (event) => {
     }, 'pwa')
     throw createError({ statusCode: 502, message: 'Erro ao consultar dados da placa. Tente novamente.' })
   }
+
+  const ipGeo = await ipGeoP
+  const regiao = ipGeo?.country === 'BR' ? getRegiaoSusep(ipGeo.uf, ipGeo.city) : null
 
   if (apiResponse?.codigoRetorno === 0 || apiResponse?.mensagemRetorno === 'Sem erros.') {
     // noop - success
