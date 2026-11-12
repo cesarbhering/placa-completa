@@ -11,7 +11,7 @@ describe('blocoNfse', () => {
     expect(blocoNfse(base, 'tok12345', { nfse: 'on' })).toEqual({
       status: 'emitida', numero: '42', serie: '1',
       emitida_em: '2026-11-12T20:00:00Z', cancelada_em: null, valor_centavos: 1990,
-      pdf: '/api/premium/nfse/tok12345.pdf',
+      pdf: '/api/premium/nfse/tok12345/pdf',
     })
   })
   it('returns the block for a cancelled note', () => {

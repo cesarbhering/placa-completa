@@ -6,7 +6,7 @@ let servirPdf: (d: any) => Promise<any>
 beforeAll(async () => {
   vi.stubGlobal('defineEventHandler', (fn: any) => fn)
   vi.stubGlobal('createError', (o: any) => Object.assign(new Error(o.message), o))
-  servirPdf = (await import('./[token].pdf.get')).servirPdf
+  servirPdf = (await import('./[token]/pdf.get')).servirPdf
 })
 
 const pedido = { id: 'abcdef12-0000', nfse_id: 'n1', nfse_status: 'emitida', nfse_numero: '42' }

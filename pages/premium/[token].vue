@@ -1887,13 +1887,6 @@ const fichaTecnica = computed(() => [
 ].filter(Boolean) as [string, string][])
 
 // Importacao: SO pra veiculo estrangeiro (procedencia === 'ESTRANGEIRO').
-// `importacao` vem com campos zerados/vazios pra veiculo nacional (o
-// comentario de camposRestantes() em shared/planos.ts ja nota isso — "quatro
-// zeros"), entao alem do gate por procedencia cada campo tambem descarta
-// "0"/vazio individualmente, senao a linha aparece com um zero sem sentido.
-// Data pura (declaracao de importacao): mesmo motivo do timeZone:'UTC' em
-// licEmissao/ocorrencias acima — sem isto, "2012-04-20" pode virar 19/04
-// pro fuso de Brasilia, e SSR/client podem divergir (hydration mismatch).
 const dataNfse = (iso: any) => {
   if (!iso) return ''
   const dt = new Date(String(iso))
@@ -1901,6 +1894,13 @@ const dataNfse = (iso: any) => {
 }
 const valorNfse = (c: any) =>
   c == null ? '' : (Number(c) / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }).replace(/\s/g, ' ')
+// `importacao` vem com campos zerados/vazios pra veiculo nacional (o
+// comentario de camposRestantes() em shared/planos.ts ja nota isso — "quatro
+// zeros"), entao alem do gate por procedencia cada campo tambem descarta
+// "0"/vazio individualmente, senao a linha aparece com um zero sem sentido.
+// Data pura (declaracao de importacao): mesmo motivo do timeZone:'UTC' em
+// licEmissao/ocorrencias acima — sem isto, "2012-04-20" pode virar 19/04
+// pro fuso de Brasilia, e SSR/client podem divergir (hydration mismatch).
 const dataBR = (iso: any) => {
   if (!iso) return null
   const dt = new Date(String(iso))
@@ -3401,10 +3401,10 @@ onUnmounted(() => {
           <section v-if="data?.nfse" class="rel__nfse">
             <strong>Nota fiscal de serviço (NFS-e)</strong>
             <span v-if="data.nfse.status === 'cancelada'">
-              Nota fiscal nº {{ data.nfse.numero }} cancelada em {{ dataNfse(data.nfse.cancelada_em) }}.
+              Nota fiscal{{ data.nfse.numero ? ` nº ${data.nfse.numero}` : '' }} cancelada em {{ dataNfse(data.nfse.cancelada_em) }}.
             </span>
             <span v-else>
-              Nota fiscal de serviço (NFS-e) nº {{ data.nfse.numero }}, emitida em {{ dataNfse(data.nfse.emitida_em) }}, valor {{ valorNfse(data.nfse.valor_centavos) }}.
+              Nota fiscal de serviço (NFS-e){{ data.nfse.numero ? ` nº ${data.nfse.numero},` : '' }} emitida em {{ dataNfse(data.nfse.emitida_em) }}, valor {{ valorNfse(data.nfse.valor_centavos) }}.
             </span>
             <a :href="data.nfse.pdf" target="_blank" rel="noopener">Baixar nota fiscal (PDF)</a>
           </section>

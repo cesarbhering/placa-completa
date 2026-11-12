@@ -20,6 +20,6 @@ export function blocoNfse(pedido: any, token: string, config: { nfse?: string })
     emitida_em: pedido.nfse_emitida_em ?? null,
     cancelada_em: pedido.nfse_cancelada_em ?? null,
     valor_centavos: pedido.valor_centavos ?? null,
-    pdf: `/api/premium/nfse/${token}.pdf`,
+    pdf: `/api/premium/nfse/${token}/pdf`,
   }
 }

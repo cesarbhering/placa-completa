@@ -1,6 +1,6 @@
-import { ErroNfseIndisponivel, provedorNfse } from '../../../utils/nfse-provedor'
+import { ErroNfseIndisponivel, provedorNfse } from '../../../../utils/nfse-provedor'
 
-// GET /api/premium/nfse/<token>.pdf: serves the issued note's PDF, proxied from
+// GET /api/premium/nfse/<token>/pdf: serves the issued note's PDF, proxied from
 // the issuer. The token is never logged.
 interface Deps {
   token: string
@@ -36,8 +36,7 @@ export async function servirPdf(d: Deps) {
 }
 
 export default defineEventHandler(async (event) => {
-  // Nitro's [token].pdf param can carry the ".pdf" suffix; strip it.
-  const token = String(getRouterParam(event, 'token') || '').replace(/\.pdf$/, '')
+  const token = String(getRouterParam(event, 'token') || '')
   const config = useRuntimeConfig()
   const r = await servirPdf({
     token,
