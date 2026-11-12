@@ -1,8 +1,8 @@
 [Unit]
-Description=Coolify: dedup da fila de deploys do site a cada 1 min
+Description=Coolify: dedup da fila de deploys do site a cada 5 min
 [Timer]
 OnActiveSec=1min
-OnUnitActiveSec=1min
+OnUnitActiveSec=5min
 AccuracySec=5s
 [Install]
 WantedBy=timers.target

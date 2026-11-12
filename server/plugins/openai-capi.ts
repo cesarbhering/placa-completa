@@ -125,8 +125,16 @@ export async function anexarToqueDaConsulta(supabase: any, pedidos: PedidoCapi[]
   } catch { /* sem toque: segue como venda sem origem */ }
 }
 
+// Same rule as fotos-depois, google-play and parceiro: staging runs code from
+// another branch, so the worker never starts there even if the key leaks into
+// its env.
+export function workerLigado(config: { public?: { staging?: unknown } } | null | undefined): boolean {
+  return !config?.public?.staging
+}
+
 export default defineNitroPlugin(() => {
   if (process.env.VITEST) return
+  if (!workerLigado(useRuntimeConfig())) return
   setTimeout(() => { void rodar() }, 30_000)
   setInterval(() => { void rodar() }, INTERVALO_MS)
 })
