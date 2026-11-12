@@ -36,6 +36,8 @@ const ICONES: Record<string, { path: string }> = {
   PORSCHE: siPorsche, SUBARU: siSubaru, FERRARI: siFerrari,
   MINI: siMini, RAM: siRam, SCANIA: siScania, IVECO: siIveco,
   DUCATI: siDucati,
+  // "JTA/SUZUKI EN125": Suzuki montada pela J.Toledo (Manaus).
+  JTA: siSuzuki,
 }
 
 // Importado vem com prefixo, e ele varia: "I/FORD FOCUS", "IMP/HONDA CIVIC".
@@ -82,6 +84,14 @@ const LAMBORGHINI = { src: '/logos-marcas/lamborghini.png', largo: true }
 const JAGUAR = { src: '/logos-marcas/jaguar.png', largo: true }
 const BYD = { src: '/logos-marcas/byd.png', largo: true }
 const TROLLER = { src: '/logos-marcas/troller.png', largo: false }
+// Segundo lote (12/nov/2026), marcas que so tinham o proxy: Geely "Geely Logo
+// 2022.svg" (wordmark 2019-2023), Zeekr "Zeekr logo.svg", Omoda "Omoda
+// wordmark.svg", Jaecoo "Jaecoo wordmark.svg". Dominio publico, Commons.
+// GAC fica no proxy: o unico arquivo livre e o wordmark Trumpchi.
+const GEELY = { src: '/logos-marcas/geely.png', largo: true }
+const ZEEKR = { src: '/logos-marcas/zeekr.png', largo: true }
+const OMODA = { src: '/logos-marcas/omoda.png', largo: true }
+const JAECOO = { src: '/logos-marcas/jaecoo.png', largo: true }
 // Chave = primeira palavra do token da marca ("I/M.BENZ CLA200" -> "M.BENZ",
 // "LAND ROVER/..." -> "LAND", "CAOA CHERY/..." -> "CAOA").
 const LOCAIS: Record<string, { src: string; largo: boolean }> = {
@@ -98,6 +108,7 @@ const LOCAIS: Record<string, { src: string; largo: boolean }> = {
   JAGUAR,
   BYD,
   TROLLER, TROLLER4X4: TROLLER,
+  GEELY, ZEEKR, OMODA, JAECOO,
 }
 const local = computed(() => LOCAIS[tokenMarca.value]?.src || null)
 
