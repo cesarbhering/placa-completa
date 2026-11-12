@@ -13,24 +13,24 @@ Buying a used car in Brazil is risky: salvage titles, auction history, unpaid fi
 
 Built for mobile first (82% of paid traffic comes from phones).
 
-## Real usage (as of 2026-10-31)
+## Real usage
 
-| Metric | Value |
-|---|---|
-| Free plate lookups since launch (2026-07-03) | 38,254 |
-| Free lookups in the last 30 days | 22,551 |
-| Distinct plates looked up | 30,315 |
-| Paid reports delivered since first sale (2026-08-27) | 374 |
-| Paid reports in the last 30 days | 239 |
-| Distinct paying customers | ~400 |
-| Repeat buyers | 22 |
-| Gross revenue from reports | R$ 13,438 |
-| Unique visitors per day (last week) | 1,800 to 2,800 |
-| Google organic, 3 months to 2026-10-29 | 10,221 clicks, 495,572 impressions, CTR 2.1%, avg. position 8.4 |
-| Google organic, last 28 days | 6,541 clicks, 311,190 impressions |
-| Top ranking queries (Google, pos. 6 to 7) | "consultar placa", "consulta placa", "placa de carro", "consultar placa de carro" |
+All windows are explicit (dates as dd-mm-yy, Brazil time unless noted). Figures come from our production database, Cloudflare and Google Search Console. Customer data is never in this repository.
 
-Numbers come from our production database and Google Search Console. Customer data is never in this repository.
+| Metric | Window | Value |
+|---|---|---|
+| Free plate lookups | 03-08-26 to 11-11-26 | 53,710 |
+| Free plate lookups | 13-10-26 to 11-11-26 | 33,413 |
+| Distinct plates looked up | 03-08-26 to 11-11-26 | 42,457 |
+| Paid reports (first sale to date, refunds excluded) | 27-08-26 to 11-11-26 | 481 |
+| Paid reports | 13-10-26 to 11-11-26 | 311 |
+| Distinct paying customers | 27-08-26 to 11-11-26 | 338 |
+| Repeat buyers | 27-08-26 to 11-11-26 | 27 |
+| Gross revenue from reports (refunds excluded) | 27-08-26 to 11-11-26 | R$ 19,758 |
+| Unique visitors per day (Cloudflare, UTC days) | 05-11-26 to 11-11-26 | 2,270 to 3,936 |
+| Google organic | 30-07-26 to 29-10-26 | 10,221 clicks, 495,572 impressions, CTR 2.1%, avg. position 8.4 |
+| Google organic | 02-10-26 to 29-10-26 | 6,541 clicks, 311,190 impressions |
+| Top ranking queries (Google, pos. 6 to 7) | 30-07-26 to 29-10-26 | "consultar placa", "consulta placa", "placa de carro", "consultar placa de carro" |
 
 ## Stack
 
