@@ -63,7 +63,7 @@ type Config = { nfseUrl?: string; nfseApiKey?: string }
 function traduzir(e: any): never {
   const status = Number(e?.statusCode ?? e?.status ?? e?.response?.status ?? 0)
   // 401/403/404/405: configuracao (chave, URL); tentar de novo depois. 409 segue
-  // rejeitado (quem cancela precisa dele).
+  // rejeitado aqui; o orquestrador o trata como final.
   if (!status || status >= 500 || status === 429 || [401, 403, 404, 405].includes(status)) throw new ErroNfseIndisponivel()
   throw new ErroNfseRejeitado(status, e?.data ?? e?.response?._data ?? null)
 }

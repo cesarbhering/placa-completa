@@ -25,11 +25,12 @@ function fakeSb(row: any) {
         update: (patch: any) => {
           let filtrar = false
           const aplicar = async () => {
-            if (filtrar && !(row.nfse_status == null || row.nfse_status === 'a_enfileirar')) return { error: null }
-            updates.push(patch); Object.assign(row, patch); return { error: null }
+            if (filtrar && !(row.nfse_status == null || row.nfse_status === 'a_enfileirar')) return { data: [], error: null }
+            updates.push(patch); Object.assign(row, patch); return { data: [{ id: row.id }], error: null }
           }
           const q: any = {
             eq: () => q,
+            select: () => q,
             or: (f: string) => { if (f === 'nfse_status.is.null,nfse_status.eq.a_enfileirar') filtrar = true; return q },
             then: (res: any, rej: any) => aplicar().then(res, rej),
           }
@@ -113,7 +114,8 @@ describe('enfileirarNfse', () => {
       email: 'a@exemplo.test',
       metadados: { token: 'tok-fake', plano: 'completa', placa: 'ABC1D23' },
     })
-    expect(sb.updates.at(-1)).toMatchObject({ nfse_status: 'enfileirada', nfse_id: 'nota-1' })
+    expect(sb.updates.at(-1)).toMatchObject({ nfse_status: 'enfileirada' })
+    expect(sb.updates).toContainEqual(expect.objectContaining({ nfse_id: 'nota-1' }))
   })
 
   it('resposta sem id fica a_enfileirar', async () => {
@@ -151,7 +153,47 @@ describe('enfileirarNfse', () => {
     const d = deps({ provedor: { emitir: vi.fn(async () => { row.nfse_status = 'nao_emitir'; return { id: 'nota-1', estado: 'processando' } }) } })
     await enfileirarNfse(sb, ID, d)
     expect(row.nfse_status).toBe('nao_emitir')
-    expect(sb.updates).toHaveLength(0)
+    expect(row.nfse_id).toBe('nota-1')
+  })
+
+  it('guarda sem linha casada nao envia e-mail de sem_tomador', async () => {
+    const row = pedido()
+    const sb = fakeSb(row)
+    const d = deps({ lerTomador: vi.fn(async () => { row.nfse_status = 'nao_emitir'; return null }) })
+    await enfileirarNfse(sb, ID, d)
+    expect(d.avisar).not.toHaveBeenCalled()
+    expect(row.nfse_status).toBe('nao_emitir')
+  })
+
+  it('409 vira rejeitada com 409:erro', async () => {
+    const sb = fakeSb(pedido())
+    const e = new ErroNfseRejeitado(409, { erro: 'referencia_duplicada' })
+    await enfileirarNfse(sb, ID, deps({ provedor: { emitir: vi.fn(async () => { throw e }) } }))
+    expect(sb.updates.at(-1)).toMatchObject({ nfse_status: 'rejeitada', nfse_erro: '409:referencia_duplicada' })
+  })
+
+  it('erro longo e cortado em 60 chars', async () => {
+    const sb = fakeSb(pedido())
+    const e = new ErroNfseRejeitado(422, { erro: 'x'.repeat(500), campos: ['a'] })
+    await enfileirarNfse(sb, ID, deps({ provedor: { emitir: vi.fn(async () => { throw e }) } }))
+    const u = sb.updates.at(-1)
+    expect(u.nfse_erro).toBe(`422:${'x'.repeat(60)}:a`)
+    expect(u.nfse_erro.length).toBeLessThanOrEqual(200)
+  })
+
+  it('NFSE_DESDE vazio ou invalido: nao emite, nao toca no banco, avisa uma vez', async () => {
+    vi.resetModules()
+    const { enfileirarNfse: fresh } = await import('./nfse')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    for (const nfseDesde of ['', 'lixo']) {
+      const sb = fakeSb(pedido())
+      const d = deps({ config: { nfse: 'on', nfseDesde } })
+      await fresh(sb, ID, d)
+      expect(sb.calls.from).toBe(0)
+      expect(d.provedor.emitir).not.toHaveBeenCalled()
+    }
+    expect(warn.mock.calls.filter((c) => String(c[0]).includes('NUXT_NFSE_DESDE'))).toHaveLength(1)
+    warn.mockRestore()
   })
 
   it('flag desligada nao toca no banco', async () => {

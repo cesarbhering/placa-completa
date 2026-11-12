@@ -27,10 +27,22 @@ async function avisarSemTomador(pedidoId: string): Promise<void> {
   })
 }
 
+let avisouDesdeInvalido = false
+
 export async function enfileirarNfse(supabase: any, pedidoId: string, deps: Deps = {}): Promise<void> {
   try {
     const config = deps.config ?? (useRuntimeConfig() as any)
     if (config.nfse !== 'on') return
+
+    // Falha fechada: sem data de corte valida, nao emite nada (e nao toca no banco).
+    const desde = config.nfseDesde ? new Date(config.nfseDesde).getTime() : NaN
+    if (!Number.isFinite(desde)) {
+      if (!avisouDesdeInvalido) {
+        avisouDesdeInvalido = true
+        console.warn('[nfse] NUXT_NFSE_DESDE invalido ou vazio; emissao desligada')
+      }
+      return
+    }
 
     const { data: p, error } = await supabase.from('pedidos_premium').select(COLUNAS).eq('id', pedidoId).single()
     if (error || !p) return
@@ -41,18 +53,17 @@ export async function enfileirarNfse(supabase: any, pedidoId: string, deps: Deps
       // Escrita condicional: so vale se ninguem mudou o status desde a leitura
       // (ex.: reembolso marcando nao_emitir enquanto o emissor respondia).
       const r = await supabase.from('pedidos_premium').update({ ...patch, nfse_atualizado_em: agora }).eq('id', pedidoId)
-        .or('nfse_status.is.null,nfse_status.eq.a_enfileirar')
-      return !r?.error
+        .or('nfse_status.is.null,nfse_status.eq.a_enfileirar').select('id')
+      // So conta se alguma linha casou o filtro (0 linhas = estado mudou).
+      return !r?.error && Array.isArray(r?.data) && r.data.length > 0
     }
 
     if (p.status === 'reembolsado') { await gravar({ nfse_status: 'nao_emitir' }); return }
 
-    const desde = config.nfseDesde ? new Date(config.nfseDesde).getTime() : NaN
-    if (!Number.isFinite(desde)) console.warn('[nfse] NUXT_NFSE_DESDE invalido ou vazio')
     const foraDeEscopo =
       p.pix_provider === 'google_play' ||
       (p.canal === 'app' && !p.abacatepay_id && !p.stripe_session_id) ||
-      (p.entregue_em && Number.isFinite(desde) && new Date(p.entregue_em).getTime() < desde)
+      (p.entregue_em && new Date(p.entregue_em).getTime() < desde)
     if (foraDeEscopo) { await gravar({ nfse_status: 'fora_escopo' }); return }
 
     if (!p.entregue_em) return
@@ -76,13 +87,17 @@ export async function enfileirarNfse(supabase: any, pedidoId: string, deps: Deps
         email: p.email,
         metadados: { token: p.token_entrega, plano: p.plano, placa: p.placa },
       })
-      if (r?.id) await gravar({ nfse_status: 'enfileirada', nfse_id: r.id, nfse_erro: null })
-      else await gravar({ nfse_status: 'a_enfileirar' })
+      if (r?.id) {
+        // O id da nota nunca se perde: grava sem filtro, depois o status com filtro.
+        await supabase.from('pedidos_premium').update({ nfse_id: r.id, nfse_atualizado_em: agora }).eq('id', pedidoId)
+        const ok = await gravar({ nfse_status: 'enfileirada', nfse_erro: null })
+        if (!ok) console.warn(`[nfse] estado mudou durante a emissao pedido=${String(pedidoId).slice(0, 8)}`)
+      } else await gravar({ nfse_status: 'a_enfileirar' })
     } catch (e: any) {
-      // So 400 e 422 sao rejeicao definitiva; o resto tenta de novo depois.
-      if (e instanceof ErroNfseRejeitado && (e.status === 400 || e.status === 422)) {
+      // So 400, 409 e 422 sao rejeicao definitiva; o resto tenta de novo depois.
+      if (e instanceof ErroNfseRejeitado && [400, 409, 422].includes(e.status)) {
         const b = (e.body ?? {}) as any
-        let code = `${e.status}:${typeof b.erro === 'string' ? b.erro : ''}`
+        let code = `${e.status}:${typeof b.erro === 'string' ? b.erro.slice(0, 60) : ''}`
         // So nomes de campos, nunca valores.
         if (Array.isArray(b.campos) && b.campos.every((c: unknown) => typeof c === 'string')) code += `:${b.campos.join(',')}`
         await gravar({ nfse_status: 'rejeitada', nfse_erro: code.slice(0, 200) })

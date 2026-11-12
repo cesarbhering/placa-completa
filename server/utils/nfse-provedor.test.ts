@@ -71,6 +71,22 @@ describe('provedorNfse', () => {
     expect(err.body).toEqual(data)
   })
 
+  it('401, 403, 404 e 405 viram ErroNfseIndisponivel', async () => {
+    for (const statusCode of [401, 403, 404, 405]) {
+      const f = vi.fn().mockRejectedValue({ statusCode, data: { erro: 'x' } })
+      await expect(provedorNfse(CONFIG, f as any).consultar('n1')).rejects.toBeInstanceOf(ErroNfseIndisponivel)
+    }
+  })
+
+  it('409 e 400 viram ErroNfseRejeitado com status', async () => {
+    for (const statusCode of [409, 400]) {
+      const f = vi.fn().mockRejectedValue({ statusCode, data: { erro: 'x' } })
+      const err = await provedorNfse(CONFIG, f as any).consultar('n1').catch((e) => e)
+      expect(err).toBeInstanceOf(ErroNfseRejeitado)
+      expect(err.status).toBe(statusCode)
+    }
+  })
+
   it('consultar faz GET com Bearer', async () => {
     const nota = { id: 'n1', referencia: 'r', estado: 'emitida', numero: '5' }
     const f = vi.fn().mockResolvedValue(nota)
