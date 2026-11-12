@@ -323,7 +323,7 @@ describe('aplicarEstadoNfse', () => {
     let n = 0
     s.from = () => { const f = orig(); return { update: (p: any) => { n++; if (p.nfse_email_em === null) { const q: any = { eq: () => q, then: (r: any) => Promise.resolve({ error: { message: 'x' } }).then(r) }; return q } return f.update(p) } } }
     await aplicarEstadoNfse(s, row, NOTA, { provedor: { pdf: async () => Buffer.from('p') }, enviarEmail: async () => false, agora })
-    expect(warn.mock.calls.some((c) => String(c[0]).includes('lock de e-mail nao foi desfeito'))).toBe(true)
+    expect(warn.mock.calls.some((c) => String(c[0]).includes('email lock was not released'))).toBe(true)
     warn.mockRestore()
   })
 })

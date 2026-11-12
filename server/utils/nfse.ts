@@ -151,30 +151,165 @@ export async function aplicarEstadoNfse(supabase: any, pedido: any, nota: NfseNo
   if (r?.error) throw new Error('nfse: status write failed')
   if (status === 'emitida' && (!Array.isArray(r?.data) || r.data.length === 0)) return
 
-  if (status !== 'emitida' || !pedido.email || pedido.nfse_email_em) return
+  if (status !== 'emitida') return
+  await enviarEmailNfseSeDevido(supabase, pedido, nota.id, nota.numero, { ...deps, agora: () => new Date(agora) })
+}
+
+export type ResultadoEmailNfse = 'enviado' | 'pulado' | 'falhou' | 'indisponivel'
+
+/** Sends the invoice e-mail once (lock on nfse_email_em). Never throws. */
+export async function enviarEmailNfseSeDevido(
+  supabase: any, pedido: any, notaId: string, numero: unknown,
+  deps: Pick<DepsEstado, 'provedor' | 'enviarEmail' | 'agora' | 'config'> = {},
+): Promise<ResultadoEmailNfse> {
+  if (!pedido.email || pedido.nfse_email_em) return 'pulado'
+  const agora = (deps.agora ?? (() => new Date()))().toISOString()
 
   let pdf: Buffer
   try {
-    pdf = await (deps.provedor ?? provedorNfse()).pdf(nota.id)
+    pdf = await (deps.provedor ?? provedorNfse()).pdf(notaId)
   } catch (e: any) {
     // nfse_email_em stays null so the reconciliation job retries.
     console.warn(`[nfse] pdf fetch failed order=${String(pedido.id).slice(0, 8)}`, e?.name)
-    return
+    return e instanceof ErroNfseIndisponivel ? 'indisponivel' : 'falhou'
   }
 
   // Lock: only the delivery that flips nfse_email_em from null sends the e-mail.
   const lock = await supabase.from('pedidos_premium').update({ nfse_email_em: agora }).eq('id', pedido.id).is('nfse_email_em', null).select('id')
-  if (lock?.error || !Array.isArray(lock?.data) || lock.data.length === 0) return
+  if (lock?.error || !Array.isArray(lock?.data) || lock.data.length === 0) return 'pulado'
 
   let ok = false
   try {
     ok = await (deps.enviarEmail ?? enviarNfseEmail)(
-      { email: pedido.email, token: pedido.token_entrega, placa: pedido.placa, numero: String(nota.numero ?? ''), pdf },
+      { email: pedido.email, token: pedido.token_entrega, placa: pedido.placa, numero: String(numero ?? ''), pdf },
       deps.config ? { config: deps.config } : {},
     )
   } catch { ok = false }
-  if (!ok) {
-    const reset = await supabase.from('pedidos_premium').update({ nfse_email_em: null }).eq('id', pedido.id)
-    if (reset?.error) console.warn(`[nfse] lock de e-mail nao foi desfeito pedido=${String(pedido.id).slice(0, 8)}`)
+  if (ok) return 'enviado'
+  const reset = await supabase.from('pedidos_premium').update({ nfse_email_em: null }).eq('id', pedido.id)
+  if (reset?.error) console.warn(`[nfse] email lock was not released order=${String(pedido.id).slice(0, 8)}`)
+  return 'falhou'
+}
+
+// ---------- Cancel on refund ----------
+
+interface DepsCancelar {
+  provedor?: Pick<NfseProvedor, 'cancelar'>
+  config?: { nfse?: string }
+}
+
+export type ResultadoCancelar = 'cancelando' | 'nao_emitir' | 'pendente' | 'rejeitado' | 'ignorado'
+
+/** Cancels (or blocks) the invoice of a refunded order. Never throws. */
+export async function cancelarNfse(
+  supabase: any, pedidoId: string, motivo = 'Estorno do pagamento ao cliente', deps: DepsCancelar = {},
+): Promise<ResultadoCancelar> {
+  try {
+    if ((deps.config ?? (useRuntimeConfig() as any)).nfse !== 'on') return 'ignorado'
+    const { data: p, error } = await supabase.from('pedidos_premium').select('nfse_id, nfse_status, nfse_erro').eq('id', pedidoId).single()
+    if (error || !p) return 'ignorado'
+    const curto = String(pedidoId).slice(0, 8)
+
+    if (!p.nfse_id) {
+      if (p.nfse_status == null || ['a_enfileirar', 'sem_tomador'].includes(p.nfse_status)) {
+        // Conditional write: a note issued meanwhile (status moved on) must not be hidden.
+        await supabase.from('pedidos_premium')
+          .update({ nfse_status: 'nao_emitir', nfse_atualizado_em: new Date().toISOString() })
+          .eq('id', pedidoId).is('nfse_id', null)
+          .or('nfse_status.is.null,nfse_status.eq.a_enfileirar,nfse_status.eq.sem_tomador')
+        return 'nao_emitir'
+      }
+      return 'ignorado'
+    }
+    if (p.nfse_status === 'cancelada') return 'ignorado'
+
+    try {
+      await (deps.provedor ?? provedorNfse()).cancelar(p.nfse_id, motivo)
+      // The status changes only when the nota.cancelada webhook arrives.
+      if (p.nfse_erro) await supabase.from('pedidos_premium').update({ nfse_erro: null }).eq('id', pedidoId)
+      return 'cancelando'
+    } catch (e: any) {
+      if (e instanceof ErroNfseRejeitado) {
+        if (e.status === 409) {
+          console.warn(`[nfse] cancel: note already in a final state order=${curto}`)
+          // Stop the reconciliation retry loop; nothing else changes.
+          if (p.nfse_erro === 'cancelar_pendente') await supabase.from('pedidos_premium').update({ nfse_erro: null }).eq('id', pedidoId)
+          return 'ignorado'
+        }
+        await supabase.from('pedidos_premium').update({ nfse_erro: `cancelar_rejeitado:${e.status}` }).eq('id', pedidoId)
+        return 'rejeitado'
+      }
+      await supabase.from('pedidos_premium').update({ nfse_erro: 'cancelar_pendente' }).eq('id', pedidoId)
+      return 'pendente'
+    }
+  } catch (e: any) {
+    console.warn(`[nfse] cancel failed order=${String(pedidoId).slice(0, 8)}`, e?.name)
+    return 'ignorado'
   }
+}
+
+// ---------- Reconciliation ----------
+
+interface DepsReconciliar extends Deps, DepsCancelar {
+  provedor?: Pick<NfseProvedor, 'emitir' | 'consultar' | 'pdf' | 'cancelar'>
+  enviarEmail?: typeof enviarNfseEmail
+}
+
+const LOTE = 50
+const OBSOLETA_MIN = 15
+const COLUNAS_RECONCILIAR = 'id, token_entrega, placa, email, nfse_id, nfse_status, nfse_erro, nfse_numero, nfse_email_em'
+
+/** Retries what the delivery path and the webhook may have left behind. Sequential, never throws. */
+export async function reconciliarNfse(supabase: any, deps: DepsReconciliar = {}) {
+  const out = { enfileiradas: 0, atualizadas: 0, emails: 0, cancelamentos: 0 }
+  try {
+    const config = deps.config ?? (useRuntimeConfig() as any)
+    if (config.nfse !== 'on') return out
+    const agora = (deps.agora ?? (() => new Date()))()
+    const corte = new Date(agora.getTime() - OBSOLETA_MIN * 60_000).toISOString()
+    const provedor = deps.provedor ?? provedorNfse()
+    const aviso = (etapa: string, id: unknown, e: any) => console.warn(`[nfse] reconcile ${etapa} failed order=${String(id).slice(0, 8)}`, e?.name)
+    const ler = async (q: any): Promise<any[]> => {
+      const r = await q
+      return !r?.error && Array.isArray(r?.data) ? r.data : []
+    }
+    const tabela = () => supabase.from('pedidos_premium')
+
+    // (a) orders the delivery path could not enqueue
+    for (const p of await ler(tabela().select('id').eq('nfse_status', 'a_enfileirar').order('nfse_atualizado_em', { ascending: true, nullsFirst: true }).limit(LOTE))) {
+      await enfileirarNfse(supabase, p.id, { ...deps, provedor })
+      out.enfileiradas++
+    }
+
+    // (b) enqueued notes the webhook never confirmed
+    for (const p of await ler(tabela().select(COLUNAS_RECONCILIAR).eq('nfse_status', 'enfileirada').not('nfse_id', 'is', null).lt('nfse_atualizado_em', corte).order('nfse_atualizado_em', { ascending: true }).limit(LOTE))) {
+      try {
+        const nota = await provedor.consultar(p.nfse_id)
+        await aplicarEstadoNfse(supabase, p, nota, { provedor, enviarEmail: deps.enviarEmail, agora: () => agora, config: deps.config })
+        out.atualizadas++
+      } catch (e: any) {
+        aviso('consult', p.id, e)
+        if (e instanceof ErroNfseIndisponivel) return out
+      }
+    }
+
+    // (c) issued notes whose e-mail was never sent
+    for (const p of await ler(tabela().select(COLUNAS_RECONCILIAR).eq('nfse_status', 'emitida').not('email', 'is', null).is('nfse_email_em', null).not('nfse_id', 'is', null).order('nfse_atualizado_em', { ascending: true }).limit(LOTE))) {
+      try {
+        const r = await enviarEmailNfseSeDevido(supabase, p, p.nfse_id, p.nfse_numero, { provedor, enviarEmail: deps.enviarEmail, agora: () => agora, config: deps.config })
+        if (r === 'enviado') out.emails++
+        if (r === 'indisponivel') return out
+      } catch (e: any) { aviso('email', p.id, e) }
+    }
+
+    // (d) cancellations the emitter could not take
+    for (const p of await ler(tabela().select('id').eq('nfse_erro', 'cancelar_pendente').limit(LOTE))) {
+      const r = await cancelarNfse(supabase, p.id, undefined, { provedor, config })
+      out.cancelamentos++
+      if (r === 'pendente') return out
+    }
+  } catch (e: any) {
+    console.warn('[nfse] reconcile failed', e?.name)
+  }
+  return out
 }

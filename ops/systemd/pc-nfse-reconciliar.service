@@ -1,0 +1,6 @@
+[Unit]
+Description=NFS-e reconciliation (POST /api/premium/nfse/reconciliar)
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-nfse-reconciliar
+TimeoutStartSec=90
