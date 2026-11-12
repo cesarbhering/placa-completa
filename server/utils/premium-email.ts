@@ -459,7 +459,8 @@ export function textosAvisoFotos(placa: string, niveis: string[]): { titulo: str
 }
 
 /** Template dos avisos de relatorio atualizado (fotos, leilao tardio): mesmo layout. */
-export function montarEmailAviso(a: { link: string; titulo: string; paragrafos: string[]; assunto: string; botao: string }): { assunto: string; html: string; texto: string } {
+export function montarEmailAviso(a: { link: string; titulo: string; paragrafos: string[]; assunto: string; botao: string; nota?: string }): { assunto: string; html: string; texto: string } {
+  const nota = a.nota ?? 'O link é o mesmo de antes e não expira.'
   const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const { titulo, paragrafos, assunto } = a
   const p = (t: string, mb = 12) => `<p style="margin:0 0 ${mb}px;font-size:16px;line-height:1.5;color:${GRAFITE};text-align:center;">${esc(t)}</p>`
@@ -475,13 +476,13 @@ export function montarEmailAviso(a: { link: string; titulo: string; paragrafos: 
 <tr><td align="center" style="padding:20px 32px 8px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="${AZUL}" style="border-radius:4px;">
 <a href="${a.link}" style="display:inline-block;padding:16px 32px;font-family:${FONTE};font-size:14px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;color:#ffffff;text-decoration:none;border-radius:4px;">${esc(a.botao)}</a></td></tr></table></td></tr>
 <tr><td style="padding:20px 32px 32px;font-family:${FONTE};">
-<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">O link é o mesmo de antes e não expira.</p>
+<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">${esc(nota)}</p>
 <p style="margin:0;font-size:12px;line-height:1.5;color:${GRAFITE};text-align:center;word-break:break-all;">Se o botão não funcionar, copie e cole no navegador:<br><a href="${a.link}" style="color:${AZUL};text-decoration:underline;">${a.link}</a></p></td></tr>
 <tr><td align="center" style="padding:24px 32px;background:${NAVY};font-family:${FONTE};">
 <p style="margin:0 0 6px;font-size:13px;line-height:1.5;color:#ffffff;font-weight:600;">Precisa de ajuda?</p>
 <p style="margin:0;font-size:13px;line-height:1.5;color:rgba(255,255,255,0.75);">É só responder este e-mail ou escrever para <a href="mailto:contato@placacompleta.com.br" style="color:#ffffff;text-decoration:underline;">contato@placacompleta.com.br</a></p></td></tr>
 </table><p style="margin:16px 0 0;font-family:${FONTE};font-size:12px;line-height:1.5;color:${GRAFITE};">PlacaCompleta · consulta veicular por placa</p></td></tr></table></body></html>`
-  const texto = [titulo, '', ...paragrafos.flatMap((t) => [t, '']), a.link, '', 'O link é o mesmo de antes e não expira.', '', 'Precisa de ajuda? Responda este e-mail ou escreva para contato@placacompleta.com.br', '', 'PlacaCompleta · consulta veicular por placa'].join('\n')
+  const texto = [titulo, '', ...paragrafos.flatMap((t) => [t, '']), a.link, '', nota, '', 'Precisa de ajuda? Responda este e-mail ou escreva para contato@placacompleta.com.br', '', 'PlacaCompleta · consulta veicular por placa'].join('\n')
   return { assunto, html, texto }
 }
 

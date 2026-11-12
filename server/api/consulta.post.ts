@@ -19,6 +19,7 @@ import { barrarPlacaBloqueada } from '../utils/blocklist'
 import { decidirTurnstile, linhaEventoTurnstile, gravarEventoTurnstile, MENSAGEM_TURNSTILE } from '../utils/turnstile'
 import { consultarPlacaWdapiDetalhado, semMotor } from '../utils/placa-lookup'
 import { chassiParaExibicao, comChassiParcial } from '../utils/chassi-livre'
+import { PARCEIRO_COOKIE, chassiDoParceiro, decidirParceiro } from '../utils/parceiro-chassi'
 import {
   avaliarGateEmail, depsGateEmailSupabase, sanearDeviceId, sanearTokensPagos, limiteGratisSemEmail,
   GATE_EMAIL_CODE, GATE_EMAIL_MENSAGEM,
@@ -285,9 +286,25 @@ export default defineEventHandler(async (event) => {
   // e consultada pela CHAVE 'ip:<IP>' -- assim um IP nosso (sonda de checkout +
   // testes de prod) pode ter um teto maior sem bypass por header/segredo. IP nao
   // whitelistado cai no default de sempre.
-  const hourlyLimit = semDestinatario
-    ? await getHourlyLimit(`ip:${ip}`)
-    : await getHourlyLimit(recipientValue as string)
+  // Parceiro com chassi completo (server/utils/parceiro-chassi.ts): cookie
+  // assinado + parceiro ativo + menos de 20 consultas na ultima hora. Dentro
+  // disso nao passa pelo gate de e-mail nem pelo limite gratis (Turnstile
+  // continua valendo). Passou de 20: visitante comum, sem erro.
+  const parceiro = await decidirParceiro({
+    config: config as any,
+    cookie: getCookie(event, PARCEIRO_COOKIE),
+    sb: useSupabaseServer(),
+    placa: placaClean,
+    ip,
+    canal: isPWA ? 'app' : 'web',
+  })
+  if (parceiro) setHeader(event, 'Cache-Control', 'private, no-store')
+
+  const hourlyLimit = parceiro
+    ? Infinity
+    : semDestinatario
+      ? await getHourlyLimit(`ip:${ip}`)
+      : await getHourlyLimit(recipientValue as string)
 
   // Device id do navegador (UUID no localStorage, mandado no corpo). Gravado
   // na linha da consulta pro gate de e-mail contar o mesmo aparelho mesmo
@@ -881,7 +898,9 @@ export default defineEventHandler(async (event) => {
     whatsappSent,
     message,
     // App: mesmo payload, mas com o chassi so em parte (o inteiro e do pago).
-    data: isPWA ? comChassiParcial(apiResponse) : undefined,
+    // Parceiro: o chassi como a fonte mandou (inteiro quando veio inteiro).
+    data: isPWA ? (parceiro ? apiResponse : comChassiParcial(apiResponse)) : undefined,
+    parceiro: parceiro ? true : undefined,
     fipeHistory: isPWA ? fipeHistoryPoints : undefined,
     seguroEstimado: !isPWA ? seguroEstimado : undefined,
     // Bloco livre mostrado NA TELA na web (o "o que e o carro"). E o mesmo
@@ -909,7 +928,8 @@ export default defineEventHandler(async (event) => {
       uf: apiResponse.uf || null,
       // So o comeco do chassi: confere com o do documento sem entregar o
       // numero, que e do relatorio pago.
-      chassiParcial: chassiParaExibicao(apiResponse),
+      chassiParcial: parceiro ? chassiDoParceiro(apiResponse) : chassiParaExibicao(apiResponse),
+      chassiParceiro: parceiro ? true : undefined,
       // Valor FIPE atual (referencia de mercado). So o valor corrente; o
       // historico/grafico continua sendo conteudo pago.
       fipe: fipeValorAtual,

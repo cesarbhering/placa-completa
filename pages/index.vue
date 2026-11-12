@@ -40,6 +40,11 @@ onMounted(() => prepararTurnstile())
 // produto so) e a palavra Pix nao pode aparecer, porque nao e assim que se
 // paga ali.
 const route = useRoute()
+// Acesso de parceiro (chassi completo): resposta marcada pelo servidor e aviso
+// discreto depois de ativar (/parceiro redireciona com ?parceiro=ativo).
+const parceiroResultado = ref(false)
+const avisoParceiro = ref(false)
+onMounted(() => { if (route.query.parceiro === 'ativo') avisoParceiro.value = true })
 const router = useRouter()
 
 // Theming por dominio (hibrido de dominios): hero/copy/meta trocam conforme
@@ -765,7 +770,7 @@ const camposLivres = computed(() => {
     ['Cor', b.cor],
     ['Combustível', b.combustivel],
     ['Origem', b.origem],
-    ['Parte do chassi', b.chassiParcial],
+    [b.chassiParceiro ? 'Chassi (parceiro)' : 'Parte do chassi', b.chassiParcial],
   ].filter(([, v]) => v !== null && v !== undefined && v !== '')
 })
 
@@ -886,7 +891,7 @@ const allVehicleData = computed(() => {
     Marca: data.MARCA || data.marca || '-',
     Modelo: data.MODELO || data.modelo || '-',
     'Ano/Modelo': `${data.ano || '-'}/${data.anoModelo || '-'}`,
-    Chassi: chassiValue,
+    [parceiroResultado.value ? 'Chassi (parceiro)' : 'Chassi']: chassiValue,
     Cor: data.cor || '-',
     Combustível: extra.combustivel || '-',
     Tipo: extra.tipo_veiculo || '-',
@@ -1394,6 +1399,7 @@ async function handleSubmit() {
     if (fluxoLegado.value) {
       // Show modal with data in PWA mode
       pwaFipeHistory.value = result.fipeHistory || null
+      parceiroResultado.value = result.parceiro === true
       vehicleData.value = result.data || {
         marca: 'Honda',
         modelo: 'HR-V EXL 1.8',
@@ -1498,6 +1504,11 @@ function applyEmailSuggestion() {
       ref="turnstileEl"
       style="position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 9999;"
     />
+
+    <div v-if="avisoParceiro" class="aviso-parceiro" role="status">
+      Acesso de parceiro ativo neste navegador.
+      <button type="button" class="aviso-parceiro__fechar" aria-label="Fechar" @click="avisoParceiro = false">×</button>
+    </div>
 
     <!-- =======================================================
          WEB (combo 3): herói acolhedor + editorial. PWA intacto abaixo.
@@ -5078,4 +5089,6 @@ function applyEmailSuggestion() {
 .cb-result__fipe-link a { color: #1f6feb; font-weight: 600; text-decoration: underline; }
 .cb-locked__prova { margin: 8px 0 0; font-size: 12px; line-height: 1.4; color: #636363; text-align: center; }
 .cb-locked__wa { margin: 0; text-align: center; }
+.aviso-parceiro { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 9998; display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 10px 12px 10px 16px; border-radius: 8px; background: #1a1a1a; color: #fff; font-size: 14px; line-height: 1.4; box-shadow: 0 4px 16px rgba(0,0,0,0.18); }
+.aviso-parceiro__fechar { border: 0; background: transparent; color: #fff; font-size: 20px; line-height: 1; cursor: pointer; padding: 4px; }
 </style>

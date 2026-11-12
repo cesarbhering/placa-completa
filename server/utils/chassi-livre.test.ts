@@ -65,6 +65,7 @@ describe('free lookup delivery uses the partial VIN', () => {
   })
 
   it('app response goes through comChassiParcial', () => {
-    expect(src).toContain('data: isPWA ? comChassiParcial(apiResponse) : undefined,')
+    // Only a server-verified partner gets the source chassis (server/utils/parceiro-chassi.ts).
+    expect(src).toContain('data: isPWA ? (parceiro ? apiResponse : comChassiParcial(apiResponse)) : undefined,')
   })
 })

@@ -130,7 +130,8 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
         <div v-if="dados?.cor" class="la-dado"><span>COR</span><strong>{{ dados.cor }}</strong></div>
         <div v-if="dados?.combustivel" class="la-dado"><span>COMBUSTÍVEL</span><strong>{{ dados.combustivel }}</strong></div>
         <div v-if="dados?.origem" class="la-dado"><span>ORIGEM</span><strong>{{ dados.origem }}</strong></div>
-        <div v-if="dados?.chassiParcial" class="la-dado"><span>PARTE DO CHASSI</span><strong>{{ dados.chassiParcial }}</strong></div>
+        <div v-if="dados?.chassiParcial && dados?.chassiParceiro" class="la-dado"><span>CHASSI <em class="la-selo-parceiro">parceiro</em></span><strong>{{ dados.chassiParcial }}</strong></div>
+        <div v-else-if="dados?.chassiParcial" class="la-dado"><span>PARTE DO CHASSI</span><strong>{{ dados.chassiParcial }}</strong></div>
       </section>
 
       <!-- ANCORA DE PRECO (some inteira sem FIPE parseavel). Fica ENTRE os
@@ -354,4 +355,5 @@ const LockIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
   .la-acao { padding:22px 18px; }
   .la-acao h2 { font-size:21px; }
 }
+.la-selo-parceiro { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px; background: #e8f0ff; color: #024ad8; font-size: 10px; font-style: normal; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: middle; }
 </style>
