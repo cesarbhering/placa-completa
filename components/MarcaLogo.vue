@@ -1,8 +1,7 @@
 <script setup lang="ts">
 // Logo da montadora ao lado do nome do veiculo no relatorio. Os paths vem da
 // simple-icons (monocromaticos, viewBox 24x24); marca sem icone na lib cai num
-// monograma com a inicial — caso da Mercedes e da Land Rover, que a lib nao
-// distribui por licenca. So o relatorio importa este componente, entao os
+// asset local (public/logos-marcas) ou no monograma com a inicial. So o relatorio importa este componente, entao os
 // paths entram apenas no chunk dele.
 import { computed, ref, watch, onMounted } from 'vue'
 import { logoProxyDaMarca } from '~/shared/logo-marca-arquivo'
@@ -65,9 +64,40 @@ const tokenMarca = computed(() => {
 const GWM = { src: '/logos-marcas/gwm.png', largo: false }
 const KAWASAKI = { src: '/logos-marcas/kawasaki.png', largo: true }
 const BAJAJ = { src: '/logos-marcas/bajaj.png', largo: true }
+// Lote de 12/nov/2026: marcas dos pedidos pagos que saiam com monograma (o
+// proxy da apiplacas parou de servir PNG). Todos de dominio publico no
+// Wikimedia Commons, mesmo tratamento (tinta, recorte, reducao):
+// Mercedes "Mercedes-Benz Star (1969-1986, 2025-).svg" (estrela de tres
+// pontas), Land Rover "Land Rover 2023.svg", DAF "DAF logo.svg",
+// Harley-Davidson "Harley-Davidson logo.svg" (bar & shield), Chery
+// "Chery symbol.svg", Lamborghini "Lamborghini - logo wordmark (italy,
+// 1963-).svg", Jaguar "Jaguar 2001 wordmark.svg", BYD "BYD Auto 2022
+// logo.svg", Troller "Troller.svg".
+const MERCEDES = { src: '/logos-marcas/mercedes.png', largo: false }
+const LANDROVER = { src: '/logos-marcas/landrover.png', largo: true }
+const DAF = { src: '/logos-marcas/daf.png', largo: true }
+const HARLEY = { src: '/logos-marcas/harley.png', largo: false }
+const CHERY = { src: '/logos-marcas/chery.png', largo: true }
+const LAMBORGHINI = { src: '/logos-marcas/lamborghini.png', largo: true }
+const JAGUAR = { src: '/logos-marcas/jaguar.png', largo: true }
+const BYD = { src: '/logos-marcas/byd.png', largo: true }
+const TROLLER = { src: '/logos-marcas/troller.png', largo: false }
+// Chave = primeira palavra do token da marca ("I/M.BENZ CLA200" -> "M.BENZ",
+// "LAND ROVER/..." -> "LAND", "CAOA CHERY/..." -> "CAOA").
 const LOCAIS: Record<string, { src: string; largo: boolean }> = {
   GWM, HAVAL: GWM, GREATWALL: GWM, GREAT: GWM,
   KAWASAKI, BAJAJ,
+  'M.BENZ': MERCEDES, MBENZ: MERCEDES, 'M.B': MERCEDES, MB: MERCEDES,
+  MERCEDES, 'MERCEDES-BENZ': MERCEDES, 'MERC.BENZ': MERCEDES, BENZ: MERCEDES,
+  LR: LANDROVER, LAND: LANDROVER, LANDROVER, 'LAND-ROVER': LANDROVER, 'L.ROVER': LANDROVER,
+  DAF,
+  HARLEY, 'HARLEY-DAVIDSON': HARLEY, HARLEYDAVIDSON: HARLEY, 'H.DAVIDSON': HARLEY,
+  'H-DAVIDSON': HARLEY, 'H.D': HARLEY,
+  CHERY, CAOACHERY: CHERY, CAOA: CHERY, 'CAOA-CHERY': CHERY,
+  LAMBORGHINI, LAMBO: LAMBORGHINI,
+  JAGUAR,
+  BYD,
+  TROLLER, TROLLER4X4: TROLLER,
 }
 const local = computed(() => LOCAIS[tokenMarca.value]?.src || null)
 
