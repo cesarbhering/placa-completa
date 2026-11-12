@@ -51,3 +51,31 @@ export async function fipePriceHistory(codigoFipe: string, op: Opcoes = {}): Pro
   return { bruto: r.payload, consultadoEm: r.consultadoEm, cacheHit: r.cacheHit }
 }
 
+
+/**
+ * Estimativa de seguro de um modelo (id interno da fipe-api) num ano e numa
+ * regiao SUSEP, com cache de 14 dias (fonte 'seguro_estimado', chave
+ * modelo:ano:regiao). O valor so muda quando a base SUSEP e atualizada; antes
+ * eram ~10 mil chamadas por semana sem cache, mediana de 0,6 s cada.
+ * 404 (regiao sem amostra) vira 'sem_dado' cacheado, pra cascata nao repetir
+ * a mesma tentativa perdida. Qualquer outra falha propaga e nao e cacheada.
+ * Devolve o corpo bruto ou null quando a regiao nao tem estimativa.
+ */
+export async function fipeSeguroEstimado(modelId: number | string, ano: number, regiao: string, op: Opcoes = {}): Promise<any | null> {
+  const sb = op.sb === undefined ? sbPadrao() : op.sb
+  const caminho = `/models/${modelId}/insurance-estimate`
+  const buscar = () => fipeGet<any>(caminho, { ...op, sb, params: { ano, regiao } })
+  if (!sb) return buscar()
+  const r = await comFonteCache(sb, 'seguro_estimado', `${modelId}:${ano}:${regiao}`, async () => {
+    try {
+      const bruto = await buscar()
+      return { status: bruto?.data?.seguro?.premioMedioEstimado ? 'ok' : 'sem_dado', payload: bruto }
+    } catch (e: any) {
+      const code = e?.statusCode ?? e?.response?.status ?? null
+      if (code === 404) return { status: 'sem_dado', payload: null }
+      throw e
+    }
+  })
+  if (r.cacheHit) registrarChamada(sb, { fonte: 'fipe', caminho, code: 200, ms: 0, cacheHit: true, pedidoId: op.pedidoId })
+  return r.status === 'ok' ? r.payload : null
+}

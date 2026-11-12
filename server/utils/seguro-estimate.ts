@@ -1,4 +1,4 @@
-import { fipePriceHistory, fipeGet } from './fipe-api'
+import { fipePriceHistory, fipeSeguroEstimado } from './fipe-api'
 import { getRegiaoCatchAll } from './regiao-susep'
 
 /**
@@ -54,8 +54,7 @@ export async function getSeguroEstimado(opts: {
 
   for (const tentativa of tentativas) {
     try {
-      const est = await fipeGet<any>(`/models/${fipeModelId}/insurance-estimate`,
-        { params: { ano, regiao: tentativa.codigo }, timeoutMs: 3000 })   // log em api_chamadas
+      const est = await fipeSeguroEstimado(fipeModelId, ano, tentativa.codigo, { timeoutMs: 3000 })   // cache 14 d + log
       const d = est?.data
       if (d?.seguro?.premioMedioEstimado) {
         return {
