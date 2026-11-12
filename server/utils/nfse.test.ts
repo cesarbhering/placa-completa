@@ -56,7 +56,7 @@ describe('enfileirarNfse', () => {
   it('emissor fora nao trava entrega', async () => {
     const sb = fakeSb(pedido())
     const d = deps({ provedor: { emitir: vi.fn(async () => { throw new ErroNfseIndisponivel() }) } })
-    await expect(enfileirarNfse(sb, ID, d)).resolves.toBeUndefined()
+    await expect(enfileirarNfse(sb, ID, d)).resolves.toBe('indisponivel')
     expect(sb.updates.at(-1).nfse_status).toBe('a_enfileirar')
     expect(sb.updates.at(-1).nfse_atualizado_em).toBeTruthy()
   })
@@ -104,7 +104,7 @@ describe('enfileirarNfse', () => {
   it('caminho feliz: enfileirada com nfse_id e parametros exatos', async () => {
     const sb = fakeSb(pedido())
     const d = deps()
-    await enfileirarNfse(sb, ID, d)
+    await expect(enfileirarNfse(sb, ID, d)).resolves.toBe('enfileirada')
     expect(d.provedor.emitir).toHaveBeenCalledWith({
       referencia: ID,
       valorCentavos: 1990,
@@ -147,13 +147,24 @@ describe('enfileirarNfse', () => {
     expect((await run(404)).nfse_status).toBe('a_enfileirar')
   })
 
-  it('nao sobrescreve status mudado entre leitura e escrita', async () => {
-    const row = pedido()
+  it('refund lands while the emitter answers: keeps nao_emitir and cancels the new note', async () => {
+    const row: any = pedido()
     const sb = fakeSb(row)
-    const d = deps({ provedor: { emitir: vi.fn(async () => { row.nfse_status = 'nao_emitir'; return { id: 'nota-1', estado: 'processando' } }) } })
-    await enfileirarNfse(sb, ID, d)
-    expect(row.nfse_status).toBe('nao_emitir')
+    const cancelar = vi.fn(async () => {})
+    const emitir = vi.fn(async () => { row.nfse_status = 'nao_emitir'; return { id: 'nota-1', estado: 'processando' } })
+    await expect(enfileirarNfse(sb, ID, deps({ provedor: { emitir, cancelar } }))).resolves.toBe('nao_emitir')
     expect(row.nfse_id).toBe('nota-1')
+    expect(cancelar).toHaveBeenCalledTimes(1)
+    expect(cancelar).toHaveBeenCalledWith('nota-1', 'Estorno do pagamento ao cliente')
+    expect(row.nfse_status).toBe('nao_emitir')
+  })
+
+  it('status moved to something else during issuing: no cancel', async () => {
+    const row: any = pedido()
+    const cancelar = vi.fn(async () => {})
+    const emitir = vi.fn(async () => { row.nfse_status = 'enfileirada'; return { id: 'nota-1', estado: 'processando' } })
+    await expect(enfileirarNfse(fakeSb(row), ID, deps({ provedor: { emitir, cancelar } }))).resolves.toBe('ignorado')
+    expect(cancelar).not.toHaveBeenCalled()
   })
 
   it('guarda sem linha casada nao envia e-mail de sem_tomador', async () => {
@@ -224,7 +235,7 @@ describe('enfileirarNfse', () => {
 
   it('nunca lanca, mesmo com o banco quebrado', async () => {
     const sb = { from: () => { throw new Error('boom') } }
-    await expect(enfileirarNfse(sb, ID, deps())).resolves.toBeUndefined()
+    await expect(enfileirarNfse(sb, ID, deps())).resolves.toBe('ignorado')
   })
 })
 
@@ -238,15 +249,17 @@ describe('aplicarEstadoNfse', () => {
       updates,
       from: () => ({
         update: (patch: any) => {
-          let soNulo = false; let excluir: string[] = []
+          let soNulo = false; let excluir: string[] = []; let semReembolso = false
           const q: any = {
             eq: () => q,
+            neq: (col: string, v: string) => { if (col === 'status' && v === 'reembolsado') semReembolso = true; return q },
             is: (col: string) => { if (col === 'nfse_email_em') soNulo = true; return q },
             not: (_c: string, _o: string, v: string) => { excluir = v.replace(/[()]/g, '').split(','); return q },
             select: () => q,
             then: (res: any, rej: any) => (async () => {
               if (excluir.includes(row.nfse_status)) return { data: [], error: null }
               if (soNulo && row.nfse_email_em != null) return { data: [], error: null }
+              if (semReembolso && row.status === 'reembolsado') return { data: [], error: null }
               updates.push(patch); Object.assign(row, patch); return { data: [{ id: row.id }], error: null }
             })().then(res, rej),
           }
@@ -311,6 +324,26 @@ describe('aplicarEstadoNfse', () => {
     const row = { ...base(), nfse_status: 'cancelada' }; const s = sb(row); const enviarEmail = vi.fn()
     await aplicarEstadoNfse(s, { ...row, nfse_status: 'enfileirada' }, NOTA, { provedor: { pdf: vi.fn() }, enviarEmail, agora })
     expect(row.nfse_status).toBe('cancelada'); expect(enviarEmail).not.toHaveBeenCalled()
+  })
+  it('late emitida never overwrites nao_emitir nor e-mails the refunded customer', async () => {
+    const row = { ...base(), nfse_status: 'nao_emitir', status: 'reembolsado' }; const s = sb(row); const enviarEmail = vi.fn()
+    await expect(aplicarEstadoNfse(s, row, NOTA, { provedor: { pdf: vi.fn() }, enviarEmail, agora })).resolves.toBe(false)
+    expect(s.updates).toHaveLength(0); expect(row.nfse_status).toBe('nao_emitir'); expect(enviarEmail).not.toHaveBeenCalled()
+  })
+  it('emitida racing a refund (stale pedido) keeps nao_emitir and sends nothing', async () => {
+    const row = { ...base(), nfse_status: 'nao_emitir', status: 'reembolsado' }; const s = sb(row); const enviarEmail = vi.fn()
+    await aplicarEstadoNfse(s, { ...row, nfse_status: 'enfileirada' }, NOTA, { provedor: { pdf: vi.fn() }, enviarEmail, agora })
+    expect(row.nfse_status).toBe('nao_emitir'); expect(enviarEmail).not.toHaveBeenCalled()
+  })
+  it('emitida on a refunded order still being cancelled: no e-mail', async () => {
+    const row = { ...base(), status: 'reembolsado' }; const enviarEmail = vi.fn()
+    await aplicarEstadoNfse(sb(row), row, NOTA, { provedor: { pdf: async () => Buffer.from('p') }, enviarEmail, agora })
+    expect(enviarEmail).not.toHaveBeenCalled(); expect(row.nfse_email_em).toBeNull()
+  })
+  it('returns whether the state changed', async () => {
+    const row = base()
+    await expect(aplicarEstadoNfse(sb(row), row, { ...NOTA, estado: 'pendente' }, { enviarEmail: vi.fn(), agora })).resolves.toBe(false)
+    await expect(aplicarEstadoNfse(sb(row), row, { ...NOTA, estado: 'rejeitada' }, { enviarEmail: vi.fn(), agora })).resolves.toBe(true)
   })
   it('cancelada delivery keeps nfse_numero', async () => {
     const row = { ...base(), nfse_status: 'emitida', nfse_numero: '42', nfse_chave: 'CH' }
