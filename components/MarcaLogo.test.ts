@@ -19,32 +19,29 @@ describe('MarcaLogo', () => {
     expect(w.find('img').exists()).toBe(false)
   })
   it('sem path: usa o logo da apiplacas pelo NOSSO proxy', async () => {
-    const w = mount(MarcaLogo, { props: { marca: 'GEELY/EX5', logoUrl: '/api/logo-marca/geely.png' } })
+    const w = mount(MarcaLogo, { props: { marca: 'HAFEI/TOWNER', logoUrl: '/api/logo-marca/hafei.png' } })
     await flushPromises()
-    expect(w.find('img').attributes('src')).toBe('/api/logo-marca/geely.png')
+    expect(w.find('img').attributes('src')).toBe('/api/logo-marca/hafei.png')
   })
   it('logo falhou ao carregar: some e entra o monograma', async () => {
-    const w = mount(MarcaLogo, { props: { marca: 'GEELY/EX5', logoUrl: '/api/logo-marca/geely.png' } })
+    const w = mount(MarcaLogo, { props: { marca: 'HAFEI/TOWNER', logoUrl: '/api/logo-marca/hafei.png' } })
     await flushPromises()
     await w.find('img').trigger('error')
     expect(w.find('img').exists()).toBe(false)
-    expect(w.find('.ml__mono').text()).toBe('G')
+    expect(w.find('.ml__mono').text()).toBe('H')
   })
   it('URL externa nunca vira <img>: cai no proxy deduzido da marca', async () => {
-    const w = mount(MarcaLogo, { props: { marca: 'GEELY/EX5', logoUrl: 'https://apiplacas.com.br/logos/logosMarcas/geely.png' } })
+    const w = mount(MarcaLogo, { props: { marca: 'HAFEI/TOWNER', logoUrl: 'https://apiplacas.com.br/logos/logosMarcas/hafei.png' } })
     await flushPromises()
-    expect(w.find('img').attributes('src')).toBe('/api/logo-marca/geely.png')
+    expect(w.find('img').attributes('src')).toBe('/api/logo-marca/hafei.png')
     await w.find('img').trigger('error')
     expect(w.find('img').exists()).toBe(false)
-    expect(w.find('.ml__mono').text()).toBe('G')
+    expect(w.find('.ml__mono').text()).toBe('H')
   })
 
 
   for (const [marca, arquivo] of [
-    ['I/ZEEKR 001', 'zeekr.png'],
     ['I/GAC AION Y', 'gac.png'],
-    ['OMODA/5', 'omoda.png'],
-    ['JAECOO/7', 'jaecoo.png'],
   ]) {
     it(`${marca}: tenta /api/logo-marca/${arquivo}`, async () => {
       const w = mount(MarcaLogo, { props: { marca } })
@@ -110,6 +107,10 @@ describe('MarcaLogo', () => {
     ['I/JAGUAR F-PACE', 'jaguar', true],
     ['I/BYD SONG PLUS PREM DM', 'byd', true], ['BYD/DOLPHIN MINI', 'byd', true],
     ['TROLLER/T4 XLT', 'troller', false],
+    ['I/GEELY EX5', 'geely', true], ['GEELY/EX2', 'geely', true],
+    ['I/ZEEKR 001', 'zeekr', true], ['ZEEKR/X', 'zeekr', true],
+    ['I/OMODA 5', 'omoda', true], ['OMODA/E5', 'omoda', true],
+    ['I/JAECOO 7', 'jaecoo', true], ['JAECOO/7 SHS', 'jaecoo', true],
   ] as const) {
     it(`${marca}: asset local ${arquivo}.png`, async () => {
       const w = mount(MarcaLogo, { props: { marca, logoUrl: null } })
@@ -135,8 +136,8 @@ describe('MarcaLogo', () => {
     await flushPromises()
     expect(w.find('img').attributes('src')).toBe('/api/logo-marca/gac.png')
   })
-  it('I/TOYOTA e CHEV/PRISMA seguem na simple-icons', async () => {
-    for (const marca of ['I/TOYOTA HILUX CDSRXA4FD', 'CHEV/PRISMA 1.4MT LT']) {
+  it('I/TOYOTA, CHEV/PRISMA e JTA/SUZUKI seguem na simple-icons', async () => {
+    for (const marca of ['I/TOYOTA HILUX CDSRXA4FD', 'CHEV/PRISMA 1.4MT LT', 'JTA/SUZUKI EN125 YES']) {
       const w = mount(MarcaLogo, { props: { marca, logoUrl: '/api/logo-marca/i.png' } })
       await flushPromises()
       expect(w.find('svg').exists(), marca).toBe(true)
