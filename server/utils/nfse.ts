@@ -38,13 +38,17 @@ export async function enfileirarNfse(supabase: any, pedidoId: string, deps: Deps
 
     const agora = (deps.agora ?? (() => new Date()))().toISOString()
     const gravar = async (patch: Record<string, unknown>) => {
+      // Escrita condicional: so vale se ninguem mudou o status desde a leitura
+      // (ex.: reembolso marcando nao_emitir enquanto o emissor respondia).
       const r = await supabase.from('pedidos_premium').update({ ...patch, nfse_atualizado_em: agora }).eq('id', pedidoId)
+        .or('nfse_status.is.null,nfse_status.eq.a_enfileirar')
       return !r?.error
     }
 
     if (p.status === 'reembolsado') { await gravar({ nfse_status: 'nao_emitir' }); return }
 
     const desde = config.nfseDesde ? new Date(config.nfseDesde).getTime() : NaN
+    if (!Number.isFinite(desde)) console.warn('[nfse] NUXT_NFSE_DESDE invalido ou vazio')
     const foraDeEscopo =
       p.pix_provider === 'google_play' ||
       (p.canal === 'app' && !p.abacatepay_id && !p.stripe_session_id) ||
@@ -55,6 +59,7 @@ export async function enfileirarNfse(supabase: any, pedidoId: string, deps: Deps
 
     const tomador = await (deps.lerTomador ?? lerTomadorPadrao)(supabase, pedidoId)
     if (!tomador || !tomador.nome) {
+      // So importa se um reconciliador devolver a linha para a_enfileirar: evita avisar de novo.
       const jaAvisado = p.nfse_erro === 'sem_tomador_avisado'
       const ok = await gravar({ nfse_status: 'sem_tomador', nfse_erro: 'sem_tomador_avisado' })
       if (ok && !jaAvisado) await (deps.avisar ?? avisarSemTomador)(pedidoId)
@@ -74,9 +79,13 @@ export async function enfileirarNfse(supabase: any, pedidoId: string, deps: Deps
       if (r?.id) await gravar({ nfse_status: 'enfileirada', nfse_id: r.id, nfse_erro: null })
       else await gravar({ nfse_status: 'a_enfileirar' })
     } catch (e: any) {
-      if (e instanceof ErroNfseRejeitado) {
-        const code = String((e.body as any)?.error?.code ?? (e.body as any)?.code ?? '').slice(0, 60)
-        await gravar({ nfse_status: 'rejeitada', nfse_erro: `${e.status}:${code}` })
+      // So 400 e 422 sao rejeicao definitiva; o resto tenta de novo depois.
+      if (e instanceof ErroNfseRejeitado && (e.status === 400 || e.status === 422)) {
+        const b = (e.body ?? {}) as any
+        let code = `${e.status}:${typeof b.erro === 'string' ? b.erro : ''}`
+        // So nomes de campos, nunca valores.
+        if (Array.isArray(b.campos) && b.campos.every((c: unknown) => typeof c === 'string')) code += `:${b.campos.join(',')}`
+        await gravar({ nfse_status: 'rejeitada', nfse_erro: code.slice(0, 200) })
       } else {
         await gravar({ nfse_status: 'a_enfileirar' })
       }

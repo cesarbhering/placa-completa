@@ -22,7 +22,19 @@ function fakeSb(row: any) {
       calls.from++
       return {
         select: () => ({ eq: () => ({ single: async () => ({ data: row, error: null }) }) }),
-        update: (patch: any) => ({ eq: async () => { updates.push(patch); Object.assign(row, patch); return { error: null } } }),
+        update: (patch: any) => {
+          let filtrar = false
+          const aplicar = async () => {
+            if (filtrar && !(row.nfse_status == null || row.nfse_status === 'a_enfileirar')) return { error: null }
+            updates.push(patch); Object.assign(row, patch); return { error: null }
+          }
+          const q: any = {
+            eq: () => q,
+            or: (f: string) => { if (f === 'nfse_status.is.null,nfse_status.eq.a_enfileirar') filtrar = true; return q },
+            then: (res: any, rej: any) => aplicar().then(res, rej),
+          }
+          return q
+        },
       }
     },
   }
@@ -113,13 +125,33 @@ describe('enfileirarNfse', () => {
 
   it('rejeicao grava status:code sem o corpo', async () => {
     const sb = fakeSb(pedido())
-    const e = new ErroNfseRejeitado(422, { error: { code: 'tomador_invalido', message: 'segredo' } })
+    const e = new ErroNfseRejeitado(422, { erro: 'corpo_invalido', campos: ['tomador.nome'], mensagem: 'segredo' })
     const d = deps({ provedor: { emitir: vi.fn(async () => { throw e }) } })
     await enfileirarNfse(sb, ID, d)
     const u = sb.updates.at(-1)
     expect(u.nfse_status).toBe('rejeitada')
-    expect(u.nfse_erro).toBe('422:tomador_invalido')
+    expect(u.nfse_erro).toBe('422:corpo_invalido:tomador.nome')
     expect(JSON.stringify(u)).not.toContain('segredo')
+  })
+
+  it('400 vira rejeitada; 401 e 404 voltam a a_enfileirar', async () => {
+    const run = async (status: number) => {
+      const sb = fakeSb(pedido())
+      await enfileirarNfse(sb, ID, deps({ provedor: { emitir: vi.fn(async () => { throw new ErroNfseRejeitado(status, { erro: 'x' }) }) } }))
+      return sb.updates.at(-1)
+    }
+    expect((await run(400)).nfse_status).toBe('rejeitada')
+    expect((await run(401)).nfse_status).toBe('a_enfileirar')
+    expect((await run(404)).nfse_status).toBe('a_enfileirar')
+  })
+
+  it('nao sobrescreve status mudado entre leitura e escrita', async () => {
+    const row = pedido()
+    const sb = fakeSb(row)
+    const d = deps({ provedor: { emitir: vi.fn(async () => { row.nfse_status = 'nao_emitir'; return { id: 'nota-1', estado: 'processando' } }) } })
+    await enfileirarNfse(sb, ID, d)
+    expect(row.nfse_status).toBe('nao_emitir')
+    expect(sb.updates).toHaveLength(0)
   })
 
   it('flag desligada nao toca no banco', async () => {
