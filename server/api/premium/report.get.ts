@@ -367,74 +367,83 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Motor de relatorio vendido antes do campo: le do placa_cache (sem chamada
-  // paga). So pedido entregue com consulta; nunca sai pra pedido pendente.
-  if (motor === undefined && !pendente && pedido.status === 'entregue' && consulta) {
-    motor = motorDoPayload(await lerPlacaCacheFresca(pedido.placa).catch(() => null))
-  }
+  // Leituras finais: todas independentes entre si, entao saem juntas (antes
+  // eram ~7 idas ao banco em serie, ~0,75 s por abertura). O placa_cache e
+  // lido no maximo uma vez e compartilhado entre motor e logo.
+  const entregue = pedido.status === 'entregue'
+  let placaCacheP: Promise<any | null> | null = null
+  const placaCache = () => (placaCacheP ??= lerPlacaCacheFresca(pedido.placa).catch(() => null))
 
   // Logo da montadora (fallback do MarcaLogo): o "logo" da apiplacas, do
   // snapshot quando tiver, senao do placa_cache (so leitura, sem chamada paga).
   // Sai so o caminho do NOSSO proxy, nunca a URL deles.
   const respConsulta = Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response
-  let logoMarca = logoProxyDe(respConsulta?.logo) || logoProxyDe((pedido.preview as any)?.logo)
-  if (!logoMarca && consulta) logoMarca = logoProxyDe((await lerPlacaCacheFresca(pedido.placa).catch(() => null))?.logo)
+  const logoLocal = logoProxyDe(respConsulta?.logo) || logoProxyDe((pedido.preview as any)?.logo)
 
-  // Quando o DETRAN foi consultado (ultima chamada paga deste pedido, ok ou
-  // nao): procedencia e data no bloco do relatorio (14/out). Fail-open.
-  // Relatorio 2.0: estado de cada fonte lenta (a tela espera ate 5 min e
-  // mostra o progresso; depois marca o que ainda esta "chegando" pela fila).
-  let fontes: any[] | null = null
-  let aguardarAte: string | null = null
-  if (pedido.status === 'entregue' && consulta) {
-    try {
-      const aplicaveis = fontesAplicaveis((consulta as any)?.response).filter((f) => fonteNoPlano(f.fonte, pedido.plano))
-      if (aplicaveis.length) {
+  const [motorCache, logoMarca, situacaoFontes, detranConsultadoEm, restricoesDetranRevisor, cupomRecompra, recallBaseLido] = await Promise.all([
+    // Motor de relatorio vendido antes do campo: le do placa_cache (sem chamada
+    // paga). So pedido entregue com consulta; nunca sai pra pedido pendente.
+    motor === undefined && !pendente && entregue && consulta
+      ? placaCache().then((c) => motorDoPayload(c))
+      : Promise.resolve(undefined),
+    !logoLocal && consulta
+      ? placaCache().then((c) => logoProxyDe(c?.logo))
+      : Promise.resolve(logoLocal),
+    // Relatorio 2.0: estado de cada fonte lenta (a tela espera ate 5 min e
+    // mostra o progresso; depois marca o que ainda esta "chegando" pela fila).
+    (async (): Promise<{ fontes: any[] | null; aguardarAte: string | null }> => {
+      if (!entregue || !consulta) return { fontes: null, aguardarAte: null }
+      try {
+        const aplicaveis = fontesAplicaveis((consulta as any)?.response).filter((f) => fonteNoPlano(f.fonte, pedido.plano))
+        if (!aplicaveis.length) return { fontes: null, aguardarAte: null }
         const { data: jobs } = await supabase.from('premium_jobs').select('fonte,status').eq('pedido_id', pedido.id)
         const sit = situacaoDasFontes({
           entregueEm: pedido.entregue_em, aplicaveis, jobs: Array.isArray(jobs) ? jobs : [],
           snapshot: { multas, recall, recallMontadora, renajudDetalhe },
         })
-        fontes = sit.fontes
-        aguardarAte = sit.aguardarAte ? new Date(sit.aguardarAte).toISOString() : null
-      }
-    } catch { /* sem fontes: a tela usa a espera antiga */ }
-  }
-  let detranConsultadoEm: string | null = null
-  if (pedido.status === 'entregue') {
-    try {
-      const { data: cst } = await supabase.from('premium_custos').select('criado_em')
-        .eq('pedido_id', pedido.id).like('fonte', 'infosimples_detran_%')
-        .order('criado_em', { ascending: false }).limit(1)
-      detranConsultadoEm = Array.isArray(cst) && cst[0]?.criado_em ? String(cst[0].criado_em) : null
-    } catch { /* sem data: a linha sai so com a fonte */ }
-  }
-
-  // Restricoes do DETRAN que o classificador nao decide: revisor final (Haiku),
-  // cacheado por texto normalizado (fonte_cache, 365 d). So exibicao: o
-  // snapshot nao muda. Falha = sem veredito = "informacao do DETRAN" neutra.
-  let restricoesDetranRevisor: VereditosRevisor = {}
-  const pendRevisor = restricoesDetranParaTela((multas as any)?.restricoes_detran).pendentesRevisor
-  if (pendRevisor.length && pedido.status === 'entregue') {
-    restricoesDetranRevisor = await revisarRestricoesDetran(pendRevisor, { sb: supabase, chaveApi: String(useRuntimeConfig().anthropicApiKey || '') || null })
-      .catch(() => ({}))
-  }
-
-  // Cupom de recompra do pedido (faixa no relatorio) enquanto valido.
-  const cupomRecompra = pedido.status === 'entregue' ? await cupomRecompraDoPedido(supabase, pedido.id) : null
-
-  // Hook de recall positivo na consulta gratis: diz QUAL campanha, mesmo sem
-  // pendencia hoje. Busca uma vez (ate 6 s) e grava no snapshot; depois vem dele.
-  if (!pendente && pedido.status === 'entregue') {
-    const snapAtual: any = pedido.relatorio_snapshot || { consulta }
-    if (snapAtual.recallBase !== undefined) recallBase = snapAtual.recallBase
-    else if ((pedido.recall_sinal === 'firme' || pedido.recall_sinal === 'suave') && podeReprocessar(`recallbase:${pedido.placa}`, 10 * 60 * 1000)) {
-      // Base fora do ar nao grava nada: o debounce (10 min por placa) segura o poll da tela.
+        return { fontes: sit.fontes, aguardarAte: sit.aguardarAte ? new Date(sit.aguardarAte).toISOString() : null }
+      } catch { return { fontes: null, aguardarAte: null } /* sem fontes: a tela usa a espera antiga */ }
+    })(),
+    // Quando o DETRAN foi consultado (ultima chamada paga deste pedido, ok ou
+    // nao): procedencia e data no bloco do relatorio (14/out). Fail-open.
+    (async (): Promise<string | null> => {
+      if (!entregue) return null
       try {
-        recallBase = await garantirRecallBase(supabase, { id: pedido.id, placa: pedido.placa, recall_sinal: pedido.recall_sinal, recall_marca: pedido.recall_marca }, snapAtual, { chaveApi: String(useRuntimeConfig().anthropicApiKey || '') || null })
-      } catch { recallBase = null }
-    }
-  }
+        const { data: cst } = await supabase.from('premium_custos').select('criado_em')
+          .eq('pedido_id', pedido.id).like('fonte', 'infosimples_detran_%')
+          .order('criado_em', { ascending: false }).limit(1)
+        return Array.isArray(cst) && cst[0]?.criado_em ? String(cst[0].criado_em) : null
+      } catch { return null /* sem data: a linha sai so com a fonte */ }
+    })(),
+    // Restricoes do DETRAN que o classificador nao decide: revisor final (Haiku),
+    // cacheado por texto normalizado (fonte_cache, 365 d). So exibicao: o
+    // snapshot nao muda. Falha = sem veredito = "informacao do DETRAN" neutra.
+    (async (): Promise<VereditosRevisor> => {
+      const pendRevisor = restricoesDetranParaTela((multas as any)?.restricoes_detran).pendentesRevisor
+      if (!pendRevisor.length || !entregue) return {}
+      return revisarRestricoesDetran(pendRevisor, { sb: supabase, chaveApi: String(useRuntimeConfig().anthropicApiKey || '') || null })
+        .catch(() => ({}))
+    })(),
+    // Cupom de recompra do pedido (faixa no relatorio) enquanto valido.
+    entregue ? cupomRecompraDoPedido(supabase, pedido.id) : Promise.resolve(null),
+    // Hook de recall positivo na consulta gratis: diz QUAL campanha, mesmo sem
+    // pendencia hoje. Busca uma vez (ate 6 s) e grava no snapshot; depois vem dele.
+    (async (): Promise<any> => {
+      if (pendente || !entregue) return null
+      const snapAtual: any = pedido.relatorio_snapshot || { consulta }
+      if (snapAtual.recallBase !== undefined) return snapAtual.recallBase
+      if ((pedido.recall_sinal === 'firme' || pedido.recall_sinal === 'suave') && podeReprocessar(`recallbase:${pedido.placa}`, 10 * 60 * 1000)) {
+        // Base fora do ar nao grava nada: o debounce (10 min por placa) segura o poll da tela.
+        try {
+          return await garantirRecallBase(supabase, { id: pedido.id, placa: pedido.placa, recall_sinal: pedido.recall_sinal, recall_marca: pedido.recall_marca }, snapAtual, { chaveApi: String(useRuntimeConfig().anthropicApiKey || '') || null })
+        } catch { return null }
+      }
+      return null
+    })(),
+  ])
+  if (motorCache !== undefined) motor = motorCache
+  const { fontes, aguardarAte } = situacaoFontes
+  recallBase = recallBaseLido
 
   return {
     status: pedido.status,
