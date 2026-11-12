@@ -130,6 +130,11 @@ if (emIngles.value) {
             <strong>credit protection (article 7, X)</strong> and the
             <strong>performance of a contract or preliminary procedures (article 7, V)</strong>.
           </p>
+          <p>
+            The electronic service invoice is issued automatically, after the report is
+            delivered, in the name and CPF/CNPJ of the person who made the payment. In case of a
+            refund, the invoice is cancelled.
+          </p>
 
           <h2>8. Limitation of Liability</h2>
           <p>
@@ -292,6 +297,10 @@ if (emIngles.value) {
             <strong>legítimo interesse (art. 7º, IX da LGPD)</strong>, na
             <strong>proteção do crédito (art. 7º, X)</strong> e na
             <strong>execução de contrato ou procedimentos preliminares (art. 7º, V)</strong>.
+          </p>
+          <p>
+            A nota fiscal de serviço é emitida automaticamente, após a entrega do relatório, no
+            nome e CPF/CNPJ de quem efetuou o pagamento. Em caso de estorno, a nota é cancelada.
           </p>
 
           <h2>8. Limitação de Responsabilidade</h2>
