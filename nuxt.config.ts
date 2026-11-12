@@ -671,6 +671,15 @@ export default defineNuxtConfig({
     cupomRecompraEmail: process.env.NUXT_CUPOM_RECOMPRA_EMAIL || "",
     // HMAC do CPF/CNPJ do pagador do Pix (recorrencia sem e-mail). Sem ele, nao grava.
     pagadorHashSecret: process.env.NUXT_PAGADOR_HASH_SECRET || "",
+    // NFS-e (emissor proprio). Flag "on" liga; sem ela nada e chamado nem renderizado.
+    nfse: process.env.NUXT_NFSE || "",
+    nfseUrl: process.env.NUXT_NFSE_URL || "",
+    nfseApiKey: process.env.NUXT_NFSE_API_KEY || "",
+    nfseWebhookSecret: process.env.NUXT_NFSE_WEBHOOK_SECRET || "",
+    // ISO do instante de ativacao: pedidos entregues antes ficam fora de escopo.
+    nfseDesde: process.env.NUXT_NFSE_DESDE || "",
+    // Chave AES-256 (32 bytes em base64) que cifra os dados do tomador.
+    tomadorKey: process.env.NUXT_TOMADOR_KEY || "",
     // Cupom de tela (10% em 30 min): HMAC do instante de emissao. Sem a env,
     // server/utils/cupom-tela.ts deriva da service key do banco premium.
     cupomTelaSecret: process.env.NUXT_CUPOM_TELA_SECRET || "",
