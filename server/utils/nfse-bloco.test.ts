@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { blocoNfse } from './nfse-bloco'
+import { blocoNfse, colunasNfseRelatorio } from './nfse-bloco'
 
 const base = {
   nfse_status: 'emitida', nfse_numero: '42', nfse_serie: '1',
@@ -25,5 +25,19 @@ describe('blocoNfse', () => {
   it('null when the flag is off or missing', () => {
     expect(blocoNfse(base, 't', { nfse: '' })).toBeNull()
     expect(blocoNfse(base, 't', {})).toBeNull()
+  })
+})
+
+describe('colunasNfseRelatorio', () => {
+  it('adds no nfse_ column with the flag off, empty or missing', () => {
+    expect(colunasNfseRelatorio({ nfse: 'off' })).toBe('')
+    expect(colunasNfseRelatorio({ nfse: '' })).toBe('')
+    expect(colunasNfseRelatorio({})).toBe('')
+    expect(colunasNfseRelatorio(undefined)).toBe('')
+  })
+  it('adds the nfse_ columns blocoNfse needs with the flag on', () => {
+    const c = colunasNfseRelatorio({ nfse: 'on' })
+    expect(c.startsWith(',')).toBe(true)
+    for (const k of ['nfse_status', 'nfse_numero', 'nfse_serie', 'nfse_emitida_em', 'nfse_cancelada_em', 'nfse_id']) expect(c).toContain(k)
   })
 })

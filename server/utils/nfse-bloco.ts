@@ -9,6 +9,15 @@ export interface NfseBloco {
   pdf: string
 }
 
+// The report only reads the nfse_* columns with the module on, so the site keeps
+// working against a database where the NFS-e migration has not run yet.
+const COLUNAS_NFSE_RELATORIO = 'nfse_status,nfse_numero,nfse_serie,nfse_emitida_em,nfse_cancelada_em,nfse_id'
+
+/** Extra columns for the report's order select: ',nfse_...' with the module on, '' otherwise. */
+export function colunasNfseRelatorio(config: { nfse?: string } | null | undefined): string {
+  return config?.nfse === 'on' ? `,${COLUNAS_NFSE_RELATORIO}` : ''
+}
+
 export function blocoNfse(pedido: any, token: string, config: { nfse?: string }): NfseBloco | null {
   if (config?.nfse !== 'on') return null
   const status = pedido?.nfse_status

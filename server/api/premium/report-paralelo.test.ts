@@ -32,9 +32,13 @@ const PEDIDO = {
   ambiente: 'teste', relatorio_snapshot: { consulta: { response: { chassi: '' } }, camposRestantes: 0, recallBase: null },
 }
 
+const selects: string[] = []
+const runtime: any = { public: {}, anthropicApiKey: '' }
+
 function construtor(tab: string) {
   const b: any = {}
-  for (const m of ['select', 'eq', 'like', 'order', 'limit', 'is', 'update']) b[m] = () => b
+  b.select = (cols?: string) => { if (tab === 'pedidos_premium' && typeof cols === 'string') selects.push(cols); return b }
+  for (const m of ['eq', 'like', 'order', 'limit', 'is', 'update']) b[m] = () => b
   const resultado = () => tab === 'pedidos_premium' ? { data: structuredClone(PEDIDO), error: null } : { data: [], error: null }
   b.single = () => rastrear(resultado)
   b.maybeSingle = () => rastrear(resultado)
@@ -45,7 +49,7 @@ function construtor(tab: string) {
 vi.stubGlobal('defineEventHandler', (f: any) => f)
 vi.stubGlobal('getQuery', () => ({ token: 'TokenFicticioDeTeste0001' }))
 vi.stubGlobal('createError', (o: any) => Object.assign(new Error(o.message), o))
-vi.stubGlobal('useRuntimeConfig', () => ({ public: {}, anthropicApiKey: '' }))
+vi.stubGlobal('useRuntimeConfig', () => runtime)
 vi.stubGlobal('usePremiumSupabase', () => ({ from: (t: string) => construtor(t) }))
 vi.stubGlobal('podeReprocessar', () => false)
 vi.stubGlobal('temRecallPendente', () => false)
@@ -79,5 +83,23 @@ describe('premium report final reads', () => {
     // pedido + (placa_cache | premium_custos | cupom) = 2 rounds; serial would be 4.
     expect(picoEmVoo).toBeGreaterThanOrEqual(3)
     expect(ms).toBeLessThan(ATRASO * 3.5)
+  })
+})
+
+describe('premium report order select', () => {
+  beforeEach(() => { selects.length = 0; delete runtime.nfse })
+
+  it('NFS-e off: the select names no nfse_ column (works before the migration)', async () => {
+    await handler({} as any)
+    expect(selects.length).toBeGreaterThan(0)
+    expect(selects[0]).toContain('obref')
+    expect(selects[0]).not.toContain('nfse_')
+  })
+
+  it('NFS-e on: the select carries the nfse_ columns', async () => {
+    runtime.nfse = 'on'
+    await handler({} as any)
+    expect(selects[0]).toContain(',nfse_status,')
+    expect(selects[0]).toContain('nfse_id')
   })
 })
