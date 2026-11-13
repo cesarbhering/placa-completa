@@ -241,7 +241,6 @@ Páginas:
 - **/seguro/carro-eletrico**: preço médio do seguro de carro elétrico por estado (27 UFs)
 - **/seguro/carro-eletrico/{estado}**: detalhe por modelo (ex: /seguro/carro-eletrico/rio-de-janeiro)
 - **/tabela-fipe/{marca-modelo}**: inclui seção "Seguro do modelo" com faixa de preço por região
-- **/cotacao**: pedido de cotação real com corretor licenciado
 - **/blog/seguro-mais-caro-brasil-2026**: ranking das 41 regiões (Grande Rio R$ 2.615/ano vs
   interior de SP R$ 1.398/ano, spread de 87% na cesta de populares)
 

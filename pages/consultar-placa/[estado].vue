@@ -226,7 +226,6 @@ useHead({
               <strong>{{ brlSeguro(seguroUf.mediaPopulares) }} por ano</strong> em
               {{ data.name }} (região {{ seguroUf.regiao.nome }}). O valor exato depende do
               modelo, do ano e do perfil do condutor.
-              <NuxtLink to="/cotacao">Peça uma cotação real gratuita →</NuxtLink>
             </p>
             <p v-if="temEletrico">
               Tem ou pensa em ter um elétrico? Veja o

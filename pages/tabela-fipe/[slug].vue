@@ -476,7 +476,6 @@ if (isBrandPage) {
               </div>
               <p class="metodologia-seguro">
                 Estimativa estatística; não substitui cotação real.
-                <NuxtLink to="/cotacao">Peça uma cotação real gratuita →</NuxtLink>
               </p>
             </template>
 

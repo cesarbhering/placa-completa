@@ -881,7 +881,6 @@ export const ibvPosts: IbvPost[] = [
         type: 'paragraph',
         text: 'Quer saber o seguro médio do SEU carro na SUA região? Consulte a placa no PlacaCompleta e receba a estimativa por e-mail, ou veja o [seguro médio de carro elétrico por estado](/seguro/carro-eletrico).',
       },
-      { type: 'cta', ctaLabel: 'Pedir cotação real gratuita', ctaTo: '/cotacao' },
     ],
   },
   {

@@ -6,8 +6,8 @@ import { getRegiaoCatchAll } from './regiao-susep'
  * cascata de regioes: regiao do usuario -> catch-all do estado -> '11'
  * (SP Met., maior amostra do pais). Fail-open: qualquer erro => null.
  *
- * Usada pelo fluxo da consulta (modal pos-sucesso) e pela pagina
- * /cotacao (link do email, recalcula a estimativa na hora do clique).
+ * Usada pela consulta (tela de resultado, email e WhatsApp) e pelo
+ * relatorio pago (valor-custo).
  */
 
 export interface SeguroEstimado {

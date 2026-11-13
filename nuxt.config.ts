@@ -470,13 +470,12 @@ export default defineNuxtConfig({
       ...urlsDoBlog(),
     ]),
     // Paginas noindex NUNCA no sitemap (conferencia SEO 02/out: /admin, /dash,
-    // /cotacao, /termos-de-uso e /politica-de-privacidade estavam la, e /admin
+    // /termos-de-uso e /politica-de-privacidade estavam la, e /admin
     // e /dash ainda ficavam expostos). O modulo descobre as paginas sozinho;
     // esta lista corta. /premium e /placa ja sao noindex e ficam fora tambem.
     exclude: [
       "/admin",
       "/dash",
-      "/cotacao",
       "/termos-de-uso",
       "/politica-de-privacidade",
       "/woovi-teste",
@@ -882,6 +881,10 @@ export default defineNuxtConfig({
   routeRules: {
     // Logos de marca foram para /logos-marcas/ (22/out/2026); a URL antiga segue valendo.
     "/brand-vw.svg": { redirect: { to: "/logos-marcas/brand-vw.svg", statusCode: 301 } },
+    // The insurance quote request page was removed (13/nov/2026). Old emails
+    // still link to it, so the address goes to the home page.
+    "/cotacao": { redirect: { to: "/", statusCode: 301 } },
+    "/en/cotacao": { redirect: { to: "/en", statusCode: 301 } },
     "/**": {
       headers: {
         "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",

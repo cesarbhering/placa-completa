@@ -88,12 +88,6 @@ useHead({
               cotação real de seguradora.
             </p>
 
-            <div class="text-center mt-md mb-md">
-              <NuxtLink to="/cotacao" class="win-btn win-btn--primary">
-                Pedir cotação real gratuita
-              </NuxtLink>
-            </div>
-
             <h2>Como saber o seguro médio do seu carro?</h2>
             <p>
               Consulte a placa no PlacaCompleta: você recebe por e-mail os dados do veículo, a tabela
