@@ -1296,8 +1296,8 @@ describe('duvida so de cambio com o juiz fora: ambiguo, nunca o score da fonte (
   })
 })
 
-describe('fora da duvida so de cambio, juiz fora segue no fallback de sempre', () => {
-  it('SR x SRV (versao diferente) com juiz 500: fallback (comportamento antigo)', async () => {
+describe('judge without a verdict: honest doubt with the list, never the source best score', () => {
+  it('SR x SRV (different version) with judge 500: doubt with both, even with the source best score in the list', async () => {
     global.fetch = vi.fn(async (url: string) => {
       if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
       if (String(url).includes('anthropic')) return { ok: false, status: 500, json: async () => ({}) } as any
@@ -1309,7 +1309,29 @@ describe('fora da duvida so de cambio, juiz fora segue no fallback de sempre', (
       wdapi: { marca: 'TOYOTA', MODELO: 'HILUX CD4X4', anoModelo: '2008', fipe: { dados: [d('002090-7', 'Hilux CD SR D4-D 4x4 3.0  TDI Dies.'), d('002092-3', 'Hilux CD SRV D4-D 4x4 3.0  TDI Dies')] } },
       fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't', anthropicApiKey: 'k',
     })
-    expect(r.decididoPor).toBe('fallback')
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.escolhido).toBeNull()
+    expect(r.confianca).toBe('baixa')
+    expect(r.candidatos.map((c: any) => c.codigo_fipe).sort()).toEqual(['002090-7', '002092-3'])
+  })
+
+  it('judge at the usage limit (429): doubt with the list instead of the source best score', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes('/modelos')) return { ok: true, json: async () => ({ data: [] }) } as any
+      if (String(url).includes('anthropic')) return { ok: false, status: 429, json: async () => ({ error: { type: 'rate_limit_error', message: 'limit' } }) } as any
+      throw new Error(`unexpected fetch: ${url}`)
+    })
+    global.fetch = fetchMock as any
+    const d = (codigo: string, modelo: string, score: number) => ({ score, codigo_fipe: codigo, codigo_modelo: '1', texto_modelo: modelo, texto_valor: 'R$ 90.000,00', texto_marca: 'Toyota', combustivel: 'Diesel', mes_referencia: 'agosto de 2026' })
+    const r = await escolherMelhorFipe({
+      senatran: { cilindrada: 2982, potencia: 163, descricaoMarcaModelo: 'I/TOYOTA HILUX CD4X4', anoModelo: 2008, codigoCombustivel: '03', descricaoTipoVeiculo: 'CAMINHONETE', descricaoEspecie: 'ESPECIAL' } as any,
+      wdapi: { marca: 'TOYOTA', MODELO: 'HILUX CD4X4', anoModelo: '2008', fipe: { dados: [d('002090-7', 'Hilux CD SR D4-D 4x4 3.0  TDI Dies.', 80), d('002092-3', 'Hilux CD SRV D4-D 4x4 3.0  TDI Dies', 40)] } },
+      fipeApiUrl: 'https://fipe-api.placacompleta.com.br/api/v1', fipeApiToken: 't', anthropicApiKey: 'k',
+    })
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes('anthropic'))).toBe(true)
+    expect(r.decididoPor).toBe('ambiguo')
+    expect(r.escolhido).toBeNull()
+    expect(r.candidatos.map((c: any) => c.codigo_fipe).sort()).toEqual(['002090-7', '002092-3'])
   })
 })
 

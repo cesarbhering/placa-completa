@@ -1340,8 +1340,10 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
     }
 
     const veredito = await julgarComHaiku(fatos, input.senatran, input.wdapi, filtrados.slice(0, 8), input.anthropicApiKey, input.pedidoToken)
-    // Haiku fora do ar/timeout/parse ruim ou codigo fora da lista: com FIPE na
-    // fonte, fail-open pro comportamento antigo (melhor score da fonte). SEM
+    // Juiz sem veredito (fora do ar/timeout/parse ruim/limite): sempre duvida
+    // honesta com a lista (ver o `if (!veredito)` abaixo, 13/nov/2026).
+    // Codigo fora da lista: com FIPE na fonte, fail-open pro comportamento
+    // antigo (melhor score da fonte, via semAjuda). SEM
     // FIPE na fonte o fallback nao tem candidato nenhum (HSX1F20: Celta Spirit
     // saiu sem FIPE e sem lista), entao vira duvida honesta com a shortlist do
     // funil: o relatorio mostra as versoes (e a pergunta de cambio, se for o caso).
@@ -1362,7 +1364,13 @@ export async function escolherMelhorFipe(input: FipeMelhorCandidatoInput): Promi
         ? fb
         : { escolhido: null, decididoPor: 'ambiguo', candidatos: filtrados.slice(0, 5), confianca: 'baixa' }
     }
-    if (!veredito) return semAjuda()
+    // Judge called but no verdict (API down, error, usage limit, timeout,
+    // unreadable reply): always the honest doubt with the funnel shortlist,
+    // never the source's best score. Here the funnel left 2+ candidates, so
+    // the buyer gets the list to choose from instead of a silent guess.
+    if (!veredito) {
+      return { escolhido: null, decididoPor: 'ambiguo', candidatos: filtrados.slice(0, 5), confianca: 'baixa' }
+    }
     // O juiz disse que nenhum candidato serve: resposta valida, nao falha.
     // Duvida honesta com a lista do funil (nunca o melhor score da fonte).
     if (veredito.codigo_fipe === null) {
