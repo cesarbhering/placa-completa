@@ -21,12 +21,13 @@ vi.mock('../../utils/premium-jobs', () => ({
 const vazio = () => ({ resumo: { tem_indicio: false, nivel_max: null, n_confirmado: 0, n_provavel: 0, n_possivel: 0, possiveis_ambiguos: 0, fontes_com_passagem: [] }, passagens: [], linha_do_tempo: null })
 const bloco = () => ({ ...parsearRespostaHistorico(structuredClone(COM))!, consultadoEm: '2026-10-02T15:00:00.000Z' })
 let pedido: any
+let jobs: any[] = []
 const runtime: any = { public: {}, anthropicApiKey: '' }
 
 function construtor(tab: string) {
   const b: any = {}
   for (const m of ['select', 'eq', 'like', 'order', 'limit', 'is', 'update']) b[m] = () => b
-  const resultado = () => (tab === 'pedidos_premium' ? { data: structuredClone(pedido), error: null } : { data: [], error: null })
+  const resultado = () => (tab === 'pedidos_premium' ? { data: structuredClone(pedido), error: null } : { data: tab === 'premium_jobs' ? jobs : [], error: null })
   b.single = async () => resultado()
   b.maybeSingle = async () => resultado()
   b.then = (ok: any, erro: any) => Promise.resolve(resultado()).then(ok, erro)
@@ -64,7 +65,7 @@ function comPedido(x: any = {}, snap: any = {}) {
 }
 
 describe('report JSON with the vehicle history partner', () => {
-  beforeEach(() => { runtime.parceiroHistoricoLigado = ''; runtime.parceiroHistoricoKey = '' })
+  beforeEach(() => { runtime.parceiroHistoricoLigado = ''; runtime.parceiroHistoricoKey = ''; jobs = [] })
 
   it('Completa: the three blocks (allow-list) and the partner auction records as "Base parceira"', async () => {
     comPedido()
@@ -116,12 +117,15 @@ describe('report JSON with the vehicle history partner', () => {
     expect(r.fontes).toEqual([{ fonte: 'historico_veicular', rotulo: 'Donos, leilão e sinistro', estado: 'indisponivel' }])
   })
 
-  it('failed call while the queue may still bring it: no "could not consult" line yet', async () => {
+  it('early call failed (timeout or 5xx) with the queue still to try: "chegando" at once, no "could not consult" line yet', async () => {
     runtime.parceiroHistoricoLigado = 'on'; runtime.parceiroHistoricoKey = 'k'
-    comPedido({}, { historicoVeicular: { status: 'falhou', consultadoEm: null } })
+    jobs = [{ fonte: 'historico_veicular', status: 'pendente' }]
+    comPedido({}, { historicoVeicular: { status: 'falhou', consultadoEm: null, motivo: 'erro' } })
     const r: any = await handler({} as any)
+    expect(r.fontes).toEqual([{ fonte: 'historico_veicular', rotulo: 'Donos, leilão e sinistro', estado: 'chegando' }])
     expect(r.historicoVeicular).toEqual({ status: 'falhou', consultadoEm: null })
     expect(r.historicoLeilao.parceiro).toBeUndefined()
+    jobs = []
     comPedido({ entregue_em: '2026-10-01T00:00:00Z' }, { historicoVeicular: { status: 'falhou', consultadoEm: null } })
     const antigo: any = await handler({} as any)
     expect(antigo.fontes[0].estado).toBe('indisponivel')

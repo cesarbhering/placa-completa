@@ -42,15 +42,17 @@ export function fonteConcluida(fonte: FonteRelatorio, s: EntradaFontes['snapshot
 }
 
 /**
- * The source will not come within the wait (review 1 of PR #752): the daily
- * ceiling was reached, or the partner refused the key or has no balance. The
- * screen does not keep the customer in "consultando" for it; only the queue
- * can still bring it ("chegando"), otherwise "indisponivel".
+ * The source will not come within the wait (review 1 of PR #752): the call
+ * started with the paid query is over and failed (timeout, 5xx, network,
+ * balance, key) or the daily ceiling was reached, and nothing tries again
+ * before the queue (delivery + 5 min). The screen does not keep the customer
+ * in "consultando" for it: "chegando" while the queue may bring it, otherwise
+ * "indisponivel".
  */
 export function fonteNaoVemAgora(fonte: FonteRelatorio, s: EntradaFontes['snapshot']): boolean {
   if (fonte !== 'historico_veicular') return false
-  const b = (s || {}).historicoVeicular
-  return b?.status === 'teto' || (b?.status === 'falhou' && ['saldo', 'autenticacao'].includes(String(b?.motivo)))
+  const st = (s || {}).historicoVeicular?.status
+  return st === 'teto' || st === 'falhou'
 }
 
 export function situacaoDasFontes(e: EntradaFontes): { fontes: SituacaoFonte[]; aguardarAte: number | null } {

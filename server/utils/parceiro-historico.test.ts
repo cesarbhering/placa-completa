@@ -7,6 +7,7 @@ import {
   iniciarHistoricoVeicular, historicoProntoParaSnapshot, _limparEmVooHistorico, motivoDaFalha,
 } from './parceiro-historico'
 import { MOTIVO_CHASSI_DIVERGENTE } from '../../shared/historico-veicular'
+import { situacaoDasFontes } from '../../shared/fontes-relatorio'
 import { FONTE_CACHE_HISTORICO, FONTE_CUSTO_HISTORICO, cfgHistorico } from './parceiro-historico-env'
 import { complementarLeilaoParceiro, rodarJobParceiro, cfgParceiro, inicioDoDiaBrasilia, _limparTokenParceiro, type Http } from './parceiro-leilao'
 
@@ -384,6 +385,24 @@ describe('review 1 of PR #752', () => {
     expect(motivoDaFalha({ http: null, bruto: null })).toBe('erro')
     await completarHistoricoVeicular(sb, pedido(), deps(httpCom(() => resp(401, { message: 'invalid key' }))))
     expect(snap().historicoVeicular).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: 'autenticacao' })
+  })
+
+  it('early call ended in 5xx or timeout: the screen stops waiting for it at once (review 1, item 2)', async () => {
+    const aplicaveis = [{ fonte: 'historico_veicular' as const, rotulo: 'Donos, leilão e sinistro' }]
+    const estado = (historicoVeicular: any, jobs: any[]) => situacaoDasFontes({ entregueEm: new Date(AGORA).toISOString(), agora: AGORA + 30_000, aplicaveis, snapshot: { historicoVeicular }, jobs }).fontes[0].estado
+    expect(await iniciarHistoricoVeicular(sb, pedido(), deps(httpCom(() => resp(503, 'fora'))))).toMatchObject({ status: 'falhou' })
+    const b503 = await historicoProntoParaSnapshot(sb, pedido(), cfg(), AGORA)
+    expect(b503).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: 'erro' })
+    expect(estado(b503, [{ fonte: 'historico_veicular', status: 'pendente' }])).toBe('chegando')
+    expect(estado(b503, [])).toBe('indisponivel')
+    const nunca: Http = async () => new Promise(() => {}) as any
+    expect(await iniciarHistoricoVeicular(sb, pedido('p2'), deps(nunca, { prazoMs: 30 }))).toMatchObject({ status: 'falhou', erro: 'timeout 30 ms' })
+    const bTimeout = await historicoProntoParaSnapshot(sb, pedido('p2'), cfg(), AGORA)
+    expect(bTimeout).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: 'erro' })
+    expect(estado(bTimeout, [{ fonte: 'historico_veicular', status: 'pendente' }])).toBe('chegando')
+    expect(estado(bTimeout, [])).toBe('indisponivel')
+    // While the call is still out, the screen waits for it.
+    expect(estado(undefined, [])).toBe('consultando')
   })
 
   // Item 5: the deadline covers the body; a paid answer stays paid even if the parse breaks.
