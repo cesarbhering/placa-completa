@@ -11,7 +11,10 @@ import { lookupIpGeo } from '../utils/ip-geo'
 import { getRegiaoSusep } from '../utils/regiao-susep'
 import { getSeguroEstimado, type SeguroEstimado } from '../utils/seguro-estimate'
 import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
-import { mensagemLimiteGratis, mensagemLimiteNeutra, tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT, TETO_IP_DESTINATARIO_LIBERADO } from '../utils/ip-wdapi-limit'
+import {
+  mensagemLimiteGratis, mensagemLimiteNeutra, tetoIpWdapi, limiteDaEntradaIp,
+  IP_WDAPI_HOURLY_LIMIT, TETO_IP_DESTINATARIO_LIBERADO,
+} from '../utils/ip-wdapi-limit'
 import { calcularICV5, inferirCategoria, ufDoCorpo, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
@@ -373,7 +376,7 @@ async function consultar(event: H3Event, fim: FimDaConsulta) {
   const pisoTetoIp = destinatarioSemTeto ? TETO_IP_DESTINATARIO_LIBERADO : 0
   const limiteIp = parceiro
     ? Infinity
-    : Math.max(await getHourlyLimit(`ip:${ip}`), pisoTetoIp)
+    : Math.max(await limiteDaEntradaIp(ip), pisoTetoIp)
 
   // Device id do navegador (UUID no localStorage, mandado no corpo). Gravado
   // na linha da consulta pro gate de e-mail contar o mesmo aparelho mesmo

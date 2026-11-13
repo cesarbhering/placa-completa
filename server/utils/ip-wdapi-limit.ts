@@ -76,19 +76,26 @@ async function calcularJanelaInicio(
  * o IP cru, entao nunca casava e a sonda da VPS batia em 15/h. Olha as duas
  * chaves (a crua por compatibilidade) e fica com a maior.
  *
- * IPv6 conta pelo /64 (chaveTetoIp), entao a entrada de qualquer endereco do
- * /64 que esteja pedindo vale, e tambem a escrita como 'ip:<prefixo>::/64'.
- * Sem endereco conhecido, o balde unico usa a entrada 'ip:unknown' (ou o
- * default).
+ * IPv6 conta pelo /64 (chaveTetoIp): vale a entrada do endereco que esta
+ * pedindo e a escrita pro /64 inteiro ('ip:<4 grupos>::/64'). Sem endereco
+ * conhecido, o balde unico usa a entrada 'ip:unknown' (ou o default).
  */
 export async function tetoIpWdapi(ip: string): Promise<number> {
+  const [daEntrada, cru] = await Promise.all([limiteDaEntradaIp(ip), getHourlyLimit(ip)])
+  return Math.max(IP_WDAPI_HOURLY_LIMIT, daEntrada, cru)
+}
+
+/**
+ * Numero da entrada 'ip:<...>' da whitelist que vale pra este endereco, ou o
+ * default quando nao ha entrada. IPv4 e 'unknown': a entrada do proprio valor
+ * (pode ser menor que o default). IPv6: a maior entre a entrada do endereco e
+ * a do /64 dele.
+ */
+export async function limiteDaEntradaIp(ip: string): Promise<number> {
   const chave = chaveTetoIp(ip)
-  const [prefixado, cru, porChave] = await Promise.all([
-    getHourlyLimit(`ip:${ip}`),
-    getHourlyLimit(ip),
-    chave !== ip ? getHourlyLimit(`ip:${chave}`) : Promise.resolve(IP_WDAPI_HOURLY_LIMIT),
-  ])
-  return Math.max(IP_WDAPI_HOURLY_LIMIT, prefixado, cru, porChave)
+  const exata = await getHourlyLimit(`ip:${ip}`)
+  if (chave === ip) return exata
+  return Math.max(exata, await getHourlyLimit(`ip:${chave}`))
 }
 
 export interface LimiteWdapiResultado {

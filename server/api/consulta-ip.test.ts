@@ -49,6 +49,15 @@ describe('free lookup: IPv6 counts by /64', () => {
     expect((await h.tentar({ email: 'p@example.com' }, { ip: '2001:db8:aa:bb::1' })).ok).toBe(true)
   })
 
+  it('an allowlist entry written for the /64 itself raises the cap for every address in it', async () => {
+    const h = await montarConsulta({ whitelist: [{ recipient: 'ip:2001:0DB8:00AA:00BB::/64', hourly_limit: 30 }] })
+    for (let i = 0; i < 10; i++) h.semear(1, { ip_address: `2001:db8:aa:bb:0:0:0:${(i + 1).toString(16)}` })
+    expect((await h.tentar({ email: 'p@example.com' }, { ip: '2001:db8:aa:bb::77' })).ok).toBe(true)
+    // Another /64 is not covered by that entry.
+    for (let i = 0; i < 5; i++) h.semear(1, { ip_address: `2001:db8:aa:cc:0:0:0:${(i + 1).toString(16)}` })
+    expect((await h.tentar({ email: 'p@example.com' }, { ip: '2001:db8:aa:cc::77' })).erro?.statusCode).toBe(429)
+  })
+
   it('IPv4 keeps counting by the exact address', async () => {
     const h = await montarConsulta()
     for (let i = 0; i < 5; i++) await h.chamar({ email: `p${i}@example.com`, placa: placa(i) }, { ip: '203.0.113.10' })

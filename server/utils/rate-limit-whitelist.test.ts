@@ -37,3 +37,43 @@ describe('getHourlyLimit — whitelist por IP', () => {
     expect(await getHourlyLimit('parceiro@ex.com')).toBe(Infinity)
   })
 })
+
+// Keys of the `ip:` kind are matched whatever spelling the operator typed.
+describe('getHourlyLimit: spelling of ip: keys', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.stubGlobal('useSupabaseServer', () => ({
+      from: () => ({
+        select: async () => ({
+          data: [
+            { recipient: ' IP:2001:0DB8:0001:0002:0000:0000:0000:0001 ', hourly_limit: 30 },
+            { recipient: 'ip:2001:DB8:A:B::/64', hourly_limit: 40 },
+            { recipient: 'ip:unknown', hourly_limit: 12 },
+            { recipient: 'ip:203.0.113.7', hourly_limit: 25 },
+            { recipient: 'Pessoa@Example.com', hourly_limit: 9 },
+          ],
+          error: null,
+        }),
+      }),
+    }))
+  })
+
+  it('an IPv6 entry matches the canonical spelling of that address', async () => {
+    const { getHourlyLimit: limite } = await import('./rate-limit-whitelist')
+    expect(await limite('ip:2001:db8:1:2:0:0:0:1')).toBe(30)
+    expect(await limite('ip:2001:db8:1:2::1')).toBe(30)
+    expect(await limite('ip:2001:db8:1:2:0:0:0:2')).toBe(DEFAULT_HOURLY_LIMIT)
+  })
+
+  it('a /64 entry is stored under the key the caps use', async () => {
+    const { getHourlyLimit: limite } = await import('./rate-limit-whitelist')
+    expect(await limite('ip:2001:db8:a:b::/64')).toBe(40)
+  })
+
+  it('IPv4, the unknown bucket and recipients keep working as before', async () => {
+    const { getHourlyLimit: limite } = await import('./rate-limit-whitelist')
+    expect(await limite('ip:203.0.113.7')).toBe(25)
+    expect(await limite('ip:unknown')).toBe(12)
+    expect(await limite('pessoa@example.com')).toBe(9)
+  })
+})

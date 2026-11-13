@@ -9,14 +9,15 @@
  *   destinatario. Nao desliga o teto por IP nem o gate de e-mail: digitar um
  *   e-mail liberado nao prova a posse dele.
  * - 'ip:<endereco>': teto por IP daquele endereco (sonda de checkout, testes
- *   de prod). IPv6 em qualquer grafia (vale pro /64 dele), ou escrito como
+ *   de prod). IPv6 em qualquer grafia: vale quando o pedido vem daquele
+ *   endereco (a contagem e a do /64 dele); pro /64 inteiro, a chave e
  *   'ip:<4 grupos>::/64'. 'ip:unknown' = o balde de quem chega sem endereco
  *   conhecido.
  *
  * Cache em memoria de 5 min; fail-closed: erro de leitura = todo mundo
  * no default.
  */
-import { normalizarIp } from './client-ip'
+import { normalizarIp, chaveTetoIp } from './client-ip'
 
 export const DEFAULT_HOURLY_LIMIT = 5
 
@@ -24,7 +25,14 @@ export const DEFAULT_HOURLY_LIMIT = 5
 function chaveDaEntrada(recipient: unknown): string {
   const chave = String(recipient).toLowerCase().trim()
   if (!chave.startsWith('ip:')) return chave
-  const ip = normalizarIp(chave.slice(3))
+  const resto = chave.slice(3)
+  // 'ip:<endereco IPv6>/64': o /64 inteiro, na mesma chave que os tetos usam.
+  const bloco = /^(.+)\/64$/.exec(resto)
+  if (bloco) {
+    const base = normalizarIp(bloco[1])
+    return base && base.includes(':') ? `ip:${chaveTetoIp(base)}` : chave
+  }
+  const ip = normalizarIp(resto)
   return ip ? `ip:${ip}` : chave
 }
 
