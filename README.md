@@ -77,7 +77,9 @@ The Pix checkout, the embedded card intent and the Stripe session refuse a new o
 | `NUXT_CHECKOUT_LIMITE_CARTAO_PLACA_HORA` | 3 | Unpaid card orders for the same plate in the last 60 min that trigger a 429 on the card (Pix still allowed). |
 | `NUXT_CHECKOUT_DISJUNTOR_CARTAO_10MIN` | 12 | Card circuit breaker: more card orders than this created site-wide in the last 10 min, none paid, makes the card answer 503 while it lasts. |
 
-`0` turns a limit off; empty or invalid uses the default. Blocks are logged as `[checkout-limite]` with a masked plate.
+`0` turns a limit off; empty, invalid or below 1 uses the default; per-plate limits are capped at 99. The plate counts in both formats (old and Mercosul). Concurrent requests are serialized by an in-memory count of orders in flight (single container; a 30 s TTL keeps it from sticking). Blocks are logged as `[checkout-limite]` with a masked plate.
+
+Known limitations: an attacker can re-arm the card breaker every 10 minutes and keep the card off site-wide (Pix keeps working); a buyer whose card is declined three times for the same plate is sent to Pix for an hour.
 
 ## Optional: price A/B test
 

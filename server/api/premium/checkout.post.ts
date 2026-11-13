@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
   if (repetida) return repetida
   // Per-plate unpaid-order limit (server/utils/checkout-limite.ts):
   // blocks BEFORE any order or provider charge exists. Fails open.
-  await barrarLimiteCheckout(supabase, { placa, ambiente, cartao: false }, config)
+  const liberarLimite = await barrarLimiteCheckout(supabase, { placa, ambiente, cartao: false }, config)
   // Preco sai SO da tabela. Antes a completa vinha de PREMIUM_VALOR_CENTAVOS,
   // o que abria a porta pra cobrar um valor e mostrar outro na tela (a tela le
   // a tabela). Fonte unica evita a divergencia.
@@ -151,6 +151,8 @@ export default defineEventHandler(async (event) => {
     })
     .select()
     .single()
+  // The order row now exists (or failed): release the in-flight slot.
+  liberarLimite()
   if (error || !pedido) {
     // Pedido nao foi criado: se a gente ja tinha reivindicado a vaga gratis,
     // solta ela de volta (senao o cupom perde um uso sem ninguem ter recebido nada).

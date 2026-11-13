@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
   // Per-plate unpaid-order limit and card circuit breaker
   // (server/utils/checkout-limite.ts): blocks before any order or Stripe
   // session exists. Fails open.
-  await barrarLimiteCheckout(supabase, { placa, ambiente, cartao: true }, config)
+  const liberarLimite = await barrarLimiteCheckout(supabase, { placa, ambiente, cartao: true }, config)
 
   // Cupom RECALCULADO no servidor (nunca confia no preco do client), igual ao
   // Pix. Diferenca: aqui o caminho gratis nao existe. Se o cupom zerar o preco,
@@ -105,6 +105,8 @@ export default defineEventHandler(async (event) => {
     })
     .select()
     .single()
+  // The order row now exists (or failed): release the in-flight slot.
+  liberarLimite()
   if (error || !pedido) throw createError({ statusCode: 500, message: 'Falha ao criar pedido' })
 
   // Uso do cupom (parcial): so registra depois que o pedido existe. Fail-open.

@@ -57,7 +57,7 @@ export default defineEventHandler(async (event) => {
   if (repetida) return repetida
   // Per-plate unpaid-order limit and card circuit breaker (server/utils/checkout-limite.ts):
   // blocks BEFORE any order or provider charge exists. Fails open.
-  await barrarLimiteCheckout(supabase, { placa, ambiente, cartao: true }, config)
+  const liberarLimite = await barrarLimiteCheckout(supabase, { placa, ambiente, cartao: true }, config)
   const token = crypto.randomBytes(18).toString('base64url')
 
   // Cupom recalculado no servidor. Cartao nao tem caminho gratis: cupom que zera
@@ -107,6 +107,8 @@ export default defineEventHandler(async (event) => {
     })
     .select()
     .single()
+  // The order row now exists (or failed): release the in-flight slot.
+  liberarLimite()
   if (error || !pedido) throw createError({ statusCode: 500, message: 'Falha ao criar pedido' })
 
   if (aplicaCupom && cupomValidado?.cupomId) {

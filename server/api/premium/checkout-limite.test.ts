@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { _zerarEmVoo } from '../../utils/checkout-limite'
 
 // Checkout limits wired into the Pix checkout, the embedded card intent and
 // the Stripe session: when blocked, no order row and no provider charge.
@@ -9,6 +10,7 @@ let atual = ''
 let body: any
 let tabela: any[] = []
 let inseridos: any[] = []
+let falhaBanco = false
 const provedor = { pix: 0, intent: 0, sessao: 0 }
 const CONFIG: any = { public: { homolog: false }, premiumBaseUrl: 'https://example.test' }
 const PLACA = 'TST1A23'
@@ -18,9 +20,13 @@ function q(filtros: ((l: any) => boolean)[] = []): any {
   const o: any = {
     select: () => o,
     eq: (c: string, v: any) => { filtros.push((l) => l[c] === v); return o },
+    in: (c: string, v: any[]) => { filtros.push((l) => v.includes(l[c])); return o },
     gte: (c: string, v: any) => { filtros.push((l) => String(l[c]) >= String(v)); return o },
+    order: () => o,
     limit: (n: number) => { lim = n; return o },
-    then: (ok: any, ko: any) => Promise.resolve({ data: tabela.filter((l) => filtros.every((f) => f(l))).slice(0, lim), error: null }).then(ok, ko),
+    then: (ok: any, ko: any) => Promise.resolve(falhaBanco
+      ? { data: null, error: { message: 'db down' } }
+      : { data: tabela.filter((l) => filtros.every((f) => f(l))).slice(0, lim), error: null }).then(ok, ko),
   }
   return o
 }
@@ -58,7 +64,11 @@ const recente = (o: any = {}) => ({ placa: PLACA, ambiente: 'producao', forma_pa
 const erro = async (fn: () => Promise<any>) => { try { await fn(); return null } catch (e: any) { return e } }
 
 describe('checkout endpoints: per-plate and card limits', () => {
-  beforeEach(() => { tabela = []; inseridos = []; provedor.pix = provedor.intent = provedor.sessao = 0; body = { placa: PLACA, plano: 'completa' }; CONFIG.checkoutLimitePlacaHora = '' })
+  beforeEach(() => {
+    tabela = []; inseridos = []; falhaBanco = false; _zerarEmVoo()
+    provedor.pix = provedor.intent = provedor.sessao = 0
+    body = { placa: PLACA, plano: 'completa' }; CONFIG.checkoutLimitePlacaHora = ''
+  })
 
   it('below the limit the Pix is created', async () => {
     tabela = Array.from({ length: 5 }, () => recente())
@@ -71,8 +81,32 @@ describe('checkout endpoints: per-plate and card limits', () => {
     const e = await erro(() => handlers.pix({}))
     expect(e?.statusCode).toBe(429)
     expect(e?.message).toContain('Muitas tentativas')
+    // Marked so the client shows this message to the buyer.
+    expect(e?.data).toMatchObject({ limite: true, motivo: 'placa' })
     expect(inseridos).toHaveLength(0)
     expect(provedor.pix).toBe(0)
+  })
+
+  it('orders under the other plate format of the same vehicle count', async () => {
+    tabela = Array.from({ length: 6 }, () => recente({ placa: 'TST1C23' }))
+    body = { placa: 'TST1223', plano: 'completa' }
+    expect((await erro(() => handlers.pix({})))?.statusCode).toBe(429)
+  })
+
+  it('5 card intents in the same instant: only 3 PaymentIntents are created', async () => {
+    const rs = await Promise.allSettled(Array.from({ length: 5 }, () => handlers.intent({})))
+    expect(rs.filter((r) => r.status === 'fulfilled')).toHaveLength(3)
+    expect(rs.filter((r) => r.status === 'rejected' && (r as any).reason?.statusCode === 429)).toHaveLength(2)
+    expect(provedor.intent).toBe(3)
+  })
+
+  it('fail open: with a database error the Pix and the card are still created', async () => {
+    falhaBanco = true
+    tabela = Array.from({ length: 50 }, () => recente({ forma_pagamento: 'cartao' }))
+    expect((await handlers.pix({})).brCode).toBe('br')
+    expect((await handlers.intent({})).clientSecret).toBe('s')
+    expect(provedor.pix).toBe(1)
+    expect(provedor.intent).toBe(1)
   })
 
   it('card intent: 3 unpaid card orders for the plate = 429, no PaymentIntent', async () => {
