@@ -46,7 +46,21 @@ export function pagadorWoovi(payload: any): { nome: string; documento: string } 
   return { nome: txt(p?.name), documento: txt(typeof doc === 'object' ? null : doc) }
 }
 
-export function montarEmailFinanceiro(payload: any, raw: string, pedido?: { placa?: string | null; token_entrega?: string | null; id?: string | null } | null) {
+/** How the copy is marked. */
+export interface OpcoesDoEmailFinanceiro {
+  /**
+   * The event carries no charge, so it was not checked against our account and
+   * is not tied to an order. The copy says so in the subject and at the top.
+   */
+  naoVerificado?: boolean
+}
+
+export function montarEmailFinanceiro(
+  payload: any,
+  raw: string,
+  pedido?: { placa?: string | null; token_entrega?: string | null; id?: string | null } | null,
+  opcoes: OpcoesDoEmailFinanceiro = {},
+) {
   const c = payload?.charge || {}
   const pix = payload?.pix || {}
   const evt = txt(payload?.event)
@@ -54,6 +68,9 @@ export function montarEmailFinanceiro(payload: any, raw: string, pedido?: { plac
   const ref = pedido?.placa || c.correlationID || c.identifier || ''
   const pag = pagadorWoovi(payload)
   const linhas = [
+    ...(opcoes.naoVerificado
+      ? ['NÃO VERIFICADO: este evento chegou com a assinatura do provedor, mas não traz cobrança. Não foi conferido com a nossa conta nem ligado a um pedido, e não é pagamento de pedido.', '']
+      : []),
     `Evento: ${evt}`,
     `Valor: ${valor}`,
     `Status da cobranca: ${txt(c.status)}`,
@@ -70,7 +87,7 @@ export function montarEmailFinanceiro(payload: any, raw: string, pedido?: { plac
   let bruto = raw
   try { bruto = JSON.stringify(JSON.parse(raw), null, 2) } catch { /* vai como veio */ }
   return {
-    subject: `Woovi: ${evt} ${valor} ${ref}`.trim(),
+    subject: `${opcoes.naoVerificado ? 'Woovi (NÃO VERIFICADO):' : 'Woovi:'} ${evt} ${valor} ${ref}`.trim(),
     text: `${linhas.join('\n')}\n\n---------- payload bruto (como chegou da Woovi) ----------\n${bruto}\n`,
   }
 }
@@ -79,7 +96,14 @@ export function montarEmailFinanceiro(payload: any, raw: string, pedido?: { plac
  * Dispara o e-mail (sem await no chamador). Dedup por evento; acha o pedido
  * pra placa/token so como enfeite (falhou, segue sem). Nunca lanca.
  */
-export async function encaminharWebhookFinanceiro(supabase: any, payload: any, raw: string, pedidoId: string, chargeId: string): Promise<boolean> {
+export async function encaminharWebhookFinanceiro(
+  supabase: any,
+  payload: any,
+  raw: string,
+  pedidoId: string,
+  chargeId: string,
+  opcoes: OpcoesDoEmailFinanceiro = {},
+): Promise<boolean> {
   let chave = ''
   try {
     chave = chaveDedupWoovi(payload)
@@ -91,7 +115,7 @@ export async function encaminharWebhookFinanceiro(supabase: any, payload: any, r
       if (pedidoId) ({ data: pedido } = await supabase.from('pedidos_premium').select('id,placa,token_entrega').eq('id', pedidoId).maybeSingle())
       if (!pedido && chargeId) ({ data: pedido } = await supabase.from('pedidos_premium').select('id,placa,token_entrega').eq('abacatepay_id', chargeId).maybeSingle())
     } catch { /* sem pedido no resumo */ }
-    const { subject, text } = montarEmailFinanceiro(payload, raw, pedido)
+    const { subject, text } = montarEmailFinanceiro(payload, raw, pedido, opcoes)
     await $fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' },
