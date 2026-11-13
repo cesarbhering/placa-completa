@@ -671,6 +671,12 @@ export default defineNuxtConfig({
     cupomRecompraEmail: process.env.NUXT_CUPOM_RECOMPRA_EMAIL || "",
     // HMAC do CPF/CNPJ do pagador do Pix (recorrencia sem e-mail). Sem ele, nao grava.
     pagadorHashSecret: process.env.NUXT_PAGADOR_HASH_SECRET || "",
+    // Checkout limits against automation (server/utils/checkout-limite.ts).
+    // Empty = default (6 unpaid per plate/hour, 3 unpaid card per plate/hour,
+    // card breaker at 12 card orders in 10 min with none paid); "0" = off.
+    checkoutLimitePlacaHora: process.env.NUXT_CHECKOUT_LIMITE_PLACA_HORA || "",
+    checkoutLimiteCartaoPlacaHora: process.env.NUXT_CHECKOUT_LIMITE_CARTAO_PLACA_HORA || "",
+    checkoutDisjuntorCartao10min: process.env.NUXT_CHECKOUT_DISJUNTOR_CARTAO_10MIN || "",
     // NFS-e (own emitter). The "on" flag enables it; without it nothing is called or rendered.
     nfse: process.env.NUXT_NFSE || "",
     nfseUrl: process.env.NUXT_NFSE_URL || "",

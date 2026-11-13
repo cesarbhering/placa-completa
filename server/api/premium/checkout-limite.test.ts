@@ -1,0 +1,151 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { _zerarEmVoo } from '../../utils/checkout-limite'
+
+// Checkout limits wired into the Pix checkout, the embedded card intent and
+// the Stripe session: when blocked, no order row and no provider charge.
+vi.mock('../../utils/compra-repetida', () => ({ respostaCompraRepetida: async () => null }))
+vi.mock('../../utils/blocklist', () => ({ barrarPlacaBloqueada: () => {} }))
+const handlers: Record<string, any> = {}
+let atual = ''
+let body: any
+let tabela: any[] = []
+let inseridos: any[] = []
+let falhaBanco = false
+const provedor = { pix: 0, intent: 0, sessao: 0 }
+const CONFIG: any = { public: { homolog: false }, premiumBaseUrl: 'https://example.test' }
+const PLACA = 'TST1A23'
+
+function q(filtros: ((l: any) => boolean)[] = []): any {
+  let lim = Infinity
+  const o: any = {
+    select: () => o,
+    eq: (c: string, v: any) => { filtros.push((l) => l[c] === v); return o },
+    in: (c: string, v: any[]) => { filtros.push((l) => v.includes(l[c])); return o },
+    gte: (c: string, v: any) => { filtros.push((l) => String(l[c]) >= String(v)); return o },
+    order: () => o,
+    limit: (n: number) => { lim = n; return o },
+    then: (ok: any, ko: any) => Promise.resolve(falhaBanco
+      ? { data: null, error: { message: 'db down' } }
+      : { data: tabela.filter((l) => filtros.every((f) => f(l))).slice(0, lim), error: null }).then(ok, ko),
+  }
+  return o
+}
+vi.stubGlobal('usePremiumSupabase', () => ({
+  from: () => ({
+    ...q(),
+    insert: (row: any) => { inseridos.push(row); return { select: () => ({ single: async () => ({ data: { id: 'p1' }, error: null }) }) } },
+    update: () => ({ eq: async () => ({}) }),
+  }),
+}))
+vi.stubGlobal('defineEventHandler', (fn: any) => { handlers[atual] = fn; return fn })
+vi.stubGlobal('readBody', async () => body)
+vi.stubGlobal('createError', (o: any) => Object.assign(new Error(o.message), o))
+vi.stubGlobal('assertPremiumGate', () => {})
+vi.stubGlobal('useRuntimeConfig', () => CONFIG)
+vi.stubGlobal('getClientIp', () => '0.0.0.0')
+vi.stubGlobal('getCookie', () => undefined)
+vi.stubGlobal('getDispositivo', () => ({ dispositivo: 'celular', sistema: 'Android', canal: 'web', app_versao: null }))
+vi.stubGlobal('provedorPix', () => ({ nome: 'woovi' }))
+vi.stubGlobal('criarOuObterCliente', async () => null)
+vi.stubGlobal('criarPixComFallback', async () => { provedor.pix++; return { charge: { id: 'px', brCode: 'br', brCodeBase64: 'b', expiresAt: null }, provedor: { nome: 'woovi', nomeDoRecebedor: () => 'X' } } })
+let cupomResposta: any = null
+vi.stubGlobal('validarCupom', async () => cupomResposta)
+vi.stubGlobal('reivindicarUsoCupomGratis', async () => false)
+vi.stubGlobal('liberarUsoCupomGratis', async () => {})
+vi.stubGlobal('registrarUsoCupom', async () => {})
+vi.stubGlobal('stripeConfigurado', () => true)
+vi.stubGlobal('criarPaymentIntent', async () => { provedor.intent++; return { id: 'pi_1', client_secret: 's' } })
+vi.stubGlobal('criarStripeSession', async () => { provedor.sessao++; return { id: 'cs_1', url: 'https://example.test/s' } })
+
+atual = 'pix'; await import('./checkout.post')
+atual = 'intent'; await import('./cartao-intent.post')
+atual = 'sessao'; await import('./checkout-stripe.post')
+
+const recente = (o: any = {}) => ({ placa: PLACA, ambiente: 'producao', forma_pagamento: null, pago_em: null, status: 'aguardando_pagamento', criado_em: new Date(Date.now() - 60_000).toISOString(), ...o })
+const erro = async (fn: () => Promise<any>) => { try { await fn(); return null } catch (e: any) { return e } }
+
+describe('checkout endpoints: per-plate and card limits', () => {
+  beforeEach(() => {
+    tabela = []; inseridos = []; falhaBanco = false; cupomResposta = null; _zerarEmVoo(); vi.restoreAllMocks()
+    provedor.pix = provedor.intent = provedor.sessao = 0
+    body = { placa: PLACA, plano: 'completa' }; CONFIG.checkoutLimitePlacaHora = ''
+  })
+
+  it('below the limit the Pix is created', async () => {
+    tabela = Array.from({ length: 5 }, () => recente())
+    expect((await handlers.pix({})).brCode).toBe('br')
+    expect(provedor.pix).toBe(1)
+  })
+
+  it('at the limit: 429, no order, no Pix at the provider', async () => {
+    tabela = Array.from({ length: 6 }, () => recente())
+    const e = await erro(() => handlers.pix({}))
+    expect(e?.statusCode).toBe(429)
+    expect(e?.message).toContain('Muitas tentativas')
+    // Marked so the client shows this message to the buyer.
+    expect(e?.data).toMatchObject({ limite: true, motivo: 'placa' })
+    expect(inseridos).toHaveLength(0)
+    expect(provedor.pix).toBe(0)
+  })
+
+  it('orders under the other plate format of the same vehicle count', async () => {
+    tabela = Array.from({ length: 6 }, () => recente({ placa: 'TST1C23' }))
+    body = { placa: 'TST1223', plano: 'completa' }
+    expect((await erro(() => handlers.pix({})))?.statusCode).toBe(429)
+  })
+
+  it('5 card intents in the same instant: only 3 PaymentIntents are created', async () => {
+    const rs = await Promise.allSettled(Array.from({ length: 5 }, () => handlers.intent({})))
+    expect(rs.filter((r) => r.status === 'fulfilled')).toHaveLength(3)
+    expect(rs.filter((r) => r.status === 'rejected' && (r as any).reason?.statusCode === 429)).toHaveLength(2)
+    expect(provedor.intent).toBe(3)
+  })
+
+  it('a throw before the insert (invalid card value) releases the slot, not after 30 s', async () => {
+    const t0 = Date.now()
+    // Coupon that leaves the card below the Stripe minimum: 400 before any insert.
+    cupomResposta = { ok: true, cupomId: 'c1', precoBrutoCentavos: 4490, descontoCentavos: 4440, precoLiquidoCentavos: 50 }
+    body = { placa: PLACA, plano: 'completa', email: 'x@y.z', cupom: 'QUASE' }
+    for (let i = 0; i < 3; i++) expect((await erro(() => handlers.intent({})))?.statusCode).toBe(400)
+    expect(inseridos).toHaveLength(0)
+    // Past the short post-release window (count timeout + margin), well under 30 s.
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 2100)
+    cupomResposta = null
+    body = { placa: PLACA, plano: 'completa' }
+    expect((await handlers.intent({})).clientSecret).toBe('s')
+  })
+
+  it('fail open: with a database error the Pix and the card are still created', async () => {
+    falhaBanco = true
+    tabela = Array.from({ length: 50 }, () => recente({ forma_pagamento: 'cartao' }))
+    expect((await handlers.pix({})).brCode).toBe('br')
+    expect((await handlers.intent({})).clientSecret).toBe('s')
+    expect(provedor.pix).toBe(1)
+    expect(provedor.intent).toBe(1)
+  })
+
+  it('card intent: 3 unpaid card orders for the plate = 429, no PaymentIntent', async () => {
+    tabela = Array.from({ length: 3 }, () => recente({ forma_pagamento: 'cartao' }))
+    const e = await erro(() => handlers.intent({}))
+    expect(e?.statusCode).toBe(429)
+    expect(provedor.intent).toBe(0)
+    expect(inseridos).toHaveLength(0)
+  })
+
+  it('card breaker: 503 on both card endpoints, Pix still works', async () => {
+    tabela = Array.from({ length: 13 }, (_, i) => recente({ placa: `TST${String(i).padStart(4, '0')}`, forma_pagamento: 'cartao' }))
+    for (const h of ['intent', 'sessao']) {
+      const e = await erro(() => handlers[h]({}))
+      expect(e?.statusCode, h).toBe(503)
+      expect(e?.message).toBe('Cartão indisponível no momento. Use o Pix.')
+    }
+    expect(provedor.intent + provedor.sessao).toBe(0)
+    expect((await handlers.pix({})).brCode).toBe('br')
+  })
+
+  it('env lowers the limit', async () => {
+    CONFIG.checkoutLimitePlacaHora = '2'
+    tabela = Array.from({ length: 2 }, () => recente())
+    expect((await erro(() => handlers.pix({})))?.statusCode).toBe(429)
+  })
+})

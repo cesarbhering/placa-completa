@@ -7,6 +7,7 @@ import { sanearOrigem, opprefDoPedido, COOKIE_OPPREF } from '../../../shared/ori
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
 import { respostaCompraRepetida } from '../../utils/compra-repetida'
 import { barrarPlacaBloqueada } from '../../utils/blocklist'
+import { barrarLimiteCheckout } from '../../utils/checkout-limite'
 import { cupomTelaValido, segredoCupomTela, resolverDescontoTela, colunasCupomTela } from '../../utils/cupom-tela'
 import { precoDoPlano } from '../../../shared/ab-preco'
 import { abPrecoDoCheckout } from '../../utils/ab-preco'
@@ -71,166 +72,178 @@ export default defineEventHandler(async (event) => {
     placa, plano, ip: getClientIp(event), ...getDispositivo(event), obref: sanearOrigem(body.origin).obref ?? null,
   }, ambiente, body.forcar_nova_compra)
   if (repetida) return repetida
-  // Preco sai SO da tabela. Antes a completa vinha de PREMIUM_VALOR_CENTAVOS,
-  // o que abria a porta pra cobrar um valor e mostrar outro na tela (a tela le
-  // a tabela). Fonte unica evita a divergencia.
-  //
-  // Cupom (opcional): RECALCULADO aqui, nunca confia no preco que o client
-  // mandou (nem no que /api/premium/coupon devolveu segundos antes — o client
-  // podia ter adulterado). Se o codigo mandado nao validar mais por qualquer
-  // motivo, o checkout segue com o preco cheio em vez de falhar a compra.
-  const codigoCupom = String(body.cupom || '').trim()
-  const cupomDigitado = codigoCupom
-    ? await validarCupom(supabase, codigoCupom, plano, email, abPreco.braco)
-    : null
-  // Cupom de tela (5% em 30 min, token assinado na consulta gratis). Nao
-  // acumula: vale o maior. Quando a tela vence, o cupom digitado sai de cena.
-  const { cupom: cupomValidado, tela: descontoTela } = resolverDescontoTela(
-    plano, cupomDigitado, cupomTelaValido(segredoCupomTela(config as any), body.cupom_tela, placa), abPreco.braco,
-  )
+  // Per-plate unpaid-order limit (server/utils/checkout-limite.ts):
+  // blocks BEFORE any order or provider charge exists. Fails open.
+  const liberarLimite = await barrarLimiteCheckout(supabase, { placa, ambiente, cartao: false }, config)
+  // Any throw between the reservation and the insert (invalid value, coupon
+  // error...) releases the in-flight slot right away instead of after 30 s.
+  // Idempotent: the explicit release after the insert stays as it was.
+  try {
+    // Preco sai SO da tabela. Antes a completa vinha de PREMIUM_VALOR_CENTAVOS,
+    // o que abria a porta pra cobrar um valor e mostrar outro na tela (a tela le
+    // a tabela). Fonte unica evita a divergencia.
+    //
+    // Cupom (opcional): RECALCULADO aqui, nunca confia no preco que o client
+    // mandou (nem no que /api/premium/coupon devolveu segundos antes — o client
+    // podia ter adulterado). Se o codigo mandado nao validar mais por qualquer
+    // motivo, o checkout segue com o preco cheio em vez de falhar a compra.
+    const codigoCupom = String(body.cupom || '').trim()
+    const cupomDigitado = codigoCupom
+      ? await validarCupom(supabase, codigoCupom, plano, email, abPreco.braco)
+      : null
+    // Cupom de tela (5% em 30 min, token assinado na consulta gratis). Nao
+    // acumula: vale o maior. Quando a tela vence, o cupom digitado sai de cena.
+    const { cupom: cupomValidado, tela: descontoTela } = resolverDescontoTela(
+      plano, cupomDigitado, cupomTelaValido(segredoCupomTela(config as any), body.cupom_tela, placa), abPreco.braco,
+    )
 
-  // Cupom gratis (permite_gratis + desconto cobre 100%): reivindica a vaga
-  // ATOMICAMENTE (trava a linha do cupom no banco) ANTES de criar o pedido.
-  // Se a reivindicacao falhar (esgotado ou ja usado por este email), cai pro
-  // preco cheio em vez de falhar o checkout — mesma filosofia fail-open dos
-  // outros motivos de cupom invalido.
-  const tentaGratis = !!(cupomValidado?.ok && cupomValidado.permiteGratis && cupomValidado.precoLiquidoCentavos === 0)
-  const gratisReivindicado = tentaGratis && cupomValidado?.cupomId
-    ? await reivindicarUsoCupomGratis(supabase, cupomValidado.cupomId, email, cupomValidado.limiteUsoPorCliente)
-    : false
+    // Cupom gratis (permite_gratis + desconto cobre 100%): reivindica a vaga
+    // ATOMICAMENTE (trava a linha do cupom no banco) ANTES de criar o pedido.
+    // Se a reivindicacao falhar (esgotado ou ja usado por este email), cai pro
+    // preco cheio em vez de falhar o checkout — mesma filosofia fail-open dos
+    // outros motivos de cupom invalido.
+    const tentaGratis = !!(cupomValidado?.ok && cupomValidado.permiteGratis && cupomValidado.precoLiquidoCentavos === 0)
+    const gratisReivindicado = tentaGratis && cupomValidado?.cupomId
+      ? await reivindicarUsoCupomGratis(supabase, cupomValidado.cupomId, email, cupomValidado.limiteUsoPorCliente)
+      : false
 
-  // Se a tentativa de gratis falhou (esgotado/ja usado), NAO usa o preco
-  // liquido=0 que o cupom calculou — sem a vaga reivindicada, ninguem leva de
-  // graca. Cai pro preco cheio (mais seguro que aplicar so o desconto parcial
-  // de um cupom que era, por definicao, "tudo ou nada").
-  const valor = gratisReivindicado
-    ? 0
-    : tentaGratis
-      ? precoTabela
-      : (cupomValidado?.ok ? cupomValidado.precoLiquidoCentavos : (descontoTela?.precoLiquidoCentavos ?? precoTabela))
+    // Se a tentativa de gratis falhou (esgotado/ja usado), NAO usa o preco
+    // liquido=0 que o cupom calculou — sem a vaga reivindicada, ninguem leva de
+    // graca. Cai pro preco cheio (mais seguro que aplicar so o desconto parcial
+    // de um cupom que era, por definicao, "tudo ou nada").
+    const valor = gratisReivindicado
+      ? 0
+      : tentaGratis
+        ? precoTabela
+        : (cupomValidado?.ok ? cupomValidado.precoLiquidoCentavos : (descontoTela?.precoLiquidoCentavos ?? precoTabela))
 
-  const { data: pedido, error } = await supabase
-    .from('pedidos_premium')
-    .insert({
-      token_entrega: token, placa, placa_confirmada: true,
-      // Botao que abriu o checkout (shared/origem-checkout.ts); fora do enum = null.
-      origem_checkout: sanearOrigemCheckout(body.origem_checkout), email: email || null, telefone,
-      pix_provider: provedorPix().nome,
-      status: 'aguardando_pagamento', valor_centavos: valor, plano,
-      preview: body.preview || null,
-      ambiente,
-      // Variante do A/B que gerou a compra (null pra pedidos fora do teste).
-      ab_bloco: abBloco,
-      // Price A/B arm. Column only sent with the flag on (deploy-safe before the migration).
-      ...abPreco.colunas,
-      // Hook de recall que a pessoa viu na consulta gratis (allowlist) + marca.
-      recall_sinal: sanearSinalRecall(body.recall_sinal),
-      recall_marca: sanearMarcaRecall(body.recall_marca),
-      // IP do comprador: usado pra resetar o limite gratis por hora (uma compra
-      // paga zera o contador do usuario, casado por IP ou email).
-      ip_address: getClientIp(event),
-      // Aparelho do comprador (categoria, sem UA cru): responde se quem paga
-      // esta no celular ou no computador, pra ajustar lance por aparelho nos ads.
-      ...getDispositivo(event),
-      // Origem do trafego no PROPRIO pedido. Antes ela so existia na consulta
-      // gratis e o caminho ate ela era o consulta_id — que aponta pra consulta
-      // SENATRAN paga, nao pra `consultas`, entao o join perdia a origem de
-      // toda venda. Gravando aqui, a atribuicao para de depender de casar
-      // placa com janela de tempo.
-      ...sanearOrigem(body.origin),
-      // Sem oppref na sessao, vale o do cookie __oppref do SDK oaiq (30 dias).
-      ...opprefDoPedido(sanearOrigem(body.origin), getCookie(event, COOKIE_OPPREF)),
-      // Cupom de recompra: marca a venda e qual pedido gerou o codigo.
-      ...origemDoCupom(cupomValidado),
-      // Desconto de tela aplicado (o fin mede por esta coluna).
-      ...colunasCupomTela(descontoTela),
-    })
-    .select()
-    .single()
-  if (error || !pedido) {
-    // Pedido nao foi criado: se a gente ja tinha reivindicado a vaga gratis,
-    // solta ela de volta (senao o cupom perde um uso sem ninguem ter recebido nada).
-    if (gratisReivindicado && cupomValidado?.cupomId) await liberarUsoCupomGratis(supabase, cupomValidado.cupomId)
-    throw createError({ statusCode: 500, message: 'Falha ao criar pedido' })
-  }
-
-  // Uso do cupom: so registra DEPOIS que o pedido existe (precisa do pedido_id,
-  // unique na tabela de usos). Fail-open: erro aqui nao derruba o checkout, o
-  // pedido ja foi criado com o preco correto de qualquer forma.
-  if (cupomValidado?.ok && cupomValidado.cupomId && (gratisReivindicado || !tentaGratis)) {
-    await registrarUsoCupom(supabase, {
-      cupomId: cupomValidado.cupomId,
-      pedidoId: pedido.id,
-      email,
-      precoBrutoCentavos: cupomValidado.precoBrutoCentavos,
-      descontoCentavos: gratisReivindicado ? cupomValidado.precoBrutoCentavos : cupomValidado.descontoCentavos,
-      precoLiquidoCentavos: valor,
-      jaReivindicado: gratisReivindicado,
-    })
-  }
-
-  // Caminho GRATIS: sem Pix nenhum. Marca o pedido pra entrega e dispara na
-  // hora — processarPedidoPago ja sabe lidar com abacatepay_id nulo (nao
-  // tenta reembolso de uma cobranca que nunca existiu).
-  if (gratisReivindicado) {
-    await processarPedidoPago(supabase, {
-      id: pedido.id, placa, email, token_entrega: token,
-      abacatepay_id: null, plano, ambiente, preview: body.preview || null,
-      // Caminho gratis: nao ha cobranca, entao nao ha estorno; os campos de
-      // alerta vao mesmo assim, pra mensagem nunca sair sem contexto.
-      valor_centavos: 0,
-    })
-    const { data: atualizado } = await supabase
+    const { data: pedido, error } = await supabase
       .from('pedidos_premium')
-      .select('status')
-      .eq('id', pedido.id)
-      .maybeSingle()
-    return {
-      token, plano, valor: 0, gratis: true, status: atualizado?.status || 'consultando',
-      cupomAplicado: { descontoCentavos: cupomValidado!.precoBrutoCentavos },
+      .insert({
+        token_entrega: token, placa, placa_confirmada: true,
+        // Botao que abriu o checkout (shared/origem-checkout.ts); fora do enum = null.
+        origem_checkout: sanearOrigemCheckout(body.origem_checkout), email: email || null, telefone,
+        pix_provider: provedorPix().nome,
+        status: 'aguardando_pagamento', valor_centavos: valor, plano,
+        preview: body.preview || null,
+        ambiente,
+        // Variante do A/B que gerou a compra (null pra pedidos fora do teste).
+        ab_bloco: abBloco,
+        // Price A/B arm. Column only sent with the flag on (deploy-safe before the migration).
+        ...abPreco.colunas,
+        // Hook de recall que a pessoa viu na consulta gratis (allowlist) + marca.
+        recall_sinal: sanearSinalRecall(body.recall_sinal),
+        recall_marca: sanearMarcaRecall(body.recall_marca),
+        // IP do comprador: usado pra resetar o limite gratis por hora (uma compra
+        // paga zera o contador do usuario, casado por IP ou email).
+        ip_address: getClientIp(event),
+        // Aparelho do comprador (categoria, sem UA cru): responde se quem paga
+        // esta no celular ou no computador, pra ajustar lance por aparelho nos ads.
+        ...getDispositivo(event),
+        // Origem do trafego no PROPRIO pedido. Antes ela so existia na consulta
+        // gratis e o caminho ate ela era o consulta_id — que aponta pra consulta
+        // SENATRAN paga, nao pra `consultas`, entao o join perdia a origem de
+        // toda venda. Gravando aqui, a atribuicao para de depender de casar
+        // placa com janela de tempo.
+        ...sanearOrigem(body.origin),
+        // Sem oppref na sessao, vale o do cookie __oppref do SDK oaiq (30 dias).
+        ...opprefDoPedido(sanearOrigem(body.origin), getCookie(event, COOKIE_OPPREF)),
+        // Cupom de recompra: marca a venda e qual pedido gerou o codigo.
+        ...origemDoCupom(cupomValidado),
+        // Desconto de tela aplicado (o fin mede por esta coluna).
+        ...colunasCupomTela(descontoTela),
+      })
+      .select()
+      .single()
+    // The order row now exists (or failed): release the in-flight slot.
+    liberarLimite()
+    if (error || !pedido) {
+      // Pedido nao foi criado: se a gente ja tinha reivindicado a vaga gratis,
+      // solta ela de volta (senao o cupom perde um uso sem ninguem ter recebido nada).
+      if (gratisReivindicado && cupomValidado?.cupomId) await liberarUsoCupomGratis(supabase, cupomValidado.cupomId)
+      throw createError({ statusCode: 500, message: 'Falha ao criar pedido' })
     }
-  }
 
-  // Cliente na AbacatePay: registra quem comprou (rastreio no dashboard) e o id
-  // fica guardado no pedido. Fail-open: se falhar, o checkout segue sem o id.
-  const customerId = await criarOuObterCliente({ email, telefone })
+    // Uso do cupom: so registra DEPOIS que o pedido existe (precisa do pedido_id,
+    // unique na tabela de usos). Fail-open: erro aqui nao derruba o checkout, o
+    // pedido ja foi criado com o preco correto de qualquer forma.
+    if (cupomValidado?.ok && cupomValidado.cupomId && (gratisReivindicado || !tentaGratis)) {
+      await registrarUsoCupom(supabase, {
+        cupomId: cupomValidado.cupomId,
+        pedidoId: pedido.id,
+        email,
+        precoBrutoCentavos: cupomValidado.precoBrutoCentavos,
+        descontoCentavos: gratisReivindicado ? cupomValidado.precoBrutoCentavos : cupomValidado.descontoCentavos,
+        precoLiquidoCentavos: valor,
+        jaReivindicado: gratisReivindicado,
+      })
+    }
 
-  // Nome do plano vira a descricao da cobranca; plano+externalId no metadata
-  // batem com o produto do catalogo (prod_...). O `customer` inline do
-  // transparente exige name+taxId (que nao coletamos), entao amarramos o
-  // cliente pelo customerId no metadata (rastreavel no dashboard).
-  //
-  // Woovi preferencial, AbacatePay de salva-vidas: se a Woovi falhar ao criar a
-  // cobranca, a AbacatePay assume, pra nao perder a venda por causa de um
-  // gateway fora do ar. `provedor` e QUEM de fato criou — o pedido grava esse
-  // nome (pix_provider) e a tela mostra o recebedor dele. Sem isso, o status e o
-  // estorno bateriam na porta errada.
-  const { charge: pix, provedor } = await criarPixComFallback({
-    amountCentavos: valor,
-    pedidoId: pedido.id,
-    expiresIn: 900,
-    descricao: PLANOS[plano].nome,
-    metadata: { plano, externalId: `plano-${plano}`, ...(customerId ? { customerId } : {}) },
-  })
-  await supabase
-    .from('pedidos_premium')
-    // pix_provider corrigido pro provedor REAL: o insert gravou o primario
-    // otimista, mas o failover pode ter caido no salva-vidas.
-    .update({ abacatepay_id: pix.id, br_code: pix.brCode, expira_em: pix.expiresAt, abacatepay_customer_id: customerId, pix_provider: provedor.nome })
-    .eq('id', pedido.id)
+    // Caminho GRATIS: sem Pix nenhum. Marca o pedido pra entrega e dispara na
+    // hora — processarPedidoPago ja sabe lidar com abacatepay_id nulo (nao
+    // tenta reembolso de uma cobranca que nunca existiu).
+    if (gratisReivindicado) {
+      await processarPedidoPago(supabase, {
+        id: pedido.id, placa, email, token_entrega: token,
+        abacatepay_id: null, plano, ambiente, preview: body.preview || null,
+        // Caminho gratis: nao ha cobranca, entao nao ha estorno; os campos de
+        // alerta vao mesmo assim, pra mensagem nunca sair sem contexto.
+        valor_centavos: 0,
+      })
+      const { data: atualizado } = await supabase
+        .from('pedidos_premium')
+        .select('status')
+        .eq('id', pedido.id)
+        .maybeSingle()
+      return {
+        token, plano, valor: 0, gratis: true, status: atualizado?.status || 'consultando',
+        cupomAplicado: { descontoCentavos: cupomValidado!.precoBrutoCentavos },
+      }
+    }
 
-  return {
-    token, plano, brCode: pix.brCode, brCodeBase64: pix.brCodeBase64, expiresAt: pix.expiresAt, valor,
-    // Nome que vai aparecer como recebedor no app do banco. Vem do provedor
-    // DESTA cobranca, e nao de uma constante na tela: Woovi = "PLACA COMPLETA";
-    // se caiu no salva-vidas (AbacatePay), sem nome — a tela nao promete um nome
-    // que nao bate com a conta pra onde o dinheiro foi.
-    recebedor: provedor.nomeDoRecebedor(),
-    // tentaGratis-e-falhou cai aqui com preco cheio: nesse caso NAO aplicou
-    // desconto nenhum (a vaga gratis nao foi concedida), entao nao anuncia
-    // cupom aplicado pro client.
-    cupomAplicado: (cupomValidado?.ok && !tentaGratis)
-      ? { descontoCentavos: cupomValidado.descontoCentavos }
-      : descontoTela ? { descontoCentavos: descontoTela.descontoCentavos, tela: true } : null,
+    // Cliente na AbacatePay: registra quem comprou (rastreio no dashboard) e o id
+    // fica guardado no pedido. Fail-open: se falhar, o checkout segue sem o id.
+    const customerId = await criarOuObterCliente({ email, telefone })
+
+    // Nome do plano vira a descricao da cobranca; plano+externalId no metadata
+    // batem com o produto do catalogo (prod_...). O `customer` inline do
+    // transparente exige name+taxId (que nao coletamos), entao amarramos o
+    // cliente pelo customerId no metadata (rastreavel no dashboard).
+    //
+    // Woovi preferencial, AbacatePay de salva-vidas: se a Woovi falhar ao criar a
+    // cobranca, a AbacatePay assume, pra nao perder a venda por causa de um
+    // gateway fora do ar. `provedor` e QUEM de fato criou — o pedido grava esse
+    // nome (pix_provider) e a tela mostra o recebedor dele. Sem isso, o status e o
+    // estorno bateriam na porta errada.
+    const { charge: pix, provedor } = await criarPixComFallback({
+      amountCentavos: valor,
+      pedidoId: pedido.id,
+      expiresIn: 900,
+      descricao: PLANOS[plano].nome,
+      metadata: { plano, externalId: `plano-${plano}`, ...(customerId ? { customerId } : {}) },
+    })
+    await supabase
+      .from('pedidos_premium')
+      // pix_provider corrigido pro provedor REAL: o insert gravou o primario
+      // otimista, mas o failover pode ter caido no salva-vidas.
+      .update({ abacatepay_id: pix.id, br_code: pix.brCode, expira_em: pix.expiresAt, abacatepay_customer_id: customerId, pix_provider: provedor.nome })
+      .eq('id', pedido.id)
+
+    return {
+      token, plano, brCode: pix.brCode, brCodeBase64: pix.brCodeBase64, expiresAt: pix.expiresAt, valor,
+      // Nome que vai aparecer como recebedor no app do banco. Vem do provedor
+      // DESTA cobranca, e nao de uma constante na tela: Woovi = "PLACA COMPLETA";
+      // se caiu no salva-vidas (AbacatePay), sem nome — a tela nao promete um nome
+      // que nao bate com a conta pra onde o dinheiro foi.
+      recebedor: provedor.nomeDoRecebedor(),
+      // tentaGratis-e-falhou cai aqui com preco cheio: nesse caso NAO aplicou
+      // desconto nenhum (a vaga gratis nao foi concedida), entao nao anuncia
+      // cupom aplicado pro client.
+      cupomAplicado: (cupomValidado?.ok && !tentaGratis)
+        ? { descontoCentavos: cupomValidado.descontoCentavos }
+        : descontoTela ? { descontoCentavos: descontoTela.descontoCentavos, tela: true } : null,
+    }
+  } finally {
+    liberarLimite()
   }
 })

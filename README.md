@@ -67,6 +67,20 @@ Configure the emitter's webhook to `POST /api/premium/nfse/webhook` on the site,
 
 Orders paid through Google Play, and orders without an identifiable payer, are skipped and the operator is notified. The privacy policy and terms must mention the payer-data retention before `NUXT_TOMADOR_KEY` is set in production.
 
+## Checkout limits
+
+The Pix checkout, the embedded card intent and the Stripe session refuse a new order, before creating anything at the payment provider, when automation is likely (`server/utils/checkout-limite.ts`). Paid orders never count, and a counting error or a count slower than 1.5 s lets the sale through.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `NUXT_CHECKOUT_LIMITE_PLACA_HORA` | 6 | Unpaid orders for the same plate in the last 60 min that trigger a 429 on any checkout. |
+| `NUXT_CHECKOUT_LIMITE_CARTAO_PLACA_HORA` | 3 | Unpaid card orders for the same plate in the last 60 min that trigger a 429 on the card (Pix still allowed). |
+| `NUXT_CHECKOUT_DISJUNTOR_CARTAO_10MIN` | 12 | Card circuit breaker: more card orders than this created site-wide in the last 10 min, none paid, makes the card answer 503 while it lasts. |
+
+`0` turns a limit off; empty, invalid or below 1 uses the default; per-plate limits are capped at 99. The plate counts in both formats (old and Mercosul). Concurrent requests are serialized by an in-memory count of orders in flight (single container; a 30 s TTL keeps it from sticking). Blocks are logged as `[checkout-limite]` with a masked plate.
+
+Known limitations: an attacker can re-arm the card breaker every 10 minutes and keep the card off site-wide (Pix keeps working); a buyer whose card is declined three times for the same plate is sent to Pix for an hour.
+
 ## Optional: price A/B test
 
 A price experiment for the full report, off by default (`shared/ab-preco.ts`). When on, each web visitor is assigned once to arm A (table price from `shared/planos.ts`) or arm B (`PRECO_COMPLETA_BRACO.B`), 50/50, and keeps that arm across visits (`localStorage`, `sessionStorage` as fallback; no cookie). The app, bots and server-rendered pages always use arm A. The arm travels in the checkout request and the server charges that arm's price (coupons apply on top of it); it is stored in `pedidos_premium.ab_preco` and stamped as `extra.ab_preco` on every funnel event.
