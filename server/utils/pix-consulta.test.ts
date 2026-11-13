@@ -13,6 +13,13 @@ const ABACATE = 'https://abacate.test'
 /** An HTTP error as ofetch throws it. */
 const erroHttp = (status: number, data: unknown = {}) => Object.assign(new Error(`[GET] ${status}`), { status, statusCode: status, data })
 const SEM_REDE = new TypeError('fetch failed')
+/** HTTP 200 answers that are not a charge in the expected shape. */
+const FORA_DO_FORMATO: [string, unknown][] = [
+  ['an empty object', {}],
+  ['an error envelope', { errors: [{ message: 'mensagem do provedor' }], data: null }],
+  ['a string', 'ok'],
+  ['nothing', null],
+]
 
 let config: Record<string, unknown>
 let api: ReturnType<typeof vi.fn>
@@ -79,6 +86,14 @@ describe('Woovi', () => {
       expect(await woovi.consultarPix('cob-1')).toEqual({ situacao: 'sem_resposta' })
     })
 
+    it.each([
+      ...FORA_DO_FORMATO,
+      ['a charge without a status', { charge: { identifier: 'cob-1', correlationID: 'pedido-1' } }],
+    ])('HTTP 200 with %s: sem_resposta, neither pending nor missing', async (_caso, corpo) => {
+      api.mockResolvedValue(corpo)
+      expect(await woovi.consultarPix('cob-1')).toEqual({ situacao: 'sem_resposta' })
+    })
+
     it('provider not configured: throws, like checarPix always did', async () => {
       config.wooviAppId = ''
       await expect(woovi.consultarPix('cob-1')).rejects.toMatchObject({ statusCode: 503 })
@@ -120,12 +135,20 @@ describe('Woovi', () => {
     })
 
     it.each([
-      ['400', () => api.mockRejectedValue(erroHttp(400, { error: 'mensagem do provedor' }))],
-      ['404', () => api.mockRejectedValue(erroHttp(404))],
-      ['an answer without a charge', () => api.mockResolvedValue({})],
-    ])('%s: nao_encontrada', async (_caso, preparar) => {
-      preparar()
+      ['400', erroHttp(400, { error: 'mensagem do provedor' })],
+      ['404', erroHttp(404)],
+    ])('%s: nao_encontrada', async (_caso, erro) => {
+      api.mockRejectedValue(erro)
       expect(await woovi.consultarCobrancaPorCorrelacao('pedido-1')).toEqual({ situacao: 'nao_encontrada' })
+    })
+
+    it.each([
+      ...FORA_DO_FORMATO,
+      ['a charge without a status', { charge: { identifier: 'cob-1', correlationID: 'pedido-1' } }],
+      ['a charge without an identifier', { charge: { status: 'COMPLETED', correlationID: 'pedido-1' } }],
+    ])('HTTP 200 with %s: sem_resposta, neither pending nor missing', async (_caso, corpo) => {
+      api.mockResolvedValue(corpo)
+      expect(await woovi.consultarCobrancaPorCorrelacao('pedido-1')).toEqual({ situacao: 'sem_resposta' })
     })
 
     it.each([
@@ -165,12 +188,18 @@ describe('AbacatePay', () => {
       expect(api).toHaveBeenCalledWith(`${ABACATE}/transparents/check`, { method: 'GET', headers: { Authorization: 'Bearer chave-abacate-de-teste' }, query: { id: 'cob-abacate' } })
     })
 
-    it.each([
-      ['404', () => api.mockRejectedValue(erroHttp(404, { data: null, success: false, error: 'mensagem do provedor' }))],
-      ['an answer without data', () => api.mockResolvedValue({ data: null, success: false, error: 'mensagem do provedor' })],
-    ])('%s: nao_encontrada', async (_caso, preparar) => {
-      preparar()
+    it('404: nao_encontrada', async () => {
+      api.mockRejectedValue(erroHttp(404, { data: null, success: false, error: 'mensagem do provedor' }))
       expect(await abacate.consultarPix('cob-abacate')).toEqual({ situacao: 'nao_encontrada' })
+    })
+
+    it.each([
+      ...FORA_DO_FORMATO,
+      ['an envelope without data', { data: null, success: false, error: 'mensagem do provedor' }],
+      ['data without a status', { data: { expiresAt: '2999-01-01T00:00:00.000Z' }, success: true, error: null }],
+    ])('HTTP 200 with %s: sem_resposta, neither pending nor missing', async (_caso, corpo) => {
+      api.mockResolvedValue(corpo)
+      expect(await abacate.consultarPix('cob-abacate')).toEqual({ situacao: 'sem_resposta' })
     })
 
     it.each([

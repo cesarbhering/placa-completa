@@ -96,8 +96,8 @@ export async function consultarPix(id: string): Promise<ConsultaPix<{ status: st
       method: 'GET',
       headers: headers(),
     })
-    const charge = res?.charge || res
-    if (!charge) return { situacao: 'nao_encontrada' }
+    const charge = cobrancaDaResposta(res)
+    if (!charge) return { situacao: 'sem_resposta' }
     return {
       situacao: 'encontrada',
       cobranca: {
@@ -111,7 +111,19 @@ export async function consultarPix(id: string): Promise<ConsultaPix<{ status: st
   }
 }
 
-/** Status da cobranca; null quando ela nao existe ou a Woovi nao respondeu. */
+/**
+ * The charge inside a successful answer, or null when the answer does not
+ * carry one in the expected shape (an empty object, an error envelope, a
+ * string, a charge without a status). Such an answer says nothing about the
+ * charge: it is not "pending" and it is not "does not exist".
+ */
+function cobrancaDaResposta(res: any): any | null {
+  if (!res || typeof res !== 'object') return null
+  const charge = res.charge && typeof res.charge === 'object' ? res.charge : res
+  return typeof charge.status === 'string' && charge.status ? charge : null
+}
+
+/** Status of the charge; null when it does not exist or Woovi did not answer. */
 export async function checarPix(
   id: string,
 ): Promise<{ status: string; brCode?: string; brCodeBase64?: string } | null> {
@@ -132,14 +144,14 @@ export async function consultarCobrancaPorCorrelacao(
   try {
     const { base } = cfg()
     const res = await $fetch<any>(`${base}/api/v1/charge/${encodeURIComponent(correlationID)}`, { method: 'GET', headers: headers() })
-    const charge = res?.charge || null
-    if (!charge?.identifier) return { situacao: 'nao_encontrada' }
+    const charge = cobrancaDaResposta(res)
+    if (!charge || typeof charge.identifier !== 'string' || !charge.identifier) return { situacao: 'sem_resposta' }
     return {
       situacao: 'encontrada',
       cobranca: {
         status: statusNormalizado(charge.status),
-        identifier: String(charge.identifier),
-        correlationID: charge.correlationID ? String(charge.correlationID) : null,
+        identifier: charge.identifier,
+        correlationID: typeof charge.correlationID === 'string' && charge.correlationID ? charge.correlationID : null,
       },
     }
   } catch (e) {

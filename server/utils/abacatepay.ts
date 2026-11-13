@@ -186,7 +186,11 @@ export async function consultarPix(id: string): Promise<ConsultaPix<{ status: st
         query: { id },
       },
     )
-    return res.data ? { situacao: 'encontrada', cobranca: res.data } : { situacao: 'nao_encontrada' }
+    // An answer without a charge in the expected shape (an envelope without
+    // data, data without a status) says nothing about the charge.
+    const dados = res?.data
+    if (!dados || typeof dados !== 'object' || typeof dados.status !== 'string' || !dados.status) return { situacao: 'sem_resposta' }
+    return { situacao: 'encontrada', cobranca: dados }
   } catch (e) {
     return consultaQueFalhou(e)
   }

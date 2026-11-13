@@ -8,7 +8,11 @@ export type ConsultaPix<T> =
   | { situacao: 'encontrada'; cobranca: T }
   /** The provider answered: there is no such charge in our account. */
   | { situacao: 'nao_encontrada' }
-  /** The provider did not answer the question (network error, timeout, 401, 403, 429, 5xx). */
+  /**
+   * The provider did not answer the question: network error, timeout, 401,
+   * 403, 429, 5xx, or a successful answer that does not carry a charge in the
+   * expected shape.
+   */
   | { situacao: 'sem_resposta' }
 
 /**
