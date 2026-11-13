@@ -1,5 +1,6 @@
 import type { HistoricoLeilao } from './historico-leilao'
 import { contarPassagens } from '../../shared/leilao-notificacao'
+import { chaveTetoIp } from './client-ip'
 
 // O SINAL de leilao da consulta gratis. Aqui mora a muralha entre o que a
 // consulta gratis mostra e o que so o relatorio pago entrega.
@@ -141,13 +142,14 @@ function abrirJanela(chave: string, agora: number) {
  * 01/out os endpoints usavam getRequestIP(xForwardedFor), que atras do
  * cloudflared + Traefik devolve o IP INTERNO da rede Docker, o mesmo pra todo
  * mundo, e o teto de 60/h virava GLOBAL (5 a 9 placas com sinal por hora cheia).
- * IP vazio/'unknown' (privado, sem header): nao bloqueia.
+ * A janela e por chaveTetoIp: o endereco no IPv4, o /64 no IPv6. IP
+ * vazio/'unknown' (privado, sem header) nao fica sem teto: todas essas
+ * requisicoes dividem UMA janela de 60/h por sinal.
  */
 export type TipoSinal = 'leilao' | 'recall'
 
 export function dentroDoTetoDeSinal(ip: string, agora = Date.now(), tipo: TipoSinal = 'leilao'): boolean {
-  if (!ip || ip === 'unknown') return true
-  const chave = `${tipo}|${ip}`
+  const chave = `${tipo}|${chaveTetoIp(ip)}`
   const atual = porIp.get(chave)
   if (!atual || agora - atual.desde >= JANELA_MS) {
     abrirJanela(chave, agora)

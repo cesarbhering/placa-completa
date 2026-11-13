@@ -41,7 +41,10 @@ async function montar(atrasoMs = 20) {
   handler = (await import('./preview.post')).default as any
 }
 
-const chamar = (placa: string, ip = IP) => handler({ corpo: { placa }, cabecalhos: { 'cf-connecting-ip': ip, 'user-agent': 'Mozilla/5.0 test' } })
+const chamar = (placa: string, ip: string | null = IP) => handler({
+  corpo: { placa },
+  cabecalhos: { 'user-agent': 'Mozilla/5.0 test', ...(ip ? { 'cf-connecting-ip': ip } : {}) },
+})
 const placa = (i: number) => `TST0A${String(i).padStart(2, '0')}`
 const codigos = (rs: PromiseSettledResult<any>[]) => rs.map((r) => (r.status === 'fulfilled' ? 200 : r.reason?.statusCode))
 
@@ -87,5 +90,26 @@ describe('paid preview: per-IP cap with simultaneous requests', () => {
       return b
     }) as any
     for (let i = 0; i < 8; i++) expect((await chamar(placa(i))).encontrado).toBe(true)
+  })
+})
+
+describe('paid preview: how the cap treats the client address', () => {
+  it('IPv6 counts by /64: 5 previews from 5 addresses of one /64, the 6th address is blocked', async () => {
+    for (let i = 0; i < 5; i++) expect((await chamar(placa(i), `2001:db8:aa:bb::${i + 1}`)).encontrado).toBe(true)
+    await expect(chamar(placa(9), '2001:db8:aa:bb:1:2:3:4')).rejects.toMatchObject({ statusCode: 429 })
+    expect((await chamar(placa(8), '2001:db8:aa:cc::1')).encontrado).toBe(true)
+  })
+
+  it('no known address: one shared bucket with the default cap instead of no cap', async () => {
+    for (let i = 0; i < 5; i++) expect((await chamar(placa(i), null)).encontrado).toBe(true)
+    await expect(chamar(placa(9), null)).rejects.toMatchObject({ statusCode: 429 })
+    expect(sb.tab('wdapi_preview_calls').every((l) => l.ip_address === 'unknown')).toBe(true)
+    expect((await chamar(placa(8), '198.51.100.20')).encontrado).toBe(true)
+  })
+
+  it('the free lookup and the preview of an unknown address fill the same bucket', async () => {
+    for (let i = 0; i < 4; i++) sb.tab('consultas').push({ ip_address: 'unknown', created_at: new Date(Date.now() - 600_000).toISOString() })
+    expect((await chamar(placa(1), null)).encontrado).toBe(true)
+    await expect(chamar(placa(2), null)).rejects.toMatchObject({ statusCode: 429 })
   })
 })

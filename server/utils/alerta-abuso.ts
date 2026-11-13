@@ -12,6 +12,8 @@
 //
 // Nada alem de IP, e-mail e user agent do abusador sai daqui.
 
+import { chaveTetoIp, filtrarPorIp } from './client-ip'
+
 const ultimoAviso = new Map<string, number>()
 // Com o teto gratis em 5/h (30/set), cliente legitimo bate no limite com
 // frequencia; abuso e continuar batendo DEPOIS do bloqueio. So avisa a partir
@@ -45,9 +47,11 @@ export async function avisarAbuso(dados: AvisoAbuso): Promise<void> {
   try {
     if (dados.bloqueiosNaHora != null && dados.bloqueiosNaHora < BLOQUEIOS_PRA_AVISAR) return
     const agora = Date.now()
-    const anterior = ultimoAviso.get(dados.ip)
+    // Mesma chave dos tetos: o endereco no IPv4, o /64 no IPv6.
+    const chave = chaveTetoIp(dados.ip)
+    const anterior = ultimoAviso.get(chave)
     if (anterior && agora - anterior < UMA_HORA_MS) return
-    ultimoAviso.set(dados.ip, agora)
+    ultimoAviso.set(chave, agora)
     podarAntigos(agora)
 
     await sendErrorEmail({
@@ -71,11 +75,9 @@ export async function avisarAbuso(dados: AvisoAbuso): Promise<void> {
 export async function contarBloqueiosNaHora(supabase: any, ip: string): Promise<number | null> {
   try {
     const umaHoraAtras = new Date(Date.now() - UMA_HORA_MS).toISOString()
-    const { count } = await supabase
-      .from('blocked_requests')
-      .select('id', { count: 'exact', head: true })
-      .eq('ip_address', ip)
-      .gte('created_at', umaHoraAtras)
+    const { count } = await filtrarPorIp(
+      supabase.from('blocked_requests').select('id', { count: 'exact', head: true }), 'ip_address', ip,
+    ).gte('created_at', umaHoraAtras)
     return typeof count === 'number' ? count : null
   } catch {
     return null

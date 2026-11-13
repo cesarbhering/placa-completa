@@ -5,7 +5,7 @@ import { marcaExibicao } from '../../shared/marca-exibicao'
 import { sanearOrigem, sanearEntrada } from '../../shared/origem-trafego'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { checkEmailDeliverability } from '../utils/email-deliverability'
-import { getClientIp } from '../utils/client-ip'
+import { getClientIp, condicaoOrIp, filtrarPorIp } from '../utils/client-ip'
 import { emitirCupomTela, segredoCupomTela } from '../utils/cupom-tela'
 import { lookupIpGeo } from '../utils/ip-geo'
 import { getRegiaoSusep } from '../utils/regiao-susep'
@@ -307,9 +307,10 @@ async function consultar(event: H3Event, fim: FimDaConsulta) {
   const isMobile = /mobile|android|iphone/i.test(userAgent)
   const deviceInfo = isMobile ? 'Mobile' : 'Desktop'
 
-  // Rate limit: 5 successful consultas per hour per recipient AND per IP (web only — PWA bypasses).
+  // Rate limit: 5 successful consultas per hour per recipient AND per IP (web and PWA).
   // The "recipient" field switches with the channel so each delivery medium has its own quota.
-  // Skips IP check when IP is 'unknown' to avoid penalising users behind shared/proxied connections.
+  // The IP counts by exact address on IPv4 and by /64 on IPv6. An 'unknown' IP does not skip
+  // the cap: those requests share one bucket (server/utils/client-ip.ts, chaveTetoIp).
   const recipientField = channel === 'whatsapp' ? 'phone' : 'email'
   const recipientValue = channel === 'whatsapp' ? normalizedPhone : sanitizedEmail
   const sentField = channel === 'whatsapp' ? 'whatsapp_sent' : 'email_sent'
@@ -408,7 +409,7 @@ async function consultar(event: H3Event, fim: FimDaConsulta) {
     let janelaInicio = oneHourAgo
     try {
       const orParts: string[] = []
-      if (ipCheckable) orParts.push(`ip_address.eq.${ip}`)
+      if (ipCheckable) orParts.push(condicaoOrIp('ip_address', ip))
       if (!semDestinatario && recipientValue) orParts.push(`email.eq.${recipientValue}`)
       if (orParts.length) {
         const premium = usePremiumSupabase()
@@ -445,31 +446,31 @@ async function consultar(event: H3Event, fim: FimDaConsulta) {
     // Combinado com /api/premium/preview (que tambem custa wdapi, ver
     // server/utils/ip-wdapi-limit.ts): sem a soma, um bot que revezasse entre
     // as duas rotas dobrava o orcamento efetivo pra 30/hora.
-    if (ipCheckable) {
-      const limite = await checarLimiteIpWdapi(supabase, ip, { recipientValue, janelaInicio, tetoMinimo: pisoTetoIp })
-      if (!limite.ok) {
-        supabase.from('blocked_requests').insert({
-          reason: 'rate_limit_ip_wdapi',
-          ip_address: ip,
-          recipient: recipientValue ?? null,
-          placa: placaClean || null,
-          user_agent: userAgent,
-        }).then(({ error }) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
-        // Avisa o time na hora, com dedupe de uma hora por IP. Nao usa await:
-        // quem bateu no teto ja vai levar 429, e o aviso nunca pode segurar a
-        // resposta nem falhar por causa dela.
-        contarBloqueiosNaHora(supabase, ip).then((bloqueiosNaHora) => avisarAbuso({
-          ip, rota: '/api/consulta', teto: limite.teto, email: recipientValue ?? null,
-          userAgent, bloqueiosNaHora,
-        }))
-        throw createError({
-          statusCode: 429,
-          message: mensagemLimiteGratis(limite.teto!, limite.minutesUntilReset!),
-        })
-      }
-      // Vaga em voo do teto por IP: liberada no fim da requisicao (wrapper).
-      fim.liberarIp = limite.liberar
+    // Sem endereco conhecido o teto nao e pulado: essas requisicoes dividem um
+    // balde unico (checarLimiteIpWdapi + chaveTetoIp).
+    const limite = await checarLimiteIpWdapi(supabase, ip, { recipientValue, janelaInicio, tetoMinimo: pisoTetoIp })
+    if (!limite.ok) {
+      supabase.from('blocked_requests').insert({
+        reason: 'rate_limit_ip_wdapi',
+        ip_address: ip,
+        recipient: recipientValue ?? null,
+        placa: placaClean || null,
+        user_agent: userAgent,
+      }).then(({ error }) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
+      // Avisa o time na hora, com dedupe de uma hora por IP. Nao usa await:
+      // quem bateu no teto ja vai levar 429, e o aviso nunca pode segurar a
+      // resposta nem falhar por causa dela.
+      contarBloqueiosNaHora(supabase, ip).then((bloqueiosNaHora) => avisarAbuso({
+        ip, rota: '/api/consulta', teto: limite.teto, email: recipientValue ?? null,
+        userAgent, bloqueiosNaHora,
+      }))
+      throw createError({
+        statusCode: 429,
+        message: mensagemLimiteGratis(limite.teto!, limite.minutesUntilReset!),
+      })
     }
+    // Vaga em voo do teto por IP: liberada no fim da requisicao (wrapper).
+    fim.liberarIp = limite.liberar
 
     const vazio = Promise.resolve({ count: 0, data: null, error: null } as any)
 
@@ -494,11 +495,9 @@ async function consultar(event: H3Event, fim: FimDaConsulta) {
             .limit(1),
       ipCheckable && limiteIp !== Infinity
         ? (() => {
-            const q = supabase
-              .from('consultas')
-              .select('created_at', { count: 'exact' })
-              .eq('ip_address', ip)
-              .gte('created_at', janelaInicio)
+            const q = filtrarPorIp(
+              supabase.from('consultas').select('created_at', { count: 'exact' }), 'ip_address', ip,
+            ).gte('created_at', janelaInicio)
             // No canal 'tela' nada e "enviado", entao filtrar por sentField=true
             // zeraria o contador e o teto por IP deixaria de existir — consulta
             // paga aberta pra raspagem. Aqui o criterio e ter havido consulta.

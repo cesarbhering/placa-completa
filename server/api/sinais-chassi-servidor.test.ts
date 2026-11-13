@@ -16,7 +16,7 @@ const historico = vi.fn(async () => ({ passagens: [] }))
 vi.stubGlobal('readBody', async () => body)
 vi.stubGlobal('consultarHistoricoLeilao', (...a: any[]) => historico(...(a as [])))
 vi.stubGlobal('defineEventHandler', (fn: any) => { ultimo = fn; return fn })
-vi.mock('../utils/client-ip', () => ({ getClientIp: () => ip }))
+vi.mock('../utils/client-ip', async (original) => ({ ...(await original<typeof import('../utils/client-ip')>()), getClientIp: () => ip }))
 
 await import('./leilao-sinal.post'); handlerLeilao = ultimo
 await import('./recall-sinal.post'); handlerRecall = ultimo

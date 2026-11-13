@@ -1,9 +1,9 @@
 import { tratarMensagem, MCP_PROTOCOLOS } from '../utils/mcp-llms'
-import { getClientIp } from '../utils/client-ip'
+import { getClientIp, chaveTetoIp } from '../utils/client-ip'
 
 // MCP remoto (Streamable HTTP, sem sessao, so JSON) em /mcp. Publico e so
 // leitura: ver server/utils/mcp-llms.ts. Sem SSE: GET devolve 405.
-// Teto por IP REAL (client-ip.ts): 60 chamadas por minuto.
+// Teto por IP REAL (client-ip.ts): 60 chamadas por minuto. IPv6 conta pelo /64.
 
 const JANELA_MS = 60 * 1000
 const MAX = 60
@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
     setResponseStatus(event, 400)
     return { jsonrpc: '2.0', id: null, error: { code: -32000, message: `Mcp-Protocol-Version nao suportada: ${versao.slice(0, 20)}` } }
   }
-  if (!useRuntimeConfig().public.homolog && !dentroDoTeto(getClientIp(event))) {
+  if (!useRuntimeConfig().public.homolog && !dentroDoTeto(chaveTetoIp(getClientIp(event)))) {
     setResponseHeader(event, 'Retry-After', '60')
     setResponseStatus(event, 429)
     return { jsonrpc: '2.0', id: null, error: { code: -32000, message: 'Muitas requisicoes. Tente em 1 minuto.' } }

@@ -5,6 +5,7 @@
 // leve so pra isso). Sem a soma, um bot que revezasse entre as duas rotas
 // dobrava o orcamento efetivo pra 30/hora.
 import { getHourlyLimit } from './rate-limit-whitelist'
+import { chaveTetoIp, condicaoOrIp, filtrarPorIp, normalizarIp, IP_DESCONHECIDO } from './client-ip'
 import { inicioDaContagem, emVooPara, reservar, SEM_RESERVA, type Liberar } from './reserva-teto'
 
 // 5/IP/hora (Cesar, 30/set; era 15). Somando /api/consulta + preview de placa
@@ -38,7 +39,8 @@ async function calcularJanelaInicio(
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
   try {
     const orParts: string[] = []
-    if (ipCheckable) orParts.push(`ip_address.eq.${ip}`)
+    // condicaoOrIp: o endereco ja validado (IPv6 pelo /64), nunca o texto cru.
+    if (ipCheckable) orParts.push(condicaoOrIp('ip_address', ip))
     if (recipientValue) orParts.push(`email.eq.${recipientValue}`)
     if (!orParts.length) return oneHourAgo
     const premium = usePremiumSupabase()
@@ -63,10 +65,20 @@ async function calcularJanelaInicio(
  * 'ip:<ip>' (ex.: 'ip:62.169.22.218' = VPS, 30/h, PR #387) e o teto so olhava
  * o IP cru, entao nunca casava e a sonda da VPS batia em 15/h. Olha as duas
  * chaves (a crua por compatibilidade) e fica com a maior.
+ *
+ * IPv6 conta pelo /64 (chaveTetoIp), entao a entrada de qualquer endereco do
+ * /64 que esteja pedindo vale, e tambem a escrita como 'ip:<prefixo>::/64'.
+ * Sem endereco conhecido, o balde unico usa a entrada 'ip:unknown' (ou o
+ * default).
  */
 export async function tetoIpWdapi(ip: string): Promise<number> {
-  const [prefixado, cru] = await Promise.all([getHourlyLimit(`ip:${ip}`), getHourlyLimit(ip)])
-  return Math.max(IP_WDAPI_HOURLY_LIMIT, prefixado, cru)
+  const chave = chaveTetoIp(ip)
+  const [prefixado, cru, porChave] = await Promise.all([
+    getHourlyLimit(`ip:${ip}`),
+    getHourlyLimit(ip),
+    chave !== ip ? getHourlyLimit(`ip:${chave}`) : Promise.resolve(IP_WDAPI_HOURLY_LIMIT),
+  ])
+  return Math.max(IP_WDAPI_HOURLY_LIMIT, prefixado, cru, porChave)
 }
 
 export interface LimiteWdapiResultado {
@@ -83,7 +95,7 @@ export interface LimiteWdapiResultado {
 
 /** Chave da reserva em voo do teto por IP (consulta gratis + preview somados). */
 export function chaveReservaIp(ip: string): string {
-  return `ip|${ip}`
+  return `ip|${chaveTetoIp(ip)}`
 }
 
 /**
@@ -95,6 +107,11 @@ export function chaveReservaIp(ip: string): string {
  * Vale pra chamadas simultaneas: quem passou e ainda nao gravou a linha fica
  * reservado em memoria e entra na conta de quem vem junto. Quando ok, o
  * chamador TEM que chamar `liberar` no fim (linha gravada ou nao).
+ *
+ * Quem conta junto: o mesmo endereco no IPv4, o mesmo /64 no IPv6. Sem
+ * endereco conhecido ('unknown', ou qualquer texto que nao seja endereco) o
+ * teto NAO e pulado: todas essas requisicoes dividem um balde unico, com o
+ * teto default (ou o da entrada 'ip:unknown' da whitelist).
  */
 export async function checarLimiteIpWdapi(
   supabase: any,
@@ -107,8 +124,10 @@ export async function checarLimiteIpWdapi(
     tetoMinimo?: number
   } = {},
 ): Promise<LimiteWdapiResultado> {
-  const ipCheckable = !!ip && ip !== 'unknown'
-  if (!ipCheckable || opts.homolog) return { ok: true, liberar: SEM_RESERVA }
+  if (opts.homolog) return { ok: true, liberar: SEM_RESERVA }
+  // Daqui pra frente so o endereco validado (ou o literal do balde).
+  ip = normalizarIp(ip) ?? IP_DESCONHECIDO
+  const ipCheckable = ip !== IP_DESCONHECIDO
 
   const teto = Math.max(await tetoIpWdapi(ip), opts.tetoMinimo ?? 0)
   if (teto === Infinity) return { ok: true, liberar: SEM_RESERVA }
@@ -125,17 +144,11 @@ export async function checarLimiteIpWdapi(
   try { inicio = inicioDaContagem() } catch { inicio = null }
 
   const [consultasRes, previewRes] = await Promise.all([
-    supabase
-      .from('consultas')
-      .select('created_at', { count: 'exact' })
-      .eq('ip_address', ip)
+    filtrarPorIp(supabase.from('consultas').select('created_at', { count: 'exact' }), 'ip_address', ip)
       .gte('created_at', janelaInicio)
       .order('created_at', { ascending: true })
       .limit(1),
-    supabase
-      .from('wdapi_preview_calls')
-      .select('created_at', { count: 'exact' })
-      .eq('ip_address', ip)
+    filtrarPorIp(supabase.from('wdapi_preview_calls').select('created_at', { count: 'exact' }), 'ip_address', ip)
       .gte('created_at', janelaInicio)
       .order('created_at', { ascending: true })
       .limit(1),
@@ -170,11 +183,11 @@ export async function checarLimiteIpWdapi(
 // Devolve true quando a linha foi gravada (quem chama usa pra liberar a vaga
 // em voo); nunca lanca. O preview nao espera por isto.
 export async function registrarChamadaPreviewWdapi(supabase: any, ip: string): Promise<boolean> {
-  if (!ip || ip === 'unknown') return false
   try {
+    // Sem endereco conhecido a linha entra como 'unknown': e ela que o balde unico conta.
     const { error } = await supabase
       .from('wdapi_preview_calls')
-      .insert({ ip_address: ip })
+      .insert({ ip_address: normalizarIp(ip) ?? IP_DESCONHECIDO })
     if (error) console.warn('[wdapi_preview_calls] insert falhou:', error.message)
     return !error
   } catch (e: any) {

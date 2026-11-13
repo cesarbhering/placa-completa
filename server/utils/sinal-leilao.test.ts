@@ -97,9 +97,26 @@ describe('teto por IP', () => {
     expect(dentroDoTetoDeSinal('2.2.2.2')).toBe(true)
   })
 
-  it('sem IP identificado (vazio ou unknown do getClientIp), nao bloqueia ninguem', () => {
-    for (let i = 0; i < 100; i++) expect(dentroDoTetoDeSinal('')).toBe(true)
-    for (let i = 0; i < 100; i++) expect(dentroDoTetoDeSinal('unknown')).toBe(true)
+  // Until nov/2026 a request with no identified IP skipped the cap. Now every
+  // such request (empty, 'unknown', or text that is not an address) shares ONE
+  // window, so the cap cannot be avoided by arriving without an address.
+  it('no identified IP: one shared window instead of no cap', () => {
+    const t0 = Date.now()
+    for (let i = 0; i < 20; i++) expect(dentroDoTetoDeSinal('', t0)).toBe(true)
+    for (let i = 0; i < 20; i++) expect(dentroDoTetoDeSinal('unknown', t0)).toBe(true)
+    for (let i = 0; i < 20; i++) expect(dentroDoTetoDeSinal('not,an)address', t0)).toBe(true)
+    expect(dentroDoTetoDeSinal('unknown', t0)).toBe(false)
+    expect(dentroDoTetoDeSinal('', t0)).toBe(false)
+    // A visitor with a known address is not affected, and the window reopens after an hour.
+    expect(dentroDoTetoDeSinal('203.0.113.1', t0)).toBe(true)
+    expect(dentroDoTetoDeSinal('unknown', t0 + 60 * 60 * 1000 + 1)).toBe(true)
+  })
+
+  it('IPv6 addresses of one /64 share a window', () => {
+    const t0 = Date.now()
+    for (let i = 0; i < 60; i++) expect(dentroDoTetoDeSinal(`2001:db8:1:2::${(i + 1).toString(16)}`, t0)).toBe(true)
+    expect(dentroDoTetoDeSinal('2001:db8:1:2:a:b:c:d', t0)).toBe(false)
+    expect(dentroDoTetoDeSinal('2001:db8:1:3::1', t0)).toBe(true)
   })
 
   it('leilao e recall tem contadores SEPARADOS: uma consulta nao gasta 2', () => {
@@ -221,7 +238,7 @@ describe('per-IP signal windows: bounded memory', () => {
 
   it('hard ceiling: with the map full of live windows the oldest one leaves', () => {
     const t0 = 1_000_000
-    for (let i = 0; i < MAX_JANELAS_DE_SINAL + 500; i++) dentroDoTetoDeSinal(`chave-${i}`, t0, 'leilao')
+    for (let i = 0; i < MAX_JANELAS_DE_SINAL + 500; i++) dentroDoTetoDeSinal(`198.18.${Math.floor(i / 256)}.${i % 256}`, t0, 'leilao')
     expect(_janelasDeSinalEmMemoria()).toBe(MAX_JANELAS_DE_SINAL)
   })
 
