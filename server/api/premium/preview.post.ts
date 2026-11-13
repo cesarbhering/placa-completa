@@ -57,7 +57,10 @@ export default defineEventHandler(async (event) => {
       message: mensagemLimiteGratis(limite.teto!, limite.minutesUntilReset!),
     })
   }
-  registrarChamadaPreviewWdapi(supabase, ip)
+  // A linha que conta e gravada agora, sem segurar o preview; a vaga em voo
+  // (chamadas simultaneas, ver reserva-teto.ts) e liberada quando a gravacao
+  // termina: gravou = o banco passa a contar; nao gravou = a vaga volta.
+  registrarChamadaPreviewWdapi(supabase, ip).then(limite.liberar, () => limite.liberar(false))
 
   // Fonte da placa (cache -> PlacaFipe -> wdapi), so aqui fora do cache.
   const r = await consultarPlacaWdapi(placaClean)

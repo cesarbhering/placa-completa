@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import type { H3Event } from 'h3'
 import { fipePriceHistory } from '../utils/fipe-api'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { sanearOrigem, sanearEntrada } from '../../shared/origem-trafego'
@@ -24,6 +25,7 @@ import {
   avaliarGateEmail, depsGateEmailSupabase, sanearDeviceId, sanearTokensPagos, limiteGratisSemEmail,
   GATE_EMAIL_CODE, GATE_EMAIL_MENSAGEM,
 } from '../utils/gate-email'
+import { inicioDaContagem, emVooPara, reservar, SEM_RESERVA, type Liberar } from '../utils/reserva-teto'
 
 /**
  * Registra a consulta e RECLAMA se o banco recusar.
@@ -65,7 +67,39 @@ async function registrarConsulta(supabase: any, row: Record<string, any>, origem
 // nem valida e-mail/telefone.
 type Channel = 'email' | 'whatsapp' | 'tela'
 
+/**
+ * Vagas em voo desta requisicao (server/utils/reserva-teto.ts) e como ela
+ * terminou. Os tetos contam linhas que so sao gravadas no fim; ate la, quem ja
+ * passou na conferencia fica reservado em memoria pra que requisicoes
+ * simultaneas nao passem todas lendo a mesma contagem.
+ */
+interface FimDaConsulta {
+  liberarGate: Liberar
+  liberarIp: Liberar
+  liberarDestinatario: Liberar
+  /** A linha de `consultas` foi gravada (e ela que os tetos contam). */
+  linhaGravada: boolean
+  /** A entrega saiu (o teto por destinatario so conta consulta entregue). */
+  entregue: boolean
+}
+
 export default defineEventHandler(async (event) => {
+  const fim: FimDaConsulta = {
+    liberarGate: SEM_RESERVA, liberarIp: SEM_RESERVA, liberarDestinatario: SEM_RESERVA,
+    linhaGravada: false, entregue: false,
+  }
+  try {
+    return await consultar(event, fim)
+  } finally {
+    // Qualquer saida (sucesso, 4xx, 5xx): com a linha gravada o banco passa a
+    // contar; sem linha, a vaga volta na hora. Liberar nunca lanca.
+    fim.liberarGate(fim.linhaGravada)
+    fim.liberarIp(fim.linhaGravada)
+    fim.liberarDestinatario(fim.linhaGravada && fim.entregue)
+  }
+})
+
+async function consultar(event: H3Event, fim: FimDaConsulta) {
   const config = useRuntimeConfig()
   const body = await readBody(event)
 
@@ -350,6 +384,8 @@ export default defineEventHandler(async (event) => {
       // (0 = desde a primeira consulta).
       throw createError({ statusCode: 403, message: GATE_EMAIL_MENSAGEM, data: { code: GATE_EMAIL_CODE, limite: limiteGate } })
     }
+    // Passou pela contagem: a vaga fica em voo ate a linha desta consulta existir.
+    if (gate.liberar) fim.liberarGate = gate.liberar
   }
 
   // Vale pra web E PWA: sem isso, um POST com isPWA:true pulava o rate
@@ -431,9 +467,18 @@ export default defineEventHandler(async (event) => {
           message: mensagemLimiteGratis(limite.teto!, limite.minutesUntilReset!),
         })
       }
+      // Vaga em voo do teto por IP: liberada no fim da requisicao (wrapper).
+      fim.liberarIp = limite.liberar
     }
 
     const vazio = Promise.resolve({ count: 0, data: null, error: null } as any)
+
+    // Teto por destinatario tambem vale pra chamadas simultaneas: marca o
+    // inicio antes de mandar a contagem (ver reserva-teto.ts). Falha aberta.
+    const contaDestinatario = !semDestinatario && limiteDestinatario !== Infinity
+    const chaveDestinatario = contaDestinatario ? `dest|${recipientField}|${recipientValue}` : ''
+    let inicioDestinatario: number | null = null
+    try { if (contaDestinatario) inicioDestinatario = inicioDaContagem() } catch { inicioDestinatario = null }
 
     const [recipientRes, ipRes] = await Promise.all([
       // Sem destinatario (ou destinatario sem teto) nao ha o que contar por destinatario.
@@ -464,7 +509,12 @@ export default defineEventHandler(async (event) => {
         : vazio,
     ])
 
-    const recipientCount = recipientRes?.count ?? 0
+    // Sem await ate a reserva la embaixo: decisao + reserva num passo so.
+    let destinatarioEmVoo = 0
+    try {
+      if (inicioDestinatario !== null) destinatarioEmVoo = emVooPara(chaveDestinatario, inicioDestinatario)
+    } catch { destinatarioEmVoo = 0 }
+    const recipientCount = (recipientRes?.count ?? 0) + destinatarioEmVoo
     const ipCount = ipRes?.count ?? 0
 
     // Cada contagem contra o SEU teto: a do destinatario nunca usa o do IP nem
@@ -498,6 +548,9 @@ export default defineEventHandler(async (event) => {
         message: mensagemLimiteGratis(estourouDestinatario ? limiteDestinatario : limiteIp, minutesUntilReset),
       })
     }
+    try {
+      if (inicioDestinatario !== null) fim.liberarDestinatario = reservar(chaveDestinatario)
+    } catch { /* sem reserva: segue como antes dela existir */ }
   }
 
   // Dedupe per channel: same recipient + same placa in the last hour → skip the
@@ -573,7 +626,7 @@ export default defineEventHandler(async (event) => {
     })
 
     const supabase = useSupabaseServer()
-    await registrarConsulta(supabase, {
+    fim.linhaGravada = await registrarConsulta(supabase, {
       email: sanitizedEmail,
       phone: normalizedPhone,
       placa: placaClean,
@@ -606,7 +659,7 @@ export default defineEventHandler(async (event) => {
     // also valid response
   } else {
     const supabase = useSupabaseServer()
-    await registrarConsulta(supabase, {
+    fim.linhaGravada = await registrarConsulta(supabase, {
       email: sanitizedEmail,
       phone: normalizedPhone,
       placa: placaClean,
@@ -850,7 +903,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = useSupabaseServer()
-  await registrarConsulta(supabase, {
+  fim.entregue = emailSent || whatsappSent
+  fim.linhaGravada = await registrarConsulta(supabase, {
     id: consultaId,
     email: sanitizedEmail,
     phone: normalizedPhone,
@@ -967,7 +1021,7 @@ export default defineEventHandler(async (event) => {
       ano: apiResponse.anoModelo || apiResponse.ano || '',
     } : undefined,
   }
-})
+}
 
 /**
  * Normaliza o price_history da FIPE API em pontos ordenados e downsampled

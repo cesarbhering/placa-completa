@@ -13,7 +13,14 @@
 // um pedido com pago_em. Token desconhecido e token nao pago dao a MESMA
 // resposta (o gate), entao a rota nao vira oraculo de token.
 //
+// Chamadas simultaneas: quem passou no gate pela contagem e ainda nao gravou a
+// linha da consulta fica reservado em memoria (server/utils/reserva-teto.ts) e
+// entra na conta das requisicoes do mesmo IP ou aparelho que vem junto. Sem
+// isso, N requisicoes sobrepostas liam todas "zero consultas" e passavam.
+//
 // Nada aqui loga e-mail nem token.
+
+import { inicioDaContagem, emVooPara, reservar, SEM_RESERVA, type Liberar } from './reserva-teto'
 
 export const GATE_EMAIL_LIMITE_GRATIS = 2
 
@@ -77,6 +84,19 @@ export interface GateEmailResultado {
   exigirEmail: boolean
   motivo: GateEmailMotivo
   consultas?: number
+  /**
+   * So quando passou pela contagem ('abaixo_do_limite'): libera a vaga em voo.
+   * Chamar no fim da requisicao (true = a linha da consulta foi gravada).
+   */
+  liberar?: Liberar
+}
+
+/** Chaves das reservas em voo do gate: uma por IP e uma por aparelho. */
+function chavesDoGate(ip: string | null, deviceId: string | null): string[] {
+  const chaves: string[] = []
+  if (ip) chaves.push(`gate|ip|${ip}`)
+  if (deviceId) chaves.push(`gate|dev|${deviceId}`)
+  return chaves
 }
 
 /**
@@ -95,12 +115,30 @@ export async function avaliarGateEmail(deps: GateEmailDeps, e: GateEmailEntrada)
   if (limite > 0) {
     if (!ip && !e.deviceId) return { exigirEmail: false, motivo: 'sem_identificador' }
     const desdeIso = new Date((e.agora ?? Date.now()) - GATE_EMAIL_JANELA_MS).toISOString()
+    const chaves = chavesDoGate(ip, e.deviceId)
+    let inicio: number | null = null
+    try { inicio = inicioDaContagem() } catch { inicio = null }
     try {
       consultas = await deps.contarConsultas({ ip, deviceId: e.deviceId, desdeIso })
     } catch {
       return { exigirEmail: false, motivo: 'erro_contagem' }
     }
-    if (consultas < limite) return { exigirEmail: false, motivo: 'abaixo_do_limite', consultas }
+    // Sem await daqui ate o return: decisao + reserva num passo so. O maior
+    // entre as chaves (a mesma requisicao em voo segura as duas). Falha aberta.
+    let emVoo = 0
+    try {
+      if (inicio !== null) for (const c of chaves) emVoo = Math.max(emVoo, emVooPara(c, inicio))
+    } catch { emVoo = 0 }
+    if (consultas + emVoo < limite) {
+      let liberar: Liberar = SEM_RESERVA
+      try {
+        if (inicio !== null) {
+          const libs = chaves.map((c) => reservar(c))
+          liberar = (consumiu, quando) => { for (const l of libs) l(consumiu, quando) }
+        }
+      } catch { liberar = SEM_RESERVA }
+      return { exigirEmail: false, motivo: 'abaixo_do_limite', consultas, liberar }
+    }
   }
 
   if (e.tokensPagos.length) {

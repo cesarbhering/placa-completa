@@ -5,6 +5,7 @@
 // leve so pra isso). Sem a soma, um bot que revezasse entre as duas rotas
 // dobrava o orcamento efetivo pra 30/hora.
 import { getHourlyLimit } from './rate-limit-whitelist'
+import { inicioDaContagem, emVooPara, reservar, SEM_RESERVA, type Liberar } from './reserva-teto'
 
 // 5/IP/hora (Cesar, 30/set; era 15). Somando /api/consulta + preview de placa
 // fora do cache. Pagar zera o contador (janelaInicio pos-compra). Whitelist
@@ -72,6 +73,17 @@ export interface LimiteWdapiResultado {
   ok: boolean
   teto?: number
   minutesUntilReset?: number
+  /**
+   * So quando ok: libera a vaga em voo desta requisicao (ver reserva-teto.ts).
+   * Chamar quando a linha que conta estiver gravada, ou com `false` quando a
+   * requisicao terminar sem gravar linha. Sempre presente e nunca lanca.
+   */
+  liberar: Liberar
+}
+
+/** Chave da reserva em voo do teto por IP (consulta gratis + preview somados). */
+export function chaveReservaIp(ip: string): string {
+  return `ip|${ip}`
 }
 
 /**
@@ -79,6 +91,10 @@ export interface LimiteWdapiResultado {
  * lanca: devolve { ok:false, teto, minutesUntilReset } pro chamador decidir
  * a mensagem/log (cada rota loga o bloqueio com seus proprios campos de
  * contexto — placa, recipient etc).
+ *
+ * Vale pra chamadas simultaneas: quem passou e ainda nao gravou a linha fica
+ * reservado em memoria e entra na conta de quem vem junto. Quando ok, o
+ * chamador TEM que chamar `liberar` no fim (linha gravada ou nao).
  */
 export async function checarLimiteIpWdapi(
   supabase: any,
@@ -92,15 +108,21 @@ export async function checarLimiteIpWdapi(
   } = {},
 ): Promise<LimiteWdapiResultado> {
   const ipCheckable = !!ip && ip !== 'unknown'
-  if (!ipCheckable || opts.homolog) return { ok: true }
+  if (!ipCheckable || opts.homolog) return { ok: true, liberar: SEM_RESERVA }
 
   const teto = Math.max(await tetoIpWdapi(ip), opts.tetoMinimo ?? 0)
-  if (teto === Infinity) return { ok: true }
+  if (teto === Infinity) return { ok: true, liberar: SEM_RESERVA }
 
   // Chamador pode ja ter calculado a janela (consulta.post.ts calcula pro
   // check de destinatario tambem, e reusa aqui pra nao duplicar a query do
   // reset pos-pagamento); quem nao tem (preview.post.ts) deixa calcular.
   const janelaInicio = opts.janelaInicio ?? await calcularJanelaInicio(ip, ipCheckable, opts.recipientValue)
+
+  // Marca o inicio ANTES de mandar as contagens: reserva liberada depois deste
+  // ponto ainda conta (a contagem pode nao ter visto a linha dela).
+  const chave = chaveReservaIp(ip)
+  let inicio: number | null = null
+  try { inicio = inicioDaContagem() } catch { inicio = null }
 
   const [consultasRes, previewRes] = await Promise.all([
     supabase
@@ -119,8 +141,17 @@ export async function checarLimiteIpWdapi(
       .limit(1),
   ])
 
-  const total = (consultasRes.count ?? 0) + (previewRes.count ?? 0)
-  if (total < teto) return { ok: true }
+  // Daqui ate o return nao ha await: decisao + reserva sao um passo so, entao
+  // requisicoes simultaneas passam uma de cada vez por aqui. Falha aberta: erro
+  // na reserva = segue como antes dela existir.
+  let emVoo = 0
+  try { if (inicio !== null) emVoo = emVooPara(chave, inicio) } catch { emVoo = 0 }
+  const total = (consultasRes.count ?? 0) + (previewRes.count ?? 0) + emVoo
+  if (total < teto) {
+    let liberar: Liberar = SEM_RESERVA
+    try { if (inicio !== null) liberar = reservar(chave) } catch { liberar = SEM_RESERVA }
+    return { ok: true, liberar }
+  }
 
   const oldest = [consultasRes.data?.[0]?.created_at, previewRes.data?.[0]?.created_at]
     .filter(Boolean)
@@ -130,18 +161,24 @@ export async function checarLimiteIpWdapi(
     const minutesElapsed = Math.floor((Date.now() - new Date(oldest).getTime()) / 60000)
     minutesUntilReset = Math.max(1, 60 - minutesElapsed)
   }
-  return { ok: false, teto, minutesUntilReset }
+  return { ok: false, teto, minutesUntilReset, liberar: SEM_RESERVA }
 }
 
 // Marca uma chamada de /api/premium/preview pro teto combinado. Best-effort:
 // falha de gravacao nao pode derrubar o preview (fail-open, mesma filosofia
 // do resto do rate limit — nunca trava quem esta comprando por causa de log).
-export async function registrarChamadaPreviewWdapi(supabase: any, ip: string) {
-  if (!ip || ip === 'unknown') return
-  supabase
-    .from('wdapi_preview_calls')
-    .insert({ ip_address: ip })
-    .then(({ error }: any) => {
-      if (error) console.warn('[wdapi_preview_calls] insert falhou:', error.message)
-    })
+// Devolve true quando a linha foi gravada (quem chama usa pra liberar a vaga
+// em voo); nunca lanca. O preview nao espera por isto.
+export async function registrarChamadaPreviewWdapi(supabase: any, ip: string): Promise<boolean> {
+  if (!ip || ip === 'unknown') return false
+  try {
+    const { error } = await supabase
+      .from('wdapi_preview_calls')
+      .insert({ ip_address: ip })
+    if (error) console.warn('[wdapi_preview_calls] insert falhou:', error.message)
+    return !error
+  } catch (e: any) {
+    console.warn('[wdapi_preview_calls] insert falhou:', e?.message)
+    return false
+  }
 }
