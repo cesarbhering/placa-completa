@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
-import { PLANOS } from '~/shared/planos'
+import { bracoAtual } from '~/shared/ab-preco'
 import { origemDaSessao } from '~/shared/origem-trafego'
 // v2.0 Consulta Premium. Nos ambientes protegidos (homolog/staging) a pagina e
 // gated por senha; em prod fica aberta.
@@ -111,6 +111,8 @@ async function pagar() {
         origin: origemDaSessao(),
         // Chegou pelo link do e-mail de recuperacao de Pix (/premium?placa=...).
         origem_checkout: route.query.placa ? 'pix_recovery' : 'outro',
+        // Price A/B arm: the server charges this arm's price (flag on, valid value).
+        ab_preco: bracoAtual() ?? undefined,
       },
     })
     step.value = 'pending'
@@ -180,6 +182,9 @@ async function simular() {
 }
 onUnmounted(() => { if (poll) clearInterval(poll); if (pisoTimer) clearTimeout(pisoTimer) })
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
+// Price A/B test: this page only sells the Completa; the confirm step renders
+// after mount, so it shows the arm price directly (usePrecoCompleta).
+const { centavos: precoCompletaCentavos } = usePrecoCompleta()
 </script>
 
 <template>
@@ -227,7 +232,7 @@ const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
           </select>
           <p v-if="ambiente === 'producao'" class="aviso">Atenção: Produção dispara consulta real no SERPRO.</p>
         </div>
-        <button :disabled="loading" @click="pagar">Pagar {{ reais(PLANOS.completa.valorCentavos) }} via Pix</button>
+        <button :disabled="loading" @click="pagar">Pagar {{ reais(precoCompletaCentavos) }} via Pix</button>
         <button class="ghost" @click="step = 'placa'">Voltar</button>
       </div>
 

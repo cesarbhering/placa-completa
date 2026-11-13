@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { bracoAtual, precoDoPlano } from '~/shared/ab-preco'
 // FIPE na propria /tabela-fipe-por-placa (plano SEO 02/out, item #8 aprovado).
 // Usa o MESMO POST /api/consulta da home (canal 'tela'): bloqueio de UA,
 // rate-limit, teto por IP e cache valem igual; nenhuma rota nova. O resultado
@@ -21,9 +20,8 @@ const carregando = ref(false)
 const erro = ref('')
 const resultado = ref<Record<string, any> | null>(null)
 const abrirCheckout = ref(false)
-// Price A/B test (shared/ab-preco.ts): the offer only renders after the
-// client-side lookup, when the arm is already drawn, so no SSR mismatch.
-const preco = computed(() => `R$ ${(precoDoPlano('completa', bracoAtual()) / 100).toFixed(2).replace('.', ',')}`)
+// Completa price from the single source of the price A/B test (usePrecoCompleta).
+const { texto: preco } = usePrecoCompleta()
 const INCLUI = ['Roubo e furto', 'Leilão', 'Gravame', 'RENAJUD', 'Multas', 'Restrições']
 
 function gtag(evento: string, params: Record<string, any>) {

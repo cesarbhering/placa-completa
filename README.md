@@ -71,6 +71,8 @@ Orders paid through Google Play, and orders without an identifiable payer, are s
 
 A price experiment for the full report, off by default (`shared/ab-preco.ts`). When on, each web visitor is assigned once to arm A (table price from `shared/planos.ts`) or arm B (`PRECO_COMPLETA_BRACO.B`), 50/50, and keeps that arm across visits (`localStorage`, `sessionStorage` as fallback; no cookie). The app, bots and server-rendered pages always use arm A. The arm travels in the checkout request and the server charges that arm's price (coupons apply on top of it); it is stored in `pedidos_premium.ab_preco` and stamped as `extra.ab_preco` on every funnel event.
 
+Visible prices on consumer pages go through `usePrecoCompleta` / `<PrecoCompleta>` / `<TextoComPreco>`: arm A in server rendering, the visitor's arm after mount; first-fold spots keep the number hidden until mount in both arms. JSON-LD, meta tags, Open Graph, blog text and `/para-empresas` always show arm A.
+
 | Variable | Meaning |
 |---|---|
 | `NUXT_PUBLIC_AB_PRECO` | `on` enables the test. Anything else (default empty) puts everybody in arm A, with nothing drawn, stored, sent or read. |
