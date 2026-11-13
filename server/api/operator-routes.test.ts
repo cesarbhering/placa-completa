@@ -17,6 +17,7 @@ const ROTAS: [string, () => Promise<any>][] = [
   ['premium/recall/backfill', () => import('./premium/recall/backfill.post')],
   ['premium/recall/agrupar-backfill', () => import('./premium/recall/agrupar-backfill.post')],
   ['premium/em-voo-teste', () => import('./premium/em-voo-teste.post')],
+  ['premium/reembolsar', () => import('./premium/reembolsar.post')],
   ['suporte/fila', () => import('./suporte/fila.post')],
 ]
 
