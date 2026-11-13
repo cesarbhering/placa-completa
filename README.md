@@ -81,6 +81,10 @@ The Pix checkout, the embedded card intent and the Stripe session refuse a new o
 
 Known limitations: an attacker can re-arm the card breaker every 10 minutes and keep the card off site-wide (Pix keeps working); a buyer whose card is declined three times for the same plate is sent to Pix for an hour.
 
+Typed coupons have their own attempt limits (`server/utils/cupom-limite.ts`, in memory). Only invalid codes count (unknown, inactive, expired, other plan, other e-mail). `NUXT_CUPOM_LIMITE_PLACA_HORA` (default 5): after that many invalid validations for a plate in 60 min, every coupon for that plate answers 429. `NUXT_CUPOM_LIMITE_GLOBAL_10MIN` (default 30): above that many invalid validations site-wide in 10 min, only coupons we generated (rebuy, bump, Pix recovery, or a personal coupon with the right e-mail) are accepted; anything else gets the same 429. At checkout a blocked coupon is treated as invalid (full price) and a sale without a coupon is never blocked. `0` turns a limit off. Blocks are logged as `[cupom-limite]` with a masked plate. Known limitation: hand-typed campaign coupons pause while an attack keeps the global limit armed.
+
+The homolog/staging password gate locks for 10 min, for everyone, after more than 10 wrong passwords in 10 min (`server/utils/gate-limite.ts`).
+
 ## Optional: price A/B test
 
 A price experiment for the full report, off by default (`shared/ab-preco.ts`). When on, each web visitor is assigned once to arm A (table price from `shared/planos.ts`) or arm B (`PRECO_COMPLETA_BRACO.B`), 50/50, and keeps that arm across visits (`localStorage`, `sessionStorage` as fallback; no cookie). The app, bots and server-rendered pages always use arm A. The arm travels in the checkout request and the server charges that arm's price (coupons apply on top of it); it is stored in `pedidos_premium.ab_preco` and stamped as `extra.ab_preco` on every funnel event.

@@ -8,9 +8,10 @@ import { _zerarGateLimite, GATE_BLOQUEIO_MS } from '../../utils/gate-limite'
 vi.mock('../../utils/compra-repetida', () => ({ respostaCompraRepetida: async () => null }))
 vi.mock('../../utils/blocklist', () => ({ barrarPlacaBloqueada: () => {} }))
 let consultasPorCodigo = 0
+let dispensaEmail = false
 vi.mock('../../utils/cupom-recompra', () => ({
   origemDoCupom: () => ({}),
-  cupomDispensaEmail: async () => { consultasPorCodigo++; return false },
+  cupomDispensaEmail: async () => { consultasPorCodigo++; return dispensaEmail },
 }))
 const handlers: Record<string, any> = {}
 let atual = ''
@@ -82,7 +83,7 @@ async function estourarPlaca(placa = PLACA) {
 describe('coupon endpoint and order endpoints under the coupon limit', () => {
   beforeEach(() => {
     _zerarCupomLimite(); _zerarEmVoo(); _zerarGateLimite()
-    inseridos = []; validacoes = 0; consultasPorCodigo = 0; cupomResposta = null
+    inseridos = []; validacoes = 0; consultasPorCodigo = 0; cupomResposta = null; dispensaEmail = false
     provedor.pix = provedor.intent = provedor.sessao = 0
     CONFIG.public.gated = false
   })
@@ -140,6 +141,56 @@ describe('coupon endpoint and order endpoints under the coupon limit', () => {
       expect((await erro(() => handlers[h]({})))?.message, h).toBe('Informe o e-mail para usar um cupom.')
     }
     expect(consultasPorCodigo).toBe(0)
+  })
+
+  /** Arms the global limit: 31 invalid validations on distinct plates. */
+  async function armarGlobal() {
+    cupomResposta = INVALIDO
+    for (let i = 0; i <= 30; i++) {
+      body = { codigo: CODIGO, plano: 'completa', placa: `TST${String(i).padStart(4, '0')}` }
+      await handlers.coupon({})
+    }
+  }
+
+  it('global armed: coupon endpoint answers the same 429 to a campaign coupon and an unknown code', async () => {
+    await armarGlobal()
+    body = { codigo: CODIGO, plano: 'completa', placa: PLACA, email: EMAIL }
+    cupomResposta = VALIDO
+    const campanha = await erro(() => handlers.coupon({}))
+    cupomResposta = INVALIDO
+    const inexistente = await erro(() => handlers.coupon({}))
+    expect(campanha?.statusCode).toBe(429)
+    expect(campanha?.data).toEqual({ limite: true, motivo: 'cupom_global' })
+    expect([campanha?.message, campanha?.data]).toEqual([inexistente?.message, inexistente?.data])
+  })
+
+  it('global armed: a personal coupon with the right e-mail still applies at checkout', async () => {
+    await armarGlobal()
+    cupomResposta = { ...VALIDO, pessoal: true }
+    body = { placa: PLACA, plano: 'completa', email: EMAIL, cupom: CODIGO }
+    await handlers.pix({})
+    expect(inseridos[0].valor_centavos ?? inseridos[0].valor).toBe(3490)
+  })
+
+  it('global armed: a campaign coupon at checkout = full price', async () => {
+    await armarGlobal()
+    cupomResposta = VALIDO
+    body = { placa: PLACA, plano: 'completa', email: EMAIL, cupom: CODIGO }
+    await handlers.pix({})
+    expect(inseridos[0].valor_centavos ?? inseridos[0].valor).toBe(4490)
+  })
+
+  it('global armed: a rebuy coupon without e-mail still works on every order endpoint', async () => {
+    await armarGlobal()
+    dispensaEmail = true
+    cupomResposta = { ...VALIDO, origem: 'recompra' }
+    for (const h of ['pix', 'intent', 'sessao']) {
+      body = { placa: PLACA, plano: 'completa', cupom: CODIGO }
+      await handlers[h]({})
+    }
+    expect(consultasPorCodigo).toBe(3)
+    expect(inseridos).toHaveLength(3)
+    for (const row of inseridos) expect(row.valor_centavos ?? row.valor).toBe(3490)
   })
 
   it('invalid typed coupons at checkout count toward the plate limit', async () => {

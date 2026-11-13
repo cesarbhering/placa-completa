@@ -35,6 +35,8 @@ export interface CupomValidado {
    * in server/utils/cupom-limite.ts. Internal: never sent to the browser.
    */
   contaTentativa?: boolean
+  /** true = personal coupon (email_restrito) matched against the e-mail sent. Internal. */
+  pessoal?: boolean
 }
 
 /**
@@ -169,6 +171,7 @@ export async function validarCupom(
     descontoCentavos,
     precoLiquidoCentavos,
     exigeEmail,
+    pessoal: !!(cupom.email_restrito && email),
     permiteGratis: !!cupom.permite_gratis,
     limiteUsoPorCliente: cupom.limite_uso_por_cliente,
   }

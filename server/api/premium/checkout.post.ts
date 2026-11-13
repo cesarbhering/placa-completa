@@ -1,7 +1,7 @@
 import { sanearOrigemCheckout } from '../../../shared/origem-checkout'
 import { ambienteDaConsultaPaga } from '../../utils/gcc-reserva'
 import { origemDoCupom, cupomDispensaEmail } from '../../utils/cupom-recompra'
-import { validarCupomComLimite, cupomLimiteEstourado } from '../../utils/cupom-limite'
+import { validarCupomComLimite, cupomLimitePlacaEstourado } from '../../utils/cupom-limite'
 import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-funil'
 import crypto from 'node:crypto'
 import { sanearOrigem, opprefDoPedido, COOKIE_OPPREF } from '../../../shared/origem-trafego'
@@ -48,8 +48,8 @@ export default defineEventHandler(async (event) => {
   }
   // Cupom exige e-mail (limite por pessoa / cupom pessoal), menos o de
   // recompra, que vale pra qualquer um (server/utils/cupom-recompra.ts).
-  // Coupon attempt limit tripped: no lookup by code, treated as a non-rebuy code.
-  if (!email && String(body.cupom || '').trim() && (cupomLimiteEstourado(placa, config) || !(await cupomDispensaEmail(usePremiumSupabase(), String(body.cupom))))) {
+  // Per-plate coupon limit tripped: no lookup by code, treated as a non-rebuy code.
+  if (!email && String(body.cupom || '').trim() && (cupomLimitePlacaEstourado(placa, config) || !(await cupomDispensaEmail(usePremiumSupabase(), String(body.cupom))))) {
     throw createError({ statusCode: 400, message: 'Informe o e-mail para usar um cupom.' })
   }
 
