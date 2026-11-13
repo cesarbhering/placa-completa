@@ -1,5 +1,6 @@
 import crypto from 'node:crypto'
 import { gateBloqueado, registrarSenhaErrada, MSG_GATE_LIMITE } from '../../utils/gate-limite'
+import { valorCookieGate } from '../../utils/premium-gate'
 
 // Valida a senha do gate premium e seta o cookie. Homologacao.
 export default defineEventHandler(async (event) => {
@@ -29,6 +30,7 @@ export default defineEventHandler(async (event) => {
   // maxAge longo (400 dias, o teto que os browsers aceitam) pra o cookie durar
   // tanto quanto a flag em localStorage: assim, depois de passar pelo gate do
   // home uma vez, o fluxo de compra nunca cai em 401 no meio.
-  setCookie(event, 'premium_gate', expected, { httpOnly: true, sameSite: 'lax', secure: https, path: '/', maxAge: 60 * 60 * 24 * 400 })
+  // The cookie holds a value derived from the password, never the password.
+  setCookie(event, 'premium_gate', valorCookieGate(expected), { httpOnly: true, sameSite: 'lax', secure: https, path: '/', maxAge: 60 * 60 * 24 * 400 })
   return { ok: true }
 })
