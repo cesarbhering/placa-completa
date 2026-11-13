@@ -1,5 +1,6 @@
 import { getSeguroEstimado } from '../utils/seguro-estimate'
 import { marcaExibicao } from '../../shared/marca-exibicao'
+import { placaBloqueada } from '../utils/blocklist'
 
 const NOVENTA_DIAS_MS = 90 * 24 * 60 * 60 * 1000
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -29,6 +30,9 @@ export default defineEventHandler(async (event) => {
     .maybeSingle()
 
   if (error || !consulta) return { generic: true }
+  // Placa bloqueada a pedido do proprietario depois da consulta: o link antigo
+  // deixa de trazer os dados do veiculo e cai na pagina generica.
+  if (placaBloqueada(consulta.placa)) return { generic: true }
   if (Date.now() - new Date(consulta.created_at).getTime() > NOVENTA_DIAS_MS) {
     return { generic: true }
   }

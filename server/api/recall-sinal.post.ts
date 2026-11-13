@@ -4,6 +4,7 @@ import { sinalDoRecall, marcaTemRecall, RECALL_INDISPONIVEL, type SinalRecall } 
 import { dentroDoTetoDeSinal } from '../utils/sinal-leilao'
 import { getClientIp } from '../utils/client-ip'
 import { chassiDoServidor } from '../utils/chassi-servidor'
+import { placaBloqueadaComRegistro } from '../utils/blocklist'
 
 // Sinal de RECALL pra CONSULTA GRATIS. Endpoint proprio (como o leilao-sinal):
 // nao atrasa a consulta gratis, cacheia por placa, e mantem a muralha num
@@ -36,6 +37,10 @@ export default defineEventHandler(async (event) => {
   // REAL do visitante e contador PROPRIO do recall (a consulta chama os dois).
   const ip = getClientIp(event)
   if (!dentroDoTetoDeSinal(ip, Date.now(), 'recall')) return RECALL_INDISPONIVEL
+
+  // Placa bloqueada a pedido do proprietario: a mesma resposta de "nao
+  // sabemos", sem tocar no cache nem na base (igual ao leilao-sinal).
+  if (placaBloqueadaComRegistro(event, placa)) return RECALL_INDISPONIVEL
 
   // Cache por placa+marca (a marca entra pra nao servir um sinal de outra marca
   // pra mesma placa por engano de um payload trocado).

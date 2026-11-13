@@ -1,6 +1,7 @@
 import { sinalDoHistorico, SINAL_INDISPONIVEL, dentroDoTetoDeSinal } from '../utils/sinal-leilao'
 import { getClientIp } from '../utils/client-ip'
 import { chassiDoServidor } from '../utils/chassi-servidor'
+import { placaBloqueadaComRegistro } from '../utils/blocklist'
 
 // Sinal de leilao para a CONSULTA GRATIS. Endpoint proprio, e nao um campo a
 // mais no /api/consulta, por tres motivos: nao atrasa a consulta gratis (ela
@@ -32,6 +33,11 @@ export default defineEventHandler(async (event) => {
   // interno o teto virava global. Contador proprio do leilao.
   const ip = getClientIp(event)
   if (!dentroDoTetoDeSinal(ip, Date.now(), 'leilao')) return SINAL_INDISPONIVEL
+
+  // Placa bloqueada a pedido do proprietario: a mesma resposta de "nao
+  // sabemos" (a tela fica em silencio), sem tocar no cache nem na base. Depois
+  // do teto por IP, pra o registro da tentativa nao crescer sem limite.
+  if (placaBloqueadaComRegistro(event, placa)) return SINAL_INDISPONIVEL
 
   const agora = Date.now()
   const emCache = cache.get(placa)

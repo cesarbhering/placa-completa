@@ -1,5 +1,6 @@
 import { PLANOS } from '../../../shared/planos'
 import { cobrancaPorCorrelacao } from '../../utils/woovi'
+import { barrarPlacaBloqueada } from '../../utils/blocklist'
 
 // Gera um Pix novo para um pedido que ainda nao foi pago e cujo QR venceu.
 //
@@ -17,10 +18,14 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,valor_centavos,expira_em,abacatepay_id,pix_provider,plano,forma_pagamento')
+    .select('id,placa,status,valor_centavos,expira_em,abacatepay_id,pix_provider,plano,forma_pagamento')
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
+
+  // Placa bloqueada a pedido do proprietario DEPOIS de o pedido existir: o
+  // checkout ja recusa pedido novo; aqui o pedido antigo nao ganha Pix novo.
+  barrarPlacaBloqueada(event, String((pedido as any).placa || ''))
 
   // Pedido de CARTAO nao gera Pix. Sem esta trava, a tela do relatorio (que
   // renova o Pix de um pedido pendente sem br_code) criava uma cobranca Pix no
