@@ -1,8 +1,15 @@
 import { Resend } from 'resend'
 import { ambienteForaDeProd, TAG_HOMOLOG } from './ambiente-alerta'
+import { escapeHtml } from './htmlEscape'
 
 interface ErrorEmailData {
   endpoint: string
+  /**
+   * TEXTO puro, com `\n` para quebrar linha. Nunca HTML: quem chama monta esta
+   * mensagem com dado de cliente (e-mail, origem, placa, id de pedido) e com
+   * resposta de provedor, entao o escape e a quebra de linha acontecem aqui,
+   * num lugar so.
+   */
   errorMessage: string
   errorStack?: string
   requestBody?: any
@@ -29,6 +36,32 @@ export function horaBrasilia(d: string | Date | null | undefined = new Date()): 
   const dt = d === null || d === undefined ? new Date() : typeof d === 'string' ? new Date(d) : d
   if (!(dt instanceof Date) || isNaN(dt.getTime())) return String(d)
   return dt.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false }) + ' BRT'
+}
+
+/** Texto -> HTML: escapado, com as quebras de linha preservadas. */
+function textoParaHtml(v: unknown): string {
+  return escapeHtml(v).replace(/\r\n|\r|\n/g, '<br>')
+}
+
+/** A mensagem e texto; se um chamador mandar outra coisa, o alerta sai assim mesmo. */
+function textoDaMensagem(m: unknown): string {
+  if (typeof m === 'string') return m
+  if (m === null || m === undefined) return ''
+  try { return JSON.stringify(m) ?? String(m) } catch { return String(m) }
+}
+
+/** Assunto em uma linha so e com tamanho limitado. */
+function umaLinha(v: unknown, max = 200): string {
+  return String(v ?? '').replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, max)
+}
+
+/** JSON do corpo para o alerta. Corpo que nao serializa nao pode derrubar o aviso. */
+function jsonDoCorpo(body: unknown): string {
+  try {
+    return JSON.stringify(sanitizeRequestBody(body), null, 2) ?? ''
+  } catch {
+    return '[corpo nao serializavel]'
+  }
 }
 
 export async function sendErrorEmail(data: ErrorEmailData) {
@@ -69,17 +102,17 @@ export async function sendErrorEmail(data: ErrorEmailData) {
     <div class="content">
       <div class="field">
         <div class="label">⏰ Horário (Brasília):</div>
-        <div class="value">${horaBrasilia(data.timestamp)}</div>
+        <div class="value">${escapeHtml(horaBrasilia(data.timestamp))}</div>
       </div>
 
       <div class="field">
         <div class="label">📍 Endpoint:</div>
-        <div class="value"><span class="code">${data.endpoint}</span></div>
+        <div class="value"><span class="code">${escapeHtml(data.endpoint)}</span></div>
       </div>
 
       <div class="field">
         <div class="label">❌ Erro:</div>
-        <div class="value">${data.errorMessage}</div>
+        <div class="value">${textoParaHtml(textoDaMensagem(data.errorMessage))}</div>
       </div>
 
       ${data.errorStack ? `
@@ -92,7 +125,7 @@ export async function sendErrorEmail(data: ErrorEmailData) {
       ${data.requestBody ? `
       <div class="field">
         <div class="label">📦 Request Body:</div>
-        <div class="value"><pre>${JSON.stringify(sanitizeRequestBody(data.requestBody), null, 2)}</pre></div>
+        <div class="value"><pre>${escapeHtml(jsonDoCorpo(data.requestBody))}</pre></div>
       </div>
       ` : ''}
 
@@ -106,7 +139,7 @@ export async function sendErrorEmail(data: ErrorEmailData) {
       ${data.ip ? `
       <div class="field">
         <div class="label">🌐 IP Address:</div>
-        <div class="value">${data.ip}</div>
+        <div class="value">${escapeHtml(data.ip)}</div>
       </div>
       ` : ''}
     </div>
@@ -118,7 +151,7 @@ export async function sendErrorEmail(data: ErrorEmailData) {
     await resend.emails.send({
       from: 'PlacaCompleta Errors <erros@placacompleta.com.br>',
       to: ['erros@placacompleta.com.br', ...(data.paraTambem || [])],
-      subject: `${tag}[Erro API] ${data.endpoint} - ${horaBrasilia(new Date())}`,
+      subject: `${tag}[Erro API] ${umaLinha(data.endpoint)} - ${horaBrasilia(new Date())}`,
       html: htmlContent,
     })
   } catch (emailError) {
@@ -129,17 +162,18 @@ export async function sendErrorEmail(data: ErrorEmailData) {
 
 function sanitizeRequestBody(body: any): any {
   if (!body) return null
+  if (typeof body !== 'object') return body
 
   const sanitized = { ...body }
 
-  // Remove sensitive data
-  if (sanitized.email) {
-    const email = sanitized.email
-    const [local, domain] = email.split('@')
+  // Remove sensitive data. So mascara o que e texto: um campo com outro tipo
+  // nao pode estourar aqui e levar o alerta junto.
+  if (typeof sanitized.email === 'string' && sanitized.email) {
+    const [local, domain] = sanitized.email.split('@')
     sanitized.email = `${local.substring(0, 2)}***@${domain}`
   }
 
-  if (sanitized.image) {
+  if (typeof sanitized.image === 'string' && sanitized.image) {
     sanitized.image = `[BASE64_IMAGE_${sanitized.image.length}_bytes]`
   }
 

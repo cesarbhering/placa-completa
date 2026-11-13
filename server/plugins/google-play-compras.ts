@@ -36,7 +36,7 @@ export default defineNitroPlugin(() => {
         ordensBloqueadas: ordensBloqueadasDoEnv(),
         alertar: (assunto, linhas) => sendErrorEmail({
           endpoint: '/premium/google-play (job)',
-          errorMessage: [assunto, ...linhas].join('<br>'),
+          errorMessage: [assunto, ...linhas].join('\n'),
           paraTambem: [AVISO],
         }),
       }).then((r) => {
