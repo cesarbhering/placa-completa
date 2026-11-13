@@ -708,8 +708,6 @@ export default defineNuxtConfig({
     fipeApiToken: process.env.FIPE_API_TOKEN || "",
     fipeApiUrl: process.env.FIPE_API_URL || "",
     oneSignalAppId: process.env.ONESIGNAL_APP_ID || "",
-    oneSignalRestApiKey: process.env.ONESIGNAL_REST_API_KEY || "",
-    dashboardLookerGoogleAnalytics: process.env.DASHBOARD_LOOKER_GOOGLE_ANALYTICS || "",
     evolutionApiUrl: process.env.EVOLUTION_API_URL || "",
     evolutionApiKey: process.env.EVOLUTION_API_KEY || "",
     evolutionInstance: process.env.EVOLUTION_INSTANCE || "",

@@ -187,7 +187,7 @@ describe('bilingual routes', () => {
   it('only the bilingual pages get /en: every other page is listed as en: false', () => {
     const so = paginasSoEmPortugues(DIR_PAGES)
     for (const p of PAGINAS_BILINGUES) expect(so[p.nome], p.nome).toBeUndefined()
-    for (const n of ['index', 'blog', 'blog-slug', 'tabela-fipe', 'tabela-fipe-slug', 'carro-de-leilao', 'o-que-e-slug', 'premium', 'premium-token', 'admin', 'dash', 'woovi-teste']) {
+    for (const n of ['index', 'blog', 'blog-slug', 'tabela-fipe', 'tabela-fipe-slug', 'carro-de-leilao', 'o-que-e-slug', 'premium', 'premium-token', 'woovi-teste']) {
       expect(so[n], n).toEqual({ en: false })
     }
   })
