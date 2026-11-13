@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { sinalDoHistorico, fraseSinal, SINAL_VAZIO, SINAL_INDISPONIVEL, dentroDoTetoDeSinal, _limparTetoDeSinal } from './sinal-leilao'
+import {
+  sinalDoHistorico, fraseSinal, SINAL_VAZIO, SINAL_INDISPONIVEL, dentroDoTetoDeSinal, _limparTetoDeSinal,
+  _janelasDeSinalEmMemoria, MAX_JANELAS_DE_SINAL,
+} from './sinal-leilao'
 
 const hist = (r: any) => ({ resumo: { n_confirmado: 0, n_provavel: 0, n_possivel: 0, ...r }, passagens: [] }) as any
 
@@ -189,5 +192,42 @@ describe('revenda de frota: API antiga (antes do leiloes-api #112) somava no res
     })!
     expect(h.resumo.n_confirmado).toBe(0)
     expect(h.linha_do_tempo).toEqual([]) // evento revenda_frota nao e de leilao: a linha vem das revendas_frota
+  })
+})
+
+// The per-IP windows live in memory in a long-running process: expired ones
+// are removed, and the map has a hard ceiling.
+describe('per-IP signal windows: bounded memory', () => {
+  const HORA = 60 * 60 * 1000
+  const ip = (i: number) => `198.51.${Math.floor(i / 250) % 250}.${(i % 250) + 1}`
+  beforeEach(() => _limparTetoDeSinal())
+
+  it('expired windows are removed when new addresses arrive', () => {
+    const t0 = 1_000_000
+    for (let i = 0; i < 3000; i++) dentroDoTetoDeSinal(ip(i), t0, 'leilao')
+    expect(_janelasDeSinalEmMemoria()).toBe(3000)
+    dentroDoTetoDeSinal('203.0.113.1', t0 + HORA + 1, 'leilao')
+    expect(_janelasDeSinalEmMemoria()).toBe(1)
+  })
+
+  it('live windows are kept: a sweep never resets a count that is still valid', () => {
+    const t0 = 1_000_000
+    for (let i = 0; i < 61; i++) dentroDoTetoDeSinal('203.0.113.1', t0, 'leilao')
+    for (let i = 0; i < 3000; i++) dentroDoTetoDeSinal(ip(i), t0 + 10, 'leilao')
+    // A sweep happens here (map is large, a minute has passed); the window of the first address is still open.
+    dentroDoTetoDeSinal('203.0.113.2', t0 + 61_000, 'leilao')
+    expect(dentroDoTetoDeSinal('203.0.113.1', t0 + 61_001, 'leilao')).toBe(false)
+  })
+
+  it('hard ceiling: with the map full of live windows the oldest one leaves', () => {
+    const t0 = 1_000_000
+    for (let i = 0; i < MAX_JANELAS_DE_SINAL + 500; i++) dentroDoTetoDeSinal(`chave-${i}`, t0, 'leilao')
+    expect(_janelasDeSinalEmMemoria()).toBe(MAX_JANELAS_DE_SINAL)
+  })
+
+  it('the two signals keep separate windows for the same address', () => {
+    for (let i = 0; i < 60; i++) dentroDoTetoDeSinal('203.0.113.1', Date.now(), 'leilao')
+    expect(dentroDoTetoDeSinal('203.0.113.1', Date.now(), 'leilao')).toBe(false)
+    expect(dentroDoTetoDeSinal('203.0.113.1', Date.now(), 'recall')).toBe(true)
   })
 })

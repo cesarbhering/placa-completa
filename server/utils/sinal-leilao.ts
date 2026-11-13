@@ -111,6 +111,29 @@ const JANELA_MS = 60 * 60 * 1000
 const TETO_POR_IP = 60
 const porIp = new Map<string, { desde: number; n: number }>()
 
+// Memoria limitada: o processo e longo e cada IP novo abre uma janela. As
+// janelas vencidas saem numa varredura (no maximo uma por minuto, e so com o
+// mapa ja grande); com o mapa cheio de janelas vivas, sai a mais antiga (o Map
+// guarda a ordem de insercao, e janela renovada volta pro fim da fila).
+const PODAR_A_PARTIR_DE = 2_000
+const INTERVALO_PODA_MS = 60 * 1000
+export const MAX_JANELAS_DE_SINAL = 20_000
+let ultimaPoda = 0
+
+function abrirJanela(chave: string, agora: number) {
+  if (porIp.size >= PODAR_A_PARTIR_DE && (agora < ultimaPoda || agora - ultimaPoda >= INTERVALO_PODA_MS)) {
+    ultimaPoda = agora
+    for (const [k, v] of porIp) if (agora - v.desde >= JANELA_MS) porIp.delete(k)
+  }
+  porIp.delete(chave)
+  while (porIp.size >= MAX_JANELAS_DE_SINAL) {
+    const maisAntiga = porIp.keys().next().value
+    if (maisAntiga === undefined) break
+    porIp.delete(maisAntiga)
+  }
+  porIp.set(chave, { desde: agora, n: 1 })
+}
+
 /**
  * Um contador POR SINAL (leilao e recall separados): uma consulta gratis chama
  * os dois, e com o contador unico ela gastava 2 da cota. O IP tem que ser o do
@@ -127,7 +150,7 @@ export function dentroDoTetoDeSinal(ip: string, agora = Date.now(), tipo: TipoSi
   const chave = `${tipo}|${ip}`
   const atual = porIp.get(chave)
   if (!atual || agora - atual.desde >= JANELA_MS) {
-    porIp.set(chave, { desde: agora, n: 1 })
+    abrirJanela(chave, agora)
     return true
   }
   atual.n += 1
@@ -137,5 +160,11 @@ export function dentroDoTetoDeSinal(ip: string, agora = Date.now(), tipo: TipoSi
 /** So pra teste: zera as janelas. */
 export function _limparTetoDeSinal() {
   porIp.clear()
+  ultimaPoda = 0
+}
+
+/** So pra teste: quantas janelas estao em memoria. */
+export function _janelasDeSinalEmMemoria(): number {
+  return porIp.size
 }
 
