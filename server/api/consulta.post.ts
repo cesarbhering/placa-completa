@@ -5,13 +5,13 @@ import { marcaExibicao } from '../../shared/marca-exibicao'
 import { sanearOrigem, sanearEntrada } from '../../shared/origem-trafego'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { checkEmailDeliverability } from '../utils/email-deliverability'
-import { getClientIp, condicaoOrIp, filtrarPorIp } from '../utils/client-ip'
+import { getClientIp, condicaoOrIp, filtrarPorIp, chaveTetoIp, IP_DESCONHECIDO } from '../utils/client-ip'
 import { emitirCupomTela, segredoCupomTela } from '../utils/cupom-tela'
 import { lookupIpGeo } from '../utils/ip-geo'
 import { getRegiaoSusep } from '../utils/regiao-susep'
 import { getSeguroEstimado, type SeguroEstimado } from '../utils/seguro-estimate'
 import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
-import { mensagemLimiteGratis, tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT, TETO_IP_DESTINATARIO_LIBERADO } from '../utils/ip-wdapi-limit'
+import { mensagemLimiteGratis, mensagemLimiteNeutra, tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT, TETO_IP_DESTINATARIO_LIBERADO } from '../utils/ip-wdapi-limit'
 import { calcularICV5, inferirCategoria, ufDoCorpo, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
@@ -60,6 +60,26 @@ async function registrarConsulta(supabase: any, row: Record<string, any>, origem
     )
   }
   return !error
+}
+
+/** Teto do user-agent gravado (consultas e blocked_requests). O cabecalho vem do cliente. */
+const USER_AGENT_MAX = 300
+
+/**
+ * As consultas anteriores de um destinatario foram feitas por ESTE solicitante
+ * (mesma chave de IP ou mesmo aparelho)? So nesse caso a resposta pode falar
+ * delas; pra qualquer outra pessoa que digite aquele e-mail ou telefone a
+ * resposta e neutra. IP desconhecido nao identifica ninguem.
+ */
+function mesmoSolicitante(
+  linha: { ip_address?: string | null; device_id?: string | null } | null | undefined,
+  ip: string,
+  deviceId: string | null,
+): boolean {
+  if (!linha) return false
+  if (deviceId && linha.device_id && linha.device_id === deviceId) return true
+  const chave = chaveTetoIp(ip)
+  return chave !== IP_DESCONHECIDO && chaveTetoIp(linha.ip_address) === chave
 }
 
 // 'tela': consulta gratis sem coleta de contato. Roda a consulta, registra e
@@ -277,12 +297,15 @@ async function consultar(event: H3Event, fim: FimDaConsulta) {
 
   const headers = getRequestHeaders(event)
   const ip = getClientIp(event)
-  const userAgent = headers['user-agent'] || 'unknown'
+  // O UA inteiro so serve pra classificar (a marca do app vem no fim dele); o
+  // que e gravado e mandado em alerta tem teto, como no ramo do UA bloqueado.
+  const userAgentInteiro = headers['user-agent'] || 'unknown'
+  const userAgent = userAgentInteiro.slice(0, USER_AGENT_MAX)
   // Canal (app ou web) lido do UA da requisicao, no servidor. O `isPWA` do
   // corpo vem do client e, desde que a WebView do app entrou em modo PWA, ele
   // nao separa mais o app novo de uma PWA instalada pelo navegador.
   const { canal, app_versao } = classificarUA(
-    userAgent,
+    userAgentInteiro,
     headers['sec-ch-ua-mobile'],
     headers['sec-ch-ua-platform'],
   )
@@ -305,7 +328,7 @@ async function consultar(event: H3Event, fim: FimDaConsulta) {
     throw createError({ statusCode: 400, message: 'Formato de placa inválido.' })
   }
 
-  const isMobile = /mobile|android|iphone/i.test(userAgent)
+  const isMobile = /mobile|android|iphone/i.test(userAgentInteiro)
   const deviceInfo = isMobile ? 'Mobile' : 'Desktop'
 
   // Rate limit: 5 successful consultas per hour per recipient AND per IP (web and PWA).
@@ -543,9 +566,35 @@ async function consultar(event: H3Event, fim: FimDaConsulta) {
         if (error) console.warn('[blocked_requests] insert falhou:', error.message)
       })
 
+      // O 429 por destinatario fala da atividade daquele e-mail/telefone
+      // (quantas consultas, ha quanto tempo). So quem fez essas consultas ve o
+      // detalhe; pra outro IP e outro aparelho a mensagem e neutra. Consulta
+      // extra so neste caminho de bloqueio; erro nela = neutra.
+      let detalhar = !estourouDestinatario
+      if (estourouDestinatario) {
+        const meus: string[] = []
+        if (ipCheckable) meus.push(condicaoOrIp('ip_address', ip))
+        if (deviceId) meus.push(`device_id.eq.${deviceId}`)
+        try {
+          if (meus.length) {
+            const { data: minhas } = await supabase
+              .from('consultas')
+              .select('ip_address, device_id')
+              .eq(recipientField, recipientValue as string)
+              .eq(sentField, true)
+              .gte('created_at', janelaInicio)
+              .or(meus.join(','))
+              .limit(1)
+            detalhar = mesmoSolicitante(minhas?.[0], ip, deviceId)
+          }
+        } catch { detalhar = false }
+      }
+
       throw createError({
         statusCode: 429,
-        message: mensagemLimiteGratis(estourouDestinatario ? limiteDestinatario : limiteIp, minutesUntilReset),
+        message: detalhar
+          ? mensagemLimiteGratis(estourouDestinatario ? limiteDestinatario : limiteIp, minutesUntilReset)
+          : mensagemLimiteNeutra(),
       })
     }
     try {
@@ -558,9 +607,9 @@ async function consultar(event: H3Event, fim: FimDaConsulta) {
   // Pulado no homolog: testar a mesma placa varias vezes nao pode ser barrado.
   if (!isPWA && !config.public.homolog) {
     const supabase = useSupabaseServer()
-    const { data: existing, error: dedupeError } = await supabase
+    const buscarRepetida = (colunas: string) => supabase
       .from('consultas')
-      .select('created_at')
+      .select(colunas)
       .eq(recipientField, recipientValue as string)
       .eq('placa', placaClean)
       .eq(sentField, true)
@@ -568,6 +617,13 @@ async function consultar(event: H3Event, fim: FimDaConsulta) {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
+    // IP e aparelho da consulta anterior dizem se quem pede agora e quem a fez.
+    let { data: existing, error: dedupeError } = await buscarRepetida('created_at, ip_address, device_id') as { data: any; error: any }
+    // Banco sem a coluna device_id (deploy antes da migration): a checagem de
+    // repeticao segue valendo, so sem o aparelho.
+    if (dedupeError && /device_id/.test(String(dedupeError.message || ''))) {
+      ;({ data: existing, error: dedupeError } = await buscarRepetida('created_at, ip_address') as { data: any; error: any })
+    }
 
     if (dedupeError) {
       console.warn('[dedupe] Supabase error:', dedupeError.message)
@@ -578,12 +634,21 @@ async function consultar(event: H3Event, fim: FimDaConsulta) {
       const where = channel === 'whatsapp'
         ? `enviado por WhatsApp para o número informado`
         : `enviado para ${sanitizedEmail}`
+      // "Voce ja consultou ha X min, enviado para <destinatario>" conta a
+      // atividade daquele e-mail/telefone. So quem fez a consulta anterior
+      // (mesma chave de IP ou mesmo aparelho) le isso; pra qualquer outra
+      // pessoa a resposta e a de uma consulta comum, sem novo envio.
+      const neutra = channel === 'whatsapp' ? 'Consulta realizada! Verifique seu WhatsApp.'
+        : channel === 'email' ? 'Consulta realizada! Verifique seu e-mail.'
+        : 'Consulta realizada.'
       return {
         success: true,
         emailSent: channel === 'email',
         whatsappSent: channel === 'whatsapp',
         channel,
-        message: `Você já consultou essa placa há ${minutesAgo === 1 ? 'menos de 1 minuto' : `${minutesAgo} min`}. O resultado foi ${where}: verifique seu histórico.`,
+        message: mesmoSolicitante(existing, ip, deviceId)
+          ? `Você já consultou essa placa há ${minutesAgo === 1 ? 'menos de 1 minuto' : `${minutesAgo} min`}. O resultado foi ${where}: verifique seu histórico.`
+          : neutra,
       }
     }
   }

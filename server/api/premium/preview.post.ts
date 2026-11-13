@@ -19,6 +19,8 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const ip = getClientIp(event)
   const supabase = useSupabaseServer()
+  // User-agent gravado e mandado em alerta com teto (o cabecalho vem do cliente).
+  const userAgent = String(getRequestHeader(event, 'user-agent') || '').slice(0, 300) || null
 
   // Mesma blocklist do /api/consulta: sem ela, quem estava bloqueado la
   // continuava consultando por aqui, que bate na mesma fonte paga.
@@ -27,7 +29,7 @@ export default defineEventHandler(async (event) => {
       reason: 'blocklist',
       ip_address: ip,
       placa: placaClean || null,
-      user_agent: getRequestHeader(event, 'user-agent') || null,
+      user_agent: userAgent,
     }).then(({ error }: any) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
     throw createError({ statusCode: 403, message: 'Acesso não autorizado.' })
   }
@@ -46,11 +48,11 @@ export default defineEventHandler(async (event) => {
       reason: 'rate_limit_ip_wdapi',
       ip_address: ip,
       placa: placaClean || null,
-      user_agent: getRequestHeader(event, 'user-agent') || null,
+      user_agent: userAgent,
     }).then(({ error }: any) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
     contarBloqueiosNaHora(supabase, ip).then((bloqueiosNaHora) => avisarAbuso({
       ip, rota: '/api/premium/preview', teto: limite.teto,
-      userAgent: getRequestHeader(event, 'user-agent') || null, bloqueiosNaHora,
+      userAgent, bloqueiosNaHora,
     }))
     throw createError({
       statusCode: 429,

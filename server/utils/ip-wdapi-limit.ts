@@ -27,6 +27,16 @@ export function mensagemLimiteGratis(teto: number, minutos: number): string {
   return `Você chegou ao limite de ${teto} consultas grátis por hora. Tente novamente em ~${minutos} min. Se comprar um relatório, o limite volta a zerar na hora.`
 }
 
+/**
+ * 429 por DESTINATARIO quando quem pede nao e quem fez as consultas daquele
+ * destinatario (outro IP e outro aparelho): sem numero de consultas e sem
+ * minutos, pra nao contar a um terceiro a atividade do e-mail ou telefone que
+ * ele digitou. Sem travessao.
+ */
+export function mensagemLimiteNeutra(): string {
+  return 'Não foi possível fazer esta consulta agora. Tente novamente mais tarde.'
+}
+
 // Reset apos compra: se o IP (ou o destinatario) tem um pedido premium PAGO
 // na ultima hora, a janela de contagem comeca no pagamento -- quem pagou nao
 // fica preso atras das consultas gratis de antes. Mesma logica que ja existia

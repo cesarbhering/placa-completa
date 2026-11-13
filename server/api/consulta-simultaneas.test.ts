@@ -60,9 +60,12 @@ describe('per-IP cap with simultaneous requests', () => {
     h.semear(1, { ip_address: '198.51.100.20', channel: 'email', email: 'pessoa@example.com', email_sent: true })
     for (let i = 0; i < 8; i++) {
       const r = await h.chamar({ channel: 'email', email: 'pessoa@example.com' }, { ip: IP })
-      expect(r.message).toContain('já consultou')
+      // Answered without a lookup (the earlier one came from another requester, so the text is the neutral one).
+      expect(r).toMatchObject({ success: true, emailSent: true, message: 'Consulta realizada! Verifique seu e-mail.' })
+      expect(r.basico).toBeUndefined()
     }
     expect(h.estado.consultasPagas).toBe(0)
+    expect(h.estado.emails).toHaveLength(0)
     // The IP still has its whole hour.
     for (let i = 0; i < 5; i++) {
       expect((await h.tentar({ email: `p${i}@example.com`, placa: `TST0A${String(i).padStart(2, '0')}` }, { ip: IP })).ok).toBe(true)

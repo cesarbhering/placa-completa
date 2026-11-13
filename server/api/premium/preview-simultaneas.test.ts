@@ -113,3 +113,14 @@ describe('paid preview: how the cap treats the client address', () => {
     await expect(chamar(placa(2), null)).rejects.toMatchObject({ statusCode: 429 })
   })
 })
+
+describe('paid preview: what is recorded when a request is blocked', () => {
+  it('the user agent is stored with a ceiling of 300 characters', async () => {
+    for (let i = 0; i < 5; i++) sb.tab('consultas').push({ ip_address: IP, created_at: new Date(Date.now() - 600_000).toISOString() })
+    const ua = `Mozilla/5.0 ${'x'.repeat(5000)}`
+    await expect(handler({ corpo: { placa: placa(1) }, cabecalhos: { 'cf-connecting-ip': IP, 'user-agent': ua } })).rejects.toMatchObject({ statusCode: 429 })
+    const bloqueio = sb.tab('blocked_requests').at(-1)
+    expect(bloqueio).toMatchObject({ reason: 'rate_limit_ip_wdapi', ip_address: IP })
+    expect(bloqueio?.user_agent).toBe(ua.slice(0, 300))
+  })
+})
