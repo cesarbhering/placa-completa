@@ -104,11 +104,11 @@ describe('coupon endpoint and order endpoints under the coupon limit', () => {
     cupomResposta = INVALIDO
     body = { codigo: CODIGO, plano: 'completa', placa: PLACA }
     expect(await handlers.coupon({})).not.toHaveProperty('contaTentativa')
-    cupomResposta = { ...VALIDO, pessoal: true, origem: 'pix_recover', pedidoOrigemId: 'p0' }
+    cupomResposta = { ...VALIDO, pessoal: true, outroEmail: false, foraDoSistema: false, contaTentativa: false, origem: 'pix_recover', pedidoOrigemId: 'p0' }
     body = { codigo: CODIGO, plano: 'completa', placa: PLACA, email: EMAIL }
     const r = await handlers.coupon({})
     expect(r.ok).toBe(true)
-    for (const k of ['pessoal', 'contaTentativa', 'foraDoSistema', 'origem', 'pedidoOrigemId']) expect(r, k).not.toHaveProperty(k)
+    for (const k of ['pessoal', 'contaTentativa', 'foraDoSistema', 'outroEmail', 'origem', 'pedidoOrigemId']) expect(r, k).not.toHaveProperty(k)
   })
 
   it('a sale without a coupon goes on with the limit tripped', async () => {

@@ -12,6 +12,7 @@ import { ORIGENS_CUPOM_SISTEMA, type CupomValidado } from './cupons'
 //   1. Per vehicle (both plate formats): after N counted attempts in the last
 //      60 min (default 5), the next coupon for that plate is refused (429 on
 //      /api/premium/coupon) without touching the database, whatever the code.
+//      Attempts without a valid plate share one bucket with the same limit.
 //   2. Global: with more than M counted attempts site-wide in the last 10 min
 //      (default 30), only coupons WE generated are accepted while that lasts:
 //      system origin (ORIGENS_CUPOM_SISTEMA) or a personal coupon (e-mail
@@ -29,8 +30,10 @@ import { ORIGENS_CUPOM_SISTEMA, type CupomValidado } from './cupons'
 // limit, so an ongoing attack keeps it armed. Never counted: a coupon accepted,
 // a database error, and a refusal caused only by validations still in flight.
 // Each (vehicle, code) pair counts at most once per window (the checkout
-// validates the same code several times per purchase); only a short hash of
-// the code is kept, never the code itself.
+// validates the same code several times per purchase); a personal coupon
+// refused for another e-mail counts once per (vehicle, code, e-mail), so
+// trying many e-mails cannot find its owner cheaply. Only a short keyed hash
+// is kept (HMAC with a random per-process key), never the code or e-mail.
 //
 // In the order endpoints a blocked coupon behaves like an invalid one (the
 // sale goes on at full price); a sale without a coupon is never blocked here.
@@ -94,9 +97,13 @@ export function _tamanhoCupomLimite(): { chaves: number; global: number } {
 }
 
 /** Vehicle key (both formats) or null when there is no usable plate. */
-function chaveVeiculo(placa: unknown): string | null {
+/** Shared bucket for every attempt without a valid plate (same per-plate limit). */
+const SEM_PLACA = 'sem-placa'
+
+/** Vehicle key (both formats), or the shared no-plate bucket. */
+function chaveVeiculo(placa: unknown): string {
   const p = normalizarPlaca(placa)
-  if (p.length !== 7) return null
+  if (p.length !== 7) return SEM_PLACA
   return placasDoVeiculo(p).sort().join('|')
 }
 
@@ -106,8 +113,15 @@ function normalizarCodigo(codigo: unknown): string {
 }
 
 /** Short hash of the code: enough to tell repeats apart, not to recover it. */
-function hashCodigo(codigo: string): string {
-  return crypto.createHash('sha256').update(codigo).digest('base64url').slice(0, 12)
+/**
+ * Short keyed hash (HMAC-SHA256 with a random key made when this process
+ * starts, never stored): enough to tell repeats apart in memory. Codes are
+ * short, so a plain hash could be brute-forced from a memory dump; without
+ * the key it cannot.
+ */
+const CHAVE_HASH = crypto.randomBytes(32)
+function hashCurto(valor: string): string {
+  return crypto.createHmac('sha256', CHAVE_HASH).update(valor).digest('base64url').slice(0, 12)
 }
 
 function vivas(lista: Falha[] | undefined, desde: number): Falha[] {
@@ -144,15 +158,15 @@ export interface BloqueioCupom {
 const BLOQUEIO_PLACA: BloqueioCupom = { statusCode: 429, message: MSG_CUPOM_LIMITE_PLACA, motivo: 'cupom_placa' }
 const BLOQUEIO_GLOBAL: BloqueioCupom = { statusCode: 429, message: MSG_CUPOM_LIMITE_GLOBAL, motivo: 'cupom_global' }
 
-/** Records one counted attempt, once per (vehicle, code) per window. */
-function registrarFalha(chave: string | null, h: string, limites: LimitesCupom, agora: number): void {
-  if (chave && limites.placaHora > 0) {
+/** Records one counted attempt, once per (vehicle, code[, e-mail]) per window. */
+function registrarFalha(chave: string, h: string, limites: LimitesCupom, agora: number): void {
+  if (limites.placaHora > 0) {
     const lista = vivas(falhasPlaca.get(chave), agora - HORA_MS)
     if (!lista.some((f) => f.h === h)) lista.push({ t: agora, h })
     guardar(falhasPlaca, chave, lista, agora)
   }
   if (limites.global10min > 0) {
-    const k = `${chave || '-'}#${h}`
+    const k = `${chave}#${h}`
     falhasGlobal = vivas(falhasGlobal, agora - DEZ_MIN_MS)
     if (!falhasGlobal.some((f) => f.h === k)) falhasGlobal.push({ t: agora, h: k })
     falhasGlobal = falhasGlobal.slice(-(TETO_GLOBAL + 1))
@@ -171,6 +185,12 @@ interface Avaliacao {
   palpite: boolean
   /** Exists but is not ours: counts only when refused under the global limit. */
   foraDoSistema: boolean
+  /**
+   * Personal coupon refused for another e-mail: the e-mail joins the key, so
+   * each different e-mail counts (otherwise trying many e-mails against one
+   * code would count once and reveal its owner).
+   */
+  email?: string
 }
 
 type Opcoes = { onde?: string; agora?: () => number; log?: (m: string) => void }
@@ -191,13 +211,13 @@ async function comLimite<T>(
   const log = opts.log ?? ((m: string) => console.warn(m))
   const limites = limitesCupomDoConfig(config)
   const chave = chaveVeiculo(entrada.placa)
-  const placaLog = chave ? mascararPlaca(normalizarPlaca(entrada.placa)) : '-'
+  const placaLog = chave === SEM_PLACA ? '-' : mascararPlaca(normalizarPlaca(entrada.placa))
   const onde = opts.onde || 'coupon'
-  const h = hashCodigo(normalizarCodigo(entrada.codigo))
+  const codigo = normalizarCodigo(entrada.codigo)
 
   // 1) Per plate: refuses everything, no database lookup, nothing recorded.
   const agora = relogio()
-  if (chave && limites.placaHora > 0) {
+  if (limites.placaHora > 0) {
     const f = vivas(falhasPlaca.get(chave), agora - HORA_MS)
     const p = vivos(pendentesPlaca.get(chave), agora)
     guardar(falhasPlaca, chave, f, agora)
@@ -225,7 +245,7 @@ async function comLimite<T>(
   // Reserve a pending slot (synchronous with the checks above).
   const marca = agora + TTL_PENDENTE_MS + Math.random()
   if (limites.global10min > 0) pendentesGlobal.push(marca)
-  if (chave && limites.placaHora > 0) guardar(pendentesPlaca, chave, [...vivos(pendentesPlaca.get(chave), agora), marca], agora)
+  if (limites.placaHora > 0) guardar(pendentesPlaca, chave, [...vivos(pendentesPlaca.get(chave), agora), marca], agora)
 
   let resultado: T
   try {
@@ -233,11 +253,14 @@ async function comLimite<T>(
   } finally {
     const depois = relogio()
     pendentesGlobal = tirar(pendentesGlobal, marca)
-    if (chave && pendentesPlaca.has(chave)) guardar(pendentesPlaca, chave, vivos(tirar(pendentesPlaca.get(chave) || [], marca), depois), depois)
+    if (pendentesPlaca.has(chave)) guardar(pendentesPlaca, chave, vivos(tirar(pendentesPlaca.get(chave) || [], marca), depois), depois)
   }
 
   const av = avaliar(resultado)
-  if (!av.aceito && (av.palpite || (av.foraDoSistema && armadoReal))) registrarFalha(chave, h, limites, relogio())
+  if (!av.aceito && (av.palpite || (av.foraDoSistema && armadoReal))) {
+    const h = av.email ? hashCurto(`${codigo}\n${av.email.trim().toLowerCase()}`) : hashCurto(codigo)
+    registrarFalha(chave, h, limites, relogio())
+  }
   if (armado && !av.aceito) {
     log(`[cupom-limite] blocked ${onde} plate=${placaLog} reason=global_10min invalid=${nGlobal} limit=${limites.global10min}`)
     return { resultado: null, bloqueio: BLOQUEIO_GLOBAL }
@@ -275,6 +298,7 @@ export async function validarCupomComLimite(
       aceito: cupomDoSistema(c),
       palpite: !!c && !c.ok && !!c.contaTentativa,
       foraDoSistema: !!c && (c.foraDoSistema === true || (c.ok && !cupomDoSistema(c))),
+      email: c?.outroEmail ? entrada.email : undefined,
     }),
   )
   if (bloqueio || !resultado) {
@@ -288,9 +312,9 @@ export async function validarCupomComLimite(
 
 /**
  * "Does this typed code waive the e-mail?" (rebuy coupon) for the order
- * endpoints, behind the same limits: an unknown code counts as a guess, and
- * under a block the answer is false (the caller keeps its usual 400). One
- * lookup, whatever the code.
+ * endpoints, behind the same limits: an unknown code counts as a guess, a
+ * coupon of ours never does, and under a block the answer is false (the
+ * caller keeps its usual 400). One lookup, whatever the code.
  */
 export async function cupomDispensaEmailComLimite(
   supabase: any,
@@ -300,22 +324,24 @@ export async function cupomDispensaEmailComLimite(
 ): Promise<boolean> {
   const codigo = normalizarCodigo(entrada.codigo)
   if (!codigo) return false
-  const { resultado, bloqueio } = await comLimite<{ erro: boolean; existe: boolean; origem: string | null }>(
+  type Achado = { erro: boolean; existe: boolean; origem: string | null; pessoal: boolean }
+  const { resultado, bloqueio } = await comLimite<Achado>(
     entrada, config, opts,
     async () => {
       try {
-        const { data, error } = await supabase.from('cupons_premium').select('origem').eq('codigo', codigo).maybeSingle()
-        if (error) return { erro: true, existe: false, origem: null }
-        return { erro: false, existe: !!data, origem: data?.origem ?? null }
+        const { data, error } = await supabase.from('cupons_premium').select('origem,email_restrito').eq('codigo', codigo).maybeSingle()
+        if (error) return { erro: true, existe: false, origem: null, pessoal: false }
+        return { erro: false, existe: !!data, origem: data?.origem ?? null, pessoal: !!data?.email_restrito }
       } catch {
-        return { erro: true, existe: false, origem: null }
+        return { erro: true, existe: false, origem: null, pessoal: false }
       }
     },
-    (r) => ({
-      aceito: r.origem === 'recompra',
-      palpite: !r.erro && !r.existe,
-      foraDoSistema: r.existe && r.origem !== 'recompra',
-    }),
+    // Same rule as the validation: one of ours (system origin or personal) is
+    // never a guess and is not blocked here; only rebuy waives the e-mail.
+    (r) => {
+      const nosso = r.existe && (ORIGENS_CUPOM_SISTEMA.includes(String(r.origem || '')) || r.pessoal)
+      return { aceito: nosso, palpite: !r.erro && !r.existe, foraDoSistema: r.existe && !nosso }
+    },
   )
   return !bloqueio && resultado?.origem === 'recompra'
 }

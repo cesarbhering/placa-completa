@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
   }
   // Origem e pedido que gerou o cupom de recompra sao internos: quem recebeu o
   // codigo compartilhado nao precisa (nem deve) ver o id do pedido de outra pessoa.
-  const { origem, pedidoOrigemId: _p, contaTentativa: _c, pessoal: _pe, foraDoSistema: _f, ...publico } = resultado
+  const { origem, pedidoOrigemId: _p, contaTentativa: _c, pessoal: _pe, foraDoSistema: _f, outroEmail: _o, ...publico } = resultado
   // So o fato de que este cupom vale sem e-mail (recompra) vai pro navegador.
   return { ...publico, dispensaEmail: origem === 'recompra' }
 })

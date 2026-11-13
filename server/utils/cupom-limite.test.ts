@@ -123,8 +123,26 @@ describe('typed coupon: per-plate limit', () => {
     expect((await tentar()).bloqueio).toBeNull()
   })
 
-  it('without a plate only the global limit applies', async () => {
-    for (let i = 0; i < 10; i++) expect((await tentar(null)).bloqueio).toBeNull()
+  it('attempts without a valid plate share one bucket with the per-plate limit', async () => {
+    for (const p of [null, '', 'AB', 'TOOLONG99']) expect((await tentar(p)).bloqueio).toBeNull()
+    expect((await tentar('X1')).bloqueio).toBeNull()
+    expect((await tentar(null)).bloqueio?.motivo).toBe('cupom_placa')
+    expect((await tentar('Z')).bloqueio?.motivo).toBe('cupom_placa')
+    expect(logs.at(-1)).toContain('plate=- reason=plate_hour')
+    expect((await tentar(PLACA)).bloqueio).toBeNull() // a real plate is not in that bucket
+  })
+
+  it('a personal coupon tried with many e-mails counts once per e-mail', async () => {
+    resposta = { ...invalido, motivo: 'Este cupom e pessoal e vale so para o e-mail que o recebeu.', outroEmail: true }
+    const um = (email: string) => validarCupomComLimite({}, { codigo: 'FAKEPERSONAL', plano: 'completa', email, placa: PLACA }, {}, opts)
+    for (let i = 0; i < 5; i++) expect((await um(`guess${i}@example.test`)).bloqueio).toBeNull()
+    expect((await um('guess99@example.test')).bloqueio?.motivo).toBe('cupom_placa')
+    expect(chamadas).toBe(5)
+    // The same e-mail repeated still counts once.
+    reset()
+    resposta = { ...invalido, outroEmail: true }
+    for (let i = 0; i < 10; i++) expect((await um('same@example.test')).bloqueio).toBeNull()
+    for (const l of logs) expect(l).not.toContain('example.test')
   })
 })
 
@@ -277,6 +295,18 @@ describe('e-mail waiver lookup (rebuy coupon) behind the limits', () => {
     expect(await dispensa(sb)).toBe(false)
     expect(c.n).toBe(5)
     expect(logs.some((l) => l.includes('reason=plate_hour'))).toBe(true)
+  })
+
+  it('armed: our personal or bump coupon sent without e-mail is not a guess and logs no block', async () => {
+    const { sb } = sbOrigem(undefined)
+    for (let i = 0; i <= 30; i++) await dispensa(sb, placaN(i))
+    logs = []
+    const pessoal = { c: { n: 0 }, sb: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { origem: 'volta', email_restrito: EMAIL }, error: null }) }) }) }) } }
+    for (let i = 0; i < 6; i++) expect(await dispensa(pessoal.sb, PLACA)).toBe(false)
+    for (let i = 0; i < 6; i++) expect(await dispensa(sbOrigem('bump').sb, PLACA)).toBe(false)
+    expect(logs).toEqual([])
+    // Nothing counted for the plate: a rebuy coupon still works there.
+    expect(await dispensa(sbOrigem('recompra').sb, PLACA)).toBe(true)
   })
 
   it('a rebuy code waives the e-mail, also under the global limit; others do not', async () => {
