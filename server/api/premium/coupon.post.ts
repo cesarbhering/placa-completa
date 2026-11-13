@@ -1,4 +1,5 @@
 import { isPlanoPago } from '../../../shared/planos'
+import { abPrecoDoCheckout } from '../../utils/ab-preco'
 
 // Valida um cupom SEM aplicar nada (nao cria pedido, nao registra uso).
 // Chamado no blur do input de cupom e de novo, silenciosamente, antes de
@@ -15,7 +16,9 @@ export default defineEventHandler(async (event) => {
   // Quem cobra de verdade e o checkout.post.ts, que revalida com o e-mail.
 
   const supabase = usePremiumSupabase()
-  const resultado = await validarCupom(supabase, codigo, plano, email || undefined)
+  // Display price must match what the checkout will charge: same arm rule.
+  const { braco } = abPrecoDoCheckout(body, useRuntimeConfig(), getDispositivo(event).canal)
+  const resultado = await validarCupom(supabase, codigo, plano, email || undefined, braco)
   // Origem e pedido que gerou o cupom de recompra sao internos: quem recebeu o
   // codigo compartilhado nao precisa (nem deve) ver o id do pedido de outra pessoa.
   const { origem, pedidoOrigemId: _p, ...publico } = resultado

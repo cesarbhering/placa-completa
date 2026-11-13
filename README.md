@@ -67,6 +67,16 @@ Configure the emitter's webhook to `POST /api/premium/nfse/webhook` on the site,
 
 Orders paid through Google Play, and orders without an identifiable payer, are skipped and the operator is notified. The privacy policy and terms must mention the payer-data retention before `NUXT_TOMADOR_KEY` is set in production.
 
+## Optional: price A/B test
+
+A price experiment for the full report, off by default (`shared/ab-preco.ts`). When on, each web visitor is assigned once to arm A (table price from `shared/planos.ts`) or arm B (`PRECO_COMPLETA_BRACO.B`), 50/50, and keeps that arm across visits (`localStorage`, `sessionStorage` as fallback; no cookie). The app, bots and server-rendered pages always use arm A. The arm travels in the checkout request and the server charges that arm's price (coupons apply on top of it); it is stored in `pedidos_premium.ab_preco` and stamped as `extra.ab_preco` on every funnel event.
+
+| Variable | Meaning |
+|---|---|
+| `NUXT_PUBLIC_AB_PRECO` | `on` enables the test. Anything else (default empty) puts everybody in arm A, with nothing drawn, stored, sent or read. |
+
+Apply `supabase/migrations/20261113120000_pedidos_ab_preco.sql` (production and staging) before turning it on: with the flag off the site never touches the `ab_preco` column. The daily host report is `ops/pc-ab-preco-report` with `ops/systemd/pc-ab-preco-report.{service,timer}`.
+
 ## Repository layout
 
 - `pages/`, `components/`, `composables/`: the site and the report UI.

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { PLANOS, RECURSOS, precoDePromocao, aplicarCupom } from '~/shared/planos'
+import { PLANOS, RECURSOS, precoDePromocao } from '~/shared/planos'
 import { CUPOM_TELA_PCT, relogioCupomTela } from '~/shared/cupom-tela'
+import { bracoAtual, precoDoPlano, aplicarCupomNoBraco } from '~/shared/ab-preco'
 import { PROVA_SOCIAL } from '~/shared/prova-social'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora, trackConversaoPixGerado } from '~/composables/useAnalytics'
@@ -126,7 +127,7 @@ async function validarCupom(): Promise<boolean> {
   try {
     const r: any = await $fetch('/api/premium/coupon', {
       method: 'POST',
-      body: { codigo, plano: props.plano, email: temEmail ? email.value : undefined },
+      body: { codigo, plano: props.plano, email: temEmail ? email.value : undefined, ab_preco: abPrecoCheckout.value ?? undefined },
     })
     if (r?.ok) {
       cupomDispensaEmail.value = !!r.dispensaEmail
@@ -231,6 +232,12 @@ function marcarEmailInformado(onde: string) {
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
 const planoInfo = computed(() => PLANOS[props.plano])
+// Price A/B arm (shared/ab-preco.ts): drawn by plugins/ab-preco.client.ts
+// before this overlay can exist, so the first paint already has the arm's
+// price. The app never participates (Google Play price is fixed). The server
+// recomputes the price from the same arm; this is display only.
+const abPrecoCheckout = computed(() => (isCapacitor.value ? null : bracoAtual()))
+const precoBaseCentavos = computed(() => precoDoPlano(props.plano, abPrecoCheckout.value))
 // O botao carrega SO o desfecho, nao o preco: o preco ja aparece no resumo
 // logo acima, e repeti-lo no botao so reforca o frame de custo na hora do
 // clique. A linha-helper abaixo do botao cuida da reasseguranca (Pix, estorno,
@@ -256,7 +263,7 @@ const restanteTelaMs = computed(() =>
 )
 const telaAtiva = computed(() => restanteTelaMs.value > 0 && placaClean.value === placaDoCupomTela && !isCapacitor.value)
 const descontoTelaCentavos = computed(() => telaAtiva.value
-  ? aplicarCupom(props.plano, { tipo: 'percentual', valor: CUPOM_TELA_PCT, planos: ['basica', 'completa'] }).descontoCentavos
+  ? aplicarCupomNoBraco(props.plano, { tipo: 'percentual', valor: CUPOM_TELA_PCT, planos: ['basica', 'completa'] }, abPrecoCheckout.value).descontoCentavos
   : 0)
 /** O de tela so vence com desconto MAIOR (empate fica com o cupom, como no servidor). */
 const telaVence = computed(() => descontoTelaCentavos.value > cupomDescontoCentavos.value)
@@ -272,7 +279,7 @@ if (import.meta.client && props.cupomTelaToken) {
 onUnmounted(() => { if (tickTela) clearInterval(tickTela) })
 
 const precoExibidoCentavos = computed(() =>
-  Math.max(0, planoInfo.value.valorCentavos - descontoEfetivoCentavos.value),
+  Math.max(0, precoBaseCentavos.value - descontoEfetivoCentavos.value),
 )
 // So pra rotular o botao: o preco final real (gratis ou nao) sai sempre do
 // server, isto e so cosmetico. Cupom parcial que so encosta no piso (ex.:
@@ -768,6 +775,8 @@ async function pagar() {
         origin: origemDaSessao(),
         // Variante do A/B que a pessoa viu (carimba a atribuicao de venda).
         ab_bloco: props.abBloco ?? undefined,
+        // Price A/B arm: the server charges this arm's price (flag on, valid value).
+        ab_preco: abPrecoCheckout.value ?? undefined,
         recall_sinal: props.recallSinal ?? undefined,
         recall_marca: props.recallMarca ?? undefined,
         // Botao que abriu o checkout (porta de entrada da venda).
@@ -896,6 +905,8 @@ async function pagarComCartao() {
         cupom_tela: telaAtiva.value ? props.cupomTelaToken ?? undefined : undefined,
         origin: origemDaSessao(),
         ab_bloco: props.abBloco ?? undefined,
+        // Price A/B arm: the server charges this arm's price (flag on, valid value).
+        ab_preco: abPrecoCheckout.value ?? undefined,
         recall_sinal: props.recallSinal ?? undefined,
         recall_marca: props.recallMarca ?? undefined,
         origem_checkout: props.origemCheckout ?? undefined,
@@ -1125,7 +1136,7 @@ onUnmounted(() => {
                 <template v-else>Placa {{ placaClean }}</template>
               </strong>
               <span class="pic-faixa__preco">
-                <s v-if="temDesconto" class="pic-faixa__de">{{ reais(planoInfo.valorCentavos) }}</s>
+                <s v-if="temDesconto" class="pic-faixa__de">{{ reais(precoBaseCentavos) }}</s>
                 <!-- Promocao: preco antigo riscado (shared/planos.ts). Com cupom, o riscado e o preco cheio de hoje. -->
                 <s v-else-if="precoDePromocao(plano)" class="pic-faixa__de">de {{ reais(precoDePromocao(plano)!) }}</s>
                 <b>{{ reais(precoExibidoCentavos) }}</b>
@@ -1379,7 +1390,7 @@ onUnmounted(() => {
                    vira uma coluna so e a ordem natural (titulo, QR, texto)
                    e a mesma de antes. -->
               <div class="pic-pix">
-                <h3 class="pic-h pic-h--pix">Pague {{ reais(pix?.valor ?? planoInfo.valorCentavos) }} com Pix</h3>
+                <h3 class="pic-h pic-h--pix">Pague {{ reais(pix?.valor ?? precoBaseCentavos) }} com Pix</h3>
                 <div class="pic-pix__acao">
                   <img v-if="pix?.brCodeBase64" :src="pix.brCodeBase64" alt="QR Code Pix" class="pic-qr">
                   <button type="button" class="pic-btn" @click="copiar">

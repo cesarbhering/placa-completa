@@ -846,6 +846,10 @@ export default defineNuxtConfig({
       // "off" joga todo mundo na variante A (a tela de hoje) sem deploy de
       // codigo; qualquer outro valor mantem o sorteio 50/50.
       abBloco: process.env.NUXT_PUBLIC_AB_BLOCO || "",
+      // Price A/B test of the Completa (shared/ab-preco.ts). "on" turns it on;
+      // anything else (default empty) = everybody in A, nothing drawn or stored.
+      // Apply the ab_preco migration (prod and staging) BEFORE turning it on.
+      abPreco: process.env.NUXT_PUBLIC_AB_PRECO || "",
       // Pixel da Meta (remarketing). Vazio = plugin nao carrega nada, nenhuma
       // requisicao sai do navegador. Preenchido no Coolify quando a conta
       // existir, sem precisar de deploy de codigo.

@@ -1,0 +1,9 @@
+[Unit]
+Description=Completa price A/B test report every day at 21h Brasilia
+
+[Timer]
+OnCalendar=*-*-* 21:00:00 America/Sao_Paulo
+Persistent=true
+
+[Install]
+WantedBy=timers.target

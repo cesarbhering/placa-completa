@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { bracoAtual, precoDoPlano } from '~/shared/ab-preco'
 // FIPE na propria /tabela-fipe-por-placa (plano SEO 02/out, item #8 aprovado).
 // Usa o MESMO POST /api/consulta da home (canal 'tela'): bloqueio de UA,
 // rate-limit, teto por IP e cache valem igual; nenhuma rota nova. O resultado
@@ -9,7 +10,6 @@
 // Esses eventos sao o denominador do A/B do resultado da home e sairiam
 // carimbados com a variante da sessao; aqui so vai o evento do gtag.
 import { origemDaSessao } from '~/shared/origem-trafego'
-import { PLANOS } from '~/shared/planos'
 import { camposGateEmail, deveExigirEmailLocal, ehErroGateEmail, emailGateSalvo, registrarConsultaSemEmail, salvarEmailGate } from '~/composables/useGateEmail'
 
 const { validatePlaca } = useFormValidation()
@@ -21,7 +21,9 @@ const carregando = ref(false)
 const erro = ref('')
 const resultado = ref<Record<string, any> | null>(null)
 const abrirCheckout = ref(false)
-const preco = `R$ ${(PLANOS.completa.valorCentavos / 100).toFixed(2).replace('.', ',')}`
+// Price A/B test (shared/ab-preco.ts): the offer only renders after the
+// client-side lookup, when the arm is already drawn, so no SSR mismatch.
+const preco = computed(() => `R$ ${(precoDoPlano('completa', bracoAtual()) / 100).toFixed(2).replace('.', ',')}`)
 const INCLUI = ['Roubo e furto', 'Leilão', 'Gravame', 'RENAJUD', 'Multas', 'Restrições']
 
 function gtag(evento: string, params: Record<string, any>) {

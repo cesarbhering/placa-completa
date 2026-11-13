@@ -8,6 +8,8 @@ import { PLANOS, isPlanoPago } from '../../../shared/planos'
 import { respostaCompraRepetida } from '../../utils/compra-repetida'
 import { barrarPlacaBloqueada } from '../../utils/blocklist'
 import { cupomTelaValido, segredoCupomTela, resolverDescontoTela, colunasCupomTela } from '../../utils/cupom-tela'
+import { precoDoPlano } from '../../../shared/ab-preco'
+import { abPrecoDoCheckout } from '../../utils/ab-preco'
 
 // Cria o pedido (pending) + o Pix transparente. Retorna o QR/copia-e-cola.
 // Minimo de dados: email (entrega) + telefone opcional. Gated.
@@ -56,6 +58,11 @@ export default defineEventHandler(async (event) => {
   // da compra. So aceita 'A'/'B'; qualquer outra coisa vira null. Carimba a
   // atribuicao de venda por variante direto no pedido (sem join por placa).
   const abBloco = body.ab_bloco === 'A' || body.ab_bloco === 'A2' ? body.ab_bloco : null
+  // Price A/B arm (shared/ab-preco.ts): only a valid 'B' with the flag on and
+  // outside the app changes the price. precoTabela is the base for everything
+  // below (coupon, screen discount, failed free coupon).
+  const abPreco = abPrecoDoCheckout(body, config, getDispositivo(event).canal)
+  const precoTabela = precoDoPlano(plano, abPreco.braco)
   const supabase = usePremiumSupabase()
   const token = crypto.randomBytes(18).toString('base64url')
   // Mesma placa ja paga ha pouco pelo mesmo IP + aparelho: devolve o pedido
@@ -74,12 +81,12 @@ export default defineEventHandler(async (event) => {
   // motivo, o checkout segue com o preco cheio em vez de falhar a compra.
   const codigoCupom = String(body.cupom || '').trim()
   const cupomDigitado = codigoCupom
-    ? await validarCupom(supabase, codigoCupom, plano, email)
+    ? await validarCupom(supabase, codigoCupom, plano, email, abPreco.braco)
     : null
   // Cupom de tela (5% em 30 min, token assinado na consulta gratis). Nao
   // acumula: vale o maior. Quando a tela vence, o cupom digitado sai de cena.
   const { cupom: cupomValidado, tela: descontoTela } = resolverDescontoTela(
-    plano, cupomDigitado, cupomTelaValido(segredoCupomTela(config as any), body.cupom_tela, placa),
+    plano, cupomDigitado, cupomTelaValido(segredoCupomTela(config as any), body.cupom_tela, placa), abPreco.braco,
   )
 
   // Cupom gratis (permite_gratis + desconto cobre 100%): reivindica a vaga
@@ -99,8 +106,8 @@ export default defineEventHandler(async (event) => {
   const valor = gratisReivindicado
     ? 0
     : tentaGratis
-      ? PLANOS[plano].valorCentavos
-      : (cupomValidado?.ok ? cupomValidado.precoLiquidoCentavos : (descontoTela?.precoLiquidoCentavos ?? PLANOS[plano].valorCentavos))
+      ? precoTabela
+      : (cupomValidado?.ok ? cupomValidado.precoLiquidoCentavos : (descontoTela?.precoLiquidoCentavos ?? precoTabela))
 
   const { data: pedido, error } = await supabase
     .from('pedidos_premium')
@@ -114,6 +121,8 @@ export default defineEventHandler(async (event) => {
       ambiente,
       // Variante do A/B que gerou a compra (null pra pedidos fora do teste).
       ab_bloco: abBloco,
+      // Price A/B arm. Column only sent with the flag on (deploy-safe before the migration).
+      ...abPreco.colunas,
       // Hook de recall que a pessoa viu na consulta gratis (allowlist) + marca.
       recall_sinal: sanearSinalRecall(body.recall_sinal),
       recall_marca: sanearMarcaRecall(body.recall_marca),

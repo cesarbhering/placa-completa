@@ -8,6 +8,8 @@ import { PLANOS, isPlanoPago } from '../../../shared/planos'
 import { respostaCompraRepetida } from '../../utils/compra-repetida'
 import { barrarPlacaBloqueada } from '../../utils/blocklist'
 import { cupomTelaValido, segredoCupomTela, resolverDescontoTela, colunasCupomTela } from '../../utils/cupom-tela'
+import { precoDoPlano } from '../../../shared/ab-preco'
+import { abPrecoDoCheckout } from '../../utils/ab-preco'
 
 // Cartao v2 EMBUTIDO (Stripe Elements, sem redirect). Cria o pedido
 // (forma_pagamento='cartao') + um PaymentIntent e devolve o client_secret pro
@@ -42,6 +44,9 @@ export default defineEventHandler(async (event) => {
 
   const plano = isPlanoPago(body.plano) ? body.plano : 'completa'
   const abBloco = body.ab_bloco === 'A' || body.ab_bloco === 'A2' ? body.ab_bloco : null
+  // Price A/B arm (shared/ab-preco.ts), same rule as the Pix checkout.
+  const abPreco = abPrecoDoCheckout(body, config, getDispositivo(event).canal)
+  const precoTabela = precoDoPlano(plano, abPreco.braco)
   const supabase = usePremiumSupabase()
   // Mesma placa ja paga ha pouco pelo mesmo IP + aparelho: devolve o pedido
   // em vez de cobrar de novo (server/utils/compra-repetida.ts).
@@ -54,15 +59,15 @@ export default defineEventHandler(async (event) => {
   // Cupom recalculado no servidor. Cartao nao tem caminho gratis: cupom que zera
   // cai pro Pix.
   const codigoCupom = String(body.cupom || '').trim()
-  const cupomDigitado = codigoCupom ? await validarCupom(supabase, codigoCupom, plano, email) : null
+  const cupomDigitado = codigoCupom ? await validarCupom(supabase, codigoCupom, plano, email, abPreco.braco) : null
   const zeraPreco = !!(cupomDigitado?.ok && cupomDigitado.precoLiquidoCentavos === 0)
   // Cupom de tela (5% em 30 min): nao acumula, vale o maior. Cupom que zera
   // nao vale no cartao, entao ele nem entra na comparacao.
   const { cupom: cupomValidado, tela: descontoTela } = resolverDescontoTela(
-    plano, zeraPreco ? null : cupomDigitado, cupomTelaValido(segredoCupomTela(config as any), body.cupom_tela, placa),
+    plano, zeraPreco ? null : cupomDigitado, cupomTelaValido(segredoCupomTela(config as any), body.cupom_tela, placa), abPreco.braco,
   )
   const aplicaCupom = !!cupomValidado?.ok
-  const valor = aplicaCupom ? cupomValidado!.precoLiquidoCentavos : (descontoTela?.precoLiquidoCentavos ?? PLANOS[plano].valorCentavos)
+  const valor = aplicaCupom ? cupomValidado!.precoLiquidoCentavos : (descontoTela?.precoLiquidoCentavos ?? precoTabela)
 
   // Stripe recusa cobranca abaixo do minimo (~R$0,50). Nunca deve acontecer com
   // a completa; barra aqui se um cupom parcial derrubar muito.
@@ -81,6 +86,8 @@ export default defineEventHandler(async (event) => {
       preview: body.preview || null,
       ambiente,
       ab_bloco: abBloco,
+      // Price A/B arm. Column only sent with the flag on (deploy-safe before the migration).
+      ...abPreco.colunas,
       // Hook de recall que a pessoa viu na consulta gratis (allowlist) + marca.
       recall_sinal: sanearSinalRecall(body.recall_sinal),
       recall_marca: sanearMarcaRecall(body.recall_marca),

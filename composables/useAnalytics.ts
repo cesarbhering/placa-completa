@@ -3,6 +3,7 @@ import { dadosOrderCreated } from '~/shared/openai-evento'
 import { eventoPermitido, MAX_EVENTOS_POR_LOTE, type EventoFunil } from '~/shared/eventos-funil'
 import { origemDaSessao, sanearUtmContent } from '~/shared/origem-trafego'
 import { varianteAtual, AB_RODADA } from '~/shared/ab-bloco'
+import { bracoAtual, precoDoPlano } from '~/shared/ab-preco'
 import { analyticsAtivo } from '~/shared/analytics-tags'
 
 /**
@@ -138,6 +139,10 @@ export function enfileirarEventoFunil(evento: string, dados?: Omit<EventoNaFila,
   const origemSessao = dados?.origem ?? origemDaSessao() ?? null
   const utmContent = utmContentDoChatgpt(origemSessao)
   if (utmContent) extra = { ...(extra || {}), utm_content: utmContent }
+  // Price A/B arm (shared/ab-preco.ts), sticky per visitor. FIRST key on
+  // purpose: the server keeps at most 8 extra keys, in order.
+  const abPreco = bracoAtual()
+  if (abPreco) extra = { ab_preco: abPreco, ...(extra || {}) }
   fila.push({
     ...(recallAtual ? { recall_sinal: recallAtual.sinal, recall_marca: recallAtual.marca } : {}),
     ...dados,
@@ -424,7 +429,8 @@ export const useAnalytics = () => {
   const infoPlano = (plano?: string) => {
     const id = isPlanoPago(plano) ? plano : 'completa'
     const p = PLANOS[id]
-    const value = p.valorCentavos / 100
+    // Price A/B test: the visitor's arm price (bracoAtual is null with the test off = table).
+    const value = precoDoPlano(id, bracoAtual()) / 100
     return {
       value,
       item: { item_id: `plano-${id}`, item_name: p.nome, price: value, quantity: 1 },

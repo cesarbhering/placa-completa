@@ -7,6 +7,7 @@ import { BASE_LEILAO_QTD, BASE_LEILAO_TEXTO, BASE_LEILAO_TEXTO_INICIO } from '~/
 import { cederAoNavegador } from '~/shared/ceder'
 import { CUPOM_TELA_PCT, relogioCupomTela, mostrarCupomTela } from '~/shared/cupom-tela'
 import { PLANOS, PLANOS_PAGOS, RECURSOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, inclui, isPlanoPago, precoBRL, precoDePromocao, type PlanoId } from '~/shared/planos'
+import { abPrecoLigadoPorEnv, bracoAtual, precoDoPlano, type BracoPreco } from '~/shared/ab-preco'
 import { sinalDaResposta, fraseSinalNaTela, type SinalNaTela } from '~/shared/sinal-leilao-resposta'
 import { sinalRecallDaResposta, fraseRecallNaTela } from '~/shared/sinal-recall-resposta'
 import { marcaTemRecallGratis, marcaParaMedicao } from '~/shared/marcas-recall'
@@ -127,6 +128,30 @@ const email = ref('')
 const placa = ref('')
 const loading = ref(false)
 const success = ref(false)
+
+// ===== Price A/B test of the Completa (shared/ab-preco.ts) =====
+// The arm is drawn by plugins/ab-preco.client.ts before this page runs. On the
+// server it is always null (SSR, bots: price A). Read once at setup on the
+// client: every surface that uses it is either client-only (result, sticky
+// bar, checkout) or gated so SSR and hydration agree (see below).
+const abPrecoTela = ref<BracoPreco | null>(import.meta.client ? bracoAtual() : null)
+/** Completa price in the purchase flow (result card, sticky bar, offer). */
+const precoCompletaFluxo = computed(() => precoDoPlano('completa', abPrecoTela.value))
+/**
+ * Static sections of the home (comparison, price, final CTA). SSR and the
+ * first paint show the table price (A) for everybody; once the free result is
+ * on screen they follow the visitor's arm, so the page never shows two prices
+ * for the Completa at the same time.
+ */
+const precoCompletaHome = computed(() => (success.value ? precoCompletaFluxo.value : PLANOS.completa.valorCentavos))
+function precoNaHome(p: { id: PlanoId; valorCentavos: number }): number {
+  return p.id === 'completa' ? precoCompletaHome.value : p.valorCentavos
+}
+// The "plano" link line (?plano=completa) is SSR-rendered: with the test on
+// its price only appears after mount, so arm B never sees 44,90 then 39,90.
+const montadoAbPreco = ref(false)
+onMounted(() => { montadoAbPreco.value = true })
+const precoLinkPlanoVisivel = computed(() => !abPrecoLigadoPorEnv(useRuntimeConfig().public.abPreco) || montadoAbPreco.value)
 const message = ref('')
 const messageType = ref<'success' | 'error' | 'info'>('info')
 const emailError = ref('')
@@ -639,7 +664,7 @@ const tituloBlocoB = computed(() => tituloVarianteB(
   resultadoBasico.value?.ano,
 ))
 const subBlocoB = computed(() => subVarianteB(fipeSemCentavosAtual.value, camposBloqueados.length))
-const garantiaBlocoB = computed(() => garantiaVarianteB(precoBRL(PLANOS.completa.valorCentavos), isCapacitor.value))
+const garantiaBlocoB = computed(() => garantiaVarianteB(precoBRL(precoCompletaFluxo.value), isCapacitor.value))
 
 // ===== Variante A: novo layout de pagina inteira =====
 // Renderiza a pagina nova SO quando a variante A foi sorteada E o teste esta
@@ -684,13 +709,13 @@ const valorFipeCurto = computed(() => {
 const barraRelatorioStyle = computed(() => {
   const c = fipeCentavos.value
   if (!c) return { width: '4px' }
-  const pct = (PLANOS.completa.valorCentavos / c) * 100
+  const pct = (precoCompletaFluxo.value / c) * 100
   return { width: `max(4px, ${pct.toFixed(4)}%)` }
 })
 const pctFipe = computed(() => {
   const c = fipeCentavos.value
   if (!c) return null
-  const pct = (PLANOS.completa.valorCentavos / c) * 100
+  const pct = (precoCompletaFluxo.value / c) * 100
   return `${pct.toFixed(1).replace('.', ',')}%`
 })
 
@@ -1575,7 +1600,7 @@ function applyEmailSuggestion() {
               </PlacaMercosul>
               <p v-if="aguardandoPlacaPaga && viaLinkPlano" class="cb-plano-link" data-testid="plano-link">
                 <span class="cb-plano-link__nome">{{ PLANOS[premiumPlano].nome }}</span>
-                <span class="cb-plano-link__preco">{{ precoBRL(PLANOS[premiumPlano].valorCentavos) }}</span>
+                <span v-if="precoLinkPlanoVisivel" class="cb-plano-link__preco">{{ precoBRL(premiumPlano === 'completa' ? precoCompletaFluxo : PLANOS[premiumPlano].valorCentavos) }}</span>
                 <span class="cb-plano-link__dica">Digite a placa e siga direto para o pagamento.</span>
               </p>
               <small v-else-if="aguardandoPlacaPaga" class="cb-plate-help cb-plate-help--cta">
@@ -1698,7 +1723,7 @@ function applyEmailSuggestion() {
           :qtd-leiloes="qtdLeiloes"
           :leilao-encontrado="leilaoEncontrado"
           :so-notificacao="soNotificacao"
-          :preco-completa="precoBRL(PLANOS.completa.valorCentavos)"
+          :preco-completa="precoBRL(precoCompletaFluxo)"
           :preco-basica="precoBRL(PLANOS.basica.valorCentavos)"
           :app="isCapacitor"
           :frase-recall="fraseRecall"
@@ -1774,7 +1799,7 @@ function applyEmailSuggestion() {
                  agir sem rolar. Um so serve leilao e recall. Origem 'tag' pra
                  medir clique da tag vs card vs barra fixa. -->
             <button v-if="fraseSinalLeilao || fraseRecall || fraseSinalFrota" type="button" class="cb-btn cb-btn--blue cb-sinal-cta" @click="cliqueCtaCompleta('tag')">
-              Ver o relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+              Ver o relatório completo · {{ precoBRL(precoCompletaFluxo) }}
             </button>
 
             <!-- Variante B: sem registro de leilao, dizer isso vira prova de
@@ -1872,10 +1897,10 @@ function applyEmailSuggestion() {
                     {{ blocoVarianteB
                       ? 'Saber se posso confiar neste carro'
                       : soNotificacao
-                        ? `Ver a notificação de leilão no relatório completo · ${precoBRL(PLANOS.completa.valorCentavos)}`
+                        ? `Ver a notificação de leilão no relatório completo · ${precoBRL(precoCompletaFluxo)}`
                       : sinalLeilao?.positivo
-                        ? `Ver o registro de leilão no relatório completo · ${precoBRL(PLANOS.completa.valorCentavos)}`
-                        : `Ver o que essa placa revela · ${precoBRL(PLANOS.completa.valorCentavos)}` }}
+                        ? `Ver o registro de leilão no relatório completo · ${precoBRL(precoCompletaFluxo)}`
+                        : `Ver o que essa placa revela · ${precoBRL(precoCompletaFluxo)}` }}
                   </button>
                   <p v-if="blocoVarianteB" class="cb-locked__pix">{{ garantiaBlocoB }}</p>
                   <p v-else class="cb-locked__pix">{{ isCapacitor ? 'Na hora, sem assinatura.' : 'Pix ou cartão, na hora, sem assinatura.' }}</p>
@@ -1926,7 +1951,7 @@ function applyEmailSuggestion() {
             <span v-else>Mais {{ camposBloqueados.length }} verificações e o histórico de leilão, com base em {{ BASE_LEILAO_TEXTO }}</span>
           </div>
           <button type="button" class="cb-btn cb-btn--blue cb-sticky-upsell__cta" @click="cliqueCtaCompleta('barra_fixa')">
-            {{ soNotificacao ? 'Ver a notificação' : sinalLeilao?.positivo ? 'Ver o leilão' : 'Ver agora' }} · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+            {{ soNotificacao ? 'Ver a notificação' : sinalLeilao?.positivo ? 'Ver o leilão' : 'Ver agora' }} · {{ precoBRL(precoCompletaFluxo) }}
           </button>
         </div>
 
@@ -2058,7 +2083,7 @@ function applyEmailSuggestion() {
               <template v-if="p.valorCentavos === 0">Grátis <small>na tela</small></template>
               <!-- Promocao (preco antigo riscado, shared/planos.ts): so na completa hoje. -->
               <template v-else-if="precoDePromocao(p.id)"><PrecoPromo :plano="p.id" class="cb-cmp-promo" /> <small>{{ isCapacitor ? 'pagamento único' : 'Pix ou cartão, uma vez' }}</small></template>
-              <template v-else>{{ precoBRL(p.valorCentavos) }} <small>{{ isCapacitor ? 'pagamento único' : 'Pix ou cartão, uma vez' }}</small></template>
+              <template v-else>{{ precoBRL(precoNaHome(p)) }} <small>{{ isCapacitor ? 'pagamento único' : 'Pix ou cartão, uma vez' }}</small></template>
             </div>
             <div class="cb-cmp-note">{{ p.chamada }}</div>
 
@@ -2109,8 +2134,8 @@ function applyEmailSuggestion() {
               :class="p.id === 'completa' ? 'cb-btn--blue' : 'cb-btn--ghost'"
               @click="cliqueEscada(p.id)"
             >
-              <template v-if="p.id === 'basica'">Só o básico? Básica por {{ precoBRL(p.valorCentavos) }}</template>
-              <template v-else>{{ p.nome }} · {{ precoBRL(p.valorCentavos) }}</template>
+              <template v-if="p.id === 'basica'">Só o básico? Básica por {{ precoBRL(precoNaHome(p)) }}</template>
+              <template v-else>{{ p.nome }} · {{ precoBRL(precoNaHome(p)) }}</template>
             </button>
             <!-- Pacote para empresas (20/out/2026): linha discreta so no card da Completa, so na web. -->
             <p v-if="p.id === 'completa' && !isCapacitor" class="cb-cmp-volume">
@@ -2172,7 +2197,7 @@ function applyEmailSuggestion() {
           <h2>Tudo que a placa carrega, num relatório só.</h2>
           <p class="cb-doc-lead">
             A grátis te diz o que é o carro. A completa te diz se dá pra confiar.
-            {{ precoBRL(PLANOS.completa.valorCentavos) }}, uma vez.
+            {{ precoBRL(precoCompletaHome) }}, uma vez.
           </p>
           <div class="cb-doc-tags">
             <span class="cb-doc-tag"><i class="cb-d2" />Restrições nacionais e estaduais</span>
@@ -2204,12 +2229,12 @@ function applyEmailSuggestion() {
         <div class="cb-price-card">
           <p class="cb-price-promo"><PrecoPromo so-de /></p>
           <p class="cb-price-big">
-            {{ precoBRL(PLANOS.completa.valorCentavos) }}
+            {{ precoBRL(precoCompletaHome) }}
             <span class="cb-mut">para não perder</span> R$ 45 mil.
           </p>
           <div class="cb-price-card__cta">
             <button type="button" class="cb-btn cb-btn--blue cb-btn--lg" @click="cliqueEscada('completa')">
-              Consultar agora · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+              Consultar agora · {{ precoBRL(precoCompletaHome) }}
             </button>
           </div>
           <div class="cb-guar">
@@ -2251,7 +2276,7 @@ function applyEmailSuggestion() {
         <h2>Antes de fechar negócio, olhe a placa.</h2>
         <p>O que o vendedor não conta, o relatório revela. {{ isCapacitor ? 'Na hora, pelo Google Play.' : 'Na hora, no Pix ou no cartão.' }}</p>
         <button type="button" class="cb-btn cb-btn--on-slab cb-btn--lg" @click="consultFromGrid('completa', 'outro')">
-          Ver relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+          Ver relatório completo · {{ precoBRL(precoCompletaHome) }}
         </button>
         <div class="cb-cta-sub">ou faça a consulta grátis, sem cadastro</div>
       </section>

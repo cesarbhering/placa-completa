@@ -99,3 +99,20 @@ describe('cupom pessoal de recuperacao', () => {
     expect(r.precoLiquidoCentavos).toBe(r.precoBrutoCentavos - r.descontoCentavos)
   })
 })
+
+describe('coupon on the price A/B arm', () => {
+  const PUBLICO = { ...BASE, email_restrito: null, limite_uso_global: null, limite_uso_por_cliente: null, origem: 'recompra' }
+  it('percentage coupon applies on the arm B price', async () => {
+    const r = await validarCupom(supabaseCom(PUBLICO), 'CUPOM10ABCDE', 'completa', undefined, 'B')
+    expect(r).toMatchObject({ ok: true, precoBrutoCentavos: 3990, descontoCentavos: 399, precoLiquidoCentavos: 3591 })
+  })
+  it('without an arm it stays on the table price', async () => {
+    const r = await validarCupom(supabaseCom(PUBLICO), 'CUPOM10ABCDE', 'completa')
+    expect(r).toMatchObject({ ok: true, precoBrutoCentavos: 4490, precoLiquidoCentavos: 4041 })
+  })
+  it('second-plate offer keeps its promised final price in arm B', async () => {
+    const bump = { ...PUBLICO, tipo: 'fixo', valor: 1500, planos: ['completa'], origem: 'bump' }
+    const r = await validarCupom(supabaseCom(bump), 'SEGUNDAABCDEF', 'completa', undefined, 'B')
+    expect(r).toMatchObject({ ok: true, precoLiquidoCentavos: 2990 })
+  })
+})

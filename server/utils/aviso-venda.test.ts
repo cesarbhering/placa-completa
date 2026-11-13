@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   origemDaConsulta, origemDoPedido, montarAvisoVenda, avisarVenda,
   rotuloLeilao, rotuloRecall, formaPagamento, canalDoPedido, brlCentavos,
-  DESTINO_AVISO_VENDA, linhaRecompra, recompraDoPedido, placaNormalizada,
+  DESTINO_AVISO_VENDA, linhaRecompra, recompraDoPedido, placaNormalizada, linhaAbPreco,
 } from './aviso-venda'
 
 const PEDIDO = {
@@ -237,5 +237,19 @@ describe('placaNormalizada', () => {
   it('upper-cases and strips separators like the writers do', () => {
     expect(placaNormalizada('abc-1d23')).toBe('ABC1D23')
     expect(placaNormalizada(null)).toBe('')
+  })
+})
+
+describe('price A/B arm in the sale notice', () => {
+  it('no line when the column was not read (test off)', () => {
+    expect(linhaAbPreco({ plano: 'completa' })).toEqual([])
+  })
+  it('shows the arm and its Completa price', () => {
+    expect(linhaAbPreco({ ab_preco: 'B' })[0]).toContain('braço B')
+    expect(linhaAbPreco({ ab_preco: 'B' })[0]).toContain('39,90')
+    expect(linhaAbPreco({ ab_preco: 'A' })[0]).toContain('44,90')
+  })
+  it('order outside the test (app, no arm)', () => {
+    expect(linhaAbPreco({ ab_preco: null })[0]).toContain('fora do teste')
   })
 })

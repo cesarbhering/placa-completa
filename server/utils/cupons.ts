@@ -1,4 +1,5 @@
-import { aplicarCupom, PLANOS, type PlanoId } from '../../shared/planos'
+import { aplicarCupom, type PlanoId } from '../../shared/planos'
+import { precoDoPlano, type BracoPreco } from '../../shared/ab-preco'
 
 // Validacao + calculo de cupom (v1). Usado tanto pelo endpoint de validar
 // (blur do input, so pra mostrar o preco) quanto pelo checkout (que RECALCULA
@@ -52,8 +53,11 @@ export async function validarCupom(
   // limite por cliente e simplesmente pulado. O checkout final SEMPRE chama
   // esta funcao com o e-mail, entao a regra continua valendo onde importa.
   email?: string,
+  // Price A/B arm of the order (shared/ab-preco.ts). The coupon applies to the
+  // price the visitor was shown; null/'A' = table price.
+  braco?: BracoPreco | null,
 ): Promise<CupomValidado> {
-  const precoBrutoCentavos = plano === 'basica' || plano === 'completa' ? PLANOS[plano].valorCentavos : 0
+  const precoBrutoCentavos = plano === 'basica' || plano === 'completa' ? precoDoPlano(plano, braco) : 0
   const semDesconto = { ok: false as const, precoBrutoCentavos, descontoCentavos: 0, precoLiquidoCentavos: precoBrutoCentavos }
 
   if (plano !== 'basica' && plano !== 'completa') {
@@ -130,12 +134,15 @@ export async function validarCupom(
     }
   }
 
+  // The second-plate offer (cupom_bump) promises a fixed final price, so it is
+  // computed on the table price: in arm B it still lands on the promised value.
+  const base = cupom.origem === 'bump' ? precoDoPlano(plano, null) : precoBrutoCentavos
   const { precoBrutoCentavos: bruto, descontoCentavos, precoLiquidoCentavos } = aplicarCupom(plano, {
     tipo: cupom.tipo,
     valor: cupom.valor,
     planos: cupom.planos,
     permiteGratis: !!cupom.permite_gratis,
-  })
+  }, base)
 
   return {
     ok: true,

@@ -126,10 +126,15 @@ export function sanearEvento(bruto: unknown): EventoFunilSaneado | null {
   if (o.extra && typeof o.extra === 'object') {
     const saida: Record<string, string | number | boolean> = {}
     let n = 0
-    for (const [k, v] of Object.entries(o.extra as Record<string, unknown>)) {
+    // Price A/B arm (shared/ab-preco.ts) goes first so the 8-key cap never
+    // drops it, and only 'A'/'B' are accepted.
+    const entradas = Object.entries(o.extra as Record<string, unknown>)
+      .sort(([a], [b]) => Number(b.toLowerCase() === 'ab_preco') - Number(a.toLowerCase() === 'ab_preco'))
+    for (const [k, v] of entradas) {
       if (n >= 8) break
       const chave = k.toLowerCase()
       if (PROIBIDOS.has(chave)) continue
+      if (chave === 'ab_preco' && v !== 'A' && v !== 'B') continue
       if (typeof v === 'string') saida[chave] = v.slice(0, chave === 'utm_content' ? 120 : 80)
       else if (typeof v === 'number' && Number.isFinite(v)) saida[chave] = v
       else if (typeof v === 'boolean') saida[chave] = v

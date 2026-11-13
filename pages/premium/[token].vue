@@ -34,6 +34,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // O corte por plano acontece no servidor: o que a basica nao comprou nem chega
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
+import { precoDoPlano } from '~/shared/ab-preco'
 import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem, itemAnotacao, anotacoesDoCadastro, TITULO_ANOTACOES, fraseParecerAnotacoes } from '~/shared/restricoes'
 import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes, midiasDaPassagem } from '~/shared/foto-lote'
 import { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, estadoCartaoLeilao, PARECER_SO_POSSIVEL_TITULO } from '~/shared/leilao-copy'
@@ -2051,6 +2052,12 @@ const fichaColunas = computed(() => {
   return { esquerda, direita }
 })
 
+// Upsell of the basic report: Completa price of the order's price A/B arm
+// (server-side, so SSR and client agree; null = table price). The link carries
+// the arm so a browser with no arm yet adopts it (shared/ab-preco.ts).
+const precoUpsellCompleta = computed(() => precoDoPlano('completa', data.value?.abPreco ?? null))
+const linkUpsellCompleta = computed(() => `/?placa=${data.value?.placa}&plano=completa${data.value?.abPreco ? `&ab_preco=${data.value.abPreco}` : ''}`)
+
 // ---------- retomada do Pix ----------
 const valorPedido = computed(() => data.value?.valorCentavos ?? PLANOS[plano.value as 'basica' | 'completa']?.valorCentavos ?? 0)
 const copiado = ref(false)
@@ -3356,8 +3363,8 @@ onUnmounted(() => {
               restrições nacionais e estaduais, roubo e furto, registro de leilão, gravame,
               RENAJUD e indicador de multas.
             </p>
-            <NuxtLink class="rel__btn rel__btn--primario" :to="`/?placa=${data.placa}&plano=completa`">
-              Relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+            <NuxtLink class="rel__btn rel__btn--primario" :to="linkUpsellCompleta">
+              Relatório completo · {{ precoBRL(precoUpsellCompleta) }}
             </NuxtLink>
           </section>
 
