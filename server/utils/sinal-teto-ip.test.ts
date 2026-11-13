@@ -33,6 +33,6 @@ describe('teto dos sinais com o IP real (cadeia de prod)', () => {
     for (let i = 0; i < 60; i++) expect(dentroDoTetoDeSinal(ip, t0, 'leilao')).toBe(true)
     expect(dentroDoTetoDeSinal(ip, t0, 'leilao')).toBe(false)
     // A visitor with a real address keeps a window of its own.
-    expect(dentroDoTetoDeSinal(getClientIp(evento({ 'cf-connecting-ip': '200.1.1.1' })), t0, 'leilao')).toBe(true)
+    expect(dentroDoTetoDeSinal(getClientIp(evento({ 'cf-connecting-ip': '203.0.113.1' })), t0, 'leilao')).toBe(true)
   })
 })

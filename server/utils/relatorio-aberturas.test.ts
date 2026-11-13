@@ -37,8 +37,9 @@ describe('relatorio_aberturas', () => {
 
   it('passes the request to the geo lookup, so the CDN location headers can be used', async () => {
     const evento = { marca: 'request' }
+    headers['x-ip'] = '203.0.113.9'
     await registrarAbertura(sb, evento, pedido, TOKEN)
-    expect(geo).toHaveBeenCalledWith('200.1.2.3', evento)
+    expect(geo).toHaveBeenCalledWith('203.0.113.9', evento)
   })
 
   it('mesmo IP da compra = true', async () => {
