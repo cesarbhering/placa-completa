@@ -1,0 +1,256 @@
+#!/usr/bin/env python3
+"""pc-ab-preco-report - daily report of the Completa price A/B test.
+
+Test decided on 12/nov/2026 (shared/ab-preco.ts in the site repo).
+A = Completa at the table price (R$ 44,90); B = Completa at R$ 39,90, same
+presentation. 50/50 per visitor, sticky. Web only (the app stays out).
+
+Sources (production database, via the Supabase Management API with
+~/.supabase/access-token):
+  sessions with result = distinct eventos_funil.sessao with resultado_exibido
+                         stamped with extra.ab_preco
+  checkouts opened     = distinct sessions with premium_checkout_open
+  Pix generated        = distinct sessions with pix_gerado
+  paid orders          = pedidos_premium.ab_preco, pago_em set, not refunded,
+                         ambiente producao; revenue = sum of valor_centavos
+  margin ("sobra")     = per paid order, the per-sale margin constant of its
+                         plan and arm (MARGEM_* below), minus any coupon
+                         discount (table price of the arm - amount paid)
+Days in Brasilia time. Test start = first stamped event.
+
+Usage:
+  pc-ab-preco-report                 -> print the report (does not send)
+  pc-ab-preco-report --email         -> e-mail it via pc-mail (21h timer)
+The recipient comes from PC_AB_PRECO_TO (set in the systemd EnvironmentFile,
+outside the repo) or --to ADDRESS.
+
+User-facing text (the e-mail body) is in Portuguese on purpose.
+"""
+import json
+import math
+import os
+import subprocess
+import sys
+import urllib.request
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
+
+PROJETO = "fivalpkfneadngxiflea"
+API = f"https://api.supabase.com/v1/projects/{PROJETO}/database/query"
+TZ = "America/Sao_Paulo"
+VARS = ("A", "B")
+
+# ---- Constants: the ONLY place to change prices, margins or the stop rule ----
+PRECO_COMPLETA = {"A": 4490, "B": 3990}          # cents, mirrors shared/ab-preco.ts
+PRECO_BASICA = 2990
+MARGEM_COMPLETA = {"A": 2807, "B": 2347}         # margin per Completa sale, cents
+MARGEM_BASICA = 2014                              # margin per Basica sale, cents
+META_SESSOES = 13600                              # sessions with result per arm
+META_DIAS = 28
+# ----------------------------------------------------------------------------
+
+NOME = {"A": "A (Completa R$ 44,90)", "B": "B (Completa R$ 39,90)"}
+
+
+def token():
+    with open(os.path.expanduser("~/.supabase/access-token")) as f:
+        return f.read().strip()
+
+
+def sql(q):
+    req = urllib.request.Request(
+        API,
+        data=json.dumps({"query": q}).encode(),
+        headers={"Authorization": f"Bearer {token()}", "Content-Type": "application/json"},
+    )
+    return json.load(urllib.request.urlopen(req, timeout=60))
+
+
+ORIGEM_EV = ("case when coalesce(origem->>'msclkid','') <> '' or lower(coalesce(origem->>'utm_source','')) = 'bing' then 'bing' "
+             "when coalesce(origem->>'gclid','') <> '' then 'google' else 'outros' end")
+ORIGEM_PED = ("case when coalesce(msclkid,'') <> '' or lower(coalesce(utm_source,'')) = 'bing' then 'bing' "
+              "when coalesce(gclid,'') <> '' then 'google' else 'outros' end")
+
+Q_EVENTOS = f"""
+select extra->>'ab_preco' v, (criado_em at time zone '{TZ}')::date::text dia, {ORIGEM_EV} org, evento,
+       count(distinct sessao) n
+from eventos_funil
+where extra->>'ab_preco' in ('A','B')
+  and evento in ('resultado_exibido','premium_checkout_open','pix_gerado')
+group by 1,2,3,4
+"""
+
+Q_PEDIDOS = f"""
+select ab_preco v, (pago_em at time zone '{TZ}')::date::text dia, {ORIGEM_PED} org,
+       coalesce(plano,'completa') plano, count(*) n, coalesce(sum(valor_centavos),0) receita
+from pedidos_premium
+where ab_preco in ('A','B') and pago_em is not null and status <> 'reembolsado'
+  and coalesce(ambiente,'producao') = 'producao'
+group by 1,2,3,4
+"""
+
+Q_INICIO = "select min(criado_em at time zone '" + TZ + "')::date::text inicio from eventos_funil where extra->>'ab_preco' in ('A','B')"
+
+
+def margem_venda(v, plano, n, receita):
+    """Margin of n paid orders of one plan/arm with total revenue `receita` (cents).
+    Coupon discounts come out of the margin: table price of the arm * n - revenue."""
+    if plano == "basica":
+        return n * MARGEM_BASICA - max(0, n * PRECO_BASICA - receita)
+    return n * MARGEM_COMPLETA[v] - max(0, n * PRECO_COMPLETA[v] - receita)
+
+
+def vazio():
+    return {"sessoes": 0, "checkout": 0, "pix": 0, "pagos": 0, "pagos_completa": 0, "pagos_basica": 0,
+            "receita": 0, "margem": 0}
+
+
+def agregar(eventos, pedidos, filtro=lambda r: True):
+    t = {v: vazio() for v in VARS}
+    campo = {"resultado_exibido": "sessoes", "premium_checkout_open": "checkout", "pix_gerado": "pix"}
+    for r in eventos:
+        if filtro(r):
+            t[r["v"]][campo[r["evento"]]] += int(r["n"] or 0)
+    for r in pedidos:
+        if filtro(r):
+            x, n, rec = t[r["v"]], int(r["n"] or 0), int(r["receita"] or 0)
+            x["pagos"] += n
+            x["pagos_basica" if r["plano"] == "basica" else "pagos_completa"] += n
+            x["receita"] += rec
+            x["margem"] += margem_venda(r["v"], r["plano"], n, rec)
+    return t
+
+
+def pct(n, d):
+    return f"{100.0 * n / d:.1f}%".replace(".", ",") if d else "-"
+
+
+def reais(c):
+    return "R$ " + f"{c / 100:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def linha(v, x, recuo="  "):
+    por_sessao = reais(x["margem"] / x["sessoes"]) if x["sessoes"] else "-"
+    return (f"{recuo}{NOME[v]}: sessões com resultado {x['sessoes']} | checkout aberto {x['checkout']} "
+            f"({pct(x['checkout'], x['sessoes'])}) | Pix gerado {x['pix']} | pagos {x['pagos']} "
+            f"(Completa {x['pagos_completa']}, Básica {x['pagos_basica']}; {pct(x['pagos'], x['sessoes'])}) | "
+            f"receita {reais(x['receita'])} | sobra {reais(x['margem'])} | sobra por sessão {por_sessao}")
+
+
+def proporcao(t):
+    """Sample ratio check: should be 50/50. Chi-square with 1 degree of freedom."""
+    a, b = t["A"]["sessoes"], t["B"]["sessoes"]
+    n = a + b
+    if not n:
+        return "  Proporção da amostra: sem sessões ainda."
+    esp = n / 2
+    chi = ((a - esp) ** 2 + (b - esp) ** 2) / esp
+    p = math.erfc(math.sqrt(chi / 2))
+    alerta = " ALERTA: desvio da divisão 50/50, conferir o sorteio antes de ler o resultado." if p < 0.001 else " OK."
+    return (f"  Proporção da amostra: A {pct(a, n)} x B {pct(b, n)} das sessões com resultado "
+            f"(esperado 50/50; p = {p:.3f})".replace("0.", "0,") + "." + alerta)
+
+
+def comparacao(t):
+    a, b = t["A"], t["B"]
+    if not a["sessoes"] or not b["sessoes"]:
+        return "  Ainda sem amostra nos dois braços para comparar."
+    sa, sb = a["margem"] / a["sessoes"], b["margem"] / b["sessoes"]
+    lider = "B" if sb > sa else "A" if sa > sb else None
+    pa, pb = a["pagos"] / a["sessoes"], b["pagos"] / b["sessoes"]
+    n = a["sessoes"] + b["sessoes"]
+    p = (a["pagos"] + b["pagos"]) / n
+    se = math.sqrt(p * (1 - p) * (1 / a["sessoes"] + 1 / b["sessoes"])) if 0 < p < 1 else 0
+    conf = ""
+    if se:
+        c = math.erf(abs(pb - pa) / se / math.sqrt(2)) * 100
+        conf = f" Confiança de que a diferença na taxa de compra é real: {c:.0f}% (decisão pede 95%)."
+    if not lider:
+        return f"  Empate na sobra por sessão.{conf}"
+    return (f"  Na frente em sobra por sessão: {NOME[lider]} ({reais(max(sa, sb))} x {reais(min(sa, sb))}). "
+            f"Taxa de compra por sessão: A {pct(a['pagos'], a['sessoes'])}, B {pct(b['pagos'], b['sessoes'])}.{conf}")
+
+
+def regra_parada(t, inicio, hoje):
+    dias = (date.fromisoformat(hoje) - date.fromisoformat(inicio)).days + 1 if inicio else 0
+    meta = f"{META_SESSOES:,}".replace(",", ".")
+    linhas = [f"  Meta: {meta} sessões com resultado por braço ou {META_DIAS} dias, o que vier primeiro."]
+    linhas.append(f"  Andamento: dia {dias} de {META_DIAS}; A {t['A']['sessoes']} e B {t['B']['sessoes']} sessões "
+                  f"({pct(min(t['A']['sessoes'], t['B']['sessoes']), META_SESSOES)} da meta no braço mais curto).")
+    if dias >= META_DIAS or min(t["A"]["sessoes"], t["B"]["sessoes"]) >= META_SESSOES:
+        linhas.append("  REGRA DE PARADA ATINGIDA: hora de decidir.")
+    return linhas
+
+
+def montar(eventos, pedidos, inicio, hoje):
+    if not eventos and not pedidos:
+        return "Teste de preço da Completa\n\nTeste ainda sem dados (flag desligada ou sem visitas).\n\nHelena"
+    partes = [f"Teste de preço da Completa (A R$ 44,90 x B R$ 39,90). Desde {inicio[8:10]}/{inicio[5:7]}. "
+              "Só web; o app fica fora do teste.", ""]
+    th = agregar(eventos, pedidos, lambda r: r["dia"] == hoje)
+    partes.append(f"HOJE ({hoje[8:10]}/{hoje[5:7]}, 00h às 21h)")
+    partes += [linha(v, th[v]) for v in VARS]
+    partes.append("")
+    tot = agregar(eventos, pedidos)
+    partes.append("ACUMULADO (desde o início do teste)")
+    partes += [linha(v, tot[v]) for v in VARS]
+    partes.append(comparacao(tot))
+    partes.append(proporcao(tot))
+    partes.append("")
+    partes.append("ACUMULADO POR ORIGEM")
+    for org, rot in (("bing", "Bing"), ("google", "Google"), ("outros", "Outras origens")):
+        to = agregar(eventos, pedidos, lambda r, o=org: r["org"] == o)
+        partes.append(f"  {rot}")
+        partes += [linha(v, to[v], "    ") for v in VARS]
+    partes.append("")
+    partes.append("DIAS ANTERIORES")
+    dias = sorted({r["dia"] for r in eventos + pedidos if r["dia"] < hoje})
+    if not dias:
+        partes.append("  Nenhum dia anterior ainda.")
+    for d in dias:
+        td = agregar(eventos, pedidos, lambda r, d=d: r["dia"] == d)
+        partes.append(f"  {d[8:10]}/{d[5:7]}")
+        partes += [linha(v, td[v], "    ") for v in VARS]
+    partes.append("")
+    partes.append("REGRA DE PARADA")
+    partes += regra_parada(tot, inicio, hoje)
+    partes += ["",
+               "Métrica principal: sobra por sessão com resultado. Sobra por venda: Completa a R$ 44,90 = R$ 28,07; "
+               "a R$ 39,90 = R$ 23,47; Básica = R$ 20,14 (cupom desconta da sobra).",
+               "Sessões contadas por visita; pedidos pagos pelo dia do pagamento, sem reembolsados.",
+               "A confiança é aproximada: o cálculo trata cada sessão como independente, e uma sessão que vira o dia pode contar nos dois dias.",
+               "", "Helena"]
+    return "\n".join(partes)
+
+
+def destino():
+    if "--to" in sys.argv:
+        i = sys.argv.index("--to")
+        if i + 1 < len(sys.argv):
+            return sys.argv[i + 1]
+    return os.environ.get("PC_AB_PRECO_TO", "").strip()
+
+
+def main():
+    eventos = sql(Q_EVENTOS)
+    # Before the migration the column does not exist: report events only.
+    tem_coluna = bool(sql("select 1 from information_schema.columns where table_schema = 'public' "
+                          "and table_name = 'pedidos_premium' and column_name = 'ab_preco'"))
+    pedidos = sql(Q_PEDIDOS) if tem_coluna else []
+    ini = sql(Q_INICIO)
+    hoje = datetime.now(ZoneInfo(TZ)).date().isoformat()
+    inicio = (ini[0].get("inicio") if ini else None) or hoje
+    corpo = montar(eventos, pedidos, inicio, hoje)
+    print(corpo)
+    if "--email" in sys.argv:
+        para = destino()
+        if not para:
+            print("no recipient: set PC_AB_PRECO_TO or pass --to", file=sys.stderr)
+            sys.exit(2)
+        assunto = f"Teste de preço da Completa: dia {hoje[8:10]}/{hoje[5:7]}"
+        subprocess.run(["pc-mail", "--to", para, "--subject", assunto, "--body", corpo], check=False)
+        print("(e-mail sent)")
+
+
+if __name__ == "__main__":
+    main()

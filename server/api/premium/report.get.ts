@@ -19,6 +19,7 @@ import { sanearBlocoMultas } from '../../utils/infosimples-detran'
 import { retentarDetranSeValer } from '../../utils/detran-retentativa'
 import { logoProxyDe } from '../../utils/logo-marca'
 import { blocoNfse, colunasNfseRelatorio } from '../../utils/nfse-bloco'
+import { colunaAbPrecoSelect } from '../../utils/ab-preco'
 import { lerPlacaCacheFresca, motorDoPayload } from '../../utils/placa-lookup'
 
 // Dados do relatorio premium pelo token (superficie PAGA, token e a credencial).
@@ -146,7 +147,7 @@ export default defineEventHandler(async (event) => {
   const supabase = usePremiumSupabase()
   const { data: pedido } = await supabase
     .from('pedidos_premium')
-    .select('id,status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro,forma_pagamento,recall_sinal,recall_marca,ambiente,ip_address,dispositivo,sistema,canal,obref' + colunasNfseRelatorio(useRuntimeConfig()))
+    .select('id,status,placa,plano,valor_centavos,preview,consulta_id,entregue_em,criado_em,br_code,expira_em,relatorio_snapshot,snapshot_em,email,erro,forma_pagamento,recall_sinal,recall_marca,ambiente,ip_address,dispositivo,sistema,canal,obref' + colunasNfseRelatorio(useRuntimeConfig()) + colunaAbPrecoSelect(useRuntimeConfig()))
     .eq('token_entrega', String(token))
     .single()
   if (!pedido) throw createError({ statusCode: 404, message: 'Relatorio nao encontrado' })
@@ -455,6 +456,9 @@ export default defineEventHandler(async (event) => {
     valorCentavos: pedido.valor_centavos,
     // quantos campos a completa ainda entregaria alem deste plano (upsell)
     camposRestantes: restantes,
+    // Price A/B arm of this order (null outside the test / flag off): the basic
+    // report's upsell shows the Completa price of the same arm.
+    abPreco: (pedido as any).ab_preco === 'A' || (pedido as any).ab_preco === 'B' ? (pedido as any).ab_preco : null,
     valorCusto,
     chassiOrigem,
     // Dado do veiculo, so no relatorio pago (basica e completa).

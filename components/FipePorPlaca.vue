@@ -9,7 +9,6 @@
 // Esses eventos sao o denominador do A/B do resultado da home e sairiam
 // carimbados com a variante da sessao; aqui so vai o evento do gtag.
 import { origemDaSessao } from '~/shared/origem-trafego'
-import { PLANOS } from '~/shared/planos'
 import { camposGateEmail, deveExigirEmailLocal, ehErroGateEmail, emailGateSalvo, registrarConsultaSemEmail, salvarEmailGate } from '~/composables/useGateEmail'
 
 const { validatePlaca } = useFormValidation()
@@ -21,7 +20,8 @@ const carregando = ref(false)
 const erro = ref('')
 const resultado = ref<Record<string, any> | null>(null)
 const abrirCheckout = ref(false)
-const preco = `R$ ${(PLANOS.completa.valorCentavos / 100).toFixed(2).replace('.', ',')}`
+// Completa price from the single source of the price A/B test (usePrecoCompleta).
+const { texto: preco } = usePrecoCompleta()
 const INCLUI = ['Roubo e furto', 'Leilão', 'Gravame', 'RENAJUD', 'Multas', 'Restrições']
 
 function gtag(evento: string, params: Record<string, any>) {

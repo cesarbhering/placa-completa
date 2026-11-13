@@ -1,6 +1,8 @@
 import { CUPOM_TELA_PCT } from '../../shared/cupom-tela'
 import { sanearOrigemCheckout, ROTULO_ORIGEM_CHECKOUT } from '../../shared/origem-checkout'
 import { ambienteForaDeProd } from './ambiente-alerta'
+import { PRECO_COMPLETA_BRACO } from '../../shared/ab-preco'
+import { colunaAbPrecoSelect } from './ab-preco'
 
 // Aviso de venda ao Cesar, NA HORA da entrega (antes saia so pelo timer
 // pc-venda-origem, a cada 20 min). Mesmo conteudo do script do host: origem
@@ -25,6 +27,8 @@ const REMETENTE = 'Helena PlacaCompleta <helena@placacompleta.com.br>'
 
 export interface PedidoAviso {
   id: string
+  /** Price A/B arm; only present when the test flag is on (column read). */
+  ab_preco?: string | null
   placa: string
   plano?: string | null
   valor_centavos?: number | null
@@ -166,6 +170,19 @@ export function linhaRecompra(r: Recompra | null | undefined): string {
   return p ? `Recompra: SIM, ${ord}. 1a compra em ${dataBR(p.pago_em)}, origem: ${p.origem}` : `Recompra: SIM, ${ord}`
 }
 
+/**
+ * Price A/B arm of the order (shared/ab-preco.ts). No line at all when the
+ * column was not read (test off): the e-mail stays as it was before the test.
+ */
+export function linhaAbPreco(p: { ab_preco?: string | null; plano?: string | null }): string[] {
+  if (!('ab_preco' in p)) return []
+  if (p.ab_preco === 'A' || p.ab_preco === 'B') {
+    const preco = brlCentavos(PRECO_COMPLETA_BRACO[p.ab_preco])
+    return [`Teste de preço da Completa: braço ${p.ab_preco} (Completa a ${preco})`]
+  }
+  return ['Teste de preço da Completa: fora do teste (app ou pedido sem braço)']
+}
+
 export function montarAvisoVenda(p: PedidoAviso, x: ExtrasAviso): { subject: string; text: string } {
   const org = origemDoPedido(p, x.consulta)
   const { link, estado } = entregaDoPedido(p)
@@ -193,6 +210,7 @@ export function montarAvisoVenda(p: PedidoAviso, x: ExtrasAviso): { subject: str
     `Relatorio: ${link}`,
     `Entrega: ${estado}`,
     `Teste A/B do bloco: ${x.ab || 'sem_ab (evento sem variante)'}`,
+    ...linhaAbPreco(p),
     `Viu sinal de leilao na consulta gratis: ${rotuloLeilao(x.leilaoSinal)}`,
     `Viu sinal de recall na consulta gratis: ${rotuloRecall(x.recallSinal, x.recallMarca)}`,
     '',
@@ -322,7 +340,7 @@ export async function avisarVenda(
       .eq('id', pedidoId)
       .eq('ambiente', 'producao')
       .is('aviso_venda_em', null)
-      .select(COLS_PEDIDO)
+      .select(COLS_PEDIDO + colunaAbPrecoSelect(config))
     if (error || !marcados?.length) return false
     marcou = true
     const p = marcados[0]

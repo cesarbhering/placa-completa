@@ -5,7 +5,7 @@ import { escolherTitulo } from '~/shared/seo-titulo'
 // do que ele traz e do que nao traz.
 import { paginaCompra, PAGINAS_COMPRA } from '~/shared/cluster-compra'
 import { ARTIGOS } from '~/shared/artigos-o-que-e'
-import { PLANOS, precoDePromocao } from '~/shared/planos'
+import { precoDePromocao } from '~/shared/planos'
 import { paginaCompraEn } from '~/shared/cluster-compra-en'
 
 
@@ -16,7 +16,6 @@ const { t, emIngles, rota } = useIdioma()
 const p = (emIngles.value && paginaCompraEn(props.rota)) || paginaCompra(props.rota)!
 const BASE = 'https://placacompleta.com.br'
 const CANONICO = `${BASE}${rota(p.rota)}`
-const preco = `R$ ${(PLANOS.completa.valorCentavos / 100).toFixed(2).replace('.', ',')}`
 const temPromo = !!precoDePromocao('completa')
 const outras = PAGINAS_COMPRA.filter((x) => x.rota !== p.rota)
 
@@ -57,7 +56,7 @@ useHead({
 
         <div class="pc-callout">
           <p>
-            <strong>{{ t('compra.relatorioCompleto') }}</strong> <PrecoPromo v-if="temPromo" inline /><strong v-else>{{ preco }}</strong>. {{ t('compra.pagamento') }}
+            <strong>{{ t('compra.relatorioCompleto') }}</strong> <PrecoPromo v-if="temPromo" inline /><strong v-else><PrecoCompleta espaco=" " /></strong>. {{ t('compra.pagamento') }}
           </p>
         </div>
         <div class="pc-cta">
@@ -67,7 +66,7 @@ useHead({
         <h2>{{ t('compra.faqH2') }}</h2>
         <div v-for="q in p.faq" :key="q.pergunta" class="pc-faq__item">
           <h3>{{ q.pergunta }}</h3>
-          <p>{{ q.resposta }}</p>
+          <p><TextoComPreco :texto="q.resposta" /></p>
         </div>
 
         <!-- The related pages are PT only: the English twin skips this list. -->

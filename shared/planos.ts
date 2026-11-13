@@ -87,8 +87,12 @@ export const PISO_CUPOM_CENTAVOS: Record<'basica' | 'completa', number> = {
 export function aplicarCupom(
   plano: 'basica' | 'completa',
   cupom: { tipo: 'percentual' | 'fixo'; valor: number; planos: string[]; permiteGratis?: boolean } | null | undefined,
+  // Base price override (price A/B test, shared/ab-preco.ts). Default = table.
+  precoBaseCentavos?: number,
 ): { precoBrutoCentavos: number; descontoCentavos: number; precoLiquidoCentavos: number } {
-  const precoBrutoCentavos = PLANOS[plano].valorCentavos
+  const precoBrutoCentavos = Number.isFinite(precoBaseCentavos) && (precoBaseCentavos as number) > 0
+    ? Math.round(precoBaseCentavos as number)
+    : PLANOS[plano].valorCentavos
   const piso = cupom?.permiteGratis ? 0 : PISO_CUPOM_CENTAVOS[plano]
   if (!cupom || !cupom.planos.includes(plano)) {
     return { precoBrutoCentavos, descontoCentavos: 0, precoLiquidoCentavos: precoBrutoCentavos }

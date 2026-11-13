@@ -34,6 +34,7 @@ import { linhaRecallGrade } from '~/shared/recall-grade'
 // O corte por plano acontece no servidor: o que a basica nao comprou nem chega
 // aqui. A tela so esconde os blocos que ficariam vazios.
 import { PLANOS, precoBRL } from '~/shared/planos'
+import { abPrecoLigadoPorEnv, precoDoPlano, resolverBracoComPedido, type BracoPreco } from '~/shared/ab-preco'
 import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem, itemAnotacao, anotacoesDoCadastro, TITULO_ANOTACOES, fraseParecerAnotacoes } from '~/shared/restricoes'
 import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes, midiasDaPassagem } from '~/shared/foto-lote'
 import { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, estadoCartaoLeilao, PARECER_SO_POSSIVEL_TITULO } from '~/shared/leilao-copy'
@@ -2051,6 +2052,24 @@ const fichaColunas = computed(() => {
   return { esquerda, direita }
 })
 
+// Upsell of the basic report (price A/B test, shared/ab-preco.ts). The plugin
+// does not draw on this route: once the report data is here, the browser
+// adopts the order's arm if it has none (otherwise it keeps its own), and the
+// button shows the BROWSER's arm, which is what the checkout charges. With the
+// test on, the number stays hidden until that resolves, in both arms.
+const abPrecoLigadoRelatorio = abPrecoLigadoPorEnv(useRuntimeConfig().public.abPreco)
+const bracoUpsell = ref<BracoPreco | null>(null)
+const upsellResolvido = ref(!abPrecoLigadoRelatorio)
+onMounted(() => {
+  watch(() => data.value, (d) => {
+    if (!d || upsellResolvido.value) return
+    bracoUpsell.value = resolverBracoComPedido(d.abPreco ?? null)
+    upsellResolvido.value = true
+  }, { immediate: true })
+})
+const precoUpsellCompleta = computed(() => precoDoPlano('completa', bracoUpsell.value))
+const linkUpsellCompleta = computed(() => `/?placa=${data.value?.placa}&plano=completa`)
+
 // ---------- retomada do Pix ----------
 const valorPedido = computed(() => data.value?.valorCentavos ?? PLANOS[plano.value as 'basica' | 'completa']?.valorCentavos ?? 0)
 const copiado = ref(false)
@@ -3356,8 +3375,8 @@ onUnmounted(() => {
               restrições nacionais e estaduais, roubo e furto, registro de leilão, gravame,
               RENAJUD e indicador de multas.
             </p>
-            <NuxtLink class="rel__btn rel__btn--primario" :to="`/?placa=${data.placa}&plano=completa`">
-              Relatório completo · {{ precoBRL(PLANOS.completa.valorCentavos) }}
+            <NuxtLink class="rel__btn rel__btn--primario" :to="linkUpsellCompleta">
+              Relatório completo · <span v-if="!upsellResolvido" style="visibility: hidden">{{ precoBRL(precoUpsellCompleta) }}</span><template v-else>{{ precoBRL(precoUpsellCompleta) }}</template>
             </NuxtLink>
           </section>
 

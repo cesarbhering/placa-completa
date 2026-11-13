@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily e-mail of the Completa price A/B test (A x B)
+
+[Service]
+Type=oneshot
+# PC_AB_PRECO_TO (recipient) lives outside the repo.
+EnvironmentFile=/etc/pc-ab-preco-report.env
+ExecStart=/usr/local/bin/pc-ab-preco-report --email
+TimeoutStartSec=120

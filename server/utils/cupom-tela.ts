@@ -1,5 +1,6 @@
 import { createHmac, createHash, timingSafeEqual } from 'node:crypto'
-import { aplicarCupom, type PlanoId } from '../../shared/planos'
+import { type PlanoId } from '../../shared/planos'
+import { aplicarCupomNoBraco, type BracoPreco } from '../../shared/ab-preco'
 import { CUPOM_TELA_PCT, CUPOM_TELA_JANELA_MS } from '../../shared/cupom-tela'
 
 // Cupom de tela (Cesar, 04/nov/2026): quem recebe o resultado da consulta
@@ -101,8 +102,8 @@ export function cupomTelaValido(segredo: string, token: unknown, placa: string, 
 export interface DescontoTela { precoBrutoCentavos: number; descontoCentavos: number; precoLiquidoCentavos: number }
 
 /** Preco com os 5% de tela (piso do plano respeitado, nunca zera). */
-export function precoComCupomTela(plano: Exclude<PlanoId, 'gratis'>): DescontoTela {
-  return aplicarCupom(plano, { tipo: 'percentual', valor: CUPOM_TELA_PCT, planos: ['basica', 'completa'] })
+export function precoComCupomTela(plano: Exclude<PlanoId, 'gratis'>, braco?: BracoPreco | null): DescontoTela {
+  return aplicarCupomNoBraco(plano, { tipo: 'percentual', valor: CUPOM_TELA_PCT, planos: ['basica', 'completa'] }, braco)
 }
 
 /**
@@ -114,9 +115,10 @@ export function resolverDescontoTela<C extends { ok: boolean; descontoCentavos: 
   plano: Exclude<PlanoId, 'gratis'>,
   cupom: C | null,
   telaOk: boolean,
+  braco?: BracoPreco | null,
 ): { cupom: C | null; tela: DescontoTela | null } {
   if (!telaOk) return { cupom, tela: null }
-  const tela = precoComCupomTela(plano)
+  const tela = precoComCupomTela(plano, braco)
   if (cupom?.ok && cupom.descontoCentavos >= tela.descontoCentavos) return { cupom, tela: null }
   return { cupom: null, tela }
 }

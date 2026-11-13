@@ -2,7 +2,6 @@
 import { tituloTipoVeiculo } from '~/shared/seo-meta'
 import { GENERICAS } from '~/shared/enriquecimento-regional'
 import { vehicleTypes } from '~/data/vehicle-types'
-import { PLANOS } from '~/shared/planos'
 
 const route = useRoute()
 const slug = route.params.tipo as string
@@ -14,8 +13,7 @@ const blocoPagina = computed(() => GENERICAS[`/consultar-placa-de-${slug}`])
 if (!data) {
   throw createError({ statusCode: 404, message: 'Tipo de veículo não encontrado' })
 }
-// Preco sempre de shared/planos.ts.
-const precoCompleta = `R$ ${(PLANOS.completa.valorCentavos / 100).toFixed(2).replace('.', ',')}`
+// Completa price: <PrecoCompleta> / <TextoComPreco> (price A/B test aware).
 // "da moto", "da van", "do carro", "do caminhão", "do ônibus".
 const doTipo = ['moto', 'van'].includes(slug) ? `da ${data.name.toLowerCase()}` : `do ${data.name.toLowerCase()}`
 
@@ -60,7 +58,7 @@ useHead({
       <h1 class="pc-h1">{{ data.title }}</h1>
 
       <div class="pc-prose">
-        <p>{{ data.intro }}</p>
+        <p><TextoComPreco :texto="data.intro" dobra /></p>
 
         <h2>O que aparece na consulta grátis, na tela</h2>
         <ul>
@@ -72,7 +70,7 @@ useHead({
 
         <h2>O que o relatório completo checa</h2>
         <p>
-          Pago uma vez, {{ precoCompleta }} no Pix ou no cartão, sem assinatura. Abre na
+          Pago uma vez, <PrecoCompleta dobra espaco=" " /> no Pix ou no cartão, sem assinatura. Abre na
           tela e chega no seu e-mail.
         </p>
         <ul>
@@ -114,7 +112,7 @@ useHead({
         <h2>Perguntas frequentes</h2>
         <div v-for="faq in data.faqs" :key="faq.question" class="pc-faq__item">
           <h3>{{ faq.question }}</h3>
-          <p>{{ faq.answer }}</p>
+          <p><TextoComPreco :texto="faq.answer" /></p>
         </div>
       </div>
 
