@@ -27,6 +27,18 @@ export function avisoLeilaoLigado(config: any, env: string | undefined = process
   return !config?.public?.staging && !config?.public?.gated
 }
 
+/**
+ * Vehicle model from the order snapshot's consulta.response. The snapshot
+ * stores response as a flat object (filtrarPorPlano -> normalizarResposta);
+ * older rows may hold a one-item list. Both are read (review 2 of PR #750:
+ * reading only response->0 gave null on the object and skipped the model lock).
+ */
+export function modeloDaResposta(r: unknown): string | null {
+  const v = (Array.isArray(r) ? r[0] : r) as any
+  const m = v && typeof v === 'object' ? v.descricaoMarcaModelo : null
+  return typeof m === 'string' && m.trim() ? m.trim() : null
+}
+
 export function infoDoHistorico(h: any, veiculo: { modelo?: string | null } | null = null): InfoAvisoLeilao {
   // Same list as the page cards (one card per auction, 13/11/2026), so the
   // "Há mais N registros" in the e-mail matches what the customer sees. Model
@@ -54,7 +66,7 @@ export async function avisarLeilaoTardio(
     if (!leilaoSurgiu(antes, depois)) return 'sem_mudanca'
     if (!(deps.ligado ?? avisoLeilaoLigado(useRuntimeConfig()))) return 'desligado'
     const { data: p } = await supabase.from('pedidos_premium')
-      .select('email,placa,token_entrega,status,aviso_leilao_em,modelo:relatorio_snapshot->consulta->response->0->>descricaoMarcaModelo').eq('id', pedidoId).maybeSingle()
+      .select('email,placa,token_entrega,status,aviso_leilao_em,resposta:relatorio_snapshot->consulta->response').eq('id', pedidoId).maybeSingle()
     if (!p || p.status !== 'entregue') return 'falhou'
     if (p.aviso_leilao_em) return 'ja_avisado'
     if (!String(p.email || '').includes('@')) return 'sem_email'
@@ -62,7 +74,7 @@ export async function avisarLeilaoTardio(
       .update({ aviso_leilao_em: (deps.agora?.() ?? new Date()).toISOString() })
       .eq('id', pedidoId).is('aviso_leilao_em', null).select('id')
     if (error || !marcado?.length) return 'ja_avisado'
-    const ok = await (deps.enviar ?? enviarAvisoLeilao)({ email: p.email, token: p.token_entrega, placa: p.placa, info: infoDoHistorico(depois, { modelo: typeof p.modelo === 'string' ? p.modelo : null }) })
+    const ok = await (deps.enviar ?? enviarAvisoLeilao)({ email: p.email, token: p.token_entrega, placa: p.placa, info: infoDoHistorico(depois, { modelo: modeloDaResposta(p.resposta) }) })
     if (!ok) {
       await supabase.from('pedidos_premium').update({ aviso_leilao_em: null }).eq('id', pedidoId)
       log(`[aviso-leilao] pedido=${pedidoId}: envio falhou (tenta na proxima mudanca)`)

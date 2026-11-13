@@ -208,9 +208,12 @@ export const NOME_CASA_PLATAFORMA: Record<string, string> = {
 }
 
 /** Approved display name, or null when it is empty, generic, internal or a platform. */
+// A label needs at least one letter or digit: "---" or "..." is not a name.
+const temNome = (s: string) => /[\p{L}\p{N}]/u.test(s)
+
 function nomeAprovado(v: unknown): string | null {
   const s = String(v ?? '').trim()
-  return s && !RE_GENERICO_LEILOEIRA.test(s) && !fonteInterna(s) && !RE_PLATAFORMA.test(s) ? s : null
+  return s && temNome(s) && !RE_GENERICO_LEILOEIRA.test(s) && !fonteInterna(s) && !RE_PLATAFORMA.test(s) ? s : null
 }
 
 /**
@@ -246,27 +249,42 @@ const dataNorm = (v: unknown) => String(v ?? '').trim().slice(0, 10)
  * whatever the source type, same lot (leading zeros ignored) and same auction
  * date (Cesar, 13/11/2026: one card per auction). A canhao passage alone
  * stays. Display filter only; the snapshot keeps everything.
+ *
+ * Only a STRONG direct passage (confirmado/provavel) absorbs the canhao one: a
+ * weak passage may leave the screen (model lock, possivel not shown) and take
+ * the auction with it (review of PR #750). When it absorbs it, the direct card
+ * (the richer one) shows the higher level of the two, so no auction is lost
+ * and no level is lowered (review 2 of PR #750).
  */
 export function passagensSemCanhao(lista: unknown): any[] {
   if (!Array.isArray(lista)) return []
-  const norm = lista.map((p: any) => passagemSemCanhao(p))
-  // Only a STRONG direct passage (confirmado/provavel) hides the canhao one, and
-  // only when its level is equal or higher: a weak passage may leave the screen
-  // (model lock, possivel not shown) and take the auction with it (review of
-  // PR #750, 13/11/2026). Key -> best direct level.
-  const diretas = norm.filter((p: any) => !p.via_canhao && loteNorm(p.lote) && FORCA[p.nivel] >= FORCA.provavel)
-  const porFonte = new Map<string, number>()
-  const porData = new Map<string, number>()
-  const guarda = (m: Map<string, number>, k: string, f: number) => m.set(k, Math.max(m.get(k) ?? 0, f))
-  for (const p of diretas) {
-    guarda(porFonte, `${p.fonte}|${loteNorm(p.lote)}`, FORCA[p.nivel])
-    if (dataNorm(p.data_leilao)) guarda(porData, `${loteNorm(p.lote)}|${dataNorm(p.data_leilao)}`, FORCA[p.nivel])
-  }
-  return norm.filter((p: any) => {
-    if (!p.via_canhao || !loteNorm(p.lote)) return true
-    const forca = FORCA[p.nivel] ?? 0
-    if (p.fonte_tipo === 'detran' && (porFonte.get(`${p.fonte}|${loteNorm(p.lote)}`) ?? -1) >= forca) return false
-    return !(dataNorm(p.data_leilao) && (porData.get(`${loteNorm(p.lote)}|${dataNorm(p.data_leilao)}`) ?? -1) >= forca)
+  const norm: any[] = lista.map((p: any) => passagemSemCanhao(p))
+  const forte = (p: any) => !p.via_canhao && loteNorm(p.lote) && (FORCA[p.nivel] ?? 0) >= FORCA.provavel
+  const chaveFonte = (p: any) => `${p.fonte}|${loteNorm(p.lote)}`
+  const chaveData = (p: any) => (dataNorm(p.data_leilao) ? `${loteNorm(p.lote)}|${dataNorm(p.data_leilao)}` : null)
+  // Strong direct passages that are the same auction as this canhao passage.
+  const mesmas = (c: any): number[] => norm.flatMap((d: any, i: number) => {
+    if (!forte(d)) return []
+    if (c.fonte_tipo === 'detran' && chaveFonte(d) === chaveFonte(c)) return [i]
+    const k = chaveData(c)
+    return k && chaveData(d) === k ? [i] : []
+  })
+  const nivelFinal = new Map<number, string>()
+  const fora = new Set<number>()
+  norm.forEach((c: any, i: number) => {
+    if (!c.via_canhao || !loteNorm(c.lote)) return
+    const alvo = mesmas(c)
+    if (!alvo.length) return
+    fora.add(i)
+    for (const d of alvo) {
+      const atual = nivelFinal.get(d) ?? norm[d].nivel
+      if ((FORCA[c.nivel] ?? 0) > (FORCA[atual] ?? 0)) nivelFinal.set(d, c.nivel)
+    }
+  })
+  return norm.flatMap((p: any, i: number) => {
+    if (fora.has(i)) return []
+    const n = nivelFinal.get(i)
+    return [n ? { ...p, nivel: n } : p]
   })
 }
 
@@ -287,7 +305,7 @@ export function historicoParaExibicao<H extends { passagens?: any[]; resumo?: an
   const passagens = juntarNotificacoes(passagensSemCanhao(h.passagens))
   const linha = Array.isArray(h.linha_do_tempo)
     ? h.linha_do_tempo.map((e: any) => (e && Array.isArray(e.fontes)
-        ? { ...e, fontes: [...new Set(e.fontes.map((f: unknown) => nomeAprovado(f) || (RE_GENERICO_LEILOEIRA.test(String(f ?? '').trim()) || fonteInterna(f) || RE_PLATAFORMA.test(String(f ?? '')) ? ROTULO_LEILOEIRA_PARTICULAR : null)).filter(Boolean))] }
+        ? { ...e, fontes: [...new Set(e.fontes.map((f: unknown) => rotuloFonteLinhaDoTempo(f, h.passagens!.map((x: any) => passagemSemCanhao(x)))))] }
         : e))
     : h.linha_do_tempo
   if (passagens.length === h.passagens.length) return { ...h, passagens, linha_do_tempo: linha }
@@ -347,9 +365,24 @@ export function fonteExibicaoLeilao(p: { fonte?: string | null; fonte_tipo?: str
   }
   const aprovado = nomeAprovado(exib)
   if (aprovado) return aprovado
-  if (!chave) return 'Leiloeira'
   const humano = chave.split('_').filter(Boolean).map(titulo).join(' ')
+  // Empty or punctuation-only key (review 2 of PR #750): never an empty label.
+  if (!temNome(humano) || RE_GENERICO_LEILOEIRA.test(humano)) return ROTULO_LEILOEIRA_PARTICULAR
   return fonteInterna(humano) || fonteInterna(chave) ? ROTULO_LEILOEIRA_PARTICULAR : humano
+}
+
+/**
+ * Source label of an API timeline event, through the SAME function as the
+ * cards (review 2 of PR #750): a label that names a passage source (its
+ * fonte_exibicao or fonte) gets that card's label; any other label is read as
+ * a source of its own. So the timeline never says "Leiloeira particular" while
+ * the card of the same auction says "Cesvi".
+ */
+export function rotuloFonteLinhaDoTempo(f: unknown, passagens: any[] = []): string {
+  const bruto = String(f ?? '').trim()
+  const k = bruto.toLowerCase()
+  const p = k ? passagens.find((x: any) => x && [x.fonte_exibicao, x.fonte].some((v) => String(v ?? '').trim().toLowerCase() === k)) : null
+  return fonteExibicaoLeilao(p || { fonte: bruto, fonte_exibicao: bruto })
 }
 
 export const COMITENTE_GENERICO = 'Particular ou empresa (a leiloeira não divulga o nome)'

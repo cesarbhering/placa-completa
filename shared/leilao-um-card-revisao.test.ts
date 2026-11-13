@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { passagensSemCanhao, historicoParaExibicao, historicoNaTela, fonteExibicaoLeilao, detalhesLegiveis, comAcentos } from './leilao-exibicao'
+import { passagensSemCanhao, historicoParaExibicao, historicoNaTela, fonteExibicaoLeilao, detalhesLegiveis, comAcentos, rotuloFonteLinhaDoTempo } from './leilao-exibicao'
 import { juntarNotificacoes, linhaNotificacao, ehNotificacao, JANELA_NOTIFICACAO_DIAS } from './leilao-notificacao'
 import { passagemLgpd } from './leilao-lgpd'
 
@@ -15,8 +15,11 @@ describe('a weak direct passage never hides a canhao passage (review item 1)', (
     expect(passagensSemCanhao([direta('possivel'), canhao])).toHaveLength(2)
   })
 
-  it('only a strong direct passage of equal or higher level hides it', () => {
-    expect(passagensSemCanhao([direta('provavel'), canhao])).toHaveLength(2)
+  it('a strong direct passage absorbs it and keeps the higher level (review 2)', () => {
+    const r = passagensSemCanhao([direta('provavel'), canhao])
+    expect(r).toHaveLength(1)
+    expect(r[0].via_canhao).toBeUndefined()
+    expect(r[0].nivel).toBe('confirmado')
     expect(passagensSemCanhao([direta('confirmado'), canhao])).toHaveLength(1)
     expect(passagensSemCanhao([direta('provavel'), { ...canhao, nivel: 'provavel' }])).toHaveLength(1)
     expect(passagensSemCanhao([direta('confirmado'), { ...canhao, nivel: 'provavel' }])).toHaveLength(1)
@@ -154,9 +157,9 @@ describe('a platform never shows as a house name (Lead, rule of 19/out)', () => 
     expect(fonteExibicaoLeilao({ fonte: 'sishp_casa-exemplo.com.br', fonte_tipo: 'privado' })).toBe('Casa Exemplo')
   })
 
-  it('API timeline labels with a platform name become the generic label', () => {
-    const r: any = historicoParaExibicao({ passagens: [], linha_do_tempo: [{ data: '2026-03-10', tipo: 'leilao', nPassagens: 1, fontes: ['Vlance Cesvi'] }] })
-    expect(r.linha_do_tempo[0].fontes).toEqual(['Leiloeira particular'])
+  it('API timeline labels with a platform name show the house, never the platform', () => {
+    const r: any = historicoParaExibicao({ passagens: [], linha_do_tempo: [{ data: '2026-03-10', tipo: 'leilao', nPassagens: 1, fontes: ['Vlance Cesvi', 'Vlance V3'] }] })
+    expect(r.linha_do_tempo[0].fontes).toEqual(['Cesvi', 'Leiloeira particular'])
   })
 
   it('no platform key ever leaks the platform name', () => {
@@ -196,5 +199,98 @@ describe('API card that absorbed a same-auction document (Lead item 8)', () => {
     expect(fonteExibicaoLeilao(r.passagens[0])).toBe('Detran XX')
     expect(() => passagemLgpd(p)).not.toThrow()
     expect(passagemLgpd(p).detalhes.documentos_mesmo_evento).toHaveLength(2)
+  })
+})
+
+describe('same auction in a strong direct and a canhao passage is one card (review 2 of PR #750)', () => {
+  // Detran edital (provavel), the same Detran document found by the canhao on
+  // the agency host (confirmado), and the agency notice published before.
+  const h = {
+    resumo: { tem_indicio: true, nivel_max: 'confirmado', n_confirmado: 2, n_provavel: 1, n_possivel: 0 },
+    passagens: [
+      { fonte: 'detran_xx', fonte_tipo: 'detran', fonte_exibicao: 'Detran XX', nivel: 'provavel', lote: '0315', data_leilao: '2026-06-18', detalhes: {} },
+      { fonte: 'canhao:leilao.detran.xx.gov.br', fonte_tipo: 'privado', nivel: 'confirmado', lote: '315', data_leilao: '2026-06-18' },
+      { fonte: 'detran_xx', fonte_tipo: 'detran', nivel: 'confirmado', situacao: 'notificado', detalhes: { tipo_registro: 'notificacao_leilao', data_publicacao: '2026-05-02', edital_numero: '7/2026' } },
+    ],
+    linha_do_tempo: null, recorrencia: null,
+  }
+
+  it('Detran case ends in one confirmado card with the notice line, count 1', () => {
+    const r: any = historicoNaTela(h, SPIN)
+    expect(r.passagens).toHaveLength(1)
+    const card = r.passagens[0]
+    expect(card.via_canhao).toBeUndefined()
+    expect(card.fonte).toBe('detran_xx')
+    expect(card.nivel).toBe('confirmado')
+    expect(linhaNotificacao(card)).toBe('Notificado em 02/05/2026 (edital 7/2026)')
+    expect(r.resumo).toMatchObject({ n_confirmado: 1, n_provavel: 0, n_possivel: 0, nivel_max: 'confirmado' })
+  })
+
+  it('same lot and date, general rule: the direct card takes the canhao level', () => {
+    const r = passagensSemCanhao([
+      { fonte: 'casa_x', fonte_tipo: 'privado', nivel: 'provavel', lote: '12', data_leilao: '2026-03-10' },
+      { fonte: 'canhao:cdn.exemplo.net', fonte_tipo: 'privado', nivel: 'confirmado', lote: '012', data_leilao: '2026-03-10' },
+    ])
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({ fonte: 'casa_x', nivel: 'confirmado' })
+  })
+
+  it('a canhao passage of lower level never lowers the direct card', () => {
+    const r = passagensSemCanhao([
+      { fonte: 'casa_x', fonte_tipo: 'privado', nivel: 'confirmado', lote: '12', data_leilao: '2026-03-10' },
+      { fonte: 'canhao:cdn.exemplo.net', fonte_tipo: 'privado', nivel: 'possivel', lote: '12', data_leilao: '2026-03-10' },
+    ])
+    expect(r).toHaveLength(1)
+    expect(r[0].nivel).toBe('confirmado')
+  })
+
+  it('a weak direct passage of another model still keeps the canhao card (first review case)', () => {
+    const r: any = historicoNaTela({
+      resumo: { tem_indicio: true },
+      passagens: [
+        { fonte: 'casa_x', fonte_tipo: 'privado', nivel: 'possivel', lote: '12', data_leilao: '2026-03-10', veiculo_na_fonte: ONIX_NA_FONTE },
+        { fonte: 'canhao:cdn.exemplo.net', fonte_tipo: 'privado', nivel: 'confirmado', lote: '012', data_leilao: '2026-03-10' },
+      ],
+    }, SPIN)
+    expect(r.passagens).toHaveLength(1)
+    expect(r.passagens[0]).toMatchObject({ via_canhao: true, nivel: 'confirmado' })
+  })
+})
+
+describe('small fixes of review 2 of PR #750', () => {
+  it('empty or punctuation-only labels become "Leiloeira particular"', () => {
+    expect(fonteExibicaoLeilao({ fonte: '---' })).toBe('Leiloeira particular')
+    expect(fonteExibicaoLeilao({ fonte: '' })).toBe('Leiloeira particular')
+    expect(fonteExibicaoLeilao({ fonte: 'casa_x', fonte_exibicao: '...' })).toBe('Casa X')
+    expect(fonteExibicaoLeilao({ fonte: '---', fonte_exibicao: '...' })).toBe('Leiloeira particular')
+    expect(fonteExibicaoLeilao({ fonte: 'canhao:cdn.exemplo.net', fonte_exibicao: '...' })).toBe('Leiloeira particular')
+    expect(fonteExibicaoLeilao({ fonte: 'vlance_v3', fonte_exibicao: '---' })).toBe('Leiloeira particular')
+  })
+
+  it('API timeline labels go through the same function as the cards', () => {
+    const h = {
+      resumo: { tem_indicio: true },
+      passagens: [{ fonte: 'vlance_cesvi', fonte_tipo: 'privado', fonte_exibicao: 'Vlance Cesvi', nivel: 'confirmado', lote: '3', data_leilao: '2026-02-02' }],
+      linha_do_tempo: [{ data: '2026-02-02', dataFim: null, tipo: 'leilao', nPassagens: 1, fontes: ['Vlance Cesvi', 'Vlance_cesvi', 'Leiloeira', '...'] }],
+    }
+    const r: any = historicoParaExibicao(h)
+    const card = fonteExibicaoLeilao(r.passagens[0])
+    expect(card).toBe('Cesvi')
+    expect(r.linha_do_tempo[0].fontes).toEqual(['Cesvi', 'Leiloeira particular'])
+    expect(rotuloFonteLinhaDoTempo('Detran XX')).toBe('Detran XX')
+    expect(rotuloFonteLinhaDoTempo('cdn.exemplo.net')).toBe('Leiloeira particular')
+  })
+
+  it('nested notice with only the agency plus the notice passage: only the notice card', () => {
+    const lista = [
+      { fonte: 'detran_xx', fonte_tipo: 'detran', nivel: 'confirmado', lote: '5', data_leilao: '2026-06-18', detalhes: { notificacao: { orgao: 'Detran XX' } } },
+      { fonte: 'detran_xx', fonte_tipo: 'detran', nivel: 'confirmado', situacao: 'notificado', detalhes: { tipo_registro: 'notificacao_leilao', data_publicacao: '2026-05-02', edital_numero: '7/2026' } },
+    ]
+    const r = juntarNotificacoes(lista)
+    expect(r).toHaveLength(2)
+    expect(linhaNotificacao(r[0])).toBeNull()
+    expect(ehNotificacao(r[1])).toBe(true)
+    // Without the notice passage the nested line stays.
+    expect(linhaNotificacao(juntarNotificacoes([lista[0]])[0])).toBe('Notificado para leilão')
   })
 })

@@ -304,7 +304,18 @@ export function juntarNotificacoes<T = any>(lista: T[] | null | undefined): T[] 
     saida[j] = { ...p, detalhes: { ...(p.detalhes && typeof p.detalhes === 'object' ? p.detalhes : {}), notificacao: dados } }
     remover.add(i)
   }
-  return saida.filter((_, i) => !remover.has(i)) as T[]
+  const final = saida.filter((_, i) => !remover.has(i))
+  // A nested notice with neither date nor edital (only the agency) says
+  // nothing the notice card of that agency does not: when that card stays,
+  // the auction card drops the line, so the notice shows once (review 2 of
+  // PR #750).
+  return final.map((p: any) => {
+    const n = notificacaoDe(p)
+    if (!n || dia(n.data_publicacao) || texto(n.edital_numero)) return p
+    if (!final.some((q: any) => q !== p && ehNotificacao(q) && FORTE.has(q?.nivel) && chaveFonte(q) === chaveFonte(p))) return p
+    const { notificacao: _n, ...det } = p.detalhes
+    return { ...p, detalhes: det }
+  }) as T[]
 }
 
 /** "Notificado em 01/04/2026 (edital 12/2026)"; what is missing is left out. */
