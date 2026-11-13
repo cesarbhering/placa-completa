@@ -96,7 +96,6 @@ export function _tamanhoCupomLimite(): { chaves: number; global: number } {
   return { chaves: new Set([...falhasPlaca.keys(), ...pendentesPlaca.keys()]).size, global: falhasGlobal.length }
 }
 
-/** Vehicle key (both formats) or null when there is no usable plate. */
 /** Shared bucket for every attempt without a valid plate (same per-plate limit). */
 const SEM_PLACA = 'sem-placa'
 
@@ -112,14 +111,13 @@ function normalizarCodigo(codigo: unknown): string {
   return String(codigo || '').trim().toUpperCase().replace(/\s+/g, '')
 }
 
-/** Short hash of the code: enough to tell repeats apart, not to recover it. */
-/**
- * Short keyed hash (HMAC-SHA256 with a random key made when this process
- * starts, never stored): enough to tell repeats apart in memory. Codes are
- * short, so a plain hash could be brute-forced from a memory dump; without
- * the key it cannot.
- */
+/** Random key made when this process starts, never stored. */
 const CHAVE_HASH = crypto.randomBytes(32)
+/**
+ * Short keyed hash (HMAC-SHA256 with CHAVE_HASH): enough to tell repeats
+ * apart in memory. Codes are short, so a plain hash could be brute-forced
+ * from a memory dump; without the key it cannot.
+ */
 function hashCurto(valor: string): string {
   return crypto.createHmac('sha256', CHAVE_HASH).update(valor).digest('base64url').slice(0, 12)
 }

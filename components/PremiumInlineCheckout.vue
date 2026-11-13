@@ -317,7 +317,7 @@ function soltarCartaoPendente() {
   valorCartaoServidor.value = null
   cartaoPendente.value = null
 }
-watch([cupomCodigo, () => props.plano, placaClean, email], soltarCartaoPendente, { flush: 'sync' })
+watch([cupomCodigo, () => props.plano, placaClean, email, ambiente], soltarCartaoPendente, { flush: 'sync' })
 // Only the discount changed: when the computed price now matches the intent
 // already created, keep it (no extra unpaid card order); otherwise drop it.
 watch([cupomDescontoCentavos, telaAtiva], () => {
@@ -473,7 +473,8 @@ async function validarCheckout(): Promise<boolean> {
 let pagando = false
 
 async function confirmarEPagar() {
-  if (pagando || loading.value) return
+  // The card payment in progress also holds the Pix (one order at a time).
+  if (pagando || loading.value || pagandoCartao || processandoCartao.value) return
   pagando = true
   try {
     // O e-mail NAO trava mais a geracao do Pix. Quase metade de quem abria o
@@ -923,11 +924,20 @@ let pagandoCartao = false
 // Paid: the page is about to leave. Keep the lock (no second order on a
 // stray click) and the amount on screen until it does.
 let cartaoConcluido = false
+// Report of a paid card order, shown as a link if the redirect does not happen.
+const relatorioCartao = ref('')
+/** Timeout of the card intent request; on expiry the lock is released. */
+const TIMEOUT_INTENT_MS = 25_000
 
 async function pagarComCartao() {
-  if (pagandoCartao || processandoCartao.value || cartaoConcluido) return
+  // The Pix being generated also holds the card (one order at a time).
+  if (pagandoCartao || processandoCartao.value || cartaoConcluido || pagando || loading.value) return
   if (!stripe || !cardNumber) { erroCartao.value = 'Aguarde o pagamento carregar.'; return }
   pagandoCartao = true
+  // Price the buyer saw when clicking: the coupon re-check below can change
+  // the screen, and a higher amount is never confirmed on this click.
+  const precoNoClique = precoExibidoCentavos.value
+  let focarEmail = false
   // On from the start (not after the coupon re-check): the button, the plate
   // pencil and the fields stay disabled for the whole payment.
   processandoCartao.value = true
@@ -938,7 +948,12 @@ async function pagarComCartao() {
     // coupon re-check (anything that changes what it was created for drops it).
     let r: any = cartaoPendente.value
     cartaoPendente.value = null
-    if (!r && !(await validarCheckout())) return
+    if (!r && !(await validarCheckout())) {
+      // The e-mail field is disabled while processing, so it cannot take the
+      // focus now: focus it once the fields are enabled again (finally).
+      focarEmail = !!emailErro.value
+      return
+    }
     emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
     if (emailNoPedido.value) marcarEmailInformado('checkout')
     trackAddPaymentInfo(props.plano, placaClean.value, precoExibidoCentavos.value)
@@ -946,9 +961,10 @@ async function pagarComCartao() {
     if (!r) {
       // What this request is for. An answer that arrives after any of it
       // changed is dropped (it would charge the old plate, plan or e-mail).
-      const pedido = JSON.stringify([preview.value?.placa, placaClean.value, props.plano, email.value.trim(), cupomCodigo.value.trim(), cupomEnviado ?? ''])
+      const pedido = JSON.stringify([preview.value?.placa, placaClean.value, props.plano, email.value.trim(), cupomCodigo.value.trim(), cupomEnviado ?? '', ambiente.value])
       r = await $fetch('/api/premium/cartao-intent', {
         method: 'POST',
+        timeout: TIMEOUT_INTENT_MS,
         body: {
           placa: preview.value.placa,
           email: email.value.trim() || undefined,
@@ -969,14 +985,14 @@ async function pagarComCartao() {
           forcar_nova_compra: forcarNovaCompra || undefined,
         },
       })
-      const agora = JSON.stringify([preview.value?.placa, placaClean.value, props.plano, email.value.trim(), cupomCodigo.value.trim(), cupomEnviado ?? ''])
+      const agora = JSON.stringify([preview.value?.placa, placaClean.value, props.plano, email.value.trim(), cupomCodigo.value.trim(), cupomEnviado ?? '', ambiente.value])
       if (agora !== pedido) { erroCartao.value = 'Os dados do pedido mudaram. Confira e toque em pagar de novo.'; return }
     }
     if (!r?.clientSecret) { erroCartao.value = 'Não conseguimos iniciar o pagamento. Use o Pix.'; return }
     // The server charges what it computed. If that differs from the price on
     // screen, show the real amount and only pay on the next click; without a
     // numeric amount, do not pay at all.
-    const decisao = decidirValorCartao(r.valor, precoExibidoCentavos.value, reais, !!cupomCodigo.value.trim())
+    const decisao = decidirValorCartao(r.valor, precoExibidoCentavos.value, reais, !!cupomCodigo.value.trim(), precoNoClique)
     if (decisao.acao === 'erro') { erroCartao.value = decisao.mensagem; return }
     if (decisao.acao === 'segurar') {
       valorCartaoServidor.value = decisao.valor
@@ -992,26 +1008,39 @@ async function pagarComCartao() {
     })
     if (error) { erroCartao.value = mensagemErroCartao(error); return }
     if (paymentIntent?.status === 'succeeded' || paymentIntent?.status === 'processing') {
-      histAdd({
-        token: r.token,
-        placa: preview.value.placa,
-        veiculo: preview.value?.encontrado ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ') : null,
-        status: 'consultando',
-      })
+      // Paid from here on: nothing below may show an error or block the way
+      // to the report. History and tracking failures are swallowed; if the
+      // redirect does not happen, the link to the report stays on screen.
+      cartaoConcluido = true
+      relatorioCartao.value = `/premium/${r.token}`
+      try {
+        histAdd({
+          token: r.token,
+          placa: preview.value.placa,
+          veiculo: preview.value?.encontrado ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ') : null,
+          status: 'consultando',
+        })
+      } catch { /* history is a convenience */ }
       // Conversao SO com o pagamento aprovado ("succeeded"). Em "processing" o
       // cartao ainda pode recusar: quem dispara e a pagina /premium/<token>
       // quando o /status confirmar (o poll dela chama trackConversionPaga).
-      cartaoConcluido = true
-      if (cartaoConverteAgora(paymentIntent?.status)) trackConversionPaga(r.token, props.plano, r.valor, undefined, { email: emailNoPedido.value })
+      try {
+        if (cartaoConverteAgora(paymentIntent?.status)) trackConversionPaga(r.token, props.plano, r.valor, undefined, { email: emailNoPedido.value })
+      } catch { /* tracking never blocks a paid order */ }
       // Vai pra pagina do relatorio: ela mostra "Confirmando o pagamento do
       // cartao..." e polla o /status ate a entrega.
-      if (import.meta.client) window.location.assign(`/premium/${r.token}`)
+      try {
+        if (import.meta.client) window.location.assign(relatorioCartao.value)
+      } catch { /* the link below stays */ }
       return
     }
     erroCartao.value = 'Pagamento não confirmado. Tente novamente ou use o Pix.'
   } catch (e: any) {
+    // Already paid: never tell the buyer to pay again (the report link shows).
+    if (cartaoConcluido) return
     if (await tratarJaComprado(e, 'cartao')) return
     if (import.meta.dev) console.warn('[checkout] cartao v2 falhou:', e?.data?.message || e)
+    // Network failure and the intent timeout land here with the usual text.
     erroCartao.value = mensagemDoLimite(e) || 'Não conseguimos processar o cartão agora. Use o Pix.'
   } finally {
     // Nothing held for the next click: the screen goes back to its own price
@@ -1020,6 +1049,7 @@ async function pagarComCartao() {
       if (!cartaoPendente.value) valorCartaoServidor.value = null
       processandoCartao.value = false
       pagandoCartao = false
+      if (focarEmail && import.meta.client) nextTick(() => (document.getElementById('pic-email') as HTMLInputElement | null)?.focus())
     }
   }
 }
@@ -1281,7 +1311,7 @@ onUnmounted(() => {
             </div>
             <div v-if="cfg.public.homolog" class="pic-campo">
               <label class="pic-label" for="pic-ambiente">Ambiente SERPRO/GCC (teste)</label>
-              <select id="pic-ambiente" v-model="ambiente" class="pic-input">
+              <select id="pic-ambiente" v-model="ambiente" class="pic-input" :disabled="processandoCartao">
                 <option value="homolog">Homologação</option>
                 <option value="producao">Produção</option>
               </select>
@@ -1397,12 +1427,15 @@ onUnmounted(() => {
               <button
                 type="button"
                 class="pic-btn pic-btn--primary"
-                :disabled="processandoCartao || !stripePronto || editandoPlaca"
+                :disabled="processandoCartao || loading || !stripePronto || editandoPlaca"
                 @click="pagarComCartao"
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
                 {{ processandoCartao ? 'Processando...' : `Pagar ${reais(precoExibidoCentavos)}` }}
               </button>
+              <p v-if="relatorioCartao" class="pic-hint pic-hint--cta">
+                Pagamento aprovado. <a class="pic-link" :href="relatorioCartao">Abrir o relatório</a>
+              </p>
               <p v-if="!stripePronto && !erroCartao" class="pic-hint pic-hint--cta">Carregando pagamento seguro...</p>
               <p class="pic-hint pic-cartao-seguro">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>

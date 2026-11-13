@@ -20,18 +20,24 @@ export type DecisaoValorCartao =
 
 /**
  * Card: the server answers with the amount it will charge. Confirm only when
- * it is a number equal to the price on screen. A different amount (coupon
- * refused between the checks, or any other cause) is held and shown, to be
- * paid on the next click; no numeric amount = do not confirm at all.
+ * it is a number equal to the price on screen and not above the price the
+ * buyer saw when clicking (`valorNoClique`: the screen can change during the
+ * click, when the coupon is re-checked). Otherwise the amount is held and
+ * shown, to be paid on the next click; no numeric amount = never confirm.
  */
 export function decidirValorCartao(
   valorServidor: unknown,
   valorTela: number,
   reais: (centavos: number) => string,
   temCupom: boolean,
+  valorNoClique: number = valorTela,
 ): DecisaoValorCartao {
   if (typeof valorServidor !== 'number' || !Number.isFinite(valorServidor)) return { acao: 'erro', mensagem: MSG_ERRO_VALOR_CARTAO }
-  if (valorServidor === valorTela) return { acao: 'confirmar' }
+  if (valorServidor === valorTela && valorServidor <= valorNoClique) return { acao: 'confirmar' }
   const valor = `O valor do pagamento é ${reais(valorServidor)}. Toque em pagar de novo para confirmar.`
-  return { acao: 'segurar', valor: valorServidor, mensagem: temCupom ? `O cupom não pôde ser aplicado. ${valor}` : valor }
+  // Server and screen agree (only the price at the click was lower): the
+  // screen already shows why, so the neutral text; otherwise blame the coupon
+  // when one was typed.
+  const culpaCupom = temCupom && valorServidor !== valorTela
+  return { acao: 'segurar', valor: valorServidor, mensagem: culpaCupom ? `O cupom não pôde ser aplicado. ${valor}` : valor }
 }

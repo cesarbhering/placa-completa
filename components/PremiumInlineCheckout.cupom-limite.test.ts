@@ -40,6 +40,10 @@ describe('card amount from the server vs the screen', () => {
   it('different amount without a coupon: hold with a neutral message', () => {
     expect(decidirValorCartao(3990, 4490, reais, false)).toEqual({ acao: 'segurar', valor: 3990, mensagem: 'O valor do pagamento é R$ 39,90. Toque em pagar de novo para confirmar.' })
   })
+  it('amount equal to the screen but above the price at the click: hold with the neutral text', () => {
+    expect(decidirValorCartao(4390, 4390, reais, true, 4041)).toEqual({ acao: 'segurar', valor: 4390, mensagem: 'O valor do pagamento é R$ 43,90. Toque em pagar de novo para confirmar.' })
+    expect(decidirValorCartao(3590, 3590, reais, true, 4041)).toEqual({ acao: 'confirmar' })
+  })
   it('no numeric amount: error, never confirm', () => {
     for (const v of [undefined, null, '4490', NaN]) expect(decidirValorCartao(v, 4490, reais, true).acao).toBe('erro')
   })
