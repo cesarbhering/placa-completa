@@ -1,8 +1,7 @@
 import { promoverSeSnapshotPronto } from '../../utils/entrega-pedido'
 import { emVoo, rastrearEmVoo } from '../../utils/tarefas-em-voo'
 import { gravarPagadorHash } from '../../utils/pagador-hash'
-import { deveChecarWooviOriginal } from '../../utils/status-pagamento'
-import { cobrancaPorCorrelacao } from '../../utils/woovi'
+import { confirmarPagamentoDoPedido } from '../../utils/confirmar-pagamento'
 // Status do pedido pelo token (polling da tela pendente). O token e a
 // credencial, entao nao exige gate. Quando detecta o pagamento (via AbacatePay),
 // DISPARA a consulta (fire-and-forget) - assim o fluxo completa mesmo sem webhook.
@@ -28,37 +27,12 @@ export default defineEventHandler(async (event) => {
   }
   if (status === 'aguardando_pagamento') {
     const ehCartao = pedido.forma_pagamento === 'cartao'
-    // Cartao PRIMEIRO (Stripe), depois Pix — detecta pagamento em qualquer
-    // trilha. Ver status-pagamento.ts pra a regressao "abriu Pix, trocou pra
-    // cartao" que isto conserta.
-    let pago = await detectarPagamento(pedido, {
-      // v2 (Elements) guarda o pi_ do PaymentIntent; v1 (Checkout hospedado) o
-      // cs_ da sessao. Detecta os dois.
-      checarStripe: async (id) => id.startsWith('pi_')
-        ? paymentIntentPago(await consultarPaymentIntent(id))
-        : stripeSessionPaga(await consultarStripeSession(id)),
-      checarPix: async (provider, chargeId) => {
-        // Pergunta pro provedor que criou ESTA cobranca, nao pro configurado
-        // agora: os dois convivem enquanto a troca acontece.
-        const chk = await provedorDoPedido(provider).checarPix(chargeId)
-        return !!(chk && /paid|completed|pago/i.test(chk.status))
-      },
-    })
-
-    // Rede de seguranca: cobranca Woovi ORIGINAL (correlationID = pedido.id)
-    // paga enquanto o pedido apontava pra outra (ver deveChecarWooviOriginal).
-    // Achou paga: repointa o pedido pra ela (status, estorno e hash do pagador
-    // passam a bater na cobranca certa) e segue como pago.
-    if (!pago && deveChecarWooviOriginal(pedido)) {
-      const orig = await cobrancaPorCorrelacao(pedido.id)
-      if (orig?.status === 'PAID') {
-        console.warn(`[pix] pagamento achado na cobranca Woovi original; repointando pedido=${pedido.id}`)
-        await supabase.from('pedidos_premium').update({ pix_provider: 'woovi', abacatepay_id: orig.identifier }).eq('id', pedido.id)
-        pedido.pix_provider = 'woovi'
-        pedido.abacatepay_id = orig.identifier
-        pago = true
-      }
-    }
+    // The payment rule lives in server/utils/confirmar-pagamento.ts and is
+    // shared with the Woovi webhook: card first (Stripe), then the Pix charge
+    // recorded on the order, then the original Woovi charge as a safety net
+    // (found paid there, the order is repointed to it). Here a provider that
+    // did not answer counts as "not paid yet": the next poll asks again.
+    const pago = (await confirmarPagamentoDoPedido(supabase, pedido)) === 'pago'
 
     if (pago) {
       // pagamento confirmado -> dispara a consulta (fire-and-forget; o container

@@ -3,6 +3,31 @@ import { chavesPublicas, verificarAssinatura, pedidoDaCorrelacao } from '../../u
 import { gravarPagadorHash, sanearPayloadWebhook } from '../../utils/pagador-hash'
 import { lerPayloadWoovi, ehPingWoovi } from '../../utils/woovi-webhook-payload'
 import { encaminharWebhookFinanceiro } from '../../utils/woovi-financeiro'
+import { confirmarPagamentoDoPedido, type ConfirmacaoPagamento } from '../../utils/confirmar-pagamento'
+
+// Upper bound for the payment confirmation: a provider API that hangs must not
+// hold the webhook open. Past it the answer is 503 and the provider resends.
+const TETO_CONFIRMACAO_MS = 10_000
+
+/**
+ * Asks the provider, with our own credential, whether the order has a paid
+ * charge (same rule as the buyer's polling). Anything that prevents a clear
+ * answer (provider API error, timeout, unexpected failure) is 'indeterminado':
+ * it never counts as paid and never counts as not paid.
+ */
+async function confirmarPagamento(supabase: any, pedido: any): Promise<ConfirmacaoPagamento> {
+  let relogio: ReturnType<typeof setTimeout> | undefined
+  const teto = new Promise<ConfirmacaoPagamento>((resolve) => {
+    relogio = setTimeout(() => resolve('indeterminado'), TETO_CONFIRMACAO_MS)
+  })
+  try {
+    return await Promise.race([confirmarPagamentoDoPedido(supabase, pedido), teto])
+  } catch {
+    return 'indeterminado'
+  } finally {
+    clearTimeout(relogio)
+  }
+}
 
 // Webhook da Woovi, handler unico pra TODOS os metodos. Endpoint separado do da
 // AbacatePay de proposito: o formato do payload e, principalmente, o jeito de
@@ -19,6 +44,14 @@ import { encaminharWebhookFinanceiro } from '../../utils/woovi-financeiro'
 // A assinatura e RSA-SHA256 com a chave PUBLICA da Woovi (header
 // x-webhook-signature), nao HMAC com segredo nosso: a chave publica prova que
 // quem mandou foi a Woovi; um HMAC provaria so que alguem conhece nosso segredo.
+//
+// The signature proves who sent the message, and nothing else. It does not
+// prove that the charge belongs to our account, nor that it is the charge of
+// the order it names. So a signed "charge completed" event only triggers a
+// question: the provider is asked, with our own credential, whether the order
+// has a paid charge (server/utils/confirmar-pagamento.ts, the same rule as the
+// polling of status.get.ts). Nothing in the event body (value, identifier,
+// status) counts as proof of payment.
 export default defineEventHandler(async (event) => {
   // Handshake de validacao (GET/HEAD): nao carrega pagamento, 200 fixo.
   if (event.method !== 'POST') return { ok: true, ping: true }
@@ -63,15 +96,32 @@ export default defineEventHandler(async (event) => {
     provider: 'woovi', event: evt, abacatepay_id: chargeId || pedidoId, payload: sanearPayloadWebhook(payload),
   })
 
-  // So pagamento confirmado interessa. A Woovi manda OPENPIX:CHARGE_COMPLETED
-  // quando a cobranca e paga.
-  const pago = /completed|paid|pago/i.test(evt) || String(charge?.status || '').toUpperCase() === 'COMPLETED'
-  if (!pago) return { ok: true, ignored: evt }
+  // Only payment events matter. Woovi sends OPENPIX:CHARGE_COMPLETED when a
+  // charge is paid. The event type and status only select which events are
+  // worth confirming below; they are never the confirmation.
+  const eventoDePagamento = /completed|paid|pago/i.test(evt) || String(charge?.status || '').toUpperCase() === 'COMPLETED'
+  if (!eventoDePagamento) return { ok: true, ignored: evt }
 
   let pedido: any = null
   if (pedidoId) ({ data: pedido } = await supabase.from('pedidos_premium').select('*').eq('id', pedidoId).maybeSingle())
   if (!pedido && chargeId) ({ data: pedido } = await supabase.from('pedidos_premium').select('*').eq('abacatepay_id', chargeId).maybeSingle())
   if (!pedido) return { ok: true, semPedido: true }
+
+  // The event located an order. Whether that order was paid is answered by
+  // the provider, with our own credential (see the header comment).
+  const confirmacao = await confirmarPagamento(supabase, pedido)
+  if (confirmacao === 'indeterminado') {
+    // Could not ask: 503 without processing, so the provider resends. The
+    // buyer's polling keeps covering the delivery in the meantime.
+    console.warn(`[woovi] payment not confirmed, the provider did not answer; asking for a resend pedido=${pedido.id}`)
+    throw createError({ statusCode: 503, message: 'pagamento nao confirmado' })
+  }
+  if (confirmacao !== 'pago') {
+    // The provider answered and this order has no paid charge: acknowledge
+    // without processing and without flagging the event as processed.
+    console.warn(`[woovi] payment event ignored, the provider has no paid charge for the order pedido=${pedido.id}`)
+    return { ok: true, naoConfirmado: true }
+  }
 
   void emVoo('pagador-hash', () => gravarPagadorHash(supabase, pedido))
   await rastrearEmVoo('processar-pedido', () => processarPedidoPago(supabase, pedido))
