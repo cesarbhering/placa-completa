@@ -261,7 +261,7 @@ describe('page wiring for one card per auction', () => {
     const { readFileSync } = await import('node:fs')
     const { join } = await import('node:path')
     const vue = readFileSync(join(process.cwd(), 'pages/premium/[token].vue'), 'utf8')
-    expect(vue).toMatch(/historicoCompativelComVeiculo\(historicoParaExibicao\(h\)/)
+    expect(vue).toMatch(/historicoNaTela\(h, \{ modelo: g\('descricaoMarcaModelo'\)/)
     expect(vue).toMatch(/linhaNotificacao: ehNotificacao\(p\) \? null : linhaNotificacao\(p\)/)
     const ficha = readFileSync(join(process.cwd(), 'components/LeilaoFicha.vue'), 'utf8')
     expect(ficha).toMatch(/k: 'Notificação', v: String\(p\.value\.linhaNotificacao\)/)

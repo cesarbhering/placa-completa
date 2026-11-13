@@ -38,7 +38,7 @@ import { abPrecoLigadoPorEnv, precoDoPlano, resolverBracoComPedido, type BracoPr
 import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRenave, RENAVE_EXPLICACAO, ehRenajud, RENAJUD_EXPLICACAO, PARECER_SO_RENAVE, itemInformativo, itensQueRestringem, itemAnotacao, anotacoesDoCadastro, TITULO_ANOTACOES, fraseParecerAnotacoes } from '~/shared/restricoes'
 import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes, midiasDaPassagem } from '~/shared/foto-lote'
 import { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, estadoCartaoLeilao, PARECER_SO_POSSIVEL_TITULO } from '~/shared/leilao-copy'
-import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, historicoParaExibicao, historicoCompativelComVeiculo, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA, passagemCertezaPorIdentificador, ligadoPeloMotor, leiloeiroValido, textoCasaLeilao } from '~/shared/leilao-exibicao'
+import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, historicoNaTela, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA, passagemCertezaPorIdentificador, ligadoPeloMotor, leiloeiroValido, textoCasaLeilao } from '~/shared/leilao-exibicao'
 import { ehNotificacao, tituloNotificacao, camposNotificacao, contarPassagens, linhaNotificacao, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
 import { FONTE_PARCEIRA, rotuloIndicadorLeilao, linhasBasesSemRegistro, PASSAGEM_PARCEIRA } from '~/shared/fonte-parceira'
@@ -361,13 +361,15 @@ const esteVeiculo = computed(() => `${segmento.value === 'moto' ? 'esta' : 'este
 // shared/leilao-exibicao.ts): canhao passages never show a host nor repeat an
 // auction already collected; a notice becomes a line in the card of the same
 // agency auction. Counts and timeline come from this list. Old snapshots too.
+// The model lock runs BEFORE the join (historicoNaTela), so nothing is joined
+// into a card that leaves the screen.
 // Trava de modelo (28/out/2026, PCU1D83): possivel/provavel de outra familia
 // de modelo (SPIN x ONIX) nao vai pra tela, e o resumo e refeito sem ela.
 // Modelo = o mesmo do cabecalho (descricaoMarcaModelo, "CHEV/SPIN 1.8L AT LTZ").
 const historicoLeilao = computed(() => {
   const h = data.value?.historicoLeilao ?? null
   if (!h || !Array.isArray(h.passagens)) return h
-  return historicoCompativelComVeiculo(historicoParaExibicao(h), { modelo: g('descricaoMarcaModelo') as any })
+  return historicoNaTela(h, { modelo: g('descricaoMarcaModelo') as any })
 })
 const temSecaoLeilao = computed(() => !!historicoLeilao.value)
 // Base parceira de leiloes e sinistros (shared/fonte-parceira.ts): consultada

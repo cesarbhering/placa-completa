@@ -7,7 +7,7 @@
 // Flag LEILAO_AVISO_EMAIL: '1' liga, '0' desliga; sem a env, ligado so fora do
 // staging/homolog.
 import { enviarAvisoLeilao, type InfoAvisoLeilao } from './premium-email'
-import { comitenteExibicao, ligadoPeloMotor, historicoParaExibicao } from '../../shared/leilao-exibicao'
+import { comitenteExibicao, ligadoPeloMotor, historicoNaTela } from '../../shared/leilao-exibicao'
 
 /** Tem algo no historico: passagem de qualquer nivel ou indicio de sinistro da base parceira. */
 export function temLeilaoOuSinistro(h: any): boolean {
@@ -27,10 +27,11 @@ export function avisoLeilaoLigado(config: any, env: string | undefined = process
   return !config?.public?.staging && !config?.public?.gated
 }
 
-export function infoDoHistorico(h: any): InfoAvisoLeilao {
+export function infoDoHistorico(h: any, veiculo: { modelo?: string | null } | null = null): InfoAvisoLeilao {
   // Same list as the page cards (one card per auction, 13/11/2026), so the
-  // "Há mais N registros" in the e-mail matches what the customer sees.
-  const exib: any = historicoParaExibicao(h)
+  // "Há mais N registros" in the e-mail matches what the customer sees. Model
+  // lock first, as on the page (vehicle model from the order snapshot).
+  const exib: any = historicoNaTela(h, veiculo)
   const passagens = (Array.isArray(exib?.passagens) ? exib.passagens : []).map((p: any) => ({
     nivel: String(p?.nivel || ''),
     data_leilao: p?.data_leilao ?? null,
@@ -53,7 +54,7 @@ export async function avisarLeilaoTardio(
     if (!leilaoSurgiu(antes, depois)) return 'sem_mudanca'
     if (!(deps.ligado ?? avisoLeilaoLigado(useRuntimeConfig()))) return 'desligado'
     const { data: p } = await supabase.from('pedidos_premium')
-      .select('email,placa,token_entrega,status,aviso_leilao_em').eq('id', pedidoId).maybeSingle()
+      .select('email,placa,token_entrega,status,aviso_leilao_em,modelo:relatorio_snapshot->consulta->response->0->>descricaoMarcaModelo').eq('id', pedidoId).maybeSingle()
     if (!p || p.status !== 'entregue') return 'falhou'
     if (p.aviso_leilao_em) return 'ja_avisado'
     if (!String(p.email || '').includes('@')) return 'sem_email'
@@ -61,7 +62,7 @@ export async function avisarLeilaoTardio(
       .update({ aviso_leilao_em: (deps.agora?.() ?? new Date()).toISOString() })
       .eq('id', pedidoId).is('aviso_leilao_em', null).select('id')
     if (error || !marcado?.length) return 'ja_avisado'
-    const ok = await (deps.enviar ?? enviarAvisoLeilao)({ email: p.email, token: p.token_entrega, placa: p.placa, info: infoDoHistorico(depois) })
+    const ok = await (deps.enviar ?? enviarAvisoLeilao)({ email: p.email, token: p.token_entrega, placa: p.placa, info: infoDoHistorico(depois, { modelo: typeof p.modelo === 'string' ? p.modelo : null }) })
     if (!ok) {
       await supabase.from('pedidos_premium').update({ aviso_leilao_em: null }).eq('id', pedidoId)
       log(`[aviso-leilao] pedido=${pedidoId}: envio falhou (tenta na proxima mudanca)`)

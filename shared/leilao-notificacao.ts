@@ -237,16 +237,42 @@ function notificacaoDe(p: any): NotificacaoNoLeilao | null {
 }
 
 /**
+ * Days after the notice publication within which an auction of the same agency
+ * is the same event. Same value as the auctions API (api/notificacao_card.py,
+ * JANELA_DIAS = 365); later auctions are another trip to auction.
+ */
+export const JANELA_NOTIFICACAO_DIAS = 365
+
+const somaDias = (iso: string, dias: number) => {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + dias)
+  return d.toISOString().slice(0, 10)
+}
+
+/** Nested notice and leftover passage are the same notice? */
+function mesmaNotificacao(ja: NotificacaoNoLeilao, dados: NotificacaoNoLeilao): boolean {
+  const editalJa = texto(ja.edital_numero)
+  const edital = texto(dados.edital_numero)
+  const diaJa = dia(ja.data_publicacao)
+  // Without a date in the nested object, the edital number decides.
+  if (!diaJa) return !!editalJa && !!edital && editalJa === edital
+  return diaJa === dados.data_publicacao && (!editalJa || !edital || editalJa === edital)
+}
+
+/**
  * Joins each notice into the auction of the SAME agency (same `fonte`) held on
- * or after the notice publication. In doubt it does not join: other agency,
- * auction before the notice, notice without publication date, or a candidate
- * auction of that agency without a date. With several dated auctions, the
- * first one on or after the notice wins (a tie is doubt).
+ * or after the notice publication and at most JANELA_NOTIFICACAO_DIAS later.
+ * In doubt it does not join: other agency, auction before the notice or out of
+ * the window, notice without publication date, a candidate auction of that
+ * agency without a date, or two auctions on the closest date. The closest
+ * auction wins; each auction takes one notice, the one published closest to
+ * it, and the others keep their own card.
  */
 export function juntarNotificacoes<T = any>(lista: T[] | null | undefined): T[] {
   if (!Array.isArray(lista)) return []
   const saida: any[] = [...lista]
   const remover = new Set<number>()
+  const escolha = new Map<number, { pub: string; i: number; dados: NotificacaoNoLeilao }>()
   saida.forEach((n: any, i: number) => {
     if (!ehNotificacao(n) || !FORTE.has(n?.nivel)) return
     const dados = dadosNotificacao(n)
@@ -254,9 +280,12 @@ export function juntarNotificacoes<T = any>(lista: T[] | null | undefined): T[] 
     if (!pub) return
     const candidatos = saida
       .map((p: any, j: number) => ({ p, j }))
-      .filter(({ p, j }) => !remover.has(j) && !ehNotificacao(p) && FORTE.has(p?.nivel) && chaveFonte(p) && chaveFonte(p) === chaveFonte(n))
+      .filter(({ p }) => !ehNotificacao(p) && FORTE.has(p?.nivel) && chaveFonte(p) && chaveFonte(p) === chaveFonte(n))
     if (!candidatos.length || candidatos.some(({ p }) => !dia(p.data_leilao))) return
-    const depois = candidatos.filter(({ p }) => dia(p.data_leilao)! >= pub).sort((a, b) => dia(a.p.data_leilao)!.localeCompare(dia(b.p.data_leilao)!))
+    const limite = somaDias(pub, JANELA_NOTIFICACAO_DIAS)
+    const depois = candidatos
+      .filter(({ p }) => dia(p.data_leilao)! >= pub && dia(p.data_leilao)! <= limite)
+      .sort((a, b) => dia(a.p.data_leilao)!.localeCompare(dia(b.p.data_leilao)!))
     if (!depois.length) return
     if (depois.length > 1 && dia(depois[0].p.data_leilao) === dia(depois[1].p.data_leilao)) return
     const alvo = depois[0]
@@ -264,13 +293,17 @@ export function juntarNotificacoes<T = any>(lista: T[] | null | undefined): T[] 
     if (ja) {
       // The API already nested a notice here: drop the leftover passage only
       // when it is the same notice.
-      const mesma = ja.data_publicacao === pub && (!ja.edital_numero || !dados.edital_numero || ja.edital_numero === dados.edital_numero)
-      if (mesma) remover.add(i)
+      if (mesmaNotificacao(ja, dados)) remover.add(i)
       return
     }
-    saida[alvo.j] = { ...alvo.p, detalhes: { ...(alvo.p.detalhes && typeof alvo.p.detalhes === 'object' ? alvo.p.detalhes : {}), notificacao: dados } }
-    remover.add(i)
+    const atual = escolha.get(alvo.j)
+    if (!atual || pub > atual.pub) escolha.set(alvo.j, { pub, i, dados })
   })
+  for (const [j, { i, dados }] of escolha) {
+    const p = saida[j]
+    saida[j] = { ...p, detalhes: { ...(p.detalhes && typeof p.detalhes === 'object' ? p.detalhes : {}), notificacao: dados } }
+    remover.add(i)
+  }
   return saida.filter((_, i) => !remover.has(i)) as T[]
 }
 

@@ -115,3 +115,26 @@ describe('alert e-mail counts the same cards as the page (one card per auction, 
     expect(textosAvisoLeilao('ABC1D23', info).paragrafos.join(' ')).not.toMatch(/Há mais/)
   })
 })
+
+describe('alert e-mail applies the model lock before joining cards (review of PR #750)', () => {
+  const h = {
+    resumo: { tem_indicio: true },
+    passagens: [
+      { fonte: 'casa_x', fonte_tipo: 'privado', nivel: 'possivel', lote: '12', data_leilao: '2026-03-10', veiculo_na_fonte: { marca: 'CHEVROLET', modelo: 'ONIX 1.4 AT LTZ' } },
+      { fonte: 'canhao:cdn.exemplo.net', fonte_tipo: 'privado', nivel: 'confirmado', lote: '012', data_leilao: '2026-03-10' },
+    ],
+  }
+
+  it('the confirmed canhao auction stays in the e-mail info', () => {
+    const info = infoDoHistorico(h, { modelo: 'CHEV/SPIN 1.8L AT LTZ' })
+    expect(info.passagens).toHaveLength(1)
+    expect(info.passagens[0].nivel).toBe('confirmado')
+  })
+
+  it('the model comes from the order snapshot', async () => {
+    pedido({ modelo: 'CHEV/SPIN 1.8L AT LTZ' })
+    expect(await avisar(vazio, h)).toBe('enviado')
+    const info = (enviar.mock.calls[0] as any)[0].info
+    expect(info.passagens.map((p: any) => p.nivel)).toEqual(['confirmado'])
+  })
+})

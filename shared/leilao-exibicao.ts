@@ -195,10 +195,36 @@ export function fonteInterna(v: unknown): boolean {
   return /:\/\//.test(s) || /canh[aã]o/i.test(s) || /[a-z0-9]\.[a-z]{2,}(?![a-z])/i.test(s)
 }
 
-/** Approved display name, or null when it is empty, generic or internal. */
+// Platforms that host many houses (Cesar, 19/out/2026): the platform never
+// shows as a house name, only the house. Same list as the auctions API
+// (api/casas_nomes.py): vlance_<slug>, vlance_v3, soleon_<host>, sishp_<host>,
+// leilotech (its CDN arrives as a canhao passage, handled above).
+const RE_PLATAFORMA = /vlance|soleon|leilotech|sishp/i
+const RE_FONTE_PLATAFORMA = /^(vlance_v3|vlance|soleon|sishp|leilotech)(?:_(.*))?$/
+/** House names approved for platform sources (same as the auctions API). */
+export const NOME_CASA_PLATAFORMA: Record<string, string> = {
+  vlance_exclusivomultleiloes: 'MultLeiloes',
+  vlance_multleiloes: 'MultLeiloes',
+}
+
+/** Approved display name, or null when it is empty, generic, internal or a platform. */
 function nomeAprovado(v: unknown): string | null {
   const s = String(v ?? '').trim()
-  return s && !RE_GENERICO_LEILOEIRA.test(s) && !fonteInterna(s) ? s : null
+  return s && !RE_GENERICO_LEILOEIRA.test(s) && !fonteInterna(s) && !RE_PLATAFORMA.test(s) ? s : null
+}
+
+/**
+ * House name read from the platform key, when readable: "vlance_cesvi" ->
+ * "Cesvi", "soleon_www.casa-x.com.br" -> "Casa X" (first label of the host).
+ * Digits, short or empty slugs and IP-like hosts give null.
+ */
+function casaDaPlataforma(resto: string | undefined): string | null {
+  const r = String(resto || '').trim().toLowerCase()
+  if (!r) return null
+  const slug = r.includes('.') ? r.replace(/^www\./, '').split('.')[0] : r
+  if (!/^[a-z][a-z0-9]*(?:[_-][a-z0-9]+)*$/.test(slug) || (slug.match(/[a-z]/g) || []).length < 3) return null
+  const nome = slug.split(/[_-]+/).filter(Boolean).map(titulo).join(' ')
+  return RE_PLATAFORMA.test(nome) ? null : nome
 }
 
 export function passagemSemCanhao<T extends { fonte?: string | null; fonte_tipo?: string | null; fonte_exibicao?: string | null }>(p: T): T & { via_canhao?: boolean } {
@@ -210,10 +236,8 @@ export function passagemSemCanhao<T extends { fonte?: string | null; fonte_tipo?
   return { ...p, fonte_exibicao: nomeAprovado(p.fonte_exibicao) || ROTULO_LEILOEIRA_PARTICULAR, via_canhao: true }
 }
 
-const loteNorm = (v: unknown) => {
-  const s = String(v ?? '').trim()
-  return s ? s.replace(/^0+(?=.)/, '') : ''
-}
+// Lot without leading zeros; "0", "00" (no lot) is not a lot to join on.
+const loteNorm = (v: unknown) => String(v ?? '').trim().replace(/^0+/, '')
 const dataNorm = (v: unknown) => String(v ?? '').trim().slice(0, 10)
 
 /**
@@ -226,15 +250,27 @@ const dataNorm = (v: unknown) => String(v ?? '').trim().slice(0, 10)
 export function passagensSemCanhao(lista: unknown): any[] {
   if (!Array.isArray(lista)) return []
   const norm = lista.map((p: any) => passagemSemCanhao(p))
-  const diretas = norm.filter((p: any) => !p.via_canhao && loteNorm(p.lote))
-  const porFonte = new Set(diretas.map((p: any) => `${p.fonte}|${loteNorm(p.lote)}`))
-  const porData = new Set(diretas.filter((p: any) => dataNorm(p.data_leilao)).map((p: any) => `${loteNorm(p.lote)}|${dataNorm(p.data_leilao)}`))
+  // Only a STRONG direct passage (confirmado/provavel) hides the canhao one, and
+  // only when its level is equal or higher: a weak passage may leave the screen
+  // (model lock, possivel not shown) and take the auction with it (review of
+  // PR #750, 13/11/2026). Key -> best direct level.
+  const diretas = norm.filter((p: any) => !p.via_canhao && loteNorm(p.lote) && FORCA[p.nivel] >= FORCA.provavel)
+  const porFonte = new Map<string, number>()
+  const porData = new Map<string, number>()
+  const guarda = (m: Map<string, number>, k: string, f: number) => m.set(k, Math.max(m.get(k) ?? 0, f))
+  for (const p of diretas) {
+    guarda(porFonte, `${p.fonte}|${loteNorm(p.lote)}`, FORCA[p.nivel])
+    if (dataNorm(p.data_leilao)) guarda(porData, `${loteNorm(p.lote)}|${dataNorm(p.data_leilao)}`, FORCA[p.nivel])
+  }
   return norm.filter((p: any) => {
     if (!p.via_canhao || !loteNorm(p.lote)) return true
-    if (p.fonte_tipo === 'detran' && porFonte.has(`${p.fonte}|${loteNorm(p.lote)}`)) return false
-    return !(dataNorm(p.data_leilao) && porData.has(`${loteNorm(p.lote)}|${dataNorm(p.data_leilao)}`))
+    const forca = FORCA[p.nivel] ?? 0
+    if (p.fonte_tipo === 'detran' && (porFonte.get(`${p.fonte}|${loteNorm(p.lote)}`) ?? -1) >= forca) return false
+    return !(dataNorm(p.data_leilao) && (porData.get(`${loteNorm(p.lote)}|${dataNorm(p.data_leilao)}`) ?? -1) >= forca)
   })
 }
+
+const FORCA: Record<string, number> = { confirmado: 3, provavel: 2, possivel: 1 }
 
 const NIVEIS_RESUMO = ['confirmado', 'provavel', 'possivel'] as const
 
@@ -242,16 +278,16 @@ const NIVEIS_RESUMO = ['confirmado', 'provavel', 'possivel'] as const
  * The history as the screen shows it: canhao passages without repeated
  * auctions, and notices inside the card of the same agency auction (Cesar,
  * 13/11/2026: one card per auction). When a passage leaves, the summary counts
- * are rebuilt and the API linha_do_tempo (which counted the removed passages)
- * is dropped, so the page builds the timeline per card. Timeline sources from
+ * are rebuilt and the API linha_do_tempo and recorrencia (which counted the
+ * removed passages) are dropped, so the page builds the timeline per card. Timeline sources from
  * the API never show a host. Does not change the snapshot.
  */
-export function historicoParaExibicao<H extends { passagens?: any[]; resumo?: any; linha_do_tempo?: any }>(h: H | null | undefined): H | null | undefined {
+export function historicoParaExibicao<H extends { passagens?: any[]; resumo?: any; linha_do_tempo?: any; recorrencia?: any }>(h: H | null | undefined): H | null | undefined {
   if (!h || !Array.isArray(h.passagens)) return h
   const passagens = juntarNotificacoes(passagensSemCanhao(h.passagens))
   const linha = Array.isArray(h.linha_do_tempo)
     ? h.linha_do_tempo.map((e: any) => (e && Array.isArray(e.fontes)
-        ? { ...e, fontes: [...new Set(e.fontes.map((f: unknown) => nomeAprovado(f) || (RE_GENERICO_LEILOEIRA.test(String(f ?? '').trim()) || fonteInterna(f) ? ROTULO_LEILOEIRA_PARTICULAR : null)).filter(Boolean))] }
+        ? { ...e, fontes: [...new Set(e.fontes.map((f: unknown) => nomeAprovado(f) || (RE_GENERICO_LEILOEIRA.test(String(f ?? '').trim()) || fonteInterna(f) || RE_PLATAFORMA.test(String(f ?? '')) ? ROTULO_LEILOEIRA_PARTICULAR : null)).filter(Boolean))] }
         : e))
     : h.linha_do_tempo
   if (passagens.length === h.passagens.length) return { ...h, passagens, linha_do_tempo: linha }
@@ -267,7 +303,20 @@ export function historicoParaExibicao<H extends { passagens?: any[]; resumo?: an
         fontes_com_passagem: [...new Set(passagens.map((p: any) => String(p?.fonte || '')).filter(Boolean))],
       }
     : r
-  return { ...h, passagens, resumo, linha_do_tempo: null }
+  // Recurrence text talks about the intervals of the API timeline: it goes too.
+  return { ...h, passagens, resumo, linha_do_tempo: null, recorrencia: null }
+}
+
+/**
+ * The auction history exactly as the customer sees it (page and alert e-mail):
+ * model lock FIRST, then one card per auction. In this order nothing is joined
+ * into a card that the model lock would remove (review of PR #750, 13/11/2026).
+ */
+export function historicoNaTela<H extends { passagens?: any[]; resumo?: any; linha_do_tempo?: any; recorrencia?: any }>(
+  h: H | null | undefined,
+  veiculo: { modelo?: string | null; marca?: string | null } | null | undefined,
+): H | null | undefined {
+  return historicoParaExibicao(historicoCompativelComVeiculo(h, veiculo))
 }
 
 const titulo = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
@@ -290,6 +339,12 @@ export function fonteExibicaoLeilao(p: { fonte?: string | null; fonte_tipo?: str
   }
   if (p.via_canhao || RE_CANHAO.test(chave)) return nomeAprovado(exib) || ROTULO_LEILOEIRA_PARTICULAR
   if (NOME_CASA_LEILAO[chave]) return NOME_CASA_LEILAO[chave]
+  const plataforma = RE_FONTE_PLATAFORMA.exec(chave)
+  if (plataforma) {
+    // vlance_v3 carries the house only in the ref: approved name or generic.
+    const resto = plataforma[1] === 'vlance_v3' ? undefined : plataforma[2]
+    return NOME_CASA_PLATAFORMA[chave] || nomeAprovado(exib) || casaDaPlataforma(resto) || ROTULO_LEILOEIRA_PARTICULAR
+  }
   const aprovado = nomeAprovado(exib)
   if (aprovado) return aprovado
   if (!chave) return 'Leiloeira'
