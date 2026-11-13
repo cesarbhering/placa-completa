@@ -94,6 +94,11 @@ const cupomAberto = ref(false)
 const cupomCodigo = ref('')
 const cupomValidando = ref(false)
 const cupomMsg = ref('')
+// true = the server refused to validate the coupon because of the attempt
+// limit (429 marked `limite`). The message shows in the coupon field and the
+// purchase goes on without the coupon, at the full price already on screen.
+const cupomBloqueado = ref(false)
+watch(cupomCodigo, () => { cupomBloqueado.value = false })
 const cupomDescontoCentavos = ref(0)
 const cupomValido = computed(() => cupomDescontoCentavos.value > 0)
 const emailErro = ref('')
@@ -128,8 +133,9 @@ async function validarCupom(): Promise<boolean> {
   try {
     const r: any = await $fetch('/api/premium/coupon', {
       method: 'POST',
-      body: { codigo, plano: props.plano, email: temEmail ? email.value : undefined, ab_preco: abPrecoCheckout.value ?? undefined },
+      body: { codigo, plano: props.plano, email: temEmail ? email.value : undefined, ab_preco: abPrecoCheckout.value ?? undefined, placa: placaClean.value || undefined },
     })
+    cupomBloqueado.value = false
     if (r?.ok) {
       cupomDispensaEmail.value = !!r.dispensaEmail
       cupomDescontoCentavos.value = r.descontoCentavos || 0
@@ -148,7 +154,9 @@ async function validarCupom(): Promise<boolean> {
   } catch (e: any) {
     cupomDispensaEmail.value = false
     cupomDescontoCentavos.value = 0
-    cupomMsg.value = 'Não conseguimos validar o cupom agora.'
+    const limite = mensagemDoLimite(e)
+    cupomBloqueado.value = !!limite
+    cupomMsg.value = limite || 'Não conseguimos validar o cupom agora.'
     if (import.meta.dev) console.warn('[checkout] cupom falhou:', e?.data?.message || e)
     return false
   } finally {
@@ -387,8 +395,8 @@ async function entrar() {
   try {
     await $fetch('/api/premium/gate', { method: 'POST', body: { password: senha.value } })
     await consultarPreview()
-  } catch {
-    msg.value = 'Senha incorreta.'
+  } catch (e: any) {
+    msg.value = (e?.statusCode ?? e?.status) === 429 ? 'Muitas tentativas. Tente de novo em alguns minutos.' : 'Senha incorreta.'
   } finally {
     loading.value = false
   }
@@ -412,7 +420,10 @@ async function validarCheckout(): Promise<boolean> {
     if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
     return false
   }
-  if (!preencheu && cupomCodigo.value.trim() && !((await validarCupom()) && cupomDispensaEmail.value)) {
+  // A coupon already refused by the attempt limit (message seen in the field)
+  // does not hold the purchase: it goes on without the coupon.
+  const jaBloqueado = cupomBloqueado.value
+  if (!preencheu && cupomCodigo.value.trim() && !((await validarCupom()) && cupomDispensaEmail.value) && !(jaBloqueado && cupomBloqueado.value)) {
     emailErro.value = 'Para usar um cupom, informe o e-mail que o recebeu.'
     msg.value = ''
     if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
@@ -426,7 +437,7 @@ async function validarCheckout(): Promise<boolean> {
     loading.value = true
     const ok = await validarCupom()
     loading.value = false
-    if (!ok) {
+    if (!ok && !(jaBloqueado && cupomBloqueado.value)) {
       cupomAberto.value = true
       return false
     }
@@ -769,7 +780,7 @@ async function pagar() {
         // que ficou stale (ex: esgotou por outra aba enquanto a pessoa reconferia
         // a placa, cupomDescontoCentavos ainda positivo de um validarCupom antigo)
         // podia cobrar o preco errado sem o servidor nem saber que havia cupom.
-        cupom: cupomCodigo.value.trim() || undefined,
+        cupom: cupomBloqueado.value ? undefined : (cupomCodigo.value.trim() || undefined),
         // Cupom de tela: o servidor confere assinatura e prazo e aplica o maior.
         cupom_tela: telaAtiva.value ? props.cupomTelaToken ?? undefined : undefined,
         // Marca de anuncio da sessao (gclid/msclkid/utm), pra origem da venda
@@ -903,7 +914,7 @@ async function pagarComCartao() {
         preview: preview.value.raw,
         plano: props.plano,
         ambiente: ambiente.value,
-        cupom: cupomCodigo.value.trim() || undefined,
+        cupom: cupomBloqueado.value ? undefined : (cupomCodigo.value.trim() || undefined),
         // Cupom de tela: o servidor confere assinatura e prazo e aplica o maior.
         cupom_tela: telaAtiva.value ? props.cupomTelaToken ?? undefined : undefined,
         origin: origemDaSessao(),

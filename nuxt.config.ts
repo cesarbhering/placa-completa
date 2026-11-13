@@ -677,6 +677,10 @@ export default defineNuxtConfig({
     checkoutLimitePlacaHora: process.env.NUXT_CHECKOUT_LIMITE_PLACA_HORA || "",
     checkoutLimiteCartaoPlacaHora: process.env.NUXT_CHECKOUT_LIMITE_CARTAO_PLACA_HORA || "",
     checkoutDisjuntorCartao10min: process.env.NUXT_CHECKOUT_DISJUNTOR_CARTAO_10MIN || "",
+    // Typed-coupon attempt limits (server/utils/cupom-limite.ts). Empty =
+    // default (5 invalid per plate/hour, 30 invalid site-wide in 10 min); "0" = off.
+    cupomLimitePlacaHora: process.env.NUXT_CUPOM_LIMITE_PLACA_HORA || "",
+    cupomLimiteGlobal10min: process.env.NUXT_CUPOM_LIMITE_GLOBAL_10MIN || "",
     // NFS-e (own emitter). The "on" flag enables it; without it nothing is called or rendered.
     nfse: process.env.NUXT_NFSE || "",
     nfseUrl: process.env.NUXT_NFSE_URL || "",

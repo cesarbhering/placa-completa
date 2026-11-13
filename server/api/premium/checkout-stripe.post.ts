@@ -1,6 +1,7 @@
 import { sanearOrigemCheckout } from '../../../shared/origem-checkout'
 import { ambienteDaConsultaPaga } from '../../utils/gcc-reserva'
 import { origemDoCupom, cupomDispensaEmail } from '../../utils/cupom-recompra'
+import { validarCupomComLimite, cupomLimiteEstourado } from '../../utils/cupom-limite'
 import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-funil'
 import crypto from 'node:crypto'
 import { sanearOrigem, opprefDoPedido, COOKIE_OPPREF } from '../../../shared/origem-trafego'
@@ -39,7 +40,8 @@ export default defineEventHandler(async (event) => {
   if (email && !email.includes('@')) throw createError({ statusCode: 400, message: 'E-mail invalido' })
   // Cupom exige e-mail (limite por pessoa / cupom pessoal), menos o de
   // recompra, que vale pra qualquer um (server/utils/cupom-recompra.ts).
-  if (!email && String(body.cupom || '').trim() && !(await cupomDispensaEmail(usePremiumSupabase(), String(body.cupom)))) {
+  // Coupon attempt limit tripped: no lookup by code, treated as a non-rebuy code.
+  if (!email && String(body.cupom || '').trim() && (cupomLimiteEstourado(placa, config) || !(await cupomDispensaEmail(usePremiumSupabase(), String(body.cupom))))) {
     throw createError({ statusCode: 400, message: 'Informe o e-mail para usar um cupom.' })
   }
 
@@ -64,7 +66,7 @@ export default defineEventHandler(async (event) => {
     // ignoramos o desconto de 100% e cobramos cheio no cartao — quem quer o gratis
     // usa o Pix, que sabe entregar sem cobranca.
     const codigoCupom = String(body.cupom || '').trim()
-    const cupomDigitado = codigoCupom ? await validarCupom(supabase, codigoCupom, plano, email, abPreco.braco) : null
+    const cupomDigitado = codigoCupom ? (await validarCupomComLimite(supabase, { codigo: codigoCupom, plano, email, braco: abPreco.braco, placa }, config, { onde: 'stripe' })).cupom : null
     const zeraPreco = !!(cupomDigitado?.ok && cupomDigitado.precoLiquidoCentavos === 0)
     // Cupom de tela (5% em 30 min): nao acumula, vale o maior. Cupom que zera
     // nao vale no cartao, entao ele nem entra na comparacao.

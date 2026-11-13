@@ -29,6 +29,12 @@ export interface CupomValidado {
   origem?: string | null
   /** Pedido que gerou o cupom de recompra (mede compartilhamento). */
   pedidoOrigemId?: string | null
+  /**
+   * true = this refusal looks like a guess (unknown, inactive, not yet valid or
+   * expired code, other plan, other e-mail) and counts toward the attempt limits
+   * in server/utils/cupom-limite.ts. Internal: never sent to the browser.
+   */
+  contaTentativa?: boolean
 }
 
 /**
@@ -73,21 +79,23 @@ export async function validarCupom(
     .eq('codigo', codigo)
     .maybeSingle()
 
-  if (error || !cupom) return { ...semDesconto, motivo: 'Cupom nao encontrado.' }
-  if (!cupom.ativo) return { ...semDesconto, motivo: 'Cupom inativo.' }
+  // A database error is our failure, not a guess: it does not count.
+  if (error) return { ...semDesconto, motivo: 'Cupom nao encontrado.' }
+  if (!cupom) return { ...semDesconto, motivo: 'Cupom nao encontrado.', contaTentativa: true }
+  if (!cupom.ativo) return { ...semDesconto, motivo: 'Cupom inativo.', contaTentativa: true }
 
   const agora = Date.now()
   if (cupom.valido_de && new Date(cupom.valido_de).getTime() > agora) {
-    return { ...semDesconto, motivo: 'Cupom ainda nao esta valido.' }
+    return { ...semDesconto, motivo: 'Cupom ainda nao esta valido.', contaTentativa: true }
   }
   if (cupom.valido_ate && new Date(cupom.valido_ate).getTime() < agora) {
     // Vencido merece data e hora, nao um "invalido" generico: o cupom de
     // recuperacao dura 24 horas e quem chega 10 minutos tarde precisa entender
     // que perdeu o prazo, nao achar que digitou errado.
-    return { ...semDesconto, motivo: `Este cupom venceu em ${formatarVencimento(cupom.valido_ate)}.` }
+    return { ...semDesconto, motivo: `Este cupom venceu em ${formatarVencimento(cupom.valido_ate)}.`, contaTentativa: true }
   }
   if (!Array.isArray(cupom.planos) || !cupom.planos.includes(plano)) {
-    return { ...semDesconto, motivo: 'Cupom nao vale para este plano.' }
+    return { ...semDesconto, motivo: 'Cupom nao vale para este plano.', contaTentativa: true }
   }
 
   // Cupom pessoal (recuperacao de Pix abandonado): vale so pra quem recebeu.
@@ -104,7 +112,7 @@ export async function validarCupom(
     else if (String(cupom.email_restrito).trim().toLowerCase() !== email.trim().toLowerCase()) {
       // Nunca revelar QUAL e-mail: o codigo pode ter sido repassado, e o
       // destinatario original nao autorizou ninguem a descobrir o e-mail dele.
-      return { ...semDesconto, motivo: 'Este cupom e pessoal e vale so para o e-mail que o recebeu.' }
+      return { ...semDesconto, motivo: 'Este cupom e pessoal e vale so para o e-mail que o recebeu.', contaTentativa: true }
     }
   }
 

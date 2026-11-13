@@ -58,7 +58,7 @@ export interface LimitesCheckout {
  * Env value -> limit. Empty, invalid, negative or between 0 and 1 = default;
  * exactly 0 = that limit turned off; capped at `teto`.
  */
-function lerLimite(v: unknown, padrao: number, teto: number): number {
+export function lerLimite(v: unknown, padrao: number, teto: number): number {
   if (v === undefined || v === null || String(v).trim() === '') return padrao
   const n = Number(String(v).trim())
   if (!Number.isFinite(n) || n < 0) return padrao
