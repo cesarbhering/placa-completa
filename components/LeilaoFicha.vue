@@ -22,6 +22,8 @@ const linhasFatos = computed(() => {
   for (const d of (p.value.detalhes || [])) l.push({ k: d.rotulo, v: d.valor })
   if (p.value.origem) l.push({ k: 'Origem', v: p.value.origem })
   if (p.value.desfecho) l.push({ k: 'Desfecho', v: p.value.desfecho })
+  // Notice from the same agency joined into this card (one card per auction, 13/11/2026).
+  if (p.value.linhaNotificacao) l.push({ k: 'Notificação', v: String(p.value.linhaNotificacao) })
   return l
 })
 const notaDocumento = computed(() => (p.value.fonteTipo === 'detran'

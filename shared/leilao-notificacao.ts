@@ -185,3 +185,145 @@ export function contarPassagens(passagens: any[] | null | undefined) {
   }
   return c
 }
+
+// ---------- One card per auction (Cesar, 13/11/2026) ----------
+//
+// A notice and the auction it announced are the same story: the screen shows
+// only the auction card, with one line "Notificado em DD/MM/AAAA (edital N)".
+// Two origins, same result: the newer leiloes-api already nests the notice in
+// the auction passage (detalhes.notificacao); older snapshots keep the two
+// passages apart, and they are joined here. Display filter only: the snapshot
+// keeps everything.
+
+export interface NotificacaoNoLeilao {
+  orgao?: string
+  edital_numero?: string
+  /** ISO date (YYYY-MM-DD). */
+  data_publicacao?: string
+  tipo_notificacao?: string
+}
+
+const FORTE = new Set(['confirmado', 'provavel'])
+const dia = (v: unknown): string | null => {
+  const m = String(v ?? '').trim().match(/^(\d{4}-\d{2}-\d{2})/)
+  return m ? m[1] : null
+}
+const brParaIso = (br: string | null): string | null => {
+  const m = String(br || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null
+}
+const chaveFonte = (p: any) => String(p?.fonte || '').trim().toLowerCase()
+const semLink = (v: string | null) => (v && !/^https?:|\.pdf$/i.test(v) ? v : null)
+
+/** Notice data in the API contract shape, only the fields that exist. */
+function dadosNotificacao(n: any): NotificacaoNoLeilao {
+  const det = n?.detalhes && typeof n.detalhes === 'object' && !Array.isArray(n.detalhes) ? n.detalhes : {}
+  const lido = lerEditalNotificacao(n?.ref)
+  const saida: NotificacaoNoLeilao = {}
+  const orgao = semLink(texto(det.orgao))
+  const edital = semLink(texto(det.edital_numero) || lido.numero)
+  const pub = dia(det.data_publicacao) || brParaIso(lido.publicacao)
+  const tipo = semLink(texto(det.tipo_notificacao) || lido.tipo)
+  if (orgao) saida.orgao = orgao
+  if (edital) saida.edital_numero = edital
+  if (pub) saida.data_publicacao = pub
+  if (tipo) saida.tipo_notificacao = tipo
+  return saida
+}
+
+function notificacaoDe(p: any): NotificacaoNoLeilao | null {
+  const n = p?.detalhes?.notificacao
+  return n && typeof n === 'object' && !Array.isArray(n) ? n : null
+}
+
+/**
+ * Days after the notice publication within which an auction of the same agency
+ * is the same event. Same value as the auctions API (api/notificacao_card.py,
+ * JANELA_DIAS = 365); later auctions are another trip to auction.
+ */
+export const JANELA_NOTIFICACAO_DIAS = 365
+
+const somaDias = (iso: string, dias: number) => {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + dias)
+  return d.toISOString().slice(0, 10)
+}
+
+/** Nested notice and leftover passage are the same notice? */
+function mesmaNotificacao(ja: NotificacaoNoLeilao, dados: NotificacaoNoLeilao): boolean {
+  const editalJa = texto(ja.edital_numero)
+  const edital = texto(dados.edital_numero)
+  const diaJa = dia(ja.data_publicacao)
+  // Without a date in the nested object, the edital number decides.
+  if (!diaJa) return !!editalJa && !!edital && editalJa === edital
+  return diaJa === dados.data_publicacao && (!editalJa || !edital || editalJa === edital)
+}
+
+/**
+ * Joins each notice into the auction of the SAME agency (same `fonte`) held on
+ * or after the notice publication and at most JANELA_NOTIFICACAO_DIAS later.
+ * In doubt it does not join: other agency, auction before the notice or out of
+ * the window, notice without publication date, a candidate auction of that
+ * agency without a date, or two auctions on the closest date. The closest
+ * auction wins; each auction takes one notice, the one published closest to
+ * it, and the others keep their own card.
+ */
+export function juntarNotificacoes<T = any>(lista: T[] | null | undefined): T[] {
+  if (!Array.isArray(lista)) return []
+  const saida: any[] = [...lista]
+  const remover = new Set<number>()
+  const escolha = new Map<number, { pub: string; i: number; dados: NotificacaoNoLeilao }>()
+  saida.forEach((n: any, i: number) => {
+    if (!ehNotificacao(n) || !FORTE.has(n?.nivel)) return
+    const dados = dadosNotificacao(n)
+    const pub = dados.data_publicacao
+    if (!pub) return
+    const candidatos = saida
+      .map((p: any, j: number) => ({ p, j }))
+      .filter(({ p }) => !ehNotificacao(p) && FORTE.has(p?.nivel) && chaveFonte(p) && chaveFonte(p) === chaveFonte(n))
+    if (!candidatos.length || candidatos.some(({ p }) => !dia(p.data_leilao))) return
+    const limite = somaDias(pub, JANELA_NOTIFICACAO_DIAS)
+    const depois = candidatos
+      .filter(({ p }) => dia(p.data_leilao)! >= pub && dia(p.data_leilao)! <= limite)
+      .sort((a, b) => dia(a.p.data_leilao)!.localeCompare(dia(b.p.data_leilao)!))
+    if (!depois.length) return
+    if (depois.length > 1 && dia(depois[0].p.data_leilao) === dia(depois[1].p.data_leilao)) return
+    const alvo = depois[0]
+    const ja = notificacaoDe(alvo.p)
+    if (ja) {
+      // The API already nested a notice here: drop the leftover passage only
+      // when it is the same notice.
+      if (mesmaNotificacao(ja, dados)) remover.add(i)
+      return
+    }
+    const atual = escolha.get(alvo.j)
+    if (!atual || pub > atual.pub) escolha.set(alvo.j, { pub, i, dados })
+  })
+  for (const [j, { i, dados }] of escolha) {
+    const p = saida[j]
+    saida[j] = { ...p, detalhes: { ...(p.detalhes && typeof p.detalhes === 'object' ? p.detalhes : {}), notificacao: dados } }
+    remover.add(i)
+  }
+  const final = saida.filter((_, i) => !remover.has(i))
+  // A nested notice with neither date nor edital (only the agency) says
+  // nothing the notice card of that agency does not: when that card stays,
+  // the auction card drops the line, so the notice shows once (review 2 of
+  // PR #750).
+  return final.map((p: any) => {
+    const n = notificacaoDe(p)
+    if (!n || dia(n.data_publicacao) || texto(n.edital_numero)) return p
+    if (!final.some((q: any) => q !== p && ehNotificacao(q) && FORTE.has(q?.nivel) && chaveFonte(q) === chaveFonte(p))) return p
+    const { notificacao: _n, ...det } = p.detalhes
+    return { ...p, detalhes: det }
+  }) as T[]
+}
+
+/** "Notificado em 01/04/2026 (edital 12/2026)"; what is missing is left out. */
+export function linhaNotificacao(p: any): string | null {
+  const n = notificacaoDe(p)
+  if (!n) return null
+  const data = dataBR(dia(n.data_publicacao))
+  const edital = semLink(texto(n.edital_numero))
+  if (!data && !edital) return 'Notificado para leilão'
+  return `Notificado${data ? ` em ${data}` : ''}${edital ? ` (edital ${edital})` : ''}`
+}

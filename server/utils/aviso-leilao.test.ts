@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
-import { avisarLeilaoTardio, leilaoSurgiu, avisoLeilaoLigado, infoDoHistorico } from './aviso-leilao'
+import { avisarLeilaoTardio, leilaoSurgiu, avisoLeilaoLigado, infoDoHistorico, modeloDaResposta } from './aviso-leilao'
 import { textosAvisoLeilao, montarEmailAviso } from './premium-email'
 
 // Regra do Cesar (21/out/2026): leilao ou indicio de sinistro que aparece
@@ -97,5 +97,85 @@ describe('texto', () => {
       expect(s).not.toMatch(new RegExp('—|senatran|' + 'avali' + 'service', 'i'))
       expect(s).not.toMatch(/\bfoi (leiloado|batido|sinistrado)/i)
     }
+  })
+})
+
+describe('alert e-mail counts the same cards as the page (one card per auction, 13/11/2026)', () => {
+  it('duplicate canhao passage and joined notice do not add "more records"', () => {
+    const h = {
+      resumo: { tem_indicio: true },
+      passagens: [
+        { fonte: 'detran_xx', fonte_tipo: 'detran', nivel: 'confirmado', lote: '0315', data_leilao: '2026-06-18' },
+        { fonte: 'canhao:cdn.exemplo-cdn.net', fonte_tipo: 'privado', nivel: 'confirmado', lote: '315', data_leilao: '2026-06-18' },
+        { fonte: 'detran_xx', fonte_tipo: 'detran', nivel: 'confirmado', situacao: 'notificado', detalhes: { tipo_registro: 'notificacao_leilao', data_publicacao: '2026-05-02' } },
+      ],
+    }
+    const info = infoDoHistorico(h)
+    expect(info.passagens).toHaveLength(1)
+    expect(textosAvisoLeilao('ABC1D23', info).paragrafos.join(' ')).not.toMatch(/Há mais/)
+  })
+})
+
+describe('alert e-mail applies the model lock before joining cards (review of PR #750)', () => {
+  const h = {
+    resumo: { tem_indicio: true },
+    passagens: [
+      { fonte: 'casa_x', fonte_tipo: 'privado', nivel: 'possivel', lote: '12', data_leilao: '2026-03-10', veiculo_na_fonte: { marca: 'CHEVROLET', modelo: 'ONIX 1.4 AT LTZ' } },
+      { fonte: 'canhao:cdn.exemplo.net', fonte_tipo: 'privado', nivel: 'confirmado', lote: '012', data_leilao: '2026-03-10' },
+    ],
+  }
+
+  it('the confirmed canhao auction stays in the e-mail info', () => {
+    const info = infoDoHistorico(h, { modelo: 'CHEV/SPIN 1.8L AT LTZ' })
+    expect(info.passagens).toHaveLength(1)
+    expect(info.passagens[0].nivel).toBe('confirmado')
+  })
+
+  it('the model comes from the order snapshot', async () => {
+    pedido({ resposta: { descricaoMarcaModelo: 'CHEV/SPIN 1.8L AT LTZ' } })
+    expect(await avisar(vazio, h)).toBe('enviado')
+    const info = (enviar.mock.calls[0] as any)[0].info
+    expect(info.passagens.map((p: any) => p.nivel)).toEqual(['confirmado'])
+  })
+})
+
+describe('alert e-mail reads the model from the real snapshot format (review 2 of PR #750)', () => {
+  // A 'provavel' passage of an ONIX in a SPIN report: the page hides it.
+  const h = {
+    resumo: { tem_indicio: true },
+    passagens: [
+      { fonte: 'casa_x', fonte_tipo: 'privado', nivel: 'provavel', lote: '7', data_leilao: '2026-04-01', veiculo_na_fonte: { marca: 'CHEVROLET', modelo: 'ONIX 1.4 AT LTZ' } },
+      { fonte: 'casa_y', fonte_tipo: 'privado', nivel: 'confirmado', lote: '9', data_leilao: '2026-05-01' },
+    ],
+  }
+  // What the snapshot stores: normalizarResposta gives a flat object.
+  const snapshot = { consulta: { response: { placa: 'ABC1D23', descricaoMarcaModelo: 'CHEV/SPIN 1.8L AT LTZ' } } }
+
+  it('modeloDaResposta reads a flat object and a one-item list', () => {
+    expect(modeloDaResposta(snapshot.consulta.response)).toBe('CHEV/SPIN 1.8L AT LTZ')
+    expect(modeloDaResposta([snapshot.consulta.response])).toBe('CHEV/SPIN 1.8L AT LTZ')
+    expect(modeloDaResposta(null)).toBeNull()
+    expect(modeloDaResposta({ descricaoMarcaModelo: '  ' })).toBeNull()
+  })
+
+  it('selects the response itself, not its first list item', async () => {
+    const selects: string[] = []
+    const from = sb.from.bind(sb)
+    const espiao: any = { ...sb, from: (t: string) => { const q: any = from(t); const sel = q.select; q.select = (c?: string, o?: any) => { if (c) selects.push(c); return sel(c, o) }; return q } }
+    pedido({ resposta: snapshot.consulta.response })
+    expect(await avisarLeilaoTardio(espiao, 'p1', vazio, h, { enviar, ligado: true, log: () => {} })).toBe('enviado')
+    const sel = selects.find((c) => c.includes('relatorio_snapshot')) || ''
+    expect(sel).toMatch(/resposta:relatorio_snapshot->consulta->response(,|$)/)
+    expect(sel).not.toMatch(/->0/)
+  })
+
+  it.each([
+    ['response as a flat object', snapshot.consulta.response],
+    ['response as a one-item list', [snapshot.consulta.response]],
+  ])('the model lock runs with %s', async (_n, resposta) => {
+    pedido({ resposta })
+    expect(await avisar(vazio, h)).toBe('enviado')
+    const info = (enviar.mock.calls[0] as any)[0].info
+    expect(info.passagens.map((p: any) => p.nivel)).toEqual(['confirmado'])
   })
 })
