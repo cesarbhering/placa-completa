@@ -3,7 +3,18 @@
 // maybeSingle/single, rpc, or simples). Unique opcional por tabela.
 type Linha = Record<string, any>
 
-export function supabaseMemoria(opts: { unicos?: Record<string, string[]>; rpc?: (nome: string, args: any) => any } = {}) {
+/** LIKE with a trailing wildcard only (`abc%` or the PostgREST alias `abc*`); otherwise exact. */
+function prefixo(padrao: string): (v: string) => boolean {
+  const p = String(padrao)
+  return /[%*]$/.test(p) ? (v) => v.startsWith(p.slice(0, -1)) : (v) => v === p
+}
+
+export function supabaseMemoria(opts: {
+  unicos?: Record<string, string[]>
+  rpc?: (nome: string, args: any) => any
+  /** Column defaults per table, applied on insert (the database's `default now()`). */
+  padroes?: Record<string, () => Linha>
+} = {}) {
   const tabelas: Record<string, Linha[]> = {}
   let seq = 0
   const tab = (n: string) => (tabelas[n] ||= [])
@@ -11,6 +22,7 @@ export function supabaseMemoria(opts: { unicos?: Record<string, string[]>; rpc?:
   function builder(nome: string) {
     let op: 'select' | 'insert' | 'update' | 'upsert' = 'select'
     let contar = false
+    let comCount = false
     let conflito: string[] = []
     let payload: any = null
     const filtros: ((l: Linha) => boolean)[] = []
@@ -25,7 +37,7 @@ export function supabaseMemoria(opts: { unicos?: Record<string, string[]>; rpc?:
         return { data: [payload], error: null }
       }
       if (op === 'insert') {
-        const linha = { id: `id-${++seq}`, ...payload }
+        const linha = { id: `id-${++seq}`, ...(opts.padroes?.[nome]?.() || {}), ...payload }
         for (const col of opts.unicos?.[nome] || []) {
           if (linha[col] != null && t.some((l) => l[col] === linha[col])) return { data: null, error: { code: '23505', message: `duplicate ${col}` } }
         }
@@ -36,10 +48,10 @@ export function supabaseMemoria(opts: { unicos?: Record<string, string[]>; rpc?:
       if (op === 'update') { sel.forEach((l) => Object.assign(l, payload)); return { data: sel, error: null } }
       if (ordem) { const o = ordem; sel = [...sel].sort((a, b) => (a[o.col] < b[o.col] ? -1 : a[o.col] > b[o.col] ? 1 : 0) * (o.asc ? 1 : -1)) }
       if (contar) return { data: null, count: sel.length, error: null } as any
-      return { data: sel.slice(0, lim).map((l) => ({ ...l })), error: null }
+      return { data: sel.slice(0, lim).map((l) => ({ ...l })), ...(comCount ? { count: sel.length } : {}), error: null } as any
     }
     const b: any = {
-      select: (_c?: string, o?: { count?: string; head?: boolean }) => { if (o?.head) contar = true; return b },
+      select: (_c?: string, o?: { count?: string; head?: boolean }) => { if (o?.head) contar = true; else if (o?.count) comCount = true; return b },
       upsert: (p: any, o?: { onConflict?: string }) => { op = 'upsert'; payload = p; conflito = String(o?.onConflict || 'id').split(','); return b },
       gte: (c: string, v: any) => { filtros.push((l) => l[c] >= v); return b },
       gt: (c: string, v: any) => { filtros.push((l) => l[c] > v); return b },
@@ -60,6 +72,7 @@ export function supabaseMemoria(opts: { unicos?: Record<string, string[]>; rpc?:
             if (op === 'not.is') return v === 'null' ? x !== null : String(x) !== v
             if (op === 'eq') return String(x) === v
             if (op === 'ilike') return String(x ?? '').toLowerCase() === v.toLowerCase()
+            if (op === 'like') return prefixo(v)(String(x ?? ''))
             return false
           }
         })
@@ -67,6 +80,9 @@ export function supabaseMemoria(opts: { unicos?: Record<string, string[]>; rpc?:
         return b
       },
       lt: (c: string, v: any) => { filtros.push((l) => l[c] < v); return b },
+      like: (c: string, v: string) => { filtros.push((l) => prefixo(v)(String(l[c] ?? ''))); return b },
+      // not(col, 'is', null): the only form the code under test uses.
+      not: (c: string, op: string, v: any) => { filtros.push((l) => (op === 'is' ? (l[c] ?? null) !== v : true)); return b },
       order: (col: string, o?: { ascending?: boolean }) => { ordem = { col, asc: o?.ascending !== false }; return b },
       limit: (n: number) => { lim = n; return b },
       maybeSingle: async () => { const r = run(); return { data: r.data?.[0] ?? null, error: r.error } },

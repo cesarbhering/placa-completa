@@ -11,7 +11,7 @@ import { getRegiaoSusep } from '../utils/regiao-susep'
 import { getSeguroEstimado, type SeguroEstimado } from '../utils/seguro-estimate'
 import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
 import { mensagemLimiteGratis, tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT } from '../utils/ip-wdapi-limit'
-import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
+import { calcularICV5, inferirCategoria, ufDoCorpo, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
 import { classificarUA } from '../utils/dispositivo'
@@ -133,7 +133,10 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const { email, phone, placa, isPWA, includeFipeChart, includeIcv5, icv5Uf } = body
+  const { email, phone, placa, isPWA, includeFipeChart, includeIcv5 } = body
+  // UF do custo de 5 anos: lista fechada. Fora dela vale como nao enviada (o
+  // valor vai parar no HTML do e-mail e da imagem do WhatsApp).
+  const icv5Uf = ufDoCorpo(body?.icv5Uf)
   // Origem de trafego (gclid, msclkid e utm) capturada pelo plugin
   // track-origin no client
   const trafego = sanearOrigem(body?.origin)
@@ -1203,13 +1206,13 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
         ${rodizioDisclaimer}
       `) : ''}
 
-      ${icv5 ? emailWindow(`ICV5 - Custo para Manter em 5 Anos em ${icv5.uf}`, `
+      ${icv5 ? emailWindow(`ICV5 - Custo para Manter em 5 Anos em ${escapeHtml(icv5.uf)}`, `
         ${emailRow('Manutenção anual', formatBRL(icv5.manutencaoAnual))}
         ${emailRow('Manutenção 5 anos', formatBRL(icv5.manutencao5anos))}
         ${emailRow('IPVA anual', formatBRL(icv5.ipvaAnual))}
         ${emailRow('IPVA 5 anos', formatBRL(icv5.ipva5anos))}
         ${emailRow('Custo total 5 anos', formatBRL(icv5.custoTotal5anos))}
-        ${emailRow('Índice ICV5', `${icv5.indiceIcv5}% - ${icv5.classificacao}`, true)}
+        ${emailRow('Índice ICV5', escapeHtml(`${icv5.indiceIcv5}% - ${icv5.classificacao}`), true)}
       `) : ''}
 
       <p style="font-size:11px;color:#979dac;text-align:center;font-family:'Segoe UI',Arial,sans-serif;margin:6px 0 0;max-width:520px;">
@@ -1247,7 +1250,9 @@ function emailShareButton(marca: string, modelo: string, ano: string, placa: str
 // cotacao real linkando /cotacao?c=<uuid da consulta>. Sempre presente
 // (versao generica sem estimativa) por decisao de produto.
 function emailSeguroSection(seguro: SeguroEstimado | null, cotacaoUrl: string): string {
-  const fmt = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+  // Number(): o valor vem de servico externo; texto que nao e numero vira NaN
+  // em vez de entrar no HTML como veio.
+  const fmt = (v: number) => 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
   const botao = (label: string) => `
     <tr><td colspan="2" style="padding:14px 16px 6px;text-align:center;background:#ffffff;">
       <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
@@ -1267,7 +1272,7 @@ function emailSeguroSection(seguro: SeguroEstimado | null, cotacaoUrl: string): 
     return emailWindow('Seguro do seu carro', `
       ${emailRow('Seguro médio anual', fmt(seguro.premioAnual))}
       ${emailRow('Franquia média', fmt(seguro.franquia))}
-      ${seguro.regiaoDoUsuario ? emailRow('Região', seguro.regiao.descricao, true) : ''}
+      ${seguro.regiaoDoUsuario ? emailRow('Região', escapeHtml(seguro.regiao?.descricao), true) : ''}
       ${botao('Pedir cotação real →')}
     `)
   }
@@ -1319,7 +1324,7 @@ function emailRow(label: string, value: string, isLast: boolean = false): string
 }
 
 function formatBRL(value: number): string {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 // Plain-text version of the consulta payload, formatted for WhatsApp.

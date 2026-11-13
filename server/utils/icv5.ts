@@ -45,7 +45,19 @@ export function fatorCategoria(tipo: string): number {
 
 // Aliquotas de IPVA por UF: shared/ipva-uf.ts (tambem usadas no custo de 12 meses do relatorio).
 import { aliquotaIPVA } from '../../shared/ipva-uf'
+import { UFS } from '../../shared/empresas'
 export { aliquotaIPVA }
+
+/**
+ * UF vinda do corpo da requisicao: so uma das 27 siglas (em qualquer caixa,
+ * com espaco sobrando). Qualquer outra coisa vale como "nao enviada" (null).
+ * O valor entra em texto de e-mail e de imagem, entao nunca passa cru.
+ */
+export function ufDoCorpo(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const uf = v.trim().toUpperCase()
+  return (UFS as readonly string[]).includes(uf) ? uf : null
+}
 
 // Infere a categoria ICV5 a partir do sub_segmento da API de placas
 export function inferirCategoria(subSegmento: string, combustivel?: string): string {
