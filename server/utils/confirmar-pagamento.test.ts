@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
-import { confirmarPagamentoDoPedido } from './confirmar-pagamento'
+import { confirmarPagamentoDoPedido, confirmarCobrancaDoEvento } from './confirmar-pagamento'
 
 // The rule shared by the buyer's polling and the Woovi webhook. The provider
 // modules are real; only their HTTP boundary ($fetch for Pix, fetch for
@@ -221,5 +221,100 @@ describe('confirmarPagamentoDoPedido', () => {
 
       expect(await confirmarPagamentoDoPedido(db, pedido)).toBe('pago')
     })
+  })
+})
+
+// Webhook only: the charge an event names, looked up in OUR account by its
+// correlationID. The correlationID is a search key, never proof.
+describe('confirmarCobrancaDoEvento', () => {
+  const OUTRO_PEDIDO = '22222222-2222-4222-8222-222222222222'
+  const RENOVACAO = `${PEDIDO}-rantiga`
+  const cobranca = (status: string, identifier: string, correlationID: unknown) => ({
+    charge: { status, identifier, correlationID, value: 4490, brCode: '00020101021226-teste' },
+  })
+  const porCorrelacao = (correlationID: string) => `${WOOVI}/api/v1/charge/${correlationID}`
+
+  it('an older renewal of this order, paid: pago, and the order is repointed to it', async () => {
+    const pedido = semear()
+    const api = apiPix({ [porCorrelacao(RENOVACAO)]: cobranca('COMPLETED', 'cob-antiga', RENOVACAO) })
+
+    expect(await confirmarCobrancaDoEvento(db, pedido, RENOVACAO)).toBe('pago')
+
+    expect(api.mock.calls[0]![1]).toMatchObject({ method: 'GET', headers: { Authorization: 'app-id-de-teste' } })
+    expect(pedidoNoBanco()).toMatchObject({ pix_provider: 'woovi', abacatepay_id: 'cob-antiga', status: 'aguardando_pagamento' })
+    expect(pedido).toMatchObject({ pix_provider: 'woovi', abacatepay_id: 'cob-antiga' })
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining(PEDIDO))
+  })
+
+  it('the original charge of this order, paid, while the order points to another provider: pago and repointed', async () => {
+    const pedido = semear({ pix_provider: 'abacatepay', abacatepay_id: 'cob-abacate' })
+    apiPix({ [porCorrelacao(PEDIDO)]: cobranca('COMPLETED', 'cob-original', PEDIDO) })
+
+    expect(await confirmarCobrancaDoEvento(db, pedido, PEDIDO)).toBe('pago')
+
+    expect(pedidoNoBanco()).toMatchObject({ pix_provider: 'woovi', abacatepay_id: 'cob-original' })
+  })
+
+  it.each([
+    { caso: 'the charge is not paid', resposta: cobranca('ACTIVE', 'cob-antiga', RENOVACAO), esperado: 'nao_pago' },
+    { caso: 'the charge expired', resposta: cobranca('EXPIRED', 'cob-antiga', RENOVACAO), esperado: 'nao_pago' },
+    { caso: 'the charge does not exist in our account', resposta: erroHttp(400), esperado: 'nao_pago' },
+    { caso: 'the provider did not answer', resposta: SEM_RESPOSTA, esperado: 'indeterminado' },
+    { caso: 'the provider answered with an error of its own', resposta: erroHttp(500), esperado: 'indeterminado' },
+  ])('$caso: $esperado, and the order is left as it was', async ({ resposta, esperado }) => {
+    const pedido = semear()
+    const antes = { ...pedidoNoBanco() }
+    apiPix({ [porCorrelacao(RENOVACAO)]: resposta })
+
+    expect(await confirmarCobrancaDoEvento(db, pedido, RENOVACAO)).toBe(esperado)
+
+    expect(pedidoNoBanco()).toEqual(antes)
+    expect(pedido).toMatchObject({ pix_provider: 'woovi', abacatepay_id: 'cob-do-pedido' })
+  })
+
+  it.each([
+    ['of another order', OUTRO_PEDIDO],
+    ['of a renewal of another order', `${OUTRO_PEDIDO}-rantiga`],
+    ['that is not a correlationID of ours', 'qualquer-coisa'],
+    ['empty', ''],
+    ['missing', undefined],
+  ])('correlationID %s: nothing is asked and there is no verdict', async (_caso, correlationID) => {
+    const pedido = semear()
+    const antes = { ...pedidoNoBanco() }
+    const api = apiPix({})
+
+    expect(await confirmarCobrancaDoEvento(db, pedido, correlationID)).toBeNull()
+
+    expect(api).not.toHaveBeenCalled()
+    expect(pedidoNoBanco()).toEqual(antes)
+  })
+
+  it.each([
+    ['is tied to another order', OUTRO_PEDIDO],
+    ['is tied to a renewal of another order', `${OUTRO_PEDIDO}-rantiga`],
+    ['carries no correlationID', undefined],
+  ])('the provider returns a paid charge that %s: nao_pago, order untouched', async (_caso, correlationIDDaCobranca) => {
+    const pedido = semear()
+    const antes = { ...pedidoNoBanco() }
+    apiPix({ [porCorrelacao(RENOVACAO)]: cobranca('COMPLETED', 'cob-de-outro', correlationIDDaCobranca) })
+
+    expect(await confirmarCobrancaDoEvento(db, pedido, RENOVACAO)).toBe('nao_pago')
+
+    expect(pedidoNoBanco()).toEqual(antes)
+  })
+})
+
+describe('confirmarCobrancaDoEvento, when the paid charge is the one already recorded', () => {
+  it('pago, without writing to the order again', async () => {
+    const pedido = semear()
+    const antes = { ...pedidoNoBanco() }
+    apiPix({ [`${WOOVI}/api/v1/charge/${PEDIDO}`]: { charge: { status: 'COMPLETED', identifier: 'cob-do-pedido', correlationID: PEDIDO, value: 4490 } } })
+    const escrita = vi.spyOn(db, 'from')
+
+    expect(await confirmarCobrancaDoEvento(db, pedido, PEDIDO)).toBe('pago')
+
+    expect(escrita).not.toHaveBeenCalled()
+    expect(pedidoNoBanco()).toEqual(antes)
+    expect(console.warn).not.toHaveBeenCalled()
   })
 })

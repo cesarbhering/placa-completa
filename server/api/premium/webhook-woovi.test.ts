@@ -78,6 +78,8 @@ describe('handler', () => {
 // the database are faked.
 describe('payment confirmation with our own credential', () => {
   const PEDIDO = '11111111-1111-4111-8111-111111111111'
+  const OUTRO_PEDIDO = '22222222-2222-4222-8222-222222222222'
+  const RENOVACAO_ANTIGA = `${PEDIDO}-rantiga`
   const WOOVI = 'https://woovi.test'
   const ABACATE = 'https://abacate.test'
   const ASSINATURA = 'assinatura-valida'
@@ -107,14 +109,24 @@ describe('payment confirmation with our own credential', () => {
       pix: { value: 4490, time: '2026-01-01T00:00:00.000Z', endToEndId: 'E-teste', payer },
     })
   }
-
-  /** Woovi answer for GET /api/v1/charge/{id}. */
-  const cobrancaWoovi = (status: string, identifier: string) => ({
-    charge: { status, identifier, correlationID: PEDIDO, value: 4490, brCode: '00020101021226-teste', expiresDate: '2999-01-01T00:00:00.000Z' },
+  /** A signed event that is not a payment. */
+  const eventoExpirou = (correlationID: string) => JSON.stringify({
+    event: 'OPENPIX:CHARGE_EXPIRED', charge: { status: 'EXPIRED', correlationID, identifier: 'cob-do-pedido', value: 4490 },
   })
-  const COBRANCA_DO_PEDIDO = `${WOOVI}/api/v1/charge/cob-do-pedido`
-  const COBRANCA_ORIGINAL = `${WOOVI}/api/v1/charge/${PEDIDO}`
+
+  /** Woovi answer for GET /api/v1/charge/{id}, where id is an identifier or a correlationID. */
+  const cobrancaWoovi = (status: string, identifier: string, correlationID: string = PEDIDO) => ({
+    charge: { status, identifier, correlationID, value: 4490, brCode: '00020101021226-teste', expiresDate: '2999-01-01T00:00:00.000Z' },
+  })
+  const naWoovi = (id: string) => `${WOOVI}/api/v1/charge/${id}`
+  const COBRANCA_DO_PEDIDO = naWoovi('cob-do-pedido')
+  /** The original charge: its correlationID is the order id. */
+  const COBRANCA_ORIGINAL = naWoovi(PEDIDO)
   const COBRANCA_ABACATE = `${ABACATE}/transparents/check?id=cob-abacate`
+  /** An HTTP error as ofetch throws it. Woovi answers 400 for a charge it does not know. */
+  const erroHttp = (status: number) => Object.assign(new Error(`[GET] ${status}`), { status, statusCode: status })
+  const NAO_EXISTE = erroHttp(400)
+  const SEM_REDE = new Error('network down')
 
   /** Fake HTTP boundary of the Pix providers. Keys are `URL` or `URL?id=...`; an Error value is thrown. */
   function apiPix(respostas: Record<string, any>) {
@@ -127,6 +139,7 @@ describe('payment confirmation with our own credential', () => {
     vi.stubGlobal('$fetch', api)
     return api
   }
+  const consultadas = (api: ReturnType<typeof apiPix>) => api.mock.calls.map((c) => c[0])
 
   beforeEach(() => {
     verificar.mockReturnValue(true)
@@ -141,167 +154,258 @@ describe('payment confirmation with our own credential', () => {
   })
   afterEach(() => vi.restoreAllMocks())
 
-  it('provider says the order charge is not paid: 200, nothing processed, order untouched', async () => {
-    semear()
-    const antes = { ...pedidoNoBanco() }
-    const api = apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido') })
+  describe('the charge recorded on the order', () => {
+    it('paid at the provider: processes the order and flags the event as processed', async () => {
+      semear()
+      const api = apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('COMPLETED', 'cob-do-pedido') })
 
-    expect(await chamar(eventoPago(), ASSINATURA)).toMatchObject({ ok: true })
+      expect(await chamar(eventoPago(), ASSINATURA)).toEqual({ ok: true })
 
-    expect(api).toHaveBeenCalledWith(COBRANCA_DO_PEDIDO, expect.objectContaining({
-      method: 'GET', headers: expect.objectContaining({ Authorization: 'app-id-de-teste' }),
-    }))
-    expect(processar).not.toHaveBeenCalled()
-    expect(gravarHash).not.toHaveBeenCalled()
-    expect(pedidoNoBanco()).toEqual(antes)
-    expect(eventoGravado()).not.toHaveProperty('processado', true)
-  })
-
-  it('charge not paid: logs one line with the order id and no payer data', async () => {
-    semear()
-    apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido') })
-
-    await chamar(eventoPago(), ASSINATURA)
-
-    expect(console.warn).toHaveBeenCalledTimes(1)
-    const linha = vi.mocked(console.warn).mock.calls[0]!.join(' ')
-    expect(linha).toContain(PEDIDO)
-    expect(linha).not.toContain('PAGADOR DE TESTE')
-    expect(linha).not.toContain('00000000000')
-    expect(linha).not.toContain('\n')
-  })
-
-  it('provider says paid: processes the order and flags the event as processed', async () => {
-    semear()
-    const api = apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('COMPLETED', 'cob-do-pedido') })
-
-    expect(await chamar(eventoPago(), ASSINATURA)).toEqual({ ok: true })
-
-    expect(api).toHaveBeenCalledWith(COBRANCA_DO_PEDIDO, expect.objectContaining({
-      method: 'GET', headers: expect.objectContaining({ Authorization: 'app-id-de-teste' }),
-    }))
-    expect(processar).toHaveBeenCalledTimes(1)
-    expect(processar).toHaveBeenCalledWith(db, expect.objectContaining({ id: PEDIDO, pix_provider: 'woovi', abacatepay_id: 'cob-do-pedido' }))
-    expect(gravarHash).toHaveBeenCalledTimes(1)
-    expect(eventoGravado()).toMatchObject({ provider: 'woovi', event: 'OPENPIX:CHARGE_COMPLETED', abacatepay_id: 'cob-do-pedido', processado: true })
-  })
-
-  it('provider API fails: 503, nothing processed, event not flagged', async () => {
-    semear()
-    const antes = { ...pedidoNoBanco() }
-    apiPix({ [COBRANCA_DO_PEDIDO]: new Error('network down') })
-
-    await expect(chamar(eventoPago(), ASSINATURA)).rejects.toMatchObject({ statusCode: 503 })
-
-    expect(processar).not.toHaveBeenCalled()
-    expect(gravarHash).not.toHaveBeenCalled()
-    expect(pedidoNoBanco()).toEqual(antes)
-    expect(eventoGravado()).not.toHaveProperty('processado', true)
-  })
-
-  it('provider API hangs: answers 503 instead of holding the webhook open', async () => {
-    semear()
-    vi.stubGlobal('$fetch', vi.fn(() => new Promise(() => {})))
-    await import('./webhook-woovi')
-    vi.useFakeTimers()
-    try {
-      const resposta = expect(chamar(eventoPago(), ASSINATURA)).rejects.toMatchObject({ statusCode: 503 })
-      await vi.advanceTimersByTimeAsync(60_000)
-      await resposta
-    } finally {
-      vi.useRealTimers()
-    }
-    expect(processar).not.toHaveBeenCalled()
-    expect(eventoGravado()).not.toHaveProperty('processado', true)
-  })
-
-  it('unexpected failure while confirming: 503, nothing processed', async () => {
-    semear({ pix_provider: 'abacatepay', abacatepay_id: 'cob-abacate' })
-    apiPix({
-      [COBRANCA_ABACATE]: { data: { status: 'PENDING' }, success: true, error: null },
-      [COBRANCA_ORIGINAL]: cobrancaWoovi('COMPLETED', 'cob-original'),
-    })
-    // The database fails on the repoint write.
-    vi.stubGlobal('usePremiumSupabase', () => ({
-      ...db,
-      from: (tabela: string) => {
-        const consulta = db.from(tabela)
-        if (tabela === 'pedidos_premium') consulta.update = () => { throw new Error('database down') }
-        return consulta
-      },
-    }))
-
-    await expect(chamar(eventoPago({ identifier: 'cob-original' }), ASSINATURA)).rejects.toMatchObject({ statusCode: 503 })
-
-    expect(processar).not.toHaveBeenCalled()
-    expect(gravarHash).not.toHaveBeenCalled()
-  })
-
-  it('identifier and value from the event are not proof: only the order own charge is asked', async () => {
-    semear()
-    const antes = { ...pedidoNoBanco() }
-    const api = apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido') })
-
-    expect(await chamar(eventoPago({ identifier: 'cob-de-outra-conta', value: 1 }), ASSINATURA)).toMatchObject({ ok: true })
-
-    expect(api.mock.calls.map((c) => c[0])).toEqual([COBRANCA_DO_PEDIDO])
-    expect(processar).not.toHaveBeenCalled()
-    expect(pedidoNoBanco()).toEqual(antes)
-  })
-
-  it('identifier and value from the event do not block a payment the provider confirms', async () => {
-    semear()
-    const api = apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('COMPLETED', 'cob-do-pedido') })
-
-    expect(await chamar(eventoPago({ identifier: 'cob-de-outra-conta', value: 1 }), ASSINATURA)).toEqual({ ok: true })
-
-    expect(api.mock.calls.map((c) => c[0])).toEqual([COBRANCA_DO_PEDIDO])
-    expect(processar).toHaveBeenCalledWith(db, expect.objectContaining({ id: PEDIDO, abacatepay_id: 'cob-do-pedido' }))
-  })
-
-  it('original Woovi charge paid while the order points elsewhere: repoints like the polling and processes', async () => {
-    semear({ pix_provider: 'abacatepay', abacatepay_id: 'cob-abacate' })
-    apiPix({
-      [COBRANCA_ABACATE]: { data: { status: 'PENDING' }, success: true, error: null },
-      [COBRANCA_ORIGINAL]: cobrancaWoovi('COMPLETED', 'cob-original'),
+      expect(consultadas(api)).toEqual([COBRANCA_DO_PEDIDO])
+      expect(api.mock.calls[0]![1]).toMatchObject({ method: 'GET', headers: { Authorization: 'app-id-de-teste' } })
+      expect(processar).toHaveBeenCalledTimes(1)
+      expect(processar).toHaveBeenCalledWith(db, expect.objectContaining({ id: PEDIDO, pix_provider: 'woovi', abacatepay_id: 'cob-do-pedido' }))
+      expect(gravarHash).toHaveBeenCalledTimes(1)
+      expect(eventoGravado()).toMatchObject({ provider: 'woovi', event: 'OPENPIX:CHARGE_COMPLETED', abacatepay_id: 'cob-do-pedido', processado: true })
     })
 
-    expect(await chamar(eventoPago({ identifier: 'cob-original' }), ASSINATURA)).toEqual({ ok: true })
+    it('not paid at the provider: 200, nothing processed, order untouched', async () => {
+      semear()
+      const antes = { ...pedidoNoBanco() }
+      const api = apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido'), [COBRANCA_ORIGINAL]: cobrancaWoovi('ACTIVE', 'cob-do-pedido') })
 
-    expect(pedidoNoBanco()).toMatchObject({ pix_provider: 'woovi', abacatepay_id: 'cob-original' })
-    expect(processar).toHaveBeenCalledWith(db, expect.objectContaining({ id: PEDIDO, pix_provider: 'woovi', abacatepay_id: 'cob-original' }))
-    expect(gravarHash).toHaveBeenCalledWith(db, expect.objectContaining({ pix_provider: 'woovi', abacatepay_id: 'cob-original' }))
-    expect(eventoGravado()).toMatchObject({ abacatepay_id: 'cob-original', processado: true })
+      expect(await chamar(eventoPago(), ASSINATURA)).toEqual({ ok: true, naoConfirmado: true })
+
+      for (const chamada of api.mock.calls) expect(chamada[1]).toMatchObject({ method: 'GET', headers: { Authorization: 'app-id-de-teste' } })
+      expect(processar).not.toHaveBeenCalled()
+      expect(gravarHash).not.toHaveBeenCalled()
+      expect(pedidoNoBanco()).toEqual(antes)
+      expect(eventoGravado()).not.toHaveProperty('processado', true)
+    })
+
+    it('not paid: logs one line with the order id and no payer data', async () => {
+      semear()
+      apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido'), [COBRANCA_ORIGINAL]: cobrancaWoovi('ACTIVE', 'cob-do-pedido') })
+
+      await chamar(eventoPago(), ASSINATURA)
+
+      expect(console.warn).toHaveBeenCalledTimes(1)
+      const linha = vi.mocked(console.warn).mock.calls[0]!.join(' ')
+      expect(linha).toContain(PEDIDO)
+      expect(linha).not.toContain('PAGADOR DE TESTE')
+      expect(linha).not.toContain('00000000000')
+      expect(linha).not.toContain('\n')
+    })
   })
 
-  it('unconfirmed event is still stored for audit and forwarded to finance', async () => {
-    semear()
-    apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido') })
+  describe('the event body is not proof', () => {
+    it('identifier and value from the event are never looked up nor trusted', async () => {
+      semear()
+      const antes = { ...pedidoNoBanco() }
+      const api = apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido'), [COBRANCA_ORIGINAL]: cobrancaWoovi('ACTIVE', 'cob-do-pedido') })
 
-    await chamar(eventoPago(), ASSINATURA)
+      expect(await chamar(eventoPago({ identifier: 'cob-de-outra-conta', value: 1 }), ASSINATURA)).toEqual({ ok: true, naoConfirmado: true })
 
-    expect(db.tab('webhook_events')).toHaveLength(1)
-    expect(eventoGravado()).toMatchObject({ provider: 'woovi', event: 'OPENPIX:CHARGE_COMPLETED', abacatepay_id: 'cob-do-pedido' })
-    expect(financeiro).toHaveBeenCalledTimes(1)
+      // Asked: the charge recorded on the order, then the charge of the
+      // correlationID, which maps to the order. Never the identifier.
+      expect(consultadas(api)).toEqual([COBRANCA_DO_PEDIDO, COBRANCA_ORIGINAL])
+      expect(processar).not.toHaveBeenCalled()
+      expect(pedidoNoBanco()).toEqual(antes)
+    })
+
+    it('identifier and value from the event do not block a payment the provider confirms', async () => {
+      semear()
+      const api = apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('COMPLETED', 'cob-do-pedido') })
+
+      expect(await chamar(eventoPago({ identifier: 'cob-de-outra-conta', value: 1 }), ASSINATURA)).toEqual({ ok: true })
+
+      expect(consultadas(api)).toEqual([COBRANCA_DO_PEDIDO])
+      expect(processar).toHaveBeenCalledWith(db, expect.objectContaining({ id: PEDIDO, abacatepay_id: 'cob-do-pedido' }))
+    })
   })
 
-  it('event for an unknown order: 200 and no provider is asked', async () => {
-    const api = apiPix({})
+  describe('a paid charge of the order that is not the recorded one', () => {
+    it('the original, while the order points to another provider: repoints like the polling and processes', async () => {
+      semear({ pix_provider: 'abacatepay', abacatepay_id: 'cob-abacate' })
+      apiPix({
+        [COBRANCA_ABACATE]: { data: { status: 'PENDING' }, success: true, error: null },
+        [COBRANCA_ORIGINAL]: cobrancaWoovi('COMPLETED', 'cob-original'),
+      })
 
-    expect(await chamar(eventoPago(), ASSINATURA)).toEqual({ ok: true, semPedido: true })
+      expect(await chamar(eventoPago({ identifier: 'cob-original' }), ASSINATURA)).toEqual({ ok: true })
 
-    expect(api).not.toHaveBeenCalled()
-    expect(processar).not.toHaveBeenCalled()
+      expect(pedidoNoBanco()).toMatchObject({ pix_provider: 'woovi', abacatepay_id: 'cob-original' })
+      expect(processar).toHaveBeenCalledWith(db, expect.objectContaining({ id: PEDIDO, pix_provider: 'woovi', abacatepay_id: 'cob-original' }))
+      expect(gravarHash).toHaveBeenCalledWith(db, expect.objectContaining({ pix_provider: 'woovi', abacatepay_id: 'cob-original' }))
+      expect(eventoGravado()).toMatchObject({ abacatepay_id: 'cob-original', processado: true })
+    })
+
+    it('the original, while the order points to a renewal still inside its window: repointed and delivered', async () => {
+      semear({ abacatepay_id: 'cob-renovada' })
+      const api = apiPix({
+        [naWoovi('cob-renovada')]: cobrancaWoovi('ACTIVE', 'cob-renovada', `${PEDIDO}-rnova`),
+        [COBRANCA_ORIGINAL]: cobrancaWoovi('COMPLETED', 'cob-original'),
+      })
+
+      expect(await chamar(eventoPago({ identifier: 'cob-original' }), ASSINATURA)).toEqual({ ok: true })
+
+      expect(consultadas(api)).toEqual([naWoovi('cob-renovada'), COBRANCA_ORIGINAL])
+      expect(pedidoNoBanco()).toMatchObject({ pix_provider: 'woovi', abacatepay_id: 'cob-original' })
+      expect(processar).toHaveBeenCalledWith(db, expect.objectContaining({ id: PEDIDO, abacatepay_id: 'cob-original' }))
+    })
+
+    it('an older renewal: the order is repointed to it and delivered', async () => {
+      semear()
+      const api = apiPix({
+        [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido', `${PEDIDO}-rnova`),
+        [naWoovi(RENOVACAO_ANTIGA)]: cobrancaWoovi('COMPLETED', 'cob-antiga', RENOVACAO_ANTIGA),
+      })
+
+      expect(await chamar(eventoPago({ correlationID: RENOVACAO_ANTIGA, identifier: 'cob-antiga' }), ASSINATURA)).toEqual({ ok: true })
+
+      expect(consultadas(api)).toEqual([COBRANCA_DO_PEDIDO, naWoovi(RENOVACAO_ANTIGA)])
+      expect(api.mock.calls[1]![1]).toMatchObject({ method: 'GET', headers: { Authorization: 'app-id-de-teste' } })
+      expect(pedidoNoBanco()).toMatchObject({ pix_provider: 'woovi', abacatepay_id: 'cob-antiga' })
+      expect(processar).toHaveBeenCalledTimes(1)
+      expect(processar).toHaveBeenCalledWith(db, expect.objectContaining({ id: PEDIDO, pix_provider: 'woovi', abacatepay_id: 'cob-antiga' }))
+      expect(gravarHash).toHaveBeenCalledWith(db, expect.objectContaining({ abacatepay_id: 'cob-antiga' }))
+      expect(eventoGravado()).toMatchObject({ abacatepay_id: 'cob-antiga', processado: true })
+    })
+
+    it('a correlationID of another order does not deliver this one', async () => {
+      semear()
+      const antes = { ...pedidoNoBanco() }
+      const deOutroPedido = `${OUTRO_PEDIDO}-rantiga`
+      // The event reaches this order through the charge identifier. The
+      // correlationID it carries belongs to another order and is paid.
+      const api = apiPix({
+        [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido'),
+        [naWoovi(deOutroPedido)]: cobrancaWoovi('COMPLETED', 'cob-de-outro-pedido', deOutroPedido),
+      })
+
+      expect(await chamar(eventoPago({ correlationID: deOutroPedido, identifier: 'cob-do-pedido' }), ASSINATURA)).toEqual({ ok: true, naoConfirmado: true })
+
+      expect(consultadas(api)).toEqual([COBRANCA_DO_PEDIDO])
+      expect(processar).not.toHaveBeenCalled()
+      expect(pedidoNoBanco()).toEqual(antes)
+    })
+
+    it('the provider ties the charge to another order: this one is not delivered', async () => {
+      semear()
+      const antes = { ...pedidoNoBanco() }
+      apiPix({
+        [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido'),
+        [naWoovi(RENOVACAO_ANTIGA)]: cobrancaWoovi('COMPLETED', 'cob-de-outro-pedido', `${OUTRO_PEDIDO}-rantiga`),
+      })
+
+      expect(await chamar(eventoPago({ correlationID: RENOVACAO_ANTIGA, identifier: 'cob-antiga' }), ASSINATURA)).toEqual({ ok: true, naoConfirmado: true })
+
+      expect(processar).not.toHaveBeenCalled()
+      expect(pedidoNoBanco()).toEqual(antes)
+    })
   })
 
-  it('event that is not a payment: ignored before any provider call', async () => {
-    semear()
-    const api = apiPix({})
-    const expirou = JSON.stringify({ event: 'OPENPIX:CHARGE_EXPIRED', charge: { status: 'EXPIRED', correlationID: PEDIDO, identifier: 'cob-do-pedido', value: 4490 } })
+  describe('a charge that does not exist in our account is not an error', () => {
+    it('the charge the event names does not exist: 200, nothing processed, no resend asked', async () => {
+      semear()
+      const antes = { ...pedidoNoBanco() }
+      const inexistente = `${PEDIDO}-rinexistente`
+      apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido'), [naWoovi(inexistente)]: NAO_EXISTE })
 
-    expect(await chamar(expirou, ASSINATURA)).toEqual({ ok: true, ignored: 'OPENPIX:CHARGE_EXPIRED' })
+      expect(await chamar(eventoPago({ correlationID: inexistente, identifier: 'cob-inexistente' }), ASSINATURA)).toEqual({ ok: true, naoConfirmado: true })
 
-    expect(api).not.toHaveBeenCalled()
-    expect(processar).not.toHaveBeenCalled()
+      expect(processar).not.toHaveBeenCalled()
+      expect(pedidoNoBanco()).toEqual(antes)
+    })
+
+    it('order born on the fallback provider, with no Woovi charge at all: 200', async () => {
+      semear({ pix_provider: 'abacatepay', abacatepay_id: 'cob-abacate' })
+      apiPix({ [COBRANCA_ABACATE]: { data: { status: 'PENDING' }, success: true, error: null }, [COBRANCA_ORIGINAL]: NAO_EXISTE })
+
+      expect(await chamar(eventoPago({ identifier: 'cob-de-outra-conta' }), ASSINATURA)).toEqual({ ok: true, naoConfirmado: true })
+
+      expect(processar).not.toHaveBeenCalled()
+    })
+
+    it('the charge the event names does not exist, even with the order own charge unreachable: 200', async () => {
+      semear()
+      const inexistente = `${PEDIDO}-rinexistente`
+      apiPix({ [COBRANCA_DO_PEDIDO]: SEM_REDE, [naWoovi(inexistente)]: NAO_EXISTE })
+
+      expect(await chamar(eventoPago({ correlationID: inexistente, identifier: 'cob-inexistente' }), ASSINATURA)).toEqual({ ok: true, naoConfirmado: true })
+
+      expect(processar).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('the provider cannot be asked: 503, so that it resends', () => {
+    it('network error: 503, nothing processed, event not flagged', async () => {
+      semear()
+      const antes = { ...pedidoNoBanco() }
+      apiPix({ [COBRANCA_DO_PEDIDO]: SEM_REDE, [COBRANCA_ORIGINAL]: SEM_REDE })
+
+      await expect(chamar(eventoPago(), ASSINATURA)).rejects.toMatchObject({ statusCode: 503 })
+
+      expect(processar).not.toHaveBeenCalled()
+      expect(gravarHash).not.toHaveBeenCalled()
+      expect(pedidoNoBanco()).toEqual(antes)
+      expect(eventoGravado()).not.toHaveProperty('processado', true)
+    })
+
+    it('an error of the provider itself (500): 503', async () => {
+      semear()
+      apiPix({ [COBRANCA_DO_PEDIDO]: erroHttp(500), [COBRANCA_ORIGINAL]: erroHttp(500) })
+
+      await expect(chamar(eventoPago(), ASSINATURA)).rejects.toMatchObject({ statusCode: 503 })
+
+      expect(processar).not.toHaveBeenCalled()
+    })
+
+    it('the lookup of the charge the event names fails: 503', async () => {
+      semear()
+      apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido'), [naWoovi(RENOVACAO_ANTIGA)]: SEM_REDE })
+
+      await expect(chamar(eventoPago({ correlationID: RENOVACAO_ANTIGA, identifier: 'cob-antiga' }), ASSINATURA)).rejects.toMatchObject({ statusCode: 503 })
+
+      expect(processar).not.toHaveBeenCalled()
+    })
+
+    it('the provider API hangs: 503 instead of holding the webhook open', async () => {
+      semear()
+      vi.stubGlobal('$fetch', vi.fn(() => new Promise(() => {})))
+      await import('./webhook-woovi')
+      vi.useFakeTimers()
+      try {
+        const resposta = expect(chamar(eventoPago(), ASSINATURA)).rejects.toMatchObject({ statusCode: 503 })
+        await vi.advanceTimersByTimeAsync(60_000)
+        await resposta
+      } finally {
+        vi.useRealTimers()
+      }
+      expect(processar).not.toHaveBeenCalled()
+      expect(eventoGravado()).not.toHaveProperty('processado', true)
+    })
+
+    it('unexpected failure while confirming: 503, nothing processed', async () => {
+      semear({ pix_provider: 'abacatepay', abacatepay_id: 'cob-abacate' })
+      apiPix({
+        [COBRANCA_ABACATE]: { data: { status: 'PENDING' }, success: true, error: null },
+        [COBRANCA_ORIGINAL]: cobrancaWoovi('COMPLETED', 'cob-original'),
+      })
+      // The database fails on the repoint write.
+      vi.stubGlobal('usePremiumSupabase', () => ({
+        ...db,
+        from: (tabela: string) => {
+          const consulta = db.from(tabela)
+          if (tabela === 'pedidos_premium') consulta.update = () => { throw new Error('database down') }
+          return consulta
+        },
+      }))
+
+      await expect(chamar(eventoPago({ identifier: 'cob-original' }), ASSINATURA)).rejects.toMatchObject({ statusCode: 503 })
+
+      expect(processar).not.toHaveBeenCalled()
+      expect(gravarHash).not.toHaveBeenCalled()
+    })
   })
 })

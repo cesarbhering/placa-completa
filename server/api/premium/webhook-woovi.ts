@@ -3,25 +3,39 @@ import { chavesPublicas, verificarAssinatura, pedidoDaCorrelacao } from '../../u
 import { gravarPagadorHash, sanearPayloadWebhook } from '../../utils/pagador-hash'
 import { lerPayloadWoovi, ehPingWoovi } from '../../utils/woovi-webhook-payload'
 import { encaminharWebhookFinanceiro } from '../../utils/woovi-financeiro'
-import { confirmarPagamentoDoPedido, type ConfirmacaoPagamento } from '../../utils/confirmar-pagamento'
+import { confirmarPagamentoDoPedido, confirmarCobrancaDoEvento, type ConfirmacaoPagamento } from '../../utils/confirmar-pagamento'
 
 // Upper bound for the payment confirmation: a provider API that hangs must not
 // hold the webhook open. Past it the answer is 503 and the provider resends.
 const TETO_CONFIRMACAO_MS = 10_000
 
 /**
- * Asks the provider, with our own credential, whether the order has a paid
- * charge (same rule as the buyer's polling). Anything that prevents a clear
- * answer (provider API error, timeout, unexpected failure) is 'indeterminado':
- * it never counts as paid and never counts as not paid.
+ * Asks the provider, with our own credential, whether the order was paid.
+ *
+ * First the rule of the buyer's polling: the charge recorded on the order,
+ * then the original one. If neither is paid, the charge this event names is
+ * looked up in our account by its correlationID, provided that correlationID
+ * maps to this order. That lookup is about the event itself, so when it
+ * applies its verdict stands: paid, not paid (which includes "no such charge
+ * in our account") or no answer.
+ *
+ * Anything that prevents a clear answer (provider API error, timeout,
+ * unexpected failure) is 'indeterminado': it never counts as paid and never
+ * counts as not paid.
  */
-async function confirmarPagamento(supabase: any, pedido: any): Promise<ConfirmacaoPagamento> {
+async function confirmarPagamento(supabase: any, pedido: any, correlationID: unknown): Promise<ConfirmacaoPagamento> {
   let relogio: ReturnType<typeof setTimeout> | undefined
   const teto = new Promise<ConfirmacaoPagamento>((resolve) => {
     relogio = setTimeout(() => resolve('indeterminado'), TETO_CONFIRMACAO_MS)
   })
+  const perguntar = async (): Promise<ConfirmacaoPagamento> => {
+    const doPedido = await confirmarPagamentoDoPedido(supabase, pedido)
+    if (doPedido === 'pago') return 'pago'
+    const doEvento = await confirmarCobrancaDoEvento(supabase, pedido, correlationID)
+    return doEvento ?? doPedido
+  }
   try {
-    return await Promise.race([confirmarPagamentoDoPedido(supabase, pedido), teto])
+    return await Promise.race([perguntar(), teto])
   } catch {
     return 'indeterminado'
   } finally {
@@ -50,8 +64,10 @@ async function confirmarPagamento(supabase: any, pedido: any): Promise<Confirmac
 // the order it names. So a signed "charge completed" event only triggers a
 // question: the provider is asked, with our own credential, whether the order
 // has a paid charge (server/utils/confirmar-pagamento.ts, the same rule as the
-// polling of status.get.ts). Nothing in the event body (value, identifier,
-// status) counts as proof of payment.
+// polling of status.get.ts, plus the charge the event names). Nothing in the
+// event body (value, identifier, status) counts as proof of payment. The
+// correlationID is used as a search key only: to find the order, and to look
+// the event's charge up in our account.
 export default defineEventHandler(async (event) => {
   // Handshake de validacao (GET/HEAD): nao carrega pagamento, 200 fixo.
   if (event.method !== 'POST') return { ok: true, ping: true }
@@ -109,7 +125,7 @@ export default defineEventHandler(async (event) => {
 
   // The event located an order. Whether that order was paid is answered by
   // the provider, with our own credential (see the header comment).
-  const confirmacao = await confirmarPagamento(supabase, pedido)
+  const confirmacao = await confirmarPagamento(supabase, pedido, charge?.correlationID)
   if (confirmacao === 'indeterminado') {
     // Could not ask: 503 without processing, so the provider resends. The
     // buyer's polling keeps covering the delivery in the meantime.

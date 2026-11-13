@@ -1,6 +1,6 @@
 import { detectarPagamento, deveChecarWooviOriginal, type PedidoPagamento } from './status-pagamento'
 import { provedorDoPedido } from './pix-provider'
-import { consultarCobrancaPorCorrelacao } from './woovi'
+import { consultarCobrancaPorCorrelacao, pedidoDaCorrelacao } from './woovi'
 import { consultarPaymentIntent, consultarStripeSession, paymentIntentPago, stripeSessionPaga } from './stripe'
 
 // The single rule that decides whether an order has been paid. It is shared by
@@ -11,6 +11,9 @@ import { consultarPaymentIntent, consultarStripeSession, paymentIntentPago, stri
 // about a charge that is tied to the order on our side: the charge recorded on
 // the order, or the original Woovi charge (correlationID = order id). Nothing
 // a caller brings along (an event body, a query string) takes part in it.
+//
+// The webhook has one more question, confirmarCobrancaDoEvento, at the end of
+// this file: it follows the same principle and never runs for the polling.
 
 /**
  * - 'pago': a provider confirmed a paid charge of this order.
@@ -80,4 +83,45 @@ export async function confirmarPagamentoDoPedido(supabase: any, pedido: PedidoCo
 
   if (pago) return 'pago'
   return semResposta ? 'indeterminado' : 'nao_pago'
+}
+
+/**
+ * Webhook only. The charge that an event names, looked up in OUR account by
+ * its correlationID. It reaches what the rule above does not: a payment on a
+ * charge of the order that is neither the recorded one nor the original (an
+ * older renewal), or on the original while the recorded charge is still inside
+ * its window.
+ *
+ * The correlationID comes from the event, so it is a search key and nothing
+ * more:
+ * - it has to map to this very order (we create it as `<order id>` or
+ *   `<order id>-r<suffix>`); otherwise nothing is asked and there is no
+ *   verdict (null);
+ * - the charge has to exist in our account, which is what asking with our
+ *   credential answers;
+ * - the provider's own record of that charge has to be paid and to carry a
+ *   correlationID that maps to this order too.
+ *
+ * When all of that holds, the order is repointed to the charge, the way the
+ * rule above does for the original, and the verdict is 'pago'.
+ */
+export async function confirmarCobrancaDoEvento(supabase: any, pedido: PedidoConfirmavel, correlationID: unknown): Promise<ConfirmacaoPagamento | null> {
+  const correlacao = typeof correlationID === 'string' ? correlationID : ''
+  if (!correlacao || pedidoDaCorrelacao(correlacao) !== pedido.id) return null
+
+  const consulta = await consultarCobrancaPorCorrelacao(correlacao)
+  if (consulta.situacao === 'sem_resposta') return 'indeterminado'
+  if (consulta.situacao === 'nao_encontrada') return 'nao_pago'
+
+  const { status, identifier, correlationID: registrada } = consulta.cobranca
+  if (status !== 'PAID' || pedidoDaCorrelacao(registrada) !== pedido.id) return 'nao_pago'
+
+  const jaApontaPraEla = String(pedido.pix_provider || '').toLowerCase() === 'woovi' && pedido.abacatepay_id === identifier
+  if (!jaApontaPraEla) {
+    console.warn(`[pix] pagamento achado na cobranca Woovi do evento; repointando pedido=${pedido.id}`)
+    await supabase.from('pedidos_premium').update({ pix_provider: 'woovi', abacatepay_id: identifier }).eq('id', pedido.id)
+    pedido.pix_provider = 'woovi'
+    pedido.abacatepay_id = identifier
+  }
+  return 'pago'
 }
