@@ -6,6 +6,7 @@ import crypto from 'node:crypto'
 import { sanearOrigem, opprefDoPedido, COOKIE_OPPREF } from '../../../shared/origem-trafego'
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
 import { barrarPlacaBloqueada } from '../../utils/blocklist'
+import { barrarLimiteCheckout } from '../../utils/checkout-limite'
 import { cupomTelaValido, segredoCupomTela, resolverDescontoTela, colunasCupomTela } from '../../utils/cupom-tela'
 import { precoDoPlano } from '../../../shared/ab-preco'
 import { abPrecoDoCheckout } from '../../utils/ab-preco'
@@ -49,6 +50,10 @@ export default defineEventHandler(async (event) => {
   const precoTabela = precoDoPlano(plano, abPreco.braco)
   const supabase = usePremiumSupabase()
   const token = crypto.randomBytes(18).toString('base64url')
+  // Per-plate unpaid-order limit and card circuit breaker
+  // (server/utils/checkout-limite.ts): blocks before any order or Stripe
+  // session exists. Fails open.
+  await barrarLimiteCheckout(supabase, { placa, ambiente, cartao: true }, config)
 
   // Cupom RECALCULADO no servidor (nunca confia no preco do client), igual ao
   // Pix. Diferenca: aqui o caminho gratis nao existe. Se o cupom zerar o preco,

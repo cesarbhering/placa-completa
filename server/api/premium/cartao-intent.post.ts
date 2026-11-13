@@ -7,6 +7,7 @@ import { sanearOrigem, opprefDoPedido, COOKIE_OPPREF } from '../../../shared/ori
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
 import { respostaCompraRepetida } from '../../utils/compra-repetida'
 import { barrarPlacaBloqueada } from '../../utils/blocklist'
+import { barrarLimiteCheckout } from '../../utils/checkout-limite'
 import { cupomTelaValido, segredoCupomTela, resolverDescontoTela, colunasCupomTela } from '../../utils/cupom-tela'
 import { precoDoPlano } from '../../../shared/ab-preco'
 import { abPrecoDoCheckout } from '../../utils/ab-preco'
@@ -54,6 +55,9 @@ export default defineEventHandler(async (event) => {
     placa, plano, ip: getClientIp(event), ...getDispositivo(event), obref: sanearOrigem(body.origin).obref ?? null,
   }, ambiente, body.forcar_nova_compra)
   if (repetida) return repetida
+  // Per-plate unpaid-order limit and card circuit breaker (server/utils/checkout-limite.ts):
+  // blocks BEFORE any order or provider charge exists. Fails open.
+  await barrarLimiteCheckout(supabase, { placa, ambiente, cartao: true }, config)
   const token = crypto.randomBytes(18).toString('base64url')
 
   // Cupom recalculado no servidor. Cartao nao tem caminho gratis: cupom que zera

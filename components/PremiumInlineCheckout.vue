@@ -3,6 +3,7 @@ import { PLANOS, RECURSOS, precoDePromocao } from '~/shared/planos'
 import { CUPOM_TELA_PCT, relogioCupomTela } from '~/shared/cupom-tela'
 import { bracoParaTela, precoDoPlano, descontoTelaNoBraco, precoExibidoNoCheckout } from '~/shared/ab-preco'
 import { PROVA_SOCIAL } from '~/shared/prova-social'
+import { mensagemDoLimite } from '~/shared/mensagem-limite'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora, trackConversaoPixGerado } from '~/composables/useAnalytics'
 import type { CompraPlay } from '~/composables/usePlayBilling'
@@ -811,7 +812,8 @@ async function pagar() {
   } catch (e: any) {
     if (await tratarJaComprado(e, 'pix')) return
     if (import.meta.dev) console.warn('[checkout] pagar falhou:', e?.data?.message || e)
-    msg.value = 'Não conseguimos gerar o Pix agora. Tente de novo em instantes.'
+    // 429/503 carry a message written for the buyer (checkout limits).
+    msg.value = mensagemDoLimite(e) || 'Não conseguimos gerar o Pix agora. Tente de novo em instantes.'
   } finally {
     loading.value = false
   }
@@ -942,7 +944,7 @@ async function pagarComCartao() {
   } catch (e: any) {
     if (await tratarJaComprado(e, 'cartao')) return
     if (import.meta.dev) console.warn('[checkout] cartao v2 falhou:', e?.data?.message || e)
-    erroCartao.value = 'Não conseguimos processar o cartão agora. Use o Pix.'
+    erroCartao.value = mensagemDoLimite(e) || 'Não conseguimos processar o cartão agora. Use o Pix.'
   } finally {
     processandoCartao.value = false
   }

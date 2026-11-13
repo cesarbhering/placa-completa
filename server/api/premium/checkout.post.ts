@@ -7,6 +7,7 @@ import { sanearOrigem, opprefDoPedido, COOKIE_OPPREF } from '../../../shared/ori
 import { PLANOS, isPlanoPago } from '../../../shared/planos'
 import { respostaCompraRepetida } from '../../utils/compra-repetida'
 import { barrarPlacaBloqueada } from '../../utils/blocklist'
+import { barrarLimiteCheckout } from '../../utils/checkout-limite'
 import { cupomTelaValido, segredoCupomTela, resolverDescontoTela, colunasCupomTela } from '../../utils/cupom-tela'
 import { precoDoPlano } from '../../../shared/ab-preco'
 import { abPrecoDoCheckout } from '../../utils/ab-preco'
@@ -71,6 +72,9 @@ export default defineEventHandler(async (event) => {
     placa, plano, ip: getClientIp(event), ...getDispositivo(event), obref: sanearOrigem(body.origin).obref ?? null,
   }, ambiente, body.forcar_nova_compra)
   if (repetida) return repetida
+  // Per-plate unpaid-order limit (server/utils/checkout-limite.ts):
+  // blocks BEFORE any order or provider charge exists. Fails open.
+  await barrarLimiteCheckout(supabase, { placa, ambiente, cartao: false }, config)
   // Preco sai SO da tabela. Antes a completa vinha de PREMIUM_VALOR_CENTAVOS,
   // o que abria a porta pra cobrar um valor e mostrar outro na tela (a tela le
   // a tabela). Fonte unica evita a divergencia.
