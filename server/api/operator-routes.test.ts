@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 import { _resetarEmVoo } from '../utils/tarefas-em-voo'
 
 // Every operator-only route answers 404 unless the caller sends ADMIN_SECRET in
@@ -24,6 +24,14 @@ const ROTAS: [string, () => Promise<any>][] = [
 let config: any
 const lerCorpo = vi.fn()
 const banco = vi.fn()
+
+// The first import of a route pulls in everything it uses, which can take
+// seconds on a busy machine. It happens here, once, with room to spare, so no
+// test pays for it.
+beforeAll(async () => {
+  vi.stubGlobal('defineEventHandler', (f: any) => f)
+  for (const [, carregar] of ROTAS) await carregar()
+}, 120_000)
 
 beforeEach(() => {
   // homolog and nfse on, so the routes that also depend on them reach the secret check.

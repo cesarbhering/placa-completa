@@ -10,6 +10,8 @@ import { assertAdminSecret } from '../../utils/admin-secret'
 // operator routes). The order token in the body only says which order to
 // refund; it is not a credential here. No page calls this route.
 //
+// Pix only: an order without a Pix charge (card, app) gets 409.
+//
 // Idempotent: an order already marked reembolsado is answered without asking
 // the provider again, and the provider deduplicates a repeated refund.
 export default defineEventHandler(async (event) => {

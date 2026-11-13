@@ -63,7 +63,7 @@ describe('assertAdminSecret', () => {
     expect(barrado(comSegredo('null'))).toMatchObject({ statusCode: 404 })
   })
 
-  it('same number of characters with a non-ASCII one: 404, not an exception', () => {
+  it('same number of characters with a non-ASCII one: 404', () => {
     ambiente(SEGREDO)
     // Same length in characters as the secret, one more byte in UTF-8.
     const enviado = 'segredo-de-testé'

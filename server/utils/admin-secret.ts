@@ -11,10 +11,8 @@ const digest = (texto: string) => crypto.createHash('sha256').update(texto, 'utf
  * 404, never 401. An operator route does not announce that it exists.
  *
  * The comparison is constant-time and runs over bytes. Both sides are hashed
- * to a fixed-size digest first, so it does not depend on the length of either
- * value and cannot throw, whatever the header carries (a value with the same
- * number of characters as the secret but a different number of bytes, for
- * instance).
+ * to a fixed-size digest first, so it depends neither on the length nor on
+ * the content of what the header carries.
  */
 export function assertAdminSecret(event: H3Event): void {
   const segredo = String(useRuntimeConfig().adminSecret || '')

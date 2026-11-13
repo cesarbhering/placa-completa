@@ -1,16 +1,12 @@
 // Ceilings of the Nitro `cache` storage in production (nuxt.config.ts,
 // nitro.storage.cache).
 //
-// The swr route rules keep the rendered HTML of each page in that storage. On
-// the node-server preset its default is the memory of the process, with no
-// limit and no eviction, and Nitro keys each entry by the full URL, query
-// string included. So every distinct URL of a cached page (an ad click id, a
-// tracking parameter) was one more copy that never left, and the memory of the
-// process could only grow.
-//
-// The LRU driver of unstorage keeps the cache in memory, as before, and drops
-// the least recently used entries once a ceiling is reached. A dropped page is
-// simply rendered again on its next request.
+// The swr route rules keep the rendered HTML of each page in that storage, one
+// entry per distinct URL of the page. In production the storage is an
+// in-memory LRU (the driver of unstorage) with a ceiling of entries and a
+// ceiling of bytes: once one of them is reached, the least recently used
+// entries are dropped. A dropped page is simply rendered again on its next
+// request.
 //
 // Why these numbers (measured on Nov 13, 2026, on a local production build):
 // - A cached page is 75 to 115 KB of HTML, and its entry is about that size.

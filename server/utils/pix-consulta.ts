@@ -1,7 +1,7 @@
-// What a charge lookup at a Pix provider can tell. The older lookups return
-// null both when the provider says the charge does not exist and when the
-// provider could not be reached. Whoever has to decide between "this is not
-// ours" and "ask again later" needs the two apart.
+// What a charge lookup at a Pix provider can tell. Whoever has to decide
+// between "this is not ours" and "ask again later" needs "the provider has no
+// such charge" apart from "the provider did not answer". checarPix and
+// cobrancaPorCorrelacao answer null for both; the lookups typed here do not.
 
 export type ConsultaPix<T> =
   /** The provider returned the charge. */

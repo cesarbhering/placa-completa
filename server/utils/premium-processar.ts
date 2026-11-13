@@ -461,7 +461,8 @@ export async function processarPedidoPago(
       // status stays 'falha' (the UI never promises a refund that did not
       // occur). The typical error (INSUFFICIENT_FUNDS) is transient: an
       // operator retries it once the balance clears, through the operator-only
-      // route server/api/premium/reembolsar (x-admin-secret).
+      // route server/api/premium/reembolsar (x-admin-secret). That route covers
+      // Pix only: a card or an app order has no Pix charge and gets 409 there.
       await supabase.from('pedidos_premium')
         .update({ erro: `${String(e?.message || e)} | reembolso: ${reembolso.error}` })
         .eq('id', pedido.id)
