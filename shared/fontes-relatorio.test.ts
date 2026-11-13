@@ -21,4 +21,13 @@ describe('estado das fontes lentas (Relatorio 2.0)', () => {
     expect(fonteConcluida('detran', { multas: { status: 'protegido' } })).toBe(true)
     expect(fonteConcluida('renajud', { renajudDetalhe: { status: 'indisponivel' } })).toBe(false)
   })
+  it('vehicle history: done only with the block ok; failed or capped keeps waiting for the queue', () => {
+    expect(fonteConcluida('historico_veicular', { historicoVeicular: { status: 'ok' } })).toBe(true)
+    expect(fonteConcluida('historico_veicular', { historicoVeicular: { status: 'falhou' } })).toBe(false)
+    expect(fonteConcluida('historico_veicular', { historicoVeicular: { status: 'teto' } })).toBe(false)
+    expect(fonteConcluida('historico_veicular', {})).toBe(false)
+    const aplicaveis = [{ fonte: 'historico_veicular' as const, rotulo: 'Donos, leilão e sinistro' }]
+    expect(situacaoDasFontes({ entregueEm: ENT, agora: t0 + 60_000, aplicaveis, snapshot: {} }).fontes[0].estado).toBe('consultando')
+    expect(situacaoDasFontes({ entregueEm: ENT, agora: t0 + ESPERA_FONTES_MS + 1, aplicaveis, snapshot: {}, jobs: [{ fonte: 'historico_veicular', status: 'pendente' }] }).fontes[0].estado).toBe('chegando')
+  })
 })

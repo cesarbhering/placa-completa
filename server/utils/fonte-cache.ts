@@ -4,6 +4,7 @@
 // "consultadoEm" volta junto para o relatorio mostrar de quando e o dado.
 
 import { FONTE_CACHE_LEGADA } from './parceiro-leilao-env'
+import { FONTE_CACHE_HISTORICO } from './parceiro-historico-env'
 
 const H = 60 * 60 * 1000
 const D = 24 * H
@@ -19,6 +20,7 @@ export const TTL_POR_FONTE: Array<[RegExp, number]> = [
   [/^nhtsa/, 30 * D],          // Lead 14/out: recall EUA cache 30 d
   [/^revisor_restricao_detran/, 365 * D], // veredito do Haiku por texto normalizado (16/out)
   [new RegExp(`^${FONTE_CACHE_LEGADA}`), 30 * D], // base parceira de leilao e sinistro (20/out): bruto inteiro
+  [new RegExp(`^${FONTE_CACHE_HISTORICO}`), 30 * D], // vehicle history partner (13/11/2026): clean block only, never the raw answer
   [/^agrupamento_recall/, 365 * D], // grupos do Haiku por conjunto de campanhas (20/out)
 ]
 

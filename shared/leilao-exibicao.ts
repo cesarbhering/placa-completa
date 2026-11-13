@@ -307,6 +307,59 @@ function subirNivel(p: any, c: any): any {
 
 const FORCA: Record<string, number> = { confirmado: 3, provavel: 2, possivel: 1 }
 
+// ---------- Same auction in our base and in the partner base (13/11/2026) ----------
+//
+// The vehicle history partner brings auctions with only the year. When a
+// strong passage of ours (confirmado/provavel) is the same event (same year
+// and same lot or same principal), the partner card goes: ours has date,
+// photos and edital. A weak passage of ours never absorbs it (it may leave the
+// screen with the model lock, as in the canhao rule above).
+
+const STOP_COMITENTE = new Set([
+  'S', 'A', 'SA', 'LTDA', 'CIA', 'COMPANHIA', 'DE', 'DA', 'DO', 'DAS', 'DOS', 'E', 'ME', 'EPP', 'EIRELI',
+  'SEGURO', 'SEGUROS', 'SEGURADORA', 'GERAIS', 'GERAL', 'BANCO', 'BCO', 'FINANCEIRA', 'CREDITO', 'FINANCIAMENTO',
+  'INVESTIMENTO', 'ARRENDAMENTO', 'MERCANTIL', 'LEASING', 'SOCIEDADE', 'ANONIMA', 'PREFEITURA', 'MUNICIPAL',
+  'MUNICIPIO', 'DEPARTAMENTO', 'ESTADUAL', 'TRANSITO',
+])
+
+function tokensComitente(v: unknown): string[] {
+  const c = comitenteExibicao(v)
+  if (!c || c.generico) return []
+  return sem(c.texto).toUpperCase().split(/[^A-Z0-9]+/).filter((t) => t.length > 1 && !STOP_COMITENTE.has(t))
+}
+
+/** Same principal, read loosely: "MAPFRE SEGUROS GERAIS S/A" and "Mapfre Seguros" match. */
+export function mesmoComitente(a: unknown, b: unknown): boolean {
+  const ta = tokensComitente(a)
+  const tb = tokensComitente(b)
+  if (!ta.length || !tb.length) return false
+  return tb.includes(ta[0]) || ta.includes(tb[0])
+}
+
+/** Year of a passage: the auction date or, for a partner record, the year it carries. */
+export function anoDaPassagem(p: any): string | null {
+  const d = dataNorm(p?.data_leilao).slice(0, 4)
+  if (/^\d{4}$/.test(d)) return d
+  const a = String(p?.ano_leilao ?? '').trim()
+  return /^\d{4}$/.test(a) ? a : null
+}
+
+const ehParceira = (p: any) => p?.fonte_tipo === FONTE_PARCEIRA || p?.fonte === FONTE_PARCEIRA
+
+/** Drops the partner passages that repeat a strong passage of ours. Display only. */
+export function passagensSemParceiraRepetida(lista: unknown): any[] {
+  if (!Array.isArray(lista)) return []
+  const fortes = lista.filter((d: any) => !ehParceira(d) && (FORCA[d?.nivel] ?? 0) >= FORCA.provavel)
+  if (!fortes.length) return lista
+  return lista.filter((p: any) => {
+    if (!ehParceira(p)) return true
+    const ano = anoDaPassagem(p)
+    if (!ano) return true
+    const lote = loteNorm(p.lote)
+    return !fortes.some((d: any) => anoDaPassagem(d) === ano && ((lote && loteNorm(d.lote) === lote) || mesmoComitente(p.comitente, d.comitente)))
+  })
+}
+
 const NIVEIS_RESUMO = ['confirmado', 'provavel', 'possivel'] as const
 
 /**
@@ -319,7 +372,7 @@ const NIVEIS_RESUMO = ['confirmado', 'provavel', 'possivel'] as const
  */
 export function historicoParaExibicao<H extends { passagens?: any[]; resumo?: any; linha_do_tempo?: any; recorrencia?: any }>(h: H | null | undefined): H | null | undefined {
   if (!h || !Array.isArray(h.passagens)) return h
-  const passagens = juntarNotificacoes(passagensSemCanhao(h.passagens))
+  const passagens = juntarNotificacoes(passagensSemParceiraRepetida(passagensSemCanhao(h.passagens)))
   const linha = Array.isArray(h.linha_do_tempo)
     ? h.linha_do_tempo.map((e: any) => (e && Array.isArray(e.fontes)
         ? { ...e, fontes: [...new Set(e.fontes.map((f: unknown) => rotuloFonteLinhaDoTempo(f, h.passagens!.map((x: any) => passagemSemCanhao(x)), e)))] }

@@ -10,6 +10,8 @@ import { emVoo } from './tarefas-em-voo'
 import { criarJobsDaEntrega } from './premium-jobs'
 import { completarFotosNaGeracao } from './fotos-na-geracao'
 import { agendarFotosRapido } from './fotos-depois'
+import { completarHistoricoVeicularDepois } from './parceiro-historico'
+import { cfgHistorico } from './parceiro-historico-env'
 // Processa um pedido PAGO: dispara a consulta SENATRAN uma vez, entrega ou
 // reembolsa. Usado pelo WEBHOOK e pelo POLLING de status (o que chegar primeiro).
 // Trava atomica via update condicional (status aguardando/pago -> consultando):
@@ -338,7 +340,13 @@ export async function processarPedidoPago(
     // Fila duravel das fontes lentas (Relatorio 2.0): um job por fonte que se
     // aplica, a partir de entrega + 5 min. Se a fonte chegar antes pelo caminho
     // solto acima, o job fecha sem chamar nada (server/utils/premium-jobs.ts).
-    void emVoo('premium-jobs-criar', () => criarJobsDaEntrega(supabase, pedido.id, r.response, Date.now(), pedido.plano))
+    void emVoo('premium-jobs-criar', () => criarJobsDaEntrega(supabase, pedido.id, r.response, Date.now(), pedido.plano, { historicoVeicular: cfgHistorico(useRuntimeConfig()).ligado }))
+
+    // Vehicle history partner (13/11/2026): owners, previous use, insurance and
+    // the partner part of the auction section. Loose and fail-open; the queue
+    // job above is the fallback. Completa only, behind its switch
+    // (server/utils/parceiro-historico.ts).
+    if (fonteNoPlano('historico_veicular', pedido.plano)) completarHistoricoVeicularDepois(supabase, pedido)
 
     // Detalhe do RENAJUD (tribunal, processo, tipo, data) onde ha fonte (AL e
     // GO), so com o indicador aceso. Solto e fail-open (server/utils/renajud-detalhe.ts).

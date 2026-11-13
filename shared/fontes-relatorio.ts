@@ -6,7 +6,9 @@
 
 export const ESPERA_FONTES_MS = 5 * 60 * 1000
 
-export type FonteRelatorio = 'detran' | 'recall' | 'recall_montadora' | 'renajud'
+// historico_veicular: owners, previous use, insurance and the partner part of
+// the auction section (vehicle history partner, 13/11/2026; Completa only).
+export type FonteRelatorio = 'detran' | 'recall' | 'recall_montadora' | 'renajud' | 'historico_veicular'
 export type EstadoFonte = 'consultando' | 'ok' | 'chegando' | 'indisponivel'
 
 export interface SituacaoFonte { fonte: FonteRelatorio; rotulo: string; estado: EstadoFonte }
@@ -16,7 +18,7 @@ export interface EntradaFontes {
   agora?: number
   /** Fontes que se aplicam a este pedido (decidido no servidor na entrega). */
   aplicaveis: { fonte: FonteRelatorio; rotulo: string }[]
-  snapshot: { multas?: any; recall?: any; recallMontadora?: any; renajudDetalhe?: any } | null | undefined
+  snapshot: { multas?: any; recall?: any; recallMontadora?: any; renajudDetalhe?: any; historicoVeicular?: any } | null | undefined
   /** Jobs da fila do pedido: so o que importa pra tela. */
   jobs?: { fonte: string; status: string }[]
 }
@@ -33,6 +35,8 @@ export function fonteConcluida(fonte: FonteRelatorio, s: EntradaFontes['snapshot
   if (fonte === 'recall') return snap.recall != null
   if (fonte === 'recall_montadora') return snap.recallMontadora != null
   if (fonte === 'renajud') return snap.renajudDetalhe != null && String(snap.renajudDetalhe?.status) !== 'indisponivel'
+  // Failed or capped call: not done yet (the queue tries again).
+  if (fonte === 'historico_veicular') return snap.historicoVeicular?.status === 'ok'
   return false
 }
 

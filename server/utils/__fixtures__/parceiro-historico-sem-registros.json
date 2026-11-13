@@ -1,0 +1,804 @@
+{
+  "success": true,
+  "queryId": "00000000-0000-0000-0000-000000000000",
+  "produto": {
+    "codigo": "E20",
+    "nome": "CONSULTA VEICULAR",
+    "categoria": "veicular"
+  },
+  "parametro_pesquisado": "TST3C45",
+  "total_registros": 1,
+  "custo_debitado": 1.9,
+  "tempo_resposta_ms": 7415,
+  "hash_autenticacao": "00000000000000000000000000000000",
+  "consultado_em": "2026-10-02T15:00:00.000Z",
+  "dados": {
+    "placa": "TST3C45",
+    "chassi": "9XXHV00000X000002",
+    "renavam": "00000000000",
+    "contingenciaRenavamAplicada": false,
+    "custoInternoTotal": 0.27,
+    "veiculo": {
+      "placa": "TST3C45",
+      "placaModeloAntigo": "TST3C45",
+      "placaModeloNovo": "TST3C45",
+      "chassi": "9XXHV00000X000002",
+      "renavam": "00000000000",
+      "motor": "MOTOR0000",
+      "marca": "VW",
+      "modelo": "VW/GOL 1.0",
+      "marcaModelo": "VW/GOL 1.0",
+      "anoFabricacao": "2017",
+      "anoModelo": "2017",
+      "cor": "BRANCA",
+      "combustivel": "ALCOOL/GASOLINA",
+      "potencia": "75",
+      "cilindradas": "1000",
+      "pesoBrutoTotal": "135",
+      "capacidadeCarga": "0",
+      "qtdPax": "5",
+      "eixos": "0",
+      "nacionalidade": "Nacional",
+      "especieVeiculo": "Passageiro",
+      "tipoVeiculo": "Automovel",
+      "carroceria": "NAO APLICAVEL",
+      "tipoMontagem": "CBU / FÁBRICA",
+      "situacaoChassi": "NORMAL",
+      "situacaoVeiculo": "CIRCULACAO",
+      "municipio": "CIDADE FICTICIA",
+      "uf": "GO",
+      "faturadoCnpj": "00.000.000/0000-00",
+      "tipoDocFaturado": "CNPJ",
+      "ufFaturado": "GO",
+      "dataAtualizacao": "2017-05-03T00:00:00.000Z"
+    },
+    "bin": {
+      "placa": "TST3C45",
+      "placa_modelo_antigo": "TST3C45",
+      "placa_modelo_novo": "TST3C45",
+      "renavam": "00000000000",
+      "chassi": "9XXHV00000X000002",
+      "situacao_chassi": "NORMAL",
+      "situacao_veiculo": "CIRCULACAO",
+      "marca": "VW",
+      "modelo": "VW/GOL 1.0",
+      "marca_modelo": "VW/GOL 1.0",
+      "ano_fabricacao": "2017",
+      "ano_modelo": "2017",
+      "cor": "BRANCA",
+      "combustivel": "ALCOOL/GASOLINA",
+      "municipio": "CIDADE FICTICIA",
+      "uf": "GO",
+      "motor": "MOTOR0000",
+      "carroceria": "NAO APLICAVEL",
+      "especie": "Passageiro",
+      "segmento": "Auto",
+      "nacionalidade": "Nacional",
+      "tipo_montagem": "CBU / FÁBRICA",
+      "tipo_veiculo": "Automovel",
+      "cilindradas": "1000",
+      "eixos": "0",
+      "peso_bruto_total": "135",
+      "proprietario_nome": "PESSOA FICTICIA",
+      "proprietario_documento": "000.000.000-00",
+      "tipo_doc_prop": "FISICA",
+      "data_emissao_crv": "26/12/2017",
+      "faturado_documento": "00.000.000/0000-00",
+      "uf_faturado": "GO",
+      "tipo_doc_faturado": "CNPJ"
+    },
+    "indicadores": [
+      {
+        "codigo": "P1",
+        "titulo": "HISTÓRICO DE VENDA DIRETA/REMARKETING (SEGURADORAS)",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P1",
+        "consta": false
+      },
+      {
+        "codigo": "P2",
+        "titulo": "HISTÓRICO DE OPERAÇÃO/USO COMO VIATURA POLICIAL (PM, PC, PF, GM)",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P2",
+        "consta": false
+      },
+      {
+        "codigo": "P3",
+        "titulo": "HISTÓRICO DE EX-FROTA PÚBLICA",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P3",
+        "consta": false
+      },
+      {
+        "codigo": "P4",
+        "titulo": "HISTÓRICO DE EX-FROTA DE LOCADORA",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P4",
+        "consta": false
+      },
+      {
+        "codigo": "P5",
+        "titulo": "HISTÓRICO DE EX-FROTA DE ENTIDADE RELIGIOSA",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P5",
+        "consta": false
+      },
+      {
+        "codigo": "P6",
+        "titulo": "HISTÓRICO DE EX-FROTA DE SEGURANÇA PRIVADA",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P6",
+        "consta": false
+      },
+      {
+        "codigo": "P7",
+        "titulo": "HISTÓRICO DE VENDA DIRETA / REMARKETING POR BANCOS / FINANCEIRAS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P7",
+        "consta": false
+      },
+      {
+        "codigo": "P8",
+        "titulo": "HISTÓRICO DE COMERCIALIZAÇÃO EM LOJAS DE SALVADOS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P8",
+        "consta": false
+      },
+      {
+        "codigo": "P9",
+        "titulo": "HISTÓRICO DE RESTRIÇÃO PARA EMISSÃO DE APÓLICE DE SEGUROS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P9",
+        "consta": false
+      },
+      {
+        "codigo": "P10",
+        "titulo": "HISTÓRICO DE BOLETINS DE ROUBO E FURTO E OCORRÊNCIAS DIVERSAS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P10",
+        "consta": false
+      },
+      {
+        "codigo": "P11",
+        "titulo": "HISTÓRICO DE NOTIFICAÇÃO/OFERTA EM EDITAL ELETRÔNICO DE LEILÃO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P11",
+        "consta": false
+      },
+      {
+        "codigo": "P12",
+        "titulo": "HISTÓRICO DE ACIDENTES DE TRÂNSITO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P12",
+        "consta": false
+      },
+      {
+        "codigo": "P13",
+        "titulo": "HISTÓRICO DE ACIDENTES DE TRÂNSITO DETALHADO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P13",
+        "consta": false
+      },
+      {
+        "codigo": "P14",
+        "titulo": "INDENIZAÇÃO INTEGRAL POR CIA SEGURADORA",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P14",
+        "consta": false
+      },
+      {
+        "codigo": "P15",
+        "titulo": "HISTÓRICO DE DANOS E AVARIAS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P15",
+        "consta": false
+      },
+      {
+        "codigo": "P16",
+        "titulo": "SUSPEITA DE CHASSI ADULTERADO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P16",
+        "consta": false
+      },
+      {
+        "codigo": "P17",
+        "titulo": "HISTÓRICO DE ALGUNS PROPRIETÁRIOS PAGANTES DO DPVAT",
+        "status": "positivo",
+        "mensagem": "CADEIA DOMINIAL AUDITADA (2 proprietário(s) registrado(s))",
+        "conteudo": [
+          {
+            "ordem": 1,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa juridica",
+            "data": "14/11/2015",
+            "dataRaw": "14/11/2015",
+            "tempoDePosse": "2 anos e 1 mês",
+            "tempoPosse": "2 anos e 1 mês",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "empresa_privada",
+            "cnae": "4732600",
+            "cnae_descricao": "COMÉRCIO VAREJISTA DE LUBRIFICANTES"
+          },
+          {
+            "ordem": 2,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "26/12/2017",
+            "dataRaw": "26/12/2017",
+            "tempoDePosse": "7 anos e 10 meses (Vigente)",
+            "tempoPosse": "7 anos e 10 meses (Vigente)",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": true,
+            "classificacaoEntidade": "particular"
+          }
+        ],
+        "detalhes": [
+          {
+            "ordem": 1,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa juridica",
+            "data": "14/11/2015",
+            "dataRaw": "14/11/2015",
+            "tempoDePosse": "2 anos e 1 mês",
+            "tempoPosse": "2 anos e 1 mês",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "empresa_privada",
+            "cnae": "4732600",
+            "cnae_descricao": "COMÉRCIO VAREJISTA DE LUBRIFICANTES"
+          },
+          {
+            "ordem": 2,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "26/12/2017",
+            "dataRaw": "26/12/2017",
+            "tempoDePosse": "7 anos e 10 meses (Vigente)",
+            "tempoPosse": "7 anos e 10 meses (Vigente)",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": true,
+            "classificacaoEntidade": "particular"
+          }
+        ],
+        "respostaInfoSinistros": [
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          }
+        ],
+        "total": 2,
+        "chave": "P17",
+        "consta": true
+      },
+      {
+        "codigo": "P18",
+        "titulo": "VEÍCULO UTILIZADO PARA COMETIMENTO DE CRIMES",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P18",
+        "consta": false
+      },
+      {
+        "codigo": "P19",
+        "titulo": "HISTÓRICO DE RECUPERADO DE SINISTRO (BRF)",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P19",
+        "consta": false
+      },
+      {
+        "codigo": "P20",
+        "titulo": "HISTÓRICO DE SINISTRO RECUPERADO (ACT)",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P20",
+        "consta": false
+      },
+      {
+        "codigo": "P21",
+        "titulo": "HISTÓRICO DE KM",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P21",
+        "consta": false
+      },
+      {
+        "codigo": "P22",
+        "titulo": "HISTÓRICO DE LAUDO CAUTELAR",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P22",
+        "consta": false
+      },
+      {
+        "codigo": "P23",
+        "titulo": "HISTÓRICO DE FROTA DE EMPRESA PRIVADA",
+        "status": "positivo",
+        "mensagem": "IDENTIFICADA EMPRESA PRIVADA NA CADEIA DOMINIAL (1 registro(s))",
+        "conteudo": [
+          {
+            "nome": "PESSOA FICTICIA",
+            "documento": "000.000.000-00",
+            "tipoDocumento": "Pessoa juridica",
+            "tipoEntidade": "empresa_privada",
+            "cnae": "4732600",
+            "cnaeDescricao": "COMÉRCIO VAREJISTA DE LUBRIFICANTES",
+            "naturezaJuridica": "SOCIEDADE EMPRESÁRIA LIMITADA",
+            "codigoNaturezaJuridica": "2062",
+            "ano": "2015",
+            "data": "14/11/2015",
+            "atual": false
+          }
+        ],
+        "detalhes": [
+          {
+            "nome": "PESSOA FICTICIA",
+            "documento": "000.000.000-00",
+            "tipoDocumento": "Pessoa juridica",
+            "tipoEntidade": "empresa_privada",
+            "cnae": "4732600",
+            "cnaeDescricao": "COMÉRCIO VAREJISTA DE LUBRIFICANTES",
+            "naturezaJuridica": "SOCIEDADE EMPRESÁRIA LIMITADA",
+            "codigoNaturezaJuridica": "2062",
+            "ano": "2015",
+            "data": "14/11/2015",
+            "atual": false
+          }
+        ],
+        "total": 1,
+        "chave": "P23",
+        "consta": true
+      },
+      {
+        "codigo": "P24",
+        "titulo": "INDICADOR DE EXPOSIÇÃO A SINISTRO E INTEGRIDADE DE COMPONENTES",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "respostaInfoSinistros": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P24",
+        "consta": false
+      },
+      {
+        "codigo": "P25",
+        "titulo": "BANCO DE IMAGENS DE FLAGRANTES DE TRÂNSITO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P25",
+        "consta": false
+      },
+      {
+        "codigo": "P26",
+        "titulo": "HISTÓRICO DE ATENDIMENTO A SINISTROS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P26",
+        "consta": false
+      },
+      {
+        "codigo": "P27",
+        "titulo": "INDÍCIO DE USO COMO TÁXI/PCD",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P27",
+        "consta": false
+      },
+      {
+        "codigo": "P28",
+        "titulo": "HISTÓRICO DE DEMANDA JUDICIAL BÁSICO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P28",
+        "consta": false
+      },
+      {
+        "codigo": "P29",
+        "titulo": "HISTÓRICO DE DEMANDA JUDICIAL DETALHADO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P29",
+        "consta": false
+      },
+      {
+        "codigo": "P30",
+        "titulo": "HISTÓRICO DE EMISSÃO DE CERTIFICADO DE SEGURANÇA VEICULAR (CSV)",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P30",
+        "consta": false
+      },
+      {
+        "codigo": "P31",
+        "titulo": "HISTÓRICO DE CIRCULAÇÃO",
+        "status": "positivo",
+        "mensagem": "HISTÓRICO DE CIRCULAÇÃO E EMPLACAMENTO LOCALIZADO",
+        "conteudo": {
+          "adquirido_0km": "GO",
+          "licenciamento_1": "DETRAN - CIDADE FICTICIA / PE"
+        },
+        "detalhes": {
+          "adquirido_0km": "GO",
+          "licenciamento_1": "DETRAN - CIDADE FICTICIA / PE"
+        },
+        "respostaInfoSinistros": {
+          "adquirido_0km": "GO",
+          "licenciamento_1": "DETRAN - CIDADE FICTICIA / PE",
+          "licenciamentos": [
+            "DETRAN - CIDADE FICTICIA / PE"
+          ]
+        },
+        "chave": "P31",
+        "consta": true
+      },
+      {
+        "codigo": "P32",
+        "titulo": "HISTÓRICO DE MOVIMENTAÇÃO / ALTERAÇÃO DE CADASTRO",
+        "status": "positivo",
+        "mensagem": "ALTERAÇÕES CADASTRAIS REGISTRADAS (3 evento(s))",
+        "conteudo": {
+          "insercao_renavam": "14/11/2015",
+          "alteracoes": [
+            {
+              "item": "DATA DE ALTERAÇÃO 01",
+              "data": "07/01/2019"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 02",
+              "data": "07/01/2024"
+            }
+          ]
+        },
+        "detalhes": {
+          "insercao_renavam": "14/11/2015",
+          "alteracoes": [
+            {
+              "item": "DATA DE ALTERAÇÃO 01",
+              "data": "07/01/2019"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 02",
+              "data": "07/01/2024"
+            }
+          ]
+        },
+        "respostaInfoSinistros": {
+          "insercao_renavam": "14/11/2015",
+          "alteracoes": [
+            {
+              "item": "DATA DE ALTERAÇÃO 01",
+              "data": "26/12/2017"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 02",
+              "data": "07/01/2019"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 03",
+              "data": "07/01/2024"
+            }
+          ]
+        },
+        "chave": "P32",
+        "consta": true
+      },
+      {
+        "codigo": "P33",
+        "titulo": "VERIFICAÇÃO DE ALTERAÇÃO DE CARACTERÍSTICAS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P33",
+        "consta": false
+      },
+      {
+        "codigo": "P34",
+        "titulo": "INDÍCIO DE GRANDES FROTISTAS",
+        "status": "positivo",
+        "mensagem": "REGISTRO IDENTIFICADO NA BASE INTERNA",
+        "conteudo": {
+          "emissor_nf": "EMPRESA FICTICIA LTDA",
+          "canal_negociacao": "ATENDIMENTO GRANDES FROTAS/ATACADO",
+          "qtdade_veiculos_comprados": "120 VEÍCULOS",
+          "data_compra": "06/10/2015"
+        },
+        "detalhes": {
+          "emissor_nf": "EMPRESA FICTICIA LTDA",
+          "canal_negociacao": "ATENDIMENTO GRANDES FROTAS/ATACADO",
+          "qtdade_veiculos_comprados": "120 VEÍCULOS",
+          "data_compra": "06/10/2015"
+        },
+        "respostaInfoSinistros": {
+          "emissor_nf": "EMPRESA FICTICIA LTDA",
+          "canal_negociacao": "ATENDIMENTO GRANDES FROTAS/ATACADO",
+          "qtdade_veiculos_comprados": "120 VEÍCULOS",
+          "data_compra": "06/10/2015"
+        },
+        "chave": "P34",
+        "consta": true
+      },
+      {
+        "codigo": "P35",
+        "titulo": "FICHA TÉCNICA E CADASTRO BIN FABRIL",
+        "status": "positivo",
+        "mensagem": "PALIO FIRE (Ano 2015/2016, Cor PRATA)",
+        "conteudo": {
+          "placa": "TST3C45",
+          "placaModeloAntigo": "TST3C45",
+          "placaModeloNovo": "TST3C45",
+          "chassi": "9XXHV00000X000002",
+          "renavam": "00000000000",
+          "motor": "MOTOR0000",
+          "marca": "VW",
+          "modelo": "VW/GOL 1.0",
+          "marcaModelo": "VW/GOL 1.0",
+          "anoFabricacao": "2017",
+          "anoModelo": "2017",
+          "cor": "BRANCA",
+          "combustivel": "ALCOOL/GASOLINA",
+          "potencia": "75",
+          "cilindradas": "1000",
+          "pesoBrutoTotal": "135",
+          "capacidadeCarga": "0",
+          "qtdPax": "5",
+          "eixos": "0",
+          "nacionalidade": "Nacional",
+          "especieVeiculo": "Passageiro",
+          "tipoVeiculo": "Automovel",
+          "carroceria": "NAO APLICAVEL",
+          "tipoMontagem": "CBU / FÁBRICA",
+          "situacaoChassi": "NORMAL",
+          "situacaoVeiculo": "CIRCULACAO",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "GO",
+          "faturadoCnpj": "00.000.000/0000-00",
+          "tipoDocFaturado": "CNPJ",
+          "ufFaturado": "GO",
+          "dataAtualizacao": "2017-05-03T00:00:00.000Z"
+        },
+        "detalhes": {
+          "placa": "TST3C45",
+          "placaModeloAntigo": "TST3C45",
+          "placaModeloNovo": "TST3C45",
+          "chassi": "9XXHV00000X000002",
+          "renavam": "00000000000",
+          "motor": "MOTOR0000",
+          "marca": "VW",
+          "modelo": "VW/GOL 1.0",
+          "marcaModelo": "VW/GOL 1.0",
+          "anoFabricacao": "2017",
+          "anoModelo": "2017",
+          "cor": "BRANCA",
+          "combustivel": "ALCOOL/GASOLINA",
+          "potencia": "75",
+          "cilindradas": "1000",
+          "pesoBrutoTotal": "135",
+          "capacidadeCarga": "0",
+          "qtdPax": "5",
+          "eixos": "0",
+          "nacionalidade": "Nacional",
+          "especieVeiculo": "Passageiro",
+          "tipoVeiculo": "Automovel",
+          "carroceria": "NAO APLICAVEL",
+          "tipoMontagem": "CBU / FÁBRICA",
+          "situacaoChassi": "NORMAL",
+          "situacaoVeiculo": "CIRCULACAO",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "GO",
+          "faturadoCnpj": "00.000.000/0000-00",
+          "tipoDocFaturado": "CNPJ",
+          "ufFaturado": "GO",
+          "dataAtualizacao": "2017-05-03T00:00:00.000Z"
+        },
+        "respostaInfoSinistros": {
+          "placa": "TST3C45",
+          "placaModeloAntigo": "TST3C45",
+          "placaModeloNovo": "TST3C45",
+          "chassi": "9XXHV00000X000002",
+          "renavam": "00000000000",
+          "motor": "MOTOR0000",
+          "marca": "VW",
+          "modelo": "VW/GOL 1.0",
+          "marcaModelo": "VW/GOL 1.0",
+          "anoFabricacao": "2017",
+          "anoModelo": "2017",
+          "cor": "BRANCA",
+          "combustivel": "ALCOOL/GASOLINA",
+          "potencia": "75",
+          "cilindradas": "1000",
+          "pesoBrutoTotal": "135",
+          "capacidadeCarga": "0",
+          "qtdPax": "5",
+          "eixos": "0",
+          "nacionalidade": "Nacional",
+          "especieVeiculo": "Passageiro",
+          "tipoVeiculo": "Automovel",
+          "carroceria": "NAO APLICAVEL",
+          "tipoMontagem": "CBU / FÁBRICA",
+          "situacaoChassi": "NORMAL",
+          "situacaoVeiculo": "CIRCULACAO",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "GO",
+          "ufPlaca": "MG",
+          "faturadoCnpj": "00.000.000/0000-00",
+          "tipoDocFaturado": "CNPJ",
+          "ufFaturado": "GO",
+          "unidadeLocalSRF": "0000000",
+          "ultimaAtualizacao": "2016-11-08T00:00:00.000Z",
+          "dataAtualizacao": "2017-05-03T00:00:00.000Z"
+        },
+        "chave": "P35",
+        "consta": true
+      },
+      {
+        "codigo": "P36",
+        "titulo": "HISTÓRICO DE VALOR DE MERCADO (FIPE)",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P36",
+        "consta": false
+      }
+    ],
+    "roubo_furto": {
+      "status": "regular",
+      "temQueixaAtiva": false,
+      "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+      "totalOcorrencias": 0,
+      "ocorrencias": []
+    },
+    "locadoras": {
+      "status": "negativo",
+      "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+      "total": 0,
+      "registros": []
+    },
+    "seguradoras": {
+      "status": "negativo",
+      "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+      "total": 0,
+      "indenizacaoIntegral": false,
+      "registros": [],
+      "registrosIndenizacao": []
+    },
+    "frota_publica": {
+      "status": "negativo",
+      "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+      "total": 0,
+      "isViatura": false,
+      "registros": []
+    },
+    "financeiras": {
+      "status": "negativo",
+      "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+      "total": 0,
+      "registros": []
+    },
+    "proprietarios": {
+      "total": 2,
+      "proprietario_atual": {
+        "ordem": 2,
+        "nome": "PESSOA FICTICIA",
+        "razao_social": "EMPRESA FICTICIA LTDA",
+        "documento": "000.000.000-00",
+        "documentoOriginal": "000.000.000-00",
+        "tipo": "Pessoa fisica",
+        "data": "26/12/2017",
+        "dataRaw": "26/12/2017",
+        "tempoDePosse": "7 anos e 10 meses (Vigente)",
+        "tempoPosse": "7 anos e 10 meses (Vigente)",
+        "municipio": "CIDADE FICTICIA",
+        "uf": "GO",
+        "municipio_uf": "CIDADE FICTICIA/PE",
+        "atual": true,
+        "classificacaoEntidade": "particular"
+      },
+      "historico": [
+        {
+          "ordem": 1,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa juridica",
+          "data": "14/11/2015",
+          "dataRaw": "14/11/2015",
+          "tempoDePosse": "2 anos e 1 mês",
+          "tempoPosse": "2 anos e 1 mês",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "GO",
+          "municipio_uf": "CIDADE FICTICIA/PE",
+          "atual": false,
+          "classificacaoEntidade": "empresa_privada",
+          "cnae": "4732600",
+          "cnae_descricao": "COMÉRCIO VAREJISTA DE LUBRIFICANTES"
+        },
+        {
+          "ordem": 2,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa fisica",
+          "data": "26/12/2017",
+          "dataRaw": "26/12/2017",
+          "tempoDePosse": "7 anos e 10 meses (Vigente)",
+          "tempoPosse": "7 anos e 10 meses (Vigente)",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "GO",
+          "municipio_uf": "CIDADE FICTICIA/PE",
+          "atual": true,
+          "classificacaoEntidade": "particular"
+        }
+      ]
+    },
+    "outros_produtos": {
+      "circulacao": {
+        "adquirido_0km": "GO",
+        "licenciamento_1": "DETRAN - CIDADE FICTICIA / PE"
+      },
+      "movimentacao": {
+        "insercao_renavam": "14/11/2015",
+        "alteracoes": [
+          {
+            "item": "DATA DE ALTERAÇÃO 01",
+            "data": "07/01/2019"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 02",
+            "data": "07/01/2024"
+          }
+        ]
+      }
+    },
+    "raw_sources": {
+      "infosinistrosSuccess": true,
+      "e5Success": true,
+      "e2Success": true,
+      "e19Triggered": false
+    }
+  }
+}

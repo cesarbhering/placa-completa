@@ -54,6 +54,7 @@ import { restricoesDetranParaTela, ROTULO_GRAVAME_BAIXADO, textoBaixaGravame, te
 import { textoPrecoVsFipe, textoStatusRevenda, type RevendaFrota } from '~/shared/revenda-frota'
 import { textoAlerta, textoJudicial, textoIntervalo, dataBR as dataBRIso } from '~/shared/leilao-relatorio2'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
+import { telaDonos, telaUso, telaSinistro, tituloPassagemParceira, DICA_SINISTRO_HISTORICO } from '~/shared/historico-veicular'
 
 const route = useRoute()
 const token = route.params.token as string
@@ -376,6 +377,16 @@ const temSecaoLeilao = computed(() => !!historicoLeilao.value)
 // so quando a nossa base veio vazia. O nome do fornecedor nunca vem pro cliente.
 const consultouParceira = computed(() => historicoLeilao.value?.parceiro?.status === 'ok')
 const sinistroParceiro = computed(() => consultouParceira.value && historicoLeilao.value?.sinistro_parceiro?.indicio === true)
+// Vehicle history partner (13/11/2026): owners, previous use and insurance,
+// already clean from the server (no name nor document). Its auction part comes
+// merged into historicoLeilao as "Base parceira". "chegando": the queue may
+// still bring it (after the 5 min wait).
+const historicoVeicular = computed<any>(() => ((data.value as any)?.historicoVeicular?.status === 'ok' ? (data.value as any).historicoVeicular : null))
+const telaDonosRel = computed(() => (historicoVeicular.value ? telaDonos(historicoVeicular.value.donos, nomeVeiculo.value) : null))
+const telaUsoRel = computed(() => (historicoVeicular.value ? telaUso(historicoVeicular.value.uso) : null))
+const telaSinistroRel = computed(() => (historicoVeicular.value ? telaSinistro(historicoVeicular.value.sinistro, nomeVeiculo.value) : null))
+const historicoChegando = computed(() => !historicoVeicular.value && Array.isArray((data.value as any)?.fontes)
+  && (data.value as any).fontes.some((f: any) => f?.fonte === 'historico_veicular' && f?.estado === 'chegando'))
 // Indicio de sinistro informado pelo DETRAN (restricoes_detran, todas as UFs):
 // acende o cartao "Indício de sinistro" em vermelho (shared/sinistro-detran.ts).
 const sinistroDetran = computed(() => sinistroPeloDetran(multasDetalhe.value as any, (data.value as any)?.restricoesDetranRevisor || {}))
@@ -548,6 +559,7 @@ const indicadores = computed(() => {
     parceiraIndicio: sinistroParceiro.value,
     detran: sinistroDetran.value,
     nacional: sinistroNacional.value,
+    dicaParceira: historicoVeicular.value ? DICA_SINISTRO_HISTORICO : undefined,
   })
   if (cartaoSin) {
     const ancora = ['historicoLeilao', 'indicadorLeilao'].map((k) => base.findIndex((i) => i.k === k)).find((i) => i >= 0)
@@ -909,6 +921,8 @@ const passagensLeilao = computed(() => {
     // muda a leitura da passagem.
     tipoFonte: p.fonte_tipo === 'detran' ? 'Edital de órgão oficial' : p.fonte_tipo === FONTE_PARCEIRA ? PASSAGEM_PARCEIRA : '',
     data: p.data_leilao ? formatarDataLeilao(p.data_leilao) : null,
+    // Partner record with only the year: "Leilão em 2019" or the salvage sale title.
+    titulo: tituloPassagemParceira(p),
     // Linha montada como lista pra nunca comecar com separador solto: no teste
     // real do homolog, uma passagem do DETRAN-SP sem data saiu como
     // "· Edital 001/2016 · Lote 02872".
@@ -930,7 +944,8 @@ const passagensLeilao = computed(() => {
     // nome da CASA, nunca o leiloeiro (Cesar, 06/out). Comitente logo abaixo do termometro, com
     // uma frase pelo tipo (banco, seguradora, Justica...): e o sinal de que a
     // passagem foi retomada de financiamento, sinistro ou leilao judicial.
-    leiloeiro: p.fonte_tipo === 'detran' ? leiloeiroValido(p.leiloeiro) : null,
+    // Partner record: the auction HOUSE (already checked on the server, never a person).
+    leiloeiro: p.fonte_tipo === 'detran' ? leiloeiroValido(p.leiloeiro) : p.fonte_tipo === FONTE_PARCEIRA ? (p.leiloeiro || null) : null,
     // Casa que realizou o leilao do orgao (Cesar, 29/out): "Realizado por RJ
     // Leilões (rjleiloes.com.br)", sem link. Snapshot antigo nao tem: some.
     casaLeilao: p.fonte_tipo === 'detran' ? textoCasaLeilao(p.casa_leilao) : null,
@@ -1149,6 +1164,10 @@ const numSecao = computed(() => {
   if (linhaDoTempo.value.length > 1) ordem.push('tempo')
   if (!isBasica.value && temIndicadores.value) ordem.push('restr')
   if (ocorrencias.value.length) ordem.push('ocorr')
+  // Vehicle history partner blocks (owners always when they came; the other two only with something).
+  if (telaDonosRel.value || historicoChegando.value) ordem.push('donos')
+  if (telaUsoRel.value) ordem.push('uso')
+  if (telaSinistroRel.value) ordem.push('sinistro')
   if (temSecaoLeilao.value) ordem.push('leilao')
   if (revendasFrota.value.length) ordem.push('frota')
   // Importacao e chassiOrigem NAO entram na numeracao: viraram subsecoes
@@ -1764,7 +1783,8 @@ function leiloesDaLinhaDoTempo(passagens: any[]) {
       .map((p: any, i: number) => ({ p, i }))
       .filter(({ p, i }) => (p.nivel === 'possivel' ? !ehNotificacao(p) && idxPossiveisExibidos.value.has(i) : true))
       .map(({ p }) => ({
-        data: p.data_leilao || null,
+        // Partner record with only the year: the timeline places it in that year.
+        data: p.data_leilao || (/^\d{4}$/.test(String(p.ano_leilao ?? '')) ? String(p.ano_leilao) : null),
         titulo: fonteExibicaoLeilao(p),
         detalhe: [p.ref ? `Edital ${p.ref}` : null, p.lote ? `Lote ${p.lote}` : null].filter(Boolean).join(' · '),
         notificacao: ehNotificacao(p),
@@ -1790,7 +1810,7 @@ function leiloesDaLinhaDoTempo(passagens: any[]) {
     }
   })
   const possiveis = passagens.filter((p: any, i: number) => p.nivel === 'possivel' && !ehNotificacao(p) && idxPossiveisExibidos.value.has(i)).map((p: any) => ({
-    data: p.data_leilao || null,
+    data: p.data_leilao || (/^\d{4}$/.test(String(p.ano_leilao ?? '')) ? String(p.ano_leilao) : null),
     titulo: fonteExibicaoLeilao(p),
     detalhe: p.lote ? `Lote ${p.lote}` : '',
     confirmado: false,
@@ -2954,6 +2974,23 @@ onUnmounted(() => {
                 </template>
               </p>
             </div>
+          </section>
+
+          <!-- Vehicle history partner (13/11/2026; prototype approved by Cesar):
+               owners, previous use, insurance. Clean from the server: never a
+               name, document, address or city of an owner. -->
+          <section v-if="numSecao.donos" class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.donos }}. Histórico de proprietários</h2>
+            <HistoricoDonos v-if="telaDonosRel" :tela="telaDonosRel" :nome-veiculo="nomeVeiculo" />
+            <p v-else class="rel__multas-nota rel__multas-nota--consultando">Ainda chegando da base parceira. Se chegar, o histórico de donos, o uso anterior e o sinistro entram aqui sozinhos e avisamos por e-mail.</p>
+          </section>
+          <section v-if="numSecao.uso && telaUsoRel" class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.uso }}. Uso anterior</h2>
+            <UsoAnterior :tela="telaUsoRel" />
+          </section>
+          <section v-if="numSecao.sinistro && telaSinistroRel" class="rel__card">
+            <h2 class="rel__h2">{{ numSecao.sinistro }}. Sinistro e aceitação em seguro</h2>
+            <SinistroSeguro :tela="telaSinistroRel" />
           </section>
 
           <!-- historico de leilao (so completa, so onde o servico existe) -->
