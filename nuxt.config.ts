@@ -791,6 +791,9 @@ export default defineNuxtConfig({
     pixProvider: process.env.PIX_PROVIDER || "abacatepay",
     wooviBase: process.env.WOOVI_BASE || "https://api.woovi.com",
     wooviAppId: process.env.WOOVI_APP_ID || "",
+    // Extra webhook signing keys (PEM or base64 of the PEM, comma separated).
+    // The key published in the provider documentation is always accepted.
+    wooviChavePublica: process.env.WOOVI_CHAVE_PUBLICA || "",
     // Nome do recebedor a mostrar na tela quando a cobranca nasce na Woovi.
     // Vazio ate confirmar num Pix real qual e a string exata do BR Code.
     wooviRecebedor: process.env.WOOVI_RECEBEDOR || "",

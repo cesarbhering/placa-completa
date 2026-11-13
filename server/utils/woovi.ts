@@ -259,15 +259,52 @@ export async function simularPagamento(id: string): Promise<boolean> {
   }
 }
 
-// Chave publica da Woovi, usada pra conferir a assinatura do webhook. Buscada
-// da API e guardada em memoria: a doc recomenda buscar em vez de fixar no
-// codigo, porque ela pode ser trocada.
+// Woovi's public key, used to check the webhook signature. Two sources:
+// the public-keys endpoint of the API (kept in memory) and the key published
+// in the provider's developer documentation, which is always part of the
+// list. The signature check therefore keeps working when the endpoint cannot
+// be reached. More keys can be given in NUXT_WOOVI_CHAVE_PUBLICA (PEM or
+// base64 of the PEM, comma separated) if the provider ever rotates the key.
+export const CHAVE_PUBLICA_WOOVI_DOCUMENTADA = [
+  '-----BEGIN PUBLIC KEY-----',
+  'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC/+NtIkjzevvqD+I3MMv3bLXDt',
+  'pvxBjY4BsRrSdca3rtAwMcRYYvxSnd7jagVLpctMiOxQO8ieUCKLSWHpsMAjO/zZ',
+  'WMKbqoG8MNpi/u3fp6zz0mcHCOSqYsPUUG19buW8bis5ZZ2IZgBObWSpTvJ0cnj6',
+  'HKBAA82Jln+lGwS1MwIDAQAB',
+  '-----END PUBLIC KEY-----',
+].join('\n')
+
 let chavesCache: { em: number; chaves: string[] } | null = null
+let falhaEm = 0
 const TTL_CHAVES = 6 * 60 * 60 * 1000
+// After a failed lookup the endpoint is not asked again on every webhook.
+const TTL_FALHA = 5 * 60 * 1000
+
+/** Test helper. */
+export function _zerarChavesWoovi(): void {
+  chavesCache = null
+  falhaEm = 0
+}
+
+function paraPem(k: string): string {
+  return k.includes('BEGIN PUBLIC KEY') ? k : Buffer.from(k, 'base64').toString('ascii')
+}
+
+/** Keys that do not depend on the endpoint: the configured ones and the documented one. */
+function chavesFixas(): string[] {
+  const c = useRuntimeConfig() as any
+  const configuradas = String(c?.wooviChavePublica || '')
+    .split(',').map((k) => k.trim()).filter(Boolean)
+    .map(paraPem).filter((k) => k.includes('BEGIN PUBLIC KEY'))
+  return [...configuradas, CHAVE_PUBLICA_WOOVI_DOCUMENTADA]
+}
 
 export async function chavesPublicas(): Promise<string[]> {
   const agora = Date.now()
-  if (chavesCache && agora - chavesCache.em < TTL_CHAVES) return chavesCache.chaves
+  const fixas = chavesFixas()
+  const comFixas = (lista: string[]) => [...new Set([...lista, ...fixas])]
+  if (chavesCache && agora - chavesCache.em < TTL_CHAVES) return comFixas(chavesCache.chaves)
+  if (falhaEm && agora - falhaEm < TTL_FALHA) return comFixas(chavesCache?.chaves || [])
   const { base } = cfg()
   try {
     const res = await $fetch<any>(`${base}/api/v1/webhook/public-keys`, { headers: headers() })
@@ -275,12 +312,18 @@ export async function chavesPublicas(): Promise<string[]> {
     // vinha vazia e TODO webhook real dava 401 (zero linhas woovi em
     // webhook_events ate 07/out; entregas so por polling).
     const chaves = extrairChavesPublicas(res)
-    if (!chaves.length) console.warn('[woovi] resposta de public-keys sem chave reconhecivel')
-    if (chaves.length) chavesCache = { em: agora, chaves }
-    return chaves
+    if (chaves.length) {
+      chavesCache = { em: agora, chaves }
+      falhaEm = 0
+    } else {
+      console.warn('[woovi] public-keys answer without a recognizable key; using the fixed keys')
+      falhaEm = agora
+    }
+    return comFixas(chaves.length ? chaves : chavesCache?.chaves || [])
   } catch (e: any) {
-    console.warn('[woovi] nao consegui buscar as chaves publicas:', e?.message)
-    return chavesCache?.chaves || []
+    console.warn('[woovi] could not fetch the public keys; using the fixed keys:', e?.message)
+    falhaEm = agora
+    return comFixas(chavesCache?.chaves || [])
   }
 }
 
