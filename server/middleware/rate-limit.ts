@@ -45,9 +45,21 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   '/api/premium/google-play/verificar': { windowMs: 60 * 60 * 1000, maxRequests: 10 }, // 10 por hora
   // "Cade meu relatorio" do app: so le o banco (nao bate na Google). O app
   // pergunta com intervalo crescente enquanto a compra esta pendente; 120/h
-  // cobre a espera com folga e barra varredura. Contado por IP, sem a query
-  // (senao cada purchaseToken ganharia um balde proprio).
+  // cobre a espera com folga e barra varredura.
   '/api/premium/google-play/pedido': { windowMs: 60 * 60 * 1000, maxRequests: 120 }, // 120 por hora
+  // The three routes below are what a buyer's screen calls after the checkout,
+  // always with the order token in the query string. The bucket is the route's
+  // (see caminhoDaRota), so every order followed from the same address shares
+  // it, and each limit is sized for that:
+  // - status: polled every 4 to 5 s while an order is pending. 60 per minute
+  //   covers four orders being followed at once.
+  '/api/premium/status': { windowMs: 60 * 1000, maxRequests: 60 }, // 60 per minute
+  // - report: the report page reloads it every 3 s while it waits for the
+  //   DETRAN block, plus slower reloads for recall and fines.
+  '/api/premium/report': { windowMs: 60 * 1000, maxRequests: 60 }, // 60 per minute
+  // - foto: one request per photo of an auction lot, as the carousel goes
+  //   through them. The route keeps its own ceiling of new links per report.
+  '/api/premium/foto': { windowMs: 60 * 1000, maxRequests: 120 }, // 120 per minute
   // Intencao de compra do app (placa + e-mail antes da folha da Play): uma por
   // tentativa de compra. Mesmo teto do /verificar.
   '/api/premium/google-play/intencao': { windowMs: 60 * 60 * 1000, maxRequests: 10 }, // 10 por hora
@@ -61,8 +73,18 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   'default': { windowMs: 60 * 1000, maxRequests: 30 }, // Default: 30 per minute
 }
 
-// Rotas cuja query carrega a credencial: o balde e da rota, nao de cada valor.
-const SEM_QUERY = ['/api/premium/google-play/pedido']
+/**
+ * The route path alone: no query string, no fragment, no trailing slash. It is
+ * what the bucket key, the per-route limit lookup and the log use, for every
+ * route. With the rest of the URL in the key, any change to it would open a
+ * fresh bucket for the same route, and a secret carried in a query string
+ * would be written to the log.
+ */
+function caminhoDaRota(path: string): string {
+  const fim = path.search(/[?#]/)
+  const semQuery = fim === -1 ? path : path.slice(0, fim)
+  return semQuery.replace(/\/+$/, '') || '/'
+}
 
 function getRateLimitConfig(path: string): RateLimitConfig {
   for (const [pattern, config] of Object.entries(rateLimitConfigs)) {
@@ -74,7 +96,7 @@ function getRateLimitConfig(path: string): RateLimitConfig {
 }
 
 export default defineEventHandler(async (event) => {
-  const path = event.path
+  const path = caminhoDaRota(event.path)
 
   // Skip rate limiting for non-API routes
   if (!path.startsWith('/api/')) {
@@ -99,7 +121,7 @@ export default defineEventHandler(async (event) => {
   // mesma fonte dos tetos da consulta e dos sinais (server/utils/client-ip.ts).
   const ip = getClientIp(event)
   const config = getRateLimitConfig(path)
-  const key = `${ip}:${SEM_QUERY.some((p) => path.startsWith(p)) ? path.split('?')[0] : path}`
+  const key = `${ip}:${path}`
 
   const now = Date.now()
   let entry = rateLimitStore.get(key)
