@@ -3,17 +3,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // O checkout Pix decide no servidor se o cupom exige e-mail: o de recompra nao
 // exige; os outros sim. (So o portao do e-mail; o resto do checkout e mockado.)
 let origemDoCodigo: Record<string, string | null> = {}
-vi.mock('../../utils/cupom-recompra', () => ({
-  origemDoCupom: () => ({}),
-  cupomDispensaEmail: async (_sb: any, cod: string) => origemDoCodigo[String(cod).toUpperCase()] === 'recompra',
-}))
+vi.mock('../../utils/cupom-recompra', () => ({ origemDoCupom: () => ({}) }))
 let handler: any
 let body: any
 vi.stubGlobal('defineEventHandler', (fn: any) => { handler = fn; return fn })
 vi.stubGlobal('readBody', async () => body)
 vi.stubGlobal('createError', (o: any) => Object.assign(new Error(o.message), o))
 vi.stubGlobal('assertPremiumGate', () => {})
-vi.stubGlobal('usePremiumSupabase', () => ({}))
+vi.stubGlobal('usePremiumSupabase', () => ({
+  from: () => ({ select: () => ({ eq: (_c: string, cod: string) => ({ maybeSingle: async () => ({ data: cod in origemDoCodigo ? { origem: origemDoCodigo[cod] } : null, error: null }) }) }) }),
+}))
 vi.stubGlobal('useRuntimeConfig', () => ({ public: { homolog: false } }))
 vi.stubGlobal('getClientIp', () => '1.2.3.4')
 vi.stubGlobal('getDispositivo', () => ({ dispositivo: 'celular', sistema: 'Android', canal: 'web', app_versao: null }))

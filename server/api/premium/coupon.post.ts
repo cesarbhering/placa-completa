@@ -1,5 +1,6 @@
 import { isPlanoPago } from '../../../shared/planos'
 import { abPrecoDoCheckout } from '../../utils/ab-preco'
+import { validarCupomComLimite } from '../../utils/cupom-limite'
 
 // Valida um cupom SEM aplicar nada (nao cria pedido, nao registra uso).
 // Chamado no blur do input de cupom e de novo, silenciosamente, antes de
@@ -16,12 +17,19 @@ export default defineEventHandler(async (event) => {
   // Quem cobra de verdade e o checkout.post.ts, que revalida com o e-mail.
 
   const supabase = usePremiumSupabase()
+  const config = useRuntimeConfig()
   // Display price must match what the checkout will charge: same arm rule.
-  const { braco } = abPrecoDoCheckout(body, useRuntimeConfig(), getDispositivo(event).canal)
-  const resultado = await validarCupom(supabase, codigo, plano, email || undefined, braco)
+  const { braco } = abPrecoDoCheckout(body, config, getDispositivo(event).canal)
+  // Attempt limits per plate and site-wide (server/utils/cupom-limite.ts).
+  const { cupom: resultado, bloqueio } = await validarCupomComLimite(
+    supabase, { codigo, plano, email: email || undefined, braco, placa: body.placa }, config, { onde: 'coupon' },
+  )
+  if (bloqueio) {
+    throw createError({ statusCode: bloqueio.statusCode, message: bloqueio.message, data: { limite: true, motivo: bloqueio.motivo } })
+  }
   // Origem e pedido que gerou o cupom de recompra sao internos: quem recebeu o
   // codigo compartilhado nao precisa (nem deve) ver o id do pedido de outra pessoa.
-  const { origem, pedidoOrigemId: _p, ...publico } = resultado
+  const { origem, pedidoOrigemId: _p, contaTentativa: _c, pessoal: _pe, foraDoSistema: _f, outroEmail: _o, ...publico } = resultado
   // So o fato de que este cupom vale sem e-mail (recompra) vai pro navegador.
   return { ...publico, dispensaEmail: origem === 'recompra' }
 })

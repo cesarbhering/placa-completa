@@ -16,7 +16,8 @@ describe('checkout: Pix em um clique', () => {
   })
   it('trava de clique: confirmarEPagar ignora chamada enquanto outra roda', () => {
     const fn = src.slice(src.indexOf('async function confirmarEPagar()'), src.indexOf('function escolherPix()'))
-    expect(fn).toContain('if (pagando || loading.value) return')
+    // Also holds while a card payment is in progress (one order at a time).
+    expect(fn).toContain('if (pagando || loading.value || pagandoCartao || processandoCartao.value) return')
     expect(fn).toContain('pagando = true')
     expect(fn).toContain('pagando = false')
     expect(fn).toContain('await validarCheckout()')

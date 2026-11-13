@@ -73,7 +73,7 @@ const { trackAddPaymentInfo, trackConversionPaga } = useAnalytics()
 async function entrar() {
   loading.value = true; msg.value = ''
   try { await $fetch('/api/premium/gate', { method: 'POST', body: { password: senha.value } }); step.value = 'placa' }
-  catch { msg.value = 'Senha incorreta.' }
+  catch (e: any) { msg.value = (e?.statusCode ?? e?.status) === 429 ? 'Muitas tentativas. Tente de novo em alguns minutos.' : 'Senha incorreta.' }
   finally { loading.value = false }
 }
 

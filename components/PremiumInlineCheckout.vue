@@ -4,6 +4,7 @@ import { CUPOM_TELA_PCT, relogioCupomTela } from '~/shared/cupom-tela'
 import { bracoParaTela, precoDoPlano, descontoTelaNoBraco, precoExibidoNoCheckout } from '~/shared/ab-preco'
 import { PROVA_SOCIAL } from '~/shared/prova-social'
 import { mensagemDoLimite } from '~/shared/mensagem-limite'
+import { cupomSeguraCompra, decidirValorCartao } from '~/shared/checkout-cupom'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora, trackConversaoPixGerado } from '~/composables/useAnalytics'
 import type { CompraPlay } from '~/composables/usePlayBilling'
@@ -94,6 +95,11 @@ const cupomAberto = ref(false)
 const cupomCodigo = ref('')
 const cupomValidando = ref(false)
 const cupomMsg = ref('')
+// true = the server refused to validate the coupon because of the attempt
+// limit (429 marked `limite`). The message shows in the coupon field and the
+// purchase goes on without the coupon, at the full price already on screen.
+const cupomBloqueado = ref(false)
+watch(cupomCodigo, () => { cupomBloqueado.value = false })
 const cupomDescontoCentavos = ref(0)
 const cupomValido = computed(() => cupomDescontoCentavos.value > 0)
 const emailErro = ref('')
@@ -128,8 +134,9 @@ async function validarCupom(): Promise<boolean> {
   try {
     const r: any = await $fetch('/api/premium/coupon', {
       method: 'POST',
-      body: { codigo, plano: props.plano, email: temEmail ? email.value : undefined, ab_preco: abPrecoCheckout.value ?? undefined },
+      body: { codigo, plano: props.plano, email: temEmail ? email.value : undefined, ab_preco: abPrecoCheckout.value ?? undefined, placa: placaClean.value || undefined },
     })
+    cupomBloqueado.value = false
     if (r?.ok) {
       cupomDispensaEmail.value = !!r.dispensaEmail
       cupomDescontoCentavos.value = r.descontoCentavos || 0
@@ -148,7 +155,9 @@ async function validarCupom(): Promise<boolean> {
   } catch (e: any) {
     cupomDispensaEmail.value = false
     cupomDescontoCentavos.value = 0
-    cupomMsg.value = 'Não conseguimos validar o cupom agora.'
+    const limite = mensagemDoLimite(e)
+    cupomBloqueado.value = !!limite
+    cupomMsg.value = limite || 'Não conseguimos validar o cupom agora.'
     if (import.meta.dev) console.warn('[checkout] cupom falhou:', e?.data?.message || e)
     return false
   } finally {
@@ -280,8 +289,13 @@ if (import.meta.client && props.cupomTelaToken) {
 onUnmounted(() => { if (tickTela) clearInterval(tickTela) })
 
 // Same pure rule the tests check against the server (shared/ab-preco.ts).
+// Card: amount the server answered when it differs from the screen (see
+// pagarComCartao). While set, it is the price shown, and the card intent
+// already created at that amount waits for the next click.
+const valorCartaoServidor = ref<number | null>(null)
+const cartaoPendente = ref<any>(null)
 const precoExibidoCentavos = computed(() =>
-  precoExibidoNoCheckout(props.plano, abPrecoCheckout.value, cupomDescontoCentavos.value, telaAtiva.value),
+  valorCartaoServidor.value ?? precoExibidoNoCheckout(props.plano, abPrecoCheckout.value, cupomDescontoCentavos.value, telaAtiva.value),
 )
 // So pra rotular o botao: o preco final real (gratis ou nao) sai sempre do
 // server, isto e so cosmetico. Cupom parcial que so encosta no piso (ex.:
@@ -296,6 +310,21 @@ watch(() => props.placa, (v) => { placaLocal.value = String(v || '') })
 const placaClean = computed(() =>
   placaLocal.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7),
 )
+// What the card intent was created for changed: drop the held amount and the
+// intent, the next click asks the server again. Sync, so it happens before the
+// click goes on after the coupon re-check.
+function soltarCartaoPendente() {
+  valorCartaoServidor.value = null
+  cartaoPendente.value = null
+}
+watch([cupomCodigo, () => props.plano, placaClean, email, ambiente], soltarCartaoPendente, { flush: 'sync' })
+// Only the discount changed: when the computed price now matches the intent
+// already created, keep it (no extra unpaid card order); otherwise drop it.
+watch([cupomDescontoCentavos, telaAtiva], () => {
+  const base = precoExibidoNoCheckout(props.plano, abPrecoCheckout.value, cupomDescontoCentavos.value, telaAtiva.value)
+  if (cartaoPendente.value && base === cartaoPendente.value.valor) valorCartaoServidor.value = null
+  else soltarCartaoPendente()
+}, { flush: 'sync' })
 
 // Correcao da placa, inline na linha do resumo do checkout.
 const editandoPlaca = ref(false)
@@ -387,8 +416,8 @@ async function entrar() {
   try {
     await $fetch('/api/premium/gate', { method: 'POST', body: { password: senha.value } })
     await consultarPreview()
-  } catch {
-    msg.value = 'Senha incorreta.'
+  } catch (e: any) {
+    msg.value = (e?.statusCode ?? e?.status) === 429 ? 'Muitas tentativas. Tente de novo em alguns minutos.' : 'Senha incorreta.'
   } finally {
     loading.value = false
   }
@@ -412,7 +441,10 @@ async function validarCheckout(): Promise<boolean> {
     if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
     return false
   }
-  if (!preencheu && cupomCodigo.value.trim() && !((await validarCupom()) && cupomDispensaEmail.value)) {
+  // A coupon already refused by the attempt limit (message seen in the field)
+  // does not hold the purchase: it goes on without the coupon.
+  const jaBloqueado = cupomBloqueado.value
+  if (!preencheu && cupomCodigo.value.trim() && cupomSeguraCompra((await validarCupom()) && cupomDispensaEmail.value, jaBloqueado, cupomBloqueado.value)) {
     emailErro.value = 'Para usar um cupom, informe o e-mail que o recebeu.'
     msg.value = ''
     if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
@@ -426,7 +458,7 @@ async function validarCheckout(): Promise<boolean> {
     loading.value = true
     const ok = await validarCupom()
     loading.value = false
-    if (!ok) {
+    if (cupomSeguraCompra(ok, jaBloqueado, cupomBloqueado.value)) {
       cupomAberto.value = true
       return false
     }
@@ -441,7 +473,8 @@ async function validarCheckout(): Promise<boolean> {
 let pagando = false
 
 async function confirmarEPagar() {
-  if (pagando || loading.value) return
+  // The card payment in progress also holds the Pix (one order at a time).
+  if (pagando || loading.value || pagandoCartao || processandoCartao.value) return
   pagando = true
   try {
     // O e-mail NAO trava mais a geracao do Pix. Quase metade de quem abria o
@@ -769,7 +802,7 @@ async function pagar() {
         // que ficou stale (ex: esgotou por outra aba enquanto a pessoa reconferia
         // a placa, cupomDescontoCentavos ainda positivo de um validarCupom antigo)
         // podia cobrar o preco errado sem o servidor nem saber que havia cupom.
-        cupom: cupomCodigo.value.trim() || undefined,
+        cupom: cupomBloqueado.value ? undefined : (cupomCodigo.value.trim() || undefined),
         // Cupom de tela: o servidor confere assinatura e prazo e aplica o maior.
         cupom_tela: telaAtiva.value ? props.cupomTelaToken ?? undefined : undefined,
         // Marca de anuncio da sessao (gclid/msclkid/utm), pra origem da venda
@@ -885,38 +918,88 @@ function mensagemErroCartao(error: any): string {
 
 // Paga com cartao: cria o PaymentIntent no server e confirma aqui (3DS quando o
 // banco pedir). Sucesso -> vai pra pagina do relatorio, que polla ate entregar.
+// Card click lock (same idea as the Pix `pagando`): set before any await, so a
+// double click never creates two orders or confirms twice.
+let pagandoCartao = false
+// Paid: the page is about to leave. Keep the lock (no second order on a
+// stray click) and the amount on screen until it does.
+let cartaoConcluido = false
+// Report of a paid card order, shown as a link if the redirect does not happen.
+const relatorioCartao = ref('')
+/** Timeout of the card intent request; on expiry the lock is released. */
+const TIMEOUT_INTENT_MS = 25_000
+
 async function pagarComCartao() {
+  // The Pix being generated also holds the card (one order at a time).
+  if (pagandoCartao || processandoCartao.value || cartaoConcluido || pagando || loading.value) return
   if (!stripe || !cardNumber) { erroCartao.value = 'Aguarde o pagamento carregar.'; return }
-  erroCartao.value = ''
-  if (!(await validarCheckout())) return
+  pagandoCartao = true
+  // Price the buyer saw when clicking: the coupon re-check below can change
+  // the screen, and a higher amount is never confirmed on this click.
+  const precoNoClique = precoExibidoCentavos.value
+  let focarEmail = false
+  // On from the start (not after the coupon re-check): the button, the plate
+  // pencil and the fields stay disabled for the whole payment.
   processandoCartao.value = true
+  erroCartao.value = ''
   try {
+    // Intent already created at an amount that differed from the screen and was
+    // shown to the buyer on the previous click: pay that one now, without the
+    // coupon re-check (anything that changes what it was created for drops it).
+    let r: any = cartaoPendente.value
+    cartaoPendente.value = null
+    if (!r && !(await validarCheckout())) {
+      // The e-mail field is disabled while processing, so it cannot take the
+      // focus now: focus it once the fields are enabled again (finally).
+      focarEmail = !!emailErro.value
+      return
+    }
     emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
     if (emailNoPedido.value) marcarEmailInformado('checkout')
     trackAddPaymentInfo(props.plano, placaClean.value, precoExibidoCentavos.value)
-    const r: any = await $fetch('/api/premium/cartao-intent', {
-      method: 'POST',
-      body: {
-        placa: preview.value.placa,
-        email: email.value.trim() || undefined,
-        telefone: telefone.value,
-        preview: preview.value.raw,
-        plano: props.plano,
-        ambiente: ambiente.value,
-        cupom: cupomCodigo.value.trim() || undefined,
-        // Cupom de tela: o servidor confere assinatura e prazo e aplica o maior.
-        cupom_tela: telaAtiva.value ? props.cupomTelaToken ?? undefined : undefined,
-        origin: origemDaSessao(),
-        ab_bloco: props.abBloco ?? undefined,
-        // Price A/B arm: the server charges this arm's price (flag on, valid value).
-        ab_preco: abPrecoCheckout.value ?? undefined,
-        recall_sinal: props.recallSinal ?? undefined,
-        recall_marca: props.recallMarca ?? undefined,
-        origem_checkout: props.origemCheckout ?? undefined,
-        forcar_nova_compra: forcarNovaCompra || undefined,
-      },
-    })
+    const cupomEnviado = cupomBloqueado.value ? undefined : (cupomCodigo.value.trim() || undefined)
+    if (!r) {
+      // What this request is for. An answer that arrives after any of it
+      // changed is dropped (it would charge the old plate, plan or e-mail).
+      const pedido = JSON.stringify([preview.value?.placa, placaClean.value, props.plano, email.value.trim(), cupomCodigo.value.trim(), cupomEnviado ?? '', ambiente.value])
+      r = await $fetch('/api/premium/cartao-intent', {
+        method: 'POST',
+        timeout: TIMEOUT_INTENT_MS,
+        body: {
+          placa: preview.value.placa,
+          email: email.value.trim() || undefined,
+          telefone: telefone.value,
+          preview: preview.value.raw,
+          plano: props.plano,
+          ambiente: ambiente.value,
+          cupom: cupomEnviado,
+          // Cupom de tela: o servidor confere assinatura e prazo e aplica o maior.
+          cupom_tela: telaAtiva.value ? props.cupomTelaToken ?? undefined : undefined,
+          origin: origemDaSessao(),
+          ab_bloco: props.abBloco ?? undefined,
+          // Price A/B arm: the server charges this arm's price (flag on, valid value).
+          ab_preco: abPrecoCheckout.value ?? undefined,
+          recall_sinal: props.recallSinal ?? undefined,
+          recall_marca: props.recallMarca ?? undefined,
+          origem_checkout: props.origemCheckout ?? undefined,
+          forcar_nova_compra: forcarNovaCompra || undefined,
+        },
+      })
+      const agora = JSON.stringify([preview.value?.placa, placaClean.value, props.plano, email.value.trim(), cupomCodigo.value.trim(), cupomEnviado ?? '', ambiente.value])
+      if (agora !== pedido) { erroCartao.value = 'Os dados do pedido mudaram. Confira e toque em pagar de novo.'; return }
+    }
     if (!r?.clientSecret) { erroCartao.value = 'Não conseguimos iniciar o pagamento. Use o Pix.'; return }
+    // The server charges what it computed. If that differs from the price on
+    // screen, show the real amount and only pay on the next click; without a
+    // numeric amount, do not pay at all.
+    const decisao = decidirValorCartao(r.valor, precoExibidoCentavos.value, reais, !!cupomCodigo.value.trim(), precoNoClique)
+    if (decisao.acao === 'erro') { erroCartao.value = decisao.mensagem; return }
+    if (decisao.acao === 'segurar') {
+      valorCartaoServidor.value = decisao.valor
+      cartaoPendente.value = r
+      erroCartao.value = decisao.mensagem
+      return
+    }
     const { error, paymentIntent } = await stripe.confirmCardPayment(r.clientSecret, {
       payment_method: {
         card: cardNumber,
@@ -925,28 +1008,49 @@ async function pagarComCartao() {
     })
     if (error) { erroCartao.value = mensagemErroCartao(error); return }
     if (paymentIntent?.status === 'succeeded' || paymentIntent?.status === 'processing') {
-      histAdd({
-        token: r.token,
-        placa: preview.value.placa,
-        veiculo: preview.value?.encontrado ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ') : null,
-        status: 'consultando',
-      })
+      // Paid from here on: nothing below may show an error or block the way
+      // to the report. History and tracking failures are swallowed; if the
+      // redirect does not happen, the link to the report stays on screen.
+      cartaoConcluido = true
+      relatorioCartao.value = `/premium/${r.token}`
+      try {
+        histAdd({
+          token: r.token,
+          placa: preview.value.placa,
+          veiculo: preview.value?.encontrado ? [preview.value.marca, preview.value.modelo].filter(Boolean).join(' ') : null,
+          status: 'consultando',
+        })
+      } catch { /* history is a convenience */ }
       // Conversao SO com o pagamento aprovado ("succeeded"). Em "processing" o
       // cartao ainda pode recusar: quem dispara e a pagina /premium/<token>
       // quando o /status confirmar (o poll dela chama trackConversionPaga).
-      if (cartaoConverteAgora(paymentIntent?.status)) trackConversionPaga(r.token, props.plano, r.valor, undefined, { email: emailNoPedido.value })
+      try {
+        if (cartaoConverteAgora(paymentIntent?.status)) trackConversionPaga(r.token, props.plano, r.valor, undefined, { email: emailNoPedido.value })
+      } catch { /* tracking never blocks a paid order */ }
       // Vai pra pagina do relatorio: ela mostra "Confirmando o pagamento do
       // cartao..." e polla o /status ate a entrega.
-      if (import.meta.client) window.location.assign(`/premium/${r.token}`)
+      try {
+        if (import.meta.client) window.location.assign(relatorioCartao.value)
+      } catch { /* the link below stays */ }
       return
     }
     erroCartao.value = 'Pagamento não confirmado. Tente novamente ou use o Pix.'
   } catch (e: any) {
+    // Already paid: never tell the buyer to pay again (the report link shows).
+    if (cartaoConcluido) return
     if (await tratarJaComprado(e, 'cartao')) return
     if (import.meta.dev) console.warn('[checkout] cartao v2 falhou:', e?.data?.message || e)
+    // Network failure and the intent timeout land here with the usual text.
     erroCartao.value = mensagemDoLimite(e) || 'Não conseguimos processar o cartão agora. Use o Pix.'
   } finally {
-    processandoCartao.value = false
+    // Nothing held for the next click: the screen goes back to its own price
+    // (a declined card after paying the held intent must not keep it).
+    if (!cartaoConcluido) {
+      if (!cartaoPendente.value) valorCartaoServidor.value = null
+      processandoCartao.value = false
+      pagandoCartao = false
+      if (focarEmail && import.meta.client) nextTick(() => (document.getElementById('pic-email') as HTMLInputElement | null)?.focus())
+    }
   }
 }
 
@@ -1147,7 +1251,7 @@ onUnmounted(() => {
               <span class="pic-faixa__sub">
                 <template v-if="preview?.encontrado">{{ preview.ano }} · </template>
                 <span class="pic-faixa__placa">{{ placaClean }}</span>
-                <button type="button" class="pic-lapis pic-lapis--faixa" aria-label="Corrigir a placa" @click="abrirEdicao">
+                <button type="button" class="pic-lapis pic-lapis--faixa" aria-label="Corrigir a placa" :disabled="processandoCartao" @click="abrirEdicao">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
@@ -1193,6 +1297,7 @@ onUnmounted(() => {
                 <input
                   id="pic-cupom"
                   v-model="cupomCodigo"
+                  :disabled="processandoCartao"
                   type="text"
                   class="pic-input"
                   placeholder="CODIGO"
@@ -1206,7 +1311,7 @@ onUnmounted(() => {
             </div>
             <div v-if="cfg.public.homolog" class="pic-campo">
               <label class="pic-label" for="pic-ambiente">Ambiente SERPRO/GCC (teste)</label>
-              <select id="pic-ambiente" v-model="ambiente" class="pic-input">
+              <select id="pic-ambiente" v-model="ambiente" class="pic-input" :disabled="processandoCartao">
                 <option value="homolog">Homologação</option>
                 <option value="producao">Produção</option>
               </select>
@@ -1224,6 +1329,7 @@ onUnmounted(() => {
               <input
                 id="pic-email"
                 v-model="email"
+                :disabled="processandoCartao"
                 type="email"
                 class="pic-input"
                 placeholder="seu@email.com"
@@ -1254,7 +1360,7 @@ onUnmounted(() => {
                  habilitado (chaves do Stripe no ambiente); senao o Pix segue sem
                  abas, exatamente como antes. Pix vem selecionado. -->
             <div v-if="cartaoHabilitado" class="pic-tabs" role="tablist" aria-label="Forma de pagamento">
-              <button type="button" role="tab" :aria-selected="metodo === 'pix'" class="pic-tab" :class="{ 'pic-tab--on': metodo === 'pix' }" :disabled="loading" @click="escolherPix">
+              <button type="button" role="tab" :aria-selected="metodo === 'pix'" class="pic-tab" :class="{ 'pic-tab--on': metodo === 'pix' }" :disabled="loading || processandoCartao" @click="escolherPix">
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 8 6l4 4 4-4-4-4Zm-6 6-4 4 4 4 4-4-4-4Zm12 0-4 4 4 4 4-4-4-4Zm-6 6-4 4 4 4 4-4-4-4Z" /></svg>
                 Pix
               </button>
@@ -1315,18 +1421,21 @@ onUnmounted(() => {
               </div>
               <div class="pic-campo">
                 <label class="pic-label" for="pic-card-nome">Nome no cartão</label>
-                <input id="pic-card-nome" v-model="nomeCartao" type="text" class="pic-input" placeholder="Como aparece no cartão" autocomplete="cc-name">
+                <input id="pic-card-nome" v-model="nomeCartao" type="text" class="pic-input" placeholder="Como aparece no cartão" autocomplete="cc-name" :disabled="processandoCartao">
               </div>
               <p v-if="erroCartao" class="pic-cupom__erro">{{ erroCartao }}</p>
               <button
                 type="button"
                 class="pic-btn pic-btn--primary"
-                :disabled="processandoCartao || !stripePronto || editandoPlaca"
+                :disabled="processandoCartao || loading || !stripePronto || editandoPlaca"
                 @click="pagarComCartao"
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
                 {{ processandoCartao ? 'Processando...' : `Pagar ${reais(precoExibidoCentavos)}` }}
               </button>
+              <p v-if="relatorioCartao" class="pic-hint pic-hint--cta">
+                Pagamento aprovado. <a class="pic-link" :href="relatorioCartao">Abrir o relatório</a>
+              </p>
               <p v-if="!stripePronto && !erroCartao" class="pic-hint pic-hint--cta">Carregando pagamento seguro...</p>
               <p class="pic-hint pic-cartao-seguro">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
