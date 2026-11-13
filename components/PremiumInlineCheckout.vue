@@ -4,6 +4,7 @@ import { CUPOM_TELA_PCT, relogioCupomTela } from '~/shared/cupom-tela'
 import { bracoParaTela, precoDoPlano, descontoTelaNoBraco, precoExibidoNoCheckout } from '~/shared/ab-preco'
 import { PROVA_SOCIAL } from '~/shared/prova-social'
 import { mensagemDoLimite } from '~/shared/mensagem-limite'
+import { cupomSeguraCompra, avisoValorCartao } from '~/shared/checkout-cupom'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora, trackConversaoPixGerado } from '~/composables/useAnalytics'
 import type { CompraPlay } from '~/composables/usePlayBilling'
@@ -288,8 +289,13 @@ if (import.meta.client && props.cupomTelaToken) {
 onUnmounted(() => { if (tickTela) clearInterval(tickTela) })
 
 // Same pure rule the tests check against the server (shared/ab-preco.ts).
+// Card: amount the server answered when it differs from the screen (see
+// pagarComCartao). While set, it is the price shown, and the card intent
+// already created at that amount waits for the next click.
+const valorCartaoServidor = ref<number | null>(null)
+const cartaoPendente = ref<any>(null)
 const precoExibidoCentavos = computed(() =>
-  precoExibidoNoCheckout(props.plano, abPrecoCheckout.value, cupomDescontoCentavos.value, telaAtiva.value),
+  valorCartaoServidor.value ?? precoExibidoNoCheckout(props.plano, abPrecoCheckout.value, cupomDescontoCentavos.value, telaAtiva.value),
 )
 // So pra rotular o botao: o preco final real (gratis ou nao) sai sempre do
 // server, isto e so cosmetico. Cupom parcial que so encosta no piso (ex.:
@@ -304,6 +310,21 @@ watch(() => props.placa, (v) => { placaLocal.value = String(v || '') })
 const placaClean = computed(() =>
   placaLocal.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 7),
 )
+// What the card intent was created for changed: drop the held amount and the
+// intent, the next click asks the server again. Sync, so it happens before the
+// click goes on after the coupon re-check.
+function soltarCartaoPendente() {
+  valorCartaoServidor.value = null
+  cartaoPendente.value = null
+}
+watch([cupomCodigo, () => props.plano, placaClean, email], soltarCartaoPendente, { flush: 'sync' })
+// Only the discount changed: when the computed price now matches the intent
+// already created, keep it (no extra unpaid card order); otherwise drop it.
+watch([cupomDescontoCentavos, telaAtiva], () => {
+  const base = precoExibidoNoCheckout(props.plano, abPrecoCheckout.value, cupomDescontoCentavos.value, telaAtiva.value)
+  if (cartaoPendente.value && base === cartaoPendente.value.valor) valorCartaoServidor.value = null
+  else soltarCartaoPendente()
+}, { flush: 'sync' })
 
 // Correcao da placa, inline na linha do resumo do checkout.
 const editandoPlaca = ref(false)
@@ -423,7 +444,7 @@ async function validarCheckout(): Promise<boolean> {
   // A coupon already refused by the attempt limit (message seen in the field)
   // does not hold the purchase: it goes on without the coupon.
   const jaBloqueado = cupomBloqueado.value
-  if (!preencheu && cupomCodigo.value.trim() && !((await validarCupom()) && cupomDispensaEmail.value) && !(jaBloqueado && cupomBloqueado.value)) {
+  if (!preencheu && cupomCodigo.value.trim() && cupomSeguraCompra((await validarCupom()) && cupomDispensaEmail.value, jaBloqueado, cupomBloqueado.value)) {
     emailErro.value = 'Para usar um cupom, informe o e-mail que o recebeu.'
     msg.value = ''
     if (import.meta.client) (document.getElementById('pic-email') as HTMLInputElement | null)?.focus()
@@ -437,7 +458,7 @@ async function validarCheckout(): Promise<boolean> {
     loading.value = true
     const ok = await validarCupom()
     loading.value = false
-    if (!ok && !(jaBloqueado && cupomBloqueado.value)) {
+    if (cupomSeguraCompra(ok, jaBloqueado, cupomBloqueado.value)) {
       cupomAberto.value = true
       return false
     }
@@ -905,7 +926,11 @@ async function pagarComCartao() {
     emailNoPedido.value = email.value.trim().includes('@') ? email.value.trim() : ''
     if (emailNoPedido.value) marcarEmailInformado('checkout')
     trackAddPaymentInfo(props.plano, placaClean.value, precoExibidoCentavos.value)
-    const r: any = await $fetch('/api/premium/cartao-intent', {
+    // Intent already created at an amount that differed from the screen and was
+    // shown to the buyer on the previous click: pay that one now.
+    let r: any = cartaoPendente.value
+    cartaoPendente.value = null
+    if (!r) r = await $fetch('/api/premium/cartao-intent', {
       method: 'POST',
       body: {
         placa: preview.value.placa,
@@ -928,6 +953,15 @@ async function pagarComCartao() {
       },
     })
     if (!r?.clientSecret) { erroCartao.value = 'Não conseguimos iniciar o pagamento. Use o Pix.'; return }
+    // The server charges what it computed. If that differs from the price on
+    // screen, show the real amount and only pay on the next click.
+    const aviso = avisoValorCartao(r.valor, precoExibidoCentavos.value, reais)
+    if (aviso) {
+      valorCartaoServidor.value = r.valor
+      cartaoPendente.value = r
+      erroCartao.value = aviso
+      return
+    }
     const { error, paymentIntent } = await stripe.confirmCardPayment(r.clientSecret, {
       payment_method: {
         card: cardNumber,
