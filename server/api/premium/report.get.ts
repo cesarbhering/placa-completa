@@ -22,7 +22,7 @@ import { blocoNfse, colunasNfseRelatorio } from '../../utils/nfse-bloco'
 import { colunaAbPrecoSelect } from '../../utils/ab-preco'
 import { lerPlacaCacheFresca, motorDoPayload } from '../../utils/placa-lookup'
 import { cfgHistorico } from '../../utils/parceiro-historico-env'
-import { historicoLeilaoComHistorico, historicoVeicularParaTela } from '../../../shared/historico-veicular'
+import { historicoLeilaoComHistorico, historicoVeicularParaTela, historicoDoVeiculo } from '../../../shared/historico-veicular'
 
 // Dados do relatorio premium pelo token (superficie PAGA, token e a credencial).
 // O corte por plano acontece AQUI, no servidor: o que a basica nao comprou nunca
@@ -393,6 +393,8 @@ export default defineEventHandler(async (event) => {
   // It applies to this order when the switch is on or the order already has
   // the block (the switch may have been turned off since).
   if (!fonteNoPlano('historico_veicular', plano)) historicoVeicular = null
+  // Another VIN than this vehicle's: nothing of it, only the state (review 1 of PR #752).
+  historicoVeicular = historicoDoVeiculo(historicoVeicular, respConsulta?.chassi)
   const historicoAplica = fonteNoPlano('historico_veicular', plano) && (cfgHistorico(useRuntimeConfig()).ligado || historicoVeicular != null)
 
   const [motorCache, logoMarca, situacaoFontes, detranConsultadoEm, restricoesDetranRevisor, cupomRecompra, recallBaseLido] = await Promise.all([

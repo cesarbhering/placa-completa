@@ -7,6 +7,7 @@ import { NOME_FORNECEDOR_HISTORICO_RE } from '../server/utils/parceiro-historico
 import {
   parsearRespostaHistorico, historicoLeilaoComHistorico, historicoVeicularParaTela, tituloPassagemParceira,
   telaDonos, telaUso, telaSinistro, casaDoRegistro, tipoDoDono, mesesDePosse, tempoDePosse,
+  historicoDoVeiculo, nomeDeEmpresa, passagensDoHistorico, MOTIVO_CHASSI_DIVERGENTE,
 } from './historico-veicular'
 import { historicoNaTela, historicoParaExibicao } from './leilao-exibicao'
 import { linhasBasesSemRegistro, rotuloIndicadorLeilao } from './fonte-parceira'
@@ -149,9 +150,13 @@ describe('auction section with the partner part', () => {
     expect(rotuloIndicadorLeilao(h.passagens)).toBe('Histórico de leilão (bases consultadas)')
   })
 
-  it('VIN of the partner differs from ours: passages drop to possible, with the conflict', () => {
-    const h = historicoLeilaoComHistorico(vazio(), bloco(COM), { chassi: '9XXHV00000X999999' })
-    expect(h.passagens.every((p: any) => p.nivel === 'possivel' && p.conflitos.length === 1)).toBe(true)
+  it('VIN of the partner differs from ours: nothing of the partner, no damage flag (review 1, item 8)', () => {
+    const base = vazio()
+    const h = historicoLeilaoComHistorico(base, bloco(COM), { chassi: '9XXHV00000X999999' })
+    expect(h).toBe(base)
+    expect(h.passagens).toHaveLength(0)
+    expect(h.parceiro).toBeUndefined()
+    expect(h.sinistro_parceiro).toBeUndefined()
   })
 
   it('our base did not answer (null): no section is made up', () => {
@@ -187,6 +192,97 @@ describe('auction section with the partner part', () => {
     expect(historicoLeilaoComHistorico(vazio(), { status: 'teto', consultadoEm: null }, {}).parceiro).toEqual({ status: 'teto', consultado_em: null })
     const comEstado = { ...vazio(), parceiro: { status: 'ok' } }
     expect(historicoLeilaoComHistorico(comEstado, { status: 'falhou', consultadoEm: null }, {})).toBe(comEstado)
+  })
+})
+
+describe('review 1 of PR #752', () => {
+  const comLeiloes = (leiloes: any[]) => { const r = copia(SEM); r.dados.outros_produtos.leiloes = leiloes; return r }
+
+  // Item 1: generic principal or no lot is not a passage.
+  it.each(['DIVERSOS', 'PARTICULAR', 'EMPRESA', 'PARTICULAR/EMPRESA', 'VARIOS', 'NAO INFORMADO'])('principal "%s" without a lot: not a passage', (comitente) => {
+    expect(bloco(comLeiloes([{ ano: 2024, leiloeiro: 'WEB - LEILOES', lote: 'NADA CONSTA', comitente }])).leilao!.registros).toEqual([])
+  })
+  it.each(['NÃO CONSTA', 'NAO CONSTA', 'S/N', 'SN', 'SEM NUMERO', 'SEM NÚMERO', '000', '0000', 'N/A', 'SEM LOTE'])('lot "%s" is no lot', (lote) => {
+    expect(bloco(comLeiloes([{ ano: 2024, leiloeiro: 'CASA EXEMPLO LEILÕES', lote }])).leilao!.registros).toEqual([])
+  })
+  it('real lot with a generic principal: the edital stays, without the principal', () => {
+    expect(bloco(comLeiloes([{ ano: 2021, leiloeiro: 'CASA EXEMPLO LEILÕES', lote: '7', comitente: 'DIVERSOS' }])).leilao!.registros)
+      .toEqual([{ tipo: 'edital', ano: '2021', lote: '7', casa: 'Casa Exemplo Leilões', comitente: null }])
+  })
+
+  // Item 6: the holder name field is never read; no CNPJ or CPF with a company name.
+  it('bank record with only the holder name: no name on screen', () => {
+    const r = comIndicador(SEM, 'P7', { status: 'positivo', conteudo: [{ ano: '2010', nome: 'JOAO PAN DE SOUZA', documento: '000.000.000-00', tipoEntidade: 'financeira' }] })
+    expect(telaUso(bloco(r).uso)!.linhas.find((l) => l.titulo === 'Banco ou financeira')!.texto).toBe('Esteve em nome de banco ou financeira em 2010')
+    expect(JSON.stringify(bloco(r))).not.toMatch(/JOAO|SOUZA/)
+    const seg = comIndicador(comIndicador(SEM, 'P14', { status: 'positivo', conteudo: [{ nome: 'JOAO PAN DE SOUZA', ano: '2020' }] }), 'P1', { status: 'positivo', conteudo: [{ nome: 'JOAO PAN DE SOUZA', tipoEvento: 'Venda Direta / Remarketing', ano: '2020' }] })
+    const b = bloco(seg)
+    expect(b.sinistro!.indenizacoes).toEqual([{ seguradora: null, ano: '2020' }])
+    expect(b.leilao!.registros).toEqual([{ tipo: 'salvado', ano: '2020', lote: null, casa: null, comitente: null }])
+    expect(JSON.stringify(b)).not.toMatch(/JOAO|SOUZA/)
+  })
+  it('CNPJ or CPF inside a company name never reaches the screen', () => {
+    const r = comIndicador(SEM, 'P7', { status: 'positivo', conteudo: [{ ano: '2010', instituicao: 'BANCO EXEMPLO S/A 00.000.000/0001-00' }] })
+    expect(bloco(r).uso!.financeiras).toEqual([{ instituicao: 'BANCO EXEMPLO S/A', ano: '2010' }])
+    expect(nomeDeEmpresa('SEGURADORA EXEMPLO S/A - 00000000000100')).toBe('SEGURADORA EXEMPLO S/A')
+    expect(nomeDeEmpresa('BANCO EXEMPLO S/A 000.000.000-00')).toBe('BANCO EXEMPLO S/A')
+    expect(nomeDeEmpresa('00.000.000/0001-00')).toBeNull()
+    const leilao = comLeiloes([{ ano: 2006, lote: 'NADA CONSTA', comitente: 'PREFEITURA MUNICIPAL DE CIDADE EXEMPLO 00.000.000/0001-00' }])
+    expect(bloco(leilao).leilao!.registros[0].comitente).toBe('PREFEITURA MUNICIPAL DE CIDADE EXEMPLO')
+    const tela = historicoVeicularParaTela({ status: 'ok', consultadoEm: null, uso: { financeiras: [{ instituicao: 'BANCO EXEMPLO S/A 00000000000100', ano: '2010' }] } } as any)!
+    expect(tela.uso!.financeiras).toEqual([{ instituicao: 'BANCO EXEMPLO S/A', ano: '2010' }])
+  })
+
+  // Item 7: insurer as holder, "registrada em".
+  it('insurer as holder says "registrada em <ano>"', () => {
+    const r = comIndicador(SEM, 'P1', { status: 'positivo', conteudo: [{ seguradora: 'HDI SEGUROS S/A', tipoEvento: 'Titularidade em Carteira de Seguradora', ano: '2019' }] })
+    expect(telaUso(bloco(r).uso)!.linhas.find((l) => l.titulo === 'Seguradora')!.texto).toBe('Esteve em nome da HDI Seguros S/A, registrada em 2019')
+  })
+
+  // Item 8: another VIN, nothing of it; the reason stays, never the VIN.
+  it('VIN of the partner differs from the vehicle: only the reason stays', () => {
+    const b = bloco(COM)
+    expect(historicoDoVeiculo(b, '9XXHV00000X000001')).toBe(b)
+    expect(historicoDoVeiculo(b, '9XXHV0000')).toBe(b) // partial VIN: cannot tell
+    const d = historicoDoVeiculo({ ...b, consultadoEm: '2026-10-02T15:00:00.000Z' }, '9XXHV00000X999999')!
+    expect(d).toEqual({ status: 'divergente', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: MOTIVO_CHASSI_DIVERGENTE })
+    expect(JSON.stringify(d)).not.toContain('9XXHV')
+    expect(historicoVeicularParaTela(d)).toEqual({ status: 'divergente', consultadoEm: '2026-10-02T15:00:00.000Z' })
+    expect(historicoDoVeiculo({ status: 'falhou', consultadoEm: null }, '9XXHV00000X999999')).toEqual({ status: 'falhou', consultadoEm: null })
+  })
+
+  // Item 10: P24 or P18 alone never open the insurance block.
+  it('exposure or police record alone: no insurance block; with a visible line, they still feed the opinion', () => {
+    expect(telaSinistro(bloco(comIndicador(SEM, 'P24', { status: 'positivo' })).sinistro)).toBeNull()
+    expect(telaSinistro(bloco(comIndicador(SEM, 'P18', { status: 'positivo' })).sinistro)).toBeNull()
+    const comRoubo = comIndicador(comIndicador(SEM, 'P10', { status: 'positivo', conteudo: [{ tipo: 'DECLARAÇÃO', ano: '2020' }] }), 'P24', { status: 'positivo' })
+    const t = telaSinistro(bloco(comRoubo).sinistro)!
+    expect(t.linhas.map((l) => l.titulo)).toEqual(['Roubo ou furto'])
+    expect(t.parecer!.tom).toBe('atencao')
+  })
+
+  // Item 12: the auction partner already in the history (operator run).
+  it('with the auction partner already there: damage flag is the OR, the same auction is not repeated', () => {
+    const antiga = { nivel: 'confirmado', fonte: 'parceiro', fonte_tipo: 'parceiro', fonte_exibicao: 'Base parceira', data_leilao: '2024-03-02', lote: null, comitente: 'TOKIO MARINE SEGURADORA S/A' }
+    const comParceira = { ...vazio(), passagens: [antiga], resumo: { ...vazio().resumo, tem_indicio: true, n_confirmado: 1 }, parceiro: { status: 'ok', id_consulta: 'x1', consultado_em: '2026-10-01T00:00:00Z' }, sinistro_parceiro: { indicio: true, mensagem: 'EXISTE REGISTRO DE INDICIO DE SINISTRO' } }
+    const semNada = historicoLeilaoComHistorico(comParceira, bloco(SEM), {})
+    expect(semNada.sinistro_parceiro).toEqual({ indicio: true, mensagem: 'EXISTE REGISTRO DE INDICIO DE SINISTRO' })
+    expect(semNada.parceiro).toEqual({ status: 'ok', id_consulta: 'x1', consultado_em: '2026-10-01T00:00:00Z' })
+    const comDados = historicoLeilaoComHistorico(comParceira, bloco(COM), { chassi: CHASSI })
+    expect(comDados.passagens.map((p: any) => p.data_leilao ?? p.ano_leilao)).toEqual(['2024-03-02', '2019'])
+    expect(comDados.sinistro_parceiro.indicio).toBe(true)
+  })
+
+  // Item 13: agreement and the same spelling in the card and in the block.
+  it('one old record without a date: singular', () => {
+    expect(telaDonos(bloco(ROUBO).donos)!.nota).toMatch(/^Há mais 1 registro antigo sem data, que só entra no total\. /)
+  })
+  it('insurer acronym in capitals in the card and in the block', () => {
+    const b = bloco(ROUBO)
+    const salvado = passagensDoHistorico(b.leilao, {}).find((p) => p.registro === 'salvado')!
+    expect(salvado.comitente).toBe('HDI Seguros S/A')
+    expect(tituloPassagemParceira(salvado)).toBe('Venda de salvado pela HDI Seguros S/A, registrada em 2025')
+    expect(telaSinistro(b.sinistro)!.linhas[0].detalhe).toMatch(/^HDI Seguros, registrada em 2025\./)
   })
 })
 

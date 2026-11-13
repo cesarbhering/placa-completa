@@ -14,9 +14,10 @@
 
 import { FONTE_PARCEIRA, ROTULO_PARCEIRA, naoInformado, historicoComPassagensParceiras, type EstadoParceiro } from './fonte-parceira'
 import { comitentePublico } from './leilao-lgpd'
-import { comitenteExibicao, NOME_CASA_LEILAO } from './leilao-exibicao'
+import { comitenteExibicao, NOME_CASA_LEILAO, mesmoEventoLeilao } from './leilao-exibicao'
 
-export type StatusHistorico = 'ok' | 'falhou' | 'teto'
+// divergente: the partner answered for another VIN than the vehicle's (nothing of it is shown).
+export type StatusHistorico = 'ok' | 'falhou' | 'teto' | 'divergente'
 export type TipoDono = 'pessoa' | 'loja' | 'empresa' | 'banco' | 'locadora' | 'seguradora' | 'orgao'
 
 export interface DonoHistorico {
@@ -97,6 +98,8 @@ export interface LeilaoHistorico {
 export interface HistoricoVeicular {
   status: StatusHistorico
   consultadoEm: string | null
+  /** Why it is not here (failure kind, VIN divergence). Never the VIN nor the answer. */
+  motivo?: string | null
   donos?: DonosHistorico | null
   uso?: UsoHistorico | null
   sinistro?: SinistroHistorico | null
@@ -231,9 +234,16 @@ function donosDe(d: any): DonosHistorico | null {
 
 // ---------------------------------------------------------------- previous use
 
-/** Company name for the screen: only when it is a company (bank, insurer), never a person. */
-function nomeDeEmpresa(v: unknown): string | null {
-  const s = naoInformado(v)
+// CNPJ and CPF, formatted or as plain digits: never go with a company name.
+const RE_DOCUMENTO = /\b\d{2}\.?\d{3}\.?\d{3}\s*\/?\s*\d{4}\s*-?\s*\d{2}\b|\b\d{3}\.?\d{3}\.?\d{3}\s*-?\s*\d{2}\b/g
+
+/**
+ * Company name for the screen: only when it is a company (bank, insurer,
+ * agency), never a person, and never with its CNPJ or a CPF. Read only from
+ * company fields: the "nome" field of this partner is the holder's name.
+ */
+export function nomeDeEmpresa(v: unknown): string | null {
+  const s = naoInformado(String(v ?? '').replace(RE_DOCUMENTO, ' ').replace(/[\s,;:–-]+$/g, '').replace(/\s{2,}/g, ' '))
   if (!s) return null
   return comitentePublico(s)
 }
@@ -266,14 +276,14 @@ function usoDe(d: any, ind: Map<string, Indicador>): UsoHistorico {
 
   const financeiras: UsoHistorico['financeiras'] = []
   for (const r of pos('P7') || !ind.has('P7') ? lista('P7', d?.financeiras?.registros) : []) {
-    const f = { instituicao: nomeDeEmpresa(umDe(r, ['instituicao', 'razao_social', 'nome'])), ano: anoDe(r.ano) ?? anoDe(dataIsoHistorico(r.data)) }
+    const f = { instituicao: nomeDeEmpresa(umDe(r, ['instituicao', 'razao_social'])), ano: anoDe(r.ano) ?? anoDe(dataIsoHistorico(r.data)) }
     if (!financeiras.some((x) => sem(x.instituicao) === sem(f.instituicao) && x.ano === f.ano)) financeiras.push(f)
   }
 
   const seguradoras: UsoHistorico['seguradoras'] = []
   for (const r of eventosSeguradora(d, ind)) {
     if (!/TITULARIDADE|CARTEIRA/.test(sem(r.tipoEvento))) continue
-    const s = { seguradora: nomeDeEmpresa(umDe(r, ['seguradora', 'razao_social', 'nome'])), ano: anoDe(r.ano) }
+    const s = { seguradora: nomeDeEmpresa(umDe(r, ['seguradora', 'razao_social'])), ano: anoDe(r.ano) }
     if (!seguradoras.some((x) => sem(x.seguradora) === sem(s.seguradora) && x.ano === s.ano)) seguradoras.push(s)
   }
 
@@ -355,7 +365,7 @@ function sinistroDe(d: any, ind: Map<string, Indicador>): SinistroHistorico {
     ? (p14.positivo && Array.isArray(p14.conteudo) ? p14.conteudo.filter(obj) : [])
     : (Array.isArray(d?.seguradoras?.registrosIndenizacao) ? d.seguradoras.registrosIndenizacao.filter(obj) : [])
   for (const r of regs14) {
-    const x = { seguradora: nomeDeEmpresa(umDe(r, ['seguradora', 'razao_social', 'nome'])), ano: anoDe(r.ano) }
+    const x = { seguradora: nomeDeEmpresa(umDe(r, ['seguradora', 'razao_social'])), ano: anoDe(r.ano) }
     if (!indenizacoes.some((y) => sem(y.seguradora) === sem(x.seguradora) && y.ano === x.ano)) indenizacoes.push(x)
   }
   if ((p14?.positivo || (!p14 && d?.seguradoras?.indenizacaoIntegral === true)) && !indenizacoes.length) indenizacoes.push({ seguradora: null, ano: null })
@@ -399,10 +409,17 @@ export function casaDoRegistro(v: unknown): string | null {
   return comitenteExibicao(s)?.texto ?? null
 }
 
+// "NADA CONSTA", "NÃO CONSTA", "SEM LOTE", "S/N", "SEM NÚMERO", "N/A", only zeros: no lot.
 function loteReal(v: unknown): string | null {
   const s = naoInformado(v)
   if (!s) return null
-  return /NADA CONSTA|SEM LOTE|^N\/?A$|NAO INFORMAD/.test(sem(s)) ? null : s
+  return /NADA CONSTA|NAO CONSTA|SEM LOTE|^S\s*\/?\s*N$|SEM NUMERO|^N\/?A$|NAO INFORMAD|^0+$/.test(sem(s)) ? null : s
+}
+
+/** Principal of the auction: a company or agency by name; generic texts ("PARTICULAR", "DIVERSOS") are not one. */
+function comitenteDoRegistro(v: unknown): string | null {
+  const c = nomeDeEmpresa(v)
+  return c && !comitenteExibicao(c)?.generico ? c : null
 }
 
 function leilaoDe(d: any, ind: Map<string, Indicador>): LeilaoHistorico {
@@ -418,7 +435,7 @@ function leilaoDe(d: any, ind: Map<string, Indicador>): LeilaoHistorico {
   }
   for (const e of entradas) {
     const lote = loteReal(e.lote)
-    const comitente = comitentePublico(naoInformado(umDe(e, ['comitente', 'orgao', 'orgao_responsavel'])) || '')
+    const comitente = comitenteDoRegistro(umDe(e, ['comitente', 'orgao', 'orgao_responsavel']))
     const ano = anoDe(e.ano) ?? anoDe(dataIsoHistorico(e.data))
     // Without a lot and without a principal (agency/company), the entry is not
     // a passage: it stays only in the restricted table.
@@ -427,7 +444,7 @@ function leilaoDe(d: any, ind: Map<string, Indicador>): LeilaoHistorico {
   }
   for (const r of eventosSeguradora(d, ind)) {
     if (!/VENDA DIRETA|REMARKETING|SALVAD/.test(sem(r.tipoEvento))) continue
-    add({ tipo: 'salvado', ano: anoDe(r.ano), lote: null, casa: null, comitente: nomeDeEmpresa(umDe(r, ['seguradora', 'razao_social', 'nome'])) })
+    add({ tipo: 'salvado', ano: anoDe(r.ano), lote: null, casa: null, comitente: nomeDeEmpresa(umDe(r, ['seguradora', 'razao_social'])) })
   }
   const pos = (c: string) => ind.get(c)?.positivo === true
   const indicioSinistro = ['P14', 'P15', 'P19', 'P20', 'P12', 'P13'].some(pos)
@@ -461,16 +478,30 @@ export function parsearRespostaHistorico(body: any): HistoricoVeicular | null {
 
 const so = (s: unknown) => String(s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 
+export const MOTIVO_CHASSI_DIVERGENTE = 'chassi da base parceira diferente do chassi do veículo'
+
+/**
+ * The partner answered for another VIN than this vehicle's (both complete):
+ * nothing of it is shown (the three blocks, the auction part, the damage
+ * indicator). What stays is only the reason, never the VIN.
+ */
+export function historicoDoVeiculo(hv: HistoricoVeicular | null | undefined, chassiVeiculo: unknown): HistoricoVeicular | null {
+  if (!obj(hv)) return null
+  if (hv.status !== 'ok') return hv
+  const nosso = so(chassiVeiculo)
+  const deles = so(hv.leilao?.chassiFonte)
+  if (nosso.length === 17 && deles.length === 17 && nosso !== deles) return { status: 'divergente', consultadoEm: hv.consultadoEm ?? null, motivo: MOTIVO_CHASSI_DIVERGENTE }
+  return hv
+}
+
 /** Partner records as auction passages (same shape as shared/fonte-parceira.ts). */
 export function passagensDoHistorico(l: LeilaoHistorico | null | undefined, ctx: { chassi?: string | null }) {
   if (!l || !Array.isArray(l.registros)) return []
   const nosso = so(ctx.chassi)
-  const deles = so(l.chassiFonte)
-  const conflito = nosso.length === 17 && deles.length === 17 && nosso !== deles
-  const chassiIgual = nosso.length === 17 && deles === nosso
+  const chassiIgual = nosso.length === 17 && so(l.chassiFonte) === nosso
   return l.registros.map((r) => ({
-    nivel: (conflito ? 'possivel' : 'confirmado') as 'confirmado' | 'possivel',
-    score: conflito ? 40 : 100,
+    nivel: 'confirmado' as const,
+    score: 100,
     fonte: FONTE_PARCEIRA,
     fonte_tipo: FONTE_PARCEIRA,
     fonte_uf: null,
@@ -486,10 +517,11 @@ export function passagensDoHistorico(l: LeilaoHistorico | null | undefined, ctx:
     valor: null,
     situacao: null,
     leiloeiro: r.casa,
-    comitente: r.comitente,
+    // Same spelling as the blocks (acronyms in capitals: "HDI Seguros S/A").
+    comitente: nomeEmpresa(r.comitente),
     veiculo_na_fonte: null,
     evidencias: [chassiIgual ? 'chassi igual' : 'placa igual'],
-    conflitos: conflito ? ['chassi diferente do deste veículo'] : [],
+    conflitos: [] as string[],
     fotos: [] as string[],
     foto_refs: [],
     fotos_pendente: false,
@@ -512,16 +544,27 @@ export function passagensDoHistorico(l: LeilaoHistorico | null | undefined, ctx:
  * base answered. A failed or capped partner call shows as "Base parceira: não
  * foi possível consultar agora" in the empty state.
  */
-export function historicoLeilaoComHistorico(h: any, hv: HistoricoVeicular | null | undefined, ctx: { chassi?: string | null } = {}): any {
+export function historicoLeilaoComHistorico(h: any, hvBruto: HistoricoVeicular | null | undefined, ctx: { chassi?: string | null } = {}): any {
+  const hv = historicoDoVeiculo(hvBruto, ctx.chassi)
   if (!obj(h) || !Array.isArray(h.passagens) || !obj(hv)) return h
   if (hv.status === 'falhou' || hv.status === 'teto') {
     return h.parceiro ? h : { ...h, parceiro: { status: hv.status, consultado_em: hv.consultadoEm ?? null } as EstadoParceiro }
   }
+  // Another VIN (divergente) or unknown state: nothing of the partner.
   if (hv.status !== 'ok') return h
   const leilao = obj(hv.leilao) ? hv.leilao : null
-  return historicoComPassagensParceiras(h, passagensDoHistorico(leilao, ctx), {
-    sinistro: { indicio: leilao?.indicioSinistro === true, mensagem: null },
-    parceiro: { status: 'ok', id_consulta: null, consultado_em: hv.consultadoEm ?? null },
+  // The auction partner may already be in this history (operator run on an
+  // order it served): its records and its damage flag stay, the same auction
+  // is not repeated, and the flag is the OR of both.
+  const jaTinha = h.parceiro?.status === 'ok'
+  const antigas = h.passagens.filter((p: any) => p?.fonte_tipo === FONTE_PARCEIRA || p?.fonte === FONTE_PARCEIRA)
+  const novas = passagensDoHistorico(leilao, ctx).filter((n) => !antigas.some((a: any) => mesmoEventoLeilao(n, a)))
+  return historicoComPassagensParceiras(h, novas, {
+    sinistro: {
+      indicio: leilao?.indicioSinistro === true || (jaTinha && h.sinistro_parceiro?.indicio === true),
+      mensagem: jaTinha ? (h.sinistro_parceiro?.mensagem ?? null) : null,
+    },
+    parceiro: jaTinha ? h.parceiro : { status: 'ok', id_consulta: null, consultado_em: hv.consultadoEm ?? null },
   })
 }
 
@@ -568,7 +611,7 @@ function donoTela(o: any): DonoHistorico {
  * auction part is not here: it goes merged into historicoLeilao.
  */
 export function historicoVeicularParaTela(hv: any): Omit<HistoricoVeicular, 'leilao'> | null {
-  if (!obj(hv) || !['ok', 'falhou', 'teto'].includes(hv.status)) return null
+  if (!obj(hv) || !['ok', 'falhou', 'teto', 'divergente'].includes(hv.status)) return null
   const base = { status: hv.status as StatusHistorico, consultadoEm: txt(hv.consultadoEm, 40) }
   if (hv.status !== 'ok') return base
   const d = obj(hv.donos) ? hv.donos : null
@@ -598,13 +641,13 @@ export function historicoVeicularParaTela(hv: any): Omit<HistoricoVeicular, 'lei
           lojaSalvados: u.lojaSalvados === true,
           empresas: listaTela(u.empresas, (o) => ({ loja: o.loja === true, ano: anoOk(o.ano) }), 20),
           frotista: obj(u.frotista) ? { veiculos: Number(u.frotista.veiculos) > 0 ? Number(u.frotista.veiculos) : null, data: dataOk(u.frotista.data) } : null,
-          financeiras: listaTela(u.financeiras, (o) => ({ instituicao: comitentePublico(txt(o.instituicao) || ''), ano: anoOk(o.ano) }), 20),
-          seguradoras: listaTela(u.seguradoras, (o) => ({ seguradora: comitentePublico(txt(o.seguradora) || ''), ano: anoOk(o.ano) }), 20),
+          financeiras: listaTela(u.financeiras, (o) => ({ instituicao: nomeDeEmpresa(txt(o.instituicao)), ano: anoOk(o.ano) }), 20),
+          seguradoras: listaTela(u.seguradoras, (o) => ({ seguradora: nomeDeEmpresa(txt(o.seguradora)), ano: anoOk(o.ano) }), 20),
         }
       : null,
     sinistro: s
       ? {
-          indenizacoes: listaTela(s.indenizacoes, (o) => ({ seguradora: comitentePublico(txt(o.seguradora) || ''), ano: anoOk(o.ano) }), 20),
+          indenizacoes: listaTela(s.indenizacoes, (o) => ({ seguradora: nomeDeEmpresa(txt(o.seguradora)), ano: anoOk(o.ano) }), 20),
           monta: obj(s.monta) ? { nivel: ['pequena', 'media', 'grande'].includes(s.monta.nivel) ? s.monta.nivel : null, ano: anoOk(s.monta.ano) } : null,
           acidentes: listaTela(s.acidentes, (o) => ({ data: dataOk(o.data), local: txt(o.local, 60), tipo: txt(o.tipo, 60) }), 20),
           recuperado: s.recuperado === true,
@@ -705,7 +748,7 @@ export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'v
     zeroKm: d.ufZeroKm || null,
     linhas,
     alertaTrocaRapida: n >= 3 ? `Troca rápida de dono: ${n} donos ficaram menos de 1 ano com o ${nomeVeiculo}. Vale perguntar o motivo ao vendedor.` : null,
-    nota: `${d.semData ? `Há mais ${plural(d.semData, 'registro antigo', 'registros antigos')} sem data, que só entram no total. ` : ''}Não mostramos nome nem documento de nenhum proprietário, em conformidade com a LGPD.`,
+    nota: `${d.semData ? `Há mais ${d.semData === 1 ? '1 registro antigo sem data, que só entra' : `${d.semData} registros antigos sem data, que só entram`} no total. ` : ''}Não mostramos nome nem documento de nenhum proprietário, em conformidade com a LGPD.`,
   }
 }
 
@@ -744,7 +787,8 @@ export function telaUso(u: UsoHistorico | null | undefined): { linhas: LinhaUso[
   }
   for (const s of u.seguradoras || []) {
     const quem = nomeEmpresa(s.seguradora)
-    linhas.push({ titulo: 'Seguradora', texto: `Esteve em nome ${quem ? `da ${quem}` : 'de uma seguradora'}${s.ano ? ` em ${s.ano}` : ''}`, tom: 'atencao' })
+    // Insurer year may be when the record entered the partner base: "registrada em".
+    linhas.push({ titulo: 'Seguradora', texto: `Esteve em nome ${quem ? `da ${quem}` : 'de uma seguradora'}${s.ano ? `, registrada em ${s.ano}` : ''}`, tom: 'atencao' })
   }
   if (!linhas.length) return null
   const limpos = ([['locadora', 'locadora'], ['taxiPcd', 'táxi'], ['viatura', 'viatura'], ['frotaPublica', 'frota pública']] as const)
@@ -795,7 +839,9 @@ export function telaSinistro(s: SinistroHistorico | null | undefined, nomeVeicul
     : s.parecer === 'atencao'
       ? { tom: 'atencao' as const, titulo: 'Pode haver restrição no seguro', texto: `${danoOuAcidente ? 'Há registro de dano ou acidente.' : 'Há registro que pode pesar na aceitação do seguro.'} Algumas seguradoras aceitam com vistoria; confirme antes de comprar.` }
       : null
-  if (!linhas.length && !parecer) return null
+  // Only with at least one visible line: the two indicators that only feed the
+  // opinion never open the block on their own.
+  if (!linhas.length) return null
   return { linhas, parecer }
 }
 

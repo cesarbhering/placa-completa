@@ -4,8 +4,9 @@ import LEILAO_REAL from './__fixtures__/parceiro-leilao-real.json'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
 import {
   completarHistoricoVeicular, chamarHistorico, ehSaldoOuLimiteHistorico, _limparAlertaTetoHistorico, PRECO_RESERVA_CENTAVOS,
-  iniciarHistoricoVeicular, historicoProntoParaSnapshot, _limparEmVooHistorico,
+  iniciarHistoricoVeicular, historicoProntoParaSnapshot, _limparEmVooHistorico, motivoDaFalha,
 } from './parceiro-historico'
+import { MOTIVO_CHASSI_DIVERGENTE } from '../../shared/historico-veicular'
 import { FONTE_CACHE_HISTORICO, FONTE_CUSTO_HISTORICO, cfgHistorico } from './parceiro-historico-env'
 import { complementarLeilaoParceiro, rodarJobParceiro, cfgParceiro, inicioDoDiaBrasilia, _limparTokenParceiro, type Http } from './parceiro-leilao'
 
@@ -18,7 +19,46 @@ const PLACA = 'TST2B34'
 const cfg = (x: any = {}) => cfgHistorico({ parceiroHistoricoLigado: 'on', parceiroHistoricoKey: 'chave-de-teste', parceiroHistoricoTetoDia: '60', ...x })
 const resp = (status: number, corpo: any) => ({ status, text: async () => (typeof corpo === 'string' ? corpo : JSON.stringify(corpo)) })
 
-let sb: ReturnType<typeof supabaseMemoria>
+// In-memory database with the RPCs of this source: named locks, the daily
+// ceiling reservation (paid calls plus calls in progress) and the snapshot
+// write that sets only its key (jsonb_set), as in the migration.
+function sbHistorico(x: { lock?: (nome: string, dono: string) => boolean } = {}) {
+  const base = supabaseMemoria()
+  let seq = 0
+  const rpc = async (nome: string, a: any) => {
+    if (nome === 'job_lock_pegar') return { data: x.lock ? x.lock(a.p_nome, a.p_dono) : true, error: null }
+    if (nome === 'parceiro_historico_reservar') {
+      const t = base.tab('parceiro_historico_chamadas')
+      const feitas = t.filter((l) => !l.cache_hit && String(l.criado_em) >= a.p_desde && (l.cobrada || l.em_andamento)).length
+      if (feitas >= a.p_teto) return { data: null, error: null }
+      const id = `reserva-${++seq}`
+      t.push({ id, pedido_id: a.p_pedido, placa: a.p_placa, em_andamento: true, cobrada: false, cache_hit: false, sucesso: false, custo_centavos: 0, motivo_erro: 'em andamento', criado_em: new Date(AGORA).toISOString() })
+      return { data: id, error: null }
+    }
+    if (nome === 'snapshot_gravar_historico_veicular') {
+      const linha = base.tab('pedidos_premium').find((p) => p.id === a.p_pedido)
+      const atual = linha?.relatorio_snapshot
+      if (!atual || typeof atual !== 'object') return { data: false, error: null }
+      if (atual.historicoVeicular?.status === 'ok' && a.p_valor?.status !== 'ok') return { data: false, error: null }
+      linha.relatorio_snapshot = { ...atual, historicoVeicular: a.p_valor }
+      return { data: true, error: null }
+    }
+    return { data: true, error: null }
+  }
+  return Object.assign(base, { rpc })
+}
+
+/** Real named locks with owners (job_lock_pegar). */
+function travas() {
+  const donos = new Map<string, string>()
+  return (nome: string, dono: string) => {
+    const atual = donos.get(nome)
+    if (!atual || atual === dono) { donos.set(nome, dono); return true }
+    return false
+  }
+}
+
+let sb: ReturnType<typeof sbHistorico>
 let chamadas: { url: string; headers: Record<string, string> }[]
 const alertar = vi.fn(async () => {})
 const httpCom = (f: () => any): Http => async (url, init) => { chamadas.push({ url, headers: init.headers }); return f() }
@@ -33,7 +73,7 @@ function comPedidos(...ids: string[]) {
 }
 
 beforeEach(() => {
-  sb = supabaseMemoria()
+  sb = sbHistorico()
   chamadas = []
   alertar.mockClear()
   _limparAlertaTetoHistorico()
@@ -74,7 +114,7 @@ describe('the call', () => {
     expect(b).toMatchObject({ status: 'ok', consultadoEm: '2026-10-02T15:00:00.000Z', donos: { total: 12 } })
     expect(JSON.stringify(snap())).not.toMatch(/FICTICIA|000\.000\.000-00/)
     expect(linhas()).toHaveLength(1)
-    expect(linhas()[0]).toMatchObject({ pedido_id: 'p1', placa: PLACA, http_status: 200, sucesso: true, cobrada: true, custo_centavos: 190, cache_hit: false, id_consulta_parceiro: '00000000-0000-0000-0000-000000000000' })
+    expect(linhas()[0]).toMatchObject({ pedido_id: 'p1', placa: PLACA, http_status: 200, sucesso: true, cobrada: true, custo_centavos: 190, cache_hit: false, em_andamento: false, motivo_erro: null, id_consulta_parceiro: '00000000-0000-0000-0000-000000000000' })
     expect(linhas()[0].resposta_bruta.dados.proprietarios.historico[0].nome).toBe('PESSOA FICTICIA')
     expect(custos()).toEqual([expect.objectContaining({ pedido_id: 'p1', fonte: FONTE_CUSTO_HISTORICO, preco: 1.9, code: 200 })])
     const cache = sb.tab('fonte_cache')
@@ -124,7 +164,7 @@ describe('the call', () => {
     expect(r).toMatchObject({ ok: false, status: 'falhou', cobrada: false, code: 503, erro: 'HTTP 503' })
     expect(linhas()[0]).toMatchObject({ http_status: 503, sucesso: false, cobrada: false, custo_centavos: 0, resposta_bruta: 'fora do ar' })
     expect(custos()[0]).toMatchObject({ preco: 0, code: 503 })
-    expect(snap().historicoVeicular).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z' })
+    expect(snap().historicoVeicular).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: 'erro' })
     const r2 = await completarHistoricoVeicular(sb, pedido(), deps(ok()))
     expect(r2.ok).toBe(true)
     expect(snap().historicoVeicular.status).toBe('ok')
@@ -141,6 +181,10 @@ describe('the call', () => {
 
   it('balance or quota answer: alert right away', async () => {
     await completarHistoricoVeicular(sb, pedido(), deps(httpCom(() => resp(402, { message: 'Saldo insuficiente' }))))
+    expect(alertar.mock.calls.some((c: any) => /SALDO OU LIMITE/.test(c[0]))).toBe(true)
+    // 402 with no text in the body is balance too.
+    alertar.mockClear()
+    await completarHistoricoVeicular(sb, pedido('p2'), deps(httpCom(() => resp(402, ''))))
     expect(alertar.mock.calls.some((c: any) => /SALDO OU LIMITE/.test(c[0]))).toBe(true)
     expect(ehSaldoOuLimiteHistorico({ http: 500, bruto: 'saldo' })).toBe(false)
   })
@@ -161,29 +205,28 @@ describe('daily ceiling', () => {
     expect(alertar.mock.calls.filter((x: any) => /TETO DIARIO/.test(x[0]))).toHaveLength(1)
     expect(inicioDoDiaBrasilia(AGORA)).toBe('2026-10-02T03:00:00.000Z')
   })
-  it('below the ceiling: calls', async () => {
-    for (let i = 0; i < 2; i++) linhas().push({ id: `h${i}`, cache_hit: false, criado_em: '2026-10-02T12:00:00Z' })
+  it('below the ceiling: calls; attempts with an error never count (review 1, item 3)', async () => {
+    for (let i = 0; i < 2; i++) linhas().push({ id: `p${i}`, cache_hit: false, cobrada: true, criado_em: '2026-10-02T12:00:00Z' })
+    for (let i = 0; i < 5; i++) linhas().push({ id: `e${i}`, cache_hit: false, cobrada: false, em_andamento: false, http_status: 503, criado_em: '2026-10-02T12:00:00Z' })
     expect((await completarHistoricoVeicular(sb, pedido(), deps(ok(), { cfg: cfg({ parceiroHistoricoTetoDia: '3' }) }))).ok).toBe(true)
     expect(chamadas).toHaveLength(1)
+  })
+
+  it('simultaneous calls never pass the ceiling: the slot is reserved before calling (review 1, item 3)', async () => {
+    sb.tab('pedidos_premium').push({ id: 'p3', relatorio_snapshot: { consulta: { response: {} } } })
+    const c = cfg({ parceiroHistoricoTetoDia: '1' })
+    // Three orders of three plates at the same time, ceiling 1: one call, two capped.
+    const lenta: Http = async (url, init) => { chamadas.push({ url, headers: init.headers }); await new Promise((r) => setTimeout(r, 20)); return resp(200, COM) as any }
+    const rs = await Promise.all(['p1', 'p2', 'p3'].map((id, i) => completarHistoricoVeicular(sb, { id, placa: `TST${i}A00`, plano: 'completa' }, deps(lenta, { cfg: c }))))
+    expect(chamadas).toHaveLength(1)
+    expect(rs.map((r) => r.status).sort()).toEqual(['ok', 'teto', 'teto'])
+    expect(linhas().filter((l) => l.cobrada)).toHaveLength(1)
   })
 })
 
 describe('one charge per order', () => {
-  function sbComLock() {
-    const locks = new Map<string, string>()
-    const base = supabaseMemoria()
-    return Object.assign(base, {
-      rpc: async (nome: string, a: any) => {
-        if (nome !== 'job_lock_pegar') return { data: true, error: null }
-        const atual = locks.get(a.p_nome)
-        if (!atual || atual === a.p_dono) { locks.set(a.p_nome, a.p_dono); return { data: true, error: null } }
-        return { data: false, error: null }
-      },
-    })
-  }
-
   it('delivery and queue job at the same time: one paid call, the other reuses it', async () => {
-    sb = sbComLock() as any
+    sb = sbHistorico({ lock: travas() })
     comPedidos('p1')
     let pagas = 0
     const lenta: Http = async (url, init) => { chamadas.push({ url, headers: init.headers }); pagas++; await new Promise((r) => setTimeout(r, 30)); return resp(200, COM) as any }
@@ -198,6 +241,24 @@ describe('one charge per order', () => {
     expect(custos().filter((c) => c.preco > 0)).toHaveLength(1)
   })
 
+  it('two orders of the same plate at the same time: one call, the other takes the clean cache (review 1, item 4)', async () => {
+    sb = sbHistorico({ lock: travas() })
+    comPedidos('p1', 'p2')
+    let pagas = 0
+    const lenta: Http = async (url, init) => { chamadas.push({ url, headers: init.headers }); pagas++; await new Promise((r) => setTimeout(r, 30)); return resp(200, COM) as any }
+    const esperar = () => new Promise<void>((r) => setTimeout(r, 15))
+    const [a, b] = await Promise.all([
+      completarHistoricoVeicular(sb, pedido('p1'), deps(lenta, { dono: 'pedido-1', esperar })),
+      completarHistoricoVeicular(sb, pedido('p2'), deps(lenta, { dono: 'pedido-2', esperar })),
+    ])
+    expect(pagas).toBe(1)
+    expect(a.ok && b.ok).toBe(true)
+    expect([a.cacheHit, b.cacheHit].sort()).toEqual([false, true])
+    expect(snap('p1').historicoVeicular.status).toBe('ok')
+    expect(snap('p2').historicoVeicular.status).toBe('ok')
+    expect(linhas().filter((l) => l.cobrada)).toHaveLength(1)
+  })
+
   it('lock RPC down: does not call', async () => {
     sb = Object.assign(supabaseMemoria(), { rpc: async () => ({ data: null, error: { message: 'fora' } }) }) as any
     comPedidos('p1')
@@ -210,11 +271,9 @@ describe('one charge per order', () => {
     ;(sb as any).from = (t: string) => {
       const q = orig(t)
       if (t !== 'parceiro_historico_chamadas') return q
-      const ins = q.insert
+      const upd = q.update
       // As if another run had stored its paid row in between (lock lost).
-      q.insert = (l: any) => (l.cobrada
-        ? { then: (r: any) => Promise.resolve({ error: { code: '23505', message: 'duplicate' } }).then(r) }
-        : ins(l))
+      q.update = (l: any) => (l.cobrada ? { eq: async () => ({ error: { code: '23505', message: 'duplicate' } }) } : upd(l))
       return q
     }
     await completarHistoricoVeicular(sb, pedido(), deps(ok()))
@@ -298,7 +357,7 @@ describe('started together with the paid query (Cesar, 13/11/2026)', () => {
 
   it('early call failed: the step after the delivery does not call again; the queue job does', async () => {
     expect(await iniciarHistoricoVeicular(sb, pedido(), deps(httpCom(() => resp(503, 'fora'))))).toMatchObject({ ok: false, status: 'falhou' })
-    expect(await historicoProntoParaSnapshot(sb, pedido(), cfg(), AGORA)).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z' })
+    expect(await historicoProntoParaSnapshot(sb, pedido(), cfg(), AGORA)).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: 'erro' })
     expect(await completarHistoricoVeicular(sb, pedido(), deps(ok()))).toMatchObject({ ok: false, status: 'falhou' })
     expect(chamadas).toHaveLength(1)
     expect(snap().historicoVeicular.status).toBe('falhou')
@@ -311,6 +370,66 @@ describe('started together with the paid query (Cesar, 13/11/2026)', () => {
     expect(iniciarHistoricoVeicular(sb, pedido('p1', { plano: 'basica' }), deps(ok()))).toBeNull()
     expect(iniciarHistoricoVeicular(sb, pedido(), deps(ok(), { cfg: cfg({ parceiroHistoricoLigado: '' }) }))).toBeNull()
     expect(chamadas).toHaveLength(0)
+  })
+})
+
+describe('review 1 of PR #752', () => {
+  // Item 2: what kind of failure (the screen does not wait for balance, key or ceiling).
+  it('failure kind: balance or quota, key refused, anything else', async () => {
+    expect(motivoDaFalha({ http: 402, bruto: '' })).toBe('saldo')
+    expect(motivoDaFalha({ http: 403, bruto: { message: 'Saldo insuficiente' } })).toBe('saldo')
+    expect(motivoDaFalha({ http: 401, bruto: { message: 'unauthorized' } })).toBe('autenticacao')
+    expect(motivoDaFalha({ http: 403, bruto: 'forbidden' })).toBe('autenticacao')
+    expect(motivoDaFalha({ http: 503, bruto: 'fora' })).toBe('erro')
+    expect(motivoDaFalha({ http: null, bruto: null })).toBe('erro')
+    await completarHistoricoVeicular(sb, pedido(), deps(httpCom(() => resp(401, { message: 'invalid key' }))))
+    expect(snap().historicoVeicular).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: 'autenticacao' })
+  })
+
+  // Item 5: the deadline covers the body; a paid answer stays paid even if the parse breaks.
+  it('a body that never ends: the deadline covers it, nothing charged', async () => {
+    const corpoInfinito: Http = async () => ({ status: 200, text: () => new Promise<string>(() => {}) }) as any
+    const t0 = Date.now()
+    const c = await chamarHistorico(cfg(), PLACA, corpoInfinito, 40)
+    expect(Date.now() - t0).toBeLessThan(2000)
+    expect(c).toMatchObject({ http: null, cobrada: false, custoCentavos: 0, erro: 'timeout 40 ms' })
+  })
+  it('the parse breaks on a paid answer: still charged, raw answer kept, never paid again', async () => {
+    const c = await chamarHistorico(cfg(), PLACA, ok(), 1000, () => { throw new Error('quebrou') })
+    expect(c).toMatchObject({ http: 200, cobrada: true, custoCentavos: 190, bloco: null, erro: 'resposta sem dados' })
+    expect(c.bruto.dados.placa).toBe('TST2B34')
+  })
+
+  // Item 8: another VIN, only the reason goes in (no VIN, no data).
+  it('the partner answered for another VIN: the snapshot gets only the reason', async () => {
+    sb.tab('pedidos_premium')[0].relatorio_snapshot = { consulta: { response: { chassi: '9XXHV00000X999999' } } }
+    const r = await completarHistoricoVeicular(sb, pedido(), deps(ok()))
+    expect(r).toMatchObject({ ok: false, status: 'divergente' })
+    expect(snap().historicoVeicular).toEqual({ status: 'divergente', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: MOTIVO_CHASSI_DIVERGENTE })
+    expect(JSON.stringify(snap().historicoVeicular)).not.toContain('9XXHV')
+    // Final answer: the queue (or a second run) does not call again.
+    expect(await completarHistoricoVeicular(sb, pedido(), deps(ok(), { retentar: true }))).toMatchObject({ pulado: 'ja tem', status: 'divergente' })
+    expect(chamadas).toHaveLength(1)
+    // Snapshot assembly with the early call or the clean cache: the same.
+    _limparEmVooHistorico()
+    expect(await historicoProntoParaSnapshot(sb, { id: 'p2', placa: PLACA, chassi: '9XXHV00000X999999' }, cfg(), AGORA)).toMatchObject({ status: 'divergente' })
+    expect(await historicoProntoParaSnapshot(sb, { id: 'p2', placa: PLACA, chassi: '9XXHV00000X000001' }, cfg(), AGORA)).toMatchObject({ status: 'ok' })
+  })
+
+  // Item 14: only the key of this source is written, never the whole snapshot.
+  it('the snapshot is written by the RPC on its own key, never by rewriting it', async () => {
+    const orig = sb.from.bind(sb)
+    const reescritas: any[] = []
+    ;(sb as any).from = (t: string) => {
+      const q = orig(t)
+      if (t === 'pedidos_premium') { const upd = q.update; q.update = (u: any) => { reescritas.push(u); return upd(u) } }
+      return q
+    }
+    const rpc = vi.spyOn(sb, 'rpc')
+    await completarHistoricoVeicular(sb, pedido(), deps(ok()))
+    expect(reescritas).toEqual([])
+    expect(rpc.mock.calls.some((c) => c[0] === 'snapshot_gravar_historico_veicular')).toBe(true)
+    expect(snap().historicoVeicular.status).toBe('ok')
   })
 })
 

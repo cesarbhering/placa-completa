@@ -245,7 +245,7 @@ export async function montarRelatorioSnapshot(
   // Vehicle history partner: only on the full assembly, only when ready (checked
   // last, so a call that finished while the rest was assembled still counts).
   const historicoVeicular = !apenas && fonteNoPlano('historico_veicular', pedido.plano)
-    ? await historicoProntoParaSnapshot(supabase, { id: pedido.id ?? null, placa: pedido.placa })
+    ? await historicoProntoParaSnapshot(supabase, { id: pedido.id ?? null, placa: pedido.placa, chassi: senatranBruto?.chassi ?? null })
     : null
   return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null, multas: pedido.multas ?? null, ...(recallEua ? { recallEua } : {}), ...(motor !== undefined ? { motor } : {}), ...(historicoVeicular ? { historicoVeicular } : {}) }
 }

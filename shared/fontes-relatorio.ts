@@ -35,9 +35,22 @@ export function fonteConcluida(fonte: FonteRelatorio, s: EntradaFontes['snapshot
   if (fonte === 'recall') return snap.recall != null
   if (fonte === 'recall_montadora') return snap.recallMontadora != null
   if (fonte === 'renajud') return snap.renajudDetalhe != null && String(snap.renajudDetalhe?.status) !== 'indisponivel'
-  // Failed or capped call: not done yet (the queue tries again).
-  if (fonte === 'historico_veicular') return snap.historicoVeicular?.status === 'ok'
+  // Failed or capped call: not done yet (the queue tries again). Another VIN
+  // (divergente) is a final answer: nothing of it is shown.
+  if (fonte === 'historico_veicular') return ['ok', 'divergente'].includes(String(snap.historicoVeicular?.status))
   return false
+}
+
+/**
+ * The source will not come within the wait (review 1 of PR #752): the daily
+ * ceiling was reached, or the partner refused the key or has no balance. The
+ * screen does not keep the customer in "consultando" for it; only the queue
+ * can still bring it ("chegando"), otherwise "indisponivel".
+ */
+export function fonteNaoVemAgora(fonte: FonteRelatorio, s: EntradaFontes['snapshot']): boolean {
+  if (fonte !== 'historico_veicular') return false
+  const b = (s || {}).historicoVeicular
+  return b?.status === 'teto' || (b?.status === 'falhou' && ['saldo', 'autenticacao'].includes(String(b?.motivo)))
 }
 
 export function situacaoDasFontes(e: EntradaFontes): { fontes: SituacaoFonte[]; aguardarAte: number | null } {
@@ -48,7 +61,7 @@ export function situacaoDasFontes(e: EntradaFontes): { fontes: SituacaoFonte[]; 
   const jobs = e.jobs || []
   const fontes = e.aplicaveis.map(({ fonte, rotulo }) => {
     if (fonteConcluida(fonte, e.snapshot)) return { fonte, rotulo, estado: 'ok' as EstadoFonte }
-    if (dentroDaEspera) return { fonte, rotulo, estado: 'consultando' as EstadoFonte }
+    if (dentroDaEspera && !fonteNaoVemAgora(fonte, e.snapshot)) return { fonte, rotulo, estado: 'consultando' as EstadoFonte }
     // Depois da espera: so e "chegando" se a fila ainda vai tentar. Sem job
     // (relatorio antigo) ou job esgotado/fechado: indisponivel.
     const job = jobs.find((j) => j.fonte === fonte)

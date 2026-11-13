@@ -129,6 +129,10 @@ describe('fila premium_jobs', () => {
     const c = sbFalso({ snap })
     expect(await executarJob(c.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico: async () => ({ ok: false, pulado: 'desligado' }) }))
       .toEqual({ status: 'sem_dado', code: null, erro: 'desligado' })
+    // Another VIN than the vehicle's: closes without "new data" (no updated e-mail).
+    const e = sbFalso({ snap })
+    expect(await executarJob(e.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico: async () => ({ ok: false, status: 'divergente' as const }) }))
+      .toEqual({ status: 'sem_dado', code: null, erro: 'chassi da base parceira diferente' })
     const d = sbFalso({ snap: { ...snap, historicoVeicular: { status: 'ok' } } })
     const nunca = vi.fn()
     expect(await executarJob(d.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico: nunca as any })).toEqual({ status: 'ok', code: 0 })

@@ -18,7 +18,11 @@ export interface CfgHistorico {
   /** NUXT_PARCEIRO_HISTORICO_LIGADO=on and the key set. */
   ligado: boolean
   chave: string
-  /** NUXT_PARCEIRO_HISTORICO_TETO_DIA (default 60): paid calls per day (Brasilia). */
+  /**
+   * NUXT_PARCEIRO_HISTORICO_TETO_DIA (default 60): paid calls per day
+   * (Brasilia), counting the calls in progress; an attempt with an error does
+   * not count.
+   */
   tetoDia: number
   base: string
 }

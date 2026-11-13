@@ -39,6 +39,7 @@ export default defineEventHandler(async (event) => {
     code: r.code ?? null,
     erro: r.erro ?? null,
     tempoMs: r.tempoMs ?? null,
+    // divergente: the partner answered for another VIN (nothing goes to the report).
     resumo: b?.status === 'ok'
       ? {
           donos: b.donos?.total ?? 0,

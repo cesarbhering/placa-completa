@@ -98,6 +98,24 @@ describe('report JSON with the vehicle history partner', () => {
     expect(r.fontes).toEqual([{ fonte: 'historico_veicular', rotulo: 'Donos, leilão e sinistro', estado: 'consultando' }])
   })
 
+  it('partner answered for another VIN: nothing of it, no damage flag, source done (review 1, item 8)', async () => {
+    comPedido({}, { consulta: { response: { chassi: '9XXHV00000X999999', descricaoMarcaModelo: 'FIAT/PALIO ELX' } } })
+    const r: any = await handler({} as any)
+    expect(r.historicoVeicular).toEqual({ status: 'divergente', consultadoEm: '2026-10-02T15:00:00.000Z' })
+    expect(r.historicoLeilao.passagens).toEqual([])
+    expect(r.historicoLeilao.parceiro).toBeUndefined()
+    expect(r.historicoLeilao.sinistro_parceiro).toBeUndefined()
+    expect(r.fontes).toEqual([{ fonte: 'historico_veicular', rotulo: 'Donos, leilão e sinistro', estado: 'ok' }])
+    expect(JSON.stringify(r)).not.toContain('9XXHV00000X000001')
+  })
+
+  it('daily ceiling reached at delivery: the screen does not wait for it (review 1, item 2)', async () => {
+    runtime.parceiroHistoricoLigado = 'on'; runtime.parceiroHistoricoKey = 'k'
+    comPedido({}, { historicoVeicular: { status: 'teto', consultadoEm: null } })
+    const r: any = await handler({} as any)
+    expect(r.fontes).toEqual([{ fonte: 'historico_veicular', rotulo: 'Donos, leilão e sinistro', estado: 'indisponivel' }])
+  })
+
   it('failed call while the queue may still bring it: no "could not consult" line yet', async () => {
     runtime.parceiroHistoricoLigado = 'on'; runtime.parceiroHistoricoKey = 'k'
     comPedido({}, { historicoVeicular: { status: 'falhou', consultadoEm: null } })

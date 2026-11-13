@@ -346,18 +346,20 @@ export function anoDaPassagem(p: any): string | null {
 
 const ehParceira = (p: any) => p?.fonte_tipo === FONTE_PARCEIRA || p?.fonte === FONTE_PARCEIRA
 
+/** Same auction: same year and the same lot (leading zeros ignored) or the same principal. */
+export function mesmoEventoLeilao(a: any, b: any): boolean {
+  const ano = anoDaPassagem(a)
+  if (!ano || anoDaPassagem(b) !== ano) return false
+  const lote = loteNorm(a?.lote)
+  return (!!lote && loteNorm(b?.lote) === lote) || mesmoComitente(a?.comitente, b?.comitente)
+}
+
 /** Drops the partner passages that repeat a strong passage of ours. Display only. */
 export function passagensSemParceiraRepetida(lista: unknown): any[] {
   if (!Array.isArray(lista)) return []
   const fortes = lista.filter((d: any) => !ehParceira(d) && (FORCA[d?.nivel] ?? 0) >= FORCA.provavel)
   if (!fortes.length) return lista
-  return lista.filter((p: any) => {
-    if (!ehParceira(p)) return true
-    const ano = anoDaPassagem(p)
-    if (!ano) return true
-    const lote = loteNorm(p.lote)
-    return !fortes.some((d: any) => anoDaPassagem(d) === ano && ((lote && loteNorm(d.lote) === lote) || mesmoComitente(p.comitente, d.comitente)))
-  })
+  return lista.filter((p: any) => !ehParceira(p) || !fortes.some((d: any) => mesmoEventoLeilao(p, d)))
 }
 
 const NIVEIS_RESUMO = ['confirmado', 'provavel', 'possivel'] as const

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { situacaoDasFontes, fonteConcluida, ESPERA_FONTES_MS } from './fontes-relatorio'
+import { situacaoDasFontes, fonteConcluida, fonteNaoVemAgora, ESPERA_FONTES_MS } from './fontes-relatorio'
 
 const ENT = '2026-10-14T18:00:00Z'
 const t0 = new Date(ENT).getTime()
@@ -29,5 +29,21 @@ describe('estado das fontes lentas (Relatorio 2.0)', () => {
     const aplicaveis = [{ fonte: 'historico_veicular' as const, rotulo: 'Donos, leilão e sinistro' }]
     expect(situacaoDasFontes({ entregueEm: ENT, agora: t0 + 60_000, aplicaveis, snapshot: {} }).fontes[0].estado).toBe('consultando')
     expect(situacaoDasFontes({ entregueEm: ENT, agora: t0 + ESPERA_FONTES_MS + 1, aplicaveis, snapshot: {}, jobs: [{ fonte: 'historico_veicular', status: 'pendente' }] }).fontes[0].estado).toBe('chegando')
+  })
+  it('vehicle history that will not come within the wait (ceiling, balance, key): no "consultando" (review 1, item 2)', () => {
+    const aplicaveis = [{ fonte: 'historico_veicular' as const, rotulo: 'Donos, leilão e sinistro' }]
+    const dentro = (historicoVeicular: any, jobs: any[] = []) => situacaoDasFontes({ entregueEm: ENT, agora: t0 + 60_000, aplicaveis, snapshot: { historicoVeicular }, jobs }).fontes[0].estado
+    for (const b of [{ status: 'teto' }, { status: 'falhou', motivo: 'saldo' }, { status: 'falhou', motivo: 'autenticacao' }]) {
+      expect(fonteNaoVemAgora('historico_veicular', { historicoVeicular: b })).toBe(true)
+      expect(fonteConcluida('historico_veicular', { historicoVeicular: b })).toBe(false) // the queue still tries
+      expect(dentro(b, [{ fonte: 'historico_veicular', status: 'pendente' }])).toBe('chegando')
+      expect(dentro(b)).toBe('indisponivel')
+    }
+    // Any other failure keeps the wait, as decided.
+    expect(dentro({ status: 'falhou', motivo: 'erro' })).toBe('consultando')
+    expect(fonteNaoVemAgora('detran', { historicoVeicular: { status: 'teto' } })).toBe(false)
+  })
+  it('vehicle history for another VIN is a final answer: done, nothing to wait for', () => {
+    expect(fonteConcluida('historico_veicular', { historicoVeicular: { status: 'divergente' } })).toBe(true)
   })
 })
