@@ -251,4 +251,30 @@ describe('GET /api/premium/status', () => {
     expect(stripe).not.toHaveBeenCalled()
     expect(processar).not.toHaveBeenCalled()
   })
+
+  describe('debug parameter', () => {
+    const DEBUG = { debug_trace: [{ etapa: 'config' }], erro: 'erro-de-teste', ambiente: 'producao' }
+    const comFalha = { status: 'falha' }
+
+    it('protected environment (homolog, staging) with debug=1: returns the debug fields', async () => {
+      config.public.gated = true
+      semear(comFalha)
+
+      expect(await status({ token: TOKEN, debug: '1' })).toEqual({ status: 'falha', valorCentavos: 4490, ...DEBUG })
+    })
+
+    it('production with debug=1: the parameter is ignored', async () => {
+      config.public.gated = false
+      semear(comFalha)
+
+      expect(await status({ token: TOKEN, debug: '1' })).toEqual({ status: 'falha', valorCentavos: 4490 })
+    })
+
+    it('protected environment without the parameter: no debug fields', async () => {
+      config.public.gated = true
+      semear(comFalha)
+
+      expect(await status()).toEqual({ status: 'falha', valorCentavos: 4490 })
+    })
+  })
 })

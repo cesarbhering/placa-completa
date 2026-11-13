@@ -66,12 +66,17 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // debug=1 adds the delivery trace, the internal error and the environment of
+  // the order. Only in the protected environments (homolog and staging, where
+  // public.gated is set); in production the parameter is ignored.
+  const debug = !!useRuntimeConfig().public.gated && String(getQuery(event).debug) === '1'
+
   return {
     status,
     // Valor que a pessoa pagou (cupom incluido): a conversao dos anuncios usa
     // isto e nao dispara quando e 0 (cupom 100%).
     valorCentavos: pedido.valor_centavos ?? null,
     ...piso,
-    ...(String(getQuery(event).debug) === '1' ? { debug_trace: pedido.debug_trace, erro: pedido.erro, ambiente: pedido.ambiente } : {}),
+    ...(debug ? { debug_trace: pedido.debug_trace, erro: pedido.erro, ambiente: pedido.ambiente } : {}),
   }
 })
