@@ -88,7 +88,7 @@ export function descricaoSeguroEletrico(mediaNacional: number): string {
 /** /seguro/carro-eletrico/{estado} */
 export function descricaoSeguroEletricoEstado(estado: string, media: number, uf?: string): string {
   const onde = uf ? emEstado(uf, estado) : `em ${estado}`
-  return `Seguro de carro elétrico ${onde}: média de ${brlInteiro(media)}/ano, com dados SUSEP corrigidos pelo IPCA. Veja o valor por modelo e peça cotação.`
+  return `Seguro de carro elétrico ${onde}: média de ${brlInteiro(media)}/ano, com dados SUSEP corrigidos pelo IPCA. Veja o valor por modelo.`
 }
 
 // --- Titles programaticos (title FINAL, 50 a 60; ver shared/seo-titulo.ts) --

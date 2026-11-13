@@ -128,7 +128,6 @@ describe('rate limit middleware', () => {
       ['/api/premium/status', 240],
       ['/api/premium/report', 300],
       ['/api/premium/foto', 300],
-      ['/api/cotacao-info', 300],
     ])('%s: %i requests per window, whatever the query string', async (rota, limite) => {
       expect(await bater(rota)).toMatchObject({ 'X-RateLimit-Limit': String(limite) })
 

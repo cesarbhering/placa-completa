@@ -26,7 +26,7 @@ describe('pathPermiteMarkdown', () => {
   })
   it('nunca: premium, api, admin, dash, checkout, desconhecidas', () => {
     for (const p of ['/premium', '/premium/abc123', '/premium/abc/pdf', '/api/premium/report', '/api/consulta', '/admin', '/dash',
-      '/checkout', '/feedback/tok', '/woovi-teste', '/cotacao', '/_nuxt/x.js', '/consultar-placa/../premium/x'])
+      '/checkout', '/feedback/tok', '/woovi-teste', '/_nuxt/x.js', '/consultar-placa/../premium/x'])
       expect(pathPermiteMarkdown(p), p).toBe(false)
   })
 })

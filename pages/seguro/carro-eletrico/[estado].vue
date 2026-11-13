@@ -44,10 +44,6 @@ const faqs = [
       ? `${EmUf}, a média dos elétricos da nossa cesta é ${brl(mediaEletrico)}/ano, contra ${brl(mediaPopular)}/ano da cesta de populares a combustão (Onix, HB20, Gol, Strada e Corolla). A diferença vem principalmente do valor segurado mais alto e do custo de reposição da bateria.`
       : 'Em geral o prêmio absoluto é maior porque o valor segurado é maior, mas em percentual do valor do carro o seguro de elétrico costuma ser competitivo, já que o perfil do condutor tende a ter menor sinistralidade.',
   },
-  {
-    question: 'Como pedir uma cotação real de seguro?',
-    answer: 'A estimativa desta página é uma média estatística. Para um valor exato pro seu perfil, peça uma cotação gratuita em placacompleta.com.br/cotacao ou consulte sua placa e receba a estimativa do seu carro por e-mail.',
-  },
 ]
 
 useHead({
@@ -135,12 +131,6 @@ useHead({
               Estimativas com base em dados oficiais SUSEP, corrigidas pelo IPCA (seguro voluntário
               de veículo). Não substituem cotação real de seguradora.
             </p>
-
-            <div class="text-center mt-md mb-md">
-              <NuxtLink to="/cotacao" class="win-btn win-btn--primary">
-                Pedir cotação real gratuita
-              </NuxtLink>
-            </div>
 
             <h2 v-if="mediaPopular">Elétrico vs. carro popular {{ emUf }}</h2>
             <p v-if="mediaPopular">

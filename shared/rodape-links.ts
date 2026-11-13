@@ -19,7 +19,6 @@ export const COLUNAS_RODAPE: ColunaRodape[] = [
     links: [
       { rotulo: 'Tabela FIPE', to: '/tabela-fipe' },
       { rotulo: 'Placa FIPE', to: '/tabela-fipe-por-placa' },
-      { rotulo: 'Cotação', to: '/cotacao' },
       { rotulo: 'Seguro de carro elétrico', to: '/seguro/carro-eletrico' },
     ],
   },
@@ -60,7 +59,6 @@ export const ROTULOS_RODAPE_EN: Record<string, string> = {
   '/consultar-placa': 'Check by state (PT)',
   '/tabela-fipe': 'FIPE price table (PT)',
   '/tabela-fipe-por-placa': 'FIPE value by plate (PT)',
-  '/cotacao': 'Quote (PT)',
   '/seguro/carro-eletrico': 'Electric car insurance (PT)',
   '/como-consultar-placa': 'How to check a plate (PT)',
   '/carro-de-leilao/como-saber': 'Auction cars: how to tell (PT)',

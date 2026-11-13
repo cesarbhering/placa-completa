@@ -61,10 +61,6 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   // - foto: one request per photo of an auction lot, as the carousel goes
   //   through them. The route keeps its own ceiling of new links per report.
   '/api/premium/foto': { windowMs: 60 * 1000, maxRequests: 300 }, // 300 per minute
-  // Prefill of the /cotacao page, read by an id that cannot be guessed. The
-  // page asks for it while it renders on the server, where the request carries
-  // no visitor address, so every render of the page shares one bucket.
-  '/api/cotacao-info': { windowMs: 60 * 1000, maxRequests: 300 }, // 300 per minute
   // Brand logo proxy. A report screen shows one logo through it and asks at
   // most twice (the file the source named, then the one deduced from the brand
   // name); the browser then keeps it for a week. 60 per minute is thirty

@@ -256,10 +256,8 @@ export default defineEventHandler(async (event) => {
   // depois da busca, entao nao atrasa mais a consulta (ip-api, ate 2 s).
   // Mesmo ponto de antes: nao muda quem chega ate aqui nem a ordem dos limites.
   const ipGeoP = lookupIpGeo(ip).catch(() => null)
-  // UUID da consulta gerado ANTES do envio: vira o token do link de cotacao
-  // no email (/cotacao?c=<uuid>) e e passado como id explicito no insert final.
+  // UUID da consulta gerado ANTES do envio e passado como id explicito no insert final.
   const consultaId = crypto.randomUUID()
-  const cotacaoUrl = `https://placacompleta.com.br/cotacao?c=${consultaId}`
 
   const placaClean = placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase()
   const placaRegex = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/
@@ -712,7 +710,7 @@ export default defineEventHandler(async (event) => {
     if (channel === 'email') {
       try {
         const resend = new Resend(config.resendApiKey)
-        const htmlEmail = buildEmailHtml(apiResponse, placaClean, chartUrl, icv5Result, rodizio, seguroEstimado, cotacaoUrl)
+        const htmlEmail = buildEmailHtml(apiResponse, placaClean, chartUrl, icv5Result, rodizio, seguroEstimado)
         await resend.emails.send({
           // E-mail a cliente sai de contato@ (regra do Cesar, 01/out), com a
           // resposta caindo no mesmo endereco.
@@ -750,7 +748,7 @@ export default defineEventHandler(async (event) => {
       //
       // Every layer down emits an internal alert so we can track
       // degradation without losing the consulta itself.
-      const text = buildWhatsAppText(apiResponse, placaClean, icv5Result, rodizio, seguroEstimado, cotacaoUrl)
+      const text = buildWhatsAppText(apiResponse, placaClean, icv5Result, rodizio, seguroEstimado)
 
       // Always try to prefetch the chart bytes — used by both A and B.
       let chartDataUri: string | null = null
@@ -771,7 +769,7 @@ export default defineEventHandler(async (event) => {
       // to the email a user would otherwise receive.
       let cardDataUri: string | null = null
       if (config.gotenbergUrl || process.env.GOTENBERG_URL) {
-        const emailHtml = buildEmailHtml(apiResponse, placaClean, chartDataUri, icv5Result, rodizio, seguroEstimado, cotacaoUrl)
+        const emailHtml = buildEmailHtml(apiResponse, placaClean, chartDataUri, icv5Result, rodizio, seguroEstimado)
         const renderRes = await renderHtmlToPng(emailHtml, { width: 560, timeoutMs: 15_000 })
         if (renderRes.ok && renderRes.bytes) {
           cardDataUri = `data:image/png;base64,${renderRes.bytes.toString('base64')}`
@@ -1103,7 +1101,7 @@ function getSpRodizioInfo(placa: string): SpRodizio | null {
   return map[lastDigit] || null
 }
 
-function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: string | null = null, icv5: ICV5Result | null = null, rodizio: SpRodizio | null = null, seguro: SeguroEstimado | null = null, cotacaoUrl: string | null = null): string {
+function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: string | null = null, icv5: ICV5Result | null = null, rodizio: SpRodizio | null = null, seguro: SeguroEstimado | null = null): string {
   // Fields from the upstream wdapi2 payload must be HTML-escaped before
   // interpolation — a compromised or hostile upstream could otherwise
   // inject script-bearing markup into the email body.
@@ -1184,7 +1182,7 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
         ${emailRow('Situação', situacao, true)}
       `)}
 
-      ${cotacaoUrl ? emailSeguroSection(seguro, cotacaoUrl) : ''}
+      ${seguro ? emailSeguroSection(seguro) : ''}
 
       ${emailShareButton(marca, modelo, anoModelo, placa)}
 
@@ -1243,39 +1241,16 @@ function emailShareButton(marca: string, modelo: string, ano: string, placa: str
       </tr></table>`
 }
 
-// Secao de seguro do email: estimativa SUSEP (quando ha) + botao de
-// cotacao real linkando /cotacao?c=<uuid da consulta>. Sempre presente
-// (versao generica sem estimativa) por decisao de produto.
-function emailSeguroSection(seguro: SeguroEstimado | null, cotacaoUrl: string): string {
+// Secao de seguro do email: so a estimativa SUSEP, quando ha.
+function emailSeguroSection(seguro: SeguroEstimado): string {
   const fmt = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
-  const botao = (label: string) => `
-    <tr><td colspan="2" style="padding:14px 16px 6px;text-align:center;background:#ffffff;">
-      <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
-        <td bgcolor="#0466c8" style="border-radius:8px;">
-          <a href="${cotacaoUrl}" target="_blank"
-             style="display:inline-block;padding:11px 28px;font-family:'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:8px;">
-            ${label}
-          </a>
-        </td>
-      </tr></table>
-    </td></tr>
+  return emailWindow('Seguro do seu carro', `
+    ${emailRow('Seguro médio anual', fmt(seguro.premioAnual))}
+    ${emailRow('Franquia média', fmt(seguro.franquia))}
+    ${seguro.regiaoDoUsuario ? emailRow('Região', seguro.regiao.descricao) : ''}
     <tr><td colspan="2" style="padding:4px 16px 12px;text-align:center;background:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#7d8597;">
       Estimativa com base em dados oficiais SUSEP, corrigida pelo IPCA. Não substitui cotação de seguradora.
-    </td></tr>`
-
-  if (seguro) {
-    return emailWindow('Seguro do seu carro', `
-      ${emailRow('Seguro médio anual', fmt(seguro.premioAnual))}
-      ${emailRow('Franquia média', fmt(seguro.franquia))}
-      ${seguro.regiaoDoUsuario ? emailRow('Região', seguro.regiao.descricao, true) : ''}
-      ${botao('Pedir cotação real →')}
-    `)
-  }
-  return emailWindow('Seguro do seu carro', `
-    <tr><td colspan="2" style="padding:14px 16px 2px;text-align:center;background:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#33415c;">
-      Quer saber quanto custa segurar esse carro? Peça uma cotação gratuita.
     </td></tr>
-    ${botao('Pedir cotação →')}
   `)
 }
 
@@ -1332,7 +1307,6 @@ function buildWhatsAppText(
   icv5: ICV5Result | null = null,
   rodizio: SpRodizio | null = null,
   seguro: SeguroEstimado | null = null,
-  cotacaoUrl: string | null = null,
 ): string {
   const marca = marcaExibicao(data) || '-'
   const modelo = data.MODELO || data.modelo || '-'
@@ -1394,15 +1368,9 @@ function buildWhatsAppText(
     )
   }
 
-  if (cotacaoUrl) {
-    lines.push('')
-    if (seguro) {
-      const fmt = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
-      lines.push('*Seguro do seu carro*', `Seguro médio: ${fmt(seguro.premioAnual)}/ano (franquia ${fmt(seguro.franquia)})`)
-    } else {
-      lines.push('*Seguro do seu carro*', 'Quer saber quanto custa segurar esse carro?')
-    }
-    lines.push(`Peça uma cotação real: ${cotacaoUrl}`)
+  if (seguro) {
+    const fmt = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+    lines.push('', '*Seguro do seu carro*', `Seguro médio: ${fmt(seguro.premioAnual)}/ano (franquia ${fmt(seguro.franquia)})`)
   }
 
   lines.push('', '_placacompleta.com.br_')
