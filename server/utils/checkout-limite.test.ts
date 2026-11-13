@@ -228,14 +228,14 @@ describe('fail open', () => {
 describe('env limits', () => {
   it('defaults, custom values, 0 = off, invalid / negative / fractional below 1 = default, capped', () => {
     expect(limitesDoConfig({})).toEqual({ placaHora: 6, cartaoPlacaHora: 3, cartaoGlobal10min: 12 })
-    expect(limitesDoConfig({ checkoutLimitePlacaHora: '2', checkoutLimiteCartaoPlacaHora: '1', checkoutDisjuntorCartao10min: '5' }))
+    expect(limitesDoConfig({ checkoutLimitePlacaHora: '2', checkoutLimiteCartaoPlacaHora: '1', checkoutDisjuntorCartao_10min: '5' }))
       .toEqual({ placaHora: 2, cartaoPlacaHora: 1, cartaoGlobal10min: 5 })
     expect(limitesDoConfig({ checkoutLimitePlacaHora: 'abc' }).placaHora).toBe(6)
-    expect(limitesDoConfig({ checkoutDisjuntorCartao10min: '-1' }).cartaoGlobal10min).toBe(12)
+    expect(limitesDoConfig({ checkoutDisjuntorCartao_10min: '-1' }).cartaoGlobal10min).toBe(12)
     expect(limitesDoConfig({ checkoutLimitePlacaHora: '0.5' }).placaHora).toBe(6)
     expect(limitesDoConfig({ checkoutLimitePlacaHora: '0' }).placaHora).toBe(0)
     expect(limitesDoConfig({ checkoutLimitePlacaHora: '500', checkoutLimiteCartaoPlacaHora: '500' })).toMatchObject({ placaHora: 99, cartaoPlacaHora: 99 })
-    expect(limitesDoConfig({ checkoutDisjuntorCartao10min: '9999' }).cartaoGlobal10min).toBe(499)
+    expect(limitesDoConfig({ checkoutDisjuntorCartao_10min: '9999' }).cartaoGlobal10min).toBe(499)
   })
   it('a lower env limit blocks earlier; 0 turns the limit off', async () => {
     tabela = varios(2)

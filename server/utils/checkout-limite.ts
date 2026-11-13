@@ -58,7 +58,7 @@ export interface LimitesCheckout {
  * Env value -> limit. Empty, invalid, negative or between 0 and 1 = default;
  * exactly 0 = that limit turned off; capped at `teto`.
  */
-function lerLimite(v: unknown, padrao: number, teto: number): number {
+export function lerLimite(v: unknown, padrao: number, teto: number): number {
   if (v === undefined || v === null || String(v).trim() === '') return padrao
   const n = Number(String(v).trim())
   if (!Number.isFinite(n) || n < 0) return padrao
@@ -72,7 +72,7 @@ export function limitesDoConfig(config: any): LimitesCheckout {
   return {
     placaHora: lerLimite(config?.checkoutLimitePlacaHora, LIMITE_PLACA_HORA_PADRAO, TETO_LIMITE_PLACA),
     cartaoPlacaHora: lerLimite(config?.checkoutLimiteCartaoPlacaHora, LIMITE_CARTAO_PLACA_HORA_PADRAO, TETO_LIMITE_PLACA),
-    cartaoGlobal10min: lerLimite(config?.checkoutDisjuntorCartao10min, DISJUNTOR_CARTAO_10MIN_PADRAO, TETO_DISJUNTOR),
+    cartaoGlobal10min: lerLimite(config?.checkoutDisjuntorCartao_10min, DISJUNTOR_CARTAO_10MIN_PADRAO, TETO_DISJUNTOR),
   }
 }
 
