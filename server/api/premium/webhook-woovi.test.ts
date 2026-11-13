@@ -408,4 +408,79 @@ describe('payment confirmation with our own credential', () => {
       expect(gravarHash).not.toHaveBeenCalled()
     })
   })
+
+  // Every signed event is stored for audit. Finance only hears about events
+  // that are about an order of ours.
+  describe('audit trail and the copy to finance', () => {
+    it('confirmed payment: stored, flagged and forwarded to finance once', async () => {
+      semear()
+      apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('COMPLETED', 'cob-do-pedido') })
+      const corpo = eventoPago()
+
+      await chamar(corpo, ASSINATURA)
+
+      expect(db.tab('webhook_events')).toHaveLength(1)
+      expect(eventoGravado()).toMatchObject({ processado: true })
+      expect(financeiro).toHaveBeenCalledTimes(1)
+      expect(financeiro).toHaveBeenCalledWith(db, JSON.parse(corpo), corpo, PEDIDO, 'cob-do-pedido')
+    })
+
+    it('payment event the provider does not confirm: stored, not flagged, no e-mail to finance', async () => {
+      semear()
+      apiPix({ [COBRANCA_DO_PEDIDO]: cobrancaWoovi('ACTIVE', 'cob-do-pedido'), [COBRANCA_ORIGINAL]: cobrancaWoovi('ACTIVE', 'cob-do-pedido') })
+
+      await chamar(eventoPago(), ASSINATURA)
+
+      expect(db.tab('webhook_events')).toHaveLength(1)
+      expect(eventoGravado()).toMatchObject({ provider: 'woovi', event: 'OPENPIX:CHARGE_COMPLETED', abacatepay_id: 'cob-do-pedido' })
+      expect(eventoGravado()).not.toHaveProperty('processado', true)
+      expect(financeiro).not.toHaveBeenCalled()
+    })
+
+    it('payment event when the provider cannot be asked: stored, no e-mail to finance', async () => {
+      semear()
+      apiPix({ [COBRANCA_DO_PEDIDO]: SEM_REDE, [COBRANCA_ORIGINAL]: SEM_REDE })
+
+      await expect(chamar(eventoPago(), ASSINATURA)).rejects.toMatchObject({ statusCode: 503 })
+
+      expect(db.tab('webhook_events')).toHaveLength(1)
+      expect(financeiro).not.toHaveBeenCalled()
+    })
+
+    it('payment event whose correlationID matches no order: stored, no e-mail, no provider asked', async () => {
+      const api = apiPix({})
+
+      expect(await chamar(eventoPago({ correlationID: OUTRO_PEDIDO, identifier: 'cob-de-outra-conta' }), ASSINATURA)).toEqual({ ok: true, semPedido: true })
+
+      expect(db.tab('webhook_events')).toHaveLength(1)
+      expect(eventoGravado()).not.toHaveProperty('processado', true)
+      expect(financeiro).not.toHaveBeenCalled()
+      expect(api).not.toHaveBeenCalled()
+      expect(processar).not.toHaveBeenCalled()
+    })
+
+    it('event that is not a payment, about an order of ours: stored and forwarded, no provider asked', async () => {
+      semear()
+      const api = apiPix({})
+      const corpo = eventoExpirou(PEDIDO)
+
+      expect(await chamar(corpo, ASSINATURA)).toEqual({ ok: true, ignored: 'OPENPIX:CHARGE_EXPIRED' })
+
+      expect(db.tab('webhook_events')).toHaveLength(1)
+      expect(financeiro).toHaveBeenCalledTimes(1)
+      expect(financeiro).toHaveBeenCalledWith(db, JSON.parse(corpo), corpo, PEDIDO, 'cob-do-pedido')
+      expect(api).not.toHaveBeenCalled()
+      expect(processar).not.toHaveBeenCalled()
+    })
+
+    it('event that is not a payment, about no order of ours: stored, not forwarded', async () => {
+      const api = apiPix({})
+
+      expect(await chamar(eventoExpirou(OUTRO_PEDIDO).replace('cob-do-pedido', 'cob-de-outra-conta'), ASSINATURA)).toEqual({ ok: true, ignored: 'OPENPIX:CHARGE_EXPIRED' })
+
+      expect(db.tab('webhook_events')).toHaveLength(1)
+      expect(financeiro).not.toHaveBeenCalled()
+      expect(api).not.toHaveBeenCalled()
+    })
+  })
 })

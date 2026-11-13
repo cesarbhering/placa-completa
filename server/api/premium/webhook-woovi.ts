@@ -103,24 +103,36 @@ export default defineEventHandler(async (event) => {
   const chargeId = String(charge?.identifier || '')
 
   const supabase = usePremiumSupabase()
-  // Copia COMPLETA pro financeiro@ (conciliacao/nota), sem await: nunca atrasa
-  // a resposta nem o pedido. Dedup por evento (a Woovi entrega 2x).
-  void emVoo('webhook-financeiro', () => encaminharWebhookFinanceiro(supabase, payload, raw, pedidoId, chargeId))
-  // Mesma tabela de sempre, pra auditoria e idempotencia ficarem num lugar so.
+  // Every event with a valid signature is stored, whatever happens next: this
+  // is the audit trail. Mesma tabela de sempre, pra auditoria e idempotencia
+  // ficarem num lugar so.
   await supabase.from('webhook_events').insert({
     // Sem dados do pagador (CPF/nome) no log de auditoria.
     provider: 'woovi', event: evt, abacatepay_id: chargeId || pedidoId, payload: sanearPayloadWebhook(payload),
   })
 
-  // Only payment events matter. Woovi sends OPENPIX:CHARGE_COMPLETED when a
-  // charge is paid. The event type and status only select which events are
-  // worth confirming below; they are never the confirmation.
-  const eventoDePagamento = /completed|paid|pago/i.test(evt) || String(charge?.status || '').toUpperCase() === 'COMPLETED'
-  if (!eventoDePagamento) return { ok: true, ignored: evt }
-
+  // The order this event is about, when it is one of ours.
   let pedido: any = null
   if (pedidoId) ({ data: pedido } = await supabase.from('pedidos_premium').select('*').eq('id', pedidoId).maybeSingle())
   if (!pedido && chargeId) ({ data: pedido } = await supabase.from('pedidos_premium').select('*').eq('abacatepay_id', chargeId).maybeSingle())
+
+  // FULL copy to financeiro@ (reconciliation, invoices), without await: it
+  // never delays the answer nor the order. Deduplicated per event (Woovi
+  // delivers each one twice). It only goes out for an event about an order of
+  // ours: a payment event after the provider confirmed it, any other event
+  // once its order was found.
+  const avisarFinanceiro = () => {
+    void emVoo('webhook-financeiro', () => encaminharWebhookFinanceiro(supabase, payload, raw, pedidoId, chargeId))
+  }
+
+  // Only payment events are processed. Woovi sends OPENPIX:CHARGE_COMPLETED
+  // when a charge is paid. The event type and status only select which events
+  // are worth confirming below; they are never the confirmation.
+  const eventoDePagamento = /completed|paid|pago/i.test(evt) || String(charge?.status || '').toUpperCase() === 'COMPLETED'
+  if (!eventoDePagamento) {
+    if (pedido) avisarFinanceiro()
+    return { ok: true, ignored: evt }
+  }
   if (!pedido) return { ok: true, semPedido: true }
 
   // The event located an order. Whether that order was paid is answered by
@@ -139,6 +151,7 @@ export default defineEventHandler(async (event) => {
     return { ok: true, naoConfirmado: true }
   }
 
+  avisarFinanceiro()
   void emVoo('pagador-hash', () => gravarPagadorHash(supabase, pedido))
   await rastrearEmVoo('processar-pedido', () => processarPedidoPago(supabase, pedido))
   if (chargeId) await supabase.from('webhook_events').update({ processado: true }).eq('abacatepay_id', chargeId)
