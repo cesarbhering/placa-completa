@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import { renderSVG } from 'uqr'
 import type { PixCharge, CriarPixOpts } from './pix-provider'
+import { consultaQueFalhou, type ConsultaPix } from './pix-consulta'
 
 // Integracao Woovi (OpenPix). Campos conferidos na doc oficial em 10/set/2026:
 //   criar:  POST /api/v1/charge {correlationID, value, comment?, expiresIn?}
@@ -83,9 +84,12 @@ export function statusNormalizado(bruto: unknown): string {
   return 'PENDING'
 }
 
-export async function checarPix(
-  id: string,
-): Promise<{ status: string; brCode?: string; brCodeBase64?: string } | null> {
+/**
+ * Looks a charge up by its id and tells "the charge does not exist in our
+ * account" from "Woovi did not answer" (see pix-consulta.ts). Throws when
+ * Woovi is not configured, like checarPix.
+ */
+export async function consultarPix(id: string): Promise<ConsultaPix<{ status: string; brCode?: string; brCodeBase64?: string }>> {
   const { base } = cfg()
   try {
     const res = await $fetch<any>(`${base}/api/v1/charge/${encodeURIComponent(id)}`, {
@@ -93,14 +97,53 @@ export async function checarPix(
       headers: headers(),
     })
     const charge = res?.charge || res
-    if (!charge) return null
+    if (!charge) return { situacao: 'nao_encontrada' }
     return {
-      status: statusNormalizado(charge.status),
-      brCode: charge.brCode ? String(charge.brCode) : undefined,
-      brCodeBase64: charge.brCode ? qrComoDataUri(String(charge.brCode)) : undefined,
+      situacao: 'encontrada',
+      cobranca: {
+        status: statusNormalizado(charge.status),
+        brCode: charge.brCode ? String(charge.brCode) : undefined,
+        brCodeBase64: charge.brCode ? qrComoDataUri(String(charge.brCode)) : undefined,
+      },
     }
-  } catch {
-    return null
+  } catch (e) {
+    return consultaQueFalhou(e)
+  }
+}
+
+/** Status da cobranca; null quando ela nao existe ou a Woovi nao respondeu. */
+export async function checarPix(
+  id: string,
+): Promise<{ status: string; brCode?: string; brCodeBase64?: string } | null> {
+  const consulta = await consultarPix(id)
+  return consulta.situacao === 'encontrada' ? consulta.cobranca : null
+}
+
+/**
+ * Looks a charge up by its correlationID (the GET accepts it in place of the
+ * id) and tells "no such charge in our account" from "Woovi did not answer".
+ * The charge comes with the correlationID Woovi has on record for it, so the
+ * caller can tie it to an order. Never throws: Woovi not configured is "did
+ * not answer".
+ */
+export async function consultarCobrancaPorCorrelacao(
+  correlationID: string,
+): Promise<ConsultaPix<{ status: string; identifier: string; correlationID: string | null }>> {
+  try {
+    const { base } = cfg()
+    const res = await $fetch<any>(`${base}/api/v1/charge/${encodeURIComponent(correlationID)}`, { method: 'GET', headers: headers() })
+    const charge = res?.charge || null
+    if (!charge?.identifier) return { situacao: 'nao_encontrada' }
+    return {
+      situacao: 'encontrada',
+      cobranca: {
+        status: statusNormalizado(charge.status),
+        identifier: String(charge.identifier),
+        correlationID: charge.correlationID ? String(charge.correlationID) : null,
+      },
+    }
+  } catch (e) {
+    return consultaQueFalhou(e)
   }
 }
 
@@ -112,15 +155,8 @@ export async function checarPix(
  * salva-vidas, caso RBF5A06). Null em erro, 404 ou Woovi nao configurada.
  */
 export async function cobrancaPorCorrelacao(correlationID: string): Promise<{ status: string; identifier: string } | null> {
-  try {
-    const { base } = cfg()
-    const res = await $fetch<any>(`${base}/api/v1/charge/${encodeURIComponent(correlationID)}`, { method: 'GET', headers: headers() })
-    const charge = res?.charge || null
-    if (!charge?.identifier) return null
-    return { status: statusNormalizado(charge.status), identifier: String(charge.identifier) }
-  } catch {
-    return null
-  }
+  const consulta = await consultarCobrancaPorCorrelacao(correlationID)
+  return consulta.situacao === 'encontrada' ? { status: consulta.cobranca.status, identifier: consulta.cobranca.identifier } : null
 }
 
 /**

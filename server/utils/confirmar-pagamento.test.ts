@@ -5,14 +5,20 @@ import { confirmarPagamentoDoPedido } from './confirmar-pagamento'
 
 // The rule shared by the buyer's polling and the Woovi webhook. The provider
 // modules are real; only their HTTP boundary ($fetch for Pix, fetch for
-// Stripe) and the database are faked. `null` below means "the provider did
-// not answer" (network error or a non-2xx reply).
+// Stripe) and the database are faked.
+//
+// Besides a charge status, a lookup in the tables below can be:
+// - 'sem resposta': network error, the provider could not be reached;
+// - 'erro 500': the provider answered with an error of its own;
+// - 'nao existe': the provider answered that it has no such charge.
 
 const PEDIDO = '11111111-1111-4111-8111-111111111111'
 const WOOVI = 'https://woovi.test'
 const ABACATE = 'https://abacate.test'
 const STRIPE = 'https://api.stripe.com/v1'
 const SEM_RESPOSTA = new Error('network down')
+/** An HTTP error as ofetch throws it. */
+const erroHttp = (status: number) => Object.assign(new Error(`[GET] ${status}`), { status, statusCode: status })
 
 let db: ReturnType<typeof supabaseMemoria>
 
@@ -27,12 +33,20 @@ function semear(extra: Record<string, any> = {}) {
 }
 const pedidoNoBanco = () => db.tab('pedidos_premium')[0]
 
-/** Woovi answer for GET /api/v1/charge/{id}; `null` status = no answer. */
-const woovi = (status: string | null, identifier: string) => status === null
-  ? SEM_RESPOSTA
-  : { charge: { status, identifier, correlationID: PEDIDO, value: 4490, brCode: '00020101021226-teste' } }
-/** AbacatePay answer for GET /transparents/check; `null` status = no answer. */
-const abacate = (status: string | null) => status === null ? SEM_RESPOSTA : { data: { status }, success: true, error: null }
+/** Woovi answer for GET /api/v1/charge/{id}. Its "not found" is the 400 that lookup documents. */
+function woovi(caso: string, identifier: string) {
+  if (caso === 'sem resposta') return SEM_RESPOSTA
+  if (caso === 'erro 500') return erroHttp(500)
+  if (caso === 'nao existe') return erroHttp(400)
+  return { charge: { status: caso, identifier, correlationID: PEDIDO, value: 4490, brCode: '00020101021226-teste' } }
+}
+/** AbacatePay answer for GET /transparents/check. Its "not found" is a 404. */
+function abacate(caso: string) {
+  if (caso === 'sem resposta') return SEM_RESPOSTA
+  if (caso === 'erro 500') return erroHttp(500)
+  if (caso === 'nao existe') return erroHttp(404)
+  return { data: { status: caso }, success: true, error: null }
+}
 
 function apiPix(respostas: Record<string, any>) {
   const api = vi.fn(async (url: string, opts: any = {}) => {
@@ -76,7 +90,9 @@ describe('confirmarPagamentoDoPedido', () => {
       { cobranca: 'COMPLETED', esperado: 'pago' },
       { cobranca: 'ACTIVE', esperado: 'nao_pago' },
       { cobranca: 'EXPIRED', esperado: 'nao_pago' },
-      { cobranca: null, esperado: 'indeterminado' },
+      { cobranca: 'nao existe', esperado: 'nao_pago' },
+      { cobranca: 'sem resposta', esperado: 'indeterminado' },
+      { cobranca: 'erro 500', esperado: 'indeterminado' },
     ])('recorded charge $cobranca: $esperado', async ({ cobranca, esperado }) => {
       const pedido = semear()
       const api = apiPix({ [`${WOOVI}/api/v1/charge/cob-do-pedido`]: woovi(cobranca, 'cob-do-pedido') })
@@ -93,11 +109,19 @@ describe('confirmarPagamentoDoPedido', () => {
 
     it.each([
       { gravada: 'PENDING', original: 'COMPLETED', esperado: 'pago' },
-      { gravada: null, original: 'COMPLETED', esperado: 'pago' },
+      { gravada: 'sem resposta', original: 'COMPLETED', esperado: 'pago' },
+      { gravada: 'nao existe', original: 'COMPLETED', esperado: 'pago' },
       { gravada: 'PENDING', original: 'ACTIVE', esperado: 'nao_pago' },
-      { gravada: 'PENDING', original: null, esperado: 'indeterminado' },
-      { gravada: null, original: 'ACTIVE', esperado: 'indeterminado' },
-      { gravada: null, original: null, esperado: 'indeterminado' },
+      // An order born on the fallback provider has no original Woovi charge.
+      { gravada: 'PENDING', original: 'nao existe', esperado: 'nao_pago' },
+      { gravada: 'nao existe', original: 'ACTIVE', esperado: 'nao_pago' },
+      { gravada: 'nao existe', original: 'nao existe', esperado: 'nao_pago' },
+      { gravada: 'PENDING', original: 'sem resposta', esperado: 'indeterminado' },
+      { gravada: 'PENDING', original: 'erro 500', esperado: 'indeterminado' },
+      { gravada: 'sem resposta', original: 'ACTIVE', esperado: 'indeterminado' },
+      { gravada: 'sem resposta', original: 'nao existe', esperado: 'indeterminado' },
+      { gravada: 'nao existe', original: 'sem resposta', esperado: 'indeterminado' },
+      { gravada: 'sem resposta', original: 'sem resposta', esperado: 'indeterminado' },
     ])('recorded charge $gravada, original charge $original: $esperado', async ({ gravada, original, esperado }) => {
       const pedido = semear(outroProvedor)
       apiPix({

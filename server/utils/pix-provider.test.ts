@@ -10,10 +10,10 @@ vi.stubGlobal('createError', (o: any) => Object.assign(new Error(o?.message || '
 // falhou. .nome e .nomeDoRecebedor sao definidos no proprio pix-provider, nao
 // vem dos adaptadores, entao mockar os modulos nao afeta os outros testes.
 vi.mock('./abacatepay', () => ({
-  criarPixTransparente: vi.fn(), checarPix: vi.fn(), reembolsarPix: vi.fn(), simularPagamento: vi.fn(),
+  criarPixTransparente: vi.fn(), checarPix: vi.fn(), consultarPix: vi.fn(), reembolsarPix: vi.fn(), simularPagamento: vi.fn(),
 }))
 vi.mock('./woovi', () => ({
-  criarPixTransparente: vi.fn(), checarPix: vi.fn(), reembolsarPix: vi.fn(), simularPagamento: vi.fn(),
+  criarPixTransparente: vi.fn(), checarPix: vi.fn(), consultarPix: vi.fn(), reembolsarPix: vi.fn(), simularPagamento: vi.fn(),
 }))
 
 const abacate = await import('./abacatepay')
@@ -60,6 +60,17 @@ describe('provedor de um pedido ja criado', () => {
     expect(provedorDoPedido(null).nome).toBe('abacatepay')
     expect(provedorDoPedido(undefined).nome).toBe('abacatepay')
     expect(provedorDoPedido('').nome).toBe('abacatepay')
+  })
+
+  it('the detailed charge lookup goes to the provider recorded on the order', async () => {
+    vi.mocked(woovi.consultarPix).mockResolvedValue({ situacao: 'nao_encontrada' })
+    vi.mocked(abacate.consultarPix).mockResolvedValue({ situacao: 'sem_resposta' })
+
+    expect(await provedorDoPedido('woovi').consultarPix('cob-1')).toEqual({ situacao: 'nao_encontrada' })
+    expect(await provedorDoPedido('abacatepay').consultarPix('cob-2')).toEqual({ situacao: 'sem_resposta' })
+
+    expect(woovi.consultarPix).toHaveBeenCalledWith('cob-1')
+    expect(abacate.consultarPix).toHaveBeenCalledWith('cob-2')
   })
 })
 

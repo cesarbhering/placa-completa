@@ -1,6 +1,6 @@
 import { detectarPagamento, deveChecarWooviOriginal, type PedidoPagamento } from './status-pagamento'
 import { provedorDoPedido } from './pix-provider'
-import { cobrancaPorCorrelacao } from './woovi'
+import { consultarCobrancaPorCorrelacao } from './woovi'
 import { consultarPaymentIntent, consultarStripeSession, paymentIntentPago, stripeSessionPaga } from './stripe'
 
 // The single rule that decides whether an order has been paid. It is shared by
@@ -15,10 +15,12 @@ import { consultarPaymentIntent, consultarStripeSession, paymentIntentPago, stri
 /**
  * - 'pago': a provider confirmed a paid charge of this order.
  * - 'nao_pago': every provider that had to be asked answered, and none has a
- *   paid charge of this order.
+ *   paid charge of this order. "There is no such charge in your account" is an
+ *   answer too.
  * - 'indeterminado': no paid charge was found, but at least one provider did
- *   not answer (network error, timeout, non-2xx reply), so "not paid" cannot
- *   be asserted either.
+ *   not answer (network error, timeout, refused credential, provider error),
+ *   so "not paid" cannot be asserted either. See pix-consulta.ts for what
+ *   counts as an answer.
  */
 export type ConfirmacaoPagamento = 'pago' | 'nao_pago' | 'indeterminado'
 
@@ -34,7 +36,7 @@ export type PedidoConfirmavel = PedidoPagamento & { id: string; expira_em?: stri
  * configured) are not swallowed here: each caller decides what they mean.
  */
 export async function confirmarPagamentoDoPedido(supabase: any, pedido: PedidoConfirmavel): Promise<ConfirmacaoPagamento> {
-  // The provider modules return null when they could not get an answer.
+  // True once a provider that had to be asked did not answer.
   let semResposta = false
 
   // Card FIRST (Stripe), then Pix: a payment is detected on any track. See
@@ -55,22 +57,23 @@ export async function confirmarPagamentoDoPedido(supabase: any, pedido: PedidoCo
     checarPix: async (provider, chargeId) => {
       // Ask the provider that created THIS charge, not the one configured
       // now: both coexist while the switch between them happens.
-      const chk = await provedorDoPedido(provider).checarPix(chargeId)
-      if (!chk) semResposta = true
-      return !!(chk && /paid|completed|pago/i.test(chk.status))
+      const consulta = await provedorDoPedido(provider).consultarPix(chargeId)
+      if (consulta.situacao === 'sem_resposta') semResposta = true
+      return consulta.situacao === 'encontrada' && /paid|completed|pago/i.test(consulta.cobranca.status)
     },
   })
 
   // Safety net: the ORIGINAL Woovi charge (correlationID = pedido.id) paid
   // while the order pointed to another one (see deveChecarWooviOriginal).
   if (!pago && deveChecarWooviOriginal(pedido)) {
-    const orig = await cobrancaPorCorrelacao(pedido.id)
-    if (!orig) semResposta = true
-    if (orig?.status === 'PAID') {
+    const consulta = await consultarCobrancaPorCorrelacao(pedido.id)
+    if (consulta.situacao === 'sem_resposta') semResposta = true
+    if (consulta.situacao === 'encontrada' && consulta.cobranca.status === 'PAID') {
+      const { identifier } = consulta.cobranca
       console.warn(`[pix] pagamento achado na cobranca Woovi original; repointando pedido=${pedido.id}`)
-      await supabase.from('pedidos_premium').update({ pix_provider: 'woovi', abacatepay_id: orig.identifier }).eq('id', pedido.id)
+      await supabase.from('pedidos_premium').update({ pix_provider: 'woovi', abacatepay_id: identifier }).eq('id', pedido.id)
       pedido.pix_provider = 'woovi'
-      pedido.abacatepay_id = orig.identifier
+      pedido.abacatepay_id = identifier
       pago = true
     }
   }
