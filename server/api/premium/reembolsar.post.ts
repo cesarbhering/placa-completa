@@ -1,12 +1,21 @@
 import { cancelarNfse } from '../../utils/nfse'
 import { emVoo } from '../../utils/tarefas-em-voo'
+import { assertAdminSecret } from '../../utils/admin-secret'
 
-// Retenta o reembolso de um pedido que foi PAGO mas nao pode ser concluido, e
-// cujo estorno automatico falhou (tipicamente INSUFFICIENT_FUNDS, quando o
-// dinheiro pago ainda esta em `pending` e nao ha saldo `available`). Idempotente
-// do lado da AbacatePay. Gated + exige o token do pedido (credencial).
+// Operator-only: retries the refund of an order that was PAID but could not be
+// delivered and whose automatic refund failed (typically INSUFFICIENT_FUNDS,
+// when the money paid is still `pending` and there is no `available` balance).
+//
+// Requires x-admin-secret in every environment (404 without it, like the other
+// operator routes). The order token in the body only says which order to
+// refund; it is not a credential here. No page calls this route.
+//
+// Pix only: an order without a Pix charge (card, app) gets 409.
+//
+// Idempotent: an order already marked reembolsado is answered without asking
+// the provider again, and the provider deduplicates a repeated refund.
 export default defineEventHandler(async (event) => {
-  assertPremiumGate(event)
+  assertAdminSecret(event)
   const { token } = await readBody(event)
   if (!token) throw createError({ statusCode: 400, message: 'token obrigatorio' })
 

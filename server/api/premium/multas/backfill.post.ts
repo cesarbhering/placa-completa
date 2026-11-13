@@ -1,5 +1,5 @@
-import crypto from 'node:crypto'
 import { emVoo } from '../../../utils/tarefas-em-voo'
+import { assertAdminSecret } from '../../../utils/admin-secret'
 
 // Backfill (e teste) do bloco DETRAN (SP, SC, MG) (multas, hodometro, IPVA,
 // licenciamento, restricoes) via Infosimples nos relatorios ja entregues.
@@ -45,14 +45,7 @@ function dentroDoTeto(): boolean {
 }
 
 export default defineEventHandler(async (event) => {
-  const segredo = String(useRuntimeConfig().adminSecret || '')
-  if (!segredo) throw createError({ statusCode: 404, message: 'Not Found' })
-
-  const enviado = String(getRequestHeader(event, 'x-admin-secret') || '')
-  const ok =
-    enviado.length === segredo.length &&
-    crypto.timingSafeEqual(Buffer.from(enviado), Buffer.from(segredo))
-  if (!ok) throw createError({ statusCode: 404, message: 'Not Found' })
+  assertAdminSecret(event)
 
   if (!dentroDoTeto()) {
     throw createError({ statusCode: 429, message: 'Limite de disparos por hora atingido.' })

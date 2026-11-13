@@ -1,5 +1,5 @@
 import { marcaTemAutoritativo, normalizarMarcaRecall } from '../../../../shared/marcas-recall'
-import crypto from 'node:crypto'
+import { assertAdminSecret } from '../../../utils/admin-secret'
 
 // Backfill do detalhe de recall nos relatorios ja entregues.
 //
@@ -41,15 +41,7 @@ function fipeResumo(vc: any) {
 }
 
 export default defineEventHandler(async (event) => {
-  const segredo = String(useRuntimeConfig().adminSecret || '')
-  if (!segredo) throw createError({ statusCode: 404, message: 'Not Found' })
-
-  const enviado = String(getRequestHeader(event, 'x-admin-secret') || '')
-  // Comparacao de tamanho primeiro e depois byte a byte: timingSafeEqual
-  // estoura com tamanhos diferentes.
-  const ok = enviado.length === segredo.length
-    && crypto.timingSafeEqual(Buffer.from(enviado), Buffer.from(segredo))
-  if (!ok) throw createError({ statusCode: 404, message: 'Not Found' })
+  assertAdminSecret(event)
 
   if (!dentroDoTeto()) {
     throw createError({ statusCode: 429, message: 'Limite de disparos por hora atingido.' })

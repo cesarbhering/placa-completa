@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import { consultaQueFalhou, type ConsultaPix } from './pix-consulta'
 
 // Integracao AbacatePay v2 (Pix transparente). Shapes validados na homologacao:
 // create: POST /transparents/create {method:'PIX', data:{amount, ...}} -> {id, brCode, brCodeBase64, status, expiresAt}
@@ -165,6 +166,16 @@ export async function criarPixTransparente(opts: {
 export async function checarPix(
   id: string,
 ): Promise<{ status: string; brCode?: string; brCodeBase64?: string } | null> {
+  const consulta = await consultarPix(id)
+  return consulta.situacao === 'encontrada' ? consulta.cobranca : null
+}
+
+/**
+ * Same lookup as checarPix, telling "the charge does not exist in our account"
+ * from "AbacatePay did not answer" (see pix-consulta.ts). Throws when
+ * AbacatePay is not configured, like checarPix.
+ */
+export async function consultarPix(id: string): Promise<ConsultaPix<{ status: string; brCode?: string; brCodeBase64?: string }>> {
   const { base, key } = cfg()
   try {
     const res = await $fetch<AbacateResp<{ status: string; brCode?: string; brCodeBase64?: string }>>(
@@ -175,9 +186,13 @@ export async function checarPix(
         query: { id },
       },
     )
-    return res.data
-  } catch {
-    return null
+    // An answer without a charge in the expected shape (an envelope without
+    // data, data without a status) says nothing about the charge.
+    const dados = res?.data
+    if (!dados || typeof dados !== 'object' || typeof dados.status !== 'string' || !dados.status) return { situacao: 'sem_resposta' }
+    return { situacao: 'encontrada', cobranca: dados }
+  } catch (e) {
+    return consultaQueFalhou(e)
   }
 }
 

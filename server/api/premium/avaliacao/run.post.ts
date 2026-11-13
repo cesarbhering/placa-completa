@@ -1,5 +1,5 @@
-import crypto from 'node:crypto'
 import { rodarAvaliacaoGoogle } from '../../../utils/avaliacao-google'
+import { assertAdminSecret } from '../../../utils/admin-secret'
 
 // Pedido de nota (1 a 5) 3 dias apos a entrega (05/nov/2026); a pagina
 // /feedback leva nota 4-5 ao Google.
@@ -8,11 +8,7 @@ import { rodarAvaliacaoGoogle } from '../../../utils/avaliacao-google'
 // (lista de exclusao do host), dry_run?: boolean, limite?: number }.
 // Sem segredo ou errado: 404. Fora de prod nao envia nada.
 export default defineEventHandler(async (event) => {
-  const segredo = String(useRuntimeConfig().adminSecret || '')
-  if (!segredo) throw createError({ statusCode: 404, message: 'Not Found' })
-  const enviado = String(getRequestHeader(event, 'x-admin-secret') || '')
-  const ok = enviado.length === segredo.length && crypto.timingSafeEqual(Buffer.from(enviado), Buffer.from(segredo))
-  if (!ok) throw createError({ statusCode: 404, message: 'Not Found' })
+  assertAdminSecret(event)
 
   const body = await readBody(event).catch(() => ({})) || {}
   const desde = Date.parse(String(body.desde || ''))
