@@ -294,3 +294,52 @@ describe('small fixes of review 2 of PR #750', () => {
     expect(linhaNotificacao(juntarNotificacoes([lista[0]])[0])).toBe('Notificado para leilão')
   })
 })
+
+describe('review 3 of PR #750', () => {
+  it('a generic timeline label shared by several houses never takes the first card name', () => {
+    const h = {
+      resumo: { tem_indicio: true },
+      passagens: [
+        { fonte: 'copart', fonte_tipo: 'privado', fonte_exibicao: 'Leiloeira particular', nivel: 'confirmado', lote: '1', data_leilao: '2026-01-10' },
+        { fonte: 'sodre', fonte_tipo: 'privado', fonte_exibicao: 'Leiloeira particular', nivel: 'confirmado', lote: '2', data_leilao: '2026-03-10' },
+        { fonte: 'canhao:cdn.exemplo.net', fonte_tipo: 'privado', fonte_exibicao: 'Leiloeira particular', nivel: 'confirmado', lote: '3', data_leilao: '2026-05-10' },
+      ],
+      linha_do_tempo: [
+        { data: '2026-03-10', dataFim: null, tipo: 'leilao', nPassagens: 1, fontes: ['Leiloeira particular'] },
+        { data: '2026-05-10', data_fim: '2026-05-10', tipo: 'leilao', nPassagens: 1, fontes: ['Leiloeira particular'] },
+      ],
+    }
+    const r: any = historicoParaExibicao(h)
+    const copart = fonteExibicaoLeilao(r.passagens[0])
+    expect(copart).not.toBe('Leiloeira particular')
+    expect(r.linha_do_tempo[0].fontes).not.toContain(copart)
+    expect(r.linha_do_tempo[1].fontes).toEqual(['Leiloeira particular'])
+    // Without dates in the event and passages that disagree: the label read alone.
+    expect(rotuloFonteLinhaDoTempo('Leiloeira particular', h.passagens)).toBe('Leiloeira particular')
+  })
+
+  it('the event date picks the passage of that auction', () => {
+    const passagens = [
+      { fonte: 'vlance_cesvi', fonte_tipo: 'privado', fonte_exibicao: 'Vlance Cesvi', nivel: 'confirmado', lote: '3', data_leilao: '2026-02-02' },
+      { fonte: 'vlance_outra', fonte_tipo: 'privado', fonte_exibicao: 'Vlance Cesvi', nivel: 'confirmado', lote: '4', data_leilao: '2026-04-04' },
+    ]
+    expect(rotuloFonteLinhaDoTempo('Vlance Cesvi', passagens, { data: '2026-02-02', dataFim: null })).toBe('Cesvi')
+    expect(rotuloFonteLinhaDoTempo('Vlance Cesvi', passagens, { data: '2026-04-01', data_fim: '2026-04-05' })).toBe('Outra')
+    const r: any = historicoParaExibicao({ passagens: [passagens[0]], linha_do_tempo: [{ data: '2026-02-02', dataFim: null, tipo: 'leilao', nPassagens: 1, fontes: ['Vlance Cesvi'] }] })
+    expect(r.linha_do_tempo[0].fontes).toEqual(['Cesvi'])
+  })
+
+  it('when the card level rises, the evidence of the stronger passage comes along', () => {
+    const direta = { fonte: 'casa_x', fonte_tipo: 'privado', nivel: 'provavel', lote: '12', data_leilao: '2026-03-10', gravidade: 'media', evidencias: ['modelo compativel', 'ano compativel'] }
+    const canhao = { fonte: 'canhao:cdn.exemplo.net', fonte_tipo: 'privado', nivel: 'confirmado', lote: '012', data_leilao: '2026-03-10', gravidade: 'alta', evidencias: ['chassi completo igual', 'ano compativel'] }
+    const entrada = [direta, canhao]
+    const copia = JSON.parse(JSON.stringify(entrada))
+    const r = passagensSemCanhao(entrada)
+    expect(r).toHaveLength(1)
+    expect(r[0].nivel).toBe('confirmado')
+    expect(r[0].evidencias).toEqual(['chassi completo igual', 'ano compativel', 'modelo compativel'])
+    expect(r[0].gravidade).toBe('media')
+    expect(r[0].fonte).toBe('casa_x')
+    expect(entrada).toEqual(copia)
+  })
+})

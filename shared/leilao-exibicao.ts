@@ -269,7 +269,8 @@ export function passagensSemCanhao(lista: unknown): any[] {
     const k = chaveData(c)
     return k && chaveData(d) === k ? [i] : []
   })
-  const nivelFinal = new Map<number, string>()
+  // Direct passage index -> the absorbed canhao passage that raised its level.
+  const maisForte = new Map<number, any>()
   const fora = new Set<number>()
   norm.forEach((c: any, i: number) => {
     if (!c.via_canhao || !loteNorm(c.lote)) return
@@ -277,15 +278,31 @@ export function passagensSemCanhao(lista: unknown): any[] {
     if (!alvo.length) return
     fora.add(i)
     for (const d of alvo) {
-      const atual = nivelFinal.get(d) ?? norm[d].nivel
-      if ((FORCA[c.nivel] ?? 0) > (FORCA[atual] ?? 0)) nivelFinal.set(d, c.nivel)
+      const atual = maisForte.get(d)?.nivel ?? norm[d].nivel
+      if ((FORCA[c.nivel] ?? 0) > (FORCA[atual] ?? 0)) maisForte.set(d, c)
     }
   })
   return norm.flatMap((p: any, i: number) => {
     if (fora.has(i)) return []
-    const n = nivelFinal.get(i)
-    return [n ? { ...p, nivel: n } : p]
+    const c = maisForte.get(i)
+    return [c ? subirNivel(p, c) : p]
   })
+}
+
+/**
+ * The direct card takes the level of the stronger passage of the same auction
+ * and, with it, what backs that level on screen (review 3 of PR #750): its
+ * evidence first, then the direct one, without repeats, and its `certeza` when
+ * it has one. Severity, origin, auctioneer, edital and photos stay the direct
+ * card's. Returns a new object.
+ */
+function subirNivel(p: any, c: any): any {
+  const lista = (v: unknown) => (Array.isArray(v) ? v : [])
+  const evidencias = [...new Set([...lista(c.evidencias), ...lista(p.evidencias)])]
+  const out: any = { ...p, nivel: c.nivel }
+  if (evidencias.length) out.evidencias = evidencias
+  if (c.certeza !== undefined) out.certeza = c.certeza
+  return out
 }
 
 const FORCA: Record<string, number> = { confirmado: 3, provavel: 2, possivel: 1 }
@@ -305,7 +322,7 @@ export function historicoParaExibicao<H extends { passagens?: any[]; resumo?: an
   const passagens = juntarNotificacoes(passagensSemCanhao(h.passagens))
   const linha = Array.isArray(h.linha_do_tempo)
     ? h.linha_do_tempo.map((e: any) => (e && Array.isArray(e.fontes)
-        ? { ...e, fontes: [...new Set(e.fontes.map((f: unknown) => rotuloFonteLinhaDoTempo(f, h.passagens!.map((x: any) => passagemSemCanhao(x)))))] }
+        ? { ...e, fontes: [...new Set(e.fontes.map((f: unknown) => rotuloFonteLinhaDoTempo(f, h.passagens!.map((x: any) => passagemSemCanhao(x)), e)))] }
         : e))
     : h.linha_do_tempo
   if (passagens.length === h.passagens.length) return { ...h, passagens, linha_do_tempo: linha }
@@ -377,12 +394,30 @@ export function fonteExibicaoLeilao(p: { fonte?: string | null; fonte_tipo?: str
  * fonte_exibicao or fonte) gets that card's label; any other label is read as
  * a source of its own. So the timeline never says "Leiloeira particular" while
  * the card of the same auction says "Cesvi".
+ *
+ * The card label is used only when the passages behind the label agree on it
+ * (review 3 of PR #750): when the event has a date, the passages whose auction
+ * date falls inside the event; otherwise (or when none falls inside) all the
+ * passages with that label. Several houses sharing a generic label never give
+ * the event the name of the first one.
  */
-export function rotuloFonteLinhaDoTempo(f: unknown, passagens: any[] = []): string {
+export function rotuloFonteLinhaDoTempo(
+  f: unknown,
+  passagens: any[] = [],
+  evento?: { data?: string | null; dataFim?: string | null; data_fim?: string | null } | null,
+): string {
   const bruto = String(f ?? '').trim()
+  const sozinho = fonteExibicaoLeilao({ fonte: bruto, fonte_exibicao: bruto })
   const k = bruto.toLowerCase()
-  const p = k ? passagens.find((x: any) => x && [x.fonte_exibicao, x.fonte].some((v) => String(v ?? '').trim().toLowerCase() === k)) : null
-  return fonteExibicaoLeilao(p || { fonte: bruto, fonte_exibicao: bruto })
+  if (!k) return sozinho
+  const comRotulo = passagens.filter((x: any) => x && [x.fonte_exibicao, x.fonte].some((v) => String(v ?? '').trim().toLowerCase() === k))
+  const ini = dataNorm(evento?.data)
+  const fim = dataNorm(evento?.data_fim ?? evento?.dataFim) || ini
+  const naData = ini
+    ? comRotulo.filter((x: any) => { const d = dataNorm(x.data_leilao); return !!d && d >= ini && d <= fim })
+    : []
+  const nomes = new Set((naData.length ? naData : comRotulo).map((x: any) => fonteExibicaoLeilao(x)))
+  return nomes.size === 1 ? [...nomes][0] : sozinho
 }
 
 export const COMITENTE_GENERICO = 'Particular ou empresa (a leiloeira não divulga o nome)'
