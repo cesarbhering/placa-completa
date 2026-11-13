@@ -106,7 +106,9 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
     }
     if (fonte === 'historico_veicular') {
       // Switch turned off after delivery: closes without calling (never both partners).
-      const r = await (deps.historico ?? ((sb, ped) => completarHistoricoVeicular(sb, ped, { cfg: cfgHistorico(useRuntimeConfig()) })))(supabase, { id: p.id, placa: p.placa, plano: p.plano })
+      // The queue is the fallback for failure, ceiling or delay: it calls again
+      // when the call started with the paid query failed.
+      const r = await (deps.historico ?? ((sb, ped) => completarHistoricoVeicular(sb, ped, { cfg: cfgHistorico(useRuntimeConfig()), retentar: true })))(supabase, { id: p.id, placa: p.placa, plano: p.plano })
       if (r?.pulado === 'desligado' || r?.pulado === 'fora do plano') return { status: 'sem_dado', code: null, erro: String(r.pulado) }
       return aposConferir(r?.code ?? null, String(r?.erro || r?.pulado || r?.status || 'historico sem resposta').slice(0, 300))
     }

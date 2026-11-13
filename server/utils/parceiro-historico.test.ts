@@ -4,6 +4,7 @@ import LEILAO_REAL from './__fixtures__/parceiro-leilao-real.json'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
 import {
   completarHistoricoVeicular, chamarHistorico, ehSaldoOuLimiteHistorico, _limparAlertaTetoHistorico, PRECO_RESERVA_CENTAVOS,
+  iniciarHistoricoVeicular, historicoProntoParaSnapshot, _limparEmVooHistorico,
 } from './parceiro-historico'
 import { FONTE_CACHE_HISTORICO, FONTE_CUSTO_HISTORICO, cfgHistorico } from './parceiro-historico-env'
 import { complementarLeilaoParceiro, rodarJobParceiro, cfgParceiro, inicioDoDiaBrasilia, _limparTokenParceiro, type Http } from './parceiro-leilao'
@@ -36,6 +37,7 @@ beforeEach(() => {
   chamadas = []
   alertar.mockClear()
   _limparAlertaTetoHistorico()
+  _limparEmVooHistorico()
   comPedidos('p1', 'p2')
 })
 
@@ -225,6 +227,89 @@ describe('one charge per order', () => {
     linhas().push({ id: 'velha', pedido_id: 'p1', cobrada: true, resposta_bruta: { success: true, custo_debitado: 1.9 }, criado_em: '2026-10-02T10:00:00Z', cache_hit: false })
     const r = await completarHistoricoVeicular(sb, pedido(), deps(ok()))
     expect(r).toMatchObject({ ok: false, status: 'falhou', erro: 'resposta paga sem dados' })
+    expect(chamadas).toHaveLength(0)
+  })
+})
+
+describe('started together with the paid query (Cesar, 13/11/2026)', () => {
+  // A call that answers only when the test lets it (the paid query and the
+  // snapshot assembly happen meanwhile).
+  function httpSegurado(corpo: () => any = () => resp(200, COM)) {
+    let soltar!: () => void
+    const portao = new Promise<void>((ok) => { soltar = ok })
+    const http: Http = async (url, init) => { chamadas.push({ url, headers: init.headers }); await portao; return corpo() as any }
+    return { http, soltar }
+  }
+  const semSnapshot = () => { sb.tab('pedidos_premium').length = 0 }
+
+  it('call in flight + snapshot assembly + step after the delivery = ONE call; the block lands in the snapshot', async () => {
+    semSnapshot()
+    const { http, soltar } = httpSegurado()
+    const voo = iniciarHistoricoVeicular(sb, pedido(), deps(http))
+    expect(voo).not.toBeNull()
+    expect(iniciarHistoricoVeicular(sb, pedido(), deps(http))).toBe(voo) // one per order
+    // The paid query answered and the snapshot is assembled while the call is out: no wait, no call.
+    expect(await historicoProntoParaSnapshot(sb, pedido(), cfg(), AGORA)).toBeNull()
+    comPedidos('p1') // the delivery wrote the snapshot without the block
+    const depois = completarHistoricoVeicular(sb, pedido(), deps(ok())) // step right after the delivery
+    soltar()
+    expect(await depois).toMatchObject({ ok: true, status: 'ok' })
+    expect(chamadas).toHaveLength(1)
+    expect(snap().historicoVeicular).toMatchObject({ status: 'ok', donos: { total: 12 } })
+    expect(linhas().filter((l) => l.cobrada)).toHaveLength(1)
+    expect(custos().filter((c) => c.preco > 0)).toHaveLength(1)
+  })
+
+  it('call finished before the assembly: the snapshot takes it, nothing else is called', async () => {
+    semSnapshot()
+    expect(await iniciarHistoricoVeicular(sb, pedido(), deps(ok()))).toMatchObject({ ok: true, status: 'ok' })
+    expect(await historicoProntoParaSnapshot(sb, pedido(), cfg(), AGORA)).toMatchObject({ status: 'ok', consultadoEm: '2026-10-02T15:00:00.000Z', donos: { total: 12 } })
+    comPedidos('p1')
+    expect(await completarHistoricoVeicular(sb, pedido(), deps(ok()))).toMatchObject({ ok: true })
+    expect(chamadas).toHaveLength(1)
+  })
+
+  it('snapshot assembled before the answer: the block is written later, the other blocks stay', async () => {
+    sb.tab('pedidos_premium')[0].relatorio_snapshot = { consulta: { response: {} }, multas: { status: 'ok' }, recall: { campanhas: 1 } }
+    const { http, soltar } = httpSegurado()
+    iniciarHistoricoVeicular(sb, pedido(), deps(http))
+    const depois = completarHistoricoVeicular(sb, pedido(), deps(ok()))
+    await new Promise((r) => setTimeout(r, 5)) // it has read the snapshot and waits for the call
+    expect(chamadas).toHaveLength(1)
+    // Another slow source writes its block while the call is out.
+    const linha = sb.tab('pedidos_premium')[0]
+    linha.relatorio_snapshot = { ...linha.relatorio_snapshot, renajudDetalhe: { status: 'ok', itens: [] } }
+    soltar()
+    await depois
+    expect(snap()).toMatchObject({ multas: { status: 'ok' }, recall: { campanhas: 1 }, renajudDetalhe: { status: 'ok' }, historicoVeicular: { status: 'ok' } })
+    expect(chamadas).toHaveLength(1)
+  })
+
+  it('no snapshot when the answer arrives (refund): the cost is recorded and the clean cache keeps it', async () => {
+    semSnapshot()
+    expect(await iniciarHistoricoVeicular(sb, pedido(), deps(ok()))).toMatchObject({ ok: true })
+    expect(custos()).toEqual([expect.objectContaining({ pedido_id: 'p1', preco: 1.9 })])
+    expect(sb.tab('fonte_cache')).toHaveLength(1)
+    // Another process (no call in flight there) also finds it, in the clean cache.
+    _limparEmVooHistorico()
+    expect(await historicoProntoParaSnapshot(sb, pedido('p9'), cfg(), AGORA)).toMatchObject({ status: 'ok' })
+    expect(await historicoProntoParaSnapshot(sb, pedido('p9'), cfg({ parceiroHistoricoLigado: '' }), AGORA)).toBeNull()
+  })
+
+  it('early call failed: the step after the delivery does not call again; the queue job does', async () => {
+    expect(await iniciarHistoricoVeicular(sb, pedido(), deps(httpCom(() => resp(503, 'fora'))))).toMatchObject({ ok: false, status: 'falhou' })
+    expect(await historicoProntoParaSnapshot(sb, pedido(), cfg(), AGORA)).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z' })
+    expect(await completarHistoricoVeicular(sb, pedido(), deps(ok()))).toMatchObject({ ok: false, status: 'falhou' })
+    expect(chamadas).toHaveLength(1)
+    expect(snap().historicoVeicular.status).toBe('falhou')
+    expect(await completarHistoricoVeicular(sb, pedido(), deps(ok(), { retentar: true }))).toMatchObject({ ok: true })
+    expect(chamadas).toHaveLength(2)
+    expect(snap().historicoVeicular.status).toBe('ok')
+  })
+
+  it('only for the Completa plan, with the switch on', () => {
+    expect(iniciarHistoricoVeicular(sb, pedido('p1', { plano: 'basica' }), deps(ok()))).toBeNull()
+    expect(iniciarHistoricoVeicular(sb, pedido(), deps(ok(), { cfg: cfg({ parceiroHistoricoLigado: '' }) }))).toBeNull()
     expect(chamadas).toHaveLength(0)
   })
 })

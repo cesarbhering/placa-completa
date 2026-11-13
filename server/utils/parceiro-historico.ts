@@ -7,9 +7,13 @@ import { fonteNoPlano } from '../../shared/planos'
 
 // Vehicle history partner (second partner base), Cesar 13/11/2026: owners,
 // previous use, insurance and the partner part of the auction section, in the
-// Completa report only. Slow source of the 2.0 report: the normal path runs
-// right after delivery (completarHistoricoVeicularDepois) and the premium_jobs
-// queue is the fallback (fonte 'historico_veicular').
+// Completa report only. Slow source of the 2.0 report. The call starts
+// together with the paid query (iniciarHistoricoVeicular, it needs only the
+// plate); the snapshot assembly takes the result when it is already here
+// (historicoProntoParaSnapshot), the step right after the delivery writes it
+// when it comes later (completarHistoricoVeicularDepois, same call, never a
+// second one) and the premium_jobs queue is the fallback for failure, ceiling
+// or delay (fonte 'historico_veicular').
 //
 // Rules:
 //  - off by default: NUXT_PARCEIRO_HISTORICO_LIGADO=on plus the key turn it on.
@@ -179,7 +183,7 @@ export interface DepsHistorico {
 }
 
 export interface ResultadoHistorico {
-  /** The order has the block with status ok. */
+  /** The block came with status ok (and, from completar, is in the snapshot). */
   ok: boolean
   /** Skipped without calling: off, outside the plan, no snapshot, already there, call in progress. */
   pulado?: string
@@ -199,25 +203,28 @@ let alertaTetoDia: string | null = null
 export function _limparAlertaTetoHistorico() { alertaTetoDia = null }
 
 /**
- * Brings the vehicle history of ONE order into its snapshot. Never throws: the
- * report never stops because of this source.
+ * Gets the vehicle history of ONE order without touching its snapshot (it
+ * may not exist yet: the call starts together with the paid query). Valid
+ * clean cache, a paid answer of this order, or ONE call (lock per order,
+ * daily ceiling). Leaves the raw answer in the restricted table, the cost in
+ * premium_custos and the clean block in the cache. `bloco` comes for ok,
+ * falhou and teto (the state the snapshot gets). Never throws.
  */
-export async function completarHistoricoVeicular(
+export async function buscarHistoricoVeicular(
   sb: any,
   pedido: { id: string; placa: string; plano?: string | null },
   deps: DepsHistorico,
 ): Promise<ResultadoHistorico> {
   const agora = deps.agora ?? Date.now()
+  const quando = new Date(agora).toISOString()
   const log = deps.log ?? ((m: string) => console.info(m))
   const alertar = deps.alertar ?? (async (assunto: string, texto: string) => sendErrorEmail({ endpoint: '/premium/parceiro-historico', errorMessage: `${assunto}<br>${texto}`, paraTambem: [AVISO_PARCEIROS] }))
   const http: Http = deps.http ?? ((url, init) => fetch(url, init as any) as any)
   const ref = String(pedido.id || '-').slice(0, 8)
+  const falhou = (x: Partial<ResultadoHistorico> = {}): ResultadoHistorico => ({ ok: false, status: 'falhou', bloco: { status: 'falhou', consultadoEm: quando }, ...x })
   try {
     if (!fonteNoPlano('historico_veicular', pedido.plano)) return { ok: false, pulado: 'fora do plano' }
     if (!deps.cfg.chave || (!deps.cfg.ligado && !deps.ignorarChave)) return { ok: false, pulado: 'desligado' }
-    const snap = await lerSnapshot(sb, pedido.id)
-    if (!snap) return { ok: false, pulado: 'sem snapshot' }
-    if (snap.historicoVeicular?.status === 'ok') return { ok: true, pulado: 'ja tem', status: 'ok', bloco: snap.historicoVeicular }
     const placa = chaveDePlaca(pedido.placa)
     if (!placa) return { ok: false, pulado: 'sem placa' }
 
@@ -228,7 +235,6 @@ export async function completarHistoricoVeicular(
       if (hit?.payload?.status === 'ok') {
         const bloco: HistoricoVeicular = { ...hit.payload, consultadoEm: hit.consultadoEm }
         await gravarLinha(sb, { pedido_id: pedido.id, placa, http_status: null, sucesso: true, cobrada: false, custo_centavos: 0, tempo_ms: 0, id_consulta_parceiro: null, cache_hit: true, motivo_erro: null, resposta_bruta: null })
-        await gravarNoSnapshot(sb, pedido.id, bloco)
         log(`[parceiro-historico] cache pedido=${ref}`)
         return { ok: true, status: 'ok', cacheHit: true, cobrada: false, custoCentavos: 0, code: null, bloco }
       }
@@ -239,16 +245,15 @@ export async function completarHistoricoVeicular(
       // Paid but without usable data: calling again would pay again for the
       // same answer. The order stays without the source (the row is there to
       // be checked against the invoice).
-      if (!doPedido) return { ok: false, status: 'falhou', cobrada: false, custoCentavos: 0, code: null, erro: 'resposta paga sem dados' }
-      const bloco: HistoricoVeicular = { ...doPedido, consultadoEm: paga.criado_em ?? new Date(agora).toISOString() }
+      if (!doPedido) return falhou({ cobrada: false, custoCentavos: 0, code: null, erro: 'resposta paga sem dados' })
       await gravarFonteCache(sb, FONTE_CACHE_HISTORICO, placa, { ...doPedido, consultadoEm: null }, 'ok', agora)
-      await gravarNoSnapshot(sb, pedido.id, bloco)
-      return { ok: true, status: 'ok', cacheHit: false, cobrada: false, custoCentavos: 0, code: null, bloco }
+      return { ok: true, status: 'ok', cacheHit: false, cobrada: false, custoCentavos: 0, code: null, bloco: { ...doPedido, consultadoEm: paga.criado_em ?? quando } }
     }
     const pronto = await reaproveitar()
     if (pronto) return pronto
 
-    // Lock per order: delivery, queue job and operator route never call together.
+    // Lock per order: early call, step after the delivery, queue job and
+    // operator route never call together.
     const dono = deps.dono ?? `${process.pid}:${Math.random().toString(36).slice(2, 10)}`
     let pegou = false
     try {
@@ -285,8 +290,7 @@ export async function completarHistoricoVeicular(
         await Promise.resolve(alertar('BASE PARCEIRA DE HISTORICO: TETO DIARIO ATINGIDO', `${feitas} chamadas hoje (teto ${deps.cfg.tetoDia}). Os relatorios seguem sem a fonte; a fila tenta de novo depois.`)).catch(() => {})
       }
       log(`[parceiro-historico] teto diario atingido (${feitas}/${deps.cfg.tetoDia}) pedido=${ref}`)
-      await gravarNoSnapshot(sb, pedido.id, { status: 'teto', consultadoEm: new Date(agora).toISOString() })
-      return { ok: false, status: 'teto' }
+      return { ok: false, status: 'teto', bloco: { status: 'teto', consultadoEm: quando } }
     }
 
     // The call.
@@ -300,22 +304,113 @@ export async function completarHistoricoVeicular(
     if (ehSaldoOuLimiteHistorico(c)) await Promise.resolve(alertar('BASE PARCEIRA DE HISTORICO: SALDO OU LIMITE', `HTTP ${c.http} ao consultar o pedido ${pedido.id}.`)).catch(() => {})
     log(`[parceiro-historico] pedido=${ref} http=${c.http ?? '-'} ${c.bloco ? 'ok' : `erro=${c.erro}`} cobrada=${c.cobrada} ${c.ms}ms`)
     const base = { cobrada: c.cobrada, custoCentavos: c.custoCentavos, code: c.http, tempoMs: c.ms, cacheHit: false }
-    if (!c.bloco) {
-      await gravarNoSnapshot(sb, pedido.id, { status: 'falhou', consultadoEm: new Date(agora).toISOString() })
-      return { ok: false, status: 'falhou', erro: c.erro, ...base }
-    }
+    if (!c.bloco) return falhou({ erro: c.erro, ...base })
     // Cache gets the CLEAN block only (never the raw answer).
     await gravarFonteCache(sb, FONTE_CACHE_HISTORICO, placa, c.bloco, 'ok', agora)
-    const bloco: HistoricoVeicular = { ...c.bloco, consultadoEm: new Date(agora).toISOString() }
-    await gravarNoSnapshot(sb, pedido.id, bloco)
-    return { ok: true, status: 'ok', erro: null, bloco, ...base }
+    return { ok: true, status: 'ok', erro: null, bloco: { ...c.bloco, consultadoEm: quando }, ...base }
   } catch (e: any) {
     log(`[parceiro-historico] falhou (relatorio segue): ${String(e?.message || e).slice(0, 160)}`)
+    return falhou({ erro: String(e?.message || e).slice(0, 160) })
+  }
+}
+
+// ---------------------------------------------------------------- started with the paid query
+
+interface EmVooHistorico { promessa: Promise<ResultadoHistorico>; resultado?: ResultadoHistorico }
+const emVooHistorico = new Map<string, EmVooHistorico>()
+/** How long a finished early call stays here for the delivery to take it. */
+export const GUARDA_EM_VOO_MS = 15 * 60 * 1000
+/** Tests only. */
+export function _limparEmVooHistorico() { emVooHistorico.clear() }
+
+/**
+ * Starts the call together with the paid query (Cesar, 13/11/2026): it needs
+ * only the plate and answers in about 10 s, so it is ready before the report.
+ * Loose and fail-open: never holds the paid query nor the delivery. One per
+ * order in this process. The result goes to the clean cache right away; the
+ * snapshot assembly takes it when it is already here
+ * (historicoProntoParaSnapshot) and the step right after the delivery writes
+ * it when it arrives later (completarHistoricoVeicular). null = not started.
+ */
+export function iniciarHistoricoVeicular(
+  sb: any,
+  pedido: { id: string; placa: string; plano?: string | null },
+  deps: Partial<DepsHistorico> = {},
+): Promise<ResultadoHistorico> | null {
+  try {
+    const cfg = deps.cfg ?? cfgHistorico(useRuntimeConfig())
+    if (!cfg.ligado || !pedido?.id || !fonteNoPlano('historico_veicular', pedido.plano)) return null
+    const atual = emVooHistorico.get(pedido.id)
+    if (atual) return atual.promessa
+    const entrada: EmVooHistorico = { promessa: Promise.resolve({ ok: false }) }
+    entrada.promessa = emVoo('historico-veicular', () => buscarHistoricoVeicular(sb, pedido, { ...deps, cfg }))
+      .then((r): ResultadoHistorico => r ?? { ok: false, status: 'falhou', erro: 'nao rodou' })
+      .then((r) => {
+        entrada.resultado = r
+        const t: any = setTimeout(() => { if (emVooHistorico.get(pedido.id) === entrada) emVooHistorico.delete(pedido.id) }, GUARDA_EM_VOO_MS)
+        t?.unref?.()
+        return r
+      })
+    emVooHistorico.set(pedido.id, entrada)
+    return entrada.promessa
+  } catch (e: any) {
+    console.warn('[parceiro-historico] nao iniciou (relatorio segue):', e?.message || e)
+    return null
+  }
+}
+
+/**
+ * For the snapshot assembly: the block only when it is already here (the
+ * early call of this order finished in this process, or the clean cache has
+ * the plate). Never waits and never calls. null = it comes later (step after
+ * the delivery or the queue).
+ */
+export async function historicoProntoParaSnapshot(
+  sb: any,
+  pedido: { id?: string | null; placa: string },
+  cfg: CfgHistorico = cfgHistorico(useRuntimeConfig()),
+  agora = Date.now(),
+): Promise<HistoricoVeicular | null> {
+  try {
+    const voo = pedido.id ? emVooHistorico.get(pedido.id) : undefined
+    if (voo) return voo.resultado?.bloco ?? null
+    if (!cfg.ligado) return null
+    const hit = await lerFonteCache<any>(sb, FONTE_CACHE_HISTORICO, chaveDePlaca(pedido.placa), agora)
+    return hit?.payload?.status === 'ok' ? { ...hit.payload, consultadoEm: hit.consultadoEm } : null
+  } catch { return null }
+}
+
+/**
+ * Brings the vehicle history of ONE order into its snapshot (step right after
+ * the delivery, queue job, operator route). The call started with the paid
+ * query, when it is in this process, is awaited and reused: never a second
+ * call. When that call failed, only `retentar` (queue job, operator) calls
+ * again. Writes only snapshot.historicoVeicular. Never throws.
+ */
+export async function completarHistoricoVeicular(
+  sb: any,
+  pedido: { id: string; placa: string; plano?: string | null },
+  deps: DepsHistorico & { retentar?: boolean },
+): Promise<ResultadoHistorico> {
+  try {
+    if (!fonteNoPlano('historico_veicular', pedido.plano)) return { ok: false, pulado: 'fora do plano' }
+    if (!deps.cfg.chave || (!deps.cfg.ligado && !deps.ignorarChave)) return { ok: false, pulado: 'desligado' }
+    const snap = await lerSnapshot(sb, pedido.id)
+    if (!snap) return { ok: false, pulado: 'sem snapshot' }
+    if (snap.historicoVeicular?.status === 'ok') return { ok: true, pulado: 'ja tem', status: 'ok', bloco: snap.historicoVeicular }
+    const voo = emVooHistorico.get(pedido.id)
+    let r: ResultadoHistorico | null = voo ? await voo.promessa : null
+    if (r && r.status !== 'ok' && deps.retentar) r = null
+    if (!r) r = await buscarHistoricoVeicular(sb, pedido, deps)
+    if (r.bloco) await gravarNoSnapshot(sb, pedido.id, r.bloco)
+    return r.status === 'ok' ? { ...r, ok: true } : r
+  } catch (e: any) {
+    console.warn('[parceiro-historico] completar falhou (relatorio segue):', e?.message || e)
     return { ok: false, status: 'falhou', erro: String(e?.message || e).slice(0, 160) }
   }
 }
 
-/** After delivery: loose, never holds nor breaks the delivery. */
+/** Right after the delivery: loose, never holds nor breaks the delivery. */
 export function completarHistoricoVeicularDepois(sb: any, pedido: { id: string; placa: string; plano?: string | null }): void {
   const cfg = cfgHistorico(useRuntimeConfig())
   if (!cfg.ligado || !fonteNoPlano('historico_veicular', pedido.plano)) return

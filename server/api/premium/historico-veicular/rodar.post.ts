@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   const cfg = cfgHistorico(useRuntimeConfig())
   if (!cfg.chave) throw createError({ statusCode: 503, message: 'sem a chave da fonte' })
 
-  const r = await completarHistoricoVeicular(supabase, { id: p.id, placa: p.placa, plano: p.plano }, { cfg, ignorarChave: true })
+  const r = await completarHistoricoVeicular(supabase, { id: p.id, placa: p.placa, plano: p.plano }, { cfg, ignorarChave: true, retentar: true })
   const b = r.bloco
   return {
     ok: r.ok,
