@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   AB_PRECO_KEY, PRECO_COMPLETA_BRACO, _resetAbPreco, abPrecoLigadoPorEnv, adotarBracoSeVazio, aplicarCupomNoBraco,
   bracoAtual, bracoDoPedido, colunasAbPreco, configurarAbPreco, pareceBot, precoDoPlano, sortearBraco,
+  resolverBracoComPedido, rotaSemSorteioNaCarga, uaDoApp,
 } from './ab-preco'
 import { PLANOS } from './planos'
 
@@ -97,6 +98,48 @@ describe('sticky draw per visitor', () => {
     expect(adotarBracoSeVazio('B')).toBe('B')
     expect(adotarBracoSeVazio('A')).toBe('B')
     expect(adotarBracoSeVazio('X')).toBe('B')
+  })
+})
+
+describe('basic report upsell: shown arm = charged arm', () => {
+  it('a browser without an arm adopts the order arm', () => {
+    configurarAbPreco({ ligado: true })
+    expect(resolverBracoComPedido('B')).toBe('B')
+    expect(local.m.get(AB_PRECO_KEY)).toBe('B')
+    expect(precoDoPlano('completa', bracoAtual())).toBe(3990)
+  })
+  it('a browser with a stored arm keeps it, and the upsell shows that price', () => {
+    local.m.set(AB_PRECO_KEY, 'A')
+    configurarAbPreco({ ligado: true })
+    expect(resolverBracoComPedido('B')).toBe('A')
+    expect(precoDoPlano('completa', bracoAtual())).toBe(4490)
+  })
+  it('order outside the test: the browser draws its own arm once', () => {
+    configurarAbPreco({ ligado: true })
+    const v = resolverBracoComPedido(null)
+    expect(v === 'A' || v === 'B').toBe(true)
+    expect(local.m.get(AB_PRECO_KEY)).toBe(v)
+  })
+  it('test off: null, nothing stored', () => {
+    configurarAbPreco({ ligado: false })
+    expect(resolverBracoComPedido('B')).toBeNull()
+    expect(local.m.size).toBe(0)
+  })
+  it('the plugin skips the load-time draw only on the paid report route', () => {
+    expect(rotaSemSorteioNaCarga('/premium/abc123TOKEN')).toBe(true)
+    expect(rotaSemSorteioNaCarga('/en/premium/abc123TOKEN/')).toBe(true)
+    expect(rotaSemSorteioNaCarga('/premium')).toBe(false)
+    expect(rotaSemSorteioNaCarga('/')).toBe(false)
+    expect(rotaSemSorteioNaCarga('/consultar-placa-de-carro')).toBe(false)
+  })
+})
+
+describe('app marker', () => {
+  it('matches the app user-agent marker case-insensitively, like the server', () => {
+    expect(uaDoApp('Mozilla/5.0 PlacaCompletaApp/3')).toBe(true)
+    expect(uaDoApp('Mozilla/5.0 placacompletaapp/3')).toBe(true)
+    expect(uaDoApp('Mozilla/5.0 PLACACOMPLETAAPP')).toBe(true)
+    expect(uaDoApp('Mozilla/5.0 Chrome/120')).toBe(false)
   })
 })
 

@@ -218,6 +218,7 @@ def montar(eventos, pedidos, inicio, hoje):
                "Métrica principal: sobra por sessão com resultado. Sobra por venda: Completa a R$ 44,90 = R$ 28,07; "
                "a R$ 39,90 = R$ 23,47; Básica = R$ 20,14 (cupom desconta da sobra).",
                "Sessões contadas por visita; pedidos pagos pelo dia do pagamento, sem reembolsados.",
+               "A confiança é aproximada: o cálculo trata cada sessão como independente, e uma sessão que vira o dia pode contar nos dois dias.",
                "", "Helena"]
     return "\n".join(partes)
 

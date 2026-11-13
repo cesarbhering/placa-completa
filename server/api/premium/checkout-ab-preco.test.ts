@@ -109,6 +109,17 @@ describe('checkout: price A/B arm', () => {
     expect(cupomArgs[4]).toBe('B')
   })
 
+  it('free coupon whose claim fails falls back to the ARM price (B = 39,90)', async () => {
+    CONFIG.public.abPreco = 'on'
+    // reivindicarUsoCupomGratis is stubbed to fail (sold out / already used).
+    cupomResposta = { ok: true, cupomId: 'g1', permiteGratis: true, precoBrutoCentavos: 3990, descontoCentavos: 3990, precoLiquidoCentavos: 0, limiteUsoPorCliente: 1 }
+    body = { placa: PLACA, plano: 'completa', ab_preco: 'B', email: 'x@y.z', cupom: 'GRATIS' }
+    const r = await pix()
+    expect(r.valor).toBe(3990)
+    expect(r.gratis).toBeUndefined()
+    expect(inserido).toMatchObject({ valor_centavos: 3990, ab_preco: 'B' })
+  })
+
   it('card checkout follows the same rule', async () => {
     CONFIG.public.abPreco = 'on'
     body = { placa: PLACA, plano: 'completa', ab_preco: 'B' }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PLANOS, RECURSOS, precoDePromocao } from '~/shared/planos'
 import { CUPOM_TELA_PCT, relogioCupomTela } from '~/shared/cupom-tela'
-import { bracoAtual, precoDoPlano, aplicarCupomNoBraco } from '~/shared/ab-preco'
+import { bracoAtual, precoDoPlano, descontoTelaNoBraco, precoExibidoNoCheckout } from '~/shared/ab-preco'
 import { PROVA_SOCIAL } from '~/shared/prova-social'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora, trackConversaoPixGerado } from '~/composables/useAnalytics'
@@ -262,9 +262,7 @@ const restanteTelaMs = computed(() =>
   props.cupomTelaToken && props.cupomTelaExpiraEm ? new Date(props.cupomTelaExpiraEm).getTime() - agoraTela.value : 0,
 )
 const telaAtiva = computed(() => restanteTelaMs.value > 0 && placaClean.value === placaDoCupomTela && !isCapacitor.value)
-const descontoTelaCentavos = computed(() => telaAtiva.value
-  ? aplicarCupomNoBraco(props.plano, { tipo: 'percentual', valor: CUPOM_TELA_PCT, planos: ['basica', 'completa'] }, abPrecoCheckout.value).descontoCentavos
-  : 0)
+const descontoTelaCentavos = computed(() => descontoTelaNoBraco(props.plano, abPrecoCheckout.value, telaAtiva.value))
 /** O de tela so vence com desconto MAIOR (empate fica com o cupom, como no servidor). */
 const telaVence = computed(() => descontoTelaCentavos.value > cupomDescontoCentavos.value)
 const descontoEfetivoCentavos = computed(() => Math.max(cupomDescontoCentavos.value, descontoTelaCentavos.value))
@@ -278,8 +276,9 @@ if (import.meta.client && props.cupomTelaToken) {
 }
 onUnmounted(() => { if (tickTela) clearInterval(tickTela) })
 
+// Same pure rule the tests check against the server (shared/ab-preco.ts).
 const precoExibidoCentavos = computed(() =>
-  Math.max(0, precoBaseCentavos.value - descontoEfetivoCentavos.value),
+  precoExibidoNoCheckout(props.plano, abPrecoCheckout.value, cupomDescontoCentavos.value, telaAtiva.value),
 )
 // So pra rotular o botao: o preco final real (gratis ou nao) sai sempre do
 // server, isto e so cosmetico. Cupom parcial que so encosta no piso (ex.:

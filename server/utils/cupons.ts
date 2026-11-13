@@ -134,15 +134,23 @@ export async function validarCupom(
     }
   }
 
-  // The second-plate offer (cupom_bump) promises a fixed final price, so it is
-  // computed on the table price: in arm B it still lands on the promised value.
-  const base = cupom.origem === 'bump' ? precoDoPlano(plano, null) : precoBrutoCentavos
-  const { precoBrutoCentavos: bruto, descontoCentavos, precoLiquidoCentavos } = aplicarCupom(plano, {
+  const regra = {
     tipo: cupom.tipo,
     valor: cupom.valor,
     planos: cupom.planos,
     permiteGratis: !!cupom.permite_gratis,
-  }, base)
+  }
+  let { precoBrutoCentavos: bruto, descontoCentavos, precoLiquidoCentavos } = aplicarCupom(plano, regra, precoBrutoCentavos)
+  // The second-plate offer (cupom_bump) promises a fixed final price (its fixed
+  // discount was sized on the table price). In any arm it must land on that
+  // promised price, and bruto/desconto must be relative to the ARM price: the
+  // checkout screen shows arm price - desconto, so shown = charged.
+  if (cupom.origem === 'bump') {
+    precoLiquidoCentavos = aplicarCupom(plano, regra, precoDoPlano(plano, null)).precoLiquidoCentavos
+    bruto = precoBrutoCentavos
+    descontoCentavos = Math.max(0, bruto - precoLiquidoCentavos)
+    precoLiquidoCentavos = bruto - descontoCentavos
+  }
 
   return {
     ok: true,

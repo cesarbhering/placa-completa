@@ -1,4 +1,5 @@
 import { PLANOS, aplicarCupom, type PlanoId } from './planos'
+import { CUPOM_TELA_PCT } from './cupom-tela'
 
 // ---------------------------------------------------------------------------
 // Price A/B test of the Consulta Completa (decided 12/nov/2026, ~4 weeks).
@@ -57,6 +58,28 @@ export function aplicarCupomNoBraco(
   return aplicarCupom(plano, cupom, precoDoPlano(plano, braco))
 }
 
+/** Screen-coupon discount on the arm price (0 when the screen coupon is not active). */
+export function descontoTelaNoBraco(plano: 'basica' | 'completa', braco: BracoPreco | null | undefined, telaAtiva: boolean): number {
+  if (!telaAtiva) return 0
+  return aplicarCupomNoBraco(plano, { tipo: 'percentual', valor: CUPOM_TELA_PCT, planos: ['basica', 'completa'] }, braco).descontoCentavos
+}
+
+/**
+ * Price the inline checkout SHOWS: arm price minus the larger of the typed
+ * coupon discount (as returned by /api/premium/coupon) and the screen coupon.
+ * Same rule as the server (resolverDescontoTela: no stacking, larger wins), so
+ * shown = charged. Pure, shared by the component and its tests.
+ */
+export function precoExibidoNoCheckout(
+  plano: 'basica' | 'completa',
+  braco: BracoPreco | null | undefined,
+  descontoCupomCentavos: number,
+  telaAtiva: boolean,
+): number {
+  const desconto = Math.max(descontoCupomCentavos || 0, descontoTelaNoBraco(plano, braco, telaAtiva))
+  return Math.max(0, precoDoPlano(plano, braco) - desconto)
+}
+
 // ---------------------------------------------------------------------------
 // Client side: sticky draw.
 // ---------------------------------------------------------------------------
@@ -87,6 +110,11 @@ export function configurarAbPreco(opts: { ligado: boolean; participa?: boolean }
 
 export function abPrecoAtivo(): boolean {
   return ligado
+}
+
+/** App WebView marker in the user-agent, case-insensitive like the server (server/utils/dispositivo.ts). */
+export function uaDoApp(ua: string | null | undefined): boolean {
+  return /PlacaCompletaApp/i.test(String(ua || ''))
 }
 
 /** Crawler / headless heuristics. They never enter the test. */
@@ -147,6 +175,28 @@ export function adotarBracoSeVazio(v: unknown): BracoPreco | null {
   if (!ligado || !bracoValido(v)) return bracoAtual()
   if (!lerGuardado()) guardar(v)
   return lerGuardado()
+}
+
+/**
+ * Pages where the plugin must NOT draw on load: the paid report
+ * (/premium/<token>, optionally under a locale prefix). There the order's arm
+ * is adopted first (resolverBracoComPedido), so a fresh browser does not draw
+ * a different arm before the report data arrives.
+ */
+export function rotaSemSorteioNaCarga(pathname: string | null | undefined): boolean {
+  return /^(?:\/[a-z]{2}(?:-[a-z]{2})?)?\/premium\/[^/]+\/?$/i.test(String(pathname || ''))
+}
+
+/**
+ * Report page: adopt the order's arm if this browser has none, then draw only
+ * if it is still empty. Returns the browser's arm (what the checkout will
+ * charge), or null when the test is off / the visitor does not participate.
+ */
+export function resolverBracoComPedido(bracoDoPedidoBruto: unknown): BracoPreco | null {
+  if (!ligado) return null
+  adotarBracoSeVazio(bracoDoPedidoBruto)
+  sortearBraco()
+  return bracoAtual()
 }
 
 /** Test helper. */

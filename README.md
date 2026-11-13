@@ -77,7 +77,16 @@ Visible prices on consumer pages go through `usePrecoCompleta` / `<PrecoCompleta
 |---|---|
 | `NUXT_PUBLIC_AB_PRECO` | `on` enables the test. Anything else (default empty) puts everybody in arm A, with nothing drawn, stored, sent or read. |
 
-Apply `supabase/migrations/20261113120000_pedidos_ab_preco.sql` (production and staging) before turning it on: with the flag off the site never touches the `ab_preco` column. The daily host report is `ops/pc-ab-preco-report` with `ops/systemd/pc-ab-preco-report.{service,timer}`.
+With the flag off the site never touches the `ab_preco` column. Going live, in this order:
+
+1. Apply `supabase/migrations/20261113120000_pedidos_ab_preco.sql` in production AND staging.
+2. Reload the PostgREST schema cache (`notify pgrst, 'reload schema';`, already at the end of the migration; run it again if in doubt).
+3. Smoke test through the API in each environment: `select ab_preco from pedidos_premium limit 1` must succeed.
+4. Only then set `NUXT_PUBLIC_AB_PRECO=on`.
+
+**Turning the flag on before the migration breaks the report page and the checkout**: with the flag on, the order insert and the report query use the `ab_preco` column, and both fail while it does not exist.
+
+The daily host report is `ops/pc-ab-preco-report` with `ops/systemd/pc-ab-preco-report.{service,timer}`.
 
 ## Repository layout
 

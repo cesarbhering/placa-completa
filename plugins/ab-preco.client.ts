@@ -5,11 +5,13 @@
  * bot), then draws the sticky arm right away so every funnel event of the
  * visit carries `extra.ab_preco`.
  *
+ * Exception: the paid report (/premium/<token>) does not draw on load. The
+ * page adopts the order's arm first (resolverBracoComPedido), so the basic
+ * report upsell always shows the price the checkout will charge.
+ *
  * Flag off: nothing is read, drawn or stored.
  */
-import { abPrecoLigadoPorEnv, adotarBracoSeVazio, configurarAbPreco, pareceBot, sortearBraco } from '~/shared/ab-preco'
-
-const MARCADOR_APP = 'PlacaCompletaApp'
+import { abPrecoLigadoPorEnv, configurarAbPreco, pareceBot, rotaSemSorteioNaCarga, sortearBraco, uaDoApp } from '~/shared/ab-preco'
 
 export default defineNuxtPlugin(() => {
   try {
@@ -17,13 +19,9 @@ export default defineNuxtPlugin(() => {
     if (!ligado) { configurarAbPreco({ ligado: false }); return }
     const ua = String(window.navigator?.userAgent || '')
     const nativo = (window as any).Capacitor
-    const app = ua.includes(MARCADOR_APP) || (typeof nativo?.isNativePlatform === 'function' && nativo.isNativePlatform())
+    const app = uaDoApp(ua) || (typeof nativo?.isNativePlatform === 'function' && nativo.isNativePlatform())
     configurarAbPreco({ ligado, participa: !app && !pareceBot(ua, (window.navigator as any)?.webdriver === true) })
-    // Our own basic-report upsell link carries the order's arm: adopted only
-    // when this browser has none yet (the stored arm always wins).
-    const daUrl = new URLSearchParams(window.location.search).get('ab_preco')
-    if (daUrl) adotarBracoSeVazio(daUrl)
-    sortearBraco()
+    if (!rotaSemSorteioNaCarga(window.location.pathname)) sortearBraco()
   } catch {
     configurarAbPreco({ ligado: false })
   }

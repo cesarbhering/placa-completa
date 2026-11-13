@@ -37,11 +37,13 @@ describe('extra.ab_preco on funnel events', () => {
     expect(_filaFunil()[0]?.extra?.ab_preco).toBeUndefined()
   })
 
-  it('server keeps ab_preco even past the 8-key cap and rejects invalid values', () => {
+  it('server: ab_preco does not count toward the 8-key cap and rejects invalid values', () => {
     const extra: Record<string, string> = {}
-    for (let i = 0; i < 9; i++) extra[`k${i}`] = 'v'
-    const ok = sanearEvento({ evento: 'pix_gerado', extra: { ...extra, ab_preco: 'B' } })
+    for (let i = 0; i < 8; i++) extra[`k${i}`] = 'v'
+    const ok = sanearEvento({ evento: 'pix_gerado', extra: { ab_preco: 'B', ...extra } })
     expect(ok!.extra!.ab_preco).toBe('B')
+    // All 8 own keys survive next to the arm.
+    expect(Object.keys(ok!.extra!).filter(k => k !== 'ab_preco')).toHaveLength(8)
     const ruim = sanearEvento({ evento: 'pix_gerado', extra: { ab_preco: 'Z', a: 1 } })
     expect(ruim!.extra).toEqual({ a: 1 })
   })

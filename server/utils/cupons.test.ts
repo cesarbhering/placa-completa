@@ -112,7 +112,11 @@ describe('coupon on the price A/B arm', () => {
   })
   it('second-plate offer keeps its promised final price in arm B', async () => {
     const bump = { ...PUBLICO, tipo: 'fixo', valor: 1500, planos: ['completa'], origem: 'bump' }
-    const r = await validarCupom(supabaseCom(bump), 'SEGUNDAABCDEF', 'completa', undefined, 'B')
-    expect(r).toMatchObject({ ok: true, precoLiquidoCentavos: 2990 })
+    const b = await validarCupom(supabaseCom(bump), 'SEGUNDAABCDEF', 'completa', undefined, 'B')
+    expect(b).toMatchObject({ ok: true, precoBrutoCentavos: 3990, descontoCentavos: 1000, precoLiquidoCentavos: 2990 })
+    const a = await validarCupom(supabaseCom(bump), 'SEGUNDAABCDEF', 'completa', undefined, 'A')
+    expect(a).toMatchObject({ ok: true, precoBrutoCentavos: 4490, descontoCentavos: 1500, precoLiquidoCentavos: 2990 })
+    // The screen subtracts the discount from the arm price: must equal the charge.
+    expect(b.precoBrutoCentavos - b.descontoCentavos).toBe(b.precoLiquidoCentavos)
   })
 })
