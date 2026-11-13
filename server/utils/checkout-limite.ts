@@ -72,7 +72,7 @@ export function limitesDoConfig(config: any): LimitesCheckout {
   return {
     placaHora: lerLimite(config?.checkoutLimitePlacaHora, LIMITE_PLACA_HORA_PADRAO, TETO_LIMITE_PLACA),
     cartaoPlacaHora: lerLimite(config?.checkoutLimiteCartaoPlacaHora, LIMITE_CARTAO_PLACA_HORA_PADRAO, TETO_LIMITE_PLACA),
-    cartaoGlobal10min: lerLimite(config?.checkoutDisjuntorCartao10min, DISJUNTOR_CARTAO_10MIN_PADRAO, TETO_DISJUNTOR),
+    cartaoGlobal10min: lerLimite(config?.checkoutDisjuntorCartao_10min, DISJUNTOR_CARTAO_10MIN_PADRAO, TETO_DISJUNTOR),
   }
 }
 
