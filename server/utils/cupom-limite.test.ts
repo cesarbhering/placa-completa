@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
-  validarCupomComLimite, cupomLimitePlacaEstourado, limitesCupomDoConfig, _zerarCupomLimite, _chavesCupomLimite,
+  validarCupomComLimite, cupomDispensaEmailComLimite, limitesCupomDoConfig, _zerarCupomLimite, _tamanhoCupomLimite,
   MSG_CUPOM_LIMITE_PLACA, MSG_CUPOM_LIMITE_GLOBAL, CUPOM_LIMITE_PLACA_HORA_PADRAO, CUPOM_LIMITE_GLOBAL_10MIN_PADRAO,
 } from './cupom-limite'
 import { validarCupom as validarCupomReal } from './cupons'
@@ -11,25 +11,34 @@ const T0 = Date.parse('2026-11-13T12:00:00Z')
 const PLACA = 'TST1234'          // old format
 const PLACA_MERCOSUL = 'TST1C34' // same vehicle, Mercosul
 const OUTRA = 'TST9Z99'
-const CODIGO = 'FAKECODE00'
 const EMAIL = 'buyer@example.test'
 
 let relogio = T0
 let chamadas = 0
 let resposta: any
+let seq = 0
+const novoCodigo = () => `FAKE${String(++seq).padStart(6, '0')}`
 const invalido = { ok: false, motivo: 'Cupom nao encontrado.', contaTentativa: true, precoBrutoCentavos: 4490, descontoCentavos: 0, precoLiquidoCentavos: 4490 }
 const valido = { ok: true, cupomId: 'c1', precoBrutoCentavos: 4490, descontoCentavos: 449, precoLiquidoCentavos: 4041 }
-vi.stubGlobal('validarCupom', async () => { chamadas++; return resposta })
+const stubPadrao = async () => { chamadas++; return resposta }
+vi.stubGlobal('validarCupom', stubPadrao)
 
 let logs: string[] = []
 const opts = { agora: () => relogio, log: (m: string) => { logs.push(m) } }
-const tentar = (placa: unknown = PLACA, config: any = {}) =>
-  validarCupomComLimite({}, { codigo: CODIGO, plano: 'completa', email: EMAIL, placa }, config, opts)
+/** One validation; a new code each time unless one is given. */
+const tentar = (placa: unknown = PLACA, config: any = {}, codigo: string = novoCodigo()) =>
+  validarCupomComLimite({}, { codigo, plano: 'completa', email: EMAIL, placa }, config, opts)
+const placaN = (i: number) => `T${String(i).padStart(6, '0')}`.replace(/^T(\d{2})/, (_m, d) => `T${String.fromCharCode(65 + Number(d[0]))}${String.fromCharCode(65 + Number(d[1]))}`)
+
+function reset() {
+  _zerarCupomLimite(); relogio = T0; chamadas = 0; resposta = invalido; logs = []
+  vi.stubGlobal('validarCupom', stubPadrao)
+}
 
 describe('typed coupon: per-plate limit', () => {
-  beforeEach(() => { _zerarCupomLimite(); relogio = T0; chamadas = 0; resposta = invalido; logs = [] })
+  beforeEach(reset)
 
-  it('after 5 invalid validations the plate is blocked without touching the database', async () => {
+  it('after 5 invalid codes the plate is blocked without touching the database', async () => {
     for (let i = 0; i < CUPOM_LIMITE_PLACA_HORA_PADRAO; i++) expect((await tentar()).bloqueio).toBeNull()
     expect(chamadas).toBe(5)
     const r = await tentar()
@@ -37,10 +46,20 @@ describe('typed coupon: per-plate limit', () => {
     expect(r.cupom).toMatchObject({ ok: false, descontoCentavos: 0, precoLiquidoCentavos: r.cupom.precoBrutoCentavos })
     expect(r.cupom.precoBrutoCentavos).toBeGreaterThan(0)
     expect(chamadas).toBe(5)
-    // Even a valid coupon is refused while blocked.
-    resposta = valido
-    expect((await tentar()).bloqueio?.motivo).toBe('cupom_placa')
+    // Everything is refused while blocked, our own coupons included.
+    for (const v of [valido, { ...valido, origem: 'recompra' }, { ...valido, pessoal: true }]) {
+      resposta = v
+      expect((await tentar()).bloqueio?.motivo).toBe('cupom_placa')
+    }
     expect(chamadas).toBe(5)
+  })
+
+  it('the same invalid code 10 times on a plate counts once', async () => {
+    for (let i = 0; i < 10; i++) expect((await tentar(PLACA, {}, 'FAKESAME01')).bloqueio).toBeNull()
+    expect(chamadas).toBe(10)
+    for (let i = 0; i < 3; i++) await tentar(PLACA)
+    expect((await tentar(PLACA)).bloqueio).toBeNull() // 1 + 3 = 4 counted, 5th still allowed
+    expect((await tentar(PLACA)).bloqueio?.motivo).toBe('cupom_placa')
   })
 
   it('both plate formats count as the same vehicle', async () => {
@@ -77,15 +96,29 @@ describe('typed coupon: per-plate limit', () => {
     const rs = Array.from({ length: 10 }, () => tentar())
     soltar()
     const out = await Promise.all(rs)
-    vi.stubGlobal('validarCupom', async () => { chamadas++; return resposta })
     expect(chamadas).toBe(5)
     expect(out.filter((r) => r.bloqueio?.motivo === 'cupom_placa')).toHaveLength(5)
+  })
+
+  it('a refusal caused only by in-flight validations is not recorded (plate)', async () => {
+    for (let i = 0; i < 4; i++) await tentar()
+    let soltar!: () => void
+    const portao = new Promise<void>((r) => { soltar = r })
+    vi.stubGlobal('validarCupom', async () => { chamadas++; await portao; return valido })
+    const a = tentar(); const b = tentar()
+    soltar()
+    const [ra, rb] = await Promise.all([a, b])
+    expect(ra.bloqueio).toBeNull()
+    expect(rb.bloqueio?.motivo).toBe('cupom_placa')
+    vi.stubGlobal('validarCupom', stubPadrao)
+    resposta = valido
+    expect((await tentar()).bloqueio).toBeNull() // still 4 counted
   })
 
   it('a validation that throws releases its pending slot', async () => {
     vi.stubGlobal('validarCupom', async () => { throw new Error('boom') })
     for (let i = 0; i < 10; i++) await expect(tentar()).rejects.toThrow('boom')
-    vi.stubGlobal('validarCupom', async () => { chamadas++; return resposta })
+    vi.stubGlobal('validarCupom', stubPadrao)
     resposta = valido
     expect((await tentar()).bloqueio).toBeNull()
   })
@@ -96,8 +129,14 @@ describe('typed coupon: per-plate limit', () => {
 })
 
 describe('typed coupon: global limit', () => {
-  beforeEach(() => { _zerarCupomLimite(); relogio = T0; chamadas = 0; resposta = invalido; logs = [] })
-  const placaN = (i: number) => `TST${String(i).padStart(4, '0')}`
+  beforeEach(reset)
+
+  /** Arms the global limit with 31 invalid codes on distinct plates. */
+  async function armar() {
+    resposta = invalido
+    for (let i = 0; i <= CUPOM_LIMITE_GLOBAL_10MIN_PADRAO; i++) await tentar(placaN(i))
+    chamadas = 0
+  }
 
   it('arms above 30 invalid in 10 min (any plate) and disarms when the window passes', async () => {
     for (let i = 0; i < CUPOM_LIMITE_GLOBAL_10MIN_PADRAO; i++) expect((await tentar(placaN(i))).bloqueio).toBeNull()
@@ -109,19 +148,26 @@ describe('typed coupon: global limit', () => {
     expect((await tentar(placaN(200))).bloqueio).toBeNull()
   })
 
-  /** Arms the global limit with 31 invalid validations on distinct plates. */
-  async function armar() {
-    resposta = invalido
-    for (let i = 0; i <= CUPOM_LIMITE_GLOBAL_10MIN_PADRAO; i++) await tentar(placaN(i))
-    chamadas = 0
-  }
+  it('the same code repeated on the same plate counts once site-wide', async () => {
+    for (let i = 0; i < 100; i++) await tentar(placaN(i % 20), {}, `FAKEREP${i % 20}`)
+    resposta = valido
+    expect((await tentar(OUTRA)).bloqueio).toBeNull() // only 20 pairs counted
+  })
 
   it('armed: a personal coupon with the right e-mail passes and does not count', async () => {
     await armar()
     resposta = { ...valido, pessoal: true }
     for (let i = 0; i < 10; i++) expect((await tentar(PLACA)).bloqueio).toBeNull()
     expect(chamadas).toBe(10)
-    expect(cupomLimitePlacaEstourado(PLACA, {}, relogio)).toBe(false)
+    resposta = valido
+    relogio = T0 + 10 * 60_000 + 1 // global window gone, plate window still on
+    expect((await tentar(PLACA)).bloqueio).toBeNull()
+  })
+
+  it('armed: a personal coupon not yet matched to an e-mail passes and does not count', async () => {
+    await armar()
+    resposta = { ...valido, exigeEmail: true }
+    for (let i = 0; i < 10; i++) expect((await tentar(PLACA)).bloqueio).toBeNull()
   })
 
   it('armed: a personal coupon with another e-mail is blocked and counts', async () => {
@@ -129,14 +175,13 @@ describe('typed coupon: global limit', () => {
     resposta = { ...invalido, motivo: 'Este cupom e pessoal e vale so para o e-mail que o recebeu.' }
     for (let i = 0; i < 5; i++) expect((await tentar(PLACA)).bloqueio?.motivo).toBe('cupom_global')
     expect(chamadas).toBe(5)
-    // Counted toward the plate too.
-    expect((await tentar(PLACA)).bloqueio?.motivo).toBe('cupom_placa')
+    expect((await tentar(PLACA)).bloqueio?.motivo).toBe('cupom_placa') // counted toward the plate too
     expect(chamadas).toBe(5)
   })
 
-  it('armed: system coupons (rebuy, bump, Pix recovery) pass', async () => {
+  it('armed: system coupons (rebuy, bump, Pix recovery, free recovery) pass', async () => {
     await armar()
-    for (const origem of ['recompra', 'bump', 'pix_recover']) {
+    for (const origem of ['recompra', 'bump', 'pix_recover', 'gratis_recover']) {
       resposta = { ...valido, origem }
       expect((await tentar(PLACA)).bloqueio, origem).toBeNull()
     }
@@ -152,7 +197,7 @@ describe('typed coupon: global limit', () => {
     expect(campanha.bloqueio?.motivo).toBe('cupom_global')
     resposta = { ...valido, origem: null }
     for (let i = 0; i < 4; i++) await tentar(PLACA)
-    expect(cupomLimitePlacaEstourado(PLACA, {}, relogio)).toBe(true)
+    expect((await tentar(PLACA)).bloqueio?.motivo).toBe('cupom_placa')
   })
 
   it('armed: a used-up system coupon is refused with the global answer', async () => {
@@ -161,32 +206,111 @@ describe('typed coupon: global limit', () => {
     expect((await tentar(PLACA)).bloqueio?.motivo).toBe('cupom_global')
   })
 
-  it('per-plate block still refuses everything, our coupons included, without a lookup', async () => {
-    for (let i = 0; i < 5; i++) await tentar(PLACA)
-    chamadas = 0
-    for (const r of [{ ...valido, origem: 'recompra' }, { ...valido, pessoal: true }]) {
-      resposta = r
-      expect((await tentar(PLACA)).bloqueio?.motivo).toBe('cupom_placa')
+  it('a refusal caused only by in-flight validations is not recorded (global)', async () => {
+    for (let i = 0; i < CUPOM_LIMITE_GLOBAL_10MIN_PADRAO; i++) await tentar(placaN(i)) // exactly 30
+    let soltar!: () => void
+    const portao = new Promise<void>((r) => { soltar = r })
+    vi.stubGlobal('validarCupom', async () => { chamadas++; await portao; return valido })
+    const a = tentar(placaN(300)); const b = tentar(placaN(301))
+    soltar()
+    const [ra, rb] = await Promise.all([a, b])
+    expect(ra.bloqueio).toBeNull()
+    expect(rb.bloqueio?.motivo).toBe('cupom_global')
+    vi.stubGlobal('validarCupom', stubPadrao)
+    resposta = valido
+    expect((await tentar(placaN(302))).bloqueio).toBeNull() // still 30: not armed
+  })
+})
+
+describe('typed coupon: same work for unknown and paused campaign under the global limit', () => {
+  beforeEach(reset)
+
+  /** Fake database counting queries; `cupom` is the row for any code. */
+  function banco(cupom: any) {
+    const c = { n: 0 }
+    const sb = {
+      from: (tabela: string) => {
+        c.n++
+        if (tabela === 'cupons_premium') return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: cupom, error: null }) }) }) }
+        const q: any = { eq: () => q, then: (fn: any) => fn({ count: 0 }) }
+        return { select: () => q }
+      },
     }
-    expect(chamadas).toBe(0)
+    return { sb, c }
+  }
+  const BASE = { id: 'c1', tipo: 'percentual', valor: 10, planos: ['completa'], ativo: true, valido_de: null, valido_ate: null, limite_uso_global: null, limite_uso_por_cliente: null, email_restrito: null, origem: null }
+
+  it('unknown and campaign (with and without usage limits) make the same number of queries', async () => {
+    resposta = invalido
+    for (let i = 0; i <= 30; i++) await tentar(placaN(i))
+    vi.stubGlobal('validarCupom', validarCupomReal)
+    const consultas: number[] = []
+    for (const row of [null, BASE, { ...BASE, limite_uso_global: 100 }, { ...BASE, limite_uso_global: 100, limite_uso_por_cliente: 1 }]) {
+      const { sb, c } = banco(row)
+      const r = await validarCupomComLimite(sb, { codigo: novoCodigo(), plano: 'completa', email: EMAIL, placa: OUTRA }, {}, opts)
+      expect(r.bloqueio?.motivo).toBe('cupom_global')
+      consultas.push(c.n)
+    }
+    expect(new Set(consultas).size).toBe(1)
+    expect(consultas[0]).toBe(1)
+    // Ours still go through the normal checks (usage counts included).
+    const { sb, c } = banco({ ...BASE, origem: 'recompra', limite_uso_global: 100, limite_uso_por_cliente: 1 })
+    const r = await validarCupomComLimite(sb, { codigo: novoCodigo(), plano: 'completa', email: EMAIL, placa: OUTRA }, {}, opts)
+    expect(r.bloqueio).toBeNull()
+    expect(r.cupom.ok).toBe(true)
+    expect(c.n).toBe(3)
+  })
+})
+
+describe('e-mail waiver lookup (rebuy coupon) behind the limits', () => {
+  beforeEach(reset)
+  const sbOrigem = (origem: string | null | undefined, c = { n: 0 }) => ({
+    c,
+    sb: { from: () => { c.n++; return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: origem === undefined ? null : { origem }, error: null }) }) }) } } },
+  })
+  const dispensa = (sb: any, placa: unknown = PLACA, codigo = novoCodigo()) => cupomDispensaEmailComLimite(sb, { codigo, placa }, {}, opts)
+
+  it('unknown codes count: the 6th on the plate makes no lookup', async () => {
+    const { sb, c } = sbOrigem(undefined)
+    for (let i = 0; i < 5; i++) expect(await dispensa(sb)).toBe(false)
+    expect(c.n).toBe(5)
+    expect(await dispensa(sb)).toBe(false)
+    expect(c.n).toBe(5)
+    expect(logs.some((l) => l.includes('reason=plate_hour'))).toBe(true)
+  })
+
+  it('a rebuy code waives the e-mail, also under the global limit; others do not', async () => {
+    expect(await dispensa(sbOrigem('recompra').sb)).toBe(true)
+    expect(await dispensa(sbOrigem('volta').sb)).toBe(false)
+    const { sb } = sbOrigem(undefined)
+    for (let i = 0; i <= 30; i++) await dispensa(sb, placaN(i))
+    expect(await dispensa(sbOrigem('recompra').sb, OUTRA)).toBe(true)
+    expect(await dispensa(sbOrigem('volta').sb, OUTRA)).toBe(false)
   })
 })
 
 describe('typed coupon: env', () => {
-  beforeEach(() => { _zerarCupomLimite(); relogio = T0; chamadas = 0; resposta = invalido; logs = [] })
+  beforeEach(reset)
 
   it('empty or invalid = default, 0 = off, a number = that limit', () => {
     expect(limitesCupomDoConfig({})).toEqual({ placaHora: 5, global10min: 30 })
-    expect(limitesCupomDoConfig({ cupomLimitePlacaHora: 'abc', cupomLimiteGlobal10min: '-3' })).toEqual({ placaHora: 5, global10min: 30 })
-    expect(limitesCupomDoConfig({ cupomLimitePlacaHora: '0', cupomLimiteGlobal10min: '0' })).toEqual({ placaHora: 0, global10min: 0 })
-    expect(limitesCupomDoConfig({ cupomLimitePlacaHora: '2', cupomLimiteGlobal10min: '7' })).toEqual({ placaHora: 2, global10min: 7 })
+    expect(limitesCupomDoConfig({ cupomLimitePlacaHora: 'abc', cupomLimiteGlobal_10min: '-3' })).toEqual({ placaHora: 5, global10min: 30 })
+    expect(limitesCupomDoConfig({ cupomLimitePlacaHora: '0', cupomLimiteGlobal_10min: '0' })).toEqual({ placaHora: 0, global10min: 0 })
+    expect(limitesCupomDoConfig({ cupomLimitePlacaHora: 0, cupomLimiteGlobal_10min: 7 })).toEqual({ placaHora: 0, global10min: 7 })
+    expect(limitesCupomDoConfig({ cupomLimitePlacaHora: '2', cupomLimiteGlobal_10min: '7' })).toEqual({ placaHora: 2, global10min: 7 })
   })
 
-  it('0 turns both limits off', async () => {
-    const off = { cupomLimitePlacaHora: '0', cupomLimiteGlobal10min: '0' }
-    for (let i = 0; i < 50; i++) expect((await tentar(PLACA, off)).bloqueio).toBeNull()
+  it('0 turns both limits off and keeps nothing in memory', async () => {
+    const off = { cupomLimitePlacaHora: '0', cupomLimiteGlobal_10min: '0' }
+    for (let i = 0; i < 50; i++) expect((await tentar(placaN(i), off)).bloqueio).toBeNull()
     expect(chamadas).toBe(50)
-    expect(cupomLimitePlacaEstourado(PLACA, off, relogio)).toBe(false)
+    expect(_tamanhoCupomLimite()).toEqual({ chaves: 0, global: 0 })
+  })
+
+  it('global off: the global list does not grow', async () => {
+    const cfg = { cupomLimiteGlobal_10min: '0' }
+    for (let i = 0; i < 200; i++) await tentar(placaN(i), cfg)
+    expect(_tamanhoCupomLimite().global).toBe(0)
   })
 
   it('a lower env limit blocks earlier', async () => {
@@ -197,28 +321,41 @@ describe('typed coupon: env', () => {
 })
 
 describe('typed coupon: log and memory', () => {
-  beforeEach(() => { _zerarCupomLimite(); relogio = T0; chamadas = 0; resposta = invalido; logs = [] })
+  beforeEach(reset)
 
   it('one masked line per block, with no coupon code or e-mail', async () => {
-    for (let i = 0; i < 6; i++) await tentar()
+    const codigos: string[] = []
+    for (let i = 0; i < 6; i++) { const c = novoCodigo(); codigos.push(c); await tentar(PLACA, {}, c) }
     expect(logs).toHaveLength(1)
     expect(logs[0]).toMatch(/^\[cupom-limite\] blocked coupon plate=TST\*\*\*\* reason=plate_hour/)
-    expect(logs[0]).not.toContain(CODIGO)
+    for (const c of codigos) expect(logs[0]).not.toContain(c)
     expect(logs[0]).not.toContain(EMAIL)
     expect(logs[0]).not.toContain(PLACA)
   })
 
-  it('memory stays bounded with many plates', async () => {
-    const cfg = { cupomLimiteGlobal10min: '0' }
-    for (let i = 0; i < 10_500; i++) await tentar(`TST${String(i).padStart(4, '0')}`.slice(0, 7), cfg)
-    expect(_chavesCupomLimite()).toBeLessThanOrEqual(10_000)
+  it('memory stays bounded: above 10,000 distinct plates the oldest keys are dropped', async () => {
+    const cfg = { cupomLimiteGlobal_10min: '0' }
+    const distintas = new Set<string>()
+    for (let i = 0; i < 10_500; i++) { const p = placaN(i); distintas.add(p); await tentar(p, cfg) }
+    expect(distintas.size).toBe(10_500)
+    expect(_tamanhoCupomLimite().chaves).toBe(10_000)
+    // The first plates were dropped: their single failure is gone.
+    for (let i = 0; i < 4; i++) await tentar(placaN(0), cfg)
+    expect((await tentar(placaN(0), cfg)).bloqueio).toBeNull()
+  })
+
+  it('the global list is capped', async () => {
+    const cfg = { cupomLimitePlacaHora: '0', cupomLimiteGlobal_10min: '999' }
+    for (let i = 0; i < 1500; i++) await tentar(null, cfg)
+    expect(_tamanhoCupomLimite().global).toBeLessThanOrEqual(1000)
   })
 })
 
-describe('validarCupom marks guesses', () => {
+describe('validarCupom marks guesses and ours', () => {
   const sb = (cupom: any, error: any = null) => ({
     from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: cupom, error }) }) }) }),
   }) as any
+  const CODIGO = 'FAKECODE00'
   const BASE = { id: 'c1', codigo: CODIGO, tipo: 'percentual', valor: 10, planos: ['completa'], ativo: true, valido_de: null, valido_ate: null, limite_uso_global: null, limite_uso_por_cliente: null, email_restrito: null }
 
   it('unknown, inactive, expired, other plan and other e-mail count; database error does not', async () => {
@@ -235,5 +372,11 @@ describe('validarCupom marks guesses', () => {
     expect(ok.ok).toBe(true)
     expect(ok.contaTentativa).toBeUndefined()
     expect(ok.pessoal).toBe(false)
+  })
+
+  it('only ours: a campaign coupon is refused right after the lookup; ours go on', async () => {
+    expect(await validarCupomReal(sb(BASE), CODIGO, 'completa', EMAIL, null, { somenteDoSistema: true })).toMatchObject({ ok: false, foraDoSistema: true })
+    expect((await validarCupomReal(sb({ ...BASE, origem: 'gratis_recover' }), CODIGO, 'completa', EMAIL, null, { somenteDoSistema: true })).ok).toBe(true)
+    expect((await validarCupomReal(sb({ ...BASE, email_restrito: EMAIL }), CODIGO, 'completa', EMAIL, null, { somenteDoSistema: true })).ok).toBe(true)
   })
 })

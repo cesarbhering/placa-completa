@@ -7,12 +7,11 @@ import { _zerarGateLimite, GATE_BLOQUEIO_MS } from '../../utils/gate-limite'
 // endpoints, and the wrong-password lock of the gate. Fake data only.
 vi.mock('../../utils/compra-repetida', () => ({ respostaCompraRepetida: async () => null }))
 vi.mock('../../utils/blocklist', () => ({ barrarPlacaBloqueada: () => {} }))
+// Lookups by code made by the order endpoints' e-mail gate.
 let consultasPorCodigo = 0
-let dispensaEmail = false
-vi.mock('../../utils/cupom-recompra', () => ({
-  origemDoCupom: () => ({}),
-  cupomDispensaEmail: async () => { consultasPorCodigo++; return dispensaEmail },
-}))
+/** Row the e-mail gate finds for any code: undefined = unknown code. */
+let origemDoCodigo: string | null | undefined
+vi.mock('../../utils/cupom-recompra', () => ({ origemDoCupom: () => ({}) }))
 const handlers: Record<string, any> = {}
 let atual = ''
 let body: any
@@ -32,7 +31,9 @@ function q(): any {
   return o
 }
 vi.stubGlobal('usePremiumSupabase', () => ({
-  from: () => ({
+  from: (tabela: string) => tabela === 'cupons_premium' ? {
+    select: () => ({ eq: () => ({ maybeSingle: async () => { consultasPorCodigo++; return { data: origemDoCodigo === undefined ? null : { origem: origemDoCodigo }, error: null } } }) }),
+  } : ({
     ...q(),
     insert: (row: any) => { inseridos.push(row); return { select: () => ({ single: async () => ({ data: { id: 'p1' }, error: null }) }) } },
     update: () => ({ eq: async () => ({}) }),
@@ -45,7 +46,8 @@ vi.stubGlobal('assertPremiumGate', () => {})
 vi.stubGlobal('useRuntimeConfig', () => CONFIG)
 vi.stubGlobal('getClientIp', () => '0.0.0.0')
 vi.stubGlobal('getCookie', () => undefined)
-vi.stubGlobal('setCookie', () => {})
+let cookieGravado: any = null
+vi.stubGlobal('setCookie', (_e: any, nome: string, valor: string) => { cookieGravado = { nome, valor } })
 vi.stubGlobal('getRequestProtocol', () => 'https')
 vi.stubGlobal('getDispositivo', () => ({ dispositivo: 'celular', sistema: 'Android', canal: 'web', app_versao: null }))
 vi.stubGlobal('provedorPix', () => ({ nome: 'woovi' }))
@@ -75,7 +77,7 @@ const erro = async (fn: () => Promise<any>) => { try { await fn(); return null }
 async function estourarPlaca(placa = PLACA) {
   cupomResposta = INVALIDO
   for (let i = 0; i < 5; i++) {
-    body = { codigo: CODIGO, plano: 'completa', placa }
+    body = { codigo: `FAKEPLATE${i}`, plano: 'completa', placa }
     expect((await handlers.coupon({})).ok).toBe(false)
   }
 }
@@ -83,7 +85,7 @@ async function estourarPlaca(placa = PLACA) {
 describe('coupon endpoint and order endpoints under the coupon limit', () => {
   beforeEach(() => {
     _zerarCupomLimite(); _zerarEmVoo(); _zerarGateLimite()
-    inseridos = []; validacoes = 0; consultasPorCodigo = 0; cupomResposta = null; dispensaEmail = false
+    inseridos = []; validacoes = 0; consultasPorCodigo = 0; cupomResposta = null; origemDoCodigo = undefined
     provedor.pix = provedor.intent = provedor.sessao = 0
     CONFIG.public.gated = false
   })
@@ -98,10 +100,15 @@ describe('coupon endpoint and order endpoints under the coupon limit', () => {
     expect(validacoes).toBe(5)
   })
 
-  it('coupon endpoint: the internal flag never reaches the browser', async () => {
+  it('coupon endpoint: the internal flags never reach the browser', async () => {
     cupomResposta = INVALIDO
     body = { codigo: CODIGO, plano: 'completa', placa: PLACA }
     expect(await handlers.coupon({})).not.toHaveProperty('contaTentativa')
+    cupomResposta = { ...VALIDO, pessoal: true, origem: 'pix_recover', pedidoOrigemId: 'p0' }
+    body = { codigo: CODIGO, plano: 'completa', placa: PLACA, email: EMAIL }
+    const r = await handlers.coupon({})
+    expect(r.ok).toBe(true)
+    for (const k of ['pessoal', 'contaTentativa', 'foraDoSistema', 'origem', 'pedidoOrigemId']) expect(r, k).not.toHaveProperty(k)
   })
 
   it('a sale without a coupon goes on with the limit tripped', async () => {
@@ -134,6 +141,30 @@ describe('coupon endpoint and order endpoints under the coupon limit', () => {
     expect(inseridos[0].valor_centavos ?? inseridos[0].valor).toBe(3490)
   })
 
+  it('guesses without e-mail on the order endpoints count: the 6th makes no lookup, then the global arms', async () => {
+    for (const h of ['pix', 'intent', 'sessao']) {
+      _zerarCupomLimite(); consultasPorCodigo = 0
+      for (let i = 0; i < 6; i++) {
+        body = { placa: PLACA, plano: 'completa', cupom: `FAKEGUESS${i}` }
+        expect((await erro(() => handlers[h]({})))?.message, h).toBe('Informe o e-mail para usar um cupom.')
+      }
+      expect(consultasPorCodigo, h).toBe(5)
+      // The plate is blocked for the coupon endpoint too.
+      body = { codigo: CODIGO, plano: 'completa', placa: PLACA }
+      expect((await erro(() => handlers.coupon({})))?.data?.motivo, h).toBe('cupom_placa')
+    }
+    // 31 guesses on distinct plates arm the global limit.
+    _zerarCupomLimite()
+    for (let i = 0; i <= 30; i++) {
+      body = { placa: `TST${String(i).padStart(4, '0')}`, plano: 'completa', cupom: `FAKEGUESS${i}` }
+      await erro(() => handlers.pix({}))
+    }
+    cupomResposta = VALIDO
+    body = { codigo: CODIGO, plano: 'completa', placa: PLACA, email: EMAIL }
+    expect((await erro(() => handlers.coupon({})))?.data?.motivo).toBe('cupom_global')
+    expect(inseridos).toHaveLength(0)
+  })
+
   it('coupon without e-mail and the limit tripped: same 400 as today, no lookup by code', async () => {
     await estourarPlaca()
     for (const h of ['pix', 'intent', 'sessao']) {
@@ -147,7 +178,7 @@ describe('coupon endpoint and order endpoints under the coupon limit', () => {
   async function armarGlobal() {
     cupomResposta = INVALIDO
     for (let i = 0; i <= 30; i++) {
-      body = { codigo: CODIGO, plano: 'completa', placa: `TST${String(i).padStart(4, '0')}` }
+      body = { codigo: `FAKEGLOBAL${i}`, plano: 'completa', placa: `TST${String(i).padStart(4, '0')}` }
       await handlers.coupon({})
     }
   }
@@ -182,7 +213,7 @@ describe('coupon endpoint and order endpoints under the coupon limit', () => {
 
   it('global armed: a rebuy coupon without e-mail still works on every order endpoint', async () => {
     await armarGlobal()
-    dispensaEmail = true
+    origemDoCodigo = 'recompra'
     cupomResposta = { ...VALIDO, origem: 'recompra' }
     for (const h of ['pix', 'intent', 'sessao']) {
       body = { placa: PLACA, plano: 'completa', cupom: CODIGO }
@@ -196,7 +227,7 @@ describe('coupon endpoint and order endpoints under the coupon limit', () => {
   it('invalid typed coupons at checkout count toward the plate limit', async () => {
     cupomResposta = INVALIDO
     for (let i = 0; i < 5; i++) {
-      body = { placa: PLACA, plano: 'completa', email: EMAIL, cupom: CODIGO }
+      body = { placa: PLACA, plano: 'completa', email: EMAIL, cupom: `FAKECHK${i}` }
       await handlers.pix({})
     }
     body = { codigo: CODIGO, plano: 'completa', placa: PLACA }
@@ -240,6 +271,14 @@ describe('gate: wrong-password lock', () => {
     expect((await erro(() => handlers.gate({})))?.statusCode).toBe(429)
     vi.spyOn(Date, 'now').mockReturnValue(t0 + GATE_BLOQUEIO_MS)
     expect(await handlers.gate({})).toEqual({ ok: true })
+  })
+
+  it('the right password sets a derived cookie, never the password', async () => {
+    const { valorCookieGate } = await import('../../utils/premium-gate')
+    body = { password: 'test-password' }
+    expect(await handlers.gate({})).toEqual({ ok: true })
+    expect(cookieGravado).toEqual({ nome: 'premium_gate', valor: valorCookieGate('test-password') })
+    expect(cookieGravado.valor).not.toContain('test-password')
   })
 
   it('production (not gated) is untouched', async () => {
