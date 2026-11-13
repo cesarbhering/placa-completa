@@ -1,17 +1,21 @@
 import { Resend } from 'resend'
+import type { H3Event } from 'h3'
 import { fipePriceHistory } from '../utils/fipe-api'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { sanearOrigem, sanearEntrada } from '../../shared/origem-trafego'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { checkEmailDeliverability } from '../utils/email-deliverability'
-import { getClientIp } from '../utils/client-ip'
+import { getClientIp, condicaoOrIp, filtrarPorIp, chaveTetoIp, IP_DESCONHECIDO } from '../utils/client-ip'
 import { emitirCupomTela, segredoCupomTela } from '../utils/cupom-tela'
 import { lookupIpGeo } from '../utils/ip-geo'
 import { getRegiaoSusep } from '../utils/regiao-susep'
 import { getSeguroEstimado, type SeguroEstimado } from '../utils/seguro-estimate'
 import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
-import { mensagemLimiteGratis, tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT } from '../utils/ip-wdapi-limit'
-import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
+import {
+  mensagemLimiteGratis, mensagemLimiteNeutra, tetoIpWdapi, limiteDaEntradaIp,
+  IP_WDAPI_HOURLY_LIMIT, TETO_IP_DESTINATARIO_LIBERADO,
+} from '../utils/ip-wdapi-limit'
+import { calcularICV5, inferirCategoria, ufDoCorpo, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
 import { classificarUA } from '../utils/dispositivo'
@@ -24,6 +28,7 @@ import {
   avaliarGateEmail, depsGateEmailSupabase, sanearDeviceId, sanearTokensPagos, limiteGratisSemEmail,
   GATE_EMAIL_CODE, GATE_EMAIL_MENSAGEM,
 } from '../utils/gate-email'
+import { inicioDaContagem, emVooPara, reservar, SEM_RESERVA, type Liberar } from '../utils/reserva-teto'
 
 /**
  * Registra a consulta e RECLAMA se o banco recusar.
@@ -60,12 +65,64 @@ async function registrarConsulta(supabase: any, row: Record<string, any>, origem
   return !error
 }
 
+/** Teto do user-agent gravado (consultas e blocked_requests). O cabecalho vem do cliente. */
+const USER_AGENT_MAX = 300
+
+/**
+ * As consultas anteriores de um destinatario foram feitas por ESTE solicitante
+ * (mesma chave de IP ou mesmo aparelho)? So nesse caso a resposta pode falar
+ * delas; pra qualquer outra pessoa que digite aquele e-mail ou telefone a
+ * resposta e neutra. IP desconhecido nao identifica ninguem.
+ */
+function mesmoSolicitante(
+  linha: { ip_address?: string | null; device_id?: string | null } | null | undefined,
+  ip: string,
+  deviceId: string | null,
+): boolean {
+  if (!linha) return false
+  if (deviceId && linha.device_id && linha.device_id === deviceId) return true
+  const chave = chaveTetoIp(ip)
+  return chave !== IP_DESCONHECIDO && chaveTetoIp(linha.ip_address) === chave
+}
+
 // 'tela': consulta gratis sem coleta de contato. Roda a consulta, registra e
 // devolve o bloco basico pra pagina mostrar. Nao envia nada, entao nao pede
 // nem valida e-mail/telefone.
 type Channel = 'email' | 'whatsapp' | 'tela'
 
+/**
+ * Vagas em voo desta requisicao (server/utils/reserva-teto.ts) e como ela
+ * terminou. Os tetos contam linhas que so sao gravadas no fim; ate la, quem ja
+ * passou na conferencia fica reservado em memoria pra que requisicoes
+ * simultaneas nao passem todas lendo a mesma contagem.
+ */
+interface FimDaConsulta {
+  liberarGate: Liberar
+  liberarIp: Liberar
+  liberarDestinatario: Liberar
+  /** A linha de `consultas` foi gravada (e ela que os tetos contam). */
+  linhaGravada: boolean
+  /** A entrega saiu (o teto por destinatario so conta consulta entregue). */
+  entregue: boolean
+}
+
 export default defineEventHandler(async (event) => {
+  const fim: FimDaConsulta = {
+    liberarGate: SEM_RESERVA, liberarIp: SEM_RESERVA, liberarDestinatario: SEM_RESERVA,
+    linhaGravada: false, entregue: false,
+  }
+  try {
+    return await consultar(event, fim)
+  } finally {
+    // Qualquer saida (sucesso, 4xx, 5xx): com a linha gravada o banco passa a
+    // contar; sem linha, a vaga volta na hora. Liberar nunca lanca.
+    fim.liberarGate(fim.linhaGravada)
+    fim.liberarIp(fim.linhaGravada)
+    fim.liberarDestinatario(fim.linhaGravada && fim.entregue)
+  }
+})
+
+async function consultar(event: H3Event, fim: FimDaConsulta) {
   const config = useRuntimeConfig()
   const body = await readBody(event)
 
@@ -133,7 +190,10 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const { email, phone, placa, isPWA, includeFipeChart, includeIcv5, icv5Uf } = body
+  const { email, phone, placa, isPWA, includeFipeChart, includeIcv5 } = body
+  // UF do custo de 5 anos: lista fechada. Fora dela vale como nao enviada (o
+  // valor vai parar no HTML do e-mail e da imagem do WhatsApp).
+  const icv5Uf = ufDoCorpo(body?.icv5Uf)
   // Origem de trafego (gclid, msclkid e utm) capturada pelo plugin
   // track-origin no client
   const trafego = sanearOrigem(body?.origin)
@@ -240,22 +300,26 @@ export default defineEventHandler(async (event) => {
 
   const headers = getRequestHeaders(event)
   const ip = getClientIp(event)
-  const userAgent = headers['user-agent'] || 'unknown'
+  // O UA inteiro so serve pra classificar (a marca do app vem no fim dele); o
+  // que e gravado e mandado em alerta tem teto, como no ramo do UA bloqueado.
+  const userAgentInteiro = headers['user-agent'] || 'unknown'
+  const userAgent = userAgentInteiro.slice(0, USER_AGENT_MAX)
   // Canal (app ou web) lido do UA da requisicao, no servidor. O `isPWA` do
   // corpo vem do client e, desde que a WebView do app entrou em modo PWA, ele
   // nao separa mais o app novo de uma PWA instalada pelo navegador.
   const { canal, app_versao } = classificarUA(
-    userAgent,
+    userAgentInteiro,
     headers['sec-ch-ua-mobile'],
     headers['sec-ch-ua-platform'],
   )
   const canalDaRequisicao = { canal, app_versao }
-  // Geo por IP (cacheado; fail-open pra null). Precisao de cidade e
+  // Geo do visitante: cabecalhos de localizacao da CDN quando vierem, senao
+  // lookup por IP (cacheado; fail-open pra null). Precisao de cidade e
   // aproximada em mobile/CGNAT - tratar como regiao provavel.
   // Sai agora e corre junto com os limites e a busca da placa: so e lido
   // depois da busca, entao nao atrasa mais a consulta (ip-api, ate 2 s).
   // Mesmo ponto de antes: nao muda quem chega ate aqui nem a ordem dos limites.
-  const ipGeoP = lookupIpGeo(ip).catch(() => null)
+  const ipGeoP = lookupIpGeo(ip, event).catch(() => null)
   // UUID da consulta gerado ANTES do envio: vira o token do link de cotacao
   // no email (/cotacao?c=<uuid>) e e passado como id explicito no insert final.
   const consultaId = crypto.randomUUID()
@@ -267,12 +331,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Formato de placa inválido.' })
   }
 
-  const isMobile = /mobile|android|iphone/i.test(userAgent)
+  const isMobile = /mobile|android|iphone/i.test(userAgentInteiro)
   const deviceInfo = isMobile ? 'Mobile' : 'Desktop'
 
-  // Rate limit: 5 successful consultas per hour per recipient AND per IP (web only — PWA bypasses).
+  // Rate limit: 5 successful consultas per hour per recipient AND per IP (web and PWA).
   // The "recipient" field switches with the channel so each delivery medium has its own quota.
-  // Skips IP check when IP is 'unknown' to avoid penalising users behind shared/proxied connections.
+  // The IP counts by exact address on IPv4 and by /64 on IPv6. An 'unknown' IP does not skip
+  // the cap: those requests share one bucket (server/utils/client-ip.ts, chaveTetoIp).
   const recipientField = channel === 'whatsapp' ? 'phone' : 'email'
   const recipientValue = channel === 'whatsapp' ? normalizedPhone : sanitizedEmail
   const sentField = channel === 'whatsapp' ? 'whatsapp_sent' : 'email_sent'
@@ -281,13 +346,15 @@ export default defineEventHandler(async (event) => {
   // aberta pra raspagem.
   const semDestinatario = channel === 'tela'
 
-  // Limite customizado por destinatario (tabela rate_limit_whitelist):
-  // N/hora ou ilimitado (Infinity). Aplica aos DOIS checks (destinatario e
-  // IP), senao o proprio IP bloquearia antes do limite customizado valer.
-  // Sem destinatario (canal 'tela'): o unico limite e por IP, entao a whitelist
-  // e consultada pela CHAVE 'ip:<IP>' -- assim um IP nosso (sonda de checkout +
-  // testes de prod) pode ter um teto maior sem bypass por header/segredo. IP nao
-  // whitelistado cai no default de sempre.
+  // Dois tetos por hora, e o que a rate_limit_whitelist muda em cada um:
+  // - POR DESTINATARIO: default 5, ou a entrada do destinatario (N/hora, ou
+  //   sem teto). A entrada do destinatario so mexe NESTE teto: quem digita um
+  //   e-mail liberado nao prova que e dono dele.
+  // - POR IP: vale sempre. O valor da entrada 'ip:<IP>' quando existe (IP
+  //   nosso: sonda de checkout + testes de prod, sem bypass por header/segredo),
+  //   senao o default. Requisicao com destinatario liberado SEM teto: o teto
+  //   por IP sobe pra 20/hora em vez de sumir.
+  // Sem destinatario (canal 'tela') so existe o teto por IP.
   // Parceiro com chassi completo (server/utils/parceiro-chassi.ts): cookie
   // assinado + parceiro ativo + menos de 20 consultas na ultima hora. Dentro
   // disso nao passa pelo gate de e-mail nem pelo limite gratis (Turnstile
@@ -302,11 +369,14 @@ export default defineEventHandler(async (event) => {
   })
   if (parceiro) setHeader(event, 'Cache-Control', 'private, no-store')
 
-  const hourlyLimit = parceiro
+  const limiteDestinatario = parceiro || semDestinatario
     ? Infinity
-    : semDestinatario
-      ? await getHourlyLimit(`ip:${ip}`)
-      : await getHourlyLimit(recipientValue as string)
+    : await getHourlyLimit(recipientValue as string)
+  const destinatarioSemTeto = !parceiro && !semDestinatario && limiteDestinatario === Infinity
+  const pisoTetoIp = destinatarioSemTeto ? TETO_IP_DESTINATARIO_LIBERADO : 0
+  const limiteIp = parceiro
+    ? Infinity
+    : Math.max(await limiteDaEntradaIp(ip), pisoTetoIp)
 
   // Device id do navegador (UUID no localStorage, mandado no corpo). Gravado
   // na linha da consulta pro gate de e-mail contar o mesmo aparelho mesmo
@@ -316,9 +386,10 @@ export default defineEventHandler(async (event) => {
   // ===== Gate de e-mail (Cesar, 09/nov/2026) =====
   // A partir da terceira consulta gratis em 24h (mesmo IP OU mesmo device),
   // sem e-mail nao sai. Quem pagou algum relatorio (token conferido no
-  // banco) fica fora. Vale em homolog tambem, pra poder testar; quem esta na
-  // whitelist (sonda da VPS, testes de prod) fica fora como no rate limit.
-  if (!sanitizedEmail && hourlyLimit !== Infinity && (await tetoIpWdapi(ip)) <= IP_WDAPI_HOURLY_LIMIT) {
+  // banco) fica fora. Vale em homolog tambem, pra poder testar; IP com teto
+  // maior na whitelist (sonda da VPS, testes de prod) fica fora como no rate
+  // limit. Destinatario liberado NAO tira ninguem do gate.
+  if (!sanitizedEmail && !parceiro && (await tetoIpWdapi(ip)) <= IP_WDAPI_HOURLY_LIMIT) {
     // NUXT_CONSULTA_GRATIS_SEM_EMAIL: 2 = regra permanente, 0 = emergencia.
     const limiteGate = limiteGratisSemEmail(config.consultaGratisSemEmail)
     const supabaseGate = useSupabaseServer()
@@ -341,6 +412,8 @@ export default defineEventHandler(async (event) => {
       // (0 = desde a primeira consulta).
       throw createError({ statusCode: 403, message: GATE_EMAIL_MENSAGEM, data: { code: GATE_EMAIL_CODE, limite: limiteGate } })
     }
+    // Passou pela contagem: a vaga fica em voo ate a linha desta consulta existir.
+    if (gate.liberar) fim.liberarGate = gate.liberar
   }
 
   // Vale pra web E PWA: sem isso, um POST com isPWA:true pulava o rate
@@ -348,7 +421,7 @@ export default defineEventHandler(async (event) => {
   // na API paga (fechado em 28/jul/2026).
   // No homolog (ambiente de teste) o teto por hora nao se aplica: quem testa
   // precisa consultar a vontade. Prod segue com o limite normal.
-  if (hourlyLimit !== Infinity && !config.public.homolog) {
+  if (!parceiro && !config.public.homolog) {
     const supabase = useSupabaseServer()
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const ipCheckable = ip && ip !== 'unknown'
@@ -363,7 +436,7 @@ export default defineEventHandler(async (event) => {
     let janelaInicio = oneHourAgo
     try {
       const orParts: string[] = []
-      if (ipCheckable) orParts.push(`ip_address.eq.${ip}`)
+      if (ipCheckable) orParts.push(condicaoOrIp('ip_address', ip))
       if (!semDestinatario && recipientValue) orParts.push(`email.eq.${recipientValue}`)
       if (orParts.length) {
         const premium = usePremiumSupabase()
@@ -394,40 +467,50 @@ export default defineEventHandler(async (event) => {
     // Vale igual pra web e app/PWA, sem excecao. Um atacante nao paga, entao o
     // reset pos-compra (janelaInicio) nao abre brecha e protege quem pagou. O
     // limite por destinatario/email segue 5/h. Escape via rate_limit_whitelist
-    // (whitelistar um IP pra Infinity ou teto maior).
+    // (whitelistar um IP pra Infinity ou teto maior). Destinatario liberado sem
+    // teto so levanta este teto pra 20 (pisoTetoIp).
     //
     // Combinado com /api/premium/preview (que tambem custa wdapi, ver
     // server/utils/ip-wdapi-limit.ts): sem a soma, um bot que revezasse entre
     // as duas rotas dobrava o orcamento efetivo pra 30/hora.
-    if (ipCheckable) {
-      const limite = await checarLimiteIpWdapi(supabase, ip, { recipientValue, janelaInicio })
-      if (!limite.ok) {
-        supabase.from('blocked_requests').insert({
-          reason: 'rate_limit_ip_wdapi',
-          ip_address: ip,
-          recipient: recipientValue ?? null,
-          placa: placaClean || null,
-          user_agent: userAgent,
-        }).then(({ error }) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
-        // Avisa o time na hora, com dedupe de uma hora por IP. Nao usa await:
-        // quem bateu no teto ja vai levar 429, e o aviso nunca pode segurar a
-        // resposta nem falhar por causa dela.
-        contarBloqueiosNaHora(supabase, ip).then((bloqueiosNaHora) => avisarAbuso({
-          ip, rota: '/api/consulta', teto: limite.teto, email: recipientValue ?? null,
-          userAgent, bloqueiosNaHora,
-        }))
-        throw createError({
-          statusCode: 429,
-          message: mensagemLimiteGratis(limite.teto!, limite.minutesUntilReset!),
-        })
-      }
+    // Sem endereco conhecido o teto nao e pulado: essas requisicoes dividem um
+    // balde unico (checarLimiteIpWdapi + chaveTetoIp).
+    const limite = await checarLimiteIpWdapi(supabase, ip, { recipientValue, janelaInicio, tetoMinimo: pisoTetoIp })
+    if (!limite.ok) {
+      supabase.from('blocked_requests').insert({
+        reason: 'rate_limit_ip_wdapi',
+        ip_address: ip,
+        recipient: recipientValue ?? null,
+        placa: placaClean || null,
+        user_agent: userAgent,
+      }).then(({ error }) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
+      // Avisa o time na hora, com dedupe de uma hora por IP. Nao usa await:
+      // quem bateu no teto ja vai levar 429, e o aviso nunca pode segurar a
+      // resposta nem falhar por causa dela.
+      contarBloqueiosNaHora(supabase, ip).then((bloqueiosNaHora) => avisarAbuso({
+        ip, rota: '/api/consulta', teto: limite.teto, email: recipientValue ?? null,
+        userAgent, bloqueiosNaHora,
+      }))
+      throw createError({
+        statusCode: 429,
+        message: mensagemLimiteGratis(limite.teto!, limite.minutesUntilReset!),
+      })
     }
+    // Vaga em voo do teto por IP: liberada no fim da requisicao (wrapper).
+    fim.liberarIp = limite.liberar
 
     const vazio = Promise.resolve({ count: 0, data: null, error: null } as any)
 
+    // Teto por destinatario tambem vale pra chamadas simultaneas: marca o
+    // inicio antes de mandar a contagem (ver reserva-teto.ts). Falha aberta.
+    const contaDestinatario = !semDestinatario && limiteDestinatario !== Infinity
+    const chaveDestinatario = contaDestinatario ? `dest|${recipientField}|${recipientValue}` : ''
+    let inicioDestinatario: number | null = null
+    try { if (contaDestinatario) inicioDestinatario = inicioDaContagem() } catch { inicioDestinatario = null }
+
     const [recipientRes, ipRes] = await Promise.all([
-      // Sem destinatario nao ha o que contar por destinatario.
-      semDestinatario
+      // Sem destinatario (ou destinatario sem teto) nao ha o que contar por destinatario.
+      semDestinatario || limiteDestinatario === Infinity
         ? vazio
         : supabase
             .from('consultas')
@@ -437,13 +520,11 @@ export default defineEventHandler(async (event) => {
             .gte('created_at', janelaInicio)
             .order('created_at', { ascending: true })
             .limit(1),
-      ipCheckable
+      ipCheckable && limiteIp !== Infinity
         ? (() => {
-            const q = supabase
-              .from('consultas')
-              .select('created_at', { count: 'exact' })
-              .eq('ip_address', ip)
-              .gte('created_at', janelaInicio)
+            const q = filtrarPorIp(
+              supabase.from('consultas').select('created_at', { count: 'exact' }), 'ip_address', ip,
+            ).gte('created_at', janelaInicio)
             // No canal 'tela' nada e "enviado", entao filtrar por sentField=true
             // zeraria o contador e o teto por IP deixaria de existir — consulta
             // paga aberta pra raspagem. Aqui o criterio e ter havido consulta.
@@ -454,11 +535,19 @@ export default defineEventHandler(async (event) => {
         : vazio,
     ])
 
-    const recipientCount = recipientRes?.count ?? 0
+    // Sem await ate a reserva la embaixo: decisao + reserva num passo so.
+    let destinatarioEmVoo = 0
+    try {
+      if (inicioDestinatario !== null) destinatarioEmVoo = emVooPara(chaveDestinatario, inicioDestinatario)
+    } catch { destinatarioEmVoo = 0 }
+    const recipientCount = (recipientRes?.count ?? 0) + destinatarioEmVoo
     const ipCount = ipRes?.count ?? 0
 
-    if (recipientCount >= hourlyLimit || ipCount >= hourlyLimit) {
-      const oldestIso = recipientCount >= hourlyLimit
+    // Cada contagem contra o SEU teto: a do destinatario nunca usa o do IP nem
+    // o contrario.
+    const estourouDestinatario = recipientCount >= limiteDestinatario
+    if (estourouDestinatario || ipCount >= limiteIp) {
+      const oldestIso = estourouDestinatario
         ? recipientRes?.data?.[0]?.created_at
         : ipRes?.data?.[0]?.created_at
       let minutesUntilReset = 60
@@ -471,7 +560,7 @@ export default defineEventHandler(async (event) => {
       // do container e docker logs morrem a cada deploy. Sem await pra nao
       // atrasar a resposta; falha de insert nao afeta o usuario.
       supabase.from('blocked_requests').insert({
-        reason: recipientCount >= hourlyLimit ? 'rate_limit_recipient' : 'rate_limit_ip',
+        reason: estourouDestinatario ? 'rate_limit_recipient' : 'rate_limit_ip',
         ip_address: ip,
         recipient: recipientValue as string,
         placa: placa?.replace(/[^A-Za-z0-9]/g, '').toUpperCase() || null,
@@ -480,11 +569,40 @@ export default defineEventHandler(async (event) => {
         if (error) console.warn('[blocked_requests] insert falhou:', error.message)
       })
 
+      // O 429 por destinatario fala da atividade daquele e-mail/telefone
+      // (quantas consultas, ha quanto tempo). So quem fez essas consultas ve o
+      // detalhe; pra outro IP e outro aparelho a mensagem e neutra. Consulta
+      // extra so neste caminho de bloqueio; erro nela = neutra.
+      let detalhar = !estourouDestinatario
+      if (estourouDestinatario) {
+        const meus: string[] = []
+        if (ipCheckable) meus.push(condicaoOrIp('ip_address', ip))
+        if (deviceId) meus.push(`device_id.eq.${deviceId}`)
+        try {
+          if (meus.length) {
+            const { data: minhas } = await supabase
+              .from('consultas')
+              .select('ip_address, device_id')
+              .eq(recipientField, recipientValue as string)
+              .eq(sentField, true)
+              .gte('created_at', janelaInicio)
+              .or(meus.join(','))
+              .limit(1)
+            detalhar = mesmoSolicitante(minhas?.[0], ip, deviceId)
+          }
+        } catch { detalhar = false }
+      }
+
       throw createError({
         statusCode: 429,
-        message: mensagemLimiteGratis(hourlyLimit, minutesUntilReset),
+        message: detalhar
+          ? mensagemLimiteGratis(estourouDestinatario ? limiteDestinatario : limiteIp, minutesUntilReset)
+          : mensagemLimiteNeutra(),
       })
     }
+    try {
+      if (inicioDestinatario !== null) fim.liberarDestinatario = reservar(chaveDestinatario)
+    } catch { /* sem reserva: segue como antes dela existir */ }
   }
 
   // Dedupe per channel: same recipient + same placa in the last hour → skip the
@@ -492,9 +610,9 @@ export default defineEventHandler(async (event) => {
   // Pulado no homolog: testar a mesma placa varias vezes nao pode ser barrado.
   if (!isPWA && !config.public.homolog) {
     const supabase = useSupabaseServer()
-    const { data: existing, error: dedupeError } = await supabase
+    const buscarRepetida = (colunas: string) => supabase
       .from('consultas')
-      .select('created_at')
+      .select(colunas)
       .eq(recipientField, recipientValue as string)
       .eq('placa', placaClean)
       .eq(sentField, true)
@@ -502,6 +620,13 @@ export default defineEventHandler(async (event) => {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
+    // IP e aparelho da consulta anterior dizem se quem pede agora e quem a fez.
+    let { data: existing, error: dedupeError } = await buscarRepetida('created_at, ip_address, device_id') as { data: any; error: any }
+    // Banco sem a coluna device_id (deploy antes da migration): a checagem de
+    // repeticao segue valendo, so sem o aparelho.
+    if (dedupeError && /device_id/.test(String(dedupeError.message || ''))) {
+      ;({ data: existing, error: dedupeError } = await buscarRepetida('created_at, ip_address') as { data: any; error: any })
+    }
 
     if (dedupeError) {
       console.warn('[dedupe] Supabase error:', dedupeError.message)
@@ -512,12 +637,21 @@ export default defineEventHandler(async (event) => {
       const where = channel === 'whatsapp'
         ? `enviado por WhatsApp para o número informado`
         : `enviado para ${sanitizedEmail}`
+      // "Voce ja consultou ha X min, enviado para <destinatario>" conta a
+      // atividade daquele e-mail/telefone. So quem fez a consulta anterior
+      // (mesma chave de IP ou mesmo aparelho) le isso; pra qualquer outra
+      // pessoa a resposta e a de uma consulta comum, sem novo envio.
+      const neutra = channel === 'whatsapp' ? 'Consulta realizada! Verifique seu WhatsApp.'
+        : channel === 'email' ? 'Consulta realizada! Verifique seu e-mail.'
+        : 'Consulta realizada.'
       return {
         success: true,
         emailSent: channel === 'email',
         whatsappSent: channel === 'whatsapp',
         channel,
-        message: `Você já consultou essa placa há ${minutesAgo === 1 ? 'menos de 1 minuto' : `${minutesAgo} min`}. O resultado foi ${where}: verifique seu histórico.`,
+        message: mesmoSolicitante(existing, ip, deviceId)
+          ? `Você já consultou essa placa há ${minutesAgo === 1 ? 'menos de 1 minuto' : `${minutesAgo} min`}. O resultado foi ${where}: verifique seu histórico.`
+          : neutra,
       }
     }
   }
@@ -560,7 +694,7 @@ export default defineEventHandler(async (event) => {
     })
 
     const supabase = useSupabaseServer()
-    await registrarConsulta(supabase, {
+    fim.linhaGravada = await registrarConsulta(supabase, {
       email: sanitizedEmail,
       phone: normalizedPhone,
       placa: placaClean,
@@ -593,7 +727,7 @@ export default defineEventHandler(async (event) => {
     // also valid response
   } else {
     const supabase = useSupabaseServer()
-    await registrarConsulta(supabase, {
+    fim.linhaGravada = await registrarConsulta(supabase, {
       email: sanitizedEmail,
       phone: normalizedPhone,
       placa: placaClean,
@@ -837,7 +971,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const supabase = useSupabaseServer()
-  await registrarConsulta(supabase, {
+  fim.entregue = emailSent || whatsappSent
+  fim.linhaGravada = await registrarConsulta(supabase, {
     id: consultaId,
     email: sanitizedEmail,
     phone: normalizedPhone,
@@ -954,7 +1089,7 @@ export default defineEventHandler(async (event) => {
       ano: apiResponse.anoModelo || apiResponse.ano || '',
     } : undefined,
   }
-})
+}
 
 /**
  * Normaliza o price_history da FIPE API em pontos ordenados e downsampled
@@ -1203,13 +1338,13 @@ function buildEmailHtml(data: Record<string, any>, placa: string, chartUrl: stri
         ${rodizioDisclaimer}
       `) : ''}
 
-      ${icv5 ? emailWindow(`ICV5 - Custo para Manter em 5 Anos em ${icv5.uf}`, `
+      ${icv5 ? emailWindow(`ICV5 - Custo para Manter em 5 Anos em ${escapeHtml(icv5.uf)}`, `
         ${emailRow('Manutenção anual', formatBRL(icv5.manutencaoAnual))}
         ${emailRow('Manutenção 5 anos', formatBRL(icv5.manutencao5anos))}
         ${emailRow('IPVA anual', formatBRL(icv5.ipvaAnual))}
         ${emailRow('IPVA 5 anos', formatBRL(icv5.ipva5anos))}
         ${emailRow('Custo total 5 anos', formatBRL(icv5.custoTotal5anos))}
-        ${emailRow('Índice ICV5', `${icv5.indiceIcv5}% - ${icv5.classificacao}`, true)}
+        ${emailRow('Índice ICV5', escapeHtml(`${icv5.indiceIcv5}% - ${icv5.classificacao}`), true)}
       `) : ''}
 
       <p style="font-size:11px;color:#979dac;text-align:center;font-family:'Segoe UI',Arial,sans-serif;margin:6px 0 0;max-width:520px;">
@@ -1247,7 +1382,9 @@ function emailShareButton(marca: string, modelo: string, ano: string, placa: str
 // cotacao real linkando /cotacao?c=<uuid da consulta>. Sempre presente
 // (versao generica sem estimativa) por decisao de produto.
 function emailSeguroSection(seguro: SeguroEstimado | null, cotacaoUrl: string): string {
-  const fmt = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
+  // Number(): o valor vem de servico externo; texto que nao e numero vira NaN
+  // em vez de entrar no HTML como veio.
+  const fmt = (v: number) => 'R$ ' + Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 0 })
   const botao = (label: string) => `
     <tr><td colspan="2" style="padding:14px 16px 6px;text-align:center;background:#ffffff;">
       <table cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr>
@@ -1267,7 +1404,7 @@ function emailSeguroSection(seguro: SeguroEstimado | null, cotacaoUrl: string): 
     return emailWindow('Seguro do seu carro', `
       ${emailRow('Seguro médio anual', fmt(seguro.premioAnual))}
       ${emailRow('Franquia média', fmt(seguro.franquia))}
-      ${seguro.regiaoDoUsuario ? emailRow('Região', seguro.regiao.descricao, true) : ''}
+      ${seguro.regiaoDoUsuario ? emailRow('Região', escapeHtml(seguro.regiao?.descricao), true) : ''}
       ${botao('Pedir cotação real →')}
     `)
   }
@@ -1319,7 +1456,7 @@ function emailRow(label: string, value: string, isLast: boolean = false): string
 }
 
 function formatBRL(value: number): string {
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 // Plain-text version of the consulta payload, formatted for WhatsApp.

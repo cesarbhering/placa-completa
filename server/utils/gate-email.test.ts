@@ -3,6 +3,7 @@ import {
   avaliarGateEmail, sanearDeviceId, sanearTokensPagos, limiteGratisSemEmail,
   GATE_EMAIL_JANELA_MS, type GateEmailDeps,
 } from './gate-email'
+import { _zerarReservas } from './reserva-teto'
 
 // In-memory stand-in for the `consultas` table and paid orders. Each accepted
 // lookup is recorded like the endpoint does (ip + device id + time).
@@ -29,7 +30,7 @@ function deps(): GateEmailDeps {
 }
 
 // Simulates one POST /api/consulta: evaluates the gate and, when allowed,
-// records the row like the endpoint.
+// records the row and releases the in-flight slot, like the endpoint.
 async function consultar(o: { ip: string; deviceId?: string | null; email?: boolean; tokens?: string[] }) {
   const r = await avaliarGateEmail(deps(), {
     temEmail: !!o.email,
@@ -39,6 +40,7 @@ async function consultar(o: { ip: string; deviceId?: string | null; email?: bool
     agora,
   })
   if (!r.exigirEmail) linhas.push({ ip: o.ip, deviceId: o.deviceId ?? null, em: agora })
+  r.liberar?.(true)
   agora += 60_000
   return r
 }
@@ -46,6 +48,7 @@ async function consultar(o: { ip: string; deviceId?: string | null; email?: bool
 beforeEach(() => {
   linhas = []
   agora = Date.parse('2026-11-09T12:00:00Z')
+  _zerarReservas()
 })
 
 describe('free lookup e-mail gate', () => {
@@ -174,7 +177,54 @@ describe('allowance 2 (permanent rule) passed explicitly', () => {
       const r = await avaliarGateEmail(deps(), { ...o, agora })
       expect(r.exigirEmail).toBe(false)
       linhas.push({ ip: o.ip, deviceId: o.deviceId, em: agora })
+      r.liberar?.(true)
     }
     expect((await avaliarGateEmail(deps(), { ...o, agora })).exigirEmail).toBe(true)
+  })
+})
+
+// The gate counts rows that are only written at the end of the request, so
+// requests that overlap are held in memory until their row exists.
+describe('gate with simultaneous requests', () => {
+  const lento = (): GateEmailDeps => ({
+    async contarConsultas(q) { await new Promise((r) => setTimeout(r, 5)); return deps().contarConsultas(q) },
+    algumTokenPago: async () => false,
+  })
+  const entrada = (ip: string, deviceId: string | null) => ({ temEmail: false, ip, deviceId, tokensPagos: [] as string[], agora })
+
+  it('10 at once from one IP: 2 pass, 8 are asked for the e-mail', async () => {
+    const rs = await Promise.all(Array.from({ length: 10 }, () => avaliarGateEmail(lento(), entrada('198.51.100.1', null))))
+    expect(rs.filter((r) => !r.exigirEmail)).toHaveLength(2)
+    expect(rs.filter((r) => r.exigirEmail)).toHaveLength(8)
+  })
+
+  it('10 at once with one device id from 10 IPs: 2 pass', async () => {
+    const rs = await Promise.all(Array.from({ length: 10 }, (_, i) => avaliarGateEmail(lento(), entrada(`198.51.100.${i + 1}`, DEV_A))))
+    expect(rs.filter((r) => !r.exigirEmail)).toHaveLength(2)
+  })
+
+  it('one request holding both keys (IP and device) counts once', async () => {
+    const a = await avaliarGateEmail(deps(), entrada('198.51.100.1', DEV_A))
+    const b = await avaliarGateEmail(deps(), entrada('198.51.100.1', DEV_A))
+    expect([a.exigirEmail, b.exigirEmail]).toEqual([false, false])
+    expect((await avaliarGateEmail(deps(), entrada('198.51.100.1', DEV_A))).exigirEmail).toBe(true)
+  })
+
+  it('a request that ended without a row gives its slot back', async () => {
+    const a = await avaliarGateEmail(deps(), entrada('198.51.100.1', null))
+    const b = await avaliarGateEmail(deps(), entrada('198.51.100.1', null))
+    expect((await avaliarGateEmail(deps(), entrada('198.51.100.1', null))).exigirEmail).toBe(true)
+    a.liberar?.(false)
+    b.liberar?.(false)
+    expect((await avaliarGateEmail(deps(), entrada('198.51.100.1', null))).exigirEmail).toBe(false)
+  })
+
+  it('requests with e-mail or with a paid token take no slot', async () => {
+    const comEmail = await avaliarGateEmail(deps(), { ...entrada('198.51.100.1', null), temEmail: true })
+    expect(comEmail.liberar).toBeUndefined()
+    linhas.push({ ip: '198.51.100.1', deviceId: null, em: agora }, { ip: '198.51.100.1', deviceId: null, em: agora })
+    const pagou = await avaliarGateEmail(deps(), { ...entrada('198.51.100.1', null), tokensPagos: [TOKEN_PAGO] })
+    expect(pagou).toMatchObject({ exigirEmail: false, motivo: 'pagou' })
+    expect(pagou.liberar).toBeUndefined()
   })
 })

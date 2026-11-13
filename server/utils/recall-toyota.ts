@@ -35,9 +35,9 @@ export interface PerfilRecall {
   chassi?: string | null
   marca?: string | null
   modelo?: string | null
-  ano?: number | null
-  ano_fab?: number | null
-  ano_mod?: number | null
+  ano?: number | string | null
+  ano_fab?: number | string | null
+  ano_mod?: number | string | null
 }
 
 /** Texto livre da campanha: so string, sem espaco sobrando, com teto. */

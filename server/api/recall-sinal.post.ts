@@ -3,7 +3,10 @@ import { consultarRecallToyota } from '../utils/recall-toyota'
 import { sinalDoRecall, marcaTemRecall, RECALL_INDISPONIVEL, type SinalRecall } from '../utils/sinal-recall'
 import { dentroDoTetoDeSinal } from '../utils/sinal-leilao'
 import { getClientIp } from '../utils/client-ip'
-import { chassiDoServidor } from '../utils/chassi-servidor'
+import { chassiDoPayload } from '../utils/chassi-servidor'
+import { lerPlacaCacheFresca } from '../utils/placa-lookup'
+import { perfilDoSinal, textoCurto, TAM_MARCA } from '../utils/perfil-sinal'
+import { placaBloqueadaComRegistro } from '../utils/blocklist'
 
 // Sinal de RECALL pra CONSULTA GRATIS. Endpoint proprio (como o leilao-sinal):
 // nao atrasa a consulta gratis, cacheia por placa, e mantem a muralha num
@@ -29,42 +32,58 @@ export default defineEventHandler(async (event) => {
   // Fora do escopo (nao Toyota/Lexus): nao consultamos e nao afirmamos nada.
   // INDISPONIVEL (nao "nao consta"): a tela fica em silencio.
   // "CHEV" (SENATRAN) vira "CHEVROLET" pra /v1/recall (e pro cache).
-  const marca = normalizarMarcaRecall(String(body?.marca || '').trim())
-  if (!marcaTemRecall(marca)) return RECALL_INDISPONIVEL
+  // Esta primeira triagem usa a marca do corpo (com teto de tamanho) so pra
+  // sair cedo, antes de qualquer leitura; a marca que VALE e conferida de novo
+  // la embaixo com o que o servidor guarda da placa.
+  const marcaDoCorpo = normalizarMarcaRecall(textoCurto(body?.marca, TAM_MARCA) || '')
+  if (!marcaTemRecall(marcaDoCorpo)) return RECALL_INDISPONIVEL
 
   // Mesmo motivo do leilao-sinal: sem teto da pra varrer placa por placa. IP
   // REAL do visitante e contador PROPRIO do recall (a consulta chama os dois).
   const ip = getClientIp(event)
   if (!dentroDoTetoDeSinal(ip, Date.now(), 'recall')) return RECALL_INDISPONIVEL
 
+  // Placa bloqueada a pedido do proprietario: a mesma resposta de "nao
+  // sabemos", sem tocar no cache nem na base (igual ao leilao-sinal).
+  if (placaBloqueadaComRegistro(event, placa)) return RECALL_INDISPONIVEL
+
   // Cache por placa+marca (a marca entra pra nao servir um sinal de outra marca
-  // pra mesma placa por engano de um payload trocado).
-  const chaveCache = `${placa}|${marca.toUpperCase()}`
+  // pra mesma placa por engano de um payload trocado). So entra no cache o que
+  // foi calculado com os dados do SERVIDOR (ver abaixo), entao a leitura pela
+  // marca do corpo so acha algo quando ela e a marca verdadeira da placa.
   const agora = Date.now()
-  const emCache = cache.get(chaveCache)
+  const emCache = cache.get(`${placa}|${marcaDoCorpo.toUpperCase()}`)
   if (emCache && agora - emCache.em < TTL_MS) return emCache.sinal
 
   // Chassi CHEIO do SERVIDOR (placa_cache, extra.chassi) -> firme; senao so
   // marca/modelo/ano -> suave. O body?.chassi do cliente e IGNORADO (a tela
   // nunca tinha o cheio, entao o recall gratis era sempre suave). Sufixo
   // mascarado nao serve pro recall (casa por VIN cheio). So le o cache.
-  const doServidor = await chassiDoServidor(placa)
+  const doServidor = await lerPlacaCacheFresca(placa)
+  const chassi = chassiDoPayload(doServidor)
+  // Marca, modelo e ano tambem saem do que o servidor guarda da placa
+  // (server/utils/perfil-sinal.ts); o corpo so preenche o que falta, com
+  // tamanho limitado, e nesse caso o resultado nao vai pro cache.
+  const perfil = perfilDoSinal(doServidor, body)
+  const marca = normalizarMarcaRecall(perfil.marca || '')
+  if (!marcaTemRecall(marca)) return RECALL_INDISPONIVEL
   const resposta = await consultarRecallToyota({
     placa,
-    chassi: doServidor.tipo === 'completo' ? doServidor.chassi : null,
+    chassi: chassi.tipo === 'completo' ? chassi.chassi : null,
     marca,
-    modelo: normalizarMarcaRecall(String(body?.modelo || '').trim()) || null,
-    ano: body?.ano ?? null,
-    ano_fab: body?.anoFab ?? null,
-    ano_mod: body?.anoModelo ?? null,
+    modelo: normalizarMarcaRecall(perfil.modelo || '') || null,
+    ano: perfil.ano,
+    ano_fab: perfil.anoFab,
+    ano_mod: perfil.anoModelo,
   }, { timeoutMs: TIMEOUT_MS }).catch(() => null)
 
   const sinal = sinalDoRecall(resposta)
 
   // Guarda so quando a API respondeu (resposta != null). Guardar o vazio de um
-  // timeout ensinaria o cache a mentir por 24h.
-  if (resposta) {
-    cache.set(chaveCache, { em: agora, sinal })
+  // timeout ensinaria o cache a mentir por 24h. E so o resultado calculado com
+  // o que o servidor sabe da placa, na chave da marca do servidor.
+  if (resposta && !perfil.doCorpo) {
+    cache.set(`${placa}|${marca.toUpperCase()}`, { em: agora, sinal })
     if (cache.size > 5000) {
       for (const [k, v] of cache) if (agora - v.em >= TTL_MS) cache.delete(k)
       if (cache.size > 5000) cache.clear()

@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
     : null
 
   // Cidade/UF de quem esta pedindo a cotacao (geo do IP na hora; fail-open)
-  const ipGeo = await lookupIpGeo(getClientIp(event))
+  const ipGeo = await lookupIpGeo(getClientIp(event), event)
   let cidadeLead = ipGeo?.country === 'BR' && ipGeo.city ? `${ipGeo.city} - ${ipGeo.uf}` : null
 
   const supabase = useSupabaseServer()

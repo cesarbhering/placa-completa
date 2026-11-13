@@ -231,7 +231,7 @@ export async function complementarLeilaoParceiro(
 ): Promise<any> {
   const agora = deps.agora ?? Date.now()
   const log = deps.log ?? ((m: string) => console.info(m))
-  const alertar = deps.alertar ?? (async (assunto: string, texto: string) => sendErrorEmail({ endpoint: '/premium/parceiro-leilao', errorMessage: `${assunto}<br>${texto}`, paraTambem: [AVISO] }))
+  const alertar = deps.alertar ?? (async (assunto: string, texto: string) => sendErrorEmail({ endpoint: '/premium/parceiro-leilao', errorMessage: `${assunto}\n${texto}`, paraTambem: [AVISO] }))
   const http: Http = deps.http ?? ((url, init) => fetch(url, init as any) as any)
   try {
     if (pedido.plano && pedido.plano !== 'completa') return historico

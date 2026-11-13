@@ -20,7 +20,7 @@ describe('consulta gratis: order of the checks', () => {
 
   it('starts the IP geo lookup without awaiting it and reads it only after the plate lookup', () => {
     expect(src).not.toMatch(/await lookupIpGeo\(/)
-    const inicio = pos('const ipGeoP = lookupIpGeo(ip)')
+    const inicio = pos('const ipGeoP = lookupIpGeo(ip, event)')
     expect(inicio).toBeGreaterThan(pos('await decidirTurnstile('))
     expect(inicio).toBeLessThan(pos('await avaliarGateEmail('))
     const leituras = [...src.matchAll(/await ipGeoP/g)].map((m) => m.index!)

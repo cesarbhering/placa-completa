@@ -1,6 +1,9 @@
 import { sinalDoHistorico, SINAL_INDISPONIVEL, dentroDoTetoDeSinal } from '../utils/sinal-leilao'
 import { getClientIp } from '../utils/client-ip'
-import { chassiDoServidor } from '../utils/chassi-servidor'
+import { chassiDoPayload } from '../utils/chassi-servidor'
+import { lerPlacaCacheFresca } from '../utils/placa-lookup'
+import { perfilDoSinal } from '../utils/perfil-sinal'
+import { placaBloqueadaComRegistro } from '../utils/blocklist'
 
 // Sinal de leilao para a CONSULTA GRATIS. Endpoint proprio, e nao um campo a
 // mais no /api/consulta, por tres motivos: nao atrasa a consulta gratis (ela
@@ -33,6 +36,11 @@ export default defineEventHandler(async (event) => {
   const ip = getClientIp(event)
   if (!dentroDoTetoDeSinal(ip, Date.now(), 'leilao')) return SINAL_INDISPONIVEL
 
+  // Placa bloqueada a pedido do proprietario: a mesma resposta de "nao
+  // sabemos" (a tela fica em silencio), sem tocar no cache nem na base. Depois
+  // do teto por IP, pra o registro da tentativa nao crescer sem limite.
+  if (placaBloqueadaComRegistro(event, placa)) return SINAL_INDISPONIVEL
+
   const agora = Date.now()
   const emCache = cache.get(placa)
   if (emCache && agora - emCache.em < TTL_MS) return emCache.sinal
@@ -41,17 +49,22 @@ export default defineEventHandler(async (event) => {
   // WDAPI mandou extra.chassi, senao o sufixo mascarado. O body?.chassi do
   // cliente e IGNORADO (era o prefixo "LJ11K*****", so a montadora). So le o
   // cache: nenhuma chamada nova a fonte paga. O chassi nao sai daqui.
-  const { chassi } = await chassiDoServidor(placa)
+  const doServidor = await lerPlacaCacheFresca(placa)
+  const { chassi } = chassiDoPayload(doServidor)
+  // Marca, modelo, ano, cor e UF tambem saem do que o servidor guarda da placa
+  // (server/utils/perfil-sinal.ts). O corpo so preenche o que falta, com
+  // tamanho limitado, e nesse caso o resultado nao vai pro cache.
+  const perfil = perfilDoSinal(doServidor, body)
   const historico = await consultarHistoricoLeilao({
     placa,
     chassi,
-    marca: String(body?.marca || '').trim() || null,
-    modelo: String(body?.modelo || '').trim() || null,
-    ano: body?.ano ?? null,
-    ano_fab: body?.anoFab ?? null,
-    ano_mod: body?.anoModelo ?? null,
-    cor: String(body?.cor || '').trim() || null,
-    uf: String(body?.uf || '').trim() || null,
+    marca: perfil.marca,
+    modelo: perfil.modelo,
+    ano: perfil.ano,
+    ano_fab: perfil.anoFab,
+    ano_mod: perfil.anoModelo,
+    cor: perfil.cor,
+    uf: perfil.uf,
   }, { timeoutMs: TIMEOUT_MS }).catch(() => null)
 
   // Sem historico (timeout, servico fora, key errada), sinalDoHistorico ja
@@ -60,7 +73,10 @@ export default defineEventHandler(async (event) => {
 
   // Guarda so quando a API respondeu. Guardar o vazio de um timeout ensinaria
   // o cache a mentir por 24h pra uma placa que talvez tenha registro.
-  if (historico) {
+  // E so o resultado calculado com o que o SERVIDOR sabe da placa: o cache e
+  // por placa e vale pra todo mundo, entao quem chama primeiro com atributos
+  // proprios nao pode definir o sinal que os outros veem.
+  if (historico && !perfil.doCorpo) {
     cache.set(placa, { em: agora, sinal })
     // Teto de memoria: o processo e longo e o cache nao pode virar vazamento.
     if (cache.size > 5000) {

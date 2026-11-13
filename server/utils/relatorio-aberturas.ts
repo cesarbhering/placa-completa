@@ -86,7 +86,7 @@ export async function registrarAbertura(supabase: any, event: any, pedido: Pedid
     const { data: recente } = await q.limit(1)
     if (recente?.length) return false
     // Preview de robo nao gasta consulta de geo (o IP e do servidor do app).
-    const geo = base.origem === 'preview' ? null : await lookupIpGeo(ip).catch(() => null)
+    const geo = base.origem === 'preview' ? null : await lookupIpGeo(ip, event).catch(() => null)
     const { error } = await supabase.from('relatorio_aberturas').insert({
       ...base, geo_uf: geo?.uf ?? null, geo_cidade: geo?.city ?? null, geo_pais: geo?.country ?? null,
     })

@@ -1,5 +1,6 @@
 import type { HistoricoLeilao } from './historico-leilao'
 import { contarPassagens } from '../../shared/leilao-notificacao'
+import { chaveTetoIp } from './client-ip'
 
 // O SINAL de leilao da consulta gratis. Aqui mora a muralha entre o que a
 // consulta gratis mostra e o que so o relatorio pago entrega.
@@ -111,6 +112,29 @@ const JANELA_MS = 60 * 60 * 1000
 const TETO_POR_IP = 60
 const porIp = new Map<string, { desde: number; n: number }>()
 
+// Memoria limitada: o processo e longo e cada IP novo abre uma janela. As
+// janelas vencidas saem numa varredura (no maximo uma por minuto, e so com o
+// mapa ja grande); com o mapa cheio de janelas vivas, sai a mais antiga (o Map
+// guarda a ordem de insercao, e janela renovada volta pro fim da fila).
+const PODAR_A_PARTIR_DE = 2_000
+const INTERVALO_PODA_MS = 60 * 1000
+export const MAX_JANELAS_DE_SINAL = 20_000
+let ultimaPoda = 0
+
+function abrirJanela(chave: string, agora: number) {
+  if (porIp.size >= PODAR_A_PARTIR_DE && (agora < ultimaPoda || agora - ultimaPoda >= INTERVALO_PODA_MS)) {
+    ultimaPoda = agora
+    for (const [k, v] of porIp) if (agora - v.desde >= JANELA_MS) porIp.delete(k)
+  }
+  porIp.delete(chave)
+  while (porIp.size >= MAX_JANELAS_DE_SINAL) {
+    const maisAntiga = porIp.keys().next().value
+    if (maisAntiga === undefined) break
+    porIp.delete(maisAntiga)
+  }
+  porIp.set(chave, { desde: agora, n: 1 })
+}
+
 /**
  * Um contador POR SINAL (leilao e recall separados): uma consulta gratis chama
  * os dois, e com o contador unico ela gastava 2 da cota. O IP tem que ser o do
@@ -118,16 +142,17 @@ const porIp = new Map<string, { desde: number; n: number }>()
  * 01/out os endpoints usavam getRequestIP(xForwardedFor), que atras do
  * cloudflared + Traefik devolve o IP INTERNO da rede Docker, o mesmo pra todo
  * mundo, e o teto de 60/h virava GLOBAL (5 a 9 placas com sinal por hora cheia).
- * IP vazio/'unknown' (privado, sem header): nao bloqueia.
+ * A janela e por chaveTetoIp: o endereco no IPv4, o /64 no IPv6. IP
+ * vazio/'unknown' (privado, sem header) nao fica sem teto: todas essas
+ * requisicoes dividem UMA janela de 60/h por sinal.
  */
 export type TipoSinal = 'leilao' | 'recall'
 
 export function dentroDoTetoDeSinal(ip: string, agora = Date.now(), tipo: TipoSinal = 'leilao'): boolean {
-  if (!ip || ip === 'unknown') return true
-  const chave = `${tipo}|${ip}`
+  const chave = `${tipo}|${chaveTetoIp(ip)}`
   const atual = porIp.get(chave)
   if (!atual || agora - atual.desde >= JANELA_MS) {
-    porIp.set(chave, { desde: agora, n: 1 })
+    abrirJanela(chave, agora)
     return true
   }
   atual.n += 1
@@ -137,5 +162,11 @@ export function dentroDoTetoDeSinal(ip: string, agora = Date.now(), tipo: TipoSi
 /** So pra teste: zera as janelas. */
 export function _limparTetoDeSinal() {
   porIp.clear()
+  ultimaPoda = 0
+}
+
+/** So pra teste: quantas janelas estao em memoria. */
+export function _janelasDeSinalEmMemoria(): number {
+  return porIp.size
 }
 

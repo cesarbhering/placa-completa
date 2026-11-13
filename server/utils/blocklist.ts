@@ -75,14 +75,8 @@ export function placaBloqueada(placa?: string | null): boolean {
   return placasBloqueadas().has(p)
 }
 
-/**
- * Barra a rota: registra em blocked_requests (reason 'placa_bloqueada') e
- * lanca 403 com a mensagem ao cliente. Chamar ANTES de qualquer fonte paga.
- * So toca em Supabase/IP quando a placa esta mesmo bloqueada, pra nao
- * exigir nada do ambiente no caminho normal (nem nos testes das rotas).
- */
-export function barrarPlacaBloqueada(event: any, placa: string, email?: string | null): void {
-  if (!placaBloqueada(placa)) return
+/** Registra a tentativa em blocked_requests (reason 'placa_bloqueada'). Nunca lanca. */
+function registrarPlacaBloqueada(event: any, placa: string, email?: string | null): void {
   let ip: string | null = null
   let ua: string | null = null
   try { ip = getClientIp(event) } catch { /* sem IP: registra mesmo assim */ }
@@ -96,5 +90,27 @@ export function barrarPlacaBloqueada(event: any, placa: string, email?: string |
       user_agent: (ua || 'vazio').slice(0, 300),
     }).then(({ error }: any) => { if (error) console.warn('[blocked_requests] insert falhou:', error.message) })
   } catch (e: any) { console.warn('[blocked_requests] insert falhou:', e?.message) }
+}
+
+/**
+ * Barra a rota: registra em blocked_requests (reason 'placa_bloqueada') e
+ * lanca 403 com a mensagem ao cliente. Chamar ANTES de qualquer fonte paga.
+ * So toca em Supabase/IP quando a placa esta mesmo bloqueada, pra nao
+ * exigir nada do ambiente no caminho normal (nem nos testes das rotas).
+ */
+export function barrarPlacaBloqueada(event: any, placa: string, email?: string | null): void {
+  if (!placaBloqueada(placa)) return
+  registrarPlacaBloqueada(event, placa, email)
   throw createError({ statusCode: 403, message: MENSAGEM_PLACA_BLOQUEADA })
+}
+
+/**
+ * Para rota que responde "sem sinal" em vez de erro (sinais de leilao e de
+ * recall): true quando a placa esta bloqueada, ja com a tentativa registrada.
+ * Quem chama devolve a mesma resposta de "nao sabemos". Nunca lanca.
+ */
+export function placaBloqueadaComRegistro(event: any, placa: string): boolean {
+  if (!placaBloqueada(placa)) return false
+  registrarPlacaBloqueada(event, placa)
+  return true
 }
