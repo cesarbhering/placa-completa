@@ -7,7 +7,7 @@
 // Flag LEILAO_AVISO_EMAIL: '1' liga, '0' desliga; sem a env, ligado so fora do
 // staging/homolog.
 import { enviarAvisoLeilao, type InfoAvisoLeilao } from './premium-email'
-import { comitenteExibicao, ligadoPeloMotor } from '../../shared/leilao-exibicao'
+import { comitenteExibicao, ligadoPeloMotor, historicoParaExibicao } from '../../shared/leilao-exibicao'
 
 /** Tem algo no historico: passagem de qualquer nivel ou indicio de sinistro da base parceira. */
 export function temLeilaoOuSinistro(h: any): boolean {
@@ -28,7 +28,10 @@ export function avisoLeilaoLigado(config: any, env: string | undefined = process
 }
 
 export function infoDoHistorico(h: any): InfoAvisoLeilao {
-  const passagens = (Array.isArray(h?.passagens) ? h.passagens : []).map((p: any) => ({
+  // Same list as the page cards (one card per auction, 13/11/2026), so the
+  // "Há mais N registros" in the e-mail matches what the customer sees.
+  const exib: any = historicoParaExibicao(h)
+  const passagens = (Array.isArray(exib?.passagens) ? exib.passagens : []).map((p: any) => ({
     nivel: String(p?.nivel || ''),
     data_leilao: p?.data_leilao ?? null,
     comitente: comitenteExibicao(p?.comitente)?.texto ?? null,

@@ -1,4 +1,5 @@
 import { FONTE_PARCEIRA, ROTULO_PARCEIRA } from './fonte-parceira'
+import { juntarNotificacoes } from './leilao-notificacao'
 // O que o card de leilao do relatorio pago MOSTRA de cada passagem.
 //
 // Decisao do Cesar (01/out): por enquanto NENHUM valor em R$ (venda, lance,
@@ -175,10 +176,30 @@ export const NOME_CASA_LEILAO: Record<string, string> = {
 
 // Passagem achada pelo canhao de PDFs chega com fonte "canhao:<dominio>" e
 // fonte_tipo "privado" (Cesar, 27/out, HIY1244: aparecia "Canhao:leilao.detran
-// .mg.gov.br"). Edital de DETRAN vira a passagem do orgao ("Detran MG"); outro
-// dominio mostra so o dominio. O nome "canhao" nunca vai pra tela.
+// .mg.gov.br"). Edital de DETRAN vira a passagem do orgao ("Detran MG").
+// Any other domain (Cesar, 13/11/2026: a host is never a source): the approved
+// name the API sends in fonte_exibicao, or "Leiloeira particular". The
+// internal name never reaches the screen.
 const RE_CANHAO = /^canhao:(.+)$/i
 const RE_DETRAN_GOV = /(?:^|\.)detran\.([a-z]{2})\.gov\.br$/
+export const ROTULO_LEILOEIRA_PARTICULAR = 'Leiloeira particular'
+const RE_GENERICO_LEILOEIRA = /^leiloeira( particular)?$/i
+
+/**
+ * Text that must never be shown as a source: a host ("cdn.exemplo.net"), a
+ * URL or the internal collector name. Agency and house names pass.
+ */
+export function fonteInterna(v: unknown): boolean {
+  const s = String(v ?? '').trim()
+  if (!s) return false
+  return /:\/\//.test(s) || /canh[aã]o/i.test(s) || /[a-z0-9]\.[a-z]{2,}(?![a-z])/i.test(s)
+}
+
+/** Approved display name, or null when it is empty, generic or internal. */
+function nomeAprovado(v: unknown): string | null {
+  const s = String(v ?? '').trim()
+  return s && !RE_GENERICO_LEILOEIRA.test(s) && !fonteInterna(s) ? s : null
+}
 
 export function passagemSemCanhao<T extends { fonte?: string | null; fonte_tipo?: string | null; fonte_exibicao?: string | null }>(p: T): T & { via_canhao?: boolean } {
   const m = RE_CANHAO.exec(String(p?.fonte || '').trim())
@@ -186,19 +207,67 @@ export function passagemSemCanhao<T extends { fonte?: string | null; fonte_tipo?
   const dominio = m[1].trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*$/, '')
   const uf = RE_DETRAN_GOV.exec(dominio)?.[1]
   if (uf) return { ...p, fonte: `detran_${uf}`, fonte_tipo: 'detran', fonte_exibicao: `Detran ${uf.toUpperCase()}`, via_canhao: true }
-  return { ...p, fonte_exibicao: dominio, via_canhao: true }
+  return { ...p, fonte_exibicao: nomeAprovado(p.fonte_exibicao) || ROTULO_LEILOEIRA_PARTICULAR, via_canhao: true }
 }
 
+const loteNorm = (v: unknown) => {
+  const s = String(v ?? '').trim()
+  return s ? s.replace(/^0+(?=.)/, '') : ''
+}
+const dataNorm = (v: unknown) => String(v ?? '').trim().slice(0, 10)
+
 /**
- * Normaliza as passagens do canhao e tira a que repete um lote que a coleta
- * do proprio orgao ja trouxe (mesma fonte e mesmo lote): e o mesmo leilao
- * achado pelo PDF. Filtro de exibicao; o snapshot continua com tudo.
+ * Normalizes canhao passages and drops the one that repeats an auction the
+ * direct collection already brought: same source and lot (DETRAN edital) or,
+ * whatever the source type, same lot (leading zeros ignored) and same auction
+ * date (Cesar, 13/11/2026: one card per auction). A canhao passage alone
+ * stays. Display filter only; the snapshot keeps everything.
  */
 export function passagensSemCanhao(lista: unknown): any[] {
   if (!Array.isArray(lista)) return []
   const norm = lista.map((p: any) => passagemSemCanhao(p))
-  const diretas = new Set(norm.filter((p: any) => !p.via_canhao && p.lote).map((p: any) => `${p.fonte}|${String(p.lote).replace(/^0+/, '')}`))
-  return norm.filter((p: any) => !(p.via_canhao && p.fonte_tipo === 'detran' && p.lote && diretas.has(`${p.fonte}|${String(p.lote).replace(/^0+/, '')}`)))
+  const diretas = norm.filter((p: any) => !p.via_canhao && loteNorm(p.lote))
+  const porFonte = new Set(diretas.map((p: any) => `${p.fonte}|${loteNorm(p.lote)}`))
+  const porData = new Set(diretas.filter((p: any) => dataNorm(p.data_leilao)).map((p: any) => `${loteNorm(p.lote)}|${dataNorm(p.data_leilao)}`))
+  return norm.filter((p: any) => {
+    if (!p.via_canhao || !loteNorm(p.lote)) return true
+    if (p.fonte_tipo === 'detran' && porFonte.has(`${p.fonte}|${loteNorm(p.lote)}`)) return false
+    return !(dataNorm(p.data_leilao) && porData.has(`${loteNorm(p.lote)}|${dataNorm(p.data_leilao)}`))
+  })
+}
+
+const NIVEIS_RESUMO = ['confirmado', 'provavel', 'possivel'] as const
+
+/**
+ * The history as the screen shows it: canhao passages without repeated
+ * auctions, and notices inside the card of the same agency auction (Cesar,
+ * 13/11/2026: one card per auction). When a passage leaves, the summary counts
+ * are rebuilt and the API linha_do_tempo (which counted the removed passages)
+ * is dropped, so the page builds the timeline per card. Timeline sources from
+ * the API never show a host. Does not change the snapshot.
+ */
+export function historicoParaExibicao<H extends { passagens?: any[]; resumo?: any; linha_do_tempo?: any }>(h: H | null | undefined): H | null | undefined {
+  if (!h || !Array.isArray(h.passagens)) return h
+  const passagens = juntarNotificacoes(passagensSemCanhao(h.passagens))
+  const linha = Array.isArray(h.linha_do_tempo)
+    ? h.linha_do_tempo.map((e: any) => (e && Array.isArray(e.fontes)
+        ? { ...e, fontes: [...new Set(e.fontes.map((f: unknown) => nomeAprovado(f) || (RE_GENERICO_LEILOEIRA.test(String(f ?? '').trim()) || fonteInterna(f) ? ROTULO_LEILOEIRA_PARTICULAR : null)).filter(Boolean))] }
+        : e))
+    : h.linha_do_tempo
+  if (passagens.length === h.passagens.length) return { ...h, passagens, linha_do_tempo: linha }
+  const r = h.resumo
+  const conta = (n: string) => passagens.filter((p: any) => p?.nivel === n).length
+  const resumo = r && typeof r === 'object'
+    ? {
+        ...r,
+        n_confirmado: conta('confirmado'),
+        n_provavel: conta('provavel'),
+        n_possivel: conta('possivel'),
+        nivel_max: NIVEIS_RESUMO.find((n) => conta(n) > 0) ?? null,
+        fontes_com_passagem: [...new Set(passagens.map((p: any) => String(p?.fonte || '')).filter(Boolean))],
+      }
+    : r
+  return { ...h, passagens, resumo, linha_do_tempo: null }
 }
 
 const titulo = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
@@ -206,22 +275,26 @@ const titulo = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase
 /**
  * Nome publico da fonte de uma passagem. Orgao: "Detran SP" (fonte_exibicao
  * da API ou montado do codigo). Casa privada: nome da casa pelo mapa; casa
- * fora do mapa vira a chave humanizada ("lagoa_santa" -> "Lagoa Santa"),
- * nunca mais o generico "Leiloeira particular".
+ * fora do mapa vira a chave humanizada ("lagoa_santa" -> "Lagoa Santa").
+ * Canhao passage: approved name from the API or "Leiloeira particular". No
+ * path returns a host, a URL or the internal name (Cesar, 13/11/2026).
  */
-export function fonteExibicaoLeilao(p: { fonte?: string | null; fonte_tipo?: string | null; fonte_exibicao?: string | null }): string {
+export function fonteExibicaoLeilao(p: { fonte?: string | null; fonte_tipo?: string | null; fonte_exibicao?: string | null; via_canhao?: boolean }): string {
   const chave = String(p.fonte || '').trim().toLowerCase().replace(/[\s-]+/g, '_')
   // Base parceira: rotulo unico, nunca o nome do fornecedor (shared/fonte-parceira.ts).
   if (chave === FONTE_PARCEIRA || p.fonte_tipo === FONTE_PARCEIRA) return ROTULO_PARCEIRA
-  if (p.fonte_tipo === 'detran') {
-    if (p.fonte_exibicao) return String(p.fonte_exibicao)
+  const exib = String(p.fonte_exibicao || '').trim()
+  if (p.fonte_tipo === 'detran' && !RE_CANHAO.test(chave)) {
+    if (exib && !fonteInterna(exib)) return exib
     return chave.split('_').filter(Boolean).map((x) => (x.length === 2 ? x.toUpperCase() : titulo(x))).join(' ')
   }
+  if (p.via_canhao || RE_CANHAO.test(chave)) return nomeAprovado(exib) || ROTULO_LEILOEIRA_PARTICULAR
   if (NOME_CASA_LEILAO[chave]) return NOME_CASA_LEILAO[chave]
-  const exib = String(p.fonte_exibicao || '').trim()
-  if (exib && !/^leiloeira particular$/i.test(exib)) return exib
+  const aprovado = nomeAprovado(exib)
+  if (aprovado) return aprovado
   if (!chave) return 'Leiloeira'
-  return chave.split('_').filter(Boolean).map(titulo).join(' ')
+  const humano = chave.split('_').filter(Boolean).map(titulo).join(' ')
+  return fonteInterna(humano) || fonteInterna(chave) ? ROTULO_LEILOEIRA_PARTICULAR : humano
 }
 
 export const COMITENTE_GENERICO = 'Particular ou empresa (a leiloeira não divulga o nome)'

@@ -99,3 +99,19 @@ describe('texto', () => {
     }
   })
 })
+
+describe('alert e-mail counts the same cards as the page (one card per auction, 13/11/2026)', () => {
+  it('duplicate canhao passage and joined notice do not add "more records"', () => {
+    const h = {
+      resumo: { tem_indicio: true },
+      passagens: [
+        { fonte: 'detran_xx', fonte_tipo: 'detran', nivel: 'confirmado', lote: '0315', data_leilao: '2026-06-18' },
+        { fonte: 'canhao:cdn.exemplo-cdn.net', fonte_tipo: 'privado', nivel: 'confirmado', lote: '315', data_leilao: '2026-06-18' },
+        { fonte: 'detran_xx', fonte_tipo: 'detran', nivel: 'confirmado', situacao: 'notificado', detalhes: { tipo_registro: 'notificacao_leilao', data_publicacao: '2026-05-02' } },
+      ],
+    }
+    const info = infoDoHistorico(h)
+    expect(info.passagens).toHaveLength(1)
+    expect(textosAvisoLeilao('ABC1D23', info).paragrafos.join(' ')).not.toMatch(/Há mais/)
+  })
+})
