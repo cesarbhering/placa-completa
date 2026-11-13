@@ -18,7 +18,9 @@ const ABACATE = 'https://abacate.test'
 const STRIPE = 'https://api.stripe.com/v1'
 const SEM_RESPOSTA = new Error('network down')
 /** An HTTP error as ofetch throws it. */
-const erroHttp = (status: number) => Object.assign(new Error(`[GET] ${status}`), { status, statusCode: status })
+const erroHttp = (status: number, data?: unknown) => Object.assign(new Error(`[GET] ${status}`), { status, statusCode: status, data })
+/** Woovi answers 400, saying so, for a charge it does not know. */
+const NAO_ENCONTRADA_NA_WOOVI = () => erroHttp(400, { error: 'Cobrança não encontrada' })
 
 let db: ReturnType<typeof supabaseMemoria>
 
@@ -33,11 +35,11 @@ function semear(extra: Record<string, any> = {}) {
 }
 const pedidoNoBanco = () => db.tab('pedidos_premium')[0]
 
-/** Woovi answer for GET /api/v1/charge/{id}. Its "not found" is the 400 that lookup documents. */
+/** Woovi answer for GET /api/v1/charge/{id}. */
 function woovi(caso: string, identifier: string) {
   if (caso === 'sem resposta') return SEM_RESPOSTA
   if (caso === 'erro 500') return erroHttp(500)
-  if (caso === 'nao existe') return erroHttp(400)
+  if (caso === 'nao existe') return NAO_ENCONTRADA_NA_WOOVI()
   return { charge: { status: caso, identifier, correlationID: PEDIDO, value: 4490, brCode: '00020101021226-teste' } }
 }
 /** AbacatePay answer for GET /transparents/check. Its "not found" is a 404. */
@@ -292,7 +294,7 @@ describe('conferirCobrancaDoEvento', () => {
   })
 
   it('no such charge in our account: estranha', async () => {
-    apiPix({ [porCorrelacao(RENOVACAO)]: erroHttp(400) })
+    apiPix({ [porCorrelacao(RENOVACAO)]: NAO_ENCONTRADA_NA_WOOVI() })
 
     expect(await conferirCobrancaDoEvento(pedido, { correlationID: RENOVACAO, identifier: 'cob-antiga' })).toEqual({ situacao: 'estranha', motivo: 'nao_existe' })
   })
@@ -343,6 +345,7 @@ describe('conferirCobrancaDoEvento', () => {
     ['a network error', SEM_RESPOSTA],
     ['an error of the provider itself', erroHttp(500)],
     ['a refused credential', erroHttp(401)],
+    ['a 400 that does not say the charge was not found', erroHttp(400, { error: 'outro motivo' })],
     ['HTTP 200 with an empty object', {}],
     ['HTTP 200 with a charge without a status', { charge: { identifier: 'cob-antiga', correlationID: RENOVACAO } }],
   ])('%s: sem_resposta', async (_caso, resposta) => {

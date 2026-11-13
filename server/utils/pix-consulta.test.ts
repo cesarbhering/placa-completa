@@ -34,8 +34,32 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('consultaQueFalhou', () => {
-  it.each([400, 404])('HTTP %i: the provider answered that the charge does not exist', (status) => {
-    expect(consultaQueFalhou(erroHttp(status))).toEqual({ situacao: 'nao_encontrada' })
+  it('HTTP 404: the provider answered that the charge does not exist', () => {
+    expect(consultaQueFalhou(erroHttp(404))).toEqual({ situacao: 'nao_encontrada' })
+  })
+
+  it.each([
+    ['in Portuguese', { error: 'Cobrança não encontrada' }],
+    ['without accents', { error: 'Cobranca nao encontrada' }],
+    ['in English', { error: 'Charge not found' }],
+    ['in a list of errors', { errors: [{ message: 'Charge not found' }] }],
+    ['in a message field', { message: 'not found' }],
+  ])('HTTP 400 whose body says the charge was not found (%s): the charge does not exist', (_caso, corpo) => {
+    expect(consultaQueFalhou(erroHttp(400, corpo))).toEqual({ situacao: 'nao_encontrada' })
+  })
+
+  it.each([
+    ['another reason', { error: 'appID inválido' }],
+    ['an empty body', {}],
+    ['no body', undefined],
+    ['a body that is not an object', 'Bad Request'],
+  ])('HTTP 400 with %s: the provider did not answer the question', (_caso, corpo) => {
+    expect(consultaQueFalhou(erroHttp(400, corpo))).toEqual({ situacao: 'sem_resposta' })
+  })
+
+  it('the words are read from the answer, never from the URL that was asked', () => {
+    const erro = Object.assign(new Error('[GET] "https://woovi.test/api/v1/charge/x-not-found": 400 Bad Request'), { status: 400, statusCode: 400, data: { error: 'outro motivo' } })
+    expect(consultaQueFalhou(erro)).toEqual({ situacao: 'sem_resposta' })
   })
 
   it.each([401, 403, 408, 429, 500, 502, 503, 504])('HTTP %i: the provider did not answer the question', (status) => {
@@ -69,7 +93,7 @@ describe('Woovi', () => {
     })
 
     it.each([
-      ['400 with an error message, the only error this lookup documents', erroHttp(400, { error: 'mensagem do provedor' })],
+      ['400 saying the charge was not found, the error this lookup documents', erroHttp(400, { error: 'Cobrança não encontrada' })],
       ['404', erroHttp(404)],
     ])('%s: nao_encontrada', async (_caso, erro) => {
       api.mockRejectedValue(erro)
@@ -79,6 +103,7 @@ describe('Woovi', () => {
     it.each([
       ['500', erroHttp(500)],
       ['401, the credential was refused', erroHttp(401, { error: 'Invalid appID' })],
+      ['400 for another reason', erroHttp(400, { error: 'appID inválido' })],
       ['429', erroHttp(429)],
       ['network error', SEM_REDE],
     ])('%s: sem_resposta', async (_caso, erro) => {
@@ -108,7 +133,7 @@ describe('Woovi', () => {
     })
 
     it.each([
-      ['not found', erroHttp(400)],
+      ['not found', erroHttp(400, { error: 'Cobrança não encontrada' })],
       ['no answer', erroHttp(500)],
       ['network error', SEM_REDE],
     ])('%s: null', async (_caso, erro) => {
@@ -135,7 +160,7 @@ describe('Woovi', () => {
     })
 
     it.each([
-      ['400', erroHttp(400, { error: 'mensagem do provedor' })],
+      ['400 saying the charge was not found', erroHttp(400, { error: 'Cobrança não encontrada' })],
       ['404', erroHttp(404)],
     ])('%s: nao_encontrada', async (_caso, erro) => {
       api.mockRejectedValue(erro)
@@ -168,7 +193,7 @@ describe('Woovi', () => {
     })
 
     it.each([
-      ['not found', erroHttp(400)],
+      ['not found', erroHttp(400, { error: 'Cobrança não encontrada' })],
       ['no answer', erroHttp(500)],
     ])('%s: null', async (_caso, erro) => {
       api.mockRejectedValue(erro)

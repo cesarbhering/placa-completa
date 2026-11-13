@@ -129,9 +129,10 @@ describe('events checked with our own credential', () => {
   const ORIGINAL = naWoovi(PEDIDO)
   const NA_ABACATE = `${ABACATE}/transparents/check?id=cob-abacate`
   const pendenteNaAbacate = { data: { status: 'PENDING' }, success: true, error: null }
-  /** An HTTP error as ofetch throws it. Woovi answers 400 for a charge it does not know. */
-  const erroHttp = (status: number) => Object.assign(new Error(`[GET] ${status}`), { status, statusCode: status })
-  const NAO_EXISTE = erroHttp(400)
+  /** An HTTP error as ofetch throws it. */
+  const erroHttp = (status: number, data?: unknown) => Object.assign(new Error(`[GET] ${status}`), { status, statusCode: status, data })
+  /** Woovi answers 400, saying so, for a charge it does not know. */
+  const NAO_EXISTE = erroHttp(400, { error: 'Cobrança não encontrada' })
   const SEM_REDE = new Error('network down')
 
   /** Fake HTTP boundary of the Pix providers. Keys are `URL` or `URL?id=...`; an Error value is thrown. */
@@ -398,6 +399,7 @@ describe('events checked with our own credential', () => {
       ['a network error', SEM_REDE],
       ['an error of the provider itself', erroHttp(500)],
       ['a refused credential', erroHttp(401)],
+      ['a 400 that does not say the charge was not found', erroHttp(400, { error: 'outro motivo' })],
       ['HTTP 200 with an empty object', {}],
       ['HTTP 200 with an error envelope', { errors: [{ message: 'mensagem do provedor' }], data: null }],
       ['HTTP 200 with a string', 'ok'],
