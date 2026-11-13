@@ -1,6 +1,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { PLANOS, precoBRL } from '~/shared/planos'
-import { abPrecoLigadoPorEnv, bracoAtual, precoDoPlano, type BracoPreco } from '~/shared/ab-preco'
+import { abPrecoLigadoPorEnv, bracoParaTela, precoDoPlano, type BracoPreco } from '~/shared/ab-preco'
 
 /**
  * The ONE source of the Completa price shown on consumer pages (home, vehicle
@@ -23,7 +23,8 @@ export function usePrecoCompleta() {
   const braco = ref<BracoPreco | null>(null)
   const montado = ref(false)
   onMounted(() => {
-    braco.value = bracoAtual()
+    // Draws if this browser has no arm yet (see bracoParaTela).
+    braco.value = bracoParaTela()
     montado.value = true
   })
   const centavos = computed(() => precoDoPlano('completa', braco.value))
@@ -36,7 +37,7 @@ export function usePrecoCompleta() {
  * Splits a text that mentions the table price of the Completa ("R$ 44,90", with
  * a regular or a non-breaking space) into pieces, so the price can be rendered
  * by <PrecoCompleta>. Pure. Price slots keep the separator the text used after
- * "R$", so the HTML with the test off is byte-identical to the original text.
+ * "R$", so with the test off the text and the DOM match the original (Vue only adds fragment comment markers).
  */
 export interface SlotPreco { espaco: string }
 

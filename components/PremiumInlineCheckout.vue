@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { PLANOS, RECURSOS, precoDePromocao } from '~/shared/planos'
 import { CUPOM_TELA_PCT, relogioCupomTela } from '~/shared/cupom-tela'
-import { bracoAtual, precoDoPlano, descontoTelaNoBraco, precoExibidoNoCheckout } from '~/shared/ab-preco'
+import { bracoParaTela, precoDoPlano, descontoTelaNoBraco, precoExibidoNoCheckout } from '~/shared/ab-preco'
 import { PROVA_SOCIAL } from '~/shared/prova-social'
 import { origemDaSessao } from '~/shared/origem-trafego'
 import { enfileirarEventoFunil, enviarFunil , cartaoConverteAgora, trackConversaoPixGerado } from '~/composables/useAnalytics'
@@ -236,7 +236,9 @@ const planoInfo = computed(() => PLANOS[props.plano])
 // before this overlay can exist, so the first paint already has the arm's
 // price. The app never participates (Google Play price is fixed). The server
 // recomputes the price from the same arm; this is display only.
-const abPrecoCheckout = computed(() => (isCapacitor.value ? null : bracoAtual()))
+// bracoParaTela draws if this browser still has no arm (no-op otherwise / test off).
+const abPrecoInicial = isCapacitor.value ? null : bracoParaTela()
+const abPrecoCheckout = computed(() => (isCapacitor.value ? null : abPrecoInicial))
 const precoBaseCentavos = computed(() => precoDoPlano(props.plano, abPrecoCheckout.value))
 // O botao carrega SO o desfecho, nao o preco: o preco ja aparece no resumo
 // logo acima, e repeti-lo no botao so reforca o frame de custo na hora do

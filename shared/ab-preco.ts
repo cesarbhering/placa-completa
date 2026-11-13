@@ -199,6 +199,21 @@ export function resolverBracoComPedido(bracoDoPedidoBruto: unknown): BracoPreco 
   return bracoAtual()
 }
 
+/**
+ * Arm for a price on screen (consumer pages, inline checkout). Draws if this
+ * browser still has none: covers a first load on the paid report route that
+ * never resolved (bad token, network error, left before the data arrived) and
+ * then navigated without a reload. On the report route itself it only reads,
+ * because there resolverBracoComPedido decides (order arm first). No-op with
+ * the test off or an arm already stored.
+ */
+export function bracoParaTela(pathname?: string | null): BracoPreco | null {
+  const rota = pathname ?? (globalThis as any).location?.pathname ?? ''
+  if (rotaSemSorteioNaCarga(rota)) return bracoAtual()
+  sortearBraco()
+  return bracoAtual()
+}
+
 /** Test helper. */
 export function _resetAbPreco(): void {
   memoria = null

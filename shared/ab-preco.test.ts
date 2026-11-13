@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   AB_PRECO_KEY, PRECO_COMPLETA_BRACO, _resetAbPreco, abPrecoLigadoPorEnv, adotarBracoSeVazio, aplicarCupomNoBraco,
   bracoAtual, bracoDoPedido, colunasAbPreco, configurarAbPreco, pareceBot, precoDoPlano, sortearBraco,
-  resolverBracoComPedido, rotaSemSorteioNaCarga, uaDoApp,
+  resolverBracoComPedido, rotaSemSorteioNaCarga, uaDoApp, bracoParaTela,
 } from './ab-preco'
 import { PLANOS } from './planos'
 
@@ -131,6 +131,34 @@ describe('basic report upsell: shown arm = charged arm', () => {
     expect(rotaSemSorteioNaCarga('/premium')).toBe(false)
     expect(rotaSemSorteioNaCarga('/')).toBe(false)
     expect(rotaSemSorteioNaCarga('/consultar-placa-de-carro')).toBe(false)
+  })
+})
+
+describe('price on screen draws when the browser still has no arm', () => {
+  it('first load on the report route that never resolved, then home without reload: the home draws', () => {
+    configurarAbPreco({ ligado: true })
+    // Plugin skipped the draw on /premium/<token>; the order data never came.
+    expect(bracoParaTela('/premium/abc123TOKEN')).toBeNull()
+    expect(local.m.size).toBe(0)
+    // SPA navigation to the home: the price component mounts and draws.
+    const v = bracoParaTela('/')
+    expect(v === 'A' || v === 'B').toBe(true)
+    expect(local.m.get(AB_PRECO_KEY)).toBe(v)
+    expect(bracoAtual()).toBe(v)
+  })
+  it('on the report route it only reads: resolverBracoComPedido still decides', () => {
+    configurarAbPreco({ ligado: true })
+    expect(bracoParaTela('/premium/abc123TOKEN')).toBeNull()
+    expect(resolverBracoComPedido('B')).toBe('B')
+    expect(bracoParaTela('/premium/abc123TOKEN')).toBe('B')
+  })
+  it('no-op with an arm stored or the test off', () => {
+    local.m.set(AB_PRECO_KEY, 'A')
+    configurarAbPreco({ ligado: true })
+    expect(bracoParaTela('/')).toBe('A')
+    _resetAbPreco(); instalar(); configurarAbPreco({ ligado: false })
+    expect(bracoParaTela('/')).toBeNull()
+    expect(local.m.size).toBe(0)
   })
 })
 

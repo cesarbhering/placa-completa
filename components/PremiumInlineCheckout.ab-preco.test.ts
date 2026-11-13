@@ -19,7 +19,8 @@ describe('inline checkout sends ab_preco', () => {
     })
   }
   it('the arm comes from the visitor draw and the app stays out', () => {
-    expect(fonte).toMatch(/abPrecoCheckout = computed\(\(\) => \(isCapacitor\.value \? null : bracoAtual\(\)\)\)/)
+    expect(fonte).toMatch(/abPrecoInicial = isCapacitor\.value \? null : bracoParaTela\(\)/)
+    expect(fonte).toMatch(/abPrecoCheckout = computed\(\(\) => \(isCapacitor\.value \? null : abPrecoInicial\)\)/)
   })
 })
 

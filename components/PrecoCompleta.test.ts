@@ -68,7 +68,7 @@ describe('TextoComPreco', () => {
     expect(partesComPreco('sem preço')).toEqual(['sem preço'])
   })
 
-  it('test off: SSR HTML is byte-identical to the original text (both separators)', async () => {
+  it('test off: same text and same DOM as the original (both separators; Vue fragment comments aside)', async () => {
     comBraco('B', false)
     for (const texto of ['Custa R$ 44,90, no Pix.', `Por ${precoBRL(4490)}, uma vez.`]) {
       const html = await renderToString(createSSRApp({ render: () => h('p', [h(TextoComPreco, { texto, dobra: true })]) }))
