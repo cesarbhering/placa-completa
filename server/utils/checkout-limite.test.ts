@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   verificarLimiteCheckout, limitesDoConfig, mascararPlaca, placasDoVeiculo, _zerarEmVoo,
   LIMITE_PLACA_HORA_PADRAO, MSG_LIMITE_PLACA, MSG_LIMITE_CARTAO_PLACA, MSG_DISJUNTOR_CARTAO, TTL_EM_VOO_MS,
+  TIMEOUT_CONTAGEM_MS, MARGEM_LIBERACAO_MS,
   type LimitesCheckout,
 } from './checkout-limite'
 
@@ -17,6 +18,8 @@ type Linha = Record<string, any>
 let tabela: Linha[] = []
 let falha: 'erro' | 'lento' | 'nunca' | null = null
 let relogio = AGORA
+/** Appends a null row to the breaker query result (malformed data from the database). */
+let linhaNula = false
 
 /** In-memory pedidos_premium with the filters the module uses. */
 function fakeSupabase() {
@@ -37,7 +40,7 @@ function fakeSupabase() {
           if (falha === 'nunca') return new Promise(() => {}).then(ok, ko)
           let d = tabela.filter((l) => filtros.every((f) => f(l)))
           if (ordem) d = [...d].sort(ordem)
-          const res = { data: d.slice(0, lim), error: null }
+          const res = { data: [...d.slice(0, lim), ...(linhaNula && ordem ? [null] : [])], error: null }
           if (falha === 'lento') return new Promise((r) => setTimeout(() => r(res), 50)).then(ok, ko)
           return Promise.resolve(res).then(ok, ko)
         },
@@ -63,7 +66,7 @@ async function checar(cartao: boolean, limites = PADRAO, placa = PLACA, timeoutM
 }
 const bloqueio = async (...a: Parameters<typeof checar>) => { const r = await checar(...a); r.liberar(); return r.bloqueio }
 
-beforeEach(() => { tabela = []; falha = null; logs.length = 0; relogio = AGORA; _zerarEmVoo() })
+beforeEach(() => { tabela = []; falha = null; linhaNula = false; logs.length = 0; relogio = AGORA; _zerarEmVoo() })
 
 describe('per-plate unpaid limit (Pix and card)', () => {
   it('below the limit passes', async () => {
@@ -127,13 +130,30 @@ describe('concurrent requests (in-flight orders)', () => {
     const rs = await Promise.all(Array.from({ length: 8 }, () => checar(false)))
     expect(rs.filter((r) => !r.bloqueio)).toHaveLength(6)
   })
-  it('releasing after the insert frees the slot (the row then counts in the table)', async () => {
+  it('release shortens the reservation instead of deleting it (covers counts already in flight)', async () => {
     const r = await checar(true)
     expect(r.bloqueio).toBeNull()
     r.liberar(); r.liberar() // idempotent
+    // Right after the insert: a count that started before it does not see the
+    // row yet, but the shortened reservation still counts.
+    const antes = await Promise.all(Array.from({ length: 3 }, () => checar(true)))
+    expect(antes.filter((x) => !x.bloqueio)).toHaveLength(2)
+    // Past timeout + margin the reservation is gone; the row in the table counts instead.
+    _zerarEmVoo()
+    const r2 = await checar(true)
+    r2.liberar()
+    relogio = AGORA + TIMEOUT_CONTAGEM_MS + MARGEM_LIBERACAO_MS + 1
     tabela = varios(1, { forma_pagamento: 'cartao' })
-    const rs = await Promise.all(Array.from({ length: 3 }, () => checar(true)))
-    expect(rs.filter((x) => !x.bloqueio)).toHaveLength(2)
+    const depois = await Promise.all(Array.from({ length: 3 }, () => checar(true)))
+    expect(depois.filter((x) => !x.bloqueio)).toHaveLength(2)
+  })
+  it('a released reservation never outlives its original TTL', async () => {
+    const r = await checar(true)
+    relogio = AGORA + TTL_EM_VOO_MS - 100
+    r.liberar()
+    relogio = AGORA + TTL_EM_VOO_MS + 1
+    tabela = varios(2, { forma_pagamento: 'cartao' })
+    expect((await checar(true)).bloqueio).toBeNull()
   })
   it('a slot never released expires after the safety TTL', async () => {
     await Promise.all(Array.from({ length: 3 }, () => checar(true)))
@@ -179,6 +199,14 @@ describe('card circuit breaker', () => {
 })
 
 describe('fail open', () => {
+  it('a null row in the breaker result is ignored instead of throwing (no 500)', async () => {
+    tabela = Array.from({ length: 13 }, (_, i) => pedido({ placa: `TST${String(i).padStart(4, '0')}`, forma_pagamento: 'cartao' }))
+    linhaNula = true
+    // Malformed row is ignored; the 13 real unpaid card orders still arm the breaker.
+    expect((await bloqueio(true, PADRAO, OUTRA))?.motivo).toBe('disjuntor_cartao')
+    tabela = []
+    expect(await bloqueio(true, PADRAO, OUTRA)).toBeNull()
+  })
   it('database error lets the sale through and logs', async () => {
     tabela = varios(50); falha = 'erro'
     expect(await bloqueio(true)).toBeNull()

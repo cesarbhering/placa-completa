@@ -54,101 +54,108 @@ export default defineEventHandler(async (event) => {
   // (server/utils/checkout-limite.ts): blocks before any order or Stripe
   // session exists. Fails open.
   const liberarLimite = await barrarLimiteCheckout(supabase, { placa, ambiente, cartao: true }, config)
+  // Any throw between the reservation and the insert (invalid value, coupon
+  // error...) releases the in-flight slot right away instead of after 30 s.
+  // Idempotent: the explicit release after the insert stays as it was.
+  try {
 
-  // Cupom RECALCULADO no servidor (nunca confia no preco do client), igual ao
-  // Pix. Diferenca: aqui o caminho gratis nao existe. Se o cupom zerar o preco,
-  // ignoramos o desconto de 100% e cobramos cheio no cartao — quem quer o gratis
-  // usa o Pix, que sabe entregar sem cobranca.
-  const codigoCupom = String(body.cupom || '').trim()
-  const cupomDigitado = codigoCupom ? await validarCupom(supabase, codigoCupom, plano, email, abPreco.braco) : null
-  const zeraPreco = !!(cupomDigitado?.ok && cupomDigitado.precoLiquidoCentavos === 0)
-  // Cupom de tela (5% em 30 min): nao acumula, vale o maior. Cupom que zera
-  // nao vale no cartao, entao ele nem entra na comparacao.
-  const { cupom: cupomValidado, tela: descontoTela } = resolverDescontoTela(
-    plano, zeraPreco ? null : cupomDigitado, cupomTelaValido(segredoCupomTela(config as any), body.cupom_tela, placa), abPreco.braco,
-  )
-  const aplicaCupom = !!cupomValidado?.ok
-  const valor = aplicaCupom ? cupomValidado!.precoLiquidoCentavos : (descontoTela?.precoLiquidoCentavos ?? precoTabela)
+    // Cupom RECALCULADO no servidor (nunca confia no preco do client), igual ao
+    // Pix. Diferenca: aqui o caminho gratis nao existe. Se o cupom zerar o preco,
+    // ignoramos o desconto de 100% e cobramos cheio no cartao — quem quer o gratis
+    // usa o Pix, que sabe entregar sem cobranca.
+    const codigoCupom = String(body.cupom || '').trim()
+    const cupomDigitado = codigoCupom ? await validarCupom(supabase, codigoCupom, plano, email, abPreco.braco) : null
+    const zeraPreco = !!(cupomDigitado?.ok && cupomDigitado.precoLiquidoCentavos === 0)
+    // Cupom de tela (5% em 30 min): nao acumula, vale o maior. Cupom que zera
+    // nao vale no cartao, entao ele nem entra na comparacao.
+    const { cupom: cupomValidado, tela: descontoTela } = resolverDescontoTela(
+      plano, zeraPreco ? null : cupomDigitado, cupomTelaValido(segredoCupomTela(config as any), body.cupom_tela, placa), abPreco.braco,
+    )
+    const aplicaCupom = !!cupomValidado?.ok
+    const valor = aplicaCupom ? cupomValidado!.precoLiquidoCentavos : (descontoTela?.precoLiquidoCentavos ?? precoTabela)
 
-  // Guarda-corpo: Stripe recusa cobranca abaixo do minimo (~R$0,50 em BRL).
-  // Nunca deve acontecer com a completa (R$45), mas se um cupom parcial derrubar
-  // muito, melhor barrar aqui do que a Stripe estourar depois.
-  if (!Number.isFinite(valor) || valor < 100) {
-    throw createError({ statusCode: 400, message: 'Valor invalido para pagamento com cartao. Use o Pix.' })
-  }
+    // Guarda-corpo: Stripe recusa cobranca abaixo do minimo (~R$0,50 em BRL).
+    // Nunca deve acontecer com a completa (R$45), mas se um cupom parcial derrubar
+    // muito, melhor barrar aqui do que a Stripe estourar depois.
+    if (!Number.isFinite(valor) || valor < 100) {
+      throw createError({ statusCode: 400, message: 'Valor invalido para pagamento com cartao. Use o Pix.' })
+    }
 
-  const { data: pedido, error } = await supabase
-    .from('pedidos_premium')
-    .insert({
-      token_entrega: token, placa, placa_confirmada: true,
-      // Botao que abriu o checkout (shared/origem-checkout.ts); fora do enum = null.
-      origem_checkout: sanearOrigemCheckout(body.origem_checkout), email: email || null, telefone,
-      forma_pagamento: 'cartao',
-      status: 'aguardando_pagamento', valor_centavos: valor, plano,
-      preview: body.preview || null,
-      ambiente,
-      ab_bloco: abBloco,
-      // Price A/B arm. Column only sent with the flag on (deploy-safe before the migration).
-      ...abPreco.colunas,
-      // Hook de recall que a pessoa viu na consulta gratis (allowlist) + marca.
-      recall_sinal: sanearSinalRecall(body.recall_sinal),
-      recall_marca: sanearMarcaRecall(body.recall_marca),
-      ip_address: getClientIp(event),
-      ...getDispositivo(event),
-      ...sanearOrigem(body.origin),
-      // Sem oppref na sessao, vale o do cookie __oppref do SDK oaiq (30 dias).
-      ...opprefDoPedido(sanearOrigem(body.origin), getCookie(event, COOKIE_OPPREF)),
-      // Cupom de recompra: marca a venda e qual pedido gerou o codigo.
-      ...origemDoCupom(cupomValidado),
-      // Desconto de tela aplicado (o fin mede por esta coluna).
-      ...colunasCupomTela(descontoTela),
-    })
-    .select()
-    .single()
-  // The order row now exists (or failed): release the in-flight slot.
-  liberarLimite()
-  if (error || !pedido) throw createError({ statusCode: 500, message: 'Falha ao criar pedido' })
+    const { data: pedido, error } = await supabase
+      .from('pedidos_premium')
+      .insert({
+        token_entrega: token, placa, placa_confirmada: true,
+        // Botao que abriu o checkout (shared/origem-checkout.ts); fora do enum = null.
+        origem_checkout: sanearOrigemCheckout(body.origem_checkout), email: email || null, telefone,
+        forma_pagamento: 'cartao',
+        status: 'aguardando_pagamento', valor_centavos: valor, plano,
+        preview: body.preview || null,
+        ambiente,
+        ab_bloco: abBloco,
+        // Price A/B arm. Column only sent with the flag on (deploy-safe before the migration).
+        ...abPreco.colunas,
+        // Hook de recall que a pessoa viu na consulta gratis (allowlist) + marca.
+        recall_sinal: sanearSinalRecall(body.recall_sinal),
+        recall_marca: sanearMarcaRecall(body.recall_marca),
+        ip_address: getClientIp(event),
+        ...getDispositivo(event),
+        ...sanearOrigem(body.origin),
+        // Sem oppref na sessao, vale o do cookie __oppref do SDK oaiq (30 dias).
+        ...opprefDoPedido(sanearOrigem(body.origin), getCookie(event, COOKIE_OPPREF)),
+        // Cupom de recompra: marca a venda e qual pedido gerou o codigo.
+        ...origemDoCupom(cupomValidado),
+        // Desconto de tela aplicado (o fin mede por esta coluna).
+        ...colunasCupomTela(descontoTela),
+      })
+      .select()
+      .single()
+    // The order row now exists (or failed): release the in-flight slot.
+    liberarLimite()
+    if (error || !pedido) throw createError({ statusCode: 500, message: 'Falha ao criar pedido' })
 
-  // Uso do cupom (parcial): so registra depois que o pedido existe. Fail-open.
-  if (aplicaCupom && cupomValidado?.cupomId) {
-    await registrarUsoCupom(supabase, {
-      cupomId: cupomValidado.cupomId,
+    // Uso do cupom (parcial): so registra depois que o pedido existe. Fail-open.
+    if (aplicaCupom && cupomValidado?.cupomId) {
+      await registrarUsoCupom(supabase, {
+        cupomId: cupomValidado.cupomId,
+        pedidoId: pedido.id,
+        email,
+        precoBrutoCentavos: cupomValidado.precoBrutoCentavos,
+        descontoCentavos: cupomValidado.descontoCentavos,
+        precoLiquidoCentavos: valor,
+      })
+    }
+
+    // URLs de retorno, sempre no proprio dominio. success = a pagina do relatorio,
+    // que polla o /status ate a entrega (o polling detecta o pagamento sem depender
+    // do webhook). cancel = de onde a pessoa veio, se for do mesmo dominio; senao a raiz.
+    const base = String(config.premiumBaseUrl || 'https://placacompleta.com.br').replace(/\/+$/, '')
+    const successUrl = `${base}/premium/${token}?cartao=1`
+    const cancelUrl = origemMesmoDominio(body.retornoUrl, base) || `${base}/`
+
+    const sessao = await criarStripeSession({
       pedidoId: pedido.id,
-      email,
-      precoBrutoCentavos: cupomValidado.precoBrutoCentavos,
-      descontoCentavos: cupomValidado.descontoCentavos,
-      precoLiquidoCentavos: valor,
+      tokenEntrega: token,
+      plano,
+      nome: PLANOS[plano].nome,
+      valorCentavos: valor,
+      email: email || null,
+      successUrl,
+      cancelUrl,
     })
-  }
 
-  // URLs de retorno, sempre no proprio dominio. success = a pagina do relatorio,
-  // que polla o /status ate a entrega (o polling detecta o pagamento sem depender
-  // do webhook). cancel = de onde a pessoa veio, se for do mesmo dominio; senao a raiz.
-  const base = String(config.premiumBaseUrl || 'https://placacompleta.com.br').replace(/\/+$/, '')
-  const successUrl = `${base}/premium/${token}?cartao=1`
-  const cancelUrl = origemMesmoDominio(body.retornoUrl, base) || `${base}/`
+    await supabase
+      .from('pedidos_premium')
+      .update({ stripe_session_id: sessao.id })
+      .eq('id', pedido.id)
 
-  const sessao = await criarStripeSession({
-    pedidoId: pedido.id,
-    tokenEntrega: token,
-    plano,
-    nome: PLANOS[plano].nome,
-    valorCentavos: valor,
-    email: email || null,
-    successUrl,
-    cancelUrl,
-  })
-
-  await supabase
-    .from('pedidos_premium')
-    .update({ stripe_session_id: sessao.id })
-    .eq('id', pedido.id)
-
-  return {
-    token, plano, valor, url: sessao.url,
-    cupomAplicado: aplicaCupom
-      ? { descontoCentavos: cupomValidado!.descontoCentavos }
-      : descontoTela ? { descontoCentavos: descontoTela.descontoCentavos, tela: true } : null,
+    return {
+      token, plano, valor, url: sessao.url,
+      cupomAplicado: aplicaCupom
+        ? { descontoCentavos: cupomValidado!.descontoCentavos }
+        : descontoTela ? { descontoCentavos: descontoTela.descontoCentavos, tela: true } : null,
+    }
+  } finally {
+    liberarLimite()
   }
 })
 

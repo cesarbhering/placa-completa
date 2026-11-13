@@ -48,7 +48,8 @@ vi.stubGlobal('getDispositivo', () => ({ dispositivo: 'celular', sistema: 'Andro
 vi.stubGlobal('provedorPix', () => ({ nome: 'woovi' }))
 vi.stubGlobal('criarOuObterCliente', async () => null)
 vi.stubGlobal('criarPixComFallback', async () => { provedor.pix++; return { charge: { id: 'px', brCode: 'br', brCodeBase64: 'b', expiresAt: null }, provedor: { nome: 'woovi', nomeDoRecebedor: () => 'X' } } })
-vi.stubGlobal('validarCupom', async () => null)
+let cupomResposta: any = null
+vi.stubGlobal('validarCupom', async () => cupomResposta)
 vi.stubGlobal('reivindicarUsoCupomGratis', async () => false)
 vi.stubGlobal('liberarUsoCupomGratis', async () => {})
 vi.stubGlobal('registrarUsoCupom', async () => {})
@@ -65,7 +66,7 @@ const erro = async (fn: () => Promise<any>) => { try { await fn(); return null }
 
 describe('checkout endpoints: per-plate and card limits', () => {
   beforeEach(() => {
-    tabela = []; inseridos = []; falhaBanco = false; _zerarEmVoo()
+    tabela = []; inseridos = []; falhaBanco = false; cupomResposta = null; _zerarEmVoo(); vi.restoreAllMocks()
     provedor.pix = provedor.intent = provedor.sessao = 0
     body = { placa: PLACA, plano: 'completa' }; CONFIG.checkoutLimitePlacaHora = ''
   })
@@ -98,6 +99,20 @@ describe('checkout endpoints: per-plate and card limits', () => {
     expect(rs.filter((r) => r.status === 'fulfilled')).toHaveLength(3)
     expect(rs.filter((r) => r.status === 'rejected' && (r as any).reason?.statusCode === 429)).toHaveLength(2)
     expect(provedor.intent).toBe(3)
+  })
+
+  it('a throw before the insert (invalid card value) releases the slot, not after 30 s', async () => {
+    const t0 = Date.now()
+    // Coupon that leaves the card below the Stripe minimum: 400 before any insert.
+    cupomResposta = { ok: true, cupomId: 'c1', precoBrutoCentavos: 4490, descontoCentavos: 4440, precoLiquidoCentavos: 50 }
+    body = { placa: PLACA, plano: 'completa', email: 'x@y.z', cupom: 'QUASE' }
+    for (let i = 0; i < 3; i++) expect((await erro(() => handlers.intent({})))?.statusCode).toBe(400)
+    expect(inseridos).toHaveLength(0)
+    // Past the short post-release window (count timeout + margin), well under 30 s.
+    vi.spyOn(Date, 'now').mockReturnValue(t0 + 2100)
+    cupomResposta = null
+    body = { placa: PLACA, plano: 'completa' }
+    expect((await handlers.intent({})).clientSecret).toBe('s')
   })
 
   it('fail open: with a database error the Pix and the card are still created', async () => {

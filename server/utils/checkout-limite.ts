@@ -18,8 +18,9 @@ import { normalizarPlaca, placaEquivalente } from '../../shared/placa-formato'
 // Concurrent requests: the app runs in a single container, so orders "in
 // flight" (check passed, insert not done yet) are kept in memory and added to
 // the database count; the check + reserve step is synchronous, so a burst in
-// the same second cannot all read 0. Released after the insert, with a 30 s
-// safety TTL. The definitive fix would be counting and inserting in one RPC.
+// the same second cannot all read 0. After the insert the reservation is
+// shortened (count timeout + 500 ms) instead of deleted, with a 30 s safety
+// TTL when it is never released. The definitive fix would be counting and inserting in one RPC.
 //
 // Fail open: a counting error or a count slower than 1.5 s lets the sale go
 // through (with a log line). We never block a sale because of our own failure.
@@ -31,6 +32,8 @@ export const LIMITE_CARTAO_PLACA_HORA_PADRAO = 3
 export const DISJUNTOR_CARTAO_10MIN_PADRAO = 12
 export const TIMEOUT_CONTAGEM_MS = 1500
 export const TTL_EM_VOO_MS = 30_000
+/** After release, a reservation lives this long past the count timeout. */
+export const MARGEM_LIBERACAO_MS = 500
 /** Per-plate limits are capped below the row cap of the count query. */
 const TETO_LIMITE_PLACA = 99
 const LINHAS_PLACA = 100
@@ -107,10 +110,11 @@ function contar(mapa: Map<string, number[]>, chave: string, agora: number): numb
   return v.length
 }
 
-function tirarUm(lista: number[] | undefined, marca: number): number[] {
+/** Replaces one reservation's expiry (identified by its unique timestamp). */
+function trocar(lista: number[] | undefined, marca: number, novo: number): number[] {
   const l = [...(lista || [])]
   const i = l.indexOf(marca)
-  if (i >= 0) l.splice(i, 1)
+  if (i >= 0) l[i] = Math.min(l[i], novo)
   return l
 }
 
@@ -178,6 +182,8 @@ export async function verificarLimiteCheckout(
   // 1) Database counts (async, may fail or be slow -> fail open).
   let daPlaca: any[] = []
   let recentes: any[] = []
+  // Computed INSIDE the try so a malformed row can never turn into a 500.
+  let algumPago = false
   try {
     const t0 = relogio()
     await comTimeout((async () => {
@@ -201,8 +207,10 @@ export async function verificarLimiteCheckout(
             .limit(LINHAS_DISJUNTOR))
           : Promise.resolve([]),
       ])
-      daPlaca = a.filter((p) => !foiPago(p))
-      recentes = b
+      const objetos = (l: any[]) => l.filter((p) => p && typeof p === 'object')
+      daPlaca = objetos(a).filter((p) => !foiPago(p))
+      recentes = objetos(b)
+      algumPago = recentes.some(foiPago)
     })(), opts.timeoutMs ?? TIMEOUT_CONTAGEM_MS)
   } catch (e: any) {
     log(`[checkout-limite] check failed, letting the sale through (${meio} plate=${placaLog}): ${String(e?.message || e).slice(0, 120)}`)
@@ -229,7 +237,7 @@ export async function verificarLimiteCheckout(
     }
     if (checaDisjuntor) {
       const criados = recentes.length + emVooCartaoSite.length
-      if (criados > limites.cartaoGlobal10min && !recentes.some(foiPago)) {
+      if (criados > limites.cartaoGlobal10min && !algumPago) {
         log(`[checkout-limite] blocked card plate=${placaLog} reason=card_breaker created_10min=${criados} limit=${limites.cartaoGlobal10min}`)
         return { bloqueio: { statusCode: 503, message: MSG_DISJUNTOR_CARTAO, motivo: 'disjuntor_cartao' }, liberar: NADA }
       }
@@ -246,15 +254,17 @@ export async function verificarLimiteCheckout(
   let liberado = false
   return {
     bloqueio: null,
+    // Not deleted: a count already in flight before the insert sees neither
+    // the new row nor a deleted reservation. The reservation is shortened to
+    // outlive any count started before now (timeout + margin), then expires.
     liberar: () => {
       if (liberado) return
       liberado = true
-      const p = tirarUm(emVooPlaca.get(chave), marca)
-      if (p.length) emVooPlaca.set(chave, p); else emVooPlaca.delete(chave)
+      const curto = relogio() + TIMEOUT_CONTAGEM_MS + MARGEM_LIBERACAO_MS + Math.random()
+      emVooPlaca.set(chave, trocar(emVooPlaca.get(chave), marca, curto))
       if (pedido.cartao) {
-        const c = tirarUm(emVooCartaoPlaca.get(chave), marca)
-        if (c.length) emVooCartaoPlaca.set(chave, c); else emVooCartaoPlaca.delete(chave)
-        emVooCartaoSite = tirarUm(emVooCartaoSite, marca)
+        emVooCartaoPlaca.set(chave, trocar(emVooCartaoPlaca.get(chave), marca, curto))
+        emVooCartaoSite = trocar(emVooCartaoSite, marca, curto)
       }
     },
   }
