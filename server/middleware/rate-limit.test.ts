@@ -125,9 +125,9 @@ describe('rate limit middleware', () => {
       ['/api/consulta', 10],
       ['/api/empresas/proposta', 5],
       ['/api/premium/google-play/pedido', 120],
-      ['/api/premium/status', 120],
-      ['/api/premium/report', 120],
-      ['/api/premium/foto', 180],
+      ['/api/premium/status', 240],
+      ['/api/premium/report', 300],
+      ['/api/premium/foto', 300],
       ['/api/cotacao-info', 300],
     ])('%s: %i requests per window, whatever the query string', async (rota, limite) => {
       expect(await bater(rota)).toMatchObject({ 'X-RateLimit-Limit': String(limite) })
@@ -190,6 +190,54 @@ describe('rate limit middleware', () => {
       const linha = vi.mocked(console.warn).mock.calls[0]!.join(' ')
       expect(linha).toContain('/api/feedback')
       expect(linha).not.toContain('token-secreto')
+    })
+  })
+
+  // No route is longer than a few dozen characters. A path past 512 is not
+  // worth a bucket of its own, nor any work on it.
+  describe('very long paths', () => {
+    const longo = (letra: string) => `/api/${letra.repeat(600)}`
+
+    it('share one fixed bucket, whatever they are', async () => {
+      expect(await passaram(40, (i) => longo(i % 2 ? 'a' : 'b'))).toBe(30)
+
+      await expect(bater(longo('c'))).rejects.toMatchObject({ statusCode: 429 })
+    })
+
+    it('do not take the bucket of a real route', async () => {
+      expect(await passaram(40, () => longo('a'))).toBe(30)
+
+      expect(await passaram(40, () => '/api/rota-qualquer')).toBe(30)
+    })
+
+    it('the log line of a blocked one does not carry the path', async () => {
+      await passaram(31, () => longo('a'))
+
+      expect(console.warn).toHaveBeenCalledTimes(1)
+      expect(vi.mocked(console.warn).mock.calls[0]!.join(' ').length).toBeLessThan(200)
+    })
+
+    it('the length is the one of the path, not of the query string', async () => {
+      expect(await bater(`/api/premium/foto?token=token-de-teste&ref=${'r'.repeat(2000)}`)).toMatchObject({ 'X-RateLimit-Limit': '300' })
+    })
+
+    it('outside /api/ they are not limited either', async () => {
+      expect(await passaram(200, (i) => `/pagina/${'a'.repeat(600)}${i}`)).toBe(200)
+    })
+
+    it('many trailing slashes still count against the route', async () => {
+      expect(await passaram(30, () => '/api/rota-qualquer')).toBe(30)
+
+      await expect(bater(`/api/rota-qualquer${'/'.repeat(100)}`)).rejects.toMatchObject({ statusCode: 429 })
+    })
+
+    it('a long run of slashes inside the path costs no more than any other request', async () => {
+      const caminho = `/api/${'/'.repeat(200_000)}x`
+      const inicio = process.hrtime.bigint()
+
+      await bater(caminho)
+
+      expect(Number(process.hrtime.bigint() - inicio) / 1e6).toBeLessThan(1000)
     })
   })
 

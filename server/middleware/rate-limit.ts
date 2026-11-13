@@ -48,18 +48,19 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   // cobre a espera com folga e barra varredura.
   '/api/premium/google-play/pedido': { windowMs: 60 * 60 * 1000, maxRequests: 120 }, // 120 por hora
   // The three routes below are what a buyer's screen calls after the checkout,
-  // always with the order token in the query string. The bucket is the route's
-  // (see rotaDoBalde), so every order followed from the same address shares
-  // it, and each limit is sized for that:
-  // - status: polled every 4 to 5 s while an order is pending. 120 per minute
-  //   covers eight orders being followed at once.
-  '/api/premium/status': { windowMs: 60 * 1000, maxRequests: 120 }, // 120 per minute
-  // - report: the report page reloads it every 3 s while it waits for the
-  //   DETRAN block, plus slower reloads for recall and fines.
-  '/api/premium/report': { windowMs: 60 * 1000, maxRequests: 120 }, // 120 per minute
+  // with the order token in the query string. Every order followed from the
+  // same address counts against the same bucket (see rotaDoBalde), so each
+  // limit leaves room for several people behind one address:
+  // - status: polled every 4 to 5 s while an order is pending.
+  '/api/premium/status': { windowMs: 60 * 1000, maxRequests: 240 }, // 240 per minute
+  // - report: a freshly delivered report reloads it up to 36 times a minute
+  //   (every 3 s while it waits for the DETRAN block, plus slower reloads for
+  //   recall and fines), and a blocked reload leaves the screen in its error
+  //   state.
+  '/api/premium/report': { windowMs: 60 * 1000, maxRequests: 300 }, // 300 per minute
   // - foto: one request per photo of an auction lot, as the carousel goes
   //   through them. The route keeps its own ceiling of new links per report.
-  '/api/premium/foto': { windowMs: 60 * 1000, maxRequests: 180 }, // 180 per minute
+  '/api/premium/foto': { windowMs: 60 * 1000, maxRequests: 300 }, // 300 per minute
   // Prefill of the /cotacao page, read by an id that cannot be guessed. The
   // page asks for it while it renders on the server, where the request carries
   // no visitor address, so every render of the page shares one bucket.
@@ -88,17 +89,28 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
 // path is a value.
 const ROTAS_COM_VALOR_NO_CAMINHO = ['/api/feedback', '/api/logo-marca', '/api/premium/nfse']
 
+// No route of ours comes near this length. Longer paths all count against one
+// fixed bucket, and nothing else is computed from them.
+const TAMANHO_MAXIMO_DO_CAMINHO = 512
+const BALDE_DE_CAMINHO_LONGO = '/api/(caminho-longo)'
+const BARRA = 47 // '/'
+
 /**
  * The route a request counts against: its path alone, with no query string,
  * no fragment and no trailing slash, cut at the route for the ones listed
- * above. It is what the bucket key, the per-route limit lookup and the log
- * use, for every route. With the rest of the URL in the key, any change to it
- * would open a fresh bucket for the same route, and a secret or a token
- * carried in the URL would be written to the log.
+ * above. The bucket key, the per-route limit lookup and the log line all use
+ * it, for every route, so nothing a URL carries besides the route (a token, a
+ * secret) reaches the log.
+ *
+ * The cost is linear in the length of the URL: one pass to find where the
+ * path ends, and the trailing slashes dropped one character at a time.
  */
 function rotaDoBalde(path: string): string {
-  const fim = path.search(/[?#]/)
-  const caminho = (fim === -1 ? path : path.slice(0, fim)).replace(/\/+$/, '') || '/'
+  const fimDoCaminho = path.search(/[?#]/)
+  let fim = fimDoCaminho === -1 ? path.length : fimDoCaminho
+  if (fim > TAMANHO_MAXIMO_DO_CAMINHO) return path.startsWith('/api/') ? BALDE_DE_CAMINHO_LONGO : '/'
+  while (fim > 1 && path.charCodeAt(fim - 1) === BARRA) fim--
+  const caminho = path.slice(0, fim) || '/'
   return ROTAS_COM_VALOR_NO_CAMINHO.find((rota) => caminho.startsWith(`${rota}/`)) ?? caminho
 }
 
