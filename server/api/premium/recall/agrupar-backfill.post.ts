@@ -1,6 +1,6 @@
-import crypto from 'node:crypto'
 import { agruparCampanhasRecall } from '../../../utils/recall-agrupar'
 import { agrupamentoValido } from '../../../../shared/recall-agrupamento'
+import { assertAdminSecret } from '../../../utils/admin-secret'
 
 // Backfill do agrupamento de recalls (20/out/2026) nos relatorios ja entregues
 // com mais de 1 campanha em recallBase e sem `agrupado` valido.
@@ -12,11 +12,7 @@ import { agrupamentoValido } from '../../../../shared/recall-agrupamento'
 // pedidos listados no dry-run (desfazer = tirar a chave `agrupado`).
 
 export default defineEventHandler(async (event) => {
-  const segredo = String(useRuntimeConfig().adminSecret || '')
-  if (!segredo) throw createError({ statusCode: 404, message: 'Not Found' })
-  const enviado = String(getRequestHeader(event, 'x-admin-secret') || '')
-  const ok = enviado.length === segredo.length && crypto.timingSafeEqual(Buffer.from(enviado), Buffer.from(segredo))
-  if (!ok) throw createError({ statusCode: 404, message: 'Not Found' })
+  assertAdminSecret(event)
 
   const body: any = await readBody(event).catch(() => ({}))
   const aplicar = body?.aplicar === true

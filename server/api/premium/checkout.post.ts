@@ -1,6 +1,7 @@
 import { sanearOrigemCheckout } from '../../../shared/origem-checkout'
 import { ambienteDaConsultaPaga } from '../../utils/gcc-reserva'
-import { origemDoCupom, cupomDispensaEmail } from '../../utils/cupom-recompra'
+import { origemDoCupom } from '../../utils/cupom-recompra'
+import { validarCupomComLimite, cupomDispensaEmailComLimite } from '../../utils/cupom-limite'
 import { sanearSinalRecall, sanearMarcaRecall } from '../../../shared/eventos-funil'
 import crypto from 'node:crypto'
 import { sanearOrigem, opprefDoPedido, COOKIE_OPPREF } from '../../../shared/origem-trafego'
@@ -47,7 +48,9 @@ export default defineEventHandler(async (event) => {
   }
   // Cupom exige e-mail (limite por pessoa / cupom pessoal), menos o de
   // recompra, que vale pra qualquer um (server/utils/cupom-recompra.ts).
-  if (!email && String(body.cupom || '').trim() && !(await cupomDispensaEmail(usePremiumSupabase(), String(body.cupom)))) {
+  // The lookup by code goes through the coupon attempt limits (an unknown code
+  // counts as a guess; under a block the answer is the same 400).
+  if (!email && String(body.cupom || '').trim() && !(await cupomDispensaEmailComLimite(usePremiumSupabase(), { codigo: String(body.cupom), placa }, config, { onde: 'checkout' }))) {
     throw createError({ statusCode: 400, message: 'Informe o e-mail para usar um cupom.' })
   }
 
@@ -89,7 +92,7 @@ export default defineEventHandler(async (event) => {
     // motivo, o checkout segue com o preco cheio em vez de falhar a compra.
     const codigoCupom = String(body.cupom || '').trim()
     const cupomDigitado = codigoCupom
-      ? await validarCupom(supabase, codigoCupom, plano, email, abPreco.braco)
+      ? (await validarCupomComLimite(supabase, { codigo: codigoCupom, plano, email, braco: abPreco.braco, placa }, config, { onde: 'checkout' })).cupom
       : null
     // Cupom de tela (5% em 30 min, token assinado na consulta gratis). Nao
     // acumula: vale o maior. Quando a tela vence, o cupom digitado sai de cena.

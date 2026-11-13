@@ -45,9 +45,31 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   '/api/premium/google-play/verificar': { windowMs: 60 * 60 * 1000, maxRequests: 10 }, // 10 por hora
   // "Cade meu relatorio" do app: so le o banco (nao bate na Google). O app
   // pergunta com intervalo crescente enquanto a compra esta pendente; 120/h
-  // cobre a espera com folga e barra varredura. Contado por IP, sem a query
-  // (senao cada purchaseToken ganharia um balde proprio).
+  // cobre a espera com folga e barra varredura.
   '/api/premium/google-play/pedido': { windowMs: 60 * 60 * 1000, maxRequests: 120 }, // 120 por hora
+  // The three routes below are what a buyer's screen calls after the checkout,
+  // with the order token in the query string. Every order followed from the
+  // same address counts against the same bucket (see rotaDoBalde), so each
+  // limit leaves room for several people behind one address:
+  // - status: polled every 4 to 5 s while an order is pending.
+  '/api/premium/status': { windowMs: 60 * 1000, maxRequests: 240 }, // 240 per minute
+  // - report: a freshly delivered report reloads it up to 36 times a minute
+  //   (every 3 s while it waits for the DETRAN block, plus slower reloads for
+  //   recall and fines), and a blocked reload leaves the screen in its error
+  //   state.
+  '/api/premium/report': { windowMs: 60 * 1000, maxRequests: 300 }, // 300 per minute
+  // - foto: one request per photo of an auction lot, as the carousel goes
+  //   through them. The route keeps its own ceiling of new links per report.
+  '/api/premium/foto': { windowMs: 60 * 1000, maxRequests: 300 }, // 300 per minute
+  // Prefill of the /cotacao page, read by an id that cannot be guessed. The
+  // page asks for it while it renders on the server, where the request carries
+  // no visitor address, so every render of the page shares one bucket.
+  '/api/cotacao-info': { windowMs: 60 * 1000, maxRequests: 300 }, // 300 per minute
+  // Brand logo proxy. A report screen shows one logo through it and asks at
+  // most twice (the file the source named, then the one deduced from the brand
+  // name); the browser then keeps it for a week. 60 per minute is thirty
+  // report screens a minute from the same address.
+  '/api/logo-marca': { windowMs: 60 * 1000, maxRequests: 60 }, // 60 per minute
   // Intencao de compra do app (placa + e-mail antes da folha da Play): uma por
   // tentativa de compra. Mesmo teto do /verificar.
   '/api/premium/google-play/intencao': { windowMs: 60 * 60 * 1000, maxRequests: 10 }, // 10 por hora
@@ -61,8 +83,36 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   'default': { windowMs: 60 * 1000, maxRequests: 30 }, // Default: 30 per minute
 }
 
-// Rotas cuja query carrega a credencial: o balde e da rota, nao de cada valor.
-const SEM_QUERY = ['/api/premium/google-play/pedido']
+// Routes whose path carries a value (a token, a file name). The bucket is the
+// route's, not each value's, so everything under the prefix counts together.
+// Listed by hand on purpose: no attempt is made to guess which segment of a
+// path is a value.
+const ROTAS_COM_VALOR_NO_CAMINHO = ['/api/feedback', '/api/logo-marca', '/api/premium/nfse']
+
+// No route of ours comes near this length. Longer paths all count against one
+// fixed bucket, and nothing else is computed from them.
+const TAMANHO_MAXIMO_DO_CAMINHO = 512
+const BALDE_DE_CAMINHO_LONGO = '/api/(caminho-longo)'
+const BARRA = 47 // '/'
+
+/**
+ * The route a request counts against: its path alone, with no query string,
+ * no fragment and no trailing slash, cut at the route for the ones listed
+ * above. The bucket key, the per-route limit lookup and the log line all use
+ * it, for every route, so nothing a URL carries besides the route (a token, a
+ * secret) reaches the log.
+ *
+ * The cost is linear in the length of the URL: one pass to find where the
+ * path ends, and the trailing slashes dropped one character at a time.
+ */
+function rotaDoBalde(path: string): string {
+  const fimDoCaminho = path.search(/[?#]/)
+  let fim = fimDoCaminho === -1 ? path.length : fimDoCaminho
+  if (fim > TAMANHO_MAXIMO_DO_CAMINHO) return path.startsWith('/api/') ? BALDE_DE_CAMINHO_LONGO : '/'
+  while (fim > 1 && path.charCodeAt(fim - 1) === BARRA) fim--
+  const caminho = path.slice(0, fim) || '/'
+  return ROTAS_COM_VALOR_NO_CAMINHO.find((rota) => caminho.startsWith(`${rota}/`)) ?? caminho
+}
 
 function getRateLimitConfig(path: string): RateLimitConfig {
   for (const [pattern, config] of Object.entries(rateLimitConfigs)) {
@@ -74,7 +124,7 @@ function getRateLimitConfig(path: string): RateLimitConfig {
 }
 
 export default defineEventHandler(async (event) => {
-  const path = event.path
+  const path = rotaDoBalde(event.path)
 
   // Skip rate limiting for non-API routes
   if (!path.startsWith('/api/')) {
@@ -99,7 +149,7 @@ export default defineEventHandler(async (event) => {
   // mesma fonte dos tetos da consulta e dos sinais (server/utils/client-ip.ts).
   const ip = getClientIp(event)
   const config = getRateLimitConfig(path)
-  const key = `${ip}:${SEM_QUERY.some((p) => path.startsWith(p)) ? path.split('?')[0] : path}`
+  const key = `${ip}:${path}`
 
   const now = Date.now()
   let entry = rateLimitStore.get(key)

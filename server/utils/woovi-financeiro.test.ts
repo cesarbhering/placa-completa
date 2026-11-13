@@ -59,3 +59,39 @@ describe('e-mail pro financeiro', () => {
     await expect(encaminharWebhookFinanceiro(sb, p, JSON.stringify(p), '', 'unico-2')).resolves.toBe(true)
   })
 })
+
+// An event without a charge was not checked against our account and is not
+// tied to an order: the copy still goes out, and says so.
+describe('copy of an event that was not verified', () => {
+  const SEM_COBRANCA = { event: 'OPENPIX:TRANSACTION_RECEIVED', pix: { endToEndId: 'E-sem-cobranca', time: '2026-01-01T00:00:00Z', value: 1500 } }
+
+  it('says "NÃO VERIFICADO" in the subject and at the top of the text', () => {
+    const e = montarEmailFinanceiro(SEM_COBRANCA, JSON.stringify(SEM_COBRANCA), null, { naoVerificado: true })
+
+    expect(e.subject).toBe('Woovi (NÃO VERIFICADO): OPENPIX:TRANSACTION_RECEIVED R$ 15,00')
+    expect(e.text.split('\n')[0]).toContain('NÃO VERIFICADO')
+    expect(e.text).toContain('Valor: R$ 15,00')
+    expect(e.text).toContain('"endToEndId": "E-sem-cobranca"')
+    expect(e.text).not.toContain('—')
+  })
+
+  it('a verified event carries no such mark', () => {
+    const e = montarEmailFinanceiro(PAYLOAD, RAW, { id: 'ped-1', placa: 'ABC1D23', token_entrega: 'tok' })
+
+    expect(e.subject).not.toContain('VERIFICADO')
+    expect(e.text).not.toContain('VERIFICADO')
+  })
+
+  it('the mark reaches the e-mail that is sent', async () => {
+    const envios: any[] = []
+    vi.stubGlobal('useRuntimeConfig', () => ({ resendApiKey: 're_x', public: {} }))
+    vi.stubGlobal('$fetch', vi.fn(async (_u: string, o: any) => { envios.push(o.body); return {} }))
+    const sb = { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) }
+
+    expect(await encaminharWebhookFinanceiro(sb, SEM_COBRANCA, JSON.stringify(SEM_COBRANCA), '', '', { naoVerificado: true })).toBe(true)
+
+    expect(envios).toHaveLength(1)
+    expect(envios[0].subject).toContain('NÃO VERIFICADO')
+    expect(envios[0].text).toContain('NÃO VERIFICADO')
+  })
+})

@@ -5,6 +5,7 @@ import { IBV_SLUG_ANTIGO } from './data/ibv-posts'
 import { fileURLToPath } from 'node:url'
 import { paginasSoEmPortugues, comVersaoEn } from './shared/idiomas-rotas'
 import { BASE_URL } from './shared/idiomas'
+import { STORAGE_DO_CACHE } from './shared/cache-de-rotas'
 
 export default defineNuxtConfig({
   compatibilityDate: "2025-01-01",
@@ -676,7 +677,11 @@ export default defineNuxtConfig({
     // card breaker at 12 card orders in 10 min with none paid); "0" = off.
     checkoutLimitePlacaHora: process.env.NUXT_CHECKOUT_LIMITE_PLACA_HORA || "",
     checkoutLimiteCartaoPlacaHora: process.env.NUXT_CHECKOUT_LIMITE_CARTAO_PLACA_HORA || "",
-    checkoutDisjuntorCartao10min: process.env.NUXT_CHECKOUT_DISJUNTOR_CARTAO_10MIN || "",
+    checkoutDisjuntorCartao_10min: process.env.NUXT_CHECKOUT_DISJUNTOR_CARTAO_10MIN || "",
+    // Typed-coupon attempt limits (server/utils/cupom-limite.ts). Empty =
+    // default (5 invalid per plate/hour, 30 invalid site-wide in 10 min); "0" = off.
+    cupomLimitePlacaHora: process.env.NUXT_CUPOM_LIMITE_PLACA_HORA || "",
+    cupomLimiteGlobal_10min: process.env.NUXT_CUPOM_LIMITE_GLOBAL_10MIN || "",
     // NFS-e (own emitter). The "on" flag enables it; without it nothing is called or rendered.
     nfse: process.env.NUXT_NFSE || "",
     nfseUrl: process.env.NUXT_NFSE_URL || "",
@@ -786,6 +791,9 @@ export default defineNuxtConfig({
     pixProvider: process.env.PIX_PROVIDER || "abacatepay",
     wooviBase: process.env.WOOVI_BASE || "https://api.woovi.com",
     wooviAppId: process.env.WOOVI_APP_ID || "",
+    // Extra webhook signing keys (PEM or base64 of the PEM, comma separated).
+    // The key published in the provider documentation is always accepted.
+    wooviChavePublica: process.env.WOOVI_CHAVE_PUBLICA || "",
     // Nome do recebedor a mostrar na tela quando a cobranca nasce na Woovi.
     // Vazio ate confirmar num Pix real qual e a string exata do BR Code.
     wooviRecebedor: process.env.WOOVI_RECEBEDOR || "",
@@ -960,6 +968,10 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: "netlify",
+    // Production storage of the Nitro cache, which holds the rendered HTML of
+    // the swr rules above: in memory, with a ceiling of entries and of bytes.
+    // The numbers and the reasons are in shared/cache-de-rotas.ts.
+    storage: { cache: { ...STORAGE_DO_CACHE } },
     handlers: [
       { route: "/.well-known/api-catalog", handler: "~/server/handlers/well-known-api-catalog.get.ts" },
       { route: "/.well-known/skills/index.json", handler: "~/server/handlers/agent-skills-index.get.ts" },

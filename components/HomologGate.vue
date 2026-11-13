@@ -26,8 +26,8 @@ async function entrar() {
     try { localStorage.setItem('homolog_ok', '1') } catch { /* modo privado */ }
     ativo.value = false
     document.body.style.overflow = ''
-  } catch {
-    erro.value = 'Senha incorreta.'
+  } catch (e: any) {
+    erro.value = (e?.statusCode ?? e?.status) === 429 ? 'Muitas tentativas. Tente de novo em alguns minutos.' : 'Senha incorreta.'
   } finally {
     loading.value = false
   }

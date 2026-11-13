@@ -1,16 +1,12 @@
-import crypto from 'node:crypto'
 import { emVoo, quantasEmVoo } from '../../utils/tarefas-em-voo'
+import { assertAdminSecret } from '../../utils/admin-secret'
 
 // SO HOMOLOG: segura uma tarefa em voo por N segundos (max 140), sem chamar
 // nada externo. Serve pra provar que o SIGTERM espera (docker stop -t 150).
 // Fora do homolog ou sem o x-admin-secret: 404.
 export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig()
-  const segredo = String(config.adminSecret || '')
-  const enviado = String(getRequestHeader(event, 'x-admin-secret') || '')
-  const ok = !!config.public?.homolog && !!segredo && enviado.length === segredo.length
-    && crypto.timingSafeEqual(Buffer.from(enviado), Buffer.from(segredo))
-  if (!ok) throw createError({ statusCode: 404, message: 'Not Found' })
+  if (!useRuntimeConfig().public?.homolog) throw createError({ statusCode: 404, message: 'Not Found' })
+  assertAdminSecret(event)
   const body = await readBody(event).catch(() => ({}))
   const s = Math.max(1, Math.min(140, Number(body?.segundos) || 60))
   void emVoo(`teste-${s}s`, async () => {

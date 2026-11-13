@@ -1,5 +1,5 @@
-import crypto from 'node:crypto'
 import { ambienteDoCorpo } from '../../utils/gcc-reserva'
+import { assertAdminSecret } from '../../utils/admin-secret'
 
 // Mantem a RESERVA de hash GCC (1 de frente, so repoe quando zera). Batido pelo timer systemd
 // (pc-gcc-reserva, a cada 10 min) e disparavel na mao. Roda: limpa reservas
@@ -11,12 +11,7 @@ import { ambienteDoCorpo } from '../../utils/gcc-reserva'
 // Auth: x-admin-secret (timing-safe). Sem ADMIN_SECRET no ambiente a rota nem
 // existe (404, nao 401 — rota administrativa nao anuncia que existe).
 export default defineEventHandler(async (event) => {
-  const segredo = String(useRuntimeConfig().adminSecret || '')
-  if (!segredo) throw createError({ statusCode: 404, message: 'Not Found' })
-  const enviado = String(getRequestHeader(event, 'x-admin-secret') || '')
-  const ok = enviado.length === segredo.length
-    && crypto.timingSafeEqual(Buffer.from(enviado), Buffer.from(segredo))
-  if (!ok) throw createError({ statusCode: 404, message: 'Not Found' })
+  assertAdminSecret(event)
 
   const body = await readBody(event).catch(() => ({}))
   // Ambiente OBRIGATORIO e explicito (sem default): o timer de prod manda

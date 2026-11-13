@@ -1,5 +1,6 @@
 import * as abacate from './abacatepay'
 import * as woovi from './woovi'
+import type { ConsultaPix } from './pix-consulta'
 
 // Contrato unico de provedor de Pix, pra dar pra trocar de adquirente sem
 // reescrever o checkout.
@@ -43,6 +44,11 @@ export interface ProvedorPix {
   nome: 'abacatepay' | 'woovi'
   criarPixTransparente(opts: CriarPixOpts): Promise<PixCharge>
   checarPix(id: string): Promise<{ status: string; brCode?: string; brCodeBase64?: string } | null>
+  /**
+   * Same lookup as checarPix, telling "the charge does not exist in our
+   * account" from "the provider did not answer". checarPix is null for both.
+   */
+  consultarPix(id: string): Promise<ConsultaPix<{ status: string; brCode?: string; brCodeBase64?: string }>>
   reembolsarPix(id: string, motivo?: string): Promise<{ ok: boolean; error: string | null }>
   simularPagamento(id: string): Promise<boolean>
   /**
@@ -57,6 +63,7 @@ const ABACATEPAY: ProvedorPix = {
   nome: 'abacatepay',
   criarPixTransparente: abacate.criarPixTransparente,
   checarPix: abacate.checarPix,
+  consultarPix: abacate.consultarPix,
   reembolsarPix: abacate.reembolsarPix,
   simularPagamento: abacate.simularPagamento,
   // No app do banco a AbacatePay aparece como "Haste Technologies", que nao diz
@@ -71,6 +78,7 @@ const WOOVI: ProvedorPix = {
   nome: 'woovi',
   criarPixTransparente: woovi.criarPixTransparente,
   checarPix: woovi.checarPix,
+  consultarPix: woovi.consultarPix,
   reembolsarPix: woovi.reembolsarPix,
   simularPagamento: woovi.simularPagamento,
   // A Woovi reflete o nome real da conta no Pix — o motivo da troca. Mas o nome

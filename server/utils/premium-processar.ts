@@ -457,10 +457,12 @@ export async function processarPedidoPago(
         paraTambem: [AVISO_ESTORNO],
       })
     } else {
-      // Reembolso NAO aconteceu: guarda o motivo no pedido e alerta. O status
-      // fica 'falha' (a UI nao promete estorno que nao ocorreu). O erro tipico
-      // (INSUFFICIENT_FUNDS) e transitorio: da pra reprocessar quando o saldo
-      // liberar (ver server/api/premium/reembolsar).
+      // The refund did NOT happen: store the reason on the order and alert. The
+      // status stays 'falha' (the UI never promises a refund that did not
+      // occur). The typical error (INSUFFICIENT_FUNDS) is transient: an
+      // operator retries it once the balance clears, through the operator-only
+      // route server/api/premium/reembolsar (x-admin-secret). That route covers
+      // Pix only: a card or an app order has no Pix charge and gets 409 there.
       await supabase.from('pedidos_premium')
         .update({ erro: `${String(e?.message || e)} | reembolso: ${reembolso.error}` })
         .eq('id', pedido.id)
