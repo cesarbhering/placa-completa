@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { mensagemDoLimite } from '../shared/mensagem-limite'
-import { cupomSeguraCompra, avisoValorCartao } from '../shared/checkout-cupom'
+import { cupomSeguraCompra, decidirValorCartao } from '../shared/checkout-cupom'
 
-// Inline checkout under the coupon attempt limit and the card amount check.
-// The decisions run in shared/checkout-cupom.ts and are exercised here; the
-// component checks below only confirm the component calls them where it must
-// (the component itself is not mounted).
+// Inline checkout under the coupon attempt limit: the pure decisions of
+// shared/checkout-cupom.ts, plus source checks that the component calls them
+// where it must. The card flow is exercised with the component mounted in
+// PremiumInlineCheckout.cartao.test.ts.
 const fonte = readFileSync('components/PremiumInlineCheckout.vue', 'utf8')
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 
@@ -31,17 +31,22 @@ describe('coupon holding the purchase (validarCheckout)', () => {
 
 describe('card amount from the server vs the screen', () => {
   it('same amount: confirm', () => {
-    expect(avisoValorCartao(4041, 4041, reais)).toBeNull()
+    expect(decidirValorCartao(4041, 4041, reais, true)).toEqual({ acao: 'confirmar' })
   })
-  it('different amount (any cause): hold with a short message carrying the amount', () => {
-    const m = avisoValorCartao(4490, 4041, reais)
-    expect(m).toBe('O cupom não pôde ser aplicado. O valor do pagamento é R$ 44,90. Toque em pagar de novo para confirmar.')
-    expect(m).not.toContain('\u2014')
-    expect(avisoValorCartao(3990, 4490, reais)).toContain('R$ 39,90')
+  it('different amount with a typed coupon: hold, blaming the coupon', () => {
+    const d = decidirValorCartao(4490, 4041, reais, true)
+    expect(d).toEqual({ acao: 'segurar', valor: 4490, mensagem: 'O cupom não pôde ser aplicado. O valor do pagamento é R$ 44,90. Toque em pagar de novo para confirmar.' })
   })
-  it('no amount in the answer: does not hold', () => {
-    expect(avisoValorCartao(undefined, 4490, reais)).toBeNull()
-    expect(avisoValorCartao('4490', 4490, reais)).toBeNull()
+  it('different amount without a coupon: hold with a neutral message', () => {
+    expect(decidirValorCartao(3990, 4490, reais, false)).toEqual({ acao: 'segurar', valor: 3990, mensagem: 'O valor do pagamento é R$ 39,90. Toque em pagar de novo para confirmar.' })
+  })
+  it('no numeric amount: error, never confirm', () => {
+    for (const v of [undefined, null, '4490', NaN]) expect(decidirValorCartao(v, 4490, reais, true).acao).toBe('erro')
+  })
+  it('no message has an em dash', () => {
+    for (const d of [decidirValorCartao(1, 2, reais, true), decidirValorCartao(1, 2, reais, false), decidirValorCartao(undefined, 2, reais, false)]) {
+      expect('mensagem' in d && d.mensagem).not.toContain('\u2014')
+    }
   })
 })
 
@@ -57,15 +62,10 @@ describe('component wiring', () => {
     expect(fonte.match(/cupomSeguraCompra\(/g)).toHaveLength(2)
   })
   it('a blocked coupon is not sent with the order', () => {
-    expect(fonte.match(/cupom: cupomBloqueado\.value \? undefined : \(cupomCodigo\.value\.trim\(\) \|\| undefined\)/g)).toHaveLength(2)
-  })
-  it('the card is confirmed only after the amount check', () => {
-    const i = fonte.indexOf('async function pagarComCartao')
-    const corpo = fonte.slice(i, fonte.indexOf('\n}\n', i))
-    const aviso = corpo.indexOf('avisoValorCartao(r.valor, precoExibidoCentavos.value, reais)')
-    expect(aviso).toBeGreaterThan(-1)
-    expect(corpo.indexOf('confirmCardPayment')).toBeGreaterThan(aviso)
-    expect(corpo).toMatch(/if \(aviso\) \{[\s\S]*?valorCartaoServidor\.value = r\.valor[\s\S]*?cartaoPendente\.value = r[\s\S]*?return/)
+    // Pix body inline; the card body sends `cupomEnviado`, built the same way.
+    expect(fonte.match(/cupom: cupomBloqueado\.value \? undefined : \(cupomCodigo\.value\.trim\(\) \|\| undefined\)/g)).toHaveLength(1)
+    expect(fonte).toMatch(/const cupomEnviado = cupomBloqueado\.value \? undefined : \(cupomCodigo\.value\.trim\(\) \|\| undefined\)/)
+    expect(fonte).toMatch(/\n\s+cupom: cupomEnviado,/)
   })
   it('the shared helper echoes the server message for the coupon 429', () => {
     const msg = 'Muitas tentativas de cupom para esta placa. Tente de novo mais tarde.'

@@ -1,5 +1,5 @@
 // Small pure decisions of the inline checkout (components/PremiumInlineCheckout.vue),
-// kept here so they can be tested without mounting the component.
+// kept here so they can be tested on their own as well as through the component.
 
 /**
  * Does the coupon hold the purchase? `passou` = the coupon check passed.
@@ -11,14 +11,27 @@ export function cupomSeguraCompra(passou: boolean, bloqueadoAntes: boolean, bloq
   return !passou && !(bloqueadoAntes && bloqueadoAgora)
 }
 
+export const MSG_ERRO_VALOR_CARTAO = 'Não conseguimos iniciar o pagamento. Tente de novo ou use o Pix.'
+
+export type DecisaoValorCartao =
+  | { acao: 'confirmar' }
+  | { acao: 'segurar'; valor: number; mensagem: string }
+  | { acao: 'erro'; mensagem: string }
+
 /**
- * Card: the server answers with the amount it will charge. When it differs
- * from the price on screen (coupon refused between the screen check and the
- * server, or any other cause), the payment must not be confirmed on this
- * click: returns the message to show, or null when the amounts match.
+ * Card: the server answers with the amount it will charge. Confirm only when
+ * it is a number equal to the price on screen. A different amount (coupon
+ * refused between the checks, or any other cause) is held and shown, to be
+ * paid on the next click; no numeric amount = do not confirm at all.
  */
-export function avisoValorCartao(valorServidor: unknown, valorTela: number, reais: (centavos: number) => string): string | null {
-  if (typeof valorServidor !== 'number' || !Number.isFinite(valorServidor)) return null
-  if (valorServidor === valorTela) return null
-  return `O cupom não pôde ser aplicado. O valor do pagamento é ${reais(valorServidor)}. Toque em pagar de novo para confirmar.`
+export function decidirValorCartao(
+  valorServidor: unknown,
+  valorTela: number,
+  reais: (centavos: number) => string,
+  temCupom: boolean,
+): DecisaoValorCartao {
+  if (typeof valorServidor !== 'number' || !Number.isFinite(valorServidor)) return { acao: 'erro', mensagem: MSG_ERRO_VALOR_CARTAO }
+  if (valorServidor === valorTela) return { acao: 'confirmar' }
+  const valor = `O valor do pagamento é ${reais(valorServidor)}. Toque em pagar de novo para confirmar.`
+  return { acao: 'segurar', valor: valorServidor, mensagem: temCupom ? `O cupom não pôde ser aplicado. ${valor}` : valor }
 }
