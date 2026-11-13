@@ -254,7 +254,7 @@ export interface DepsHistorico {
 export interface ResultadoHistorico {
   /** The block came with status ok (and, from completar, is in the snapshot). */
   ok: boolean
-  /** Skipped without calling: off, outside the plan, no snapshot, already there, call in progress. */
+  /** Skipped without calling: off, outside the plan, no plate, no snapshot, already there. */
   pulado?: string
   /** divergente: the partner answered for another VIN than the vehicle's (nothing goes to the report). */
   status?: 'ok' | 'falhou' | 'teto' | 'divergente'
@@ -342,14 +342,15 @@ export async function buscarHistoricoVeicular(
         if (r) return r
       }
       log(`[parceiro-historico] pedido=${ref} com consulta em andamento em outra execucao: segue sem chamar`)
-      return { ok: false, pulado: 'em andamento' }
+      // The other call did not bring it: this order goes on without it (the queue tries).
+      return falhou({ erro: 'em andamento' })
     }
     try {
       if (!(await pegarLock(sb, `historico:${pedido.id}`, dono))) return await esperarOutra()
       if (!(await pegarLock(sb, `historico-placa:${placa}`, dono))) return await esperarOutra()
     } catch (e: any) {
       log(`[parceiro-historico] sem lock do pedido=${ref} (${String(e?.message || e).slice(0, 80)}): nao chama`)
-      return { ok: false, status: 'falhou', erro: 'sem lock' }
+      return falhou({ erro: 'sem lock' })
     }
     // With both locks: another run may have finished between the look and the locks.
     const depois = await reaproveitar()
@@ -359,7 +360,7 @@ export async function buscarHistoricoVeicular(
     let reserva: string | null = null
     try { reserva = await reservarChamada(sb, pedido.id, placa, deps.cfg.tetoDia, agora) } catch (e: any) {
       log(`[parceiro-historico] sem reserva do teto (${String(e?.message || e).slice(0, 80)}): nao chama`)
-      return { ok: false, status: 'falhou', erro: 'sem reserva do teto' }
+      return falhou({ erro: 'sem reserva do teto' })
     }
     if (!reserva) {
       const dia = inicioDoDiaBrasilia(agora)
@@ -422,7 +423,8 @@ export function iniciarHistoricoVeicular(
     if (atual) return atual.promessa
     const entrada: EmVooHistorico = { promessa: Promise.resolve({ ok: false }) }
     entrada.promessa = emVoo('historico-veicular', () => buscarHistoricoVeicular(sb, pedido, { ...deps, cfg }))
-      .then((r): ResultadoHistorico => r ?? { ok: false, status: 'falhou', erro: 'nao rodou' })
+      // Refused while the server shuts down: a failure like any other (the queue tries).
+      .then((r): ResultadoHistorico => r ?? { ok: false, status: 'falhou', erro: 'nao rodou', bloco: { status: 'falhou', consultadoEm: new Date(deps.agora ?? Date.now()).toISOString(), motivo: 'erro' } })
       .then((r) => {
         entrada.resultado = r
         const t: any = setTimeout(() => { if (emVooHistorico.get(pedido.id) === entrada) emVooHistorico.delete(pedido.id) }, GUARDA_EM_VOO_MS)

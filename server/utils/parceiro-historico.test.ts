@@ -10,6 +10,7 @@ import { MOTIVO_CHASSI_DIVERGENTE } from '../../shared/historico-veicular'
 import { situacaoDasFontes } from '../../shared/fontes-relatorio'
 import { FONTE_CACHE_HISTORICO, FONTE_CUSTO_HISTORICO, cfgHistorico } from './parceiro-historico-env'
 import { complementarLeilaoParceiro, rodarJobParceiro, cfgParceiro, inicioDoDiaBrasilia, _limparTokenParceiro, type Http } from './parceiro-leilao'
+import { pararDeAceitar, _resetarEmVoo } from './tarefas-em-voo'
 
 // Vehicle history partner (Cesar, 13/11/2026): Completa only, behind its own
 // switch, clean cache that neither calls nor pays, daily ceiling, one row per
@@ -23,10 +24,11 @@ const resp = (status: number, corpo: any) => ({ status, text: async () => (typeo
 // In-memory database with the RPCs of this source: named locks, the daily
 // ceiling reservation (paid calls plus calls in progress) and the snapshot
 // write that sets only its key (jsonb_set), as in the migration.
-function sbHistorico(x: { lock?: (nome: string, dono: string) => boolean } = {}) {
+function sbHistorico(x: { lock?: (nome: string, dono: string) => boolean; falhaRpc?: string[] } = {}) {
   const base = supabaseMemoria()
   let seq = 0
   const rpc = async (nome: string, a: any) => {
+    if (x.falhaRpc?.includes(nome)) return { data: null, error: { message: 'banco fora' } }
     if (nome === 'job_lock_pegar') return { data: x.lock ? x.lock(a.p_nome, a.p_dono) : true, error: null }
     if (nome === 'parceiro_historico_reservar') {
       const t = base.tab('parceiro_historico_chamadas')
@@ -394,15 +396,45 @@ describe('review 1 of PR #752', () => {
     const b503 = await historicoProntoParaSnapshot(sb, pedido(), cfg(), AGORA)
     expect(b503).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: 'erro' })
     expect(estado(b503, [{ fonte: 'historico_veicular', status: 'pendente' }])).toBe('chegando')
-    expect(estado(b503, [])).toBe('indisponivel')
+    expect(estado(b503, [])).toBe('chegando') // inside the wait the job may not exist yet
     const nunca: Http = async () => new Promise(() => {}) as any
     expect(await iniciarHistoricoVeicular(sb, pedido('p2'), deps(nunca, { prazoMs: 30 }))).toMatchObject({ status: 'falhou', erro: 'timeout 30 ms' })
     const bTimeout = await historicoProntoParaSnapshot(sb, pedido('p2'), cfg(), AGORA)
     expect(bTimeout).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: 'erro' })
     expect(estado(bTimeout, [{ fonte: 'historico_veicular', status: 'pendente' }])).toBe('chegando')
-    expect(estado(bTimeout, [])).toBe('indisponivel')
+    expect(estado(bTimeout, [])).toBe('chegando')
     // While the call is still out, the screen waits for it.
     expect(estado(undefined, [])).toBe('consultando')
+  })
+
+  // Review 2, item 3: every way of not calling leaves a failure block (the screen stops waiting).
+  it('lock or ceiling RPC down: the snapshot gets a failure, nothing is called', async () => {
+    for (const rpc of ['job_lock_pegar', 'parceiro_historico_reservar']) {
+      sb = sbHistorico({ falhaRpc: [rpc] })
+      comPedidos('p1')
+      const r = await completarHistoricoVeicular(sb, pedido(), deps(ok()))
+      expect(r).toMatchObject({ ok: false, status: 'falhou', erro: rpc === 'job_lock_pegar' ? 'sem lock' : 'sem reserva do teto' })
+      expect(snap().historicoVeicular).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: 'erro' })
+    }
+    expect(chamadas).toHaveLength(0)
+  })
+  it('another order of the same plate holds the call and it fails: a failure, not a silent skip', async () => {
+    const t = travas()
+    t('historico-placa:TST2B34', 'outro-pedido') // the other order is calling and never fills the cache
+    sb = sbHistorico({ lock: t })
+    comPedidos('p1')
+    const r = await completarHistoricoVeicular(sb, pedido(), deps(ok()))
+    expect(r).toMatchObject({ ok: false, status: 'falhou', erro: 'em andamento' })
+    expect(snap().historicoVeicular).toMatchObject({ status: 'falhou', motivo: 'erro' })
+    expect(chamadas).toHaveLength(0)
+  })
+  it('early call refused while the server shuts down: a failure block for the snapshot', async () => {
+    pararDeAceitar()
+    try {
+      expect(await iniciarHistoricoVeicular(sb, pedido(), deps(ok()))).toMatchObject({ ok: false, status: 'falhou', erro: 'nao rodou' })
+      expect(await historicoProntoParaSnapshot(sb, pedido(), cfg(), AGORA)).toEqual({ status: 'falhou', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: 'erro' })
+      expect(chamadas).toHaveLength(0)
+    } finally { _resetarEmVoo() }
   })
 
   // Item 5: the deadline covers the body; a paid answer stays paid even if the parse breaks.

@@ -110,11 +110,13 @@ describe('report JSON with the vehicle history partner', () => {
     expect(JSON.stringify(r)).not.toContain('9XXHV00000X000001')
   })
 
-  it('daily ceiling reached at delivery: the screen does not wait for it (review 1, item 2)', async () => {
+  it('daily ceiling reached at delivery: the screen does not wait for it, and the queue job may not exist yet (review 1 item 2, review 2 item 4)', async () => {
     runtime.parceiroHistoricoLigado = 'on'; runtime.parceiroHistoricoKey = 'k'
     comPedido({}, { historicoVeicular: { status: 'teto', consultadoEm: null } })
     const r: any = await handler({} as any)
-    expect(r.fontes).toEqual([{ fonte: 'historico_veicular', rotulo: 'Donos, leilão e sinistro', estado: 'indisponivel' }])
+    expect(r.fontes).toEqual([{ fonte: 'historico_veicular', rotulo: 'Donos, leilão e sinistro', estado: 'chegando' }])
+    // No "could not consult" line while it is arriving.
+    expect(r.historicoLeilao.parceiro).toBeUndefined()
   })
 
   it('early call failed (timeout or 5xx) with the queue still to try: "chegando" at once, no "could not consult" line yet', async () => {

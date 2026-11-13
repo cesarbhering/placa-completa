@@ -243,9 +243,14 @@ const RE_DOCUMENTO = /\b\d{2}\.?\d{3}\.?\d{3}\s*\/?\s*\d{4}\s*-?\s*\d{2}\b|\b\d{
  * company fields: the "nome" field of this partner is the holder's name.
  */
 export function nomeDeEmpresa(v: unknown): string | null {
-  const s = naoInformado(String(v ?? '').replace(RE_DOCUMENTO, ' ').replace(/[\s,;:–-]+$/g, '').replace(/\s{2,}/g, ' '))
+  const s = naoInformado(semDocumento(v))
   if (!s) return null
   return comitentePublico(s)
+}
+
+/** The text without CNPJ or CPF (formatted or plain digits) and without the separator left behind. */
+function semDocumento(v: unknown): string {
+  return String(v ?? '').replace(RE_DOCUMENTO, ' ').replace(/[\s,;:–-]+$/g, '').replace(/\s{2,}/g, ' ').trim()
 }
 
 function usoDe(d: any, ind: Map<string, Indicador>): UsoHistorico {
@@ -397,9 +402,9 @@ const RE_CASA_GENERICA = /COMPARTILHADA|MULTIPLOS LEILOEIROS|MAIS DE UM LEILOEIR
 // A house name, not a person: "... Leilões", "Leilão ...", company suffixes.
 const RE_CASA = /\bLEILOES\b|\bLEILAO\b|\bLTDA\b|\bS\/?A\b|\bS\.A\.?|\bEIRELI\b/
 
-/** Auction house name for the card, or null (generic, automatic or a person's name). */
+/** Auction house name for the card, or null (generic, automatic or a person's name). Never with a CNPJ or CPF. */
 export function casaDoRegistro(v: unknown): string | null {
-  const s = naoInformado(v)
+  const s = naoInformado(semDocumento(v))
   if (!s) return null
   const n = sem(s)
   if (RE_CASA_GENERICA.test(n)) return null
@@ -409,11 +414,18 @@ export function casaDoRegistro(v: unknown): string | null {
   return comitenteExibicao(s)?.texto ?? null
 }
 
-// "NADA CONSTA", "NÃO CONSTA", "SEM LOTE", "S/N", "SEM NÚMERO", "N/A", only zeros: no lot.
+// A lot has at least one digit and is not only zeros ("NADA CONSTA", "S/N",
+// "SEM NÚMERO", "*", "." and "000" are not a lot).
 function loteReal(v: unknown): string | null {
   const s = naoInformado(v)
-  if (!s) return null
+  if (!s || !/\d/.test(s)) return null
   return /NADA CONSTA|NAO CONSTA|SEM LOTE|^S\s*\/?\s*N$|SEM NUMERO|^N\/?A$|NAO INFORMAD|^0+$/.test(sem(s)) ? null : s
+}
+
+// Public body as principal (review 2 of PR #752): without a lot, only these make a passage.
+const RE_ORGAO_PUBLICO = /\b(PREFEITURA|DETRAN|MUNICIP\w*|SECRETARIA|POLICIA|DEPARTAMENTO|GOVERNO|RECEITA|DER|TRIBUNAL|JUSTICA)\b/
+export function ehOrgaoPublico(v: unknown): boolean {
+  return RE_ORGAO_PUBLICO.test(sem(v))
 }
 
 /** Principal of the auction: a company or agency by name; generic texts ("PARTICULAR", "DIVERSOS") are not one. */
@@ -437,10 +449,11 @@ function leilaoDe(d: any, ind: Map<string, Indicador>): LeilaoHistorico {
     const lote = loteReal(e.lote)
     const comitente = comitenteDoRegistro(umDe(e, ['comitente', 'orgao', 'orgao_responsavel']))
     const ano = anoDe(e.ano) ?? anoDe(dataIsoHistorico(e.data))
-    // Without a lot and without a principal (agency/company), the entry is not
-    // a passage: it stays only in the restricted table.
+    // Without a lot, only a public body as principal makes a passage (a
+    // company or a generic principal does not): the rest stays only in the
+    // restricted table.
     if (lote) add({ tipo: 'edital', ano, lote, casa: casaDoRegistro(e.leiloeiro), comitente })
-    else if (comitente) add({ tipo: 'orgao', ano, lote: null, casa: casaDoRegistro(e.leiloeiro), comitente })
+    else if (comitente && ehOrgaoPublico(comitente)) add({ tipo: 'orgao', ano, lote: null, casa: casaDoRegistro(e.leiloeiro), comitente })
   }
   for (const r of eventosSeguradora(d, ind)) {
     if (!/VENDA DIRETA|REMARKETING|SALVAD/.test(sem(r.tipoEvento))) continue

@@ -7,7 +7,7 @@ import { NOME_FORNECEDOR_HISTORICO_RE } from '../server/utils/parceiro-historico
 import {
   parsearRespostaHistorico, historicoLeilaoComHistorico, historicoVeicularParaTela, tituloPassagemParceira,
   telaDonos, telaUso, telaSinistro, casaDoRegistro, tipoDoDono, mesesDePosse, tempoDePosse,
-  historicoDoVeiculo, nomeDeEmpresa, passagensDoHistorico, MOTIVO_CHASSI_DIVERGENTE,
+  historicoDoVeiculo, nomeDeEmpresa, passagensDoHistorico, MOTIVO_CHASSI_DIVERGENTE, ehOrgaoPublico,
 } from './historico-veicular'
 import { historicoNaTela, historicoParaExibicao } from './leilao-exibicao'
 import { linhasBasesSemRegistro, rotuloIndicadorLeilao } from './fonte-parceira'
@@ -283,6 +283,36 @@ describe('review 1 of PR #752', () => {
     expect(salvado.comitente).toBe('HDI Seguros S/A')
     expect(tituloPassagemParceira(salvado)).toBe('Venda de salvado pela HDI Seguros S/A, registrada em 2025')
     expect(telaSinistro(b.sinistro)!.linhas[0].detalhe).toMatch(/^HDI Seguros, registrada em 2025\./)
+  })
+})
+
+describe('review 2 of PR #752', () => {
+  const comLeiloes = (leiloes: any[]) => { const r = copia(SEM); r.dados.outros_produtos.leiloes = leiloes; return r }
+
+  // Item 6: without a lot, only a public body makes a passage; a lot needs a digit.
+  it.each(['BANCO EXEMPLO S/A', 'EMPRESA PRIVADA', 'PARTICULAR - EMPRESA', 'PARTICULAR OU EMPRESA', 'TOKIO MARINE SEGURADORA S/A'])('principal "%s" without a lot: not a passage', (comitente) => {
+    expect(bloco(comLeiloes([{ ano: 2025, leiloeiro: 'WEB - LEILOES', lote: 'NADA CONSTA', comitente }])).leilao!.registros).toEqual([])
+  })
+  it.each(['PREFEITURA MUNICIPAL DE CIDADE EXEMPLO', 'DETRAN EXEMPLO', 'SECRETARIA DE ESTADO DA FAZENDA', 'POLÍCIA MILITAR', 'DEPARTAMENTO DE ESTRADAS', 'GOVERNO DO ESTADO', 'RECEITA FEDERAL', 'DER EXEMPLO', 'TRIBUNAL DE JUSTIÇA', 'MUNICÍPIO DE EXEMPLO'])('public body "%s" without a lot: a passage', (comitente) => {
+    expect(ehOrgaoPublico(comitente)).toBe(true)
+    expect(bloco(comLeiloes([{ ano: 2006, lote: 'NADA CONSTA', comitente }])).leilao!.registros).toMatchObject([{ tipo: 'orgao', ano: '2006', lote: null }])
+  })
+  it.each(['*', '.', 'LOTE A', '-'])('lot "%s" has no digit: not a lot', (lote) => {
+    expect(bloco(comLeiloes([{ ano: 2024, leiloeiro: 'CASA EXEMPLO LEILÕES', lote }])).leilao!.registros).toEqual([])
+  })
+  it('a real lot keeps a company as principal', () => {
+    expect(bloco(comLeiloes([{ ano: 2022, lote: 'A12', comitente: 'BANCO EXEMPLO S/A' }])).leilao!.registros)
+      .toEqual([{ tipo: 'edital', ano: '2022', lote: 'A12', casa: null, comitente: 'BANCO EXEMPLO S/A' }])
+  })
+
+  // Item 7: no CNPJ or CPF in the house name.
+  it('house name never carries a CNPJ or CPF', () => {
+    expect(casaDoRegistro('EXEMPLO LEILOES LTDA 00.000.000/0001-00')).toBe('Exemplo Leiloes Ltda')
+    expect(casaDoRegistro('JOAO DA SILVA LEILOES 00000000000')).toBe('Joao da Silva Leiloes')
+    expect(casaDoRegistro('EXEMPLO LEILOES LTDA - 00000000000100')).toBe('Exemplo Leiloes Ltda')
+    const b = bloco(comLeiloes([{ ano: 2022, lote: '7', leiloeiro: 'EXEMPLO LEILOES LTDA 00.000.000/0001-00' }]))
+    expect(JSON.stringify(b.leilao)).not.toMatch(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{11}/)
+    expect(b.leilao!.registros[0].casa).toBe('Exemplo Leiloes Ltda')
   })
 })
 

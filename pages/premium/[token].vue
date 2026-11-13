@@ -55,6 +55,7 @@ import { textoPrecoVsFipe, textoStatusRevenda, type RevendaFrota } from '~/share
 import { textoAlerta, textoJudicial, textoIntervalo, dataBR as dataBRIso } from '~/shared/leilao-relatorio2'
 import { rouboFurtoPeloDetran } from '~/shared/roubo-detran'
 import { telaDonos, telaUso, telaSinistro, tituloPassagemParceira, DICA_SINISTRO_HISTORICO } from '~/shared/historico-veicular'
+import { linhaEsperaFonte } from '~/shared/fontes-relatorio'
 
 const route = useRoute()
 const token = route.params.token as string
@@ -2335,8 +2336,8 @@ onUnmounted(() => {
             <div class="rel__barra"><div class="rel__barra-fill" /></div>
             <ul class="rel__espera">
               <li class="rel__espera-ok">Consulta da placa concluída ✓</li>
-              <li v-for="f in fontesRel" :key="f.fonte" :class="f.estado === 'consultando' ? 'rel__espera-ativa' : 'rel__espera-ok'">
-                {{ f.estado === 'consultando' ? `Consultando ${f.rotulo}…` : `${f.rotulo} ✓` }}
+              <li v-for="f in fontesRel" :key="f.fonte" :class="f.estado === 'consultando' ? 'rel__espera-ativa' : f.estado === 'ok' ? 'rel__espera-ok' : 'rel__espera-depois'">
+                {{ linhaEsperaFonte(f) }}
               </li>
             </ul>
             <p class="rel__hint">Estamos juntando tudo para entregar o relatório completo de uma vez, o que pode levar alguns minutos. Se alguma fonte demorar mais, o relatório abre com o que já chegou. Se o restante chegar, ele entra sozinho e avisamos por e-mail.</p>
@@ -5372,6 +5373,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__espera { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; text-align: left; font-size: calc(14px * var(--rel-fs, 1)); }
   &__espera-ok { color: #14622f; }
   &__espera-ativa { font-weight: 700; }
+  &__espera-depois { color: $c-graphite; }
 
   &__barra { width: 100%; max-width: 320px; height: 4px; border-radius: 999px; background: $c-hair; overflow: hidden; }
   &__barra-fill {

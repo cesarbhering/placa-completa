@@ -55,6 +55,17 @@ export function fonteNaoVemAgora(fonte: FonteRelatorio, s: EntradaFontes['snapsh
   return st === 'teto' || st === 'falhou'
 }
 
+/**
+ * Line of a source on the waiting screen (review 2 of PR #752): the tick only
+ * for what came; what is still to come or did not come says so. No dash.
+ */
+export function linhaEsperaFonte(f: { rotulo: string; estado: EstadoFonte | string }): string {
+  if (f.estado === 'consultando') return `Consultando ${f.rotulo}…`
+  if (f.estado === 'chegando') return `${f.rotulo}: chegando, avisamos por e-mail`
+  if (f.estado === 'indisponivel') return `${f.rotulo}: indisponível agora`
+  return `${f.rotulo} ✓`
+}
+
 export function situacaoDasFontes(e: EntradaFontes): { fontes: SituacaoFonte[]; aguardarAte: number | null } {
   const agora = e.agora ?? Date.now()
   const ent = new Date(String(e.entregueEm || '')).getTime()
@@ -63,7 +74,13 @@ export function situacaoDasFontes(e: EntradaFontes): { fontes: SituacaoFonte[]; 
   const jobs = e.jobs || []
   const fontes = e.aplicaveis.map(({ fonte, rotulo }) => {
     if (fonteConcluida(fonte, e.snapshot)) return { fonte, rotulo, estado: 'ok' as EstadoFonte }
-    if (dentroDaEspera && !fonteNaoVemAgora(fonte, e.snapshot)) return { fonte, rotulo, estado: 'consultando' as EstadoFonte }
+    if (dentroDaEspera) {
+      if (!fonteNaoVemAgora(fonte, e.snapshot)) return { fonte, rotulo, estado: 'consultando' as EstadoFonte }
+      // Inside the wait the queue job may not exist yet (it is created after the
+      // delivery photos, up to 60 s later), and the queue will try: "chegando"
+      // (review 2 of PR #752).
+      return { fonte, rotulo, estado: 'chegando' as EstadoFonte }
+    }
     // Depois da espera: so e "chegando" se a fila ainda vai tentar. Sem job
     // (relatorio antigo) ou job esgotado/fechado: indisponivel.
     const job = jobs.find((j) => j.fonte === fonte)

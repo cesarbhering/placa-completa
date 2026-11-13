@@ -21,6 +21,8 @@ create table if not exists public.parceiro_historico_chamadas (
   resposta_bruta        jsonb,
   criado_em             timestamptz not null default now()
 );
+-- If an earlier version of this table is already there, the newer column still comes in.
+alter table public.parceiro_historico_chamadas add column if not exists em_andamento boolean not null default false;
 
 create index if not exists parceiro_historico_chamadas_placa_idx on public.parceiro_historico_chamadas (placa, criado_em desc);
 create index if not exists parceiro_historico_chamadas_pedido_idx on public.parceiro_historico_chamadas (pedido_id);
@@ -62,9 +64,12 @@ begin
   return v_id;
 end $$;
 revoke all on function public.parceiro_historico_reservar(uuid, text, int, timestamptz) from public, anon, authenticated;
+grant execute on function public.parceiro_historico_reservar(uuid, text, int, timestamptz) to service_role;
 
 -- The vehicle history block goes into the order snapshot by jsonb_set on its own key only (review 1 of
 -- PR #752): it never rewrites what other sources wrote. A block that is not ok never replaces one that is.
+-- p_valor must be a JSON object: jsonb_set is strict, and a NULL value would turn the whole snapshot into
+-- NULL (review 2 of PR #752).
 create or replace function public.snapshot_gravar_historico_veicular(p_pedido uuid, p_valor jsonb)
 returns boolean language plpgsql security definer set search_path = pg_catalog, public as $$
 declare
@@ -73,6 +78,8 @@ begin
   update public.pedidos_premium
      set relatorio_snapshot = jsonb_set(relatorio_snapshot, array['historicoVeicular'], p_valor, true)
    where id = p_pedido
+     and p_valor is not null
+     and jsonb_typeof(p_valor) = 'object'
      and relatorio_snapshot is not null
      and jsonb_typeof(relatorio_snapshot) = 'object'
      and not (coalesce(relatorio_snapshot -> 'historicoVeicular' ->> 'status', '') = 'ok'
@@ -81,6 +88,7 @@ begin
   return v_linhas > 0;
 end $$;
 revoke all on function public.snapshot_gravar_historico_veicular(uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.snapshot_gravar_historico_veicular(uuid, jsonb) to service_role;
 
 comment on table public.parceiro_historico_chamadas is
   'Contem dado pessoal: resposta_bruta traz nome e CPF/CNPJ de todos os donos do veiculo. So o servidor le (RLS sem policy). Uma linha por tentativa de consulta a base parceira de historico veicular (inclusive erro e cache hit).';
