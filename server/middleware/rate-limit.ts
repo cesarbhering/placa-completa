@@ -49,17 +49,26 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   '/api/premium/google-play/pedido': { windowMs: 60 * 60 * 1000, maxRequests: 120 }, // 120 por hora
   // The three routes below are what a buyer's screen calls after the checkout,
   // always with the order token in the query string. The bucket is the route's
-  // (see caminhoDaRota), so every order followed from the same address shares
+  // (see rotaDoBalde), so every order followed from the same address shares
   // it, and each limit is sized for that:
-  // - status: polled every 4 to 5 s while an order is pending. 60 per minute
-  //   covers four orders being followed at once.
-  '/api/premium/status': { windowMs: 60 * 1000, maxRequests: 60 }, // 60 per minute
+  // - status: polled every 4 to 5 s while an order is pending. 120 per minute
+  //   covers eight orders being followed at once.
+  '/api/premium/status': { windowMs: 60 * 1000, maxRequests: 120 }, // 120 per minute
   // - report: the report page reloads it every 3 s while it waits for the
   //   DETRAN block, plus slower reloads for recall and fines.
-  '/api/premium/report': { windowMs: 60 * 1000, maxRequests: 60 }, // 60 per minute
+  '/api/premium/report': { windowMs: 60 * 1000, maxRequests: 120 }, // 120 per minute
   // - foto: one request per photo of an auction lot, as the carousel goes
   //   through them. The route keeps its own ceiling of new links per report.
-  '/api/premium/foto': { windowMs: 60 * 1000, maxRequests: 120 }, // 120 per minute
+  '/api/premium/foto': { windowMs: 60 * 1000, maxRequests: 180 }, // 180 per minute
+  // Prefill of the /cotacao page, read by an id that cannot be guessed. The
+  // page asks for it while it renders on the server, where the request carries
+  // no visitor address, so every render of the page shares one bucket.
+  '/api/cotacao-info': { windowMs: 60 * 1000, maxRequests: 300 }, // 300 per minute
+  // Brand logo proxy. A report screen shows one logo through it and asks at
+  // most twice (the file the source named, then the one deduced from the brand
+  // name); the browser then keeps it for a week. 60 per minute is thirty
+  // report screens a minute from the same address.
+  '/api/logo-marca': { windowMs: 60 * 1000, maxRequests: 60 }, // 60 per minute
   // Intencao de compra do app (placa + e-mail antes da folha da Play): uma por
   // tentativa de compra. Mesmo teto do /verificar.
   '/api/premium/google-play/intencao': { windowMs: 60 * 60 * 1000, maxRequests: 10 }, // 10 por hora
@@ -73,17 +82,24 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   'default': { windowMs: 60 * 1000, maxRequests: 30 }, // Default: 30 per minute
 }
 
+// Routes whose path carries a value (a token, a file name). The bucket is the
+// route's, not each value's, so everything under the prefix counts together.
+// Listed by hand on purpose: no attempt is made to guess which segment of a
+// path is a value.
+const ROTAS_COM_VALOR_NO_CAMINHO = ['/api/feedback', '/api/logo-marca', '/api/premium/nfse']
+
 /**
- * The route path alone: no query string, no fragment, no trailing slash. It is
- * what the bucket key, the per-route limit lookup and the log use, for every
- * route. With the rest of the URL in the key, any change to it would open a
- * fresh bucket for the same route, and a secret carried in a query string
- * would be written to the log.
+ * The route a request counts against: its path alone, with no query string,
+ * no fragment and no trailing slash, cut at the route for the ones listed
+ * above. It is what the bucket key, the per-route limit lookup and the log
+ * use, for every route. With the rest of the URL in the key, any change to it
+ * would open a fresh bucket for the same route, and a secret or a token
+ * carried in the URL would be written to the log.
  */
-function caminhoDaRota(path: string): string {
+function rotaDoBalde(path: string): string {
   const fim = path.search(/[?#]/)
-  const semQuery = fim === -1 ? path : path.slice(0, fim)
-  return semQuery.replace(/\/+$/, '') || '/'
+  const caminho = (fim === -1 ? path : path.slice(0, fim)).replace(/\/+$/, '') || '/'
+  return ROTAS_COM_VALOR_NO_CAMINHO.find((rota) => caminho.startsWith(`${rota}/`)) ?? caminho
 }
 
 function getRateLimitConfig(path: string): RateLimitConfig {
@@ -96,7 +112,7 @@ function getRateLimitConfig(path: string): RateLimitConfig {
 }
 
 export default defineEventHandler(async (event) => {
-  const path = caminhoDaRota(event.path)
+  const path = rotaDoBalde(event.path)
 
   // Skip rate limiting for non-API routes
   if (!path.startsWith('/api/')) {

@@ -125,9 +125,10 @@ describe('rate limit middleware', () => {
       ['/api/consulta', 10],
       ['/api/empresas/proposta', 5],
       ['/api/premium/google-play/pedido', 120],
-      ['/api/premium/status', 60],
-      ['/api/premium/report', 60],
-      ['/api/premium/foto', 120],
+      ['/api/premium/status', 120],
+      ['/api/premium/report', 120],
+      ['/api/premium/foto', 180],
+      ['/api/cotacao-info', 300],
     ])('%s: %i requests per window, whatever the query string', async (rota, limite) => {
       expect(await bater(rota)).toMatchObject({ 'X-RateLimit-Limit': String(limite) })
 
@@ -142,6 +143,53 @@ describe('rate limit middleware', () => {
 
       vi.advanceTimersByTime(60 * 60 * 1000)
       expect(await passaram(10, () => '/api/empresas/proposta')).toBe(5)
+    })
+  })
+
+  // Routes whose path carries a value (a token, a file name) are listed by
+  // hand in the middleware: the bucket is the route's, not each value's.
+  describe('routes with a value in the path', () => {
+    it.each([
+      ['/api/feedback', 30, (i: number) => `/api/feedback/token-${i}`],
+      ['/api/logo-marca', 60, (i: number) => `/api/logo-marca/marca-${i}.png`],
+      ['/api/premium/nfse', 30, (i: number) => `/api/premium/nfse/token-${i}/pdf`],
+    ])('%s: %i requests per minute, whatever the value', async (_rota, limite, caminho) => {
+      expect(await bater(caminho(0))).toMatchObject({ 'X-RateLimit-Limit': String(limite) })
+
+      expect(await passaram(limite + 20, (i) => caminho(i + 1))).toBe(limite - 1)
+    })
+
+    it('the value, a query string and a trailing slash together still share the bucket', async () => {
+      expect(await passaram(30, (i) => `/api/feedback/token-${i}`)).toBe(30)
+
+      await expect(bater('/api/feedback/outro-token/?x=1')).rejects.toMatchObject({ statusCode: 429 })
+    })
+
+    it('the fixed routes under the same prefix count against it too', async () => {
+      expect(await passaram(30, (i) => `/api/feedback/token-${i}`)).toBe(30)
+
+      await expect(bater('/api/feedback/nota')).rejects.toMatchObject({ statusCode: 429 })
+    })
+
+    it('a path that only begins with the same letters is another route', async () => {
+      expect(await passaram(40, (i) => `/api/feedback/token-${i}`)).toBe(30)
+
+      expect(await passaram(40, () => '/api/feedback-de-outra-rota')).toBe(30)
+    })
+
+    it('a route that is not on the list keeps one bucket per path: no guessing of segments', async () => {
+      expect(await passaram(40, () => '/api/rota-fora-da-lista/a')).toBe(30)
+
+      expect(await passaram(40, () => '/api/rota-fora-da-lista/b')).toBe(30)
+    })
+
+    it('the log line of a blocked request shows the route, never the value', async () => {
+      await passaram(31, (i) => `/api/feedback/token-secreto-${i}`)
+
+      expect(console.warn).toHaveBeenCalledTimes(1)
+      const linha = vi.mocked(console.warn).mock.calls[0]!.join(' ')
+      expect(linha).toContain('/api/feedback')
+      expect(linha).not.toContain('token-secreto')
     })
   })
 
