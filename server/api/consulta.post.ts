@@ -287,12 +287,13 @@ async function consultar(event: H3Event, fim: FimDaConsulta) {
     headers['sec-ch-ua-platform'],
   )
   const canalDaRequisicao = { canal, app_versao }
-  // Geo por IP (cacheado; fail-open pra null). Precisao de cidade e
+  // Geo do visitante: cabecalhos de localizacao da CDN quando vierem, senao
+  // lookup por IP (cacheado; fail-open pra null). Precisao de cidade e
   // aproximada em mobile/CGNAT - tratar como regiao provavel.
   // Sai agora e corre junto com os limites e a busca da placa: so e lido
   // depois da busca, entao nao atrasa mais a consulta (ip-api, ate 2 s).
   // Mesmo ponto de antes: nao muda quem chega ate aqui nem a ordem dos limites.
-  const ipGeoP = lookupIpGeo(ip).catch(() => null)
+  const ipGeoP = lookupIpGeo(ip, event).catch(() => null)
   // UUID da consulta gerado ANTES do envio: vira o token do link de cotacao
   // no email (/cotacao?c=<uuid>) e e passado como id explicito no insert final.
   const consultaId = crypto.randomUUID()

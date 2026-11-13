@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
     return { uf: 'SP' }
   }
 
-  const geo = await lookupIpGeo(ip)
+  const geo = await lookupIpGeo(ip, event)
   if (geo?.country === 'BR' && geo.uf) {
     return { uf: geo.uf }
   }

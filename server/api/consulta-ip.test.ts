@@ -130,3 +130,25 @@ describe('signal routes: the same treatment of the address', () => {
     expect(await h.leilao({ placa: PLACA }, { ip: '203.0.113.10' })).toMatchObject({ positivo: true })
   })
 })
+
+describe('free lookup: visitor location', () => {
+  const comoCabecalho = (t: string) => Buffer.from(t, 'utf8').toString('latin1')
+
+  it('comes from the CDN location headers when they are present, with no external call', async () => {
+    const h = await montarConsulta({ mocks: { '~/server/utils/ip-geo': (real) => real } })
+    await h.chamar({ email: 'p@example.com' }, {
+      ip: '203.0.113.10',
+      cabecalhos: { 'cf-ipcountry': 'BR', 'cf-region-code': 'RJ', 'cf-ipcity': comoCabecalho('Niterói'), 'cf-timezone': 'America/Sao_Paulo' },
+    })
+    expect(h.sb.tab('consultas')[0]).toMatchObject({ geo_country: 'BR', geo_uf: 'RJ', geo_city: 'Niterói' })
+    expect((globalThis as any).$fetch).not.toHaveBeenCalled()
+  })
+
+  it('without them the lookup still succeeds (external lookup, fail open)', async () => {
+    const h = await montarConsulta({ mocks: { '~/server/utils/ip-geo': (real) => real } })
+    const r = await h.chamar({ email: 'p@example.com' }, { ip: '203.0.113.10' })
+    expect(r.success).toBe(true)
+    expect(h.sb.tab('consultas')[0]).toMatchObject({ geo_country: null, geo_uf: null, geo_city: null })
+    expect(String((globalThis as any).$fetch.mock.calls[0][0])).toContain('/json/203.0.113.10?')
+  })
+})
