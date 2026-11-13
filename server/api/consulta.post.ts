@@ -10,7 +10,7 @@ import { lookupIpGeo } from '../utils/ip-geo'
 import { getRegiaoSusep } from '../utils/regiao-susep'
 import { getSeguroEstimado, type SeguroEstimado } from '../utils/seguro-estimate'
 import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
-import { mensagemLimiteGratis, tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT } from '../utils/ip-wdapi-limit'
+import { mensagemLimiteGratis, tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT, TETO_IP_DESTINATARIO_LIBERADO } from '../utils/ip-wdapi-limit'
 import { calcularICV5, inferirCategoria, ufDoCorpo, type ICV5Result } from '../utils/icv5'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
@@ -284,13 +284,15 @@ export default defineEventHandler(async (event) => {
   // aberta pra raspagem.
   const semDestinatario = channel === 'tela'
 
-  // Limite customizado por destinatario (tabela rate_limit_whitelist):
-  // N/hora ou ilimitado (Infinity). Aplica aos DOIS checks (destinatario e
-  // IP), senao o proprio IP bloquearia antes do limite customizado valer.
-  // Sem destinatario (canal 'tela'): o unico limite e por IP, entao a whitelist
-  // e consultada pela CHAVE 'ip:<IP>' -- assim um IP nosso (sonda de checkout +
-  // testes de prod) pode ter um teto maior sem bypass por header/segredo. IP nao
-  // whitelistado cai no default de sempre.
+  // Dois tetos por hora, e o que a rate_limit_whitelist muda em cada um:
+  // - POR DESTINATARIO: default 5, ou a entrada do destinatario (N/hora, ou
+  //   sem teto). A entrada do destinatario so mexe NESTE teto: quem digita um
+  //   e-mail liberado nao prova que e dono dele.
+  // - POR IP: vale sempre. O valor da entrada 'ip:<IP>' quando existe (IP
+  //   nosso: sonda de checkout + testes de prod, sem bypass por header/segredo),
+  //   senao o default. Requisicao com destinatario liberado SEM teto: o teto
+  //   por IP sobe pra 20/hora em vez de sumir.
+  // Sem destinatario (canal 'tela') so existe o teto por IP.
   // Parceiro com chassi completo (server/utils/parceiro-chassi.ts): cookie
   // assinado + parceiro ativo + menos de 20 consultas na ultima hora. Dentro
   // disso nao passa pelo gate de e-mail nem pelo limite gratis (Turnstile
@@ -305,11 +307,14 @@ export default defineEventHandler(async (event) => {
   })
   if (parceiro) setHeader(event, 'Cache-Control', 'private, no-store')
 
-  const hourlyLimit = parceiro
+  const limiteDestinatario = parceiro || semDestinatario
     ? Infinity
-    : semDestinatario
-      ? await getHourlyLimit(`ip:${ip}`)
-      : await getHourlyLimit(recipientValue as string)
+    : await getHourlyLimit(recipientValue as string)
+  const destinatarioSemTeto = !parceiro && !semDestinatario && limiteDestinatario === Infinity
+  const pisoTetoIp = destinatarioSemTeto ? TETO_IP_DESTINATARIO_LIBERADO : 0
+  const limiteIp = parceiro
+    ? Infinity
+    : Math.max(await getHourlyLimit(`ip:${ip}`), pisoTetoIp)
 
   // Device id do navegador (UUID no localStorage, mandado no corpo). Gravado
   // na linha da consulta pro gate de e-mail contar o mesmo aparelho mesmo
@@ -319,9 +324,10 @@ export default defineEventHandler(async (event) => {
   // ===== Gate de e-mail (Cesar, 09/nov/2026) =====
   // A partir da terceira consulta gratis em 24h (mesmo IP OU mesmo device),
   // sem e-mail nao sai. Quem pagou algum relatorio (token conferido no
-  // banco) fica fora. Vale em homolog tambem, pra poder testar; quem esta na
-  // whitelist (sonda da VPS, testes de prod) fica fora como no rate limit.
-  if (!sanitizedEmail && hourlyLimit !== Infinity && (await tetoIpWdapi(ip)) <= IP_WDAPI_HOURLY_LIMIT) {
+  // banco) fica fora. Vale em homolog tambem, pra poder testar; IP com teto
+  // maior na whitelist (sonda da VPS, testes de prod) fica fora como no rate
+  // limit. Destinatario liberado NAO tira ninguem do gate.
+  if (!sanitizedEmail && !parceiro && (await tetoIpWdapi(ip)) <= IP_WDAPI_HOURLY_LIMIT) {
     // NUXT_CONSULTA_GRATIS_SEM_EMAIL: 2 = regra permanente, 0 = emergencia.
     const limiteGate = limiteGratisSemEmail(config.consultaGratisSemEmail)
     const supabaseGate = useSupabaseServer()
@@ -351,7 +357,7 @@ export default defineEventHandler(async (event) => {
   // na API paga (fechado em 28/jul/2026).
   // No homolog (ambiente de teste) o teto por hora nao se aplica: quem testa
   // precisa consultar a vontade. Prod segue com o limite normal.
-  if (hourlyLimit !== Infinity && !config.public.homolog) {
+  if (!parceiro && !config.public.homolog) {
     const supabase = useSupabaseServer()
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const ipCheckable = ip && ip !== 'unknown'
@@ -397,13 +403,14 @@ export default defineEventHandler(async (event) => {
     // Vale igual pra web e app/PWA, sem excecao. Um atacante nao paga, entao o
     // reset pos-compra (janelaInicio) nao abre brecha e protege quem pagou. O
     // limite por destinatario/email segue 5/h. Escape via rate_limit_whitelist
-    // (whitelistar um IP pra Infinity ou teto maior).
+    // (whitelistar um IP pra Infinity ou teto maior). Destinatario liberado sem
+    // teto so levanta este teto pra 20 (pisoTetoIp).
     //
     // Combinado com /api/premium/preview (que tambem custa wdapi, ver
     // server/utils/ip-wdapi-limit.ts): sem a soma, um bot que revezasse entre
     // as duas rotas dobrava o orcamento efetivo pra 30/hora.
     if (ipCheckable) {
-      const limite = await checarLimiteIpWdapi(supabase, ip, { recipientValue, janelaInicio })
+      const limite = await checarLimiteIpWdapi(supabase, ip, { recipientValue, janelaInicio, tetoMinimo: pisoTetoIp })
       if (!limite.ok) {
         supabase.from('blocked_requests').insert({
           reason: 'rate_limit_ip_wdapi',
@@ -429,8 +436,8 @@ export default defineEventHandler(async (event) => {
     const vazio = Promise.resolve({ count: 0, data: null, error: null } as any)
 
     const [recipientRes, ipRes] = await Promise.all([
-      // Sem destinatario nao ha o que contar por destinatario.
-      semDestinatario
+      // Sem destinatario (ou destinatario sem teto) nao ha o que contar por destinatario.
+      semDestinatario || limiteDestinatario === Infinity
         ? vazio
         : supabase
             .from('consultas')
@@ -440,7 +447,7 @@ export default defineEventHandler(async (event) => {
             .gte('created_at', janelaInicio)
             .order('created_at', { ascending: true })
             .limit(1),
-      ipCheckable
+      ipCheckable && limiteIp !== Infinity
         ? (() => {
             const q = supabase
               .from('consultas')
@@ -460,8 +467,11 @@ export default defineEventHandler(async (event) => {
     const recipientCount = recipientRes?.count ?? 0
     const ipCount = ipRes?.count ?? 0
 
-    if (recipientCount >= hourlyLimit || ipCount >= hourlyLimit) {
-      const oldestIso = recipientCount >= hourlyLimit
+    // Cada contagem contra o SEU teto: a do destinatario nunca usa o do IP nem
+    // o contrario.
+    const estourouDestinatario = recipientCount >= limiteDestinatario
+    if (estourouDestinatario || ipCount >= limiteIp) {
+      const oldestIso = estourouDestinatario
         ? recipientRes?.data?.[0]?.created_at
         : ipRes?.data?.[0]?.created_at
       let minutesUntilReset = 60
@@ -474,7 +484,7 @@ export default defineEventHandler(async (event) => {
       // do container e docker logs morrem a cada deploy. Sem await pra nao
       // atrasar a resposta; falha de insert nao afeta o usuario.
       supabase.from('blocked_requests').insert({
-        reason: recipientCount >= hourlyLimit ? 'rate_limit_recipient' : 'rate_limit_ip',
+        reason: estourouDestinatario ? 'rate_limit_recipient' : 'rate_limit_ip',
         ip_address: ip,
         recipient: recipientValue as string,
         placa: placa?.replace(/[^A-Za-z0-9]/g, '').toUpperCase() || null,
@@ -485,7 +495,7 @@ export default defineEventHandler(async (event) => {
 
       throw createError({
         statusCode: 429,
-        message: mensagemLimiteGratis(hourlyLimit, minutesUntilReset),
+        message: mensagemLimiteGratis(estourouDestinatario ? limiteDestinatario : limiteIp, minutesUntilReset),
       })
     }
   }

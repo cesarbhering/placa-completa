@@ -11,6 +11,15 @@ import { getHourlyLimit } from './rate-limit-whitelist'
 // 'ip:<ip>' pode subir (VPS da sonda = 30).
 export const IP_WDAPI_HOURLY_LIMIT = 5
 
+/**
+ * Teto por IP da requisicao cujo DESTINATARIO esta liberado sem teto na
+ * rate_limit_whitelist. A entrada do destinatario tira o teto por destinatario,
+ * nunca o do IP: quem digita um e-mail liberado nao prova que e dono dele. O
+ * teto por IP so sobe pra este valor (e fica no da entrada 'ip:<ip>' se ela
+ * for maior).
+ */
+export const TETO_IP_DESTINATARIO_LIBERADO = 20
+
 /** Mensagem unica do 429 de consulta gratis (pagina, app/PWA e checkout). Sem travessao. */
 export function mensagemLimiteGratis(teto: number, minutos: number): string {
   return `Você chegou ao limite de ${teto} consultas grátis por hora. Tente novamente em ~${minutos} min. Se comprar um relatório, o limite volta a zerar na hora.`
@@ -74,12 +83,18 @@ export interface LimiteWdapiResultado {
 export async function checarLimiteIpWdapi(
   supabase: any,
   ip: string,
-  opts: { recipientValue?: string | null; homolog?: boolean; janelaInicio?: string } = {},
+  opts: {
+    recipientValue?: string | null
+    homolog?: boolean
+    janelaInicio?: string
+    /** Piso do teto nesta requisicao (ex.: destinatario liberado sem teto = 20). So sobe, nunca reduz. */
+    tetoMinimo?: number
+  } = {},
 ): Promise<LimiteWdapiResultado> {
   const ipCheckable = !!ip && ip !== 'unknown'
   if (!ipCheckable || opts.homolog) return { ok: true }
 
-  const teto = await tetoIpWdapi(ip)
+  const teto = Math.max(await tetoIpWdapi(ip), opts.tetoMinimo ?? 0)
   if (teto === Infinity) return { ok: true }
 
   // Chamador pode ja ter calculado a janela (consulta.post.ts calcula pro

@@ -43,6 +43,14 @@ describe('teto wdapi por IP com whitelist', () => {
     expect((await checarLimiteIpWdapi(sbComTotal(3, 1), '1.2.3.4', { janelaInicio: new Date(0).toISOString() })).ok).toBe(true)
     expect((await checarLimiteIpWdapi(sbComTotal(3, 2), '1.2.3.4', { janelaInicio: new Date(0).toISOString() })).ok).toBe(false)
   })
+  it('tetoMinimo raises the cap for that request and never lowers it', async () => {
+    const janelaInicio = new Date(0).toISOString()
+    expect((await checarLimiteIpWdapi(sbComTotal(15, 4), '203.0.113.10', { janelaInicio, tetoMinimo: 20 })).ok).toBe(true)
+    expect(await checarLimiteIpWdapi(sbComTotal(15, 5), '203.0.113.10', { janelaInicio, tetoMinimo: 20 })).toMatchObject({ ok: false, teto: 20 })
+    limites.set('ip:203.0.113.10', 30)
+    expect((await checarLimiteIpWdapi(sbComTotal(25, 0), '203.0.113.10', { janelaInicio, tetoMinimo: 20 })).ok).toBe(true)
+    expect(await checarLimiteIpWdapi(sbComTotal(30, 0), '203.0.113.10', { janelaInicio, tetoMinimo: 20 })).toMatchObject({ ok: false, teto: 30 })
+  })
   it('mensagem do 429: limite, minutos e que comprar zera; sem travessao', () => {
     const m = mensagemLimiteGratis(5, 12)
     expect(m).toBe('Você chegou ao limite de 5 consultas grátis por hora. Tente novamente em ~12 min. Se comprar um relatório, o limite volta a zerar na hora.')

@@ -96,7 +96,11 @@ describe('consulta gratis: visitante comum nunca recebe o chassi inteiro', () =>
   })
 
   it('so o parceiro pula o gate e o limite gratis; Turnstile vem antes', () => {
-    expect(src).toMatch(/const hourlyLimit = parceiro\s*\n\s*\? Infinity/)
+    // Partner: no per-recipient cap, no per-IP cap, no gate, no hourly block.
+    expect(src).toMatch(/const limiteDestinatario = parceiro \|\| semDestinatario\s*\n\s*\? Infinity/)
+    expect(src).toMatch(/const limiteIp = parceiro\s*\n\s*\? Infinity/)
+    expect(src).toContain('if (!sanitizedEmail && !parceiro && ')
+    expect(src).toContain('if (!parceiro && !config.public.homolog) {')
     expect(src.indexOf('await decidirTurnstile(')).toBeLessThan(src.indexOf('await decidirParceiro('))
     expect(src.indexOf('await decidirParceiro(')).toBeLessThan(src.indexOf('await avaliarGateEmail('))
   })
