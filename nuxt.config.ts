@@ -5,6 +5,7 @@ import { IBV_SLUG_ANTIGO } from './data/ibv-posts'
 import { fileURLToPath } from 'node:url'
 import { paginasSoEmPortugues, comVersaoEn } from './shared/idiomas-rotas'
 import { BASE_URL } from './shared/idiomas'
+import { STORAGE_DO_CACHE } from './shared/cache-de-rotas'
 
 export default defineNuxtConfig({
   compatibilityDate: "2025-01-01",
@@ -960,6 +961,10 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: "netlify",
+    // Production storage of the Nitro cache, which holds the rendered HTML of
+    // the swr rules above: in memory, with a ceiling of entries and of bytes.
+    // The numbers and the reasons are in shared/cache-de-rotas.ts.
+    storage: { cache: { ...STORAGE_DO_CACHE } },
     handlers: [
       { route: "/.well-known/api-catalog", handler: "~/server/handlers/well-known-api-catalog.get.ts" },
       { route: "/.well-known/skills/index.json", handler: "~/server/handlers/agent-skills-index.get.ts" },
