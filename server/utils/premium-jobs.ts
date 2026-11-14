@@ -9,6 +9,8 @@ import { enviarAtualizacaoRelatorio } from './premium-email'
 import { itensDoBloco } from './detran-retentativa-tardia'
 import { emVoo } from './tarefas-em-voo'
 import { fonteConcluida, ESPERA_FONTES_MS, type FonteRelatorio } from '../../shared/fontes-relatorio'
+import { completarHistoricoVeicular } from './parceiro-historico'
+import { cfgHistorico } from './parceiro-historico-env'
 
 // Fila duravel das fontes lentas (Relatorio 2.0, item 7; contrato com o
 // infra, migration 20261014200000_premium_jobs). Na ENTREGA, cada fonte lenta
@@ -24,8 +26,12 @@ import { fonteConcluida, ESPERA_FONTES_MS, type FonteRelatorio } from '../../sha
 
 export interface FonteAplicavel { fonte: FonteRelatorio; rotulo: string }
 
-/** Fontes lentas que se aplicam a este pedido, pela resposta paga do SENATRAN. */
-export function fontesAplicaveis(response: any): FonteAplicavel[] {
+/**
+ * Fontes lentas que se aplicam a este pedido, pela resposta paga do SENATRAN.
+ * historicoVeicular: the vehicle history partner is on (or the order already
+ * has its block); the caller decides, this stays pure.
+ */
+export function fontesAplicaveis(response: any, opcoes: { historicoVeicular?: boolean } = {}): FonteAplicavel[] {
   const out: FonteAplicavel[] = []
   const bruto = Array.isArray(response) ? response[0] : response
   const uf = ufDetranSuportada(ufDaResposta(response))
@@ -35,13 +41,14 @@ export function fontesAplicaveis(response: any): FonteAplicavel[] {
   if (marca && String(bruto?.chassi || '').trim().length === 17) out.push({ fonte: 'recall_montadora', rotulo: 'Recall na montadora' })
   const ufR = String(ufDaResposta(response) || '').toUpperCase() as any
   if ((RENAJUD_UFS as any)[ufR] && temRenajud(response)) out.push({ fonte: 'renajud', rotulo: 'Restrição judicial' })
+  if (opcoes.historicoVeicular) out.push({ fonte: 'historico_veicular', rotulo: 'Donos, leilão e sinistro' })
   return out
 }
 
 /** Na entrega: um job por fonte aplicavel, a partir de entrega + 5 min. Nunca lanca. */
-export async function criarJobsDaEntrega(supabase: any, pedidoId: string, response: any, agora = Date.now(), plano?: string | null): Promise<number> {
+export async function criarJobsDaEntrega(supabase: any, pedidoId: string, response: any, agora = Date.now(), plano?: string | null, opcoes: { historicoVeicular?: boolean } = {}): Promise<number> {
   try {
-    const fontes = fontesAplicaveis(response).filter((f) => fonteNoPlano(f.fonte, plano))
+    const fontes = fontesAplicaveis(response, opcoes).filter((f) => fonteNoPlano(f.fonte, plano))
     if (!fontes.length) return 0
     const proxima = new Date(agora + ESPERA_FONTES_MS).toISOString()
     const { error } = await supabase.from('premium_jobs')
@@ -69,12 +76,13 @@ async function lerPedido(supabase: any, id: string) {
  */
 export async function executarJob(supabase: any, job: { id: string; pedido_id: string; fonte: string; tentativas?: number | null; max_tentativas?: number | null }, deps: {
   detran?: typeof completarDetran; recall?: typeof completarRecall; montadora?: typeof completarRecallMontadora; renajud?: typeof completarRenajud
+  historico?: (sb: any, pedido: { id: string; placa: string; plano?: string | null }) => ReturnType<typeof completarHistoricoVeicular>
 } = {}): Promise<ResultadoJob> {
   try {
     const p = await lerPedido(supabase, job.pedido_id)
     if (!p?.relatorio_snapshot) return { status: 'falha', code: null, erro: 'pedido sem snapshot' }
     const fonte = job.fonte as FonteRelatorio
-    if (!['detran', 'recall', 'recall_montadora', 'renajud'].includes(fonte)) return { status: 'falha', code: null, erro: 'fonte sem executor' }
+    if (!['detran', 'recall', 'recall_montadora', 'renajud', 'historico_veicular'].includes(fonte)) return { status: 'falha', code: null, erro: 'fonte sem executor' }
     if (!fonteNoPlano(fonte, p.plano)) return { status: 'sem_dado', code: null, erro: 'fonte fora do plano' }
     if (fonteConcluida(fonte, p.relatorio_snapshot)) return { status: 'ok', code: 0 }
     const response = p.relatorio_snapshot?.consulta?.response
@@ -96,6 +104,16 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
       await (deps.recall ?? completarRecall)(supabase, { ...pedido, plano: p.plano, preview: p.preview, token_entrega: p.token_entrega }, p.consulta_id ?? null)
       return aposConferir(null, 'recall sem resposta')
     }
+    if (fonte === 'historico_veicular') {
+      // Switch turned off after delivery: closes without calling (never both partners).
+      // The queue is the fallback for failure, ceiling or delay: it calls again
+      // when the call started with the paid query failed.
+      const r = await (deps.historico ?? ((sb, ped) => completarHistoricoVeicular(sb, ped, { cfg: cfgHistorico(useRuntimeConfig()), retentar: true })))(supabase, { id: p.id, placa: p.placa, plano: p.plano })
+      if (r?.pulado === 'desligado' || r?.pulado === 'fora do plano') return { status: 'sem_dado', code: null, erro: String(r.pulado) }
+      // Another VIN than the vehicle's: nothing goes to the report, so no "updated" e-mail.
+      if (r?.status === 'divergente') return { status: 'sem_dado', code: null, erro: 'chassi da base parceira diferente' }
+      return aposConferir(r?.code ?? null, String(r?.erro || r?.pulado || r?.status || 'historico sem resposta').slice(0, 300))
+    }
     if (fonte === 'recall_montadora') {
       const r: any = await (deps.montadora ?? completarRecallMontadora)(supabase, pedido, response)
       if (r?.pulado && /marca sem|sem chassi/.test(String(r.pulado))) return { status: 'sem_dado', code: null, erro: String(r.pulado) }
@@ -114,6 +132,7 @@ const ROTULO_EMAIL: Record<string, (uf: string | null) => string> = {
   recall: () => 'recall',
   recall_montadora: () => 'recall da montadora',
   renajud: () => 'detalhe da restrição judicial',
+  historico_veicular: () => 'histórico de donos, leilão e sinistro',
 }
 
 /**

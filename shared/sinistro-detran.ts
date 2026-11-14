@@ -93,7 +93,7 @@ export interface CartaoSinistro {
  * consultada (verde ou vermelho, como antes) ou quando o DETRAN ou a restricao
  * nacional acusam (sempre vermelho). null = nenhuma fonte de sinistro olhada.
  */
-export function cartaoSinistro(o: { consultouParceira: boolean; parceiraIndicio: boolean; detran: boolean; nacional?: boolean }): CartaoSinistro | null {
+export function cartaoSinistro(o: { consultouParceira: boolean; parceiraIndicio: boolean; detran: boolean; nacional?: boolean; dicaParceira?: string }): CartaoSinistro | null {
   const parceira = o.consultouParceira && o.parceiraIndicio
   const nacional = !!o.nacional
   if (!o.consultouParceira && !o.detran && !nacional) return null
@@ -107,7 +107,8 @@ export function cartaoSinistro(o: { consultouParceira: boolean; parceiraIndicio:
   const dica = [
     ...(o.detran ? [DICA_SINISTRO_DETRAN] : []),
     ...(nacional ? [DICA_SINISTRO_NACIONAL] : []),
-    ...(o.consultouParceira ? [DICA_SINISTRO] : []),
+    // The vehicle history partner is consulted on every Completa report, so its hint says so (13/11/2026).
+    ...(o.consultouParceira ? [o.dicaParceira || DICA_SINISTRO] : []),
   ].join(' ')
   return {
     k: o.consultouParceira ? 'sinistroParceiro' : 'sinistroDetran',

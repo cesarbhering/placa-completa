@@ -105,6 +105,48 @@ describe('fila premium_jobs', () => {
     expect(enviarEmail).not.toHaveBeenCalled()
   })
 
+  it('vehicle history partner: a slow source only when on, and only in the Completa plan', async () => {
+    expect(fontesAplicaveis(RESP, { historicoVeicular: true }).map((f) => f.fonte)).toEqual(['detran', 'recall', 'historico_veicular'])
+    expect(fontesAplicaveis(RESP, { historicoVeicular: true }).at(-1)).toEqual({ fonte: 'historico_veicular', rotulo: 'Donos, leilão e sinistro' })
+    expect(fontesAplicaveis(RESP).map((f) => f.fonte)).not.toContain('historico_veicular')
+    const a = sbFalso()
+    expect(await criarJobsDaEntrega(a.cliente, 'p', RESP, Date.UTC(2026, 9, 14, 18), 'completa', { historicoVeicular: true })).toBe(3)
+    expect(a.ops[0].upsert.map((j: any) => j.fonte)).toEqual(['detran', 'recall', 'historico_veicular'])
+    const b = sbFalso()
+    expect(await criarJobsDaEntrega(b.cliente, 'p', RESP, Date.UTC(2026, 9, 14, 18), 'basica', { historicoVeicular: true })).toBe(1)
+    expect(b.ops[0].upsert.map((j: any) => j.fonte)).toEqual(['recall'])
+  })
+
+  it('vehicle history executor: block brought by the queue = ok 200; switch off = closes without calling', async () => {
+    const snap = { consulta: { response: RESP } }
+    const a = sbFalso({ snap, snapDepois: { ...snap, historicoVeicular: { status: 'ok' } } })
+    const historico = vi.fn(async () => ({ ok: true, status: 'ok' as const, code: 200 }))
+    expect(await executarJob(a.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico })).toEqual({ status: 'ok', code: 200 })
+    expect((historico.mock.calls[0] as any)[1]).toMatchObject({ id: 'p' })
+    const b = sbFalso({ snap })
+    expect(await executarJob(b.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico: async () => ({ ok: false, status: 'falhou' as const, code: 503, erro: 'HTTP 503' }) }))
+      .toEqual({ status: 'falha', code: 503, erro: 'HTTP 503' })
+    const c = sbFalso({ snap })
+    expect(await executarJob(c.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico: async () => ({ ok: false, pulado: 'desligado' }) }))
+      .toEqual({ status: 'sem_dado', code: null, erro: 'desligado' })
+    // Another VIN than the vehicle's: closes without "new data" (no updated e-mail).
+    const e = sbFalso({ snap })
+    expect(await executarJob(e.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico: async () => ({ ok: false, status: 'divergente' as const }) }))
+      .toEqual({ status: 'sem_dado', code: null, erro: 'chassi da base parceira diferente' })
+    const d = sbFalso({ snap: { ...snap, historicoVeicular: { status: 'ok' } } })
+    const nunca = vi.fn()
+    expect(await executarJob(d.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico: nunca as any })).toEqual({ status: 'ok', code: 0 })
+    expect(nunca).not.toHaveBeenCalled()
+  })
+
+  it('closing e-mail names the vehicle history among the sources that arrived late', async () => {
+    const jobs = [{ fonte: 'historico_veicular', status: 'ok', ultimo_code: 200 }]
+    const { cliente } = sbFalso({ jobs, snap: { consulta: { response: RESP }, historicoVeicular: { status: 'ok' } } })
+    const enviarEmail = vi.fn(async () => true)
+    expect(await verificarFechamento(cliente, 'p', { enviarEmail })).toBe(true)
+    expect((enviarEmail.mock.calls[0] as any)[0]).toMatchObject({ fonte: 'histórico de donos, leilão e sinistro', itens: [] })
+  })
+
   it('lote: reivindica pela RPC, executa em voo e grava o resultado; um lote por vez', async () => {
     const { cliente } = sbFalso({ snap: { consulta: { response: RESP }, multas: { status: 'ok', fonte: 'detran_al' } }, jobs: [{ fonte: 'detran', status: 'ok', ultimo_code: 0 }] })
     cliente.rpc.mockImplementation(async (nome: string) => nome === 'premium_jobs_reivindicar' ? { data: [{ id: 'j1', pedido_id: 'p', fonte: 'detran' }], error: null } : { data: null, error: null })

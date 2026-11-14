@@ -5,7 +5,8 @@ import { emVoo } from '../utils/tarefas-em-voo'
 
 // Complemento da base parceira de leilao (20/out/2026): pedido cuja consulta
 // falhou na geracao tenta de novo uma vez. Logica: server/utils/parceiro-leilao.ts.
-// Nao roda no staging (mesma regra do fotos-depois) nem desligado.
+// Nao roda no staging (mesma regra do fotos-depois) nem desligado, nor while
+// the vehicle history partner is on (it replaces this source).
 export default defineNitroPlugin(() => {
   const config: any = useRuntimeConfig()
   if (config.public?.staging) return
@@ -14,7 +15,7 @@ export default defineNitroPlugin(() => {
   let rodando = false
   const rodada = async () => {
     const cfg = cfgParceiro(useRuntimeConfig())
-    if (rodando || !cfg.ligado) return
+    if (rodando || !cfg.ligado || cfg.historicoLigado) return
     rodando = true
     try {
       await emVoo('parceiro-leilao', () => rodarJobParceiro({ sb: usePremiumSupabase(), cfg, dono }).then((r) => {

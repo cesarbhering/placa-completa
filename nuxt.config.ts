@@ -765,6 +765,16 @@ export default defineNuxtConfig({
     parceiroLeilaoPass: process.env.NUXT_PARCEIRO_LEILAO_PASS || "",
     parceiroLeilaoTetoDia: process.env.NUXT_PARCEIRO_LEILAO_TETO_DIA || "",
     parceiroLeilaoUrl: process.env.NUXT_PARCEIRO_LEILAO_URL || "",
+    // Vehicle history partner (13/11/2026): server/utils/parceiro-historico.ts.
+    // Owners, previous use, insurance and the partner part of the auction
+    // section, Completa only. Off by default ("on" + key turn it on); while on,
+    // the auction partner above is not called. Ceiling: 60 paid calls a day by
+    // default (calls in progress count; attempts with an error do not).
+    // Private: never goes to the browser bundle.
+    parceiroHistoricoLigado: process.env.NUXT_PARCEIRO_HISTORICO_LIGADO || "",
+    parceiroHistoricoKey: process.env.NUXT_PARCEIRO_HISTORICO_KEY || "",
+    parceiroHistoricoTetoDia: process.env.NUXT_PARCEIRO_HISTORICO_TETO_DIA || "",
+    parceiroHistoricoUrl: process.env.NUXT_PARCEIRO_HISTORICO_URL || "",
     // RTDN (notificacoes da Play via push do Pub/Sub, 18/out/2026): audiencia
     // do token OIDC da assinatura push e o e-mail da conta de servico dela.
     // Sem audiencia, /api/premium/google-play/rtdn responde 503.

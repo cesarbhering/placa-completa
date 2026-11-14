@@ -1,5 +1,7 @@
 import { complementarLeilaoParceiro, cfgParceiro } from './parceiro-leilao'
-import { filtrarPorPlano, camposRestantes } from '../../shared/planos'
+import { historicoProntoParaSnapshot } from './parceiro-historico'
+import type { HistoricoVeicular } from '../../shared/historico-veicular'
+import { filtrarPorPlano, camposRestantes, fonteNoPlano } from '../../shared/planos'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { consultarPlacaWdapi, motorDoPayload } from './placa-lookup'
 import { candidatoEManual, candidatoEAutomatico } from './fipe-candidato'
@@ -49,6 +51,14 @@ export interface RelatorioSnapshot {
    * chassi e da America do Norte (WMI 1-5). Informativo, com rotulo proprio (RecallEua.rotulo); null fora disso.
    */
   recallEua?: RecallEua | null
+  /**
+   * Vehicle history partner (13/11/2026): owners, previous use, insurance and
+   * the partner part of the auction section, clean. Completa only. The call
+   * starts together with the paid query; the assembly takes it only when it
+   * is already here (never waits, never calls), otherwise the step right after
+   * the delivery writes it. Absent when it was not ready.
+   */
+  historicoVeicular?: HistoricoVeicular | null
   /**
    * Numero do motor (09/nov/2026), da fonte livre da placa via placa_cache.
    * Basica e completa; nunca na consulta gratis. null quando a fonte nao traz
@@ -232,7 +242,12 @@ export async function montarRelatorioSnapshot(
   // Mesma ordem da consulta (cache -> PlacaFipe -> wdapi); na pratica e cache,
   // porque o valorCusto acima ja leu a mesma placa.
   const motor = apenas ? undefined : await motorDoPedido()
-  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null, multas: pedido.multas ?? null, ...(recallEua ? { recallEua } : {}), ...(motor !== undefined ? { motor } : {}) }
+  // Vehicle history partner: only on the full assembly, only when ready (checked
+  // last, so a call that finished while the rest was assembled still counts).
+  const historicoVeicular = !apenas && fonteNoPlano('historico_veicular', pedido.plano)
+    ? await historicoProntoParaSnapshot(supabase, { id: pedido.id ?? null, placa: pedido.placa, chassi: senatranBruto?.chassi ?? null })
+    : null
+  return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null, multas: pedido.multas ?? null, ...(recallEua ? { recallEua } : {}), ...(motor !== undefined ? { motor } : {}), ...(historicoVeicular ? { historicoVeicular } : {}) }
 }
 
 /** Numero do motor da placa (cache -> PlacaFipe -> wdapi), fail-open: null. */

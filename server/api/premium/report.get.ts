@@ -21,6 +21,8 @@ import { logoProxyDe } from '../../utils/logo-marca'
 import { blocoNfse, colunasNfseRelatorio } from '../../utils/nfse-bloco'
 import { colunaAbPrecoSelect } from '../../utils/ab-preco'
 import { lerPlacaCacheFresca, motorDoPayload } from '../../utils/placa-lookup'
+import { cfgHistorico } from '../../utils/parceiro-historico-env'
+import { historicoLeilaoComHistorico, historicoVeicularParaTela, historicoDoVeiculo } from '../../../shared/historico-veicular'
 
 // Dados do relatorio premium pelo token (superficie PAGA, token e a credencial).
 // O corte por plano acontece AQUI, no servidor: o que a basica nao comprou nunca
@@ -209,6 +211,9 @@ export default defineEventHandler(async (event) => {
   // Numero do motor (basica e completa, 09/nov/2026). undefined = snapshot
   // gravado antes do campo existir; ai vem do placa_cache, so leitura.
   let motor: string | null | undefined
+  // Vehicle history partner block (owners, previous use, insurance), clean,
+  // from the snapshot. Its auction part is merged into historicoLeilao below.
+  let historicoVeicular: any = null
 
   if (!pendente && pedido.status === 'entregue') {
     if (pedido.relatorio_snapshot) {
@@ -222,6 +227,7 @@ export default defineEventHandler(async (event) => {
       // campo: a secao some, e nao ha remontagem por cima do que a pessoa
       // comprou (a regra do snapshot imutavel vale aqui tambem).
       historicoLeilao = snap.historicoLeilao ?? null
+      historicoVeicular = snap.historicoVeicular ?? null
       recall = snap.recall ?? null
       recallAutoritativo = snap.recallAutoritativo ?? null
       recallMontadora = snap.recallMontadora ?? null
@@ -333,6 +339,7 @@ export default defineEventHandler(async (event) => {
         chassiOrigem = snap.chassiOrigem ?? null
         motor = snap.motor
         historicoLeilao = snap.historicoLeilao ?? null
+        historicoVeicular = snap.historicoVeicular ?? null
         recall = snap.recall ?? null
         recallAutoritativo = snap.recallAutoritativo ?? null
         recallMontadora = snap.recallMontadora ?? null
@@ -382,6 +389,14 @@ export default defineEventHandler(async (event) => {
   const respConsulta = Array.isArray(consulta?.response) ? consulta?.response?.[0] : consulta?.response
   const logoLocal = logoProxyDe(respConsulta?.logo) || logoProxyDe((pedido.preview as any)?.logo)
 
+  // Vehicle history partner: Completa only (never Basica nor the free lookup).
+  // It applies to this order when the switch is on or the order already has
+  // the block (the switch may have been turned off since).
+  if (!fonteNoPlano('historico_veicular', plano)) historicoVeicular = null
+  // Another VIN than this vehicle's: nothing of it, only the state (review 1 of PR #752).
+  historicoVeicular = historicoDoVeiculo(historicoVeicular, respConsulta?.chassi)
+  const historicoAplica = fonteNoPlano('historico_veicular', plano) && (cfgHistorico(useRuntimeConfig()).ligado || historicoVeicular != null)
+
   const [motorCache, logoMarca, situacaoFontes, detranConsultadoEm, restricoesDetranRevisor, cupomRecompra, recallBaseLido] = await Promise.all([
     // Motor de relatorio vendido antes do campo: le do placa_cache (sem chamada
     // paga). So pedido entregue com consulta; nunca sai pra pedido pendente.
@@ -396,12 +411,12 @@ export default defineEventHandler(async (event) => {
     (async (): Promise<{ fontes: any[] | null; aguardarAte: string | null }> => {
       if (!entregue || !consulta) return { fontes: null, aguardarAte: null }
       try {
-        const aplicaveis = fontesAplicaveis((consulta as any)?.response).filter((f) => fonteNoPlano(f.fonte, pedido.plano))
+        const aplicaveis = fontesAplicaveis((consulta as any)?.response, { historicoVeicular: historicoAplica }).filter((f) => fonteNoPlano(f.fonte, pedido.plano))
         if (!aplicaveis.length) return { fontes: null, aguardarAte: null }
         const { data: jobs } = await supabase.from('premium_jobs').select('fonte,status').eq('pedido_id', pedido.id)
         const sit = situacaoDasFontes({
           entregueEm: pedido.entregue_em, aplicaveis, jobs: Array.isArray(jobs) ? jobs : [],
-          snapshot: { multas, recall, recallMontadora, renajudDetalhe },
+          snapshot: { multas, recall, recallMontadora, renajudDetalhe, historicoVeicular },
         })
         return { fontes: sit.fontes, aguardarAte: sit.aguardarAte ? new Date(sit.aguardarAte).toISOString() : null }
       } catch { return { fontes: null, aguardarAte: null } /* sem fontes: a tela usa a espera antiga */ }
@@ -445,6 +460,10 @@ export default defineEventHandler(async (event) => {
   ])
   if (motorCache !== undefined) motor = motorCache
   const { fontes, aguardarAte } = situacaoFontes
+  // A failed or capped vehicle history call that the queue may still bring
+  // ("consultando"/"chegando") does not say "could not consult" in the auction section.
+  const estadoHistorico = Array.isArray(fontes) ? fontes.find((f: any) => f?.fonte === 'historico_veicular')?.estado : null
+  const historicoParaLeilao = historicoVeicular?.status !== 'ok' && (estadoHistorico === 'consultando' || estadoHistorico === 'chegando') ? null : historicoVeicular
   recallBase = recallBaseLido
 
   return {
@@ -466,7 +485,11 @@ export default defineEventHandler(async (event) => {
     cupomRecompra,
     logoMarca,
     // Snapshot antigo pode ter processo/comitente PF: filtra na saida tambem.
-    historicoLeilao: historicoLgpd(historicoLeilao),
+    // The vehicle history partner part ("Base parceira") is merged here, on
+    // read, so the snapshot keeps our base as it came.
+    historicoLeilao: historicoLgpd(historicoLeilaoComHistorico(historicoLeilao, historicoParaLeilao, { chassi: respConsulta?.chassi ?? null })),
+    // Owners, previous use and insurance: allow-list of fields, never a name or document.
+    historicoVeicular: historicoVeicularParaTela(historicoVeicular),
     recall,
     recallAutoritativo,
     recallMontadora,

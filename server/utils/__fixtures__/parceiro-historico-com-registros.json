@@ -1,0 +1,1823 @@
+{
+  "success": true,
+  "queryId": "00000000-0000-0000-0000-000000000000",
+  "produto": {
+    "codigo": "E20",
+    "nome": "CONSULTA VEICULAR",
+    "categoria": "veicular"
+  },
+  "parametro_pesquisado": "TST2B34",
+  "total_registros": 1,
+  "custo_debitado": 1.9,
+  "tempo_resposta_ms": 4984,
+  "hash_autenticacao": "00000000000000000000000000000000",
+  "consultado_em": "2026-10-02T15:00:00.000Z",
+  "dados": {
+    "placa": "TST2B34",
+    "chassi": "9XXHV00000X000001",
+    "renavam": "00000000000",
+    "contingenciaRenavamAplicada": false,
+    "custoInternoTotal": 0.27,
+    "veiculo": {
+      "placa": "TST2B34",
+      "placaModeloAntigo": "TST2B34",
+      "placaModeloNovo": "TST2B34",
+      "chassi": "9XXHV00000X000001",
+      "renavam": "00000000000",
+      "motor": "MOTOR0000",
+      "marca": "FIAT",
+      "modelo": "FIAT/PALIO ELX",
+      "marcaModelo": "FIAT/PALIO ELX",
+      "anoFabricacao": "2009",
+      "anoModelo": "2009",
+      "cor": "PRATA",
+      "combustivel": "GASOLINA",
+      "potencia": "192",
+      "cilindradas": "1998",
+      "pesoBrutoTotal": "176",
+      "capacidadeCarga": "0",
+      "qtdPax": "5",
+      "eixos": "0",
+      "nacionalidade": "Nacional",
+      "especieVeiculo": "Passageiro",
+      "tipoVeiculo": "Automovel",
+      "carroceria": "NAO APLICAVEL",
+      "tipoMontagem": "CBU / FÁBRICA",
+      "situacaoChassi": "NORMAL",
+      "situacaoVeiculo": "CIRCULACAO",
+      "municipio": "CIDADE FICTICIA",
+      "uf": "PR",
+      "faturadoCnpj": "00.000.000/0000-00",
+      "tipoDocFaturado": "CNPJ",
+      "ufFaturado": "PR",
+      "dataAtualizacao": "2017-05-03T00:00:00.000Z"
+    },
+    "bin": {
+      "placa": "TST2B34",
+      "placa_modelo_antigo": "TST2B34",
+      "placa_modelo_novo": "TST2B34",
+      "renavam": "00000000000",
+      "chassi": "9XXHV00000X000001",
+      "situacao_chassi": "NORMAL",
+      "situacao_veiculo": "CIRCULACAO",
+      "marca": "FIAT",
+      "modelo": "FIAT/PALIO ELX",
+      "marca_modelo": "FIAT/PALIO ELX",
+      "ano_fabricacao": "2009",
+      "ano_modelo": "2009",
+      "cor": "PRATA",
+      "combustivel": "GASOLINA",
+      "municipio": "CIDADE FICTICIA",
+      "uf": "PR",
+      "motor": "MOTOR0000",
+      "carroceria": "NAO APLICAVEL",
+      "especie": "Passageiro",
+      "segmento": "Auto",
+      "nacionalidade": "Nacional",
+      "tipo_montagem": "CBU / FÁBRICA",
+      "tipo_veiculo": "Automovel",
+      "cilindradas": "1998",
+      "eixos": "0",
+      "peso_bruto_total": "176",
+      "proprietario_nome": "PESSOA FICTICIA",
+      "proprietario_documento": "000.000.000-00",
+      "tipo_doc_prop": "FISICA",
+      "data_emissao_crv": "-",
+      "faturado_documento": "00.000.000/0000-00",
+      "uf_faturado": "PR",
+      "tipo_doc_faturado": "CNPJ"
+    },
+    "indicadores": [
+      {
+        "codigo": "P1",
+        "titulo": "HISTÓRICO DE VENDA DIRETA/REMARKETING (SEGURADORAS)",
+        "status": "positivo",
+        "mensagem": "IDENTIFICADO REGISTRO DE SEGURADORA / REMARKETING (1 ocorrência(s))",
+        "conteudo": [
+          {
+            "seguradora": "TOKIO MARINE SEGURADORA S/A",
+            "tipoEntidade": "seguradora",
+            "tipoEvento": "Venda Direta / Remarketing",
+            "ano": "2024",
+            "fonte": "Registro de Remarketing / Salvados"
+          }
+        ],
+        "detalhes": [
+          {
+            "seguradora": "TOKIO MARINE SEGURADORA S/A",
+            "tipoEntidade": "seguradora",
+            "tipoEvento": "Venda Direta / Remarketing",
+            "ano": "2024",
+            "fonte": "Registro de Remarketing / Salvados"
+          }
+        ],
+        "respostaInfoSinistros": [
+          {
+            "ano": 2024,
+            "razao_social": "TOKIO MARINE SEGURADORA S/A"
+          }
+        ],
+        "total": 1,
+        "chave": "P1",
+        "consta": true
+      },
+      {
+        "codigo": "P2",
+        "titulo": "HISTÓRICO DE OPERAÇÃO/USO COMO VIATURA POLICIAL (PM, PC, PF, GM)",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P2",
+        "consta": false
+      },
+      {
+        "codigo": "P3",
+        "titulo": "HISTÓRICO DE EX-FROTA PÚBLICA",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P3",
+        "consta": false
+      },
+      {
+        "codigo": "P4",
+        "titulo": "HISTÓRICO DE EX-FROTA DE LOCADORA",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P4",
+        "consta": false
+      },
+      {
+        "codigo": "P5",
+        "titulo": "HISTÓRICO DE EX-FROTA DE ENTIDADE RELIGIOSA",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P5",
+        "consta": false
+      },
+      {
+        "codigo": "P6",
+        "titulo": "HISTÓRICO DE EX-FROTA DE SEGURANÇA PRIVADA",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P6",
+        "consta": false
+      },
+      {
+        "codigo": "P7",
+        "titulo": "HISTÓRICO DE VENDA DIRETA / REMARKETING POR BANCOS / FINANCEIRAS",
+        "status": "positivo",
+        "mensagem": "IDENTIFICADA INSTITUIÇÃO FINANCEIRA OU LEASING (1 registro(s))",
+        "conteudo": [
+          {
+            "ano": "2007",
+            "razao_social": "BANCO EXEMPLO S.A. ARRENDAMENTO MERCANTIL",
+            "instituicao": "BANCO EXEMPLO S.A. ARRENDAMENTO MERCANTIL",
+            "documento": "000.000.000-00",
+            "tipoEntidade": "financeira",
+            "tipo": "Instituição Financeira / Leasing na Cadeia Dominial",
+            "data": "08/09/2007",
+            "cnae": "6440900",
+            "cnaeDescricao": "ARRENDAMENTO MERCANTIL",
+            "fonte": "Histórico Dominial"
+          }
+        ],
+        "detalhes": [
+          {
+            "ano": "2007",
+            "razao_social": "BANCO EXEMPLO S.A. ARRENDAMENTO MERCANTIL",
+            "instituicao": "BANCO EXEMPLO S.A. ARRENDAMENTO MERCANTIL",
+            "documento": "000.000.000-00",
+            "tipoEntidade": "financeira",
+            "tipo": "Instituição Financeira / Leasing na Cadeia Dominial",
+            "data": "08/09/2007",
+            "cnae": "6440900",
+            "cnaeDescricao": "ARRENDAMENTO MERCANTIL",
+            "fonte": "Histórico Dominial"
+          }
+        ],
+        "total": 1,
+        "chave": "P7",
+        "consta": true
+      },
+      {
+        "codigo": "P8",
+        "titulo": "HISTÓRICO DE COMERCIALIZAÇÃO EM LOJAS DE SALVADOS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P8",
+        "consta": false
+      },
+      {
+        "codigo": "P9",
+        "titulo": "HISTÓRICO DE RESTRIÇÃO PARA EMISSÃO DE APÓLICE DE SEGUROS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P9",
+        "consta": false
+      },
+      {
+        "codigo": "P10",
+        "titulo": "HISTÓRICO DE BOLETINS DE ROUBO E FURTO E OCORRÊNCIAS DIVERSAS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "total": 0,
+        "chave": "P10",
+        "consta": false
+      },
+      {
+        "codigo": "P11",
+        "titulo": "HISTÓRICO DE NOTIFICAÇÃO/OFERTA EM EDITAL ELETRÔNICO DE LEILÃO",
+        "status": "positivo",
+        "mensagem": "IDENTIFICADA NOTIFICAÇÃO / EDITAL DE LEILÃO (2 registro(s))",
+        "conteudo": [
+          {
+            "ano": 2024,
+            "leiloeiro": "CASA EXEMPLO LEILÕES",
+            "lote": "NADA CONSTA"
+          },
+          {
+            "ano": 2019,
+            "leiloeiro": "CASA EXEMPLO LEILÕES",
+            "lote": "57"
+          }
+        ],
+        "detalhes": [
+          {
+            "ano": 2024,
+            "leiloeiro": "CASA EXEMPLO LEILÕES",
+            "lote": "NADA CONSTA"
+          },
+          {
+            "ano": 2019,
+            "leiloeiro": "CASA EXEMPLO LEILÕES",
+            "lote": "57"
+          }
+        ],
+        "respostaInfoSinistros": [
+          {
+            "ano": 2024,
+            "leiloeiro": "CASA EXEMPLO LEILÕES",
+            "lote": "NADA CONSTA"
+          },
+          {
+            "ano": 2019,
+            "leiloeiro": "CASA EXEMPLO LEILÕES",
+            "lote": "57"
+          }
+        ],
+        "total": 2,
+        "chave": "P11",
+        "consta": true
+      },
+      {
+        "codigo": "P12",
+        "titulo": "HISTÓRICO DE ACIDENTES DE TRÂNSITO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P12",
+        "consta": false
+      },
+      {
+        "codigo": "P13",
+        "titulo": "HISTÓRICO DE ACIDENTES DE TRÂNSITO DETALHADO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P13",
+        "consta": false
+      },
+      {
+        "codigo": "P14",
+        "titulo": "INDENIZAÇÃO INTEGRAL POR CIA SEGURADORA",
+        "status": "positivo",
+        "mensagem": "IDENTIFICADA INDENIZAÇÃO INTEGRAL POR CIA SEGURADORA (1 registro(s))",
+        "conteudo": [
+          {
+            "seguradora": "TOKIO MARINE SEGURADORA",
+            "tipoEntidade": "seguradora",
+            "tipoEvento": "Indenização Integral de Sinistro",
+            "ano": "2024",
+            "detalhes": "Veículo indenizado integralmente por sinistro/perda",
+            "fonte": "Registro de Sinistro / Indenização Integral"
+          }
+        ],
+        "detalhes": [
+          {
+            "seguradora": "TOKIO MARINE SEGURADORA",
+            "tipoEntidade": "seguradora",
+            "tipoEvento": "Indenização Integral de Sinistro",
+            "ano": "2024",
+            "detalhes": "Veículo indenizado integralmente por sinistro/perda",
+            "fonte": "Registro de Sinistro / Indenização Integral"
+          }
+        ],
+        "respostaInfoSinistros": [
+          {
+            "ano": 2024,
+            "seguradora": "TOKIO MARINE SEGURADORA"
+          }
+        ],
+        "total": 1,
+        "chave": "P14",
+        "consta": true
+      },
+      {
+        "codigo": "P15",
+        "titulo": "HISTÓRICO DE DANOS E AVARIAS",
+        "status": "positivo",
+        "mensagem": "ATENÇÃO: EM 2019, O VEÍCULO APRESENTOU APONTAMENTO DE MÉDIA MONTA.",
+        "conteudo": "ATENÇÃO: EM 2019, O VEÍCULO APRESENTOU APONTAMENTO DE MÉDIA MONTA.",
+        "detalhes": "ATENÇÃO: EM 2019, O VEÍCULO APRESENTOU APONTAMENTO DE MÉDIA MONTA.",
+        "respostaInfoSinistros": "ATENÇÃO: EM 2019, O VEÍCULO APRESENTOU APONTAMENTO DE MÉDIA MONTA.",
+        "chave": "P15",
+        "consta": true
+      },
+      {
+        "codigo": "P16",
+        "titulo": "SUSPEITA DE CHASSI ADULTERADO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P16",
+        "consta": false
+      },
+      {
+        "codigo": "P17",
+        "titulo": "HISTÓRICO DE ALGUNS PROPRIETÁRIOS PAGANTES DO DPVAT",
+        "status": "positivo",
+        "mensagem": "CADEIA DOMINIAL AUDITADA (12 proprietário(s) registrado(s))",
+        "conteudo": [
+          {
+            "ordem": 1,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "-",
+            "tempoDePosse": "Tempo não informado",
+            "tempoPosse": "Tempo não informado",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "BA",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": true,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 2,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa física",
+            "data": "-",
+            "tempoDePosse": "Tempo não informado",
+            "tempoPosse": "Tempo não informado",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 3,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa física",
+            "data": "-",
+            "tempoDePosse": "Tempo não informado",
+            "tempoPosse": "Tempo não informado",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 4,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "11/07/2010",
+            "dataRaw": "11/07/2010",
+            "tempoDePosse": "1 ano",
+            "tempoPosse": "1 ano",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "PR",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 5,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "19/07/2011",
+            "dataRaw": "19/07/2011",
+            "tempoDePosse": "11 meses",
+            "tempoPosse": "11 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "PR",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 6,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa juridica",
+            "data": "26/06/2012",
+            "dataRaw": "26/06/2012",
+            "tempoDePosse": "2 meses",
+            "tempoPosse": "2 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "empresa_privada",
+            "cnae": "4511102",
+            "cnae_descricao": "COMÉRCIO A VAREJO DE AUTOMÓVEIS, CAMIONETAS E UTILITÁRIOS USADOS"
+          },
+          {
+            "ordem": 7,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "18/09/2012",
+            "dataRaw": "18/09/2012",
+            "tempoDePosse": "2 meses",
+            "tempoPosse": "2 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 8,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "27/11/2012",
+            "dataRaw": "27/11/2012",
+            "tempoDePosse": "3 anos",
+            "tempoPosse": "3 anos",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 9,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "13/12/2015",
+            "dataRaw": "13/12/2015",
+            "tempoDePosse": "6 meses",
+            "tempoPosse": "6 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 10,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "26/06/2016",
+            "dataRaw": "26/06/2016",
+            "tempoDePosse": "3 meses",
+            "tempoPosse": "3 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 11,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "17/10/2016",
+            "dataRaw": "17/10/2016",
+            "tempoDePosse": "8 meses",
+            "tempoPosse": "8 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 12,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "12/07/2017",
+            "dataRaw": "12/07/2017",
+            "tempoDePosse": "8 anos e 4 meses",
+            "tempoPosse": "8 anos e 4 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "PR",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": true,
+            "classificacaoEntidade": "particular"
+          }
+        ],
+        "detalhes": [
+          {
+            "ordem": 1,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "-",
+            "tempoDePosse": "Tempo não informado",
+            "tempoPosse": "Tempo não informado",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "BA",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": true,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 2,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa física",
+            "data": "-",
+            "tempoDePosse": "Tempo não informado",
+            "tempoPosse": "Tempo não informado",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 3,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa física",
+            "data": "-",
+            "tempoDePosse": "Tempo não informado",
+            "tempoPosse": "Tempo não informado",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 4,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "11/07/2010",
+            "dataRaw": "11/07/2010",
+            "tempoDePosse": "1 ano",
+            "tempoPosse": "1 ano",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "PR",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 5,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "19/07/2011",
+            "dataRaw": "19/07/2011",
+            "tempoDePosse": "11 meses",
+            "tempoPosse": "11 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "PR",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 6,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa juridica",
+            "data": "26/06/2012",
+            "dataRaw": "26/06/2012",
+            "tempoDePosse": "2 meses",
+            "tempoPosse": "2 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "empresa_privada",
+            "cnae": "4511102",
+            "cnae_descricao": "COMÉRCIO A VAREJO DE AUTOMÓVEIS, CAMIONETAS E UTILITÁRIOS USADOS"
+          },
+          {
+            "ordem": 7,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "18/09/2012",
+            "dataRaw": "18/09/2012",
+            "tempoDePosse": "2 meses",
+            "tempoPosse": "2 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 8,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "27/11/2012",
+            "dataRaw": "27/11/2012",
+            "tempoDePosse": "3 anos",
+            "tempoPosse": "3 anos",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 9,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "13/12/2015",
+            "dataRaw": "13/12/2015",
+            "tempoDePosse": "6 meses",
+            "tempoPosse": "6 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 10,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "26/06/2016",
+            "dataRaw": "26/06/2016",
+            "tempoDePosse": "3 meses",
+            "tempoPosse": "3 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 11,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "17/10/2016",
+            "dataRaw": "17/10/2016",
+            "tempoDePosse": "8 meses",
+            "tempoPosse": "8 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "GO",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": false,
+            "classificacaoEntidade": "particular"
+          },
+          {
+            "ordem": 12,
+            "nome": "PESSOA FICTICIA",
+            "razao_social": "EMPRESA FICTICIA LTDA",
+            "documento": "000.000.000-00",
+            "documentoOriginal": "000.000.000-00",
+            "tipo": "Pessoa fisica",
+            "data": "12/07/2017",
+            "dataRaw": "12/07/2017",
+            "tempoDePosse": "8 anos e 4 meses",
+            "tempoPosse": "8 anos e 4 meses",
+            "municipio": "CIDADE FICTICIA",
+            "uf": "PR",
+            "municipio_uf": "CIDADE FICTICIA/PE",
+            "atual": true,
+            "classificacaoEntidade": "particular"
+          }
+        ],
+        "respostaInfoSinistros": [
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          },
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          },
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          },
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          },
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          },
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          },
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          },
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          },
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          },
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          },
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          },
+          {
+            "documento": "000.000.000-00",
+            "nome": "PESSOA FICTICIA"
+          }
+        ],
+        "total": 12,
+        "chave": "P17",
+        "consta": true
+      },
+      {
+        "codigo": "P18",
+        "titulo": "VEÍCULO UTILIZADO PARA COMETIMENTO DE CRIMES",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P18",
+        "consta": false
+      },
+      {
+        "codigo": "P19",
+        "titulo": "HISTÓRICO DE RECUPERADO DE SINISTRO (BRF)",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P19",
+        "consta": false
+      },
+      {
+        "codigo": "P20",
+        "titulo": "HISTÓRICO DE SINISTRO RECUPERADO (ACT)",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P20",
+        "consta": false
+      },
+      {
+        "codigo": "P21",
+        "titulo": "HISTÓRICO DE KM",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P21",
+        "consta": false
+      },
+      {
+        "codigo": "P22",
+        "titulo": "HISTÓRICO DE LAUDO CAUTELAR",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P22",
+        "consta": false
+      },
+      {
+        "codigo": "P23",
+        "titulo": "HISTÓRICO DE FROTA DE EMPRESA PRIVADA",
+        "status": "positivo",
+        "mensagem": "O CNPJ **.***.***/****-** (Preservado) adquiriu o veículo de chassi 9XXHV00000X000001, no dia 08/09/2007, no setor de Atendimento Exclusivo para Empresas da Concessionária EXEMPLO, EMPRESA FICTICIA LTDA, em ES.",
+        "conteudo": [
+          {
+            "nome": "PESSOA FICTICIA",
+            "documento": "000.000.000-00",
+            "tipoDocumento": "Pessoa juridica",
+            "tipoEntidade": "empresa_privada",
+            "cnae": "4511102",
+            "cnaeDescricao": "COMÉRCIO A VAREJO DE AUTOMÓVEIS, CAMIONETAS E UTILITÁRIOS USADOS",
+            "naturezaJuridica": "SOCIEDADE EMPRESÁRIA LIMITADA",
+            "codigoNaturezaJuridica": "2062",
+            "ano": "2012",
+            "data": "26/06/2012",
+            "atual": false
+          }
+        ],
+        "detalhes": [
+          {
+            "nome": "PESSOA FICTICIA",
+            "documento": "000.000.000-00",
+            "tipoDocumento": "Pessoa juridica",
+            "tipoEntidade": "empresa_privada",
+            "cnae": "4511102",
+            "cnaeDescricao": "COMÉRCIO A VAREJO DE AUTOMÓVEIS, CAMIONETAS E UTILITÁRIOS USADOS",
+            "naturezaJuridica": "SOCIEDADE EMPRESÁRIA LIMITADA",
+            "codigoNaturezaJuridica": "2062",
+            "ano": "2012",
+            "data": "26/06/2012",
+            "atual": false
+          }
+        ],
+        "respostaInfoSinistros": "O CNPJ **.***.***/****-** (Preservado) adquiriu o veículo de chassi 9XXHV00000X000001, no dia 08/09/2007, no setor de Atendimento Exclusivo para Empresas da Concessionária EXEMPLO, EMPRESA FICTICIA LTDA, em ES.",
+        "total": 1,
+        "chave": "P23",
+        "consta": true
+      },
+      {
+        "codigo": "P24",
+        "titulo": "INDICADOR DE EXPOSIÇÃO A SINISTRO E INTEGRIDADE DE COMPONENTES",
+        "status": "positivo",
+        "mensagem": "ATENÇÃO: O veículo de chassi 9XXHV00000X000001 possui apontamento de EXPOSIÇÃO A SINISTRO COM INDENIZAÇÃO INTEGRAL POR CIA SEGURADORA.",
+        "conteudo": "ATENÇÃO: O veículo de chassi 9XXHV00000X000001 possui apontamento de EXPOSIÇÃO A SINISTRO COM INDENIZAÇÃO INTEGRAL POR CIA SEGURADORA.",
+        "detalhes": "ATENÇÃO: O veículo de chassi 9XXHV00000X000001 possui apontamento de EXPOSIÇÃO A SINISTRO COM INDENIZAÇÃO INTEGRAL POR CIA SEGURADORA.",
+        "respostaInfoSinistros": "ATENÇÃO: O veículo de chassi 9XXHV00000X000001 possui apontamento de EXPOSIÇÃO A SINISTRO COM INDENIZAÇÃO INTEGRAL POR CIA SEGURADORA.",
+        "total": 1,
+        "chave": "P24",
+        "consta": true
+      },
+      {
+        "codigo": "P25",
+        "titulo": "BANCO DE IMAGENS DE FLAGRANTES DE TRÂNSITO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P25",
+        "consta": false
+      },
+      {
+        "codigo": "P26",
+        "titulo": "HISTÓRICO DE ATENDIMENTO A SINISTROS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P26",
+        "consta": false
+      },
+      {
+        "codigo": "P27",
+        "titulo": "INDÍCIO DE USO COMO TÁXI/PCD",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P27",
+        "consta": false
+      },
+      {
+        "codigo": "P28",
+        "titulo": "HISTÓRICO DE DEMANDA JUDICIAL BÁSICO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P28",
+        "consta": false
+      },
+      {
+        "codigo": "P29",
+        "titulo": "HISTÓRICO DE DEMANDA JUDICIAL DETALHADO",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P29",
+        "consta": false
+      },
+      {
+        "codigo": "P30",
+        "titulo": "HISTÓRICO DE EMISSÃO DE CERTIFICADO DE SEGURANÇA VEICULAR (CSV)",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P30",
+        "consta": false
+      },
+      {
+        "codigo": "P31",
+        "titulo": "HISTÓRICO DE CIRCULAÇÃO",
+        "status": "positivo",
+        "mensagem": "HISTÓRICO DE CIRCULAÇÃO E EMPLACAMENTO LOCALIZADO",
+        "conteudo": {
+          "adquirido_0km": "PR",
+          "licenciamento_1": "DETRAN - CIDADE FICTICIA / PE",
+          "licenciamento_2": "DETRAN - CIDADE FICTICIA / PE",
+          "licenciamento_3": "DETRAN - CIDADE FICTICIA / PE"
+        },
+        "detalhes": {
+          "adquirido_0km": "PR",
+          "licenciamento_1": "DETRAN - CIDADE FICTICIA / PE",
+          "licenciamento_2": "DETRAN - CIDADE FICTICIA / PE",
+          "licenciamento_3": "DETRAN - CIDADE FICTICIA / PE"
+        },
+        "respostaInfoSinistros": {
+          "adquirido_0km": "PR",
+          "licenciamento_1": "DETRAN - CIDADE FICTICIA / PE",
+          "licenciamento_2": "DETRAN - CIDADE FICTICIA / PE",
+          "licenciamento_3": "DETRAN - CIDADE FICTICIA / PE",
+          "licenciamento_4": "DETRAN - CIDADE FICTICIA / PE",
+          "licenciamentos": [
+            "DETRAN - CIDADE FICTICIA / PE",
+            "DETRAN - CIDADE FICTICIA / PE",
+            "DETRAN - CIDADE FICTICIA / PE",
+            "DETRAN - CIDADE FICTICIA / PE",
+            "DETRAN - CIDADE FICTICIA / PE",
+            "DETRAN - CIDADE FICTICIA / PE",
+            "DETRAN - CIDADE FICTICIA / PE",
+            "DETRAN - CIDADE FICTICIA / PE"
+          ]
+        },
+        "chave": "P31",
+        "consta": true
+      },
+      {
+        "codigo": "P32",
+        "titulo": "HISTÓRICO DE MOVIMENTAÇÃO / ALTERAÇÃO DE CADASTRO",
+        "status": "positivo",
+        "mensagem": "ALTERAÇÕES CADASTRAIS REGISTRADAS (22 evento(s))",
+        "conteudo": {
+          "insercao_renavam": "07/01/2007",
+          "alteracoes": [
+            {
+              "item": "DATA DE ALTERAÇÃO 01",
+              "data": "08/09/2007"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 02",
+              "data": "07/01/2010"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 03",
+              "data": "11/07/2010"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 04",
+              "data": "07/01/2011"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 05",
+              "data": "19/07/2011"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 06",
+              "data": "07/01/2012"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 07",
+              "data": "26/06/2012"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 08",
+              "data": "18/09/2012"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 09",
+              "data": "27/11/2012"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 10",
+              "data": "07/01/2015"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 11",
+              "data": "13/12/2015"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 12",
+              "data": "07/01/2016"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 13",
+              "data": "26/06/2016"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 14",
+              "data": "17/10/2016"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 15",
+              "data": "07/01/2017"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 16",
+              "data": "12/07/2017"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 17",
+              "data": "07/01/2019"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 18",
+              "data": "07/01/2024"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 19",
+              "data": "17/09/2024"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 20",
+              "data": "07/01/2025"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 21",
+              "data": "19/11/2025"
+            }
+          ]
+        },
+        "detalhes": {
+          "insercao_renavam": "07/01/2007",
+          "alteracoes": [
+            {
+              "item": "DATA DE ALTERAÇÃO 01",
+              "data": "08/09/2007"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 02",
+              "data": "07/01/2010"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 03",
+              "data": "11/07/2010"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 04",
+              "data": "07/01/2011"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 05",
+              "data": "19/07/2011"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 06",
+              "data": "07/01/2012"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 07",
+              "data": "26/06/2012"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 08",
+              "data": "18/09/2012"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 09",
+              "data": "27/11/2012"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 10",
+              "data": "07/01/2015"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 11",
+              "data": "13/12/2015"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 12",
+              "data": "07/01/2016"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 13",
+              "data": "26/06/2016"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 14",
+              "data": "17/10/2016"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 15",
+              "data": "07/01/2017"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 16",
+              "data": "12/07/2017"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 17",
+              "data": "07/01/2019"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 18",
+              "data": "07/01/2024"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 19",
+              "data": "17/09/2024"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 20",
+              "data": "07/01/2025"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 21",
+              "data": "19/11/2025"
+            }
+          ]
+        },
+        "respostaInfoSinistros": {
+          "insercao_renavam": "07/01/2007",
+          "alteracoes": [
+            {
+              "item": "DATA DE ALTERAÇÃO 01",
+              "data": "08/09/2007"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 02",
+              "data": "07/01/2010"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 03",
+              "data": "11/07/2010"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 04",
+              "data": "07/01/2011"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 05",
+              "data": "19/07/2011"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 06",
+              "data": "07/01/2012"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 07",
+              "data": "26/06/2012"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 08",
+              "data": "18/09/2012"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 09",
+              "data": "27/11/2012"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 10",
+              "data": "07/01/2015"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 11",
+              "data": "13/12/2015"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 12",
+              "data": "07/01/2016"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 13",
+              "data": "26/06/2016"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 14",
+              "data": "17/10/2016"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 15",
+              "data": "07/01/2017"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 16",
+              "data": "12/07/2017"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 17",
+              "data": "24/07/2017"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 18",
+              "data": "07/01/2019"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 19",
+              "data": "07/01/2024"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 20",
+              "data": "17/09/2024"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 21",
+              "data": "07/01/2025"
+            },
+            {
+              "item": "DATA DE ALTERAÇÃO 22",
+              "data": "19/11/2025"
+            }
+          ]
+        },
+        "chave": "P32",
+        "consta": true
+      },
+      {
+        "codigo": "P33",
+        "titulo": "VERIFICAÇÃO DE ALTERAÇÃO DE CARACTERÍSTICAS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P33",
+        "consta": false
+      },
+      {
+        "codigo": "P34",
+        "titulo": "INDÍCIO DE GRANDES FROTISTAS",
+        "status": "negativo",
+        "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+        "chave": "P34",
+        "consta": false
+      },
+      {
+        "codigo": "P35",
+        "titulo": "FICHA TÉCNICA E CADASTRO BIN FABRIL",
+        "status": "positivo",
+        "mensagem": "FIAT/PALIO ELX (Ano 2009/2009, Cor PRATA)",
+        "conteudo": {
+          "placa": "TST2B34",
+          "placaModeloAntigo": "TST2B34",
+          "placaModeloNovo": "TST2B34",
+          "chassi": "9XXHV00000X000001",
+          "renavam": "00000000000",
+          "motor": "MOTOR0000",
+          "marca": "FIAT",
+          "modelo": "FIAT/PALIO ELX",
+          "marcaModelo": "FIAT/PALIO ELX",
+          "anoFabricacao": "2009",
+          "anoModelo": "2009",
+          "cor": "PRATA",
+          "combustivel": "GASOLINA",
+          "potencia": "192",
+          "cilindradas": "1998",
+          "pesoBrutoTotal": "176",
+          "capacidadeCarga": "0",
+          "qtdPax": "5",
+          "eixos": "0",
+          "nacionalidade": "Nacional",
+          "especieVeiculo": "Passageiro",
+          "tipoVeiculo": "Automovel",
+          "carroceria": "NAO APLICAVEL",
+          "tipoMontagem": "CBU / FÁBRICA",
+          "situacaoChassi": "NORMAL",
+          "situacaoVeiculo": "CIRCULACAO",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "PR",
+          "faturadoCnpj": "00.000.000/0000-00",
+          "tipoDocFaturado": "CNPJ",
+          "ufFaturado": "PR",
+          "dataAtualizacao": "2017-05-03T00:00:00.000Z"
+        },
+        "detalhes": {
+          "placa": "TST2B34",
+          "placaModeloAntigo": "TST2B34",
+          "placaModeloNovo": "TST2B34",
+          "chassi": "9XXHV00000X000001",
+          "renavam": "00000000000",
+          "motor": "MOTOR0000",
+          "marca": "FIAT",
+          "modelo": "FIAT/PALIO ELX",
+          "marcaModelo": "FIAT/PALIO ELX",
+          "anoFabricacao": "2009",
+          "anoModelo": "2009",
+          "cor": "PRATA",
+          "combustivel": "GASOLINA",
+          "potencia": "192",
+          "cilindradas": "1998",
+          "pesoBrutoTotal": "176",
+          "capacidadeCarga": "0",
+          "qtdPax": "5",
+          "eixos": "0",
+          "nacionalidade": "Nacional",
+          "especieVeiculo": "Passageiro",
+          "tipoVeiculo": "Automovel",
+          "carroceria": "NAO APLICAVEL",
+          "tipoMontagem": "CBU / FÁBRICA",
+          "situacaoChassi": "NORMAL",
+          "situacaoVeiculo": "CIRCULACAO",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "PR",
+          "faturadoCnpj": "00.000.000/0000-00",
+          "tipoDocFaturado": "CNPJ",
+          "ufFaturado": "PR",
+          "dataAtualizacao": "2017-05-03T00:00:00.000Z"
+        },
+        "respostaInfoSinistros": {
+          "placa": "TST2B34",
+          "placaModeloAntigo": "TST2B34",
+          "placaModeloNovo": "TST2B34",
+          "chassi": "9XXHV00000X000001",
+          "renavam": "00000000000",
+          "motor": "MOTOR0000",
+          "marca": "FIAT",
+          "modelo": "FIAT/PALIO ELX",
+          "marcaModelo": "FIAT/PALIO ELX",
+          "anoFabricacao": "2009",
+          "anoModelo": "2009",
+          "cor": "PRATA",
+          "combustivel": "GASOLINA",
+          "potencia": "192",
+          "cilindradas": "1998",
+          "pesoBrutoTotal": "176",
+          "capacidadeCarga": "0",
+          "qtdPax": "5",
+          "eixos": "0",
+          "nacionalidade": "Nacional",
+          "especieVeiculo": "Passageiro",
+          "tipoVeiculo": "Automovel",
+          "carroceria": "NAO APLICAVEL",
+          "tipoMontagem": "CBU / FÁBRICA",
+          "situacaoChassi": "NORMAL",
+          "situacaoVeiculo": "CIRCULACAO",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "PR",
+          "ufPlaca": "ES",
+          "faturadoCnpj": "00.000.000/0000-00",
+          "tipoDocFaturado": "CNPJ",
+          "ufFaturado": "PR",
+          "ultimaAtualizacao": "2008-09-02T00:00:00.000Z",
+          "dataAtualizacao": "2017-05-03T00:00:00.000Z"
+        },
+        "chave": "P35",
+        "consta": true
+      },
+      {
+        "codigo": "P36",
+        "titulo": "HISTÓRICO DE VALOR DE MERCADO (FIPE)",
+        "status": "positivo",
+        "mensagem": "R$ 42.051,00 (Código: 014051-1, Ref: novembro de 2026)",
+        "conteudo": {
+          "mes_referencia": "novembro de 2026",
+          "codigo_fipe": "014051-1",
+          "valor_medio_fipe": "R$ 42.051,00",
+          "data_consulta": "sexta-feira, 13 de novembro de 2026 às 09:50"
+        },
+        "detalhes": {
+          "mes_referencia": "novembro de 2026",
+          "codigo_fipe": "014051-1",
+          "valor_medio_fipe": "R$ 42.051,00",
+          "data_consulta": "sexta-feira, 13 de novembro de 2026 às 09:50"
+        },
+        "respostaInfoSinistros": {
+          "mes_referencia": "novembro de 2026",
+          "codigo_fipe": "014051-1",
+          "valor_medio_fipe": "R$ 42.051,00",
+          "data_consulta": "sexta-feira, 13 de novembro de 2026 às 09:50"
+        },
+        "chave": "P36",
+        "consta": true
+      }
+    ],
+    "roubo_furto": {
+      "status": "regular",
+      "temQueixaAtiva": false,
+      "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+      "totalOcorrencias": 0,
+      "ocorrencias": []
+    },
+    "locadoras": {
+      "status": "negativo",
+      "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+      "total": 0,
+      "registros": []
+    },
+    "seguradoras": {
+      "status": "positivo",
+      "mensagem": "IDENTIFICADO REGISTRO DE SEGURADORA OU SINISTRO (2 registro(s))",
+      "total": 2,
+      "indenizacaoIntegral": true,
+      "registros": [
+        {
+          "seguradora": "TOKIO MARINE SEGURADORA S/A",
+          "tipoEntidade": "seguradora",
+          "tipoEvento": "Venda Direta / Remarketing",
+          "ano": "2024",
+          "fonte": "Registro de Remarketing / Salvados"
+        }
+      ],
+      "registrosIndenizacao": [
+        {
+          "seguradora": "TOKIO MARINE SEGURADORA",
+          "tipoEntidade": "seguradora",
+          "tipoEvento": "Indenização Integral de Sinistro",
+          "ano": "2024",
+          "detalhes": "Veículo indenizado integralmente por sinistro/perda",
+          "fonte": "Registro de Sinistro / Indenização Integral"
+        }
+      ]
+    },
+    "frota_publica": {
+      "status": "negativo",
+      "mensagem": "NENHUM REGISTRO LOCALIZADO NA BASE INTERNA",
+      "total": 0,
+      "isViatura": false,
+      "registros": []
+    },
+    "financeiras": {
+      "status": "positivo",
+      "mensagem": "IDENTIFICADA INSTITUIÇÃO FINANCEIRA OU LEASING (1 registro(s))",
+      "total": 1,
+      "registros": [
+        {
+          "ano": "2007",
+          "razao_social": "BANCO EXEMPLO S.A. ARRENDAMENTO MERCANTIL",
+          "instituicao": "BANCO EXEMPLO S.A. ARRENDAMENTO MERCANTIL",
+          "documento": "000.000.000-00",
+          "tipoEntidade": "financeira",
+          "tipo": "Instituição Financeira / Leasing na Cadeia Dominial",
+          "data": "08/09/2007",
+          "cnae": "6440900",
+          "cnaeDescricao": "ARRENDAMENTO MERCANTIL",
+          "fonte": "Histórico Dominial"
+        }
+      ]
+    },
+    "proprietarios": {
+      "total": 12,
+      "proprietario_atual": {
+        "ordem": 1,
+        "nome": "PESSOA FICTICIA",
+        "razao_social": "EMPRESA FICTICIA LTDA",
+        "documento": "000.000.000-00",
+        "documentoOriginal": "000.000.000-00",
+        "tipo": "Pessoa fisica",
+        "data": "-",
+        "tempoDePosse": "Tempo não informado",
+        "tempoPosse": "Tempo não informado",
+        "municipio": "CIDADE FICTICIA",
+        "uf": "BA",
+        "municipio_uf": "CIDADE FICTICIA/PE",
+        "atual": true,
+        "classificacaoEntidade": "particular"
+      },
+      "historico": [
+        {
+          "ordem": 1,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa fisica",
+          "data": "-",
+          "tempoDePosse": "Tempo não informado",
+          "tempoPosse": "Tempo não informado",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "BA",
+          "municipio_uf": "CIDADE FICTICIA/PE",
+          "atual": true,
+          "classificacaoEntidade": "particular"
+        },
+        {
+          "ordem": 2,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa física",
+          "data": "-",
+          "tempoDePosse": "Tempo não informado",
+          "tempoPosse": "Tempo não informado",
+          "atual": false,
+          "classificacaoEntidade": "particular"
+        },
+        {
+          "ordem": 3,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa física",
+          "data": "-",
+          "tempoDePosse": "Tempo não informado",
+          "tempoPosse": "Tempo não informado",
+          "atual": false,
+          "classificacaoEntidade": "particular"
+        },
+        {
+          "ordem": 4,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa fisica",
+          "data": "11/07/2010",
+          "dataRaw": "11/07/2010",
+          "tempoDePosse": "1 ano",
+          "tempoPosse": "1 ano",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "PR",
+          "municipio_uf": "CIDADE FICTICIA/PE",
+          "atual": false,
+          "classificacaoEntidade": "particular"
+        },
+        {
+          "ordem": 5,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa fisica",
+          "data": "19/07/2011",
+          "dataRaw": "19/07/2011",
+          "tempoDePosse": "11 meses",
+          "tempoPosse": "11 meses",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "PR",
+          "municipio_uf": "CIDADE FICTICIA/PE",
+          "atual": false,
+          "classificacaoEntidade": "particular"
+        },
+        {
+          "ordem": 6,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa juridica",
+          "data": "26/06/2012",
+          "dataRaw": "26/06/2012",
+          "tempoDePosse": "2 meses",
+          "tempoPosse": "2 meses",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "GO",
+          "municipio_uf": "CIDADE FICTICIA/PE",
+          "atual": false,
+          "classificacaoEntidade": "empresa_privada",
+          "cnae": "4511102",
+          "cnae_descricao": "COMÉRCIO A VAREJO DE AUTOMÓVEIS, CAMIONETAS E UTILITÁRIOS USADOS"
+        },
+        {
+          "ordem": 7,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa fisica",
+          "data": "18/09/2012",
+          "dataRaw": "18/09/2012",
+          "tempoDePosse": "2 meses",
+          "tempoPosse": "2 meses",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "GO",
+          "municipio_uf": "CIDADE FICTICIA/PE",
+          "atual": false,
+          "classificacaoEntidade": "particular"
+        },
+        {
+          "ordem": 8,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa fisica",
+          "data": "27/11/2012",
+          "dataRaw": "27/11/2012",
+          "tempoDePosse": "3 anos",
+          "tempoPosse": "3 anos",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "GO",
+          "municipio_uf": "CIDADE FICTICIA/PE",
+          "atual": false,
+          "classificacaoEntidade": "particular"
+        },
+        {
+          "ordem": 9,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa fisica",
+          "data": "13/12/2015",
+          "dataRaw": "13/12/2015",
+          "tempoDePosse": "6 meses",
+          "tempoPosse": "6 meses",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "GO",
+          "municipio_uf": "CIDADE FICTICIA/PE",
+          "atual": false,
+          "classificacaoEntidade": "particular"
+        },
+        {
+          "ordem": 10,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa fisica",
+          "data": "26/06/2016",
+          "dataRaw": "26/06/2016",
+          "tempoDePosse": "3 meses",
+          "tempoPosse": "3 meses",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "GO",
+          "municipio_uf": "CIDADE FICTICIA/PE",
+          "atual": false,
+          "classificacaoEntidade": "particular"
+        },
+        {
+          "ordem": 11,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa fisica",
+          "data": "17/10/2016",
+          "dataRaw": "17/10/2016",
+          "tempoDePosse": "8 meses",
+          "tempoPosse": "8 meses",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "GO",
+          "municipio_uf": "CIDADE FICTICIA/PE",
+          "atual": false,
+          "classificacaoEntidade": "particular"
+        },
+        {
+          "ordem": 12,
+          "nome": "PESSOA FICTICIA",
+          "razao_social": "EMPRESA FICTICIA LTDA",
+          "documento": "000.000.000-00",
+          "documentoOriginal": "000.000.000-00",
+          "tipo": "Pessoa fisica",
+          "data": "12/07/2017",
+          "dataRaw": "12/07/2017",
+          "tempoDePosse": "8 anos e 4 meses",
+          "tempoPosse": "8 anos e 4 meses",
+          "municipio": "CIDADE FICTICIA",
+          "uf": "PR",
+          "municipio_uf": "CIDADE FICTICIA/PE",
+          "atual": true,
+          "classificacaoEntidade": "particular"
+        }
+      ]
+    },
+    "fipe": {
+      "mesReferencia": "outubro de 2026",
+      "codigoFipe": "000000-0",
+      "valor": "R$ 30.000,00",
+      "dataConsulta": "sexta-feira, 2 de outubro de 2026 às 09:50"
+    },
+    "outros_produtos": {
+      "leiloes": [
+        {
+          "ano": 2024,
+          "leiloeiro": "CASA EXEMPLO LEILÕES",
+          "lote": "NADA CONSTA"
+        },
+        {
+          "ano": 2019,
+          "leiloeiro": "CASA EXEMPLO LEILÕES",
+          "lote": "57"
+        }
+      ],
+      "circulacao": {
+        "adquirido_0km": "PR",
+        "licenciamento_1": "DETRAN - CIDADE FICTICIA / PE",
+        "licenciamento_2": "DETRAN - CIDADE FICTICIA / PE",
+        "licenciamento_3": "DETRAN - CIDADE FICTICIA / PE"
+      },
+      "movimentacao": {
+        "insercao_renavam": "07/01/2007",
+        "alteracoes": [
+          {
+            "item": "DATA DE ALTERAÇÃO 01",
+            "data": "08/09/2007"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 02",
+            "data": "07/01/2010"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 03",
+            "data": "11/07/2010"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 04",
+            "data": "07/01/2011"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 05",
+            "data": "19/07/2011"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 06",
+            "data": "07/01/2012"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 07",
+            "data": "26/06/2012"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 08",
+            "data": "18/09/2012"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 09",
+            "data": "27/11/2012"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 10",
+            "data": "07/01/2015"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 11",
+            "data": "13/12/2015"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 12",
+            "data": "07/01/2016"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 13",
+            "data": "26/06/2016"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 14",
+            "data": "17/10/2016"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 15",
+            "data": "07/01/2017"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 16",
+            "data": "12/07/2017"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 17",
+            "data": "07/01/2019"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 18",
+            "data": "07/01/2024"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 19",
+            "data": "17/09/2024"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 20",
+            "data": "07/01/2025"
+          },
+          {
+            "item": "DATA DE ALTERAÇÃO 21",
+            "data": "19/11/2025"
+          }
+        ]
+      },
+      "fipe": {
+        "mesReferencia": "outubro de 2026",
+        "codigoFipe": "000000-0",
+        "valor": "R$ 30.000,00",
+        "dataConsulta": "sexta-feira, 2 de outubro de 2026 às 09:50"
+      }
+    },
+    "raw_sources": {
+      "infosinistrosSuccess": true,
+      "e5Success": true,
+      "e2Success": true,
+      "e19Triggered": false
+    }
+  }
+}

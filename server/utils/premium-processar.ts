@@ -10,6 +10,8 @@ import { emVoo } from './tarefas-em-voo'
 import { criarJobsDaEntrega } from './premium-jobs'
 import { completarFotosNaGeracao } from './fotos-na-geracao'
 import { agendarFotosRapido } from './fotos-depois'
+import { iniciarHistoricoVeicular, completarHistoricoVeicularDepois } from './parceiro-historico'
+import { cfgHistorico } from './parceiro-historico-env'
 // Processa um pedido PAGO: dispara a consulta SENATRAN uma vez, entrega ou
 // reembolsa. Usado pelo WEBHOOK e pelo POLLING de status (o que chegar primeiro).
 // Trava atomica via update condicional (status aguardando/pago -> consultando):
@@ -234,6 +236,14 @@ export async function processarPedidoPago(
     .select()
   if (!claimed || !claimed.length) return // ja reivindicado/processado
 
+  // Vehicle history partner together with the paid query (Cesar, 13/11/2026):
+  // it needs only the plate and answers in about 10 s, so it is ready before
+  // the report. Loose and fail-open: never holds the paid query nor the
+  // delivery. Completa only, behind its switch (server/utils/parceiro-historico.ts).
+  // If the paid query fails and the order is refunded, this call has already
+  // happened: its cost is recorded like any other.
+  if (fonteNoPlano('historico_veicular', pedido.plano)) iniciarHistoricoVeicular(supabase, pedido)
+
   try {
     let r
     // Placa equivalente que a consulta gratis ja tinha visto: entra como plano
@@ -299,6 +309,11 @@ export async function processarPedidoPago(
         .from('pedidos_premium')
         .update({ relatorio_snapshot: snapshot, snapshot_em: new Date().toISOString() })
         .eq('id', pedido.id)
+      // Vehicle history partner: the snapshot already has it when the call
+      // started with the paid query had finished; otherwise this writes it as
+      // soon as that same call answers (never a second call). The queue job
+      // created below is the fallback.
+      if (fonteNoPlano('historico_veicular', pedido.plano)) completarHistoricoVeicularDepois(supabase, pedido)
       // Fotos do lote na hora (Cesar, 21/out/2026): passagem da nossa base com
       // foto na origem e sem foto no R2 pede o download a leiloes-api. A
       // entrega (e-mail) ESPERA ate 60 s (FOTOS_GERACAO_PRAZO_MS), dentro da
@@ -338,7 +353,7 @@ export async function processarPedidoPago(
     // Fila duravel das fontes lentas (Relatorio 2.0): um job por fonte que se
     // aplica, a partir de entrega + 5 min. Se a fonte chegar antes pelo caminho
     // solto acima, o job fecha sem chamar nada (server/utils/premium-jobs.ts).
-    void emVoo('premium-jobs-criar', () => criarJobsDaEntrega(supabase, pedido.id, r.response, Date.now(), pedido.plano))
+    void emVoo('premium-jobs-criar', () => criarJobsDaEntrega(supabase, pedido.id, r.response, Date.now(), pedido.plano, { historicoVeicular: cfgHistorico(useRuntimeConfig()).ligado }))
 
     // Detalhe do RENAJUD (tribunal, processo, tipo, data) onde ha fonte (AL e
     // GO), so com o indicador aceso. Solto e fail-open (server/utils/renajud-detalhe.ts).

@@ -185,8 +185,22 @@ export function nossaBaseVazia(h: any): boolean {
 
 /** Junta a resposta da base parceira ao historico (que estava vazio). Recalcula o resumo. */
 export function historicoComParceiro(base: any, r: RespostaParceiro, ctx: { chassi?: string | null; tipo: 'placa' | 'chassi'; consultadoEm: string }) {
-  const novas = passagensDoParceiro(r, ctx)
-  const passagens = [...(Array.isArray(base?.passagens) ? base.passagens : []), ...novas]
+  return historicoComPassagensParceiras(base, passagensDoParceiro(r, ctx), {
+    sinistro: { indicio: r.sinistro.indicio, mensagem: r.sinistro.mensagem },
+    parceiro: { status: 'ok', id_consulta: r.idConsulta, consultado_em: ctx.consultadoEm },
+  })
+}
+
+/**
+ * Adds partner passages to the history and rebuilds the summary. Shared by the
+ * auction partner (history was empty) and the vehicle history partner
+ * (shared/historico-veicular.ts), whose passages may join a history that
+ * already has ours: then the API timeline and its recurrence text, which only
+ * count our passages, are dropped and the page builds them per passage.
+ */
+export function historicoComPassagensParceiras(base: any, novas: any[], extra: { sinistro: SinistroParceiro; parceiro: EstadoParceiro }) {
+  const antes = Array.isArray(base?.passagens) ? base.passagens : []
+  const passagens = [...antes, ...novas]
   const conta = (n: string) => passagens.filter((p: any) => p.nivel === n).length
   const n_confirmado = conta('confirmado'), n_provavel = conta('provavel'), n_possivel = conta('possivel')
   const fontes = new Set<string>(Array.isArray(base?.resumo?.fontes_com_passagem) ? base.resumo.fontes_com_passagem : [])
@@ -207,8 +221,9 @@ export function historicoComParceiro(base: any, r: RespostaParceiro, ctx: { chas
     // A linha do tempo da API e da nossa base (vazia): com passagem nova, a
     // pagina monta a linha a partir das passagens.
     ...(novas.length ? { linha_do_tempo: null } : {}),
-    sinistro_parceiro: { indicio: r.sinistro.indicio, mensagem: r.sinistro.mensagem } as SinistroParceiro,
-    parceiro: { status: 'ok', id_consulta: r.idConsulta, consultado_em: ctx.consultadoEm } as EstadoParceiro,
+    ...(novas.length && antes.length ? { recorrencia: null } : {}),
+    sinistro_parceiro: extra.sinistro,
+    parceiro: extra.parceiro,
   }
 }
 

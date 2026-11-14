@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { NOTA_NIVEL, NOTA_MOTOR, gravidadeInformada, cabeEmPilula } from '~/shared/leilao-exibicao'
+import { FONTE_PARCEIRA, PASSAGEM_PARCEIRA } from '~/shared/fonte-parceira'
 
 // Card de passagem por leilao, "ficha em linhas rotuladas" (opcao 2 escolhida
 // pelo Cesar, 21/out/2026): titulo com a data, comitente de subtitulo e cada
@@ -28,13 +29,20 @@ const linhasFatos = computed(() => {
 })
 const notaDocumento = computed(() => (p.value.fonteTipo === 'detran'
   ? 'Registro de edital de leilão; pode não constar no documento do veículo.'
-  : 'Registro de catálogo de leilão; pode não constar no documento do veículo.'))
+  : p.value.fonteTipo === FONTE_PARCEIRA
+    ? `${PASSAGEM_PARCEIRA}; pode não constar no documento do veículo.`
+    : 'Registro de catálogo de leilão; pode não constar no documento do veículo.'))
+// Partner record with only the year (vehicle history partner, 13/11/2026):
+// "Leilão em 2019" or "Venda de salvado pela X, registrada em 2024". When the
+// title already names the principal, the subtitle does not repeat it.
+const titulo = computed(() => p.value.titulo || (p.value.data ? `Leilão em ${p.value.data}` : 'Leilão (data não informada)'))
+const mostraSub = computed(() => !!p.value.comitente && !String(p.value.titulo || '').includes(String(p.value.comitente)))
 </script>
 
 <template>
   <div class="lf">
-    <p class="lf-tit">{{ p.data ? `Leilão em ${p.data}` : 'Leilão (data não informada)' }}</p>
-    <p v-if="p.comitente" class="lf-sub">{{ p.comitente }}</p>
+    <p class="lf-tit">{{ titulo }}</p>
+    <p v-if="mostraSub" class="lf-sub">{{ p.comitente }}</p>
     <div class="lf-sep" />
     <dl class="lf-linhas">
       <div class="lf-linha">

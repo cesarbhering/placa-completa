@@ -5,6 +5,7 @@ import {
   type RespostaParceiro, type EstadoParceiro,
 } from '../../shared/fonte-parceira'
 import { configParceiroComLegado, FONTE_CACHE_LEGADA, FONTE_CUSTO_LEGADA, BASE_PADRAO_LEGADA } from './parceiro-leilao-env'
+import { cfgHistorico } from './parceiro-historico-env'
 
 // Cliente INTERNO da base parceira de leiloes e sinistros (parceiro-leilao).
 // Plano do Cesar (20/out/2026). O nome do fornecedor so existe em
@@ -37,8 +38,18 @@ export const LOCK_PEDIDO_S = 60
 export const ESPERA_LOCK_VOLTAS = 20
 const BASE_PADRAO = BASE_PADRAO_LEGADA
 const AVISO = 'cesarcbhering@gmail.com'
+/** Who also gets the partner alerts (ceiling, balance, double charge). */
+export const AVISO_PARCEIROS = AVISO
 
-export interface CfgParceiro { ligado: boolean; usuario: string; senha: string; tetoDia: number; base: string }
+export interface CfgParceiro {
+  ligado: boolean; usuario: string; senha: string; tetoDia: number; base: string
+  /**
+   * The vehicle history partner is on (server/utils/parceiro-historico.ts): it
+   * feeds the partner part of the auction section, so this one is never
+   * called, even with its own switch on. Turning that one off brings this back.
+   */
+  historicoLigado?: boolean
+}
 
 export function cfgParceiro(config: any, env: Record<string, string | undefined> = process.env): CfgParceiro {
   const c = configParceiroComLegado(config, env)
@@ -50,6 +61,7 @@ export function cfgParceiro(config: any, env: Record<string, string | undefined>
     senha: c.senha,
     tetoDia: Number.isFinite(teto) && teto >= 0 ? teto : 40,
     base: (c.url || BASE_PADRAO).replace(/\/+$/, ''),
+    historicoLigado: cfgHistorico(config).ligado,
   }
 }
 
@@ -236,6 +248,8 @@ export async function complementarLeilaoParceiro(
   try {
     if (pedido.plano && pedido.plano !== 'completa') return historico
     if (!deps.cfg.ligado || !deps.cfg.usuario || !deps.cfg.senha) return historico
+    // Never both partners: with the vehicle history partner on, this one stays off.
+    if (deps.cfg.historicoLigado) return historico
     if (!nossaBaseVazia(historico)) return historico
     if (historico?.parceiro?.status === 'ok') return historico
 
@@ -360,7 +374,7 @@ export async function rodarJobParceiro(deps: DepsParceiro & { dono: string }): P
   const agora = deps.agora ?? Date.now()
   const log = deps.log ?? ((m: string) => console.info(m))
   const out = { rodou: false, vistos: 0, completados: 0 }
-  if (!deps.cfg.ligado) return out
+  if (!deps.cfg.ligado || deps.cfg.historicoLigado) return out
   try {
     const { data, error } = await deps.sb.rpc('job_lock_pegar', { p_nome: PARCEIRO_NOME_LOCK, p_dono: deps.dono, p_segundos: PARCEIRO_LEASE_S })
     if (error || data !== true) return out
