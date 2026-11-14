@@ -339,6 +339,13 @@ describe('what goes to the page', () => {
 })
 
 describe('report blocks (copy)', () => {
+  it('owners: a tenure inside the sentence starts in lower case', () => {
+    const atual = { data: '2026-11-11', tempo: 'Menos de 1 mês', meses: 0, tipo: 'pessoa' as const, uf: 'PR', atual: true }
+    const antes = { data: '2026-10-20', tempo: 'Menos de 1 mês', meses: 0, tipo: 'pessoa' as const, uf: 'PR', atual: false }
+    const t = telaDonos({ total: 2, atual, ufs: ['PR'], ufZeroKm: 'PR', registros: [atual, antes], semData: 0, trocasRapidas: 0 })!
+    expect(t.linhas.map((l) => l.posse)).toEqual(['Dono atual, há menos de 1 mês', 'Ficou menos de 1 mês'])
+    expect(t.atual).toMatchObject({ tempo: 'Menos de 1 mês' })
+  })
   it('owners: totals, current owner, states, five most recent, quick changes alert, LGPD note', () => {
     const t = telaDonos(bloco(COM).donos, 'carro')!
     expect(t).toMatchObject({ total: 12, totalTexto: 'donos encontrados', atual: { desde: '12/07/2017', tempo: '8 anos e 4 meses' }, estados: ['PR', 'BA', 'GO'], zeroKm: 'PR' })

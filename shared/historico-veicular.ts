@@ -733,6 +733,11 @@ export interface TelaDonos {
 
 export const DONOS_VISIVEIS = 5
 
+/** A tenure inside a sentence starts in lower case ("Dono atual, há menos de 1 mês"). */
+function noMeioDaFrase(t: string): string {
+  return t.charAt(0).toLowerCase() + t.slice(1)
+}
+
 /** Owners block (always when the partner answered with owners). */
 export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'veículo'): TelaDonos | null {
   if (!d || !(Number(d.total) > 0)) return null
@@ -746,7 +751,7 @@ export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'v
       data: dataBR(o.data) || '',
       tipo: o.tipo ? ROTULO_TIPO_DONO[o.tipo] : 'Tipo não informado',
       uf: o.uf,
-      posse: ehAtual ? (o.tempo ? `Dono atual, há ${o.tempo}` : 'Dono atual') : o.tempo ? `Ficou ${o.tempo}` : 'Tempo não informado',
+      posse: ehAtual ? (o.tempo ? `Dono atual, há ${noMeioDaFrase(o.tempo)}` : 'Dono atual') : o.tempo ? `Ficou ${noMeioDaFrase(o.tempo)}` : 'Tempo não informado',
       curta,
       largura: Math.max(4, Math.round((100 * (Number(o.meses) || 0)) / max)),
       atual: ehAtual,
