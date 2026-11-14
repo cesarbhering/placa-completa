@@ -2,13 +2,16 @@
 // FIPE na propria /tabela-fipe-por-placa (plano SEO 02/out, item #8 aprovado).
 // Usa o MESMO POST /api/consulta da home (canal 'tela'): bloqueio de UA,
 // rate-limit, teto por IP e cache valem igual; nenhuma rota nova. O resultado
-// aparece aqui mesmo, sem URL nova. Logo abaixo, a oferta da Completa, que
-// abre o mesmo checkout da home.
+// aparece aqui mesmo, sem URL nova. Logo abaixo, a oferta da consulta basica
+// (Cesar 14/11/2026: quem chega aqui quer o preco FIPE, entao o plano mais
+// barato combina mais), que abre o mesmo checkout da home. Conteudo do cartao
+// em shared/oferta-fipe-por-placa.ts.
 //
 // Funil: de proposito NAO enfileira resultado_exibido/cta_completa_* aqui.
 // Esses eventos sao o denominador do A/B do resultado da home e sairiam
 // carimbados com a variante da sessao; aqui so vai o evento do gtag.
 import { origemDaSessao } from '~/shared/origem-trafego'
+import { OFERTA_FIPE_POR_PLACA as OFERTA, precoOfertaFipePorPlaca } from '~/shared/oferta-fipe-por-placa'
 import { camposGateEmail, deveExigirEmailLocal, ehErroGateEmail, emailGateSalvo, registrarConsultaSemEmail, salvarEmailGate } from '~/composables/useGateEmail'
 
 const { validatePlaca } = useFormValidation()
@@ -20,9 +23,8 @@ const carregando = ref(false)
 const erro = ref('')
 const resultado = ref<Record<string, any> | null>(null)
 const abrirCheckout = ref(false)
-// Completa price from the single source of the price A/B test (usePrecoCompleta).
-const { texto: preco } = usePrecoCompleta()
-const INCLUI = ['Roubo e furto', 'Leilão', 'Gravame', 'RENAJUD', 'Multas', 'Restrições']
+// Basic plan price from the single price source (the price A/B test only touches the full report).
+const preco = precoOfertaFipePorPlaca()
 
 function gtag(evento: string, params: Record<string, any>) {
   if (import.meta.client && (window as any).gtag) (window as any).gtag('event', evento, { source_page: 'tabela-fipe-por-placa', ...params })
@@ -92,7 +94,7 @@ async function consultar() {
 }
 
 function comprar() {
-  gtag('cta_click', { origem: 'fipe_por_placa_oferta' })
+  gtag('cta_click', { origem: 'fipe_por_placa_oferta', plano: OFERTA.plano })
   abrirCheckout.value = true
 }
 </script>
@@ -135,10 +137,10 @@ function comprar() {
       <p v-if="resultado.fipeNota" class="fpp__nota">{{ resultado.fipeNota }}</p>
 
       <div class="fpp__oferta">
-        <p class="fpp__oferta-t">O valor FIPE não diz se este carro tem problema.</p>
-        <p class="fpp__oferta-s">O relatório completo mostra o que trava a transferência ou derruba o preço, em até 5 minutos.</p>
-        <ul class="fpp__inclui"><li v-for="it in INCLUI" :key="it">{{ it }}</li></ul>
-        <button type="button" class="pc-btn pc-btn--primary fpp__cta" @click="comprar">Ver o relatório completo · {{ preco }}</button>
+        <p class="fpp__oferta-t">{{ OFERTA.titulo }}</p>
+        <p class="fpp__oferta-s">{{ OFERTA.texto }}</p>
+        <ul class="fpp__inclui"><li v-for="it in OFERTA.itens" :key="it.texto">{{ it.texto }}</li></ul>
+        <button type="button" class="pc-btn pc-btn--primary fpp__cta" @click="comprar">{{ OFERTA.botao }} · {{ preco }}</button>
         <p class="fpp__nota">Pagamento único, no Pix ou no cartão, sem assinatura. Se o veículo não for encontrado, o valor volta sozinho.</p>
       </div>
     </div>
@@ -146,7 +148,7 @@ function comprar() {
     <PremiumInlineCheckout
       v-if="abrirCheckout && resultado"
       :placa="placa"
-      plano="completa"
+      :plano="OFERTA.plano"
       :ja-consultada="true"
       origem-checkout="outro"
       @close="abrirCheckout = false"
