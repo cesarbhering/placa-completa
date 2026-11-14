@@ -10,7 +10,7 @@
 // Funil: de proposito NAO enfileira resultado_exibido/cta_completa_* aqui.
 // Esses eventos sao o denominador do A/B do resultado da home e sairiam
 // carimbados com a variante da sessao; aqui so vai o evento do gtag.
-import { origemDaSessao } from '~/shared/origem-trafego'
+import { origemDaSessao, entradaDaSessao } from '~/shared/origem-trafego'
 import { OFERTA_FIPE_POR_PLACA as OFERTA, precoOfertaFipePorPlaca } from '~/shared/oferta-fipe-por-placa'
 import { camposGateEmail, deveExigirEmailLocal, ehErroGateEmail, emailGateSalvo, registrarConsultaSemEmail, salvarEmailGate } from '~/composables/useGateEmail'
 
@@ -65,6 +65,7 @@ async function consultar() {
       method: 'POST',
       body: {
         email: emailGate || null, phone: null, channel: 'tela', placa: placa.value, isPWA: false, origin: origemDaSessao(),
+        entrada: entradaDaSessao(),
         ...camposTurnstile(turnstile),
         ...camposGateEmail(),
       },
