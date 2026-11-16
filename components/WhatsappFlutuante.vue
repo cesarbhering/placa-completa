@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { linkWhatsapp, tipoDePagina, whatsappVisivel } from '~/shared/contato'
+import { avisarCliqueWhatsapp } from '~/shared/whatsapp-clique'
 
 // Botao flutuante de WhatsApp (canto inferior direito). SVG inline, sem script
 // de terceiros. Some no checkout, nos modais e na tela de Pix; no celular sobe
@@ -13,6 +14,7 @@ const { t } = useI18n()
 
 function clique() {
   track('whatsapp_click', { pagina: tipoDePagina(route.path) })
+  avisarCliqueWhatsapp('flutuante', tipoDePagina(route.path))
 }
 </script>
 

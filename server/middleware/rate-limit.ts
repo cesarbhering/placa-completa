@@ -34,6 +34,9 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   '/api/empresas/proposta': { windowMs: 60 * 60 * 1000, maxRequests: 5 },
   // Floating contact button form: nobody writes more than 5 times per hour.
   '/api/contato/mensagem': { windowMs: 60 * 60 * 1000, maxRequests: 5 },
+  // WhatsApp click e-mail to Cesar: the endpoint already sends one e-mail per visitor
+  // per 10 minutes; this only stops a script hammering it.
+  '/api/contato/whatsapp-clique': { windowMs: 60 * 60 * 1000, maxRequests: 20 },
   // Acesso de parceiro: pedir link e ativar (link ou codigo de 8). Ninguem faz
   // isso mais de 5 vezes por hora; barra tentativa de adivinhar o codigo.
   '/api/parceiro/link': { windowMs: 60 * 60 * 1000, maxRequests: 5 },
