@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { linkWhatsapp } from '~/shared/contato'
+import { linkWhatsapp, tipoDePagina } from '~/shared/contato'
+import { avisarCliqueWhatsapp, ondeDoClique } from '~/shared/whatsapp-clique'
 
 // Link discreto de WhatsApp perto do CTA (resultado gratis e checkout). Mesmo
 // numero do botao flutuante (shared/contato.ts). `onde` vai pro analytics.
 const props = defineProps<{ onde: string }>()
 const href = linkWhatsapp()
 const { track } = useAnalytics()
+const route = useRoute()
 
 function clique() {
   track('whatsapp_click', { onde: props.onde })
+  avisarCliqueWhatsapp(ondeDoClique(props.onde), tipoDePagina(route.path))
 }
 </script>
 
