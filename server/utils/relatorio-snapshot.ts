@@ -118,8 +118,13 @@ export async function montarRelatorioSnapshot(
   // origem do chassi refaria tambem o julgamento FIPE, que custa uma chamada
   // de modelo por relatorio. Omitido = monta tudo, como na entrega.
   apenas?: Array<'chassiOrigem' | 'valorCusto' | 'historicoLeilao'>,
-  /** renovarLeilao: consulta a base de leiloes ao vivo e regrava o cache (rebuild admin). */
-  opcoes?: { renovarLeilao?: boolean },
+  /**
+   * renovarLeilao: consulta a base de leiloes ao vivo e regrava o cache (rebuild admin).
+   * semAvisoLeilao: the order's auction partner fallback was started by a manual
+   * operator run; what this assembly writes keeps the no-notice mark
+   * (parceiro.semAviso), so no later retry e-mails the customer (rebuild admin).
+   */
+  opcoes?: { renovarLeilao?: boolean; semAvisoLeilao?: boolean },
 ): Promise<RelatorioSnapshot> {
   const querem = (campo: 'chassiOrigem' | 'valorCusto' | 'historicoLeilao') => !apenas || apenas.includes(campo)
   // Numero do motor: lido uma vez (placa_cache) e usado no leilao e no snapshot.
@@ -249,7 +254,7 @@ export async function montarRelatorioSnapshot(
       { id: pedido.id ?? null, placa: pedido.placa, plano: pedido.plano },
       historicoLeilao,
       { chassi: senatranBruto?.chassi ?? null },
-      { sb: supabase, cfg: cfgLeilao, reservaDoHistorico },
+      { sb: supabase, cfg: cfgLeilao, reservaDoHistorico, semAviso: !!opcoes?.semAvisoLeilao },
     )
   }
 

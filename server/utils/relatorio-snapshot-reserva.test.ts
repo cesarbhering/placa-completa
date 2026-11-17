@@ -11,6 +11,7 @@ import { montarRelatorioSnapshot } from './relatorio-snapshot'
 import { iniciarHistoricoVeicular, _limparEmVooHistorico } from './parceiro-historico'
 import { cfgHistorico } from './parceiro-historico-env'
 import { _limparTokenParceiro, _limparAlertaTeto, type Http } from './parceiro-leilao'
+import { parsearRespostaHistorico } from '../../shared/historico-veicular'
 
 // Snapshot assembly at the delivery (review 1 of PR #758): the vehicle history
 // call started with the paid query is already back. A partial answer makes the
@@ -86,5 +87,23 @@ describe('snapshot assembly with the vehicle history already back', () => {
     expect(snap.historicoVeicular).toBeUndefined()
     expect(snap.historicoLeilao.parceiro).toBeUndefined()
     expect(leilaoChamadas).toHaveLength(0)
+  })
+})
+
+// Review 3 of PR #758: the admin rebuild assembles only the auction section and
+// asks it to keep an operator fallback's no-notice mark on a new call.
+describe('refill of the auction section that keeps the no-notice mark', () => {
+  it('semAvisoLeilao: the state of the new call carries parceiro.semAviso', async () => {
+    const parcial: any = structuredClone(COM)
+    parcial.dados.raw_sources.infosinistrosSuccess = false
+    // The stored block decides (refill of one field): partial, so the fallback runs.
+    sb.tab('pedidos_premium').push({ id: 'p1', relatorio_snapshot: { historicoVeicular: { ...parsearRespostaHistorico(parcial)!, consultadoEm: '2026-11-17T20:00:00Z' } } })
+    const com: any = await montarRelatorioSnapshot(sb, { placa: PLACA, plano: 'completa', consulta_id: 'c1', id: 'p1' }, ['historicoLeilao'], { renovarLeilao: true, semAvisoLeilao: true })
+    expect(com.historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true, semAviso: true })
+    expect(pagasLeilao()).toBe(1)
+    // Without the option (lazy fill, regular rebuild): no mark.
+    const sem: any = await montarRelatorioSnapshot(sb, { placa: PLACA, plano: 'completa', consulta_id: 'c1', id: 'p1' }, ['historicoLeilao'])
+    expect(sem.historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
+    expect(sem.historicoLeilao.parceiro.semAviso).toBeUndefined()
   })
 })

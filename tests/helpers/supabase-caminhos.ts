@@ -4,6 +4,13 @@
 // "->>" as text) are applied as PostgREST does, and the filters are recorded,
 // so a test can check the query that was built as well. Every other table goes
 // to supabaseMemoria as is.
+//
+// Limitations (enough for the retry job, not a full PostgREST):
+//  - order() does nothing: rows come in insertion order;
+//  - a select awaited directly (without limit() or maybeSingle()) returns data null;
+//  - rpc() always returns { data: true } (every named lock is taken);
+//  - only eq() and in() go to the recorded filter list (gte() and is() are
+//    applied, not recorded).
 import type { supabaseMemoria } from './supabase-memoria'
 
 /** Value of a column or JSON path of a row ("a->b->>c": the last step as text). */

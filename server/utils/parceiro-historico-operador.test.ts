@@ -11,10 +11,13 @@ vi.mock('./premium-email', async (importOriginal) => ({
   ...(await importOriginal<any>()),
   enviarAvisoLeilao: vi.fn(async (m: any) => { enviados.push(m); return true }),
 }))
+// Engine number lookup of the plate (snapshot assembly of the rebuild): not part of these tests.
+vi.mock('./placa-lookup', () => ({ consultarPlacaWdapi: async () => null, motorDoPayload: () => null }))
 
 import { completarHistoricoVeicular, completarHistoricoVeicularOperador } from './parceiro-historico'
 import { cfgHistorico } from './parceiro-historico-env'
 import { _limparTokenParceiro, _limparAlertaTeto, rodarJobParceiro, cfgParceiro } from './parceiro-leilao'
+import { rebuildLeilao } from './rebuild-leilao'
 import { parsearRespostaHistorico } from '../../shared/historico-veicular'
 
 // Review 1 of PR #758, item 2: the operator route
@@ -36,8 +39,10 @@ function pedidoComParcial() {
   const r: any = structuredClone(SEM)
   r.dados.raw_sources.e5Success = false
   const sb = supabaseMemoria()
+  // The paid query of the order (the rebuild assembles the auction section again from it).
+  sb.tab('senatran_consultas').push({ id: 'c1', placa: PEDIDO.placa, created_at: '2026-11-17T19:00:00Z', response: { chassi: r.dados.chassi, descricaoMarcaModelo: 'MARCA/MODELO', anoModelo: 2020, ufJurisdicao: 'SP' } })
   sb.tab('pedidos_premium').push({
-    ...PEDIDO, status: 'entregue', email: 'c@x.com', token_entrega: 'TOK', entregue_em: new Date(Date.now() - 3600_000).toISOString(),
+    ...PEDIDO, status: 'entregue', email: 'c@x.com', token_entrega: 'TOK', consulta_id: 'c1', preview: null, entregue_em: new Date(Date.now() - 3600_000).toISOString(),
     relatorio_snapshot: { consulta: { response: { chassi: r.dados.chassi } }, historicoLeilao: vazio(), historicoVeicular: { ...parsearRespostaHistorico(r)!, consultadoEm: '2026-11-17T20:00:00Z' } },
   })
   return sb
@@ -51,6 +56,13 @@ beforeEach(() => {
   _limparAlertaTeto()
   vi.stubGlobal('useRuntimeConfig', () => CONFIG)
   vi.stubGlobal('sendErrorEmail', async () => {})
+  vi.stubGlobal('createError', (o: any) => Object.assign(new Error(o.message), o))
+  // Nuxt auto-imports of the snapshot assembly (rebuild): only our auction base matters, empty.
+  vi.stubGlobal('getValorCusto', async () => null)
+  vi.stubGlobal('detectarSegmento', () => 'carro')
+  vi.stubGlobal('decodificarChassi', async () => null)
+  vi.stubGlobal('corrigirAnoChassi', (x: any) => x)
+  vi.stubGlobal('consultarHistoricoLeilao', async () => vazio())
   vi.stubGlobal('fetch', async (url: string) => {
     chamadas.push(url)
     if (url.endsWith('/api/Auth/login')) return { status: 200, text: async () => JSON.stringify({ token: 'jwt' }) }
@@ -119,5 +131,32 @@ describe('operator route: the job retry of its fallback sends no e-mail either',
     foraDoAr = false
     await retryDoJob(sb)
     expect(enviados).toHaveLength(1)
+  })
+})
+
+// Review 3 of PR #758: the admin rebuild of the auction section (rebuildLeilao)
+// assembles the block again; it keeps the operator's no-notice mark, so the
+// job's retry after it does not e-mail the customer either.
+describe('operator route: the mark survives the admin rebuild of the auction section', () => {
+  it('operator run (partner down), rebuild (still down), retry (partner back) that finds an auction: no e-mail', async () => {
+    const sb = pedidoComParcial()
+    const linha = sb.tab('pedidos_premium')[0]
+    foraDoAr = true
+    await completarHistoricoVeicularOperador(sb, PEDIDO, cfgHistorico(CONFIG))
+    expect(linha.relatorio_snapshot.historicoLeilao.parceiro).toMatchObject({ status: 'falhou', reserva: true, semAviso: true })
+    // The rebuild calls the partner again (still down) and writes the block it got.
+    _limparTokenParceiro()
+    const rb = await rebuildLeilao(sb, ['TOK'])
+    expect(rb).toEqual([expect.objectContaining({ token: 'TOK', ok: true })])
+    expect(linha.relatorio_snapshot.historicoLeilao.parceiro).toMatchObject({ status: 'falhou', reserva: true, semAviso: true })
+    expect(linha.relatorio_snapshot.auditoria.historicoLeilaoAnteriores[0].bloco.parceiro.semAviso).toBe(true)
+    // The regular retry job, partner back up: the data goes in, no e-mail.
+    foraDoAr = false
+    const r = await retryDoJob(sb)
+    expect(r).toMatchObject({ rodou: true, vistos: 1, completados: 1 })
+    expect(linha.relatorio_snapshot.historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true, semAviso: true })
+    expect(linha.relatorio_snapshot.historicoLeilao.passagens.length).toBeGreaterThan(0)
+    expect(enviados).toHaveLength(0)
+    expect(linha.aviso_leilao_em ?? null).toBeNull()
   })
 })
