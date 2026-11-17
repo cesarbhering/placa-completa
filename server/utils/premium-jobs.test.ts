@@ -5,7 +5,7 @@ import { _resetarEmVoo, quantasEmVoo } from './tarefas-em-voo'
 
 const RESP = [{ ufJurisdicao: 'AL', renavam: '1', indicadorRecall: true, descricaoMarcaModelo: 'FORD/FUSION', chassi: '3FA6P0H71FR000000' }]
 
-function sbFalso(o: { snap?: any; snapDepois?: any; jobs?: any[]; aviso?: string | null } = {}) {
+function sbFalso(o: { snap?: any; snapDepois?: any; jobs?: any[]; aviso?: string | null; avisoLeilao?: string | null } = {}) {
   let lidas = 0
   const ops: any[] = []
   const estado = { aviso: o.aviso ?? null as string | null }
@@ -18,7 +18,7 @@ function sbFalso(o: { snap?: any; snapDepois?: any; jobs?: any[]; aviso?: string
       maybeSingle: async () => {
         if (tabela === 'pedidos_premium' && f.filtros.length === 1 && !f.sel) {
           lidas++
-          return { data: { id: 'p', placa: 'ORK8004', token_entrega: 'TOK', email: 'c@x.com', consulta_id: null, relatorio_snapshot: lidas > 1 && o.snapDepois ? o.snapDepois : o.snap, aviso_completo_em: estado.aviso } }
+          return { data: { id: 'p', placa: 'ORK8004', token_entrega: 'TOK', email: 'c@x.com', consulta_id: null, relatorio_snapshot: lidas > 1 && o.snapDepois ? o.snapDepois : o.snap, aviso_completo_em: estado.aviso, aviso_leilao_em: o.avisoLeilao ?? null } }
         }
         return { data: null }
       },
@@ -119,7 +119,7 @@ describe('fila premium_jobs', () => {
 
   it('vehicle history executor: block brought by the queue = ok 200; switch off = closes without calling', async () => {
     const snap = { consulta: { response: RESP } }
-    const a = sbFalso({ snap, snapDepois: { ...snap, historicoVeicular: { status: 'ok' } } })
+    const a = sbFalso({ snap, snapDepois: { ...snap, historicoVeicular: { status: 'ok', completa: true } } })
     const historico = vi.fn(async () => ({ ok: true, status: 'ok' as const, code: 200 }))
     expect(await executarJob(a.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico })).toEqual({ status: 'ok', code: 200 })
     expect((historico.mock.calls[0] as any)[1]).toMatchObject({ id: 'p' })
@@ -133,7 +133,7 @@ describe('fila premium_jobs', () => {
     const e = sbFalso({ snap })
     expect(await executarJob(e.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico: async () => ({ ok: false, status: 'divergente' as const }) }))
       .toEqual({ status: 'sem_dado', code: null, erro: 'chassi da base parceira diferente' })
-    const d = sbFalso({ snap: { ...snap, historicoVeicular: { status: 'ok' } } })
+    const d = sbFalso({ snap: { ...snap, historicoVeicular: { status: 'ok', completa: true } } })
     const nunca = vi.fn()
     expect(await executarJob(d.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico: nunca as any })).toEqual({ status: 'ok', code: 0 })
     expect(nunca).not.toHaveBeenCalled()
@@ -141,10 +141,108 @@ describe('fila premium_jobs', () => {
 
   it('closing e-mail names the vehicle history among the sources that arrived late', async () => {
     const jobs = [{ fonte: 'historico_veicular', status: 'ok', ultimo_code: 200 }]
-    const { cliente } = sbFalso({ jobs, snap: { consulta: { response: RESP }, historicoVeicular: { status: 'ok' } } })
+    const { cliente } = sbFalso({ jobs, snap: { consulta: { response: RESP }, historicoVeicular: { status: 'ok', completa: true } } })
     const enviarEmail = vi.fn(async () => true)
     expect(await verificarFechamento(cliente, 'p', { enviarEmail })).toBe(true)
     expect((enviarEmail.mock.calls[0] as any)[0]).toMatchObject({ fonte: 'histórico de donos, leilão e sinistro', itens: [] })
+  })
+
+  // Cesar, 17/11/2026: no good answer after the LAST queue attempt makes the
+  // auction partner the fallback; earlier attempts do not (the queue may still bring it).
+  it('vehicle history: only the last failed attempt calls the auction partner fallback, before the closing check', async () => {
+    const snap = { consulta: { response: RESP } }
+    const falha = async () => ({ ok: false, status: 'falhou' as const, code: 504, erro: 'HTTP 504' })
+    const reservaLeilao = vi.fn(async () => 'ok')
+    for (const tentativas of [0, 1, 2]) {
+      const a = sbFalso({ snap })
+      expect(await executarJob(a.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas, max_tentativas: 4 }, { historico: falha, reservaLeilao }))
+        .toEqual({ status: 'falha', code: 504, erro: 'HTTP 504' })
+    }
+    expect(reservaLeilao).not.toHaveBeenCalled()
+    const b = sbFalso({ snap })
+    expect(await executarJob(b.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas: 3, max_tentativas: 4 }, { historico: falha, reservaLeilao }))
+      .toEqual({ status: 'falha', code: 504, erro: 'HTTP 504' })
+    expect(reservaLeilao).toHaveBeenCalledOnce()
+    expect((reservaLeilao.mock.calls[0] as any)[1]).toBe('p')
+    // Daily ceiling of the vehicle history on the last attempt: the same.
+    const c = sbFalso({ snap })
+    await executarJob(c.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas: 3, max_tentativas: 4 }, { historico: async () => ({ ok: false, status: 'teto' as const, code: null }), reservaLeilao })
+    expect(reservaLeilao).toHaveBeenCalledTimes(2)
+    // The last attempt brought it, or the switch is off: no fallback. Another
+    // VIN: its fallback runs inside completarHistoricoVeicular, not here.
+    const d = sbFalso({ snap, snapDepois: { ...snap, historicoVeicular: { status: 'ok', completa: true } } })
+    expect((await executarJob(d.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas: 3, max_tentativas: 4 }, { historico: async () => ({ ok: true, status: 'ok' as const, code: 200 }), reservaLeilao })).status).toBe('ok')
+    const e = sbFalso({ snap })
+    await executarJob(e.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas: 3, max_tentativas: 4 }, { historico: async () => ({ ok: false, pulado: 'desligado' }), reservaLeilao })
+    await executarJob(e.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas: 3, max_tentativas: 4 }, { historico: async () => ({ ok: false, status: 'divergente' as const }), reservaLeilao })
+    expect(reservaLeilao).toHaveBeenCalledTimes(2)
+  })
+
+  // Review 1 of PR #758, item 1: the vehicle history is concluded with a final
+  // answer that failed the order (partial, another VIN) but its fallback never
+  // ran (the step after the delivery did not finish): the queue covers it.
+  it('vehicle history concluded with a partial or other-VIN answer and no fallback yet: the queue runs it, once', async () => {
+    const reservaLeilao = vi.fn(async () => 'ok')
+    const parcial = { consulta: { response: RESP }, historicoVeicular: { status: 'ok', completa: false, faltas: ['sinistros'], donos: { total: 3 } }, historicoLeilao: { passagens: [] } }
+    for (const tentativas of [0, 3]) {
+      expect(await executarJob(sbFalso({ snap: parcial }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas, max_tentativas: 4 }, { reservaLeilao }))
+        .toEqual({ status: 'ok', code: 0 })
+    }
+    expect(reservaLeilao).toHaveBeenCalledTimes(2)
+    expect((reservaLeilao.mock.calls[0] as any)[1]).toBe('p')
+    // Another VIN: the same.
+    const divergente = { consulta: { response: RESP }, historicoVeicular: { status: 'divergente', consultadoEm: null }, historicoLeilao: { passagens: [] } }
+    await executarJob(sbFalso({ snap: divergente }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })
+    expect(reservaLeilao).toHaveBeenCalledTimes(3)
+    // Already has a partner state (the fallback ran): nothing. Complete answer: nothing.
+    const jaRodou = { ...parcial, historicoLeilao: { passagens: [], parceiro: { status: 'falhou', reserva: true } } }
+    expect(await executarJob(sbFalso({ snap: jaRodou }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
+    const completo = { ...parcial, historicoVeicular: { status: 'ok', completa: true, donos: { total: 3 } } }
+    expect(await executarJob(sbFalso({ snap: completo }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
+    expect(reservaLeilao).toHaveBeenCalledTimes(3)
+    // Other sources concluded: never the fallback.
+    await executarJob(sbFalso({ snap: { ...parcial, multas: { status: 'ok', fonte: 'detran_al' } } }).cliente, { id: 'j', pedido_id: 'p', fonte: 'detran' }, { reservaLeilao })
+    expect(reservaLeilao).toHaveBeenCalledTimes(3)
+  })
+
+  it('last attempt with a complete answer that did not land in the snapshot: no paid fallback (review 2, S1)', async () => {
+    const snap = { consulta: { response: RESP } }
+    const reservaLeilao = vi.fn(async () => 'ok')
+    // The vehicle history answered complete, but the snapshot write failed: the closing check does not see it.
+    const completoSemGravar = async () => ({ ok: true, status: 'ok' as const, code: 200, bloco: { status: 'ok', completa: true } as any })
+    const r = await executarJob(sbFalso({ snap }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas: 3, max_tentativas: 4 }, { historico: completoSemGravar, reservaLeilao })
+    expect(r.status).toBe('falha')
+    expect(reservaLeilao).not.toHaveBeenCalled()
+    // A partial answer that did not land: the fallback still runs on the last attempt.
+    const parcialSemGravar = async () => ({ ok: true, status: 'ok' as const, code: 200, bloco: { status: 'ok', completa: false } as any })
+    await executarJob(sbFalso({ snap }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas: 3, max_tentativas: 4 }, { historico: parcialSemGravar, reservaLeilao })
+    expect(reservaLeilao).toHaveBeenCalledOnce()
+  })
+
+  it('vehicle history concluded, fallback could not read the order: the job fails so the queue tries again', async () => {
+    const parcial = { consulta: { response: RESP }, historicoVeicular: { status: 'ok', completa: false, donos: null }, historicoLeilao: { passagens: [] } }
+    const r = await executarJob(sbFalso({ snap: parcial }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao: async () => 'erro' })
+    expect(r).toMatchObject({ status: 'falha', code: null })
+  })
+
+  it('closing e-mail: the vehicle history leaves it when its fallback already sent the late auction notice (one e-mail, not two)', async () => {
+    const snapReserva = { consulta: { response: RESP }, historicoVeicular: { status: 'ok', completa: false }, historicoLeilao: { passagens: [{}], parceiro: { status: 'ok', reserva: true } } }
+    const so = [{ fonte: 'historico_veicular', status: 'ok', ultimo_code: 200 }]
+    const enviarEmail = vi.fn(async () => true)
+    expect(await verificarFechamento(sbFalso({ jobs: so, snap: snapReserva, avisoLeilao: '2026-11-17T21:00:00Z' }).cliente, 'p', { enviarEmail })).toBe(false)
+    expect(enviarEmail).not.toHaveBeenCalled()
+    // Another source also came by the queue: its e-mail goes, without the vehicle history label.
+    const comDetran = [...so, { fonte: 'detran', status: 'ok', ultimo_code: 200 }]
+    expect(await verificarFechamento(sbFalso({ jobs: comDetran, snap: { ...snapReserva, multas: { status: 'ok' } }, avisoLeilao: '2026-11-17T21:00:00Z' }).cliente, 'p', { enviarEmail })).toBe(true)
+    expect((enviarEmail.mock.calls[0] as any)[0]).toMatchObject({ fonte: 'DETRAN-AL' })
+    // No late notice (the fallback found nothing): the vehicle history e-mail goes as before.
+    enviarEmail.mockClear()
+    expect(await verificarFechamento(sbFalso({ jobs: so, snap: snapReserva }).cliente, 'p', { enviarEmail })).toBe(true)
+    expect((enviarEmail.mock.calls[0] as any)[0]).toMatchObject({ fonte: 'histórico de donos, leilão e sinistro' })
+    // A late notice that did not come from the fallback does not hide the vehicle history.
+    enviarEmail.mockClear()
+    const semReserva = { ...snapReserva, historicoLeilao: { passagens: [{}], parceiro: { status: 'ok' } } }
+    expect(await verificarFechamento(sbFalso({ jobs: so, snap: semReserva, avisoLeilao: '2026-11-17T21:00:00Z' }).cliente, 'p', { enviarEmail })).toBe(true)
   })
 
   it('lote: reivindica pela RPC, executa em voo e grava o resultado; um lote por vez', async () => {

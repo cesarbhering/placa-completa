@@ -84,3 +84,31 @@ describe('rebuildLeilao (admin backfill)', () => {
     expect(r).toEqual([{ token: 'b', pulado: 'plano sem bloco de leilao' }])
   })
 })
+
+// Review 3 of PR #758: an operator-started fallback (parceiro.semAviso) keeps
+// its mark through the rebuild, whether or not the assembly carried it.
+describe('rebuildLeilao keeps the no-notice mark of an operator fallback', () => {
+  const comMarca = () => ({ ...snapBase(), historicoLeilao: { resumo: { tem_indicio: false }, passagens: [], parceiro: { status: 'falhou', reserva: true, semAviso: true } } })
+
+  it('asks the assembly to keep it, and stamps the new block when the assembly did not', async () => {
+    const ped = { id: 'p1', token_entrega: 'tokOp', status: 'entregue', plano: 'completa', placa: 'P', consulta_id: 'c1', preview: null, relatorio_snapshot: comMarca() }
+    const db = banco([ped])
+    const montar = vi.fn(async () => ({ historicoLeilao: { resumo: { tem_indicio: false }, passagens: [], parceiro: { status: 'falhou', reserva: true } } }))
+    await rebuildLeilao(db, ['tokOp'], { montar: montar as any, agora: T })
+    expect(montar).toHaveBeenCalledWith(db, expect.objectContaining({ id: 'p1' }), ['historicoLeilao'], { renovarLeilao: true, semAvisoLeilao: true })
+    expect((ped.relatorio_snapshot as any).historicoLeilao.parceiro).toEqual({ status: 'falhou', reserva: true, semAviso: true })
+  })
+
+  it('a block without a partner state, or an order without the mark, is written as it came', async () => {
+    const ped = { id: 'p1', token_entrega: 'tokOp', status: 'entregue', plano: 'completa', placa: 'P', consulta_id: 'c1', preview: null, relatorio_snapshot: comMarca() }
+    const novo = { resumo: { tem_indicio: false }, passagens: [] }
+    await rebuildLeilao(banco([ped]), ['tokOp'], { montar: (async () => ({ historicoLeilao: novo })) as any, agora: T })
+    expect((ped.relatorio_snapshot as any).historicoLeilao).toBe(novo)
+    const semMarca = { id: 'p2', token_entrega: 'tokReg', status: 'entregue', plano: 'completa', placa: 'P', consulta_id: 'c1', preview: null, relatorio_snapshot: snapBase() }
+    const regular = { resumo: { tem_indicio: false }, passagens: [], parceiro: { status: 'ok', reserva: true } }
+    const montar = vi.fn(async () => ({ historicoLeilao: regular }))
+    await rebuildLeilao(banco([semMarca]), ['tokReg'], { montar: montar as any, agora: T })
+    expect((montar.mock.calls[0] as any)[3]).toEqual({ renovarLeilao: true })
+    expect((semMarca.relatorio_snapshot as any).historicoLeilao).toBe(regular)
+  })
+})

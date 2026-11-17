@@ -8,9 +8,11 @@ import {
   parsearRespostaHistorico, historicoLeilaoComHistorico, historicoVeicularParaTela, tituloPassagemParceira,
   telaDonos, telaUso, telaSinistro, casaDoRegistro, tipoDoDono, mesesDePosse, tempoDePosse,
   historicoDoVeiculo, nomeDeEmpresa, passagensDoHistorico, MOTIVO_CHASSI_DIVERGENTE, ehOrgaoPublico,
+  faltasDaResposta, respostaIncompleta, historicoPedeReserva,
 } from './historico-veicular'
+import LEILAO_REAL from '../server/utils/__fixtures__/parceiro-leilao-real.json'
 import { historicoNaTela, historicoParaExibicao } from './leilao-exibicao'
-import { linhasBasesSemRegistro, rotuloIndicadorLeilao } from './fonte-parceira'
+import { linhasBasesSemRegistro, rotuloIndicadorLeilao, historicoComParceiro, parsearRespostaParceiro } from './fonte-parceira'
 import { historicoLgpd } from './leilao-lgpd'
 
 // Fixtures: the four handoff examples with every identifying trace replaced
@@ -428,5 +430,114 @@ describe('owner type and time helpers', () => {
     expect(mesesDePosse('Tempo não informado')).toBeNull()
     expect(tempoDePosse('3 anos e 5 meses (Vigente)')).toBe('3 anos e 5 meses')
     expect(tempoDePosse('Tempo não informado')).toBeNull()
+  })
+})
+
+// Partial answers (Cesar, 17/11/2026): the partner answers success and charges
+// even when one of its internal sources failed. Complete = the three sources
+// true AND at least one owner; anything else makes the auction partner the
+// fallback for that order.
+describe('partial answer classifier', () => {
+  const comFontes = (fontes: Record<string, unknown>) => { const r = copia(COM); r.dados.raw_sources = { ...r.dados.raw_sources, ...fontes }; return r }
+  const semDonos = (x: any = COM) => { const r = copia(x); r.dados.proprietarios = { total: 0, historico: [] }; return r }
+
+  it('each internal source that failed, zero owners, a complete answer and no answer', () => {
+    expect(faltasDaResposta(comFontes({ e2Success: false }))).toEqual(['registro'])
+    expect(faltasDaResposta(comFontes({ e5Success: false }))).toEqual(['donos'])
+    expect(faltasDaResposta(comFontes({ infosinistrosSuccess: false }))).toEqual(['sinistros'])
+    // Zero owners is a failure even with the owners source true (every vehicle has one).
+    expect(faltasDaResposta(semDonos())).toEqual(['sem donos'])
+    expect(faltasDaResposta(comFontes({ e5Success: false, infosinistrosSuccess: false }))).toEqual(['donos', 'sinistros'])
+    expect(faltasDaResposta(copia(COM))).toEqual([])
+    expect(faltasDaResposta(copia(SEM))).toEqual([])
+    expect(faltasDaResposta(null)).toEqual(['resposta'])
+    expect(faltasDaResposta({ success: true })).toEqual(['resposta'])
+  })
+
+  it('a flag that is missing counts as failed', () => {
+    const r = copia(COM)
+    delete r.dados.raw_sources
+    expect(faltasDaResposta(r)).toEqual(['registro', 'donos', 'sinistros'])
+  })
+
+  it('the clean block says whether it came whole; a partial one stays ok with what came', () => {
+    expect(bloco(COM)).toMatchObject({ status: 'ok', completa: true })
+    expect(bloco(COM).faltas).toBeUndefined()
+    const p = bloco(comFontes({ infosinistrosSuccess: false }))
+    expect(p).toMatchObject({ status: 'ok', completa: false, faltas: ['sinistros'], donos: { total: 12 } })
+    expect(bloco(semDonos())).toMatchObject({ status: 'ok', completa: false, faltas: ['sem donos'], donos: null })
+    // Never on the page.
+    const tela: any = historicoVeicularParaTela(p)
+    expect(tela.completa).toBeUndefined()
+    expect(tela.faltas).toBeUndefined()
+  })
+
+  it('respostaIncompleta: by the flag; blocks stored before the check only by "no owners"', () => {
+    expect(respostaIncompleta(bloco(comFontes({ e2Success: false })))).toBe(true)
+    expect(respostaIncompleta(bloco(COM))).toBe(false)
+    const antigo = (x: any) => { const b: any = bloco(x); delete b.completa; delete b.faltas; return b }
+    expect(respostaIncompleta(antigo(semDonos()))).toBe(true)
+    expect(respostaIncompleta(antigo(COM))).toBe(false)
+    expect(respostaIncompleta({ status: 'falhou', consultadoEm: null })).toBe(false)
+    expect(respostaIncompleta(null)).toBe(false)
+  })
+
+  it('historicoPedeReserva: partial or other-VIN answer at once; no good answer only once the queue gave up; never on a complete answer', () => {
+    const parcial = bloco(comFontes({ infosinistrosSuccess: false }))
+    const completo = bloco(COM)
+    expect(historicoPedeReserva(parcial, null)).toBe(true)
+    expect(historicoPedeReserva(parcial, 'pendente')).toBe(true)
+    expect(historicoPedeReserva(completo, 'esgotado')).toBe(false)
+    expect(historicoPedeReserva(completo, null)).toBe(false)
+    // Answer for another VIN: nothing of it is shown (no auction, no damage), and it is final.
+    const divergente = historicoDoVeiculo(bloco(COM), '9XXHV00000X999999')
+    expect(divergente).toMatchObject({ status: 'divergente' })
+    expect(historicoPedeReserva(divergente, null)).toBe(true)
+    expect(historicoPedeReserva(divergente, 'pendente')).toBe(true)
+    expect(historicoPedeReserva(divergente, 'ok')).toBe(true)
+    for (const st of ['falhou', 'teto'] as const) {
+      const b = { status: st, consultadoEm: null }
+      // The queue may still bring it: not yet.
+      expect(historicoPedeReserva(b, 'pendente')).toBe(false)
+      expect(historicoPedeReserva(b, 'rodando')).toBe(false)
+      expect(historicoPedeReserva(b, null)).toBe(false)
+      // The queue gave up (timeout, HTTP error, balance or its daily ceiling).
+      expect(historicoPedeReserva(b, 'esgotado')).toBe(true)
+    }
+    // Never called (no block at all) and the queue gave up.
+    expect(historicoPedeReserva(null, 'esgotado')).toBe(true)
+    expect(historicoPedeReserva(null, 'ok')).toBe(false)
+  })
+
+  it('the classification carries no name or document', () => {
+    const p = bloco(semDonos(comFontes({ infosinistrosSuccess: false })))
+    expect(JSON.stringify({ completa: p.completa, faltas: p.faltas })).not.toMatch(/FICTICIA|\d{3}\.\d{3}\.\d{3}-\d{2}/)
+  })
+})
+
+describe('auction section with the auction partner as the fallback', () => {
+  const parceira = () => historicoComParceiro(vazio(), parsearRespostaParceiro(copia(LEILAO_REAL))!, { chassi: CHASSI, tipo: 'placa', consultadoEm: '2026-11-17T21:00:00Z' })
+
+  it('partial vehicle history: the auction partner records stay, the same auction is not repeated, the damage flag is the OR of both', () => {
+    const h = parceira()
+    expect(h.parceiro.status).toBe('ok')
+    // Partial answer whose claims source failed: no damage flag of its own.
+    const r = copia(SEM)
+    r.dados.raw_sources.infosinistrosSuccess = false
+    const hv = bloco(r)
+    expect(hv.completa).toBe(false)
+    const junto = historicoLeilaoComHistorico(h, hv, { chassi: CHASSI })
+    expect(junto.passagens.filter((p: any) => p.fonte === 'parceiro').length).toBeGreaterThanOrEqual(h.passagens.length)
+    expect(junto.sinistro_parceiro.indicio).toBe(true)
+    expect(junto.parceiro).toEqual(h.parceiro)
+  })
+
+  it('vehicle history failed or capped: the auction partner result is what shows', () => {
+    const h = parceira()
+    for (const st of ['falhou', 'teto'] as const) {
+      const junto = historicoLeilaoComHistorico(h, { status: st, consultadoEm: null }, { chassi: CHASSI })
+      expect(junto).toBe(h)
+    }
+    expect(historicoLeilaoComHistorico(h, null, { chassi: CHASSI })).toBe(h)
   })
 })

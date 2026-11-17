@@ -4,12 +4,13 @@ import LEILAO_REAL from './__fixtures__/parceiro-leilao-real.json'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
 import {
   completarHistoricoVeicular, chamarHistorico, ehSaldoOuLimiteHistorico, _limparAlertaTetoHistorico, PRECO_RESERVA_CENTAVOS,
-  iniciarHistoricoVeicular, historicoProntoParaSnapshot, _limparEmVooHistorico, motivoDaFalha,
+  iniciarHistoricoVeicular, historicoProntoParaSnapshot, _limparEmVooHistorico, motivoDaFalha, historicoFalhouNoPedido,
 } from './parceiro-historico'
-import { MOTIVO_CHASSI_DIVERGENTE } from '../../shared/historico-veicular'
+import { MOTIVO_CHASSI_DIVERGENTE, parsearRespostaHistorico as parsearHistorico, historicoLeilaoComHistorico } from '../../shared/historico-veicular'
 import { situacaoDasFontes } from '../../shared/fontes-relatorio'
 import { FONTE_CACHE_HISTORICO, FONTE_CUSTO_HISTORICO, cfgHistorico } from './parceiro-historico-env'
-import { complementarLeilaoParceiro, rodarJobParceiro, cfgParceiro, inicioDoDiaBrasilia, _limparTokenParceiro, type Http } from './parceiro-leilao'
+import { complementarLeilaoParceiro, rodarJobParceiro, cfgParceiro, inicioDoDiaBrasilia, _limparTokenParceiro, leilaoParceiroComoReserva, type Http } from './parceiro-leilao'
+import { avisarLeilaoTardio } from './aviso-leilao'
 import { pararDeAceitar, _resetarEmVoo } from './tarefas-em-voo'
 
 // Vehicle history partner (Cesar, 13/11/2026): Completa only, behind its own
@@ -504,13 +505,14 @@ describe('never both partners', () => {
   }
   beforeEach(() => { leilaoChamadas = []; _limparTokenParceiro() })
 
-  it('vehicle history on: the auction partner is not called, even with its own switch on', async () => {
+  it('vehicle history on: the auction partner is not called for an order where it did not fail, even with its own switch on', async () => {
     const c = cfgParceiro(config('on'), {})
     expect(c).toMatchObject({ ligado: true, historicoLigado: true })
     const h = await complementarLeilaoParceiro({ id: 'p1', placa: PLACA, plano: 'completa' }, vazio(), {}, { sb, cfg: c, http: httpLeilao, alertar, agora: AGORA, log: () => {} })
     expect(h.parceiro).toBeUndefined()
+    // The retry job runs (orders in fallback), but has nothing to do here.
     const job = await rodarJobParceiro({ sb, cfg: c, http: httpLeilao, alertar, agora: AGORA, log: () => {}, dono: 'x' })
-    expect(job.rodou).toBe(false)
+    expect(job.vistos).toBe(0)
     expect(leilaoChamadas).toHaveLength(0)
   })
 
@@ -522,3 +524,170 @@ describe('never both partners', () => {
     expect(leilaoChamadas.length).toBeGreaterThan(0)
   })
 })
+
+// Cesar, 17/11/2026: when the vehicle history fails for an order (charged but
+// partial answer, or no good answer once the queue gave up), the auction
+// partner is called for that order under its usual rules.
+describe('auction partner as the fallback of the vehicle history', () => {
+  const vazio = () => ({ resumo: { tem_indicio: false, nivel_max: null, n_confirmado: 0, n_provavel: 0, n_possivel: 0, possiveis_ambiguos: 0, fontes_com_passagem: [] }, passagens: [], indice_atualizado_em: null, aviso: null })
+  const parcial = (fontes: Record<string, unknown> = { infosinistrosSuccess: false }) => { const r = structuredClone(COM); r.dados.raw_sources = { ...r.dados.raw_sources, ...fontes }; return r }
+  const cfgLeilao = () => cfgParceiro({ parceiroLeilaoLigado: 'on', parceiroLeilaoUser: 'u', parceiroLeilaoPass: 'p', parceiroHistoricoLigado: 'on', parceiroHistoricoKey: 'k' }, {})
+  let leilaoChamadas: string[]
+  let avisos: any[]
+  let enviados: any[]
+  const httpLeilao: Http = async (url) => {
+    leilaoChamadas.push(url)
+    if (url.endsWith('/api/Auth/login')) return resp(200, { token: 'jwt' }) as any
+    return resp(200, LEILAO_REAL) as any
+  }
+  // The real notifier (aviso_leilao_em guard, page views compared), with the
+  // sender injected: avisos = the notifier ran, enviados = an e-mail went out.
+  const avisarLeilao = async (s: any, id: string, antes: any, depois: any) => {
+    avisos.push({ id, antes, depois })
+    return avisarLeilaoTardio(s, id, antes, depois, { enviar: async (m: any) => { enviados.push(m); return true }, ligado: true, log: () => {} })
+  }
+  const depsLeilao = () => ({ cfg: cfgLeilao(), http: httpLeilao, alertar, agora: AGORA, log: () => {}, esperar: async () => {}, avisarLeilao })
+  // The real fallback (auction partner client) wired into the vehicle history step.
+  const reservaLeilao = (s: any, id: string) => leilaoParceiroComoReserva(s, id, depsLeilao())
+  const comPedidoCompleto = (id: string, x: any = {}) => {
+    const linha = sb.tab('pedidos_premium').find((p) => p.id === id)!
+    Object.assign(linha, { placa: PLACA, plano: 'completa', status: 'entregue', email: 'c@x.com', token_entrega: 'TOK' })
+    linha.relatorio_snapshot = { consulta: { response: { chassi: '9XXHV00000X000001' } }, historicoLeilao: vazio(), ...x }
+  }
+  const cobradasLeilao = () => sb.tab('parceiro_leilao_chamadas').filter((l) => l.cobrada)
+  beforeEach(() => { leilaoChamadas = []; avisos = []; enviados = []; _limparTokenParceiro(); comPedidoCompleto('p1'); comPedidoCompleto('p2') })
+
+  it('complete answer: cached as complete, the auction partner is NOT called', async () => {
+    const r = await completarHistoricoVeicular(sb, pedido(), deps(ok(), { reservaLeilao }))
+    expect(r).toMatchObject({ ok: true, status: 'ok' })
+    expect(snap().historicoVeicular).toMatchObject({ status: 'ok', completa: true })
+    expect(sb.tab('fonte_cache')[0].payload).toMatchObject({ status: 'ok', completa: true })
+    expect(leilaoChamadas).toHaveLength(0)
+    expect(snap().historicoLeilao.parceiro).toBeUndefined()
+  })
+
+  it('partial answer: called ONCE, never again in another generation, the lazy fill, the job or a second run', async () => {
+    const r = await completarHistoricoVeicular(sb, pedido(), deps(httpCom(() => resp(200, parcial())), { reservaLeilao }))
+    // What came is shown; the block says it is partial.
+    expect(r).toMatchObject({ ok: true, status: 'ok', cobrada: true })
+    expect(snap().historicoVeicular).toMatchObject({ status: 'ok', completa: false, faltas: ['sinistros'], donos: { total: 12 } })
+    // The auction partner ran for this order: one paid call, only historicoLeilao written, marked as the fallback.
+    expect(cobradasLeilao()).toHaveLength(1)
+    expect(snap().historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
+    expect(snap().historicoLeilao.sinistro_parceiro.indicio).toBe(true)
+    expect(snap().historicoVeicular.completa).toBe(false)
+    expect(snap().consulta).toEqual({ response: { chassi: '9XXHV00000X000001' } })
+    // The notifier ran once, but no e-mail: the page already showed the
+    // auction and the damage sign from the partial answer (item 4 of review 1).
+    expect(avisos).toHaveLength(1)
+    expect(avisos[0].id).toBe('p1')
+    expect(enviados).toHaveLength(0)
+    const pagas = leilaoChamadas.filter((u) => !u.endsWith('/login')).length
+    expect(pagas).toBe(1)
+
+    // Another generation of the report (snapshot assembly with the block in hand).
+    const outra = await complementarLeilaoParceiro({ id: 'p1', placa: PLACA, plano: 'completa' }, vazio(), { chassi: '9XXHV00000X000001' }, { ...depsLeilao(), sb, reservaDoHistorico: await historicoFalhouNoPedido(sb, 'p1', snap().historicoVeicular) })
+    expect(outra.parceiro.status).toBe('ok')
+    // Lazy fill of the auction section (decides from the stored block).
+    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(true)
+    const lazy = await complementarLeilaoParceiro({ id: 'p1', placa: PLACA, plano: 'completa' }, vazio(), {}, { ...depsLeilao(), sb, reservaDoHistorico: await historicoFalhouNoPedido(sb, 'p1') })
+    expect(lazy.parceiro.status).toBe('ok')
+    // The retry job and a second run of the step (operator route, step after the delivery).
+    await rodarJobParceiro({ ...depsLeilao(), sb, dono: 'job' })
+    expect(await completarHistoricoVeicular(sb, pedido(), deps(ok(), { reservaLeilao }))).toMatchObject({ pulado: 'ja tem' })
+    expect(leilaoChamadas.filter((u) => !u.endsWith('/login')).length).toBe(1)
+    expect(cobradasLeilao()).toHaveLength(1)
+    expect(avisos).toHaveLength(1)
+  })
+
+  it('answer for another VIN: a final failure, the auction partner is called at once (once), like a partial answer', async () => {
+    const outroChassi = '9XXHV00000X999999'
+    comPedidoCompleto('p1', { consulta: { response: { chassi: outroChassi } } })
+    const r = await completarHistoricoVeicular(sb, pedido(), deps(ok(), { reservaLeilao }))
+    expect(r).toMatchObject({ ok: false, status: 'divergente' })
+    // Nothing of the vehicle history goes in, only the reason; the auction partner covers auction and damage.
+    expect(snap().historicoVeicular).toEqual({ status: 'divergente', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: MOTIVO_CHASSI_DIVERGENTE })
+    expect(cobradasLeilao()).toHaveLength(1)
+    expect(snap().historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
+    expect(snap().historicoLeilao.sinistro_parceiro.indicio).toBe(true)
+    // Nothing of the other-VIN answer was on the page: the auction is news, ONE e-mail.
+    expect(avisos).toHaveLength(1)
+    expect(enviados).toHaveLength(1)
+    expect(enviados[0]).toMatchObject({ email: 'c@x.com', token: 'TOK' })
+    // The page shows the auction partner part (the other-VIN answer adds nothing).
+    const tela = historicoLeilaoComHistorico(snap().historicoLeilao, snap().historicoVeicular, { chassi: outroChassi })
+    expect(tela.passagens.length).toBeGreaterThan(0)
+    expect(tela.sinistro_parceiro.indicio).toBe(true)
+    // Decided from the stored block too (lazy fill), with any queue state.
+    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(true)
+    sb.tab('premium_jobs').push({ id: 'j', pedido_id: 'p1', fonte: 'historico_veicular', status: 'pendente' })
+    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(true)
+    // A second run (step after the delivery, operator, queue): no second call, no second notice.
+    expect(await completarHistoricoVeicular(sb, pedido(), deps(ok(), { reservaLeilao, retentar: true }))).toMatchObject({ pulado: 'ja tem', status: 'divergente' })
+    await rodarJobParceiro({ ...depsLeilao(), sb, dono: 'job' })
+    expect(leilaoChamadas.filter((u) => !u.endsWith('/login')).length).toBe(1)
+    expect(cobradasLeilao()).toHaveLength(1)
+    expect(avisos).toHaveLength(1)
+    expect(enviados).toHaveLength(1)
+    expect(chamadas).toHaveLength(1)
+  })
+
+  it('zero owners with the owners source true is partial too', async () => {
+    const r0 = structuredClone(COM)
+    r0.dados.proprietarios = { total: 0, historico: [] }
+    await completarHistoricoVeicular(sb, pedido(), deps(httpCom(() => resp(200, r0)), { reservaLeilao }))
+    expect(snap().historicoVeicular).toMatchObject({ status: 'ok', completa: false, faltas: ['sem donos'] })
+    expect(cobradasLeilao()).toHaveLength(1)
+  })
+
+  it('a partial answer is never a complete cache entry: the next order of the plate calls again', async () => {
+    await completarHistoricoVeicular(sb, pedido('p1'), deps(httpCom(() => resp(200, parcial({ e5Success: false }))), { reservaLeilao: async () => {} }))
+    expect(sb.tab('fonte_cache').filter((c) => c.fonte === FONTE_CACHE_HISTORICO)).toHaveLength(0)
+    expect(await historicoProntoParaSnapshot(sb, { id: 'outro', placa: PLACA }, cfg(), AGORA)).toBeNull()
+    chamadas = []
+    const r = await completarHistoricoVeicular(sb, pedido('p2'), deps(ok(), { reservaLeilao: async () => {} }))
+    expect(r).toMatchObject({ ok: true, cacheHit: false, cobrada: true })
+    expect(chamadas).toHaveLength(1)
+    expect(snap('p2').historicoVeicular.completa).toBe(true)
+    // The reuse of the paid row of the first order does not put it in the cache either.
+    sb.tab('fonte_cache').length = 0
+    _limparEmVooHistorico()
+    sb.tab('pedidos_premium').find((p) => p.id === 'p1')!.relatorio_snapshot.historicoVeicular = undefined
+    await completarHistoricoVeicular(sb, pedido('p1'), deps(httpCom(() => resp(500, 'nao devia')), { reservaLeilao: async () => {} }))
+    expect(snap('p1').historicoVeicular).toMatchObject({ status: 'ok', completa: false })
+    expect(sb.tab('fonte_cache')).toHaveLength(0)
+  })
+
+  it('a cache entry stored before the check (no completa flag) does not count: it calls', async () => {
+    const antigo: any = { ...parsearCom(), consultadoEm: null }
+    delete antigo.completa
+    sb.tab('fonte_cache').push({ fonte: FONTE_CACHE_HISTORICO, chave: PLACA, status: 'ok', payload: antigo, consultado_em: '2026-10-01T00:00:00Z', expira_em: '2026-10-30T00:00:00Z' })
+    expect(await historicoProntoParaSnapshot(sb, { id: 'outro', placa: PLACA }, cfg(), AGORA)).toBeNull()
+    const r = await completarHistoricoVeicular(sb, pedido(), deps(ok(), { reservaLeilao: async () => {} }))
+    expect(r).toMatchObject({ cacheHit: false, cobrada: true })
+    expect(sb.tab('fonte_cache').find((c) => c.fonte === FONTE_CACHE_HISTORICO).payload.completa).toBe(true)
+  })
+
+  it('no good answer: not while the queue may still try; called once the queue gave up', async () => {
+    sb.tab('pedidos_premium')[0].relatorio_snapshot.historicoVeicular = { status: 'falhou', consultadoEm: null, motivo: 'erro' }
+    sb.tab('premium_jobs').push({ id: 'j', pedido_id: 'p1', fonte: 'historico_veicular', status: 'pendente' })
+    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(false)
+    sb.tab('premium_jobs')[0].status = 'rodando'
+    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(false)
+    sb.tab('premium_jobs')[0].status = 'esgotado'
+    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(true)
+    // Daily ceiling of the vehicle history (never called): the same.
+    sb.tab('pedidos_premium')[0].relatorio_snapshot.historicoVeicular = { status: 'teto', consultadoEm: null }
+    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(true)
+    expect(await leilaoParceiroComoReserva(sb, 'p1', depsLeilao())).toBe('ok')
+    expect(cobradasLeilao()).toHaveLength(1)
+    expect(snap().historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
+    // The block the caller has wins over the stored one (snapshot assembly).
+    expect(await historicoFalhouNoPedido(sb, 'p1', parsearCom())).toBe(false)
+    expect(await historicoFalhouNoPedido(null as any, null)).toBe(false)
+  })
+})
+
+function parsearCom() {
+  return parsearHistorico(structuredClone(COM))!
+}

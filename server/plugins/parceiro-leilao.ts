@@ -1,12 +1,13 @@
 import { hostname } from 'node:os'
 import { randomBytes } from 'node:crypto'
-import { cfgParceiro, rodarJobParceiro, PARCEIRO_INTERVALO_MS } from '../utils/parceiro-leilao'
+import { cfgParceiro, rodarJobParceiro, jobParceiroDeveRodar, PARCEIRO_INTERVALO_MS } from '../utils/parceiro-leilao'
 import { emVoo } from '../utils/tarefas-em-voo'
 
 // Complemento da base parceira de leilao (20/out/2026): pedido cuja consulta
 // falhou na geracao tenta de novo uma vez. Logica: server/utils/parceiro-leilao.ts.
-// Nao roda no staging (mesma regra do fotos-depois) nem desligado, nor while
-// the vehicle history partner is on (it replaces this source).
+// Nao roda no staging (mesma regra do fotos-depois) nem desligado. With the
+// vehicle history partner on, it runs only for the orders where this source
+// is that one's fallback (Cesar, 17/11/2026); rodarJobParceiro picks them.
 export default defineNitroPlugin(() => {
   const config: any = useRuntimeConfig()
   if (config.public?.staging) return
@@ -15,7 +16,7 @@ export default defineNitroPlugin(() => {
   let rodando = false
   const rodada = async () => {
     const cfg = cfgParceiro(useRuntimeConfig())
-    if (rodando || !cfg.ligado || cfg.historicoLigado) return
+    if (rodando || !jobParceiroDeveRodar(cfg)) return
     rodando = true
     try {
       await emVoo('parceiro-leilao', () => rodarJobParceiro({ sb: usePremiumSupabase(), cfg, dono }).then((r) => {

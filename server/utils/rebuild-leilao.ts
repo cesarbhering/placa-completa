@@ -49,15 +49,21 @@ export async function rebuildLeilao(
     const snap = p.relatorio_snapshot
     if (!snap || typeof snap !== 'object') { out.push({ token, pulado: 'sem snapshot' }); continue }
     if ((p.plano || 'completa') !== 'completa') { out.push({ token, pulado: 'plano sem bloco de leilao' }); continue }
+    // A fallback started by a manual operator run keeps its no-notice mark
+    // (parceiro.semAviso, review 3 of PR #758): the assembly carries it into a
+    // new call, and the rebuilt block keeps it, so the job's later retry does
+    // not e-mail the customer either.
+    const semAviso = snap.historicoLeilao?.parceiro?.semAviso === true
     const base = await montar(
       supabase,
       { placa: p.placa, plano: 'completa', consulta_id: p.consulta_id, preview: p.preview, token: p.token_entrega, id: p.id } as any,
       ['historicoLeilao'],
-      { renovarLeilao: true },
+      { renovarLeilao: true, ...(semAviso ? { semAvisoLeilao: true } : {}) },
     ).catch(() => null)
-    const novo = base?.historicoLeilao
+    const bruto: any = base?.historicoLeilao
     // Base fora do ar / timeout: montar devolve null. NAO apaga o bloco que o cliente ja tem.
-    if (!novo) { out.push({ token, ok: false, motivo: 'base de leiloes nao respondeu; snapshot intacto, tente de novo' }); continue }
+    if (!bruto) { out.push({ token, ok: false, motivo: 'base de leiloes nao respondeu; snapshot intacto, tente de novo' }); continue }
+    const novo = semAviso && bruto.parceiro && bruto.parceiro.semAviso !== true ? { ...bruto, parceiro: { ...bruto.parceiro, semAviso: true } } : bruto
     const anteriores = Array.isArray(snap?.auditoria?.historicoLeilaoAnteriores) ? snap.auditoria.historicoLeilaoAnteriores : []
     const auditoria = {
       ...(snap.auditoria && typeof snap.auditoria === 'object' ? snap.auditoria : {}),
