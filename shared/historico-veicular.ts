@@ -100,6 +100,14 @@ export interface HistoricoVeicular {
   consultadoEm: string | null
   /** Why it is not here (failure kind, VIN divergence). Never the VIN nor the answer. */
   motivo?: string | null
+  /**
+   * The paid answer came whole (Cesar, 17/11/2026): the three internal sources
+   * answered and there is at least one owner. false = charged but partial.
+   * Absent on blocks stored before this check. Never goes to the page.
+   */
+  completa?: boolean
+  /** What was missing in a partial answer (faltasDaResposta). Never goes to the page. */
+  faltas?: string[]
   donos?: DonosHistorico | null
   uso?: UsoHistorico | null
   sinistro?: SinistroHistorico | null
@@ -466,20 +474,75 @@ function leilaoDe(d: any, ind: Map<string, Indicador>): LeilaoHistorico {
   return { registros, indicioSinistro, chassiFonte: chassi.length === 17 ? chassi : null }
 }
 
+// ---------------------------------------------------------------- partial answers
+
+// Internal sources of the partner answer (dados.raw_sources): base record,
+// owners and claims. With one of them failing the partner still answers
+// success and charges, with that part empty.
+const FONTES_INTERNAS: [string, string][] = [['e2Success', 'registro'], ['e5Success', 'donos'], ['infosinistrosSuccess', 'sinistros']]
+
+/**
+ * What is missing in a paid answer (Cesar, 17/11/2026). Empty = complete: the
+ * three internal sources are true AND there is at least one owner (every
+ * vehicle has one: 0 owners is a failure even with the owners source true).
+ * A flag that is missing counts as failed. Reads only flags and counts, never
+ * a name or document.
+ */
+export function faltasDaResposta(body: any): string[] {
+  const d = obj(body) && obj(body.dados) ? body.dados : null
+  if (!d) return ['resposta']
+  const fontes = obj(d.raw_sources) ? d.raw_sources : {}
+  const faltas = FONTES_INTERNAS.filter(([k]) => fontes[k] !== true).map(([, nome]) => nome)
+  const p = obj(d.proprietarios) ? d.proprietarios : null
+  const historico = p && Array.isArray(p.historico) ? p.historico.filter(obj).length : 0
+  if (!(Math.max(Number(p?.total) || 0, historico) > 0)) faltas.push('sem donos')
+  return faltas
+}
+
+/**
+ * The vehicle history block of an order is a charged answer that came only in
+ * part. Blocks stored before the check (no `completa`): only "no owners" is
+ * known to be a failure.
+ */
+export function respostaIncompleta(hv: HistoricoVeicular | null | undefined): boolean {
+  if (!obj(hv) || hv.status !== 'ok') return false
+  if (hv.completa === false) return true
+  if (hv.completa === true) return false
+  return !(Number(hv.donos?.total) > 0)
+}
+
+/**
+ * The vehicle history failed for this order, so the auction partner covers
+ * auction and damage (Cesar, 17/11/2026):
+ *  - charged but partial answer: right away;
+ *  - no good answer (failed, ceiling, not called): only once the queue gave up
+ *    (job 'esgotado'); while the queue may still try, not yet.
+ * A complete answer, or one for another VIN (a final answer), never.
+ */
+export function historicoPedeReserva(hv: HistoricoVeicular | null | undefined, statusJob: string | null | undefined): boolean {
+  if (obj(hv) && hv.status === 'ok') return respostaIncompleta(hv)
+  if (obj(hv) && hv.status === 'divergente') return false
+  return statusJob === 'esgotado'
+}
+
 // ---------------------------------------------------------------- parser
 
 /**
  * Partner answer -> clean block (status 'ok'). null when the answer is not a
  * success or has no data. Nothing personal comes out: the block is built field
- * by field from what the report shows, never by copying the answer.
+ * by field from what the report shows, never by copying the answer. A partial
+ * answer stays 'ok' (what came is shown) with completa false.
  */
 export function parsearRespostaHistorico(body: any): HistoricoVeicular | null {
   if (!obj(body) || body.success !== true || !obj(body.dados)) return null
   const d = body.dados
   const ind = lerIndicadores(d)
+  const faltas = faltasDaResposta(body)
   return {
     status: 'ok',
     consultadoEm: null,
+    completa: faltas.length === 0,
+    ...(faltas.length ? { faltas } : {}),
     donos: donosDe(d),
     uso: usoDe(d, ind),
     sinistro: sinistroDe(d, ind),

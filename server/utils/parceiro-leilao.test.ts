@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import REAL from './__fixtures__/parceiro-leilao-real.json'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
+import { avisarLeilaoTardio } from './aviso-leilao'
 import {
   complementarLeilaoParceiro, rodarJobParceiro, cfgParceiro, inicioDoDiaBrasilia, ehSaldoOuLimite,
   _limparTokenParceiro, _limparAlertaTeto, FONTE_CUSTO_PARCEIRO, FONTE_CACHE_PARCEIRO, type Http,
+  leilaoParceiroComoReserva, jobParceiroDeveRodar,
 } from './parceiro-leilao'
 
 // Regras do Cesar (20/out/2026): so Completa, so com a nossa base vazia, teto
@@ -245,5 +247,159 @@ describe('cobranca unica por pedido (21/out/2026, BCK2C28 cobrado 2x)', () => {
     const dup = linhas().find((l) => /COBRANCA DUPLICADA/.test(l.motivo_erro || ''))
     expect(dup).toMatchObject({ cobrada: false, preco_centavos: 600 })
     expect(alertar.mock.calls.some((c: any) => /COBRANCA DUPLICADA/.test(c[0]))).toBe(true)
+  })
+})
+
+// Cesar, 17/11/2026: with the vehicle history partner on, this source runs only
+// as its fallback, for an order where it failed, under the same rules.
+describe('fallback of the vehicle history partner', () => {
+  const cfgHist = (x: any = {}) => cfg({ parceiroHistoricoLigado: 'on', parceiroHistoricoKey: 'k', ...x })
+  const pagas = () => chamadas.filter((u) => !u.endsWith('/login')).length
+  let avisos: any[]
+  const avisarLeilao = async (_sb: any, id: string, antes: any, depois: any) => { avisos.push({ id, antes, depois }) }
+  const comPedido = (x: any = {}, snap: any = {}) => {
+    sb.tab('pedidos_premium').push({ id: 'p1', placa: 'ABC1D23', plano: 'completa', status: 'entregue', ...x, relatorio_snapshot: { consulta: { response: { chassi: CHASSI } }, historicoLeilao: vazio(), multas: { status: 'ok' }, ...snap } })
+  }
+  const snapP1 = () => sb.tab('pedidos_premium').find((p) => p.id === 'p1')!.relatorio_snapshot
+  beforeEach(() => { avisos = [] })
+
+  it('vehicle history on: no call without the fallback flag; with it, the same rules and the state marked', async () => {
+    const http = httpCom(() => resp(200, REAL))
+    expect(cfgHist().historicoLigado).toBe(true)
+    const sem = await complementarLeilaoParceiro(pedido(), vazio(), { chassi: CHASSI }, deps(http, { cfg: cfgHist() }))
+    expect(sem.parceiro).toBeUndefined()
+    expect(chamadas).toHaveLength(0)
+    const com = await complementarLeilaoParceiro(pedido(), vazio(), { chassi: CHASSI }, deps(http, { cfg: cfgHist(), reservaDoHistorico: true }))
+    expect(com.parceiro).toMatchObject({ status: 'ok', reserva: true })
+    expect(custos()).toEqual([expect.objectContaining({ fonte: FONTE_CUSTO_PARCEIRO, preco: 6 })])
+    // Same rules as before: Basica, something in our base or our base down = no call.
+    chamadas = []
+    expect((await complementarLeilaoParceiro({ ...pedido('p2'), plano: 'basica' }, vazio(), {}, deps(http, { cfg: cfgHist(), reservaDoHistorico: true }))).parceiro).toBeUndefined()
+    expect(await complementarLeilaoParceiro(pedido('p2'), null, {}, deps(http, { cfg: cfgHist(), reservaDoHistorico: true }))).toBeNull()
+    const comAlgo = { ...vazio(), passagens: [{ nivel: 'possivel' }] }
+    expect(await complementarLeilaoParceiro(pedido('p2'), comAlgo, {}, deps(http, { cfg: cfgHist(), reservaDoHistorico: true }))).toBe(comAlgo)
+    expect(chamadas).toHaveLength(0)
+    // Failure and ceiling are marked too (the retry job takes only these).
+    const falha = await complementarLeilaoParceiro({ ...pedido('p3'), placa: 'QWE1R23' }, vazio(), {}, deps(httpCom(() => resp(503, 'fora')), { cfg: cfgHist(), reservaDoHistorico: true }))
+    expect(falha.parceiro).toMatchObject({ status: 'falhou', reserva: true })
+  })
+
+  it('leilaoParceiroComoReserva: one call, only historicoLeilao written, the customer told once', async () => {
+    comPedido()
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(httpCom(() => resp(200, REAL)), { cfg: cfgHist(), avisarLeilao }))).toBe('ok')
+    expect(snapP1().historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
+    expect(snapP1().multas).toEqual({ status: 'ok' })
+    expect(pagas()).toBe(1)
+    expect(linhas()[0]).toMatchObject({ pedido_id: 'p1', cobrada: true, tipo_parametro: 'placa' })
+    expect(avisos).toHaveLength(1)
+    expect(avisos[0].antes.passagens).toHaveLength(0)
+    expect(avisos[0].depois.sinistro_parceiro.indicio).toBe(true)
+    // Already tried for this order: the retry belongs to the job; no second call nor notice.
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(httpCom(() => resp(200, REAL)), { cfg: cfgHist(), avisarLeilao }))).toBe('pulado')
+    expect(pagas()).toBe(1)
+    expect(avisos).toHaveLength(1)
+  })
+
+  it('leilaoParceiroComoReserva: nothing found after the delivery = no notice; failed call = state for the job', async () => {
+    const limpo = { ...REAL, resultados: { leilao: { temRegistro: false, leiloes: [] }, sinistro: { indicioDeSinistro: 0, mensagemSinistro: 'NADA CONSTA' } } }
+    comPedido()
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(httpCom(() => resp(200, limpo)), { cfg: cfgHist(), avisarLeilao }))).toBe('ok')
+    expect(avisos).toHaveLength(1)
+    expect(avisos[0].depois.passagens).toHaveLength(0)
+    expect(avisos[0].depois.sinistro_parceiro.indicio).toBe(false)
+    sb = supabaseMemoria()
+    comPedido()
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(httpCom(() => resp(503, 'fora')), { cfg: cfgHist(), avisarLeilao }))).toBe('falhou')
+    expect(snapP1().historicoLeilao.parceiro).toMatchObject({ status: 'falhou', reserva: true })
+  })
+
+  it('leilaoParceiroComoReserva skips: Basica, something in our base, our base down, no snapshot, switch off', async () => {
+    const http = httpCom(() => resp(200, REAL))
+    comPedido({ plano: 'basica' })
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(http, { cfg: cfgHist() }))).toBe('pulado')
+    sb = supabaseMemoria(); comPedido({}, { historicoLeilao: { ...vazio(), passagens: [{ nivel: 'provavel' }] } })
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(http, { cfg: cfgHist() }))).toBe('pulado')
+    sb = supabaseMemoria(); comPedido({}, { historicoLeilao: null })
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(http, { cfg: cfgHist() }))).toBe('pulado')
+    sb = supabaseMemoria()
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(http, { cfg: cfgHist() }))).toBe('pulado')
+    sb = supabaseMemoria(); comPedido()
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(http, { cfg: cfgHist({ parceiroLeilaoLigado: '' }) }))).toBe('pulado')
+    expect(chamadas).toHaveLength(0)
+  })
+
+  it('the job and the plugin run with the vehicle history on, only for orders in fallback', async () => {
+    expect(jobParceiroDeveRodar(cfgHist())).toBe(true)
+    expect(jobParceiroDeveRodar(cfg())).toBe(true)
+    expect(jobParceiroDeveRodar(cfgHist({ parceiroLeilaoLigado: '' }))).toBe(false)
+    const salvos: any[] = []
+    const pedidos = [
+      { id: 'outro', placa: 'XYZ9A99', plano: 'completa', chassi: null, historicoLeilao: { ...vazio(), parceiro: { status: 'falhou' } } },
+      { id: 'reserva', placa: 'ABC1D23', plano: 'completa', chassi: null, historicoLeilao: { ...vazio(), parceiro: { status: 'falhou', reserva: true } } },
+    ]
+    const fake: any = {
+      ...sb,
+      rpc: async () => ({ data: true, error: null }),
+      from: (t: string) => {
+        if (t !== 'pedidos_premium') return sb.from(t)
+        const q: any = {
+          select: () => q, eq: () => q, gte: () => q, in: () => q, order: () => q,
+          limit: async () => ({ data: pedidos, error: null }),
+          update: (u: any) => ({ eq: async (_c: string, id: string) => { salvos.push({ id, ...u }); return { error: null } } }),
+          maybeSingle: async () => ({ data: { relatorio_snapshot: { consulta: {}, historicoLeilao: pedidos[1].historicoLeilao } } }),
+        }
+        return q
+      },
+    }
+    const r = await rodarJobParceiro({ sb: fake, cfg: cfgHist(), http: httpCom((p) => { expect(p).toBe('ABC1D23'); return resp(200, REAL) }), alertar, agora: AGORA, log: () => {}, dono: 'c1', avisarLeilao })
+    expect(r).toMatchObject({ rodou: true, vistos: 1, completados: 1 })
+    expect(salvos.map((x) => x.id)).toEqual(['reserva'])
+    expect(salvos[0].relatorio_snapshot.historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
+    expect(avisos).toHaveLength(1)
+    // Vehicle history off: the old behavior, every failed order.
+    salvos.length = 0
+    _limparTokenParceiro()
+    await rodarJobParceiro({ sb: fake, cfg: cfg(), http: httpCom(() => resp(200, REAL)), alertar, agora: AGORA, log: () => {}, dono: 'c1', avisarLeilao })
+    expect(salvos.map((x) => x.id)).toEqual(['outro', 'reserva'])
+  })
+
+  it('e-mail: ONE late notice when the fallback finds an auction or damage after the delivery; none when it finds nothing', async () => {
+    const enviados: any[] = []
+    const avisarReal = (s: any, id: string, a: any, d: any) => avisarLeilaoTardio(s, id, a, d, { enviar: async (m: any) => { enviados.push(m); return true }, ligado: true, log: () => {} })
+    comPedido({ email: 'c@x.com', token_entrega: 'TOK' })
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(httpCom(() => resp(200, REAL)), { cfg: cfgHist(), avisarLeilao: avisarReal }))).toBe('ok')
+    expect(enviados).toHaveLength(1)
+    expect(enviados[0]).toMatchObject({ email: 'c@x.com', token: 'TOK' })
+    expect(sb.tab('pedidos_premium')[0].aviso_leilao_em).toBeTruthy()
+    // Any later change (job retry, lazy fill, a second fallback): already told, no second e-mail.
+    expect(await avisarReal(sb, 'p1', vazio(), snapP1().historicoLeilao)).toBe('ja_avisado')
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(httpCom(() => resp(200, REAL)), { cfg: cfgHist(), avisarLeilao: avisarReal }))).toBe('pulado')
+    expect(enviados).toHaveLength(1)
+    // Nothing found by the fallback: no e-mail at all.
+    sb = supabaseMemoria()
+    comPedido({ email: 'c@x.com', token_entrega: 'TOK', placa: 'QWE1R23' })
+    const limpo = { ...REAL, resultados: { leilao: { temRegistro: false, leiloes: [] }, sinistro: { indicioDeSinistro: 0, mensagemSinistro: 'NADA CONSTA' } } }
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(httpCom(() => resp(200, limpo)), { cfg: cfgHist(), avisarLeilao: avisarReal }))).toBe('ok')
+    expect(enviados).toHaveLength(1)
+    expect(sb.tab('pedidos_premium')[0].aviso_leilao_em ?? null).toBeNull()
+  })
+
+  it('job safety net: a vehicle history job the queue just gave up on gets its fallback once', async () => {
+    comPedido()
+    sb.tab('premium_jobs').push({ id: 'j1', pedido_id: 'p1', fonte: 'historico_veicular', status: 'esgotado', concluido_em: new Date(AGORA - 10 * 60_000).toISOString() })
+    sb.tab('premium_jobs').push({ id: 'j2', pedido_id: 'velho', fonte: 'historico_veicular', status: 'esgotado', concluido_em: new Date(AGORA - 3 * 3600_000).toISOString() })
+    const http = httpCom(() => resp(200, REAL))
+    const r = await rodarJobParceiro({ sb, cfg: cfgHist(), http, alertar, agora: AGORA, log: () => {}, dono: 'c1', avisarLeilao })
+    expect(r).toMatchObject({ rodou: true, vistos: 1, completados: 1 })
+    expect(snapP1().historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
+    expect(pagas()).toBe(1)
+    // Next round: already tried, nothing else.
+    await rodarJobParceiro({ sb, cfg: cfgHist(), http, alertar, agora: AGORA, log: () => {}, dono: 'c1', avisarLeilao })
+    expect(pagas()).toBe(1)
+    expect(avisos).toHaveLength(1)
+    // Vehicle history off: no safety net needed (the source runs in the generation).
+    sb = supabaseMemoria(); comPedido(); sb.tab('premium_jobs').push({ id: 'j1', pedido_id: 'p1', fonte: 'historico_veicular', status: 'esgotado', concluido_em: new Date(AGORA).toISOString() })
+    await rodarJobParceiro({ sb, cfg: cfg(), http, alertar, agora: AGORA, log: () => {}, dono: 'c1', avisarLeilao })
+    expect(pagas()).toBe(1)
   })
 })

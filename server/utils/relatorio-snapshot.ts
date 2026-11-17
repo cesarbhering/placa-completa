@@ -1,6 +1,7 @@
 import { complementarLeilaoParceiro, cfgParceiro } from './parceiro-leilao'
-import { historicoProntoParaSnapshot } from './parceiro-historico'
+import { historicoProntoParaSnapshot, historicoFalhouNoPedido } from './parceiro-historico'
 import type { HistoricoVeicular } from '../../shared/historico-veicular'
+import { nossaBaseVazia } from '../../shared/fonte-parceira'
 import { filtrarPorPlano, camposRestantes, fonteNoPlano } from '../../shared/planos'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { consultarPlacaWdapi, motorDoPayload } from './placa-lookup'
@@ -199,6 +200,14 @@ export async function montarRelatorioSnapshot(
     )
   }
 
+  // Vehicle history partner: only on the full assembly, only when ready (never
+  // waits nor calls). Read after our auction base, because the auction partner
+  // is its fallback when it failed for this order (Cesar, 17/11/2026).
+  const lerHistoricoVeicular = (): Promise<HistoricoVeicular | null> => !apenas && fonteNoPlano('historico_veicular', pedido.plano)
+    ? historicoProntoParaSnapshot(supabase, { id: pedido.id ?? null, placa: pedido.placa, chassi: senatranBruto?.chassi ?? null })
+    : Promise.resolve(null)
+  let historicoVeicular: HistoricoVeicular | null = null
+
   // Historico de passagem por leilao: exclusivo da completa, pela mesma regra
   // de produto do bloco de origem do chassi. Roda so onde o servico esta
   // configurado (hoje, homolog); em prod a env nao existe e a consulta nem
@@ -229,11 +238,18 @@ export async function montarRelatorioSnapshot(
     }, { cache: true, renovar: !!opcoes?.renovarLeilao }).catch(() => null)   // Relatorio 2.0: cache 30 d por placa+chassi
     // Base parceira de leiloes e sinistros (20/out/2026): so quando a nossa
     // base veio vazia. Fail-open; regra e protecoes em server/utils/parceiro-leilao.ts.
+    // With the vehicle history partner on, only as its fallback: its answer
+    // here came partial, or the queue gave up (the stored block and the job
+    // when this is a refill of the auction section only).
+    historicoVeicular = await lerHistoricoVeicular()
+    const cfgLeilao = cfgParceiro(useRuntimeConfig())
+    const reservaDoHistorico = !!cfgLeilao.historicoLigado && nossaBaseVazia(historicoLeilao)
+      && await historicoFalhouNoPedido(supabase, pedido.id, apenas ? undefined : historicoVeicular)
     historicoLeilao = await complementarLeilaoParceiro(
       { id: pedido.id ?? null, placa: pedido.placa, plano: pedido.plano },
       historicoLeilao,
       { chassi: senatranBruto?.chassi ?? null },
-      { sb: supabase, cfg: cfgParceiro(useRuntimeConfig()) },
+      { sb: supabase, cfg: cfgLeilao, reservaDoHistorico },
     )
   }
 
@@ -242,11 +258,11 @@ export async function montarRelatorioSnapshot(
   // Mesma ordem da consulta (cache -> PlacaFipe -> wdapi); na pratica e cache,
   // porque o valorCusto acima ja leu a mesma placa.
   const motor = apenas ? undefined : await motorDoPedido()
-  // Vehicle history partner: only on the full assembly, only when ready (checked
-  // last, so a call that finished while the rest was assembled still counts).
-  const historicoVeicular = !apenas && fonteNoPlano('historico_veicular', pedido.plano)
-    ? await historicoProntoParaSnapshot(supabase, { id: pedido.id ?? null, placa: pedido.placa, chassi: senatranBruto?.chassi ?? null })
-    : null
+  // Not ready above (or no auction section here): looked at again last, so a
+  // call that finished while the rest was assembled still counts. A partial
+  // block taken only here gets its fallback right after the delivery
+  // (completarHistoricoVeicular).
+  if (!historicoVeicular) historicoVeicular = await lerHistoricoVeicular()
   return { consulta, camposRestantes: restantes, valorCusto, chassiOrigem, historicoLeilao, segmento, recall: pedido.recall ?? null, multas: pedido.multas ?? null, ...(recallEua ? { recallEua } : {}), ...(motor !== undefined ? { motor } : {}), ...(historicoVeicular ? { historicoVeicular } : {}) }
 }
 

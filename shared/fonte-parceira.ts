@@ -30,6 +30,12 @@ export interface EstadoParceiro {
   consultado_em?: string | null
   /** O job de complemento ja tentou de novo (uma vez por pedido). */
   retentado?: boolean
+  /**
+   * Called as the fallback of the vehicle history partner, which failed for
+   * this order (Cesar, 17/11/2026). With that partner on, the retry job only
+   * takes orders marked so.
+   */
+  reserva?: boolean
 }
 
 export interface LeilaoParceiro {

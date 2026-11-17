@@ -11,6 +11,7 @@ import { emVoo } from './tarefas-em-voo'
 import { fonteConcluida, ESPERA_FONTES_MS, type FonteRelatorio } from '../../shared/fontes-relatorio'
 import { completarHistoricoVeicular } from './parceiro-historico'
 import { cfgHistorico } from './parceiro-historico-env'
+import { leilaoParceiroComoReserva } from './parceiro-leilao'
 
 // Fila duravel das fontes lentas (Relatorio 2.0, item 7; contrato com o
 // infra, migration 20261014200000_premium_jobs). Na ENTREGA, cada fonte lenta
@@ -77,6 +78,8 @@ async function lerPedido(supabase: any, id: string) {
 export async function executarJob(supabase: any, job: { id: string; pedido_id: string; fonte: string; tentativas?: number | null; max_tentativas?: number | null }, deps: {
   detran?: typeof completarDetran; recall?: typeof completarRecall; montadora?: typeof completarRecallMontadora; renajud?: typeof completarRenajud
   historico?: (sb: any, pedido: { id: string; placa: string; plano?: string | null }) => ReturnType<typeof completarHistoricoVeicular>
+  /** Auction partner as the fallback of the vehicle history (tests inject). */
+  reservaLeilao?: (sb: any, pedidoId: string) => Promise<unknown>
 } = {}): Promise<ResultadoJob> {
   try {
     const p = await lerPedido(supabase, job.pedido_id)
@@ -112,7 +115,17 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
       if (r?.pulado === 'desligado' || r?.pulado === 'fora do plano') return { status: 'sem_dado', code: null, erro: String(r.pulado) }
       // Another VIN than the vehicle's: nothing goes to the report, so no "updated" e-mail.
       if (r?.status === 'divergente') return { status: 'sem_dado', code: null, erro: 'chassi da base parceira diferente' }
-      return aposConferir(r?.code ?? null, String(r?.erro || r?.pulado || r?.status || 'historico sem resposta').slice(0, 300))
+      const res = await aposConferir(r?.code ?? null, String(r?.erro || r?.pulado || r?.status || 'historico sem resposta').slice(0, 300))
+      // Last attempt without a good answer (timeout, HTTP error, balance, daily
+      // ceiling): the queue gives up now, so the auction partner covers auction
+      // and damage for this order (Cesar, 17/11/2026). Before the closing check,
+      // so any e-mail of this order already finds it. Earlier attempts do not:
+      // the queue may still bring the answer, and both would be paid.
+      const ultimaTentativa = job.max_tentativas != null && Number(job.tentativas ?? 0) + 1 >= Number(job.max_tentativas)
+      if (res.status === 'falha' && ultimaTentativa) {
+        await (deps.reservaLeilao ?? ((sb: any, id: string) => leilaoParceiroComoReserva(sb, id)))(supabase, p.id).catch(() => {})
+      }
+      return res
     }
     if (fonte === 'recall_montadora') {
       const r: any = await (deps.montadora ?? completarRecallMontadora)(supabase, pedido, response)
@@ -139,18 +152,23 @@ const ROTULO_EMAIL: Record<string, (uf: string | null) => string> = {
  * Pedido sem job aberto e com dado novo trazido pela fila: UM e-mail ao
  * cliente e aviso_completo_em. Sem dado novo (tudo ja tinha chegado ou
  * esgotou sem resultado): nao manda. Nunca lanca.
+ * The vehicle history leaves the list when the auction partner ran as its
+ * fallback and the customer already got the late auction notice from it
+ * (aviso_leilao_em): one e-mail about it, not two.
  */
 export async function verificarFechamento(supabase: any, pedidoId: string, deps: { enviarEmail?: typeof enviarAtualizacaoRelatorio } = {}): Promise<boolean> {
   try {
     const { data: jobs } = await supabase.from('premium_jobs').select('fonte,status,ultimo_code').eq('pedido_id', pedidoId)
     const lista = Array.isArray(jobs) ? jobs : []
     if (!lista.length || lista.some((j: any) => ['pendente', 'rodando'].includes(j.status))) return false
-    const novos = lista.filter((j: any) => j.status === 'ok' && Number(j.ultimo_code) === 200)
+    let novos = lista.filter((j: any) => j.status === 'ok' && Number(j.ultimo_code) === 200)
     if (!novos.length) return false
     const p = await lerPedido(supabase, pedidoId)
     if (!p) return false
-    const { data: aviso } = await supabase.from('pedidos_premium').select('aviso_completo_em').eq('id', pedidoId).maybeSingle()
+    const { data: aviso } = await supabase.from('pedidos_premium').select('aviso_completo_em,aviso_leilao_em').eq('id', pedidoId).maybeSingle()
     if (aviso?.aviso_completo_em) return false
+    if (aviso?.aviso_leilao_em && p.relatorio_snapshot?.historicoLeilao?.parceiro?.reserva === true) novos = novos.filter((j: any) => j.fonte !== 'historico_veicular')
+    if (!novos.length) return false
     const uf = ufDaResposta(p.relatorio_snapshot?.consulta?.response)
     const nomes = novos.map((j: any) => (ROTULO_EMAIL[j.fonte] || (() => j.fonte))(uf))
     const fonte = nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e do ${nomes[nomes.length - 1]}` : nomes[0]
