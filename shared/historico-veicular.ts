@@ -512,6 +512,16 @@ export function respostaIncompleta(hv: HistoricoVeicular | null | undefined): bo
 }
 
 /**
+ * The vehicle history of the order is a complete answer for this vehicle
+ * (block ok, not partial): the auction partner fallback is not needed, or no
+ * longer needed (a lease that expired after a complete answer was stored, a
+ * manual redo that came complete).
+ */
+export function historicoCompleto(hv: HistoricoVeicular | null | undefined): boolean {
+  return obj(hv) && hv.status === 'ok' && !respostaIncompleta(hv)
+}
+
+/**
  * The vehicle history failed for this order, so the auction partner covers
  * auction and damage (Cesar, 17/11/2026):
  *  - charged but partial answer, or an answer for another VIN (nothing of it

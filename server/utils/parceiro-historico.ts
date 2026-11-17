@@ -1,5 +1,5 @@
 import { lerFonteCache, gravarFonteCache, chaveDePlaca } from './fonte-cache'
-import { inicioDoDiaBrasilia, AVISO_PARCEIROS, leilaoParceiroComoReserva, type Http } from './parceiro-leilao'
+import { inicioDoDiaBrasilia, AVISO_PARCEIROS, leilaoParceiroComoReserva, type Http, type DepsParceiro } from './parceiro-leilao'
 import { cfgHistorico, FONTE_CACHE_HISTORICO, FONTE_CUSTO_HISTORICO, type CfgHistorico } from './parceiro-historico-env'
 import { emVoo } from './tarefas-em-voo'
 import { parsearRespostaHistorico, historicoDoVeiculo, historicoPedeReserva, type HistoricoVeicular } from '../../shared/historico-veicular'
@@ -542,6 +542,29 @@ export async function historicoFalhouNoPedido(sb: any, pedidoId: string | null |
     const { data: job } = await sb.from('premium_jobs').select('status').eq('pedido_id', pedidoId).eq('fonte', 'historico_veicular').maybeSingle()
     return historicoPedeReserva(hv, job?.status ?? null)
   } catch { return false }
+}
+
+/**
+ * Operator route (POST /api/premium/historico-veicular/rodar): the same path
+ * as the delivery, also with the switch off, retrying a failed call. When the
+ * answer fails the order, the auction partner fallback runs too (at most one
+ * charge, its usual rules), but it never e-mails the customer: a notice from a
+ * manual run only goes out with a text Cesar approved (17/11/2026).
+ * `leilao` is for tests (the auction partner client).
+ */
+export function completarHistoricoVeicularOperador(
+  sb: any,
+  pedido: { id: string; placa: string; plano?: string | null },
+  cfg: CfgHistorico,
+  extra: { leilao?: Partial<Omit<DepsParceiro, 'sb' | 'avisarLeilao'>>; historico?: Partial<DepsHistorico> } = {},
+): Promise<ResultadoHistorico> {
+  return completarHistoricoVeicular(sb, pedido, {
+    ...extra.historico,
+    cfg,
+    ignorarChave: true,
+    retentar: true,
+    reservaLeilao: (s: any, id: string) => leilaoParceiroComoReserva(s, id, { ...extra.leilao, avisarLeilao: async () => 'sem aviso (operador)' }),
+  })
 }
 
 /** Right after the delivery: loose, never holds nor breaks the delivery. */

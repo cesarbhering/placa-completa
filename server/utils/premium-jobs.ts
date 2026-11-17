@@ -12,6 +12,7 @@ import { fonteConcluida, ESPERA_FONTES_MS, type FonteRelatorio } from '../../sha
 import { completarHistoricoVeicular } from './parceiro-historico'
 import { cfgHistorico } from './parceiro-historico-env'
 import { leilaoParceiroComoReserva } from './parceiro-leilao'
+import { historicoPedeReserva } from '../../shared/historico-veicular'
 
 // Fila duravel das fontes lentas (Relatorio 2.0, item 7; contrato com o
 // infra, migration 20261014200000_premium_jobs). Na ENTREGA, cada fonte lenta
@@ -87,7 +88,21 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
     const fonte = job.fonte as FonteRelatorio
     if (!['detran', 'recall', 'recall_montadora', 'renajud', 'historico_veicular'].includes(fonte)) return { status: 'falha', code: null, erro: 'fonte sem executor' }
     if (!fonteNoPlano(fonte, p.plano)) return { status: 'sem_dado', code: null, erro: 'fonte fora do plano' }
-    if (fonteConcluida(fonte, p.relatorio_snapshot)) return { status: 'ok', code: 0 }
+    const reservaLeilao = deps.reservaLeilao ?? ((sb: any, id: string) => leilaoParceiroComoReserva(sb, id))
+    if (fonteConcluida(fonte, p.relatorio_snapshot)) {
+      // Vehicle history concluded with a final answer that failed the order
+      // (partial, or for another VIN) and the auction partner never ran for it:
+      // the step after the delivery did not finish (a read that failed, the
+      // container went down). The queue covers it now (17/11/2026), once:
+      // leilaoParceiroComoReserva only calls when the order has no partner state.
+      // A read that failed again makes the queue try once more.
+      const snap = p.relatorio_snapshot
+      if (fonte === 'historico_veicular' && historicoPedeReserva(snap.historicoVeicular, null) && !snap.historicoLeilao?.parceiro) {
+        const r = await reservaLeilao(supabase, p.id)
+        if (r === 'erro') return { status: 'falha', code: null, erro: 'reserva da base de leilao sem leitura do pedido' }
+      }
+      return { status: 'ok', code: 0 }
+    }
     const response = p.relatorio_snapshot?.consulta?.response
     const pedido = { id: p.id, placa: p.placa }
     const aposConferir = async (code: number | null, erro: string): Promise<ResultadoJob> => {
@@ -124,9 +139,7 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
       // so any e-mail of this order already finds it. Earlier attempts do not:
       // the queue may still bring the answer, and both would be paid.
       const ultimaTentativa = job.max_tentativas != null && Number(job.tentativas ?? 0) + 1 >= Number(job.max_tentativas)
-      if (res.status === 'falha' && ultimaTentativa) {
-        await (deps.reservaLeilao ?? ((sb: any, id: string) => leilaoParceiroComoReserva(sb, id)))(supabase, p.id).catch(() => {})
-      }
+      if (res.status === 'falha' && ultimaTentativa) await reservaLeilao(supabase, p.id)
       return res
     }
     if (fonte === 'recall_montadora') {

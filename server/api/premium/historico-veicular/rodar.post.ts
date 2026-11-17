@@ -1,5 +1,5 @@
 import { assertAdminSecret } from '../../../utils/admin-secret'
-import { completarHistoricoVeicular } from '../../../utils/parceiro-historico'
+import { completarHistoricoVeicularOperador } from '../../../utils/parceiro-historico'
 import { cfgHistorico } from '../../../utils/parceiro-historico-env'
 import { fonteNoPlano } from '../../../../shared/planos'
 
@@ -7,8 +7,10 @@ import { fonteNoPlano } from '../../../../shared/planos'
 // partner for ONE delivered Completa order, even with
 // NUXT_PARCEIRO_HISTORICO_LIGADO off, to test the source before turning it on.
 // Needs NUXT_PARCEIRO_HISTORICO_KEY. Same path as the delivery: valid cache
-// neither calls nor pays, one charge per order, daily ceiling. No e-mail to
-// the customer. The answer carries counts only, never personal data.
+// neither calls nor pays, one charge per order, daily ceiling. When the
+// answer fails the order (partial, another VIN), the auction partner fallback
+// runs as well, under its own rules. No e-mail to the customer, from either.
+// The answer carries counts only, never personal data.
 //   POST { "token": "<token_entrega>" }  or  { "pedido_id": "<uuid>" }
 export default defineEventHandler(async (event) => {
   assertAdminSecret(event)
@@ -27,7 +29,7 @@ export default defineEventHandler(async (event) => {
   const cfg = cfgHistorico(useRuntimeConfig())
   if (!cfg.chave) throw createError({ statusCode: 503, message: 'sem a chave da fonte' })
 
-  const r = await completarHistoricoVeicular(supabase, { id: p.id, placa: p.placa, plano: p.plano }, { cfg, ignorarChave: true, retentar: true })
+  const r = await completarHistoricoVeicularOperador(supabase, { id: p.id, placa: p.placa, plano: p.plano }, cfg)
   const b = r.bloco
   return {
     ok: r.ok,

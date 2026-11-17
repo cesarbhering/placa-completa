@@ -10,6 +10,7 @@ import { MOTIVO_CHASSI_DIVERGENTE, parsearRespostaHistorico as parsearHistorico,
 import { situacaoDasFontes } from '../../shared/fontes-relatorio'
 import { FONTE_CACHE_HISTORICO, FONTE_CUSTO_HISTORICO, cfgHistorico } from './parceiro-historico-env'
 import { complementarLeilaoParceiro, rodarJobParceiro, cfgParceiro, inicioDoDiaBrasilia, _limparTokenParceiro, leilaoParceiroComoReserva, type Http } from './parceiro-leilao'
+import { avisarLeilaoTardio } from './aviso-leilao'
 import { pararDeAceitar, _resetarEmVoo } from './tarefas-em-voo'
 
 // Vehicle history partner (Cesar, 13/11/2026): Completa only, behind its own
@@ -533,21 +534,28 @@ describe('auction partner as the fallback of the vehicle history', () => {
   const cfgLeilao = () => cfgParceiro({ parceiroLeilaoLigado: 'on', parceiroLeilaoUser: 'u', parceiroLeilaoPass: 'p', parceiroHistoricoLigado: 'on', parceiroHistoricoKey: 'k' }, {})
   let leilaoChamadas: string[]
   let avisos: any[]
+  let enviados: any[]
   const httpLeilao: Http = async (url) => {
     leilaoChamadas.push(url)
     if (url.endsWith('/api/Auth/login')) return resp(200, { token: 'jwt' }) as any
     return resp(200, LEILAO_REAL) as any
   }
-  const depsLeilao = () => ({ cfg: cfgLeilao(), http: httpLeilao, alertar, agora: AGORA, log: () => {}, esperar: async () => {}, avisarLeilao: async (_sb: any, id: string, antes: any, depois: any) => { avisos.push({ id, antes, depois }) } })
+  // The real notifier (aviso_leilao_em guard, page views compared), with the
+  // sender injected: avisos = the notifier ran, enviados = an e-mail went out.
+  const avisarLeilao = async (s: any, id: string, antes: any, depois: any) => {
+    avisos.push({ id, antes, depois })
+    return avisarLeilaoTardio(s, id, antes, depois, { enviar: async (m: any) => { enviados.push(m); return true }, ligado: true, log: () => {} })
+  }
+  const depsLeilao = () => ({ cfg: cfgLeilao(), http: httpLeilao, alertar, agora: AGORA, log: () => {}, esperar: async () => {}, avisarLeilao })
   // The real fallback (auction partner client) wired into the vehicle history step.
   const reservaLeilao = (s: any, id: string) => leilaoParceiroComoReserva(s, id, depsLeilao())
   const comPedidoCompleto = (id: string, x: any = {}) => {
     const linha = sb.tab('pedidos_premium').find((p) => p.id === id)!
-    Object.assign(linha, { placa: PLACA, plano: 'completa', status: 'entregue' })
+    Object.assign(linha, { placa: PLACA, plano: 'completa', status: 'entregue', email: 'c@x.com', token_entrega: 'TOK' })
     linha.relatorio_snapshot = { consulta: { response: { chassi: '9XXHV00000X000001' } }, historicoLeilao: vazio(), ...x }
   }
   const cobradasLeilao = () => sb.tab('parceiro_leilao_chamadas').filter((l) => l.cobrada)
-  beforeEach(() => { leilaoChamadas = []; avisos = []; _limparTokenParceiro(); comPedidoCompleto('p1'); comPedidoCompleto('p2') })
+  beforeEach(() => { leilaoChamadas = []; avisos = []; enviados = []; _limparTokenParceiro(); comPedidoCompleto('p1'); comPedidoCompleto('p2') })
 
   it('complete answer: cached as complete, the auction partner is NOT called', async () => {
     const r = await completarHistoricoVeicular(sb, pedido(), deps(ok(), { reservaLeilao }))
@@ -569,9 +577,11 @@ describe('auction partner as the fallback of the vehicle history', () => {
     expect(snap().historicoLeilao.sinistro_parceiro.indicio).toBe(true)
     expect(snap().historicoVeicular.completa).toBe(false)
     expect(snap().consulta).toEqual({ response: { chassi: '9XXHV00000X000001' } })
-    // The customer is told once (auction and damage sign after the delivery).
+    // The notifier ran once, but no e-mail: the page already showed the
+    // auction and the damage sign from the partial answer (item 4 of review 1).
     expect(avisos).toHaveLength(1)
     expect(avisos[0].id).toBe('p1')
+    expect(enviados).toHaveLength(0)
     const pagas = leilaoChamadas.filter((u) => !u.endsWith('/login')).length
     expect(pagas).toBe(1)
 
@@ -600,7 +610,10 @@ describe('auction partner as the fallback of the vehicle history', () => {
     expect(cobradasLeilao()).toHaveLength(1)
     expect(snap().historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
     expect(snap().historicoLeilao.sinistro_parceiro.indicio).toBe(true)
+    // Nothing of the other-VIN answer was on the page: the auction is news, ONE e-mail.
     expect(avisos).toHaveLength(1)
+    expect(enviados).toHaveLength(1)
+    expect(enviados[0]).toMatchObject({ email: 'c@x.com', token: 'TOK' })
     // The page shows the auction partner part (the other-VIN answer adds nothing).
     const tela = historicoLeilaoComHistorico(snap().historicoLeilao, snap().historicoVeicular, { chassi: outroChassi })
     expect(tela.passagens.length).toBeGreaterThan(0)
@@ -615,6 +628,7 @@ describe('auction partner as the fallback of the vehicle history', () => {
     expect(leilaoChamadas.filter((u) => !u.endsWith('/login')).length).toBe(1)
     expect(cobradasLeilao()).toHaveLength(1)
     expect(avisos).toHaveLength(1)
+    expect(enviados).toHaveLength(1)
     expect(chamadas).toHaveLength(1)
   })
 
