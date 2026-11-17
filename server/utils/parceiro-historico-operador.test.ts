@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import REAL from './__fixtures__/parceiro-leilao-real.json'
 import SEM from './__fixtures__/parceiro-historico-sem-registros.json'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
+import { pedidosComCaminhos } from '../../tests/helpers/supabase-caminhos'
 
 // Customer e-mails of the late auction notice, captured (the real notifier runs).
 const { enviados } = vi.hoisted(() => ({ enviados: [] as any[] }))
@@ -13,7 +14,7 @@ vi.mock('./premium-email', async (importOriginal) => ({
 
 import { completarHistoricoVeicular, completarHistoricoVeicularOperador } from './parceiro-historico'
 import { cfgHistorico } from './parceiro-historico-env'
-import { _limparTokenParceiro } from './parceiro-leilao'
+import { _limparTokenParceiro, _limparAlertaTeto, rodarJobParceiro, cfgParceiro } from './parceiro-leilao'
 import { parsearRespostaHistorico } from '../../shared/historico-veicular'
 
 // Review 1 of PR #758, item 2: the operator route
@@ -26,6 +27,8 @@ const PEDIDO = { id: 'p1', placa: 'TST2B34', plano: 'completa' }
 const vazio = () => ({ resumo: { tem_indicio: false, nivel_max: null, n_confirmado: 0, n_provavel: 0, n_possivel: 0, possiveis_ambiguos: 0, fontes_com_passagem: [] }, passagens: [], indice_atualizado_em: null, aviso: null })
 
 let chamadas: string[]
+/** The auction partner answers 503 while this is on. */
+let foraDoAr = false
 const pagas = () => chamadas.filter((u) => !u.endsWith('/api/Auth/login')).length
 
 /** An order whose stored vehicle history is partial and shows no auction: what the auction partner finds is news. */
@@ -34,7 +37,7 @@ function pedidoComParcial() {
   r.dados.raw_sources.e5Success = false
   const sb = supabaseMemoria()
   sb.tab('pedidos_premium').push({
-    ...PEDIDO, status: 'entregue', email: 'c@x.com', token_entrega: 'TOK',
+    ...PEDIDO, status: 'entregue', email: 'c@x.com', token_entrega: 'TOK', entregue_em: new Date(Date.now() - 3600_000).toISOString(),
     relatorio_snapshot: { consulta: { response: { chassi: r.dados.chassi } }, historicoLeilao: vazio(), historicoVeicular: { ...parsearRespostaHistorico(r)!, consultadoEm: '2026-11-17T20:00:00Z' } },
   })
   return sb
@@ -43,14 +46,23 @@ function pedidoComParcial() {
 beforeEach(() => {
   enviados.length = 0
   chamadas = []
+  foraDoAr = false
   _limparTokenParceiro()
+  _limparAlertaTeto()
   vi.stubGlobal('useRuntimeConfig', () => CONFIG)
+  vi.stubGlobal('sendErrorEmail', async () => {})
   vi.stubGlobal('fetch', async (url: string) => {
     chamadas.push(url)
-    const corpo = url.endsWith('/api/Auth/login') ? { token: 'jwt' } : REAL
-    return { status: 200, text: async () => JSON.stringify(corpo) }
+    if (url.endsWith('/api/Auth/login')) return { status: 200, text: async () => JSON.stringify({ token: 'jwt' }) }
+    return foraDoAr ? { status: 503, text: async () => 'fora' } : { status: 200, text: async () => JSON.stringify(REAL) }
   })
 })
+
+/** The regular retry job of the auction partner (plugin, every 15 min), with the default notifier. */
+const retryDoJob = (sb: ReturnType<typeof supabaseMemoria>) => {
+  _limparTokenParceiro()
+  return rodarJobParceiro({ sb: pedidosComCaminhos(sb).fake, cfg: cfgParceiro(CONFIG, {}), agora: Date.now(), log: () => {}, dono: 'c1', alertar: async () => {} })
+}
 afterEach(() => { vi.unstubAllGlobals() })
 
 describe('operator route: auction partner fallback without a customer e-mail', () => {
@@ -76,5 +88,36 @@ describe('operator route: auction partner fallback without a customer e-mail', (
     expect(pagas()).toBe(1)
     expect(sb.tab('parceiro_leilao_chamadas').filter((l) => l.cobrada)).toHaveLength(1)
     expect(enviados).toHaveLength(0)
+  })
+})
+
+// Review 2 of PR #758, B1: the operator run marks its fallback (semAviso), so
+// the regular retry job, 15 min later, writes the data but sends no e-mail.
+describe('operator route: the job retry of its fallback sends no e-mail either', () => {
+  it('operator run, auction partner down, then the retry finds an auction: data written, no e-mail', async () => {
+    const sb = pedidoComParcial()
+    foraDoAr = true
+    await completarHistoricoVeicularOperador(sb, PEDIDO, cfgHistorico(CONFIG))
+    const linha = sb.tab('pedidos_premium')[0]
+    expect(linha.relatorio_snapshot.historicoLeilao.parceiro).toMatchObject({ status: 'falhou', reserva: true, semAviso: true })
+    foraDoAr = false
+    const r = await retryDoJob(sb)
+    expect(r).toMatchObject({ rodou: true, vistos: 1, completados: 1 })
+    expect(linha.relatorio_snapshot.historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true, semAviso: true })
+    expect(linha.relatorio_snapshot.historicoLeilao.passagens.length).toBeGreaterThan(0)
+    expect(sb.tab('parceiro_leilao_chamadas').filter((l) => l.cobrada)).toHaveLength(1)
+    expect(enviados).toHaveLength(0)
+    expect(linha.aviso_leilao_em ?? null).toBeNull()
+  })
+
+  it('control: a regular fallback that failed and is retried by the job does e-mail the customer once', async () => {
+    const sb = pedidoComParcial()
+    foraDoAr = true
+    await completarHistoricoVeicular(sb, PEDIDO, { cfg: cfgHistorico(CONFIG), ignorarChave: true, retentar: true })
+    expect(sb.tab('pedidos_premium')[0].relatorio_snapshot.historicoLeilao.parceiro).toMatchObject({ status: 'falhou', reserva: true })
+    expect(sb.tab('pedidos_premium')[0].relatorio_snapshot.historicoLeilao.parceiro.semAviso).toBeUndefined()
+    foraDoAr = false
+    await retryDoJob(sb)
+    expect(enviados).toHaveLength(1)
   })
 })

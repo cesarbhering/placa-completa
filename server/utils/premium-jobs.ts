@@ -12,7 +12,7 @@ import { fonteConcluida, ESPERA_FONTES_MS, type FonteRelatorio } from '../../sha
 import { completarHistoricoVeicular } from './parceiro-historico'
 import { cfgHistorico } from './parceiro-historico-env'
 import { leilaoParceiroComoReserva } from './parceiro-leilao'
-import { historicoPedeReserva } from '../../shared/historico-veicular'
+import { historicoPedeReserva, historicoCompleto } from '../../shared/historico-veicular'
 
 // Fila duravel das fontes lentas (Relatorio 2.0, item 7; contrato com o
 // infra, migration 20261014200000_premium_jobs). Na ENTREGA, cada fonte lenta
@@ -137,9 +137,10 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
       // ceiling): the queue gives up now, so the auction partner covers auction
       // and damage for this order (Cesar, 17/11/2026). Before the closing check,
       // so any e-mail of this order already finds it. Earlier attempts do not:
-      // the queue may still bring the answer, and both would be paid.
+      // the queue may still bring the answer, and both would be paid. Nor does
+      // a complete answer that only failed to land in the snapshot (review 2).
       const ultimaTentativa = job.max_tentativas != null && Number(job.tentativas ?? 0) + 1 >= Number(job.max_tentativas)
-      if (res.status === 'falha' && ultimaTentativa) await reservaLeilao(supabase, p.id)
+      if (res.status === 'falha' && ultimaTentativa && !historicoCompleto(r?.bloco)) await reservaLeilao(supabase, p.id)
       return res
     }
     if (fonte === 'recall_montadora') {

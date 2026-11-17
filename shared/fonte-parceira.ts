@@ -36,6 +36,12 @@ export interface EstadoParceiro {
    * takes orders marked so.
    */
   reserva?: boolean
+  /**
+   * Started by a manual operator run: the data goes into the report, but no
+   * customer e-mail comes out of this source for the order, not even from the
+   * job's retry (a notice from a manual run only with a text Cesar approved).
+   */
+  semAviso?: boolean
 }
 
 export interface LeilaoParceiro {

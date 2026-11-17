@@ -265,6 +265,11 @@ export interface DepsParceiro {
    * historicoPedeReserva): with it on, this one runs only then, under the same rules.
    */
   reservaDoHistorico?: boolean
+  /**
+   * Manual operator run: the state it leaves carries semAviso, and no customer
+   * e-mail comes out of it, now or in the job's retry.
+   */
+  semAviso?: boolean
   /** Deadline of all the HTTP steps of the order (PRAZO_CHAMADAS_MS; tests inject a short one). */
   prazoTotalMs?: number
 }
@@ -286,8 +291,9 @@ export async function complementarLeilaoParceiro(
   deps: DepsParceiro,
 ): Promise<any> {
   const novo = await complementarSemMarca(pedido, historico, perfil, deps)
-  if (!deps.reservaDoHistorico || novo === historico || !novo?.parceiro) return novo
-  return { ...novo, parceiro: { ...novo.parceiro, reserva: true } }
+  const marca = { ...(deps.reservaDoHistorico ? { reserva: true } : {}), ...(deps.semAviso ? { semAviso: true } : {}) }
+  if (!Object.keys(marca).length || novo === historico || !novo?.parceiro) return novo
+  return { ...novo, parceiro: { ...novo.parceiro, ...marca } }
 }
 
 async function complementarSemMarca(
@@ -521,8 +527,8 @@ export async function leilaoParceiroComoReserva(
     // Auction or damage sign that the page did not show before: tells the
     // customer (once). Both sides as the page shows them (merged with the
     // vehicle history), so a partial answer that already showed it does not
-    // count as new.
-    if (status === 'ok') await (deps.avisarLeilao ?? avisarLeilaoTardio)(sb, p.id, leilaoNaTela(atual.historicoLeilao ?? antes, atual), leilaoNaTela(novo, atual))
+    // count as new. Never for a manual operator run (semAviso).
+    if (status === 'ok' && !novo.parceiro?.semAviso) await (deps.avisarLeilao ?? avisarLeilaoTardio)(sb, p.id, leilaoNaTela(atual.historicoLeilao ?? antes, atual), leilaoNaTela(novo, atual))
     log(`[parceiro-leilao] reserva do historico pedido=${ref}: ${status}`)
     return status
   } catch (e: any) {
@@ -568,7 +574,10 @@ export async function rodarJobParceiro(deps: DepsParceiro & { dono: string }): P
       // that expired after a complete answer was stored, a manual redo): the
       // fallback is no longer needed, so the retry is spent without a call.
       const dispensado = soReserva && historicoCompleto(p.historicoVeicular)
-      const novo = dispensado ? p.historicoLeilao : await complementarLeilaoParceiro({ id: p.id, placa: p.placa, plano: p.plano }, p.historicoLeilao, { chassi: typeof p.chassi === 'string' ? p.chassi : null }, { ...deps, agora, reservaDoHistorico: soReserva })
+      // A fallback started by a manual operator run keeps its mark: the data
+      // goes in, the customer gets no e-mail from it.
+      const semAviso = p.historicoLeilao?.parceiro?.semAviso === true
+      const novo = dispensado ? p.historicoLeilao : await complementarLeilaoParceiro({ id: p.id, placa: p.placa, plano: p.plano }, p.historicoLeilao, { chassi: typeof p.chassi === 'string' ? p.chassi : null }, { ...deps, agora, reservaDoHistorico: soReserva, semAviso })
       const status = dispensado ? null : novo?.parceiro?.status
       if (status === 'teto') break // o teto vale pra todos: para a rodada sem gastar tentativa
       const gravar = status === 'ok' ? novo : { ...p.historicoLeilao, parceiro: { ...(p.historicoLeilao?.parceiro || {}), retentado: true } }
@@ -577,8 +586,9 @@ export async function rodarJobParceiro(deps: DepsParceiro & { dono: string }): P
       if (!atual?.relatorio_snapshot) continue
       await deps.sb.from('pedidos_premium').update({ relatorio_snapshot: { ...atual.relatorio_snapshot, historicoLeilao: gravar } }).eq('id', p.id)
       // Leilao ou sinistro que apareceu depois da entrega: avisa o cliente (uma
-      // vez). Both sides as the page shows them (merged with the vehicle history).
-      if (status === 'ok') await (deps.avisarLeilao ?? avisarLeilaoTardio)(deps.sb, p.id, leilaoNaTela(atual.relatorio_snapshot?.historicoLeilao ?? p.historicoLeilao, atual.relatorio_snapshot), leilaoNaTela(gravar, atual.relatorio_snapshot))
+      // vez). Both sides as the page shows them (merged with the vehicle
+      // history). Never for a fallback started by an operator run (semAviso).
+      if (status === 'ok' && !gravar.parceiro?.semAviso) await (deps.avisarLeilao ?? avisarLeilaoTardio)(deps.sb, p.id, leilaoNaTela(atual.relatorio_snapshot?.historicoLeilao ?? p.historicoLeilao, atual.relatorio_snapshot), leilaoNaTela(gravar, atual.relatorio_snapshot))
       if (status === 'ok') out.completados++
       log(`[parceiro-leilao] job pedido=${p.id}: ${status === 'ok' ? 'completado' : dispensado ? 'historico veio completo (sem chamada)' : 'falhou de novo (nao tenta mais)'}`)
     }

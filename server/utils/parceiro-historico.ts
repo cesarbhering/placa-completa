@@ -548,8 +548,9 @@ export async function historicoFalhouNoPedido(sb: any, pedidoId: string | null |
  * Operator route (POST /api/premium/historico-veicular/rodar): the same path
  * as the delivery, also with the switch off, retrying a failed call. When the
  * answer fails the order, the auction partner fallback runs too (at most one
- * charge, its usual rules), but it never e-mails the customer: a notice from a
- * manual run only goes out with a text Cesar approved (17/11/2026).
+ * charge, its usual rules), but it never e-mails the customer, not now and not
+ * from the job's later retry (parceiro.semAviso): a notice from a manual run
+ * only goes out with a text Cesar approved (17/11/2026).
  * `leilao` is for tests (the auction partner client).
  */
 export function completarHistoricoVeicularOperador(
@@ -563,7 +564,8 @@ export function completarHistoricoVeicularOperador(
     cfg,
     ignorarChave: true,
     retentar: true,
-    reservaLeilao: (s: any, id: string) => leilaoParceiroComoReserva(s, id, { ...extra.leilao, avisarLeilao: async () => 'sem aviso (operador)' }),
+    // semAviso goes into the state, so the job's retry does not e-mail either.
+    reservaLeilao: (s: any, id: string) => leilaoParceiroComoReserva(s, id, { ...extra.leilao, semAviso: true, avisarLeilao: async () => 'sem aviso (operador)' }),
   })
 }
 

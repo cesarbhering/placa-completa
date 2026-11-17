@@ -205,6 +205,20 @@ describe('fila premium_jobs', () => {
     expect(reservaLeilao).toHaveBeenCalledTimes(3)
   })
 
+  it('last attempt with a complete answer that did not land in the snapshot: no paid fallback (review 2, S1)', async () => {
+    const snap = { consulta: { response: RESP } }
+    const reservaLeilao = vi.fn(async () => 'ok')
+    // The vehicle history answered complete, but the snapshot write failed: the closing check does not see it.
+    const completoSemGravar = async () => ({ ok: true, status: 'ok' as const, code: 200, bloco: { status: 'ok', completa: true } as any })
+    const r = await executarJob(sbFalso({ snap }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas: 3, max_tentativas: 4 }, { historico: completoSemGravar, reservaLeilao })
+    expect(r.status).toBe('falha')
+    expect(reservaLeilao).not.toHaveBeenCalled()
+    // A partial answer that did not land: the fallback still runs on the last attempt.
+    const parcialSemGravar = async () => ({ ok: true, status: 'ok' as const, code: 200, bloco: { status: 'ok', completa: false } as any })
+    await executarJob(sbFalso({ snap }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas: 3, max_tentativas: 4 }, { historico: parcialSemGravar, reservaLeilao })
+    expect(reservaLeilao).toHaveBeenCalledOnce()
+  })
+
   it('vehicle history concluded, fallback could not read the order: the job fails so the queue tries again', async () => {
     const parcial = { consulta: { response: RESP }, historicoVeicular: { status: 'ok', completa: false, donos: null }, historicoLeilao: { passagens: [] } }
     const r = await executarJob(sbFalso({ snap: parcial }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao: async () => 'erro' })
