@@ -6,7 +6,7 @@ import {
   completarHistoricoVeicular, chamarHistorico, ehSaldoOuLimiteHistorico, _limparAlertaTetoHistorico, PRECO_RESERVA_CENTAVOS,
   iniciarHistoricoVeicular, historicoProntoParaSnapshot, _limparEmVooHistorico, motivoDaFalha, historicoFalhouNoPedido,
 } from './parceiro-historico'
-import { MOTIVO_CHASSI_DIVERGENTE, parsearRespostaHistorico as parsearHistorico } from '../../shared/historico-veicular'
+import { MOTIVO_CHASSI_DIVERGENTE, parsearRespostaHistorico as parsearHistorico, historicoLeilaoComHistorico } from '../../shared/historico-veicular'
 import { situacaoDasFontes } from '../../shared/fontes-relatorio'
 import { FONTE_CACHE_HISTORICO, FONTE_CUSTO_HISTORICO, cfgHistorico } from './parceiro-historico-env'
 import { complementarLeilaoParceiro, rodarJobParceiro, cfgParceiro, inicioDoDiaBrasilia, _limparTokenParceiro, leilaoParceiroComoReserva, type Http } from './parceiro-leilao'
@@ -588,6 +588,34 @@ describe('auction partner as the fallback of the vehicle history', () => {
     expect(leilaoChamadas.filter((u) => !u.endsWith('/login')).length).toBe(1)
     expect(cobradasLeilao()).toHaveLength(1)
     expect(avisos).toHaveLength(1)
+  })
+
+  it('answer for another VIN: a final failure, the auction partner is called at once (once), like a partial answer', async () => {
+    const outroChassi = '9XXHV00000X999999'
+    comPedidoCompleto('p1', { consulta: { response: { chassi: outroChassi } } })
+    const r = await completarHistoricoVeicular(sb, pedido(), deps(ok(), { reservaLeilao }))
+    expect(r).toMatchObject({ ok: false, status: 'divergente' })
+    // Nothing of the vehicle history goes in, only the reason; the auction partner covers auction and damage.
+    expect(snap().historicoVeicular).toEqual({ status: 'divergente', consultadoEm: '2026-10-02T15:00:00.000Z', motivo: MOTIVO_CHASSI_DIVERGENTE })
+    expect(cobradasLeilao()).toHaveLength(1)
+    expect(snap().historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
+    expect(snap().historicoLeilao.sinistro_parceiro.indicio).toBe(true)
+    expect(avisos).toHaveLength(1)
+    // The page shows the auction partner part (the other-VIN answer adds nothing).
+    const tela = historicoLeilaoComHistorico(snap().historicoLeilao, snap().historicoVeicular, { chassi: outroChassi })
+    expect(tela.passagens.length).toBeGreaterThan(0)
+    expect(tela.sinistro_parceiro.indicio).toBe(true)
+    // Decided from the stored block too (lazy fill), with any queue state.
+    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(true)
+    sb.tab('premium_jobs').push({ id: 'j', pedido_id: 'p1', fonte: 'historico_veicular', status: 'pendente' })
+    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(true)
+    // A second run (step after the delivery, operator, queue): no second call, no second notice.
+    expect(await completarHistoricoVeicular(sb, pedido(), deps(ok(), { reservaLeilao, retentar: true }))).toMatchObject({ pulado: 'ja tem', status: 'divergente' })
+    await rodarJobParceiro({ ...depsLeilao(), sb, dono: 'job' })
+    expect(leilaoChamadas.filter((u) => !u.endsWith('/login')).length).toBe(1)
+    expect(cobradasLeilao()).toHaveLength(1)
+    expect(avisos).toHaveLength(1)
+    expect(chamadas).toHaveLength(1)
   })
 
   it('zero owners with the owners source true is partial too', async () => {

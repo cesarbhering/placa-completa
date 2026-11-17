@@ -2,7 +2,7 @@ import { lerFonteCache, gravarFonteCache, chaveDePlaca } from './fonte-cache'
 import { inicioDoDiaBrasilia, AVISO_PARCEIROS, leilaoParceiroComoReserva, type Http } from './parceiro-leilao'
 import { cfgHistorico, FONTE_CACHE_HISTORICO, FONTE_CUSTO_HISTORICO, type CfgHistorico } from './parceiro-historico-env'
 import { emVoo } from './tarefas-em-voo'
-import { parsearRespostaHistorico, historicoDoVeiculo, respostaIncompleta, historicoPedeReserva, type HistoricoVeicular } from '../../shared/historico-veicular'
+import { parsearRespostaHistorico, historicoDoVeiculo, historicoPedeReserva, type HistoricoVeicular } from '../../shared/historico-veicular'
 import { fonteNoPlano } from '../../shared/planos'
 
 // Vehicle history partner (second partner base), Cesar 13/11/2026: owners,
@@ -28,9 +28,10 @@ import { fonteNoPlano } from '../../shared/planos'
 //    answer goes there (17/11/2026): a partial one stays with its order only,
 //    so the next order of the plate calls again; entries stored before the
 //    check (no completa flag) do not count either;
-//  - partial answer (charged, but an internal source failed or no owner) or no
-//    good answer once the queue gave up: the auction partner is called as the
-//    fallback for that order (parceiro-leilao.ts, leilaoParceiroComoReserva);
+//  - partial answer (charged, but an internal source failed or no owner), an
+//    answer for another VIN, or no good answer once the queue gave up: the
+//    auction partner is called as the fallback for that order
+//    (parceiro-leilao.ts, leilaoParceiroComoReserva);
 //  - one paid call per order and per plate: lock per order AND per plate (two
 //    orders of the same plate never pay twice), a unique index in the table,
 //    and an order that already has a paid row reuses it;
@@ -489,12 +490,14 @@ export async function completarHistoricoVeicular(
   pedido: { id: string; placa: string; plano?: string | null },
   deps: DepsHistorico & { retentar?: boolean; reservaLeilao?: (sb: any, pedidoId: string) => Promise<unknown> },
 ): Promise<ResultadoHistorico> {
-  // Charged but partial answer in the snapshot: the auction partner covers
-  // auction and damage for this order (Cesar, 17/11/2026), before this returns,
-  // so the queue's "updated" e-mail (sent after the job) already finds it.
-  // Idempotent: it only calls when the order never tried that partner.
+  // Final answer that failed this order (charged but partial, or for another
+  // VIN): the auction partner covers auction and damage for it (Cesar,
+  // 17/11/2026), before this returns, so the queue's "updated" e-mail (sent
+  // after the job) already finds it. A failure without an answer waits for
+  // the queue's last attempt (executarJob). Idempotent: it only calls when
+  // the order never tried that partner.
   const reserva = async (bloco: HistoricoVeicular | null | undefined) => {
-    if (!respostaIncompleta(bloco)) return
+    if (!historicoPedeReserva(bloco, null)) return
     await (deps.reservaLeilao ?? ((s: any, id: string) => leilaoParceiroComoReserva(s, id)))(sb, pedido.id).catch(() => {})
   }
   try {
@@ -504,7 +507,7 @@ export async function completarHistoricoVeicular(
     if (!snap) return { ok: false, pulado: 'sem snapshot' }
     const feito = snap.historicoVeicular?.status
     if (feito === 'ok' || feito === 'divergente') {
-      // The snapshot assembly may have taken a partial block that was ready.
+      // The snapshot assembly may have taken a partial (or other VIN) block that was ready.
       await reserva(snap.historicoVeicular)
       return { ok: feito === 'ok', pulado: 'ja tem', status: feito, bloco: snap.historicoVeicular }
     }
@@ -515,8 +518,8 @@ export async function completarHistoricoVeicular(
     // Another VIN than the vehicle's: only the reason goes in (review 1 of PR #752).
     const bloco = historicoDoVeiculo(r.bloco, chassiDoSnapshot(snap))
     if (bloco) await gravarNoSnapshot(sb, pedido.id, bloco)
-    if (bloco?.status === 'divergente') return { ...r, ok: false, status: 'divergente', bloco }
     if (bloco) await reserva(bloco)
+    if (bloco?.status === 'divergente') return { ...r, ok: false, status: 'divergente', bloco }
     return r.status === 'ok' ? { ...r, ok: true } : r
   } catch (e: any) {
     console.warn('[parceiro-historico] completar falhou (relatorio segue):', e?.message || e)
@@ -526,9 +529,10 @@ export async function completarHistoricoVeicular(
 
 /**
  * The vehicle history failed for this order and the auction partner should
- * cover it (historicoPedeReserva): partial answer, or no good answer once the
- * queue gave up. `bloco` is the block the caller already has (the snapshot
- * assembly); without it, the one in the stored snapshot. Never throws (false).
+ * cover it (historicoPedeReserva): partial answer, answer for another VIN, or
+ * no good answer once the queue gave up. `bloco` is the block the caller
+ * already has (the snapshot assembly); without it, the one in the stored
+ * snapshot. Never throws (false).
  */
 export async function historicoFalhouNoPedido(sb: any, pedidoId: string | null | undefined, bloco?: HistoricoVeicular | null): Promise<boolean> {
   if (!pedidoId) return false

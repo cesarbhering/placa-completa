@@ -410,8 +410,8 @@ function chassiDaResposta(r: any): string | null {
 
 /**
  * Fallback of the vehicle history partner for ONE delivered order (Cesar,
- * 17/11/2026): that partner failed for it (charged but partial answer, or the
- * queue gave up), so this one is called under its usual rules (Completa only,
+ * 17/11/2026): that partner failed for it (charged but partial answer, answer
+ * for another VIN, or the queue gave up), so this one is called under its usual rules (Completa only,
  * our base empty, 30-day cache and the paid call of the order reused, lock
  * per order, daily ceiling). Only the first attempt: a failed or capped call
  * is retried once by rodarJobParceiro. Writes only historicoLeilao, reading

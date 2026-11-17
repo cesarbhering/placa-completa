@@ -168,7 +168,8 @@ describe('fila premium_jobs', () => {
     const c = sbFalso({ snap })
     await executarJob(c.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas: 3, max_tentativas: 4 }, { historico: async () => ({ ok: false, status: 'teto' as const, code: null }), reservaLeilao })
     expect(reservaLeilao).toHaveBeenCalledTimes(2)
-    // The last attempt brought it, or the switch is off, or another VIN: no fallback here.
+    // The last attempt brought it, or the switch is off: no fallback. Another
+    // VIN: its fallback runs inside completarHistoricoVeicular, not here.
     const d = sbFalso({ snap, snapDepois: { ...snap, historicoVeicular: { status: 'ok', completa: true } } })
     expect((await executarJob(d.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular', tentativas: 3, max_tentativas: 4 }, { historico: async () => ({ ok: true, status: 'ok' as const, code: 200 }), reservaLeilao })).status).toBe('ok')
     const e = sbFalso({ snap })

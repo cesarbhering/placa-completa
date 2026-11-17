@@ -239,8 +239,8 @@ export async function montarRelatorioSnapshot(
     // Base parceira de leiloes e sinistros (20/out/2026): so quando a nossa
     // base veio vazia. Fail-open; regra e protecoes em server/utils/parceiro-leilao.ts.
     // With the vehicle history partner on, only as its fallback: its answer
-    // here came partial, or the queue gave up (the stored block and the job
-    // when this is a refill of the auction section only).
+    // here came partial or for another VIN, or the queue gave up (the stored
+    // block and the job when this is a refill of the auction section only).
     historicoVeicular = await lerHistoricoVeicular()
     const cfgLeilao = cfgParceiro(useRuntimeConfig())
     const reservaDoHistorico = !!cfgLeilao.historicoLigado && nossaBaseVazia(historicoLeilao)

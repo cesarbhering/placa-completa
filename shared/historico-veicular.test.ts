@@ -482,13 +482,19 @@ describe('partial answer classifier', () => {
     expect(respostaIncompleta(null)).toBe(false)
   })
 
-  it('historicoPedeReserva: partial at once; no good answer only once the queue gave up; never on a complete or other-VIN answer', () => {
+  it('historicoPedeReserva: partial or other-VIN answer at once; no good answer only once the queue gave up; never on a complete answer', () => {
     const parcial = bloco(comFontes({ infosinistrosSuccess: false }))
     const completo = bloco(COM)
     expect(historicoPedeReserva(parcial, null)).toBe(true)
     expect(historicoPedeReserva(parcial, 'pendente')).toBe(true)
     expect(historicoPedeReserva(completo, 'esgotado')).toBe(false)
-    expect(historicoPedeReserva({ status: 'divergente', consultadoEm: null }, 'esgotado')).toBe(false)
+    expect(historicoPedeReserva(completo, null)).toBe(false)
+    // Answer for another VIN: nothing of it is shown (no auction, no damage), and it is final.
+    const divergente = historicoDoVeiculo(bloco(COM), '9XXHV00000X999999')
+    expect(divergente).toMatchObject({ status: 'divergente' })
+    expect(historicoPedeReserva(divergente, null)).toBe(true)
+    expect(historicoPedeReserva(divergente, 'pendente')).toBe(true)
+    expect(historicoPedeReserva(divergente, 'ok')).toBe(true)
     for (const st of ['falhou', 'teto'] as const) {
       const b = { status: st, consultadoEm: null }
       // The queue may still bring it: not yet.

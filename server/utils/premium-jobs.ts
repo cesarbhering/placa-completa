@@ -113,7 +113,9 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
       // when the call started with the paid query failed.
       const r = await (deps.historico ?? ((sb, ped) => completarHistoricoVeicular(sb, ped, { cfg: cfgHistorico(useRuntimeConfig()), retentar: true })))(supabase, { id: p.id, placa: p.placa, plano: p.plano })
       if (r?.pulado === 'desligado' || r?.pulado === 'fora do plano') return { status: 'sem_dado', code: null, erro: String(r.pulado) }
-      // Another VIN than the vehicle's: nothing goes to the report, so no "updated" e-mail.
+      // Another VIN than the vehicle's: nothing goes to the report, so no
+      // "updated" e-mail. Its auction partner fallback already ran inside
+      // completarHistoricoVeicular (a final answer, like a partial one).
       if (r?.status === 'divergente') return { status: 'sem_dado', code: null, erro: 'chassi da base parceira diferente' }
       const res = await aposConferir(r?.code ?? null, String(r?.erro || r?.pulado || r?.status || 'historico sem resposta').slice(0, 300))
       // Last attempt without a good answer (timeout, HTTP error, balance, daily

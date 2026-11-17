@@ -514,14 +514,15 @@ export function respostaIncompleta(hv: HistoricoVeicular | null | undefined): bo
 /**
  * The vehicle history failed for this order, so the auction partner covers
  * auction and damage (Cesar, 17/11/2026):
- *  - charged but partial answer: right away;
+ *  - charged but partial answer, or an answer for another VIN (nothing of it
+ *    is shown, so no auction nor damage from it): right away, both are final;
  *  - no good answer (failed, ceiling, not called): only once the queue gave up
  *    (job 'esgotado'); while the queue may still try, not yet.
- * A complete answer, or one for another VIN (a final answer), never.
+ * A complete answer for this vehicle, never.
  */
 export function historicoPedeReserva(hv: HistoricoVeicular | null | undefined, statusJob: string | null | undefined): boolean {
   if (obj(hv) && hv.status === 'ok') return respostaIncompleta(hv)
-  if (obj(hv) && hv.status === 'divergente') return false
+  if (obj(hv) && hv.status === 'divergente') return true
   return statusJob === 'esgotado'
 }
 
