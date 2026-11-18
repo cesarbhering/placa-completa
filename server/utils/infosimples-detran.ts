@@ -2920,8 +2920,12 @@ export function precisaNadaConstaRj(bloco: any): boolean {
   return bloco.debitos_indisponiveis === true
 }
 
-/** Paga, quitada, cancelada (e afins) sai (regra do Cesar, 14/out). "NAO PAGO" e em aberto. */
-const ENCERRADA_RJ = /\bPAG[AO]S?\b|QUITAD|CANCELAD|DEFERID|BAIXAD|ARQUIVAD|PRESCRIT/
+/**
+ * Paga, quitada, cancelada (e afins) sai (regra do Cesar, 14/out, como a
+ * SITUACAO_ENCERRADA). "NAO PAGO" e em aberto; recurso INdeferido tambem (so o
+ * deferido encerra: o \b no DEFERID, revisao 3 do PR #762).
+ */
+const ENCERRADA_RJ = /\bPAG[AO]S?\b|QUITAD|CANCELAD|\bDEFERID|BAIXAD|ARQUIVAD|PRESCRIT/
 function multaRjEncerrada(x: any): boolean {
   return [x?.status_de_pagamento, x?.situacao].some((v) => ENCERRADA_RJ.test(semAcentoMaiusculo(v).replace(/\bNAO\s+PAG[AO]S?\b/g, ' ')))
 }

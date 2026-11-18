@@ -114,6 +114,8 @@ describe('DETRAN-RJ nada consta parser', () => {
       [{ status_de_pagamento: 'NÃO PAGO' }, 1], [{ status_de_pagamento: 'NAO PAGO' }, 1], [{ status_de_pagamento: '' }, 1],
       [{ status_de_pagamento: 'PAGO' }, 0], [{ status_de_pagamento: 'PAGO COM DESCONTO' }, 0], [{ status_de_pagamento: 'QUITADO' }, 0],
       [{ situacao: 'CANCELADA' }, 0], [{ situacao: 'QUITADA' }, 0], [{ situacao: 'BAIXADA' }, 0],
+      // An appeal granted closes the fine; an appeal refused leaves it open (review 3 of PR #762).
+      [{ situacao: 'RECURSO DEFERIDO' }, 0], [{ situacao: 'RECURSO INDEFERIDO' }, 1], [{ situacao: 'DEFESA PREVIA INDEFERIDA' }, 1],
     ] as const
     for (const [x, n] of casos) expect(parsearNadaConstaRj({ multas: [multaRj(x)] })).toHaveLength(n)
   })
