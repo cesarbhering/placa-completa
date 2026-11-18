@@ -106,11 +106,25 @@ describe('RJ: fines from the nada consta, IPVA not consulted (18/11/2026)', () =
     expect(w.text()).not.toContain('—')
   })
 
-  it('without a total: the notice is the main line, as before, and not repeated as a note', () => {
-    const w = montar(rj({ multas_total_centavos: 0, aviso_debitos: AVISO_IPVA }))
+  it('nada consta without any unpaid fine (or a 612): "Nenhuma multa em aberto no DETRAN-RJ" with the IPVA note, never "Nada a quitar"', () => {
+    const w = montar(rj({ multas_total_centavos: 0, multas_itens: [], multas_fonte: 'detran_rj_nada_consta', aviso_debitos: AVISO_IPVA }))
     expect(w.find('.dq__total').exists()).toBe(false)
-    expect(w.find('.dq__aviso').text()).toBe(AVISO_IPVA)
+    expect(w.find('.dq__tit').text()).toBe('Nenhuma multa em aberto no DETRAN-RJ na data da consulta.')
+    expect(w.find('.dq__nota--aviso').text()).toBe(AVISO_IPVA)
+    expect(w.find('.dq__aviso').exists()).toBe(false)
+    expect(w.text()).not.toContain('Nada a quitar')
+    // The IPVA is unknown: the box is never the green "all clear" one.
+    expect(w.classes()).not.toContain('dq--ok')
+    expect(w.text()).not.toContain('—')
+  })
+
+  it('fines not consulted (no owner document, as before): the notice is the main line, without the fines line', () => {
+    const avisoAntigo = 'Multas e IPVA do RJ não estão disponíveis: o estado exige o documento do proprietário para essa consulta.'
+    const w = montar(rj({ multas_total_centavos: null, multas_itens: [], aviso_debitos: avisoAntigo }))
+    expect(w.find('.dq__total').exists()).toBe(false)
+    expect(w.find('.dq__aviso').text()).toBe(avisoAntigo)
     expect(w.find('.dq__nota--aviso').exists()).toBe(false)
+    expect(w.text()).not.toContain('Nenhuma multa')
     expect(w.text()).not.toContain('Nada a quitar')
   })
 })

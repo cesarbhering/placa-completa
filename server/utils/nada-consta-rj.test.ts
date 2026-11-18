@@ -161,7 +161,7 @@ describe('the nada consta call', () => {
     expect(sb.tab('fonte_cache')).toEqual([expect.objectContaining({ fonte: 'nada_consta_rj', chave: PLACA, status: 'ok', payload: { itens: m.multas_itens } })])
     // The box: what to pay for the fines, never "nada a quitar", and the IPVA notice.
     const r = resumoQuitar({ bloco: m })
-    expect(r).toMatchObject({ totalCentavos: TOTAL_ABERTAS, nadaAQuitar: null, avisoDebitos: AVISO_IPVA_RJ })
+    expect(r).toMatchObject({ totalCentavos: TOTAL_ABERTAS, nadaAQuitar: null, avisoDebitos: AVISO_IPVA_RJ, semMultas: null })
     expect(r.linhas).toEqual([{ rotulo: 'Multas em aberto', centavos: TOTAL_ABERTAS }])
   })
 
@@ -185,6 +185,8 @@ describe('the nada consta call', () => {
     expect(m.nada_consta_pendente).toBeUndefined()
     expect(m.multas_fonte).toBeUndefined()
     expect(sb.tab('premium_custos')).toHaveLength(0)
+    // Fines not consulted: no "Nenhuma multa" line, the old notice stays.
+    expect(resumoQuitar({ bloco: m })).toMatchObject({ semMultas: null, avisoDebitos: AVISO_DEBITOS_RJ })
   })
 
   it('does not fire outside the Completa', async () => {
@@ -203,7 +205,9 @@ describe('the nada consta call', () => {
     expect(await completarNadaConstaRj(sb, 'p1')).toMatchObject({ feito: 'ok' })
     const m = snapDe(sb).multas
     expect(m).toMatchObject({ multas_itens: [], multas_total_centavos: 0, multas_fonte: 'detran_rj_nada_consta', debitos_indisponiveis: true, aviso_debitos: AVISO_IPVA_RJ })
-    expect(resumoQuitar({ bloco: m })).toMatchObject({ totalCentavos: 0, nadaAQuitar: null, avisoDebitos: AVISO_IPVA_RJ })
+    expect(resumoQuitar({ bloco: m })).toMatchObject({
+      totalCentavos: 0, nadaAQuitar: null, avisoDebitos: AVISO_IPVA_RJ, semMultas: 'Nenhuma multa em aberto no DETRAN-RJ na data da consulta.',
+    })
     expect(sb.tab('premium_custos')).toEqual([expect.objectContaining({ fonte: 'infosimples_detran_rj_nada_consta', code: 612, preco: 0.24 })])
   })
 

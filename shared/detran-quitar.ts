@@ -24,6 +24,8 @@ export interface BlocoDetranQuitar {
   /** UF sem consulta de debitos (RJ: exige o documento do dono). Nao e "nada a quitar". */
   debitos_indisponiveis?: boolean | null
   aviso_debitos?: string | null
+  /** RJ: multas vindas do nada consta, com o documento do dono (o IPVA segue de fora). */
+  multas_fonte?: string | null
 }
 
 export interface ResumoQuitar {
@@ -40,6 +42,11 @@ export interface ResumoQuitar {
   ipvaSemValor: string | null
   /** Aviso de debitos nao consultaveis na UF (RJ). */
   avisoDebitos: string | null
+  /**
+   * RJ com as multas consultadas (nada consta) e nenhuma em aberto: so as
+   * multas estao zeradas, o IPVA nao foi consultado (nunca "nada a quitar").
+   */
+  semMultas: string | null
 }
 
 const pos = (v: any) => (Number(v) > 0 ? Math.round(Number(v)) : 0)
@@ -127,6 +134,8 @@ export function resumoQuitar(a: {
         : `Nada a quitar no DETRAN${uf ? '-' + uf : ''} na data da consulta.`,
     ipvaSemValor,
     avisoDebitos: b.debitos_indisponiveis ? (b.aviso_debitos || 'Débitos deste estado não estão disponíveis nesta consulta.') : null,
+    semMultas: b.debitos_indisponiveis && b.multas_fonte && totalCentavos === 0 && multas === 0
+      ? `Nenhuma multa em aberto no DETRAN${uf ? '-' + uf : ''} na data da consulta.` : null,
   }
 }
 
