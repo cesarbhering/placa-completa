@@ -2976,7 +2976,13 @@ export function parsearNadaConstaRj(data: any): DetranMulta[] | null {
   return itens
 }
 
-/** O que a resposta do nada consta vale para o bloco: 612 = nenhuma multa; 200 = as nao pagas; o resto, indisponivel. */
+/**
+ * O que a resposta do nada consta vale para o bloco: 612 = nenhuma multa; 200 =
+ * as nao pagas; o resto, indisponivel. Chamada real de 18/11/2026: com um
+ * documento que nao e do dono, a fonte devolve 608 ("Este CPF/CNPJ nao
+ * corresponde ao do proprietario registrado no cadastro do Detran-RJ"), nao
+ * 612. Dono trocado fica indisponivel, e o 612 segue valendo nenhuma multa.
+ */
 export function itensNadaConstaRj(res: ResultadoDetran): DetranMulta[] | null {
   if (res.code === CODIGO_SEM_DADOS) return []
   return res.code === 200 ? parsearNadaConstaRj(res.data) : null

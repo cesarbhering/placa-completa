@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import RJ from './__fixtures__/infosimples-detran-rj-restricoes.json'
 import {
-  precisaNadaConstaRj, parsearNadaConstaRj, completarNadaConstaRj, completarDetran, CONSULTAS_COM_DOCUMENTO, consultaComDocumentoVencida,
+  precisaNadaConstaRj, parsearNadaConstaRj, completarNadaConstaRj, completarDetran, CONSULTAS_COM_DOCUMENTO, consultaComDocumentoVencida, itensNadaConstaRj,
   AVISO_DEBITOS_RJ, AVISO_IPVA_RJ, _definirEsperaLockDocumento,
 } from './infosimples-detran'
 import { completarHistoricoVeicular, _limparEmVooHistorico, _limparAlertaTetoHistorico } from './parceiro-historico'
@@ -223,6 +223,29 @@ describe('the nada consta call', () => {
       totalCentavos: 0, nadaAQuitar: null, avisoDebitos: AVISO_IPVA_RJ, semMultas: 'Nenhuma multa em aberto no DETRAN-RJ na data da consulta.',
     })
     expect(sb.tab('premium_custos')).toEqual([expect.objectContaining({ fonte: 'infosimples_detran_rj_nada_consta', code: 612, preco: 0.24 })])
+  })
+
+  // Real call of 18/11/2026 (Lead): with a document that is not the owner's, the
+  // nada consta answers 608, not 612. Unavailable, never "no fines".
+  it('608 "this document is not the owner\'s": unavailable, never "Nenhuma multa em aberto"', async () => {
+    comPedido(sb, { uf: 'RJ', multas: blocoRj({ nada_consta_pendente: true }) })
+    comRespostaPaga(sb, 'p1', respostaParceira(CPF))
+    const recusa = {
+      code: 608, code_message: 'Os parâmetros foram recusados pelo site ou aplicativo de origem que processou esta consulta.',
+      errors: ['Este CPF/CNPJ não corresponde ao do proprietário registrado no cadastro do Detran-RJ'], header: { price: '0.24' },
+    }
+    stubFetch(recusa)
+    expect(itensNadaConstaRj({ code: 608, codeMessage: recusa.code_message, preco: 0.24, data: null, erros: recusa.errors })).toBeNull()
+    expect(await completarNadaConstaRj(sb, 'p1')).toMatchObject({ feito: 'indisponivel', code: 608 })
+    const m = snapDe(sb).multas
+    expect(m).toMatchObject({ nada_consta_indisponivel: true, aviso_debitos: AVISO_DEBITOS_RJ, multas_total_centavos: null, multas_itens: [] })
+    expect(m.multas_fonte).toBeUndefined()
+    expect(resumoQuitar({ bloco: m })).toMatchObject({ semMultas: null, avisoDebitos: AVISO_DEBITOS_RJ, nadaAQuitar: null })
+    expect(sb.tab('premium_custos')).toEqual([expect.objectContaining({ fonte: 'infosimples_detran_rj_nada_consta', code: 608, preco: 0.24 })])
+    expect(sb.tab('fonte_cache')).toHaveLength(0)
+    // Final for the order: never called again.
+    expect(await completarNadaConstaRj(sb, 'p1')).toMatchObject({ feito: 'pulado' })
+    expect(chamadasRj).toHaveLength(1)
   })
 
   it('failure: the block stays as today, not cached, never called again for the order', async () => {
