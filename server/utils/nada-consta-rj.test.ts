@@ -120,6 +120,16 @@ describe('DETRAN-RJ nada consta parser', () => {
     for (const [x, n] of casos) expect(parsearNadaConstaRj({ multas: [multaRj(x)] })).toHaveLength(n)
   })
 
+  // Review 3 of PR #762: a fine with no value yet stays in multas_itens (the page
+  // shows it as an infraction in progress), so the box cannot say there is none.
+  it('an unpaid fine with no value yet stays listed, and the box never says "Nenhuma multa em aberto"', () => {
+    const itens = parsearNadaConstaRj({ multas: [multaRj({ valor_a_ser_pago: 'R$ 0,00', valor_original: '' })] })!
+    expect(itens).toHaveLength(1)
+    expect(itens[0]!.valor).toBe(0)
+    const bloco = blocoRj({ multas_itens: itens, multas_total_centavos: 0, multas_fonte: 'detran_rj_nada_consta', aviso_debitos: AVISO_IPVA_RJ })
+    expect(resumoQuitar({ bloco })).toMatchObject({ semMultas: null, avisoDebitos: AVISO_IPVA_RJ, nadaAQuitar: null, totalCentavos: 0 })
+  })
+
   it('the value to pay now; the original when it is missing', () => {
     expect(parsearNadaConstaRj({ multas: [multaRj({ valor_a_ser_pago: 'R$ 104,13' })] })?.[0]?.valor).toBe(104.13)
     expect(parsearNadaConstaRj({ multas: [multaRj({ valor_a_ser_pago: null })] })?.[0]?.valor).toBe(130.16)

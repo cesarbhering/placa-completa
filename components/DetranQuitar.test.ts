@@ -118,6 +118,13 @@ describe('RJ: fines from the nada consta, IPVA not consulted (18/11/2026)', () =
     expect(w.text()).not.toContain('—')
   })
 
+  it('a listed fine with no value yet: never "Nenhuma multa em aberto"; the IPVA notice is the main line', () => {
+    const w = montar(rj({ multas_total_centavos: 0, multas_itens: [{ auto: 'E00000009', descricao: 'INFRACAO EM ANDAMENTO', valor: 0 }], multas_fonte: 'detran_rj_nada_consta', aviso_debitos: AVISO_IPVA }))
+    expect(w.text()).not.toContain('Nenhuma multa em aberto')
+    expect(w.find('.dq__aviso').text()).toBe(AVISO_IPVA)
+    expect(w.text()).not.toContain('Nada a quitar')
+  })
+
   it('fines not consulted (no owner document, as before): the notice is the main line, without the fines line', () => {
     const avisoAntigo = 'Multas e IPVA do RJ não estão disponíveis: o estado exige o documento do proprietário para essa consulta.'
     const w = montar(rj({ multas_total_centavos: null, multas_itens: [], aviso_debitos: avisoAntigo }))

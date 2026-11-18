@@ -30,6 +30,8 @@ export interface BlocoDetranQuitar {
   aviso_debitos?: string | null
   /** RJ: multas vindas do nada consta, com o documento do dono (o IPVA segue de fora). */
   multas_fonte?: string | null
+  /** Multas listadas (uma sem valor ainda, autuacao em andamento, tem valor 0). */
+  multas_itens?: unknown[] | null
 }
 
 export interface ResumoQuitar {
@@ -142,7 +144,8 @@ export function resumoQuitar(a: {
         : `Nada a quitar no DETRAN${uf ? '-' + uf : ''} na data da consulta.`,
     ipvaSemValor,
     avisoDebitos: b.debitos_indisponiveis ? (b.aviso_debitos || 'Débitos deste estado não estão disponíveis nesta consulta.') : null,
-    semMultas: b.debitos_indisponiveis && b.multas_fonte && totalCentavos === 0 && multas === 0
+    // Multa listada sem valor ainda (a pagina mostra "valor a definir") nao e "nenhuma multa".
+    semMultas: b.debitos_indisponiveis && b.multas_fonte && totalCentavos === 0 && multas === 0 && !(Array.isArray(b.multas_itens) && b.multas_itens.length)
       ? `Nenhuma multa em aberto no DETRAN${uf ? '-' + uf : ''} na data da consulta.` : null,
   }
 }
