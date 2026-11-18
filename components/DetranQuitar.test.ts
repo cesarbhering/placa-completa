@@ -135,3 +135,28 @@ describe('RJ: fines from the nada consta, IPVA not consulted (18/11/2026)', () =
     expect(w.text()).not.toContain('Nada a quitar')
   })
 })
+
+// Review 3 of PR #762 (risk 5): with no total and no lock, the box was the green
+// "all clear" one even with an IPVA line still without a value. Green only
+// without that line; with it, the neutral box.
+describe('IPVA in arrears without a value: never the green box', () => {
+  it('"valor não informado" or "consultando": neutral box, the IPVA line, never green', () => {
+    for (const bloco of [
+      { fonte: 'detran_mg', multas_total_centavos: 0, ipva_total_centavos: null, ipva_sefaz_indisponivel: true },
+      { fonte: 'detran_mg', multas_total_centavos: 0, ipva_total_centavos: null, ipva_pendente_sefaz: true },
+    ]) {
+      const w = montar(bloco)
+      expect(w.classes()).not.toContain('dq--ok')
+      expect(w.classes()).toContain('dq--neutro')
+      expect(w.find('.dq__pendente').text()).toMatch(/^IPVA em aberto/)
+      expect(w.text()).not.toContain('Nada a quitar')
+    }
+  })
+
+  it('with nothing to pay and nothing pending, still the green box', () => {
+    const w = montar({ fonte: 'detran_mg', multas_total_centavos: 0, ipva_total_centavos: 0, ipva_fonte: 'sefaz_mg', ipva_itens: [] })
+    expect(w.classes()).toContain('dq--ok')
+    expect(w.classes()).not.toContain('dq--neutro')
+  })
+})
+

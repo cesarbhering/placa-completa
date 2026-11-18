@@ -9,7 +9,8 @@ const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currenc
 </script>
 
 <template>
-  <div class="dq" :class="{ 'dq--ok': !props.resumo.totalCentavos && !props.resumo.travas.length && !props.resumo.avisoDebitos, 'dq--neutro': !props.resumo.totalCentavos && !props.resumo.travas.length && !!props.resumo.avisoDebitos }">
+  <div class="dq" :class="{ 'dq--ok': !props.resumo.totalCentavos && !props.resumo.travas.length && !props.resumo.avisoDebitos && !props.resumo.ipvaSemValor, 'dq--neutro': !props.resumo.totalCentavos && !props.resumo.travas.length && (!!props.resumo.avisoDebitos || !!props.resumo.ipvaSemValor) }">
+    <!-- Verde so sem nada a pagar, sem trava, sem aviso e sem IPVA ainda sem valor (consultando ou nao informado): esse vai pro neutro. -->
     <p v-if="props.resumo.totalCentavos" class="dq__tit">
       <span>Para transferir este veículo, falta quitar</span>
       <b class="dq__total">{{ reais(props.resumo.totalCentavos) }}</b>
