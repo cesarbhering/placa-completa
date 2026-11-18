@@ -2816,14 +2816,25 @@ export function restricaoDeDebitoIpva(texto: any): boolean {
   return /\bIPVA\b/.test(t) && /DEBITO|ATRAS|DIVIDA|PENDENC|INADIMPL|EM ABERTO/.test(t)
 }
 
+/** Ano e mes no fuso de Brasilia (o servidor roda em UTC). */
+function anoMesBrasilia(d: Date): { ano: number; mes: number } {
+  const partes = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: 'numeric' }).formatToParts(d)
+  const parte = (tipo: string) => Number(partes.find((x) => x.type === tipo)?.value)
+  return { ano: parte('year'), mes: parte('month') }
+}
+
 /**
- * IPVA em atraso pelo bloco do DETRAN-MG: o ultimo ano pago (ipva_pago_ano) e
- * anterior ao ano corrente, ou ha restricao de debito de IPVA. Sem ano pago e
- * sem restricao, nao ha sinal de atraso.
+ * IPVA em atraso pelo bloco do DETRAN-MG (ano e mes de Brasilia): o ultimo
+ * ano pago (ipva_pago_ano) e anterior ao ano corrente, ou ha restricao de
+ * debito de IPVA. De janeiro a marco o IPVA do ano ainda esta no prazo (cota
+ * unica e parcelas vencem nesses meses): so conta o pago antes do ano passado
+ * (revisao do PR #762). Sem ano pago e sem restricao, nao ha sinal de atraso.
  */
 export function ipvaMgAtrasado(bloco: any, hoje: Date = new Date()): boolean {
+  const agora = anoMesBrasilia(hoje)
+  const limite = agora.mes <= 3 ? agora.ano - 1 : agora.ano
   const ano = Number(bloco?.ipva_pago_ano)
-  if (bloco?.ipva_pago_ano != null && Number.isInteger(ano) && ano > 1900 && ano < hoje.getFullYear()) return true
+  if (bloco?.ipva_pago_ano != null && Number.isInteger(ano) && ano > 1900 && ano < limite) return true
   return (Array.isArray(bloco?.restricoes_detran) ? bloco.restricoes_detran : []).some((r: any) => restricaoDeDebitoIpva(r?.texto))
 }
 

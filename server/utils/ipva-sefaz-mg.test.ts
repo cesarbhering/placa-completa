@@ -84,6 +84,26 @@ describe('trigger: IPVA in arrears in the DETRAN-MG block', () => {
     expect(ipvaMgAtrasado({ ipva_pago_ano: null, restricoes_detran: [{ tipo: 'administrativa', texto: 'Débito de IPVA em aberto' }] }, hoje)).toBe(true)
   })
 
+  // Review of PR #762: from January to March the IPVA of the year is still within
+  // its deadline in MG (single payment and installments fall in those months).
+  it('January to March: only an IPVA paid before last year, or the debt restriction, fires', () => {
+    const restricao = [{ tipo: 'administrativa', texto: 'VEICULO AUTUADO POR DEBITO DE IPVA' }]
+    const jan = new Date('2027-01-20T12:00:00-03:00')
+    expect(ipvaMgAtrasado({ ipva_pago_ano: 2026 }, jan)).toBe(false)
+    expect(ipvaMgAtrasado({ ipva_pago_ano: 2025 }, jan)).toBe(true)
+    expect(ipvaMgAtrasado({ ipva_pago_ano: 2026, restricoes_detran: restricao }, jan)).toBe(true)
+    expect(ipvaMgAtrasado({ ipva_pago_ano: 2026 }, new Date('2027-03-31T12:00:00-03:00'))).toBe(false)
+    expect(ipvaMgAtrasado({ ipva_pago_ano: 2026 }, new Date('2027-04-01T12:00:00-03:00'))).toBe(true)
+  })
+
+  it('the year and the month are the ones in Brasilia, not the server clock (UTC)', () => {
+    // 01:00 UTC on April 1st is still March 31st in Brasilia: still within the deadline.
+    expect(ipvaMgAtrasado({ ipva_pago_ano: 2026 }, new Date('2027-04-01T01:00:00Z'))).toBe(false)
+    expect(ipvaMgAtrasado({ ipva_pago_ano: 2026 }, new Date('2027-04-01T03:00:00Z'))).toBe(true)
+    // 01:00 UTC on November 1st, 2026 is still October 31st in Brasilia (the same rule, other month).
+    expect(ipvaMgAtrasado({ ipva_pago_ano: 2025 }, new Date('2026-11-01T01:00:00Z'))).toBe(true)
+  })
+
   it('does not fire with the IPVA up to date or without any sign of arrears', () => {
     expect(precisaIpvaSefazMg(blocoMg({ ipva_pago_ano: 2026 }), hoje)).toBe(false)
     expect(precisaIpvaSefazMg(blocoMg({ ipva_pago_ano: null }), hoje)).toBe(false)
@@ -282,7 +302,7 @@ describe('the SEFAZ-MG call', () => {
   it('a 612 counts as nothing open only without any sign of arrears in the DETRAN block', () => {
     const r612 = { code: 612, codeMessage: '', preco: 0.24, data: null }
     const restricao = [{ tipo: 'administrativa', texto: 'VEICULO AUTUADO POR DEBITO DE IPVA' }]
-    expect(itensSefazMg(r612, blocoMg({ ipva_pago_ano: ANO - 1 }))).toBeNull()
+    expect(itensSefazMg(r612, blocoMg({ ipva_pago_ano: ANO - 2 }))).toBeNull()
     expect(itensSefazMg(r612, blocoMg({ ipva_pago_ano: ANO, restricoes_detran: restricao }))).toBeNull()
     expect(itensSefazMg(r612, blocoMg({ ipva_pago_ano: ANO }))).toEqual([])
     // A 200 is read as it comes; any other code is a failure.
