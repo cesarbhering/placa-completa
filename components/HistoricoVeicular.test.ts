@@ -20,7 +20,7 @@ describe('owners block', () => {
     expect(t).toContain('8 anos e 4 mesescom o dono atual, desde 12/07/2017')
     expect(t).toContain('PR · BA · GO')
     expect(t).toContain('zero km em PR')
-    expect(t).toContain('Troca rápida de dono: 6 donos ficaram menos de 1 ano com o carro.')
+    expect(t).not.toContain('Troca rápida de dono')
     expect(w.findAll('.hd-tempo li')).toHaveLength(9)
     expect(w.findAll('.hd-tempo li.hd-extra')).toHaveLength(4)
     expect(w.find('.hd-tempo li').text()).toContain('Dono atual, há 8 anos e 4 meses')
@@ -31,6 +31,18 @@ describe('owners block', () => {
     expect(w.find('button.hd-mais').text()).toBe('Mostrar só os 5 mais recentes')
     expect(t).toContain('em conformidade com a LGPD')
     expect(w.html()).not.toMatch(/FICTICIA|000\.000/)
+  })
+
+  it('current owner under 1 year: alert shown and only that line flagged', () => {
+    const base = { tipo: 'pessoa' as const, uf: 'SP', cidade: null, ufCidade: null }
+    const atual = { ...base, data: '2026-05-04', tempo: '6 meses', meses: 6, atual: true }
+    const antes = { ...base, data: '2025-12-01', tempo: '5 meses', meses: 5, atual: false }
+    const w = mount(HistoricoDonos, { props: { tela: telaDonos({ total: 2, atual, ufs: ['SP'], ufZeroKm: null, registros: [atual, antes], semData: 0, trocasRapidas: 1 }, 'carro')!, nomeVeiculo: 'carro' } })
+    expect(w.find('.hd-alerta').text()).toBe('Troca rápida de dono: o dono atual está com o carro há menos de 1 ano. Vale perguntar o motivo ao vendedor.')
+    expect(w.findAll('.hd-barra--curta')).toHaveLength(1)
+    const moto = mount(HistoricoDonos, { props: { tela: telaDonos({ total: 2, atual, ufs: ['SP'], ufZeroKm: null, registros: [atual, antes], semData: 0, trocasRapidas: 1 }, 'moto')!, nomeVeiculo: 'moto' } })
+    expect(moto.text()).toContain('Por quantas mãos a moto passou')
+    expect(moto.find('.hd-alerta').text()).toContain('o dono atual está com a moto há menos de 1 ano')
   })
 
   it('two owners: no alert, no "see all"', () => {

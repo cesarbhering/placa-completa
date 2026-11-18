@@ -50,7 +50,10 @@ export interface DonosHistorico {
   /** Dated records, most recent first. Records without a date only count in the total. */
   registros: DonoHistorico[]
   semData: number
-  /** Previous owners that kept the vehicle for less than 12 months. */
+  /**
+   * Previous owners that kept the vehicle for less than 12 months. Kept in the
+   * snapshot; since 18/11/2026 the quick change alert looks only at the current owner.
+   */
   trocasRapidas: number
 }
 
@@ -879,10 +882,14 @@ export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'v
   const registros = Array.isArray(d.registros) ? d.registros : []
   const max = Math.max(1, ...registros.map((o) => Number(o.meses) || 0))
   const atual = d.atual ?? null
+  // Quick change = the current owner has had the vehicle for less than 1 year; earlier owners do not count (Cesar, 18/11/2026).
+  // Only an owner the source flagged as current: the parser's fallback (latest dated record) may be an earlier owner.
+  const atualRecente = !!atual && atual.atual === true && atual.meses != null && atual.meses < 12
   const linhas = registros.map((o) => {
     // Same owner = same date, tenure and state. Not the city: a block may carry it on one side only.
     const ehAtual = !!atual && o.data === atual.data && o.tempo === atual.tempo && o.uf === atual.uf
-    const curta = !ehAtual && o.meses != null && o.meses < 12
+    // Amber only on the current owner's line, by the same rule as the alert.
+    const curta = ehAtual && atualRecente
     const ufDaCidade = o.ufCidade || o.uf
     return {
       data: dataBR(o.data) || '',
@@ -895,7 +902,6 @@ export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'v
       atual: ehAtual,
     }
   })
-  const n = Number(d.trocasRapidas) || 0
   return {
     total: Number(d.total),
     totalTexto: d.total === 1 ? 'dono encontrado' : 'donos encontrados',
@@ -903,7 +909,9 @@ export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'v
     estados: Array.isArray(d.ufs) ? d.ufs : [],
     zeroKm: d.ufZeroKm || null,
     linhas,
-    alertaTrocaRapida: n >= 3 ? `Troca rápida de dono: ${n} donos ficaram menos de 1 ano com o ${nomeVeiculo}. Vale perguntar o motivo ao vendedor.` : null,
+    alertaTrocaRapida: atualRecente
+      ? `Troca rápida de dono: o dono atual está com ${nomeVeiculo === 'moto' ? 'a' : 'o'} ${nomeVeiculo} há menos de 1 ano. Vale perguntar o motivo ao vendedor.`
+      : null,
     nota: `${d.semData ? `Há mais ${d.semData === 1 ? '1 registro antigo sem data, que só entra' : `${d.semData} registros antigos sem data, que só entram`} no total. ` : ''}Não mostramos nome nem documento de nenhum proprietário, em conformidade com a LGPD.`,
   }
 }
@@ -964,7 +972,7 @@ export function telaSinistro(s: SinistroHistorico | null | undefined, nomeVeicul
   for (const i of s.indenizacoes || []) {
     const quem = nomeEmpresa(i.seguradora)
     const det = [quem, i.ano ? `registrada em ${i.ano}` : null].filter(Boolean).join(', ')
-    linhas.push({ titulo: 'Indenização integral', valor: 'Sim', detalhe: `${det ? `${det}. ` : ''}A seguradora pagou o valor do ${nomeVeiculo} ao dono.`, tom: 'alerta' })
+    linhas.push({ titulo: 'Indenização integral', valor: 'Sim', detalhe: `${det ? `${det}. ` : ''}A seguradora pagou o valor ${nomeVeiculo === 'moto' ? 'da' : 'do'} ${nomeVeiculo} ao dono.`, tom: 'alerta' })
   }
   if (s.monta) {
     linhas.push({

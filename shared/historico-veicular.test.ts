@@ -10,6 +10,7 @@ import {
   historicoDoVeiculo, nomeDeEmpresa, passagensDoHistorico, MOTIVO_CHASSI_DIVERGENTE, ehOrgaoPublico,
   faltasDaResposta, respostaIncompleta, historicoPedeReserva, motivoDaReserva, instituicaoNaCadeia,
 } from './historico-veicular'
+import type { DonoHistorico } from './historico-veicular'
 import LEILAO_REAL from '../server/utils/__fixtures__/parceiro-leilao-real.json'
 import { historicoNaTela, historicoParaExibicao } from './leilao-exibicao'
 import { linhasBasesSemRegistro, rotuloIndicadorLeilao, historicoComParceiro, parsearRespostaParceiro } from './fonte-parceira'
@@ -350,16 +351,46 @@ describe('report blocks (copy)', () => {
     expect(t.linhas.map((l) => l.posse)).toEqual(['Dono atual, há menos de 1 mês', 'Ficou menos de 1 mês'])
     expect(t.atual).toMatchObject({ tempo: 'Menos de 1 mês' })
   })
-  it('owners: totals, current owner, states, five most recent, quick changes alert, LGPD note', () => {
+  it('owners: totals, current owner, states, five most recent, LGPD note; earlier short tenures raise no alert', () => {
     const t = telaDonos(bloco(COM).donos, 'carro')!
     expect(t).toMatchObject({ total: 12, totalTexto: 'donos encontrados', atual: { desde: '12/07/2017', tempo: '8 anos e 4 meses' }, estados: ['PR', 'BA', 'GO'], zeroKm: 'PR' })
     expect(t.linhas).toHaveLength(9)
     expect(t.linhas[0]).toMatchObject({ data: '12/07/2017', tipo: 'Pessoa', uf: 'PR', posse: 'Dono atual, há 8 anos e 4 meses', curta: false, atual: true })
-    expect(t.linhas.find((l) => l.tipo === 'Loja de usados')).toMatchObject({ posse: 'Ficou 2 meses', curta: true })
-    expect(t.alertaTrocaRapida).toBe('Troca rápida de dono: 6 donos ficaram menos de 1 ano com o carro. Vale perguntar o motivo ao vendedor.')
+    // 6 earlier owners kept it under a year, but the current one has had it for 8 years: no alert, no flag.
+    expect(t.linhas.find((l) => l.tipo === 'Loja de usados')).toMatchObject({ posse: 'Ficou 2 meses', curta: false })
+    expect(t.linhas.some((l) => l.curta)).toBe(false)
+    expect(t.alertaTrocaRapida).toBeNull()
     expect(t.nota).toBe('Há mais 3 registros antigos sem data, que só entram no total. Não mostramos nome nem documento de nenhum proprietário, em conformidade com a LGPD.')
     expect(telaDonos(bloco(SEM).donos)!.alertaTrocaRapida).toBeNull()
     expect(telaDonos(null)).toBeNull()
+  })
+
+  it('owners: quick change alert only when the current owner has had the vehicle for less than 1 year', () => {
+    const dono = (o: Partial<DonoHistorico>): DonoHistorico => ({ data: '2020-01-10', tempo: '5 anos', meses: 60, tipo: 'pessoa', uf: 'SP', cidade: null, ufCidade: null, atual: false, ...o })
+    const atual = dono({ data: '2026-04-02', tempo: '7 meses', meses: 7, atual: true })
+    const curto = dono({ data: '2025-12-01', tempo: '4 meses', meses: 4 })
+    const longo = dono({ data: '2019-02-01', tempo: '6 anos', meses: 82 })
+    const d = (a: DonoHistorico | null, regs: DonoHistorico[]) => ({ total: regs.length, atual: a, ufs: ['SP'], ufZeroKm: null, registros: regs, semData: 0, trocasRapidas: 1 })
+    const t = telaDonos(d(atual, [atual, curto, longo]), 'carro')!
+    expect(t.alertaTrocaRapida).toBe('Troca rápida de dono: o dono atual está com o carro há menos de 1 ano. Vale perguntar o motivo ao vendedor.')
+    expect(t.linhas.map((l) => l.curta)).toEqual([true, false, false])
+    expect(telaDonos(d(atual, [atual, longo]), 'moto')!.alertaTrocaRapida).toBe('Troca rápida de dono: o dono atual está com a moto há menos de 1 ano. Vale perguntar o motivo ao vendedor.')
+    // 11 months still counts; 12 months does not.
+    const onze = dono({ data: '2025-12-15', tempo: '11 meses', meses: 11, atual: true })
+    expect(telaDonos(d(onze, [onze, longo]))!.alertaTrocaRapida).toContain('há menos de 1 ano')
+    const doze = dono({ data: '2025-11-10', tempo: '1 ano', meses: 12, atual: true })
+    expect(telaDonos(d(doze, [doze, curto]))!.alertaTrocaRapida).toBeNull()
+    // Current owner with unknown tenure, or no current owner: no alert, even with short earlier tenures.
+    const semTempo = dono({ data: '2025-06-01', tempo: null, meses: null, atual: true })
+    const tSemTempo = telaDonos(d(semTempo, [semTempo, curto]))!
+    expect(tSemTempo.alertaTrocaRapida).toBeNull()
+    expect(tSemTempo.linhas.some((l) => l.curta)).toBe(false)
+    expect(telaDonos(d(null, [curto, curto]))!.alertaTrocaRapida).toBeNull()
+    // Parser fallback: no dated record flagged as current, so the latest dated one (an earlier owner) stands in. No alert, no amber.
+    const fallback = dono({ data: '2026-08-01', tempo: '3 meses', meses: 3, atual: false })
+    const tFallback = telaDonos(d(fallback, [fallback, longo]))!
+    expect(tFallback.alertaTrocaRapida).toBeNull()
+    expect(tFallback.linhas.some((l) => l.curta)).toBe(false)
   })
 
   it('previous use: only when there is something; bank by name, private company never', () => {
@@ -389,6 +420,7 @@ describe('report blocks (copy)', () => {
     const alto = telaSinistro(bloco(COM).sinistro, 'carro')!
     expect(alto.linhas.map((l) => [l.titulo, l.valor])).toEqual([['Indenização integral', 'Sim'], ['Dano registrado', 'Média monta']])
     expect(alto.linhas[0].detalhe).toBe('Tokio Marine Seguradora, registrada em 2024. A seguradora pagou o valor do carro ao dono.')
+    expect(telaSinistro(bloco(COM).sinistro, 'moto')!.linhas[0].detalhe).toBe('Tokio Marine Seguradora, registrada em 2024. A seguradora pagou o valor da moto ao dono.')
     expect(alto.parecer).toMatchObject({ tom: 'alerta', titulo: 'Alto risco de o seguro ser recusado' })
     const pequena = bloco(comIndicador(SEM, 'P15', { status: 'positivo', conteudo: 'ATENÇÃO: EM 2020, O VEÍCULO APRESENTOU APONTAMENTO DE PEQUENA MONTA.' }))
     expect(telaSinistro(pequena.sinistro)!.parecer).toMatchObject({ tom: 'atencao', titulo: 'Pode haver restrição no seguro' })
