@@ -1163,7 +1163,8 @@ const numSecao = computed(() => {
   const ordem: string[] = ['veh']
   if (temIndicadores.value) ordem.push('ind')
   if (linhaDoTempo.value.length > 1) ordem.push('tempo')
-  if (!isBasica.value && temIndicadores.value) ordem.push('restr')
+  // Basica: so o cartao de multas, e so quando o pedido tem o bloco (backfill, 18/11/2026).
+  if (isBasica.value ? !!multasDetalhe.value : temIndicadores.value) ordem.push('restr')
   if (ocorrencias.value.length) ordem.push('ocorr')
   // Vehicle history partner blocks (owners always when they came; the other two only with something).
   if (telaDonosRel.value || historicoChegando.value) ordem.push('donos')
@@ -1617,7 +1618,8 @@ const prazoDetran = computed<number | null>(() => {
     // Entrega recente (10 min): garante o minimo de 60s de espera na tela.
     return Number.isFinite(ent) && visto - ent < 10 * 60 * 1000 ? Math.max(ate, Math.min(visto + MIN_ESPERA_DETRAN_MS, ent + 10 * 60 * 1000)) : ate
   }
-  if (!entregue.value || !ehVeiculoSpTela.value) return null
+  // Basica nao consulta o DETRAN na entrega: sem lista de fontes do servidor, nada a esperar (18/11/2026).
+  if (!entregue.value || !ehVeiculoSpTela.value || isBasica.value) return null
   const visto = vistoEntregueEm.value ?? agoraMs.value
   const ent = new Date(data.value?.entregue_em || '').getTime()
   if (!Number.isFinite(ent)) return visto + LIMITE_DETRAN_MS
@@ -2234,7 +2236,7 @@ onMounted(() => {
 let pollMultas: any = null
 function acompanharMultas() {
   if (pollMultas || acompanhamentoEsgotado.value) return
-  if ((!multaIndicadorSP.value && !ehVeiculoSpTela.value) || multasDetalhe.value || multasIndisponivel.value || aguardandoDetran.value) return
+  if (isBasica.value || (!multaIndicadorSP.value && !ehVeiculoSpTela.value) || multasDetalhe.value || multasIndisponivel.value || aguardandoDetran.value) return
   const ent = new Date(data.value?.entregue_em || '').getTime()
   const ate = Number.isFinite(ent) ? ent + LIMITE_ACOMPANHAR_MS : Date.now() + LIMITE_ACOMPANHAR_MS
   if (Date.now() > ate) { acompanhamentoEsgotado.value = true; return }
@@ -2539,7 +2541,7 @@ onUnmounted(() => {
                 <div class="rel__tempo-txt">
                   <b>{{ e.titulo }}</b>
                   <small v-if="e.detalhe">{{ e.detalhe }}</small>
-                  <small v-if="e.secao && numSecao[e.secao]" class="rel__tempo-ver">ver seção {{ numSecao[e.secao] }}</small>
+                  <small v-if="e.secao && numSecao[e.secao] && !(isBasica && e.tipo === 'recall')" class="rel__tempo-ver">ver seção {{ numSecao[e.secao] }}</small>
                 </div>
               </li>
             </ol>
@@ -2547,7 +2549,9 @@ onUnmounted(() => {
           </section>
 
           <section v-if="numSecao.restr" class="rel__card">
-            <h2 class="rel__h2">{{ numSecao.restr }}. Restrições</h2>
+            <h2 class="rel__h2">{{ numSecao.restr }}. {{ isBasica ? `Situação no DETRAN${ufDetranTela ? '-' + ufDetranTela : ''}` : 'Restrições' }}</h2>
+            <!-- Basica: a secao existe so para o cartao de multas (pedido com o bloco do DETRAN); restricoes, anotacoes e recall seguem so na Completa. -->
+            <template v-if="!isBasica">
             <template v-if="restricoes.length">
               <div v-for="(r, idx) in restricoes" :key="idx" class="rel__restr">
                 <div class="rel__restr-topo">
@@ -2607,13 +2611,15 @@ onUnmounted(() => {
               </div>
             </div>
 
+            </template>
+
             <!-- Débitos/multas e recall vivem AQUI, no contexto de Restrições
                  (sao pendencias do veiculo), em vez de soltos apos a
                  Identificacao. Cada um e um subcard com sua propria moldura. -->
 
             <!-- Multas e débitos no órgão de trânsito do estado (SP): o
                  indicador de multa acende, e aqui vem o VALOR e o detalhe. -->
-            <div v-if="(multaIndicadorSP || ehVeiculoSpTela || multasDetalhe) && !multasFalhaSilenciosa" class="rel__multas">
+            <div v-if="(multaIndicadorSP || ehVeiculoSpTela || multasDetalhe) && !multasFalhaSilenciosa && (!isBasica || multasDetalhe)" class="rel__multas">
               <!-- Card no molde do recall (opcao 3 do Cesar, 26/out/2026):
                    cabecalho com icone, corpo branco por fonte, rodape de orientacao. -->
               <div class="rel__multas-top">
@@ -2790,6 +2796,8 @@ onUnmounted(() => {
 
             <!-- Quilometragem: virou parte da linha do tempo (secao propria). -->
 
+            <template v-if="!isBasica">
+
             <!-- Recall pendente: a primeira pergunta de quem ve o cartao
                  vermelho e "recall de que?". -->
             <!-- Recall da MONTADORA por chassi (Nissan/Mitsubishi): abertas e realizadas. -->
@@ -2933,6 +2941,7 @@ onUnmounted(() => {
                 </li>
               </ul>
             </details>
+            </template>
           </section>
 
           <!-- Roubo e furto: um cartao por EPISODIO, nao por registro. Roubo,
