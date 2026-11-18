@@ -5,7 +5,7 @@ import { DONOS_VISIVEIS, type TelaDonos } from '~/shared/historico-veicular'
 // Owners block of the Completa report (vehicle history partner, 13/11/2026;
 // content of the prototype approved by Cesar). Counts, current owner, states,
 // the five most recent records and "see all". Never a name or a document: the
-// server sends only type, state, date and time with the vehicle.
+// server sends only type, city and state, date and time with the vehicle.
 const props = defineProps<{ tela: TelaDonos; nomeVeiculo?: string }>()
 const aberto = ref(false)
 // All records render; the older ones stay hidden on screen until "see all"
@@ -35,7 +35,7 @@ const sobra = computed(() => props.tela.linhas.length > DONOS_VISIVEIS)
     <ul v-if="linhas.length" class="hd-tempo">
       <li v-for="(l, i) in linhas" :key="`${l.data}-${i}`" :class="{ 'hd-tempo--atual': l.atual, 'hd-extra': !aberto && i >= DONOS_VISIVEIS }">
         <span class="hd-data">{{ l.data }}</span>
-        <span class="hd-quem"><i class="hd-ponto" :class="`hd-ponto--${l.atual ? 'atual' : l.curta ? 'curta' : 'antes'}`" aria-hidden="true" />{{ l.tipo }}<template v-if="l.uf"> · {{ l.uf }}</template></span>
+        <span class="hd-quem"><i class="hd-ponto" :class="`hd-ponto--${l.atual ? 'atual' : l.curta ? 'curta' : 'antes'}`" aria-hidden="true" />{{ l.tipo }}<template v-if="l.local"> · {{ l.local }}</template></span>
         <span class="hd-posse">
           <span>{{ l.posse }}</span>
           <span class="hd-barra" :class="{ 'hd-barra--curta': l.curta }" aria-hidden="true"><b :style="{ width: `${l.largura}%` }" /></span>
