@@ -2,9 +2,9 @@ import { avisarLeilaoTardio } from './aviso-leilao'
 import { lerFonteCache, gravarFonteCache, chaveDePlaca } from './fonte-cache'
 import {
   parsearRespostaParceiro, historicoComParceiro, nossaBaseVazia,
-  type RespostaParceiro, type EstadoParceiro,
+  type RespostaParceiro, type EstadoParceiro, type MotivoReserva,
 } from '../../shared/fonte-parceira'
-import { historicoLeilaoComHistorico, historicoCompleto } from '../../shared/historico-veicular'
+import { historicoLeilaoComHistorico, motivoDaReserva } from '../../shared/historico-veicular'
 import { configParceiroComLegado, FONTE_CACHE_LEGADA, FONTE_CUSTO_LEGADA, BASE_PADRAO_LEGADA } from './parceiro-leilao-env'
 import { cfgHistorico } from './parceiro-historico-env'
 
@@ -209,11 +209,13 @@ async function gravarLinha(sb: any, l: LinhaChamada): Promise<'ok' | 'duplicada'
   } catch (e: any) { console.warn('[parceiro-leilao] linha de auditoria falhou:', e?.message || e); return 'erro' }
 }
 
-async function gravarCusto(sb: any, pedidoId: string | null, t: Tentativa, cobrada: boolean): Promise<void> {
+async function gravarCusto(sb: any, pedidoId: string | null, t: Tentativa, cobrada: boolean, motivo?: MotivoReserva | null): Promise<void> {
   try {
+    const detalhe = cobrada ? `idConsulta ${t.resposta?.idConsulta || '?'}` : `erro: ${String(t.erro || '').slice(0, 160)}`
     await sb.from('premium_custos').insert({
       pedido_id: pedidoId, fonte: FONTE_CUSTO_PARCEIRO, preco: cobrada ? PRECO_PARCEIRO_CENTAVOS / 100 : 0, code: t.http ?? 0,
-      detalhe: cobrada ? `idConsulta ${t.resposta?.idConsulta || '?'}` : `erro: ${String(t.erro || '').slice(0, 160)}`,
+      // Why it ran, when it ran as the complement of the vehicle history (to measure each rule).
+      detalhe: motivo ? `${detalhe}; motivo ${motivo}` : detalhe,
     })
   } catch { /* custo nunca derruba o relatorio */ }
 }
@@ -261,10 +263,16 @@ export interface DepsParceiro {
   agora?: number
   log?: (m: string) => void
   /**
-   * The vehicle history partner failed for this order (shared/historico-veicular.ts,
+   * The vehicle history partner failed for this order, or came complete with a
+   * bank or insurer in the chain (shared/historico-veicular.ts,
    * historicoPedeReserva): with it on, this one runs only then, under the same rules.
    */
   reservaDoHistorico?: boolean
+  /**
+   * Why it runs as that (motivoDaReserva): goes to the state (parceiro.motivo),
+   * the cost detail and the log, never with the plate.
+   */
+  motivoReserva?: MotivoReserva | null
   /**
    * Manual operator run: the state it leaves carries semAviso, and no customer
    * e-mail comes out of it, now or in the job's retry.
@@ -282,7 +290,7 @@ export function _limparAlertaTeto() { alertaTetoDia = null }
  * Completa o historico de leilao do pedido com a base parceira, quando cabe.
  * Devolve o historico (mudado ou nao). Nunca lanca: o relatorio nao trava.
  * As the fallback of the vehicle history partner (reservaDoHistorico), the
- * state it leaves says so (parceiro.reserva).
+ * state it leaves says so (parceiro.reserva) and why (parceiro.motivo).
  */
 export async function complementarLeilaoParceiro(
   pedido: { id: string | null; placa: string; plano?: string | null },
@@ -291,7 +299,11 @@ export async function complementarLeilaoParceiro(
   deps: DepsParceiro,
 ): Promise<any> {
   const novo = await complementarSemMarca(pedido, historico, perfil, deps)
-  const marca = { ...(deps.reservaDoHistorico ? { reserva: true } : {}), ...(deps.semAviso ? { semAviso: true } : {}) }
+  const marca = {
+    ...(deps.reservaDoHistorico ? { reserva: true } : {}),
+    ...(deps.reservaDoHistorico && deps.motivoReserva ? { motivo: deps.motivoReserva } : {}),
+    ...(deps.semAviso ? { semAviso: true } : {}),
+  }
   if (!Object.keys(marca).length || novo === historico || !novo?.parceiro) return novo
   return { ...novo, parceiro: { ...novo.parceiro, ...marca } }
 }
@@ -306,6 +318,9 @@ async function complementarSemMarca(
   const log = deps.log ?? ((m: string) => console.info(m))
   const alertar = deps.alertar ?? (async (assunto: string, texto: string) => sendErrorEmail({ endpoint: '/premium/parceiro-leilao', errorMessage: `${assunto}<br>${texto}`, paraTambem: [AVISO] }))
   const http: Http = deps.http ?? ((url, init) => fetch(url, init as any) as any)
+  // Why it runs as the complement of the vehicle history: in the log and the cost detail.
+  const motivo = deps.reservaDoHistorico ? deps.motivoReserva ?? null : null
+  const comMotivo = motivo ? ` motivo=${motivo}` : ''
   try {
     if (pedido.plano && pedido.plano !== 'completa') return historico
     if (!deps.cfg.ligado || !deps.cfg.usuario || !deps.cfg.senha) return historico
@@ -329,7 +344,7 @@ async function complementarSemMarca(
         const r = hit ? parsearRespostaParceiro(hit.payload?.bruto ?? hit.payload) : null
         if (r) {
           await gravarLinha(deps.sb, { ...linhaDe({ parametro: chave, tipo, http: null, ms: 0, bruto: hit!.payload?.bruto ?? hit!.payload, resposta: r, erro: null }, ctxLinha), cobrada: false, preco_centavos: 0, cache_hit: true })
-          log(`[parceiro-leilao] cache ${tipo} pedido=${pedido.id || '-'}`)
+          log(`[parceiro-leilao] cache ${tipo} pedido=${pedido.id || '-'}${comMotivo}`)
           return juntar(r, tipo, hit!.consultadoEm)
         }
       }
@@ -390,7 +405,7 @@ async function complementarSemMarca(
         alertaTetoDia = dia
         await Promise.resolve(alertar('BASE PARCEIRA DE LEILAO: TETO DIARIO ATINGIDO', `${feitas} chamadas hoje (teto ${deps.cfg.tetoDia}). Os relatorios seguem sem a fonte; o job tenta de novo depois.`)).catch(() => {})
       }
-      log(`[parceiro-leilao] teto diario atingido (${feitas}/${deps.cfg.tetoDia}) pedido=${pedido.id || '-'}`)
+      log(`[parceiro-leilao] teto diario atingido (${feitas}/${deps.cfg.tetoDia}) pedido=${pedido.id || '-'}${comMotivo}`)
       return { ...historico, parceiro: { status: 'teto', consultado_em: new Date(agora).toISOString() } as EstadoParceiro }
     }
 
@@ -404,9 +419,9 @@ async function complementarSemMarca(
       const cobrada = t.http === 200 && !!t.resposta
       const gravou = await gravarLinha(deps.sb, linhaDe(t, ctxLinha))
       if (gravou === 'duplicada') await Promise.resolve(alertar('BASE PARCEIRA DE LEILAO: COBRANCA DUPLICADA', `Pedido ${pedido.id || '-'} foi cobrado de novo (idConsulta ${t.resposta?.idConsulta || '?'}). O lock deveria ter barrado: investigar.`)).catch(() => {})
-      await gravarCusto(deps.sb, pedido.id, t, cobrada)
+      await gravarCusto(deps.sb, pedido.id, t, cobrada, motivo)
       if (ehSaldoOuLimite(t)) await Promise.resolve(alertar('BASE PARCEIRA DE LEILAO: SALDO OU LIMITE', `HTTP 400 ao consultar ${tipo} do pedido ${pedido.id || '-'}: ${String(t.erro || '').slice(0, 200)}`)).catch(() => {})
-      log(`[parceiro-leilao] ${tipo} pedido=${pedido.id || '-'} http=${t.http ?? '-'} ${cobrada ? `ok id=${t.resposta!.idConsulta}` : `erro=${t.erro}`} ${t.ms}ms`)
+      log(`[parceiro-leilao] ${tipo} pedido=${pedido.id || '-'} http=${t.http ?? '-'} ${cobrada ? `ok id=${t.resposta!.idConsulta}` : `erro=${t.erro}`} ${t.ms}ms${comMotivo}`)
       return cobrada ? t : null
     }
     const ok = placa ? await tentar(placa, 'placa') : null
@@ -472,7 +487,9 @@ export type ResultadoReserva = 'ok' | 'falhou' | 'teto' | 'pulado' | 'erro'
 /**
  * Fallback of the vehicle history partner for ONE delivered order (Cesar,
  * 17/11/2026): that partner failed for it (charged but partial answer, answer
- * for another VIN, or the queue gave up), so this one is called under its usual rules (Completa only,
+ * for another VIN, or the queue gave up), or came complete with a bank or
+ * insurer in the chain and no auction record of its own (18/11/2026), so this
+ * one is called under its usual rules (Completa only,
  * our base empty, 30-day cache and the paid call of the order reused, lock
  * per order, daily ceiling). Only the first attempt: a failed or capped call
  * is retried once by rodarJobParceiro. Writes only historicoLeilao, reading
@@ -504,16 +521,24 @@ export async function leilaoParceiroComoReserva(
     const p = lido.p
     const snap = p?.relatorio_snapshot
     if (!p || p.plano !== 'completa' || !snap || typeof snap !== 'object') return 'pulado'
-    // The vehicle history failed for real: a complete answer for this vehicle
-    // (stored after a lease expired, or a manual redo) needs no fallback.
-    if (historicoCompleto(snap.historicoVeicular)) return 'pulado'
+    // Why it runs (motivoDaReserva). The caller that has the block in hand
+    // gives it (deps.motivoReserva): its snapshot write may have failed, and
+    // the stored block would then read as no answer (review of PR #761).
+    // Otherwise it comes from the stored block: the caller decided the
+    // vehicle history failed for this order (partial, another VIN, or no good
+    // answer once the queue gave up or gives up now, hence 'esgotado'). A
+    // complete answer for this vehicle (stored after a lease expired, or a
+    // manual redo) needs no fallback, unless it shows a bank or insurer in
+    // the chain and no auction record of its own (18/11/2026).
+    const motivo = deps.motivoReserva ?? motivoDaReserva(snap.historicoVeicular, 'esgotado')
+    if (!motivo) return 'pulado'
     const antes = snap.historicoLeilao
     // Already tried for this order (any state): the retry belongs to the job.
     if (antes?.parceiro) return 'pulado'
     if (!nossaBaseVazia(antes)) return 'pulado'
     const novo = await complementarLeilaoParceiro(
       { id: p.id, placa: p.placa, plano: p.plano }, antes, { chassi: chassiDaResposta(snap.consulta?.response) },
-      { ...deps, sb, cfg, reservaDoHistorico: true },
+      { ...deps, sb, cfg, reservaDoHistorico: true, motivoReserva: motivo },
     )
     const status = novo?.parceiro?.status as 'ok' | 'falhou' | 'teto' | undefined
     // No state: another run of this order holds the lock and writes its own result.
@@ -529,7 +554,7 @@ export async function leilaoParceiroComoReserva(
     // vehicle history), so a partial answer that already showed it does not
     // count as new. Never for a manual operator run (semAviso).
     if (status === 'ok' && !novo.parceiro?.semAviso) await (deps.avisarLeilao ?? avisarLeilaoTardio)(sb, p.id, leilaoNaTela(atual.historicoLeilao ?? antes, atual), leilaoNaTela(novo, atual))
-    log(`[parceiro-leilao] reserva do historico pedido=${ref}: ${status}`)
+    log(`[parceiro-leilao] reserva do historico pedido=${ref}: ${status} motivo=${motivo}`)
     return status
   } catch (e: any) {
     return erro(`excecao ${String(e?.name || 'Error').slice(0, 40)}`)
@@ -570,14 +595,16 @@ export async function rodarJobParceiro(deps: DepsParceiro & { dono: string }): P
     const candidatos = (pedidos || []).filter((x: any) => !x.historicoLeilao?.parceiro?.retentado && (!soReserva || x.historicoLeilao?.parceiro?.reserva === true))
     for (const p of candidatos.slice(0, PARCEIRO_MAX_POR_RODADA)) {
       out.vistos++
-      // The vehicle history came complete since the fallback started (a lease
-      // that expired after a complete answer was stored, a manual redo): the
-      // fallback is no longer needed, so the retry is spent without a call.
-      const dispensado = soReserva && historicoCompleto(p.historicoVeicular)
+      // Why the fallback still runs (motivoDaReserva). None: the vehicle
+      // history came complete since it started, without a bank or insurer in
+      // the chain (a lease that expired after a complete answer was stored, a
+      // manual redo), so the retry is spent without a call.
+      const motivo = soReserva ? motivoDaReserva(p.historicoVeicular, 'esgotado') : null
+      const dispensado = soReserva && !motivo
       // A fallback started by a manual operator run keeps its mark: the data
       // goes in, the customer gets no e-mail from it.
       const semAviso = p.historicoLeilao?.parceiro?.semAviso === true
-      const novo = dispensado ? p.historicoLeilao : await complementarLeilaoParceiro({ id: p.id, placa: p.placa, plano: p.plano }, p.historicoLeilao, { chassi: typeof p.chassi === 'string' ? p.chassi : null }, { ...deps, agora, reservaDoHistorico: soReserva, semAviso })
+      const novo = dispensado ? p.historicoLeilao : await complementarLeilaoParceiro({ id: p.id, placa: p.placa, plano: p.plano }, p.historicoLeilao, { chassi: typeof p.chassi === 'string' ? p.chassi : null }, { ...deps, agora, reservaDoHistorico: soReserva, semAviso, motivoReserva: motivo })
       const status = dispensado ? null : novo?.parceiro?.status
       if (status === 'teto') break // o teto vale pra todos: para a rodada sem gastar tentativa
       const gravar = status === 'ok' ? novo : { ...p.historicoLeilao, parceiro: { ...(p.historicoLeilao?.parceiro || {}), retentado: true } }
@@ -590,7 +617,7 @@ export async function rodarJobParceiro(deps: DepsParceiro & { dono: string }): P
       // history). Never for a fallback started by an operator run (semAviso).
       if (status === 'ok' && !gravar.parceiro?.semAviso) await (deps.avisarLeilao ?? avisarLeilaoTardio)(deps.sb, p.id, leilaoNaTela(atual.relatorio_snapshot?.historicoLeilao ?? p.historicoLeilao, atual.relatorio_snapshot), leilaoNaTela(gravar, atual.relatorio_snapshot))
       if (status === 'ok') out.completados++
-      log(`[parceiro-leilao] job pedido=${p.id}: ${status === 'ok' ? 'completado' : dispensado ? 'historico veio completo (sem chamada)' : 'falhou de novo (nao tenta mais)'}`)
+      log(`[parceiro-leilao] job pedido=${p.id}: ${status === 'ok' ? 'completado' : dispensado ? 'historico veio completo (sem chamada)' : 'falhou de novo (nao tenta mais)'}${motivo ? ` motivo=${motivo}` : ''}`)
     }
     if (soReserva) {
       // Safety net: the queue gave up on the vehicle history of these orders

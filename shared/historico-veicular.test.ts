@@ -8,7 +8,7 @@ import {
   parsearRespostaHistorico, historicoLeilaoComHistorico, historicoVeicularParaTela, tituloPassagemParceira,
   telaDonos, telaUso, telaSinistro, casaDoRegistro, tipoDoDono, mesesDePosse, tempoDePosse,
   historicoDoVeiculo, nomeDeEmpresa, passagensDoHistorico, MOTIVO_CHASSI_DIVERGENTE, ehOrgaoPublico,
-  faltasDaResposta, respostaIncompleta, historicoPedeReserva,
+  faltasDaResposta, respostaIncompleta, historicoPedeReserva, motivoDaReserva, instituicaoNaCadeia,
 } from './historico-veicular'
 import LEILAO_REAL from '../server/utils/__fixtures__/parceiro-leilao-real.json'
 import { historicoNaTela, historicoParaExibicao } from './leilao-exibicao'
@@ -484,7 +484,7 @@ describe('partial answer classifier', () => {
     expect(respostaIncompleta(null)).toBe(false)
   })
 
-  it('historicoPedeReserva: partial or other-VIN answer at once; no good answer only once the queue gave up; never on a complete answer', () => {
+  it('historicoPedeReserva: partial or other-VIN answer at once; no good answer only once the queue gave up; never on a complete answer without a bank or insurer in the chain', () => {
     const parcial = bloco(comFontes({ infosinistrosSuccess: false }))
     const completo = bloco(COM)
     expect(historicoPedeReserva(parcial, null)).toBe(true)
@@ -514,6 +514,74 @@ describe('partial answer classifier', () => {
   it('the classification carries no name or document', () => {
     const p = bloco(semDonos(comFontes({ infosinistrosSuccess: false })))
     expect(JSON.stringify({ completa: p.completa, faltas: p.faltas })).not.toMatch(/FICTICIA|\d{3}\.\d{3}\.\d{3}-\d{2}/)
+  })
+})
+
+// Cesar, 18/11/2026: a COMPLETE answer with a bank, finance company or leasing
+// (or an insurer) in the chain of owners and no auction record of its own also
+// asks for the auction partner (3 of 6 such reports had an auction only it showed).
+describe('bank or insurer in the chain of a complete answer', () => {
+  // SEM: complete, two owners (a company and a person), no bank, no insurer, no auction.
+  const comBanco = (x: any = SEM) => comIndicador(x, 'P7', { status: 'positivo', conteudo: [{ ano: '2019', instituicao: 'BANCO FICTICIO S.A.', tipo: 'Instituição Financeira / Leasing na Cadeia Dominial' }] })
+  const comSeguradora = (x: any = SEM, tipoEvento = 'Titularidade') => comIndicador(x, 'P1', { status: 'positivo', conteudo: [{ seguradora: 'SEGURADORA FICTICIA S.A.', tipoEntidade: 'seguradora', tipoEvento, ano: '2020' }] })
+  const comEdital = (x: any) => comIndicador(x, 'P11', { status: 'positivo', conteudo: [{ ano: 2021, leiloeiro: 'CASA FICTICIA LEILÕES', lote: '42' }] })
+  const comDono = (x: any, campos: Record<string, unknown>) => { const r = copia(x); r.dados.proprietarios.historico[0] = { ...r.dados.proprietarios.historico[0], ...campos }; return r }
+  const comFontes = (x: any, fontes: Record<string, unknown>) => { const r = copia(x); r.dados.raw_sources = { ...r.dados.raw_sources, ...fontes }; return r }
+
+  it('bank, finance company or leasing: by the P7 records or by an owner of that kind', () => {
+    expect(bloco(SEM)).toMatchObject({ completa: true, uso: { financeiras: [], seguradoras: [] }, leilao: { registros: [] } })
+    expect(instituicaoNaCadeia(bloco(SEM))).toBeNull()
+    expect(instituicaoNaCadeia(bloco(comBanco()))).toBe('banco_na_cadeia')
+    expect(instituicaoNaCadeia(bloco(comDono(SEM, { classificacaoEntidade: 'financeira' })))).toBe('banco_na_cadeia')
+    expect(instituicaoNaCadeia(bloco(comDono(SEM, { cnae: '6422100' })))).toBe('banco_na_cadeia')
+  })
+
+  it('insurer: as holder or in its portfolio (P1), or an owner of that kind; an indemnity alone does not count', () => {
+    expect(instituicaoNaCadeia(bloco(comSeguradora()))).toBe('seguradora_na_cadeia')
+    expect(instituicaoNaCadeia(bloco(comSeguradora(SEM, 'Carteira')))).toBe('seguradora_na_cadeia')
+    expect(instituicaoNaCadeia(bloco(comDono(SEM, { classificacaoEntidade: 'seguradora' })))).toBe('seguradora_na_cadeia')
+    const indenizacao = comIndicador(SEM, 'P14', { status: 'positivo', conteudo: [{ seguradora: 'SEGURADORA FICTICIA S.A.', tipoEvento: 'Indenização Integral de Sinistro', ano: '2022' }] })
+    expect(bloco(indenizacao).sinistro!.indenizacoes).toHaveLength(1)
+    expect(instituicaoNaCadeia(bloco(indenizacao))).toBeNull()
+    // Both in the chain: the bank is the reason.
+    expect(instituicaoNaCadeia(bloco(comSeguradora(comBanco())))).toBe('banco_na_cadeia')
+  })
+
+  it('never with an auction record of its own (a lot, or a salvage sale by an insurer)', () => {
+    expect(instituicaoNaCadeia(bloco(comEdital(comBanco())))).toBeNull()
+    expect(instituicaoNaCadeia(bloco(comSeguradora(comBanco(), 'Venda Direta / Remarketing')))).toBeNull()
+    // The fixture with records has a bank AND auction records.
+    expect(bloco(COM).uso!.financeiras).toHaveLength(1)
+    expect(instituicaoNaCadeia(bloco(COM))).toBeNull()
+  })
+
+  it('only on a complete answer for this vehicle', () => {
+    expect(instituicaoNaCadeia(bloco(comFontes(comBanco(), { e5Success: false })))).toBeNull()
+    expect(instituicaoNaCadeia(historicoDoVeiculo(bloco(comBanco()), '9XXHV00000X999999'))).toBeNull() // ggignore
+    expect(instituicaoNaCadeia({ status: 'falhou', consultadoEm: null })).toBeNull()
+    expect(instituicaoNaCadeia(null)).toBeNull()
+    // A block stored before the completeness check, with owners: complete.
+    const antigo: any = bloco(comBanco())
+    delete antigo.completa
+    expect(instituicaoNaCadeia(antigo)).toBe('banco_na_cadeia')
+  })
+
+  it('motivoDaReserva: the failure reasons first, then the institution in the chain; historicoPedeReserva follows it', () => {
+    const banco = bloco(comBanco())
+    for (const job of [null, 'pendente', 'esgotado']) {
+      expect(motivoDaReserva(banco, job)).toBe('banco_na_cadeia')
+      expect(historicoPedeReserva(banco, job)).toBe(true)
+    }
+    expect(motivoDaReserva(bloco(comSeguradora()), null)).toBe('seguradora_na_cadeia')
+    expect(motivoDaReserva(bloco(SEM), 'esgotado')).toBeNull()
+    expect(historicoPedeReserva(bloco(SEM), 'esgotado')).toBe(false)
+    // A partial answer with a bank is a failure.
+    expect(motivoDaReserva(bloco(comFontes(comBanco(), { infosinistrosSuccess: false })), null)).toBe('historico_parcial')
+    expect(motivoDaReserva(historicoDoVeiculo(banco, '9XXHV00000X999999'), null)).toBe('historico_divergente') // ggignore
+    expect(motivoDaReserva({ status: 'falhou', consultadoEm: null }, 'esgotado')).toBe('historico_sem_resposta')
+    expect(motivoDaReserva(null, 'esgotado')).toBe('historico_sem_resposta')
+    expect(motivoDaReserva({ status: 'teto', consultadoEm: null }, 'pendente')).toBeNull()
+    expect(motivoDaReserva(null, null)).toBeNull()
   })
 })
 

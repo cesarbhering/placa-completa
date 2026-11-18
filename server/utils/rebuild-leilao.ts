@@ -49,21 +49,22 @@ export async function rebuildLeilao(
     const snap = p.relatorio_snapshot
     if (!snap || typeof snap !== 'object') { out.push({ token, pulado: 'sem snapshot' }); continue }
     if ((p.plano || 'completa') !== 'completa') { out.push({ token, pulado: 'plano sem bloco de leilao' }); continue }
-    // A fallback started by a manual operator run keeps its no-notice mark
-    // (parceiro.semAviso, review 3 of PR #758): the assembly carries it into a
-    // new call, and the rebuilt block keeps it, so the job's later retry does
-    // not e-mail the customer either.
-    const semAviso = snap.historicoLeilao?.parceiro?.semAviso === true
+    // The rebuild is always a manual operator run (review 3 of PR #758, review
+    // of PR #761): the assembly gets the no-notice mark (parceiro.semAviso)
+    // also when it is the rebuild that starts the auction partner call, and
+    // the rebuilt block keeps it, so the job's later retry never e-mails the
+    // customer either. A notice from a manual run only goes out with a text
+    // Cesar approved.
     const base = await montar(
       supabase,
       { placa: p.placa, plano: 'completa', consulta_id: p.consulta_id, preview: p.preview, token: p.token_entrega, id: p.id } as any,
       ['historicoLeilao'],
-      { renovarLeilao: true, ...(semAviso ? { semAvisoLeilao: true } : {}) },
+      { renovarLeilao: true, semAvisoLeilao: true },
     ).catch(() => null)
     const bruto: any = base?.historicoLeilao
     // Base fora do ar / timeout: montar devolve null. NAO apaga o bloco que o cliente ja tem.
     if (!bruto) { out.push({ token, ok: false, motivo: 'base de leiloes nao respondeu; snapshot intacto, tente de novo' }); continue }
-    const novo = semAviso && bruto.parceiro && bruto.parceiro.semAviso !== true ? { ...bruto, parceiro: { ...bruto.parceiro, semAviso: true } } : bruto
+    const novo = bruto.parceiro && bruto.parceiro.semAviso !== true ? { ...bruto, parceiro: { ...bruto.parceiro, semAviso: true } } : bruto
     const anteriores = Array.isArray(snap?.auditoria?.historicoLeilaoAnteriores) ? snap.auditoria.historicoLeilaoAnteriores : []
     const auditoria = {
       ...(snap.auditoria && typeof snap.auditoria === 'object' ? snap.auditoria : {}),

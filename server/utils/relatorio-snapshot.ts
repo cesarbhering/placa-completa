@@ -1,5 +1,5 @@
 import { complementarLeilaoParceiro, cfgParceiro } from './parceiro-leilao'
-import { historicoProntoParaSnapshot, historicoFalhouNoPedido } from './parceiro-historico'
+import { historicoProntoParaSnapshot, motivoReservaNoPedido } from './parceiro-historico'
 import type { HistoricoVeicular } from '../../shared/historico-veicular'
 import { nossaBaseVazia } from '../../shared/fonte-parceira'
 import { filtrarPorPlano, camposRestantes, fonteNoPlano } from '../../shared/planos'
@@ -244,17 +244,20 @@ export async function montarRelatorioSnapshot(
     // Base parceira de leiloes e sinistros (20/out/2026): so quando a nossa
     // base veio vazia. Fail-open; regra e protecoes em server/utils/parceiro-leilao.ts.
     // With the vehicle history partner on, only as its fallback: its answer
-    // here came partial or for another VIN, or the queue gave up (the stored
-    // block and the job when this is a refill of the auction section only).
+    // here came partial or for another VIN, or the queue gave up, or it came
+    // complete with a bank or insurer in the chain and no auction record of
+    // its own (the stored block and the job when this is a refill of the
+    // auction section only). The reason goes with it (motivoDaReserva).
     historicoVeicular = await lerHistoricoVeicular()
     const cfgLeilao = cfgParceiro(useRuntimeConfig())
-    const reservaDoHistorico = !!cfgLeilao.historicoLigado && nossaBaseVazia(historicoLeilao)
-      && await historicoFalhouNoPedido(supabase, pedido.id, apenas ? undefined : historicoVeicular)
+    const motivoReserva = cfgLeilao.historicoLigado && nossaBaseVazia(historicoLeilao)
+      ? await motivoReservaNoPedido(supabase, pedido.id, apenas ? undefined : historicoVeicular)
+      : null
     historicoLeilao = await complementarLeilaoParceiro(
       { id: pedido.id ?? null, placa: pedido.placa, plano: pedido.plano },
       historicoLeilao,
       { chassi: senatranBruto?.chassi ?? null },
-      { sb: supabase, cfg: cfgLeilao, reservaDoHistorico, semAviso: !!opcoes?.semAvisoLeilao },
+      { sb: supabase, cfg: cfgLeilao, reservaDoHistorico: !!motivoReserva, motivoReserva, semAviso: !!opcoes?.semAvisoLeilao },
     )
   }
 

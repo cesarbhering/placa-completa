@@ -50,7 +50,7 @@ describe('rebuildLeilao (admin backfill)', () => {
     const r = await rebuildLeilao(db, ['tokOk'], { montar: montar as any, agora: T })
     expect(r).toEqual([{ token: 'tokOk', ok: true, passagens: 1, fotosPorPassagem: [{ fonte: 'Copart', lote: 'L1', fotos: 8 }] }])
     // Mesmo caminho da entrega: so o campo de leilao, com o id (base parceira reaproveita a cobranca) e cache renovado.
-    expect(montar).toHaveBeenCalledWith(db, expect.objectContaining({ id: 'p1', placa: 'P', plano: 'completa', consulta_id: 'c1' }), ['historicoLeilao'], { renovarLeilao: true })
+    expect(montar).toHaveBeenCalledWith(db, expect.objectContaining({ id: 'p1', placa: 'P', plano: 'completa', consulta_id: 'c1' }), ['historicoLeilao'], { renovarLeilao: true, semAvisoLeilao: true })
     const snap = ped.relatorio_snapshot as any
     expect(snap.historicoLeilao).toBe(novo)
     expect(snap.valorCusto).toEqual({ fipe: 1 })
@@ -87,6 +87,8 @@ describe('rebuildLeilao (admin backfill)', () => {
 
 // Review 3 of PR #758: an operator-started fallback (parceiro.semAviso) keeps
 // its mark through the rebuild, whether or not the assembly carried it.
+// Review of PR #761: the rebuild is always a manual run, so every order gets
+// the mark, also when the rebuild is what starts the auction partner call.
 describe('rebuildLeilao keeps the no-notice mark of an operator fallback', () => {
   const comMarca = () => ({ ...snapBase(), historicoLeilao: { resumo: { tem_indicio: false }, passagens: [], parceiro: { status: 'falhou', reserva: true, semAviso: true } } })
 
@@ -99,7 +101,7 @@ describe('rebuildLeilao keeps the no-notice mark of an operator fallback', () =>
     expect((ped.relatorio_snapshot as any).historicoLeilao.parceiro).toEqual({ status: 'falhou', reserva: true, semAviso: true })
   })
 
-  it('a block without a partner state, or an order without the mark, is written as it came', async () => {
+  it('a block without a partner state is written as it came; an order without the mark gets it (the rebuild is always manual)', async () => {
     const ped = { id: 'p1', token_entrega: 'tokOp', status: 'entregue', plano: 'completa', placa: 'P', consulta_id: 'c1', preview: null, relatorio_snapshot: comMarca() }
     const novo = { resumo: { tem_indicio: false }, passagens: [] }
     await rebuildLeilao(banco([ped]), ['tokOp'], { montar: (async () => ({ historicoLeilao: novo })) as any, agora: T })
@@ -108,7 +110,7 @@ describe('rebuildLeilao keeps the no-notice mark of an operator fallback', () =>
     const regular = { resumo: { tem_indicio: false }, passagens: [], parceiro: { status: 'ok', reserva: true } }
     const montar = vi.fn(async () => ({ historicoLeilao: regular }))
     await rebuildLeilao(banco([semMarca]), ['tokReg'], { montar: montar as any, agora: T })
-    expect((montar.mock.calls[0] as any)[3]).toEqual({ renovarLeilao: true })
-    expect((semMarca.relatorio_snapshot as any).historicoLeilao).toBe(regular)
+    expect((montar.mock.calls[0] as any)[3]).toEqual({ renovarLeilao: true, semAvisoLeilao: true })
+    expect((semMarca.relatorio_snapshot as any).historicoLeilao).toEqual({ ...regular, parceiro: { status: 'ok', reserva: true, semAviso: true } })
   })
 })
