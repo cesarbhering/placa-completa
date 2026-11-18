@@ -147,7 +147,7 @@ describe('report JSON with the calls made with the owner document', () => {
     const CPF = '123.456.789-09' // ggignore
     const NOME = 'DONO FICTICIO MARCADO'
     const CHASSI = '9XXHV00000X000001' // ggignore
-    const consulta = { response: { ufJurisdicao: 'MG', renavam: '987654321', chassi: CHASSI, placa: 'TST2B34', descricaoMarcaModelo: 'FIAT/PALIO ELX' } }
+    const consulta = { response: { ufJurisdicao: 'MG', renavam: '987654321', chassi: CHASSI, placa: 'TST2B34', descricaoMarcaModelo: 'FIAT/PALIO ELX' } } // ggignore
     const multas = { status: 'ok', fonte: 'detran_mg', multas_total_centavos: 0, ipva_total_centavos: null, ipva_pago_ano: 2020, multas_itens: [], restricoes_detran: [], ipva_pendente_sefaz: true }
     // The real executor, on a database that has the partner answer (with the owner) in the restricted table.
     const sb: any = supabaseMemoria({ rpc: (nome: string) => nome === 'job_lock_pegar' })
@@ -182,7 +182,7 @@ describe('report JSON with the calls made with the owner document', () => {
     const CNPJ = '11.222.333/0001-81' // ggignore
     const NOME = 'DONO FICTICIO MARCADO'
     const CHASSI = '9XXHV00000X000001' // ggignore
-    const consulta = { response: { ufJurisdicao: 'RJ', renavam: '987654321', chassi: CHASSI, placa: 'TST2B34', descricaoMarcaModelo: 'FIAT/PALIO ELX' } }
+    const consulta = { response: { ufJurisdicao: 'RJ', renavam: '987654321', chassi: CHASSI, placa: 'TST2B34', descricaoMarcaModelo: 'FIAT/PALIO ELX' } } // ggignore
     const multas = {
       status: 'ok', fonte: 'detran_rj', multas_total_centavos: null, ipva_total_centavos: null, licenciamento_centavos: null, multas_itens: [], restricoes_detran: [],
       debitos_indisponiveis: true, aviso_debitos: 'Multas e IPVA do RJ não estão disponíveis: o estado exige o documento do proprietário para essa consulta.', nada_consta_pendente: true,

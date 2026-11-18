@@ -34,7 +34,7 @@ const blocoRj = (x: any = {}) => ({
 
 /** One fine as the nada consta lists it (fictitious). */
 const multaRj = (x: any = {}) => ({
-  auto_de_infracao: 'E00000001', auto_de_renainf: '0000000001',
+  auto_de_infracao: 'E00000001', auto_de_renainf: '0000000001', // ggignore
   descricao: 'TRANSITAR EM VELOCIDADE SUPERIOR A MAXIMA PERMITIDA EM ATE 20%', enquadramento_da_infracao: '745-50',
   data_infracao: '10/03/2026', normalizado_data_infracao: '2026-03-10', hora: '14:32',
   local_da_infracao: 'AV FICTICIA 1000 - BAIRRO TESTE', orgao_emissor: 'ORGAO AUTUADOR TESTE', agente_emissor: 'AGENTE TESTE 000',
