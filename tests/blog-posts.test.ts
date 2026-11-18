@@ -18,7 +18,7 @@ describe('blog', () => {
   })
   it('post da eleicao 2026: neutro, com fontes e sem travessao', () => {
     const p = findBlogPost('eleicao-2026-o-que-muda-no-preco-do-carro-usado')!
-    expect(p).toBe(blogPosts[1])
+    expect(p).toBe(blogPosts[2])
     const tudo = JSON.stringify(p)
     expect(tudo).not.toContain('\u2014')
     expect(tudo).not.toMatch(/SENATRAN|DETRAN/i)
@@ -27,7 +27,7 @@ describe('blog', () => {
   })
   it('post da Black Friday: estilo do Cesar, sem travessao, sem fonte, sem preco', () => {
     const p = findBlogPost('black-friday-carro-usado-golpe-anuncio')!
-    expect(p).toBe(blogPosts[0])
+    expect(p).toBe(blogPosts[1])
     const tudo = JSON.stringify(p)
     expect(tudo).not.toContain('\u2014')
     expect(tudo).not.toMatch(/SENATRAN|DETRAN|39,90|44,90|29,90/i)
@@ -48,6 +48,26 @@ describe('blog', () => {
     expect(p.content.at(-1)).toMatchObject({ type: 'cta', ctaTo: '/' })
   })
 
+  it('GTA 6 post: study with sources, tables from the saved data, no dash, no product price, no source of the registry', () => {
+    const p = findBlogPost('gta-6-carro-usado-o-que-os-dados-dizem')!
+    expect(p).toBe(blogPosts[0])
+    const tudo = JSON.stringify(p)
+    expect(tudo).not.toContain('\u2014')
+    expect(tudo).not.toContain('\u2013')
+    expect(tudo).not.toMatch(/SENATRAN|DETRAN|39,90|44,90|29,90/i)
+    expect(p.title + p.metaDescription + (p.seoTitles || []).join(' ')).not.toMatch(/gr[aá]tis/i)
+    expect(p.categoria).toBe('Estudos')
+    // The 2013 search table: the three car searches and the game, three weeks each.
+    const tabela = p.content.find((s) => s.type === 'table')!
+    expect(tabela.columns).toHaveLength(4)
+    expect(tabela.rows!.map((r) => r[0])).toEqual(['carros usados', 'webmotors', 'tabela fipe', 'gta 5'])
+    for (const r of tabela.rows!) expect(r).toHaveLength(4)
+    // Every external figure has its source listed.
+    const fontes = p.content.find((s) => s.heading === 'Fontes')!.text!
+    for (const dominio of ['doi.org/10.1002/soej.12139', 'doi.org/10.1177/1477370817717070', 'iihs.org', 'portaldotransito.com.br', 'vrum.com.br', 'theloadout.com']) expect(fontes).toContain(dominio)
+    expect(p.content.some((s) => s.type === 'faq')).toBe(true)
+    expect(p.content.some((s) => s.type === 'cta' && s.ctaTo === '/')).toBe(true)
+  })
   it('capas existem em public/', () => {
     for (const p of blogPosts) {
       expect(existsSync('public' + p.capa.src)).toBe(true)
