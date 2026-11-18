@@ -436,7 +436,7 @@ describe('fallback of the vehicle history partner: review 1 of PR #758', () => {
   }
   const snapDe = (id = 'p1') => sb.tab('pedidos_premium').find((p) => p.id === id)!.relatorio_snapshot
   let enviados: any[]
-  // The real notifier (aviso_leilao_em guard, leilaoSurgiu), with the sender injected.
+  // The real notifier (aviso_leilao_em guard, tipoDoAviso), with the sender injected.
   const avisarReal = (s: any, id: string, a: any, d: any) => avisarLeilaoTardio(s, id, a, d, { enviar: async (m: any) => { enviados.push(m); return true }, ligado: true, log: () => {} })
   beforeEach(() => { enviados = [] })
 
@@ -457,7 +457,7 @@ describe('fallback of the vehicle history partner: review 1 of PR #758', () => {
     }
   })
 
-  it('item 4: no e-mail when the page already showed an auction or damage from a partial vehicle history; one when it shows up only now', async () => {
+  it('item 4: no e-mail when the page already showed an auction from a partial vehicle history; one when it shows up only now', async () => {
     // Partial answer whose auction part already shows records and a damage sign on the page.
     const comLeilao = historicoDe(HIST_COM, { infosinistrosSuccess: false })
     expect(comLeilao.leilao!.registros.length + (comLeilao.leilao!.indicioSinistro ? 1 : 0)).toBeGreaterThan(0)

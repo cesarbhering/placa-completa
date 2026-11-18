@@ -451,3 +451,23 @@ describe('auction partner from a bank or insurer in the chain: review of PR #761
     expect(avisos).toHaveLength(1)
   })
 })
+
+// Cesar, 18/11/2026 ("Avisar sempre"): the late notice compares the auction
+// section as the page shows it (merged with the vehicle history), on every path.
+describe('late notice compares the page views', () => {
+  it('lazy fill: an auction record of the vehicle history that the page shows only now is told once', async () => {
+    const sb = banco()
+    sb.tab('senatran_consultas').push({ id: 'c1', placa: PLACA, created_at: '2026-11-18T12:00:00Z', response: { chassi: CHASSI } })
+    // Our base was down at the delivery (no auction section). The vehicle
+    // history has its own auction record, so the auction partner is not called.
+    const linha = pedido(sb, 'p1', { consulta_id: 'c1' }, { historicoLeilao: null, historicoVeicular: bloco(BANCO_COM_EDITAL) })
+    vi.stubGlobal('montarRelatorioSnapshot', montarRelatorioSnapshot)
+    const r = await preencherCamposLazy(sb, { token: 'TOK-p1', snap: linha.relatorio_snapshot, plano: 'completa', placa: PLACA, consulta_id: 'c1', campos: ['historicoLeilao'], pedidoId: 'p1' })
+    // Our base came back empty; the page now shows the record of the vehicle history.
+    expect(r.historicoLeilao.passagens).toHaveLength(0)
+    expect(chamadasLeilao).toHaveLength(0)
+    expect(avisos).toHaveLength(1)
+    expect(avisos[0].info).toMatchObject({ passagens: [{ nivel: 'confirmado' }] })
+    expect((linha as any).aviso_leilao_em).toBeTruthy()
+  })
+})

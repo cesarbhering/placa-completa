@@ -175,8 +175,9 @@ const ROTULO_EMAIL: Record<string, (uf: string | null) => string> = {
  * cliente e aviso_completo_em. Sem dado novo (tudo ja tinha chegado ou
  * esgotou sem resultado): nao manda. Nunca lanca.
  * The vehicle history leaves the list when the auction partner ran as its
- * fallback and the customer already got the late auction notice from it
- * (aviso_leilao_em): one e-mail about it, not two.
+ * fallback and the customer already got the late notice from it
+ * (aviso_leilao_em, or aviso_sinistro_em for a notice with only the damage
+ * sign, 18/11/2026): one e-mail about it, not two.
  */
 export async function verificarFechamento(supabase: any, pedidoId: string, deps: { enviarEmail?: typeof enviarAtualizacaoRelatorio } = {}): Promise<boolean> {
   try {
@@ -187,9 +188,9 @@ export async function verificarFechamento(supabase: any, pedidoId: string, deps:
     if (!novos.length) return false
     const p = await lerPedido(supabase, pedidoId)
     if (!p) return false
-    const { data: aviso } = await supabase.from('pedidos_premium').select('aviso_completo_em,aviso_leilao_em').eq('id', pedidoId).maybeSingle()
+    const { data: aviso } = await supabase.from('pedidos_premium').select('aviso_completo_em,aviso_leilao_em,aviso_sinistro_em').eq('id', pedidoId).maybeSingle()
     if (aviso?.aviso_completo_em) return false
-    if (aviso?.aviso_leilao_em && p.relatorio_snapshot?.historicoLeilao?.parceiro?.reserva === true) novos = novos.filter((j: any) => j.fonte !== 'historico_veicular')
+    if ((aviso?.aviso_leilao_em || aviso?.aviso_sinistro_em) && p.relatorio_snapshot?.historicoLeilao?.parceiro?.reserva === true) novos = novos.filter((j: any) => j.fonte !== 'historico_veicular')
     if (!novos.length) return false
     const uf = ufDaResposta(p.relatorio_snapshot?.consulta?.response)
     const nomes = novos.map((j: any) => (ROTULO_EMAIL[j.fonte] || (() => j.fonte))(uf))

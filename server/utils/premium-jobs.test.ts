@@ -5,7 +5,7 @@ import { _resetarEmVoo, quantasEmVoo } from './tarefas-em-voo'
 
 const RESP = [{ ufJurisdicao: 'AL', renavam: '1', indicadorRecall: true, descricaoMarcaModelo: 'FORD/FUSION', chassi: '3FA6P0H71FR000000' }]
 
-function sbFalso(o: { snap?: any; snapDepois?: any; jobs?: any[]; aviso?: string | null; avisoLeilao?: string | null } = {}) {
+function sbFalso(o: { snap?: any; snapDepois?: any; jobs?: any[]; aviso?: string | null; avisoLeilao?: string | null; avisoSinistro?: string | null } = {}) {
   let lidas = 0
   const ops: any[] = []
   const estado = { aviso: o.aviso ?? null as string | null }
@@ -18,7 +18,7 @@ function sbFalso(o: { snap?: any; snapDepois?: any; jobs?: any[]; aviso?: string
       maybeSingle: async () => {
         if (tabela === 'pedidos_premium' && f.filtros.length === 1 && !f.sel) {
           lidas++
-          return { data: { id: 'p', placa: 'ORK8004', token_entrega: 'TOK', email: 'c@x.com', consulta_id: null, relatorio_snapshot: lidas > 1 && o.snapDepois ? o.snapDepois : o.snap, aviso_completo_em: estado.aviso, aviso_leilao_em: o.avisoLeilao ?? null } }
+          return { data: { id: 'p', placa: 'ORK8004', token_entrega: 'TOK', email: 'c@x.com', consulta_id: null, relatorio_snapshot: lidas > 1 && o.snapDepois ? o.snapDepois : o.snap, aviso_completo_em: estado.aviso, aviso_leilao_em: o.avisoLeilao ?? null, aviso_sinistro_em: o.avisoSinistro ?? null } }
         }
         return { data: null }
       },
@@ -243,6 +243,10 @@ describe('fila premium_jobs', () => {
     enviarEmail.mockClear()
     const semReserva = { ...snapReserva, historicoLeilao: { passagens: [{}], parceiro: { status: 'ok' } } }
     expect(await verificarFechamento(sbFalso({ jobs: so, snap: semReserva, avisoLeilao: '2026-11-17T21:00:00Z' }).cliente, 'p', { enviarEmail })).toBe(true)
+    // A late notice with only the damage sign (aviso_sinistro_em, 18/11/2026) counts the same.
+    enviarEmail.mockClear()
+    expect(await verificarFechamento(sbFalso({ jobs: so, snap: snapReserva, avisoSinistro: '2026-11-18T12:00:00Z' }).cliente, 'p', { enviarEmail })).toBe(false)
+    expect(enviarEmail).not.toHaveBeenCalled()
   })
 
   it('lote: reivindica pela RPC, executa em voo e grava o resultado; um lote por vez', async () => {

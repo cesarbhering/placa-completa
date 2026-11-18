@@ -1,29 +1,51 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
-import { avisarLeilaoTardio, leilaoSurgiu, avisoLeilaoLigado, infoDoHistorico, modeloDaResposta } from './aviso-leilao'
+import { avisarLeilaoTardio, tipoDoAviso, avisoLeilaoLigado, infoDoHistorico, modeloDaResposta } from './aviso-leilao'
 import { textosAvisoLeilao, montarEmailAviso } from './premium-email'
 
 // Regra do Cesar (21/out/2026): leilao ou indicio de sinistro que aparece
-// DEPOIS da entrega vira e-mail ao cliente, uma vez por pedido.
+// DEPOIS da entrega vira e-mail ao cliente, uma vez por pedido. Since
+// 18/11/2026 ("Avisar sempre"): a new auction is told even when the page
+// already showed a damage sign; at most one auction notice per order, and a
+// notice that had only the damage sign does not block it.
 const vazio = { resumo: { tem_indicio: false }, passagens: [] }
 const comLeilao = { resumo: { tem_indicio: true }, passagens: [{ nivel: 'confirmado', data_leilao: '2019-08-27', comitente: 'MAPFRE SEGUROS GERAIS S/A' }] }
 const soSinistro = { ...vazio, sinistro_parceiro: { indicio: true, mensagem: 'x' } }
+const leilaoESinistro = { ...comLeilao, sinistro_parceiro: { indicio: true, mensagem: 'x' } }
 
 let sb: ReturnType<typeof supabaseMemoria>
 const enviar = vi.fn(async () => true)
-const pedido = (x: any = {}) => sb.tab('pedidos_premium').push({ id: 'p1', email: 'ana@x.com', placa: 'ABC1D23', token_entrega: 'tok', status: 'entregue', aviso_leilao_em: null, ...x })
+const pedido = (x: any = {}) => sb.tab('pedidos_premium').push({ id: 'p1', email: 'ana@x.com', placa: 'ABC1D23', token_entrega: 'tok', status: 'entregue', aviso_leilao_em: null, aviso_sinistro_em: null, ...x })
 const avisar = (antes: any, depois: any, x: any = {}) => avisarLeilaoTardio(sb, 'p1', antes, depois, { enviar, ligado: true, log: () => {}, ...x })
+const linha = () => sb.tab('pedidos_premium')[0]!
 
 beforeEach(() => { sb = supabaseMemoria(); enviar.mockClear(); enviar.mockImplementation(async () => true) })
 
 describe('gatilho', () => {
-  it('vazio (ou sem historico) para algo: surge; o resto nao', () => {
-    expect(leilaoSurgiu(vazio, comLeilao)).toBe(true)
-    expect(leilaoSurgiu(null, comLeilao)).toBe(true)
-    expect(leilaoSurgiu(vazio, soSinistro)).toBe(true)
-    expect(leilaoSurgiu(comLeilao, { ...comLeilao, passagens: [...comLeilao.passagens, { nivel: 'possivel' }] })).toBe(false)
-    expect(leilaoSurgiu(vazio, vazio)).toBe(false)
-    expect(leilaoSurgiu(vazio, { ...vazio, sinistro_parceiro: { indicio: false } })).toBe(false)
+  it('auction: a page with no auction that now shows one, a damage sign before included', () => {
+    expect(tipoDoAviso(vazio, comLeilao)).toBe('leilao')
+    expect(tipoDoAviso(null, comLeilao)).toBe('leilao')
+    expect(tipoDoAviso(soSinistro, leilaoESinistro)).toBe('leilao')
+    // The page already showed an auction: not new.
+    expect(tipoDoAviso(comLeilao, { ...comLeilao, passagens: [...comLeilao.passagens, { nivel: 'possivel' }] })).toBeNull()
+  })
+  it('damage sign alone: only on a page that showed nothing, as before', () => {
+    expect(tipoDoAviso(vazio, soSinistro)).toBe('sinistro')
+    expect(tipoDoAviso(null, soSinistro)).toBe('sinistro')
+    expect(tipoDoAviso(soSinistro, soSinistro)).toBeNull()
+    expect(tipoDoAviso(comLeilao, leilaoESinistro)).toBeNull()
+    expect(tipoDoAviso(vazio, vazio)).toBeNull()
+    expect(tipoDoAviso(vazio, { ...vazio, sinistro_parceiro: { indicio: false } })).toBeNull()
+  })
+  it('as the page shows it: a passage the model lock hides does not count, before or after', () => {
+    const onix = { nivel: 'provavel', fonte: 'casa_x', fonte_tipo: 'privado', lote: '7', data_leilao: '2026-04-01', veiculo_na_fonte: { marca: 'CHEVROLET', modelo: 'ONIX 1.4 AT LTZ' } }
+    const spin = { modelo: 'CHEV/SPIN 1.8L AT LTZ' }
+    const soOnix = { resumo: { tem_indicio: true }, passagens: [onix] }
+    // An ONIX in a SPIN report: the page hides it, so it is no auction to tell...
+    expect(tipoDoAviso(vazio, soOnix, spin)).toBeNull()
+    // ...and a page that showed only it showed no auction.
+    expect(tipoDoAviso(soOnix, { ...soOnix, passagens: [onix, ...comLeilao.passagens] }, spin)).toBe('leilao')
+    expect(tipoDoAviso(soOnix, { ...soOnix, passagens: [onix, ...comLeilao.passagens] })).toBeNull()
   })
   it('flag: 1 liga, 0 desliga, sem env so fora do staging/homolog', () => {
     expect(avisoLeilaoLigado({ public: {} }, '1')).toBe(true)
@@ -59,6 +81,60 @@ describe('envio', () => {
     enviar.mockImplementation(async () => false)
     expect(await avisar(vazio, comLeilao)).toBe('falhou')
     expect(sb.tab('pedidos_premium')[0].aviso_leilao_em).toBeNull()
+    expect(await avisar(vazio, soSinistro)).toBe('falhou')
+    expect(linha().aviso_sinistro_em).toBeNull()
+  })
+})
+
+// Cesar, 18/11/2026: "Avisar sempre".
+describe('avisar sempre: a new auction after a damage sign, one auction notice per order', () => {
+  it('a new auction when the page already showed a damage sign: told, with the damage paragraph', async () => {
+    pedido()
+    expect(await avisar(soSinistro, leilaoESinistro)).toBe('enviado')
+    expect(enviar).toHaveBeenCalledOnce()
+    const info = (enviar.mock.calls[0] as any)[0].info
+    expect(info).toMatchObject({ sinistro: true, passagens: [{ nivel: 'confirmado' }] })
+    expect(textosAvisoLeilao('ABC1D23', info).paragrafos[1]).toBe('Também consta indício de sinistro em base parceira de leilões e sinistros.')
+    expect(linha().aviso_leilao_em).toBeTruthy()
+    expect(linha().aviso_sinistro_em).toBeNull()
+  })
+
+  it('nothing before: told, as before', async () => {
+    pedido()
+    expect(await avisar(vazio, comLeilao)).toBe('enviado')
+    expect(linha().aviso_leilao_em).toBeTruthy()
+  })
+
+  it('an auction already told: never again, not for another auction nor for a damage sign', async () => {
+    pedido({ aviso_leilao_em: '2026-11-17T12:00:00.000Z' })
+    expect(await avisar(soSinistro, leilaoESinistro)).toBe('ja_avisado')
+    expect(await avisar(vazio, comLeilao)).toBe('ja_avisado')
+    expect(await avisar(vazio, soSinistro)).toBe('ja_avisado')
+    expect(enviar).not.toHaveBeenCalled()
+    expect(linha().aviso_leilao_em).toBe('2026-11-17T12:00:00.000Z')
+  })
+
+  it('a notice with only the damage sign, then an auction: the auction is told too, once', async () => {
+    pedido()
+    expect(await avisar(vazio, soSinistro)).toBe('enviado')
+    expect(linha().aviso_sinistro_em).toBeTruthy()
+    expect(linha().aviso_leilao_em).toBeNull()
+    expect((enviar.mock.calls[0] as any)[0].info).toEqual({ passagens: [], sinistro: true })
+    // The damage sign alone is not told twice.
+    expect(await avisar(vazio, soSinistro)).toBe('ja_avisado')
+    // The auction found later.
+    expect(await avisar(soSinistro, leilaoESinistro)).toBe('enviado')
+    expect(linha().aviso_leilao_em).toBeTruthy()
+    expect((enviar.mock.calls[1] as any)[0].info).toMatchObject({ sinistro: true, passagens: [{ nivel: 'confirmado' }] })
+    expect(await avisar(soSinistro, leilaoESinistro)).toBe('ja_avisado')
+    expect(enviar).toHaveBeenCalledTimes(2)
+  })
+
+  it('the auction mark is taken only while it is free: two runs at once send one e-mail', async () => {
+    pedido()
+    const r = await Promise.all([avisar(soSinistro, leilaoESinistro), avisar(soSinistro, leilaoESinistro)])
+    expect(r.sort()).toEqual(['enviado', 'ja_avisado'])
+    expect(enviar).toHaveBeenCalledOnce()
   })
 })
 

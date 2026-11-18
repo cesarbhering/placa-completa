@@ -476,9 +476,9 @@ function chassiDaResposta(r: any): string | null {
  * The auction section as the page shows it: the stored history merged with
  * the vehicle history (report.get does the same on every read). The late
  * notice compares these views, so no e-mail goes out for what the page
- * already showed from a partial vehicle history.
+ * already showed from a partial vehicle history (also the lazy fill).
  */
-function leilaoNaTela(historicoLeilao: any, snap: any): any {
+export function leilaoNaTela(historicoLeilao: any, snap: any): any {
   return historicoLeilaoComHistorico(historicoLeilao, snap?.historicoVeicular ?? null, { chassi: chassiDaResposta(snap?.consulta?.response) })
 }
 
@@ -493,8 +493,8 @@ export type ResultadoReserva = 'ok' | 'falhou' | 'teto' | 'pulado' | 'erro'
  * our base empty, 30-day cache and the paid call of the order reused, lock
  * per order, daily ceiling). Only the first attempt: a failed or capped call
  * is retried once by rodarJobParceiro. Writes only historicoLeilao, reading
- * the snapshot again first, and tells the customer (once, aviso_leilao_em)
- * when an auction or a damage sign shows up. Never throws.
+ * the snapshot again first, and tells the customer when an auction or a
+ * damage sign shows up (rules in aviso-leilao.ts). Never throws.
  */
 export async function leilaoParceiroComoReserva(
   sb: any,
@@ -549,10 +549,12 @@ export async function leilaoParceiroComoReserva(
     if (!atual || typeof atual !== 'object' || atual.historicoLeilao?.parceiro?.status === 'ok') return 'pulado'
     const { error: erroGravar } = await sb.from('pedidos_premium').update({ relatorio_snapshot: { ...atual, historicoLeilao: novo } }).eq('id', p.id)
     if (erroGravar) return erro('gravacao')
-    // Auction or damage sign that the page did not show before: tells the
-    // customer (once). Both sides as the page shows them (merged with the
-    // vehicle history), so a partial answer that already showed it does not
-    // count as new. Never for a manual operator run (semAviso).
+    // An auction the page did not show before (a damage sign it showed does
+    // not block it, 18/11/2026), or a damage sign on a page that showed
+    // nothing: tells the customer (rules in aviso-leilao.ts). Both sides as
+    // the page shows them (merged with the vehicle history), so an auction a
+    // partial answer already showed does not count as new. Never for a manual
+    // operator run (semAviso).
     if (status === 'ok' && !novo.parceiro?.semAviso) await (deps.avisarLeilao ?? avisarLeilaoTardio)(sb, p.id, leilaoNaTela(atual.historicoLeilao ?? antes, atual), leilaoNaTela(novo, atual))
     log(`[parceiro-leilao] reserva do historico pedido=${ref}: ${status} motivo=${motivo}`)
     return status
@@ -612,9 +614,10 @@ export async function rodarJobParceiro(deps: DepsParceiro & { dono: string }): P
       const { data: atual } = await deps.sb.from('pedidos_premium').select('relatorio_snapshot').eq('id', p.id).maybeSingle()
       if (!atual?.relatorio_snapshot) continue
       await deps.sb.from('pedidos_premium').update({ relatorio_snapshot: { ...atual.relatorio_snapshot, historicoLeilao: gravar } }).eq('id', p.id)
-      // Leilao ou sinistro que apareceu depois da entrega: avisa o cliente (uma
-      // vez). Both sides as the page shows them (merged with the vehicle
-      // history). Never for a fallback started by an operator run (semAviso).
+      // Leilao ou sinistro que apareceu depois da entrega: avisa o cliente
+      // (rules in aviso-leilao.ts). Both sides as the page shows them (merged
+      // with the vehicle history). Never for a fallback started by an
+      // operator run (semAviso).
       if (status === 'ok' && !gravar.parceiro?.semAviso) await (deps.avisarLeilao ?? avisarLeilaoTardio)(deps.sb, p.id, leilaoNaTela(atual.relatorio_snapshot?.historicoLeilao ?? p.historicoLeilao, atual.relatorio_snapshot), leilaoNaTela(gravar, atual.relatorio_snapshot))
       if (status === 'ok') out.completados++
       log(`[parceiro-leilao] job pedido=${p.id}: ${status === 'ok' ? 'completado' : dispensado ? 'historico veio completo (sem chamada)' : 'falhou de novo (nao tenta mais)'}${motivo ? ` motivo=${motivo}` : ''}`)
