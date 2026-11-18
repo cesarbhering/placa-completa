@@ -136,6 +136,16 @@ describe('avisar sempre: a new auction after a damage sign, one auction notice p
     expect(r.sort()).toEqual(['enviado', 'ja_avisado'])
     expect(enviar).toHaveBeenCalledOnce()
   })
+
+  // Lead, 18/11/2026: the same auction often comes from two sources in ways
+  // that do not match, and a false "new auction" e-mail is worse than none.
+  it('an auction already on the page and another one arriving: no e-mail', async () => {
+    pedido()
+    const outro = { nivel: 'provavel', fonte: 'casa_y', fonte_tipo: 'privado', lote: '15', data_leilao: '2021-05-04' }
+    expect(await avisar(comLeilao, { ...leilaoESinistro, passagens: [...comLeilao.passagens, outro] })).toBe('sem_mudanca')
+    expect(enviar).not.toHaveBeenCalled()
+    expect(linha().aviso_leilao_em).toBeNull()
+  })
 })
 
 describe('texto', () => {
