@@ -2,7 +2,8 @@ import { lerFonteCache, gravarFonteCache, chaveDePlaca } from './fonte-cache'
 import { inicioDoDiaBrasilia, AVISO_PARCEIROS, leilaoParceiroComoReserva, type Http, type DepsParceiro } from './parceiro-leilao'
 import { cfgHistorico, FONTE_CACHE_HISTORICO, FONTE_CUSTO_HISTORICO, type CfgHistorico } from './parceiro-historico-env'
 import { emVoo } from './tarefas-em-voo'
-import { parsearRespostaHistorico, historicoDoVeiculo, historicoPedeReserva, type HistoricoVeicular } from '../../shared/historico-veicular'
+import { parsearRespostaHistorico, historicoDoVeiculo, historicoPedeReserva, motivoDaReserva, type HistoricoVeicular } from '../../shared/historico-veicular'
+import type { MotivoReserva } from '../../shared/fonte-parceira'
 import { fonteNoPlano } from '../../shared/planos'
 
 // Vehicle history partner (second partner base), Cesar 13/11/2026: owners,
@@ -31,7 +32,10 @@ import { fonteNoPlano } from '../../shared/planos'
 //  - partial answer (charged, but an internal source failed or no owner), an
 //    answer for another VIN, or no good answer once the queue gave up: the
 //    auction partner is called as the fallback for that order
-//    (parceiro-leilao.ts, leilaoParceiroComoReserva);
+//    (parceiro-leilao.ts, leilaoParceiroComoReserva). Also a complete answer
+//    with a bank, finance company, leasing or insurer in the chain of owners
+//    and no auction record of its own (18/11/2026). The reason goes with it
+//    (shared/historico-veicular.ts, motivoDaReserva);
 //  - one paid call per order and per plate: lock per order AND per plate (two
 //    orders of the same plate never pay twice), a unique index in the table,
 //    and an order that already has a paid row reuses it;
@@ -491,11 +495,12 @@ export async function completarHistoricoVeicular(
   deps: DepsHistorico & { retentar?: boolean; reservaLeilao?: (sb: any, pedidoId: string) => Promise<unknown> },
 ): Promise<ResultadoHistorico> {
   // Final answer that failed this order (charged but partial, or for another
-  // VIN): the auction partner covers auction and damage for it (Cesar,
-  // 17/11/2026), before this returns, so the queue's "updated" e-mail (sent
-  // after the job) already finds it. A failure without an answer waits for
-  // the queue's last attempt (executarJob). Idempotent: it only calls when
-  // the order never tried that partner.
+  // VIN), or a complete one with a bank or insurer in the chain and no
+  // auction record of its own (18/11/2026): the auction partner covers
+  // auction and damage for it (Cesar, 17/11/2026), before this returns, so
+  // the queue's "updated" e-mail (sent after the job) already finds it. A
+  // failure without an answer waits for the queue's last attempt
+  // (executarJob). Idempotent: it only calls when the order never tried that partner.
   const reserva = async (bloco: HistoricoVeicular | null | undefined) => {
     if (!historicoPedeReserva(bloco, null)) return
     await (deps.reservaLeilao ?? ((s: any, id: string) => leilaoParceiroComoReserva(s, id)))(sb, pedido.id).catch(() => {})
@@ -528,26 +533,28 @@ export async function completarHistoricoVeicular(
 }
 
 /**
- * The vehicle history failed for this order and the auction partner should
- * cover it (historicoPedeReserva): partial answer, answer for another VIN, or
- * no good answer once the queue gave up. `bloco` is the block the caller
- * already has (the snapshot assembly); without it, the one in the stored
- * snapshot. Never throws (false).
+ * Why the auction partner should cover this order (motivoDaReserva), or null:
+ * the vehicle history failed for it (partial answer, answer for another VIN,
+ * or no good answer once the queue gave up), or came complete with a bank or
+ * insurer in the chain and no auction record of its own (18/11/2026).
+ * `bloco` is the block the caller already has (the snapshot assembly);
+ * without it, the one in the stored snapshot. Never throws (null).
  */
-export async function historicoFalhouNoPedido(sb: any, pedidoId: string | null | undefined, bloco?: HistoricoVeicular | null): Promise<boolean> {
-  if (!pedidoId) return false
+export async function motivoReservaNoPedido(sb: any, pedidoId: string | null | undefined, bloco?: HistoricoVeicular | null): Promise<MotivoReserva | null> {
+  if (!pedidoId) return null
   try {
     const hv = bloco !== undefined ? bloco : (await lerSnapshot(sb, pedidoId))?.historicoVeicular ?? null
-    if (hv?.status === 'ok' || hv?.status === 'divergente') return historicoPedeReserva(hv, null)
+    if (hv?.status === 'ok' || hv?.status === 'divergente') return motivoDaReserva(hv, null)
     const { data: job } = await sb.from('premium_jobs').select('status').eq('pedido_id', pedidoId).eq('fonte', 'historico_veicular').maybeSingle()
-    return historicoPedeReserva(hv, job?.status ?? null)
-  } catch { return false }
+    return motivoDaReserva(hv, job?.status ?? null)
+  } catch { return null }
 }
 
 /**
  * Operator route (POST /api/premium/historico-veicular/rodar): the same path
  * as the delivery, also with the switch off, retrying a failed call. When the
- * answer fails the order, the auction partner fallback runs too (at most one
+ * answer fails the order, or comes complete with a bank or insurer in the
+ * chain, the auction partner fallback runs too (at most one
  * charge, its usual rules), but it never e-mails the customer, not now and not
  * from the job's later retry (parceiro.semAviso): a notice from a manual run
  * only goes out with a text Cesar approved (17/11/2026).

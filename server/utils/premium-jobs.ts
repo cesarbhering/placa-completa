@@ -91,7 +91,9 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
     const reservaLeilao = deps.reservaLeilao ?? ((sb: any, id: string) => leilaoParceiroComoReserva(sb, id))
     if (fonteConcluida(fonte, p.relatorio_snapshot)) {
       // Vehicle history concluded with a final answer that failed the order
-      // (partial, or for another VIN) and the auction partner never ran for it:
+      // (partial, or for another VIN), or a complete one with a bank or
+      // insurer in the chain and no auction record of its own (18/11/2026),
+      // and the auction partner never ran for it:
       // the step after the delivery did not finish (a read that failed, the
       // container went down). The queue covers it now (17/11/2026), once:
       // leilaoParceiroComoReserva only calls when the order has no partner state.

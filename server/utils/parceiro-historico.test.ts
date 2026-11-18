@@ -4,7 +4,7 @@ import LEILAO_REAL from './__fixtures__/parceiro-leilao-real.json'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
 import {
   completarHistoricoVeicular, chamarHistorico, ehSaldoOuLimiteHistorico, _limparAlertaTetoHistorico, PRECO_RESERVA_CENTAVOS,
-  iniciarHistoricoVeicular, historicoProntoParaSnapshot, _limparEmVooHistorico, motivoDaFalha, historicoFalhouNoPedido,
+  iniciarHistoricoVeicular, historicoProntoParaSnapshot, _limparEmVooHistorico, motivoDaFalha, motivoReservaNoPedido,
 } from './parceiro-historico'
 import { MOTIVO_CHASSI_DIVERGENTE, parsearRespostaHistorico as parsearHistorico, historicoLeilaoComHistorico } from '../../shared/historico-veicular'
 import { situacaoDasFontes } from '../../shared/fontes-relatorio'
@@ -586,11 +586,11 @@ describe('auction partner as the fallback of the vehicle history', () => {
     expect(pagas).toBe(1)
 
     // Another generation of the report (snapshot assembly with the block in hand).
-    const outra = await complementarLeilaoParceiro({ id: 'p1', placa: PLACA, plano: 'completa' }, vazio(), { chassi: '9XXHV00000X000001' }, { ...depsLeilao(), sb, reservaDoHistorico: await historicoFalhouNoPedido(sb, 'p1', snap().historicoVeicular) })
+    const outra = await complementarLeilaoParceiro({ id: 'p1', placa: PLACA, plano: 'completa' }, vazio(), { chassi: '9XXHV00000X000001' }, { ...depsLeilao(), sb, reservaDoHistorico: !!(await motivoReservaNoPedido(sb, 'p1', snap().historicoVeicular)) }) // ggignore
     expect(outra.parceiro.status).toBe('ok')
     // Lazy fill of the auction section (decides from the stored block).
-    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(true)
-    const lazy = await complementarLeilaoParceiro({ id: 'p1', placa: PLACA, plano: 'completa' }, vazio(), {}, { ...depsLeilao(), sb, reservaDoHistorico: await historicoFalhouNoPedido(sb, 'p1') })
+    expect(await motivoReservaNoPedido(sb, 'p1')).toBe('historico_parcial')
+    const lazy = await complementarLeilaoParceiro({ id: 'p1', placa: PLACA, plano: 'completa' }, vazio(), {}, { ...depsLeilao(), sb, reservaDoHistorico: !!(await motivoReservaNoPedido(sb, 'p1')) })
     expect(lazy.parceiro.status).toBe('ok')
     // The retry job and a second run of the step (operator route, step after the delivery).
     await rodarJobParceiro({ ...depsLeilao(), sb, dono: 'job' })
@@ -619,9 +619,9 @@ describe('auction partner as the fallback of the vehicle history', () => {
     expect(tela.passagens.length).toBeGreaterThan(0)
     expect(tela.sinistro_parceiro.indicio).toBe(true)
     // Decided from the stored block too (lazy fill), with any queue state.
-    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(true)
+    expect(await motivoReservaNoPedido(sb, 'p1')).toBe('historico_divergente')
     sb.tab('premium_jobs').push({ id: 'j', pedido_id: 'p1', fonte: 'historico_veicular', status: 'pendente' })
-    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(true)
+    expect(await motivoReservaNoPedido(sb, 'p1')).toBe('historico_divergente')
     // A second run (step after the delivery, operator, queue): no second call, no second notice.
     expect(await completarHistoricoVeicular(sb, pedido(), deps(ok(), { reservaLeilao, retentar: true }))).toMatchObject({ pulado: 'ja tem', status: 'divergente' })
     await rodarJobParceiro({ ...depsLeilao(), sb, dono: 'job' })
@@ -671,20 +671,20 @@ describe('auction partner as the fallback of the vehicle history', () => {
   it('no good answer: not while the queue may still try; called once the queue gave up', async () => {
     sb.tab('pedidos_premium')[0].relatorio_snapshot.historicoVeicular = { status: 'falhou', consultadoEm: null, motivo: 'erro' }
     sb.tab('premium_jobs').push({ id: 'j', pedido_id: 'p1', fonte: 'historico_veicular', status: 'pendente' })
-    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(false)
+    expect(await motivoReservaNoPedido(sb, 'p1')).toBeNull()
     sb.tab('premium_jobs')[0].status = 'rodando'
-    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(false)
+    expect(await motivoReservaNoPedido(sb, 'p1')).toBeNull()
     sb.tab('premium_jobs')[0].status = 'esgotado'
-    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(true)
+    expect(await motivoReservaNoPedido(sb, 'p1')).toBe('historico_sem_resposta')
     // Daily ceiling of the vehicle history (never called): the same.
     sb.tab('pedidos_premium')[0].relatorio_snapshot.historicoVeicular = { status: 'teto', consultadoEm: null }
-    expect(await historicoFalhouNoPedido(sb, 'p1')).toBe(true)
+    expect(await motivoReservaNoPedido(sb, 'p1')).toBe('historico_sem_resposta')
     expect(await leilaoParceiroComoReserva(sb, 'p1', depsLeilao())).toBe('ok')
     expect(cobradasLeilao()).toHaveLength(1)
     expect(snap().historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
     // The block the caller has wins over the stored one (snapshot assembly).
-    expect(await historicoFalhouNoPedido(sb, 'p1', parsearCom())).toBe(false)
-    expect(await historicoFalhouNoPedido(null as any, null)).toBe(false)
+    expect(await motivoReservaNoPedido(sb, 'p1', parsearCom())).toBeNull()
+    expect(await motivoReservaNoPedido(null as any, null)).toBeNull()
   })
 })
 

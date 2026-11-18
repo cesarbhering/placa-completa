@@ -22,6 +22,19 @@ export interface SinistroParceiro {
   mensagem: string | null
 }
 
+/**
+ * Why the auction partner ran for an order as the complement of the vehicle
+ * history partner (shared/historico-veicular.ts, motivoDaReserva). Kept in the
+ * state, in the cost detail and in the log, to measure each rule later:
+ *  - historico_parcial: the vehicle history answer was charged but partial;
+ *  - historico_divergente: it answered for another VIN;
+ *  - historico_sem_resposta: no good answer once the queue gave up;
+ *  - banco_na_cadeia / seguradora_na_cadeia: a complete answer with a bank,
+ *    finance company or leasing (or an insurer) in the chain of owners and no
+ *    auction record of its own (Cesar, 18/11/2026).
+ */
+export type MotivoReserva = 'historico_parcial' | 'historico_divergente' | 'historico_sem_resposta' | 'banco_na_cadeia' | 'seguradora_na_cadeia'
+
 /** Estado da consulta a base parceira guardado no snapshot (historicoLeilao.parceiro). */
 export interface EstadoParceiro {
   /** ok: consultou; falhou: erro na geracao (o job tenta uma vez); teto: teto diario atingido. */
@@ -32,10 +45,13 @@ export interface EstadoParceiro {
   retentado?: boolean
   /**
    * Called as the fallback of the vehicle history partner, which failed for
-   * this order (Cesar, 17/11/2026). With that partner on, the retry job only
-   * takes orders marked so.
+   * this order (Cesar, 17/11/2026), or as its complement when a complete
+   * answer shows a bank or insurer in the chain of owners (18/11/2026). With
+   * that partner on, the retry job only takes orders marked so.
    */
   reserva?: boolean
+  /** Why it ran as that (only with reserva). Absent on states stored before 18/11/2026. */
+  motivo?: MotivoReserva
   /**
    * Started by a manual operator run: the data goes into the report, but no
    * customer e-mail comes out of this source for the order, not even from the

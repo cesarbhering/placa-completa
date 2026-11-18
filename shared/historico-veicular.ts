@@ -13,7 +13,7 @@
 // The vendor name never appears here: on screen, e-mail and JSON the source is
 // "base parceira" (shared/fonte-parceira.ts).
 
-import { FONTE_PARCEIRA, ROTULO_PARCEIRA, naoInformado, historicoComPassagensParceiras, type EstadoParceiro } from './fonte-parceira'
+import { FONTE_PARCEIRA, ROTULO_PARCEIRA, naoInformado, historicoComPassagensParceiras, type EstadoParceiro, type MotivoReserva } from './fonte-parceira'
 import { comitentePublico } from './leilao-lgpd'
 import { comitenteExibicao, NOME_CASA_LEILAO, mesmoEventoLeilao } from './leilao-exibicao'
 
@@ -540,27 +540,56 @@ export function respostaIncompleta(hv: HistoricoVeicular | null | undefined): bo
 
 /**
  * The vehicle history of the order is a complete answer for this vehicle
- * (block ok, not partial): the auction partner fallback is not needed, or no
- * longer needed (a lease that expired after a complete answer was stored, a
- * manual redo that came complete).
+ * (block ok, not partial): the auction partner fallback for a failure is not
+ * needed, or no longer needed (a lease that expired after a complete answer
+ * was stored, a manual redo that came complete). It may still be called as a
+ * complement when the answer shows a bank or insurer in the chain
+ * (instituicaoNaCadeia).
  */
 export function historicoCompleto(hv: HistoricoVeicular | null | undefined): boolean {
   return obj(hv) && hv.status === 'ok' && !respostaIncompleta(hv)
 }
 
 /**
- * The vehicle history failed for this order, so the auction partner covers
- * auction and damage (Cesar, 17/11/2026):
- *  - charged but partial answer, or an answer for another VIN (nothing of it
- *    is shown, so no auction nor damage from it): right away, both are final;
- *  - no good answer (failed, ceiling, not called): only once the queue gave up
- *    (job 'esgotado'); while the queue may still try, not yet.
- * A complete answer for this vehicle, never.
+ * A complete answer for this vehicle with a bank, finance company or leasing
+ * in the chain of owners (the P7 records, its direct sale or remarketing
+ * included, or an owner of that kind), or else an insurer (as holder or in
+ * its portfolio, or an owner of that kind), and no auction record of its own
+ * (Cesar, 18/11/2026): a manual check of delivered reports like this found
+ * confirmed auctions that only the auction partner showed. An insurer
+ * indemnity alone does not count. Reads only types and list sizes.
  */
+export function instituicaoNaCadeia(hv: HistoricoVeicular | null | undefined): 'banco_na_cadeia' | 'seguradora_na_cadeia' | null {
+  if (!historicoCompleto(hv)) return null
+  const tem = (xs: unknown) => Array.isArray(xs) && xs.length > 0
+  if (tem(hv!.leilao?.registros)) return null
+  const donos = Array.isArray(hv!.donos?.registros) ? hv!.donos!.registros : []
+  if (tem(hv!.uso?.financeiras) || donos.some((o) => o?.tipo === 'banco')) return 'banco_na_cadeia'
+  if (tem(hv!.uso?.seguradoras) || donos.some((o) => o?.tipo === 'seguradora')) return 'seguradora_na_cadeia'
+  return null
+}
+
+/**
+ * Why the auction partner should run for this order as the complement of the
+ * vehicle history (null: it should not):
+ *  - the vehicle history failed for it (Cesar, 17/11/2026): a charged but
+ *    partial answer, or an answer for another VIN (nothing of it is shown, so
+ *    no auction nor damage from it), right away, both are final; no good
+ *    answer (failed, ceiling, not called) only once the queue gave up (job
+ *    'esgotado'), while the queue may still try, not yet;
+ *  - or it came complete with a bank or insurer in the chain and no auction
+ *    record of its own (instituicaoNaCadeia, 18/11/2026).
+ * A complete answer for this vehicle without either, never.
+ */
+export function motivoDaReserva(hv: HistoricoVeicular | null | undefined, statusJob: string | null | undefined): MotivoReserva | null {
+  if (obj(hv) && hv.status === 'ok') return respostaIncompleta(hv) ? 'historico_parcial' : instituicaoNaCadeia(hv)
+  if (obj(hv) && hv.status === 'divergente') return 'historico_divergente'
+  return statusJob === 'esgotado' ? 'historico_sem_resposta' : null
+}
+
+/** The auction partner should run for this order (motivoDaReserva). */
 export function historicoPedeReserva(hv: HistoricoVeicular | null | undefined, statusJob: string | null | undefined): boolean {
-  if (obj(hv) && hv.status === 'ok') return respostaIncompleta(hv)
-  if (obj(hv) && hv.status === 'divergente') return true
-  return statusJob === 'esgotado'
+  return motivoDaReserva(hv, statusJob) !== null
 }
 
 // ---------------------------------------------------------------- parser
