@@ -2640,6 +2640,19 @@ export function parsearIpvaSefazMg(data: any): (IpvaItem & { divida_ativa?: true
 }
 
 /**
+ * O que a resposta da SEFAZ-MG vale para o bloco: os itens (lista vazia = nada
+ * em aberto) ou null (indisponivel). O 612 ("a consulta nao retornou dados")
+ * so vale como nada em aberto SEM sinal de atraso no DETRAN-MG. Com o DETRAN
+ * apontando atraso, o mais provavel e o documento nao bater com o renavam (o
+ * dono trocou): indisponivel, nunca "nada a pagar" (Lead, 18/11/2026). Pelo
+ * gatilho, a chamada so sai com sinal de atraso.
+ */
+export function itensSefazMg(res: ResultadoDetran, bloco: any): (IpvaItem & { divida_ativa?: true })[] | null {
+  if (res.code === CODIGO_SEM_DADOS) return ipvaMgAtrasado(bloco) ? null : []
+  return res.code === 200 ? parsearIpvaSefazMg(res.data) : null
+}
+
+/**
  * premium_custos.bruto da SEFAZ-MG: so os debitos (exercicio e valor) ou o
  * erro sem o dono. Nunca nome_razao_social, identificacao, tipo_identificacao
  * nem os parametros da chamada.
@@ -2746,8 +2759,9 @@ async function soltarLockIpvaMg(supabase: any, nome: string, dono: string): Prom
  * Com o lock do pedido (quem nao pega espera e reavalia): fora da Completa so
  * tira a marca; cache da placa (24 h) sem chamada; sem documento completo do
  * dono, ipva_sefaz_indisponivel + ipva_sefaz_sem_documento, sem chamada; com
- * ele, UMA chamada (custo sempre, bruto limpo) e os itens no bloco. 612 = nada
- * em aberto. Falha da SEFAZ: ipva_sefaz_indisponivel de vez. Nunca lanca.
+ * ele, UMA chamada (custo sempre, bruto limpo) e os itens no bloco. 612 com
+ * sinal de atraso no DETRAN (itensSefazMg) e falha da SEFAZ:
+ * ipva_sefaz_indisponivel de vez. Nunca lanca.
  */
 export async function completarIpvaSefazMg(
   supabase: any,
@@ -2818,8 +2832,7 @@ export async function completarIpvaSefazMg(
     })
     const detalhe = res.code === 200 ? null : (semDono(detalheDaRecusa(res) || '', dono) || null)
     await registrarCusto(supabase, { pedidoId, fonte: sef.fonteCusto, preco: res.preco, code: res.code, detalhe, bruto: brutoSefazMg(res, dono) })
-    // 612 "a consulta nao retornou dados" = nada em aberto na SEFAZ-MG (cobrado igual).
-    const itens = res.code === CODIGO_SEM_DADOS ? [] : res.code === 200 ? parsearIpvaSefazMg(res.data) : null
+    const itens = itensSefazMg(res, snap.multas)
     if (itens) {
       await gravarFonteCache(supabase, FONTE_CACHE_IPVA_MG, chaveCache, { itens }, 'ok')
       await gravarIpvaMg(supabase, pedidoId, camposIpvaSefazMg(itens))

@@ -3,9 +3,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import MG from './__fixtures__/infosimples-detran-mg.json'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
 import {
-  precisaIpvaSefazMg, ipvaMgAtrasado, documentoDoDonoAtual, parsearIpvaSefazMg, completarIpvaSefazMg,
+  precisaIpvaSefazMg, ipvaMgAtrasado, documentoDoDonoAtual, parsearIpvaSefazMg, completarIpvaSefazMg, itensSefazMg,
   completarDetran, DETRAN_UFS, _definirEsperaLockIpvaMg,
 } from './infosimples-detran'
+import { resumoQuitar } from '../../shared/detran-quitar'
 import { completarHistoricoVeicular, _limparEmVooHistorico, _limparAlertaTetoHistorico } from './parceiro-historico'
 import { cfgHistorico } from './parceiro-historico-env'
 import { ttlDaFonte } from './fonte-cache'
@@ -340,14 +341,37 @@ describe('the SEFAZ-MG call', () => {
     expect(sb.tab('fonte_cache')).toHaveLength(0)
   })
 
-  it('612: nothing open (charged and cached)', async () => {
+  // Lead, 18/11/2026: the DETRAN-MG points to arrears and the SEFAZ says it has
+  // nothing; most likely the owner's document does not match the renavam (the
+  // vehicle changed hands). Never suggest there is no IPVA to pay.
+  it('612 with the DETRAN pointing to arrears: unavailable, never "nothing open" (charged, not cached)', async () => {
     comPedido(sb, { multas: blocoMg({ ipva_pendente_sefaz: true }) })
     comRespostaPaga(sb, 'p1', respostaParceira(CPF))
     stubFetch({ code: 612, code_message: 'A consulta não retornou dados.', errors: ['Nenhum débito encontrado'], header: { price: '0.24' } })
-    expect(await completarIpvaSefazMg(sb, 'p1')).toMatchObject({ feito: 'ok' })
-    expect(snapDe(sb).multas).toMatchObject({ ipva_itens: [], ipva_total_centavos: 0, ipva_fonte: 'sefaz_mg' })
+    expect(await completarIpvaSefazMg(sb, 'p1')).toMatchObject({ feito: 'indisponivel', code: 612 })
+    const m = snapDe(sb).multas
+    expect(m).toMatchObject({ ipva_sefaz_indisponivel: true, ipva_total_centavos: null })
+    for (const k of ['ipva_fonte', 'ipva_itens', 'ipva_sefaz_sem_documento', 'ipva_pendente_sefaz']) expect(m[k]).toBeUndefined()
+    // The box says the value did not come; never "Nada a quitar".
+    const r = resumoQuitar({ bloco: m })
+    expect(r.ipvaSemValor).toBe('valor não informado pela SEFAZ-MG nesta consulta')
+    expect(r.nadaAQuitar).toBeNull()
     expect(sb.tab('premium_custos')).toEqual([expect.objectContaining({ fonte: 'infosimples_sefaz_mg_ipva', preco: 0.24, code: 612 })])
-    expect(sb.tab('fonte_cache')[0]).toMatchObject({ fonte: 'ipva_sefaz_mg', payload: { itens: [] } })
+    expect(sb.tab('fonte_cache')).toHaveLength(0)
+    // Final for the order: never called again.
+    expect(await completarIpvaSefazMg(sb, 'p1')).toMatchObject({ feito: 'pulado' })
+    expect(chamadasSefaz).toHaveLength(1)
+  })
+
+  it('a 612 counts as nothing open only without any sign of arrears in the DETRAN block', () => {
+    const r612 = { code: 612, codeMessage: '', preco: 0.24, data: null }
+    const restricao = [{ tipo: 'administrativa', texto: 'VEICULO AUTUADO POR DEBITO DE IPVA' }]
+    expect(itensSefazMg(r612, blocoMg({ ipva_pago_ano: ANO - 1 }))).toBeNull()
+    expect(itensSefazMg(r612, blocoMg({ ipva_pago_ano: ANO, restricoes_detran: restricao }))).toBeNull()
+    expect(itensSefazMg(r612, blocoMg({ ipva_pago_ano: ANO }))).toEqual([])
+    // A 200 is read as it comes; any other code is a failure.
+    expect(itensSefazMg({ code: 200, codeMessage: '', preco: 0.24, data: { debitos_adm: ADM, debitos_divida_ativa: [] } }, blocoMg())).toHaveLength(3)
+    expect(itensSefazMg({ code: 609, codeMessage: '', preco: 0.24, data: null }, blocoMg())).toBeNull()
   })
 
   it('SEFAZ failure: unavailable for good, not cached, never called again for the order', async () => {
