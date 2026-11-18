@@ -29,7 +29,8 @@ export function fonteConcluida(fonte: FonteRelatorio, s: EntradaFontes['snapshot
   if (fonte === 'detran') {
     const m = snap.multas
     if (!m || typeof m !== 'object') return false
-    if (['ok', 'sem_debito', 'protegido'].includes(String(m.status))) return !m.ipva_pendente_sefaz
+    // IPVA na SEFAZ ou multas do RJ (nada consta) ainda chegando: a tela espera.
+    if (['ok', 'sem_debito', 'protegido'].includes(String(m.status))) return !m.ipva_pendente_sefaz && !m.nada_consta_pendente
     return false
   }
   if (fonte === 'recall') return snap.recall != null

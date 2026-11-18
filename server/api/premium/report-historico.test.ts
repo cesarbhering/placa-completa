@@ -3,7 +3,7 @@ import COM from '../../utils/__fixtures__/parceiro-historico-com-registros.json'
 import { parsearRespostaHistorico } from '../../../shared/historico-veicular'
 import { NOME_FORNECEDOR_HISTORICO_RE } from '../../utils/parceiro-historico-env'
 import { supabaseMemoria } from '../../../tests/helpers/supabase-memoria'
-import { completarIpvaSefazMg } from '../../utils/infosimples-detran'
+import { completarIpvaSefazMg, completarNadaConstaRj } from '../../utils/infosimples-detran'
 
 // /api/premium/report with the vehicle history partner: the clean block goes
 // out through an allow-list, its auction part is merged into the auction
@@ -140,7 +140,7 @@ describe('report JSON with the vehicle history partner', () => {
 // IPVA in arrears at the DETRAN-MG (Cesar, 18/11/2026): the SEFAZ-MG is asked
 // with the owner document read on the server from the partner answer. The
 // report shows the open years and never the document nor the owner's name.
-describe('report JSON with the SEFAZ-MG IPVA', () => {
+describe('report JSON with the calls made with the owner document', () => {
   it('shows the open years and never the owner name or document read from the partner answer', async () => {
     const CPF = '123.456.789-09' // ggignore
     const NOME = 'DONO FICTICIO MARCADO'
@@ -175,4 +175,44 @@ describe('report JSON with the SEFAZ-MG IPVA', () => {
     const json = JSON.stringify(r)
     expect(json).not.toMatch(/DONO FICTICIO|123\.456\.789-09|12345678909|456\.789/) // ggignore
   })
+
+  it('RJ: shows the unpaid fines from the nada consta and never the owner name or document', async () => {
+    const CNPJ = '11.222.333/0001-81' // ggignore
+    const NOME = 'DONO FICTICIO MARCADO'
+    const CHASSI = '9XXHV00000X000001' // ggignore
+    const consulta = { response: { ufJurisdicao: 'RJ', renavam: '987654321', chassi: CHASSI, placa: 'TST2B34', descricaoMarcaModelo: 'FIAT/PALIO ELX' } }
+    const multas = {
+      status: 'ok', fonte: 'detran_rj', multas_total_centavos: null, ipva_total_centavos: null, licenciamento_centavos: null, multas_itens: [], restricoes_detran: [],
+      debitos_indisponiveis: true, aviso_debitos: 'Multas e IPVA do RJ não estão disponíveis: o estado exige o documento do proprietário para essa consulta.', nada_consta_pendente: true,
+    }
+    const sb: any = supabaseMemoria({ rpc: (nome: string) => nome === 'job_lock_pegar' })
+    sb.tab('pedidos_premium').push({ id: 'pedido-teste', placa: 'TST2B34', plano: 'completa', relatorio_snapshot: { consulta, multas } })
+    sb.tab('parceiro_historico_chamadas').push({
+      pedido_id: 'pedido-teste', placa: 'TST2B34', cobrada: true, criado_em: new Date().toISOString(),
+      resposta_bruta: { success: true, dados: { chassi: CHASSI, proprietarios: { total: 1, proprietario_atual: { nome: NOME, razao_social: NOME, documento: CNPJ, documentoOriginal: CNPJ } } } },
+    })
+    const fetchAntes = globalThis.fetch
+    runtime.infosimplesToken = 't'
+    globalThis.fetch = (async () => ({
+      status: 200,
+      json: async () => ({
+        code: 200, header: { price: '0.24', parameters: { cnpj: '11222333000181', renavam: '00987654321' } }, // ggignore
+        data: [{ renavam: '00987654321', multas: [{ auto_de_infracao: 'E00000001', descricao: 'ESTACIONAR EM LOCAL PROIBIDO', data_infracao: '02/04/2026', hora: '09:05', local_da_infracao: 'AV FICTICIA 1000', orgao_emissor: 'ORGAO AUTUADOR TESTE', agente_emissor: 'AGENTE TESTE 000', valor_a_ser_pago: 'R$ 195,23', valor_original: 'R$ 195,23', situacao: 'EM ABERTO', status_de_pagamento: 'NÃO PAGO' }] }],
+      }),
+    })) as any
+    try {
+      expect(await completarNadaConstaRj(sb, 'pedido-teste')).toMatchObject({ feito: 'ok' })
+    } finally {
+      globalThis.fetch = fetchAntes
+      delete runtime.infosimplesToken
+    }
+    comPedido({}, { consulta, multas: sb.tab('pedidos_premium')[0].relatorio_snapshot.multas })
+    const r: any = await handler({} as any)
+    expect(r.multas).toMatchObject({
+      multas_fonte: 'detran_rj_nada_consta', multas_total_centavos: 19523, debitos_indisponiveis: true, aviso_debitos: 'IPVA do RJ não está disponível nesta consulta.',
+      multas_itens: [{ auto: 'E00000001', valor: 195.23, local: 'AV FICTICIA 1000', orgao: 'ORGAO AUTUADOR TESTE' }],
+    })
+    expect(JSON.stringify(r)).not.toMatch(/DONO FICTICIO|11\.222\.333|11222333000181|AGENTE/) // ggignore
+  })
 })
+
