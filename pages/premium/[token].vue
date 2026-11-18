@@ -2236,7 +2236,7 @@ onMounted(() => {
 let pollMultas: any = null
 function acompanharMultas() {
   if (pollMultas || acompanhamentoEsgotado.value) return
-  if ((!multaIndicadorSP.value && !ehVeiculoSpTela.value) || multasDetalhe.value || multasIndisponivel.value || aguardandoDetran.value) return
+  if (isBasica.value || (!multaIndicadorSP.value && !ehVeiculoSpTela.value) || multasDetalhe.value || multasIndisponivel.value || aguardandoDetran.value) return
   const ent = new Date(data.value?.entregue_em || '').getTime()
   const ate = Number.isFinite(ent) ? ent + LIMITE_ACOMPANHAR_MS : Date.now() + LIMITE_ACOMPANHAR_MS
   if (Date.now() > ate) { acompanhamentoEsgotado.value = true; return }
@@ -2541,7 +2541,7 @@ onUnmounted(() => {
                 <div class="rel__tempo-txt">
                   <b>{{ e.titulo }}</b>
                   <small v-if="e.detalhe">{{ e.detalhe }}</small>
-                  <small v-if="e.secao && numSecao[e.secao]" class="rel__tempo-ver">ver seção {{ numSecao[e.secao] }}</small>
+                  <small v-if="e.secao && numSecao[e.secao] && !(isBasica && e.tipo === 'recall')" class="rel__tempo-ver">ver seção {{ numSecao[e.secao] }}</small>
                 </div>
               </li>
             </ol>
@@ -2549,7 +2549,7 @@ onUnmounted(() => {
           </section>
 
           <section v-if="numSecao.restr" class="rel__card">
-            <h2 class="rel__h2">{{ numSecao.restr }}. {{ isBasica ? 'Multas e débitos' : 'Restrições' }}</h2>
+            <h2 class="rel__h2">{{ numSecao.restr }}. {{ isBasica ? `Situação no DETRAN${ufDetranTela ? '-' + ufDetranTela : ''}` : 'Restrições' }}</h2>
             <!-- Basica: a secao existe so para o cartao de multas (pedido com o bloco do DETRAN); restricoes, anotacoes e recall seguem so na Completa. -->
             <template v-if="!isBasica">
             <template v-if="restricoes.length">

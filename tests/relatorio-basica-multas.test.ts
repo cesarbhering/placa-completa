@@ -15,7 +15,7 @@ describe('basic plan and the DETRAN block', () => {
     expect(vue).not.toContain("if (!isBasica.value && temIndicadores.value) ordem.push('restr')")
   })
   it('on the basic plan the section is titled for fines and shows only the fines card', () => {
-    expect(secao).toContain("{{ isBasica ? 'Multas e débitos' : 'Restrições' }}")
+    expect(secao).toContain("{{ isBasica ? `Situação no DETRAN${ufDetranTela ? '-' + ufDetranTela : ''}` : 'Restrições' }}")
     // Restrictions, notes and recall stay in two blocks closed to the basic plan.
     expect(secao.match(/<template v-if="!isBasica">/g)).toHaveLength(2)
     const i1 = secao.indexOf('<template v-if="!isBasica">')
@@ -31,6 +31,12 @@ describe('basic plan and the DETRAN block', () => {
   })
   it('the old DETRAN wait (no source list from the server) never applies to the basic plan', () => {
     expect(vue).toContain('if (!entregue.value || !ehVeiculoSpTela.value || isBasica.value) return null')
+  })
+  it('on the basic plan a recall in the timeline never points to the fines section', () => {
+    expect(vue).toContain(`v-if="e.secao && numSecao[e.secao] && !(isBasica && e.tipo === 'recall')"`)
+  })
+  it('the basic plan never polls for a DETRAN block after delivery (it only comes by backfill)', () => {
+    expect(vue).toContain('if (isBasica.value || (!multaIndicadorSP.value && !ehVeiculoSpTela.value) || multasDetalhe.value')
   })
   it('no dash in the new copy', () => {
     expect(secao).not.toMatch(/—/)
