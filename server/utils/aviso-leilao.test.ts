@@ -137,6 +137,16 @@ describe('avisar sempre: a new auction after a damage sign, one auction notice p
     expect(enviar).toHaveBeenCalledOnce()
   })
 
+  // Review of PR #763, finding 2: both runs read the order before either marks it.
+  it('the damage mark is taken only while it is free: two runs at once send one e-mail', async () => {
+    pedido()
+    const r = await Promise.all([avisar(vazio, soSinistro), avisar(vazio, soSinistro)])
+    expect(r.sort()).toEqual(['enviado', 'ja_avisado'])
+    expect(enviar).toHaveBeenCalledOnce()
+    expect(linha().aviso_sinistro_em).toBeTruthy()
+    expect(linha().aviso_leilao_em).toBeNull()
+  })
+
   // Lead, 18/11/2026: the same auction often comes from two sources in ways
   // that do not match, and a false "new auction" e-mail is worse than none.
   it('an auction already on the page and another one arriving: no e-mail', async () => {

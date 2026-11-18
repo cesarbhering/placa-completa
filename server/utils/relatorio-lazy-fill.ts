@@ -134,9 +134,13 @@ export async function preencherCamposLazy(
   // Leilao ou sinistro que apareceu depois da entrega: avisa o cliente (rules
   // in aviso-leilao.ts). Both sides as the page shows them, merged with the
   // vehicle history of the snapshot (18/11/2026), as the auction partner
-  // paths already do.
+  // paths already do. Without our base at the delivery (null), the page had
+  // no auction section, but it already showed the damage sign of the vehicle
+  // history (review of PR #763): "before" keeps that sign and none of the
+  // auction records, which still count as new.
   if (opts.campos.includes('historicoLeilao') && opts.pedidoId) {
-    await avisarLeilaoTardio(supabase, opts.pedidoId, leilaoNaTela(opts.snap?.historicoLeilao ?? null, opts.snap), leilaoNaTela(resultado.historicoLeilao ?? null, opts.snap))
+    const antes = leilaoNaTela(opts.snap?.historicoLeilao ?? { resumo: {}, passagens: [] }, opts.snap)
+    await avisarLeilaoTardio(supabase, opts.pedidoId, opts.snap?.historicoLeilao ? antes : { ...antes, passagens: [] }, leilaoNaTela(resultado.historicoLeilao ?? null, opts.snap))
   }
   return resultado
 }
