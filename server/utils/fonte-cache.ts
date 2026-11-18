@@ -11,7 +11,8 @@ const D = 24 * H
 
 export const TTL_POR_FONTE: Array<[RegExp, number]> = [
   [/^multas/, 24 * H],
-  [/^ipva_sefaz/, 24 * H],     // IPVA na SEFAZ (AL/DF), junto do bloco do DETRAN
+  [/^ipva_sefaz/, 24 * H],     // IPVA na SEFAZ (AL/DF/MG), junto do bloco do DETRAN
+  [/^nada_consta/, 24 * H],    // multas do DETRAN-RJ pelo nada consta (documento do dono)
   [/^leilao/, 30 * D],
   [/^chassi/, 30 * D],
   [/^recall/, 7 * D],

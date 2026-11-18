@@ -92,3 +92,71 @@ describe('AL: IPVA apontado, valor vindo da SEFAZ', () => {
     expect(w.find('.dq__pendente').text()).toContain('consultando a SEFAZ-AL')
   })
 })
+
+describe('RJ: fines from the nada consta, IPVA not consulted (18/11/2026)', () => {
+  const AVISO_IPVA = 'IPVA do RJ não está disponível nesta consulta.'
+  const rj = (x: any) => ({ fonte: 'detran_rj', uf: 'RJ', ipva_total_centavos: null, licenciamento_centavos: null, debitos_indisponiveis: true, restricoes_detran: [], ...x })
+
+  it('with fines: the total to pay, and the notice that the IPVA did not come stays as a note', () => {
+    const w = montar(rj({ multas_total_centavos: 208500, aviso_debitos: AVISO_IPVA }))
+    expect(w.find('.dq__total').text()).toBe('R$ 2.085,00')
+    expect(w.findAll('.dq__linhas li').map((l) => l.find('span').text())).toEqual(['Multas em aberto'])
+    expect(w.find('.dq__nota--aviso').text()).toBe(AVISO_IPVA)
+    expect(w.text()).not.toContain('Nada a quitar')
+    expect(w.text()).not.toContain('—')
+  })
+
+  it('nada consta without any unpaid fine (or a 612): "Nenhuma multa em aberto no DETRAN-RJ" with the IPVA note, never "Nada a quitar"', () => {
+    const w = montar(rj({ multas_total_centavos: 0, multas_itens: [], multas_fonte: 'detran_rj_nada_consta', aviso_debitos: AVISO_IPVA }))
+    expect(w.find('.dq__total').exists()).toBe(false)
+    expect(w.find('.dq__tit').text()).toBe('Nenhuma multa em aberto no DETRAN-RJ na data da consulta.')
+    expect(w.find('.dq__nota--aviso').text()).toBe(AVISO_IPVA)
+    expect(w.find('.dq__aviso').exists()).toBe(false)
+    expect(w.text()).not.toContain('Nada a quitar')
+    // The IPVA is unknown: the box is never the green "all clear" one.
+    expect(w.classes()).not.toContain('dq--ok')
+    expect(w.text()).not.toContain('—')
+  })
+
+  it('a listed fine with no value yet: never "Nenhuma multa em aberto"; the IPVA notice is the main line', () => {
+    const w = montar(rj({ multas_total_centavos: 0, multas_itens: [{ auto: 'E00000009', descricao: 'INFRACAO EM ANDAMENTO', valor: 0 }], multas_fonte: 'detran_rj_nada_consta', aviso_debitos: AVISO_IPVA }))
+    expect(w.text()).not.toContain('Nenhuma multa em aberto')
+    expect(w.find('.dq__aviso').text()).toBe(AVISO_IPVA)
+    expect(w.text()).not.toContain('Nada a quitar')
+  })
+
+  it('fines not consulted (no owner document, as before): the notice is the main line, without the fines line', () => {
+    const avisoAntigo = 'Multas e IPVA do RJ não estão disponíveis: o estado exige o documento do proprietário para essa consulta.'
+    const w = montar(rj({ multas_total_centavos: null, multas_itens: [], aviso_debitos: avisoAntigo }))
+    expect(w.find('.dq__total').exists()).toBe(false)
+    expect(w.find('.dq__aviso').text()).toBe(avisoAntigo)
+    expect(w.find('.dq__nota--aviso').exists()).toBe(false)
+    expect(w.text()).not.toContain('Nenhuma multa')
+    expect(w.text()).not.toContain('Nada a quitar')
+  })
+})
+
+// Review 3 of PR #762 (risk 5): with no total and no lock, the box was the green
+// "all clear" one even with an IPVA line still without a value. Green only
+// without that line; with it, the neutral box.
+describe('IPVA in arrears without a value: never the green box', () => {
+  it('"valor não informado" or "consultando": neutral box, the IPVA line, never green', () => {
+    for (const bloco of [
+      { fonte: 'detran_mg', multas_total_centavos: 0, ipva_total_centavos: null, ipva_sefaz_indisponivel: true },
+      { fonte: 'detran_mg', multas_total_centavos: 0, ipva_total_centavos: null, ipva_pendente_sefaz: true },
+    ]) {
+      const w = montar(bloco)
+      expect(w.classes()).not.toContain('dq--ok')
+      expect(w.classes()).toContain('dq--neutro')
+      expect(w.find('.dq__pendente').text()).toMatch(/^IPVA em aberto/)
+      expect(w.text()).not.toContain('Nada a quitar')
+    }
+  })
+
+  it('with nothing to pay and nothing pending, still the green box', () => {
+    const w = montar({ fonte: 'detran_mg', multas_total_centavos: 0, ipva_total_centavos: 0, ipva_fonte: 'sefaz_mg', ipva_itens: [] })
+    expect(w.classes()).toContain('dq--ok')
+    expect(w.classes()).not.toContain('dq--neutro')
+  })
+})
+

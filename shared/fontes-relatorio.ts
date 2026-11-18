@@ -23,13 +23,35 @@ export interface EntradaFontes {
   jobs?: { fonte: string; status: string }[]
 }
 
+/**
+ * Consulta complementar do bloco do DETRAN ainda chegando (IPVA na SEFAZ,
+ * multas do RJ): a marca vale 15 min a partir da hora gravada junto dela
+ * (`<marca>_em`). Passado isso a chamada se perdeu (processo caiu, gravacao
+ * final perdida): a fonte conclui e a tela diz que o valor nao veio
+ * (revisao do PR #762). Marca sem hora (AL e DF) vale ate sair, como antes.
+ */
+export const PENDENTE_VENCE_MS = 15 * 60 * 1000
+const MARCAS_PENDENTES_DETRAN = ['ipva_pendente_sefaz', 'nada_consta_pendente'] as const
+
+export function pendenteAtivo(m: any, marca: string, agora = Date.now()): boolean {
+  if (!m || typeof m !== 'object' || m[marca] !== true) return false
+  const desde = Date.parse(String(m[`${marca}_em`] ?? ''))
+  return !Number.isFinite(desde) || agora - desde < PENDENTE_VENCE_MS
+}
+
+/** A marca esta no bloco, mas passou do prazo: a consulta nao vem mais por conta propria. */
+export function pendenteVencido(m: any, marca: string, agora = Date.now()): boolean {
+  return !!m && typeof m === 'object' && m[marca] === true && !pendenteAtivo(m, marca, agora)
+}
+
 /** A fonte ja trouxe resultado final (com dado ou sem dado)? */
-export function fonteConcluida(fonte: FonteRelatorio, s: EntradaFontes['snapshot']): boolean {
+export function fonteConcluida(fonte: FonteRelatorio, s: EntradaFontes['snapshot'], agora = Date.now()): boolean {
   const snap = s || {}
   if (fonte === 'detran') {
     const m = snap.multas
     if (!m || typeof m !== 'object') return false
-    if (['ok', 'sem_debito', 'protegido'].includes(String(m.status))) return !m.ipva_pendente_sefaz
+    // IPVA na SEFAZ ou multas do RJ (nada consta) ainda chegando: a tela espera.
+    if (['ok', 'sem_debito', 'protegido'].includes(String(m.status))) return !MARCAS_PENDENTES_DETRAN.some((k) => pendenteAtivo(m, k, agora))
     return false
   }
   if (fonte === 'recall') return snap.recall != null
@@ -73,7 +95,7 @@ export function situacaoDasFontes(e: EntradaFontes): { fontes: SituacaoFonte[]; 
   const dentroDaEspera = aguardarAte != null && agora < aguardarAte
   const jobs = e.jobs || []
   const fontes = e.aplicaveis.map(({ fonte, rotulo }) => {
-    if (fonteConcluida(fonte, e.snapshot)) return { fonte, rotulo, estado: 'ok' as EstadoFonte }
+    if (fonteConcluida(fonte, e.snapshot, agora)) return { fonte, rotulo, estado: 'ok' as EstadoFonte }
     if (dentroDaEspera) {
       if (!fonteNaoVemAgora(fonte, e.snapshot)) return { fonte, rotulo, estado: 'consultando' as EstadoFonte }
       // Inside the wait the queue job may not exist yet (it is created after the

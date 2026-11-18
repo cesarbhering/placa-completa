@@ -9,12 +9,14 @@ const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currenc
 </script>
 
 <template>
-  <div class="dq" :class="{ 'dq--ok': !props.resumo.totalCentavos && !props.resumo.travas.length && !props.resumo.avisoDebitos, 'dq--neutro': !props.resumo.totalCentavos && !props.resumo.travas.length && !!props.resumo.avisoDebitos }">
+  <div class="dq" :class="{ 'dq--ok': !props.resumo.totalCentavos && !props.resumo.travas.length && !props.resumo.avisoDebitos && !props.resumo.ipvaSemValor, 'dq--neutro': !props.resumo.totalCentavos && !props.resumo.travas.length && (!!props.resumo.avisoDebitos || !!props.resumo.ipvaSemValor) }">
+    <!-- Verde so sem nada a pagar, sem trava, sem aviso e sem IPVA ainda sem valor (consultando ou nao informado): esse vai pro neutro. -->
     <p v-if="props.resumo.totalCentavos" class="dq__tit">
       <span>Para transferir este veículo, falta quitar</span>
       <b class="dq__total">{{ reais(props.resumo.totalCentavos) }}</b>
     </p>
     <p v-else-if="props.resumo.nadaAQuitar" class="dq__tit dq__tit--nada">{{ props.resumo.nadaAQuitar }}</p>
+    <p v-else-if="props.resumo.semMultas" class="dq__tit dq__tit--nada">{{ props.resumo.semMultas }}</p>
     <p v-else-if="props.resumo.avisoDebitos" class="dq__aviso">{{ props.resumo.avisoDebitos }}</p>
     <p v-else class="dq__tit"><span>Para transferir este veículo, falta quitar</span></p>
 
@@ -27,6 +29,8 @@ const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currenc
       </li>
     </ul>
     <p v-if="props.resumo.totalDoDetran" class="dq__nota">Total informado pelo próprio DETRAN{{ props.resumo.uf ? '-' + props.resumo.uf : '' }}, com juros e correção.</p>
+    <!-- RJ com as multas do nada consta (com total ou sem multa em aberto): o aviso de que o IPVA nao veio continua visivel. -->
+    <p v-if="(props.resumo.totalCentavos || props.resumo.semMultas) && props.resumo.avisoDebitos" class="dq__nota dq__nota--aviso">{{ props.resumo.avisoDebitos }}</p>
 
     <p class="dq__travas">
       <b>Restrições que travam a transferência:</b>

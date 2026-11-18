@@ -5,6 +5,8 @@ import { emVoo } from './tarefas-em-voo'
 import { parsearRespostaHistorico, historicoDoVeiculo, motivoDaReserva, type HistoricoVeicular } from '../../shared/historico-veicular'
 import type { MotivoReserva } from '../../shared/fonte-parceira'
 import { fonteNoPlano } from '../../shared/planos'
+import { ufDaResposta } from './detran-multas'
+import { consultaComDocumentoDaUf, completarComDocumentoDaUf } from './infosimples-detran'
 
 // Vehicle history partner (second partner base), Cesar 13/11/2026: owners,
 // previous use, insurance and the partner part of the auction section, in the
@@ -526,6 +528,11 @@ export async function completarHistoricoVeicular(
     // Another VIN than the vehicle's: only the reason goes in (review 1 of PR #752).
     const bloco = historicoDoVeiculo(r.bloco, chassiDoSnapshot(snap))
     if (bloco) await gravarNoSnapshot(sb, pedido.id, bloco)
+    // MG and RJ vehicles: the DETRAN block may be waiting for the owner document
+    // (SEFAZ-MG IPVA in arrears, DETRAN-RJ fines; Cesar, 18/11/2026). The answer
+    // is here now: that step runs loose and does nothing unless the block waits.
+    const uf = ufDaResposta(snap.consulta?.response)
+    if (bloco?.status === 'ok' && consultaComDocumentoDaUf(uf)) void emVoo('consulta-documento', () => completarComDocumentoDaUf(sb, pedido.id, uf))
     if (bloco) await reserva(bloco)
     if (bloco?.status === 'divergente') return { ...r, ok: false, status: 'divergente', bloco }
     return r.status === 'ok' ? { ...r, ok: true } : r

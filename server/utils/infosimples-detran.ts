@@ -1,10 +1,12 @@
 import { temRestricaoNacional } from '../../shared/restricoes'
 import { ehBaixaDeGravame } from '../../shared/restricao-detran-classe'
-import { normalizarResposta } from '../../shared/planos'
+import { normalizarResposta, fonteNoPlano } from '../../shared/planos'
 import { encrypt } from 'aes-bridge'
 import { renavamDaResposta, ufDaResposta } from './detran-multas'
 import { emVoo } from './tarefas-em-voo'
-import { chaveDePlaca, gravarFonteCache, lerFonteCache } from './fonte-cache'
+import { chaveDePlaca, gravarFonteCache, lerFonteCache, ttlDaFonte } from './fonte-cache'
+import { FONTE_CACHE_HISTORICO } from './parceiro-historico-env'
+import { pendenteAtivo, pendenteVencido } from '../../shared/fontes-relatorio'
 
 // DETRAN estadual via Infosimples (comeca por SP: /detran/sp/debitos). Substitui
 // o runner gov.br quebrado no relatorio PAGO. Traz multas, hodometro (vistorias),
@@ -106,6 +108,8 @@ export const DETRAN_UFS = {
   // /veiculo (e-CNPJ, placa + renavam, R$0,28, ~15 s; teste IWC7G10, 09/out).
   RS: { path: 'detran/rs/infracoes', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_rs', fonteCusto: 'infosimples_detran_rs',
     complemento: { path: 'detran/rs/veiculo', fonteCusto: 'infosimples_detran_rs_veiculo' } },
+  // MG: o DETRAN so traz o ANO do ultimo IPVA pago. IPVA em atraso sem valor
+  // vai pra SEFAZ-MG com o documento do dono (CONSULTAS_COM_DOCUMENTO.MG).
   MG: { path: 'detran/mg/multas-descritivos', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_mg', fonteCusto: 'infosimples_detran_mg', exigeChassi: true },
   // GO: e-CNPJ, placa+renavam. R$0,28 por chamada (teste do Lead, 30/set).
   GO: { path: 'detran/go/debitos', cert: 'ecnpj', gate: 'sempre', fonte: 'detran_go', fonteCusto: 'infosimples_detran_go' },
@@ -320,7 +324,13 @@ export function blocoSemDados(fonte: string, mensagem: string | null) {
 }
 export const ESPERA_RETRY_MS = 20_000
 
-export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: string; renavam: string; chassi?: string | null; path?: string; timeoutS?: number; semCredencial?: boolean; soRenavam?: boolean; semPlaca?: boolean; dataLista?: boolean }): Promise<ResultadoDetran> {
+export async function consultarDetranInfosimples(opts: {
+  uf: UfDetran; placa: string; renavam: string; chassi?: string | null; path?: string; timeoutS?: number; semCredencial?: boolean; soRenavam?: boolean; semPlaca?: boolean; dataLista?: boolean
+  /** Parametros desta chamada (SEFAZ-MG: cpf ou cnpj do dono). Vao so no corpo do POST: nunca em log nem no bruto. */
+  parametros?: Record<string, string>
+  /** Sem comprovante guardado na Infosimples (a pagina da SEFAZ-MG mostra o dono). */
+  semComprovante?: boolean
+}): Promise<ResultadoDetran> {
   // semPlaca/dataLista por chamada: servico de outro orgao com a credencial da
   // UF (DER-SP: so renavam, resposta em lista).
   const cfgUf: any = { ...DETRAN_UFS[opts.uf], ...(opts.timeoutS ? { timeoutS: opts.timeoutS } : {}), ...(opts.semPlaca ? { semPlaca: true } : {}), ...(opts.dataLista ? { dataLista: true } : {}) }
@@ -336,7 +346,7 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       // nosso abort (ABORT_MS): antes era 600 s aqui e 120 s la, e toda UF que
       // passava de 2 min virava 'indisponivel' (incidente 01-03/out).
       timeout: String(cfgUf.timeoutS ?? INFOSIMPLES_TIMEOUT_S),
-      ignore_site_receipt: '0',
+      ignore_site_receipt: opts.semComprovante ? '1' : '0',
       // Renavam com 11 digitos (o SENATRAN as vezes manda sem os zeros a esquerda).
       renavam: String(opts.renavam).padStart(11, '0'),
     })
@@ -364,8 +374,11 @@ export async function consultarDetranInfosimples(opts: { uf: UfDetran; placa: st
       if (!cfgUf.semPlaca) body.set('placa', opts.placa)
     }
     if (opts.chassi) body.set('chassi', String(opts.chassi).toUpperCase())
-    // Parametros fixos da UF (RJ: a consulta unificada pede uf=RJ).
-    for (const [k, v] of Object.entries((cfgUf as any).paramsExtra || {})) body.set(k, String(v))
+    // Parametros fixos da UF (RJ: a consulta unificada pede uf=RJ), so no
+    // servico principal dela: outro servico da UF (nada consta do RJ) nao leva.
+    const servicoPrincipal = !opts.path || opts.path === DETRAN_UFS[opts.uf].path
+    if (servicoPrincipal) for (const [k, v] of Object.entries((cfgUf as any).paramsExtra || {})) body.set(k, String(v))
+    for (const [k, v] of Object.entries(opts.parametros || {})) body.set(k, String(v))
     const res = await fetch(`${BASE}/${opts.path || DETRAN_UFS[opts.uf].path}`, {
       method: 'POST',
       body,
@@ -1742,6 +1755,8 @@ export function parsearDetranPi(data: any) {
  */
 /** Aviso do bloco do RJ (texto da pagina e do resumo). */
 export const AVISO_DEBITOS_RJ = 'Multas e IPVA do RJ não estão disponíveis: o estado exige o documento do proprietário para essa consulta.'
+/** Aviso do RJ depois que as multas vieram pelo nada consta (com o documento do dono): o IPVA segue de fora. */
+export const AVISO_IPVA_RJ = 'IPVA do RJ não está disponível nesta consulta.'
 
 /**
  * DETRAN-RJ pela consulta unificada de restricoes (real LMI1G50, 21/out/2026):
@@ -2288,6 +2303,10 @@ export async function completarDetran(
       if (error) return { ok: false, motivo: 'update: ' + error.message }
       return { ok: true, code: 200, preco: 0, multasCentavos: novo.multas_total_centavos ?? 0, temAlgo: true }
     }
+    // Consulta com o documento do dono que ficou esperando (chamada cortada no
+    // meio, ou o documento que chegou depois): a fila do DETRAN retoma, solto.
+    const comDocumento = consultaComDocumentoDaUf(uf)
+    if (comDocumento && aguardaComDocumento(comDocumento, multasAtual)) void emVoo(comDocumento.nome, () => completarComDocumentoDoDono(supabase, pedido.id, comDocumento))
     return { ok: false, pulado: `ja tem ${cfgUf.fonte}` }
   }
 
@@ -2403,6 +2422,14 @@ async function gravarBlocoDetran(supabase: any, pedido: any, uf: UfDetran, cfgUf
     return { ok: false, code: res.code, preco: res.preco, motivo: 'manual mais completo, mantido' }
   }
   if ((cfgUf as any).ipvaSefaz?.sempre && !((multas.ipva_total_centavos ?? 0) > 0)) multas.ipva_pendente_sefaz = true
+  // Consulta com o documento do dono (MG: IPVA na SEFAZ-MG; RJ: multas no nada
+  // consta). Quem decide se chama (plano, cache da placa, documento) e
+  // completarComDocumentoDoDono, solto logo abaixo.
+  const comDocumento = consultaComDocumentoDaUf(uf)
+  if (comDocumento?.precisa(multas)) {
+    multas[comDocumento.marcas.pendente] = true
+    multas[comDocumento.marcas.pendenteEm] = new Date().toISOString()
+  }
   const { error } = await supabase
     .from('pedidos_premium')
     .update({ relatorio_snapshot: { ...atual, multas } })
@@ -2414,6 +2441,7 @@ async function gravarBlocoDetran(supabase: any, pedido: any, uf: UfDetran, cfgUf
   if (multas.ipva_pendente_sefaz && (cfgUf as any).ipvaSefaz) {
     void emVoo('sefaz-ipva', () => completarIpvaSefaz(supabase, pedido.id, uf, { placa, renavam: renavam! }))
   }
+  if (comDocumento && multas[comDocumento.marcas.pendente]) void emVoo(comDocumento.nome, () => completarComDocumentoDoDono(supabase, pedido.id, comDocumento))
   return { ok: true, code: res.code, preco: res.preco, multasCentavos: multas.multas_total_centavos, temAlgo, ...(o.cacheHit ? { cacheHit: true } : {}) }
 }
 
@@ -2423,6 +2451,7 @@ const esperarMs = (ms: number) => new Promise((r) => setTimeout(r, ms))
  * IPVA na SEFAZ da UF (hoje so AL), depois do bloco gravado. Grava o custo
  * sempre; atualiza so ipva_itens/ipva_total_centavos no bloco. Falha: o bloco
  * fica com ipva_sefaz_indisponivel (a tela diz que o valor nao veio). Nunca lanca.
+ * MG (pela SEFAZ-MG, com o documento do dono) fica em completarComDocumentoDoDono.
  */
 export async function completarIpvaSefaz(supabase: any, pedidoId: string, uf: UfDetran, params: { placa: string; renavam: string }): Promise<boolean> {
   const sef: any = (DETRAN_UFS[uf] as any).ipvaSefaz
@@ -2466,6 +2495,579 @@ export async function completarIpvaSefaz(supabase: any, pedidoId: string, uf: Uf
     console.warn('[infosimples] sefaz ipva falhou:', e?.message || e)
     return false
   }
+}
+
+// ---------- Consultas com o documento do dono (Cesar, 18/11/2026) ----------
+//
+// Duas fontes pedem o CPF ou CNPJ do dono, alem do renavam:
+//  - SEFAZ-MG (/sefaz/mg/debitos-ipva): o valor do IPVA em atraso, que o
+//    DETRAN-MG nao traz (so o ANO do ultimo IPVA pago);
+//  - DETRAN-RJ (/detran/rj/nada-consta): as multas, que a consulta de
+//    restricoes do RJ nao traz.
+// Cada uma custa R$0,24 e so roda na Completa. O documento vem da resposta da
+// base parceira 2 (historico veicular), que so existe na tabela restrita
+// parceiro_historico_chamadas: e lido no servidor na hora da chamada e nunca
+// vai pro snapshot, pro fonte_cache, pro premium_custos (detalhe e bruto), pro
+// log nem pro JSON do relatorio, e o nome do dono tambem nao.
+//
+// O bloco do DETRAN e a resposta da parceira chegam em momentos diferentes
+// (pos-entrega solto ou fila). Quem chega por ultimo dispara: a gravacao do
+// bloco do DETRAN marca a consulta como pendente; sem documento ainda, o bloco
+// fica marcado "sem documento" e a resposta da parceira que chegar depois
+// dispara; o job do DETRAN na fila retoma o que ficou esperando. Uma chamada
+// so por pedido: lock por pedido no banco e o estado do bloco relido com o lock.
+
+const semAcentoMaiusculo = (s: any) => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase()
+const soAlfanumerico = (v: any) => String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+export interface DocumentoDono { tipo: 'cpf' | 'cnpj'; numero: string }
+
+function cpfValido(d: string): boolean {
+  if (!/^\d{11}$/.test(d) || /^(\d)\1{10}$/.test(d)) return false
+  for (const n of [9, 10]) {
+    let s = 0
+    for (let i = 0; i < n; i++) s += Number(d[i]) * (n + 1 - i)
+    if (((s * 10) % 11) % 10 !== Number(d[n])) return false
+  }
+  return true
+}
+
+function cnpjValido(d: string): boolean {
+  if (!/^\d{14}$/.test(d) || /^(\d)\1{13}$/.test(d)) return false
+  for (const n of [12, 13]) {
+    let s = 0
+    for (let i = 0; i < n; i++) s += Number(d[i]) * (((n - 1 - i) % 8) + 2)
+    const r = s % 11
+    if ((r < 2 ? 0 : 11 - r) !== Number(d[n])) return false
+  }
+  return true
+}
+
+/** Dono atual na resposta da base parceira 2: o documento completo (ou null) e os nomes, estes so pra tirar de texto de erro. */
+export interface DonoAtual { doc: DocumentoDono | null; nomes: string[] }
+
+function donoAtualDaResposta(bruto: any, chassiVeiculo?: string | null): DonoAtual | null {
+  const d = bruto && typeof bruto === 'object' && bruto.dados && typeof bruto.dados === 'object' ? bruto.dados : null
+  if (!d) return null
+  // Resposta de OUTRO chassi: o dono e outra pessoa (mesma regra de historicoDoVeiculo).
+  const deles = soAlfanumerico(d.chassi ?? d.veiculo?.chassi)
+  const nosso = soAlfanumerico(chassiVeiculo)
+  if (deles.length === 17 && nosso.length === 17 && deles !== nosso) return null
+  const atual = d.proprietarios?.proprietario_atual
+  if (!atual || typeof atual !== 'object') return null
+  const nomes = [atual.nome, atual.razao_social].filter((x: any) => typeof x === 'string' && x.trim().length >= 3).map((x: string) => x.trim())
+  // So o documentoOriginal (o `documento` vem mascarado). Mascara (* ou X) = sem documento.
+  const original = atual.documentoOriginal
+  if (typeof original !== 'string' || /[*xX]/.test(original)) return { doc: null, nomes }
+  const n = original.replace(/[\s./-]/g, '')
+  const doc: DocumentoDono | null = /^\d{11}$/.test(n) && cpfValido(n) ? { tipo: 'cpf', numero: n }
+    : /^\d{14}$/.test(n) && cnpjValido(n) ? { tipo: 'cnpj', numero: n } : null
+  return { doc, nomes }
+}
+
+/** CPF (11 digitos) ou CNPJ (14) completo e valido do dono atual; mascarado, ausente ou de outro chassi = null. */
+export function documentoDoDonoAtual(bruto: any, chassiVeiculo?: string | null): DocumentoDono | null {
+  return donoAtualDaResposta(bruto, chassiVeiculo)?.doc ?? null
+}
+
+/**
+ * Dono atual do veiculo do pedido, lido da resposta PAGA da base parceira 2 na
+ * tabela restrita: a do proprio pedido; sem ela, e SO se o pedido foi servido
+ * pelo cache da parceira (linha cache_hit, sem chamada propria), a mais
+ * recente da mesma placa dentro da validade desse cache. Pedido com chamada
+ * propria ainda em voo espera a resposta dele (revisao do PR #762). Resposta
+ * de outro chassi = null. Sai daqui so pro corpo da chamada.
+ */
+export async function documentoDoDono(supabase: any, pedido: { id: string; placa: string }, chassi: string | null): Promise<DonoAtual | null> {
+  const tabela = 'parceiro_historico_chamadas'
+  const { data: proprio } = await supabase.from(tabela).select('resposta_bruta')
+    .eq('pedido_id', pedido.id).eq('cobrada', true).order('criado_em', { ascending: false }).limit(1).maybeSingle()
+  if (proprio) return donoAtualDaResposta(proprio.resposta_bruta, chassi)
+  const { data: doCache } = await supabase.from(tabela).select('id')
+    .eq('pedido_id', pedido.id).eq('cache_hit', true).limit(1).maybeSingle()
+  if (!doCache) return null
+  const placa = chaveDePlaca(pedido.placa)
+  if (!placa) return null
+  const desde = new Date(Date.now() - ttlDaFonte(FONTE_CACHE_HISTORICO)).toISOString()
+  const { data: daPlaca } = await supabase.from(tabela).select('resposta_bruta')
+    .eq('placa', placa).eq('cobrada', true).gte('criado_em', desde).order('criado_em', { ascending: false }).limit(1).maybeSingle()
+  return daPlaca ? donoAtualDaResposta(daPlaca.resposta_bruta, chassi) : null
+}
+
+/** Texto sem o documento do dono, com ou sem pontuacao. */
+function semDocumentoNoTexto(texto: string, dono: DonoAtual | null): string {
+  return dono?.doc ? String(texto).replace(new RegExp(dono.doc.numero.split('').join('[\\s./-]*'), 'g'), '<doc>') : String(texto)
+}
+
+/** Texto de erro sem o documento e sem o nome do dono, alem do que semDadoPessoal ja tira. */
+function semDono(texto: string, dono: DonoAtual | null): string {
+  let s = semDocumentoNoTexto(String(texto || ''), dono)
+  for (const nome of dono?.nomes || []) {
+    const alvo = semAcentoMaiusculo(nome).replace(/\s+/g, ' ').trim()
+    const t = semAcentoMaiusculo(s).replace(/\s+/g, ' ')
+    if (alvo && t.includes(alvo)) s = t.split(alvo).join('<nome>')
+  }
+  return semDadoPessoal(s)
+}
+
+/** Erro pro premium_custos.bruto: code, mensagens sem o dono e o header seguro (nunca os parametros). */
+function brutoDeErroComDocumento(res: ResultadoDetran, dono: DonoAtual | null): any {
+  const e: any = res.erroBruto || {}
+  const limpo = (t: any) => semDono(String(t ?? ''), dono).slice(0, 300)
+  return {
+    code: e.code ?? res.code,
+    code_message: limpo(e.code_message ?? res.codeMessage),
+    errors: (Array.isArray(e.errors) ? e.errors : res.erros || []).map(limpo),
+    header: e.header && typeof e.header === 'object' ? e.header : {},
+  }
+}
+
+/** Formato que o parser nao conhece: so os NOMES das chaves (sem valores), pra ajustar o parser. */
+function brutoFormatoDesconhecido(data: any): any {
+  const { identificacao: _i, tipo_identificacao: _t, nome_razao_social: _n, ...resto } = data || {}
+  return { formato_desconhecido: true, chaves: estruturaChaves(resto) }
+}
+
+/** Uma fonte consultada com o documento do dono (config por UF em CONSULTAS_COM_DOCUMENTO). */
+export interface ConsultaComDocumento {
+  /** Nome curto: lock por pedido e tarefa solta. */
+  nome: string
+  /** Rotulo dos logs de indisponivel. */
+  rotulo: string
+  uf: UfDetran
+  path: string
+  fonteCusto: string
+  timeoutS: number
+  /** fonte_cache por placa (24 h), so com os itens limpos. */
+  fonteCache: string
+  /**
+   * Marcas no bloco: chamada pendente (a tela espera) com a hora em que foi
+   * marcada (vence em 15 min), sem documento (a resposta da parceira dispara
+   * de novo) e falha (de vez).
+   */
+  marcas: { pendente: string; pendenteEm: string; semDocumento: string; indisponivel: string }
+  /** Gatilho, so pelo bloco do DETRAN (sem olhar as marcas). */
+  precisa: (bloco: any) => boolean
+  /**
+   * O que a resposta vale para o bloco: os itens limpos (lista vazia = nada em
+   * aberto) ou null (indisponivel; num 200, formato desconhecido). Cada fonte
+   * decide o 612 (MG: com sinal de atraso no DETRAN, indisponivel).
+   */
+  itens: (res: ResultadoDetran, bloco: any) => any[] | null
+  /** Itens -> campos gravados no bloco. */
+  campos: (itens: any[]) => Record<string, any>
+  /** data[0] de um 200 -> premium_custos.bruto, so com o que serve. */
+  bruto: (data: any, dono: DonoAtual | null) => any
+}
+
+/** O bloco espera esta consulta: chamada marcada como pendente ou documento do dono que ainda nao veio. */
+export function aguardaComDocumento(c: ConsultaComDocumento, bloco: any): boolean {
+  return c.precisa(bloco) && (bloco[c.marcas.pendente] === true || bloco[c.marcas.semDocumento] === true)
+}
+
+/** Lease do lock por pedido: cobre a chamada (timeout + o nosso abort) e as gravacoes. */
+export const LOCK_DOCUMENTO_S = 240
+let esperaLockDocumentoMs = 3000
+/** So pra testes: intervalo entre as olhadas de quem espera o lock. */
+export function _definirEsperaLockDocumento(ms: number): void { esperaLockDocumentoMs = ms }
+
+export type ResultadoComDocumento =
+  | { feito: 'ok'; cache: boolean }
+  | { feito: 'sem_documento' }
+  | { feito: 'indisponivel'; code: number }
+  | { feito: 'pulado'; motivo: string }
+
+async function lerPedidoComDocumento(supabase: any, pedidoId: string): Promise<{ relatorio_snapshot: any; plano: string | null; placa: string } | null> {
+  const { data } = await supabase.from('pedidos_premium').select('relatorio_snapshot,plano,placa').eq('id', pedidoId).maybeSingle()
+  return data?.relatorio_snapshot && typeof data.relatorio_snapshot === 'object' ? data : null
+}
+
+/** Grava campos no bloco do DETRAN da UF, sem as marcas (rele o snapshot antes: outra fonte pode ter gravado no meio). */
+async function gravarNoBlocoComDocumento(supabase: any, pedidoId: string, c: ConsultaComDocumento, campos: Record<string, any>): Promise<boolean> {
+  const atual = await lerSnapshot(supabase, pedidoId)
+  const m = (atual as any)?.multas
+  if (!atual || !m || m.fonte !== DETRAN_UFS[c.uf].fonte) return false
+  const novo: any = { ...m }
+  for (const k of Object.values(c.marcas)) delete novo[k]
+  Object.assign(novo, campos)
+  const { error } = await supabase.from('pedidos_premium').update({ relatorio_snapshot: { ...atual, multas: novo } }).eq('id', pedidoId)
+  return !error
+}
+
+/** job_lock_pegar (lease no banco). Lanca quando o banco nao responde. */
+async function pegarLockComDocumento(supabase: any, nome: string, dono: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('job_lock_pegar', { p_nome: nome, p_dono: dono, p_segundos: LOCK_DOCUMENTO_S })
+  if (error) throw new Error(error.message)
+  return data === true
+}
+
+/** Solta o lock no fim (vence o lease agora), pra quem esta esperando reavaliar na hora. */
+async function soltarLockComDocumento(supabase: any, nome: string, dono: string): Promise<void> {
+  try {
+    await supabase.from('job_lock').update({ ate: new Date(Date.now() - 1000).toISOString() }).eq('nome', nome).eq('dono', dono)
+  } catch { /* o lease vence sozinho */ }
+}
+
+/**
+ * Executa a consulta com o documento do dono de UM pedido. Chamada pela
+ * gravacao do bloco do DETRAN, pela resposta da base parceira 2 e pelo job do
+ * DETRAN na fila; so age com o bloco esperando (aguardaComDocumento). Com o
+ * lock do pedido (quem nao pega espera e reavalia): fora da Completa so tira a
+ * marca; cache da placa (24 h) sem chamada; sem documento completo do dono,
+ * marca "sem documento" e indisponivel, sem chamada; com ele, UMA chamada
+ * (custo sempre, bruto limpo) e os itens no bloco (o que a resposta vale e da
+ * fonte: c.itens). Falha da fonte: indisponivel de vez. Nunca lanca.
+ */
+export async function completarComDocumentoDoDono(
+  supabase: any,
+  pedidoId: string,
+  c: ConsultaComDocumento,
+  deps: { esperar?: (ms: number) => Promise<void>; donoLock?: string } = {},
+): Promise<ResultadoComDocumento> {
+  const ref = String(pedidoId).slice(0, 8)
+  const nomeLock = `${c.nome}:${pedidoId}`
+  const donoLock = deps.donoLock ?? `${process.pid}:${Math.random().toString(36).slice(2, 10)}`
+  const esperar = deps.esperar ?? esperarMs
+  let comLock = false
+  try {
+    // Olhada sem lock: so bloco esperando esta consulta segue.
+    let p = await lerPedidoComDocumento(supabase, pedidoId)
+    if (!p || !aguardaComDocumento(c, p.relatorio_snapshot.multas)) return { feito: 'pulado', motivo: 'nada esperando' }
+    // Outra execucao com o lock (o outro gatilho): espera ela terminar e reavalia.
+    const voltas = Math.ceil((LOCK_DOCUMENTO_S * 1000) / Math.max(1, esperaLockDocumentoMs)) + 1
+    for (let i = 0; i < voltas; i++) {
+      comLock = await pegarLockComDocumento(supabase, nomeLock, donoLock)
+      if (comLock) break
+      await esperar(esperaLockDocumentoMs)
+      p = await lerPedidoComDocumento(supabase, pedidoId)
+      if (!p || !aguardaComDocumento(c, p.relatorio_snapshot.multas)) return { feito: 'pulado', motivo: 'feito por outra execucao' }
+    }
+    if (!comLock) return { feito: 'pulado', motivo: 'lock ocupado' }
+
+    // Estado de agora, com o lock.
+    p = await lerPedidoComDocumento(supabase, pedidoId)
+    const snap = p?.relatorio_snapshot
+    if (!p || !aguardaComDocumento(c, snap.multas)) return { feito: 'pulado', motivo: 'nada esperando' }
+    if (!fonteNoPlano('historico_veicular', p.plano)) {
+      await gravarNoBlocoComDocumento(supabase, pedidoId, c, {})
+      return { feito: 'pulado', motivo: 'fora do plano' }
+    }
+    const response = snap.consulta?.response
+    const renavam = renavamDaResposta(response)
+    const placa = placaParaDetran(p.placa, response)
+    if (!renavam || !infosimplesConfigurado('nenhum')) {
+      await gravarNoBlocoComDocumento(supabase, pedidoId, c, { [c.marcas.indisponivel]: true })
+      logIndisponivel(pedidoId, c.rotulo, null, !renavam ? 'sem renavam' : 'infosimples nao configurado', 0)
+      return { feito: 'indisponivel', code: 0 }
+    }
+
+    // Cache de 24 h por placa, so com os itens limpos: dispensa o documento.
+    const chaveCache = chaveDePlaca(placa)
+    const hit = await lerFonteCache<{ itens: any[] }>(supabase, c.fonteCache, chaveCache)
+    if (hit?.status === 'ok' && Array.isArray(hit.payload?.itens)) {
+      console.log(`[detran] cache ${c.rotulo} consultado_em=${hit.consultadoEm} pedido=${ref}`)
+      await gravarNoBlocoComDocumento(supabase, pedidoId, c, c.campos(hit.payload.itens))
+      return { feito: 'ok', cache: true }
+    }
+
+    // Documento do dono: so da resposta da parceira deste veiculo.
+    const dono = snap.historicoVeicular?.status === 'divergente' ? null : await documentoDoDono(supabase, { id: pedidoId, placa: p.placa }, chassiDaResposta(response))
+    if (!dono?.doc) {
+      await gravarNoBlocoComDocumento(supabase, pedidoId, c, { [c.marcas.indisponivel]: true, [c.marcas.semDocumento]: true })
+      console.warn(`[detran] ${c.rotulo} sem documento completo do dono, sem chamada pedido=${ref}`)
+      return { feito: 'sem_documento' }
+    }
+    // Veio da espera do documento, ou de uma marca vencida (retomada): a tela volta a esperar a consulta.
+    if (!pendenteAtivo(snap.multas, c.marcas.pendente)) {
+      await gravarNoBlocoComDocumento(supabase, pedidoId, c, { [c.marcas.pendente]: true, [c.marcas.pendenteEm]: new Date().toISOString() })
+    }
+
+    const res = await consultarDetranInfosimples({
+      uf: c.uf, placa, renavam, path: c.path, timeoutS: c.timeoutS, semCredencial: true, soRenavam: true, semComprovante: true,
+      parametros: { [dono.doc.tipo]: dono.doc.numero },
+    })
+    // Cobrado igual em qualquer codigo (custo logo abaixo).
+    const itens = c.itens(res, snap.multas)
+    const dados = res.code === 200 && res.data && typeof res.data === 'object' && !Array.isArray(res.data) ? res.data : null
+    const detalhe = res.code === 200 ? null : (semDono(detalheDaRecusa(res) || '', dono) || null)
+    const bruto = dados ? (itens ? c.bruto(dados, dono) : brutoFormatoDesconhecido(dados)) : brutoDeErroComDocumento(res, dono)
+    await registrarCusto(supabase, { pedidoId, fonte: c.fonteCusto, preco: res.preco, code: res.code, detalhe, bruto })
+    if (itens) {
+      await gravarFonteCache(supabase, c.fonteCache, chaveCache, { itens }, 'ok')
+      await gravarNoBlocoComDocumento(supabase, pedidoId, c, c.campos(itens))
+      return { feito: 'ok', cache: false }
+    }
+    await gravarNoBlocoComDocumento(supabase, pedidoId, c, { [c.marcas.indisponivel]: true })
+    logIndisponivel(pedidoId, c.rotulo, res.code, detalhe || 'sem data', 0)
+    return { feito: 'indisponivel', code: res.code }
+  } catch (e: any) {
+    console.warn(`[infosimples] ${c.rotulo} falhou:`, semDadoPessoal(String(e?.message || e)).slice(0, 200))
+    return { feito: 'pulado', motivo: 'erro' }
+  } finally {
+    if (comLock) await soltarLockComDocumento(supabase, nomeLock, donoLock)
+  }
+}
+
+// ----- SEFAZ-MG: IPVA em atraso no DETRAN-MG -----
+
+/** Restricao do DETRAN que fala em debito de IPVA ("VEICULO AUTUADO POR DEBITO DE IPVA"). Isencao nao conta. */
+export function restricaoDeDebitoIpva(texto: any): boolean {
+  const t = semAcentoMaiusculo(texto)
+  return /\bIPVA\b/.test(t) && /DEBITO|ATRAS|DIVIDA|PENDENC|INADIMPL|EM ABERTO/.test(t)
+}
+
+/** Ano e mes no fuso de Brasilia (o servidor roda em UTC). */
+function anoMesBrasilia(d: Date): { ano: number; mes: number } {
+  const partes = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: 'numeric' }).formatToParts(d)
+  const parte = (tipo: string) => Number(partes.find((x) => x.type === tipo)?.value)
+  return { ano: parte('year'), mes: parte('month') }
+}
+
+/**
+ * IPVA em atraso pelo bloco do DETRAN-MG (ano e mes de Brasilia): o ultimo
+ * ano pago (ipva_pago_ano) e anterior ao ano corrente, ou ha restricao de
+ * debito de IPVA. De janeiro a marco o IPVA do ano ainda esta no prazo (cota
+ * unica e parcelas vencem nesses meses): so conta o pago antes do ano passado
+ * (revisao do PR #762). Sem ano pago e sem restricao, nao ha sinal de atraso.
+ */
+export function ipvaMgAtrasado(bloco: any, hoje: Date = new Date()): boolean {
+  const agora = anoMesBrasilia(hoje)
+  const limite = agora.mes <= 3 ? agora.ano - 1 : agora.ano
+  const ano = Number(bloco?.ipva_pago_ano)
+  if (bloco?.ipva_pago_ano != null && Number.isInteger(ano) && ano > 1900 && ano < limite) return true
+  return (Array.isArray(bloco?.restricoes_detran) ? bloco.restricoes_detran : []).some((r: any) => restricaoDeDebitoIpva(r?.texto))
+}
+
+/**
+ * Gatilho da SEFAZ-MG: bloco do DETRAN-MG pronto (status ok, nao preenchido a
+ * mao), IPVA em atraso e nenhum valor de IPVA (nem do DETRAN nem da SEFAZ).
+ */
+export function precisaIpvaSefazMg(bloco: any, hoje: Date = new Date()): boolean {
+  if (!bloco || typeof bloco !== 'object') return false
+  if (bloco.fonte !== DETRAN_UFS.MG.fonte || bloco.status !== 'ok') return false
+  if (bloco.backfill_manual || bloco.preenchido_manual_em || bloco.ipva_fonte) return false
+  if (Number(bloco.ipva_total_centavos) > 0) return false
+  if (Array.isArray(bloco.ipva_itens) && bloco.ipva_itens.some((x: any) => Number(x?.valor_centavos) > 0)) return false
+  return ipvaMgAtrasado(bloco, hoje)
+}
+
+/**
+ * SEFAZ-MG: debitos_adm (fase administrativa) e debitos_divida_ativa
+ * (inscritos), cada um {exercicio, valor, normalizado_valor}. Um IpvaItem por
+ * debito, sem vencimento (a fonte nao traz). O mesmo exercicio com o mesmo
+ * valor nas DUAS listas e o mesmo debito: conta uma vez, como divida ativa.
+ * Nunca le identificacao, tipo_identificacao nem nome_razao_social. Listas
+ * vazias = nada em aberto; sem as listas = formato desconhecido (null).
+ */
+export function parsearIpvaSefazMg(data: any): (IpvaItem & { divida_ativa?: true })[] | null {
+  const d = Array.isArray(data) ? data[0] : data
+  if (!d || typeof d !== 'object') return null
+  if (!Array.isArray(d.debitos_adm) && !Array.isArray(d.debitos_divida_ativa)) return null
+  const valor = (v: any) => (typeof v === 'number' ? (Number.isFinite(v) ? v : 0) : moeda(v))
+  const item = (x: any): IpvaItem | null => {
+    const v = valor(x?.normalizado_valor ?? x?.valor)
+    return v > 0 ? { ano: anoDe(x?.exercicio), vencimento: null, valor_centavos: Math.round(v * 100) } : null
+  }
+  const doTipo = (v: any) => listaDe(v).map(item).filter((x): x is IpvaItem => !!x)
+  const chave = (x: IpvaItem) => `${x.ano ?? ''}|${x.valor_centavos}`
+  const ativa = doTipo(d.debitos_divida_ativa).map((x) => ({ ...x, divida_ativa: true as const }))
+  const repetidos = new Map<string, number>()
+  for (const x of ativa) repetidos.set(chave(x), (repetidos.get(chave(x)) ?? 0) + 1)
+  const adm = doTipo(d.debitos_adm).filter((x) => {
+    const n = repetidos.get(chave(x)) ?? 0
+    if (n > 0) repetidos.set(chave(x), n - 1)
+    return n === 0
+  })
+  return ordenarIpva<IpvaItem & { divida_ativa?: true }>([...adm, ...ativa])
+}
+
+/**
+ * O que a resposta da SEFAZ-MG vale para o bloco: os itens (lista vazia = nada
+ * em aberto) ou null (indisponivel). O 612 ("a consulta nao retornou dados")
+ * so vale como nada em aberto SEM sinal de atraso no DETRAN-MG. Com o DETRAN
+ * apontando atraso, o mais provavel e o documento nao bater com o renavam (o
+ * dono trocou): indisponivel, nunca "nada a pagar" (Lead, 18/11/2026). Pelo
+ * gatilho, a chamada so sai com sinal de atraso.
+ */
+export function itensSefazMg(res: ResultadoDetran, bloco: any): (IpvaItem & { divida_ativa?: true })[] | null {
+  if (res.code === CODIGO_SEM_DADOS) return ipvaMgAtrasado(bloco) ? null : []
+  return res.code === 200 ? parsearIpvaSefazMg(res.data) : null
+}
+
+/** premium_custos.bruto da SEFAZ-MG: so os debitos (exercicio e valor). Nunca nome_razao_social, identificacao nem tipo_identificacao. */
+export function brutoSefazMg(data: any): any {
+  const lista = (v: any) => listaDe(v).map((x: any) => ({
+    exercicio: x.exercicio == null ? null : String(x.exercicio).slice(0, 20),
+    valor: x.valor == null ? null : String(x.valor).slice(0, 40),
+    normalizado_valor: typeof x.normalizado_valor === 'number' ? x.normalizado_valor : null,
+  }))
+  return { debitos_adm: lista(data?.debitos_adm), debitos_divida_ativa: lista(data?.debitos_divida_ativa) }
+}
+
+const camposIpvaSefazMg = (itens: IpvaItem[]) => ({
+  ipva_itens: itens,
+  ipva_total_centavos: itens.reduce((a, x) => a + x.valor_centavos, 0),
+  ipva_fonte: 'sefaz_mg',
+})
+
+// ----- DETRAN-RJ: multas pelo nada consta -----
+
+/** Gatilho do nada consta: bloco do DETRAN-RJ pronto (nao preenchido a mao), com os debitos ainda nao consultados. */
+export function precisaNadaConstaRj(bloco: any): boolean {
+  if (!bloco || typeof bloco !== 'object') return false
+  if (bloco.fonte !== DETRAN_UFS.RJ.fonte || bloco.status !== 'ok') return false
+  if (bloco.backfill_manual || bloco.preenchido_manual_em || bloco.multas_fonte) return false
+  return bloco.debitos_indisponiveis === true
+}
+
+/**
+ * Paga, quitada, cancelada (e afins) sai (regra do Cesar, 14/out, como a
+ * SITUACAO_ENCERRADA). "NAO PAGO" e em aberto; recurso INdeferido tambem (so o
+ * deferido encerra: o \b no DEFERID, revisao 3 do PR #762).
+ */
+const ENCERRADA_RJ = /\bPAG[AO]S?\b|QUITAD|CANCELAD|\bDEFERID|BAIXAD|ARQUIVAD|PRESCRIT/
+function multaRjEncerrada(x: any): boolean {
+  return [x?.status_de_pagamento, x?.situacao].some((v) => ENCERRADA_RJ.test(semAcentoMaiusculo(v).replace(/\bNAO\s+PAG[AO]S?\b/g, ' ')))
+}
+
+/** Uma multa do nada consta no formato do relatorio (o mesmo do multaGenerica), so com os campos permitidos. */
+function multaNadaConstaRj(x: any): DetranMulta {
+  const texto = (v: any) => { const t = typeof v === 'string' || typeof v === 'number' ? String(v).replace(/\s+/g, ' ').trim() : ''; return t && t !== '--' ? t.slice(0, 200) : null }
+  const isoBr = (v: any) => { const i = String(v ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/); return i ? `${i[3]}/${i[2]}/${i[1]}` : null }
+  const { data, hora } = dataHoraBr(x.data_infracao)
+  // O valor a pagar hoje; sem ele, o original.
+  const valor = [x.normalizado_valor_a_ser_pago, x.valor_a_ser_pago, x.normalizado_valor_original, x.valor_original]
+    .map((v) => (typeof v === 'number' ? (Number.isFinite(v) ? v : 0) : moeda(v))).find((v) => v > 0) ?? 0
+  return {
+    auto: texto(x.auto_de_infracao) ?? texto(x.auto_de_renainf),
+    descricao: texto(x.descricao) ?? texto(x.enquadramento_da_infracao),
+    dataInfracao: data ?? isoBr(x.normalizado_data_infracao),
+    horaInfracao: horaHhMm(x.hora) ?? hora,
+    dataVencimento: null,
+    valor,
+    local: texto(x.local_da_infracao),
+    municipio: null,
+    orgao: texto(x.orgao_emissor),
+  }
+}
+
+/**
+ * DETRAN-RJ nada consta (/detran/rj/nada-consta): multas[] {auto_de_infracao,
+ * descricao, data_infracao, hora, local_da_infracao, orgao_emissor,
+ * valor_a_ser_pago, valor_original, situacao, status_de_pagamento, ...}. So
+ * as nao pagas, no formato do relatorio; a mesma multa listada duas vezes
+ * (mesmo auto) entra uma vez. Nunca le agente_emissor. Lista vazia = nenhuma
+ * multa em aberto; sem a lista = formato desconhecido (null). A fonte devolve
+ * so as 5 primeiras paginas.
+ */
+export function parsearNadaConstaRj(data: any): DetranMulta[] | null {
+  const d = Array.isArray(data) ? data[0] : data
+  if (!d || typeof d !== 'object' || !Array.isArray(d.multas)) return null
+  const vistos = new Set<string>()
+  const itens: DetranMulta[] = []
+  for (const x of listaDe(d.multas)) {
+    if (multaRjEncerrada(x)) continue
+    const m = multaNadaConstaRj(x)
+    const auto = soAlfanumerico(m.auto)
+    if (auto && vistos.has(auto)) continue
+    if (auto) vistos.add(auto)
+    itens.push(m)
+  }
+  return itens
+}
+
+/**
+ * O que a resposta do nada consta vale para o bloco: 612 = nenhuma multa; 200 =
+ * as nao pagas; o resto, indisponivel. Chamada real de 18/11/2026: com um
+ * documento que nao e do dono, a fonte devolve 608 ("Este CPF/CNPJ nao
+ * corresponde ao do proprietario registrado no cadastro do Detran-RJ"), nao
+ * 612. Dono trocado fica indisponivel, e o 612 segue valendo nenhuma multa.
+ */
+export function itensNadaConstaRj(res: ResultadoDetran): DetranMulta[] | null {
+  if (res.code === CODIGO_SEM_DADOS) return []
+  return res.code === 200 ? parsearNadaConstaRj(res.data) : null
+}
+
+const CAMPOS_BRUTO_NADA_CONSTA_RJ = [
+  'auto_de_infracao', 'auto_de_renainf', 'descricao', 'enquadramento_da_infracao', 'data_infracao', 'normalizado_data_infracao', 'hora',
+  'local_da_infracao', 'orgao_emissor', 'valor_original', 'normalizado_valor_original', 'valor_a_ser_pago', 'normalizado_valor_a_ser_pago',
+  'situacao', 'status_de_pagamento', 'data_pagamento_com_desconto', 'normalizado_data_pagamento_com_desconto',
+] as const
+
+/** premium_custos.bruto do nada consta: as multas (pagas inclusive), campo a campo, sem o agente e sem o documento. */
+export function brutoNadaConstaRj(data: any, dono: DonoAtual | null = null): any {
+  const valor = (v: any) => (typeof v === 'number' ? v : typeof v === 'string' ? semDocumentoNoTexto(v, dono).slice(0, 200) : null)
+  return { multas: listaDe(data?.multas).map((x: any) => Object.fromEntries(CAMPOS_BRUTO_NADA_CONSTA_RJ.filter((k) => x[k] !== undefined).map((k) => [k, valor(x[k])]))) }
+}
+
+/** Multas do nada consta no bloco do RJ. O IPVA segue desconhecido: debitos_indisponiveis fica, so o aviso muda. */
+const camposNadaConstaRj = (itens: DetranMulta[]) => ({
+  multas_itens: itens,
+  multas_total_centavos: Math.round(itens.reduce((a, m) => a + (m.valor > 0 ? m.valor : 0), 0) * 100),
+  multas_fonte: 'detran_rj_nada_consta',
+  debitos_indisponiveis: true,
+  aviso_debitos: AVISO_IPVA_RJ,
+})
+
+/** As consultas com o documento do dono, por UF do veiculo. */
+export const CONSULTAS_COM_DOCUMENTO = {
+  MG: {
+    nome: 'ipva-sefaz-mg', rotulo: 'MG-sefaz-ipva', uf: 'MG', path: 'sefaz/mg/debitos-ipva', fonteCusto: 'infosimples_sefaz_mg_ipva', timeoutS: 120,
+    fonteCache: 'ipva_sefaz_mg',
+    marcas: { pendente: 'ipva_pendente_sefaz', pendenteEm: 'ipva_pendente_sefaz_em', semDocumento: 'ipva_sefaz_sem_documento', indisponivel: 'ipva_sefaz_indisponivel' },
+    precisa: (bloco: any) => precisaIpvaSefazMg(bloco),
+    itens: itensSefazMg,
+    campos: camposIpvaSefazMg,
+    bruto: (data: any) => brutoSefazMg(data),
+  },
+  RJ: {
+    nome: 'nada-consta-rj', rotulo: 'RJ-nada-consta', uf: 'RJ', path: 'detran/rj/nada-consta', fonteCusto: 'infosimples_detran_rj_nada_consta', timeoutS: 120,
+    fonteCache: 'nada_consta_rj',
+    marcas: { pendente: 'nada_consta_pendente', pendenteEm: 'nada_consta_pendente_em', semDocumento: 'nada_consta_sem_documento', indisponivel: 'nada_consta_indisponivel' },
+    precisa: precisaNadaConstaRj,
+    itens: (res: ResultadoDetran) => itensNadaConstaRj(res),
+    campos: camposNadaConstaRj,
+    bruto: brutoNadaConstaRj,
+  },
+} satisfies Record<string, ConsultaComDocumento>
+
+/** Consulta com o documento do dono da UF do veiculo, ou null. */
+export function consultaComDocumentoDaUf(uf: string | null | undefined): ConsultaComDocumento | null {
+  const u = String(uf || '').trim().toUpperCase()
+  return u in CONSULTAS_COM_DOCUMENTO ? (CONSULTAS_COM_DOCUMENTO as Record<string, ConsultaComDocumento>)[u]! : null
+}
+
+/** IPVA em atraso no DETRAN-MG pela SEFAZ-MG (ver completarComDocumentoDoDono). */
+export function completarIpvaSefazMg(supabase: any, pedidoId: string, deps?: Parameters<typeof completarComDocumentoDoDono>[3]) {
+  return completarComDocumentoDoDono(supabase, pedidoId, CONSULTAS_COM_DOCUMENTO.MG, deps)
+}
+
+/** Multas do DETRAN-RJ pelo nada consta (ver completarComDocumentoDoDono). */
+export function completarNadaConstaRj(supabase: any, pedidoId: string, deps?: Parameters<typeof completarComDocumentoDoDono>[3]) {
+  return completarComDocumentoDoDono(supabase, pedidoId, CONSULTAS_COM_DOCUMENTO.RJ, deps)
+}
+
+/** Consulta com documento do bloco do DETRAN, pela UF da fonte (detran_mg, detran_rj), ou null. */
+function consultaComDocumentoDoBloco(m: any): ConsultaComDocumento | null {
+  return consultaComDocumentoDaUf(/^detran_([a-z]{2})$/.exec(String(m?.fonte || ''))?.[1])
+}
+
+/** A consulta com documento do bloco ficou pendente alem de 15 min (a chamada se perdeu): pode ser retomada. */
+export function consultaComDocumentoVencida(m: any, agora = Date.now()): boolean {
+  const c = consultaComDocumentoDoBloco(m)
+  return !!c && pendenteVencido(m, c.marcas.pendente, agora)
+}
+
+/** Retoma a consulta com documento do bloco (lock por pedido: uma chamada so). Nunca lanca. */
+export async function retomarConsultaComDocumento(supabase: any, pedidoId: string, m: any): Promise<ResultadoComDocumento | null> {
+  const c = consultaComDocumentoDoBloco(m)
+  return c ? completarComDocumentoDoDono(supabase, pedidoId, c) : null
+}
+
+/** Resposta da base parceira 2 gravada: roda a consulta com documento da UF do veiculo, se houver. Nunca lanca. */
+export async function completarComDocumentoDaUf(supabase: any, pedidoId: string, uf: string | null | undefined): Promise<ResultadoComDocumento | null> {
+  const c = consultaComDocumentoDaUf(uf)
+  return c ? completarComDocumentoDoDono(supabase, pedidoId, c) : null
 }
 
 /**

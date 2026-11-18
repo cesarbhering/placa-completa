@@ -5,6 +5,8 @@
 // 2) procedencia e data de cada subbloco (fonte + "consultado em").
 // So o que o bloco ja tem: nada estimado, nada afirmado alem do dado.
 
+import { pendenteAtivo, pendenteVencido } from './fontes-relatorio'
+
 export interface BlocoDetranQuitar {
   fonte?: string | null
   /** 'sefaz_der': DETRAN-SP falhou e os debitos vieram da SEFAZ-SP + DER-SP. */
@@ -20,10 +22,16 @@ export interface BlocoDetranQuitar {
   restricoes_detran?: { tipo: string; texto: string }[] | null
   /** AL: IPVA apontado pelo DETRAN, valor ainda vindo da SEFAZ (ou nao veio). */
   ipva_pendente_sefaz?: boolean | null
+  /** Hora em que a consulta a SEFAZ foi marcada (MG): passados 15 min, o valor nao veio. */
+  ipva_pendente_sefaz_em?: string | null
   ipva_sefaz_indisponivel?: boolean | null
   /** UF sem consulta de debitos (RJ: exige o documento do dono). Nao e "nada a quitar". */
   debitos_indisponiveis?: boolean | null
   aviso_debitos?: string | null
+  /** RJ: multas vindas do nada consta, com o documento do dono (o IPVA segue de fora). */
+  multas_fonte?: string | null
+  /** Multas listadas (uma sem valor ainda, autuacao em andamento, tem valor 0). */
+  multas_itens?: unknown[] | null
 }
 
 export interface ResumoQuitar {
@@ -40,6 +48,11 @@ export interface ResumoQuitar {
   ipvaSemValor: string | null
   /** Aviso de debitos nao consultaveis na UF (RJ). */
   avisoDebitos: string | null
+  /**
+   * RJ com as multas consultadas (nada consta) e nenhuma em aberto: so as
+   * multas estao zeradas, o IPVA nao foi consultado (nunca "nada a quitar").
+   */
+  semMultas: string | null
 }
 
 const pos = (v: any) => (Number(v) > 0 ? Math.round(Number(v)) : 0)
@@ -82,6 +95,8 @@ export function resumoQuitar(a: {
   /** restricoesItens da base nacional (cru) */
   restricoesNacionais?: unknown
   indicadorRouboFurto?: boolean
+  /** Agora (ms), pra marca de consulta pendente vencida. */
+  agora?: number
 }): ResumoQuitar {
   const b = a.bloco || {}
   const uf = ufDoBlocoDetran(b, a.ufVeiculo)
@@ -98,10 +113,12 @@ export function resumoQuitar(a: {
   const totalDoDetran = pos(b.total_detran_centavos) > 0
   const totalCentavos = totalDoDetran ? pos(b.total_detran_centavos) : soma
 
-  // AL: o DETRAN aponta IPVA em aberto e o valor vem da SEFAZ (consulta lenta).
+  // AL e MG: o DETRAN aponta IPVA em aberto e o valor vem da SEFAZ (consulta
+  // lenta). Marca pendente vencida (a chamada se perdeu) = o valor nao veio.
+  const agora = a.agora ?? Date.now()
   const ipvaSemValor = ipva > 0 ? null
-    : b.ipva_pendente_sefaz ? `consultando a SEFAZ${uf ? '-' + uf : ''}, o valor aparece ao recarregar a página`
-      : b.ipva_sefaz_indisponivel ? `valor não informado pela SEFAZ${uf ? '-' + uf : ''} nesta consulta` : null
+    : pendenteAtivo(b, 'ipva_pendente_sefaz', agora) ? `consultando a SEFAZ${uf ? '-' + uf : ''}, o valor aparece ao recarregar a página`
+      : b.ipva_sefaz_indisponivel || pendenteVencido(b, 'ipva_pendente_sefaz', agora) ? `valor não informado pela SEFAZ${uf ? '-' + uf : ''} nesta consulta` : null
 
   const travas: string[] = []
   const add = (t: string) => { if (!travas.includes(t)) travas.push(t) }
@@ -127,6 +144,9 @@ export function resumoQuitar(a: {
         : `Nada a quitar no DETRAN${uf ? '-' + uf : ''} na data da consulta.`,
     ipvaSemValor,
     avisoDebitos: b.debitos_indisponiveis ? (b.aviso_debitos || 'Débitos deste estado não estão disponíveis nesta consulta.') : null,
+    // Multa listada sem valor ainda (a pagina mostra "valor a definir") nao e "nenhuma multa".
+    semMultas: b.debitos_indisponiveis && b.multas_fonte && totalCentavos === 0 && multas === 0 && !(Array.isArray(b.multas_itens) && b.multas_itens.length)
+      ? `Nenhuma multa em aberto no DETRAN${uf ? '-' + uf : ''} na data da consulta.` : null,
   }
 }
 

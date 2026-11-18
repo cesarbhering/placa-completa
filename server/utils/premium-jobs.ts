@@ -118,6 +118,10 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
       const r: any = await (deps.detran ?? completarDetran)(supabase, pedido, { response, semRetry: true, ultimaTentativa })
       if (/protegido/.test(String(r?.motivo || ''))) return { status: 'sem_dado', code: r?.code ?? 620 }
       if (r?.pulado && /^uf |so com RENAINF/.test(String(r.pulado))) return { status: 'sem_dado', code: null, erro: String(r.pulado).slice(0, 300) }
+      // Bloco gravado nesta rodada: dado novo pela fila (200), mesmo com a consulta
+      // complementar ainda em voo (IPVA na SEFAZ, multas do RJ), que marca o bloco
+      // como pendente e o atualiza sozinha depois (revisao do PR #762).
+      if (r?.ok === true) return { status: 'ok', code: 200 }
       return aposConferir(r?.code ?? null, String(r?.motivo || r?.pulado || 'sem bloco').slice(0, 300))
     }
     if (fonte === 'recall') {
