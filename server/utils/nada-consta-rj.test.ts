@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import RJ from './__fixtures__/infosimples-detran-rj-restricoes.json'
 import {
-  precisaNadaConstaRj, parsearNadaConstaRj, completarNadaConstaRj, completarDetran, CONSULTAS_COM_DOCUMENTO,
+  precisaNadaConstaRj, parsearNadaConstaRj, completarNadaConstaRj, completarDetran, CONSULTAS_COM_DOCUMENTO, consultaComDocumentoVencida,
   AVISO_DEBITOS_RJ, AVISO_IPVA_RJ, _definirEsperaLockDocumento,
 } from './infosimples-detran'
 import { completarHistoricoVeicular, _limparEmVooHistorico, _limparAlertaTetoHistorico } from './parceiro-historico'
@@ -338,6 +338,7 @@ describe('the queue (premium_jobs) brings the DETRAN-RJ block', () => {
     stubFetch(() => new Promise((ok) => { soltar = () => ok(nadaConsta200(MULTAS)) }))
     expect(await executarJob(sb, { id: 'j1', pedido_id: 'p1', fonte: 'detran', tentativas: 0, max_tentativas: 4 })).toEqual({ status: 'ok', code: 200 })
     expect(snapDe(sb).multas.nada_consta_pendente).toBe(true)
+    expect(Date.now() - Date.parse(snapDe(sb).multas.nada_consta_pendente_em)).toBeLessThan(60_000)
     await vi.waitFor(() => expect(chamadasRj).toHaveLength(1))
     soltar()
     await esperarVoo()
@@ -351,5 +352,16 @@ describe('the queue (premium_jobs) brings the DETRAN-RJ block', () => {
     expect(itensDoBloco(blocoRj({ multas_fonte: 'detran_rj_nada_consta', multas_total_centavos: 19523 }))).toEqual(['Multas em aberto: R$ 195,23'])
     // Other states are unchanged.
     expect(itensDoBloco({ fonte: 'detran_sp', multas_total_centavos: 0 })).toEqual(['Multas em aberto: nada consta'])
+  })
+})
+
+describe('a nada consta call left pending', () => {
+  it('after 15 minutes it no longer holds the source, the box shows the block as before, and it can be resumed', () => {
+    const agora = Date.now()
+    const vencido = blocoRj({ nada_consta_pendente: true, nada_consta_pendente_em: new Date(agora - 16 * 60_000).toISOString() })
+    expect(fonteConcluida('detran', { multas: vencido }, agora)).toBe(true)
+    expect(resumoQuitar({ bloco: vencido, agora })).toMatchObject({ avisoDebitos: AVISO_DEBITOS_RJ, semMultas: null, nadaAQuitar: null })
+    expect(consultaComDocumentoVencida(vencido, agora)).toBe(true)
+    expect(consultaComDocumentoVencida(blocoRj({ nada_consta_pendente: true, nada_consta_pendente_em: new Date(agora).toISOString() }), agora)).toBe(false)
   })
 })

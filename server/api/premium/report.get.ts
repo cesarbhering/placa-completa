@@ -15,7 +15,7 @@ import { situacaoDasFontes } from '../../../shared/fontes-relatorio'
 import { cupomRecompraDoPedido } from '../../utils/cupom-recompra'
 import { filtrarPorPlano, camposRestantes, PLANOS, fonteNoPlano } from '../../../shared/planos'
 import { getValorCusto } from '../../utils/valor-custo'
-import { sanearBlocoMultas } from '../../utils/infosimples-detran'
+import { sanearBlocoMultas, consultaComDocumentoVencida, retomarConsultaComDocumento } from '../../utils/infosimples-detran'
 import { retentarDetranSeValer } from '../../utils/detran-retentativa'
 import { logoProxyDe } from '../../utils/logo-marca'
 import { blocoNfse, colunasNfseRelatorio } from '../../utils/nfse-bloco'
@@ -261,6 +261,13 @@ export default defineEventHandler(async (event) => {
       if (comDetran && multas?.status !== 'ok' && multas?.status !== 'sem_debito' && multas?.status !== 'protegido'
         && podeReprocessar(`detran:${pedido.placa}`, 5 * 60 * 1000)) {
         void retentarDetranSeValer(supabase, pedido, snap.multas ?? null, respostaSnap)
+      }
+      // Consulta com o documento do dono (IPVA na SEFAZ-MG, multas do RJ)
+      // pendente ha mais de 15 min: a chamada se perdeu (processo caiu,
+      // gravacao final perdida). Retoma solta; o lock por pedido garante uma
+      // chamada so (revisao do PR #762).
+      if (comDetran && consultaComDocumentoVencida(snap.multas) && podeReprocessar(`documento:${pedido.id}`, 5 * 60 * 1000)) {
+        void emVoo('consulta-documento', () => retomarConsultaComDocumento(supabase, pedido.id, snap.multas))
       }
       // Worker gov.br (browser-use) so como RESERVA e so com a flag ligada:
       // nao loga no gov.br desde 06/out e cada tentativa custa. Desligado por

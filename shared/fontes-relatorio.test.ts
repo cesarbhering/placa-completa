@@ -67,3 +67,25 @@ describe('estado das fontes lentas (Relatorio 2.0)', () => {
     expect(fonteConcluida('historico_veicular', { historicoVeicular: { status: 'divergente' } })).toBe(true)
   })
 })
+
+// Review of PR #762: a complement (SEFAZ IPVA, RJ fines) can stay pending for
+// good (process down, final write lost). With the time it was marked, the mark
+// holds 15 minutes; after that the DETRAN source is done and the screen says
+// the value did not come.
+describe('pending complement of the DETRAN block', () => {
+  const agora = Date.parse('2026-11-18T15:00:00Z')
+  const ha = (min: number) => new Date(agora - min * 60_000).toISOString()
+  it('holds the source for 15 minutes, then no longer', () => {
+    for (const marca of ['ipva_pendente_sefaz', 'nada_consta_pendente']) {
+      expect(fonteConcluida('detran', { multas: { status: 'ok', [marca]: true, [`${marca}_em`]: ha(14) } }, agora)).toBe(false)
+      expect(fonteConcluida('detran', { multas: { status: 'ok', [marca]: true, [`${marca}_em`]: ha(16) } }, agora)).toBe(true)
+    }
+    const aplicaveis = [{ fonte: 'detran' as const, rotulo: 'DETRAN-MG' }]
+    const estado = (min: number) => situacaoDasFontes({ entregueEm: ha(20), agora, aplicaveis, snapshot: { multas: { status: 'ok', ipva_pendente_sefaz: true, ipva_pendente_sefaz_em: ha(min) } } }).fontes[0]!.estado
+    expect(estado(16)).toBe('ok')
+    expect(estado(1)).toBe('indisponivel')
+  })
+  it('without the time (AL and DF) the mark holds until it is cleared, as before', () => {
+    expect(fonteConcluida('detran', { multas: { status: 'ok', ipva_pendente_sefaz: true } }, agora)).toBe(false)
+  })
+})

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import MG from './__fixtures__/infosimples-detran-mg.json'
 import {
   precisaIpvaSefazMg, ipvaMgAtrasado, documentoDoDonoAtual, parsearIpvaSefazMg, completarIpvaSefazMg, itensSefazMg,
+  consultaComDocumentoVencida, retomarConsultaComDocumento,
   completarDetran, DETRAN_UFS, CONSULTAS_COM_DOCUMENTO, _definirEsperaLockDocumento,
 } from './infosimples-detran'
 import { resumoQuitar } from '../../shared/detran-quitar'
@@ -480,9 +481,47 @@ describe('the queue (premium_jobs) brings the DETRAN-MG block', () => {
     stubFetch(() => new Promise((ok) => { soltar = () => ok(sefaz200(ADM)) }))
     expect(await executarJob(sb, { id: 'j1', pedido_id: 'p1', fonte: 'detran', tentativas: 0, max_tentativas: 4 })).toEqual({ status: 'ok', code: 200 })
     expect(snapDe(sb).multas.ipva_pendente_sefaz).toBe(true)
+    // The time of the mark goes with it (a lost call stops counting after 15 min).
+    expect(Date.now() - Date.parse(snapDe(sb).multas.ipva_pendente_sefaz_em)).toBeLessThan(60_000)
     await vi.waitFor(() => expect(chamadasSefaz).toHaveLength(1))
     soltar()
     await esperarVoo()
     expect(snapDe(sb).multas).toMatchObject({ ipva_fonte: 'sefaz_mg', ipva_total_centavos: TOTAL_ADM })
+  })
+})
+
+// Review of PR #762: "consultando a SEFAZ-MG" could stay for good (process
+// down mid-call, a late DETRAN retry writing over the snapshot, a failed final
+// write). After 15 minutes the box says the value did not come, and reading
+// the report resumes the call (one per order, under the lock).
+describe('a SEFAZ call left pending', () => {
+  const minutosAtras = (min: number) => new Date(Date.now() - min * 60_000).toISOString()
+
+  it('after 15 minutes the box says "valor não informado", and the block can be resumed', () => {
+    const agora = Date.now()
+    const vencido = blocoMg({ ipva_pendente_sefaz: true, ipva_pendente_sefaz_em: minutosAtras(16) })
+    const fresco = blocoMg({ ipva_pendente_sefaz: true, ipva_pendente_sefaz_em: minutosAtras(1) })
+    expect(resumoQuitar({ bloco: vencido, agora }).ipvaSemValor).toBe('valor não informado pela SEFAZ-MG nesta consulta')
+    expect(resumoQuitar({ bloco: vencido, agora }).nadaAQuitar).toBeNull()
+    expect(resumoQuitar({ bloco: fresco, agora }).ipvaSemValor).toBe('consultando a SEFAZ-MG, o valor aparece ao recarregar a página')
+    expect(consultaComDocumentoVencida(vencido, agora)).toBe(true)
+    expect(consultaComDocumentoVencida(fresco, agora)).toBe(false)
+    expect(consultaComDocumentoVencida(blocoMg(), agora)).toBe(false)
+  })
+
+  it('resuming it: one call, "consultando" again while it is out, then the years in the block', async () => {
+    comPedido(sb, { multas: blocoMg({ ipva_pendente_sefaz: true, ipva_pendente_sefaz_em: minutosAtras(20) }) })
+    comRespostaPaga(sb, 'p1', respostaParceira(CPF))
+    let soltar: () => void = () => {}
+    stubFetch(() => new Promise((ok) => { soltar = () => ok(sefaz200(ADM)) }))
+    const retomada = retomarConsultaComDocumento(sb, 'p1', snapDe(sb).multas)
+    await vi.waitFor(() => expect(chamadasSefaz).toHaveLength(1))
+    expect(Date.now() - Date.parse(snapDe(sb).multas.ipva_pendente_sefaz_em)).toBeLessThan(60_000)
+    soltar()
+    expect(await retomada).toMatchObject({ feito: 'ok' })
+    const m = snapDe(sb).multas
+    expect(m).toMatchObject({ ipva_fonte: 'sefaz_mg', ipva_total_centavos: TOTAL_ADM })
+    for (const k of ['ipva_pendente_sefaz', 'ipva_pendente_sefaz_em']) expect(m[k]).toBeUndefined()
+    expect(chamadasSefaz).toHaveLength(1)
   })
 })

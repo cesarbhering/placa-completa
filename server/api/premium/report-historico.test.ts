@@ -14,7 +14,8 @@ vi.mock('../../utils/placa-lookup', () => ({ lerPlacaCacheFresca: async () => nu
 vi.mock('../../utils/cupom-recompra', () => ({ cupomRecompraDoPedido: async () => null }))
 vi.mock('../../utils/entrega-pedido', () => ({ promoverSeSnapshotPronto: async () => false }))
 vi.mock('../../utils/relatorio-aberturas', () => ({ registrarAbertura: async () => {} }))
-vi.mock('../../utils/tarefas-em-voo', () => ({ emVoo: () => {} }))
+const { emVooSpy } = vi.hoisted(() => ({ emVooSpy: vi.fn() }))
+vi.mock('../../utils/tarefas-em-voo', () => ({ emVoo: emVooSpy }))
 vi.mock('../../utils/aviso-restricao', () => ({ avisarRestricaoSemCopy: async () => {} }))
 vi.mock('../../utils/premium-jobs', () => ({
   fontesAplicaveis: (_r: any, o: any = {}) => (o.historicoVeicular ? [{ fonte: 'historico_veicular', rotulo: 'Donos, leilão e sinistro' }] : []),
@@ -41,7 +42,8 @@ vi.stubGlobal('getQuery', () => ({ token: 'TokenFicticioDeTeste0002' }))
 vi.stubGlobal('createError', (o: any) => Object.assign(new Error(o.message), o))
 vi.stubGlobal('useRuntimeConfig', () => runtime)
 vi.stubGlobal('usePremiumSupabase', () => ({ from: (t: string) => construtor(t) }))
-vi.stubGlobal('podeReprocessar', () => false)
+let reprocessar: (chave: string) => boolean = () => false
+vi.stubGlobal('podeReprocessar', (chave: string) => reprocessar(chave))
 vi.stubGlobal('temRecallPendente', () => false)
 vi.stubGlobal('temMultaSP', () => false)
 vi.stubGlobal('completarRecallDepois', () => {})
@@ -214,5 +216,27 @@ describe('report JSON with the calls made with the owner document', () => {
     })
     expect(JSON.stringify(r)).not.toMatch(/DONO FICTICIO|11\.222\.333|11222333000181|AGENTE/) // ggignore
   })
-})
 
+  // Review of PR #762: a call that got lost (process down, final write lost)
+  // leaves the mark for good; reading the report resumes it after 15 minutes.
+  it('a call with the owner document pending for more than 15 minutes is resumed when the report is read', async () => {
+    const consulta = { response: { ufJurisdicao: 'MG', renavam: '987654321', chassi: '9XXHV00000X000001', placa: 'TST2B34', descricaoMarcaModelo: 'FIAT/PALIO ELX' } } // ggignore
+    const pendenteHa = (min: number) => ({
+      status: 'ok', fonte: 'detran_mg', multas_total_centavos: 0, ipva_total_centavos: null, ipva_pago_ano: 2020, multas_itens: [], restricoes_detran: [],
+      ipva_pendente_sefaz: true, ipva_pendente_sefaz_em: new Date(Date.now() - min * 60_000).toISOString(),
+    })
+    const disparos = () => emVooSpy.mock.calls.map((c: any[]) => c[0])
+    reprocessar = (chave) => chave.startsWith('documento:')
+    try {
+      emVooSpy.mockClear()
+      comPedido({}, { consulta, multas: pendenteHa(1) })
+      await handler({} as any)
+      expect(disparos()).not.toContain('consulta-documento')
+      comPedido({}, { consulta, multas: pendenteHa(16) })
+      await handler({} as any)
+      expect(disparos()).toContain('consulta-documento')
+    } finally {
+      reprocessar = () => false
+    }
+  })
+})

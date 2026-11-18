@@ -6,6 +6,7 @@ import { renavamDaResposta, ufDaResposta } from './detran-multas'
 import { emVoo } from './tarefas-em-voo'
 import { chaveDePlaca, gravarFonteCache, lerFonteCache, ttlDaFonte } from './fonte-cache'
 import { FONTE_CACHE_HISTORICO } from './parceiro-historico-env'
+import { pendenteAtivo, pendenteVencido } from '../../shared/fontes-relatorio'
 
 // DETRAN estadual via Infosimples (comeca por SP: /detran/sp/debitos). Substitui
 // o runner gov.br quebrado no relatorio PAGO. Traz multas, hodometro (vistorias),
@@ -2425,7 +2426,10 @@ async function gravarBlocoDetran(supabase: any, pedido: any, uf: UfDetran, cfgUf
   // consta). Quem decide se chama (plano, cache da placa, documento) e
   // completarComDocumentoDoDono, solto logo abaixo.
   const comDocumento = consultaComDocumentoDaUf(uf)
-  if (comDocumento?.precisa(multas)) multas[comDocumento.marcas.pendente] = true
+  if (comDocumento?.precisa(multas)) {
+    multas[comDocumento.marcas.pendente] = true
+    multas[comDocumento.marcas.pendenteEm] = new Date().toISOString()
+  }
   const { error } = await supabase
     .from('pedidos_premium')
     .update({ relatorio_snapshot: { ...atual, multas } })
@@ -2631,8 +2635,12 @@ export interface ConsultaComDocumento {
   timeoutS: number
   /** fonte_cache por placa (24 h), so com os itens limpos. */
   fonteCache: string
-  /** Marcas no bloco: chamada pendente (a tela espera), sem documento (a resposta da parceira dispara de novo) e falha (de vez). */
-  marcas: { pendente: string; semDocumento: string; indisponivel: string }
+  /**
+   * Marcas no bloco: chamada pendente (a tela espera) com a hora em que foi
+   * marcada (vence em 15 min), sem documento (a resposta da parceira dispara
+   * de novo) e falha (de vez).
+   */
+  marcas: { pendente: string; pendenteEm: string; semDocumento: string; indisponivel: string }
   /** Gatilho, so pelo bloco do DETRAN (sem olhar as marcas). */
   precisa: (bloco: any) => boolean
   /**
@@ -2764,8 +2772,10 @@ export async function completarComDocumentoDoDono(
       console.warn(`[detran] ${c.rotulo} sem documento completo do dono, sem chamada pedido=${ref}`)
       return { feito: 'sem_documento' }
     }
-    // Veio da espera do documento: a tela volta a esperar a consulta.
-    if (!snap.multas[c.marcas.pendente]) await gravarNoBlocoComDocumento(supabase, pedidoId, c, { [c.marcas.pendente]: true })
+    // Veio da espera do documento, ou de uma marca vencida (retomada): a tela volta a esperar a consulta.
+    if (!pendenteAtivo(snap.multas, c.marcas.pendente)) {
+      await gravarNoBlocoComDocumento(supabase, pedidoId, c, { [c.marcas.pendente]: true, [c.marcas.pendenteEm]: new Date().toISOString() })
+    }
 
     const res = await consultarDetranInfosimples({
       uf: c.uf, placa, renavam, path: c.path, timeoutS: c.timeoutS, semCredencial: true, soRenavam: true, semComprovante: true,
@@ -2978,7 +2988,7 @@ export const CONSULTAS_COM_DOCUMENTO = {
   MG: {
     nome: 'ipva-sefaz-mg', rotulo: 'MG-sefaz-ipva', uf: 'MG', path: 'sefaz/mg/debitos-ipva', fonteCusto: 'infosimples_sefaz_mg_ipva', timeoutS: 120,
     fonteCache: 'ipva_sefaz_mg',
-    marcas: { pendente: 'ipva_pendente_sefaz', semDocumento: 'ipva_sefaz_sem_documento', indisponivel: 'ipva_sefaz_indisponivel' },
+    marcas: { pendente: 'ipva_pendente_sefaz', pendenteEm: 'ipva_pendente_sefaz_em', semDocumento: 'ipva_sefaz_sem_documento', indisponivel: 'ipva_sefaz_indisponivel' },
     precisa: (bloco: any) => precisaIpvaSefazMg(bloco),
     itens: itensSefazMg,
     campos: camposIpvaSefazMg,
@@ -2987,7 +2997,7 @@ export const CONSULTAS_COM_DOCUMENTO = {
   RJ: {
     nome: 'nada-consta-rj', rotulo: 'RJ-nada-consta', uf: 'RJ', path: 'detran/rj/nada-consta', fonteCusto: 'infosimples_detran_rj_nada_consta', timeoutS: 120,
     fonteCache: 'nada_consta_rj',
-    marcas: { pendente: 'nada_consta_pendente', semDocumento: 'nada_consta_sem_documento', indisponivel: 'nada_consta_indisponivel' },
+    marcas: { pendente: 'nada_consta_pendente', pendenteEm: 'nada_consta_pendente_em', semDocumento: 'nada_consta_sem_documento', indisponivel: 'nada_consta_indisponivel' },
     precisa: precisaNadaConstaRj,
     itens: (res: ResultadoDetran) => itensNadaConstaRj(res),
     campos: camposNadaConstaRj,
@@ -3009,6 +3019,23 @@ export function completarIpvaSefazMg(supabase: any, pedidoId: string, deps?: Par
 /** Multas do DETRAN-RJ pelo nada consta (ver completarComDocumentoDoDono). */
 export function completarNadaConstaRj(supabase: any, pedidoId: string, deps?: Parameters<typeof completarComDocumentoDoDono>[3]) {
   return completarComDocumentoDoDono(supabase, pedidoId, CONSULTAS_COM_DOCUMENTO.RJ, deps)
+}
+
+/** Consulta com documento do bloco do DETRAN, pela UF da fonte (detran_mg, detran_rj), ou null. */
+function consultaComDocumentoDoBloco(m: any): ConsultaComDocumento | null {
+  return consultaComDocumentoDaUf(/^detran_([a-z]{2})$/.exec(String(m?.fonte || ''))?.[1])
+}
+
+/** A consulta com documento do bloco ficou pendente alem de 15 min (a chamada se perdeu): pode ser retomada. */
+export function consultaComDocumentoVencida(m: any, agora = Date.now()): boolean {
+  const c = consultaComDocumentoDoBloco(m)
+  return !!c && pendenteVencido(m, c.marcas.pendente, agora)
+}
+
+/** Retoma a consulta com documento do bloco (lock por pedido: uma chamada so). Nunca lanca. */
+export async function retomarConsultaComDocumento(supabase: any, pedidoId: string, m: any): Promise<ResultadoComDocumento | null> {
+  const c = consultaComDocumentoDoBloco(m)
+  return c ? completarComDocumentoDoDono(supabase, pedidoId, c) : null
 }
 
 /** Resposta da base parceira 2 gravada: roda a consulta com documento da UF do veiculo, se houver. Nunca lanca. */
