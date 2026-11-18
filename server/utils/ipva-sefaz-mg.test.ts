@@ -1,16 +1,18 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import MG from './__fixtures__/infosimples-detran-mg.json'
-import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
 import {
   precisaIpvaSefazMg, ipvaMgAtrasado, documentoDoDonoAtual, parsearIpvaSefazMg, completarIpvaSefazMg, itensSefazMg,
-  completarDetran, DETRAN_UFS, _definirEsperaLockIpvaMg,
+  completarDetran, DETRAN_UFS, CONSULTAS_COM_DOCUMENTO, _definirEsperaLockDocumento,
 } from './infosimples-detran'
 import { resumoQuitar } from '../../shared/detran-quitar'
 import { completarHistoricoVeicular, _limparEmVooHistorico, _limparAlertaTetoHistorico } from './parceiro-historico'
-import { cfgHistorico } from './parceiro-historico-env'
 import { ttlDaFonte } from './fonte-cache'
-import { _resetarEmVoo, quantasEmVoo } from './tarefas-em-voo'
+import { _resetarEmVoo } from './tarefas-em-voo'
+import {
+  CPF, CPF_DIGITOS, CNPJ, CNPJ_DIGITOS, NOME, CHASSI, RENAVAM, PLACA, H, RUNTIME, vazamentos, respostaSenatran, respostaParceira,
+  banco, comPedido, comRespostaPaga, snapDe, pedidoCompleta as pedido, esperarVoo, depsParceira, stubFetchPorRota, capturarLogs,
+} from '../../tests/helpers/documento-do-dono'
 
 // IPVA in arrears at the DETRAN-MG without a value (Cesar, 18/11/2026): the
 // open amount comes from the SEFAZ-MG, asked with the owner's CPF or CNPJ
@@ -18,20 +20,8 @@ import { _resetarEmVoo, quantasEmVoo } from './tarefas-em-voo'
 // only in the restricted table) plus the renavam. Completa only. Whoever of
 // the two (DETRAN block, partner answer) arrives last fires the call, once.
 
-// Fictitious owner data, marked so that any leak is easy to spot. Not real people.
-const CPF = '123.456.789-09' // ggignore
-const CPF_DIGITOS = '12345678909' // ggignore
-const CNPJ = '11.222.333/0001-81' // ggignore
-const CNPJ_DIGITOS = '11222333000181' // ggignore
-const NOME = 'DONO FICTICIO MARCADO'
-const CHASSI = '9XXHV00000X000001' // ggignore
-const RENAVAM = '00987654321'
-const PLACA = 'TST2B34'
 const ANO = new Date().getFullYear()
-const H = 60 * 60 * 1000
-
-const RESPONSE = { ufJurisdicao: 'MG', renavam: '987654321', chassi: CHASSI, placa: PLACA } // ggignore
-const RUNTIME = { infosimplesToken: 't', infosimplesEncKey: 'k'.repeat(32), infosimplesPkcs12B64: 'PFX', infosimplesPkcs12Pass: 'p' }
+const RESPONSE = respostaSenatran('MG')
 const ADM = [
   { exercicio: String(ANO - 2), valor: 'R$ 250,10', normalizado_valor: 250.1 },
   { exercicio: String(ANO - 1), valor: 'R$ 560,90', normalizado_valor: 560.9 },
@@ -44,23 +34,6 @@ const blocoMg = (x: any = {}) => ({
   multas_itens: [], restricoes_detran: [], ...x,
 })
 
-/** Vehicle history partner answer as stored in the restricted table (only there it has name and document). */
-function respostaParceira(doc: string | null = CPF, dados: any = {}, fontes: any = {}) {
-  return {
-    success: true, queryId: 'q-teste', custo_debitado: 1.9,
-    dados: {
-      placa: PLACA, chassi: CHASSI,
-      proprietarios: {
-        total: 1,
-        proprietario_atual: { ordem: 1, nome: NOME, documento: '***.456.789-**', documentoOriginal: doc, tipo: 'Pessoa fisica', uf: 'MG', atual: true },
-        historico: [{ ordem: 1, nome: NOME, documento: '***.456.789-**', tipo: 'Pessoa fisica', data: '2020-01-02', uf: 'MG', atual: true }],
-      },
-      raw_sources: { e2Success: true, e5Success: true, infosinistrosSuccess: true, ...fontes },
-      ...dados,
-    },
-  }
-}
-
 /** SEFAZ-MG answer: it echoes the owner (name and document) and the parameters. */
 function sefaz200(adm: any[], ativa: any[] = [], doc = CPF) {
   return {
@@ -71,79 +44,19 @@ function sefaz200(adm: any[], ativa: any[] = [], doc = CPF) {
   }
 }
 
-/** In-memory database with the RPCs these flows use (named lock with lease, partner reservation and snapshot key). */
-function banco() {
-  let seq = 0
-  const sb: any = supabaseMemoria({
-    rpc: (nome: string, a: any) => {
-      if (nome === 'job_lock_pegar') {
-        const t = sb.tab('job_lock')
-        const agora = Date.now()
-        const ate = new Date(agora + a.p_segundos * 1000).toISOString()
-        const l = t.find((x: any) => x.nome === a.p_nome)
-        if (!l) { t.push({ nome: a.p_nome, dono: a.p_dono, ate }); return true }
-        if (Date.parse(l.ate) < agora || l.dono === a.p_dono) { Object.assign(l, { dono: a.p_dono, ate }); return true }
-        return false
-      }
-      if (nome === 'parceiro_historico_reservar') {
-        const id = `reserva-${++seq}`
-        sb.tab('parceiro_historico_chamadas').push({ id, pedido_id: a.p_pedido, placa: a.p_placa, em_andamento: true, cobrada: false, cache_hit: false, criado_em: new Date().toISOString() })
-        return id
-      }
-      if (nome === 'snapshot_gravar_historico_veicular') {
-        const p = sb.tab('pedidos_premium').find((x: any) => x.id === a.p_pedido)
-        if (!p?.relatorio_snapshot) return false
-        p.relatorio_snapshot = { ...p.relatorio_snapshot, historicoVeicular: a.p_valor }
-        return true
-      }
-      return true
-    },
-  })
-  return sb
-}
-
-function comPedido(sb: any, x: { id?: string; plano?: string; multas?: any; snap?: any } = {}) {
-  const snap: any = { consulta: { response: { ...RESPONSE } }, ...(x.snap || {}) }
-  if (x.multas) snap.multas = structuredClone(x.multas)
-  sb.tab('pedidos_premium').push({ id: x.id ?? 'p1', placa: PLACA, plano: x.plano ?? 'completa', relatorio_snapshot: snap })
-}
-
-function comRespostaPaga(sb: any, pedidoId: string | null, bruto: any, criadoEm = new Date().toISOString()) {
-  sb.tab('parceiro_historico_chamadas').push({ id: `pago-${pedidoId}`, pedido_id: pedidoId, placa: PLACA, cobrada: true, cache_hit: false, sucesso: true, resposta_bruta: structuredClone(bruto), criado_em: criadoEm })
-}
-
-const snapDe = (sb: any, id = 'p1') => sb.tab('pedidos_premium').find((p: any) => p.id === id)?.relatorio_snapshot
-const pedido = (id = 'p1') => ({ id, placa: PLACA, plano: 'completa' })
-const esperarVoo = () => vi.waitFor(() => expect(quantasEmVoo()).toBe(0), { timeout: 3000 })
-
 let chamadasSefaz: URLSearchParams[]
 /** fetch of the DETRAN-MG (overdue IPVA: paid up to 3 years ago, debt restriction) and of the SEFAZ-MG. */
 function stubFetch(sefaz: any) {
   const detran = { code: 200, header: { price: '0.28' }, data: [{ ...MG, ipva_pago: String(ANO - 3), impedimentos_e_restricoes: 'VEICULO AUTUADO POR DEBITO DE IPVA', multas: [] }] }
-  vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => {
-    if (url.endsWith('/sefaz/mg/debitos-ipva')) {
-      chamadasSefaz.push(init.body)
-      const r = typeof sefaz === 'function' ? await sefaz() : sefaz
-      return { status: 200, json: async () => r }
-    }
-    if (url.endsWith('/detran/mg/multas-descritivos')) return { status: 200, json: async () => detran }
-    throw new Error(`url inesperada ${url}`)
-  }))
+  chamadasSefaz = stubFetchPorRota({ '/sefaz/mg/debitos-ipva': sefaz, '/detran/mg/multas-descritivos': detran })['/sefaz/mg/debitos-ipva']!
 }
-
-/** Partner client that answers `corpo` (the queue job and the step after the delivery use the same function). */
-const depsParceira = (corpo: any) => ({
-  cfg: cfgHistorico({ parceiroHistoricoLigado: 'on', parceiroHistoricoKey: 'chave-de-teste' }),
-  http: async () => ({ status: 200, text: async () => JSON.stringify(corpo) }),
-  alertar: async () => {}, log: () => {}, esperar: async () => {}, reservaLeilao: async () => {},
-})
 
 let sb: any
 beforeEach(() => {
   sb = banco()
   chamadasSefaz = []
   vi.stubGlobal('useRuntimeConfig', () => RUNTIME)
-  _definirEsperaLockIpvaMg(5)
+  _definirEsperaLockDocumento(5)
   _resetarEmVoo()
   _limparEmVooHistorico()
   _limparAlertaTetoHistorico()
@@ -242,8 +155,9 @@ describe('SEFAZ-MG parser', () => {
   })
 
   it('config: SEFAZ-MG by document and renavam, cost and 24 h plate cache of its own', () => {
-    expect((DETRAN_UFS.MG as any).ipvaSefaz).toMatchObject({ path: 'sefaz/mg/debitos-ipva', fonteCusto: 'infosimples_sefaz_mg_ipva', semCredencial: true, soRenavam: true })
-    expect((DETRAN_UFS.MG as any).ipvaSefaz.sempre).toBeUndefined()
+    expect(CONSULTAS_COM_DOCUMENTO.MG).toMatchObject({ uf: 'MG', path: 'sefaz/mg/debitos-ipva', fonteCusto: 'infosimples_sefaz_mg_ipva', fonteCache: 'ipva_sefaz_mg' })
+    // Never through the AL/DF path (that one has no owner document).
+    expect((DETRAN_UFS.MG as any).ipvaSefaz).toBeUndefined()
     expect(ttlDaFonte('ipva_sefaz_mg')).toBe(24 * H)
   })
 })
@@ -516,10 +430,7 @@ describe('DETRAN and partner arrive at different times: whoever finishes last fi
 
 describe('no owner name, CPF or CNPJ outside the restricted table', () => {
   it('snapshot, plate cache, cost (detail and raw) and logs never carry them', async () => {
-    const logs: string[] = []
-    for (const k of ['log', 'info', 'warn', 'error', 'debug'] as const) {
-      vi.spyOn(console, k).mockImplementation((...a: any[]) => { logs.push(a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ')) })
-    }
+    const logs = capturarLogs()
     // p1: person, DETRAN first, partner later, SEFAZ answers echoing the owner.
     // p2: company, the SEFAZ refuses and echoes the CNPJ in its messages.
     comPedido(sb, { id: 'p1' })
@@ -542,8 +453,7 @@ describe('no owner name, CPF or CNPJ outside the restricted table', () => {
     expect(snapDe(sb, 'p1').multas.ipva_fonte).toBe('sefaz_mg')
     expect(snapDe(sb, 'p2').multas.ipva_sefaz_indisponivel).toBe(true)
 
-    const marcados = [CPF, CPF_DIGITOS, CNPJ, CNPJ_DIGITOS, NOME, '456.789-09', '333/0001']
-    const vazou = (s: string) => marcados.filter((x) => s.includes(x))
+    const vazou = vazamentos
     expect(vazou(JSON.stringify(sb.tab('pedidos_premium').map((p: any) => p.relatorio_snapshot)))).toEqual([])
     expect(vazou(JSON.stringify(sb.tab('fonte_cache')))).toEqual([])
     const custos = sb.tab('premium_custos').filter((c: any) => c.fonte === 'infosimples_sefaz_mg_ipva')

@@ -92,3 +92,25 @@ describe('AL: IPVA apontado, valor vindo da SEFAZ', () => {
     expect(w.find('.dq__pendente').text()).toContain('consultando a SEFAZ-AL')
   })
 })
+
+describe('RJ: fines from the nada consta, IPVA not consulted (18/11/2026)', () => {
+  const AVISO_IPVA = 'IPVA do RJ não está disponível nesta consulta.'
+  const rj = (x: any) => ({ fonte: 'detran_rj', uf: 'RJ', ipva_total_centavos: null, licenciamento_centavos: null, debitos_indisponiveis: true, restricoes_detran: [], ...x })
+
+  it('with fines: the total to pay, and the notice that the IPVA did not come stays as a note', () => {
+    const w = montar(rj({ multas_total_centavos: 208500, aviso_debitos: AVISO_IPVA }))
+    expect(w.find('.dq__total').text()).toBe('R$ 2.085,00')
+    expect(w.findAll('.dq__linhas li').map((l) => l.find('span').text())).toEqual(['Multas em aberto'])
+    expect(w.find('.dq__nota--aviso').text()).toBe(AVISO_IPVA)
+    expect(w.text()).not.toContain('Nada a quitar')
+    expect(w.text()).not.toContain('—')
+  })
+
+  it('without a total: the notice is the main line, as before, and not repeated as a note', () => {
+    const w = montar(rj({ multas_total_centavos: 0, aviso_debitos: AVISO_IPVA }))
+    expect(w.find('.dq__total').exists()).toBe(false)
+    expect(w.find('.dq__aviso').text()).toBe(AVISO_IPVA)
+    expect(w.find('.dq__nota--aviso').exists()).toBe(false)
+    expect(w.text()).not.toContain('Nada a quitar')
+  })
+})

@@ -27,6 +27,8 @@ const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currenc
       </li>
     </ul>
     <p v-if="props.resumo.totalDoDetran" class="dq__nota">Total informado pelo próprio DETRAN{{ props.resumo.uf ? '-' + props.resumo.uf : '' }}, com juros e correção.</p>
+    <!-- RJ com multas (nada consta): o total e so das multas; o aviso de que o IPVA nao veio continua visivel. -->
+    <p v-if="props.resumo.totalCentavos && props.resumo.avisoDebitos" class="dq__nota dq__nota--aviso">{{ props.resumo.avisoDebitos }}</p>
 
     <p class="dq__travas">
       <b>Restrições que travam a transferência:</b>
