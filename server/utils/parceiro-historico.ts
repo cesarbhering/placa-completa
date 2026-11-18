@@ -2,7 +2,7 @@ import { lerFonteCache, gravarFonteCache, chaveDePlaca } from './fonte-cache'
 import { inicioDoDiaBrasilia, AVISO_PARCEIROS, leilaoParceiroComoReserva, type Http, type DepsParceiro } from './parceiro-leilao'
 import { cfgHistorico, FONTE_CACHE_HISTORICO, FONTE_CUSTO_HISTORICO, type CfgHistorico } from './parceiro-historico-env'
 import { emVoo } from './tarefas-em-voo'
-import { parsearRespostaHistorico, historicoDoVeiculo, historicoPedeReserva, motivoDaReserva, type HistoricoVeicular } from '../../shared/historico-veicular'
+import { parsearRespostaHistorico, historicoDoVeiculo, motivoDaReserva, type HistoricoVeicular } from '../../shared/historico-veicular'
 import type { MotivoReserva } from '../../shared/fonte-parceira'
 import { fonteNoPlano } from '../../shared/planos'
 
@@ -492,7 +492,7 @@ export async function historicoProntoParaSnapshot(
 export async function completarHistoricoVeicular(
   sb: any,
   pedido: { id: string; placa: string; plano?: string | null },
-  deps: DepsHistorico & { retentar?: boolean; reservaLeilao?: (sb: any, pedidoId: string) => Promise<unknown> },
+  deps: DepsHistorico & { retentar?: boolean; reservaLeilao?: (sb: any, pedidoId: string, motivo?: MotivoReserva) => Promise<unknown> },
 ): Promise<ResultadoHistorico> {
   // Final answer that failed this order (charged but partial, or for another
   // VIN), or a complete one with a bank or insurer in the chain and no
@@ -501,9 +501,12 @@ export async function completarHistoricoVeicular(
   // the queue's "updated" e-mail (sent after the job) already finds it. A
   // failure without an answer waits for the queue's last attempt
   // (executarJob). Idempotent: it only calls when the order never tried that partner.
+  // The reason goes from the block in hand (review of PR #761): when its
+  // snapshot write failed, the stored block would read as no answer at all.
   const reserva = async (bloco: HistoricoVeicular | null | undefined) => {
-    if (!historicoPedeReserva(bloco, null)) return
-    await (deps.reservaLeilao ?? ((s: any, id: string) => leilaoParceiroComoReserva(s, id)))(sb, pedido.id).catch(() => {})
+    const motivo = motivoDaReserva(bloco, null)
+    if (!motivo) return
+    await (deps.reservaLeilao ?? ((s: any, id: string, m?: MotivoReserva) => leilaoParceiroComoReserva(s, id, { motivoReserva: m })))(sb, pedido.id, motivo).catch(() => {})
   }
   try {
     if (!fonteNoPlano('historico_veicular', pedido.plano)) return { ok: false, pulado: 'fora do plano' }
@@ -572,7 +575,7 @@ export function completarHistoricoVeicularOperador(
     ignorarChave: true,
     retentar: true,
     // semAviso goes into the state, so the job's retry does not e-mail either.
-    reservaLeilao: (s: any, id: string) => leilaoParceiroComoReserva(s, id, { ...extra.leilao, semAviso: true, avisarLeilao: async () => 'sem aviso (operador)' }),
+    reservaLeilao: (s: any, id: string, motivo?: MotivoReserva) => leilaoParceiroComoReserva(s, id, { ...extra.leilao, semAviso: true, avisarLeilao: async () => 'sem aviso (operador)', motivoReserva: motivo }),
   })
 }
 

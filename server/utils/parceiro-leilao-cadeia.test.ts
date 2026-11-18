@@ -21,6 +21,7 @@ import { leilaoParceiroComoReserva, rodarJobParceiro, cfgParceiro, _limparTokenP
 import { executarJob, verificarFechamento } from './premium-jobs'
 import { montarRelatorioSnapshot } from './relatorio-snapshot'
 import { preencherCamposLazy } from './relatorio-lazy-fill'
+import { rebuildLeilao } from './rebuild-leilao'
 import { parsearRespostaHistorico } from '../../shared/historico-veicular'
 
 // Cesar, 18/11/2026: when the vehicle history partner answers COMPLETE with a
@@ -70,6 +71,8 @@ let chamadasHistorico: string[]
 let chamadasLeilao: string[]
 let logs: string[]
 let espiaLog: ReturnType<typeof vi.spyOn>
+/** The snapshot write of the vehicle history block fails (the RPC writes nothing). */
+let gravacaoFalha: boolean
 
 /** In-memory database with the RPCs these paths use: named locks, the vehicle history ceiling and the two snapshot writes. */
 function banco() {
@@ -83,7 +86,7 @@ function banco() {
       }
       if (nome === 'snapshot_gravar_historico_veicular') {
         const linha = sb.tab('pedidos_premium').find((p: any) => p.id === a.p_pedido)
-        if (!linha?.relatorio_snapshot) return false
+        if (gravacaoFalha || !linha?.relatorio_snapshot) return false
         if (linha.relatorio_snapshot.historicoVeicular?.status === 'ok' && a.p_valor?.status !== 'ok') return false
         linha.relatorio_snapshot = { ...linha.relatorio_snapshot, historicoVeicular: a.p_valor }
         return true
@@ -127,6 +130,7 @@ beforeEach(() => {
   historicoPorPlaca = { [PLACA]: BANCO, [OUTRA_PLACA]: BANCO }
   nossaBase = vazio()
   leilaoForaDoAr = false
+  gravacaoFalha = false
   chamadasHistorico = []
   chamadasLeilao = []
   logs = []
@@ -404,5 +408,46 @@ describe('auction partner when a complete vehicle history shows a bank or insure
     expect(pagas(sb).filter((l: any) => l.pedido_id === 'p1')).toHaveLength(1)
     expect(avisos).toHaveLength(0)
     expect(sb.tab('pedidos_premium')[0].aviso_leilao_em ?? null).toBeNull()
+  })
+})
+
+// Review of PR #761.
+describe('auction partner from a bank or insurer in the chain: review of PR #761', () => {
+  it('12. admin rebuild of an old order (complete, bank in the chain) with the auction partner down: the retry job finds the auction and sends no e-mail', async () => {
+    const sb = banco()
+    sb.tab('senatran_consultas').push({ id: 'c1', placa: PLACA, created_at: '2026-11-10T12:00:00Z', response: { chassi: CHASSI } })
+    // Delivered before this rule: complete with a bank, our base empty, the auction partner never ran.
+    const linha = pedido(sb, 'p1', { consulta_id: 'c1' }, { historicoVeicular: bloco(BANCO) })
+    leilaoForaDoAr = true
+    expect(await rebuildLeilao(sb, ['TOK-p1'])).toEqual([expect.objectContaining({ token: 'TOK-p1', ok: true })])
+    // The rebuild started the call: its state carries the no-notice mark.
+    expect(parceiroDe(sb)).toMatchObject({ status: 'falhou', reserva: true, semAviso: true, motivo: 'banco_na_cadeia' })
+    expect(pagas(sb)).toHaveLength(0)
+    // The retry job, partner back: the auction goes in, no e-mail.
+    leilaoForaDoAr = false
+    expect(await retryDoJob(sb)).toMatchObject({ vistos: 1, completados: 1 })
+    expect(parceiroDe(sb)).toMatchObject({ status: 'ok', reserva: true, semAviso: true, motivo: 'banco_na_cadeia' })
+    expect(linha.relatorio_snapshot.historicoLeilao.passagens.length).toBeGreaterThan(0)
+    expect(pagas(sb)).toHaveLength(1)
+    expect(avisos).toHaveLength(0)
+    expect((linha as any).aviso_leilao_em ?? null).toBeNull()
+  })
+
+  it('13. the snapshot write of a complete block with a bank fails: the call keeps the reason of the block in hand, once', async () => {
+    const sb = banco()
+    pedido(sb, 'p1')
+    gravacaoFalha = true
+    // Step right after the delivery: the complete answer does not land in the snapshot.
+    await depoisDaEntrega(sb)
+    expect(sb.tab('pedidos_premium')[0].relatorio_snapshot.historicoVeicular).toBeUndefined()
+    expect(parceiroDe(sb)).toMatchObject({ status: 'ok', reserva: true, motivo: 'banco_na_cadeia' })
+    expect(custosLeilao(sb)).toEqual([expect.objectContaining({ preco: 6, detalhe: expect.stringMatching(/; motivo banco_na_cadeia$/) })])
+    expect(logs.some((l) => /reserva do historico pedido=p1: ok motivo=banco_na_cadeia/.test(l))).toBe(true)
+    // The queue's last attempt, the write failing again: no second call.
+    expect(await filaDoHistorico(sb, 'p1', 3)).toMatchObject({ status: 'falha' })
+    expect(chamadasHistorico).toEqual([PLACA])
+    expect(chamadasLeilao).toHaveLength(1)
+    expect(pagas(sb)).toHaveLength(1)
+    expect(avisos).toHaveLength(1)
   })
 })

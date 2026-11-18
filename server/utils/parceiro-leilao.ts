@@ -521,13 +521,16 @@ export async function leilaoParceiroComoReserva(
     const p = lido.p
     const snap = p?.relatorio_snapshot
     if (!p || p.plano !== 'completa' || !snap || typeof snap !== 'object') return 'pulado'
-    // Why it runs (motivoDaReserva). The caller decided the vehicle history
-    // failed for this order: partial, another VIN, or no good answer once the
-    // queue gave up or gives up now (hence 'esgotado'). A complete answer for
-    // this vehicle (stored after a lease expired, or a manual redo) needs no
-    // fallback, unless it shows a bank or insurer in the chain and no auction
-    // record of its own (18/11/2026).
-    const motivo = motivoDaReserva(snap.historicoVeicular, 'esgotado')
+    // Why it runs (motivoDaReserva). The caller that has the block in hand
+    // gives it (deps.motivoReserva): its snapshot write may have failed, and
+    // the stored block would then read as no answer (review of PR #761).
+    // Otherwise it comes from the stored block: the caller decided the
+    // vehicle history failed for this order (partial, another VIN, or no good
+    // answer once the queue gave up or gives up now, hence 'esgotado'). A
+    // complete answer for this vehicle (stored after a lease expired, or a
+    // manual redo) needs no fallback, unless it shows a bank or insurer in
+    // the chain and no auction record of its own (18/11/2026).
+    const motivo = deps.motivoReserva ?? motivoDaReserva(snap.historicoVeicular, 'esgotado')
     if (!motivo) return 'pulado'
     const antes = snap.historicoLeilao
     // Already tried for this order (any state): the retry belongs to the job.

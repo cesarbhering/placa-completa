@@ -140,7 +140,11 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
       // and damage for this order (Cesar, 17/11/2026). Before the closing check,
       // so any e-mail of this order already finds it. Earlier attempts do not:
       // the queue may still bring the answer, and both would be paid. Nor does
-      // a complete answer that only failed to land in the snapshot (review 2).
+      // a complete answer that only failed to land in the snapshot (review 2):
+      // the failure fallback does not apply to it. When it shows a bank or
+      // insurer in the chain (18/11/2026), completarHistoricoVeicular above
+      // already called the auction partner with that reason, taken from the
+      // block in hand (review of PR #761).
       const ultimaTentativa = job.max_tentativas != null && Number(job.tentativas ?? 0) + 1 >= Number(job.max_tentativas)
       if (res.status === 'falha' && ultimaTentativa && !historicoCompleto(r?.bloco)) await reservaLeilao(supabase, p.id)
       return res
