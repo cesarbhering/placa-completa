@@ -882,11 +882,14 @@ export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'v
   const registros = Array.isArray(d.registros) ? d.registros : []
   const max = Math.max(1, ...registros.map((o) => Number(o.meses) || 0))
   const atual = d.atual ?? null
+  // Quick change = the current owner has had the vehicle for less than 1 year; earlier owners do not count (Cesar, 18/11/2026).
+  // Only an owner the source flagged as current: the parser's fallback (latest dated record) may be an earlier owner.
+  const atualRecente = !!atual && atual.atual === true && atual.meses != null && atual.meses < 12
   const linhas = registros.map((o) => {
     // Same owner = same date, tenure and state. Not the city: a block may carry it on one side only.
     const ehAtual = !!atual && o.data === atual.data && o.tempo === atual.tempo && o.uf === atual.uf
-    // Only the current owner's tenure is flagged (Cesar, 18/11/2026): the seller has had it for less than a year.
-    const curta = ehAtual && o.meses != null && o.meses < 12
+    // Amber only on the current owner's line, by the same rule as the alert.
+    const curta = ehAtual && atualRecente
     const ufDaCidade = o.ufCidade || o.uf
     return {
       data: dataBR(o.data) || '',
@@ -899,8 +902,6 @@ export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'v
       atual: ehAtual,
     }
   })
-  // Quick change = the current owner has had the vehicle for less than 1 year; earlier owners do not count (Cesar, 18/11/2026).
-  const atualRecente = !!atual && atual.meses != null && atual.meses < 12
   return {
     total: Number(d.total),
     totalTexto: d.total === 1 ? 'dono encontrado' : 'donos encontrados',
@@ -971,7 +972,7 @@ export function telaSinistro(s: SinistroHistorico | null | undefined, nomeVeicul
   for (const i of s.indenizacoes || []) {
     const quem = nomeEmpresa(i.seguradora)
     const det = [quem, i.ano ? `registrada em ${i.ano}` : null].filter(Boolean).join(', ')
-    linhas.push({ titulo: 'Indenização integral', valor: 'Sim', detalhe: `${det ? `${det}. ` : ''}A seguradora pagou o valor do ${nomeVeiculo} ao dono.`, tom: 'alerta' })
+    linhas.push({ titulo: 'Indenização integral', valor: 'Sim', detalhe: `${det ? `${det}. ` : ''}A seguradora pagou o valor ${nomeVeiculo === 'moto' ? 'da' : 'do'} ${nomeVeiculo} ao dono.`, tom: 'alerta' })
   }
   if (s.monta) {
     linhas.push({

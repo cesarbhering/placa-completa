@@ -16,7 +16,7 @@ const sobra = computed(() => props.tela.linhas.length > DONOS_VISIVEIS)
 
 <template>
   <div class="hd">
-    <p class="hd-sub">Por quantas mãos o {{ nomeVeiculo || 'veículo' }} passou, por quanto tempo e em quais estados.</p>
+    <p class="hd-sub">Por quantas mãos {{ nomeVeiculo === 'moto' ? 'a' : 'o' }} {{ nomeVeiculo || 'veículo' }} passou, por quanto tempo e em quais estados.</p>
     <div class="hd-nums">
       <div>
         <b>{{ tela.total }}</b>
@@ -35,7 +35,7 @@ const sobra = computed(() => props.tela.linhas.length > DONOS_VISIVEIS)
     <ul v-if="linhas.length" class="hd-tempo">
       <li v-for="(l, i) in linhas" :key="`${l.data}-${i}`" :class="{ 'hd-tempo--atual': l.atual, 'hd-extra': !aberto && i >= DONOS_VISIVEIS }">
         <span class="hd-data">{{ l.data }}</span>
-        <span class="hd-quem"><i class="hd-ponto" :class="`hd-ponto--${l.atual ? 'atual' : l.curta ? 'curta' : 'antes'}`" aria-hidden="true" />{{ l.tipo }}<template v-if="l.local"> · {{ l.local }}</template></span>
+        <span class="hd-quem"><i class="hd-ponto" :class="`hd-ponto--${l.atual ? 'atual' : 'antes'}`" aria-hidden="true" />{{ l.tipo }}<template v-if="l.local"> · {{ l.local }}</template></span>
         <span class="hd-posse">
           <span>{{ l.posse }}</span>
           <span class="hd-barra" :class="{ 'hd-barra--curta': l.curta }" aria-hidden="true"><b :style="{ width: `${l.largura}%` }" /></span>
@@ -64,7 +64,6 @@ const sobra = computed(() => props.tela.linhas.length > DONOS_VISIVEIS)
 .hd-quem { display: flex; align-items: center; gap: 8px; font-weight: 600; color: #1a1a1a; min-width: 0; }
 .hd-ponto { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: #c2c2c2; }
 .hd-ponto--atual { background: #1f6feb; }
-.hd-ponto--curta { background: #d39a00; }
 .hd-posse { display: grid; gap: 4px; color: #3d3d3d; }
 .hd-tempo--atual .hd-posse > span:first-child { font-weight: 600; color: #1a1a1a; }
 .hd-barra { display: block; height: 5px; border-radius: 999px; background: #f2f3f5; overflow: hidden; }

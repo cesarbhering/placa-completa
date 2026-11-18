@@ -40,6 +40,9 @@ describe('owners block', () => {
     const w = mount(HistoricoDonos, { props: { tela: telaDonos({ total: 2, atual, ufs: ['SP'], ufZeroKm: null, registros: [atual, antes], semData: 0, trocasRapidas: 1 }, 'carro')!, nomeVeiculo: 'carro' } })
     expect(w.find('.hd-alerta').text()).toBe('Troca rápida de dono: o dono atual está com o carro há menos de 1 ano. Vale perguntar o motivo ao vendedor.')
     expect(w.findAll('.hd-barra--curta')).toHaveLength(1)
+    const moto = mount(HistoricoDonos, { props: { tela: telaDonos({ total: 2, atual, ufs: ['SP'], ufZeroKm: null, registros: [atual, antes], semData: 0, trocasRapidas: 1 }, 'moto')!, nomeVeiculo: 'moto' } })
+    expect(moto.text()).toContain('Por quantas mãos a moto passou')
+    expect(moto.find('.hd-alerta').text()).toContain('o dono atual está com a moto há menos de 1 ano')
   })
 
   it('two owners: no alert, no "see all"', () => {

@@ -382,8 +382,15 @@ describe('report blocks (copy)', () => {
     expect(telaDonos(d(doze, [doze, curto]))!.alertaTrocaRapida).toBeNull()
     // Current owner with unknown tenure, or no current owner: no alert, even with short earlier tenures.
     const semTempo = dono({ data: '2025-06-01', tempo: null, meses: null, atual: true })
-    expect(telaDonos(d(semTempo, [semTempo, curto]))!.alertaTrocaRapida).toBeNull()
+    const tSemTempo = telaDonos(d(semTempo, [semTempo, curto]))!
+    expect(tSemTempo.alertaTrocaRapida).toBeNull()
+    expect(tSemTempo.linhas.some((l) => l.curta)).toBe(false)
     expect(telaDonos(d(null, [curto, curto]))!.alertaTrocaRapida).toBeNull()
+    // Parser fallback: no dated record flagged as current, so the latest dated one (an earlier owner) stands in. No alert, no amber.
+    const fallback = dono({ data: '2026-08-01', tempo: '3 meses', meses: 3, atual: false })
+    const tFallback = telaDonos(d(fallback, [fallback, longo]))!
+    expect(tFallback.alertaTrocaRapida).toBeNull()
+    expect(tFallback.linhas.some((l) => l.curta)).toBe(false)
   })
 
   it('previous use: only when there is something; bank by name, private company never', () => {
@@ -413,6 +420,7 @@ describe('report blocks (copy)', () => {
     const alto = telaSinistro(bloco(COM).sinistro, 'carro')!
     expect(alto.linhas.map((l) => [l.titulo, l.valor])).toEqual([['Indenização integral', 'Sim'], ['Dano registrado', 'Média monta']])
     expect(alto.linhas[0].detalhe).toBe('Tokio Marine Seguradora, registrada em 2024. A seguradora pagou o valor do carro ao dono.')
+    expect(telaSinistro(bloco(COM).sinistro, 'moto')!.linhas[0].detalhe).toBe('Tokio Marine Seguradora, registrada em 2024. A seguradora pagou o valor da moto ao dono.')
     expect(alto.parecer).toMatchObject({ tom: 'alerta', titulo: 'Alto risco de o seguro ser recusado' })
     const pequena = bloco(comIndicador(SEM, 'P15', { status: 'positivo', conteudo: 'ATENÇÃO: EM 2020, O VEÍCULO APRESENTOU APONTAMENTO DE PEQUENA MONTA.' }))
     expect(telaSinistro(pequena.sinistro)!.parecer).toMatchObject({ tom: 'atencao', titulo: 'Pode haver restrição no seguro' })
