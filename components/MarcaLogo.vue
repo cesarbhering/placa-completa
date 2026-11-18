@@ -92,6 +92,10 @@ const GEELY = { src: '/logos-marcas/geely.png', largo: true }
 const ZEEKR = { src: '/logos-marcas/zeekr.png', largo: true }
 const OMODA = { src: '/logos-marcas/omoda.png', largo: true }
 const JAECOO = { src: '/logos-marcas/jaecoo.png', largo: true }
+// ROYAL ENFIELD (18/nov/2026, pedido do Cesar): a consulta entrega
+// "RE/ROYAL HUNTER 350". Wikimedia Commons "Royal Enfield logo new.svg"
+// (dominio publico, wordmark), mesmo tratamento: tinta, recorte, reducao.
+const ROYALENFIELD = { src: '/logos-marcas/royal-enfield.png', largo: true }
 // Chave = primeira palavra do token da marca ("I/M.BENZ CLA200" -> "M.BENZ",
 // "LAND ROVER/..." -> "LAND", "CAOA CHERY/..." -> "CAOA").
 const LOCAIS: Record<string, { src: string; largo: boolean }> = {
@@ -109,6 +113,8 @@ const LOCAIS: Record<string, { src: string; largo: boolean }> = {
   BYD,
   TROLLER, TROLLER4X4: TROLLER,
   GEELY, ZEEKR, OMODA, JAECOO,
+  RE: ROYALENFIELD, ROYAL: ROYALENFIELD, ROYALENFIELD, 'ROYAL-ENFIELD': ROYALENFIELD,
+  'R.ENFIELD': ROYALENFIELD, ENFIELD: ROYALENFIELD,
 }
 const local = computed(() => LOCAIS[tokenMarca.value]?.src || null)
 

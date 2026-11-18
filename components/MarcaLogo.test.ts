@@ -93,6 +93,18 @@ describe('MarcaLogo', () => {
       expect(w.find('.ml__mono').exists()).toBe(false)
     })
   }
+  // ROYAL ENFIELD (18/nov/2026): the plate lookup sends "RE/ROYAL HUNTER 350".
+  for (const marca of ['RE/ROYAL HUNTER 350', 'I/RE CLASSIC 350', 'ROYAL ENFIELD/HIMALAYAN', 'R.ENFIELD/METEOR 350', 're/scram 411']) {
+    it(`${marca}: shows the local royal-enfield.png in the wide box`, async () => {
+      const w = mount(MarcaLogo, { props: { marca, logoUrl: '/api/logo-marca/i.png' } })
+      await flushPromises()
+      expect(w.find('img').attributes('src')).toBe('/logos-marcas/royal-enfield.png')
+      expect(w.find('img').classes()).toContain('ml__img--local')
+      expect(w.find('.ml').classes()).toContain('ml--larga')
+      expect(w.find('svg').exists()).toBe(false)
+      expect(w.find('.ml__mono').exists()).toBe(false)
+    })
+  }
   // Lote de 12/nov/2026: a consulta entrega "I/M.BENZ CLA200" e a Mercedes
   // saia so com o "M". Todas as grafias caem no asset local.
   for (const [marca, arquivo, largo] of [
