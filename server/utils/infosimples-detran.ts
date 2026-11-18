@@ -2572,15 +2572,20 @@ export function documentoDoDonoAtual(bruto: any, chassiVeiculo?: string | null):
 
 /**
  * Dono atual do veiculo do pedido, lido da resposta PAGA da base parceira 2 na
- * tabela restrita: a do proprio pedido; sem ela (pedido servido pelo cache da
- * parceira), a mais recente da mesma placa dentro da validade desse cache.
- * Resposta de outro chassi = null. Sai daqui so pro corpo da chamada.
+ * tabela restrita: a do proprio pedido; sem ela, e SO se o pedido foi servido
+ * pelo cache da parceira (linha cache_hit, sem chamada propria), a mais
+ * recente da mesma placa dentro da validade desse cache. Pedido com chamada
+ * propria ainda em voo espera a resposta dele (revisao do PR #762). Resposta
+ * de outro chassi = null. Sai daqui so pro corpo da chamada.
  */
 export async function documentoDoDono(supabase: any, pedido: { id: string; placa: string }, chassi: string | null): Promise<DonoAtual | null> {
   const tabela = 'parceiro_historico_chamadas'
   const { data: proprio } = await supabase.from(tabela).select('resposta_bruta')
     .eq('pedido_id', pedido.id).eq('cobrada', true).order('criado_em', { ascending: false }).limit(1).maybeSingle()
   if (proprio) return donoAtualDaResposta(proprio.resposta_bruta, chassi)
+  const { data: doCache } = await supabase.from(tabela).select('id')
+    .eq('pedido_id', pedido.id).eq('cache_hit', true).limit(1).maybeSingle()
+  if (!doCache) return null
   const placa = chaveDePlaca(pedido.placa)
   if (!placa) return null
   const desde = new Date(Date.now() - ttlDaFonte(FONTE_CACHE_HISTORICO)).toISOString()

@@ -315,20 +315,53 @@ describe('the SEFAZ-MG call', () => {
     expect(snapDe(sb).multas).toMatchObject({ ipva_itens: itens, ipva_total_centavos: 47061, ipva_fonte: 'sefaz_mg' })
   })
 
+  /** The partner served this order from its plate cache: a row with cache_hit and no answer of its own. */
+  const servidoPeloCache = (pedidoId: string) => sb.tab('parceiro_historico_chamadas').push({
+    id: `cache-${pedidoId}`, pedido_id: pedidoId, placa: PLACA, cobrada: false, cache_hit: true, sucesso: true, resposta_bruta: null, criado_em: new Date().toISOString(),
+  })
+
   it('an order served by the partner plate cache takes the document from the paid answer of the same plate', async () => {
     comPedido(sb, { id: 'p2', multas: blocoMg({ ipva_pendente_sefaz: true }) })
+    servidoPeloCache('p2')
     comRespostaPaga(sb, 'p1', respostaParceira(CPF), new Date(Date.now() - 3 * 24 * H).toISOString())
     stubFetch(sefaz200(ADM))
     expect(await completarIpvaSefazMg(sb, 'p2')).toMatchObject({ feito: 'ok' })
     expect(chamadasSefaz[0]!.get('cpf')).toBe(CPF_DIGITOS)
   })
 
+  // Review of PR #762: the plate fallback is only for orders the partner cache
+  // served. An order whose own call is still out waits for its own answer.
+  it('an order whose own partner call is still out never borrows the document of another order of the plate', async () => {
+    comPedido(sb, { id: 'p2', multas: blocoMg({ ipva_pendente_sefaz: true }) })
+    comRespostaPaga(sb, 'p1', respostaParceira(CPF), new Date(Date.now() - 3 * 24 * H).toISOString())
+    stubFetch(sefaz200(ADM))
+    expect(await completarIpvaSefazMg(sb, 'p2')).toMatchObject({ feito: 'sem_documento' })
+    expect(chamadasSefaz).toHaveLength(0)
+    expect(snapDe(sb, 'p2').multas.ipva_sefaz_sem_documento).toBe(true)
+  })
+
   it('a paid answer of the plate older than the partner cache does not count', async () => {
     comPedido(sb, { id: 'p2', multas: blocoMg({ ipva_pendente_sefaz: true }) })
+    servidoPeloCache('p2')
     comRespostaPaga(sb, 'p1', respostaParceira(CPF), new Date(Date.now() - 40 * 24 * H).toISOString())
     stubFetch(sefaz200(ADM))
     expect(await completarIpvaSefazMg(sb, 'p2')).toMatchObject({ feito: 'sem_documento' })
     expect(chamadasSefaz).toHaveLength(0)
+  })
+
+  it('end to end: the second order of the plate, served by the partner cache, gets the IPVA with the first order\'s answer', async () => {
+    comPedido(sb, { id: 'p1', snap: { consulta: { response: { ...RESPONSE } } } })
+    comPedido(sb, { id: 'p2', multas: blocoMg({ ipva_sefaz_indisponivel: true, ipva_sefaz_sem_documento: true }) })
+    stubFetch(sefaz200(ADM))
+    // p1 calls the partner (paid, complete answer: it goes to the plate cache)...
+    await completarHistoricoVeicular(sb, pedido('p1'), depsParceira(respostaParceira(CPF)))
+    // ...p2 is served by that cache, and its waiting DETRAN block fires the SEFAZ with p1's answer.
+    await completarHistoricoVeicular(sb, pedido('p2'), depsParceira(respostaParceira(CPF)))
+    await esperarVoo()
+    expect(sb.tab('parceiro_historico_chamadas').filter((l: any) => l.pedido_id === 'p2').map((l: any) => [l.cache_hit, l.cobrada])).toEqual([[true, false]])
+    expect(chamadasSefaz).toHaveLength(1)
+    expect(chamadasSefaz[0]!.get('cpf')).toBe(CPF_DIGITOS)
+    expect(snapDe(sb, 'p2').multas).toMatchObject({ ipva_fonte: 'sefaz_mg', ipva_total_centavos: TOTAL_ADM })
   })
 })
 
