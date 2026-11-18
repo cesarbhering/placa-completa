@@ -344,8 +344,8 @@ describe('what goes to the page', () => {
 
 describe('report blocks (copy)', () => {
   it('owners: a tenure inside the sentence starts in lower case', () => {
-    const atual = { data: '2026-11-11', tempo: 'Menos de 1 mês', meses: 0, tipo: 'pessoa' as const, uf: 'PR', cidade: null, atual: true }
-    const antes = { data: '2026-10-20', tempo: 'Menos de 1 mês', meses: 0, tipo: 'pessoa' as const, uf: 'PR', cidade: null, atual: false }
+    const atual = { data: '2026-11-11', tempo: 'Menos de 1 mês', meses: 0, tipo: 'pessoa' as const, uf: 'PR', cidade: null, ufCidade: null, atual: true }
+    const antes = { data: '2026-10-20', tempo: 'Menos de 1 mês', meses: 0, tipo: 'pessoa' as const, uf: 'PR', cidade: null, ufCidade: null, atual: false }
     const t = telaDonos({ total: 2, atual, ufs: ['PR'], ufZeroKm: 'PR', registros: [atual, antes], semData: 0, trocasRapidas: 0 })!
     expect(t.linhas.map((l) => l.posse)).toEqual(['Dono atual, há menos de 1 mês', 'Ficou menos de 1 mês'])
     expect(t.atual).toMatchObject({ tempo: 'Menos de 1 mês' })
@@ -560,36 +560,92 @@ describe('owner city', () => {
     dono({ ...pj, ordem: 4, cnae: '4732600', data: '10/01/2020', tempoDePosse: '1 ano', uf: 'RS' }),
     dono({ ordem: 5, data: '10/01/2021', tempoDePosse: '4 anos e 10 meses (Vigente)', uf: 'RS', municipio: 'PORTO MODELO', municipio_uf: 'PORTO MODELO/RS', atual: true }),
   ]
-  const resposta = () => {
+  const resposta = (donos: any[] = DONOS) => {
     const r = copia(SEM)
-    r.dados.proprietarios = { total: DONOS.length, proprietario_atual: copia(DONOS[4]), historico: copia(DONOS) }
+    r.dados.proprietarios = { total: donos.length, proprietario_atual: copia(donos.find((x) => x.atual) ?? null), historico: copia(donos) }
     return r
   }
 
   it('reads "municipio", falls back to "municipio_uf" before the slash, and is null without either', () => {
     const b = bloco(resposta())
-    expect(b.donos!.registros.map((o) => [o.data, o.cidade])).toEqual([
-      ['2021-01-10', 'Porto Modelo'],
-      ['2020-01-10', null],
-      ['2018-01-10', null],
-      ['2015-01-10', 'Serra Modelo'],
-      ['2012-01-10', 'Vila Nova do Exemplo'],
+    expect(b.donos!.registros.map((o) => [o.data, o.cidade, o.ufCidade])).toEqual([
+      ['2021-01-10', 'Porto Modelo', 'RS'],
+      ['2020-01-10', null, null],
+      ['2018-01-10', null, null],
+      ['2015-01-10', 'Serra Modelo', 'SC'],
+      ['2012-01-10', 'Vila Nova do Exemplo', 'PR'],
     ])
     expect(b.donos!.atual).toMatchObject({ data: '2021-01-10', cidade: 'Porto Modelo', atual: true })
   })
 
-  it('the report JSON lets the city through, cut to 60 characters', () => {
+  it('the city goes with the state of "municipio_uf"; without a valid one there, with "uf"', () => {
+    const b = bloco(resposta([
+      dono({ ordem: 1, data: '10/01/2015', tempoDePosse: '3 anos', uf: 'BA', municipio: 'VILA EXEMPLO', municipio_uf: 'VILA EXEMPLO/PE' }),
+      dono({ ordem: 2, data: '10/01/2018', tempoDePosse: '2 anos', municipio: 'SERRA MODELO', municipio_uf: 'SERRA MODELO/SC' }),
+      dono({ ordem: 3, data: '10/01/2020', tempoDePosse: '1 ano', uf: 'RS', municipio: 'PORTO MODELO', municipio_uf: 'PORTO MODELO/XX' }),
+      dono({ ordem: 4, data: '10/01/2021', tempoDePosse: '4 anos (Vigente)', uf: 'RS', municipio: 'PORTO MODELO', atual: true }),
+    ]))
+    // The block (cache and snapshot) keeps only a valid state of the city.
+    expect(b.donos!.registros.map((o) => o.ufCidade)).toEqual([null, null, 'SC', 'PE'])
+    const t = telaDonos(historicoVeicularParaTela(b)!.donos)!
+    expect(t.linhas.map((l) => [l.local, l.uf, l.atual])).toEqual([
+      ['Porto Modelo/RS', 'RS', true],
+      ['Porto Modelo/RS', 'RS', false],
+      ['Serra Modelo/SC', null, false],
+      ['Vila Exemplo/PE', 'BA', false],
+    ])
+    // The states the vehicle went through still come from "uf" only.
+    expect(t.estados).toEqual(['GO', 'BA', 'RS'])
+  })
+
+  it('a city is a string with a letter and no digit: a document, a code or an object is null', () => {
+    const b = bloco(resposta([
+      dono({ ordem: 1, data: '10/01/2015', tempoDePosse: '1 ano', uf: 'PR', municipio: 'CIDADE 000.000.000-00' }),
+      dono({ ordem: 2, data: '10/01/2016', tempoDePosse: '1 ano', uf: 'PR', municipio: 3550308 }),
+      dono({ ordem: 3, data: '10/01/2017', tempoDePosse: '1 ano', uf: 'PR', municipio: { nome: 'VILA EXEMPLO' } }),
+      dono({ ordem: 4, data: '10/01/2018', tempoDePosse: '1 ano', uf: 'PR', municipio: '...', municipio_uf: 3550308 }),
+      dono({ ordem: 5, data: '10/01/2019', tempoDePosse: '1 ano', uf: 'PR', municipio: 3550308, municipio_uf: 'VILA EXEMPLO/SC' }),
+    ]))
+    expect(b.donos!.registros.map((o) => [o.data, o.cidade, o.ufCidade])).toEqual([
+      ['2019-01-10', 'Vila Exemplo', 'SC'],
+      ['2018-01-10', null, null],
+      ['2017-01-10', null, null],
+      ['2016-01-10', null, null],
+      ['2015-01-10', null, null],
+    ])
+    expect(JSON.stringify(b)).not.toMatch(/000\.000|3550308|\[object/)
+  })
+
+  it('the report JSON lets the city and its state through, the city cut to 60 characters', () => {
     const b: any = JSON.parse(JSON.stringify(bloco(resposta())))
     b.donos.registros[1].cidade = 'Vila Exemplo '.repeat(10)
     const tela = historicoVeicularParaTela(b)!
     expect(tela.donos!.atual!.cidade).toBe('Porto Modelo')
-    expect(tela.donos!.registros.map((o) => o.cidade)).toEqual([
-      'Porto Modelo',
-      'Vila Exemplo Vila Exemplo Vila Exemplo Vila Exemplo Vila Exe',
-      null,
-      'Serra Modelo',
-      'Vila Nova do Exemplo',
+    expect(tela.donos!.registros.map((o) => [o.cidade, o.ufCidade])).toEqual([
+      ['Porto Modelo', 'RS'],
+      ['Vila Exemplo Vila Exemplo Vila Exemplo Vila Exemplo Vila Exe', null],
+      [null, null],
+      ['Serra Modelo', 'SC'],
+      ['Vila Nova do Exemplo', 'PR'],
     ])
+  })
+
+  it('the report JSON drops a city that is not a name, even from a snapshot made elsewhere', () => {
+    const r = (x: object) => ({ data: '2021-01-10', tempo: '4 anos', meses: 48, tipo: 'pessoa', uf: 'RS', atual: false, ...x })
+    const tela = historicoVeicularParaTela({
+      status: 'ok', consultadoEm: null,
+      donos: {
+        total: 4, atual: null, ufs: ['RS'], ufZeroKm: null, semData: 0, trocasRapidas: 0,
+        registros: [
+          r({ cidade: 'CIDADE 000.000.000-00', ufCidade: 'PE' }),
+          r({ cidade: 3550308, ufCidade: 'PE' }),
+          r({ cidade: { nome: 'Vila Exemplo' }, ufCidade: 'PE' }),
+          r({ cidade: 'Vila Exemplo', ufCidade: 'XX' }),
+        ],
+      },
+    })!
+    expect(tela.donos!.registros.map((o) => [o.cidade, o.ufCidade])).toEqual([[null, null], [null, null], [null, null], ['Vila Exemplo', null]])
+    expect(telaDonos(tela.donos)!.linhas.map((l) => l.local)).toEqual(['RS', 'RS', 'RS', 'Vila Exemplo/RS'])
   })
 
   it('name, document and company name never reach the block nor the report JSON, even when the answer brings them', () => {
@@ -614,7 +670,7 @@ describe('owner city', () => {
       ['Locadora', 'Vila Nova do Exemplo/PR'],
     ])
     expect(t.estados).toEqual(['GO', 'PR', 'SC', 'RS'])
-    const o = (x: object) => ({ data: '2020-01-10', tempo: '1 ano', meses: 12, tipo: 'pessoa' as const, uf: null, cidade: null, atual: false, ...x })
+    const o = (x: object) => ({ data: '2020-01-10', tempo: '1 ano', meses: 12, tipo: 'pessoa' as const, uf: null, cidade: null, ufCidade: null, atual: false, ...x })
     const soCidade = telaDonos({ total: 2, atual: null, ufs: [], ufZeroKm: null, registros: [o({ cidade: 'Vila Exemplo' }), o({ data: '2019-01-10' })], semData: 0, trocasRapidas: 0 })!
     expect(soCidade.linhas.map((l) => l.local)).toEqual(['Vila Exemplo', null])
   })

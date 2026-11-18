@@ -42,7 +42,8 @@ describe('owners block', () => {
 
   it('each line shows the owner type with "City/UF"; a snapshot stored before the city shows only the state', () => {
     const w = mount(HistoricoDonos, { props: { tela: telaDonos(tela(COM).donos)! } })
-    expect(w.find('.hd-tempo li .hd-quem').text()).toBe('Pessoa · Cidade Exemplo/PR')
+    // The fixture owner has uf PR and "CIDADE EXEMPLO/PE": the city goes with its own state.
+    expect(w.find('.hd-tempo li .hd-quem').text()).toBe('Pessoa · Cidade Exemplo/PE')
     const antigo: any = JSON.parse(JSON.stringify(parsearRespostaHistorico(structuredClone(COM))))
     for (const o of [antigo.donos.atual, ...antigo.donos.registros]) delete o.cidade
     const v = mount(HistoricoDonos, { props: { tela: telaDonos(historicoVeicularParaTela(antigo)!.donos)! } })
