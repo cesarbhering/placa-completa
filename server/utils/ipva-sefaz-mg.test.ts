@@ -161,7 +161,7 @@ describe('SEFAZ-MG parser', () => {
       { ano: 2022, vencimento: null, valor_centavos: 10000, divida_ativa: true },
       { ano: 2021, vencimento: null, valor_centavos: 9050, divida_ativa: true },
     ])
-    expect(JSON.stringify(itens)).not.toMatch(/FICTICIO|123\.456|12345678909/)
+    expect(JSON.stringify(itens)).not.toMatch(/FICTICIO|123\.456|12345678909/) // ggignore
   })
 
   it('two equal installments of the same year in one list are two debts', () => {
@@ -273,7 +273,7 @@ describe('the SEFAZ-MG call', () => {
     expect(snapDe(sb).multas.ipva_total_centavos).toBeNull()
     const [custo] = sb.tab('premium_custos')
     expect(custo.bruto).toEqual({ formato_desconhecido: true, chaves: { debitos: [{ ano: 'string', total: 'string' }] } })
-    expect(JSON.stringify(custo)).not.toMatch(/FICTICIO|123\.456|12345678909/)
+    expect(JSON.stringify(custo)).not.toMatch(/FICTICIO|123\.456|12345678909/) // ggignore
     expect(sb.tab('fonte_cache')).toHaveLength(0)
   })
 

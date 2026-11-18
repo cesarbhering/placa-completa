@@ -14,7 +14,7 @@ export const CNPJ = '11.222.333/0001-81' // ggignore
 export const CNPJ_DIGITOS = '11222333000181' // ggignore
 export const NOME = 'DONO FICTICIO MARCADO'
 export const CHASSI = '9XXHV00000X000001' // ggignore
-export const RENAVAM = '00987654321'
+export const RENAVAM = '00987654321' // ggignore
 export const PLACA = 'TST2B34'
 export const H = 60 * 60 * 1000
 

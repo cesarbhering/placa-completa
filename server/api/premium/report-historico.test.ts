@@ -199,7 +199,7 @@ describe('report JSON with the calls made with the owner document', () => {
       status: 200,
       json: async () => ({
         code: 200, header: { price: '0.24', parameters: { cnpj: '11222333000181', renavam: '00987654321' } }, // ggignore
-        data: [{ renavam: '00987654321', multas: [{ auto_de_infracao: 'E00000001', descricao: 'ESTACIONAR EM LOCAL PROIBIDO', data_infracao: '02/04/2026', hora: '09:05', local_da_infracao: 'AV FICTICIA 1000', orgao_emissor: 'ORGAO AUTUADOR TESTE', agente_emissor: 'AGENTE TESTE 000', valor_a_ser_pago: 'R$ 195,23', valor_original: 'R$ 195,23', situacao: 'EM ABERTO', status_de_pagamento: 'NÃO PAGO' }] }],
+        data: [{ renavam: '00987654321', multas: [{ auto_de_infracao: 'E00000001', descricao: 'ESTACIONAR EM LOCAL PROIBIDO', data_infracao: '02/04/2026', hora: '09:05', local_da_infracao: 'AV FICTICIA 1000', orgao_emissor: 'ORGAO AUTUADOR TESTE', agente_emissor: 'AGENTE TESTE 000', valor_a_ser_pago: 'R$ 195,23', valor_original: 'R$ 195,23', situacao: 'EM ABERTO', status_de_pagamento: 'NÃO PAGO' }] }], // ggignore
       }),
     })) as any
     try {
