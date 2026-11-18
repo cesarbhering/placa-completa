@@ -50,7 +50,10 @@ export interface DonosHistorico {
   /** Dated records, most recent first. Records without a date only count in the total. */
   registros: DonoHistorico[]
   semData: number
-  /** Previous owners that kept the vehicle for less than 12 months. */
+  /**
+   * Previous owners that kept the vehicle for less than 12 months. Kept in the
+   * snapshot; since 18/11/2026 the quick change alert looks only at the current owner.
+   */
   trocasRapidas: number
 }
 
@@ -882,7 +885,8 @@ export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'v
   const linhas = registros.map((o) => {
     // Same owner = same date, tenure and state. Not the city: a block may carry it on one side only.
     const ehAtual = !!atual && o.data === atual.data && o.tempo === atual.tempo && o.uf === atual.uf
-    const curta = !ehAtual && o.meses != null && o.meses < 12
+    // Only the current owner's tenure is flagged (Cesar, 18/11/2026): the seller has had it for less than a year.
+    const curta = ehAtual && o.meses != null && o.meses < 12
     const ufDaCidade = o.ufCidade || o.uf
     return {
       data: dataBR(o.data) || '',
@@ -895,7 +899,8 @@ export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'v
       atual: ehAtual,
     }
   })
-  const n = Number(d.trocasRapidas) || 0
+  // Quick change = the current owner has had the vehicle for less than 1 year; earlier owners do not count (Cesar, 18/11/2026).
+  const atualRecente = !!atual && atual.meses != null && atual.meses < 12
   return {
     total: Number(d.total),
     totalTexto: d.total === 1 ? 'dono encontrado' : 'donos encontrados',
@@ -903,7 +908,9 @@ export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'v
     estados: Array.isArray(d.ufs) ? d.ufs : [],
     zeroKm: d.ufZeroKm || null,
     linhas,
-    alertaTrocaRapida: n >= 3 ? `Troca rápida de dono: ${n} donos ficaram menos de 1 ano com o ${nomeVeiculo}. Vale perguntar o motivo ao vendedor.` : null,
+    alertaTrocaRapida: atualRecente
+      ? `Troca rápida de dono: o dono atual está com ${nomeVeiculo === 'moto' ? 'a' : 'o'} ${nomeVeiculo} há menos de 1 ano. Vale perguntar o motivo ao vendedor.`
+      : null,
     nota: `${d.semData ? `Há mais ${d.semData === 1 ? '1 registro antigo sem data, que só entra' : `${d.semData} registros antigos sem data, que só entram`} no total. ` : ''}Não mostramos nome nem documento de nenhum proprietário, em conformidade com a LGPD.`,
   }
 }
