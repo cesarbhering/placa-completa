@@ -7,6 +7,8 @@ import {
 } from './infosimples-detran'
 import { completarHistoricoVeicular, _limparEmVooHistorico, _limparAlertaTetoHistorico } from './parceiro-historico'
 import { resumoQuitar } from '../../shared/detran-quitar'
+import { executarJob } from './premium-jobs'
+import { itensDoBloco } from './detran-retentativa-tardia'
 import { fonteConcluida } from '../../shared/fontes-relatorio'
 import { ttlDaFonte } from './fonte-cache'
 import { _resetarEmVoo } from './tarefas-em-voo'
@@ -324,5 +326,30 @@ describe('no owner name, CPF or CNPJ outside the restricted table (RJ)', () => {
     expect(custos[0].bruto.multas).toHaveLength(MULTAS.length)
     expect(custos[0].bruto.multas[0]).toMatchObject({ auto_de_infracao: 'E00000001', status_de_pagamento: 'NÃO PAGO', valor_a_ser_pago: 'R$ 130,16' })
     expect(JSON.stringify(custos)).not.toMatch(/AGENTE|parameters|storage\.invalid/)
+  })
+})
+
+// Review of PR #762 (blocking): same as the MG, with the nada consta still out.
+describe('the queue (premium_jobs) brings the DETRAN-RJ block', () => {
+  it('a block written in the round is new data (200) with the nada consta still out; the fines land by themselves', async () => {
+    comPedido(sb, { uf: 'RJ' })
+    comRespostaPaga(sb, 'p1', respostaParceira(CPF))
+    let soltar: () => void = () => {}
+    stubFetch(() => new Promise((ok) => { soltar = () => ok(nadaConsta200(MULTAS)) }))
+    expect(await executarJob(sb, { id: 'j1', pedido_id: 'p1', fonte: 'detran', tentativas: 0, max_tentativas: 4 })).toEqual({ status: 'ok', code: 200 })
+    expect(snapDe(sb).multas.nada_consta_pendente).toBe(true)
+    await vi.waitFor(() => expect(chamadasRj).toHaveLength(1))
+    soltar()
+    await esperarVoo()
+    expect(snapDe(sb).multas).toMatchObject({ multas_fonte: 'detran_rj_nada_consta', multas_total_centavos: TOTAL_ABERTAS })
+  })
+
+  it('the update e-mail never says "nada consta" for RJ fines that were not consulted', () => {
+    expect(itensDoBloco(blocoRj())).toEqual([])
+    expect(itensDoBloco(blocoRj({ nada_consta_pendente: true }))).toEqual([])
+    expect(itensDoBloco(blocoRj({ multas_fonte: 'detran_rj_nada_consta', multas_total_centavos: 0 }))).toEqual(['Multas em aberto: nada consta'])
+    expect(itensDoBloco(blocoRj({ multas_fonte: 'detran_rj_nada_consta', multas_total_centavos: 19523 }))).toEqual(['Multas em aberto: R$ 195,23'])
+    // Other states are unchanged.
+    expect(itensDoBloco({ fonte: 'detran_sp', multas_total_centavos: 0 })).toEqual(['Multas em aberto: nada consta'])
   })
 })

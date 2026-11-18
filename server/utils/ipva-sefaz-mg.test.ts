@@ -6,6 +6,7 @@ import {
   completarDetran, DETRAN_UFS, CONSULTAS_COM_DOCUMENTO, _definirEsperaLockDocumento,
 } from './infosimples-detran'
 import { resumoQuitar } from '../../shared/detran-quitar'
+import { executarJob } from './premium-jobs'
 import { completarHistoricoVeicular, _limparEmVooHistorico, _limparAlertaTetoHistorico } from './parceiro-historico'
 import { ttlDaFonte } from './fonte-cache'
 import { _resetarEmVoo } from './tarefas-em-voo'
@@ -465,5 +466,23 @@ describe('no owner name, CPF or CNPJ outside the restricted table', () => {
     expect(custos[0].bruto).toEqual({ debitos_adm: ADM, debitos_divida_ativa: [] })
     // Where it does live: the restricted table only.
     expect(JSON.stringify(sb.tab('parceiro_historico_chamadas'))).toContain(CPF)
+  })
+})
+
+// Review of PR #762 (blocking): the queue job that writes the DETRAN block must
+// count it as new data (code 200) even while the SEFAZ call is still out, or
+// the customer told "chegando, avisamos por e-mail" never gets the e-mail.
+describe('the queue (premium_jobs) brings the DETRAN-MG block', () => {
+  it('a block written in the round is new data (200) with the SEFAZ call still out; the IPVA lands by itself', async () => {
+    comPedido(sb)
+    comRespostaPaga(sb, 'p1', respostaParceira(CPF))
+    let soltar: () => void = () => {}
+    stubFetch(() => new Promise((ok) => { soltar = () => ok(sefaz200(ADM)) }))
+    expect(await executarJob(sb, { id: 'j1', pedido_id: 'p1', fonte: 'detran', tentativas: 0, max_tentativas: 4 })).toEqual({ status: 'ok', code: 200 })
+    expect(snapDe(sb).multas.ipva_pendente_sefaz).toBe(true)
+    await vi.waitFor(() => expect(chamadasSefaz).toHaveLength(1))
+    soltar()
+    await esperarVoo()
+    expect(snapDe(sb).multas).toMatchObject({ ipva_fonte: 'sefaz_mg', ipva_total_centavos: TOTAL_ADM })
   })
 })

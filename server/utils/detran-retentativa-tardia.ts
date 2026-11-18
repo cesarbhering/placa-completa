@@ -51,7 +51,9 @@ const reais = (c: number) => (c / 100).toLocaleString('pt-BR', { style: 'currenc
 export function itensDoBloco(m: any): string[] {
   const it: string[] = []
   const pos = (v: any) => Number(v) > 0
-  it.push(pos(m?.multas_total_centavos) ? `Multas em aberto: ${reais(Number(m.multas_total_centavos))}` : 'Multas em aberto: nada consta')
+  // Multas nao consultadas (RJ sem o nada consta, ou com ele ainda em voo): nunca "nada consta".
+  const multasConsultadas = !(m?.debitos_indisponiveis && !m?.multas_fonte)
+  if (multasConsultadas) it.push(pos(m?.multas_total_centavos) ? `Multas em aberto: ${reais(Number(m.multas_total_centavos))}` : 'Multas em aberto: nada consta')
   if (pos(m?.ipva_total_centavos)) it.push(`IPVA em aberto: ${reais(Number(m.ipva_total_centavos))}`)
   if (m?.licenciamento_atrasado_ano) it.push(`Licenciamento atrasado desde ${m.licenciamento_atrasado_ano}`)
   else if (pos(m?.licenciamento_centavos)) it.push(`Licenciamento em aberto: ${reais(Number(m.licenciamento_centavos))}`)
