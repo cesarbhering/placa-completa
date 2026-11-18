@@ -39,6 +39,17 @@ describe('owners block', () => {
     expect(w.find('button.hd-mais').exists()).toBe(false)
     expect(w.text()).toContain('estado por onde passou')
   })
+
+  it('each line shows the owner type with "City/UF"; a snapshot stored before the city shows only the state', () => {
+    const w = mount(HistoricoDonos, { props: { tela: telaDonos(tela(COM).donos)! } })
+    // The fixture owner has uf PR and "CIDADE EXEMPLO/PE": the city goes with its own state.
+    expect(w.find('.hd-tempo li .hd-quem').text()).toBe('Pessoa · Cidade Exemplo/PE')
+    const antigo: any = JSON.parse(JSON.stringify(parsearRespostaHistorico(structuredClone(COM))))
+    for (const o of [antigo.donos.atual, ...antigo.donos.registros]) delete o.cidade
+    const v = mount(HistoricoDonos, { props: { tela: telaDonos(historicoVeicularParaTela(antigo)!.donos)! } })
+    expect(v.find('.hd-tempo li .hd-quem').text()).toBe('Pessoa · PR')
+    expect(v.html()).not.toMatch(/null|undefined/)
+  })
 })
 
 describe('previous use block', () => {

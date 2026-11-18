@@ -3,8 +3,9 @@
 // Pure (no network). Two jobs:
 //  1. parsearRespostaHistorico turns the partner answer into the CLEAN block
 //     that goes to fonte_cache and to the order snapshot. The raw answer brings
-//     name and CPF/CNPJ of every owner; none of that, nor address, city of an
-//     owner, police report number, police station or image, leaves the parser.
+//     name and CPF/CNPJ of every owner; none of that, nor address, police
+//     report number, police station or image, leaves the parser. Of each owner
+//     only type, state, city (Cesar, 17/11/2026), date and time leave.
 //     The raw answer stays only in parceiro_historico_chamadas (server only).
 //  2. The display rules of the three report blocks (owners, previous use,
 //     insurance) and of the partner part of the auction section, which is
@@ -28,6 +29,14 @@ export interface DonoHistorico {
   meses: number | null
   tipo: TipoDono | null
   uf: string | null
+  /**
+   * City of the owner in title case ("Sao Paulo": the source sends capitals
+   * without accents). null when the source has none, and on blocks stored
+   * before 17/11/2026 (then the line shows only the state).
+   */
+  cidade: string | null
+  /** State of that city, after the slash of "municipio_uf" when valid. null: the line uses uf. */
+  ufCidade: string | null
   atual: boolean
 }
 
@@ -205,6 +214,23 @@ function lerIndicadores(d: any): Map<string, Indicador> {
 
 // ---------------------------------------------------------------- owners
 
+/** A city name: a string with a letter and no digit (no Brazilian city has one). A code, a document or an object is null. */
+function cidadeValida(v: unknown): string | null {
+  const s = typeof v === 'string' ? naoInformado(v) : null
+  return s && /\p{L}/u.test(s) && !/\d/.test(s) ? s : null
+}
+
+/**
+ * City from "municipio", or from the part of "municipio_uf" before the slash,
+ * with the state after that slash when it is a valid one. Only these two
+ * fields are read.
+ */
+function cidadeDoDono(h: any): Pick<DonoHistorico, 'cidade' | 'ufCidade'> {
+  const [nome, uf] = typeof h.municipio_uf === 'string' ? h.municipio_uf.split('/') : []
+  const c = cidadeValida(h.municipio) ?? cidadeValida(nome)
+  return c ? { cidade: tituloSimples(c), ufCidade: ufValida(uf) } : { cidade: null, ufCidade: null }
+}
+
 function donosDe(d: any): DonosHistorico | null {
   const p = d?.proprietarios
   if (!obj(p)) return null
@@ -220,6 +246,7 @@ function donosDe(d: any): DonosHistorico | null {
         meses: mesesDePosse(umDe(h, ['tempoDePosse', 'tempoPosse'])),
         tipo: tipoDoDono(h),
         uf: ufValida(h.uf),
+        ...cidadeDoDono(h),
         atual: h.atual === true,
       },
     }))
@@ -682,12 +709,16 @@ const TIPOS_DONO = new Set<TipoDono>(['pessoa', 'loja', 'empresa', 'banco', 'loc
 const listaTela = <T>(v: unknown, f: (x: any) => T, max = 60): T[] => (Array.isArray(v) ? v.filter(obj).slice(0, max).map(f) : [])
 
 function donoTela(o: any): DonoHistorico {
+  // Checked again here: a snapshot may come from another path than the parser.
+  const cidade = txt(cidadeValida(o.cidade), 60)
   return {
     data: dataOk(o.data) || '',
     tempo: txt(o.tempo, 40),
     meses: Number.isFinite(Number(o.meses)) && o.meses != null ? Number(o.meses) : null,
     tipo: TIPOS_DONO.has(o.tipo) ? o.tipo : null,
     uf: ufValida(o.uf),
+    cidade,
+    ufCidade: cidade ? ufValida(o.ufCidade) : null,
     atual: o.atual === true,
   }
 }
@@ -792,7 +823,8 @@ function tituloSimples(s: string): string {
   return t.toLowerCase().replace(/(^|[\s/-])(\p{L})/gu, (_m, a, b) => a + b.toUpperCase()).replace(/\b(De|Da|Do|Das|Dos|E)\b/g, (w) => w.toLowerCase())
 }
 
-export interface LinhaDono { data: string; tipo: string; uf: string | null; posse: string; curta: boolean; largura: number; atual: boolean }
+/** local: "Cidade/UF" (the state of the city, else uf); only uf when there is no city (blocks before 17/11/2026). */
+export interface LinhaDono { data: string; tipo: string; uf: string | null; local: string | null; posse: string; curta: boolean; largura: number; atual: boolean }
 
 export interface TelaDonos {
   total: number
@@ -819,12 +851,15 @@ export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'v
   const max = Math.max(1, ...registros.map((o) => Number(o.meses) || 0))
   const atual = d.atual ?? null
   const linhas = registros.map((o) => {
+    // Same owner = same date, tenure and state. Not the city: a block may carry it on one side only.
     const ehAtual = !!atual && o.data === atual.data && o.tempo === atual.tempo && o.uf === atual.uf
     const curta = !ehAtual && o.meses != null && o.meses < 12
+    const ufDaCidade = o.ufCidade || o.uf
     return {
       data: dataBR(o.data) || '',
       tipo: o.tipo ? ROTULO_TIPO_DONO[o.tipo] : 'Tipo não informado',
       uf: o.uf,
+      local: o.cidade ? (ufDaCidade ? `${o.cidade}/${ufDaCidade}` : o.cidade) : o.uf,
       posse: ehAtual ? (o.tempo ? `Dono atual, há ${noMeioDaFrase(o.tempo)}` : 'Dono atual') : o.tempo ? `Ficou ${noMeioDaFrase(o.tempo)}` : 'Tempo não informado',
       curta,
       largura: Math.max(4, Math.round((100 * (Number(o.meses) || 0)) / max)),

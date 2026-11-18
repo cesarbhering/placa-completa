@@ -2979,7 +2979,8 @@ onUnmounted(() => {
 
           <!-- Vehicle history partner (13/11/2026; prototype approved by Cesar):
                owners, previous use, insurance. Clean from the server: never a
-               name, document, address or city of an owner. -->
+               name, document or address of an owner (the city shows since
+               17/11/2026). -->
           <section v-if="numSecao.donos" class="rel__card">
             <h2 class="rel__h2">{{ numSecao.donos }}. Histórico de proprietários</h2>
             <HistoricoDonos v-if="telaDonosRel" :tela="telaDonosRel" :nome-veiculo="nomeVeiculo" />
