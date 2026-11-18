@@ -1,4 +1,5 @@
 import { avisarLeilaoTardio } from './aviso-leilao'
+import { leilaoNaTela } from './parceiro-leilao'
 // Um relatorio ja vendido e imutavel: o snapshot guarda exatamente o que a
 // pessoa comprou. Mas quando um servico auxiliar estava fora do ar ou lento na
 // hora da entrega, o snapshot congelou um BURACO, nao um dado. Isso nao e o que
@@ -130,9 +131,16 @@ export async function preencherCamposLazy(
       console.warn(`[lazy-fill] gravar ${campo} falhou (fail-open):`, e?.message)
     }
   }
-  // Leilao ou sinistro que apareceu depois da entrega: avisa o cliente (uma vez).
+  // Leilao ou sinistro que apareceu depois da entrega: avisa o cliente (rules
+  // in aviso-leilao.ts). Both sides as the page shows them, merged with the
+  // vehicle history of the snapshot (18/11/2026), as the auction partner
+  // paths already do. Without our base at the delivery (null), the page had
+  // no auction section, but it already showed the damage sign of the vehicle
+  // history (review of PR #763): "before" keeps that sign and none of the
+  // auction records, which still count as new.
   if (opts.campos.includes('historicoLeilao') && opts.pedidoId) {
-    await avisarLeilaoTardio(supabase, opts.pedidoId, opts.snap?.historicoLeilao ?? null, resultado.historicoLeilao ?? null)
+    const antes = leilaoNaTela(opts.snap?.historicoLeilao ?? { resumo: {}, passagens: [] }, opts.snap)
+    await avisarLeilaoTardio(supabase, opts.pedidoId, opts.snap?.historicoLeilao ? antes : { ...antes, passagens: [] }, leilaoNaTela(resultado.historicoLeilao ?? null, opts.snap))
   }
   return resultado
 }

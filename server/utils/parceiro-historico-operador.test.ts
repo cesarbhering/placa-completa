@@ -34,10 +34,14 @@ let chamadas: string[]
 let foraDoAr = false
 const pagas = () => chamadas.filter((u) => !u.endsWith('/api/Auth/login')).length
 
-/** An order whose stored vehicle history is partial and shows no auction: what the auction partner finds is news. */
-function pedidoComParcial() {
+/**
+ * An order whose stored vehicle history is partial and shows no auction: what
+ * the auction partner finds is news. `mudar` changes the partner answer first.
+ */
+function pedidoComParcial(mudar: (r: any) => void = () => {}) {
   const r: any = structuredClone(SEM)
   r.dados.raw_sources.e5Success = false
+  mudar(r)
   const sb = supabaseMemoria()
   // The paid query of the order (the rebuild assembles the auction section again from it).
   sb.tab('senatran_consultas').push({ id: 'c1', placa: PEDIDO.placa, created_at: '2026-11-17T19:00:00Z', response: { chassi: r.dados.chassi, descricaoMarcaModelo: 'MARCA/MODELO', anoModelo: 2020, ufJurisdicao: 'SP' } })
@@ -158,5 +162,55 @@ describe('operator route: the mark survives the admin rebuild of the auction sec
     expect(linha.relatorio_snapshot.historicoLeilao.passagens.length).toBeGreaterThan(0)
     expect(enviados).toHaveLength(0)
     expect(linha.aviso_leilao_em ?? null).toBeNull()
+  })
+})
+
+// Cesar, 18/11/2026 ("Avisar sempre"): a new auction is told even when the
+// page already showed a damage sign. The operator route and the rebuild still
+// never tell the customer, also in this case.
+describe('a new auction on a page that already showed a damage sign', () => {
+  /** The partial vehicle history also shows a damage sign (an insurer indemnity), and no auction. */
+  const comIndicio = () => pedidoComParcial((r) => {
+    r.dados.indicadores = r.dados.indicadores.map((i: any) => (i.codigo === 'P14'
+      ? { ...i, status: 'positivo', conteudo: [{ seguradora: 'SEGURADORA FICTICIA S.A.', tipoEvento: 'Indenização Integral de Sinistro', ano: '2022' }] }
+      : i))
+  })
+
+  it('control: the regular path tells the customer once (before, the damage sign blocked it)', async () => {
+    const sb = comIndicio()
+    expect(sb.tab('pedidos_premium')[0]!.relatorio_snapshot.historicoVeicular.leilao).toMatchObject({ registros: [], indicioSinistro: true })
+    await completarHistoricoVeicular(sb, PEDIDO, { cfg: cfgHistorico(CONFIG), ignorarChave: true, retentar: true })
+    expect(pagas()).toBe(1)
+    expect(enviados).toHaveLength(1)
+    expect(sb.tab('pedidos_premium')[0]!.aviso_leilao_em).toBeTruthy()
+  })
+
+  it('operator route: never, not even by the job retry of its failed call', async () => {
+    const sb = comIndicio()
+    await completarHistoricoVeicularOperador(sb, PEDIDO, cfgHistorico(CONFIG))
+    expect(sb.tab('pedidos_premium')[0]!.relatorio_snapshot.historicoLeilao.passagens.length).toBeGreaterThan(0)
+    expect(enviados).toHaveLength(0)
+    const sb2 = comIndicio()
+    foraDoAr = true
+    await completarHistoricoVeicularOperador(sb2, PEDIDO, cfgHistorico(CONFIG))
+    foraDoAr = false
+    expect(await retryDoJob(sb2)).toMatchObject({ completados: 1 })
+    expect(enviados).toHaveLength(0)
+    expect(sb2.tab('pedidos_premium')[0]!.aviso_leilao_em ?? null).toBeNull()
+  })
+
+  it('rebuild: never, whether its call finds the auction or fails and the job retry finds it', async () => {
+    const sb = comIndicio()
+    expect(await rebuildLeilao(sb, ['TOK'])).toEqual([expect.objectContaining({ ok: true })])
+    expect(sb.tab('pedidos_premium')[0]!.relatorio_snapshot.historicoLeilao.passagens.length).toBeGreaterThan(0)
+    expect(enviados).toHaveLength(0)
+    const sb2 = comIndicio()
+    foraDoAr = true
+    await rebuildLeilao(sb2, ['TOK'])
+    foraDoAr = false
+    _limparTokenParceiro()
+    expect(await retryDoJob(sb2)).toMatchObject({ completados: 1 })
+    expect(enviados).toHaveLength(0)
+    expect(sb2.tab('pedidos_premium')[0]!.aviso_leilao_em ?? null).toBeNull()
   })
 })

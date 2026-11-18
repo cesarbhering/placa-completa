@@ -451,3 +451,47 @@ describe('auction partner from a bank or insurer in the chain: review of PR #761
     expect(avisos).toHaveLength(1)
   })
 })
+
+// Cesar, 18/11/2026 ("Avisar sempre"): the late notice compares the auction
+// section as the page shows it (merged with the vehicle history), on every path.
+describe('late notice compares the page views', () => {
+  it('lazy fill: an auction record of the vehicle history that the page shows only now is told once', async () => {
+    const sb = banco()
+    sb.tab('senatran_consultas').push({ id: 'c1', placa: PLACA, created_at: '2026-11-18T12:00:00Z', response: { chassi: CHASSI } })
+    // Our base was down at the delivery (no auction section). The vehicle
+    // history has its own auction record, so the auction partner is not called.
+    const linha = pedido(sb, 'p1', { consulta_id: 'c1' }, { historicoLeilao: null, historicoVeicular: bloco(BANCO_COM_EDITAL) })
+    vi.stubGlobal('montarRelatorioSnapshot', montarRelatorioSnapshot)
+    const r = await preencherCamposLazy(sb, { token: 'TOK-p1', snap: linha.relatorio_snapshot, plano: 'completa', placa: PLACA, consulta_id: 'c1', campos: ['historicoLeilao'], pedidoId: 'p1' })
+    // Our base came back empty; the page now shows the record of the vehicle history.
+    expect(r.historicoLeilao.passagens).toHaveLength(0)
+    expect(chamadasLeilao).toHaveLength(0)
+    expect(avisos).toHaveLength(1)
+    expect(avisos[0].info).toMatchObject({ passagens: [{ nivel: 'confirmado' }] })
+    expect((linha as any).aviso_leilao_em).toBeTruthy()
+  })
+
+  // Review of PR #763, finding 1: the damage sign of the vehicle history was
+  // on the page since the delivery (its insurance block): not news.
+  it('lazy fill: a damage sign the vehicle history already showed is not told; an auction record still is', async () => {
+    const sb = banco()
+    sb.tab('senatran_consultas').push({ id: 'c1', placa: PLACA, created_at: '2026-11-18T12:00:00Z', response: { chassi: CHASSI } })
+    vi.stubGlobal('montarRelatorioSnapshot', montarRelatorioSnapshot)
+    const lazy = (linha: any) => preencherCamposLazy(sb, { token: linha.token_entrega, snap: linha.relatorio_snapshot, plano: 'completa', placa: linha.placa, consulta_id: 'c1', campos: ['historicoLeilao'], pedidoId: linha.id })
+    // Our base was down at the delivery; complete history with an insurer indemnity, no auction.
+    const soIndicio = pedido(sb, 'p1', { consulta_id: 'c1' }, { historicoLeilao: null, historicoVeicular: bloco(SO_INDENIZACAO) })
+    expect((soIndicio.relatorio_snapshot as any).historicoVeicular).toMatchObject({ completa: true, leilao: { registros: [], indicioSinistro: true } })
+    const r = await lazy(soIndicio)
+    expect(r.historicoLeilao.passagens).toHaveLength(0)
+    expect(chamadasLeilao).toHaveLength(0)
+    expect(avisos).toHaveLength(0)
+    expect((soIndicio as any).aviso_sinistro_em ?? null).toBeNull()
+    expect((soIndicio as any).aviso_leilao_em ?? null).toBeNull()
+    // The same damage sign plus an auction record of the history: the auction is news.
+    const comEdital = pedido(sb, 'p2', { consulta_id: 'c1', placa: OUTRA_PLACA }, { historicoLeilao: null, historicoVeicular: bloco(comIndicador(SO_INDENIZACAO, 'P11', { status: 'positivo', conteudo: [{ ano: 2021, leiloeiro: 'CASA FICTICIA LEILÕES', lote: '42' }] })) })
+    await lazy(comEdital)
+    expect(avisos).toHaveLength(1)
+    expect(avisos[0].info).toMatchObject({ sinistro: true, passagens: [{ nivel: 'confirmado' }] })
+    expect((comEdital as any).aviso_leilao_em).toBeTruthy()
+  })
+})
