@@ -417,6 +417,27 @@ describe('DETRAN and partner arrive at different times: whoever finishes last fi
     expect(snapDe(sb).multas).toMatchObject({ ipva_sefaz_indisponivel: true, ipva_sefaz_sem_documento: true })
   })
 
+  // Review of PR #762: the state read before the lock may be old by the time the
+  // lock is taken; the run reads the block again under the lock.
+  it('re-reads the block after taking the lock: a run that finished in between means no call', async () => {
+    comPedido(sb, { multas: blocoMg({ ipva_pendente_sefaz: true }) })
+    comRespostaPaga(sb, 'p1', respostaParceira(CPF))
+    stubFetch(sefaz200(ADM))
+    const rpcOriginal = sb.rpc
+    sb.rpc = async (nome: string, a: any) => {
+      if (nome === 'job_lock_pegar' && String(a.p_nome).startsWith('ipva-sefaz-mg:')) {
+        // Another run got the answer and wrote it right before this one took the lock.
+        const linha = sb.tab('pedidos_premium').find((x: any) => x.id === 'p1')
+        linha.relatorio_snapshot = { ...linha.relatorio_snapshot, multas: blocoMg({ ipva_itens: [{ ano: ANO, vencimento: null, valor_centavos: 47061 }], ipva_total_centavos: 47061, ipva_fonte: 'sefaz_mg' }) }
+      }
+      return rpcOriginal(nome, a)
+    }
+    expect(await completarIpvaSefazMg(sb, 'p1')).toMatchObject({ feito: 'pulado', motivo: 'nada esperando' })
+    expect(chamadasSefaz).toHaveLength(0)
+    expect(sb.tab('premium_custos')).toHaveLength(0)
+    expect(snapDe(sb).multas).toMatchObject({ ipva_fonte: 'sefaz_mg', ipva_total_centavos: 47061 })
+  })
+
   it('both triggers at the same moment: one call', async () => {
     comPedido(sb, { multas: blocoMg({ ipva_pendente_sefaz: true }) })
     comRespostaPaga(sb, 'p1', respostaParceira(CPF))
