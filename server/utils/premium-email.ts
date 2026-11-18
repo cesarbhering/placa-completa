@@ -507,11 +507,6 @@ export async function enviarAvisoFotos(
 export interface InfoAvisoLeilao {
   passagens: { nivel: string; data_leilao?: string | null; comitente?: string | null; ligadoPorMotor?: boolean }[]
   sinistro: boolean
-  /**
-   * The report already showed other auctions: `passagens` holds only the new
-   * ones (18/11/2026), and the text says they are new.
-   */
-  novos?: boolean
 }
 
 const dataBrIso = (iso?: string | null) => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? `${m[3]}/${m[2]}/${m[1]}` : null }
@@ -525,12 +520,9 @@ export function textosAvisoLeilao(placa: string, info: InfoAvisoLeilao): { titul
     const p = ps[0]
     const quando = dataBrIso(p.data_leilao) ? ` em ${dataBrIso(p.data_leilao)}` : ''
     const quem = p.comitente ? `, com comitente ${p.comitente}` : ''
-    // Only new records in the list: the count and the opening say so.
-    const novo = info.novos ? ' novo' : ''
-    const n = ps.length - 1
-    const mais = n > 0 ? ` Há mais ${n} ${n === 1 ? `registro${novo}` : `registros${info.novos ? ' novos' : ''}`} no relatório.` : ''
+    const mais = ps.length > 1 ? ` Há mais ${ps.length - 1} ${ps.length - 1 === 1 ? 'registro' : 'registros'} no relatório.` : ''
     if (p.nivel === 'possivel') {
-      paragrafos.push(`Entrou no seu relatório da placa ${placa} um${novo} registro possível de leilão${quando}${quem}. Ele pode ser outro veículo do mesmo modelo e ano: confira os detalhes no relatório.${mais}`)
+      paragrafos.push(`Entrou no seu relatório da placa ${placa} um registro possível de leilão${quando}${quem}. Ele pode ser outro veículo do mesmo modelo e ano: confira os detalhes no relatório.${mais}`)
     } else {
       // Ligado pelo numero do motor (sem placa/chassi/Renavam iguais): dizer
       // "placa ou chassi iguais" seria falso (09/nov/2026).
@@ -541,7 +533,7 @@ export function textosAvisoLeilao(placa: string, info: InfoAvisoLeilao): { titul
         : p.nivel === 'confirmado'
           ? 'Nível confirmado: a placa ou o chassi são iguais aos deste veículo.'
           : 'Nível provável: parte do identificador e os dados do veículo batem.'
-      paragrafos.push(`Consta no seu relatório da placa ${placa} um${novo} registro de leilão${quando}${quem}. ${nivel}${mais}`)
+      paragrafos.push(`Consta no seu relatório da placa ${placa} um registro de leilão${quando}${quem}. ${nivel}${mais}`)
     }
   }
   if (info.sinistro) {

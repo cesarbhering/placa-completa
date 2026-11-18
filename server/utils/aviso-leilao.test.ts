@@ -1,21 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
-import { avisarLeilaoTardio, tipoDoAviso, avisoDaMudanca, avisoLeilaoLigado, infoDoHistorico, modeloDaResposta } from './aviso-leilao'
+import { avisarLeilaoTardio, tipoDoAviso, avisoLeilaoLigado, infoDoHistorico, modeloDaResposta } from './aviso-leilao'
 import { textosAvisoLeilao, montarEmailAviso } from './premium-email'
 
 // Regra do Cesar (21/out/2026): leilao ou indicio de sinistro que aparece
 // DEPOIS da entrega vira e-mail ao cliente, uma vez por pedido. Since
 // 18/11/2026 ("Avisar sempre"): a new auction is told even when the page
-// already showed a damage sign or other auctions (then the e-mail lists only
-// the new ones); at most one auction notice per order, and a notice that had
-// only the damage sign does not block it.
+// already showed a damage sign; at most one auction notice per order, and a
+// notice that had only the damage sign does not block it.
 const vazio = { resumo: { tem_indicio: false }, passagens: [] }
 const comLeilao = { resumo: { tem_indicio: true }, passagens: [{ nivel: 'confirmado', data_leilao: '2019-08-27', comitente: 'MAPFRE SEGUROS GERAIS S/A' }] }
 const soSinistro = { ...vazio, sinistro_parceiro: { indicio: true, mensagem: 'x' } }
 const leilaoESinistro = { ...comLeilao, sinistro_parceiro: { indicio: true, mensagem: 'x' } }
-// Another auction (2021, lot 15) and the same 2019 auction told by another source (same year and principal).
-const outroLeilao = { nivel: 'provavel', fonte: 'casa_y', fonte_tipo: 'privado', lote: '15', data_leilao: '2021-05-04', comitente: 'BANCO FICTICIO S.A.' }
-const mesmoDeOutraFonte = { nivel: 'confirmado', fonte: 'parceiro', fonte_tipo: 'parceiro', ano_leilao: '2019', lote: null, comitente: 'MAPFRE SEGUROS GERAIS S/A' }
 
 let sb: ReturnType<typeof supabaseMemoria>
 const enviar = vi.fn(async () => true)
@@ -26,31 +22,12 @@ const linha = () => sb.tab('pedidos_premium')[0]!
 beforeEach(() => { sb = supabaseMemoria(); enviar.mockClear(); enviar.mockImplementation(async () => true) })
 
 describe('gatilho', () => {
-  it('auction: an auction the page did not show, whatever it showed (a damage sign or other auctions)', () => {
+  it('auction: a page with no auction that now shows one, a damage sign before included', () => {
     expect(tipoDoAviso(vazio, comLeilao)).toBe('leilao')
     expect(tipoDoAviso(null, comLeilao)).toBe('leilao')
     expect(tipoDoAviso(soSinistro, leilaoESinistro)).toBe('leilao')
-    expect(avisoDaMudanca(vazio, comLeilao)).toMatchObject({ tipo: 'leilao', jaTinha: false, novas: [{ data_leilao: '2019-08-27' }] })
-    // The page already showed an auction: another one is new, and only it.
-    const comOutro = { ...comLeilao, passagens: [...comLeilao.passagens, outroLeilao] }
-    expect(avisoDaMudanca(comLeilao, comOutro)).toEqual({ tipo: 'leilao', jaTinha: true, novas: [outroLeilao] })
-  })
-  it('the same auction is not new: the same record, or the same year and lot or principal from another source', () => {
-    expect(tipoDoAviso(comLeilao, comLeilao)).toBeNull()
-    // A partner record of an auction ours already shows strongly: the page joins them.
-    expect(tipoDoAviso(comLeilao, { ...comLeilao, passagens: [...comLeilao.passagens, mesmoDeOutraFonte] })).toBeNull()
-    // Ours only possible, the partner brings the same auction (year and lot): the page
-    // shows both cards, and the second is not a new auction.
-    const nossoPossivel = { nivel: 'possivel', fonte: 'casa_x', fonte_tipo: 'privado', lote: '12', data_leilao: '2019-08-27' }
-    const parceiroMesmoLote = { nivel: 'confirmado', fonte: 'parceiro', fonte_tipo: 'parceiro', ano_leilao: '2019', lote: '12' }
-    const antes = { resumo: { tem_indicio: false }, passagens: [nossoPossivel] }
-    const depois = { resumo: { tem_indicio: true }, passagens: [nossoPossivel, parceiroMesmoLote] }
-    expect(infoDoHistorico(depois).passagens).toHaveLength(2)
-    expect(tipoDoAviso(antes, depois)).toBeNull()
-    expect(tipoDoAviso(antes, { ...depois, passagens: [nossoPossivel, { ...parceiroMesmoLote, lote: '13' }] })).toBe('leilao')
-    // A record without a year is still the same record on both sides.
-    const semAno = { resumo: { tem_indicio: true }, passagens: [{ nivel: 'possivel', fonte: 'casa_z', lote: '3' }] }
-    expect(tipoDoAviso(semAno, structuredClone(semAno))).toBeNull()
+    // The page already showed an auction: not new.
+    expect(tipoDoAviso(comLeilao, { ...comLeilao, passagens: [...comLeilao.passagens, { nivel: 'possivel' }] })).toBeNull()
   })
   it('damage sign alone: only on a page that showed nothing, as before', () => {
     expect(tipoDoAviso(vazio, soSinistro)).toBe('sinistro')
@@ -66,11 +43,9 @@ describe('gatilho', () => {
     const soOnix = { resumo: { tem_indicio: true }, passagens: [onix] }
     // An ONIX in a SPIN report: the page hides it, so it is no auction to tell...
     expect(tipoDoAviso(vazio, soOnix, spin)).toBeNull()
-    expect(tipoDoAviso(vazio, soOnix)).toBe('leilao')
-    // ...and a page that showed only it showed no auction: the new one is the whole list.
-    const depois = { ...soOnix, passagens: [onix, ...comLeilao.passagens] }
-    expect(avisoDaMudanca(soOnix, depois, spin)).toMatchObject({ tipo: 'leilao', jaTinha: false })
-    expect(avisoDaMudanca(soOnix, depois)).toMatchObject({ tipo: 'leilao', jaTinha: true })
+    // ...and a page that showed only it showed no auction.
+    expect(tipoDoAviso(soOnix, { ...soOnix, passagens: [onix, ...comLeilao.passagens] }, spin)).toBe('leilao')
+    expect(tipoDoAviso(soOnix, { ...soOnix, passagens: [onix, ...comLeilao.passagens] })).toBeNull()
   })
   it('flag: 1 liga, 0 desliga, sem env so fora do staging/homolog', () => {
     expect(avisoLeilaoLigado({ public: {} }, '1')).toBe(true)
@@ -155,23 +130,6 @@ describe('avisar sempre: a new auction after a damage sign, one auction notice p
     expect(enviar).toHaveBeenCalledTimes(2)
   })
 
-  it('an auction already on the page and another new one: told, the e-mail lists only the new one and says so', async () => {
-    pedido()
-    const depois = { ...leilaoESinistro, passagens: [...comLeilao.passagens, outroLeilao] }
-    expect(await avisar(comLeilao, depois)).toBe('enviado')
-    const info = (enviar.mock.calls[0] as any)[0].info
-    expect(info).toMatchObject({ sinistro: true, novos: true, passagens: [{ nivel: 'provavel', data_leilao: '2021-05-04' }] })
-    expect(info.passagens).toHaveLength(1)
-    const t = textosAvisoLeilao('ABC1D23', info)
-    expect(t.paragrafos[0]).toMatch(/^Consta no seu relatório da placa ABC1D23 um novo registro de leilão em 04\/05\/2021, com comitente Banco Ficticio .* Nível provável: parte do identificador e os dados do veículo batem\.$/)
-    expect(t.paragrafos[0]).not.toMatch(/Há mais|27\/08\/2019/)
-    expect(t.paragrafos[1]).toBe('Também consta indício de sinistro em base parceira de leilões e sinistros.')
-    expect(linha().aviso_leilao_em).toBeTruthy()
-    // One auction notice per order.
-    expect(await avisar(depois, { ...depois, passagens: [...depois.passagens, { ...outroLeilao, lote: '99', data_leilao: '2023-01-10' }] })).toBe('ja_avisado')
-    expect(enviar).toHaveBeenCalledOnce()
-  })
-
   it('the auction mark is taken only while it is free: two runs at once send one e-mail', async () => {
     pedido()
     const r = await Promise.all([avisar(soSinistro, leilaoESinistro), avisar(soSinistro, leilaoESinistro)])
@@ -188,15 +146,6 @@ describe('texto', () => {
     expect(t.paragrafos[0]).toBe('Consta no seu relatório da placa ABC1D23 um registro de leilão em 27/08/2019, com comitente Mapfre Seguros Gerais S/A. Nível confirmado: a placa ou o chassi são iguais aos deste veículo.')
     const m = montarEmailAviso({ link: 'https://x/premium/tok', ...t, botao: 'Ver relatório atualizado' })
     expect(m.html).toContain('Ver relatório atualizado')
-  })
-  it('only new records (the report already showed others): the opening and the count say they are new', () => {
-    const dois = { passagens: [{ nivel: 'confirmado', data_leilao: '2021-05-04' }, { nivel: 'possivel' }], sinistro: false, novos: true }
-    expect(textosAvisoLeilao('ABC1D23', dois).paragrafos[0]).toBe('Consta no seu relatório da placa ABC1D23 um novo registro de leilão em 04/05/2021. Nível confirmado: a placa ou o chassi são iguais aos deste veículo. Há mais 1 registro novo no relatório.')
-    const tres = { ...dois, passagens: [...dois.passagens, { nivel: 'possivel' }] }
-    expect(textosAvisoLeilao('ABC1D23', tres).paragrafos[0]).toMatch(/ Há mais 2 registros novos no relatório\.$/)
-    expect(textosAvisoLeilao('ABC1D23', { passagens: [{ nivel: 'possivel' }], sinistro: false, novos: true }).paragrafos[0]).toMatch(/^Entrou no seu relatório da placa ABC1D23 um novo registro possível de leilão\./)
-    // Without the flag (the page showed no auction before): the text of always.
-    expect(textosAvisoLeilao('ABC1D23', { ...dois, novos: undefined }).paragrafos[0]).toMatch(/um registro de leilão em 04\/05\/2021\..* Há mais 1 registro no relatório\.$/)
   })
   it('possivel: pode ser outro veiculo; so sinistro: consta indicio', () => {
     expect(textosAvisoLeilao('ABC1D23', { passagens: [{ nivel: 'possivel' }], sinistro: false }).paragrafos[0]).toMatch(/registro possível de leilão\. Ele pode ser outro veículo do mesmo modelo e ano/)

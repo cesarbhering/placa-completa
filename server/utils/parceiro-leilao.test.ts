@@ -457,10 +457,7 @@ describe('fallback of the vehicle history partner: review 1 of PR #758', () => {
     }
   })
 
-  // Updated 18/11/2026 (Cesar, "Avisar sempre"): an auction the page did not
-  // show is told even when it already showed others, and the e-mail lists
-  // only the new ones.
-  it('item 4: a partial vehicle history that already showed auctions: the e-mail lists only the new auction; with nothing on the page, all of it', async () => {
+  it('item 4: no e-mail when the page already showed an auction from a partial vehicle history; one when it shows up only now', async () => {
     // Partial answer whose auction part already shows records and a damage sign on the page.
     const comLeilao = historicoDe(HIST_COM, { infosinistrosSuccess: false })
     expect(comLeilao.leilao!.registros.length + (comLeilao.leilao!.indicioSinistro ? 1 : 0)).toBeGreaterThan(0)
@@ -469,21 +466,16 @@ describe('fallback of the vehicle history partner: review 1 of PR #758', () => {
     comPedido({}, { ...chassiHist, historicoVeicular: comLeilao })
     expect(await leilaoParceiroComoReserva(sb, 'p1', deps(httpCom(() => resp(200, REAL)), { cfg: cfgHist(), avisarLeilao: avisarReal }))).toBe('ok')
     expect(snapDe().historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
-    // The page showed an edital of 2019 (lot 57) and a salvage sale of 2024;
-    // the auction partner brings 2019 with another principal and no lot: new.
-    expect(enviados).toHaveLength(1)
-    expect(enviados[0].info).toMatchObject({ novos: true, sinistro: true, passagens: [{ data_leilao: '2019-08-27' }] })
-    expect(enviados[0].info.passagens).toHaveLength(1)
-    expect(sb.tab('pedidos_premium')[0].aviso_leilao_em).toBeTruthy()
-    // Partial answer with nothing on the page: the auction found now is news, the whole list.
+    expect(enviados).toHaveLength(0)
+    expect(sb.tab('pedidos_premium')[0].aviso_leilao_em ?? null).toBeNull()
+    // Partial answer with nothing on the page: the auction found now is news.
     sb = supabaseMemoria()
     const semNada = historicoDe(HIST_SEM, { e5Success: false })
     expect(semNada.leilao!.registros).toHaveLength(0)
     expect(semNada.leilao!.indicioSinistro).toBe(false)
     comPedido({}, { consulta: { response: { chassi: '9XXHV00000X000002' } }, historicoVeicular: semNada })
     expect(await leilaoParceiroComoReserva(sb, 'p1', deps(httpCom(() => resp(200, REAL)), { cfg: cfgHist(), avisarLeilao: avisarReal }))).toBe('ok')
-    expect(enviados).toHaveLength(2)
-    expect(enviados[1].info.novos).toBeUndefined()
+    expect(enviados).toHaveLength(1)
   })
 
   it('item 5: the safety net takes the most recently exhausted jobs first', async () => {
@@ -531,9 +523,7 @@ describe('fallback of the vehicle history partner: review 1 of PR #758', () => {
     expect(custos()[0]).toMatchObject({ preco: 0 })
   })
 
-  // Updated 18/11/2026 (Cesar, "Avisar sempre"): the auctions the page
-  // already showed are not news; the new one is, alone in the e-mail.
-  it('retry job (review 2, S2): compares the page views, so the e-mail of a partial answer that already showed auctions lists only the new one', async () => {
+  it('retry job (review 2, S2): compares the page views, so a partial answer that already showed the auction sends no e-mail', async () => {
     const linhaReserva = (id: string, placa: string, chassi: string, hv: any) => ({
       id, placa, plano: 'completa', status: 'entregue', email: 'c@x.com', token_entrega: 'TOK', entregue_em: new Date(AGORA - 3600_000).toISOString(),
       relatorio_snapshot: { consulta: { response: { chassi } }, historicoLeilao: { ...vazio(), parceiro: { status: 'falhou', reserva: true } }, historicoVeicular: hv },
@@ -546,18 +536,16 @@ describe('fallback of the vehicle history partner: review 1 of PR #758', () => {
     const r = await rodarJobParceiro({ sb: fake, cfg: cfgHist(), http: httpCom(() => resp(200, REAL)), alertar, agora: AGORA, log: () => {}, dono: 'c1', avisarLeilao: avisarReal })
     expect(r).toMatchObject({ vistos: 1, completados: 1 })
     expect(snapDe('ja-mostrava').historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
-    // Compared raw (the stored auction section was empty), every record would be news.
-    expect(enviados).toHaveLength(1)
-    expect(enviados[0].info).toMatchObject({ novos: true, passagens: [{ data_leilao: '2019-08-27' }] })
-    expect(enviados[0].info.passagens).toHaveLength(1)
+    // Compared raw (the stored auction section was empty), this would be an e-mail.
+    expect(enviados).toHaveLength(0)
+    expect(sb.tab('pedidos_premium')[0].aviso_leilao_em ?? null).toBeNull()
     // Partial answer with nothing on the page: the auction is news, one e-mail.
     sb = supabaseMemoria()
     _limparTokenParceiro()
     sb.tab('pedidos_premium').push(linhaReserva('nada', 'QWE1R23', '9XXHV00000X000002', historicoDe(HIST_SEM, { e5Success: false })))
     const { fake: f2 } = sbJob(sb)
     await rodarJobParceiro({ sb: f2, cfg: cfgHist(), http: httpCom(() => resp(200, REAL)), alertar, agora: AGORA, log: () => {}, dono: 'c1', avisarLeilao: avisarReal })
-    expect(enviados).toHaveLength(2)
-    expect(enviados[1].info.novos).toBeUndefined()
+    expect(enviados).toHaveLength(1)
   })
 
   it('a read of the order that fails: logged with the internal id and a flag only, "erro" for the queue', async () => {

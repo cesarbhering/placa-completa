@@ -6,15 +6,14 @@
 // Since 18/11/2026 ("Avisar sempre"), compared as the page shows the auction
 // section (merged with the vehicle history, model lock, one card per auction):
 //  - auction notice (pedidos_premium.aviso_leilao_em, at most one per order):
-//    at least one auction the page did not show before, whatever it showed
-//    (a damage sign or other auctions). When it already showed auctions, the
-//    e-mail lists only the new ones;
+//    the page showed no auction and now shows one, even if it already showed
+//    a damage sign;
 //  - damage notice (aviso_sinistro_em): the page showed nothing and now shows
 //    only the damage sign. It does not block a later auction notice.
 // Flag LEILAO_AVISO_EMAIL: '1' liga, '0' desliga; sem a env, ligado so fora do
 // staging/homolog.
 import { enviarAvisoLeilao, type InfoAvisoLeilao } from './premium-email'
-import { comitenteExibicao, ligadoPeloMotor, historicoNaTela, mesmoEventoLeilao } from '../../shared/leilao-exibicao'
+import { comitenteExibicao, ligadoPeloMotor, historicoNaTela } from '../../shared/leilao-exibicao'
 
 /** Tem algo no historico: passagem de qualquer nivel ou indicio de sinistro da base parceira. */
 export function temLeilaoOuSinistro(h: any): boolean {
@@ -29,42 +28,20 @@ function passagensNaTela(h: any, veiculo: { modelo?: string | null } | null): an
   return Array.isArray(exib?.passagens) ? exib.passagens : []
 }
 
-/** The record itself: the same card on both sides, also without a year. */
-const chaveDoRegistro = (p: any) => ['fonte', 'fonte_tipo', 'ref', 'lote', 'data_leilao', 'ano_leilao', 'registro', 'comitente'].map((k) => String(p?.[k] ?? '')).join('|')
-
-/** The same auction on both sides: the rule the page uses to join cards (same year, and the lot or the principal), or the same record. */
-function mesmaPassagem(a: any, b: any): boolean {
-  return mesmoEventoLeilao(a, b) || chaveDoRegistro(a) === chaveDoRegistro(b)
-}
-
 export type TipoAviso = 'leilao' | 'sinistro'
 
-export interface AvisoTardio {
-  tipo: TipoAviso
-  /** Auction cards the page did not show before (none for 'sinistro'). */
-  novas: any[]
-  /** The page already showed other auctions: the e-mail says these are new. */
-  jaTinha: boolean
-}
-
 /**
- * The late notice a change of the auction section asks for, both sides as the
- * page shows them (Cesar, 18/11/2026, "Avisar sempre"):
- *  - 'leilao': at least one auction card the page did not show before,
- *    whatever it showed (a damage sign or other auctions);
- *  - 'sinistro': the page showed nothing and now shows only the damage sign.
- * null: nothing to tell.
+ * Which late notice a change of the auction section asks for, both sides as
+ * the page shows them (Cesar, 18/11/2026, "Avisar sempre"): 'leilao' when the
+ * page showed no auction and now shows at least one, a damage sign before
+ * included; 'sinistro' when the page showed nothing and now shows only the
+ * damage sign; null otherwise.
  */
-export function avisoDaMudanca(antes: any, depois: any, veiculo: { modelo?: string | null } | null = null): AvisoTardio | null {
-  const velhas = passagensNaTela(antes, veiculo)
-  const novas = passagensNaTela(depois, veiculo).filter((n) => !velhas.some((v) => mesmaPassagem(v, n)))
-  if (novas.length) return { tipo: 'leilao', novas, jaTinha: velhas.length > 0 }
-  const indicio = (h: any) => h?.sinistro_parceiro?.indicio === true
-  return !velhas.length && !indicio(antes) && indicio(depois) ? { tipo: 'sinistro', novas: [], jaTinha: false } : null
-}
-
 export function tipoDoAviso(antes: any, depois: any, veiculo: { modelo?: string | null } | null = null): TipoAviso | null {
-  return avisoDaMudanca(antes, depois, veiculo)?.tipo ?? null
+  if (passagensNaTela(antes, veiculo).length) return null
+  if (passagensNaTela(depois, veiculo).length) return 'leilao'
+  const indicio = (h: any) => h?.sinistro_parceiro?.indicio === true
+  return !indicio(antes) && indicio(depois) ? 'sinistro' : null
 }
 
 export function avisoLeilaoLigado(config: any, env: string | undefined = process.env.LEILAO_AVISO_EMAIL): boolean {
@@ -85,23 +62,19 @@ export function modeloDaResposta(r: unknown): string | null {
   return typeof m === 'string' && m.trim() ? m.trim() : null
 }
 
-/** E-mail info from page cards. `novos`: the page already showed other auctions, these are the new ones. */
-function infoDasPassagens(cards: any[], sinistro: boolean, novos = false): InfoAvisoLeilao {
-  const passagens = cards.map((p: any) => ({
+export function infoDoHistorico(h: any, veiculo: { modelo?: string | null } | null = null): InfoAvisoLeilao {
+  // Same list as the page cards (one card per auction, 13/11/2026), so the
+  // "Há mais N registros" in the e-mail matches what the customer sees. Model
+  // lock first, as on the page (vehicle model from the order snapshot).
+  const exib: any = historicoNaTela(h, veiculo)
+  const passagens = (Array.isArray(exib?.passagens) ? exib.passagens : []).map((p: any) => ({
     nivel: String(p?.nivel || ''),
     data_leilao: p?.data_leilao ?? null,
     comitente: comitenteExibicao(p?.comitente)?.texto ?? null,
     // So o fato de a ligacao ter sido pelo motor; o numero nunca entra no aviso.
     ligadoPorMotor: ligadoPeloMotor(p),
   }))
-  return { passagens, sinistro, ...(novos ? { novos: true } : {}) }
-}
-
-export function infoDoHistorico(h: any, veiculo: { modelo?: string | null } | null = null): InfoAvisoLeilao {
-  // Same list as the page cards (one card per auction, 13/11/2026), so the
-  // "Há mais N registros" in the e-mail matches what the customer sees. Model
-  // lock first, as on the page (vehicle model from the order snapshot).
-  return infoDasPassagens(passagensNaTela(h, veiculo), h?.sinistro_parceiro?.indicio === true)
+  return { passagens, sinistro: h?.sinistro_parceiro?.indicio === true }
 }
 
 export async function avisarLeilaoTardio(
@@ -121,9 +94,8 @@ export async function avisarLeilaoTardio(
     if (!p || p.status !== 'entregue') return 'falhou'
     // Model lock as on the page (vehicle model from the order snapshot).
     const veiculo = { modelo: modeloDaResposta(p.resposta) }
-    const aviso = avisoDaMudanca(antes, depois, veiculo)
-    if (!aviso) return 'sem_mudanca'
-    const tipo = aviso.tipo
+    const tipo = tipoDoAviso(antes, depois, veiculo)
+    if (!tipo) return 'sem_mudanca'
     // One auction notice per order; the damage sign alone only while nothing was told.
     if (p.aviso_leilao_em || (tipo === 'sinistro' && p.aviso_sinistro_em)) return 'ja_avisado'
     if (!String(p.email || '').includes('@')) return 'sem_email'
@@ -134,7 +106,7 @@ export async function avisarLeilaoTardio(
     if (tipo === 'sinistro') marcar = marcar.is('aviso_sinistro_em', null)
     const { data: marcado, error } = await marcar.select('id')
     if (error || !marcado?.length) return 'ja_avisado'
-    const ok = await (deps.enviar ?? enviarAvisoLeilao)({ email: p.email, token: p.token_entrega, placa: p.placa, info: infoDasPassagens(aviso.novas, depois?.sinistro_parceiro?.indicio === true, aviso.jaTinha) })
+    const ok = await (deps.enviar ?? enviarAvisoLeilao)({ email: p.email, token: p.token_entrega, placa: p.placa, info: infoDoHistorico(depois, veiculo) })
     if (!ok) {
       await supabase.from('pedidos_premium').update({ [coluna]: null }).eq('id', pedidoId)
       log(`[aviso-leilao] pedido=${pedidoId}: envio falhou (tenta na proxima mudanca)`)
