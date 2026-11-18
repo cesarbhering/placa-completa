@@ -577,11 +577,14 @@ describe('auction partner as the fallback of the vehicle history', () => {
     expect(snap().historicoLeilao.sinistro_parceiro.indicio).toBe(true)
     expect(snap().historicoVeicular.completa).toBe(false)
     expect(snap().consulta).toEqual({ response: { chassi: '9XXHV00000X000001' } })
-    // The notifier ran once, but no e-mail: the page already showed the
-    // auction and the damage sign from the partial answer (item 4 of review 1).
+    // The notifier ran once. The page already showed the auctions and the
+    // damage sign of the partial answer; the auction partner's record (2019,
+    // another principal) is new: ONE e-mail, listing only it (Cesar, 18/11/2026).
     expect(avisos).toHaveLength(1)
     expect(avisos[0].id).toBe('p1')
-    expect(enviados).toHaveLength(0)
+    expect(enviados).toHaveLength(1)
+    expect(enviados[0].info).toMatchObject({ novos: true, sinistro: true })
+    expect(enviados[0].info.passagens).toHaveLength(1)
     const pagas = leilaoChamadas.filter((u) => !u.endsWith('/login')).length
     expect(pagas).toBe(1)
 
@@ -598,6 +601,7 @@ describe('auction partner as the fallback of the vehicle history', () => {
     expect(leilaoChamadas.filter((u) => !u.endsWith('/login')).length).toBe(1)
     expect(cobradasLeilao()).toHaveLength(1)
     expect(avisos).toHaveLength(1)
+    expect(enviados).toHaveLength(1)
   })
 
   it('answer for another VIN: a final failure, the auction partner is called at once (once), like a partial answer', async () => {
