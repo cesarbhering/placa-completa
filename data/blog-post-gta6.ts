@@ -29,12 +29,12 @@ export const postGta6Usado: BlogPost = {
   content: [
     {
       type: 'intro',
-      text: 'À meia-noite desta quarta para quinta, 19 de novembro, sai o GTA 6, e na sexta é feriado nacional. Na terça, dia 17, o brasileiro já procurava "gta 6" no Google duas vezes mais do que "tabela fipe". Com o jogo de roubar carro mais famoso do mundo ocupando o feriadão de muita gente, fomos atrás da pergunta que interessa a quem compra e vende usado: **o lançamento mexe no mercado?** Juntamos as buscas do Google, os estudos sobre crime, os números de roubo de veículos e os nossos próprios dados de consulta. A resposta curta: no preço, nada, na atenção, um pouco, e no crime, o contrário do que se imagina.',
+      text: 'À meia-noite desta quarta para quinta, 19 de novembro, sai o GTA 6, e na sexta é feriado nacional. Na terça, dia 17, o brasileiro já procurava "gta 6" no Google duas vezes mais do que "tabela fipe". Com o jogo de roubar carro mais famoso do mundo ocupando o feriadão de muita gente, fomos atrás da pergunta que interessa a quem compra e vende usado: **o lançamento mexe no mercado?** Juntamos as buscas do Google, os estudos sobre crime, os números de roubo de veículos e os nossos próprios dados de consulta. A resposta curta: no preço, nenhum sinal, na atenção, um pouco, e no crime, o contrário do que se imagina.',
     },
     {
       type: 'heading',
       heading: 'Da última vez, o usado nem piscou',
-      text: 'O teste já foi feito. O GTA 5 saiu numa terça-feira, 17 de setembro de 2013, e naquela semana a busca pelo jogo no Brasil ficou quase 8 vezes acima do normal. Se videogame tirasse comprador da frente do anúncio, as buscas de carro teriam caído. Não caíram. Pegamos o índice diário do Google Trends para três buscas de quem está comprando carro e comparamos as semanas:',
+      text: 'O teste já foi feito. O GTA 5 saiu numa terça-feira, 17 de setembro de 2013, e naquela semana a busca pelo jogo no Brasil chegou a quase 8 vezes o normal. Se videogame tirasse comprador da frente do anúncio, as buscas de carro teriam caído. Não caíram. Pegamos o índice diário do Google Trends para três buscas de quem está comprando carro e comparamos as semanas:',
     },
     {
       type: 'table',
@@ -54,17 +54,17 @@ export const postGta6Usado: BlogPost = {
     {
       type: 'heading',
       heading: 'Carro se pesquisa de dia, GTA se joga de noite',
-      text: 'Os nossos números ajudam a explicar por que os dois mundos quase não se cruzam. Nas últimas quatro semanas, 71% das pessoas que consultaram uma placa no PlacaCompleta fizeram isso entre 8h e 18h, com pico às 11h. Das 20h às 2h, o horário nobre do console, foram 16%. No sábado e no domingo o movimento fica 42% abaixo de um dia útil. Carro usado se pesquisa no intervalo do trabalho, na hora do almoço, na porta da loja. GTA se joga depois da janta.\n\nPor isso, o que vai derrubar as consultas nesta sexta não é o jogo, é o feriado. Nos dois últimos feriados que caíram em segunda-feira, 12 de outubro e 2 de novembro, as consultas ficaram de 25% a 54% abaixo de um dia útil vizinho. Quem olhar o gráfico de sexta e culpar o videogame vai estar prendendo o suspeito errado.',
+      text: 'Os nossos números ajudam a explicar por que os dois mundos quase não se cruzam. Nas últimas quatro semanas, 71% das pessoas que consultaram uma placa no PlacaCompleta fizeram isso entre 8h e 18h, com pico às 11h. Das 20h até as 2h, o horário nobre do console, foram 16%. No sábado e no domingo o movimento fica 42% abaixo de um dia útil. Carro usado se pesquisa no intervalo do trabalho, na hora do almoço, na porta da loja. GTA se joga depois da janta.\n\nPor isso, o que vai derrubar as consultas nesta sexta não é o jogo, é o feriado. Nos dois últimos feriados que caíram em segunda-feira, 12 de outubro e 2 de novembro, as consultas ficaram 32% e 25% abaixo da segunda-feira anterior. Quem olhar o gráfico de sexta e culpar o videogame vai estar prendendo o suspeito errado.',
     },
     {
       type: 'heading',
       heading: 'E a quinta-feira do lançamento?',
-      text: 'Aqui existe dado, só que de fora. A BambooHR, empresa americana de software de RH, olhou os pedidos de folga de mais de 3,4 milhões de funcionários nos Estados Unidos: para o dia 19 de novembro eles estão cerca de 13% acima de uma quinta-feira comparável de 2024 e 2025. Numa pesquisa da mesma empresa com 1.530 trabalhadores, 18% dos assalariados disseram que pretendem tirar o dia. É gente para esvaziar uma reunião, não um mercado: só em outubro, o Brasil transferiu 1,6 milhão de veículos usados, segundo a Fenauto, e no ano já são 15,8 milhões.\n\nNo bolso a conta também não fecha. O jogo custa R$ 449,90 na edição padrão, dinheiro que não é entrada de carro em lugar nenhum. Ninguém desiste de um Gol, o usado mais vendido do país, com 62.635 transferências em outubro, por causa de um jogo. No máximo, adia a visita à loja para segunda-feira.',
+      text: 'Aqui existe dado, só que de fora. A BambooHR, empresa americana de software de RH, olhou os pedidos de folga de mais de 3,4 milhões de funcionários nos Estados Unidos: para o dia 19 de novembro eles estão cerca de 13% acima de uma quinta-feira comparável de 2024 e 2025. Numa pesquisa da mesma empresa com 1.530 trabalhadores, 18% dos assalariados disseram que pretendem tirar o dia. É gente para esvaziar uma reunião, não um mercado: só em outubro, o Brasil transferiu 1,6 milhão de veículos usados, segundo a Fenauto, e no ano já são 15,8 milhões.\n\nNo bolso a conta também não fecha. O jogo custa R$ 449,90 na edição padrão, dinheiro que não é entrada de carro em lugar nenhum. Ninguém desiste de um Gol, o usado mais vendido de outubro, com 62.635 transferências, por causa de um jogo. No máximo, adia a visita à loja para segunda-feira.',
     },
     {
       type: 'heading',
       heading: 'Jogo de roubar carro aumenta roubo de carro?',
-      text: 'É a pergunta que acompanha a série desde 1997, e a pesquisa responde que não, às vezes responde o contrário. Economistas cruzaram as vendas semanais dos jogos mais vendidos nos Estados Unidos com os registros de crime violento de 2005 a 2011 e concluíram: "não encontramos evidência de aumento de crime associado a videogames, e talvez haja uma queda". Na Holanda, criminologistas olharam justamente o lançamento do GTA 5: ele esteve associado a menos delitos registrados entre homens de 12 a 25 anos. Um terceiro estudo, publicado em 2011, encontrou queda de crimes associada aos jogos e efeito menor, ou nenhum, para cinema e esporte.\n\nA explicação é quase de avó: quem está no sofá não está na rua. Os pesquisadores chamam isso de incapacitação voluntária. Um aviso honesto: nenhum desses estudos mediu roubo de veículo em separado e nenhum foi feito no Brasil. O que eles mostram é que a tese de que jogo violento vira crime na rua não aparece nos dados.',
+      text: 'É a pergunta que acompanha a série desde 1997, e a pesquisa não encontra essa ligação, às vezes encontra o contrário. Economistas cruzaram as vendas semanais dos jogos mais vendidos nos Estados Unidos com os registros de crime violento de 2005 a 2011 e concluíram: "não encontramos evidência de aumento de crime associado a videogames, e talvez haja uma queda". Na Holanda, criminologistas olharam justamente o lançamento do GTA 5: ele esteve associado a menos delitos registrados entre homens de 12 a 25 anos. Um terceiro estudo, publicado em 2011, encontrou queda de crimes associada aos jogos e efeito menor, ou nenhum, para cinema e esporte.\n\nA explicação é quase de avó: quem está no sofá não está na rua. Os pesquisadores chamam isso de incapacitação voluntária. Um aviso honesto: nenhum desses estudos mediu roubo de veículo em separado e nenhum foi feito no Brasil. O que eles mostram é que a tese de que jogo violento vira crime na rua não aparece nos dados.',
     },
     {
       type: 'heading',
@@ -74,12 +74,12 @@ export const postGta6Usado: BlogPost = {
     {
       type: 'heading',
       heading: 'O roubo que interessa é o daqui',
-      text: 'Fora do videogame, o Brasil registrou 308.440 roubos e furtos de veículos em 2025, segundo o Anuário Brasileiro de Segurança Pública. É um a cada dois minutos. O número até melhorou, a taxa por 100 mil veículos caiu 14,3% sobre 2024, mas continua sendo uma frota inteira que some por ano, com São Paulo (112.358 casos) e Rio de Janeiro (42.725) na frente.\n\nNo jogo, o carro roubado desaparece na missão seguinte. Aqui fora, parte deles volta para o anúncio, com placa trocada, documento esquentado e preço bom demais para ser verdade. É esse o risco que o comprador de usado corre em qualquer feriado, com ou sem lançamento.',
+      text: 'Fora do videogame, o Brasil registrou 308.440 roubos e furtos de veículos em 2025, segundo o Anuário Brasileiro de Segurança Pública. É um a cada 1 minuto e 42 segundos. O número até melhorou, a taxa por 100 mil veículos caiu 14,3% sobre 2024, mas continua sendo uma frota que some todo ano, com São Paulo (112.358 casos) e Rio de Janeiro (42.725) na frente.\n\nNo jogo, o carro roubado desaparece na missão seguinte. Aqui fora, carro roubado pode voltar para o anúncio, com placa clonada e preço bom demais para ser verdade. É esse o risco que o comprador de usado corre em qualquer feriado, com ou sem lançamento.',
     },
     {
       type: 'heading',
       heading: 'O que vamos conferir',
-      text: 'Previsão sem número é palpite, então ficam três, para cobrar depois:\n\n- **Quinta, 19:** as consultas de placa ficam no patamar das duas últimas quintas. Se caírem mais de 15%, o jogo levou a melhor e nós erramos.\n- **Sexta, 20:** queda de 25% a 54%, como nos outros feriados. É o feriado, não o GTA.\n- **Buscas no Google:** "tabela fipe" e "webmotors" seguem na faixa das últimas semanas, como em 2013, mesmo com "gta 6" no pico.\n\nNa semana que vem voltamos com os números, acertando ou errando. No GTA, quando o negócio dá errado, é só carregar o jogo salvo. Na compra de um carro usado não tem save.',
+      text: 'Previsão sem número é palpite, então ficam três, para cobrar depois:\n\n- **Quinta, 19:** as consultas de placa ficam no patamar das duas últimas quintas. Se caírem mais de 15%, o jogo levou a melhor e nós erramos.\n- **Sexta, 20:** queda de 25% a 32% sobre a sexta anterior, como nos dois últimos feriados. Se passar de 40%, tem dedo do jogo.\n- **Buscas no Google:** "tabela fipe" e "webmotors" seguem na faixa das últimas semanas, como em 2013, mesmo com "gta 6" no pico.\n\nNa semana que vem voltamos com os números, acertando ou errando. No GTA, quando o negócio dá errado, é só carregar o jogo salvo. Na compra de um carro usado não tem save.',
     },
     {
       type: 'faq',
@@ -87,7 +87,7 @@ export const postGta6Usado: BlogPost = {
       faq: [
         {
           q: 'O GTA 6 vai mexer no preço do carro usado?',
-          a: 'Não há sinal disso. No lançamento do GTA 5, em 2013, as buscas por carros usados, Webmotors e tabela FIPE no Brasil ficaram no mesmo patamar da semana anterior. Preço de usado responde a juros, crédito e preço do carro zero, não a lançamento de jogo.',
+          a: 'Não há sinal disso. No lançamento do GTA 5, em 2013, as buscas por carros usados, Webmotors e tabela FIPE no Brasil ficaram no mesmo patamar da semana anterior.',
         },
         {
           q: 'Jogar GTA aumenta roubo de carro?',
@@ -95,7 +95,7 @@ export const postGta6Usado: BlogPost = {
         },
         {
           q: 'Como saber se um carro usado tem registro de roubo ou furto?',
-          a: 'Pela placa. A consulta mostra se consta restrição de roubo ou furto, além de leilão, sinistro, gravame e recall. Confira também se o chassi gravado no carro é o mesmo do documento.',
+          a: 'Pela placa. A consulta completa mostra se consta restrição de roubo ou furto, além de leilão, sinistro, gravame e recall. Confira também se o chassi gravado no carro é o mesmo do documento.',
         },
       ],
     },
