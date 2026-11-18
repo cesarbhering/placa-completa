@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import COM from '../../utils/__fixtures__/parceiro-historico-com-registros.json'
 import { parsearRespostaHistorico } from '../../../shared/historico-veicular'
 import { NOME_FORNECEDOR_HISTORICO_RE } from '../../utils/parceiro-historico-env'
+import { supabaseMemoria } from '../../../tests/helpers/supabase-memoria'
+import { completarIpvaSefazMg } from '../../utils/infosimples-detran'
 
 // /api/premium/report with the vehicle history partner: the clean block goes
 // out through an allow-list, its auction part is merged into the auction
@@ -132,5 +134,45 @@ describe('report JSON with the vehicle history partner', () => {
     const antigo: any = await handler({} as any)
     expect(antigo.fontes[0].estado).toBe('indisponivel')
     expect(antigo.historicoLeilao.parceiro).toEqual({ status: 'falhou', consultado_em: null })
+  })
+})
+
+// IPVA in arrears at the DETRAN-MG (Cesar, 18/11/2026): the SEFAZ-MG is asked
+// with the owner document read on the server from the partner answer. The
+// report shows the open years and never the document nor the owner's name.
+describe('report JSON with the SEFAZ-MG IPVA', () => {
+  it('shows the open years and never the owner name or document read from the partner answer', async () => {
+    const CPF = '123.456.789-09' // ggignore
+    const NOME = 'DONO FICTICIO MARCADO'
+    const CHASSI = '9XXHV00000X000001' // ggignore
+    const consulta = { response: { ufJurisdicao: 'MG', renavam: '987654321', chassi: CHASSI, placa: 'TST2B34', descricaoMarcaModelo: 'FIAT/PALIO ELX' } }
+    const multas = { status: 'ok', fonte: 'detran_mg', multas_total_centavos: 0, ipva_total_centavos: null, ipva_pago_ano: 2020, multas_itens: [], restricoes_detran: [], ipva_pendente_sefaz: true }
+    // The real executor, on a database that has the partner answer (with the owner) in the restricted table.
+    const sb: any = supabaseMemoria({ rpc: (nome: string) => nome === 'job_lock_pegar' })
+    sb.tab('pedidos_premium').push({ id: 'pedido-teste', placa: 'TST2B34', plano: 'completa', relatorio_snapshot: { consulta, multas } })
+    sb.tab('parceiro_historico_chamadas').push({
+      pedido_id: 'pedido-teste', placa: 'TST2B34', cobrada: true, criado_em: new Date().toISOString(),
+      resposta_bruta: { success: true, dados: { chassi: CHASSI, proprietarios: { total: 1, proprietario_atual: { nome: NOME, documento: '***.456.789-**', documentoOriginal: CPF } } } },
+    })
+    const fetchAntes = globalThis.fetch
+    runtime.infosimplesToken = 't'
+    globalThis.fetch = (async () => ({
+      status: 200,
+      json: async () => ({ code: 200, header: { price: '0.24', parameters: { cpf: '12345678909' } }, data: [{ identificacao: CPF, nome_razao_social: NOME, debitos_adm: [{ exercicio: '2025', normalizado_valor: 560.9 }], debitos_divida_ativa: [{ exercicio: '2023', normalizado_valor: 90.5 }] }] }), // ggignore
+    })) as any
+    try {
+      expect(await completarIpvaSefazMg(sb, 'pedido-teste')).toMatchObject({ feito: 'ok' })
+    } finally {
+      globalThis.fetch = fetchAntes
+      delete runtime.infosimplesToken
+    }
+    comPedido({}, { consulta, multas: sb.tab('pedidos_premium')[0].relatorio_snapshot.multas })
+    const r: any = await handler({} as any)
+    expect(r.multas).toMatchObject({
+      ipva_fonte: 'sefaz_mg', ipva_total_centavos: 65140,
+      ipva_itens: [{ ano: 2025, vencimento: null, valor_centavos: 56090 }, { ano: 2023, vencimento: null, valor_centavos: 9050, divida_ativa: true }],
+    })
+    const json = JSON.stringify(r)
+    expect(json).not.toMatch(/DONO FICTICIO|123\.456\.789-09|12345678909|456\.789/) // ggignore
   })
 })
