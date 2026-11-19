@@ -6,7 +6,7 @@ import { H1_CARRO_ROUBADO, RESPOSTA_CARRO_ROUBADO, PASSOS_CARRO_ROUBADO, SE_FOR_
 
 const BASE = 'https://placacompleta.com.br'
 const CANONICO = `${BASE}/como-saber-se-o-carro-e-roubado`
-const DESC = 'Como saber se um carro é roubado antes de comprar: consulta da placa, documento, chassi e motor, sinais de placa clonada e o que fazer se aparecer registro.'
+const DESC = 'Como saber se um carro é roubado antes de comprar: consulta da placa, documento, chassi e motor, sinais de placa clonada e o que fazer se for roubado.'
 
 function onCtaClick(origem: string) {
   if (import.meta.client && (window as any).gtag) (window as any).gtag('event', 'cta_click', { source_page: 'como-saber-se-o-carro-e-roubado', origem })

@@ -13,7 +13,7 @@ const temPromo = !!precoDePromocao('completa')
   <ConsultarPlacaCard :origem="props.origem" titulo="Digite a placa e veja o que consta" />
   <div class="pc-callout">
     <p>
-      <strong>{{ t('compra.relatorioCompleto') }}</strong> <PrecoPromo v-if="temPromo" inline /><strong v-else><PrecoCompleta espaco=" " /></strong>.
+      <strong>{{ t('compra.relatorioCompleto') }}</strong> <PrecoPromo v-if="temPromo" inline /><strong v-else><PrecoCompleta espaco="&nbsp;" /></strong>.
       Ele consulta as bases e mostra {{ props.foco }} da placa, direto na tela. {{ t('compra.pagamento') }}
     </p>
   </div>

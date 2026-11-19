@@ -18,7 +18,13 @@ describe('guia como saber se o carro e roubado', () => {
     const tudo = JSON.stringify([FAQ_CARRO_ROUBADO, PASSOS_CARRO_ROUBADO, SE_FOR_ROUBADO]) + readFileSync('pages/como-saber-se-o-carro-e-roubado.vue', 'utf8')
     expect(tudo).not.toMatch(/—|SENATRAN|R\$\s*\d/i)
   })
+  it('o JSON-LD (FAQ) nao leva a palavra gratis', () => {
+    expect(JSON.stringify(FAQ_CARRO_ROUBADO)).not.toMatch(/gr[aá]tis/i)
+  })
   it('esta no sitemap', () => {
-    expect(readFileSync('nuxt.config.ts', 'utf8')).toContain('"/como-saber-se-o-carro-e-roubado"')
+    const cfg = readFileSync('nuxt.config.ts', 'utf8')
+    const ini = cfg.indexOf('sitemap: {')
+    const bloco = cfg.slice(ini, cfg.indexOf('exclude: [', ini))
+    expect(bloco).toContain('"/como-saber-se-o-carro-e-roubado"')
   })
 })

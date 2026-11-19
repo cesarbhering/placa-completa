@@ -37,11 +37,9 @@ useHead({
       <div class="pc-prose">
         <p class="pc-lead">{{ t.lead }}</p>
 
-        <template v-if="t.slug === 'roubo-furto'">
-          <p>{{ RESPOSTA_CONSULTAR_ROUBO }}</p>
-          <OfertaCompletaTopo origem="consultar-roubo-furto" foco="o indicador de roubo e furto" />
-        </template>
-        <ConsultarPlacaCard v-else :origem="`consultar-${t.slug}`" />
+        <p v-if="t.slug === 'roubo-furto'">{{ RESPOSTA_CONSULTAR_ROUBO }}</p>
+
+        <ConsultarPlacaCard :origem="`consultar-${t.slug}`" />
 
         <h2>O que esta verificação mostra</h2>
         <p>{{ t.mostra.paragrafo }}</p>

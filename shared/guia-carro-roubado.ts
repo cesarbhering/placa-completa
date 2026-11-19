@@ -26,13 +26,12 @@ export const SE_FOR_ROUBADO = [
 
 export const FAQ_CARRO_ROUBADO = [
   { pergunta: H1_CARRO_ROUBADO + '?', resposta: RESPOSTA_CARRO_ROUBADO },
-  { pergunta: 'Dá para consultar a placa para ver se o carro é roubado?', resposta: 'Sim. A consulta grátis identifica o veículo pela placa (marca, modelo, ano, cor e parte do chassi) para você conferir se bate com o carro. O indicador de roubo e furto aparece no relatório completo.' },
-  { pergunta: 'A consulta grátis mostra roubo e furto?', resposta: 'Não. A consulta grátis identifica o veículo. O indicador de roubo e furto é parte do relatório completo.' },
+  { pergunta: 'Dá para consultar a placa para ver se o carro é roubado?', resposta: 'Sim. A consulta pela placa identifica o veículo (marca, modelo, ano, cor e parte do chassi) para você conferir se bate com o carro. O indicador de roubo e furto aparece no relatório completo.' },
+  { pergunta: 'A prévia da consulta mostra roubo e furto?', resposta: 'Não. A prévia identifica o veículo. O indicador de roubo e furto é parte do relatório completo.' },
   { pergunta: 'Placa sem registro de roubo garante que o carro está limpo?', resposta: 'Não. Num clone, a placa é de outro carro e pode estar sem registro. Por isso compare marca, modelo, cor, chassi e motor do relatório com o carro e o documento.' },
   { pergunta: 'Como saber se a placa é clonada?', resposta: 'Veja se o carro bate com o cadastro da placa (modelo, cor e chassi), se o documento fecha com o carro e se o preço e o comportamento do vendedor parecem normais. Qualquer divergência é motivo para não fechar negócio.' },
   { pergunta: 'O que fazer se o carro for roubado?', resposta: 'Não pague nada, não confronte o vendedor, guarde as provas do anúncio e procure a polícia. Se já pagou, registre boletim de ocorrência.' },
-  { pergunta: 'Carro recuperado de roubo pode ser vendido?', resposta: 'Pode, depois de regularizado. O registro de recuperação costuma ficar no histórico e pesa no preço e no seguro.' },
 ]
 
 export const RESPOSTA_CONSULTAR_ROUBO =
-  'Para consultar a placa de um carro e ver se ele é roubado, digite a placa e confira se marca, modelo, cor e chassi batem com o carro. O indicador de roubo e furto aparece no Relatório Completo, que consulta as bases e mostra o registro, ativo ou recuperado, quando houver. A prévia na tela só identifica o veículo.'
+  'Para consultar a placa e ver se o carro é roubado, digite-a e confira se marca, modelo, cor e chassi batem com o carro. O indicador de roubo e furto aparece no Relatório Completo, que consulta as bases e mostra o registro, ativo ou recuperado, quando constar no registro. A prévia identifica o veículo, mas não mostra roubo e furto.'
