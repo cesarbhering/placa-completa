@@ -1,0 +1,12 @@
+-- Daily reset of pg_stat_statements (19/nov/2026, A17; approved by Cesar).
+--
+-- With thousands of entries (most of them one-off queries sent through the
+-- Management API), the internal Supabase collector sorted the whole view on
+-- disk every 30 s: about 11 GB of temp files a day on the Nano. After a
+-- reset, zero temp files in 18 minutes of measurement. The host timer
+-- pc-supabase-pgss-snapshot keeps the top 300 statements in R2 at 04:00,
+-- before this job runs at 04:05 BRT (cron.timezone is GMT).
+--
+-- Already created in prod by hand (jobid 4); cron.schedule with a job name
+-- updates the existing job, so this file is idempotent.
+select cron.schedule('pgss-reset-diario', '5 7 * * *', $$select pg_stat_statements_reset()$$);

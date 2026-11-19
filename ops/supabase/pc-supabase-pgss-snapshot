@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""Daily snapshot of pg_stat_statements before its reset (A17, 19/nov/2026).
+
+The pg_cron job pgss-reset-diario resets pg_stat_statements at 04:05 BRT:
+with thousands of entries, the internal Supabase collector sorted the whole
+view on disk every 30 s (about 11 GB of temp files a day, measured). This
+runs at 04:00 BRT, reads the top 300 statements by total time (with their
+text) and the view's info in one call, and keeps them in the private R2
+backups bucket as supabase-arquivo/pgss/AAAA-MM-DD.json.gz, never replacing
+an existing object. Read-only; one database call a day.
+
+Usage: pc-supabase-pgss-snapshot [--ref <project ref>] [--dia AAAA-MM-DD]
+"""
+import argparse
+import datetime as dt
+import gzip
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import urllib.request
+
+PROD_REF = "fivalpkfneadngxiflea"
+TOKEN_FILE = "/root/.supabase/access-token"
+R2_ENV = "/root/.r2-credentials"
+TOP = 300
+
+QUERY = f"""
+select json_build_object(
+  'tirado_em', now(),
+  'info', (select row_to_json(i) from pg_stat_statements_info i),
+  'entradas', (select count(*) from pg_stat_statements(false)),
+  'top', (select coalesce(json_agg(x), '[]'::json) from (
+    select r.rolname as papel, p.queryid::text as queryid, p.toplevel, p.calls, p.rows,
+           round(p.total_exec_time::numeric, 1) as total_ms, round(p.mean_exec_time::numeric, 2) as media_ms,
+           p.shared_blks_hit, p.shared_blks_read, p.shared_blks_dirtied, p.shared_blks_written,
+           p.temp_blks_read, p.temp_blks_written, p.wal_bytes::bigint as wal_bytes, p.stats_since, p.query
+    from pg_stat_statements(true) p left join pg_roles r on r.oid = p.userid
+    order by p.total_exec_time desc limit {TOP}) x)
+) as r;"""
+
+
+def log(msg):
+    print(f"{dt.datetime.now():%H:%M:%S} {msg}", flush=True)
+
+
+def sql(ref, query):
+    with open(TOKEN_FILE) as f:
+        token = f.read().strip()
+    req = urllib.request.Request(f"https://api.supabase.com/v1/projects/{ref}/database/query",
+                                 data=json.dumps({"query": query}).encode(), method="POST",
+                                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        return json.loads(r.read())
+
+
+def r2_env():
+    env, vals = dict(os.environ), {}
+    with open(R2_ENV) as f:
+        for line in f:
+            if "=" in line and not line.startswith("#"):
+                k, v = line.strip().split("=", 1)
+                vals[k] = v
+    env.update({"RCLONE_CONFIG_PCARQ_TYPE": "s3", "RCLONE_CONFIG_PCARQ_PROVIDER": "Cloudflare",
+                "RCLONE_CONFIG_PCARQ_ACCESS_KEY_ID": vals["R2_ACCESS_KEY_ID"],
+                "RCLONE_CONFIG_PCARQ_SECRET_ACCESS_KEY": vals["R2_SECRET_ACCESS_KEY"],
+                "RCLONE_CONFIG_PCARQ_ENDPOINT": vals["R2_ENDPOINT"], "RCLONE_CONFIG_PCARQ_NO_CHECK_BUCKET": "true"})
+    return env, vals["R2_BUCKET"]
+
+
+def rclone(*args, env):
+    p = subprocess.run(["rclone", *args], env=env, capture_output=True, timeout=300)
+    if p.returncode != 0:
+        raise RuntimeError(f"rclone {args[0]} failed (rc {p.returncode}): {p.stderr.decode(errors='replace')[:300]}")
+    return p
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--ref", default=PROD_REF)
+    ap.add_argument("--dia", default=(dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=3)).date().isoformat())
+    a = ap.parse_args(argv)
+    prefixo = "supabase-arquivo" if a.ref == PROD_REF else f"supabase-arquivo-{a.ref}"
+    env, bucket = r2_env()
+    remoto = f"pcarq:{bucket}/{prefixo}/pgss/{a.dia}.json.gz"
+    if rclone("lsf", remoto, env=env).stdout.strip():
+        log(f"{remoto} already exists, nothing done")
+        return 0
+    dados = sql(a.ref, QUERY)[0]["r"]
+    with tempfile.TemporaryDirectory(prefix="pgss-") as td:
+        gz = os.path.join(td, "s.json.gz")
+        with gzip.open(gz, "wt", compresslevel=9) as f:
+            json.dump(dados, f, ensure_ascii=False)
+        sha = hashlib.sha256(open(gz, "rb").read()).hexdigest()
+        rclone("copyto", "--ignore-existing", gz, remoto, env=env)
+        volta = os.path.join(td, "v.json.gz")
+        rclone("copyto", remoto, volta, env=env)
+        if hashlib.sha256(open(volta, "rb").read()).hexdigest() != sha:
+            raise RuntimeError(f"{remoto}: the object in R2 differs from the snapshot just taken")
+    log(f"{remoto}: {len(dados['top'])} statements of {dados['entradas']} entries, sha256 {sha[:12]}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
