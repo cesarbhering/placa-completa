@@ -25,6 +25,16 @@ describe('oferta de segunda placa', () => {
     await flushPromises()
     expect(eventos).toContain('bump_visto')
   })
+  it('tells the parent when there is an offer, and stays quiet without one', async () => {
+    vi.stubGlobal('$fetch', async () => ({ bump: { codigo: 'SEGUNDAABC234', validoAte: '2026-11-05T18:30:00Z', precoCentavos: 2990 } }))
+    const com = mount(OfertaSegundaPlaca, { props: { token: 't', onde: 'relatorio' } })
+    await flushPromises()
+    expect(com.emitted('oferta')).toEqual([[true]])
+    vi.stubGlobal('$fetch', async () => ({ bump: null }))
+    const sem = mount(OfertaSegundaPlaca, { props: { token: 't', onde: 'relatorio' } })
+    await flushPromises()
+    expect(sem.emitted('oferta')).toBeUndefined()
+  })
   it('sem cupom ou com erro: nada aparece', async () => {
     vi.stubGlobal('$fetch', async () => ({ bump: null }))
     const a = mount(OfertaSegundaPlaca, { props: { token: 't', onde: 'checkout' } })
