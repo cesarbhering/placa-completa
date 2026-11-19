@@ -9,6 +9,9 @@ import { enfileirarEventoFunil } from '~/composables/useAnalytics'
 // ao e-mail do comprador, 1 uso, 24 h) e e ele que recusa fora disso; aqui so
 // mostra. Sem cupom (pedido sem e-mail, app, ja usado, vencido): nada aparece.
 const props = defineProps<{ token: string; onde: 'checkout' | 'relatorio' }>()
+// Avisa o pai quando ha oferta: no relatorio, a recompra some enquanto a
+// segunda placa por R$ 29,90 vale (Cesar, 19/11/2026).
+const emit = defineEmits<{ oferta: [ativa: boolean] }>()
 
 const bump = ref<{ codigo: string; validoAte: string; precoCentavos: number } | null>(null)
 const raiz = ref<HTMLElement | null>(null)
@@ -42,6 +45,7 @@ onMounted(async () => {
     const r: any = await $fetch('/api/premium/cupom-bump', { query: { token: props.token } })
     if (r?.bump?.codigo) {
       bump.value = r.bump
+      emit('oferta', true)
       if (props.onde === 'relatorio' && typeof IntersectionObserver !== 'undefined') {
         await nextTick()
         if (raiz.value) {
