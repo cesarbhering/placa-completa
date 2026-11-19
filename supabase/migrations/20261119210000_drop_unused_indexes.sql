@@ -9,8 +9,12 @@
 -- usuarios_email_idx: same btree (email) as the unique usuarios_email_key.
 --
 -- Plain DROP INDEX: migrations run inside a transaction, where CONCURRENTLY is
--- not allowed. The lock only lasts while the catalog entry is removed; apply
--- at night anyway.
+-- not allowed. The lock only lasts while the catalog entry is removed, but
+-- while the DROP waits for it every new read and insert on consultas queues
+-- behind it; the lock timeout gives up after 3 s (nothing dropped, try again).
+-- Apply in a quiet window, e.g. 02h00 to 02h30.
+set local lock_timeout = '3s';
+
 drop index if exists public.idx_consultas_ip_address;
 drop index if exists public.idx_consultas_cache_hit;
 drop index if exists public.cupons_premium_codigo_idx;
