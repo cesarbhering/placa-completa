@@ -15,6 +15,7 @@ const PERMITIDOS: RegExp[] = [
   /^\/consulta-placa$/,
   /^\/consulta-gratis$/,
   /^\/como-consultar-placa$/,
+  /^\/como-saber-se-o-carro-e-roubado$/,
   /^\/tabela-fipe-por-placa$/,
   /^\/tabela-fipe(?:\/[a-z0-9-]+)?$/,
   /^\/consultar-placa(?:\/[a-z0-9-]+|\/capital\/[a-z0-9-]+)?$/,

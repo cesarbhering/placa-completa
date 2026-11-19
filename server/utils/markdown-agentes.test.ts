@@ -20,7 +20,7 @@ describe('prefereMarkdown', () => {
 
 describe('pathPermiteMarkdown', () => {
   it('paginas publicas', () => {
-    for (const p of ['/', '/consulta-placa', '/como-consultar-placa', '/consultar-placa/sao-paulo', '/consultar-placa/capital/belo-horizonte',
+    for (const p of ['/', '/consulta-placa', '/como-consultar-placa', '/como-saber-se-o-carro-e-roubado', '/consultar-placa/sao-paulo', '/consultar-placa/capital/belo-horizonte',
       '/tabela-fipe', '/tabela-fipe/fiat-argo', '/sobre', '/politica-de-privacidade', '/termos-de-uso', '/consulta-placa/', '/consulta-placa?x=1'])
       expect(pathPermiteMarkdown(p), p).toBe(true)
   })
