@@ -10,6 +10,10 @@
 -- Summary functions never overwrite a day that is already summarized, so a
 -- second call after the raw rows were deleted cannot shrink the numbers.
 
+-- The view and function swaps take locks: give up after 3 s instead of
+-- queueing the site behind them.
+set local lock_timeout = '3s';
+
 -- 1) api_chamadas: one row per day x source x endpoint x cache hit x code.
 create table if not exists public.api_chamadas_diario (
   dia date not null,
