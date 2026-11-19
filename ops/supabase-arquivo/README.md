@@ -32,6 +32,7 @@ O caminho é `supabase-arquivo/<tabela>/AAAA/MM/AAAA-MM-DD.*`. Para outro projet
 | consultas | 7 dias | a coluna `api_response` (cópia do `placa_cache.payload`, que nada lê); a linha fica | não precisa |
 | api_chamadas | 30 dias | as linhas brutas, menos `wdapi` e `placafipe`, que o fin lê | `api_chamadas_diario` |
 | eventos_funil | 30 dias | as linhas brutas | `eventos_funil_diario` e `funil_diario_arquivo`; a view `funil_diario` lê os dias arquivados daí |
+| relatorio_aberturas | 180 dias | as linhas brutas (substitui o pg_cron `relatorio-aberturas-retencao`, que apagava sem arquivo; desligar o job 3 ao ligar o timer, antes de 22/04/2027) | não precisa; a view `relatorio_aberturas_resumo` lê o que fica |
 | placa_cache | não encontradas: 6 h; encontradas: 90 dias | a linha inteira, exceto as placas com pedido pago, que o relatório lê para pegar o número do motor (ação `podar`, até 5.000 linhas por rodada) | não precisa; a placa que voltar é buscada de novo |
 
 **Migrations que precisam estar aplicadas antes:**
@@ -40,7 +41,13 @@ O caminho é `supabase-arquivo/<tabela>/AAAA/MM/AAAA-MM-DD.*`. Para outro projet
 
 **placa_cache:** o DELETE apaga só as linhas arquivadas, pela mesma placa e o mesmo `fetched_at`. A placa renovada nesse meio-tempo fica no banco.
 
-**Como apaga:** o DELETE das tabelas brutas confere a impressão do dia, com linhas, md5 dos ids e md5 de cada linha, dentro do próprio comando. Se o dia mudou desde o arquivo, nada é apagado.
+**Travas de consultas:** o `api_response` só é zerado nos dias que a função de leads já leu (`leads_extracao_estado.processado_ate` depois do fim do dia) e enquanto não houver policy de INSERT aberta em consultas (A16).
+
+**Escrita no R2:** o `lsf` falhando interrompe a gravação, em vez de ser lido como "não existe". O upload usa `copyto --ignore-existing`, que nunca troca um objeto (o `--immutable` do `copyto` troca, no rclone 1.75). O texto em claro só fica em `/var/lib/pc-supabase-arquivo/tmp`, que é limpo a cada rodada.
+
+**Dias perdidos:** o `diario` arquiva todos os dias fechados desde o último arquivado, e o `status` mostra as lacunas.
+
+**Como apaga ou zera:** um comando só trava as linhas do dia (`for update`), recalcula a impressão (linhas, md5 dos ids e md5 da coluna ou de cada linha) e só escreve se ela bater com o manifesto. O mesmo comando repete as travas de data (7 ou 30 dias) e as de consultas. Se o dia mudou desde o arquivo, nada é escrito.
 
 ## Instalação
 
@@ -50,7 +57,7 @@ cp pc-supabase-arquivar-*.service pc-supabase-arquivar-*.timer /etc/systemd/syst
 systemctl daemon-reload
 ```
 
-Cada timer só é ligado depois do backfill e da primeira janela de liberar daquela tabela. Os horários são 04h00 (consultas), 04h20 (api_chamadas), 04h40 (eventos_funil) e 05h00 (placa_cache).
+Cada timer só é ligado depois do backfill e da primeira janela de liberar daquela tabela. Os horários são 04h00 (consultas), 04h20 (api_chamadas), 04h40 (eventos_funil), 05h00 (placa_cache) e 05h20 (relatorio_aberturas).
 
 ## Uso manual
 
