@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+"""Apply ONE Supabase migration through the Management API (replaces
+`supabase db push`, unsafe here: 60 repo migrations in prod and 48 in staging
+were applied without being recorded, and push would run them again).
+
+One call, one transaction: the file, the INSERT into
+supabase_migrations.schema_migrations (with the file as statements) and
+`notify pgrst, 'reload schema'` go in a single string. Either everything is
+applied and recorded, or nothing is.
+
+Usage:
+  aplicar-migration [--dry-run | --ensaio] staging <arquivo.sql>
+  aplicar-migration [--dry-run | --ensaio] prod <arquivo.sql> --confirmar-prod PlacaCompleta
+
+  --dry-run   only checks: name, guard, target, whether the version is recorded
+  --ensaio    runs the file and the registration in the real database, then
+              ROLLBACK (nothing stays). In prod it still takes the locks and
+              does the work before undoing it: run it in the same window.
+
+Exit codes: 0 applied or nothing to do, 1 SQL error (nothing applied),
+2 refused before running, 3 version recorded with different content,
+4 unknown state (the call fell: check before running again; never retried).
+The token and the SQL never go into a command line (ps, /proc).
+Log: $PC_MIGRATION_LOG or /var/log/pc-aplicar-migration.log
+"""
+import argparse
+import datetime as dt
+import hashlib
+import json
+import os
+import re
+import secrets
+import socket
+import sys
+import urllib.error
+import urllib.request
+
+ALVOS = {"prod": ("fivalpkfneadngxiflea", "PlacaCompleta"),
+         "staging": ("nqhlxsvggrumgcceamwg", "placa-completa-staging")}
+TOKEN_FILE = "/root/.supabase/access-token"
+NOME_OK = re.compile(r"^(\d{14})_([a-z0-9_]+)\.sql$")
+# Statements that end, open or escape the transaction, or cannot run inside one.
+PROIBIDOS = re.compile(r"^(begin|start|commit|end|rollback|abort|savepoint|release|prepare|vacuum|"
+                       r"alter\s+system|create\s+database|drop\s+database|create\s+tablespace|drop\s+tablespace)\b")
+
+
+def log(alvo, msg):
+    linha = f"{dt.datetime.now():%Y-%m-%d %H:%M:%S} {alvo} {msg}"
+    print(linha, flush=True)
+    with open(os.environ.get("PC_MIGRATION_LOG", "/var/log/pc-aplicar-migration.log"), "a") as f:
+        f.write(linha + "\n")
+
+
+def comandos(sql):
+    """Statements of the file with comments, strings, quoted identifiers and
+    dollar-quoted bodies removed, lower-cased and whitespace-collapsed."""
+    out, buf, i, n = [], [], 0, len(sql)
+    while i < n:
+        c = sql[i]
+        if sql.startswith("--", i):
+            j = sql.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        if sql.startswith("/*", i):
+            prof, i = 1, i + 2
+            while i < n and prof:
+                if sql.startswith("/*", i):
+                    prof, i = prof + 1, i + 2
+                elif sql.startswith("*/", i):
+                    prof, i = prof - 1, i + 2
+                else:
+                    i += 1
+            buf.append(" ")
+            continue
+        if c == "'":
+            esc = i > 0 and sql[i - 1] in "eE" and not (i > 1 and (sql[i - 2].isalnum() or sql[i - 2] == "_"))
+            i += 1
+            while i < n:
+                if esc and sql[i] == "\\":
+                    i += 2
+                    continue
+                if sql[i] == "'":
+                    if i + 1 < n and sql[i + 1] == "'":
+                        i += 2
+                        continue
+                    i += 1
+                    break
+                i += 1
+            buf.append(" '' ")
+            continue
+        if c == '"':
+            i += 1
+            while i < n:
+                if sql[i] == '"':
+                    if i + 1 < n and sql[i + 1] == '"':
+                        i += 2
+                        continue
+                    i += 1
+                    break
+                i += 1
+            buf.append(' "" ')
+            continue
+        if c == "$" and not (i > 0 and (sql[i - 1].isalnum() or sql[i - 1] == "_")):
+            m = re.match(r"\$([A-Za-z_][A-Za-z0-9_]*)?\$", sql[i:])
+            if m:
+                tag = m.group(0)
+                j = sql.find(tag, i + len(tag))
+                i = n if j < 0 else j + len(tag)
+                buf.append(" $$ ")
+                continue
+        if c == ";":
+            out.append("".join(buf))
+            buf = []
+            i += 1
+            continue
+        buf.append(c)
+        i += 1
+    out.append("".join(buf))
+    return [re.sub(r"\s+", " ", s).strip().lower() for s in out if s.strip()]
+
+
+def guarda(sql):
+    """Returns the statements that would break the single transaction."""
+    ruins = []
+    for s in comandos(sql):
+        if PROIBIDOS.match(s) or re.search(r"\bconcurrently\b", s):
+            ruins.append(s[:80])
+    return ruins
+
+
+def tag_unica(conteudo):
+    while True:
+        tag = f"$pcmig{secrets.token_hex(4)}$"
+        if tag not in conteudo:
+            return tag
+
+
+def corpo(conteudo, versao, nome, ensaio=False):
+    """The file, its registration and the reload, in one string. The '\\n;\\n'
+    closes a last statement or a trailing -- comment without a newline."""
+    tag = tag_unica(conteudo)
+    reg = (f"insert into supabase_migrations.schema_migrations (version, name, statements) "
+           f"values ('{versao}', '{nome}', array[{tag}{conteudo}{tag}])")
+    fim = "rollback;\n" if ensaio else "notify pgrst, 'reload schema';\n"
+    return f"{conteudo.rstrip()}\n;\n{reg};\n{fim}"
+
+
+class EstadoDesconhecido(Exception):
+    pass
+
+
+def api(ref, query=None, metodo="POST", caminho="database/query", timeout=300):
+    with open(TOKEN_FILE) as f:
+        token = f.read().strip()
+    url = f"https://api.supabase.com/v1/projects/{ref}" + (f"/{caminho}" if caminho else "")
+    dados = json.dumps({"query": query}).encode() if query is not None else None
+    req = urllib.request.Request(url, data=dados, method=metodo,
+                                 headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        corpo_erro = e.read()[:500].decode(errors="replace")
+        if e.code == 400:
+            raise RuntimeError(corpo_erro)
+        raise EstadoDesconhecido(f"HTTP {e.code}: {corpo_erro[:200]}")
+    except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError) as e:
+        raise EstadoDesconhecido(str(e))
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    modo = ap.add_mutually_exclusive_group()
+    modo.add_argument("--dry-run", action="store_true")
+    modo.add_argument("--ensaio", action="store_true")
+    ap.add_argument("alvo", choices=sorted(ALVOS))
+    ap.add_argument("arquivo")
+    ap.add_argument("--confirmar-prod", default="")
+    a = ap.parse_args(argv)
+    ref, nome_projeto = ALVOS[a.alvo]
+
+    base = os.path.basename(a.arquivo)
+    m = NOME_OK.match(base)
+    if not m:
+        log(a.alvo, f"RECUSADO: nome fora do padrao AAAAMMDDHHMMSS_nome.sql (minusculas, digitos, _): {base}")
+        return 2
+    versao, nome = m.group(1), m.group(2)
+    with open(a.arquivo, encoding="utf-8") as f:
+        conteudo = f.read()
+    ruins = guarda(conteudo)
+    if ruins:
+        log(a.alvo, f"RECUSADO: {base} tem comando que quebra a transacao unica: {ruins}")
+        return 2
+    if a.alvo == "prod" and not a.dry_run and a.confirmar_prod != nome_projeto:
+        log(a.alvo, f"RECUSADO: para o prod, passe --confirmar-prod {nome_projeto}")
+        return 2
+    try:
+        proj = api(ref, metodo="GET", caminho="", timeout=60)
+    except (RuntimeError, EstadoDesconhecido) as e:
+        log(a.alvo, f"RECUSADO: nao consegui ler o projeto {ref}: {e}")
+        return 2
+    if proj.get("name") != nome_projeto:
+        log(a.alvo, f"RECUSADO: o projeto {ref} se chama {proj.get('name')!r}, esperado {nome_projeto!r}")
+        return 2
+    sha = hashlib.sha256(conteudo.encode()).hexdigest()
+
+    try:
+        reg = api(ref, f"select statements from supabase_migrations.schema_migrations where version = '{versao}'", timeout=60)
+    except (RuntimeError, EstadoDesconhecido) as e:
+        log(a.alvo, f"RECUSADO: nao consegui ler o historico: {e}")
+        return 2
+    if reg:
+        st = reg[0].get("statements")
+        if not st or len(st) != 1:
+            log(a.alvo, f"{versao} ja registrada (pelo CLI ou sem conteudo): conteudo nao comparado, nada feito")
+            return 0
+        if hashlib.sha256(st[0].encode()).hexdigest() == sha:
+            log(a.alvo, f"{versao} ja registrada com o mesmo conteudo, nada feito")
+            return 0
+        log(a.alvo, f"ATENCAO: {versao} ja registrada com conteudo DIFERENTE do arquivo (sha256 {sha[:12]}); nada feito, conferir")
+        return 3
+
+    if a.dry_run:
+        log(a.alvo, f"dry-run em {nome_projeto}: aplicaria {base} (sha256 {sha[:12]}, {len(conteudo)} bytes), nada feito")
+        return 0
+    rotulo = "ensaio (rollback no fim)" if a.ensaio else "aplicando"
+    log(a.alvo, f"{rotulo} {base} em {nome_projeto} (sha256 {sha[:12]})")
+    try:
+        api(ref, corpo(conteudo, versao, nome, ensaio=a.ensaio))
+    except RuntimeError as e:
+        log(a.alvo, f"FALHOU, nada aplicado nem registrado (transacao unica): {str(e)[:400]}")
+        return 1
+    except EstadoDesconhecido as e:
+        log(a.alvo, f"ESTADO DESCONHECIDO: a chamada caiu ({str(e)[:200]}). A transacao pode ter feito commit. "
+                    f"Conferir supabase_migrations.schema_migrations (versao {versao}) e os objetos antes de rodar de novo; "
+                    f"nada e repetido sozinho.")
+        return 4
+    if a.ensaio:
+        log(a.alvo, f"ensaio ok: {versao} rodou inteira e foi desfeita (nada ficou)")
+    else:
+        log(a.alvo, f"{versao} aplicada, registrada e schema recarregado, numa transacao")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
