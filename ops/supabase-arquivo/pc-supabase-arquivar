@@ -616,9 +616,12 @@ def main():
         return 2
 
     if args.acao in ("liberar", "zerar", "diario", "podar"):
-        sobras = sql(args.ref, f"select count(*) as n from cron.job where jobname like 'pcarq-vacuum-{table}-%';")[0]["n"]
+        # starts_with, not LIKE: '_' is a wildcard in LIKE (api_chamadas would
+        # also match apiXchamadas).
+        prefixo_job = f"pcarq-vacuum-{table}-"
+        sobras = sql(args.ref, f"select count(*) as n from cron.job where starts_with(jobname, '{prefixo_job}');")[0]["n"]
         if sobras and args.confirmar:
-            sql(args.ref, f"select cron.unschedule(jobid) from cron.job where jobname like 'pcarq-vacuum-{table}-%';")
+            sql(args.ref, f"select cron.unschedule(jobid) from cron.job where starts_with(jobname, '{prefixo_job}');")
             log(f"removed {sobras} leftover pcarq-vacuum-{table} job(s) of an interrupted run")
         elif sobras:
             log(f"{sobras} leftover pcarq-vacuum-{table} job(s) of an interrupted run (removed only with --confirmar)")

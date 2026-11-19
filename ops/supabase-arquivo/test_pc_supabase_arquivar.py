@@ -507,8 +507,10 @@ class Windows(Base):
                 m.main()
             unsched = [c for c in q.call_args_list if "cron.unschedule" in c[0][1]]
             self.assertEqual(bool(unsched), removeu)
-            if unsched:
-                self.assertIn("jobname like 'pcarq-vacuum-consultas-%'", unsched[0][0][1])
+            for c in q.call_args_list:
+                if "cron.job" in c[0][1]:
+                    self.assertIn("starts_with(jobname, 'pcarq-vacuum-consultas-')", c[0][1])
+                    self.assertNotIn(" like ", c[0][1].lower())
 
     def test_status_reports_gaps(self):
         self.seed([DAY, DAY + dt.timedelta(days=2)])
@@ -544,8 +546,10 @@ class Vacuum(Base):
 
     def test_dry_run_never_vacuums(self):
         self.args.vacuum_a_cada = 1
-        with mock.patch.object(m, "release_day", return_value=False), mock.patch.object(m, "sql") as q:
-            m.release_days(self.args, "consultas", self.cfg, [DAY], self.state, {}, "bucket")
+        with mock.patch.object(m, "release_day", return_value=False), mock.patch.object(m, "vacuum") as v, \
+             mock.patch.object(m, "sql") as q:
+            m.release_days(self.args, "consultas", self.cfg, [DAY, DAY + dt.timedelta(days=1)], self.state, {}, "bucket")
+        v.assert_not_called()
         q.assert_not_called()
 
 
