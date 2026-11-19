@@ -140,6 +140,7 @@ export default defineNuxtConfig({
       "/tabela-fipe-por-placa",
       "/carro-de-leilao",
       "/carro-de-leilao/como-saber",
+      "/como-saber-se-o-carro-e-roubado",
       // Cluster de compra (shared/cluster-compra.ts)
       "/laudo-cautelar",
       "/historico-veicular",
@@ -957,6 +958,7 @@ export default defineNuxtConfig({
     "/tabela-fipe": { swr: 86400 },
     "/estudos": { swr: 86400 },
     "/carro-de-leilao/como-saber": { swr: 86400 },
+    "/como-saber-se-o-carro-e-roubado": { swr: 86400 },
     "/o-que-e": { swr: 86400 },
     "/laudo-cautelar": { swr: 86400 },
     "/historico-veicular": { swr: 86400 },

@@ -29,7 +29,10 @@ export const SINAIS = [
   'Preço bem abaixo da Tabela FIPE sem uma explicação clara',
 ]
 
+export const RESPOSTA_COMO_SABER = 'Há três jeitos de descobrir se um carro já foi a leilão: pedir o documento e o histórico ao vendedor, procurar sinais no próprio carro e consultar a placa numa base de leilões. O mais fácil é o Relatório Completo, que consulta as bases e mostra o registro que o documento e o carro nem sempre revelam.'
+
 export const FAQ_COMO_SABER = [
+  { pergunta: 'Como saber se o carro é de leilão?', resposta: RESPOSTA_COMO_SABER },
   { pergunta: 'Leilão aparece no documento do carro?', resposta: 'Nem sempre. Alguns registros aparecem como indicador no cadastro nacional do veículo, mas muitos leilões não ficam visíveis no documento que o vendedor mostra, principalmente depois de transferências. Por isso vale cruzar a placa com uma base de leilões.' },
   { pergunta: 'Carro de leilão pode ser financiado?', resposta: 'Depende da instituição. Muitas financeiras recusam ou exigem condições diferentes para veículos com passagem por leilão, principalmente os de sinistro. Consulte o banco antes de fechar negócio.' },
   { pergunta: 'Quanto um carro de leilão desvaloriza?', resposta: 'Não existe um número fixo. A perda de valor na revenda depende do tipo de leilão, do estado do carro e do mercado: um carro recuperado de financiamento perde menos que um classificado como sinistro. Em geral ele vale menos que um equivalente sem passagem.' },

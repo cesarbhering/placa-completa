@@ -33,6 +33,17 @@ export function ehNotificacao(p: any): boolean {
   return p.gravidade?.nivel === 'notificado'
 }
 
+/**
+ * Ha leilao CONFIRMADO (que nao seja a propria notificacao)? Com ele, a
+ * notificacao do DETRAN nao aparece no relatorio (Cesar, 19/11/2026): o aviso
+ * "o proprietario pode ter retirado antes do leilao" nao acrescenta nada quando
+ * o veiculo esta no catalogo do leilao. O dado continua no snapshot; so a tela
+ * esconde.
+ */
+export function haLeilaoConfirmado(passagens: unknown): boolean {
+  return Array.isArray(passagens) && passagens.some((p: any) => p?.nivel === 'confirmado' && !ehNotificacao(p))
+}
+
 function dataBR(iso: unknown): string | null {
   const s = String(iso || '').trim()
   if (!s) return null

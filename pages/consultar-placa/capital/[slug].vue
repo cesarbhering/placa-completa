@@ -157,7 +157,8 @@ useHead({
             útil para compra, venda, financiamento ou seguro de veículos em {{ capital.name }}.
             Para conferir também multas, indicadores de roubo/furto e registro de leilão, e o histórico
             completo do veículo, veja o
-            <NuxtLink to="/">relatório completo</NuxtLink>.
+            <NuxtLink to="/">relatório completo</NuxtLink>. Em dúvida sobre um carro à venda, veja
+            <NuxtLink to="/como-saber-se-o-carro-e-roubado">como saber se o carro é roubado</NuxtLink>.
           </p>
 
           <EntendaOsTermos />
