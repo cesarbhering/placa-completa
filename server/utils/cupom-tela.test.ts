@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
   emitirCupomTela, cupomTelaValido, gerarTokenCupomTela, resolverDescontoTela, precoComCupomTela,
-  segredoCupomTela, colunasCupomTela, _zerarMemoriaCupomTela, CUPOM_TELA_JANELA_MS,
+  segredoCupomTela, colunasCupomTela, _zerarMemoriaCupomTela, CUPOM_TELA_JANELA_MS, CUPOM_TELA_TOLERANCIA_MS,
 } from './cupom-tela'
 import { relogioCupomTela, mostrarCupomTela } from '../../shared/cupom-tela'
 
@@ -20,9 +20,11 @@ describe('cupom de tela', () => {
     expect(cupomTelaValido(S, e.token, 'aaa-0a00', T0 + 1000)).toBe(true)
   })
 
-  it('vence depois da janela (prazo aplicado no servidor)', () => {
+  it('vence depois da janela e da folga de 30 s (prazo aplicado no servidor)', () => {
     const e = emitirCupomTela(S, P, '1.1.1.1', T0)!
-    expect(cupomTelaValido(S, e.token, P, T0 + CUPOM_TELA_JANELA_MS + 1)).toBe(false)
+    // clique no ultimo segundo que chega atrasado ainda vale
+    expect(cupomTelaValido(S, e.token, P, T0 + CUPOM_TELA_JANELA_MS + 20 * 1000)).toBe(true)
+    expect(cupomTelaValido(S, e.token, P, T0 + CUPOM_TELA_JANELA_MS + CUPOM_TELA_TOLERANCIA_MS + 1)).toBe(false)
   })
 
   it('recusa outra placa, outro segredo, token adulterado ou do futuro', () => {

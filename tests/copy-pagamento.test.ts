@@ -9,7 +9,7 @@ import { homepageFaqs } from '../data/homepage-faqs'
 // usando ali.
 const PROIBIDAS = [
   /S[oó] Pix/,
-  /Pagamento por Pix(?! ·)/,      // a dica da aba Pix do checkout ("Pagamento por Pix · estorno...") e da propria aba
+  /Pagamento por Pix/,            // a dica encadeada do checkout saiu no #768; nao volta
   /Pague no Pix<\/h3>/,
   /Pix, uma vez/,
   /Pix, na hora, sem assinatura/,

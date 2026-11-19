@@ -252,8 +252,8 @@ const abPrecoCheckout = computed(() => (isCapacitor.value ? null : abPrecoInicia
 const precoBaseCentavos = computed(() => precoDoPlano(props.plano, abPrecoCheckout.value))
 // O botao carrega SO o desfecho, nao o preco: o preco ja aparece no resumo
 // logo acima, e repeti-lo no botao so reforca o frame de custo na hora do
-// clique. A linha-helper abaixo do botao cuida da reasseguranca (Pix, estorno,
-// prazo), tirando esse peso de cima da CTA.
+// clique. A linha-helper abaixo do botao diz o prazo de entrega; o estorno ja
+// esta na faixa de garantias acima do botao.
 const rotuloPagar = computed(() => {
   if (isCapacitor.value) {
     return loading.value
@@ -1832,9 +1832,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 // ---- confianca ----
-// Regra do bloco: hairline e tinta, nunca um mural de selos coloridos. O unico
-// desvio de cor e o escudo do estorno, que e a garantia mais forte e a unica
-// que merece peso visual.
+// Regra do bloco: hairline e tinta, nunca um mural de selos coloridos. O estorno,
+// a garantia mais forte, ganha peso so pelo negrito.
 .pic-conf {
   list-style: none;
   // Respiro padrao do componente (o mesmo gap de 14px do .pic-stack) entre o
@@ -1861,7 +1860,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
   &__item--forte {
     color: $c-charcoal;
-    svg { color: $c-green; }
   }
 }
 
@@ -2048,8 +2046,6 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-size: 12px;
   color: $c-steel;
   margin-top: 12px;
-
-  svg { flex-shrink: 0; color: $c-steel; }
 }
 
 .pic-ja {

@@ -16,6 +16,13 @@ import { CUPOM_TELA_PCT, CUPOM_TELA_JANELA_MS } from '../../shared/cupom-tela'
 export { CUPOM_TELA_PCT, CUPOM_TELA_JANELA_MS }
 
 const VERSAO = 'v1'
+/**
+ * Clique no ultimo segundo: o pedido chega ao servidor depois do prazo (rede,
+ * relogio do aparelho atrasado). Sem folga, o Pix sairia a preco cheio sem
+ * aviso; com a janela de 5 min isso ficou 6x mais exposto (revisao do #768).
+ * A tela continua mostrando o prazo cheio; a folga e invisivel.
+ */
+export const CUPOM_TELA_TOLERANCIA_MS = 30 * 1000
 /** Relogio do servidor adiantado/atrasado entre containers: tolerancia curta. */
 const TOLERANCIA_FUTURO_MS = 60 * 1000
 const MEMORIA_MS = 24 * 60 * 60 * 1000
@@ -93,7 +100,7 @@ export function cupomTelaValido(segredo: string, token: unknown, placa: string, 
   if (partes.length !== 3 || partes[0] !== VERSAO || !/^\d{10,16}$/.test(partes[1])) return false
   const emitidoEm = Number(partes[1])
   if (emitidoEm > agora + TOLERANCIA_FUTURO_MS) return false
-  if (agora - emitidoEm > CUPOM_TELA_JANELA_MS) return false
+  if (agora - emitidoEm > CUPOM_TELA_JANELA_MS + CUPOM_TELA_TOLERANCIA_MS) return false
   const esperado = Buffer.from(assinar(segredo, placa, emitidoEm))
   const recebido = Buffer.from(partes[2])
   return esperado.length === recebido.length && timingSafeEqual(esperado, recebido)
