@@ -20,7 +20,7 @@ import { retentarDetranSeValer } from '../../utils/detran-retentativa'
 import { logoProxyDe } from '../../utils/logo-marca'
 import { blocoNfse, colunasNfseRelatorio } from '../../utils/nfse-bloco'
 import { colunaAbPrecoSelect } from '../../utils/ab-preco'
-import { lerPlacaCacheFresca, motorDoPayload } from '../../utils/placa-lookup'
+import { lerPlacaCacheParaRelatorio, motorDoPayload } from '../../utils/placa-lookup'
 import { cfgHistorico } from '../../utils/parceiro-historico-env'
 import { historicoLeilaoComHistorico, historicoVeicularParaTela, historicoDoVeiculo } from '../../../shared/historico-veicular'
 
@@ -388,7 +388,9 @@ export default defineEventHandler(async (event) => {
   // lido no maximo uma vez e compartilhado entre motor e logo.
   const entregue = pedido.status === 'entregue'
   let placaCacheP: Promise<any | null> | null = null
-  const placaCache = () => (placaCacheP ??= lerPlacaCacheFresca(pedido.placa).catch(() => null))
+  // No TTL here: a report already sold keeps the engine and the logo the
+  // cache had (lerPlacaCacheParaRelatorio never calls a source).
+  const placaCache = () => (placaCacheP ??= lerPlacaCacheParaRelatorio(pedido.placa).catch(() => null))
 
   // Logo da montadora (fallback do MarcaLogo): o "logo" da apiplacas, do
   // snapshot quando tiver, senao do placa_cache (so leitura, sem chamada paga).
