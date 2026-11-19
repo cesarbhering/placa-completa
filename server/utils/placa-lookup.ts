@@ -6,7 +6,13 @@ import { registrarChamada } from './api-chamadas'
 // bruta no DB (placa_cache) e servimos dela por TTL, evitando pagar a API a cada
 // consulta/preview/estimativa da mesma placa. So o dado SENATRAN do premium NAO
 // passa por aqui: aquele continua consulta real a cada pedido pago.
-const TTL_DIAS = 180
+// 90 days since 19/nov/2026: the Supabase Free plan (500 MB) cannot hold a
+// 180-day cache at today's traffic (about 250 MB). pc-supabase-arquivar
+// archives to R2 and deletes the rows past this TTL (plates with a paid
+// order excepted), so the code and the pruning use the same age. A plate
+// that comes back after 90 days is fetched again within the daily
+// PlacaFipe allowance.
+const TTL_DIAS = 90
 const TTL_MS = TTL_DIAS * 24 * 60 * 60 * 1000
 // Nao-encontradas tambem entram no cache, mas com TTL curto: placa invalida ou
 // ainda nao registrada e repique nao pode custar uma chamada wdapi cada vez
