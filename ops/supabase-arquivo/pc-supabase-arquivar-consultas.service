@@ -1,0 +1,13 @@
+[Unit]
+Description=Archive yesterday's consultas to R2 and clear api_response older than 7 days
+After=network-online.target
+Wants=network-online.target
+OnFailure=pc-supabase-arquivar-falha@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-supabase-arquivar consultas diario --confirmar
+Nice=10
+MemoryMax=1G
+MemorySwapMax=0
+TimeoutStartSec=2h

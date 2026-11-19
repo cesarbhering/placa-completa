@@ -1,0 +1,18 @@
+#!/bin/bash
+# OnFailure de qualquer pc-supabase-arquivar-*.service: e-mail com as ultimas linhas do journal,
+# no maximo 1 por hora por unit. Uso (pela unit template): pc-supabase-arquivar-falha <unit que falhou>
+set -u
+U=${1:?unit}
+C=/var/lib/pc-supabase-arquivo/falha-$(echo "$U" | tr -c 'A-Za-z0-9._-' '_').ts
+agora=$(date +%s); ult=$(cat "$C" 2>/dev/null || echo 0)
+[ $((agora - ult)) -lt 3600 ] && exit 0
+mkdir -p /var/lib/pc-supabase-arquivo && echo "$agora" > "$C"
+log=$(journalctl -u "$U" -n 25 --no-pager -o cat 2>&1 | tail -25)
+corpo="A unit $U falhou em $(date '+%d/%m %H:%M') BRT.
+O arquivador nunca apaga nem zera sem arquivo conferido; uma falha deixa o dia como estava.
+Ultimas linhas do log:
+$log
+Ver: systemctl status $U; journalctl -u $U -n 100; pc-supabase-arquivar <tabela> status"
+for d in ${PC_ARQUIVO_ALERTA:-teamlead@placacompleta.com.br helena@placacompleta.com.br}; do
+  /usr/local/bin/pc-mail --to "$d" --subject "ARQUIVO SUPABASE: $U falhou" --body "$corpo" || true
+done
