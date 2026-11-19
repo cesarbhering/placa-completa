@@ -12,11 +12,16 @@ const semComentarios = script.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*
 describe('report page: background updates keep the last good report', () => {
   it('no longer calls the useFetch refresh(), which wipes data on failure', () => {
     expect(fonte).toContain("const { data, pending, error } = await useFetch<any>('/api/premium/report'")
-    expect(semComentarios).not.toMatch(/\brefresh\s*\(/)
+    expect(semComentarios).not.toMatch(/\b(refresh|execute|refreshNuxtData|clearNuxtData)\s*\(/)
   })
 
   it('the update writes data only when the request succeeds', () => {
-    expect(semComentarios).toMatch(/async function atualizarRelatorio\(\) \{\s*try \{\s*const r = await \$fetch<any>\('\/api\/premium\/report', \{ query: \{ token, o: origemAbertura \} \}\)\s*if \(r\) data\.value = r\s*\} catch \{\s*\}\s*\}/)
+    expect(semComentarios).toMatch(/async function atualizarRelatorio\(\) \{\s*const meu = \+\+seqPedido\s*try \{\s*const r = await \$fetch<any>\('\/api\/premium\/report', \{ query: \{ token, o: origemAbertura \} \}\)\s*if \(r && meu > seqAplicado\) \{ seqAplicado = meu; data\.value = r \}\s*\} catch \{\s*\}\s*\}/)
+  })
+
+  it('an older (slow) response never overwrites a newer one already applied', () => {
+    expect(semComentarios).toContain('let seqPedido = 0')
+    expect(semComentarios).toContain('let seqAplicado = 0')
   })
 
   it('every poller (DETRAN, montadora, recall, multas, payment status) uses it', () => {

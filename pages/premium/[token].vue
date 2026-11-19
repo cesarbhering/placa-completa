@@ -71,11 +71,17 @@ const { data, pending, error } = await useFetch<any>('/api/premium/report', { qu
 // na espera do DETRAN, o poll de 3 s parava (aguardandoDetran depende do data).
 // Com o Supabase lento ou reiniciando, quem acabou de pagar ficava parado ali.
 // Aqui o relatorio so e trocado quando a resposta chega; se falhar, fica o ultimo
-// bom na tela e a proxima volta tenta de novo.
+// bom na tela e a proxima volta tenta de novo. Cada pedido leva um numero: uma
+// resposta mais velha (lenta) nunca sobrescreve uma mais nova ja aplicada, senao
+// um "consultando" atrasado podia voltar por cima do "entregue" depois que o
+// poll ja tinha parado (revisao do #775).
+let seqPedido = 0
+let seqAplicado = 0
 async function atualizarRelatorio() {
+  const meu = ++seqPedido
   try {
     const r = await $fetch<any>('/api/premium/report', { query: { token, o: origemAbertura } })
-    if (r) data.value = r
+    if (r && meu > seqAplicado) { seqAplicado = meu; data.value = r }
   } catch { /* rede ou servidor oscilou: mantem o ultimo relatorio bom */ }
 }
 // Link de pedido duplicado ja reembolsado: abre o relatorio da compra que
