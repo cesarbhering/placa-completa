@@ -2410,9 +2410,6 @@ onUnmounted(() => {
 
         <!-- ============ 3. O RELATORIO ============ -->
         <template v-else>
-          <!-- Pedido acoplado (04/nov/2026): segunda placa por R$ 29,90 no topo do
-               relatorio. O servidor decide se ha oferta (e-mail, 24 h, 1 uso). -->
-          <OfertaSegundaPlaca v-if="token && !isCapacitor" :token="token" onde="relatorio" />
           <!-- Faixa de entrega por e-mail. So aparece pra quem comprou sem
                informar e-mail (o campo do Pix e opcional desde que ele saiu da
                frente da cobranca). Sem isto, quem fechava o modal do Pix nao
@@ -3439,6 +3436,11 @@ onUnmounted(() => {
               Relatório completo · <span v-if="!upsellResolvido" style="visibility: hidden">{{ precoBRL(precoUpsellCompleta) }}</span><template v-else>{{ precoBRL(precoUpsellCompleta) }}</template>
             </NuxtLink>
           </section>
+
+          <!-- Pedido acoplado (04/nov/2026): segunda placa por R$ 29,90. Foi para
+               o fim do relatorio a pedido do Cesar (19/11/2026): primeiro o laudo,
+               depois a oferta. O servidor decide se ha oferta (e-mail, 24 h, 1 uso). -->
+          <OfertaSegundaPlaca v-if="token && !isCapacitor" :token="token" onde="relatorio" />
 
           <!-- Nova consulta: incentivo pra voltar depois de ver o relatorio
                pronto. So tela (mesmo tratamento do upsell da basica acima,
