@@ -9,7 +9,8 @@ import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 // nunca afirmar que um veiculo especifico passou por leilao (e sempre indicio
 // ou registro compativel), nunca prometer certeza, e nunca nomear a fonte dos
 // dados do relatorio.
-import { PERGUNTAS_LEILAO } from '~/shared/faq-leilao'
+import { PERGUNTAS_LEILAO, RESPOSTA_COMO_SABER_INDEX } from '~/shared/faq-leilao'
+import { CONTA_INDEX } from '~/shared/conta-leilao'
 import { MODELOS_POR_VOLUME } from '~/shared/leilao-modelos'
 
 const CANONICO = 'https://placacompleta.com.br/carro-de-leilao'
@@ -114,13 +115,18 @@ const SINAIS = [
       <h1 class="pc-h1">Carro de leilão vale a pena? O que conferir antes de comprar</h1>
 
       <div class="pc-prose">
-        <p class="pc-lead">
+        <p class="pc-lead">{{ RESPOSTA_COMO_SABER_INDEX }}</p>
+        <OfertaCompletaTopo origem="carro-de-leilao" foco="se consta registro de leilão" />
+        <p>
           Carro de leilão pode custar menos que um igual no mercado, mas só vale a pena para quem
           compra sabendo o que está levando. O desconto existe porque o risco existe: o carro pode
           ter vindo de recuperação de financiamento, de decisão judicial, de remoção de trânsito ou
           de um sinistro grave, e isso muda o que ele vale de verdade. Aqui você vê como comprar, o
           que conferir antes de dar o lance e como saber pela placa se um carro já passou por leilão.
         </p>
+
+        <h2>{{ CONTA_INDEX.titulo }}</h2>
+        <p v-for="t in CONTA_INDEX.paragrafos" :key="t">{{ t }}</p>
 
         <h2>Vale a pena comprar carro de leilão?</h2>
         <p>

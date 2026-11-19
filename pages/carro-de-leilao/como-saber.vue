@@ -4,7 +4,8 @@ import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 // Guia "Como saber se o carro e de leilao" (plano SEO 02/out, item #7). Rota
 // estatica: tem prioridade sobre /carro-de-leilao/[slug]. Conteudo e regras em
 // shared/guia-como-saber-leilao.ts.
-import { PASSOS, SINAIS, FAQ_COMO_SABER, LEVANTAMENTO_SINAL } from '~/shared/guia-como-saber-leilao'
+import { CONTA_COMO_SABER } from '~/shared/conta-leilao'
+import { PASSOS, SINAIS, FAQ_COMO_SABER, LEVANTAMENTO_SINAL, RESPOSTA_COMO_SABER } from '~/shared/guia-como-saber-leilao'
 
 const BASE = 'https://placacompleta.com.br'
 const CANONICO = `${BASE}/carro-de-leilao/como-saber`
@@ -38,12 +39,11 @@ useHead({
     <main class="pc-container">
       <h1 class="pc-h1">Como saber se o carro é de leilão</h1>
       <div class="pc-prose">
-        <p class="pc-lead">
-          Há três caminhos para saber se um carro já passou por leilão: pedir o documento e o
-          histórico ao vendedor, procurar sinais no próprio carro (chassi, etiquetas, reparos) e
-          consultar a placa ou o chassi numa base de leilões. Os dois primeiros levantam suspeita;
-          o terceiro é o que mostra o registro que não está no carro nem no documento.
-        </p>
+        <p class="pc-lead">{{ RESPOSTA_COMO_SABER }}</p>
+        <OfertaCompletaTopo origem="carro-de-leilao-como-saber" foco="se consta registro de leilão" />
+
+        <h2>{{ CONTA_COMO_SABER.titulo }}</h2>
+        <p v-for="t in CONTA_COMO_SABER.paragrafos" :key="t">{{ t }}</p>
 
         <h2>Passo a passo</h2>
         <div v-for="(p, i) in PASSOS" :key="p.nome" class="pc-step">
