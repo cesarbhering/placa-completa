@@ -9,10 +9,18 @@ text) and the view's info in one call, and keeps them in the private R2
 backups bucket as supabase-arquivo/pgss/AAAA-MM-DD.json.gz, never replacing
 an existing object. Read-only; one database call a day.
 
+No secrets: entries whose text mentions a password (the Supabase CLI creates
+temporary login roles in DO blocks, which are not normalized) are left out
+in the SELECT itself, the remaining texts are masked in SQL and masked again
+here before anything is written.
+
 Usage: pc-supabase-pgss-snapshot [--ref <project ref>] [--dia AAAA-MM-DD]
 """
 import argparse
 import datetime as dt
+import re
+import time
+import urllib.error
 import gzip
 import hashlib
 import json
@@ -26,18 +34,24 @@ PROD_REF = "fivalpkfneadngxiflea"
 TOKEN_FILE = "/root/.supabase/access-token"
 R2_ENV = "/root/.r2-credentials"
 TOP = 300
+SENHA_SQL = "(password|passwd)"
+MASCARA = re.compile(r"((?:password|passwd)\s+)'[^']*'", re.I)
 
 QUERY = f"""
 select json_build_object(
   'tirado_em', now(),
   'info', (select row_to_json(i) from pg_stat_statements_info i),
   'entradas', (select count(*) from pg_stat_statements(false)),
+  'fora_por_senha', (select count(*) from pg_stat_statements(true) p where p.query ~* '{SENHA_SQL}'),
   'top', (select coalesce(json_agg(x), '[]'::json) from (
     select r.rolname as papel, p.queryid::text as queryid, p.toplevel, p.calls, p.rows,
            round(p.total_exec_time::numeric, 1) as total_ms, round(p.mean_exec_time::numeric, 2) as media_ms,
            p.shared_blks_hit, p.shared_blks_read, p.shared_blks_dirtied, p.shared_blks_written,
-           p.temp_blks_read, p.temp_blks_written, p.wal_bytes::bigint as wal_bytes, p.stats_since, p.query
+           p.temp_blks_read, p.temp_blks_written, p.wal_bytes::bigint as wal_bytes, p.stats_since,
+           regexp_replace(p.query, '((password|passwd)\\s+)''[^'']*''', '\\1''***''', 'gi') as query
     from pg_stat_statements(true) p left join pg_roles r on r.oid = p.userid
+    where p.query !~* '{SENHA_SQL}'
+      and not (r.rolname = 'postgres' and p.query ~* '^\\s*do\\s' and p.query ~* 'create\\s+(role|user)')
     order by p.total_exec_time desc limit {TOP}) x)
 ) as r;"""
 
@@ -46,14 +60,27 @@ def log(msg):
     print(f"{dt.datetime.now():%H:%M:%S} {msg}", flush=True)
 
 
+def mascarar(texto):
+    return MASCARA.sub(r"\1'***'", texto or "")
+
+
 def sql(ref, query):
+    """Retries only 429 and 503 (the query did not run), twice, 30 s apart."""
     with open(TOKEN_FILE) as f:
         token = f.read().strip()
     req = urllib.request.Request(f"https://api.supabase.com/v1/projects/{ref}/database/query",
                                  data=json.dumps({"query": query}).encode(), method="POST",
                                  headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return json.loads(r.read())
+    for tentativa in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 503) and tentativa < 2:
+                log(f"api {e.code}, retrying in 30 s")
+                time.sleep(30)
+                continue
+            raise RuntimeError(f"api {e.code}: {e.read()[:200].decode(errors='replace')}")
 
 
 def r2_env():
@@ -89,6 +116,8 @@ def main(argv=None):
         log(f"{remoto} already exists, nothing done")
         return 0
     dados = sql(a.ref, QUERY)[0]["r"]
+    for x in dados["top"]:
+        x["query"] = mascarar(x.get("query"))
     with tempfile.TemporaryDirectory(prefix="pgss-") as td:
         gz = os.path.join(td, "s.json.gz")
         with gzip.open(gz, "wt", compresslevel=9) as f:
@@ -99,7 +128,8 @@ def main(argv=None):
         rclone("copyto", remoto, volta, env=env)
         if hashlib.sha256(open(volta, "rb").read()).hexdigest() != sha:
             raise RuntimeError(f"{remoto}: the object in R2 differs from the snapshot just taken")
-    log(f"{remoto}: {len(dados['top'])} statements of {dados['entradas']} entries, sha256 {sha[:12]}")
+    log(f"{remoto}: {len(dados['top'])} statements of {dados['entradas']} entries "
+        f"({dados.get('fora_por_senha', 0)} left out for mentioning a password), sha256 {sha[:12]}")
     return 0
 
 
