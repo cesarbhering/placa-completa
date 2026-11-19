@@ -10,7 +10,7 @@ import { completarIpvaSefazMg, completarNadaConstaRj } from '../../utils/infosim
 // section as "Base parceira", the Basica never gets any of it, and the report
 // JSON never carries a name, a document or the vendor name.
 
-vi.mock('../../utils/placa-lookup', () => ({ lerPlacaCacheFresca: async () => null, motorDoPayload: () => null }))
+vi.mock('../../utils/placa-lookup', () => ({ lerPlacaCacheParaRelatorio: async () => null, motorDoPayload: () => null }))
 vi.mock('../../utils/cupom-recompra', () => ({ cupomRecompraDoPedido: async () => null }))
 vi.mock('../../utils/entrega-pedido', () => ({ promoverSeSnapshotPronto: async () => false }))
 vi.mock('../../utils/relatorio-aberturas', () => ({ registrarAbertura: async () => {} }))

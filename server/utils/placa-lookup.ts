@@ -173,6 +173,31 @@ export function semMotor<T>(payload: T): T {
 }
 
 /**
+ * Display-only read for the paid report: the payload of a FOUND plate in
+ * placa_cache, whatever its age, or null. Never calls a source (free or
+ * paid). report.get.ts uses it only for the engine number of orders sold
+ * before that field entered the snapshot (09/nov) and for the brand logo
+ * missing from the snapshot. The TTL above is about refetching for new
+ * lookups; a report already sold keeps showing what the cache had, and the
+ * pruning of pc-supabase-arquivar keeps the plates of paid orders.
+ */
+export async function lerPlacaCacheParaRelatorio(placa: string): Promise<any | null> {
+  const placaClean = normalizarPlaca(placa)
+  if (placaClean.length < 7) return null
+  try {
+    const { data } = await useSupabaseServer()
+      .from('placa_cache')
+      .select('payload, encontrado')
+      .eq('placa', placaClean)
+      .maybeSingle()
+    if (!data || data.encontrado === false || !data.payload) return null
+    return data.payload
+  } catch {
+    return null
+  }
+}
+
+/**
  * So o cache: payload da placa se estiver no placa_cache como ENCONTRADA e
  * fresca (TTL_MS), senao null. Nao chama a API paga. Serve pro preview do
  * checkout decidir o teto: placa ja em cache nao custa wdapi, entao nao conta

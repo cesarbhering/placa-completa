@@ -15,7 +15,7 @@ const rastrear = async <T>(f: () => T): Promise<T> => {
 }
 
 vi.mock('../../utils/placa-lookup', () => ({
-  lerPlacaCacheFresca: () => { leiturasPlacaCache++; return rastrear(() => ({ motor: 'MTR0000TESTE', logo: null })) },
+  lerPlacaCacheParaRelatorio: () => { leiturasPlacaCache++; return rastrear(() => ({ motor: 'MTR0000TESTE', logo: null })) },
   motorDoPayload: (c: any) => c?.motor ?? null,
 }))
 vi.mock('../../utils/cupom-recompra', () => ({ cupomRecompraDoPedido: () => rastrear(() => null) }))
