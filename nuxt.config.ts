@@ -140,6 +140,7 @@ export default defineNuxtConfig({
       "/tabela-fipe-por-placa",
       "/carro-de-leilao",
       "/carro-de-leilao/como-saber",
+      "/como-saber-se-o-carro-e-roubado",
       // Cluster de compra (shared/cluster-compra.ts)
       "/laudo-cautelar",
       "/historico-veicular",

@@ -1,4 +1,5 @@
 import { BASE_LEILAO_TEXTO } from './base-leilao'
+import { RESPOSTA_CONSULTAR_ROUBO } from './guia-carro-roubado'
 // Cluster /consultar/{tema} (pedido do Cesar, 04/nov/2026): landing simples
 // por verificacao (gravame, leilao, recall, multas, roubo e furto, FIPE), com
 // um card de placa que leva pra consulta normal da home (/placa/<PLACA>).
@@ -116,7 +117,7 @@ export const TEMAS_CONSULTAR: TemaConsultar[] = [
     slug: 'roubo-furto',
     termo: 'Roubo e furto',
     resumo: 'Indicador de roubo ou furto registrado para o veículo.',
-    h1: 'Como saber se um carro é roubado pela placa',
+    h1: 'Consultar roubo e furto pela placa',
     titulos: ['Consultar Roubo e Furto pela Placa: Veja o Histórico do Carro', 'Consultar Roubo e Furto pela Placa do Veículo', 'Consultar Roubo e Furto pela Placa'],
     description: 'Veja pela placa se existe indicador de roubo ou furto registrado para o veículo antes de fechar negócio. Saiba o que fazer se aparecer.',
     lead: 'Comprar um carro com registro de roubo ou furto pode significar perder o carro e o dinheiro. Pela placa dá para saber se existe indicador registrado antes de fechar.',
@@ -130,7 +131,7 @@ export const TEMAS_CONSULTAR: TemaConsultar[] = [
       { pergunta: 'Placa limpa garante que o carro não é clonado?', resposta: 'Não. Num clone, a placa é de outro carro. Por isso confira se marca, modelo, cor e chassi do relatório batem com o carro na sua frente.' },
       { pergunta: 'O que fazer se aparecer indicador de roubo?', resposta: 'Não pague nada e procure a polícia. Não confronte o vendedor.' },
       { pergunta: 'O que é RENAJUD?', resposta: 'É o sistema que a Justiça usa para bloquear veículos. Um bloqueio judicial pode impedir a transferência ou até a circulação.' },
-      { pergunta: 'Onde vejo roubo e furto na PlacaCompleta?', resposta: NO_COMPLETO },
+      { pergunta: 'Como consultar a placa para ver se o carro é roubado?', resposta: RESPOSTA_CONSULTAR_ROUBO },
     ],
   },
   {

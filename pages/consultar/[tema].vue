@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Landing por verificacao: conteudo em shared/consultar-temas.ts.
 import { escolherTitulo } from '~/shared/seo-titulo'
+import { RESPOSTA_CONSULTAR_ROUBO } from '~/shared/guia-carro-roubado'
 import { temaConsultar, TEMAS_CONSULTAR, rotaDoTema, ROTA_CONSULTAR, INDICE_CONSULTAR } from '~/shared/consultar-temas'
 
 const route = useRoute()
@@ -36,7 +37,11 @@ useHead({
       <div class="pc-prose">
         <p class="pc-lead">{{ t.lead }}</p>
 
-        <ConsultarPlacaCard :origem="`consultar-${t.slug}`" />
+        <template v-if="t.slug === 'roubo-furto'">
+          <p>{{ RESPOSTA_CONSULTAR_ROUBO }}</p>
+          <OfertaCompletaTopo origem="consultar-roubo-furto" foco="o indicador de roubo e furto" />
+        </template>
+        <ConsultarPlacaCard v-else :origem="`consultar-${t.slug}`" />
 
         <h2>O que esta verificação mostra</h2>
         <p>{{ t.mostra.paragrafo }}</p>
@@ -55,6 +60,11 @@ useHead({
           <span class="pc-step__number">3</span>
           <p class="pc-step__text">{{ t.passo3 }}</p>
         </div>
+
+        <p v-if="t.slug === 'roubo-furto'">
+          Quer o passo a passo completo, com documento, chassi e sinais de clone? Veja
+          <NuxtLink to="/como-saber-se-o-carro-e-roubado">como saber se o carro é roubado</NuxtLink>.
+        </p>
 
         <h2>Perguntas frequentes</h2>
         <div v-for="q in t.faq" :key="q.pergunta" class="pc-faq__item">
