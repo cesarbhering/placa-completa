@@ -39,7 +39,7 @@ import { ROTULO_RESTRICAO, explicaRestricao, filtrarItensRestricao, ehEstoqueRen
 import { fotoRefsDaPassagem, urlFotoLote, altFotoLote, fotosPendentes, midiasDaPassagem } from '~/shared/foto-lote'
 import { resumoSoPossivel, parecerComPossivel, cartaoSoPossivel, estadoCartaoLeilao, PARECER_SO_POSSIVEL_TITULO } from '~/shared/leilao-copy'
 import { detalhesLegiveis, explicaGravidade, comAcentos, semValorEmReais, fonteExibicaoLeilao, historicoNaTela, comitenteExibicao, fraseComitente, tipoComitente, paginaPublicaLeilao, AVISO_PAGINA_PUBLICA, passagemCertezaPorIdentificador, ligadoPeloMotor, leiloeiroValido, textoCasaLeilao } from '~/shared/leilao-exibicao'
-import { ehNotificacao, haLeilaoConfirmado, tituloNotificacao, camposNotificacao, contarPassagens, linhaNotificacao, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
+import { ehNotificacao, notificacaoCoberta, eventoNotificadoCoberto, tituloNotificacao, camposNotificacao, contarPassagens, linhaNotificacao, GRAVIDADE_NOTIFICADO, EXPLICA_NOTIFICACAO } from '~/shared/leilao-notificacao'
 import { montarChecklist } from '~/shared/checklist-compra'
 import { FONTE_PARCEIRA, rotuloIndicadorLeilao, linhasBasesSemRegistro, PASSAGEM_PARCEIRA } from '~/shared/fonte-parceira'
 import { sinistroPeloDetran, sinistroNaRestricaoNacional, cartaoSinistro } from '~/shared/sinistro-detran'
@@ -900,6 +900,8 @@ const passagensLeilao = computed(() => {
     // como leilao confirmado. Detectado aqui tambem (e nao so no servidor)
     // porque o snapshot de relatorio antigo guarda a gravidade velha.
     notificacao: ehNotificacao(p),
+    // Some da tela com leilao confirmado do mesmo orgao (Cesar, 19/11/2026).
+    notificacaoCoberta: notificacaoCoberta(p, lista),
     // Word joiner depois do hifen: sem ele, no celular a linha quebrava em
     // "DETRAN-" / "RJ".
     tituloNotificacao: ehNotificacao(p) ? tituloNotificacao(p).replace('DETRAN-', 'DETRAN-\u2060') : '',
@@ -1027,15 +1029,13 @@ const passagensFortes = computed(() => passagensLeilao.value.filter((p) => p.niv
 // Notificacoes com identificacao forte, uma por data (o mesmo edital pode vir
 // repetido de fontes da mesma UF). Notificacao "possivel" nao aparece: casar
 // final de placa com um aviso de notificacao nao diz nada sobre este carro.
-// Com leilao confirmado, a notificacao do DETRAN some da secao e da linha do
-// tempo (Cesar, 19/11/2026). Ver haLeilaoConfirmado.
-const temLeilaoConfirmado = computed(() => haLeilaoConfirmado(historicoLeilao.value?.passagens))
+// Com leilao confirmado do MESMO orgao, a notificacao do DETRAN some da secao e
+// da linha do tempo (Cesar, 19/11/2026). Ver notificacaoCoberta.
 
 const passagensNotificadas = computed(() => {
-  if (temLeilaoConfirmado.value) return []
   const vistas = new Set<string>()
   return passagensLeilao.value.filter((p) => {
-    if (!p.notificacao || p.nivel === 'possivel') return false
+    if (!p.notificacao || p.nivel === 'possivel' || p.notificacaoCoberta) return false
     // Mesma notificacao repetida (mesmo edital e mesmas datas) aparece uma vez.
     const chave = p.tituloNotificacao + '|' + p.camposNotificacao.map((c) => c.valor).join('|')
     if (vistas.has(chave)) return false
@@ -1789,7 +1789,7 @@ function leiloesDaLinhaDoTempo(passagens: any[]) {
     // com foto); notificacao "possivel" nao aparece na secao, entao aqui tambem nao.
     return passagens
       .map((p: any, i: number) => ({ p, i }))
-      .filter(({ p, i }) => (p.nivel === 'possivel' ? !ehNotificacao(p) && idxPossiveisExibidos.value.has(i) : !(temLeilaoConfirmado.value && ehNotificacao(p))))
+      .filter(({ p, i }) => (p.nivel === 'possivel' ? !ehNotificacao(p) && idxPossiveisExibidos.value.has(i) : !notificacaoCoberta(p, passagens)))
       .map(({ p }) => ({
         // Partner record with only the year: the timeline places it in that year.
         data: p.data_leilao || (/^\d{4}$/.test(String(p.ano_leilao ?? '')) ? String(p.ano_leilao) : null),
@@ -1802,7 +1802,7 @@ function leiloesDaLinhaDoTempo(passagens: any[]) {
   }
   const intervalos: number[] = historicoLeilao.value?.recorrencia?.intervalosMeses || []
   let nLeilao = 0
-  const eventos = api.filter((e: any) => !(temLeilaoConfirmado.value && e.tipo === 'notificado')).map((e: any) => {
+  const eventos = api.filter((e: any) => !eventoNotificadoCoberto(e, passagens)).map((e: any) => {
     const ehLeilao = e.tipo !== 'notificado'
     const intervalo = ehLeilao && nLeilao > 0 && intervalos[nLeilao - 1] != null ? textoIntervalo(intervalos[nLeilao - 1]) : null
     if (ehLeilao) nLeilao++
