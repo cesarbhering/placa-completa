@@ -1,0 +1,6 @@
+[Unit]
+Description=Alert line and Lead reminder when %i fails
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-supabase-falha %i

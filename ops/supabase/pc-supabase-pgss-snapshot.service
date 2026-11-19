@@ -1,0 +1,13 @@
+[Unit]
+Description=Keep the top 300 of pg_stat_statements in R2 before the 04:05 reset
+After=network-online.target
+Wants=network-online.target
+OnFailure=pc-supabase-falha@%n.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-supabase-pgss-snapshot
+Nice=10
+MemoryMax=512M
+MemorySwapMax=0
+TimeoutStartSec=15min

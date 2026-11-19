@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily pg_stat_statements snapshot (04:00 BRT, before the 04:05 reset)
+
+[Timer]
+OnCalendar=*-*-* 04:00:00 America/Sao_Paulo
+Persistent=true
+
+[Install]
+WantedBy=timers.target

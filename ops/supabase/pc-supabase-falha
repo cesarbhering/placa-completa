@@ -1,0 +1,17 @@
+#!/bin/bash
+# OnFailure de units do Supabase (ex.: pc-supabase-pgss-snapshot): uma linha em
+# /var/log/pc-supabase-alertas.log e um lembrete na janela do Lead (pc-lembrete-lead, que cai
+# para e-mail se a janela nao existir). No maximo 1 lembrete por hora por unit.
+# Uso (pela unit template): pc-supabase-falha <unit que falhou>
+set -u
+U=${1:?unit}
+L=${PC_SUPABASE_ALERTAS:-/var/log/pc-supabase-alertas.log}
+LEMBRETE=${PC_LEMBRETE_LEAD:-/usr/local/bin/pc-lembrete-lead}
+CARIMBOS=${PC_SUPABASE_FALHA_DIR:-/var/lib/pc-supabase-falha}
+echo "$(date '+%F %T') FALHA $U: journalctl -u $U -n 50" >> "$L"
+C=$CARIMBOS/$(echo "$U" | tr -c 'A-Za-z0-9._-' '_').ts
+mkdir -p "$CARIMBOS"
+agora=$(date +%s); ult=$(cat "$C" 2>/dev/null || echo 0)
+[ $((agora - ult)) -lt 3600 ] && exit 0
+echo "$agora" > "$C"
+"$LEMBRETE" "SUPABASE: a unit $U falhou ($(date '+%d/%m %H:%M')). Ver journalctl -u $U -n 50 e $L." || true
