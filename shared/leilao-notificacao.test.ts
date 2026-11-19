@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ehNotificacao, tituloNotificacao, camposNotificacao, lerEditalNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO } from './leilao-notificacao'
+import { ehNotificacao, haLeilaoConfirmado, tituloNotificacao, camposNotificacao, lerEditalNotificacao, contarPassagens, GRAVIDADE_NOTIFICADO } from './leilao-notificacao'
 
 // Linha real do indice (AIC2103, DETRAN-RJ), como a /v1 devolve hoje.
 const rj = {
@@ -94,3 +94,30 @@ describe('notificacao para leilao', () => {
     expect(GRAVIDADE_NOTIFICADO.nivel).toBe('notificado')
   })
 })
+
+describe('notificacao some quando ha leilao confirmado (Cesar, 19/11/2026)', () => {
+  // Caso real (DETRAN-DF 01/2026): a notificacao vem com nivel 'confirmado' e
+  // situacao 'notificado', e o lote do catalogo vem como edital de leilao.
+  const notificacao = { nivel: 'confirmado', situacao: 'notificado', ref: '01/2026', lote: null, detalhes: { tipo_registro: 'notificacao_leilao' } }
+  const loteNoCatalogo = { nivel: 'confirmado', situacao: null, ref: '01/2026', lote: '0563', detalhes: { tipo_registro: 'edital_leilao' } }
+
+  it('notificacao + lote confirmado: ha leilao confirmado', () => {
+    expect(haLeilaoConfirmado([notificacao, loteNoCatalogo])).toBe(true)
+  })
+
+  it('so a notificacao (mesmo com nivel confirmado) nao conta como leilao confirmado', () => {
+    expect(haLeilaoConfirmado([notificacao])).toBe(false)
+  })
+
+  it('possivel ou provavel nao esconde a notificacao', () => {
+    expect(haLeilaoConfirmado([notificacao, { ...loteNoCatalogo, nivel: 'possivel' }])).toBe(false)
+    expect(haLeilaoConfirmado([notificacao, { ...loteNoCatalogo, nivel: 'provavel' }])).toBe(false)
+  })
+
+  it('entrada torta nao quebra', () => {
+    expect(haLeilaoConfirmado(undefined)).toBe(false)
+    expect(haLeilaoConfirmado(null)).toBe(false)
+    expect(haLeilaoConfirmado([null, 1, 'x'])).toBe(false)
+  })
+})
+
