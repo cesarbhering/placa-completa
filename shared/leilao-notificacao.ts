@@ -33,17 +33,6 @@ export function ehNotificacao(p: any): boolean {
   return p.gravidade?.nivel === 'notificado'
 }
 
-/**
- * Ha leilao CONFIRMADO (que nao seja a propria notificacao)? Com ele, a
- * notificacao do DETRAN nao aparece no relatorio (Cesar, 19/11/2026): o aviso
- * "o proprietario pode ter retirado antes do leilao" nao acrescenta nada quando
- * o veiculo esta no catalogo do leilao. O dado continua no snapshot; so a tela
- * esconde.
- */
-export function haLeilaoConfirmado(passagens: unknown): boolean {
-  return Array.isArray(passagens) && passagens.some((p: any) => p?.nivel === 'confirmado' && !ehNotificacao(p))
-}
-
 function dataBR(iso: unknown): string | null {
   const s = String(iso || '').trim()
   if (!s) return null
@@ -224,6 +213,38 @@ const brParaIso = (br: string | null): string | null => {
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null
 }
 const chaveFonte = (p: any) => String(p?.fonte || '').trim().toLowerCase()
+
+/**
+ * A notificacao do DETRAN some da tela quando o MESMO orgao (mesma `fonte`) tem
+ * leilao CONFIRMADO deste veiculo. Cesar, 19/11/2026: primeiro pediu esconder com
+ * qualquer leilao confirmado (#772) e depois escolheu "so do mesmo orgao". A
+ * notificacao de outro orgao mostra outra ida do carro ao patio e fica. Sem
+ * `fonte` de um dos lados, nao esconde (na duvida, mostra). O snapshot guarda tudo.
+ */
+export function notificacaoCoberta(notificacao: any, passagens: unknown): boolean {
+  if (!ehNotificacao(notificacao) || !Array.isArray(passagens)) return false
+  const f = chaveFonte(notificacao)
+  return !!f && passagens.some((p: any) => p?.nivel === 'confirmado' && !ehNotificacao(p) && chaveFonte(p) === f)
+}
+
+/**
+ * Evento "notificado" da linha do tempo da leiloes-api. Ele vem agrupado e so traz
+ * o nome de exibicao das fontes (`fonte_exibicao`), entao some quando TODAS as
+ * fontes dele sao de notificacoes cobertas (notificacaoCoberta). Evento sem fonte,
+ * ou com fonte de alguma notificacao que continua na tela, fica.
+ */
+export function eventoNotificadoCoberto(evento: any, passagens: unknown): boolean {
+  if (evento?.tipo !== 'notificado' || !Array.isArray(passagens)) return false
+  const fontes: string[] = Array.isArray(evento.fontes) ? evento.fontes.filter(Boolean).map(String) : []
+  if (!fontes.length) return false
+  const cobertas = new Set<string>()
+  const abertas = new Set<string>()
+  for (const p of passagens as any[]) {
+    if (!ehNotificacao(p) || p?.nivel === 'possivel' || !p?.fonte_exibicao) continue
+    ;(notificacaoCoberta(p, passagens) ? cobertas : abertas).add(String(p.fonte_exibicao))
+  }
+  return fontes.every((f) => cobertas.has(f) && !abertas.has(f))
+}
 const semLink = (v: string | null) => (v && !/^https?:|\.pdf$/i.test(v) ? v : null)
 
 /** Notice data in the API contract shape, only the fields that exist. */
