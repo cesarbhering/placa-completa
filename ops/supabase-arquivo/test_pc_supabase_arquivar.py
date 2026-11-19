@@ -153,19 +153,21 @@ class Clear(Base):
 
     def test_dry_run_does_not_update(self):
         man = self.archived()
-        with mock.patch.object(m, "sql", return_value=self.fp(man)) as q:
+        with mock.patch.object(m, "sql", side_effect=[self.fp(man), [{"ok": True}]]) as q:
             self.assertFalse(m.clear_day(self.args, "consultas", CFG, DAY, self.state, {}, "bucket"))
-        self.assertEqual(q.call_count, 1)
+        self.assertEqual(q.call_count, 2)
         self.assertFalse(self.state.data["2026-08-03"].get("zerado_em"))
 
     def test_confirmed_clear_runs_the_update_once(self):
         man = self.archived()
         self.args.confirmar = True
-        with mock.patch.object(m, "sql", side_effect=[self.fp(man), [{"n": 4}]]) as q:
+        with mock.patch.object(m, "sql", side_effect=[self.fp(man), [{"ok": True}], [{"n": 4}]]) as q:
             self.assertTrue(m.clear_day(self.args, "consultas", CFG, DAY, self.state, {}, "bucket"))
-        update_sql = q.call_args_list[1][0][1]
+        self.assertIn("processado_ate >= '2026-08-04 00:00:00-03'", q.call_args_list[1][0][1])
+        update_sql = q.call_args_list[2][0][1]
         self.assertIn("set api_response = null", update_sql)
         self.assertIn("api_response is not null", update_sql)
+        self.assertIn("created_at <= (select processado_ate from public.leads_extracao_estado where id)", update_sql)
         self.assertEqual(self.state.data["2026-08-03"]["zerados"], 4)
 
     def test_database_changed_since_archive_blocks_the_clear(self):
@@ -183,6 +185,34 @@ class Clear(Base):
         with mock.patch.object(m, "sql", return_value=self.fp(man)) as q:
             self.assertFalse(m.clear_day(self.args, "consultas", CFG, DAY, self.state, {}, "bucket"))
         self.assertEqual(q.call_count, 1)
+
+
+class LeadsWatermark(Base):
+    """R3 of the #776 review: never clear api_response the leads extraction has not read."""
+    archived = Clear.archived
+    fp = Clear.fp
+
+    def test_day_after_the_watermark_is_not_cleared(self):
+        man = self.archived()
+        self.args.confirmar = True
+        with mock.patch.object(m, "sql", side_effect=[self.fp(man), [{"ok": False}]]) as q:
+            self.assertFalse(m.clear_day(self.args, "consultas", CFG, DAY, self.state, {}, "bucket"))
+        self.assertEqual(q.call_count, 2)
+        self.assertFalse(self.state.data["2026-08-03"].get("zerado_em"))
+
+    def test_missing_watermark_table_blocks_the_clear(self):
+        man = self.archived()
+        self.args.confirmar = True
+        with mock.patch.object(m, "sql", side_effect=[self.fp(man), RuntimeError('api 400: relation "public.leads_extracao_estado" does not exist')]) as q:
+            self.assertFalse(m.clear_day(self.args, "consultas", CFG, DAY, self.state, {}, "bucket"))
+        self.assertEqual(q.call_count, 2)
+
+    def test_empty_watermark_table_blocks_the_clear(self):
+        man = self.archived()
+        self.args.confirmar = True
+        with mock.patch.object(m, "sql", side_effect=[self.fp(man), []]) as q:
+            self.assertFalse(m.clear_day(self.args, "consultas", CFG, DAY, self.state, {}, "bucket"))
+        self.assertEqual(q.call_count, 2)
 
 
 class Main(Base):

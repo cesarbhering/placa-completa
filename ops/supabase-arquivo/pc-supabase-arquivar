@@ -46,6 +46,11 @@ TABLES = {
         "time_col": "created_at",
         "id_col": "id",
         "clear_col": "api_response",
+        # extract_leads_from_consultas() reads api_response of the rows it has
+        # not processed yet: only rows at or before its watermark may be
+        # cleared (also covers a cron that stopped for more than 7 days).
+        "clear_guard": "created_at <= (select processado_ate from public.leads_extracao_estado where id)",
+        "guard_check": "select (processado_ate >= '{fim}'::timestamptz) as ok from public.leads_extracao_estado where id",
     },
 }
 
@@ -264,12 +269,22 @@ def clear_day(args, table, cfg, day, state, env, bucket):
     if not ok:
         log(f"{day}: R2 object failed verification ({why}); not clearing")
         return False
+    if cfg.get("guard_check"):
+        try:
+            g = sql(args.ref, cfg["guard_check"].format(fim=day_bounds(day)[1]))
+        except RuntimeError as e:
+            log(f"{day}: guard check failed ({str(e)[:120]}); not clearing")
+            return False
+        if not g or not g[0].get("ok"):
+            log(f"{day}: the leads extraction has not processed this day yet; not clearing")
+            return False
     if not args.confirmar:
         log(f"{day}: would clear {cfg['clear_col']} of {fp['com_col']} rows (dry run)")
         return False
     c = cfg["clear_col"]
+    guard = f" and {cfg['clear_guard']}" if cfg.get("clear_guard") else ""
     q = f"""with u as (update public.{table} set {c} = null
- where {day_where(cfg, day)} and {c} is not null returning 1)
+ where {day_where(cfg, day)} and {c} is not null{guard} returning 1)
 select count(*) as n from u;"""
     n = sql(args.ref, q)[0]["n"]
     m["zerado_em"] = dt.datetime.now(dt.timezone.utc).isoformat()
