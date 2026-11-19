@@ -65,7 +65,25 @@ useHead({ title: 'Relatório Veicular', meta: [{ name: 'robots', content: 'noind
 // ?o=email (link do e-mail de entrega) vai junto so pra marcar a origem da
 // abertura no servidor (relatorio_aberturas).
 const origemAbertura = String(route.query.o || '') === 'email' ? 'email' : undefined
-const { data, pending, error, refresh } = await useFetch<any>('/api/premium/report', { query: { token, o: origemAbertura } })
+const { data, pending, error } = await useFetch<any>('/api/premium/report', { query: { token, o: origemAbertura } })
+// Atualizacao de fundo (19/11/2026). No Nuxt 3.21 um refresh() que falha zera o
+// `data` do useFetch: a pagina trocava o laudo por "Relatorio nao encontrado" e,
+// na espera do DETRAN, o poll de 3 s parava (aguardandoDetran depende do data).
+// Com o Supabase lento ou reiniciando, quem acabou de pagar ficava parado ali.
+// Aqui o relatorio so e trocado quando a resposta chega; se falhar, fica o ultimo
+// bom na tela e a proxima volta tenta de novo. Cada pedido leva um numero: uma
+// resposta mais velha (lenta) nunca sobrescreve uma mais nova ja aplicada, senao
+// um "consultando" atrasado podia voltar por cima do "entregue" depois que o
+// poll ja tinha parado (revisao do #775).
+let seqPedido = 0
+let seqAplicado = 0
+async function atualizarRelatorio() {
+  const meu = ++seqPedido
+  try {
+    const r = await $fetch<any>('/api/premium/report', { query: { token, o: origemAbertura } })
+    if (r && meu > seqAplicado) { seqAplicado = meu; data.value = r }
+  } catch { /* rede ou servidor oscilou: mantem o ultimo relatorio bom */ }
+}
 // Link de pedido duplicado ja reembolsado: abre o relatorio da compra que
 // ficou (302 no SSR). O servidor so devolve isto quando IP + aparelho batem.
 if (data.value?.redirecionarPara) {
@@ -791,14 +809,14 @@ async function renovarPix() {
     await $fetch('/api/premium/renovar-pix', { method: 'POST', body: { token } })
     // Recarrega em vez de montar a tela na mao: com br_code novo e prazo em dia,
     // o proprio ramo de pagamento pendente assume.
-    await refresh()
+    await atualizarRelatorio()
     await buscarQr()   // o codigo mudou; o QR desenhado precisa acompanhar
   } catch (e: any) {
     // Pix ja pago (inclusive a cobranca Woovi original, RBF5A06): o status
     // detecta e dispara a entrega; a pagina recarrega com o novo estado.
     if (e?.data?.message === 'Este pagamento ja foi confirmado.') {
       try { await $fetch('/api/premium/status', { query: { token } }) } catch { /* o polling tenta de novo */ }
-      await refresh()
+      await atualizarRelatorio()
       return
     }
     erroRenovar.value = e?.data?.message === 'O pagamento atual ainda esta valido.'
@@ -1302,7 +1320,7 @@ async function escolherCambio(codigo: string) {
   erroEscolhaCambio.value = ''
   try {
     await $fetch('/api/premium/fipe-escolha', { method: 'POST', body: { token, codigo } })
-    await refresh()
+    await atualizarRelatorio()
   } catch {
     erroEscolhaCambio.value = 'Não foi possível atualizar agora. Tente de novo em instantes.'
   } finally {
@@ -1679,7 +1697,7 @@ onMounted(() => {
     if (!tickDetran) tickDetran = setInterval(() => { agoraMs.value = Date.now() }, 1000)
     if (!pollDetran) {
       pollDetran = setInterval(async () => {
-        try { await refresh() } catch { /* rede oscilou; a proxima volta tenta */ }
+        await atualizarRelatorio()
       }, 3000)
     }
   }, { immediate: true })
@@ -2199,7 +2217,7 @@ onMounted(() => {
       try {
         const r: any = await $fetch('/api/premium/status', { query: { token } })
         if (!r?.status || r.status === data.value?.status) return
-        await refresh()          // o estado mudou de verdade: agora sim recarrega
+        await atualizarRelatorio()          // o estado mudou de verdade: agora sim recarrega
         if (!ehCartao.value) await buscarQr()  // Pix: se veio br_code novo, o QR acompanha (cartao nunca tem QR)
         if (data.value) histUpdate(token, data.value.status)
         if (data.value?.status === 'entregue') marcarAberto(token)
@@ -2225,7 +2243,7 @@ onMounted(() => {
   const ate = Date.now() + 60 * 1000
   pollNissan = setInterval(async () => {
     if (Date.now() > ate || data.value?.recallMontadora) { clearInterval(pollNissan); return }
-    try { await refresh() } catch { /* rede oscilou; a proxima volta tenta */ }
+    await atualizarRelatorio()
   }, 5000)
 })
 onMounted(() => {
@@ -2233,7 +2251,7 @@ onMounted(() => {
   const ate = Date.now() + 4 * 60 * 1000
   pollRecall = setInterval(async () => {
     if (Date.now() > ate || recallDetalhe.value) { clearInterval(pollRecall); return }
-    try { await refresh() } catch { /* rede oscilou; a proxima volta tenta */ }
+    await atualizarRelatorio()
   }, 15000)
 })
 
@@ -2251,7 +2269,7 @@ function acompanharMultas() {
   pollMultas = setInterval(async () => {
     if (multasDetalhe.value || multasIndisponivel.value) { clearInterval(pollMultas); pollMultas = null; return }
     if (Date.now() > ate) { clearInterval(pollMultas); pollMultas = null; acompanhamentoEsgotado.value = true; return }
-    try { await refresh() } catch { /* rede oscilou; a proxima volta tenta */ }
+    await atualizarRelatorio()
   }, 10000)
 }
 onMounted(() => {
