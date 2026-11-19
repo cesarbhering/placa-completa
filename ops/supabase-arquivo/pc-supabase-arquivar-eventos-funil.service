@@ -2,6 +2,7 @@
 Description=Archive yesterday's eventos_funil to R2; summarize and delete raw rows older than 30 days
 After=network-online.target
 Wants=network-online.target
+OnFailure=pc-supabase-arquivar-falha@%n.service
 
 [Service]
 Type=oneshot

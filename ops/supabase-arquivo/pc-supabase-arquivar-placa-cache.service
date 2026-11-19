@@ -2,6 +2,7 @@
 Description=Archive to R2 and delete placa_cache rows past their use (not found after 6 h, found after 90 days, paid plates kept)
 After=network-online.target
 Wants=network-online.target
+OnFailure=pc-supabase-arquivar-falha@%n.service
 
 [Service]
 Type=oneshot

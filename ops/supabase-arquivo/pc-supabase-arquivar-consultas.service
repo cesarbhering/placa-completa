@@ -2,6 +2,7 @@
 Description=Archive yesterday's consultas to R2 and clear api_response older than 7 days
 After=network-online.target
 Wants=network-online.target
+OnFailure=pc-supabase-arquivar-falha@%n.service
 
 [Service]
 Type=oneshot

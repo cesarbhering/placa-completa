@@ -2,6 +2,7 @@
 Description=Archive yesterday's api_chamadas to R2; summarize and delete raw rows older than 30 days (wdapi and placafipe stay)
 After=network-online.target
 Wants=network-online.target
+OnFailure=pc-supabase-arquivar-falha@%n.service
 
 [Service]
 Type=oneshot

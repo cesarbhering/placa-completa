@@ -4,8 +4,14 @@ Run: python3 -m unittest discover -s ops/supabase-arquivo -p 'test_*.py'
 The dangerous paths are asserted on behavior and on the SQL that reaches the
 database: the day filter and the fingerprint inside the write, the 7-day
 window, the leads watermark, the A16 guard, no write without --confirmar,
-no upload that replaces an object, and no write when R2 does not answer."""
+no upload that replaces an object, and no write when R2 does not answer.
+
+Isolation: the tests never see the real token, the real project ref or the
+network. setUpModule blocks sockets and urlopen, every test runs with a fake
+token file, a fake ref and a default sql() that fails loudly unless the test
+supplies its own answers."""
 import argparse
+import socket
 import datetime as dt
 import gzip
 import hashlib
@@ -26,6 +32,29 @@ m = importlib.util.module_from_spec(_spec)
 _ld.exec_module(m)
 
 DAY = dt.date(2026, 8, 3)
+FAKE_REF = "testtesttesttesttest"
+_REDE = []
+
+
+def _sem_rede(*a, **k):
+    raise RuntimeError("network blocked in tests")
+
+
+def setUpModule():
+    for alvo, nome in ((socket.socket, "connect"), (socket.socket, "connect_ex"), (socket, "create_connection"),
+                       (m.urllib.request, "urlopen")):
+        p = mock.patch.object(alvo, nome, _sem_rede)
+        p.start()
+        _REDE.append(p)
+    for nome, valor in (("TOKEN_FILE", "/nonexistent/fake-token"), ("R2_ENV", "/nonexistent/fake-r2")):
+        p = mock.patch.object(m, nome, valor)
+        p.start()
+        _REDE.append(p)
+
+
+def tearDownModule():
+    for p in reversed(_REDE):
+        p.stop()
 
 
 def md5(s):
@@ -97,16 +126,24 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.cfg = m.TABLES[self.table]
         self.tmp = tempfile.mkdtemp(prefix="pcarq-test-")
-        mock.patch.object(m, "STATE_DIR", self.tmp).start()
+        self.patch(m, "STATE_DIR", self.tmp)
         self.r2 = FakeR2()
-        mock.patch.object(m, "rclone", self.r2).start()
-        mock.patch.object(m.time, "sleep").start()
-        self.args = argparse.Namespace(ref=m.PROD_REF, prefixo="supabase-arquivo", confirmar=False, pausa=0,
+        self.patch(m, "rclone", self.r2)
+        self.patch(m, "r2_env", return_value=({}, "bucket"))
+        self.patch(m, "sql", side_effect=AssertionError("unexpected sql() call: give the test its answers"))
+        self.patch(m.time, "sleep")
+        self.args = argparse.Namespace(ref=FAKE_REF, prefixo="supabase-arquivo", confirmar=False, pausa=0,
                                        vacuum_a_cada=0, limite=100)
-        self.state = m.State(self.table, m.PROD_REF)
+        self.state = m.State(self.table, FAKE_REF)
+
+    def patch(self, alvo, nome, novo=mock.DEFAULT, **kw):
+        # Stopped one by one: stopall() would also stop the module-level
+        # network block of setUpModule.
+        p = mock.patch.object(alvo, nome, novo, **kw)
+        p.start()
+        self.addCleanup(p.stop)
 
     def tearDown(self):
-        mock.patch.stopall()
         shutil.rmtree(self.tmp, ignore_errors=True)
         shutil.rmtree(self.r2.dir, ignore_errors=True)
 
@@ -191,7 +228,7 @@ class Archive(Base):
         self.archived(2)
         with open(self.r2.path(self.key()), "rb") as f:
             original = f.read()
-        fresh = m.State("consultas", m.PROD_REF)
+        fresh = m.State("consultas", FAKE_REF)
         fresh.data = {}
         with mock.patch.object(m, "sql", return_value=export_result(rows(3))):
             with self.assertRaises(RuntimeError):
@@ -218,14 +255,20 @@ class Archive(Base):
         seen = []
         real = m.work_dir
 
-        def spy():
-            d = real()
+        def spy(table):
+            d = real(table)
             seen.append(d.name)
             return d
         with mock.patch.object(m, "work_dir", side_effect=spy), \
              mock.patch.object(m, "sql", return_value=export_result(rows(2))):
             m.archive_day(self.args, "consultas", self.cfg, DAY, self.state, {}, "bucket")
-        self.assertTrue(seen and all(p.startswith(os.path.join(self.tmp, "tmp")) for p in seen))
+        self.assertTrue(seen and all(p.startswith(os.path.join(self.tmp, "tmp", "consultas")) for p in seen))
+
+    def test_cleaning_one_table_never_touches_another(self):
+        outro = os.path.join(self.tmp, "tmp", "api_chamadas", "pcarq-x")
+        os.makedirs(outro)
+        m.clean_work_dir("consultas")
+        self.assertTrue(os.path.isdir(outro))
 
 
 class Clear(Base):
@@ -265,7 +308,9 @@ class Clear(Base):
         self.assertIn("x.created_at < now() - interval '7 days'", s)
         self.assertIn("x.created_at <= (select processado_ate from public.leads_extracao_estado where id)", s)
         self.assertIn("polcmd in ('a', '*')", s)
-        self.assertIn("case when (select count(*) from feito) > (select n from fp) then 1/0 end", s)
+        self.assertIn("relrowsecurity", s)
+        self.assertIn("case when (select count(*) from feito) > (select n from fp) then (select count(*) from feito) / 0 end", s)
+        self.assertNotIn("1/0", s)
         self.assertEqual(self.state.data["2026-08-03"]["zerados"], man["linhas"])
 
     def test_only_ids_md5_differs_blocks_the_clear(self):
@@ -348,6 +393,10 @@ class Guards(Base):
         self.assertIn("leads_extracao_estado", g)
         self.assertIn(">= '2026-08-04 00:00:00-03'::timestamptz", g)
 
+    def test_a16_guard_also_requires_rls_on(self):
+        self.assertIn("relrowsecurity", m.TABLES["consultas"]["guard_check"])
+        self.assertIn("relrowsecurity", m.TABLES["consultas"]["release_guard"])
+
     def test_open_insert_policy_blocks_the_clear(self):
         ok, q = self.run_with([{"marca_ok": True, "sem_insert_aberto": False}])
         self.assertFalse(ok)
@@ -403,7 +452,9 @@ class Delete(Base):
         self.assertIn("a.fonte not in ('wdapi', 'placafipe')", d)
         self.assertIn("x.criado_em < now() - interval '30 days'", d)
         self.assertIn(f"fp.ids_md5 = '{man['ids_md5']}'", d)
-        self.assertIn("then 1/0 end", d)
+        self.assertIn("then (select count(*) from feito) / 0 end", d)
+        self.assertNotIn("1/0", d)
+        self.assertIn("x.id = a.id", d)
         st = self.state.data["2026-08-03"]
         self.assertEqual((st["resumo"], st["apagados"]), (7, 3))
 
@@ -417,8 +468,8 @@ class Windows(Base):
 
     def released_days(self, argv):
         calls = []
-        with mock.patch("sys.argv", ["x", *argv]), \
-             mock.patch.object(m, "r2_env", return_value=({}, "bucket")), \
+        with mock.patch("sys.argv", ["x", *argv, "--ref", FAKE_REF]), \
+             mock.patch.object(m, "sql", return_value=[{"n": 0}]), \
              mock.patch.object(m, "State", return_value=self.state), \
              mock.patch.object(m, "release_day", side_effect=lambda a, t, c, d, *r: calls.append(d) or False):
             m.main()
@@ -439,13 +490,24 @@ class Windows(Base):
         today = m.today_brt()
         self.seed([today - dt.timedelta(days=5)])
         archived = []
-        with mock.patch("sys.argv", ["x", "consultas", "diario"]), \
-             mock.patch.object(m, "r2_env", return_value=({}, "bucket")), \
+        with mock.patch("sys.argv", ["x", "consultas", "diario", "--ref", FAKE_REF]), \
+             mock.patch.object(m, "sql", return_value=[{"n": 0}]), \
              mock.patch.object(m, "State", return_value=self.state), \
              mock.patch.object(m, "archive_day", side_effect=lambda a, t, c, d, *r: archived.append(d)), \
              mock.patch.object(m, "release_day", return_value=False):
             m.main()
         self.assertEqual(archived, [today - dt.timedelta(days=k) for k in (4, 3, 2, 1)])
+
+    def test_leftover_vacuum_jobs_are_removed_only_with_confirmar(self):
+        for confirmar, removeu in ((False, False), (True, True)):
+            argv = ["x", "consultas", "liberar", "--ate", "2026-08-01", "--ref", FAKE_REF] + (["--confirmar"] if confirmar else [])
+            with mock.patch("sys.argv", argv), mock.patch.object(m, "sql", return_value=[{"n": 2}]) as q, \
+                 mock.patch.object(m, "State", return_value=self.state):
+                m.main()
+            unsched = [c for c in q.call_args_list if "cron.unschedule" in c[0][1]]
+            self.assertEqual(bool(unsched), removeu)
+            if unsched:
+                self.assertIn("jobname like 'pcarq-vacuum-consultas-%'", unsched[0][0][1])
 
     def test_status_reports_gaps(self):
         self.seed([DAY, DAY + dt.timedelta(days=2)])
@@ -526,8 +588,7 @@ class Prune(Base):
         self.assertEqual(writes(q), [])
 
     def test_other_actions_are_refused_for_placa_cache(self):
-        with mock.patch("sys.argv", ["x", "placa_cache", "liberar", "--ate", "2026-08-01"]), \
-             mock.patch.object(m, "r2_env", return_value=({}, "bucket")), \
+        with mock.patch("sys.argv", ["x", "placa_cache", "liberar", "--ate", "2026-08-01", "--ref", FAKE_REF]), \
              mock.patch.object(m, "sql") as q:
             self.assertEqual(m.main(), 2)
         q.assert_not_called()
@@ -536,11 +597,25 @@ class Prune(Base):
 class Main(Base):
     def test_refuses_to_archive_today(self):
         today = m.today_brt().isoformat()
-        with mock.patch("sys.argv", ["x", "consultas", "arquivar", "--dia", today]), \
-             mock.patch.object(m, "r2_env", return_value=({}, "bucket")), \
+        with mock.patch("sys.argv", ["x", "consultas", "arquivar", "--dia", today, "--ref", FAKE_REF]), \
              mock.patch.object(m, "sql") as q:
             self.assertEqual(m.main(), 2)
         q.assert_not_called()
+
+
+class Isolamento(Base):
+    def test_default_sql_fails_loudly(self):
+        with self.assertRaises(AssertionError):
+            m.sql(FAKE_REF, "select 1")
+
+    def test_real_network_is_blocked(self):
+        with self.assertRaises(RuntimeError):
+            socket.create_connection(("api.supabase.com", 443))
+        with self.assertRaises(RuntimeError):
+            m.urllib.request.urlopen("https://api.supabase.com/")
+
+    def test_no_real_token_is_reachable(self):
+        self.assertNotEqual(m.TOKEN_FILE, "/root/.supabase/access-token")
 
 
 class Api(unittest.TestCase):

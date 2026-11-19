@@ -59,6 +59,15 @@ systemctl daemon-reload
 
 Cada timer só é ligado depois do backfill e da primeira janela de liberar daquela tabela. Os horários são 04h00 (consultas), 04h20 (api_chamadas), 04h40 (eventos_funil), 05h00 (placa_cache) e 05h20 (relatorio_aberturas).
 
+**Alerta de falha:** cada service tem `OnFailure=pc-supabase-arquivar-falha@%n.service`, que manda um e-mail com as últimas linhas do journal, no máximo um por hora por unit. Os destinatários padrão são teamlead@ e helena@; para mudar, use `PC_ARQUIVO_ALERTA`.
+
+Instale também:
+
+```
+install -m 755 pc-supabase-arquivar-falha /usr/local/bin/
+cp pc-supabase-arquivar-falha@.service /etc/systemd/system/
+```
+
 ## Uso manual
 
 ```

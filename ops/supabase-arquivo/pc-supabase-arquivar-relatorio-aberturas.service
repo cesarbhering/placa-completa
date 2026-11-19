@@ -2,6 +2,7 @@
 Description=Archive yesterday's relatorio_aberturas to R2; delete raw rows older than 180 days after the archive
 After=network-online.target
 Wants=network-online.target
+OnFailure=pc-supabase-arquivar-falha@%n.service
 
 [Service]
 Type=oneshot

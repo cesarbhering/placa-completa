@@ -62,8 +62,9 @@ TZ_OFFSET = "-03"  # Brazil has had no daylight saving time since 2019
 
 # Refuse to clear consultas while any INSERT policy is open on it (A16): a
 # retroactive row could slip into a day between the archive and the clear.
-SEM_INSERT_ABERTO = ("not exists (select 1 from pg_policy where polrelid = 'public.consultas'::regclass "
-                     "and polcmd in ('a', '*'))")
+SEM_INSERT_ABERTO = ("(not exists (select 1 from pg_policy where polrelid = 'public.consultas'::regclass "
+                     "and polcmd in ('a', '*')) "
+                     "and (select relrowsecurity from pg_class where oid = 'public.consultas'::regclass))")
 MARCA_LEADS = "(select processado_ate from public.leads_extracao_estado where id)"
 
 TABLES = {
@@ -206,8 +207,10 @@ def release_sql(table, cfg, day, m):
                f"and x.{cfg['time_col']} < now() - interval '{int(cfg['keep_days'])} days' returning 1)")
         alvo_n = "(select count(*) from alvo a where true" + (keep.replace("x.", "a.") if keep else "") + ")"
     # If the write ever touches more rows than the day has (a regression in
-    # the filters), the division by zero rolls the whole statement back.
-    trava = "case when (select count(*) from feito) > (select n from fp) then 1/0 end as trava"
+    # the filters), the division by zero rolls the whole statement back. The
+    # dividend is a subquery on purpose: a constant 1/0 is folded by the
+    # planner and would fail every statement.
+    trava = "case when (select count(*) from feito) > (select n from fp) then (select count(*) from feito) / 0 end as trava"
     return (f"with {alvo}, {fp}, {act} select (select row_to_json(fp) from fp) as fp, "
             f"{alvo_n} as alvo, (select count(*) from feito) as feitos, {trava};")
 
@@ -265,16 +268,17 @@ def sha256_file(path):
     return h.hexdigest()
 
 
-def work_dir():
+def work_dir(table):
     """Plain-text JSONL with emails and IPs only ever lives under the state
-    directory (root only), never in /tmp."""
-    base = os.path.join(STATE_DIR, "tmp")
+    directory (root only), never in /tmp; one directory per table, so two
+    tables running at the same time never clean each other's files."""
+    base = os.path.join(STATE_DIR, "tmp", table)
     os.makedirs(base, mode=0o700, exist_ok=True)
     return tempfile.TemporaryDirectory(prefix="pcarq-", dir=base)
 
 
-def clean_work_dir():
-    base = os.path.join(STATE_DIR, "tmp")
+def clean_work_dir(table):
+    base = os.path.join(STATE_DIR, "tmp", table)
     if os.path.isdir(base):
         shutil.rmtree(base, ignore_errors=True)
 
@@ -325,8 +329,8 @@ def object_key(prefix, table, day):
     return f"{prefix}/{table}/{day:%Y}/{day:%m}/{day.isoformat()}"
 
 
-def verify_remote(env, bucket, key, sha_gz, n_expected):
-    with work_dir() as td:
+def verify_remote(env, bucket, key, sha_gz, n_expected, table):
+    with work_dir(table) as td:
         local = os.path.join(td, "v.jsonl.gz")
         rclone("copyto", f"pcarq:{bucket}/{key}.jsonl.gz", local, env=env)
         if sha256_file(local) != sha_gz:
@@ -342,7 +346,8 @@ def write_and_upload(env, bucket, key, rows, manifest, time_col, id_col):
     """Write the JSONL and the manifest, upload both without replacing
     anything and check the gz in R2. Returns the manifest with the hashes."""
     rows.sort(key=lambda r: (r[time_col], str(r[id_col])))
-    with work_dir() as td:
+    table = manifest["tabela"]
+    with work_dir(table) as td:
         jl = os.path.join(td, "d.jsonl")
         with open(jl, "w") as f:
             for r in rows:
@@ -364,7 +369,7 @@ def write_and_upload(env, bucket, key, rows, manifest, time_col, id_col):
                                    f"refusing to overwrite (compare it with the database and adopt it by hand)")
         r2_put_new(env, gz, f"pcarq:{bucket}/{key}.jsonl.gz")
         r2_put_new(env, mf, f"pcarq:{bucket}/{key}.manifest.json")
-    ok, why = verify_remote(env, bucket, key, manifest["sha256_gz"], manifest["linhas"])
+    ok, why = verify_remote(env, bucket, key, manifest["sha256_gz"], manifest["linhas"], table)
     if not ok:
         raise RuntimeError(f"{key}: verification after upload failed: {why}")
     manifest["chave"] = key
@@ -436,7 +441,7 @@ def release_day(args, table, cfg, day, state, env, bucket):
         log(f"{day}: database no longer matches the manifest (n {fp['n']} vs {m['linhas']}); "
             "not touching it. Find out what changed; the archived objects are kept as they are.")
         return False
-    ok, why = verify_remote(env, bucket, m["chave"], m["sha256_gz"], m["linhas"])
+    ok, why = verify_remote(env, bucket, m["chave"], m["sha256_gz"], m["linhas"], table)
     if not ok:
         log(f"{day}: R2 object failed verification ({why}); not touching it")
         return False
@@ -451,7 +456,7 @@ def release_day(args, table, cfg, day, state, env, bucket):
             log(f"{day}: the leads extraction has not processed this day yet; not touching it")
             return False
         if not g.get("sem_insert_aberto"):
-            log(f"{day}: consultas still has an INSERT policy open (A16); not touching it")
+            log(f"{day}: consultas has an INSERT policy open or RLS off (A16); not touching it")
             return False
     if not args.confirmar:
         if cfg["mode"] == "clear":
@@ -598,7 +603,7 @@ def main():
     except BlockingIOError:
         log("another run of this table is in progress, leaving")
         return 3
-    clean_work_dir()
+    clean_work_dir(table)
 
     state = State(table, args.ref)
     env, bucket = r2_env()
@@ -609,6 +614,14 @@ def main():
     if cfg["mode"] != "prune" and args.acao == "podar":
         log("podar is only for placa_cache")
         return 2
+
+    if args.acao in ("liberar", "zerar", "diario", "podar"):
+        sobras = sql(args.ref, f"select count(*) as n from cron.job where jobname like 'pcarq-vacuum-{table}-%';")[0]["n"]
+        if sobras and args.confirmar:
+            sql(args.ref, f"select cron.unschedule(jobid) from cron.job where jobname like 'pcarq-vacuum-{table}-%';")
+            log(f"removed {sobras} leftover pcarq-vacuum-{table} job(s) of an interrupted run")
+        elif sobras:
+            log(f"{sobras} leftover pcarq-vacuum-{table} job(s) of an interrupted run (removed only with --confirmar)")
 
     if args.acao == "status":
         keys = sorted(state.data)

@@ -1,0 +1,6 @@
+[Unit]
+Description=Alert when %i fails (at most one e-mail an hour)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-supabase-arquivar-falha %i
