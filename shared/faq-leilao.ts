@@ -7,7 +7,13 @@ export interface PerguntaLeilao {
   resposta: string
 }
 
+export const RESPOSTA_COMO_SABER_INDEX = 'Para saber se um carro é de leilão, o caminho mais direto é consultar a placa numa base de registros de leilão, o que o Relatório Completo faz: ele mostra o registro compatível com o veículo, se houver. Documento e sinais no carro, como pintura desigual, ajudam a desconfiar. O resultado é um indício, não uma certeza.'
+
 export const PERGUNTAS_LEILAO: PerguntaLeilao[] = [
+  {
+    pergunta: 'Como saber se o carro é de leilão?',
+    resposta: RESPOSTA_COMO_SABER_INDEX,
+  },
   {
     pergunta: 'Vale a pena comprar carro de leilão?',
     resposta: 'Pode valer, quando o desconto compensa o risco e os custos extras. Vale mais para quem sabe a origem do leilão, confere a documentação e consegue inspecionar o carro. Vale menos para quem compra pelo preço sem conferir nada, porque o desconto pode sumir em reparos, taxas e regularização.',
