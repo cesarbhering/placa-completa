@@ -19,14 +19,16 @@ Tables (one object per day, America/Sao_Paulo):
 Usage:
   pc-supabase-arquivar <tabela> arquivar --dia 2026-08-03
   pc-supabase-arquivar <tabela> arquivar --de 2026-08-03 --ate 2026-11-19 [--pausa 10]
-  pc-supabase-arquivar <tabela> liberar --ate 2026-11-11 [--confirmar]
+  pc-supabase-arquivar <tabela> liberar --ate 2026-11-11 [--vacuum-a-cada 10] [--confirmar]
   pc-supabase-arquivar <tabela> diario [--confirmar]
   pc-supabase-arquivar <tabela> status
 
 "liberar" clears the column (consultas) or summarizes and deletes (the
 others); "zerar" is kept as its alias. Options: --ref <project ref> (default
 prod), --prefixo <R2 prefix>. Without --confirmar, liberar and diario only
-print what they would do.
+print what they would do. --vacuum-a-cada N runs a plain VACUUM of the table
+after every N released days, so the next days reuse the space of the dead
+rows instead of growing the files before the VACUUM FULL.
 """
 import argparse
 import datetime as dt
@@ -341,6 +343,25 @@ def release_day(args, table, cfg, day, state, env, bucket):
     return True
 
 
+def release_days(args, table, cfg, days, state, env, bucket):
+    done = 0
+    for day in days:
+        if release_day(args, table, cfg, day, state, env, bucket) and args.confirmar:
+            done += 1
+            if args.vacuum_a_cada and done % args.vacuum_a_cada == 0:
+                vacuum(args, table)
+        time.sleep(min(args.pausa, 5))
+    if done and args.confirmar and (not args.vacuum_a_cada or done % args.vacuum_a_cada):
+        vacuum(args, table)
+    return done
+
+
+def vacuum(args, table):
+    t0 = time.time()
+    sql(args.ref, f"vacuum public.{table};", timeout=600)
+    log(f"vacuum public.{table}: {time.time() - t0:.0f} s")
+
+
 # ---------- main ----------
 
 def today_brt():
@@ -362,6 +383,7 @@ def main():
     ap.add_argument("--ref", default=PROD_REF)
     ap.add_argument("--prefixo")
     ap.add_argument("--confirmar", action="store_true")
+    ap.add_argument("--vacuum-a-cada", type=int, default=10, dest="vacuum_a_cada")
     args = ap.parse_args()
     table, cfg = args.tabela, TABLES[args.tabela]
     if not args.prefixo:
@@ -407,10 +429,7 @@ def main():
     if args.acao in ("liberar", "zerar"):
         last = min(parse_day(args.ate), limit_release)
         days = sorted(dt.date.fromisoformat(d) for d in state.data if dt.date.fromisoformat(d) <= last)
-        for day in days:
-            if not released(state.data[day.isoformat()]):
-                release_day(args, table, cfg, day, state, env, bucket)
-                time.sleep(min(args.pausa, 5))
+        release_days(args, table, cfg, [d for d in days if not released(state.data[d.isoformat()])], state, env, bucket)
         return 0
 
     if args.acao == "diario":
@@ -418,8 +437,7 @@ def main():
         archive_day(args, table, cfg, yesterday, state, env, bucket)
         pending = sorted(dt.date.fromisoformat(d) for d in state.data
                          if dt.date.fromisoformat(d) <= limit_release and not released(state.data[d]))
-        for day in pending:
-            release_day(args, table, cfg, day, state, env, bucket)
+        release_days(args, table, cfg, pending, state, env, bucket)
         return 0
     return 1
 

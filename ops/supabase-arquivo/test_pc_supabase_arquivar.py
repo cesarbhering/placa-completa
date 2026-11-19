@@ -227,5 +227,24 @@ class Main(Base):
         q.assert_not_called()
 
 
+
+class Vacuum(Base):
+    def test_plain_vacuum_after_every_n_days_and_at_the_end(self):
+        self.args.confirmar, self.args.vacuum_a_cada = True, 2
+        days = [DAY + dt.timedelta(days=k) for k in range(5)]
+        with mock.patch.object(m, "release_day", return_value=True), \
+             mock.patch.object(m, "sql") as q, mock.patch.object(m.time, "sleep"):
+            self.assertEqual(m.release_days(self.args, "consultas", self.cfg, days, self.state, {}, "bucket"), 5)
+        vac = [c for c in q.call_args_list if c[0][1].startswith("vacuum public.consultas")]
+        self.assertEqual(len(vac), 3)  # after day 2, after day 4, and the leftover day 5
+
+    def test_dry_run_never_vacuums(self):
+        self.args.vacuum_a_cada = 1
+        with mock.patch.object(m, "release_day", return_value=False), \
+             mock.patch.object(m, "sql") as q, mock.patch.object(m.time, "sleep"):
+            m.release_days(self.args, "consultas", self.cfg, [DAY], self.state, {}, "bucket")
+        q.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
