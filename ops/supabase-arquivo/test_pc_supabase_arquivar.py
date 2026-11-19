@@ -246,5 +246,46 @@ class Vacuum(Base):
         q.assert_not_called()
 
 
+class Prune(Base):
+    table = "placa_cache"
+
+    def cache_rows(self):
+        return [{"placa": "ABC1D23", "fetched_at": "2026-08-22T10:00:00.123456+00:00", "encontrado": False, "payload": {}},
+                {"placa": "XYZ9Z99", "fetched_at": "2026-08-23T11:00:00+00:00", "encontrado": True, "payload": {"a": 1}}]
+
+    def result(self, rs):
+        return [{"r": {"linhas": rs, "fp": {"n": len(rs), "ids_md5": "i", "col_md5": "c"}}}]
+
+    def test_predicate_spares_paid_plates_and_fresh_rows(self):
+        w = self.cfg["prune_where"]
+        self.assertIn("t.encontrado = false and t.fetched_at < now() - interval '6 hours'", w)
+        self.assertIn("interval '90 days'", w)
+        self.assertIn("pp.pago_em is not null", w)
+
+    def test_dry_run_neither_uploads_nor_deletes(self):
+        with mock.patch.object(m, "sql", return_value=self.result(self.cache_rows())) as q:
+            self.assertEqual(m.prune(argparse.Namespace(**vars(self.args), limite=100), self.table, self.cfg,
+                                     self.state, {}, "bucket"), 0)
+        self.assertEqual(q.call_count, 1)
+        self.assertEqual(self.r2.puts, [])
+
+    def test_archives_then_deletes_exactly_the_archived_rows(self):
+        self.args.confirmar = True
+        args = argparse.Namespace(**vars(self.args), limite=100)
+        with mock.patch.object(m, "sql", side_effect=[self.result(self.cache_rows()), [{"apagados": 2}]]) as q:
+            self.assertEqual(m.prune(args, self.table, self.cfg, self.state, {}, "bucket"), 2)
+        self.assertEqual(len([p for p in self.r2.puts if p.endswith(".jsonl.gz")]), 1)
+        delete_sql = q.call_args_list[1][0][1]
+        self.assertIn("('ABC1D23', '2026-08-22T10:00:00.123456+00:00'::timestamptz)", delete_sql)
+        self.assertIn("x.placa = alvo.k and x.fetched_at = alvo.ts", delete_sql)
+
+    def test_other_actions_are_refused_for_placa_cache(self):
+        with mock.patch("sys.argv", ["x", "placa_cache", "liberar", "--ate", "2026-08-01"]), \
+             mock.patch.object(m, "r2_env", return_value=({}, "bucket")), \
+             mock.patch.object(m, "sql") as q:
+            self.assertEqual(m.main(), 2)
+        q.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

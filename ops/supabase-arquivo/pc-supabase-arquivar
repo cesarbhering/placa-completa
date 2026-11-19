@@ -15,6 +15,11 @@ Tables (one object per day, America/Sao_Paulo):
   eventos_funil  after 30 days, summarize the day (eventos_funil_resumir:
                  eventos_funil_diario and funil_diario_arquivo) and delete the
                  raw rows.
+  placa_cache    "podar": archive, then delete the cache rows past their use:
+                 not found and older than 6 hours (the code ignores them), and
+                 found but older than 90 days, except plates with a paid order
+                 (the report reads their engine number). A plate that comes
+                 back is fetched again.
 
 Usage:
   pc-supabase-arquivar <tabela> arquivar --dia 2026-08-03
@@ -22,6 +27,7 @@ Usage:
   pc-supabase-arquivar <tabela> liberar --ate 2026-11-11 [--vacuum-a-cada 10] [--confirmar]
   pc-supabase-arquivar <tabela> diario [--confirmar]
   pc-supabase-arquivar <tabela> status
+  pc-supabase-arquivar placa_cache podar [--limite 5000] [--confirmar]
 
 "liberar" clears the column (consultas) or summarizes and deletes (the
 others); "zerar" is kept as its alias. Options: --ref <project ref> (default
@@ -76,6 +82,17 @@ TABLES = {
         "fp_expr": "md5(t::text)",
         "keep_days": 30,
         "resumo": "eventos_funil_resumir",
+    },
+    "placa_cache": {
+        "time_col": "fetched_at",
+        "id_col": "placa",
+        "mode": "prune",
+        "fp_expr": "md5(t::text)",
+        "keep_days": 90,
+        "prune_where": ("(t.encontrado = false and t.fetched_at < now() - interval '6 hours') "
+                        "or (t.encontrado and t.fetched_at < now() - interval '90 days' "
+                        "and not exists (select 1 from public.pedidos_premium pp "
+                        "where pp.placa = t.placa and pp.pago_em is not null))"),
     },
 }
 
@@ -343,6 +360,70 @@ def release_day(args, table, cfg, day, state, env, bucket):
     return True
 
 
+def prune(args, table, cfg, state, env, bucket):
+    """Archive the rows the predicate selects (at most --limite), then delete
+    exactly those rows: same key and same timestamp. A row refreshed since the
+    archive has a new timestamp, so it stays."""
+    i, t = cfg["id_col"], cfg["time_col"]
+    q = f"""
+with d as materialized (select * from public.{table} t where {cfg['prune_where']}
+                        order by t.{t} limit {int(args.limite)})
+select json_build_object('linhas', coalesce((select json_agg(d) from d), '[]'::json),
+                         'fp', (select row_to_json(x) from (select {fp_select(cfg)} from d t) x)) as r;"""
+    res = sql(args.ref, q)[0]["r"]
+    rows, fp = res["linhas"], res["fp"]
+    if not rows:
+        log("nothing to prune")
+        return 0
+    if len(rows) != fp["n"]:
+        raise RuntimeError(f"json has {len(rows)} rows, count says {fp['n']}")
+    if not args.confirmar:
+        log(f"would archive and delete {len(rows)} rows (dry run)")
+        return 0
+    rows.sort(key=lambda r: (r[t], str(r[i])))
+    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    key = f"{args.prefixo}/{table}/{stamp[:4]}/{stamp[4:6]}/{stamp}"
+    with tempfile.TemporaryDirectory(prefix="pcarq-") as td:
+        jl = os.path.join(td, "d.jsonl")
+        with open(jl, "w") as f:
+            for r in rows:
+                f.write(json.dumps(r, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n")
+        gz = jl + ".gz"
+        with open(jl, "rb") as fi, gzip.open(gz, "wb", compresslevel=9) as fo:
+            fo.write(fi.read())
+        manifest = {"tabela": table, "ref": args.ref, "criterio": cfg["prune_where"], "linhas": fp["n"],
+                    "ids_md5": fp["ids_md5"], "col_md5": fp["col_md5"], "impressao": cfg["fp_expr"],
+                    "sha256_jsonl": sha256_file(jl), "sha256_gz": sha256_file(gz),
+                    "bytes_jsonl": os.path.getsize(jl), "bytes_gz": os.path.getsize(gz),
+                    "gerado_em": dt.datetime.now(dt.timezone.utc).isoformat()}
+        mf = os.path.join(td, "m.json")
+        with open(mf, "w") as f:
+            json.dump(manifest, f, indent=1, sort_keys=True)
+        exists = rclone("lsf", f"pcarq:{bucket}/{key}.jsonl.gz", env=env, check=False)
+        if exists.returncode == 0 and exists.stdout.strip():
+            raise RuntimeError(f"{key}.jsonl.gz already exists in R2; refusing to overwrite")
+        rclone("copyto", gz, f"pcarq:{bucket}/{key}.jsonl.gz", env=env)
+        rclone("copyto", mf, f"pcarq:{bucket}/{key}.manifest.json", env=env)
+    ok, why = verify_remote(env, bucket, key, manifest["sha256_gz"], manifest["linhas"])
+    if not ok:
+        raise RuntimeError(f"verification after upload failed: {why}")
+    manifest["chave"] = key
+    manifest["verificado_em"] = dt.datetime.now(dt.timezone.utc).isoformat()
+    state.data[stamp] = manifest
+    state.save()
+    pares = ",".join(f"('{str(r[i]).replace(chr(39), chr(39) * 2)}', '{r[t]}'::timestamptz)" for r in rows)
+    q = (f"with alvo(k, ts) as (values {pares}), "
+         f"del as (delete from public.{table} x using alvo where x.{i} = alvo.k and x.{t} = alvo.ts returning 1) "
+         f"select count(*) as apagados from del;")
+    n = sql(args.ref, q)[0]["apagados"]
+    manifest["apagado_em"] = dt.datetime.now(dt.timezone.utc).isoformat()
+    manifest["apagados"] = n
+    state.save()
+    extra = f"; {fp['n'] - n} were refreshed meanwhile and stay" if n < fp["n"] else ""
+    log(f"archived {fp['n']} rows to {key} and deleted {n}{extra}")
+    return n
+
+
 def release_days(args, table, cfg, days, state, env, bucket):
     done = 0
     for day in days:
@@ -375,7 +456,7 @@ def parse_day(s):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("tabela", choices=sorted(TABLES))
-    ap.add_argument("acao", choices=["arquivar", "liberar", "zerar", "diario", "status"])
+    ap.add_argument("acao", choices=["arquivar", "liberar", "zerar", "diario", "status", "podar"])
     ap.add_argument("--dia")
     ap.add_argument("--de")
     ap.add_argument("--ate")
@@ -384,6 +465,7 @@ def main():
     ap.add_argument("--prefixo")
     ap.add_argument("--confirmar", action="store_true")
     ap.add_argument("--vacuum-a-cada", type=int, default=10, dest="vacuum_a_cada")
+    ap.add_argument("--limite", type=int, default=5000)
     args = ap.parse_args()
     table, cfg = args.tabela, TABLES[args.tabela]
     if not args.prefixo:
@@ -400,6 +482,18 @@ def main():
     state = State(table, args.ref)
     env, bucket = r2_env()
     limit_release = today_brt() - dt.timedelta(days=cfg["keep_days"] + 1)
+
+    if cfg["mode"] == "prune" and args.acao not in ("podar", "status"):
+        log(f"{table} only supports podar and status")
+        return 2
+    if cfg["mode"] != "prune" and args.acao == "podar":
+        log("podar is only for placa_cache")
+        return 2
+    if args.acao == "podar":
+        n = prune(args, table, cfg, state, env, bucket)
+        if n and args.vacuum_a_cada:
+            vacuum(args, table)
+        return 0
 
     if args.acao == "status":
         days = sorted(state.data)

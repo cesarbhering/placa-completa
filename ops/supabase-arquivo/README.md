@@ -32,10 +32,13 @@ O caminho é `supabase-arquivo/<tabela>/AAAA/MM/AAAA-MM-DD.*`. Para outro projet
 | consultas | 7 dias | a coluna `api_response` (cópia do `placa_cache.payload`, que nada lê); a linha fica | não precisa |
 | api_chamadas | 30 dias | as linhas brutas, menos `wdapi` e `placafipe`, que o fin lê | `api_chamadas_diario` |
 | eventos_funil | 30 dias | as linhas brutas | `eventos_funil_diario` e `funil_diario_arquivo`; a view `funil_diario` lê os dias arquivados daí |
+| placa_cache | não encontradas: 6 h; encontradas: 90 dias | a linha inteira, exceto as placas com pedido pago, que o relatório lê para pegar o número do motor (ação `podar`, até 5.000 linhas por rodada) | não precisa; a placa que voltar é buscada de novo |
 
 **Migrations que precisam estar aplicadas antes:**
 - consultas: `20261119200000_leads_extract_incremental`, porque a função de leads era a única leitora da coluna.
 - api_chamadas e eventos_funil: `20261119220000_daily_summaries_before_archiving`, com as funções de resumo. Essa migration também tira o DELETE de api_chamadas do `fonte_cache_limpar()`.
+
+**placa_cache:** o DELETE apaga só as linhas arquivadas, pela mesma placa e o mesmo `fetched_at`. A placa renovada nesse meio-tempo fica no banco.
 
 **Como apaga:** o DELETE das tabelas brutas confere a impressão do dia, com linhas, md5 dos ids e md5 de cada linha, dentro do próprio comando. Se o dia mudou desde o arquivo, nada é apagado.
 
@@ -47,7 +50,7 @@ cp pc-supabase-arquivar-*.service pc-supabase-arquivar-*.timer /etc/systemd/syst
 systemctl daemon-reload
 ```
 
-Cada timer só é ligado depois do backfill e da primeira janela de liberar daquela tabela. Os horários são 04h00 (consultas), 04h20 (api_chamadas) e 04h40 (eventos_funil).
+Cada timer só é ligado depois do backfill e da primeira janela de liberar daquela tabela. Os horários são 04h00 (consultas), 04h20 (api_chamadas), 04h40 (eventos_funil) e 05h00 (placa_cache).
 
 ## Uso manual
 
