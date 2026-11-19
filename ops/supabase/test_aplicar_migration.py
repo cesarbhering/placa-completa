@@ -1,6 +1,11 @@
 """Tests for ops/supabase/aplicar-migration (no network, no database).
-Run: python3 -m unittest discover -s ops/supabase -p 'test_*.py'"""
+Run: python3 -m unittest discover -s ops/supabase -p 'test_*.py'
+
+Isolation: setUpModule blocks sockets and urlopen and points TOKEN_FILE to a
+path that does not exist, so no test can reach the Management API with the
+real token, even after a regression."""
 import importlib.machinery
+import socket
 import importlib.util
 import os
 import tempfile
@@ -12,6 +17,29 @@ _ld = importlib.machinery.SourceFileLoader("aplicar_migration", _p)
 _spec = importlib.util.spec_from_loader("aplicar_migration", _ld)
 m = importlib.util.module_from_spec(_spec)
 _ld.exec_module(m)
+
+
+_REDE = []
+
+
+def _sem_rede(*a, **k):
+    raise RuntimeError("network blocked in tests")
+
+
+def setUpModule():
+    for alvo, nome in ((socket.socket, "connect"), (socket.socket, "connect_ex"), (socket, "create_connection"),
+                       (m.urllib.request, "urlopen")):
+        p = mock.patch.object(alvo, nome, _sem_rede)
+        p.start()
+        _REDE.append(p)
+    p = mock.patch.object(m, "TOKEN_FILE", "/nonexistent/fake-token")
+    p.start()
+    _REDE.append(p)
+
+
+def tearDownModule():
+    for p in reversed(_REDE):
+        p.stop()
 
 
 class Guarda(unittest.TestCase):
@@ -60,6 +88,13 @@ class Guarda(unittest.TestCase):
                     self.aceita(f.read())
 
 
+class Isolamento(unittest.TestCase):
+    def test_network_and_token_are_out_of_reach(self):
+        self.assertNotEqual(m.TOKEN_FILE, "/root/.supabase/access-token")
+        with self.assertRaises(Exception):
+            m.api("x" * 20, "select 1")
+
+
 class Corpo(unittest.TestCase):
     def test_file_registration_and_reload_go_in_one_string(self):
         c = m.corpo("create table t (id int) -- no newline at the end", "20261119200000", "leads")
@@ -82,13 +117,12 @@ class Main(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
         self.log = os.path.join(self.dir, "log")
-        mock.patch.dict(os.environ, {"PC_MIGRATION_LOG": self.log}).start()
+        p = mock.patch.dict(os.environ, {"PC_MIGRATION_LOG": self.log})
+        p.start()
+        self.addCleanup(p.stop)
         self.f = os.path.join(self.dir, "20991231000001_teste.sql")
         with open(self.f, "w") as fh:
             fh.write("create table t (id int);\n")
-
-    def tearDown(self):
-        mock.patch.stopall()
 
     def run_with(self, respostas, *argv):
         with mock.patch.object(m, "api", side_effect=respostas) as api:
