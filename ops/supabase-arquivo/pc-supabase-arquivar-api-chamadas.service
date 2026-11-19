@@ -1,0 +1,12 @@
+[Unit]
+Description=Archive yesterday's api_chamadas to R2; summarize and delete raw rows older than 30 days (wdapi and placafipe stay)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pc-supabase-arquivar api_chamadas diario --confirmar
+Nice=10
+MemoryMax=1G
+MemorySwapMax=0
+TimeoutStartSec=2h

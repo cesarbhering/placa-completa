@@ -6,19 +6,27 @@ private backups bucket (gzip JSONL plus a manifest), downloaded back and
 checked (sha256 and row count), and only then cleared or deleted in the
 database, after the database still matches the manifest.
 
-Tables:
-  consultas  archive one day (America/Sao_Paulo) per object; after 7 days,
-             clear api_response (the copy of placa_cache.payload, never read).
+Tables (one object per day, America/Sao_Paulo):
+  consultas      after 7 days, clear api_response (the copy of
+                 placa_cache.payload that nothing reads).
+  api_chamadas   after 30 days, summarize the day (api_chamadas_resumir) and
+                 delete the raw rows, except the paid sources wdapi and
+                 placafipe that the fin reads.
+  eventos_funil  after 30 days, summarize the day (eventos_funil_resumir:
+                 eventos_funil_diario and funil_diario_arquivo) and delete the
+                 raw rows.
 
 Usage:
-  pc-supabase-arquivar consultas arquivar --dia 2026-08-03
-  pc-supabase-arquivar consultas arquivar --de 2026-08-03 --ate 2026-11-19 [--pausa 10]
-  pc-supabase-arquivar consultas zerar --ate 2026-11-11 [--confirmar]
-  pc-supabase-arquivar consultas diario [--confirmar]
-  pc-supabase-arquivar consultas status
+  pc-supabase-arquivar <tabela> arquivar --dia 2026-08-03
+  pc-supabase-arquivar <tabela> arquivar --de 2026-08-03 --ate 2026-11-19 [--pausa 10]
+  pc-supabase-arquivar <tabela> liberar --ate 2026-11-11 [--confirmar]
+  pc-supabase-arquivar <tabela> diario [--confirmar]
+  pc-supabase-arquivar <tabela> status
 
-Options: --ref <project ref> (default prod), --prefixo <R2 prefix>.
-Without --confirmar, zerar and diario only print what they would clear.
+"liberar" clears the column (consultas) or summarizes and deletes (the
+others); "zerar" is kept as its alias. Options: --ref <project ref> (default
+prod), --prefixo <R2 prefix>. Without --confirmar, liberar and diario only
+print what they would do.
 """
 import argparse
 import datetime as dt
@@ -39,13 +47,33 @@ TOKEN_FILE = "/root/.supabase/access-token"
 R2_ENV = "/root/.r2-credentials"
 STATE_DIR = "/var/lib/pc-supabase-arquivo"
 TZ_OFFSET = "-03"  # Brazil has had no daylight saving time since 2019
-KEEP_DAYS = 7      # api_response stays in the database for 7 full days
 
 TABLES = {
     "consultas": {
         "time_col": "created_at",
         "id_col": "id",
+        "mode": "clear",
         "clear_col": "api_response",
+        # what the manifest fingerprints besides the ids: the cleared column
+        "fp_expr": "md5(t.api_response::text)",
+        "keep_days": 7,
+    },
+    "api_chamadas": {
+        "time_col": "criado_em",
+        "id_col": "id",
+        "mode": "delete",
+        "fp_expr": "md5(t::text)",
+        "keep_days": 30,
+        "resumo": "api_chamadas_resumir",
+        "delete_where": "x.fonte not in ('wdapi', 'placafipe')",
+    },
+    "eventos_funil": {
+        "time_col": "criado_em",
+        "id_col": "id",
+        "mode": "delete",
+        "fp_expr": "md5(t::text)",
+        "keep_days": 30,
+        "resumo": "eventos_funil_resumir",
     },
 }
 
@@ -89,22 +117,25 @@ def day_bounds(day):
     return f"{day.isoformat()} 00:00:00{TZ_OFFSET}", f"{nxt.isoformat()} 00:00:00{TZ_OFFSET}"
 
 
-def day_where(cfg, day):
+def day_where(cfg, day, alias="t"):
     ini, fim = day_bounds(day)
-    t = cfg["time_col"]
+    t = f"{alias}.{cfg['time_col']}"
     return f"{t} >= '{ini}'::timestamptz and {t} < '{fim}'::timestamptz"
 
 
+def fp_select(cfg):
+    """n, md5 of the ids and md5 of the fingerprint expression, over alias t."""
+    i = cfg["id_col"]
+    return (f"count(*) as n, md5(coalesce(string_agg(t.{i}::text, ',' order by t.{i}::text), '')) as ids_md5, "
+            f"md5(coalesce(string_agg(coalesce({cfg['fp_expr']}, '-'), ',' order by t.{i}::text), '')) as col_md5")
+
+
 def fingerprint_sql(table, cfg, day):
-    i, c = cfg["id_col"], cfg["clear_col"]
-    return f"""
-select json_build_object(
-  'n', count(*),
-  'ids_md5', md5(coalesce(string_agg({i}::text, ',' order by {i}::text), '')),
-  'col_md5', md5(coalesce(string_agg(coalesce(md5({c}::text), '-'), ',' order by {i}::text), '')),
-  'com_col', count(*) filter (where {c} is not null)
-) as r
-from public.{table} where {day_where(cfg, day)};"""
+    extra = ""
+    if cfg["mode"] == "clear":
+        extra = f", count(*) filter (where t.{cfg['clear_col']} is not null) as com_col"
+    return (f"select row_to_json(x) as r from (select {fp_select(cfg)}{extra} "
+            f"from public.{table} t where {day_where(cfg, day)}) x;")
 
 
 # ---------- R2 (rclone, private backups bucket) ----------
@@ -162,6 +193,10 @@ class State:
         os.replace(tmp, self.path)
 
 
+def released(m):
+    return bool(m.get("zerado_em") or m.get("apagado_em"))
+
+
 # ---------- archive ----------
 
 def object_key(prefix, table, day):
@@ -188,21 +223,21 @@ def archive_day(args, table, cfg, day, state, env, bucket):
         log(f"{day} already archived ({done['linhas']} rows), skipping")
         return done
     i = cfg["id_col"]
+    com_col = ""
+    if cfg["mode"] == "clear":
+        com_col = f",\n  'com_col', (select count(*) from d where {cfg['clear_col']} is not null)"
     q = f"""
-with d as materialized (select * from public.{table} where {day_where(cfg, day)})
+with d as materialized (select * from public.{table} t where {day_where(cfg, day)})
 select json_build_object(
   'linhas', coalesce((select json_agg(d) from d), '[]'::json),
-  'n', (select count(*) from d),
-  'ids_md5', (select md5(coalesce(string_agg({i}::text, ',' order by {i}::text), '')) from d),
-  'col_md5', (select md5(coalesce(string_agg(coalesce(md5({cfg['clear_col']}::text), '-'), ',' order by {i}::text), '')) from d),
-  'com_col', (select count(*) from d where {cfg['clear_col']} is not null)
+  'fp', (select row_to_json(x) from (select {fp_select(cfg)} from d t) x){com_col}
 ) as r;"""
     res = sql(args.ref, q)[0]["r"]
-    rows = res["linhas"]
-    if len(rows) != res["n"]:
-        raise RuntimeError(f"{day}: json has {len(rows)} rows, count says {res['n']}")
+    rows, fp = res["linhas"], res["fp"]
+    if len(rows) != fp["n"]:
+        raise RuntimeError(f"{day}: json has {len(rows)} rows, count says {fp['n']}")
     ids = sorted(str(r[i]) for r in rows)
-    if hashlib.md5(",".join(ids).encode()).hexdigest() != res["ids_md5"]:
+    if hashlib.md5(",".join(ids).encode()).hexdigest() != fp["ids_md5"]:
         raise RuntimeError(f"{day}: ids md5 from the json differs from the database")
     rows.sort(key=lambda r: (r[cfg["time_col"]], str(r[i])))
     with tempfile.TemporaryDirectory(prefix="pcarq-") as td:
@@ -216,12 +251,15 @@ select json_build_object(
         manifest = {
             "tabela": table, "ref": args.ref, "dia": day.isoformat(), "fuso": "America/Sao_Paulo",
             "inicio": day_bounds(day)[0], "fim": day_bounds(day)[1],
-            "linhas": res["n"], "ids_md5": res["ids_md5"], "col_md5": res["col_md5"],
-            "coluna_verificada": cfg["clear_col"], "com_coluna": res["com_col"],
+            "linhas": fp["n"], "ids_md5": fp["ids_md5"], "col_md5": fp["col_md5"],
+            "impressao": cfg["fp_expr"],
             "sha256_jsonl": sha256_file(jl), "sha256_gz": sha256_file(gz),
             "bytes_jsonl": os.path.getsize(jl), "bytes_gz": os.path.getsize(gz),
             "gerado_em": dt.datetime.now(dt.timezone.utc).isoformat(),
         }
+        if cfg["mode"] == "clear":
+            manifest["coluna_verificada"] = cfg["clear_col"]
+            manifest["com_coluna"] = res["com_col"]
         mf = os.path.join(td, "m.json")
         with open(mf, "w") as f:
             json.dump(manifest, f, indent=1, sort_keys=True)
@@ -241,41 +279,65 @@ select json_build_object(
     return manifest
 
 
-# ---------- clear ----------
+# ---------- release (clear a column, or summarize and delete) ----------
 
-def clear_day(args, table, cfg, day, state, env, bucket):
+def release_day(args, table, cfg, day, state, env, bucket):
     m = state.data.get(day.isoformat())
     if not m or not m.get("verificado_em"):
-        log(f"{day}: not archived, will not clear")
+        log(f"{day}: not archived, will not touch it")
         return False
-    if m.get("zerado_em"):
+    if released(m):
         return True
     fp = sql(args.ref, fingerprint_sql(table, cfg, day))[0]["r"]
-    if fp["com_col"] == 0:
+    if cfg["mode"] == "clear" and fp["com_col"] == 0:
         m["zerado_em"] = dt.datetime.now(dt.timezone.utc).isoformat()
         m["zerados"] = 0
         state.save()
         log(f"{day}: nothing left to clear")
         return True
     if (fp["n"], fp["ids_md5"], fp["col_md5"]) != (m["linhas"], m["ids_md5"], m["col_md5"]):
-        log(f"{day}: database no longer matches the manifest (n {fp['n']} vs {m['linhas']}); not clearing, archive the day again with --forcar")
+        log(f"{day}: database no longer matches the manifest (n {fp['n']} vs {m['linhas']}); not touching it")
         return False
     ok, why = verify_remote(env, bucket, m["chave"], m["sha256_gz"], m["linhas"])
     if not ok:
-        log(f"{day}: R2 object failed verification ({why}); not clearing")
+        log(f"{day}: R2 object failed verification ({why}); not touching it")
         return False
     if not args.confirmar:
-        log(f"{day}: would clear {cfg['clear_col']} of {fp['com_col']} rows (dry run)")
+        if cfg["mode"] == "clear":
+            log(f"{day}: would clear {cfg['clear_col']} of {fp['com_col']} rows (dry run)")
+        else:
+            log(f"{day}: would summarize the day and delete its raw rows, up to {fp['n']} (dry run)")
         return False
-    c = cfg["clear_col"]
-    q = f"""with u as (update public.{table} set {c} = null
- where {day_where(cfg, day)} and {c} is not null returning 1)
-select count(*) as n from u;"""
-    n = sql(args.ref, q)[0]["n"]
-    m["zerado_em"] = dt.datetime.now(dt.timezone.utc).isoformat()
-    m["zerados"] = n
+
+    if cfg["mode"] == "clear":
+        c = cfg["clear_col"]
+        q = (f"with u as (update public.{table} t set {c} = null "
+             f"where {day_where(cfg, day)} and t.{c} is not null returning 1) select count(*) as n from u;")
+        n = sql(args.ref, q)[0]["n"]
+        m["zerado_em"] = dt.datetime.now(dt.timezone.utc).isoformat()
+        m["zerados"] = n
+        state.save()
+        log(f"{day}: cleared {c} of {n} rows")
+        return True
+
+    resumo = sql(args.ref, f"select public.{cfg['resumo']}('{day.isoformat()}'::date) as n;")[0]["n"]
+    m["resumo"] = resumo
     state.save()
-    log(f"{day}: cleared {c} of {n} rows")
+    keep = f" and {cfg['delete_where']}" if cfg.get("delete_where") else ""
+    # The fingerprint is taken again inside the same statement: the raw rows
+    # are deleted only if the day still matches the manifest at that snapshot.
+    q = (f"with fp as (select {fp_select(cfg)} from public.{table} t where {day_where(cfg, day)}), "
+         f"del as (delete from public.{table} x using fp where {day_where(cfg, day, 'x')}{keep} "
+         f"and fp.n = {int(m['linhas'])} and fp.ids_md5 = '{m['ids_md5']}' and fp.col_md5 = '{m['col_md5']}' "
+         f"returning 1) select (select n from fp) as n, (select count(*) from del) as apagados;")
+    r = sql(args.ref, q)[0]
+    if r["n"] != m["linhas"]:
+        log(f"{day}: the day changed between checks ({r['n']} rows); nothing deleted")
+        return False
+    m["apagado_em"] = dt.datetime.now(dt.timezone.utc).isoformat()
+    m["apagados"] = r["apagados"]
+    state.save()
+    log(f"{day}: summary rows {resumo}, deleted {r['apagados']} raw rows")
     return True
 
 
@@ -292,7 +354,7 @@ def parse_day(s):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("tabela", choices=sorted(TABLES))
-    ap.add_argument("acao", choices=["arquivar", "zerar", "diario", "status"])
+    ap.add_argument("acao", choices=["arquivar", "liberar", "zerar", "diario", "status"])
     ap.add_argument("--dia")
     ap.add_argument("--de")
     ap.add_argument("--ate")
@@ -315,14 +377,14 @@ def main():
 
     state = State(table, args.ref)
     env, bucket = r2_env()
-    limit_clear = today_brt() - dt.timedelta(days=KEEP_DAYS + 1)
+    limit_release = today_brt() - dt.timedelta(days=cfg["keep_days"] + 1)
 
     if args.acao == "status":
         days = sorted(state.data)
         arch = [d for d in days if state.data[d].get("verificado_em")]
-        clr = [d for d in days if state.data[d].get("zerado_em")]
+        rel = [d for d in days if released(state.data[d])]
         print(json.dumps({"arquivados": len(arch), "primeiro": arch[0] if arch else None,
-                          "ultimo": arch[-1] if arch else None, "zerados": len(clr),
+                          "ultimo": arch[-1] if arch else None, "liberados": len(rel),
                           "linhas": sum(state.data[d]["linhas"] for d in arch),
                           "bytes_gz": sum(state.data[d]["bytes_gz"] for d in arch)}, indent=1))
         return 0
@@ -342,12 +404,12 @@ def main():
                 time.sleep(args.pausa)
         return 0
 
-    if args.acao == "zerar":
-        last = min(parse_day(args.ate), limit_clear)
+    if args.acao in ("liberar", "zerar"):
+        last = min(parse_day(args.ate), limit_release)
         days = sorted(dt.date.fromisoformat(d) for d in state.data if dt.date.fromisoformat(d) <= last)
         for day in days:
-            if not state.data[day.isoformat()].get("zerado_em"):
-                clear_day(args, table, cfg, day, state, env, bucket)
+            if not released(state.data[day.isoformat()]):
+                release_day(args, table, cfg, day, state, env, bucket)
                 time.sleep(min(args.pausa, 5))
         return 0
 
@@ -355,9 +417,9 @@ def main():
         yesterday = today_brt() - dt.timedelta(days=1)
         archive_day(args, table, cfg, yesterday, state, env, bucket)
         pending = sorted(dt.date.fromisoformat(d) for d in state.data
-                         if dt.date.fromisoformat(d) <= limit_clear and not state.data[d].get("zerado_em"))
+                         if dt.date.fromisoformat(d) <= limit_release and not released(state.data[d]))
         for day in pending:
-            clear_day(args, table, cfg, day, state, env, bucket)
+            release_day(args, table, cfg, day, state, env, bucket)
         return 0
     return 1
 

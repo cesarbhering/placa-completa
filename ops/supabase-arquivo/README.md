@@ -27,29 +27,40 @@ O caminho é `supabase-arquivo/<tabela>/AAAA/MM/AAAA-MM-DD.*`. Para outro projet
 
 ## Tabelas
 
-- **consultas:** zera `api_response`, a cópia do `placa_cache.payload` que nada lê, depois de 7 dias.
-  - A migration `20261119200000_leads_extract_incremental` precisa estar aplicada antes do primeiro `zerar`, porque a função de leads era a única leitora da coluna.
+| Tabela | Retenção no banco | O que sai depois de arquivado | Resumo que fica |
+|---|---|---|---|
+| consultas | 7 dias | a coluna `api_response` (cópia do `placa_cache.payload`, que nada lê); a linha fica | não precisa |
+| api_chamadas | 30 dias | as linhas brutas, menos `wdapi` e `placafipe`, que o fin lê | `api_chamadas_diario` |
+| eventos_funil | 30 dias | as linhas brutas | `eventos_funil_diario` e `funil_diario_arquivo`; a view `funil_diario` lê os dias arquivados daí |
+
+**Migrations que precisam estar aplicadas antes:**
+- consultas: `20261119200000_leads_extract_incremental`, porque a função de leads era a única leitora da coluna.
+- api_chamadas e eventos_funil: `20261119220000_daily_summaries_before_archiving`, com as funções de resumo. Essa migration também tira o DELETE de api_chamadas do `fonte_cache_limpar()`.
+
+**Como apaga:** o DELETE das tabelas brutas confere a impressão do dia, com linhas, md5 dos ids e md5 de cada linha, dentro do próprio comando. Se o dia mudou desde o arquivo, nada é apagado.
 
 ## Instalação
 
 ```
 install -m 755 pc-supabase-arquivar /usr/local/bin/
-cp pc-supabase-arquivar-consultas.service pc-supabase-arquivar-consultas.timer /etc/systemd/system/
+cp pc-supabase-arquivar-*.service pc-supabase-arquivar-*.timer /etc/systemd/system/
 systemctl daemon-reload
 ```
 
-Só ligar o timer (`systemctl enable --now pc-supabase-arquivar-consultas.timer`) depois do backfill e da primeira janela de zerar.
+Cada timer só é ligado depois do backfill e da primeira janela de liberar daquela tabela. Os horários são 04h00 (consultas), 04h20 (api_chamadas) e 04h40 (eventos_funil).
 
 ## Uso manual
 
 ```
 pc-supabase-arquivar consultas arquivar --de 2026-08-03 --ate 2026-11-19 --pausa 10   # backfill, só lê o banco
-pc-supabase-arquivar consultas zerar --ate 2026-11-14                                  # simulação
-pc-supabase-arquivar consultas zerar --ate 2026-11-14 --confirmar
+pc-supabase-arquivar consultas liberar --ate 2026-11-14                                # simulação
+pc-supabase-arquivar consultas liberar --ate 2026-11-14 --confirmar
+pc-supabase-arquivar eventos_funil arquivar --de 2026-09-20 --ate 2026-11-19 --pausa 10
+pc-supabase-arquivar eventos_funil liberar --ate 2026-10-19 --confirmar
 pc-supabase-arquivar consultas status
 ```
 
-O espaço só volta para o painel do Supabase depois de um `VACUUM (FULL, ANALYZE) public.consultas`, numa janela de madrugada.
+O espaço só volta para o painel do Supabase depois de um `VACUUM (FULL, ANALYZE)` da tabela, numa janela de madrugada.
 
 ## Testes
 
