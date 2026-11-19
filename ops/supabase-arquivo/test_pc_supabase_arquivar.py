@@ -46,7 +46,8 @@ def setUpModule():
         p = mock.patch.object(alvo, nome, _sem_rede)
         p.start()
         _REDE.append(p)
-    for nome, valor in (("TOKEN_FILE", "/nonexistent/fake-token"), ("R2_ENV", "/nonexistent/fake-r2")):
+    for nome, valor in (("TOKEN_FILE", "/nonexistent/fake-token"), ("R2_ENV", "/nonexistent/fake-r2"),
+                        ("PROD_REF", "fakeprodfakeprodfake"), ("STATE_DIR", tempfile.mkdtemp(prefix="pcarq-mod-"))):
         p = mock.patch.object(m, nome, valor)
         p.start()
         _REDE.append(p)
@@ -616,6 +617,30 @@ class Isolamento(Base):
 
     def test_no_real_token_is_reachable(self):
         self.assertNotEqual(m.TOKEN_FILE, "/root/.supabase/access-token")
+        self.assertNotEqual(m.PROD_REF, "fivalpkfneadngxiflea")
+
+
+class SemMock(unittest.TestCase):
+    """A regression that drops every mock of a test: main() with the default
+    ref and --confirmar, nothing patched here, must fail without network and
+    without opening the real token or the real R2 credentials."""
+
+    def test_unmocked_run_cannot_reach_anything(self):
+        abertos = []
+        real_open = open
+
+        def espia(p, *a, **k):
+            abertos.append(str(p))
+            return real_open(p, *a, **k)
+        with mock.patch("sys.argv", ["x", "consultas", "diario", "--confirmar"]), \
+             mock.patch("builtins.open", side_effect=espia):
+            try:
+                rc = m.main()
+            except Exception:
+                rc = "exception"
+        self.assertNotEqual(rc, 0)
+        self.assertNotIn("/root/.supabase/access-token", abertos)
+        self.assertNotIn("/root/.r2-credentials", abertos)
 
 
 class Api(unittest.TestCase):
