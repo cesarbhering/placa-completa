@@ -1,0 +1,366 @@
+#!/usr/bin/env python3
+"""Archive Supabase rows to R2 before they leave the database.
+
+Rule of the project: nothing collected is discarded. Rows are written to the
+private backups bucket (gzip JSONL plus a manifest), downloaded back and
+checked (sha256 and row count), and only then cleared or deleted in the
+database, after the database still matches the manifest.
+
+Tables:
+  consultas  archive one day (America/Sao_Paulo) per object; after 7 days,
+             clear api_response (the copy of placa_cache.payload, never read).
+
+Usage:
+  pc-supabase-arquivar consultas arquivar --dia 2026-08-03
+  pc-supabase-arquivar consultas arquivar --de 2026-08-03 --ate 2026-11-19 [--pausa 10]
+  pc-supabase-arquivar consultas zerar --ate 2026-11-11 [--confirmar]
+  pc-supabase-arquivar consultas diario [--confirmar]
+  pc-supabase-arquivar consultas status
+
+Options: --ref <project ref> (default prod), --prefixo <R2 prefix>.
+Without --confirmar, zerar and diario only print what they would clear.
+"""
+import argparse
+import datetime as dt
+import fcntl
+import gzip
+import hashlib
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.error
+import urllib.request
+
+PROD_REF = "fivalpkfneadngxiflea"
+TOKEN_FILE = "/root/.supabase/access-token"
+R2_ENV = "/root/.r2-credentials"
+STATE_DIR = "/var/lib/pc-supabase-arquivo"
+TZ_OFFSET = "-03"  # Brazil has had no daylight saving time since 2019
+KEEP_DAYS = 7      # api_response stays in the database for 7 full days
+
+TABLES = {
+    "consultas": {
+        "time_col": "created_at",
+        "id_col": "id",
+        "clear_col": "api_response",
+    },
+}
+
+
+def log(msg):
+    print(f"{dt.datetime.now().strftime('%H:%M:%S')} {msg}", flush=True)
+
+
+# ---------- Supabase Management API ----------
+
+def sql(ref, query, timeout=170):
+    with open(TOKEN_FILE) as f:
+        token = f.read().strip()
+    req = urllib.request.Request(
+        f"https://api.supabase.com/v1/projects/{ref}/database/query",
+        data=json.dumps({"query": query}).encode(),
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            body = e.read()[:400].decode(errors="replace")
+            if e.code in (429, 500, 502, 503, 504) and attempt < 3:
+                log(f"api {e.code}, retrying: {body[:120]}")
+                time.sleep(15 * (attempt + 1))
+                continue
+            raise RuntimeError(f"api {e.code}: {body}")
+        except urllib.error.URLError as e:
+            if attempt < 3:
+                log(f"network error, retrying: {e}")
+                time.sleep(15 * (attempt + 1))
+                continue
+            raise
+
+
+def day_bounds(day):
+    nxt = day + dt.timedelta(days=1)
+    return f"{day.isoformat()} 00:00:00{TZ_OFFSET}", f"{nxt.isoformat()} 00:00:00{TZ_OFFSET}"
+
+
+def day_where(cfg, day):
+    ini, fim = day_bounds(day)
+    t = cfg["time_col"]
+    return f"{t} >= '{ini}'::timestamptz and {t} < '{fim}'::timestamptz"
+
+
+def fingerprint_sql(table, cfg, day):
+    i, c = cfg["id_col"], cfg["clear_col"]
+    return f"""
+select json_build_object(
+  'n', count(*),
+  'ids_md5', md5(coalesce(string_agg({i}::text, ',' order by {i}::text), '')),
+  'col_md5', md5(coalesce(string_agg(coalesce(md5({c}::text), '-'), ',' order by {i}::text), '')),
+  'com_col', count(*) filter (where {c} is not null)
+) as r
+from public.{table} where {day_where(cfg, day)};"""
+
+
+# ---------- R2 (rclone, private backups bucket) ----------
+
+def r2_env():
+    env = dict(os.environ)
+    vals = {}
+    with open(R2_ENV) as f:
+        for line in f:
+            line = line.strip()
+            if "=" in line and not line.startswith("#"):
+                k, v = line.split("=", 1)
+                vals[k] = v
+    env.update({
+        "RCLONE_CONFIG_PCARQ_TYPE": "s3",
+        "RCLONE_CONFIG_PCARQ_PROVIDER": "Cloudflare",
+        "RCLONE_CONFIG_PCARQ_ACCESS_KEY_ID": vals["R2_ACCESS_KEY_ID"],
+        "RCLONE_CONFIG_PCARQ_SECRET_ACCESS_KEY": vals["R2_SECRET_ACCESS_KEY"],
+        "RCLONE_CONFIG_PCARQ_ENDPOINT": vals["R2_ENDPOINT"],
+        "RCLONE_CONFIG_PCARQ_NO_CHECK_BUCKET": "true",
+    })
+    return env, vals["R2_BUCKET"]
+
+
+def rclone(*args, env, check=True, capture=True):
+    p = subprocess.run(["rclone", *args], env=env, capture_output=capture, timeout=600)
+    if check and p.returncode != 0:
+        raise RuntimeError(f"rclone {args[0]} failed: {p.stderr.decode(errors='replace')[:400]}")
+    return p
+
+
+def sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+# ---------- state ----------
+
+class State:
+    def __init__(self, table, ref):
+        os.makedirs(STATE_DIR, exist_ok=True)
+        self.path = os.path.join(STATE_DIR, f"{table}-{ref}.json")
+        self.data = {}
+        if os.path.exists(self.path):
+            with open(self.path) as f:
+                self.data = json.load(f)
+
+    def save(self):
+        tmp = self.path + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(self.data, f, indent=1, sort_keys=True)
+        os.replace(tmp, self.path)
+
+
+# ---------- archive ----------
+
+def object_key(prefix, table, day):
+    return f"{prefix}/{table}/{day:%Y}/{day:%m}/{day.isoformat()}"
+
+
+def verify_remote(env, bucket, key, sha_gz, n_expected):
+    with tempfile.TemporaryDirectory(prefix="pcarq-v-") as td:
+        local = os.path.join(td, "v.jsonl.gz")
+        rclone("copyto", f"pcarq:{bucket}/{key}.jsonl.gz", local, env=env)
+        if sha256_file(local) != sha_gz:
+            return False, "sha256 differs"
+        with gzip.open(local, "rt") as f:
+            n = sum(1 for _ in f)
+        if n != n_expected:
+            return False, f"lines {n} != {n_expected}"
+    return True, "ok"
+
+
+def archive_day(args, table, cfg, day, state, env, bucket):
+    key = object_key(args.prefixo, table, day)
+    done = state.data.get(day.isoformat())
+    if done and done.get("verificado_em"):
+        log(f"{day} already archived ({done['linhas']} rows), skipping")
+        return done
+    i = cfg["id_col"]
+    q = f"""
+with d as materialized (select * from public.{table} where {day_where(cfg, day)})
+select json_build_object(
+  'linhas', coalesce((select json_agg(d) from d), '[]'::json),
+  'n', (select count(*) from d),
+  'ids_md5', (select md5(coalesce(string_agg({i}::text, ',' order by {i}::text), '')) from d),
+  'col_md5', (select md5(coalesce(string_agg(coalesce(md5({cfg['clear_col']}::text), '-'), ',' order by {i}::text), '')) from d),
+  'com_col', (select count(*) from d where {cfg['clear_col']} is not null)
+) as r;"""
+    res = sql(args.ref, q)[0]["r"]
+    rows = res["linhas"]
+    if len(rows) != res["n"]:
+        raise RuntimeError(f"{day}: json has {len(rows)} rows, count says {res['n']}")
+    ids = sorted(str(r[i]) for r in rows)
+    if hashlib.md5(",".join(ids).encode()).hexdigest() != res["ids_md5"]:
+        raise RuntimeError(f"{day}: ids md5 from the json differs from the database")
+    rows.sort(key=lambda r: (r[cfg["time_col"]], str(r[i])))
+    with tempfile.TemporaryDirectory(prefix="pcarq-") as td:
+        jl = os.path.join(td, "d.jsonl")
+        with open(jl, "w") as f:
+            for r in rows:
+                f.write(json.dumps(r, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n")
+        gz = jl + ".gz"
+        with open(jl, "rb") as fi, gzip.open(gz, "wb", compresslevel=9) as fo:
+            fo.write(fi.read())
+        manifest = {
+            "tabela": table, "ref": args.ref, "dia": day.isoformat(), "fuso": "America/Sao_Paulo",
+            "inicio": day_bounds(day)[0], "fim": day_bounds(day)[1],
+            "linhas": res["n"], "ids_md5": res["ids_md5"], "col_md5": res["col_md5"],
+            "coluna_verificada": cfg["clear_col"], "com_coluna": res["com_col"],
+            "sha256_jsonl": sha256_file(jl), "sha256_gz": sha256_file(gz),
+            "bytes_jsonl": os.path.getsize(jl), "bytes_gz": os.path.getsize(gz),
+            "gerado_em": dt.datetime.now(dt.timezone.utc).isoformat(),
+        }
+        mf = os.path.join(td, "m.json")
+        with open(mf, "w") as f:
+            json.dump(manifest, f, indent=1, sort_keys=True)
+        exists = rclone("lsf", f"pcarq:{bucket}/{key}.jsonl.gz", env=env, check=False)
+        if exists.returncode == 0 and exists.stdout.strip():
+            raise RuntimeError(f"{day}: {key}.jsonl.gz already exists in R2 and is not in the local state; refusing to overwrite")
+        rclone("copyto", gz, f"pcarq:{bucket}/{key}.jsonl.gz", env=env)
+        rclone("copyto", mf, f"pcarq:{bucket}/{key}.manifest.json", env=env)
+    ok, why = verify_remote(env, bucket, key, manifest["sha256_gz"], manifest["linhas"])
+    if not ok:
+        raise RuntimeError(f"{day}: verification after upload failed: {why}")
+    manifest["chave"] = key
+    manifest["verificado_em"] = dt.datetime.now(dt.timezone.utc).isoformat()
+    state.data[day.isoformat()] = manifest
+    state.save()
+    log(f"{day} archived: {manifest['linhas']} rows, {manifest['bytes_gz']} bytes gz, {key}")
+    return manifest
+
+
+# ---------- clear ----------
+
+def clear_day(args, table, cfg, day, state, env, bucket):
+    m = state.data.get(day.isoformat())
+    if not m or not m.get("verificado_em"):
+        log(f"{day}: not archived, will not clear")
+        return False
+    if m.get("zerado_em"):
+        return True
+    fp = sql(args.ref, fingerprint_sql(table, cfg, day))[0]["r"]
+    if fp["com_col"] == 0:
+        m["zerado_em"] = dt.datetime.now(dt.timezone.utc).isoformat()
+        m["zerados"] = 0
+        state.save()
+        log(f"{day}: nothing left to clear")
+        return True
+    if (fp["n"], fp["ids_md5"], fp["col_md5"]) != (m["linhas"], m["ids_md5"], m["col_md5"]):
+        log(f"{day}: database no longer matches the manifest (n {fp['n']} vs {m['linhas']}); not clearing, archive the day again with --forcar")
+        return False
+    ok, why = verify_remote(env, bucket, m["chave"], m["sha256_gz"], m["linhas"])
+    if not ok:
+        log(f"{day}: R2 object failed verification ({why}); not clearing")
+        return False
+    if not args.confirmar:
+        log(f"{day}: would clear {cfg['clear_col']} of {fp['com_col']} rows (dry run)")
+        return False
+    c = cfg["clear_col"]
+    q = f"""with u as (update public.{table} set {c} = null
+ where {day_where(cfg, day)} and {c} is not null returning 1)
+select count(*) as n from u;"""
+    n = sql(args.ref, q)[0]["n"]
+    m["zerado_em"] = dt.datetime.now(dt.timezone.utc).isoformat()
+    m["zerados"] = n
+    state.save()
+    log(f"{day}: cleared {c} of {n} rows")
+    return True
+
+
+# ---------- main ----------
+
+def today_brt():
+    return (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=3)).date()
+
+
+def parse_day(s):
+    return dt.date.fromisoformat(s)
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("tabela", choices=sorted(TABLES))
+    ap.add_argument("acao", choices=["arquivar", "zerar", "diario", "status"])
+    ap.add_argument("--dia")
+    ap.add_argument("--de")
+    ap.add_argument("--ate")
+    ap.add_argument("--pausa", type=float, default=10.0)
+    ap.add_argument("--ref", default=PROD_REF)
+    ap.add_argument("--prefixo")
+    ap.add_argument("--confirmar", action="store_true")
+    args = ap.parse_args()
+    table, cfg = args.tabela, TABLES[args.tabela]
+    if not args.prefixo:
+        args.prefixo = "supabase-arquivo" if args.ref == PROD_REF else f"supabase-arquivo-{args.ref}"
+
+    os.makedirs(STATE_DIR, exist_ok=True)
+    lock = open(os.path.join(STATE_DIR, f"{table}.lock"), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        log("another run is in progress, leaving")
+        return 0
+
+    state = State(table, args.ref)
+    env, bucket = r2_env()
+    limit_clear = today_brt() - dt.timedelta(days=KEEP_DAYS + 1)
+
+    if args.acao == "status":
+        days = sorted(state.data)
+        arch = [d for d in days if state.data[d].get("verificado_em")]
+        clr = [d for d in days if state.data[d].get("zerado_em")]
+        print(json.dumps({"arquivados": len(arch), "primeiro": arch[0] if arch else None,
+                          "ultimo": arch[-1] if arch else None, "zerados": len(clr),
+                          "linhas": sum(state.data[d]["linhas"] for d in arch),
+                          "bytes_gz": sum(state.data[d]["bytes_gz"] for d in arch)}, indent=1))
+        return 0
+
+    if args.acao == "arquivar":
+        if args.dia:
+            days = [parse_day(args.dia)]
+        else:
+            d0, d1 = parse_day(args.de), parse_day(args.ate)
+            days = [d0 + dt.timedelta(days=k) for k in range((d1 - d0).days + 1)]
+        if any(d >= today_brt() for d in days):
+            log("refusing to archive today or a future day: the day is not closed yet")
+            return 2
+        for k, day in enumerate(days):
+            archive_day(args, table, cfg, day, state, env, bucket)
+            if k + 1 < len(days):
+                time.sleep(args.pausa)
+        return 0
+
+    if args.acao == "zerar":
+        last = min(parse_day(args.ate), limit_clear)
+        days = sorted(dt.date.fromisoformat(d) for d in state.data if dt.date.fromisoformat(d) <= last)
+        for day in days:
+            if not state.data[day.isoformat()].get("zerado_em"):
+                clear_day(args, table, cfg, day, state, env, bucket)
+                time.sleep(min(args.pausa, 5))
+        return 0
+
+    if args.acao == "diario":
+        yesterday = today_brt() - dt.timedelta(days=1)
+        archive_day(args, table, cfg, yesterday, state, env, bucket)
+        pending = sorted(dt.date.fromisoformat(d) for d in state.data
+                         if dt.date.fromisoformat(d) <= limit_clear and not state.data[d].get("zerado_em"))
+        for day in pending:
+            clear_day(args, table, cfg, day, state, env, bucket)
+        return 0
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
