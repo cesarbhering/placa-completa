@@ -690,7 +690,7 @@ export default defineNuxtConfig({
     nfseDesde: process.env.NUXT_NFSE_DESDE || "",
     // AES-256 key (32 bytes, base64) that encrypts the payer data.
     tomadorKey: process.env.NUXT_TOMADOR_KEY || "",
-    // Cupom de tela (10% em 30 min): HMAC do instante de emissao. Sem a env,
+    // Cupom de tela (5% em 5 min): HMAC do instante de emissao. Sem a env,
     // server/utils/cupom-tela.ts deriva da service key do banco premium.
     cupomTelaSecret: process.env.NUXT_CUPOM_TELA_SECRET || "",
     // Parceiros com chassi completo na consulta gratis (server/utils/parceiro-chassi.ts).

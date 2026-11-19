@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { gerarTokenCupomTela, segredoCupomTela } from '../../utils/cupom-tela'
 
 // Checkout Pix com o cupom de tela: o servidor confere o token (assinatura,
-// placa e janela de 30 min), aplica 5% e marca o pedido; com cupom de e-mail
+// placa e janela de 5 min), aplica 5% e marca o pedido; com cupom de e-mail
 // maior, vale o cupom e nada acumula.
 vi.mock('../../utils/compra-repetida', () => ({ respostaCompraRepetida: async () => null }))
 vi.mock('../../utils/blocklist', () => ({ barrarPlacaBloqueada: () => {} }))

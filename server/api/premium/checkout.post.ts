@@ -94,7 +94,7 @@ export default defineEventHandler(async (event) => {
     const cupomDigitado = codigoCupom
       ? (await validarCupomComLimite(supabase, { codigo: codigoCupom, plano, email, braco: abPreco.braco, placa }, config, { onde: 'checkout' })).cupom
       : null
-    // Cupom de tela (5% em 30 min, token assinado na consulta gratis). Nao
+    // Cupom de tela (5% em 5 min, token assinado na consulta gratis). Nao
     // acumula: vale o maior. Quando a tela vence, o cupom digitado sai de cena.
     const { cupom: cupomValidado, tela: descontoTela } = resolverDescontoTela(
       plano, cupomDigitado, cupomTelaValido(segredoCupomTela(config as any), body.cupom_tela, placa), abPreco.braco,

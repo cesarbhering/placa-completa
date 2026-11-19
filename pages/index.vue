@@ -5,7 +5,7 @@ import { PROVA_SOCIAL } from '~/shared/prova-social'
 import { DESCRICAO_HOME_BUSCA } from '~/shared/seo-meta'
 import { BASE_LEILAO_QTD, BASE_LEILAO_TEXTO, BASE_LEILAO_TEXTO_INICIO } from '~/shared/base-leilao'
 import { cederAoNavegador } from '~/shared/ceder'
-import { CUPOM_TELA_PCT, relogioCupomTela, mostrarCupomTela } from '~/shared/cupom-tela'
+import { CUPOM_TELA_PCT, CUPOM_TELA_JANELA_MS, relogioCupomTela, mostrarCupomTela } from '~/shared/cupom-tela'
 import { PLANOS, PLANOS_PAGOS, RECURSOS, RECURSOS_BLOQUEADOS, PLANO_ANTERIOR, recursosNovosNoPlano, inclui, isPlanoPago, precoBRL, precoDePromocao, type PlanoId } from '~/shared/planos'
 import { sinalDaResposta, fraseSinalNaTela, type SinalNaTela } from '~/shared/sinal-leilao-resposta'
 import { sinalRecallDaResposta, fraseRecallNaTela } from '~/shared/sinal-recall-resposta'
@@ -288,7 +288,7 @@ onUnmounted(() => { obsForm?.disconnect(); obsEyebrow?.disconnect() })
 // Vem de /api/consulta; nada aqui e SENATRAN.
 const resultadoBasico = ref<Record<string, any> | null>(null)
 
-// Cupom de tela: 5% se fechar em 30 min. O servidor emite o token com o
+// Cupom de tela: 5% se pagar em 5 min. O servidor emite o token com o
 // instante da emissao e e ELE que recusa depois do prazo; o relogio aqui so
 // mostra o que falta. Quem chegou com ?cupom= (e-mail) nao ve: nao acumula, e
 // duas ofertas na mesma tela confundem.
@@ -1788,9 +1788,9 @@ function applyEmailSuggestion() {
                        prometer a RESPOSTA ("da pra confiar?"), nao o produto. -->
                   <!-- Preco antigo riscado: igual nas duas variantes do A/B. -->
                   <p class="cb-locked__promo"><PrecoPromo so-de /></p>
-                  <!-- Cupom de tela: prazo real (o servidor recusa depois dos 30 min). -->
+                  <!-- Cupom de tela: prazo real (o servidor recusa depois da janela, hoje 5 min). -->
                   <p v-if="cupomTelaAtivo" class="cb-cupom-tela" role="status">
-                    <strong>{{ CUPOM_TELA_PCT }}% de desconto</strong> se fechar nos próximos 30 minutos
+                    <strong>{{ CUPOM_TELA_PCT }}% de desconto</strong> se pagar nos próximos {{ CUPOM_TELA_JANELA_MS / 60000 }} minutos
                     <span class="cb-cupom-tela__relogio" aria-label="tempo restante">{{ cupomTelaRelogio }}</span>
                   </p>
                   <button type="button" class="cb-btn cb-btn--blue" @click="cliqueCtaCompleta(cupomTelaAtivo ? 'cupom_tela' : 'bloco_bloqueado')">

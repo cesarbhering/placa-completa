@@ -4,7 +4,7 @@ import { aplicarCupomNoBraco, type BracoPreco } from '../../shared/ab-preco'
 import { CUPOM_TELA_PCT, CUPOM_TELA_JANELA_MS } from '../../shared/cupom-tela'
 
 // Cupom de tela (Cesar, 04/nov/2026): quem recebe o resultado da consulta
-// gratis ganha 5% se fechar em 30 minutos. A urgencia e REAL: o servidor
+// gratis ganha 5% se pagar em 5 minutos (eram 30 ate 19/11/2026). A urgencia e REAL: o servidor
 // assina o instante da emissao (HMAC) e o checkout so aplica o desconto dentro
 // da janela. Nao ha linha em cupons_premium: o token e a prova, e o pedido
 // sai marcado com cupom_origem = 'cupom_tela'.
@@ -86,7 +86,7 @@ export function emitirCupomTela(segredo: string, placa: string, ip: string, agor
   return { token: gerarTokenCupomTela(segredo, placa, emitidoEm), expiraEm: new Date(expira).toISOString() }
 }
 
-/** true = token assinado por nos, para esta placa, dentro da janela de 30 min. */
+/** true = token assinado por nos, para esta placa, dentro da janela (CUPOM_TELA_JANELA_MS). */
 export function cupomTelaValido(segredo: string, token: unknown, placa: string, agora = Date.now()): boolean {
   if (!segredo || typeof token !== 'string' || token.length > 200) return false
   const partes = token.split('.')
