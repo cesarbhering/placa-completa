@@ -14,6 +14,9 @@
 -- the database. fipe_n keeps how many FIPE values went into fipe_avg, so the
 -- average stays a true running average. consultas_count becomes cumulative.
 
+-- Fail fast instead of queueing behind a long reader of leads.
+set local lock_timeout = '5s';
+
 alter table public.leads add column if not exists fipe_n integer not null default 0;
 
 create table if not exists public.leads_extracao_estado (
@@ -26,10 +29,18 @@ revoke all on table public.leads_extracao_estado from anon, authenticated;
 -- Last full pass, with the same math as the old function, now also counting
 -- the FIPE values per email. Rows newer than 5 minutes are left for the next
 -- run: the cut-off keeps clear of inserts that have not committed yet.
+-- Only the first time: once the watermark exists, old api_response values may
+-- have been cleared by the archive, and a second full pass would null the
+-- FIPE stats and reset the cumulative counts. Running this file again is safe.
 do $$
 declare
   v_ate timestamptz := now() - interval '5 minutes';
 begin
+  if exists (select 1 from public.leads_extracao_estado) then
+    raise notice 'leads_extracao_estado already has a watermark: full pass skipped';
+    return;
+  end if;
+
   insert into public.leads (email, first_seen_at)
   select lower(trim(email)), min(created_at)
   from public.consultas
@@ -82,7 +93,9 @@ declare
   v_ate timestamptz := now() - interval '5 minutes';
   inserted_count integer;
 begin
-  select processado_ate into v_desde from public.leads_extracao_estado where id;
+  -- for update: a concurrent call (cron plus a manual or RPC call) waits here
+  -- and then reads the new watermark, so no window is counted twice.
+  select processado_ate into v_desde from public.leads_extracao_estado where id for update;
   if v_desde is null then
     raise exception 'leads_extracao_estado has no watermark';
   end if;
@@ -136,3 +149,5 @@ $$;
 
 revoke all on function public.extract_leads_from_consultas() from public, anon, authenticated;
 grant execute on function public.extract_leads_from_consultas() to service_role;
+
+notify pgrst, 'reload schema';
