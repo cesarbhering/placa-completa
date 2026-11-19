@@ -35,7 +35,7 @@ describe('oferta de segunda placa', () => {
     await flushPromises()
     expect(b.find('.osp').exists()).toBe(false)
   })
-  it('no relatorio, "visto" so quando o card entra na tela, uma vez', async () => {
+  it('on the report, counts as seen only once half of the card is on screen, and only once', async () => {
     const instancias: any[] = []
     class FakeIO {
       cb: any
@@ -49,8 +49,11 @@ describe('oferta de segunda placa', () => {
     mount(OfertaSegundaPlaca, { props: { token: 't', onde: 'relatorio' } })
     await flushPromises()
     expect(eventos).not.toContain('bump_visto')
-    instancias[0].cb([{ isIntersecting: true }])
-    instancias[0].cb([{ isIntersecting: true }])
+    // The observer also fires when the card starts to enter (10% visible): not seen yet.
+    instancias[0].cb([{ isIntersecting: true, intersectionRatio: 0.1 }])
+    expect(eventos).not.toContain('bump_visto')
+    instancias[0].cb([{ isIntersecting: true, intersectionRatio: 0.6 }])
+    instancias[0].cb([{ isIntersecting: true, intersectionRatio: 0.6 }])
     expect(eventos.filter((e) => e === 'bump_visto')).toHaveLength(1)
     vi.unstubAllGlobals()
   })

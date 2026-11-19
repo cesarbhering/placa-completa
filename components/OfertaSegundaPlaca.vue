@@ -14,7 +14,8 @@ const bump = ref<{ codigo: string; validoAte: string; precoCentavos: number } | 
 const raiz = ref<HTMLElement | null>(null)
 
 // "Visto" uma vez so. No relatorio o card fica no fim (19/11/2026), entao ali
-// ele so conta quando entra na tela; sem IntersectionObserver (SSR, teste,
+// ele so conta quando metade dele esta na tela (o callback tambem roda quando
+// o card comeca a entrar, por isso o intersectionRatio); sem IntersectionObserver (SSR, teste,
 // navegador antigo) conta ao aparecer, como antes. No checkout ele ja nasce
 // na tela.
 let vistoEnviado = false
@@ -45,7 +46,7 @@ onMounted(async () => {
         await nextTick()
         if (raiz.value) {
           observador = new IntersectionObserver((entradas) => {
-            if (entradas.some((e) => e.isIntersecting)) { marcarVisto(); observador?.disconnect() }
+            if (entradas.some((e) => e.isIntersecting && e.intersectionRatio >= 0.5)) { marcarVisto(); observador?.disconnect() }
           }, { threshold: 0.5 })
           observador.observe(raiz.value)
         } else marcarVisto()
@@ -71,6 +72,8 @@ function clicou() {
 /* Oferta de produto nao sai no laudo impresso (como os .rel__card--up do relatorio). */
 @media print { .osp { display: none; } }
 .osp { margin: 12px 0; padding: 14px 16px; border: 2px solid #1f6feb; border-radius: 12px; background: #f3f8ff; text-align: left; }
+/* No relatorio fica entre os .rel__card (margin-bottom 16px): mesmo respiro. */
+.osp--relatorio { margin: 0 0 16px; }
 .osp__t { margin: 0 0 4px; font-weight: 700; color: #0f2d5c; font-size: 16px; line-height: 1.35; }
 .osp__s { margin: 0 0 10px; font-size: 13px; color: #3d3d3d; }
 .osp__btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 8px; background: #1f6feb; color: #fff; font-weight: 600; text-decoration: none; }

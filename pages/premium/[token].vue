@@ -3432,6 +3432,11 @@ onUnmounted(() => {
             </NuxtLink>
           </section>
 
+          <!-- Pedido acoplado (04/nov/2026): segunda placa por R$ 29,90. Foi para
+               o fim do relatorio a pedido do Cesar (19/11/2026): primeiro o laudo,
+               depois a oferta. O servidor decide se ha oferta (e-mail, 24 h, 1 uso). -->
+          <OfertaSegundaPlaca v-if="token && !isCapacitor" :token="token" onde="relatorio" />
+
           <!-- Nova consulta: incentivo pra voltar depois de ver o relatorio
                pronto. So tela (mesmo tratamento do upsell da basica acima,
                .rel__card--up some na impressao: e conversa de produto, nao
@@ -3439,10 +3444,6 @@ onUnmounted(() => {
           <!-- Cupom de recompra (10% desde 20/out/2026, 7 dias, qualquer placa, pode compartilhar).
                Opcao 1 do Cesar + botao de WhatsApp. Sem cupom (vencido ou
                relatorio antigo): card simples. -->
-          <!-- Pedido acoplado (04/nov/2026): segunda placa por R$ 29,90. Voltou para
-               o fim do relatorio a pedido do Cesar (19/11/2026): primeiro o laudo,
-               depois a oferta. O servidor decide se ha oferta (e-mail, 24 h, 1 uso). -->
-          <OfertaSegundaPlaca v-if="token && !isCapacitor" :token="token" onde="relatorio" />
           <section v-if="cupomCard" class="rel__card rel__card--up rel__recompra">
             <p class="rel__recompra-eyebrow">Vai ver outro carro?</p>
             <h2 class="rel__recompra-tit">Sua próxima consulta sai com {{ pctDoCupom(cupomCard) }}% de desconto</h2>
