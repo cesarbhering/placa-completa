@@ -116,7 +116,7 @@ const SINAIS = [
 
       <div class="pc-prose">
         <p class="pc-lead">{{ RESPOSTA_COMO_SABER_INDEX }}</p>
-        <OfertaCompletaTopo origem="carro-de-leilao" foco="o registro de leilão" />
+        <OfertaCompletaTopo origem="carro-de-leilao" foco="se consta registro de leilão" />
         <p>
           Carro de leilão pode custar menos que um igual no mercado, mas só vale a pena para quem
           compra sabendo o que está levando. O desconto existe porque o risco existe: o carro pode

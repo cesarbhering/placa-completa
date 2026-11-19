@@ -18,6 +18,6 @@ export const CONTA_COMO_SABER = {
   titulo: 'Pague o que o carro vale, não o que a tabela diz',
   paragrafos: [
     'A tabela FIPE olha o carro sem histórico. Se ele passou por leilão, o preço justo tende a ser menor, e quem não sabe acaba pagando a diferença.',
-    `Não há um percentual único, mas a conta é simples: num carro de R$ 50 mil, cada 10% de desconto que o histórico justificaria são R$ 5 mil. O Relatório Completo custa ${PRECO_COMPLETA} e mostra o registro de leilão, quando houver. Com ele na mão, você pede o desconto ou desiste. Sem ele, paga a tabela cheia por um carro que pode valer menos.`,
+    `Num exemplo: num carro de R$ 50 mil, cada 10% de desconto que o histórico justificaria são R$ 5 mil. Não há um percentual único, mas a conta é simples. O Relatório Completo custa ${PRECO_COMPLETA} e mostra o registro de leilão que constar nas bases consultadas. Com ele na mão, você pede o desconto ou desiste. Sem ele, paga a tabela cheia por um carro que pode valer menos.`,
   ],
 }

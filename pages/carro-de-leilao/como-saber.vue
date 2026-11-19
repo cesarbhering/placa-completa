@@ -40,7 +40,7 @@ useHead({
       <h1 class="pc-h1">Como saber se o carro é de leilão</h1>
       <div class="pc-prose">
         <p class="pc-lead">{{ RESPOSTA_COMO_SABER }}</p>
-        <OfertaCompletaTopo origem="carro-de-leilao-como-saber" foco="o registro de leilão" />
+        <OfertaCompletaTopo origem="carro-de-leilao-como-saber" foco="se consta registro de leilão" />
 
         <h2>{{ CONTA_COMO_SABER.titulo }}</h2>
         <p v-for="t in CONTA_COMO_SABER.paragrafos" :key="t">{{ t }}</p>
