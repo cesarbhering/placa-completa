@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { precoBRL } from '~/shared/planos'
 import { linkBump } from '~/shared/cupom-bump'
+import { nextTick, onBeforeUnmount } from 'vue'
 import { enfileirarEventoFunil } from '~/composables/useAnalytics'
 
 // Pedido acoplado (04/nov/2026): depois do pagamento confirmado, a segunda
@@ -10,6 +11,20 @@ import { enfileirarEventoFunil } from '~/composables/useAnalytics'
 const props = defineProps<{ token: string; onde: 'checkout' | 'relatorio' }>()
 
 const bump = ref<{ codigo: string; validoAte: string; precoCentavos: number } | null>(null)
+const raiz = ref<HTMLElement | null>(null)
+
+// "Visto" uma vez so. No relatorio o card fica no fim (19/11/2026), entao ali
+// ele so conta quando entra na tela; sem IntersectionObserver (SSR, teste,
+// navegador antigo) conta ao aparecer, como antes. No checkout ele ja nasce
+// na tela.
+let vistoEnviado = false
+let observador: IntersectionObserver | null = null
+function marcarVisto() {
+  if (vistoEnviado) return
+  vistoEnviado = true
+  enfileirarEventoFunil('bump_visto', { plano: 'completa', extra: { onde: props.onde } })
+}
+onBeforeUnmount(() => observador?.disconnect())
 
 const vence = computed(() => {
   if (!bump.value) return ''
@@ -26,7 +41,15 @@ onMounted(async () => {
     const r: any = await $fetch('/api/premium/cupom-bump', { query: { token: props.token } })
     if (r?.bump?.codigo) {
       bump.value = r.bump
-      enfileirarEventoFunil('bump_visto', { plano: 'completa', extra: { onde: props.onde } })
+      if (props.onde === 'relatorio' && typeof IntersectionObserver !== 'undefined') {
+        await nextTick()
+        if (raiz.value) {
+          observador = new IntersectionObserver((entradas) => {
+            if (entradas.some((e) => e.isIntersecting)) { marcarVisto(); observador?.disconnect() }
+          }, { threshold: 0.5 })
+          observador.observe(raiz.value)
+        } else marcarVisto()
+      } else marcarVisto()
     }
   } catch { /* sem oferta */ }
 })
@@ -37,7 +60,7 @@ function clicou() {
 </script>
 
 <template>
-  <div v-if="bump" class="osp" :class="`osp--${onde}`">
+  <div v-if="bump" ref="raiz" class="osp" :class="`osp--${onde}`">
     <p class="osp__t">Consultar uma segunda placa com o relatório completo por {{ precoBRL(bump.precoCentavos) }}</p>
     <p class="osp__s">Vale até {{ vence }}, uma vez, para o e-mail desta compra.</p>
     <a :href="linkBump(bump.codigo)" class="osp__btn" @click="clicou">Consultar outra placa</a>
@@ -45,6 +68,8 @@ function clicou() {
 </template>
 
 <style scoped>
+/* Oferta de produto nao sai no laudo impresso (como os .rel__card--up do relatorio). */
+@media print { .osp { display: none; } }
 .osp { margin: 12px 0; padding: 14px 16px; border: 2px solid #1f6feb; border-radius: 12px; background: #f3f8ff; text-align: left; }
 .osp__t { margin: 0 0 4px; font-weight: 700; color: #0f2d5c; font-size: 16px; line-height: 1.35; }
 .osp__s { margin: 0 0 10px; font-size: 13px; color: #3d3d3d; }
