@@ -205,8 +205,11 @@ def release_sql(table, cfg, day, m):
                f"where x.{i} = a.{i} and {cond}{keep} "
                f"and x.{cfg['time_col']} < now() - interval '{int(cfg['keep_days'])} days' returning 1)")
         alvo_n = "(select count(*) from alvo a where true" + (keep.replace("x.", "a.") if keep else "") + ")"
+    # If the write ever touches more rows than the day has (a regression in
+    # the filters), the division by zero rolls the whole statement back.
+    trava = "case when (select count(*) from feito) > (select n from fp) then 1/0 end as trava"
     return (f"with {alvo}, {fp}, {act} select (select row_to_json(fp) from fp) as fp, "
-            f"{alvo_n} as alvo, (select count(*) from feito) as feitos;")
+            f"{alvo_n} as alvo, (select count(*) from feito) as feitos, {trava};")
 
 
 # ---------- R2 (rclone, private backups bucket) ----------
@@ -494,9 +497,27 @@ def release_days(args, table, cfg, days, state, env, bucket):
 
 
 def vacuum(args, table):
-    t0 = time.time()
-    sql(args.ref, f"vacuum public.{table};", timeout=600)
-    log(f"vacuum public.{table}: {time.time() - t0:.0f} s")
+    """Plain VACUUM through a one-shot pg_cron job: it runs inside the
+    database, without the 2-minute statement timeout of the Management API
+    session. Waits for it to finish, then removes the job."""
+    at = (dt.datetime.now(dt.timezone.utc) + dt.timedelta(seconds=75)).replace(second=0, microsecond=0)
+    name = f"pcarq-vacuum-{table}-{at:%Y%m%d%H%M}"
+    expr = f"{at.minute} {at.hour} {at.day} {at.month} *"  # cron.timezone is GMT
+    jobid = int(sql(args.ref, f"select cron.schedule('{name}', '{expr}', 'vacuum public.{table}') as id;")[0]["id"])
+    try:
+        limite = time.time() + 3600
+        while time.time() < limite:
+            time.sleep(15)
+            r = sql(args.ref, f"select status, start_time, end_time, return_message from cron.job_run_details "
+                              f"where jobid = {jobid} order by runid desc limit 1;")
+            if r and r[0]["status"] in ("succeeded", "failed"):
+                log(f"vacuum public.{table} by pg_cron: {r[0]['status']} ({r[0]['start_time']} to {r[0]['end_time']})")
+                if r[0]["status"] != "succeeded":
+                    raise RuntimeError(f"vacuum public.{table} failed: {str(r[0].get('return_message'))[:200]}")
+                return
+        raise RuntimeError(f"vacuum public.{table} did not finish within an hour")
+    finally:
+        sql(args.ref, f"select cron.unschedule({jobid});")
 
 
 # ---------- prune (placa_cache) ----------

@@ -48,7 +48,7 @@ def writes(q):
     out = []
     for c in q.call_args_list:
         s = c[0][1].lower()
-        if "update public." in s or "delete from public." in s or "_resumir(" in s or s.startswith("vacuum"):
+        if "update public." in s or "delete from public." in s or "_resumir(" in s or "cron.schedule(" in s:
             out.append(c[0][1])
     return out
 
@@ -265,6 +265,7 @@ class Clear(Base):
         self.assertIn("x.created_at < now() - interval '7 days'", s)
         self.assertIn("x.created_at <= (select processado_ate from public.leads_extracao_estado where id)", s)
         self.assertIn("polcmd in ('a', '*')", s)
+        self.assertIn("case when (select count(*) from feito) > (select n from fp) then 1/0 end", s)
         self.assertEqual(self.state.data["2026-08-03"]["zerados"], man["linhas"])
 
     def test_only_ids_md5_differs_blocks_the_clear(self):
@@ -310,6 +311,14 @@ class Clear(Base):
         self.args.confirmar = True
         changed = [{"fp": {"n": man["linhas"] + 1, "ids_md5": "x", "col_md5": "y"}, "alvo": 5, "feitos": 0}]
         with mock.patch.object(m, "sql", side_effect=[self.fp(man), self.GUARD_OK, changed]):
+            self.assertFalse(m.release_day(self.args, "consultas", self.cfg, DAY, self.state, {}, "bucket"))
+        self.assertFalse(m.released(self.state.data["2026-08-03"]))
+
+    def test_same_count_with_different_content_is_not_marked(self):
+        man = self.archived()
+        self.args.confirmar = True
+        same_n = [{"fp": {"n": man["linhas"], "ids_md5": man["ids_md5"], "col_md5": "outro"}, "alvo": 4, "feitos": 0}]
+        with mock.patch.object(m, "sql", side_effect=[self.fp(man), self.GUARD_OK, same_n]):
             self.assertFalse(m.release_day(self.args, "consultas", self.cfg, DAY, self.state, {}, "bucket"))
         self.assertFalse(m.released(self.state.data["2026-08-03"]))
 
@@ -368,6 +377,14 @@ class Delete(Base):
             self.assertFalse(m.release_day(self.args, self.table, self.cfg, DAY, self.state, {}, "bucket"))
         self.assertEqual(writes(q), [])
 
+    def test_same_count_with_different_content_is_not_marked_deleted(self):
+        man = self.archived()
+        self.args.confirmar = True
+        same_n = [{"fp": {"n": man["linhas"], "ids_md5": "outro", "col_md5": man["col_md5"]}, "alvo": 3, "feitos": 0}]
+        with mock.patch.object(m, "sql", side_effect=[self.fp(man), [{"n": 7}], same_n]):
+            self.assertFalse(m.release_day(self.args, self.table, self.cfg, DAY, self.state, {}, "bucket"))
+        self.assertFalse(m.released(self.state.data["2026-08-03"]))
+
     def test_summarizes_then_deletes_in_one_guarded_statement(self):
         man = self.archived()
         self.args.confirmar = True
@@ -386,6 +403,7 @@ class Delete(Base):
         self.assertIn("a.fonte not in ('wdapi', 'placafipe')", d)
         self.assertIn("x.criado_em < now() - interval '30 days'", d)
         self.assertIn(f"fp.ids_md5 = '{man['ids_md5']}'", d)
+        self.assertIn("then 1/0 end", d)
         st = self.state.data["2026-08-03"]
         self.assertEqual((st["resumo"], st["apagados"]), (7, 3))
 
@@ -438,9 +456,28 @@ class Vacuum(Base):
     def test_plain_vacuum_after_every_n_days_and_at_the_end(self):
         self.args.confirmar, self.args.vacuum_a_cada = True, 2
         days = [DAY + dt.timedelta(days=k) for k in range(5)]
-        with mock.patch.object(m, "release_day", return_value=True), mock.patch.object(m, "sql") as q:
+        with mock.patch.object(m, "release_day", return_value=True), mock.patch.object(m, "vacuum") as v:
             self.assertEqual(m.release_days(self.args, "consultas", self.cfg, days, self.state, {}, "bucket"), 5)
-        self.assertEqual(len([c for c in q.call_args_list if c[0][1].startswith("vacuum public.consultas")]), 3)
+        self.assertEqual(v.call_count, 3)
+
+    def test_vacuum_runs_as_a_one_shot_pg_cron_job_and_is_removed(self):
+        answers = [[{"id": 9}], [], [{"status": "running", "start_time": "a", "end_time": None}],
+                   [{"status": "succeeded", "start_time": "a", "end_time": "b"}], [{"unschedule": True}]]
+        with mock.patch.object(m, "sql", side_effect=answers) as q:
+            m.vacuum(self.args, "consultas")
+        calls = [c[0][1] for c in q.call_args_list]
+        self.assertIn("cron.schedule('pcarq-vacuum-consultas-", calls[0])
+        self.assertIn("'vacuum public.consultas'", calls[0])
+        self.assertTrue(all("vacuum public." not in c or "cron.schedule" in c for c in calls), "never through the API session")
+        self.assertEqual(calls[-1], "select cron.unschedule(9);")
+
+    def test_failed_vacuum_raises_and_still_removes_the_job(self):
+        answers = [[{"id": 9}], [{"status": "failed", "start_time": "a", "end_time": "b", "return_message": "x"}],
+                   [{"unschedule": True}]]
+        with mock.patch.object(m, "sql", side_effect=answers) as q:
+            with self.assertRaises(RuntimeError):
+                m.vacuum(self.args, "consultas")
+        self.assertEqual(q.call_args_list[-1][0][1], "select cron.unschedule(9);")
 
     def test_dry_run_never_vacuums(self):
         self.args.vacuum_a_cada = 1
@@ -479,6 +516,14 @@ class Prune(Base):
         self.assertIn("('ABC1D23', '2026-08-22T10:00:00.123456+00:00'::timestamptz)", d)
         self.assertIn("t.placa = alvo.k and t.fetched_at = alvo.ts", d)
         self.assertIn("pp.pago_em is not null", d)
+
+    def test_damaged_upload_never_deletes(self):
+        self.args.confirmar = True
+        self.r2.corrupt_upload = True
+        with mock.patch.object(m, "sql", side_effect=[self.result(self.cache_rows()), [{"apagados": 2}]]) as q:
+            with self.assertRaises(RuntimeError):
+                m.prune(self.args, self.table, self.cfg, self.state, {}, "bucket")
+        self.assertEqual(writes(q), [])
 
     def test_other_actions_are_refused_for_placa_cache(self):
         with mock.patch("sys.argv", ["x", "placa_cache", "liberar", "--ate", "2026-08-01"]), \
