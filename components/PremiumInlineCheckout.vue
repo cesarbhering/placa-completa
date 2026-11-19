@@ -46,7 +46,7 @@ const props = withDefaults(defineProps<{
   /** Botao que abriu o checkout (shared/origem-checkout.ts). Vai pro pedido. */
   origemCheckout?: string | null
   /**
-   * Cupom de tela (5% se fechar em 30 min), emitido pelo servidor na consulta
+   * Cupom de tela (5% se pagar em 5 min), emitido pelo servidor na consulta
    * gratis. O servidor revalida assinatura e prazo; aqui e so exibicao.
    */
   cupomTelaToken?: string | null
@@ -144,7 +144,7 @@ async function validarCupom(): Promise<boolean> {
         // Cupom pessoal aberto pelo link antes de a pessoa digitar o e-mail:
         // o desconto ja vale, mas so pra ela. Melhor dizer agora do que deixar
         // o preco subir de surpresa no clique de pagar.
-        ? (r.exigeEmail ? 'Cupom aplicado. Use o mesmo e-mail que recebeu o cupom.' : 'Cupom aplicado!')
+        ? (r.exigeEmail ? 'Cupom aplicado. Use o mesmo e-mail que recebeu o cupom.' : 'Cupom aplicado.')
         : ''
       return true
     }
@@ -252,8 +252,8 @@ const abPrecoCheckout = computed(() => (isCapacitor.value ? null : abPrecoInicia
 const precoBaseCentavos = computed(() => precoDoPlano(props.plano, abPrecoCheckout.value))
 // O botao carrega SO o desfecho, nao o preco: o preco ja aparece no resumo
 // logo acima, e repeti-lo no botao so reforca o frame de custo na hora do
-// clique. A linha-helper abaixo do botao cuida da reasseguranca (Pix, estorno,
-// prazo), tirando esse peso de cima da CTA.
+// clique. A linha-helper abaixo do botao diz o prazo de entrega; o estorno ja
+// esta na faixa de garantias acima do botao.
 const rotuloPagar = computed(() => {
   if (isCapacitor.value) {
     return loading.value
@@ -1213,7 +1213,6 @@ onUnmounted(() => {
                 v-model="senha"
                 type="password"
                 class="pic-input"
-                placeholder="Senha"
                 @keyup.enter="entrar"
               >
             </div>
@@ -1261,7 +1260,7 @@ onUnmounted(() => {
               <span class="pic-faixa__plano"><b v-if="!temDesconto && precoDePromocao(plano)" class="pic-faixa__promo">Promoção</b>{{ (!temDesconto && precoDePromocao(plano) ? ' · ' : '') + planoInfo.nome }}</span>
             </div>
             <p v-if="telaVence" class="pic-cupom-tela" role="status">
-              {{ CUPOM_TELA_PCT }}% de desconto aplicado. Vale se fechar em
+              {{ CUPOM_TELA_PCT }}% de desconto aplicado. Vale se pagar em
               <span class="pic-cupom-tela__relogio">{{ relogioTela }}</span>
             </p>
             <div v-if="editandoPlaca" class="pic-campo">
@@ -1300,7 +1299,6 @@ onUnmounted(() => {
                   :disabled="processandoCartao"
                   type="text"
                   class="pic-input"
-                  placeholder="CODIGO"
                   autocapitalize="characters"
                   autocomplete="off"
                   @blur="validarCupom"
@@ -1376,17 +1374,9 @@ onUnmounted(() => {
                    o clique (e se o carro nao aparecer? vai virar assinatura?). -->
               <ul class="pic-conf">
                 <li v-if="!isCapacitor" class="pic-conf__item pic-conf__item--forte">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M12 3 20 6v6c0 4.5-3.3 7.9-8 9-4.7-1.1-8-4.5-8-9V6Z" />
-                    <path d="m9 12 2 2 4-4" />
-                  </svg>
                   <span><strong>Estorno automático no Pix</strong> se não conseguirmos gerar seu relatório.</span>
                 </li>
                 <li class="pic-conf__item">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="4" y="10" width="16" height="10" rx="2" />
-                    <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-                  </svg>
                   <span>Pagamento único. Sem assinatura e sem cadastro.</span>
                 </li>
               </ul>
@@ -1399,7 +1389,7 @@ onUnmounted(() => {
                 {{ rotuloPagar }}
               </button>
               <p v-if="isCapacitor && !emailAppOk && !emailErro" class="pic-hint pic-hint--cta">Informe seu e-mail acima para liberar a compra.</p>
-              <p v-if="!isCapacitor" class="pic-hint pic-hint--cta">Pagamento por Pix · estorno se não acharmos o veículo · entrega em até 5 min</p>
+              <p v-if="!isCapacitor" class="pic-hint pic-hint--cta">Entrega em até 5 minutos.</p>
             </div>
 
             <!-- Painel CARTAO: Stripe Elements montado nos divs abaixo. v-show (nao
@@ -1430,24 +1420,20 @@ onUnmounted(() => {
                 :disabled="processandoCartao || loading || !stripePronto || editandoPlaca"
                 @click="pagarComCartao"
               >
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
                 {{ processandoCartao ? 'Processando...' : `Pagar ${reais(precoExibidoCentavos)}` }}
               </button>
               <p v-if="relatorioCartao" class="pic-hint pic-hint--cta">
                 Pagamento aprovado. <a class="pic-link" :href="relatorioCartao">Abrir o relatório</a>
               </p>
-              <p v-if="!stripePronto && !erroCartao" class="pic-hint pic-hint--cta">Carregando pagamento seguro...</p>
+              <p v-if="!stripePronto && !erroCartao" class="pic-hint pic-hint--cta">Carregando os campos do cartão...</p>
               <p class="pic-hint pic-cartao-seguro">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
-                Pagamento processado com segurança pelo Stripe. Não armazenamos os dados do seu cartão.
+                Pagamento processado pelo Stripe. Não armazenamos os dados do seu cartão.
               </p>
             </div>
             <!-- Logos de pagamento (opcao 1 do Cesar, 06/out): logo abaixo do
                  botao de pagar, nas duas abas. No app (Play) nao aparece. -->
             <div v-if="!isCapacitor" class="pic-logos">
               <LogosPagamento :cartao="cartaoHabilitado" />
-              <!-- Na aba Cartao so os logos: a frase do Stripe ja esta logo acima. -->
-              <p v-if="metodo !== 'cartao'" class="pic-logos__txt">Pagamento seguro.</p>
             </div>
             <!-- Prova social + WhatsApp: nas duas abas, abaixo do botao de pagar. -->
             <p class="pic-prova">{{ PROVA_SOCIAL }}</p>
@@ -1528,13 +1514,7 @@ onUnmounted(() => {
                        mentira pra metade das cobrancas. Sem nome confirmado, a
                        linha nao aparece, em vez de chutar. -->
                   <p v-if="pix?.recebedor" class="pic-recebedor">No app do banco, o recebedor aparece como <strong>{{ pix.recebedor }}</strong>, a empresa que processa o Pix para a PlacaCompleta.</p>
-                  <p class="pic-selo">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <rect x="4" y="10" width="16" height="10" rx="2" />
-                      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-                    </svg>
-                    <span>Cobrança única via Pix, processada com segurança. Se não conseguirmos gerar o relatório, o estorno é automático.</span>
-                  </p>
+                  <p class="pic-selo">Se não conseguirmos gerar o relatório, o estorno é automático.</p>
                   <!-- O copia e cola fica a vista: quem paga do computador
                        precisa dele na tela pra colar no internet banking, e
                        esconder atras de um toque so criava um passo. No
@@ -1564,7 +1544,7 @@ onUnmounted(() => {
               </button>
             </template>
             <template v-else-if="['pago', 'consultando'].includes(pendingStatus)">
-              <h3 class="pic-h">{{ pix?.gratis ? 'Relatório liberado ✓' : 'Pagamento confirmado ✓' }}</h3>
+              <h3 class="pic-h">{{ pix?.gratis ? 'Relatório liberado' : 'Pagamento confirmado' }}</h3>
               <!-- Confirmacao do veiculo depois do pagamento: e aqui que a
                    pessoa ve modelo, cor e cidade e tem a chance de dizer que
                    errou a placa, antes de o relatorio virar o assunto. -->
@@ -1581,7 +1561,7 @@ onUnmounted(() => {
             <!-- Piso de ~40s: recall/multa no registro. Mostra o que esta sendo
                  buscado antes de abrir o relatorio (a navegacao e agendada). -->
             <template v-else-if="piso">
-              <h3 class="pic-h">Quase lá ✓</h3>
+              <h3 class="pic-h">Quase lá</h3>
               <div class="loading-bar"><div class="loading-bar__fill" /></div>
               <p class="pic-hint">{{ piso.msg }}</p>
             </template>
@@ -1590,7 +1570,7 @@ onUnmounted(() => {
                  Sem isto o status caia no v-else e piscava "Algo deu errado"
                  justo no momento do sucesso. -->
             <template v-else-if="pendingStatus === 'entregue'">
-              <h3 class="pic-h">Relatório pronto ✓</h3>
+              <h3 class="pic-h">Relatório pronto</h3>
               <div class="loading-bar"><div class="loading-bar__fill" /></div>
               <p class="pic-hint">Abrindo seu relatório...</p>
             </template>
@@ -1609,9 +1589,8 @@ onUnmounted(() => {
             <template v-else-if="pendingStatus === 'falha'">
               <h3 class="pic-h">Não conseguimos concluir</h3>
               <p class="pic-hint">
-                Não conseguimos concluir a consulta. Se o pagamento foi feito, vamos
-                devolver o valor e falar com você pelo e-mail. Qualquer coisa, fale com
-                a gente pelo contato do rodapé.
+                Se o pagamento foi feito, vamos devolver o valor e falar com você pelo
+                e-mail. Qualquer coisa, fale com a gente pelo contato do rodapé.
               </p>
               <button type="button" class="pic-btn" @click="fechar">Fechar</button>
             </template>
@@ -1655,15 +1634,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
   margin-top: 12px;
-}
-.pic-logos__txt {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.4;
-  text-align: center;
-  opacity: 0.75;
 }
 .pic-prova {
   margin: 10px 0 0;
@@ -1777,9 +1748,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 // Frase que tira o medo de pagar e perder a tela: precisa pesar mais que uma
 // dica comum, por isso vem depois de .pic-hint (mesma especificidade, ganha).
 .pic-hint--forte { color: $c-ink; font-weight: 600; }
-// Linha-helper logo abaixo da CTA: reasseguranca discreta e centrada, colada
-// no botao (o stack tem gap, por isso o margin-top negativo aproxima).
-.pic-hint--cta { text-align: center; font-size: 13px; margin-top: -4px; }
+// Linha-helper logo abaixo da CTA: reasseguranca discreta e centrada. Fica a 8px
+// do botao (antes era colada com margin-top negativo; o Cesar pediu respiro, 19/11).
+.pic-hint--cta { text-align: center; font-size: 13px; margin-top: 8px; }
 .pic-aviso { font-size: 13px; line-height: 1.4; color: #b45309; margin: 6px 0 0; }
 .pic-btn--sim { border: 1px dashed #b45309; color: #b45309; background: #fff7ed; }
 .pic-lead { font-size: 15px; line-height: 1.45; color: $c-charcoal; margin: 0; }
@@ -1834,7 +1805,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   gap: 0 6px;
   text-align: right;
 
-  b { font-size: 18px; font-weight: 800; color: $c-ink; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  b { font-size: 18px; font-weight: 600; color: $c-ink; font-variant-numeric: tabular-nums; white-space: nowrap; }
 }
 .pic-faixa__de { font-size: 12px; color: $c-steel; text-decoration: line-through; white-space: nowrap; }
 .pic-faixa__sub {
@@ -1861,9 +1832,8 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 // ---- confianca ----
-// Regra do bloco: hairline e tinta, nunca um mural de selos coloridos. O unico
-// desvio de cor e o escudo do estorno, que e a garantia mais forte e a unica
-// que merece peso visual.
+// Regra do bloco: hairline e tinta, nunca um mural de selos coloridos. O estorno,
+// a garantia mais forte, ganha peso so pelo negrito.
 .pic-conf {
   list-style: none;
   // Respiro padrao do componente (o mesmo gap de 14px do .pic-stack) entre o
@@ -1881,25 +1851,15 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__item {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
     font-size: 13px;
     line-height: 1.45;
     color: $c-graphite;
-
-    svg {
-      width: 17px;
-      height: 17px;
-      flex-shrink: 0;
-      margin-top: 1px;
-      color: $c-steel;
-    }
 
     strong { color: $c-ink; font-weight: 700; }
   }
 
   &__item--forte {
     color: $c-charcoal;
-    svg { color: $c-green; }
   }
 }
 
@@ -1936,22 +1896,11 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 .pic-selo {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
   margin: 0;
   font-size: 12px;
   line-height: 1.45;
   text-align: left;
   color: $c-graphite;
-
-  svg {
-    width: 15px;
-    height: 15px;
-    flex-shrink: 0;
-    margin-top: 1px;
-    color: $c-steel;
-  }
 }
 
 .pic-lapis {
@@ -1974,24 +1923,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 .pic-input--placa {
   text-align: center;
   font-size: 24px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-}
-
-// A placa e o que a pessoa mais precisa reconferir antes de pagar: ganha
-// tratamento de placa mesmo, nao de linha de tabela.
-.pic-placa-destaque {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 12px;
-  border: 2px solid $c-ink;
-  border-radius: 8px;
-
-  span { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: $c-graphite; }
-  strong { font-size: 28px; font-weight: 800; letter-spacing: 0.12em; color: $c-ink; }
 }
 
 // campos
@@ -2088,6 +2022,10 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
 // Formulario do cartao (Stripe Elements montado nos .pic-stripe-el).
 .pic-cartao-form { display: flex; flex-direction: column; }
+// Respiro entre os campos do cartao (sem ele o rotulo "Validade" ficava colado
+// no campo de cima, mais perto do numero do que do proprio campo; Cesar, 19/11).
+// Mesmo ritmo de 14px do .pic-stack; vale tambem antes do botao de pagar.
+.pic-cartao-form .pic-campo { margin-bottom: 14px; }
 .pic-card-linha {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2103,14 +2041,11 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 .pic-cartao-seguro {
   display: flex;
   align-items: center;
-  gap: 6px;
   justify-content: center;
   text-align: center;
   font-size: 12px;
   color: $c-steel;
   margin-top: 12px;
-
-  svg { flex-shrink: 0; color: $c-steel; }
 }
 
 .pic-ja {
@@ -2139,7 +2074,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 .pic-cupom { display: flex; flex-direction: column; }
-.pic-cupom-tela { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; background: #fff7e0; color: #5a4300; font-size: 14px; line-height: 1.4; }
+.pic-cupom-tela { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; background: #fff7e0; color: #5a4300; font-size: 14px; line-height: 1.4; text-align: center; }
 .pic-cupom-tela__relogio { display: inline-block; padding: 1px 8px; border-radius: 6px; background: #5a4300; color: #fff; font-variant-numeric: tabular-nums; font-weight: 600; }
 .pic-link--cupom { align-self: flex-start; padding: 4px 0; min-height: auto; }
 .pic-cupom__ok { font-size: 13px; color: $c-green; margin: 2px 0 0; }
@@ -2187,7 +2122,7 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       "acao titulo"
       "acao info";
     align-items: start;
-    column-gap: 22px;
+    column-gap: 24px;
     row-gap: 12px;
 
     .pic-h--pix { grid-area: titulo; align-self: start; margin: 0; }

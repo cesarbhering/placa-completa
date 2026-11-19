@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import {
   emitirCupomTela, cupomTelaValido, gerarTokenCupomTela, resolverDescontoTela, precoComCupomTela,
-  segredoCupomTela, colunasCupomTela, _zerarMemoriaCupomTela, CUPOM_TELA_JANELA_MS,
+  segredoCupomTela, colunasCupomTela, _zerarMemoriaCupomTela, CUPOM_TELA_JANELA_MS, CUPOM_TELA_TOLERANCIA_MS,
 } from './cupom-tela'
 import { relogioCupomTela, mostrarCupomTela } from '../../shared/cupom-tela'
 
@@ -12,16 +12,19 @@ const T0 = Date.UTC(2026, 10, 4, 13, 0, 0)
 describe('cupom de tela', () => {
   beforeEach(() => _zerarMemoriaCupomTela())
 
-  it('emite token que vale 30 min para a mesma placa', () => {
+  it('emite token que vale a janela inteira (5 min) para a mesma placa', () => {
     const e = emitirCupomTela(S, P, '1.1.1.1', T0)!
     expect(e.expiraEm).toBe(new Date(T0 + CUPOM_TELA_JANELA_MS).toISOString())
-    expect(cupomTelaValido(S, e.token, P, T0 + 29 * 60 * 1000)).toBe(true)
+    expect(CUPOM_TELA_JANELA_MS).toBe(5 * 60 * 1000)
+    expect(cupomTelaValido(S, e.token, P, T0 + CUPOM_TELA_JANELA_MS - 1000)).toBe(true)
     expect(cupomTelaValido(S, e.token, 'aaa-0a00', T0 + 1000)).toBe(true)
   })
 
-  it('vence depois de 30 min (prazo aplicado no servidor)', () => {
+  it('vence depois da janela e da folga de 30 s (prazo aplicado no servidor)', () => {
     const e = emitirCupomTela(S, P, '1.1.1.1', T0)!
-    expect(cupomTelaValido(S, e.token, P, T0 + CUPOM_TELA_JANELA_MS + 1)).toBe(false)
+    // clique no ultimo segundo que chega atrasado ainda vale
+    expect(cupomTelaValido(S, e.token, P, T0 + CUPOM_TELA_JANELA_MS + 20 * 1000)).toBe(true)
+    expect(cupomTelaValido(S, e.token, P, T0 + CUPOM_TELA_JANELA_MS + CUPOM_TELA_TOLERANCIA_MS + 1)).toBe(false)
   })
 
   it('recusa outra placa, outro segredo, token adulterado ou do futuro', () => {
@@ -39,11 +42,11 @@ describe('cupom de tela', () => {
 
   it('reconsultar nao reinicia o relogio; depois da janela nao emite de novo', () => {
     const a = emitirCupomTela(S, P, '1.1.1.1', T0)!
-    const b = emitirCupomTela(S, P, '1.1.1.1', T0 + 10 * 60 * 1000)!
+    const b = emitirCupomTela(S, P, '1.1.1.1', T0 + Math.floor(CUPOM_TELA_JANELA_MS / 2))!
     expect(b.expiraEm).toBe(a.expiraEm)
-    expect(emitirCupomTela(S, P, '1.1.1.1', T0 + 31 * 60 * 1000)).toBeNull()
+    expect(emitirCupomTela(S, P, '1.1.1.1', T0 + CUPOM_TELA_JANELA_MS + 60 * 1000)).toBeNull()
     // outro IP ou outra placa tem relogio proprio
-    expect(emitirCupomTela(S, P, '2.2.2.2', T0 + 31 * 60 * 1000)).not.toBeNull()
+    expect(emitirCupomTela(S, P, '2.2.2.2', T0 + CUPOM_TELA_JANELA_MS + 60 * 1000)).not.toBeNull()
     // passadas 24 h, a janela volta
     expect(emitirCupomTela(S, P, '1.1.1.1', T0 + 25 * 60 * 60 * 1000)).not.toBeNull()
   })

@@ -72,7 +72,7 @@ export default defineEventHandler(async (event) => {
     const codigoCupom = String(body.cupom || '').trim()
     const cupomDigitado = codigoCupom ? (await validarCupomComLimite(supabase, { codigo: codigoCupom, plano, email, braco: abPreco.braco, placa }, config, { onde: 'card_intent' })).cupom : null
     const zeraPreco = !!(cupomDigitado?.ok && cupomDigitado.precoLiquidoCentavos === 0)
-    // Cupom de tela (5% em 30 min): nao acumula, vale o maior. Cupom que zera
+    // Cupom de tela (5% em 5 min): nao acumula, vale o maior. Cupom que zera
     // nao vale no cartao, entao ele nem entra na comparacao.
     const { cupom: cupomValidado, tela: descontoTela } = resolverDescontoTela(
       plano, zeraPreco ? null : cupomDigitado, cupomTelaValido(segredoCupomTela(config as any), body.cupom_tela, placa), abPreco.braco,

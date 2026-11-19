@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { gerarTokenCupomTela, segredoCupomTela } from '../../utils/cupom-tela'
+import { gerarTokenCupomTela, segredoCupomTela, CUPOM_TELA_JANELA_MS } from '../../utils/cupom-tela'
 
 // Checkout Pix com o cupom de tela: o servidor confere o token (assinatura,
-// placa e janela de 30 min), aplica 5% e marca o pedido; com cupom de e-mail
+// placa e janela de 5 min), aplica 5% e marca o pedido; com cupom de e-mail
 // maior, vale o cupom e nada acumula.
 vi.mock('../../utils/compra-repetida', () => ({ respostaCompraRepetida: async () => null }))
 vi.mock('../../utils/blocklist', () => ({ barrarPlacaBloqueada: () => {} }))
@@ -49,8 +49,15 @@ describe('checkout Pix: cupom de tela', () => {
     expect(r.cupomAplicado).toEqual({ descontoCentavos: 225, tela: true })
   })
 
-  it('token vencido (31 min): preco cheio, sem marca', async () => {
-    body = { placa: PLACA, plano: 'completa', cupom_tela: gerarTokenCupomTela(SEG, PLACA, Date.now() - 31 * 60_000) }
+  it('token no limite (10 s depois do prazo, dentro da folga): ainda aplica 5%', async () => {
+    body = { placa: PLACA, plano: 'completa', cupom_tela: gerarTokenCupomTela(SEG, PLACA, Date.now() - CUPOM_TELA_JANELA_MS - 10_000) }
+    const r = await handler({})
+    expect(r.valor).toBe(4265)
+    expect(inserido).toMatchObject({ cupom_origem: 'cupom_tela' })
+  })
+
+  it('token vencido (1 min depois do prazo): preco cheio, sem marca', async () => {
+    body = { placa: PLACA, plano: 'completa', cupom_tela: gerarTokenCupomTela(SEG, PLACA, Date.now() - CUPOM_TELA_JANELA_MS - 60_000) }
     const r = await handler({})
     expect(r.valor).toBe(4490)
     expect(inserido.cupom_origem).toBeUndefined()
