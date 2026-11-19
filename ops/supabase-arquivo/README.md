@@ -87,4 +87,8 @@ O espaço só volta para o painel do Supabase depois de um `VACUUM (FULL, ANALYZ
 python3 -m unittest discover -s ops/supabase-arquivo -p 'test_*.py'
 ```
 
-Os testes não tocam no banco nem no R2.
+Os testes não tocam no banco nem no R2. O `setUpModule` bloqueia socket e `urlopen` no próprio processo, mas esse bloqueio não alcança subprocessos. Por isso, rode a suíte sem rede:
+
+```
+unshare -n -- python3 -m unittest discover -s ops/supabase-arquivo -p 'test_*.py'
+```

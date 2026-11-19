@@ -49,7 +49,9 @@ ops/supabase/aplicar-migration prod supabase/migrations/<arquivo>.sql --confirma
 
 **Log:** `/var/log/pc-aplicar-migration.log`, ou o caminho de `PC_MIGRATION_LOG`.
 
-**Testes:** `python3 -m unittest discover -s ops/supabase -p 'test_*.py'`. Não tocam banco nem rede.
+**Testes:** `unshare -n -- python3 -m unittest discover -s ops/supabase -p 'test_*.py'`.
+- Não tocam banco nem rede.
+- O `unshare -n` cobre também subprocessos, que o bloqueio de socket do `setUpModule` não alcança.
 
 ## Testado no staging em 19/11
 

@@ -32,9 +32,12 @@ def setUpModule():
         p = mock.patch.object(alvo, nome, _sem_rede)
         p.start()
         _REDE.append(p)
-    p = mock.patch.object(m, "TOKEN_FILE", "/nonexistent/fake-token")
-    p.start()
-    _REDE.append(p)
+    for nome, valor in (("TOKEN_FILE", "/nonexistent/fake-token"),
+                        ("ALVOS", {"prod": ("fakeprodfakeprodfake", "PlacaCompleta"),
+                                   "staging": ("fakestgfakestgfakest", "placa-completa-staging")})):
+        p = mock.patch.object(m, nome, valor)
+        p.start()
+        _REDE.append(p)
 
 
 def tearDownModule():
@@ -83,16 +86,40 @@ class Guarda(unittest.TestCase):
                      "20261119220000_daily_summaries_before_archiving.sql", "20261119230000_close_anon_inserts.sql",
                      "20261119240000_fcm_tokens_size_limits.sql"):
             p = os.path.join(base, nome)
-            if os.path.exists(p):
-                with open(p) as f:
-                    self.aceita(f.read())
+            self.assertTrue(os.path.exists(p), f"missing queued migration {nome}")
+            with open(p) as f:
+                self.aceita(f.read())
 
 
 class Isolamento(unittest.TestCase):
     def test_network_and_token_are_out_of_reach(self):
         self.assertNotEqual(m.TOKEN_FILE, "/root/.supabase/access-token")
+        self.assertNotIn("fivalpkfneadngxiflea", repr(m.ALVOS))
         with self.assertRaises(Exception):
             m.api("x" * 20, "select 1")
+
+    def test_unmocked_prod_run_cannot_reach_anything(self):
+        """A regression that drops every mock: main() on prod, confirmed, with
+        nothing patched in the test itself, must fail without network and
+        without the real token."""
+        d = tempfile.mkdtemp()
+        f = os.path.join(d, "20991231000001_blindagem.sql")
+        with open(f, "w") as fh:
+            fh.write("create table t (id int);")
+        abertos = []
+        real_open = open
+
+        def espia(p, *a, **k):
+            abertos.append(str(p))
+            return real_open(p, *a, **k)
+        with mock.patch.dict(os.environ, {"PC_MIGRATION_LOG": os.path.join(d, "log")}), \
+             mock.patch("builtins.open", side_effect=espia):
+            try:
+                rc = m.main(["prod", f, "--confirmar-prod", "PlacaCompleta"])
+            except Exception:
+                rc = "exception"
+        self.assertNotEqual(rc, 0)
+        self.assertNotIn("/root/.supabase/access-token", abertos)
 
 
 class Corpo(unittest.TestCase):
