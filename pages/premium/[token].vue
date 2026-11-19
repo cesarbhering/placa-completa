@@ -2405,9 +2405,6 @@ onUnmounted(() => {
 
         <!-- ============ 3. O RELATORIO ============ -->
         <template v-else>
-          <!-- Pedido acoplado (04/nov/2026): segunda placa por R$ 29,90 no topo do
-               relatorio. O servidor decide se ha oferta (e-mail, 24 h, 1 uso). -->
-          <OfertaSegundaPlaca v-if="token && !isCapacitor" :token="token" onde="relatorio" />
           <!-- Faixa de entrega por e-mail. So aparece pra quem comprou sem
                informar e-mail (o campo do Pix e opcional desde que ele saiu da
                frente da cobranca). Sem isto, quem fechava o modal do Pix nao
@@ -3442,6 +3439,10 @@ onUnmounted(() => {
           <!-- Cupom de recompra (10% desde 20/out/2026, 7 dias, qualquer placa, pode compartilhar).
                Opcao 1 do Cesar + botao de WhatsApp. Sem cupom (vencido ou
                relatorio antigo): card simples. -->
+          <!-- Pedido acoplado (04/nov/2026): segunda placa por R$ 29,90. Voltou para
+               o fim do relatorio a pedido do Cesar (19/11/2026): primeiro o laudo,
+               depois a oferta. O servidor decide se ha oferta (e-mail, 24 h, 1 uso). -->
+          <OfertaSegundaPlaca v-if="token && !isCapacitor" :token="token" onde="relatorio" />
           <section v-if="cupomCard" class="rel__card rel__card--up rel__recompra">
             <p class="rel__recompra-eyebrow">Vai ver outro carro?</p>
             <h2 class="rel__recompra-tit">Sua próxima consulta sai com {{ pctDoCupom(cupomCard) }}% de desconto</h2>
