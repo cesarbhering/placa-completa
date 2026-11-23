@@ -27,7 +27,7 @@ export interface SinistroParceiro {
  * history partner (shared/historico-veicular.ts, motivoDaReserva). Kept in the
  * state, in the cost detail and in the log, to measure each rule later:
  *  - historico_parcial: the vehicle history answer was charged but partial
- *    (and, for an order paid from CORTE_SEM_LEILAO on, has no auction record);
+ *    (and has no auction record of its own, since 23/11/2026);
  *  - historico_divergente: it answered for another VIN;
  *  - historico_sem_resposta: no good answer once the queue gave up;
  *  - banco_na_cadeia / seguradora_na_cadeia: a complete answer with a bank,

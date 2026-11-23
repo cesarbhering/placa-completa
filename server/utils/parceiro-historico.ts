@@ -39,13 +39,11 @@ import { consultaComDocumentoDaUf, completarComDocumentoDaUf } from './infosimpl
 //    with no auction record of its own (Cesar, 23/11/2026: neither base has an
 //    auction signal), reason banco_na_cadeia or seguradora_na_cadeia when a
 //    bank, finance company, leasing or insurer is in the chain of owners
-//    (18/11/2026), else historico_sem_leilao; and never with an auction
-//    record of its own, not even in a partial answer. Never before this one
-//    answers or the queue gives up. That rule is for orders paid from
-//    CORTE_SEM_LEILAO on; older ones keep the rules of 17/11 and 18/11
-//    (any partial answer calls, a complete one only with a bank or insurer
-//    in the chain). The reason goes with it (shared/historico-veicular.ts,
-//    motivoDaReserva);
+//    (18/11/2026), else historico_sem_leilao, this last one only for orders
+//    paid from CORTE_SEM_LEILAO on. Never with an auction record of its own,
+//    not even in a partial answer, for any order. Never before this one
+//    answers or the queue gives up. The reason goes with it
+//    (shared/historico-veicular.ts, motivoDaReserva);
 //  - one paid call per order and per plate: lock per order AND per plate (two
 //    orders of the same plate never pay twice), a unique index in the table,
 //    and an order that already has a paid row reuses it;

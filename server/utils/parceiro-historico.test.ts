@@ -530,7 +530,17 @@ describe('never both partners', () => {
 // partner is called for that order under its usual rules.
 describe('auction partner as the fallback of the vehicle history', () => {
   const vazio = () => ({ resumo: { tem_indicio: false, nivel_max: null, n_confirmado: 0, n_provavel: 0, n_possivel: 0, possiveis_ambiguos: 0, fontes_com_passagem: [] }, passagens: [], indice_atualizado_em: null, aviso: null })
-  const parcial = (fontes: Record<string, unknown> = { infosinistrosSuccess: false }) => { const r = structuredClone(COM); r.dados.raw_sources = { ...r.dados.raw_sources, ...fontes }; return r }
+  // The answer with records minus its auction records (the notice in P11 and
+  // other products, the salvage sale in P1): same VIN, owners and damage. A
+  // partial answer WITH an auction record never calls the auction partner
+  // (the record is a signal, 23/11/2026), so the fallback tests use this one.
+  const semLeilao = (base: any = COM) => {
+    const r = structuredClone(base)
+    r.dados.indicadores = r.dados.indicadores.map((i: any) => (['P1', 'P11'].includes(i.codigo) ? { ...i, status: 'negativo', conteudo: [] } : i))
+    r.dados.outros_produtos = { ...r.dados.outros_produtos, leiloes: [] }
+    return r
+  }
+  const parcial = (fontes: Record<string, unknown> = { infosinistrosSuccess: false }) => { const r = semLeilao(); r.dados.raw_sources = { ...r.dados.raw_sources, ...fontes }; return r }
   const cfgLeilao = () => cfgParceiro({ parceiroLeilaoLigado: 'on', parceiroLeilaoUser: 'u', parceiroLeilaoPass: 'p', parceiroHistoricoLigado: 'on', parceiroHistoricoKey: 'k' }, {})
   let leilaoChamadas: string[]
   let avisos: any[]
@@ -569,20 +579,20 @@ describe('auction partner as the fallback of the vehicle history', () => {
 
   it('partial answer: called ONCE, never again in another generation, the lazy fill, the job or a second run', async () => {
     const r = await completarHistoricoVeicular(sb, pedido(), deps(httpCom(() => resp(200, parcial())), { reservaLeilao }))
-    // What came is shown; the block says it is partial.
+    // What came is shown; the block says it is partial (no auction record of its own).
     expect(r).toMatchObject({ ok: true, status: 'ok', cobrada: true })
-    expect(snap().historicoVeicular).toMatchObject({ status: 'ok', completa: false, faltas: ['sinistros'], donos: { total: 12 } })
+    expect(snap().historicoVeicular).toMatchObject({ status: 'ok', completa: false, faltas: ['sinistros'], donos: { total: 12 }, leilao: { registros: [] } })
     // The auction partner ran for this order: one paid call, only historicoLeilao written, marked as the fallback.
     expect(cobradasLeilao()).toHaveLength(1)
-    expect(snap().historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
+    expect(snap().historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_parcial' })
     expect(snap().historicoLeilao.sinistro_parceiro.indicio).toBe(true)
     expect(snap().historicoVeicular.completa).toBe(false)
     expect(snap().consulta).toEqual({ response: { chassi: '9XXHV00000X000001' } })
-    // The notifier ran once, but no e-mail: the page already showed the
-    // auction and the damage sign from the partial answer (item 4 of review 1).
+    // The notifier ran once: the page showed only the damage sign of the
+    // partial answer, so the auction it found is news, one e-mail.
     expect(avisos).toHaveLength(1)
     expect(avisos[0].id).toBe('p1')
-    expect(enviados).toHaveLength(0)
+    expect(enviados).toHaveLength(1)
     const pagas = leilaoChamadas.filter((u) => !u.endsWith('/login')).length
     expect(pagas).toBe(1)
 
@@ -599,6 +609,18 @@ describe('auction partner as the fallback of the vehicle history', () => {
     expect(leilaoChamadas.filter((u) => !u.endsWith('/login')).length).toBe(1)
     expect(cobradasLeilao()).toHaveLength(1)
     expect(avisos).toHaveLength(1)
+  })
+
+  it('partial answer with an auction record of its own: the record is a signal, the auction partner is not called (23/11/2026)', async () => {
+    const comRegistro = structuredClone(COM)
+    comRegistro.dados.raw_sources = { ...comRegistro.dados.raw_sources, infosinistrosSuccess: false }
+    await completarHistoricoVeicular(sb, pedido(), deps(httpCom(() => resp(200, comRegistro)), { reservaLeilao }))
+    expect(snap().historicoVeicular).toMatchObject({ status: 'ok', completa: false, faltas: ['sinistros'] })
+    expect(snap().historicoVeicular.leilao.registros.length).toBeGreaterThan(0)
+    expect(await motivoReservaNoPedido(sb, 'p1')).toBeNull()
+    await rodarJobParceiro({ ...depsLeilao(), sb, dono: 'job' })
+    expect(leilaoChamadas).toHaveLength(0)
+    expect(snap().historicoLeilao.parceiro).toBeUndefined()
   })
 
   it('answer for another VIN: a final failure, the auction partner is called at once (once), like a partial answer', async () => {
@@ -634,7 +656,7 @@ describe('auction partner as the fallback of the vehicle history', () => {
   })
 
   it('zero owners with the owners source true is partial too', async () => {
-    const r0 = structuredClone(COM)
+    const r0 = semLeilao()
     r0.dados.proprietarios = { total: 0, historico: [] }
     await completarHistoricoVeicular(sb, pedido(), deps(httpCom(() => resp(200, r0)), { reservaLeilao }))
     expect(snap().historicoVeicular).toMatchObject({ status: 'ok', completa: false, faltas: ['sem donos'] })

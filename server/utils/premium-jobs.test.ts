@@ -214,16 +214,16 @@ describe('fila premium_jobs', () => {
     expect(await executarJob(sbFalso({ snap: completo, pagoEm: '2026-11-23T22:00:00.000Z' }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
     expect(reservaLeilao).toHaveBeenCalledTimes(4)
     expect((reservaLeilao.mock.calls[3] as any)[1]).toBe('p')
-    // A partial answer with an auction record: a signal already for an order
-    // paid from the cutoff on (nothing); before it, the fallback of 17/11 as before.
+    // A partial answer with an auction record: a signal already, for an order
+    // paid before the cutoff or after it, so nothing.
     const parcialComLeilao = { ...parcial, historicoVeicular: { ...parcial.historicoVeicular, leilao: comLeilao.historicoVeicular.leilao } }
-    expect(await executarJob(sbFalso({ snap: parcialComLeilao, pagoEm: '2026-11-23T22:00:00.000Z' }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
+    for (const pagoEm of ['2026-11-23T22:00:00.000Z', '2026-11-20T15:00:00.000Z', null]) {
+      expect(await executarJob(sbFalso({ snap: parcialComLeilao, pagoEm }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
+    }
     expect(reservaLeilao).toHaveBeenCalledTimes(4)
-    await executarJob(sbFalso({ snap: parcialComLeilao, pagoEm: '2026-11-20T15:00:00.000Z' }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })
-    expect(reservaLeilao).toHaveBeenCalledTimes(5)
     // Other sources concluded: never the fallback.
     await executarJob(sbFalso({ snap: { ...parcial, multas: { status: 'ok', fonte: 'detran_al' } } }).cliente, { id: 'j', pedido_id: 'p', fonte: 'detran' }, { reservaLeilao })
-    expect(reservaLeilao).toHaveBeenCalledTimes(5)
+    expect(reservaLeilao).toHaveBeenCalledTimes(4)
   })
 
   it('last attempt with a complete answer that did not land in the snapshot: no paid fallback (review 2, S1)', async () => {

@@ -796,7 +796,7 @@ describe('auction partner when neither our base nor the vehicle history has an a
   })
 
   // Lead, 23/11/2026: no retroactive charge nor late notice to an old customer.
-  it('27. order paid before the cutoff: the old rules on every path; complete without a record never calls, a bank in the chain or a partial answer with a record still do', async () => {
+  it('27. order paid before the cutoff: complete without a record never calls on any path; a bank in the chain still does, a partial answer with a record does not (any order)', async () => {
     const sb = banco()
     historicoPorPlaca = { [PLACA]: SEM, [OUTRA_PLACA]: BANCO, [TERCEIRA_PLACA]: semSinistros(EDITAL_LOTE) }
     sb.tab('senatran_consultas').push({ id: 'c1', placa: PLACA, created_at: '2026-11-20T15:00:00Z', response: { chassi: CHASSI } })
@@ -826,15 +826,17 @@ describe('auction partner when neither our base nor the vehicle history has an a
     expect(chamadasLeilao).toHaveLength(0)
     expect(custosLeilao(sb)).toHaveLength(0)
     expect(avisos).toHaveLength(0)
-    // The rules of 17/11 and 18/11 still call for an old order: a bank in the
-    // chain, and a partial answer even with an auction record.
+    // A bank in the chain still calls for an old order (as on main); a partial
+    // answer with an auction record does not, for any order (the record is a signal).
     pedido(sb, 'a5', { ...antigo, placa: OUTRA_PLACA })
-    pedido(sb, 'a6', { ...antigo, placa: TERCEIRA_PLACA })
+    const a6: any = pedido(sb, 'a6', { ...antigo, placa: TERCEIRA_PLACA })
     await depoisDaEntrega(sb, 'a5', OUTRA_PLACA)
     await depoisDaEntrega(sb, 'a6', TERCEIRA_PLACA)
     expect(parceiroDe(sb, 'a5')).toMatchObject({ status: 'ok', reserva: true, motivo: 'banco_na_cadeia' })
-    expect(parceiroDe(sb, 'a6')).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_parcial' })
-    expect(chamadasLeilao).toHaveLength(2)
+    expect(a6.relatorio_snapshot.historicoVeicular).toMatchObject({ status: 'ok', completa: false, leilao: { registros: [{ tipo: 'edital' }] } })
+    expect(await filaDoHistorico(sb, 'a6')).toEqual({ status: 'ok', code: 0 })
+    expect(parceiroDe(sb, 'a6')).toBeUndefined()
+    expect(chamadasLeilao).toHaveLength(1)
   })
 
   it('28. order paid from the cutoff on, complete without a record: the lazy fill, the admin rebuild and the retry job call it', async () => {

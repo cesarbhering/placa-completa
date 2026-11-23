@@ -585,11 +585,11 @@ function temRegistroDeLeilao(hv: HistoricoVeicular): boolean {
 }
 
 /**
- * Payment time (pedidos_premium.pago_em) from which an order follows the rule
- * of 23/11/2026 in motivoDaReserva. An order paid before keeps the rules it
- * was sold under (17/11 and 18/11/2026): no retroactive charge, and no late
- * notice to an old customer, from the lazy fill, the rebuild or the retry job.
- * Set to the deploy of that rule (moved at the merge when the deploy is later).
+ * Payment time (pedidos_premium.pago_em) from which an order gets the reason
+ * historico_sem_leilao in motivoDaReserva (rule of 23/11/2026). An order paid
+ * before never gets it: no retroactive charge, and no late notice to an old
+ * customer, from the lazy fill, the rebuild or the retry job. Set to the
+ * deploy of that rule (moved at the merge when the deploy is later).
  */
 export const CORTE_SEM_LEILAO = '2026-11-23T18:00:00-03:00'
 
@@ -611,20 +611,17 @@ export function pagoDepoisDoCorte(pagoEm: unknown): boolean {
  *    23/11/2026: when neither our base nor this partner has an auction signal
  *    for the vehicle, the auction partner is called). The reason is the bank
  *    or insurer in the chain when there is one (instituicaoNaCadeia,
- *    18/11/2026), else historico_sem_leilao.
+ *    18/11/2026), else historico_sem_leilao, only for an order paid from
+ *    CORTE_SEM_LEILAO on (`pagoEm`; unknown counts as before).
  * An answer for this vehicle with an auction record of any kind, partial
- * included, never: the record is a signal. Our auction base is checked by the
- * callers (nossaBaseVazia).
- * `pagoEm` is the payment time of the order: paid before CORTE_SEM_LEILAO (or
- * unknown), the rules before 23/11/2026 exactly (a partial answer always
- * calls; a complete one only with a bank or insurer in the chain).
+ * included, never, for any order: the record is a signal (23/11/2026). Our
+ * auction base is checked by the callers (nossaBaseVazia).
  */
 export function motivoDaReserva(hv: HistoricoVeicular | null | undefined, statusJob: string | null | undefined, pagoEm?: string | null): MotivoReserva | null {
   if (obj(hv) && hv.status === 'ok') {
-    if (!pagoDepoisDoCorte(pagoEm)) return respostaIncompleta(hv) ? 'historico_parcial' : instituicaoNaCadeia(hv)
     if (temRegistroDeLeilao(hv)) return null
     if (respostaIncompleta(hv)) return 'historico_parcial'
-    return instituicaoNaCadeia(hv) ?? 'historico_sem_leilao'
+    return instituicaoNaCadeia(hv) ?? (pagoDepoisDoCorte(pagoEm) ? 'historico_sem_leilao' : null)
   }
   if (obj(hv) && hv.status === 'divergente') return 'historico_divergente'
   return statusJob === 'esgotado' ? 'historico_sem_resposta' : null

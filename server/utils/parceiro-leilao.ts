@@ -530,7 +530,8 @@ export async function leilaoParceiroComoReserva(
     // answer once the queue gave up or gives up now, hence 'esgotado'). A
     // complete answer for this vehicle (stored after a lease expired, or a
     // manual redo) needs it only without an auction record of its own
-    // (23/11/2026), for an order paid from CORTE_SEM_LEILAO on.
+    // (23/11/2026): with a bank or insurer in the chain, or for an order paid
+    // from CORTE_SEM_LEILAO on.
     const motivo = deps.motivoReserva ?? motivoDaReserva(snap.historicoVeicular, 'esgotado', p.pago_em)
     if (!motivo) return 'pulado'
     const antes = snap.historicoLeilao
