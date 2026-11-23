@@ -706,12 +706,22 @@ describe('inline checkout: network or Stripe error on the card confirmation', ()
     expect(botaoPix().exists()).toBe(false)
   })
 
+  it('intent read with another status: the message and the Pix offer', async () => {
+    await prontoComCupom()
+    recusar(falhaApi('api_connection_error'))
+    ler.mockImplementationOnce(async () => ({ paymentIntent: { status: 'requires_payment_method' } }))
+    await pagar()
+    expect(ler.mock.calls).toEqual([['sec1']])
+    expect(assign).not.toHaveBeenCalled()
+    expect(erro()).toBe('Falha de conexão.')
+    expect(botaoPix().exists()).toBe(true)
+  })
+
   for (const [nome, leitura] of [
-    ['read with another status', async () => ({ paymentIntent: { status: 'requires_payment_method' } })],
-    ['that cannot be read (error answer)', async () => ({ error: { type: 'api_connection_error', message: 'Falha de conexão.' } })],
-    ['that cannot be read (exception)', async () => { throw new Error('offline') }],
+    ['answers with an error', async () => ({ error: { type: 'api_connection_error', message: 'Falha de conexão.' } })],
+    ['throws', async () => { throw new Error('offline') }],
   ] as const) {
-    it(`intent ${nome}: the message and the Pix offer, as before`, async () => {
+    it(`reading the intent ${nome}: still unknown whether it was charged, so the message only, no Pix offer`, async () => {
       await prontoComCupom()
       recusar(falhaApi('api_connection_error'))
       ler.mockImplementationOnce(leitura)
@@ -719,9 +729,27 @@ describe('inline checkout: network or Stripe error on the card confirmation', ()
       expect(ler.mock.calls).toEqual([['sec1']])
       expect(assign).not.toHaveBeenCalled()
       expect(erro()).toBe('Falha de conexão.')
-      expect(botaoPix().exists()).toBe(true)
+      expect(botaoPix().exists()).toBe(false)
     })
   }
+
+  it('while the intent is being read the checkout stays locked: Pix tab and card button disabled, no Pix offer yet', async () => {
+    await prontoComCupom()
+    recusar(falhaApi('api_connection_error'))
+    const porta = adiado<any>()
+    ler.mockImplementationOnce(() => porta.p)
+    await botao().trigger('click'); await flushPromises()
+    expect(ler.mock.calls).toEqual([['sec1']])
+    expect(desabilitado('.pic-tab')).toBe(true)
+    expect(desabilitado('.pic-cartao-form .pic-btn--primary')).toBe(true)
+    expect(botaoPix().exists()).toBe(false)
+    await botao().element.dispatchEvent(new Event('click')); await flushPromises() // reaches the handler anyway
+    expect(intents()).toHaveLength(1)
+    expect(pixGerados()).toHaveLength(0)
+    porta.soltar({ paymentIntent: { status: 'requires_payment_method' } }); await flushPromises()
+    expect(botaoPix().exists()).toBe(true)
+    expect(desabilitado('.pic-tab')).toBe(false)
+  })
 
   it('a card decline speaks for itself: the intent is not read', async () => {
     await prontoComCupom()

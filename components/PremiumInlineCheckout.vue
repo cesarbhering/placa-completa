@@ -1031,7 +1031,14 @@ async function pagarComCartao() {
     // charged card takes the paid path instead of the Pix offer.
     if (error?.type === 'api_connection_error' || error?.type === 'api_error') {
       const lido = await lerIntentCartao(r.clientSecret)
-      if (lido?.status === 'succeeded' || lido?.status === 'processing') { error = undefined; paymentIntent = lido }
+      if (!lido) {
+        // Could not read it: still unknown whether the card was charged, so
+        // the message only, without the Pix offer.
+        erroCartao.value = mensagemErroCartao(error)
+        pixAposFalhaCartao.value = false
+        return
+      }
+      if (lido.status === 'succeeded' || lido.status === 'processing') { error = undefined; paymentIntent = lido }
     }
     if (error) {
       erroCartao.value = mensagemErroCartao(error)
