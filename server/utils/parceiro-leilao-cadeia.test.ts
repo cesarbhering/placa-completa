@@ -30,9 +30,15 @@ import { parsearRespostaHistorico } from '../../shared/historico-veicular'
 // called for the order, under all of its usual rules, and the reason is kept
 // (partner state, cost detail, log). These tests run the real wiring: default
 // deps, both partners behind a fake fetch, the real late auction notifier.
+// Orders here are paid after the cutoff of the rule of 23/11/2026
+// (CORTE_SEM_LEILAO) unless a test says otherwise.
 
+// Payment dates (pago_em) after and before that cutoff.
+const PAGO_NOVO = '2026-11-23T22:00:00.000Z'
+const PAGO_ANTIGO = '2026-11-20T15:00:00.000Z'
 const PLACA = 'TST2B34'
 const OUTRA_PLACA = 'TST5C67'
+const TERCEIRA_PLACA = 'TST8D90'
 // VIN of the vehicle history fixture without records (fictitious).
 const CHASSI = '9XXHV00000X000002' // ggignore
 const CONFIG = (x: Record<string, unknown> = {}) => ({
@@ -69,6 +75,12 @@ const ORGAO_PUBLICO = (() => {
   return r
 })()
 const SALVADO = comIndicador(SEM, 'P1', { status: 'positivo', conteudo: [{ seguradora: 'SEGURADORA FICTICIA S.A.', tipoEntidade: 'seguradora', tipoEvento: 'Venda Direta / Remarketing', ano: '2020' }] })
+/** Partial answer: the claims source of the vehicle history partner failed (charged, shown in part). */
+function semSinistros(base: any) {
+  const r = structuredClone(base)
+  r.dados.raw_sources = { ...r.dados.raw_sources, infosinistrosSuccess: false }
+  return r
+}
 // Auction partner answers (same shape as the real one): nothing at all, or only a damage sign.
 const LEILAO_NADA = { consulta: REAL.consulta, resultados: { leilao: { placa: REAL.resultados.leilao.placa, temRegistro: false, leiloes: [] }, sinistro: { indicioDeSinistro: 0, mensagemSinistro: 'NAO EXISTE REGISTRO DE INDICIO DE SINISTRO' } } }
 const LEILAO_SO_SINISTRO = { ...LEILAO_NADA, resultados: { ...LEILAO_NADA.resultados, sinistro: REAL.resultados.sinistro } }
@@ -118,11 +130,11 @@ function banco() {
   return sb
 }
 
-/** A delivered Completa order. The snapshot has our auction base empty and, unless given, no vehicle history yet. */
+/** A delivered Completa order, paid after the cutoff. The snapshot has our auction base empty and, unless given, no vehicle history yet. */
 function pedido(sb: any, id = 'p1', x: Record<string, unknown> = {}, snap: Record<string, unknown> = {}) {
   const linha = {
     id, placa: PLACA, plano: 'completa', status: 'entregue', email: 'c@x.com', token_entrega: `TOK-${id}`, consulta_id: null, preview: null,
-    entregue_em: new Date(Date.now() - 3600_000).toISOString(), ...x,
+    pago_em: PAGO_NOVO, entregue_em: new Date(Date.now() - 3600_000).toISOString(), ...x,
     relatorio_snapshot: { consulta: { response: { chassi: CHASSI } }, historicoLeilao: vazio(), ...snap },
   }
   sb.tab('pedidos_premium').push(linha)
@@ -188,7 +200,7 @@ describe('auction partner when a complete vehicle history shows a bank or insure
     const sb = banco()
     // The paid query of the order; the vehicle history call starts with it and is ready before the assembly.
     sb.tab('senatran_consultas').push({ id: 'c1', placa: PLACA, created_at: '2026-11-18T12:00:00Z', response: { chassi: CHASSI, descricaoMarcaModelo: 'MARCA/MODELO', anoModelo: 2020, ufJurisdicao: 'SP' } })
-    const linha: any = { id: 'p1', placa: PLACA, plano: 'completa', status: 'pago', email: 'c@x.com', token_entrega: 'TOK-p1', consulta_id: 'c1', preview: null }
+    const linha: any = { id: 'p1', placa: PLACA, plano: 'completa', status: 'consultando', pago_em: PAGO_NOVO, email: 'c@x.com', token_entrega: 'TOK-p1', consulta_id: 'c1', preview: null }
     sb.tab('pedidos_premium').push(linha)
     expect(await iniciarHistoricoVeicular(sb, PEDIDO())).toMatchObject({ ok: true, status: 'ok' })
 
@@ -524,12 +536,13 @@ describe('late notice compares the page views', () => {
 // the auction partner called. A COMPLETE vehicle history with no auction
 // record of its own and nothing in our auction base: the auction partner runs
 // on every path, under all of its usual rules, with the reason
-// historico_sem_leilao. A record of any kind there: never.
-describe('auction partner when neither our base nor a complete vehicle history has an auction signal', () => {
-  /** A Completa order paid and about to be delivered (paid query in the database). */
+// historico_sem_leilao. A record of any kind there, even in a partial
+// answer: never. Only for orders paid from the cutoff on (CORTE_SEM_LEILAO).
+describe('auction partner when neither our base nor the vehicle history has an auction signal', () => {
+  /** A Completa order paid (after the cutoff) and about to be delivered: the claim set pago_em, the paid query is in the database. */
   function pago(sb: any) {
     sb.tab('senatran_consultas').push({ id: 'c1', placa: PLACA, created_at: '2026-11-23T12:00:00Z', response: { chassi: CHASSI, descricaoMarcaModelo: 'MARCA/MODELO', anoModelo: 2020, ufJurisdicao: 'SP' } })
-    const linha: any = { id: 'p1', placa: PLACA, plano: 'completa', status: 'pago', email: 'c@x.com', token_entrega: 'TOK-p1', consulta_id: 'c1', preview: null }
+    const linha: any = { id: 'p1', placa: PLACA, plano: 'completa', status: 'consultando', pago_em: PAGO_NOVO, email: 'c@x.com', token_entrega: 'TOK-p1', consulta_id: 'c1', preview: null }
     sb.tab('pedidos_premium').push(linha)
     return linha
   }
@@ -760,5 +773,88 @@ describe('auction partner when neither our base nor a complete vehicle history h
     expect(parceiroDe(sb)).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
     expect(parceiroDe(sb, 'p2')).toBeUndefined()
     expect(pagas(sb)).toHaveLength(1)
+  })
+
+  // Lead, 23/11/2026: a record in a partial answer is a signal too.
+  it('26. a partial answer with an auction record is a signal already: no call on any path; a partial one without a record still calls (historico_parcial)', async () => {
+    const sb = banco()
+    historicoPorPlaca = { [PLACA]: semSinistros(EDITAL_LOTE), [OUTRA_PLACA]: semSinistros(SEM) }
+    const comRegistro: any = pedido(sb, 'p1')
+    pedido(sb, 'p2', { placa: OUTRA_PLACA })
+    await depoisDaEntrega(sb, 'p1')
+    expect(comRegistro.relatorio_snapshot.historicoVeicular).toMatchObject({ status: 'ok', completa: false, faltas: ['sinistros'], leilao: { registros: [{ tipo: 'edital', lote: '42' }] } })
+    expect(await filaDoHistorico(sb, 'p1')).toEqual({ status: 'ok', code: 0 })
+    expect(await leilaoParceiroComoReserva(sb, 'p1')).toBe('pulado')
+    esgotado(sb, 'p1')
+    await retryDoJob(sb)
+    expect(parceiroDe(sb, 'p1')).toBeUndefined()
+    expect(chamadasLeilao).toHaveLength(0)
+    // Partial without any record: the fallback of 17/11/2026, as before.
+    await depoisDaEntrega(sb, 'p2', OUTRA_PLACA)
+    expect(parceiroDe(sb, 'p2')).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_parcial' })
+    expect(chamadasLeilao).toHaveLength(1)
+  })
+
+  // Lead, 23/11/2026: no retroactive charge nor late notice to an old customer.
+  it('27. order paid before the cutoff: the old rules on every path; complete without a record never calls, a bank in the chain or a partial answer with a record still do', async () => {
+    const sb = banco()
+    historicoPorPlaca = { [PLACA]: SEM, [OUTRA_PLACA]: BANCO, [TERCEIRA_PLACA]: semSinistros(EDITAL_LOTE) }
+    sb.tab('senatran_consultas').push({ id: 'c1', placa: PLACA, created_at: '2026-11-20T15:00:00Z', response: { chassi: CHASSI } })
+    vi.stubGlobal('montarRelatorioSnapshot', montarRelatorioSnapshot)
+    const antigo = { pago_em: PAGO_ANTIGO, consulta_id: 'c1' }
+    // Step after the delivery (the complete answer arrives now), the queue, the operator route.
+    const a1: any = pedido(sb, 'a1', antigo)
+    expect(await depoisDaEntrega(sb, 'a1')).toMatchObject({ ok: true, status: 'ok' })
+    expect(a1.relatorio_snapshot.historicoVeicular).toMatchObject({ status: 'ok', completa: true, leilao: { registros: [] } })
+    expect(await filaDoHistorico(sb, 'a1')).toEqual({ status: 'ok', code: 0 })
+    await completarHistoricoVeicularOperador(sb, PEDIDO('a1'), cfgHistorico(config))
+    // Lazy fill of an auction section that never came.
+    const a2: any = pedido(sb, 'a2', antigo, { historicoLeilao: null, historicoVeicular: bloco(SEM) })
+    const r = await preencherCamposLazy(sb, { token: 'TOK-a2', snap: a2.relatorio_snapshot, plano: 'completa', placa: PLACA, consulta_id: 'c1', campos: ['historicoLeilao'], pedidoId: 'a2' })
+    expect(r.historicoLeilao).toMatchObject({ passagens: [] })
+    expect(r.historicoLeilao.parceiro).toBeUndefined()
+    // Admin rebuild.
+    pedido(sb, 'a3', antigo, { historicoVeicular: bloco(SEM) })
+    expect(await rebuildLeilao(sb, ['TOK-a3'])).toEqual([expect.objectContaining({ token: 'TOK-a3', ok: true })])
+    // Retry job of a fallback that failed on a partial answer (complete since),
+    // and its safety net for a job the queue just gave up on.
+    pedido(sb, 'a4', antigo, { historicoVeicular: bloco(SEM), historicoLeilao: { ...vazio(), parceiro: { status: 'falhou', reserva: true, motivo: 'historico_parcial' } } })
+    esgotado(sb, 'a1')
+    await retryDoJob(sb)
+    expect(parceiroDe(sb, 'a4')).toMatchObject({ status: 'falhou', reserva: true, retentado: true })
+    for (const id of ['a1', 'a2', 'a3']) expect(parceiroDe(sb, id)).toBeUndefined()
+    expect(chamadasLeilao).toHaveLength(0)
+    expect(custosLeilao(sb)).toHaveLength(0)
+    expect(avisos).toHaveLength(0)
+    // The rules of 17/11 and 18/11 still call for an old order: a bank in the
+    // chain, and a partial answer even with an auction record.
+    pedido(sb, 'a5', { ...antigo, placa: OUTRA_PLACA })
+    pedido(sb, 'a6', { ...antigo, placa: TERCEIRA_PLACA })
+    await depoisDaEntrega(sb, 'a5', OUTRA_PLACA)
+    await depoisDaEntrega(sb, 'a6', TERCEIRA_PLACA)
+    expect(parceiroDe(sb, 'a5')).toMatchObject({ status: 'ok', reserva: true, motivo: 'banco_na_cadeia' })
+    expect(parceiroDe(sb, 'a6')).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_parcial' })
+    expect(chamadasLeilao).toHaveLength(2)
+  })
+
+  it('28. order paid from the cutoff on, complete without a record: the lazy fill, the admin rebuild and the retry job call it', async () => {
+    const sb = banco()
+    for (const [id, placa] of [['c1', PLACA], ['c2', OUTRA_PLACA]]) sb.tab('senatran_consultas').push({ id, placa, created_at: '2026-11-23T22:00:00Z', response: { chassi: CHASSI } })
+    vi.stubGlobal('montarRelatorioSnapshot', montarRelatorioSnapshot)
+    // Lazy fill of an auction section that never came.
+    const n1: any = pedido(sb, 'n1', { consulta_id: 'c1' }, { historicoLeilao: null, historicoVeicular: bloco(SEM) })
+    const r = await preencherCamposLazy(sb, { token: 'TOK-n1', snap: n1.relatorio_snapshot, plano: 'completa', placa: PLACA, consulta_id: 'c1', campos: ['historicoLeilao'], pedidoId: 'n1' })
+    expect(r.historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
+    // Admin rebuild: calls, never tells the customer.
+    pedido(sb, 'n2', { consulta_id: 'c2', placa: OUTRA_PLACA }, { historicoVeicular: bloco(SEM) })
+    expect(await rebuildLeilao(sb, ['TOK-n2'])).toEqual([expect.objectContaining({ token: 'TOK-n2', ok: true })])
+    expect(parceiroDe(sb, 'n2')).toMatchObject({ status: 'ok', reserva: true, semAviso: true, motivo: 'historico_sem_leilao' })
+    // Retry job of a fallback that failed on a partial answer (complete since).
+    pedido(sb, 'n3', { placa: TERCEIRA_PLACA }, { historicoVeicular: bloco(SEM), historicoLeilao: { ...vazio(), parceiro: { status: 'falhou', reserva: true, motivo: 'historico_parcial' } } })
+    expect(await retryDoJob(sb)).toMatchObject({ vistos: 1, completados: 1 })
+    expect(parceiroDe(sb, 'n3')).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
+    expect(chamadasLeilao).toHaveLength(3)
+    // The lazy fill and the retry job tell the customer; the rebuild never does.
+    expect(avisos.map((a: any) => a.token)).toEqual(['TOK-n1', 'TOK-n3'])
   })
 })

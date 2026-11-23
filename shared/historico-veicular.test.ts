@@ -9,6 +9,7 @@ import {
   telaDonos, telaUso, telaSinistro, casaDoRegistro, tipoDoDono, mesesDePosse, tempoDePosse,
   historicoDoVeiculo, nomeDeEmpresa, passagensDoHistorico, MOTIVO_CHASSI_DIVERGENTE, ehOrgaoPublico,
   faltasDaResposta, respostaIncompleta, historicoPedeReserva, motivoDaReserva, instituicaoNaCadeia,
+  CORTE_SEM_LEILAO, pagoDepoisDoCorte,
 } from './historico-veicular'
 import type { DonoHistorico } from './historico-veicular'
 import LEILAO_REAL from '../server/utils/__fixtures__/parceiro-leilao-real.json'
@@ -470,7 +471,8 @@ describe('owner type and time helpers', () => {
 // Partial answers (Cesar, 17/11/2026): the partner answers success and charges
 // even when one of its internal sources failed. Complete = the three sources
 // true AND at least one owner; anything else makes the auction partner the
-// fallback for that order.
+// fallback for that order. The reason calls here carry no payment date: the
+// rules before CORTE_SEM_LEILAO, which still hold for older orders.
 describe('partial answer classifier', () => {
   const comFontes = (fontes: Record<string, unknown>) => { const r = copia(COM); r.dados.raw_sources = { ...r.dados.raw_sources, ...fontes }; return r }
   const semDonos = (x: any = COM) => { const r = copia(x); r.dados.proprietarios = { total: 0, historico: [] }; return r }
@@ -552,6 +554,7 @@ describe('partial answer classifier', () => {
 // Cesar, 18/11/2026: a COMPLETE answer with a bank, finance company or leasing
 // (or an insurer) in the chain of owners and no auction record of its own also
 // asks for the auction partner (3 of 6 such reports had an auction only it showed).
+// No payment date in the reason calls here: the rules before CORTE_SEM_LEILAO.
 describe('bank or insurer in the chain of a complete answer', () => {
   // SEM: complete, two owners (a company and a person), no bank, no insurer, no auction.
   const comBanco = (x: any = SEM) => comIndicador(x, 'P7', { status: 'positivo', conteudo: [{ ano: '2019', instituicao: 'BANCO FICTICIO S.A.', tipo: 'Instituição Financeira / Leasing na Cadeia Dominial' }] })
@@ -617,10 +620,13 @@ describe('bank or insurer in the chain of a complete answer', () => {
 
 // Cesar, 23/11/2026: our auction API and the vehicle history partner are
 // always called; only when neither has an auction signal for the vehicle is
-// the auction partner called. A complete answer with no auction record of its
-// own asks for it; one with a record of any kind never does. Our base is
+// the auction partner called. An answer with no auction record of its own
+// asks for it; one with a record of any kind (even a partial one) never does.
+// Only for orders paid from the cutoff on (CORTE_SEM_LEILAO); our base is
 // checked by the callers (nossaBaseVazia).
-describe('no auction signal in a complete answer', () => {
+const PAGO_NOVO = '2026-11-23T22:00:00.000Z'
+const PAGO_ANTIGO = '2026-11-20T15:00:00.000Z'
+describe('no auction signal in either base (orders paid from the cutoff on)', () => {
   const comBanco = (x: any = SEM) => comIndicador(x, 'P7', { status: 'positivo', conteudo: [{ ano: '2019', instituicao: 'BANCO FICTICIO S.A.', tipo: 'Instituição Financeira / Leasing na Cadeia Dominial' }] })
   const comSeguradora = (x: any = SEM) => comIndicador(x, 'P1', { status: 'positivo', conteudo: [{ seguradora: 'SEGURADORA FICTICIA S.A.', tipoEntidade: 'seguradora', tipoEvento: 'Titularidade', ano: '2020' }] })
   const comFontes = (x: any, fontes: Record<string, unknown>) => { const r = copia(x); r.dados.raw_sources = { ...r.dados.raw_sources, ...fontes }; return r }
@@ -635,20 +641,20 @@ describe('no auction signal in a complete answer', () => {
     const b = bloco(SEM)
     expect(b).toMatchObject({ status: 'ok', completa: true, uso: { financeiras: [], seguradoras: [] }, leilao: { registros: [] } })
     for (const job of [null, undefined, 'pendente', 'rodando', 'ok', 'esgotado']) {
-      expect(motivoDaReserva(b, job)).toBe('historico_sem_leilao')
-      expect(historicoPedeReserva(b, job)).toBe(true)
+      expect(motivoDaReserva(b, job, PAGO_NOVO)).toBe('historico_sem_leilao')
+      expect(historicoPedeReserva(b, job, PAGO_NOVO)).toBe(true)
     }
   })
 
   it('a damage sign is not an auction signal: an insurer indemnity alone still asks for it', () => {
     const b = bloco(soIndenizacao)
     expect(b).toMatchObject({ completa: true, leilao: { registros: [], indicioSinistro: true } })
-    expect(motivoDaReserva(b, null)).toBe('historico_sem_leilao')
+    expect(motivoDaReserva(b, null, PAGO_NOVO)).toBe('historico_sem_leilao')
   })
 
   it('a bank or insurer in the chain keeps its own, more specific reason', () => {
-    expect(motivoDaReserva(bloco(comBanco()), null)).toBe('banco_na_cadeia')
-    expect(motivoDaReserva(bloco(comSeguradora()), 'esgotado')).toBe('seguradora_na_cadeia')
+    expect(motivoDaReserva(bloco(comBanco()), null, PAGO_NOVO)).toBe('banco_na_cadeia')
+    expect(motivoDaReserva(bloco(comSeguradora()), 'esgotado', PAGO_NOVO)).toBe('seguradora_na_cadeia')
   })
 
   it('an auction record of any kind (notice with a lot, public body, salvage sale): never', () => {
@@ -657,38 +663,97 @@ describe('no auction signal in a complete answer', () => {
       expect(b).toMatchObject({ status: 'ok', completa: true })
       expect(b.leilao!.registros.map((r) => r.tipo)).toEqual([tipo])
       for (const job of [null, 'pendente', 'esgotado']) {
-        expect(motivoDaReserva(b, job)).toBeNull()
-        expect(historicoPedeReserva(b, job)).toBe(false)
+        expect(motivoDaReserva(b, job, PAGO_NOVO)).toBeNull()
+        expect(historicoPedeReserva(b, job, PAGO_NOVO)).toBe(false)
       }
     }
     // A bank in the chain does not change it.
-    expect(motivoDaReserva(bloco(comEdital(comBanco())), null)).toBeNull()
+    expect(motivoDaReserva(bloco(comEdital(comBanco())), null, PAGO_NOVO)).toBeNull()
     // The fixture with records (bank, indemnity, a notice with a lot and a salvage sale).
-    expect(motivoDaReserva(bloco(COM), 'esgotado')).toBeNull()
+    expect(motivoDaReserva(bloco(COM), 'esgotado', PAGO_NOVO)).toBeNull()
+  })
+
+  it('a partial answer with an auction record never asks for it (the record is a signal); without one it still does (historico_parcial)', () => {
+    for (const [falta, fontes] of [['sinistros', { infosinistrosSuccess: false }], ['donos', { e5Success: false }], ['registro', { e2Success: false }]] as const) {
+      for (const comRegistro of [comEdital(), comOrgao(), comSalvado()]) {
+        const b = bloco(comFontes(comRegistro, fontes))
+        expect(b).toMatchObject({ status: 'ok', completa: false })
+        expect(b.faltas).toContain(falta)
+        expect(b.leilao!.registros).toHaveLength(1)
+        expect(motivoDaReserva(b, null, PAGO_NOVO)).toBeNull()
+        expect(historicoPedeReserva(b, 'esgotado', PAGO_NOVO)).toBe(false)
+      }
+      expect(motivoDaReserva(bloco(comFontes(SEM, fontes)), null, PAGO_NOVO)).toBe('historico_parcial')
+    }
+    // With a bank in the chain too.
+    expect(motivoDaReserva(bloco(comFontes(comEdital(comBanco()), { infosinistrosSuccess: false })), null, PAGO_NOVO)).toBeNull()
+    expect(motivoDaReserva(bloco(comFontes(comBanco(), { infosinistrosSuccess: false })), null, PAGO_NOVO)).toBe('historico_parcial')
   })
 
   it('blocks stored before the completeness check, or with no auction part: complete with owners, so they ask for it', () => {
     const antigo: any = bloco(SEM)
     delete antigo.completa
-    expect(motivoDaReserva(antigo, null)).toBe('historico_sem_leilao')
-    expect(motivoDaReserva({ ...bloco(SEM), leilao: null }, null)).toBe('historico_sem_leilao')
+    expect(motivoDaReserva(antigo, null, PAGO_NOVO)).toBe('historico_sem_leilao')
+    expect(motivoDaReserva({ ...bloco(SEM), leilao: null }, null, PAGO_NOVO)).toBe('historico_sem_leilao')
     // Before the check, no owners is a partial answer.
     const semDonos: any = { ...bloco(SEM), donos: null }
     delete semDonos.completa
-    expect(motivoDaReserva(semDonos, null)).toBe('historico_parcial')
+    expect(motivoDaReserva(semDonos, null, PAGO_NOVO)).toBe('historico_parcial')
   })
 
-  it('the other cases stay as they were: partial (even with a record), other VIN, and no answer only once the queue gave up', () => {
-    expect(motivoDaReserva(bloco(comFontes(SEM, { infosinistrosSuccess: false })), null)).toBe('historico_parcial')
-    expect(motivoDaReserva(bloco(comFontes(comEdital(), { e5Success: false })), null)).toBe('historico_parcial')
-    expect(motivoDaReserva(historicoDoVeiculo(bloco(SEM), '9XXHV00000X999999'), null)).toBe('historico_divergente') // ggignore
+  it('the other cases stay as they were: other VIN, and no answer only once the queue gave up', () => {
+    expect(motivoDaReserva(historicoDoVeiculo(bloco(SEM), '9XXHV00000X999999'), null, PAGO_NOVO)).toBe('historico_divergente') // ggignore
     // The vehicle history has not answered yet: the auction partner waits for it.
     for (const st of ['falhou', 'teto'] as const) {
-      for (const job of [null, 'pendente', 'rodando', 'ok']) expect(motivoDaReserva({ status: st, consultadoEm: null }, job)).toBeNull()
-      expect(motivoDaReserva({ status: st, consultadoEm: null }, 'esgotado')).toBe('historico_sem_resposta')
+      for (const job of [null, 'pendente', 'rodando', 'ok']) expect(motivoDaReserva({ status: st, consultadoEm: null }, job, PAGO_NOVO)).toBeNull()
+      expect(motivoDaReserva({ status: st, consultadoEm: null }, 'esgotado', PAGO_NOVO)).toBe('historico_sem_resposta')
     }
-    for (const job of [null, 'pendente', 'rodando']) expect(motivoDaReserva(null, job)).toBeNull()
-    expect(motivoDaReserva(null, 'esgotado')).toBe('historico_sem_resposta')
+    for (const job of [null, 'pendente', 'rodando']) expect(motivoDaReserva(null, job, PAGO_NOVO)).toBeNull()
+    expect(motivoDaReserva(null, 'esgotado', PAGO_NOVO)).toBe('historico_sem_resposta')
+  })
+})
+
+// Lead, 23/11/2026: the rule of 23/11 only for orders paid from the deploy on
+// (no retroactive charge nor late notice to an old customer); an order paid
+// before keeps the rules of 17/11 and 18/11 exactly, bank or insurer included.
+describe('cutoff of the rule of 23/11/2026 (CORTE_SEM_LEILAO, by pago_em)', () => {
+  const comBanco = (x: any = SEM) => comIndicador(x, 'P7', { status: 'positivo', conteudo: [{ ano: '2019', instituicao: 'BANCO FICTICIO S.A.', tipo: 'Instituição Financeira / Leasing na Cadeia Dominial' }] })
+  const comEdital = (x: any = SEM) => comIndicador(x, 'P11', { status: 'positivo', conteudo: [{ ano: 2021, leiloeiro: 'CASA FICTICIA LEILÕES', lote: '42' }] })
+  const comFontes = (x: any, fontes: Record<string, unknown>) => { const r = copia(x); r.dados.raw_sources = { ...r.dados.raw_sources, ...fontes }; return r }
+
+  it('the cutoff is 23/11/2026 18:00 in Brasilia, inclusive', () => {
+    expect(Date.parse(CORTE_SEM_LEILAO)).toBe(Date.parse('2026-11-23T21:00:00.000Z'))
+    expect(pagoDepoisDoCorte('2026-11-23T21:00:00.000Z')).toBe(true)
+    expect(pagoDepoisDoCorte('2026-11-23T18:00:00-03:00')).toBe(true)
+    // As PostgREST sends a timestamptz.
+    expect(pagoDepoisDoCorte('2026-11-23T21:00:00.000001+00:00')).toBe(true)
+    expect(pagoDepoisDoCorte('2026-11-23T20:59:59.999Z')).toBe(false)
+    expect(pagoDepoisDoCorte(PAGO_ANTIGO)).toBe(false)
+    // No payment date (unknown): before.
+    for (const v of [null, undefined, '', 'x']) expect(pagoDepoisDoCorte(v)).toBe(false)
+  })
+
+  it('paid before the cutoff (or no date): exactly the old rules', () => {
+    for (const pago of [PAGO_ANTIGO, '2026-11-23T20:59:59.999Z', null, undefined]) {
+      // Complete without an auction record or institution: no call.
+      expect(motivoDaReserva(bloco(SEM), null, pago)).toBeNull()
+      expect(motivoDaReserva(bloco(SEM), 'esgotado', pago)).toBeNull()
+      expect(historicoPedeReserva(bloco(SEM), 'esgotado', pago)).toBe(false)
+      // A bank in the chain still calls.
+      expect(motivoDaReserva(bloco(comBanco()), null, pago)).toBe('banco_na_cadeia')
+      // A partial answer calls, even with an auction record (rule of 17/11).
+      expect(motivoDaReserva(bloco(comFontes(comEdital(), { infosinistrosSuccess: false })), null, pago)).toBe('historico_parcial')
+      expect(motivoDaReserva(bloco(comFontes(SEM, { infosinistrosSuccess: false })), null, pago)).toBe('historico_parcial')
+      // Other VIN and no answer once the queue gave up: the same either way.
+      expect(motivoDaReserva(historicoDoVeiculo(bloco(SEM), '9XXHV00000X999999'), null, pago)).toBe('historico_divergente') // ggignore
+      expect(motivoDaReserva({ status: 'falhou', consultadoEm: null }, 'esgotado', pago)).toBe('historico_sem_resposta')
+      expect(motivoDaReserva({ status: 'falhou', consultadoEm: null }, 'pendente', pago)).toBeNull()
+    }
+  })
+
+  it('paid from the cutoff on: the rule of 23/11', () => {
+    expect(motivoDaReserva(bloco(SEM), null, CORTE_SEM_LEILAO)).toBe('historico_sem_leilao')
+    expect(motivoDaReserva(bloco(comFontes(comEdital(), { infosinistrosSuccess: false })), null, CORTE_SEM_LEILAO)).toBeNull()
   })
 })
 

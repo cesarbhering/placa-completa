@@ -67,7 +67,7 @@ export type ResultadoJob = { status: 'ok' | 'sem_dado' | 'falha'; code: number |
 
 async function lerPedido(supabase: any, id: string) {
   const { data } = await supabase.from('pedidos_premium')
-    .select('id,placa,plano,preview,consulta_id,token_entrega,email,relatorio_snapshot')
+    .select('id,placa,plano,preview,consulta_id,token_entrega,email,pago_em,relatorio_snapshot')
     .eq('id', id).maybeSingle()
   return data
 }
@@ -97,9 +97,10 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
       // the step after the delivery did not finish (a read that failed, the
       // container went down). The queue covers it now (17/11/2026), once:
       // leilaoParceiroComoReserva only calls when the order has no partner state.
-      // A read that failed again makes the queue try once more.
+      // A read that failed again makes the queue try once more. The rule is
+      // the one of the payment time of the order (CORTE_SEM_LEILAO).
       const snap = p.relatorio_snapshot
-      if (fonte === 'historico_veicular' && historicoPedeReserva(snap.historicoVeicular, null) && !snap.historicoLeilao?.parceiro) {
+      if (fonte === 'historico_veicular' && historicoPedeReserva(snap.historicoVeicular, null, p.pago_em) && !snap.historicoLeilao?.parceiro) {
         const r = await reservaLeilao(supabase, p.id)
         if (r === 'erro') return { status: 'falha', code: null, erro: 'reserva da base de leilao sem leitura do pedido' }
       }

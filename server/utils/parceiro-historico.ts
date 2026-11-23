@@ -39,9 +39,13 @@ import { consultaComDocumentoDaUf, completarComDocumentoDaUf } from './infosimpl
 //    with no auction record of its own (Cesar, 23/11/2026: neither base has an
 //    auction signal), reason banco_na_cadeia or seguradora_na_cadeia when a
 //    bank, finance company, leasing or insurer is in the chain of owners
-//    (18/11/2026), else historico_sem_leilao. Never before this one answers
-//    or the queue gives up. The reason goes with it
-//    (shared/historico-veicular.ts, motivoDaReserva);
+//    (18/11/2026), else historico_sem_leilao; and never with an auction
+//    record of its own, not even in a partial answer. Never before this one
+//    answers or the queue gives up. That rule is for orders paid from
+//    CORTE_SEM_LEILAO on; older ones keep the rules of 17/11 and 18/11
+//    (any partial answer calls, a complete one only with a bank or insurer
+//    in the chain). The reason goes with it (shared/historico-veicular.ts,
+//    motivoDaReserva);
 //  - one paid call per order and per plate: lock per order AND per plate (two
 //    orders of the same plate never pay twice), a unique index in the table,
 //    and an order that already has a paid row reuses it;
@@ -221,10 +225,14 @@ async function concluirReserva(sb: any, id: string, l: Omit<LinhaHistorico, 'ped
   } catch (e: any) { console.warn('[parceiro-historico] linha de auditoria falhou:', e?.message || e); return 'erro' }
 }
 
-async function lerSnapshot(sb: any, id: string): Promise<any | null> {
-  const { data } = await sb.from('pedidos_premium').select('relatorio_snapshot').eq('id', id).maybeSingle()
+/**
+ * Snapshot of the order and its payment time: the payment time picks the
+ * rule of the auction partner fallback (CORTE_SEM_LEILAO in motivoDaReserva).
+ */
+async function lerSnapshotEPagamento(sb: any, id: string): Promise<{ snap: any | null; pagoEm: string | null }> {
+  const { data } = await sb.from('pedidos_premium').select('relatorio_snapshot,pago_em').eq('id', id).maybeSingle()
   const s = data?.relatorio_snapshot
-  return s && typeof s === 'object' ? s : null
+  return { snap: s && typeof s === 'object' ? s : null, pagoEm: typeof data?.pago_em === 'string' ? data.pago_em : null }
 }
 
 /** VIN of the vehicle in the paid query stored in the snapshot (object or one-item list). */
@@ -509,15 +517,19 @@ export async function completarHistoricoVeicular(
   // (executarJob). Idempotent: it only calls when the order never tried that partner.
   // The reason goes from the block in hand (review of PR #761): when its
   // snapshot write failed, the stored block would read as no answer at all.
+  // The rule is the one of the payment time of the order (CORTE_SEM_LEILAO).
+  let pagoEm: string | null = null
   const reserva = async (bloco: HistoricoVeicular | null | undefined) => {
-    const motivo = motivoDaReserva(bloco, null)
+    const motivo = motivoDaReserva(bloco, null, pagoEm)
     if (!motivo) return
     await (deps.reservaLeilao ?? ((s: any, id: string, m?: MotivoReserva) => leilaoParceiroComoReserva(s, id, { motivoReserva: m })))(sb, pedido.id, motivo).catch(() => {})
   }
   try {
     if (!fonteNoPlano('historico_veicular', pedido.plano)) return { ok: false, pulado: 'fora do plano' }
     if (!deps.cfg.chave || (!deps.cfg.ligado && !deps.ignorarChave)) return { ok: false, pulado: 'desligado' }
-    const snap = await lerSnapshot(sb, pedido.id)
+    const lido = await lerSnapshotEPagamento(sb, pedido.id)
+    const snap = lido.snap
+    pagoEm = lido.pagoEm
     if (!snap) return { ok: false, pulado: 'sem snapshot' }
     const feito = snap.historicoVeicular?.status
     if (feito === 'ok' || feito === 'divergente') {
@@ -553,15 +565,17 @@ export async function completarHistoricoVeicular(
  * auction record of its own (23/11/2026; a bank or insurer in the chain
  * since 18/11/2026).
  * `bloco` is the block the caller already has (the snapshot assembly);
- * without it, the one in the stored snapshot. Never throws (null).
+ * without it, the one in the stored snapshot. The rule is the one of the
+ * payment time of the order (CORTE_SEM_LEILAO). Never throws (null).
  */
 export async function motivoReservaNoPedido(sb: any, pedidoId: string | null | undefined, bloco?: HistoricoVeicular | null): Promise<MotivoReserva | null> {
   if (!pedidoId) return null
   try {
-    const hv = bloco !== undefined ? bloco : (await lerSnapshot(sb, pedidoId))?.historicoVeicular ?? null
-    if (hv?.status === 'ok' || hv?.status === 'divergente') return motivoDaReserva(hv, null)
+    const { snap, pagoEm } = await lerSnapshotEPagamento(sb, pedidoId)
+    const hv = bloco !== undefined ? bloco : snap?.historicoVeicular ?? null
+    if (hv?.status === 'ok' || hv?.status === 'divergente') return motivoDaReserva(hv, null, pagoEm)
     const { data: job } = await sb.from('premium_jobs').select('status').eq('pedido_id', pedidoId).eq('fonte', 'historico_veicular').maybeSingle()
-    return motivoDaReserva(hv, job?.status ?? null)
+    return motivoDaReserva(hv, job?.status ?? null, pagoEm)
   } catch { return null }
 }
 

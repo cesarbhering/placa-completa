@@ -5,7 +5,7 @@ import { _resetarEmVoo, quantasEmVoo } from './tarefas-em-voo'
 
 const RESP = [{ ufJurisdicao: 'AL', renavam: '1', indicadorRecall: true, descricaoMarcaModelo: 'FORD/FUSION', chassi: '3FA6P0H71FR000000' }]
 
-function sbFalso(o: { snap?: any; snapDepois?: any; jobs?: any[]; aviso?: string | null; avisoLeilao?: string | null; avisoSinistro?: string | null } = {}) {
+function sbFalso(o: { snap?: any; snapDepois?: any; jobs?: any[]; aviso?: string | null; avisoLeilao?: string | null; avisoSinistro?: string | null; pagoEm?: string | null } = {}) {
   let lidas = 0
   const ops: any[] = []
   const estado = { aviso: o.aviso ?? null as string | null }
@@ -18,7 +18,7 @@ function sbFalso(o: { snap?: any; snapDepois?: any; jobs?: any[]; aviso?: string
       maybeSingle: async () => {
         if (tabela === 'pedidos_premium' && f.filtros.length === 1 && !f.sel) {
           lidas++
-          return { data: { id: 'p', placa: 'ORK8004', token_entrega: 'TOK', email: 'c@x.com', consulta_id: null, relatorio_snapshot: lidas > 1 && o.snapDepois ? o.snapDepois : o.snap, aviso_completo_em: estado.aviso, aviso_leilao_em: o.avisoLeilao ?? null, aviso_sinistro_em: o.avisoSinistro ?? null } }
+          return { data: { id: 'p', placa: 'ORK8004', token_entrega: 'TOK', email: 'c@x.com', consulta_id: null, pago_em: o.pagoEm ?? null, relatorio_snapshot: lidas > 1 && o.snapDepois ? o.snapDepois : o.snap, aviso_completo_em: estado.aviso, aviso_leilao_em: o.avisoLeilao ?? null, aviso_sinistro_em: o.avisoSinistro ?? null } }
         }
         return { data: null }
       },
@@ -203,14 +203,27 @@ describe('fila premium_jobs', () => {
     const comLeilao = { ...parcial, historicoVeicular: { status: 'ok', completa: true, donos: { total: 3 }, leilao: { registros: [{ tipo: 'salvado', ano: '2020', lote: null, casa: null, comitente: null }], indicioSinistro: false, chassiFonte: null } } }
     expect(await executarJob(sbFalso({ snap: comLeilao }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
     expect(reservaLeilao).toHaveBeenCalledTimes(3)
-    // Complete answer with no auction record of its own (Cesar, 23/11/2026): the queue runs it too.
+    // Complete answer with no auction record of its own (Cesar, 23/11/2026):
+    // the queue runs it too, for an order paid from the cutoff on; an order
+    // paid before keeps the old rules (nothing).
     const completo = { ...parcial, historicoVeicular: { status: 'ok', completa: true, donos: { total: 3 }, leilao: { registros: [], indicioSinistro: false, chassiFonte: null } } }
-    expect(await executarJob(sbFalso({ snap: completo }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
+    for (const pagoEm of ['2026-11-20T15:00:00.000Z', null]) {
+      expect(await executarJob(sbFalso({ snap: completo, pagoEm }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
+    }
+    expect(reservaLeilao).toHaveBeenCalledTimes(3)
+    expect(await executarJob(sbFalso({ snap: completo, pagoEm: '2026-11-23T22:00:00.000Z' }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
     expect(reservaLeilao).toHaveBeenCalledTimes(4)
     expect((reservaLeilao.mock.calls[3] as any)[1]).toBe('p')
+    // A partial answer with an auction record: a signal already for an order
+    // paid from the cutoff on (nothing); before it, the fallback of 17/11 as before.
+    const parcialComLeilao = { ...parcial, historicoVeicular: { ...parcial.historicoVeicular, leilao: comLeilao.historicoVeicular.leilao } }
+    expect(await executarJob(sbFalso({ snap: parcialComLeilao, pagoEm: '2026-11-23T22:00:00.000Z' }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
+    expect(reservaLeilao).toHaveBeenCalledTimes(4)
+    await executarJob(sbFalso({ snap: parcialComLeilao, pagoEm: '2026-11-20T15:00:00.000Z' }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })
+    expect(reservaLeilao).toHaveBeenCalledTimes(5)
     // Other sources concluded: never the fallback.
     await executarJob(sbFalso({ snap: { ...parcial, multas: { status: 'ok', fonte: 'detran_al' } } }).cliente, { id: 'j', pedido_id: 'p', fonte: 'detran' }, { reservaLeilao })
-    expect(reservaLeilao).toHaveBeenCalledTimes(4)
+    expect(reservaLeilao).toHaveBeenCalledTimes(5)
   })
 
   it('last attempt with a complete answer that did not land in the snapshot: no paid fallback (review 2, S1)', async () => {

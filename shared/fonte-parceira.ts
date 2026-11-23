@@ -26,14 +26,16 @@ export interface SinistroParceiro {
  * Why the auction partner ran for an order as the complement of the vehicle
  * history partner (shared/historico-veicular.ts, motivoDaReserva). Kept in the
  * state, in the cost detail and in the log, to measure each rule later:
- *  - historico_parcial: the vehicle history answer was charged but partial;
+ *  - historico_parcial: the vehicle history answer was charged but partial
+ *    (and, for an order paid from CORTE_SEM_LEILAO on, has no auction record);
  *  - historico_divergente: it answered for another VIN;
  *  - historico_sem_resposta: no good answer once the queue gave up;
  *  - banco_na_cadeia / seguradora_na_cadeia: a complete answer with a bank,
  *    finance company or leasing (or an insurer) in the chain of owners and no
  *    auction record of its own (Cesar, 18/11/2026);
  *  - historico_sem_leilao: any other complete answer with no auction record
- *    of its own (Cesar, 23/11/2026: neither base has an auction signal).
+ *    of its own (Cesar, 23/11/2026: neither base has an auction signal), for
+ *    an order paid from CORTE_SEM_LEILAO on (shared/historico-veicular.ts).
  */
 export type MotivoReserva = 'historico_parcial' | 'historico_divergente' | 'historico_sem_resposta' | 'banco_na_cadeia' | 'seguradora_na_cadeia' | 'historico_sem_leilao'
 

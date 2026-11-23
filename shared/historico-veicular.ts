@@ -585,6 +585,21 @@ function temRegistroDeLeilao(hv: HistoricoVeicular): boolean {
 }
 
 /**
+ * Payment time (pedidos_premium.pago_em) from which an order follows the rule
+ * of 23/11/2026 in motivoDaReserva. An order paid before keeps the rules it
+ * was sold under (17/11 and 18/11/2026): no retroactive charge, and no late
+ * notice to an old customer, from the lazy fill, the rebuild or the retry job.
+ * Set to the deploy of that rule (moved at the merge when the deploy is later).
+ */
+export const CORTE_SEM_LEILAO = '2026-11-23T18:00:00-03:00'
+
+/** The order was paid at or after CORTE_SEM_LEILAO. No or unreadable date: before. */
+export function pagoDepoisDoCorte(pagoEm: unknown): boolean {
+  const t = Date.parse(String(pagoEm ?? ''))
+  return Number.isFinite(t) && t >= Date.parse(CORTE_SEM_LEILAO)
+}
+
+/**
  * Why the auction partner should run for this order as the complement of the
  * vehicle history (null: it should not):
  *  - the vehicle history failed for it (Cesar, 17/11/2026): a charged but
@@ -597,13 +612,18 @@ function temRegistroDeLeilao(hv: HistoricoVeicular): boolean {
  *    for the vehicle, the auction partner is called). The reason is the bank
  *    or insurer in the chain when there is one (instituicaoNaCadeia,
  *    18/11/2026), else historico_sem_leilao.
- * A complete answer for this vehicle with an auction record of any kind,
- * never. Our auction base is checked by the callers (nossaBaseVazia).
+ * An answer for this vehicle with an auction record of any kind, partial
+ * included, never: the record is a signal. Our auction base is checked by the
+ * callers (nossaBaseVazia).
+ * `pagoEm` is the payment time of the order: paid before CORTE_SEM_LEILAO (or
+ * unknown), the rules before 23/11/2026 exactly (a partial answer always
+ * calls; a complete one only with a bank or insurer in the chain).
  */
-export function motivoDaReserva(hv: HistoricoVeicular | null | undefined, statusJob: string | null | undefined): MotivoReserva | null {
+export function motivoDaReserva(hv: HistoricoVeicular | null | undefined, statusJob: string | null | undefined, pagoEm?: string | null): MotivoReserva | null {
   if (obj(hv) && hv.status === 'ok') {
-    if (respostaIncompleta(hv)) return 'historico_parcial'
+    if (!pagoDepoisDoCorte(pagoEm)) return respostaIncompleta(hv) ? 'historico_parcial' : instituicaoNaCadeia(hv)
     if (temRegistroDeLeilao(hv)) return null
+    if (respostaIncompleta(hv)) return 'historico_parcial'
     return instituicaoNaCadeia(hv) ?? 'historico_sem_leilao'
   }
   if (obj(hv) && hv.status === 'divergente') return 'historico_divergente'
@@ -611,8 +631,8 @@ export function motivoDaReserva(hv: HistoricoVeicular | null | undefined, status
 }
 
 /** The auction partner should run for this order (motivoDaReserva). */
-export function historicoPedeReserva(hv: HistoricoVeicular | null | undefined, statusJob: string | null | undefined): boolean {
-  return motivoDaReserva(hv, statusJob) !== null
+export function historicoPedeReserva(hv: HistoricoVeicular | null | undefined, statusJob: string | null | undefined, pagoEm?: string | null): boolean {
+  return motivoDaReserva(hv, statusJob, pagoEm) !== null
 }
 
 // ---------------------------------------------------------------- parser
