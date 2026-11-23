@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { verificarAssinaturaStripe, reembolsarStripe } from './stripe'
+import { verificarAssinaturaStripe, reembolsarStripe, lerPaymentIntent, cancelarPaymentIntent } from './stripe'
 
 // verificarAssinaturaStripe e a unica parte do cartao onde errar deixa alguem
 // forjar um "pagamento confirmado". Testa o algoritmo do Stripe: header
@@ -108,5 +108,76 @@ describe('reembolsarStripe', () => {
   it('sem segredo configurado => falha, nao chama a Stripe', async () => {
     stub('', [])
     expect(await reembolsarStripe('cs_1', 'pedido-1')).toEqual({ ok: false, error: 'stripe nao configurado' })
+  })
+})
+
+// Coupon rule (server/utils/cupons.ts): read a PaymentIntent and cancel one
+// that will never be paid. Both give up quietly (null / false) when Stripe does
+// not answer, and the caller then keeps counting the coupon use.
+describe('lerPaymentIntent and cancelarPaymentIntent', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  function stub(secret: string, respostas: Array<{ ok: boolean; body: any } | Error>) {
+    vi.stubGlobal('useRuntimeConfig', () => ({ stripeSecretKey: secret }))
+    let i = 0
+    const f = vi.fn(async (_url: string, _init?: any) => {
+      const r = respostas[Math.min(i++, respostas.length - 1)]
+      if (r instanceof Error) throw r
+      return { ok: r.ok, status: r.ok ? 200 : 400, json: async () => r.body } as any
+    })
+    vi.stubGlobal('fetch', f)
+    return f
+  }
+
+  it('reads the status and whether a charge attempt failed, with a timeout', async () => {
+    const f = stub('sk_test_x', [{ ok: true, body: { id: 'pi_1', status: 'requires_payment_method', last_payment_error: { code: 'card_declined' } } }])
+    expect(await lerPaymentIntent('pi_1')).toEqual({ status: 'requires_payment_method', falhou: true })
+    const [url, init] = f.mock.calls[0]
+    expect(url).toBe('https://api.stripe.com/v1/payment_intents/pi_1')
+    expect(init.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('no failed attempt yet: falhou false', async () => {
+    stub('sk_test_x', [{ ok: true, body: { id: 'pi_1', status: 'requires_payment_method', last_payment_error: null } }])
+    expect(await lerPaymentIntent('pi_1')).toEqual({ status: 'requires_payment_method', falhou: false })
+  })
+
+  it('error answer or no answer: null', async () => {
+    stub('sk_test_x', [{ ok: false, body: { error: { message: 'No such payment_intent' } } }])
+    expect(await lerPaymentIntent('pi_1')).toBeNull()
+    stub('sk_test_x', [new Error('The operation was aborted due to timeout')])
+    expect(await lerPaymentIntent('pi_1')).toBeNull()
+  })
+
+  it('cancels with POST .../cancel and cancellation_reason=abandoned, with a timeout', async () => {
+    const f = stub('sk_test_x', [{ ok: true, body: { id: 'pi_1', status: 'canceled' } }])
+    expect(await cancelarPaymentIntent('pi_1')).toBe(true)
+    const [url, init] = f.mock.calls[0]
+    expect(url).toBe('https://api.stripe.com/v1/payment_intents/pi_1/cancel')
+    expect(init.method).toBe('POST')
+    expect(String(init.body)).toBe('cancellation_reason=abandoned')
+    expect(init.signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('cancel refused because it was canceled before: true, confirmed by a read', async () => {
+    stub('sk_test_x', [{ ok: false, body: { error: { message: 'already canceled' } } }, { ok: true, body: { id: 'pi_1', status: 'canceled' } }])
+    expect(await cancelarPaymentIntent('pi_1')).toBe(true)
+  })
+
+  it('cancel refused because it was paid meanwhile: false', async () => {
+    stub('sk_test_x', [{ ok: false, body: { error: { message: 'cannot cancel' } } }, { ok: true, body: { id: 'pi_1', status: 'succeeded' } }])
+    expect(await cancelarPaymentIntent('pi_1')).toBe(false)
+  })
+
+  it('cancel without an answer: false', async () => {
+    stub('sk_test_x', [new Error('The operation was aborted due to timeout')])
+    expect(await cancelarPaymentIntent('pi_1')).toBe(false)
+  })
+
+  it('no secret configured: null and false, Stripe is not called', async () => {
+    const f = stub('', [])
+    expect(await lerPaymentIntent('pi_1')).toBeNull()
+    expect(await cancelarPaymentIntent('pi_1')).toBe(false)
+    expect(f).not.toHaveBeenCalled()
   })
 })

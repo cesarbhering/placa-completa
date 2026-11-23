@@ -175,6 +175,59 @@ export async function consultarPaymentIntent(piId: string): Promise<{ id: string
   }
 }
 
+/** Timeout of the Stripe calls made while a coupon is validated (server/utils/cupons.ts). */
+const TIMEOUT_CUPOM_MS = 4000
+
+export interface EstadoPaymentIntent {
+  status: string
+  /** A charge attempt failed (declined, 3DS not completed): last_payment_error is set. */
+  falhou: boolean
+}
+
+/**
+ * Reads a PaymentIntent for the coupon rule. null when Stripe does not answer
+ * in time or answers with an error: the caller keeps counting the coupon use.
+ */
+export async function lerPaymentIntent(piId: string): Promise<EstadoPaymentIntent | null> {
+  const { secret } = stripeConfig()
+  if (!secret || !piId) return null
+  try {
+    const resp = await fetch(`${STRIPE_API}/payment_intents/${encodeURIComponent(piId)}`, {
+      headers: { Authorization: `Bearer ${secret}` },
+      signal: AbortSignal.timeout(TIMEOUT_CUPOM_MS),
+    })
+    const data: any = await resp.json().catch(() => ({}))
+    if (!resp.ok || typeof data?.status !== 'string') return null
+    return { status: data.status, falhou: !!data.last_payment_error }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Cancels a PaymentIntent that will never be paid, so it can no longer be
+ * confirmed. true when it ends canceled, including one canceled before (Stripe
+ * refuses a second cancel). No Idempotency-Key: Stripe would replay a first
+ * failure for 24 h, and canceling twice is harmless anyway.
+ */
+export async function cancelarPaymentIntent(piId: string): Promise<boolean> {
+  const { secret } = stripeConfig()
+  if (!secret || !piId) return false
+  try {
+    const resp = await fetch(`${STRIPE_API}/payment_intents/${encodeURIComponent(piId)}/cancel`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ cancellation_reason: 'abandoned' }).toString(),
+      signal: AbortSignal.timeout(TIMEOUT_CUPOM_MS),
+    })
+    const data: any = await resp.json().catch(() => ({}))
+    if (resp.ok && data?.status === 'canceled') return true
+    return (await lerPaymentIntent(piId))?.status === 'canceled'
+  } catch {
+    return false
+  }
+}
+
 /** Fingerprint do cartao (id opaco da Stripe, sem numero) do PaymentIntent pago. */
 export async function fingerprintDoCartao(piId: string): Promise<string | null> {
   const { secret } = stripeConfig()

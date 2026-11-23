@@ -20,7 +20,7 @@ const sb = {
   from(t: string) {
     if (t === 'cupons_premium') return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: cupom, error: null }) }) }) }
     if (t === 'cupons_premium_usos') {
-      return { select: () => { const q: any = { eq: () => q, then: (fn: any) => fn({ count: 0 }) }; return q } }
+      return { select: () => { const q: any = { eq: () => q, is: () => q, limit: () => q, then: (fn: any) => fn({ count: 0 }) }; return q } }
     }
     return {
       insert: () => ({ select: () => ({ single: async () => ({ data: { id: 'p1' }, error: null }) }) }),

@@ -250,7 +250,7 @@ describe('typed coupon: same work for unknown and paused campaign under the glob
       from: (tabela: string) => {
         c.n++
         if (tabela === 'cupons_premium') return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: cupom, error: null }) }) }) }
-        const q: any = { eq: () => q, then: (fn: any) => fn({ count: 0 }) }
+        const q: any = { eq: () => q, is: () => q, limit: () => q, then: (fn: any) => fn({ count: 0 }) }
         return { select: () => q }
       },
     }

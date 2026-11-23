@@ -1,5 +1,6 @@
 import { aplicarCupom, type PlanoId } from '../../shared/planos'
 import { precoDoPlano, type BracoPreco } from '../../shared/ab-preco'
+import { cancelarPaymentIntent, lerPaymentIntent, type EstadoPaymentIntent } from './stripe'
 
 // Validacao + calculo de cupom (v1). Usado tanto pelo endpoint de validar
 // (blur do input, so pra mostrar o preco) quanto pelo checkout (que RECALCULA
@@ -137,23 +138,14 @@ export async function validarCupom(
   // nao no contador `usos_atual` (que e so um cache pra leitura rapida no
   // dashboard e pode ficar defasado sem quebrar a regra de negocio).
   if (cupom.limite_uso_global != null) {
-    const { count } = await supabase
-      .from('cupons_premium_usos')
-      .select('id', { count: 'exact', head: true })
-      .eq('cupom_id', cupom.id)
-    if ((count || 0) >= cupom.limite_uso_global) {
+    if ((await usosQueContam(supabase, cupom.id, {}, cupom.limite_uso_global)) >= cupom.limite_uso_global) {
       // Cupom de uso unico ja gasto: a pessoa precisa saber que ele funcionou
       // uma vez, senao tenta de novo achando que e erro do site.
       return { ...semDesconto, motivo: cupom.limite_uso_global === 1 ? 'Este cupom ja foi utilizado.' : 'Cupom esgotado.' }
     }
   }
   if (cupom.limite_uso_por_cliente != null && email) {
-    const { count } = await supabase
-      .from('cupons_premium_usos')
-      .select('id', { count: 'exact', head: true })
-      .eq('cupom_id', cupom.id)
-      .eq('email', email)
-    if ((count || 0) >= cupom.limite_uso_por_cliente) {
+    if ((await usosQueContam(supabase, cupom.id, { email }, cupom.limite_uso_por_cliente)) >= cupom.limite_uso_por_cliente) {
       return { ...semDesconto, motivo: 'Este cupom ja foi utilizado.' }
     }
   }
@@ -189,6 +181,89 @@ export async function validarCupom(
     permiteGratis: !!cupom.permite_gratis,
     limiteUsoPorCliente: cupom.limite_uso_por_cliente,
   }
+}
+
+/**
+ * A card attempt opened this long ago that never charged counts as abandoned
+ * (3DS window closed, page left on the amount warning).
+ */
+const CARTAO_ABANDONADO_MS = 30 * 60_000
+/** Card attempts checked at Stripe per validation, at most. */
+const MAX_TENTATIVAS_CONFERIDAS = 3
+
+type FiltroUsos = { email?: string }
+
+/**
+ * Card attempt that will never be paid: canceled, declined (or 3DS failed), or
+ * opened over 30 min ago without a charge. Paid, processing and in-progress
+ * attempts (3DS open, intent waiting for the next click) are alive.
+ */
+function tentativaCartaoMorta(pi: EstadoPaymentIntent, criadoEm: string | null | undefined, agora = Date.now()): boolean {
+  if (pi.status === 'canceled') return true
+  const velha = !!criadoEm && agora - new Date(criadoEm).getTime() > CARTAO_ABANDONADO_MS
+  if (pi.status === 'requires_payment_method') return pi.falhou || velha
+  if (pi.status === 'requires_action' || pi.status === 'requires_confirmation') return velha
+  return false
+}
+
+/**
+ * Uses that count against a coupon limit. A released use (liberado_em) does
+ * not. At the limit, card attempts that will never be paid are released first.
+ * Without the liberado_em column (migration not applied yet) every use counts
+ * and nothing is released, as before.
+ */
+async function usosQueContam(supabase: any, cupomId: string, filtro: FiltroUsos, limite: number): Promise<number> {
+  const contar = () => {
+    const q = supabase.from('cupons_premium_usos').select('id', { count: 'exact', head: true }).eq('cupom_id', cupomId)
+    return filtro.email ? q.eq('email', filtro.email) : q
+  }
+  const { count, error } = await contar().is('liberado_em', null)
+  if (error) return (await contar()).count || 0
+  const usos = count || 0
+  if (usos < limite) return usos
+  return usos - (await liberarTentativasMortas(supabase, cupomId, filtro, usos - limite + 1))
+}
+
+/**
+ * Releases up to `quantas` uses held by card attempts that will never be paid.
+ * The PaymentIntent is canceled at Stripe BEFORE the use is marked, so that
+ * order can never be paid with the coupon afterwards. Stripe silent or the
+ * cancel refused: the use keeps counting. Pix orders are left out: an unpaid
+ * one can still get a new Pix at the same price (renovar-pix).
+ */
+async function liberarTentativasMortas(supabase: any, cupomId: string, filtro: FiltroUsos, quantas: number): Promise<number> {
+  const base = supabase
+    .from('cupons_premium_usos')
+    .select('id, pedidos_premium!inner(stripe_session_id, criado_em)')
+    .eq('cupom_id', cupomId)
+    .is('liberado_em', null)
+    .eq('pedidos_premium.forma_pagamento', 'cartao')
+    .eq('pedidos_premium.status', 'aguardando_pagamento')
+  const { data, error } = await (filtro.email ? base.eq('email', filtro.email) : base).limit(MAX_TENTATIVAS_CONFERIDAS)
+  if (error || !Array.isArray(data)) return 0
+  let liberados = 0
+  for (const uso of data) {
+    if (liberados >= quantas) break
+    const pedido = Array.isArray(uso.pedidos_premium) ? uso.pedidos_premium[0] : uso.pedidos_premium
+    const piId = String(pedido?.stripe_session_id || '')
+    // Card Elements orders keep the intent id; the old hosted checkout kept a session id.
+    if (!piId.startsWith('pi_')) continue
+    const pi = await lerPaymentIntent(piId)
+    if (!pi || !tentativaCartaoMorta(pi, pedido?.criado_em)) continue
+    if (pi.status !== 'canceled' && !(await cancelarPaymentIntent(piId))) continue
+    const { data: marcados } = await supabase
+      .from('cupons_premium_usos')
+      .update({ liberado_em: new Date().toISOString() })
+      .eq('id', uso.id)
+      .is('liberado_em', null)
+      .select('id')
+    if (!Array.isArray(marcados) || !marcados.length) continue
+    liberados++
+    console.log(`[cupom] uso liberado: tentativa de cartao que nao vai ser paga (${pi.status})`)
+    // Same usos_atual cache decrement the free path uses.
+    await liberarUsoCupomGratis(supabase, cupomId)
+  }
+  return liberados
 }
 
 /**
