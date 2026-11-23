@@ -67,7 +67,7 @@ export type ResultadoJob = { status: 'ok' | 'sem_dado' | 'falha'; code: number |
 
 async function lerPedido(supabase: any, id: string) {
   const { data } = await supabase.from('pedidos_premium')
-    .select('id,placa,plano,preview,consulta_id,token_entrega,email,relatorio_snapshot')
+    .select('id,placa,plano,preview,consulta_id,token_entrega,email,pago_em,relatorio_snapshot')
     .eq('id', id).maybeSingle()
   return data
 }
@@ -91,15 +91,16 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
     const reservaLeilao = deps.reservaLeilao ?? ((sb: any, id: string) => leilaoParceiroComoReserva(sb, id))
     if (fonteConcluida(fonte, p.relatorio_snapshot)) {
       // Vehicle history concluded with a final answer that failed the order
-      // (partial, or for another VIN), or a complete one with a bank or
-      // insurer in the chain and no auction record of its own (18/11/2026),
-      // and the auction partner never ran for it:
+      // (partial, or for another VIN), or a complete one with no auction
+      // record of its own (23/11/2026; a bank or insurer in the chain since
+      // 18/11/2026), and the auction partner never ran for it:
       // the step after the delivery did not finish (a read that failed, the
       // container went down). The queue covers it now (17/11/2026), once:
       // leilaoParceiroComoReserva only calls when the order has no partner state.
-      // A read that failed again makes the queue try once more.
+      // A read that failed again makes the queue try once more. The rule is
+      // the one of the payment time of the order (CORTE_SEM_LEILAO).
       const snap = p.relatorio_snapshot
-      if (fonte === 'historico_veicular' && historicoPedeReserva(snap.historicoVeicular, null) && !snap.historicoLeilao?.parceiro) {
+      if (fonte === 'historico_veicular' && historicoPedeReserva(snap.historicoVeicular, null, p.pago_em) && !snap.historicoLeilao?.parceiro) {
         const r = await reservaLeilao(supabase, p.id)
         if (r === 'erro') return { status: 'falha', code: null, erro: 'reserva da base de leilao sem leitura do pedido' }
       }
@@ -145,9 +146,9 @@ export async function executarJob(supabase: any, job: { id: string; pedido_id: s
       // so any e-mail of this order already finds it. Earlier attempts do not:
       // the queue may still bring the answer, and both would be paid. Nor does
       // a complete answer that only failed to land in the snapshot (review 2):
-      // the failure fallback does not apply to it. When it shows a bank or
-      // insurer in the chain (18/11/2026), completarHistoricoVeicular above
-      // already called the auction partner with that reason, taken from the
+      // the failure fallback does not apply to it. When it has no auction
+      // record of its own (23/11/2026), completarHistoricoVeicular above
+      // already called the auction partner with the reason taken from the
       // block in hand (review of PR #761).
       const ultimaTentativa = job.max_tentativas != null && Number(job.tentativas ?? 0) + 1 >= Number(job.max_tentativas)
       if (res.status === 'falha' && ultimaTentativa && !historicoCompleto(r?.bloco)) await reservaLeilao(supabase, p.id)

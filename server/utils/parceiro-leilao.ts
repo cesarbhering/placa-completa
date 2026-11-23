@@ -57,8 +57,9 @@ export interface CfgParceiro {
   /**
    * The vehicle history partner is on (server/utils/parceiro-historico.ts): it
    * feeds the partner part of the auction section, so this one is only called
-   * as its fallback, for an order where it failed (DepsParceiro.reservaDoHistorico,
-   * Cesar 17/11/2026). Turning that one off brings this back for every order.
+   * as its fallback or complement, for an order where it failed or answered
+   * with no auction record of its own (DepsParceiro.reservaDoHistorico, Cesar
+   * 17/11 and 23/11/2026). Turning that one off brings this back for every order.
    */
   historicoLigado?: boolean
 }
@@ -263,8 +264,8 @@ export interface DepsParceiro {
   agora?: number
   log?: (m: string) => void
   /**
-   * The vehicle history partner failed for this order, or came complete with a
-   * bank or insurer in the chain (shared/historico-veicular.ts,
+   * The vehicle history partner failed for this order, or came complete with
+   * no auction record of its own (shared/historico-veicular.ts,
    * historicoPedeReserva): with it on, this one runs only then, under the same rules.
    */
   reservaDoHistorico?: boolean
@@ -487,9 +488,9 @@ export type ResultadoReserva = 'ok' | 'falhou' | 'teto' | 'pulado' | 'erro'
 /**
  * Fallback of the vehicle history partner for ONE delivered order (Cesar,
  * 17/11/2026): that partner failed for it (charged but partial answer, answer
- * for another VIN, or the queue gave up), or came complete with a bank or
- * insurer in the chain and no auction record of its own (18/11/2026), so this
- * one is called under its usual rules (Completa only,
+ * for another VIN, or the queue gave up), or came complete with no auction
+ * record of its own (23/11/2026; a bank or insurer in the chain since
+ * 18/11/2026), so this one is called under its usual rules (Completa only,
  * our base empty, 30-day cache and the paid call of the order reused, lock
  * per order, daily ceiling). Only the first attempt: a failed or capped call
  * is retried once by rodarJobParceiro. Writes only historicoLeilao, reading
@@ -513,7 +514,7 @@ export async function leilaoParceiroComoReserva(
     const cfg = deps.cfg ?? cfgParceiro(useRuntimeConfig())
     if (!cfg.ligado || !pedidoId) return 'pulado'
     const ler = async (): Promise<{ p: any } | null> => {
-      const { data, error } = await sb.from('pedidos_premium').select('id,placa,plano,status,relatorio_snapshot').eq('id', pedidoId).maybeSingle()
+      const { data, error } = await sb.from('pedidos_premium').select('id,placa,plano,status,pago_em,relatorio_snapshot').eq('id', pedidoId).maybeSingle()
       return error ? null : { p: data }
     }
     const lido = await ler()
@@ -528,9 +529,10 @@ export async function leilaoParceiroComoReserva(
     // vehicle history failed for this order (partial, another VIN, or no good
     // answer once the queue gave up or gives up now, hence 'esgotado'). A
     // complete answer for this vehicle (stored after a lease expired, or a
-    // manual redo) needs no fallback, unless it shows a bank or insurer in
-    // the chain and no auction record of its own (18/11/2026).
-    const motivo = deps.motivoReserva ?? motivoDaReserva(snap.historicoVeicular, 'esgotado')
+    // manual redo) needs it only without an auction record of its own
+    // (23/11/2026): with a bank or insurer in the chain, or for an order paid
+    // from CORTE_SEM_LEILAO on.
+    const motivo = deps.motivoReserva ?? motivoDaReserva(snap.historicoVeicular, 'esgotado', p.pago_em)
     if (!motivo) return 'pulado'
     const antes = snap.historicoLeilao
     // Already tried for this order (any state): the retry belongs to the job.
@@ -585,7 +587,7 @@ export async function rodarJobParceiro(deps: DepsParceiro & { dono: string }): P
   try {
     const desde = new Date(agora - PARCEIRO_JANELA_DIAS * 86400_000).toISOString()
     let consulta = deps.sb.from('pedidos_premium')
-      .select('id,placa,plano,historicoLeilao:relatorio_snapshot->historicoLeilao,chassi:relatorio_snapshot->consulta->response->0->chassi,historicoVeicular:relatorio_snapshot->historicoVeicular')
+      .select('id,placa,plano,pago_em,historicoLeilao:relatorio_snapshot->historicoLeilao,chassi:relatorio_snapshot->consulta->response->0->chassi,historicoVeicular:relatorio_snapshot->historicoVeicular')
       .eq('status', 'entregue').eq('plano', 'completa').gte('entregue_em', desde)
       .in('relatorio_snapshot->historicoLeilao->parceiro->>status', ['falhou', 'teto'])
     // Vehicle history partner on: only the orders where this one is its fallback.
@@ -597,11 +599,12 @@ export async function rodarJobParceiro(deps: DepsParceiro & { dono: string }): P
     const candidatos = (pedidos || []).filter((x: any) => !x.historicoLeilao?.parceiro?.retentado && (!soReserva || x.historicoLeilao?.parceiro?.reserva === true))
     for (const p of candidatos.slice(0, PARCEIRO_MAX_POR_RODADA)) {
       out.vistos++
-      // Why the fallback still runs (motivoDaReserva). None: the vehicle
-      // history came complete since it started, without a bank or insurer in
-      // the chain (a lease that expired after a complete answer was stored, a
-      // manual redo), so the retry is spent without a call.
-      const motivo = soReserva ? motivoDaReserva(p.historicoVeicular, 'esgotado') : null
+      // Why the fallback still runs (motivoDaReserva, by the payment time of
+      // the order). None: the vehicle history came complete since it started
+      // with nothing that asks for it (an auction record of its own; for an
+      // order paid before CORTE_SEM_LEILAO, no bank or insurer in the chain
+      // either), so the retry is spent without a call.
+      const motivo = soReserva ? motivoDaReserva(p.historicoVeicular, 'esgotado', p.pago_em) : null
       const dispensado = soReserva && !motivo
       // A fallback started by a manual operator run keeps its mark: the data
       // goes in, the customer gets no e-mail from it.

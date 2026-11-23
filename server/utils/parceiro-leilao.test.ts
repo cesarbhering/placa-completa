@@ -388,9 +388,10 @@ describe('fallback of the vehicle history partner', () => {
     expect(porId('outro')).toMatchObject({ status: 'ok' })
   })
 
-  it('job retry of a fallback order whose vehicle history came complete since: no call, the retry is spent', async () => {
+  it('job retry of a fallback order whose vehicle history came complete since, with an auction record of its own: no call, the retry is spent', async () => {
     const completo = { ...parsearRespostaHistorico(structuredClone(HIST_COM))!, consultadoEm: '2026-10-20T18:00:00Z' }
     expect(completo.completa).toBe(true)
+    expect(completo.leilao!.registros.length).toBeGreaterThan(0)
     sb.tab('pedidos_premium').push({
       id: 'p1', placa: 'ABC1D23', plano: 'completa', status: 'entregue', entregue_em: new Date(AGORA - 3600_000).toISOString(),
       relatorio_snapshot: { consulta: { response: { chassi: CHASSI } }, historicoLeilao: { ...vazio(), parceiro: { status: 'falhou', reserva: true } }, historicoVeicular: completo },
@@ -440,7 +441,8 @@ describe('fallback of the vehicle history partner: review 1 of PR #758', () => {
   const avisarReal = (s: any, id: string, a: any, d: any) => avisarLeilaoTardio(s, id, a, d, { enviar: async (m: any) => { enviados.push(m); return true }, ligado: true, log: () => {} })
   beforeEach(() => { enviados = [] })
 
-  it('item 3: a complete vehicle history for this vehicle needs no fallback: leilaoParceiroComoReserva and the safety net skip it', async () => {
+  it('item 3: a complete vehicle history for this vehicle, with an auction record of its own, needs no fallback: leilaoParceiroComoReserva and the safety net skip it', async () => {
+    expect(historicoDe(HIST_COM).leilao!.registros.length).toBeGreaterThan(0)
     comPedido({}, { historicoVeicular: historicoDe(HIST_COM) })
     sb.tab('premium_jobs').push({ id: 'j1', pedido_id: 'p1', fonte: 'historico_veicular', status: 'esgotado', concluido_em: new Date(AGORA - 5 * 60_000).toISOString() })
     const http = httpCom(() => resp(200, REAL))
@@ -450,11 +452,14 @@ describe('fallback of the vehicle history partner: review 1 of PR #758', () => {
     expect(pagas()).toBe(0)
     expect(snapDe().historicoLeilao.parceiro).toBeUndefined()
     expect(enviados).toHaveLength(0)
-    // Partial, other VIN, failed: it runs.
-    for (const [id, hv] of [['p2', historicoDe(HIST_COM, { infosinistrosSuccess: false })], ['p3', { status: 'divergente', consultadoEm: null }], ['p4', { status: 'falhou', consultadoEm: null }]] as const) {
+    // Partial without an auction record, other VIN, failed: it runs.
+    for (const [id, hv] of [['p2', historicoDe(HIST_SEM, { infosinistrosSuccess: false })], ['p3', { status: 'divergente', consultadoEm: null }], ['p4', { status: 'falhou', consultadoEm: null }]] as const) {
       comPedido({}, { historicoVeicular: hv }, id)
       expect(await leilaoParceiroComoReserva(sb, id, deps(http, { cfg: cfgHist(), avisarLeilao: async () => {} }))).toBe('ok')
     }
+    // Partial with an auction record of its own: the record is a signal (23/11/2026), no call.
+    comPedido({}, { historicoVeicular: historicoDe(HIST_COM, { infosinistrosSuccess: false }) }, 'p5')
+    expect(await leilaoParceiroComoReserva(sb, 'p5', deps(http, { cfg: cfgHist(), avisarLeilao: async () => {} }))).toBe('pulado')
   })
 
   it('item 4: no e-mail when the page already showed an auction from a partial vehicle history; one when it shows up only now', async () => {
@@ -464,7 +469,11 @@ describe('fallback of the vehicle history partner: review 1 of PR #758', () => {
     // Same VIN as the vehicle history fixture (another VIN would hide that part from the page).
     const chassiHist = { consulta: { response: { chassi: '9XXHV00000X000001' } } }
     comPedido({}, { ...chassiHist, historicoVeicular: comLeilao })
-    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(httpCom(() => resp(200, REAL)), { cfg: cfgHist(), avisarLeilao: avisarReal }))).toBe('ok')
+    // Since 23/11/2026 that record is a signal: by its own reason, no call.
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(httpCom(() => resp(200, REAL)), { cfg: cfgHist(), avisarLeilao: avisarReal }))).toBe('pulado')
+    expect(pagas()).toBe(0)
+    // A caller that gives the reason runs it anyway: the page views are compared, no e-mail.
+    expect(await leilaoParceiroComoReserva(sb, 'p1', deps(httpCom(() => resp(200, REAL)), { cfg: cfgHist(), avisarLeilao: avisarReal, motivoReserva: 'historico_parcial' }))).toBe('ok')
     expect(snapDe().historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
     expect(enviados).toHaveLength(0)
     expect(sb.tab('pedidos_premium')[0].aviso_leilao_em ?? null).toBeNull()
@@ -532,10 +541,19 @@ describe('fallback of the vehicle history partner: review 1 of PR #758', () => {
     const comLeilao = historicoDe(HIST_COM, { infosinistrosSuccess: false })
     expect(comLeilao.leilao!.registros.length).toBeGreaterThan(0)
     sb.tab('pedidos_premium').push(linhaReserva('ja-mostrava', 'ABC1D23', '9XXHV00000X000001', comLeilao))
+    // Vehicle history partner on: since 23/11/2026 that record is a signal, so
+    // the retry is spent without a call.
+    const { fake: f0 } = sbJob(sb)
+    expect(await rodarJobParceiro({ sb: f0, cfg: cfgHist(), http: httpCom(() => resp(200, REAL)), alertar, agora: AGORA, log: () => {}, dono: 'c1', avisarLeilao: avisarReal })).toMatchObject({ vistos: 1, completados: 0 })
+    expect(snapDe('ja-mostrava').historicoLeilao.parceiro).toMatchObject({ status: 'falhou', reserva: true, retentado: true })
+    expect(pagas()).toBe(0)
+    // Switched off since (every failed order retried, the stored block still on
+    // the page): the call runs and the page views are compared.
+    snapDe('ja-mostrava').historicoLeilao.parceiro = { status: 'falhou', reserva: true }
     const { fake } = sbJob(sb)
-    const r = await rodarJobParceiro({ sb: fake, cfg: cfgHist(), http: httpCom(() => resp(200, REAL)), alertar, agora: AGORA, log: () => {}, dono: 'c1', avisarLeilao: avisarReal })
+    const r = await rodarJobParceiro({ sb: fake, cfg: cfg(), http: httpCom(() => resp(200, REAL)), alertar, agora: AGORA, log: () => {}, dono: 'c1', avisarLeilao: avisarReal })
     expect(r).toMatchObject({ vistos: 1, completados: 1 })
-    expect(snapDe('ja-mostrava').historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true })
+    expect(snapDe('ja-mostrava').historicoLeilao.parceiro).toMatchObject({ status: 'ok' })
     // Compared raw (the stored auction section was empty), this would be an e-mail.
     expect(enviados).toHaveLength(0)
     expect(sb.tab('pedidos_premium')[0].aviso_leilao_em ?? null).toBeNull()
