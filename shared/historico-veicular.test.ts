@@ -11,7 +11,7 @@ import {
   faltasDaResposta, respostaIncompleta, historicoPedeReserva, motivoDaReserva, instituicaoNaCadeia,
   CORTE_SEM_LEILAO, pagoDepoisDoCorte,
 } from './historico-veicular'
-import type { DonoHistorico } from './historico-veicular'
+import type { DonoHistorico, UsoHistorico } from './historico-veicular'
 import LEILAO_REAL from '../server/utils/__fixtures__/parceiro-leilao-real.json'
 import { historicoNaTela, historicoParaExibicao } from './leilao-exibicao'
 import { linhasBasesSemRegistro, rotuloIndicadorLeilao, historicoComParceiro, parsearRespostaParceiro } from './fonte-parceira'
@@ -397,14 +397,36 @@ describe('report blocks (copy)', () => {
   it('previous use: only when there is something; bank by name, private company never', () => {
     const t = telaUso(bloco(COM).uso)!
     expect(t.linhas).toEqual([
-      { titulo: 'Loja de usados', texto: 'Passou por loja de usados em 2012', tom: 'neutro' },
       { titulo: 'Banco ou financeira', texto: 'Esteve em nome de Banco Exemplo S.A. Arrendamento Mercantil em 2007', tom: 'neutro' },
     ])
     expect(t.nota).toBe('Sem registro de locadora, táxi, viatura ou frota pública.')
-    expect(telaUso(bloco(SEM).uso)!.linhas.map((l) => l.titulo)).toEqual(['Compra em lote', 'Empresa'])
+    expect(telaUso(bloco(SEM).uso)!.linhas.map((l) => l.titulo)).toEqual(['Compra em lote'])
     expect(JSON.stringify(telaUso(bloco(SEM).uso))).not.toMatch(/FICTICIA|LUBRIFICANTES/)
     const nada = bloco(EDITAL).uso!
     expect(telaUso({ ...nada, empresas: [] })).toBeNull()
+  })
+
+  // Cesar, 23/11/2026: a used-car dealer or a company in the chain of owners
+  // does not lower the value of the vehicle, so the previous use block no
+  // longer says so. The data stays (parser, snapshot, cache, report JSON);
+  // only the screen leaves it out. The owners block keeps the owner kinds.
+  it('previous use: no line for a used-car dealer or a company; the data is kept', () => {
+    const vazio: UsoHistorico = { locadora: null, taxiPcd: false, viatura: false, frotaPublica: false, religiosa: false, segurancaPrivada: false, lojaSalvados: false, empresas: [], frotista: null, financeiras: [], seguradoras: [] }
+    // Only a dealer and a company: nothing to show, so no section.
+    expect(telaUso({ ...vazio, empresas: [{ loja: true, ano: '2012' }, { loja: false, ano: '2015' }] })).toBeNull()
+    // A dealer and a rental company: only the rental company.
+    expect(telaUso({ ...vazio, locadora: { ano: '2019' }, empresas: [{ loja: true, ano: '2012' }] })).toEqual({
+      linhas: [{ titulo: 'Locadora', texto: 'Consta como ex-frota de locadora (2019)', tom: 'atencao' }],
+      nota: 'Sem registro de táxi, viatura ou frota pública.',
+    })
+    // A company next to a security company: only the security company line.
+    expect(telaUso({ ...vazio, segurancaPrivada: true, empresas: [{ loja: false, ano: '2015' }] })!.linhas.map((l) => l.titulo)).toEqual(['Segurança privada'])
+    // Still in the block and in the report JSON.
+    expect(bloco(COM).uso!.empresas).toEqual([{ loja: true, ano: '2012' }])
+    expect(bloco(SEM).uso!.empresas).toEqual([{ loja: false, ano: '2015' }])
+    expect(historicoVeicularParaTela(bloco(SEM))!.uso!.empresas).toEqual([{ loja: false, ano: '2015' }])
+    // The owners block still names the dealer as an owner kind.
+    expect(telaDonos(bloco(COM).donos)!.linhas.some((l) => l.tipo === 'Loja de usados')).toBe(true)
   })
 
   it('previous use flags from the indicators', () => {
@@ -412,7 +434,7 @@ describe('report blocks (copy)', () => {
     r = comIndicador(r, 'P27', { status: 'positivo' })
     r = comIndicador(r, 'P8', { status: 'positivo' })
     const t = telaUso(bloco(r).uso)!
-    expect(t.linhas.map((l) => l.titulo)).toEqual(['Locadora', 'Compra em lote', 'Empresa', 'Táxi ou PCD', 'Loja de salvados'])
+    expect(t.linhas.map((l) => l.titulo)).toEqual(['Locadora', 'Compra em lote', 'Táxi ou PCD', 'Loja de salvados'])
     expect(t.linhas.find((l) => l.titulo === 'Loja de salvados')!.tom).toBe('alerta')
     expect(t.nota).toBe('Sem registro de viatura ou frota pública.')
   })

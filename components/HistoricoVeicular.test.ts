@@ -65,13 +65,21 @@ describe('owners block', () => {
 })
 
 describe('previous use block', () => {
-  it('lines with the tone and the clean note', () => {
+  it('lines with the tone and the clean note (no line for the used-car dealer in the chain)', () => {
     const w = mount(UsoAnterior, { props: { tela: telaUso(tela(COM).uso)! } })
     expect(w.findAll('.ua-linha').map((l) => l.text())).toEqual([
-      'Loja de usadosPassou por loja de usados em 2012',
       'Banco ou financeiraEsteve em nome de Banco Exemplo S.A. Arrendamento Mercantil em 2007',
     ])
     expect(w.find('.ua-nota').text()).toBe('Sem registro de locadora, táxi, viatura ou frota pública.')
+    expect(w.text()).not.toMatch(/loja de usados|empresa/i)
+  })
+
+  // Cesar, 23/11/2026: a used-car dealer or a company does not lower the value of the vehicle.
+  it('a used-car dealer next to a rental company: only the rental company line', () => {
+    const uso = { ...tela(SEM).uso!, frotista: null, locadora: { ano: '2019' }, empresas: [{ loja: true, ano: '2012' }, { loja: false, ano: '2015' }] }
+    const w = mount(UsoAnterior, { props: { tela: telaUso(uso)! } })
+    expect(w.findAll('.ua-linha').map((l) => l.text())).toEqual(['LocadoraConsta como ex-frota de locadora (2019)'])
+    expect(w.find('.ua-nota').text()).toBe('Sem registro de táxi, viatura ou frota pública.')
   })
 })
 
