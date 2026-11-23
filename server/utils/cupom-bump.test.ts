@@ -94,7 +94,7 @@ describe('pedido acoplado de ponta a ponta: cupom criado passa pela validacao do
       usar() { usos++ },
       from(t: string) {
         if (t === 'cupons_premium_usos') {
-          return { select: () => { const q: any = { eq: () => q, then: (fn: any) => fn({ count: usos }) }; return q } }
+          return { select: () => { const q: any = { eq: () => q, is: () => q, like: () => q, order: () => q, limit: () => q, then: (fn: any) => fn({ count: usos }) }; return q } }
         }
         return {
           select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: linha, error: null }) }) }),

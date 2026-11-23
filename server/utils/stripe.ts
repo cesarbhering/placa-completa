@@ -175,6 +175,61 @@ export async function consultarPaymentIntent(piId: string): Promise<{ id: string
   }
 }
 
+/** Default timeout of the Stripe calls made while a coupon is validated (server/utils/cupons.ts). */
+const TIMEOUT_CUPOM_MS = 4000
+
+export interface EstadoPaymentIntent {
+  status: string
+  /** A charge attempt failed (declined, 3DS not completed): last_payment_error is set. */
+  falhou: boolean
+}
+
+/**
+ * Reads a PaymentIntent for the coupon rule, in one HTTP call. null when
+ * Stripe does not answer in time or answers with an error: the caller keeps
+ * counting the coupon use.
+ */
+export async function lerPaymentIntent(piId: string, timeoutMs = TIMEOUT_CUPOM_MS): Promise<EstadoPaymentIntent | null> {
+  const { secret } = stripeConfig()
+  if (!secret || !piId) return null
+  try {
+    const resp = await fetch(`${STRIPE_API}/payment_intents/${encodeURIComponent(piId)}`, {
+      headers: { Authorization: `Bearer ${secret}` },
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+    const data: any = await resp.json().catch(() => ({}))
+    if (!resp.ok || typeof data?.status !== 'string') return null
+    return { status: data.status, falhou: !!data.last_payment_error }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Cancels a PaymentIntent that will never be paid, so it can no longer be
+ * confirmed, in one HTTP call. true only when Stripe answers that it is
+ * canceled. A refusal (canceled before, or paid meanwhile) or no answer is
+ * false: the use keeps counting, and a later validation that reads the intent
+ * as canceled releases it. No Idempotency-Key: Stripe would replay a first
+ * failure for 24 h.
+ */
+export async function cancelarPaymentIntent(piId: string, timeoutMs = TIMEOUT_CUPOM_MS): Promise<boolean> {
+  const { secret } = stripeConfig()
+  if (!secret || !piId) return false
+  try {
+    const resp = await fetch(`${STRIPE_API}/payment_intents/${encodeURIComponent(piId)}/cancel`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ cancellation_reason: 'abandoned' }).toString(),
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+    const data: any = await resp.json().catch(() => ({}))
+    return resp.ok && data?.status === 'canceled'
+  } catch {
+    return false
+  }
+}
+
 /** Fingerprint do cartao (id opaco da Stripe, sem numero) do PaymentIntent pago. */
 export async function fingerprintDoCartao(piId: string): Promise<string | null> {
   const { secret } = stripeConfig()
