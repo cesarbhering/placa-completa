@@ -860,6 +860,12 @@ async function pagar() {
 const metodo = ref<'pix' | 'cartao'>('pix')
 const nomeCartao = ref('')
 const erroCartao = ref('')
+// "Pagar com Pix" under the red line: on only after a card attempt failed
+// (declined, bank error, attempt limit, network). A typing error in the card
+// fields never turns it on; a new attempt or an edit in the card fields turns
+// it off.
+const pixAposFalhaCartao = ref(false)
+watch(nomeCartao, () => { pixAposFalhaCartao.value = false })
 const processandoCartao = ref(false)
 const stripePronto = ref(false)
 let stripe: any = null
@@ -899,7 +905,7 @@ async function selecionarCartao() {
     cardNumber.mount('#pic-card-number')
     cardExpiry.mount('#pic-card-expiry')
     cardCvc.mount('#pic-card-cvc')
-    const onChange = (e: any) => { erroCartao.value = e?.error?.message || '' }
+    const onChange = (e: any) => { erroCartao.value = e?.error?.message || ''; pixAposFalhaCartao.value = false }
     cardNumber.on('change', onChange); cardExpiry.on('change', onChange); cardCvc.on('change', onChange)
     cartaoMontado = true
     stripePronto.value = true
@@ -909,7 +915,11 @@ async function selecionarCartao() {
 }
 
 function mensagemErroCartao(error: any): string {
-  const m = String(error?.message || '')
+  const m = String(error?.message || '').trim()
+  // Card errors (declined, no funds, expired, bank error) carry a message that
+  // Stripe.js wrote for the buyer in the page locale (pt-BR), and a fraud block
+  // already comes without the reason. Our own texts stay for the rest.
+  if (error?.type === 'card_error' && m) return m
   if (error?.code === 'card_declined' || /declin|recusad/i.test(m)) return 'Cartão recusado. Confira os dados ou tente outro cartão.'
   if (error?.code === 'expired_card') return 'Cartão vencido. Tente outro cartão.'
   if (error?.code === 'incorrect_cvc') return 'CVV incorreto. Confira o código de segurança.'
@@ -942,6 +952,7 @@ async function pagarComCartao() {
   // pencil and the fields stay disabled for the whole payment.
   processandoCartao.value = true
   erroCartao.value = ''
+  pixAposFalhaCartao.value = false
   try {
     // Intent already created at an amount that differed from the screen and was
     // shown to the buyer on the previous click: pay that one now, without the
@@ -988,12 +999,12 @@ async function pagarComCartao() {
       const agora = JSON.stringify([preview.value?.placa, placaClean.value, props.plano, email.value.trim(), cupomCodigo.value.trim(), cupomEnviado ?? '', ambiente.value])
       if (agora !== pedido) { erroCartao.value = 'Os dados do pedido mudaram. Confira e toque em pagar de novo.'; return }
     }
-    if (!r?.clientSecret) { erroCartao.value = 'Não conseguimos iniciar o pagamento. Use o Pix.'; return }
+    if (!r?.clientSecret) { erroCartao.value = 'Não conseguimos iniciar o pagamento. Use o Pix.'; pixAposFalhaCartao.value = true; return }
     // The server charges what it computed. If that differs from the price on
     // screen, show the real amount and only pay on the next click; without a
     // numeric amount, do not pay at all.
     const decisao = decidirValorCartao(r.valor, precoExibidoCentavos.value, reais, !!cupomCodigo.value.trim(), precoNoClique)
-    if (decisao.acao === 'erro') { erroCartao.value = decisao.mensagem; return }
+    if (decisao.acao === 'erro') { erroCartao.value = decisao.mensagem; pixAposFalhaCartao.value = true; return }
     if (decisao.acao === 'segurar') {
       valorCartaoServidor.value = decisao.valor
       cartaoPendente.value = r
@@ -1006,7 +1017,13 @@ async function pagarComCartao() {
         billing_details: { name: nomeCartao.value.trim() || undefined, email: email.value.trim() || undefined },
       },
     })
-    if (error) { erroCartao.value = mensagemErroCartao(error); return }
+    if (error) {
+      erroCartao.value = mensagemErroCartao(error)
+      // validation_error: Stripe's own check of the fields (incomplete number,
+      // invalid date) stopped it before any charge. A typing error, no Pix offer.
+      pixAposFalhaCartao.value = error.type !== 'validation_error'
+      return
+    }
     if (paymentIntent?.status === 'succeeded' || paymentIntent?.status === 'processing') {
       // Paid from here on: nothing below may show an error or block the way
       // to the report. History and tracking failures are swallowed; if the
@@ -1035,6 +1052,7 @@ async function pagarComCartao() {
       return
     }
     erroCartao.value = 'Pagamento não confirmado. Tente novamente ou use o Pix.'
+    pixAposFalhaCartao.value = true
   } catch (e: any) {
     // Already paid: never tell the buyer to pay again (the report link shows).
     if (cartaoConcluido) return
@@ -1042,6 +1060,9 @@ async function pagarComCartao() {
     if (import.meta.dev) console.warn('[checkout] cartao v2 falhou:', e?.data?.message || e)
     // Network failure and the intent timeout land here with the usual text.
     erroCartao.value = mensagemDoLimite(e) || 'Não conseguimos processar o cartão agora. Use o Pix.'
+    // The plate limit also counts Pix orders, so the Pix would be refused the
+    // same way: no offer there. Card limit, card breaker and network: offered.
+    pixAposFalhaCartao.value = e?.data?.data?.motivo !== 'placa'
   } finally {
     // Nothing held for the next click: the screen goes back to its own price
     // (a declined card after paying the held intent must not keep it).
@@ -1052,6 +1073,15 @@ async function pagarComCartao() {
       if (focarEmail && import.meta.client) nextTick(() => (document.getElementById('pic-email') as HTMLInputElement | null)?.focus())
     }
   }
+}
+
+// "Pagar com Pix" under a failed card attempt: the same call as the Pix tab
+// (escolherPix -> confirmarEPagar), so the e-mail and coupon checks and the
+// Pix lock apply as usual. While a payment holds the checkout nothing happens,
+// not even the tab switch.
+function pagarComPixAposFalha() {
+  if (pagando || loading.value || pagandoCartao || processandoCartao.value || cartaoConcluido) return
+  escolherPix()
 }
 
 /**
@@ -1414,6 +1444,18 @@ onUnmounted(() => {
                 <input id="pic-card-nome" v-model="nomeCartao" type="text" class="pic-input" placeholder="Como aparece no cartão" autocomplete="cc-name" :disabled="processandoCartao">
               </div>
               <p v-if="erroCartao" class="pic-cupom__erro">{{ erroCartao }}</p>
+              <!-- Tentativa no cartao falhou (recusa, banco, limite, rede): o Pix
+                   logo abaixo da mensagem, pelo mesmo caminho da aba Pix. -->
+              <button
+                v-if="pixAposFalhaCartao"
+                type="button"
+                class="pic-btn pic-cartao-pix"
+                :disabled="loading || processandoCartao"
+                @click="pagarComPixAposFalha"
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M12 2 8 6l4 4 4-4-4-4Zm-6 6-4 4 4 4 4-4-4-4Zm12 0-4 4 4 4 4-4-4-4Zm-6 6-4 4 4 4 4-4-4-4Z" /></svg>
+                Pagar com Pix
+              </button>
               <button
                 type="button"
                 class="pic-btn pic-btn--primary"
@@ -2038,6 +2080,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   padding-top: 13px;
   padding-bottom: 13px;
 }
+// "Pagar com Pix" after a failed card attempt: outlined, between the red line
+// and the card button (the solid blue stays the card's pay button).
+.pic-cartao-pix { gap: 8px; margin: 8px 0 10px; }
 .pic-cartao-seguro {
   display: flex;
   align-items: center;

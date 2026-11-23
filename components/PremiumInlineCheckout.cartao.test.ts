@@ -4,8 +4,9 @@ import { mount, flushPromises } from '@vue/test-utils'
 
 // Card payment of the inline checkout, with the component mounted: the amount
 // check against the screen, the held intent paid on the next click (and
-// dropped when what it was created for changes), the click lock, and answers
-// that arrive after the buyer changed the order. Fake data only.
+// dropped when what it was created for changes), the click lock, answers
+// that arrive after the buyer changed the order, the decline message and the
+// Pix offered after a failed attempt. Fake data only.
 
 vi.mock('~/composables/useAnalytics', () => ({ enfileirarEventoFunil: vi.fn(), enviarFunil: vi.fn(), cartaoConverteAgora: () => true, trackConversaoPixGerado: vi.fn() }))
 vi.mock('~/composables/useRecuperacaoPlay', () => ({
@@ -31,6 +32,8 @@ let confirmar: ReturnType<typeof vi.fn>
 let assign: ReturnType<typeof vi.fn>
 let trackConversionPaga: ReturnType<typeof vi.fn>
 let histAdd: ReturnType<typeof vi.fn>
+/** `change` listener of each Stripe card field, by field type. */
+let aoMudar: Record<string, (e: any) => void> = {}
 let homolog = false
 const intents = () => chamadas.filter((c) => c.url === '/api/premium/cartao-intent')
 const confirmados = () => confirmar.mock.calls.map((c: any) => c[0])
@@ -57,7 +60,11 @@ beforeEach(() => {
     if (url === '/api/premium/checkout') return await respostaPix(opts.body)
     return {}
   })
-  ;(window as any).Stripe = () => ({ elements: () => ({ create: () => ({ mount() {}, on() {} }) }), confirmCardPayment: confirmar })
+  aoMudar = {}
+  ;(window as any).Stripe = () => ({
+    elements: () => ({ create: (tipo: string) => ({ mount() {}, on(ev: string, fn: (e: any) => void) { if (ev === 'change') aoMudar[tipo] = fn } }) }),
+    confirmCardPayment: confirmar,
+  })
   Object.assign(globalThis, {
     useWhatsappOculto: () => {},
     useRuntimeConfig: () => ({ public: { cartaoHabilitado: true, stripePublishableKey: 'pk_test_fake', homolog, gated: false } }),
@@ -99,6 +106,11 @@ const erro = () => w.findAll('.pic-cartao-form .pic-cupom__erro').map((e: any) =
 const reais = (c: number) => 'R$ ' + (c / 100).toFixed(2).replace('.', ',')
 const desabilitado = (sel: string) => w.find(sel).attributes('disabled') !== undefined
 const abaPix = () => w.findAll('.pic-tab')[0]
+const abaCartaoAtiva = () => w.findAll('.pic-tab')[1].attributes('aria-selected') === 'true'
+const botaoPix = () => w.find('.pic-cartao-form .pic-cartao-pix')
+const pixGerados = () => chamadas.filter((c) => c.url === '/api/premium/checkout')
+/** The next card confirmation comes back with this Stripe error. */
+const recusar = (error: any) => confirmar.mockImplementationOnce(async () => ({ error }))
 /** Changes a field the way a script or autofill would, even while it is disabled. */
 async function forcarValor(sel: string, v: string) {
   const el = w.find(sel).element as HTMLInputElement
@@ -447,4 +459,201 @@ describe('inline checkout: everything that is locked while the card is processin
       expect(erro()).toBe('Os dados do pedido mudaram. Confira e toque em pagar de novo.')
     })
   }
+})
+
+// What Stripe.js returned with locale pt-BR for these card errors (test mode, 23/11).
+const ERROS_STRIPE = {
+  insufficient_funds: { type: 'card_error', code: 'card_declined', decline_code: 'insufficient_funds', message: 'Não há saldo suficiente no cartão. Tente usar outro.' },
+  expired_card: { type: 'card_error', code: 'expired_card', message: 'Seu cartão venceu. Tente usar outro.' },
+  processing_error: { type: 'card_error', code: 'processing_error', message: 'Erro ao processar o cartão. Tente novamente.' },
+  fraudulent: { type: 'card_error', code: 'card_declined', message: 'Seu cartão foi recusado. Fale com o emissor do cartão.' },
+}
+const RECUSADO = 'Cartão recusado. Confira os dados ou tente outro cartão.'
+const MSG_LIMITE_CARTAO = 'Muitas tentativas com cartão para esta placa na última hora. Use o Pix ou tente de novo mais tarde.'
+const MSG_LIMITE_PLACA = 'Muitas tentativas de pagamento para esta placa na última hora. Tente de novo mais tarde.'
+/** Card intent refused by a checkout limit, the way the server marks it. */
+const recusaPorLimite = (motivo: string, message: string) => () => {
+  throw Object.assign(new Error('429'), { statusCode: 429, data: { message, data: { limite: true, motivo } } })
+}
+
+describe('inline checkout: card error message', () => {
+  for (const [caso, erroStripe] of Object.entries(ERROS_STRIPE)) {
+    it(`${caso}: the text Stripe.js wrote for the buyer is shown`, async () => {
+      await prontoComCupom()
+      recusar(erroStripe)
+      await pagar()
+      expect(erro()).toBe(erroStripe.message)
+    })
+  }
+
+  for (const [caso, erroStripe, reserva] of [
+    ['declined card without a message', { type: 'card_error', code: 'card_declined' }, RECUSADO],
+    ['expired card without a message', { type: 'card_error', code: 'expired_card' }, 'Cartão vencido. Tente outro cartão.'],
+    ['card error with a blank message', { type: 'card_error', code: 'processing_error', message: ' ' }, 'Não foi possível processar o cartão.'],
+    ['another error type', { type: 'invalid_request_error', code: 'card_declined', message: 'Your card was declined.' }, RECUSADO],
+  ] as const) {
+    it(`${caso}: our fallback text`, async () => {
+      await prontoComCupom()
+      recusar(erroStripe)
+      await pagar()
+      expect(erro()).toBe(reserva)
+    })
+  }
+})
+
+describe('inline checkout: "Pagar com Pix" after a failed card attempt', () => {
+  for (const [nome, falhar] of [
+    ['card declined', () => recusar(ERROS_STRIPE.insufficient_funds)],
+    ['bank error', () => recusar(ERROS_STRIPE.processing_error)],
+    ['payment not confirmed', () => confirmar.mockImplementationOnce(async () => ({ paymentIntent: { status: 'requires_payment_method' } }))],
+    ['card attempt limit', () => { respostaIntent = recusaPorLimite('cartao_placa', MSG_LIMITE_CARTAO) }],
+    ['network failure', () => { respostaIntent = () => { throw Object.assign(new Error('fetch failed'), { name: 'FetchError' }) } }],
+  ] as const) {
+    it(`${nome}: shown right under the red line`, async () => {
+      await prontoComCupom()
+      falhar()
+      await pagar()
+      expect(botaoPix().exists()).toBe(true)
+      expect(botaoPix().text()).toBe('Pagar com Pix')
+      expect(w.find('.pic-cartao-form .pic-cupom__erro').element.nextElementSibling).toBe(botaoPix().element)
+    })
+  }
+
+  it('plate limit (it counts Pix orders too, so the Pix would be refused): not offered', async () => {
+    await prontoComCupom()
+    respostaIntent = recusaPorLimite('placa', MSG_LIMITE_PLACA)
+    await pagar()
+    expect(erro()).toBe(MSG_LIMITE_PLACA)
+    expect(botaoPix().exists()).toBe(false)
+  })
+
+  it('a typing error in the card fields: not offered', async () => {
+    await prontoComCupom()
+    aoMudar.cardNumber({ empty: false, complete: false, error: { type: 'validation_error', code: 'invalid_number', message: 'O número do cartão é inválido.' } })
+    await flushPromises()
+    expect(erro()).toBe('O número do cartão é inválido.')
+    expect(botaoPix().exists()).toBe(false)
+  })
+
+  it('card fields incomplete at the click (Stripe stops it before any charge): not offered', async () => {
+    await prontoComCupom()
+    recusar({ type: 'validation_error', code: 'incomplete_number', message: 'O número do cartão está incompleto.' })
+    await pagar()
+    expect(erro()).toBe('O número do cartão está incompleto.')
+    expect(botaoPix().exists()).toBe(false)
+  })
+
+  it('a different amount held for the next click: not offered', async () => {
+    await prontoComCupom()
+    respostaIntent = intentDe(CHEIO)
+    await pagar()
+    expect(erro()).toContain('Toque em pagar de novo para confirmar.')
+    expect(botaoPix().exists()).toBe(false)
+  })
+
+  it('gone as soon as a new attempt starts', async () => {
+    await prontoComCupom()
+    recusar(ERROS_STRIPE.insufficient_funds)
+    await pagar()
+    const porta = adiado<any>()
+    respostaIntent = () => porta.p
+    await botao().trigger('click'); await flushPromises()
+    expect(botaoPix().exists()).toBe(false)
+    porta.soltar({ token: 't', plano: 'completa', valor: COM_CUPOM, clientSecret: 'sec-ok' }); await flushPromises()
+    expect(confirmados()).toEqual(['sec1', 'sec-ok'])
+    expect(botaoPix().exists()).toBe(false)
+  })
+
+  it('a new attempt that ends with the amount held for the next click does not bring it back', async () => {
+    await prontoComCupom()
+    recusar(ERROS_STRIPE.insufficient_funds)
+    await pagar()
+    respostaIntent = intentDe(CHEIO)
+    await pagar()
+    expect(erro()).toContain('Toque em pagar de novo para confirmar.')
+    expect(botaoPix().exists()).toBe(false)
+  })
+
+  for (const campo of ['cardNumber', 'cardExpiry', 'cardCvc'] as const) {
+    it(`gone when the buyer edits the card field ${campo}`, async () => {
+      await prontoComCupom()
+      recusar(ERROS_STRIPE.insufficient_funds)
+      await pagar()
+      aoMudar[campo]({ empty: false, complete: false })
+      await flushPromises()
+      expect(botaoPix().exists()).toBe(false)
+    })
+  }
+
+  it('gone when the edit leaves a typing error in the field (that message replaces the decline)', async () => {
+    await prontoComCupom()
+    recusar(ERROS_STRIPE.insufficient_funds)
+    await pagar()
+    aoMudar.cardCvc({ empty: false, complete: false, error: { type: 'validation_error', code: 'incomplete_cvc', message: 'O código de segurança do cartão está incompleto.' } })
+    await flushPromises()
+    expect(erro()).toBe('O código de segurança do cartão está incompleto.')
+    expect(botaoPix().exists()).toBe(false)
+  })
+
+  it('gone when the buyer edits the name on the card', async () => {
+    await prontoComCupom()
+    recusar(ERROS_STRIPE.insufficient_funds)
+    await pagar()
+    await w.find('#pic-card-nome').setValue('Nome Teste')
+    expect(botaoPix().exists()).toBe(false)
+  })
+})
+
+describe('inline checkout: tapping "Pagar com Pix" after a failed card attempt', () => {
+  const pixOk = () => ({ token: 'pixtok', valor: COM_CUPOM, brCode: 'fake-br', brCodeBase64: 'data:image/png;base64,AAAA', expiresAt: null })
+  async function recusado() {
+    await prontoComCupom()
+    recusar(ERROS_STRIPE.insufficient_funds)
+    await pagar()
+    expect(botaoPix().exists()).toBe(true)
+  }
+
+  it('switches to the Pix tab and generates the Pix the way the Pix tab does', async () => {
+    await recusado()
+    const porta = adiado<any>()
+    respostaPix = () => porta.p
+    await botaoPix().trigger('click'); await flushPromises()
+    expect(abaPix().attributes('aria-selected')).toBe('true')
+    expect(pixGerados()).toHaveLength(1)
+    expect(pixGerados()[0].body).toMatchObject({ placa: PLACA, email: EMAIL, plano: 'completa', cupom: 'FAKE10' })
+    porta.soltar(pixOk()); await flushPromises()
+    expect(w.find('img.pic-qr').exists()).toBe(true)
+  })
+
+  it('a second tap while the Pix is being generated starts nothing', async () => {
+    await recusado()
+    const porta = adiado<any>()
+    respostaPix = () => porta.p
+    const b = botaoPix()
+    await b.trigger('click')
+    b.element.dispatchEvent(new Event('click')); await flushPromises()
+    porta.soltar(pixOk()); await flushPromises()
+    expect(pixGerados()).toHaveLength(1)
+  })
+
+  it('a tap that reaches it while a new card attempt is processing starts no Pix and keeps the card tab', async () => {
+    await recusado()
+    const velho = botaoPix().element // removed from the page once the new attempt starts
+    const porta = adiado<any>()
+    respostaIntent = () => porta.p
+    await botao().trigger('click'); await flushPromises()
+    velho.dispatchEvent(new Event('click')); await flushPromises()
+    expect(pixGerados()).toHaveLength(0)
+    expect(abaCartaoAtiva()).toBe(true)
+    porta.soltar({ token: 't', plano: 'completa', valor: COM_CUPOM, clientSecret: 'sec-ok' }); await flushPromises()
+    expect(confirmados()).toEqual(['sec1', 'sec-ok'])
+  })
+
+  it('the usual checks still apply: an e-mail made incomplete after the decline stops the Pix', async () => {
+    await recusado()
+    await digitarEmail('buyer-at-example')
+    await botaoPix().trigger('click'); await flushPromises()
+    expect(pixGerados()).toHaveLength(0)
+    expect((document.activeElement as HTMLElement | null)?.id).toBe('pic-email')
+  })
 })
