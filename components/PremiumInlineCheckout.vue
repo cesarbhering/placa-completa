@@ -870,8 +870,18 @@ const processandoCartao = ref(false)
 const stripePronto = ref(false)
 let stripe: any = null
 let elements: any = null
-let cardNumber: any = null
-let cartaoMontado = false
+/** The three Stripe card fields, in screen order. */
+const CAMPOS_CARTAO = ['cardNumber', 'cardExpiry', 'cardCvc'] as const
+type CampoCartao = typeof CAMPOS_CARTAO[number]
+/** Fields mounted on the page now; null while they are not (step left, or not loaded yet). */
+let campos: Record<CampoCartao, any> | null = null
+let montandoCampos: Promise<void> | null = null
+/** Last `change` of each field: complete, and its typing error if any. */
+const camposVazios = (): Record<CampoCartao, { completo: boolean; erro: string }> => ({
+  cardNumber: { completo: false, erro: '' }, cardExpiry: { completo: false, erro: '' }, cardCvc: { completo: false, erro: '' },
+})
+let estadoCampos = camposVazios()
+const MSG_CARTAO_INCOMPLETO = 'Preencha o número, a validade e o CVV do cartão.'
 
 function carregarStripeJs(): Promise<any> {
   const w = window as any
@@ -886,33 +896,75 @@ function carregarStripeJs(): Promise<any> {
   })
 }
 
-// Clicou na aba Cartao: troca de aba e, na PRIMEIRA vez, carrega o Stripe.js e
-// monta os campos. Idempotente (cartaoMontado).
+// Clicou na aba Cartao: troca de aba e monta os campos se ainda nao estao na
+// tela (na primeira vez carrega o Stripe.js; sair da etapa os desmonta).
 async function selecionarCartao() {
   metodo.value = 'cartao'
-  if (cartaoMontado || !import.meta.client) return
+  if (!import.meta.client) return
+  await montarCamposCartao()
+}
+
+/** Creates the three card fields and mounts them in this step's spots. Idempotent; concurrent calls share one run. */
+function montarCamposCartao(): Promise<void> {
+  if (campos) return Promise.resolve()
+  if (!montandoCampos) montandoCampos = criarCamposCartao().finally(() => { montandoCampos = null })
+  return montandoCampos
+}
+
+async function criarCamposCartao() {
   const pk = String(cfg.public.stripePublishableKey || '')
   if (!pk) { erroCartao.value = 'Cartão indisponível no momento. Use o Pix.'; return }
   try {
-    const Stripe = await carregarStripeJs()
-    stripe = Stripe(pk, { locale: 'pt-BR' })
-    elements = stripe.elements()
+    if (!stripe) {
+      const Stripe = await carregarStripeJs()
+      stripe = Stripe(pk, { locale: 'pt-BR' })
+      elements = stripe.elements()
+    }
     const style = { base: { fontSize: '16px', color: '#1a1a1a', fontFamily: 'inherit', '::placeholder': { color: '#9aa3ad' } }, invalid: { color: '#c0392b' } }
-    cardNumber = elements.create('cardNumber', { style, showIcon: true, placeholder: '1234 1234 1234 1234' })
-    const cardExpiry = elements.create('cardExpiry', { style })
-    const cardCvc = elements.create('cardCvc', { style })
+    const novos: Record<CampoCartao, any> = {
+      cardNumber: elements.create('cardNumber', { style, showIcon: true, placeholder: '1234 1234 1234 1234' }),
+      cardExpiry: elements.create('cardExpiry', { style }),
+      cardCvc: elements.create('cardCvc', { style }),
+    }
     await nextTick()
-    cardNumber.mount('#pic-card-number')
-    cardExpiry.mount('#pic-card-expiry')
-    cardCvc.mount('#pic-card-cvc')
-    const onChange = (e: any) => { erroCartao.value = e?.error?.message || ''; pixAposFalhaCartao.value = false }
-    cardNumber.on('change', onChange); cardExpiry.on('change', onChange); cardCvc.on('change', onChange)
-    cartaoMontado = true
+    novos.cardNumber.mount('#pic-card-number')
+    novos.cardExpiry.mount('#pic-card-expiry')
+    novos.cardCvc.mount('#pic-card-cvc')
+    estadoCampos = camposVazios()
+    for (const t of CAMPOS_CARTAO) {
+      novos[t].on('change', (e: any) => {
+        estadoCampos[t] = { completo: !!e?.complete, erro: e?.error?.message || '' }
+        erroCartao.value = e?.error?.message || ''
+        pixAposFalhaCartao.value = false
+      })
+    }
+    campos = novos
     stripePronto.value = true
   } catch {
     erroCartao.value = 'Não conseguimos carregar o pagamento com cartão. Use o Pix.'
   }
 }
+
+/** The step left: its spots are gone, so the fields go too (new ones are created when it comes back). */
+function desmontarCamposCartao() {
+  if (!campos) return
+  for (const t of CAMPOS_CARTAO) {
+    try { campos[t].destroy() } catch { /* already gone */ }
+  }
+  campos = null
+  stripePronto.value = false
+  // The red line and the Pix offer were about the fields that left.
+  erroCartao.value = ''
+  pixAposFalhaCartao.value = false
+}
+
+// The card fields live inside the confirm step (v-if): leaving it (plate
+// corrected, Pix generated) removes their spots from the page. Destroy them
+// before that, and mount new ones when the step comes back on the card tab.
+watch(step, (novo, velho) => {
+  if (velho === 'confirm' && novo !== 'confirm') desmontarCamposCartao()
+  else if (novo === 'confirm' && velho !== 'confirm' && metodo.value === 'cartao' && import.meta.client) montarCamposCartao()
+})
 
 function mensagemErroCartao(error: any): string {
   const m = String(error?.message || '').trim()
@@ -939,19 +991,39 @@ const relatorioCartao = ref('')
 /** Timeout of the card intent request; on expiry the lock is released. */
 const TIMEOUT_INTENT_MS = 25_000
 
-/** The PaymentIntent as Stripe has it now; null when it cannot be read. */
+/** Longest wait for Stripe to say how a payment stands after a network error. */
+const TIMEOUT_LEITURA_INTENT_MS = 10_000
+/** It is unknown whether the card was charged: the buyer checks before paying again. */
+const MSG_PAGAMENTO_INCERTO = 'Não conseguimos confirmar o pagamento. Confira o aviso do banco e o seu e-mail antes de tentar de novo.'
+/** The PaymentIntent as Stripe has it now; null when it cannot be read or does not answer in time. */
 async function lerIntentCartao(clientSecret: string): Promise<any> {
+  let prazo: ReturnType<typeof setTimeout> | undefined
   try {
-    return (await stripe.retrievePaymentIntent(clientSecret))?.paymentIntent ?? null
+    return await Promise.race([
+      stripe.retrievePaymentIntent(clientSecret).then((x: any) => x?.paymentIntent ?? null),
+      new Promise<null>((resolve) => { prazo = setTimeout(() => resolve(null), TIMEOUT_LEITURA_INTENT_MS) }),
+    ])
   } catch {
     return null
+  } finally {
+    clearTimeout(prazo)
   }
 }
 
 async function pagarComCartao() {
   // The Pix being generated also holds the card (one order at a time).
   if (pagandoCartao || processandoCartao.value || cartaoConcluido || pagando || loading.value) return
-  if (!stripe || !cardNumber) { erroCartao.value = 'Aguarde o pagamento carregar.'; return }
+  if (!stripe || !campos) { erroCartao.value = 'Aguarde o pagamento carregar.'; return }
+  // Card fields not complete: no intent, which would create an order (and
+  // spend a limited coupon) that cannot be paid. A typing problem: the field's
+  // own message, its focus, and no Pix offer.
+  const incompleto = CAMPOS_CARTAO.find((t) => !estadoCampos[t].completo)
+  if (incompleto) {
+    erroCartao.value = estadoCampos[incompleto].erro || MSG_CARTAO_INCOMPLETO
+    pixAposFalhaCartao.value = false
+    campos[incompleto].focus()
+    return
+  }
   pagandoCartao = true
   // Price the buyer saw when clicking: the coupon re-check below can change
   // the screen, and a higher amount is never confirmed on this click.
@@ -1022,7 +1094,7 @@ async function pagarComCartao() {
     }
     let { error, paymentIntent } = await stripe.confirmCardPayment(r.clientSecret, {
       payment_method: {
-        card: cardNumber,
+        card: campos!.cardNumber,
         billing_details: { name: nomeCartao.value.trim() || undefined, email: email.value.trim() || undefined },
       },
     })
@@ -1031,10 +1103,11 @@ async function pagarComCartao() {
     // charged card takes the paid path instead of the Pix offer.
     if (error?.type === 'api_connection_error' || error?.type === 'api_error') {
       const lido = await lerIntentCartao(r.clientSecret)
-      if (!lido) {
-        // Could not read it: still unknown whether the card was charged, so
-        // the message only, without the Pix offer.
-        erroCartao.value = mensagemErroCartao(error)
+      if (!lido || lido.status === 'requires_action') {
+        // Still unknown whether the card was charged: no answer in time, or the
+        // bank may still be approving it in its app. The message only, without
+        // the Pix offer.
+        erroCartao.value = MSG_PAGAMENTO_INCERTO
         pixAposFalhaCartao.value = false
         return
       }
