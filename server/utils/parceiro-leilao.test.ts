@@ -388,9 +388,10 @@ describe('fallback of the vehicle history partner', () => {
     expect(porId('outro')).toMatchObject({ status: 'ok' })
   })
 
-  it('job retry of a fallback order whose vehicle history came complete since: no call, the retry is spent', async () => {
+  it('job retry of a fallback order whose vehicle history came complete since, with an auction record of its own: no call, the retry is spent', async () => {
     const completo = { ...parsearRespostaHistorico(structuredClone(HIST_COM))!, consultadoEm: '2026-10-20T18:00:00Z' }
     expect(completo.completa).toBe(true)
+    expect(completo.leilao!.registros.length).toBeGreaterThan(0)
     sb.tab('pedidos_premium').push({
       id: 'p1', placa: 'ABC1D23', plano: 'completa', status: 'entregue', entregue_em: new Date(AGORA - 3600_000).toISOString(),
       relatorio_snapshot: { consulta: { response: { chassi: CHASSI } }, historicoLeilao: { ...vazio(), parceiro: { status: 'falhou', reserva: true } }, historicoVeicular: completo },
@@ -440,7 +441,8 @@ describe('fallback of the vehicle history partner: review 1 of PR #758', () => {
   const avisarReal = (s: any, id: string, a: any, d: any) => avisarLeilaoTardio(s, id, a, d, { enviar: async (m: any) => { enviados.push(m); return true }, ligado: true, log: () => {} })
   beforeEach(() => { enviados = [] })
 
-  it('item 3: a complete vehicle history for this vehicle needs no fallback: leilaoParceiroComoReserva and the safety net skip it', async () => {
+  it('item 3: a complete vehicle history for this vehicle, with an auction record of its own, needs no fallback: leilaoParceiroComoReserva and the safety net skip it', async () => {
+    expect(historicoDe(HIST_COM).leilao!.registros.length).toBeGreaterThan(0)
     comPedido({}, { historicoVeicular: historicoDe(HIST_COM) })
     sb.tab('premium_jobs').push({ id: 'j1', pedido_id: 'p1', fonte: 'historico_veicular', status: 'esgotado', concluido_em: new Date(AGORA - 5 * 60_000).toISOString() })
     const http = httpCom(() => resp(200, REAL))

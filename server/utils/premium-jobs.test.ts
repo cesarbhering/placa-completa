@@ -133,7 +133,8 @@ describe('fila premium_jobs', () => {
     const e = sbFalso({ snap })
     expect(await executarJob(e.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico: async () => ({ ok: false, status: 'divergente' as const }) }))
       .toEqual({ status: 'sem_dado', code: null, erro: 'chassi da base parceira diferente' })
-    const d = sbFalso({ snap: { ...snap, historicoVeicular: { status: 'ok', completa: true } } })
+    // Already concluded (with an auction record of its own, so no auction partner either: tested below).
+    const d = sbFalso({ snap: { ...snap, historicoVeicular: { status: 'ok', completa: true, leilao: { registros: [{ tipo: 'edital', ano: '2021', lote: '42', casa: null, comitente: null }] } } } })
     const nunca = vi.fn()
     expect(await executarJob(d.cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { historico: nunca as any })).toEqual({ status: 'ok', code: 0 })
     expect(nunca).not.toHaveBeenCalled()
@@ -181,7 +182,8 @@ describe('fila premium_jobs', () => {
   // Review 1 of PR #758, item 1: the vehicle history is concluded with a final
   // answer that failed the order (partial, another VIN) but its fallback never
   // ran (the step after the delivery did not finish): the queue covers it.
-  it('vehicle history concluded with a partial or other-VIN answer and no fallback yet: the queue runs it, once', async () => {
+  // Since 23/11/2026 also a complete answer with no auction record of its own.
+  it('vehicle history concluded with a partial, other-VIN or complete answer without an auction record, and no fallback yet: the queue runs it, once', async () => {
     const reservaLeilao = vi.fn(async () => 'ok')
     const parcial = { consulta: { response: RESP }, historicoVeicular: { status: 'ok', completa: false, faltas: ['sinistros'], donos: { total: 3 } }, historicoLeilao: { passagens: [] } }
     for (const tentativas of [0, 3]) {
@@ -194,15 +196,21 @@ describe('fila premium_jobs', () => {
     const divergente = { consulta: { response: RESP }, historicoVeicular: { status: 'divergente', consultadoEm: null }, historicoLeilao: { passagens: [] } }
     await executarJob(sbFalso({ snap: divergente }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })
     expect(reservaLeilao).toHaveBeenCalledTimes(3)
-    // Already has a partner state (the fallback ran): nothing. Complete answer: nothing.
+    // Already has a partner state (the fallback ran): nothing. Complete answer
+    // with an auction record of its own: nothing.
     const jaRodou = { ...parcial, historicoLeilao: { passagens: [], parceiro: { status: 'falhou', reserva: true } } }
     expect(await executarJob(sbFalso({ snap: jaRodou }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
-    const completo = { ...parcial, historicoVeicular: { status: 'ok', completa: true, donos: { total: 3 } } }
-    expect(await executarJob(sbFalso({ snap: completo }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
+    const comLeilao = { ...parcial, historicoVeicular: { status: 'ok', completa: true, donos: { total: 3 }, leilao: { registros: [{ tipo: 'salvado', ano: '2020', lote: null, casa: null, comitente: null }], indicioSinistro: false, chassiFonte: null } } }
+    expect(await executarJob(sbFalso({ snap: comLeilao }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
     expect(reservaLeilao).toHaveBeenCalledTimes(3)
+    // Complete answer with no auction record of its own (Cesar, 23/11/2026): the queue runs it too.
+    const completo = { ...parcial, historicoVeicular: { status: 'ok', completa: true, donos: { total: 3 }, leilao: { registros: [], indicioSinistro: false, chassiFonte: null } } }
+    expect(await executarJob(sbFalso({ snap: completo }).cliente, { id: 'j', pedido_id: 'p', fonte: 'historico_veicular' }, { reservaLeilao })).toEqual({ status: 'ok', code: 0 })
+    expect(reservaLeilao).toHaveBeenCalledTimes(4)
+    expect((reservaLeilao.mock.calls[3] as any)[1]).toBe('p')
     // Other sources concluded: never the fallback.
     await executarJob(sbFalso({ snap: { ...parcial, multas: { status: 'ok', fonte: 'detran_al' } } }).cliente, { id: 'j', pedido_id: 'p', fonte: 'detran' }, { reservaLeilao })
-    expect(reservaLeilao).toHaveBeenCalledTimes(3)
+    expect(reservaLeilao).toHaveBeenCalledTimes(4)
   })
 
   it('last attempt with a complete answer that did not land in the snapshot: no paid fallback (review 2, S1)', async () => {

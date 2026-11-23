@@ -31,9 +31,11 @@ export interface SinistroParceiro {
  *  - historico_sem_resposta: no good answer once the queue gave up;
  *  - banco_na_cadeia / seguradora_na_cadeia: a complete answer with a bank,
  *    finance company or leasing (or an insurer) in the chain of owners and no
- *    auction record of its own (Cesar, 18/11/2026).
+ *    auction record of its own (Cesar, 18/11/2026);
+ *  - historico_sem_leilao: any other complete answer with no auction record
+ *    of its own (Cesar, 23/11/2026: neither base has an auction signal).
  */
-export type MotivoReserva = 'historico_parcial' | 'historico_divergente' | 'historico_sem_resposta' | 'banco_na_cadeia' | 'seguradora_na_cadeia'
+export type MotivoReserva = 'historico_parcial' | 'historico_divergente' | 'historico_sem_resposta' | 'banco_na_cadeia' | 'seguradora_na_cadeia' | 'historico_sem_leilao'
 
 /** Estado da consulta a base parceira guardado no snapshot (historicoLeilao.parceiro). */
 export interface EstadoParceiro {
@@ -46,8 +48,9 @@ export interface EstadoParceiro {
   /**
    * Called as the fallback of the vehicle history partner, which failed for
    * this order (Cesar, 17/11/2026), or as its complement when a complete
-   * answer shows a bank or insurer in the chain of owners (18/11/2026). With
-   * that partner on, the retry job only takes orders marked so.
+   * answer has no auction record of its own (23/11/2026; a bank or insurer in
+   * the chain of owners since 18/11/2026). With that partner on, the retry
+   * job only takes orders marked so.
    */
   reserva?: boolean
   /** Why it ran as that (only with reserva). Absent on states stored before 18/11/2026. */

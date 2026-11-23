@@ -59,6 +59,19 @@ const SEGURADORA = comIndicador(SEM, 'P1', { status: 'positivo', conteudo: [{ se
 const DONO_SEGURADORA = comPrimeiroDono(SEM, { classificacaoEntidade: 'seguradora' })
 const BANCO_COM_EDITAL = comIndicador(BANCO, 'P11', { status: 'positivo', conteudo: [{ ano: 2021, leiloeiro: 'CASA FICTICIA LEILÕES', lote: '42' }] })
 const SO_INDENIZACAO = comIndicador(SEM, 'P14', { status: 'positivo', conteudo: [{ seguradora: 'SEGURADORA FICTICIA S.A.', tipoEvento: 'Indenização Integral de Sinistro', ano: '2022' }] })
+// One auction record of each kind in an answer otherwise like the one without
+// records: a notice with a real lot, a public body auction without a lot, a
+// salvage sale by an insurer.
+const EDITAL_LOTE = comIndicador(SEM, 'P11', { status: 'positivo', conteudo: [{ ano: 2021, leiloeiro: 'CASA FICTICIA LEILÕES', lote: '42' }] })
+const ORGAO_PUBLICO = (() => {
+  const r = structuredClone(SEM)
+  r.dados.outros_produtos.leiloes = [{ ano: 2006, leiloeiro: 'WEB - LEILOES ONLINE', lote: 'NADA CONSTA', comitente: 'PREFEITURA MUNICIPAL DE CIDADE EXEMPLO' }]
+  return r
+})()
+const SALVADO = comIndicador(SEM, 'P1', { status: 'positivo', conteudo: [{ seguradora: 'SEGURADORA FICTICIA S.A.', tipoEntidade: 'seguradora', tipoEvento: 'Venda Direta / Remarketing', ano: '2020' }] })
+// Auction partner answers (same shape as the real one): nothing at all, or only a damage sign.
+const LEILAO_NADA = { consulta: REAL.consulta, resultados: { leilao: { placa: REAL.resultados.leilao.placa, temRegistro: false, leiloes: [] }, sinistro: { indicioDeSinistro: 0, mensagemSinistro: 'NAO EXISTE REGISTRO DE INDICIO DE SINISTRO' } } }
+const LEILAO_SO_SINISTRO = { ...LEILAO_NADA, resultados: { ...LEILAO_NADA.resultados, sinistro: REAL.resultados.sinistro } }
 /** The clean block of an answer, as the snapshot stores it. */
 const bloco = (resposta: any) => ({ ...parsearRespostaHistorico(structuredClone(resposta))!, consultadoEm: '2026-11-18T12:00:00.000Z' })
 
@@ -66,6 +79,8 @@ let config: ReturnType<typeof CONFIG>
 let historicoPorPlaca: Record<string, any>
 let nossaBase: any
 let leilaoForaDoAr: boolean
+/** What the auction partner answers (the real answer: one auction and a damage sign). */
+let respostaLeilao: any
 let chamadasHistorico: string[]
 /** Paid attempts of the auction partner (login not counted). */
 let chamadasLeilao: string[]
@@ -130,6 +145,7 @@ beforeEach(() => {
   historicoPorPlaca = { [PLACA]: BANCO, [OUTRA_PLACA]: BANCO }
   nossaBase = vazio()
   leilaoForaDoAr = false
+  respostaLeilao = REAL
   gravacaoFalha = false
   chamadasHistorico = []
   chamadasLeilao = []
@@ -158,7 +174,7 @@ beforeEach(() => {
     }
     if (url.endsWith('/api/Auth/login')) return { status: 200, text: async () => JSON.stringify({ token: 'jwt' }) }
     chamadasLeilao.push(url)
-    return leilaoForaDoAr ? { status: 503, text: async () => 'fora' } : { status: 200, text: async () => JSON.stringify(REAL) }
+    return leilaoForaDoAr ? { status: 503, text: async () => 'fora' } : { status: 200, text: async () => JSON.stringify(respostaLeilao) }
   })
 })
 
@@ -216,22 +232,24 @@ describe('auction partner when a complete vehicle history shows a bank or insure
     expect(logs.some((l) => /reserva do historico pedido=p1: ok motivo=seguradora_na_cadeia/.test(l))).toBe(true)
   })
 
-  it('3. complete without a bank or insurer (an insurer indemnity alone included): no call', async () => {
+  // Since 23/11/2026 such an answer calls too, for having no auction signal
+  // (tests 14 on), but not as an institution in the chain: the reason says so.
+  it('3. complete without a bank or insurer (an insurer indemnity alone included): not an institution in the chain, the reason is historico_sem_leilao', async () => {
     const sb = banco()
     historicoPorPlaca = { [PLACA]: SEM, [OUTRA_PLACA]: SO_INDENIZACAO }
     pedido(sb, 'p1')
     pedido(sb, 'p2', { placa: OUTRA_PLACA })
     await depoisDaEntrega(sb, 'p1')
     await depoisDaEntrega(sb, 'p2', OUTRA_PLACA)
+    expect(sb.tab('pedidos_premium')[1].relatorio_snapshot.historicoVeicular.sinistro.indenizacoes).toHaveLength(1)
     for (const id of ['p1', 'p2']) {
+      expect(parceiroDe(sb, id)).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
       expect(await filaDoHistorico(sb, id)).toEqual({ status: 'ok', code: 0 })
       expect(await leilaoParceiroComoReserva(sb, id)).toBe('pulado')
-      expect(parceiroDe(sb, id)).toBeUndefined()
     }
-    expect(sb.tab('pedidos_premium')[1].relatorio_snapshot.historicoVeicular.sinistro.indenizacoes).toHaveLength(1)
     await retryDoJob(sb)
-    expect(chamadasLeilao).toHaveLength(0)
-    expect(custosLeilao(sb)).toHaveLength(0)
+    expect(chamadasLeilao).toHaveLength(2)
+    expect(custosLeilao(sb).map((c: any) => c.detalhe)).toEqual([expect.stringMatching(/; motivo historico_sem_leilao$/), expect.stringMatching(/; motivo historico_sem_leilao$/)])
   })
 
   it('4. a bank in the chain but an auction record in the vehicle history itself: no call', async () => {
@@ -481,17 +499,266 @@ describe('late notice compares the page views', () => {
     // Our base was down at the delivery; complete history with an insurer indemnity, no auction.
     const soIndicio = pedido(sb, 'p1', { consulta_id: 'c1' }, { historicoLeilao: null, historicoVeicular: bloco(SO_INDENIZACAO) })
     expect((soIndicio.relatorio_snapshot as any).historicoVeicular).toMatchObject({ completa: true, leilao: { registros: [], indicioSinistro: true } })
+    // No auction signal anywhere, so the auction partner runs (23/11/2026); it
+    // brings only a damage sign, which the page already showed.
+    respostaLeilao = LEILAO_SO_SINISTRO
     const r = await lazy(soIndicio)
     expect(r.historicoLeilao.passagens).toHaveLength(0)
-    expect(chamadasLeilao).toHaveLength(0)
+    expect(r.historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
+    expect(chamadasLeilao).toHaveLength(1)
     expect(avisos).toHaveLength(0)
     expect((soIndicio as any).aviso_sinistro_em ?? null).toBeNull()
     expect((soIndicio as any).aviso_leilao_em ?? null).toBeNull()
     // The same damage sign plus an auction record of the history: the auction is news.
     const comEdital = pedido(sb, 'p2', { consulta_id: 'c1', placa: OUTRA_PLACA }, { historicoLeilao: null, historicoVeicular: bloco(comIndicador(SO_INDENIZACAO, 'P11', { status: 'positivo', conteudo: [{ ano: 2021, leiloeiro: 'CASA FICTICIA LEILÕES', lote: '42' }] })) })
     await lazy(comEdital)
+    expect(chamadasLeilao).toHaveLength(1)
     expect(avisos).toHaveLength(1)
     expect(avisos[0].info).toMatchObject({ sinistro: true, passagens: [{ nivel: 'confirmado' }] })
     expect((comEdital as any).aviso_leilao_em).toBeTruthy()
+  })
+})
+
+// Cesar, 23/11/2026: our auction API and the vehicle history partner are
+// always called; only when neither has an auction signal for the vehicle is
+// the auction partner called. A COMPLETE vehicle history with no auction
+// record of its own and nothing in our auction base: the auction partner runs
+// on every path, under all of its usual rules, with the reason
+// historico_sem_leilao. A record of any kind there: never.
+describe('auction partner when neither our base nor a complete vehicle history has an auction signal', () => {
+  /** A Completa order paid and about to be delivered (paid query in the database). */
+  function pago(sb: any) {
+    sb.tab('senatran_consultas').push({ id: 'c1', placa: PLACA, created_at: '2026-11-23T12:00:00Z', response: { chassi: CHASSI, descricaoMarcaModelo: 'MARCA/MODELO', anoModelo: 2020, ufJurisdicao: 'SP' } })
+    const linha: any = { id: 'p1', placa: PLACA, plano: 'completa', status: 'pago', email: 'c@x.com', token_entrega: 'TOK-p1', consulta_id: 'c1', preview: null }
+    sb.tab('pedidos_premium').push(linha)
+    return linha
+  }
+  const montar = (sb: any) => montarRelatorioSnapshot(sb, { placa: PLACA, plano: 'completa', consulta_id: 'c1', preview: null, id: 'p1' }) as Promise<any>
+  const entregar = (linha: any, snap: any) => Object.assign(linha, { status: 'entregue', entregue_em: new Date().toISOString(), relatorio_snapshot: snap })
+  const esgotado = (sb: any, id = 'p1') => sb.tab('premium_jobs').push({ id: `job-${id}`, pedido_id: id, fonte: 'historico_veicular', status: 'esgotado', concluido_em: new Date().toISOString() })
+
+  it('14. the queue closes the concluded source (complete, no auction record): the auction partner runs once, with the reason historico_sem_leilao', async () => {
+    const sb = banco()
+    historicoPorPlaca = { [PLACA]: SEM }
+    // Delivered with the complete block and our base empty; the fallback never ran for it.
+    const linha: any = pedido(sb, 'p1', {}, { historicoVeicular: bloco(SEM) })
+    expect(await filaDoHistorico(sb)).toEqual({ status: 'ok', code: 0 })
+    expect(chamadasHistorico).toHaveLength(0)
+    expect(parceiroDe(sb)).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
+    expect(linha.relatorio_snapshot.historicoLeilao.passagens.length).toBeGreaterThan(0)
+    expect(chamadasLeilao).toHaveLength(1)
+    expect(custosLeilao(sb)).toEqual([expect.objectContaining({ pedido_id: 'p1', preco: 6, detalhe: expect.stringMatching(/; motivo historico_sem_leilao$/) })])
+    expect(logs.some((l) => /reserva do historico pedido=p1: ok motivo=historico_sem_leilao/.test(l))).toBe(true)
+    expect(logs.join('\n')).not.toContain(PLACA)
+    // The auction showed up after the delivery: the late notice, same rules as before.
+    expect(avisos).toHaveLength(1)
+    expect(linha.aviso_leilao_em).toBeTruthy()
+    // Every later path of the order: no second call, no second e-mail.
+    expect(await filaDoHistorico(sb)).toEqual({ status: 'ok', code: 0 })
+    expect(await depoisDaEntrega(sb)).toMatchObject({ pulado: 'ja tem' })
+    esgotado(sb)
+    await retryDoJob(sb)
+    expect(chamadasLeilao).toHaveLength(1)
+    expect(pagas(sb)).toHaveLength(1)
+    expect(avisos).toHaveLength(1)
+  })
+
+  it('15. an auction record in the vehicle history (a notice with a lot, a public body auction, a salvage sale): no call on any path', async () => {
+    for (const [tipo, resposta] of [['edital', EDITAL_LOTE], ['orgao', ORGAO_PUBLICO], ['salvado', SALVADO]] as const) {
+      _limparEmVooHistorico()
+      const sb = banco()
+      historicoPorPlaca = { [PLACA]: resposta }
+      const linha = pago(sb)
+      // Snapshot assembly, the block ready.
+      expect(await iniciarHistoricoVeicular(sb, PEDIDO())).toMatchObject({ ok: true, status: 'ok' })
+      const snap = await montar(sb)
+      expect(snap.historicoVeicular).toMatchObject({ status: 'ok', completa: true, leilao: { registros: [{ tipo }] } })
+      expect(snap.historicoLeilao.parceiro).toBeUndefined()
+      entregar(linha, snap)
+      // Step after the delivery, the queue, its safety net, the retry job.
+      expect(await depoisDaEntrega(sb)).toMatchObject({ pulado: 'ja tem' })
+      expect(await filaDoHistorico(sb)).toEqual({ status: 'ok', code: 0 })
+      expect(await leilaoParceiroComoReserva(sb, 'p1')).toBe('pulado')
+      esgotado(sb)
+      await retryDoJob(sb)
+      expect(parceiroDe(sb)).toBeUndefined()
+      expect(custosLeilao(sb)).toHaveLength(0)
+    }
+    expect(chamadasHistorico).toEqual([PLACA, PLACA, PLACA])
+    expect(chamadasLeilao).toHaveLength(0)
+  })
+
+  it('16. snapshot assembly with the complete block ready: calls once there, the delivered report has it, no late notice', async () => {
+    const sb = banco()
+    historicoPorPlaca = { [PLACA]: SEM }
+    const linha = pago(sb)
+    expect(await iniciarHistoricoVeicular(sb, PEDIDO())).toMatchObject({ ok: true, status: 'ok' })
+    const snap = await montar(sb)
+    expect(snap.historicoVeicular).toMatchObject({ status: 'ok', completa: true, leilao: { registros: [] } })
+    expect(snap.historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
+    expect(snap.historicoLeilao.passagens.length).toBeGreaterThan(0)
+    expect(chamadasLeilao).toHaveLength(1)
+    entregar(linha, snap)
+    expect(await depoisDaEntrega(sb)).toMatchObject({ pulado: 'ja tem' })
+    expect(await filaDoHistorico(sb)).toEqual({ status: 'ok', code: 0 })
+    await retryDoJob(sb)
+    expect(chamadasLeilao).toHaveLength(1)
+    expect(custosLeilao(sb)).toEqual([expect.objectContaining({ pedido_id: 'p1', preco: 6, detalhe: expect.stringMatching(/; motivo historico_sem_leilao$/) })])
+    expect(logs.some((l) => /\[parceiro-leilao\] placa pedido=p1 .*motivo=historico_sem_leilao/.test(l))).toBe(true)
+    expect(avisos).toHaveLength(0)
+  })
+
+  it('17. the complete answer lands after the assembly (step after the delivery): calls right away; a finding is told once, nothing found is not', async () => {
+    const sb = banco()
+    historicoPorPlaca = { [PLACA]: SEM, [OUTRA_PLACA]: SEM }
+    const achou: any = pedido(sb, 'p1')
+    const nada: any = pedido(sb, 'p2', { placa: OUTRA_PLACA })
+    await depoisDaEntrega(sb, 'p1')
+    expect(achou.relatorio_snapshot.historicoVeicular).toMatchObject({ status: 'ok', completa: true })
+    expect(parceiroDe(sb, 'p1')).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
+    expect(avisos).toHaveLength(1)
+    expect(avisos[0]).toMatchObject({ email: 'c@x.com', token: 'TOK-p1' })
+    expect(achou.aviso_leilao_em).toBeTruthy()
+    // The auction partner finds nothing: the page says so, no e-mail.
+    respostaLeilao = LEILAO_NADA
+    await depoisDaEntrega(sb, 'p2', OUTRA_PLACA)
+    expect(parceiroDe(sb, 'p2')).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
+    expect(nada.relatorio_snapshot.historicoLeilao.passagens).toHaveLength(0)
+    expect(chamadasLeilao).toHaveLength(2)
+    expect(avisos).toHaveLength(1)
+    expect(nada.aviso_leilao_em ?? null).toBeNull()
+    expect(nada.aviso_sinistro_em ?? null).toBeNull()
+  })
+
+  it('18. the vehicle history has not answered yet: the auction partner waits for it or for the queue to give up', async () => {
+    const sb = banco()
+    // Every vehicle history call fails (no charge).
+    historicoPorPlaca = {}
+    const linha = pago(sb)
+    // Assembly: the early call is over and failed; no queue job yet.
+    expect(await iniciarHistoricoVeicular(sb, PEDIDO())).toMatchObject({ ok: false, status: 'falhou' })
+    const snap = await montar(sb)
+    expect(snap.historicoLeilao.parceiro).toBeUndefined()
+    entregar(linha, snap)
+    // Step after the delivery and the queue before its last attempt: still failing.
+    await depoisDaEntrega(sb)
+    expect(linha.relatorio_snapshot.historicoVeicular).toMatchObject({ status: 'falhou' })
+    sb.tab('premium_jobs').push({ id: 'job-p1', pedido_id: 'p1', fonte: 'historico_veicular', status: 'pendente', tentativas: 1 })
+    expect(await filaDoHistorico(sb, 'p1', 1)).toMatchObject({ status: 'falha' })
+    await retryDoJob(sb)
+    expect(chamadasLeilao).toHaveLength(0)
+    expect(parceiroDe(sb)).toBeUndefined()
+    // The queue's last attempt fails too: now it gives up, and the auction partner covers the order.
+    expect(await filaDoHistorico(sb, 'p1', 3)).toMatchObject({ status: 'falha' })
+    expect(parceiroDe(sb)).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_resposta' })
+    expect(chamadasLeilao).toHaveLength(1)
+  })
+
+  it('19. lazy fill of the auction section (our base was down at the delivery): calls with the stored block and tells once', async () => {
+    const sb = banco()
+    sb.tab('senatran_consultas').push({ id: 'c1', placa: PLACA, created_at: '2026-11-23T12:00:00Z', response: { chassi: CHASSI } })
+    const linha = pedido(sb, 'p1', { consulta_id: 'c1' }, { historicoLeilao: null, historicoVeicular: bloco(SEM) })
+    vi.stubGlobal('montarRelatorioSnapshot', montarRelatorioSnapshot)
+    const r = await preencherCamposLazy(sb, { token: 'TOK-p1', snap: linha.relatorio_snapshot, plano: 'completa', placa: PLACA, consulta_id: 'c1', campos: ['historicoLeilao'], pedidoId: 'p1' })
+    expect(r.historicoLeilao.parceiro).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
+    expect(parceiroDe(sb)).toMatchObject({ status: 'ok', motivo: 'historico_sem_leilao' })
+    expect(chamadasLeilao).toHaveLength(1)
+    expect(avisos).toHaveLength(1)
+  })
+
+  it('20. safety net of the vehicle history jobs the queue gave up on in the last hour: a complete block stored since gets its call', async () => {
+    const sb = banco()
+    pedido(sb, 'p1', {}, { historicoVeicular: bloco(SEM) })
+    esgotado(sb)
+    expect(await retryDoJob(sb)).toMatchObject({ vistos: 1, completados: 1 })
+    expect(parceiroDe(sb)).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
+    expect(chamadasLeilao).toHaveLength(1)
+    await retryDoJob(sb)
+    expect(chamadasLeilao).toHaveLength(1)
+  })
+
+  it('21. retry job: a failed fallback whose vehicle history is complete now retries with historico_sem_leilao; with an auction record the retry is spent without a call', async () => {
+    const sb = banco()
+    // Both fallbacks ran for a partial answer and failed (partner down); a complete answer was stored since.
+    const falhou = { status: 'falhou', reserva: true, motivo: 'historico_parcial', consultado_em: '2026-11-23T10:00:00.000Z' }
+    pedido(sb, 'p1', {}, { historicoVeicular: bloco(SEM), historicoLeilao: { ...vazio(), parceiro: falhou } })
+    pedido(sb, 'p2', { placa: OUTRA_PLACA }, { historicoVeicular: bloco(EDITAL_LOTE), historicoLeilao: { ...vazio(), parceiro: falhou } })
+    expect(await retryDoJob(sb)).toMatchObject({ vistos: 2, completados: 1 })
+    expect(parceiroDe(sb, 'p1')).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
+    expect(parceiroDe(sb, 'p2')).toMatchObject({ status: 'falhou', reserva: true, retentado: true })
+    expect(chamadasLeilao).toHaveLength(1)
+    expect(custosLeilao(sb)).toEqual([expect.objectContaining({ pedido_id: 'p1', preco: 6, detalhe: expect.stringMatching(/; motivo historico_sem_leilao$/) })])
+    expect(logs.some((l) => /job pedido=p2: historico veio completo \(sem chamada\)/.test(l))).toBe(true)
+  })
+
+  it('22. operator route: calls with historico_sem_leilao and never tells the customer', async () => {
+    const sb = banco()
+    historicoPorPlaca = { [PLACA]: SEM }
+    const linha: any = pedido(sb, 'p1')
+    await completarHistoricoVeicularOperador(sb, PEDIDO(), cfgHistorico(config))
+    expect(parceiroDe(sb)).toMatchObject({ status: 'ok', reserva: true, semAviso: true, motivo: 'historico_sem_leilao' })
+    expect(linha.relatorio_snapshot.historicoLeilao.passagens.length).toBeGreaterThan(0)
+    expect(chamadasLeilao).toHaveLength(1)
+    expect(avisos).toHaveLength(0)
+    expect(linha.aviso_leilao_em ?? null).toBeNull()
+  })
+
+  it('23. Completa only and our base empty only: the Basica plan, or a passage in our base, never calls', async () => {
+    const sb = banco()
+    historicoPorPlaca = { [PLACA]: SEM }
+    pedido(sb, 'p1', { plano: 'basica' }, { historicoVeicular: bloco(SEM) })
+    pedido(sb, 'p2', {}, { historicoLeilao: comPassagem(), historicoVeicular: bloco(SEM) })
+    expect(await completarHistoricoVeicular(sb, { id: 'p1', placa: PLACA, plano: 'basica' }, { cfg: cfgHistorico(config) })).toMatchObject({ pulado: 'fora do plano' })
+    expect(await filaDoHistorico(sb, 'p1')).toMatchObject({ status: 'sem_dado', erro: 'fonte fora do plano' })
+    expect(await depoisDaEntrega(sb, 'p2')).toMatchObject({ pulado: 'ja tem' })
+    expect(await filaDoHistorico(sb, 'p2')).toEqual({ status: 'ok', code: 0 })
+    for (const id of ['p1', 'p2']) {
+      expect(await leilaoParceiroComoReserva(sb, id)).toBe('pulado')
+      esgotado(sb, id)
+    }
+    await retryDoJob(sb)
+    expect(chamadasHistorico).toHaveLength(0)
+    expect(chamadasLeilao).toHaveLength(0)
+    expect(parceiroDe(sb, 'p1')).toBeUndefined()
+    expect(parceiroDe(sb, 'p2')).toBeUndefined()
+  })
+
+  it('24. one charge per plate: another order of the same plate reuses the auction partner answer from its cache', async () => {
+    const sb = banco()
+    historicoPorPlaca = { [PLACA]: SEM }
+    pedido(sb, 'p1')
+    pedido(sb, 'p2')
+    await depoisDaEntrega(sb, 'p1')
+    await depoisDaEntrega(sb, 'p2')
+    expect(chamadasHistorico).toEqual([PLACA])
+    expect(chamadasLeilao).toHaveLength(1)
+    expect(parceiroDe(sb, 'p2')).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
+    expect(sb.tab('parceiro_leilao_chamadas').filter((l: any) => l.pedido_id === 'p2')).toEqual([expect.objectContaining({ cache_hit: true, cobrada: false, preco_centavos: 0 })])
+    expect(pagas(sb)).toHaveLength(1)
+    expect(custosLeilao(sb)).toHaveLength(1)
+  })
+
+  it('25. daily ceiling and switch: no call while capped or off; the retry job calls once the ceiling allows', async () => {
+    const sb = banco()
+    config = CONFIG({ parceiroLeilaoTetoDia: '1' })
+    sb.tab('parceiro_leilao_chamadas').push({ id: 'hoje', pedido_id: 'outro', cobrada: true, cache_hit: false, criado_em: new Date().toISOString() })
+    pedido(sb, 'p1', {}, { historicoVeicular: bloco(SEM) })
+    expect(await leilaoParceiroComoReserva(sb, 'p1')).toBe('teto')
+    expect(parceiroDe(sb)).toMatchObject({ status: 'teto', reserva: true, motivo: 'historico_sem_leilao' })
+    expect(chamadasLeilao).toHaveLength(0)
+    expect(custosLeilao(sb)).toHaveLength(0)
+    // Switch off: nothing, not even the retry.
+    config = CONFIG({ parceiroLeilaoTetoDia: '40', parceiroLeilaoLigado: 'off' })
+    sb.tab('parceiro_leilao_chamadas').length = 0
+    pedido(sb, 'p2', { placa: OUTRA_PLACA }, { historicoVeicular: bloco(SEM) })
+    expect(await leilaoParceiroComoReserva(sb, 'p2')).toBe('pulado')
+    expect(await retryDoJob(sb)).toMatchObject({ rodou: false })
+    expect(chamadasLeilao).toHaveLength(0)
+    // Back on, ceiling free: the retry job calls once for the capped order.
+    config = CONFIG()
+    expect(await retryDoJob(sb)).toMatchObject({ vistos: 1, completados: 1 })
+    expect(parceiroDe(sb)).toMatchObject({ status: 'ok', reserva: true, motivo: 'historico_sem_leilao' })
+    expect(parceiroDe(sb, 'p2')).toBeUndefined()
+    expect(pagas(sb)).toHaveLength(1)
   })
 })

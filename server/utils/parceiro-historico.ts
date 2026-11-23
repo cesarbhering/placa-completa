@@ -20,8 +20,9 @@ import { consultaComDocumentoDaUf, completarComDocumentoDaUf } from './infosimpl
 //
 // Rules:
 //  - off by default: NUXT_PARCEIRO_HISTORICO_LIGADO=on plus the key turn it on.
-//    While on, the auction partner (parceiro-leilao.ts) is never called;
-//    turning this off brings that one back through its own switch;
+//    While on, the auction partner (parceiro-leilao.ts) is called only per
+//    order, as this one's fallback or complement (below); turning this off
+//    brings that one back for every order through its own switch;
 //  - the raw answer (name and CPF/CNPJ of every owner) goes ONLY to
 //    parceiro_historico_chamadas (RLS on, no policy: server only), one row per
 //    attempt, cache hit included. Snapshot, cache, report JSON, screen, e-mail
@@ -35,8 +36,11 @@ import { consultaComDocumentoDaUf, completarComDocumentoDaUf } from './infosimpl
 //    answer for another VIN, or no good answer once the queue gave up: the
 //    auction partner is called as the fallback for that order
 //    (parceiro-leilao.ts, leilaoParceiroComoReserva). Also a complete answer
-//    with a bank, finance company, leasing or insurer in the chain of owners
-//    and no auction record of its own (18/11/2026). The reason goes with it
+//    with no auction record of its own (Cesar, 23/11/2026: neither base has an
+//    auction signal), reason banco_na_cadeia or seguradora_na_cadeia when a
+//    bank, finance company, leasing or insurer is in the chain of owners
+//    (18/11/2026), else historico_sem_leilao. Never before this one answers
+//    or the queue gives up. The reason goes with it
 //    (shared/historico-veicular.ts, motivoDaReserva);
 //  - one paid call per order and per plate: lock per order AND per plate (two
 //    orders of the same plate never pay twice), a unique index in the table,
@@ -497,9 +501,9 @@ export async function completarHistoricoVeicular(
   deps: DepsHistorico & { retentar?: boolean; reservaLeilao?: (sb: any, pedidoId: string, motivo?: MotivoReserva) => Promise<unknown> },
 ): Promise<ResultadoHistorico> {
   // Final answer that failed this order (charged but partial, or for another
-  // VIN), or a complete one with a bank or insurer in the chain and no
-  // auction record of its own (18/11/2026): the auction partner covers
-  // auction and damage for it (Cesar, 17/11/2026), before this returns, so
+  // VIN), or a complete one with no auction record of its own (23/11/2026;
+  // a bank or insurer in the chain since 18/11/2026): the auction partner
+  // covers auction and damage for it (Cesar, 17/11/2026), before this returns, so
   // the queue's "updated" e-mail (sent after the job) already finds it. A
   // failure without an answer waits for the queue's last attempt
   // (executarJob). Idempotent: it only calls when the order never tried that partner.
@@ -545,8 +549,9 @@ export async function completarHistoricoVeicular(
 /**
  * Why the auction partner should cover this order (motivoDaReserva), or null:
  * the vehicle history failed for it (partial answer, answer for another VIN,
- * or no good answer once the queue gave up), or came complete with a bank or
- * insurer in the chain and no auction record of its own (18/11/2026).
+ * or no good answer once the queue gave up), or came complete with no
+ * auction record of its own (23/11/2026; a bank or insurer in the chain
+ * since 18/11/2026).
  * `bloco` is the block the caller already has (the snapshot assembly);
  * without it, the one in the stored snapshot. Never throws (null).
  */
@@ -563,8 +568,8 @@ export async function motivoReservaNoPedido(sb: any, pedidoId: string | null | u
 /**
  * Operator route (POST /api/premium/historico-veicular/rodar): the same path
  * as the delivery, also with the switch off, retrying a failed call. When the
- * answer fails the order, or comes complete with a bank or insurer in the
- * chain, the auction partner fallback runs too (at most one
+ * answer fails the order, or comes complete with no auction record of its
+ * own, the auction partner fallback runs too (at most one
  * charge, its usual rules), but it never e-mails the customer, not now and not
  * from the job's later retry (parceiro.semAviso): a notice from a manual run
  * only goes out with a text Cesar approved (17/11/2026).

@@ -545,9 +545,9 @@ export function respostaIncompleta(hv: HistoricoVeicular | null | undefined): bo
  * The vehicle history of the order is a complete answer for this vehicle
  * (block ok, not partial): the auction partner fallback for a failure is not
  * needed, or no longer needed (a lease that expired after a complete answer
- * was stored, a manual redo that came complete). It may still be called as a
- * complement when the answer shows a bank or insurer in the chain
- * (instituicaoNaCadeia).
+ * was stored, a manual redo that came complete). It is still called as a
+ * complement when the answer has no auction record of its own
+ * (motivoDaReserva, 23/11/2026).
  */
 export function historicoCompleto(hv: HistoricoVeicular | null | undefined): boolean {
   return obj(hv) && hv.status === 'ok' && !respostaIncompleta(hv)
@@ -560,16 +560,28 @@ export function historicoCompleto(hv: HistoricoVeicular | null | undefined): boo
  * its portfolio, or an owner of that kind), and no auction record of its own
  * (Cesar, 18/11/2026): a manual check of delivered reports like this found
  * confirmed auctions that only the auction partner showed. An insurer
- * indemnity alone does not count. Reads only types and list sizes.
+ * indemnity alone does not count. Reads only types and list sizes. Since
+ * 23/11/2026 any complete answer without an auction record calls the auction
+ * partner (motivoDaReserva); this only names the more specific reason.
  */
 export function instituicaoNaCadeia(hv: HistoricoVeicular | null | undefined): 'banco_na_cadeia' | 'seguradora_na_cadeia' | null {
   if (!historicoCompleto(hv)) return null
   const tem = (xs: unknown) => Array.isArray(xs) && xs.length > 0
-  if (tem(hv!.leilao?.registros)) return null
+  if (temRegistroDeLeilao(hv!)) return null
   const donos = Array.isArray(hv!.donos?.registros) ? hv!.donos!.registros : []
   if (tem(hv!.uso?.financeiras) || donos.some((o) => o?.tipo === 'banco')) return 'banco_na_cadeia'
   if (tem(hv!.uso?.seguradoras) || donos.some((o) => o?.tipo === 'seguradora')) return 'seguradora_na_cadeia'
   return null
+}
+
+/**
+ * The vehicle history has an auction record of its own, of any kind: a
+ * notice with a real lot, a public body auction or a salvage sale by an
+ * insurer (leilao.registros). That is its auction signal; a damage sign is not.
+ */
+function temRegistroDeLeilao(hv: HistoricoVeicular): boolean {
+  const registros = hv.leilao?.registros
+  return Array.isArray(registros) && registros.length > 0
 }
 
 /**
@@ -580,12 +592,20 @@ export function instituicaoNaCadeia(hv: HistoricoVeicular | null | undefined): '
  *    no auction nor damage from it), right away, both are final; no good
  *    answer (failed, ceiling, not called) only once the queue gave up (job
  *    'esgotado'), while the queue may still try, not yet;
- *  - or it came complete with a bank or insurer in the chain and no auction
- *    record of its own (instituicaoNaCadeia, 18/11/2026).
- * A complete answer for this vehicle without either, never.
+ *  - or it came complete with no auction record of its own (Cesar,
+ *    23/11/2026: when neither our base nor this partner has an auction signal
+ *    for the vehicle, the auction partner is called). The reason is the bank
+ *    or insurer in the chain when there is one (instituicaoNaCadeia,
+ *    18/11/2026), else historico_sem_leilao.
+ * A complete answer for this vehicle with an auction record of any kind,
+ * never. Our auction base is checked by the callers (nossaBaseVazia).
  */
 export function motivoDaReserva(hv: HistoricoVeicular | null | undefined, statusJob: string | null | undefined): MotivoReserva | null {
-  if (obj(hv) && hv.status === 'ok') return respostaIncompleta(hv) ? 'historico_parcial' : instituicaoNaCadeia(hv)
+  if (obj(hv) && hv.status === 'ok') {
+    if (respostaIncompleta(hv)) return 'historico_parcial'
+    if (temRegistroDeLeilao(hv)) return null
+    return instituicaoNaCadeia(hv) ?? 'historico_sem_leilao'
+  }
   if (obj(hv) && hv.status === 'divergente') return 'historico_divergente'
   return statusJob === 'esgotado' ? 'historico_sem_resposta' : null
 }

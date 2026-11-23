@@ -557,10 +557,11 @@ describe('auction partner as the fallback of the vehicle history', () => {
   const cobradasLeilao = () => sb.tab('parceiro_leilao_chamadas').filter((l) => l.cobrada)
   beforeEach(() => { leilaoChamadas = []; avisos = []; enviados = []; _limparTokenParceiro(); comPedidoCompleto('p1'); comPedidoCompleto('p2') })
 
-  it('complete answer: cached as complete, the auction partner is NOT called', async () => {
+  it('complete answer with an auction record of its own: cached as complete, the auction partner is NOT called', async () => {
     const r = await completarHistoricoVeicular(sb, pedido(), deps(ok(), { reservaLeilao }))
     expect(r).toMatchObject({ ok: true, status: 'ok' })
     expect(snap().historicoVeicular).toMatchObject({ status: 'ok', completa: true })
+    expect(snap().historicoVeicular.leilao.registros.length).toBeGreaterThan(0)
     expect(sb.tab('fonte_cache')[0].payload).toMatchObject({ status: 'ok', completa: true })
     expect(leilaoChamadas).toHaveLength(0)
     expect(snap().historicoLeilao.parceiro).toBeUndefined()

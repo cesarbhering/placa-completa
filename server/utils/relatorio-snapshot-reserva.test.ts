@@ -15,7 +15,9 @@ import { parsearRespostaHistorico } from '../../shared/historico-veicular'
 
 // Snapshot assembly at the delivery (review 1 of PR #758): the vehicle history
 // call started with the paid query is already back. A partial answer makes the
-// auction partner its fallback right there, once; a complete one never calls it.
+// auction partner its fallback right there, once; a complete one with an
+// auction record of its own never calls it (one without calls it since
+// 23/11/2026: parceiro-leilao-cadeia.test.ts).
 const AGORA = Date.parse('2026-11-17T21:00:00Z')
 const PLACA = 'TST2B34'
 const CHASSI = '9XXHV00000X000001'
@@ -73,10 +75,11 @@ describe('snapshot assembly with the vehicle history already back', () => {
     expect(pagasLeilao()).toBe(1)
   })
 
-  it('complete answer: the auction partner is never called', async () => {
+  it('complete answer with an auction record of its own: the auction partner is never called', async () => {
     await historicoJaVeio(structuredClone(COM))
     const snap: any = await montar()
     expect(snap.historicoVeicular).toMatchObject({ status: 'ok', completa: true })
+    expect(snap.historicoVeicular.leilao.registros.length).toBeGreaterThan(0)
     expect(snap.historicoLeilao.parceiro).toBeUndefined()
     expect(leilaoChamadas).toHaveLength(0)
     expect(sb.tab('parceiro_leilao_chamadas')).toHaveLength(0)
