@@ -350,3 +350,29 @@ describe('scan for card attempts', () => {
     expect(stripe.ler).not.toHaveBeenCalled()
   })
 })
+
+describe('one budget across both limits', () => {
+  it('the per-buyer check only gets the Stripe calls the global check left', async () => {
+    // r1: this buyer's declined attempt (older); r2: another buyer's declined attempt (newer).
+    const { usos, db } = montar([{ email: EMAIL }, { email: OUTRO }], { cupom: { ...CUPOM, limite_uso_global: 2, limite_uso_por_cliente: 1 } })
+    stripe.ler.mockResolvedValue(RECUSADO)
+    const r = await validar(db)
+    expect(consultasStripe()).toBe(3)
+    expect(stripe.cancelar.mock.calls.map(([id]) => id)).toEqual(['pi_2'])
+    expect(recusado(r)).toBe(true)
+    expect(usos[0].liberado_em).toBeNull()
+  })
+
+  it('the per-buyer check does not get a fresh 8 s', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    const { usos, db } = montar([{ email: EMAIL }, { email: OUTRO }], { cupom: { ...CUPOM, limite_uso_global: 2, limite_uso_por_cliente: 1 } })
+    stripe.ler.mockImplementation(async (id: string) => {
+      if (id === 'pi_2') { vi.setSystemTime(Date.now() + 7700); return CANCELADO }
+      return RECUSADO
+    })
+    const r = await validar(db)
+    expect(stripe.ler.mock.calls.map(([id]) => id)).toEqual(['pi_2'])
+    expect(recusado(r)).toBe(true)
+    expect(usos[0].liberado_em).toBeNull()
+  })
+})
