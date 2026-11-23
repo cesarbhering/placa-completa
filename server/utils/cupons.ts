@@ -137,15 +137,17 @@ export async function validarCupom(
   // Limite global e por-cliente contados na tabela de usos (fonte da verdade),
   // nao no contador `usos_atual` (que e so um cache pra leitura rapida no
   // dashboard e pode ficar defasado sem quebrar a regra de negocio).
+  // One Stripe budget for the whole validation, both limits included.
+  const orcamento = novoOrcamentoStripe()
   if (cupom.limite_uso_global != null) {
-    if ((await usosQueContam(supabase, cupom.id, {}, cupom.limite_uso_global)) >= cupom.limite_uso_global) {
+    if ((await usosQueContam(supabase, cupom.id, {}, cupom.limite_uso_global, orcamento)) >= cupom.limite_uso_global) {
       // Cupom de uso unico ja gasto: a pessoa precisa saber que ele funcionou
       // uma vez, senao tenta de novo achando que e erro do site.
       return { ...semDesconto, motivo: cupom.limite_uso_global === 1 ? 'Este cupom ja foi utilizado.' : 'Cupom esgotado.' }
     }
   }
   if (cupom.limite_uso_por_cliente != null && email) {
-    if ((await usosQueContam(supabase, cupom.id, { email }, cupom.limite_uso_por_cliente)) >= cupom.limite_uso_por_cliente) {
+    if ((await usosQueContam(supabase, cupom.id, { email }, cupom.limite_uso_por_cliente, orcamento)) >= cupom.limite_uso_por_cliente) {
       return { ...semDesconto, motivo: 'Este cupom ja foi utilizado.' }
     }
   }
@@ -188,10 +190,38 @@ export async function validarCupom(
  * (3DS window closed, page left on the amount warning).
  */
 const CARTAO_ABANDONADO_MS = 30 * 60_000
-/** Card attempts checked at Stripe per validation, at most. */
-const MAX_TENTATIVAS_CONFERIDAS = 3
+/** Stripe calls (reads and cancels) one coupon validation may make, at most. */
+const MAX_CONSULTAS_STRIPE = 3
+/**
+ * Time one validation may spend on Stripe, in total: well under the 25 s the
+ * browser waits for the card intent.
+ */
+const PRAZO_STRIPE_MS = 8000
+/** Longest single Stripe call. */
+const TIMEOUT_CONSULTA_MS = 4000
+/** A Stripe call is not started with less time than this left. */
+const MIN_CONSULTA_MS = 500
 
 type FiltroUsos = { email?: string }
+
+/** Stripe calls left, deadline and intents already read, shared by the limits of one validation. */
+interface OrcamentoStripe {
+  restantes: number
+  prazo: number
+  lidos: Map<string, EstadoPaymentIntent | null>
+}
+
+function novoOrcamentoStripe(): OrcamentoStripe {
+  return { restantes: MAX_CONSULTAS_STRIPE, prazo: Date.now() + PRAZO_STRIPE_MS, lidos: new Map() }
+}
+
+/** Takes one Stripe call from the budget: its timeout, or 0 when calls or time ran out. */
+function proximaConsulta(o: OrcamentoStripe): number {
+  const resta = o.prazo - Date.now()
+  if (o.restantes <= 0 || resta < MIN_CONSULTA_MS) return 0
+  o.restantes--
+  return Math.min(TIMEOUT_CONSULTA_MS, resta)
+}
 
 /**
  * Card attempt that will never be paid: canceled, declined (or 3DS failed), or
@@ -208,11 +238,11 @@ function tentativaCartaoMorta(pi: EstadoPaymentIntent, criadoEm: string | null |
 
 /**
  * Uses that count against a coupon limit. A released use (liberado_em) does
- * not. At the limit, card attempts that will never be paid are released first.
- * Without the liberado_em column (migration not applied yet) every use counts
- * and nothing is released, as before.
+ * not. At the limit, card attempts that will never be paid are released first,
+ * within the validation's Stripe budget. Without the liberado_em column
+ * (migration not applied yet) every use counts and nothing is released, as before.
  */
-async function usosQueContam(supabase: any, cupomId: string, filtro: FiltroUsos, limite: number): Promise<number> {
+async function usosQueContam(supabase: any, cupomId: string, filtro: FiltroUsos, limite: number, orcamento: OrcamentoStripe): Promise<number> {
   const contar = () => {
     const q = supabase.from('cupons_premium_usos').select('id', { count: 'exact', head: true }).eq('cupom_id', cupomId)
     return filtro.email ? q.eq('email', filtro.email) : q
@@ -221,25 +251,29 @@ async function usosQueContam(supabase: any, cupomId: string, filtro: FiltroUsos,
   if (error) return (await contar()).count || 0
   const usos = count || 0
   if (usos < limite) return usos
-  return usos - (await liberarTentativasMortas(supabase, cupomId, filtro, usos - limite + 1))
+  return usos - (await liberarTentativasMortas(supabase, cupomId, filtro, usos - limite + 1, orcamento))
 }
 
 /**
  * Releases up to `quantas` uses held by card attempts that will never be paid.
  * The PaymentIntent is canceled at Stripe BEFORE the use is marked, so that
- * order can never be paid with the coupon afterwards. Stripe silent or the
- * cancel refused: the use keeps counting. Pix orders are left out: an unpaid
- * one can still get a new Pix at the same price (renovar-pix).
+ * order can never be paid with the coupon afterwards. Stripe silent, the cancel
+ * refused, or the budget spent: the use keeps counting. Pix orders are left
+ * out: an unpaid one can still get a new Pix at the same price (renovar-pix).
  */
-async function liberarTentativasMortas(supabase: any, cupomId: string, filtro: FiltroUsos, quantas: number): Promise<number> {
-  const base = supabase
+async function liberarTentativasMortas(supabase: any, cupomId: string, filtro: FiltroUsos, quantas: number, orcamento: OrcamentoStripe): Promise<number> {
+  let consulta = supabase
     .from('cupons_premium_usos')
     .select('id, pedidos_premium!inner(stripe_session_id, criado_em)')
     .eq('cupom_id', cupomId)
     .is('liberado_em', null)
     .eq('pedidos_premium.forma_pagamento', 'cartao')
     .eq('pedidos_premium.status', 'aguardando_pagamento')
-  const { data, error } = await (filtro.email ? base.eq('email', filtro.email) : base).limit(MAX_TENTATIVAS_CONFERIDAS)
+    // Only orders with an intent, newest first: card orders without one (or
+    // older stuck attempts) must not fill the window and hide a fresh decline.
+    .like('pedidos_premium.stripe_session_id', 'pi_%')
+  if (filtro.email) consulta = consulta.eq('email', filtro.email)
+  const { data, error } = await consulta.order('created_at', { ascending: false }).limit(MAX_CONSULTAS_STRIPE)
   if (error || !Array.isArray(data)) return 0
   let liberados = 0
   for (const uso of data) {
@@ -248,9 +282,20 @@ async function liberarTentativasMortas(supabase: any, cupomId: string, filtro: F
     const piId = String(pedido?.stripe_session_id || '')
     // Card Elements orders keep the intent id; the old hosted checkout kept a session id.
     if (!piId.startsWith('pi_')) continue
-    const pi = await lerPaymentIntent(piId)
+    let pi = orcamento.lidos.get(piId)
+    if (pi === undefined) {
+      const ms = proximaConsulta(orcamento)
+      if (!ms) break
+      pi = await lerPaymentIntent(piId, ms)
+      orcamento.lidos.set(piId, pi)
+    }
     if (!pi || !tentativaCartaoMorta(pi, pedido?.criado_em)) continue
-    if (pi.status !== 'canceled' && !(await cancelarPaymentIntent(piId))) continue
+    if (pi.status !== 'canceled') {
+      const ms = proximaConsulta(orcamento)
+      if (!ms) break
+      if (!(await cancelarPaymentIntent(piId, ms))) continue
+      orcamento.lidos.set(piId, { status: 'canceled', falhou: pi.falhou })
+    }
     const { data: marcados } = await supabase
       .from('cupons_premium_usos')
       .update({ liberado_em: new Date().toISOString() })

@@ -175,7 +175,7 @@ export async function consultarPaymentIntent(piId: string): Promise<{ id: string
   }
 }
 
-/** Timeout of the Stripe calls made while a coupon is validated (server/utils/cupons.ts). */
+/** Default timeout of the Stripe calls made while a coupon is validated (server/utils/cupons.ts). */
 const TIMEOUT_CUPOM_MS = 4000
 
 export interface EstadoPaymentIntent {
@@ -185,16 +185,17 @@ export interface EstadoPaymentIntent {
 }
 
 /**
- * Reads a PaymentIntent for the coupon rule. null when Stripe does not answer
- * in time or answers with an error: the caller keeps counting the coupon use.
+ * Reads a PaymentIntent for the coupon rule, in one HTTP call. null when
+ * Stripe does not answer in time or answers with an error: the caller keeps
+ * counting the coupon use.
  */
-export async function lerPaymentIntent(piId: string): Promise<EstadoPaymentIntent | null> {
+export async function lerPaymentIntent(piId: string, timeoutMs = TIMEOUT_CUPOM_MS): Promise<EstadoPaymentIntent | null> {
   const { secret } = stripeConfig()
   if (!secret || !piId) return null
   try {
     const resp = await fetch(`${STRIPE_API}/payment_intents/${encodeURIComponent(piId)}`, {
       headers: { Authorization: `Bearer ${secret}` },
-      signal: AbortSignal.timeout(TIMEOUT_CUPOM_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     })
     const data: any = await resp.json().catch(() => ({}))
     if (!resp.ok || typeof data?.status !== 'string') return null
@@ -206,11 +207,13 @@ export async function lerPaymentIntent(piId: string): Promise<EstadoPaymentInten
 
 /**
  * Cancels a PaymentIntent that will never be paid, so it can no longer be
- * confirmed. true when it ends canceled, including one canceled before (Stripe
- * refuses a second cancel). No Idempotency-Key: Stripe would replay a first
- * failure for 24 h, and canceling twice is harmless anyway.
+ * confirmed, in one HTTP call. true only when Stripe answers that it is
+ * canceled. A refusal (canceled before, or paid meanwhile) or no answer is
+ * false: the use keeps counting, and a later validation that reads the intent
+ * as canceled releases it. No Idempotency-Key: Stripe would replay a first
+ * failure for 24 h.
  */
-export async function cancelarPaymentIntent(piId: string): Promise<boolean> {
+export async function cancelarPaymentIntent(piId: string, timeoutMs = TIMEOUT_CUPOM_MS): Promise<boolean> {
   const { secret } = stripeConfig()
   if (!secret || !piId) return false
   try {
@@ -218,11 +221,10 @@ export async function cancelarPaymentIntent(piId: string): Promise<boolean> {
       method: 'POST',
       headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ cancellation_reason: 'abandoned' }).toString(),
-      signal: AbortSignal.timeout(TIMEOUT_CUPOM_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     })
     const data: any = await resp.json().catch(() => ({}))
-    if (resp.ok && data?.status === 'canceled') return true
-    return (await lerPaymentIntent(piId))?.status === 'canceled'
+    return resp.ok && data?.status === 'canceled'
   } catch {
     return false
   }

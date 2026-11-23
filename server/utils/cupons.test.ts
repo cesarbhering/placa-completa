@@ -17,6 +17,8 @@ function supabaseCom(cupom: any, usos = 0) {
           const q: any = {
             eq: () => q,
             is: () => q,
+            like: () => q,
+            order: () => q,
             limit: () => q,
             then: (fn: any) => fn({ count: usos }),
           }

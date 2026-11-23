@@ -112,8 +112,8 @@ describe('reembolsarStripe', () => {
 })
 
 // Coupon rule (server/utils/cupons.ts): read a PaymentIntent and cancel one
-// that will never be paid. Both give up quietly (null / false) when Stripe does
-// not answer, and the caller then keeps counting the coupon use.
+// that will never be paid, one HTTP call each. Both give up quietly (null /
+// false) when Stripe does not answer, and the caller keeps counting the use.
 describe('lerPaymentIntent and cancelarPaymentIntent', () => {
   afterEach(() => { vi.unstubAllGlobals() })
 
@@ -159,14 +159,19 @@ describe('lerPaymentIntent and cancelarPaymentIntent', () => {
     expect(init.signal).toBeInstanceOf(AbortSignal)
   })
 
-  it('cancel refused because it was canceled before: true, confirmed by a read', async () => {
-    stub('sk_test_x', [{ ok: false, body: { error: { message: 'already canceled' } } }, { ok: true, body: { id: 'pi_1', status: 'canceled' } }])
-    expect(await cancelarPaymentIntent('pi_1')).toBe(true)
+  it('cancel refused (canceled before, or paid meanwhile): false, with no further call', async () => {
+    const f = stub('sk_test_x', [{ ok: false, body: { error: { message: 'cannot cancel' } } }, { ok: true, body: { id: 'pi_1', status: 'canceled' } }])
+    expect(await cancelarPaymentIntent('pi_1')).toBe(false)
+    expect(f).toHaveBeenCalledTimes(1)
   })
 
-  it('cancel refused because it was paid meanwhile: false', async () => {
-    stub('sk_test_x', [{ ok: false, body: { error: { message: 'cannot cancel' } } }, { ok: true, body: { id: 'pi_1', status: 'succeeded' } }])
-    expect(await cancelarPaymentIntent('pi_1')).toBe(false)
+  it('uses the timeout it is given', async () => {
+    stub('sk_test_x', [{ ok: true, body: { id: 'pi_1', status: 'canceled' } }])
+    const prazo = vi.spyOn(AbortSignal, 'timeout')
+    await lerPaymentIntent('pi_1', 1500)
+    await cancelarPaymentIntent('pi_1', 1200)
+    expect(prazo.mock.calls).toEqual([[1500], [1200]])
+    prazo.mockRestore()
   })
 
   it('cancel without an answer: false', async () => {
