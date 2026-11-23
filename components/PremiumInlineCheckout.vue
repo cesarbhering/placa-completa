@@ -939,6 +939,15 @@ const relatorioCartao = ref('')
 /** Timeout of the card intent request; on expiry the lock is released. */
 const TIMEOUT_INTENT_MS = 25_000
 
+/** The PaymentIntent as Stripe has it now; null when it cannot be read. */
+async function lerIntentCartao(clientSecret: string): Promise<any> {
+  try {
+    return (await stripe.retrievePaymentIntent(clientSecret))?.paymentIntent ?? null
+  } catch {
+    return null
+  }
+}
+
 async function pagarComCartao() {
   // The Pix being generated also holds the card (one order at a time).
   if (pagandoCartao || processandoCartao.value || cartaoConcluido || pagando || loading.value) return
@@ -1011,12 +1020,19 @@ async function pagarComCartao() {
       erroCartao.value = decisao.mensagem
       return
     }
-    const { error, paymentIntent } = await stripe.confirmCardPayment(r.clientSecret, {
+    let { error, paymentIntent } = await stripe.confirmCardPayment(r.clientSecret, {
       payment_method: {
         card: cardNumber,
         billing_details: { name: nomeCartao.value.trim() || undefined, email: email.value.trim() || undefined },
       },
     })
+    // A network or Stripe-side error may come after the card was charged (the
+    // answer got lost on the way back): read the intent before deciding, so a
+    // charged card takes the paid path instead of the Pix offer.
+    if (error?.type === 'api_connection_error' || error?.type === 'api_error') {
+      const lido = await lerIntentCartao(r.clientSecret)
+      if (lido?.status === 'succeeded' || lido?.status === 'processing') { error = undefined; paymentIntent = lido }
+    }
     if (error) {
       erroCartao.value = mensagemErroCartao(error)
       // validation_error: Stripe's own check of the fields (incomplete number,
@@ -1443,7 +1459,7 @@ onUnmounted(() => {
                 <label class="pic-label" for="pic-card-nome">Nome no cartão</label>
                 <input id="pic-card-nome" v-model="nomeCartao" type="text" class="pic-input" placeholder="Como aparece no cartão" autocomplete="cc-name" :disabled="processandoCartao">
               </div>
-              <p v-if="erroCartao" class="pic-cupom__erro">{{ erroCartao }}</p>
+              <p v-if="erroCartao" class="pic-cupom__erro" role="alert">{{ erroCartao }}</p>
               <!-- Tentativa no cartao falhou (recusa, banco, limite, rede): o Pix
                    logo abaixo da mensagem, pelo mesmo caminho da aba Pix. -->
               <button
