@@ -65,7 +65,7 @@ export interface UsoHistorico {
   religiosa: boolean
   segurancaPrivada: boolean
   lojaSalvados: boolean
-  /** Private company in the chain of owners: never its name. */
+  /** Private company in the chain of owners: never its name. Kept, but not shown in the previous use block (23/11/2026). */
   empresas: { loja: boolean; ano: string | null }[]
   frotista: { veiculos: number | null; data: string | null } | null
   /** Bank or finance company that held the vehicle (a company: the name may show). */
@@ -919,25 +919,19 @@ export function telaDonos(d: DonosHistorico | null | undefined, nomeVeiculo = 'v
 export type Tom = 'neutro' | 'atencao' | 'alerta'
 export interface LinhaUso { titulo: string; texto: string; tom: Tom }
 
-/** Previous use (only when there is something). */
+/**
+ * Previous use (only when there is something). A used-car dealer or a company
+ * in the chain of owners (u.empresas) gets no line (Cesar, 23/11/2026: it does
+ * not lower the value of the vehicle). The data stays in the block, the
+ * snapshot and the cache; the owners block still shows those owner kinds.
+ */
 export function telaUso(u: UsoHistorico | null | undefined): { linhas: LinhaUso[]; nota: string | null } | null {
   if (!u) return null
   const linhas: LinhaUso[] = []
-  const anos = (xs: (string | null)[]) => juntar([...new Set(xs.filter((x): x is string => !!x))].sort())
   if (u.locadora) linhas.push({ titulo: 'Locadora', texto: `Consta como ex-frota de locadora${u.locadora.ano ? ` (${u.locadora.ano})` : ''}`, tom: 'atencao' })
   if (u.frotista) {
     const det = [u.frotista.veiculos ? plural(u.frotista.veiculos, 'veículo', 'veículos') : null, u.frotista.data ? `em ${dataBR(u.frotista.data)}` : null].filter(Boolean).join(', ')
     linhas.push({ titulo: 'Compra em lote', texto: `Comprado numa compra em lote de frotista${det ? ` (${det})` : ''}`, tom: 'atencao' })
-  }
-  const lojas = (u.empresas || []).filter((e) => e.loja)
-  const outras = (u.empresas || []).filter((e) => !e.loja)
-  if (lojas.length) {
-    const a = anos(lojas.map((e) => e.ano))
-    linhas.push({ titulo: 'Loja de usados', texto: `Passou por loja de usados${a ? ` em ${a}` : ''}`, tom: 'neutro' })
-  }
-  if (outras.length) {
-    const a = anos(outras.map((e) => e.ano))
-    linhas.push({ titulo: 'Empresa', texto: `Já pertenceu a uma empresa${a ? ` (${a})` : ''}`, tom: 'neutro' })
   }
   if (u.taxiPcd) linhas.push({ titulo: 'Táxi ou PCD', texto: 'Há indício de uso como táxi ou de compra com isenção para pessoa com deficiência', tom: 'atencao' })
   if (u.viatura) linhas.push({ titulo: 'Viatura', texto: 'Consta uso como viatura policial ou de guarda', tom: 'atencao' })
