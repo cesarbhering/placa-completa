@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { compraDoApp, varrerAppCompletos, JANELA_AVISO_MS } from './aviso-app-completo'
+import { compraDoApp, partesCitadasProntas, varrerAppCompletos, JANELA_AVISO_MS } from './aviso-app-completo'
 import { verificarFechamento } from './premium-jobs'
 import { _resetarEmVoo, marcarEncerrando } from './tarefas-em-voo'
 
@@ -28,6 +28,18 @@ function bancoFalso(tabelas: { pedidos_premium?: Linha[]; premium_jobs?: Linha[]
     let valores: Linha | null = null
     let ordem: { col: string; asc: boolean } | null = null
     let limite: number | null = null
+    // Aliased JSON paths (alias:col->a->>b), as PostgREST answers them.
+    let campos: { alias: string; caminho: string[]; texto: boolean }[] | null = null
+    const projetar = (l: Linha) => {
+      if (!campos) return { ...l }
+      const out: Linha = {}
+      for (const c of campos) {
+        let v: any = l
+        for (const k of c.caminho) v = v == null ? null : v[k]
+        out[c.alias] = v == null ? null : c.texto ? String(v) : v
+      }
+      return out
+    }
     const executar = () => {
       const linhas = db[tabela] ?? (db[tabela] = [])
       let alvo = linhas.filter((l) => filtros.every((f) => f(l)))
@@ -40,11 +52,19 @@ function bancoFalso(tabelas: { pedidos_premium?: Linha[]; premium_jobs?: Linha[]
         alvo = [...alvo].sort((a, b) => (String(a[col]) < String(b[col]) ? -1 : String(a[col]) > String(b[col]) ? 1 : 0) * (asc ? 1 : -1))
       }
       if (limite != null) alvo = alvo.slice(0, limite)
-      return { data: alvo.map((l) => ({ ...l })), error: null }
+      return { data: alvo.map(projetar), error: null }
     }
     const depois = () => new Promise((r) => setTimeout(r, 0))
     const b: any = {
-      select: () => b,
+      select: (cols?: string) => {
+        if (cols && cols.includes(':')) {
+          campos = cols.split(',').map((c) => c.trim()).filter(Boolean).map((c) => {
+            const [alias, expr] = c.includes(':') ? c.split(':') : [c, c]
+            return { alias, caminho: expr.split(/->>?/), texto: expr.includes('->>') }
+          })
+        }
+        return b
+      },
       eq: (c: string, v: any) => { filtros.push((l) => (l[c] ?? null) === v); return b },
       is: (c: string, v: any) => { filtros.push((l) => (l[c] ?? null) === v); return b },
       not: (c: string, op: string, v: any) => {
@@ -78,7 +98,11 @@ function pedidoApp(over: Linha = {}): Linha {
     email: 'cliente@exemplo.com', token_entrega: 'TOKFICTICIO1',
     canal: 'app', forma_pagamento: 'google_play', pix_provider: 'google_play',
     aviso_completo_em: null, entregue_em: ha(30), snapshot_em: ha(30),
-    relatorio_snapshot: { consulta: { response: [{ ufJurisdicao: 'SP' }] }, multas: { status: 'ok', fonte: 'detran_sp' } },
+    relatorio_snapshot: {
+      consulta: { response: [{ ufJurisdicao: 'SP' }] },
+      multas: { status: 'ok', fonte: 'detran_sp' },
+      historicoVeicular: { status: 'ok', completa: true, donos: { total: 2 } },
+    },
     ...over,
   }
 }
@@ -87,7 +111,7 @@ function job(over: Linha = {}): Linha {
   return { id: 'job-1', pedido_id: 'pedido-app-1', fonte: 'detran', status: 'ok', ultimo_code: 0, concluido_em: ha(10), ...over }
 }
 
-const enviou = () => vi.fn(async (_a: { email: string; token: string; placa: string; pedidoId: string }) => true)
+const enviou = () => vi.fn(async (_a: { email: string; token: string; placa: string; pedidoId: string; partesProntas: boolean }) => true)
 
 describe('app purchase: report complete e-mail', () => {
   beforeEach(() => { vi.spyOn(console, 'warn').mockImplementation(() => {}) })
@@ -111,7 +135,7 @@ describe('app purchase: report complete e-mail', () => {
     Object.assign(db.pedidos_premium[0], { entregue_em: ha(6), snapshot_em: ha(6) })
     expect(await varrerAppCompletos(cliente, { enviar, agora: AGORA })).toMatchObject({ enviados: 1 })
     expect(enviar).toHaveBeenCalledTimes(1)
-    expect(enviar.mock.calls[0][0]).toEqual({ email: 'cliente@exemplo.com', token: 'TOKFICTICIO1', placa: 'ABC1D23', pedidoId: 'pedido-app-1' })
+    expect(enviar.mock.calls[0][0]).toEqual({ email: 'cliente@exemplo.com', token: 'TOKFICTICIO1', placa: 'ABC1D23', pedidoId: 'pedido-app-1', partesProntas: true })
     expect(db.pedidos_premium[0].aviso_completo_em).toBe(MARCA)
     // Next passes: already told.
     await varrerAppCompletos(cliente, { enviar, agora: AGORA + 60_000 })
@@ -285,6 +309,69 @@ describe('app purchase: report complete e-mail', () => {
     expect([tentativas('pedido-app-1'), tentativas('pedido-app-2')]).toEqual([2, 1])
     await varrerAppCompletos(cliente, { enviar, agora: proxima + 60_000 })
     expect(enviar).toHaveBeenCalledTimes(3)
+  })
+
+  describe('first paragraph: the full sentence only when the DETRAN and the vehicle history are in the report', () => {
+    const snap = (over: Linha) => ({ ...pedidoApp().relatorio_snapshot, ...over })
+    async function partesDoEnvio(pedido: Linha, jobs: Linha[] = []) {
+      const { cliente } = bancoFalso({ pedidos_premium: [pedido], premium_jobs: jobs })
+      const enviar = enviou()
+      await varrerAppCompletos(cliente, { enviar, agora: AGORA })
+      expect(enviar).toHaveBeenCalledTimes(1)
+      return enviar.mock.calls[0][0].partesProntas
+    }
+
+    it('normal case: both in the report, the full sentence', async () => {
+      expect(await partesDoEnvio(pedidoApp(), [job(), job({ id: 'job-2', fonte: 'historico_veicular' })])).toBe(true)
+    })
+
+    it('state with no DETRAN coverage: the short sentence', async () => {
+      const semDetran = snap({ consulta: { response: [{ ufJurisdicao: 'TO' }] }, multas: undefined })
+      expect(await partesDoEnvio(pedidoApp({ relatorio_snapshot: semDetran }), [job({ fonte: 'historico_veicular' })])).toBe(false)
+    })
+
+    it('DETRAN job exhausted: the short sentence', async () => {
+      const jobs = [job({ status: 'esgotado', ultimo_code: 609 }), job({ id: 'job-2', fonte: 'historico_veicular' })]
+      expect(await partesDoEnvio(pedidoApp({ relatorio_snapshot: snap({ multas: { status: 'indisponivel' } }) }), jobs)).toBe(false)
+    })
+
+    it('vehicle history job exhausted: the short sentence', async () => {
+      const jobs = [job(), job({ id: 'job-2', fonte: 'historico_veicular', status: 'esgotado', ultimo_code: 503 })]
+      expect(await partesDoEnvio(pedidoApp({ relatorio_snapshot: snap({ historicoVeicular: { status: 'falhou' } }) }), jobs)).toBe(false)
+    })
+
+    it('decision table: DETRAN answered with no debts counts; protected data, a partial history or no history do not', () => {
+      const historico = { status: 'ok', completa: true, donos: { total: 1 } }
+      expect(partesCitadasProntas({ detranStatus: 'ok', historico, jobs: [] })).toBe(true)
+      expect(partesCitadasProntas({ detranStatus: 'sem_debito', historico, jobs: [] })).toBe(true)
+      expect(partesCitadasProntas({ detranStatus: 'protegido', historico, jobs: [] })).toBe(false)
+      expect(partesCitadasProntas({ detranStatus: 'indisponivel', historico, jobs: [] })).toBe(false)
+      expect(partesCitadasProntas({ detranStatus: null, historico, jobs: [] })).toBe(false)
+      expect(partesCitadasProntas({ detranStatus: 'ok', historico: { status: 'ok', completa: false, faltas: ['sem donos'] }, jobs: [] })).toBe(false)
+      expect(partesCitadasProntas({ detranStatus: 'ok', historico: { status: 'divergente' }, jobs: [] })).toBe(false)
+      expect(partesCitadasProntas({ detranStatus: 'ok', historico: null, jobs: [] })).toBe(false)
+      // An exhausted job of a cited part counts even if a block came later; other sources do not.
+      expect(partesCitadasProntas({ detranStatus: 'ok', historico, jobs: [{ fonte: 'detran', status: 'esgotado' }] })).toBe(false)
+      expect(partesCitadasProntas({ detranStatus: 'ok', historico, jobs: [{ fonte: 'recall', status: 'esgotado' }] })).toBe(true)
+    })
+
+    it('the report fields cannot be read: the short sentence, which is always true, and the e-mail still goes', async () => {
+      const { cliente } = bancoFalso({ pedidos_premium: [pedidoApp()] })
+      const original = cliente.from.getMockImplementation()!
+      cliente.from.mockImplementation((tabela: string) => {
+        const b = original(tabela)
+        const select = b.select
+        b.select = (cols?: string) => {
+          if (cols?.includes('relatorio_snapshot->')) throw new Error('leitura ficticia falhou')
+          return select(cols)
+        }
+        return b
+      })
+      const enviar = enviou()
+      await varrerAppCompletos(cliente, { enviar, agora: AGORA })
+      expect(enviar).toHaveBeenCalledTimes(1)
+      expect(enviar.mock.calls[0][0].partesProntas).toBe(false)
+    })
   })
 
   it('SIGTERM in the middle of a pass: no new order is stamped, so the new container sends the rest', async () => {

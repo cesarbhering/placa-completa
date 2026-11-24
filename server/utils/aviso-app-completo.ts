@@ -25,9 +25,14 @@
 //   not e-mail old orders, and a send that keeps failing stops trying.
 // - The Basica stays out: the approved text names DETRAN and the vehicle
 //   history, which the Basica does not have.
+// - First paragraph (Cesar, 24/11/2026): it names the DETRAN and the vehicle
+//   history only when both are in the report (partesCitadasProntas); a state
+//   with no DETRAN coverage, a block that did not come or an exhausted job of
+//   either gets the short sentence.
 import { enviarRelatorioCompleto } from './premium-email'
 import { estaEncerrando } from './tarefas-em-voo'
 import { ESPERA_FONTES_MS } from '../../shared/fontes-relatorio'
+import { historicoCompleto, type HistoricoVeicular } from '../../shared/historico-veicular'
 
 export interface PedidoAvisoApp {
   id: string
@@ -44,7 +49,7 @@ export interface PedidoAvisoApp {
   snapshot_em?: string | null
 }
 
-export interface JobAvisoApp { pedido_id?: string; status: string; concluido_em?: string | null }
+export interface JobAvisoApp { pedido_id?: string; fonte?: string; status: string; concluido_em?: string | null }
 
 /** After the last queue job closed, the queue's own closing check decides first. */
 export const FOLGA_FECHAMENTO_MS = 2 * 60 * 1000
@@ -94,7 +99,31 @@ export function situacaoAvisoApp(p: PedidoAvisoApp, jobs: JobAvisoApp[], agora: 
   return 'pronto'
 }
 
-type Enviar = (a: { email: string; token: string; placa: string; pedidoId: string }) => Promise<boolean>
+/**
+ * The two parts the full first paragraph names are in the report: the DETRAN
+ * answered (fines and debts, or none: 'sem_debito'; protected data does not
+ * count) and the vehicle history came whole (a partial answer may lack the
+ * owners). An exhausted queue job of either part gives the short sentence.
+ */
+export function partesCitadasProntas(a: { detranStatus?: string | null; historico?: unknown; jobs: JobAvisoApp[] }): boolean {
+  if (a.jobs.some((j) => (j.fonte === 'detran' || j.fonte === 'historico_veicular') && j.status === 'esgotado')) return false
+  return ['ok', 'sem_debito'].includes(String(a.detranStatus ?? '')) && historicoCompleto(a.historico as HistoricoVeicular | null)
+}
+
+type Enviar = (a: { email: string; token: string; placa: string; pedidoId: string; partesProntas: boolean }) => Promise<boolean>
+
+/** Only the two report fields the first paragraph depends on. Unreadable: the short sentence, which is always true. */
+async function lerPartesCitadas(supabase: any, pedidoId: string, jobs: JobAvisoApp[]): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.from('pedidos_premium')
+      .select('detran_status:relatorio_snapshot->multas->>status,historico:relatorio_snapshot->historicoVeicular')
+      .eq('id', pedidoId).maybeSingle()
+    if (error || !data) return false
+    return partesCitadasProntas({ detranStatus: data.detran_status, historico: data.historico, jobs })
+  } catch {
+    return false
+  }
+}
 
 /**
  * Stamps aviso_completo_em on "still null" and sends. A failed send undoes the
@@ -102,7 +131,7 @@ type Enviar = (a: { email: string; token: string; placa: string; pedidoId: strin
  * can stamp, so the undo needs no other filter (as in verificarFechamento).
  * Never throws.
  */
-async function enviarUmaVez(supabase: any, p: PedidoAvisoApp, agora: number, enviar: Enviar): Promise<'enviado' | 'ja_avisado' | 'falhou'> {
+async function enviarUmaVez(supabase: any, p: PedidoAvisoApp, jobs: JobAvisoApp[], agora: number, enviar: Enviar): Promise<'enviado' | 'ja_avisado' | 'falhou'> {
   const marca = new Date(agora).toISOString()
   try {
     const { data: marcado, error } = await supabase.from('pedidos_premium')
@@ -114,8 +143,9 @@ async function enviarUmaVez(supabase: any, p: PedidoAvisoApp, agora: number, env
     console.warn('[aviso-app-completo] stamp failed:', e?.message || e)
     return 'falhou'
   }
+  const partesProntas = await lerPartesCitadas(supabase, p.id, jobs)
   const ok = await Promise.resolve()
-    .then(() => enviar({ email: String(p.email), token: p.token_entrega, placa: p.placa, pedidoId: p.id }))
+    .then(() => enviar({ email: String(p.email), token: p.token_entrega, placa: p.placa, pedidoId: p.id, partesProntas }))
     .catch(() => false)
   if (ok) return 'enviado'
   try {
@@ -159,7 +189,7 @@ export async function varrerAppCompletos(
     saida.vistos = pedidos.length
     if (!pedidos.length) return saida
     const { data: jobs, error: erroJobs } = await supabase.from('premium_jobs')
-      .select('pedido_id,status,concluido_em')
+      .select('pedido_id,fonte,status,concluido_em')
       .in('pedido_id', pedidos.map((p) => p.id))
     if (erroJobs) { console.warn('[aviso-app-completo] reading the queue failed:', erroJobs.message); return saida }
     const jobsDo = new Map<string, JobAvisoApp[]>()
@@ -174,9 +204,10 @@ export async function varrerAppCompletos(
       // stamp whose send never finished would lose the e-mail; the new
       // container sends the rest.
       if (tentativas >= MAX_TENTATIVAS_POR_PASSADA || estaEncerrando()) break
-      if (situacaoAvisoApp(p, jobsDo.get(p.id) ?? [], agora) !== 'pronto') continue
+      const doPedido = jobsDo.get(p.id) ?? []
+      if (situacaoAvisoApp(p, doPedido, agora) !== 'pronto') continue
       tentativas++
-      if (await enviarUmaVez(supabase, p, agora, enviar) === 'enviado') saida.enviados++
+      if (await enviarUmaVez(supabase, p, doPedido, agora, enviar) === 'enviado') saida.enviados++
     }
     return saida
   } catch (e: any) {

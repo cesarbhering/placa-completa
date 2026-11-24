@@ -126,42 +126,60 @@ describe('enviarRelatorioEmail: linha do cupom de recompra', () => {
   })
 })
 
-// App purchase, report complete (Cesar, 24/11/2026). The text was approved
-// word for word: these tests guard it, so a copy change needs a new approval.
+// App purchase, report complete (Cesar, 24/11/2026). Both texts were approved
+// word for word: these tests guard them, so a copy change needs a new approval.
 describe('report complete e-mail of app purchases', () => {
   afterEach(() => vi.unstubAllGlobals())
   const LINK = 'https://placacompleta.com.br/premium/TOKFICTICIO?o=email'
-  const PAR1 = 'Todas as consultas do seu relatório já terminaram, inclusive as multas e débitos no DETRAN e o histórico de donos e de uso do veículo.'
+  const PAR1_INTEIRO = 'Todas as consultas do seu relatório já terminaram, inclusive as multas e débitos no DETRAN e o histórico de donos e de uso do veículo.'
+  const PAR1_CURTO = 'Todas as consultas do seu relatório já terminaram.'
   const PAR2 = 'O link é o mesmo de antes e não expira. Você pode abrir pelo botão abaixo, no celular ou no computador.'
 
   it('uses exactly the approved subject, title, paragraphs and button', async () => {
     const { montarRelatorioCompleto } = await import('./premium-email')
-    const { assunto, html, texto } = montarRelatorioCompleto({ link: LINK, placa: 'ABC1D23' })
+    const { assunto, html, texto } = montarRelatorioCompleto({ link: LINK, placa: 'ABC1D23', partesProntas: true })
     expect(assunto).toBe('Seu relatório da placa ABC1D23 está completo')
     expect(html).toContain('>Seu relatório está completo.</h1>')
-    expect(html).toContain(`>${PAR1}</p>`)
+    expect(html).toContain(`>${PAR1_INTEIRO}</p>`)
     expect(html).toContain(`>${PAR2}</p>`)
     expect(html).toMatch(/<a href="https:\/\/placacompleta\.com\.br\/premium\/TOKFICTICIO\?o=email"[^>]*>Ver meu relatório<\/a>/)
-    expect(texto.split('\n').slice(0, 7)).toEqual(['Seu relatório está completo.', '', PAR1, '', PAR2, '', LINK])
+    expect(texto.split('\n').slice(0, 7)).toEqual(['Seu relatório está completo.', '', PAR1_INTEIRO, '', PAR2, '', LINK])
+  })
+
+  it('the DETRAN or the vehicle history is not in the report: only the short first paragraph, the rest the same', async () => {
+    const { montarRelatorioCompleto } = await import('./premium-email')
+    const curto = montarRelatorioCompleto({ link: LINK, placa: 'ABC1D23', partesProntas: false })
+    const inteiro = montarRelatorioCompleto({ link: LINK, placa: 'ABC1D23', partesProntas: true })
+    expect(curto.html).toContain(`>${PAR1_CURTO}</p>`)
+    expect(curto.texto.split('\n').slice(0, 7)).toEqual(['Seu relatório está completo.', '', PAR1_CURTO, '', PAR2, '', LINK])
+    for (const t of [curto.html, curto.texto]) {
+      expect(t).not.toContain('DETRAN')
+      expect(t).not.toContain('histórico de donos')
+    }
+    expect(curto.assunto).toBe(inteiro.assunto)
+    expect(curto.html.split(PAR1_CURTO).join('§')).toBe(inteiro.html.split(PAR1_INTEIRO).join('§'))
+    expect(curto.texto.split(PAR1_CURTO).join('§')).toBe(inteiro.texto.split(PAR1_INTEIRO).join('§'))
   })
 
   it('has no apology, no em dash, and the link note is not repeated under the button', async () => {
     const { montarRelatorioCompleto } = await import('./premium-email')
-    const { assunto, html, texto } = montarRelatorioCompleto({ link: LINK, placa: 'ABC1D23' })
-    for (const t of [assunto, html, texto]) {
-      expect(t).not.toMatch(/desculpa/i)
-      expect(t).not.toContain('—')
+    for (const partesProntas of [true, false]) {
+      const { assunto, html, texto } = montarRelatorioCompleto({ link: LINK, placa: 'ABC1D23', partesProntas })
+      for (const t of [assunto, html, texto]) {
+        expect(t).not.toMatch(/desculpa/i)
+        expect(t).not.toContain('—')
+      }
+      const vezes = (t: string) => t.split('O link é o mesmo de antes e não expira.').length - 1
+      expect(vezes(html)).toBe(1)
+      expect(vezes(texto)).toBe(1)
+      // No empty note paragraph left where the note used to be.
+      expect(html).not.toMatch(/<p[^>]*><\/p>/)
     }
-    const vezes = (t: string) => t.split('O link é o mesmo de antes e não expira.').length - 1
-    expect(vezes(html)).toBe(1)
-    expect(vezes(texto)).toBe(1)
-    // No empty note paragraph left where the note used to be.
-    expect(html).not.toMatch(/<p[^>]*><\/p>/)
   })
 
   it('keeps the layout of the delivery e-mail: logo, blue button, fallback link and help footer', async () => {
     const { montarRelatorioCompleto } = await import('./premium-email')
-    const { html, texto } = montarRelatorioCompleto({ link: LINK, placa: 'ABC1D23' })
+    const { html, texto } = montarRelatorioCompleto({ link: LINK, placa: 'ABC1D23', partesProntas: true })
     expect(html).toContain('logo-horizontal-600.png')
     expect(html).toContain('bgcolor="#1f6feb"')
     expect(html).toContain(`Se o botão não funcionar, copie e cole no navegador:<br><a href="${LINK}"`)
@@ -174,8 +192,9 @@ describe('report complete e-mail of app purchases', () => {
     vi.stubGlobal('useRuntimeConfig', () => ({ resendApiKey: 're_x', premiumBaseUrl: 'https://placacompleta.com.br' }))
     vi.stubGlobal('$fetch', vi.fn(async (url: string, opts: any) => { chamadas.push({ url, opts }); return { id: 'em_ficticio' } }))
     const { enviarRelatorioCompleto } = await import('./premium-email')
-    expect(await enviarRelatorioCompleto({ email: 'cliente@exemplo.com', token: 'TOKFICTICIO', placa: 'ABC1D23', pedidoId: 'pedido-ficticio-1' })).toBe(true)
-    expect(chamadas).toHaveLength(1)
+    expect(await enviarRelatorioCompleto({ email: 'cliente@exemplo.com', token: 'TOKFICTICIO', placa: 'ABC1D23', pedidoId: 'pedido-ficticio-1', partesProntas: true })).toBe(true)
+    expect(await enviarRelatorioCompleto({ email: 'cliente@exemplo.com', token: 'TOKFICTICIO', placa: 'ABC1D23', pedidoId: 'pedido-ficticio-2', partesProntas: false })).toBe(true)
+    expect(chamadas).toHaveLength(2)
     const { url, opts } = chamadas[0]
     expect(url).toBe('https://api.resend.com/emails')
     expect(opts.method).toBe('POST')
@@ -188,21 +207,41 @@ describe('report complete e-mail of app purchases', () => {
     expect(opts.body.subject).toBe('Seu relatório da placa ABC1D23 está completo')
     expect(opts.body.html).toContain(`href="${LINK}"`)
     expect(opts.body.text).toContain(LINK)
+    expect(opts.body.text).toContain(PAR1_INTEIRO)
+    expect(chamadas[1].opts.headers['Idempotency-Key']).toBe('relatorio-completo/pedido-ficticio-2')
+    expect(chamadas[1].opts.body.text).toContain(PAR1_CURTO)
+    expect(chamadas[1].opts.body.text).not.toContain(PAR1_INTEIRO)
   })
 
   it('no e-mail or no provider key: no call; a provider error returns false without throwing', async () => {
     const chamar = vi.fn(async () => ({}))
     vi.stubGlobal('$fetch', chamar)
     const { enviarRelatorioCompleto } = await import('./premium-email')
+    const pedido = { token: 'T', placa: 'ABC1D23', pedidoId: 'p1', partesProntas: true }
     vi.stubGlobal('useRuntimeConfig', () => ({ resendApiKey: 're_x' }))
-    expect(await enviarRelatorioCompleto({ email: null, token: 'T', placa: 'ABC1D23', pedidoId: 'p1' })).toBe(false)
+    expect(await enviarRelatorioCompleto({ ...pedido, email: null })).toBe(false)
     vi.stubGlobal('useRuntimeConfig', () => ({ resendApiKey: '' }))
-    expect(await enviarRelatorioCompleto({ email: 'cliente@exemplo.com', token: 'T', placa: 'ABC1D23', pedidoId: 'p1' })).toBe(false)
+    expect(await enviarRelatorioCompleto({ ...pedido, email: 'cliente@exemplo.com' })).toBe(false)
     expect(chamar).not.toHaveBeenCalled()
     vi.stubGlobal('useRuntimeConfig', () => ({ resendApiKey: 're_x' }))
     vi.stubGlobal('$fetch', vi.fn(async () => { throw Object.assign(new Error('falha ficticia'), { statusCode: 500 }) }))
     const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(await enviarRelatorioCompleto({ email: 'cliente@exemplo.com', token: 'T', placa: 'ABC1D23', pedidoId: 'p1' })).toBe(false)
+    expect(await enviarRelatorioCompleto({ ...pedido, email: 'cliente@exemplo.com' })).toBe(false)
+    erro.mockRestore()
+  })
+
+  // The first paragraph can change between a send that answered late and its
+  // retry (a block that arrived in between). The provider then refuses the
+  // reused key with another body: the first request went, so it counts as sent.
+  it('key already used with another body counts as sent; a request still in progress with the key is retried', async () => {
+    vi.stubGlobal('useRuntimeConfig', () => ({ resendApiKey: 're_x' }))
+    const { enviarRelatorioCompleto } = await import('./premium-email')
+    const pedido = { email: 'cliente@exemplo.com', token: 'T', placa: 'ABC1D23', pedidoId: 'p1', partesProntas: false }
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('$fetch', vi.fn(async () => { throw Object.assign(new Error('409'), { statusCode: 409, data: { statusCode: 409, name: 'invalid_idempotent_request' } }) }))
+    expect(await enviarRelatorioCompleto(pedido)).toBe(true)
+    vi.stubGlobal('$fetch', vi.fn(async () => { throw Object.assign(new Error('409'), { statusCode: 409, data: { statusCode: 409, name: 'concurrent_idempotent_requests' } }) }))
+    expect(await enviarRelatorioCompleto(pedido)).toBe(false)
     erro.mockRestore()
   })
 })

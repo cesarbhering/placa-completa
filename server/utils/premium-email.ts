@@ -610,23 +610,28 @@ export async function enviarNfseEmail(
 }
 
 // ---------- App purchase: the report is complete (Cesar, 24/11/2026) ----------
-// Text approved word for word; it changes only with a new approval. Same
-// layout as the other notices, from contato@, no apology line and no note
+// Both texts approved word for word; they change only with a new approval.
+// Same layout as the other notices, from contato@, no apology line and no note
 // under the button (the second paragraph already says the link does not expire).
+// The first paragraph names the DETRAN and the vehicle history only when both
+// are in the report (partesProntas, decided in aviso-app-completo.ts); otherwise
+// it is only the short sentence (Cesar, 24/11/2026).
 
-export function textosRelatorioCompleto(placa: string): { titulo: string; paragrafos: string[]; assunto: string } {
+export function textosRelatorioCompleto(placa: string, partesProntas: boolean): { titulo: string; paragrafos: string[]; assunto: string } {
   return {
     titulo: 'Seu relatório está completo.',
     paragrafos: [
-      'Todas as consultas do seu relatório já terminaram, inclusive as multas e débitos no DETRAN e o histórico de donos e de uso do veículo.',
+      partesProntas
+        ? 'Todas as consultas do seu relatório já terminaram, inclusive as multas e débitos no DETRAN e o histórico de donos e de uso do veículo.'
+        : 'Todas as consultas do seu relatório já terminaram.',
       'O link é o mesmo de antes e não expira. Você pode abrir pelo botão abaixo, no celular ou no computador.',
     ],
     assunto: `Seu relatório da placa ${placa} está completo`,
   }
 }
 
-export function montarRelatorioCompleto(a: { link: string; placa: string }): { assunto: string; html: string; texto: string } {
-  return montarEmailAviso({ link: a.link, ...textosRelatorioCompleto(a.placa), botao: 'Ver meu relatório', nota: '' })
+export function montarRelatorioCompleto(a: { link: string; placa: string; partesProntas: boolean }): { assunto: string; html: string; texto: string } {
+  return montarEmailAviso({ link: a.link, ...textosRelatorioCompleto(a.placa, a.partesProntas), botao: 'Ver meu relatório', nota: '' })
 }
 
 /** A slow answer is retried by the next timer pass with the same idempotency key. */
@@ -636,17 +641,19 @@ const RELATORIO_COMPLETO_TIMEOUT_MS = 20_000
  * Sends the report complete e-mail. The idempotency key is the order: the
  * provider answers a repeated key without sending again (24 h), so a send that
  * went through but answered late never turns into two e-mails on the retry.
- * Returns a boolean and never throws.
+ * If the first paragraph changed in between (a block arrived), the provider
+ * refuses the reused key with another body: the first request went, so that
+ * counts as sent. Returns a boolean and never throws.
  */
 export async function enviarRelatorioCompleto(
-  a: { email: string | null | undefined; token: string; placa: string; pedidoId: string },
+  a: { email: string | null | undefined; token: string; placa: string; pedidoId: string; partesProntas: boolean },
   deps: { config?: any } = {},
 ): Promise<boolean> {
   try {
     const config = deps.config ?? useRuntimeConfig()
     if (!a.email || !config.resendApiKey) return false
     const link = `${config.premiumBaseUrl || 'https://placacompleta.com.br'}/premium/${a.token}?o=email`
-    const { assunto, html, texto } = montarRelatorioCompleto({ link, placa: a.placa })
+    const { assunto, html, texto } = montarRelatorioCompleto({ link, placa: a.placa, partesProntas: a.partesProntas })
     await $fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -659,6 +666,7 @@ export async function enviarRelatorioCompleto(
     })
     return true
   } catch (e: any) {
+    if (e?.statusCode === 409 && e?.data?.name === 'invalid_idempotent_request') return true
     console.error(`[premium-email] report complete: send failed pedido=${String(a.pedidoId).slice(0, 8)}:`, String(e?.statusCode || ''), String(e?.data?.message || e?.message || e).slice(0, 200))
     return false
   }
