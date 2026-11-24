@@ -882,6 +882,7 @@ const camposVazios = (): Record<CampoCartao, { completo: boolean; erro: string }
 })
 let estadoCampos = camposVazios()
 const MSG_CARTAO_INCOMPLETO = 'Preencha o número, a validade e o CVV do cartão.'
+const MSG_CARTAO_NAO_CARREGOU = 'Não conseguimos carregar o pagamento com cartão. Use o Pix.'
 
 function carregarStripeJs(): Promise<any> {
   const w = window as any
@@ -920,6 +921,13 @@ async function criarCamposCartao() {
       stripe = Stripe(pk, { locale: 'pt-BR' })
       elements = stripe.elements()
     }
+    // The step left while Stripe.js loaded: its spots are gone. The watcher
+    // mounts the fields when it comes back on the card tab.
+    if (step.value !== 'confirm') return
+    // Fields a failed run left in this group would make create() throw.
+    for (const t of CAMPOS_CARTAO) {
+      try { elements.getElement(t)?.destroy() } catch { /* already gone */ }
+    }
     const style = { base: { fontSize: '16px', color: '#1a1a1a', fontFamily: 'inherit', '::placeholder': { color: '#9aa3ad' } }, invalid: { color: '#c0392b' } }
     const novos: Record<CampoCartao, any> = {
       cardNumber: elements.create('cardNumber', { style, showIcon: true, placeholder: '1234 1234 1234 1234' }),
@@ -940,8 +948,10 @@ async function criarCamposCartao() {
     }
     campos = novos
     stripePronto.value = true
+    // A previous try that failed left its line: the fields are on the page now.
+    if (erroCartao.value === MSG_CARTAO_NAO_CARREGOU) erroCartao.value = ''
   } catch {
-    erroCartao.value = 'Não conseguimos carregar o pagamento com cartão. Use o Pix.'
+    erroCartao.value = MSG_CARTAO_NAO_CARREGOU
   }
 }
 
@@ -953,8 +963,9 @@ function desmontarCamposCartao() {
   }
   campos = null
   stripePronto.value = false
-  // The red line and the Pix offer were about the fields that left.
-  erroCartao.value = ''
+  // The red line and the Pix offer were about the fields that left. An amount
+  // held for confirmation stays, and so does the line that explains it.
+  if (!cartaoPendente.value) erroCartao.value = ''
   pixAposFalhaCartao.value = false
 }
 
