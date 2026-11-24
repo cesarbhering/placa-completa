@@ -451,13 +451,17 @@ export function textosAvisoFotos(placa: string, niveis: string[]): { titulo: str
   }
 }
 
-/** Template dos avisos de relatorio atualizado (fotos, leilao tardio): mesmo layout. */
+/**
+ * Template dos avisos de relatorio atualizado (fotos, leilao tardio): mesmo layout.
+ * An empty `nota` leaves the note line out (the text already says it).
+ */
 export function montarEmailAviso(a: { link: string; titulo: string; paragrafos: string[]; assunto: string; botao: string; nota?: string }): { assunto: string; html: string; texto: string } {
   const nota = a.nota ?? 'O link é o mesmo de antes e não expira.'
   const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   const { titulo, paragrafos, assunto } = a
   const p = (t: string, mb = 12) => `<p style="margin:0 0 ${mb}px;font-size:16px;line-height:1.5;color:${GRAFITE};text-align:center;">${esc(t)}</p>`
   const corpo = paragrafos.map((t, i) => p(t, i === paragrafos.length - 1 ? 0 : 12)).join('')
+  const notaHtml = nota ? `<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">${esc(nota)}</p>\n` : ''
   const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${titulo}</title></head>
 <body style="margin:0;padding:0;background:#f7f7f7;">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(paragrafos[0])}</div>
@@ -469,13 +473,12 @@ export function montarEmailAviso(a: { link: string; titulo: string; paragrafos: 
 <tr><td align="center" style="padding:20px 32px 8px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="${AZUL}" style="border-radius:4px;">
 <a href="${a.link}" style="display:inline-block;padding:16px 32px;font-family:${FONTE};font-size:14px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;color:#ffffff;text-decoration:none;border-radius:4px;">${esc(a.botao)}</a></td></tr></table></td></tr>
 <tr><td style="padding:20px 32px 32px;font-family:${FONTE};">
-<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:${GRAFITE};text-align:center;">${esc(nota)}</p>
-<p style="margin:0;font-size:12px;line-height:1.5;color:${GRAFITE};text-align:center;word-break:break-all;">Se o botão não funcionar, copie e cole no navegador:<br><a href="${a.link}" style="color:${AZUL};text-decoration:underline;">${a.link}</a></p></td></tr>
+${notaHtml}<p style="margin:0;font-size:12px;line-height:1.5;color:${GRAFITE};text-align:center;word-break:break-all;">Se o botão não funcionar, copie e cole no navegador:<br><a href="${a.link}" style="color:${AZUL};text-decoration:underline;">${a.link}</a></p></td></tr>
 <tr><td align="center" style="padding:24px 32px;background:${NAVY};font-family:${FONTE};">
 <p style="margin:0 0 6px;font-size:13px;line-height:1.5;color:#ffffff;font-weight:600;">Precisa de ajuda?</p>
 <p style="margin:0;font-size:13px;line-height:1.5;color:rgba(255,255,255,0.75);">É só responder este e-mail ou escrever para <a href="mailto:contato@placacompleta.com.br" style="color:#ffffff;text-decoration:underline;">contato@placacompleta.com.br</a></p></td></tr>
 </table><p style="margin:16px 0 0;font-family:${FONTE};font-size:12px;line-height:1.5;color:${GRAFITE};">PlacaCompleta · consulta veicular por placa</p></td></tr></table></body></html>`
-  const texto = [titulo, '', ...paragrafos.flatMap((t) => [t, '']), a.link, '', nota, '', 'Precisa de ajuda? Responda este e-mail ou escreva para contato@placacompleta.com.br', '', 'PlacaCompleta · consulta veicular por placa'].join('\n')
+  const texto = [titulo, '', ...paragrafos.flatMap((t) => [t, '']), a.link, '', ...(nota ? [nota, ''] : []), 'Precisa de ajuda? Responda este e-mail ou escreva para contato@placacompleta.com.br', '', 'PlacaCompleta · consulta veicular por placa'].join('\n')
   return { assunto, html, texto }
 }
 
@@ -602,6 +605,61 @@ export async function enviarNfseEmail(
     return true
   } catch (e: any) {
     console.error('[premium-email] NFS-e e-mail: send failed:', String(e?.data?.message || e?.message || e))
+    return false
+  }
+}
+
+// ---------- App purchase: the report is complete (Cesar, 24/11/2026) ----------
+// Text approved word for word; it changes only with a new approval. Same
+// layout as the other notices, from contato@, no apology line and no note
+// under the button (the second paragraph already says the link does not expire).
+
+export function textosRelatorioCompleto(placa: string): { titulo: string; paragrafos: string[]; assunto: string } {
+  return {
+    titulo: 'Seu relatório está completo.',
+    paragrafos: [
+      'Todas as consultas do seu relatório já terminaram, inclusive as multas e débitos no DETRAN e o histórico de donos e de uso do veículo.',
+      'O link é o mesmo de antes e não expira. Você pode abrir pelo botão abaixo, no celular ou no computador.',
+    ],
+    assunto: `Seu relatório da placa ${placa} está completo`,
+  }
+}
+
+export function montarRelatorioCompleto(a: { link: string; placa: string }): { assunto: string; html: string; texto: string } {
+  return montarEmailAviso({ link: a.link, ...textosRelatorioCompleto(a.placa), botao: 'Ver meu relatório', nota: '' })
+}
+
+/** A slow answer is retried by the next timer pass with the same idempotency key. */
+const RELATORIO_COMPLETO_TIMEOUT_MS = 20_000
+
+/**
+ * Sends the report complete e-mail. The idempotency key is the order: the
+ * provider answers a repeated key without sending again (24 h), so a send that
+ * went through but answered late never turns into two e-mails on the retry.
+ * Returns a boolean and never throws.
+ */
+export async function enviarRelatorioCompleto(
+  a: { email: string | null | undefined; token: string; placa: string; pedidoId: string },
+  deps: { config?: any } = {},
+): Promise<boolean> {
+  try {
+    const config = deps.config ?? useRuntimeConfig()
+    if (!a.email || !config.resendApiKey) return false
+    const link = `${config.premiumBaseUrl || 'https://placacompleta.com.br'}/premium/${a.token}?o=email`
+    const { assunto, html, texto } = montarRelatorioCompleto({ link, placa: a.placa })
+    await $fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.resendApiKey}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': `relatorio-completo/${a.pedidoId}`,
+      },
+      body: { from: 'PlacaCompleta <contato@placacompleta.com.br>', reply_to: 'contato@placacompleta.com.br', to: [a.email], subject: comTagAmbiente(assunto, config), html, text: texto },
+      timeout: RELATORIO_COMPLETO_TIMEOUT_MS,
+    })
+    return true
+  } catch (e: any) {
+    console.error(`[premium-email] report complete: send failed pedido=${String(a.pedidoId).slice(0, 8)}:`, String(e?.statusCode || ''), String(e?.data?.message || e?.message || e).slice(0, 200))
     return false
   }
 }
