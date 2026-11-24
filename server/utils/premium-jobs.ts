@@ -183,10 +183,18 @@ const ROTULO_EMAIL: Record<string, (uf: string | null) => string> = {
  * fallback and the customer already got the late notice from it
  * (aviso_leilao_em, or aviso_sinistro_em for a notice with only the damage
  * sign, 18/11/2026): one e-mail about it, not two.
+ * App purchases (aviso-app-completo.ts): a "report complete" e-mail stamped at
+ * or after the latest close among the jobs with new data already carried that
+ * data, so no "report updated" now (review 2 of PR #793: this check can run
+ * late, after the sweep). The condition sits in the stamp itself, never in a
+ * read before it, so it cannot race the sweep. Then nothing is stamped here: a
+ * job reopened later can still send it. This runs only after a job is
+ * processed, so it is not re-checked every minute. A site order never has the
+ * app stamp, so nothing changes there.
  */
 export async function verificarFechamento(supabase: any, pedidoId: string, deps: { enviarEmail?: typeof enviarAtualizacaoRelatorio } = {}): Promise<boolean> {
   try {
-    const { data: jobs } = await supabase.from('premium_jobs').select('fonte,status,ultimo_code').eq('pedido_id', pedidoId)
+    const { data: jobs } = await supabase.from('premium_jobs').select('fonte,status,ultimo_code,concluido_em').eq('pedido_id', pedidoId)
     const lista = Array.isArray(jobs) ? jobs : []
     if (!lista.length || lista.some((j: any) => ['pendente', 'rodando'].includes(j.status))) return false
     let novos = lista.filter((j: any) => j.status === 'ok' && Number(j.ultimo_code) === 200)
@@ -201,11 +209,22 @@ export async function verificarFechamento(supabase: any, pedidoId: string, deps:
     const nomes = novos.map((j: any) => (ROTULO_EMAIL[j.fonte] || (() => j.fonte))(uf))
     const fonte = nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e do ${nomes[nomes.length - 1]}` : nomes[0]
     const itens = novos.some((j: any) => j.fonte === 'detran') && p.relatorio_snapshot?.multas ? itensDoBloco(p.relatorio_snapshot.multas) : []
+    const fecharam = novos.map((j: any) => Date.parse(String(j.concluido_em ?? ''))).filter((t: number) => Number.isFinite(t))
+    const semCompletoDepois = fecharam.length
+      ? `aviso_app_completo_em.is.null,aviso_app_completo_em.lt."${new Date(Math.max(...fecharam)).toISOString()}"`
+      : 'aviso_app_completo_em.is.null'
     // Marca ANTES de enviar: dois lotes simultaneos nao mandam 2 e-mails.
+    // The returned row must carry aviso_app_completo_em: PostgREST 12.2.3 to
+    // 14.3 applies the or filter again over it, and without the column every
+    // stamp fails with 42703 (review of PR #793).
     const { data: marcado, error } = await supabase.from('pedidos_premium')
-      .update({ aviso_completo_em: new Date().toISOString() }).eq('id', pedidoId).is('aviso_completo_em', null).select('id')
+      .update({ aviso_completo_em: new Date().toISOString() }).eq('id', pedidoId).is('aviso_completo_em', null).or(semCompletoDepois).select('id,aviso_app_completo_em')
+    if (error) console.warn(`[premium-jobs] closing stamp failed pedido=${String(pedidoId).slice(0, 8)} code=${error.code || 'sem codigo'}`)
     if (error || !marcado?.length) return false
-    const ok = await (deps.enviarEmail ?? enviarAtualizacaoRelatorio)({ email: p.email, token: p.token_entrega, placa: p.placa, fonte, itens })
+    // Idempotency key per order and type: a send accepted with a lost answer is
+    // not sent again on a retry. Within the key's 24 h, clearing
+    // aviso_completo_em by hand does not resend either (the key was used).
+    const ok = await (deps.enviarEmail ?? enviarAtualizacaoRelatorio)({ email: p.email, token: p.token_entrega, placa: p.placa, fonte, itens, idempotencia: `relatorio-atualizado/${pedidoId}` })
     if (!ok) await supabase.from('pedidos_premium').update({ aviso_completo_em: null }).eq('id', pedidoId)
     return ok
   } catch (e: any) {
