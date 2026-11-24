@@ -84,7 +84,7 @@ class Guarda(unittest.TestCase):
         base = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "supabase", "migrations")
         for nome in ("20261119200000_leads_extract_incremental.sql", "20261119210000_drop_unused_indexes.sql",
                      "20261119220000_daily_summaries_before_archiving.sql", "20261119230000_close_anon_inserts.sql",
-                     "20261119240000_fcm_tokens_size_limits.sql"):
+                     "20261119240000_fcm_tokens_size_limits.sql", "20261124120000_funil_diario_revoke_anon.sql"):
             p = os.path.join(base, nome)
             self.assertTrue(os.path.exists(p), f"missing queued migration {nome}")
             with open(p) as f:
