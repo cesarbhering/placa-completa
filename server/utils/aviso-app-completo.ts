@@ -37,7 +37,7 @@ import { enviarRelatorioCompleto, RETENCAO_CHAVE_IDEMPOTENCIA_MS } from './premi
 import { estaEncerrando } from './tarefas-em-voo'
 import { ESPERA_FONTES_MS } from '../../shared/fontes-relatorio'
 import { historicoCompleto, type HistoricoVeicular } from '../../shared/historico-veicular'
-import { resumoQuitar, type BlocoDetranQuitar } from '../../shared/detran-quitar'
+import { resumoQuitar, ehPlanoBSefazDer, type BlocoDetranQuitar } from '../../shared/detran-quitar'
 
 export interface PedidoAvisoApp {
   id: string
@@ -115,7 +115,8 @@ export function situacaoAvisoApp(p: PedidoAvisoApp, jobs: JobAvisoApp[], agora: 
  *   does not count), and by the report's own rule (resumoQuitar) the debts came:
  *   no "debts not available" notice (DETRAN-RJ, always 'ok', with or without the
  *   fines of the nada consta) and no IPVA left without its value from SEFAZ
- *   (AL and MG);
+ *   (AL and MG). Plan B of SP does not count either: the report says the
+ *   DETRAN-SP did not answer (debts from SEFAZ-SP and DER-SP);
  * - the vehicle history came whole (a partial answer may lack the owners).
  * An exhausted queue job of either part gives the short sentence.
  */
@@ -123,6 +124,7 @@ export function partesCitadasProntas(a: { detran?: unknown; historico?: unknown;
   if (a.jobs.some((j) => (j.fonte === 'detran' || j.fonte === 'historico_veicular') && j.status === 'esgotado')) return false
   const bloco = a.detran && typeof a.detran === 'object' ? a.detran as BlocoDetranQuitar & { status?: string } : null
   if (!bloco || !['ok', 'sem_debito'].includes(String(bloco.status ?? ''))) return false
+  if (ehPlanoBSefazDer(bloco)) return false
   const resumo = resumoQuitar({ bloco, agora: a.agora })
   if (resumo.avisoDebitos != null || resumo.ipvaSemValor != null) return false
   return historicoCompleto(a.historico as HistoricoVeicular | null)
@@ -156,14 +158,22 @@ async function marcaDestaPassada(supabase: any, pedidoId: string, marca: string)
 /**
  * Stamps aviso_app_completo_em on "still null" (and only while the "report
  * updated" e-mail has not gone) and sends. An ambiguous answer to the stamp is
- * read back: when the stamp is this pass's, the send goes. A failed send undoes
- * only this pass's stamp, never one set by hand, so the next timer pass tries
- * again. As in verificarFechamento, a hard crash between the stamp and the send
- * (the container killed) loses this e-mail: the stamp stays and nothing retries.
- * Never throws.
+ * read back: when the stamp is this pass's, the send goes; when it is not
+ * confirmed (the read-back failed too), this pass's stamp is undone, so the
+ * e-mail is not lost. A failed send undoes only this pass's stamp, never one
+ * set by hand, so the next timer pass tries again. As in verificarFechamento, a
+ * hard crash between the stamp and the send (the container killed) loses this
+ * e-mail: the stamp stays and nothing retries. Never throws.
  */
 async function enviarUmaVez(supabase: any, p: PedidoAvisoApp, jobs: JobAvisoApp[], agora: number, enviar: Enviar): Promise<'enviado' | 'ja_avisado' | 'falhou'> {
   const marca = new Date(agora).toISOString()
+  const desfazer = async () => {
+    try {
+      await supabase.from('pedidos_premium').update({ aviso_app_completo_em: null }).eq('id', p.id).eq('aviso_app_completo_em', marca)
+    } catch (e: any) {
+      console.warn('[aviso-app-completo] undoing the stamp failed:', e?.message || e)
+    }
+  }
   let marcado = false
   try {
     const { data, error } = await supabase.from('pedidos_premium')
@@ -174,6 +184,7 @@ async function enviarUmaVez(supabase: any, p: PedidoAvisoApp, jobs: JobAvisoApp[
     marcado = !error
   } catch { /* ambiguous: read back below */ }
   if (!marcado && !(await marcaDestaPassada(supabase, p.id, marca))) {
+    await desfazer()
     console.warn(`[aviso-app-completo] stamp not confirmed pedido=${String(p.id).slice(0, 8)}; the next timer pass tries again`)
     return 'falhou'
   }
@@ -182,11 +193,7 @@ async function enviarUmaVez(supabase: any, p: PedidoAvisoApp, jobs: JobAvisoApp[
     .then(() => enviar({ email: String(p.email), token: p.token_entrega, placa: p.placa, pedidoId: p.id, partesProntas }))
     .catch(() => false)
   if (ok) return 'enviado'
-  try {
-    await supabase.from('pedidos_premium').update({ aviso_app_completo_em: null }).eq('id', p.id).eq('aviso_app_completo_em', marca)
-  } catch (e: any) {
-    console.warn('[aviso-app-completo] undoing the stamp failed:', e?.message || e)
-  }
+  await desfazer()
   console.warn(`[aviso-app-completo] send failed pedido=${String(p.id).slice(0, 8)}; the next timer pass tries again`)
   return 'falhou'
 }

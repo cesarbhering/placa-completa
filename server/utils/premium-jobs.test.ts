@@ -8,11 +8,13 @@ const RESP = [{ ufJurisdicao: 'AL', renavam: '1', indicadorRecall: true, descric
 function sbFalso(o: { snap?: any; snapDepois?: any; jobs?: any[]; aviso?: string | null; avisoLeilao?: string | null; avisoSinistro?: string | null; pagoEm?: string | null } = {}) {
   let lidas = 0
   const ops: any[] = []
+  const ors: string[] = []
   const estado = { aviso: o.aviso ?? null as string | null }
   const builder = (tabela: string) => {
     const f: any = { tabela, upd: null, filtros: [] as any[] }
     const b: any = {
       select: () => b, eq: (c: string, v: any) => { f.filtros.push([c, v]); return b }, is: () => b,
+      or: (expr: string) => { ors.push(expr); return b },
       upsert: async (rows: any, opts: any) => { ops.push({ upsert: rows, opts }); return { error: null } },
       update: (row: any) => { f.upd = row; return b },
       maybeSingle: async () => {
@@ -36,7 +38,7 @@ function sbFalso(o: { snap?: any; snapDepois?: any; jobs?: any[]; aviso?: string
     }
     return b
   }
-  return { cliente: { from: builder, rpc: vi.fn() }, ops, estado }
+  return { cliente: { from: builder, rpc: vi.fn() }, ops, estado, ors }
 }
 
 describe('fila premium_jobs', () => {
@@ -103,6 +105,20 @@ describe('fila premium_jobs', () => {
     const enviarEmail = vi.fn(async () => true)
     expect(await verificarFechamento(cliente, 'p', { enviarEmail })).toBe(true)
     expect((enviarEmail.mock.calls[0] as any)[0].idempotencia).toBe('relatorio-atualizado/p')
+  })
+
+  // Review 2 of PR #793: an app "complete" e-mail stamped at or after the last
+  // job with new data closed already carried that data. The condition is in the
+  // stamp itself, cut at the latest close among the jobs with new data only.
+  it('closing stamp: carries the app stamp condition, cut at the latest close of the jobs with new data', async () => {
+    const jobs = [
+      { fonte: 'detran', status: 'ok', ultimo_code: 200, concluido_em: '2026-11-24T17:50:00.000Z' },
+      { fonte: 'recall', status: 'ok', ultimo_code: 200, concluido_em: '2026-11-24T17:55:00.000Z' },
+      { fonte: 'renajud', status: 'ok', ultimo_code: 0, concluido_em: '2026-11-24T17:58:00.000Z' },
+    ]
+    const { cliente, ors } = sbFalso({ jobs, snap: { consulta: { response: RESP }, multas: { status: 'ok', fonte: 'detran_al' } } })
+    expect(await verificarFechamento(cliente, 'p', { enviarEmail: vi.fn(async () => true) })).toBe(true)
+    expect(ors).toEqual(['aviso_app_completo_em.is.null,aviso_app_completo_em.lt."2026-11-24T17:55:00.000Z"'])
   })
 
   it('fechamento: job aberto ou nada novo = sem e-mail', async () => {

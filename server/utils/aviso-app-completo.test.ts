@@ -77,9 +77,14 @@ function bancoFalso(tabelas: { pedidos_premium?: Linha[]; premium_jobs?: Linha[]
       gte: (c: string, v: string) => { filtros.push((l) => l[c] != null && l[c] >= v); return b },
       lte: (c: string, v: string) => { filtros.push((l) => l[c] != null && l[c] <= v); return b },
       or: (expr: string) => {
-        const partes = expr.split(',').map((p) => { const [c, op, ...v] = p.split('.'); return { c, op, v: v.join('.') } })
-        if (partes.some((p) => p.op !== 'eq')) throw new Error(`fake: or(${expr}) sem suporte`)
-        filtros.push((l) => partes.some((p) => String(l[p.c] ?? '') === p.v))
+        const partes = expr.split(',').map((p) => { const [c, op, ...v] = p.split('.'); return { c, op, v: v.join('.').replace(/^"(.*)"$/, '$1') } })
+        const vale = (l: Linha, p: { c: string; op: string; v: string }) => {
+          if (p.op === 'eq') return String(l[p.c] ?? '') === p.v
+          if (p.op === 'is' && p.v === 'null') return (l[p.c] ?? null) === null
+          if (p.op === 'lt') return l[p.c] != null && Date.parse(l[p.c]) < Date.parse(p.v)
+          throw new Error(`fake: or(${expr}) sem suporte`)
+        }
+        filtros.push((l) => partes.some((p) => vale(l, p)))
         return b
       },
       order: (col: string, o?: { ascending?: boolean }) => { ordem = { col, asc: o?.ascending !== false }; return b },
@@ -348,6 +353,8 @@ describe('app purchase: report complete e-mail', () => {
       expect(tabela({ status: 'ok', multas_total_centavos: 25780 })).toBe(true)
       expect(tabela({ status: 'ok', ipva_total_centavos: 0 })).toBe(true)
       expect(tabela({ status: 'sem_debito' })).toBe(true)
+      // Plan B of SP: the report says the DETRAN-SP did not answer.
+      expect(tabela({ status: 'ok', fonte: 'detran_sp', origem: 'sefaz_der', ipva_total_centavos: 291263 })).toBe(false)
       expect(tabela({ status: 'protegido' })).toBe(false)
       expect(tabela({ status: 'indisponivel' })).toBe(false)
       expect(tabela(null)).toBe(false)
@@ -368,6 +375,11 @@ describe('app purchase: report complete e-mail', () => {
         const snapRj = snap({ consulta: { response: [{ ufJurisdicao: 'RJ' }] }, multas })
         expect(await partesDoEnvio(pedidoApp({ relatorio_snapshot: snapRj }), [job(), job({ id: 'job-2', fonte: 'historico_veicular' })])).toBe(false)
       }
+    })
+
+    it('plan B of SP (debts from SEFAZ-SP and DER-SP, the DETRAN-SP did not answer): the short sentence', async () => {
+      const planoB = { status: 'ok', fonte: 'detran_sp', uf: 'SP', origem: 'sefaz_der', ipva_total_centavos: 291263, multas_total_centavos: 0 }
+      expect(await partesDoEnvio(pedidoApp({ relatorio_snapshot: snap({ multas: planoB }) }), [job(), job({ id: 'job-2', fonte: 'historico_veicular' })])).toBe(false)
     })
 
     it('IPVA with no value from SEFAZ (unavailable, or the pending mark expired or still running): the short sentence', async () => {
@@ -492,6 +504,74 @@ describe('app purchase: report complete e-mail', () => {
     await varrerAppCompletos(cliente, { enviar, agora: AGORA })
     expect(enviar).not.toHaveBeenCalled()
     expect(db.pedidos_premium[0].aviso_app_completo_em).toBeNull()
+  })
+
+  // Review 2 of PR #793: the queue's closing check can run late (a slow
+  // database). A "complete" e-mail stamped after the job with new data closed
+  // already carried that data: no "report updated" on top of it.
+  it('slow closing check: the sweep sends the "complete" e-mail first, and the closing check then sends nothing', async () => {
+    const { cliente, db } = bancoFalso({ pedidos_premium: [pedidoApp()], premium_jobs: [job({ ultimo_code: 200, concluido_em: ha(3) })] })
+    const enviar = enviou()
+    const atualizado = vi.fn(async () => true)
+    await varrerAppCompletos(cliente, { enviar, agora: AGORA })
+    expect(await verificarFechamento(cliente, 'pedido-app-1', { enviarEmail: atualizado })).toBe(false)
+    expect([enviar.mock.calls.length, atualizado.mock.calls.length]).toEqual([1, 0])
+    // Not stamped: a job reopened later can still send it.
+    expect(db.pedidos_premium[0].aviso_completo_em).toBeNull()
+  })
+
+  it('a job reopened after the "complete" stamp that closes later with new data: the "report updated" e-mail goes', async () => {
+    const { cliente, db } = bancoFalso({ pedidos_premium: [pedidoApp()], premium_jobs: [job({ ultimo_code: 200, concluido_em: ha(3) })] })
+    const enviar = enviou()
+    const atualizado = vi.fn(async () => true)
+    await varrerAppCompletos(cliente, { enviar, agora: AGORA })
+    await verificarFechamento(cliente, 'pedido-app-1', { enviarEmail: atualizado })
+    Object.assign(db.premium_jobs[0], { status: 'ok', ultimo_code: 200, concluido_em: ha(-5) })
+    expect(await verificarFechamento(cliente, 'pedido-app-1', { enviarEmail: atualizado })).toBe(true)
+    expect([enviar.mock.calls.length, atualizado.mock.calls.length]).toEqual([1, 1])
+  })
+
+  it('the app stamp lands between the closing check reads and its stamp: no "report updated" (the condition is in the stamp itself)', async () => {
+    const { cliente, db } = bancoFalso({ pedidos_premium: [pedidoApp()], premium_jobs: [job({ ultimo_code: 200, concluido_em: ha(3) })] })
+    const original = cliente.from.getMockImplementation()!
+    cliente.from.mockImplementation((tabela: string) => {
+      const b = original(tabela)
+      const update = b.update
+      b.update = (v: Linha) => {
+        if (v.aviso_completo_em) db.pedidos_premium[0].aviso_app_completo_em = ha(1)
+        return update(v)
+      }
+      return b
+    })
+    const atualizado = vi.fn(async () => true)
+    expect(await verificarFechamento(cliente, 'pedido-app-1', { enviarEmail: atualizado })).toBe(false)
+    expect(atualizado).not.toHaveBeenCalled()
+    expect(db.pedidos_premium[0].aviso_completo_em).toBeNull()
+  })
+
+  // Review 2 of PR #793: stamp written, an error answer, and the read-back fails
+  // too. The stamp of this pass is undone, so the e-mail is not lost.
+  it('stamp written, error answer and a failed read-back: the stamp is undone and the next pass sends once', async () => {
+    const { cliente, db } = bancoFalso({ pedidos_premium: [pedidoApp()] })
+    updateAmbiguo(cliente, true)
+    const comAmbiguo = cliente.from.getMockImplementation()!
+    let leituraFalhou = false
+    cliente.from.mockImplementation((tabela: string) => {
+      const b = comAmbiguo(tabela)
+      const select = b.select
+      b.select = (cols?: string) => {
+        if (cols === 'aviso_app_completo_em' && !leituraFalhou) { leituraFalhou = true; throw new Error('leitura ficticia falhou') }
+        return select(cols)
+      }
+      return b
+    })
+    const enviar = enviou()
+    await varrerAppCompletos(cliente, { enviar, agora: AGORA })
+    expect(leituraFalhou).toBe(true)
+    expect(enviar).not.toHaveBeenCalled()
+    expect(db.pedidos_premium[0].aviso_app_completo_em).toBeNull()
+    await varrerAppCompletos(cliente, { enviar, agora: AGORA + 60_000 })
+    expect(enviar).toHaveBeenCalledTimes(1)
   })
 
   it('a failed send undoes only its own stamp, never one set by hand in the meantime', async () => {
