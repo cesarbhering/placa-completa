@@ -205,7 +205,7 @@ export async function verificarFechamento(supabase: any, pedidoId: string, deps:
     const { data: marcado, error } = await supabase.from('pedidos_premium')
       .update({ aviso_completo_em: new Date().toISOString() }).eq('id', pedidoId).is('aviso_completo_em', null).select('id')
     if (error || !marcado?.length) return false
-    const ok = await (deps.enviarEmail ?? enviarAtualizacaoRelatorio)({ email: p.email, token: p.token_entrega, placa: p.placa, fonte, itens })
+    const ok = await (deps.enviarEmail ?? enviarAtualizacaoRelatorio)({ email: p.email, token: p.token_entrega, placa: p.placa, fonte, itens, idempotencia: `relatorio-atualizado/${pedidoId}` })
     if (!ok) await supabase.from('pedidos_premium').update({ aviso_completo_em: null }).eq('id', pedidoId)
     return ok
   } catch (e: any) {

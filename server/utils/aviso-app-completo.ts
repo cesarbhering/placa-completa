@@ -9,10 +9,12 @@
 // queue job pending or running gets ONE e-mail with the report link (approved
 // text in premium-email.ts, enviarRelatorioCompleto).
 //
-// - One e-mail per order: it reuses pedidos_premium.aviso_completo_em, the stamp
-//   of the queue's "report updated" e-mail. Whoever wins the update made on
-//   "still null" sends; when the "report updated" e-mail already went, nothing
-//   goes from here. Site orders never enter.
+// - One e-mail per order: its own stamp, pedidos_premium.aviso_app_completo_em.
+//   Whoever wins the update made on "still null" sends. When the queue's
+//   "report updated" e-mail already went (aviso_completo_em), nothing goes from
+//   here. The stamps are separate so that a queue job reset by hand after this
+//   e-mail can still send the "report updated" one (review of PR #793); the
+//   closing check of the queue only looks at its own column.
 // - Trigger: a sweep on every pass of the queue timer (pc-premium-jobs.timer ->
 //   POST /api/premium/jobs/run), loose and registered in flight. It covers the
 //   report that was already complete at delivery (no job), the one the queue
@@ -27,12 +29,15 @@
 //   history, which the Basica does not have.
 // - First paragraph (Cesar, 24/11/2026): it names the DETRAN and the vehicle
 //   history only when both are in the report (partesCitadasProntas); a state
-//   with no DETRAN coverage, a block that did not come or an exhausted job of
-//   either gets the short sentence.
-import { enviarRelatorioCompleto } from './premium-email'
+//   with no DETRAN coverage, debts the report says did not come, a block that
+//   did not come or an exhausted job of either gets the short sentence.
+// - A Google Play test purchase gets it too (on purpose: it shows the e-mail
+//   working), like the delivery e-mail.
+import { enviarRelatorioCompleto, RETENCAO_CHAVE_IDEMPOTENCIA_MS } from './premium-email'
 import { estaEncerrando } from './tarefas-em-voo'
 import { ESPERA_FONTES_MS } from '../../shared/fontes-relatorio'
 import { historicoCompleto, type HistoricoVeicular } from '../../shared/historico-veicular'
+import { resumoQuitar, type BlocoDetranQuitar } from '../../shared/detran-quitar'
 
 export interface PedidoAvisoApp {
   id: string
@@ -45,6 +50,7 @@ export interface PedidoAvisoApp {
   forma_pagamento?: string | null
   pix_provider?: string | null
   aviso_completo_em?: string | null
+  aviso_app_completo_em?: string | null
   entregue_em?: string | null
   snapshot_em?: string | null
 }
@@ -55,13 +61,17 @@ export interface JobAvisoApp { pedido_id?: string; fonte?: string; status: strin
 export const FOLGA_FECHAMENTO_MS = 2 * 60 * 1000
 /** Completed longer ago than this: no e-mail (old orders at a deploy, a send that keeps failing). */
 export const JANELA_AVISO_MS = 2 * 60 * 60 * 1000
-/** Oldest delivery the sweep reads: a queue that took hours to close still counts. */
-const JANELA_CANDIDATOS_MS = 24 * 60 * 60 * 1000
+/**
+ * Oldest delivery the sweep reads: a queue that took hours to close still
+ * counts. Never longer than the provider keeps the idempotency key, so every
+ * attempt (all after the delivery) stays inside the key of the first one.
+ */
+export const JANELA_CANDIDATOS_MS = RETENCAO_CHAVE_IDEMPOTENCIA_MS
 const MAX_CANDIDATOS = 100
 /** Send attempts per pass, so one pass stays short; the rest go on the next. */
 const MAX_TENTATIVAS_POR_PASSADA = 20
 
-const CAMPOS = 'id,placa,token_entrega,plano,status,email,canal,forma_pagamento,pix_provider,aviso_completo_em,entregue_em,snapshot_em'
+const CAMPOS = 'id,placa,token_entrega,plano,status,email,canal,forma_pagamento,pix_provider,aviso_completo_em,aviso_app_completo_em,entregue_em,snapshot_em'
 const FILTRO_APP = 'canal.eq.app,forma_pagamento.eq.google_play,pix_provider.eq.google_play'
 
 /**
@@ -87,7 +97,7 @@ export function situacaoAvisoApp(p: PedidoAvisoApp, jobs: JobAvisoApp[], agora: 
   if (!compraDoApp(p)) return 'nao_e_app'
   if ((p.plano || 'completa') !== 'completa') return 'fora_do_plano'
   if (p.status !== 'entregue') return 'nao_entregue'
-  if (p.aviso_completo_em) return 'ja_avisado'
+  if (p.aviso_completo_em || p.aviso_app_completo_em) return 'ja_avisado'
   if (!String(p.email || '').includes('@')) return 'sem_email'
   const relatorio = instante(p.snapshot_em)
   if (relatorio == null) return 'sem_relatorio'
@@ -100,56 +110,80 @@ export function situacaoAvisoApp(p: PedidoAvisoApp, jobs: JobAvisoApp[], agora: 
 }
 
 /**
- * The two parts the full first paragraph names are in the report: the DETRAN
- * answered (fines and debts, or none: 'sem_debito'; protected data does not
- * count) and the vehicle history came whole (a partial answer may lack the
- * owners). An exhausted queue job of either part gives the short sentence.
+ * The two parts the full first paragraph names are in the report:
+ * - the DETRAN answered (fines and debts, or none: 'sem_debito'; protected data
+ *   does not count), and by the report's own rule (resumoQuitar) the debts came:
+ *   no "debts not available" notice (DETRAN-RJ, always 'ok', with or without the
+ *   fines of the nada consta) and no IPVA left without its value from SEFAZ
+ *   (AL and MG);
+ * - the vehicle history came whole (a partial answer may lack the owners).
+ * An exhausted queue job of either part gives the short sentence.
  */
-export function partesCitadasProntas(a: { detranStatus?: string | null; historico?: unknown; jobs: JobAvisoApp[] }): boolean {
+export function partesCitadasProntas(a: { detran?: unknown; historico?: unknown; jobs: JobAvisoApp[]; agora?: number }): boolean {
   if (a.jobs.some((j) => (j.fonte === 'detran' || j.fonte === 'historico_veicular') && j.status === 'esgotado')) return false
-  return ['ok', 'sem_debito'].includes(String(a.detranStatus ?? '')) && historicoCompleto(a.historico as HistoricoVeicular | null)
+  const bloco = a.detran && typeof a.detran === 'object' ? a.detran as BlocoDetranQuitar & { status?: string } : null
+  if (!bloco || !['ok', 'sem_debito'].includes(String(bloco.status ?? ''))) return false
+  const resumo = resumoQuitar({ bloco, agora: a.agora })
+  if (resumo.avisoDebitos != null || resumo.ipvaSemValor != null) return false
+  return historicoCompleto(a.historico as HistoricoVeicular | null)
 }
 
 type Enviar = (a: { email: string; token: string; placa: string; pedidoId: string; partesProntas: boolean }) => Promise<boolean>
 
-/** Only the two report fields the first paragraph depends on. Unreadable: the short sentence, which is always true. */
-async function lerPartesCitadas(supabase: any, pedidoId: string, jobs: JobAvisoApp[]): Promise<boolean> {
+/** Only the two report blocks the first paragraph depends on. Unreadable: the short sentence, which is always true. */
+async function lerPartesCitadas(supabase: any, pedidoId: string, jobs: JobAvisoApp[], agora: number): Promise<boolean> {
   try {
     const { data, error } = await supabase.from('pedidos_premium')
-      .select('detran_status:relatorio_snapshot->multas->>status,historico:relatorio_snapshot->historicoVeicular')
+      .select('detran:relatorio_snapshot->multas,historico:relatorio_snapshot->historicoVeicular')
       .eq('id', pedidoId).maybeSingle()
     if (error || !data) return false
-    return partesCitadasProntas({ detranStatus: data.detran_status, historico: data.historico, jobs })
+    return partesCitadasProntas({ detran: data.detran, historico: data.historico, jobs, agora })
+  } catch {
+    return false
+  }
+}
+
+/** After an ambiguous answer to the stamp (a gateway error with the write done): is the stamp this pass's? */
+async function marcaDestaPassada(supabase: any, pedidoId: string, marca: string): Promise<boolean> {
+  try {
+    const { data } = await supabase.from('pedidos_premium').select('aviso_app_completo_em').eq('id', pedidoId).maybeSingle()
+    return instante(data?.aviso_app_completo_em) === Date.parse(marca)
   } catch {
     return false
   }
 }
 
 /**
- * Stamps aviso_completo_em on "still null" and sends. A failed send undoes the
- * stamp, so the next timer pass tries again: while this stamp holds nobody else
- * can stamp, so the undo needs no other filter (as in verificarFechamento).
+ * Stamps aviso_app_completo_em on "still null" (and only while the "report
+ * updated" e-mail has not gone) and sends. An ambiguous answer to the stamp is
+ * read back: when the stamp is this pass's, the send goes. A failed send undoes
+ * only this pass's stamp, never one set by hand, so the next timer pass tries
+ * again. As in verificarFechamento, a hard crash between the stamp and the send
+ * (the container killed) loses this e-mail: the stamp stays and nothing retries.
  * Never throws.
  */
 async function enviarUmaVez(supabase: any, p: PedidoAvisoApp, jobs: JobAvisoApp[], agora: number, enviar: Enviar): Promise<'enviado' | 'ja_avisado' | 'falhou'> {
   const marca = new Date(agora).toISOString()
+  let marcado = false
   try {
-    const { data: marcado, error } = await supabase.from('pedidos_premium')
-      .update({ aviso_completo_em: marca })
-      .eq('id', p.id).eq('status', 'entregue').is('aviso_completo_em', null)
+    const { data, error } = await supabase.from('pedidos_premium')
+      .update({ aviso_app_completo_em: marca })
+      .eq('id', p.id).eq('status', 'entregue').is('aviso_app_completo_em', null).is('aviso_completo_em', null)
       .select('id')
-    if (error || !marcado?.length) return 'ja_avisado'
-  } catch (e: any) {
-    console.warn('[aviso-app-completo] stamp failed:', e?.message || e)
+    if (!error && !data?.length) return 'ja_avisado'
+    marcado = !error
+  } catch { /* ambiguous: read back below */ }
+  if (!marcado && !(await marcaDestaPassada(supabase, p.id, marca))) {
+    console.warn(`[aviso-app-completo] stamp not confirmed pedido=${String(p.id).slice(0, 8)}; the next timer pass tries again`)
     return 'falhou'
   }
-  const partesProntas = await lerPartesCitadas(supabase, p.id, jobs)
+  const partesProntas = await lerPartesCitadas(supabase, p.id, jobs, agora)
   const ok = await Promise.resolve()
     .then(() => enviar({ email: String(p.email), token: p.token_entrega, placa: p.placa, pedidoId: p.id, partesProntas }))
     .catch(() => false)
   if (ok) return 'enviado'
   try {
-    await supabase.from('pedidos_premium').update({ aviso_completo_em: null }).eq('id', p.id)
+    await supabase.from('pedidos_premium').update({ aviso_app_completo_em: null }).eq('id', p.id).eq('aviso_app_completo_em', marca)
   } catch (e: any) {
     console.warn('[aviso-app-completo] undoing the stamp failed:', e?.message || e)
   }
@@ -160,9 +194,9 @@ async function enviarUmaVez(supabase: any, p: PedidoAvisoApp, jobs: JobAvisoApp[
 let varrendoDesde: number | null = null
 
 /**
- * One pass: app orders delivered in the last day, with an e-mail and no
- * aviso_completo_em, whose report is complete. One pass at a time per
- * container; between containers the stamp decides. Never throws.
+ * One pass: app orders delivered in the last day, with an e-mail and neither
+ * stamp, whose report is complete. One pass at a time per container; between
+ * containers the stamp decides. Never throws.
  */
 export async function varrerAppCompletos(
   supabase: any,
@@ -177,6 +211,7 @@ export async function varrerAppCompletos(
       .select(CAMPOS)
       .eq('status', 'entregue')
       .is('aviso_completo_em', null)
+      .is('aviso_app_completo_em', null)
       .not('email', 'is', null)
       .not('snapshot_em', 'is', null)
       .or(FILTRO_APP)

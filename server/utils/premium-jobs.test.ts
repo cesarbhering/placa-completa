@@ -98,6 +98,13 @@ describe('fila premium_jobs', () => {
     expect(enviarEmail).toHaveBeenCalledTimes(1)
   })
 
+  it('closing e-mail carries an idempotency key per order and type (review of PR #793)', async () => {
+    const { cliente } = sbFalso({ jobs: [{ fonte: 'detran', status: 'ok', ultimo_code: 200 }], snap: { consulta: { response: RESP }, multas: { status: 'ok', fonte: 'detran_al' } } })
+    const enviarEmail = vi.fn(async () => true)
+    expect(await verificarFechamento(cliente, 'p', { enviarEmail })).toBe(true)
+    expect((enviarEmail.mock.calls[0] as any)[0].idempotencia).toBe('relatorio-atualizado/p')
+  })
+
   it('fechamento: job aberto ou nada novo = sem e-mail', async () => {
     const enviarEmail = vi.fn(async () => true)
     expect(await verificarFechamento(sbFalso({ jobs: [{ fonte: 'detran', status: 'pendente' }] }).cliente, 'p', { enviarEmail })).toBe(false)

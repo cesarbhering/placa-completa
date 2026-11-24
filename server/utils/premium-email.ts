@@ -406,8 +406,24 @@ export function montarAtualizacaoRelatorio(a: { link: string; placa: string; fon
   return { assunto: `Atualizamos o seu relatório da placa ${a.placa}`, html, texto }
 }
 
+/** How long the e-mail provider keeps an idempotency key (its documentation: 24 h). */
+export const RETENCAO_CHAVE_IDEMPOTENCIA_MS = 24 * 60 * 60 * 1000
+
+/**
+ * The provider refused a key already used with another body: the first
+ * request with that key went, so the e-mail was sent.
+ */
+function chaveJaUsada(e: any): boolean {
+  return e?.statusCode === 409 && e?.data?.name === 'invalid_idempotent_request'
+}
+
+/**
+ * `idempotencia` (the queue's closing check passes one per order and type):
+ * a send accepted with a lost answer never becomes two e-mails on a retry.
+ * Callers without it (the late DETRAN notice) keep the old behavior.
+ */
 export async function enviarAtualizacaoRelatorio(
-  a: { email: string | null | undefined; token: string; placa: string; fonte: string; itens: string[] },
+  a: { email: string | null | undefined; token: string; placa: string; fonte: string; itens: string[]; idempotencia?: string },
   deps: { config?: any; enviar?: (msg: any) => Promise<void> } = {},
 ): Promise<boolean> {
   const config = deps.config ?? useRuntimeConfig()
@@ -417,9 +433,14 @@ export async function enviarAtualizacaoRelatorio(
   const msg = { from: 'PlacaCompleta <contato@placacompleta.com.br>', reply_to: 'contato@placacompleta.com.br', to: [a.email], subject: comTagAmbiente(assunto, config), html, text: texto }
   try {
     if (deps.enviar) await deps.enviar(msg)
-    else await $fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' }, body: msg })
+    else {
+      const headers: Record<string, string> = { Authorization: `Bearer ${config.resendApiKey}`, 'Content-Type': 'application/json' }
+      if (a.idempotencia) headers['Idempotency-Key'] = a.idempotencia
+      await $fetch('https://api.resend.com/emails', { method: 'POST', headers, body: msg })
+    }
     return true
   } catch (e: any) {
+    if (a.idempotencia && chaveJaUsada(e)) return true
     console.error('[premium-email] atualizacao: envio falhou:', String(e?.data?.message || e?.message || e))
     return false
   }
@@ -666,7 +687,7 @@ export async function enviarRelatorioCompleto(
     })
     return true
   } catch (e: any) {
-    if (e?.statusCode === 409 && e?.data?.name === 'invalid_idempotent_request') return true
+    if (chaveJaUsada(e)) return true
     console.error(`[premium-email] report complete: send failed pedido=${String(a.pedidoId).slice(0, 8)}:`, String(e?.statusCode || ''), String(e?.data?.message || e?.message || e).slice(0, 200))
     return false
   }

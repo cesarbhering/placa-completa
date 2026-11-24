@@ -245,3 +245,36 @@ describe('report complete e-mail of app purchases', () => {
     erro.mockRestore()
   })
 })
+
+// Review of PR #793: the queue's "report updated" e-mail also carries a key per
+// order and type, so a send accepted with a lost answer never becomes two.
+describe('report updated e-mail: idempotency key', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  const itens = { email: 'cliente@exemplo.com', token: 'TOKFICTICIO', placa: 'ABC1D23', fonte: 'DETRAN-SP', itens: [] as string[] }
+
+  it('with a key: it goes in the header, and a key already used with another body counts as sent', async () => {
+    const chamadas: any[] = []
+    vi.stubGlobal('useRuntimeConfig', () => ({ resendApiKey: 're_x' }))
+    vi.stubGlobal('$fetch', vi.fn(async (_url: string, opts: any) => { chamadas.push(opts); return { id: 'em_ficticio' } }))
+    const { enviarAtualizacaoRelatorio } = await import('./premium-email')
+    expect(await enviarAtualizacaoRelatorio({ ...itens, idempotencia: 'relatorio-atualizado/pedido-ficticio-1' })).toBe(true)
+    expect(chamadas[0].headers['Idempotency-Key']).toBe('relatorio-atualizado/pedido-ficticio-1')
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('$fetch', vi.fn(async () => { throw Object.assign(new Error('409'), { statusCode: 409, data: { name: 'invalid_idempotent_request' } }) }))
+    expect(await enviarAtualizacaoRelatorio({ ...itens, idempotencia: 'relatorio-atualizado/pedido-ficticio-1' })).toBe(true)
+    erro.mockRestore()
+  })
+
+  it('without a key (the late DETRAN notice): no header, and every error stays a failure, as before', async () => {
+    const chamadas: any[] = []
+    vi.stubGlobal('useRuntimeConfig', () => ({ resendApiKey: 're_x' }))
+    vi.stubGlobal('$fetch', vi.fn(async (_url: string, opts: any) => { chamadas.push(opts); return { id: 'em_ficticio' } }))
+    const { enviarAtualizacaoRelatorio } = await import('./premium-email')
+    expect(await enviarAtualizacaoRelatorio(itens)).toBe(true)
+    expect(chamadas[0].headers).not.toHaveProperty('Idempotency-Key')
+    const erro = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('$fetch', vi.fn(async () => { throw Object.assign(new Error('409'), { statusCode: 409, data: { name: 'invalid_idempotent_request' } }) }))
+    expect(await enviarAtualizacaoRelatorio(itens)).toBe(false)
+    erro.mockRestore()
+  })
+})
