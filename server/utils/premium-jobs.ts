@@ -214,8 +214,12 @@ export async function verificarFechamento(supabase: any, pedidoId: string, deps:
       ? `aviso_app_completo_em.is.null,aviso_app_completo_em.lt."${new Date(Math.max(...fecharam)).toISOString()}"`
       : 'aviso_app_completo_em.is.null'
     // Marca ANTES de enviar: dois lotes simultaneos nao mandam 2 e-mails.
+    // The returned row must carry aviso_app_completo_em: PostgREST 12.2.3 to
+    // 14.3 applies the or filter again over it, and without the column every
+    // stamp fails with 42703 (review of PR #793).
     const { data: marcado, error } = await supabase.from('pedidos_premium')
-      .update({ aviso_completo_em: new Date().toISOString() }).eq('id', pedidoId).is('aviso_completo_em', null).or(semCompletoDepois).select('id')
+      .update({ aviso_completo_em: new Date().toISOString() }).eq('id', pedidoId).is('aviso_completo_em', null).or(semCompletoDepois).select('id,aviso_app_completo_em')
+    if (error) console.warn(`[premium-jobs] closing stamp failed pedido=${String(pedidoId).slice(0, 8)} code=${error.code || 'sem codigo'}`)
     if (error || !marcado?.length) return false
     // Idempotency key per order and type: a send accepted with a lost answer is
     // not sent again on a retry. Within the key's 24 h, clearing

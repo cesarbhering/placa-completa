@@ -31,6 +31,8 @@ function bancoFalso(tabelas: { pedidos_premium?: Linha[]; premium_jobs?: Linha[]
     let limite: number | null = null
     // Aliased JSON paths (alias:col->a->>b), as PostgREST answers them.
     let campos: { alias: string; caminho: string[]; texto: boolean }[] | null = null
+    let selecionadas: string | null = null
+    const colunasOr: string[] = []
     const projetar = (l: Linha) => {
       if (!campos) return { ...l }
       const out: Linha = {}
@@ -45,6 +47,12 @@ function bancoFalso(tabelas: { pedidos_premium?: Linha[]; premium_jobs?: Linha[]
       const linhas = db[tabela] ?? (db[tabela] = [])
       let alvo = linhas.filter((l) => filtros.every((f) => f(l)))
       if (valores) {
+        // PostgREST 12.2.3 to 14.3 applies the or filter again over the
+        // returned row: an or column missing from the select is 42703, and
+        // nothing is written (review of PR #793).
+        const pedidas = selecionadas?.split(',').map((c) => c.trim())
+        const falta = pedidas ? colunasOr.find((c) => !pedidas.includes(c)) : undefined
+        if (falta) return { data: null, error: { code: '42703', message: `column ${falta} does not exist` } }
         for (const l of alvo) Object.assign(l, valores)
         return { data: alvo.map((l) => ({ ...l })), error: null }
       }
@@ -58,6 +66,7 @@ function bancoFalso(tabelas: { pedidos_premium?: Linha[]; premium_jobs?: Linha[]
     const depois = () => new Promise((r) => setTimeout(r, 0))
     const b: any = {
       select: (cols?: string) => {
+        selecionadas = cols ?? null
         if (cols && cols.includes(':')) {
           campos = cols.split(',').map((c) => c.trim()).filter(Boolean).map((c) => {
             const [alias, expr] = c.includes(':') ? c.split(':') : [c, c]
@@ -85,6 +94,7 @@ function bancoFalso(tabelas: { pedidos_premium?: Linha[]; premium_jobs?: Linha[]
           throw new Error(`fake: or(${expr}) sem suporte`)
         }
         filtros.push((l) => partes.some((p) => vale(l, p)))
+        colunasOr.push(...partes.map((p) => p.c))
         return b
       },
       order: (col: string, o?: { ascending?: boolean }) => { ordem = { col, asc: o?.ascending !== false }; return b },
@@ -547,6 +557,29 @@ describe('app purchase: report complete e-mail', () => {
     expect(await verificarFechamento(cliente, 'pedido-app-1', { enviarEmail: atualizado })).toBe(false)
     expect(atualizado).not.toHaveBeenCalled()
     expect(db.pedidos_premium[0].aviso_completo_em).toBeNull()
+  })
+
+  it('closing stamp error: a warning with the error code and the order prefix, with no e-mail nor plate', async () => {
+    const { cliente } = bancoFalso({ pedidos_premium: [pedidoApp()], premium_jobs: [job({ ultimo_code: 200, concluido_em: ha(1) })] })
+    const original = cliente.from.getMockImplementation()!
+    cliente.from.mockImplementation((tabela: string) => {
+      const b = original(tabela)
+      const update = b.update
+      b.update = (v: Linha) => {
+        update(v)
+        if (v.aviso_completo_em) b.then = (res: any, rej: any) => Promise.resolve({ data: null, error: { code: 'PGRST000', message: 'timeout ficticio' } }).then(res, rej)
+        return b
+      }
+      return b
+    })
+    const atualizado = vi.fn(async () => true)
+    expect(await verificarFechamento(cliente, 'pedido-app-1', { enviarEmail: atualizado })).toBe(false)
+    expect(atualizado).not.toHaveBeenCalled()
+    const aviso = (console.warn as any).mock.calls.map((c: any[]) => c.join(' ')).find((t: string) => t.includes('PGRST000'))
+    expect(aviso).toContain('pedido-a')
+    expect(aviso).not.toContain('pedido-app-1')
+    expect(aviso).not.toContain('cliente@exemplo.com')
+    expect(aviso).not.toContain('ABC1D23')
   })
 
   // Review 2 of PR #793: stamp written, an error answer, and the read-back fails
