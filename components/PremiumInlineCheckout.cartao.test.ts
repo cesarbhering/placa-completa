@@ -5,8 +5,9 @@ import { mount, flushPromises } from '@vue/test-utils'
 // Card payment of the inline checkout, with the component mounted: the amount
 // check against the screen, the held intent paid on the next click (and
 // dropped when what it was created for changes), the click lock, answers
-// that arrive after the buyer changed the order, the decline message and the
-// Pix offered after a failed attempt. Fake data only.
+// that arrive after the buyer changed the order, the decline message, the
+// Pix offered after a failed attempt, the card fields mounted again when the
+// step comes back and no intent while they are incomplete. Fake data only.
 
 vi.mock('~/composables/useAnalytics', async (importOriginal) => {
   // The real rule of when a card payment converts on the spot (only "succeeded").
@@ -27,6 +28,8 @@ const EMAIL = 'buyer@example.test'
 const CHEIO = 4490
 const DESC = 449
 const COM_CUPOM = CHEIO - DESC
+const MSG_PREENCHA = 'Preencha o número, a validade e o CVV do cartão.'
+const MSG_INCERTO = 'Não conseguimos confirmar o pagamento. Confira o aviso do banco e o seu e-mail antes de tentar de novo.'
 
 let chamadas: { url: string; body: any }[] = []
 let respostaCupom: (b: any) => any
@@ -38,8 +41,13 @@ let ler: ReturnType<typeof vi.fn>
 let assign: ReturnType<typeof vi.fn>
 let trackConversionPaga: ReturnType<typeof vi.fn>
 let histAdd: ReturnType<typeof vi.fn>
-/** `change` listener of each Stripe card field, by field type. */
+/** `change` listener of each Stripe card field, by field type (the latest one created). */
 let aoMudar: Record<string, (e: any) => void> = {}
+/** Card fields created by the Stripe mock, in order, and what happened to each. */
+let camposCriados: { tipo: string; elemento: any; montadoEm: Element | null; destruido: boolean; focos: number }[] = []
+let respostaStatus: () => any
+/** The next mount throws once, as if the field could not be put on the page. */
+let falharMontagem = false
 let homolog = false
 const intents = () => chamadas.filter((c) => c.url === '/api/premium/cartao-intent')
 const confirmados = () => confirmar.mock.calls.map((c: any) => c[0])
@@ -59,17 +67,47 @@ beforeEach(() => {
   trackConversionPaga = vi.fn()
   histAdd = vi.fn()
   homolog = false
+  respostaStatus = () => ({ status: 'aguardando_pagamento' })
+  falharMontagem = false
   ;(globalThis as any).$fetch = vi.fn(async (url: string, opts: any = {}) => {
     chamadas.push({ url, body: opts.body })
     if (url === '/api/premium/preview') return { placa: opts.body.placa, encontrado: true, marca: 'Marca', modelo: 'Modelo', ano: 2020, raw: {} }
     if (url === '/api/premium/coupon') return await respostaCupom(opts.body)
     if (url === '/api/premium/cartao-intent') return await respostaIntent(opts)
     if (url === '/api/premium/checkout') return await respostaPix(opts.body)
+    if (url === '/api/premium/status') return respostaStatus()
     return {}
   })
   aoMudar = {}
+  camposCriados = []
+  // Faithful to Stripe.js where it matters here: one live Element per type in
+  // a group (a second create throws until the first is destroyed), and mount
+  // throws when the selector matches no node on the page.
   ;(window as any).Stripe = () => ({
-    elements: () => ({ create: (tipo: string) => ({ mount() {}, on(ev: string, fn: (e: any) => void) { if (ev === 'change') aoMudar[tipo] = fn } }) }),
+    elements: () => {
+      const vivos = new Map<string, any>()
+      return {
+        create: (tipo: string) => {
+          if (vivos.has(tipo)) throw new Error(`Can only create one Element of type ${tipo}.`)
+          const c = { tipo, elemento: null as any, montadoEm: null as Element | null, destruido: false, focos: 0 }
+          c.elemento = {
+            mount(sel: string) {
+              if (falharMontagem) { falharMontagem = false; throw new Error('mount failed') }
+              const no = document.querySelector(sel)
+              if (!no) throw new Error(`The selector you specified (${sel}) applies to no DOM elements that are currently on the page.`)
+              c.montadoEm = no
+            },
+            on(ev: string, fn: (e: any) => void) { if (ev === 'change') aoMudar[tipo] = fn },
+            destroy() { c.destruido = true; vivos.delete(tipo) },
+            focus() { c.focos++ },
+          }
+          vivos.set(tipo, c.elemento)
+          camposCriados.push(c)
+          return c.elemento
+        },
+        getElement: (tipo: string) => vivos.get(tipo) ?? null,
+      }
+    },
     confirmCardPayment: confirmar,
     retrievePaymentIntent: ler,
   })
@@ -88,7 +126,7 @@ beforeEach(() => {
 })
 
 let w: any
-afterEach(() => { w?.unmount(); document.body.innerHTML = '' })
+afterEach(() => { w?.unmount(); document.body.innerHTML = ''; vi.useRealTimers(); vi.restoreAllMocks() })
 
 const Comp = (await import('./PremiumInlineCheckout.vue')).default
 async function abrir(props: any = {}) {
@@ -106,7 +144,13 @@ async function digitarCupom(codigo: string) {
   await w.find('#pic-cupom').trigger('blur'); await flushPromises()
 }
 const digitarEmail = (e: string) => w.find('#pic-email').setValue(e)
-async function abaCartao() { await w.findAll('.pic-tab')[1].trigger('click'); await flushPromises() }
+const CAMPOS = ['cardNumber', 'cardExpiry', 'cardCvc'] as const
+/** The buyer types a complete card: each Stripe field reports complete. */
+async function preencherCartao() { for (const t of CAMPOS) aoMudar[t]?.({ complete: true, empty: false }); await flushPromises() }
+/** Card tab with the fields still empty. */
+async function abaCartaoVazia() { await w.findAll('.pic-tab')[1].trigger('click'); await flushPromises() }
+/** Card tab, with a complete card typed in. */
+async function abaCartao() { await abaCartaoVazia(); await preencherCartao() }
 const botao = () => w.find('.pic-cartao-form .pic-btn--primary')
 async function pagar() { await botao().trigger('click'); await flushPromises() }
 const preco = () => w.find('.pic-faixa__preco b').text()
@@ -728,7 +772,7 @@ describe('inline checkout: network or Stripe error on the card confirmation', ()
       await pagar()
       expect(ler.mock.calls).toEqual([['sec1']])
       expect(assign).not.toHaveBeenCalled()
-      expect(erro()).toBe('Falha de conexão.')
+      expect(erro()).toBe(MSG_INCERTO)
       expect(botaoPix().exists()).toBe(false)
     })
   }
@@ -756,5 +800,290 @@ describe('inline checkout: network or Stripe error on the card confirmation', ()
     recusar(ERROS_STRIPE.insufficient_funds)
     await pagar()
     expect(ler).not.toHaveBeenCalled()
+  })
+})
+
+/** Card fields mounted in nodes that are on the page now, in creation order. */
+const camposNaTela = () => camposCriados.filter((c) => !c.destruido && c.montadoEm && document.body.contains(c.montadoEm))
+const IDS_CAMPOS = ['pic-card-number', 'pic-card-expiry', 'pic-card-cvc']
+
+describe('inline checkout: card fields after the confirm step leaves and comes back', () => {
+  async function corrigirPlaca() {
+    await w.find('.pic-lapis').trigger('click')
+    await w.find('#pic-placa-edit').setValue(OUTRA_PLACA)
+    await w.find('.pic-campo .pic-btn').trigger('click')
+    await flushPromises()
+  }
+
+  it('plate corrected on the card tab: the old fields are destroyed, new ones are mounted in the new spots and the payment uses them', async () => {
+    await abrir()
+    await digitarEmail(EMAIL)
+    await abaCartao()
+    const antigos = camposCriados.slice()
+    await corrigirPlaca()
+    expect(antigos.every((c) => c.destruido)).toBe(true)
+    const novos = camposNaTela()
+    expect(novos.map((c) => c.montadoEm?.id)).toEqual(IDS_CAMPOS)
+    expect(desabilitado('.pic-cartao-form .pic-btn--primary')).toBe(false)
+    await preencherCartao()
+    respostaIntent = intentDe(CHEIO)
+    await pagar()
+    expect(confirmar.mock.calls[0][1].payment_method.card).toBe(novos[0].elemento)
+  })
+
+  it('the new fields start empty: paying without typing the card again creates no intent', async () => {
+    await abrir()
+    await digitarEmail(EMAIL)
+    await abaCartao()
+    await corrigirPlaca()
+    await pagar()
+    expect(intents()).toHaveLength(0)
+    expect(erro()).toBe(MSG_PREENCHA)
+  })
+
+  it('leaving the step clears the card message and the Pix offer', async () => {
+    await prontoComCupom()
+    recusar(ERROS_STRIPE.insufficient_funds)
+    await pagar()
+    expect(botaoPix().exists()).toBe(true)
+    await corrigirPlaca()
+    expect(erro()).toBe('')
+    expect(botaoPix().exists()).toBe(false)
+  })
+
+  it('Pix expired and "Gerar novo Pix": the fields leave with the step and the card tab mounts new ones', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    await abrir()
+    await digitarEmail(EMAIL)
+    await abaCartao()
+    await abaPix().trigger('click'); await flushPromises()
+    expect(camposCriados.every((c) => c.destruido)).toBe(true)
+    respostaStatus = () => ({ status: 'expirado' })
+    await vi.advanceTimersByTimeAsync(4000); await flushPromises()
+    await w.findAll('button').find((b: any) => b.text().includes('Gerar novo Pix'))!.trigger('click'); await flushPromises()
+    expect(camposNaTela()).toHaveLength(0) // back on the Pix tab: nothing to mount yet
+    expect(desabilitado('.pic-cartao-form .pic-btn--primary')).toBe(true) // no fields, no card payment
+    await abaCartao()
+    expect(camposNaTela().map((c) => c.montadoEm?.id)).toEqual(IDS_CAMPOS)
+  })
+})
+
+describe('inline checkout: card fields created once per mount', () => {
+  it('two quick clicks on the card tab create one set of fields', async () => {
+    await abrir()
+    const aba = w.findAll('.pic-tab')[1]
+    await Promise.all([aba.trigger('click'), aba.trigger('click')])
+    await flushPromises()
+    expect(camposCriados.map((c) => c.tipo)).toEqual(['cardNumber', 'cardExpiry', 'cardCvc'])
+  })
+})
+
+describe('inline checkout: no card intent while the card fields are incomplete', () => {
+  async function semCartao() { await abrir(); await digitarEmail(EMAIL); await abaCartaoVazia() }
+
+  it('nothing typed: no intent, the message, the number field focused, no Pix offer', async () => {
+    await semCartao()
+    await pagar()
+    expect(intents()).toHaveLength(0)
+    expect(erro()).toBe(MSG_PREENCHA)
+    expect(camposCriados.map((c) => c.focos)).toEqual([1, 0, 0])
+    expect(botaoPix().exists()).toBe(false)
+    expect(desabilitado('.pic-cartao-form .pic-btn--primary')).toBe(false)
+  })
+
+  it('number and CVV complete, expiry not: the expiry field gets the focus', async () => {
+    await semCartao()
+    aoMudar.cardNumber({ complete: true, empty: false })
+    aoMudar.cardCvc({ complete: true, empty: false })
+    await pagar()
+    expect(intents()).toHaveLength(0)
+    expect(camposCriados.map((c) => c.focos)).toEqual([0, 1, 0])
+  })
+
+  it('a field with a typing error: its own message and the focus', async () => {
+    await semCartao()
+    aoMudar.cardNumber({ complete: true, empty: false })
+    aoMudar.cardExpiry({ complete: false, empty: false, error: { type: 'validation_error', code: 'invalid_expiry_year_past', message: 'O ano de validade do cartão já passou.' } })
+    aoMudar.cardCvc({ complete: true, empty: false })
+    await pagar()
+    expect(intents()).toHaveLength(0)
+    expect(erro()).toBe('O ano de validade do cartão já passou.')
+    expect(camposCriados.map((c) => c.focos)).toEqual([0, 1, 0])
+  })
+
+  it('all three complete: the intent is created', async () => {
+    await semCartao()
+    await preencherCartao()
+    await pagar()
+    expect(intents()).toHaveLength(1)
+  })
+
+  it('a field emptied after a decline: no new intent and no Pix offer', async () => {
+    await prontoComCupom()
+    recusar(ERROS_STRIPE.insufficient_funds)
+    await pagar()
+    aoMudar.cardCvc({ complete: false, empty: true })
+    await pagar()
+    expect(intents()).toHaveLength(1)
+    expect(erro()).toBe(MSG_PREENCHA)
+    expect(botaoPix().exists()).toBe(false)
+  })
+
+  it('an amount held for confirmation stays held while a field is incomplete, and is paid once the card is complete again', async () => {
+    await prontoComCupom()
+    respostaIntent = intentDe(CHEIO)
+    await pagar()
+    aoMudar.cardCvc({ complete: false, empty: false })
+    await pagar()
+    expect(confirmados()).toEqual([])
+    expect(erro()).toBe(MSG_PREENCHA)
+    expect(preco()).toBe(reais(CHEIO))
+    aoMudar.cardCvc({ complete: true, empty: false })
+    await pagar()
+    expect(confirmados()).toEqual(['sec1'])
+    expect(intents()).toHaveLength(1)
+  })
+})
+
+describe('inline checkout: unknown payment state after a network or Stripe error', () => {
+  const falha = { type: 'api_connection_error', message: 'Falha de conexão.' }
+
+  it('intent read as requires_action (the bank may still be approving it in its app): the message only, no Pix offer', async () => {
+    await prontoComCupom()
+    recusar(falha)
+    ler.mockImplementationOnce(async () => ({ paymentIntent: { status: 'requires_action' } }))
+    await pagar()
+    expect(erro()).toBe(MSG_INCERTO)
+    expect(botaoPix().exists()).toBe(false)
+    expect(assign).not.toHaveBeenCalled()
+  })
+
+  it('no answer from the read within 10 s: the message only, no Pix offer, and the card button works again', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    await prontoComCupom()
+    recusar(falha)
+    ler.mockImplementationOnce(() => new Promise(() => {}))
+    await botao().trigger('click')
+    await vi.advanceTimersByTimeAsync(9_900)
+    expect(botao().text()).toContain('Processando')
+    await vi.advanceTimersByTimeAsync(100)
+    await flushPromises()
+    expect(erro()).toBe(MSG_INCERTO)
+    expect(botaoPix().exists()).toBe(false)
+    expect(desabilitado('.pic-cartao-form .pic-btn--primary')).toBe(false)
+  })
+})
+
+/**
+ * Stripe.js not loaded yet: its script tag is held (no network) and the
+ * returned function makes it arrive.
+ */
+function stripeAindaCarregando(): () => void {
+  const fabrica = (window as any).Stripe
+  ;(window as any).Stripe = undefined
+  let chegar = () => {}
+  const append = document.head.appendChild.bind(document.head)
+  vi.spyOn(document.head, 'appendChild').mockImplementation((el: any) => {
+    if (el?.tagName === 'SCRIPT' && /stripe/.test(el.src)) {
+      chegar = () => { (window as any).Stripe = fabrica; el.onload() }
+      return el
+    }
+    return append(el)
+  })
+  return () => chegar()
+}
+/** Mounted card fields that are still alive. */
+const camposVivosNaTela = () => camposNaTela().length
+
+describe('inline checkout: the step leaves while Stripe.js is still loading', () => {
+  it('plate corrected while it loads: back on the card tab the fields are mounted, with no error line', async () => {
+    const chegarStripe = stripeAindaCarregando()
+    await abrir()
+    await digitarEmail(EMAIL)
+    await abaCartaoVazia() // Stripe.js loading
+    const previa = adiado<any>()
+    const fetchAntes = (globalThis as any).$fetch
+    ;(globalThis as any).$fetch = vi.fn(async (url: string, opts: any = {}) => (url === '/api/premium/preview' ? previa.p : fetchAntes(url, opts)))
+    await w.find('.pic-lapis').trigger('click')
+    await w.find('#pic-placa-edit').setValue(OUTRA_PLACA)
+    await w.find('.pic-campo .pic-btn').trigger('click'); await flushPromises() // step 'loading'
+    chegarStripe(); await flushPromises() // Stripe.js arrives while the step is away
+    expect(camposCriados).toHaveLength(0) // no fields for spots that are not on the page
+    previa.soltar({ placa: OUTRA_PLACA, encontrado: true, marca: 'Marca', modelo: 'Modelo', ano: 2020, raw: {} }); await flushPromises()
+    await abaCartaoVazia() // and the buyer taps the card tab again
+    expect(camposVivosNaTela()).toBe(3)
+    expect(erro()).toBe('')
+    expect(desabilitado('.pic-cartao-form .pic-btn--primary')).toBe(false)
+  })
+
+  it('Pix generated while it loads: after "Gerar novo Pix" the card tab mounts the fields, with no error line', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    const chegarStripe = stripeAindaCarregando()
+    await abrir()
+    await digitarEmail(EMAIL)
+    await abaCartaoVazia() // Stripe.js loading
+    await abaPix().trigger('click'); await flushPromises() // Pix generated: step 'pending'
+    chegarStripe(); await flushPromises()
+    expect(camposCriados).toHaveLength(0) // no fields for spots that are not on the page
+    respostaStatus = () => ({ status: 'expirado' })
+    await vi.advanceTimersByTimeAsync(4000); await flushPromises()
+    await w.findAll('button').find((b: any) => b.text().includes('Gerar novo Pix'))!.trigger('click'); await flushPromises()
+    await abaCartaoVazia()
+    expect(camposVivosNaTela()).toBe(3)
+    expect(erro()).toBe('')
+    expect(desabilitado('.pic-cartao-form .pic-btn--primary')).toBe(false)
+  })
+})
+
+describe('inline checkout: what the step keeps when it leaves', () => {
+  it('an amount held for confirmation keeps its explanation when the step leaves and comes back, and is paid on the next click', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    await prontoComCupom()
+    respostaIntent = intentDe(CHEIO)
+    await pagar()
+    const explicacao = erro()
+    expect(explicacao).toContain('Toque em pagar de novo para confirmar.')
+    await abaPix().trigger('click'); await flushPromises() // Pix generated: the step leaves
+    respostaStatus = () => ({ status: 'expirado' })
+    await vi.advanceTimersByTimeAsync(4000); await flushPromises()
+    await w.findAll('button').find((b: any) => b.text().includes('Gerar novo Pix'))!.trigger('click'); await flushPromises()
+    await abaCartaoVazia()
+    expect(erro()).toBe(explicacao)
+    expect(preco()).toBe(reais(CHEIO))
+    await preencherCartao()
+    await pagar()
+    expect(confirmados()).toEqual(['sec1'])
+    expect(intents()).toHaveLength(1)
+  })
+})
+
+describe('inline checkout: incomplete fields after a failure that offered the Pix', () => {
+  it('a field edited while the intent request is in flight, the request fails, then pay with the field incomplete: no Pix offer', async () => {
+    await prontoComCupom()
+    const porta = adiado<void>()
+    respostaIntent = async () => { await porta.p; throw new Error('rede') }
+    await botao().trigger('click'); await flushPromises()
+    aoMudar.cardCvc({ complete: false, empty: false }) // the buyer edits the CVV during the request
+    porta.soltar(); await flushPromises()
+    expect(botaoPix().exists()).toBe(true) // network failure: Pix offered
+    await pagar()
+    expect(erro()).toBe(MSG_PREENCHA)
+    expect(botaoPix().exists()).toBe(false)
+    expect(intents()).toHaveLength(1)
+  })
+})
+
+describe('inline checkout: a card field run that failed halfway', () => {
+  it('fields created but not mounted do not block the next try, and the failure line goes once they mount', async () => {
+    await abrir()
+    await digitarEmail(EMAIL)
+    falharMontagem = true
+    await abaCartaoVazia()
+    expect(erro()).toBe('Não conseguimos carregar o pagamento com cartão. Use o Pix.')
+    expect(camposVivosNaTela()).toBe(0)
+    await abaCartaoVazia() // the buyer taps the card tab again
+    expect(camposVivosNaTela()).toBe(3)
+    expect(erro()).toBe('')
+    expect(desabilitado('.pic-cartao-form .pic-btn--primary')).toBe(false)
   })
 })
