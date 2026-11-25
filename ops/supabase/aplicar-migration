@@ -38,12 +38,14 @@ import sys
 import urllib.error
 import urllib.request
 
-ALVOS = {"prod": ("fivalpkfneadngxiflea", "PlacaCompleta"),
+PROD_REF = "fivalpkfneadngxiflea"
+ALVOS = {"prod": (PROD_REF, "PlacaCompleta"),
          "staging": ("nqhlxsvggrumgcceamwg", "placa-completa-staging")}
 # Since 25/11/2026 the production database runs on the site's own server, not on Supabase.
 # pc-db-meta (127.0.0.1:8781) answers the same Management API route with the same token and the
 # same response format, running the SQL on that database. Staging stays on Supabase.
-API_BASE = {"fivalpkfneadngxiflea": os.environ.get("PC_DB_META_URL", "http://127.0.0.1:8781")}
+# An empty PC_DB_META_URL falls back to the default instead of building a relative URL.
+API_BASE = {PROD_REF: os.environ.get("PC_DB_META_URL") or "http://127.0.0.1:8781"}
 TOKEN_FILE = "/root/.supabase/access-token"
 NOME_OK = re.compile(r"^(\d{14})_([a-z0-9_]+)\.sql$")
 # Statements that end, open or escape the transaction, or cannot run inside one.

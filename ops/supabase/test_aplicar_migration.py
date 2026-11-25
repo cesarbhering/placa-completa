@@ -122,6 +122,64 @@ class Isolamento(unittest.TestCase):
         self.assertNotIn("/root/.supabase/access-token", abertos)
 
 
+class Rota(unittest.TestCase):
+    """Production goes to the local route (pc-db-meta); staging stays on Supabase."""
+
+    def _url(self, mod, ref, caminho="database/query"):
+        visto = []
+
+        class Resposta:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return b"[]"
+
+        def falso(req, timeout=None):
+            visto.append(req.full_url)
+            return Resposta()
+
+        with tempfile.NamedTemporaryFile("w") as tok:
+            tok.write("fake-token")
+            tok.flush()
+            with mock.patch.object(mod, "TOKEN_FILE", tok.name), \
+                    mock.patch.object(mod.urllib.request, "urlopen", falso):
+                mod.api(ref, "select 1", caminho=caminho)
+        self.assertEqual(len(visto), 1)
+        return visto[0]
+
+    def _carregar(self, env):
+        with mock.patch.dict(os.environ, env):
+            ld = importlib.machinery.SourceFileLoader("aplicar_migration_env", _p)
+            mod = importlib.util.module_from_spec(importlib.util.spec_from_loader("aplicar_migration_env", ld))
+            ld.exec_module(mod)
+        return mod
+
+    def test_prod_query_and_identity_go_to_the_local_route(self):
+        self.assertEqual(self._url(m, m.PROD_REF), f"http://127.0.0.1:8781/v1/projects/{m.PROD_REF}/database/query")
+        self.assertEqual(self._url(m, m.PROD_REF, caminho=""), f"http://127.0.0.1:8781/v1/projects/{m.PROD_REF}")
+
+    def test_staging_stays_on_supabase(self):
+        self.assertEqual(self._url(m, "nqhlxsvggrumgcceamwg"),
+                         "https://api.supabase.com/v1/projects/nqhlxsvggrumgcceamwg/database/query")
+
+    def test_route_key_is_the_prod_ref_of_the_targets(self):
+        mod = self._carregar({})
+        self.assertEqual(mod.ALVOS["prod"][0], mod.PROD_REF)
+        self.assertIn(mod.ALVOS["prod"][0], mod.API_BASE)
+
+    def test_empty_env_falls_back_to_the_default_route(self):
+        mod = self._carregar({"PC_DB_META_URL": ""})
+        self.assertEqual(mod.API_BASE[mod.PROD_REF], "http://127.0.0.1:8781")
+
+    def test_env_overrides_the_route(self):
+        mod = self._carregar({"PC_DB_META_URL": "http://127.0.0.1:9999"})
+        self.assertEqual(self._url(mod, mod.PROD_REF), f"http://127.0.0.1:9999/v1/projects/{mod.PROD_REF}/database/query")
+
+
 class Corpo(unittest.TestCase):
     def test_file_registration_and_reload_go_in_one_string(self):
         c = m.corpo("create table t (id int) -- no newline at the end", "20261119200000", "leads")
