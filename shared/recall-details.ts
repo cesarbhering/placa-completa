@@ -17,3 +17,23 @@ export function recallDetailsLabel(c: { risco?: string | null; oQueFazer?: strin
   if (c.oQueFazer) return 'Ver o que fazer'
   return null
 }
+
+/**
+ * Safety cap of a campaign's free text (risk, what to do). Folded, the text can
+ * come whole: the cap only stops a runaway source (the base already ends its
+ * texts at 1500 characters).
+ */
+export const RECALL_TEXT_CAP = 3000
+
+/**
+ * The text whole when it fits in `max`; otherwise cut at the end of a word, with
+ * "…", the ellipsis included in `max`. Expects collapsed whitespace. Only a text
+ * with no space at all (not real copy) is cut at the cap itself.
+ */
+export function capAtWord(text: string, max: number): string {
+  if (text.length <= max) return text
+  const room = text.slice(0, max - 1)
+  const lastSpace = room.lastIndexOf(' ')
+  const cut = text[max - 1] === ' ' || lastSpace <= 0 ? room : room.slice(0, lastSpace)
+  return `${cut.replace(/[\s,;:.]+$/, '')}…`
+}

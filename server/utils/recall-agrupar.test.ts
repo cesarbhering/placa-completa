@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { agruparCampanhasRecall, hashCampanhas, promptAgrupar, FONTE_CUSTO, FONTE_AGRUPAMENTO } from './recall-agrupar'
 import type { CampanhaBase } from '../../shared/recall-associado'
+import { madeUpText } from '../../tests/helpers/texto-ficticio'
 
 const C = (nome: string, ano: string): CampanhaBase => ({ codigo: null, nome, modelo: 'Voyage', ano_modelo: ano, inicio: null, nivel: 'firme' })
 const CAMPS = [C('Gerador de gás do airbag do motorista', '2011 a 2014'), C('Gerador de gás do airbag do motorista e/ou do passageiro', '2009 a 2016'), C('Bomba de combustível', '2012')]
@@ -86,6 +87,20 @@ describe('agruparCampanhasRecall', () => {
     expect(await agruparCampanhasRecall([CAMPS[0]], { chaveApi: 'k', fetcher: fetcher as any })).toBe(null)
     expect(await agruparCampanhasRecall(CAMPS, { chaveApi: null, fetcher: fetcher as any })).toBe(null)
     expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it('the agent reads only the first 600 characters of the risk: same hash and prompt as before', () => {
+    // Since 24/11/2026 the order keeps the whole risk; until then it was cut at
+    // 600 (what older orders still hold). The agent's input must not change, so
+    // groupings already in cache stay valid and the prompt keeps its size.
+    const R650 = madeUpText(650)
+    const inteiro = [{ ...CAMPS[2], risco: R650 }, CAMPS[0]]
+    const cortadoComoAntes = [{ ...CAMPS[2], risco: R650.slice(0, 600) }, CAMPS[0]]
+    expect(hashCampanhas(inteiro)).toBe(hashCampanhas(cortadoComoAntes))
+    // Hash of this set computed with the code before the change.
+    expect(hashCampanhas(cortadoComoAntes)).toBe('700fc7a6009abf9d58e3ca2aa565b508b1fcc83a')
+    expect(promptAgrupar(inteiro)).toBe(promptAgrupar(cortadoComoAntes))
+    expect(promptAgrupar(inteiro)).not.toContain(R650.slice(600))
   })
 
   it('prompt sem travessao e com a regra dos indices', () => {

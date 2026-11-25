@@ -45,9 +45,15 @@ const SCHEMA = {
   additionalProperties: false,
 }
 
+// The agent reads only the first 600 characters of the risk, as it did while the
+// whole text stopped there (until 24/11/2026): same prompt size within the 5 s
+// timeout and same hash, so the groupings already in cache stay valid.
+const AGENT_RISK_CHARS = 600
+
 /** Linha de cada campanha no prompt e no hash (so o que identifica a campanha). */
 function linhaCampanha(c: CampanhaBase): string {
-  return [c.codigo || '', c.nome || '', c.modelo || '', c.ano_modelo ?? '', c.fabricacaoDe || '', c.fabricacaoAte || '', c.risco || '']
+  const risco = String(c.risco || '').replace(/\s+/g, ' ').trim().slice(0, AGENT_RISK_CHARS)
+  return [c.codigo || '', c.nome || '', c.modelo || '', c.ano_modelo ?? '', c.fabricacaoDe || '', c.fabricacaoAte || '', risco]
     .map((v) => String(v).replace(/\s+/g, ' ').trim()).join(' | ')
 }
 
