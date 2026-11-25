@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { recallDetailsLabel, RECALL_DESCRIPTION_LABEL, capAtWord, RECALL_TEXT_CAP } from './recall-details'
+import { recallDetailsLabel, RECALL_DESCRIPTION_LABEL, capAtWord, RECALL_TEXT_CAP, endOldCut, OLD_RECALL_TEXT_CUT } from './recall-details'
 import { madeUpText } from '../tests/helpers/texto-ficticio'
 
 describe('capAtWord (safety cap of a free campaign text)', () => {
@@ -26,7 +26,7 @@ describe('capAtWord (safety cap of a free campaign text)', () => {
   })
 
   it('never cuts in the middle of a word', () => {
-    expect(capAtWord('abc defgh ijk', 8)).toBe('abc…')
+    expect(capAtWord('abcdef ghi jklmn', 13)).toBe('abcdef ghi…')
     // The cut falls right at the end of a word: that word stays.
     expect(capAtWord('abc def ghi', 8)).toBe('abc def…')
     // Punctuation at the cut goes before the ellipsis.
@@ -35,6 +35,37 @@ describe('capAtWord (safety cap of a free campaign text)', () => {
 
   it('a text with no space at all (not real copy) is cut at the cap, still with "…"', () => {
     expect(capAtWord('abcdefghij', 5)).toBe('abcd…')
+  })
+
+  it('a last space before half the cap does not throw the text away: cut at the cap', () => {
+    const r = capAtWord(`Veja ${'x'.repeat(3200)}`, RECALL_TEXT_CAP)
+    expect(r).toBe(`Veja ${'x'.repeat(2994)}…`)
+    expect(r).toHaveLength(RECALL_TEXT_CAP)
+  })
+})
+
+describe('endOldCut (texts held cut at 600 by orders before 24/11/2026)', () => {
+  it('the old cut length is 600', () => {
+    expect(OLD_RECALL_TEXT_CUT).toBe(600)
+  })
+
+  it('a 600-character text cut in the middle of a word ends at the last whole word, with "…"', () => {
+    const inicio = madeUpText(586)
+    const cortado = `${inicio} freio dianteiro`.slice(0, 600)
+    expect(cortado).toHaveLength(600)
+    expect(cortado.endsWith(' freio diantei')).toBe(true)
+    expect(endOldCut(cortado)).toBe(`${inicio} freio…`)
+  })
+
+  it('when the old cut fell right after a word, that word stays', () => {
+    const inicio = madeUpText(590)
+    const t = `${inicio} acidente.`
+    expect(t).toHaveLength(600)
+    expect(endOldCut(t)).toBe(`${inicio} acidente…`)
+  })
+
+  it('any other length is shown as it is', () => {
+    for (const n of [120, 599, 601, 650, 1500]) expect(endOldCut(madeUpText(n))).toBe(madeUpText(n))
   })
 })
 

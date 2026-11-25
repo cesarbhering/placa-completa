@@ -121,6 +121,15 @@ describe('other recall cards with long descriptions', () => {
     expect(fechado).not.toContain(DESCRICAO.slice(0, 40))
   })
 
+  it('manufacturer lookup card: a campaign with no title keeps its description open', () => {
+    const w = montar({ recallAbertoGM: true, recallCampanhasGM: [{ titulo: '', descricao: DESCRICAO }] })
+    const card = w.find('.rel__recall')
+    expect(card.find('details').exists()).toBe(false)
+    const corpo = card.findAll('p.rel__recall-body')
+    expect(corpo).toHaveLength(1)
+    expect(corpo[0].text()).toBe(DESCRICAO)
+  })
+
   it('public record card: the component stays, the description folds', () => {
     const w = montar({
       recallPendente: true,
@@ -164,5 +173,15 @@ describe('on paper the folded texts print open', () => {
   it('print CSS shows closed <details> content and hides the "Ver ..." line of the new accordions', () => {
     expect(print).toContain('details::details-content { content-visibility: visible; display: block; }')
     expect(print).toMatch(/\.rel__recall-details > summary \{ display: none; \}/)
+  })
+
+  it('no print rule hides the folded block itself: only its "Ver ..." line', () => {
+    const regras = [...print.replace(/\/\/[^\n]*/g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .map((m) => ({ seletores: m[1].split(',').map((s) => s.trim()), declaracoes: m[2] }))
+    const escondem = regras.filter((r) => /display:\s*none|visibility:\s*hidden|content-visibility:\s*hidden/.test(r.declaracoes))
+    expect(escondem.length).toBeGreaterThan(3)
+    // Anything that can reach the folded block: its classes or any <details>.
+    const atingem = escondem.flatMap((r) => r.seletores).filter((s) => /rel__recall-(details|grupo)|(^|[\s>+~(])details\b/.test(s))
+    expect(atingem).toEqual(['.rel__recall-details > summary'])
   })
 })

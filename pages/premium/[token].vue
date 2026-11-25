@@ -2919,11 +2919,13 @@ onUnmounted(() => {
                 </div>
                 <template v-for="(c, idx) in recallCampanhasGM" :key="'gm' + idx">
                   <p v-if="c.titulo" class="rel__recall-sub rel__recall-sub--item">{{ c.titulo }}</p>
-                  <!-- The manufacturer's description is a long paragraph: folded like the risk above. -->
-                  <details v-if="c.descricao" class="rel__recall-grupo rel__recall-details">
+                  <!-- The manufacturer's description is a long paragraph: folded like the risk above
+                       while the title stays in view. With no title it is the only text, so it stays open. -->
+                  <details v-if="c.titulo && c.descricao" class="rel__recall-grupo rel__recall-details">
                     <summary>{{ RECALL_DESCRIPTION_LABEL }}</summary>
                     <p class="rel__recall-body">{{ c.descricao }}</p>
                   </details>
+                  <p v-else-if="c.descricao" class="rel__recall-body">{{ c.descricao }}</p>
                 </template>
                 <p class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
               </template>

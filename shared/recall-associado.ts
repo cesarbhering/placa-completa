@@ -9,6 +9,7 @@
 // atendido. Nao afirmar que foi feito; sem travessao.
 
 import { agrupamentoValido, type AgrupamentoRecall } from './recall-agrupamento'
+import { endOldCut } from './recall-details'
 
 export interface CampanhaBase {
   codigo: string | null
@@ -155,8 +156,9 @@ export function cardRecallAssociado(e: {
       anoDe(c.inicio) ? `iniciada em ${anoDe(c.inicio)}` : null,
       modelos || null,
     ].filter(Boolean).join(' · '),
-    ...(c.risco ? { risco: c.risco } : {}),
-    ...(c.oQueFazer ? { oQueFazer: c.oQueFazer } : {}),
+    // Orders before 24/11/2026 hold these cut at 600 mid-word: shown ending at a whole word.
+    ...(c.risco ? { risco: endOldCut(c.risco) } : {}),
+    ...(c.oQueFazer ? { oQueFazer: endOldCut(c.oQueFazer) } : {}),
     ...(textoFabricacao(c.fabricacaoDe, c.fabricacaoAte, e.anoFabricacao) ? { fabricacao: textoFabricacao(c.fabricacaoDe, c.fabricacaoAte, e.anoFabricacao) } : {}),
   })
   // Agrupamento do agente (so se cobre a lista inteira, um indice por grupo).
@@ -192,8 +194,8 @@ export function cardRecallAssociado(e: {
         g.modelos || null,
       ].filter(Boolean).join(' · '),
       // So quando vierem: sem eles o item fica igual ao de antes.
-      ...(g.c.risco ? { risco: g.c.risco } : {}),
-      ...(g.c.oQueFazer ? { oQueFazer: g.c.oQueFazer } : {}),
+      ...(g.c.risco ? { risco: endOldCut(g.c.risco) } : {}),
+      ...(g.c.oQueFazer ? { oQueFazer: endOldCut(g.c.oQueFazer) } : {}),
       ...(textoFabricacao(g.c.fabricacaoDe, g.c.fabricacaoAte, e.anoFabricacao) ? { fabricacao: textoFabricacao(g.c.fabricacaoDe, g.c.fabricacaoAte, e.anoFabricacao) } : {}),
     })),
     situacao: SITUACAO_RECALL_ASSOCIADO,

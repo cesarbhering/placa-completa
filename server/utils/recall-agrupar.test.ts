@@ -93,14 +93,18 @@ describe('agruparCampanhasRecall', () => {
     // Since 24/11/2026 the order keeps the whole risk; until then it was cut at
     // 600 (what older orders still hold). The agent's input must not change, so
     // groupings already in cache stay valid and the prompt keeps its size.
-    const R650 = madeUpText(650)
-    const inteiro = [{ ...CAMPS[2], risco: R650 }, CAMPS[0]]
-    const cortadoComoAntes = [{ ...CAMPS[2], risco: R650.slice(0, 600) }, CAMPS[0]]
+    // Letters on both sides of the 600 mark, so a cut at 599 or 601 shows.
+    const R = `${madeUpText(590)} ${'a'.repeat(60)}`
+    expect(R[599]).not.toBe(' ')
+    expect(R[600]).not.toBe(' ')
+    const inteiro = [{ ...CAMPS[2], risco: R }, CAMPS[0]]
+    const cortadoComoAntes = [{ ...CAMPS[2], risco: R.slice(0, 600) }, CAMPS[0]]
     expect(hashCampanhas(inteiro)).toBe(hashCampanhas(cortadoComoAntes))
-    // Hash of this set computed with the code before the change.
-    expect(hashCampanhas(cortadoComoAntes)).toBe('700fc7a6009abf9d58e3ca2aa565b508b1fcc83a')
+    // Hash of this set computed with the code of the base commit (7448eeb).
+    expect(hashCampanhas(cortadoComoAntes)).toBe('d8e51ec915a8025dd17b0927adf4f63d97ed6829')
     expect(promptAgrupar(inteiro)).toBe(promptAgrupar(cortadoComoAntes))
-    expect(promptAgrupar(inteiro)).not.toContain(R650.slice(600))
+    expect(promptAgrupar(inteiro)).toContain(R.slice(0, 600))
+    expect(promptAgrupar(inteiro)).not.toContain(R.slice(0, 601))
   })
 
   it('prompt sem travessao e com a regra dos indices', () => {
