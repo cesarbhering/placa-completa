@@ -3,6 +3,7 @@ import { anteriorATabelaFipe, MENSAGEM_FIPE_ANTERIOR } from '~/shared/fipe-cober
 import { textoUrf } from '~/shared/urf-receita'
 import { trackOrderCreatedOpenAI } from '~/composables/useAnalytics'
 import { cardRecallAssociado } from '~/shared/recall-associado'
+import { recallDetailsLabel, RECALL_DESCRIPTION_LABEL } from '~/shared/recall-details'
 import { BASE_LEILAO_TEXTO } from '~/shared/base-leilao'
 import { PROTEGIDO_STATUS, PROTEGIDO_EXPLICA, PROTEGIDO_ORIENTA } from '~/shared/detran-protegido'
 import { faixaLicenciamento } from '~/shared/licenciamento-faixa'
@@ -2881,8 +2882,12 @@ onUnmounted(() => {
                   <p v-if="c.meta" class="rel__recall-item-meta">{{ c.meta }}</p>
                   <!-- Detalhe da campanha (leiloes-api, 15/out), so quando vier. -->
                   <p v-if="c.fabricacao" class="rel__recall-item-meta">{{ c.fabricacao }}.</p>
-                  <p v-if="c.risco" class="rel__recall-item-det"><span>Risco:</span> {{ c.risco }}</p>
-                  <p v-if="c.oQueFazer" class="rel__recall-item-det"><span>O que fazer:</span> {{ c.oQueFazer }}</p>
+                  <!-- Long risk and what-to-do texts fold, closed by default (Cesar, 24/11/2026); they print open. -->
+                  <details v-if="recallDetailsLabel(c)" class="rel__recall-grupo rel__recall-details">
+                    <summary>{{ recallDetailsLabel(c) }}</summary>
+                    <p v-if="c.risco" class="rel__recall-item-det"><span>Risco:</span> {{ c.risco }}</p>
+                    <p v-if="c.oQueFazer" class="rel__recall-item-det"><span>O que fazer:</span> {{ c.oQueFazer }}</p>
+                  </details>
                   <!-- Grupo de campanhas parecidas (agente, 20/out): frase leiga e a lista original. -->
                   <p v-if="c.resumo" class="rel__recall-item-det">{{ c.resumo }}</p>
                   <details v-if="c.campanhas && c.campanhas.length" class="rel__recall-grupo">
@@ -2914,7 +2919,11 @@ onUnmounted(() => {
                 </div>
                 <template v-for="(c, idx) in recallCampanhasGM" :key="'gm' + idx">
                   <p v-if="c.titulo" class="rel__recall-sub rel__recall-sub--item">{{ c.titulo }}</p>
-                  <p class="rel__recall-body">{{ c.descricao }}</p>
+                  <!-- The manufacturer's description is a long paragraph: folded like the risk above. -->
+                  <details v-if="c.descricao" class="rel__recall-grupo rel__recall-details">
+                    <summary>{{ RECALL_DESCRIPTION_LABEL }}</summary>
+                    <p class="rel__recall-body">{{ c.descricao }}</p>
+                  </details>
                 </template>
                 <p class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
               </template>
@@ -2933,10 +2942,12 @@ onUnmounted(() => {
                     <p v-if="recallCampanhas.length > 1 && (c.campanha || c.data_inicio)" class="rel__recall-sub rel__recall-sub--item">
                       {{ legendaCampanha(c) }}
                     </p>
-                    <p class="rel__recall-body">
-                      <b v-if="c.componente">Componente: {{ c.componente }}.</b>
-                      {{ c.descricao }}
-                    </p>
+                    <p v-if="c.componente" class="rel__recall-body"><b>Componente: {{ c.componente }}.</b></p>
+                    <!-- The component stays in view; the long description folds. -->
+                    <details v-if="c.descricao" class="rel__recall-grupo rel__recall-details">
+                      <summary>{{ RECALL_DESCRIPTION_LABEL }}</summary>
+                      <p class="rel__recall-body">{{ c.descricao }}</p>
+                    </details>
                   </template>
                   <p class="rel__recall-foot">{{ RECALL_ORIENTACAO }}</p>
                 </template>
@@ -4915,6 +4926,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   &__recall-grupo ul { margin: 6px 0 0; padding-left: 18px; }
   &__recall-grupo li { margin: 2px 0; }
   &__recall-grupo small { color: #6b7280; }
+  // Folded long texts (24/11/2026): same look as the group list; the description
+  // inside sits as close to the summary as the risk lines do.
+  &__recall-details > .rel__recall-body { margin-top: 6px; }
   &__recall-item-meta { margin: 3px 0 0; font-size: calc(12px * var(--rel-fs, 1)); color: #555; }
   &__recall-st--pend { color: #a32020; white-space: nowrap; }
   &__recall-st--ok { color: #14622f; white-space: nowrap; }
@@ -5562,6 +5576,9 @@ $fonte: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   details > summary { list-style: none; }
   details > summary::after, details > summary::marker { content: none; }
   details::details-content { content-visibility: visible; display: block; }
+  // Recall texts folded on screen (24/11/2026) print open; the "Ver ..." line
+  // means nothing on paper.
+  .rel__recall-details > summary { display: none; }
 
   // Graficos e tabelas: largura do papel.
   svg, canvas, img { max-width: 100%; }
