@@ -64,6 +64,10 @@ export function comitentePublico(bruto: unknown): string | null {
 
 // Chaves que nunca saem (dados de processo ou das partes).
 const CHAVE_PROIBIDA = /processo|autos|\bpartes?\b|executad|exequente|\breu\b|\bautor\b|requerent|requerid|devedor|credor|cpf|advogad|\boab\b/i
+// Internal keys of the auctions index that never reach the browser (25/11/2026): the
+// source document URL (a PDF on the house, government or gazette site, which may list
+// people), its host, and our storage keys. The page never shows them.
+const CHAVE_INTERNA = /^(url_documento|host_origem|r2_key|r2_key_retido|anexo)$/i
 
 /** Limpa qualquer valor (texto, lista, objeto) de processo/CNJ/CPF e de chaves proibidas. */
 function limparFundo(v: unknown, prof = 0): unknown {
@@ -74,6 +78,7 @@ function limparFundo(v: unknown, prof = 0): unknown {
     const out: Record<string, unknown> = {}
     for (const [k, x] of Object.entries(v as Record<string, unknown>)) {
       if (CHAVE_PROIBIDA.test(k.replace(/_/g, ' '))) continue
+      if (CHAVE_INTERNA.test(k)) continue
       if (/comitente/i.test(k)) { out[k] = comitentePublico(x); continue }
       out[k] = limparFundo(x, prof + 1)
     }

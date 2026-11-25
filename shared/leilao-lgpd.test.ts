@@ -50,6 +50,19 @@ describe('LGPD do historico de leilao', () => {
     expect(JSON.stringify(p)).not.toMatch(/0001234|00012345620198260100|FULANO/)
   })
 
+  it('internal keys of the index never reach the browser: source document URL, host and storage keys (25/11/2026)', () => {
+    const p = {
+      fonte: 'canhao:exemplo.gov.br', fonte_tipo: 'privado', nivel: 'confirmado',
+      detalhes: {
+        url_documento: 'https://exemplo.gov.br/editais/lista.pdf', host_origem: 'exemplo.gov.br', r2_key: 'canhao/abc.pdf',
+        r2_key_retido: 'canhao/restrito/abc.pdf', anexo: 'vlance/x/edital.pdf', km: '45000', cor: 'PRATA', fotos_pendente: true,
+      },
+    }
+    const out: any = passagemLgpd(p)
+    for (const k of ['url_documento', 'host_origem', 'r2_key', 'r2_key_retido', 'anexo']) expect(out.detalhes).not.toHaveProperty(k)
+    expect(out.detalhes).toMatchObject({ km: '45000', cor: 'PRATA', fotos_pendente: true })
+    expect(JSON.stringify(historicoLgpd({ passagens: [p] }))).not.toMatch(/url_documento|host_origem|r2_key|exemplo\.gov\.br\/editais/)
+  })
   it('historico: formato desconhecido volta igual; passagens saneadas', () => {
     expect(historicoLgpd(null)).toBeNull()
     expect(historicoLgpd({ x: 1 })).toEqual({ x: 1 })
