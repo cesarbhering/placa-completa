@@ -2,6 +2,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import REAL from './__fixtures__/parceiro-leilao-real.json'
 import SEM from './__fixtures__/parceiro-historico-sem-registros.json'
+// The partner answers with the order's own VIN, as in a real hit. A different full VIN
+// makes the card "possivel", and since 25/11/2026 a "possivel" card never triggers the
+// late notice (aviso-leilao.test.ts covers that case).
+const REAL_MESMO_CHASSI = { ...REAL, resultados: { ...REAL.resultados, leilao: { ...REAL.resultados.leilao, leiloes: REAL.resultados.leilao.leiloes.map((l: any) => ({ ...l, chassi: (SEM as any).dados.chassi })) } } }
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
 import { pedidosComCaminhos } from '../../tests/helpers/supabase-caminhos'
 
@@ -70,7 +74,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', async (url: string) => {
     chamadas.push(url)
     if (url.endsWith('/api/Auth/login')) return { status: 200, text: async () => JSON.stringify({ token: 'jwt' }) }
-    return foraDoAr ? { status: 503, text: async () => 'fora' } : { status: 200, text: async () => JSON.stringify(REAL) }
+    return foraDoAr ? { status: 503, text: async () => 'fora' } : { status: 200, text: async () => JSON.stringify(REAL_MESMO_CHASSI) }
   })
 })
 
