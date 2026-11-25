@@ -349,7 +349,10 @@ async function buscarSinalLeilao() {
         marca: b.marca || null,
         modelo: b.modelo || null,
         ano: b.ano || null,
-        anoFab: b.anoFabricacao || null,
+        // Ano de fabricacao so quando difere do ano-modelo. Sem o bloco `extra` da
+        // consulta, os dois vem do mesmo `ano`, e o par copiado faria o comparador
+        // de leilao descartar lote verdadeiro pela regra "o ano tem que bater".
+        anoFab: b.anoFabricacao && String(b.anoFabricacao) !== String(b.ano) ? b.anoFabricacao : null,
         anoModelo: b.ano || null,
         cor: b.cor || null,
         uf: b.uf || null,
