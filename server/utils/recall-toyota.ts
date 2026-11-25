@@ -5,6 +5,8 @@
 // So Toyota/Lexus por ora (a base de match e so dessas marcas). O gate de marca
 // fica no endpoint; aqui a chamada e generica.
 
+import { capAtWord, RECALL_TEXT_CAP } from '../../shared/recall-details'
+
 export interface RecallMatch {
   recall_id: string | number
   code: string | null
@@ -40,11 +42,17 @@ export interface PerfilRecall {
   ano_mod?: number | null
 }
 
-/** Texto livre da campanha: so string, sem espaco sobrando, com teto. */
+/**
+ * Free campaign text: string only, whitespace collapsed. It comes whole, since
+ * the report folds it in a closed accordion (24/11/2026); above the safety cap
+ * it is cut at the end of a word, with "…". It used to stop at 600 characters
+ * in the middle of a word. The grouping agent still reads only the first 600
+ * (server/utils/recall-agrupar.ts).
+ */
 function textoCampo(v: unknown): string | null {
   if (typeof v !== 'string') return null
-  const s = v.replace(/\s+/g, ' ').trim().slice(0, 600)
-  return s || null
+  const s = v.replace(/\s+/g, ' ').trim()
+  return s ? capAtWord(s, RECALL_TEXT_CAP) : null
 }
 
 function sanearMatches(bruto: unknown): RecallMatch[] {

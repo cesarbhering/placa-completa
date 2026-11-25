@@ -1,5 +1,35 @@
 import { describe, it, expect } from 'vitest'
 import { cardRecallAssociado, SITUACAO_RECALL_ASSOCIADO, type RecallBase } from './recall-associado'
+import { madeUpText } from '../tests/helpers/texto-ficticio'
+
+describe('texts held cut at 600 by orders before 24/11/2026', () => {
+  const inicio = madeUpText(586)
+  const cortado = `${inicio} freio dianteiro`.slice(0, 600)
+  const campanha = (codigo: string) => ({ codigo, nome: `Campanha fictícia ${codigo}`, modelo: 'MODELO TESTE', ano_modelo: '2019', inicio: null, nivel: 'firme' as const, risco: cortado, oQueFazer: cortado })
+
+  it('show up ending at the last whole word, with "…"; the stored campaign is untouched', () => {
+    const base: RecallBase = { consultado: true, sinal: 'firme', fonte: 'base_recalls', campanhas: [campanha('T1')] }
+    const c = cardRecallAssociado({ sinal: 'firme', base, pendente: false, montadoraComCampanhas: false })!
+    expect(c.itens[0].risco).toBe(`${inicio} freio…`)
+    expect(c.itens[0].oQueFazer).toBe(`${inicio} freio…`)
+    expect(base.campanhas[0].risco).toBe(cortado)
+    expect(base.campanhas[0].oQueFazer).toBe(cortado)
+  })
+
+  it('the same with campaigns grouped by the agent', () => {
+    const grupo = (i: number) => ({ titulo: `Grupo ${i}`, resumo: 'Resumo fictício.', indices: [i], anos: '', modelo: '' })
+    const base: RecallBase = {
+      consultado: true, sinal: 'firme', fonte: 'base_recalls', campanhas: [campanha('T1'), campanha('T2')],
+      agrupado: { hash: 'h', total: 2, grupos: [grupo(0), grupo(1)] },
+    }
+    const c = cardRecallAssociado({ sinal: 'firme', base, pendente: false, montadoraComCampanhas: false })!
+    expect(c.itens).toHaveLength(2)
+    for (const item of c.itens) {
+      expect(item.risco).toBe(`${inicio} freio…`)
+      expect(item.oQueFazer).toBe(`${inicio} freio…`)
+    }
+  })
+})
 
 const BASE: RecallBase = {
   consultado: true, sinal: 'firme', fonte: 'base_recalls',

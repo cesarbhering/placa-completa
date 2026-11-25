@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { agruparCampanhasRecall, hashCampanhas, promptAgrupar, FONTE_CUSTO, FONTE_AGRUPAMENTO } from './recall-agrupar'
 import type { CampanhaBase } from '../../shared/recall-associado'
+import { madeUpText } from '../../tests/helpers/texto-ficticio'
 
 const C = (nome: string, ano: string): CampanhaBase => ({ codigo: null, nome, modelo: 'Voyage', ano_modelo: ano, inicio: null, nivel: 'firme' })
 const CAMPS = [C('Gerador de gás do airbag do motorista', '2011 a 2014'), C('Gerador de gás do airbag do motorista e/ou do passageiro', '2009 a 2016'), C('Bomba de combustível', '2012')]
@@ -86,6 +87,24 @@ describe('agruparCampanhasRecall', () => {
     expect(await agruparCampanhasRecall([CAMPS[0]], { chaveApi: 'k', fetcher: fetcher as any })).toBe(null)
     expect(await agruparCampanhasRecall(CAMPS, { chaveApi: null, fetcher: fetcher as any })).toBe(null)
     expect(fetcher).not.toHaveBeenCalled()
+  })
+
+  it('the agent reads only the first 600 characters of the risk: same hash and prompt as before', () => {
+    // Since 24/11/2026 the order keeps the whole risk; until then it was cut at
+    // 600 (what older orders still hold). The agent's input must not change, so
+    // groupings already in cache stay valid and the prompt keeps its size.
+    // Letters on both sides of the 600 mark, so a cut at 599 or 601 shows.
+    const R = `${madeUpText(590)} ${'a'.repeat(60)}`
+    expect(R[599]).not.toBe(' ')
+    expect(R[600]).not.toBe(' ')
+    const inteiro = [{ ...CAMPS[2], risco: R }, CAMPS[0]]
+    const cortadoComoAntes = [{ ...CAMPS[2], risco: R.slice(0, 600) }, CAMPS[0]]
+    expect(hashCampanhas(inteiro)).toBe(hashCampanhas(cortadoComoAntes))
+    // Hash of this set computed with the code of the base commit (7448eeb).
+    expect(hashCampanhas(cortadoComoAntes)).toBe('d8e51ec915a8025dd17b0927adf4f63d97ed6829')
+    expect(promptAgrupar(inteiro)).toBe(promptAgrupar(cortadoComoAntes))
+    expect(promptAgrupar(inteiro)).toContain(R.slice(0, 600))
+    expect(promptAgrupar(inteiro)).not.toContain(R.slice(0, 601))
   })
 
   it('prompt sem travessao e com a regra dos indices', () => {
