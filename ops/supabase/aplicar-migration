@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply ONE Supabase migration through the Management API (replaces
+"""Apply ONE migration through the Management API route (replaces
 `supabase db push`, unsafe here: 60 repo migrations in prod and 48 in staging
 were applied without being recorded, and push would run them again).
 
@@ -7,6 +7,9 @@ One call, one transaction: the file, the INSERT into
 supabase_migrations.schema_migrations (with the file as statements) and
 `notify pgrst, 'reload schema'` go in a single string. Either everything is
 applied and recorded, or nothing is.
+
+Production (since 25/11/2026) is the database on the site's own server: the same API route is
+answered locally by pc-db-meta (PC_DB_META_URL, default http://127.0.0.1:8781). Staging stays on Supabase.
 
 Usage:
   aplicar-migration [--dry-run | --ensaio] staging <arquivo.sql>
@@ -35,8 +38,14 @@ import sys
 import urllib.error
 import urllib.request
 
-ALVOS = {"prod": ("fivalpkfneadngxiflea", "PlacaCompleta"),
+PROD_REF = "fivalpkfneadngxiflea"
+ALVOS = {"prod": (PROD_REF, "PlacaCompleta"),
          "staging": ("nqhlxsvggrumgcceamwg", "placa-completa-staging")}
+# Since 25/11/2026 the production database runs on the site's own server, not on Supabase.
+# pc-db-meta (127.0.0.1:8781) answers the same Management API route with the same token and the
+# same response format, running the SQL on that database. Staging stays on Supabase.
+# An empty PC_DB_META_URL falls back to the default instead of building a relative URL.
+API_BASE = {PROD_REF: os.environ.get("PC_DB_META_URL") or "http://127.0.0.1:8781"}
 TOKEN_FILE = "/root/.supabase/access-token"
 NOME_OK = re.compile(r"^(\d{14})_([a-z0-9_]+)\.sql$")
 # Statements that end, open or escape the transaction, or cannot run inside one.
@@ -152,7 +161,8 @@ class EstadoDesconhecido(Exception):
 def api(ref, query=None, metodo="POST", caminho="database/query", timeout=300):
     with open(TOKEN_FILE) as f:
         token = f.read().strip()
-    url = f"https://api.supabase.com/v1/projects/{ref}" + (f"/{caminho}" if caminho else "")
+    base = API_BASE.get(ref, "https://api.supabase.com")
+    url = f"{base}/v1/projects/{ref}" + (f"/{caminho}" if caminho else "")
     dados = json.dumps({"query": query}).encode() if query is not None else None
     req = urllib.request.Request(url, data=dados, method=metodo,
                                  headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})

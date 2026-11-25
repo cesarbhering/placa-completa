@@ -29,6 +29,7 @@ ops/supabase/aplicar-migration prod supabase/migrations/<arquivo>.sql --confirma
   - alter system e create/drop database ou tablespace;
   - qualquer `concurrently`.
 - **Alvo travado.** Só `prod` e `staging`. O nome do projeto é conferido na API antes de aplicar, e o prod exige `--confirmar-prod PlacaCompleta`.
+- **Rota do prod (desde 25/11/2026).** O banco de produção roda no servidor do site. O prod vai para o pc-db-meta (`http://127.0.0.1:8781`, ou `PC_DB_META_URL`), que responde a mesma rota da Management API e roda o SQL no banco local. Ali o nome do projeto é fixo: a conferência só prova que o atalho está de pé em modo local. O staging continua na API do Supabase.
 - **Reexecução:**
   - versão registrada com o mesmo conteúdo: não faz nada;
   - versão registrada com conteúdo diferente: avisa e sai com 3;
