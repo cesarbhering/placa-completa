@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import COM from './__fixtures__/parceiro-historico-com-registros.json'
 import LEILAO_REAL from './__fixtures__/parceiro-leilao-real.json'
+// The partner answers with the order's own VIN, as in a real hit. A different full VIN
+// makes the card "possivel", and since 25/11/2026 a "possivel" card never triggers the
+// late notice (aviso-leilao.test.ts covers that case).
+const LEILAO_MESMO_CHASSI = { ...LEILAO_REAL, resultados: { ...LEILAO_REAL.resultados, leilao: { ...LEILAO_REAL.resultados.leilao, leiloes: LEILAO_REAL.resultados.leilao.leiloes.map((l: any) => ({ ...l, chassi: '9XXHV00000X000001' })) } } }
 import { supabaseMemoria } from '../../tests/helpers/supabase-memoria'
 import {
   completarHistoricoVeicular, chamarHistorico, ehSaldoOuLimiteHistorico, _limparAlertaTetoHistorico, PRECO_RESERVA_CENTAVOS,
@@ -548,7 +552,7 @@ describe('auction partner as the fallback of the vehicle history', () => {
   const httpLeilao: Http = async (url) => {
     leilaoChamadas.push(url)
     if (url.endsWith('/api/Auth/login')) return resp(200, { token: 'jwt' }) as any
-    return resp(200, LEILAO_REAL) as any
+    return resp(200, LEILAO_MESMO_CHASSI) as any
   }
   // The real notifier (aviso_leilao_em guard, page views compared), with the
   // sender injected: avisos = the notifier ran, enviados = an e-mail went out.

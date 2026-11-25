@@ -41,6 +41,10 @@ const OUTRA_PLACA = 'TST5C67'
 const TERCEIRA_PLACA = 'TST8D90'
 // VIN of the vehicle history fixture without records (fictitious).
 const CHASSI = '9XXHV00000X000002' // ggignore
+// The partner answers with the order's own VIN, as in a real hit. A different full VIN
+// makes the card "possivel", and since 25/11/2026 a "possivel" card never triggers the
+// late notice (aviso-leilao.test.ts covers that case).
+const REAL_MESMO_CHASSI = { ...REAL, resultados: { ...REAL.resultados, leilao: { ...REAL.resultados.leilao, leiloes: REAL.resultados.leilao.leiloes.map((l: any) => ({ ...l, chassi: CHASSI })) } } }
 const CONFIG = (x: Record<string, unknown> = {}) => ({
   parceiroLeilaoLigado: 'on', parceiroLeilaoUser: 'u', parceiroLeilaoPass: 'p', parceiroLeilaoTetoDia: '40',
   parceiroHistoricoLigado: 'on', parceiroHistoricoKey: 'k', public: {}, ...x,
@@ -157,7 +161,7 @@ beforeEach(() => {
   historicoPorPlaca = { [PLACA]: BANCO, [OUTRA_PLACA]: BANCO }
   nossaBase = vazio()
   leilaoForaDoAr = false
-  respostaLeilao = REAL
+  respostaLeilao = REAL_MESMO_CHASSI
   gravacaoFalha = false
   chamadasHistorico = []
   chamadasLeilao = []

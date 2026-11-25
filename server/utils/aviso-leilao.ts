@@ -30,16 +30,26 @@ function passagensNaTela(h: any, veiculo: { modelo?: string | null } | null): an
 
 export type TipoAviso = 'leilao' | 'sinistro'
 
+/** A card strong enough to tell the customer: confirmado or provavel. */
+function cardForte(p: any): boolean {
+  return p?.nivel === 'confirmado' || p?.nivel === 'provavel'
+}
+
 /**
  * Which late notice a change of the auction section asks for, both sides as
  * the page shows them (Cesar, 18/11/2026, "Avisar sempre"): 'leilao' when the
  * page showed no auction and now shows at least one, a damage sign before
  * included; 'sinistro' when the page showed nothing and now shows only the
  * damage sign; null otherwise.
+ * Since 25/11/2026 (Cesar): a "possivel" card never triggers the notice, from
+ * any source. The notice looks only at confirmado and provavel cards, so a
+ * "possivel" card neither triggers nor blocks it: a page that showed only
+ * "possivel" cards gets the auction notice when a strong card appears, and the
+ * damage notice when a damage sign appears.
  */
 export function tipoDoAviso(antes: any, depois: any, veiculo: { modelo?: string | null } | null = null): TipoAviso | null {
-  if (passagensNaTela(antes, veiculo).length) return null
-  if (passagensNaTela(depois, veiculo).length) return 'leilao'
+  if (passagensNaTela(antes, veiculo).some(cardForte)) return null
+  if (passagensNaTela(depois, veiculo).some(cardForte)) return 'leilao'
   const indicio = (h: any) => h?.sinistro_parceiro?.indicio === true
   return !indicio(antes) && indicio(depois) ? 'sinistro' : null
 }

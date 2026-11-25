@@ -172,6 +172,8 @@ export const NOME_CASA_LEILAO: Record<string, string> = {
   fidalgo: 'Fidalgo Leilões',
   kronberg: 'Kronberg Leilões',
   sold: 'Sold Leilões',
+  globo: 'Globo Leilões',
+  norte: 'Norte Leilões',
 }
 
 // Passagem achada pelo canhao de PDFs chega com fonte "canhao:<dominio>" e

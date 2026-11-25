@@ -37,6 +37,26 @@ describe('gatilho', () => {
     expect(tipoDoAviso(vazio, vazio)).toBeNull()
     expect(tipoDoAviso(vazio, { ...vazio, sinistro_parceiro: { indicio: false } })).toBeNull()
   })
+  it('a "possivel" card never triggers the auction notice, from any source (Cesar, 25/11/2026)', () => {
+    const possivel = { nivel: 'possivel', fonte: 'casa_x', fonte_tipo: 'privado', lote: '9', data_leilao: '2025-03-10' }
+    const soPossivel = { resumo: { tem_indicio: true }, passagens: [possivel] }
+    expect(tipoDoAviso(vazio, soPossivel)).toBeNull()
+    expect(tipoDoAviso(null, soPossivel)).toBeNull()
+    expect(tipoDoAviso(soSinistro, { ...soPossivel, sinistro_parceiro: { indicio: true, mensagem: 'x' } })).toBeNull()
+    // A page that showed only a "possivel" card did not show an auction: a strong card is news.
+    expect(tipoDoAviso(soPossivel, { ...soPossivel, passagens: [possivel, ...comLeilao.passagens] })).toBe('leilao')
+    expect(tipoDoAviso(soPossivel, { ...soPossivel, passagens: [possivel, { ...possivel, lote: '10', nivel: 'provavel' }] })).toBe('leilao')
+    // Nor does it block: a new damage sign next to a "possivel" card is told as a damage sign.
+    expect(tipoDoAviso(soPossivel, { ...soPossivel, sinistro_parceiro: { indicio: true, mensagem: 'x' } })).toBe('sinistro')
+    expect(tipoDoAviso(vazio, { ...soPossivel, sinistro_parceiro: { indicio: true, mensagem: 'x' } })).toBe('sinistro')
+  })
+  it('a "possivel" card alone sends no e-mail', async () => {
+    pedido()
+    const soPossivel = { resumo: { tem_indicio: true }, passagens: [{ nivel: 'possivel', fonte: 'casa_x', fonte_tipo: 'privado', lote: '9' }] }
+    expect(await avisar(vazio, soPossivel)).toBe('sem_mudanca')
+    expect(enviar).not.toHaveBeenCalled()
+    expect(linha().aviso_leilao_em).toBeNull()
+  })
   it('as the page shows it: a passage the model lock hides does not count, before or after', () => {
     const onix = { nivel: 'provavel', fonte: 'casa_x', fonte_tipo: 'privado', lote: '7', data_leilao: '2026-04-01', veiculo_na_fonte: { marca: 'CHEVROLET', modelo: 'ONIX 1.4 AT LTZ' } }
     const spin = { modelo: 'CHEV/SPIN 1.8L AT LTZ' }
