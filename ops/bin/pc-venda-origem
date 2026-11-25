@@ -16,7 +16,7 @@
 import sys, os, re, json, subprocess
 
 REF = "fivalpkfneadngxiflea"
-API = f"https://api.supabase.com/v1/projects/{REF}/database/query"
+API = f"http://127.0.0.1:8781/v1/projects/{REF}/database/query"
 SB = open(os.path.expanduser("~/.supabase/access-token")).read().strip()
 STATE_FILE = "/root/.pc-venda-origem.state"
 DEST = "cesarcbhering@gmail.com"

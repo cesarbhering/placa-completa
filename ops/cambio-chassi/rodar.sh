@@ -27,7 +27,7 @@ out, tok = sys.argv[1], sys.argv[2]
 q = """select coalesce(relatorio_snapshot->'consulta'->'response'->0, relatorio_snapshot->'consulta'->'response')->>'chassi' chassi,
  relatorio_snapshot->'valorCusto'->'fipeEscolhaCliente'->>'cambio' cambio
 from pedidos_premium where status='entregue' and ambiente='producao' and relatorio_snapshot->'valorCusto' ? 'fipeEscolhaCliente'"""
-req = urllib.request.Request('https://api.supabase.com/v1/projects/fivalpkfneadngxiflea/database/query',
+req = urllib.request.Request('http://127.0.0.1:8781/v1/projects/fivalpkfneadngxiflea/database/query',
   data=json.dumps({'query': q}).encode(), headers={'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json', 'User-Agent': 'cambio-chassi'})
 rows = json.load(urllib.request.urlopen(req, timeout=60))
 json.dump([r for r in rows if r.get('chassi') and r.get('cambio')], open(out, 'w'))

@@ -32,5 +32,5 @@ const q = `insert into public.parceiro_leilao_chamadas (${cols.join(',')}, respo
   select ${cols.map((c) => lit(linha[c])).join(',')}, ${tag}${JSON.stringify(bruto)}${tag}::jsonb, '2026-10-20T19:00:58Z'
   where not exists (select 1 from public.parceiro_leilao_chamadas where id_consulta_parceiro = ${lit(linha.id_consulta_parceiro)})
   returning id`
-const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, { method: 'POST', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q }) })
+const r = await fetch(`http://127.0.0.1:8781/v1/projects/${ref}/database/query`, { method: 'POST', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query: q }) })
 console.log(r.status, await r.text())

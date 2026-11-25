@@ -18,7 +18,7 @@ const aplicar = args.includes('--aplicar')
 const tokens = (args.find((a) => a.startsWith('--tokens=')) || '').slice(9).split(',').filter(Boolean)
 const lit = (s: string) => `'${String(s).replace(/'/g, "''")}'`
 async function sql(query: string): Promise<any[]> {
-  const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, { method: 'POST', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
+  const r = await fetch(`http://127.0.0.1:8781/v1/projects/${ref}/database/query`, { method: 'POST', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
   const j: any = await r.json()
   if (!r.ok || !Array.isArray(j)) throw new Error(`sql ${r.status}: ${JSON.stringify(j).slice(0, 300)}`)
   return j

@@ -25,7 +25,7 @@ if (forcar && !so.length) { console.error('--forcar exige --tokens=a,b (nunca em
 const BASE = process.env.SITE_URL || 'https://placacompleta.com.br'
 const lit = (s) => `'${String(s).replace(/'/g, "''")}'`
 async function sql(query) {
-  const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, { method: 'POST', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
+  const r = await fetch(`http://127.0.0.1:8781/v1/projects/${ref}/database/query`, { method: 'POST', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
   const j = await r.json()
   if (!r.ok || !Array.isArray(j)) throw new Error(`sql ${r.status}: ${JSON.stringify(j).slice(0, 300)}`)
   return j

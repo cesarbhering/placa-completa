@@ -4,7 +4,7 @@ com o status do envio pra Conversions API. Dispara uma vez e desliga o proprio t
 import json, os, subprocess
 REF = "fivalpkfneadngxiflea"; SB = open(os.path.expanduser("~/.supabase/access-token")).read().strip()
 def q(sql):
-    p = subprocess.run(["curl", "-s", "-X", "POST", f"https://api.supabase.com/v1/projects/{REF}/database/query", "-H", f"Authorization: Bearer {SB}",
+    p = subprocess.run(["curl", "-s", "-X", "POST", f"http://127.0.0.1:8781/v1/projects/{REF}/database/query", "-H", f"Authorization: Bearer {SB}",
                         "-H", "Content-Type: application/json", "-d", json.dumps({"query": sql})], capture_output=True, text=True, timeout=60)
     return json.loads(p.stdout or "[]")
 r = q("""select pp.placa, pp.pago_em, pp.valor_centavos, pp.token_entrega, pp.status, pp.openai_capi_em, pp.openai_capi_erro, pp.dispositivo, pp.sistema

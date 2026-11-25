@@ -134,7 +134,7 @@ def sql(ref, query, timeout=170):
     with open(TOKEN_FILE) as f:
         token = f.read().strip()
     req = urllib.request.Request(
-        f"https://api.supabase.com/v1/projects/{ref}/database/query",
+        f"http://127.0.0.1:8781/v1/projects/{ref}/database/query",
         data=json.dumps({"query": query}).encode(),
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         method="POST",
