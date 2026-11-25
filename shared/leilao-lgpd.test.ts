@@ -55,11 +55,11 @@ describe('LGPD do historico de leilao', () => {
       fonte: 'canhao:exemplo.gov.br', fonte_tipo: 'privado', nivel: 'confirmado',
       detalhes: {
         url_documento: 'https://exemplo.gov.br/editais/lista.pdf', host_origem: 'exemplo.gov.br', r2_key: 'canhao/abc.pdf',
-        r2_key_retido: 'canhao/restrito/abc.pdf', anexo: 'vlance/x/edital.pdf', km: '45000', cor: 'PRATA', fotos_pendente: true,
+        r2_key_retido: 'canhao/restrito/abc.pdf', anexo: 'vlance/x/edital.pdf', r2_edital: 'mega/e.pdf', r2_laudo: 'mega/l.pdf', km: '45000', cor: 'PRATA', fotos_pendente: true,
       },
     }
     const out: any = passagemLgpd(p)
-    for (const k of ['url_documento', 'host_origem', 'r2_key', 'r2_key_retido', 'anexo']) expect(out.detalhes).not.toHaveProperty(k)
+    for (const k of ['url_documento', 'host_origem', 'r2_key', 'r2_key_retido', 'anexo', 'r2_edital', 'r2_laudo']) expect(out.detalhes).not.toHaveProperty(k)
     expect(out.detalhes).toMatchObject({ km: '45000', cor: 'PRATA', fotos_pendente: true })
     expect(JSON.stringify(historicoLgpd({ passagens: [p] }))).not.toMatch(/url_documento|host_origem|r2_key|exemplo\.gov\.br\/editais/)
   })
