@@ -186,7 +186,7 @@ def cmd_site():
 # ------------------------------------------------------------------ fila do relatorio (premium_jobs)
 def sb(sql):
     tok = open("/root/.supabase/access-token").read().strip()
-    req = urllib.request.Request(f"https://api.supabase.com/v1/projects/{SB_REF}/database/query",
+    req = urllib.request.Request(f"http://127.0.0.1:8781/v1/projects/{SB_REF}/database/query",
                                  data=json.dumps({"query": sql}).encode(), method="POST",
                                  headers={"Authorization": f"Bearer {tok}", "Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=30) as r:

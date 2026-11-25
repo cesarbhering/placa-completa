@@ -3,7 +3,7 @@
 # 612 ("a consulta nao retornou dados") NAO e falha: e "nada consta" (Cesar, 21/out/2026), fica fora do alerta.
 set -u
 SB=$(cat /root/.supabase/access-token); ST=/var/lib/pc-detran-falha; mkdir -p $ST; touch $ST/vistos
-q(){ curl -s -X POST https://api.supabase.com/v1/projects/fivalpkfneadngxiflea/database/query -H "Authorization: Bearer $SB" -H "Content-Type: application/json" -d "$(jq -n --arg q "$1" '{query:$q}')"; }
+q(){ curl -s -X POST http://127.0.0.1:8781/v1/projects/fivalpkfneadngxiflea/database/query -H "Authorization: Bearer $SB" -H "Content-Type: application/json" -d "$(jq -n --arg q "$1" '{query:$q}')"; }
 R=$(q "select c.id, c.fonte, c.code, left(coalesce(c.detalhe,''),300) det, c.preco, p.placa, p.token_entrega tok, p.relatorio_snapshot->'multas'->>'status' st, to_char(c.criado_em at time zone 'America/Sao_Paulo','DD/MM HH24:MI') h from premium_custos c join pedidos_premium p on p.id=c.pedido_id where c.fonte like 'infosimples%' and c.code not in (200, 612) and c.criado_em > now() - interval '2 hours' order by c.criado_em")
 echo "$R" | jq -c '.[]?' | while read -r l; do
   id=$(echo "$l" | jq -r .id); grep -q "$id" $ST/vistos && continue

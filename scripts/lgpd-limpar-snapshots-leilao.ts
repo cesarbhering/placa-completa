@@ -19,7 +19,7 @@ const token = process.env.SUPABASE_ACCESS_TOKEN
 if (!ref || !token) { console.error('uso: SUPABASE_ACCESS_TOKEN=... jiti scripts/lgpd-limpar-snapshots-leilao.ts <project_ref> [--aplicar]'); process.exit(1) }
 
 async function sql(query: string): Promise<any[]> {
-  const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+  const r = await fetch(`http://127.0.0.1:8781/v1/projects/${ref}/database/query`, {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query }),
   })
   const j: any = await r.json()

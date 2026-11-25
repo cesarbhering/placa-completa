@@ -16,7 +16,7 @@ mkdir -p "$(dirname "$ESTADO")"; touch "$ESTADO"
 TOKEN="$(cat "$TOKEN_ARQ")"
 
 Q="select id, extract(epoch from now() - criado_em)::int as idade from public.suporte_tarefas where status = 'pendente' order by criado_em limit 50"
-RESP="$(curl -sf -m 20 -X POST "https://api.supabase.com/v1/projects/$PROJETO/database/query" \
+RESP="$(curl -sf -m 20 -X POST "http://127.0.0.1:8781/v1/projects/$PROJETO/database/query" \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d "$(python3 -c 'import json,sys;print(json.dumps({"query":sys.argv[1]}))' "$Q")")" || { echo "consulta falhou"; exit 0; }
 

@@ -59,7 +59,7 @@ esac
 CNPJ_PROVEDOR="37115342004154"
 PROD_REF="fivalpkfneadngxiflea"
 STG_REF="nqhlxsvggrumgcceamwg"
-MGMT="https://api.supabase.com/v1/projects"
+MGMT="http://127.0.0.1:8781/v1/projects"
 
 MOCK="${PC_GCC_MOCK:-0}"
 MOCK_DIR="${PC_GCC_MOCK_DIR:-}"

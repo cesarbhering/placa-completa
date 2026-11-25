@@ -36,7 +36,7 @@ from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 PROJETO = "fivalpkfneadngxiflea"
-API = f"https://api.supabase.com/v1/projects/{PROJETO}/database/query"
+API = f"http://127.0.0.1:8781/v1/projects/{PROJETO}/database/query"
 TZ = "America/Sao_Paulo"
 VARS = ("A", "B")
 

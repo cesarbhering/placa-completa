@@ -18,7 +18,7 @@ if (!ref || !placasArg || !pat) { console.error('uso: ... <project_ref> PLACA1,P
 const placas = placasArg.split(',').map((p) => p.trim().toUpperCase()).filter((p) => /^[A-Z0-9]{7}$/.test(p))
 const lit = (s: string) => `'${String(s).replace(/'/g, "''")}'`
 async function sql(query: string): Promise<any[]> {
-  const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, { method: 'POST', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
+  const r = await fetch(`http://127.0.0.1:8781/v1/projects/${ref}/database/query`, { method: 'POST', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
   const j: any = await r.json()
   if (!r.ok || !Array.isArray(j)) throw new Error(`sql ${r.status}: ${JSON.stringify(j).slice(0, 300)}`)
   return j

@@ -11,7 +11,7 @@ const pat = process.env.SUPABASE_ACCESS_TOKEN
 if (!ref || !token || !pat) { console.error('uso: ... <project_ref> <token_entrega> [--aplicar]'); process.exit(1) }
 const lit = (s: string) => `'${String(s).replace(/'/g, "''")}'`
 async function sql(query: string): Promise<any[]> {
-  const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, { method: 'POST', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
+  const r = await fetch(`http://127.0.0.1:8781/v1/projects/${ref}/database/query`, { method: 'POST', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) })
   const j: any = await r.json()
   if (!r.ok || !Array.isArray(j)) throw new Error(`sql ${r.status}: ${JSON.stringify(j).slice(0, 300)}`)
   return j

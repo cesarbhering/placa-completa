@@ -25,7 +25,7 @@ if (!ref || !pat) {
 const lit = (s) => (s === null || s === undefined ? 'null' : `'${String(s).replace(/'/g, "''")}'`)
 
 async function sql(query) {
-  const r = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+  const r = await fetch(`http://127.0.0.1:8781/v1/projects/${ref}/database/query`, {
     method: 'POST', headers: { Authorization: `Bearer ${pat}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ query }),
   })
   const j = await r.json()
