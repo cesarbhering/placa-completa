@@ -39,6 +39,8 @@ export const MARCAS_RECALL_GRATIS: readonly string[] = [
   'kia', 'caoa\\s*chery', 'chery',
   // Motos: Harley vem como "H.DAVIDSON" ou "HARLEY-DAVIDSON"; KTM curto (\bktm\b).
   'dafra', 'kawasaki', 'triumph', 'suzuki', 'harley', 'h\\.?\\s*davidson', 'ducati', 'royal\\s*enfield', 'ktm', 'lifan',
+  // Chrysler e Troller (Cesar, 25/11/2026: toda marca da base de recall entra).
+  'chrysler', 'troller',
 ]
 
 const RE_MARCAS = new RegExp(`\\b(${MARCAS_RECALL_GRATIS.join('|')})\\b`, 'i')

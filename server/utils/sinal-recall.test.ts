@@ -110,12 +110,23 @@ describe('marcaTemRecall (Toyota/Lexus + Chevrolet/GM + VW + Fiat + Stellantis +
       'KIA', 'KIA/SPORTAGE', 'I/KIA CERATO', 'CAOACHERY/TIGGO', 'CAOA CHERY/TIGGO 5X', 'CHERY/QQ', 'I/CHERY CELER',
       'DAFRA/APACHE', 'KAWASAKI/NINJA 400', 'I/KAWASAKI Z900', 'TRIUMPH/TIGER', 'I/TRIUMPH STREET', 'SUZUKI/JIMNY', 'I/SUZUKI GSX',
       'H.DAVIDSON/FAT BOY', 'HARLEY-DAVIDSON/SPORTSTER', 'I/H.DAVIDSON', 'DUCATI/MONSTER', 'ROYAL ENFIELD/METEOR', 'KTM/390 DUKE', 'I/KTM 200', 'LIFAN/X60',
+      'CHRYSLER/300C', 'I/CHRYSLER PT CRUISER', 'CHRYSLER/TOWN COUNTRY', 'TROLLER/T4 3.2', 'I/TROLLER',
     ]) expect(marcaTemRecall(m)).toBe(true)
   })
   it('nomes curtos (LR, KTM, KIA) e afins NAO casam no meio de palavra', () => {
-    for (const m of ['LRX', 'FLR', 'BLR/X', 'KTMX', 'XKTM', 'KIAX', 'SKIA', 'NIKIA', 'BMWX', 'AUDIENCIA', 'VOLVOX', 'CHERYX', 'SUZUKIX', 'LIFANS', 'DAFRAS']) {
+    for (const m of ['LRX', 'FLR', 'BLR/X', 'KTMX', 'XKTM', 'KIAX', 'SKIA', 'NIKIA', 'BMWX', 'AUDIENCIA', 'VOLVOX', 'CHERYX', 'SUZUKIX', 'LIFANS', 'DAFRAS', 'CHRYSLERX', 'TROLLERS', 'XTROLLER']) {
       expect(marcaTemRecall(m)).toBe(false)
     }
+  })
+  it('every brand in the recall base passes the free signal (none left out)', () => {
+    const base = [
+      'AUDI', 'BMW', 'CHERY', 'CHEVROLET', 'CHRYSLER', 'CITROEN', 'DAFRA', 'DODGE', 'DUCATI', 'FIAT', 'FORD',
+      'HARLEY-DAVIDSON', 'HONDA', 'HYUNDAI', 'IVECO', 'JAGUAR', 'JEEP', 'KAWASAKI', 'KIA', 'KTM', 'LAND ROVER',
+      'LEXUS', 'LIFAN', 'MERCEDES-BENZ', 'MITSUBISHI', 'NISSAN', 'PEUGEOT', 'PORSCHE', 'RAM', 'RENAULT',
+      'ROYAL ENFIELD', 'SUZUKI', 'TOYOTA', 'TRIUMPH', 'TROLLER', 'VOLKSWAGEN', 'VOLVO', 'YAMAHA',
+    ]
+    expect(base).toHaveLength(38)
+    expect(base.filter((m) => !marcaTemRecall(m))).toEqual([])
   })
   it('server e tela usam a MESMA lista (shared/marcas-recall)', () => {
     for (const m of ['TOYOTA', 'I/HONDA', 'RENAULT/KWID', 'NISSAN/KICKS', 'FORD/KA', 'MMC/L200', 'YAMAHA/FACTOR', 'RAMPA']) {
