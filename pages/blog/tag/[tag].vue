@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { escolherTitulo } from '~/shared/seo-titulo'
-import { postsDoBlog, tagPorSlug, tagsComPost } from '~/data/blog-indice'
+import { linkDoPost, postsDoBlog, tagPorSlug, tagsComPost, urlAbsolutaDoPost } from '~/data/blog-indice'
 
 // /blog/tag/<tag> (16/out/2026). /ibv agora cai aqui (301 para ibv-auto).
 const route = useRoute()
@@ -31,7 +31,7 @@ useHead({
         '@type': 'CollectionPage',
         name: `${tag.nome} no blog do PlacaCompleta`,
         url,
-        hasPart: posts.map((p) => ({ '@type': 'BlogPosting', headline: p.title, url: `${URL_BASE}/blog/${p.slug}`, datePublished: p.publishedAt })),
+        hasPart: posts.map((p) => ({ '@type': 'BlogPosting', headline: p.title, url: urlAbsolutaDoPost(p), datePublished: p.publishedAt })),
       }),
     },
     {
@@ -67,7 +67,7 @@ function formatDate(iso: string) {
           <NuxtLink v-for="t in tagsComPost" :key="t.slug" :to="`/blog/tag/${t.slug}`" class="tags__chip" :class="{ 'tags__chip--ativa': t.slug === tag!.slug }">{{ t.nome }}</NuxtLink>
         </nav>
         <div class="post-list">
-          <NuxtLink v-for="post in posts" :key="post.slug" :to="`/blog/${post.slug}`" class="post-card">
+          <NuxtLink v-for="post in posts" :key="post.slug" :to="linkDoPost(post)" class="post-card">
             <img v-if="post.imagem" :src="post.imagem.src" :alt="post.imagem.alt" width="1200" height="627" class="post-card__img" loading="lazy" decoding="async">
             <div class="post-card__corpo">
               <div class="post-card__meta">

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { postsDoBlog, tagsComPost, urlsDoBlog, TAGS_BLOG } from '../data/blog-indice'
+import { paginasNoBlog, postsDoBlog, tagsComPost, urlsDoBlog, TAGS_BLOG } from '../data/blog-indice'
 import { ibvPosts, IBV_SLUG_ANTIGO } from '../data/ibv-posts'
 import { blogPosts } from '../data/blog-posts'
 import { descricaoNaFaixa } from '../shared/seo-meta'
@@ -9,8 +9,8 @@ import { escolherTitulo } from '../shared/seo-titulo'
 
 // IBV Auto dentro do blog (16/out/2026).
 describe('IBV Auto no blog', () => {
-  it('todos os posts do IBV e do blog no indice, sem colisao de slug', () => {
-    expect(postsDoBlog).toHaveLength(ibvPosts.length + blogPosts.length)
+  it('todos os posts do IBV e do blog (mais as paginas fora do /blog) no indice, sem colisao de slug', () => {
+    expect(postsDoBlog).toHaveLength(ibvPosts.length + blogPosts.length + paginasNoBlog.length)
     const slugs = postsDoBlog.map((p) => p.slug)
     expect(new Set(slugs).size).toBe(slugs.length)
   })
