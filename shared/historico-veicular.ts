@@ -638,6 +638,54 @@ export function historicoPedeReserva(hv: HistoricoVeicular | null | undefined, s
   return motivoDaReserva(hv, statusJob, pagoEm) !== null
 }
 
+// ---------------------------------------------------------------- gearbox serial
+
+// Serials seen in the partner answers (25/11/2026): letters and digits only, 5 to 12 characters, 5 to 12
+// digits (A9999A9999, A999999999, 99A99999, 999999999999, AAAAAA999999, 9AAAAA9999). Anything else is
+// dropped: placeholders, gearbox types, dates, names, and whatever looks like a CPF or CNPJ, even
+// without its leading zeros (rev-803: in doubt it is a document, never shown).
+const SEM_CAIXA = /^(NAO ?(INFORMAD[OA]|APLICAVEL|CONSTA)|SEM ?INFORMACAO|INEXISTENTE|NULL|NONE|UNDEFINED)$/
+
+function dvOk(d: string, pesos: number[]): boolean {
+  const n = d.split('').map(Number)
+  const dv = (k: number) => { const r = pesos.slice(pesos.length - k).reduce((s, p, i) => s + p * n[i], 0) % 11; return r < 2 ? 0 : 11 - r }
+  return dv(n.length - 2) === n[n.length - 2] && dv(n.length - 1) === n[n.length - 1]
+}
+const cpfOk = (d: string) => d.length === 11 && !/^(\d)\1+$/.test(d) && dvOk(d, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2])
+const cnpjOk = (d: string) => d.length === 14 && !/^(\d)\1+$/.test(d) && dvOk(d, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+
+/** Looks like a person's or company's document: 11 or 14 digits, or fewer that pass a CPF/CNPJ check once padded. */
+function pareceDocumento(s: string): boolean {
+  const dig = s.replace(/\D/g, '')
+  if (dig.length === 11 || dig.length === 14) return true
+  if (/^\d+$/.test(s) && (cpfOk(s.padStart(11, '0')) || (s.length >= 12 && cnpjOk(s.padStart(14, '0'))))) return true
+  return false
+}
+
+/** Gearbox serial as shown, or null (only strings of letters and digits, at least 4 digits and 40% of them). */
+export function numeroCaixaCambio(v: unknown): string | null {
+  if (typeof v !== 'string') return null
+  const s = sem(v)
+  if (!s || SEM_CAIXA.test(s)) return null
+  if (!/^[A-Z0-9]{5,20}$/.test(s) || /^0+$/.test(s)) return null
+  const digitos = s.replace(/\D/g, '').length
+  if (digitos < 4 || digitos / s.length < 0.4) return null
+  return pareceDocumento(s) ? null : s
+}
+
+/**
+ * The registry record's gearbox serial in the partner answer: bin first, then veiculo. A section is
+ * used only when its own VIN is the answer's VIN (chassiFonte, which historicoDoVeiculo then checks
+ * against this vehicle): another vehicle's serial never shows (rev-803).
+ */
+export function caixaCambioDe(d: any): string | null {
+  const vin = (x: unknown) => String(x ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const daResposta = vin(umDe(d, ['chassi']) ?? umDe(d?.veiculo, ['chassi']))
+  if (daResposta.length !== 17) return null
+  const secao = (o: any, campo: string) => (obj(o) && vin(o.chassi) === daResposta ? numeroCaixaCambio(o[campo]) : null)
+  return secao(d?.bin, 'caixa_cambio') ?? secao(d?.veiculo, 'caixaCambio')
+}
+
 // ---------------------------------------------------------------- parser
 
 /**
@@ -646,27 +694,6 @@ export function historicoPedeReserva(hv: HistoricoVeicular | null | undefined, s
  * by field from what the report shows, never by copying the answer. A partial
  * answer stays 'ok' (what came is shown) with completa false.
  */
-// ---------------------------------------------------------------- gearbox serial
-
-const SEM_CAIXA = /^(NAO ?(INFORMAD[OA]|APLICAVEL|CONSTA)|SEM ?INFORMACAO|INEXISTENTE|NULL|NONE|UNDEFINED)$/
-const PALAVRA_DE_TIPO = /MANUAL|AUTOM|MARCHA|CVT|TIPTRONIC/
-
-/** Gearbox serial as shown (letters, digits, '.', '/', '-'; at least one digit), or null for a placeholder or a type. */
-export function numeroCaixaCambio(v: unknown): string | null {
-  const bruto = sem(v)
-  if (!bruto || SEM_CAIXA.test(bruto)) return null
-  const s = bruto.replace(/ /g, '')
-  if (!/^[A-Z0-9][A-Z0-9./-]{3,24}$/.test(s) || !/\d/.test(s) || /^0+$/.test(s) || PALAVRA_DE_TIPO.test(s)) return null
-  // Only digits with the size of a CPF or CNPJ: never shown (in doubt it is a person's or a company's document).
-  if (!/[A-Z]/.test(s) && /^(\d{11}|\d{14})$/.test(s.replace(/[./-]/g, ''))) return null
-  return s
-}
-
-/** The registry record's gearbox serial in the partner answer (bin first, then veiculo). */
-export function caixaCambioDe(d: any): string | null {
-  return numeroCaixaCambio(obj(d?.bin) ? d.bin.caixa_cambio : null) ?? numeroCaixaCambio(obj(d?.veiculo) ? d.veiculo.caixaCambio : null)
-}
-
 export function parsearRespostaHistorico(body: any): HistoricoVeicular | null {
   if (!obj(body) || body.success !== true || !obj(body.dados)) return null
   const d = body.dados

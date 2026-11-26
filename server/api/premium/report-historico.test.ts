@@ -103,6 +103,22 @@ describe('report JSON with the vehicle history partner', () => {
     expect(r.fontes).toEqual([{ fonte: 'historico_veicular', rotulo: 'Donos, leilão e sinistro', estado: 'consultando' }])
   })
 
+  it('gearbox serial: out on the Completa, never a bad value, another VIN or the Basica (Cesar 25/11, rev-803)', async () => {
+    const comCaixa = { ...bloco(), caixaCambio: 'V000012345' }
+    comPedido({}, { historicoVeicular: comCaixa })
+    let r: any = await handler({} as any)
+    expect(r.historicoVeicular.caixaCambio).toBe('V000012345')
+    comPedido({}, { historicoVeicular: { ...comCaixa, caixaCambio: 'CPF 123.456.789-01' } })
+    r = await handler({} as any)
+    expect(r.historicoVeicular.caixaCambio).toBeUndefined()
+    comPedido({}, { historicoVeicular: comCaixa, consulta: { response: { chassi: '9XXHV00000X999999', descricaoMarcaModelo: 'FIAT/PALIO ELX' } } })
+    r = await handler({} as any)
+    expect(JSON.stringify(r)).not.toContain('V000012345')
+    comPedido({ plano: 'basica' }, { historicoVeicular: comCaixa })
+    r = await handler({} as any)
+    expect(JSON.stringify(r)).not.toContain('V000012345')
+  })
+
   it('partner answered for another VIN: nothing of it, no damage flag, source done (review 1, item 8)', async () => {
     comPedido({}, { consulta: { response: { chassi: '9XXHV00000X999999', descricaoMarcaModelo: 'FIAT/PALIO ELX' } } })
     const r: any = await handler({} as any)

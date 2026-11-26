@@ -975,12 +975,13 @@ describe('owner city', () => {
 })
 
 describe('gearbox serial of the registry record (Cesar, 25/11/2026)', () => {
-  const comCaixa = (bin: unknown, veiculo?: unknown) => {
+  const comCaixa = (bin: unknown, veiculo?: unknown, vinBin = CHASSI, vinVeiculo = CHASSI) => {
     const r = copia(COM)
-    r.dados.bin = { ...(r.dados.bin || {}), caixa_cambio: bin }
-    if (veiculo !== undefined) r.dados.veiculo = { ...(r.dados.veiculo || {}), caixaCambio: veiculo }
+    r.dados.bin = { ...(r.dados.bin || {}), chassi: vinBin, caixa_cambio: bin }
+    r.dados.veiculo = { ...(r.dados.veiculo || {}), chassi: vinVeiculo, ...(veiculo !== undefined ? { caixaCambio: veiculo } : {}) }
     return r
   }
+  const serial = (bin: unknown, veiculo?: unknown) => parsearRespostaHistorico(comCaixa(bin, veiculo))!.caixaCambio
 
   it('takes the serial and keeps it for the page', () => {
     const b = parsearRespostaHistorico(comCaixa('V000012345'))!
@@ -988,38 +989,45 @@ describe('gearbox serial of the registry record (Cesar, 25/11/2026)', () => {
     expect(historicoVeicularParaTela(b)!.caixaCambio).toBe('V000012345')
   })
 
-  it('falls back to the vehicle section, in capitals and without spaces', () => {
-    expect(parsearRespostaHistorico(comCaixa('', ' ab12 34cd '))!.caixaCambio).toBe('AB1234CD')
-  })
-
-  it('drops placeholders, gearbox types and anything that is not a serial', () => {
-    for (const v of ['0', '000000', 'NAO INFORMADO', 'Não informado', 'NAO APLICAVEL', 'MANUAL', 'AUTOMATICA', 'CVT 6',
-      '', null, undefined, '<script>', 'A1', `${'X'.repeat(30)}1`, 'ABCDEF',
-      '12345678901', '123.456.789-01', '11222333000199', '11.222.333/0001-99']) {
-      const b = parsearRespostaHistorico(comCaixa(v))!
-      expect(b.caixaCambio, String(v)).toBeUndefined()
-      expect(historicoVeicularParaTela(b)!.caixaCambio, String(v)).toBeUndefined()
+  it('keeps the shapes seen in real answers', () => {
+    for (const v of ['A1234B5678', 'A123456789', '12A34567', '123456789012', 'ABCDEF123456', '1ABCDE2345', '1AB2CD3E4567', 'XCVT12345678']) {
+      expect(serial(v), v).toBe(v)
     }
   })
 
-  it('long digit-only serials that are not document-sized stay', () => {
-    expect(parsearRespostaHistorico(comCaixa('000123456789'))!.caixaCambio).toBe('000123456789')
+  it('falls back to the vehicle section, trimmed and in capitals', () => {
+    expect(serial('', ' ab1234cd ')).toBe('AB1234CD')
+  })
+
+  it('drops placeholders, types, dates, names, documents and anything not a plain serial (rev-803)', () => {
+    for (const v of ['0', '000000', '00000000', 'NAO INFORMADO', 'Não informado', 'NAO APLICAVEL', 'MANUAL', 'AUTOMATICA', 'CVT 6',
+      'MECANICA 5', 'MECANICA5', 'DSG 7', '5 VELOCIDADES', 'NAO INFORMADO 0', '000000-0', '0.0.0.0', '01/01/2019',
+      'CPF 123.456.789-01', 'CNPJ 11.222.333/0001-99', 'X12345678901', '123.456.789-01 A', 'FULANO DE TAL 2', 'v0800 38654',
+      '12345678909', '11222333000181', '1234567890', '123456789192',
+      '', null, undefined, 12345678, ['A1234B5678'], '<script>', 'A1', `${'X'.repeat(30)}1`, 'ABCDEF']) {
+      expect(serial(v), String(v)).toBeUndefined()
+      expect(historicoVeicularParaTela({ status: 'ok', consultadoEm: null, caixaCambio: v } as any)!.caixaCambio, String(v)).toBeUndefined()
+    }
+  })
+
+  it('a section whose own VIN is another vehicle shows nothing (rev-803)', () => {
+    expect(parsearRespostaHistorico(comCaixa('A1234B5678', undefined, '9XXHV00000X000002'))!.caixaCambio).toBeUndefined()
+    expect(parsearRespostaHistorico(comCaixa('', 'A1234B5678', CHASSI, '9XXHV00000X000002'))!.caixaCambio).toBeUndefined()
+    const semVin = comCaixa('A1234B5678')
+    delete semVin.dados.chassi
+    delete semVin.dados.veiculo.chassi
+    expect(parsearRespostaHistorico(semVin)!.caixaCambio).toBeUndefined()
   })
 
   it('answers without the field keep their old shape', () => {
     expect('caixaCambio' in parsearRespostaHistorico(copia(COM))!).toBe(false)
   })
 
-  it('another VIN shows nothing of it', () => {
+  it('another VIN for the whole answer shows nothing of it', () => {
     const b = parsearRespostaHistorico(comCaixa('V000012345'))!
     const outro = historicoDoVeiculo({ ...b, leilao: { ...(b.leilao as any), chassiFonte: '9XXHV00000X000002' } } as any, CHASSI)!
     expect(outro.status).toBe('divergente')
     expect(outro.caixaCambio).toBeUndefined()
     expect(historicoVeicularParaTela(outro)!.caixaCambio).toBeUndefined()
-  })
-
-  it('the screen filter checks a stored value again', () => {
-    expect(historicoVeicularParaTela({ status: 'ok', consultadoEm: null, caixaCambio: 'NAO INFORMADO' } as any)!.caixaCambio).toBeUndefined()
-    expect(historicoVeicularParaTela({ status: 'ok', consultadoEm: null, caixaCambio: 'v0000 12345' } as any)!.caixaCambio).toBe('V000012345')
   })
 })
