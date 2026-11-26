@@ -63,6 +63,20 @@ describe('LGPD do historico de leilao', () => {
     expect(out.detalhes).toMatchObject({ km: '45000', cor: 'PRATA', fotos_pendente: true })
     expect(JSON.stringify(historicoLgpd({ passagens: [p] }))).not.toMatch(/url_documento|host_origem|r2_key|exemplo\.gov\.br\/editais/)
   })
+  it('lot title and house lot URL never reach the browser either (26/11/2026)', () => {
+    const p = {
+      fonte: 'suporte_classico', fonte_tipo: 'privado', nivel: 'provavel',
+      detalhes: {
+        titulo_lote: 'GM ONIX DE FULANO FICTICIO 2023', url_lote: 'https://casa.example/lote/gm-onix-de-fulano-ficticio-2023-123',
+        km: '45000', cor: 'PRATA',
+      },
+    }
+    const out: any = passagemLgpd(p)
+    expect(out.detalhes).not.toHaveProperty('titulo_lote')
+    expect(out.detalhes).not.toHaveProperty('url_lote')
+    expect(out.detalhes).toMatchObject({ km: '45000', cor: 'PRATA' })
+    expect(JSON.stringify(historicoLgpd({ passagens: [p] }))).not.toMatch(/FULANO|fulano|casa\.example/)
+  })
   it('historico: formato desconhecido volta igual; passagens saneadas', () => {
     expect(historicoLgpd(null)).toBeNull()
     expect(historicoLgpd({ x: 1 })).toEqual({ x: 1 })
