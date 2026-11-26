@@ -90,6 +90,7 @@ describe('presence store: hard cap', () => {
     encher(T0)
     expect(registrarPresenca(id(PRESENCA_TETO), '/', 'computador', T0 + 1)).toBe('cheio')
     expect(resumoPresenca(T0 + 1).online).toBe(PRESENCA_TETO)
+    expect(resumoPresenca(T0 + 1).cheio).toBe(true)                // the TV can tell the count is a floor (rev-804)
   })
 
   it('when full, tabs already in keep refreshing', () => {

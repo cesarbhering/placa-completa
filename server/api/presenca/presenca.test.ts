@@ -30,7 +30,7 @@ const resumo = (await import('./resumo.post')).default as any
 
 beforeEach(() => {
   _zerarPresenca()
-  headers = { 'user-agent': UA_CELULAR }
+  headers = { 'user-agent': UA_CELULAR, 'content-type': 'application/json', 'content-length': '64' }
   body = { id: ID, pagina: '/placa/:placa' }
   status = null
   config = { adminSecret: SEGREDO }
@@ -39,6 +39,31 @@ beforeEach(() => {
 })
 
 describe('POST /api/presenca (public beacon)', () => {
+  it('a body without a declared size (chunked) or above 1 KB is never read (rev-804)', async () => {
+    for (const cl of [undefined, '0', '1025', '20000000', 'abc']) {
+      if (cl === undefined) delete headers['content-length']
+      else headers['content-length'] = cl
+      lerCorpo.mockClear()
+      await beacon({})
+      expect(status).toBe(204)
+      expect(lerCorpo).not.toHaveBeenCalled()
+    }
+    expect(resumoPresenca().online).toBe(0)
+  })
+
+  it('a form posted from another site does not count; only JSON does (rev-804)', async () => {
+    for (const tipo of ['application/x-www-form-urlencoded', 'text/plain', 'multipart/form-data', '']) {
+      headers['content-type'] = tipo
+      await beacon({})
+      expect(status).toBe(204)
+    }
+    expect(lerCorpo).not.toHaveBeenCalled()
+    expect(resumoPresenca().online).toBe(0)
+    headers['content-type'] = 'application/json; charset=utf-8'
+    await beacon({})
+    expect(resumoPresenca().online).toBe(1)
+  })
+
   it('counts the tab on its page and answers 204 with nothing to read', async () => {
     expect(await beacon({})).toBeNull()
     expect(status).toBe(204)

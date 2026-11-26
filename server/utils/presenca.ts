@@ -65,6 +65,8 @@ export type ResumoPresenca = {
   online: number
   por_pagina: { path: PaginaPresenca; n: number }[]
   por_dispositivo: Record<DispositivoPresenca, number>
+  /** The store hit PRESENCA_TETO: new tabs are being turned away, so `online` is a floor. */
+  cheio: boolean
   janela_s: number
   atualizado_em: string
 }
@@ -82,6 +84,7 @@ export function resumoPresenca(agora = Date.now()): ResumoPresenca {
     online: entradas.size,
     por_pagina: [...porPagina].map(([path, n]) => ({ path, n })).sort((a, b) => b.n - a.n || a.path.localeCompare(b.path)),
     por_dispositivo: porDispositivo,
+    cheio: entradas.size >= PRESENCA_TETO,
     janela_s: PRESENCA_JANELA_MS / 1000,
     atualizado_em: new Date(agora).toISOString(),
   }

@@ -13,7 +13,7 @@ import {
 //
 // What leaves the browser: a random id for this tab (sessionStorage, a key of
 // its own, never sent with anything else) and the page reduced to its route
-// pattern. Fire and forget: sendBeacon, fetch keepalive as plan B, nothing
+// pattern, without cookies or Referer. Fire and forget: fetch keepalive, nothing
 // awaited, every step in try/catch, and the first send waits until the browser
 // is idle after the page loads.
 //
@@ -37,18 +37,21 @@ function idDaAba(): string {
   }
 }
 
+// fetch, not sendBeacon (rev-804): a beacon carries the cookies and the full page URL in its Referer, and
+// the URL of a report holds its token. Here: no cookie, no Referer, nothing cached.
+const PEDIDO: RequestInit = {
+  method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store',
+}
+
 function enviar(corpo: string) {
-  let foi = false
   try {
-    foi = !!navigator.sendBeacon?.(URL_PRESENCA, new Blob([corpo], { type: 'application/json' }))
+    void fetch(URL_PRESENCA, { ...PEDIDO, body: corpo, keepalive: true }).catch(() => {})
   } catch {
-    foi = false
-  }
-  if (foi) return
-  try {
-    void fetch(URL_PRESENCA, { method: 'POST', headers: { 'content-type': 'application/json' }, body: corpo, keepalive: true }).catch(() => {})
-  } catch {
-    // Measuring never breaks a page.
+    try {
+      void fetch(URL_PRESENCA, { ...PEDIDO, body: corpo }).catch(() => {})       // a browser without keepalive
+    } catch {
+      // Measuring never breaks a page.
+    }
   }
 }
 

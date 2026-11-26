@@ -17,7 +17,8 @@ const CORPO_MAXIMO = 1024
  * query string, anything else the request carries.
  *
  * Not counted: the checkout probe (x-pc-sonda: 1, as in /api/evento), crawlers
- * and monitors (user agent), and anything without a valid tab id.
+ * and monitors (user agent), anything that is not JSON with a declared size of
+ * at most 1 KB (never read), and anything without a valid tab id.
  */
 export default defineEventHandler(async (event) => {
   setResponseStatus(event, 204)
@@ -25,7 +26,11 @@ export default defineEventHandler(async (event) => {
     if (String(getHeader(event, 'x-pc-sonda') ?? '').trim() === '1') return null
     const ua = String(getHeader(event, 'user-agent') ?? '')
     if (!ua || pareceRobo(ua)) return null
-    if (Number(getHeader(event, 'content-length') || 0) > CORPO_MAXIMO) return null
+    // Only our plugin's JSON: a form posted from another site (no CORS preflight) is not a tab of ours.
+    if (!String(getHeader(event, 'content-type') ?? '').toLowerCase().startsWith('application/json')) return null
+    // Declared size only: a body without Content-Length (chunked) or above the cap is never read (rev-804).
+    const tamanho = Number(getHeader(event, 'content-length'))
+    if (!Number.isFinite(tamanho) || tamanho <= 0 || tamanho > CORPO_MAXIMO) return null
     const corpo: any = await readBody(event).catch(() => null)
     if (!corpo || typeof corpo !== 'object' || !idPresencaValido(corpo.id)) return null
     registrarPresenca(corpo.id, paginaPresenca(corpo.pagina), dispositivoPresenca(getDispositivo(event).dispositivo))
