@@ -20,7 +20,12 @@ const ROTAS: [string, () => Promise<any>][] = [
   ['premium/reembolsar', () => import('./premium/reembolsar.post')],
   ['premium/historico-veicular/rodar', () => import('./premium/historico-veicular/rodar.post')],
   ['suporte/fila', () => import('./suporte/fila.post')],
+  ['presenca/resumo', () => import('./presenca/resumo.post')],
 ]
+
+// Routes that never touch the database: the right-secret case of each one is
+// tested on its own (below, and in presenca/presenca.test.ts).
+const SEM_BANCO = new Set(['premium/em-voo-teste', 'presenca/resumo'])
 
 let config: any
 const lerCorpo = vi.fn()
@@ -84,8 +89,8 @@ describe.each(ROTAS)('POST /api/%s', (_rota, carregar) => {
   })
 })
 
-// The homolog sleep test never touches the database; it has its own case below.
-describe.each(ROTAS.filter(([rota]) => rota !== 'premium/em-voo-teste'))('POST /api/%s', (_rota, carregar) => {
+// The routes in SEM_BANCO have their own right-secret case.
+describe.each(ROTAS.filter(([rota]) => !SEM_BANCO.has(rota)))('POST /api/%s', (_rota, carregar) => {
   it('right secret: the route runs', async () => {
     const handler = (await carregar()).default as any
 
