@@ -105,6 +105,13 @@ describe('combustivelIpva', () => {
     expect(combustivelIpva(null, 'Elétrico')).toBe('eletrico')
     expect(combustivelIpva(null, 'Gasolina/Elétrico')).toBe('hibrido')
     expect(combustivelIpva(16, 'Corolla Cross XRX Hybrid')).toBe('hibrido')
+    expect(combustivelIpva(17)).toBe('gnv')
+    expect(combustivelIpva('06')).toBe('eletrico')
+    // A registry code we don't map decides nothing, and the model name only
+    // counts when it names a hybrid or an electric.
+    expect(combustivelIpva(18)).toBeNull()
+    expect(combustivelIpva(5, 'Gasolina')).toBeNull()
+    expect(combustivelIpva(18, 'Corolla Altis Hybrid')).toBe('hibrido')
     expect(combustivelIpva(null, 'Gasolina/GNV')).toBe('gnv')
     expect(combustivelIpva(null, '')).toBeNull()
   })

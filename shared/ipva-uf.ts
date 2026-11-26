@@ -197,21 +197,38 @@ const GASOLINA = /gasolina|flex/i
 const ETANOL = /[aá]lcool|etanol/i
 
 /**
- * Fuel group from what we hold: the registry fuel code (1 ethanol, 2 gasoline,
- * 3 diesel, 16/17 flex) and/or texts (fuel, model name: "Álcool/Gasolina",
- * "Elétrico", "HEV"...). Null when nothing says what it is.
+ * Registry fuel codes we know: 1 ethanol, 2 gasoline, 3 diesel, 6/7 electric
+ * (internal/external source), 16 ethanol/gasoline (flex), 17 ethanol/gasoline/
+ * GNV. Any other code present in the registry decides nothing by itself.
+ */
+const CODIGOS_COMBUSTIVEL: Readonly<Record<number, CombustivelIpva>> = {
+  1: 'etanol', 2: 'comum', 3: 'diesel', 6: 'eletrico', 7: 'eletrico', 16: 'comum', 17: 'gnv',
+}
+
+/**
+ * Fuel group from what we hold: the registry fuel code and/or texts (fuel of
+ * the free lookup, model name: "Álcool/Gasolina", "Elétrico", "HEV"...). A
+ * hybrid or electric named in the texts wins over a gasoline/flex code. A
+ * registry code we don't know gives null unless the texts name a hybrid or an
+ * electric. Null when nothing says what it is.
  */
 export function combustivelIpva(codigo: unknown, ...textos: unknown[]): CombustivelIpva | null {
   const t = textos.map((x) => String(x ?? '')).join(' ')
-  const p = propulsao(t)
+  let p = propulsao(t)
   // "Gasolina/Elétrico" is a hybrid even without the word: electric plus a fuel.
-  if (p === 'eletrico' && (GASOLINA.test(t) || ETANOL.test(t) || DIESEL.test(t))) return 'hibrido'
+  if (p === 'eletrico' && (GASOLINA.test(t) || ETANOL.test(t) || DIESEL.test(t))) p = 'hibrido'
+  const n = parseInt(String(codigo ?? '').trim(), 10)
+  if (Number.isFinite(n)) {
+    const doCodigo = CODIGOS_COMBUSTIVEL[n]
+    if (!doCodigo) return p
+    if (p && (doCodigo === 'comum' || doCodigo === 'etanol')) return p
+    return doCodigo
+  }
   if (p) return p
   if (GNV.test(t)) return 'gnv'
-  const n = parseInt(String(codigo ?? '').trim(), 10)
-  if (n === 3 || DIESEL.test(t)) return 'diesel'
-  if (n === 2 || n === 16 || n === 17 || GASOLINA.test(t)) return 'comum'
-  if (n === 1 || ETANOL.test(t)) return 'etanol'
+  if (DIESEL.test(t)) return 'diesel'
+  if (GASOLINA.test(t)) return 'comum'
+  if (ETANOL.test(t)) return 'etanol'
   return null
 }
 
