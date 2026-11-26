@@ -641,7 +641,7 @@ export function historicoPedeReserva(hv: HistoricoVeicular | null | undefined, s
 // ---------------------------------------------------------------- gearbox serial
 
 // Serials seen in the partner answers (25/11/2026): letters and digits only, 5 to 12 characters, 5 to 12
-// digits (A9999A9999, A999999999, 99A99999, 999999999999, AAAAAA999999, 9AAAAA9999). Anything else is
+// digits (A9999A9999, A999999999, 99A99999, 999999999999, AAAAAA999999, 9AAAAA9999, 9A9999999999). Anything else is
 // dropped: placeholders, gearbox types, dates, names, and whatever looks like a CPF or CNPJ, even
 // without its leading zeros (rev-803: in doubt it is a document, never shown).
 const SEM_CAIXA = /^(NAO ?(INFORMAD[OA]|APLICAVEL|CONSTA)|SEM ?INFORMACAO|INEXISTENTE|NULL|NONE|UNDEFINED)$/
@@ -654,12 +654,16 @@ function dvOk(d: string, pesos: number[]): boolean {
 const cpfOk = (d: string) => d.length === 11 && !/^(\d)\1+$/.test(d) && dvOk(d, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2])
 const cnpjOk = (d: string) => d.length === 14 && !/^(\d)\1+$/.test(d) && dvOk(d, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
 
-/** Looks like a person's or company's document: 11 or 14 digits, or fewer that pass a CPF/CNPJ check once padded. */
+/**
+ * Looks like a person's or company's document: digits only with 11 or 14 of them, or digits (with or
+ * without letters around) that pass a CPF or CNPJ check once padded with zeros. A real serial with 11
+ * digits and a letter exists (9A9999999999, 1 in 32 answers), so letters plus 11 digits alone are not a
+ * document; letters plus a valid CPF are.
+ */
 function pareceDocumento(s: string): boolean {
   const dig = s.replace(/\D/g, '')
-  if (dig.length === 11 || dig.length === 14) return true
-  if (/^\d+$/.test(s) && (cpfOk(s.padStart(11, '0')) || (s.length >= 12 && cnpjOk(s.padStart(14, '0'))))) return true
-  return false
+  if (/^\d+$/.test(s) && (dig.length === 11 || dig.length === 14)) return true
+  return dig.length <= 11 ? cpfOk(dig.padStart(11, '0')) : dig.length <= 14 && cnpjOk(dig.padStart(14, '0'))
 }
 
 /** Gearbox serial as shown, or null (only strings of letters and digits, at least 4 digits and 40% of them). */
