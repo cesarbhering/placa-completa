@@ -214,10 +214,10 @@ export const CALENDARIO_IPVA_2027: readonly CalendarioUf[] = [
     uf: 'MS',
     nome: 'Mato Grosso do Sul',
     status: 'parcial',
-    resumo: 'Cota única com 15% de desconto até 28 de dezembro de 2026. As datas das parcelas ainda não foram publicadas.',
+    resumo: 'Cota única com 15% de desconto para pagamento até 28 de dezembro de 2026. Em 26/11/2026, as datas das parcelas ainda não tinham sido publicadas.',
     regras: [
       'Pagamento à vista, em cota única, com 15% de desconto até 28/12/2026 (Lei nº 6.654, de 25 de novembro de 2026).',
-      'A lei prevê parcelamento em até 5 vezes. As datas das parcelas de 2027 ainda não foram publicadas.',
+      'A lei prevê parcelamento em até 5 vezes. Em 26/11/2026, as datas das parcelas de 2027 ainda não tinham sido publicadas.',
       'A alíquota de automóveis em 2027 é de 3%.',
     ],
     fonte: { nome: 'Diário Oficial de MS nº 12.340, de 26/11/2026 (Lei nº 6.654/2026)', url: DOE_MS_12340 },
@@ -255,8 +255,8 @@ export const FAQ_IPVA_2027: readonly { q: string; a: string }[] = [
     a: 'Até 26/11/2026, a Secretaria da Fazenda do RS ainda não tinha publicado o calendário de 2027. A data de início, os descontos e as parcelas saem no portal oficial do IPVA do estado.',
   },
   {
-    q: 'Tem desconto no IPVA 2027 de MS?',
-    a: 'Sim. A Lei nº 6.654/2026 dá 15% de desconto para o pagamento à vista, em cota única, até 28 de dezembro de 2026. A alíquota de automóveis em 2027 é de 3%. As datas das parcelas ainda não foram publicadas.',
+    q: 'Qual o desconto do IPVA 2027 em MS?',
+    a: 'Pela Lei nº 6.654/2026, o pagamento à vista do IPVA 2027, em cota única, feito até 28 de dezembro de 2026 tem 15% de desconto. A alíquota de automóveis em 2027 é de 3%. Em 26/11/2026, as datas das parcelas ainda não tinham sido publicadas.',
   },
   {
     q: 'E o IPVA 2027 em Minas Gerais?',

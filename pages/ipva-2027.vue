@@ -90,9 +90,8 @@ useHead({
 
       <div class="pc-prose">
         <p class="pc-lead">
-          Em São Paulo, o IPVA 2027 começa a vencer em 11 de janeiro, e no Mato Grosso do Sul o
-          desconto de 15% da cota única vale para quem pagar até 28 de dezembro de 2026. Digite a
-          placa e veja uma <strong>estimativa do IPVA 2027</strong> do carro: o valor FIPE vezes a
+          Em São Paulo, o IPVA 2027 vence entre 11 e 22 de janeiro, conforme o final da placa. Digite
+          a placa e veja uma <strong>estimativa do IPVA 2027</strong> do carro: o valor FIPE vezes a
           alíquota do estado. É uma conta para planejar, não o valor oficial nem uma consulta de
           débitos. Quem define a base de cálculo e o valor final é a Secretaria da Fazenda (SEFAZ)
           de cada estado.
@@ -181,7 +180,7 @@ useHead({
           </li>
           <li>
             <strong>Descontos não entram na conta</strong>, como os 3% do pagamento integral em
-            janeiro em São Paulo ou os 15% da cota única no Mato Grosso do Sul.
+            janeiro em São Paulo.
           </li>
           <li>
             <strong>Isenções e reduções também não</strong>: carro antigo, pessoa com deficiência,
