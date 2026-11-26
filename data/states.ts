@@ -303,12 +303,12 @@ export const states: Record<string, StateData> = {
     slug: 'sao-paulo', name: 'São Paulo', uf: 'SP', capital: 'São Paulo',
     detranSite: 'https://detran.sp.gov.br',
     plateRanges: 'BFA a GTA, FPA a GTA (formato antigo)',
-    ipvaInfo: 'O IPVA em São Paulo tem alíquota de 4% para automóveis flex/gasolina e 2% para veículos elétricos. Pode ser parcelado em até 5 vezes.',
+    ipvaInfo: 'O IPVA em São Paulo tem alíquota de 4% para automóveis a gasolina ou flex. Pode ser parcelado em até 5 vezes.',
     context: 'São Paulo possui a maior frota de veículos do Brasil, com mais de 30 milhões de veículos. A capital, Campinas, Guarulhos, São Bernardo e Ribeirão Preto concentram a maior parte.',
     faqs: [
       { question: 'Como consultar uma placa de São Paulo?', answer: 'Acesse o PlacaCompleta, digite a placa do veículo paulista e receba marca, modelo, FIPE e situação gratuitamente no e-mail.' },
       { question: 'Quais as letras de placa de São Paulo?', answer: 'No formato antigo, placas de SP usam as séries BFA a GTA, a maior faixa de qualquer estado devido ao tamanho da frota.' },
-      { question: 'Qual a alíquota do IPVA em SP?', answer: 'A alíquota do IPVA em SP é de 4% para automóveis flex/gasolina e 2% para veículos elétricos.' },
+      { question: 'Qual a alíquota do IPVA em SP?', answer: 'A alíquota do IPVA em SP é de 4% para automóveis a gasolina ou flex.' },
     ],
   },
   'sergipe': {

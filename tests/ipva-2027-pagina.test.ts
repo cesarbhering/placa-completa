@@ -66,7 +66,7 @@ describe('IPVA 2027 page', () => {
 
   it('the free lookup tells the page whether the vehicle is a car', () => {
     const api = arq('server/api/consulta.post.ts')
-    expect(api).toContain('segmento: detectarSegmento({ wdapi: apiResponse')
+    expect(api).toContain('segmento: segmentoIpva({ wdapi: apiResponse')
     // Only the decided tier (rate and label) goes out, never power or engine size.
     expect(api).toContain('ipvaFaixas: faixasDecididas({')
     expect(api).not.toMatch(/^\s*potencia:/m)
@@ -126,6 +126,18 @@ describe('Ipva2027Estimativa', () => {
     expect(plano(w.text())).toContain('R$ 2.000')
     await w.find('select').setValue('SP')
     expect(plano(w.text())).toContain('Não identificamos o combustível deste carro')
+  })
+
+  it('shows no number for a pickup or cargo utility', () => {
+    const w = mount(Ipva2027Estimativa, { props: { fipe: 100000, ufInicial: 'SP', segmento: 'utilitario', combustivelTexto: 'Diesel' } })
+    expect(plano(w.text())).toContain('picapes e utilitários de carga podem ter alíquota diferente')
+    expect(plano(w.text())).not.toMatch(/R\$ \d/)
+  })
+
+  it('without the plate, the range says the plate is missing, not the lookup', () => {
+    const w = mount(Ipva2027Estimativa, { props: { fipe: 50000, ufInicial: 'CE', segmento: 'carro', combustivel: 'comum', origem: 'manual' } })
+    expect(plano(w.text())).toContain('Sem a placa, não temos esse dado do carro')
+    expect(plano(w.text())).not.toContain('A consulta deste carro')
   })
 
   it('shows no number for a motorcycle', () => {

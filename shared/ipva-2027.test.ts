@@ -19,6 +19,11 @@ describe('valorFipeDoTexto', () => {
     expect(valorFipeDoTexto('R$ 1.234.567,89')).toBe(1234567.89)
     expect(valorFipeDoTexto('50.000')).toBe(50000)
     expect(valorFipeDoTexto(32000)).toBe(32000)
+    // "." or "," with exactly 2 digits after it is the decimal separator.
+    expect(valorFipeDoTexto('45678.90')).toBe(45678.9)
+    expect(valorFipeDoTexto('45.678,90')).toBe(45678.9)
+    expect(valorFipeDoTexto('45,678.90')).toBe(45678.9)
+    expect(valorFipeDoTexto('1.234.567')).toBe(1234567)
   })
   it('returns null without a positive amount', () => {
     for (const v of [null, undefined, '', 'Não disponível', 'R$ 0,00', 0, -5, Number.NaN]) {
@@ -61,9 +66,10 @@ describe('estimarIpva2027', () => {
     // A decided tier of another state does not leak into this one.
     expect(carro(50000, 'GO', { faixasDecididas })).toMatchObject({ tipo: 'faixa' })
   })
-  it('gives no number for motorcycles and trucks, even with a FIPE value', () => {
+  it('gives no number for motorcycles, trucks and pickups/utilities, even with a FIPE value', () => {
     expect(carro(18000, 'SP', { segmento: 'moto' })).toEqual({ tipo: 'nao_automovel', segmento: 'moto' })
     expect(carro(300000, 'MG', { segmento: 'caminhao' })).toEqual({ tipo: 'nao_automovel', segmento: 'caminhao' })
+    expect(carro(100000, 'SP', { segmento: 'utilitario' })).toEqual({ tipo: 'nao_automovel', segmento: 'utilitario' })
   })
   it('gives no number for a state whose rate was not checked', () => {
     expect(carro(50000, 'MA')).toEqual({ tipo: 'aliquota_nao_conferida', uf: 'MA' })
@@ -98,6 +104,7 @@ describe('calendar 2027', () => {
     }
     expect(CALENDARIO_IPVA_2027.find((c) => c.uf === 'MG')!.status).toBe('nao_publicado')
     expect(CALENDARIO_IPVA_2027.find((c) => c.uf === 'RS')!.status).toBe('nao_publicado')
+    expect(CALENDARIO_IPVA_2027.find((c) => c.uf === 'DF')!.status).toBe('nao_publicado')
   })
   it('SP: due days 11 to 22 by plate final, as in Decreto 70.960/2026', () => {
     const sp = CALENDARIO_IPVA_2027.find((c) => c.uf === 'SP')!
@@ -119,8 +126,10 @@ describe('calendar 2027', () => {
     const se = CALENDARIO_IPVA_2027.find((c) => c.uf === 'SE')!
     expect(se.vencimentos!.map((v) => v.finais)).toEqual(['1 e 2', '3 e 4', '5'])
     expect(se.resumo).toContain('31 de março de 2027')
+    // DF: only a news article, no official act with dates: not published.
     const df = CALENDARIO_IPVA_2027.find((c) => c.uf === 'DF')!
-    expect(df.status).toBe('parcial')
+    expect(df.status).toBe('nao_publicado')
+    expect(df.resumo).toBe(TEXTO_NAO_PUBLICADO)
     expect(df.vencimentos).toBeUndefined()
   })
   it('every state names an official source and the check date', () => {

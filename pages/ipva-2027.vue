@@ -160,6 +160,10 @@ useHead({
           </table>
         </div>
         <p class="ipva-nota">Alíquotas conferidas em {{ CONFERIDO_EM }} nas fontes oficiais de cada estado.</p>
+        <p class="ipva-nota">
+          No Piauí e em Sergipe, a faixa depende do valor venal da tabela da SEFAZ. A estimativa usa o valor
+          FIPE de hoje, e a base oficial pode ser diferente e cair na outra faixa.
+        </p>
         <p>
           Em alguns estados a alíquota muda com a potência, a cilindrada ou o valor do carro. Na
           consulta pela placa, a estimativa usa a faixa do carro quando a consulta traz esse dado; sem

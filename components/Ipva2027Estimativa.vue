@@ -56,8 +56,9 @@ const est = computed(() => estimarIpva2027({ valorFipe: props.fipe, uf: uf.value
   <div class="ipe" aria-live="polite">
     <p v-if="est.tipo === 'nao_automovel'" class="ipe__aviso">
       A estimativa desta página usa a alíquota de automóvel, e
-      {{ est.segmento === 'moto' ? 'motos' : 'caminhões' }} podem ter alíquota diferente.
-      Confira o IPVA na Secretaria da Fazenda (SEFAZ) do estado onde o veículo está registrado.
+      {{ est.segmento === 'moto' ? 'motos' : est.segmento === 'caminhao' ? 'caminhões' : 'picapes e utilitários de carga' }}
+      podem ter alíquota diferente. Confira o IPVA na Secretaria da Fazenda (SEFAZ) do estado onde o
+      veículo está registrado.
     </p>
     <template v-else>
       <label :for="`${idBase}-uf`" class="ipe__label">Estado onde o carro está registrado</label>
@@ -96,8 +97,10 @@ const est = computed(() => estimarIpva2027({ valorFipe: props.fipe, uf: uf.value
         </div>
         <p class="ipe__conta">
           A alíquota de automóvel {{ emEstado(est.uf, nomeUf) }} depende {{ dependeEmTexto(est.depende) }}:
-          {{ est.descricao }}. A consulta deste carro não trouxe esse dado, então mostramos a faixa para
-          {{ reais(est.valorFipe) }} de valor FIPE.
+          {{ est.descricao }}.
+          <template v-if="origem === 'manual'">Sem a placa, não temos esse dado do carro,</template>
+          <template v-else>A consulta deste carro não trouxe esse dado,</template>
+          então mostramos a faixa para {{ reais(est.valorFipe) }} de valor FIPE.
         </p>
         <p class="ipe__nota">
           É uma estimativa, não o valor oficial nem uma consulta de débitos. O valor oficial sai na

@@ -30,7 +30,7 @@ export interface FonteOficial {
   url: string
 }
 
-export type SegmentoVeiculo = 'carro' | 'moto' | 'caminhao' | 'outro'
+export type SegmentoVeiculo = 'carro' | 'moto' | 'caminhao' | 'utilitario' | 'outro'
 
 export type EstimativaIpva =
   | {
@@ -62,17 +62,23 @@ export type EstimativaIpva =
       conferidoEm: string
     }
   | { tipo: 'combustivel_especial'; uf: string; combustivel: CombustivelEspecial | null; fonte: FonteOficial; conferidoEm: string }
-  | { tipo: 'nao_automovel'; segmento: 'moto' | 'caminhao' }
+  | { tipo: 'nao_automovel'; segmento: 'moto' | 'caminhao' | 'utilitario' }
   | { tipo: 'sem_fipe' }
   | { tipo: 'sem_uf' }
   | { tipo: 'aliquota_nao_conferida'; uf: string }
 
-/** "R$ 45.678,00" -> 45678. Anything without a positive amount -> null. */
+/**
+ * "R$ 45.678,00" -> 45678; "45678.90" -> 45678.9. A "." or "," followed by
+ * exactly 2 digits at the end is the decimal separator; any other "." or ","
+ * groups thousands. Anything without a positive amount -> null.
+ */
 export function valorFipeDoTexto(texto: unknown): number | null {
   if (typeof texto === 'number') return Number.isFinite(texto) && texto > 0 ? texto : null
-  const s = String(texto ?? '')
-  if (!/\d/.test(s)) return null
-  const n = Number(s.replace(/[^\d,]/g, '').replace(',', '.'))
+  const s = String(texto ?? '').trim()
+  const decimal = /^(.*\d)[.,](\d{2})$/.exec(s)
+  const inteiro = (decimal ? decimal[1] : s).replace(/\D/g, '')
+  if (!inteiro) return null
+  const n = Number(inteiro) + (decimal ? Number(decimal[2]) / 100 : 0)
   return Number.isFinite(n) && n > 0 ? n : null
 }
 
@@ -91,7 +97,7 @@ export function estimarIpva2027(entrada: {
   /** Tiers decided on the server for this car, by state (basico.ipvaFaixas). */
   faixasDecididas?: Record<string, { aliquota: number; rotulo: string }> | null
 }): EstimativaIpva {
-  if (entrada.segmento === 'moto' || entrada.segmento === 'caminhao') {
+  if (entrada.segmento === 'moto' || entrada.segmento === 'caminhao' || entrada.segmento === 'utilitario') {
     return { tipo: 'nao_automovel', segmento: entrada.segmento }
   }
   const valorFipe = valorFipeDoTexto(entrada.valorFipe)
@@ -291,13 +297,10 @@ export const CALENDARIO_IPVA_2027: readonly CalendarioUf[] = [
   {
     uf: 'DF',
     nome: 'Distrito Federal',
-    status: 'parcial',
-    resumo: 'Em 26/11/2026, as datas de 2027 ainda não tinham sido publicadas. O GDF mantém o desconto de 10% na parcela única e o parcelamento em até 6 vezes sem juros.',
-    regras: [
-      'A tabela de valores de 2027, com redução média de 1,49% para automóveis, depende de aprovação da Câmara Legislativa.',
-      'A alíquota de automóveis continua em 3%.',
-    ],
-    fonte: { nome: 'Agência Brasília, com informações da Secretaria de Economia (23/11/2026)', url: 'https://www.agenciabrasilia.df.gov.br/w/tabela-do-ipva-de-2027-deve-ter-em-media-2-de-reducao' },
+    status: 'nao_publicado',
+    resumo: TEXTO_NAO_PUBLICADO,
+    regras: ['Em 26/11/2026, ainda não havia ato oficial com as datas de 2027. A tabela de valores do ano ainda depende de aprovação da Câmara Legislativa.'],
+    fonte: { nome: 'Agência Brasília, tabela do IPVA de 2027 (23/11/2026)', url: 'https://www.agenciabrasilia.df.gov.br/w/tabela-do-ipva-de-2027-deve-ter-em-media-2-de-reducao' },
     conferidoEm: CONFERIDO_EM,
   },
 ]
@@ -329,7 +332,7 @@ export const FAQ_IPVA_2027: readonly { q: string; a: string }[] = [
   },
   {
     q: 'Quais estados já publicaram o calendário do IPVA 2027?',
-    a: 'Até 26/11/2026, São Paulo, Espírito Santo e Sergipe publicaram as datas. Mato Grosso do Sul publicou o prazo da cota única com desconto, e o Distrito Federal anunciou as condições de pagamento, ainda sem as datas. Minas Gerais e Rio Grande do Sul ainda não tinham publicado.',
+    a: 'Até 26/11/2026, São Paulo, Espírito Santo e Sergipe publicaram as datas, e Mato Grosso do Sul publicou o prazo da cota única com desconto. Minas Gerais, Rio Grande do Sul e o Distrito Federal ainda não tinham publicado.',
   },
   {
     q: 'Quando começa o IPVA 2027 no RS?',

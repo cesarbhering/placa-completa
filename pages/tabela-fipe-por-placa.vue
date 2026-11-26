@@ -239,7 +239,7 @@ useHead({
               quanto ele vale, hoje, no mercado.
             </p>
             <p>
-              Quer saber quanto o carro vai pagar de imposto no ano que vem? Veja a
+              Para ter uma ideia do imposto do ano que vem, veja uma
               <NuxtLink to="/ipva-2027">estimativa do IPVA 2027 pela placa</NuxtLink>, com as
               datas que cada estado já publicou.
             </p>
