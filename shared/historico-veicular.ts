@@ -657,6 +657,8 @@ export function numeroCaixaCambio(v: unknown): string | null {
   if (!bruto || SEM_CAIXA.test(bruto)) return null
   const s = bruto.replace(/ /g, '')
   if (!/^[A-Z0-9][A-Z0-9./-]{3,24}$/.test(s) || !/\d/.test(s) || /^0+$/.test(s) || PALAVRA_DE_TIPO.test(s)) return null
+  // Only digits with the size of a CPF or CNPJ: never shown (in doubt it is a person's or a company's document).
+  if (!/[A-Z]/.test(s) && /^(\d{11}|\d{14})$/.test(s.replace(/[./-]/g, ''))) return null
   return s
 }
 

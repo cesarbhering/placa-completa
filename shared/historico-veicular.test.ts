@@ -994,11 +994,16 @@ describe('gearbox serial of the registry record (Cesar, 25/11/2026)', () => {
 
   it('drops placeholders, gearbox types and anything that is not a serial', () => {
     for (const v of ['0', '000000', 'NAO INFORMADO', 'Não informado', 'NAO APLICAVEL', 'MANUAL', 'AUTOMATICA', 'CVT 6',
-      '', null, undefined, '<script>', 'A1', `${'X'.repeat(30)}1`, 'ABCDEF']) {
+      '', null, undefined, '<script>', 'A1', `${'X'.repeat(30)}1`, 'ABCDEF',
+      '12345678901', '123.456.789-01', '11222333000199', '11.222.333/0001-99']) {
       const b = parsearRespostaHistorico(comCaixa(v))!
       expect(b.caixaCambio, String(v)).toBeUndefined()
       expect(historicoVeicularParaTela(b)!.caixaCambio, String(v)).toBeUndefined()
     }
+  })
+
+  it('long digit-only serials that are not document-sized stay', () => {
+    expect(parsearRespostaHistorico(comCaixa('000123456789'))!.caixaCambio).toBe('000123456789')
   })
 
   it('answers without the field keep their old shape', () => {
