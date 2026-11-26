@@ -43,6 +43,7 @@ describe('IPVA 2027 page', () => {
     expect(pagina).toContain('<template #estimativa="{ resultado }">')
     expect(pagina).toContain(':segmento="resultado.segmento"')
     expect(pagina).toContain(':combustivel-texto="resultado.combustivel"')
+    expect(pagina).toContain(':faixas-decididas="resultado.ipvaFaixas"')
   })
 
   it('FipePorPlaca keeps the FIPE page defaults and the offer card as they were', () => {
@@ -64,7 +65,11 @@ describe('IPVA 2027 page', () => {
   })
 
   it('the free lookup tells the page whether the vehicle is a car', () => {
-    expect(arq('server/api/consulta.post.ts')).toContain('segmento: detectarSegmento({ wdapi: apiResponse')
+    const api = arq('server/api/consulta.post.ts')
+    expect(api).toContain('segmento: detectarSegmento({ wdapi: apiResponse')
+    // Only the decided tier (rate and label) goes out, never power or engine size.
+    expect(api).toContain('ipvaFaixas: faixasDecididas({')
+    expect(api).not.toMatch(/^\s*potencia:/m)
   })
 })
 
@@ -103,8 +108,24 @@ describe('Ipva2027Estimativa', () => {
     expect(plano(w.text())).toContain('R$ 750')
     expect(plano(w.text())).toContain('de carro híbrido no Rio de Janeiro')
     await w.find('select').setValue('SP')
-    expect(plano(w.text())).toContain('Para carro híbrido, a alíquota em São Paulo pode ser diferente')
+    expect(plano(w.text())).toContain('Para carro híbrido, a regra do IPVA em São Paulo é própria')
     expect(plano(w.text())).not.toContain('IPVA 2027 estimado')
+    await w.find('select').setValue('MG')
+    expect(plano(w.text())).toContain('R$ 2.000')
+  })
+
+  it('uses the tier the server decided for a power-tiered state', () => {
+    const w = mount(Ipva2027Estimativa, { props: { fipe: 50000, ufInicial: 'CE', ...flex, faixasDecididas: { CE: { aliquota: 0.025, rotulo: 'até 100 cv' } } } })
+    const t = plano(w.text())
+    expect(t).toContain('R$ 1.250')
+    expect(t).toContain('no Ceará para carro até 100 cv')
+  })
+
+  it('without the fuel: a number where the rate is the same for any fuel, none where fuel changes it', async () => {
+    const w = mount(Ipva2027Estimativa, { props: { fipe: 50000, ufInicial: 'MG', segmento: 'carro' } })
+    expect(plano(w.text())).toContain('R$ 2.000')
+    await w.find('select').setValue('SP')
+    expect(plano(w.text())).toContain('Não identificamos o combustível deste carro')
   })
 
   it('shows no number for a motorcycle', () => {

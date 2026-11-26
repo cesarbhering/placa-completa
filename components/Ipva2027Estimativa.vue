@@ -7,7 +7,7 @@
 import { ref, computed, watch } from 'vue'
 import { states } from '~/data/states'
 import { emEstado } from '~/shared/seo-titulo'
-import { combustivelIpva, type CombustivelIpva } from '~/shared/ipva-uf'
+import { combustivelIpva, type CombustivelIpva, type CombustivelEspecial } from '~/shared/ipva-uf'
 import { estimarIpva2027, aliquotaEmTexto, reais, dependeEmTexto, combustivelEmTexto } from '~/shared/ipva-2027'
 
 const props = withDefaults(defineProps<{
@@ -19,6 +19,8 @@ const props = withDefaults(defineProps<{
   modelo?: string | null
   /** Fuel group given directly (the typed-value form assumes gasoline or flex). */
   combustivel?: CombustivelIpva | null
+  /** Power/engine-size tiers the server decided for this car (rate and label only). */
+  faixasDecididas?: Record<string, { aliquota: number; rotulo: string }> | null
   /** 'placa': the state came with the lookup and the person confirms it. */
   origem?: 'placa' | 'manual'
   idBase?: string
@@ -28,6 +30,7 @@ const props = withDefaults(defineProps<{
   combustivelTexto: null,
   modelo: null,
   combustivel: null,
+  faixasDecididas: null,
   origem: 'placa',
   idBase: 'ipe',
 })
@@ -46,7 +49,7 @@ watch(() => props.ufInicial, (v) => { uf.value = ufValida(v) })
 
 const nomeUf = computed(() => UFS.find((s) => s.uf === uf.value)?.nome || uf.value)
 const grupo = computed(() => props.combustivel ?? combustivelIpva(null, props.combustivelTexto, props.modelo))
-const est = computed(() => estimarIpva2027({ valorFipe: props.fipe, uf: uf.value, segmento: props.segmento, combustivel: grupo.value }))
+const est = computed(() => estimarIpva2027({ valorFipe: props.fipe, uf: uf.value, segmento: props.segmento, combustivel: grupo.value, faixasDecididas: props.faixasDecididas }))
 </script>
 
 <template>
@@ -74,9 +77,9 @@ const est = computed(() => estimarIpva2027({ valorFipe: props.fipe, uf: uf.value
         </div>
         <p class="ipe__conta">
           {{ reais(est.valorFipe) }} de valor FIPE × {{ aliquotaEmTexto(est.aliquota) }}, a alíquota
-          <template v-if="est.combustivel === 'comum'">de automóvel</template>
-          <template v-else>de carro {{ combustivelEmTexto(est.combustivel) }}</template>
-          {{ emEstado(est.uf, nomeUf) }}.
+          <template v-if="est.porCombustivel && est.combustivel">de carro {{ combustivelEmTexto(est.combustivel as CombustivelEspecial) }}</template>
+          <template v-else>de automóvel</template>
+          {{ emEstado(est.uf, nomeUf) }}<template v-if="est.rotuloFaixa"> para carro {{ est.rotuloFaixa }}</template>.
         </p>
         <p class="ipe__nota">
           É uma estimativa, não o valor oficial nem uma consulta de débitos. O valor oficial sai na
@@ -93,8 +96,8 @@ const est = computed(() => estimarIpva2027({ valorFipe: props.fipe, uf: uf.value
         </div>
         <p class="ipe__conta">
           A alíquota de automóvel {{ emEstado(est.uf, nomeUf) }} depende {{ dependeEmTexto(est.depende) }}:
-          {{ est.descricao }}. A consulta pela placa nesta página não traz esse dado, então mostramos
-          a faixa para {{ reais(est.valorFipe) }} de valor FIPE.
+          {{ est.descricao }}. A consulta deste carro não trouxe esse dado, então mostramos a faixa para
+          {{ reais(est.valorFipe) }} de valor FIPE.
         </p>
         <p class="ipe__nota">
           É uma estimativa, não o valor oficial nem uma consulta de débitos. O valor oficial sai na
@@ -104,13 +107,13 @@ const est = computed(() => estimarIpva2027({ valorFipe: props.fipe, uf: uf.value
       </div>
 
       <p v-else-if="est.tipo === 'combustivel_especial' && est.combustivel" class="ipe__aviso">
-        Para carro {{ combustivelEmTexto(est.combustivel) }}, a alíquota {{ emEstado(est.uf, nomeUf) }}
-        pode ser diferente da de carro a gasolina ou flex, e a fonte oficial que conferimos não traz
-        esse caso. Confira o valor na Secretaria da Fazenda (SEFAZ) do estado.
+        Para carro {{ combustivelEmTexto(est.combustivel) }}, a regra do IPVA {{ emEstado(est.uf, nomeUf) }}
+        é própria e tem condições que esta conta não cobre. Confira o valor na Secretaria da Fazenda
+        (SEFAZ) do estado.
       </p>
       <p v-else-if="est.tipo === 'combustivel_especial'" class="ipe__aviso">
-        Não identificamos o combustível deste carro, e ele muda a alíquota em alguns estados. Confira o
-        valor na Secretaria da Fazenda (SEFAZ) do estado.
+        Não identificamos o combustível deste carro, e {{ emEstado(est.uf, nomeUf) }} a alíquota muda
+        conforme o combustível. Confira o valor na Secretaria da Fazenda (SEFAZ) do estado.
       </p>
       <p v-else-if="est.tipo === 'aliquota_nao_conferida'" class="ipe__aviso">
         Ainda não conferimos a alíquota 2027 {{ emEstado(est.uf, nomeUf) }} numa fonte oficial, por

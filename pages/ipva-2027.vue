@@ -106,6 +106,7 @@ useHead({
                 :segmento="resultado.segmento"
                 :combustivel-texto="resultado.combustivel"
                 :modelo="resultado.modelo"
+                :faixas-decididas="resultado.ipvaFaixas"
                 id-base="ipp"
               />
             </template>
@@ -160,11 +161,12 @@ useHead({
         </div>
         <p class="ipva-nota">Alíquotas conferidas em {{ CONFERIDO_EM }} nas fontes oficiais de cada estado.</p>
         <p>
-          Em alguns estados a alíquota muda com a potência, a cilindrada ou o valor do carro. Quando a
-          regra depende de um dado que a consulta pela placa nesta página não traz, como a potência e a
-          cilindrada, mostramos a faixa em vez de um número. Vários estados também têm alíquota própria
-          para carro elétrico, híbrido, a gás, a diesel ou só a etanol: nesses casos só mostramos número
-          quando a fonte oficial dá a alíquota desse combustível.
+          Em alguns estados a alíquota muda com a potência, a cilindrada ou o valor do carro. Na
+          consulta pela placa, a estimativa usa a faixa do carro quando a consulta traz esse dado; sem
+          ele, mostramos a faixa de valores, como na tabela acima. Para carro elétrico, híbrido, a gás,
+          a diesel ou só a etanol, seguimos a fonte de cada estado: onde a alíquota vale para qualquer
+          automóvel, a conta é a mesma; onde há regra própria para o combustível, usamos a alíquota
+          dela, e não estimamos quando a regra depende de condições que a conta não cobre.
         </p>
         <p v-if="naoConferidas.length">
           Ainda não conferimos numa fonte oficial a alíquota de {{ naoConferidas.join(', ') }}. Para
@@ -213,12 +215,12 @@ useHead({
           <div v-if="c.vencimentos" class="ipva-tabela">
             <table>
               <thead>
-                <tr><th>Final da placa</th><th>Dia do vencimento</th></tr>
+                <tr><th>Final da placa</th><th>{{ c.rotuloVencimento }}</th></tr>
               </thead>
               <tbody>
-                <tr v-for="v in c.vencimentos" :key="v.final">
-                  <td>Final {{ v.final }}</td>
-                  <td>Dia {{ v.dia }}</td>
+                <tr v-for="v in c.vencimentos" :key="v.finais">
+                  <td>Final {{ v.finais }}</td>
+                  <td>{{ v.quando }}</td>
                 </tr>
               </tbody>
             </table>

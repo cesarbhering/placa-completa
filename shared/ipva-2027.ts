@@ -17,6 +17,7 @@
 
 import {
   ALIQUOTAS_IPVA, CONFERIDO_EM, aliquotaConferida, aliquotaIpvaDoVeiculo, faixaAliquotaIpva,
+  combustivelSemAliquota, temRegraPorCombustivel,
   type CombustivelIpva, type CombustivelEspecial, type DependeDe,
 } from './ipva-uf'
 
@@ -39,7 +40,11 @@ export type EstimativaIpva =
       valorFipe: number
       /** Estimated IPVA, rounded to whole reais. */
       ipva: number
-      combustivel: CombustivelIpva
+      combustivel: CombustivelIpva | null
+      /** True when the rate is the fuel's own rule (e.g. hybrid in RJ). */
+      porCombustivel: boolean
+      /** Power or engine-size tier the lookup decided ("até 100 cv"), if any. */
+      rotuloFaixa: string | null
       fonte: FonteOficial
       conferidoEm: string
     }
@@ -73,15 +78,18 @@ export function valorFipeDoTexto(texto: unknown): number | null {
 
 /**
  * FIPE value x passenger-car rate of the state, from what the page holds: the
- * FIPE value, the state the person confirmed and the fuel. Power and engine
- * size are not in the free result, so a state tiered by them gets the range.
+ * FIPE value, the state the person confirmed, the fuel and, for states tiered
+ * by power or engine size, the tier the server decided for this car (never the
+ * power itself). Without the tier, the page gets the range.
  */
 export function estimarIpva2027(entrada: {
   valorFipe: number | string | null | undefined
   uf: string | null | undefined
   segmento?: string | null
-  /** Fuel group; null = unknown (no number). */
+  /** Fuel group; null = unknown. */
   combustivel?: CombustivelIpva | null
+  /** Tiers decided on the server for this car, by state (basico.ipvaFaixas). */
+  faixasDecididas?: Record<string, { aliquota: number; rotulo: string }> | null
 }): EstimativaIpva {
   if (entrada.segmento === 'moto' || entrada.segmento === 'caminhao') {
     return { tipo: 'nao_automovel', segmento: entrada.segmento }
@@ -95,11 +103,26 @@ export function estimarIpva2027(entrada: {
   const fonte = regra.fonte!
   const conferidoEm = regra.conferidoEm!
   const combustivel = entrada.combustivel ?? null
-  const aliquota = aliquotaIpvaDoVeiculo(uf, { valorFipe, combustivel })
+  const decidida = regra.faixas && regra.faixas.base !== 'valor' ? entrada.faixasDecididas?.[uf] ?? null : null
+  const aliquota = aliquotaIpvaDoVeiculo(uf, { valorFipe, combustivel, aliquotaFaixa: decidida?.aliquota ?? null })
   if (aliquota != null) {
-    return { tipo: 'valor', uf, aliquota, valorFipe, ipva: Math.round(valorFipe * aliquota), combustivel: combustivel!, fonte, conferidoEm }
+    const porCombustivel = !!combustivel && combustivel !== 'comum' && combustivel in (regra.porCombustivel ?? {})
+    return {
+      tipo: 'valor',
+      uf,
+      aliquota,
+      valorFipe,
+      ipva: Math.round(valorFipe * aliquota),
+      combustivel,
+      porCombustivel,
+      rotuloFaixa: !porCombustivel && decidida ? decidida.rotulo : null,
+      fonte,
+      conferidoEm,
+    }
   }
-  if (combustivel !== 'comum') return { tipo: 'combustivel_especial', uf, combustivel, fonte, conferidoEm }
+  if (combustivelSemAliquota(uf, combustivel) || (!combustivel && temRegraPorCombustivel(uf))) {
+    return { tipo: 'combustivel_especial', uf, combustivel: combustivel === 'comum' ? null : combustivel, fonte, conferidoEm }
+  }
   const faixa = faixaAliquotaIpva(uf)!
   return {
     tipo: 'faixa',
@@ -149,12 +172,14 @@ export function tabelaAliquotas(valorFipe: number): { uf: string; estimativa: Es
 export type StatusCalendario = 'publicado' | 'parcial' | 'nao_publicado'
 
 export interface CalendarioUf {
-  uf: 'SP' | 'MG' | 'RS' | 'MS'
+  uf: 'SP' | 'MG' | 'RS' | 'MS' | 'ES' | 'SE' | 'DF'
   nome: string
   status: StatusCalendario
   resumo: string
-  /** Due day by plate final, only when the state published it. */
-  vencimentos?: { final: string; dia: string }[]
+  /** Due date by plate final, only what the state published. */
+  vencimentos?: { finais: string; quando: string }[]
+  /** Header of the due-date column ("Cota única ou 1ª cota"). */
+  rotuloVencimento?: string
   regras: string[]
   fonte: FonteOficial
   conferidoEm: string
@@ -168,17 +193,18 @@ export const CALENDARIO_IPVA_2027: readonly CalendarioUf[] = [
     nome: 'São Paulo',
     status: 'publicado',
     resumo: 'Vencimentos de 11 a 22 de janeiro de 2027, conforme o final da placa.',
+    rotuloVencimento: 'Dia do vencimento (janeiro a maio)',
     vencimentos: [
-      { final: '1', dia: '11' },
-      { final: '2', dia: '12' },
-      { final: '3', dia: '13' },
-      { final: '4', dia: '14' },
-      { final: '5', dia: '15' },
-      { final: '6', dia: '18' },
-      { final: '7', dia: '19' },
-      { final: '8', dia: '20' },
-      { final: '9', dia: '21' },
-      { final: '0', dia: '22' },
+      { finais: '1', quando: 'dia 11' },
+      { finais: '2', quando: 'dia 12' },
+      { finais: '3', quando: 'dia 13' },
+      { finais: '4', quando: 'dia 14' },
+      { finais: '5', quando: 'dia 15' },
+      { finais: '6', quando: 'dia 18' },
+      { finais: '7', quando: 'dia 19' },
+      { finais: '8', quando: 'dia 20' },
+      { finais: '9', quando: 'dia 21' },
+      { finais: '0', quando: 'dia 22' },
     ],
     regras: [
       'Os dias valem para o pagamento integral em janeiro, com 3% de desconto, ou em fevereiro, sem desconto, e para as parcelas de janeiro a maio.',
@@ -223,6 +249,57 @@ export const CALENDARIO_IPVA_2027: readonly CalendarioUf[] = [
     fonte: { nome: 'Diário Oficial de MS nº 12.340, de 26/11/2026 (Lei nº 6.654/2026)', url: DOE_MS_12340 },
     conferidoEm: CONFERIDO_EM,
   },
+  {
+    uf: 'ES',
+    nome: 'Espírito Santo',
+    status: 'publicado',
+    resumo: 'Cota única com 15% de desconto ou 1ª parcela de 1º a 8 de abril de 2027, conforme o final da placa.',
+    rotuloVencimento: 'Cota única ou 1ª parcela',
+    vencimentos: [
+      { finais: '1 e 2', quando: '1º de abril' },
+      { finais: '3 e 4', quando: '2 de abril' },
+      { finais: '5 e 6', quando: '6 de abril' },
+      { finais: '7 e 8', quando: '7 de abril' },
+      { finais: '9 e 0', quando: '8 de abril' },
+    ],
+    regras: [
+      'O parcelamento é em até 6 vezes, de abril a setembro de 2027.',
+      'Em 2027, veículos fabricados até 2011 estão isentos.',
+    ],
+    fonte: { nome: 'Sefaz-ES, Decreto nº 6530-R, de 18 de novembro de 2026', url: 'https://sefaz.es.gov.br/ipva-2027-pagamento-comeca-em-abril-com-desconto-de-15-a-vista-e-parcelamento-em-ate-seis-vezes' },
+    conferidoEm: CONFERIDO_EM,
+  },
+  {
+    uf: 'SE',
+    nome: 'Sergipe',
+    status: 'publicado',
+    resumo: 'Desconto de 10% para pagamento integral até 31 de março de 2027. Sem desconto, o prazo vai até o último dia útil do mês do final da placa.',
+    rotuloVencimento: 'Pagamento sem desconto até',
+    vencimentos: [
+      { finais: '1 e 2', quando: '30 de abril' },
+      { finais: '3 e 4', quando: '31 de maio' },
+      { finais: '5', quando: '30 de junho' },
+    ],
+    regras: [
+      'O calendário segue até novembro, mês do final 0.',
+      'O pagamento pode ser parcelado em até 10 vezes no cartão de crédito, com os acréscimos das operadoras.',
+      'A tabela de valores sai no site da Sefaz-SE em 2 de janeiro de 2027.',
+    ],
+    fonte: { nome: 'Imprensa Oficial de Sergipe, calendário do IPVA 2027 (Diário Oficial de 24/11/2026)', url: 'https://iose.se.gov.br/noticia/sefaz-divulga-calendario-do-ipva-para-2027.html' },
+    conferidoEm: CONFERIDO_EM,
+  },
+  {
+    uf: 'DF',
+    nome: 'Distrito Federal',
+    status: 'parcial',
+    resumo: 'Em 26/11/2026, as datas de 2027 ainda não tinham sido publicadas. O GDF mantém o desconto de 10% na parcela única e o parcelamento em até 6 vezes sem juros.',
+    regras: [
+      'A tabela de valores de 2027, com redução média de 1,49% para automóveis, depende de aprovação da Câmara Legislativa.',
+      'A alíquota de automóveis continua em 3%.',
+    ],
+    fonte: { nome: 'Agência Brasília, com informações da Secretaria de Economia (23/11/2026)', url: 'https://www.agenciabrasilia.df.gov.br/w/tabela-do-ipva-de-2027-deve-ter-em-media-2-de-reducao' },
+    conferidoEm: CONFERIDO_EM,
+  },
 ]
 
 /** Anchor of a state's card on the page ("calendario-sp"), used by the state pages. */
@@ -248,7 +325,11 @@ export const FAQ_IPVA_2027: readonly { q: string; a: string }[] = [
   },
   {
     q: 'Quando vence o IPVA 2027 em SP?',
-    a: `Em janeiro de 2027. Pelo Decreto nº 70.960/2026, os vencimentos vão do dia ${SP.vencimentos![0].dia} (placa final ${SP.vencimentos![0].final}) ao dia ${SP.vencimentos![9].dia} (final ${SP.vencimentos![9].final}), com 3% de desconto para o pagamento integral em janeiro. Também dá para pagar integral em fevereiro, sem desconto, ou parcelar em até 5 vezes, conforme o valor do imposto.`,
+    a: `Em janeiro de 2027. Pelo Decreto nº 70.960/2026, os vencimentos vão do ${SP.vencimentos![0].quando} (placa final ${SP.vencimentos![0].finais}) ao ${SP.vencimentos![9].quando} (final ${SP.vencimentos![9].finais}), com 3% de desconto para o pagamento integral em janeiro. Também dá para pagar integral em fevereiro, sem desconto, ou parcelar em até 5 vezes, conforme o valor do imposto.`,
+  },
+  {
+    q: 'Quais estados já publicaram o calendário do IPVA 2027?',
+    a: 'Até 26/11/2026, São Paulo, Espírito Santo e Sergipe publicaram as datas. Mato Grosso do Sul publicou o prazo da cota única com desconto, e o Distrito Federal anunciou as condições de pagamento, ainda sem as datas. Minas Gerais e Rio Grande do Sul ainda não tinham publicado.',
   },
   {
     q: 'Quando começa o IPVA 2027 no RS?',
@@ -264,11 +345,11 @@ export const FAQ_IPVA_2027: readonly { q: string; a: string }[] = [
   },
   {
     q: 'Por que a estimativa não aparece para o meu estado?',
-    a: 'Só mostramos o número quando conferimos a alíquota do estado numa fonte oficial e temos o dado que decide a faixa. Onde a alíquota muda com a potência ou a cilindrada do carro, dados que a consulta pela placa nesta página não traz, mostramos a faixa de valores. Para os estados que ainda não conferimos, a página mostra o valor FIPE e indica a SEFAZ do estado, que tem o valor oficial.',
+    a: 'Só mostramos o número quando conferimos a alíquota do estado numa fonte oficial e temos o dado que decide a faixa. Onde a alíquota muda com a potência ou a cilindrada, a estimativa usa a faixa do carro quando a consulta pela placa traz esse dado; sem ele, mostramos a faixa de valores. Para os estados que ainda não conferimos, a página mostra o valor FIPE e indica a SEFAZ do estado, que tem o valor oficial.',
   },
   {
     q: 'A estimativa vale para moto e caminhão?',
-    a: 'Não. A conta usa a alíquota de automóvel, e motos e caminhões podem ter alíquota diferente. Carro elétrico, híbrido, a gás, a diesel ou só a etanol também pode ter alíquota diferente, redução ou isenção: nesses casos só mostramos número quando a fonte oficial do estado dá a alíquota desse combustível.',
+    a: 'Não. A conta usa a alíquota de automóvel, e motos e caminhões podem ter alíquota diferente. Para carro elétrico, híbrido, a gás, a diesel ou só a etanol, seguimos a fonte oficial do estado: onde a alíquota vale para qualquer automóvel, a conta é a mesma; onde há regra própria para o combustível, usamos a alíquota que ela dá, e não estimamos quando a regra depende de condições que a conta não cobre.',
   },
   {
     q: 'Carro antigo paga IPVA?',
