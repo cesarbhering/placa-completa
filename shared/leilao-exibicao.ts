@@ -371,18 +371,32 @@ export function passagensSemParceiraRepetida(lista: unknown): any[] {
 // showed as two auctions and "voltou a leilao 2 meses depois". Within
 // one house and one calendar year only the most recent passage stays. It is chosen among
 // the strongest level of the group, so a newer weaker match never hides a stronger one.
-// A generic house label ("Leiloeira particular") groups nothing, because it may stand for
-// many houses. Partner records (year only) stay with passagensSemParceiraRepetida.
+// The house is the SOURCE itself, never its display label (review of #802: two platform
+// houses or two canhao domains can share a label): a DETRAN by its key (direct or found by
+// the canhao on detran.xx.gov.br), a private source by its key, a platform house by its
+// full key. Other canhao passages are not grouped: one host may publish for many houses.
+// Standalone DETRAN notices are never grouped, and this runs BEFORE juntarNotificacoes, so a
+// notice is never lost; a notice the API already nested in a dropped card goes with it.
+// Partner records (year only) stay with passagensSemParceiraRepetida.
 // Display only: the snapshot keeps every passage.
+
+function casaDaPassagem(p: any): string | null {
+  const chave = String(p?.fonte || '').trim().toLowerCase().replace(/[\s-]+/g, '_')
+  if (!chave) return null
+  if (p?.fonte_tipo === 'detran') return RE_CANHAO.test(chave) ? null : chave
+  if (p?.via_canhao || RE_CANHAO.test(chave)) return null
+  const plataforma = RE_FONTE_PLATAFORMA.exec(chave)
+  if (plataforma) return plataforma[2] ? chave : null     // the house only in the ref: unknown
+  return chave
+}
 
 function chaveCasaAno(p: any): string | null {
   // a DETRAN notice is not an auction: it never hides, nor is hidden by, an auction card
   if (!p || ehParceira(p) || ehNotificacao(p)) return null
   const d = dataNorm(p.data_leilao)
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null
-  const casa = fonteExibicaoLeilao(p)
-  if (!casa || casa === ROTULO_LEILOEIRA_PARTICULAR) return null
-  return `${casa.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()}|${d.slice(0, 4)}`
+  const casa = casaDaPassagem(p)
+  return casa ? `${casa}|${d.slice(0, 4)}` : null
 }
 
 export function soUltimoDaCasaNoAno(lista: unknown): any[] {
@@ -416,7 +430,7 @@ const NIVEIS_RESUMO = ['confirmado', 'provavel', 'possivel'] as const
  */
 export function historicoParaExibicao<H extends { passagens?: any[]; resumo?: any; linha_do_tempo?: any; recorrencia?: any }>(h: H | null | undefined): H | null | undefined {
   if (!h || !Array.isArray(h.passagens)) return h
-  const passagens = soUltimoDaCasaNoAno(juntarNotificacoes(passagensSemParceiraRepetida(passagensSemCanhao(h.passagens))))
+  const passagens = juntarNotificacoes(soUltimoDaCasaNoAno(passagensSemParceiraRepetida(passagensSemCanhao(h.passagens))))
   const linha = Array.isArray(h.linha_do_tempo)
     ? h.linha_do_tempo.map((e: any) => (e && Array.isArray(e.fontes)
         ? { ...e, fontes: [...new Set(e.fontes.map((f: unknown) => rotuloFonteLinhaDoTempo(f, h.passagens!.map((x: any) => passagemSemCanhao(x)), e)))] }

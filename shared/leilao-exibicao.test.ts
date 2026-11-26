@@ -327,3 +327,67 @@ describe('mesma casa e mesmo ano: so o ultimo leilao (Cesar, 25/11/2026)', () =>
     expect(r).toContain(semData)
   })
 })
+
+describe('so o ultimo da casa no ano: a casa e a fonte, nao o rotulo (revisao do #802)', () => {
+  const leilao = (fonte: string, data: string, extra: Record<string, unknown> = {}) => ({
+    fonte, nivel: 'confirmado', data_leilao: data, lote: String(data.slice(5, 7)), ...extra,
+  })
+
+  it('duas casas da mesma plataforma com o mesmo rotulo ficam as duas', () => {
+    const r = soUltimoDaCasaNoAno([
+      leilao('soleon_leiloes.casaa.com.br', '2026-03-10'),
+      leilao('soleon_leiloes.casab.com.br', '2026-06-10'),
+    ])
+    expect(r).toHaveLength(2)
+  })
+
+  it('a mesma casa da plataforma duas vezes no ano fica so com o ultimo', () => {
+    const r = soUltimoDaCasaNoAno([
+      leilao('soleon_leiloes.casaa.com.br', '2026-03-10'),
+      leilao('soleon_leiloes.casaa.com.br', '2026-06-10'),
+    ])
+    expect(r.map((p: any) => p.data_leilao)).toEqual(['2026-06-10'])
+  })
+
+  it('dois dominios do canhao com o mesmo nome aprovado ficam os dois', () => {
+    const h = {
+      passagens: [
+        leilao('canhao:leiloesjudiciais-a.com.br', '2026-03-10', { fonte_exibicao: 'Leilões Judiciais' }),
+        leilao('canhao:leiloesjudiciais-b.com.br', '2026-06-10', { fonte_exibicao: 'Leilões Judiciais' }),
+      ],
+      resumo: { nivel_max: 'confirmado', n_confirmado: 2, n_provavel: 0, n_possivel: 0 },
+    }
+    const r: any = historicoParaExibicao(h)
+    expect(r.passagens).toHaveLength(2)
+  })
+
+  it('o Detran achado pelo canhao e o Detran direto sao a mesma casa', () => {
+    const h = {
+      passagens: [
+        leilao('canhao:detran.sp.gov.br', '2026-03-10'),
+        leilao('detran_sp', '2026-09-15', { fonte_tipo: 'detran', fonte_exibicao: 'Detran SP' }),
+      ],
+      resumo: { nivel_max: 'confirmado', n_confirmado: 2, n_provavel: 0, n_possivel: 0 },
+    }
+    const r: any = historicoParaExibicao(h)
+    expect(r.passagens.map((p: any) => p.data_leilao)).toEqual(['2026-09-15'])
+  })
+
+  it('a notificacao de um leilao escondido nao some: vai para o leilao que fica', () => {
+    const det = { fonte_tipo: 'detran', fonte_exibicao: 'Detran SP' }
+    const aviso = leilao('detran_sp', '', {
+      ...det, data_leilao: null,
+      detalhes: { tipo_registro: 'notificacao_leilao', data_publicacao: '2026-02-01', edital_numero: 'N-1' },
+    })
+    const h = {
+      passagens: [leilao('detran_sp', '2026-03-10', det), aviso, leilao('detran_sp', '2026-09-15', det)],
+      resumo: { nivel_max: 'confirmado', n_confirmado: 3, n_provavel: 0, n_possivel: 0 },
+    }
+    const r: any = historicoParaExibicao(h)
+    const datas = r.passagens.map((p: any) => p.data_leilao).filter(Boolean)
+    expect(datas).toEqual(['2026-09-15'])
+    const aparece = r.passagens.some((p: any) => p?.detalhes?.notificacao?.data_publicacao === '2026-02-01'
+      || p?.detalhes?.data_publicacao === '2026-02-01')
+    expect(aparece).toBe(true)
+  })
+})
