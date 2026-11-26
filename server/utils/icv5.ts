@@ -43,9 +43,9 @@ export function fatorCategoria(tipo: string): number {
   return fatores[tipo] ?? 1.0
 }
 
-// Aliquotas de IPVA por UF: shared/ipva-uf.ts (tambem usadas no custo de 12 meses do relatorio).
-import { aliquotaIPVA } from '../../shared/ipva-uf'
-export { aliquotaIPVA }
+// IPVA rates by state: shared/ipva-uf.ts (also used by the report's 12-month cost
+// and by /ipva-2027). A tiered state gets a rate only from data we hold.
+import { aliquotaIpvaDoVeiculo, type VeiculoIpva } from '../../shared/ipva-uf'
 
 // Infere a categoria ICV5 a partir do sub_segmento da API de placas
 export function inferirCategoria(subSegmento: string, combustivel?: string): string {
@@ -73,6 +73,8 @@ export interface ICV5Input {
   anoFabricacao: number
   uf: string
   categoria: string
+  /** Power, engine size and fuel that decide the IPVA rate where it is tiered. */
+  veiculo?: Omit<VeiculoIpva, 'valorFipe'>
 }
 
 export interface ICV5Result {
@@ -86,7 +88,14 @@ export interface ICV5Result {
   uf: string
 }
 
-export function calcularICV5({ valorFipe, anoFabricacao, uf, categoria }: ICV5Input): ICV5Result {
+/**
+ * Null when the IPVA rate of the state cannot be decided from what we hold
+ * (tier by power, engine size or value, or a fuel without a stated rate):
+ * the 5-year cost is not shown rather than shown with a guessed rate.
+ */
+export function calcularICV5({ valorFipe, anoFabricacao, uf, categoria, veiculo }: ICV5Input): ICV5Result | null {
+  const aliquota = aliquotaIpvaDoVeiculo(uf, { ...veiculo, valorFipe })
+  if (aliquota == null) return null
   const anoAtual = new Date().getFullYear()
   const idadeAtual = anoAtual - anoFabricacao
 
@@ -96,7 +105,7 @@ export function calcularICV5({ valorFipe, anoFabricacao, uf, categoria }: ICV5In
   }
 
   const manutencaoAnual = manutencaoTotal / 5
-  const ipvaAnual = valorFipe * aliquotaIPVA(uf)
+  const ipvaAnual = valorFipe * aliquota
   const ipva5anos = ipvaAnual * 5
 
   const custoTotal5anos = manutencaoTotal + ipva5anos

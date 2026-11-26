@@ -12,6 +12,7 @@ import { getSeguroEstimado, type SeguroEstimado } from '../utils/seguro-estimate
 import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
 import { mensagemLimiteGratis, tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT } from '../utils/ip-wdapi-limit'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
+import { combustivelIpva } from '../../shared/ipva-uf'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
 import { classificarUA } from '../utils/dispositivo'
@@ -694,7 +695,14 @@ export default defineEventHandler(async (event) => {
         const categoria = inferirCategoria(extra.sub_segmento || '', extra.combustivel || '')
 
         if (valorFipe > 0) {
-          icv5Result = calcularICV5({ valorFipe, anoFabricacao: anoFab, uf: icv5Uf, categoria })
+          icv5Result = calcularICV5({
+            valorFipe, anoFabricacao: anoFab, uf: icv5Uf, categoria,
+            veiculo: {
+              potenciaCv: Number(extra.potencia) || null,
+              cilindradaCc: Number(extra.cilindradas) || null,
+              combustivel: combustivelIpva(null, extra.combustivel, bestFipe.texto_modelo),
+            },
+          })
         }
       }
     } catch (err) {
