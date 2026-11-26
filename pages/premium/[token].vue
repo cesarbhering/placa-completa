@@ -46,7 +46,7 @@ import { FONTE_PARCEIRA, rotuloIndicadorLeilao, linhasBasesSemRegistro, PASSAGEM
 import { sinistroPeloDetran, sinistroNaRestricaoNacional, cartaoSinistro } from '~/shared/sinistro-detran'
 import { custo12Meses, combustivelPraConta, licenciamentoDaUf, KM_ANO_PADRAO } from '~/shared/custo-12-meses'
 import { PRECO_COMBUSTIVEL_UF, SEMANA_ANP } from '~/shared/dados/combustivel-uf'
-import { aliquotaIpvaDoVeiculo, combustivelIpva } from '~/shared/ipva-uf'
+import { aliquotaIpvaDoVeiculo, veiculoIpvaDoRegistro } from '~/shared/ipva-uf'
 import { variacaoFipe, fipeNoMes, mesDoRotulo } from '~/shared/fipe-variacao'
 import { componenteEua, type RecallEuaTela } from '~/shared/recall-eua'
 import { agruparEpisodios, tudoEncerrado, plural, type EtapaEpisodio } from '~/shared/episodios-roubo'
@@ -1356,12 +1356,14 @@ const custo12 = computed(() => {
     uf,
     // Null (IPVA out of the sum) when the state's rate depends on data we don't
     // hold: a tier is never guessed (shared/ipva-uf.ts).
-    aliquotaIpva: aliquotaIpvaDoVeiculo(uf, {
-      valorFipe: Number.isFinite(fipeNum) ? fipeNum : null,
-      potenciaCv: Number(g('potencia')) || null,
-      cilindradaCc: Number(g('cilindrada')) || null,
-      combustivel: combustivelIpva(g('codigoCombustivel'), vc.value?.fipeModelo, g('descricaoMarcaModelo')),
-    }),
+    aliquotaIpva: aliquotaIpvaDoVeiculo(uf, veiculoIpvaDoRegistro({
+      codigoCombustivel: g('codigoCombustivel'),
+      potencia: g('potencia'),
+      cilindrada: g('cilindrada'),
+      descricaoMarcaModelo: g('descricaoMarcaModelo'),
+      descricaoTipoVeiculo: g('descricaoTipoVeiculo'),
+      descricaoEspecie: g('descricaoEspecie'),
+    }, vc.value?.fipeModelo, Number.isFinite(fipeNum) ? fipeNum : null)),
     taxaLicenciamento: licenciamentoDaUf(uf)?.valor ?? null,
     licenciamentoOficial: licenciamentoDaUf(uf)?.oficial ?? false,
     seguroAnual: vc.value?.seguroAnual ?? null,

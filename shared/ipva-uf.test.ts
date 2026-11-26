@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ALIQUOTAS_IPVA, CONFERIDO_EM, aliquotaIpvaDoVeiculo, faixaAliquotaIpva, aliquotaConferida, combustivelIpva, faixasDecididas } from './ipva-uf'
+import { ALIQUOTAS_IPVA, CONFERIDO_EM, aliquotaIpvaDoVeiculo, faixaAliquotaIpva, aliquotaConferida, combustivelIpva, faixasDecididas, veiculoIpvaDoRegistro, ehUtilitarioDeCarga } from './ipva-uf'
 import { calcularICV5 } from '../server/utils/icv5'
 
 const flex = { combustivel: 'comum' as const }
@@ -117,18 +117,45 @@ describe('faixasDecididas (free lookup)', () => {
     const f = faixasDecididas({ potenciaCv: 82, cilindradaCc: 999 })
     expect(f.CE).toEqual({ aliquota: 0.025, rotulo: 'até 100 cv' })
     expect(f.GO).toEqual({ aliquota: 0.03, rotulo: 'até 100 cv' })
-    expect(f.AL).toEqual({ aliquota: 0.03, rotulo: 'acima de 80 até 160 HP' })
-    expect(f.TO).toEqual({ aliquota: 0.025, rotulo: 'até 100 HP' })
     expect(f.AM).toEqual({ aliquota: 0.015, rotulo: 'até 1.000 cilindradas' })
     expect(f.MT).toEqual({ aliquota: 0.02, rotulo: 'até 1.000 cilindradas' })
     expect(f.RO).toEqual({ aliquota: 0.02, rotulo: 'até 1.000 cilindradas' })
-    expect(Object.keys(f).sort()).toEqual(['AL', 'AM', 'CE', 'GO', 'MT', 'RO', 'TO'])
+    expect(Object.keys(f).sort()).toEqual(['AM', 'CE', 'GO', 'MT', 'RO'])
     expect(JSON.stringify(f)).not.toMatch(/\b82\b|\b999\b/)
   })
-  it('leaves out a state when the data is missing or lands on a tier border', () => {
+  it('never sends the HP states (AL, TO), whose cv/HP border gap revealed the exact power', () => {
+    for (let cv = 40; cv <= 400; cv++) {
+      const f = faixasDecididas({ potenciaCv: cv, cilindradaCc: 1598 })
+      expect(f.AL).toBeUndefined()
+      expect(f.TO).toBeUndefined()
+    }
+  })
+  it('the labels of all states together reveal no more than 3 power bands and 2 engine-size bands', () => {
+    const porPotencia = new Set<string>()
+    for (let cv = 40; cv <= 400; cv++) porPotencia.add(JSON.stringify(faixasDecididas({ potenciaCv: cv })))
+    expect(porPotencia.size).toBeLessThanOrEqual(3)
+    const porCilindrada = new Set<string>()
+    for (let cc = 50; cc <= 6000; cc += 10) porCilindrada.add(JSON.stringify(faixasDecididas({ cilindradaCc: cc })))
+    expect(porCilindrada.size).toBeLessThanOrEqual(2)
+  })
+  it('leaves out a state when the data is missing', () => {
     expect(faixasDecididas({})).toEqual({})
-    expect(faixasDecididas({ potenciaCv: 81 }).AL).toBeUndefined()
     expect(faixasDecididas({ cilindradaCc: 1598 }).MT).toEqual({ aliquota: 0.03, rotulo: 'acima de 1.000 cilindradas' })
+  })
+})
+
+describe('cargo pickups and utilities get no car rate', () => {
+  it('registry tipo CAMINHONETE with espécie CARGA', () => {
+    expect(ehUtilitarioDeCarga('CAMINHONETE', 'CARGA')).toBe(true)
+    expect(ehUtilitarioDeCarga('CAMIONETA', 'MISTO')).toBe(false)
+    expect(aliquotaIpvaDoVeiculo('SP', { ...flex, utilitarioCarga: true })).toBeNull()
+    expect(aliquotaIpvaDoVeiculo('MG', { utilitarioCarga: true })).toBeNull()
+  })
+  it('the report builds the same vehicle for the 12-month and the 5-year cost', () => {
+    const reg = { codigoCombustivel: '16', potencia: 82, cilindrada: 999, descricaoMarcaModelo: 'VW/GOL', descricaoTipoVeiculo: 'AUTOMOVEL', descricaoEspecie: 'PASSAGEIRO' }
+    expect(veiculoIpvaDoRegistro(reg, 'Gol 1.0 Flex', 50000)).toEqual({ valorFipe: 50000, potenciaCv: 82, cilindradaCc: 999, combustivel: 'comum', utilitarioCarga: false })
+    expect(veiculoIpvaDoRegistro({ ...reg, descricaoTipoVeiculo: 'CAMINHONETE', descricaoEspecie: 'CARGA' }).utilitarioCarga).toBe(true)
+    expect(veiculoIpvaDoRegistro(null)).toMatchObject({ combustivel: null, utilitarioCarga: false })
   })
 })
 
@@ -151,6 +178,10 @@ describe('combustivelIpva', () => {
     expect(combustivelIpva(18)).toBeNull()
     expect(combustivelIpva(5, 'Gasolina')).toBeNull()
     expect(combustivelIpva(18, 'Corolla Altis Hybrid')).toBe('hibrido')
+    // Code and text must agree: electric code with a hybrid text is unknown.
+    expect(combustivelIpva(6, 'Corolla Altis Hybrid')).toBeNull()
+    expect(combustivelIpva(6, 'Elétrico')).toBe('eletrico')
+    expect(combustivelIpva(3, 'Diesel')).toBe('diesel')
     expect(combustivelIpva(null, 'Gasolina/GNV')).toBe('gnv')
     expect(combustivelIpva(null, '')).toBeNull()
   })

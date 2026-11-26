@@ -97,7 +97,7 @@ export const ALIQUOTAS_IPVA: Readonly<Record<string, AliquotaUf>> = {
     aliquota: 0.03,
     // Electric and hybrid cars bought in the DF are exempt (Secretaria de Economia).
     porCombustivel: { eletrico: null, hibrido: null },
-    fonte: { nome: 'Agência Brasília, tabela do IPVA de 2027 (com informações da Secretaria de Economia)', url: 'https://www.agenciabrasilia.df.gov.br/w/tabela-do-ipva-de-2027-deve-ter-em-media-2-de-reducao' },
+    fonte: { nome: 'Lei 6.445/2019, art. 3º, III (SINJ-DF)', url: 'https://www.sinj.df.gov.br/sinj/Norma/a797f1b9fe984552902fde78c5abddfe/Lei_6445_23_12_2019.html' },
     conferidoEm: CONFERIDO_EM,
   },
   ES: {
@@ -240,9 +240,10 @@ const CODIGOS_COMBUSTIVEL: Readonly<Record<number, CombustivelIpva>> = {
 /**
  * Fuel group from what we hold: the registry fuel code and/or texts (fuel of
  * the free lookup, model name: "Álcool/Gasolina", "Elétrico", "HEV"...). A
- * hybrid or electric named in the texts wins over a gasoline/flex code. A
- * registry code we don't know gives null unless the texts name a hybrid or an
- * electric. Null when nothing says what it is.
+ * hybrid or electric named in the texts wins over a gasoline/flex code; a code
+ * and a text that disagree otherwise give null. A registry code we don't know
+ * gives null unless the texts name a hybrid or an electric. Null when nothing
+ * says what it is.
  */
 export function combustivelIpva(codigo: unknown, ...textos: unknown[]): CombustivelIpva | null {
   const t = textos.map((x) => String(x ?? '')).join(' ')
@@ -252,9 +253,11 @@ export function combustivelIpva(codigo: unknown, ...textos: unknown[]): Combusti
   const n = parseInt(String(codigo ?? '').trim(), 10)
   if (Number.isFinite(n)) {
     const doCodigo = CODIGOS_COMBUSTIVEL[n]
-    if (!doCodigo) return p
-    if (p && (doCodigo === 'comum' || doCodigo === 'etanol')) return p
-    return doCodigo
+    if (!doCodigo || !p) return doCodigo ?? p
+    // A hybrid or electric named in the texts wins over a gasoline/flex/ethanol
+    // code; any other disagreement (code 6 electric, text "Hybrid") is unknown.
+    if (doCodigo === 'comum' || doCodigo === 'etanol') return p
+    return doCodigo === p ? doCodigo : null
   }
   if (p) return p
   if (GNV.test(t)) return 'gnv'
@@ -276,6 +279,12 @@ export interface VeiculoIpva {
    */
   aliquotaFaixa?: number | null
   combustivel?: CombustivelIpva | null
+  /**
+   * Cargo pickup or utility (registry tipo CAMINHONETE, espécie CARGA, or a
+   * pickup in the free lookup): several states tax it at its own rate (SP 2%
+   * for single-cab pickups, GO 3.45% for utility vehicles), so no car rate.
+   */
+  utilitarioCarga?: boolean
 }
 
 const positivo = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0
@@ -311,7 +320,7 @@ function aliquotaGeral(regra: AliquotaUf, v: VeiculoIpva): number | null {
  */
 export function aliquotaIpvaDoVeiculo(uf: string, v: VeiculoIpva = {}): number | null {
   const regra = regraDa(uf)
-  if (!regra) return null
+  if (!regra || v.utilitarioCarga) return null
   const geral = aliquotaGeral(regra, v)
   const regras = regra.porCombustivel ?? {}
   const c = v.combustivel ?? null
@@ -353,14 +362,41 @@ export function faixasDecididas(v: { potenciaCv?: number | null; cilindradaCc?: 
   const out: Record<string, { aliquota: number; rotulo: string }> = {}
   for (const [uf, regra] of Object.entries(ALIQUOTAS_IPVA)) {
     const f = regra.faixas
-    if (!f || f.base === 'valor') continue
+    // The HP states (AL, TO) never go out: leaving them out only near a cv/HP
+    // border made each power give its own payload, which revealed the exact
+    // power (review of #805). The page shows their range.
+    if (!f || f.base === 'valor' || f.base === 'potencia_hp') continue
     const medida = f.base === 'cilindrada' ? v.cilindradaCc : v.potenciaCv
     if (!positivo(medida)) continue
     const i = indiceFaixa(f, medida)
-    if (f.base === 'potencia_hp' && indiceFaixa(f, medida * HP_POR_CV) !== i) continue
     out[uf] = { aliquota: f.limites[i].aliquota, rotulo: rotuloFaixa(f, i) }
   }
   return out
+}
+
+/** Cargo pickup or utility in the registry: tipo CAMINHONETE with espécie CARGA. */
+export function ehUtilitarioDeCarga(tipo: unknown, especie: unknown): boolean {
+  return /CAMINHONETE/i.test(String(tipo ?? '')) && /CARGA/i.test(String(especie ?? ''))
+}
+
+/**
+ * The paid report's IPVA vehicle, built the same way for the 12-month and the
+ * 5-year cost: registry fuel code, power, engine size, tipo and espécie, plus
+ * the FIPE model name and the registry model name for the fuel.
+ */
+export function veiculoIpvaDoRegistro(
+  r: { codigoCombustivel?: unknown; potencia?: unknown; cilindrada?: unknown; descricaoMarcaModelo?: unknown; descricaoTipoVeiculo?: unknown; descricaoEspecie?: unknown } | null | undefined,
+  fipeModelo?: string | null,
+  valorFipe?: number | null,
+): VeiculoIpva {
+  const reg = r ?? {}
+  return {
+    valorFipe: positivo(valorFipe) ? valorFipe : null,
+    potenciaCv: Number(reg.potencia) || null,
+    cilindradaCc: Number(reg.cilindrada) || null,
+    combustivel: combustivelIpva(reg.codigoCombustivel, fipeModelo, reg.descricaoMarcaModelo),
+    utilitarioCarga: ehUtilitarioDeCarga(reg.descricaoTipoVeiculo, reg.descricaoEspecie),
+  }
 }
 
 export type DependeDe = 'potencia' | 'cilindrada' | 'valor'

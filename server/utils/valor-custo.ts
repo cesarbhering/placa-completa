@@ -4,7 +4,7 @@ import { filtrarPeloNomeDoVeiculo } from '../../shared/versao-fipe'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { getSeguroEstimado } from './seguro-estimate'
 import { calcularICV5, inferirCategoria } from './icv5'
-import { combustivelIpva } from '../../shared/ipva-uf'
+import { veiculoIpvaDoRegistro } from '../../shared/ipva-uf'
 import { escolherMelhorFipe, marcaDoRegistro, marcaParaFipeApi, comCodigoModelo, tabelaFipe, candidatoDaTabela, nomeDoModelo, versaoEstimadaFipe, type FipeMelhorCandidatoResultado } from './fipe-candidato'
 
 // Valor FIPE, historico de depreciacao, seguro estimado e custo em 5 anos.
@@ -323,18 +323,13 @@ export async function getValorCusto(
   if (podeEstimarCusto && uf && Number.isFinite(valorFipe) && valorFipe > 0) {
     try {
       const extra = dados.extra || {}
-      const reg: any = fipeCandidatoOpts?.senatran ?? {}
       custo5anos = calcularICV5({
         valorFipe,
         anoFabricacao: parseInt(String(dados.ano || anoModelo), 10) || new Date().getFullYear(),
         uf,
         categoria: inferirCategoria(extra.sub_segmento || '', extra.combustivel || ''),
-        // Registry first, the free payload when the registry lacks it.
-        veiculo: {
-          potenciaCv: Number(reg.potencia ?? extra.potencia) || null,
-          cilindradaCc: Number(reg.cilindrada ?? extra.cilindradas) || null,
-          combustivel: combustivelIpva(reg.codigoCombustivel, extra.combustivel, melhor?.texto_modelo, reg.descricaoMarcaModelo),
-        },
+        // Same vehicle as the report's 12-month cost (registry + FIPE model name).
+        veiculo: veiculoIpvaDoRegistro(fipeCandidatoOpts?.senatran as any, melhor?.texto_modelo),
       })?.custoTotal5anos ?? null
     } catch { /* fail-open */ }
   }

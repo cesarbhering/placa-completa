@@ -12,7 +12,7 @@ import { getSeguroEstimado, type SeguroEstimado } from '../utils/seguro-estimate
 import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
 import { mensagemLimiteGratis, tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT } from '../utils/ip-wdapi-limit'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
-import { detectarSegmento } from '../utils/segmento'
+import { segmentoIpva } from '../utils/segmento'
 import { combustivelIpva, faixasDecididas } from '../../shared/ipva-uf'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
@@ -948,9 +948,9 @@ export default defineEventHandler(async (event) => {
       // historico/grafico continua sendo conteudo pago.
       fipe: fipeValorAtual,
       fipeNota: fipeNotaAntigo,
-      // Car, motorcycle or truck, from the free payload only. /ipva-2027 shows
-      // its passenger-car estimate only for cars.
-      segmento: detectarSegmento({ wdapi: apiResponse, chassi: apiResponse?.extra?.chassi || apiResponse?.chassi || null }),
+      // Car, motorcycle, truck or pickup/utility, from the free payload only.
+      // /ipva-2027 shows its passenger-car estimate only for cars.
+      segmento: segmentoIpva({ wdapi: apiResponse, chassi: apiResponse?.extra?.chassi || apiResponse?.chassi || null }),
       // IPVA tier of this car in the states tiered by power or engine size, as
       // rate and label only ("até 100 cv"): power and engine size are items of
       // the paid report and never leave the server.
