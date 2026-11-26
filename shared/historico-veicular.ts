@@ -124,6 +124,12 @@ export interface HistoricoVeicular {
   uso?: UsoHistorico | null
   sinistro?: SinistroHistorico | null
   leilao?: LeilaoHistorico | null
+  /**
+   * Gearbox serial number of the national registry record (Cesar, 25/11/2026),
+   * the same record the engine number comes from. About 1 answer in 6 has it;
+   * absent = not informed. Never a gearbox type (manual/automatic).
+   */
+  caixaCambio?: string | null
 }
 
 // ---------------------------------------------------------------- helpers
@@ -640,11 +646,31 @@ export function historicoPedeReserva(hv: HistoricoVeicular | null | undefined, s
  * by field from what the report shows, never by copying the answer. A partial
  * answer stays 'ok' (what came is shown) with completa false.
  */
+// ---------------------------------------------------------------- gearbox serial
+
+const SEM_CAIXA = /^(NAO ?(INFORMAD[OA]|APLICAVEL|CONSTA)|SEM ?INFORMACAO|INEXISTENTE|NULL|NONE|UNDEFINED)$/
+const PALAVRA_DE_TIPO = /MANUAL|AUTOM|MARCHA|CVT|TIPTRONIC/
+
+/** Gearbox serial as shown (letters, digits, '.', '/', '-'; at least one digit), or null for a placeholder or a type. */
+export function numeroCaixaCambio(v: unknown): string | null {
+  const bruto = sem(v)
+  if (!bruto || SEM_CAIXA.test(bruto)) return null
+  const s = bruto.replace(/ /g, '')
+  if (!/^[A-Z0-9][A-Z0-9./-]{3,24}$/.test(s) || !/\d/.test(s) || /^0+$/.test(s) || PALAVRA_DE_TIPO.test(s)) return null
+  return s
+}
+
+/** The registry record's gearbox serial in the partner answer (bin first, then veiculo). */
+export function caixaCambioDe(d: any): string | null {
+  return numeroCaixaCambio(obj(d?.bin) ? d.bin.caixa_cambio : null) ?? numeroCaixaCambio(obj(d?.veiculo) ? d.veiculo.caixaCambio : null)
+}
+
 export function parsearRespostaHistorico(body: any): HistoricoVeicular | null {
   if (!obj(body) || body.success !== true || !obj(body.dados)) return null
   const d = body.dados
   const ind = lerIndicadores(d)
   const faltas = faltasDaResposta(body)
+  const caixa = caixaCambioDe(d)
   return {
     status: 'ok',
     consultadoEm: null,
@@ -654,6 +680,7 @@ export function parsearRespostaHistorico(body: any): HistoricoVeicular | null {
     uso: usoDe(d, ind),
     sinistro: sinistroDe(d, ind),
     leilao: leilaoDe(d, ind),
+    ...(caixa ? { caixaCambio: caixa } : {}),
   }
 }
 
@@ -845,6 +872,7 @@ export function historicoVeicularParaTela(hv: any): Omit<HistoricoVeicular, 'lei
           parecer: s.parecer === 'alto' || s.parecer === 'atencao' ? s.parecer : null,
         }
       : null,
+    ...(numeroCaixaCambio(hv.caixaCambio) ? { caixaCambio: numeroCaixaCambio(hv.caixaCambio) } : {}),
   }
 }
 

@@ -973,3 +973,48 @@ describe('owner city', () => {
     expect(atuais(soNoRegistro)).toEqual([['10/01/2021', 'Porto Modelo/RS', 'Dono atual, há 4 anos e 10 meses']])
   })
 })
+
+describe('gearbox serial of the registry record (Cesar, 25/11/2026)', () => {
+  const comCaixa = (bin: unknown, veiculo?: unknown) => {
+    const r = copia(COM)
+    r.dados.bin = { ...(r.dados.bin || {}), caixa_cambio: bin }
+    if (veiculo !== undefined) r.dados.veiculo = { ...(r.dados.veiculo || {}), caixaCambio: veiculo }
+    return r
+  }
+
+  it('takes the serial and keeps it for the page', () => {
+    const b = parsearRespostaHistorico(comCaixa('V000012345'))!
+    expect(b.caixaCambio).toBe('V000012345')
+    expect(historicoVeicularParaTela(b)!.caixaCambio).toBe('V000012345')
+  })
+
+  it('falls back to the vehicle section, in capitals and without spaces', () => {
+    expect(parsearRespostaHistorico(comCaixa('', ' ab12 34cd '))!.caixaCambio).toBe('AB1234CD')
+  })
+
+  it('drops placeholders, gearbox types and anything that is not a serial', () => {
+    for (const v of ['0', '000000', 'NAO INFORMADO', 'Não informado', 'NAO APLICAVEL', 'MANUAL', 'AUTOMATICA', 'CVT 6',
+      '', null, undefined, '<script>', 'A1', `${'X'.repeat(30)}1`, 'ABCDEF']) {
+      const b = parsearRespostaHistorico(comCaixa(v))!
+      expect(b.caixaCambio, String(v)).toBeUndefined()
+      expect(historicoVeicularParaTela(b)!.caixaCambio, String(v)).toBeUndefined()
+    }
+  })
+
+  it('answers without the field keep their old shape', () => {
+    expect('caixaCambio' in parsearRespostaHistorico(copia(COM))!).toBe(false)
+  })
+
+  it('another VIN shows nothing of it', () => {
+    const b = parsearRespostaHistorico(comCaixa('V000012345'))!
+    const outro = historicoDoVeiculo({ ...b, leilao: { ...(b.leilao as any), chassiFonte: '9XXHV00000X000002' } } as any, CHASSI)!
+    expect(outro.status).toBe('divergente')
+    expect(outro.caixaCambio).toBeUndefined()
+    expect(historicoVeicularParaTela(outro)!.caixaCambio).toBeUndefined()
+  })
+
+  it('the screen filter checks a stored value again', () => {
+    expect(historicoVeicularParaTela({ status: 'ok', consultadoEm: null, caixaCambio: 'NAO INFORMADO' } as any)!.caixaCambio).toBeUndefined()
+    expect(historicoVeicularParaTela({ status: 'ok', consultadoEm: null, caixaCambio: 'v0000 12345' } as any)!.caixaCambio).toBe('V000012345')
+  })
+})
