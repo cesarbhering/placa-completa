@@ -1916,6 +1916,8 @@ const fichaCadastral = computed(() => [
   linha('Chassi', g('chassi')),
   // Vem da fonte livre da placa (server: report.get.ts), so no relatorio pago.
   linha('Número do motor', data.value?.motor),
+  // Do mesmo registro nacional do numero do motor, pela base parceira (Cesar, 25/11): so quando veio.
+  linha('Número da caixa de câmbio', historicoVeicular.value?.caixaCambio),
   linha('Marca / modelo', g('descricaoMarcaModelo')),
   linha('Ano fab. / modelo', has('anoFabricacao') ? `${g('anoFabricacao')} / ${g('anoModelo')}` : null),
   linha('Cor', humanizar(g('descricaoCor'))),
