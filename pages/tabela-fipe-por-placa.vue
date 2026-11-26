@@ -238,6 +238,11 @@ useHead({
               qualquer negociação. Saber a FIPE do seu veículo é, na prática, saber o piso de
               quanto ele vale, hoje, no mercado.
             </p>
+            <p>
+              Para ter uma ideia do imposto do ano que vem, veja uma
+              <NuxtLink to="/ipva-2027">estimativa do IPVA 2027 pela placa</NuxtLink>, com as
+              datas que cada estado já publicou.
+            </p>
 
             <h2>Como funciona a atualização mensal da FIPE</h2>
             <p>

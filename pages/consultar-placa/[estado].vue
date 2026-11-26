@@ -9,6 +9,7 @@ import seguroEstadosData from '~/data/seguro-estados.json'
 import { REGIONAL } from '~/shared/enriquecimento-regional'
 import { ESTADO_DETRAN } from '~/shared/estado-detran'
 import seguroEletricosData from '~/data/seguro-eletricos.json'
+import { UFS_COM_LINK_IPVA_2027, ancoraCalendario } from '~/shared/ipva-2027'
 
 // Seguro medio do estado (cesta de populares; compilado da base SUSEP)
 // e disponibilidade da pagina de eletricos pro internal linking
@@ -24,6 +25,8 @@ const seguroUf = (seguroEstadosData as any).estados?.[data?.uf] || null
 const blocoLeilao = computed(() => (data?.uf ? REGIONAL[data.uf] : undefined))
 const detranUf = computed(() => (data?.uf ? ESTADO_DETRAN[data.uf] : undefined))
 const temEletrico = Boolean(data && (seguroEletricosData as Record<string, any>)[data.uf]?.mediaPremio)
+// SP, MG, RS and MS link to the IPVA 2027 page, at their calendar card.
+const linkIpva2027 = data?.uf && UFS_COM_LINK_IPVA_2027.includes(data.uf) ? `/ipva-2027#${ancoraCalendario(data.uf)}` : null
 function brlSeguro(v: number): string {
   return 'R$ ' + v.toLocaleString('pt-BR', { maximumFractionDigits: 0 })
 }
@@ -156,6 +159,10 @@ useHead({
 
           <h2>IPVA {{ data.name }} {{ new Date().getFullYear() }}</h2>
           <p>{{ data.ipvaInfo }}</p>
+          <p v-if="linkIpva2027">
+            Para o ano que vem, veja a <NuxtLink :to="linkIpva2027">estimativa do IPVA 2027 pela placa</NuxtLink>
+            e a situação do calendário 2027 {{ deUf }}.
+          </p>
 
           <!-- Bloco de leilao do estado: hoje so PR e CE, que sao as duas
                UFs com levantamento pronto. Estado sem bloco segue como estava,

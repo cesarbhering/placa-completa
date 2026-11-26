@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectarSegmento, nomeDoVeiculo, artigoDoVeiculo, aceitaCustoDeCarro } from './segmento'
+import { detectarSegmento, nomeDoVeiculo, artigoDoVeiculo, aceitaCustoDeCarro, segmentoIpva } from './segmento'
 
 // Fixtures reais de producao.
 const PCX = {
@@ -50,6 +50,26 @@ describe('detectarSegmento', () => {
 
   it('sem sinal nenhum nao chuta', () => {
     expect(detectarSegmento({})).toBe('outro')
+  })
+})
+
+describe('segmentoIpva (IPVA estimate of /ipva-2027)', () => {
+  it('a single-cab pickup is a utility, not a car, so the page shows no car rate', () => {
+    const strada = {
+      wdapi: { MODELO: 'STRADA WORKING 1.4', sub_segmento: 'PICK-UP' },
+      senatran: { descricaoMarcaModelo: 'FIAT/STRADA WORKING 1.4', descricaoTipoVeiculo: 'CAMINHONETE', descricaoEspecie: 'CARGA', cilindrada: 1368 },
+    }
+    expect(detectarSegmento(strada)).toBe('carro')
+    expect(segmentoIpva(strada)).toBe('utilitario')
+    expect(segmentoIpva({ wdapi: { MODELO: 'HILUX CD SRV 4X4', sub_segmento: 'Picape' } })).toBe('utilitario')
+    expect(segmentoIpva({ senatran: { descricaoTipoVeiculo: 'CAMINHONETE', descricaoEspecie: 'CARGA', descricaoMarcaModelo: 'VW/SAVEIRO' } })).toBe('utilitario')
+  })
+  it('cars, motorcycles and trucks keep their segment', () => {
+    expect(segmentoIpva(GOL)).toBe('carro')
+    expect(segmentoIpva(PCX)).toBe('moto')
+    expect(segmentoIpva({ senatran: { descricaoTipoVeiculo: 'CAMINHAO' } })).toBe('caminhao')
+    // An SUV (camioneta, espécie misto) stays a car.
+    expect(segmentoIpva({ senatran: { descricaoMarcaModelo: 'JEEP/COMPASS', descricaoTipoVeiculo: 'CAMIONETA', descricaoEspecie: 'MISTO' } })).toBe('carro')
   })
 })
 

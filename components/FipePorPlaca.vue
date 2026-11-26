@@ -14,6 +14,20 @@ import { origemDaSessao, entradaDaSessao } from '~/shared/origem-trafego'
 import { OFERTA_FIPE_POR_PLACA as OFERTA, precoOfertaFipePorPlaca } from '~/shared/oferta-fipe-por-placa'
 import { camposGateEmail, deveExigirEmailLocal, ehErroGateEmail, emailGateSalvo, registrarConsultaSemEmail, salvarEmailGate } from '~/composables/useGateEmail'
 
+// Reused by /ipva-2027 (Nov 26, 2026): the page passes its own source_page and
+// button label, and renders the IPVA estimate in the `estimativa` slot, between
+// the FIPE value and the offer card. The defaults keep /tabela-fipe-por-placa
+// exactly as it was (its source_page is how the basic-plan sales from it are tracked).
+const props = withDefaults(defineProps<{
+  sourcePage?: string
+  botao?: string
+  rotulo?: string
+}>(), {
+  sourcePage: 'tabela-fipe-por-placa',
+  botao: 'Ver valor FIPE',
+  rotulo: 'Consultar valor FIPE pela placa',
+})
+
 const { validatePlaca } = useFormValidation()
 // Turnstile: mesmo esquema da home (token gerado na montagem, usado no POST e renovado).
 const { container: turnstileEl, preparar: prepararTurnstile, obterToken: tokenTurnstile, ativo: turnstileAtivo } = useTurnstile()
@@ -27,7 +41,7 @@ const abrirCheckout = ref(false)
 const preco = precoOfertaFipePorPlaca()
 
 function gtag(evento: string, params: Record<string, any>) {
-  if (import.meta.client && (window as any).gtag) (window as any).gtag('event', evento, { source_page: 'tabela-fipe-por-placa', ...params })
+  if (import.meta.client && (window as any).gtag) (window as any).gtag('event', evento, { source_page: props.sourcePage, ...params })
 }
 
 function onInput(e: Event) {
@@ -101,7 +115,7 @@ function comprar() {
 </script>
 
 <template>
-  <section class="fpp" aria-label="Consultar valor FIPE pela placa">
+  <section class="fpp" :aria-label="rotulo">
     <form class="fpp__form" novalidate @submit.prevent="consultar">
       <label for="fpp-placa" class="fpp__label">Placa do veículo</label>
       <div class="fpp__linha">
@@ -118,7 +132,7 @@ function comprar() {
           @input="onInput"
         >
         <button type="submit" class="pc-btn pc-btn--primary fpp__btn" :disabled="carregando">
-          {{ carregando ? 'Consultando…' : 'Ver valor FIPE' }}
+          {{ carregando ? 'Consultando…' : botao }}
         </button>
       </div>
       <p v-if="erro" class="fpp__erro" role="alert">{{ erro }}</p>
@@ -136,6 +150,8 @@ function comprar() {
         <strong>{{ resultado.fipe || 'Não disponível para esta placa' }}</strong>
       </div>
       <p v-if="resultado.fipeNota" class="fpp__nota">{{ resultado.fipeNota }}</p>
+
+      <slot name="estimativa" :resultado="resultado" />
 
       <div class="fpp__oferta">
         <p class="fpp__oferta-t">{{ OFERTA.titulo }}</p>

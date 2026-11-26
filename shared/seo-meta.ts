@@ -38,6 +38,8 @@ export const DESCRICOES = {
   consultaPlaca: 'Consulta de placa veicular online. Sem cadastro. Veja marca, modelo, ano, cor e se o modelo aparece em leilões, e o relatório completo na hora.',
   carroDeLeilao: 'Carro de leilão vale a pena? Veja como comprar, o que conferir antes do lance e como saber pela placa se o carro já passou por leilão.',
   contato: 'Contato do PlacaCompleta: e-mail para dúvidas sobre consulta de placa, relatório, correção de dados, imprensa e parcerias. Escreva para a nossa equipe.',
+  // /ipva-2027 (Nov 26, 2026): an estimate, never the official value; dates only where a state published them.
+  ipva2027: 'Estimativa do IPVA 2027 pela placa, com o valor FIPE e a alíquota do estado, as datas já publicadas por estado e o que conferir antes de pagar.',
 } as const
 
 /**

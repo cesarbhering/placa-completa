@@ -4,6 +4,7 @@ import { filtrarPeloNomeDoVeiculo } from '../../shared/versao-fipe'
 import { marcaExibicao } from '../../shared/marca-exibicao'
 import { getSeguroEstimado } from './seguro-estimate'
 import { calcularICV5, inferirCategoria } from './icv5'
+import { veiculoIpvaDoRegistro } from '../../shared/ipva-uf'
 import { escolherMelhorFipe, marcaDoRegistro, marcaParaFipeApi, comCodigoModelo, tabelaFipe, candidatoDaTabela, nomeDoModelo, versaoEstimadaFipe, type FipeMelhorCandidatoResultado } from './fipe-candidato'
 
 // Valor FIPE, historico de depreciacao, seguro estimado e custo em 5 anos.
@@ -327,6 +328,8 @@ export async function getValorCusto(
         anoFabricacao: parseInt(String(dados.ano || anoModelo), 10) || new Date().getFullYear(),
         uf,
         categoria: inferirCategoria(extra.sub_segmento || '', extra.combustivel || ''),
+        // Same vehicle as the report's 12-month cost (registry + FIPE model name).
+        veiculo: veiculoIpvaDoRegistro(fipeCandidatoOpts?.senatran as any, melhor?.texto_modelo),
       })?.custoTotal5anos ?? null
     } catch { /* fail-open */ }
   }

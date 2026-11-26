@@ -45,7 +45,7 @@ export const capitals: Record<string, CapitalData> = {
     faqs: [
       { question: 'Como consultar uma placa de Fortaleza?', answer: 'No PlacaCompleta, digite a placa do veículo cearense e informe seu e-mail. Em segundos você recebe marca, modelo, ano, FIPE e situação gratuitamente.' },
       { question: 'Onde fica o DETRAN de Fortaleza?', answer: 'O DETRAN-CE tem a sede principal em Fortaleza, com postos descentralizados nos shoppings e Vapt Vupt da cidade. Serviços online em detran.ce.gov.br.' },
-      { question: 'O IPVA de Fortaleza pode ser parcelado?', answer: 'Sim. O IPVA no Ceará (alíquota de 3%) pode ser pago em cotas ou à vista com desconto. As regras valem para toda a capital.' },
+      { question: 'O IPVA de Fortaleza pode ser parcelado?', answer: 'Sim. O IPVA no Ceará (alíquota de 2,5% a 3,5%, conforme a potência) pode ser pago em cotas ou à vista com desconto. As regras valem para toda a capital.' },
     ],
   },
   'salvador': {

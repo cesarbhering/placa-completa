@@ -9,6 +9,8 @@
 // cilindrada e o ULTIMO criterio de proposito: 150cc e moto, mas 1000cc pode
 // ser moto grande ou carro popular antigo.
 
+import { ehUtilitarioDeCarga } from '../../shared/ipva-uf'
+
 export type Segmento = 'carro' | 'moto' | 'caminhao' | 'outro'
 
 export interface FatosSegmento {
@@ -54,6 +56,25 @@ export function detectarSegmento(fatos: FatosSegmento): Segmento {
 
   if (explicito.trim() || modelo.trim()) return 'carro'
   return 'outro'
+}
+
+const RE_PICAPE = /PICK-?UP|PICAPE/i
+
+/**
+ * Segment for the IPVA estimate of /ipva-2027 (basico.segmento): the same as
+ * detectarSegmento, plus 'utilitario' for a pickup or cargo utility. Several
+ * states tax those at their own rate (SP 2% for single-cab pickups, GO 3.45%
+ * for utility vehicles), so the page shows no car rate for them. The free
+ * lookup has no cab type, so every pickup counts.
+ */
+export function segmentoIpva(fatos: FatosSegmento): Segmento | 'utilitario' {
+  const seg = detectarSegmento(fatos)
+  if (seg !== 'carro') return seg
+  const w = fatos.wdapi || {}
+  const s = fatos.senatran || {}
+  if (ehUtilitarioDeCarga(s.descricaoTipoVeiculo ?? w.extra?.tipo_veiculo, s.descricaoEspecie ?? w.extra?.especie)) return 'utilitario'
+  if (RE_PICAPE.test(texto(w.segmento, w.sub_segmento, w.extra?.tipo_veiculo))) return 'utilitario'
+  return seg
 }
 
 /** Como o relatorio chama o veiculo na copy: "esta moto", "este carro". */
