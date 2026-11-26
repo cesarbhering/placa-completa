@@ -646,34 +646,46 @@ export function historicoPedeReserva(hv: HistoricoVeicular | null | undefined, s
 // without its leading zeros (rev-803: in doubt it is a document, never shown).
 const SEM_CAIXA = /^(NAO ?(INFORMAD[OA]|APLICAVEL|CONSTA)|SEM ?INFORMACAO|INEXISTENTE|NULL|NONE|UNDEFINED)$/
 
+// Check digits over character values (code - 48): the classic numeric CPF/CNPJ and the alphanumeric CNPJ
+// (Receita Federal, from 07/2026: 12 letters or digits plus 2 check digits) use the same rule.
 function dvOk(d: string, pesos: number[]): boolean {
-  const n = d.split('').map(Number)
+  const n = d.split('').map((c) => c.charCodeAt(0) - 48)
   const dv = (k: number) => { const r = pesos.slice(pesos.length - k).reduce((s, p, i) => s + p * n[i], 0) % 11; return r < 2 ? 0 : 11 - r }
   return dv(n.length - 2) === n[n.length - 2] && dv(n.length - 1) === n[n.length - 1]
 }
-const cpfOk = (d: string) => d.length === 11 && !/^(\d)\1+$/.test(d) && dvOk(d, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2])
-const cnpjOk = (d: string) => d.length === 14 && !/^(\d)\1+$/.test(d) && dvOk(d, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+const PESOS_CNPJ = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+const cpfOk = (d: string) => /^\d{11}$/.test(d) && !/^(\d)\1+$/.test(d) && dvOk(d, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2])
+const cnpjOk = (d: string) => /^[A-Z0-9]{12}\d{2}$/.test(d) && !/^(.)\1+$/.test(d) && dvOk(d, PESOS_CNPJ)
 
 /**
- * Looks like a person's or company's document: digits only with 11 or 14 of them, or digits (with or
- * without letters around) that pass a CPF or CNPJ check once padded with zeros. A real serial with 11
- * digits and a letter exists (9A9999999999, 1 in 32 answers), so letters plus 11 digits alone are not a
- * document; letters plus a valid CPF are.
+ * Looks like a person's or company's document: a valid CPF in its digits (also with extra zeros in front),
+ * a valid CNPJ once padded with zeros, or a valid alphanumeric CNPJ anywhere in it. Letters plus 11 digits
+ * alone are not a document: a real serial with that shape exists (9A9999999999, 1 in 32 answers).
  */
 function pareceDocumento(s: string): boolean {
   const dig = s.replace(/\D/g, '')
-  if (/^\d+$/.test(s) && (dig.length === 11 || dig.length === 14)) return true
-  return dig.length <= 11 ? cpfOk(dig.padStart(11, '0')) : dig.length <= 14 && cnpjOk(dig.padStart(14, '0'))
+  // any 14-character stretch that is a valid CNPJ ("CNPJ12ABC34501DE35"); real serials have at most 12 characters
+  for (let i = 0; i + 14 <= s.length; i++) if (cnpjOk(s.slice(i, i + 14))) return true
+  // A CPF in the digits, also with extra zeros in front or without its leading zero. Digit-only values are
+  // checked at any size (a CPF stored as a number loses its leading zeros); with letters around, only from
+  // 10 digits, or about 1 real short serial in 100 would drop by chance (A9999A9999 did, 1 in 32).
+  if ((/^\d+$/.test(s) || dig.length >= 10) && cpfOk(dig.replace(/^0+/, '').padStart(11, '0'))) return true
+  return dig.length >= 12 && dig.length <= 14 && cnpjOk(dig.padStart(14, '0'))
 }
 
-/** Gearbox serial as shown, or null (only strings of letters and digits, at least 4 digits and 40% of them). */
+// Digit-only serials seen: 8, 9 and 12 digits (25/11/2026). 10 (a phone with area code), 11 and 14 (CPF and
+// CNPJ size) and anything shorter never show; 13 is allowed as a 12-digit serial's neighbour.
+const DIGITOS_SO_SERIE = new Set([8, 9, 12, 13])
+
+/** Gearbox serial as shown, or null (only strings of letters and digits, at least 5 digits and 40% of them). */
 export function numeroCaixaCambio(v: unknown): string | null {
   if (typeof v !== 'string') return null
   const s = sem(v)
   if (!s || SEM_CAIXA.test(s)) return null
-  if (!/^[A-Z0-9]{5,20}$/.test(s) || /^0+$/.test(s)) return null
+  if (!/^[A-Z0-9]{5,20}$/.test(s) || /^(.)\1+$/.test(s)) return null
   const digitos = s.replace(/\D/g, '').length
-  if (digitos < 4 || digitos / s.length < 0.4) return null
+  if (digitos < 5 || digitos / s.length < 0.4) return null
+  if (digitos === s.length && !DIGITOS_SO_SERIE.has(s.length)) return null
   return pareceDocumento(s) ? null : s
 }
 
