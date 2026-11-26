@@ -75,6 +75,12 @@ const rateLimitConfigs: Record<string, RateLimitConfig> = {
   // Coletor do funil: recebe lote de ate 10 eventos por chamada, entao 60/min
   // cobre uma navegacao intensa com folga e ainda barra despejo automatizado.
   '/api/evento': { windowMs: 60 * 1000, maxRequests: 60 }, // 60 por minuto
+  // Presence beacon of the TV's "Agora no site": one tab sends every 30 s and
+  // at most every 10 s while navigating (6 a minute). 120 a minute leaves room
+  // for twenty tabs behind one address (carrier NAT, an office).
+  // The TV's summary is an operator route: its own bucket, before the beacon's prefix (first match wins).
+  '/api/presenca/resumo': { windowMs: 60 * 1000, maxRequests: 30 }, // 30 per minute
+  '/api/presenca': { windowMs: 60 * 1000, maxRequests: 120 }, // 120 per minute
   // Dados da /tabela-fipe para o app: ele baixa uma vez por dia na abertura e usa
   // o retrato do bundle como reserva, entao 10/min cobre tentativas e barra
   // varredura. O startsWith nao pega /api/fipe-prices (hifen no lugar da barra).
