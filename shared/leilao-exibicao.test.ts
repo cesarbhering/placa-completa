@@ -391,3 +391,38 @@ describe('so o ultimo da casa no ano: a casa e a fonte, nao o rotulo (revisao do
     expect(aparece).toBe(true)
   })
 })
+
+describe('so o ultimo da casa no ano: chave e a fonte E o rotulo (revisao 2 do #802)', () => {
+  const lote = (fonte: string, data: string, extra: Record<string, unknown> = {}) => ({
+    fonte, nivel: 'confirmado', data_leilao: data, lote: String(data.slice(5, 7)), ...extra,
+  })
+
+  it('fonte de varias casas (rotulo por casa) mantem as duas casas', () => {
+    const r = soUltimoDaCasaNoAno([
+      lote('msis', '2026-03-10', { fonte_exibicao: 'Casa Alfa Leilões' }),
+      lote('msis', '2026-09-10', { fonte_exibicao: 'Casa Beta Leilões' }),
+    ])
+    expect(r).toHaveLength(2)
+  })
+
+  it('a mesma casa dentro da fonte de varias casas fica so com o ultimo', () => {
+    const r = soUltimoDaCasaNoAno([
+      lote('msis', '2026-03-10', { fonte_exibicao: 'Casa Alfa Leilões' }),
+      lote('msis', '2026-09-10', { fonte_exibicao: 'Casa Alfa Leilões' }),
+    ])
+    expect(r.map((p: any) => p.data_leilao)).toEqual(['2026-09-10'])
+  })
+
+  it('avisos de jornal de varios leiloeiros nao agrupam', () => {
+    const r = soUltimoDaCasaNoAno([
+      lote('gazeta_publicidade_legal', '2026-03-10'),
+      lote('gazeta_publicidade_legal', '2026-09-10'),
+    ])
+    expect(r).toHaveLength(2)
+  })
+
+  it('marketplace com um rotulo so conta como uma casa', () => {
+    const r = soUltimoDaCasaNoAno([lote('superbid', '2026-03-10'), lote('superbid', '2026-09-10')])
+    expect(r.map((p: any) => p.data_leilao)).toEqual(['2026-09-10'])
+  })
+})

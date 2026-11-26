@@ -380,14 +380,23 @@ export function passagensSemParceiraRepetida(lista: unknown): any[] {
 // Partner records (year only) stay with passagensSemParceiraRepetida.
 // Display only: the snapshot keeps every passage.
 
+// Sources that publish for many houses under ONE label: never grouped (review 2 of #802).
+const FONTES_DE_VARIAS_CASAS = new Set(['gazeta_publicidade_legal'])
+
 function casaDaPassagem(p: any): string | null {
   const chave = String(p?.fonte || '').trim().toLowerCase().replace(/[\s-]+/g, '_')
-  if (!chave) return null
+  if (!chave || FONTES_DE_VARIAS_CASAS.has(chave)) return null
   if (p?.fonte_tipo === 'detran') return RE_CANHAO.test(chave) ? null : chave
   if (p?.via_canhao || RE_CANHAO.test(chave)) return null
   const plataforma = RE_FONTE_PLATAFORMA.exec(chave)
-  if (plataforma) return plataforma[2] ? chave : null     // the house only in the ref: unknown
-  return chave
+  if (plataforma && !plataforma[2]) return null           // the house only in the ref: unknown
+  // Source key AND the label the page shows (review 2 of #802): sources such as msis,
+  // suporte_classico, wrleiloes and agenciaares carry several houses under one key, each
+  // with its own label. A marketplace that shows one label for every seller (Superbid,
+  // Leilo, Copart) counts as one house, as the page shows it.
+  const rotulo = fonteExibicaoLeilao(p)
+  if (!rotulo || rotulo === ROTULO_LEILOEIRA_PARTICULAR) return null
+  return `${chave}|${rotulo.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()}`
 }
 
 function chaveCasaAno(p: any): string | null {
