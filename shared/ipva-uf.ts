@@ -7,12 +7,17 @@
 // A state without an official source keeps its old number and has no `fonte`:
 // the paid report still uses it, and /ipva-2027 shows "não conferida".
 //
-// Some states tier the passenger-car rate by engine power, engine size or value,
-// and some state a different rate for ethanol-only, diesel, electric, hybrid or
-// GNV cars. The rate is only picked from data we hold (registry power and engine
-// size, FIPE value, fuel). Without that data there is no single rate and the
-// callers show a range or nothing (Lead, 26/11/2026: never guess a tier, in the
-// page or in the paid report).
+// Some states tier the passenger-car rate by engine power, engine size or value.
+// The tier is only picked from data we hold (registry power and engine size,
+// FIPE value); without it there is no single rate and the callers show a range
+// or nothing (Lead, 26/11/2026: never guess a tier, in the page or in the paid
+// report).
+//
+// Fuel follows the source (Lead, 26/11/2026): where the state's rate applies to
+// every automóvel, it applies to any fuel, unknown included. Where the source
+// has its own rule for a fuel, that fuel gets the stated rate, or no rate when
+// we don't model the rule (e.g. an exemption up to a value); an unknown fuel
+// then gets no rate unless every fuel rule gives the same number.
 
 import { propulsao } from './propulsao'
 
@@ -35,8 +40,12 @@ export interface AliquotaUf {
   aliquota?: number
   /** Tiers for gasoline and flex passenger cars. */
   faixas?: FaixasIpva
-  /** Rates the source states for other fuels. A fuel not listed here gets no number. */
-  porCombustivel?: Partial<Record<CombustivelEspecial, number>>
+  /**
+   * Fuels with their own rule in the source: the stated rate, or null when the
+   * rule is not modeled here (no number for that fuel). A fuel not listed
+   * follows the general rate.
+   */
+  porCombustivel?: Partial<Record<CombustivelEspecial, number | null>>
   /** Official page or act where the rate was read. Absent = not checked. */
   fonte?: { nome: string; url: string }
   conferidoEm?: string
@@ -52,6 +61,8 @@ export const ALIQUOTAS_IPVA: Readonly<Record<string, AliquotaUf>> = {
   },
   AL: {
     faixas: { base: 'potencia_hp', limites: [{ ate: 80, aliquota: 0.0275 }, { ate: 160, aliquota: 0.03 }, { ate: null, aliquota: 0.0325 }], descricao: '2,75% até 80 HP, 3% acima de 80 até 160 HP e 3,25% acima de 160 HP' },
+    // Lei 9.093/2023 added GNV 1.5% and rates for electric and hybrid cars.
+    porCombustivel: { gnv: 0.015, eletrico: null, hibrido: null },
     fonte: { nome: 'Lei 6.555/2004, art. 8º, IV (texto da Lei 7.862/2016)', url: 'https://sapl.al.al.leg.br/media/sapl/public/normajuridica/2016/1269/1269_texto_integral.pdf' },
     conferidoEm: CONFERIDO_EM,
   },
@@ -60,6 +71,8 @@ export const ALIQUOTAS_IPVA: Readonly<Record<string, AliquotaUf>> = {
   // similar to motorcycles: an ordinary car pays 3%.
   AP: {
     aliquota: 0.03,
+    // Art. 37 phases in lower rates for electric and hybrid cars.
+    porCombustivel: { eletrico: null, hibrido: null },
     fonte: { nome: 'Lei 3.152/2024, art. 5º, III (Diário Oficial do AP)', url: 'https://diofe.portal.ap.gov.br/apifront/portal/edicoes/imprimir_materia/92685/2339' },
     conferidoEm: CONFERIDO_EM,
   },
@@ -82,7 +95,9 @@ export const ALIQUOTAS_IPVA: Readonly<Record<string, AliquotaUf>> = {
   },
   DF: {
     aliquota: 0.03,
-    fonte: { nome: 'Secretaria de Economia do DF, tabela do IPVA 2027', url: 'https://www.economia.df.gov.br/w/tabela-do-ipva-de-2027-tera-em-media-2-de-reducao' },
+    // Electric and hybrid cars bought in the DF are exempt (Secretaria de Economia).
+    porCombustivel: { eletrico: null, hibrido: null },
+    fonte: { nome: 'Agência Brasília, tabela do IPVA de 2027 (com informações da Secretaria de Economia)', url: 'https://www.agenciabrasilia.df.gov.br/w/tabela-do-ipva-de-2027-deve-ter-em-media-2-de-reducao' },
     conferidoEm: CONFERIDO_EM,
   },
   ES: {
@@ -105,6 +120,9 @@ export const ALIQUOTAS_IPVA: Readonly<Record<string, AliquotaUf>> = {
   },
   MS: {
     aliquota: 0.03,
+    // GNV: 100% reduction (art. 153, III). Diesel passenger cars had their own
+    // rate in the 2026 table, not shown in the 2027 text.
+    porCombustivel: { gnv: null, diesel: null },
     fonte: { nome: 'Lei 6.654/2026, art. 157 (Diário Oficial de MS nº 12.340)', url: 'https://assets.imprensaoficial.ms.gov.br/public/prd/Diario%20Oficial/2026/11/26/DO12340_26_11_2026.pdf' },
     conferidoEm: CONFERIDO_EM,
   },
@@ -115,6 +133,8 @@ export const ALIQUOTAS_IPVA: Readonly<Record<string, AliquotaUf>> = {
   },
   PA: {
     aliquota: 0.025,
+    // Electric cars up to R$ 150 mil are exempt.
+    porCombustivel: { eletrico: null },
     fonte: { nome: 'Lei 6.017/1996, art. 10, III (texto da Lei 8.867/2019, Alepa)', url: 'https://bancodeleis.alepa.pa.gov.br/arquivos/lei8867_2019_47159.pdf' },
     conferidoEm: CONFERIDO_EM,
   },
@@ -125,16 +145,21 @@ export const ALIQUOTAS_IPVA: Readonly<Record<string, AliquotaUf>> = {
   },
   PR: {
     aliquota: 0.019,
+    porCombustivel: { gnv: 0.01 },
     fonte: { nome: 'Sefa-PR, IPVA com alíquota de 1,9%', url: 'https://www.fazenda.pr.gov.br/Noticia/Com-aliquota-de-19-e-desconto-vista-Fazenda-divulga-datas-do-IPVA-2026' },
     conferidoEm: CONFERIDO_EM,
   },
   PE: {
     aliquota: 0.024,
+    // GNV pays 1.5% only up to R$ 100 mil of base.
+    porCombustivel: { gnv: null },
     fonte: { nome: 'Lei 10.849/1992, art. 12-B (Sefaz-PE)', url: 'https://www.sefaz.pe.gov.br/Legislacao/Tributaria/Documents/Legislacao/Leis_Tributarias/1992/Lei10849_92.htm' },
     conferidoEm: CONFERIDO_EM,
   },
   PI: {
     faixas: { base: 'valor', limites: [{ ate: 150000, aliquota: 0.025 }, { ate: null, aliquota: 0.03 }], descricao: '2,5% até R$ 150 mil de valor venal e 3% acima disso' },
+    // Art. 14, I: own rule for electric vehicles.
+    porCombustivel: { eletrico: null },
     fonte: { nome: 'Lei 4.548/1992, art. 14 (texto da Lei 6.749/2015)', url: 'https://sapl.al.pi.leg.br/media/sapl/public/normajuridica/2015/3866/3866_texto_integral.pdf' },
     conferidoEm: CONFERIDO_EM,
   },
@@ -146,7 +171,8 @@ export const ALIQUOTAS_IPVA: Readonly<Record<string, AliquotaUf>> = {
   },
   RN: {
     aliquota: 0.03,
-    porCombustivel: { gnv: 0.015 },
+    // Electric: 0.5%, rising half a point a year.
+    porCombustivel: { gnv: 0.015, eletrico: null },
     fonte: { nome: 'Lei 9.992/2015 (Diário Oficial do RN de 30/10/2015)', url: 'https://webdisk.diariooficial.rn.gov.br/Jornal/12015-10-30.pdf' },
     conferidoEm: CONFERIDO_EM,
   },
@@ -172,6 +198,10 @@ export const ALIQUOTAS_IPVA: Readonly<Record<string, AliquotaUf>> = {
   },
   SP: {
     aliquota: 0.04,
+    // The 4% is for "demais veículos, inclusive automóveis de passeio tipo flex":
+    // ethanol-only, GNV and electric cars have their own line, and hybrids up to
+    // a value are exempt.
+    porCombustivel: { etanol: null, gnv: null, eletrico: null, hibrido: null },
     fonte: { nome: 'Sefaz-SP, como é calculado o IPVA', url: 'https://portal.fazenda.sp.gov.br/servicos/ipva/Paginas/Como-e-calculado-IPVA.aspx' },
     conferidoEm: CONFERIDO_EM,
   },
@@ -183,6 +213,8 @@ export const ALIQUOTAS_IPVA: Readonly<Record<string, AliquotaUf>> = {
   },
   TO: {
     faixas: { base: 'potencia_hp', limites: [{ ate: 100, aliquota: 0.025 }, { ate: null, aliquota: 0.035 }], descricao: '2,5% até 100 HP e 3,5% acima disso' },
+    // Electric and hybrid cars bought from local dealers are exempt (Lei 5.061/2026).
+    porCombustivel: { eletrico: null, hibrido: null },
     fonte: { nome: 'Sefaz-TO, IPVA 2026 (Lei 1.287/2001, art. 78)', url: 'https://www.to.gov.br/sefaz/noticias/ipva-2026-no-tocantins-tem-desconto-de-10-para-pagamento-a-vista-em-ate-30-de-janeiro/5j7g5aj1h47x' },
     conferidoEm: CONFERIDO_EM,
   },
@@ -238,6 +270,11 @@ export interface VeiculoIpva {
   potenciaCv?: number | null
   /** Registry engine size, in cm³. */
   cilindradaCc?: number | null
+  /**
+   * Rate of the power or engine-size tier already decided on the server
+   * (faixasDecididas), for callers that never see the power itself.
+   */
+  aliquotaFaixa?: number | null
   combustivel?: CombustivelIpva | null
 }
 
@@ -252,24 +289,78 @@ function regraDa(uf: string): AliquotaUf | undefined {
   return ALIQUOTAS_IPVA[String(uf || '').trim().toUpperCase()]
 }
 
-/**
- * Passenger-car rate for this vehicle, or null when the state's rule depends on
- * data we don't hold: an unknown power, engine size or value in a tiered state,
- * an unknown fuel, or a fuel whose rate the source doesn't give. Never guesses.
- */
-export function aliquotaIpvaDoVeiculo(uf: string, v: VeiculoIpva = {}): number | null {
-  const regra = regraDa(uf)
-  if (!regra || !v.combustivel) return null
-  if (v.combustivel !== 'comum') return regra.porCombustivel?.[v.combustivel] ?? null
+/** Rate of the general rule (every automóvel), or null when its tier is not decided. */
+function aliquotaGeral(regra: AliquotaUf, v: VeiculoIpva): number | null {
   if (!regra.faixas) return regra.aliquota ?? null
   const f = regra.faixas
-  const medida = f.base === 'valor' ? v.valorFipe : f.base === 'cilindrada' ? v.cilindradaCc : v.potenciaCv
-  if (!positivo(medida)) return null
+  if (f.base === 'valor') return positivo(v.valorFipe) ? f.limites[indiceFaixa(f, v.valorFipe)].aliquota : null
+  const medida = f.base === 'cilindrada' ? v.cilindradaCc : v.potenciaCv
+  if (!positivo(medida)) return positivo(v.aliquotaFaixa) ? v.aliquotaFaixa : null
   const i = indiceFaixa(f, medida)
   // The law counts HP and the registry gives cv: the tier counts only when the
   // number read either way lands in the same tier.
   if (f.base === 'potencia_hp' && indiceFaixa(f, medida * HP_POR_CV) !== i) return null
   return f.limites[i].aliquota
+}
+
+/**
+ * Passenger-car rate for this vehicle, or null when the state's rule depends on
+ * data we don't hold: an undecided power, engine-size or value tier, a fuel
+ * whose own rule is not modeled, or an unknown fuel in a state where fuels have
+ * their own rules (unless they all give the same number). Never guesses.
+ */
+export function aliquotaIpvaDoVeiculo(uf: string, v: VeiculoIpva = {}): number | null {
+  const regra = regraDa(uf)
+  if (!regra) return null
+  const geral = aliquotaGeral(regra, v)
+  const regras = regra.porCombustivel ?? {}
+  const c = v.combustivel ?? null
+  if (c && c !== 'comum' && c in regras) return regras[c] ?? null
+  if (c) return geral
+  const proprias = Object.values(regras)
+  if (!proprias.length) return geral
+  return geral != null && proprias.every((x) => x === geral) ? geral : null
+}
+
+/** Does the state's source give a fuel its own rule? (Unknown fuel then decides nothing.) */
+export function temRegraPorCombustivel(uf: string): boolean {
+  return Object.keys(regraDa(uf)?.porCombustivel ?? {}).length > 0
+}
+
+/** Is this fuel one whose own rule the source sets but we don't model? */
+export function combustivelSemAliquota(uf: string, c: CombustivelIpva | null | undefined): boolean {
+  const regras = regraDa(uf)?.porCombustivel ?? {}
+  return !!c && c !== 'comum' && c in regras && regras[c as CombustivelEspecial] == null
+}
+
+const UNIDADE: Record<Exclude<BaseFaixa, 'valor'>, string> = { potencia_cv: 'cv', potencia_hp: 'HP', cilindrada: 'cilindradas' }
+
+/** "até 100 cv", "acima de 80 até 160 HP", "acima de 1.000 cilindradas". */
+export function rotuloFaixa(f: FaixasIpva, i: number): string {
+  const un = UNIDADE[f.base as Exclude<BaseFaixa, 'valor'>] ?? ''
+  const n = (x: number | null) => (x ?? 0).toLocaleString('pt-BR')
+  if (i === 0) return `até ${n(f.limites[0].ate)} ${un}`
+  const de = n(f.limites[i - 1].ate)
+  return f.limites[i].ate == null ? `acima de ${de} ${un}` : `acima de ${de} até ${n(f.limites[i].ate)} ${un}`
+}
+
+/**
+ * For the free lookup: the power and engine-size tiers this car falls in, per
+ * state, as rate and label only. The power and engine size themselves never
+ * leave the server (they are items of the paid report).
+ */
+export function faixasDecididas(v: { potenciaCv?: number | null; cilindradaCc?: number | null }): Record<string, { aliquota: number; rotulo: string }> {
+  const out: Record<string, { aliquota: number; rotulo: string }> = {}
+  for (const [uf, regra] of Object.entries(ALIQUOTAS_IPVA)) {
+    const f = regra.faixas
+    if (!f || f.base === 'valor') continue
+    const medida = f.base === 'cilindrada' ? v.cilindradaCc : v.potenciaCv
+    if (!positivo(medida)) continue
+    const i = indiceFaixa(f, medida)
+    if (f.base === 'potencia_hp' && indiceFaixa(f, medida * HP_POR_CV) !== i) continue
+    out[uf] = { aliquota: f.limites[i].aliquota, rotulo: rotuloFaixa(f, i) }
+  }
+  return out
 }
 
 export type DependeDe = 'potencia' | 'cilindrada' | 'valor'

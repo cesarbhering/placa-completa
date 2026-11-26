@@ -13,7 +13,7 @@ import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitel
 import { mensagemLimiteGratis, tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT } from '../utils/ip-wdapi-limit'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
 import { detectarSegmento } from '../utils/segmento'
-import { combustivelIpva } from '../../shared/ipva-uf'
+import { combustivelIpva, faixasDecididas } from '../../shared/ipva-uf'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
 import { classificarUA } from '../utils/dispositivo'
@@ -951,6 +951,13 @@ export default defineEventHandler(async (event) => {
       // Car, motorcycle or truck, from the free payload only. /ipva-2027 shows
       // its passenger-car estimate only for cars.
       segmento: detectarSegmento({ wdapi: apiResponse, chassi: apiResponse?.extra?.chassi || apiResponse?.chassi || null }),
+      // IPVA tier of this car in the states tiered by power or engine size, as
+      // rate and label only ("até 100 cv"): power and engine size are items of
+      // the paid report and never leave the server.
+      ipvaFaixas: faixasDecididas({
+        potenciaCv: Number(apiResponse.extra?.potencia) || null,
+        cilindradaCc: Number(apiResponse.extra?.cilindradas) || null,
+      }),
     } : undefined,
     // payload minimo pro botao de compartilhar no WhatsApp (web)
     // Sem FIPE: virou conteudo pago, e o texto de compartilhamento e superficie

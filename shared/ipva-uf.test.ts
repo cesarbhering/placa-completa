@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ALIQUOTAS_IPVA, CONFERIDO_EM, aliquotaIpvaDoVeiculo, faixaAliquotaIpva, aliquotaConferida, combustivelIpva } from './ipva-uf'
+import { ALIQUOTAS_IPVA, CONFERIDO_EM, aliquotaIpvaDoVeiculo, faixaAliquotaIpva, aliquotaConferida, combustivelIpva, faixasDecididas } from './ipva-uf'
 import { calcularICV5 } from '../server/utils/icv5'
 
 const flex = { combustivel: 'comum' as const }
@@ -72,24 +72,63 @@ describe('aliquotaIpvaDoVeiculo never guesses a tier', () => {
     expect(aliquotaIpvaDoVeiculo('SE', { ...flex, valorFipe: 119999 })).toBe(0.025)
     expect(aliquotaIpvaDoVeiculo('SE', { ...flex, valorFipe: 120000 })).toBe(0.03)
   })
-  it('other fuels only where the source states the rate', () => {
+  it('fuel follows the source: a fuel with its own rule gets that rate, or none when not modeled', () => {
     expect(aliquotaIpvaDoVeiculo('RJ', { combustivel: 'hibrido' })).toBe(0.015)
     expect(aliquotaIpvaDoVeiculo('RJ', { combustivel: 'eletrico' })).toBe(0.005)
     expect(aliquotaIpvaDoVeiculo('RJ', { combustivel: 'etanol' })).toBe(0.02)
     expect(aliquotaIpvaDoVeiculo('BA', { combustivel: 'diesel' })).toBe(0.03)
     expect(aliquotaIpvaDoVeiculo('RN', { combustivel: 'gnv' })).toBe(0.015)
+    expect(aliquotaIpvaDoVeiculo('PR', { combustivel: 'gnv' })).toBe(0.01)
     expect(aliquotaIpvaDoVeiculo('SP', { combustivel: 'eletrico' })).toBeNull()
-    expect(aliquotaIpvaDoVeiculo('MG', { combustivel: 'diesel' })).toBeNull()
+    expect(aliquotaIpvaDoVeiculo('DF', { combustivel: 'hibrido' })).toBeNull()
   })
-  it('unknown fuel or state gives no rate', () => {
+  it('a fuel without its own rule follows the general rate (MG, BA electric, SP diesel)', () => {
+    expect(aliquotaIpvaDoVeiculo('MG', { combustivel: 'diesel' })).toBe(0.04)
+    expect(aliquotaIpvaDoVeiculo('MG', { combustivel: 'eletrico' })).toBe(0.04)
+    expect(aliquotaIpvaDoVeiculo('BA', { combustivel: 'eletrico' })).toBe(0.025)
+    expect(aliquotaIpvaDoVeiculo('SP', { combustivel: 'diesel' })).toBe(0.04)
+  })
+  it('unknown fuel: the general rate where no fuel has its own rule, else only if all rules agree', () => {
+    expect(aliquotaIpvaDoVeiculo('MG', {})).toBe(0.04)
+    expect(aliquotaIpvaDoVeiculo('SC', {})).toBe(0.02)
     expect(aliquotaIpvaDoVeiculo('SP', {})).toBeNull()
+    expect(aliquotaIpvaDoVeiculo('RJ', {})).toBeNull()
+    // AM: electric and hybrid pay 1.5%, the same as the up-to-1,000 cm3 tier.
+    expect(aliquotaIpvaDoVeiculo('AM', { cilindradaCc: 999 })).toBe(0.015)
+    expect(aliquotaIpvaDoVeiculo('AM', { cilindradaCc: 1598 })).toBeNull()
+  })
+  it('unknown state gives no rate', () => {
     expect(aliquotaIpvaDoVeiculo('XX', flex)).toBeNull()
     expect(aliquotaIpvaDoVeiculo('', flex)).toBeNull()
+  })
+  it('a tier decided on the server counts when the power is not at hand', () => {
+    expect(aliquotaIpvaDoVeiculo('CE', { ...flex, aliquotaFaixa: 0.03 })).toBe(0.03)
+    expect(aliquotaIpvaDoVeiculo('CE', { ...flex, potenciaCv: 82, aliquotaFaixa: 0.035 })).toBe(0.025)
   })
   it('range and what decides it', () => {
     expect(faixaAliquotaIpva('CE')).toEqual({ min: 0.025, max: 0.035, depende: 'potencia' })
     expect(faixaAliquotaIpva('MT')).toEqual({ min: 0.02, max: 0.03, depende: 'cilindrada' })
     expect(faixaAliquotaIpva('SP')).toEqual({ min: 0.04, max: 0.04, depende: null })
+  })
+})
+
+describe('faixasDecididas (free lookup)', () => {
+  it('gives each power/engine-size state the tier of this car as rate and label only', () => {
+    const f = faixasDecididas({ potenciaCv: 82, cilindradaCc: 999 })
+    expect(f.CE).toEqual({ aliquota: 0.025, rotulo: 'até 100 cv' })
+    expect(f.GO).toEqual({ aliquota: 0.03, rotulo: 'até 100 cv' })
+    expect(f.AL).toEqual({ aliquota: 0.03, rotulo: 'acima de 80 até 160 HP' })
+    expect(f.TO).toEqual({ aliquota: 0.025, rotulo: 'até 100 HP' })
+    expect(f.AM).toEqual({ aliquota: 0.015, rotulo: 'até 1.000 cilindradas' })
+    expect(f.MT).toEqual({ aliquota: 0.02, rotulo: 'até 1.000 cilindradas' })
+    expect(f.RO).toEqual({ aliquota: 0.02, rotulo: 'até 1.000 cilindradas' })
+    expect(Object.keys(f).sort()).toEqual(['AL', 'AM', 'CE', 'GO', 'MT', 'RO', 'TO'])
+    expect(JSON.stringify(f)).not.toMatch(/\b82\b|\b999\b/)
+  })
+  it('leaves out a state when the data is missing or lands on a tier border', () => {
+    expect(faixasDecididas({})).toEqual({})
+    expect(faixasDecididas({ potenciaCv: 81 }).AL).toBeUndefined()
+    expect(faixasDecididas({ cilindradaCc: 1598 }).MT).toEqual({ aliquota: 0.03, rotulo: 'acima de 1.000 cilindradas' })
   })
 })
 
@@ -126,5 +165,8 @@ describe('5-year cost (ICV5) follows the same rule', () => {
   it('is not computed when the rate depends on data we do not hold', () => {
     expect(calcularICV5({ ...base, uf: 'CE', veiculo: flex })).toBeNull()
     expect(calcularICV5({ ...base, uf: 'SP' })).toBeNull()
+  })
+  it('an unknown fuel still gets the rate where no fuel has its own rule', () => {
+    expect(calcularICV5({ ...base, uf: 'MG' })!.ipvaAnual).toBe(2000)
   })
 })
