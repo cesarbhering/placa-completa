@@ -51,6 +51,7 @@ export const ROTAS_PRESENCA = [
   '/contato',
   '/estudos',
   '/historico-veicular',
+  '/ipva-2027',
   '/laudo-cautelar',
   '/o-que-e',
   '/o-que-e/:slug',
