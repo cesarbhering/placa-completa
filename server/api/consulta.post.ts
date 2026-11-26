@@ -12,6 +12,7 @@ import { getSeguroEstimado, type SeguroEstimado } from '../utils/seguro-estimate
 import { getHourlyLimit, DEFAULT_HOURLY_LIMIT } from '../utils/rate-limit-whitelist'
 import { mensagemLimiteGratis, tetoIpWdapi, IP_WDAPI_HOURLY_LIMIT } from '../utils/ip-wdapi-limit'
 import { calcularICV5, inferirCategoria, type ICV5Result } from '../utils/icv5'
+import { detectarSegmento } from '../utils/segmento'
 import { combustivelIpva } from '../../shared/ipva-uf'
 import { sendWhatsAppText, sendWhatsAppImage, normalizePhoneForWhatsApp } from '../utils/evolutionApi'
 import { renderHtmlToPng } from '../utils/htmlToImage'
@@ -947,6 +948,9 @@ export default defineEventHandler(async (event) => {
       // historico/grafico continua sendo conteudo pago.
       fipe: fipeValorAtual,
       fipeNota: fipeNotaAntigo,
+      // Car, motorcycle or truck, from the free payload only. /ipva-2027 shows
+      // its passenger-car estimate only for cars.
+      segmento: detectarSegmento({ wdapi: apiResponse, chassi: apiResponse?.extra?.chassi || apiResponse?.chassi || null }),
     } : undefined,
     // payload minimo pro botao de compartilhar no WhatsApp (web)
     // Sem FIPE: virou conteudo pago, e o texto de compartilhamento e superficie
