@@ -267,3 +267,63 @@ describe('page wiring for one card per auction', () => {
     expect(ficha).toMatch(/k: 'Notificação', v: String\(p\.value\.linhaNotificacao\)/)
   })
 })
+
+// ---------- one passage per house and year (Cesar, 25/11/2026) ----------
+import { soUltimoDaCasaNoAno } from './leilao-exibicao'
+
+describe('mesma casa e mesmo ano: so o ultimo leilao (Cesar, 25/11/2026)', () => {
+  const detran = (data: string, extra: Record<string, unknown> = {}) => ({
+    fonte: 'detran_sp', fonte_tipo: 'detran', fonte_exibicao: 'Detran SP', nivel: 'confirmado',
+    lote: '12', data_leilao: data, ref: `ed-${data}`, ...extra,
+  })
+
+  it('dois editais do Detran SP no mesmo ano viram um card, o mais recente', () => {
+    const h = {
+      passagens: [detran('2026-05-12'), detran('2026-03-10')],
+      resumo: { nivel_max: 'confirmado', n_confirmado: 2, n_provavel: 0, n_possivel: 0, tem_indicio: true, fontes_com_passagem: ['detran_sp'] },
+      linha_do_tempo: [{ data: '2026-03-10', tipo: 'leilao', fontes: ['Detran SP'] }, { data: '2026-05-12', tipo: 'leilao', fontes: ['Detran SP'] }],
+      recorrencia: { texto: 'Voltou a leilão 2 meses depois', nLeiloes: 2, voltouALeilao: true, intervalosMeses: [2] },
+    }
+    const r: any = historicoParaExibicao(h)
+    expect(r.passagens.map((p: any) => p.data_leilao)).toEqual(['2026-05-12'])
+    expect(r.resumo.n_confirmado).toBe(1)
+    expect(r.recorrencia).toBeNull()
+    expect(r.linha_do_tempo).toBeNull()
+    expect(h.passagens).toHaveLength(2)                     // o snapshot nao muda
+  })
+
+  it('anos diferentes ficam os dois', () => {
+    const r = soUltimoDaCasaNoAno([detran('2025-11-20'), detran('2026-02-10')])
+    expect(r).toHaveLength(2)
+  })
+
+  it('casas diferentes no mesmo ano ficam as duas', () => {
+    const outra = { ...detran('2026-10-01'), fonte: 'detran_mg', fonte_exibicao: 'Detran MG' }
+    expect(soUltimoDaCasaNoAno([detran('2026-05-12'), outra])).toHaveLength(2)
+  })
+
+  it('um mais novo e mais fraco nao esconde um mais antigo e mais forte', () => {
+    const r = soUltimoDaCasaNoAno([detran('2026-03-01'), detran('2026-08-01', { nivel: 'possivel' })])
+    expect(r.map((p: any) => p.data_leilao)).toEqual(['2026-03-01'])
+  })
+
+  it('rotulo generico (Leiloeira particular) nao agrupa', () => {
+    const canhao = (data: string) => ({ fonte: 'canhao:exemplo.com.br', fonte_exibicao: null, nivel: 'confirmado', data_leilao: data, lote: '1' })
+    expect(soUltimoDaCasaNoAno([canhao('2026-01-10'), canhao('2026-05-10')])).toHaveLength(2)
+  })
+
+  it('notificacao do Detran nao esconde nem e escondida pelo card do leilao', () => {
+    const aviso = detran('2026-12-01', { detalhes: { tipo_registro: 'notificacao_leilao' } })
+    const r = soUltimoDaCasaNoAno([detran('2026-05-12'), aviso])
+    expect(r).toHaveLength(2)
+  })
+
+  it('passagem sem data completa e registro da base parceira ficam como estao', () => {
+    const parceira = { fonte: 'parceira', fonte_tipo: 'parceira', nivel: 'confirmado', ano_leilao: 2026 }
+    const semData = { ...detran(''), data_leilao: null }
+    const r = soUltimoDaCasaNoAno([detran('2026-05-12'), detran('2026-03-10'), parceira, semData])
+    expect(r).toHaveLength(3)
+    expect(r).toContain(parceira)
+    expect(r).toContain(semData)
+  })
+})

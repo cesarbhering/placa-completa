@@ -1,5 +1,5 @@
 import { FONTE_PARCEIRA, ROTULO_PARCEIRA } from './fonte-parceira'
-import { juntarNotificacoes } from './leilao-notificacao'
+import { ehNotificacao, juntarNotificacoes } from './leilao-notificacao'
 // O que o card de leilao do relatorio pago MOSTRA de cada passagem.
 //
 // Decisao do Cesar (01/out): por enquanto NENHUM valor em R$ (venda, lance,
@@ -364,19 +364,59 @@ export function passagensSemParceiraRepetida(lista: unknown): any[] {
   return lista.filter((p: any) => !ehParceira(p) || !fortes.some((d: any) => mesmoEventoLeilao(p, d)))
 }
 
+// ---------- Same house, same year: only the last auction (Cesar, 25/11/2026) ----------
+//
+// "Quando temos 2 leiloes proximos (mesmo ano) pela mesma casa, vamos reportar so o
+// ultimo." Real case: the same lot in two editais of one Detran, two months apart,
+// showed as two auctions and "voltou a leilao 2 meses depois". Within
+// one house and one calendar year only the most recent passage stays. It is chosen among
+// the strongest level of the group, so a newer weaker match never hides a stronger one.
+// A generic house label ("Leiloeira particular") groups nothing, because it may stand for
+// many houses. Partner records (year only) stay with passagensSemParceiraRepetida.
+// Display only: the snapshot keeps every passage.
+
+function chaveCasaAno(p: any): string | null {
+  // a DETRAN notice is not an auction: it never hides, nor is hidden by, an auction card
+  if (!p || ehParceira(p) || ehNotificacao(p)) return null
+  const d = dataNorm(p.data_leilao)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null
+  const casa = fonteExibicaoLeilao(p)
+  if (!casa || casa === ROTULO_LEILOEIRA_PARTICULAR) return null
+  return `${casa.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase()}|${d.slice(0, 4)}`
+}
+
+export function soUltimoDaCasaNoAno(lista: unknown): any[] {
+  if (!Array.isArray(lista)) return []
+  const grupos = new Map<string, any[]>()
+  for (const p of lista) {
+    const k = chaveCasaAno(p)
+    if (k) grupos.set(k, [...(grupos.get(k) || []), p])
+  }
+  const fica = new Set<any>()
+  for (const g of grupos.values()) {
+    const forca = Math.max(...g.map((p) => FORCA[p?.nivel] ?? 0))
+    const melhor = g
+      .filter((p) => (FORCA[p?.nivel] ?? 0) === forca)
+      .sort((a, b) => dataNorm(b.data_leilao).localeCompare(dataNorm(a.data_leilao)))[0]
+    fica.add(melhor)
+  }
+  return lista.filter((p) => chaveCasaAno(p) === null || fica.has(p))
+}
+
 const NIVEIS_RESUMO = ['confirmado', 'provavel', 'possivel'] as const
 
 /**
  * The history as the screen shows it: canhao passages without repeated
- * auctions, and notices inside the card of the same agency auction (Cesar,
- * 13/11/2026: one card per auction). When a passage leaves, the summary counts
+ * auctions, notices inside the card of the same agency auction (Cesar,
+ * 13/11/2026: one card per auction), and one passage per house and year (Cesar,
+ * 25/11/2026: only the last). When a passage leaves, the summary counts
  * are rebuilt and the API linha_do_tempo and recorrencia (which counted the
  * removed passages) are dropped, so the page builds the timeline per card. Timeline sources from
  * the API never show a host. Does not change the snapshot.
  */
 export function historicoParaExibicao<H extends { passagens?: any[]; resumo?: any; linha_do_tempo?: any; recorrencia?: any }>(h: H | null | undefined): H | null | undefined {
   if (!h || !Array.isArray(h.passagens)) return h
-  const passagens = juntarNotificacoes(passagensSemParceiraRepetida(passagensSemCanhao(h.passagens)))
+  const passagens = soUltimoDaCasaNoAno(juntarNotificacoes(passagensSemParceiraRepetida(passagensSemCanhao(h.passagens))))
   const linha = Array.isArray(h.linha_do_tempo)
     ? h.linha_do_tempo.map((e: any) => (e && Array.isArray(e.fontes)
         ? { ...e, fontes: [...new Set(e.fontes.map((f: unknown) => rotuloFonteLinhaDoTempo(f, h.passagens!.map((x: any) => passagemSemCanhao(x)), e)))] }
