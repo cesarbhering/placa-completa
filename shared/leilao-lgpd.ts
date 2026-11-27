@@ -67,7 +67,10 @@ const CHAVE_PROIBIDA = /processo|autos|\bpartes?\b|executad|exequente|\breu\b|\b
 // Internal keys of the auctions index that never reach the browser (25/11/2026): the
 // source document URL (a PDF on the house, government or gazette site, which may list
 // people), its host, and our storage keys. The page never shows them.
-const CHAVE_INTERNA = /^(url_documento|host_origem|anexo|r2_[a-z0-9_]+)$/i
+// 26/11/2026: also the lot title and the house's lot URL. The house's title (and the URL
+// slug made from it) can carry a party's name in a judicial lot, and the page never
+// renders either one.
+const CHAVE_INTERNA = /^(url_documento|host_origem|anexo|r2_[a-z0-9_]+|titulo_lote|url_lote)$/i
 
 /** Limpa qualquer valor (texto, lista, objeto) de processo/CNJ/CPF e de chaves proibidas. */
 function limparFundo(v: unknown, prof = 0): unknown {
