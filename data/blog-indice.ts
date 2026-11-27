@@ -1,9 +1,12 @@
 import { blogPosts } from './blog-posts'
 import { ibvPosts } from './ibv-posts'
+import { DESCRICOES } from '../shared/seo-meta'
 
 // Indice unico do /blog (16/out/2026, decisao do Cesar): os posts do blog e os
 // do IBV Auto (que antes viviam em /ibv) num lugar so, com tag. Cada post tem
-// UMA tag: a categoria nos posts do blog, "IBV Auto" nos do IBV.
+// UMA tag: a categoria nos posts do blog, "IBV Auto" nos do IBV. Desde
+// 26/nov/2026 a listagem tambem mostra paginas que moram fora do /blog
+// (paginasNoBlog), cada uma com o seu href.
 
 export interface TagBlog {
   slug: string
@@ -62,7 +65,12 @@ export interface EntradaBlog {
   tag: TagBlog
   /** Imagem do card na listagem (pode faltar). */
   imagem: { src: string; alt: string } | null
-  tipo: 'blog' | 'ibv'
+  tipo: 'blog' | 'ibv' | 'pagina'
+  /**
+   * Caminho proprio, so para pagina que mora fora do /blog (ex.: /ipva-2027).
+   * Sem ele, o post fica em /blog/<slug>. Use sempre linkDoPost/urlAbsolutaDoPost.
+   */
+  href?: string
 }
 
 function tagPorNome(nome: string): TagBlog {
@@ -75,7 +83,29 @@ export function tagPorSlug(slug: string): TagBlog | undefined {
   return TAGS_BLOG.find((t) => t.slug === slug)
 }
 
-/** Todos os posts, mais recente primeiro (empate: blog antes do IBV, ordem dos arquivos). */
+/**
+ * Paginas fora do /blog que tambem entram na listagem (26/nov/2026, pedido do
+ * Cesar). Cada uma tem href proprio: nunca vira /blog/<slug> (seria 404) e fica
+ * fora de urlsDoBlog, porque a pagina ja esta no sitemap pelo nuxt.config.ts.
+ */
+export const paginasNoBlog: EntradaBlog[] = [
+  {
+    slug: 'ipva-2027',
+    href: '/ipva-2027',
+    // Mesmos title (og:title) e description da pagina (pages/ipva-2027.vue).
+    title: 'IPVA 2027: estimativa do valor pela placa e calendário',
+    metaDescription: DESCRICOES.ipva2027,
+    publishedAt: '2026-11-26',
+    tag: tagPorNome('Estudos'),
+    imagem: {
+      src: '/images/blog/ipva-2027-1200.png',
+      alt: 'IPVA 2027: em 9 estados, o IPVA do carro depende da potência, da cilindrada ou do valor. Alíquota de carro de passeio: São Paulo 4%, Minas Gerais 4%, Rio Grande do Sul 3%, Pernambuco 2,4% e Paraná 1,9%.',
+    },
+    tipo: 'pagina',
+  },
+]
+
+/** Todos os posts, mais recente primeiro (empate: blog, IBV e paginas, na ordem dos arquivos). */
 export const postsDoBlog: EntradaBlog[] = [
   ...blogPosts.map((p) => ({
     slug: p.slug, title: p.title, metaDescription: p.metaDescription, publishedAt: p.publishedAt,
@@ -88,6 +118,7 @@ export const postsDoBlog: EntradaBlog[] = [
       tag: tagPorNome('IBV Auto'), imagem: img ? { src: img.src!, alt: img.alt || p.title } : null, tipo: 'ibv' as const,
     }
   }),
+  ...paginasNoBlog,
 ].map((p, i) => ({ p, i }))
   .sort((a, b) => b.p.publishedAt.localeCompare(a.p.publishedAt) || a.i - b.i)
   .map(({ p }) => p)
@@ -95,7 +126,22 @@ export const postsDoBlog: EntradaBlog[] = [
 /** Tags com ao menos um post (as que viram pagina e entram no sitemap). */
 export const tagsComPost: TagBlog[] = TAGS_BLOG.filter((t) => postsDoBlog.some((p) => p.tag.slug === t.slug))
 
-/** URLs do blog pro sitemap (indice, tags e posts). */
+const URL_SITE = 'https://placacompleta.com.br'
+
+/** Caminho do post no site: o href proprio (pagina fora do /blog) ou /blog/<slug>. */
+export function linkDoPost(p: EntradaBlog): string {
+  return p.href ?? `/blog/${p.slug}`
+}
+
+/** URL absoluta do post (JSON-LD, feeds e afins). */
+export function urlAbsolutaDoPost(p: EntradaBlog): string {
+  return `${URL_SITE}${linkDoPost(p)}`
+}
+
+/**
+ * URLs do blog pro sitemap (indice, tags e posts). Entrada com href proprio
+ * fica de fora: a pagina dela ja esta no sitemap.
+ */
 export function urlsDoBlog(): string[] {
-  return ['/blog', ...tagsComPost.map((t) => `/blog/tag/${t.slug}`), ...postsDoBlog.map((p) => `/blog/${p.slug}`)]
+  return ['/blog', ...tagsComPost.map((t) => `/blog/tag/${t.slug}`), ...postsDoBlog.filter((p) => !p.href).map(linkDoPost)]
 }

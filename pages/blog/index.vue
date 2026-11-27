@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { escolherTitulo } from '~/shared/seo-titulo'
 import { blogPosts } from '~/data/blog-posts'
-import { postsDoBlog, tagsComPost } from '~/data/blog-indice'
+import { linkDoPost, postsDoBlog, tagsComPost, urlAbsolutaDoPost } from '~/data/blog-indice'
 
 // /blog mostra TUDO (posts do blog e do IBV Auto, 16/out/2026), cada um com
 // o chip da tag; as tags tem pagina propria em /blog/tag/<tag>.
@@ -25,7 +25,7 @@ useHead({
         '@type': 'Blog',
         name: 'Blog do PlacaCompleta',
         url: 'https://placacompleta.com.br/blog',
-        blogPost: postsDoBlog.map((p) => ({ '@type': 'BlogPosting', headline: p.title, url: `https://placacompleta.com.br/blog/${p.slug}`, datePublished: p.publishedAt, keywords: p.tag.nome })),
+        blogPost: postsDoBlog.map((p) => ({ '@type': 'BlogPosting', headline: p.title, url: urlAbsolutaDoPost(p), datePublished: p.publishedAt, keywords: p.tag.nome })),
       }),
     },
     {
@@ -59,7 +59,7 @@ function formatDate(iso: string) {
           <NuxtLink v-for="t in tagsComPost" :key="t.slug" :to="`/blog/tag/${t.slug}`" class="tags__chip">{{ t.nome }}</NuxtLink>
         </nav>
         <div class="post-list">
-          <NuxtLink v-for="post in postsDoBlog" :key="post.slug" :to="`/blog/${post.slug}`" class="post-card">
+          <NuxtLink v-for="post in postsDoBlog" :key="post.slug" :to="linkDoPost(post)" class="post-card">
             <img v-if="post.imagem" :src="post.imagem.src" :alt="post.imagem.alt" width="1200" height="627" class="post-card__img" loading="lazy" decoding="async">
             <div class="post-card__corpo">
               <div class="post-card__meta">

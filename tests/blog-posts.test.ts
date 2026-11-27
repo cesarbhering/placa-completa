@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { blogPosts, findBlogPost } from '../data/blog-posts'
+import { findIbvPost } from '../data/ibv-posts'
 import { postsRecallAuto } from '../data/blog-posts-recall-auto'
+import { linkDoPost, paginasNoBlog, postsDoBlog, urlAbsolutaDoPost, urlsDoBlog } from '../data/blog-indice'
 import { BASE_LEILAO_TEXTO } from '../shared/base-leilao'
+import { DESCRICOES } from '../shared/seo-meta'
 
 describe('blog', () => {
   it('post do Claude for Startups', () => {
@@ -81,6 +84,53 @@ describe('blog', () => {
       expect(tudo).not.toContain('\u2014')
       expect(tudo).not.toMatch(/SENATRAN|REVISAR/i)
       expect(p.categoria).toBe('Recall')
+    }
+  })
+})
+
+// Pages that live outside /blog but show up in the listing (Nov 26, 2026).
+describe('blog listing: pages outside /blog', () => {
+  it('IPVA 2027 is listed under Estudos with the page title and description', () => {
+    const e = postsDoBlog.find((p) => p.slug === 'ipva-2027')!
+    expect(e).toBeTruthy()
+    expect(paginasNoBlog).toContain(e)
+    expect(e.tipo).toBe('pagina')
+    expect(e.href).toBe('/ipva-2027')
+    expect(linkDoPost(e)).toBe('/ipva-2027')
+    expect(urlAbsolutaDoPost(e)).toBe('https://placacompleta.com.br/ipva-2027')
+    expect(e.publishedAt).toBe('2026-11-26')
+    expect(e.tag.slug).toBe('estudos')
+    expect(e.metaDescription).toBe(DESCRICOES.ipva2027)
+    const pagina = readFileSync('pages/ipva-2027.vue', 'utf8')
+    expect(pagina).toContain(`{ property: 'og:title', content: '${e.title}' }`)
+    expect(pagina).toContain("{ name: 'description', content: DESCRICOES.ipva2027 }")
+    expect(existsSync('public' + e.imagem!.src)).toBe(true)
+    expect(e.imagem!.alt).toMatch(/^IPVA 2027/)
+    const tudo = JSON.stringify(e)
+    expect(tudo).not.toContain('\u2014')
+    expect(tudo).not.toMatch(/SENATRAN/i)
+  })
+  it('an entry with its own href never becomes /blog/<slug> and stays out of urlsDoBlog', () => {
+    const urls = urlsDoBlog()
+    expect(paginasNoBlog.length).toBeGreaterThan(0)
+    for (const p of paginasNoBlog) {
+      expect(p.href).toMatch(/^\/[a-z0-9]/)
+      expect(p.href!.startsWith('/blog')).toBe(false)
+      expect(urls).not.toContain(`/blog/${p.slug}`)
+      expect(urls).not.toContain(p.href)
+      // No real post behind /blog/<slug>: the slug page would 404.
+      expect(findBlogPost(p.slug)).toBeUndefined()
+      expect(findIbvPost(p.slug)).toBeUndefined()
+    }
+    for (const u of urls) expect(u.startsWith('/blog')).toBe(true)
+    for (const p of postsDoBlog.filter((x) => !x.href)) expect(linkDoPost(p)).toBe(`/blog/${p.slug}`)
+  })
+  it('the listing and the tag page link through linkDoPost, never a hand-built /blog/<slug>', () => {
+    for (const f of ['pages/blog/index.vue', 'pages/blog/tag/[tag].vue']) {
+      const src = readFileSync(f, 'utf8')
+      expect(src, f).toContain(':to="linkDoPost(post)"')
+      expect(src, f).toContain('url: urlAbsolutaDoPost(p)')
+      expect(src, f).not.toMatch(/\/blog\/\$\{(post|p)\.slug\}/)
     }
   })
 })
