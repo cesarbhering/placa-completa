@@ -426,3 +426,55 @@ describe('so o ultimo da casa no ano: chave e a fonte E o rotulo (revisao 2 do #
     expect(r.map((p: any) => p.data_leilao)).toEqual(['2026-09-10'])
   })
 })
+
+describe('registros da base parceira no mesmo ano: um card (Cesar, 27/11/2026)', () => {
+  const parc = (o: Record<string, unknown>) => ({
+    nivel: 'confirmado', fonte: 'parceiro', fonte_tipo: 'parceiro', ano_leilao: '2025', comitente: null, lote: null,
+    evidencias: ['chassi igual'], ...o,
+  })
+  it('caso real: HDI S.A. + HDI SA Novo + leilao sem comitente viram um card', async () => {
+    const { parceirasDoMesmoAno } = await import('./leilao-exibicao')
+    const edital = parc({ registro: 'edital', lote: 'Lote: 995380' })
+    const hdi = parc({ registro: 'salvado', comitente: 'HDI Seguros S.A.' })
+    const hdiNovo = parc({ registro: 'salvado', comitente: 'HDI Seguros SA Novo' })
+    const r = parceirasDoMesmoAno([edital, hdi, hdiNovo])
+    expect(r).toHaveLength(1)
+    expect(r[0]).toMatchObject({ registro: 'salvado', comitente: 'HDI Seguros S.A.', lote: 'Lote: 995380' })
+  })
+  it('dois comitentes diferentes no ano: dois cards, e o sem comitente fica sozinho', async () => {
+    const { parceirasDoMesmoAno } = await import('./leilao-exibicao')
+    const hdi = parc({ registro: 'salvado', comitente: 'HDI Seguros S.A.' })
+    const banco = parc({ registro: 'edital', comitente: 'Banco Exemplo S.A.' })
+    const sem = parc({ registro: 'edital', lote: '77' })
+    expect(parceirasDoMesmoAno([hdi, banco, sem])).toHaveLength(3)
+  })
+  it('sem comitente e com o mesmo lote de um card entra nele, mesmo com dois cards no ano', async () => {
+    const { parceirasDoMesmoAno } = await import('./leilao-exibicao')
+    const hdi = parc({ registro: 'salvado', comitente: 'HDI Seguros S.A.', lote: '12' })
+    const banco = parc({ registro: 'edital', comitente: 'Banco Exemplo S.A.' })
+    const sem = parc({ registro: 'edital', lote: '012' })
+    const r = parceirasDoMesmoAno([hdi, banco, sem])
+    expect(r).toHaveLength(2)
+    expect(r[0]).toMatchObject({ comitente: 'HDI Seguros S.A.' })
+  })
+  it('anos diferentes e passagens da nossa base ficam como estao', async () => {
+    const { parceirasDoMesmoAno } = await import('./leilao-exibicao')
+    const a = parc({ registro: 'salvado', comitente: 'HDI Seguros S.A.', ano_leilao: '2024' })
+    const b = parc({ registro: 'salvado', comitente: 'HDI Seguros S.A.', ano_leilao: '2025' })
+    const nossa = { nivel: 'confirmado', fonte: 'copart', fonte_tipo: 'casa', data_leilao: '2025-03-10', comitente: 'HDI Seguros S.A.' }
+    const lista = [a, b, nossa]
+    expect(parceirasDoMesmoAno(lista)).toBe(lista)
+  })
+  it('o resumo da tela conta um so', async () => {
+    const { historicoParaExibicao } = await import('./leilao-exibicao')
+    const h = {
+      passagens: [parc({ registro: 'edital', lote: 'Lote: 995380' }), parc({ registro: 'salvado', comitente: 'HDI Seguros S.A.' }),
+        parc({ registro: 'salvado', comitente: 'HDI Seguros SA Novo' })],
+      resumo: { nivel_max: 'confirmado', n_confirmado: 3, n_provavel: 0, n_possivel: 0, fontes_com_passagem: ['parceiro'] },
+      linha_do_tempo: null, recorrencia: null,
+    }
+    const r = historicoParaExibicao(h)!
+    expect(r.passagens).toHaveLength(1)
+    expect(r.resumo.n_confirmado).toBe(1)
+  })
+})

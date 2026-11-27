@@ -364,6 +364,57 @@ export function passagensSemParceiraRepetida(lista: unknown): any[] {
   return lista.filter((p: any) => !ehParceira(p) || !fortes.some((d: any) => mesmoEventoLeilao(p, d)))
 }
 
+// ---------- Partner records of one year: one card (Cesar, 27/11/2026) ----------
+//
+// "A mesma comitente no mesmo ano conta so uma vez." The partner base gives only the year.
+// Real case (hz98...): "HDI Seguros S.A." and "HDI Seguros SA Novo", both salvage in 2025,
+// plus "Leilao em 2025, lote 995380" with no principal, showed as three auctions.
+// - Records with a principal: one card per event (mesmoEventoLeilao: same year and the same
+//   lot or the same principal).
+// - A record with no principal joins the card with its lot; else, when the year has exactly
+//   one card, that card (Cesar chose this: an insurer's salvage sale happens at an auction).
+//   With two different principals in one year it is left alone: it could be either.
+// The card kept is the first with a principal; a missing lot comes from the others.
+// Display only: the snapshot keeps every record.
+export function parceirasDoMesmoAno(lista: unknown): any[] {
+  if (!Array.isArray(lista)) return []
+  const porAno = new Map<string, any[]>()
+  for (const p of lista) {
+    const ano = ehParceira(p) ? anoDaPassagem(p) : null
+    if (ano) porAno.set(ano, [...(porAno.get(ano) || []), p])
+  }
+  const troca = new Map<any, any>()
+  const sai = new Set<any>()
+  for (const doAno of porAno.values()) {
+    if (doAno.length < 2) continue
+    const grupos: any[][] = []
+    const semQuem: any[] = []
+    for (const p of doAno) {
+      if (!tokensComitente(p?.comitente).length) { semQuem.push(p); continue }
+      const g = grupos.find((x) => x.some((q) => mesmoEventoLeilao(p, q)))
+      if (g) g.push(p)
+      else grupos.push([p])
+    }
+    for (const p of semQuem) {
+      const lote = loteNorm(p?.lote)
+      const g = (lote && grupos.find((x) => x.some((q) => loteNorm(q?.lote) === lote)))
+        || (grupos.length === 1 ? grupos[0] : null)
+      if (g) g.push(p)
+      else grupos.push([p])
+    }
+    for (const g of grupos) {
+      if (g.length < 2) continue
+      const base = g.find((p) => tokensComitente(p?.comitente).length) ?? g[0]
+      const lote = base.lote || g.map((p) => p?.lote).find(Boolean) || null
+      const evidencias = [...new Set(g.flatMap((p) => (Array.isArray(p?.evidencias) ? p.evidencias : [])))]
+      troca.set(base, { ...base, lote, ...(evidencias.length ? { evidencias } : {}) })
+      for (const p of g) if (p !== base) sai.add(p)
+    }
+  }
+  if (!sai.size) return lista
+  return lista.filter((p) => !sai.has(p)).map((p) => troca.get(p) ?? p)
+}
+
 // ---------- Same house, same year: only the last auction (Cesar, 25/11/2026) ----------
 //
 // "Quando temos 2 leiloes proximos (mesmo ano) pela mesma casa, vamos reportar so o
@@ -439,7 +490,7 @@ const NIVEIS_RESUMO = ['confirmado', 'provavel', 'possivel'] as const
  */
 export function historicoParaExibicao<H extends { passagens?: any[]; resumo?: any; linha_do_tempo?: any; recorrencia?: any }>(h: H | null | undefined): H | null | undefined {
   if (!h || !Array.isArray(h.passagens)) return h
-  const passagens = juntarNotificacoes(soUltimoDaCasaNoAno(passagensSemParceiraRepetida(passagensSemCanhao(h.passagens))))
+  const passagens = juntarNotificacoes(soUltimoDaCasaNoAno(parceirasDoMesmoAno(passagensSemParceiraRepetida(passagensSemCanhao(h.passagens)))))
   const linha = Array.isArray(h.linha_do_tempo)
     ? h.linha_do_tempo.map((e: any) => (e && Array.isArray(e.fontes)
         ? { ...e, fontes: [...new Set(e.fontes.map((f: unknown) => rotuloFonteLinhaDoTempo(f, h.passagens!.map((x: any) => passagemSemCanhao(x)), e)))] }
