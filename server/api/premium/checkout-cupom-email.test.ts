@@ -33,3 +33,16 @@ describe('checkout: cupom sem e-mail', () => {
     await expect(handler({})).rejects.toThrow('Informe o e-mail para usar um cupom.')
   })
 })
+
+describe('checkout: malformed e-mail is refused before payment (27/11/2026)', () => {
+  it('an e-mail with a space never reaches the payment', async () => {
+    for (const email of ['nome sobrenome@exemplo.com', 'semarroba.com', 'a@b@exemplo.com', 'nome@', '@exemplo.com']) {
+      body = { placa: 'ABC1D23', plano: 'completa', email, cupom: 'VOLTA15' }
+      await expect(handler({})).rejects.toThrow('E-mail invalido')
+    }
+  })
+  it('a valid e-mail passes the check', async () => {
+    body = { placa: 'ABC1D23', plano: 'completa', email: 'cliente.teste@exemplo.com', cupom: 'VOLTA15' }
+    await expect(handler({})).rejects.toThrow('PASSOU_DO_PORTAO')
+  })
+})

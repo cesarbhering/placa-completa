@@ -1,4 +1,5 @@
 import { gravarEmailTardio } from '../../utils/entrega-tardia-envio'
+import { isValidEmail } from '../../utils/validation'
 
 // Grava o e-mail de entrega de um pedido que ja existe. Nasceu porque o e-mail
 // saiu da frente do Pix: agora ele e pedido na tela de pagamento, enquanto a
@@ -13,7 +14,8 @@ export default defineEventHandler(async (event) => {
   const email = String(body?.email || '').trim().toLowerCase()
 
   if (!token || token.length < 8) throw createError({ statusCode: 404, message: 'Pedido nao encontrado' })
-  if (!email.includes('@') || email.length > 200) {
+  // Mesma checagem da consulta gratis (27/11/2026: um e-mail com espaco passou e a entrega nao saiu).
+  if (email.length > 200 || !isValidEmail(email)) {
     throw createError({ statusCode: 400, message: 'Informe um e-mail válido.' })
   }
 

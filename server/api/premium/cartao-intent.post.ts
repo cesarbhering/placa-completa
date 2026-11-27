@@ -12,6 +12,7 @@ import { barrarLimiteCheckout } from '../../utils/checkout-limite'
 import { cupomTelaValido, segredoCupomTela, resolverDescontoTela, colunasCupomTela } from '../../utils/cupom-tela'
 import { precoDoPlano } from '../../../shared/ab-preco'
 import { abPrecoDoCheckout } from '../../utils/ab-preco'
+import { isValidEmail } from '../../utils/validation'
 
 // Cartao v2 EMBUTIDO (Stripe Elements, sem redirect). Cria o pedido
 // (forma_pagamento='cartao') + um PaymentIntent e devolve o client_secret pro
@@ -37,7 +38,7 @@ export default defineEventHandler(async (event) => {
 
   if (placa.length < 7) throw createError({ statusCode: 400, message: 'Placa invalida' })
   barrarPlacaBloqueada(event, placa, email || null)
-  if (email && !email.includes('@')) throw createError({ statusCode: 400, message: 'E-mail invalido' })
+  if (email && !isValidEmail(email)) throw createError({ statusCode: 400, message: 'E-mail invalido' })
   // Cupom exige e-mail (limite por pessoa / cupom pessoal), menos o de
   // recompra, que vale pra qualquer um (server/utils/cupom-recompra.ts).
   // The lookup by code goes through the coupon attempt limits (an unknown code
