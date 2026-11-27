@@ -240,6 +240,29 @@ export function sanearEntrada(bruto: unknown): EntradaSessao {
   return { referrer: referrerLimpo(o.referrer), landing_path: pathLimpo(o.landing_path) }
 }
 
+// ---------- Dominio de entrada (Cesar, 27/11/2026) ----------
+// Os dominios olhonamoto.com.br e olhonocaminhao.com.br servem o mesmo site. Sem isto nao da pra saber
+// se eles vendem: a consulta guardava so o referrer externo e o path. Lido no SERVIDOR (Host da
+// requisicao), nunca do cliente. So os nossos hosts conhecidos; qualquer outro vira null.
+
+const DOMINIOS_NOSSOS = /^(?:www\.)?(placacompleta|olhonamoto|olhonocaminhao)\.com\.br$/
+const SUBDOMINIOS_NOSSOS = /^(app|staging|homolog)\.placacompleta\.com\.br$/
+
+export function dominioDeEntrada(host: unknown): string | null {
+  const h = String(host ?? '').split(',')[0].trim().toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '')
+  if (!h || h.length > 100) return null
+  const m = DOMINIOS_NOSSOS.exec(h)
+  if (m) return m[1]
+  const sub = SUBDOMINIOS_NOSSOS.exec(h)
+  return sub ? sub[1] : null
+}
+
+/** Host da requisicao no servidor: o original (x-forwarded-host do proxy) ou o Host. */
+export function hostDaRequisicao(event: any): string {
+  const h = event?.node?.req?.headers || {}
+  return String(h['x-forwarded-host'] || h.host || '')
+}
+
 /** Le a entrada guardada pelo plugin track-origin. Client-side. */
 export function entradaDaSessao(): EntradaSessao | undefined {
   try {
