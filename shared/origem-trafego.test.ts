@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sanearOrigem, sanearUtmContent, UTM_CONTENT_MAX, origemLembrada, lembrarOrigem } from './origem-trafego'
+import { sanearOrigem, sanearUtmContent, UTM_CONTENT_MAX, origemLembrada, lembrarOrigem, dominioDeEntrada, hostDaRequisicao } from './origem-trafego'
 import { utmContentDoChatgpt } from '~/composables/useAnalytics'
 
 describe('sanearOrigem', () => {
@@ -71,5 +71,32 @@ describe('utm_content (variacoes do OpenAI Ads, 01/nov/2026)', () => {
     expect(utmContentDoChatgpt({ utm_source: 'bing', utm_content: 'v09' })).toBeNull()
     expect(utmContentDoChatgpt({ utm_source: 'chatgpt_ads' })).toBeNull()
     expect(utmContentDoChatgpt(null)).toBeNull()
+  })
+})
+
+describe('dominioDeEntrada (Cesar 27/11/2026)', () => {
+  it('our three domains, with or without www, port or trailing dot', () => {
+    expect(dominioDeEntrada('placacompleta.com.br')).toBe('placacompleta')
+    expect(dominioDeEntrada('www.placacompleta.com.br')).toBe('placacompleta')
+    expect(dominioDeEntrada('olhonamoto.com.br')).toBe('olhonamoto')
+    expect(dominioDeEntrada('WWW.OlhoNaMoto.com.br:443')).toBe('olhonamoto')
+    expect(dominioDeEntrada('olhonocaminhao.com.br.')).toBe('olhonocaminhao')
+  })
+  it('our subdomains', () => {
+    expect(dominioDeEntrada('app.placacompleta.com.br')).toBe('app')
+    expect(dominioDeEntrada('staging.placacompleta.com.br')).toBe('staging')
+  })
+  it('any other host is null (never stored as typed)', () => {
+    for (const h of ['', null, undefined, 'evil.com', 'placacompleta.com.br.evil.com', 'xolhonamoto.com.br', 'foo.placacompleta.com.br', 'a'.repeat(300)]) {
+      expect(dominioDeEntrada(h)).toBeNull()
+    }
+  })
+  it('takes the first value of a forwarded list', () => {
+    expect(dominioDeEntrada('olhonocaminhao.com.br, 10.0.0.1')).toBe('olhonocaminhao')
+  })
+  it('reads the original host from the proxy header, else Host', () => {
+    expect(hostDaRequisicao({ node: { req: { headers: { 'x-forwarded-host': 'olhonamoto.com.br', host: 'app:3000' } } } })).toBe('olhonamoto.com.br')
+    expect(hostDaRequisicao({ node: { req: { headers: { host: 'placacompleta.com.br' } } } })).toBe('placacompleta.com.br')
+    expect(hostDaRequisicao({})).toBe('')
   })
 })

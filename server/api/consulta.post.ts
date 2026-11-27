@@ -1,7 +1,7 @@
 import { Resend } from 'resend'
 import { fipePriceHistory } from '../utils/fipe-api'
 import { marcaExibicao } from '../../shared/marca-exibicao'
-import { sanearOrigem, sanearEntrada } from '../../shared/origem-trafego'
+import { sanearOrigem, sanearEntrada, dominioDeEntrada, hostDaRequisicao } from '../../shared/origem-trafego'
 import { isValidEmail, isValidPlate, isValidPhone, sanitizeEmail } from '../utils/validation'
 import { checkEmailDeliverability } from '../utils/email-deliverability'
 import { getClientIp } from '../utils/client-ip'
@@ -42,11 +42,11 @@ import {
 async function registrarConsulta(supabase: any, row: Record<string, any>, origem: string) {
   let { error } = await supabase.from('consultas').insert(row)
   // Colunas novas que podem chegar ao codigo antes da migration rodar no banco:
-  // fonte_dados (09/nov/2026) e device_id (gate de e-mail). Sem a coluna o
+  // fonte_dados (09/nov/2026), device_id (gate de e-mail) e dominio (27/11/2026). Sem a coluna o
   // insert inteiro falharia (e a linha tambem conta o teto por IP), entao
   // repete sem a coluna citada no erro em vez de perder a consulta.
   // Duas voltas: o erro cita uma coluna por vez, em qualquer ordem.
-  for (const col of ['fonte_dados', 'device_id', 'fonte_dados', 'device_id']) {
+  for (const col of ['fonte_dados', 'device_id', 'dominio', 'fonte_dados', 'device_id', 'dominio']) {
     if (!error || !(col in row) || !new RegExp(col).test(String(error.message || ''))) continue
     const { [col]: _semColuna, ...resto } = row
     row = resto
@@ -141,6 +141,8 @@ export default defineEventHandler(async (event) => {
   const trafego = sanearOrigem(body?.origin)
   // Referrer e pagina de entrada da sessao (so na tabela consultas).
   const entrada = sanearEntrada(body?.entrada)
+  // Qual dos nossos dominios (placacompleta, olhonamoto, olhonocaminhao...), pelo Host da requisicao.
+  const dominio = dominioDeEntrada(hostDaRequisicao(event))
   const channel: Channel =
     body.channel === 'whatsapp' ? 'whatsapp'
     : body.channel === 'tela' ? 'tela'
@@ -572,6 +574,7 @@ export default defineEventHandler(async (event) => {
       geo_region_code: regiao?.code ?? null,
       ...trafego,
       ...entrada,
+      dominio,
       user_agent: userAgent,
       device_info: deviceInfo,
       is_pwa: isPWA || false,
@@ -605,6 +608,7 @@ export default defineEventHandler(async (event) => {
       geo_region_code: regiao?.code ?? null,
       ...trafego,
       ...entrada,
+      dominio,
       user_agent: userAgent,
       device_info: deviceInfo,
       is_pwa: isPWA || false,
@@ -857,6 +861,7 @@ export default defineEventHandler(async (event) => {
     geo_region_code: regiao?.code ?? null,
     ...trafego,
     ...entrada,
+    dominio,
     user_agent: userAgent,
     device_info: deviceInfo,
     is_pwa: isPWA || false,

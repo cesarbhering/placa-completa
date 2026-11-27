@@ -60,6 +60,7 @@ export interface ConsultaOrigem {
   utm_medium?: string | null
   utm_campaign?: string | null
   oppref?: string | null
+  dominio?: string | null
 }
 
 export function brlCentavos(centavos: unknown): string {
@@ -89,6 +90,14 @@ export function origemDoPedido(pedido: Pick<PedidoAviso, 'cupom_origem'>, consul
   if (pedido.cupom_origem === 'cupom_tela') return `${base} + cupom de tela (${CUPOM_TELA_PCT}%)`
   if (pedido.cupom_origem === 'cupom_bump') return `${base} + segunda placa (pedido acoplado)`
   return base
+}
+
+/** Dominio onde a consulta foi feita (gravado desde 27/11/2026). */
+export function rotuloDominio(d: unknown): string {
+  const v = String(d ?? '').trim()
+  if (!v) return 'não medido'
+  if (['placacompleta', 'olhonamoto', 'olhonocaminhao'].includes(v)) return `${v}.com.br`
+  return `${v}.placacompleta.com.br`
 }
 
 /** "Bloco da oferta", "Barra fixa"... ou "não medido" (pedido de antes de 13/out). */
@@ -195,6 +204,7 @@ export function montarAvisoVenda(p: PedidoAviso, x: ExtrasAviso): { subject: str
     'Venda confirmada.',
     '',
     `Origem: ${org}`,
+    `Dominio de entrada: ${rotuloDominio(x.consulta?.dominio)}`,
     linhaRecompra(x.recompra),
     '',
     `Placa: ${p.placa}`,
@@ -269,7 +279,8 @@ export function placaNormalizada(placa: unknown): string {
 
 async function consultaDoPedido(supabaseConsultas: any, p: any): Promise<ConsultaOrigem | null> {
   // msclkid pode nao existir em algum ambiente: tenta com, cai pra sem.
-  for (const cols of ['gclid,msclkid,utm_source,utm_medium,utm_campaign,oppref', 'gclid,utm_source,utm_medium,utm_campaign,oppref']) {
+  // dominio (27/11/2026) pode faltar num banco sem a migration: cai pra lista sem ele.
+  for (const cols of ['gclid,msclkid,utm_source,utm_medium,utm_campaign,oppref,dominio', 'gclid,msclkid,utm_source,utm_medium,utm_campaign,oppref', 'gclid,utm_source,utm_medium,utm_campaign,oppref']) {
     try {
       if (p.consulta_id) {
         const { data, error } = await supabaseConsultas.from('consultas').select(cols).eq('id', p.consulta_id).maybeSingle()

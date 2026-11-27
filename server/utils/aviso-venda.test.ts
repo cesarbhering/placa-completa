@@ -102,6 +102,21 @@ function supabaseFalso(opts: { jaAvisado?: boolean; ambiente?: string } = {}) {
   return { cliente: { from: builder }, estado }
 }
 
+describe('entry domain in the sale notice (Cesar 27/11/2026)', () => {
+  const x = (dominio: string | null) => ({ consulta: { dominio }, ab: null, leilaoSinal: null, recallSinal: null, recallMarca: null })
+  it('shows the domain where the free check ran', () => {
+    expect(montarAvisoVenda(PEDIDO, x('olhonamoto')).text).toContain('Dominio de entrada: olhonamoto.com.br')
+    expect(montarAvisoVenda(PEDIDO, x('olhonocaminhao')).text).toContain('Dominio de entrada: olhonocaminhao.com.br')
+    expect(montarAvisoVenda(PEDIDO, x('placacompleta')).text).toContain('Dominio de entrada: placacompleta.com.br')
+    expect(montarAvisoVenda(PEDIDO, x('app')).text).toContain('Dominio de entrada: app.placacompleta.com.br')
+  })
+  it('older checks (no domain) say not measured', () => {
+    expect(montarAvisoVenda(PEDIDO, x(null)).text).toContain('Dominio de entrada: não medido')
+    expect(montarAvisoVenda(PEDIDO, { consulta: null, ab: null, leilaoSinal: null, recallSinal: null, recallMarca: null }).text)
+      .toContain('Dominio de entrada: não medido')
+  })
+})
+
 describe('avisarVenda', () => {
   const config = { resendApiKey: 'k', public: {}, supabaseUrl: 'https://fivalpkfneadngxiflea.supabase.co' }
   beforeEach(() => { vi.restoreAllMocks() })
