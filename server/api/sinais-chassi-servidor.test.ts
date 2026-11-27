@@ -37,6 +37,8 @@ describe('/api/leilao-sinal', () => {
     body = { placa: 'EUA9I10', chassi: 'XXXXX*****', marca: 'JAC' }
     const r = await handlerLeilao({})
     expect(historico.mock.calls[0][0]).toMatchObject({ placa: 'EUA9I10', chassi: COMPLETO })
+    // The free signal never asks for the paid chassis-end levels (Cesar 26-27/11/2026).
+    expect((historico.mock.calls[0] as any[])[1]?.pago).not.toBe(true)
     expect(JSON.stringify(r)).not.toContain('000139')
     expect(Object.keys(r).sort()).toEqual(['positivo', 'quantidade'])
   })

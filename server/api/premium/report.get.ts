@@ -137,7 +137,7 @@ export default defineEventHandler(async (event) => {
       // A amostra tambem consulta o historico de leilao quando o servico esta
       // configurado: e por aqui que da pra ver a secao renderizada sem gerar
       // pedido pago. Sem env, volta null e a secao nao aparece.
-      historicoLeilao: await consultarHistoricoLeilao(perfilDaAmostra(amostra)).catch(() => null),
+      historicoLeilao: await consultarHistoricoLeilao(perfilDaAmostra(amostra), { pago: true }).catch(() => null),
       // A amostra finge um pedido SEM e-mail, pra dar pra revisar a faixa de
       // entrega por e-mail sem precisar de um pedido real nesse estado.
       temEmail: false,
