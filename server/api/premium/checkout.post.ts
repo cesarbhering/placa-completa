@@ -12,6 +12,7 @@ import { barrarLimiteCheckout } from '../../utils/checkout-limite'
 import { cupomTelaValido, segredoCupomTela, resolverDescontoTela, colunasCupomTela } from '../../utils/cupom-tela'
 import { precoDoPlano } from '../../../shared/ab-preco'
 import { abPrecoDoCheckout } from '../../utils/ab-preco'
+import { isValidEmail } from '../../utils/validation'
 
 // Cria o pedido (pending) + o Pix transparente. Retorna o QR/copia-e-cola.
 // Minimo de dados: email (entrega) + telefone opcional. Gated.
@@ -43,7 +44,7 @@ export default defineEventHandler(async (event) => {
   // Duas excecoes onde ele continua obrigatorio AQUI, porque a regra depende
   // dele: cupom (o limite por pessoa e por e-mail, e sem e-mail nao ha limite
   // nenhum) e o caminho gratis, que entrega na hora.
-  if (email && !email.includes('@')) {
+  if (email && !isValidEmail(email)) {
     throw createError({ statusCode: 400, message: 'E-mail invalido' })
   }
   // Cupom exige e-mail (limite por pessoa / cupom pessoal), menos o de
