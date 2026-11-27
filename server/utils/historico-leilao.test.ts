@@ -132,3 +132,18 @@ describe('auction cache key with engine number', () => {
     expect(chaveCacheLeilao({ placa: null, chassi: null, motor: 'XYZ0000TEST' })).toBe('|')
   })
 })
+
+describe('paid chassis-end flag in the cache key (Cesar 26-27/11/2026)', () => {
+  it('a paid answer with the flag never reuses one cached without it', () => {
+    const sem = chaveCacheLeilao({ placa: 'TST1A23', chassi: 'TSTCHASSI00000001' })
+    const com = chaveCacheLeilao({ placa: 'TST1A23', chassi: 'TSTCHASSI00000001', nivel_fim_chassi: true })
+    expect(com).toBe(`${sem}|f8`)
+  })
+  it('engine number and flag together', () => {
+    expect(chaveCacheLeilao({ placa: 'TST1A23', chassi: null, motor: 'XYZ0000TEST', nivel_fim_chassi: true }))
+      .toBe(`${chaveCacheLeilao({ placa: 'TST1A23', chassi: null })}|m|f8`)
+  })
+  it('no identifier is still no key', () => {
+    expect(chaveCacheLeilao({ placa: null, chassi: null, nivel_fim_chassi: true })).toBe('|')
+  })
+})

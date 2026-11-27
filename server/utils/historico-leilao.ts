@@ -155,9 +155,11 @@ function texto(v: unknown): string | null {
  * pode ser reaproveitado por 30 dias. Sem placa e sem chassi, devolve '|'
  * (sem cache), como antes.
  */
-export function chaveCacheLeilao(body: { placa?: string | null; chassi?: string | null; motor?: string | null }): string {
+export function chaveCacheLeilao(body: { placa?: string | null; chassi?: string | null; motor?: string | null; nivel_fim_chassi?: boolean }): string {
   const base = [chaveDePlaca(body.placa || ''), String(body.chassi || '').toUpperCase()].join('|')
-  return base !== '|' && body.motor ? `${base}|m` : base
+  if (base === '|') return base
+  // The paid answer with the chassis-end levels (Cesar 26-27/11) never reuses an answer cached without them.
+  return `${base}${body.motor ? '|m' : ''}${body.nivel_fim_chassi ? '|f8' : ''}`
 }
 
 function corpo(perfil: PerfilVeiculo) {
@@ -354,6 +356,12 @@ export async function consultarHistoricoLeilao(
      * enquanto o cache de 30 d valesse).
      */
     renovar?: boolean
+    /**
+     * PAID report only (Cesar 26-27/11/2026): the last 8 characters of the chassis, or 6-7 with the same make,
+     * identify a lot at level "confirmado". The free signal never sends it: it calls the same endpoint with the
+     * full chassi, and its answer must stay as it was.
+     */
+    pago?: boolean
   },
 ): Promise<HistoricoLeilao | null> {
   const config = useRuntimeConfig()
@@ -361,7 +369,7 @@ export async function consultarHistoricoLeilao(
   const key = String(config.leiloesApiKey || '')
   if (!base || !key) return null
 
-  const body = corpo(perfil)
+  const body = opts?.pago ? { ...corpo(perfil), nivel_fim_chassi: true } : corpo(perfil)
   // A API exige ao menos um identificador; sem nenhum, nem vale a chamada.
   if (!body.placa && !body.chassi && !body.renavam && !body.motor) return null
 

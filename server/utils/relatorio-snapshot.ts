@@ -240,7 +240,7 @@ export async function montarRelatorioSnapshot(
       ano_mod: senatranBruto?.anoModelo ?? null,
       cor: senatranBruto?.descricaoCor ?? null,
       uf: senatranBruto?.ufJurisdicao ?? local.uf ?? null,
-    }, { cache: true, renovar: !!opcoes?.renovarLeilao }).catch(() => null)   // Relatorio 2.0: cache 30 d por placa+chassi
+    }, { cache: true, renovar: !!opcoes?.renovarLeilao, pago: true }).catch(() => null)   // Relatorio 2.0: cache 30 d por placa+chassi
     // Base parceira de leiloes e sinistros (20/out/2026): so quando a nossa
     // base veio vazia. Fail-open; regra e protecoes em server/utils/parceiro-leilao.ts.
     // With the vehicle history partner on, only as its fallback: its answer

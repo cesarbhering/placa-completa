@@ -64,7 +64,8 @@ beforeEach(() => {
   vi.stubGlobal('detectarSegmento', () => 'carro')
   vi.stubGlobal('decodificarChassi', async () => null)
   vi.stubGlobal('corrigirAnoChassi', (x: any) => x)
-  vi.stubGlobal('consultarHistoricoLeilao', async () => vazio())
+  historicoOpts = []
+  vi.stubGlobal('consultarHistoricoLeilao', async (_p: any, o: any) => { historicoOpts.push(o); return vazio() })
   vi.stubGlobal('sendErrorEmail', async () => {})
   // The auction partner client calls the global fetch when nothing is injected.
   vi.stubGlobal('fetch', async (url: string) => {
@@ -73,6 +74,16 @@ beforeEach(() => {
   })
 })
 afterEach(() => { vi.unstubAllGlobals() })
+
+let historicoOpts: any[] = []
+
+describe('paid report asks for the chassis-end levels (Cesar 26-27/11/2026)', () => {
+  it('the Completa snapshot calls our auction base with pago: true', async () => {
+    await montar()
+    expect(historicoOpts.length).toBeGreaterThan(0)
+    expect(historicoOpts[0]).toMatchObject({ cache: true, pago: true })
+  })
+})
 
 describe('snapshot assembly with the vehicle history already back', () => {
   it('partial answer without an auction record: the auction partner is called once, and the next assembly reuses it', async () => {
